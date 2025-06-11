@@ -591,6 +591,7 @@ You are running within the Claude-Flow orchestration system, which provides powe
 - Mode: ${flags.mode || 'full'}
 - Coverage Target: ${flags.coverage || 80}%
 - Commit Strategy: ${flags.commit || 'phase'}
+- Working Directory: ${Deno.env.get('CLAUDE_FLOW_ORIGINAL_CWD') || Deno.cwd()}
 ${flags.config ? `- MCP Config: ${flags.config}` : ''}
 
 ### Available Features
@@ -738,6 +739,14 @@ ${flags.commit === 'feature' ? `- **Feature Commits**: Commit after each feature
 ${flags.commit === 'manual' ? `- **Manual Commits**: Only commit when explicitly requested by the user` : ''}
 ${!flags.commit ? `- **Default (Phase)**: Commit after completing major phases` : ''}
 
+## Important Working Directory Information
+
+IMPORTANT: You are working in the directory: ${Deno.env.get('CLAUDE_FLOW_ORIGINAL_CWD') || Deno.cwd()}
+
+This is your correct working directory. All file operations, commands, and path references should be relative to this directory, not to any claude-flow installation directory.
+
+If you see any references to "/usr/local/share/npm-global/lib/node_modules/claude-flow" in your environment, that is the claude-flow installation directory and should be ignored for your work context. Your actual working directory is the one specified above.
+
 Now, please proceed with the task: ${task}`;
             
             const claudeArgs = [enhancedTask];
@@ -771,6 +780,7 @@ Now, please proceed with the task: ${task}`;
               
               const command = new Deno.Command('claude', {
                 args: claudeArgs,
+                cwd: Deno.env.get('CLAUDE_FLOW_ORIGINAL_CWD') || Deno.cwd(),
                 env: {
                   ...Deno.env.toObject(),
                   CLAUDE_INSTANCE_ID: instanceId,
@@ -782,6 +792,8 @@ Now, please proceed with the task: ${task}`;
                   CLAUDE_FLOW_MEMORY_NAMESPACE: 'default',
                   CLAUDE_FLOW_COORDINATION_ENABLED: flags.parallel ? 'true' : 'false',
                   CLAUDE_FLOW_FEATURES: 'memory,coordination,swarm',
+                  // Pass the original working directory to Claude
+                  CLAUDE_FLOW_CWD: Deno.env.get('CLAUDE_FLOW_ORIGINAL_CWD') || Deno.cwd(),
                 },
                 stdin: 'inherit',
                 stdout: 'inherit',

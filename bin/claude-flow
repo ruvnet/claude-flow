@@ -40,7 +40,11 @@ const cliPath = path.join(__dirname, '..', 'src', 'cli', 'simple-cli.js');
 // Run the CLI with Deno
 const deno = spawn(denoPath, ['run', '--allow-all', '--no-check', cliPath, ...process.argv.slice(2)], {
   stdio: 'inherit',
-  cwd: path.join(__dirname, '..')
+  cwd: path.join(__dirname, '..'),
+  env: {
+    ...process.env,
+    CLAUDE_FLOW_ORIGINAL_CWD: process.cwd()
+  }
 });
 
 deno.on('error', (err) => {
