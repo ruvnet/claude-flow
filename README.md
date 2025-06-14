@@ -19,7 +19,15 @@
 > 🔥 **One command to rule them all**: `npx claude-flow` - Deploy a full AI agent coordination system in seconds!
 
 
-## 🎉 **What's New in v1.0.49**
+## 🎉 **What's New in v1.0.50** 🆕
+
+### 🚀 **NEW: Claude Task Master Integration - Phase 1 Complete!**
+- **📋 AI-Powered Task Management**: Complete integration with Claude Task Master for PRD-based task generation
+- **🔄 Bidirectional Task Sync**: Seamless synchronization between TaskMaster and ClaudeFlow formats
+- **🎯 SPARC-Integrated Workflows**: Automatic task mapping to SPARC development phases with agent assignment
+- **📄 PRD Processing**: AI-powered parsing of Product Requirements Documents with intelligent task hierarchy generation
+- **⚡ Real-time Monitoring**: Performance tracking, conflict resolution, and sync status monitoring
+- **🛠️ Production-Ready CLI**: Complete command-line interface for task generation, sync, and management
 
 ### 🚀 **Major Release: Enterprise-Grade Swarm System**
 - **🐝 Advanced Swarm Orchestration**: Complete multi-agent coordination system with timeout-free execution
@@ -67,7 +75,7 @@
 ### 🚀 Get started in 30 seconds
 ```bash
 # Initialize with SPARC development environment
-Step 1. Install Claude Code: ``` npm install -g @anthropic-ai/claude ```
+Step 1. Install Claude Code: ``` npm install -g @anthropic-ai/claude-code ```
 Step 2. ``` npx -y claude-flow@latest init --sparc ```
 
 # Use the local wrapper after init
@@ -263,6 +271,7 @@ Comprehensive documentation is available to help you get the most out of Claude-
 - **[Troubleshooting](./docs/10-troubleshooting.md)** - Common issues and solutions
 - **[Advanced Usage](./docs/11-advanced-usage.md)** - Power user features
 - **[Claude Spawning](./docs/12-claude-spawning.md)** - Spawning Claude instances
+- **[TaskMaster Integration](./docs/13-taskmaster-integration.md)** - AI-powered task management 🆕
 - **[CLI Reference](./docs/cli-reference.md)** - Complete command documentation
 
 ## 💡 **Quick Start Guide**
@@ -660,6 +669,41 @@ npx claude-flow monitor [options]
   -f, --focus <component>   Focus on specific component
 ```
 
+#### `taskmaster` - TaskMaster Integration 🆕
+```bash
+npx claude-flow taskmaster <subcommand> [options]
+  generate-from-prd <file>  Generate tasks from Product Requirements Document
+    -m, --model <model>     AI model to use (default: claude-3-haiku)
+    -d, --depth <level>     Task breakdown depth (default: 2)
+    --sparc-mapping         Auto-map tasks to SPARC phases
+    --assign-agents         Auto-assign tasks to agents
+    -o, --output <file>     Output file for generated tasks
+    -f, --format <format>   Output format (json|markdown|csv)
+    --dry-run               Preview tasks without saving
+  
+  init                      Initialize TaskMaster integration
+    --force                 Force initialization
+  
+  import <directory>        Import existing TaskMaster project
+    --merge                 Merge with existing tasks
+    --backup                Create backup before import
+  
+  sync                      Manually synchronize tasks
+    --direction <dir>       Sync direction (to-taskmaster|from-taskmaster|bidirectional)
+    --project <id>          Specific project ID to sync
+  
+  config                    Configure TaskMaster integration
+    --set <key=value>       Set configuration value
+    --get <key>             Get configuration value
+    --list                  List all configuration
+  
+  status                    Show TaskMaster integration status
+    --detailed              Show detailed status information
+  
+  watch                     Start file system watcher for real-time sync
+    --directory <dir>       Directory to watch
+```
+
 #### `sparc` - SPARC Development Methodology 🆕
 ```bash
 npx claude-flow sparc [subcommand] [options]
@@ -809,6 +853,26 @@ npx claude-flow sparc tdd "real-time notifications"
 # Architecture and design
 npx claude-flow sparc run architect "microservices architecture"
 npx claude-flow sparc run docs-writer "API documentation"
+```
+
+**TaskMaster Integration Examples:**
+```bash
+# Generate tasks from PRD with SPARC mapping
+./claude-flow taskmaster generate-from-prd requirements.md --sparc-mapping --assign-agents
+
+# Initialize and sync existing project
+./claude-flow taskmaster init
+./claude-flow taskmaster import ./existing-tasks --merge --backup
+
+# Monitor sync status and watch for changes
+./claude-flow taskmaster status --detailed
+./claude-flow taskmaster watch --directory ./tasks
+
+# Enhanced task operations
+./claude-flow task next --smart
+./claude-flow task estimate TASK-123 --breakdown
+./claude-flow task expand TASK-456 --depth 3
+./claude-flow task dependencies --format mermaid
 ```
 
 **Enhanced Claude Spawn Examples:**
