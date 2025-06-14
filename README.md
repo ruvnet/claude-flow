@@ -19,9 +19,17 @@
 > 🔥 **One command to rule them all**: `npx claude-flow` - Deploy a full AI agent coordination system in seconds!
 
 
-## 🎉 **What's New in v1.0.50** 🆕
+## 🎉 **What's New in v1.0.51** 🆕
 
-### 🚀 **NEW: Claude Task Master Integration - Phase 1 Complete!**
+### 🚀 **NEW: Claude Task Master Integration - Phase 2 Complete!**
+- **🤖 Real AI Model Integration**: 6 major AI providers (Anthropic, OpenAI, Google, Perplexity, xAI, Mistral) with intelligent fallback
+- **📄 Enhanced PRD Processing**: Advanced document analysis with multi-format support (Markdown, HTML, PDF, DOCX)
+- **🧠 Smart Task Generation**: AI-powered task breakdown with automatic dependency detection and SPARC mapping
+- **⚡ Production-Ready Performance**: Circuit breakers, caching, batching, and enterprise-grade error handling
+- **🎯 Intelligent Model Selection**: Context-aware AI model selection with cost optimization and performance tracking
+- **🔄 Advanced SPARC Integration**: AI-enhanced phase mapping with intelligent agent recommendations
+
+### 🏆 **Phase 1 Foundation (v1.0.50)**
 - **📋 AI-Powered Task Management**: Complete integration with Claude Task Master for PRD-based task generation
 - **🔄 Bidirectional Task Sync**: Seamless synchronization between TaskMaster and ClaudeFlow formats
 - **🎯 SPARC-Integrated Workflows**: Automatic task mapping to SPARC development phases with agent assignment
@@ -669,39 +677,59 @@ npx claude-flow monitor [options]
   -f, --focus <component>   Focus on specific component
 ```
 
-#### `taskmaster` - TaskMaster Integration 🆕
+#### `taskmaster` - TaskMaster Integration 🆕 **Phase 2 Enhanced**
 ```bash
 npx claude-flow taskmaster <subcommand> [options]
   generate-from-prd <file>  Generate tasks from Product Requirements Document
-    -m, --model <model>     AI model to use (default: claude-3-haiku)
+    -m, --model <model>     AI model to use (auto-selected by default)
+    -p, --provider <name>   AI provider (anthropic|openai|google|perplexity|xai|mistral)
     -d, --depth <level>     Task breakdown depth (default: 2)
-    --sparc-mapping         Auto-map tasks to SPARC phases
-    --assign-agents         Auto-assign tasks to agents
+    --sparc-mapping         Auto-map tasks to SPARC phases (AI-enhanced)
+    --assign-agents         Auto-assign tasks to agents (intelligent recommendations)
+    --ai-enhanced           Use advanced AI analysis (Phase 2 feature)
+    --complexity-analysis   Include detailed complexity analysis
+    --dependency-detection  Auto-detect task dependencies
     -o, --output <file>     Output file for generated tasks
     -f, --format <format>   Output format (json|markdown|csv)
     --dry-run               Preview tasks without saving
   
+  providers                 Manage AI providers (Phase 2 feature)
+    status                  Show provider configuration status
+    test <provider>         Test provider connectivity
+    configure <provider>    Configure provider API keys
+    recommend <task-type>   Get model recommendations
+  
+  analyze-complexity <file> Analyze project complexity using AI
+    --detailed              Include detailed analysis factors
+    --recommendations       Get mitigation recommendations
+  
   init                      Initialize TaskMaster integration
     --force                 Force initialization
+    --with-ai               Setup AI provider configurations
   
   import <directory>        Import existing TaskMaster project
     --merge                 Merge with existing tasks
     --backup                Create backup before import
+    --enhance               Enhance imported tasks with AI analysis
   
   sync                      Manually synchronize tasks
     --direction <dir>       Sync direction (to-taskmaster|from-taskmaster|bidirectional)
     --project <id>          Specific project ID to sync
+    --ai-optimize           Use AI to optimize sync conflicts
   
   config                    Configure TaskMaster integration
     --set <key=value>       Set configuration value
     --get <key>             Get configuration value
     --list                  List all configuration
+    --validate              Validate current configuration
   
   status                    Show TaskMaster integration status
     --detailed              Show detailed status information
+    --performance           Show performance metrics
   
   watch                     Start file system watcher for real-time sync
     --directory <dir>       Directory to watch
+    --ai-monitor            Enable AI-powered conflict resolution
 ```
 
 #### `sparc` - SPARC Development Methodology 🆕
@@ -855,24 +883,36 @@ npx claude-flow sparc run architect "microservices architecture"
 npx claude-flow sparc run docs-writer "API documentation"
 ```
 
-**TaskMaster Integration Examples:**
+**TaskMaster Integration Examples (Phase 2 Enhanced):**
 ```bash
-# Generate tasks from PRD with SPARC mapping
-./claude-flow taskmaster generate-from-prd requirements.md --sparc-mapping --assign-agents
+# Generate tasks from PRD with AI-enhanced analysis
+./claude-flow taskmaster generate-from-prd requirements.md --ai-enhanced --sparc-mapping --assign-agents
 
-# Initialize and sync existing project
-./claude-flow taskmaster init
-./claude-flow taskmaster import ./existing-tasks --merge --backup
+# Advanced PRD processing with complexity analysis
+./claude-flow taskmaster generate-from-prd project-spec.docx --provider anthropic --complexity-analysis --dependency-detection
 
-# Monitor sync status and watch for changes
-./claude-flow taskmaster status --detailed
-./claude-flow taskmaster watch --directory ./tasks
+# Analyze project complexity using AI
+./claude-flow taskmaster analyze-complexity requirements.md --detailed --recommendations
 
-# Enhanced task operations
-./claude-flow task next --smart
-./claude-flow task estimate TASK-123 --breakdown
-./claude-flow task expand TASK-456 --depth 3
-./claude-flow task dependencies --format mermaid
+# AI provider management
+./claude-flow taskmaster providers status
+./claude-flow taskmaster providers test anthropic
+./claude-flow taskmaster providers recommend prd-parsing
+
+# Initialize with AI provider setup
+./claude-flow taskmaster init --with-ai
+./claude-flow taskmaster import ./existing-tasks --merge --backup --enhance
+
+# AI-optimized sync and monitoring
+./claude-flow taskmaster sync --ai-optimize
+./claude-flow taskmaster status --detailed --performance
+./claude-flow taskmaster watch --directory ./tasks --ai-monitor
+
+# Enhanced task operations with AI recommendations
+./claude-flow task next --smart --ai-recommend
+./claude-flow task estimate TASK-123 --breakdown --ai-analysis
+./claude-flow task expand TASK-456 --depth 3 --intelligent-breakdown
+./claude-flow task dependencies --format mermaid --optimize-critical-path
 ```
 
 **Enhanced Claude Spawn Examples:**

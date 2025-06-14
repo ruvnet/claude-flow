@@ -1,36 +1,70 @@
-# Claude Task Master Integration Guide
+# Claude Task Master Integration Guide - Phase 2 Enhanced
 
 ## Overview
 
-The Claude Task Master integration provides AI-powered task management capabilities, enabling you to generate structured task hierarchies from Product Requirements Documents (PRDs), synchronize tasks between TaskMaster and ClaudeFlow formats, and leverage the SPARC methodology for systematic development.
+The Claude Task Master integration provides enterprise-grade AI-powered task management capabilities with **Phase 2 enhancements**. It features real AI model integration across 6 major providers, advanced PRD processing with multi-format support, intelligent task generation with dependency detection, and production-ready performance optimization. Generate structured task hierarchies from Product Requirements Documents (PRDs), synchronize tasks between TaskMaster and ClaudeFlow formats, and leverage the enhanced SPARC methodology for systematic development.
+
+## 🆕 Phase 2 New Features
+
+- **🤖 Real AI Integration**: 6 providers (Anthropic, OpenAI, Google, Perplexity, xAI, Mistral) with intelligent fallback
+- **📄 Enhanced PRD Processing**: Multi-format support (Markdown, HTML, PDF, DOCX) with advanced structure analysis
+- **🧠 Smart Task Generation**: AI-powered task breakdown with automatic dependency detection
+- **⚡ Production Performance**: Circuit breakers, caching, batching, and enterprise error handling
+- **🎯 Intelligent Selection**: Context-aware AI model selection with cost optimization
+- **🔄 Advanced SPARC**: AI-enhanced phase mapping with intelligent agent recommendations
 
 ## Quick Start
 
-### 1. Initialize TaskMaster Integration
+### 1. Initialize TaskMaster Integration (Phase 2 Enhanced)
 
 ```bash
-# Initialize TaskMaster integration in your project
-claude-flow taskmaster init
+# Initialize TaskMaster integration with AI provider setup
+claude-flow taskmaster init --with-ai
 
-# Check integration status
-claude-flow taskmaster status --detailed
+# Check integration status and performance metrics
+claude-flow taskmaster status --detailed --performance
+
+# Check AI provider configuration
+claude-flow taskmaster providers status
 ```
 
-### 2. Generate Tasks from PRD
+### 2. Generate Tasks from PRD (AI-Enhanced)
 
 ```bash
-# Generate tasks from a PRD file with SPARC mapping
+# Generate tasks with AI-enhanced analysis and intelligent recommendations
 claude-flow taskmaster generate-from-prd requirements.md \
+  --ai-enhanced \
   --sparc-mapping \
   --assign-agents \
-  --model claude-3-haiku \
-  --depth 2 \
+  --complexity-analysis \
+  --dependency-detection \
   --output tasks.json
 
-# Preview tasks without saving (dry run)
+# Multi-format PRD processing with specific provider
+claude-flow taskmaster generate-from-prd project-spec.docx \
+  --provider anthropic \
+  --ai-enhanced \
+  --format markdown
+
+# Preview tasks with intelligent breakdown
 claude-flow taskmaster generate-from-prd requirements.md \
   --dry-run \
-  --format markdown
+  --ai-enhanced \
+  --detailed
+```
+
+### 2a. AI Provider Management (New in Phase 2)
+
+```bash
+# Test AI provider connectivity
+claude-flow taskmaster providers test anthropic
+
+# Get model recommendations for specific tasks
+claude-flow taskmaster providers recommend prd-parsing
+claude-flow taskmaster providers recommend task-generation
+
+# Configure provider API keys
+claude-flow taskmaster providers configure openai
 ```
 
 ### 3. Import Existing TaskMaster Project
