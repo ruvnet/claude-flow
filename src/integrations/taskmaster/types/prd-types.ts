@@ -5,13 +5,43 @@
 
 import { AIModel, TaskTree, SPARCPhase } from './task-types.js';
 
-// PRD Structure
+export type DocumentFormat = 'markdown' | 'html' | 'pdf' | 'docx' | 'text';
+
+// Enhanced PRD Structure
 export interface ParsedPRD {
-  metadata: PRDMetadata;
+  id: string;
+  title: string;
+  version: string;
+  createdAt: number;
+  updatedAt: number;
+  structure: DocumentStructure;
   requirements: Requirement[];
   constraints: Constraint[];
-  sections: PRDSection[];
+  acceptanceCriteria: AcceptanceCriteria[];
   complexity: ComplexityAnalysis;
+  metadata: Record<string, any>;
+  rawContent: string;
+  format: DocumentFormat;
+  // Legacy fields for compatibility
+  sections?: PRDSection[];
+}
+
+export interface DocumentStructure {
+  sections: DocumentSection[];
+  hierarchy: any;
+  totalSections: number;
+  maxDepth: number;
+}
+
+export interface DocumentSection {
+  id: string;
+  title: string;
+  type: SectionType;
+  level: number;
+  content: string;
+  startIndex?: number;
+  endIndex?: number;
+  subsections?: DocumentSection[];
 }
 
 export interface PRDMetadata {
@@ -26,14 +56,31 @@ export interface PRDMetadata {
 
 export interface Requirement {
   id: string;
-  type: RequirementType;
   title: string;
   description: string;
-  priority: 'must-have' | 'should-have' | 'could-have' | 'wont-have';
+  type: RequirementType;
+  priority: Priority;
+  complexity: Complexity;
+  dependencies: string[];
   acceptanceCriteria: string[];
-  dependencies?: string[];
+  source: string;
+  estimatedEffort: number;
+  metadata: {
+    extractedFrom: string;
+    confidence: number;
+    [key: string]: any;
+  };
+  // Legacy fields for compatibility
   section?: string;
 }
+
+export type Priority = 
+  | 'must_have'
+  | 'should_have'
+  | 'could_have'
+  | 'wont_have';
+
+export type Complexity = 'low' | 'medium' | 'high';
 
 export enum RequirementType {
   FUNCTIONAL = 'functional',
@@ -45,11 +92,43 @@ export enum RequirementType {
 
 export interface Constraint {
   id: string;
-  type: ConstraintType;
+  title: string;
   description: string;
-  impact: 'low' | 'medium' | 'high';
+  type: ConstraintType;
+  impact: Impact;
+  mandatory: boolean;
+  workaround?: string;
+  affectedRequirements: string[];
+  source: string;
+  // Legacy field for compatibility
   mitigation?: string;
 }
+
+export type Impact = 'low' | 'medium' | 'high';
+
+export interface AcceptanceCriteria {
+  id: string;
+  requirementId: string;
+  description: string;
+  type: AcceptanceCriteriaType;
+  testable: boolean;
+  priority: Priority;
+  method: TestMethod;
+}
+
+export type AcceptanceCriteriaType = 
+  | 'functional'
+  | 'non_functional'
+  | 'usability'
+  | 'performance'
+  | 'security';
+
+export type TestMethod = 
+  | 'manual'
+  | 'automated'
+  | 'integration'
+  | 'performance'
+  | 'security';
 
 export enum ConstraintType {
   TECHNICAL = 'technical',
@@ -79,16 +158,57 @@ export enum SectionType {
   CONSTRAINTS = 'constraints',
   ASSUMPTIONS = 'assumptions',
   ACCEPTANCE_CRITERIA = 'acceptance_criteria',
-  APPENDIX = 'appendix'
+  APPENDIX = 'appendix',
+  BUSINESS_RULES = 'business_rules',
+  DEPENDENCIES = 'dependencies',
+  GLOSSARY = 'glossary',
+  OTHER = 'other'
 }
 
-// Complexity Analysis
+export interface ParseOptions {
+  format?: DocumentFormat;
+  preserveFormatting?: boolean;
+  extractImages?: boolean;
+  extractTables?: boolean;
+  aiAnalysis?: boolean;
+  customPrompts?: {
+    requirementExtraction?: string;
+    constraintExtraction?: string;
+    complexityAnalysis?: string;
+  };
+  // Legacy fields for compatibility
+  model?: AIModel;
+  includeEstimates?: boolean;
+  generateTasks?: boolean;
+  mapToSparc?: boolean;
+  maxDepth?: number;
+}
+
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings?: string[];
+  suggestions?: string[];
+}
+
+// Enhanced Complexity Analysis
 export interface ComplexityAnalysis {
-  overall: 'low' | 'medium' | 'high' | 'enterprise';
-  factors: ComplexityFactor[];
-  estimatedWeeks: number;
+  overallComplexity: 'low' | 'medium' | 'high' | 'very_high';
+  factors: string[];
+  scores: {
+    technical: number;
+    business: number;
+    integration: number;
+    ui: number;
+  };
+  estimatedDuration: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
   recommendedTeamSize: number;
-  riskLevel: 'low' | 'medium' | 'high';
+  keyRisks: string[];
+  mitigationStrategies: string[];
+  // Legacy fields for compatibility
+  overall?: 'low' | 'medium' | 'high' | 'enterprise';
+  estimatedWeeks?: number;
 }
 
 export interface ComplexityFactor {

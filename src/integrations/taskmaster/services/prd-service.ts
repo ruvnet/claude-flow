@@ -1,8 +1,13 @@
 /**
- * PRD Service Component
+ * PRD Service Component - Enhanced Version
  * Handles parsing of Product Requirements Documents and task generation
- * Integrates with AI models and SPARC methodology
+ * Integrates with real AI models and SPARC methodology
  */
+
+import { AIProviderManager } from './ai-provider';
+import { EnhancedPRDParser } from './enhanced-prd-parser';
+import { SmartTaskGenerator } from './smart-task-generator';
+import { ModelConfigManager } from '../config/model-config';
 
 import {
   ParsedPRD,
@@ -20,12 +25,15 @@ import {
   SPARCPhaseMapping,
   TaskContext,
   RecommendedTask,
-  ProjectContext
+  ProjectContext,
+  ValidationResult,
+  DocumentFormat,
+  TaskTree,
+  GeneratedTask
 } from '../types/prd-types.js';
 
 import {
   AIModel,
-  TaskTree,
   TaskNode,
   TaskMasterTask,
   TaskMasterStatus,
@@ -140,24 +148,53 @@ class MockSPARCEngine implements ISPARCEngine {
 }
 
 export class PRDService implements IPRDService {
+  private aiProvider: AIProviderManager;
+  private prdParser: EnhancedPRDParser;
+  private taskGenerator: SmartTaskGenerator;
+  private modelConfig: ModelConfigManager;
+  private mockData: boolean;
+  // Legacy services for compatibility
   private aiService: IAIService;
   private sparcEngine: ISPARCEngine;
 
   constructor(
+    aiProvider?: AIProviderManager,
+    modelConfig?: ModelConfigManager,
+    // Legacy parameters for backward compatibility
     aiService?: IAIService,
     sparcEngine?: ISPARCEngine
   ) {
+    this.modelConfig = modelConfig || new ModelConfigManager();
+    this.aiProvider = aiProvider || new AIProviderManager();
+    this.prdParser = new EnhancedPRDParser(this.aiProvider);
+    this.taskGenerator = new SmartTaskGenerator(this.aiProvider);
+    
+    // Check if we have real AI providers configured
+    const configuredProviders = this.modelConfig.getActiveProviders();
+    this.mockData = configuredProviders.length === 0;
+    
+    if (this.mockData) {
+      console.warn('PRDService: No AI providers configured, using mock implementations');
+    }
+
+    // Legacy services for backward compatibility
     this.aiService = aiService || new MockAIService();
     this.sparcEngine = sparcEngine || new MockSPARCEngine();
   }
 
   public async parsePRD(content: string, options: ParseOptions = {}): Promise<ParsedPRD> {
-    const validation = this.validatePRD(content);
-    if (!validation.isValid) {
-      throw new Error(`Invalid PRD: ${validation.errors.join(', ')}`);
-    }
-
     try {
+      // Use enhanced parser if AI providers are available
+      if (!this.mockData) {
+        return await this.prdParser.parsePRD(content, options);
+      }
+
+      // Fallback to legacy parsing
+      const validation = this.validatePRD(content);
+      if (!validation.isValid) {
+        throw new Error(`Invalid PRD: ${validation.errors.join(', ')}`);
+      }
+
       // Extract metadata
       const metadata = await this.extractMetadata(content);
       
@@ -171,7 +208,7 @@ export class PRDService implements IPRDService {
       const constraints = await this.extractConstraints(sections, options);
       
       // Analyze complexity
-      const complexity = this.estimateComplexity({ 
+      const legacyComplexity = this.estimateComplexity({ 
         metadata, 
         requirements, 
         constraints, 
@@ -179,12 +216,67 @@ export class PRDService implements IPRDService {
         complexity: { overall: 'medium', factors: [], estimatedWeeks: 8, recommendedTeamSize: 4, riskLevel: 'medium' }
       });
 
+      // Convert to enhanced format for compatibility
       return {
-        metadata,
-        requirements,
-        constraints,
-        sections,
-        complexity
+        id: `prd_${Date.now()}`,
+        title: metadata.title,
+        version: metadata.version,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        structure: {
+          sections: sections.map(s => ({
+            id: s.id,
+            title: s.title,
+            type: s.type as any,
+            level: 1,
+            content: s.content
+          })),
+          hierarchy: {},
+          totalSections: sections.length,
+          maxDepth: 1
+        },
+        requirements: requirements.map(r => ({
+          ...r,
+          complexity: 'medium' as any,
+          dependencies: r.dependencies || [],
+          source: r.section || 'unknown',
+          estimatedEffort: 3,
+          metadata: { extractedFrom: r.section || 'legacy', confidence: 0.8 }
+        })),
+        constraints: constraints.map(c => ({
+          ...c,
+          title: c.description,
+          mandatory: c.impact === 'high',
+          workaround: c.mitigation,
+          affectedRequirements: [],
+          source: 'legacy'
+        })),
+        acceptanceCriteria: [],
+        complexity: {
+          overallComplexity: legacyComplexity.overall === 'enterprise' ? 'very_high' : legacyComplexity.overall as any,
+          factors: legacyComplexity.factors?.map(f => f.factor) || [],
+          scores: {
+            technical: 5,
+            business: 5,
+            integration: 5,
+            ui: 5
+          },
+          estimatedDuration: legacyComplexity.estimatedWeeks || 8,
+          riskLevel: legacyComplexity.riskLevel,
+          recommendedTeamSize: legacyComplexity.recommendedTeamSize,
+          keyRisks: [],
+          mitigationStrategies: []
+        },
+        metadata: {
+          title: metadata.title,
+          version: metadata.version,
+          author: metadata.author,
+          projectType: metadata.projectType,
+          estimatedSize: metadata.estimatedSize
+        },
+        rawContent: content,
+        format: 'markdown' as DocumentFormat,
+        sections // Legacy field for compatibility
       };
 
     } catch (error) {
@@ -195,6 +287,19 @@ export class PRDService implements IPRDService {
 
   public async generateTasks(prd: ParsedPRD, options: GenerateOptions): Promise<TaskTree> {
     try {
+      // Use smart task generator if AI providers are available
+      if (!this.mockData) {
+        const taskGenerationOptions = {
+          includeSPARCMapping: options.sparcMapping,
+          generateSubtasks: options.taskDepth > 1,
+          preferredTeamSize: 3,
+          detailLevel: 'medium' as const
+        };
+        
+        return await this.taskGenerator.generateTasks(prd, taskGenerationOptions);
+      }
+
+      // Fallback to legacy task generation
       const tasks: TaskMasterTask[] = [];
       let taskCounter = 1;
 
@@ -223,11 +328,18 @@ export class PRDService implements IPRDService {
       // Create task tree structure
       const root = this.buildTaskTree(tasks);
       
+      // Convert to new format for compatibility
       return {
-        root,
+        rootTasks: [],
+        dependencies: [],
         totalTasks: tasks.length,
+        estimatedTotalEffort: tasks.reduce((sum, task) => sum + (task.estimate || 0), 0),
+        criticalPath: [],
+        phases: {} as any,
+        // Legacy fields for compatibility
+        root,
         estimatedHours: tasks.reduce((sum, task) => sum + (task.estimate || 0), 0),
-        complexity: this.mapComplexityLevel(prd.complexity.overall)
+        complexity: this.mapComplexityLevel(prd.complexity?.overall || prd.complexity?.overallComplexity)
       };
 
     } catch (error) {
