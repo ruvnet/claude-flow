@@ -62,7 +62,7 @@
     "fmt": "deno fmt",
     "check": "deno check src/**/*.ts",
     "build": "./scripts/build.ts",
-    "install": "deno install --allow-all --global --name claude-flow src/cli/index.ts",
+    "install": "./scripts/install-global.ts",
     "clean": "rm -rf test-results coverage bin",
     "ci": "deno fmt --check && deno lint && deno check src/**/*.ts && ./scripts/test-runner.ts --coverage --fail-fast"
   },
@@ -73,7 +73,8 @@
     "@cliffy/ansi": "https://deno.land/x/cliffy@v1.0.0-rc.3/ansi/mod.ts",
     "@cliffy/prompt": "https://deno.land/x/cliffy@v1.0.0-rc.3/prompt/mod.ts",
     "@cliffy/table": "https://deno.land/x/cliffy@v1.0.0-rc.3/table/mod.ts",
-    "https://deno.land/std@0.196.0/": "https://deno.land/std@0.224.0/"
+    "https://deno.land/std@0.196.0/": "https://deno.land/std@0.224.0/",
+    "https://deno.land/std@0.196.0/encoding/base64.ts": "https://deno.land/std@0.224.0/encoding/base64.ts"
   },
   "exclude": [
     "node_modules/",
