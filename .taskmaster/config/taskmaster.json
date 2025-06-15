@@ -1,0 +1,7 @@
+{
+  "version": "1.0.0",
+  "claudeFlowIntegration": true,
+  "sparcEnabled": true,
+  "autoSync": true,
+  "syncInterval": 5000
+}
