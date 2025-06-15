@@ -1,0 +1,67 @@
+name: Build Cross-Platform Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: claude-flow-linux-x64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact: claude-flow-darwin-x64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: claude-flow-darwin-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: claude-flow-win-x64.exe
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      
+      - name: Build Binary
+        run: |
+          deno compile --allow-all --no-check --target ${{ matrix.target }} --output bin/${{ matrix.artifact }} src/cli/main.ts
+      
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.artifact }}
+          path: bin/${{ matrix.artifact }}
+  
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts/
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/**/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

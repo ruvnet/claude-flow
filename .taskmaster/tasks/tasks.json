@@ -1,44 +1,47 @@
-[
-  {
-    "id": "welcome-task",
-    "title": "Welcome to Claude-Flow + TaskMaster Extension",
-    "description": "This project is now compatible with the VS Code TaskMaster extension!",
-    "status": "completed",
-    "priority": "high",
-    "createdAt": "2025-06-15T01:06:42.893Z",
-    "updatedAt": "2025-06-15T01:06:42.895Z",
-    "sparcPhase": "specification",
-    "assignedAgent": "spec-pseudocode",
-    "metadata": {
-      "claudeFlowEnhanced": true
+[{
+  "id": "welcome-task",
+  "title": "Welcome to Claude-Flow + TaskMaster Extension",
+  "description": "This project is now compatible with the VS Code TaskMaster extension!",
+  "status": "completed",
+  "priority": "high",
+  "createdAt": "2025-06-15T00:00:00.000Z",
+  "updatedAt": "2025-06-15T00:00:00.000Z",
+  "sparcPhase": "specification",
+  "assignedAgent": "spec-pseudocode",
+  "metadata": {
+    "claudeFlowEnhanced": true,
+    "features": {
+      "ai": true,
+      "enterprise": true,
+      "autonomous": true
+    }
+  },
+  "subtasks": [
+    {
+      "id": "install-extension",
+      "title": "Install the claude-task-master VS Code extension",
+      "description": "Search for 'claude-task-master' in VS Code extensions",
+      "status": "todo",
+      "createdAt": "2025-06-15T00:00:00.000Z",
+      "updatedAt": "2025-06-15T00:00:00.000Z"
     },
-    "subtasks": [
-      {
-        "id": "install-extension",
-        "title": "Install the claude-task-master VS Code extension",
-        "description": "Search for \"claude-task-master\" in VS Code extensions",
-        "status": "todo",
-        "createdAt": "2025-06-15T01:06:42.895Z",
-        "updatedAt": "2025-06-15T01:06:42.895Z"
-      },
-      {
-        "id": "explore-features",
-        "title": "Explore visual task management features",
-        "description": "Use the TaskMaster sidebar to manage your tasks visually",
-        "status": "todo",
-        "createdAt": "2025-06-15T01:06:42.895Z",
-        "updatedAt": "2025-06-15T01:06:42.895Z"
-      },
-      {
-        "id": "sparc-integration",
-        "title": "Try SPARC methodology integration",
-        "description": "Tasks are automatically enhanced with SPARC phases and agent assignments",
-        "status": "todo",
-        "createdAt": "2025-06-15T01:06:42.895Z",
-        "updatedAt": "2025-06-15T01:06:42.895Z",
-        "sparcPhase": "specification",
-        "assignedAgent": "spec-pseudocode"
-      }
-    ]
-  }
-]
+    {
+      "id": "explore-features",
+      "title": "Explore visual task management features",
+      "description": "Use the TaskMaster sidebar to manage your tasks visually",
+      "status": "todo",
+      "createdAt": "2025-06-15T00:00:00.000Z",
+      "updatedAt": "2025-06-15T00:00:00.000Z"
+    },
+    {
+      "id": "sparc-integration",
+      "title": "Try SPARC methodology integration",
+      "description": "Tasks are automatically enhanced with SPARC phases and agent assignments",
+      "status": "todo",
+      "createdAt": "2025-06-15T00:00:00.000Z",
+      "updatedAt": "2025-06-15T00:00:00.000Z",
+      "sparcPhase": "specification",
+      "assignedAgent": "spec-pseudocode"
+    }
+  ]
+}]
