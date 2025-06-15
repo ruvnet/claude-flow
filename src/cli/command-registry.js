@@ -10,6 +10,7 @@ import { mcpCommand } from './simple-commands/mcp.js';
 import { monitorCommand } from './simple-commands/monitor.js';
 import { startCommand } from './simple-commands/start.js';
 import { swarmCommand } from './simple-commands/swarm.js';
+import { taskmasterCommand } from './simple-commands/taskmaster.js';
 
 // Command registry for extensible CLI
 export const commandRegistry = new Map();
@@ -154,6 +155,27 @@ First-time users should run: npx claude-flow@latest init --sparc`
       'swarm "Analyze data" --max-agents 3 --parallel',
       'swarm "Development task" --ui --monitor --background'
     ]
+  });
+
+  commandRegistry.set('taskmaster', {
+    handler: taskmasterCommand,
+    description: 'TaskMaster VS Code extension integration for visual task management',
+    usage: 'taskmaster <subcommand> [options]',
+    examples: [
+      'taskmaster init                          # Initialize TaskMaster',
+      'taskmaster sync                          # Sync tasks with SPARC',
+      'taskmaster export markdown               # Export tasks to markdown',
+      'taskmaster generate-from-prd spec.md     # Generate tasks from PRD'
+    ],
+    details: `
+TaskMaster provides visual task management through VS Code extension integration:
+  • Visual task board with drag-and-drop
+  • Automatic SPARC phase assignment
+  • Agent recommendations for tasks
+  • Real-time synchronization
+  • Export to multiple formats
+
+After 'taskmaster init', install the claude-task-master VS Code extension.`
   });
 }
 
