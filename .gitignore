@@ -46,4 +46,5 @@ test-init
 test-full-init
 
 swarm-runs
-init
+coordination/
+.claude/logs/

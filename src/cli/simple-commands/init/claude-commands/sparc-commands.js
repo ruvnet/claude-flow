@@ -107,7 +107,11 @@ export function createMainSparcCommand(modes) {
   // Find the sparc orchestrator mode for its full description
   const sparcMode = modes.find(m => m.slug === 'sparc');
   const sparcDescription = sparcMode ? sparcMode.roleDefinition : 'SPARC orchestrator for complex workflows';
-  const sparcInstructions = sparcMode ? sparcMode.customInstructions : '';
+  const sparcInstructions = sparcMode && sparcMode.customInstructions ? sparcMode.customInstructions : '';
+  
+  // Handle empty instructions
+  const instructionSection = sparcInstructions ? 
+    `## SPARC Workflow\n\n${sparcInstructions.split('\n').slice(0, 10).join('\n')}\n\n` : '';
   
   return `---
 name: sparc
@@ -118,9 +122,7 @@ description: Execute SPARC methodology workflows with Claude-Flow
 
 ${sparcDescription}
 
-## SPARC Workflow
-
-${sparcInstructions.split('\n').slice(0, 10).join('\n')}
+${instructionSection}
 
 ## Available SPARC Modes
 

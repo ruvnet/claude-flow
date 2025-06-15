@@ -339,3 +339,11 @@ This SPARC-enabled project follows a systematic development approach:
 For more information about SPARC methodology, see: https://github.com/ruvnet/claude-code-flow/docs/sparc.md
 `;
 }
+
+// Main export function that selects appropriate template
+export function getClaudeMdTemplate(sparc = false) {
+  if (sparc) {
+    return createSparcClaudeMd();
+  }
+  return createFullClaudeMd();
+}
