@@ -634,6 +634,37 @@ npx claude-flow status [options]
   -v, --verbose             Show detailed status information
 ```
 
+#### `taskmaster` - TaskMaster VS Code Extension Integration 🆕
+```bash
+npx claude-flow taskmaster <subcommand> [options]
+  init                      Initialize TaskMaster with VS Code extension support
+  sync                      Sync tasks with SPARC methodology enhancements
+  watch                     Watch for VS Code extension task changes
+  export <format>           Export tasks (json, markdown, csv)
+  stats                     Show task statistics
+  generate-from-prd <file>  Generate tasks from Product Requirements Document
+  
+Options:
+  --directory <dir>         Project directory (default: current)
+  --force                   Overwrite existing files
+```
+
+**TaskMaster Examples:**
+```bash
+# Initialize TaskMaster integration
+./claude-flow taskmaster init
+
+# View task statistics
+./claude-flow taskmaster stats
+
+# Export tasks to markdown
+./claude-flow taskmaster export markdown
+```
+
+**VS Code Extension:**
+After running `taskmaster init`, install the claude-task-master VS Code extension
+to visualize and manage tasks with a graphical interface.
+
 #### `agent` - Manage AI Agents
 ```bash
 npx claude-flow agent <subcommand>
