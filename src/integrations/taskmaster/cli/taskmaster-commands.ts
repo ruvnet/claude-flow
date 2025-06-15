@@ -9,6 +9,7 @@ import { join } from 'path';
 import { TaskAdapter } from '../adapters/task-adapter.js';
 import { PRDService } from '../services/prd-service.js';
 import { StorageSync } from '../services/storage-sync.js';
+import { extensionCommands } from './extension-commands.js';
 import { 
   ParseOptions, 
   GenerateOptions, 
@@ -155,6 +156,53 @@ export class TaskMasterCLI {
       .option('--directory <dir>', 'Directory to watch')
       .action(async (options: { directory?: string }) => {
         await this.startWatcher(options);
+      });
+
+    // Extension integration commands
+    taskmaster
+      .command('init')
+      .description('Initialize TaskMaster with VS Code extension compatibility')
+      .option('--extension', 'Initialize with extension support (default)', true)
+      .option('--no-extension', 'Initialize without extension support')
+      .action(async (options) => {
+        if (options.extension) {
+          await extensionCommands.init();
+        } else {
+          console.log('Initializing basic TaskMaster configuration...');
+          await this.initBasicTaskMaster();
+        }
+      });
+
+    const extension = taskmaster
+      .command('extension')
+      .description('VS Code extension integration commands');
+
+    extension
+      .command('sync')
+      .description('Sync tasks with SPARC enhancements')
+      .action(async () => {
+        await extensionCommands.sync();
+      });
+
+    extension
+      .command('watch')
+      .description('Watch for extension task changes')
+      .action(async () => {
+        await extensionCommands.watch();
+      });
+
+    extension
+      .command('export <format>')
+      .description('Export tasks in various formats (json, markdown, csv)')
+      .action(async (format: string) => {
+        await extensionCommands.export(format as any);
+      });
+
+    extension
+      .command('stats')
+      .description('Show task statistics')
+      .action(async () => {
+        await extensionCommands.stats();
       });
   }
 
@@ -598,6 +646,19 @@ export class TaskMasterCLI {
       obj = obj[keys[i]];
     }
     obj[keys[keys.length - 1]] = value;
+  }
+
+  private async initBasicTaskMaster(): Promise<void> {
+    const config = {
+      version: '1.0',
+      initialized: new Date().toISOString(),
+      integration: {
+        claudeFlow: true,
+        extension: false
+      }
+    };
+    await this.saveConfig(config);
+    console.log('✅ Basic TaskMaster configuration initialized');
   }
 }
 
