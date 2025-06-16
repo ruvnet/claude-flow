@@ -634,7 +634,9 @@ npx claude-flow status [options]
 
 #### `taskmaster` - PRD to Task Generation 🆕
 ```bash
-npx claude-flow taskmaster <subcommand> [options]
+npx claude-flow taskmaster [subcommand] [options]
+
+Subcommands:
   parse <prd-file>          Parse PRD and show structure
   generate <prd-file>       Generate tasks from PRD
     --output <file>         Output file (default: stdout)
@@ -652,6 +654,9 @@ npx claude-flow taskmaster <subcommand> [options]
   analyze <prd-file>        Analyze PRD with AI (requires API key)
   templates list            List available templates (partially implemented)
   info                      Show TaskMaster information
+  help [subcommand]         Show help for TaskMaster or specific subcommand
+
+Note: Shows comprehensive help when no subcommand provided or with --help flag
 ```
 
 **TaskMaster Examples:**

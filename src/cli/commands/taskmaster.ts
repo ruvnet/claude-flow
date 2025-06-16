@@ -10,6 +10,12 @@ export async function taskmasterAction(ctx: CommandContext): Promise<void> {
   const subcommand = args[0];
   const options = flags; // Map flags to options for consistency
 
+  // Show help if no subcommand provided
+  if (!subcommand || subcommand === '--help' || subcommand === '-h') {
+    showTaskmasterHelp();
+    return;
+  }
+
   try {
     switch (subcommand) {
       case "parse":
@@ -438,47 +444,118 @@ async function handleAIStatus(): Promise<void> {
 
 function showTaskmasterHelp(): void {
   console.log();
-  console.log(bold(cyan("TaskMaster Commands")));
+  console.log(bold(cyan("TaskMaster - PRD Parsing and Task Generation")));
   console.log();
   console.log("Usage: claude-flow taskmaster <command> [options]");
   console.log();
   console.log(bold("Commands:"));
-  console.log(`  ${cyan("parse")} <prd-file>     Parse a PRD document`);
-  console.log(`  ${cyan("generate")} <prd-file>  Generate tasks from PRD`);
-  console.log(`  ${cyan("sync")}                 Sync with VS Code extension`);
-  console.log(`  ${cyan("sync server")}          Manage VS Code sync server`);
-  console.log(`  ${cyan("list")}                 Show stored PRDs and tasks`);
-  console.log(`  ${cyan("update")} <id> <status>  Update task status`);
-  console.log(`  ${cyan("export")}                Export all tasks`);
-  console.log(`  ${cyan("templates")}             Manage task templates and workflows`);
-  console.log(`  ${cyan("info")}                 Show TaskMaster information`);
-  console.log(`  ${cyan("help")}                 Show this help message`);
   console.log();
-  console.log(bold("Options:"));
-  console.log("  --ai                  Enable AI features (requires API key)");
-  console.log("  --api-key <key>       Anthropic API key (or use ANTHROPIC_API_KEY env)");
-  console.log("  --model <name>        AI model to use (default: claude-3-haiku)");
-  console.log("  --depth <number>      Task decomposition depth (default: 3)");
-  console.log("  --sparc-mapping       Enable SPARC mode mapping");
-  console.log("  --assign-agents       Auto-assign agents to tasks");
-  console.log("  --detailed            Extract detailed features with AI");
-  console.log("  --enhance             Enhance task descriptions with AI");
-  console.log("  --output <path>       Output file path");
-  console.log("  --format <type>       Output format (json, markdown, csv)");
-  console.log("  --verbose             Enable verbose logging");
-  console.log("  --dry-run             Preview without executing");
+  
+  // Parse command
+  console.log(`  ${cyan("parse")} <prd-file>        Parse and validate a PRD document`);
+  console.log(`    ${gray("Options:")}`);
+  console.log(`    ${gray("--ai                  Use AI for enhanced parsing")}`);
+  console.log(`    ${gray("--detailed            Extract detailed features")}`);
+  console.log(`    ${gray("--verbose             Show detailed parsing info")}`);
   console.log();
+  
+  // Generate command
+  console.log(`  ${cyan("generate")} <prd-file>     Generate tasks from PRD`);
+  console.log(`    ${gray("Options:")}`);
+  console.log(`    ${gray("--output <file>       Output file path (default: stdout)")}`);
+  console.log(`    ${gray("--format <type>       Output format: json|markdown|csv (default: json)")}`);
+  console.log(`    ${gray("--depth <number>      Task hierarchy depth (default: 3)")}`);
+  console.log(`    ${gray("--sparc-mapping       Enable SPARC mode mapping (default: true)")}`);
+  console.log(`    ${gray("--ai                  Enable AI enhancement")}`);
+  console.log(`    ${gray("--detailed            Generate detailed descriptions")}`);
+  console.log(`    ${gray("--enhance             Enhance with AI suggestions")}`);
+  console.log(`    ${gray("--verbose             Show generation progress")}`);
+  console.log();
+  
+  // List command
+  console.log(`  ${cyan("list")}                    Display stored PRDs and task summaries`);
+  console.log(`    ${gray("No options")}`);
+  console.log();
+  
+  // Update command
+  console.log(`  ${cyan("update")} <task-id> <status>  Update task status`);
+  console.log(`    ${gray("Status options: pending | in_progress | completed | blocked")}`);
+  console.log();
+  
+  // Export command
+  console.log(`  ${cyan("export")}                  Export all stored tasks`);
+  console.log(`    ${gray("Options:")}`);
+  console.log(`    ${gray("--format <type>       Export format: json|markdown|csv")}`);
+  console.log(`    ${gray("--output <file>       Output file path")}`);
+  console.log(`    ${gray("--filter <status>     Filter by status")}`);
+  console.log();
+  
+  // AI Status command
+  console.log(`  ${cyan("ai-status")}               Check AI configuration status`);
+  console.log(`    ${gray("No options")}`);
+  console.log();
+  
+  // Analyze command
+  console.log(`  ${cyan("analyze")} <prd-file>      Analyze PRD with AI (requires API key)`);
+  console.log(`    ${gray("Returns: Executive summary, complexity assessment, feature breakdown")}`);
+  console.log(`    ${gray("         effort estimation, and risk analysis")}`);
+  console.log();
+  
+  // Sync commands
+  console.log(`  ${cyan("sync")}                    Sync with VS Code extension`);
+  console.log(`    ${gray("Options:")}`);
+  console.log(`    ${gray("--verbose             Show sync details")}`);
+  console.log();
+  
+  console.log(`  ${cyan("sync server start")}       Start VS Code sync server`);
+  console.log(`    ${gray("Options:")}`);
+  console.log(`    ${gray("--port <number>       Server port (default: 5173)")}`);
+  console.log(`    ${gray("--host <address>      Host address (default: localhost)")}`);
+  console.log();
+  
+  console.log(`  ${cyan("sync server stop")}        Stop VS Code sync server`);
+  console.log(`  ${cyan("sync server status")}      Check sync server status`);
+  console.log();
+  
+  // Templates command
+  console.log(`  ${cyan("templates list")}          List available templates`);
+  console.log(`    ${gray("Note: Template system is partially implemented")}`);
+  console.log();
+  
+  // Info and help
+  console.log(`  ${cyan("info")}                    Display TaskMaster capabilities`);
+  console.log(`  ${cyan("help")}                    Show this help message`);
+  console.log();
+  
+  console.log(bold("Global Options:"));
+  console.log("  --ai                    Enable AI features (requires ANTHROPIC_API_KEY)");
+  console.log("  --api-key <key>         Anthropic API key (overrides env var)");
+  console.log("  --model <name>          AI model (default: claude-3-haiku-20240307)");
+  console.log();
+  
   console.log(bold("Examples:"));
-  console.log(`  ${yellow("# Basic parsing (no AI):")}`);  
-  console.log(`  ${gray("claude-flow taskmaster parse requirements.prd")}`);
-  console.log(`  ${yellow("# Generate with SPARC mapping:")}`);  
-  console.log(`  ${gray("claude-flow taskmaster generate requirements.prd --depth 4 --sparc-mapping")}`);
   console.log();
-  console.log(`  ${yellow("# AI-enhanced generation:")}`);  
-  console.log(`  ${gray("claude-flow taskmaster generate requirements.prd --ai --detailed --enhance")}`);
+  console.log(`  ${yellow("# Basic task generation (no AI):")}`);  
+  console.log(`  ${gray("claude-flow taskmaster generate requirements.prd --output tasks.json")}`);
+  console.log();
+  console.log(`  ${yellow("# Generate with SPARC mapping and markdown output:")}`);  
+  console.log(`  ${gray("claude-flow taskmaster generate app.prd --sparc-mapping --format markdown")}`);
+  console.log();
+  console.log(`  ${yellow("# AI-enhanced generation (requires API key):")}`);
+  console.log(`  ${gray("export ANTHROPIC_API_KEY='your-key'")}`);
+  console.log(`  ${gray("claude-flow taskmaster generate app.prd --ai --detailed --enhance")}`);
   console.log();
   console.log(`  ${yellow("# Analyze PRD with AI:")}`);  
   console.log(`  ${gray("claude-flow taskmaster analyze requirements.prd")}`);
-  console.log(`  ${yellow("claude-flow taskmaster sync --verbose")}`);
+  console.log();
+  console.log(`  ${yellow("# Export tasks in different formats:")}`);
+  console.log(`  ${gray("claude-flow taskmaster export --format markdown --output tasks.md")}`);
+  console.log(`  ${gray("claude-flow taskmaster export --format csv --output tasks.csv")}`);
+  console.log();
+  console.log(`  ${yellow("# Update task status:")}`);
+  console.log(`  ${gray("claude-flow taskmaster update task-001 completed")}`);
+  console.log();
+  console.log(`  ${yellow("# Check AI configuration:")}`);
+  console.log(`  ${gray("claude-flow taskmaster ai-status")}`);
   console.log();
 }

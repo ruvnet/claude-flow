@@ -109,6 +109,21 @@ export ANTHROPIC_API_KEY='sk-ant-...'
 
 ## Command Reference
 
+### Getting Help
+
+The TaskMaster CLI includes comprehensive built-in help:
+
+```bash
+# Show TaskMaster help (works with no subcommand or --help)
+claude-flow taskmaster
+claude-flow taskmaster --help
+
+# Get help for specific subcommands
+claude-flow taskmaster help generate
+claude-flow taskmaster help export
+claude-flow taskmaster generate --help
+```
+
 ### Core Commands
 
 #### `parse <prd-file>`
@@ -186,6 +201,20 @@ claude-flow taskmaster templates list
 Display TaskMaster information and capabilities.
 ```bash
 claude-flow taskmaster info
+```
+
+#### `help [subcommand]`
+Show comprehensive help for TaskMaster or specific subcommands.
+```bash
+# General TaskMaster help
+claude-flow taskmaster help
+
+# Help for specific subcommand
+claude-flow taskmaster help generate
+claude-flow taskmaster help export
+
+# Also works with --help flag on any command
+claude-flow taskmaster generate --help
 ```
 
 ## PRD Format Guidelines
