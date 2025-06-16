@@ -4,10 +4,10 @@
  * Enables reading/writing tasks in .taskmaster/tasks/tasks.json format
  */
 
-import { promises as fs } from 'fs';
-import * as path from 'path';
-import { watch, FSWatcher } from 'chokidar';
-import { EventEmitter } from 'events';
+import { promises as fs } from 'node:fs';
+import * as path from 'node:path';
+import { watch, FSWatcher } from 'npm:chokidar';
+import { EventEmitter } from 'node:events';
 
 import {
   TaskMasterTask,
@@ -17,7 +17,7 @@ import {
   TaskMasterPriority,
   ClaudeFlowStatus,
   ClaudeFlowPriority
-} from '../types/task-types.js';
+} from '../types/task-types.ts';
 
 // Extension-compatible task format
 export interface ExtensionTask {

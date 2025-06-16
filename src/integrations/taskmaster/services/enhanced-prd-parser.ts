@@ -1,5 +1,5 @@
-import { AIProviderManager } from './ai-provider';
-import { AIRequest, AIResponse } from '../types/ai-types';
+import { AIProviderManager } from './ai-provider.ts';
+import { AIRequest, AIResponse } from '../types/ai-types.ts';
 import {
   ParsedPRD,
   DocumentFormat,
@@ -11,7 +11,7 @@ import {
   ComplexityAnalysis,
   ParseOptions,
   ValidationResult
-} from '../types/prd-types';
+} from '../types/prd-types.ts';
 
 export class EnhancedPRDParser {
   private aiProvider: AIProviderManager;

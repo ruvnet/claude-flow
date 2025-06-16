@@ -291,3 +291,71 @@ export function assertNoEventEmitted(
   const emitted = events.find((e) => e.event === eventName);
   assertEquals(emitted, undefined, `Expected event '${eventName}' not to be emitted`);
 }
+
+/**
+ * Async test utilities
+ */
+export class AsyncTestUtils {
+  static delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  static async waitFor(
+    condition: () => boolean | Promise<boolean>,
+    timeout = 5000,
+    interval = 50
+  ): Promise<void> {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      if (await condition()) {
+        return;
+      }
+      await this.delay(interval);
+    }
+    throw new Error('Timeout waiting for condition');
+  }
+}
+
+/**
+ * Performance test utilities
+ */
+export class PerformanceTestUtils {
+  static async measureTime<T>(
+    fn: () => T | Promise<T>
+  ): Promise<{ result: T; duration: number }> {
+    const start = performance.now();
+    const result = await fn();
+    const duration = performance.now() - start;
+    return { result, duration };
+  }
+
+  static async benchmark(
+    fn: () => any | Promise<any>,
+    iterations: number
+  ): Promise<{ stats: { min: number; max: number; avg: number; total: number } }> {
+    const times: number[] = [];
+    
+    for (let i = 0; i < iterations; i++) {
+      const { duration } = await this.measureTime(fn);
+      times.push(duration);
+    }
+    
+    return {
+      stats: {
+        min: Math.min(...times),
+        max: Math.max(...times),
+        avg: times.reduce((a, b) => a + b, 0) / times.length,
+        total: times.reduce((a, b) => a + b, 0)
+      }
+    };
+  }
+}
+
+/**
+ * String assertion helpers
+ */
+export function assertStringIncludes(actual: string, expected: string): void {
+  if (!actual.includes(expected)) {
+    throw new Error(`Expected string to include "${expected}", but got: "${actual}"`);
+  }
+}

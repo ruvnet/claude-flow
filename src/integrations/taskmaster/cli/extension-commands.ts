@@ -3,16 +3,16 @@
  * CLI commands for claude-task-master-extension VS Code integration
  */
 
-import { ExtensionStorageAdapter, ExtensionTask } from '../adapters/extension-storage-adapter.js';
-import { TaskAdapter } from '../adapters/task-adapter.js';
-import { PRDService } from '../services/prd-service.js';
+import { ExtensionStorageAdapter, ExtensionTask } from '../adapters/extension-storage-adapter.ts';
+import { TaskAdapter } from '../adapters/task-adapter.ts';
+import { PRDService } from '../services/prd-service.ts';
 import { 
   TaskMasterTask, 
   ClaudeFlowTask,
   SPARCPhase,
   TaskMasterStatus,
   TaskMasterPriority
-} from '../types/task-types.js';
+} from '../types/task-types.ts';
 
 export interface ExtensionCommandOptions {
   projectRoot?: string;

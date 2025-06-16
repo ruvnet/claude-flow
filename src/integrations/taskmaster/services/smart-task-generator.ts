@@ -1,5 +1,5 @@
-import { AIProviderManager } from './ai-provider';
-import { AIRequest, AIResponse } from '../types/ai-types';
+import { AIProviderManager } from './ai-provider.ts';
+import { AIRequest, AIResponse } from '../types/ai-types.ts';
 import {
   ParsedPRD,
   Requirement,
@@ -13,7 +13,7 @@ import {
   Complexity,
   RequirementDependency,
   DependencyType
-} from '../types/prd-types';
+} from '../types/prd-types.ts';
 
 export interface TaskGenerationOptions {
   includeSPARCMapping?: boolean;

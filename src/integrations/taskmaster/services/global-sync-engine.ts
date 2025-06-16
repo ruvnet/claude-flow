@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { AIProviderManager } from './ai-provider';
+import { AIProviderManager } from './ai-provider.ts';
 
 export interface GlobalSyncConfiguration {
   regions: Region[];

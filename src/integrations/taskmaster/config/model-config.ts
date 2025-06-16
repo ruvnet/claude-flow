@@ -1,4 +1,4 @@
-import { AIProvider, AIModel, ProviderConfig } from '../types/ai-types';
+import { AIProvider, AIModel, ProviderConfig } from '../types/ai-types.ts';
 
 export interface ModelConfigOptions {
   preferredProviders?: string[];

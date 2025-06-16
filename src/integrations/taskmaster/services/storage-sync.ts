@@ -4,10 +4,10 @@
  * Implements file system watching, conflict resolution, and backup/restore
  */
 
-import { watch, FSWatcher } from 'fs';
-import { readFile, writeFile, readdir, stat } from 'fs/promises';
-import { join, dirname } from 'path';
-import { TaskAdapter } from '../adapters/task-adapter.js';
+import { watch, FSWatcher } from 'node:fs';
+import { readFile, writeFile, readdir, stat } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
+import { TaskAdapter } from '../adapters/task-adapter.ts';
 import {
   TaskMasterTask,
   ClaudeFlowTask,
@@ -15,7 +15,7 @@ import {
   Conflict,
   Resolution,
   ValidationResult
-} from '../types/task-types.js';
+} from '../types/task-types.ts';
 
 export interface IStorageSync {
   // Sync operations

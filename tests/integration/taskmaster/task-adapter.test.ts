@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { TaskAdapter } from '../../../src/integrations/taskmaster/adapters/task-adapter.js';
+import { TaskAdapter } from '../../../src/integrations/taskmaster/adapters/task-adapter.ts';
 import {
   TaskMasterTask,
   ClaudeFlowTask,
@@ -14,7 +14,7 @@ import {
   ClaudeFlowPriority,
   SPARCPhase,
   MappingConfig
-} from '../../../src/integrations/taskmaster/types/task-types.js';
+} from '../../../src/integrations/taskmaster/types/task-types.ts';
 
 describe('TaskAdapter Integration Tests', () => {
   let adapter: TaskAdapter;

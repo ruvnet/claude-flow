@@ -3,7 +3,7 @@
  * Used for parsing PRDs and generating tasks
  */
 
-import { AIModel, TaskTree, SPARCPhase } from './task-types.js';
+import { AIModel, TaskTree, SPARCPhase } from './task-types.ts';
 
 export type DocumentFormat = 'markdown' | 'html' | 'pdf' | 'docx' | 'text';
 

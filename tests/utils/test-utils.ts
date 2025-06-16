@@ -15,6 +15,13 @@ export type { Spy };
  */
 export class AsyncTestUtils {
   /**
+   * Simple delay wrapper
+   */
+  static delay(ms: number): Promise<void> {
+    return delay(ms);
+  }
+
+  /**
    * Wait for condition to be true with timeout
    */
   static async waitFor(
@@ -420,7 +427,7 @@ export class FileSystemTestUtils {
     options: { suffix?: string; dir?: string } = {}
   ): Promise<string> {
     const { suffix = '.tmp', dir } = options;
-    const tempFile = await Deno.makeTempFile({ suffix, dir });
+    const tempFile = await Deno.makeTempFile({ suffix, ...(dir ? { dir } : {}) });
     await Deno.writeTextFile(tempFile, content);
     return tempFile;
   }
@@ -476,12 +483,12 @@ export class MockFactory {
   static createMock<T extends Record<string, any>>(
     original: T,
     overrides: Partial<T> = {}
-  ): T & { [K in keyof T]: T[K] extends (...args: any[]) => any ? Spy<T, K> : T[K] } {
+  ): T & { [K in keyof T]: T[K] extends (...args: any[]) => any ? Spy<T, any> : T[K] } {
     const mock = { ...original, ...overrides };
     
     for (const [key, value] of Object.entries(mock)) {
       if (typeof value === 'function') {
-        mock[key] = stub(mock, key as keyof T, value);
+        (mock as any)[key] = stub(mock, key as keyof T, value);
       }
     }
 
@@ -494,7 +501,7 @@ export class MockFactory {
   static createSpy<T extends (...args: any[]) => any>(
     implementation?: T
   ): Spy<any, any> & T {
-    const obj = {};
+    const obj: any = {};
     const methodName = 'method';
     
     if (implementation) {
@@ -503,7 +510,7 @@ export class MockFactory {
       obj[methodName] = () => {};
     }
 
-    return stub(obj, methodName) as any;
+    return stub(obj, methodName as any) as any;
   }
 
   /**
@@ -518,7 +525,7 @@ export class MockFactory {
     
     for (const method of failingMethods) {
       if (typeof original[method] === 'function') {
-        mock[method] = stub(mock, method, () => {
+        (mock as any)[method] = stub(mock, method, () => {
           throw error;
         });
       }
@@ -623,11 +630,11 @@ export class TestAssertions {
     } catch (error) {
       if (ErrorClass && !(error instanceof ErrorClass)) {
         throw new Error(
-          `Expected error of type ${ErrorClass.name}, but got ${error.constructor.name}`
+          `Expected error of type ${ErrorClass.name}, but got ${(error as any).constructor.name}`
         );
       }
       
-      if (msgIncludes && !error.message.includes(msgIncludes)) {
+      if (msgIncludes && error instanceof Error && !error.message.includes(msgIncludes)) {
         throw new Error(
           `Expected error message to include "${msgIncludes}", but got: ${error.message}`
         );

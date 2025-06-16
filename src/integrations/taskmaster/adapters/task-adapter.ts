@@ -17,7 +17,7 @@ import {
   ValidationResult,
   Conflict,
   Resolution
-} from '../types/task-types.js';
+} from '../types/task-types.ts';
 
 export interface ITaskAdapter {
   // Core conversion methods

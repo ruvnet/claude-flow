@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
-import { AIProviderManager } from './ai-provider';
-import { AIRequest } from '../types/ai-types';
-import { Priority, Complexity } from '../types/prd-types';
+import { AIProviderManager } from './ai-provider.ts';
+import { AIRequest } from '../types/ai-types.ts';
+import { Priority, Complexity } from '../types/prd-types.ts';
 
 export interface TrainingPipeline {
   id: string;

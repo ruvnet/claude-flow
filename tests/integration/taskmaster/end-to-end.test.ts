@@ -3,25 +3,25 @@
  * Tests complete workflows from PRD to task execution
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { TaskAdapter } from '../../../src/integrations/taskmaster/adapters/task-adapter.js';
-import { PRDService } from '../../../src/integrations/taskmaster/services/prd-service.js';
-import { StorageSync } from '../../../src/integrations/taskmaster/services/storage-sync.js';
-import { TaskMasterCLI } from '../../../src/integrations/taskmaster/cli/taskmaster-commands.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'npm:vitest';
+import { TaskAdapter } from '../../../src/integrations/taskmaster/adapters/task-adapter.ts';
+import { PRDService } from '../../../src/integrations/taskmaster/services/prd-service.ts';
+import { StorageSync } from '../../../src/integrations/taskmaster/services/storage-sync.ts';
+import { TaskMasterCLI } from '../../../src/integrations/taskmaster/cli/taskmaster-commands.ts';
 import {
   ParseOptions,
   GenerateOptions,
   ProjectContext
-} from '../../../src/integrations/taskmaster/types/prd-types.js';
+} from '../../../src/integrations/taskmaster/types/prd-types.ts';
 import {
   TaskMasterTask,
   ClaudeFlowTask,
   AIModel,
   SPARCPhase
-} from '../../../src/integrations/taskmaster/types/task-types.js';
-import { promises as fs } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
+} from '../../../src/integrations/taskmaster/types/task-types.ts';
+import { promises as fs } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 // Mock external dependencies
 vi.mock('fs/promises');

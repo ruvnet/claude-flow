@@ -3,9 +3,9 @@
  * Tests bidirectional sync, conflict resolution, and file watching
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { StorageSync } from '../../../src/integrations/taskmaster/services/storage-sync.js';
-import { TaskAdapter } from '../../../src/integrations/taskmaster/adapters/task-adapter.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'npm:vitest';
+import { StorageSync } from '../../../src/integrations/taskmaster/services/storage-sync.ts';
+import { TaskAdapter } from '../../../src/integrations/taskmaster/adapters/task-adapter.ts';
 import {
   TaskMasterTask,
   ClaudeFlowTask,
@@ -15,10 +15,10 @@ import {
   ClaudeFlowPriority,
   SyncResult,
   Conflict
-} from '../../../src/integrations/taskmaster/types/task-types.js';
-import { promises as fs } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
+} from '../../../src/integrations/taskmaster/types/task-types.ts';
+import { promises as fs } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 // Mock fs module for testing
 vi.mock('fs', async () => {

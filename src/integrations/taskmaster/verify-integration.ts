@@ -4,9 +4,9 @@
  * Tests basic functionality without requiring full build system
  */
 
-import { TaskAdapter } from './adapters/task-adapter.js';
-import { PRDService } from './services/prd-service.js';
-import { StorageSync } from './services/storage-sync.js';
+import { TaskAdapter } from './adapters/task-adapter.ts';
+import { PRDService } from './services/prd-service.ts';
+import { StorageSync } from './services/storage-sync.ts';
 import {
   TaskMasterTask,
   ClaudeFlowTask,
@@ -15,7 +15,7 @@ import {
   ClaudeFlowStatus,
   ClaudeFlowPriority,
   SPARCPhase
-} from './types/task-types.js';
+} from './types/task-types.ts';
 
 console.log('🔍 Verifying TaskMaster Integration Implementation...\n');
 

@@ -3,20 +3,21 @@
  * Provides CLI interface for PRD processing, task generation, and sync operations
  */
 
-import { Command } from 'commander';
-import { readFile, writeFile } from 'fs/promises';
-import { join } from 'path';
-import { TaskAdapter } from '../adapters/task-adapter.js';
-import { PRDService } from '../services/prd-service.js';
-import { StorageSync } from '../services/storage-sync.js';
-import { extensionCommands } from './extension-commands.js';
+import { Command } from 'npm:commander';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { TaskAdapter } from '../adapters/task-adapter.ts';
+import { PRDService } from '../services/prd-service.ts';
+import { StorageSync } from '../services/storage-sync.ts';
+import { extensionCommands } from './extension-commands.ts';
+import syncCommand from './sync-commands.ts';
 import { 
   ParseOptions, 
   GenerateOptions, 
   AIModel,
   TaskContext,
   ProjectContext 
-} from '../types/prd-types.js';
+} from '../types/prd-types.ts';
 
 export interface TaskMasterCLIOptions {
   model?: string;
@@ -81,10 +82,13 @@ export class TaskMasterCLI {
         await this.importProject(directory, options);
       });
 
-    // Manual sync
+    // VS Code Extension Sync
+    taskmaster.addCommand(syncCommand);
+
+    // Manual task sync (legacy)
     taskmaster
-      .command('sync')
-      .description('Manually synchronize tasks')
+      .command('sync-tasks')
+      .description('Manually synchronize tasks (legacy)')
       .option('--direction <direction>', 'Sync direction (to-taskmaster|from-taskmaster|bidirectional)', 'bidirectional')
       .option('--project <id>', 'Specific project ID to sync')
       .action(async (options: { direction?: string; project?: string }) => {

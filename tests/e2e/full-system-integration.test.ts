@@ -252,7 +252,7 @@ describe('Full System Integration Tests', () => {
 
         const tasks = Array.from({ length: 20 }, (_, i) => ({
           id: `task-${i}`,
-          assignedAgent: null,
+          assignedAgent: null as string | null,
           completed: false,
           attempts: 0,
         }));
@@ -465,7 +465,7 @@ describe('Full System Integration Tests', () => {
         // Simulate memory synchronization
         const synchronizedData = new Map();
         agentData.forEach((data, agent) => {
-          data.forEach((value, key) => {
+          data.forEach((value: any, key: any) => {
             // Last write wins for simplicity
             synchronizedData.set(key, value);
           });
@@ -492,9 +492,9 @@ describe('Full System Integration Tests', () => {
     it('should execute commands across multiple terminal sessions', async () => {
       const terminalTest = async () => {
         const sessions = [
-          { id: 'session-1', workingDir: tempDir, commands: [] },
-          { id: 'session-2', workingDir: tempDir, commands: [] },
-          { id: 'session-3', workingDir: tempDir, commands: [] },
+          { id: 'session-1', workingDir: tempDir, commands: [] as Array<{ command: string; result: string; timestamp: number }> },
+          { id: 'session-2', workingDir: tempDir, commands: [] as Array<{ command: string; result: string; timestamp: number }> },
+          { id: 'session-3', workingDir: tempDir, commands: [] as Array<{ command: string; result: string; timestamp: number }> },
         ];
 
         const testCommands = [
@@ -531,7 +531,7 @@ describe('Full System Integration Tests', () => {
               sessionId: session.id,
               command,
               success: false,
-              error: error.message,
+              error: error instanceof Error ? error.message : String(error),
             });
           }
         }
@@ -589,7 +589,7 @@ describe('Full System Integration Tests', () => {
               actualDuration,
               expectedDuration,
               timeout,
-              error: error.message,
+              error: error instanceof Error ? error.message : String(error),
             });
           }
         }
@@ -677,10 +677,10 @@ describe('Full System Integration Tests', () => {
       
       // Verify specific responses
       const listToolsResponse = responses.find(r => r.request === 'list_tools');
-      assertEquals(listToolsResponse?.response.result?.tools.length, 3);
+      assertEquals(listToolsResponse?.response?.result?.tools?.length ?? 0, 3);
       
       const calculatorResponse = responses.find(r => r.request === 'call_tool');
-      assertStringIncludes(calculatorResponse?.response.result?.content[0].text, '5 + 3 = 8');
+      assertStringIncludes(calculatorResponse?.response?.result?.content?.[0]?.text ?? '', '5 + 3 = 8');
       
       console.log('MCP protocol integration test completed successfully');
     });
@@ -786,6 +786,7 @@ describe('Full System Integration Tests', () => {
             metadata: {
               timestamp: Date.now(),
               processed: false,
+              processedAt: undefined as number | undefined,
             },
           };
           
@@ -1062,7 +1063,7 @@ async function executeCommand(command: string, workingDir: string): Promise<stri
     
     return new TextDecoder().decode(stdout);
   } catch (error) {
-    throw new Error(`Failed to execute command "${command}": ${error.message}`);
+    throw new Error(`Failed to execute command "${command}": ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

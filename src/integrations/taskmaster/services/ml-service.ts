@@ -1,5 +1,5 @@
-import { AIProviderManager } from './ai-provider';
-import { AIRequest, AIResponse } from '../types/ai-types';
+import { AIProviderManager } from './ai-provider.ts';
+import { AIRequest, AIResponse } from '../types/ai-types.ts';
 import {
   ParsedPRD,
   Requirement,
@@ -8,7 +8,7 @@ import {
   SPARCPhase,
   Priority,
   Complexity
-} from '../types/prd-types';
+} from '../types/prd-types.ts';
 
 export interface MLInsights {
   patterns: PatternAnalysis[];
@@ -696,7 +696,7 @@ Return detailed JSON analysis with confidence intervals.`,
       completedTasks: 45,
       avgCompletionTime: 6.5,
       preferredTaskTypes: ['frontend', 'api'],
-      skillAreas: ['React', 'Node.js', 'TypeScript'],
+      skillAreas: ['React', 'Node.ts', 'TypeScript'],
       successRate: 92
     };
   }

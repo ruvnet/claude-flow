@@ -1,4 +1,4 @@
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 import {
   AIProvider,
   AIModel,
@@ -11,7 +11,7 @@ import {
   HealthStatus,
   ProviderError,
   CircuitBreakerState
-} from '../types/ai-types';
+} from '../types/ai-types.ts';
 
 export interface AIProviderManagerConfig {
   defaultRetries: number;

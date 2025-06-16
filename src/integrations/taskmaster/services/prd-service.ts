@@ -4,10 +4,10 @@
  * Integrates with real AI models and SPARC methodology
  */
 
-import { AIProviderManager } from './ai-provider';
-import { EnhancedPRDParser } from './enhanced-prd-parser';
-import { SmartTaskGenerator } from './smart-task-generator';
-import { ModelConfigManager } from '../config/model-config';
+import { AIProviderManager } from './ai-provider.ts';
+import { EnhancedPRDParser } from './enhanced-prd-parser.ts';
+import { SmartTaskGenerator } from './smart-task-generator.ts';
+import { ModelConfigManager } from '../config/model-config.ts';
 
 import {
   ParsedPRD,
@@ -30,7 +30,7 @@ import {
   DocumentFormat,
   TaskTree,
   GeneratedTask
-} from '../types/prd-types.js';
+} from '../types/prd-types.ts';
 
 import {
   AIModel,
@@ -39,7 +39,7 @@ import {
   TaskMasterStatus,
   TaskMasterPriority,
   SPARCPhase
-} from '../types/task-types.js';
+} from '../types/task-types.ts';
 
 export interface IPRDService {
   // PRD parsing
