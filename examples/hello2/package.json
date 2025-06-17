@@ -1,0 +1,16 @@
+{
+  "name": "hello-world-example",
+  "version": "1.0.0",
+  "description": "A simple Hello World application",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test.js"
+  },
+  "keywords": ["hello", "world", "example"],
+  "author": "",
+  "license": "MIT",
+  "bin": {
+    "hello2": "./index.js"
+  }
+}

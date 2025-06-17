@@ -186,6 +186,8 @@ export interface Config {
   coordination: CoordinationConfig;
   mcp: MCPConfig;
   logging: LoggingConfig;
+  credentials?: CredentialsConfig;
+  security?: SecurityConfig;
 }
 
 export interface OrchestratorConfig {
@@ -430,6 +432,7 @@ export interface MCPAuthConfig {
     username: string;
     password: string;
     permissions: string[];
+    roles?: string[];
   }>;
   jwtSecret?: string;
   sessionTimeout?: number;
@@ -490,4 +493,20 @@ export interface MCPContext {
   sessionId: string;
   agentId?: string;
   logger: ILogger;
+}
+
+// Additional configuration interfaces
+export interface CredentialsConfig {
+  apiKey?: string;
+  token?: string;
+  password?: string;
+  secret?: string;
+  [key: string]: string | undefined;
+}
+
+export interface SecurityConfig {
+  encryptionEnabled: boolean;
+  auditLogging: boolean;
+  maskSensitiveValues: boolean;
+  allowEnvironmentOverrides: boolean;
 }

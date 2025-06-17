@@ -6,12 +6,12 @@ import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
-import { Logger } from '../core/logger.ts';
-import { generateId } from '../utils/helpers.ts';
+import { Logger } from '../core/logger.js';
+import { generateId } from '../utils/helpers.js';
 import {
   MemoryEntry, MemoryPartition, SwarmMemory, AccessLevel, ConsistencyLevel,
   MemoryType, MemoryPermissions, AgentId, SwarmEvent, SWARM_CONSTANTS
-} from './types.ts';
+} from './types.js';
 
 export interface MemoryQuery {
   namespace?: string;
@@ -99,11 +99,16 @@ export class SwarmMemoryManager extends EventEmitter {
   private backupTimer?: NodeJS.Timeout;
   private cleanupTimer?: NodeJS.Timeout;
 
-  constructor(config: Partial<MemoryConfig> = {}) {
+  constructor(config: Partial<MemoryConfig & { logging?: any }> = {}) {
     super();
     
+    // Configure logger based on config or default to quiet mode
+    const logLevel = config.logging?.level || 'error';
+    const logFormat = config.logging?.format || 'text';
+    const logDestination = config.logging?.destination || 'console';
+    
     this.logger = new Logger(
-      { level: 'info', format: 'json', destination: 'console' },
+      { level: logLevel, format: logFormat, destination: logDestination },
       { component: 'SwarmMemoryManager' }
     );
     this.config = this.mergeWithDefaults(config);

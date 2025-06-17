@@ -2,8 +2,8 @@
  * Circuit breaker pattern for fault tolerance
  */
 
-import { ILogger } from '../core/logger.ts';
-import { IEventBus } from '../core/event-bus.ts';
+import { ILogger } from '../core/logger.js';
+import { IEventBus } from '../core/event-bus.js';
 
 export interface CircuitBreakerConfig {
   failureThreshold: number; // Number of failures before opening

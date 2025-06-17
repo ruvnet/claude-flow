@@ -2,10 +2,15 @@
  * HTTP transport for MCP
  */
 
-import { ITransport, RequestHandler, NotificationHandler } from './base.ts';
-import { MCPRequest, MCPResponse, MCPNotification, MCPConfig } from '../../utils/types.ts';
-import { ILogger } from '../../core/logger.ts';
-import { MCPTransportError } from '../../utils/errors.ts';
+import express, { Express, Request, Response } from 'express';
+import { createServer, Server } from 'node:http';
+import { WebSocketServer, WebSocket } from 'ws';
+import cors from 'cors';
+import helmet from 'helmet';
+import { ITransport, RequestHandler, NotificationHandler } from './base.js';
+import { MCPRequest, MCPResponse, MCPNotification, MCPConfig } from '../../utils/types.js';
+import { ILogger } from '../../core/logger.js';
+import { MCPTransportError } from '../../utils/errors.js';
 
 /**
  * HTTP transport implementation
@@ -13,7 +18,9 @@ import { MCPTransportError } from '../../utils/errors.ts';
 export class HttpTransport implements ITransport {
   private requestHandler?: RequestHandler;
   private notificationHandler?: NotificationHandler;
-  private server?: Deno.HttpServer | undefined;
+  private app: Express;
+  private server?: Server;
+  private wss?: WebSocketServer;
   private messageCount = 0;
   private notificationCount = 0;
   private running = false;
@@ -26,7 +33,11 @@ export class HttpTransport implements ITransport {
     private tlsEnabled: boolean,
     private logger: ILogger,
     private config?: MCPConfig,
-  ) {}
+  ) {
+    this.app = express();
+    this.setupMiddleware();
+    this.setupRoutes();
+  }
 
   async start(): Promise<void> {
     if (this.running) {
@@ -40,19 +51,25 @@ export class HttpTransport implements ITransport {
     });
 
     try {
-      // Create listener
-      const listener = Deno.listen({ 
-        hostname: this.host,
-        port: this.port,
+      // Create HTTP server
+      this.server = createServer(this.app);
+
+      // Create WebSocket server
+      this.wss = new WebSocketServer({ 
+        server: this.server,
+        path: '/ws'
       });
 
-      this.server = Deno.serve({
-        port: this.port,
-        hostname: this.host,
-        handler: (request) => this.handleRequest(request),
-        onListen: ({ hostname, port }) => {
-          this.logger.info(`HTTP server listening on ${hostname}:${port}`);
-        },
+      this.setupWebSocketHandlers();
+
+      // Start server
+      await new Promise<void>((resolve, reject) => {
+        this.server!.listen(this.port, this.host, () => {
+          this.logger.info(`HTTP server listening on ${this.host}:${this.port}`);
+          resolve();
+        });
+        
+        this.server!.on('error', reject);
       });
 
       this.running = true;
@@ -71,19 +88,28 @@ export class HttpTransport implements ITransport {
 
     this.running = false;
 
-    // Close all connections
-    for (const conn of this.connections) {
+    // Close all WebSocket connections
+    for (const ws of this.activeWebSockets) {
       try {
-        conn.close();
+        ws.close();
       } catch {
         // Ignore errors
       }
     }
+    this.activeWebSockets.clear();
     this.connections.clear();
 
-    // Shutdown server
+    // Close WebSocket server
+    if (this.wss) {
+      this.wss.close();
+      this.wss = undefined;
+    }
+
+    // Shutdown HTTP server
     if (this.server) {
-      await this.server.shutdown();
+      await new Promise<void>((resolve) => {
+        this.server!.close(() => resolve());
+      });
       this.server = undefined;
     }
 
@@ -115,189 +141,80 @@ export class HttpTransport implements ITransport {
     };
   }
 
-  private async handleRequest(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    const pathname = url.pathname;
+  private setupMiddleware(): void {
+    // Security middleware
+    this.app.use(helmet());
 
-    // Handle CORS preflight requests
-    if (request.method === 'OPTIONS') {
-      return this.handleCORS(request);
-    }
-
-    // Handle WebSocket upgrade for real-time notifications
-    if (request.headers.get('upgrade') === 'websocket' && pathname === '/ws') {
-      return this.handleWebSocketUpgrade(request);
-    }
-
-    // Only accept POST requests to /rpc for JSON-RPC
-    if (request.method !== 'POST' || pathname !== '/rpc') {
-      return this.createErrorResponse(405, 'Method not allowed');
-    }
-
-    // Add CORS headers to all responses
-    const headers = this.getCORSHeaders();
-    headers.set('content-type', 'application/json');
-
-    // Check content type
-    const contentType = request.headers.get('content-type');
-    if (!contentType?.includes('application/json')) {
-      return this.createErrorResponse(400, 'Invalid content type', headers);
-    }
-
-    // Check authorization if authentication is enabled
-    if (this.config?.auth?.enabled) {
-      const authResult = await this.validateAuth(request);
-      if (!authResult.valid) {
-        return this.createErrorResponse(401, authResult.error || 'Unauthorized', headers);
-      }
-    }
-
-    try {
-      // Parse request body
-      const body = await request.text();
-      
-      let mcpMessage: any;
-      try {
-        mcpMessage = JSON.parse(body);
-      } catch {
-        return new Response(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: null,
-            error: {
-              code: -32700,
-              message: 'Parse error',
-            },
-          }),
-          { status: 400, headers },
-        );
-      }
-
-      // Validate JSON-RPC format
-      if (!mcpMessage.jsonrpc || mcpMessage.jsonrpc !== '2.0') {
-        return new Response(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: mcpMessage.id || null,
-            error: {
-              code: -32600,
-              message: 'Invalid request - missing or invalid jsonrpc version',
-            },
-          }),
-          { status: 400, headers },
-        );
-      }
-
-      if (!mcpMessage.method) {
-        return new Response(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: mcpMessage.id || null,
-            error: {
-              code: -32600,
-              message: 'Invalid request - missing method',
-            },
-          }),
-          { status: 400, headers },
-        );
-      }
-
-      this.messageCount++;
-
-      // Check if this is a notification (no id) or request
-      if (mcpMessage.id === undefined) {
-        // Handle notification
-        await this.handleNotificationMessage(mcpMessage as MCPNotification);
-        // Notifications don't get responses
-        return new Response('', { status: 204, headers });
-      } else {
-        // Handle request
-        const response = await this.handleRequestMessage(mcpMessage as MCPRequest);
-        return new Response(JSON.stringify(response), { status: 200, headers });
-      }
-    } catch (error) {
-      this.logger.error('Error handling HTTP request', error);
-
-      return new Response(
-        JSON.stringify({
-          jsonrpc: '2.0',
-          id: null,
-          error: {
-            code: -32603,
-            message: 'Internal error',
-            data: error instanceof Error ? error.message : String(error),
-          },
-        }),
-        { status: 500, headers },
-      );
-    }
-  }
-
-  private handleCORS(request: Request): Response {
-    const headers = this.getCORSHeaders();
-    
-    // Handle preflight request
-    const requestMethod = request.headers.get('access-control-request-method');
-    const requestHeaders = request.headers.get('access-control-request-headers');
-
-    if (requestMethod) {
-      headers.set('access-control-allow-methods', 'POST, OPTIONS');
-    }
-    
-    if (requestHeaders) {
-      headers.set('access-control-allow-headers', requestHeaders);
-    }
-
-    return new Response('', { status: 204, headers });
-  }
-
-  private getCORSHeaders(): Headers {
-    const headers = new Headers();
-    
+    // CORS middleware
     if (this.config?.corsEnabled) {
       const origins = this.config.corsOrigins || ['*'];
-      headers.set('access-control-allow-origin', origins.join(', '));
-      headers.set('access-control-allow-credentials', 'true');
-      headers.set('access-control-max-age', '86400'); // 24 hours
+      this.app.use(cors({
+        origin: origins,
+        credentials: true,
+        maxAge: 86400, // 24 hours
+      }));
     }
 
-    return headers;
+    // Body parsing middleware
+    this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.text());
   }
 
-  private async handleWebSocketUpgrade(request: Request): Promise<Response> {
-    try {
-      // Check authentication for WebSocket connections
-      if (this.config?.auth?.enabled) {
-        const authResult = await this.validateAuth(request);
-        if (!authResult.valid) {
-          return this.createErrorResponse(401, authResult.error || 'Unauthorized');
-        }
-      }
+  private setupRoutes(): void {
+    // Health check endpoint
+    this.app.get('/health', (req, res) => {
+      res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    });
 
-      const { socket, response } = Deno.upgradeWebSocket(request);
-      
-      socket.onopen = () => {
-        this.activeWebSockets.add(socket);
-        this.logger.info('WebSocket client connected', {
-          totalClients: this.activeWebSockets.size,
-        });
-      };
+    // MCP JSON-RPC endpoint
+    this.app.post('/rpc', async (req, res) => {
+      await this.handleJsonRpcRequest(req, res);
+    });
 
-      socket.onclose = () => {
-        this.activeWebSockets.delete(socket);
+    // Handle preflight requests
+    this.app.options('*', (req, res) => {
+      res.status(204).end();
+    });
+
+    // 404 handler
+    this.app.use((req, res) => {
+      res.status(404).json({ error: 'Not found' });
+    });
+
+    // Error handler
+    this.app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+      this.logger.error('Express error', err);
+      res.status(500).json({ 
+        error: 'Internal server error',
+        message: err.message 
+      });
+    });
+  }
+
+  private setupWebSocketHandlers(): void {
+    if (!this.wss) return;
+
+    this.wss.on('connection', (ws: WebSocket, req) => {
+      this.activeWebSockets.add(ws);
+      this.logger.info('WebSocket client connected', {
+        totalClients: this.activeWebSockets.size,
+      });
+
+      ws.on('close', () => {
+        this.activeWebSockets.delete(ws);
         this.logger.info('WebSocket client disconnected', {
           totalClients: this.activeWebSockets.size,
         });
-      };
+      });
 
-      socket.onerror = (error) => {
+      ws.on('error', (error) => {
         this.logger.error('WebSocket error', error);
-        this.activeWebSockets.delete(socket);
-      };
+        this.activeWebSockets.delete(ws);
+      });
 
-      socket.onmessage = async (event) => {
+      ws.on('message', async (data) => {
         try {
-          const message = JSON.parse(event.data);
+          const message = JSON.parse(data.toString());
           
           if (message.id === undefined) {
             // Notification from client
@@ -305,16 +222,16 @@ export class HttpTransport implements ITransport {
           } else {
             // Request from client
             const response = await this.handleRequestMessage(message as MCPRequest);
-            socket.send(JSON.stringify(response));
+            ws.send(JSON.stringify(response));
           }
         } catch (error) {
           this.logger.error('Error processing WebSocket message', error);
           
           // Send error response if it was a request
           try {
-            const parsed = JSON.parse(event.data);
+            const parsed = JSON.parse(data.toString());
             if (parsed.id !== undefined) {
-              socket.send(JSON.stringify({
+              ws.send(JSON.stringify({
                 jsonrpc: '2.0',
                 id: parsed.id,
                 error: {
@@ -327,14 +244,92 @@ export class HttpTransport implements ITransport {
             // Ignore parse errors for error responses
           }
         }
-      };
+      });
+    });
+  }
 
-      return response;
+  private async handleJsonRpcRequest(req: Request, res: Response): Promise<void> {
+    // Check content type
+    if (!req.is('application/json')) {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: -32600,
+          message: 'Invalid content type - expected application/json',
+        },
+      });
+      return;
+    }
+
+    // Check authorization if authentication is enabled
+    if (this.config?.auth?.enabled) {
+      const authResult = await this.validateAuth(req);
+      if (!authResult.valid) {
+        res.status(401).json({
+          error: authResult.error || 'Unauthorized'
+        });
+        return;
+      }
+    }
+
+    try {
+      const mcpMessage = req.body;
+
+      // Validate JSON-RPC format
+      if (!mcpMessage.jsonrpc || mcpMessage.jsonrpc !== '2.0') {
+        res.status(400).json({
+          jsonrpc: '2.0',
+          id: mcpMessage.id || null,
+          error: {
+            code: -32600,
+            message: 'Invalid request - missing or invalid jsonrpc version',
+          },
+        });
+        return;
+      }
+
+      if (!mcpMessage.method) {
+        res.status(400).json({
+          jsonrpc: '2.0',
+          id: mcpMessage.id || null,
+          error: {
+            code: -32600,
+            message: 'Invalid request - missing method',
+          },
+        });
+        return;
+      }
+
+      this.messageCount++;
+
+      // Check if this is a notification (no id) or request
+      if (mcpMessage.id === undefined) {
+        // Handle notification
+        await this.handleNotificationMessage(mcpMessage as MCPNotification);
+        // Notifications don't get responses
+        res.status(204).end();
+      } else {
+        // Handle request
+        const response = await this.handleRequestMessage(mcpMessage as MCPRequest);
+        res.json(response);
+      }
     } catch (error) {
-      this.logger.error('Error upgrading WebSocket connection', error);
-      return this.createErrorResponse(500, 'Failed to upgrade WebSocket connection');
+      this.logger.error('Error handling JSON-RPC request', error);
+
+      res.status(500).json({
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: -32603,
+          message: 'Internal error',
+          data: error instanceof Error ? error.message : String(error),
+        },
+      });
     }
   }
+
+
 
   private async handleRequestMessage(request: MCPRequest): Promise<MCPResponse> {
     if (!this.requestHandler) {
@@ -381,8 +376,8 @@ export class HttpTransport implements ITransport {
     }
   }
 
-  private async validateAuth(request: Request): Promise<{ valid: boolean; error?: string }> {
-    const auth = request.headers.get('authorization');
+  private async validateAuth(req: Request): Promise<{ valid: boolean; error?: string }> {
+    const auth = req.headers.authorization;
     
     if (!auth) {
       return { valid: false, error: 'Authorization header required' };
@@ -405,21 +400,6 @@ export class HttpTransport implements ITransport {
     }
 
     return { valid: true };
-  }
-
-  private createErrorResponse(status: number, message: string, headers?: Headers): Response {
-    const responseHeaders = headers || this.getCORSHeaders();
-    responseHeaders.set('content-type', 'application/json');
-
-    return new Response(
-      JSON.stringify({
-        error: {
-          code: status,
-          message,
-        },
-      }),
-      { status, headers: responseHeaders },
-    );
   }
 
   async connect(): Promise<void> {
@@ -452,5 +432,7 @@ export class HttpTransport implements ITransport {
         this.logger.error('Failed to send notification to WebSocket', error);
       }
     }
+    
+    this.notificationCount++;
   }
 }

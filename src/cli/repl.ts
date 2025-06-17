@@ -5,9 +5,9 @@
 import { Input, Confirm, Select } from '@cliffy/prompt';
 import { colors } from '@cliffy/ansi/colors';
 import { Table } from '@cliffy/table';
-import { AgentProfile, Task } from '../utils/types.ts';
-import { generateId } from '../utils/helpers.ts';
-import { formatStatusIndicator, formatDuration, formatProgressBar } from './formatter.ts';
+import { AgentProfile, Task } from '../utils/types.js';
+import { generateId } from '../utils/helpers.js';
+import { formatStatusIndicator, formatDuration, formatProgressBar } from './formatter.js';
 
 interface REPLCommand {
   name: string;

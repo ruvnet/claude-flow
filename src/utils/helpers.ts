@@ -517,3 +517,56 @@ export function circuitBreaker(
   };
 }
 
+/**
+ * Greeting function that returns a personalized greeting
+ */
+export function greeting(name?: string, options?: {
+  timeOfDay?: boolean;
+  formal?: boolean;
+  locale?: 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ja' | 'zh';
+}): string {
+  const opts = {
+    timeOfDay: false,
+    formal: false,
+    locale: 'en' as const,
+    ...options
+  };
+
+  // Determine time-based greeting
+  const getTimeGreeting = (): string => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    if (hour < 21) return 'Good evening';
+    return 'Good night';
+  };
+
+  // Get greeting by locale
+  const getLocaleGreeting = (): string => {
+    const greetings: Record<string, { informal: string; formal: string }> = {
+      en: { informal: 'Hello', formal: 'Greetings' },
+      es: { informal: 'Hola', formal: 'Saludos' },
+      fr: { informal: 'Salut', formal: 'Bonjour' },
+      de: { informal: 'Hallo', formal: 'Guten Tag' },
+      it: { informal: 'Ciao', formal: 'Salve' },
+      pt: { informal: 'Olá', formal: 'Saudações' },
+      ja: { informal: 'こんにちは', formal: 'ご挨拶' },
+      zh: { informal: '你好', formal: '您好' }
+    };
+
+    const localeGreeting = greetings[opts.locale] || greetings.en;
+    return opts.formal ? localeGreeting.formal : localeGreeting.informal;
+  };
+
+  // Build the greeting
+  let greetingText = opts.timeOfDay ? getTimeGreeting() : getLocaleGreeting();
+  
+  if (name) {
+    greetingText += `, ${name}`;
+  }
+  
+  greetingText += '!';
+  
+  return greetingText;
+}
+

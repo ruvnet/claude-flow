@@ -2,9 +2,9 @@
  * Dependency graph management for task scheduling
  */
 
-import { Task } from '../utils/types.ts';
-import { TaskDependencyError } from '../utils/errors.ts';
-import { ILogger } from '../core/logger.ts';
+import { Task } from '../utils/types.js';
+import { TaskDependencyError } from '../utils/errors.js';
+import { ILogger } from '../core/logger.js';
 
 export interface DependencyNode {
   taskId: string;

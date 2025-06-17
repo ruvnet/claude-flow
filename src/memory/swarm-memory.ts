@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
-import { Logger } from '../core/logger.ts';
-import { MemoryManager } from './manager.ts';
-import { generateId } from '../utils/helpers.ts';
+import { Logger } from '../core/logger.js';
+import { MemoryManager } from './manager.js';
+import { generateId } from '../utils/helpers.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 

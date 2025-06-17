@@ -88,36 +88,61 @@ All files should be created relative to the current working directory:
 - Avoid \`search_and_replace\` unless absolutely necessary
 - Always verify all tool parameters before execution
 
-## Next Steps
-After implementation, delegate to:
+## Next Steps - Sequential and Background Options
+After implementation, choose appropriate execution mode:
+
+### Sequential Mode (for simple follow-up tasks):
 - \`npx claude-flow sparc run tdd "Write comprehensive tests for ${taskDescription}" --non-interactive\`
-- \`npx claude-flow sparc run integration "Integrate ${taskDescription} with existing systems" --non-interactive\`
 - \`npx claude-flow sparc run security-review "Security audit for ${taskDescription}" --non-interactive\`
 
-## 🚀 Parallel Development with BatchTool
-Accelerate development by running multiple tasks concurrently:
+### Background Swarm Mode (for complex comprehensive tasks):
+- \`npx claude-flow swarm "Create comprehensive test suite with unit, integration, and e2e tests for ${taskDescription}" --strategy testing --background --parallel\`
+- \`npx claude-flow swarm "Perform full security audit and penetration testing for ${taskDescription}" --strategy analysis --background --review\`
+- \`npx claude-flow swarm "Generate complete documentation, API specs, and deployment guides for ${taskDescription}" --strategy research --background\`
+
+## 🐝 Enhanced Development with Background Swarms
+Leverage background swarm processing for large-scale development:
 
 \`\`\`bash
-# Parallel feature implementation
-batchtool run --parallel --max-concurrent 4 \\
-  "npx claude-flow sparc run code 'implement user model' --non-interactive" \\
-  "npx claude-flow sparc run code 'implement auth middleware' --non-interactive" \\
-  "npx claude-flow sparc run code 'implement API endpoints' --non-interactive" \\
-  "npx claude-flow sparc run code 'implement database schema' --non-interactive"
+# Background comprehensive implementation swarm
+npx claude-flow swarm "Implement complete ${taskDescription} with all modules, testing, and documentation" \\
+  --strategy development --background --parallel --monitor --testing \\
+  --max-agents 6 --output ./implementation
 
-# Boomerang pattern for feature development
-batchtool orchestrate --boomerang \\
-  --research "npx claude-flow sparc run ask 'best practices for ${taskDescription}' --non-interactive" \\
-  --design "npx claude-flow sparc run architect 'design ${taskDescription}' --non-interactive" \\
-  --implement "npx claude-flow sparc run code 'build ${taskDescription}' --non-interactive" \\
-  --test "npx claude-flow sparc run tdd 'test ${taskDescription}' --non-interactive" \\
-  --optimize "npx claude-flow sparc run optimization 'optimize ${taskDescription}' --non-interactive"
+# Background quality assurance swarm
+npx claude-flow swarm "Comprehensive QA including testing, security review, and performance optimization for ${taskDescription}" \\
+  --strategy testing --background --review --monitor \\
+  --output ./qa-results
 
-# Concurrent module development with dependencies
-batchtool run --dependency-aware \\
-  --task "auth:npx claude-flow sparc run code 'auth module' --non-interactive" \\
-  --task "user:npx claude-flow sparc run code 'user module' --non-interactive" \\
-  --task "api:npx claude-flow sparc run code 'API layer' --non-interactive:depends=auth,user" \\
-  --task "tests:npx claude-flow sparc run tdd 'all tests' --non-interactive:depends=api"
+# Background documentation and deployment swarm
+npx claude-flow swarm "Create production-ready documentation, deployment scripts, and monitoring for ${taskDescription}" \\
+  --strategy research --background --parallel \\
+  --output ./deployment-ready
+
+# Monitor all background development
+npx claude-flow status
+npx claude-flow monitor
+\`\`\`
+
+## 🔄 Hybrid SPARC-Swarm Development Workflow
+Combine SPARC modes with background swarms for optimal development velocity:
+
+\`\`\`bash
+# Phase 1: Quick prototyping (SPARC)
+npx claude-flow sparc run code "Core ${taskDescription} prototype" --non-interactive
+
+# Phase 2: Parallel background development (Swarm)
+npx claude-flow swarm "Full implementation of ${taskDescription} with advanced features" --strategy development --background --parallel &
+npx claude-flow swarm "Comprehensive testing strategy for ${taskDescription}" --strategy testing --background &
+npx claude-flow swarm "Security hardening and performance optimization" --strategy optimization --background &
+
+# Phase 3: Integration and deployment (Background)
+npx claude-flow swarm "Integration testing and production deployment preparation for ${taskDescription}" \\
+  --strategy integration --background --monitor --testing \\
+  --output ./production-ready
+
+# Monitor all development streams
+npx claude-flow status
+tail -f ./swarm-runs/*/swarm.log
 \`\`\``;
 }

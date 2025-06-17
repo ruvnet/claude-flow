@@ -2,10 +2,12 @@
  * Native terminal adapter implementation
  */
 
-import { ITerminalAdapter, Terminal } from './base.ts';
-import { ILogger } from '../../core/logger.ts';
-import { TerminalError, TerminalCommandError } from '../../utils/errors.ts';
-import { generateId, delay, timeout, createDeferred } from '../../utils/helpers.ts';
+import { spawn, ChildProcess } from 'child_process';
+import { platform } from 'os';
+import { ITerminalAdapter, Terminal } from './base.js';
+import { ILogger } from '../../core/logger.js';
+import { TerminalError, TerminalCommandError } from '../../utils/errors.js';
+import { generateId, delay, timeout, createDeferred } from '../../utils/helpers.js';
 
 /**
  * Platform-specific shell configuration
@@ -22,7 +24,7 @@ interface ShellConfig {
 class NativeTerminal implements Terminal {
   id: string;
   pid?: number;
-  private process?: Deno.ChildProcess | undefined;
+  private process?: ChildProcess | undefined;
   private encoder = new TextEncoder();
   private decoder = new TextDecoder();
   private shell: string;
@@ -32,8 +34,8 @@ class NativeTerminal implements Terminal {
   private commandDeferred?: ReturnType<typeof createDeferred<string>> | undefined;
   private outputListeners = new Set<(data: string) => void>();
   private alive = true;
-  private stdoutReader?: ReadableStreamDefaultReader<Uint8Array> | undefined;
-  private stderrReader?: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  private stdoutData = '';
+  private stderrData = '';
 
   constructor(shell: string, private logger: ILogger) {
     this.id = generateId('native-term');
@@ -46,29 +48,21 @@ class NativeTerminal implements Terminal {
       const shellConfig = this.getShellConfig();
       
       // Start shell process
-      const command = new Deno.Command(shellConfig.path, {
-        args: shellConfig.args,
-        stdin: 'piped',
-        stdout: 'piped',
-        stderr: 'piped',
+      this.process = spawn(shellConfig.path, shellConfig.args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
         env: {
-          ...Deno.env.toObject(),
+          ...process.env,
           ...shellConfig.env,
           CLAUDE_FLOW_TERMINAL: 'true',
           CLAUDE_FLOW_TERMINAL_ID: this.id,
         },
       });
-
-      this.process = command.spawn();
       
-      // Get PID if available
-      if ('pid' in this.process) {
-        this.pid = (this.process as any).pid;
-      }
+      // Get PID
+      this.pid = this.process.pid;
 
-      // Start output readers
-      this.startOutputReader();
-      this.startErrorReader();
+      // Set up output handlers
+      this.setupOutputHandlers();
 
       // Monitor process status
       this.monitorProcess();
@@ -121,12 +115,20 @@ class NativeTerminal implements Terminal {
       throw new TerminalError('Terminal is not alive');
     }
 
-    const writer = this.process.stdin.getWriter();
-    try {
-      await writer.write(this.encoder.encode(data));
-    } finally {
-      writer.releaseLock();
-    }
+    return new Promise((resolve, reject) => {
+      if (!this.process?.stdin) {
+        reject(new TerminalError('Process stdin not available'));
+        return;
+      }
+      
+      this.process.stdin.write(data, (error) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve();
+        }
+      });
+    });
   }
 
   async read(): Promise<string> {
@@ -150,12 +152,9 @@ class NativeTerminal implements Terminal {
     try {
       this.alive = false;
 
-      // Cancel readers
-      if (this.stdoutReader) {
-        await this.stdoutReader.cancel();
-      }
-      if (this.stderrReader) {
-        await this.stderrReader.cancel();
+      // Close streams
+      if (this.process.stdin && !this.process.stdin.destroyed) {
+        this.process.stdin.end();
       }
 
       // Try graceful shutdown first
@@ -172,16 +171,11 @@ class NativeTerminal implements Terminal {
         await delay(500);
         
         // Use SIGKILL if SIGTERM didn't work
-        this.process.kill('SIGKILL');
+        if (!this.process.killed) {
+          this.process.kill('SIGKILL');
+        }
       } catch {
         // Process might already be dead
-      }
-
-      // Wait for process to exit
-      try {
-        await this.process.status;
-      } catch {
-        // Ignore status errors
       }
     } catch (error) {
       this.logger.warn('Error killing native terminal', { id: this.id, error });
@@ -205,12 +199,12 @@ class NativeTerminal implements Terminal {
   }
 
   private getShellConfig(): ShellConfig {
-    const platform = Deno.build.os;
+    const osplatform = platform();
     
     switch (this.shell) {
       case 'bash':
         return {
-          path: platform === 'windows' ? 'C:\\Program Files\\Git\\bin\\bash.exe' : '/bin/bash',
+          path: osplatform === 'win32' ? 'C:\\Program Files\\Git\\bin\\bash.exe' : '/bin/bash',
           args: ['--norc', '--noprofile'],
           env: { PS1: '$ ' },
         };
@@ -224,7 +218,7 @@ class NativeTerminal implements Terminal {
       
       case 'powershell':
         return {
-          path: platform === 'windows' ? 'powershell.exe' : 'pwsh',
+          path: osplatform === 'win32' ? 'powershell.exe' : 'pwsh',
           args: ['-NoProfile', '-NonInteractive', '-NoLogo'],
         };
       
@@ -245,12 +239,12 @@ class NativeTerminal implements Terminal {
   }
 
   private wrapCommand(command: string): string {
-    const platform = Deno.build.os;
+    const osplatform = platform();
     
     if (this.shell === 'powershell') {
       // PowerShell command wrapping
       return `${command}; Write-Host "${this.commandMarker}"`;
-    } else if (this.shell === 'cmd' && platform === 'windows') {
+    } else if (this.shell === 'cmd' && osplatform === 'win32') {
       // Windows CMD command wrapping
       return `${command} & echo ${this.commandMarker}`;
     } else {
@@ -259,47 +253,30 @@ class NativeTerminal implements Terminal {
     }
   }
 
-  private async startOutputReader(): Promise<void> {
+  private setupOutputHandlers(): void {
     if (!this.process) return;
 
-    this.stdoutReader = this.process.stdout.getReader();
-    
-    try {
-      while (this.alive) {
-        const { done, value } = await this.stdoutReader.read();
-        if (done) break;
-        
-        const text = this.decoder.decode(value);
-        this.processOutput(text);
-      }
-    } catch (error) {
-      if (this.alive) {
-        this.logger.error('Error reading stdout', { id: this.id, error });
-      }
-    }
-  }
+    // Handle stdout
+    this.process.stdout?.on('data', (data: Buffer) => {
+      const text = data.toString();
+      this.processOutput(text);
+    });
 
-  private async startErrorReader(): Promise<void> {
-    if (!this.process) return;
+    // Handle stderr
+    this.process.stderr?.on('data', (data: Buffer) => {
+      const text = data.toString();
+      this.errorBuffer += text;
+      
+      // Also send stderr to output listeners
+      this.notifyListeners(text);
+    });
 
-    this.stderrReader = this.process.stderr.getReader();
-    
-    try {
-      while (this.alive) {
-        const { done, value } = await this.stderrReader.read();
-        if (done) break;
-        
-        const text = this.decoder.decode(value);
-        this.errorBuffer += text;
-        
-        // Also send stderr to output listeners
-        this.notifyListeners(text);
-      }
-    } catch (error) {
+    // Handle process errors
+    this.process.on('error', (error) => {
       if (this.alive) {
-        this.logger.error('Error reading stderr', { id: this.id, error });
+        this.logger.error('Process error', { id: this.id, error });
       }
-    }
+    });
   }
 
   private processOutput(text: string): void {
@@ -342,23 +319,29 @@ class NativeTerminal implements Terminal {
   private async monitorProcess(): Promise<void> {
     if (!this.process) return;
 
-    try {
-      const status = await this.process.status;
+    this.process.on('exit', (code, signal) => {
       this.logger.info('Terminal process exited', { 
         id: this.id, 
-        code: status.code,
-        signal: status.signal,
+        code,
+        signal,
       });
-    } catch (error) {
-      this.logger.error('Error monitoring process', { id: this.id, error });
-    } finally {
       this.alive = false;
       
       // Reject any pending command
       if (this.commandDeferred) {
         this.commandDeferred.reject(new Error('Terminal process exited'));
       }
-    }
+    });
+
+    this.process.on('error', (error) => {
+      this.logger.error('Error monitoring process', { id: this.id, error });
+      this.alive = false;
+      
+      // Reject any pending command
+      if (this.commandDeferred) {
+        this.commandDeferred.reject(error);
+      }
+    });
   }
 
   private async waitForReady(): Promise<void> {
@@ -400,10 +383,10 @@ export class NativeAdapter implements ITerminalAdapter {
     // Verify shell is available
     try {
       const testConfig = this.getTestCommand();
-      const command = new Deno.Command(testConfig.cmd, { args: testConfig.args });
-      const { success } = await command.output();
+      const { spawnSync } = require('child_process');
+      const result = spawnSync(testConfig.cmd, testConfig.args, { stdio: 'ignore' });
       
-      if (!success) {
+      if (result.status !== 0) {
         throw new Error('Shell test failed');
       }
     } catch (error) {
@@ -437,20 +420,20 @@ export class NativeAdapter implements ITerminalAdapter {
   }
 
   private detectShell(): string {
-    const platform = Deno.build.os;
+    const osplatform = platform();
     
-    if (platform === 'windows') {
+    if (osplatform === 'win32') {
       // Windows shell detection
-      const comspec = Deno.env.get('COMSPEC');
+      const comspec = process.env.COMSPEC;
       if (comspec?.toLowerCase().includes('powershell')) {
         return 'powershell';
       }
       
       // Check if PowerShell is available
       try {
-        const command = new Deno.Command('powershell', { args: ['-Version'] });
-        const { success } = command.outputSync();
-        if (success) {
+        const { spawnSync } = require('child_process');
+        const result = spawnSync('powershell', ['-Version'], { stdio: 'ignore' });
+        if (result.status === 0) {
           return 'powershell';
         }
       } catch {
@@ -460,7 +443,7 @@ export class NativeAdapter implements ITerminalAdapter {
       return 'cmd';
     } else {
       // Unix-like shell detection
-      const shell = Deno.env.get('SHELL');
+      const shell = process.env.SHELL;
       if (shell) {
         const shellName = shell.split('/').pop();
         if (shellName && this.isShellSupported(shellName)) {
@@ -472,9 +455,9 @@ export class NativeAdapter implements ITerminalAdapter {
       const shells = ['bash', 'zsh', 'sh'];
       for (const shell of shells) {
         try {
-          const command = new Deno.Command('which', { args: [shell] });
-          const { success } = command.outputSync();
-          if (success) {
+          const { spawnSync } = require('child_process');
+          const result = spawnSync('which', [shell], { stdio: 'ignore' });
+          if (result.status === 0) {
             return shell;
           }
         } catch {

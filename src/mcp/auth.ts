@@ -2,9 +2,9 @@
  * Authentication and authorization for MCP
  */
 
-import { MCPAuthConfig, MCPSession } from '../utils/types.ts';
-import { ILogger } from '../core/logger.ts';
-import { MCPError } from '../utils/errors.ts';
+import { MCPAuthConfig, MCPSession } from '../utils/types.js';
+import { ILogger } from '../core/logger.js';
+import { MCPError } from '../utils/errors.js';
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 export interface IAuthManager {

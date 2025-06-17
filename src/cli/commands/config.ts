@@ -1,12 +1,14 @@
 /**
- * Configuration management commands
+ * Enterprise Configuration Management Commands
+ * Features: Security masking, multi-format support, validation, change tracking
  */
 
 import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
-import { Confirm } from '@cliffy/prompt';
-import { configManager } from '../../core/config.ts';
-import { deepMerge } from '../../utils/helpers.ts';
+import { Confirm, Input, Select } from '@cliffy/prompt';
+import { configManager } from '../../core/config.js';
+import { deepMerge } from '../../utils/helpers.js';
+import { join } from 'path';
 
 export const configCommand = new Command()
   .description('Manage Claude-Flow configuration')
@@ -41,20 +43,27 @@ export const configCommand = new Command()
     .description('Get a specific configuration value')
     .arguments('<path:string>')
     .action(async (options: any, path: string) => {
-      const value = configManager.getValue(path);
-      
-      if (value === undefined) {
-        console.error(colors.red(`Configuration path not found: ${path}`));
-        Deno.exit(1);
-      } else {
-        console.log(JSON.stringify(value, null, 2));
+      try {
+        const value = configManager.getValue(path);
+        
+        if (value === undefined) {
+          console.error(colors.red(`Configuration path not found: ${path}`));
+          Deno.exit(1);
+        } else {
+          console.log(JSON.stringify(value, null, 2));
+        }
+      } catch (error) {
+        console.error(colors.red('Failed to get configuration value:'), (error as Error).message);
+        process.exit(1);
       }
     }),
   )
   .command('set', new Command()
-    .description('Set a configuration value')
+    .description('Set a configuration value with validation and change tracking')
     .arguments('<path:string> <value:string>')
     .option('--type <type:string>', 'Value type (string, number, boolean, json)', { default: 'auto' })
+    .option('--reason <reason:string>', 'Reason for the change (for audit trail)')
+    .option('--force', 'Skip validation warnings')
     .action(async (options: any, path: string, value: string) => {
       try {
         let parsedValue: any;
@@ -84,8 +93,16 @@ export const configCommand = new Command()
             }
         }
 
-        configManager.set(path, parsedValue);
+        // Get user info for change tracking
+        const user = process.env.USER || process.env.USERNAME || 'unknown';
+        const reason = options.reason;
+        
+        configManager.set(path, parsedValue, { user, reason, source: 'cli' });
         console.log(colors.green('✓'), `Set ${path} = ${JSON.stringify(parsedValue)}`);
+        
+        if (reason) {
+          console.log(colors.gray(`Reason: ${reason}`));
+        }
       } catch (error) {
         console.error(colors.red('Failed to set configuration:'), (error as Error).message);
         Deno.exit(1);
@@ -113,10 +130,12 @@ export const configCommand = new Command()
     }),
   )
   .command('init', new Command()
-    .description('Initialize a new configuration file')
+    .description('Initialize a new configuration file with enterprise templates')
     .arguments('[output-file:string]')
     .option('--force', 'Overwrite existing file')
-    .option('--template <template:string>', 'Use configuration template', { default: 'default' })
+    .option('--template <template:string>', 'Configuration template (default, development, production, minimal, testing, enterprise)', { default: 'default' })
+    .option('--format <format:string>', 'Output format (json, yaml, toml)', { default: 'json' })
+    .option('--interactive', 'Interactive template selection')
     .action(async (options: any, outputFile: string = 'claude-flow.config.json') => {
       try {
         // Check if file exists
@@ -131,11 +150,35 @@ export const configCommand = new Command()
           // File doesn't exist, which is what we want
         }
 
-        const config = getConfigTemplate(options.template);
-        await Deno.writeTextFile(outputFile, JSON.stringify(config, null, 2));
+        let templateName = options.template;
+        
+        // Interactive template selection
+        if (options.interactive) {
+          const availableTemplates = configManager.getAvailableTemplates();
+          templateName = await Select.prompt({
+            message: 'Select configuration template:',
+            options: availableTemplates.map(name => ({
+              name: name,
+              value: name
+            }))
+          });
+        }
+        
+        const config = configManager.createTemplate(templateName);
+        
+        // Detect format from file extension or use option
+        const ext = outputFile.split('.').pop()?.toLowerCase();
+        const format = options.format || (ext === 'yaml' || ext === 'yml' ? 'yaml' : ext === 'toml' ? 'toml' : 'json');
+        
+        const formatParsers = configManager.getFormatParsers();
+        const parser = formatParsers[format];
+        const content = parser ? parser.stringify(config) : JSON.stringify(config, null, 2);
+        
+        await Deno.writeTextFile(outputFile, content);
         
         console.log(colors.green('✓'), `Configuration file created: ${outputFile}`);
-        console.log(colors.gray(`Template: ${options.template}`));
+        console.log(colors.gray(`Template: ${templateName}`));
+        console.log(colors.gray(`Format: ${format}`));
       } catch (error) {
         console.error(colors.red('Failed to create configuration file:'), (error as Error).message);
         Deno.exit(1);
@@ -149,11 +192,23 @@ export const configCommand = new Command()
     .action(async (options: any, configFile: string) => {
       try {
         await configManager.load(configFile);
-        console.log(colors.green('✓'), 'Configuration is valid');
+        console.log(colors.blue('Validating configuration file:'), configFile);
         
-        if (options.strict) {
-          const schema = configManager.getSchema();
-          console.log(colors.gray('Schema validation passed'));
+        // Use the new comprehensive validation method
+        const result = await configManager.validateFile(configFile);
+        
+        if (result.valid) {
+          console.log(colors.green('✓'), 'Configuration is valid');
+          
+          if (options.strict) {
+            console.log(colors.gray('✓ Strict validation passed'));
+          }
+        } else {
+          console.error(colors.red('✗'), 'Configuration validation failed:');
+          result.errors.forEach(error => {
+            console.error(colors.red(`  • ${error}`));
+          });
+          Deno.exit(1);
         }
       } catch (error) {
         console.error(colors.red('✗'), 'Configuration validation failed:');
@@ -338,7 +393,151 @@ export const configCommand = new Command()
         console.log(JSON.stringify(schema, null, 2));
       }
     }),
+  )
+  .command('history', new Command()
+    .description('Show configuration change history')
+    .option('--path <path:string>', 'Show history for specific configuration path')
+    .option('--limit <limit:number>', 'Maximum number of changes to show', { default: 20 })
+    .option('--format <format:string>', 'Output format (json, table)', { default: 'table' })
+    .action(async (options: any) => {
+      try {
+        const changes = options.path 
+          ? configManager.getPathHistory(options.path, options.limit)
+          : configManager.getChangeHistory(options.limit);
+        
+        if (changes.length === 0) {
+          console.log(colors.gray('No configuration changes found'));
+          return;
+        }
+        
+        if (options.format === 'json') {
+          console.log(JSON.stringify(changes, null, 2));
+        } else {
+          console.log(colors.cyan.bold(`Configuration Change History (${changes.length} changes)`));
+          console.log('─'.repeat(80));
+          
+          changes.reverse().forEach((change, index) => {
+            const timestamp = new Date(change.timestamp).toLocaleString();
+            const user = change.user || 'system';
+            const source = change.source || 'unknown';
+            
+            console.log(`${colors.green(timestamp)} | ${colors.blue(user)} | ${colors.yellow(source)}`);
+            console.log(`Path: ${colors.cyan(change.path)}`);
+            
+            if (change.reason) {
+              console.log(`Reason: ${colors.gray(change.reason)}`);
+            }
+            
+            if (change.oldValue !== undefined && change.newValue !== undefined) {
+              console.log(`Old: ${colors.red(JSON.stringify(change.oldValue))}`);
+              console.log(`New: ${colors.green(JSON.stringify(change.newValue))}`);
+            }
+            
+            if (index < changes.length - 1) {
+              console.log('');
+            }
+          });
+        }
+      } catch (error) {
+        console.error(colors.red('Failed to get change history:'), (error as Error).message);
+      }
+    }),
+  )
+  .command('backup', new Command()
+    .description('Backup current configuration')
+    .arguments('[backup-path:string]')
+    .option('--auto-name', 'Generate automatic backup filename')
+    .action(async (options: any, backupPath?: string) => {
+      try {
+        const finalPath = backupPath || (options.autoName ? undefined : 'config-backup.json');
+        const savedPath = await configManager.backup(finalPath);
+        
+        console.log(colors.green('✓'), `Configuration backed up to: ${savedPath}`);
+        console.log(colors.gray(`Backup includes configuration and recent change history`));
+      } catch (error) {
+        console.error(colors.red('Failed to backup configuration:'), (error as Error).message);
+        process.exit(1);
+      }
+    }),
+  )
+  .command('restore', new Command()
+    .description('Restore configuration from backup')
+    .arguments('<backup-path:string>')
+    .option('--force', 'Skip confirmation prompt')
+    .action(async (options: any, backupPath: string) => {
+      try {
+        if (!options.force) {
+          const confirmed = await Confirm.prompt({
+            message: `Restore configuration from ${backupPath}? This will overwrite current configuration.`,
+            default: false,
+          });
+          
+          if (!confirmed) {
+            console.log(colors.gray('Restore cancelled'));
+            return;
+          }
+        }
+        
+        await configManager.restore(backupPath);
+        console.log(colors.green('✓'), 'Configuration restored successfully');
+        console.log(colors.yellow('⚠️'), 'You may need to restart the application for changes to take effect');
+      } catch (error) {
+        console.error(colors.red('Failed to restore configuration:'), (error as Error).message);
+        process.exit(1);
+      }
+    }),
+  )
+  .command('templates', new Command()
+    .description('List available configuration templates')
+    .option('--detailed', 'Show detailed template information')
+    .action(async (options: any) => {
+      try {
+        const templates = configManager.getAvailableTemplates();
+        
+        console.log(colors.cyan.bold(`Available Configuration Templates (${templates.length})`));
+        console.log('─'.repeat(50));
+        
+        for (const template of templates) {
+          console.log(colors.green('●'), colors.bold(template));
+          
+          if (options.detailed) {
+            try {
+              const config = configManager.createTemplate(template);
+              const description = getTemplateDescription(template);
+              console.log(`  ${colors.gray(description)}`);
+              
+              if (config.orchestrator) {
+                console.log(`  Max Agents: ${colors.cyan(config.orchestrator.maxConcurrentAgents)}`);
+              }
+              if (config.logging) {
+                console.log(`  Log Level: ${colors.cyan(config.logging.level)}`);
+              }
+            } catch (error) {
+              console.log(`  ${colors.red('Error loading template')}`);
+            }
+          }
+          
+          console.log('');
+        }
+      } catch (error) {
+        console.error(colors.red('Failed to list templates:'), (error as Error).message);
+      }
+    }),
   );
+
+// Helper function for template descriptions
+function getTemplateDescription(templateName: string): string {
+  const descriptions: Record<string, string> = {
+    default: 'Standard configuration with balanced settings',
+    development: 'Optimized for development with debug logging and lower limits',
+    production: 'Production-ready with enhanced security and performance',
+    minimal: 'Minimal resource usage for constrained environments',
+    testing: 'Optimized for testing with fast feedback and lower retention',
+    enterprise: 'Enterprise-grade with maximum security and scalability'
+  };
+  
+  return descriptions[templateName] || 'Custom configuration template';
+}
 
 function getValueByPath(obj: any, path: string): any {
   const parts = path.split('.');
@@ -355,6 +554,7 @@ function getValueByPath(obj: any, path: string): any {
   return current;
 }
 
+// Legacy function - now replaced by configManager.createTemplate()
 function getConfigTemplate(templateName: string): any {
   const templates: Record<string, any> = {
     default: configManager.get(),

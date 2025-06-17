@@ -1,3 +1,6 @@
+[0m[32mCheck[0m file:///workspaces/claude-code-flow/tests/integration/cli/init/e2e-workflow.test.ts
+[0m[32mCheck[0m file:///workspaces/claude-code-flow/tests/integration/cli/init/full-init-flow.test.ts
+[0m[32mCheck[0m file:///workspaces/claude-code-flow/tests/integration/cli/init/selective-modes.test.ts
 [0m[32mCheck[0m file:///workspaces/claude-code-flow/tests/integration/full-system.test.ts
 [0m[32mCheck[0m file:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts
 [0m[32mCheck[0m file:///workspaces/claude-code-flow/tests/integration/mcp.test.ts
@@ -6,15 +9,10 @@
 [0m[32mCheck[0m file:///workspaces/claude-code-flow/tests/integration/start-command.test.ts
 [0m[32mCheck[0m file:///workspaces/claude-code-flow/tests/integration/start-compatibility.test.ts
 [0m[32mCheck[0m file:///workspaces/claude-code-flow/tests/integration/terminal.test.ts
-[0m[1mTS2345 [0m[ERROR]: Argument of type '(options: StartOptions) => Promise<void>' is not assignable to parameter of type 'ActionHandler<{ daemon?: true | undefined; } & { port: number | (NumberType & number); } & { mcpTransport: string | (StringType & string); } & { ui?: true | undefined; } & { ...; } & { ...; } & { ...; }, ... 6 more ..., undefined>'.
-  Types of parameters 'options' and 'options' are incompatible.
-    Type '{ daemon?: true | undefined; port: number; mcpTransport: string; ui?: true | undefined; verbose?: true | undefined; autoStart?: true | undefined; config?: string; }' is not assignable to type 'StartOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
-      Types of property 'daemon' are incompatible.
-        Type 'boolean | undefined' is not assignable to type 'boolean'.
-          Type 'undefined' is not assignable to type 'boolean'.
-  .action(async (options: StartOptions) => {
-[0m[31m          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/src/cli/commands/start/start-command.ts[0m:[0m[33m25[0m:[0m[33m11[0m
+[0m[1mTS2339 [0m[ERROR]: Property 'value' does not exist on type 'never'.
+    const choice = typeof result === 'string' ? result : result.value;
+[0m[31m                                                                ~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/src/cli/commands/help.ts[0m:[0m[33m801[0m:[0m[33m65[0m
 
 [0m[1mTS2304 [0m[ERROR]: Cannot find name 'Command'.
 const cli = new Command()
@@ -151,6 +149,16 @@ const cli = new Command()
 [0m[31m                                ~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/full-system.test.ts[0m:[0m[33m177[0m:[0m[33m33[0m
 
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(researchTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/full-system.test.ts[0m:[0m[33m203[0m:[0m[33m23[0m
+
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(implementTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/full-system.test.ts[0m:[0m[33m204[0m:[0m[33m23[0m
+
 [0m[1mTS2339 [0m[ERROR]: Property 'executeTask' does not exist on type 'Orchestrator'.
       const researchResult = await orchestrator.executeTask(researchTask);
 [0m[31m                                                ~~~~~~~~~~~[0m
@@ -185,6 +193,16 @@ const cli = new Command()
             await memoryManager.storeEntry({
 [0m[31m                                ~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/full-system.test.ts[0m:[0m[33m353[0m:[0m[33m33[0m
+
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(coordinationTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/full-system.test.ts[0m:[0m[33m379[0m:[0m[33m23[0m
+
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(statusTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/full-system.test.ts[0m:[0m[33m380[0m:[0m[33m23[0m
 
 [0m[1mTS2339 [0m[ERROR]: Property 'executeTask' does not exist on type 'Orchestrator'.
         coordinationTasks.map(task => orchestrator.executeTask(task))
@@ -226,6 +244,11 @@ const cli = new Command()
 [0m[31m                                      ~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/full-system.test.ts[0m:[0m[33m478[0m:[0m[33m39[0m
 
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(heavyTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/full-system.test.ts[0m:[0m[33m515[0m:[0m[33m23[0m
+
 [0m[1mTS2339 [0m[ERROR]: Property 'executeTask' does not exist on type 'Orchestrator'.
         heavyTasks.map(task => orchestrator.executeTask(task))
 [0m[31m                                            ~~~~~~~~~~~[0m
@@ -245,6 +268,11 @@ const cli = new Command()
       const activeSessions = orchestrator.getActiveSessions();
 [0m[31m                                          ~~~~~~~~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/full-system.test.ts[0m:[0m[33m580[0m:[0m[33m43[0m
+
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(unreliableTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/full-system.test.ts[0m:[0m[33m614[0m:[0m[33m23[0m
 
 [0m[1mTS2339 [0m[ERROR]: Property 'executeTask' does not exist on type 'Orchestrator'.
         resilientTasks.map(task => orchestrator.executeTask(task))
@@ -291,6 +319,11 @@ const cli = new Command()
 [0m[31m                                      ~~~~~~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/full-system.test.ts[0m:[0m[33m721[0m:[0m[33m39[0m
 
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(conflictTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/full-system.test.ts[0m:[0m[33m726[0m:[0m[33m23[0m
+
 [0m[1mTS2339 [0m[ERROR]: Property 'executeTask' does not exist on type 'Orchestrator'.
         conflictTasks.map(task => orchestrator.executeTask(task))
 [0m[31m                                               ~~~~~~~~~~~[0m
@@ -315,6 +348,11 @@ const cli = new Command()
       assertEquals(coordinationManager.releaseResource.calls.length, 3);
 [0m[31m                                       ~~~~~~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/full-system.test.ts[0m:[0m[33m780[0m:[0m[33m40[0m
+
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(metricsTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/full-system.test.ts[0m:[0m[33m808[0m:[0m[33m23[0m
 
 [0m[1mTS2339 [0m[ERROR]: Property 'executeTask' does not exist on type 'Orchestrator'.
         workloadTasks.map(task => orchestrator.executeTask(task))
@@ -346,6 +384,11 @@ import { MockMCPServer, MockMCPTransport } from '../mocks/index.ts';
 [0m[31m                      ~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m58[0m:[0m[33m23[0m
 
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(testTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m89[0m:[0m[33m23[0m
+
 [0m[1mTS2339 [0m[ERROR]: Property 'listTools' does not exist on type 'MockMCPServer'.
       const tools = await mcpServer.listTools();
 [0m[31m                                    ~~~~~~~~~[0m
@@ -361,6 +404,11 @@ import { MockMCPServer, MockMCPTransport } from '../mocks/index.ts';
 [0m[31m                      ~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m121[0m:[0m[33m23[0m
 
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(errorTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m136[0m:[0m[33m23[0m
+
 [0m[1mTS2339 [0m[ERROR]: Property 'executeTool' does not exist on type 'MockMCPServer'.
       const result = await mcpServer.executeTool(toolCall, context);
 [0m[31m                                     ~~~~~~~~~~~[0m
@@ -371,6 +419,11 @@ import { MockMCPServer, MockMCPTransport } from '../mocks/index.ts';
 [0m[31m                      ~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m157[0m:[0m[33m23[0m
 
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(strictTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m181[0m:[0m[33m23[0m
+
 [0m[1mTS2339 [0m[ERROR]: Property 'executeTool' does not exist on type 'MockMCPServer'.
       const result = await mcpServer.executeTool(invalidCall, context);
 [0m[31m                                     ~~~~~~~~~~~[0m
@@ -380,6 +433,11 @@ import { MockMCPServer, MockMCPTransport } from '../mocks/index.ts';
       await mcpServer.initialize();
 [0m[31m                      ~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m206[0m:[0m[33m23[0m
+
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(resourceTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m237[0m:[0m[33m23[0m
 
 [0m[1mTS2339 [0m[ERROR]: Property 'executeTool' does not exist on type 'MockMCPServer'.
         await mcpServer.executeTool(incrementCall, context);
@@ -401,6 +459,29 @@ import { MockMCPServer, MockMCPTransport } from '../mocks/index.ts';
 [0m[31m                      ~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m279[0m:[0m[33m23[0m
 
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(tool1);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m296[0m:[0m[33m23[0m
+
+[0m[1mTS2322 [0m[ERROR]: Type 'void' is not assignable to type 'PromiseLike<unknown>'.
+        () => mcpServer.registerTool(tool2),
+[0m[31m              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m300[0m:[0m[33m15[0m
+
+    The expected type comes from the return type of this signature.
+      fn: () => PromiseLike<unknown>,
+    [0m[36m      ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+        at [0m[36mhttps://deno.land/std@0.220.0/assert/assert_rejects.ts[0m:[0m[33m38[0m:[0m[33m7[0m[0m[1mTS1356 [0m[ERROR]:     Did you mean to mark this function as 'async'?
+            () => mcpServer.registerTool(tool2),
+    [0m[31m        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+        at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m300[0m:[0m[33m9[0m
+
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+        () => mcpServer.registerTool(tool2),
+[0m[31m                        ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m300[0m:[0m[33m25[0m
+
 [0m[1mTS2339 [0m[ERROR]: Property 'listTools' does not exist on type 'MockMCPServer'.
       const tools = await mcpServer.listTools();
 [0m[31m                                    ~~~~~~~~~[0m
@@ -410,6 +491,11 @@ import { MockMCPServer, MockMCPTransport } from '../mocks/index.ts';
       await mcpServer.initialize();
 [0m[31m                      ~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m314[0m:[0m[33m23[0m
+
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(calcTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m360[0m:[0m[33m23[0m
 
 [0m[1mTS2339 [0m[ERROR]: Property 'handleRequest' does not exist on type 'MockMCPServer'.
       const response = await mcpServer.handleRequest(request);
@@ -441,6 +527,11 @@ import { MockMCPServer, MockMCPTransport } from '../mocks/index.ts';
 [0m[31m                      ~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m426[0m:[0m[33m23[0m
 
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(echoTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m447[0m:[0m[33m23[0m
+
 [0m[1mTS2339 [0m[ERROR]: Property 'initialize' does not exist on type 'MockMCPServer'.
       await mcpServer.initialize();
 [0m[31m                      ~~~~~~~~~~[0m
@@ -456,6 +547,16 @@ import { MockMCPServer, MockMCPTransport } from '../mocks/index.ts';
 [0m[31m                      ~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m498[0m:[0m[33m23[0m
 
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(researchTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m539[0m:[0m[33m23[0m
+
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(codeTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m540[0m:[0m[33m23[0m
+
 [0m[1mTS2339 [0m[ERROR]: Property 'executeTool' does not exist on type 'MockMCPServer'.
       const searchResult = await mcpServer.executeTool(searchCall, researchContext);
 [0m[31m                                           ~~~~~~~~~~~[0m
@@ -470,6 +571,11 @@ import { MockMCPServer, MockMCPTransport } from '../mocks/index.ts';
       await mcpServer.initialize();
 [0m[31m                      ~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m602[0m:[0m[33m23[0m
+
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(perfTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m630[0m:[0m[33m23[0m
 
 [0m[1mTS2339 [0m[ERROR]: Property 'executeTool' does not exist on type 'MockMCPServer'.
         return mcpServer.executeTool(toolCall, context);
@@ -490,6 +596,11 @@ import { MockMCPServer, MockMCPTransport } from '../mocks/index.ts';
       await mcpServer.initialize();
 [0m[31m                      ~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m664[0m:[0m[33m23[0m
+
+[0m[1mTS2554 [0m[ERROR]: Expected 2 arguments, but got 1.
+      await mcpServer.registerTool(slowTool);
+[0m[31m                      ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/mcp-integration.test.ts[0m:[0m[33m682[0m:[0m[33m23[0m
 
 [0m[1mTS2339 [0m[ERROR]: Property 'executeTool' does not exist on type 'MockMCPServer'.
       const result = await mcpServer.executeTool(toolCall, context);
@@ -992,103 +1103,7 @@ import { describe, it, beforeEach, afterEach, expect } from 'https://deno.land/s
 [0m[31m                   ~~~~~~~~~~~~~~[0m
     at [0m[36mfile:///workspaces/claude-code-flow/tests/integration/terminal.test.ts[0m:[0m[33m283[0m:[0m[33m20[0m
 
-[0m[1mTS7053 [0m[ERROR]: Element implicitly has an 'any' type because expression of type '"spyMethod"' can't be used to index type '{}'.
-  Property 'spyMethod' does not exist on type '{}'.
-  mockObj[methodName] = implementation || (() => {});
-[0m[31m  ~~~~~~~~~~~~~~~~~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m60[0m:[0m[33m3[0m
-
-[0m[1mTS2345 [0m[ERROR]: Argument of type '"spyMethod"' is not assignable to parameter of type 'never'.
-  return stub(mockObj, methodName) as any;
-[0m[31m                       ~~~~~~~~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m61[0m:[0m[33m24[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'AgentProfile'.
-  private terminals = new Map<string, { profile: AgentProfile; output: string[] }>();
-[0m[31m                                                 ~~~~~~~~~~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m156[0m:[0m[33m50[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'Task'.
-  private tasks = new Map<string, { task: Task; agentId: string }>();
-[0m[31m                                          ~~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m342[0m:[0m[33m43[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'Task'.
-  private agentTasks = new Map<string, Task[]>();
-[0m[31m                                       ~~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m343[0m:[0m[33m40[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'spy'.
-  initialize = spy(async (): Promise<void> => {
-[0m[31m               ~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m346[0m:[0m[33m16[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'spy'.
-  shutdown = spy(async (): Promise<void> => {
-[0m[31m             ~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m350[0m:[0m[33m14[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'spy'.
-  assignTask = spy(async (task: Task, agentId: string): Promise<void> => {
-[0m[31m               ~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m356[0m:[0m[33m16[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'Task'.
-  assignTask = spy(async (task: Task, agentId: string): Promise<void> => {
-[0m[31m                                ~~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m356[0m:[0m[33m33[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'spy'.
-  getAgentTaskCount = spy(async (agentId: string): Promise<number> => {
-[0m[31m                      ~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m363[0m:[0m[33m23[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'spy'.
-  getAgentTasks = spy(async (agentId: string): Promise<Task[]> => {
-[0m[31m                  ~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m368[0m:[0m[33m19[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'Task'.
-  getAgentTasks = spy(async (agentId: string): Promise<Task[]> => {
-[0m[31m                                                       ~~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m368[0m:[0m[33m56[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'spy'.
-  cancelTask = spy(async (taskId: string): Promise<void> => {
-[0m[31m               ~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m372[0m:[0m[33m16[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'spy'.
-  getHealthStatus = spy(async (): Promise<{ healthy: boolean; error?: string; metrics?: Record<string, number> }> => {
-[0m[31m                    ~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m379[0m:[0m[33m21[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'spy'.
-  performMaintenance = spy(async (): Promise<void> => {
-[0m[31m                       ~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m388[0m:[0m[33m24[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'spy'.
-  start = spy(async (): Promise<void> => {
-[0m[31m          ~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m408[0m:[0m[33m11[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'spy'.
-  stop = spy(async (): Promise<void> => {
-[0m[31m         ~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m412[0m:[0m[33m10[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'spy'.
-  registerTool = spy((name: string, tool: any): void => {
-[0m[31m                 ~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m417[0m:[0m[33m18[0m
-
-[0m[1mTS2304 [0m[ERROR]: Cannot find name 'spy'.
-  getHealthStatus = spy(async (): Promise<{ healthy: boolean; error?: string; metrics?: Record<string, number> }> => {
-[0m[31m                    ~~~[0m
-    at [0m[36mfile:///workspaces/claude-code-flow/tests/mocks/index.ts[0m:[0m[33m421[0m:[0m[33m21[0m
-
-Found 212 errors.
+Found 214 errors.
 
 [0m[1m[31merror[0m: Type checking failed.
 

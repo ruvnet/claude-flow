@@ -2,9 +2,9 @@
  * Conflict resolution mechanisms for multi-agent coordination
  */
 
-import { ILogger } from '../core/logger.ts';
-import { IEventBus } from '../core/event-bus.ts';
-import { Task, Resource } from '../utils/types.ts';
+import { ILogger } from '../core/logger.js';
+import { IEventBus } from '../core/event-bus.js';
+import { Task, Resource } from '../utils/types.js';
 
 export interface ResourceConflict {
   id: string;

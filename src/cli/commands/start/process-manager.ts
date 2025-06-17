@@ -2,7 +2,7 @@
  * Process Manager - Handles lifecycle of system processes
  */
 
-import { EventEmitter } from './event-emitter.ts';
+import { EventEmitter } from './event-emitter.js';
 import { colors } from '@cliffy/ansi/colors';
 import { 
   ProcessInfo, 
@@ -10,15 +10,15 @@ import {
   ProcessStatus, 
   ProcessMetrics,
   SystemStats 
-} from './types.ts';
-import { Orchestrator } from '../../../core/orchestrator.ts';
-import { TerminalManager } from '../../../terminal/manager.ts';
-import { MemoryManager } from '../../../memory/manager.ts';
-import { CoordinationManager } from '../../../coordination/manager.ts';
-import { MCPServer } from '../../../mcp/server.ts';
-import { eventBus } from '../../../core/event-bus.ts';
-import { logger } from '../../../core/logger.ts';
-import { configManager } from '../../../core/config.ts';
+} from './types.js';
+import { Orchestrator } from '../../../core/orchestrator.js';
+import { TerminalManager } from '../../../terminal/manager.js';
+import { MemoryManager } from '../../../memory/manager.js';
+import { CoordinationManager } from '../../../coordination/manager.js';
+import { MCPServer } from '../../../mcp/server.js';
+import { eventBus } from '../../../core/event-bus.js';
+import { logger } from '../../../core/logger.js';
+import { configManager } from '../../../core/config.js';
 
 export class ProcessManager extends EventEmitter {
   private processes: Map<string, ProcessInfo> = new Map();

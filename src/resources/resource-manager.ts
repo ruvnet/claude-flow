@@ -3,10 +3,10 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { ILogger } from '../core/logger.ts';
-import { IEventBus } from '../core/event-bus.ts';
-import { AgentId, TaskId } from '../swarm/types.ts';
-import { generateId } from '../utils/helpers.ts';
+import { ILogger } from '../core/logger.js';
+import { IEventBus } from '../core/event-bus.js';
+import { AgentId, TaskId } from '../swarm/types.js';
+import { generateId } from '../utils/helpers.js';
 
 export interface ResourceManagerConfig {
   enableResourcePooling: boolean;

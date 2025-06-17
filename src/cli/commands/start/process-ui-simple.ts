@@ -4,8 +4,8 @@
  */
 
 import { colors } from '@cliffy/ansi/colors';
-import { ProcessManager } from './process-manager.ts';
-import { ProcessInfo, ProcessStatus, SystemStats } from './types.ts';
+import { ProcessManager } from './process-manager.js';
+import { ProcessInfo, ProcessStatus, SystemStats } from './types.js';
 
 export class ProcessUI {
   private processManager: ProcessManager;

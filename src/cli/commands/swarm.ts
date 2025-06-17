@@ -2,12 +2,12 @@
  * Claude Swarm Mode - Self-orchestrating agent swarms using claude-flow
  */
 
-import { generateId } from '../../utils/helpers.ts';
-import { success, error, warning, info } from "../cli-core.ts";
-import type { CommandContext } from "../cli-core.ts";
-import { SwarmCoordinator } from '../../coordination/swarm-coordinator.ts';
-import { BackgroundExecutor } from '../../coordination/background-executor.ts';
-import { SwarmMemoryManager } from '../../memory/swarm-memory.ts';
+import { generateId } from '../../utils/helpers.js';
+import { success, error, warning, info } from "../cli-core.js";
+import type { CommandContext } from "../cli-core.js";
+import { SwarmCoordinator } from '../../coordination/swarm-coordinator.js';
+import { BackgroundExecutor } from '../../coordination/background-executor.js';
+import { SwarmMemoryManager } from '../../memory/swarm-memory.js';
 
 export async function swarmAction(ctx: CommandContext) {
   // First check if help is requested

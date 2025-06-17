@@ -2,13 +2,13 @@
  * Advanced task scheduler with intelligent agent selection and priority handling
  */
 
-import { Task, TaskStatus, CoordinationConfig, SystemEvents, AgentProfile } from '../utils/types.ts';
-import { IEventBus } from '../core/event-bus.ts';
-import { ILogger } from '../core/logger.ts';
-import { TaskScheduler } from './scheduler.ts';
-import { WorkStealingCoordinator } from './work-stealing.ts';
-import { DependencyGraph } from './dependency-graph.ts';
-import { CircuitBreakerManager, CircuitBreakerConfig } from './circuit-breaker.ts';
+import { Task, TaskStatus, CoordinationConfig, SystemEvents, AgentProfile } from '../utils/types.js';
+import { IEventBus } from '../core/event-bus.js';
+import { ILogger } from '../core/logger.js';
+import { TaskScheduler } from './scheduler.js';
+import { WorkStealingCoordinator } from './work-stealing.js';
+import { DependencyGraph } from './dependency-graph.js';
+import { CircuitBreakerManager, CircuitBreakerConfig } from './circuit-breaker.js';
 
 export interface SchedulingStrategy {
   name: string;

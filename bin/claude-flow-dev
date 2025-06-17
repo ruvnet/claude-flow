@@ -8,5 +8,5 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Add Deno to PATH
 export PATH="/home/codespace/.deno/bin:$PATH"
 
-# Run the CLI with Deno
-exec deno run --allow-all "$PROJECT_ROOT/src/cli/main.ts" "$@"
+# Run the CLI with Deno, filtering out deprecation warnings
+exec deno run --allow-all --no-check "$PROJECT_ROOT/src/cli/main.ts" "$@" 2>&1 | grep -v "Import assertions are deprecated"

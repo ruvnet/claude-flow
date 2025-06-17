@@ -6,8 +6,8 @@ import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
 import { Table } from '@cliffy/table';
 import { Confirm, Input } from '@cliffy/prompt';
-import { formatDuration, formatStatusIndicator, formatProgressBar } from '../formatter.ts';
-import { generateId } from '../../utils/helpers.ts';
+import { formatDuration, formatStatusIndicator, formatProgressBar } from '../formatter.js';
+import { generateId } from '../../utils/helpers.js';
 
 export const workflowCommand = new Command()
   .description('Execute and manage workflows')

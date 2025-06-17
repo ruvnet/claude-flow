@@ -5,7 +5,7 @@
 import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
 import { spawn } from 'node:child_process';
-import { generateId } from '../../utils/helpers.ts';
+import { generateId } from '../../utils/helpers.js';
 
 export const claudeCommand = new Command()
   .description('Manage Claude instances')

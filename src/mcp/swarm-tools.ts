@@ -2,11 +2,11 @@
  * Comprehensive MCP tools for swarm system functionality
  */
 
-import { MCPTool, MCPContext } from '../utils/types.ts';
-import { ILogger } from '../core/logger.ts';
+import { MCPTool, MCPContext } from '../utils/types.js';
+import { ILogger } from '../core/logger.js';
 // Legacy import kept for compatibility
 // import { Tool } from '@modelcontextprotocol/sdk/types.js';
-// import { spawnSwarmAgent, getSwarmState } from '../cli/commands/swarm-spawn.ts';
+// import { spawnSwarmAgent, getSwarmState } from '../cli/commands/swarm-spawn.js';
 
 export interface SwarmToolContext extends MCPContext {
   swarmCoordinator?: any;

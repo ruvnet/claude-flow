@@ -1,0 +1,10 @@
+click>=8.0.0
+aiohttp>=3.8.0
+psutil>=5.9.0
+pydantic>=1.10.0
+matplotlib>=3.5.0
+plotly>=5.0.0
+pandas>=1.4.0
+numpy>=1.21.0
+asyncio-throttle>=1.0.0
+aiosqlite>=0.17.0

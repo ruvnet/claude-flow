@@ -1,10 +1,202 @@
 /**
- * Configuration management for Claude-Flow
+ * Enterprise Configuration Management for Claude-Flow
+ * Features: Security masking, change tracking, multi-format support, credential management
  */
 
-import { Config } from '../utils/types.ts';
-import { deepMerge, safeParseJSON } from '../utils/helpers.ts';
-import { ConfigError, ValidationError } from '../utils/errors.ts';
+import { promises as fs } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+import { createHash, randomBytes, createCipher, createDecipher } from 'crypto';
+import { Config } from '../utils/types.js';
+import { deepMerge, safeParseJSON } from '../utils/helpers.js';
+import { ConfigError, ValidationError } from '../utils/errors.js';
+
+// Format parsers
+interface FormatParser {
+  parse(content: string): any;
+  stringify(obj: any): string;
+  extension: string;
+}
+
+// Configuration change record
+interface ConfigChange {
+  timestamp: string;
+  path: string;
+  oldValue: any;
+  newValue: any;
+  user?: string;
+  reason?: string;
+  source: 'cli' | 'api' | 'file' | 'env';
+}
+
+// Security classification
+interface SecurityClassification {
+  level: 'public' | 'internal' | 'confidential' | 'secret';
+  maskPattern?: string;
+  encrypted?: boolean;
+}
+
+// Validation rule
+interface ValidationRule {
+  type: string;
+  required?: boolean;
+  min?: number;
+  max?: number;
+  values?: string[];
+  pattern?: RegExp;
+  validator?: (value: any, config: Config) => string | null;
+  dependencies?: string[];
+}
+
+/**
+ * Security classifications for configuration paths
+ */
+const SECURITY_CLASSIFICATIONS: Record<string, SecurityClassification> = {
+  'credentials': { level: 'secret', encrypted: true },
+  'credentials.apiKey': { level: 'secret', maskPattern: '****...****', encrypted: true },
+  'credentials.token': { level: 'secret', maskPattern: '****...****', encrypted: true },
+  'credentials.password': { level: 'secret', maskPattern: '********', encrypted: true },
+  'mcp.apiKey': { level: 'confidential', maskPattern: '****...****' },
+  'logging.destination': { level: 'internal' },
+  'orchestrator': { level: 'internal' },
+  'terminal': { level: 'public' },
+};
+
+/**
+ * Sensitive configuration paths that should be masked in output
+ */
+const SENSITIVE_PATHS = [
+  'credentials',
+  'apiKey',
+  'token',
+  'password',
+  'secret',
+  'key',
+  'auth',
+];
+
+/**
+ * Format parsers for different configuration file types
+ */
+const FORMAT_PARSERS: Record<string, FormatParser> = {
+  json: {
+    parse: JSON.parse,
+    stringify: (obj) => JSON.stringify(obj, null, 2),
+    extension: '.json'
+  },
+  yaml: {
+    parse: (content) => {
+      // Simple YAML parser for basic key-value pairs
+      const lines = content.split('\n');
+      const result: any = {};
+      let current = result;
+      const stack: any[] = [result];
+      
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        
+        const indent = line.length - line.trimStart().length;
+        const colonIndex = trimmed.indexOf(':');
+        
+        if (colonIndex === -1) continue;
+        
+        const key = trimmed.substring(0, colonIndex).trim();
+        const value = trimmed.substring(colonIndex + 1).trim();
+        
+        // Simple value parsing
+        let parsedValue: any = value;
+        if (value === 'true') parsedValue = true;
+        else if (value === 'false') parsedValue = false;
+        else if (!isNaN(Number(value)) && value !== '') parsedValue = Number(value);
+        else if (value.startsWith('"') && value.endsWith('"')) {
+          parsedValue = value.slice(1, -1);
+        }
+        
+        current[key] = parsedValue;
+      }
+      
+      return result;
+    },
+    stringify: (obj) => {
+      const stringify = (obj: any, indent = 0): string => {
+        const spaces = '  '.repeat(indent);
+        let result = '';
+        
+        for (const [key, value] of Object.entries(obj)) {
+          if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            result += `${spaces}${key}:\n${stringify(value, indent + 1)}`;
+          } else {
+            const formattedValue = typeof value === 'string' ? `"${value}"` : String(value);
+            result += `${spaces}${key}: ${formattedValue}\n`;
+          }
+        }
+        
+        return result;
+      };
+      
+      return stringify(obj);
+    },
+    extension: '.yaml'
+  },
+  toml: {
+    parse: (content) => {
+      // Simple TOML parser for basic sections and key-value pairs
+      const lines = content.split('\n');
+      const result: any = {};
+      let currentSection = result;
+      
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        
+        // Section header
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+          const sectionName = trimmed.slice(1, -1);
+          currentSection = result[sectionName] = {};
+          continue;
+        }
+        
+        // Key-value pair
+        const equalsIndex = trimmed.indexOf('=');
+        if (equalsIndex === -1) continue;
+        
+        const key = trimmed.substring(0, equalsIndex).trim();
+        const value = trimmed.substring(equalsIndex + 1).trim();
+        
+        // Simple value parsing
+        let parsedValue: any = value;
+        if (value === 'true') parsedValue = true;
+        else if (value === 'false') parsedValue = false;
+        else if (!isNaN(Number(value)) && value !== '') parsedValue = Number(value);
+        else if (value.startsWith('"') && value.endsWith('"')) {
+          parsedValue = value.slice(1, -1);
+        }
+        
+        currentSection[key] = parsedValue;
+      }
+      
+      return result;
+    },
+    stringify: (obj) => {
+      let result = '';
+      
+      for (const [section, values] of Object.entries(obj)) {
+        if (typeof values === 'object' && values !== null && !Array.isArray(values)) {
+          result += `[${section}]\n`;
+          for (const [key, value] of Object.entries(values)) {
+            const formattedValue = typeof value === 'string' ? `"${value}"` : String(value);
+            result += `${key} = ${formattedValue}\n`;
+          }
+          result += '\n';
+        }
+      }
+      
+      return result;
+    },
+    extension: '.toml'
+  }
+};
 
 /**
  * Default configuration values
@@ -47,6 +239,15 @@ const DEFAULT_CONFIG: Config = {
     format: 'json',
     destination: 'console',
   },
+  credentials: {
+    // Encrypted credentials storage
+  },
+  security: {
+    encryptionEnabled: true,
+    auditLogging: true,
+    maskSensitiveValues: true,
+    allowEnvironmentOverrides: true,
+  },
 };
 
 /**
@@ -59,10 +260,16 @@ export class ConfigManager {
   private profiles: Map<string, Partial<Config>> = new Map();
   private currentProfile?: string;
   private userConfigDir: string;
+  private changeHistory: ConfigChange[] = [];
+  private encryptionKey?: Buffer;
+  private validationRules: Map<string, ValidationRule> = new Map();
+  private formatParsers = FORMAT_PARSERS;
 
   private constructor() {
     this.config = deepClone(DEFAULT_CONFIG);
     this.userConfigDir = this.getUserConfigDir();
+    this.initializeEncryption();
+    this.setupValidationRules();
   }
 
   /**
@@ -73,6 +280,112 @@ export class ConfigManager {
       ConfigManager.instance = new ConfigManager();
     }
     return ConfigManager.instance;
+  }
+
+  /**
+   * Initializes encryption for sensitive configuration values
+   */
+  private initializeEncryption(): void {
+    try {
+      const keyFile = join(this.userConfigDir, '.encryption-key');
+      // Check if key file exists (simplified for demo)
+      try {
+        await fs.access(keyFile);
+        // In a real implementation, this would be more secure
+        this.encryptionKey = randomBytes(32);
+      } catch {
+        this.encryptionKey = randomBytes(32);
+        // Store key securely (in production, use proper key management)
+      }
+    } catch (error) {
+      console.warn('Failed to initialize encryption:', (error as Error).message);
+    }
+  }
+
+  /**
+   * Sets up validation rules for configuration paths
+   */
+  private setupValidationRules(): void {
+    // Orchestrator validation rules
+    this.validationRules.set('orchestrator.maxConcurrentAgents', {
+      type: 'number',
+      required: true,
+      min: 1,
+      max: 100,
+      validator: (value, config) => {
+        if (value > config.terminal?.poolSize * 2) {
+          return 'maxConcurrentAgents should not exceed 2x terminal pool size';
+        }
+        return null;
+      }
+    });
+
+    this.validationRules.set('orchestrator.taskQueueSize', {
+      type: 'number',
+      required: true,
+      min: 1,
+      max: 10000,
+      dependencies: ['orchestrator.maxConcurrentAgents'],
+      validator: (value, config) => {
+        const maxAgents = config.orchestrator?.maxConcurrentAgents || 1;
+        if (value < maxAgents * 10) {
+          return 'taskQueueSize should be at least 10x maxConcurrentAgents';
+        }
+        return null;
+      }
+    });
+
+    // Terminal validation rules
+    this.validationRules.set('terminal.type', {
+      type: 'string',
+      required: true,
+      values: ['auto', 'vscode', 'native']
+    });
+
+    this.validationRules.set('terminal.poolSize', {
+      type: 'number',
+      required: true,
+      min: 1,
+      max: 50
+    });
+
+    // Memory validation rules
+    this.validationRules.set('memory.backend', {
+      type: 'string',
+      required: true,
+      values: ['sqlite', 'markdown', 'hybrid']
+    });
+
+    this.validationRules.set('memory.cacheSizeMB', {
+      type: 'number',
+      required: true,
+      min: 1,
+      max: 10000,
+      validator: (value) => {
+        if (value > 1000) {
+          return 'Large cache sizes may impact system performance';
+        }
+        return null;
+      }
+    });
+
+    // Security validation rules
+    this.validationRules.set('security.encryptionEnabled', {
+      type: 'boolean',
+      required: true
+    });
+
+    // Credentials validation
+    this.validationRules.set('credentials.apiKey', {
+      type: 'string',
+      pattern: /^[a-zA-Z0-9_-]+$/,
+      validator: (value) => {
+        if (value && value.length < 16) {
+          return 'API key should be at least 16 characters long';
+        }
+        return null;
+      }
+    });
   }
 
   /**
@@ -104,18 +417,40 @@ export class ConfigManager {
   }
 
   /**
-   * Gets the current configuration
+   * Gets the current configuration with optional security masking
    */
-  get(): Config {
-    return deepClone(this.config);
+  get(maskSensitive = false): Config {
+    const config = deepClone(this.config);
+    
+    if (maskSensitive && this.config.security?.maskSensitiveValues) {
+      return this.maskSensitiveValues(config);
+    }
+    
+    return config;
   }
 
   /**
-   * Updates configuration values
+   * Gets configuration with security masking applied
    */
-  update(updates: Partial<Config>): Config {
+  getSecure(): Config {
+    return this.get(true);
+  }
+
+  /**
+   * Updates configuration values with change tracking
+   */
+  update(updates: Partial<Config>, options: { user?: string, reason?: string, source?: 'cli' | 'api' | 'file' | 'env' } = {}): Config {
+    const oldConfig = deepClone(this.config);
+    
+    // Track changes before applying
+    this.trackChanges(oldConfig, updates, options);
+    
+    // Apply updates
     this.config = deepMergeConfig(this.config, updates);
-    this.validate(this.config);
+    
+    // Validate the updated configuration
+    this.validateWithDependencies(this.config);
+    
     return this.get();
   }
 
@@ -127,24 +462,58 @@ export class ConfigManager {
   }
 
   /**
-   * Saves configuration to file
+   * Saves configuration to file with format support
    */
-  async save(path?: string): Promise<void> {
+  async save(path?: string, format?: string): Promise<void> {
     const savePath = path || this.configPath;
     if (!savePath) {
       throw new ConfigError('No configuration file path specified');
     }
 
-    const content = JSON.stringify(this.config, null, 2);
-    await Deno.writeTextFile(savePath, content);
+    const detectedFormat = format || this.detectFormat(savePath);
+    const parser = this.formatParsers[detectedFormat];
+    
+    if (!parser) {
+      throw new ConfigError(`Unsupported format for saving: ${detectedFormat}`);
+    }
+    
+    // Get configuration without sensitive values for saving
+    const configToSave = this.getConfigForSaving();
+    const content = parser.stringify(configToSave);
+    
+    await fs.writeFile(savePath, content, 'utf8');
+    
+    // Record the save operation
+    this.recordChange({
+      timestamp: new Date().toISOString(),
+      path: 'CONFIG_SAVED',
+      oldValue: null,
+      newValue: savePath,
+      source: 'file'
+    });
+  }
+  
+  /**
+   * Gets configuration suitable for saving (excludes runtime-only values)
+   */
+  private getConfigForSaving(): Partial<Config> {
+    const config = deepClone(this.config);
+    
+    // Remove encrypted credentials from the saved config
+    // They should be stored separately in a secure location
+    if (config.credentials) {
+      delete config.credentials;
+    }
+    
+    return config;
   }
 
   /**
    * Gets user configuration directory
    */
   private getUserConfigDir(): string {
-    const home = Deno.env.get('HOME') || Deno.env.get('USERPROFILE') || '/tmp';
-    return `${home}/.claude-flow`;
+    const home = homedir();
+    return join(home, '.claude-flow');
   }
 
   /**
@@ -152,9 +521,9 @@ export class ConfigManager {
    */
   private async ensureUserConfigDir(): Promise<void> {
     try {
-      await Deno.mkdir(this.userConfigDir, { recursive: true });
+      await fs.mkdir(this.userConfigDir, { recursive: true });
     } catch (error) {
-      if (!(error instanceof Deno.errors.AlreadyExists)) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
         throw new ConfigError(`Failed to create config directory: ${(error as Error).message}`);
       }
     }
@@ -164,16 +533,18 @@ export class ConfigManager {
    * Loads all profiles from the profiles directory
    */
   async loadProfiles(): Promise<void> {
-    const profilesDir = `${this.userConfigDir}/profiles`;
+    const profilesDir = join(this.userConfigDir, 'profiles');
     
     try {
-      for await (const entry of Deno.readDir(profilesDir)) {
-        if (entry.isFile && entry.name.endsWith('.json')) {
+      const entries = await fs.readdir(profilesDir, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        if (entry.isFile() && entry.name.endsWith('.json')) {
           const profileName = entry.name.replace('.json', '');
-          const profilePath = `${profilesDir}/${entry.name}`;
+          const profilePath = join(profilesDir, entry.name);
           
           try {
-            const content = await Deno.readTextFile(profilePath);
+            const content = await fs.readFile(profilePath, 'utf8');
             const profileConfig = safeParseJSON<Partial<Config>>(content);
             
             if (profileConfig) {
@@ -211,14 +582,14 @@ export class ConfigManager {
   async saveProfile(profileName: string, config?: Partial<Config>): Promise<void> {
     await this.ensureUserConfigDir();
     
-    const profilesDir = `${this.userConfigDir}/profiles`;
-    await Deno.mkdir(profilesDir, { recursive: true });
+    const profilesDir = join(this.userConfigDir, 'profiles');
+    await fs.mkdir(profilesDir, { recursive: true });
     
     const profileConfig = config || this.config;
-    const profilePath = `${profilesDir}/${profileName}.json`;
+    const profilePath = join(profilesDir, `${profileName}.json`);
     
     const content = JSON.stringify(profileConfig, null, 2);
-    await Deno.writeTextFile(profilePath, content);
+    await fs.writeFile(profilePath, content, 'utf8');
     
     this.profiles.set(profileName, profileConfig);
   }
@@ -227,13 +598,13 @@ export class ConfigManager {
    * Deletes a profile
    */
   async deleteProfile(profileName: string): Promise<void> {
-    const profilePath = `${this.userConfigDir}/profiles/${profileName}.json`;
+    const profilePath = join(this.userConfigDir, 'profiles', `${profileName}.json`);
     
     try {
-      await Deno.remove(profilePath);
+      await fs.unlink(profilePath);
       this.profiles.delete(profileName);
     } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         throw new ConfigError(`Profile '${profileName}' not found`);
       }
       throw new ConfigError(`Failed to delete profile: ${(error as Error).message}`);
@@ -264,9 +635,27 @@ export class ConfigManager {
   }
 
   /**
-   * Sets a configuration value by path
+   * Sets a configuration value by path with change tracking and validation
    */
-  set(path: string, value: any): void {
+  set(path: string, value: any, options: { user?: string, reason?: string, source?: 'cli' | 'api' | 'file' | 'env' } = {}): void {
+    const oldValue = this.getValue(path);
+    
+    // Record the change
+    this.recordChange({
+      timestamp: new Date().toISOString(),
+      path,
+      oldValue,
+      newValue: value,
+      user: options.user,
+      reason: options.reason,
+      source: options.source || 'cli'
+    });
+    
+    // Encrypt sensitive values
+    if (this.isSensitivePath(path) && this.config.security?.encryptionEnabled) {
+      value = this.encryptValue(value);
+    }
+    
     const keys = path.split('.');
     let current: any = this.config;
     
@@ -279,13 +668,16 @@ export class ConfigManager {
     }
     
     current[keys[keys.length - 1]] = value;
-    this.validate(this.config);
+    
+    // Validate the path-specific rule and dependencies
+    this.validatePath(path, value);
+    this.validateWithDependencies(this.config);
   }
 
   /**
-   * Gets a configuration value by path
+   * Gets a configuration value by path with decryption for sensitive values
    */
-  getValue(path: string): any {
+  getValue(path: string, decrypt = true): any {
     const keys = path.split('.');
     let current: any = this.config;
     
@@ -294,6 +686,16 @@ export class ConfigManager {
         current = current[key];
       } else {
         return undefined;
+      }
+    }
+    
+    // Decrypt sensitive values if requested
+    if (decrypt && this.isSensitivePath(path) && this.isEncryptedValue(current)) {
+      try {
+        return this.decryptValue(current);
+      } catch (error) {
+        console.warn(`Failed to decrypt value at path ${path}:`, (error as Error).message);
+        return current;
       }
     }
     
@@ -443,31 +845,69 @@ export class ConfigManager {
       throw new ConfigError('Invalid configuration export format');
     }
     
-    this.validate(data.config);
+    this.validateWithDependencies(data.config);
     this.config = data.config;
     this.currentProfile = data.profile;
+    
+    // Record the import operation
+    this.recordChange({
+      timestamp: new Date().toISOString(),
+      path: 'CONFIG_IMPORTED',
+      oldValue: null,
+      newValue: data.version || 'unknown',
+      source: 'file'
+    });
   }
 
   /**
-   * Loads configuration from file
+   * Loads configuration from file with format detection
    */
   private async loadFromFile(path: string): Promise<Partial<Config>> {
     try {
-      const content = await Deno.readTextFile(path);
-      const config = safeParseJSON<Partial<Config>>(content);
+      const content = await fs.readFile(path, 'utf8');
+      const format = this.detectFormat(path, content);
+      const parser = this.formatParsers[format];
+      
+      if (!parser) {
+        throw new ConfigError(`Unsupported configuration format: ${format}`);
+      }
+      
+      const config = parser.parse(content) as Partial<Config>;
       
       if (!config) {
-        throw new ConfigError(`Invalid JSON in configuration file: ${path}`);
+        throw new ConfigError(`Invalid ${format.toUpperCase()} in configuration file: ${path}`);
       }
 
       return config;
     } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         // File doesn't exist, use defaults
         return {};
       }
       throw new ConfigError(`Failed to load configuration from ${path}: ${(error as Error).message}`);
     }
+  }
+  
+  /**
+   * Detects configuration file format
+   */
+  private detectFormat(path: string, content?: string): string {
+    const ext = path.split('.').pop()?.toLowerCase();
+    
+    if (ext === 'yaml' || ext === 'yml') return 'yaml';
+    if (ext === 'toml') return 'toml';
+    if (ext === 'json') return 'json';
+    
+    // Try to detect from content
+    if (content) {
+      const trimmed = content.trim();
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) return 'json';
+      if (trimmed.includes('=') && trimmed.includes('[')) return 'toml';
+      if (trimmed.includes(':') && !trimmed.includes('=')) return 'yaml';
+    }
+    
+    // Default to JSON
+    return 'json';
   }
 
   /**
@@ -477,7 +917,7 @@ export class ConfigManager {
     const config: Partial<Config> = {};
 
     // Orchestrator settings
-    const maxAgents = Deno.env.get('CLAUDE_FLOW_MAX_AGENTS');
+    const maxAgents = process.env.CLAUDE_FLOW_MAX_AGENTS;
     if (maxAgents) {
       if (!config.orchestrator) {
         config.orchestrator = {} as any;
@@ -490,7 +930,7 @@ export class ConfigManager {
     }
 
     // Terminal settings
-    const terminalType = Deno.env.get('CLAUDE_FLOW_TERMINAL_TYPE');
+    const terminalType = process.env.CLAUDE_FLOW_TERMINAL_TYPE;
     if (terminalType === 'vscode' || terminalType === 'native' || terminalType === 'auto') {
       config.terminal = {
         ...DEFAULT_CONFIG.terminal,
@@ -500,7 +940,7 @@ export class ConfigManager {
     }
 
     // Memory settings
-    const memoryBackend = Deno.env.get('CLAUDE_FLOW_MEMORY_BACKEND');
+    const memoryBackend = process.env.CLAUDE_FLOW_MEMORY_BACKEND;
     if (memoryBackend === 'sqlite' || memoryBackend === 'markdown' || memoryBackend === 'hybrid') {
       config.memory = {
         ...DEFAULT_CONFIG.memory,
@@ -510,7 +950,7 @@ export class ConfigManager {
     }
 
     // MCP settings
-    const mcpTransport = Deno.env.get('CLAUDE_FLOW_MCP_TRANSPORT');
+    const mcpTransport = process.env.CLAUDE_FLOW_MCP_TRANSPORT;
     if (mcpTransport === 'stdio' || mcpTransport === 'http' || mcpTransport === 'websocket') {
       config.mcp = {
         ...DEFAULT_CONFIG.mcp,
@@ -519,7 +959,7 @@ export class ConfigManager {
       };
     }
 
-    const mcpPort = Deno.env.get('CLAUDE_FLOW_MCP_PORT');
+    const mcpPort = process.env.CLAUDE_FLOW_MCP_PORT;
     if (mcpPort) {
       config.mcp = {
         ...DEFAULT_CONFIG.mcp,
@@ -529,7 +969,7 @@ export class ConfigManager {
     }
 
     // Logging settings
-    const logLevel = Deno.env.get('CLAUDE_FLOW_LOG_LEVEL');
+    const logLevel = process.env.CLAUDE_FLOW_LOG_LEVEL;
     if (logLevel === 'debug' || logLevel === 'info' || logLevel === 'warn' || logLevel === 'error') {
       config.logging = {
         ...DEFAULT_CONFIG.logging,
@@ -542,44 +982,128 @@ export class ConfigManager {
   }
 
   /**
-   * Validates configuration
+   * Validates configuration with dependency checking
    */
-  private validate(config: Config): void {
-    // Orchestrator validation
-    if (config.orchestrator.maxConcurrentAgents < 1) {
-      throw new ValidationError('maxConcurrentAgents must be at least 1');
-    }
-    if (config.orchestrator.taskQueueSize < 1) {
-      throw new ValidationError('taskQueueSize must be at least 1');
-    }
-
-    // Terminal validation
-    if (config.terminal.poolSize < 1) {
-      throw new ValidationError('terminal poolSize must be at least 1');
-    }
-    if (config.terminal.recycleAfter < 1) {
-      throw new ValidationError('terminal recycleAfter must be at least 1');
-    }
-
-    // Memory validation
-    if (config.memory.cacheSizeMB < 1) {
-      throw new ValidationError('memory cacheSizeMB must be at least 1');
-    }
-    if (config.memory.retentionDays < 1) {
-      throw new ValidationError('memory retentionDays must be at least 1');
-    }
-
-    // Coordination validation
-    if (config.coordination.maxRetries < 0) {
-      throw new ValidationError('coordination maxRetries cannot be negative');
-    }
-
-    // MCP validation
-    if (config.mcp.transport === 'http' || config.mcp.transport === 'websocket') {
-      if (!config.mcp.port || config.mcp.port < 1 || config.mcp.port > 65535) {
-        throw new ValidationError('Invalid MCP port number');
+  private validateWithDependencies(config: Config): void {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    
+    // Validate all paths with rules
+    for (const [path, rule] of this.validationRules.entries()) {
+      const value = this.getValueByPath(config, path);
+      
+      try {
+        this.validatePath(path, value, config);
+      } catch (error) {
+        errors.push((error as Error).message);
       }
     }
+    
+    // Additional cross-field validations
+    if (config.orchestrator.maxConcurrentAgents > config.terminal.poolSize * 3) {
+      warnings.push('High agent-to-terminal ratio may cause resource contention');
+    }
+    
+    if (config.memory.cacheSizeMB > 1000 && config.memory.backend === 'sqlite') {
+      warnings.push('Large cache size with SQLite backend may impact performance');
+    }
+    
+    if (config.mcp.transport === 'http' && !config.mcp.tlsEnabled) {
+      warnings.push('HTTP transport without TLS is not recommended for production');
+    }
+    
+    // Log warnings
+    if (warnings.length > 0 && config.logging?.level === 'debug') {
+      console.warn('Configuration warnings:', warnings);
+    }
+    
+    // Throw errors
+    if (errors.length > 0) {
+      throw new ValidationError(`Configuration validation failed:\n${errors.join('\n')}`);
+    }
+  }
+  
+  /**
+   * Validates a specific configuration path
+   */
+  private validatePath(path: string, value: any, config?: Config): void {
+    const rule = this.validationRules.get(path);
+    if (!rule) return;
+    
+    const currentConfig = config || this.config;
+    
+    // Required validation
+    if (rule.required && (value === undefined || value === null)) {
+      throw new ValidationError(`${path} is required`);
+    }
+    
+    if (value === undefined || value === null) return;
+    
+    // Type validation
+    if (rule.type === 'number' && (typeof value !== 'number' || isNaN(value))) {
+      throw new ValidationError(`${path} must be a number`);
+    }
+    
+    if (rule.type === 'string' && typeof value !== 'string') {
+      throw new ValidationError(`${path} must be a string`);
+    }
+    
+    if (rule.type === 'boolean' && typeof value !== 'boolean') {
+      throw new ValidationError(`${path} must be a boolean`);
+    }
+    
+    // Range validation
+    if (typeof value === 'number') {
+      if (rule.min !== undefined && value < rule.min) {
+        throw new ValidationError(`${path} must be at least ${rule.min}`);
+      }
+      if (rule.max !== undefined && value > rule.max) {
+        throw new ValidationError(`${path} must be at most ${rule.max}`);
+      }
+    }
+    
+    // Values validation
+    if (rule.values && !rule.values.includes(value)) {
+      throw new ValidationError(`${path} must be one of: ${rule.values.join(', ')}`);
+    }
+    
+    // Pattern validation
+    if (rule.pattern && typeof value === 'string' && !rule.pattern.test(value)) {
+      throw new ValidationError(`${path} does not match required pattern`);
+    }
+    
+    // Custom validator
+    if (rule.validator) {
+      const result = rule.validator(value, currentConfig);
+      if (result) {
+        throw new ValidationError(`${path}: ${result}`);
+      }
+    }
+  }
+  
+  /**
+   * Gets a value from a configuration object by path
+   */
+  private getValueByPath(obj: any, path: string): any {
+    const keys = path.split('.');
+    let current = obj;
+    
+    for (const key of keys) {
+      if (current && typeof current === 'object' && key in current) {
+        current = current[key];
+      } else {
+        return undefined;
+      }
+    }
+    
+    return current;
+  }
+  
+  /**
+   * Legacy validate method for backward compatibility
+   */
+  private validate(config: Config): void {
+    this.validateWithDependencies(config);
   }
 }
 
@@ -594,6 +1118,19 @@ export async function loadConfig(path?: string): Promise<Config> {
 function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
+
+// Export types for external use
+export type {
+  FormatParser,
+  ConfigChange,
+  SecurityClassification,
+  ValidationRule
+};
+
+export {
+  SENSITIVE_PATHS,
+  SECURITY_CLASSIFICATIONS
+};
 
 // Custom deepMerge for Config type
 function deepMergeConfig(target: Config, ...sources: Partial<Config>[]): Config {
@@ -620,6 +1157,12 @@ function deepMergeConfig(target: Config, ...sources: Partial<Config>[]): Config 
     }
     if (source.logging) {
       result.logging = { ...result.logging, ...source.logging };
+    }
+    if (source.credentials) {
+      result.credentials = { ...result.credentials, ...source.credentials };
+    }
+    if (source.security) {
+      result.security = { ...result.security, ...source.security };
     }
   }
   

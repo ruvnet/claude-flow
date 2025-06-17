@@ -2,8 +2,12 @@
  * Logging infrastructure for Claude-Flow
  */
 
-import { LoggingConfig } from '../utils/types.ts';
-import { formatBytes } from '../utils/helpers.ts';
+import { promises as fs } from 'node:fs';
+import * as path from 'node:path';
+import { Buffer } from 'node:buffer';
+import process from 'node:process';
+import { LoggingConfig } from '../utils/types.js';
+import { formatBytes } from '../utils/helpers.js';
 
 export interface ILogger {
   debug(message: string, meta?: unknown): void;
@@ -36,9 +40,10 @@ export class Logger implements ILogger {
   private static instance: Logger;
   private config: LoggingConfig;
   private context: Record<string, unknown>;
-  private fileHandle?: Deno.FsFile;
+  private fileHandle?: fs.FileHandle;
   private currentFileSize = 0;
   private currentFileIndex = 0;
+  private isClosing = false;
 
   constructor(
     config: LoggingConfig = {
@@ -64,7 +69,7 @@ export class Logger implements ILogger {
     if (!Logger.instance) {
       if (!config) {
         // Use default config if none provided and not in test environment
-        const isTestEnv = Deno.env.get('CLAUDE_FLOW_ENV') === 'test';
+        const isTestEnv = process.env.CLAUDE_FLOW_ENV === 'test';
         if (isTestEnv) {
           throw new Error('Logger configuration required for initialization');
         }
@@ -113,6 +118,22 @@ export class Logger implements ILogger {
    */
   child(context: Record<string, unknown>): Logger {
     return new Logger(this.config, { ...this.context, ...context });
+  }
+
+  /**
+   * Properly close the logger and release resources
+   */
+  async close(): Promise<void> {
+    this.isClosing = true;
+    if (this.fileHandle) {
+      try {
+        await this.fileHandle.close();
+      } catch (error) {
+        console.error('Error closing log file handle:', error);
+      } finally {
+        delete this.fileHandle;
+      }
+    }
   }
 
   private log(level: LogLevel, message: string, data?: unknown, error?: unknown): void {
@@ -193,7 +214,7 @@ export class Logger implements ILogger {
   }
 
   private async writeToFile(message: string): Promise<void> {
-    if (!this.config.filePath) {
+    if (!this.config.filePath || this.isClosing) {
       return;
     }
 
@@ -205,16 +226,11 @@ export class Logger implements ILogger {
 
       // Open file handle if not already open
       if (!this.fileHandle) {
-        this.fileHandle = await Deno.open(this.config.filePath, {
-          create: true,
-          append: true,
-          write: true,
-        });
+        this.fileHandle = await fs.open(this.config.filePath, 'a');
       }
 
       // Write the message
-      const encoder = new TextEncoder();
-      const data = encoder.encode(message + '\n');
+      const data = Buffer.from(message + '\n', 'utf8');
       await this.fileHandle.write(data);
       this.currentFileSize += data.length;
     } catch (error) {
@@ -223,12 +239,12 @@ export class Logger implements ILogger {
   }
 
   private async shouldRotate(): Promise<boolean> {
-    if (!this.config.maxFileSize || !this.fileHandle) {
+    if (!this.config.maxFileSize || !this.config.filePath) {
       return false;
     }
 
     try {
-      const stat = await this.fileHandle.stat();
+      const stat = await fs.stat(this.config.filePath);
       return stat.size >= this.config.maxFileSize;
     } catch {
       return false;
@@ -249,7 +265,7 @@ export class Logger implements ILogger {
     // Rename current file
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const rotatedPath = `${this.config.filePath}.${timestamp}`;
-    await Deno.rename(this.config.filePath, rotatedPath);
+    await fs.rename(this.config.filePath, rotatedPath);
 
     // Clean up old files
     await this.cleanupOldFiles();
@@ -263,23 +279,29 @@ export class Logger implements ILogger {
       return;
     }
 
-    const dir = this.config.filePath.substring(0, this.config.filePath.lastIndexOf('/'));
-    const baseFileName = this.config.filePath.substring(this.config.filePath.lastIndexOf('/') + 1);
+    const dir = path.dirname(this.config.filePath);
+    const baseFileName = path.basename(this.config.filePath);
 
-    const files: string[] = [];
-    for await (const entry of Deno.readDir(dir)) {
-      if (entry.isFile && entry.name.startsWith(baseFileName + '.')) {
-        files.push(entry.name);
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      const files: string[] = [];
+      
+      for (const entry of entries) {
+        if (entry.isFile() && entry.name.startsWith(baseFileName + '.')) {
+          files.push(entry.name);
+        }
       }
-    }
 
-    // Sort files by timestamp (newest first)
-    files.sort().reverse();
+      // Sort files by timestamp (newest first)
+      files.sort().reverse();
 
-    // Remove old files
-    const filesToRemove = files.slice(this.config.maxFiles - 1);
-    for (const file of filesToRemove) {
-      await Deno.remove(`${dir}/${file}`);
+      // Remove old files
+      const filesToRemove = files.slice(this.config.maxFiles - 1);
+      for (const file of filesToRemove) {
+        await fs.unlink(path.join(dir, file));
+      }
+    } catch (error) {
+      console.error('Failed to cleanup old log files:', error);
     }
   }
 }

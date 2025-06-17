@@ -3,16 +3,16 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { ILogger } from '../core/logger.ts';
-import { IEventBus } from '../core/event-bus.ts';
+import { ILogger } from '../core/logger.js';
+import { IEventBus } from '../core/event-bus.js';
 import { 
   AgentId, 
   AgentState, 
   TaskDefinition, 
   TaskId,
   LoadBalancingStrategy 
-} from '../swarm/types.ts';
-import { WorkStealingCoordinator } from './work-stealing.ts';
+} from '../swarm/types.js';
+import { WorkStealingCoordinator } from './work-stealing.js';
 
 export interface LoadBalancerConfig {
   strategy: LoadBalancingStrategy;

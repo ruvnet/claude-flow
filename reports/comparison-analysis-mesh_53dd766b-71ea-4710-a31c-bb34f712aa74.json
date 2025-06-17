@@ -1,0 +1,129 @@
+{
+  "id": "53dd766b-71ea-4710-a31c-bb34f712aa74",
+  "name": "comparison-analysis-mesh",
+  "description": "Performance comparison benchmark",
+  "status": "completed",
+  "config": {
+    "name": "comparison-analysis-mesh",
+    "description": "Performance comparison benchmark",
+    "strategy": "analysis",
+    "mode": "mesh",
+    "max_agents": 5,
+    "max_tasks": 100,
+    "timeout": 3600,
+    "task_timeout": 30,
+    "max_retries": 2,
+    "parallel": false,
+    "background": false,
+    "monitoring": true,
+    "quality_threshold": 0.8,
+    "resource_limits": {
+      "max_memory_mb": 1024,
+      "max_cpu_percent": 80,
+      "max_network_mbps": 100
+    },
+    "output_formats": [
+      "json"
+    ],
+    "output_directory": "./reports",
+    "verbose": false
+  },
+  "tasks": [
+    {
+      "id": "34f98c45-6f56-43e7-97fc-4e92ff85d5cc",
+      "objective": "Analyze performance bottlenecks in the system",
+      "description": "Benchmark task: Analyze performance bottlenecks in the system",
+      "strategy": "analysis",
+      "mode": "mesh",
+      "parameters": {},
+      "timeout": 30,
+      "max_retries": 2,
+      "priority": 1,
+      "status": "pending",
+      "created_at": "2025-06-14T20:02:33.828640",
+      "started_at": null,
+      "completed_at": null,
+      "duration": null,
+      "assigned_agents": [],
+      "parent_task_id": null,
+      "subtasks": [],
+      "dependencies": []
+    }
+  ],
+  "results": [
+    {
+      "id": "2f2f691f-3a56-48df-88ff-eef44e93aa1a",
+      "task_id": "34f98c45-6f56-43e7-97fc-4e92ff85d5cc",
+      "agent_id": "analysis-agent",
+      "status": "success",
+      "output": {
+        "analysis_results": "Analysis completed for: Analyze performance bottlenecks in the system",
+        "insights": [
+          "trend 1",
+          "pattern 2",
+          "correlation 3"
+        ],
+        "methodology": "statistical analysis"
+      },
+      "errors": [],
+      "warnings": [],
+      "performance_metrics": {
+        "execution_time": 0.150305,
+        "queue_time": 0.0,
+        "throughput": 0.0,
+        "success_rate": 1.0,
+        "error_rate": 0.0,
+        "retry_count": 0,
+        "coordination_overhead": 0.0,
+        "communication_latency": 0.0
+      },
+      "quality_metrics": {
+        "accuracy_score": 0.0,
+        "completeness_score": 0.0,
+        "consistency_score": 0.0,
+        "relevance_score": 0.0,
+        "overall_quality": 0.0,
+        "review_score": null,
+        "automated_score": null
+      },
+      "resource_usage": {
+        "cpu_percent": 20.0,
+        "memory_mb": 192,
+        "network_bytes_sent": 0,
+        "network_bytes_recv": 0,
+        "disk_bytes_read": 0,
+        "disk_bytes_write": 0,
+        "peak_memory_mb": 0.0,
+        "average_cpu_percent": 0.0
+      },
+      "execution_details": {},
+      "created_at": "2025-06-14T20:02:33.979029",
+      "started_at": "2025-06-14T20:02:33.828651",
+      "completed_at": "2025-06-14T20:02:33.978986",
+      "duration": 0.150335
+    }
+  ],
+  "metrics": {
+    "total_tasks": 1,
+    "completed_tasks": 0,
+    "failed_tasks": 0,
+    "total_agents": 0,
+    "active_agents": 0,
+    "average_execution_time": 0.150305,
+    "total_execution_time": 0.150305,
+    "success_rate": 0.0,
+    "throughput": 0.0,
+    "resource_efficiency": 0.0,
+    "coordination_efficiency": 0.0,
+    "quality_score": 0.0,
+    "peak_memory_usage": 0.0,
+    "total_cpu_time": 0.0,
+    "network_overhead": 0.0
+  },
+  "created_at": "2025-06-14T20:02:33.828620",
+  "started_at": "2025-06-14T20:02:33.828624",
+  "completed_at": "2025-06-14T20:02:33.979056",
+  "duration": 0.150432,
+  "error_log": [],
+  "metadata": {}
+}

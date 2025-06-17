@@ -943,6 +943,7 @@ export interface SwarmConfig {
   maxAgents: number;
   maxTasks: number;
   maxDuration: number;
+  taskTimeoutMinutes?: number;
   resourceLimits: Record<string, number>;
   
   // Quality settings

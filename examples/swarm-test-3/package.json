@@ -1,0 +1,22 @@
+{
+  "name": "swarm-agent-tests",
+  "version": "1.0.0",
+  "description": "Test files demonstrating Claude-Flow swarm agent roles",
+  "scripts": {
+    "test:all": "ts-node run-all-tests.ts",
+    "test:coordinator": "ts-node test-coordinator.ts",
+    "test:researcher": "ts-node test-researcher.ts",
+    "test:developer": "ts-node test-developer.ts",
+    "test:analyzer": "ts-node test-analyzer.ts",
+    "test:reviewer": "ts-node test-reviewer.ts",
+    "test:tester": "ts-node test-tester.ts",
+    "test:documenter": "ts-node test-documenter.ts",
+    "test:monitor": "ts-node test-monitor.ts",
+    "test:specialist": "ts-node test-specialist.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}

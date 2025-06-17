@@ -2,9 +2,9 @@
  * MCP Client for Model Context Protocol
  */
 
-import { ITransport } from './transports/base.ts';
-import { logger } from '../core/logger.ts';
-import { MCPRequest, MCPResponse, MCPNotification } from '../utils/types.ts';
+import { ITransport } from './transports/base.js';
+import { logger } from '../core/logger.js';
+import { MCPRequest, MCPResponse, MCPNotification } from '../utils/types.js';
 
 export interface MCPClientConfig {
   transport: ITransport;

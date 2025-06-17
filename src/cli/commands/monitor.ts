@@ -5,7 +5,7 @@
 import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
 import { Table } from '@cliffy/table';
-import { formatProgressBar, formatDuration, formatStatusIndicator } from '../formatter.ts';
+import { formatProgressBar, formatDuration, formatStatusIndicator } from '../formatter.js';
 
 export const monitorCommand = new Command()
   .description('Start live monitoring dashboard')
@@ -390,14 +390,166 @@ class Dashboard {
       { type: 'system_warning', message: 'High memory usage detected' }
     ];
     
-    return events.map((event, i) => ({
-      ...event,
-      timestamp: Date.now() - (i * 30000) // 30 seconds apart
-    }));
+    const eventTypes = [
+      { type: 'task_completed', message: 'Research task completed successfully', level: 'info' as const },
+      { type: 'agent_spawned', message: 'New implementer agent spawned', level: 'info' as const },
+      { type: 'task_assigned', message: 'Task assigned to coordinator agent', level: 'info' as const },
+      { type: 'system_warning', message: 'High memory usage detected', level: 'warn' as const },
+      { type: 'task_failed', message: 'Analysis task failed due to timeout', level: 'error' as const },
+      { type: 'system_info', message: 'System health check completed', level: 'info' as const },
+      { type: 'memory_gc', message: 'Garbage collection triggered', level: 'debug' as const },
+      { type: 'network_event', message: 'MCP connection established', level: 'info' as const }
+    ];
+    
+    const components = ['orchestrator', 'terminal', 'memory', 'coordination', 'mcp'];
+    
+    return Array.from({ length: 6 + Math.floor(Math.random() * 4) }, (_, i) => {
+      const event = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+      return {
+        ...event,
+        timestamp: Date.now() - (i * Math.random() * 300000), // Random intervals up to 5 minutes
+        component: Math.random() > 0.3 ? components[Math.floor(Math.random() * components.length)] : undefined
+      };
+    }).sort((a, b) => b.timestamp - a.timestamp);
+  }
+  
+  private async checkSystemRunning(): Promise<boolean> {
+    try {
+      return await existsSync('.claude-flow.pid');
+    } catch {
+      return false;
+    }
+  }
+  
+  private async getRealSystemData(): Promise<MonitorData | null> {
+    // This would connect to the actual orchestrator for real data
+    // For now, return null to use mock data
+    return null;
+  }
+  
+  private generateComponentStatus(): Record<string, ComponentStatus> {
+    const components = ['orchestrator', 'terminal', 'memory', 'coordination', 'mcp'];
+    const statuses = ['healthy', 'degraded', 'error'];
+    
+    const result: Record<string, ComponentStatus> = {};
+    
+    for (const component of components) {
+      const status = statuses[Math.floor(Math.random() * statuses.length)];
+      const hasErrors = Math.random() > 0.8;
+      
+      result[component] = {
+        status,
+        load: Math.random() * 100,
+        uptime: Math.random() * 3600000, // Up to 1 hour
+        errors: hasErrors ? Math.floor(Math.random() * 5) : 0,
+        lastError: hasErrors ? 'Connection timeout' : undefined
+      };
+    }
+    
+    return result;
+  }
+  
+  private checkAlerts(data: MonitorData): void {
+    const newAlerts: AlertData[] = [];
+    
+    // Check system thresholds
+    if (data.system.cpu > this.options.threshold) {
+      newAlerts.push({
+        id: 'cpu-high',
+        type: 'warning',
+        message: `CPU usage high: ${data.system.cpu.toFixed(1)}%`,
+        component: 'system',
+        timestamp: Date.now(),
+        acknowledged: false
+      });
+    }
+    
+    if (data.system.memory > 800) {
+      newAlerts.push({
+        id: 'memory-high',
+        type: 'warning',
+        message: `Memory usage high: ${data.system.memory.toFixed(0)}MB`,
+        component: 'system',
+        timestamp: Date.now(),
+        acknowledged: false
+      });
+    }
+    
+    // Check component status
+    for (const [name, component] of Object.entries(data.components)) {
+      if (component.status === 'error') {
+        newAlerts.push({
+          id: `component-error-${name}`,
+          type: 'error',
+          message: `Component ${name} is in error state`,
+          component: name,
+          timestamp: Date.now(),
+          acknowledged: false
+        });
+      }
+      
+      if (component.load > this.options.threshold) {
+        newAlerts.push({
+          id: `component-load-${name}`,
+          type: 'warning',
+          message: `Component ${name} load high: ${component.load.toFixed(1)}%`,
+          component: name,
+          timestamp: Date.now(),
+          acknowledged: false
+        });
+      }
+    }
+    
+    // Update alerts list (keep only recent ones)
+    this.alerts = [...this.alerts, ...newAlerts]
+      .filter(alert => Date.now() - alert.timestamp < 300000) // 5 minutes
+      .slice(-10); // Keep max 10 alerts
+  }
+  
+  private async exportMonitoringData(): Promise<void> {
+    try {
+      const exportData = {
+        metadata: {
+          exportTime: new Date().toISOString(),
+          duration: formatDuration(Date.now() - this.startTime),
+          dataPoints: this.exportData.length,
+          interval: this.options.interval
+        },
+        data: this.exportData,
+        alerts: this.alerts
+      };
+      
+      await Deno.writeTextFile(this.options.export, JSON.stringify(exportData, null, 2));
+      console.log(colors.green(`✓ Monitoring data exported to ${this.options.export}`));
+    } catch (error) {
+      console.error(colors.red('Failed to export data:'), (error as Error).message);
+    }
   }
 }
 
 async function startMonitorDashboard(options: any): Promise<void> {
+  // Validate options
+  if (options.interval < 1) {
+    console.error(colors.red('Update interval must be at least 1 second'));
+    return;
+  }
+  
+  if (options.threshold < 1 || options.threshold > 100) {
+    console.error(colors.red('Threshold must be between 1 and 100'));
+    return;
+  }
+  
+  if (options.export) {
+    // Check if export path is writable
+    try {
+      await Deno.writeTextFile(options.export, '');
+      await Deno.remove(options.export);
+    } catch {
+      console.error(colors.red(`Cannot write to export file: ${options.export}`));
+      return;
+    }
+  }
+  
   const dashboard = new Dashboard(options);
   await dashboard.start();
 }

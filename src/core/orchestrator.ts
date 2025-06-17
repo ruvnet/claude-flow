@@ -12,17 +12,17 @@ import {
   ComponentHealth,
   TaskStatus,
   OrchestratorMetrics,
-} from '../utils/types.ts';
-import { IEventBus } from './event-bus.ts';
-import { ILogger } from './logger.ts';
-import { ITerminalManager } from '../terminal/manager.ts';
-import { IMemoryManager } from '../memory/manager.ts';
-import { ICoordinationManager } from '../coordination/manager.ts';
-import { IMCPServer } from '../mcp/server.ts';
-import { SystemError, InitializationError, ShutdownError } from '../utils/errors.ts';
-import { delay, retry, circuitBreaker, CircuitBreaker } from '../utils/helpers.ts';
-import { ensureDir, exists } from 'https://deno.land/std@0.208.0/fs/mod.ts';
-import { join, dirname } from 'https://deno.land/std@0.208.0/path/mod.ts';
+} from '../utils/types.js';
+import { IEventBus } from './event-bus.js';
+import { ILogger } from './logger.js';
+import { ITerminalManager } from '../terminal/manager.js';
+import { IMemoryManager } from '../memory/manager.js';
+import { ICoordinationManager } from '../coordination/manager.js';
+import { IMCPServer } from '../mcp/server.js';
+import { SystemError, InitializationError, ShutdownError } from '../utils/errors.js';
+import { delay, retry, circuitBreaker, CircuitBreaker } from '../utils/helpers.js';
+import { mkdir, writeFile, readFile } from 'fs/promises';
+import { join, dirname } from 'path';
 
 export interface ISessionManager {
   createSession(profile: AgentProfile): Promise<AgentSession>;
@@ -228,8 +228,8 @@ class SessionManager implements ISessionManager {
           savedAt: new Date(),
         };
 
-        await ensureDir(dirname(this.persistencePath));
-        await Deno.writeTextFile(this.persistencePath, JSON.stringify(data, null, 2));
+        await mkdir(dirname(this.persistencePath), { recursive: true });
+        await writeFile(this.persistencePath, JSON.stringify(data, null, 2), 'utf8');
         
         this.logger.debug('Sessions persisted', { count: data.sessions.length });
       });
@@ -244,7 +244,7 @@ class SessionManager implements ISessionManager {
     }
 
     try {
-      const data = await Deno.readTextFile(this.persistencePath);
+      const data = await readFile(this.persistencePath, 'utf8');
       const persistence: SessionPersistence = JSON.parse(data);
       
       // Restore only active/idle sessions
@@ -273,7 +273,7 @@ class SessionManager implements ISessionManager {
         }
       }
     } catch (error) {
-      if ((error as any).code !== 'ENOENT') {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         this.logger.error('Failed to restore sessions', error);
       }
     }

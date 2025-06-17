@@ -1,0 +1,55 @@
+{
+  "name": "Testing Configuration",
+  "description": "Configuration optimized for test generation and execution",
+  "orchestrator": {
+    "model": "claude-3-sonnet-20240229",
+    "temperature": 0.2,
+    "maxTokens": 4096,
+    "timeout": 60000,
+    "systemPrompt": "Generate comprehensive test suites with edge cases and good coverage."
+  },
+  "testing": {
+    "framework": "jest",
+    "coverage": {
+      "threshold": 80,
+      "reportFormats": ["text", "lcov", "html"]
+    },
+    "patterns": {
+      "unit": "**/*.test.js",
+      "integration": "**/*.integration.js",
+      "e2e": "**/*.e2e.js"
+    },
+    "mockGeneration": {
+      "enabled": true,
+      "autoMock": ["database", "api", "filesystem"]
+    }
+  },
+  "agents": {
+    "testGenerator": {
+      "capabilities": ["test-generation", "mock-creation"],
+      "temperature": 0.1
+    },
+    "testRunner": {
+      "capabilities": ["test-execution", "coverage-analysis"],
+      "parallel": true,
+      "maxWorkers": 4
+    }
+  },
+  "memory": {
+    "backend": "json",
+    "location": "./test-results/memory.json",
+    "trackHistory": true
+  },
+  "reporting": {
+    "format": "junit",
+    "outputPath": "./test-results/",
+    "screenshots": true,
+    "videos": false
+  },
+  "logging": {
+    "level": "info",
+    "format": "json",
+    "destination": "file",
+    "filePath": "./test-results/test-run.log"
+  }
+}

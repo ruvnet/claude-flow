@@ -1,0 +1,34 @@
+{
+  "name": "Hello World Workflow",
+  "description": "Simple single-agent workflow to demonstrate basics",
+  "agents": [
+    {
+      "id": "greeter",
+      "name": "Greeting Agent",
+      "type": "developer",
+      "capabilities": ["code-generation"],
+      "configuration": {
+        "temperature": 0.7
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "id": "create-hello-world",
+      "name": "Create Hello World",
+      "description": "Create a simple hello world application",
+      "agentId": "greeter",
+      "type": "coding",
+      "input": {
+        "language": "javascript",
+        "requirements": "Create a hello world script that prints a greeting"
+      },
+      "output": {
+        "artifacts": ["hello.js"]
+      }
+    }
+  ],
+  "execution": {
+    "mode": "sequential"
+  }
+}

@@ -10,6 +10,7 @@ import { mcpCommand } from './simple-commands/mcp.js';
 import { monitorCommand } from './simple-commands/monitor.js';
 import { startCommand } from './simple-commands/start.js';
 import { swarmCommand } from './simple-commands/swarm.js';
+import { batchManagerCommand } from './simple-commands/batch-manager.js';
 
 // Command registry for extensible CLI
 export const commandRegistry = new Map();
@@ -154,6 +155,31 @@ First-time users should run: npx claude-flow@latest init --sparc`
       'swarm "Analyze data" --max-agents 3 --parallel',
       'swarm "Development task" --ui --monitor --background'
     ]
+  });
+
+  commandRegistry.set('batch', {
+    handler: batchManagerCommand,
+    description: 'Batch operation management and configuration utilities',
+    usage: 'batch <command> [options]',
+    examples: [
+      'batch create-config my-batch.json',
+      'batch create-config --interactive',
+      'batch validate-config my-batch.json',
+      'batch estimate my-batch.json',
+      'batch list-templates',
+      'batch list-environments'
+    ],
+    details: `
+Batch operations support:
+  • Multiple project initialization with templates
+  • Environment-specific configurations (dev, staging, prod)
+  • Parallel processing with resource management
+  • Progress tracking and detailed reporting
+  • Configuration validation and estimation tools
+  
+Use with init command:
+  claude-flow init --batch-init project1,project2,project3
+  claude-flow init --config batch-config.json --parallel`
   });
 }
 

@@ -2,11 +2,11 @@
  * Terminal session management
  */
 
-import { Terminal } from './adapters/base.ts';
-import { AgentProfile } from '../utils/types.ts';
-import { ILogger } from '../core/logger.ts';
-import { TerminalCommandError } from '../utils/errors.ts';
-import { generateId, timeout } from '../utils/helpers.ts';
+import { Terminal } from './adapters/base.js';
+import { AgentProfile } from '../utils/types.js';
+import { ILogger } from '../core/logger.js';
+import { TerminalCommandError } from '../utils/errors.js';
+import { generateId, timeout } from '../utils/helpers.js';
 
 /**
  * Terminal session wrapper

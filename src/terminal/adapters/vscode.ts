@@ -2,10 +2,11 @@
  * VSCode terminal adapter implementation
  */
 
-import { ITerminalAdapter, Terminal } from './base.ts';
-import { ILogger } from '../../core/logger.ts';
-import { TerminalError } from '../../utils/errors.ts';
-import { generateId, delay, timeout, createDeferred } from '../../utils/helpers.ts';
+import { platform } from 'os';
+import { ITerminalAdapter, Terminal } from './base.js';
+import { ILogger } from '../../core/logger.js';
+import { TerminalError } from '../../utils/errors.js';
+import { generateId, delay, timeout, createDeferred } from '../../utils/helpers.js';
 
 /**
  * VSCode API interface (injected via extension)
@@ -183,9 +184,9 @@ class VSCodeTerminalWrapper implements Terminal {
       case 'zsh':
         return '/bin/zsh';
       case 'powershell':
-        return Deno.build.os === 'windows' ? 'powershell.exe' : 'pwsh';
+        return platform() === 'win32' ? 'powershell.exe' : 'pwsh';
       case 'cmd':
-        return Deno.build.os === 'windows' ? 'cmd.exe' : undefined;
+        return platform() === 'win32' ? 'cmd.exe' : undefined;
       default:
         return undefined;
     }
@@ -316,18 +317,18 @@ export class VSCodeAdapter implements ITerminalAdapter {
 
   private detectShell(): string {
     // Get default shell from VSCode settings or environment
-    const platform = Deno.build.os;
+    const osplatform = platform();
     
-    if (platform === 'windows') {
+    if (osplatform === 'win32') {
       // Windows defaults
-      const comspec = Deno.env.get('COMSPEC');
+      const comspec = process.env.COMSPEC;
       if (comspec?.toLowerCase().includes('powershell')) {
         return 'powershell';
       }
       return 'cmd';
     } else {
       // Unix-like defaults
-      const shell = Deno.env.get('SHELL');
+      const shell = process.env.SHELL;
       if (shell) {
         const shellName = shell.split('/').pop();
         if (shellName && ['bash', 'zsh', 'fish', 'sh'].includes(shellName)) {

@@ -2,11 +2,12 @@
  * Markdown backend implementation for human-readable memory storage
  */
 
-import { IMemoryBackend } from './base.ts';
-import { MemoryEntry, MemoryQuery } from '../../utils/types.ts';
-import { ILogger } from '../../core/logger.ts';
-import { MemoryBackendError } from '../../utils/errors.ts';
-import { ensureDir } from 'https://deno.land/std@0.208.0/fs/mod.ts';
+import { promises as fs } from 'fs';
+import path from 'path';
+import { IMemoryBackend } from './base.js';
+import { MemoryEntry, MemoryQuery } from '../../utils/types.js';
+import { ILogger } from '../../core/logger.js';
+import { MemoryBackendError } from '../../utils/errors.js';
 
 /**
  * Markdown-based memory backend
@@ -19,7 +20,7 @@ export class MarkdownBackend implements IMemoryBackend {
     private baseDir: string,
     private logger: ILogger,
   ) {
-    this.indexPath = `${this.baseDir}/index.json`;
+    this.indexPath = path.join(this.baseDir, 'index.json');
   }
 
   async initialize(): Promise<void> {
@@ -27,9 +28,9 @@ export class MarkdownBackend implements IMemoryBackend {
 
     try {
       // Ensure directories exist
-      await ensureDir(this.baseDir);
-      await ensureDir(`${this.baseDir}/agents`);
-      await ensureDir(`${this.baseDir}/sessions`);
+      await fs.mkdir(this.baseDir, { recursive: true });
+      await fs.mkdir(path.join(this.baseDir, 'agents'), { recursive: true });
+      await fs.mkdir(path.join(this.baseDir, 'sessions'), { recursive: true });
 
       // Load index
       await this.loadIndex();
@@ -87,7 +88,7 @@ export class MarkdownBackend implements IMemoryBackend {
 
       // Delete file
       const filePath = this.getEntryFilePath(entry);
-      await Deno.remove(filePath);
+      await fs.unlink(filePath);
 
       // Update index
       await this.saveIndex();
@@ -160,7 +161,7 @@ export class MarkdownBackend implements IMemoryBackend {
   }> {
     try {
       // Check if directory is accessible
-      await Deno.stat(this.baseDir);
+      await fs.stat(this.baseDir);
 
       const entryCount = this.entries.size;
       let totalSizeBytes = 0;
@@ -169,7 +170,7 @@ export class MarkdownBackend implements IMemoryBackend {
       for (const entry of this.entries.values()) {
         const filePath = this.getEntryFilePath(entry);
         try {
-          const stat = await Deno.stat(filePath);
+          const stat = await fs.stat(filePath);
           totalSizeBytes += stat.size;
         } catch {
           // File might not exist yet
@@ -193,7 +194,7 @@ export class MarkdownBackend implements IMemoryBackend {
 
   private async loadIndex(): Promise<void> {
     try {
-      const content = await Deno.readTextFile(this.indexPath);
+      const content = await fs.readFile(this.indexPath, 'utf-8');
       const index = JSON.parse(content) as Record<string, MemoryEntry>;
 
       // Convert and validate entries
@@ -204,8 +205,8 @@ export class MarkdownBackend implements IMemoryBackend {
       }
 
       this.logger.info('Loaded memory index', { entries: this.entries.size });
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) {
+    } catch (error: any) {
+      if (error.code !== 'ENOENT') {
         this.logger.warn('Failed to load index', { error });
       }
       // Start with empty index if file doesn't exist
@@ -220,28 +221,28 @@ export class MarkdownBackend implements IMemoryBackend {
     }
 
     const content = JSON.stringify(index, null, 2);
-    await Deno.writeTextFile(this.indexPath, content);
+    await fs.writeFile(this.indexPath, content, 'utf-8');
   }
 
   private async writeEntryToFile(entry: MemoryEntry): Promise<void> {
     const filePath = this.getEntryFilePath(entry);
-    const dirPath = filePath.substring(0, filePath.lastIndexOf('/'));
+    const dirPath = path.dirname(filePath);
 
     // Ensure directory exists
-    await ensureDir(dirPath);
+    await fs.mkdir(dirPath, { recursive: true });
 
     // Generate markdown content
     const content = this.entryToMarkdown(entry);
 
     // Write file
-    await Deno.writeTextFile(filePath, content);
+    await fs.writeFile(filePath, content, 'utf-8');
   }
 
   private getEntryFilePath(entry: MemoryEntry): string {
     const date = entry.timestamp.toISOString().split('T')[0];
     const time = entry.timestamp.toISOString().split('T')[1].replace(/:/g, '-').split('.')[0];
     
-    return `${this.baseDir}/agents/${entry.agentId}/${date}/${time}_${entry.id}.md`;
+    return path.join(this.baseDir, 'agents', entry.agentId, date, `${time}_${entry.id}.md`);
   }
 
   private entryToMarkdown(entry: MemoryEntry): string {

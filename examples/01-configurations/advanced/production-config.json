@@ -1,0 +1,80 @@
+{
+  "name": "Production Configuration",
+  "description": "Advanced configuration for production deployments",
+  "orchestrator": {
+    "model": "claude-3-opus-20240229",
+    "temperature": 0.3,
+    "maxTokens": 8192,
+    "timeout": 120000,
+    "retryAttempts": 3,
+    "retryDelay": 5000,
+    "fallbackModel": "claude-3-sonnet-20240229"
+  },
+  "terminal": {
+    "emulateEnvironment": true,
+    "defaultShell": "/bin/bash",
+    "workingDirectory": "/workspace",
+    "maxOutputLength": 10000,
+    "timeout": 60000
+  },
+  "memory": {
+    "backend": "redis",
+    "location": "redis://localhost:6379",
+    "maxEntries": 10000,
+    "ttl": 86400,
+    "compressionLevel": 6,
+    "encryption": {
+      "enabled": true,
+      "algorithm": "aes-256-gcm"
+    }
+  },
+  "coordination": {
+    "mode": "hub-spoke",
+    "maxConcurrentAgents": 10,
+    "taskQueueSize": 100,
+    "heartbeatInterval": 5000,
+    "maxRetries": 5,
+    "retryDelay": 10000,
+    "circuitBreaker": {
+      "enabled": true,
+      "threshold": 5,
+      "timeout": 60000,
+      "resetTimeout": 300000
+    }
+  },
+  "loadBalancing": {
+    "strategy": "round-robin",
+    "healthCheckInterval": 30000,
+    "maxLoad": 0.8
+  },
+  "monitoring": {
+    "enabled": true,
+    "metricsInterval": 60000,
+    "alertThresholds": {
+      "errorRate": 0.05,
+      "responseTime": 5000,
+      "memoryUsage": 0.9
+    }
+  },
+  "security": {
+    "authentication": {
+      "required": true,
+      "method": "jwt",
+      "secret": "${JWT_SECRET}"
+    },
+    "rateLimit": {
+      "enabled": true,
+      "maxRequests": 1000,
+      "windowMs": 60000
+    }
+  },
+  "logging": {
+    "level": "warn",
+    "format": "json",
+    "destination": "file",
+    "filePath": "/var/log/claude-flow/production.log",
+    "maxFileSize": "100MB",
+    "maxFiles": 10,
+    "compression": true
+  }
+}

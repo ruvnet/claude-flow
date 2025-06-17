@@ -1,12 +1,11 @@
-#!/usr/bin/env -S deno run --allow-all
+#!/usr/bin/env node
 /**
- * Claude-Flow CLI - Core implementation without external dependencies
+ * Claude-Flow CLI - Core implementation using Node.js
  */
 
-import { parse } from "https://deno.land/std@0.224.0/flags/mod.ts";
-import { red, green, yellow, blue, bold, cyan } from "https://deno.land/std@0.224.0/fmt/colors.ts";
-import { ensureDir } from "https://deno.land/std@0.224.0/fs/mod.ts";
-import { join } from "https://deno.land/std@0.224.0/path/mod.ts";
+import chalk from "chalk";
+import fs from "fs-extra";
+import path from "path";
 
 export const VERSION = "1.0.43";
 
@@ -80,15 +79,9 @@ class CLI {
     return this;
   }
 
-  async run(args = Deno.args): Promise<void> {
-    const flags = parse(args, {
-      boolean: this.getBooleanFlags(),
-      string: this.getStringFlags(),
-      alias: this.getAliases(),
-      default: this.getDefaults(),
-      stopEarly: false,
-      unknown: () => true,
-    });
+  async run(args = process.argv.slice(2)): Promise<void> {
+    // Parse arguments manually since we're replacing the Deno parse function
+    const flags = this.parseArgs(args);
 
     if (flags.version || flags.v) {
       console.log(`${this.name} v${VERSION}`);
@@ -104,9 +97,9 @@ class CLI {
 
     const command = this.commands.get(commandName);
     if (!command) {
-      console.error(red(`Unknown command: ${commandName}`));
+      console.error(chalk.red(`Unknown command: ${commandName}`));
       console.log(`Run "${this.name} help" for available commands`);
-      Deno.exit(1);
+      process.exit(1);
     }
 
     const ctx: CommandContext = {
@@ -119,21 +112,55 @@ class CLI {
       if (command.action) {
         await command.action(ctx);
       } else {
-        console.log(yellow(`Command '${commandName}' has no action defined`));
+        console.log(chalk.yellow(`Command '${commandName}' has no action defined`));
       }
     } catch (error) {
-      console.error(red(`Error executing command '${commandName}':`), (error as Error).message);
+      console.error(chalk.red(`Error executing command '${commandName}':`), (error as Error).message);
       if (flags.verbose) {
         console.error(error);
       }
-      Deno.exit(1);
+      process.exit(1);
     }
   }
 
+  private parseArgs(args: string[]): Record<string, any> {
+    const result: Record<string, any> = { _: [] };
+    let i = 0;
+
+    while (i < args.length) {
+      const arg = args[i];
+      
+      if (arg.startsWith('--')) {
+        const key = arg.slice(2);
+        if (i + 1 < args.length && !args[i + 1].startsWith('-')) {
+          result[key] = args[i + 1];
+          i += 2;
+        } else {
+          result[key] = true;
+          i++;
+        }
+      } else if (arg.startsWith('-')) {
+        const key = arg.slice(1);
+        if (i + 1 < args.length && !args[i + 1].startsWith('-')) {
+          result[key] = args[i + 1];
+          i += 2;
+        } else {
+          result[key] = true;
+          i++;
+        }
+      } else {
+        result._.push(arg);
+        i++;
+      }
+    }
+
+    return result;
+  }
+
   private async loadConfig(configPath?: string): Promise<Record<string, unknown> | undefined> {
-    const path = configPath || "claude-flow.config.json";
+    const configFile = configPath || "claude-flow.config.json";
     try {
-      const content = await Deno.readTextFile(path);
+      const content = await fs.readFile(configFile, 'utf8');
       return JSON.parse(content);
     } catch {
       return undefined;
@@ -194,18 +221,18 @@ class CLI {
 
   private showHelp(): void {
     console.log(`
-${bold(blue(`🧠 ${this.name} v${VERSION}`))} - ${this.description}
+${chalk.bold(chalk.blue(`🧠 ${this.name} v${VERSION}`))} - ${this.description}
 
-${bold("USAGE:")}
+${chalk.bold("USAGE:")}
   ${this.name} [COMMAND] [OPTIONS]
 
-${bold("COMMANDS:")}
+${chalk.bold("COMMANDS:")}
 ${this.formatCommands()}
 
-${bold("GLOBAL OPTIONS:")}
+${chalk.bold("GLOBAL OPTIONS:")}
 ${this.formatOptions(this.globalOptions)}
 
-${bold("EXAMPLES:")}
+${chalk.bold("EXAMPLES:")}
   ${this.name} start                                    # Start orchestrator
   ${this.name} agent spawn researcher --name "Bot"     # Spawn research agent
   ${this.name} task create research "Analyze data"     # Create task
@@ -241,19 +268,19 @@ Created by rUv - Built with ❤️ for the Claude community
 
 // Helper functions
 function success(message: string): void {
-  console.log(green(`✅ ${message}`));
+  console.log(chalk.green(`✅ ${message}`));
 }
 
 function error(message: string): void {
-  console.error(red(`❌ ${message}`));
+  console.error(chalk.red(`❌ ${message}`));
 }
 
 function warning(message: string): void {
-  console.warn(yellow(`⚠️  ${message}`));
+  console.warn(chalk.yellow(`⚠️  ${message}`));
 }
 
 function info(message: string): void {
-  console.log(blue(`ℹ️  ${message}`));
+  console.log(chalk.blue(`ℹ️  ${message}`));
 }
 
 // Export for use in other modules
@@ -261,13 +288,18 @@ export { CLI, success, error, warning, info };
 export type { Command, CommandContext, Option };
 
 // Main CLI setup if running directly
-if (import.meta.main) {
-  const cli = new CLI("claude-flow", "Advanced AI Agent Orchestration System");
+async function main() {
+  if (process.argv[1] && (process.argv[1].endsWith('cli-core.js') || process.argv[1].endsWith('cli-core.ts'))) {
+    const cli = new CLI("claude-flow", "Advanced AI Agent Orchestration System");
 
-  // Import and register all commands
-  const { setupCommands } = await import("./commands/index.ts");
-  setupCommands(cli);
+    // Import and register all commands
+    const { setupCommands } = await import("./commands/index.js");
+    setupCommands(cli);
 
-  // Run the CLI
-  await cli.run();
+    // Run the CLI
+    await cli.run();
+  }
 }
+
+// Execute main if this is the entry point
+main().catch(console.error);

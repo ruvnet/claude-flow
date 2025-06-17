@@ -2,8 +2,8 @@
  * Event bus implementation for Claude-Flow
  */
 
-import { SystemEvents, EventMap } from '../utils/types.ts';
-import { TypedEventEmitter } from '../utils/helpers.ts';
+import { SystemEvents, EventMap } from '../utils/types.js';
+import { TypedEventEmitter } from '../utils/helpers.js';
 
 export interface IEventBus {
   emit(event: string, data?: unknown): void;

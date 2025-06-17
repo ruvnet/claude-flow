@@ -2,8 +2,8 @@
  * Memory cache implementation with LRU eviction
  */
 
-import { MemoryEntry } from '../utils/types.ts';
-import { ILogger } from '../core/logger.ts';
+import { MemoryEntry } from '../utils/types.js';
+import { ILogger } from '../core/logger.js';
 
 interface CacheEntry {
   data: MemoryEntry;

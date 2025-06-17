@@ -5,7 +5,7 @@
 import { colors } from '@cliffy/ansi/colors';
 import { Table } from '@cliffy/table';
 // Box is not available in the current cliffy version
-import { AgentProfile, Task, MemoryEntry, HealthStatus } from '../utils/types.ts';
+import { AgentProfile, Task, MemoryEntry, HealthStatus } from '../utils/types.js';
 
 /**
  * Formats an error for display

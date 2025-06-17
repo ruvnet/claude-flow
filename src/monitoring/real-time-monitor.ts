@@ -3,8 +3,8 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { ILogger } from '../core/logger.ts';
-import { IEventBus } from '../core/event-bus.ts';
+import { ILogger } from '../core/logger.js';
+import { IEventBus } from '../core/event-bus.js';
 import { 
   SystemMetrics, 
   Alert, 
@@ -14,8 +14,8 @@ import {
   AgentMetrics,
   SwarmMetrics,
   AgentId
-} from '../swarm/types.ts';
-import { DistributedMemorySystem } from '../memory/distributed-memory.ts';
+} from '../swarm/types.js';
+import { DistributedMemorySystem } from '../memory/distributed-memory.js';
 
 export interface MonitorConfig {
   updateInterval: number;

@@ -4,8 +4,8 @@
 
 import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
-import { Task } from '../../utils/types.ts';
-import { generateId } from '../../utils/helpers.ts';
+import { Task } from '../../utils/types.js';
+import { generateId } from '../../utils/helpers.js';
 
 export const taskCommand = new Command()
   .description('Manage tasks')

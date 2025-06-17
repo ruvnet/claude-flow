@@ -3,9 +3,9 @@
  */
 
 import { colors } from '@cliffy/ansi/colors';
-import { ProcessManager } from './process-manager.ts';
-import { SystemEvents } from '../../../utils/types.ts';
-import { eventBus } from '../../../core/event-bus.ts';
+import { ProcessManager } from './process-manager.js';
+import { SystemEvents } from '../../../utils/types.js';
+import { eventBus } from '../../../core/event-bus.js';
 
 export class SystemMonitor {
   private processManager: ProcessManager;

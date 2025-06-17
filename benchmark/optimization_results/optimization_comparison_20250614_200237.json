@@ -1,0 +1,52 @@
+{
+  "timestamp": "20250614_200237",
+  "results": [
+    {
+      "strategy": "research",
+      "mode": "distributed",
+      "standard_time": 0.1024923324584961,
+      "optimized_time": 0.10102462768554688,
+      "improvement": 1.432014217788985,
+      "speed_multiplier": 1.0145281878941208
+    },
+    {
+      "strategy": "development",
+      "mode": "hierarchical",
+      "standard_time": 0.20117926597595215,
+      "optimized_time": 0.2012939453125,
+      "improvement": -0.05700355650047937,
+      "speed_multiplier": 0.9994302891904184
+    },
+    {
+      "strategy": "analysis",
+      "mode": "mesh",
+      "standard_time": 0.15119433403015137,
+      "optimized_time": 0.15222382545471191,
+      "improvement": -0.6809060876284189,
+      "speed_multiplier": 0.9932369888781515
+    },
+    {
+      "strategy": "testing",
+      "mode": "distributed",
+      "standard_time": 0.12573862075805664,
+      "optimized_time": 0.12094521522521973,
+      "improvement": 3.8121982760255295,
+      "speed_multiplier": 1.0396328662023613
+    },
+    {
+      "strategy": "optimization",
+      "mode": "hybrid",
+      "standard_time": 0.18115615844726562,
+      "optimized_time": 0.18122625350952148,
+      "improvement": -0.03869317105013793,
+      "speed_multiplier": 0.9996132179477397
+    }
+  ],
+  "summary": {
+    "average_improvement": 0.8935219357270956,
+    "average_speedup": 1.0092883100225583,
+    "total_standard_time": 0.7617607116699219,
+    "total_optimized_time": 0.7567138671875,
+    "overall_speedup": 1.006669422487498
+  }
+}

@@ -1,0 +1,197 @@
+{
+  "init_command_structure": {
+    "entry_point": "/src/cli/simple-commands/init.js",
+    "main_implementation": "/src/cli/simple-commands/init/index.js",
+    "command_flags": {
+      "--sparc": "Initialize with SPARC development environment",
+      "--minimal": "Create minimal configuration files",
+      "--force": "Overwrite existing files",
+      "--help": "Show help information"
+    }
+  },
+  
+  "file_locations": {
+    "init_modules": {
+      "index": "/src/cli/simple-commands/init/index.js",
+      "help": "/src/cli/simple-commands/init/help.js",
+      "executable_wrapper": "/src/cli/simple-commands/init/executable-wrapper.js",
+      "sparc_structure": "/src/cli/simple-commands/init/sparc-structure.js"
+    },
+    
+    "template_generators": {
+      "claude_md": "/src/cli/simple-commands/init/templates/claude-md.js",
+      "memory_bank_md": "/src/cli/simple-commands/init/templates/memory-bank-md.js",
+      "coordination_md": "/src/cli/simple-commands/init/templates/coordination-md.js",
+      "readme_files": "/src/cli/simple-commands/init/templates/readme-files.js"
+    },
+    
+    "sparc_config": {
+      "roomodes_config": "/src/cli/simple-commands/init/sparc/roomodes-config.js",
+      "workflows": "/src/cli/simple-commands/init/sparc/workflows.js",
+      "roo_readme": "/src/cli/simple-commands/init/sparc/roo-readme.js"
+    },
+    
+    "claude_commands": {
+      "slash_commands": "/src/cli/simple-commands/init/claude-commands/slash-commands.js",
+      "sparc_commands": "/src/cli/simple-commands/init/claude-commands/sparc-commands.js",
+      "claude_flow_commands": "/src/cli/simple-commands/init/claude-commands/claude-flow-commands.js"
+    }
+  },
+  
+  "generated_files": {
+    "root_files": [
+      "CLAUDE.md",
+      "memory-bank.md",
+      "coordination.md",
+      ".roomodes"
+    ],
+    
+    "directories": {
+      "memory": [
+        "memory/",
+        "memory/agents/",
+        "memory/sessions/",
+        "memory/claude-flow-data.json",
+        "memory/agents/README.md",
+        "memory/sessions/README.md"
+      ],
+      
+      "coordination": [
+        "coordination/",
+        "coordination/memory_bank/",
+        "coordination/subtasks/",
+        "coordination/orchestration/"
+      ],
+      
+      "claude": [
+        ".claude/",
+        ".claude/commands/",
+        ".claude/commands/sparc/",
+        ".claude/logs/"
+      ],
+      
+      "sparc": [
+        ".roo/",
+        ".roo/templates/",
+        ".roo/workflows/",
+        ".roo/modes/",
+        ".roo/configs/",
+        ".roo/README.md"
+      ]
+    }
+  },
+  
+  "template_functions": {
+    "claude_md": {
+      "minimal": "createMinimalClaudeMd()",
+      "full": "createFullClaudeMd()",
+      "sparc": "createSparcClaudeMd()"
+    },
+    
+    "memory_bank": {
+      "minimal": "createMinimalMemoryBankMd()",
+      "full": "createFullMemoryBankMd()"
+    },
+    
+    "coordination": {
+      "minimal": "createMinimalCoordinationMd()",
+      "full": "createFullCoordinationMd()"
+    }
+  },
+  
+  "sparc_modes": [
+    {
+      "slug": "architect",
+      "file_created": ".claude/commands/sparc/architect.md"
+    },
+    {
+      "slug": "code",
+      "file_created": ".claude/commands/sparc/code.md"
+    },
+    {
+      "slug": "tdd",
+      "file_created": ".claude/commands/sparc/tdd.md"
+    },
+    {
+      "slug": "spec-pseudocode",
+      "file_created": ".claude/commands/sparc/spec-pseudocode.md"
+    },
+    {
+      "slug": "integration",
+      "file_created": ".claude/commands/sparc/integration.md"
+    },
+    {
+      "slug": "debug",
+      "file_created": ".claude/commands/sparc/debug.md"
+    },
+    {
+      "slug": "security-review",
+      "file_created": ".claude/commands/sparc/security-review.md"
+    },
+    {
+      "slug": "docs-writer",
+      "file_created": ".claude/commands/sparc/docs-writer.md"
+    },
+    {
+      "slug": "swarm",
+      "file_created": ".claude/commands/sparc/swarm.md"
+    }
+  ],
+  
+  "key_functions": {
+    "initCommand": {
+      "location": "/src/cli/simple-commands/init/index.js",
+      "line": 25,
+      "purpose": "Main init command handler"
+    },
+    
+    "createSparcStructureManually": {
+      "location": "/src/cli/simple-commands/init/sparc-structure.js",
+      "line": 9,
+      "purpose": "Fallback SPARC structure creation"
+    },
+    
+    "createClaudeSlashCommands": {
+      "location": "/src/cli/simple-commands/init/claude-commands/slash-commands.js",
+      "line": 7,
+      "purpose": "Generate Claude slash commands"
+    },
+    
+    "createSparcSlashCommand": {
+      "location": "/src/cli/simple-commands/init/claude-commands/sparc-commands.js",
+      "line": 4,
+      "purpose": "Generate individual SPARC mode command"
+    },
+    
+    "createBasicRoomodesConfig": {
+      "location": "/src/cli/simple-commands/init/sparc/roomodes-config.js",
+      "line": 3,
+      "purpose": "Generate default .roomodes configuration"
+    }
+  },
+  
+  "external_dependencies": {
+    "create_sparc": {
+      "command": "npx -y create-sparc init --force",
+      "fallback": "createSparcStructureManually()",
+      "optional": true
+    }
+  },
+  
+  "modification_points": {
+    "template_content": [
+      "/src/cli/simple-commands/init/templates/claude-md.js",
+      "/src/cli/simple-commands/init/templates/memory-bank-md.js",
+      "/src/cli/simple-commands/init/templates/coordination-md.js"
+    ],
+    
+    "sparc_configuration": [
+      "/src/cli/simple-commands/init/sparc/roomodes-config.js"
+    ],
+    
+    "command_generation": [
+      "/src/cli/simple-commands/init/claude-commands/sparc-commands.js",
+      "/src/cli/simple-commands/init/claude-commands/slash-commands.js"
+    ]
+  }
+}

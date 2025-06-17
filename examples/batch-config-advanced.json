@@ -1,0 +1,49 @@
+{
+  "baseOptions": {
+    "sparc": true,
+    "parallel": true,
+    "maxConcurrency": 4,
+    "force": true
+  },
+  "projectConfigs": {
+    "user-api": {
+      "template": "web-api",
+      "environment": "dev",
+      "customConfig": {
+        "database": "postgresql",
+        "auth": "jwt"
+      }
+    },
+    "notification-service": {
+      "template": "microservice",
+      "environment": "dev",
+      "customConfig": {
+        "messageQueue": "rabbitmq",
+        "cache": "redis"
+      }
+    },
+    "admin-portal": {
+      "template": "react-app",
+      "environment": "dev",
+      "customConfig": {
+        "ui": "material-ui",
+        "state": "redux"
+      }
+    },
+    "cli-tools": {
+      "template": "cli-tool",
+      "environment": "dev",
+      "customConfig": {
+        "targets": ["node", "deno"]
+      }
+    },
+    "payment-gateway": {
+      "template": "microservice",
+      "environment": "staging",
+      "customConfig": {
+        "security": "high",
+        "compliance": "pci-dss"
+      }
+    }
+  }
+}

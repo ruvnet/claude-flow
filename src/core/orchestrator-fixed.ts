@@ -2,10 +2,10 @@
  * Fixed orchestrator implementation for Claude-Flow
  */
 
-import { EventBus } from './event-bus.ts';
-import { Logger } from './logger.ts';
-import { ConfigManager } from './config.ts';
-import { JsonPersistenceManager } from './json-persistence.ts';
+import { EventBus } from './event-bus.js';
+import { Logger } from './logger.js';
+import { ConfigManager } from './config.js';
+import { JsonPersistenceManager } from './json-persistence.js';
 
 export interface AgentInfo {
   id: string;

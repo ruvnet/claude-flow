@@ -1,0 +1,160 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+.coverage
+
+# Production builds
+dist/
+build/
+
+# Temporary files
+.tmp/
+temp/
+tmp/
+
+# Uploads directory
+uploads/
+public/uploads/
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Cache directories
+.cache/
+.parcel-cache/
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Miscellaneous
+*.bak
+*.orig
+*.rej
+.history/
+.vscode-test/
+
+# Package files
+*.tgz
+
+# Lock files (comment out if you want to commit these)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Documentation build
+docs/_build/
+docs/.vuepress/dist/
+
+# Certificates
+*.pem
+*.key
+*.crt
+*.csr
+
+# Sessions
+sessions/
+
+# Redis dump
+dump.rdb
+
+# PM2
+.pm2/
+ecosystem.config.js
+
+# Jest
+jest_*
+
+# TypeScript
+*.tsbuildinfo
+
+# Next.js
+.next/
+out/
+
+# Nuxt.js
+.nuxt/
+
+# Gatsby
+.cache/
+public/
+
+# VuePress
+.vuepress/dist/
+
+# Serverless
+.serverless/
+
+# FuseBox
+.fusebox/
+
+# DynamoDB Local
+.dynamodb/
+
+# TernJS
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test/
+
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*

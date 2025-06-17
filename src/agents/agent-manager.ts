@@ -4,8 +4,8 @@
 
 import { EventEmitter } from 'node:events';
 import { spawn, ChildProcess } from 'node:child_process';
-import { ILogger } from '../core/logger.ts';
-import { IEventBus } from '../core/event-bus.ts';
+import { ILogger } from '../core/logger.js';
+import { IEventBus } from '../core/event-bus.js';
 import { 
   AgentId, 
   AgentType, 
@@ -18,9 +18,9 @@ import {
   AgentError,
   TaskId,
   TaskDefinition
-} from '../swarm/types.ts';
-import { DistributedMemorySystem } from '../memory/distributed-memory.ts';
-import { generateId } from '../utils/helpers.ts';
+} from '../swarm/types.js';
+import { DistributedMemorySystem } from '../memory/distributed-memory.js';
+import { generateId } from '../utils/helpers.js';
 
 export interface AgentManagerConfig {
   maxAgents: number;

@@ -2,9 +2,9 @@
  * Work stealing algorithm for load balancing between agents
  */
 
-import { Task, AgentProfile } from '../utils/types.ts';
-import { IEventBus } from '../core/event-bus.ts';
-import { ILogger } from '../core/logger.ts';
+import { Task, AgentProfile } from '../utils/types.js';
+import { IEventBus } from '../core/event-bus.js';
+import { ILogger } from '../core/logger.js';
 
 export interface WorkStealingConfig {
   enabled: boolean;

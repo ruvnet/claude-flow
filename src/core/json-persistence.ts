@@ -2,8 +2,8 @@
  * JSON-based persistence layer for Claude-Flow
  */
 
-import { join } from "https://deno.land/std@0.224.0/path/mod.ts";
-import { ensureDir, exists } from "https://deno.land/std@0.224.0/fs/mod.ts";
+import { join } from "path";
+import { mkdir, access, readFile, writeFile } from "fs/promises";
 
 export interface PersistedAgent {
   id: string;
@@ -53,23 +53,22 @@ export class JsonPersistenceManager {
 
   async initialize(): Promise<void> {
     // Ensure directory exists
-    await ensureDir(join(this.dataPath, ".."));
+    await mkdir(join(this.dataPath, ".."), { recursive: true });
     
     // Load existing data if available
-    if (await exists(this.dataPath)) {
-      try {
-        const content = await Deno.readTextFile(this.dataPath);
-        this.data = JSON.parse(content);
-      } catch (error) {
-        console.error("Failed to load persistence data:", error);
-        // Keep default empty data
-      }
+    try {
+      await access(this.dataPath);
+      const content = await readFile(this.dataPath, "utf-8");
+      this.data = JSON.parse(content);
+    } catch (error) {
+      // File doesn't exist or can't be read, keep default empty data
+      console.error("Failed to load persistence data:", error);
     }
   }
 
   private async save(): Promise<void> {
     this.data.lastUpdated = Date.now();
-    await Deno.writeTextFile(this.dataPath, JSON.stringify(this.data, null, 2));
+    await writeFile(this.dataPath, JSON.stringify(this.data, null, 2));
   }
 
   // Agent operations

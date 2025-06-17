@@ -3,10 +3,10 @@
  */
 
 // Core coordination components
-export { CoordinationManager, type ICoordinationManager } from './manager.ts';
-export { TaskScheduler } from './scheduler.ts';
-export { ResourceManager } from './resources.ts';
-export { MessageRouter } from './messaging.ts';
+export { CoordinationManager, type ICoordinationManager } from './manager.js';
+export { TaskScheduler } from './scheduler.js';
+export { ResourceManager } from './resources.js';
+export { MessageRouter } from './messaging.js';
 
 // Advanced scheduling
 export { 
@@ -17,21 +17,21 @@ export {
   RoundRobinSchedulingStrategy,
   LeastLoadedSchedulingStrategy,
   AffinitySchedulingStrategy,
-} from './advanced-scheduler.ts';
+} from './advanced-scheduler.js';
 
 // Work stealing
 export {
   WorkStealingCoordinator,
   type WorkStealingConfig,
   type AgentWorkload,
-} from './work-stealing.ts';
+} from './work-stealing.js';
 
 // Dependency management
 export {
   DependencyGraph,
   type DependencyNode,
   type DependencyPath,
-} from './dependency-graph.ts';
+} from './dependency-graph.js';
 
 // Circuit breakers
 export {
@@ -40,7 +40,7 @@ export {
   CircuitState,
   type CircuitBreakerConfig,
   type CircuitBreakerMetrics,
-} from './circuit-breaker.ts';
+} from './circuit-breaker.js';
 
 // Conflict resolution
 export {
@@ -53,11 +53,11 @@ export {
   type TaskConflict,
   type ConflictResolution,
   type ConflictResolutionStrategy,
-} from './conflict-resolution.ts';
+} from './conflict-resolution.js';
 
 // Metrics and monitoring
 export {
   CoordinationMetricsCollector,
   type CoordinationMetrics,
   type MetricsSample,
-} from './metrics.ts';
+} from './metrics.js';

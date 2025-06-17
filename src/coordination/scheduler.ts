@@ -2,11 +2,11 @@
  * Task scheduler implementation
  */
 
-import { Task, TaskStatus, CoordinationConfig, SystemEvents } from '../utils/types.ts';
-import { IEventBus } from '../core/event-bus.ts';
-import { ILogger } from '../core/logger.ts';
-import { TaskError, TaskTimeoutError, TaskDependencyError } from '../utils/errors.ts';
-import { delay } from '../utils/helpers.ts';
+import { Task, TaskStatus, CoordinationConfig, SystemEvents } from '../utils/types.js';
+import { IEventBus } from '../core/event-bus.js';
+import { ILogger } from '../core/logger.js';
+import { TaskError, TaskTimeoutError, TaskDependencyError } from '../utils/errors.js';
+import { delay } from '../utils/helpers.js';
 
 interface ScheduledTask {
   task: Task;

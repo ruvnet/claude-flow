@@ -2,11 +2,11 @@
  * Inter-agent messaging system
  */
 
-import { Message, CoordinationConfig, SystemEvents } from '../utils/types.ts';
-import { IEventBus } from '../core/event-bus.ts';
-import { ILogger } from '../core/logger.ts';
-import { CoordinationError } from '../utils/errors.ts';
-import { generateId, timeout as timeoutHelper } from '../utils/helpers.ts';
+import { Message, CoordinationConfig, SystemEvents } from '../utils/types.js';
+import { IEventBus } from '../core/event-bus.js';
+import { ILogger } from '../core/logger.js';
+import { CoordinationError } from '../utils/errors.js';
+import { generateId, timeout as timeoutHelper } from '../utils/helpers.js';
 
 interface MessageQueue {
   messages: Message[];

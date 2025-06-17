@@ -1,9 +1,9 @@
 import { EventEmitter } from 'node:events';
-import { Logger } from '../core/logger.ts';
-import { generateId } from '../utils/helpers.ts';
-import { SwarmMonitor } from './swarm-monitor.ts';
-import { AdvancedTaskScheduler } from './advanced-scheduler.ts';
-import { MemoryManager } from '../memory/manager.ts';
+import { Logger } from '../core/logger.js';
+import { generateId } from '../utils/helpers.js';
+import { SwarmMonitor } from './swarm-monitor.js';
+import { AdvancedTaskScheduler } from './advanced-scheduler.js';
+import { MemoryManager } from '../memory/manager.js';
 
 export interface SwarmAgent {
   id: string;

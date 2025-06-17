@@ -1,48 +1,79 @@
 # Development files
-*.test.ts
-*.spec.ts
-test/
-tests/
-coverage/
-.github/
-.vscode/
-
-# Build artifacts
-bin/claude-flow-simple
-bin/claude-flow-typecheck
-*.tgz
-
-# Documentation
-docs/
-examples/
-plans/
-research/
-coordination/
-memory/
-mcp_config/
-
-# Scripts (except install.js)
-scripts/*.ts
-scripts/*.sh
-scripts/demo-*.ts
-scripts/test-*.ts
-scripts/validate-*.ts
-scripts/check-*.ts
-scripts/coverage-*.ts
-
-# Logs and temp files
 *.log
 *.tmp
 .DS_Store
-node_modules/
-dist/
-test-results/
+.env*
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# Config files
-tsconfig.json
-vitest.config.ts
-codecov.yml
-claude.md
+# Test files
+__tests__/
+test/
+tests/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+coverage/
+.nyc_output/
+
+# Build artifacts (we include dist/ for compiled files)
+*.map
+tsconfig.tsbuildinfo
+
+# Source control
+.git/
+.gitignore
+.github/
+
+# Documentation source files
+docs/
 *.md
 !README.md
-!LICENSE
+!SWARM_TTY_SOLUTION.md
+!SWARM_VISIBILITY.md
+
+# Development configs
+.eslintrc*
+.prettierrc*
+jest.config.*
+tsconfig.json
+deno.json
+deno.lock
+
+# Local files
+claude-flow
+claude-flow.cmd
+init-test/
+exported-memory.json
+test-memory.json
+*.json.bak
+
+# Reports and analysis
+reports/
+*.json
+!package.json
+!package-lock.json
+!.claude/config.json
+
+# Binary builds (we don't need prebuilt binaries for npm)
+bin/claude-flow-*
+bin/*.exe
+
+# Example and demo files
+examples/
+demo/
+
+# CI/CD
+.travis.yml
+.circleci/
+.gitlab-ci.yml
+
+# Keep essential files for npm package
+!cli.js
+!scripts/install.js
+!scripts/swarm-blessed-ui.js
+!scripts/swarm-simple.js
+!scripts/swarm-example.sh

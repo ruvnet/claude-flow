@@ -163,7 +163,9 @@ Please coordinate this swarm task by:
 
 Use all available tools including file operations, web search, and code execution as needed.`;
 
-    // Execute Claude with the swarm prompt
+    // Execute Claude non-interactively by piping the prompt
+    const { spawn } = await import('child_process');
+    
     const claudeArgs = [];
     
     // Add auto-permission flag if requested
@@ -171,14 +173,29 @@ Use all available tools including file operations, web search, and code executio
       claudeArgs.push('--dangerously-skip-permissions');
     }
     
-    // Build the command - pass the prompt as the last argument
-    const promptEscaped = swarmPrompt.replace(/"/g, '\\"').replace(/\$/g, '\\$').replace(/`/g, '\\`');
-    const command = `claude ${claudeArgs.join(' ')} "${promptEscaped}"`;
+    // Spawn claude process
+    const claudeProcess = spawn('claude', claudeArgs, {
+      stdio: ['pipe', 'inherit', 'inherit'],
+      shell: false
+    });
     
-    // Execute with stdio inherit to see output in real-time
-    execSync(command, { 
-      stdio: 'inherit',
-      shell: true
+    // Write the prompt to stdin and close it
+    claudeProcess.stdin.write(swarmPrompt);
+    claudeProcess.stdin.end();
+    
+    // Wait for the process to complete
+    await new Promise((resolve, reject) => {
+      claudeProcess.on('close', (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Claude process exited with code ${code}`));
+        }
+      });
+      
+      claudeProcess.on('error', (err) => {
+        reject(err);
+      });
     });
     
   } catch (error) {

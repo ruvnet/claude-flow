@@ -7,12 +7,12 @@ import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { Logger } from '../core/logger.ts';
-import { generateId } from '../utils/helpers.ts';
+import { Logger } from '../core/logger.js';
+import { generateId } from '../utils/helpers.js';
 import {
   TaskDefinition, AgentState, TaskResult, SwarmEvent, EventType,
   SWARM_CONSTANTS
-} from './types.ts';
+} from './types.js';
 
 export interface ExecutionContext {
   task: TaskDefinition;
@@ -74,11 +74,11 @@ export class TaskExecutor extends EventEmitter {
   constructor(config: Partial<ExecutionConfig> = {}) {
     super();
     
+    this.config = this.mergeWithDefaults(config);
     this.logger = new Logger(
-      { level: 'info', format: 'json', destination: 'console' },
+      { level: this.config.logLevel || 'info', format: 'text', destination: 'console' },
       { component: 'TaskExecutor' }
     );
-    this.config = this.mergeWithDefaults(config);
     this.resourceMonitor = new ResourceMonitor();
     this.processPool = new ProcessPool(this.config);
     

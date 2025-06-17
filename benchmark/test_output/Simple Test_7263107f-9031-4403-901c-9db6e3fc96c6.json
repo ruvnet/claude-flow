@@ -1,0 +1,131 @@
+{
+  "id": "7263107f-9031-4403-901c-9db6e3fc96c6",
+  "name": "Simple Test",
+  "description": "",
+  "status": "completed",
+  "config": {
+    "name": "Simple Test",
+    "description": "",
+    "strategy": "auto",
+    "mode": "centralized",
+    "max_agents": 5,
+    "max_tasks": 100,
+    "timeout": 3600,
+    "task_timeout": 300,
+    "max_retries": 3,
+    "parallel": false,
+    "background": false,
+    "monitoring": true,
+    "quality_threshold": 0.8,
+    "resource_limits": {
+      "max_memory_mb": 1024,
+      "max_cpu_percent": 80,
+      "max_network_mbps": 100
+    },
+    "output_formats": [
+      "json"
+    ],
+    "output_directory": "./test_output",
+    "verbose": false
+  },
+  "tasks": [
+    {
+      "id": "51d20a6d-959d-4b3a-a85d-f1cf808c3019",
+      "objective": "Build a simple REST API",
+      "description": "Benchmark task: Build a simple REST API",
+      "strategy": "auto",
+      "mode": "centralized",
+      "parameters": {},
+      "timeout": 300,
+      "max_retries": 3,
+      "priority": 1,
+      "status": "pending",
+      "created_at": "2025-06-14T16:34:22.840099",
+      "started_at": null,
+      "completed_at": null,
+      "duration": null,
+      "assigned_agents": [],
+      "parent_task_id": null,
+      "subtasks": [],
+      "dependencies": []
+    }
+  ],
+  "results": [
+    {
+      "id": "1f7516b4-25e5-4636-8124-65ca2fc9d6df",
+      "task_id": "51d20a6d-959d-4b3a-a85d-f1cf808c3019",
+      "agent_id": "development-agent",
+      "status": "success",
+      "output": {
+        "code_implementation": "Code implementation completed for: Build a simple REST API",
+        "files_created": [
+          "main.py",
+          "utils.py",
+          "tests.py"
+        ],
+        "lines_of_code": 250,
+        "test_coverage": 0.95,
+        "code_quality": 0.9
+      },
+      "errors": [],
+      "warnings": [],
+      "performance_metrics": {
+        "execution_time": 0.200362,
+        "queue_time": 0.0,
+        "throughput": 0.0,
+        "success_rate": 1.0,
+        "error_rate": 0.0,
+        "retry_count": 0,
+        "coordination_overhead": 0.0,
+        "communication_latency": 0.0
+      },
+      "quality_metrics": {
+        "accuracy_score": 0.0,
+        "completeness_score": 0.0,
+        "consistency_score": 0.0,
+        "relevance_score": 0.0,
+        "overall_quality": 0.0,
+        "review_score": null,
+        "automated_score": null
+      },
+      "resource_usage": {
+        "cpu_percent": 25.0,
+        "memory_mb": 256,
+        "network_bytes_sent": 0,
+        "network_bytes_recv": 0,
+        "disk_bytes_read": 0,
+        "disk_bytes_write": 0,
+        "peak_memory_mb": 0.0,
+        "average_cpu_percent": 0.0
+      },
+      "execution_details": {},
+      "created_at": "2025-06-14T16:34:23.042340",
+      "started_at": "2025-06-14T16:34:22.841906",
+      "completed_at": "2025-06-14T16:34:23.042293",
+      "duration": 0.200387
+    }
+  ],
+  "metrics": {
+    "total_tasks": 1,
+    "completed_tasks": 1,
+    "failed_tasks": 0,
+    "total_agents": 0,
+    "active_agents": 0,
+    "average_execution_time": 0.200362,
+    "total_execution_time": 0.200362,
+    "success_rate": 1.0,
+    "throughput": 0.0,
+    "resource_efficiency": 0.0,
+    "coordination_efficiency": 0.0,
+    "quality_score": 0.0,
+    "peak_memory_usage": 0.0,
+    "total_cpu_time": 0.0,
+    "network_overhead": 0.0
+  },
+  "created_at": "2025-06-14T16:34:22.840117",
+  "started_at": "2025-06-14T16:34:22.840120",
+  "completed_at": "2025-06-14T16:34:23.042375",
+  "duration": 0.202255,
+  "error_log": [],
+  "metadata": {}
+}

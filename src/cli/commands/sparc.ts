@@ -1,6 +1,7 @@
-import { success, error, warning, info } from "../cli-core.ts";
-import type { CommandContext } from "../cli-core.ts";
-import { blue, yellow, green, magenta, cyan } from "https://deno.land/std@0.224.0/fmt/colors.ts";
+import { success, error, warning, info } from "../cli-core.js";
+import type { CommandContext } from "../cli-core.js";
+import colors from "chalk";
+const { blue, yellow, green, magenta, cyan } = colors;
 
 interface SparcMode {
   slug: string;
@@ -24,7 +25,8 @@ async function loadSparcConfig(): Promise<SparcConfig> {
 
   try {
     const configPath = ".roomodes";
-    const content = await Deno.readTextFile(configPath);
+    const { readFile } = await import("fs/promises");
+    const content = await readFile(configPath, "utf-8");
     sparcConfig = JSON.parse(content);
     return sparcConfig!;
   } catch (error) {
@@ -234,11 +236,16 @@ async function runTddFlow(ctx: CommandContext): Promise<void> {
       // Store phase completion in memory for next step
       if (ctx.flags.sequential !== false) {
         console.log("Phase completed. Press Enter to continue to next phase, or Ctrl+C to stop...");
-        await new Promise<void>((resolve) => {
-          const decoder = new TextDecoder();
-          const encoder = new TextEncoder();
-          
-          Deno.stdin.read(new Uint8Array(1)).then(() => resolve());
+        await new Promise<void>(async (resolve) => {
+          const readline = await import("readline");
+          const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+          });
+          rl.question("", () => {
+            rl.close();
+            resolve();
+          });
         });
       }
     }
@@ -259,7 +266,8 @@ async function runSparcWorkflow(ctx: CommandContext): Promise<void> {
   }
 
   try {
-    const workflowContent = await Deno.readTextFile(workflowFile);
+    const { readFile } = await import("fs/promises");
+    const workflowContent = await readFile(workflowFile, "utf-8");
     const workflow = JSON.parse(workflowContent);
 
     if (!workflow.steps || !Array.isArray(workflow.steps)) {
@@ -311,7 +319,15 @@ async function runSparcWorkflow(ctx: CommandContext): Promise<void> {
       if (workflow.sequential !== false && i < workflow.steps.length - 1) {
         console.log("Step completed. Press Enter to continue, or Ctrl+C to stop...");
         await new Promise<void>((resolve) => {
-          Deno.stdin.read(new Uint8Array(1)).then(() => resolve());
+          const readline = require("readline");
+          const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+          });
+          rl.question("", () => {
+            rl.close();
+            resolve();
+          });
         });
       }
     }
@@ -440,22 +456,23 @@ async function executeClaudeWithSparc(
   }
 
   try {
-    const command = new Deno.Command("claude", {
-      args: claudeArgs,
+    const { spawn } = await import("child_process");
+    const child = spawn("claude", claudeArgs, {
       env: {
-        ...Deno.env.toObject(),
+        ...process.env,
         CLAUDE_INSTANCE_ID: instanceId,
         CLAUDE_SPARC_MODE: "true",
         CLAUDE_FLOW_MEMORY_ENABLED: "true",
         CLAUDE_FLOW_MEMORY_NAMESPACE: flags.namespace || "sparc",
       },
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
+      stdio: "inherit",
     });
 
-    const child = command.spawn();
-    const status = await child.status;
+    const status = await new Promise((resolve) => {
+      child.on("close", (code) => {
+        resolve({ success: code === 0, code });
+      });
+    });
 
     if (status.success) {
       success(`SPARC instance ${instanceId} completed successfully`);

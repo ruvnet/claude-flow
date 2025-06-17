@@ -2,10 +2,10 @@
  * Terminal pool management
  */
 
-import { Terminal, ITerminalAdapter } from './adapters/base.ts';
-import { ILogger } from '../core/logger.ts';
-import { TerminalError } from '../utils/errors.ts';
-import { delay } from '../utils/helpers.ts';
+import { Terminal, ITerminalAdapter } from './adapters/base.js';
+import { ILogger } from '../core/logger.js';
+import { TerminalError } from '../utils/errors.js';
+import { delay } from '../utils/helpers.js';
 
 interface PooledTerminal {
   terminal: Terminal;

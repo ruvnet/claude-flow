@@ -15,20 +15,22 @@ import {
   MCPProtocolVersion,
   MCPCapabilities,
   MCPContext,
-} from '../utils/types.ts';
-import { IEventBus } from '../core/event-bus.ts';
-import { ILogger } from '../core/logger.ts';
-import { MCPError as MCPErrorClass, MCPMethodNotFoundError } from '../utils/errors.ts';
-import { ITransport } from './transports/base.ts';
-import { StdioTransport } from './transports/stdio.ts';
-import { HttpTransport } from './transports/http.ts';
-import { ToolRegistry } from './tools.ts';
-import { RequestRouter } from './router.ts';
-import { SessionManager, ISessionManager } from './session-manager.ts';
-import { AuthManager, IAuthManager } from './auth.ts';
-import { LoadBalancer, ILoadBalancer, RequestQueue } from './load-balancer.ts';
-import { createClaudeFlowTools, ClaudeFlowToolContext } from './claude-flow-tools.ts';
-import { createSwarmTools, SwarmToolContext } from './swarm-tools.ts';
+} from '../utils/types.js';
+import { IEventBus } from '../core/event-bus.js';
+import { ILogger } from '../core/logger.js';
+import { MCPError as MCPErrorClass, MCPMethodNotFoundError } from '../utils/errors.js';
+import { ITransport } from './transports/base.js';
+import { StdioTransport } from './transports/stdio.js';
+import { HttpTransport } from './transports/http.js';
+import { ToolRegistry } from './tools.js';
+import { RequestRouter } from './router.js';
+import { SessionManager, ISessionManager } from './session-manager.js';
+import { AuthManager, IAuthManager } from './auth.js';
+import { LoadBalancer, ILoadBalancer, RequestQueue } from './load-balancer.js';
+import { createClaudeFlowTools, ClaudeFlowToolContext } from './claude-flow-tools.js';
+import { createSwarmTools, SwarmToolContext } from './swarm-tools.js';
+import { platform, arch } from 'node:os';
+import { performance } from 'node:perf_hooks';
 
 export interface IMCPServer {
   start(): Promise<void>;
@@ -438,9 +440,9 @@ export class MCPServer implements IMCPServer {
       handler: async () => {
         return {
           version: '1.0.0',
-          platform: Deno.build.os,
-          arch: Deno.build.arch,
-          runtime: 'Deno',
+          platform: platform(),
+          arch: arch(),
+          runtime: 'Node.js',
           uptime: performance.now(),
         };
       },

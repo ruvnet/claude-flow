@@ -2,16 +2,16 @@
  * Coordination manager for task scheduling and resource management
  */
 
-import { Task, CoordinationConfig, SystemEvents } from '../utils/types.ts';
-import { IEventBus } from '../core/event-bus.ts';
-import { ILogger } from '../core/logger.ts';
-import { CoordinationError, DeadlockError } from '../utils/errors.ts';
-import { TaskScheduler } from './scheduler.ts';
-import { ResourceManager } from './resources.ts';
-import { MessageRouter } from './messaging.ts';
-import { AdvancedTaskScheduler } from './advanced-scheduler.ts';
-import { ConflictResolver } from './conflict-resolution.ts';
-import { CoordinationMetricsCollector } from './metrics.ts';
+import { Task, CoordinationConfig, SystemEvents } from '../utils/types.js';
+import { IEventBus } from '../core/event-bus.js';
+import { ILogger } from '../core/logger.js';
+import { CoordinationError, DeadlockError } from '../utils/errors.js';
+import { TaskScheduler } from './scheduler.js';
+import { ResourceManager } from './resources.js';
+import { MessageRouter } from './messaging.js';
+import { AdvancedTaskScheduler } from './advanced-scheduler.js';
+import { ConflictResolver } from './conflict-resolution.js';
+import { CoordinationMetricsCollector } from './metrics.js';
 
 export interface ICoordinationManager {
   initialize(): Promise<void>;

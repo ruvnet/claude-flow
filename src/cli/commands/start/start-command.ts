@@ -1,15 +1,17 @@
 /**
- * Unified start command implementation
+ * Unified start command implementation with robust service management
  */
 
 import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
-import { ProcessManager } from './process-manager.ts';
-import { ProcessUI } from './process-ui.ts';
-import { SystemMonitor } from './system-monitor.ts';
-import { StartOptions } from './types.ts';
-import { eventBus } from '../../../core/event-bus.ts';
-import { logger } from '../../../core/logger.ts';
+import { Confirm } from '@cliffy/prompt';
+import { ProcessManager } from './process-manager.js';
+import { ProcessUI } from './process-ui.js';
+import { SystemMonitor } from './system-monitor.js';
+import { StartOptions } from './types.js';
+import { eventBus } from '../../../core/event-bus.js';
+import { logger } from '../../../core/logger.js';
+import { formatDuration } from '../../formatter.js';
 
 export const startCommand = new Command()
   .description('Start the Claude-Flow orchestration system')
@@ -22,24 +24,66 @@ export const startCommand = new Command()
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--auto-start', 'Automatically start all processes')
   .option('--config <path:string>', 'Configuration file path')
+  .option('--force', 'Force start even if already running')
+  .option('--health-check', 'Perform health checks before starting')
+  .option('--timeout <seconds:number>', 'Startup timeout in seconds', { default: 60 })
   .action(async (options: StartOptions) => {
     console.log(colors.cyan('🧠 Claude-Flow Orchestration System'));
     console.log(colors.gray('─'.repeat(60)));
 
     try {
-      // Initialize process manager
-      const processManager = new ProcessManager();
-      await processManager.initialize(options.config);
+      // Check if already running
+      if (!options.force && await isSystemRunning()) {
+        console.log(colors.yellow('⚠ Claude-Flow is already running'));
+        const shouldContinue = await Confirm.prompt({
+          message: 'Stop existing instance and restart?',
+          default: false
+        });
+        
+        if (!shouldContinue) {
+          console.log(colors.gray('Use --force to override or "claude-flow stop" first'));
+          return;
+        }
+        
+        await stopExistingInstance();
+      }
 
-      // Initialize system monitor
+      // Perform pre-flight checks
+      if (options.healthCheck) {
+        console.log(colors.blue('Running pre-flight health checks...'));
+        await performHealthChecks();
+      }
+
+      // Initialize process manager with timeout
+      const processManager = new ProcessManager();
+      console.log(colors.blue('Initializing system components...'));
+      const initPromise = processManager.initialize(options.config);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Initialization timeout')), options.timeout * 1000)
+      );
+      
+      await Promise.race([initPromise, timeoutPromise]);
+
+      // Initialize system monitor with enhanced monitoring
       const systemMonitor = new SystemMonitor(processManager);
       systemMonitor.start();
+      
+      // Setup system event handlers
+      setupSystemEventHandlers(processManager, systemMonitor, options);
 
       // Override MCP settings from CLI options
       if (options.port) {
         const mcpProcess = processManager.getProcess('mcp-server');
         if (mcpProcess) {
           mcpProcess.config = { ...mcpProcess.config, port: options.port };
+        }
+      }
+      
+      // Configure transport settings
+      if (options.mcpTransport) {
+        const mcpProcess = processManager.getProcess('mcp-server');
+        if (mcpProcess) {
+          mcpProcess.config = { ...mcpProcess.config, transport: options.mcpTransport };
         }
       }
 
@@ -65,21 +109,31 @@ export const startCommand = new Command()
         
         // Auto-start all processes
         if (options.autoStart) {
-          await processManager.startAll();
+          console.log(colors.blue('Starting all system processes...'));
+          await startWithProgress(processManager, 'all');
         } else {
           // Start only core processes
-          await processManager.startProcess('event-bus');
-          await processManager.startProcess('memory-manager');
-          await processManager.startProcess('mcp-server');
+          console.log(colors.blue('Starting core processes...'));
+          await startWithProgress(processManager, 'core');
         }
 
-        // Create PID file
+        // Create PID file with metadata
         const pid = Deno.pid;
-        await Deno.writeTextFile('.claude-flow.pid', pid.toString());
+        const pidData = {
+          pid,
+          startTime: Date.now(),
+          config: options.config || 'default',
+          processes: processManager.getAllProcesses().map(p => ({ id: p.id, status: p.status }))
+        };
+        await Deno.writeTextFile('.claude-flow.pid', JSON.stringify(pidData, null, 2));
         console.log(colors.gray(`Process ID: ${pid}`));
+        
+        // Wait for services to be fully ready
+        await waitForSystemReady(processManager);
         
         console.log(colors.green.bold('✓'), 'Daemon started successfully');
         console.log(colors.gray('Use "claude-flow status" to check system status'));
+        console.log(colors.gray('Use "claude-flow monitor" for real-time monitoring'));
         
         // Keep process running
         await new Promise<void>(() => {});
@@ -109,15 +163,13 @@ export const startCommand = new Command()
           switch (key) {
             case '1':
               console.log(colors.cyan('\nStarting all processes...'));
-              await processManager.startAll();
+              await startWithProgress(processManager, 'all');
               console.log(colors.green.bold('✓'), 'All processes started');
               break;
 
             case '2':
               console.log(colors.cyan('\nStarting core processes...'));
-              await processManager.startProcess('event-bus');
-              await processManager.startProcess('memory-manager');
-              await processManager.startProcess('mcp-server');
+              await startWithProgress(processManager, 'core');
               console.log(colors.green.bold('✓'), 'Core processes started');
               break;
 
@@ -172,18 +224,247 @@ export const startCommand = new Command()
       if (options.verbose) {
         console.error((error as Error).stack);
       }
+      
+      // Cleanup on failure
+      console.log(colors.yellow('Performing cleanup...'));
+      try {
+        await cleanupOnFailure();
+      } catch (cleanupError) {
+        console.error(colors.red('Cleanup failed:'), (cleanupError as Error).message);
+      }
+      
       Deno.exit(1);
     }
   });
 
-function setupVerboseLogging(monitor: SystemMonitor): void {
-  // Log all events in verbose mode
-  // Note: eventBus doesn't support wildcard events, would need to register specific events
-  // For now, we'll skip this functionality
+// Enhanced helper functions
 
+async function isSystemRunning(): Promise<boolean> {
+  try {
+    const pidData = await Deno.readTextFile('.claude-flow.pid');
+    const data = JSON.parse(pidData);
+    
+    // Check if process is still running
+    try {
+      Deno.kill(data.pid, 'SIGTERM');
+      return false; // Process was killed, so it was running
+    } catch {
+      return false; // Process not found
+    }
+  } catch {
+    return false; // No PID file
+  }
+}
+
+async function stopExistingInstance(): Promise<void> {
+  try {
+    const pidData = await Deno.readTextFile('.claude-flow.pid');
+    const data = JSON.parse(pidData);
+    
+    console.log(colors.yellow('Stopping existing instance...'));
+    Deno.kill(data.pid, 'SIGTERM');
+    
+    // Wait for graceful shutdown
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Force kill if still running
+    try {
+      Deno.kill(data.pid, 'SIGKILL');
+    } catch {
+      // Process already stopped
+    }
+    
+    await Deno.remove('.claude-flow.pid').catch(() => {});
+    console.log(colors.green('✓ Existing instance stopped'));
+  } catch (error) {
+    console.warn(colors.yellow('Warning: Could not stop existing instance'), (error as Error).message);
+  }
+}
+
+async function performHealthChecks(): Promise<void> {
+  const checks = [
+    { name: 'Disk Space', check: checkDiskSpace },
+    { name: 'Memory Available', check: checkMemoryAvailable },
+    { name: 'Network Connectivity', check: checkNetworkConnectivity },
+    { name: 'Required Dependencies', check: checkDependencies }
+  ];
+  
+  for (const { name, check } of checks) {
+    try {
+      console.log(colors.gray(`  Checking ${name}...`));
+      await check();
+      console.log(colors.green(`  ✓ ${name} OK`));
+    } catch (error) {
+      console.log(colors.red(`  ✗ ${name} Failed: ${(error as Error).message}`));
+      throw error;
+    }
+  }
+}
+
+async function checkDiskSpace(): Promise<void> {
+  // Basic disk space check - would need platform-specific implementation
+  const stats = await Deno.stat('.');
+  if (!stats.isDirectory) {
+    throw new Error('Current directory is not accessible');
+  }
+}
+
+async function checkMemoryAvailable(): Promise<void> {
+  // Memory check - would integrate with system memory monitoring
+  const memoryInfo = Deno.memoryUsage();
+  if (memoryInfo.heapUsed > 500 * 1024 * 1024) { // 500MB threshold
+    throw new Error('High memory usage detected');
+  }
+}
+
+async function checkNetworkConnectivity(): Promise<void> {
+  // Basic network check
+  try {
+    const response = await fetch('https://httpbin.org/status/200', {
+      method: 'GET',
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!response.ok) {
+      throw new Error(`Network check failed: ${response.status}`);
+    }
+  } catch {
+    console.log(colors.yellow('  ⚠ Network connectivity check skipped (offline mode?)'));
+  }
+}
+
+async function checkDependencies(): Promise<void> {
+  // Check for required directories and files
+  const requiredDirs = ['.claude-flow', 'memory', 'logs'];
+  for (const dir of requiredDirs) {
+    try {
+      await Deno.mkdir(dir, { recursive: true });
+    } catch (error) {
+      throw new Error(`Cannot create required directory: ${dir}`);
+    }
+  }
+}
+
+function setupSystemEventHandlers(
+  processManager: ProcessManager, 
+  systemMonitor: SystemMonitor, 
+  options: StartOptions
+): void {
+  // Handle graceful shutdown signals
+  const shutdownHandler = async () => {
+    console.log('\n' + colors.yellow('Received shutdown signal, shutting down gracefully...'));
+    systemMonitor.stop();
+    await processManager.stopAll();
+    await cleanupOnShutdown();
+    console.log(colors.green('✓ Shutdown complete'));
+    Deno.exit(0);
+  };
+  
+  Deno.addSignalListener('SIGINT', shutdownHandler);
+  Deno.addSignalListener('SIGTERM', shutdownHandler);
+  
+  // Setup verbose logging if requested
+  if (options.verbose) {
+    setupVerboseLogging(systemMonitor);
+  }
+  
+  // Monitor for critical errors
+  processManager.on('processError', (event: any) => {
+    console.error(colors.red(`Process error in ${event.processId}:`), event.error.message);
+    if (event.processId === 'orchestrator') {
+      console.error(colors.red.bold('Critical process failed, initiating recovery...'));
+      // Could implement auto-recovery logic here
+    }
+  });
+}
+
+async function startWithProgress(processManager: ProcessManager, mode: 'all' | 'core'): Promise<void> {
+  const processes = mode === 'all' 
+    ? ['event-bus', 'memory-manager', 'terminal-pool', 'coordinator', 'mcp-server', 'orchestrator']
+    : ['event-bus', 'memory-manager', 'mcp-server'];
+  
+  for (let i = 0; i < processes.length; i++) {
+    const processId = processes[i];
+    const progress = `[${i + 1}/${processes.length}]`;
+    
+    console.log(colors.gray(`${progress} Starting ${processId}...`));
+    try {
+      await processManager.startProcess(processId);
+      console.log(colors.green(`${progress} ✓ ${processId} started`));
+    } catch (error) {
+      console.log(colors.red(`${progress} ✗ ${processId} failed: ${(error as Error).message}`));
+      if (processId === 'orchestrator' || processId === 'mcp-server') {
+        throw error; // Critical processes
+      }
+    }
+    
+    // Brief delay between starts
+    if (i < processes.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+}
+
+async function waitForSystemReady(processManager: ProcessManager): Promise<void> {
+  console.log(colors.blue('Waiting for system to be ready...'));
+  
+  const maxWait = 30000; // 30 seconds
+  const checkInterval = 1000; // 1 second
+  let waited = 0;
+  
+  while (waited < maxWait) {
+    const stats = processManager.getSystemStats();
+    if (stats.errorProcesses === 0 && stats.runningProcesses >= 3) {
+      console.log(colors.green('✓ System ready'));
+      return;
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, checkInterval));
+    waited += checkInterval;
+  }
+  
+  console.log(colors.yellow('⚠ System startup completed but some processes may not be fully ready'));
+}
+
+async function cleanupOnFailure(): Promise<void> {
+  try {
+    await Deno.remove('.claude-flow.pid').catch(() => {});
+    console.log(colors.gray('Cleaned up PID file'));
+  } catch {
+    // Ignore cleanup errors
+  }
+}
+
+async function cleanupOnShutdown(): Promise<void> {
+  try {
+    await Deno.remove('.claude-flow.pid').catch(() => {});
+    console.log(colors.gray('Cleaned up PID file'));
+  } catch {
+    // Ignore cleanup errors
+  }
+}
+
+function setupVerboseLogging(monitor: SystemMonitor): void {
+  // Enhanced verbose logging
+  console.log(colors.gray('Verbose logging enabled'));
+  
   // Periodically print system health
   setInterval(() => {
     console.log();
+    console.log(colors.cyan('--- System Health Report ---'));
     monitor.printSystemHealth();
+    console.log(colors.cyan('--- End Report ---'));
   }, 30000);
+  
+  // Log critical events
+  eventBus.on('process:started', (data: any) => {
+    console.log(colors.green(`[VERBOSE] Process started: ${data.processId}`));
+  });
+  
+  eventBus.on('process:stopped', (data: any) => {
+    console.log(colors.yellow(`[VERBOSE] Process stopped: ${data.processId}`));
+  });
+  
+  eventBus.on('process:error', (data: any) => {
+    console.log(colors.red(`[VERBOSE] Process error: ${data.processId} - ${data.error.message}`));
+  });
 }

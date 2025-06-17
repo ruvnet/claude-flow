@@ -2,7 +2,7 @@
  * Base transport interface for MCP
  */
 
-import { MCPRequest, MCPResponse, MCPNotification } from '../../utils/types.ts';
+import { MCPRequest, MCPResponse, MCPNotification } from '../../utils/types.js';
 
 export type RequestHandler = (request: MCPRequest) => Promise<MCPResponse>;
 export type NotificationHandler = (notification: MCPNotification) => Promise<void>;

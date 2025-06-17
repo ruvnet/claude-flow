@@ -2,10 +2,13 @@
  * Standard I/O transport for MCP
  */
 
-import { ITransport, RequestHandler, NotificationHandler } from './base.ts';
-import { MCPRequest, MCPResponse, MCPNotification } from '../../utils/types.ts';
-import { ILogger } from '../../core/logger.ts';
-import { MCPTransportError } from '../../utils/errors.ts';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { stdin, stdout } from 'node:process';
+import { createInterface, Interface } from 'node:readline';
+import { ITransport, RequestHandler, NotificationHandler } from './base.js';
+import { MCPRequest, MCPResponse, MCPNotification } from '../../utils/types.js';
+import { ILogger } from '../../core/logger.js';
+import { MCPTransportError } from '../../utils/errors.js';
 
 /**
  * Stdio transport implementation
@@ -13,13 +16,10 @@ import { MCPTransportError } from '../../utils/errors.ts';
 export class StdioTransport implements ITransport {
   private requestHandler?: RequestHandler;
   private notificationHandler?: NotificationHandler;
-  private decoder = new TextDecoder();
-  private encoder = new TextEncoder();
-  private buffer = '';
+  private readline?: Interface;
   private messageCount = 0;
   private notificationCount = 0;
   private running = false;
-  private reader?: ReadableStreamDefaultReader<Uint8Array> | undefined;
 
   constructor(private logger: ILogger) {}
 
@@ -31,13 +31,26 @@ export class StdioTransport implements ITransport {
     this.logger.info('Starting stdio transport');
 
     try {
-      // Start reading from stdin
-      this.reader = Deno.stdin.readable.getReader();
+      // Create readline interface for stdin
+      this.readline = createInterface({
+        input: stdin,
+        output: stdout,
+        terminal: false,
+      });
+
+      // Set up line handler
+      this.readline.on('line', (line: string) => {
+        this.processMessage(line.trim()).catch((error) => {
+          this.logger.error('Error processing message', { line, error });
+        });
+      });
+
+      this.readline.on('close', () => {
+        this.logger.info('Stdin closed');
+        this.running = false;
+      });
+
       this.running = true;
-
-      // Start read loop
-      this.readLoop();
-
       this.logger.info('Stdio transport started');
     } catch (error) {
       throw new MCPTransportError('Failed to start stdio transport', { error });
@@ -53,9 +66,9 @@ export class StdioTransport implements ITransport {
 
     this.running = false;
     
-    if (this.reader) {
-      await this.reader.cancel();
-      this.reader = undefined;
+    if (this.readline) {
+      this.readline.close();
+      this.readline = undefined;
     }
 
     this.logger.info('Stdio transport stopped');
@@ -80,52 +93,11 @@ export class StdioTransport implements ITransport {
       metrics: {
         messagesReceived: this.messageCount,
         notificationsSent: this.notificationCount,
-        bufferSize: this.buffer.length,
+        stdinOpen: this.readline ? 1 : 0,
       },
     };
   }
 
-  private async readLoop(): Promise<void> {
-    while (this.running && this.reader) {
-      try {
-        const { done, value } = await this.reader.read();
-        
-        if (done) {
-          this.logger.info('Stdin closed');
-          break;
-        }
-
-        // Add to buffer
-        this.buffer += this.decoder.decode(value, { stream: true });
-
-        // Process complete messages
-        await this.processBuffer();
-      } catch (error) {
-        if (this.running) {
-          this.logger.error('Error reading from stdin', error);
-        }
-      }
-    }
-  }
-
-  private async processBuffer(): Promise<void> {
-    let newlineIndex: number;
-    
-    while ((newlineIndex = this.buffer.indexOf('\n')) !== -1) {
-      const line = this.buffer.slice(0, newlineIndex).trim();
-      this.buffer = this.buffer.slice(newlineIndex + 1);
-
-      if (line.length === 0) {
-        continue;
-      }
-
-      try {
-        await this.processMessage(line);
-      } catch (error) {
-        this.logger.error('Error processing message', { line, error });
-      }
-    }
-  }
 
   private async processMessage(line: string): Promise<void> {
     let message: any;
@@ -227,9 +199,7 @@ export class StdioTransport implements ITransport {
   private async sendResponse(response: MCPResponse): Promise<void> {
     try {
       const json = JSON.stringify(response);
-      const data = this.encoder.encode(json + '\n');
-      
-      await Deno.stdout.write(data);
+      stdout.write(json + '\n');
     } catch (error) {
       this.logger.error('Failed to send response', { response, error });
     }
@@ -250,8 +220,7 @@ export class StdioTransport implements ITransport {
   async sendRequest(request: MCPRequest): Promise<MCPResponse> {
     // Send request to stdout
     const json = JSON.stringify(request);
-    const data = this.encoder.encode(json + '\n');
-    await Deno.stdout.write(data);
+    stdout.write(json + '\n');
     
     // In STDIO transport, responses are handled asynchronously
     // This would need a proper request/response correlation mechanism
@@ -261,8 +230,7 @@ export class StdioTransport implements ITransport {
   async sendNotification(notification: MCPNotification): Promise<void> {
     try {
       const json = JSON.stringify(notification);
-      const data = this.encoder.encode(json + '\n');
-      await Deno.stdout.write(data);
+      stdout.write(json + '\n');
       this.notificationCount++;
     } catch (error) {
       this.logger.error('Failed to send notification', { notification, error });

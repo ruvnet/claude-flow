@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import * as os from 'node:os';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { Logger } from '../core/logger.ts';
+import { Logger } from '../core/logger.js';
 import { performance } from 'node:perf_hooks';
 
 interface AgentMetrics {

@@ -1,0 +1,51 @@
+module.exports = {
+  testEnvironment: 'node',
+  coverageDirectory: 'coverage',
+  collectCoverageFrom: [
+    'src/**/*.js',
+    '!src/**/*.test.js',
+    '!src/index.js',
+    '!**/node_modules/**',
+  ],
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+  },
+  testMatch: [
+    '**/tests/**/*.test.js',
+    '**/tests/**/*.spec.js',
+  ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/build/',
+    '/dist/',
+  ],
+  setupFilesAfterEnv: ['./tests/setup.js'],
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@config/(.*)$': '<rootDir>/src/config/$1',
+    '^@controllers/(.*)$': '<rootDir>/src/controllers/$1',
+    '^@middleware/(.*)$': '<rootDir>/src/middleware/$1',
+    '^@models/(.*)$': '<rootDir>/src/models/$1',
+    '^@routes/(.*)$': '<rootDir>/src/routes/$1',
+    '^@services/(.*)$': '<rootDir>/src/services/$1',
+    '^@utils/(.*)$': '<rootDir>/src/utils/$1',
+    '^@validators/(.*)$': '<rootDir>/src/validators/$1',
+  },
+  transform: {
+    '^.+\\.js$': 'babel-jest',
+  },
+  testTimeout: 10000,
+  maxWorkers: '50%',
+  verbose: true,
+  bail: false,
+  errorOnDeprecated: true,
+  clearMocks: true,
+  restoreMocks: true,
+  resetMocks: true,
+  resetModules: true,
+};

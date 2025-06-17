@@ -7,25 +7,25 @@
 // Import and run the simple CLI which doesn't have external dependencies
 import "./simple-cli.ts";
 // Spinner import removed - not available in current cliffy version
-import { logger } from '../core/logger.ts';
-import { configManager } from '../core/config.ts';
-import { startCommand } from './commands/start.ts';
-import { agentCommand } from './commands/agent.ts';
-import { taskCommand } from './commands/task.ts';
-import { memoryCommand } from './commands/memory.ts';
-import { configCommand } from './commands/config.ts';
-import { statusCommand } from './commands/status.ts';
-import { monitorCommand } from './commands/monitor.ts';
-import { sessionCommand } from './commands/session.ts';
-import { workflowCommand } from './commands/workflow.ts';
-import { helpCommand } from './commands/help.ts';
-import { mcpCommand } from './commands/mcp.ts';
-import { formatError, displayBanner, displayVersion } from './formatter.ts';
-import { startREPL } from './repl.ts';
-import { CompletionGenerator } from './completion.ts';
+import { logger } from '../core/logger.js';
+import { configManager } from '../core/config.js';
+import { startCommand } from './commands/start.js';
+import { agentCommand } from './commands/agent.js';
+import { taskCommand } from './commands/task.js';
+import { memoryCommand } from './commands/memory.js';
+import { configCommand } from './commands/config.js';
+import { statusCommand } from './commands/status.js';
+import { monitorCommand } from './commands/monitor.js';
+import { sessionCommand } from './commands/session.js';
+import { workflowCommand } from './commands/workflow.js';
+import { helpCommand } from './commands/help.js';
+import { mcpCommand } from './commands/mcp.js';
+import { formatError, displayBanner, displayVersion } from './formatter.js';
+import { startREPL } from './repl.js';
+import { CompletionGenerator } from './completion.js';
 
 // Version information
-const VERSION = '1.0.43';
+const VERSION = '1.0.70';
 const BUILD_DATE = new Date().toISOString().split('T')[0];
 
 // Main CLI command

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "1749848000001",
+    "title": "Welcome to Notes CLI",
+    "content": "This is your first note created by the Claude Flow Swarm system!",
+    "tags": ["welcome", "swarm"],
+    "createdAt": "2025-06-13T20:00:00.000Z",
+    "updatedAt": "2025-06-13T20:00:00.000Z",
+    "swarmAgent": "Coordinator-1"
+  },
+  {
+    "id": "1749848000002",
+    "title": "Swarm Development Process",
+    "content": "This app was created by 6 specialized agents working in parallel: Coordinator, 2 Developers, Tester, Reviewer, and Documenter.",
+    "tags": ["swarm", "development"],
+    "createdAt": "2025-06-13T20:01:00.000Z",
+    "updatedAt": "2025-06-13T20:01:00.000Z",
+    "swarmAgent": "Documenter-1"
+  }
+]

@@ -59,37 +59,67 @@ export function getArchitectOrchestration(taskDescription, memoryNamespace) {
      - deployment-architecture.md (infrastructure design)
    - implementation-plan.md (phased approach with SPARC mode assignments)
 
-## Next Steps
+## Next Steps - Sequential and Background Execution
 After completing architecture, delegate to appropriate modes:
+
+### Sequential Mode (for simple tasks):
 - \`npx claude-flow sparc run spec-pseudocode "Create detailed pseudocode for ${taskDescription}" --non-interactive\`
-- \`npx claude-flow sparc run tdd "Implement core authentication module" --non-interactive\`
 - \`npx claude-flow sparc run security-review "Review architecture for vulnerabilities" --non-interactive\`
 
-## 🏗️ Parallel Architecture Analysis with BatchTool
-Leverage concurrent analysis for comprehensive system design:
+### Background Swarm Mode (for complex implementation):
+- \`npx claude-flow swarm "Implement complete ${taskDescription} based on architecture" --strategy development --background --monitor\`
+- \`npx claude-flow swarm "Create comprehensive test suite for ${taskDescription}" --strategy testing --background --parallel\`
+- \`npx claude-flow swarm "Generate complete documentation for ${taskDescription}" --strategy research --background\`
+
+## 🐝 Enhanced Architecture with Background Swarms
+Leverage background swarm processing for complex architecture tasks:
 
 \`\`\`bash
-# Parallel architecture research and analysis
-batchtool run --parallel --tag "architecture-${taskDescription}" \\
-  "npx claude-flow sparc run ask 'research scalability patterns for ${taskDescription}' --non-interactive" \\
-  "npx claude-flow sparc run security-review 'analyze security requirements' --non-interactive" \\
-  "npx claude-flow sparc run ask 'research integration patterns' --non-interactive" \\
-  "npx claude-flow sparc run ask 'analyze performance requirements' --non-interactive"
+# Background research swarm for comprehensive analysis
+npx claude-flow swarm "Research and analyze all architectural patterns for ${taskDescription}" \\
+  --strategy research --background --parallel --monitor \\
+  --output ./architecture-research
 
-# Boomerang architecture refinement
-batchtool orchestrate --boomerang --name "architecture-refinement" \\
-  --analyze "npx claude-flow sparc run architect 'initial system design' --non-interactive" \\
-  --review "npx claude-flow sparc run security-review 'review architecture' --non-interactive" \\
-  --refine "npx claude-flow sparc run architect 'refine based on security feedback' --non-interactive" \\
-  --validate "npx claude-flow sparc run integration 'validate integration points' --non-interactive" \\
-  --finalize "npx claude-flow sparc run docs-writer 'document final architecture' --non-interactive"
+# Background development swarm for proof of concepts
+npx claude-flow swarm "Create architectural proof of concepts and prototypes for ${taskDescription}" \\
+  --strategy development --background --testing --monitor \\
+  --output ./architecture-prototypes
 
-# Component-wise architecture development
-batchtool run --component-parallel \\
-  --frontend "npx claude-flow sparc run architect 'design frontend architecture' --non-interactive" \\
-  --backend "npx claude-flow sparc run architect 'design backend architecture' --non-interactive" \\
-  --data "npx claude-flow sparc run architect 'design data architecture' --non-interactive" \\
-  --infra "npx claude-flow sparc run devops 'design infrastructure' --non-interactive" \\
-  --integrate "npx claude-flow sparc run integration 'design integration layer' --non-interactive:wait-for=all"
+# Background documentation swarm for comprehensive specs
+npx claude-flow swarm "Generate complete technical specifications and API documentation for ${taskDescription}" \\
+  --strategy research --background --parallel \\
+  --output ./architecture-docs
+
+# Monitor all background swarms
+npx claude-flow status
+npx claude-flow monitor
+
+# Sequential architecture refinement with background support
+npx claude-flow sparc run architect "Initial system design for ${taskDescription}" --non-interactive
+npx claude-flow swarm "Refine architecture based on security and performance analysis" \\
+  --strategy optimization --background --review --testing \\
+  --output ./architecture-refined
+\`\`\`
+
+## 🔄 Hybrid SPARC-Swarm Workflow
+Combine SPARC modes with background swarms for optimal efficiency:
+
+\`\`\`bash
+# Phase 1: Quick architecture analysis (SPARC)
+npx claude-flow sparc run architect "Core system design" --non-interactive
+
+# Phase 2: Parallel background research (Swarm)
+npx claude-flow swarm "Deep dive research into scalability patterns" --strategy research --background &
+npx claude-flow swarm "Security analysis and threat modeling" --strategy analysis --background &
+npx claude-flow swarm "Performance benchmarking and optimization research" --strategy optimization --background &
+
+# Phase 3: Implementation swarm (Background)
+npx claude-flow swarm "Full implementation of ${taskDescription} architecture" \\
+  --strategy development --background --parallel --monitor --testing \\
+  --max-agents 8 --output ./implementation
+
+# Monitor progress
+npx claude-flow status
+tail -f ./swarm-runs/*/swarm.log
 \`\`\``;
 }

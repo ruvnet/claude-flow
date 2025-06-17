@@ -6,8 +6,8 @@ import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
 import { Table } from '@cliffy/table';
 import { Confirm, Input } from '@cliffy/prompt';
-import { formatDuration, formatStatusIndicator } from '../formatter.ts';
-import { generateId } from '../../utils/helpers.ts';
+import { formatDuration, formatStatusIndicator } from '../formatter.js';
+import { generateId } from '../../utils/helpers.js';
 
 export const sessionCommand = new Command()
   .description('Manage Claude-Flow sessions')

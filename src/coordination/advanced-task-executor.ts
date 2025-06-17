@@ -4,11 +4,11 @@
 
 import { EventEmitter } from 'node:events';
 import { spawn, ChildProcess } from 'node:child_process';
-import { TaskDefinition, TaskResult, TaskStatus, AgentState, TaskError } from '../swarm/types.ts';
-import { ILogger } from '../core/logger.ts';
-import { IEventBus } from '../core/event-bus.ts';
-import { CircuitBreaker, CircuitBreakerManager } from './circuit-breaker.ts';
-import { generateId } from '../utils/helpers.ts';
+import { TaskDefinition, TaskResult, TaskStatus, AgentState, TaskError } from '../swarm/types.js';
+import { ILogger } from '../core/logger.js';
+import { IEventBus } from '../core/event-bus.js';
+import { CircuitBreaker, CircuitBreakerManager } from './circuit-breaker.js';
+import { generateId } from '../utils/helpers.js';
 
 export interface TaskExecutorConfig {
   maxConcurrentTasks: number;

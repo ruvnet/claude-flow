@@ -1,58 +1,51 @@
-#!/usr/bin/env node
-// note to AI never remove this script from the repository bin directory
+#!/bin/sh
+# Claude-Flow Smart Dispatcher - Detects and uses the best available runtime
 
-const { spawn } = require('child_process');
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
+VERSION="1.0.70"
+SCRIPT_DIR=$(dirname "$0")
+ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 
-// Check if Deno is installed
-function checkDeno() {
-  try {
-    const denoPath = process.env.PATH.includes('.deno/bin') ? 'deno' : path.join(os.homedir(), '.deno', 'bin', 'deno');
-    require('child_process').execSync(`${denoPath} --version`, { stdio: 'ignore' });
-    return denoPath;
-  } catch {
-    try {
-      require('child_process').execSync('deno --version', { stdio: 'ignore' });
-      return 'deno';
-    } catch {
-      return null;
-    }
-  }
-}
+# Quick version check
+for arg in "$@"; do
+  if [ "$arg" = "--version" ] || [ "$arg" = "-v" ]; then
+    echo "v$VERSION"
+    exit 0
+  fi
+done
 
-const denoPath = checkDeno();
+# Try Deno first, but check if it actually works
+if command -v deno >/dev/null 2>&1 && [ -f "$ROOT_DIR/src/cli/main.ts" ]; then
+  # Test if Deno can actually run the main file
+  if deno check "$ROOT_DIR/src/cli/main.ts" >/dev/null 2>&1; then
+    # Use Deno for full functionality
+    exec deno run --allow-all "$ROOT_DIR/src/cli/main.ts" "$@"
+  fi
+fi
 
-if (!denoPath) {
-  console.error('Error: Deno is not installed.');
-  console.error('');
-  console.error('Please install Deno first:');
-  console.error('  curl -fsSL https://deno.land/x/install/install.sh | sh');
-  console.error('');
-  console.error('Or on Windows:');
-  console.error('  irm https://deno.land/install.ps1 | iex');
-  process.exit(1);
-}
-
-// Use the simple CLI JavaScript file which works well
-const cliPath = path.join(__dirname, '..', 'src', 'cli', 'simple-cli.js');
-
-// Run the CLI with Deno
-const deno = spawn(denoPath, ['run', '--allow-all', '--no-check', cliPath, ...process.argv.slice(2)], {
-  stdio: 'inherit',
-  // Don't change cwd - stay in the current directory
-  env: {
-    ...process.env,
-    PWD: process.cwd()
-  }
-});
-
-deno.on('error', (err) => {
-  console.error('Failed to start Claude-Flow:', err.message);
-  process.exit(1);
-});
-
-deno.on('close', (code) => {
-  process.exit(code || 0);
-});
+# Fall back to Node.js version
+if command -v tsx >/dev/null 2>&1 && [ -f "$ROOT_DIR/src/cli/simple-cli.ts" ]; then
+  # Use tsx for Node.js functionality
+  exec tsx "$ROOT_DIR/src/cli/simple-cli.ts" "$@"
+elif [ -f "$ROOT_DIR/src/cli/simple-cli.ts" ]; then
+  # Try to use npx tsx as fallback
+  exec npx tsx "$ROOT_DIR/src/cli/simple-cli.ts" "$@"
+else
+  # No runtime available, show help
+  echo "🧠 Claude-Flow v$VERSION - Advanced AI Agent Orchestration System"
+  echo ""
+  echo "⚠️  No compatible runtime found."
+  echo ""
+  echo "For full functionality (recommended):"
+  echo "  1. Install Deno: curl -fsSL https://deno.land/x/install/install.sh | sh"
+  echo "  2. Run: claude-flow <command>"
+  echo ""
+  echo "For Node.js compatibility mode:"
+  echo "  1. Install tsx: npm install -g tsx"
+  echo "  2. Run: claude-flow <command>"
+  echo ""
+  echo "Or use npx directly:"
+  echo "  npx tsx src/cli/simple-cli.ts <command>"
+  echo ""
+  echo "Documentation: https://github.com/ruvnet/claude-code-flow"
+  exit 1
+fi

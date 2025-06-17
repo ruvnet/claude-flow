@@ -2,15 +2,15 @@
  * Memory manager interface and implementation
  */
 
-import { MemoryEntry, MemoryQuery, MemoryConfig } from '../utils/types.ts';
-import { IEventBus } from '../core/event-bus.ts';
-import { ILogger } from '../core/logger.ts';
-import { MemoryError } from '../utils/errors.ts';
-import { IMemoryBackend } from './backends/base.ts';
-import { SQLiteBackend } from './backends/sqlite.ts';
-import { MarkdownBackend } from './backends/markdown.ts';
-import { MemoryCache } from './cache.ts';
-import { MemoryIndexer } from './indexer.ts';
+import { MemoryEntry, MemoryQuery, MemoryConfig } from '../utils/types.js';
+import { IEventBus } from '../core/event-bus.js';
+import { ILogger } from '../core/logger.js';
+import { MemoryError } from '../utils/errors.js';
+import { IMemoryBackend } from './backends/base.js';
+import { SQLiteBackend } from './backends/sqlite.js';
+import { MarkdownBackend } from './backends/markdown.js';
+import { MemoryCache } from './cache.js';
+import { MemoryIndexer } from './indexer.js';
 
 export interface IMemoryManager {
   initialize(): Promise<void>;

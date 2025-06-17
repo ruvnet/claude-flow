@@ -4,7 +4,7 @@
  * This version can be run directly from GitHub
  */
 
-const VERSION = '1.0.43';
+const VERSION = '1.0.70';
 
 // Simple color functions
 const colors = {

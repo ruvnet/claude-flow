@@ -2,10 +2,10 @@
  * Request router for MCP
  */
 
-import { MCPRequest } from '../utils/types.ts';
-import { ILogger } from '../core/logger.ts';
-import { MCPMethodNotFoundError } from '../utils/errors.ts';
-import { ToolRegistry } from './tools.ts';
+import { MCPRequest } from '../utils/types.js';
+import { ILogger } from '../core/logger.js';
+import { MCPMethodNotFoundError } from '../utils/errors.js';
+import { ToolRegistry } from './tools.js';
 
 /**
  * Request router implementation

@@ -4,10 +4,10 @@
 
 import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
-import { logger } from '../../core/logger.ts';
-import { configManager } from '../../core/config.ts';
-import { MCPServer } from '../../mcp/server.ts';
-import { eventBus } from '../../core/event-bus.ts';
+import { logger } from '../../core/logger.js';
+import { configManager } from '../../core/config.js';
+import { MCPServer } from '../../mcp/server.js';
+import { eventBus } from '../../core/event-bus.js';
 
 let mcpServer: MCPServer | null = null;
 

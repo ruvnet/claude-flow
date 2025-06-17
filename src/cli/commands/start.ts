@@ -3,4 +3,4 @@
  * Re-exports the modular implementation
  */
 
-export { startCommand } from './start/index.ts';
+export { startCommand } from './start/index.js';

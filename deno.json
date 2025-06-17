@@ -68,11 +68,11 @@
   },
   "imports": {
     "@std/": "https://deno.land/std@0.224.0/",
-    "@cliffy/command": "https://deno.land/x/cliffy@v1.0.0-rc.3/command/mod.ts",
-    "@cliffy/ansi/colors": "https://deno.land/x/cliffy@v1.0.0-rc.3/ansi/colors.ts",
-    "@cliffy/ansi": "https://deno.land/x/cliffy@v1.0.0-rc.3/ansi/mod.ts",
-    "@cliffy/prompt": "https://deno.land/x/cliffy@v1.0.0-rc.3/prompt/mod.ts",
-    "@cliffy/table": "https://deno.land/x/cliffy@v1.0.0-rc.3/table/mod.ts"
+    "@cliffy/command": "https://deno.land/x/cliffy@v0.22.2/command/mod.ts",
+    "@cliffy/ansi/colors": "https://deno.land/x/cliffy@v0.22.2/ansi/colors.ts",
+    "@cliffy/ansi": "https://deno.land/x/cliffy@v0.22.2/ansi/mod.ts",
+    "@cliffy/prompt": "https://deno.land/x/cliffy@v0.22.2/prompt/mod.ts",
+    "@cliffy/table": "https://deno.land/x/cliffy@v0.22.2/table/mod.ts"
   },
   "exclude": [
     "node_modules/",
@@ -80,5 +80,6 @@
     "bin/",
     "test-results/",
     "coverage/"
-  ]
+  ],
+  "vendor": false
 }

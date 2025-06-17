@@ -1,0 +1,177 @@
+{
+  "version": "1.0.0",
+  "name": "Claude-Flow Optimized Prompts Migration",
+  "description": "Migrate existing claude-flow projects to use optimized prompts and configurations",
+  "compatibleVersions": ["0.9.x", "1.0.x"],
+  "files": {
+    "commands": {
+      "sparc.md": {
+        "source": ".claude/commands/sparc.md",
+        "target": ".claude/commands/sparc.md",
+        "transform": "replace",
+        "priority": 1,
+        "description": "Main SPARC command with optimized prompts"
+      },
+      "sparc-architect.md": {
+        "source": ".claude/commands/sparc/architect.md",
+        "target": ".claude/commands/sparc/architect.md",
+        "transform": "replace",
+        "priority": 2,
+        "description": "Architecture mode with optimization features"
+      },
+      "sparc-code.md": {
+        "source": ".claude/commands/sparc/code.md",
+        "target": ".claude/commands/sparc/code.md",
+        "transform": "replace",
+        "priority": 2,
+        "description": "Code generation mode with best practices"
+      },
+      "sparc-tdd.md": {
+        "source": ".claude/commands/sparc/tdd.md",
+        "target": ".claude/commands/sparc/tdd.md",
+        "transform": "replace",
+        "priority": 2,
+        "description": "Test-driven development with optimization"
+      },
+      "sparc-debug.md": {
+        "source": ".claude/commands/sparc/debug.md",
+        "target": ".claude/commands/sparc/debug.md",
+        "transform": "replace",
+        "priority": 3,
+        "description": "Enhanced debugging capabilities"
+      },
+      "claude-flow-help.md": {
+        "source": ".claude/commands/claude-flow-help.md",
+        "target": ".claude/commands/claude-flow-help.md",
+        "transform": "replace",
+        "priority": 1,
+        "description": "Comprehensive help system"
+      },
+      "claude-flow-memory.md": {
+        "source": ".claude/commands/claude-flow-memory.md",
+        "target": ".claude/commands/claude-flow-memory.md",
+        "transform": "replace",
+        "priority": 1,
+        "description": "Memory management commands"
+      },
+      "claude-flow-swarm.md": {
+        "source": ".claude/commands/claude-flow-swarm.md",
+        "target": ".claude/commands/claude-flow-swarm.md",
+        "transform": "replace",
+        "priority": 1,
+        "description": "Multi-agent coordination"
+      }
+    },
+    "guides": {
+      "BATCHTOOLS_GUIDE.md": {
+        "source": ".claude/BATCHTOOLS_GUIDE.md",
+        "target": ".claude/BATCHTOOLS_GUIDE.md",
+        "transform": "copy",
+        "priority": 1,
+        "description": "Comprehensive batch operations guide"
+      },
+      "BATCHTOOLS_BEST_PRACTICES.md": {
+        "source": ".claude/BATCHTOOLS_BEST_PRACTICES.md",
+        "target": ".claude/BATCHTOOLS_BEST_PRACTICES.md",
+        "transform": "copy",
+        "priority": 1,
+        "description": "Best practices for batch operations"
+      },
+      "MIGRATION_GUIDE.md": {
+        "source": ".claude/MIGRATION_GUIDE.md",
+        "target": ".claude/MIGRATION_GUIDE.md",
+        "transform": "copy",
+        "priority": 2,
+        "description": "Migration guidance and troubleshooting"
+      },
+      "PERFORMANCE_BENCHMARKS.md": {
+        "source": ".claude/PERFORMANCE_BENCHMARKS.md",
+        "target": ".claude/PERFORMANCE_BENCHMARKS.md",
+        "transform": "copy",
+        "priority": 2,
+        "description": "Performance benchmarks and metrics"
+      }
+    },
+    "configurations": {
+      "CLAUDE.md": {
+        "source": "CLAUDE.md",
+        "target": "CLAUDE.md",
+        "merge": true,
+        "priority": 1,
+        "description": "Project configuration with SPARC integration"
+      },
+      ".roomodes": {
+        "source": ".roomodes",
+        "target": ".roomodes",
+        "merge": true,
+        "priority": 1,
+        "description": "SPARC mode definitions"
+      }
+    },
+    "templates": {
+      "package.json": {
+        "source": "templates/package.json",
+        "target": "package.json",
+        "merge": true,
+        "priority": 3,
+        "description": "Package.json with migration scripts"
+      }
+    }
+  },
+  "strategies": {
+    "full": {
+      "description": "Complete replacement of all files",
+      "preserveCustom": false,
+      "backupRequired": true,
+      "riskLevel": "high"
+    },
+    "selective": {
+      "description": "Replace only core files, preserve customizations",
+      "preserveCustom": true,
+      "backupRequired": true,
+      "riskLevel": "medium"
+    },
+    "merge": {
+      "description": "Merge configurations, preserve custom commands",
+      "preserveCustom": true,
+      "backupRequired": true,
+      "riskLevel": "low"
+    }
+  },
+  "validation": {
+    "requiredFiles": [
+      ".claude/commands/sparc.md",
+      ".claude/commands/claude-flow-help.md",
+      ".claude/BATCHTOOLS_GUIDE.md"
+    ],
+    "requiredCommands": [
+      "sparc",
+      "claude-flow-help",
+      "claude-flow-memory"
+    ],
+    "optionalFiles": [
+      ".claude/PERFORMANCE_BENCHMARKS.md",
+      ".claude/MIGRATION_GUIDE.md"
+    ]
+  },
+  "rollback": {
+    "supportedVersions": ["1.0.0"],
+    "preserveBackups": true,
+    "maxBackups": 10,
+    "backupRetentionDays": 30
+  },
+  "dependencies": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0",
+    "claude-flow": ">=1.0.0"
+  },
+  "changelog": {
+    "1.0.0": [
+      "Initial migration system release",
+      "Support for full, selective, and merge strategies",
+      "Automatic backup and rollback capabilities",
+      "Comprehensive validation system",
+      "Progress reporting and logging"
+    ]
+  }
+}
