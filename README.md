@@ -290,6 +290,32 @@ deno task test:coverage
 We welcome contributions! Here's how to get started:
 
 ### **Development Setup**
+
+#### **Using mise (Recommended)**
+[mise](https://mise.jdx.dev/) is a polyglot tool version manager that ensures consistent development environments. This project includes a `mise.toml` configuration file.
+
+```bash
+# Install mise (if not already installed)
+curl https://mise.jdx.dev/install.sh | sh
+
+# Clone the repository
+git clone https://github.com/ruvnet/claude-code-flow.git
+cd claude-code-flow
+
+# Install configured tools (Deno and Node.js)
+mise install
+
+# Install dependencies and setup
+deno cache --reload src/deps.ts
+
+# Run tests
+deno task test
+
+# Build the project
+deno task build
+```
+
+#### **Manual Setup**
 ```bash
 # Clone the repository
 git clone https://github.com/ruvnet/claude-code-flow.git
