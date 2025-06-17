@@ -884,8 +884,29 @@ Execute the workflow:
 - Deno 1.40+ (Install: https://deno.land/#installation)
 - Node.js 16+ (for npm wrapper)
 - Git
+- mise (optional, for development tool management)
 
-### Setup
+### Development Environment Setup
+
+#### Using mise (Recommended)
+[mise](https://mise.jdx.dev/) is a polyglot tool version manager that ensures consistent development environments. This project includes a `mise.toml` configuration file.
+
+```bash
+# Install mise (if not already installed)
+curl https://mise.jdx.dev/install.sh | sh
+
+# Clone the repository
+git clone https://github.com/ruvnet/claude-code-flow.git
+cd claude-code-flow
+
+# Install configured tools (Deno and Node.js)
+mise install
+
+# Verify installation
+./bin/claude-flow --version
+```
+
+#### Manual Setup
 ```bash
 git clone https://github.com/ruvnet/claude-code-flow.git
 cd claude-code-flow
