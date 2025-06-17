@@ -186,6 +186,12 @@ export interface Config {
   coordination: CoordinationConfig;
   mcp: MCPConfig;
   logging: LoggingConfig;
+  openCodex?: {
+    model: string;
+    baseUrl: string;
+    apiKey: string;
+    path: string;
+  };
 }
 
 export interface OrchestratorConfig {

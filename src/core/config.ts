@@ -47,6 +47,12 @@ const DEFAULT_CONFIG: Config = {
     format: 'json',
     destination: 'console',
   },
+  openCodex: {
+    model: '',
+    baseUrl: '',
+    apiKey: '',
+    path: 'open-codex',
+  },
 };
 
 /**
@@ -350,6 +356,12 @@ export class ConfigManager {
         format: { type: 'string', values: ['json', 'text'] },
         destination: { type: 'string', values: ['console', 'file'] },
       },
+      openCodex: {
+        model: { type: 'string' },
+        baseUrl: { type: 'string' },
+        apiKey: { type: 'string' },
+        path: { type: 'string' },
+      },
     };
   }
 
@@ -538,6 +550,43 @@ export class ConfigManager {
       };
     }
 
+    // OpenCodex settings
+    const openCodexModel = Deno.env.get('OPEN_CODEX_MODEL');
+    if (openCodexModel) {
+      config.openCodex = {
+        ...DEFAULT_CONFIG.openCodex,
+        ...config.openCodex,
+        model: openCodexModel,
+      };
+    }
+
+    const openCodexBaseUrl = Deno.env.get('OPEN_CODEX_BASE_URL');
+    if (openCodexBaseUrl) {
+      config.openCodex = {
+        ...DEFAULT_CONFIG.openCodex,
+        ...config.openCodex,
+        baseUrl: openCodexBaseUrl,
+      };
+    }
+
+    const openCodexApiKey = Deno.env.get('OPEN_CODEX_API_KEY');
+    if (openCodexApiKey) {
+      config.openCodex = {
+        ...DEFAULT_CONFIG.openCodex,
+        ...config.openCodex,
+        apiKey: openCodexApiKey,
+      };
+    }
+
+    const openCodexPath = Deno.env.get('OPEN_CODEX_PATH');
+    if (openCodexPath) {
+      config.openCodex = {
+        ...DEFAULT_CONFIG.openCodex,
+        ...config.openCodex,
+        path: openCodexPath,
+      };
+    }
+
     return config;
   }
 
@@ -620,6 +669,9 @@ function deepMergeConfig(target: Config, ...sources: Partial<Config>[]): Config 
     }
     if (source.logging) {
       result.logging = { ...result.logging, ...source.logging };
+    }
+    if (source.openCodex) {
+      result.openCodex = { ...result.openCodex, ...source.openCodex };
     }
   }
   

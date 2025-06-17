@@ -945,6 +945,13 @@ export interface SwarmConfig {
   maxDuration: number;
   taskTimeoutMinutes?: number;
   resourceLimits: Record<string, number>;
+
+  openCodex?: {
+    model: string;
+    baseUrl: string;
+    apiKey: string;
+    path: string;
+  };
   
   // Quality settings
   qualityThreshold: number;

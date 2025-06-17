@@ -1127,10 +1127,18 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
       maxAgents: 10,
       maxTasks: 100,
       maxDuration: 4 * 60 * 60 * 1000, // 4 hours
+      taskTimeoutMinutes: config.taskTimeoutMinutes || 30, // Default to 30 minutes
       resourceLimits: {
         memory: SWARM_CONSTANTS.DEFAULT_MEMORY_LIMIT,
         cpu: SWARM_CONSTANTS.DEFAULT_CPU_LIMIT,
         disk: SWARM_CONSTANTS.DEFAULT_DISK_LIMIT
+      },
+      openCodex: {
+        model: '',
+        baseUrl: '',
+        apiKey: '',
+        path: 'open-codex',
+        ...(config.openCodex || {}),
       },
       qualityThreshold: SWARM_CONSTANTS.DEFAULT_QUALITY_THRESHOLD,
       reviewRequired: true,
@@ -2163,14 +2171,18 @@ Ensure your implementation is complete, well-structured, and follows best practi
     const targetDir = this.extractTargetDirectory(task);
     
     try {
-      // Use Claude Flow executor for full SPARC system in non-interactive mode
-      const { ClaudeFlowExecutor } = await import('./claude-flow-executor.ts');
-      const executor = new ClaudeFlowExecutor({ 
+      // Use LLMAssistantExecutor for task execution
+      const { LLMAssistantExecutor } = await import('./llm-assistant-executor.ts');
+      const executor = new LLMAssistantExecutor({
         logger: this.logger,
-        claudeFlowPath: '/workspaces/claude-code-flow/bin/claude-flow',
-        enableSparc: true,
         verbose: this.config.logging?.level === 'debug',
-        timeoutMinutes: this.config.taskTimeoutMinutes
+        timeoutMinutes: this.config.taskTimeoutMinutes,
+
+        // Pass openCodex settings from this.config
+        openCodexModel: this.config.openCodex?.model || '',
+        openCodexBaseUrl: this.config.openCodex?.baseUrl || '',
+        openCodexApiKey: this.config.openCodex?.apiKey || '',
+        openCodexPath: this.config.openCodex?.path || 'open-codex',
       });
       
       const result = await executor.executeTask(task, agent, targetDir);

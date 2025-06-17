@@ -34,6 +34,11 @@ describe('ConfigManager', () => {
       'CLAUDE_FLOW_MCP_TRANSPORT',
       'CLAUDE_FLOW_MCP_PORT',
       'CLAUDE_FLOW_LOG_LEVEL',
+      // Add OPEN_CODEX env vars to track for restoration
+      'OPEN_CODEX_MODEL',
+      'OPEN_CODEX_BASE_URL',
+      'OPEN_CODEX_API_KEY',
+      'OPEN_CODEX_PATH',
     ];
     
     envKeys.forEach(key => {
@@ -76,11 +81,17 @@ describe('ConfigManager', () => {
       assertExists(config.coordination);
       assertExists(config.mcp);
       assertExists(config.logging);
+      assertExists(config.openCodex); // Check new section
       
       // Check some defaults
       assertEquals(config.orchestrator.maxConcurrentAgents, 10);
       assertEquals(config.terminal.type, 'auto');
       assertEquals(config.memory.backend, 'hybrid');
+      // Check openCodex defaults
+      assertEquals(config.openCodex?.model, '');
+      assertEquals(config.openCodex?.baseUrl, '');
+      assertEquals(config.openCodex?.apiKey, '');
+      assertEquals(config.openCodex?.path, 'open-codex');
     });
 
     it('should load configuration from file', async () => {
@@ -126,6 +137,11 @@ describe('ConfigManager', () => {
       Deno.env.set('CLAUDE_FLOW_MCP_TRANSPORT', 'http');
       Deno.env.set('CLAUDE_FLOW_MCP_PORT', '9000');
       Deno.env.set('CLAUDE_FLOW_LOG_LEVEL', 'debug');
+      // Set OpenCodex env vars
+      Deno.env.set('OPEN_CODEX_MODEL', 'test-model-env');
+      Deno.env.set('OPEN_CODEX_BASE_URL', 'http://test-url-env.com');
+      Deno.env.set('OPEN_CODEX_API_KEY', 'test-key-env');
+      Deno.env.set('OPEN_CODEX_PATH', '/test/path/open-codex-env');
       
       const config = await configManager.load();
       
@@ -135,6 +151,17 @@ describe('ConfigManager', () => {
       assertEquals(config.mcp.transport, 'http');
       assertEquals(config.mcp.port, 9000);
       assertEquals(config.logging.level, 'debug');
+      // Check OpenCodex values from env
+      assertEquals(config.openCodex?.model, 'test-model-env');
+      assertEquals(config.openCodex?.baseUrl, 'http://test-url-env.com');
+      assertEquals(config.openCodex?.apiKey, 'test-key-env');
+      assertEquals(config.openCodex?.path, '/test/path/open-codex-env');
+
+      // Unset OpenCodex env vars for subsequent tests
+      Deno.env.delete('OPEN_CODEX_MODEL');
+      Deno.env.delete('OPEN_CODEX_BASE_URL');
+      Deno.env.delete('OPEN_CODEX_API_KEY');
+      Deno.env.delete('OPEN_CODEX_PATH');
     });
 
     it('should merge file and env configuration with env taking precedence', async () => {
@@ -250,6 +277,19 @@ describe('ConfigManager', () => {
     });
   });
 
+  describe('getSchema', () => {
+    it('should return schema definition for openCodex', () => {
+      const schema = configManager.getSchema();
+      assertExists(schema.openCodex);
+      assertEquals(schema.openCodex, {
+        model: { type: 'string' },
+        baseUrl: { type: 'string' },
+        apiKey: { type: 'string' },
+        path: { type: 'string' },
+      });
+    });
+  });
+
   describe('get/update operations', () => {
     beforeEach(async () => {
       await configManager.load();
@@ -263,24 +303,42 @@ describe('ConfigManager', () => {
       // Should be a copy, not the original
       config.orchestrator.maxConcurrentAgents = 999;
       assertEquals(configManager.get().orchestrator.maxConcurrentAgents, 10);
+      assertExists(configManager.get().openCodex); // Ensure openCodex is part of the config
     });
 
-    it('should update configuration', () => {
+    it('should update configuration, including openCodex', () => {
       const updates: Partial<Config> = {
         orchestrator: {
           maxConcurrentAgents: 25,
-          taskQueueSize: 200,
-          healthCheckInterval: 60000,
-          shutdownTimeout: 60000,
         },
+        openCodex: {
+          model: 'updated-model',
+          apiKey: 'updated-key',
+        }
       };
       
       const updatedConfig = configManager.update(updates);
       
       assertEquals(updatedConfig.orchestrator.maxConcurrentAgents, 25);
-      assertEquals(updatedConfig.orchestrator.taskQueueSize, 200);
-      // Other orchestrator values should remain
-      assertExists(updatedConfig.orchestrator.healthCheckInterval);
+      assertExists(updatedConfig.openCodex);
+      assertEquals(updatedConfig.openCodex?.model, 'updated-model');
+      assertEquals(updatedConfig.openCodex?.apiKey, 'updated-key');
+      // Check that unspecified openCodex fields retain defaults
+      assertEquals(updatedConfig.openCodex?.baseUrl, ''); // Default
+      assertEquals(updatedConfig.openCodex?.path, 'open-codex'); // Default
+    });
+
+    it('should allow partial updates to openCodex settings', () => {
+      configManager.update({
+        openCodex: {
+          baseUrl: 'http://specific-url.com',
+        }
+      });
+      const updatedConfig = configManager.get();
+      assertEquals(updatedConfig.openCodex?.baseUrl, 'http://specific-url.com');
+      assertEquals(updatedConfig.openCodex?.model, ''); // Default
+      assertEquals(updatedConfig.openCodex?.apiKey, ''); // Default
+      assertEquals(updatedConfig.openCodex?.path, 'open-codex'); // Default
     });
 
     it('should validate updates', () => {

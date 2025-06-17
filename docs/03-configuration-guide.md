@@ -349,6 +349,39 @@ Controls system logging and audit trails.
 - **warn**: Warning messages
 - **error**: Error messages only
 
+### OpenCodex Assistant Configuration
+
+Controls the settings for the `open-codex` LLM assistant, which can be used for task execution.
+
+```json
+{
+  "openCodex": {
+    "model": "unsloth/devstral-small-2505",
+    "baseUrl": "https://lm.armand0e.online/v1",
+    "apiKey": "sk-xxxxxxxxxxxxxxxxxxxxxxx",
+    "path": "open-codex"
+  }
+}
+```
+
+**Configuration Options:**
+
+| Option    | Type   | Default      | Description                                                                 |
+|-----------|--------|--------------|-----------------------------------------------------------------------------|
+| `model`   | string | `""`         | The model name to be used with `open-codex` (e.g., `unsloth/devstral-small-2505`). |
+| `baseUrl` | string | `""`         | The base URL for the OpenAI-compatible API (e.g., `https://lm.armand0e.online/v1`). |
+| `apiKey`  | string | `""`         | The API key for the `open-codex` service. **Store sensitive keys securely.** |
+| `path`    | string | `open-codex` | The command path or name for the `open-codex` executable.                   |
+
+**Note:** These settings are used by the `LLMAssistantExecutor` when `open-codex` is invoked for task processing.
+
+**Environment Variables:**
+These settings can also be overridden by environment variables:
+- `OPEN_CODEX_MODEL` for `openCodex.model`
+- `OPEN_CODEX_BASE_URL` for `openCodex.baseUrl`
+- `OPEN_CODEX_API_KEY` for `openCodex.apiKey`
+- `OPEN_CODEX_PATH` for `openCodex.path`
+
 ## Environment-Specific Configurations
 
 ### Development Configuration
