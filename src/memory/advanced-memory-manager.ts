@@ -350,11 +350,6 @@ export class AdvancedMemoryManager extends EventEmitter {
       this.logger.debug('Memory entry stored', { entryId, key, namespace: entry.namespace });
       this.emit('memory:entry-stored', { entry });
       
-      // Persist data to disk after successful store
-      if (this.config.persistenceEnabled) {
-        await this.persistData();
-      }
-      
       this.recordMetric('store', Date.now() - startTime);
       return entryId;
 
@@ -466,11 +461,6 @@ export class AdvancedMemoryManager extends EventEmitter {
       this.logger.debug('Memory entry updated', { entryId: entry.id, key });
       this.emit('memory:entry-updated', { entry });
       
-      // Persist data to disk after successful update
-      if (this.config.persistenceEnabled) {
-        await this.persistData();
-      }
-      
       this.recordMetric('update', Date.now() - startTime);
       return true;
 
@@ -503,11 +493,6 @@ export class AdvancedMemoryManager extends EventEmitter {
 
       this.logger.debug('Memory entry deleted', { entryId, key: entry.key });
       this.emit('memory:entry-deleted', { entryId });
-      
-      // Persist data to disk after successful delete
-      if (this.config.persistenceEnabled) {
-        await this.persistData();
-      }
       
       this.recordMetric('delete', Date.now() - startTime);
       return true;
