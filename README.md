@@ -380,3 +380,9 @@ npx claude-flow@latest init --sparc
 **Built with ❤️ by [rUv](https://github.com/ruvnet) | Powered by Claude AI**
 
 </div>
+
+---
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=ruvnet/claude-code-flow&type=Date)](https://www.star-history.com/#ruvnet/claude-code-flow&Date)
