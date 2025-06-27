@@ -151,23 +151,23 @@ export class LoadBalancer extends EventEmitter {
   }
 
   private setupEventHandlers(): void {
-    this.eventBus.on('agent:load-update', (data) => {
+    this.eventBus.on('agent:load-update', (data: any) => {
       this.updateAgentLoad(data.agentId, data.load);
     });
 
-    this.eventBus.on('task:queued', (data) => {
+    this.eventBus.on('task:queued', (data: any) => {
       this.updateTaskQueue(data.agentId, data.task, 'add');
     });
 
-    this.eventBus.on('task:started', (data) => {
+    this.eventBus.on('task:started', (data: any) => {
       this.updateTaskQueue(data.agentId, data.task, 'remove');
     });
 
-    this.eventBus.on('workstealing:request', (data) => {
+    this.eventBus.on('workstealing:request', (data: any) => {
       this.executeWorkStealing(data.sourceAgent, data.targetAgent, data.taskCount);
     });
 
-    this.eventBus.on('agent:performance-update', (data) => {
+    this.eventBus.on('agent:performance-update', (data: any) => {
       this.updatePerformanceBaseline(data.agentId, data.metrics);
     });
   }

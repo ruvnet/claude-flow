@@ -18,6 +18,16 @@ export interface IMemoryManager {
   createBank(agentId: string): Promise<string>;
   closeBank(bankId: string): Promise<void>;
   store(entry: MemoryEntry): Promise<void>;
+  remember(data: {
+    namespace?: string;
+    key: string;
+    content: string;
+    metadata?: Record<string, unknown>;
+    agentId?: string;
+    sessionId?: string;
+    type?: 'observation' | 'insight' | 'decision' | 'artifact' | 'error';
+    tags?: string[];
+  }): Promise<void>;
   retrieve(id: string): Promise<MemoryEntry | undefined>;
   query(query: MemoryQuery): Promise<MemoryEntry[]>;
   update(id: string, updates: Partial<MemoryEntry>): Promise<void>;
@@ -46,7 +56,7 @@ export class MemoryManager implements IMemoryManager {
   private indexer: MemoryIndexer;
   private banks = new Map<string, MemoryBank>();
   private initialized = false;
-  private syncInterval?: number;
+  private syncInterval?: NodeJS.Timeout;
 
   constructor(
     private config: MemoryConfig,
@@ -199,6 +209,36 @@ export class MemoryManager implements IMemoryManager {
       this.logger.error('Failed to store memory entry', error);
       throw new MemoryError('Failed to store memory entry', { error });
     }
+  }
+
+  async remember(data: {
+    namespace?: string;
+    key: string;
+    content: string;
+    metadata?: Record<string, unknown>;
+    agentId?: string;
+    sessionId?: string;
+    type?: 'observation' | 'insight' | 'decision' | 'artifact' | 'error';
+    tags?: string[];
+  }): Promise<void> {
+    // Create a proper MemoryEntry from the simplified data
+    const entry: MemoryEntry = {
+      id: data.key,
+      agentId: data.agentId || 'system',
+      sessionId: data.sessionId || 'default',
+      type: data.type || 'artifact',
+      content: data.content,
+      context: {
+        namespace: data.namespace || 'default',
+        ...data.metadata
+      },
+      timestamp: new Date(),
+      tags: data.tags || [],
+      version: 1,
+      metadata: data.metadata
+    };
+
+    await this.store(entry);
   }
 
   async retrieve(id: string): Promise<MemoryEntry | undefined> {

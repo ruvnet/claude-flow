@@ -8,6 +8,7 @@ import { Table } from '@cliffy/table';
 import { Confirm, Input } from '@cliffy/prompt';
 import { formatDuration, formatStatusIndicator, formatProgressBar } from '../formatter.js';
 import { generateId } from '../../utils/helpers.js';
+import { DenoCompat } from '../../utils/deno-compat.js';
 
 export const workflowCommand = new Command()
   .description('Execute and manage workflows')
@@ -169,7 +170,7 @@ async function runWorkflow(workflowFile: string, options: any): Promise<void> {
     }
   } catch (error) {
     console.error(colors.red('Workflow execution failed:'), (error as Error).message);
-    Deno.exit(1);
+    process.exit(1);
   }
 }
 
@@ -189,7 +190,7 @@ async function validateWorkflow(workflowFile: string, options: any): Promise<voi
     }
   } catch (error) {
     console.error(colors.red('✗ Workflow validation failed:'), (error as Error).message);
-    Deno.exit(1);
+    process.exit(1);
   }
 }
 
@@ -414,7 +415,7 @@ async function generateTemplate(templateType: string, options: any): Promise<voi
     content = JSON.stringify(template, null, 2);
   }
 
-  await Deno.writeTextFile(outputFile, content);
+  await DenoCompat.writeTextFile(outputFile, content);
 
   console.log(colors.green('✓ Workflow template generated'));
   console.log(`${colors.white('Template:')} ${templateType}`);
@@ -425,7 +426,7 @@ async function generateTemplate(templateType: string, options: any): Promise<voi
 
 async function loadWorkflow(workflowFile: string): Promise<WorkflowDefinition> {
   try {
-    const content = await Deno.readTextFile(workflowFile);
+    const content = await DenoCompat.readTextFile(workflowFile);
     
     if (workflowFile.endsWith('.yaml') || workflowFile.endsWith('.yml')) {
       // In production, use a proper YAML parser

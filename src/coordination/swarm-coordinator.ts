@@ -75,11 +75,17 @@ export class SwarmCoordinator extends EventEmitter {
   private scheduler?: AdvancedTaskScheduler;
   private memoryManager: MemoryManager;
   private backgroundWorkers: Map<string, NodeJS.Timeout>;
+  private workStealer?: any; // Work stealing coordinator
+  private circuitBreaker?: any; // Circuit breaker for fault tolerance
   private isRunning: boolean = false;
 
   constructor(config: Partial<SwarmConfig> = {}) {
     super();
-    this.logger = new Logger('SwarmCoordinator');
+    this.logger = new Logger({
+      level: 'info',
+      format: 'json',
+      destination: 'console'
+    }, { component: 'SwarmCoordinator' });
     this.config = {
       maxAgents: 10,
       maxConcurrentTasks: 5,

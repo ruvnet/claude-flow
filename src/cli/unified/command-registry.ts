@@ -3,7 +3,8 @@
  * Central registry for all CLI commands with unified handling
  */
 
-import type { CommandHandler, CommandContext, CLIError, Logger } from './interfaces.js';
+import type { CommandHandler, CommandContext, Logger } from './interfaces.js';
+import { CLIError } from './interfaces.js';
 import { NodeRuntimeAdapter } from './node-runtime.js';
 import chalk from 'chalk';
 
@@ -74,8 +75,9 @@ export class UnifiedCommandRegistry {
         throw error;
       }
       
+      const errorMessage = error instanceof Error ? error.message : String(error);
       throw new CLIError(
-        `Command '${commandName}' failed: ${error.message}`,
+        `Command '${commandName}' failed: ${errorMessage}`,
         'COMMAND_EXECUTION_ERROR',
         1
       );

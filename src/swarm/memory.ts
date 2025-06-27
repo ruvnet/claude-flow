@@ -619,10 +619,11 @@ export class SwarmMemoryManager extends EventEmitter {
         });
         sharedIds.push(sharedId);
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         this.logger.warn('Failed to share memory with agent', {
           key,
           targetAgent: targetAgent.id,
-          error: error.message
+          error: errorMessage
         });
       }
     }
@@ -859,7 +860,9 @@ export class SwarmMemoryManager extends EventEmitter {
     let expiringEntries = 0;
 
     for (const entry of validEntries) {
-      entriesByType[entry.type]++;
+      if (entry.type in entriesByType) {
+        entriesByType[entry.type as keyof typeof entriesByType]++;
+      }
       entriesByAccess[entry.accessLevel]++;
       
       const entrySize = this.calculateEntrySize(entry);
@@ -1328,7 +1331,9 @@ class MemoryCache {
     // Evict if at capacity
     if (this.cache.size >= this.maxSize) {
       const oldestKey = this.cache.keys().next().value;
-      this.cache.delete(oldestKey);
+      if (oldestKey) {
+        this.cache.delete(oldestKey);
+      }
     }
     
     this.cache.set(key, {

@@ -1,0 +1,13 @@
+{
+  "objective": "Fix TypeScript errors from 600+ to <60 following Phase 2 implementation plan",
+  "strategy": "development",
+  "mode": "hierarchical",
+  "maxAgents": 3,
+  "timeout": 60,
+  "parallel": false,
+  "monitor": true,
+  "output": "json",
+  "outputDir": "./reports",
+  "timestamp": "2025-06-27T17:42:35.773Z",
+  "id": "swarm-development-hierarchical-1751046155774"
+}

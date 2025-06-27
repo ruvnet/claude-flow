@@ -9,7 +9,7 @@ import { MigrationRunner } from './migration-runner';
 import { MigrationAnalyzer } from './migration-analyzer';
 import { MigrationStrategy } from './types';
 import { logger } from './logger';
-import chalk from 'chalk';
+import * as chalk from 'chalk';
 import * as path from 'path';
 
 const program = new Command();

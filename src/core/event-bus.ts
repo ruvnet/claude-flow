@@ -133,7 +133,7 @@ export class EventBus implements IEventBus {
         resolve(data);
       };
 
-      let timer: number | undefined;
+      let timer: ReturnType<typeof setTimeout> | undefined;
       if (timeoutMs) {
         timer = setTimeout(() => {
           this.off(event, handler);

@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { MigrationBackup, BackupFile } from './types';
 import { logger } from './logger';
-import chalk from 'chalk';
+import * as chalk from 'chalk';
 import * as inquirer from 'inquirer';
 
 export class RollbackManager {

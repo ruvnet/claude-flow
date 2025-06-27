@@ -20,7 +20,7 @@ import { ProgressReporter } from './progress-reporter';
 import { MigrationValidator } from './migration-validator';
 import { glob } from 'glob';
 import * as inquirer from 'inquirer';
-import chalk from 'chalk';
+import * as chalk from 'chalk';
 
 export class MigrationRunner {
   private options: MigrationOptions;

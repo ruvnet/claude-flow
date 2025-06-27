@@ -6,6 +6,7 @@ import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
 import { Table } from '@cliffy/table';
 import { formatHealthStatus, formatDuration, formatStatusIndicator } from '../formatter.js';
+import { DenoCompat } from '../../utils/deno-compat.js';
 
 export const statusCommand = new Command()
   .description('Show Claude-Flow system status')
@@ -396,7 +397,7 @@ async function getRealSystemStatus(): Promise<any | null> {
 async function getPidFromFile(): Promise<number | null> {
   try {
     if (await existsSync('.claude-flow.pid')) {
-      const pidData = await Deno.readTextFile('.claude-flow.pid');
+      const pidData = await DenoCompat.readTextFile('.claude-flow.pid');
       const data = JSON.parse(pidData);
       return data.pid || null;
     }
@@ -409,7 +410,7 @@ async function getPidFromFile(): Promise<number | null> {
 async function getLastKnownStatus(): Promise<any | null> {
   try {
     if (await existsSync('.claude-flow-last-status.json')) {
-      const statusData = await Deno.readTextFile('.claude-flow-last-status.json');
+      const statusData = await DenoCompat.readTextFile('.claude-flow-last-status.json');
       return JSON.parse(statusData);
     }
   } catch {
@@ -500,7 +501,7 @@ async function performSystemHealthChecks(): Promise<any> {
 async function checkDiskSpace(): Promise<{ status: string; details: string }> {
   try {
     // Basic disk space check
-    const stats = await Deno.stat('.');
+    const stats = await DenoCompat.stat('.');
     return {
       status: 'healthy',
       details: 'Sufficient disk space available'
@@ -514,7 +515,7 @@ async function checkDiskSpace(): Promise<{ status: string; details: string }> {
 }
 
 async function checkMemoryUsage(): Promise<{ status: string; details: string }> {
-  const memoryInfo = Deno.memoryUsage();
+  const memoryInfo = DenoCompat.memoryUsage();
   const heapUsedMB = Math.round(memoryInfo.heapUsed / 1024 / 1024);
   
   if (heapUsedMB > 500) {
@@ -562,7 +563,7 @@ async function checkProcessHealth(): Promise<{ status: string; details: string }
   
   try {
     // Check if process exists
-    Deno.kill(pid, 'SIGUSR1'); // Non-destructive signal
+    DenoCompat.kill(pid, 'SIGUSR1'); // Non-destructive signal
     return {
       status: 'healthy',
       details: `Process ${pid} is running`

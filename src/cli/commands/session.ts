@@ -8,6 +8,7 @@ import { Table } from '@cliffy/table';
 import { Confirm, Input } from '@cliffy/prompt';
 import { formatDuration, formatStatusIndicator } from '../formatter.js';
 import { generateId } from '../../utils/helpers.js';
+import { DenoCompat } from '../../utils/deno-compat.js';
 
 export const sessionCommand = new Command()
   .description('Manage Claude-Flow sessions')
@@ -108,9 +109,9 @@ const SESSION_DIR = '.claude-flow/sessions';
 
 async function ensureSessionDir(): Promise<void> {
   try {
-    await Deno.mkdir(SESSION_DIR, { recursive: true });
+    await DenoCompat.mkdir(SESSION_DIR, { recursive: true });
   } catch (error) {
-    if (!(error instanceof Deno.errors.AlreadyExists)) {
+    if (!(error instanceof DenoCompat.errors.AlreadyExists)) {
       throw error;
     }
   }
@@ -187,14 +188,14 @@ async function saveSession(name: string | undefined, options: any): Promise<void
       state: currentState,
       metadata: {
         version: '1.0.0',
-        platform: Deno.build.os,
+        platform: DenoCompat.build.os,
         checksum: await calculateChecksum(currentState)
       }
     };
 
     await ensureSessionDir();
     const filePath = `${SESSION_DIR}/${session.id}.json`;
-    await Deno.writeTextFile(filePath, JSON.stringify(session, null, 2));
+    await DenoCompat.writeTextFile(filePath, JSON.stringify(session, null, 2));
 
     console.log(colors.green('✓ Session saved successfully'));
     console.log(`${colors.white('ID:')} ${session.id}`);
@@ -279,7 +280,7 @@ async function restoreSession(sessionId: string, options: any): Promise<void> {
     // Update session metadata
     session.updatedAt = new Date();
     const filePath = `${SESSION_DIR}/${session.id}.json`;
-    await Deno.writeTextFile(filePath, JSON.stringify(session, null, 2));
+    await DenoCompat.writeTextFile(filePath, JSON.stringify(session, null, 2));
 
     console.log(colors.green('✓ Session restored successfully'));
     console.log(colors.yellow('Note: This is a mock implementation. In production, this would connect to the orchestrator.'));
@@ -314,7 +315,7 @@ async function deleteSession(sessionId: string, options: any): Promise<void> {
     }
 
     const filePath = `${SESSION_DIR}/${session.id}.json`;
-    await Deno.remove(filePath);
+    await DenoCompat.remove(filePath);
 
     console.log(colors.green('✓ Session deleted successfully'));
   } catch (error) {
@@ -365,7 +366,7 @@ async function exportSession(sessionId: string, outputFile: string, options: any
 
 async function importSession(inputFile: string, options: any): Promise<void> {
   try {
-    const content = await Deno.readTextFile(inputFile);
+    const content = await DenoCompat.readTextFile(inputFile);
     const sessionData = JSON.parse(content) as SessionData;
 
     // Validate session data structure
@@ -453,7 +454,7 @@ async function showSessionInfo(sessionId: string): Promise<void> {
     // File info
     const filePath = `${SESSION_DIR}/${session.id}.json`;
     try {
-      const fileInfo = await Deno.stat(filePath);
+      const fileInfo = await DenoCompat.stat(filePath);
       console.log();
       console.log(colors.cyan.bold('File Information'));
       console.log('─'.repeat(40));
@@ -516,7 +517,7 @@ async function cleanSessions(options: any): Promise<void> {
     for (const session of toDelete) {
       try {
         const filePath = `${SESSION_DIR}/${session.id}.json`;
-        await Deno.remove(filePath);
+        await DenoCompat.remove(filePath);
         deleted++;
       } catch (error) {
         console.error(colors.red(`Failed to delete ${session.name}:`), (error as Error).message);
@@ -533,10 +534,10 @@ async function loadAllSessions(): Promise<SessionData[]> {
   const sessions: SessionData[] = [];
   
   try {
-    for await (const entry of Deno.readDir(SESSION_DIR)) {
+    for await (const entry of DenoCompat.readDir(SESSION_DIR)) {
       if (entry.isFile && entry.name.endsWith('.json')) {
         try {
-          const content = await Deno.readTextFile(`${SESSION_DIR}/${entry.name}`);
+          const content = await DenoCompat.readTextFile(`${SESSION_DIR}/${entry.name}`);
           const session = JSON.parse(content) as SessionData;
           
           // Convert date strings back to Date objects
@@ -550,7 +551,7 @@ async function loadAllSessions(): Promise<SessionData[]> {
       }
     }
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) {
+    if (!(error instanceof DenoCompat.errors.NotFound)) {
       throw error;
     }
   }

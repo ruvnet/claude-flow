@@ -276,7 +276,7 @@ agentCommand
         }
         
         console.log(chalk.cyan(`\n🛑 Terminating agent: ${agent.name} (${agentId})`));
-        console.log(`Current status: ${getStatusColor(agent.status)}${agent.status}${chalk.reset}`);
+        console.log(`Current status: ${getStatusColor(agent.status, agent.status)}`);
         
         // Confirm termination if agent is busy
         if (agent.status === 'busy' && agent.workload > 0) {
@@ -453,8 +453,8 @@ agentCommand
     .description('Manage agent pools')
     .option('--create <name:string>', 'Create a new pool')
     .option('--template <template:string>', 'Template for pool agents')
-    .option('--min-size <min:number>', 'Minimum pool size', { default: 1 })
-    .option('--max-size <max:number>', 'Maximum pool size', { default: 10 })
+    .option('--min-size <min:number>', 'Minimum pool size', '1')
+    .option('--max-size <max:number>', 'Maximum pool size', '10')
     .option('--auto-scale', 'Enable auto-scaling')
     .option('--list', 'List all pools')
     .option('--scale <pool:string>', 'Scale a pool')
@@ -526,7 +526,7 @@ agentCommand
   .command('health')
     .description('Monitor agent health and performance')
     .option('--watch', 'Continuously monitor health')
-    .option('--threshold <threshold:number>', 'Health threshold for alerts', { default: 0.7 })
+    .option('--threshold <threshold:number>', 'Health threshold for alerts', '0.7')
     .option('--agent <agent-id:string>', 'Monitor specific agent')
     .action(async (options) => {
       try {

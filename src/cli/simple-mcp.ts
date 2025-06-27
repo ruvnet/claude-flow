@@ -4,6 +4,7 @@
 
 import { Command } from 'commander';
 import http from 'http';
+import { createDefaultLoggingConfig } from '../types/unified-cli.js';
 
 function printSuccess(message: string) {
   console.log(`✅ ${message}`);
@@ -96,8 +97,8 @@ export function createMCPCommand() {
         const { Logger } = await import('../core/logger.js');
         const { ConfigManager } = await import('../config/config-manager.js');
         
-        const eventBus = new EventBus();
-        const logger = new Logger();
+        const eventBus = EventBus.getInstance();
+        const logger = new Logger(createDefaultLoggingConfig({ level: 'info' }));
         const configManager = new ConfigManager();
         
         try {
@@ -232,13 +233,13 @@ export function createMCPCommand() {
         const { ConfigManager } = await import('../config/config-manager.js');
         const { StdioTransport } = await import('../mcp/transports/stdio.js');
         
-        const eventBus = new EventBus();
-        const logger = new Logger();
+        const eventBus = EventBus.getInstance();
+        const logger = new Logger(createDefaultLoggingConfig({ level: 'info' }));
         const configManager = new ConfigManager();
         
         // Configure logger to use stderr for logs to avoid polluting stdio
-        if (!options.verbose && typeof logger.setLevel === 'function') {
-          logger.setLevel('error');
+        if (!options.verbose) {
+          await logger.configure(createDefaultLoggingConfig({ level: 'error' }));
         }
         
         try {

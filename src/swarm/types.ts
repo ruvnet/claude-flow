@@ -3,6 +3,7 @@
  */
 
 import { EventEmitter } from 'node:events';
+import { LoggingConfig } from '../utils/types.js';
 
 // ===== CORE SWARM TYPES =====
 
@@ -129,6 +130,7 @@ export interface AgentState {
   
   // History
   taskHistory: TaskId[];
+  completedTasks: TaskId[];
   errorHistory: AgentError[];
   
   // Relationships
@@ -211,9 +213,11 @@ export type TaskType =
 
 export type TaskStatus = 
   | 'created'        // Task has been created
+  | 'pending'        // Waiting to be processed
   | 'queued'         // Waiting for assignment
   | 'assigned'       // Assigned to an agent
-  | 'running'        // Currently being executed
+  | 'in_progress'    // Currently being executed
+  | 'running'        // Currently being executed (alias for in_progress)
   | 'paused'         // Temporarily paused
   | 'completed'      // Successfully completed
   | 'failed'         // Failed with error
@@ -333,6 +337,9 @@ export interface TaskDefinition {
   result?: TaskResult;
   error?: TaskError;
   
+  // Metadata and custom data
+  metadata?: Record<string, any>;
+  
   // History
   attempts: TaskAttempt[];
   statusHistory: TaskStatusChange[];
@@ -374,7 +381,8 @@ export type SwarmMode =
   | 'distributed'    // Multiple coordinators
   | 'hierarchical'   // Tree structure of coordinators
   | 'mesh'           // Peer-to-peer coordination
-  | 'hybrid';        // Mixed coordination strategies
+  | 'hybrid'         // Mixed coordination strategies
+  | 'parallel';      // Parallel execution coordination
 
 export type SwarmStrategy = 
   | 'auto'           // Automatically determine approach
@@ -623,12 +631,18 @@ export type TaskSchedulingStrategy =
   | 'adaptive';        // Adaptive scheduling
 
 export type LoadBalancingStrategy = 
-  | 'work-stealing'    // Agents steal work from busy agents
-  | 'work-sharing'     // Work is proactively shared
-  | 'centralized'      // Central dispatcher
-  | 'distributed'      // Distributed load balancing
-  | 'predictive'       // Predict and prevent overload
-  | 'reactive';        // React to overload conditions
+  | 'work-stealing'     // Agents steal work from busy agents
+  | 'work-sharing'      // Work is proactively shared
+  | 'centralized'       // Central dispatcher
+  | 'distributed'       // Distributed load balancing
+  | 'predictive'        // Predict and prevent overload
+  | 'reactive'          // React to overload conditions
+  | 'hybrid'            // Hybrid approach combining multiple strategies
+  | 'load-based'        // Based on current load metrics
+  | 'performance-based' // Based on performance metrics
+  | 'capability-based'  // Based on agent capabilities
+  | 'affinity-based'    // Based on task-agent affinity
+  | 'cost-based';       // Based on cost optimization
 
 export type FaultToleranceStrategy = 
   | 'retry'            // Retry failed tasks
@@ -953,6 +967,9 @@ export interface SwarmConfig {
   
   // Monitoring settings
   monitoring: MonitoringConfig;
+  
+  // Logging settings
+  logging?: LoggingConfig;
   
   // Memory settings
   memory: SwarmMemory;

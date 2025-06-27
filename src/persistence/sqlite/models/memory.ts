@@ -108,24 +108,24 @@ export class MemoryModel {
       options.tags.forEach(tag => params.push(`%"${tag}"%`));
     }
 
-    let query = `SELECT * FROM ${this.TABLE_NAME}`;
+    let queryText = `SELECT * FROM ${this.TABLE_NAME}`;
     if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
+      queryText += ' WHERE ' + conditions.join(' AND ');
     }
 
-    query += ' ORDER BY timestamp DESC';
+    queryText += ' ORDER BY timestamp DESC';
 
     if (options.limit) {
-      query += ' LIMIT ?';
+      queryText += ' LIMIT ?';
       params.push(options.limit);
     }
 
     if (options.offset) {
-      query += ' OFFSET ?';
+      queryText += ' OFFSET ?';
       params.push(options.offset);
     }
 
-    const results = await query<any>(query, params);
+    const results = await query<any>(queryText, params);
     return results.map(this.mapToMemoryEntry);
   }
 

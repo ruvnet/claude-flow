@@ -6,16 +6,10 @@
 import { DistributedMemorySystem } from '../memory/distributed-memory.js';
 import { AgentState, AgentId, AgentType, AgentStatus } from '../swarm/types.js';
 import { EventEmitter } from 'node:events';
-import { AgentRegistryAdapter } from '../types/memory-system.js';
-
-export interface AgentRegistryEntry {
-  agent: AgentState;
-  data?: AgentState; // For compatibility
-  createdAt: Date;
-  lastUpdated: Date;
-  tags: string[];
-  metadata: Record<string, any>;
-}
+import { 
+  AgentRegistryAdapter, 
+  AgentRegistryEntry 
+} from '../types/memory-system.js';
 
 export interface AgentQuery {
   type?: AgentType;
@@ -65,7 +59,9 @@ export class AgentRegistry extends EventEmitter {
    */
   async registerAgent(agent: AgentState, tags: string[] = []): Promise<void> {
     const entry: AgentRegistryEntry = {
+      id: agent.id.id,
       agent,
+      data: agent,
       createdAt: new Date(),
       lastUpdated: new Date(),
       tags: [...tags, agent.type, agent.status],
@@ -391,7 +387,7 @@ export class AgentRegistry extends EventEmitter {
   async getCoordinationData(agentId: string): Promise<any> {
     const key = `coordination:${agentId}`;
     const result = await this.memory.retrieve(key);
-    return result?.data || null;
+    return result?.value || null;
   }
 
   // === PRIVATE METHODS ===

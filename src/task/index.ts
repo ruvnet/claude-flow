@@ -37,7 +37,7 @@ export {
 import type { TaskCommandContext } from './commands.js';
 export type { TaskCommandContext } from './commands.js';
 
-import { TaskCoordinator } from './coordination.js';
+import { TaskCoordinator, type CoordinationContext } from './coordination.js';
 export { TaskCoordinator } from './coordination.js';
 export type {
   TodoItem,

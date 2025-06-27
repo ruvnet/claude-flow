@@ -49,7 +49,7 @@ export const mcpCommand = new Command()
         console.log(colors.cyan(`📚 API documentation: http://${options.host}:${options.port}/docs`));
       } catch (error) {
         console.error(colors.red(`❌ Failed to start MCP server: ${(error as Error).message}`));
-        Deno.exit(1);
+        process.exit(1);
       }
     })
   )
@@ -66,7 +66,7 @@ export const mcpCommand = new Command()
         }
       } catch (error) {
         console.error(colors.red(`❌ Failed to stop MCP server: ${(error as Error).message}`));
-        Deno.exit(1);
+        process.exit(1);
       }
     })
   )
@@ -149,7 +149,7 @@ export const mcpCommand = new Command()
         console.log(colors.green(`✅ MCP server restarted on ${config.mcp.host}:${config.mcp.port}`));
       } catch (error) {
         console.error(colors.red(`❌ Failed to restart MCP server: ${(error as Error).message}`));
-        Deno.exit(1);
+        process.exit(1);
       }
     })
   )

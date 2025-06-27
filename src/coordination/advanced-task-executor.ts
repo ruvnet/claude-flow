@@ -210,19 +210,22 @@ export class AdvancedTaskExecutor extends EventEmitter {
       } catch (error) {
         retryCount++;
         
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        
         this.logger.warn('Task attempt failed', {
           taskId: task.id.id,
           attempt: retryCount,
           maxRetries,
-          error: error.message
+          error: errorMessage
         });
 
         // Check if we should retry
         if (retryCount > maxRetries) {
           const taskError: TaskError = {
             type: 'execution_failed',
-            message: error.message,
-            stack: error.stack,
+            message: errorMessage,
+            stack: errorStack,
             context: {
               retryCount,
               maxRetries,

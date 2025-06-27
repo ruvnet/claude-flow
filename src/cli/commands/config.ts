@@ -9,6 +9,7 @@ import { Confirm, Input, Select } from '@cliffy/prompt';
 import { configManager } from '../../core/config.js';
 import { deepMerge } from '../../utils/helpers.js';
 import { join } from 'path';
+import { DenoCompat } from '../../utils/deno-compat.js';
 
 export const configCommand = new Command()
   .description('Manage Claude-Flow configuration')
@@ -48,7 +49,7 @@ export const configCommand = new Command()
         
         if (value === undefined) {
           console.error(colors.red(`Configuration path not found: ${path}`));
-          Deno.exit(1);
+          process.exit(1);
         } else {
           console.log(JSON.stringify(value, null, 2));
         }
@@ -105,7 +106,7 @@ export const configCommand = new Command()
         }
       } catch (error) {
         console.error(colors.red('Failed to set configuration:'), (error as Error).message);
-        Deno.exit(1);
+        process.exit(1);
       }
     }),
   )
@@ -140,7 +141,7 @@ export const configCommand = new Command()
       try {
         // Check if file exists
         try {
-          await Deno.stat(outputFile);
+          await DenoCompat.stat(outputFile);
           if (!options.force) {
             console.error(colors.red(`File already exists: ${outputFile}`));
             console.log(colors.gray('Use --force to overwrite'));
@@ -174,14 +175,14 @@ export const configCommand = new Command()
         const parser = formatParsers[format];
         const content = parser ? parser.stringify(config) : JSON.stringify(config, null, 2);
         
-        await Deno.writeTextFile(outputFile, content);
+        await DenoCompat.writeTextFile(outputFile, content);
         
         console.log(colors.green('✓'), `Configuration file created: ${outputFile}`);
         console.log(colors.gray(`Template: ${templateName}`));
         console.log(colors.gray(`Format: ${format}`));
       } catch (error) {
         console.error(colors.red('Failed to create configuration file:'), (error as Error).message);
-        Deno.exit(1);
+        process.exit(1);
       }
     }),
   )
@@ -208,12 +209,12 @@ export const configCommand = new Command()
           result.errors.forEach(error => {
             console.error(colors.red(`  • ${error}`));
           });
-          Deno.exit(1);
+          process.exit(1);
         }
       } catch (error) {
         console.error(colors.red('✗'), 'Configuration validation failed:');
         console.error((error as Error).message);
-        Deno.exit(1);
+        process.exit(1);
       }
     }),
   )
@@ -344,7 +345,7 @@ export const configCommand = new Command()
           };
         }
         
-        await Deno.writeTextFile(outputFile, JSON.stringify(data, null, 2));
+        await DenoCompat.writeTextFile(outputFile, JSON.stringify(data, null, 2));
         console.log(colors.green('✓'), `Configuration exported to ${outputFile}`);
       } catch (error) {
         console.error(colors.red('Failed to export configuration:'), (error as Error).message);

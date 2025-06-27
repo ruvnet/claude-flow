@@ -1,7 +1,9 @@
 import { EventEmitter } from 'node:events';
-import { Logger } from '../core/logger.js';
+import { ILogger, Logger } from '../core/logger.js';
 import { MemoryManager } from './manager.js';
 import { generateId } from '../utils/helpers.js';
+import { IEventBus } from '../core/event-bus.js';
+import { MemoryConfig } from '../utils/types.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
@@ -17,6 +19,11 @@ export interface SwarmMemoryEntry {
     tags?: string[];
     priority?: number;
     shareLevel?: 'private' | 'team' | 'public';
+    originalId?: string;
+    sharedFrom?: string;
+    sharedTo?: string;
+    sharedAt?: Date;
+    [key: string]: any; // Allow additional properties
   };
 }
 
@@ -58,7 +65,7 @@ export interface SwarmMemoryConfig {
 }
 
 export class SwarmMemoryManager extends EventEmitter {
-  private logger: Logger;
+  private logger: ILogger;
   private config: SwarmMemoryConfig;
   private baseMemory: MemoryManager;
   private entries: Map<string, SwarmMemoryEntry>;
@@ -69,7 +76,9 @@ export class SwarmMemoryManager extends EventEmitter {
 
   constructor(config: Partial<SwarmMemoryConfig> = {}) {
     super();
-    this.logger = new Logger('SwarmMemoryManager');
+    this.logger = new Logger({
+      level: 'info'
+    });
     this.config = {
       namespace: 'swarm',
       enableDistribution: true,
@@ -87,11 +96,31 @@ export class SwarmMemoryManager extends EventEmitter {
     this.knowledgeBases = new Map();
     this.agentMemories = new Map();
 
-    this.baseMemory = new MemoryManager({
-      namespace: this.config.namespace,
-      enableBackup: true,
-      backupInterval: 300000 // 5 minutes
-    });
+    // Create mock event bus for base memory
+    const mockEventBus: IEventBus = {
+      emit: () => true,
+      on: () => this,
+      off: () => this,
+      once: () => this,
+      listenerCount: () => 0,
+      listeners: () => [],
+      eventNames: () => []
+    };
+
+    const memoryConfig: MemoryConfig = {
+      backend: 'sqlite',
+      cacheSizeMB: 50,
+      syncInterval: 30000,
+      conflictResolution: 'last-write',
+      retentionDays: 30,
+      sqlitePath: this.config.persistencePath
+    };
+
+    this.baseMemory = new MemoryManager(
+      memoryConfig,
+      mockEventBus,
+      this.logger
+    );
   }
 
   async initialize(): Promise<void> {
@@ -166,13 +195,21 @@ export class SwarmMemoryManager extends EventEmitter {
     this.agentMemories.get(agentId)!.add(entryId);
 
     // Store in base memory for persistence
-    await this.baseMemory.remember({
-      namespace: this.config.namespace,
-      key: `entry:${entryId}`,
+    await this.baseMemory.store({
+      id: entryId,
+      agentId,
+      sessionId: 'swarm-session',
+      type: 'artifact',
       content: JSON.stringify(entry),
+      context: {
+        swarmType: type,
+        shareLevel: entry.metadata.shareLevel
+      },
+      timestamp: entry.timestamp,
+      tags: entry.metadata.tags || [],
+      version: 1,
       metadata: {
         type: 'swarm-memory',
-        agentId,
         entryType: type,
         shareLevel: entry.metadata.shareLevel
       }

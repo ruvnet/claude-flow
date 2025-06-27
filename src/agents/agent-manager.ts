@@ -524,6 +524,7 @@ export class AgentManager extends EventEmitter {
       endpoints: [],
       lastHeartbeat: new Date(),
       taskHistory: [],
+      completedTasks: [],
       errorHistory: [],
       childAgents: [],
       collaborators: []

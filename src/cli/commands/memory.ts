@@ -5,6 +5,7 @@
 import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
 import { Table } from '@cliffy/table';
+import { DenoCompat } from '../../utils/deno-compat.js';
 
 interface MemoryEntry {
   key: string;
@@ -19,7 +20,7 @@ export class SimpleMemoryManager {
 
   async load() {
     try {
-      const content = await Deno.readTextFile(this.filePath);
+      const content = await DenoCompat.readTextFile(this.filePath);
       this.data = JSON.parse(content);
     } catch {
       // File doesn't exist yet
@@ -28,8 +29,8 @@ export class SimpleMemoryManager {
   }
 
   async save() {
-    await Deno.mkdir("./memory", { recursive: true });
-    await Deno.writeTextFile(this.filePath, JSON.stringify(this.data, null, 2));
+    await DenoCompat.mkdir("./memory", { recursive: true });
+    await DenoCompat.writeTextFile(this.filePath, JSON.stringify(this.data, null, 2));
   }
 
   async store(key: string, value: string, namespace: string = "default") {
@@ -93,11 +94,11 @@ export class SimpleMemoryManager {
 
   async exportData(filePath: string) {
     await this.load();
-    await Deno.writeTextFile(filePath, JSON.stringify(this.data, null, 2));
+    await DenoCompat.writeTextFile(filePath, JSON.stringify(this.data, null, 2));
   }
 
   async importData(filePath: string) {
-    const content = await Deno.readTextFile(filePath);
+    const content = await DenoCompat.readTextFile(filePath);
     this.data = JSON.parse(content);
     await this.save();
   }
