@@ -1,0 +1,79 @@
+--- a/src/cli/commands/agent.ts
++++ b/src/cli/commands/agent.ts
+@@ -15,6 +15,7 @@ import { EventBus } from '../../core/event-bus.js';
+ import { Logger } from '../../core/logger.js';
+ import { DistributedMemorySystem } from '../../memory/distributed-memory.js';
+ import { formatDuration, formatBytes, formatPercentage } from '../../utils/formatters.js';
++import { createLogger, createDefaultLoggingConfig } from '../../types/unified-cli.js';
+ import path from 'node:path';
+ import fs from 'node:fs/promises';
+ 
+@@ -25,8 +26,8 @@ let agentManager: AgentManager | null = null;
+ async function initializeAgentManager(): Promise<AgentManager> {
+   if (agentManager) return agentManager;
+   
+-  const logger = new Logger({ level: 'info' });
+-  const eventBus = new EventBus();
++  const logger = new Logger(createDefaultLoggingConfig({ level: 'info' }));
++  const eventBus = EventBus.getInstance();
+   const memorySystem = new DistributedMemorySystem({
+     backend: 'sqlite',
+     path: './memory/agents.db'
+@@ -71,10 +72,10 @@ export const agentCommand = new Command()
+     console.log('  logs     - View agent logs and activity history');
+     console.log('');
+     console.log('Use --help with any command for detailed options.');
+-    agentCommand.showHelp();
++    agentCommand.help();
+   })
+-  .command('list', new Command()
+-    .description('Display all agents with comprehensive status and metrics')
++  
++agentCommand.command('list')
++  .description('Display all agents with comprehensive status and metrics')
++  .option('-t, --type <type>', 'Filter by agent type')
++  .option('-s, --status <status>', 'Filter by agent status')
++  .option('--unhealthy', 'Show only unhealthy agents')
++  .option('--json', 'Output in JSON format')
++  .option('--detailed', 'Show detailed resource usage and metrics')
++  .option('--sort <field>', 'Sort by field (name, type, status, health, workload)', 'name')
++  .action(async (options) => {
++    try {
++      const manager = await initializeAgentManager();
++      let agents = manager.getAllAgents();
++      
++      // Apply filters
++      if (options.type) {
++        agents = agents.filter(agent => agent.type === options.type);
++      }
++      
++      if (options.status) {
++        agents = agents.filter(agent => agent.status === options.status);
++      }
++      
++      if (options.unhealthy) {
++        agents = agents.filter(agent => agent.health < 0.7);
++      }
+     .option('-t, --type <type:string>', 'Filter by agent type')
+     .option('-s, --status <status:string>', 'Filter by agent status')
+     .option('--unhealthy', 'Show only unhealthy agents')
+     .option('--json', 'Output in JSON format')
+     .option('--detailed', 'Show detailed resource usage and metrics')
+-    .option('--sort <field:string>', 'Sort by field (name, type, status, health, workload)', { default: 'name' })
+-    .action(async (options) => {
+-      try {
+-        const manager = await initializeAgentManager();
+-        let agents = manager.getAllAgents();
+-        
+-        // Apply filters
+-        if (options.type) {
+-          agents = agents.filter(agent => agent.type === options.type);
+-        }
+-        
+-        if (options.status) {
+-          agents = agents.filter(agent => agent.status === options.status);
+-        }
+-        
+-        if (options.unhealthy) {
+-          agents = agents.filter(agent => agent.health < 0.7);
+-        }

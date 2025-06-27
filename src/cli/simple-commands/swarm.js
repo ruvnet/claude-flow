@@ -271,7 +271,7 @@ exit 0
   
   try {
     // Try to load the TypeScript module directly (works in Deno and local dev)
-    const { swarmAction } = await import('../commands/swarm-new.ts');
+    const { swarmAction } = await import('../commands/swarm.ts');
     
     // Create command context compatible with TypeScript version
     const ctx = {

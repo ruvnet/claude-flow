@@ -65,7 +65,7 @@ export class Confirm {
 export class Select<T = string> {
   static async prompt<T = string>(options: SelectOptions<T>): Promise<T> {
     const choices = options.options.map(opt => {
-      if (typeof opt === 'object' && 'name' in opt) {
+      if (typeof opt === 'object' && opt !== null && 'name' in opt) {
         return opt;
       }
       return { name: String(opt), value: opt };

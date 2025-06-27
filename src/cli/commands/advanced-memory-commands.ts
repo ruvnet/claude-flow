@@ -400,7 +400,7 @@ export function createAdvancedMemoryCommand(): Command {
           if (options.valueTransform) {
             try {
               // Create function from string (simplified - in production, use a proper sandbox)
-              transformation.valueTransformation = new Function('value', options.valueTransform);
+              transformation.valueTransformation = new Function('value', options.valueTransform) as (value: any) => any;
             } catch (error) {
               printError('Invalid value transformation function');
               return;
@@ -409,7 +409,7 @@ export function createAdvancedMemoryCommand(): Command {
           
           if (options.metadataExtract) {
             try {
-              transformation.metadataExtraction = new Function('entry', options.metadataExtract);
+              transformation.metadataExtraction = new Function('entry', options.metadataExtract) as (entry: any) => Record<string, any>;
             } catch (error) {
               printError('Invalid metadata extraction function');
               return;

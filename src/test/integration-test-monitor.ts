@@ -204,4 +204,5 @@ if (require.main === module) {
   monitor.monitor().catch(console.error);
 }
 
-export { IntegrationTestMonitor, FixReport, IntegrationTestResult };
+export { IntegrationTestMonitor };
+export type { FixReport, IntegrationTestResult };

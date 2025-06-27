@@ -4,6 +4,7 @@
  * Integrates with TodoWrite/TodoRead for coordination and Memory for persistence
  */
 
+import { TaskEngine } from './engine.js';
 export { TaskEngine } from './engine.js';
 export type {
   WorkflowTask,
@@ -19,6 +20,13 @@ export type {
   TaskCheckpoint
 } from './engine.js';
 
+import {
+  createTaskCreateCommand,
+  createTaskListCommand,
+  createTaskStatusCommand,
+  createTaskCancelCommand,
+  createTaskWorkflowCommand
+} from './commands.js';
 export {
   createTaskCreateCommand,
   createTaskListCommand,
@@ -26,8 +34,10 @@ export {
   createTaskCancelCommand,
   createTaskWorkflowCommand
 } from './commands.js';
+import type { TaskCommandContext } from './commands.js';
 export type { TaskCommandContext } from './commands.js';
 
+import { TaskCoordinator } from './coordination.js';
 export { TaskCoordinator } from './coordination.js';
 export type {
   TodoItem,
@@ -370,7 +380,8 @@ claude-flow task workflow visualize workflow-123 \\
 `
 };
 
-export default {
+// Re-export for default export
+const TaskManagement = {
   TaskEngine,
   TaskCoordinator,
   initializeTaskManagement,
@@ -381,3 +392,5 @@ export default {
   USAGE_EXAMPLES,
   CLI_EXAMPLES
 };
+
+export default TaskManagement;

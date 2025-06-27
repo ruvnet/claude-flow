@@ -155,6 +155,54 @@ jobs:
           path: memory/coverage/
           retention-days: 30
 
+  # Merge coverage reports
+  coverage-merge:
+    name: Merge Coverage Reports
+    runs-on: ubuntu-latest
+    needs: [test, memory-test]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Download all coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          path: coverage-artifacts/
+
+      - name: Download memory coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: memory-test-results
+          path: coverage-artifacts/memory/
+
+      - name: Install coverage tools
+        run: npm install -g nyc
+
+      - name: Merge coverage reports
+        run: |
+          mkdir -p merged-coverage
+          find coverage-artifacts -name "lcov.info" -o -name "coverage-final.json" | while read file; do
+            cp "$file" "merged-coverage/$(basename $file)-$(date +%s)"
+          done
+          nyc merge merged-coverage coverage-final.json
+          nyc report --reporter=lcov --report-dir=final-coverage
+
+      - name: Upload merged coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: final-coverage/lcov.info
+          flags: merged
+          name: codecov-merged
+          token: ${{ secrets.CODECOV_TOKEN }}
+
   # Performance and load testing
   performance:
     name: Performance Tests
@@ -189,7 +237,7 @@ jobs:
       - name: Performance regression check
         run: |
           # Compare with baseline performance metrics
-          node scripts/check-performance-regression.js || echo "Performance regression check not configured"
+          npx tsx scripts/check-performance-regression.ts || echo "Performance regression check not configured"
 
   # Build and package
   build:
@@ -291,7 +339,7 @@ jobs:
 
       - name: Validate example configurations
         run: |
-          node scripts/validate-examples.js || echo "Example validation not configured"
+          npx tsx scripts/validate-examples.ts || echo "Example validation not configured"
 
       - name: Test documentation code samples
         run: |
@@ -299,7 +347,7 @@ jobs:
 
       - name: Check for broken links
         run: |
-          node scripts/check-links.js || echo "Link checking not configured"
+          npx tsx scripts/check-links.ts || echo "Link checking not configured"
 
   # Deployment and release
   deploy:
@@ -330,7 +378,7 @@ jobs:
       - name: Prepare release
         run: |
           # Semantic versioning based on commit messages
-          npm install -g semantic-release @semantic-release/git @semantic-release/github
+          # Semantic release plugins should be in devDependencies
           
       - name: Semantic Release
         env:

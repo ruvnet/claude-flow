@@ -10,15 +10,12 @@
     "dev": "tsx src/cli/main.ts",
     "build": "npm run build:ts && npm run build:binary",
     "build:ts": "tsc",
-    "build:binary": "pkg dist/cli/main.js --targets node18-linux-x64,node18-macos-x64,node18-win-x64 --output bin/claude-flow",
-    "build:deno": "PATH=\"/home/codespace/.deno/bin:$PATH\" deno compile --allow-all --no-check --output=bin/claude-flow-deno src/cli/main.ts",
+    "build:binary": "pkg dist/cli/main.js --targets node20-linux-x64,node20-macos-x64,node20-win-x64 --output bin/claude-flow",
     "build:simple": "npm run build:ts && pkg dist/cli/simple-cli.js --output bin/claude-flow-simple",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "test:deno": "deno task test",
     "lint": "eslint src --ext .ts,.js",
     "format": "prettier --write src",
-    "postinstall": "node scripts/install.js",
     "prepublishOnly": "node scripts/prepare-publish.js",
     "prepare-publish": "node scripts/prepare-publish.js"
   },
@@ -50,13 +47,11 @@
     "dist/",
     "src/",
     ".claude/",
-    "scripts/install.js",
     "scripts/swarm-blessed-ui.js",
     "scripts/swarm-simple.js",
     "scripts/swarm-example.sh",
     "README.md",
     "LICENSE",
-    "deno.json",
     "SWARM_TTY_SOLUTION.md",
     "SWARM_VISIBILITY.md"
   ],
@@ -74,7 +69,6 @@
     "helmet": "^7.1.0",
     "inquirer": "^9.2.12",
     "nanoid": "^5.0.4",
-    "node-pty": "^1.0.0",
     "ora": "^7.0.1",
     "ws": "^8.14.2"
   },
@@ -98,13 +92,17 @@
     "prettier": "^3.1.1",
     "ts-jest": "^29.1.1",
     "tsx": "^4.6.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "semantic-release": "^24.0.0",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^10.0.4"
   },
   "pkg": {
     "targets": [
-      "node18-linux-x64",
-      "node18-macos-x64",
-      "node18-win-x64"
+      "node20-linux-x64",
+      "node20-macos-x64",
+      "node20-win-x64"
     ],
     "scripts": "dist/**/*.js",
     "outputPath": "bin",

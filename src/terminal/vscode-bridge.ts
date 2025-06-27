@@ -20,12 +20,12 @@ const activeTerminals = new Map<string, vscode.Terminal>();
 /**
  * Terminal write emulators for output capture
  */
-const terminalWriteEmulators = new Map<vscode.Terminal, vscode.EventEmitter<string>>();
+const terminalWriteEmulators = new Map<Terminal, any>();
 
 /**
  * Initialize the VSCode terminal bridge
  */
-export function initializeTerminalBridge(context: vscode.ExtensionContext): void {
+export function initializeTerminalBridge(context: any): void {
   // Inject VSCode API into global scope for Claude-Flow
   (globalThis as any).vscode = vscode;
 
@@ -39,11 +39,11 @@ export function initializeTerminalBridge(context: vscode.ExtensionContext): void
 
   // Override terminal creation to capture output
   const originalCreateTerminal = vscode.window.createTerminal;
-  (vscode.window as any).createTerminal = function(options: vscode.TerminalOptions) {
-    const terminal = originalCreateTerminal.call(vscode.window, options) as vscode.Terminal;
+  (vscode.window as any).createTerminal = function(options: any) {
+    const terminal = originalCreateTerminal.call(vscode.window, options) as Terminal;
     
     // Create write emulator for this terminal
-    const writeEmulator = new vscode.EventEmitter<string>();
+    const writeEmulator = vscode ? new vscode.EventEmitter() : null;
     terminalWriteEmulators.set(terminal, writeEmulator);
 
     // Find terminal ID from name

@@ -22,12 +22,13 @@ import { StdioTransport } from '../../mcp/transports/stdio.js';
  */
 async function main() {
   // Initialize core components
-  const eventBus = new EventBus();
-  const logger = new Logger();
-  const configManager = new ConfigManager();
-
-  // Configure logger for stdio mode (avoid stdout pollution)
-  logger.setLevel(process.env.CLAUDE_FLOW_LOG_LEVEL || 'error');
+  const eventBus = EventBus.getInstance();
+  const logger = new Logger({
+    level: (process.env.CLAUDE_FLOW_LOG_LEVEL || 'error') as 'debug' | 'info' | 'warn' | 'error',
+    format: 'text',
+    destination: 'console'
+  });
+  const configManager = ConfigManager.getInstance();
   
   try {
     // Load configuration
@@ -41,11 +42,24 @@ async function main() {
     // Initialize orchestration components
     const memoryManager = new MemoryManager(config.memory, eventBus, logger);
     const orchestrator = new Orchestrator(config, eventBus, logger);
-    const swarmCoordinator = new SwarmCoordinator(eventBus, logger);
-    const agentManager = new AgentManager(eventBus, logger);
-    const resourceManager = new ResourceManager(config, eventBus, logger);
-    const messageBus = new MessageBus(eventBus, logger);
-    const monitor = new RealTimeMonitor(eventBus, logger);
+    const swarmCoordinator = new SwarmCoordinator(
+      config.swarm || { coordinationMode: 'centralized', consensusThreshold: 0.7, enableMetrics: true },
+      logger,
+      eventBus
+    );
+    const agentManager = new AgentManager(
+      config.orchestrator || {},
+      logger,
+      eventBus,
+      memoryManager
+    );
+    const resourceManager = new ResourceManager(eventBus, logger);
+    const messageBus = new MessageBus(logger, eventBus);
+    const monitor = new RealTimeMonitor(
+      { enableWebUI: false, webPort: 3001, refreshInterval: 1000 },
+      logger,
+      eventBus
+    );
 
     // Set memory manager on orchestrator
     (orchestrator as any).memoryManager = memoryManager;

@@ -95,8 +95,8 @@ export class Command {
     return this;
   }
 
-  command(name: string, Command?: typeof Command): Command {
-    const subCommand = new (Command || Command)(name);
+  command(name: string, CommandClass?: typeof Command): Command {
+    const subCommand = new (CommandClass || Command)(name);
     this.commander.addCommand(subCommand.commander);
     return subCommand;
   }

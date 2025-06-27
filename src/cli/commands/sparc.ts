@@ -37,6 +37,13 @@ async function loadSparcConfig(): Promise<SparcConfig> {
 export async function sparcAction(ctx: CommandContext): Promise<void> {
   const subcommand = ctx.args[0];
 
+  // If no subcommand, run full SPARC development workflow (like the shell script)
+  if (!subcommand || (subcommand && !['modes', 'info', 'run', 'tdd', 'workflow'].includes(subcommand))) {
+    // This is the main SPARC development workflow
+    await runFullSparcDevelopment(ctx);
+    return;
+  }
+
   switch (subcommand) {
     case "modes":
       await listSparcModes(ctx);

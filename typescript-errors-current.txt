@@ -1,0 +1,592 @@
+
+> claude-flow@1.0.72 typecheck
+> tsc --noEmit
+
+src/agents/agent-registry.ts(174,31): error TS2345: Argument of type 'MemoryEntry' is not assignable to parameter of type 'AgentRegistryEntry'.
+  Type 'MemoryEntry' is missing the following properties from type 'AgentRegistryEntry': agent, lastUpdated, metadata
+src/agents/agent-registry.ts(175,7): error TS2739: Type 'MemoryEntry' is missing the following properties from type 'AgentRegistryEntry': agent, lastUpdated, metadata
+src/agents/agent-registry.ts(199,55): error TS18048: 'query.healthThreshold' is possibly 'undefined'.
+src/agents/agent-registry.ts(394,20): error TS2339: Property 'data' does not exist on type 'MemoryEntry'.
+src/agents/agent-registry.ts(401,41): error TS2339: Property 'queryByType' does not exist on type 'DistributedMemorySystem'.
+src/cli/commands/advanced-memory-commands.ts(403,15): error TS2322: Type 'Function' is not assignable to type '(value: any) => any'.
+  Type 'Function' provides no match for the signature '(value: any): any'.
+src/cli/commands/advanced-memory-commands.ts(412,15): error TS2322: Type 'Function' is not assignable to type '(entry: any) => Record<string, any>'.
+  Type 'Function' provides no match for the signature '(entry: any): Record<string, any>'.
+src/cli/commands/agent-simple.ts(30,26): error TS2554: Expected 3 arguments, but got 1.
+src/cli/commands/agent.ts(28,29): error TS2345: Argument of type '{ level: "info"; }' is not assignable to parameter of type 'LoggingConfig'.
+  Type '{ level: "info"; }' is missing the following properties from type 'LoggingConfig': format, destination
+src/cli/commands/agent.ts(29,20): error TS2673: Constructor of class 'EventBus' is private and only accessible within the class declaration.
+src/cli/commands/agent.ts(30,24): error TS2554: Expected 3 arguments, but got 1.
+src/cli/commands/agent.ts(74,18): error TS2339: Property 'showHelp' does not exist on type 'Command'.
+src/cli/commands/agent.ts(76,20): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(nameAndArgs: string, opts?: CommandOptions | undefined): Command', gave the following error.
+    Type 'Command' has no properties in common with type 'CommandOptions'.
+  Overload 2 of 2, '(nameAndArgs: string, description: string, opts?: ExecutableCommandOptions | undefined): Command', gave the following error.
+    Argument of type 'Command' is not assignable to parameter of type 'string'.
+src/cli/commands/agent.ts(83,96): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(flags: string, description?: string | undefined, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'string[]'.
+  Overload 2 of 3, '(flags: string, description: string, parseArg: (value: string, previous: unknown) => unknown, defaultValue?: unknown): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type '(value: string, previous: unknown) => unknown'.
+  Overload 3 of 3, '(flags: string, description: string, regexp: RegExp, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'RegExp'.
+src/cli/commands/agent.ts(144,21): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(nameAndArgs: string, opts?: CommandOptions | undefined): Command', gave the following error.
+    Type 'Command' has no properties in common with type 'CommandOptions'.
+  Overload 2 of 2, '(nameAndArgs: string, description: string, opts?: ExecutableCommandOptions | undefined): Command', gave the following error.
+    Argument of type 'Command' is not assignable to parameter of type 'string'.
+src/cli/commands/agent.ts(151,68): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(flags: string, description?: string | undefined, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'string[]'.
+  Overload 2 of 3, '(flags: string, description: string, parseArg: (value: string, previous: unknown) => unknown, defaultValue?: unknown): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type '(value: string, previous: unknown) => unknown'.
+  Overload 3 of 3, '(flags: string, description: string, regexp: RegExp, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'RegExp'.
+src/cli/commands/agent.ts(152,71): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(flags: string, description?: string | undefined, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'string[]'.
+  Overload 2 of 3, '(flags: string, description: string, parseArg: (value: string, previous: unknown) => unknown, defaultValue?: unknown): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type '(value: string, previous: unknown) => unknown'.
+  Overload 3 of 3, '(flags: string, description: string, regexp: RegExp, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'RegExp'.
+src/cli/commands/agent.ts(153,65): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(flags: string, description?: string | undefined, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'string[]'.
+  Overload 2 of 3, '(flags: string, description: string, parseArg: (value: string, previous: unknown) => unknown, defaultValue?: unknown): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type '(value: string, previous: unknown) => unknown'.
+  Overload 3 of 3, '(flags: string, description: string, regexp: RegExp, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'RegExp'.
+src/cli/commands/agent.ts(154,72): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(flags: string, description?: string | undefined, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'string[]'.
+  Overload 2 of 3, '(flags: string, description: string, parseArg: (value: string, previous: unknown) => unknown, defaultValue?: unknown): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type '(value: string, previous: unknown) => unknown'.
+  Overload 3 of 3, '(flags: string, description: string, regexp: RegExp, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'RegExp'.
+src/cli/commands/agent.ts(254,25): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(nameAndArgs: string, opts?: CommandOptions | undefined): Command', gave the following error.
+    Type 'Command' has no properties in common with type 'CommandOptions'.
+  Overload 2 of 2, '(nameAndArgs: string, description: string, opts?: ExecutableCommandOptions | undefined): Command', gave the following error.
+    Argument of type 'Command' is not assignable to parameter of type 'string'.
+src/cli/commands/agent.ts(294,25): error TS2341: Property 'memory' is private and only accessible within class 'AgentManager'.
+src/cli/commands/agent.ts(337,20): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(nameAndArgs: string, opts?: CommandOptions | undefined): Command', gave the following error.
+    Type 'Command' has no properties in common with type 'CommandOptions'.
+  Overload 2 of 2, '(nameAndArgs: string, description: string, opts?: ExecutableCommandOptions | undefined): Command', gave the following error.
+    Argument of type 'Command' is not assignable to parameter of type 'string'.
+src/cli/commands/agent.ts(421,21): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(nameAndArgs: string, opts?: CommandOptions | undefined): Command', gave the following error.
+    Type 'Command' has no properties in common with type 'CommandOptions'.
+  Overload 2 of 2, '(nameAndArgs: string, description: string, opts?: ExecutableCommandOptions | undefined): Command', gave the following error.
+    Argument of type 'Command' is not assignable to parameter of type 'string'.
+src/cli/commands/agent.ts(436,23): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(nameAndArgs: string, opts?: CommandOptions | undefined): Command', gave the following error.
+    Type 'Command' has no properties in common with type 'CommandOptions'.
+  Overload 2 of 2, '(nameAndArgs: string, description: string, opts?: ExecutableCommandOptions | undefined): Command', gave the following error.
+    Argument of type 'Command' is not assignable to parameter of type 'string'.
+src/cli/commands/agent.ts(452,20): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(nameAndArgs: string, opts?: CommandOptions | undefined): Command', gave the following error.
+    Type 'Command' has no properties in common with type 'CommandOptions'.
+  Overload 2 of 2, '(nameAndArgs: string, description: string, opts?: ExecutableCommandOptions | undefined): Command', gave the following error.
+    Argument of type 'Command' is not assignable to parameter of type 'string'.
+src/cli/commands/agent.ts(456,63): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(flags: string, description?: string | undefined, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'string[]'.
+  Overload 2 of 3, '(flags: string, description: string, parseArg: (value: string, previous: unknown) => unknown, defaultValue?: unknown): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type '(value: string, previous: unknown) => unknown'.
+  Overload 3 of 3, '(flags: string, description: string, regexp: RegExp, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'RegExp'.
+src/cli/commands/agent.ts(457,63): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(flags: string, description?: string | undefined, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'string[]'.
+  Overload 2 of 3, '(flags: string, description: string, parseArg: (value: string, previous: unknown) => unknown, defaultValue?: unknown): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type '(value: string, previous: unknown) => unknown'.
+  Overload 3 of 3, '(flags: string, description: string, regexp: RegExp, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'RegExp'.
+src/cli/commands/agent.ts(526,22): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(nameAndArgs: string, opts?: CommandOptions | undefined): Command', gave the following error.
+    Type 'Command' has no properties in common with type 'CommandOptions'.
+  Overload 2 of 2, '(nameAndArgs: string, description: string, opts?: ExecutableCommandOptions | undefined): Command', gave the following error.
+    Argument of type 'Command' is not assignable to parameter of type 'string'.
+src/cli/commands/agent.ts(529,80): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(flags: string, description?: string | undefined, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'string[]'.
+  Overload 2 of 3, '(flags: string, description: string, parseArg: (value: string, previous: unknown) => unknown, defaultValue?: unknown): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type '(value: string, previous: unknown) => unknown'.
+  Overload 3 of 3, '(flags: string, description: string, regexp: RegExp, defaultValue?: string | boolean | string[] | undefined): Command', gave the following error.
+    Object literal may only specify known properties, and 'default' does not exist in type 'RegExp'.
+src/cli/commands/agent.ts(782,46): error TS18048: 'a' is possibly 'undefined'.
+src/cli/commands/agent.ts(786,24): error TS18048: 'agent' is possibly 'undefined'.
+src/cli/commands/agent.ts(786,56): error TS18048: 'agent' is possibly 'undefined'.
+src/cli/commands/agent.ts(813,25): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(814,25): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(815,26): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(816,28): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(817,33): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(818,32): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(819,31): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(820,21): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(849,29): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(850,25): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(851,27): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(852,24): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(853,21): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(859,26): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(860,25): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(861,25): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(862,26): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/agent.ts(863,21): error TS2322: Type 'ChalkInstance' is not assignable to type 'string'.
+src/cli/commands/claude.ts(115,31): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/config.ts(51,11): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/config.ts(108,9): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/config.ts(143,17): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/config.ts(157,52): error TS2339: Property 'getAvailableTemplates' does not exist on type 'ConfigManager'.
+src/cli/commands/config.ts(160,45): error TS7006: Parameter 'name' implicitly has an 'any' type.
+src/cli/commands/config.ts(167,38): error TS2339: Property 'createTemplate' does not exist on type 'ConfigManager'.
+src/cli/commands/config.ts(173,45): error TS2339: Property 'getFormatParsers' does not exist on type 'ConfigManager'.
+src/cli/commands/config.ts(177,15): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/config.ts(184,9): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/config.ts(198,44): error TS2339: Property 'validateFile' does not exist on type 'ConfigManager'.
+src/cli/commands/config.ts(208,33): error TS7006: Parameter 'error' implicitly has an 'any' type.
+src/cli/commands/config.ts(211,11): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/config.ts(216,9): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/config.ts(347,15): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/config.ts(360,31): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/config.ts(405,27): error TS2339: Property 'getPathHistory' does not exist on type 'ConfigManager'.
+src/cli/commands/config.ts(406,27): error TS2339: Property 'getChangeHistory' does not exist on type 'ConfigManager'.
+src/cli/commands/config.ts(419,38): error TS7006: Parameter 'change' implicitly has an 'any' type.
+src/cli/commands/config.ts(419,46): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/cli/commands/config.ts(453,47): error TS2339: Property 'backup' does not exist on type 'ConfigManager'.
+src/cli/commands/config.ts(481,29): error TS2339: Property 'restore' does not exist on type 'ConfigManager'.
+src/cli/commands/config.ts(495,41): error TS2339: Property 'getAvailableTemplates' does not exist on type 'ConfigManager'.
+src/cli/commands/config.ts(505,44): error TS2339: Property 'createTemplate' does not exist on type 'ConfigManager'.
+src/cli/commands/enterprise.ts(482,19): error TS2739: Type '{ region: string; provider: any; endpoints: string[]; }' is missing the following properties from type '{ region: string; provider: "custom" | "aws" | "gcp" | "azure" | "kubernetes" | "docker"; endpoints: string[]; secrets: Record<string, string>; environment_variables: Record<string, string>; resources: { ...; }; }': secrets, environment_variables, resources
+src/cli/commands/enterprise.ts(584,19): error TS2739: Type '{ defaultRegion: string; availableRegions: string[]; }' is missing the following properties from type '{ defaultRegion: string; availableRegions: string[]; services: string[]; endpoints: Record<string, string>; features: string[]; }': services, endpoints, features
+src/cli/commands/enterprise.ts(1437,15): error TS2739: Type '{ timeRange: { start: Date; end: Date; }; compliance: string[]; }' is missing the following properties from type '{ timeRange: { start: Date; end: Date; }; systems: string[]; users: string[]; events: string[]; compliance: string[]; }': systems, users, events
+src/cli/commands/help.ts(801,65): error TS2339: Property 'value' does not exist on type 'never'.
+src/cli/commands/help.ts(819,21): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/index.ts(1335,26): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/cli/commands/index.ts(1375,30): error TS2365: Operator '>' cannot be applied to types 'number' and '{}'.
+src/cli/commands/index.ts(1375,79): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/cli/commands/index.ts(1689,15): error TS2345: Argument of type 'import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/commander/typings/index").Command' is not assignable to parameter of type 'import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/src/cli/cli-core").Command'.
+  Types of property 'name' are incompatible.
+    Type '{ (str: string): Command; (): string; }' is not assignable to type 'string'.
+src/cli/commands/mcp-serve.ts(25,20): error TS2673: Constructor of class 'EventBus' is private and only accessible within the class declaration.
+src/cli/commands/mcp-serve.ts(27,25): error TS2673: Constructor of class 'ConfigManager' is private and only accessible within the class declaration.
+src/cli/commands/mcp-serve.ts(30,10): error TS2339: Property 'setLevel' does not exist on type 'Logger'.
+src/cli/commands/mcp-serve.ts(43,26): error TS2554: Expected 7 arguments, but got 3.
+src/cli/commands/mcp-serve.ts(44,61): error TS2554: Expected 0-1 arguments, but got 2.
+src/cli/commands/mcp-serve.ts(45,26): error TS2554: Expected 4 arguments, but got 2.
+src/cli/commands/mcp-serve.ts(46,67): error TS2345: Argument of type 'Logger' is not assignable to parameter of type 'IEventBus'.
+  Type 'Logger' is missing the following properties from type 'IEventBus': emit, on, off, once
+src/cli/commands/mcp-serve.ts(47,24): error TS2554: Expected 3 arguments, but got 2.
+src/cli/commands/mcp-serve.ts(48,21): error TS2554: Expected 4 arguments, but got 2.
+src/cli/commands/mcp.ts(52,9): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/mcp.ts(69,9): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/mcp.ts(152,9): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/memory.ts(22,29): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/memory.ts(31,11): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/memory.ts(32,11): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/memory.ts(96,11): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/memory.ts(100,27): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/migrate.ts(12,19): error TS2307: Cannot find module 'npm:chalk@^4.1.2' or its corresponding type declarations.
+src/cli/commands/monitor.ts(43,5): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/monitor.ts(49,7): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/monitor.ts(51,7): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/monitor.ts(54,5): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/monitor.ts(55,5): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/monitor.ts(418,20): error TS2304: Cannot find name 'existsSync'.
+src/cli/commands/monitor.ts(430,53): error TS2304: Cannot find name 'ComponentStatus'.
+src/cli/commands/monitor.ts(434,34): error TS2304: Cannot find name 'ComponentStatus'.
+src/cli/commands/monitor.ts(453,22): error TS2304: Cannot find name 'AlertData'.
+src/cli/commands/monitor.ts(504,10): error TS2339: Property 'alerts' does not exist on type 'Dashboard'.
+src/cli/commands/monitor.ts(504,28): error TS2339: Property 'alerts' does not exist on type 'Dashboard'.
+src/cli/commands/monitor.ts(514,54): error TS2339: Property 'startTime' does not exist on type 'Dashboard'.
+src/cli/commands/monitor.ts(515,28): error TS2339: Property 'exportData' does not exist on type 'Dashboard'.
+src/cli/commands/monitor.ts(518,20): error TS2339: Property 'exportData' does not exist on type 'Dashboard'.
+src/cli/commands/monitor.ts(519,22): error TS2339: Property 'alerts' does not exist on type 'Dashboard'.
+src/cli/commands/monitor.ts(522,13): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/monitor.ts(545,13): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/monitor.ts(546,13): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/session.ts(111,11): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/session.ts(113,28): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/session.ts(190,19): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/session.ts(197,11): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/session.ts(282,11): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/session.ts(317,11): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/session.ts(355,11): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/session.ts(368,27): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/session.ts(404,11): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/session.ts(456,30): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/session.ts(519,15): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/session.ts(536,31): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/session.ts(539,33): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/session.ts(553,28): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/start/process-manager.ts(109,25): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/start/process-ui-simple.ts(49,13): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/start/process-ui-simple.ts(53,23): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/start/process-ui-simple.ts(172,11): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/start/process-ui-simple.ts(175,21): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/start/process-ui-simple.ts(246,11): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/start/process-ui-simple.ts(375,23): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/start/start-command.ts(38,20): error TS2339: Property 'force' does not exist on type 'StartOptions'.
+src/cli/commands/start/start-command.ts(54,19): error TS2339: Property 'healthCheck' does not exist on type 'StartOptions'.
+src/cli/commands/start/start-command.ts(64,79): error TS2339: Property 'timeout' does not exist on type 'StartOptions'.
+src/cli/commands/start/start-command.ts(162,33): error TS2345: Argument of type 'Uint8Array<ArrayBuffer>' is not assignable to parameter of type 'number'.
+src/cli/commands/start/start-command.ts(190,37): error TS2345: Argument of type 'Uint8Array<ArrayBuffer>' is not assignable to parameter of type 'number'.
+src/cli/commands/start/system-monitor.ts(115,5): error TS2322: Type 'Timeout' is not assignable to type 'number'.
+src/cli/commands/status.ts(320,18): error TS2304: Cannot find name 'options'.
+src/cli/commands/status.ts(324,7): error TS2304: Cannot find name 'options'.
+src/cli/commands/status.ts(325,5): error TS2304: Cannot find name 'baseStatus'.
+src/cli/commands/status.ts(328,10): error TS2304: Cannot find name 'baseStatus'.
+src/cli/commands/status.ts(398,15): error TS2304: Cannot find name 'existsSync'.
+src/cli/commands/status.ts(399,29): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/status.ts(411,15): error TS2304: Cannot find name 'existsSync'.
+src/cli/commands/status.ts(412,32): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/status.ts(503,25): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/status.ts(517,22): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/status.ts(565,5): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/swarm-new.ts(66,7): error TS2353: Object literal may only specify known properties, and 'logging' does not exist in type 'Partial<SwarmConfig>'.
+src/cli/commands/swarm-new.ts(307,49): error TS2367: This comparison appears to be unintentional because the types 'TaskStatus' and '"in_progress"' have no overlap.
+src/cli/commands/swarm-new.ts(308,50): error TS2367: This comparison appears to be unintentional because the types 'TaskStatus' and '"pending"' have no overlap.
+src/cli/commands/swarm-new.ts(322,17): error TS2367: This comparison appears to be unintentional because the types 'TaskId' and 'string' have no overlap.
+src/cli/commands/swarm-new.ts(323,15): error TS2322: Type 'TaskId' is not assignable to type 'string'.
+src/cli/commands/swarm-new.ts(333,46): error TS2339: Property 'active' does not exist on type '{ total: number; }'.
+src/cli/commands/swarm-new.ts(404,5): error TS2322: Type '"parallel"' is not assignable to type 'SwarmMode'.
+src/cli/commands/swarm-new.ts(642,27): error TS2339: Property 'completedTasks' does not exist on type 'AgentState'.
+src/cli/commands/swarm-new.ts(647,46): error TS2367: This comparison appears to be unintentional because the types 'TaskStatus' and '"in_progress"' have no overlap.
+src/cli/commands/swarm-new.ts(648,43): error TS2367: This comparison appears to be unintentional because the types 'TaskStatus' and '"pending"' have no overlap.
+src/cli/commands/swarm-new.ts(661,38): error TS2339: Property 'inProgress' does not exist on type '{ completed: number; failed: number; total: number; }'.
+src/cli/commands/swarm-new.ts(662,34): error TS2339: Property 'pending' does not exist on type '{ completed: number; failed: number; total: number; }'.
+src/cli/commands/swarm-new.ts(665,32): error TS2339: Property 'active' does not exist on type '{ total: number; }'.
+src/cli/commands/swarm-new.ts(698,29): error TS2339: Property 'completedTasks' does not exist on type 'AgentState'.
+src/cli/commands/swarm-new.ts(703,41): error TS2367: This comparison appears to be unintentional because the types 'TaskStatus' and '"in_progress"' have no overlap.
+src/cli/commands/swarm-new.ts(704,38): error TS2367: This comparison appears to be unintentional because the types 'TaskStatus' and '"pending"' have no overlap.
+src/cli/commands/swarm-new.ts(719,31): error TS2551: Property 'assignedAgent' does not exist on type 'TaskDefinition'. Did you mean 'assignedAt'?
+src/cli/commands/swarm-new.ts(720,27): error TS2339: Property 'startTime' does not exist on type 'TaskDefinition'.
+src/cli/commands/swarm-new.ts(721,25): error TS2339: Property 'endTime' does not exist on type 'TaskDefinition'.
+src/cli/commands/swarm-new.ts(724,26): error TS2339: Property 'metadata' does not exist on type 'TaskDefinition'.
+src/cli/commands/swarm-new.ts(737,31): error TS2339: Property 'inProgress' does not exist on type '{ completed: number; failed: number; total: number; }'.
+src/cli/commands/swarm-new.ts(738,27): error TS2339: Property 'pending' does not exist on type '{ completed: number; failed: number; total: number; }'.
+src/cli/commands/swarm-new.ts(741,25): error TS2339: Property 'active' does not exist on type '{ total: number; }'.
+src/cli/commands/swarm-spawn.ts(40,16): error TS2339: Property 'push' does not exist on type 'Map<string, Agent>'.
+src/cli/commands/swarm-spawn.ts(67,70): error TS2339: Property 'length' does not exist on type 'Map<string, Agent>'.
+src/cli/commands/swarm-spawn.ts(68,51): error TS2339: Property 'filter' does not exist on type 'Map<string, Agent>'.
+src/cli/commands/swarm-spawn.ts(68,58): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/cli/commands/swarm.ts(165,70): error TS2345: Argument of type 'string' is not assignable to parameter of type '"auto" | "research" | "analysis" | "development" | undefined'.
+src/cli/commands/swarm.ts(431,18): error TS2339: Property 'chmod' does not exist on type '{ writeTextFile: (path: string, data: string, options?: { append?: boolean | undefined; create?: boolean | undefined; } | undefined) => Promise<void>; readTextFile: (path: string) => Promise<...>; ... 19 more ...; errors: typeof DenoCompatErrors; }'.
+src/cli/commands/task.ts(68,31): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/workflow.ts(172,5): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/workflow.ts(192,5): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/workflow.ts(417,9): error TS2304: Cannot find name 'Deno'.
+src/cli/commands/workflow.ts(428,27): error TS2304: Cannot find name 'Deno'.
+src/cli/completion.ts(43,19): error TS2304: Cannot find name 'Deno'.
+src/cli/completion.ts(476,10): error TS2304: Cannot find name 'Deno'.
+src/cli/completion.ts(477,10): error TS2304: Cannot find name 'Deno'.
+src/cli/completion.ts(483,15): error TS2304: Cannot find name 'Deno'.
+src/cli/completion.ts(484,15): error TS2304: Cannot find name 'Deno'.
+src/cli/completion.ts(502,10): error TS2304: Cannot find name 'Deno'.
+src/cli/completion.ts(510,15): error TS2304: Cannot find name 'Deno'.
+src/cli/completion.ts(511,15): error TS2304: Cannot find name 'Deno'.
+src/cli/completion.ts(529,10): error TS2304: Cannot find name 'Deno'.
+src/cli/completion.ts(537,15): error TS2304: Cannot find name 'Deno'.
+src/cli/completion.ts(538,15): error TS2304: Cannot find name 'Deno'.
+src/cli/formatter.ts(246,60): error TS2304: Cannot find name 'Deno'.
+src/cli/formatter.ts(247,50): error TS2304: Cannot find name 'Deno'.
+src/cli/formatter.ts(248,50): error TS2304: Cannot find name 'Deno'.
+src/cli/index-remote.ts(72,16): error TS2304: Cannot find name 'Deno'.
+src/cli/index-remote.ts(132,17): error TS2339: Property 'main' does not exist on type 'ImportMeta'.
+src/cli/index-remote.ts(135,5): error TS2304: Cannot find name 'Deno'.
+src/cli/index.ts(32,17): error TS2304: Cannot find name 'Command'.
+src/cli/index.ts(49,18): error TS7006: Parameter 'options' implicitly has an 'any' type.
+src/cli/index.ts(55,19): error TS2304: Cannot find name 'colors'.
+src/cli/index.ts(74,24): error TS2304: Cannot find name 'Command'.
+src/cli/index.ts(78,20): error TS7006: Parameter 'options' implicitly has an 'any' type.
+src/cli/index.ts(86,27): error TS2304: Cannot find name 'Command'.
+src/cli/index.ts(89,20): error TS7006: Parameter 'options' implicitly has an 'any' type.
+src/cli/index.ts(97,30): error TS2304: Cannot find name 'Command'.
+src/cli/index.ts(101,20): error TS7006: Parameter 'options' implicitly has an 'any' type.
+src/cli/index.ts(101,29): error TS7006: Parameter 'shell' implicitly has an 'any' type.
+src/cli/index.ts(118,19): error TS2304: Cannot find name 'colors'.
+src/cli/index.ts(118,30): error TS2304: Cannot find name 'colors'.
+src/cli/index.ts(122,7): error TS2304: Cannot find name 'Deno'.
+src/cli/index.ts(123,19): error TS2304: Cannot find name 'colors'.
+src/cli/index.ts(129,19): error TS2304: Cannot find name 'colors'.
+src/cli/index.ts(130,19): error TS2304: Cannot find name 'colors'.
+src/cli/index.ts(133,3): error TS2304: Cannot find name 'Deno'.
+src/cli/index.ts(177,24): error TS2304: Cannot find name 'colors'.
+src/cli/index.ts(178,5): error TS2304: Cannot find name 'Deno'.
+src/cli/index.ts(181,3): error TS2304: Cannot find name 'Deno'.
+src/cli/index.ts(182,3): error TS2304: Cannot find name 'Deno'.
+src/cli/index.ts(186,17): error TS2339: Property 'main' does not exist on type 'ImportMeta'.
+src/cli/index.ts(194,18): error TS2304: Cannot find name 'Deno'.
+src/cli/index.ts(204,7): error TS2304: Cannot find name 'colors'.
+src/cli/main.ts(32,7): error TS2322: Type 'string' is not assignable to type '"error" | "debug" | "info" | "warn"'.
+src/cli/main.ts(42,21): error TS2339: Property 'loadDefault' does not exist on type 'ConfigManager'.
+src/cli/node-repl.ts(387,6): error TS2339: Property 'completer' does not exist on type 'Interface'.
+src/cli/repl.ts(60,29): error TS2304: Cannot find name 'Deno'.
+src/cli/repl.ts(61,49): error TS7006: Parameter 'line' implicitly has an 'any' type.
+src/cli/repl.ts(69,13): error TS2304: Cannot find name 'Deno'.
+src/cli/repl.ts(166,23): error TS2304: Cannot find name 'Deno'.
+src/cli/repl.ts(332,44): error TS2304: Cannot find name 'Deno'.
+src/cli/repl.ts(333,11): error TS2304: Cannot find name 'Deno'.
+src/cli/repl.ts(334,34): error TS2304: Cannot find name 'Deno'.
+src/cli/repl.ts(363,9): error TS2304: Cannot find name 'Deno'.
+src/cli/repl.ts(383,9): error TS2353: Object literal may only specify known properties, and 'suggestions' does not exist in type 'InputOptions'.
+src/cli/repl.ts(1017,11): error TS2304: Cannot find name 'Deno'.
+src/cli/simple-cli.ts(687,17): error TS2339: Property 'code' does not exist on type 'Error'.
+src/cli/simple-cli.ts(944,52): error TS2339: Property '_hidden' does not exist on type 'Command'.
+src/cli/simple-cli.ts(2498,21): error TS2339: Property 'code' does not exist on type 'Error'.
+src/cli/simple-cli.ts(2527,53): error TS18046: 'err' is of type 'unknown'.
+src/cli/simple-cli.ts(2949,22): error TS7006: Parameter 'model' implicitly has an 'any' type.
+src/cli/simple-cli.ts(2951,25): error TS7006: Parameter 'aspect' implicitly has an 'any' type.
+src/cli/simple-cli.ts(2979,23): error TS7006: Parameter 'model' implicitly has an 'any' type.
+src/cli/simple-cli.ts(2979,30): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/cli/simple-cli.ts(3711,21): error TS2339: Property 'code' does not exist on type 'Error'.
+src/cli/simple-cli.ts(3746,56): error TS18046: 'err' is of type 'unknown'.
+src/cli/simple-cli.ts(3753,53): error TS18046: 'err' is of type 'unknown'.
+src/cli/simple-cli.ts(3911,59): error TS18046: 'copyError' is of type 'unknown'.
+src/cli/simple-mcp.ts(99,26): error TS2673: Constructor of class 'EventBus' is private and only accessible within the class declaration.
+src/cli/simple-mcp.ts(101,31): error TS2673: Constructor of class 'ConfigManager' is private and only accessible within the class declaration.
+src/cli/simple-mcp.ts(235,26): error TS2673: Constructor of class 'EventBus' is private and only accessible within the class declaration.
+src/cli/simple-mcp.ts(237,31): error TS2673: Constructor of class 'ConfigManager' is private and only accessible within the class declaration.
+src/cli/simple-mcp.ts(240,47): error TS2339: Property 'setLevel' does not exist on type 'Logger'.
+src/cli/simple-mcp.ts(241,18): error TS2339: Property 'setLevel' does not exist on type 'Logger'.
+src/cli/simple-orchestrator.ts(366,44): error TS7030: Not all code paths return a value.
+src/cli/simple-orchestrator.ts(384,37): error TS18046: 'error' is of type 'unknown'.
+src/cli/simple-orchestrator.ts(453,44): error TS18046: 'error' is of type 'unknown'.
+src/cli/simple-orchestrator.ts(496,52): error TS18046: 'error' is of type 'unknown'.
+src/cli/ui/fallback-handler.ts(7,36): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+src/cli/ui/fallback-handler.ts(56,60): error TS18046: 'fallbackError' is of type 'unknown'.
+src/cli/ui/index.ts(13,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+src/cli/ui/index.ts(21,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+src/cli/ui/index.ts(27,27): error TS2339: Property 'launchUI' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/src/cli/ui/fallback-handler")'.
+src/cli/ui/index.ts(27,73): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+src/cli/ui/index.ts(43,59): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+src/cli/unified/command-registry.ts(48,17): error TS1361: 'CLIError' cannot be used as a value because it was imported using 'import type'.
+src/cli/unified/command-registry.ts(73,28): error TS1361: 'CLIError' cannot be used as a value because it was imported using 'import type'.
+src/cli/unified/command-registry.ts(77,17): error TS1361: 'CLIError' cannot be used as a value because it was imported using 'import type'.
+src/cli/unified/command-registry.ts(78,45): error TS18046: 'error' is of type 'unknown'.
+src/cli/unified/command-registry.ts(206,21): error TS1361: 'CLIError' cannot be used as a value because it was imported using 'import type'.
+src/cli/unified/command-registry.ts(215,21): error TS1361: 'CLIError' cannot be used as a value because it was imported using 'import type'.
+src/cli/unified/command-registry.ts(226,21): error TS1361: 'CLIError' cannot be used as a value because it was imported using 'import type'.
+src/cli/unified/commands/status.ts(154,9): error TS18046: 'error' is of type 'unknown'.
+src/cli/unified/commands/status.ts(154,51): error TS18046: 'error' is of type 'unknown'.
+src/cli/unified/commands/status.ts(158,57): error TS18046: 'error' is of type 'unknown'.
+src/cli/unified/commands/status.ts(179,57): error TS18046: 'error' is of type 'unknown'.
+src/cli/unified/interfaces.ts(130,3): error TS2687: All declarations of 'showUsage' must have identical modifiers.
+src/cli/unified/interfaces.ts(133,3): error TS2687: All declarations of 'exitCode' must have identical modifiers.
+src/cli/unified/interfaces.ts(140,12): error TS2403: Subsequent variable declarations must have the same type.  Variable 'exitCode' must be of type 'number | undefined', but here has type 'number'.
+src/cli/unified/interfaces.ts(140,12): error TS2687: All declarations of 'exitCode' must have identical modifiers.
+src/cli/unified/interfaces.ts(141,12): error TS2403: Subsequent variable declarations must have the same type.  Variable 'showUsage' must be of type 'boolean | undefined', but here has type 'boolean'.
+src/cli/unified/interfaces.ts(141,12): error TS2687: All declarations of 'showUsage' must have identical modifiers.
+src/cli/unified/node-runtime.ts(176,24): error TS2339: Property 'watchFile' does not exist on type 'typeof import("node:fs/promises")'.
+src/cli/unified/node-runtime.ts(178,10): error TS2339: Property 'unwatchFile' does not exist on type 'typeof import("node:fs/promises")'.
+src/cli/unified/test-unified-cli.ts(37,48): error TS18046: 'error' is of type 'unknown'.
+src/cli/unified/test-unified-cli.ts(48,49): error TS18046: 'error' is of type 'unknown'.
+src/communication/message-bus.ts(280,33): error TS18046: 'data' is of type 'unknown'.
+src/communication/message-bus.ts(284,36): error TS18046: 'data' is of type 'unknown'.
+src/communication/message-bus.ts(1121,24): error TS2339: Property 'deadLetterReason' does not exist on type 'MessageMetadata'.
+src/communication/message-bus.ts(1122,24): error TS2339: Property 'deadLetterTimestamp' does not exist on type 'MessageMetadata'.
+src/communication/message-bus.ts(1375,20): error TS18046: 'error' is of type 'unknown'.
+src/coordination/advanced-task-executor.ts(217,18): error TS18046: 'error' is of type 'unknown'.
+src/coordination/advanced-task-executor.ts(224,22): error TS18046: 'error' is of type 'unknown'.
+src/coordination/advanced-task-executor.ts(225,20): error TS18046: 'error' is of type 'unknown'.
+src/coordination/advanced-task-executor.ts(397,11): error TS2322: Type 'ResourceUsage' is not assignable to type 'Record<string, number>'.
+  Index signature for type 'string' is missing in type 'ResourceUsage'.
+src/coordination/advanced-task-executor.ts(409,11): error TS2322: Type 'ResourceUsage' is not assignable to type 'Record<string, number>'.
+  Index signature for type 'string' is missing in type 'ResourceUsage'.
+src/coordination/advanced-task-executor.ts(504,20): error TS18046: 'error' is of type 'unknown'.
+src/coordination/advanced-task-executor.ts(610,28): error TS2683: 'this' implicitly has type 'any' because it does not have a type annotation.
+src/coordination/background-executor.ts(51,30): error TS2345: Argument of type 'string' is not assignable to parameter of type 'LoggingConfig'.
+src/coordination/background-executor.ts(225,13): error TS7022: 'process' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+src/coordination/background-executor.ts(227,19): error TS2448: Block-scoped variable 'process' used before its declaration.
+src/coordination/background-executor.ts(239,35): error TS7006: Parameter 'data' implicitly has an 'any' type.
+src/coordination/background-executor.ts(244,35): error TS7006: Parameter 'data' implicitly has an 'any' type.
+src/coordination/background-executor.ts(250,34): error TS7006: Parameter 'code' implicitly has an 'any' type.
+src/coordination/load-balancer.ts(122,7): error TS2322: Type '"hybrid"' is not assignable to type 'LoadBalancingStrategy'.
+src/coordination/load-balancer.ts(155,28): error TS18046: 'data' is of type 'unknown'.
+src/coordination/load-balancer.ts(155,42): error TS18046: 'data' is of type 'unknown'.
+src/coordination/load-balancer.ts(159,28): error TS18046: 'data' is of type 'unknown'.
+src/coordination/load-balancer.ts(159,42): error TS18046: 'data' is of type 'unknown'.
+src/coordination/load-balancer.ts(163,28): error TS18046: 'data' is of type 'unknown'.
+src/coordination/load-balancer.ts(163,42): error TS18046: 'data' is of type 'unknown'.
+src/coordination/load-balancer.ts(167,32): error TS18046: 'data' is of type 'unknown'.
+src/coordination/load-balancer.ts(167,50): error TS18046: 'data' is of type 'unknown'.
+src/coordination/load-balancer.ts(167,68): error TS18046: 'data' is of type 'unknown'.
+src/coordination/load-balancer.ts(171,38): error TS18046: 'data' is of type 'unknown'.
+src/coordination/load-balancer.ts(171,52): error TS18046: 'data' is of type 'unknown'.
+src/coordination/load-balancer.ts(320,14): error TS2678: Type '"load-based"' is not comparable to type 'LoadBalancingStrategy'.
+src/coordination/load-balancer.ts(325,14): error TS2678: Type '"performance-based"' is not comparable to type 'LoadBalancingStrategy'.
+src/coordination/load-balancer.ts(330,14): error TS2678: Type '"capability-based"' is not comparable to type 'LoadBalancingStrategy'.
+src/coordination/load-balancer.ts(335,14): error TS2678: Type '"affinity-based"' is not comparable to type 'LoadBalancingStrategy'.
+src/coordination/load-balancer.ts(340,14): error TS2678: Type '"cost-based"' is not comparable to type 'LoadBalancingStrategy'.
+src/coordination/load-balancer.ts(345,14): error TS2678: Type '"hybrid"' is not comparable to type 'LoadBalancingStrategy'.
+src/coordination/metrics.ts(135,5): error TS2322: Type 'Timeout' is not assignable to type 'number'.
+src/coordination/scheduler.ts(354,5): error TS2322: Type 'Timeout' is not assignable to type 'number'.
+src/coordination/swarm-coordinator.ts(82,30): error TS2345: Argument of type 'string' is not assignable to parameter of type 'LoggingConfig'.
+src/coordination/swarm-coordinator.ts(105,26): error TS2554: Expected 3 arguments, but got 1.
+src/coordination/swarm-coordinator.ts(170,11): error TS2532: Object is possibly 'undefined'.
+src/coordination/swarm-coordinator.ts(170,26): error TS2339: Property 'stop' does not exist on type 'AdvancedTaskScheduler'.
+src/coordination/swarm-coordinator.ts(193,14): error TS2339: Property 'workStealer' does not exist on type 'SwarmCoordinator'.
+src/coordination/swarm-coordinator.ts(234,30): error TS2339: Property 'remember' does not exist on type 'MemoryManager'.
+src/coordination/swarm-coordinator.ts(346,14): error TS2339: Property 'workStealer' does not exist on type 'SwarmCoordinator'.
+src/coordination/swarm-coordinator.ts(347,12): error TS2339: Property 'workStealer' does not exist on type 'SwarmCoordinator'.
+src/coordination/swarm-coordinator.ts(369,14): error TS2339: Property 'circuitBreaker' does not exist on type 'SwarmCoordinator'.
+src/coordination/swarm-coordinator.ts(369,38): error TS2339: Property 'circuitBreaker' does not exist on type 'SwarmCoordinator'.
+src/coordination/swarm-coordinator.ts(445,16): error TS2339: Property 'circuitBreaker' does not exist on type 'SwarmCoordinator'.
+src/coordination/swarm-coordinator.ts(446,14): error TS2339: Property 'circuitBreaker' does not exist on type 'SwarmCoordinator'.
+src/coordination/swarm-coordinator.ts(451,30): error TS2339: Property 'remember' does not exist on type 'MemoryManager'.
+src/coordination/swarm-coordinator.ts(485,51): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/coordination/swarm-coordinator.ts(488,16): error TS2339: Property 'circuitBreaker' does not exist on type 'SwarmCoordinator'.
+src/coordination/swarm-coordinator.ts(489,14): error TS2339: Property 'circuitBreaker' does not exist on type 'SwarmCoordinator'.
+src/coordination/swarm-coordinator.ts(614,34): error TS2339: Property 'workStealer' does not exist on type 'SwarmCoordinator'.
+src/coordination/swarm-coordinator.ts(624,12): error TS2339: Property 'workStealer' does not exist on type 'SwarmCoordinator'.
+src/coordination/swarm-coordinator.ts(627,40): error TS2339: Property 'workStealer' does not exist on type 'SwarmCoordinator'.
+src/coordination/swarm-coordinator.ts(653,32): error TS2339: Property 'remember' does not exist on type 'MemoryManager'.
+src/coordination/swarm-coordinator.ts(674,39): error TS2304: Cannot find name 'Message'.
+src/coordination/swarm-monitor.ts(80,30): error TS2345: Argument of type 'string' is not assignable to parameter of type 'LoggingConfig'.
+src/coordination/swarm-monitor.ts(364,5): error TS7053: Element implicitly has an 'any' type because expression of type '"error" | "info" | "critical" | "warning"' can't be used to index type 'Logger'.
+  Property 'critical' does not exist on type 'Logger'.
+src/core/config.ts(293,9): error TS1308: 'await' expressions are only allowed within async functions and at the top levels of modules.
+src/core/config.ts(426,19): error TS2339: Property 'maskSensitiveValues' does not exist on type 'ConfigManager'.
+src/core/config.ts(446,10): error TS2339: Property 'trackChanges' does not exist on type 'ConfigManager'.
+src/core/config.ts(487,10): error TS2339: Property 'recordChange' does not exist on type 'ConfigManager'.
+src/core/config.ts(644,10): error TS2339: Property 'recordChange' does not exist on type 'ConfigManager'.
+src/core/config.ts(655,14): error TS2339: Property 'isSensitivePath' does not exist on type 'ConfigManager'.
+src/core/config.ts(656,20): error TS2339: Property 'encryptValue' does not exist on type 'ConfigManager'.
+src/core/config.ts(693,25): error TS2339: Property 'isSensitivePath' does not exist on type 'ConfigManager'.
+src/core/config.ts(693,55): error TS2339: Property 'isEncryptedValue' does not exist on type 'ConfigManager'.
+src/core/config.ts(695,21): error TS2339: Property 'decryptValue' does not exist on type 'ConfigManager'.
+src/core/config.ts(853,10): error TS2339: Property 'recordChange' does not exist on type 'ConfigManager'.
+src/core/event-bus.ts(138,9): error TS2322: Type 'Timeout' is not assignable to type 'number'.
+src/core/orchestrator.ts(775,5): error TS2322: Type 'Timeout' is not assignable to type 'number'.
+src/core/orchestrator.ts(793,5): error TS2322: Type 'Timeout' is not assignable to type 'number'.
+src/core/orchestrator.ts(799,5): error TS2322: Type 'Timeout' is not assignable to type 'number'.
+src/core/persistence.ts(37,11): error TS2564: Property 'db' has no initializer and is not definitely assigned in the constructor.
+src/core/persistence.ts(57,13): error TS2339: Property 'execute' does not exist on type 'Database'.
+src/core/persistence.ts(72,13): error TS2339: Property 'execute' does not exist on type 'Database'.
+src/core/persistence.ts(90,13): error TS2339: Property 'execute' does not exist on type 'Database'.
+src/enterprise/analytics-manager.ts(1086,36): error TS2345: Argument of type '{ name: string; description: string; type: "operational"; widgets: ({ title: string; type: "gauge"; size: "medium"; position: { x: number; y: number; width: number; height: number; }; dataSource: { query: string; metrics: string[]; aggregation: "avg"; timeRange: string; groupBy: never[]; }; visualization: { ...; }; ...' is not assignable to parameter of type '{ name: string; description: string; type: "custom" | "security" | "business" | "technical" | "operational" | "executive"; widgets: Omit<DashboardWidget, "id">[]; permissions?: Partial<...> | undefined; }'.
+  Type '{ name: string; description: string; type: "operational"; widgets: ({ title: string; type: "gauge"; size: "medium"; position: { x: number; y: number; width: number; height: number; }; dataSource: { query: string; metrics: string[]; aggregation: "avg"; timeRange: string; groupBy: never[]; }; visualization: { ...; }; ...' is not assignable to type '{ name: string; description: string; type: "custom" | "security" | "business" | "technical" | "operational" | "executive"; widgets: Omit<DashboardWidget, "id">[]; permissions?: Partial<...> | undefined; }'.
+    Types of property 'widgets' are incompatible.
+      Type '({ title: string; type: "gauge"; size: "medium"; position: { x: number; y: number; width: number; height: number; }; dataSource: { query: string; metrics: string[]; aggregation: "avg"; timeRange: string; groupBy: never[]; }; visualization: { ...; }; alerts: { ...; }; } | { ...; })[]' is not assignable to type 'Omit<DashboardWidget, "id">[]'.
+        Type '{ title: string; type: "gauge"; size: "medium"; position: { x: number; y: number; width: number; height: number; }; dataSource: { query: string; metrics: string[]; aggregation: "avg"; timeRange: string; groupBy: never[]; }; visualization: { ...; }; alerts: { ...; }; } | { ...; }' is not assignable to type 'Omit<DashboardWidget, "id">'.
+          Type '{ title: string; type: "gauge"; size: "medium"; position: { x: number; y: number; width: number; height: number; }; dataSource: { query: string; metrics: string[]; aggregation: "avg"; timeRange: string; groupBy: never[]; }; visualization: { ...; }; alerts: { ...; }; }' is not assignable to type 'Omit<DashboardWidget, "id">'.
+            The types of 'visualization.chartType' are incompatible between these types.
+              Type '"gauge"' is not assignable to type '"line" | "bar" | "pie" | "scatter" | "heatmap" | "area" | undefined'.
+src/enterprise/analytics-manager.ts(1230,9): error TS2322: Type '"performance" | "security" | "usage" | "business" | "technical" | "cost"' is not assignable to type '"performance" | "security" | "quality" | "usage" | "cost"'.
+  Type '"business"' is not assignable to type '"performance" | "security" | "quality" | "usage" | "cost"'.
+src/enterprise/audit-manager.ts(498,11): error TS2783: 'enabled' is specified more than once, so this usage will be overwritten.
+src/enterprise/audit-manager.ts(499,11): error TS2783: 'frequency' is specified more than once, so this usage will be overwritten.
+src/enterprise/audit-manager.ts(500,11): error TS2783: 'query' is specified more than once, so this usage will be overwritten.
+src/enterprise/cloud-manager.ts(1096,15): error TS2322: Type '{ name: string; type: "aws"; configuration: { defaultRegion: string; availableRegions: string[]; services: string[]; endpoints: { ec2: string; s3: string; rds: string; compute?: undefined; storage?: undefined; sql?: undefined; }; features: string[]; }; ... 6 more ...; updatedAt: Date; } | { ...; } | { ...; }' is not assignable to type 'CloudProvider'.
+  Type '{ name: string; type: "aws"; configuration: { defaultRegion: string; availableRegions: string[]; services: string[]; endpoints: { ec2: string; s3: string; rds: string; compute?: undefined; storage?: undefined; sql?: undefined; }; features: string[]; }; ... 6 more ...; updatedAt: Date; }' is not assignable to type 'CloudProvider'.
+    The types of 'configuration.endpoints' are incompatible between these types.
+      Type '{ ec2: string; s3: string; rds: string; compute?: undefined; storage?: undefined; sql?: undefined; }' is not assignable to type 'Record<string, string>'.
+        Property 'compute' is incompatible with index signature.
+          Type 'undefined' is not assignable to type 'string'.
+src/enterprise/deployment-manager.ts(540,52): error TS18046: 'error' is of type 'unknown'.
+src/enterprise/deployment-manager.ts(681,16): error TS18046: 'error' is of type 'unknown'.
+src/enterprise/security-manager.ts(532,16): error TS18046: 'error' is of type 'unknown'.
+src/enterprise/security-manager.ts(1080,66): error TS18046: 'error' is of type 'unknown'.
+src/enterprise/security-manager.ts(1167,13): error TS2322: Type 'SecuritySeverity' is not assignable to type '"low" | "medium" | "high" | "critical"'.
+  Type '"info"' is not assignable to type '"low" | "medium" | "high" | "critical"'.
+src/mcp/client.ts(53,23): error TS18048: 'response.error' is possibly 'undefined'.
+src/mcp/index.ts(38,8): error TS2305: Module '"./auth.js"' has no exported member 'AuthContext'.
+src/mcp/index.ts(40,8): error TS2305: Module '"./auth.js"' has no exported member 'TokenInfo'.
+src/mcp/index.ts(41,8): error TS2305: Module '"./auth.js"' has no exported member 'TokenGenerationOptions'.
+src/mcp/index.ts(42,8): error TS2305: Module '"./auth.js"' has no exported member 'AuthSession'.
+src/mcp/index.ts(92,35): error TS2304: Cannot find name 'MCPOrchestrationConfig'.
+src/mcp/index.ts(93,26): error TS2304: Cannot find name 'OrchestrationComponents'.
+src/mcp/index.ts(95,15): error TS2304: Cannot find name 'MCPOrchestrationIntegration'.
+src/mcp/index.ts(98,29): error TS2304: Cannot find name 'MCPOrchestrationIntegration'.
+src/mcp/index.ts(134,13): error TS2304: Cannot find name 'MCPServer'.
+src/mcp/index.ts(135,24): error TS2304: Cannot find name 'MCPLifecycleManager'.
+src/mcp/index.ts(136,26): error TS2304: Cannot find name 'MCPPerformanceMonitor'.
+src/mcp/index.ts(146,24): error TS2304: Cannot find name 'MCPServer'.
+src/mcp/index.ts(148,27): error TS2304: Cannot find name 'MCPLifecycleManager'.
+src/mcp/index.ts(149,29): error TS2304: Cannot find name 'MCPPerformanceMonitor'.
+src/mcp/index.ts(152,30): error TS2304: Cannot find name 'MCPLifecycleManager'.
+src/mcp/index.ts(160,32): error TS2304: Cannot find name 'MCPPerformanceMonitor'.
+src/mcp/index.ts(174,13): error TS2304: Cannot find name 'MCPServer'.
+src/mcp/index.ts(175,23): error TS2304: Cannot find name 'MCPLifecycleManager'.
+src/mcp/index.ts(176,25): error TS2304: Cannot find name 'MCPPerformanceMonitor'.
+src/mcp/index.ts(177,22): error TS2304: Cannot find name 'MCPProtocolManager'.
+src/mcp/index.ts(195,33): error TS2304: Cannot find name 'MCPProtocolManager'.
+src/mcp/session-manager.ts(53,5): error TS2322: Type 'Timeout' is not assignable to type 'number'.
+src/mcp/swarm-tools.ts(48,25): error TS2304: Cannot find name 'Deno'.
+src/mcp/swarm-tools.ts(54,26): error TS2304: Cannot find name 'Deno'.
+src/mcp/swarm-tools.ts(87,25): error TS2304: Cannot find name 'Deno'.
+src/mcp/swarm-tools.ts(755,19): error TS2304: Cannot find name 'Deno'.
+src/mcp/swarm-tools.ts(760,20): error TS2304: Cannot find name 'Deno'.
+src/mcp/swarm-tools.ts(782,19): error TS2304: Cannot find name 'Deno'.
+src/memory/advanced-memory-manager.ts(751,68): error TS18046: 'error' is of type 'unknown'.
+src/memory/advanced-memory-manager.ts(1648,82): error TS2339: Property '0' does not exist on type '{ namespace: string; maxAge?: number | undefined; maxCount?: number | undefined; sizeLimit?: number | undefined; }[] | undefined'.
+src/memory/manager.ts(430,5): error TS2322: Type 'Timeout' is not assignable to type 'number'.
+src/memory/swarm-memory.ts(72,30): error TS2345: Argument of type 'string' is not assignable to parameter of type 'LoggingConfig'.
+src/memory/swarm-memory.ts(90,23): error TS2554: Expected 3 arguments, but got 1.
+src/memory/swarm-memory.ts(169,27): error TS2339: Property 'remember' does not exist on type 'MemoryManager'.
+src/memory/swarm-memory.ts(267,9): error TS2353: Object literal may only specify known properties, and 'originalId' does not exist in type '{ taskId?: string | undefined; objectiveId?: string | undefined; tags?: string[] | undefined; priority?: number | undefined; shareLevel?: "private" | "team" | "public" | undefined; }'.
+src/migration/logger.ts(27,23): error TS2339: Property 'blue' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/logger.ts(32,23): error TS2339: Property 'yellow' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/logger.ts(37,23): error TS2339: Property 'red' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/logger.ts(39,25): error TS2339: Property 'red' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/logger.ts(45,23): error TS2339: Property 'green' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/logger.ts(51,25): error TS2339: Property 'gray' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/logger.ts(82,53): error TS18046: 'error' is of type 'unknown'.
+src/migration/logger.ts(113,23): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/logger.ts(114,23): error TS2339: Property 'gray' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/logger.ts(116,26): error TS2339: Property 'blue' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/logger.ts(117,26): error TS2339: Property 'green' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/logger.ts(118,26): error TS2339: Property 'yellow' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/logger.ts(119,26): error TS2339: Property 'red' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/logger.ts(121,28): error TS2339: Property 'gray' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/logger.ts(123,23): error TS2339: Property 'gray' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(11,22): error TS7016: Could not find a declaration file for module 'glob'. '/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/glob/glob.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/glob` if it exists or add a new declaration (.d.ts) file containing `declare module 'glob';`
+src/migration/migration-analyzer.ts(231,23): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(232,23): error TS2339: Property 'gray' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(234,28): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(235,26): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(238,23): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(239,73): error TS2339: Property 'green' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(239,92): error TS2339: Property 'red' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(240,80): error TS2339: Property 'green' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(240,99): error TS2339: Property 'red' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(241,84): error TS2339: Property 'yellow' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(241,131): error TS2339: Property 'green' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(242,80): error TS2339: Property 'yellow' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(242,129): error TS2339: Property 'green' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(246,25): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(249,40): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(251,37): error TS2339: Property 'gray' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(251,56): error TS2339: Property 'italic' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(258,25): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(267,27): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(274,27): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(281,27): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-analyzer.ts(288,23): error TS2339: Property 'gray' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-runner.ts(21,22): error TS7016: Could not find a declaration file for module 'glob'. '/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/glob/glob.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/glob` if it exists or add a new declaration (.d.ts) file containing `declare module 'glob';`
+src/migration/migration-runner.ts(106,35): error TS18046: 'error' is of type 'unknown'.
+src/migration/migration-runner.ts(106,57): error TS18046: 'error' is of type 'unknown'.
+src/migration/migration-runner.ts(159,27): error TS2488: Type 'Record<string, CommandMigration>' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/migration/migration-runner.ts(371,38): error TS2339: Property 'prompt' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/@types/inquirer/index")'.
+src/migration/migration-runner.ts(420,23): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-runner.ts(421,23): error TS2339: Property 'gray' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-runner.ts(428,30): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-runner.ts(439,23): error TS2339: Property 'gray' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-runner.ts(461,36): error TS2339: Property 'prompt' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/@types/inquirer/index")'.
+src/migration/migration-runner.ts(475,9): error TS2322: Type '{ source: string; target: string; }[]' is not assignable to type 'Record<string, CommandMigration>'.
+  Index signature for type 'string' is missing in type '{ source: string; target: string; }[]'.
+src/migration/migration-runner.ts(520,23): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-runner.ts(521,23): error TS2339: Property 'gray' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-runner.ts(523,28): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-runner.ts(523,70): error TS2339: Property 'green' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-runner.ts(523,95): error TS2339: Property 'red' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-runner.ts(526,30): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-runner.ts(526,62): error TS2339: Property 'green' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-runner.ts(533,30): error TS2339: Property 'bold' does not exist on type 'typeof import("/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow/node_modules/chalk/source/index")'.
+src/migration/migration-runner.ts(533,63): error TS2339: Property 'yellow' does no

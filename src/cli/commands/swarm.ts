@@ -563,3 +563,149 @@ async function waitForObjectiveCompletion(coordinator: any, objectiveId: string,
     }, options.timeout * 60 * 1000);
   });
 }
+
+// Parse swarm options from command flags
+function parseSwarmOptions(flags: any): any {
+  return {
+    strategy: flags.strategy as SwarmStrategy || 'auto',
+    mode: flags.mode as SwarmMode || 'centralized',
+    maxAgents: flags.maxAgents as number || flags['max-agents'] as number || 5,
+    maxDepth: flags.maxDepth as number || flags['max-depth'] as number || 3,
+    research: flags.research as boolean || false,
+    parallel: flags.parallel as boolean || false,
+    memoryNamespace: flags.memoryNamespace as string || flags['memory-namespace'] as string || 'swarm',
+    timeout: flags.timeout as number || 60,
+    review: flags.review as boolean || false,
+    coordinator: flags.coordinator as boolean || false,
+    config: flags.config as string || flags.c as string,
+    verbose: flags.verbose as boolean || flags.v as boolean || false,
+    dryRun: flags.dryRun as boolean || flags['dry-run'] as boolean || flags.d as boolean || false,
+    monitor: flags.monitor as boolean || false,
+    ui: flags.ui as boolean || false,
+    background: flags.background as boolean || false,
+    persistence: flags.persistence as boolean || true,
+    distributed: flags.distributed as boolean || false,
+    taskTimeoutMinutes: flags['task-timeout-minutes'] as number || 59,
+    qualityThreshold: flags['quality-threshold'] as number || 0.8,
+    agentSelection: flags['agent-selection'] as string || 'capability-based',
+    taskScheduling: flags['task-scheduling'] as string || 'priority',
+    loadBalancing: flags['load-balancing'] as string || 'work-stealing',
+    faultTolerance: flags['fault-tolerance'] as string || 'retry',
+    testing: flags.testing as boolean || false,
+    encryption: flags.encryption as boolean || false,
+    output: flags.output as string || 'json',
+    maxTasks: flags['max-tasks'] as number || 100,
+  };
+}
+
+// Show dry run configuration
+function showDryRunConfiguration(swarmId: string, objective: string, options: any): void {
+  warning('🚀 DRY RUN - Advanced Swarm Configuration');
+  console.log('═'.repeat(60));
+  
+  console.log(`\n📋 OBJECTIVE: ${objective}`);
+  console.log(`🆔 Swarm ID: ${swarmId}`);
+  
+  console.log('\n🎯 Core Configuration:');
+  console.log(`  • Strategy: ${options.strategy}`);
+  console.log(`  • Mode: ${options.mode}`);
+  console.log(`  • Max Agents: ${options.maxAgents}`);
+  console.log(`  • Max Tasks: ${options.maxTasks}`);
+  console.log(`  • Timeout: ${options.timeout} minutes`);
+  console.log(`  • Task Timeout: ${options.taskTimeoutMinutes} minutes`);
+  
+  console.log('\n🔧 Features:');
+  console.log(`  • Parallel Execution: ${options.parallel ? '✅' : '❌'}`);
+  console.log(`  • Distributed Coordination: ${options.distributed ? '✅' : '❌'}`);
+  console.log(`  • Real-time Monitoring: ${options.monitor ? '✅' : '❌'}`);
+  console.log(`  • Peer Review: ${options.review ? '✅' : '❌'}`);
+  console.log(`  • Automated Testing: ${options.testing ? '✅' : '❌'}`);
+  console.log(`  • Encryption: ${options.encryption ? '✅' : '❌'}`);
+  console.log(`  • UI Mode: ${options.ui ? '✅' : '❌'}`);
+  console.log(`  • Background Mode: ${options.background ? '✅' : '❌'}`);
+  
+  console.log('\n🧠 Memory & Persistence:');
+  console.log(`  • Memory Namespace: ${options.memoryNamespace}`);
+  console.log(`  • Task Persistence: ${options.persistence ? '✅' : '❌'}`);
+  
+  console.log('\n🎛️  Advanced Strategies:');
+  console.log(`  • Agent Selection: ${options.agentSelection}`);
+  console.log(`  • Task Scheduling: ${options.taskScheduling}`);
+  console.log(`  • Load Balancing: ${options.loadBalancing}`);
+  console.log(`  • Fault Tolerance: ${options.faultTolerance}`);
+  console.log(`  • Quality Threshold: ${options.qualityThreshold}`);
+  
+  console.log('\n📊 Output:');
+  console.log(`  • Format: ${options.output}`);
+  console.log(`  • Verbose Logging: ${options.verbose ? '✅' : '❌'}`);
+  
+  console.log('\n' + '═'.repeat(60));
+  console.log('⚠️  This is a dry run. No agents will be spawned.');
+  console.log('Remove --dry-run to execute the swarm.\n');
+}
+
+// Launch swarm UI
+async function launchSwarmUI(objective: string, options: any): Promise<void> {
+  console.log('🖥️  Launching Swarm UI...');
+  console.log('📋 Objective:', objective);
+  console.log('🎯 Strategy:', options.strategy);
+  console.log('🏗️  Mode:', options.mode);
+  
+  // UI implementation would go here
+  // For now, fall back to standard execution
+  warning('UI mode not yet implemented. Falling back to standard mode.');
+  
+  // Continue with standard execution
+  const swarmId = generateId('swarm');
+  await executeSwarm(swarmId, objective, options);
+}
+
+// Execute swarm
+async function executeSwarm(swarmId: string, objective: string, options: any): Promise<void> {
+  success(`🐝 Initializing Advanced Swarm: ${swarmId}`);
+  console.log(`📋 Objective: ${objective}`);
+  console.log(`🎯 Strategy: ${options.strategy}`);
+  console.log(`🏗️  Mode: ${options.mode}`);
+  console.log(`🤖 Max Agents: ${options.maxAgents}`);
+  
+  // Initialize memory manager
+  const memoryManager = new SwarmMemoryManager({
+    namespace: options.memoryNamespace,
+    persistence: options.persistence,
+    encryption: options.encryption,
+  });
+  
+  // Initialize coordinator
+  const coordinator = new SwarmCoordinator({
+    swarmId,
+    mode: options.mode,
+    maxAgents: options.maxAgents,
+    memoryManager,
+    verbose: options.verbose,
+  });
+  
+  // Initialize task executor
+  const executor = new TaskExecutor({
+    coordinator,
+    memoryManager,
+    parallel: options.parallel,
+    taskTimeoutMinutes: options.taskTimeoutMinutes,
+  });
+  
+  // Start the swarm
+  await coordinator.initialize();
+  
+  // Create initial task
+  const initialTask = {
+    id: generateId('task'),
+    objective,
+    strategy: options.strategy,
+    priority: 1,
+    dependencies: [],
+  };
+  
+  // Execute the swarm
+  await executor.execute(initialTask);
+  
+  success('✅ Swarm execution completed successfully!');
+}

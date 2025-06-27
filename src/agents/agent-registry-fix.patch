@@ -1,0 +1,89 @@
+--- a/src/agents/agent-registry.ts
++++ b/src/agents/agent-registry.ts
+@@ -6,6 +6,7 @@
+ import { DistributedMemorySystem } from '../memory/distributed-memory.js';
+ import { AgentState, AgentId, AgentType, AgentStatus } from '../swarm/types.js';
+ import { EventEmitter } from 'node:events';
++import { AgentRegistryAdapter, SwarmMemoryEntry } from '../types/memory-system.js';
+ 
+ export interface AgentRegistryEntry {
+   agent: AgentState;
+@@ -43,11 +44,13 @@ export class AgentRegistry extends EventEmitter {
+   private memory: DistributedMemorySystem;
+   private namespace: string;
+   private cache = new Map<string, AgentRegistryEntry>();
++  private adapter = new AgentRegistryAdapter();
+   private cacheExpiry = 60000; // 1 minute
+   private lastCacheUpdate = 0;
+ 
+   constructor(memory: DistributedMemorySystem, namespace: string = 'agents') {
+     super();
+     this.memory = memory;
+     this.namespace = namespace;
+   }
+@@ -62,8 +65,10 @@ export class AgentRegistry extends EventEmitter {
+    */
+   async registerAgent(agent: AgentState, tags: string[] = []): Promise<void> {
+     const entry: AgentRegistryEntry = {
++      id: generateId('entry'),
+       agent,
++      data: agent,
+       createdAt: new Date(),
+       lastUpdated: new Date(),
+       tags: [...tags, agent.type, agent.status],
+@@ -74,11 +79,14 @@ export class AgentRegistry extends EventEmitter {
+     };
+ 
+     // Store in memory
+     const key = this.getAgentKey(agent.id.id);
+-    await this.memory.store(key, entry, {
++    const memoryEntry = this.adapter.toMemoryEntry(entry);
++    
++    await this.memory.store(key, memoryEntry, {
+       type: 'agent-registry',
+       tags: entry.tags,
+       partition: this.namespace
+     });
+ 
+     // Update cache
+@@ -169,13 +177,18 @@ export class AgentRegistry extends EventEmitter {
+ 
+     // Load from memory
+     const key = this.getAgentKey(agentId);
+-    const entry = await this.memory.retrieve(key);
++    const memoryEntry = await this.memory.retrieve(key) as SwarmMemoryEntry;
+     
+-    if (entry) {
+-      this.cache.set(agentId, entry);
+-      return entry;
++    if (memoryEntry) {
++      const entry = this.adapter.fromMemoryEntry(memoryEntry);
++      if (entry) {
++        this.cache.set(agentId, entry);
++        return entry;
++      }
+     }
+ 
+     return null;
+   }
+ 
+@@ -390,12 +403,17 @@ export class AgentRegistry extends EventEmitter {
+     const pattern = `${this.namespace}:*`;
+     const entries = await this.memory.query({
+       namespace: this.namespace,
+       type: 'agent-registry'
+     });
+ 
+-    entries.forEach(entry => {
+-      if (entry.data && 'agent' in entry.data) {
+-        this.cache.set(entry.data.agent.id.id, entry.data as AgentRegistryEntry);
++    entries.forEach(memoryEntry => {
++      const swarmEntry = memoryEntry as SwarmMemoryEntry;
++      const registryEntry = this.adapter.fromMemoryEntry(swarmEntry);
++      
++      if (registryEntry && registryEntry.agent) {
++        this.cache.set(registryEntry.agent.id.id, registryEntry);
+       }
+     });
+ 
+     this.lastCacheUpdate = Date.now();

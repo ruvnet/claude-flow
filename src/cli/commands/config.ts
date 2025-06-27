@@ -357,7 +357,8 @@ export const configCommand = new Command()
     .option('--merge', 'Merge with current configuration')
     .action(async (options: any, inputFile: string) => {
       try {
-        const content = await Deno.readTextFile(inputFile);
+        const fs = await import('fs/promises');
+        const content = await fs.readFile(inputFile, 'utf8');
         const data = JSON.parse(content);
         
         if (options.merge) {

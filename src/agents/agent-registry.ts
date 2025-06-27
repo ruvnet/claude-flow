@@ -6,9 +6,11 @@
 import { DistributedMemorySystem } from '../memory/distributed-memory.js';
 import { AgentState, AgentId, AgentType, AgentStatus } from '../swarm/types.js';
 import { EventEmitter } from 'node:events';
+import { AgentRegistryAdapter } from '../types/memory-system.js';
 
 export interface AgentRegistryEntry {
   agent: AgentState;
+  data?: AgentState; // For compatibility
   createdAt: Date;
   lastUpdated: Date;
   tags: string[];
@@ -45,6 +47,7 @@ export class AgentRegistry extends EventEmitter {
   private cache = new Map<string, AgentRegistryEntry>();
   private cacheExpiry = 60000; // 1 minute
   private lastCacheUpdate = 0;
+  private adapter = new AgentRegistryAdapter();
 
   constructor(memory: DistributedMemorySystem, namespace: string = 'agents') {
     super();
@@ -72,13 +75,10 @@ export class AgentRegistry extends EventEmitter {
       }
     };
 
-    // Store in memory
+    // Store in memory using adapter
     const key = this.getAgentKey(agent.id.id);
-    await this.memory.store(key, entry, {
-      type: 'agent-registry',
-      tags: entry.tags,
-      partition: this.namespace
-    });
+    const memoryEntry = this.adapter.toMemoryEntry(entry);
+    await this.memory.store(key, memoryEntry);
 
     // Update cache
     this.cache.set(agent.id.id, entry);
@@ -102,13 +102,10 @@ export class AgentRegistry extends EventEmitter {
       t !== entry.agent.type && t !== entry.agent.status
     )];
 
-    // Store updated entry
+    // Store updated entry using adapter
     const key = this.getAgentKey(agentId);
-    await this.memory.store(key, entry, {
-      type: 'agent-registry',
-      tags: entry.tags,
-      partition: this.namespace
-    });
+    const memoryEntry = this.adapter.toMemoryEntry(entry);
+    await this.memory.store(key, memoryEntry);
 
     // Update cache
     this.cache.set(agentId, entry);
@@ -128,15 +125,17 @@ export class AgentRegistry extends EventEmitter {
     if (preserveHistory) {
       // Move to archived partition
       const archiveKey = this.getArchiveKey(agentId);
-      await this.memory.store(archiveKey, {
+      const archiveEntry = {
         ...entry,
-        archivedAt: new Date(),
-        reason: 'agent_removed'
-      }, {
-        type: 'agent-archive',
-        tags: [...entry.tags, 'archived'],
-        partition: 'archived'
-      });
+        metadata: {
+          ...entry.metadata,
+          archivedAt: new Date(),
+          reason: 'agent_removed'
+        },
+        tags: [...entry.tags, 'archived']
+      };
+      const memoryEntry = this.adapter.toMemoryEntry(archiveEntry);
+      await this.memory.store(archiveKey, memoryEntry);
     }
 
     // Remove from active registry
@@ -168,11 +167,14 @@ export class AgentRegistry extends EventEmitter {
 
     // Load from memory
     const key = this.getAgentKey(agentId);
-    const entry = await this.memory.retrieve(key);
+    const memoryEntry = await this.memory.retrieve(key);
     
-    if (entry) {
-      this.cache.set(agentId, entry);
-      return entry;
+    if (memoryEntry) {
+      const entry = this.adapter.fromMemoryEntry(memoryEntry);
+      if (entry) {
+        this.cache.set(agentId, entry);
+        return entry;
+      }
     }
 
     return null;
@@ -196,7 +198,7 @@ export class AgentRegistry extends EventEmitter {
     }
 
     if (query.healthThreshold !== undefined) {
-      agents = agents.filter(agent => agent.health >= query.healthThreshold);
+      agents = agents.filter(agent => agent.health >= query.healthThreshold!);
     }
 
     if (query.namePattern) {
@@ -377,11 +379,9 @@ export class AgentRegistry extends EventEmitter {
     await this.memory.store(key, {
       agentId,
       data,
-      timestamp: new Date()
-    }, {
+      timestamp: new Date(),
       type: 'agent-coordination',
-      tags: ['coordination', agentId],
-      partition: this.namespace
+      tags: ['coordination', agentId]
     });
   }
 
@@ -398,14 +398,15 @@ export class AgentRegistry extends EventEmitter {
 
   private async loadFromMemory(): Promise<void> {
     try {
-      const entries = await this.memory.queryByType('agent-registry', {
+      const entries = await this.memory.query({
         partition: this.namespace
       });
 
       this.cache.clear();
       for (const entry of entries) {
-        if (entry.value && entry.value.agent) {
-          this.cache.set(entry.value.agent.id.id, entry.value);
+        const registryEntry = this.adapter.fromMemoryEntry(entry);
+        if (registryEntry) {
+          this.cache.set(registryEntry.agent.id.id, registryEntry);
         }
       }
 

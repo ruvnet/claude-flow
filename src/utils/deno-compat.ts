@@ -433,8 +433,8 @@ export const DenoCompat = {
  * Global Deno polyfill
  * Can be used to replace Deno global during migration
  */
-if (typeof globalThis !== 'undefined' && !globalThis.Deno) {
-  globalThis.Deno = DenoCompat as any;
+if (typeof globalThis !== 'undefined' && !(globalThis as any).Deno) {
+  (globalThis as any).Deno = DenoCompat;
 }
 
 export default DenoCompat;

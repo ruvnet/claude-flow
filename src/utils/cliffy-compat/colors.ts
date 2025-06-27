@@ -4,6 +4,7 @@
  */
 
 import chalk from 'chalk';
+import stripAnsi from 'strip-ansi';
 
 // Create a colors object that matches cliffy's API
 export const colors = {
@@ -50,7 +51,7 @@ export const colors = {
   visible: chalk.visible,
   
   // Utility functions
-  stripColor: chalk.stripColor,
+  stripColor: stripAnsi,
   
   // Additional cliffy-specific color methods
   brightGray: chalk.gray,
