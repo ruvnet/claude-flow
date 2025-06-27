@@ -5,23 +5,17 @@
  */
 
 import {
-  describe,
-  it,
-  beforeEach,
-  afterEach,
   assertEquals,
   assertExists,
   assertRejects,
   assertThrows,
-  spy,
-  assertSpyCalls,
   FakeTime,
-} from '../../test.utils.js';
+  createTestConfig,
+} from '../../utils/test-utils.js';
 import { Orchestrator } from '../../../src/core/orchestrator.js';
 import { SystemEvents } from '../../../src/utils/types.js';
 import { InitializationError, SystemError, ShutdownError } from '../../../src/utils/errors.js';
 import { createMocks, MockEventBus } from '../../mocks/index.js';
-import { TestDataBuilder } from '../../test.utils.js';
 import { cleanupTestEnv, setupTestEnv } from '../../test.config.js';
 
 describe('Orchestrator', () => {
@@ -34,7 +28,7 @@ describe('Orchestrator', () => {
     setupTestEnv();
     time = jest.useFakeTimers();
     
-    config = TestDataBuilder.config();
+    config = createTestConfig();
     mocks = createMocks();
     
     orchestrator = new Orchestrator(
@@ -62,12 +56,12 @@ describe('Orchestrator', () => {
     it('should initialize all components', async () => {
       await orchestrator.initialize();
 
-      expect(mocks.terminalManager.initialize).toBe( 1);
-      expect(mocks.memoryManager.initialize).toBe( 1);
-      expect(mocks.coordinationManager.initialize).toBe( 1);
-      expect(mocks.mcpServer.start).toBe( 1);
+      expect(mocks.terminalManager.initialize).toBe(1);
+      expect(mocks.memoryManager.initialize).toBe(1);
+      expect(mocks.coordinationManager.initialize).toBe(1);
+      expect(mocks.mcpServer.start).toBe(1);
       
-      expect(mocks.logger.hasLog('info').toBe( 'Orchestrator initialized successfully')).toBe( true);
+      expect(mocks.logger.hasLog('info', 'Orchestrator initialized successfully')).toBe(true);
     });
 
     it('should throw if already initialized', async () => {
@@ -81,7 +75,7 @@ describe('Orchestrator', () => {
     });
 
     it('should handle initialization failure', async () => {
-      mocks.terminalManager.initialize = jest.spyOn(async () => {
+      mocks.terminalManager.initialize = jest.fn(async () => {
         throw new Error('Terminal init failed');
       });
 
@@ -133,7 +127,7 @@ describe('Orchestrator', () => {
     it('should handle shutdown errors', async () => {
       await orchestrator.initialize();
       
-      mocks.terminalManager.shutdown = jest.spyOn(async () => {
+      mocks.terminalManager.shutdown = jest.fn(async () => {
         throw new Error('Shutdown failed');
       });
 
@@ -235,7 +229,7 @@ describe('Orchestrator', () => {
       await orchestrator.spawnAgent(profile);
       
       // Mock some tasks for the agent
-      mocks.coordinationManager.getAgentTasks = jest.spyOn(async () => [
+      mocks.coordinationManager.getAgentTasks = jest.fn(async () => [
         TestDataBuilder.task({ id: 'task-1' }),
         TestDataBuilder.task({ id: 'task-2' }),
       ]);
@@ -329,7 +323,7 @@ describe('Orchestrator', () => {
       await orchestrator.spawnAgent(profile);
       
       // Mock available agent
-      mocks.coordinationManager.getAgentTaskCount = jest.spyOn(async () => 0);
+      mocks.coordinationManager.getAgentTaskCount = jest.fn(async () => 0);
       
       // Emit agent idle event
       mocks.eventBus.emit(SystemEvents.AGENT_IDLE, { agentId: profile.id });
@@ -391,7 +385,7 @@ describe('Orchestrator', () => {
       await orchestrator.spawnAgent(agent2);
       
       // Mock agents as available
-      mocks.coordinationManager.getAgentTaskCount = jest.spyOn(async () => 0);
+      mocks.coordinationManager.getAgentTaskCount = jest.fn(async () => 0);
       
       // Queue task requiring code capability
       const task = TestDataBuilder.task({
@@ -428,7 +422,7 @@ describe('Orchestrator', () => {
     });
 
     it('should return unhealthy status when component fails', async () => {
-      mocks.terminalManager.getHealthStatus = jest.spyOn(async () => ({
+      mocks.terminalManager.getHealthStatus = jest.fn(async () => ({
         healthy: false,
         error: 'Terminal error',
       }));
@@ -442,7 +436,7 @@ describe('Orchestrator', () => {
     it('should return degraded status with circuit breaker open', async () => {
       // Make health check fail multiple times to open circuit breaker
       let callCount = 0;
-      mocks.terminalManager.getHealthStatus = jest.spyOn(async () => {
+      mocks.terminalManager.getHealthStatus = jest.fn(async () => {
         callCount++;
         throw new Error('Health check failed');
       });
@@ -543,14 +537,14 @@ describe('Orchestrator', () => {
     });
 
     it('should handle maintenance errors gracefully', async () => {
-      mocks.terminalManager.performMaintenance = jest.spyOn(async () => {
+      mocks.terminalManager.performMaintenance = jest.fn(async () => {
         throw new Error('Maintenance failed');
       });
       
       // Should not throw
       await orchestrator.performMaintenance();
       
-      expect(mocks.logger.hasLog('error').toBe( 'Error during maintenance')).toBe( true);
+      expect(mocks.logger.hasLog('error', 'Error during maintenance')).toBe(true);
     });
 
     it('should clean up terminated sessions', async () => {
@@ -601,7 +595,7 @@ describe('Orchestrator', () => {
       await orchestrator.spawnAgent(agent);
       
       // Mock some tasks
-      mocks.coordinationManager.getAgentTasks = jest.spyOn(async () => [
+      mocks.coordinationManager.getAgentTasks = jest.fn(async () => [
         TestDataBuilder.task({ id: 'task-1' }),
       ]);
       
@@ -623,7 +617,7 @@ describe('Orchestrator', () => {
         component: 'test-component',
       });
       
-      expect(mocks.logger.hasLog('error').toBe( 'System error')).toBe( true);
+      expect(mocks.logger.hasLog('error', 'System error')).toBe(true);
     });
   });
 
@@ -642,7 +636,7 @@ describe('Orchestrator', () => {
       const agent = TestDataBuilder.agentProfile();
       await orchestrator.spawnAgent(agent);
       
-      mocks.coordinationManager.getAgentTaskCount = jest.spyOn(async () => 0);
+      mocks.coordinationManager.getAgentTaskCount = jest.fn(async () => 0);
       
       // Process queue
       mocks.eventBus.emit(SystemEvents.AGENT_IDLE, { agentId: agent.id });
@@ -661,10 +655,10 @@ describe('Orchestrator', () => {
       await orchestrator.spawnAgent(agent);
       
       // Make assignment fail
-      mocks.coordinationManager.assignTask = jest.spyOn(async () => {
+      mocks.coordinationManager.assignTask = jest.fn(async () => {
         throw new Error('Assignment failed');
       });
-      mocks.coordinationManager.getAgentTaskCount = jest.spyOn(async () => 0);
+      mocks.coordinationManager.getAgentTaskCount = jest.fn(async () => 0);
       
       // Try to process queue
       mocks.eventBus.emit(SystemEvents.AGENT_IDLE, { agentId: agent.id });

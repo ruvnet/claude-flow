@@ -63,7 +63,7 @@ describe('CoordinationManager', () => {
     it('should initialize all components', async () => {
       await manager.initialize();
       
-      expect(mocks.logger.hasLog('info').toBe( 'Coordination manager initialized')).toBe( true);
+      expect(mocks.logger.hasLog('info', 'Coordination manager initialized')).toBe(true);
     });
 
     it('should start deadlock detection if enabled', async () => {
@@ -73,7 +73,7 @@ describe('CoordinationManager', () => {
       // Fast forward to trigger deadlock detection
       await time.tickAsync(10000);
       
-      expect(mocks.logger.hasLog('debug').toBe( 'Check for deadlock')).toBe( false); // No deadlocks expected
+      expect(mocks.logger.hasLog('debug', 'Check for deadlock')).toBe(false); // No deadlocks expected
     });
 
     it('should not initialize twice', async () => {
@@ -188,7 +188,7 @@ describe('CoordinationManager', () => {
       await time.tickAsync(10000);
       
       // No errors should occur
-      expect(mocks.logger.hasLog('error').toBe( 'Error during deadlock detection')).toBe( false);
+      expect(mocks.logger.hasLog('error', 'Error during deadlock detection')).toBe(false);
     });
   });
 
@@ -222,7 +222,7 @@ describe('CoordinationManager', () => {
       await manager.performMaintenance();
       
       // Verify maintenance was performed
-      expect(mocks.logger.hasLog('debug').toBe( 'Performing coordination manager maintenance')).toBe( true);
+      expect(mocks.logger.hasLog('debug', 'Performing coordination manager maintenance')).toBe(true);
     });
   });
 });
@@ -254,7 +254,7 @@ describe('WorkStealingCoordinator', () => {
   it('should initialize when enabled', async () => {
     await coordinator.initialize();
     
-    expect(mocks.logger.hasLog('info').toBe( 'Initializing work stealing coordinator')).toBe( true);
+    expect(mocks.logger.hasLog('info', 'Initializing work stealing coordinator')).toBe(true);
   });
 
   it('should not initialize when disabled', async () => {
@@ -263,7 +263,7 @@ describe('WorkStealingCoordinator', () => {
     
     await coordinator.initialize();
     
-    expect(mocks.logger.hasLog('info').toBe( 'Work stealing is disabled')).toBe( true);
+    expect(mocks.logger.hasLog('info', 'Work stealing is disabled')).toBe(true);
   });
 
   it('should update agent workload', () => {
@@ -387,7 +387,7 @@ describe('DependencyGraph', () => {
     expect(graph.isTaskReady('task-2')).toBe( false);
 
     const readyTasks = graph.markCompleted('task-1');
-    expect(readyTasks).toBe( ['task-2']);
+    expect(readyTasks).toEqual(['task-2']);
     expect(graph.isTaskReady('task-2')).toBe( true);
   });
 
@@ -573,7 +573,7 @@ describe('ConflictResolver', () => {
     
     expect(conflict.id);
     expect(conflict.resourceId).toBe( 'resource-1');
-    expect(conflict.agents).toBe( ['agent-1').toBe( 'agent-2']);
+    expect(conflict.agents).toEqual(['agent-1', 'agent-2']);
     expect(conflict.resolved).toBe( false);
   });
 

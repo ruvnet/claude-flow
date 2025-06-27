@@ -5,20 +5,16 @@
  */
 
 import {
-  describe,
-  it,
-  beforeEach,
-  afterEach,
   assertEquals,
   assertExists,
   assertRejects,
-  spy,
-} from '../test.utils.js';
+  createTestConfig,
+} from '../utils/test-utils.js';
 import { Orchestrator } from '../../src/core/orchestrator.js';
 import { TerminalManager } from '../../src/terminal/manager.js';
 import { EventBus } from '../../src/core/event-bus.js';
 import { Logger } from '../../src/core/logger.js';
-import { MockMemoryManager, MockCoordinationManager } from '../mocks/index.js';
+import { MockMemoryManager, MockCoordinationManager, MockMCPServer } from '../mocks/index.js';
 import {
   Config,
   AgentProfile,
@@ -35,6 +31,7 @@ describe('Orchestrator-Terminal Integration', () => {
   let logger: Logger;
   let memoryManager: MockMemoryManager;
   let coordinationManager: MockCoordinationManager;
+  let mcpServer: MockMCPServer;
   let config: Config;
 
   beforeEach(async () => {
@@ -50,6 +47,7 @@ describe('Orchestrator-Terminal Integration', () => {
         metricsInterval: 10000,
         persistSessions: false,
         taskMaxRetries: 3,
+        dataDir: './test-data',
       },
       terminal: {
         type: 'native',
@@ -86,15 +84,17 @@ describe('Orchestrator-Terminal Integration', () => {
     logger = new Logger(config.logging);
     memoryManager = new MockMemoryManager();
     coordinationManager = new MockCoordinationManager();
+    mcpServer = new MockMCPServer();
     terminalManager = new TerminalManager(config.terminal, eventBus, logger);
 
     orchestrator = new Orchestrator(
       config,
-      eventBus,
-      logger,
       terminalManager,
       memoryManager,
-      coordinationManager
+      coordinationManager,
+      mcpServer,
+      eventBus,
+      logger
     );
 
     await orchestrator.initialize();
@@ -307,7 +307,7 @@ describe('Orchestrator-Terminal Integration', () => {
 
       let attemptCount = 0;
       const originalExecute = terminalManager.executeCommand.bind(terminalManager);
-      terminalManager.executeCommand = jest.spyOn(async (terminalId: string, command: string) => {
+      terminalManager.executeCommand = jest.fn(async (terminalId: string, command: string) => {
         attemptCount++;
         if (attemptCount < 3) {
           throw new Error('Simulated failure');

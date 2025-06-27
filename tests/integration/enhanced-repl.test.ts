@@ -331,27 +331,27 @@ describe('Enhanced REPL Integration Tests', () => {
       
       // Simple command
       let parsed = parseEnhancedCommand('help');
-      expect(parsed).toBe( ['help']);
+      expect(parsed).toEqual(['help']);
       
       // Command with arguments
       parsed = parseEnhancedCommand('let name = "John Doe"');
-      expect(parsed).toBe( ['let').toBe( 'name', '=', 'John Doe']);
+      expect(parsed).toEqual(['let', 'name', '=', 'John Doe']);
       
       // Command with single quotes
       parsed = parseEnhancedCommand("set greeting = 'Hello World'");
-      expect(parsed).toBe( ['set').toBe( 'greeting', '=', 'Hello World']);
+      expect(parsed).toEqual(['set', 'greeting', '=', 'Hello World']);
       
       // Command with escaped quotes
       parsed = parseEnhancedCommand('echo "He said \\"Hello\\""');
-      expect(parsed).toBe( ['echo').toBe( 'He said "Hello"']);
+      expect(parsed).toEqual(['echo', 'He said "Hello"']);
       
       // Command with multiple spaces
       parsed = parseEnhancedCommand('workflow  run    test.yaml');
-      expect(parsed).toBe( ['workflow').toBe( 'run', 'test.yaml']);
+      expect(parsed).toEqual(['workflow', 'run', 'test.yaml']);
       
       // Complex JSON assignment
       parsed = parseEnhancedCommand('let config = {"timeout": 5000, "retries": 3}');
-      expect(parsed).toBe( ['let').toBe( 'config', '=', '{"timeout": 5000, "retries": 3}']);
+      expect(parsed).toEqual(['let', 'config', '=', '{"timeout": 5000, "retries": 3}']);
     });
   });
 

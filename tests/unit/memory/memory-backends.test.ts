@@ -103,7 +103,7 @@ describe('Memory Backends - Comprehensive Tests', () => {
         await backend.store(namespace, key, { version: 2 });
         const updated = await backend.retrieve(namespace, key);
         
-        expect(updated.value).toBe( { version: 2 });
+        expect(updated.value).toEqual({ version: 2 });
         expect(updated.createdAt).toBe( initial.createdAt); // Should not change
         expect(updated.updatedAt > initial.updatedAt).toBe( true); // Should be newer
       });

@@ -37,8 +37,8 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.on('test.event', handler);
       eventBus.emit('test.event', { message: 'test data' });
       
-      expect(handler.calls.length).toBe( 1);
-      expect(handler.calls[0].args[0]).toBe( { message: 'test data' });
+      expect(handler.calls.length).toBe(1);
+      expect(handler.calls[0].args[0]).toEqual({ message: 'test data' });
     });
 
     it('should handle multiple handlers for same event', () => {
@@ -57,7 +57,7 @@ describe('EventBus - Enhanced Tests', () => {
       expect(handler3.calls.length).toBe( 1);
       
       [handler1, handler2, handler3].forEach(handler => {
-        expect(handler.calls[0].args[0]).toBe( { data: 'multi' });
+        expect(handler.calls[0].args[0]).toEqual({ data: 'multi' });
       });
     });
 
@@ -83,8 +83,8 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.emit('once.event', { first: true });
       eventBus.emit('once.event', { second: true });
       
-      expect(handler.calls.length).toBe( 1);
-      expect(handler.calls[0].args[0]).toBe( { first: true });
+      expect(handler.calls.length).toBe(1);
+      expect(handler.calls[0].args[0]).toEqual({ first: true });
     });
 
     it('should remove event handlers correctly', () => {
@@ -96,8 +96,8 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.off('remove.event', handler);
       eventBus.emit('remove.event', { after: true });
       
-      expect(handler.calls.length).toBe( 1);
-      expect(handler.calls[0].args[0]).toBe( { before: true });
+      expect(handler.calls.length).toBe(1);
+      expect(handler.calls[0].args[0]).toEqual({ before: true });
     });
 
     it('should handle removing non-existent handlers gracefully', () => {
@@ -111,7 +111,7 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.on('test.event', handler);
       eventBus.emit('test.event', { data: 'test' });
       
-      expect(handler.calls.length).toBe( 1);
+      expect(handler.calls.length).toBe(1);
     });
   });
 
@@ -163,11 +163,11 @@ describe('EventBus - Enhanced Tests', () => {
       });
       
       // Verify pattern matches
-      expect(handlers[0].calls.length).toBe( 1); // user.*.created
-      expect(handlers[1].calls.length).toBe( 1); // user.*.updated
-      expect(handlers[2].calls.length).toBe( 2); // user.admin.*
-      expect(handlers[3].calls.length).toBe( 1); // system.*.error
-      expect(handlers[4].calls.length).toBe( 1); // system.*.warning
+      expect(handlers[0].calls.length).toBe(1); // user.*.created
+      expect(handlers[1].calls.length).toBe(1); // user.*.updated
+      expect(handlers[2].calls.length).toBe(2); // user.admin.*
+      expect(handlers[3].calls.length).toBe(1); // system.*.error
+      expect(handlers[4].calls.length).toBe(1); // system.*.warning
     });
 
     it('should handle event namespaces correctly', () => {
@@ -199,18 +199,18 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.emit('priority.event', {});
       
       // Should be called in priority order: high (10), normal (5), low (1)
-      expect(callOrder).toBe( [2).toBe( 3, 1]);
+      expect(callOrder).toEqual([2, 3, 1]);
     });
 
     it('should handle async handlers in order', async () => {
       const callOrder: number[] = [];
       
-      const handler1 = jest.spyOn(async () => {
+      const handler1 = jest.fn(async () => {
         await AsyncTestUtils.delay(10);
         callOrder.push(1);
       });
       
-      const handler2 = jest.spyOn(async () => {
+      const handler2 = jest.fn(async () => {
         await AsyncTestUtils.delay(5);
         callOrder.push(2);
       });
@@ -361,7 +361,7 @@ describe('EventBus - Enhanced Tests', () => {
       });
       
       handlers.slice(50).forEach(handler => {
-        expect(handler.calls.length).toBe( 1);
+        expect(handler.calls.length).toBe(1);
       });
     });
 
@@ -406,7 +406,7 @@ describe('EventBus - Enhanced Tests', () => {
       });
       
       otherHandlers.forEach(handler => {
-        expect(handler.calls.length).toBe( 1);
+        expect(handler.calls.length).toBe(1);
       });
     });
   });
@@ -503,12 +503,12 @@ describe('EventBus - Enhanced Tests', () => {
     });
 
     it('should handle async handler errors', async () => {
-      const errorHandler = jest.spyOn(async () => {
+      const errorHandler = jest.fn(async () => {
         await AsyncTestUtils.delay(10);
         throw new Error('Async handler error');
       });
       
-      const successHandler = jest.spyOn(async () => {
+      const successHandler = jest.fn(async () => {
         await AsyncTestUtils.delay(5);
         return 'success';
       });
@@ -524,12 +524,12 @@ describe('EventBus - Enhanced Tests', () => {
     });
 
     it('should handle timeout for slow async handlers', async () => {
-      const slowHandler = jest.spyOn(async () => {
+      const slowHandler = jest.fn(async () => {
         await AsyncTestUtils.delay(5000); // 5 seconds
         return 'slow result';
       });
       
-      const fastHandler = jest.spyOn(async () => {
+      const fastHandler = jest.fn(async () => {
         await AsyncTestUtils.delay(10);
         return 'fast result';
       });
@@ -566,7 +566,7 @@ describe('EventBus - Enhanced Tests', () => {
       
       // Most recent event should be last
       expect(history[49].event).toBe( 'history.event.49');
-      expect(history[49].data).toBe( { index: 49 });
+      expect(history[49].data).toEqual({ index: 49 });
     });
 
     it('should limit event history size', () => {

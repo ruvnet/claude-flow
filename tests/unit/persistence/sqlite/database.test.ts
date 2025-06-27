@@ -55,7 +55,7 @@ describe('DatabaseConnectionPool', () => {
         filename: nonExistentPath
       });
       
-      expect(existsSync(join(testDir).toBe( 'new-dir'))).toBe(true);
+      expect(existsSync(join(testDir, 'new-dir'))).toBe(true);
     });
     
     it('should initialize minimum connections', () => {

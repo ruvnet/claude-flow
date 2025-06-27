@@ -7,6 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { Config } from '../../src/utils/types.js';
 
 // Jest-compatible test utilities
 export function assertEquals<T>(actual: T, expected: T, message?: string): void {
@@ -745,4 +746,79 @@ export class TestAssertions {
       );
     }
   }
+}
+
+/**
+ * Create a test configuration with all required sections
+ */
+export function createTestConfig(overrides?: Partial<Config>): Config {
+  const defaultTestConfig: Config = {
+    orchestrator: {
+      maxConcurrentAgents: 10,
+      taskQueueSize: 100,
+      healthCheckInterval: 30000,
+      shutdownTimeout: 30000,
+      dataDir: './test-data',
+      maintenanceInterval: 60000,
+      metricsInterval: 30000,
+      persistSessions: false,
+      sessionRetentionMs: 86400000,
+    },
+    terminal: {
+      type: 'auto',
+      poolSize: 5,
+      recycleAfter: 10,
+      healthCheckInterval: 60000,
+      commandTimeout: 300000,
+    },
+    memory: {
+      backend: 'hybrid',
+      cacheSizeMB: 100,
+      syncInterval: 5000,
+      conflictResolution: 'crdt',
+      retentionDays: 30,
+    },
+    coordination: {
+      maxRetries: 3,
+      retryDelay: 1000,
+      deadlockDetection: true,
+      resourceTimeout: 60000,
+      messageTimeout: 30000,
+    },
+    mcp: {
+      transport: 'stdio',
+      port: 3000,
+      tlsEnabled: false,
+    },
+    logging: {
+      level: 'info',
+      format: 'json',
+      destination: 'console',
+    },
+  };
+
+  return deepMerge(defaultTestConfig, overrides || {});
+}
+
+/**
+ * Deep merge utility for test configurations
+ */
+function deepMerge(target: any, source: any): any {
+  const output = { ...target };
+  
+  for (const key in source) {
+    if (source.hasOwnProperty(key)) {
+      if (isObject(source[key]) && isObject(target[key])) {
+        output[key] = deepMerge(target[key], source[key]);
+      } else {
+        output[key] = source[key];
+      }
+    }
+  }
+  
+  return output;
+}
+
+function isObject(obj: any): boolean {
+  return obj && typeof obj === 'object' && !Array.isArray(obj);
 }

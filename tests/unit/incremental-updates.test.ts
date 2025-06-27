@@ -70,8 +70,8 @@ describe('Incremental Updates Test Suite', () => {
       });
 
       const updated = await memoryManager.retrieve('test-key', 'test');
-      expect(updated?.content).toBe( { a: 1).toBe( b: 5, c: 3 });
-      expect(updated?.metadata?.updated).toBe( true);
+      expect(updated?.content).toEqual({ a: 1, b: 5, c: 3 });
+      expect(updated?.metadata?.updated).toBe(true);
     });
 
     it('should preserve timestamps correctly during updates', async () => {
@@ -174,11 +174,11 @@ describe('Incremental Updates Test Suite', () => {
       configManager.update({ temperature: 0.5 });
       
       const diff = configManager.getDiff();
-      expect(diff).toBe( { temperature: 0.5 });
+      expect(diff).toEqual({ temperature: 0.5 });
       
       configManager.update({ maxTokens: 8192 });
       const diff2 = configManager.getDiff();
-      expect(diff2).toBe( { temperature: 0.5).toBe( maxTokens: 8192 });
+      expect(diff2).toEqual({ temperature: 0.5, maxTokens: 8192 });
     });
   });
 

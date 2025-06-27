@@ -71,10 +71,10 @@ describe('Coordination System - Comprehensive Tests', () => {
 
     it('should schedule tasks with correct priority', async () => {
       const tasks = [
-        { id: 'low-1', priority: 'low', execute: jest.spyOn(async () => 'low-1') },
-        { id: 'high-1', priority: 'critical', execute: jest.spyOn(async () => 'high-1') },
-        { id: 'medium-1', priority: 'medium', execute: jest.spyOn(async () => 'medium-1') },
-        { id: 'high-2', priority: 'high', execute: jest.spyOn(async () => 'high-2') },
+        { id: 'low-1', priority: 'low', execute: jest.fn(async () => 'low-1') },
+        { id: 'high-1', priority: 'critical', execute: jest.fn(async () => 'high-1') },
+        { id: 'medium-1', priority: 'medium', execute: jest.fn(async () => 'medium-1') },
+        { id: 'high-2', priority: 'high', execute: jest.fn(async () => 'high-2') },
       ];
 
       // Submit all tasks
@@ -98,7 +98,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         {
           id: 'task-a',
           dependencies: [],
-          execute: jest.spyOn(async () => {
+          execute: jest.fn(async () => {
             await AsyncTestUtils.delay(10);
             executionOrder.push('task-a');
             return 'a';
@@ -107,7 +107,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         {
           id: 'task-b',
           dependencies: ['task-a'],
-          execute: jest.spyOn(async () => {
+          execute: jest.fn(async () => {
             await AsyncTestUtils.delay(10);
             executionOrder.push('task-b');
             return 'b';
@@ -116,7 +116,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         {
           id: 'task-c',
           dependencies: ['task-a', 'task-b'],
-          execute: jest.spyOn(async () => {
+          execute: jest.fn(async () => {
             await AsyncTestUtils.delay(10);
             executionOrder.push('task-c');
             return 'c';
@@ -166,7 +166,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const longRunningTask = {
         id: 'long-task',
         timeout: 100, // 100ms timeout
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(200); // Take 200ms
           return 'should not complete';
         }),
@@ -184,7 +184,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       
       const promises = tasks.map(task => 
         coordinationManager.submitTask(task.id, {
-          execute: jest.spyOn(async () => `result-${task.id}`),
+          execute: jest.fn(async () => `result-${task.id}`),
           priority: task.priority,
         })
       );
@@ -216,7 +216,7 @@ describe('Coordination System - Comprehensive Tests', () => {
 
       const tasks = Array.from({ length: 10 }, (_, i) => ({
         id: `limited-${i}`,
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           activeTasks++;
           maxActiveTasks = Math.max(maxActiveTasks, activeTasks);
           await AsyncTestUtils.delay(50);
@@ -247,7 +247,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const task1 = {
         id: 'deadlock-1',
         requiredResources: ['resource-a', 'resource-b'],
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           resourceLocks.set('resource-a', 'deadlock-1');
           await AsyncTestUtils.delay(50);
           resourceLocks.set('resource-b', 'deadlock-1');
@@ -258,7 +258,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const task2 = {
         id: 'deadlock-2',
         requiredResources: ['resource-b', 'resource-a'],
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           resourceLocks.set('resource-b', 'deadlock-2');
           await AsyncTestUtils.delay(50);
           resourceLocks.set('resource-a', 'deadlock-2');
@@ -287,7 +287,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: `high-${i}`,
         priority: 'critical',
         requiredResources: ['shared-resource'],
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(100);
           return `high-${i}`;
         }),
@@ -297,7 +297,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: 'low-priority',
         priority: 'low',
         requiredResources: ['shared-resource'],
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(10);
           return 'low-priority-complete';
         }),
@@ -324,13 +324,13 @@ describe('Coordination System - Comprehensive Tests', () => {
     it('should handle complex dependency chains without deadlock', async () => {
       // Create a complex but non-circular dependency graph
       const tasks = [
-        { id: 'root', dependencies: [], execute: jest.spyOn(async () => 'root') },
-        { id: 'branch-1', dependencies: ['root'], execute: jest.spyOn(async () => 'branch-1') },
-        { id: 'branch-2', dependencies: ['root'], execute: jest.spyOn(async () => 'branch-2') },
-        { id: 'merge-1', dependencies: ['branch-1', 'branch-2'], execute: jest.spyOn(async () => 'merge-1') },
-        { id: 'leaf-1', dependencies: ['merge-1'], execute: jest.spyOn(async () => 'leaf-1') },
-        { id: 'leaf-2', dependencies: ['merge-1'], execute: jest.spyOn(async () => 'leaf-2') },
-        { id: 'final', dependencies: ['leaf-1', 'leaf-2'], execute: jest.spyOn(async () => 'final') },
+        { id: 'root', dependencies: [], execute: jest.fn(async () => 'root') },
+        { id: 'branch-1', dependencies: ['root'], execute: jest.fn(async () => 'branch-1') },
+        { id: 'branch-2', dependencies: ['root'], execute: jest.fn(async () => 'branch-2') },
+        { id: 'merge-1', dependencies: ['branch-1', 'branch-2'], execute: jest.fn(async () => 'merge-1') },
+        { id: 'leaf-1', dependencies: ['merge-1'], execute: jest.fn(async () => 'leaf-1') },
+        { id: 'leaf-2', dependencies: ['merge-1'], execute: jest.fn(async () => 'leaf-2') },
+        { id: 'final', dependencies: ['leaf-1', 'leaf-2'], execute: jest.fn(async () => 'final') },
       ];
 
       const promises = tasks.map(task => 
@@ -352,7 +352,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: 'timeout-deadlock-1',
         requiredResources: ['resource-x'],
         timeout: deadlockTimeout,
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(2000); // Longer than timeout
           return 'should-not-complete';
         }),
@@ -361,7 +361,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const task2 = {
         id: 'timeout-deadlock-2',
         requiredResources: ['resource-x'],
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(100);
           return 'task2-complete';
         }),
@@ -393,7 +393,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: `resource-task-${i}`,
         requiredResources: [`cpu-${i % 2}`, 'memory'],
         estimatedMemoryUsage: 1024 * 1024 * 10, // 10MB
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(100);
           return `task-${i}`;
         }),
@@ -433,7 +433,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const memoryHeavyTask = {
         id: 'memory-heavy',
         estimatedMemoryUsage: 1024 * 1024 * 100, // 100MB (exceeds limit)
-        execute: jest.spyOn(async () => 'should-not-run'),
+        execute: jest.fn(async () => 'should-not-run'),
       };
 
       await TestAssertions.assertThrowsAsync(
@@ -450,7 +450,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: `conflict-task-${i}`,
         requiredResources: [sharedResource],
         resourceMode: 'exclusive',
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(100);
           return `task-${i}`;
         }),
@@ -476,7 +476,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: `shared-task-${i}`,
         requiredResources: [sharedResource],
         resourceMode: 'shared',
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(50);
           return `shared-${i}`;
         }),
@@ -500,7 +500,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const failingTask = {
         id: 'failing-task',
         requiredResources: ['cleanup-resource'],
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(50);
           throw new Error('Task failed');
         }),
@@ -509,7 +509,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const followupTask = {
         id: 'followup-task',
         requiredResources: ['cleanup-resource'],
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(10);
           return 'followup-complete';
         }),
@@ -539,7 +539,7 @@ describe('Coordination System - Comprehensive Tests', () => {
           id: 'low-priority-conflict',
           priority: 'low',
           requiredResources: ['conflict-resource'],
-          execute: jest.spyOn(async () => {
+          execute: jest.fn(async () => {
             await AsyncTestUtils.delay(100);
             return 'low-priority';
           }),
@@ -548,7 +548,7 @@ describe('Coordination System - Comprehensive Tests', () => {
           id: 'high-priority-conflict',
           priority: 'critical',
           requiredResources: ['conflict-resource'],
-          execute: jest.spyOn(async () => {
+          execute: jest.fn(async () => {
             await AsyncTestUtils.delay(50);
             return 'high-priority';
           }),
@@ -584,13 +584,13 @@ describe('Coordination System - Comprehensive Tests', () => {
       const firstTask = {
         id: 'first-timestamp',
         requiredResources: ['timestamp-resource'],
-        execute: jest.spyOn(async () => 'first'),
+        execute: jest.fn(async () => 'first'),
       };
 
       const secondTask = {
         id: 'second-timestamp',
         requiredResources: ['timestamp-resource'],
-        execute: jest.spyOn(async () => 'second'),
+        execute: jest.fn(async () => 'second'),
       };
 
       // Submit with slight delay to ensure different timestamps
@@ -611,7 +611,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         priority: 'medium',
         requiredResources: ['escalation-resource'],
         maxWaitTime: 200,
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(100);
           return `escalation-${i}`;
         }),
@@ -638,7 +638,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         {
           id: 'nested-1',
           requiredResources: ['resource-a', 'resource-b'],
-          execute: jest.spyOn(async () => {
+          execute: jest.fn(async () => {
             await AsyncTestUtils.delay(50);
             return 'nested-1';
           }),
@@ -646,7 +646,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         {
           id: 'nested-2',
           requiredResources: ['resource-b', 'resource-c'],
-          execute: jest.spyOn(async () => {
+          execute: jest.fn(async () => {
             await AsyncTestUtils.delay(50);
             return 'nested-2';
           }),
@@ -654,7 +654,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         {
           id: 'nested-3',
           requiredResources: ['resource-c', 'resource-a'],
-          execute: jest.spyOn(async () => {
+          execute: jest.fn(async () => {
             await AsyncTestUtils.delay(50);
             return 'nested-3';
           }),
@@ -700,14 +700,14 @@ describe('Coordination System - Comprehensive Tests', () => {
       const agentTasks = {
         'agent-1': Array.from({ length: 10 }, (_, i) => ({
           id: `agent1-task-${i}`,
-          execute: jest.spyOn(async () => {
+          execute: jest.fn(async () => {
             await AsyncTestUtils.delay(20);
             return `agent1-${i}`;
           }),
         })),
         'agent-2': Array.from({ length: 2 }, (_, i) => ({
           id: `agent2-task-${i}`,
-          execute: jest.spyOn(async () => {
+          execute: jest.fn(async () => {
             await AsyncTestUtils.delay(20);
             return `agent2-${i}`;
           }),
@@ -743,14 +743,14 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: 'old-low',
         priority: 'low',
         submittedAt: Date.now() - 60000, // 1 minute ago
-        execute: jest.spyOn(async () => 'old-low-priority'),
+        execute: jest.fn(async () => 'old-low-priority'),
       };
 
       const newHighPriorityTask = {
         id: 'new-high',
         priority: 'high',
         submittedAt: Date.now(),
-        execute: jest.spyOn(async () => 'new-high-priority'),
+        execute: jest.fn(async () => 'new-high-priority'),
       };
 
       // Submit in order that would normally favor high priority
@@ -773,7 +773,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const adjustableTask = {
         id: 'adjustable',
         priority: 'low',
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(100);
           return 'adjustable-complete';
         }),
@@ -800,7 +800,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       // Create uneven task distribution
       const tasks = Array.from({ length: 30 }, (_, i) => ({
         id: `balance-task-${i}`,
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(50);
           return `task-${i}`;
         }),
@@ -844,7 +844,7 @@ describe('Coordination System - Comprehensive Tests', () => {
     it('should scale with large numbers of tasks', async () => {
       const largeBatch = Array.from({ length: 1000 }, (_, i) => ({
         id: `scale-task-${i}`,
-        execute: jest.spyOn(async () => `result-${i}`),
+        execute: jest.fn(async () => `result-${i}`),
       }));
 
       const startTime = Date.now();
@@ -869,7 +869,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         const tasks = Array.from({ length: 500 }, (_, i) => ({
           id: `memory-task-${i}`,
           estimatedMemoryUsage: 1024 * 100, // 100KB each
-          execute: jest.spyOn(async () => {
+          execute: jest.fn(async () => {
             // Simulate some memory usage
             const data = new Array(100).fill(i);
             await AsyncTestUtils.delay(5);
@@ -920,7 +920,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       for (const scenario of errorScenarios) {
         const failingTask = {
           id: `error-task-${scenario.name}`,
-          execute: jest.spyOn(async () => {
+          execute: jest.fn(async () => {
             throw scenario.error;
           }),
         };
@@ -949,7 +949,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const originalSubmit = scheduler.submit.bind(scheduler);
       let failureCount = 0;
       
-      scheduler.submit = jest.spyOn(async (...args) => {
+      scheduler.submit = jest.fn(async (...args) => {
         failureCount++;
         if (failureCount <= 2) {
           throw new Error('Scheduler temporarily unavailable');
@@ -959,7 +959,7 @@ describe('Coordination System - Comprehensive Tests', () => {
 
       const resilientTask = {
         id: 'resilient-task',
-        execute: jest.spyOn(async () => 'recovered'),
+        execute: jest.fn(async () => 'recovered'),
       };
 
       // Should eventually succeed after scheduler recovers
@@ -973,7 +973,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const originalAcquire = resourceManager.acquireResources.bind(resourceManager);
       let attempts = 0;
       
-      resourceManager.acquireResources = jest.spyOn(async (...args) => {
+      resourceManager.acquireResources = jest.fn(async (...args) => {
         attempts++;
         if (attempts <= 1) {
           throw new Error('Resource manager failure');
@@ -984,7 +984,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const resourceTask = {
         id: 'resource-task',
         requiredResources: ['test-resource'],
-        execute: jest.spyOn(async () => 'resource-task-complete'),
+        execute: jest.fn(async () => 'resource-task-complete'),
       };
 
       // Should recover from resource manager failure
@@ -996,7 +996,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       // Create a scenario where some components fail
       const partiallyFailingTasks = Array.from({ length: 10 }, (_, i) => ({
         id: `partial-${i}`,
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           if (i % 3 === 0) {
             throw new Error(`Task ${i} failed`);
           }
@@ -1074,7 +1074,7 @@ describe('Coordination System - Comprehensive Tests', () => {
     it('should track execution metrics', async () => {
       const tasks = Array.from({ length: 10 }, (_, i) => ({
         id: `metric-task-${i}`,
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(10 + i * 5); // Variable execution time
           return `metric-${i}`;
         }),
@@ -1101,7 +1101,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: `resource-metric-${i}`,
         requiredResources: [`cpu-${i % 2}`, 'memory'],
         estimatedMemoryUsage: 1024 * 1024 * (i + 1), // Variable memory usage
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(50);
           return `resource-${i}`;
         }),
@@ -1138,7 +1138,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       // Create a scenario that causes performance degradation
       const slowTasks = Array.from({ length: 20 }, (_, i) => ({
         id: `slow-task-${i}`,
-        execute: jest.spyOn(async () => {
+        execute: jest.fn(async () => {
           await AsyncTestUtils.delay(200 + i * 10); // Progressively slower
           return `slow-${i}`;
         }),

@@ -18,7 +18,8 @@ import {
   AsyncTestUtils, 
   MemoryTestUtils, 
   PerformanceTestUtils,
-  TestAssertions 
+  TestAssertions,
+  createTestConfig 
 } from '../../utils/test-utils.js';
 import { generateCoordinationTasks, generateErrorScenarios } from '../../fixtures/generators.js';
 import { setupTestEnv, cleanupTestEnv, TEST_CONFIG } from '../../test.config.js';
@@ -32,14 +33,17 @@ describe('Orchestrator - Enhanced Tests', () => {
     setupTestEnv();
     mocks = createMocks();
     
-    orchestrator = new Orchestrator({
-      eventBus: mocks.eventBus,
-      logger: mocks.logger,
-      terminalManager: mocks.terminalManager,
-      memoryManager: mocks.memoryManager,
-      coordinationManager: mocks.coordinationManager,
-      mcpServer: mocks.mcpServer,
-    });
+    const testConfig = createTestConfig();
+    
+    orchestrator = new Orchestrator(
+      testConfig,
+      mocks.terminalManager,
+      mocks.memoryManager,
+      mocks.coordinationManager,
+      mocks.mcpServer,
+      mocks.eventBus,
+      mocks.logger
+    );
 
     fakeTime = jest.useFakeTimers();
   });
@@ -79,7 +83,7 @@ describe('Orchestrator - Enhanced Tests', () => {
 
     it('should handle partial initialization failure gracefully', async () => {
       // Make memory manager fail
-      mocks.memoryManager.initialize = jest.spyOn(async () => {
+      mocks.memoryManager.initialize = jest.fn(async () => {
         throw new Error('Memory initialization failed');
       });
 
@@ -95,7 +99,7 @@ describe('Orchestrator - Enhanced Tests', () => {
 
     it('should timeout initialization after configured time', async () => {
       // Make terminal manager hang
-      mocks.terminalManager.initialize = jest.spyOn(async () => {
+      mocks.terminalManager.initialize = jest.fn(async () => {
         await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute
       });
 
@@ -177,7 +181,7 @@ describe('Orchestrator - Enhanced Tests', () => {
 
     it('should handle task timeouts properly', async () => {
       // Mock a task that hangs
-      mocks.terminalManager.sendCommand = jest.spyOn(async () => {
+      mocks.terminalManager.sendCommand = jest.fn(async () => {
         await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute
         return 'Never reached';
       });
@@ -200,7 +204,7 @@ describe('Orchestrator - Enhanced Tests', () => {
 
     it('should handle task retry logic', async () => {
       let attemptCount = 0;
-      mocks.terminalManager.sendCommand = jest.spyOn(async () => {
+      mocks.terminalManager.sendCommand = jest.fn(async () => {
         attemptCount++;
         if (attemptCount < 3) {
           throw new Error('Temporary failure');
@@ -243,7 +247,7 @@ describe('Orchestrator - Enhanced Tests', () => {
 
     it('should detect unhealthy components', async () => {
       // Make terminal manager unhealthy
-      mocks.terminalManager.getHealthStatus = jest.spyOn(async () => ({
+      mocks.terminalManager.getHealthStatus = jest.fn(async () => ({
         healthy: false,
         error: 'Terminal manager is down',
         metrics: { activeTerminals: 0 },
@@ -297,7 +301,7 @@ describe('Orchestrator - Enhanced Tests', () => {
       expect(mocks.memoryManager.store.calls.length).toBe( 1);
       
       const retrieved = await orchestrator.retrieveMemory(bankId, 'test-key');
-      expect(retrieved).toBe( { data: 'test-value' });
+      expect(retrieved).toEqual({ data: 'test-value' });
     });
 
     it('should handle memory operations under load', async () => {
@@ -315,7 +319,7 @@ describe('Orchestrator - Enhanced Tests', () => {
       
       // Verify all values were stored and retrieved correctly
       results.forEach((result, i) => {
-        expect(result).toBe( { value: i });
+        expect(result).toEqual({ value: i });
       });
     });
 
@@ -433,7 +437,7 @@ describe('Orchestrator - Enhanced Tests', () => {
       
       for (const scenario of errorScenarios) {
         // Inject the error into terminal manager
-        mocks.terminalManager.sendCommand = jest.spyOn(async () => {
+        mocks.terminalManager.sendCommand = jest.fn(async () => {
           throw scenario.error;
         });
 
@@ -513,7 +517,7 @@ describe('Orchestrator - Enhanced Tests', () => {
       let failureCount = 0;
       
       // Make terminal manager fail first 3 times, then succeed
-      mocks.terminalManager.sendCommand = jest.spyOn(async (terminalId: string, command: any) => {
+      mocks.terminalManager.sendCommand = jest.fn(async (terminalId: string, command: any) => {
         failureCount++;
         if (failureCount <= 3) {
           throw new Error('Temporary failure');
@@ -585,7 +589,7 @@ describe('Orchestrator - Enhanced Tests', () => {
       await orchestrator.initialize();
       
       // Make terminal manager hang during shutdown
-      mocks.terminalManager.shutdown = jest.spyOn(async () => {
+      mocks.terminalManager.shutdown = jest.fn(async () => {
         await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute
       });
 

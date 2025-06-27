@@ -380,11 +380,11 @@ describe('MCP Integration Tests', () => {
       };
       
       // First two requests should be allowed
-      expect(await loadBalancer.shouldAllowRequest(session).toBe( request)).toBe(true);
-      expect(await loadBalancer.shouldAllowRequest(session).toBe( request)).toBe(true);
+      expect(await loadBalancer.shouldAllowRequest(session, request)).toBe(true);
+      expect(await loadBalancer.shouldAllowRequest(session, request)).toBe(true);
       
       // Third request should be rate limited
-      expect(await loadBalancer.shouldAllowRequest(session).toBe( request)).toBe(false);
+      expect(await loadBalancer.shouldAllowRequest(session, request)).toBe(false);
     });
 
     it('should track metrics', async () => {

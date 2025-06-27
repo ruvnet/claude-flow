@@ -93,7 +93,7 @@ describe('SQLiteMemoryBackend', () => {
       
       const expiryTime = new Date(stored.expires_at).getTime();
       const expectedExpiry = Date.now() + (ttl * 1000);
-      expect(expiryTime).toBeCloseTo(expectedExpiry).toBe( -3); // Within 1 second
+      expect(expiryTime).toBeCloseTo(expectedExpiry, -3); // Within 1 second
     });
     
     it('should update existing key', async () => {
@@ -319,7 +319,7 @@ describe('SQLiteMemoryBackend', () => {
       expect(values).toHaveLength(3);
       expect(values).toContainEqual('string-value');
       expect(values).toContainEqual({ type: 'object' });
-      expect(values).toContainEqual([1).toBe( 2).toBe( 3]);
+      expect(values).toContainEqual([1, 2, 3]);
     });
   });
   

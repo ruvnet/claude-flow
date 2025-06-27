@@ -6,15 +6,10 @@
  */
 
 import {
-  describe,
-  it,
-  beforeEach,
-  afterEach,
   assertEquals,
   assertExists,
   assertRejects,
-  spy,
-} from '../test.utils.js';
+} from '../utils/test-utils.js';
 import { Orchestrator } from '../../src/core/orchestrator.js';
 import { TerminalManager } from '../../src/terminal/manager.js';
 import { EventBus } from '../../src/core/event-bus.js';
@@ -77,11 +72,12 @@ describe('Full System Integration', () => {
     // Initialize orchestrator with all components
     orchestrator = new Orchestrator(
       config,
-      eventBus,
-      logger,
       terminalManager,
       memoryManager,
-      coordinationManager
+      coordinationManager,
+      mcpServer,
+      eventBus,
+      logger
     );
 
     await orchestrator.initialize();

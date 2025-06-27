@@ -346,40 +346,40 @@ export class MockCoordinationManager implements ICoordinationManager {
   private agentTasks = new Map<string, Task[]>();
   private initialized = false;
 
-  initialize = jest.spyOn(async (): Promise<void> => {
+  initialize = jest.fn(async (): Promise<void> => {
     this.initialized = true;
   });
 
-  shutdown = jest.spyOn(async (): Promise<void> => {
+  shutdown = jest.fn(async (): Promise<void> => {
     this.tasks.clear();
     this.agentTasks.clear();
     this.initialized = false;
   });
 
-  assignTask = jest.spyOn(async (task: Task, agentId: string): Promise<void> => {
+  assignTask = jest.fn(async (task: Task, agentId: string): Promise<void> => {
     this.tasks.set(task.id, { task, agentId });
     const agentTaskList = this.agentTasks.get(agentId) || [];
     agentTaskList.push(task);
     this.agentTasks.set(agentId, agentTaskList);
   });
 
-  getAgentTaskCount = jest.spyOn(async (agentId: string): Promise<number> => {
+  getAgentTaskCount = jest.fn(async (agentId: string): Promise<number> => {
     const tasks = this.agentTasks.get(agentId) || [];
     return tasks.filter(t => t.status !== 'completed' && t.status !== 'failed').length;
   });
 
-  getAgentTasks = jest.spyOn(async (agentId: string): Promise<Task[]> => {
+  getAgentTasks = jest.fn(async (agentId: string): Promise<Task[]> => {
     return this.agentTasks.get(agentId) || [];
   });
 
-  cancelTask = jest.spyOn(async (taskId: string): Promise<void> => {
+  cancelTask = jest.fn(async (taskId: string): Promise<void> => {
     const taskInfo = this.tasks.get(taskId);
     if (taskInfo) {
       taskInfo.task.status = 'cancelled';
     }
   });
 
-  getHealthStatus = jest.spyOn(async (): Promise<{ healthy: boolean; error?: string; metrics?: Record<string, number> }> => {
+  getHealthStatus = jest.fn(async (): Promise<{ healthy: boolean; error?: string; metrics?: Record<string, number> }> => {
     return {
       healthy: true,
       metrics: {
@@ -388,7 +388,7 @@ export class MockCoordinationManager implements ICoordinationManager {
     };
   });
 
-  performMaintenance = jest.spyOn(async (): Promise<void> => {
+  performMaintenance = jest.fn(async (): Promise<void> => {
     // No-op for mock
   });
 
@@ -408,20 +408,20 @@ export class MockMCPServer implements IMCPServer {
   private started = false;
   private tools = new Map<string, any>();
 
-  start = jest.spyOn(async (): Promise<void> => {
+  start = jest.fn(async (): Promise<void> => {
     this.started = true;
   });
 
-  stop = jest.spyOn(async (): Promise<void> => {
+  stop = jest.fn(async (): Promise<void> => {
     this.started = false;
     this.tools.clear();
   });
 
-  registerTool = jest.spyOn((name: string, tool: any): void => {
+  registerTool = jest.fn((name: string, tool: any): void => {
     this.tools.set(name, tool);
   });
 
-  getHealthStatus = jest.spyOn(async (): Promise<{ healthy: boolean; error?: string; metrics?: Record<string, number> }> => {
+  getHealthStatus = jest.fn(async (): Promise<{ healthy: boolean; error?: string; metrics?: Record<string, number> }> => {
     return {
       healthy: this.started,
       metrics: {

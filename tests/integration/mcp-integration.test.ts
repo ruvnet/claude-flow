@@ -114,9 +114,9 @@ describe('MCP Integration', () => {
       const result = await mcpServer.executeTool(toolCall, context);
 
       expect(result);
-      expect(result.content.length).toBe( 1);
-      expect(result.content[0].type).toBe( 'text');
-      expect(result.content[0].text?.includes('HELLO).toBe( MCP!')).toBe( true);
+      expect(result.content.length).toBe(1);
+      expect(result.content[0].type).toBe('text');
+      expect(result.content[0].text?.includes('HELLO, MCP!')).toBe(true);
     });
 
     it('should handle tool execution errors gracefully', async () => {
@@ -150,8 +150,8 @@ describe('MCP Integration', () => {
       const result = await mcpServer.executeTool(toolCall, context);
 
       expect(result.isError).toBe( true);
-      expect(result.content.length).toBe( 1);
-      expect(result.content[0].type).toBe( 'text');
+      expect(result.content.length).toBe(1);
+      expect(result.content[0].type).toBe('text');
       expect(result.content[0].text?.includes('Tool execution failed')).toBe( true);
     });
 

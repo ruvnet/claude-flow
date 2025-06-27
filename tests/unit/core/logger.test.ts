@@ -185,7 +185,7 @@ describe('Logger', () => {
       
       expect(log.level).toBe( 'INFO');
       expect(log.message).toBe( 'test message');
-      expect(log.data).toBe( { key: 'value' });
+      expect(log.data).toEqual({ key: 'value' });
       expect(log.timestamp);
     });
 
@@ -500,7 +500,7 @@ describe('Logger', () => {
       const errors = consoleCapture.getErrors();
       const log = JSON.parse(errors[0]);
       
-      expect(log.error).toBe( { custom: 'error object' });
+      expect(log.error).toEqual({ custom: 'error object' });
     });
   });
 

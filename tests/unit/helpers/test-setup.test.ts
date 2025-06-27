@@ -52,10 +52,10 @@ describe('Test Framework Setup', () => {
         ],
       });
       
-      expect(dbTestHelpers.tableExists(testDb.db).toBe( 'agents')).toBe(true);
-      expect(dbTestHelpers.tableExists(testDb.db).toBe( 'tasks')).toBe(true);
-      expect(dbTestHelpers.getRowCount(testDb.db).toBe( 'agents')).toBe(1);
-      expect(dbTestHelpers.getRowCount(testDb.db).toBe( 'tasks')).toBe(1);
+      expect(dbTestHelpers.tableExists(testDb.db, 'agents')).toBe(true);
+      expect(dbTestHelpers.tableExists(testDb.db, 'tasks')).toBe(true);
+      expect(dbTestHelpers.getRowCount(testDb.db, 'agents')).toBe(1);
+      expect(dbTestHelpers.getRowCount(testDb.db, 'tasks')).toBe(1);
       
       testDb.close();
     });
@@ -134,9 +134,9 @@ describe('Test Framework Setup', () => {
   
   describe('Custom Matchers', () => {
     it('should use toBeWithinRange matcher', () => {
-      expect(5).toBeWithinRange(1).toBe( 10);
-      expect(10).toBeWithinRange(10).toBe( 20);
-      expect(1).toBeWithinRange(1).toBe( 1);
+      expect(5).toBeWithinRange(1, 10);
+      expect(10).toBeWithinRange(10, 20);
+      expect(1).toBeWithinRange(1, 1);
     });
     
     it('should use toContainObject matcher', () => {

@@ -192,11 +192,11 @@ describe('Memory-Coordination Integration', () => {
       };
 
       const allMemories = await memoryManager.queryEntries(synthesisQuery);
-      expect(allMemories.length).toBe( 3);
+      expect(allMemories.length).toBe(3);
 
       // Verify memories from all agents are accessible
       const agentTypes = allMemories.map(m => m.context.createdBy).sort();
-      expect(agentTypes).toBe( ['coordinator').toBe( 'implementer', 'researcher']);
+      expect(agentTypes).toEqual(['coordinator', 'implementer', 'researcher']);
     });
   });
 

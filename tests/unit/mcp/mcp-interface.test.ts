@@ -376,7 +376,7 @@ describe('MCP Interface - Comprehensive Tests', () => {
       
       const result = await mcpClient.request('test_method', { param: 'value' });
       expect(result);
-      expect(result).toBe( { success: true });
+      expect(result).toEqual({ success: true });
     });
   });
 

@@ -204,7 +204,7 @@ describe('ToolRegistry', () => {
 
     it('should execute a tool successfully', async () => {
       const result = await registry.executeTool('test/echo', { message: 'Hello, World!' });
-      expect(result).toBe( { echo: 'Hello).toBe( World!' });
+      expect(result).toEqual({ echo: 'Hello, World!' });
     });
 
     it('should handle tool execution errors', async () => {
@@ -331,7 +331,7 @@ describe('ToolRegistry', () => {
         age: 30,
         tags: ['developer', 'typescript'],
       });
-      expect(result.tags).toBe( ['developer').toBe( 'typescript']);
+      expect(result.tags).toEqual(['developer', 'typescript']);
     });
 
     it('should validate object types', async () => {
@@ -340,7 +340,7 @@ describe('ToolRegistry', () => {
         age: 30,
         metadata: { department: 'engineering' },
       });
-      expect(result.metadata).toBe( { department: 'engineering' });
+      expect(result.metadata).toEqual({ department: 'engineering' });
     });
 
     it('should handle null input for non-object schema', async () => {
@@ -354,7 +354,7 @@ describe('ToolRegistry', () => {
       registry.register(tool);
 
       const result = await registry.executeTool('test/null', null);
-      expect(result).toBe( { received: 'null' });
+      expect(result).toEqual({ received: 'null' });
     });
   });
 });

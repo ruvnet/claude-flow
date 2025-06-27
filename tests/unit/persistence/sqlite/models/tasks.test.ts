@@ -479,7 +479,7 @@ describe('TasksModel', () => {
       });
       
       // Average completion time should be around 45 minutes (2700000ms)
-      expect(metrics.averageCompletionTime).toBeCloseTo(2700000).toBe( -5);
+      expect(metrics.averageCompletionTime).toBeCloseTo(2700000, -5);
     });
   });
   
