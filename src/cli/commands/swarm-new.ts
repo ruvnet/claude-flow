@@ -2,6 +2,8 @@
  * Enhanced Swarm Command - Integration with new comprehensive swarm system
  */
 
+// Phase 2 Runtime Migration: Deno compatibility layer
+import Deno from '../../utils/deno-compat.js';
 import { SwarmCoordinator } from '../../swarm/coordinator.js';
 import { TaskExecutor } from '../../swarm/executor.js';
 import { SwarmMemoryManager } from '../../swarm/memory.js';

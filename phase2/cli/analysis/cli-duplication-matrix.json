@@ -1,0 +1,260 @@
+{
+  "analysis_timestamp": "2025-06-27T05:52:00Z",
+  "analyzer_agent": "cli-analyzer",
+  "swarm_session": "swarm-development-hierarchical-1751006703324",
+  "remediation_phase": "phase-2",
+  "
+16_duplication_issues": {
+    "issue_02": {
+      "category": "runtime_duality", 
+      "description": "Dual TypeScript/JavaScript runtime implementations",
+      "affected_files": [
+        "/src/cli/main.ts",
+        "/src/cli/simple-cli.ts", 
+        "/cli.js",
+        "/bin/claude-flow"
+      ],
+      "impact": "high",
+      "consolidation_effort": "medium"
+    },
+    "issue_07": {
+      "category": "command_duplications",
+      "description": "Start command implementation duplications",
+      "affected_files": [
+        "/src/cli/commands/start.ts",
+        "/src/cli/simple-commands/start.js",
+        "/src/cli/simple-commands/start-wrapper.js",
+        "/src/cli/simple-commands/start-ui.js",
+        "/src/cli/simple-commands/process-ui.js",
+        "/src/cli/simple-commands/process-ui-enhanced.js"
+      ],
+      "impact": "high",
+      "consolidation_effort": "high"
+    },
+    "issue_14": {
+      "category": "sparc_duplications",
+      "description": "SPARC mode system duplications",
+      "affected_files": [
+        "/src/cli/commands/sparc.ts",
+        "/src/cli/simple-commands/sparc.js",
+        "/src/cli/simple-commands/sparc-modes/*.js"
+      ],
+      "sparc_mode_count": 17,
+      "impact": "high",
+      "consolidation_effort": "high"
+    },
+    "issue_19": {
+      "category": "swarm_duplications",
+      "description": "Swarm coordination duplications",
+      "affected_files": [
+        "/src/cli/commands/swarm.ts",
+        "/src/cli/simple-commands/swarm.js",
+        "/src/cli/simple-commands/swarm-executor.js",
+        "/src/cli/simple-commands/swarm-ui.js",
+        "/src/cli/swarm-standalone.js"
+      ],
+      "impact": "high",
+      "consolidation_effort": "medium"
+    },
+    "issue_28": {
+      "category": "mcp_duplications",
+      "description": "MCP server implementation duplications",
+      "affected_files": [
+        "/src/cli/commands/mcp.ts",
+        "/src/cli/commands/mcp-serve.ts",
+        "/src/cli/simple-commands/mcp.js",
+        "/src/cli/simple-mcp.ts",
+        "/src/cli/mcp-stdio-server.ts",
+        "/src/cli/mcp-stdio-server.js"
+      ],
+      "impact": "medium",
+      "consolidation_effort": "medium"
+    },
+    "issue_33": {
+      "category": "agent_duplications",
+      "description": "Agent management duplications",
+      "affected_files": [
+        "/src/cli/commands/agent.ts",
+        "/src/cli/commands/agent-simple.ts",
+        "/src/cli/simple-commands/agent.js"
+      ],
+      "impact": "medium",
+      "consolidation_effort": "low"
+    },
+    "issue_42": {
+      "category": "memory_duplications",
+      "description": "Memory command duplications",
+      "affected_files": [
+        "/src/cli/commands/memory.ts",
+        "/src/cli/commands/advanced-memory-commands.ts",
+        "/src/cli/simple-commands/memory.js"
+      ],
+      "impact": "medium",
+      "consolidation_effort": "low"
+    },
+    "issue_47": {
+      "category": "executable_wrappers",
+      "description": "Bin directory wrapper script duplications",
+      "affected_files": [
+        "/bin/claude-flow",
+        "/bin/claude-flow-dev",
+        "/bin/claude-flow-swarm",
+        "/bin/claude-flow-swarm-ui",
+        "/bin/claude-flow-swarm-background",
+        "/bin/claude-flow-swarm-bg",
+        "/bin/claude-flow-swarm-monitor",
+        "/bin/claude-flow-node-pkg",
+        "/bin/claude-flow-backup"
+      ],
+      "impact": "medium",
+      "consolidation_effort": "low"
+    },
+    "issue_53": {
+      "category": "init_duplications",
+      "description": "Init system implementation duplications",
+      "affected_files": [
+        "/src/cli/init/**/*.ts",
+        "/src/cli/simple-commands/init/**/*.js"
+      ],
+      "nested_duplications": {
+        "validation": "5 files",
+        "rollback": "5 files", 
+        "templates": "5 files",
+        "claude_commands": "6 files"
+      },
+      "impact": "high",
+      "consolidation_effort": "high"
+    },
+    "issue_60": {
+      "category": "monitor_duplications",
+      "description": "Monitoring command duplications",
+      "affected_files": [
+        "/src/cli/commands/monitor.ts",
+        "/src/cli/simple-commands/monitor.js"
+      ],
+      "impact": "low",
+      "consolidation_effort": "low"
+    },
+    "issue_65": {
+      "category": "status_duplications",
+      "description": "Status command duplications",
+      "affected_files": [
+        "/src/cli/commands/status.ts",
+        "/src/cli/simple-commands/status.js"
+      ],
+      "impact": "low",
+      "consolidation_effort": "low"
+    },
+    "issue_73": {
+      "category": "task_duplications",
+      "description": "Task management duplications",
+      "affected_files": [
+        "/src/cli/commands/task.ts",
+        "/src/cli/simple-commands/task.js"
+      ],
+      "impact": "medium",
+      "consolidation_effort": "low"
+    },
+    "issue_81": {
+      "category": "config_duplications",
+      "description": "Configuration command duplications",
+      "affected_files": [
+        "/src/cli/commands/config.ts",
+        "/src/cli/simple-commands/config.js"
+      ],
+      "impact": "medium",
+      "consolidation_effort": "low"
+    },
+    "issue_84": {
+      "category": "workflow_duplications", 
+      "description": "Workflow execution duplications",
+      "affected_files": [
+        "/src/cli/commands/workflow.ts"
+      ],
+      "impact": "low",
+      "consolidation_effort": "low"
+    },
+    "issue_90": {
+      "category": "session_duplications",
+      "description": "Session management duplications", 
+      "affected_files": [
+        "/src/cli/commands/session.ts"
+      ],
+      "impact": "low",
+      "consolidation_effort": "low"
+    },
+    "issue_95": {
+      "category": "utility_duplications",
+      "description": "CLI utility function duplications",
+      "affected_files": [
+        "/src/cli/utils.js",
+        "/src/cli/cli-core.ts",
+        "/src/cli/formatter.ts"
+      ],
+      "impact": "medium",
+      "consolidation_effort": "medium"
+    }
+  },
+  "consolidation_priority_matrix": {
+    "tier_1_critical": [
+      "issue_02",
+      "issue_07", 
+      "issue_14",
+      "issue_19",
+      "issue_53"
+    ],
+    "tier_2_high": [
+      "issue_28",
+      "issue_42",
+      "issue_47"
+    ],
+    "tier_3_medium": [
+      "issue_33",
+      "issue_73",
+      "issue_81",
+      "issue_95"
+    ],
+    "tier_4_low": [
+      "issue_60",
+      "issue_65",
+      "issue_84",
+      "issue_90"
+    ]
+  },
+  "file_count_summary": {
+    "total_cli_files": 89,
+    "typescript_implementations": 34,
+    "javascript_implementations": 55,
+    "duplicate_functionality_files": 67,
+    "unique_functionality_files": 22,
+    "consolidation_reduction_potential": "75%"
+  },
+  "consolidation_strategy": {
+    "recommended_approach": "typescript_unification",
+    "target_runtime": "node_typescript", 
+    "elimination_targets": [
+      "dual_runtime_support",
+      "javascript_simple_commands",
+      "wrapper_script_redundancy",
+      "deno_compatibility_layer"
+    ],
+    "preservation_targets": [
+      "command_functionality",
+      "option_compatibility", 
+      "error_handling",
+      "help_system"
+    ]
+  },
+  "dependency_analysis": {
+    "external_dependencies": {
+      "commander": "used_in_javascript_implementation",
+      "chalk": "used_in_both_implementations",
+      "deno": "eliminable_with_consolidation"
+    },
+    "internal_dependencies": {
+      "cross_runtime_references": 23,
+      "circular_dependencies": 3,
+      "utility_function_duplications": 15
+    }
+  }
+}

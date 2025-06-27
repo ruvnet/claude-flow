@@ -535,7 +535,8 @@ export class MockFactory {
     
     for (const [key, value] of Object.entries(mock)) {
       if (typeof value === 'function') {
-        mock[key] = jest.spyOn(mock, key as keyof T, value);
+        // Create a jest mock function with the provided implementation
+        mock[key] = jest.fn(value);
       }
     }
 

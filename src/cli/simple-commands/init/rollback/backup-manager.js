@@ -1,5 +1,7 @@
 // backup-manager.js - Backup creation and management
 
+// Phase 2 Runtime Migration: Deno compatibility layer
+import Deno from '../../../../utils/deno-compat.js';
 // Node.js compatible import
 import fs from 'fs';
 

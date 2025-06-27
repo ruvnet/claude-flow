@@ -1,0 +1,187 @@
+{
+  "timestamp": "2025-06-27T07:32:57.873Z",
+  "version": "1.0",
+  "entries": [
+    {
+      "id": "entry_mc2ti5rs_5rhtkp56x",
+      "key": "test-key",
+      "value": {
+        "data": "test value"
+      },
+      "type": "object",
+      "namespace": "test-namespace",
+      "tags": [
+        "test",
+        "demo"
+      ],
+      "metadata": {},
+      "owner": "system",
+      "accessLevel": "shared",
+      "createdAt": "2025-06-19T03:24:46.648Z",
+      "updatedAt": "2025-06-19T03:24:46.648Z",
+      "lastAccessedAt": "2025-06-27T07:32:56.863Z",
+      "version": 1,
+      "size": 50,
+      "compressed": false,
+      "checksum": "eee9ad0c23c54c98b836354da834f397021a040426a206f8e7fde150c9fcbff3",
+      "references": [],
+      "dependencies": []
+    },
+    {
+      "id": "entry_mc3ozvl4_gxpvb86hx",
+      "key": "mcp_integration_plan",
+      "value": "{\"overview\":\"Comprehensive plan for integrating all SPARC and swarm tools into the MCP server\",\"phases\":[{\"phase\":1,\"name\":\"Tool Registration Architecture Enhancement\",\"description\":\"Enhance the existing MCP tool registration system to support SPARC modes and swarm tools\",\"tasks\":[\"Create sparc-tools.ts module for SPARC mode tool generation\",\"Enhance ToolRegistry to support tool categories and mode-based filtering\",\"Implement dynamic tool loading based on SPARC mode configuration\",\"Add tool capability metadata for each SPARC mode\"]},{\"phase\":2,\"name\":\"SPARC Tools Implementation\",\"description\":\"Create MCP tool wrappers for all 17 SPARC modes\",\"tasks\":[\"Implement createSparcTools() function similar to createClaudeFlowTools()\",\"Create individual tool factories for each SPARC mode\",\"Map SPARC mode tools to their MCP tool implementations\",\"Add SPARC context injection for mode-specific behavior\"]},{\"phase\":3,\"name\":\"Enhanced Swarm Tools Integration\",\"description\":\"Expand existing swarm-tools.ts with comprehensive swarm capabilities\",\"tasks\":[\"Add SPARC executor integration tools\",\"Create swarm orchestration tools for multi-agent coordination\",\"Implement memory-driven swarm coordination tools\",\"Add batch execution and workflow management tools\"]},{\"phase\":4,\"name\":\"Context and Capability Management\",\"description\":\"Implement context management for SPARC and swarm operations\",\"tasks\":[\"Create SparcToolContext interface extending MCPContext\",\"Implement capability negotiation for SPARC modes\",\"Add mode-specific tool filtering and validation\",\"Create tool discovery mechanism for SPARC modes\"]},{\"phase\":5,\"name\":\"Orchestration Integration\",\"description\":\"Deep integration with orchestration components\",\"tasks\":[\"Enhance MCPOrchestrationIntegration for SPARC support\",\"Add SPARC executor component integration\",\"Implement swarm coordinator tool registration\",\"Create unified tool context for all components\"]}],\"implementation_details\":{\"new_files\":[\"src/mcp/sparc-tools.ts - SPARC mode tool implementations\",\"src/mcp/sparc-context.ts - SPARC-specific context management\",\"src/mcp/tool-categories.ts - Tool categorization system\"],\"modified_files\":[\"src/mcp/server.ts - Add SPARC tool registration\",\"src/mcp/tools.ts - Enhance with category support\",\"src/mcp/swarm-tools.ts - Add comprehensive swarm tools\",\"src/mcp/orchestration-integration.ts - Add SPARC components\"],\"tool_mappings\":{\"orchestrator\":[\"TodoWrite\",\"TodoRead\",\"Task\",\"Memory\",\"Bash\"],\"coder\":[\"Read\",\"Write\",\"Edit\",\"Bash\",\"Glob\",\"Grep\",\"TodoWrite\"],\"researcher\":[\"WebSearch\",\"WebFetch\",\"Read\",\"Write\",\"Memory\",\"TodoWrite\",\"Task\"],\"tdd\":[\"Read\",\"Write\",\"Edit\",\"Bash\",\"TodoWrite\",\"Task\"],\"architect\":[\"Read\",\"Write\",\"Glob\",\"Memory\",\"TodoWrite\",\"Task\"],\"reviewer\":[\"Read\",\"Edit\",\"Grep\",\"Bash\",\"TodoWrite\",\"Memory\"],\"debugger\":[\"Read\",\"Edit\",\"Bash\",\"Grep\",\"TodoWrite\",\"Memory\"],\"tester\":[\"Read\",\"Write\",\"Edit\",\"Bash\",\"TodoWrite\",\"Task\"],\"analyzer\":[\"Read\",\"Grep\",\"Bash\",\"Write\",\"Memory\",\"TodoWrite\",\"Task\"],\"optimizer\":[\"Read\",\"Edit\",\"Bash\",\"Grep\",\"TodoWrite\",\"Memory\"],\"documenter\":[\"Read\",\"Write\",\"Glob\",\"Memory\",\"TodoWrite\"],\"designer\":[\"Read\",\"Write\",\"Edit\",\"Memory\",\"TodoWrite\"],\"innovator\":[\"Read\",\"Write\",\"WebSearch\",\"Memory\",\"TodoWrite\",\"Task\"],\"swarm-coordinator\":[\"TodoWrite\",\"TodoRead\",\"Task\",\"Memory\",\"Bash\"],\"memory-manager\":[\"Memory\",\"Read\",\"Write\",\"TodoWrite\",\"TodoRead\"],\"batch-executor\":[\"Task\",\"Bash\",\"Read\",\"Write\",\"TodoWrite\",\"Memory\"],\"workflow-manager\":[\"TodoWrite\",\"TodoRead\",\"Task\",\"Bash\",\"Memory\"]}},\"technical_approach\":{\"tool_generation\":\"Dynamic tool generation based on SPARC mode configuration\",\"context_injection\":\"Context-aware tool handlers with mode-specific behavior\",\"capability_discovery\":\"Tool discovery API for SPARC modes and capabilities\",\"integration_pattern\":\"Wrapper pattern for existing orchestration tools\",\"namespace_convention\":\"sparc/<mode>/<action> for SPARC-specific tools\"},\"benefits\":{\"unified_interface\":\"Single MCP interface for all SPARC and swarm operations\",\"mode_discovery\":\"Dynamic discovery of available SPARC modes and tools\",\"capability_negotiation\":\"Protocol-level capability negotiation\",\"seamless_integration\":\"Deep integration with orchestration system\",\"extensibility\":\"Easy addition of new SPARC modes and tools\"}}",
+      "type": "object",
+      "namespace": "default",
+      "tags": [],
+      "metadata": {},
+      "owner": "system",
+      "accessLevel": "shared",
+      "createdAt": "2025-06-19T18:06:21.352Z",
+      "updatedAt": "2025-06-19T18:06:21.352Z",
+      "lastAccessedAt": "2025-06-27T07:32:56.863Z",
+      "version": 1,
+      "size": 4694,
+      "compressed": true,
+      "checksum": "da928bdb6449349446bdc2518fcb7a3b78e866aeb6f13aeaa233cb6fb32d8585",
+      "references": [],
+      "dependencies": []
+    },
+    {
+      "id": "entry_mc3ozxnn_1ekigvuqa",
+      "key": "sparc_swarm_research",
+      "value": "\"## SPARC Modes and Swarm Research Findings\\n\\n### All 17 SPARC Modes Available:\\n\\n1. **orchestrator** - Multi-agent task orchestration and coordination\\n   - Tools: TodoWrite, TodoRead, Task, Memory, Bash\\n   - Coordinates multiple specialized agents for complex tasks\\n\\n2. **coder** - Autonomous code generation and implementation  \\n   - Tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite\\n   - Expert programmer focused on clean, efficient code\\n\\n3. **researcher** - Deep research and comprehensive analysis\\n   - Tools: WebSearch, WebFetch, Read, Write, Memory, TodoWrite, Task\\n   - Parallel research operations with memory coordination\\n\\n4. **tdd** - Test-driven development methodology\\n   - Tools: Read, Write, Edit, Bash, TodoWrite, Task\\n   - Strict TDD practices with test planning\\n\\n5. **architect** - System design and architecture planning\\n   - Tools: Read, Write, Glob, Memory, TodoWrite, Task\\n   - Scalable system architecture design\\n\\n6. **reviewer** - Code review and quality optimization\\n   - Tools: Read, Edit, Grep, Bash, TodoWrite, Memory\\n   - Systematic code quality improvement\\n\\n7. **debugger** - Debug and fix issues systematically\\n   - Tools: Read, Edit, Bash, Grep, TodoWrite, Memory\\n   - Systematic debugging with issue pattern tracking\\n\\n8. **tester** - Comprehensive testing and validation\\n   - Tools: Read, Write, Edit, Bash, TodoWrite, Task\\n   - Test planning and parallel execution\\n\\n9. **analyzer** - Code and data analysis specialist\\n   - Tools: Read, Grep, Bash, Write, Memory, TodoWrite, Task\\n   - Batch operations for efficient analysis\\n\\n10. **optimizer** - Performance optimization specialist\\n    - Tools: Read, Edit, Bash, Grep, TodoWrite, Memory\\n    - Systematic performance improvements\\n\\n11. **documenter** - Documentation generation and maintenance\\n    - Tools: Read, Write, Glob, Memory, TodoWrite\\n    - Comprehensive documentation coordination\\n\\n12. **designer** - UI/UX design and user experience\\n    - Tools: Read, Write, Edit, Memory, TodoWrite\\n    - Design coordination and process management\\n\\n13. **innovator** - Creative problem solving and innovation\\n    - Tools: Read, Write, WebSearch, Memory, TodoWrite, Task\\n    - Innovation with idea coordination\\n\\n14. **swarm-coordinator** - Swarm coordination and management\\n    - Tools: TodoWrite, TodoRead, Task, Memory, Bash\\n    - Coordinates swarms of AI agents\\n\\n15. **memory-manager** - Memory and knowledge management\\n    - Tools: Memory, Read, Write, TodoWrite, TodoRead\\n    - Persistent knowledge storage\\n\\n16. **batch-executor** - Parallel task execution specialist\\n    - Tools: Task, Bash, Read, Write, TodoWrite, Memory\\n    - Maximum efficiency parallel execution\\n\\n17. **workflow-manager** - Workflow automation and process management\\n    - Tools: TodoWrite, TodoRead, Task, Bash, Memory\\n    - Automated workflow design and execution\\n\\n### Additional SPARC Modes in sparc-modes/ directory:\\n- ask - Research and Q&A mode\\n- debug - Debugging mode\\n- devops - DevOps and deployment\\n- docs-writer - Documentation writing\\n- integration - System integration\\n- mcp - MCP integration mode\\n- monitoring - Post-deployment monitoring (maps to post-deployment-monitoring-mode)\\n- optimization - Performance optimization (maps to refinement-optimization-mode)\\n- security-review - Security auditing\\n- spec-pseudocode - Specification and pseudocode\\n- supabase-admin - Supabase administration\\n- tutorial - Tutorial and guide creation\\n- generic - Generic orchestration fallback\\n\\n### Swarm Coordination System:\\n\\n**Swarm Strategies:**\\n- development - Code implementation with quality checks\\n- research - Information gathering and analysis  \\n- analysis - Data processing and insights\\n- testing - Comprehensive quality assurance\\n- optimization - Performance improvements\\n- maintenance - System updates and fixes\\n\\n**Coordination Modes:**\\n- centralized - Single coordinator (recommended for beginners)\\n- distributed - Multiple coordinators\\n- hierarchical - Tree structure with nested coordination\\n- mesh - Peer-to-peer agent collaboration\\n- hybrid - Mixed coordination strategies\\n\\n**Key Swarm Features:**\\n- Timeout-free background execution for long tasks\\n- Distributed memory sharing between agents\\n- Work stealing and load balancing\\n- Circuit breaker patterns for fault tolerance\\n- Real-time monitoring and metrics\\n- Persistent state with backup/recovery\\n- Security features with encryption options\\n\\n### MCP Server Integration:\\n\\n**Available MCP Tools:**\\n- agent_spawn - Create and manage AI agents\\n- task_create - Create and execute tasks\\n- memory_store - Store information in memory bank\\n- memory_query - Query stored information\\n- terminal_execute - Execute terminal commands\\n- workflow_run - Execute predefined workflows\\n- sparc_mode - Run SPARC development modes\\n\\n**MCP Configuration:**\\n- Default port: 3000\\n- Protocol: HTTP/STDIO\\n- Authentication: API Key based\\n- Rate limiting enabled\\n- TLS in production\\n\\n### Tool Registration Patterns:\\n\\n1. **SPARC Mode Registration:** Each mode exports an orchestration function that defines tools, prompt, and workflow\\n2. **Memory Coordination:** All modes use Memory for cross-agent data sharing\\n3. **TodoWrite Integration:** Complex task coordination through TodoWrite\\n4. **Task Tool Usage:** Parallel agent launching via Task tool\\n5. **Batch Operations:** Multiple tools support batch file operations for efficiency\\n\\n### Integration Points:\\n\\n1. **SPARC + Swarm:** Use swarm mode for multi-agent coordination of SPARC modes\\n2. **SPARC + MCP:** MCP server exposes SPARC modes as callable tools\\n3. **Memory System:** Central coordination point for all agents\\n4. **Background Execution:** Prevents timeouts for long-running tasks\\n5. **Monitoring:** Real-time progress tracking across all operations\"",
+      "type": "string",
+      "namespace": "default",
+      "tags": [],
+      "metadata": {},
+      "owner": "system",
+      "accessLevel": "shared",
+      "createdAt": "2025-06-19T18:06:24.035Z",
+      "updatedAt": "2025-06-19T18:06:24.035Z",
+      "lastAccessedAt": "2025-06-27T07:32:56.863Z",
+      "version": 1,
+      "size": 6026,
+      "compressed": true,
+      "checksum": "cd77d114c3d47828acc132bbba706b3d7c783a4a3b080683c534863d38ab1a58",
+      "references": [],
+      "dependencies": []
+    },
+    {
+      "id": "entry_mc3q71ly_hlgtehngg",
+      "key": "test_key",
+      "value": "This is a test value for MCP memory",
+      "type": "string",
+      "namespace": "default",
+      "tags": [],
+      "metadata": {},
+      "owner": "system",
+      "accessLevel": "shared",
+      "createdAt": "2025-06-19T18:39:55.366Z",
+      "updatedAt": "2025-06-19T18:39:55.366Z",
+      "lastAccessedAt": "2025-06-27T07:32:56.863Z",
+      "version": 1,
+      "size": 66,
+      "compressed": false,
+      "checksum": "640530faece06f786418c74a1fe7b0ed521ef31be44dfb1971e96607351ed00f",
+      "references": [],
+      "dependencies": []
+    },
+    {
+      "id": "entry_mc3qv4ha_fwbhafmk8",
+      "key": "mcp_test_key",
+      "value": "Testing MCP memory integration at Thu Jun 19 18:58:35 UTC 2025",
+      "type": "string",
+      "namespace": "default",
+      "tags": [],
+      "metadata": {},
+      "owner": "system",
+      "accessLevel": "shared",
+      "createdAt": "2025-06-19T18:58:38.830Z",
+      "updatedAt": "2025-06-19T18:58:38.830Z",
+      "lastAccessedAt": "2025-06-27T07:32:56.863Z",
+      "version": 1,
+      "size": 93,
+      "compressed": false,
+      "checksum": "c9a55fd5fbc5a2665c0bd7d9f1ef89008c7d3277fe75eabdbcb0cd9bda367591",
+      "references": [],
+      "dependencies": []
+    }
+  ],
+  "statistics": {
+    "overview": {
+      "totalEntries": 5,
+      "totalSize": 10929,
+      "compressedEntries": 2,
+      "compressionRatio": -50.291866028708135,
+      "indexSize": 250,
+      "memoryUsage": 9783048,
+      "diskUsage": 0
+    },
+    "distribution": {
+      "byNamespace": {
+        "test-namespace": {
+          "count": 1,
+          "size": 50
+        },
+        "default": {
+          "count": 4,
+          "size": 10879
+        }
+      },
+      "byType": {
+        "object": {
+          "count": 2,
+          "size": 4744
+        },
+        "string": {
+          "count": 3,
+          "size": 6185
+        }
+      },
+      "byOwner": {
+        "system": {
+          "count": 5,
+          "size": 10929
+        }
+      },
+      "byAccessLevel": {
+        "shared": {
+          "count": 5,
+          "size": 10929
+        }
+      }
+    },
+    "temporal": {
+      "entriesCreatedLast24h": 0,
+      "entriesUpdatedLast24h": 0,
+      "entriesAccessedLast24h": 5,
+      "oldestEntry": "2025-06-19T03:24:46.648Z",
+      "newestEntry": "2025-06-19T18:58:38.830Z"
+    },
+    "performance": {
+      "averageQueryTime": 0,
+      "averageWriteTime": 0,
+      "cacheHitRatio": 0,
+      "indexEfficiency": 0.95
+    },
+    "health": {
+      "expiredEntries": 0,
+      "orphanedReferences": 0,
+      "duplicateKeys": 0,
+      "corruptedEntries": 0,
+      "recommendedCleanup": false
+    },
+    "optimization": {
+      "suggestions": [],
+      "potentialSavings": {
+        "compression": 0,
+        "cleanup": 0,
+        "deduplication": 0
+      },
+      "indexOptimization": [
+        "Consider periodic index rebuilding for optimal performance"
+      ]
+    }
+  }
+}

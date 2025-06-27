@@ -99,7 +99,15 @@ class MockCLI {
             throw new Error(`Option --${optName} requires a value`);
           }
           
-          parsed[optName] = option.type === 'number' ? Number(value) : value;
+          if (option.type === 'number') {
+            const numValue = Number(value);
+            if (isNaN(numValue)) {
+              throw new Error(`Invalid number value for option --${optName}: ${value}`);
+            }
+            parsed[optName] = numValue;
+          } else {
+            parsed[optName] = value;
+          }
         }
       } else {
         // Positional argument
@@ -244,7 +252,7 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe( 1);
-      expect(output.stderr.join(' ')).toBe( 'Error');
+      expect(output.stderr.join(' ')).toBe( 'Error: Invalid number value for option --port: invalid');
     });
   });
 
@@ -362,7 +370,7 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe( 1);
-      expect(output.stderr.join(' ')).toBe( 'Unknown action: unknown');
+      expect(output.stderr.join(' ')).toBe( 'Error: Unknown action: unknown');
     });
   });
 
@@ -486,7 +494,7 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe( 1);
-      expect(output.stderr.join(' ')).toBe( 'Command is required');
+      expect(output.stderr.join(' ')).toBe( 'Error: Command is required for run action');
     });
 
     it('should require task ID for cancel action', async () => {
@@ -494,7 +502,7 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe( 1);
-      expect(output.stderr.join(' ')).toBe( 'Task ID is required');
+      expect(output.stderr.join(' ')).toBe( 'Error: Task ID is required for cancel action');
     });
   });
 
@@ -728,7 +736,7 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe( 1);
-      expect(output.stderr.join(' ')).toBe( 'Unknown option: invalid-option');
+      expect(output.stderr.join(' ')).toBe( 'Error: Unknown option: invalid-option');
     });
   });
 

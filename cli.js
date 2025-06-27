@@ -11,9 +11,9 @@ import { existsSync } from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Check if we have the compiled version
-const compiledPath = join(__dirname, 'dist', 'cli', 'simple-cli.js');
-const sourcePath = join(__dirname, 'src', 'cli', 'simple-cli.ts');
+// Check if we have the compiled version - Phase 2 Unified CLI
+const compiledPath = join(__dirname, 'dist', 'cli', 'main.js');
+const sourcePath = join(__dirname, 'src', 'cli', 'main.ts');
 
 // Check which version exists
 if (existsSync(compiledPath)) {

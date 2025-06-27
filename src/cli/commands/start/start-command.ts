@@ -2,6 +2,8 @@
  * Unified start command implementation with robust service management
  */
 
+// Phase 2 Runtime Migration: Deno compatibility layer
+import Deno from '../../../utils/deno-compat.js';
 import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
 import { Confirm } from '@cliffy/prompt';

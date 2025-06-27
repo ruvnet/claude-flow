@@ -1,5 +1,8 @@
 // rollback-executor.js - Execute rollback operations
 
+// Phase 2 Runtime Migration: Deno compatibility layer
+import Deno from '../../../../utils/deno-compat.js';
+
 export class RollbackExecutor {
   constructor(workingDir) {
     this.workingDir = workingDir;

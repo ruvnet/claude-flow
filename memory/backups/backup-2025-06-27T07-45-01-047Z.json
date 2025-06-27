@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-06-19T18:40:26.457Z",
+  "timestamp": "2025-06-27T07:45:01.047Z",
   "version": "1.0",
   "entries": [
     {
@@ -19,7 +19,7 @@
       "accessLevel": "shared",
       "createdAt": "2025-06-19T03:24:46.648Z",
       "updatedAt": "2025-06-19T03:24:46.648Z",
-      "lastAccessedAt": "2025-06-19T18:40:15.978Z",
+      "lastAccessedAt": "2025-06-27T07:45:01.032Z",
       "version": 1,
       "size": 50,
       "compressed": false,
@@ -39,7 +39,7 @@
       "accessLevel": "shared",
       "createdAt": "2025-06-19T18:06:21.352Z",
       "updatedAt": "2025-06-19T18:06:21.352Z",
-      "lastAccessedAt": "2025-06-19T18:40:15.978Z",
+      "lastAccessedAt": "2025-06-27T07:45:01.032Z",
       "version": 1,
       "size": 4694,
       "compressed": true,
@@ -59,7 +59,7 @@
       "accessLevel": "shared",
       "createdAt": "2025-06-19T18:06:24.035Z",
       "updatedAt": "2025-06-19T18:06:24.035Z",
-      "lastAccessedAt": "2025-06-19T18:40:15.978Z",
+      "lastAccessedAt": "2025-06-27T07:45:01.032Z",
       "version": 1,
       "size": 6026,
       "compressed": true,
@@ -79,23 +79,43 @@
       "accessLevel": "shared",
       "createdAt": "2025-06-19T18:39:55.366Z",
       "updatedAt": "2025-06-19T18:39:55.366Z",
-      "lastAccessedAt": "2025-06-19T18:40:15.978Z",
+      "lastAccessedAt": "2025-06-27T07:45:01.032Z",
       "version": 1,
       "size": 66,
       "compressed": false,
       "checksum": "640530faece06f786418c74a1fe7b0ed521ef31be44dfb1971e96607351ed00f",
       "references": [],
       "dependencies": []
+    },
+    {
+      "id": "entry_mc3qv4ha_fwbhafmk8",
+      "key": "mcp_test_key",
+      "value": "Testing MCP memory integration at Thu Jun 19 18:58:35 UTC 2025",
+      "type": "string",
+      "namespace": "default",
+      "tags": [],
+      "metadata": {},
+      "owner": "system",
+      "accessLevel": "shared",
+      "createdAt": "2025-06-19T18:58:38.830Z",
+      "updatedAt": "2025-06-19T18:58:38.830Z",
+      "lastAccessedAt": "2025-06-27T07:45:01.032Z",
+      "version": 1,
+      "size": 93,
+      "compressed": false,
+      "checksum": "c9a55fd5fbc5a2665c0bd7d9f1ef89008c7d3277fe75eabdbcb0cd9bda367591",
+      "references": [],
+      "dependencies": []
     }
   ],
   "statistics": {
     "overview": {
-      "totalEntries": 4,
-      "totalSize": 10836,
+      "totalEntries": 5,
+      "totalSize": 10929,
       "compressedEntries": 2,
-      "compressionRatio": -91.41379310344827,
-      "indexSize": 200,
-      "memoryUsage": 9361608,
+      "compressionRatio": -50.291866028708135,
+      "indexSize": 250,
+      "memoryUsage": 9739888,
       "diskUsage": 0
     },
     "distribution": {
@@ -105,8 +125,8 @@
           "size": 50
         },
         "default": {
-          "count": 3,
-          "size": 10786
+          "count": 4,
+          "size": 10879
         }
       },
       "byType": {
@@ -115,29 +135,29 @@
           "size": 4744
         },
         "string": {
-          "count": 2,
-          "size": 6092
+          "count": 3,
+          "size": 6185
         }
       },
       "byOwner": {
         "system": {
-          "count": 4,
-          "size": 10836
+          "count": 5,
+          "size": 10929
         }
       },
       "byAccessLevel": {
         "shared": {
-          "count": 4,
-          "size": 10836
+          "count": 5,
+          "size": 10929
         }
       }
     },
     "temporal": {
-      "entriesCreatedLast24h": 4,
-      "entriesUpdatedLast24h": 4,
-      "entriesAccessedLast24h": 4,
+      "entriesCreatedLast24h": 0,
+      "entriesUpdatedLast24h": 0,
+      "entriesAccessedLast24h": 5,
       "oldestEntry": "2025-06-19T03:24:46.648Z",
-      "newestEntry": "2025-06-19T18:39:55.366Z"
+      "newestEntry": "2025-06-19T18:58:38.830Z"
     },
     "performance": {
       "averageQueryTime": 0,

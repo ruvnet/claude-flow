@@ -566,14 +566,22 @@ class SwarmUI {
     this.log('Stopping all swarm operations...');
     
     try {
-      // Kill all swarm processes (simplified)
-      const { exec } = require('child_process');
-      exec('pkill -f "claude-flow swarm"', (error) => {
-        if (error) {
-          this.log(`Error stopping swarm: ${error.message}`, 'error');
+      // Kill all swarm processes safely using spawn
+      const { spawn } = require('child_process');
+      const pkill = spawn('pkill', ['-f', 'claude-flow swarm'], {
+        shell: false // Prevent shell injection
+      });
+      
+      pkill.on('close', (code) => {
+        if (code !== 0) {
+          this.log(`Error stopping swarm: pkill exited with code ${code}`, 'error');
         } else {
           this.log('Swarm operations stopped');
         }
+      });
+      
+      pkill.on('error', (error) => {
+        this.log(`Error stopping swarm: ${error.message}`, 'error');
       });
 
       // Update display
@@ -586,20 +594,27 @@ class SwarmUI {
   }
 
   async executeCommand(command) {
-    this.log(`Executing command: ${command}`);
+    this.log(`Command received: ${command}`);
     
-    try {
-      const { exec } = require('child_process');
-      exec(command, (error, stdout, stderr) => {
-        if (error) {
-          this.log(`Command error: ${error.message}`, 'error');
-        } else {
-          if (stdout) this.log(`Output: ${stdout.trim()}`);
-          if (stderr) this.log(`Error: ${stderr.trim()}`, 'warn');
-        }
-      });
-    } catch (error) {
-      this.log(`Failed to execute command: ${error.message}`, 'error');
+    // Whitelist of allowed commands for security
+    const allowedCommands = {
+      'status': () => this.log('Status: Swarm is running'),
+      'clear': () => this.clearLog(),
+      'help': () => this.showHelp(),
+      'agents': () => this.showAgents(),
+      'tasks': () => this.showTasks()
+    };
+    
+    const cmdName = command.trim().toLowerCase().split(' ')[0];
+    
+    if (allowedCommands[cmdName]) {
+      try {
+        allowedCommands[cmdName]();
+      } catch (error) {
+        this.log(`Command error: ${error.message}`, 'error');
+      }
+    } else {
+      this.log(`Unknown command: ${command}. Type 'help' for available commands.`, 'warn');
     }
   }
 
@@ -623,6 +638,41 @@ class SwarmUI {
       this.logBox.log(coloredMessage);
       this.screen.render();
     }
+  }
+
+  clearLog() {
+    this.logBuffer = [];
+    if (this.logBox) {
+      this.logBox.setContent('');
+      this.screen.render();
+    }
+    this.log('Log cleared');
+  }
+
+  showHelp() {
+    this.log('Available commands:');
+    this.log('  status  - Show swarm status');
+    this.log('  agents  - List active agents');
+    this.log('  tasks   - Show current tasks');
+    this.log('  clear   - Clear the log');
+    this.log('  help    - Show this help message');
+  }
+
+  showAgents() {
+    if (this.swarmData.agents.length === 0) {
+      this.log('No active agents');
+    } else {
+      this.log(`Active agents: ${this.swarmData.agents.length}`);
+      this.swarmData.agents.forEach(agent => {
+        this.log(`  - ${agent.type}: ${agent.status}`);
+      });
+    }
+  }
+
+  showTasks() {
+    const activeTasks = this.swarmData.tasks.filter(t => t.status === 'active').length;
+    const completedTasks = this.swarmData.tasks.filter(t => t.status === 'completed').length;
+    this.log(`Tasks: ${activeTasks} active, ${completedTasks} completed, ${this.swarmData.tasks.length} total`);
   }
 
   cleanup() {

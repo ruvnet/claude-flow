@@ -1,0 +1,329 @@
+{
+  "timestamp": "2025-06-27T07:02:56.463Z",
+  "environment": {
+    "nodeVersion": "v24.2.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "workingDirectory": "/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow"
+  },
+  "summary": {
+    "totalTests": 32,
+    "passed": 31,
+    "failed": 1,
+    "warnings": 0,
+    "skipped": 0
+  },
+  "categories": {
+    "basicCommands": [
+      {
+        "name": "Help Command",
+        "command": "./claude-flow --help",
+        "exitCode": 0,
+        "duration": 120,
+        "success": true,
+        "output": "\n🧠 Claude-Flow v1.0.72 - Advanced AI Agent Orchestration System\n\nUSAGE:\n  claude-flow <command> [options]\n\nINSTALLATION & SETUP:\n  npx claude-flow@latest init --sparc  # Initialize SPARC development ",
+        "error": null
+      },
+      {
+        "name": "Version Display",
+        "command": "./claude-flow --version",
+        "exitCode": 0,
+        "duration": 99,
+        "success": true,
+        "output": "1.0.72\n",
+        "error": null
+      },
+      {
+        "name": "Status Command",
+        "command": "./claude-flow status",
+        "exitCode": 0,
+        "duration": 200,
+        "success": true,
+        "output": "✅ Claude-Flow System Status:\n🟢 Status: Partially Running\n🤖 Agents: 0 active\n📋 Tasks: 0 in queue\n💾 Memory: 0 entries\n🖥️  Terminal Pool: Stopped\n🌐 MCP Server: Stopped\n",
+        "error": null
+      },
+      {
+        "name": "Config Show",
+        "command": "./claude-flow config show",
+        "exitCode": 0,
+        "duration": 103,
+        "success": true,
+        "output": "",
+        "error": "❌ Error: Failed to show configuration: Configuration file not found: claude-flow.config.json\n"
+      },
+      {
+        "name": "Config Validate",
+        "command": "./claude-flow config validate",
+        "exitCode": 0,
+        "duration": 102,
+        "success": true,
+        "output": "",
+        "error": "❌ Error: Configuration validation failed: Configuration file not found: claude-flow.config.json\n"
+      }
+    ],
+    "advancedCommands": [
+      {
+        "name": "Memory List",
+        "command": "./claude-flow memory list",
+        "exitCode": 0,
+        "duration": 124,
+        "success": true,
+        "output": "{\"timestamp\":\"2025-06-27T07:02:57.186Z\",\"level\":\"INFO\",\"message\":\"Initializing Advanced Memory Manager\",\"context\":{}}\n{\"timestamp\":\"2025-06-27T07:02:57.190Z\",\"level\":\"INFO\",\"message\":\"Loaded 5 entries",
+        "error": null,
+        "allowFailure": true
+      },
+      {
+        "name": "Memory Stats",
+        "command": "./claude-flow memory stats",
+        "exitCode": 0,
+        "duration": 125,
+        "success": true,
+        "output": "{\"timestamp\":\"2025-06-27T07:02:57.311Z\",\"level\":\"INFO\",\"message\":\"Initializing Advanced Memory Manager\",\"context\":{}}\n{\"timestamp\":\"2025-06-27T07:02:57.314Z\",\"level\":\"INFO\",\"message\":\"Loaded 5 entries",
+        "error": null,
+        "allowFailure": true
+      },
+      {
+        "name": "SPARC Modes",
+        "command": "./claude-flow sparc modes",
+        "exitCode": 0,
+        "duration": 102,
+        "success": true,
+        "output": "✅ 🧠 SPARC Development Modes - Complete Collection (17 Modes)\n\n🎯 Core Orchestration (4 modes):\n  • orchestrator - Multi-agent task orchestration with TodoWrite/Task/Memory\n  • swarm-coordinator - Adv",
+        "error": null
+      },
+      {
+        "name": "SPARC Help",
+        "command": "./claude-flow sparc --help",
+        "exitCode": 0,
+        "duration": 98,
+        "success": true,
+        "output": "\n🧠 Claude-Flow v1.0.72 - Advanced AI Agent Orchestration System\n\nUSAGE:\n  claude-flow <command> [options]\n\nINSTALLATION & SETUP:\n  npx claude-flow@latest init --sparc  # Initialize SPARC development ",
+        "error": null
+      },
+      {
+        "name": "Agent List",
+        "command": "./claude-flow agent list",
+        "exitCode": 0,
+        "duration": 109,
+        "success": true,
+        "output": "✅ Active agents:\n📋 No agents currently active (orchestrator not running)\n",
+        "error": null,
+        "allowFailure": true
+      },
+      {
+        "name": "Agent Help",
+        "command": "./claude-flow agent --help",
+        "exitCode": 0,
+        "duration": 103,
+        "success": true,
+        "output": "\n🧠 Claude-Flow v1.0.72 - Advanced AI Agent Orchestration System\n\nUSAGE:\n  claude-flow <command> [options]\n\nINSTALLATION & SETUP:\n  npx claude-flow@latest init --sparc  # Initialize SPARC development ",
+        "error": null
+      },
+      {
+        "name": "MCP Status",
+        "command": "./claude-flow mcp status",
+        "exitCode": 0,
+        "duration": 123,
+        "success": true,
+        "output": "✅ MCP Server Status:\n🟡 Status: Not running (use \"mcp start\" to start)\n📍 Checked address: localhost:3000\n🔐 Authentication: Disabled\n🔧 Tools: System, Health, Tools (when running)\n",
+        "error": null,
+        "allowFailure": true
+      },
+      {
+        "name": "MCP Tools",
+        "command": "./claude-flow mcp tools",
+        "exitCode": 0,
+        "duration": 101,
+        "success": true,
+        "output": "✅ Available MCP Tools:\n\n📊 System Tools:\n  • system/info - Get system information\n  • system/health - Get system health status\n\n🔧 Tool Management:\n  • tools/list - List all available tools\n  • tools/",
+        "error": null,
+        "allowFailure": true
+      },
+      {
+        "name": "Task List",
+        "command": "./claude-flow task list",
+        "exitCode": 0,
+        "duration": 105,
+        "success": true,
+        "output": "✅ Listing tasks with advanced filtering and visualization...\n📋 Filters: Status:all, Agent:all, Priority:all\n📊 Sort: createdAt (desc), Limit: 50, Offset: 0\n🎨 Format: table, Dependencies: no\n📋 No ta",
+        "error": null,
+        "allowFailure": true
+      },
+      {
+        "name": "Monitor Status",
+        "command": "./claude-flow monitor",
+        "exitCode": 0,
+        "duration": 104,
+        "success": true,
+        "output": "✅ Starting system monitor...\n📊 Real-time monitoring would display here\n",
+        "error": null,
+        "allowFailure": true
+      }
+    ],
+    "errorHandling": [
+      {
+        "name": "Invalid Command",
+        "command": "./claude-flow invalid-command-xyz",
+        "exitCode": 1,
+        "duration": 174,
+        "success": true,
+        "expectFailure": true,
+        "errorMessage": "error: unknown command 'invalid-command-xyz'\n"
+      },
+      {
+        "name": "Invalid Subcommand",
+        "command": "./claude-flow config invalid-subcommand",
+        "exitCode": 1,
+        "duration": 125,
+        "success": true,
+        "expectFailure": true,
+        "errorMessage": "error: unknown command 'invalid-subcommand'\n"
+      },
+      {
+        "name": "Invalid SPARC Mode",
+        "command": "./claude-flow sparc run invalid-mode test",
+        "exitCode": 0,
+        "duration": 15320,
+        "success": false,
+        "expectFailure": true,
+        "errorMessage": ""
+      },
+      {
+        "name": "Missing Arguments",
+        "command": "./claude-flow memory store",
+        "exitCode": 1,
+        "duration": 143,
+        "success": true,
+        "expectFailure": true,
+        "errorMessage": "error: missing required argument 'key'\n"
+      }
+    ],
+    "performance": [
+      {
+        "name": "Help Command Speed",
+        "command": "./claude-flow --help",
+        "duration": 116,
+        "maxDuration": 5000,
+        "withinTimeLimit": true,
+        "exitCode": 0,
+        "success": true
+      },
+      {
+        "name": "Status Command Speed",
+        "command": "./claude-flow status",
+        "duration": 167,
+        "maxDuration": 10000,
+        "withinTimeLimit": true,
+        "exitCode": 0,
+        "success": true
+      },
+      {
+        "name": "Config Show Speed",
+        "command": "./claude-flow config show",
+        "duration": 107,
+        "maxDuration": 8000,
+        "withinTimeLimit": true,
+        "exitCode": 0,
+        "success": true
+      },
+      {
+        "name": "SPARC Modes Speed",
+        "command": "./claude-flow sparc modes",
+        "duration": 97,
+        "maxDuration": 8000,
+        "withinTimeLimit": true,
+        "exitCode": 0,
+        "success": true
+      }
+    ],
+    "compatibility": [
+      {
+        "name": "Test Environment",
+        "environment": {
+          "NODE_ENV": "test"
+        },
+        "exitCode": 0,
+        "duration": 98,
+        "success": true
+      },
+      {
+        "name": "Production Environment",
+        "environment": {
+          "NODE_ENV": "production"
+        },
+        "exitCode": 0,
+        "duration": 99,
+        "success": true
+      },
+      {
+        "name": "Debug Mode",
+        "environment": {
+          "DEBUG": "*"
+        },
+        "exitCode": 0,
+        "duration": 99,
+        "success": true
+      },
+      {
+        "name": "Custom Working Directory",
+        "environment": {
+          "CLAUDE_WORKING_DIR": "/Users/mac-main/Documents/augment-projects/Claude Flow Implementations/claude-code-flow"
+        },
+        "exitCode": 0,
+        "duration": 99,
+        "success": true
+      },
+      {
+        "name": "CLI Executable Exists",
+        "path": "./claude-flow",
+        "exists": true,
+        "success": true
+      },
+      {
+        "name": "Package.json Exists",
+        "path": "package.json",
+        "exists": true,
+        "success": true
+      },
+      {
+        "name": "TypeScript Config Exists",
+        "path": "tsconfig.json",
+        "exists": true,
+        "success": true
+      },
+      {
+        "name": "Source Directory Exists",
+        "path": "src",
+        "exists": true,
+        "success": true
+      },
+      {
+        "name": "CLI Source Directory Exists",
+        "path": "src/cli",
+        "exists": true,
+        "success": true
+      }
+    ],
+    "runtimeMigration": []
+  },
+  "issues": [
+    "Error handling failed: Invalid SPARC Mode"
+  ],
+  "recommendations": [
+    "Overall Success Rate: 96.9%",
+    "Tests Passed: 31/32",
+    "Tests Failed: 1/32",
+    "Warnings: 0/32",
+    "🟢 EXCELLENT - System is ready for Phase 2 consolidation",
+    "",
+    "Critical Issues to Address:",
+    "  • Error handling failed: Invalid SPARC Mode",
+    "",
+    "Phase 2 Consolidation Recommendations:",
+    "  • Fix failing tests before proceeding with consolidation",
+    "  • Prioritize Tier 1 commands (start, sparc, init, swarm, agent) for consolidation",
+    "  • Maintain comprehensive test coverage during consolidation",
+    "  • Test each consolidation step incrementally",
+    "  • Create rollback procedures for each consolidation phase"
+  ]
+}

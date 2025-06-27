@@ -26,6 +26,18 @@ logs/
 .env.local
 .env.*.local
 
+# Security-sensitive files
+*.key
+*.pem
+*.p12
+*.crt
+.aws/
+.ssh/
+secrets.json
+private.key
+id_rsa
+id_dsa
+
 # Test coverage
 coverage/
 .nyc_output/

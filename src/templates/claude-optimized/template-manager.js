@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
 
 /**
  * Claude Optimized Template Manager
@@ -10,14 +10,19 @@ const { execSync } = require('child_process');
  */
 
 const commands = {
-  install: () => execSync('node install-template.js', { stdio: 'inherit' }),
-  validate: () => execSync('node validate-template.js', { stdio: 'inherit' }),
+  install: () => spawnSync('node', ['install-template.js'], { stdio: 'inherit', shell: false }),
+  validate: () => spawnSync('node', ['validate-template.js'], { stdio: 'inherit', shell: false }),
   deploy: (targetPath) => {
     if (!targetPath) {
       console.error('Usage: template-manager deploy <target-project-path>');
       process.exit(1);
     }
-    execSync(`node deploy-to-project.js "${targetPath}"`, { stdio: 'inherit' });
+    // Validate targetPath to prevent injection
+    if (typeof targetPath !== 'string' || targetPath.includes('..') || targetPath.includes(';') || targetPath.includes('|')) {
+      console.error('Invalid target path provided');
+      process.exit(1);
+    }
+    spawnSync('node', ['deploy-to-project.js', targetPath], { stdio: 'inherit', shell: false });
   },
   info: () => {
     const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
@@ -47,18 +52,22 @@ const commands = {
     
     // Run install to get latest files
     console.log('1. Refreshing template files...');
-    execSync('node install-template.js', { stdio: 'inherit' });
+    spawnSync('node', ['install-template.js'], { stdio: 'inherit', shell: false });
     
     // Validate
     console.log('2. Validating installation...');
-    execSync('node validate-template.js', { stdio: 'inherit' });
+    spawnSync('node', ['validate-template.js'], { stdio: 'inherit', shell: false });
     
     console.log('3. Template updated successfully!');
   },
   test: () => {
     console.log('Running template test suite...');
     if (fs.existsSync('.claude/tests/test-harness.js')) {
-      execSync('cd .claude && node tests/test-harness.js', { stdio: 'inherit' });
+      spawnSync('node', ['tests/test-harness.js'], { 
+        stdio: 'inherit', 
+        shell: false,
+        cwd: '.claude'
+      });
     } else {
       console.log('Test harness not found. Run "install" first.');
     }

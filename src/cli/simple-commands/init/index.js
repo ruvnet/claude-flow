@@ -1,4 +1,6 @@
 // init/index.js - Initialize Claude Code integration files
+// Phase 2 Runtime Migration: Deno compatibility layer
+import Deno from '../../../utils/deno-compat.js';
 import { printSuccess, printError, printWarning } from '../../utils.js';
 import { createLocalExecutable } from './executable-wrapper.js';
 import { createSparcStructureManually } from './sparc-structure.js';

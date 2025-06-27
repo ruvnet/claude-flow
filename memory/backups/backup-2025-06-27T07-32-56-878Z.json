@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-06-19T18:58:49.628Z",
+  "timestamp": "2025-06-27T07:32:56.878Z",
   "version": "1.0",
   "entries": [
     {
@@ -19,7 +19,7 @@
       "accessLevel": "shared",
       "createdAt": "2025-06-19T03:24:46.648Z",
       "updatedAt": "2025-06-19T03:24:46.648Z",
-      "lastAccessedAt": "2025-06-19T18:56:14.638Z",
+      "lastAccessedAt": "2025-06-27T07:32:56.863Z",
       "version": 1,
       "size": 50,
       "compressed": false,
@@ -39,7 +39,7 @@
       "accessLevel": "shared",
       "createdAt": "2025-06-19T18:06:21.352Z",
       "updatedAt": "2025-06-19T18:06:21.352Z",
-      "lastAccessedAt": "2025-06-19T18:56:14.638Z",
+      "lastAccessedAt": "2025-06-27T07:32:56.863Z",
       "version": 1,
       "size": 4694,
       "compressed": true,
@@ -59,7 +59,7 @@
       "accessLevel": "shared",
       "createdAt": "2025-06-19T18:06:24.035Z",
       "updatedAt": "2025-06-19T18:06:24.035Z",
-      "lastAccessedAt": "2025-06-19T18:56:14.638Z",
+      "lastAccessedAt": "2025-06-27T07:32:56.863Z",
       "version": 1,
       "size": 6026,
       "compressed": true,
@@ -79,7 +79,7 @@
       "accessLevel": "shared",
       "createdAt": "2025-06-19T18:39:55.366Z",
       "updatedAt": "2025-06-19T18:39:55.366Z",
-      "lastAccessedAt": "2025-06-19T18:56:14.638Z",
+      "lastAccessedAt": "2025-06-27T07:32:56.863Z",
       "version": 1,
       "size": 66,
       "compressed": false,
@@ -99,7 +99,7 @@
       "accessLevel": "shared",
       "createdAt": "2025-06-19T18:58:38.830Z",
       "updatedAt": "2025-06-19T18:58:38.830Z",
-      "lastAccessedAt": "2025-06-19T18:58:43.588Z",
+      "lastAccessedAt": "2025-06-27T07:32:56.863Z",
       "version": 1,
       "size": 93,
       "compressed": false,
@@ -115,7 +115,7 @@
       "compressedEntries": 2,
       "compressionRatio": -50.291866028708135,
       "indexSize": 250,
-      "memoryUsage": 9438848,
+      "memoryUsage": 9710896,
       "diskUsage": 0
     },
     "distribution": {
@@ -153,8 +153,8 @@
       }
     },
     "temporal": {
-      "entriesCreatedLast24h": 5,
-      "entriesUpdatedLast24h": 5,
+      "entriesCreatedLast24h": 0,
+      "entriesUpdatedLast24h": 0,
       "entriesAccessedLast24h": 5,
       "oldestEntry": "2025-06-19T03:24:46.648Z",
       "newestEntry": "2025-06-19T18:58:38.830Z"

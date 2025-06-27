@@ -107,11 +107,14 @@ if (!swarmPath) {
   
   // Try to use Claude wrapper approach
   try {
-    const { execSync } = await import('child_process');
+    const { spawnSync } = await import('child_process');
     
-    // Check if claude command exists
+    // Check if claude command exists (using secure spawnSync)
     try {
-      execSync('which claude', { stdio: 'ignore' });
+      const whichResult = spawnSync('which', ['claude'], { stdio: 'ignore', shell: false });
+      if (whichResult.status !== 0) {
+        throw new Error('Claude command not found');
+      }
     } catch (e) {
       // Claude not found, show fallback message
       console.log(`✅ Swarm initialized with ID: ${swarmId}`);

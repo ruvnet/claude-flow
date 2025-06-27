@@ -242,11 +242,19 @@ exit 0
         }
       }
       
-      // Execute the background script
+      // Execute the background script safely using spawn
       try {
-        execSync(`"${bgScriptPath}" ${commandArgs.map(arg => `"${arg}"`).join(' ')}`, {
-          stdio: 'inherit'
+        const { spawnSync } = await import('child_process');
+        const result = spawnSync(bgScriptPath, commandArgs, {
+          stdio: 'inherit',
+          shell: false // Explicitly disable shell to prevent injection
         });
+        
+        if (result.error) {
+          console.error('Failed to launch background swarm:', result.error.message);
+        } else if (result.status !== 0) {
+          console.error('Background swarm exited with code:', result.status);
+        }
       } catch (error) {
         console.error('Failed to launch background swarm:', error.message);
       }
@@ -397,11 +405,14 @@ exit 0
       
       // Try to use Claude wrapper approach like SPARC does
       try {
-        const { execSync } = await import('child_process');
+        const { spawnSync } = await import('child_process');
         
-        // Check if claude command exists
+        // Check if claude command exists (using secure spawnSync)
         try {
-          execSync('which claude', { stdio: 'ignore' });
+          const whichResult = spawnSync('which', ['claude'], { stdio: 'ignore', shell: false });
+          if (whichResult.status !== 0) {
+            throw new Error('Claude command not found');
+          }
         } catch (e) {
           // Claude not found, show fallback message
           console.log(`✅ Swarm initialized with ID: ${swarmId}`);
@@ -503,10 +514,20 @@ Begin execution now. Create all necessary files and provide a complete, working 
           claudeArgs.push('--dangerously-skip-permissions');
         }
         
-        // Spawn claude process
-        const claudeProcess = spawn('claude', claudeArgs, {
+        // Validate claudeArgs to prevent injection
+        const sanitizedArgs = claudeArgs.filter(arg => 
+          typeof arg === 'string' && 
+          !arg.includes(';') && 
+          !arg.includes('|') && 
+          !arg.includes('&') &&
+          !arg.includes('`') &&
+          !arg.includes('$')
+        );
+        
+        // Spawn claude process with sanitized arguments
+        const claudeProcess = spawn('claude', sanitizedArgs, {
           stdio: ['pipe', 'inherit', 'inherit'],
-          shell: false
+          shell: false // Explicitly disable shell to prevent injection
         });
         
         // Write the prompt to stdin and close it

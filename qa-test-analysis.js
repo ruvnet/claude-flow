@@ -1,0 +1,301 @@
+#!/usr/bin/env node
+
+/**
+ * QA Test Infrastructure Analysis Tool
+ * Analyzes corruption patterns in test files and generates repair strategy
+ */
+
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+class TestInfrastructureAnalyzer {
+  constructor() {
+    this.testDir = path.join(__dirname, 'tests');
+    this.corruptionPatterns = [];
+    this.analysisResults = {
+      totalFiles: 0,
+      corruptedFiles: 0,
+      patterns: {},
+      recommendations: []
+    };
+  }
+
+  // Common corruption patterns to detect
+  getCorruptionPatterns() {
+    return [
+      {
+        name: 'broken_toBe_array',
+        pattern: /\.toBe\(\s*\[([^\]]+)\)\.toBe\(/g,
+        fix: '.toEqual([$1])'
+      },
+      {
+        name: 'broken_toBe_object', 
+        pattern: /\.toBe\(\s*\{([^}]+)\)\.toBe\(/g,
+        fix: '.toEqual({$1})'
+      },
+      {
+        name: 'malformed_expect_chain',
+        pattern: /\.toBe\(\s*([^)]+)\)\.toBe\(/g,
+        fix: '.toEqual($1)'
+      },
+      {
+        name: 'missing_comma_in_object',
+        pattern: /\{\s*([^:]+):\s*([^}]+)\)\.toBe\(\s*([^:]+):/g,
+        fix: '{ $1: $2, $3:'
+      },
+      {
+        name: 'missing_import_paths',
+        pattern: /@\/([^']+)'/g,
+        fix: '../../../src/$1'
+      }
+    ];
+  }
+
+  // Recursively find all test files
+  findTestFiles(dir = this.testDir) {
+    const files = [];
+    
+    if (!fs.existsSync(dir)) {
+      console.warn(`Test directory not found: ${dir}`);
+      return files;
+    }
+
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      
+      if (entry.isDirectory()) {
+        files.push(...this.findTestFiles(fullPath));
+      } else if (entry.name.endsWith('.test.ts') || entry.name.endsWith('.test.js')) {
+        files.push(fullPath);
+      }
+    }
+    
+    return files;
+  }
+
+  // Analyze a single test file for corruption
+  analyzeFile(filePath) {
+    try {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const patterns = this.getCorruptionPatterns();
+      const fileResults = {
+        path: filePath,
+        corrupted: false,
+        issues: []
+      };
+
+      for (const pattern of patterns) {
+        const matches = Array.from(content.matchAll(pattern.pattern));
+        if (matches.length > 0) {
+          fileResults.corrupted = true;
+          fileResults.issues.push({
+            pattern: pattern.name,
+            count: matches.length,
+            examples: matches.slice(0, 3).map(m => m[0])
+          });
+
+          // Track pattern frequency
+          if (!this.analysisResults.patterns[pattern.name]) {
+            this.analysisResults.patterns[pattern.name] = 0;
+          }
+          this.analysisResults.patterns[pattern.name] += matches.length;
+        }
+      }
+
+      return fileResults;
+    } catch (error) {
+      console.error(`Error analyzing file ${filePath}:`, error.message);
+      return { path: filePath, corrupted: true, issues: [{ pattern: 'read_error', error: error.message }] };
+    }
+  }
+
+  // Run comprehensive analysis
+  analyze() {
+    console.log('🔍 Starting Test Infrastructure Analysis...\n');
+    
+    const testFiles = this.findTestFiles();
+    this.analysisResults.totalFiles = testFiles.length;
+    
+    console.log(`Found ${testFiles.length} test files to analyze\n`);
+
+    const corruptedFiles = [];
+
+    for (const filePath of testFiles) {
+      const result = this.analyzeFile(filePath);
+      if (result.corrupted) {
+        this.analysisResults.corruptedFiles++;
+        corruptedFiles.push(result);
+      }
+    }
+
+    this.generateRecommendations(corruptedFiles);
+    return { corruptedFiles, summary: this.analysisResults };
+  }
+
+  // Generate repair recommendations
+  generateRecommendations(corruptedFiles) {
+    const recs = this.analysisResults.recommendations;
+    
+    recs.push(`CRITICAL: ${this.analysisResults.corruptedFiles}/${this.analysisResults.totalFiles} test files are corrupted`);
+    
+    // Pattern-specific recommendations
+    if (this.analysisResults.patterns.broken_toBe_array) {
+      recs.push(`Fix ${this.analysisResults.patterns.broken_toBe_array} broken array assertions`);
+    }
+    
+    if (this.analysisResults.patterns.broken_toBe_object) {
+      recs.push(`Fix ${this.analysisResults.patterns.broken_toBe_object} broken object assertions`);
+    }
+    
+    if (this.analysisResults.patterns.missing_import_paths) {
+      recs.push(`Fix ${this.analysisResults.patterns.missing_import_paths} import path issues`);
+    }
+
+    // Generate batch repair script
+    recs.push('Create automated batch repair script');
+    recs.push('Implement test validation pipeline');
+    recs.push('Add corruption detection to CI/CD');
+  }
+
+  // Generate repair script
+  generateRepairScript(corruptedFiles) {
+    const repairScript = `#!/usr/bin/env node
+
+/**
+ * Automated Test Repair Script
+ * Generated by QA Test Infrastructure Analyzer
+ */
+
+import fs from 'fs';
+
+const repairs = [
+${this.getCorruptionPatterns().map(p => `  {
+    name: '${p.name}',
+    pattern: ${p.pattern},
+    replacement: '${p.fix}'
+  }`).join(',\n')}
+];
+
+const filesToRepair = [
+${corruptedFiles.map(f => `  '${f.path}'`).join(',\n')}
+];
+
+function repairFile(filePath) {
+  try {
+    let content = fs.readFileSync(filePath, 'utf8');
+    let repairCount = 0;
+    
+    for (const repair of repairs) {
+      const matches = content.match(repair.pattern);
+      if (matches) {
+        content = content.replace(repair.pattern, repair.replacement);
+        repairCount += matches.length;
+      }
+    }
+    
+    if (repairCount > 0) {
+      fs.writeFileSync(filePath, content);
+      console.log(\`✅ Repaired \${repairCount} issues in \${filePath}\`);
+    }
+  } catch (error) {
+    console.error(\`❌ Failed to repair \${filePath}: \${error.message}\`);
+  }
+}
+
+console.log('🔧 Starting automated test repair...');
+filesToRepair.forEach(repairFile);
+console.log('✅ Repair complete!');
+`;
+
+    fs.writeFileSync('repair-tests.js', repairScript);
+    console.log('📝 Generated repair-tests.js script');
+  }
+
+  // Generate detailed report
+  generateReport() {
+    const report = {
+      timestamp: new Date().toISOString(),
+      summary: this.analysisResults,
+      details: `
+# Test Infrastructure Corruption Analysis Report
+
+## Summary
+- **Total Files**: ${this.analysisResults.totalFiles}
+- **Corrupted Files**: ${this.analysisResults.corruptedFiles}
+- **Corruption Rate**: ${((this.analysisResults.corruptedFiles / this.analysisResults.totalFiles) * 100).toFixed(1)}%
+
+## Corruption Patterns
+${Object.entries(this.analysisResults.patterns).map(([pattern, count]) => 
+  `- **${pattern}**: ${count} occurrences`
+).join('\n')}
+
+## Recommendations
+${this.analysisResults.recommendations.map(rec => `- ${rec}`).join('\n')}
+
+## Next Steps
+1. Run repair-tests.js to fix corrupted files
+2. Validate repairs with npm test
+3. Establish baseline performance metrics
+4. Proceed with Phase 2 testing
+`
+    };
+
+    fs.writeFileSync('test-infrastructure-analysis.json', JSON.stringify(report, null, 2));
+    fs.writeFileSync('test-infrastructure-report.md', report.details);
+    
+    return report;
+  }
+}
+
+// Main execution
+async function main() {
+  const analyzer = new TestInfrastructureAnalyzer();
+  
+  try {
+    const { corruptedFiles, summary } = analyzer.analyze();
+    
+    console.log('\n📊 Analysis Results:');
+    console.log(`📁 Total Files: ${summary.totalFiles}`);
+    console.log(`🚫 Corrupted Files: ${summary.corruptedFiles}`);
+    console.log(`📈 Corruption Rate: ${((summary.corruptedFiles / summary.totalFiles) * 100).toFixed(1)}%\n`);
+    
+    console.log('🔧 Corruption Patterns:');
+    Object.entries(summary.patterns).forEach(([pattern, count]) => {
+      console.log(`  - ${pattern}: ${count} occurrences`);
+    });
+    
+    console.log('\n💡 Recommendations:');
+    summary.recommendations.forEach(rec => {
+      console.log(`  - ${rec}`);
+    });
+
+    // Generate repair tools
+    analyzer.generateRepairScript(corruptedFiles);
+    const report = analyzer.generateReport();
+    
+    console.log('\n📝 Generated Files:');
+    console.log('  - repair-tests.js (automated repair script)');
+    console.log('  - test-infrastructure-analysis.json');
+    console.log('  - test-infrastructure-report.md');
+    
+    if (summary.corruptedFiles > 0) {
+      console.log('\n⚠️  CRITICAL: Test infrastructure requires repair before Phase 2 validation can proceed');
+      process.exit(1);
+    }
+    
+  } catch (error) {
+    console.error('❌ Analysis failed:', error.message);
+    process.exit(1);
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}
+
+export default TestInfrastructureAnalyzer;

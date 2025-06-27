@@ -2,6 +2,8 @@
  * Claude Swarm Mode - Self-orchestrating agent swarms using claude-flow
  */
 
+// Phase 2 Runtime Migration: Deno compatibility layer
+import Deno from '../../utils/deno-compat.js';
 import { generateId } from '../../utils/helpers.js';
 import { success, error, warning, info } from "../cli-core.js";
 import type { CommandContext } from "../cli-core.js";

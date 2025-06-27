@@ -1,0 +1,43 @@
+{
+  "timestamp": "2025-06-27T06:52:26.178Z",
+  "startup": {
+    "measurements": [
+      {
+        "success": true,
+        "time": 112.270667,
+        "code": 0
+      },
+      {
+        "success": true,
+        "time": 78.82458300000002,
+        "code": 0
+      },
+      {
+        "success": true,
+        "time": 79.985084,
+        "code": 0
+      },
+      {
+        "success": true,
+        "time": 88.79508300000003,
+        "code": 0
+      },
+      {
+        "success": true,
+        "time": 77.31479200000001,
+        "code": 0
+      }
+    ],
+    "successful": 5,
+    "average": 87.43804180000001
+  },
+  "memory": {
+    "rss": 45973504,
+    "heapTotal": 6356992,
+    "heapUsed": 4869304,
+    "external": 1908706,
+    "arrayBuffers": 20730
+  },
+  "nodeVersion": "v24.2.0",
+  "platform": "darwin"
+}
