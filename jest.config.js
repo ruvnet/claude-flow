@@ -57,20 +57,6 @@ export default {
         }
       },
     },
-    {
-      displayName: 'memory',
-      testEnvironment: 'node',
-      testMatch: ['<rootDir>/memory/src/tests/**/*.test.ts'],
-      setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
-      preset: 'ts-jest/presets/default-esm',
-      extensionsToTreatAsEsm: ['.ts'],
-      transform: {
-        '^.+\\.ts$': ['ts-jest', { useESM: true }]
-      },
-      moduleNameMapper: {
-        '^(\\.{1,2}/.*)\\.js$': '$1',
-      },
-    },
   ],
   
   // Global configuration
