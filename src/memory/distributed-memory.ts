@@ -157,19 +157,19 @@ export class DistributedMemorySystem extends EventEmitter {
   }
 
   private setupEventHandlers(): void {
-    this.eventBus.on('memory:sync-request', (data) => {
+    this.eventBus.on('memory:sync-request', (data: unknown) => {
       this.handleSyncRequest(data);
     });
 
-    this.eventBus.on('memory:node-joined', (data) => {
+    this.eventBus.on('memory:node-joined', (data: unknown) => {
       this.handleNodeJoined(data);
     });
 
-    this.eventBus.on('memory:node-left', (data) => {
+    this.eventBus.on('memory:node-left', (data: unknown) => {
       this.handleNodeLeft(data);
     });
 
-    this.eventBus.on('memory:conflict-detected', (data) => {
+    this.eventBus.on('memory:conflict-detected', (data: unknown) => {
       this.handleConflict(data);
     });
   }

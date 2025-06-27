@@ -243,7 +243,7 @@ export function createAdvancedMemoryCommand(): Command {
         }
 
       } catch (error) {
-        printError(`Query failed: ${error.message}`);
+        printError(`Query failed: ${error instanceof Error ? error.message : String(error)}`);
         if (options.debug) {
           console.error(error);
         }
@@ -330,7 +330,7 @@ export function createAdvancedMemoryCommand(): Command {
         }
 
       } catch (error) {
-        printError(`Export failed: ${error.message}`);
+        printError(`Export failed: ${error instanceof Error ? error.message : String(error)}`);
         if (options.debug) {
           console.error(error);
         }
@@ -463,7 +463,7 @@ export function createAdvancedMemoryCommand(): Command {
         }
 
       } catch (error) {
-        printError(`Import failed: ${error.message}`);
+        printError(`Import failed: ${error instanceof Error ? error.message : String(error)}`);
         if (options.debug) {
           console.error(error);
         }
@@ -612,7 +612,7 @@ export function createAdvancedMemoryCommand(): Command {
         }
 
       } catch (error) {
-        printError(`Statistics generation failed: ${error.message}`);
+        printError(`Statistics generation failed: ${error instanceof Error ? error.message : String(error)}`);
         if (options.debug) {
           console.error(error);
         }
@@ -718,7 +718,7 @@ export function createAdvancedMemoryCommand(): Command {
         }
 
       } catch (error) {
-        printError(`Cleanup failed: ${error.message}`);
+        printError(`Cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
         if (options.debug) {
           console.error(error);
         }
@@ -795,7 +795,7 @@ export function createAdvancedMemoryCommand(): Command {
         }
 
       } catch (error) {
-        printError(`Store failed: ${error.message}`);
+        printError(`Store failed: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         // Ensure clean shutdown
         if (memoryManager) {
@@ -864,7 +864,7 @@ export function createAdvancedMemoryCommand(): Command {
         }
 
       } catch (error) {
-        printError(`Retrieve failed: ${error.message}`);
+        printError(`Retrieve failed: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         // Ensure clean shutdown
         if (memoryManager) {
@@ -907,7 +907,7 @@ export function createAdvancedMemoryCommand(): Command {
         }
 
       } catch (error) {
-        printError(`Delete failed: ${error.message}`);
+        printError(`Delete failed: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         // Ensure clean shutdown
         if (memoryManager) {
@@ -964,7 +964,7 @@ export function createAdvancedMemoryCommand(): Command {
         }
 
       } catch (error) {
-        printError(`List failed: ${error.message}`);
+        printError(`List failed: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         // Ensure clean shutdown
         if (memoryManager) {
@@ -993,7 +993,7 @@ export function createAdvancedMemoryCommand(): Command {
         });
 
       } catch (error) {
-        printError(`Failed to list namespaces: ${error.message}`);
+        printError(`Failed to list namespaces: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         // Ensure clean shutdown
         if (memoryManager) {
@@ -1021,7 +1021,7 @@ export function createAdvancedMemoryCommand(): Command {
         });
 
       } catch (error) {
-        printError(`Failed to list types: ${error.message}`);
+        printError(`Failed to list types: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         // Ensure clean shutdown
         if (memoryManager) {
@@ -1049,7 +1049,7 @@ export function createAdvancedMemoryCommand(): Command {
         });
 
       } catch (error) {
-        printError(`Failed to list tags: ${error.message}`);
+        printError(`Failed to list tags: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         // Ensure clean shutdown
         if (memoryManager) {
@@ -1086,7 +1086,7 @@ export function createAdvancedMemoryCommand(): Command {
         }
 
       } catch (error) {
-        printError(`Configuration operation failed: ${error.message}`);
+        printError(`Configuration operation failed: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         // Ensure clean shutdown
         if (memoryManager) {

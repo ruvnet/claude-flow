@@ -1171,7 +1171,7 @@ Now, please proceed with the task: ${task}`;
               stdio: "inherit",
             });
             
-            const status = await new Promise((resolve) => {
+            const status = await new Promise<{ success: boolean; code: number | null }>((resolve) => {
               child.on("close", (code) => {
                 resolve({ success: code === 0, code });
               });
@@ -1209,7 +1209,7 @@ Now, please proceed with the task: ${task}`;
               return;
             }
             
-            const promises = [];
+            const promises: Promise<{ success: boolean; code: number | null }>[] = [];
             
             for (const task of workflow.tasks) {
               const claudeCmd = ["claude", `"${task.description || task.name}"`];
@@ -1250,14 +1250,14 @@ Now, please proceed with the task: ${task}`;
               });
               
               if (workflow.parallel) {
-                promises.push(new Promise((resolve) => {
+                promises.push(new Promise<{ success: boolean; code: number | null }>((resolve) => {
                   child.on("close", (code) => {
                     resolve({ success: code === 0, code });
                   });
                 }));
               } else {
                 // Wait for completion if sequential
-                const status = await new Promise((resolve) => {
+                const status = await new Promise<{ success: boolean; code: number | null }>((resolve) => {
                   child.on("close", (code) => {
                     resolve({ success: code === 0, code });
                   });

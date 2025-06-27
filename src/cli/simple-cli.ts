@@ -694,7 +694,7 @@ Mode: ${mode} | ${options.parallel ? 'Parallel' : 'Sequential'} | Memory: ${opti
         console.log(fullPrompt);
         console.log('─'.repeat(80));
       } else {
-        printError(`Failed to launch Claude Code: ${error.message}`);
+        printError(`Failed to launch Claude Code: ${error instanceof Error ? error.message : String(error)}`);
       }
       // Cleanup temp file
       fs.unlink(promptFile).catch(() => {});
@@ -715,7 +715,7 @@ Mode: ${mode} | ${options.parallel ? 'Parallel' : 'Sequential'} | Memory: ${opti
       }
     });
   } catch (err) {
-    printError(`Failed to create prompt file: ${err.message}`);
+    printError(`Failed to create prompt file: ${err instanceof Error ? err.message : String(err)}`);
     console.log('\n💡 Fallback - copy this prompt to use manually:');
     console.log('\n' + '─'.repeat(80));
     console.log(fullPrompt);
@@ -996,7 +996,7 @@ async function createProgram() {
           
           console.log('\n💡 Run "npm run build" to compile the full orchestrator');
         } else {
-          printError(`Failed to start orchestrator: ${error.message}`);
+          printError(`Failed to start orchestrator: ${error instanceof Error ? error.message : String(error)}`);
           console.log('\n💡 Try running with --verbose for more details');
         }
       }
@@ -1300,7 +1300,7 @@ async function createProgram() {
         await configManager.createDefaultConfig(options.file);
         printSuccess(`Configuration initialized: ${options.file}`);
       } catch (error) {
-        printError(`Failed to initialize configuration: ${error.message}`);
+        printError(`Failed to initialize configuration: ${error instanceof Error ? error.message : String(error)}`);
       }
     });
 
@@ -1314,7 +1314,7 @@ async function createProgram() {
         const config = configManager.show();
         console.log(JSON.stringify(config, null, 2));
       } catch (error) {
-        printError(`Failed to show configuration: ${error.message}`);
+        printError(`Failed to show configuration: ${error instanceof Error ? error.message : String(error)}`);
       }
     });
 
@@ -1333,7 +1333,7 @@ async function createProgram() {
         }
         console.log(JSON.stringify(value, null, 2));
       } catch (error) {
-        printError(`Failed to get configuration: ${error.message}`);
+        printError(`Failed to get configuration: ${error instanceof Error ? error.message : String(error)}`);
       }
     });
 
@@ -1378,7 +1378,7 @@ async function createProgram() {
         await configManager.save();
         printSuccess(`Set ${path} = ${JSON.stringify(parsedValue)}`);
       } catch (error) {
-        printError(`Failed to set configuration: ${error.message}`);
+        printError(`Failed to set configuration: ${error instanceof Error ? error.message : String(error)}`);
       }
     });
 
@@ -1391,7 +1391,7 @@ async function createProgram() {
         await configManager.load(options.file);
         printSuccess('Configuration is valid');
       } catch (error) {
-        printError(`Configuration validation failed: ${error.message}`);
+        printError(`Configuration validation failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     });
 
@@ -1549,7 +1549,7 @@ async function createProgram() {
           console.log(`💾 Exported ${memoryStore.size} entries`);
           console.log('✅ Memory exported successfully');
         } catch (error: any) {
-          printError(`Failed to export memory: ${error.message}`);
+          printError(`Failed to export memory: ${error instanceof Error ? error.message : String(error)}`);
         }
       });
 
@@ -1577,7 +1577,7 @@ async function createProgram() {
           } else if (error instanceof SyntaxError) {
             printError(`Invalid JSON in file: ${file}`);
           } else {
-            printError(`Failed to import memory: ${error.message}`);
+            printError(`Failed to import memory: ${error instanceof Error ? error.message : String(error)}`);
           }
         }
       });
@@ -1812,7 +1812,7 @@ async function createProgram() {
         // Prevent CLI from exiting
         await new Promise(() => {}); // Keep running
       } catch (error) {
-        printError(`Failed to start MCP server: ${error.message}`);
+        printError(`Failed to start MCP server: ${error instanceof Error ? error.message : String(error)}`);
       }
     });
 
@@ -1865,7 +1865,7 @@ async function createProgram() {
         const { startNodeREPL } = await import('./node-repl.js');
         await startNodeREPL(options);
       } catch (error) {
-        printError(`Failed to start REPL: ${error.message}`);
+        printError(`Failed to start REPL: ${error instanceof Error ? error.message : String(error)}`);
       }
     });
 
@@ -2230,7 +2230,7 @@ See .claude/commands/swarm/ for detailed documentation on each strategy.
         // Create local wrapper script
         await createLocalWrapper(options.force);
       } catch (error) {
-        printError(`Failed to initialize project: ${error.message}`);
+        printError(`Failed to initialize project: ${error instanceof Error ? error.message : String(error)}`);
       }
     });
 
@@ -2505,7 +2505,7 @@ Follow the red-green-refactor cycle strictly.`;
             console.log(fullPrompt);
             console.log('─'.repeat(60));
           } else {
-            printError(`Failed to launch Claude Code: ${error.message}`);
+            printError(`Failed to launch Claude Code: ${error instanceof Error ? error.message : String(error)}`);
           }
           // Cleanup temp file
           fs.unlink(promptFile).catch(() => {});
@@ -3718,7 +3718,7 @@ Strategy: ${options.strategy} | Mode: ${options.mode} | Agents: ${options.maxAge
             // Simulate swarm execution
             simulateSwarmExecution(swarmConfig);
           } else {
-            printError(`Failed to launch Claude Code: ${error.message}`);
+            printError(`Failed to launch Claude Code: ${error instanceof Error ? error.message : String(error)}`);
           }
           // Cleanup temp file
           fs.unlink(promptFile).catch(() => {});
@@ -4268,7 +4268,7 @@ async function main() {
 
     await program.parseAsync(process.argv);
   } catch (error) {
-    printError(`Failed to execute command: ${error.message}`);
+    printError(`Failed to execute command: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
 }

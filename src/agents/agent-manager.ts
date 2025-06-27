@@ -150,6 +150,34 @@ export class AgentManager extends EventEmitter {
   private resourceUsage = new Map<string, { cpu: number; memory: number; disk: number }>();
   private performanceHistory = new Map<string, Array<{ timestamp: Date; metrics: AgentMetrics }>>();
 
+  // Default configurations with all required properties
+  private static readonly DEFAULT_AGENT_CONFIG: AgentConfig = {
+    autonomyLevel: 0.7,
+    learningEnabled: true,
+    adaptationEnabled: true,
+    maxTasksPerHour: 20,
+    maxConcurrentTasks: 5,
+    timeoutThreshold: 300000,
+    reportingInterval: 30000,
+    heartbeatInterval: 10000,
+    permissions: [],
+    trustedAgents: [],
+    expertise: {},
+    preferences: {}
+  };
+
+  private static readonly DEFAULT_AGENT_ENVIRONMENT: AgentEnvironment = {
+    runtime: 'deno',
+    version: '1.40.0',
+    workingDirectory: './agents',
+    tempDirectory: './tmp',
+    logDirectory: './logs',
+    apiEndpoints: {},
+    credentials: {},
+    availableTools: [],
+    toolConfigs: {}
+  };
+
   constructor(
     config: Partial<AgentManagerConfig>,
     logger: ILogger,
@@ -191,25 +219,28 @@ export class AgentManager extends EventEmitter {
   }
 
   private setupEventHandlers(): void {
-    this.eventBus.on('agent:heartbeat', (data) => {
-      this.handleHeartbeat(data);
+    this.eventBus.on('agent:heartbeat', (data: unknown) => {
+      this.handleHeartbeat(data as { agentId: string; timestamp: Date; metrics?: AgentMetrics });
     });
 
-    this.eventBus.on('agent:error', (data) => {
-      this.handleAgentError(data);
+    this.eventBus.on('agent:error', (data: unknown) => {
+      this.handleAgentError(data as { agentId: string; error: AgentError });
     });
 
-    this.eventBus.on('task:assigned', (data) => {
-      this.updateAgentWorkload(data.agentId, 1);
+    this.eventBus.on('task:assigned', (data: unknown) => {
+      const typedData = data as { agentId: string };
+      this.updateAgentWorkload(typedData.agentId, 1);
     });
 
-    this.eventBus.on('task:completed', (data) => {
-      this.updateAgentWorkload(data.agentId, -1);
-      this.updateAgentMetrics(data.agentId, data.metrics);
+    this.eventBus.on('task:completed', (data: unknown) => {
+      const typedData = data as { agentId: string; metrics: any };
+      this.updateAgentWorkload(typedData.agentId, -1);
+      this.updateAgentMetrics(typedData.agentId, typedData.metrics);
     });
 
-    this.eventBus.on('resource:usage', (data) => {
-      this.updateResourceUsage(data.agentId, data.usage);
+    this.eventBus.on('resource:usage', (data: unknown) => {
+      const typedData = data as { agentId: string; usage: any };
+      this.updateResourceUsage(typedData.agentId, typedData.usage);
     });
   }
 
@@ -419,6 +450,30 @@ export class AgentManager extends EventEmitter {
 
   // === AGENT LIFECYCLE ===
 
+  /**
+   * Safely merges partial configurations with defaults to ensure all required properties
+   */
+  private mergeAgentConfig(
+    ...configs: Array<Partial<AgentConfig> | undefined>
+  ): AgentConfig {
+    return configs.reduce(
+      (merged, config) => ({ ...merged, ...(config || {}) }),
+      { ...AgentManager.DEFAULT_AGENT_CONFIG }
+    ) as AgentConfig;
+  }
+
+  /**
+   * Safely merges partial environments with defaults to ensure all required properties
+   */
+  private mergeAgentEnvironment(
+    ...environments: Array<Partial<AgentEnvironment> | undefined>
+  ): AgentEnvironment {
+    return environments.reduce(
+      (merged, env) => ({ ...merged, ...(env || {}) }),
+      { ...AgentManager.DEFAULT_AGENT_ENVIRONMENT }
+    ) as AgentEnvironment;
+  }
+
   async createAgent(
     templateName: string,
     overrides: {
@@ -439,6 +494,22 @@ export class AgentManager extends EventEmitter {
     const agentId = generateId('agent');
     const swarmId = 'default'; // Could be parameterized
 
+    // Merge configurations ensuring all required properties are present
+    const agentConfig = this.mergeAgentConfig(
+      template.config,
+      overrides.config
+    );
+
+    const agentEnvironment = this.mergeAgentEnvironment(
+      template.environment,
+      overrides.environment,
+      {
+        workingDirectory: `${this.config.environmentDefaults.workingDirectory}/${template.type}`,
+        tempDirectory: `${this.config.environmentDefaults.tempDirectory}/${template.type}`,
+        logDirectory: `${this.config.environmentDefaults.logDirectory}/${template.type}`
+      }
+    );
+
     const agent: AgentState = {
       id: { id: agentId, swarmId, type: template.type, instance: 1 },
       name: overrides.name || `${template.name}-${agentId.slice(-8)}`,
@@ -448,8 +519,8 @@ export class AgentManager extends EventEmitter {
       metrics: this.createDefaultMetrics(),
       workload: 0,
       health: 1.0,
-      config: { ...template.config, ...overrides.config },
-      environment: { ...template.environment, ...overrides.environment },
+      config: agentConfig,
+      environment: agentEnvironment,
       endpoints: [],
       lastHeartbeat: new Date(),
       taskHistory: [],
@@ -508,11 +579,12 @@ export class AgentManager extends EventEmitter {
       this.emit('agent:started', { agent });
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       agent.status = 'error';
       this.addAgentError(agentId, {
         timestamp: new Date(),
         type: 'startup_failed',
-        message: error.message,
+        message: errorMessage,
         context: { agentId },
         severity: 'critical',
         resolved: false
@@ -909,7 +981,7 @@ export class AgentManager extends EventEmitter {
   // === UTILITY METHODS ===
 
   private async spawnAgentProcess(agent: AgentState): Promise<ChildProcess> {
-    const env = {
+    const processEnv: NodeJS.ProcessEnv = {
       ...process.env,
       AGENT_ID: agent.id.id,
       AGENT_TYPE: agent.type,
@@ -926,22 +998,29 @@ export class AgentManager extends EventEmitter {
       JSON.stringify(agent.config)
     ];
 
-    const process = spawn(agent.environment.runtime, args, {
-      env,
+    // Map runtime to executable command
+    const runtimeCommand = agent.environment.runtime === 'deno' ? 'deno' :
+                          agent.environment.runtime === 'node' ? 'node' :
+                          agent.environment.runtime === 'claude' ? 'claude' :
+                          agent.environment.runtime === 'browser' ? 'node' : // fallback for browser
+                          'deno'; // default fallback
+
+    const childProcess = spawn(runtimeCommand, args, {
+      env: processEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: agent.environment.workingDirectory
     });
 
     // Handle process events
-    process.on('exit', (code) => {
+    childProcess.on('exit', (code: number | null) => {
       this.handleProcessExit(agent.id.id, code);
     });
 
-    process.on('error', (error) => {
+    childProcess.on('error', (error: Error) => {
       this.handleProcessError(agent.id.id, error);
     });
 
-    return process;
+    return childProcess;
   }
 
   private async waitForAgentReady(agentId: string, timeout: number): Promise<void> {
@@ -950,8 +1029,9 @@ export class AgentManager extends EventEmitter {
         reject(new Error(`Agent ${agentId} startup timeout`));
       }, timeout);
 
-      const handler = (data: { agentId: string }) => {
-        if (data.agentId === agentId) {
+      const handler = (data: unknown) => {
+        const typedData = data as { agentId: string };
+        if (typedData.agentId === agentId) {
           clearTimeout(timer);
           this.eventBus.off('agent:ready', handler);
           resolve();

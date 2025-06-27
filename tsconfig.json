@@ -9,6 +9,13 @@
     "checkJs": false,
     "outDir": "./dist",
     "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "@cliffy/ansi/colors": ["./src/utils/cliffy-compat/colors"],
+      "@cliffy/table": ["./src/utils/cliffy-compat/table"],
+      "@cliffy/prompt": ["./src/utils/cliffy-compat/prompt"],
+      "@cliffy/command": ["./src/utils/cliffy-compat/command"]
+    },
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,

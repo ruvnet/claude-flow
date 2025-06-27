@@ -13,7 +13,7 @@ export class NodeRuntimeAdapter implements RuntimeAdapter {
     try {
       return await fs.readFile(path, 'utf-8');
     } catch (error) {
-      throw new Error(`Failed to read file ${path}: ${error.message}`);
+      throw new Error(`Failed to read file ${path}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -21,7 +21,7 @@ export class NodeRuntimeAdapter implements RuntimeAdapter {
     try {
       await fs.writeFile(path, content, 'utf-8');
     } catch (error) {
-      throw new Error(`Failed to write file ${path}: ${error.message}`);
+      throw new Error(`Failed to write file ${path}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -94,7 +94,7 @@ export class NodeRuntimeAdapter implements RuntimeAdapter {
         mtime: stats.mtime
       };
     } catch (error) {
-      throw new Error(`Failed to get stats for ${path}: ${error.message}`);
+      throw new Error(`Failed to get stats for ${path}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -135,7 +135,7 @@ export class NodeRuntimeAdapter implements RuntimeAdapter {
     try {
       await fs.mkdir(path, { recursive: true });
     } catch (error) {
-      throw new Error(`Failed to create directory ${path}: ${error.message}`);
+      throw new Error(`Failed to create directory ${path}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -144,7 +144,7 @@ export class NodeRuntimeAdapter implements RuntimeAdapter {
     try {
       await fs.copyFile(src, dest);
     } catch (error) {
-      throw new Error(`Failed to copy file from ${src} to ${dest}: ${error.message}`);
+      throw new Error(`Failed to copy file from ${src} to ${dest}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -158,7 +158,7 @@ export class NodeRuntimeAdapter implements RuntimeAdapter {
         await fs.unlink(path);
       }
     } catch (error) {
-      throw new Error(`Failed to remove ${path}: ${error.message}`);
+      throw new Error(`Failed to remove ${path}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -167,7 +167,7 @@ export class NodeRuntimeAdapter implements RuntimeAdapter {
     try {
       return await fs.readdir(path);
     } catch (error) {
-      throw new Error(`Failed to read directory ${path}: ${error.message}`);
+      throw new Error(`Failed to read directory ${path}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

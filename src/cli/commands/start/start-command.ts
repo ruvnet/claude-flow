@@ -221,18 +221,20 @@ export const startCommand = new Command()
           console.log(colors.gray('Press a key to select an option...'));
         }
       }
-    } catch (error) {
-      console.error(colors.red.bold('Failed to start:'), (error as Error).message);
-      if (options.verbose) {
-        console.error((error as Error).stack);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(colors.red.bold('Failed to start:'), errorMessage);
+      if (options.verbose && error instanceof Error) {
+        console.error(error.stack);
       }
       
       // Cleanup on failure
       console.log(colors.yellow('Performing cleanup...'));
       try {
         await cleanupOnFailure();
-      } catch (cleanupError) {
-        console.error(colors.red('Cleanup failed:'), (cleanupError as Error).message);
+      } catch (cleanupError: unknown) {
+        const cleanupErrorMessage = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+        console.error(colors.red('Cleanup failed:'), cleanupErrorMessage);
       }
       
       Deno.exit(1);
@@ -250,10 +252,10 @@ async function isSystemRunning(): Promise<boolean> {
     try {
       Deno.kill(data.pid, 'SIGTERM');
       return false; // Process was killed, so it was running
-    } catch {
+    } catch (error: unknown) {
       return false; // Process not found
     }
-  } catch {
+  } catch (error: unknown) {
     return false; // No PID file
   }
 }
@@ -272,14 +274,15 @@ async function stopExistingInstance(): Promise<void> {
     // Force kill if still running
     try {
       Deno.kill(data.pid, 'SIGKILL');
-    } catch {
+    } catch (error: unknown) {
       // Process already stopped
     }
     
     await Deno.remove('.claude-flow.pid').catch(() => {});
     console.log(colors.green('✓ Existing instance stopped'));
-  } catch (error) {
-    console.warn(colors.yellow('Warning: Could not stop existing instance'), (error as Error).message);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn(colors.yellow('Warning: Could not stop existing instance'), errorMessage);
   }
 }
 
@@ -296,8 +299,9 @@ async function performHealthChecks(): Promise<void> {
       console.log(colors.gray(`  Checking ${name}...`));
       await check();
       console.log(colors.green(`  ✓ ${name} OK`));
-    } catch (error) {
-      console.log(colors.red(`  ✗ ${name} Failed: ${(error as Error).message}`));
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log(colors.red(`  ✗ ${name} Failed: ${errorMessage}`));
       throw error;
     }
   }
@@ -329,7 +333,7 @@ async function checkNetworkConnectivity(): Promise<void> {
     if (!response.ok) {
       throw new Error(`Network check failed: ${response.status}`);
     }
-  } catch {
+  } catch (error: unknown) {
     console.log(colors.yellow('  ⚠ Network connectivity check skipped (offline mode?)'));
   }
 }
@@ -340,7 +344,7 @@ async function checkDependencies(): Promise<void> {
   for (const dir of requiredDirs) {
     try {
       await Deno.mkdir(dir, { recursive: true });
-    } catch (error) {
+    } catch (error: unknown) {
       throw new Error(`Cannot create required directory: ${dir}`);
     }
   }
@@ -392,8 +396,9 @@ async function startWithProgress(processManager: ProcessManager, mode: 'all' | '
     try {
       await processManager.startProcess(processId);
       console.log(colors.green(`${progress} ✓ ${processId} started`));
-    } catch (error) {
-      console.log(colors.red(`${progress} ✗ ${processId} failed: ${(error as Error).message}`));
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log(colors.red(`${progress} ✗ ${processId} failed: ${errorMessage}`));
       if (processId === 'orchestrator' || processId === 'mcp-server') {
         throw error; // Critical processes
       }
@@ -431,7 +436,7 @@ async function cleanupOnFailure(): Promise<void> {
   try {
     await Deno.remove('.claude-flow.pid').catch(() => {});
     console.log(colors.gray('Cleaned up PID file'));
-  } catch {
+  } catch (error: unknown) {
     // Ignore cleanup errors
   }
 }
@@ -440,7 +445,7 @@ async function cleanupOnShutdown(): Promise<void> {
   try {
     await Deno.remove('.claude-flow.pid').catch(() => {});
     console.log(colors.gray('Cleaned up PID file'));
-  } catch {
+  } catch (error: unknown) {
     // Ignore cleanup errors
   }
 }

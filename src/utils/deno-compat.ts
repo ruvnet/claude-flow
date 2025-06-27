@@ -143,7 +143,15 @@ export class DenoCompatEnv {
     set: (key: string, value: string): void => { env[key] = value; },
     delete: (key: string): void => { delete env[key]; },
     has: (key: string): boolean => key in env,
-    toObject: (): Record<string, string> => ({ ...env })
+    toObject: (): Record<string, string> => {
+      const result: Record<string, string> = {};
+      for (const [key, value] of Object.entries(env)) {
+        if (value !== undefined) {
+          result[key] = value;
+        }
+      }
+      return result;
+    }
   };
   
   /**
@@ -367,21 +375,21 @@ export class DenoCompatSystem {
  */
 export class DenoCompatErrors {
   static NotFound = class extends Error {
-    name = 'NotFound';
+    override name = 'NotFound';
     constructor(message?: string) {
       super(message || 'File or directory not found');
     }
   };
   
   static PermissionDenied = class extends Error {
-    name = 'PermissionDenied';
+    override name = 'PermissionDenied';
     constructor(message?: string) {
       super(message || 'Permission denied');
     }
   };
   
   static AlreadyExists = class extends Error {
-    name = 'AlreadyExists';
+    override name = 'AlreadyExists';
     constructor(message?: string) {
       super(message || 'File or directory already exists');
     }

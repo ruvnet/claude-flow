@@ -249,7 +249,7 @@ export class LoadBalancer extends EventEmitter {
       return decision;
 
     } catch (error) {
-      this.logger.error('Agent selection failed', { taskId: task.id.id, error });
+      this.logger.error('Agent selection failed', { taskId: task.id.id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -564,10 +564,10 @@ export class LoadBalancer extends EventEmitter {
         operationId,
         sourceAgent: sourceAgentId,
         targetAgent: targetAgentId,
-        error
+        error: error instanceof Error ? error.message : String(error)
       });
 
-      this.emit('workstealing:failed', { operation, error });
+      this.emit('workstealing:failed', { operation, error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -651,7 +651,7 @@ export class LoadBalancer extends EventEmitter {
       }
 
     } catch (error) {
-      this.logger.error('Rebalancing failed', error);
+      this.logger.error('Rebalancing failed', error instanceof Error ? error.message : String(error));
     }
   }
 

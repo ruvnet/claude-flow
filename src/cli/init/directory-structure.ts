@@ -28,7 +28,7 @@ export async function createDirectoryStructure(): Promise<void> {
       await fs.mkdir(dir, { recursive: true });
       console.log(`  ✅ Created ${dir}/ directory`);
     } catch (error) {
-      if (error.code !== 'EEXIST') {
+      if (error instanceof Error && 'code' in error && error.code !== 'EEXIST') {
         throw error;
       }
     }

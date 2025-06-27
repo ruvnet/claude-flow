@@ -308,7 +308,7 @@ export class RealTimeMonitor extends EventEmitter {
       await this.updateSwarmLevelMetrics();
 
     } catch (error) {
-      this.logger.error('Failed to collect system metrics', error);
+      this.logger.error('Failed to collect system metrics', error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -523,7 +523,7 @@ export class RealTimeMonitor extends EventEmitter {
         this.logger.error('Failed to execute alert action', { 
           alertId: alert.id, 
           actionType: action.type, 
-          error 
+          error: error instanceof Error ? error.message : String(error)
         });
       }
     }
@@ -582,11 +582,11 @@ export class RealTimeMonitor extends EventEmitter {
       });
 
     } catch (error) {
-      this.logger.error('Health check failed', { check: check.name, error });
+      this.logger.error('Health check failed', { check: check.name, error: error instanceof Error ? error.message : String(error) });
       this.recordMetric(`healthcheck.${check.name}`, 0, {
         type: check.type,
         target: check.target,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   }
@@ -873,7 +873,7 @@ export class RealTimeMonitor extends EventEmitter {
       });
 
     } catch (error) {
-      this.logger.error('Failed to export metrics', error);
+      this.logger.error('Failed to export metrics', error instanceof Error ? error.message : String(error));
     }
   }
 

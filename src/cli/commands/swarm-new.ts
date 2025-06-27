@@ -666,7 +666,7 @@ Agents: ${initialStatus.agents.active}/${initialStatus.agents.total} active
 `;
     await Deno.writeTextFile(`${swarmDir}/progress.txt`, initialProgressText);
   } catch (error) {
-    console.warn('Failed to create initial status files:', error.message);
+    console.warn('Failed to create initial status files:', error instanceof Error ? error.message : String(error));
   }
   
   // Set up periodic status updates - use longer interval for background mode
@@ -746,7 +746,7 @@ Agents: ${status.agents.active}/${status.agents.total} active
       // Write error to debug file but don't disrupt swarm
       try {
         await Deno.writeTextFile(`${swarmDir}/update-errors.log`, 
-          `${new Date().toISOString()}: ${error.message}\n`, { append: true });
+          `${new Date().toISOString()}: ${error instanceof Error ? error.message : String(error)}\n`, { append: true });
       } catch (e) {
         // Ignore file write errors
       }
@@ -805,7 +805,7 @@ function setupSwarmMonitoring(
       
       await Deno.writeTextFile(metricsFile, JSON.stringify(metrics) + '\n', { append: true });
     } catch (error) {
-      console.warn('Failed to collect metrics:', error.message);
+      console.warn('Failed to collect metrics:', error instanceof Error ? error.message : String(error));
     }
   }, 10000); // Every 10 seconds
   
