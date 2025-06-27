@@ -10,7 +10,7 @@ on:
     - cron: '0 2 * * *'
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '20.x'
 
 jobs:
   # Code quality and security checks
@@ -117,6 +117,42 @@ jobs:
         with:
           name: test-results-${{ matrix.os }}-${{ matrix.test-type }}
           path: test-results/
+          retention-days: 30
+
+  # Memory subdirectory testing (Vitest)
+  memory-test:
+    name: Memory Subdirectory Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install memory dependencies
+        run: |
+          cd memory
+          npm ci
+
+      - name: Run memory tests
+        run: |
+          cd memory
+          npm test
+
+      - name: Archive memory test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-test-results
+          path: memory/coverage/
           retention-days: 30
 
   # Performance and load testing

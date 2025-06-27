@@ -218,9 +218,9 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'orchestrator starting');
-      expect(output.stdout.join(' ')).toBe( 'port 8080');
-      expect(output.stdout.join(' ')).toBe( 'Log level: info');
+      expect(output.stdout.join(' ')).toContain('orchestrator starting');
+      expect(output.stdout.join(' ')).toContain('port 8080');
+      expect(output.stdout.join(' ')).toContain('Log level: info');
     });
 
     it('should start with custom configuration', async () => {
@@ -234,9 +234,9 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'test-config.json');
-      expect(output.stdout.join(' ')).toBe( 'port 9000');
-      expect(output.stdout.join(' ')).toBe( 'Log level: debug');
+      expect(output.stdout.join(' ')).toContain('test-config.json');
+      expect(output.stdout.join(' ')).toContain('port 9000');
+      expect(output.stdout.join(' ')).toContain('Log level: debug');
     });
 
     it('should handle daemon mode', async () => {
@@ -244,15 +244,15 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'daemon mode');
+      expect(output.stdout.join(' ')).toContain('daemon mode');
     });
 
     it('should validate port numbers', async () => {
       const exitCode = await cli.execute(['start', '--port', 'invalid']);
       const output = cli.getOutput();
       
-      expect(exitCode).toBe( 1);
-      expect(output.stderr.join(' ')).toBe( 'Error: Invalid number value for option --port: invalid');
+      expect(exitCode).toBe(1);
+      expect(output.stderr.join(' ')).toContain('Error: Invalid number value for option --port: invalid');
     });
   });
 
@@ -312,8 +312,8 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'Creating agent: test-agent');
-      expect(output.stdout.join(' ')).toBe( 'created successfully');
+      expect(output.stdout.join(' ')).toContain('Creating agent: test-agent');
+      expect(output.stdout.join(' ')).toContain('created successfully');
     });
 
     it('should create an agent with full configuration', async () => {
@@ -328,9 +328,9 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe('Creating agent: full-agent');
-      expect(output.stdout.join(' ')).toBe('Role: analyzer');
-      expect(output.stdout.join(' ')).toBe('Capabilities: code-analysis,testing,documentation');
+      expect(output.stdout.join(' ')).toContain('Creating agent: full-agent');
+      expect(output.stdout.join(' ')).toContain('Role: analyzer');
+      expect(output.stdout.join(' ')).toContain('Capabilities: code-analysis,testing,documentation');
     });
 
     it('should list existing agents', async () => {
@@ -338,9 +338,9 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'Active agents:');
-      expect(output.stdout.join(' ')).toBe( 'agent-1');
-      expect(output.stdout.join(' ')).toBe( 'agent-2');
+      expect(output.stdout.join(' ')).toContain('Active agents:');
+      expect(output.stdout.join(' ')).toContain('agent-1');
+      expect(output.stdout.join(' ')).toContain('agent-2');
     });
 
     it('should delete an agent', async () => {
@@ -353,24 +353,24 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'Deleting agent: old-agent');
-      expect(output.stdout.join(' ')).toBe( 'deleted successfully');
+      expect(output.stdout.join(' ')).toContain('Deleting agent: old-agent');
+      expect(output.stdout.join(' ')).toContain('deleted successfully');
     });
 
     it('should require name for create and delete actions', async () => {
       const createResult = await cli.execute(['agent', '--action', 'create']);
-      expect(createResult).toBe( 1);
+      expect(createResult).toBe(1);
       
       const deleteResult = await cli.execute(['agent', '--action', 'delete']);
-      expect(deleteResult).toBe( 1);
+      expect(deleteResult).toBe(1);
     });
 
     it('should handle unknown actions', async () => {
       const exitCode = await cli.execute(['agent', '--action', 'unknown']);
       const output = cli.getOutput();
       
-      expect(exitCode).toBe( 1);
-      expect(output.stderr.join(' ')).toBe( 'Error: Unknown action: unknown');
+      expect(exitCode).toBe(1);
+      expect(output.stderr.join(' ')).toContain('Error: Unknown action: unknown');
     });
   });
 
@@ -441,9 +441,9 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'Running task:');
-      expect(output.stdout.join(' ')).toBe( 'Command: echo "Hello World"');
-      expect(output.stdout.join(' ')).toBe( 'completed successfully');
+      expect(output.stdout.join(' ')).toContain('Running task:');
+      expect(output.stdout.join(' ')).toContain('Command: echo "Hello World"');
+      expect(output.stdout.join(' ')).toContain('completed successfully');
     });
 
     it('should run a task with full configuration', async () => {
@@ -459,10 +459,10 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'Command: npm test');
-      expect(output.stdout.join(' ')).toBe( 'Agent: test-agent');
-      expect(output.stdout.join(' ')).toBe( 'Priority: high');
-      expect(output.stdout.join(' ')).toBe( 'Timeout: 300s');
+      expect(output.stdout.join(' ')).toContain('Command: npm test');
+      expect(output.stdout.join(' ')).toContain('Agent: test-agent');
+      expect(output.stdout.join(' ')).toContain('Priority: high');
+      expect(output.stdout.join(' ')).toContain('Timeout: 300s');
     });
 
     it('should list active tasks', async () => {
@@ -470,9 +470,9 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'Active tasks:');
-      expect(output.stdout.join(' ')).toBe( 'task-001');
-      expect(output.stdout.join(' ')).toBe( 'task-002');
+      expect(output.stdout.join(' ')).toContain('Active tasks:');
+      expect(output.stdout.join(' ')).toContain('task-001');
+      expect(output.stdout.join(' ')).toContain('task-002');
     });
 
     it('should cancel a task', async () => {
@@ -485,24 +485,24 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'Cancelling task: task-123');
-      expect(output.stdout.join(' ')).toBe( 'cancelled successfully');
+      expect(output.stdout.join(' ')).toContain('Cancelling task: task-123');
+      expect(output.stdout.join(' ')).toContain('cancelled successfully');
     });
 
     it('should require command for run action', async () => {
       const exitCode = await cli.execute(['task', '--action', 'run']);
       const output = cli.getOutput();
       
-      expect(exitCode).toBe( 1);
-      expect(output.stderr.join(' ')).toBe( 'Error: Command is required for run action');
+      expect(exitCode).toBe(1);
+      expect(output.stderr.join(' ')).toContain('Error: Command is required for run action');
     });
 
     it('should require task ID for cancel action', async () => {
       const exitCode = await cli.execute(['task', '--action', 'cancel']);
       const output = cli.getOutput();
       
-      expect(exitCode).toBe( 1);
-      expect(output.stderr.join(' ')).toBe( 'Error: Task ID is required for cancel action');
+      expect(exitCode).toBe(1);
+      expect(output.stderr.join(' ')).toContain('Error: Task ID is required for cancel action');
     });
   });
 
@@ -572,9 +572,9 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'Setting memory: default:test-key');
-      expect(output.stdout.join(' ')).toBe( 'Value: test-value');
-      expect(output.stdout.join(' ')).toBe( 'stored successfully');
+      expect(output.stdout.join(' ')).toContain('Setting memory: default:test-key');
+      expect(output.stdout.join(' ')).toContain('Value: test-value');
+      expect(output.stdout.join(' ')).toContain('stored successfully');
     });
 
     it('should set a memory entry with namespace and tags', async () => {
@@ -590,8 +590,8 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe('Setting memory: project:project-key');
-      expect(output.stdout.join(' ')).toBe('Tags: important,work');
+      expect(output.stdout.join(' ')).toContain('Setting memory: project:project-key');
+      expect(output.stdout.join(' ')).toContain('Tags: important,work');
     });
 
     it('should retrieve a memory entry', async () => {
@@ -604,8 +604,8 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'Retrieving memory: default:existing-key');
-      expect(output.stdout.join(' ')).toBe( 'Value: example-value-for-existing-key');
+      expect(output.stdout.join(' ')).toContain('Retrieving memory: default:existing-key');
+      expect(output.stdout.join(' ')).toContain('Value: example-value-for-existing-key');
     });
 
     it('should list memory entries', async () => {
@@ -613,9 +613,9 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'Memory entries in namespace');
-      expect(output.stdout.join(' ')).toBe( 'key1: value1');
-      expect(output.stdout.join(' ')).toBe( 'key2: value2');
+      expect(output.stdout.join(' ')).toContain('Memory entries in namespace');
+      expect(output.stdout.join(' ')).toContain('key1: value1');
+      expect(output.stdout.join(' ')).toContain('key2: value2');
     });
 
     it('should delete a memory entry', async () => {
@@ -628,28 +628,28 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'Deleting memory: default:old-key');
-      expect(output.stdout.join(' ')).toBe( 'deleted successfully');
+      expect(output.stdout.join(' ')).toContain('Deleting memory: default:old-key');
+      expect(output.stdout.join(' ')).toContain('deleted successfully');
     });
 
     it('should require key and value for set action', async () => {
       const exitCode1 = await cli.execute(['memory', '--action', 'set', '--key', 'test']);
-      expect(exitCode1).toBe( 1);
+      expect(exitCode1).toBe(1);
       
       cli.clearOutput();
       
       const exitCode2 = await cli.execute(['memory', '--action', 'set', '--value', 'test']);
-      expect(exitCode2).toBe( 1);
+      expect(exitCode2).toBe(1);
     });
 
     it('should require key for get and delete actions', async () => {
       const exitCode1 = await cli.execute(['memory', '--action', 'get']);
-      expect(exitCode1).toBe( 1);
+      expect(exitCode1).toBe(1);
       
       cli.clearOutput();
       
       const exitCode2 = await cli.execute(['memory', '--action', 'delete']);
-      expect(exitCode2).toBe( 1);
+      expect(exitCode2).toBe(1);
     });
   });
 
@@ -697,12 +697,12 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'Claude-Flow CLI');
-      expect(output.stdout.join(' ')).toBe( 'Commands:');
-      expect(output.stdout.join(' ')).toBe( 'start');
-      expect(output.stdout.join(' ')).toBe( 'agent');
-      expect(output.stdout.join(' ')).toBe( 'task');
-      expect(output.stdout.join(' ')).toBe( 'memory');
+      expect(output.stdout.join(' ')).toContain('Claude-Flow CLI');
+      expect(output.stdout.join(' ')).toContain('Commands:');
+      expect(output.stdout.join(' ')).toContain('start');
+      expect(output.stdout.join(' ')).toContain('agent');
+      expect(output.stdout.join(' ')).toContain('task');
+      expect(output.stdout.join(' ')).toContain('memory');
     });
 
     it('should show command-specific help', async () => {
@@ -710,7 +710,7 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'Help for command: start');
+      expect(output.stdout.join(' ')).toContain('Help for command: start');
     });
 
     it('should show version information', async () => {
@@ -718,25 +718,25 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const output = cli.getOutput();
       
       expect(exitCode).toBe(0);
-      expect(output.stdout.join(' ')).toBe( 'Claude-Flow v1.0.0');
-      expect(output.stdout.join(' ')).toBe( 'Deno Runtime');
-      expect(output.stdout.join(' ')).toBe( 'Build:');
+      expect(output.stdout.join(' ')).toContain('Claude-Flow v1.0.0');
+      expect(output.stdout.join(' ')).toContain('Deno Runtime');
+      expect(output.stdout.join(' ')).toContain('Build:');
     });
 
     it('should handle unknown commands', async () => {
       const exitCode = await cli.execute(['unknown-command']);
       const output = cli.getOutput();
       
-      expect(exitCode).toBe( 1);
-      expect(output.stderr.join(' ')).toBe( 'Unknown command: unknown-command');
+      expect(exitCode).toBe(1);
+      expect(output.stderr.join(' ')).toContain('Unknown command: unknown-command');
     });
 
     it('should handle invalid options', async () => {
       const exitCode = await cli.execute(['help', '--invalid-option', 'value']);
       const output = cli.getOutput();
       
-      expect(exitCode).toBe( 1);
-      expect(output.stderr.join(' ')).toBe( 'Error: Unknown option: invalid-option');
+      expect(exitCode).toBe(1);
+      expect(output.stderr.join(' ')).toContain('Error: Unknown option: invalid-option');
     });
   });
 
@@ -787,14 +787,14 @@ describe('CLI Commands - Comprehensive Tests', () => {
         const exitCode = await cli.execute(scenario.command);
         const output = cli.getOutput();
         
-        expect(exitCode).toBe( scenario.expectedExitCode);
+        expect(exitCode).toBe(scenario.expectedExitCode);
         
         if (scenario.expectedOutput) {
           const outputText = output.stdout.join(' ');
           const errorText = output.stderr.join(' ');
           const allOutput = outputText + ' ' + errorText;
           
-          expect(allOutput).toBe( scenario.expectedOutput);
+          expect(allOutput).toContain(scenario.expectedOutput);
         }
         
         console.log(`Scenario passed: ${scenario.command.join(' ')}`);
@@ -827,7 +827,7 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       // All commands in workflow should succeed
       results.forEach(result => {
-        expect(result.exitCode).toBe( 0);
+        expect(result.exitCode).toBe(0);
       });
       
       console.log(`Workflow completed with ${results.length} steps`);
@@ -883,8 +883,8 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       // All concurrent operations should succeed
       results.forEach(result => {
-        expect(result.exitCode).toBe( 0);
-        expect(result.output.stdout[0]);
+        expect(result.exitCode).toBe(0);
+        expect(result.output.stdout[0]).toBeDefined();
       });
       
       console.log(`${results.length} concurrent CLI operations completed successfully`);
@@ -911,11 +911,11 @@ describe('CLI Commands - Comprehensive Tests', () => {
         console.log(`Step ${index + 1}: ${command.join(' ')} -> exit code ${exitCode}`);
       }
       
-      expect(actualResults).toBe( expectedResults);
+      expect(actualResults).toEqual(expectedResults);
       
       // Verify that successful commands completed despite intervening errors
-      expect(actualResults.filter(code => code === 0).length).toBe( 3);
-      expect(actualResults.filter(code => code === 1).length).toBe( 2);
+      expect(actualResults.filter(code => code === 0).length).toBe(3);
+      expect(actualResults.filter(code => code === 1).length).toBe(2);
     });
   });
 
@@ -950,7 +950,7 @@ describe('CLI Commands - Comprehensive Tests', () => {
         return cli.execute(['perf-test', '--iterations', '10', '--delay', '0']);
       });
       
-      expect(result).toBe( 0);
+      expect(result).toBe(0);
       TestAssertions.assertInRange(duration, 0, 1000); // Should complete within 1 second
       
       console.log(`Fast CLI execution: ${duration.toFixed(2)}ms`);
