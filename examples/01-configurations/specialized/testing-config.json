@@ -2,7 +2,7 @@
   "name": "Testing Configuration",
   "description": "Configuration optimized for test generation and execution",
   "orchestrator": {
-    "model": "claude-3-sonnet-20240229",
+    "model": "claude-sonnet-4-20250514",
     "temperature": 0.2,
     "maxTokens": 4096,
     "timeout": 60000,

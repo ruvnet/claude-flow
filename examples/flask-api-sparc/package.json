@@ -1,1 +1,7 @@
-Package configuration
+{
+  "name": "flask-api-sparc-example",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {}
+}

@@ -52,7 +52,7 @@ The original comprehensive configuration example showing all available options:
 ## Configuration Sections
 
 ### Orchestrator
-- `model`: Claude model to use (e.g., "claude-3-sonnet-20240229")
+- `model`: Claude model to use (e.g., "claude-sonnet-4-20250514")
 - `temperature`: Creativity level (0.0-1.0)
 - `maxTokens`: Maximum response length
 - `timeout`: Operation timeout in milliseconds

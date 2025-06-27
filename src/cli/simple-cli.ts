@@ -2555,7 +2555,7 @@ Follow the red-green-refactor cycle strictly.`;
       console.log('  • claude compare <prompt> - Compare responses across models');
       console.log('  • claude optimize <conversation> - Optimize conversation context');
       console.log('\n💡 Integration Examples:');
-      console.log('  claude chat --model claude-3-opus-20240229 --memory-key project_chat');
+      console.log('  claude chat --model claude-opus-4-20250514 --memory-key project_chat');
       console.log('  claude session save project_planning');
       console.log('  claude batch ./prompts.txt --output results.json');
     });
@@ -2573,7 +2573,7 @@ Follow the red-green-refactor cycle strictly.`;
         console.log('📊 Authentication Status:');
         console.log('  • API Key: Set in environment or config file');
         console.log('  • Status: Ready for API calls');
-        console.log('  • Default Model: claude-3-sonnet-20240229');
+        console.log('  • Default Model: claude-sonnet-4-20250514');
         console.log('  • Rate Limits: Standard tier');
         return;
       }
@@ -2610,22 +2610,22 @@ Follow the red-green-refactor cycle strictly.`;
         console.log('  • Best for: Complex tasks, coding, analysis');
         
         console.log('\n💎 Claude 3 Opus (Most Capable):');
-        console.log('  • Model: claude-3-opus-20240229');
+        console.log('  • Model: claude-opus-4-20250514');
         console.log('  • Capabilities: Highest intelligence, complex reasoning');
         console.log('  • Context: 200k tokens');
         console.log('  • Best for: Research, complex problem solving');
         
         console.log('\n⚡ Claude 3 Haiku (Fastest):');
-        console.log('  • Model: claude-3-haiku-20240307');
+        console.log('  • Model: ');
         console.log('  • Capabilities: Fast, efficient, cost-effective');
         console.log('  • Context: 200k tokens');
         console.log('  • Best for: Simple tasks, quick responses');
       } else {
         console.log('\n🧠 Claude Model Family:');
         console.log('  • claude-3-5-sonnet-20241022 (Latest & Recommended)');
-        console.log('  • claude-3-opus-20240229 (Most Capable)');
-        console.log('  • claude-3-sonnet-20240229 (Balanced)');
-        console.log('  • claude-3-haiku-20240307 (Fastest)');
+        console.log('  • claude-opus-4-20250514 (Most Capable)');
+        console.log('  • claude-sonnet-4-20250514 (Balanced)');
+        console.log('  •  (Fastest)');
       }
       
       if (options.checkAccess) {
@@ -2637,7 +2637,7 @@ Follow the red-green-refactor cycle strictly.`;
       
       console.log('\n💡 Usage Examples:');
       console.log('  claude-flow claude chat --model claude-3-5-sonnet-20241022');
-      console.log('  claude-flow claude api "Hello Claude" --model claude-3-opus-20240229');
+      console.log('  claude-flow claude api "Hello Claude" --model claude-opus-4-20250514');
       console.log('  claude-flow claude models --detailed');
     });
 
@@ -2654,7 +2654,7 @@ Follow the red-green-refactor cycle strictly.`;
       
       if (options.show) {
         console.log('\n📊 Current Configuration:');
-        console.log('  • Default Model: claude-3-sonnet-20240229');
+        console.log('  • Default Model: claude-sonnet-4-20250514');
         console.log('  • Max Tokens: 4096');
         console.log('  • Temperature: 0.7');
         console.log('  • Context Memory: Enabled');
@@ -2690,7 +2690,7 @@ Follow the red-green-refactor cycle strictly.`;
         console.log('  • --show - Display current settings');
         console.log('  • --reset - Reset to defaults');
         console.log('\n💡 Examples:');
-        console.log('  claude-flow claude config --set-default-model claude-3-opus-20240229');
+        console.log('  claude-flow claude config --set-default-model claude-opus-4-20250514');
         console.log('  claude-flow claude config --set-temperature 0.3');
         console.log('  claude-flow claude config --show');
       }
@@ -2699,7 +2699,7 @@ Follow the red-green-refactor cycle strictly.`;
   claudeCmd
     .command('chat')
     .description('Interactive chat with Claude with context persistence')
-    .option('--model <model>', 'Claude model to use', 'claude-3-sonnet-20240229')
+    .option('--model <model>', 'Claude model to use', 'claude-sonnet-4-20250514')
     .option('--memory-key <key>', 'Memory key for conversation persistence')
     .option('--session <name>', 'Named session for conversation')
     .option('--temperature <temp>', 'Response creativity (0.0-1.0)', '0.7')
@@ -2840,7 +2840,7 @@ Follow the red-green-refactor cycle strictly.`;
   claudeCmd
     .command('api <prompt>')
     .description('Direct API call with context optimization')
-    .option('--model <model>', 'Claude model to use', 'claude-3-sonnet-20240229')
+    .option('--model <model>', 'Claude model to use', 'claude-sonnet-4-20250514')
     .option('--temperature <temp>', 'Response creativity (0.0-1.0)', '0.7')
     .option('--max-tokens <tokens>', 'Maximum response tokens', '4096')
     .option('--system <prompt>', 'System prompt')
@@ -2870,7 +2870,7 @@ Follow the red-green-refactor cycle strictly.`;
   claudeCmd
     .command('batch <file>')
     .description('Batch process prompts from file')
-    .option('--model <model>', 'Claude model to use', 'claude-3-sonnet-20240229')
+    .option('--model <model>', 'Claude model to use', 'claude-sonnet-4-20250514')
     .option('--output <file>', 'Output file for results', 'claude_batch_results.json')
     .option('--parallel <n>', 'Number of parallel requests', '3')
     .option('--delay <ms>', 'Delay between requests in milliseconds', '1000')
@@ -2901,7 +2901,7 @@ Follow the red-green-refactor cycle strictly.`;
   claudeCmd
     .command('stream <prompt>')
     .description('Streaming API responses for real-time output')
-    .option('--model <model>', 'Claude model to use', 'claude-3-sonnet-20240229')
+    .option('--model <model>', 'Claude model to use', 'claude-sonnet-4-20250514')
     .option('--temperature <temp>', 'Response creativity (0.0-1.0)', '0.7')
     .option('--system <prompt>', 'System prompt')
     .action(async (prompt, options) => {
@@ -2930,7 +2930,7 @@ Follow the red-green-refactor cycle strictly.`;
   claudeCmd
     .command('analyze <text>')
     .description('Analyze text with multiple model perspectives')
-    .option('--models <models>', 'Comma-separated list of models', 'claude-3-opus-20240229,claude-3-sonnet-20240229,claude-3-haiku-20240307')
+    .option('--models <models>', 'Comma-separated list of models', 'claude-opus-4-20250514,claude-sonnet-4-20250514')
     .option('--aspects <aspects>', 'Analysis aspects', 'sentiment,complexity,clarity,structure')
     .option('--output <format>', 'Output format (json, table, detailed)', 'detailed')
     .action(async (text, options) => {
@@ -2961,7 +2961,7 @@ Follow the red-green-refactor cycle strictly.`;
   claudeCmd
     .command('compare <prompt>')
     .description('Compare responses across different Claude models')
-    .option('--models <models>', 'Models to compare', 'claude-3-opus-20240229,claude-3-sonnet-20240229')
+    .option('--models <models>', 'Models to compare', 'claude-opus-4-20250514,claude-sonnet-4-20250514')
     .option('--temperature <temp>', 'Response creativity', '0.7')
     .option('--output <format>', 'Output format (side-by-side, detailed)', 'side-by-side')
     .action(async (prompt, options) => {

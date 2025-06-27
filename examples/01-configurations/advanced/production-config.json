@@ -2,13 +2,13 @@
   "name": "Production Configuration",
   "description": "Advanced configuration for production deployments",
   "orchestrator": {
-    "model": "claude-3-opus-20240229",
+    "model": "claude-opus-4-20250514",
     "temperature": 0.3,
     "maxTokens": 8192,
     "timeout": 120000,
     "retryAttempts": 3,
     "retryDelay": 5000,
-    "fallbackModel": "claude-3-sonnet-20240229"
+    "fallbackModel": "claude-sonnet-4-20250514"
   },
   "terminal": {
     "emulateEnvironment": true,

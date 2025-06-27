@@ -2,7 +2,7 @@
   "name": "Research Configuration",
   "description": "Optimized for research and analysis tasks",
   "orchestrator": {
-    "model": "claude-3-opus-20240229",
+    "model": "claude-opus-4-20250514",
     "temperature": 0.9,
     "maxTokens": 8192,
     "timeout": 300000,
