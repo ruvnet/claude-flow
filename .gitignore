@@ -47,6 +47,7 @@ claude-flow.db
 claude-flow.config.json
 # memory/
 # sessions/
+memory/backups/
 
 # Temporary files
 *.tmp
