@@ -1,10 +1,10 @@
+/// <reference types="jest" />
+
 /**
  * Integration tests for the start command
  */
 
-import { assertEquals, assertExists } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { beforeAll, beforeEach, afterAll, describe, it } from 'https://deno.land/std@0.224.0/testing/bdd.ts';
-import { startCommand } from '../../src/cli/commands/start/start-command.ts';
+import { startCommand } from '../../src/cli/commands/start/start-command.js';
 import { Command } from '@cliffy/command';
 
 describe('Start Command Integration', () => {
@@ -12,12 +12,12 @@ describe('Start Command Integration', () => {
 
   beforeAll(async () => {
     // Create test directory
-    testDir = await Deno.makeTempDir({ prefix: 'claude-flow-test-' });
-    Deno.chdir(testDir);
+    testDir =  fs.mkdtempSync(path.join(os.tmpdir(), "claude-flow-test-"));
+      // TODO: Replace with mock -     Deno.chdir(testDir);
     
     // Create required directories
-    await Deno.mkdir('memory', { recursive: true });
-    await Deno.mkdir('coordination', { recursive: true });
+      // TODO: Replace with mock - // TODO: Replace with mock -     await Deno.mkdir('memory', { recursive: true });
+      // TODO: Replace with mock - // TODO: Replace with mock -     await Deno.mkdir('coordination', { recursive: true });
     
     // Create minimal config
     const config = {
@@ -40,13 +40,13 @@ describe('Start Command Integration', () => {
       }
     };
     
-    await Deno.writeTextFile('claude-flow.config.json', JSON.stringify(config, null, 2));
+    fs.writeFileSync('claude-flow.config.json',  JSON.stringify(config, null, 2, "utf8"));
   });
 
   afterAll(async () => {
     // Cleanup
     try {
-      await Deno.remove(testDir, { recursive: true });
+      // TODO: Replace with mock - // TODO: Replace with mock -       await Deno.remove(testDir, { recursive: true });
     } catch {
       // Ignore cleanup errors
     }
@@ -54,15 +54,15 @@ describe('Start Command Integration', () => {
 
   describe('command structure', () => {
     it('should be a valid Cliffy command', () => {
-      assertExists(startCommand);
-      assertEquals(startCommand instanceof Command, true);
+      expect(startCommand);
+      expect(startCommand instanceof Command).toBe( true);
     });
 
     it('should have correct description', () => {
       const desc = (startCommand as any)._globalParent?._description || 
                    (startCommand as any).getDescription();
-      assertEquals(typeof desc, 'string');
-      assertEquals(desc.includes('orchestration'), true);
+      expect(typeof desc).toBe( 'string');
+      expect(desc.includes('orchestration')).toBe( true);
     });
 
     it('should have all expected options', () => {
@@ -70,10 +70,10 @@ describe('Start Command Integration', () => {
       const options = command.options || command.getOptions?.() || [];
       
       const optionNames = options.map((opt: any) => opt.name);
-      assertEquals(optionNames.includes('daemon'), true);
-      assertEquals(optionNames.includes('port'), true);
-      assertEquals(optionNames.includes('ui'), true);
-      assertEquals(optionNames.includes('verbose'), true);
+      expect(optionNames.includes('daemon')).toBe( true);
+      expect(optionNames.includes('port')).toBe( true);
+      expect(optionNames.includes('ui')).toBe( true);
+      expect(optionNames.includes('verbose')).toBe( true);
     });
   });
 
@@ -84,8 +84,8 @@ describe('Start Command Integration', () => {
         .command('start', startCommand);
       
       const help = await command.getHelp();
-      assertExists(help);
-      assertEquals(help.includes('start'), true);
+      expect(help);
+      expect(help.includes('start')).toBe( true);
     });
   });
 });

@@ -1,11 +1,11 @@
+/// <reference types="jest" />
+
 /**
  * Comprehensive test suite for ProcessManager
  */
 
-import { assertEquals, assertExists, assertRejects, assertThrows } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { beforeEach, describe, it } from 'https://deno.land/std@0.224.0/testing/bdd.ts';
-import { ProcessManager } from '../../../../src/cli/commands/start/process-manager.ts';
-import { ProcessStatus, ProcessType } from '../../../../src/cli/commands/start/types.ts';
+import { ProcessManager } from '../../../../src/cli/commands/start/process-manager.js';
+import { ProcessStatus, ProcessType } from '../../../../src/cli/commands/start/types.js';
 
 describe('ProcessManager', () => {
   let processManager: ProcessManager;
@@ -17,67 +17,67 @@ describe('ProcessManager', () => {
   describe('initialization', () => {
     it('should initialize with all process definitions', () => {
       const processes = processManager.getAllProcesses();
-      assertEquals(processes.length, 6);
+      expect(processes.length).toBe( 6);
       
       const processIds = processes.map(p => p.id);
-      assertEquals(processIds.includes('event-bus'), true);
-      assertEquals(processIds.includes('orchestrator'), true);
-      assertEquals(processIds.includes('memory-manager'), true);
-      assertEquals(processIds.includes('terminal-pool'), true);
-      assertEquals(processIds.includes('mcp-server'), true);
-      assertEquals(processIds.includes('coordinator'), true);
+      expect(processIds.includes('event-bus')).toBe( true);
+      expect(processIds.includes('orchestrator')).toBe( true);
+      expect(processIds.includes('memory-manager')).toBe( true);
+      expect(processIds.includes('terminal-pool')).toBe( true);
+      expect(processIds.includes('mcp-server')).toBe( true);
+      expect(processIds.includes('coordinator')).toBe( true);
     });
 
     it('should initialize all processes with STOPPED status', () => {
       const processes = processManager.getAllProcesses();
       processes.forEach(process => {
-        assertEquals(process.status, ProcessStatus.STOPPED);
+        expect(process.status).toBe( ProcessStatus.STOPPED);
       });
     });
 
     it('should load configuration', async () => {
       await processManager.initialize();
       // Configuration should be loaded without errors
-      assertExists(processManager);
+      expect(processManager);
     });
   });
 
   describe('getProcess', () => {
     it('should return process by id', () => {
       const process = processManager.getProcess('orchestrator');
-      assertExists(process);
-      assertEquals(process?.id, 'orchestrator');
-      assertEquals(process?.type, ProcessType.ORCHESTRATOR);
+      expect(process);
+      expect(process?.id).toBe( 'orchestrator');
+      expect(process?.type).toBe( ProcessType.ORCHESTRATOR);
     });
 
     it('should return undefined for unknown process', () => {
       const process = processManager.getProcess('unknown');
-      assertEquals(process, undefined);
+      expect(process).toBe( undefined);
     });
   });
 
   describe('getAllProcesses', () => {
     it('should return all processes', () => {
       const processes = processManager.getAllProcesses();
-      assertEquals(Array.isArray(processes), true);
-      assertEquals(processes.length, 6);
+      expect(Array.isArray(processes)).toBe( true);
+      expect(processes.length).toBe( 6);
     });
   });
 
   describe('getSystemStats', () => {
     it('should return correct initial stats', () => {
       const stats = processManager.getSystemStats();
-      assertEquals(stats.totalProcesses, 6);
-      assertEquals(stats.runningProcesses, 0);
-      assertEquals(stats.stoppedProcesses, 6);
-      assertEquals(stats.errorProcesses, 0);
-      assertEquals(stats.systemUptime, 0);
+      expect(stats.totalProcesses).toBe( 6);
+      expect(stats.runningProcesses).toBe( 0);
+      expect(stats.stoppedProcesses).toBe( 6);
+      expect(stats.errorProcesses).toBe( 0);
+      expect(stats.systemUptime).toBe( 0);
     });
   });
 
   describe('startProcess', () => {
     it('should reject starting unknown process', async () => {
-      await assertRejects(
+      await expect(
         () => processManager.startProcess('unknown'),
         Error,
         'Unknown process: unknown'
@@ -97,9 +97,9 @@ describe('ProcessManager', () => {
       await processManager.startProcess(processId);
       
       const process = processManager.getProcess(processId);
-      assertEquals(process?.status, ProcessStatus.RUNNING);
-      assertEquals(statusChanges.includes(ProcessStatus.STARTING), true);
-      assertEquals(statusChanges.includes(ProcessStatus.RUNNING), true);
+      expect(process?.status).toBe( ProcessStatus.RUNNING);
+      expect(statusChanges.includes(ProcessStatus.STARTING)).toBe( true);
+      expect(statusChanges.includes(ProcessStatus.RUNNING)).toBe( true);
     });
 
     it('should set process start time', async () => {
@@ -108,8 +108,8 @@ describe('ProcessManager', () => {
       await processManager.startProcess(processId);
       
       const process = processManager.getProcess(processId);
-      assertExists(process?.startTime);
-      assertEquals(typeof process?.startTime, 'number');
+      expect(process?.startTime);
+      expect(typeof process?.startTime).toBe( 'number');
     });
 
     it('should reject starting already running process', async () => {
@@ -117,7 +117,7 @@ describe('ProcessManager', () => {
       await processManager.initialize();
       await processManager.startProcess(processId);
       
-      await assertRejects(
+      await expect(
         () => processManager.startProcess(processId),
         Error,
         'Process event-bus is already running'
@@ -135,9 +135,9 @@ describe('ProcessManager', () => {
       await processManager.initialize();
       await processManager.startProcess(processId);
       
-      assertExists(eventData);
-      assertEquals(eventData.processId, processId);
-      assertExists(eventData.process);
+      expect(eventData);
+      expect(eventData.processId).toBe( processId);
+      expect(eventData.process);
     });
 
     it('should handle process start errors', async () => {
@@ -151,20 +151,20 @@ describe('ProcessManager', () => {
       await processManager.initialize();
       
       // Should fail because required components are not initialized
-      await assertRejects(
+      await expect(
         () => processManager.startProcess(processId),
         Error,
         'Required components not initialized'
       );
       
-      assertExists(errorEvent);
-      assertEquals(errorEvent.processId, processId);
+      expect(errorEvent);
+      expect(errorEvent.processId).toBe( processId);
     });
   });
 
   describe('stopProcess', () => {
     it('should reject stopping unknown process', async () => {
-      await assertRejects(
+      await expect(
         () => processManager.stopProcess('unknown'),
         Error,
         'Process unknown is not running'
@@ -172,7 +172,7 @@ describe('ProcessManager', () => {
     });
 
     it('should reject stopping non-running process', async () => {
-      await assertRejects(
+      await expect(
         () => processManager.stopProcess('event-bus'),
         Error,
         'Process event-bus is not running'
@@ -187,7 +187,7 @@ describe('ProcessManager', () => {
       await processManager.stopProcess(processId);
       
       const process = processManager.getProcess(processId);
-      assertEquals(process?.status, ProcessStatus.STOPPED);
+      expect(process?.status).toBe( ProcessStatus.STOPPED);
     });
 
     it('should emit processStopped event', async () => {
@@ -202,8 +202,8 @@ describe('ProcessManager', () => {
       await processManager.startProcess(processId);
       await processManager.stopProcess(processId);
       
-      assertExists(stoppedEvent);
-      assertEquals(stoppedEvent.processId, processId);
+      expect(stoppedEvent);
+      expect(stoppedEvent.processId).toBe( processId);
     });
   });
 
@@ -221,10 +221,10 @@ describe('ProcessManager', () => {
       await processManager.restartProcess(processId);
       
       const process = processManager.getProcess(processId);
-      assertEquals(process?.status, ProcessStatus.RUNNING);
-      assertExists(process?.startTime);
+      expect(process?.status).toBe( ProcessStatus.RUNNING);
+      expect(process?.startTime);
       // New start time should be different
-      assertEquals(process?.startTime !== firstStartTime, true);
+      expect(process?.startTime !== firstStartTime).toBe( true);
     });
   });
 
@@ -249,7 +249,7 @@ describe('ProcessManager', () => {
         'orchestrator'
       ];
       
-      assertEquals(startedProcesses.slice(0, 5), expectedOrder.slice(0, 5));
+      expect(startedProcesses.slice(0).toBe( 5), expectedOrder.slice(0, 5));
       // Orchestrator might fail due to missing dependencies, that's ok
     });
 
@@ -258,7 +258,7 @@ describe('ProcessManager', () => {
       await processManager.startAll();
       
       const stats = processManager.getSystemStats();
-      assertEquals(stats.runningProcesses >= 5, true); // At least core processes
+      expect(stats.runningProcesses >= 5).toBe( true); // At least core processes
     });
   });
 
@@ -278,8 +278,8 @@ describe('ProcessManager', () => {
       await processManager.stopAll();
       
       // Should stop in reverse order
-      assertEquals(stoppedProcesses[0], 'memory-manager');
-      assertEquals(stoppedProcesses[1], 'event-bus');
+      expect(stoppedProcesses[0]).toBe( 'memory-manager');
+      expect(stoppedProcesses[1]).toBe( 'event-bus');
     });
 
     it('should handle stopping already stopped processes', async () => {
@@ -288,15 +288,15 @@ describe('ProcessManager', () => {
       await processManager.stopAll(); // Should not throw
       
       const stats = processManager.getSystemStats();
-      assertEquals(stats.runningProcesses, 0);
+      expect(stats.runningProcesses).toBe( 0);
     });
   });
 
   describe('process logs', () => {
     it('should return placeholder logs', async () => {
       const logs = await processManager.getProcessLogs('event-bus', 10);
-      assertEquals(Array.isArray(logs), true);
-      assertEquals(logs.length, 2); // Placeholder returns 2 logs
+      expect(Array.isArray(logs)).toBe( true);
+      expect(logs.length).toBe( 2); // Placeholder returns 2 logs
     });
   });
 
@@ -308,7 +308,7 @@ describe('ProcessManager', () => {
       });
       
       await processManager.initialize();
-      assertEquals(initialized, true);
+      expect(initialized).toBe( true);
     });
 
     it('should emit error event on initialization failure', async () => {
@@ -326,7 +326,7 @@ describe('ProcessManager', () => {
         // Expected to throw
       }
       
-      assertEquals(errorEmitted, true);
+      expect(errorEmitted).toBe( true);
     });
   });
 
@@ -342,8 +342,8 @@ describe('ProcessManager', () => {
       }
       
       const process = processManager.getProcess(processId);
-      assertExists(process?.metrics?.lastError);
-      assertEquals(process?.metrics?.lastError, 'Required components not initialized');
+      expect(process?.metrics?.lastError);
+      expect(process?.metrics?.lastError).toBe( 'Required components not initialized');
     });
   });
 });

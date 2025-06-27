@@ -1,3 +1,5 @@
+/// <reference types="jest" />
+
 /**
  * Unit tests for Config Manager
  */
@@ -11,12 +13,12 @@ import {
   assertExists,
   assertThrows,
   assertRejects,
-} from '../../test.utils.ts';
-import { ConfigManager, loadConfig } from '../../../src/core/config.ts';
-import { Config } from '../../../src/utils/types.ts';
-import { ConfigError, ValidationError } from '../../../src/utils/errors.ts';
-import { createTestFile } from '../../test.utils.ts';
-import { cleanupTestEnv, setupTestEnv } from '../../test.config.ts';
+} from '../../test.utils.js';
+import { ConfigManager, loadConfig } from '../../../src/core/config.js';
+import { Config } from '../../../src/utils/types.js';
+import { ConfigError, ValidationError } from '../../../src/utils/errors.js';
+import { createTestFile } from '../../test.utils.js';
+import { cleanupTestEnv, setupTestEnv } from '../../test.config.js';
 
 describe('ConfigManager', () => {
   let configManager: ConfigManager;
@@ -37,7 +39,7 @@ describe('ConfigManager', () => {
     ];
     
     envKeys.forEach(key => {
-      originalEnv[key] = Deno.env.get(key) || '';
+      originalEnv[key] = process.env[key] || '';
     });
     
     // Reset singleton
@@ -49,9 +51,9 @@ describe('ConfigManager', () => {
     // Restore env vars
     Object.entries(originalEnv).forEach(([key, value]) => {
       if (value) {
-        Deno.env.set(key, value);
+        process.env[key] =  value;
       } else {
-        Deno.env.delete(key);
+        delete process.env[key];
       }
     });
     
@@ -62,7 +64,7 @@ describe('ConfigManager', () => {
     it('should be a singleton', () => {
       const instance1 = ConfigManager.getInstance();
       const instance2 = ConfigManager.getInstance();
-      assertEquals(instance1, instance2);
+      expect(instance1).toBe( instance2);
     });
   });
 
@@ -70,17 +72,17 @@ describe('ConfigManager', () => {
     it('should load default configuration', async () => {
       const config = await configManager.load();
       
-      assertExists(config.orchestrator);
-      assertExists(config.terminal);
-      assertExists(config.memory);
-      assertExists(config.coordination);
-      assertExists(config.mcp);
-      assertExists(config.logging);
+      expect(config.orchestrator);
+      expect(config.terminal);
+      expect(config.memory);
+      expect(config.coordination);
+      expect(config.mcp);
+      expect(config.logging);
       
       // Check some defaults
-      assertEquals(config.orchestrator.maxConcurrentAgents, 10);
-      assertEquals(config.terminal.type, 'auto');
-      assertEquals(config.memory.backend, 'hybrid');
+      expect(config.orchestrator.maxConcurrentAgents).toBe( 10);
+      expect(config.terminal.type).toBe( 'auto');
+      expect(config.memory.backend).toBe( 'hybrid');
     });
 
     it('should load configuration from file', async () => {
@@ -96,23 +98,23 @@ describe('ConfigManager', () => {
       const configFile = await createTestFile('config.json', JSON.stringify(configData));
       const config = await configManager.load(configFile);
       
-      assertEquals(config.orchestrator.maxConcurrentAgents, 20);
-      assertEquals(config.logging.level, 'debug');
+      expect(config.orchestrator.maxConcurrentAgents).toBe( 20);
+      expect(config.logging.level).toBe( 'debug');
       // Other values should still be defaults
-      assertEquals(config.terminal.type, 'auto');
+      expect(config.terminal.type).toBe( 'auto');
     });
 
     it('should handle non-existent config file gracefully', async () => {
       const config = await configManager.load('/non/existent/file.json');
       
       // Should use defaults
-      assertEquals(config.orchestrator.maxConcurrentAgents, 10);
+      expect(config.orchestrator.maxConcurrentAgents).toBe( 10);
     });
 
     it('should throw on invalid JSON in config file', async () => {
       const configFile = await createTestFile('invalid.json', '{ invalid json }');
       
-      await assertRejects(
+      await expect(
         () => configManager.load(configFile),
         ConfigError,
         'Invalid JSON in configuration file'
@@ -120,21 +122,21 @@ describe('ConfigManager', () => {
     });
 
     it('should load configuration from environment variables', async () => {
-      Deno.env.set('CLAUDE_FLOW_MAX_AGENTS', '5');
-      Deno.env.set('CLAUDE_FLOW_TERMINAL_TYPE', 'vscode');
-      Deno.env.set('CLAUDE_FLOW_MEMORY_BACKEND', 'sqlite');
-      Deno.env.set('CLAUDE_FLOW_MCP_TRANSPORT', 'http');
-      Deno.env.set('CLAUDE_FLOW_MCP_PORT', '9000');
-      Deno.env.set('CLAUDE_FLOW_LOG_LEVEL', 'debug');
+      process.env['CLAUDE_FLOW_MAX_AGENTS'] =  '5';
+      process.env['CLAUDE_FLOW_TERMINAL_TYPE'] =  'vscode';
+      process.env['CLAUDE_FLOW_MEMORY_BACKEND'] =  'sqlite';
+      process.env['CLAUDE_FLOW_MCP_TRANSPORT'] =  'http';
+      process.env['CLAUDE_FLOW_MCP_PORT'] =  '9000';
+      process.env['CLAUDE_FLOW_LOG_LEVEL'] =  'debug';
       
       const config = await configManager.load();
       
-      assertEquals(config.orchestrator.maxConcurrentAgents, 5);
-      assertEquals(config.terminal.type, 'vscode');
-      assertEquals(config.memory.backend, 'sqlite');
-      assertEquals(config.mcp.transport, 'http');
-      assertEquals(config.mcp.port, 9000);
-      assertEquals(config.logging.level, 'debug');
+      expect(config.orchestrator.maxConcurrentAgents).toBe( 5);
+      expect(config.terminal.type).toBe( 'vscode');
+      expect(config.memory.backend).toBe( 'sqlite');
+      expect(config.mcp.transport).toBe( 'http');
+      expect(config.mcp.port).toBe( 9000);
+      expect(config.logging.level).toBe( 'debug');
     });
 
     it('should merge file and env configuration with env taking precedence', async () => {
@@ -148,21 +150,21 @@ describe('ConfigManager', () => {
       };
       
       const configFile = await createTestFile('config.json', JSON.stringify(configData));
-      Deno.env.set('CLAUDE_FLOW_MAX_AGENTS', '15');
+      process.env['CLAUDE_FLOW_MAX_AGENTS'] =  '15';
       
       const config = await configManager.load(configFile);
       
-      assertEquals(config.orchestrator.maxConcurrentAgents, 15); // Env wins
-      assertEquals(config.logging.level, 'info'); // From file
+      expect(config.orchestrator.maxConcurrentAgents).toBe( 15); // Env wins
+      expect(config.logging.level).toBe( 'info'); // From file
     });
 
     it('should ignore invalid env values', async () => {
-      Deno.env.set('CLAUDE_FLOW_TERMINAL_TYPE', 'invalid-type');
+      process.env['CLAUDE_FLOW_TERMINAL_TYPE'] =  'invalid-type';
       
       const config = await configManager.load();
       
       // Should use default
-      assertEquals(config.terminal.type, 'auto');
+      expect(config.terminal.type).toBe( 'auto');
     });
   });
 
@@ -177,7 +179,7 @@ describe('ConfigManager', () => {
       
       const configFile = await createTestFile('invalid.json', JSON.stringify(invalidConfig));
       
-      await assertRejects(
+      await expect(
         () => configManager.load(configFile),
         ValidationError,
         'maxConcurrentAgents must be at least 1'
@@ -193,7 +195,7 @@ describe('ConfigManager', () => {
       
       const configFile = await createTestFile('invalid.json', JSON.stringify(invalidConfig));
       
-      await assertRejects(
+      await expect(
         () => configManager.load(configFile),
         ValidationError,
         'terminal poolSize must be at least 1'
@@ -209,7 +211,7 @@ describe('ConfigManager', () => {
       
       const configFile = await createTestFile('invalid.json', JSON.stringify(invalidConfig));
       
-      await assertRejects(
+      await expect(
         () => configManager.load(configFile),
         ValidationError,
         'memory cacheSizeMB must be at least 1'
@@ -225,7 +227,7 @@ describe('ConfigManager', () => {
       
       const configFile = await createTestFile('invalid.json', JSON.stringify(invalidConfig));
       
-      await assertRejects(
+      await expect(
         () => configManager.load(configFile),
         ValidationError,
         'coordination maxRetries cannot be negative'
@@ -242,7 +244,7 @@ describe('ConfigManager', () => {
       
       const configFile = await createTestFile('invalid.json', JSON.stringify(invalidConfig));
       
-      await assertRejects(
+      await expect(
         () => configManager.load(configFile),
         ValidationError,
         'Invalid MCP port number'
@@ -258,11 +260,11 @@ describe('ConfigManager', () => {
     it('should get current configuration', () => {
       const config = configManager.get();
       
-      assertExists(config.orchestrator);
-      assertExists(config.terminal);
+      expect(config.orchestrator);
+      expect(config.terminal);
       // Should be a copy, not the original
       config.orchestrator.maxConcurrentAgents = 999;
-      assertEquals(configManager.get().orchestrator.maxConcurrentAgents, 10);
+      expect(configManager.get().orchestrator.maxConcurrentAgents).toBe( 10);
     });
 
     it('should update configuration', () => {
@@ -277,10 +279,10 @@ describe('ConfigManager', () => {
       
       const updatedConfig = configManager.update(updates);
       
-      assertEquals(updatedConfig.orchestrator.maxConcurrentAgents, 25);
-      assertEquals(updatedConfig.orchestrator.taskQueueSize, 200);
+      expect(updatedConfig.orchestrator.maxConcurrentAgents).toBe( 25);
+      expect(updatedConfig.orchestrator.taskQueueSize).toBe( 200);
       // Other orchestrator values should remain
-      assertExists(updatedConfig.orchestrator.healthCheckInterval);
+      expect(updatedConfig.orchestrator.healthCheckInterval);
     });
 
     it('should validate updates', () => {
@@ -294,7 +296,7 @@ describe('ConfigManager', () => {
         },
       };
       
-      assertThrows(
+      expect(
         () => configManager.update(invalidUpdates),
         ValidationError,
         'terminal poolSize must be at least 1'
@@ -321,10 +323,10 @@ describe('ConfigManager', () => {
       
       await configManager.save(savePath);
       
-      const savedContent = await Deno.readTextFile(savePath);
+      const savedContent = fs.readFileSync(savePath, "utf8");
       const savedConfig = JSON.parse(savedContent);
       
-      assertEquals(savedConfig.orchestrator.maxConcurrentAgents, 15);
+      expect(savedConfig.orchestrator.maxConcurrentAgents).toBe( 15);
     });
 
     it('should save to original file if no path specified', async () => {
@@ -344,17 +346,17 @@ describe('ConfigManager', () => {
       
       await configManager.save();
       
-      const savedContent = await Deno.readTextFile(configFile);
+      const savedContent = fs.readFileSync(configFile, "utf8");
       const savedConfig = JSON.parse(savedContent);
       
-      assertEquals(savedConfig.orchestrator.maxConcurrentAgents, 30);
+      expect(savedConfig.orchestrator.maxConcurrentAgents).toBe( 30);
     });
 
     it('should throw if no save path available', async () => {
       // Load without file path
       await configManager.load();
       
-      await assertRejects(
+      await expect(
         () => configManager.save(),
         ConfigError,
         'No configuration file path specified'
@@ -366,8 +368,8 @@ describe('ConfigManager', () => {
     it('should load config with helper function', async () => {
       const config = await loadConfig();
       
-      assertExists(config.orchestrator);
-      assertEquals(config.orchestrator.maxConcurrentAgents, 10);
+      expect(config.orchestrator);
+      expect(config.orchestrator.maxConcurrentAgents).toBe( 10);
     });
 
     it('should load config from specified path', async () => {
@@ -380,7 +382,7 @@ describe('ConfigManager', () => {
       const configFile = await createTestFile('helper.json', JSON.stringify(configData));
       const config = await loadConfig(configFile);
       
-      assertEquals(config.logging.level, 'error');
+      expect(config.logging.level).toBe( 'error');
     });
   });
 
@@ -404,12 +406,12 @@ describe('ConfigManager', () => {
       const configFile = await createTestFile('nested.json', JSON.stringify(configData));
       const config = await configManager.load(configFile);
       
-      assertEquals(config.orchestrator.maxConcurrentAgents, 15);
-      assertEquals(config.memory.backend, 'sqlite');
-      assertEquals(config.memory.cacheSizeMB, 50);
-      assertEquals(config.logging.level, 'warn');
-      assertEquals(config.logging.format, 'json');
-      assertEquals(config.logging.destination, 'both');
+      expect(config.orchestrator.maxConcurrentAgents).toBe( 15);
+      expect(config.memory.backend).toBe( 'sqlite');
+      expect(config.memory.cacheSizeMB).toBe( 50);
+      expect(config.logging.level).toBe( 'warn');
+      expect(config.logging.format).toBe( 'json');
+      expect(config.logging.destination).toBe( 'both');
     });
 
     it('should handle partial configuration files', async () => {
@@ -424,14 +426,14 @@ describe('ConfigManager', () => {
       const config = await configManager.load(configFile);
       
       // Should have updated orchestrator
-      assertEquals(config.orchestrator.maxConcurrentAgents, 20);
+      expect(config.orchestrator.maxConcurrentAgents).toBe( 20);
       
       // Should have defaults for other sections
-      assertExists(config.terminal);
-      assertExists(config.memory);
-      assertExists(config.coordination);
-      assertExists(config.mcp);
-      assertExists(config.logging);
+      expect(config.terminal);
+      expect(config.memory);
+      expect(config.coordination);
+      expect(config.mcp);
+      expect(config.logging);
     });
 
     it('should handle empty configuration file', async () => {
@@ -439,8 +441,8 @@ describe('ConfigManager', () => {
       const config = await configManager.load(configFile);
       
       // Should use all defaults
-      assertEquals(config.orchestrator.maxConcurrentAgents, 10);
-      assertEquals(config.terminal.type, 'auto');
+      expect(config.orchestrator.maxConcurrentAgents).toBe( 10);
+      expect(config.terminal.type).toBe( 'auto');
     });
   });
 });

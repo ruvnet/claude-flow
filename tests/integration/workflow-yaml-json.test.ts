@@ -1,10 +1,10 @@
+/// <reference types="jest" />
+
 /**
  * Integration tests for YAML and JSON workflow format support
  */
 
-import { assertEquals, assertExists, assertThrows } from 'https://deno.land/std@0.208.0/assert/mod.ts';
-import { describe, it, beforeEach, afterEach } from 'https://deno.land/std@0.208.0/testing/bdd.ts';
-import { WorkflowEngine } from '../../package/src/workflow/engine.ts';
+import { WorkflowEngine } from '../../package/src/workflow/engine.js';
 
 describe('Workflow Format Integration Tests', () => {
   let engine: WorkflowEngine;
@@ -12,12 +12,12 @@ describe('Workflow Format Integration Tests', () => {
 
   beforeEach(async () => {
     engine = new WorkflowEngine({ debug: false, monitoring: false });
-    testDir = await Deno.makeTempDir({ prefix: 'workflow-format-test-' });
+    testDir =  fs.mkdtempSync(path.join(os.tmpdir(), "claude-flow-test-"));
   });
 
   afterEach(async () => {
     try {
-      await Deno.remove(testDir, { recursive: true });
+      // TODO: Replace with mock - // TODO: Replace with mock -       await Deno.remove(testDir, { recursive: true });
     } catch {
       // Ignore cleanup errors
     }
@@ -63,17 +63,17 @@ describe('Workflow Format Integration Tests', () => {
         }
       };
 
-      await Deno.writeTextFile(workflowPath, JSON.stringify(workflow, null, 2));
+      fs.writeFileSync(workflowPath,  JSON.stringify(workflow, null, 2, "utf8"));
       
       const loadedWorkflow = await engine.loadWorkflow(workflowPath);
-      assertEquals(loadedWorkflow.name, 'Basic JSON Workflow');
-      assertEquals(loadedWorkflow.tasks.length, 3);
-      assertEquals(loadedWorkflow.variables!.environment, 'test');
-      assertEquals(loadedWorkflow.settings!.maxConcurrency, 2);
+      expect(loadedWorkflow.name).toBe( 'Basic JSON Workflow');
+      expect(loadedWorkflow.tasks.length).toBe( 3);
+      expect(loadedWorkflow.variables!.environment).toBe( 'test');
+      expect(loadedWorkflow.settings!.maxConcurrency).toBe( 2);
 
       const execution = await engine.executeWorkflow(loadedWorkflow);
-      assertEquals(execution.status, 'completed');
-      assertEquals(execution.progress.total, 3);
+      expect(execution.status).toBe( 'completed');
+      expect(execution.progress.total).toBe( 3);
     });
 
     it('should handle complex JSON workflow with agents and conditions', async () => {
@@ -165,17 +165,17 @@ describe('Workflow Format Integration Tests', () => {
         }
       };
 
-      await Deno.writeTextFile(workflowPath, JSON.stringify(workflow, null, 2));
+      fs.writeFileSync(workflowPath,  JSON.stringify(workflow, null, 2, "utf8"));
       
       const loadedWorkflow = await engine.loadWorkflow(workflowPath);
-      assertEquals(loadedWorkflow.name, 'Complex JSON Workflow');
-      assertEquals(loadedWorkflow.agents!.length, 2);
-      assertEquals(loadedWorkflow.conditions!.length, 1);
-      assertEquals(loadedWorkflow.integrations!.length, 1);
-      assertEquals(loadedWorkflow.metadata!.author, 'Test Suite');
+      expect(loadedWorkflow.name).toBe( 'Complex JSON Workflow');
+      expect(loadedWorkflow.agents!.length).toBe( 2);
+      expect(loadedWorkflow.conditions!.length).toBe( 1);
+      expect(loadedWorkflow.integrations!.length).toBe( 1);
+      expect(loadedWorkflow.metadata!.author).toBe( 'Test Suite');
 
       const validation = await engine.validateWorkflow(loadedWorkflow, true);
-      assertEquals(validation.valid, true);
+      expect(validation.valid).toBe( true);
     });
   });
 
@@ -218,18 +218,18 @@ settings:
   retryPolicy: "immediate"
 `;
 
-      await Deno.writeTextFile(workflowPath, yamlContent);
+      fs.writeFileSync(workflowPath,  yamlContent, "utf8");
       
       const loadedWorkflow = await engine.loadWorkflow(workflowPath);
-      assertEquals(loadedWorkflow.name, 'Basic YAML Workflow');
-      assertEquals(loadedWorkflow.tasks.length, 3);
-      assertEquals(loadedWorkflow.variables!.environment, 'test');
-      assertEquals(loadedWorkflow.variables!.debug, true);
-      assertEquals(loadedWorkflow.settings!.maxConcurrency, 2);
+      expect(loadedWorkflow.name).toBe( 'Basic YAML Workflow');
+      expect(loadedWorkflow.tasks.length).toBe( 3);
+      expect(loadedWorkflow.variables!.environment).toBe( 'test');
+      expect(loadedWorkflow.variables!.debug).toBe( true);
+      expect(loadedWorkflow.settings!.maxConcurrency).toBe( 2);
 
       const execution = await engine.executeWorkflow(loadedWorkflow);
-      assertEquals(execution.status, 'completed');
-      assertEquals(execution.progress.total, 3);
+      expect(execution.status).toBe( 'completed');
+      expect(execution.progress.total).toBe( 3);
     });
 
     it('should handle complex YAML workflow with advanced features', async () => {
@@ -466,21 +466,21 @@ settings:
       workflow.failed: "Workflow '\${workflow.name}' failed: \${error.message}"
 `;
 
-      await Deno.writeTextFile(workflowPath, yamlContent);
+      fs.writeFileSync(workflowPath,  yamlContent, "utf8");
       
       const loadedWorkflow = await engine.loadWorkflow(workflowPath);
-      assertEquals(loadedWorkflow.name, 'Advanced YAML Workflow');
-      assertEquals(loadedWorkflow.agents!.length, 3);
-      assertEquals(loadedWorkflow.tasks.length, 7);
-      assertEquals(loadedWorkflow.conditions!.length, 2);
-      assertEquals(loadedWorkflow.loops!.length, 1);
-      assertEquals(loadedWorkflow.integrations!.length, 2);
-      assertEquals(loadedWorkflow.metadata!.author, 'YAML Test Suite');
-      assertEquals(loadedWorkflow.variables!.project_name, 'test-project');
-      assertEquals(loadedWorkflow.variables!.config.database.port, 5432);
+      expect(loadedWorkflow.name).toBe( 'Advanced YAML Workflow');
+      expect(loadedWorkflow.agents!.length).toBe( 3);
+      expect(loadedWorkflow.tasks.length).toBe( 7);
+      expect(loadedWorkflow.conditions!.length).toBe( 2);
+      expect(loadedWorkflow.loops!.length).toBe( 1);
+      expect(loadedWorkflow.integrations!.length).toBe( 2);
+      expect(loadedWorkflow.metadata!.author).toBe( 'YAML Test Suite');
+      expect(loadedWorkflow.variables!.project_name).toBe( 'test-project');
+      expect(loadedWorkflow.variables!.config.database.port).toBe( 5432);
 
       const validation = await engine.validateWorkflow(loadedWorkflow, true);
-      assertEquals(validation.valid, true);
+      expect(validation.valid).toBe( true);
     });
 
     it('should handle YAML with different indentation styles', async () => {
@@ -513,13 +513,13 @@ settings:
   failurePolicy: "fail-fast"
 `;
 
-      await Deno.writeTextFile(workflowPath, yamlContent);
+      fs.writeFileSync(workflowPath,  yamlContent, "utf8");
       
       const loadedWorkflow = await engine.loadWorkflow(workflowPath);
-      assertEquals(loadedWorkflow.name, 'Indentation Test');
-      assertEquals(loadedWorkflow.tasks.length, 2);
-      assertEquals(loadedWorkflow.tasks[0].input!.param1, 'value1');
-      assertEquals(loadedWorkflow.tasks[1].input!.nested.deep1, 'deep_value1');
+      expect(loadedWorkflow.name).toBe( 'Indentation Test');
+      expect(loadedWorkflow.tasks.length).toBe( 2);
+      expect(loadedWorkflow.tasks[0].input!.param1).toBe( 'value1');
+      expect(loadedWorkflow.tasks[1].input!.nested.deep1).toBe( 'deep_value1');
     });
   });
 
@@ -531,10 +531,10 @@ settings:
         tasks: [{ id: 'test', type: 'test', description: 'Test task' }]
       };
 
-      await Deno.writeTextFile(workflowPath, JSON.stringify(workflow));
+      fs.writeFileSync(workflowPath,  JSON.stringify(workflow, "utf8"));
       
       const loadedWorkflow = await engine.loadWorkflow(workflowPath);
-      assertEquals(loadedWorkflow.name, 'Auto-detect JSON');
+      expect(loadedWorkflow.name).toBe( 'Auto-detect JSON');
     });
 
     it('should auto-detect YAML format without extension', async () => {
@@ -547,10 +547,10 @@ tasks:
     description: "Test task"
 `;
 
-      await Deno.writeTextFile(workflowPath, yamlContent);
+      fs.writeFileSync(workflowPath,  yamlContent, "utf8");
       
       const loadedWorkflow = await engine.loadWorkflow(workflowPath);
-      assertEquals(loadedWorkflow.name, 'Auto-detect YAML');
+      expect(loadedWorkflow.name).toBe( 'Auto-detect YAML');
     });
 
     it('should handle invalid format gracefully', async () => {
@@ -560,9 +560,9 @@ This is neither valid JSON nor valid YAML
 It should cause an error when trying to parse
 `;
 
-      await Deno.writeTextFile(workflowPath, invalidContent);
+      fs.writeFileSync(workflowPath,  invalidContent, "utf8");
       
-      await assertThrows(
+      await expect(
         async () => await engine.loadWorkflow(workflowPath),
         Error,
         'Failed to load workflow file'
@@ -603,7 +603,7 @@ It should cause an error when trying to parse
 
       // JSON version
       const jsonPath = `${testDir}/cross-format.json`;
-      await Deno.writeTextFile(jsonPath, JSON.stringify(baseWorkflow, null, 2));
+      fs.writeFileSync(jsonPath,  JSON.stringify(baseWorkflow, null, 2, "utf8"));
 
       // YAML version
       const yamlPath = `${testDir}/cross-format.yaml`;
@@ -629,27 +629,27 @@ settings:
   maxConcurrency: 2
   failurePolicy: "fail-fast"
 `;
-      await Deno.writeTextFile(yamlPath, yamlContent);
+      fs.writeFileSync(yamlPath,  yamlContent, "utf8");
 
       // Load both versions
       const jsonWorkflow = await engine.loadWorkflow(jsonPath);
       const yamlWorkflow = await engine.loadWorkflow(yamlPath);
 
       // Compare key properties
-      assertEquals(jsonWorkflow.name, yamlWorkflow.name);
-      assertEquals(jsonWorkflow.version, yamlWorkflow.version);
-      assertEquals(jsonWorkflow.tasks.length, yamlWorkflow.tasks.length);
-      assertEquals(jsonWorkflow.variables!.test_var, yamlWorkflow.variables!.test_var);
-      assertEquals(jsonWorkflow.variables!.numeric_var, yamlWorkflow.variables!.numeric_var);
-      assertEquals(jsonWorkflow.settings!.maxConcurrency, yamlWorkflow.settings!.maxConcurrency);
+      expect(jsonWorkflow.name).toBe( yamlWorkflow.name);
+      expect(jsonWorkflow.version).toBe( yamlWorkflow.version);
+      expect(jsonWorkflow.tasks.length).toBe( yamlWorkflow.tasks.length);
+      expect(jsonWorkflow.variables!.test_var).toBe( yamlWorkflow.variables!.test_var);
+      expect(jsonWorkflow.variables!.numeric_var).toBe( yamlWorkflow.variables!.numeric_var);
+      expect(jsonWorkflow.settings!.maxConcurrency).toBe( yamlWorkflow.settings!.maxConcurrency);
 
       // Execute both and compare results
       const jsonExecution = await engine.executeWorkflow(jsonWorkflow);
       const yamlExecution = await engine.executeWorkflow(yamlWorkflow);
 
-      assertEquals(jsonExecution.status, yamlExecution.status);
-      assertEquals(jsonExecution.progress.total, yamlExecution.progress.total);
-      assertEquals(jsonExecution.progress.completed, yamlExecution.progress.completed);
+      expect(jsonExecution.status).toBe( yamlExecution.status);
+      expect(jsonExecution.progress.total).toBe( yamlExecution.progress.total);
+      expect(jsonExecution.progress.completed).toBe( yamlExecution.progress.completed);
     });
   });
 
@@ -660,18 +660,18 @@ settings:
       
       try {
         const workflow = await engine.loadWorkflow(examplePath);
-        assertEquals(workflow.name, 'Advanced Research Workflow');
+        expect(workflow.name).toBe( 'Advanced Research Workflow');
         
         const validation = await engine.validateWorkflow(workflow, true);
-        assertEquals(validation.valid, true);
+        expect(validation.valid).toBe( true);
         
         // Test execution with modified settings for faster testing
         const testWorkflow = { ...workflow };
         testWorkflow.settings = { ...testWorkflow.settings, timeout: 30000 };
         
         const execution = await engine.executeWorkflow(testWorkflow);
-        assertExists(execution.id);
-        assertExists(execution.startedAt);
+        expect(execution.id);
+        expect(execution.startedAt);
       } catch (error) {
         // If the example file doesn't exist, create a minimal version for testing
         console.warn('Research workflow example not found, creating test version');
@@ -702,10 +702,10 @@ settings:
   timeout: 30000
 `;
         
-        await Deno.writeTextFile(testWorkflowPath, minimalResearchWorkflow);
+        fs.writeFileSync(testWorkflowPath,  minimalResearchWorkflow, "utf8");
         const workflow = await engine.loadWorkflow(testWorkflowPath);
         const execution = await engine.executeWorkflow(workflow);
-        assertEquals(execution.status, 'completed');
+        expect(execution.status).toBe( 'completed');
       }
     });
 
@@ -715,17 +715,17 @@ settings:
       
       try {
         const workflow = await engine.loadWorkflow(examplePath);
-        assertEquals(workflow.name, 'Full-Stack Development Workflow');
+        expect(workflow.name).toBe( 'Full-Stack Development Workflow');
         
         const validation = await engine.validateWorkflow(workflow, true);
-        assertEquals(validation.valid, true);
+        expect(validation.valid).toBe( true);
         
         // Verify complex structure
-        assertExists(workflow.agents);
-        assertExists(workflow.conditions);
-        assertExists(workflow.integrations);
-        assertEquals(workflow.agents!.length > 0, true);
-        assertEquals(workflow.tasks.length > 0, true);
+        expect(workflow.agents);
+        expect(workflow.conditions);
+        expect(workflow.integrations);
+        expect(workflow.agents!.length > 0).toBe( true);
+        expect(workflow.tasks.length > 0).toBe( true);
         
       } catch (error) {
         // If the example file doesn't exist, create a minimal version for testing
@@ -759,10 +759,10 @@ settings:
           }
         };
         
-        await Deno.writeTextFile(testWorkflowPath, JSON.stringify(minimalDevWorkflow, null, 2));
+        fs.writeFileSync(testWorkflowPath,  JSON.stringify(minimalDevWorkflow, null, 2, "utf8"));
         const workflow = await engine.loadWorkflow(testWorkflowPath);
         const validation = await engine.validateWorkflow(workflow, true);
-        assertEquals(validation.valid, true);
+        expect(validation.valid).toBe( true);
       }
     });
   });

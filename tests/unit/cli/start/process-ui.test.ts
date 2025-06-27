@@ -1,12 +1,12 @@
+/// <reference types="jest" />
+
 /**
  * Test suite for ProcessUI
  */
 
-import { assertEquals, assertExists } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { beforeEach, describe, it } from 'https://deno.land/std@0.224.0/testing/bdd.ts';
-import { ProcessUI } from '../../../../src/cli/commands/start/process-ui.ts';
-import { ProcessManager } from '../../../../src/cli/commands/start/process-manager.ts';
-import { ProcessStatus } from '../../../../src/cli/commands/start/types.ts';
+import { ProcessUI } from '../../../../src/cli/commands/start/process-ui.js';
+import { ProcessManager } from '../../../../src/cli/commands/start/process-manager.js';
+import { ProcessStatus } from '../../../../src/cli/commands/start/types.js';
 
 describe('ProcessUI', () => {
   let processManager: ProcessManager;
@@ -19,7 +19,7 @@ describe('ProcessUI', () => {
 
   describe('initialization', () => {
     it('should create ProcessUI instance', () => {
-      assertExists(processUI);
+      expect(processUI);
     });
 
     it('should setup event listeners on ProcessManager', () => {
@@ -43,11 +43,11 @@ describe('ProcessUI', () => {
     it('should format uptime correctly', () => {
       const formatUptime = processUI['formatUptime'].bind(processUI);
       
-      assertEquals(formatUptime(1000), '1s');
-      assertEquals(formatUptime(60000), '1m 0s');
-      assertEquals(formatUptime(3600000), '1h 0m');
-      assertEquals(formatUptime(86400000), '1d 0h');
-      assertEquals(formatUptime(90061000), '1d 1h'); // 1 day, 1 hour, 1 minute, 1 second
+      expect(formatUptime(1000)).toBe( '1s');
+      expect(formatUptime(60000)).toBe( '1m 0s');
+      expect(formatUptime(3600000)).toBe( '1h 0m');
+      expect(formatUptime(86400000)).toBe( '1d 0h');
+      expect(formatUptime(90061000)).toBe( '1d 1h'); // 1 day, 1 hour, 1 minute, 1 second
     });
 
     it('should display correct status icons', () => {
@@ -65,8 +65,8 @@ describe('ProcessUI', () => {
       
       // All should be defined and unique
       const values = Object.values(displays);
-      assertEquals(values.length, 6);
-      assertEquals(new Set(values).size, 6); // All unique
+      expect(values.length).toBe( 6);
+      expect(new Set(values).size).toBe( 6); // All unique
     });
   });
 
@@ -84,7 +84,7 @@ describe('ProcessUI', () => {
       };
       
       await handleCommand('h');
-      assertEquals(helpShown, true);
+      expect(helpShown).toBe( true);
       
       // Restore
       console.log = originalLog;
@@ -99,7 +99,7 @@ describe('ProcessUI', () => {
       };
       
       await handleCommand('r');
-      assertEquals(renderCalled, true);
+      expect(renderCalled).toBe( true);
     });
 
     it('should handle invalid commands', async () => {
@@ -115,7 +115,7 @@ describe('ProcessUI', () => {
       };
       
       await handleCommand('xyz');
-      assertEquals(invalidMessageShown, true);
+      expect(invalidMessageShown).toBe( true);
       
       // Restore
       console.log = originalLog;
@@ -132,8 +132,8 @@ describe('ProcessUI', () => {
       };
       
       await handleCommand('1');
-      assertExists(menuShownForProcess);
-      assertEquals(menuShownForProcess.id, 'event-bus');
+      expect(menuShownForProcess);
+      expect(menuShownForProcess.id).toBe( 'event-bus');
     });
   });
 
@@ -148,7 +148,7 @@ describe('ProcessUI', () => {
       await startProcess('event-bus');
       
       const process = processManager.getProcess('event-bus');
-      assertEquals(process?.status, ProcessStatus.RUNNING);
+      expect(process?.status).toBe( ProcessStatus.RUNNING);
     });
 
     it('should stop process', async () => {
@@ -160,7 +160,7 @@ describe('ProcessUI', () => {
       await stopProcess('event-bus');
       
       const process = processManager.getProcess('event-bus');
-      assertEquals(process?.status, ProcessStatus.STOPPED);
+      expect(process?.status).toBe( ProcessStatus.STOPPED);
     });
 
     it('should restart process', async () => {
@@ -174,8 +174,8 @@ describe('ProcessUI', () => {
       await restartProcess('event-bus');
       
       const process = processManager.getProcess('event-bus');
-      assertEquals(process?.status, ProcessStatus.RUNNING);
-      assertEquals(process?.startTime !== firstStartTime, true);
+      expect(process?.status).toBe( ProcessStatus.RUNNING);
+      expect(process?.startTime !== firstStartTime).toBe( true);
     });
 
     it('should start all processes', async () => {
@@ -184,7 +184,7 @@ describe('ProcessUI', () => {
       await startAll();
       
       const stats = processManager.getSystemStats();
-      assertEquals(stats.runningProcesses >= 5, true);
+      expect(stats.runningProcesses >= 5).toBe( true);
     });
 
     it('should stop all processes', async () => {
@@ -197,7 +197,7 @@ describe('ProcessUI', () => {
       await stopAll();
       
       const stats = processManager.getSystemStats();
-      assertEquals(stats.runningProcesses, 0);
+      expect(stats.runningProcesses).toBe( 0);
     });
   });
 
@@ -217,7 +217,7 @@ describe('ProcessUI', () => {
       const mockProcess = processManager.getProcess('event-bus')!;
       showProcessDetails(mockProcess);
       
-      assertEquals(detailsShown, true);
+      expect(detailsShown).toBe( true);
       
       // Restore
       console.log = originalLog;
@@ -245,7 +245,7 @@ describe('ProcessUI', () => {
       
       showProcessDetails(mockProcess);
       
-      assertEquals(metricsShown, true);
+      expect(metricsShown).toBe( true);
       
       // Restore
       console.log = originalLog;
@@ -284,8 +284,8 @@ describe('ProcessUI', () => {
       
       await handleExit();
       
-      assertEquals(promptShown, true);
-      assertEquals(stopCalled, true);
+      expect(promptShown).toBe( true);
+      expect(stopCalled).toBe( true);
       
       // Restore
       console.log = originalLog;

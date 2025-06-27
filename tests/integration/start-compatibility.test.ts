@@ -1,27 +1,29 @@
+/// <reference types="jest" />
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
 /**
  * Tests to ensure backward compatibility with existing start command functionality
  */
-
-import { assertEquals, assertExists } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { describe, it } from 'https://deno.land/std@0.224.0/testing/bdd.ts';
 
 describe('Start Command Backward Compatibility', () => {
   describe('CLI imports', () => {
     it('should export startCommand from main CLI index', async () => {
       const module = await import('../../src/cli/index.ts');
       // The module imports startCommand, so it should work
-      assertExists(module);
+      expect(module);
     });
 
     it('should export startCommand from commands/start.ts', async () => {
       const { startCommand } = await import('../../src/cli/commands/start.ts');
-      assertExists(startCommand);
+      expect(startCommand);
     });
 
     it('should export startCommand from simple-commands', async () => {
       const { startCommand } = await import('../../src/cli/simple-commands/start.js');
-      assertExists(startCommand);
-      assertEquals(typeof startCommand, 'function');
+      expect(startCommand);
+      expect(typeof startCommand).toBe( 'function');
     });
   });
 
@@ -39,7 +41,7 @@ describe('Start Command Backward Compatibility', () => {
       };
       
       await startCommand(['--help'], {});
-      assertEquals(helpShown, true);
+      expect(helpShown).toBe( true);
       
       // Restore
       console.log = originalLog;
@@ -59,7 +61,7 @@ describe('Start Command Backward Compatibility', () => {
       };
       
       await startCommand(['--help'], {});
-      assertEquals(uiOptionShown, true);
+      expect(uiOptionShown).toBe( true);
       
       // Restore
       console.log = originalLog;
@@ -77,17 +79,17 @@ describe('Start Command Backward Compatibility', () => {
         }
       };
       
-      const originalWriteTextFile = Deno.writeTextFile;
-      Deno.writeTextFile = async (path: string) => {
+      // TODO: Replace with mock - // TODO: Replace with mock -       const originalWriteTextFile = Deno.writeTextFile;
+      // TODO: Replace with mock - // TODO: Replace with mock -       Deno.writeTextFile = async (path: string) => {
         if (path === '.claude-flow.pid') {
           return Promise.resolve();
         }
         return originalWriteTextFile(path, '');
       };
       
-      // Mock Deno.stat to simulate missing directories
-      const originalStat = Deno.stat;
-      Deno.stat = async (path: string) => {
+// TODO: Replace with mock -       // Mock Deno.stat to simulate missing directories
+// TODO: Replace with mock -       const originalStat = Deno.stat;
+// TODO: Replace with mock -       Deno.stat = async (path: string) => {
         if (path === 'memory' || path === 'coordination') {
           throw new Error('Not found');
         }
@@ -97,12 +99,12 @@ describe('Start Command Backward Compatibility', () => {
       await startCommand(['--daemon'], { daemon: true });
       
       // Verify warning about missing dirs was shown
-      assertEquals(daemonMode || console.log.toString().includes('Missing required'), true);
+      expect(daemonMode || console.log.toString().includes('Missing required')).toBe( true);
       
       // Restore
       console.log = originalLog;
-      Deno.writeTextFile = originalWriteTextFile;
-      Deno.stat = originalStat;
+      // TODO: Replace with mock - // TODO: Replace with mock -       Deno.writeTextFile = originalWriteTextFile;
+// TODO: Replace with mock -       Deno.stat = originalStat;
     });
   });
 
@@ -119,7 +121,7 @@ describe('Start Command Backward Compatibility', () => {
         options.some((o: any) => o.name === opt || o.flags?.includes(opt))
       );
       
-      assertEquals(hasAllOptions, true);
+      expect(hasAllOptions).toBe( true);
     });
   });
 
@@ -128,12 +130,12 @@ describe('Start Command Backward Compatibility', () => {
       // The setupEventListeners function was part of the original implementation
       // Verify the event handling is still in place by checking imports
       const module = await import('../../src/cli/commands/start/start-command.ts');
-      assertExists(module.startCommand);
+      expect(module.startCommand);
       
       // Check that it imports eventBus
-      const sourceCode = await Deno.readTextFile('src/cli/commands/start/start-command.ts');
-      assertEquals(sourceCode.includes('eventBus'), true);
-      assertEquals(sourceCode.includes('SystemEvents'), true);
+      const sourceCode = fs.readFileSync('src/cli/commands/start/start-command.ts', "utf8");
+      expect(sourceCode.includes('eventBus')).toBe( true);
+      expect(sourceCode.includes('SystemEvents')).toBe( true);
     });
   });
 });

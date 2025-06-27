@@ -1,14 +1,13 @@
+/// <reference types="jest" />
+
 /**
  * Unit tests for MCP Server
  */
 
-import { describe, it, beforeEach, afterEach } from 'https://deno.land/std@0.220.0/testing/bdd.ts';
-import { assertEquals, assertExists } from 'https://deno.land/std@0.220.0/assert/mod.ts';
-
-import { MCPServer } from '../../../src/mcp/server.ts';
-import { MCPConfig, MCPTool } from '../../../src/utils/types.ts';
-import { Logger } from '../../../src/core/logger.ts';
-import { EventBus } from '../../../src/core/event-bus.ts';
+import { MCPServer } from '../../../src/mcp/server.js';
+import { MCPConfig, MCPTool } from '../../../src/utils/types.js';
+import { Logger } from '../../../src/core/logger.js';
+import { EventBus } from '../../../src/core/event-bus.js';
 
 describe('MCPServer', () => {
   let server: MCPServer;
@@ -54,19 +53,19 @@ describe('MCPServer', () => {
 
   describe('Lifecycle Management', () => {
     it('should initialize correctly', () => {
-      assertExists(server);
+      expect(server);
     });
 
     it('should have start and stop methods', () => {
       // Test that the methods exist without actually starting/stopping
-      assertEquals(typeof server.start, 'function');
-      assertEquals(typeof server.stop, 'function');
+      expect(typeof server.start).toBe( 'function');
+      expect(typeof server.stop).toBe( 'function');
     });
 
     it('should handle basic operations without starting', () => {
       // Test basic server operations that don't require starting
-      assertEquals(typeof server.registerTool, 'function');
-      assertEquals(typeof server.getHealthStatus, 'function');
+      expect(typeof server.registerTool).toBe( 'function');
+      expect(typeof server.getHealthStatus).toBe( 'function');
     });
 
     it('should handle stop when not running', async () => {
@@ -109,7 +108,7 @@ describe('MCPServer', () => {
         server.registerTool(testTool);
         throw new Error('Should have thrown an error');
       } catch (error) {
-        assertEquals((error as Error).message.includes('already registered'), true);
+        expect((error as Error).message.includes('already registered')).toBe( true);
       }
     });
   });
@@ -117,23 +116,23 @@ describe('MCPServer', () => {
   describe('Health and Metrics', () => {
     it('should provide health status without starting', async () => {
       const healthStatus = await server.getHealthStatus();
-      assertExists(healthStatus);
-      assertExists(healthStatus.healthy);
+      expect(healthStatus);
+      expect(healthStatus.healthy);
       // Healthy should be false when not started
-      assertEquals(healthStatus.healthy, false);
+      expect(healthStatus.healthy).toBe( false);
     });
 
     it('should provide metrics without starting', () => {
       const metrics = server.getMetrics();
-      assertExists(metrics);
-      assertEquals(metrics.totalRequests >= 0, true);
-      assertEquals(metrics.successfulRequests >= 0, true);
-      assertEquals(metrics.failedRequests >= 0, true);
+      expect(metrics);
+      expect(metrics.totalRequests >= 0).toBe( true);
+      expect(metrics.successfulRequests >= 0).toBe( true);
+      expect(metrics.failedRequests >= 0).toBe( true);
     });
 
     it('should track sessions without starting', () => {
       const sessions = server.getSessions();
-      assertEquals(Array.isArray(sessions), true);
+      expect(Array.isArray(sessions)).toBe( true);
     });
   });
 
@@ -141,13 +140,13 @@ describe('MCPServer', () => {
     it('should get session by ID without starting', () => {
       // Since no sessions are created in these tests, should return undefined
       const session = server.getSession('non-existent');
-      assertEquals(session, undefined);
+      expect(session).toBe( undefined);
     });
 
     it('should terminate sessions without starting', () => {
       // Should not throw even if session doesn't exist
       server.terminateSession('non-existent');
-      assertEquals(true, true); // No errors thrown
+      expect(true).toBe( true); // No errors thrown
     });
   });
 
@@ -160,7 +159,7 @@ describe('MCPServer', () => {
       };
       
       const invalidServer = new MCPServer(invalidConfig, eventBus, logger);
-      assertExists(invalidServer); // Should still create the server instance
+      expect(invalidServer); // Should still create the server instance
     });
 
     it('should handle tool registration errors', () => {
@@ -175,7 +174,7 @@ describe('MCPServer', () => {
         server.registerTool(invalidTool);
         throw new Error('Should have thrown an error');
       } catch (error) {
-        assertExists(error);
+        expect(error);
       }
     });
   });

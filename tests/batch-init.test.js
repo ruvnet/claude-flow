@@ -17,7 +17,7 @@ const TEST_DIR = './test-batch-output';
 // Cleanup function
 async function cleanup() {
   try {
-    await Deno.remove(TEST_DIR, { recursive: true });
+// TODO: Replace with mock -     await Deno.remove(TEST_DIR, { recursive: true });
   } catch {
     // Directory doesn't exist, which is fine
   }
@@ -26,7 +26,7 @@ async function cleanup() {
 // Setup test environment
 async function setup() {
   await cleanup();
-  await Deno.mkdir(TEST_DIR, { recursive: true });
+// TODO: Replace with mock -   await Deno.mkdir(TEST_DIR, { recursive: true });
   Deno.chdir(TEST_DIR);
 }
 
@@ -123,14 +123,14 @@ Deno.test('Batch Initialization - Minimal', async () => {
   
   // Check that projects were created
   for (const project of projects) {
-    const stats = await Deno.stat(project);
+    const stats = fs.statSync(project);
     assert(stats.isDirectory, `${project} should be a directory`);
     
     // Check for essential files
-    await Deno.stat(`${project}/CLAUDE.md`);
-    await Deno.stat(`${project}/memory-bank.md`);
-    await Deno.stat(`${project}/coordination.md`);
-    await Deno.stat(`${project}/memory/claude-flow-data.json`);
+    fs.statSync(`${project}/CLAUDE.md`);
+    fs.statSync(`${project}/memory-bank.md`);
+    fs.statSync(`${project}/coordination.md`);
+    fs.statSync(`${project}/memory/claude-flow-data.json`);
   }
   
   console.log('✅ Minimal batch initialization tests passed');
@@ -157,12 +157,12 @@ Deno.test('Template-Based Initialization', async () => {
   
   // Check template-specific files
   const projectDir = projects[0];
-  await Deno.stat(`${projectDir}/package.json`);
-  await Deno.stat(`${projectDir}/src/index.js`);
-  await Deno.stat(`${projectDir}/src`);
+  fs.statSync(`${projectDir}/package.json`);
+  fs.statSync(`${projectDir}/src/index.js`);
+  fs.statSync(`${projectDir}/src`);
   
   // Check package.json content
-  const packageJson = JSON.parse(await Deno.readTextFile(`${projectDir}/package.json`));
+  const packageJson = JSON.parse(fs.readFileSync(`${projectDir}/package.json`, "utf8"));
   assertEquals(packageJson.name, 'api-project');
   assert(packageJson.dependencies.express, 'Should have Express dependency');
   
@@ -189,12 +189,12 @@ Deno.test('Multi-Environment Initialization', async () => {
   assert(results.every(r => r.success), 'All environments should be created successfully');
   
   // Check that both environments were created
-  await Deno.stat('multi-env-app-dev');
-  await Deno.stat('multi-env-app-staging');
+  fs.statSync('multi-env-app-dev');
+  fs.statSync('multi-env-app-staging');
   
   // Check environment-specific configuration
-  const devData = JSON.parse(await Deno.readTextFile('multi-env-app-dev/memory/claude-flow-data.json'));
-  const stagingData = JSON.parse(await Deno.readTextFile('multi-env-app-staging/memory/claude-flow-data.json'));
+  const devData = JSON.parse(fs.readFileSync('multi-env-app-dev/memory/claude-flow-data.json', "utf8"));
+  const stagingData = JSON.parse(fs.readFileSync('multi-env-app-staging/memory/claude-flow-data.json', "utf8"));
   
   assertEquals(devData.environment, 'dev');
   assertEquals(stagingData.environment, 'staging');

@@ -1,9 +1,11 @@
+/// <reference types="jest" />
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
 /**
  * Integration tests for the Enhanced REPL
  */
-
-import { assertEquals, assertExists, assertStringIncludes } from 'https://deno.land/std@0.208.0/assert/mod.ts';
-import { describe, it, beforeEach, afterEach } from 'https://deno.land/std@0.208.0/testing/bdd.ts';
 
 // Mock implementations for testing
 class MockInput {
@@ -51,7 +53,7 @@ describe('Enhanced REPL Integration Tests', () => {
   beforeEach(async () => {
     mockInput = new MockInput();
     mockConsole = new MockConsole();
-    testDir = await Deno.makeTempDir({ prefix: 'repl-test-' });
+    testDir =  fs.mkdtempSync(path.join(os.tmpdir(), "claude-flow-test-"));
     
     // Mock global console
     globalThis.console = mockConsole as any;
@@ -59,7 +61,7 @@ describe('Enhanced REPL Integration Tests', () => {
 
   afterEach(async () => {
     try {
-      await Deno.remove(testDir, { recursive: true });
+      // TODO: Replace with mock - // TODO: Replace with mock -       await Deno.remove(testDir, { recursive: true });
     } catch {
       // Ignore cleanup errors
     }
@@ -80,25 +82,25 @@ describe('Enhanced REPL Integration Tests', () => {
       varManager.set('tempVar', 'temporary', 'temporary');
       
       // Check values
-      assertEquals(varManager.get('testString'), 'Hello World');
-      assertEquals(varManager.get('testNumber'), 42);
-      assertEquals(varManager.get('testObject').key, 'value');
-      assertEquals(varManager.has('testString'), true);
-      assertEquals(varManager.has('nonexistent'), false);
+      expect(varManager.get('testString')).toBe( 'Hello World');
+      expect(varManager.get('testNumber')).toBe( 42);
+      expect(varManager.get('testObject').key).toBe( 'value');
+      expect(varManager.has('testString')).toBe( true);
+      expect(varManager.has('nonexistent')).toBe( false);
       
       // Check persistence (temporary variables should not be saved)
       const variables = varManager.list();
-      assertEquals(variables.length, 3); // Excludes temporary
-      assertEquals(variables.some(v => v.name === 'tempVar'), false);
+      expect(variables.length).toBe( 3); // Excludes temporary
+      expect(variables.some(v => v.name === 'tempVar')).toBe( false);
       
       // Test scoped listing
       const sessionVars = varManager.list('session');
-      assertEquals(sessionVars.length, 2);
-      assertEquals(sessionVars.every(v => v.scope === 'session'), true);
+      expect(sessionVars.length).toBe( 2);
+      expect(sessionVars.every(v => v.scope === 'session')).toBe( true);
       
       const globalVars = varManager.list('global');
-      assertEquals(globalVars.length, 1);
-      assertEquals(globalVars[0].name, 'testNumber');
+      expect(globalVars.length).toBe( 1);
+      expect(globalVars[0].name).toBe( 'testNumber');
     });
 
     it('should handle variable deletion', async () => {
@@ -110,17 +112,17 @@ describe('Enhanced REPL Integration Tests', () => {
       varManager.set('var2', 'value2');
       varManager.set('var3', 'value3');
       
-      assertEquals(varManager.list().length, 3);
+      expect(varManager.list().length).toBe( 3);
       
       // Delete individual variable
-      assertEquals(varManager.delete('var1'), true);
-      assertEquals(varManager.delete('nonexistent'), false);
-      assertEquals(varManager.list().length, 2);
-      assertEquals(varManager.has('var1'), false);
+      expect(varManager.delete('var1')).toBe( true);
+      expect(varManager.delete('nonexistent')).toBe( false);
+      expect(varManager.list().length).toBe( 2);
+      expect(varManager.has('var1')).toBe( false);
       
       // Clear all variables
       varManager.clear();
-      assertEquals(varManager.list().length, 0);
+      expect(varManager.list().length).toBe( 0);
     });
 
     it('should handle scope-based clearing', async () => {
@@ -132,16 +134,16 @@ describe('Enhanced REPL Integration Tests', () => {
       varManager.set('globalVar', 'value', 'global');
       varManager.set('tempVar', 'value', 'temporary');
       
-      assertEquals(varManager.list().length, 3);
+      expect(varManager.list().length).toBe( 3);
       
       // Clear only session variables
       varManager.clear('session');
       
       const remaining = varManager.list();
-      assertEquals(remaining.length, 2);
-      assertEquals(remaining.some(v => v.scope === 'session'), false);
-      assertEquals(remaining.some(v => v.scope === 'global'), true);
-      assertEquals(remaining.some(v => v.scope === 'temporary'), true);
+      expect(remaining.length).toBe( 2);
+      expect(remaining.some(v => v.scope === 'session')).toBe( false);
+      expect(remaining.some(v => v.scope === 'global')).toBe( true);
+      expect(remaining.some(v => v.scope === 'temporary')).toBe( true);
     });
   });
 
@@ -155,26 +157,26 @@ describe('Enhanced REPL Integration Tests', () => {
       const session1Id = sessionManager.createSession('Test Session 1');
       const session2Id = sessionManager.createSession('Test Session 2');
       
-      assertExists(session1Id);
-      assertExists(session2Id);
-      assertEquals(session1Id !== session2Id, true);
+      expect(session1Id);
+      expect(session2Id);
+      expect(session1Id !== session2Id).toBe( true);
       
       // List sessions
       const sessions = sessionManager.listSessions();
-      assertEquals(sessions.length, 2);
-      assertEquals(sessions.some(s => s.name === 'Test Session 1'), true);
-      assertEquals(sessions.some(s => s.name === 'Test Session 2'), true);
+      expect(sessions.length).toBe( 2);
+      expect(sessions.some(s => s.name === 'Test Session 1')).toBe( true);
+      expect(sessions.some(s => s.name === 'Test Session 2')).toBe( true);
       
       // Load session
       const loadedSession = sessionManager.loadSession(session1Id);
-      assertExists(loadedSession);
-      assertEquals(loadedSession!.name, 'Test Session 1');
-      assertEquals(sessionManager.getCurrentSession()!.id, session1Id);
+      expect(loadedSession);
+      expect(loadedSession!.name).toBe( 'Test Session 1');
+      expect(sessionManager.getCurrentSession()!.id).toBe( session1Id);
       
       // Delete session
-      assertEquals(sessionManager.deleteSession(session2Id), true);
-      assertEquals(sessionManager.deleteSession('nonexistent'), false);
-      assertEquals(sessionManager.listSessions().length, 1);
+      expect(sessionManager.deleteSession(session2Id)).toBe( true);
+      expect(sessionManager.deleteSession('nonexistent')).toBe( false);
+      expect(sessionManager.listSessions().length).toBe( 1);
     });
 
     it('should handle session persistence', async () => {
@@ -193,10 +195,10 @@ describe('Enhanced REPL Integration Tests', () => {
       
       // Should load persisted sessions
       const sessions = sessionManager2.listSessions();
-      assertEquals(sessions.length, 1);
-      assertEquals(sessions[0].name, 'Persistent Session');
-      assertEquals(sessions[0].history.length, 2);
-      assertEquals(sessions[0].variables.has('testVar'), true);
+      expect(sessions.length).toBe( 1);
+      expect(sessions[0].name).toBe( 'Persistent Session');
+      expect(sessions[0].history.length).toBe( 2);
+      expect(sessions[0].variables.has('testVar')).toBe( true);
     });
   });
 
@@ -211,35 +213,35 @@ describe('Enhanced REPL Integration Tests', () => {
       debugManager.addBreakpoint('condition-check');
       
       let breakpoints = debugManager.listBreakpoints();
-      assertEquals(breakpoints.length, 3);
-      assertEquals(breakpoints.includes('task-001'), true);
+      expect(breakpoints.length).toBe( 3);
+      expect(breakpoints.includes('task-001')).toBe( true);
       
-      assertEquals(debugManager.removeBreakpoint('task-001'), true);
-      assertEquals(debugManager.removeBreakpoint('nonexistent'), false);
+      expect(debugManager.removeBreakpoint('task-001')).toBe( true);
+      expect(debugManager.removeBreakpoint('nonexistent')).toBe( false);
       
       breakpoints = debugManager.listBreakpoints();
-      assertEquals(breakpoints.length, 2);
-      assertEquals(breakpoints.includes('task-001'), false);
+      expect(breakpoints.length).toBe( 2);
+      expect(breakpoints.includes('task-001')).toBe( false);
       
       // Watch expressions
       debugManager.addWatch('status', 'variables.currentStatus');
       debugManager.addWatch('progress', 'task.progress.percentage');
       
       const watches = debugManager.listWatches();
-      assertEquals(watches.size, 2);
-      assertEquals(watches.get('status'), 'variables.currentStatus');
-      assertEquals(watches.get('progress'), 'task.progress.percentage');
+      expect(watches.size).toBe( 2);
+      expect(watches.get('status')).toBe( 'variables.currentStatus');
+      expect(watches.get('progress')).toBe( 'task.progress.percentage');
       
-      assertEquals(debugManager.removeWatch('status'), true);
-      assertEquals(debugManager.removeWatch('nonexistent'), false);
-      assertEquals(debugManager.listWatches().size, 1);
+      expect(debugManager.removeWatch('status')).toBe( true);
+      expect(debugManager.removeWatch('nonexistent')).toBe( false);
+      expect(debugManager.listWatches().size).toBe( 1);
       
       // Step mode
-      assertEquals(debugManager.isStepMode(), false);
+      expect(debugManager.isStepMode()).toBe( false);
       debugManager.enableStepMode();
-      assertEquals(debugManager.isStepMode(), true);
+      expect(debugManager.isStepMode()).toBe( true);
       debugManager.disableStepMode();
-      assertEquals(debugManager.isStepMode(), false);
+      expect(debugManager.isStepMode()).toBe( false);
     });
 
     it('should manage call stack', async () => {
@@ -267,16 +269,16 @@ describe('Enhanced REPL Integration Tests', () => {
       debugManager.pushFrame(frame2);
       
       let stack = debugManager.getCallStack();
-      assertEquals(stack.length, 2);
-      assertEquals(stack[1].name, 'task-001'); // Most recent frame
+      expect(stack.length).toBe( 2);
+      expect(stack[1].name).toBe( 'task-001'); // Most recent frame
       
       // Pop frame
       const poppedFrame = debugManager.popFrame();
-      assertEquals(poppedFrame!.name, 'task-001');
+      expect(poppedFrame!.name).toBe( 'task-001');
       
       stack = debugManager.getCallStack();
-      assertEquals(stack.length, 1);
-      assertEquals(stack[0].name, 'workflow-main');
+      expect(stack.length).toBe( 1);
+      expect(stack[0].name).toBe( 'workflow-main');
     });
   });
 
@@ -285,24 +287,24 @@ describe('Enhanced REPL Integration Tests', () => {
       const { MultiLineEditor } = await import('../../package/src/cli/enhanced-repl.ts');
       const editor = new (MultiLineEditor as any)();
       
-      assertEquals(editor.isActive(), false);
+      expect(editor.isActive()).toBe( false);
       
       editor.startEdit('const data = {');
-      assertEquals(editor.isActive(), true);
+      expect(editor.isActive()).toBe( true);
       
       editor.addLine('  name: "test",');
       editor.addLine('  value: 42');
       editor.addLine('};');
       
       const content = editor.getContent();
-      assertEquals(content.includes('const data = {'), true);
-      assertEquals(content.includes('name: "test"'), true);
-      assertEquals(content.includes('value: 42'), true);
-      assertEquals(content.includes('};'), true);
+      expect(content.includes('const data = {')).toBe( true);
+      expect(content.includes('name: "test"')).toBe( true);
+      expect(content.includes('value: 42')).toBe( true);
+      expect(content.includes('};')).toBe( true);
       
       editor.clear();
-      assertEquals(editor.isActive(), false);
-      assertEquals(editor.getContent(), '');
+      expect(editor.isActive()).toBe( false);
+      expect(editor.getContent()).toBe( '');
     });
 
     it('should handle initial content', async () => {
@@ -313,11 +315,11 @@ describe('Enhanced REPL Integration Tests', () => {
       editor.startEdit(initialContent);
       
       const content = editor.getContent();
-      assertEquals(content, initialContent);
+      expect(content).toBe( initialContent);
       
       editor.addLine('// Additional line');
       const updatedContent = editor.getContent();
-      assertEquals(updatedContent.includes('// Additional line'), true);
+      expect(updatedContent.includes('// Additional line')).toBe( true);
     });
   });
 
@@ -329,27 +331,27 @@ describe('Enhanced REPL Integration Tests', () => {
       
       // Simple command
       let parsed = parseEnhancedCommand('help');
-      assertEquals(parsed, ['help']);
+      expect(parsed).toBe( ['help']);
       
       // Command with arguments
       parsed = parseEnhancedCommand('let name = "John Doe"');
-      assertEquals(parsed, ['let', 'name', '=', 'John Doe']);
+      expect(parsed).toBe( ['let').toBe( 'name', '=', 'John Doe']);
       
       // Command with single quotes
       parsed = parseEnhancedCommand("set greeting = 'Hello World'");
-      assertEquals(parsed, ['set', 'greeting', '=', 'Hello World']);
+      expect(parsed).toBe( ['set').toBe( 'greeting', '=', 'Hello World']);
       
       // Command with escaped quotes
       parsed = parseEnhancedCommand('echo "He said \\"Hello\\""');
-      assertEquals(parsed, ['echo', 'He said "Hello"']);
+      expect(parsed).toBe( ['echo').toBe( 'He said "Hello"']);
       
       // Command with multiple spaces
       parsed = parseEnhancedCommand('workflow  run    test.yaml');
-      assertEquals(parsed, ['workflow', 'run', 'test.yaml']);
+      expect(parsed).toBe( ['workflow').toBe( 'run', 'test.yaml']);
       
       // Complex JSON assignment
       parsed = parseEnhancedCommand('let config = {"timeout": 5000, "retries": 3}');
-      assertEquals(parsed, ['let', 'config', '=', '{"timeout": 5000, "retries": 3}']);
+      expect(parsed).toBe( ['let').toBe( 'config', '=', '{"timeout": 5000, "retries": 3}']);
     });
   });
 
@@ -370,25 +372,25 @@ describe('Enhanced REPL Integration Tests', () => {
       
       // Basic command completion
       let completions = getCompletions('hel', mockContext, mockVarManager);
-      assertEquals(completions.includes('help'), true);
+      expect(completions.includes('help')).toBe( true);
       
       completions = getCompletions('deb', mockContext, mockVarManager);
-      assertEquals(completions.includes('debug'), true);
+      expect(completions.includes('debug')).toBe( true);
       
       // Variable name completion
       completions = getCompletions('get api', mockContext, mockVarManager);
-      assertEquals(completions.includes('apiKey'), true);
+      expect(completions.includes('apiKey')).toBe( true);
       
       completions = getCompletions('var con', mockContext, mockVarManager);
-      assertEquals(completions.includes('config'), true);
+      expect(completions.includes('config')).toBe( true);
       
       // Session subcommand completion
       completions = getCompletions('session s', mockContext, mockVarManager);
-      assertEquals(completions.includes('save'), true);
+      expect(completions.includes('save')).toBe( true);
       
       completions = getCompletions('session l', mockContext, mockVarManager);
-      assertEquals(completions.includes('list'), true);
-      assertEquals(completions.includes('load'), true);
+      expect(completions.includes('list')).toBe( true);
+      expect(completions.includes('load')).toBe( true);
     });
   });
 
@@ -403,22 +405,22 @@ describe('Enhanced REPL Integration Tests', () => {
       varManager.set('test', 'value');
       
       // Variable should still work in memory
-      assertEquals(varManager.get('test'), 'value');
+      expect(varManager.get('test')).toBe( 'value');
     });
 
     it('should handle invalid JSON gracefully', async () => {
       const corruptFile = `${testDir}/corrupt-variables.json`;
-      await Deno.writeTextFile(corruptFile, 'invalid json content');
+      fs.writeFileSync(corruptFile,  'invalid json content', "utf8");
       
       const { VariableManager } = await import('../../package/src/cli/enhanced-repl.ts');
       
       // Should not crash, just start with empty state
       const varManager = new (VariableManager as any)(corruptFile);
-      assertEquals(varManager.list().length, 0);
+      expect(varManager.list().length).toBe( 0);
       
       // Should still work normally
       varManager.set('test', 'value');
-      assertEquals(varManager.get('test'), 'value');
+      expect(varManager.get('test')).toBe( 'value');
     });
   });
 
@@ -437,16 +439,16 @@ describe('Enhanced REPL Integration Tests', () => {
         ]
       };
       
-      await Deno.writeTextFile(workflowFile, JSON.stringify(workflow, null, 2));
+      fs.writeFileSync(workflowFile,  JSON.stringify(workflow, null, 2, "utf8"));
       
       // Mock workflow engine
       const mockEngine = {
         loadWorkflow: async (path: string) => {
-          assertEquals(path, workflowFile);
+          expect(path).toBe( workflowFile);
           return workflow;
         },
         executeWorkflow: async (wf: any) => {
-          assertEquals(wf.name, 'REPL Test Workflow');
+          expect(wf.name).toBe( 'REPL Test Workflow');
           return {
             id: 'test-execution-001',
             workflowName: wf.name,
@@ -470,7 +472,7 @@ describe('Enhanced REPL Integration Tests', () => {
       await handleWorkflowCommand(['run', workflowFile], mockContext, mockEngine);
       
       // Verify workflow was executed
-      assertEquals(mockContext.activeWorkflows.size, 1);
+      expect(mockContext.activeWorkflows.size).toBe( 1);
     });
   });
 });

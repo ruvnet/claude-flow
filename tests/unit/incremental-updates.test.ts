@@ -1,23 +1,21 @@
+/// <reference types="jest" />
+
 /**
  * Comprehensive unit tests for Incremental Updates across the system
  */
 
-import { describe, it, beforeEach, afterEach } from "https://deno.land/std@0.220.0/testing/bdd.ts";
-import { assertEquals, assertExists, assert } from "https://deno.land/std@0.220.0/assert/mod.ts";
-import { FakeTime } from "https://deno.land/std@0.220.0/testing/time.ts";
-
-import { MemoryManager } from '../../src/memory/manager.ts';
-import { MemoryBackendFactory } from '../../src/memory/backend.ts';
-import { SwarmMemory } from '../../src/swarm/memory.ts';
-import { ConfigurationManager } from '../../src/core/config.ts';
-import { deepMerge } from '../../src/utils/helpers.ts';
-import { ResourceManager } from '../../src/resources/resource-manager.ts';
-import { SimpleCache } from '../../src/memory/cache.ts';
+import { MemoryManager } from '../../src/memory/manager.js';
+import { MemoryBackendFactory } from '../../src/memory/backend.js';
+import { SwarmMemory } from '../../src/swarm/memory.js';
+import { ConfigurationManager } from '../../src/core/config.js';
+import { deepMerge } from '../../src/utils/helpers.js';
+import { ResourceManager } from '../../src/resources/resource-manager.js';
+import { SimpleCache } from '../../src/memory/cache.js';
 import { 
   AsyncTestUtils, 
   FileSystemTestUtils,
   TestDataGenerator 
-} from '../utils/test-utils.ts';
+} from '../utils/test-utils.js';
 
 describe('Incremental Updates Test Suite', () => {
   let tempDir: string;
@@ -25,12 +23,12 @@ describe('Incremental Updates Test Suite', () => {
   
   beforeEach(async () => {
     tempDir = await FileSystemTestUtils.createTempDir('incremental-test-');
-    fakeTime = new FakeTime();
+    fakeTime = jest.useFakeTimers();
   });
 
   afterEach(async () => {
     await FileSystemTestUtils.cleanup(tempDir);
-    fakeTime.restore();
+    jest.useRealTimers();
   });
 
   describe('Memory Manager Incremental Updates', () => {
@@ -46,19 +44,19 @@ describe('Incremental Updates Test Suite', () => {
       // Store initial entry
       await memoryManager.store('test-key', 'initial value', { namespace: 'test' });
       const initial = await memoryManager.retrieve('test-key', 'test');
-      assertEquals(initial?.version, 1);
+      expect(initial?.version).toBe( 1);
 
       // First update
       await memoryManager.update(initial!.id, { content: 'updated value 1' });
       const updated1 = await memoryManager.retrieve('test-key', 'test');
-      assertEquals(updated1?.version, 2);
-      assertEquals(updated1?.content, 'updated value 1');
+      expect(updated1?.version).toBe( 2);
+      expect(updated1?.content).toBe( 'updated value 1');
 
       // Second update
       await memoryManager.update(updated1!.id, { content: 'updated value 2' });
       const updated2 = await memoryManager.retrieve('test-key', 'test');
-      assertEquals(updated2?.version, 3);
-      assertEquals(updated2?.content, 'updated value 2');
+      expect(updated2?.version).toBe( 3);
+      expect(updated2?.content).toBe( 'updated value 2');
     });
 
     it('should handle partial updates correctly', async () => {
@@ -72,8 +70,8 @@ describe('Incremental Updates Test Suite', () => {
       });
 
       const updated = await memoryManager.retrieve('test-key', 'test');
-      assertEquals(updated?.content, { a: 1, b: 5, c: 3 });
-      assertEquals(updated?.metadata?.updated, true);
+      expect(updated?.content).toBe( { a: 1).toBe( b: 5, c: 3 });
+      expect(updated?.metadata?.updated).toBe( true);
     });
 
     it('should preserve timestamps correctly during updates', async () => {
@@ -82,12 +80,12 @@ describe('Incremental Updates Test Suite', () => {
       const createdAt = initial!.createdAt;
 
       // Advance time to ensure different timestamp
-      fakeTime.tick(1000);
+      jest.advanceTimersByTime(1000);
 
       await memoryManager.update(initial!.id, { content: 'updated' });
       const updated = await memoryManager.retrieve('test-key', 'test');
 
-      assertEquals(updated?.createdAt, createdAt);
+      expect(updated?.createdAt).toBe( createdAt);
       assert(updated!.updatedAt > createdAt);
     });
   });
@@ -105,10 +103,10 @@ describe('Incremental Updates Test Suite', () => {
       await swarmMemory.update('test-key', 'version 3');
 
       const entry = await swarmMemory.get('test-key');
-      assertEquals(entry.version, 3);
-      assertEquals(entry.previousVersions.length, 2);
-      assertEquals(entry.previousVersions[0].value, 'version 1');
-      assertEquals(entry.previousVersions[1].value, 'version 2');
+      expect(entry.version).toBe( 3);
+      expect(entry.previousVersions.length).toBe( 2);
+      expect(entry.previousVersions[0].value).toBe( 'version 1');
+      expect(entry.previousVersions[1].value).toBe( 'version 2');
     });
 
     it('should limit version history to 10 entries', async () => {
@@ -120,10 +118,10 @@ describe('Incremental Updates Test Suite', () => {
       }
 
       const entry = await swarmMemory.get('test-key');
-      assertEquals(entry.version, 13);
-      assertEquals(entry.previousVersions.length, 10);
-      assertEquals(entry.previousVersions[0].value, 'version 2');
-      assertEquals(entry.previousVersions[9].value, 'version 11');
+      expect(entry.version).toBe( 13);
+      expect(entry.previousVersions.length).toBe( 10);
+      expect(entry.previousVersions[0].value).toBe( 'version 2');
+      expect(entry.previousVersions[9].value).toBe( 'version 11');
     });
 
     it('should handle concurrent updates with proper versioning', async () => {
@@ -138,8 +136,8 @@ describe('Incremental Updates Test Suite', () => {
       await Promise.all(updates);
 
       const final = await swarmMemory.get('counter');
-      assertEquals(final.value, 10);
-      assertEquals(final.version, 11); // Initial + 10 updates
+      expect(final.value).toBe( 10);
+      expect(final.version).toBe( 11); // Initial + 10 updates
     });
   });
 
@@ -166,21 +164,21 @@ describe('Incremental Updates Test Suite', () => {
       });
 
       const updated = configManager.getConfig();
-      assertEquals(updated.temperature, 0.9);
-      assertEquals(updated.tools.webSearch, false);
-      assertEquals(updated.tools.memory, true); // Preserved
-      assertEquals(updated.model, 'claude-3-sonnet'); // Preserved
+      expect(updated.temperature).toBe( 0.9);
+      expect(updated.tools.webSearch).toBe( false);
+      expect(updated.tools.memory).toBe( true); // Preserved
+      expect(updated.model).toBe( 'claude-3-sonnet'); // Preserved
     });
 
     it('should track configuration differences', () => {
       configManager.update({ temperature: 0.5 });
       
       const diff = configManager.getDiff();
-      assertEquals(diff, { temperature: 0.5 });
+      expect(diff).toBe( { temperature: 0.5 });
       
       configManager.update({ maxTokens: 8192 });
       const diff2 = configManager.getDiff();
-      assertEquals(diff2, { temperature: 0.5, maxTokens: 8192 });
+      expect(diff2).toBe( { temperature: 0.5).toBe( maxTokens: 8192 });
     });
   });
 
@@ -200,7 +198,7 @@ describe('Incremental Updates Test Suite', () => {
       cache.get('key3');
       cache.get('key4');
       
-      assertEquals(cache.stats(), {
+      expect(cache.stats(), {
         size: 2,
         maxSize: 3,
         hits: 3,
@@ -215,10 +213,10 @@ describe('Incremental Updates Test Suite', () => {
       cache.set('key2', 'value2');
       cache.set('key3', 'value3'); // Should evict key1
       
-      assertEquals(cache.has('key1'), false);
-      assertEquals(cache.has('key2'), true);
-      assertEquals(cache.has('key3'), true);
-      assertEquals(cache.stats().size, 2);
+      expect(cache.has('key1')).toBe( false);
+      expect(cache.has('key2')).toBe( true);
+      expect(cache.has('key3')).toBe( true);
+      expect(cache.stats().size).toBe( 2);
     });
   });
 
@@ -251,7 +249,7 @@ describe('Incremental Updates Test Suite', () => {
 
       const result = deepMerge(original, update);
       
-      assertEquals(result, {
+      expect(result, {
         level1: {
           level2: {
             level3: {
@@ -272,9 +270,9 @@ describe('Incremental Updates Test Suite', () => {
       
       const result = deepMerge(original, update);
       
-      assertEquals(original.nested.b, 2);
-      assertEquals(result.nested.b, 3);
-      assertEquals(result.nested.c, 4);
+      expect(original.nested.b).toBe( 2);
+      expect(result.nested.b).toBe( 3);
+      expect(result.nested.c).toBe( 4);
     });
   });
 
@@ -296,12 +294,12 @@ describe('Incremental Updates Test Suite', () => {
         threads: 2
       });
 
-      assertEquals(allocation1, true);
+      expect(allocation1).toBe( true);
       
       const usage1 = resourceManager.getUsage();
-      assertEquals(usage1.memory, 100 * 1024 * 1024);
-      assertEquals(usage1.cpu, 1);
-      assertEquals(usage1.threads, 2);
+      expect(usage1.memory).toBe( 100 * 1024 * 1024);
+      expect(usage1.cpu).toBe( 1);
+      expect(usage1.threads).toBe( 2);
 
       const allocation2 = await resourceManager.allocate('task2', {
         memory: 200 * 1024 * 1024, // 200MB
@@ -309,12 +307,12 @@ describe('Incremental Updates Test Suite', () => {
         threads: 3
       });
 
-      assertEquals(allocation2, true);
+      expect(allocation2).toBe( true);
       
       const usage2 = resourceManager.getUsage();
-      assertEquals(usage2.memory, 300 * 1024 * 1024);
-      assertEquals(usage2.cpu, 2);
-      assertEquals(usage2.threads, 5);
+      expect(usage2.memory).toBe( 300 * 1024 * 1024);
+      expect(usage2.cpu).toBe( 2);
+      expect(usage2.threads).toBe( 5);
     });
 
     it('should handle resource deallocation correctly', async () => {
@@ -325,14 +323,14 @@ describe('Incremental Updates Test Suite', () => {
       });
 
       const usageBefore = resourceManager.getUsage();
-      assertEquals(usageBefore.memory, 500 * 1024 * 1024);
+      expect(usageBefore.memory).toBe( 500 * 1024 * 1024);
 
       resourceManager.deallocate('task1');
 
       const usageAfter = resourceManager.getUsage();
-      assertEquals(usageAfter.memory, 0);
-      assertEquals(usageAfter.cpu, 0);
-      assertEquals(usageAfter.threads, 0);
+      expect(usageAfter.memory).toBe( 0);
+      expect(usageAfter.cpu).toBe( 0);
+      expect(usageAfter.threads).toBe( 0);
     });
   });
 
@@ -362,8 +360,8 @@ describe('Incremental Updates Test Suite', () => {
       // Verify all updates
       for (let i = 0; i < 10; i++) {
         const updated = await memoryManager.retrieve(`key-${i}`, 'batch');
-        assertEquals(updated?.content, i + 10);
-        assertEquals(updated?.version, 2);
+        expect(updated?.content).toBe( i + 10);
+        expect(updated?.version).toBe( 2);
       }
     });
   });
@@ -398,8 +396,8 @@ describe('Incremental Updates Test Suite', () => {
       counter.increment();
       
       const stats = counter.getStats();
-      assertEquals(stats.value, 2);
-      assertEquals(stats.updates, 4);
+      expect(stats.value).toBe( 2);
+      expect(stats.updates).toBe( 4);
     });
   });
 
@@ -422,9 +420,9 @@ describe('Incremental Updates Test Suite', () => {
       // Wait for event propagation
       await AsyncTestUtils.waitFor(() => updateEvents.length > 0, 100);
       
-      assertEquals(updateEvents.length, 1);
-      assertEquals(updateEvents[0].id, entry!.id);
-      assertEquals(updateEvents[0].updates.content, 'updated');
+      expect(updateEvents.length).toBe( 1);
+      expect(updateEvents[0].id).toBe( entry!.id);
+      expect(updateEvents[0].updates.content).toBe( 'updated');
     });
   });
 });

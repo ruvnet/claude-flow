@@ -1,30 +1,27 @@
+/// <reference types="jest" />
+
 /**
  * Comprehensive unit tests for Coordination System
  * Tests deadlock detection, task scheduling, and resource management
  */
 
-import { describe, it, beforeEach, afterEach } from "https://deno.land/std@0.220.0/testing/bdd.ts";
-import { assertEquals, assertExists, assertRejects, assertThrows } from "https://deno.land/std@0.220.0/assert/mod.ts";
-import { FakeTime } from "https://deno.land/std@0.220.0/testing/time.ts";
-import { spy, stub } from "https://deno.land/std@0.220.0/testing/mock.ts";
-
-import { CoordinationManager } from '../../../src/coordination/manager.ts';
-import { TaskScheduler } from '../../../src/coordination/scheduler.ts';
-import { ResourceManager } from '../../../src/coordination/resources.ts';
-import { ConflictResolver } from '../../../src/coordination/conflict-resolution.ts';
-import { CircuitBreaker } from '../../../src/coordination/circuit-breaker.ts';
-import { WorkStealingScheduler } from '../../../src/coordination/work-stealing.ts';
-import { DependencyGraph } from '../../../src/coordination/dependency-graph.ts';
-import { AdvancedScheduler } from '../../../src/coordination/advanced-scheduler.ts';
+import { CoordinationManager } from '../../../src/coordination/manager.js';
+import { TaskScheduler } from '../../../src/coordination/scheduler.js';
+import { ResourceManager } from '../../../src/coordination/resources.js';
+import { ConflictResolver } from '../../../src/coordination/conflict-resolution.js';
+import { CircuitBreaker } from '../../../src/coordination/circuit-breaker.js';
+import { WorkStealingScheduler } from '../../../src/coordination/work-stealing.js';
+import { DependencyGraph } from '../../../src/coordination/dependency-graph.js';
+import { AdvancedScheduler } from '../../../src/coordination/advanced-scheduler.js';
 import { 
   AsyncTestUtils, 
   MemoryTestUtils, 
   PerformanceTestUtils,
   TestAssertions,
   MockFactory 
-} from '../../utils/test-utils.ts';
-import { generateCoordinationTasks, generateErrorScenarios } from '../../fixtures/generators.ts';
-import { setupTestEnv, cleanupTestEnv, TEST_CONFIG } from '../../test.config.ts';
+} from '../../utils/test-utils.js';
+import { generateCoordinationTasks, generateErrorScenarios } from '../../fixtures/generators.js';
+import { setupTestEnv, cleanupTestEnv, TEST_CONFIG } from '../../test.config.js';
 
 describe('Coordination System - Comprehensive Tests', () => {
   let coordinationManager: CoordinationManager;
@@ -59,11 +56,11 @@ describe('Coordination System - Comprehensive Tests', () => {
       conflictResolver,
     });
 
-    fakeTime = new FakeTime();
+    fakeTime = jest.useFakeTimers();
   });
 
   afterEach(async () => {
-    fakeTime.restore();
+    jest.useRealTimers();
     await cleanupTestEnv();
   });
 
@@ -74,10 +71,10 @@ describe('Coordination System - Comprehensive Tests', () => {
 
     it('should schedule tasks with correct priority', async () => {
       const tasks = [
-        { id: 'low-1', priority: 'low', execute: spy(async () => 'low-1') },
-        { id: 'high-1', priority: 'critical', execute: spy(async () => 'high-1') },
-        { id: 'medium-1', priority: 'medium', execute: spy(async () => 'medium-1') },
-        { id: 'high-2', priority: 'high', execute: spy(async () => 'high-2') },
+        { id: 'low-1', priority: 'low', execute: jest.spyOn(async () => 'low-1') },
+        { id: 'high-1', priority: 'critical', execute: jest.spyOn(async () => 'high-1') },
+        { id: 'medium-1', priority: 'medium', execute: jest.spyOn(async () => 'medium-1') },
+        { id: 'high-2', priority: 'high', execute: jest.spyOn(async () => 'high-2') },
       ];
 
       // Submit all tasks
@@ -88,9 +85,9 @@ describe('Coordination System - Comprehensive Tests', () => {
       const results = await Promise.all(promises);
       
       // Verify all tasks completed
-      assertEquals(results.length, 4);
+      expect(results.length).toBe( 4);
       tasks.forEach(task => {
-        assertEquals(task.execute.calls.length, 1);
+        expect(task.execute.calls.length).toBe( 1);
       });
     });
 
@@ -101,7 +98,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         {
           id: 'task-a',
           dependencies: [],
-          execute: spy(async () => {
+          execute: jest.spyOn(async () => {
             await AsyncTestUtils.delay(10);
             executionOrder.push('task-a');
             return 'a';
@@ -110,7 +107,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         {
           id: 'task-b',
           dependencies: ['task-a'],
-          execute: spy(async () => {
+          execute: jest.spyOn(async () => {
             await AsyncTestUtils.delay(10);
             executionOrder.push('task-b');
             return 'b';
@@ -119,7 +116,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         {
           id: 'task-c',
           dependencies: ['task-a', 'task-b'],
-          execute: spy(async () => {
+          execute: jest.spyOn(async () => {
             await AsyncTestUtils.delay(10);
             executionOrder.push('task-c');
             return 'c';
@@ -137,16 +134,16 @@ describe('Coordination System - Comprehensive Tests', () => {
       await Promise.all(promises);
       
       // Verify execution order respected dependencies
-      assertEquals(executionOrder[0], 'task-a');
-      assertEquals(executionOrder[1], 'task-b');
-      assertEquals(executionOrder[2], 'task-c');
+      expect(executionOrder[0]).toBe( 'task-a');
+      expect(executionOrder[1]).toBe( 'task-b');
+      expect(executionOrder[2]).toBe( 'task-c');
     });
 
     it('should detect and handle circular dependencies', async () => {
       const tasks = [
-        { id: 'task-x', dependencies: ['task-y'], execute: spy() },
-        { id: 'task-y', dependencies: ['task-z'], execute: spy() },
-        { id: 'task-z', dependencies: ['task-x'], execute: spy() },
+        { id: 'task-x', dependencies: ['task-y'], execute: jest.spyOn() },
+        { id: 'task-y', dependencies: ['task-z'], execute: jest.spyOn() },
+        { id: 'task-z', dependencies: ['task-x'], execute: jest.spyOn() },
       ];
 
       // Submit tasks with circular dependencies
@@ -158,18 +155,18 @@ describe('Coordination System - Comprehensive Tests', () => {
       const results = await Promise.allSettled(promises);
       const failures = results.filter(r => r.status === 'rejected');
       
-      assertEquals(failures.length >= 1, true);
+      expect(failures.length >= 1).toBe( true);
       
       // Verify circular dependency was detected
       const error = failures[0] as PromiseRejectedResult;
-      assertEquals(error.reason.message.includes('circular'), true);
+      expect(error.reason.message.includes('circular')).toBe( true);
     });
 
     it('should handle task timeouts correctly', async () => {
       const longRunningTask = {
         id: 'long-task',
         timeout: 100, // 100ms timeout
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(200); // Take 200ms
           return 'should not complete';
         }),
@@ -187,16 +184,16 @@ describe('Coordination System - Comprehensive Tests', () => {
       
       const promises = tasks.map(task => 
         coordinationManager.submitTask(task.id, {
-          execute: spy(async () => `result-${task.id}`),
+          execute: jest.spyOn(async () => `result-${task.id}`),
           priority: task.priority,
         })
       );
 
       const results = await Promise.all(promises);
       
-      assertEquals(results.length, 20);
+      expect(results.length).toBe( 20);
       results.forEach((result, i) => {
-        assertEquals(result, `result-${tasks[i].id}`);
+        expect(result).toBe( `result-${tasks[i].id}`);
       });
     });
 
@@ -219,7 +216,7 @@ describe('Coordination System - Comprehensive Tests', () => {
 
       const tasks = Array.from({ length: 10 }, (_, i) => ({
         id: `limited-${i}`,
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           activeTasks++;
           maxActiveTasks = Math.max(maxActiveTasks, activeTasks);
           await AsyncTestUtils.delay(50);
@@ -250,7 +247,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const task1 = {
         id: 'deadlock-1',
         requiredResources: ['resource-a', 'resource-b'],
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           resourceLocks.set('resource-a', 'deadlock-1');
           await AsyncTestUtils.delay(50);
           resourceLocks.set('resource-b', 'deadlock-1');
@@ -261,7 +258,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const task2 = {
         id: 'deadlock-2',
         requiredResources: ['resource-b', 'resource-a'],
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           resourceLocks.set('resource-b', 'deadlock-2');
           await AsyncTestUtils.delay(50);
           resourceLocks.set('resource-a', 'deadlock-2');
@@ -282,7 +279,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const failures = results.filter(r => r.status === 'rejected');
       
       // Deadlock detection should prevent both from hanging
-      assertEquals(successes.length + failures.length, 2);
+      expect(successes.length + failures.length).toBe( 2);
     });
 
     it('should prevent resource starvation', async () => {
@@ -290,7 +287,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: `high-${i}`,
         priority: 'critical',
         requiredResources: ['shared-resource'],
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(100);
           return `high-${i}`;
         }),
@@ -300,7 +297,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: 'low-priority',
         priority: 'low',
         requiredResources: ['shared-resource'],
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(10);
           return 'low-priority-complete';
         }),
@@ -320,20 +317,20 @@ describe('Coordination System - Comprehensive Tests', () => {
       const successes = allResults.filter(r => r.status === 'fulfilled');
       
       // Low priority task should eventually complete (no starvation)
-      assertEquals(successes.length, 6);
-      assertEquals(lowPriorityTask.execute.calls.length, 1);
+      expect(successes.length).toBe( 6);
+      expect(lowPriorityTask.execute.calls.length).toBe( 1);
     });
 
     it('should handle complex dependency chains without deadlock', async () => {
       // Create a complex but non-circular dependency graph
       const tasks = [
-        { id: 'root', dependencies: [], execute: spy(async () => 'root') },
-        { id: 'branch-1', dependencies: ['root'], execute: spy(async () => 'branch-1') },
-        { id: 'branch-2', dependencies: ['root'], execute: spy(async () => 'branch-2') },
-        { id: 'merge-1', dependencies: ['branch-1', 'branch-2'], execute: spy(async () => 'merge-1') },
-        { id: 'leaf-1', dependencies: ['merge-1'], execute: spy(async () => 'leaf-1') },
-        { id: 'leaf-2', dependencies: ['merge-1'], execute: spy(async () => 'leaf-2') },
-        { id: 'final', dependencies: ['leaf-1', 'leaf-2'], execute: spy(async () => 'final') },
+        { id: 'root', dependencies: [], execute: jest.spyOn(async () => 'root') },
+        { id: 'branch-1', dependencies: ['root'], execute: jest.spyOn(async () => 'branch-1') },
+        { id: 'branch-2', dependencies: ['root'], execute: jest.spyOn(async () => 'branch-2') },
+        { id: 'merge-1', dependencies: ['branch-1', 'branch-2'], execute: jest.spyOn(async () => 'merge-1') },
+        { id: 'leaf-1', dependencies: ['merge-1'], execute: jest.spyOn(async () => 'leaf-1') },
+        { id: 'leaf-2', dependencies: ['merge-1'], execute: jest.spyOn(async () => 'leaf-2') },
+        { id: 'final', dependencies: ['leaf-1', 'leaf-2'], execute: jest.spyOn(async () => 'final') },
       ];
 
       const promises = tasks.map(task => 
@@ -342,9 +339,9 @@ describe('Coordination System - Comprehensive Tests', () => {
 
       const results = await Promise.all(promises);
       
-      assertEquals(results.length, 7);
+      expect(results.length).toBe( 7);
       tasks.forEach(task => {
-        assertEquals(task.execute.calls.length, 1);
+        expect(task.execute.calls.length).toBe( 1);
       });
     });
 
@@ -355,7 +352,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: 'timeout-deadlock-1',
         requiredResources: ['resource-x'],
         timeout: deadlockTimeout,
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(2000); // Longer than timeout
           return 'should-not-complete';
         }),
@@ -364,7 +361,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const task2 = {
         id: 'timeout-deadlock-2',
         requiredResources: ['resource-x'],
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(100);
           return 'task2-complete';
         }),
@@ -381,8 +378,8 @@ describe('Coordination System - Comprehensive Tests', () => {
       const successes = results.filter(r => r.status === 'fulfilled');
       const failures = results.filter(r => r.status === 'rejected');
       
-      assertEquals(successes.length >= 1, true);
-      assertEquals(failures.length >= 1, true);
+      expect(successes.length >= 1).toBe( true);
+      expect(failures.length >= 1).toBe( true);
     });
   });
 
@@ -396,7 +393,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: `resource-task-${i}`,
         requiredResources: [`cpu-${i % 2}`, 'memory'],
         estimatedMemoryUsage: 1024 * 1024 * 10, // 10MB
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(100);
           return `task-${i}`;
         }),
@@ -410,11 +407,11 @@ describe('Coordination System - Comprehensive Tests', () => {
       await AsyncTestUtils.delay(50);
       
       const resourceStatus = await resourceManager.getResourceStatus();
-      assertExists(resourceStatus);
+      expect(resourceStatus);
       
       // Should track active resource usage
-      assertEquals(typeof resourceStatus.memoryUsage, 'number');
-      assertEquals(typeof resourceStatus.activeResources, 'object');
+      expect(typeof resourceStatus.memoryUsage).toBe( 'number');
+      expect(typeof resourceStatus.activeResources).toBe( 'object');
 
       await Promise.all(promises);
     });
@@ -436,7 +433,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const memoryHeavyTask = {
         id: 'memory-heavy',
         estimatedMemoryUsage: 1024 * 1024 * 100, // 100MB (exceeds limit)
-        execute: spy(async () => 'should-not-run'),
+        execute: jest.spyOn(async () => 'should-not-run'),
       };
 
       await TestAssertions.assertThrowsAsync(
@@ -453,7 +450,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: `conflict-task-${i}`,
         requiredResources: [sharedResource],
         resourceMode: 'exclusive',
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(100);
           return `task-${i}`;
         }),
@@ -466,9 +463,9 @@ describe('Coordination System - Comprehensive Tests', () => {
       const results = await Promise.all(promises);
       
       // All tasks should complete, but serialized due to exclusive resource
-      assertEquals(results.length, 3);
+      expect(results.length).toBe( 3);
       tasks.forEach(task => {
-        assertEquals(task.execute.calls.length, 1);
+        expect(task.execute.calls.length).toBe( 1);
       });
     });
 
@@ -479,7 +476,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: `shared-task-${i}`,
         requiredResources: [sharedResource],
         resourceMode: 'shared',
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(50);
           return `shared-${i}`;
         }),
@@ -503,7 +500,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const failingTask = {
         id: 'failing-task',
         requiredResources: ['cleanup-resource'],
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(50);
           throw new Error('Task failed');
         }),
@@ -512,7 +509,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const followupTask = {
         id: 'followup-task',
         requiredResources: ['cleanup-resource'],
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(10);
           return 'followup-complete';
         }),
@@ -527,7 +524,7 @@ describe('Coordination System - Comprehensive Tests', () => {
 
       // Resource should be cleaned up and available for next task
       const result = await coordinationManager.submitTask('followup-task', followupTask);
-      assertEquals(result, 'followup-complete');
+      expect(result).toBe( 'followup-complete');
     });
   });
 
@@ -542,7 +539,7 @@ describe('Coordination System - Comprehensive Tests', () => {
           id: 'low-priority-conflict',
           priority: 'low',
           requiredResources: ['conflict-resource'],
-          execute: spy(async () => {
+          execute: jest.spyOn(async () => {
             await AsyncTestUtils.delay(100);
             return 'low-priority';
           }),
@@ -551,7 +548,7 @@ describe('Coordination System - Comprehensive Tests', () => {
           id: 'high-priority-conflict',
           priority: 'critical',
           requiredResources: ['conflict-resource'],
-          execute: spy(async () => {
+          execute: jest.spyOn(async () => {
             await AsyncTestUtils.delay(50);
             return 'high-priority';
           }),
@@ -565,9 +562,9 @@ describe('Coordination System - Comprehensive Tests', () => {
       const results = await Promise.all(promises);
       
       // Both should complete, high priority first
-      assertEquals(results.length, 2);
-      assertEquals(results.includes('high-priority'), true);
-      assertEquals(results.includes('low-priority'), true);
+      expect(results.length).toBe( 2);
+      expect(results.includes('high-priority')).toBe( true);
+      expect(results.includes('low-priority')).toBe( true);
     });
 
     it('should handle timestamp-based conflict resolution', async () => {
@@ -587,13 +584,13 @@ describe('Coordination System - Comprehensive Tests', () => {
       const firstTask = {
         id: 'first-timestamp',
         requiredResources: ['timestamp-resource'],
-        execute: spy(async () => 'first'),
+        execute: jest.spyOn(async () => 'first'),
       };
 
       const secondTask = {
         id: 'second-timestamp',
         requiredResources: ['timestamp-resource'],
-        execute: spy(async () => 'second'),
+        execute: jest.spyOn(async () => 'second'),
       };
 
       // Submit with slight delay to ensure different timestamps
@@ -604,8 +601,8 @@ describe('Coordination System - Comprehensive Tests', () => {
       const results = await Promise.all([firstPromise, secondPromise]);
       
       // First submitted should win
-      assertEquals(results[0], 'first');
-      assertEquals(results[1], 'second');
+      expect(results[0]).toBe( 'first');
+      expect(results[1]).toBe( 'second');
     });
 
     it('should handle conflict escalation', async () => {
@@ -614,7 +611,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         priority: 'medium',
         requiredResources: ['escalation-resource'],
         maxWaitTime: 200,
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(100);
           return `escalation-${i}`;
         }),
@@ -630,9 +627,9 @@ describe('Coordination System - Comprehensive Tests', () => {
       const results = await Promise.all(promises);
       
       // All tasks should complete despite conflicts
-      assertEquals(results.length, 5);
+      expect(results.length).toBe( 5);
       escalationTasks.forEach(task => {
-        assertEquals(task.execute.calls.length, 1);
+        expect(task.execute.calls.length).toBe( 1);
       });
     });
 
@@ -641,7 +638,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         {
           id: 'nested-1',
           requiredResources: ['resource-a', 'resource-b'],
-          execute: spy(async () => {
+          execute: jest.spyOn(async () => {
             await AsyncTestUtils.delay(50);
             return 'nested-1';
           }),
@@ -649,7 +646,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         {
           id: 'nested-2',
           requiredResources: ['resource-b', 'resource-c'],
-          execute: spy(async () => {
+          execute: jest.spyOn(async () => {
             await AsyncTestUtils.delay(50);
             return 'nested-2';
           }),
@@ -657,7 +654,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         {
           id: 'nested-3',
           requiredResources: ['resource-c', 'resource-a'],
-          execute: spy(async () => {
+          execute: jest.spyOn(async () => {
             await AsyncTestUtils.delay(50);
             return 'nested-3';
           }),
@@ -671,9 +668,9 @@ describe('Coordination System - Comprehensive Tests', () => {
       const results = await Promise.all(promises);
       
       // Should resolve conflicts and complete all tasks
-      assertEquals(results.length, 3);
+      expect(results.length).toBe( 3);
       nestedConflictTasks.forEach(task => {
-        assertEquals(task.execute.calls.length, 1);
+        expect(task.execute.calls.length).toBe( 1);
       });
     });
   });
@@ -703,14 +700,14 @@ describe('Coordination System - Comprehensive Tests', () => {
       const agentTasks = {
         'agent-1': Array.from({ length: 10 }, (_, i) => ({
           id: `agent1-task-${i}`,
-          execute: spy(async () => {
+          execute: jest.spyOn(async () => {
             await AsyncTestUtils.delay(20);
             return `agent1-${i}`;
           }),
         })),
         'agent-2': Array.from({ length: 2 }, (_, i) => ({
           id: `agent2-task-${i}`,
-          execute: spy(async () => {
+          execute: jest.spyOn(async () => {
             await AsyncTestUtils.delay(20);
             return `agent2-${i}`;
           }),
@@ -729,14 +726,14 @@ describe('Coordination System - Comprehensive Tests', () => {
       const results = await Promise.all(promises);
       
       // All tasks should complete
-      assertEquals(results.length, 12);
+      expect(results.length).toBe( 12);
       
       // Work stealing should have balanced the load
       const agent1Results = results.filter(r => r.startsWith('agent1'));
       const agent2Results = results.filter(r => r.startsWith('agent2'));
       
-      assertEquals(agent1Results.length, 10);
-      assertEquals(agent2Results.length, 2);
+      expect(agent1Results.length).toBe( 10);
+      expect(agent2Results.length).toBe( 2);
     });
 
     it('should implement priority aging', async () => {
@@ -746,14 +743,14 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: 'old-low',
         priority: 'low',
         submittedAt: Date.now() - 60000, // 1 minute ago
-        execute: spy(async () => 'old-low-priority'),
+        execute: jest.spyOn(async () => 'old-low-priority'),
       };
 
       const newHighPriorityTask = {
         id: 'new-high',
         priority: 'high',
         submittedAt: Date.now(),
-        execute: spy(async () => 'new-high-priority'),
+        execute: jest.spyOn(async () => 'new-high-priority'),
       };
 
       // Submit in order that would normally favor high priority
@@ -765,9 +762,9 @@ describe('Coordination System - Comprehensive Tests', () => {
       const results = await Promise.all(promises);
       
       // Priority aging should eventually elevate old low priority task
-      assertEquals(results.length, 2);
-      assertEquals(oldLowPriorityTask.execute.calls.length, 1);
-      assertEquals(newHighPriorityTask.execute.calls.length, 1);
+      expect(results.length).toBe( 2);
+      expect(oldLowPriorityTask.execute.calls.length).toBe( 1);
+      expect(newHighPriorityTask.execute.calls.length).toBe( 1);
     });
 
     it('should support dynamic priority adjustment', async () => {
@@ -776,7 +773,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const adjustableTask = {
         id: 'adjustable',
         priority: 'low',
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(100);
           return 'adjustable-complete';
         }),
@@ -790,7 +787,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       await advancedScheduler.adjustTaskPriority('adjustable', 'critical');
 
       const result = await taskPromise;
-      assertEquals(result, 'adjustable-complete');
+      expect(result).toBe( 'adjustable-complete');
     });
 
     it('should handle load balancing across multiple schedulers', async () => {
@@ -803,7 +800,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       // Create uneven task distribution
       const tasks = Array.from({ length: 30 }, (_, i) => ({
         id: `balance-task-${i}`,
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(50);
           return `task-${i}`;
         }),
@@ -817,9 +814,9 @@ describe('Coordination System - Comprehensive Tests', () => {
       const results = await Promise.all(promises);
       
       // Load balancing should distribute tasks across schedulers
-      assertEquals(results.length, 30);
+      expect(results.length).toBe( 30);
       tasks.forEach(task => {
-        assertEquals(task.execute.calls.length, 1);
+        expect(task.execute.calls.length).toBe( 1);
       });
     });
   });
@@ -847,7 +844,7 @@ describe('Coordination System - Comprehensive Tests', () => {
     it('should scale with large numbers of tasks', async () => {
       const largeBatch = Array.from({ length: 1000 }, (_, i) => ({
         id: `scale-task-${i}`,
-        execute: spy(async () => `result-${i}`),
+        execute: jest.spyOn(async () => `result-${i}`),
       }));
 
       const startTime = Date.now();
@@ -860,7 +857,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       
       const duration = Date.now() - startTime;
       
-      assertEquals(results.length, 1000);
+      expect(results.length).toBe( 1000);
       TestAssertions.assertInRange(duration, 0, 10000); // Should complete within 10 seconds
       
       console.log(`Large batch (1000 tasks) completed in ${duration}ms`);
@@ -872,7 +869,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         const tasks = Array.from({ length: 500 }, (_, i) => ({
           id: `memory-task-${i}`,
           estimatedMemoryUsage: 1024 * 100, // 100KB each
-          execute: spy(async () => {
+          execute: jest.spyOn(async () => {
             // Simulate some memory usage
             const data = new Array(100).fill(i);
             await AsyncTestUtils.delay(5);
@@ -887,7 +884,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         await Promise.all(promises);
       });
 
-      assertEquals(leaked, false);
+      expect(leaked).toBe( false);
     });
 
     it('should handle load testing scenario', async () => {
@@ -923,7 +920,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       for (const scenario of errorScenarios) {
         const failingTask = {
           id: `error-task-${scenario.name}`,
-          execute: spy(async () => {
+          execute: jest.spyOn(async () => {
             throw scenario.error;
           }),
         };
@@ -934,7 +931,7 @@ describe('Coordination System - Comprehensive Tests', () => {
             await coordinationManager.submitTask(`error-task-${scenario.name}`, failingTask);
           } catch (error) {
             // May still fail after retries
-            assertExists(error);
+            expect(error);
           }
         } else {
           // Should fail fast for non-recoverable errors
@@ -952,7 +949,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const originalSubmit = scheduler.submit.bind(scheduler);
       let failureCount = 0;
       
-      scheduler.submit = spy(async (...args) => {
+      scheduler.submit = jest.spyOn(async (...args) => {
         failureCount++;
         if (failureCount <= 2) {
           throw new Error('Scheduler temporarily unavailable');
@@ -962,13 +959,13 @@ describe('Coordination System - Comprehensive Tests', () => {
 
       const resilientTask = {
         id: 'resilient-task',
-        execute: spy(async () => 'recovered'),
+        execute: jest.spyOn(async () => 'recovered'),
       };
 
       // Should eventually succeed after scheduler recovers
       const result = await coordinationManager.submitTask('resilient-task', resilientTask);
-      assertEquals(result, 'recovered');
-      assertEquals(failureCount, 3);
+      expect(result).toBe( 'recovered');
+      expect(failureCount).toBe( 3);
     });
 
     it('should handle resource manager failures', async () => {
@@ -976,7 +973,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       const originalAcquire = resourceManager.acquireResources.bind(resourceManager);
       let attempts = 0;
       
-      resourceManager.acquireResources = spy(async (...args) => {
+      resourceManager.acquireResources = jest.spyOn(async (...args) => {
         attempts++;
         if (attempts <= 1) {
           throw new Error('Resource manager failure');
@@ -987,19 +984,19 @@ describe('Coordination System - Comprehensive Tests', () => {
       const resourceTask = {
         id: 'resource-task',
         requiredResources: ['test-resource'],
-        execute: spy(async () => 'resource-task-complete'),
+        execute: jest.spyOn(async () => 'resource-task-complete'),
       };
 
       // Should recover from resource manager failure
       const result = await coordinationManager.submitTask('resource-task', resourceTask);
-      assertEquals(result, 'resource-task-complete');
+      expect(result).toBe( 'resource-task-complete');
     });
 
     it('should handle partial system failures', async () => {
       // Create a scenario where some components fail
       const partiallyFailingTasks = Array.from({ length: 10 }, (_, i) => ({
         id: `partial-${i}`,
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           if (i % 3 === 0) {
             throw new Error(`Task ${i} failed`);
           }
@@ -1017,12 +1014,12 @@ describe('Coordination System - Comprehensive Tests', () => {
       const failures = results.filter(r => r.status === 'rejected');
       
       // Should have partial success
-      assertEquals(successes.length, 7); // 7 out of 10 should succeed
-      assertEquals(failures.length, 3);
+      expect(successes.length).toBe( 7); // 7 out of 10 should succeed
+      expect(failures.length).toBe( 3);
       
       // System should remain functional
       const healthStatus = await coordinationManager.getHealthStatus();
-      assertEquals(healthStatus.healthy, true);
+      expect(healthStatus.healthy).toBe( true);
     });
 
     it('should implement circuit breaker pattern', async () => {
@@ -1051,7 +1048,7 @@ describe('Coordination System - Comprehensive Tests', () => {
       }
 
       // Circuit should be open now
-      assertEquals(circuitBreaker.getState().state, 'open');
+      expect(circuitBreaker.getState().state).toBe( 'open');
 
       // Should fail fast while open
       await TestAssertions.assertThrowsAsync(
@@ -1065,7 +1062,7 @@ describe('Coordination System - Comprehensive Tests', () => {
 
       // Should succeed after circuit resets
       const result = await circuitBreaker.execute(flakyService);
-      assertEquals(result, 'service-success');
+      expect(result).toBe( 'service-success');
     });
   });
 
@@ -1077,7 +1074,7 @@ describe('Coordination System - Comprehensive Tests', () => {
     it('should track execution metrics', async () => {
       const tasks = Array.from({ length: 10 }, (_, i) => ({
         id: `metric-task-${i}`,
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(10 + i * 5); // Variable execution time
           return `metric-${i}`;
         }),
@@ -1089,13 +1086,13 @@ describe('Coordination System - Comprehensive Tests', () => {
 
       const metrics = await coordinationManager.getMetrics();
       
-      assertExists(metrics);
-      assertEquals(typeof metrics.totalTasksSubmitted, 'number');
-      assertEquals(typeof metrics.totalTasksCompleted, 'number');
-      assertEquals(typeof metrics.averageExecutionTime, 'number');
-      assertEquals(typeof metrics.currentActiveTasks, 'number');
+      expect(metrics);
+      expect(typeof metrics.totalTasksSubmitted).toBe( 'number');
+      expect(typeof metrics.totalTasksCompleted).toBe( 'number');
+      expect(typeof metrics.averageExecutionTime).toBe( 'number');
+      expect(typeof metrics.currentActiveTasks).toBe( 'number');
       
-      assertEquals(metrics.totalTasksCompleted, 10);
+      expect(metrics.totalTasksCompleted).toBe( 10);
       TestAssertions.assertInRange(metrics.averageExecutionTime, 10, 100);
     });
 
@@ -1104,7 +1101,7 @@ describe('Coordination System - Comprehensive Tests', () => {
         id: `resource-metric-${i}`,
         requiredResources: [`cpu-${i % 2}`, 'memory'],
         estimatedMemoryUsage: 1024 * 1024 * (i + 1), // Variable memory usage
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(50);
           return `resource-${i}`;
         }),
@@ -1118,30 +1115,30 @@ describe('Coordination System - Comprehensive Tests', () => {
 
       const resourceMetrics = await resourceManager.getMetrics();
       
-      assertExists(resourceMetrics);
-      assertEquals(typeof resourceMetrics.peakMemoryUsage, 'number');
-      assertEquals(typeof resourceMetrics.averageMemoryUsage, 'number');
-      assertEquals(typeof resourceMetrics.resourceUtilization, 'object');
+      expect(resourceMetrics);
+      expect(typeof resourceMetrics.peakMemoryUsage).toBe( 'number');
+      expect(typeof resourceMetrics.averageMemoryUsage).toBe( 'number');
+      expect(typeof resourceMetrics.resourceUtilization).toBe( 'object');
     });
 
     it('should provide health status information', async () => {
       const healthStatus = await coordinationManager.getHealthStatus();
       
-      assertExists(healthStatus);
-      assertEquals(typeof healthStatus.healthy, 'boolean');
-      assertEquals(typeof healthStatus.components, 'object');
+      expect(healthStatus);
+      expect(typeof healthStatus.healthy).toBe( 'boolean');
+      expect(typeof healthStatus.components).toBe( 'object');
       
       // Check individual component health
-      assertEquals(typeof healthStatus.components.scheduler, 'object');
-      assertEquals(typeof healthStatus.components.resourceManager, 'object');
-      assertEquals(typeof healthStatus.components.conflictResolver, 'object');
+      expect(typeof healthStatus.components.scheduler).toBe( 'object');
+      expect(typeof healthStatus.components.resourceManager).toBe( 'object');
+      expect(typeof healthStatus.components.conflictResolver).toBe( 'object');
     });
 
     it('should detect performance degradation', async () => {
       // Create a scenario that causes performance degradation
       const slowTasks = Array.from({ length: 20 }, (_, i) => ({
         id: `slow-task-${i}`,
-        execute: spy(async () => {
+        execute: jest.spyOn(async () => {
           await AsyncTestUtils.delay(200 + i * 10); // Progressively slower
           return `slow-${i}`;
         }),
@@ -1158,9 +1155,9 @@ describe('Coordination System - Comprehensive Tests', () => {
 
       const performanceMetrics = await coordinationManager.getPerformanceMetrics();
       
-      assertExists(performanceMetrics);
-      assertEquals(typeof performanceMetrics.throughput, 'number');
-      assertEquals(typeof performanceMetrics.latency, 'object');
+      expect(performanceMetrics);
+      expect(typeof performanceMetrics.throughput).toBe( 'number');
+      expect(typeof performanceMetrics.latency).toBe( 'object');
       
       // Should detect degradation in throughput
       TestAssertions.assertInRange(performanceMetrics.throughput, 0.01, 1.0); // tasks per ms

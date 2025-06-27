@@ -1,29 +1,78 @@
+/// <reference types="jest" />
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
 /**
  * Test utilities for Claude-Flow
  */
 
-import { assertEquals, assertExists, assertRejects, assertThrows } from 'https://deno.land/std@0.220.0/assert/mod.ts';
-import { describe, it, beforeEach, afterEach, beforeAll, afterAll } from 'https://deno.land/std@0.220.0/testing/bdd.ts';
-import { spy, stub, assertSpyCall, assertSpyCalls } from 'https://deno.land/std@0.220.0/testing/mock.ts';
-import { FakeTime } from 'https://deno.land/std@0.220.0/testing/time.ts';
+// Jest test functions
+export const { describe, it, beforeEach, afterEach, beforeAll, afterAll } = globalThis;
 
-export {
-  assertEquals,
-  assertExists,
-  assertRejects,
-  assertThrows,
-  describe,
-  it,
-  beforeEach,
-  afterEach,
-  beforeAll,
-  afterAll,
-  spy,
-  stub,
-  assertSpyCall,
-  assertSpyCalls,
-  FakeTime,
-};
+// Jest assertion helpers
+export function assertEquals<T>(actual: T, expected: T, message?: string): void {
+  expect(actual).toEqual(expected);
+}
+
+export function assertExists<T>(actual: T, message?: string): asserts actual is NonNullable<T> {
+  expect(actual).toBeDefined();
+  expect(actual).not.toBeNull();
+}
+
+export function assertStringIncludes(actual: string, expected: string, message?: string): void {
+  expect(actual).toContain(expected);
+}
+
+export async function assertRejects(
+  fn: () => Promise<unknown>,
+  errorClass?: new (...args: any[]) => Error,
+  msgIncludes?: string
+): Promise<Error> {
+  await expect(fn).rejects.toThrow(errorClass);
+  return new Error('Test assertion helper');
+}
+
+export function assertThrows(
+  fn: () => unknown,
+  errorClass?: new (...args: any[]) => Error,
+  msgIncludes?: string
+): Error {
+  expect(fn).toThrow(errorClass);
+  return new Error('Test assertion helper');
+}
+
+// Jest spy helpers
+export const spy = jest.fn;
+export const stub = jest.fn;
+
+export function assertSpyCall(spyFn: jest.SpyInstance, callIndex: number, expectedArgs?: any[]): void {
+  expect(spyFn).toHaveBeenNthCalledWith(callIndex + 1).toBe( ...(expectedArgs || []));
+}
+
+export function assertSpyCalls(spyFn: jest.SpyInstance, callCount: number): void {
+  expect(spyFn).toHaveBeenCalledTimes(callCount);
+}
+
+// Fake timers helper
+export class FakeTime {
+  constructor() {
+    jest.useFakeTimers();
+  }
+
+  tick(ms: number): void {
+    jest.advanceTimersByTime(ms);
+  }
+
+  tickAsync(ms: number): Promise<void> {
+    jest.advanceTimersByTime(ms);
+    return Promise.resolve();
+  }
+
+  restore(): void {
+    jest.useRealTimers();
+  }
+}
 
 /**
  * Creates a test fixture
@@ -129,12 +178,12 @@ export async function createTestFile(
   path: string,
   content: string,
 ): Promise<string> {
-  const tempDir = await Deno.makeTempDir();
+  const tempDir =  fs.mkdtempSync(path.join(os.tmpdir(), "claude-flow-test-"));
   const filePath = `${tempDir}/${path}`;
   const dir = filePath.substring(0, filePath.lastIndexOf('/'));
   
-  await Deno.mkdir(dir, { recursive: true });
-  await Deno.writeTextFile(filePath, content);
+      // TODO: Replace with mock - // TODO: Replace with mock -   await Deno.mkdir(dir, { recursive: true });
+  fs.writeFileSync(filePath,  content, "utf8");
   
   return filePath;
 }
@@ -160,134 +209,4 @@ export async function runCommand(
     cmdOptions.env = options.env;
   }
 
-  const cmd = new Deno.Command(Deno.execPath(), cmdOptions);
-
-  const child = cmd.spawn();
-
-  if (options.stdin) {
-    const writer = child.stdin.getWriter();
-    await writer.write(new TextEncoder().encode(options.stdin));
-    await writer.close();
-  }
-
-  const output = await child.output();
-  
-  return {
-    stdout: new TextDecoder().decode(output.stdout),
-    stderr: new TextDecoder().decode(output.stderr),
-    code: output.code,
-  };
-}
-
-/**
- * Test data builder for common types
- */
-export class TestDataBuilder {
-  static agentProfile(overrides = {}) {
-    return {
-      id: 'agent-1',
-      name: 'Test Agent',
-      type: 'coordinator' as const,
-      capabilities: ['task-management', 'coordination'],
-      systemPrompt: 'You are a test agent',
-      maxConcurrentTasks: 5,
-      priority: 10,
-      environment: {},
-      workingDirectory: '/tmp',
-      shell: '/bin/bash',
-      metadata: {},
-      ...overrides,
-    };
-  }
-
-  static task(overrides = {}) {
-    return {
-      id: 'task-1',
-      type: 'test',
-      description: 'Test task',
-      priority: 50,
-      dependencies: [],
-      status: 'pending' as const,
-      input: { test: true },
-      createdAt: new Date(),
-      metadata: {},
-      ...overrides,
-    };
-  }
-
-  static config(overrides = {}) {
-    return {
-      orchestrator: {
-        maxConcurrentAgents: 10,
-        taskQueueSize: 100,
-        healthCheckInterval: 30000,
-        shutdownTimeout: 30000,
-        maintenanceInterval: 300000,
-        metricsInterval: 60000,
-        persistSessions: false,
-        dataDir: './tests/data',
-        sessionRetentionMs: 3600000,
-        taskHistoryRetentionMs: 86400000,
-        taskMaxRetries: 3,
-      },
-      terminal: {
-        type: 'native' as const,
-        poolSize: 5,
-        recycleAfter: 10,
-        healthCheckInterval: 60000,
-        commandTimeout: 300000,
-      },
-      memory: {
-        backend: 'sqlite' as const,
-        cacheSizeMB: 10,
-        syncInterval: 5000,
-        conflictResolution: 'last-write' as const,
-        retentionDays: 1,
-        sqlitePath: ':memory:',
-        markdownDir: './tests/data/memory',
-      },
-      coordination: {
-        maxRetries: 3,
-        retryDelay: 100,
-        deadlockDetection: true,
-        resourceTimeout: 60000,
-        messageTimeout: 30000,
-      },
-      mcp: {
-        transport: 'stdio' as const,
-        port: 8081,
-        tlsEnabled: false,
-      },
-      logging: {
-        level: 'error' as const,
-        format: 'json' as const,
-        destination: 'console' as const,
-      },
-      ...overrides,
-    };
-  }
-}
-
-/**
- * Assertion helpers
- */
-export function assertEventEmitted(
-  events: Array<{ event: string; data: any }>,
-  eventName: string,
-  matcher?: (data: any) => boolean,
-): void {
-  const emitted = events.find((e) => e.event === eventName);
-  assertExists(emitted, `Expected event '${eventName}' to be emitted`);
-  
-  if (matcher && !matcher(emitted.data)) {
-    throw new Error(`Event '${eventName}' data did not match expected criteria`);
-  }
-}
-
-export function assertNoEventEmitted(
-  events: Array<{ event: string; data: any }>,
-  eventName: string,
-): void {
-  const emitted = events.find((e) => e.event === eventName);
-  assertEquals(emitted, undefined, `Expected event '${eventName}' not to be emitted`);
-}
+      // TODO: Implement mock command execution

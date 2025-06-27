@@ -1,24 +1,21 @@
+/// <reference types="jest" />
+
 /**
  * Comprehensive unit tests for Terminal Manager
  */
 
-import { describe, it, beforeEach, afterEach } from "https://deno.land/std@0.220.0/testing/bdd.ts";
-import { assertEquals, assertExists, assertRejects, assertThrows } from "https://deno.land/std@0.220.0/assert/mod.ts";
-import { FakeTime } from "https://deno.land/std@0.220.0/testing/time.ts";
-import { spy, stub } from "https://deno.land/std@0.220.0/testing/mock.ts";
-
-import { TerminalManager } from '../../../src/terminal/manager.ts';
-import { TerminalPool } from '../../../src/terminal/pool.ts';
-import { NativeTerminalAdapter } from '../../../src/terminal/adapters/native.ts';
+import { TerminalManager } from '../../../src/terminal/manager.js';
+import { TerminalPool } from '../../../src/terminal/pool.js';
+import { NativeTerminalAdapter } from '../../../src/terminal/adapters/native.js';
 import { 
   AsyncTestUtils, 
   MemoryTestUtils, 
   PerformanceTestUtils,
   TestAssertions,
   MockFactory 
-} from '../../utils/test-utils.ts';
-import { generateTerminalSessions, generateEdgeCaseData } from '../../fixtures/generators.ts';
-import { setupTestEnv, cleanupTestEnv, TEST_CONFIG } from '../../test.config.ts';
+} from '../../utils/test-utils.js';
+import { generateTerminalSessions, generateEdgeCaseData } from '../../fixtures/generators.js';
+import { setupTestEnv, cleanupTestEnv, TEST_CONFIG } from '../../test.config.js';
 
 describe('Terminal Manager - Comprehensive Tests', () => {
   let terminalManager: TerminalManager;
@@ -49,11 +46,11 @@ describe('Terminal Manager - Comprehensive Tests', () => {
       commandTimeout: 10000,
     });
 
-    fakeTime = new FakeTime();
+    fakeTime = jest.useFakeTimers();
   });
 
   afterEach(async () => {
-    fakeTime.restore();
+    jest.useRealTimers();
     await cleanupTestEnv();
   });
 
@@ -61,12 +58,12 @@ describe('Terminal Manager - Comprehensive Tests', () => {
     it('should initialize successfully with valid configuration', async () => {
       await terminalManager.initialize();
       
-      assertEquals(mockPool.initialize.calls.length, 1);
-      assertEquals(terminalManager.isInitialized(), true);
+      expect(mockPool.initialize.calls.length).toBe( 1);
+      expect(terminalManager.isInitialized()).toBe( true);
     });
 
     it('should validate configuration parameters', () => {
-      assertThrows(
+      expect(
         () => new TerminalManager({
           pool: mockPool,
           maxConcurrentSessions: 0, // Invalid
@@ -77,7 +74,7 @@ describe('Terminal Manager - Comprehensive Tests', () => {
         'maxConcurrentSessions must be greater than 0'
       );
 
-      assertThrows(
+      expect(
         () => new TerminalManager({
           pool: mockPool,
           maxConcurrentSessions: 10,
@@ -90,23 +87,23 @@ describe('Terminal Manager - Comprehensive Tests', () => {
     });
 
     it('should handle initialization failure gracefully', async () => {
-      mockPool.initialize = spy(async () => {
+      mockPool.initialize = jest.spyOn(async () => {
         throw new Error('Pool initialization failed');
       });
 
-      await assertRejects(
+      await expect(
         () => terminalManager.initialize(),
         Error,
         'Pool initialization failed'
       );
 
-      assertEquals(terminalManager.isInitialized(), false);
+      expect(terminalManager.isInitialized()).toBe( false);
     });
 
     it('should prevent double initialization', async () => {
       await terminalManager.initialize();
 
-      await assertRejects(
+      await expect(
         () => terminalManager.initialize(),
         Error,
         'Terminal manager already initialized'
@@ -122,7 +119,7 @@ describe('Terminal Manager - Comprehensive Tests', () => {
       });
 
       await nativeManager.initialize();
-      assertEquals(nativeManager.isInitialized(), true);
+      expect(nativeManager.isInitialized()).toBe( true);
       await nativeManager.shutdown();
     });
   });
@@ -142,37 +139,37 @@ describe('Terminal Manager - Comprehensive Tests', () => {
 
       const sessionId = await terminalManager.spawnTerminal(profile);
       
-      assertExists(sessionId);
-      assertEquals(mockPool.createSession.calls.length, 1);
-      assertEquals(mockPool.createSession.calls[0].args[0], profile);
+      expect(sessionId);
+      expect(mockPool.createSession.calls.length).toBe( 1);
+      expect(mockPool.createSession.calls[0].args[0]).toBe( profile);
     });
 
     it('should handle session creation with default profile', async () => {
       const sessionId = await terminalManager.spawnTerminal();
       
-      assertExists(sessionId);
-      assertEquals(mockPool.createSession.calls.length, 1);
+      expect(sessionId);
+      expect(mockPool.createSession.calls.length).toBe( 1);
       
       // Should use default profile
       const passedProfile = mockPool.createSession.calls[0].args[0];
-      assertEquals(typeof passedProfile.id, 'string');
-      assertEquals(typeof passedProfile.name, 'string');
+      expect(typeof passedProfile.id).toBe( 'string');
+      expect(typeof passedProfile.name).toBe( 'string');
     });
 
     it('should terminate sessions correctly', async () => {
       const sessionId = await terminalManager.spawnTerminal();
       await terminalManager.terminateTerminal(sessionId);
       
-      assertEquals(mockPool.destroySession.calls.length, 1);
-      assertEquals(mockPool.destroySession.calls[0].args[0], sessionId);
+      expect(mockPool.destroySession.calls.length).toBe( 1);
+      expect(mockPool.destroySession.calls[0].args[0]).toBe( sessionId);
     });
 
     it('should handle termination of non-existent session', async () => {
-      mockPool.destroySession = spy(async (sessionId: string) => {
+      mockPool.destroySession = jest.spyOn(async (sessionId: string) => {
         throw new Error(`Session not found: ${sessionId}`);
       });
 
-      await assertRejects(
+      await expect(
         () => terminalManager.terminateTerminal('non-existent'),
         Error,
         'Session not found: non-existent'
@@ -190,9 +187,9 @@ describe('Terminal Manager - Comprehensive Tests', () => {
       await limitedManager.initialize();
 
       // Mock pool to report current session count
-      mockPool.getSessionCount = spy(() => 2);
+      mockPool.getSessionCount = jest.spyOn(() => 2);
 
-      await assertRejects(
+      await expect(
         () => limitedManager.spawnTerminal(),
         Error,
         'Maximum concurrent sessions reached'
@@ -211,19 +208,19 @@ describe('Terminal Manager - Comprehensive Tests', () => {
 
       const sessionIds = await Promise.all(promises);
       
-      assertEquals(sessionIds.length, 5);
-      assertEquals(mockPool.createSession.calls.length, 5);
+      expect(sessionIds.length).toBe( 5);
+      expect(mockPool.createSession.calls.length).toBe( 5);
       
       // All session IDs should be unique
       const uniqueIds = new Set(sessionIds);
-      assertEquals(uniqueIds.size, 5);
+      expect(uniqueIds.size).toBe( 5);
     });
 
     it('should handle session timeout cleanup', async () => {
       const sessionData = generateTerminalSessions(10);
       
       // Mock expired sessions
-      mockPool.listSessions = spy(() => sessionData.map(session => ({
+      mockPool.listSessions = jest.spyOn(() => sessionData.map(session => ({
         ...session,
         lastActivity: new Date(Date.now() - 60000), // 1 minute ago
       })));
@@ -231,7 +228,7 @@ describe('Terminal Manager - Comprehensive Tests', () => {
       await terminalManager.performMaintenance();
       
       // Should clean up expired sessions
-      assertEquals(mockPool.performMaintenance.calls.length, 1);
+      expect(mockPool.performMaintenance.calls.length).toBe( 1);
     });
   });
 
@@ -252,10 +249,10 @@ describe('Terminal Manager - Comprehensive Tests', () => {
 
       const result = await terminalManager.sendCommand(sessionId, command);
       
-      assertExists(result);
-      assertEquals(mockPool.executeCommand.calls.length, 1);
-      assertEquals(mockPool.executeCommand.calls[0].args[0], sessionId);
-      assertEquals(mockPool.executeCommand.calls[0].args[1], command);
+      expect(result);
+      expect(mockPool.executeCommand.calls.length).toBe( 1);
+      expect(mockPool.executeCommand.calls[0].args[0]).toBe( sessionId);
+      expect(mockPool.executeCommand.calls[0].args[1]).toBe( command);
     });
 
     it('should handle string commands', async () => {
@@ -263,12 +260,12 @@ describe('Terminal Manager - Comprehensive Tests', () => {
       
       const result = await terminalManager.sendCommand(sessionId, command);
       
-      assertExists(result);
-      assertEquals(mockPool.executeCommand.calls.length, 1);
+      expect(result);
+      expect(mockPool.executeCommand.calls.length).toBe( 1);
     });
 
     it('should handle command timeout', async () => {
-      mockPool.executeCommand = spy(async () => {
+      mockPool.executeCommand = jest.spyOn(async () => {
         await new Promise(resolve => setTimeout(resolve, 15000)); // 15 seconds
         return 'Too late';
       });
@@ -289,8 +286,8 @@ describe('Terminal Manager - Comprehensive Tests', () => {
 
       const results = await Promise.all(promises);
       
-      assertEquals(results.length, 10);
-      assertEquals(mockPool.executeCommand.calls.length, 10);
+      expect(results.length).toBe( 10);
+      expect(mockPool.executeCommand.calls.length).toBe( 10);
     });
 
     it('should handle command execution on multiple sessions', async () => {
@@ -306,16 +303,16 @@ describe('Terminal Manager - Comprehensive Tests', () => {
 
       const results = await Promise.all(promises);
       
-      assertEquals(results.length, 3);
-      assertEquals(mockPool.executeCommand.calls.length, 3);
+      expect(results.length).toBe( 3);
+      expect(mockPool.executeCommand.calls.length).toBe( 3);
     });
 
     it('should handle command execution errors', async () => {
-      mockPool.executeCommand = spy(async () => {
+      mockPool.executeCommand = jest.spyOn(async () => {
         throw new Error('Command execution failed');
       });
 
-      await assertRejects(
+      await expect(
         () => terminalManager.sendCommand(sessionId, 'failing-command'),
         Error,
         'Command execution failed'
@@ -356,7 +353,7 @@ describe('Terminal Manager - Comprehensive Tests', () => {
       );
 
       TestAssertions.assertInRange(stats.mean, 0, 100); // Should be fast
-      assertEquals(mockPool.createSession.calls.length, 100);
+      expect(mockPool.createSession.calls.length).toBe( 100);
       
       console.log(`Session creation performance: ${stats.mean.toFixed(2)}ms average`);
     });
@@ -370,7 +367,7 @@ describe('Terminal Manager - Comprehensive Tests', () => {
       );
 
       TestAssertions.assertInRange(stats.mean, 0, 50); // Should be fast
-      assertEquals(mockPool.executeCommand.calls.length, 50);
+      expect(mockPool.executeCommand.calls.length).toBe( 50);
       
       console.log(`Command execution performance: ${stats.mean.toFixed(2)}ms average`);
     });
@@ -395,7 +392,7 @@ describe('Terminal Manager - Comprehensive Tests', () => {
         );
       });
 
-      assertEquals(leaked, false);
+      expect(leaked).toBe( false);
     });
 
     it('should maintain performance under resource pressure', async () => {
@@ -445,38 +442,38 @@ describe('Terminal Manager - Comprehensive Tests', () => {
     it('should report health status correctly', async () => {
       const health = await terminalManager.getHealthStatus();
       
-      assertEquals(health.healthy, true);
-      assertExists(health.metrics);
-      assertEquals(typeof health.metrics.activeSessions, 'number');
-      assertEquals(typeof health.metrics.availableSlots, 'number');
+      expect(health.healthy).toBe( true);
+      expect(health.metrics);
+      expect(typeof health.metrics.activeSessions).toBe( 'number');
+      expect(typeof health.metrics.availableSlots).toBe( 'number');
     });
 
     it('should detect unhealthy pool status', async () => {
-      mockPool.getSessionCount = spy(() => {
+      mockPool.getSessionCount = jest.spyOn(() => {
         throw new Error('Pool is unhealthy');
       });
 
       const health = await terminalManager.getHealthStatus();
       
-      assertEquals(health.healthy, false);
-      assertExists(health.error);
+      expect(health.healthy).toBe( false);
+      expect(health.error);
     });
 
     it('should perform maintenance operations', async () => {
       await terminalManager.performMaintenance();
       
-      assertEquals(mockPool.performMaintenance.calls.length, 1);
+      expect(mockPool.performMaintenance.calls.length).toBe( 1);
     });
 
     it('should handle maintenance errors gracefully', async () => {
-      mockPool.performMaintenance = spy(async () => {
+      mockPool.performMaintenance = jest.spyOn(async () => {
         throw new Error('Maintenance failed');
       });
 
       // Should not throw, but log error
       await terminalManager.performMaintenance();
       
-      assertEquals(mockPool.performMaintenance.calls.length, 1);
+      expect(mockPool.performMaintenance.calls.length).toBe( 1);
     });
 
     it('should track session metrics accurately', async () => {
@@ -496,7 +493,7 @@ describe('Terminal Manager - Comprehensive Tests', () => {
 
       const health = await terminalManager.getHealthStatus();
       
-      assertExists(health.metrics);
+      expect(health.metrics);
       TestAssertions.assertInRange(health.metrics.activeSessions, 0, 10);
       TestAssertions.assertInRange(health.metrics.totalCommands, 3, 100);
     });
@@ -508,11 +505,11 @@ describe('Terminal Manager - Comprehensive Tests', () => {
     });
 
     it('should handle pool failures gracefully', async () => {
-      mockPool.createSession = spy(async () => {
+      mockPool.createSession = jest.spyOn(async () => {
         throw new Error('Pool failure');
       });
 
-      await assertRejects(
+      await expect(
         () => terminalManager.spawnTerminal(),
         Error,
         'Pool failure'
@@ -543,7 +540,7 @@ describe('Terminal Manager - Comprehensive Tests', () => {
       for (const profile of validProfiles) {
         try {
           const sessionId = await terminalManager.spawnTerminal(profile);
-          assertExists(sessionId);
+          expect(sessionId);
         } catch (error) {
           // Some edge cases may be rejected, which is acceptable
         }
@@ -553,7 +550,7 @@ describe('Terminal Manager - Comprehensive Tests', () => {
     it('should handle concurrent failures', async () => {
       let failureCount = 0;
       
-      mockPool.createSession = spy(async () => {
+      mockPool.createSession = jest.spyOn(async () => {
         failureCount++;
         if (failureCount <= 3) {
           throw new Error('Temporary failure');
@@ -571,18 +568,18 @@ describe('Terminal Manager - Comprehensive Tests', () => {
       const successes = results.filter(r => typeof r === 'string');
       const failures = results.filter(r => r instanceof Error);
       
-      assertEquals(successes.length >= 1, true);
-      assertEquals(failures.length >= 1, true);
+      expect(successes.length >= 1).toBe( true);
+      expect(failures.length >= 1).toBe( true);
     });
 
     it('should handle resource exhaustion scenarios', async () => {
       // Mock pool to simulate resource exhaustion
-      mockPool.getAvailableSlots = spy(() => 0);
-      mockPool.createSession = spy(async () => {
+      mockPool.getAvailableSlots = jest.spyOn(() => 0);
+      mockPool.createSession = jest.spyOn(async () => {
         throw new Error('No available slots');
       });
 
-      await assertRejects(
+      await expect(
         () => terminalManager.spawnTerminal(),
         Error,
         'No available slots'
@@ -592,7 +589,7 @@ describe('Terminal Manager - Comprehensive Tests', () => {
     it('should recover from temporary adapter failures', async () => {
       let attemptCount = 0;
       
-      mockPool.executeCommand = spy(async (sessionId: string, command: any) => {
+      mockPool.executeCommand = jest.spyOn(async (sessionId: string, command: any) => {
         attemptCount++;
         if (attemptCount <= 2) {
           throw new Error('Adapter temporarily unavailable');
@@ -606,10 +603,10 @@ describe('Terminal Manager - Comprehensive Tests', () => {
       try {
         const result = await terminalManager.sendCommand(sessionId, 'test-command');
         // If retry logic is implemented, this should eventually succeed
-        assertExists(result);
+        expect(result);
       } catch (error) {
         // If no retry logic, should fail on first attempt
-        assertEquals(error.message, 'Adapter temporarily unavailable');
+        expect(error.message).toBe( 'Adapter temporarily unavailable');
       }
     });
   });
@@ -626,8 +623,8 @@ describe('Terminal Manager - Comprehensive Tests', () => {
 
       await terminalManager.shutdown();
       
-      assertEquals(mockPool.shutdown.calls.length, 1);
-      assertEquals(terminalManager.isInitialized(), false);
+      expect(mockPool.shutdown.calls.length).toBe( 1);
+      expect(terminalManager.isInitialized()).toBe( false);
     });
 
     it('should handle shutdown with active sessions', async () => {
@@ -644,13 +641,13 @@ describe('Terminal Manager - Comprehensive Tests', () => {
       // Both should complete (command may be cancelled)
       await Promise.allSettled([commandPromise, shutdownPromise]);
       
-      assertEquals(terminalManager.isInitialized(), false);
+      expect(terminalManager.isInitialized()).toBe( false);
     });
 
     it('should timeout shutdown if pool hangs', async () => {
       await terminalManager.initialize();
       
-      mockPool.shutdown = spy(async () => {
+      mockPool.shutdown = jest.spyOn(async () => {
         await new Promise(resolve => setTimeout(resolve, 30000)); // 30 seconds
       });
 
@@ -663,27 +660,27 @@ describe('Terminal Manager - Comprehensive Tests', () => {
     it('should handle shutdown errors gracefully', async () => {
       await terminalManager.initialize();
       
-      mockPool.shutdown = spy(async () => {
+      mockPool.shutdown = jest.spyOn(async () => {
         throw new Error('Shutdown failed');
       });
 
       // Should complete shutdown despite pool error
       await terminalManager.shutdown();
       
-      assertEquals(terminalManager.isInitialized(), false);
+      expect(terminalManager.isInitialized()).toBe( false);
     });
 
     it('should prevent operations after shutdown', async () => {
       await terminalManager.initialize();
       await terminalManager.shutdown();
 
-      await assertRejects(
+      await expect(
         () => terminalManager.spawnTerminal(),
         Error,
         'Terminal manager not initialized'
       );
 
-      await assertRejects(
+      await expect(
         () => terminalManager.sendCommand('session-id', 'echo test'),
         Error,
         'Terminal manager not initialized'

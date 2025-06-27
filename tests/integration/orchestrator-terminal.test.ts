@@ -1,3 +1,5 @@
+/// <reference types="jest" />
+
 /**
  * Integration tests for Orchestrator and Terminal Manager
  */
@@ -11,20 +13,20 @@ import {
   assertExists,
   assertRejects,
   spy,
-} from '../test.utils.ts';
-import { Orchestrator } from '../../src/core/orchestrator.ts';
-import { TerminalManager } from '../../src/terminal/manager.ts';
-import { EventBus } from '../../src/core/event-bus.ts';
-import { Logger } from '../../src/core/logger.ts';
-import { MockMemoryManager, MockCoordinationManager } from '../mocks/index.ts';
+} from '../test.utils.js';
+import { Orchestrator } from '../../src/core/orchestrator.js';
+import { TerminalManager } from '../../src/terminal/manager.js';
+import { EventBus } from '../../src/core/event-bus.js';
+import { Logger } from '../../src/core/logger.js';
+import { MockMemoryManager, MockCoordinationManager } from '../mocks/index.js';
 import {
   Config,
   AgentProfile,
   Task,
   TaskStatus,
-} from '../../src/utils/types.ts';
-import { cleanupTestEnv, setupTestEnv } from '../test.config.ts';
-import { delay } from '../../src/utils/helpers.ts';
+} from '../../src/utils/types.js';
+import { cleanupTestEnv, setupTestEnv } from '../test.config.js';
+import { delay } from '../../src/utils/helpers.js';
 
 describe('Orchestrator-Terminal Integration', () => {
   let orchestrator: Orchestrator;
@@ -124,17 +126,17 @@ describe('Orchestrator-Terminal Integration', () => {
       const profile = createTestProfile('test-agent-1');
       const sessionId = await orchestrator.spawnAgent(profile);
 
-      assertExists(sessionId);
+      expect(sessionId);
 
       // Verify agent session was created
       const sessions = orchestrator.getActiveSessions();
-      assertEquals(sessions.length, 1);
-      assertEquals(sessions[0].agentId, profile.id);
+      expect(sessions.length).toBe( 1);
+      expect(sessions[0].agentId).toBe( profile.id);
 
       // Verify terminal was spawned
       const terminalSessions = terminalManager.getActiveSessions();
-      assertEquals(terminalSessions.length, 1);
-      assertEquals(terminalSessions[0].agentId, profile.id);
+      expect(terminalSessions.length).toBe( 1);
+      expect(terminalSessions[0].agentId).toBe( profile.id);
     });
 
     it('should execute tasks through terminal', async () => {
@@ -157,9 +159,9 @@ describe('Orchestrator-Terminal Integration', () => {
 
       const result = await orchestrator.executeTask(task);
 
-      assertExists(result);
-      assertEquals(result.output?.stdout, 'Task executed successfully\n');
-      assertEquals(result.status, 'completed');
+      expect(result);
+      expect(result.output?.stdout).toBe( 'Task executed successfully\n');
+      expect(result.status).toBe( 'completed');
     });
 
     it('should handle concurrent tasks across multiple agents', async () => {
@@ -174,7 +176,7 @@ describe('Orchestrator-Terminal Integration', () => {
         profiles.map(profile => orchestrator.spawnAgent(profile))
       );
 
-      assertEquals(sessions.length, 3);
+      expect(sessions.length).toBe( 3);
 
       // Create concurrent tasks
       const tasks: Task[] = profiles.map((profile, index) => ({
@@ -197,11 +199,11 @@ describe('Orchestrator-Terminal Integration', () => {
       );
 
       // Verify all tasks completed
-      assertEquals(results.length, 3);
+      expect(results.length).toBe( 3);
       results.forEach((result, index) => {
-        assertEquals(result.status, 'completed');
-        assertExists(result.output?.stdout);
-        assertEquals(
+        expect(result.status).toBe( 'completed');
+        expect(result.output?.stdout);
+        expect(
           result.output.stdout.includes(`task ${index + 1}`),
           true
         );
@@ -213,15 +215,15 @@ describe('Orchestrator-Terminal Integration', () => {
       const sessionId = await orchestrator.spawnAgent(profile);
 
       // Verify agent and terminal are active
-      assertEquals(orchestrator.getActiveSessions().length, 1);
-      assertEquals(terminalManager.getActiveSessions().length, 1);
+      expect(orchestrator.getActiveSessions().length).toBe( 1);
+      expect(terminalManager.getActiveSessions().length).toBe( 1);
 
       // Terminate agent
       await orchestrator.terminateAgent(sessionId, 'Test cleanup');
 
       // Verify cleanup
-      assertEquals(orchestrator.getActiveSessions().length, 0);
-      assertEquals(terminalManager.getActiveSessions().length, 0);
+      expect(orchestrator.getActiveSessions().length).toBe( 0);
+      expect(terminalManager.getActiveSessions().length).toBe( 0);
     });
   });
 
@@ -229,7 +231,7 @@ describe('Orchestrator-Terminal Integration', () => {
     it('should handle terminal spawn failures gracefully', async () => {
       // Mock terminal manager to fail spawning
       const originalSpawn = terminalManager.spawnTerminal.bind(terminalManager);
-      terminalManager.spawnTerminal = spy(() => {
+      terminalManager.spawnTerminal = jest.spyOn(() => {
         throw new Error('Terminal spawn failed');
       });
 
@@ -243,14 +245,14 @@ describe('Orchestrator-Terminal Integration', () => {
         priority: 1,
       };
 
-      await assertRejects(
+      await expect(
         () => orchestrator.spawnAgent(profile),
         Error,
         'Terminal spawn failed'
       );
 
       // Verify no sessions were created
-      assertEquals(orchestrator.getActiveSessions().length, 0);
+      expect(orchestrator.getActiveSessions().length).toBe( 0);
 
       // Restore original method
       terminalManager.spawnTerminal = originalSpawn;
@@ -285,9 +287,9 @@ describe('Orchestrator-Terminal Integration', () => {
 
       const result = await orchestrator.executeTask(task);
 
-      assertEquals(result.status, 'failed');
-      assertExists(result.error);
-      assertEquals(result.error.message.includes('timeout'), true);
+      expect(result.status).toBe( 'failed');
+      expect(result.error);
+      expect(result.error.message.includes('timeout')).toBe( true);
     });
 
     it('should retry failed tasks', async () => {
@@ -305,7 +307,7 @@ describe('Orchestrator-Terminal Integration', () => {
 
       let attemptCount = 0;
       const originalExecute = terminalManager.executeCommand.bind(terminalManager);
-      terminalManager.executeCommand = spy(async (terminalId: string, command: string) => {
+      terminalManager.executeCommand = jest.spyOn(async (terminalId: string, command: string) => {
         attemptCount++;
         if (attemptCount < 3) {
           throw new Error('Simulated failure');
@@ -329,9 +331,9 @@ describe('Orchestrator-Terminal Integration', () => {
 
       const result = await orchestrator.executeTask(task);
 
-      assertEquals(result.status, 'completed');
-      assertEquals(result.output?.stdout, 'Success on retry');
-      assertEquals(attemptCount, 3);
+      expect(result.status).toBe( 'completed');
+      expect(result.output?.stdout).toBe( 'Success on retry');
+      expect(attemptCount).toBe( 3);
 
       // Restore original method
       terminalManager.executeCommand = originalExecute;
@@ -356,12 +358,12 @@ describe('Orchestrator-Terminal Integration', () => {
         profiles.map(profile => orchestrator.spawnAgent(profile))
       );
 
-      assertEquals(sessions.length, 3);
+      expect(sessions.length).toBe( 3);
 
       // Verify terminal pool health
       const health = await terminalManager.getHealthStatus();
-      assertEquals(health.healthy, true);
-      assertEquals(health.metrics?.activeSessions, 3);
+      expect(health.healthy).toBe( true);
+      expect(health.metrics?.activeSessions).toBe( 3);
 
       // Try to spawn one more (should work as it creates new terminal)
       const extraProfile: AgentProfile = {
@@ -376,7 +378,7 @@ describe('Orchestrator-Terminal Integration', () => {
 
       // This should succeed as terminals are created on demand
       const extraSession = await orchestrator.spawnAgent(extraProfile);
-      assertExists(extraSession);
+      expect(extraSession);
     });
 
     it('should perform maintenance operations', async () => {
@@ -402,9 +404,9 @@ describe('Orchestrator-Terminal Integration', () => {
       await orchestrator.performMaintenance();
 
       // Verify maintenance was performed
-      assertEquals(maintenanceEvents.length, 1);
-      assertExists(maintenanceEvents[0].timestamp);
-      assertExists(maintenanceEvents[0].activeSessions);
+      expect(maintenanceEvents.length).toBe( 1);
+      expect(maintenanceEvents[0].timestamp);
+      expect(maintenanceEvents[0].activeSessions);
     });
   });
 
@@ -465,10 +467,10 @@ describe('Orchestrator-Terminal Integration', () => {
 
       // Verify events were emitted
       const eventTypesSeen = events.map(e => e.type);
-      assertEquals(eventTypesSeen.includes('agent:spawned'), true);
-      assertEquals(eventTypesSeen.includes('task:started'), true);
-      assertEquals(eventTypesSeen.includes('task:completed'), true);
-      assertEquals(eventTypesSeen.includes('agent:terminated'), true);
+      expect(eventTypesSeen.includes('agent:spawned')).toBe( true);
+      expect(eventTypesSeen.includes('task:started')).toBe( true);
+      expect(eventTypesSeen.includes('task:completed')).toBe( true);
+      expect(eventTypesSeen.includes('agent:terminated')).toBe( true);
     });
 
     it('should handle cross-component error propagation', async () => {
@@ -492,7 +494,7 @@ describe('Orchestrator-Terminal Integration', () => {
 
       // Mock terminal to throw error
       const originalExecute = terminalManager.executeCommand.bind(terminalManager);
-      terminalManager.executeCommand = spy(() => {
+      terminalManager.executeCommand = jest.spyOn(() => {
         throw new Error('Terminal execution failed');
       });
 
@@ -511,14 +513,14 @@ describe('Orchestrator-Terminal Integration', () => {
 
       const result = await orchestrator.executeTask(task);
 
-      assertEquals(result.status, 'failed');
-      assertExists(result.error);
+      expect(result.status).toBe( 'failed');
+      expect(result.error);
 
       // Wait for events to propagate
       await delay(100);
 
       // Verify error event was emitted
-      assertEquals(errorEvents.length > 0, true);
+      expect(errorEvents.length > 0).toBe( true);
 
       // Restore original method
       terminalManager.executeCommand = originalExecute;
@@ -540,7 +542,7 @@ describe('Orchestrator-Terminal Integration', () => {
       const sessionId = await orchestrator.spawnAgent(profile);
 
       // Verify memory operations were called
-      assertEquals(memoryManager.storeEntry.calls.length > 0, true);
+      expect(memoryManager.storeEntry.calls.length > 0).toBe( true);
 
       const storedEntries = memoryManager.storeEntry.calls.map(call => call.args[0]);
       const spawnEntry = storedEntries.find(entry => 
@@ -548,9 +550,9 @@ describe('Orchestrator-Terminal Integration', () => {
         entry.content.includes('Agent spawned')
       );
 
-      assertExists(spawnEntry);
-      assertEquals(spawnEntry.agentId, profile.id);
-      assertEquals(spawnEntry.sessionId, sessionId);
+      expect(spawnEntry);
+      expect(spawnEntry.agentId).toBe( profile.id);
+      expect(spawnEntry.sessionId).toBe( sessionId);
     });
 
     it('should store task execution history', async () => {
@@ -586,7 +588,7 @@ describe('Orchestrator-Terminal Integration', () => {
         .map(call => call.args[0])
         .filter(entry => entry.content.includes('Task'));
 
-      assertEquals(taskEntries.length >= 2, true); // Start and completion
+      expect(taskEntries.length >= 2).toBe( true); // Start and completion
 
       const startEntry = taskEntries.find(entry => 
         entry.content.includes('started')
@@ -595,8 +597,8 @@ describe('Orchestrator-Terminal Integration', () => {
         entry.content.includes('completed')
       );
 
-      assertExists(startEntry);
-      assertExists(completeEntry);
+      expect(startEntry);
+      expect(completeEntry);
     });
   });
 });

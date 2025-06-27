@@ -1,10 +1,12 @@
+/// <reference types="jest" />
+
 /**
  * Comprehensive mock implementations for testing
  */
 
-import { stub, spy } from "https://deno.land/std@0.220.0/testing/mock.ts";
-import type { Spy } from "https://deno.land/std@0.220.0/testing/mock.ts";
-import type { AgentProfile, Task } from "../../src/utils/types.ts";
+/// Jest mock types
+type Spy = jest.SpyInstance;
+import type { AgentProfile, Task } from '../../src/utils/types.js';
 
 // Since we can't import the actual interfaces yet, we'll define minimal interfaces
 interface IEventBus {
@@ -59,7 +61,7 @@ function createSpy<T extends (...args: any[]) => any>(implementation?: T): Spy<a
   const mockObj: Record<string, any> = {};
   const methodName = 'spyMethod';
   mockObj[methodName] = implementation || (() => {});
-  return stub(mockObj, methodName as keyof typeof mockObj) as any;
+  return jest.spyOn(mockObj, methodName as keyof typeof mockObj) as any;
 }
 
 /**
@@ -344,40 +346,40 @@ export class MockCoordinationManager implements ICoordinationManager {
   private agentTasks = new Map<string, Task[]>();
   private initialized = false;
 
-  initialize = spy(async (): Promise<void> => {
+  initialize = jest.spyOn(async (): Promise<void> => {
     this.initialized = true;
   });
 
-  shutdown = spy(async (): Promise<void> => {
+  shutdown = jest.spyOn(async (): Promise<void> => {
     this.tasks.clear();
     this.agentTasks.clear();
     this.initialized = false;
   });
 
-  assignTask = spy(async (task: Task, agentId: string): Promise<void> => {
+  assignTask = jest.spyOn(async (task: Task, agentId: string): Promise<void> => {
     this.tasks.set(task.id, { task, agentId });
     const agentTaskList = this.agentTasks.get(agentId) || [];
     agentTaskList.push(task);
     this.agentTasks.set(agentId, agentTaskList);
   });
 
-  getAgentTaskCount = spy(async (agentId: string): Promise<number> => {
+  getAgentTaskCount = jest.spyOn(async (agentId: string): Promise<number> => {
     const tasks = this.agentTasks.get(agentId) || [];
     return tasks.filter(t => t.status !== 'completed' && t.status !== 'failed').length;
   });
 
-  getAgentTasks = spy(async (agentId: string): Promise<Task[]> => {
+  getAgentTasks = jest.spyOn(async (agentId: string): Promise<Task[]> => {
     return this.agentTasks.get(agentId) || [];
   });
 
-  cancelTask = spy(async (taskId: string): Promise<void> => {
+  cancelTask = jest.spyOn(async (taskId: string): Promise<void> => {
     const taskInfo = this.tasks.get(taskId);
     if (taskInfo) {
       taskInfo.task.status = 'cancelled';
     }
   });
 
-  getHealthStatus = spy(async (): Promise<{ healthy: boolean; error?: string; metrics?: Record<string, number> }> => {
+  getHealthStatus = jest.spyOn(async (): Promise<{ healthy: boolean; error?: string; metrics?: Record<string, number> }> => {
     return {
       healthy: true,
       metrics: {
@@ -386,7 +388,7 @@ export class MockCoordinationManager implements ICoordinationManager {
     };
   });
 
-  performMaintenance = spy(async (): Promise<void> => {
+  performMaintenance = jest.spyOn(async (): Promise<void> => {
     // No-op for mock
   });
 
@@ -406,20 +408,20 @@ export class MockMCPServer implements IMCPServer {
   private started = false;
   private tools = new Map<string, any>();
 
-  start = spy(async (): Promise<void> => {
+  start = jest.spyOn(async (): Promise<void> => {
     this.started = true;
   });
 
-  stop = spy(async (): Promise<void> => {
+  stop = jest.spyOn(async (): Promise<void> => {
     this.started = false;
     this.tools.clear();
   });
 
-  registerTool = spy((name: string, tool: any): void => {
+  registerTool = jest.spyOn((name: string, tool: any): void => {
     this.tools.set(name, tool);
   });
 
-  getHealthStatus = spy(async (): Promise<{ healthy: boolean; error?: string; metrics?: Record<string, number> }> => {
+  getHealthStatus = jest.spyOn(async (): Promise<{ healthy: boolean; error?: string; metrics?: Record<string, number> }> => {
     return {
       healthy: this.started,
       metrics: {

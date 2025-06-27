@@ -1,14 +1,67 @@
+/// <reference types="jest" />
+
 /**
  * Comprehensive test utilities for Claude-Flow
  */
 
-import { assertEquals, assertExists, assertRejects, assertThrows } from "https://deno.land/std@0.220.0/assert/mod.ts";
-import { delay } from "https://deno.land/std@0.220.0/async/delay.ts";
-import { stub, Spy } from "https://deno.land/std@0.220.0/testing/mock.ts";
-import { FakeTime } from "https://deno.land/std@0.220.0/testing/time.ts";
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
-export { assertEquals, assertExists, assertRejects, assertThrows, stub, delay, FakeTime };
-export type { Spy };
+// Jest-compatible test utilities
+export function assertEquals<T>(actual: T, expected: T, message?: string): void {
+  expect(actual).toEqual(expected);
+}
+
+export function assertExists<T>(actual: T, message?: string): asserts actual is NonNullable<T> {
+  expect(actual).toBeDefined();
+  expect(actual).not.toBeNull();
+}
+
+export async function assertRejects(
+  fn: () => Promise<unknown>,
+  errorClass?: new (...args: any[]) => Error,
+  msgIncludes?: string
+): Promise<Error> {
+  await expect(fn).rejects.toThrow(errorClass);
+  return new Error('Test assertion helper');
+}
+
+export function assertThrows(
+  fn: () => unknown,
+  errorClass?: new (...args: any[]) => Error,
+  msgIncludes?: string
+): Error {
+  expect(fn).toThrow(errorClass);
+  return new Error('Test assertion helper');
+}
+
+export const stub = jest.fn;
+
+export function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export class FakeTime {
+  constructor() {
+    jest.useFakeTimers();
+  }
+
+  tick(ms: number): void {
+    jest.advanceTimersByTime(ms);
+  }
+
+  tickAsync(ms: number): Promise<void> {
+    jest.advanceTimersByTime(ms);
+    return Promise.resolve();
+  }
+
+  restore(): void {
+    jest.useRealTimers();
+  }
+}
+
+export type Spy = jest.SpyInstance;
 
 /**
  * Test utilities for async operations
@@ -144,7 +197,7 @@ export class MemoryTestUtils {
     // Start memory monitoring
     const monitoringPromise = (async () => {
       while (monitoring && sampleCount < maxSamples) {
-        const memInfo = Deno.memoryUsage();
+        const memInfo = process.memoryUsage();
         memoryStats.push({
           timestamp: Date.now(),
           heapUsed: memInfo.heapUsed,
@@ -171,9 +224,9 @@ export class MemoryTestUtils {
    * Trigger garbage collection (if available)
    */
   static async forceGC(): Promise<void> {
-    // Deno doesn't expose GC directly, but we can try to encourage it
-    if ('gc' in globalThis) {
-      (globalThis as any).gc();
+    // Force GC if exposed (requires --expose-gc flag in Node.js)
+    if (global.gc) {
+      global.gc();
     }
     await delay(10); // Give time for GC to run
   }
@@ -207,7 +260,7 @@ export class MemoryTestUtils {
   private static getAverageMemoryUsage(samples: number): number {
     let total = 0;
     for (let i = 0; i < samples; i++) {
-      total += Deno.memoryUsage().heapUsed;
+      total += process.memoryUsage().heapUsed;
     }
     return total / samples;
   }
@@ -408,7 +461,7 @@ export class FileSystemTestUtils {
    * Create temporary directory for testing
    */
   static async createTempDir(prefix = 'claude-flow-test-'): Promise<string> {
-    const tempDir = await Deno.makeTempDir({ prefix });
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
     return tempDir;
   }
 
@@ -419,9 +472,10 @@ export class FileSystemTestUtils {
     content: string,
     options: { suffix?: string; dir?: string } = {}
   ): Promise<string> {
-    const { suffix = '.tmp', dir } = options;
-    const tempFile = await Deno.makeTempFile({ suffix, dir });
-    await Deno.writeTextFile(tempFile, content);
+    const { suffix = '.tmp', dir = os.tmpdir() } = options;
+    const tempPrefix = path.join(dir, 'temp-');
+    const tempFile = fs.mkdtempSync(tempPrefix) + suffix;
+    fs.writeFileSync(tempFile, content, 'utf8');
     return tempFile;
   }
 
@@ -435,16 +489,16 @@ export class FileSystemTestUtils {
     const fixtureDir = baseDir || await this.createTempDir('fixtures-');
     
     for (const [fileName, content] of Object.entries(fixtures)) {
-      const filePath = `${fixtureDir}/${fileName}`;
-      const dirPath = filePath.substring(0, filePath.lastIndexOf('/'));
+      const filePath = path.join(fixtureDir, fileName);
+      const dirPath = path.dirname(filePath);
       
       try {
-        await Deno.mkdir(dirPath, { recursive: true });
+        fs.mkdirSync(dirPath, { recursive: true });
       } catch {
         // Directory already exists
       }
       
-      await Deno.writeTextFile(filePath, content);
+      fs.writeFileSync(filePath, content, 'utf8');
     }
 
     return fixtureDir;
@@ -455,9 +509,9 @@ export class FileSystemTestUtils {
    */
   static async cleanup(paths: string[]): Promise<void> {
     await Promise.all(
-      paths.map(async path => {
+      paths.map(async pathToRemove => {
         try {
-          await Deno.remove(path, { recursive: true });
+          fs.rmSync(pathToRemove, { recursive: true, force: true });
         } catch {
           // Ignore if already removed
         }
@@ -481,7 +535,7 @@ export class MockFactory {
     
     for (const [key, value] of Object.entries(mock)) {
       if (typeof value === 'function') {
-        mock[key] = stub(mock, key as keyof T, value);
+        mock[key] = jest.spyOn(mock, key as keyof T, value);
       }
     }
 
@@ -503,7 +557,7 @@ export class MockFactory {
       obj[methodName] = () => {};
     }
 
-    return stub(obj, methodName) as any;
+    return jest.spyOn(obj, methodName) as any;
   }
 
   /**
@@ -518,7 +572,7 @@ export class MockFactory {
     
     for (const method of failingMethods) {
       if (typeof original[method] === 'function') {
-        mock[method] = stub(mock, method, () => {
+        mock[method] = jest.spyOn(mock, method, () => {
           throw error;
         });
       }
@@ -664,7 +718,7 @@ export class TestAssertions {
     const actualSorted = [...actual].sort();
     const expectedSorted = [...expected].sort();
     
-    assertEquals(
+    expect(
       actualSorted,
       expectedSorted,
       message || 'Arrays should contain same elements'

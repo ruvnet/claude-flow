@@ -1,21 +1,19 @@
+/// <reference types="jest" />
+
 /**
  * Comprehensive unit tests for CLI Commands
  * Tests all CLI commands with mock interactions and argument validation
  */
 
-import { describe, it, beforeEach, afterEach } from "https://deno.land/std@0.220.0/testing/bdd.ts";
-import { assertEquals, assertExists, assertRejects, assertStringIncludes } from "https://deno.land/std@0.220.0/assert/mod.ts";
-import { FakeTime } from "https://deno.land/std@0.220.0/testing/time.ts";
-import { spy, stub } from "https://deno.land/std@0.220.0/testing/mock.ts";
-
+import * as fs from 'fs';
 import { 
   AsyncTestUtils, 
   TestAssertions,
   MockFactory,
   FileSystemTestUtils
-} from '../../utils/test-utils.ts';
-import { generateCLITestScenarios } from '../../fixtures/generators.ts';
-import { setupTestEnv, cleanupTestEnv, TEST_CONFIG } from '../../test.config.ts';
+} from '../../utils/test-utils.js';
+import { generateCLITestScenarios } from '../../fixtures/generators.js';
+import { setupTestEnv, cleanupTestEnv, TEST_CONFIG } from '../../test.config.js';
 
 // Mock CLI infrastructure
 interface CLICommand {
@@ -159,17 +157,18 @@ describe('CLI Commands - Comprehensive Tests', () => {
     setupTestEnv();
     cli = new MockCLI();
     tempDir = await FileSystemTestUtils.createTempDir('cli-test-');
-    fakeTime = new FakeTime();
+    fakeTime = jest.useFakeTimers();
     
     // Set up test configuration
-    await Deno.writeTextFile(
+    fs.writeFileSync(
       `${tempDir}/test-config.json`,
-      JSON.stringify(TEST_CONFIG.env)
+      JSON.stringify(TEST_CONFIG.env),
+      'utf8'
     );
   });
 
   afterEach(async () => {
-    fakeTime.restore();
+    jest.useRealTimers();
     await FileSystemTestUtils.cleanup([tempDir]);
     await cleanupTestEnv();
   });
@@ -210,10 +209,10 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const exitCode = await cli.execute(['start']);
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'orchestrator starting');
-      assertStringIncludes(output.stdout.join(' '), 'port 8080');
-      assertStringIncludes(output.stdout.join(' '), 'Log level: info');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'orchestrator starting');
+      expect(output.stdout.join(' ')).toBe( 'port 8080');
+      expect(output.stdout.join(' ')).toBe( 'Log level: info');
     });
 
     it('should start with custom configuration', async () => {
@@ -226,26 +225,26 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'test-config.json');
-      assertStringIncludes(output.stdout.join(' '), 'port 9000');
-      assertStringIncludes(output.stdout.join(' '), 'Log level: debug');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'test-config.json');
+      expect(output.stdout.join(' ')).toBe( 'port 9000');
+      expect(output.stdout.join(' ')).toBe( 'Log level: debug');
     });
 
     it('should handle daemon mode', async () => {
       const exitCode = await cli.execute(['start', '--daemon']);
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'daemon mode');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'daemon mode');
     });
 
     it('should validate port numbers', async () => {
       const exitCode = await cli.execute(['start', '--port', 'invalid']);
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 1);
-      assertStringIncludes(output.stderr.join(' '), 'Error');
+      expect(exitCode).toBe( 1);
+      expect(output.stderr.join(' ')).toBe( 'Error');
     });
   });
 
@@ -304,9 +303,9 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Creating agent: test-agent');
-      assertStringIncludes(output.stdout.join(' '), 'created successfully');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Creating agent: test-agent');
+      expect(output.stdout.join(' ')).toBe( 'created successfully');
     });
 
     it('should create an agent with full configuration', async () => {
@@ -320,20 +319,20 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Creating agent: full-agent');
-      assertStringIncludes(output.stdout.join(' '), 'Role: analyzer');
-      assertStringIncludes(output.stdout.join(' '), 'Capabilities: code-analysis,testing,documentation');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Creating agent: full-agent');
+      expect(output.stdout.join(' ')).toBe( 'Role: analyzer');
+      expect(output.stdout.join(' ')).toBe( 'Capabilities: code-analysis).toBe(testing,documentation');
     });
 
     it('should list existing agents', async () => {
       const exitCode = await cli.execute(['agent', '--action', 'list']);
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Active agents:');
-      assertStringIncludes(output.stdout.join(' '), 'agent-1');
-      assertStringIncludes(output.stdout.join(' '), 'agent-2');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Active agents:');
+      expect(output.stdout.join(' ')).toBe( 'agent-1');
+      expect(output.stdout.join(' ')).toBe( 'agent-2');
     });
 
     it('should delete an agent', async () => {
@@ -345,25 +344,25 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Deleting agent: old-agent');
-      assertStringIncludes(output.stdout.join(' '), 'deleted successfully');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Deleting agent: old-agent');
+      expect(output.stdout.join(' ')).toBe( 'deleted successfully');
     });
 
     it('should require name for create and delete actions', async () => {
       const createResult = await cli.execute(['agent', '--action', 'create']);
-      assertEquals(createResult, 1);
+      expect(createResult).toBe( 1);
       
       const deleteResult = await cli.execute(['agent', '--action', 'delete']);
-      assertEquals(deleteResult, 1);
+      expect(deleteResult).toBe( 1);
     });
 
     it('should handle unknown actions', async () => {
       const exitCode = await cli.execute(['agent', '--action', 'unknown']);
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 1);
-      assertStringIncludes(output.stderr.join(' '), 'Unknown action: unknown');
+      expect(exitCode).toBe( 1);
+      expect(output.stderr.join(' ')).toBe( 'Unknown action: unknown');
     });
   });
 
@@ -433,10 +432,10 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Running task:');
-      assertStringIncludes(output.stdout.join(' '), 'Command: echo "Hello World"');
-      assertStringIncludes(output.stdout.join(' '), 'completed successfully');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Running task:');
+      expect(output.stdout.join(' ')).toBe( 'Command: echo "Hello World"');
+      expect(output.stdout.join(' ')).toBe( 'completed successfully');
     });
 
     it('should run a task with full configuration', async () => {
@@ -451,21 +450,21 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Command: npm test');
-      assertStringIncludes(output.stdout.join(' '), 'Agent: test-agent');
-      assertStringIncludes(output.stdout.join(' '), 'Priority: high');
-      assertStringIncludes(output.stdout.join(' '), 'Timeout: 300s');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Command: npm test');
+      expect(output.stdout.join(' ')).toBe( 'Agent: test-agent');
+      expect(output.stdout.join(' ')).toBe( 'Priority: high');
+      expect(output.stdout.join(' ')).toBe( 'Timeout: 300s');
     });
 
     it('should list active tasks', async () => {
       const exitCode = await cli.execute(['task', '--action', 'list']);
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Active tasks:');
-      assertStringIncludes(output.stdout.join(' '), 'task-001');
-      assertStringIncludes(output.stdout.join(' '), 'task-002');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Active tasks:');
+      expect(output.stdout.join(' ')).toBe( 'task-001');
+      expect(output.stdout.join(' ')).toBe( 'task-002');
     });
 
     it('should cancel a task', async () => {
@@ -477,25 +476,25 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Cancelling task: task-123');
-      assertStringIncludes(output.stdout.join(' '), 'cancelled successfully');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Cancelling task: task-123');
+      expect(output.stdout.join(' ')).toBe( 'cancelled successfully');
     });
 
     it('should require command for run action', async () => {
       const exitCode = await cli.execute(['task', '--action', 'run']);
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 1);
-      assertStringIncludes(output.stderr.join(' '), 'Command is required');
+      expect(exitCode).toBe( 1);
+      expect(output.stderr.join(' ')).toBe( 'Command is required');
     });
 
     it('should require task ID for cancel action', async () => {
       const exitCode = await cli.execute(['task', '--action', 'cancel']);
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 1);
-      assertStringIncludes(output.stderr.join(' '), 'Task ID is required');
+      expect(exitCode).toBe( 1);
+      expect(output.stderr.join(' ')).toBe( 'Task ID is required');
     });
   });
 
@@ -564,10 +563,10 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Setting memory: default:test-key');
-      assertStringIncludes(output.stdout.join(' '), 'Value: test-value');
-      assertStringIncludes(output.stdout.join(' '), 'stored successfully');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Setting memory: default:test-key');
+      expect(output.stdout.join(' ')).toBe( 'Value: test-value');
+      expect(output.stdout.join(' ')).toBe( 'stored successfully');
     });
 
     it('should set a memory entry with namespace and tags', async () => {
@@ -582,9 +581,9 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Setting memory: project:project-key');
-      assertStringIncludes(output.stdout.join(' '), 'Tags: important,work');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Setting memory: project:project-key');
+      expect(output.stdout.join(' ')).toBe( 'Tags: important).toBe(work');
     });
 
     it('should retrieve a memory entry', async () => {
@@ -596,19 +595,19 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Retrieving memory: default:existing-key');
-      assertStringIncludes(output.stdout.join(' '), 'Value: example-value-for-existing-key');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Retrieving memory: default:existing-key');
+      expect(output.stdout.join(' ')).toBe( 'Value: example-value-for-existing-key');
     });
 
     it('should list memory entries', async () => {
       const exitCode = await cli.execute(['memory', '--action', 'list']);
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Memory entries in namespace');
-      assertStringIncludes(output.stdout.join(' '), 'key1: value1');
-      assertStringIncludes(output.stdout.join(' '), 'key2: value2');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Memory entries in namespace');
+      expect(output.stdout.join(' ')).toBe( 'key1: value1');
+      expect(output.stdout.join(' ')).toBe( 'key2: value2');
     });
 
     it('should delete a memory entry', async () => {
@@ -620,29 +619,29 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Deleting memory: default:old-key');
-      assertStringIncludes(output.stdout.join(' '), 'deleted successfully');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Deleting memory: default:old-key');
+      expect(output.stdout.join(' ')).toBe( 'deleted successfully');
     });
 
     it('should require key and value for set action', async () => {
       const exitCode1 = await cli.execute(['memory', '--action', 'set', '--key', 'test']);
-      assertEquals(exitCode1, 1);
+      expect(exitCode1).toBe( 1);
       
       cli.clearOutput();
       
       const exitCode2 = await cli.execute(['memory', '--action', 'set', '--value', 'test']);
-      assertEquals(exitCode2, 1);
+      expect(exitCode2).toBe( 1);
     });
 
     it('should require key for get and delete actions', async () => {
       const exitCode1 = await cli.execute(['memory', '--action', 'get']);
-      assertEquals(exitCode1, 1);
+      expect(exitCode1).toBe( 1);
       
       cli.clearOutput();
       
       const exitCode2 = await cli.execute(['memory', '--action', 'delete']);
-      assertEquals(exitCode2, 1);
+      expect(exitCode2).toBe( 1);
     });
   });
 
@@ -689,47 +688,47 @@ describe('CLI Commands - Comprehensive Tests', () => {
       const exitCode = await cli.execute(['help']);
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Claude-Flow CLI');
-      assertStringIncludes(output.stdout.join(' '), 'Commands:');
-      assertStringIncludes(output.stdout.join(' '), 'start');
-      assertStringIncludes(output.stdout.join(' '), 'agent');
-      assertStringIncludes(output.stdout.join(' '), 'task');
-      assertStringIncludes(output.stdout.join(' '), 'memory');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Claude-Flow CLI');
+      expect(output.stdout.join(' ')).toBe( 'Commands:');
+      expect(output.stdout.join(' ')).toBe( 'start');
+      expect(output.stdout.join(' ')).toBe( 'agent');
+      expect(output.stdout.join(' ')).toBe( 'task');
+      expect(output.stdout.join(' ')).toBe( 'memory');
     });
 
     it('should show command-specific help', async () => {
       const exitCode = await cli.execute(['help', '--command', 'start']);
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Help for command: start');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Help for command: start');
     });
 
     it('should show version information', async () => {
       const exitCode = await cli.execute(['version']);
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 0);
-      assertStringIncludes(output.stdout.join(' '), 'Claude-Flow v1.0.0');
-      assertStringIncludes(output.stdout.join(' '), 'Deno Runtime');
-      assertStringIncludes(output.stdout.join(' '), 'Build:');
+      expect(exitCode).toBe( 0);
+      expect(output.stdout.join(' ')).toBe( 'Claude-Flow v1.0.0');
+      expect(output.stdout.join(' ')).toBe( 'Deno Runtime');
+      expect(output.stdout.join(' ')).toBe( 'Build:');
     });
 
     it('should handle unknown commands', async () => {
       const exitCode = await cli.execute(['unknown-command']);
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 1);
-      assertStringIncludes(output.stderr.join(' '), 'Unknown command: unknown-command');
+      expect(exitCode).toBe( 1);
+      expect(output.stderr.join(' ')).toBe( 'Unknown command: unknown-command');
     });
 
     it('should handle invalid options', async () => {
       const exitCode = await cli.execute(['help', '--invalid-option', 'value']);
       const output = cli.getOutput();
       
-      assertEquals(exitCode, 1);
-      assertStringIncludes(output.stderr.join(' '), 'Unknown option: invalid-option');
+      expect(exitCode).toBe( 1);
+      expect(output.stderr.join(' ')).toBe( 'Unknown option: invalid-option');
     });
   });
 
@@ -780,14 +779,14 @@ describe('CLI Commands - Comprehensive Tests', () => {
         const exitCode = await cli.execute(scenario.command);
         const output = cli.getOutput();
         
-        assertEquals(exitCode, scenario.expectedExitCode);
+        expect(exitCode).toBe( scenario.expectedExitCode);
         
         if (scenario.expectedOutput) {
           const outputText = output.stdout.join(' ');
           const errorText = output.stderr.join(' ');
           const allOutput = outputText + ' ' + errorText;
           
-          assertStringIncludes(allOutput, scenario.expectedOutput);
+          expect(allOutput).toBe( scenario.expectedOutput);
         }
         
         console.log(`Scenario passed: ${scenario.command.join(' ')}`);
@@ -820,7 +819,7 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       // All commands in workflow should succeed
       results.forEach(result => {
-        assertEquals(result.exitCode, 0);
+        expect(result.exitCode).toBe( 0);
       });
       
       console.log(`Workflow completed with ${results.length} steps`);
@@ -876,8 +875,8 @@ describe('CLI Commands - Comprehensive Tests', () => {
       
       // All concurrent operations should succeed
       results.forEach(result => {
-        assertEquals(result.exitCode, 0);
-        assertExists(result.output.stdout[0]);
+        expect(result.exitCode).toBe( 0);
+        expect(result.output.stdout[0]);
       });
       
       console.log(`${results.length} concurrent CLI operations completed successfully`);
@@ -904,11 +903,11 @@ describe('CLI Commands - Comprehensive Tests', () => {
         console.log(`Step ${index + 1}: ${command.join(' ')} -> exit code ${exitCode}`);
       }
       
-      assertEquals(actualResults, expectedResults);
+      expect(actualResults).toBe( expectedResults);
       
       // Verify that successful commands completed despite intervening errors
-      assertEquals(actualResults.filter(code => code === 0).length, 3);
-      assertEquals(actualResults.filter(code => code === 1).length, 2);
+      expect(actualResults.filter(code => code === 0).length).toBe( 3);
+      expect(actualResults.filter(code => code === 1).length).toBe( 2);
     });
   });
 
@@ -943,7 +942,7 @@ describe('CLI Commands - Comprehensive Tests', () => {
         return cli.execute(['perf-test', '--iterations', '10', '--delay', '0']);
       });
       
-      assertEquals(result, 0);
+      expect(result).toBe( 0);
       TestAssertions.assertInRange(duration, 0, 1000); // Should complete within 1 second
       
       console.log(`Fast CLI execution: ${duration.toFixed(2)}ms`);

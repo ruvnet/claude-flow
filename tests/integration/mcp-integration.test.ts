@@ -1,3 +1,5 @@
+/// <reference types="jest" />
+
 /**
  * Integration tests for MCP (Model Context Protocol) integration
  */
@@ -11,10 +13,10 @@ import {
   assertExists,
   assertRejects,
   spy,
-} from '../test.utils.ts';
-import { EventBus } from '../../src/core/event-bus.ts';
-import { Logger } from '../../src/core/logger.ts';
-import { MockMCPServer, MockMCPTransport } from '../mocks/index.ts';
+} from '../test.utils.js';
+import { EventBus } from '../../src/core/event-bus.js';
+import { Logger } from '../../src/core/logger.js';
+import { MockMCPServer, MockMCPTransport } from '../mocks/index.js';
 import {
   MCPTool,
   MCPRequest,
@@ -24,9 +26,9 @@ import {
   MCPToolCall,
   MCPToolResult,
   AgentProfile,
-} from '../../src/utils/types.ts';
-import { cleanupTestEnv, setupTestEnv } from '../test.config.ts';
-import { generateId, delay } from '../../src/utils/helpers.ts';
+} from '../../src/utils/types.js';
+import { cleanupTestEnv, setupTestEnv } from '../test.config.js';
+import { generateId, delay } from '../../src/utils/helpers.js';
 
 describe('MCP Integration', () => {
   let mcpServer: MockMCPServer;
@@ -90,8 +92,8 @@ describe('MCP Integration', () => {
 
       // Verify tool registration
       const tools = await mcpServer.listTools();
-      assertEquals(tools.length, 1);
-      assertEquals(tools[0].name, 'echo_tool');
+      expect(tools.length).toBe( 1);
+      expect(tools[0].name).toBe( 'echo_tool');
 
       // Create tool call request
       const toolCall: MCPToolCall = {
@@ -111,10 +113,10 @@ describe('MCP Integration', () => {
       // Execute tool
       const result = await mcpServer.executeTool(toolCall, context);
 
-      assertExists(result);
-      assertEquals(result.content.length, 1);
-      assertEquals(result.content[0].type, 'text');
-      assertEquals(result.content[0].text?.includes('HELLO, MCP!'), true);
+      expect(result);
+      expect(result.content.length).toBe( 1);
+      expect(result.content[0].type).toBe( 'text');
+      expect(result.content[0].text?.includes('HELLO).toBe( MCP!')).toBe( true);
     });
 
     it('should handle tool execution errors gracefully', async () => {
@@ -147,10 +149,10 @@ describe('MCP Integration', () => {
 
       const result = await mcpServer.executeTool(toolCall, context);
 
-      assertEquals(result.isError, true);
-      assertEquals(result.content.length, 1);
-      assertEquals(result.content[0].type, 'text');
-      assertEquals(result.content[0].text?.includes('Tool execution failed'), true);
+      expect(result.isError).toBe( true);
+      expect(result.content.length).toBe( 1);
+      expect(result.content[0].type).toBe( 'text');
+      expect(result.content[0].text?.includes('Tool execution failed')).toBe( true);
     });
 
     it('should validate tool input schemas', async () => {
@@ -196,8 +198,8 @@ describe('MCP Integration', () => {
 
       const result = await mcpServer.executeTool(invalidCall, context);
 
-      assertEquals(result.isError, true);
-      assertEquals(result.content[0].text?.includes('validation'), true);
+      expect(result.isError).toBe( true);
+      expect(result.content[0].text?.includes('validation')).toBe( true);
     });
   });
 
@@ -265,14 +267,14 @@ describe('MCP Integration', () => {
       const results = await Promise.all(operations);
 
       // Verify all operations completed
-      assertEquals(results.length, 3);
+      expect(results.length).toBe( 3);
       results.forEach(result => {
-        assertEquals(result.isError, false);
-        assertExists(result.content[0].text);
+        expect(result.isError).toBe( false);
+        expect(result.content[0].text);
       });
 
       // Final resource count should be 3 (one increment per agent)
-      assertEquals(resourceCount, 3);
+      expect(resourceCount).toBe( 3);
     });
 
     it('should handle tool registration conflicts', async () => {
@@ -296,7 +298,7 @@ describe('MCP Integration', () => {
       await mcpServer.registerTool(tool1);
 
       // Attempt to register conflicting tool
-      await assertRejects(
+      await expect(
         () => mcpServer.registerTool(tool2),
         Error,
         'Tool already registered'
@@ -304,8 +306,8 @@ describe('MCP Integration', () => {
 
       // Verify only first tool is registered
       const tools = await mcpServer.listTools();
-      assertEquals(tools.length, 1);
-      assertEquals(tools[0].description, 'First version of tool');
+      expect(tools.length).toBe( 1);
+      expect(tools[0].description).toBe( 'First version of tool');
     });
   });
 
@@ -378,14 +380,14 @@ describe('MCP Integration', () => {
       const response = await mcpServer.handleRequest(request);
 
       // Verify response structure
-      assertEquals(response.jsonrpc, '2.0');
-      assertEquals(response.id, request.id);
-      assertExists(response.result);
-      assertEquals(response.error, undefined);
+      expect(response.jsonrpc).toBe( '2.0');
+      expect(response.id).toBe( request.id);
+      expect(response.result);
+      expect(response.error).toBe( undefined);
 
       // Verify calculation result
       const toolResult = response.result as MCPToolResult;
-      assertEquals(toolResult.content[0].text, '6 multiply 7 = 42');
+      expect(toolResult.content[0].text).toBe( '6 multiply 7 = 42');
     });
 
     it('should handle malformed requests', async () => {
@@ -400,9 +402,9 @@ describe('MCP Integration', () => {
       const response = await mcpServer.handleRequest(invalidRequest);
 
       // Should return error response
-      assertEquals(response.jsonrpc, '2.0');
-      assertExists(response.error);
-      assertEquals(response.error!.code, -32600); // Invalid Request
+      expect(response.jsonrpc).toBe( '2.0');
+      expect(response.error);
+      expect(response.error!.code).toBe( -32600); // Invalid Request
     });
 
     it('should handle unknown methods', async () => {
@@ -417,7 +419,7 @@ describe('MCP Integration', () => {
 
       const response = await mcpServer.handleRequest(unknownRequest);
 
-      assertEquals(response.error!.code, -32601); // Method not found
+      expect(response.error!.code).toBe( -32601); // Method not found
     });
   });
 
@@ -463,18 +465,18 @@ describe('MCP Integration', () => {
       await delay(100);
 
       // Verify transport received response
-      assertEquals(mcpTransport.sent.length, 1);
+      expect(mcpTransport.sent.length).toBe( 1);
       const response = JSON.parse(mcpTransport.sent[0]);
-      assertEquals(response.jsonrpc, '2.0');
-      assertEquals(response.id, 1);
-      assertEquals(response.result.content[0].text, 'Hello from transport!');
+      expect(response.jsonrpc).toBe( '2.0');
+      expect(response.id).toBe( 1);
+      expect(response.result.content[0].text).toBe( 'Hello from transport!');
     });
 
     it('should handle transport errors', async () => {
       await mcpServer.initialize();
 
       // Mock transport error
-      mcpTransport.send = spy(() => {
+      mcpTransport.send = jest.spyOn(() => {
         throw new Error('Transport connection failed');
       });
 
@@ -485,7 +487,7 @@ describe('MCP Integration', () => {
       };
 
       // Should handle transport error gracefully
-      await assertRejects(
+      await expect(
         () => mcpServer.handleRequest(request),
         Error,
         'Transport connection failed'
@@ -573,8 +575,8 @@ describe('MCP Integration', () => {
       };
 
       const searchResult = await mcpServer.executeTool(searchCall, researchContext);
-      assertEquals(searchResult.isError, false);
-      assertEquals(searchResult.content[0].text?.includes('Deno best practices'), true);
+      expect(searchResult.isError).toBe( false);
+      expect(searchResult.content[0].text?.includes('Deno best practices')).toBe( true);
 
       // Test implementer using code tool
       const implementerContext: MCPContext = {
@@ -592,8 +594,8 @@ describe('MCP Integration', () => {
       };
 
       const codeResult = await mcpServer.executeTool(codeCall, implementerContext);
-      assertEquals(codeResult.isError, false);
-      assertEquals(codeResult.content[0].text?.includes('javascript'), true);
+      expect(codeResult.isError).toBe( false);
+      expect(codeResult.content[0].text?.includes('javascript')).toBe( true);
     });
   });
 
@@ -651,12 +653,12 @@ describe('MCP Integration', () => {
       const results = await Promise.all(concurrentCalls);
 
       // Verify all executions completed
-      assertEquals(results.length, 10);
-      assertEquals(executionCount, 10);
+      expect(results.length).toBe( 10);
+      expect(executionCount).toBe( 10);
       
       results.forEach((result, index) => {
-        assertEquals(result.isError, false);
-        assertEquals(result.content[0].text?.includes(`call-${index}`), true);
+        expect(result.isError).toBe( false);
+        expect(result.content[0].text?.includes(`call-${index}`)).toBe( true);
       });
     });
 
@@ -698,11 +700,11 @@ describe('MCP Integration', () => {
       const elapsed = Date.now() - startTime;
 
       // Should complete quickly (timeout mechanism)
-      assertEquals(elapsed < 2000, true);
+      expect(elapsed < 2000).toBe( true);
       
       // Should indicate timeout error if implemented
       if (result.isError) {
-        assertEquals(result.content[0].text?.includes('timeout'), true);
+        expect(result.content[0].text?.includes('timeout')).toBe( true);
       }
     });
   });

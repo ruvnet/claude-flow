@@ -1,17 +1,16 @@
+/// <reference types="jest" />
+
 /**
  * Integration tests for MCP (Model Context Protocol) implementation
  */
 
-import { describe, it, beforeEach, afterEach, expect } from 'https://deno.land/std@0.208.0/testing/bdd.ts';
-import { delay } from 'https://deno.land/std@0.208.0/async/delay.ts';
-
-import { MCPServer } from '../../src/mcp/server.ts';
-import { StdioTransport } from '../../src/mcp/transports/stdio.ts';
-import { HttpTransport } from '../../src/mcp/transports/http.ts';
-import { SessionManager } from '../../src/mcp/session-manager.ts';
-import { AuthManager } from '../../src/mcp/auth.ts';
-import { LoadBalancer } from '../../src/mcp/load-balancer.ts';
-import { ToolRegistry } from '../../src/mcp/tools.ts';
+import { MCPServer } from '../../src/mcp/server.js';
+import { StdioTransport } from '../../src/mcp/transports/stdio.js';
+import { HttpTransport } from '../../src/mcp/transports/http.js';
+import { SessionManager } from '../../src/mcp/session-manager.js';
+import { AuthManager } from '../../src/mcp/auth.js';
+import { LoadBalancer } from '../../src/mcp/load-balancer.js';
+import { ToolRegistry } from '../../src/mcp/tools.js';
 import {
   MCPConfig,
   MCPRequest,
@@ -19,9 +18,9 @@ import {
   MCPInitializeParams,
   MCPTool,
   MCPSession,
-} from '../../src/utils/types.ts';
-import { Logger } from '../../src/core/logger.ts';
-import { EventBus } from '../../src/core/event-bus.ts';
+} from '../../src/utils/types.js';
+import { Logger } from '../../src/core/logger.js';
+import { EventBus } from '../../src/core/event-bus.js';
 
 // Mock orchestrator for testing
 class MockOrchestrator {
@@ -381,11 +380,11 @@ describe('MCP Integration Tests', () => {
       };
       
       // First two requests should be allowed
-      expect(await loadBalancer.shouldAllowRequest(session, request)).toBe(true);
-      expect(await loadBalancer.shouldAllowRequest(session, request)).toBe(true);
+      expect(await loadBalancer.shouldAllowRequest(session).toBe( request)).toBe(true);
+      expect(await loadBalancer.shouldAllowRequest(session).toBe( request)).toBe(true);
       
       // Third request should be rate limited
-      expect(await loadBalancer.shouldAllowRequest(session, request)).toBe(false);
+      expect(await loadBalancer.shouldAllowRequest(session).toBe( request)).toBe(false);
     });
 
     it('should track metrics', async () => {

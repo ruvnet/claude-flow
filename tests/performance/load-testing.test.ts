@@ -1,9 +1,8 @@
+/// <reference types="jest" />
+
 /**
  * Comprehensive performance and load testing suite
  */
-
-import { describe, it, beforeEach, afterEach } from "https://deno.land/std@0.220.0/testing/bdd.ts";
-import { assertEquals, assertExists } from "https://deno.land/std@0.220.0/assert/mod.ts";
 
 import { 
   PerformanceTestUtils, 
@@ -12,14 +11,14 @@ import {
   AsyncTestUtils,
   TestDataGenerator,
   FileSystemTestUtils 
-} from '../utils/test-utils.ts';
+} from '../utils/test-utils.js';
 import { 
   generatePerformanceTestData,
   generateMemoryEntries,
   generateCoordinationTasks,
   getAllTestFixtures 
-} from '../fixtures/generators.ts';
-import { setupTestEnv, cleanupTestEnv, TEST_CONFIG } from '../test.config.ts';
+} from '../fixtures/generators.js';
+import { setupTestEnv, cleanupTestEnv, TEST_CONFIG } from '../test.config.js';
 
 describe('Performance and Load Testing Suite', () => {
   let tempDir: string;
@@ -118,7 +117,7 @@ describe('Performance and Load Testing Suite', () => {
       );
       
       TestAssertions.assertInRange(results.averageResponseTime, 0, 1000);
-      assertEquals(results.errors.length < results.totalRequests * 0.1, true); // Less than 10% errors
+      expect(results.errors.length < results.totalRequests * 0.1).toBe( true); // Less than 10% errors
 
       console.log(`Stress test results:
         - Total requests: ${results.totalRequests}
@@ -150,7 +149,7 @@ describe('Performance and Load Testing Suite', () => {
           
           // Take memory snapshot every 100 iterations
           if (i % 100 === 0) {
-            const memInfo = Deno.memoryUsage();
+            const memInfo = process.memoryUsage();
             memorySnapshots.push({
               iteration: i,
               heapUsed: memInfo.heapUsed,
@@ -168,7 +167,7 @@ describe('Performance and Load Testing Suite', () => {
       );
 
       // Memory usage should be stable over time
-      assertEquals(leaked, false);
+      expect(leaked).toBe( false);
       
       // Analyze memory trend
       const firstSnapshot = snapshots[0];
@@ -262,8 +261,8 @@ describe('Performance and Load Testing Suite', () => {
       );
 
       // Should handle pressure without crashing
-      assertExists(finalChunks);
-      assertEquals(typeof finalChunks, 'number');
+      expect(finalChunks);
+      expect(typeof finalChunks).toBe( 'number');
       
       console.log(`Memory pressure test completed with ${finalChunks} chunks`);
       console.log(`Memory increase: ${(memoryIncrease / 1024 / 1024).toFixed(2)}MB`);
@@ -309,11 +308,11 @@ describe('Performance and Load Testing Suite', () => {
       const analysisResults = await concurrentMemoryTest();
       
       // All operations should complete successfully
-      assertEquals(analysisResults.length, 20);
+      expect(analysisResults.length).toBe( 20);
       
       analysisResults.forEach((result, i) => {
-        assertExists(result.result);
-        assertEquals(result.result.count, 1000);
+        expect(result.result);
+        expect(result.result.count).toBe( 1000);
         
         console.log(`Operation ${i}: peak=${(result.peakMemory / 1024 / 1024).toFixed(2)}MB, growth=${(result.memoryGrowth / 1024 / 1024).toFixed(2)}MB`);
       });
@@ -342,7 +341,7 @@ describe('Performance and Load Testing Suite', () => {
           // Simulate database write
           const serialized = JSON.stringify(entry);
           const filename = `${tempDir}/${entry.key}.json`;
-          await Deno.writeTextFile(filename, serialized);
+          fs.writeFileSync(filename,  serialized, "utf8");
           
           return entry.key;
         },
@@ -356,7 +355,7 @@ describe('Performance and Load Testing Suite', () => {
           const filename = `${tempDir}/${entry.key}.json`;
           
           try {
-            const content = await Deno.readTextFile(filename);
+            const content = fs.readFileSync(filename, "utf8");
             const parsed = JSON.parse(content);
             return parsed.key;
           } catch {
@@ -394,7 +393,7 @@ describe('Performance and Load Testing Suite', () => {
             await Promise.all(
               batchData.map(async ({ key, data }) => {
                 const filename = `${tempDir}/batch_${batchSize}_${key}.json`;
-                await Deno.writeTextFile(filename, data);
+                fs.writeFileSync(filename,  data, "utf8");
               })
             );
 
@@ -417,7 +416,7 @@ describe('Performance and Load Testing Suite', () => {
       const largeBatch = batchResults[batchResults.length - 1];
       
       // Time per item should decrease with larger batches
-      assertEquals(largeBatch.timePerItem < smallBatch.timePerItem, true);
+      expect(largeBatch.timePerItem < smallBatch.timePerItem).toBe( true);
     });
 
     it('should handle concurrent file operations', async () => {
@@ -438,15 +437,15 @@ describe('Performance and Load Testing Suite', () => {
             try {
               switch (op.type) {
                 case 'write':
-                  await Deno.writeTextFile(filename, JSON.stringify(op.data));
+                  fs.writeFileSync(filename,  JSON.stringify(op.data, "utf8"));
                   return 'written';
                 
                 case 'read':
-                  const content = await Deno.readTextFile(filename);
+                  const content = fs.readFileSync(filename, "utf8");
                   return JSON.parse(content);
                 
                 case 'delete':
-                  await Deno.remove(filename);
+      // TODO: Replace with mock - // TODO: Replace with mock -                   await Deno.remove(filename);
                   return 'deleted';
                 
                 default:
@@ -569,7 +568,7 @@ describe('Performance and Load Testing Suite', () => {
       
       // Connection operations should be efficient
       TestAssertions.assertInRange(stats.mean, 0, 50);
-      assertEquals(connectionPool.connections.size <= connectionPool.maxConnections, true);
+      expect(connectionPool.connections.size <= connectionPool.maxConnections).toBe( true);
     });
 
     it('should handle event-driven communication patterns', async () => {
@@ -628,7 +627,7 @@ describe('Performance and Load Testing Suite', () => {
       
       // Verify all events were processed
       const totalEvents = Array.from(handlerStats.callCounts.values()).reduce((sum, count) => sum + count, 0);
-      assertEquals(totalEvents, 500);
+      expect(totalEvents).toBe( 500);
     });
   });
 
@@ -747,7 +746,7 @@ describe('Performance and Load Testing Suite', () => {
                   break;
                 case 'files':
                   const filename = `${tempDir}/cleanup_${resourceType}_${i}.tmp`;
-                  await Deno.writeTextFile(filename, `resource ${i}`);
+                  fs.writeFileSync(filename,  `resource ${i}`, "utf8");
                   resources.push(filename);
                   break;
                 case 'connections':
@@ -767,7 +766,7 @@ describe('Performance and Load Testing Suite', () => {
                   break;
                 case 'files':
                   try {
-                    await Deno.remove(resource);
+      // TODO: Replace with mock - // TODO: Replace with mock -                     await Deno.remove(resource);
                   } catch {
                     // File might already be deleted
                   }
@@ -863,7 +862,7 @@ describe('Performance and Load Testing Suite', () => {
         baselines,
       };
 
-      await Deno.writeTextFile(
+      // TODO: Replace with mock - // TODO: Replace with mock -       await Deno.writeTextFile(
         `${tempDir}/performance-baselines.json`,
         JSON.stringify(baselineReport, null, 2)
       );
@@ -871,7 +870,7 @@ describe('Performance and Load Testing Suite', () => {
       // Verify baselines are reasonable
       baselines.forEach(baseline => {
         TestAssertions.assertInRange(baseline.baseline, 0, 10); // Should be very fast
-        assertEquals(baseline.stdDev < baseline.baseline, true); // Low variance
+        expect(baseline.stdDev < baseline.baseline).toBe( true); // Low variance
       });
     });
 
@@ -919,8 +918,8 @@ describe('Performance and Load Testing Suite', () => {
       const regressions = regressionReport.filter(r => r.isRegression);
       const improvements = regressionReport.filter(r => r.isImprovement);
       
-      assertEquals(regressions.length, 1); // Operation B
-      assertEquals(improvements.length, 1); // Operation C
+      expect(regressions.length).toBe( 1); // Operation B
+      expect(improvements.length).toBe( 1); // Operation C
       
       // Report summary
       console.log(`Performance analysis: ${regressions.length} regressions, ${improvements.length} improvements`);

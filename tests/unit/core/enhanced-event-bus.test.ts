@@ -1,22 +1,19 @@
+/// <reference types="jest" />
+
 /**
  * Enhanced comprehensive unit tests for EventBus
  */
 
-import { describe, it, beforeEach, afterEach } from "https://deno.land/std@0.220.0/testing/bdd.ts";
-import { assertEquals, assertExists, assertThrows } from "https://deno.land/std@0.220.0/assert/mod.ts";
-import { FakeTime } from "https://deno.land/std@0.220.0/testing/time.ts";
-import { spy } from "https://deno.land/std@0.220.0/testing/mock.ts";
-
-import { EventBus } from '../../../src/core/event-bus.ts';
+import { EventBus } from '../../../src/core/event-bus.js';
 import { 
   AsyncTestUtils, 
   MemoryTestUtils, 
   PerformanceTestUtils,
   TestAssertions,
   TestDataGenerator 
-} from '../../utils/test-utils.ts';
-import { generateEventBusEvents, generateEdgeCaseData } from '../../fixtures/generators.ts';
-import { setupTestEnv, cleanupTestEnv, TEST_CONFIG } from '../../test.config.ts';
+} from '../../utils/test-utils.js';
+import { generateEventBusEvents, generateEdgeCaseData } from '../../fixtures/generators.js';
+import { setupTestEnv, cleanupTestEnv, TEST_CONFIG } from '../../test.config.js';
 
 describe('EventBus - Enhanced Tests', () => {
   let eventBus: EventBus;
@@ -25,29 +22,29 @@ describe('EventBus - Enhanced Tests', () => {
   beforeEach(() => {
     setupTestEnv();
     eventBus = new EventBus();
-    fakeTime = new FakeTime();
+    fakeTime = jest.useFakeTimers();
   });
 
   afterEach(async () => {
-    fakeTime.restore();
+    jest.useRealTimers();
     await cleanupTestEnv();
   });
 
   describe('Basic Event Operations', () => {
     it('should emit and handle events correctly', () => {
-      const handler = spy();
+      const handler = jest.spyOn();
       
       eventBus.on('test.event', handler);
       eventBus.emit('test.event', { message: 'test data' });
       
-      assertEquals(handler.calls.length, 1);
-      assertEquals(handler.calls[0].args[0], { message: 'test data' });
+      expect(handler.calls.length).toBe( 1);
+      expect(handler.calls[0].args[0]).toBe( { message: 'test data' });
     });
 
     it('should handle multiple handlers for same event', () => {
-      const handler1 = spy();
-      const handler2 = spy();
-      const handler3 = spy();
+      const handler1 = jest.spyOn();
+      const handler2 = jest.spyOn();
+      const handler3 = jest.spyOn();
       
       eventBus.on('multi.event', handler1);
       eventBus.on('multi.event', handler2);
@@ -55,18 +52,18 @@ describe('EventBus - Enhanced Tests', () => {
       
       eventBus.emit('multi.event', { data: 'multi' });
       
-      assertEquals(handler1.calls.length, 1);
-      assertEquals(handler2.calls.length, 1);
-      assertEquals(handler3.calls.length, 1);
+      expect(handler1.calls.length).toBe( 1);
+      expect(handler2.calls.length).toBe( 1);
+      expect(handler3.calls.length).toBe( 1);
       
       [handler1, handler2, handler3].forEach(handler => {
-        assertEquals(handler.calls[0].args[0], { data: 'multi' });
+        expect(handler.calls[0].args[0]).toBe( { data: 'multi' });
       });
     });
 
     it('should handle wildcard events', () => {
-      const wildHandler = spy();
-      const specificHandler = spy();
+      const wildHandler = jest.spyOn();
+      const specificHandler = jest.spyOn();
       
       eventBus.on('task.*', wildHandler);
       eventBus.on('task.completed', specificHandler);
@@ -74,24 +71,24 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.emit('task.completed', { taskId: '123' });
       eventBus.emit('task.started', { taskId: '456' });
       
-      assertEquals(wildHandler.calls.length, 2);
-      assertEquals(specificHandler.calls.length, 1);
+      expect(wildHandler.calls.length).toBe( 2);
+      expect(specificHandler.calls.length).toBe( 1);
     });
 
     it('should handle once listeners correctly', () => {
-      const handler = spy();
+      const handler = jest.spyOn();
       
       eventBus.once('once.event', handler);
       
       eventBus.emit('once.event', { first: true });
       eventBus.emit('once.event', { second: true });
       
-      assertEquals(handler.calls.length, 1);
-      assertEquals(handler.calls[0].args[0], { first: true });
+      expect(handler.calls.length).toBe( 1);
+      expect(handler.calls[0].args[0]).toBe( { first: true });
     });
 
     it('should remove event handlers correctly', () => {
-      const handler = spy();
+      const handler = jest.spyOn();
       
       eventBus.on('remove.event', handler);
       eventBus.emit('remove.event', { before: true });
@@ -99,12 +96,12 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.off('remove.event', handler);
       eventBus.emit('remove.event', { after: true });
       
-      assertEquals(handler.calls.length, 1);
-      assertEquals(handler.calls[0].args[0], { before: true });
+      expect(handler.calls.length).toBe( 1);
+      expect(handler.calls[0].args[0]).toBe( { before: true });
     });
 
     it('should handle removing non-existent handlers gracefully', () => {
-      const handler = spy();
+      const handler = jest.spyOn();
       
       // Should not throw when removing non-existent handler
       eventBus.off('nonexistent.event', handler);
@@ -114,15 +111,15 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.on('test.event', handler);
       eventBus.emit('test.event', { data: 'test' });
       
-      assertEquals(handler.calls.length, 1);
+      expect(handler.calls.length).toBe( 1);
     });
   });
 
   describe('Event Patterns and Namespaces', () => {
     it('should handle hierarchical event patterns', () => {
-      const rootHandler = spy();
-      const branchHandler = spy();
-      const leafHandler = spy();
+      const rootHandler = jest.spyOn();
+      const branchHandler = jest.spyOn();
+      const leafHandler = jest.spyOn();
       
       eventBus.on('app.*', rootHandler);
       eventBus.on('app.module.*', branchHandler);
@@ -132,9 +129,9 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.emit('app.module.other', { data: 'branch' });
       eventBus.emit('app.other', { data: 'root' });
       
-      assertEquals(rootHandler.calls.length, 3);
-      assertEquals(branchHandler.calls.length, 2);
-      assertEquals(leafHandler.calls.length, 1);
+      expect(rootHandler.calls.length).toBe( 3);
+      expect(branchHandler.calls.length).toBe( 2);
+      expect(leafHandler.calls.length).toBe( 1);
     });
 
     it('should handle complex pattern matching', () => {
@@ -146,7 +143,7 @@ describe('EventBus - Enhanced Tests', () => {
         'system.*.warning',
       ];
       
-      const handlers = patterns.map(() => spy());
+      const handlers = patterns.map(() => jest.spyOn());
       patterns.forEach((pattern, i) => {
         eventBus.on(pattern, handlers[i]);
       });
@@ -166,15 +163,15 @@ describe('EventBus - Enhanced Tests', () => {
       });
       
       // Verify pattern matches
-      assertEquals(handlers[0].calls.length, 1); // user.*.created
-      assertEquals(handlers[1].calls.length, 1); // user.*.updated
-      assertEquals(handlers[2].calls.length, 2); // user.admin.*
-      assertEquals(handlers[3].calls.length, 1); // system.*.error
-      assertEquals(handlers[4].calls.length, 1); // system.*.warning
+      expect(handlers[0].calls.length).toBe( 1); // user.*.created
+      expect(handlers[1].calls.length).toBe( 1); // user.*.updated
+      expect(handlers[2].calls.length).toBe( 2); // user.admin.*
+      expect(handlers[3].calls.length).toBe( 1); // system.*.error
+      expect(handlers[4].calls.length).toBe( 1); // system.*.warning
     });
 
     it('should handle event namespaces correctly', () => {
-      const namespaceHandler = spy();
+      const namespaceHandler = jest.spyOn();
       
       eventBus.on('namespace:test.*', namespaceHandler);
       
@@ -183,7 +180,7 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.emit('namespace:other.event', { data: 3 });
       eventBus.emit('test.event', { data: 4 });
       
-      assertEquals(namespaceHandler.calls.length, 2);
+      expect(namespaceHandler.calls.length).toBe( 2);
     });
   });
 
@@ -191,9 +188,9 @@ describe('EventBus - Enhanced Tests', () => {
     it('should handle event priority correctly', () => {
       const callOrder: number[] = [];
       
-      const lowPriorityHandler = spy(() => callOrder.push(1));
-      const highPriorityHandler = spy(() => callOrder.push(2));
-      const normalPriorityHandler = spy(() => callOrder.push(3));
+      const lowPriorityHandler = jest.spyOn(() => callOrder.push(1));
+      const highPriorityHandler = jest.spyOn(() => callOrder.push(2));
+      const normalPriorityHandler = jest.spyOn(() => callOrder.push(3));
       
       eventBus.on('priority.event', lowPriorityHandler, { priority: 1 });
       eventBus.on('priority.event', highPriorityHandler, { priority: 10 });
@@ -202,23 +199,23 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.emit('priority.event', {});
       
       // Should be called in priority order: high (10), normal (5), low (1)
-      assertEquals(callOrder, [2, 3, 1]);
+      expect(callOrder).toBe( [2).toBe( 3, 1]);
     });
 
     it('should handle async handlers in order', async () => {
       const callOrder: number[] = [];
       
-      const handler1 = spy(async () => {
+      const handler1 = jest.spyOn(async () => {
         await AsyncTestUtils.delay(10);
         callOrder.push(1);
       });
       
-      const handler2 = spy(async () => {
+      const handler2 = jest.spyOn(async () => {
         await AsyncTestUtils.delay(5);
         callOrder.push(2);
       });
       
-      const handler3 = spy(() => {
+      const handler3 = jest.spyOn(() => {
         callOrder.push(3);
       });
       
@@ -229,18 +226,18 @@ describe('EventBus - Enhanced Tests', () => {
       await eventBus.emitAsync('async.event', {});
       
       // All handlers should complete, order depends on implementation
-      assertEquals(handler1.calls.length, 1);
-      assertEquals(handler2.calls.length, 1);
-      assertEquals(handler3.calls.length, 1);
-      assertEquals(callOrder.length, 3);
+      expect(handler1.calls.length).toBe( 1);
+      expect(handler2.calls.length).toBe( 1);
+      expect(handler3.calls.length).toBe( 1);
+      expect(callOrder.length).toBe( 3);
     });
 
     it('should handle handler errors gracefully', () => {
-      const errorHandler = spy(() => {
+      const errorHandler = jest.spyOn(() => {
         throw new Error('Handler error');
       });
       
-      const successHandler = spy();
+      const successHandler = jest.spyOn();
       
       eventBus.on('error.event', errorHandler);
       eventBus.on('error.event', successHandler);
@@ -248,14 +245,14 @@ describe('EventBus - Enhanced Tests', () => {
       // Should not throw, but continue with other handlers
       eventBus.emit('error.event', {});
       
-      assertEquals(errorHandler.calls.length, 1);
-      assertEquals(successHandler.calls.length, 1);
+      expect(errorHandler.calls.length).toBe( 1);
+      expect(successHandler.calls.length).toBe( 1);
     });
   });
 
   describe('Performance and Scalability', () => {
     it('should handle high-frequency events efficiently', async () => {
-      const handler = spy();
+      const handler = jest.spyOn();
       eventBus.on('high.frequency', handler);
       
       const { stats } = await PerformanceTestUtils.benchmark(
@@ -265,7 +262,7 @@ describe('EventBus - Enhanced Tests', () => {
         { iterations: 10000, concurrency: 1 }
       );
       
-      assertEquals(handler.calls.length, 10000);
+      expect(handler.calls.length).toBe( 10000);
       TestAssertions.assertInRange(stats.mean, 0, 1); // Should be very fast
       
       console.log(`High-frequency event performance: ${stats.mean.toFixed(4)}ms per event`);
@@ -273,7 +270,7 @@ describe('EventBus - Enhanced Tests', () => {
 
     it('should handle many concurrent handlers efficiently', async () => {
       const handlerCount = 1000;
-      const handlers = Array.from({ length: handlerCount }, () => spy());
+      const handlers = Array.from({ length: handlerCount }, () => jest.spyOn());
       
       handlers.forEach(handler => {
         eventBus.on('many.handlers', handler);
@@ -288,7 +285,7 @@ describe('EventBus - Enhanced Tests', () => {
       
       // Verify all handlers were called
       handlers.forEach(handler => {
-        assertEquals(handler.calls.length, 100);
+        expect(handler.calls.length).toBe( 100);
       });
       
       TestAssertions.assertInRange(stats.mean, 0, 50); // Should complete within 50ms
@@ -298,7 +295,7 @@ describe('EventBus - Enhanced Tests', () => {
 
     it('should handle event bus under memory pressure', async () => {
       const events = generateEventBusEvents(10000);
-      const handler = spy();
+      const handler = jest.spyOn();
       
       eventBus.on('*', handler);
       
@@ -312,12 +309,12 @@ describe('EventBus - Enhanced Tests', () => {
         eventBus.removeAllListeners();
       });
       
-      assertEquals(leaked, false);
-      assertEquals(handler.calls.length, 10000);
+      expect(leaked).toBe( false);
+      expect(handler.calls.length).toBe( 10000);
     });
 
     it('should handle load testing scenario', async () => {
-      const handler = spy();
+      const handler = jest.spyOn();
       eventBus.on('load.test', handler);
       
       const results = await PerformanceTestUtils.loadTest(
@@ -334,7 +331,7 @@ describe('EventBus - Enhanced Tests', () => {
         }
       );
       
-      assertEquals(results.failedRequests, 0);
+      expect(results.failedRequests).toBe( 0);
       TestAssertions.assertInRange(results.successfulRequests, 4000, 6000); // ~5000 requests
       TestAssertions.assertInRange(results.averageResponseTime, 0, 5);
       
@@ -344,7 +341,7 @@ describe('EventBus - Enhanced Tests', () => {
 
   describe('Memory Management', () => {
     it('should clean up removed handlers', () => {
-      const handlers = Array.from({ length: 100 }, () => spy());
+      const handlers = Array.from({ length: 100 }, () => jest.spyOn());
       
       // Add many handlers
       handlers.forEach(handler => {
@@ -360,16 +357,16 @@ describe('EventBus - Enhanced Tests', () => {
       
       // Only remaining handlers should be called
       handlers.slice(0, 50).forEach(handler => {
-        assertEquals(handler.calls.length, 0);
+        expect(handler.calls.length).toBe( 0);
       });
       
       handlers.slice(50).forEach(handler => {
-        assertEquals(handler.calls.length, 1);
+        expect(handler.calls.length).toBe( 1);
       });
     });
 
     it('should handle removeAllListeners correctly', () => {
-      const handlers = Array.from({ length: 10 }, () => spy());
+      const handlers = Array.from({ length: 10 }, () => jest.spyOn());
       
       handlers.forEach((handler, i) => {
         eventBus.on(`test.${i}`, handler);
@@ -383,13 +380,13 @@ describe('EventBus - Enhanced Tests', () => {
       }
       
       handlers.forEach(handler => {
-        assertEquals(handler.calls.length, 0);
+        expect(handler.calls.length).toBe( 0);
       });
     });
 
     it('should handle removeAllListeners for specific event', () => {
-      const specificHandlers = Array.from({ length: 5 }, () => spy());
-      const otherHandlers = Array.from({ length: 5 }, () => spy());
+      const specificHandlers = Array.from({ length: 5 }, () => jest.spyOn());
+      const otherHandlers = Array.from({ length: 5 }, () => jest.spyOn());
       
       specificHandlers.forEach(handler => {
         eventBus.on('specific.event', handler);
@@ -405,18 +402,18 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.emit('other.event', {});
       
       specificHandlers.forEach(handler => {
-        assertEquals(handler.calls.length, 0);
+        expect(handler.calls.length).toBe( 0);
       });
       
       otherHandlers.forEach(handler => {
-        assertEquals(handler.calls.length, 1);
+        expect(handler.calls.length).toBe( 1);
       });
     });
   });
 
   describe('Error Handling and Edge Cases', () => {
     it('should handle invalid event names gracefully', () => {
-      const handler = spy();
+      const handler = jest.spyOn();
       
       const invalidNames = [
         '',
@@ -441,11 +438,11 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.on('valid.event', handler);
       eventBus.emit('valid.event', {});
       
-      assertEquals(handler.calls.length >= 1, true);
+      expect(handler.calls.length >= 1).toBe( true);
     });
 
     it('should handle edge case data types', () => {
-      const handler = spy();
+      const handler = jest.spyOn();
       eventBus.on('edge.cases', handler);
       
       const edgeCases = generateEdgeCaseData();
@@ -465,7 +462,7 @@ describe('EventBus - Enhanced Tests', () => {
       let emissionCount = 0;
       const maxEmissions = 5;
       
-      const recursiveHandler = spy(() => {
+      const recursiveHandler = jest.spyOn(() => {
         emissionCount++;
         if (emissionCount < maxEmissions) {
           eventBus.emit('recursive.event', { count: emissionCount });
@@ -475,15 +472,15 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.on('recursive.event', recursiveHandler);
       eventBus.emit('recursive.event', { count: 0 });
       
-      assertEquals(recursiveHandler.calls.length, maxEmissions);
-      assertEquals(emissionCount, maxEmissions);
+      expect(recursiveHandler.calls.length).toBe( maxEmissions);
+      expect(emissionCount).toBe( maxEmissions);
     });
 
     it('should handle handler that modifies handler list', () => {
-      const handlers = Array.from({ length: 5 }, () => spy());
+      const handlers = Array.from({ length: 5 }, () => jest.spyOn());
       
       // Handler that removes other handlers
-      const disruptiveHandler = spy(() => {
+      const disruptiveHandler = jest.spyOn(() => {
         handlers.forEach(handler => {
           eventBus.off('disruptive.event', handler);
         });
@@ -497,7 +494,7 @@ describe('EventBus - Enhanced Tests', () => {
       eventBus.emit('disruptive.event', {});
       
       // Disruptive handler should have been called
-      assertEquals(disruptiveHandler.calls.length, 1);
+      expect(disruptiveHandler.calls.length).toBe( 1);
       
       // Some or all of the other handlers may have been called
       // depending on implementation details
@@ -506,12 +503,12 @@ describe('EventBus - Enhanced Tests', () => {
     });
 
     it('should handle async handler errors', async () => {
-      const errorHandler = spy(async () => {
+      const errorHandler = jest.spyOn(async () => {
         await AsyncTestUtils.delay(10);
         throw new Error('Async handler error');
       });
       
-      const successHandler = spy(async () => {
+      const successHandler = jest.spyOn(async () => {
         await AsyncTestUtils.delay(5);
         return 'success';
       });
@@ -522,17 +519,17 @@ describe('EventBus - Enhanced Tests', () => {
       // Should not throw, even with async errors
       await eventBus.emitAsync('async.error', {});
       
-      assertEquals(errorHandler.calls.length, 1);
-      assertEquals(successHandler.calls.length, 1);
+      expect(errorHandler.calls.length).toBe( 1);
+      expect(successHandler.calls.length).toBe( 1);
     });
 
     it('should handle timeout for slow async handlers', async () => {
-      const slowHandler = spy(async () => {
+      const slowHandler = jest.spyOn(async () => {
         await AsyncTestUtils.delay(5000); // 5 seconds
         return 'slow result';
       });
       
-      const fastHandler = spy(async () => {
+      const fastHandler = jest.spyOn(async () => {
         await AsyncTestUtils.delay(10);
         return 'fast result';
       });
@@ -546,8 +543,8 @@ describe('EventBus - Enhanced Tests', () => {
         2000
       );
       
-      assertEquals(slowHandler.calls.length, 1);
-      assertEquals(fastHandler.calls.length, 1);
+      expect(slowHandler.calls.length).toBe( 1);
+      expect(fastHandler.calls.length).toBe( 1);
     });
   });
 
@@ -565,11 +562,11 @@ describe('EventBus - Enhanced Tests', () => {
       });
       
       const history = eventBus.getEventHistory();
-      assertEquals(history.length, 50);
+      expect(history.length).toBe( 50);
       
       // Most recent event should be last
-      assertEquals(history[49].event, 'history.event.49');
-      assertEquals(history[49].data, { index: 49 });
+      expect(history[49].event).toBe( 'history.event.49');
+      expect(history[49].data).toBe( { index: 49 });
     });
 
     it('should limit event history size', () => {
@@ -581,15 +578,15 @@ describe('EventBus - Enhanced Tests', () => {
       }
       
       const history = eventBus.getEventHistory();
-      assertEquals(history.length, 10);
+      expect(history.length).toBe( 10);
       
       // Should contain only the last 10 events
-      assertEquals(history[0].event, 'limited.history.10');
-      assertEquals(history[9].event, 'limited.history.19');
+      expect(history[0].event).toBe( 'limited.history.10');
+      expect(history[9].event).toBe( 'limited.history.19');
     });
 
     it('should provide event statistics', () => {
-      const handler = spy();
+      const handler = jest.spyOn();
       eventBus.on('*', handler);
       
       // Emit various events
@@ -600,12 +597,12 @@ describe('EventBus - Enhanced Tests', () => {
       
       const stats = eventBus.getEventStats();
       
-      assertEquals(typeof stats.totalEvents, 'number');
-      assertEquals(typeof stats.uniqueEventTypes, 'number');
-      assertEquals(typeof stats.totalHandlers, 'number');
+      expect(typeof stats.totalEvents).toBe( 'number');
+      expect(typeof stats.uniqueEventTypes).toBe( 'number');
+      expect(typeof stats.totalHandlers).toBe( 'number');
       
-      assertEquals(stats.totalEvents >= 4, true);
-      assertEquals(stats.uniqueEventTypes >= 3, true);
+      expect(stats.totalEvents >= 4).toBe( true);
+      expect(stats.uniqueEventTypes >= 3).toBe( true);
     });
   });
 });

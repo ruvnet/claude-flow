@@ -1,13 +1,10 @@
+/// <reference types="jest" />
+
 /**
  * Enhanced comprehensive unit tests for Orchestrator
  */
 
-import { describe, it, beforeEach, afterEach } from "https://deno.land/std@0.220.0/testing/bdd.ts";
-import { assertEquals, assertExists, assertRejects, assertThrows } from "https://deno.land/std@0.220.0/assert/mod.ts";
-import { FakeTime } from "https://deno.land/std@0.220.0/testing/time.ts";
-import { stub, spy } from "https://deno.land/std@0.220.0/testing/mock.ts";
-
-import { Orchestrator } from '../../../src/core/orchestrator.ts';
+import { Orchestrator } from '../../../src/core/orchestrator.js';
 import { 
   MockEventBus, 
   MockLogger, 
@@ -16,15 +13,15 @@ import {
   MockCoordinationManager,
   MockMCPServer,
   createMocks 
-} from '../../mocks/index.ts';
+} from '../../mocks/index.js';
 import { 
   AsyncTestUtils, 
   MemoryTestUtils, 
   PerformanceTestUtils,
   TestAssertions 
-} from '../../utils/test-utils.ts';
-import { generateCoordinationTasks, generateErrorScenarios } from '../../fixtures/generators.ts';
-import { setupTestEnv, cleanupTestEnv, TEST_CONFIG } from '../../test.config.ts';
+} from '../../utils/test-utils.js';
+import { generateCoordinationTasks, generateErrorScenarios } from '../../fixtures/generators.js';
+import { setupTestEnv, cleanupTestEnv, TEST_CONFIG } from '../../test.config.js';
 
 describe('Orchestrator - Enhanced Tests', () => {
   let orchestrator: Orchestrator;
@@ -44,11 +41,11 @@ describe('Orchestrator - Enhanced Tests', () => {
       mcpServer: mocks.mcpServer,
     });
 
-    fakeTime = new FakeTime();
+    fakeTime = jest.useFakeTimers();
   });
 
   afterEach(async () => {
-    fakeTime.restore();
+    jest.useRealTimers();
     await cleanupTestEnv();
     
     // Reset all mock spies
@@ -68,37 +65,37 @@ describe('Orchestrator - Enhanced Tests', () => {
       await orchestrator.initialize();
 
       // Verify initialization order and calls
-      assertEquals(mocks.eventBus.clearEvents().length, 0);
-      assertEquals(mocks.terminalManager.initialize.calls.length, 1);
-      assertEquals(mocks.memoryManager.initialize.calls.length, 1);
-      assertEquals(mocks.coordinationManager.initialize.calls.length, 1);
-      assertEquals(mocks.mcpServer.start.calls.length, 1);
+      expect(mocks.eventBus.clearEvents().length).toBe( 0);
+      expect(mocks.terminalManager.initialize.calls.length).toBe( 1);
+      expect(mocks.memoryManager.initialize.calls.length).toBe( 1);
+      expect(mocks.coordinationManager.initialize.calls.length).toBe( 1);
+      expect(mocks.mcpServer.start.calls.length).toBe( 1);
       
       // Check that events were emitted
       const events = mocks.eventBus.getEvents();
       const initEvent = events.find(e => e.event === 'orchestrator.initialized');
-      assertExists(initEvent);
+      expect(initEvent);
     });
 
     it('should handle partial initialization failure gracefully', async () => {
       // Make memory manager fail
-      mocks.memoryManager.initialize = spy(async () => {
+      mocks.memoryManager.initialize = jest.spyOn(async () => {
         throw new Error('Memory initialization failed');
       });
 
-      await assertRejects(
+      await expect(
         () => orchestrator.initialize(),
         Error,
         'Memory initialization failed'
       );
 
       // Verify cleanup was attempted
-      assertEquals(mocks.terminalManager.shutdown.calls.length, 1);
+      expect(mocks.terminalManager.shutdown.calls.length).toBe( 1);
     });
 
     it('should timeout initialization after configured time', async () => {
       // Make terminal manager hang
-      mocks.terminalManager.initialize = spy(async () => {
+      mocks.terminalManager.initialize = jest.spyOn(async () => {
         await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute
       });
 
@@ -118,8 +115,8 @@ describe('Orchestrator - Enhanced Tests', () => {
       const successful = results.filter(r => r.status === 'fulfilled');
       const failed = results.filter(r => r.status === 'rejected');
       
-      assertEquals(successful.length, 1);
-      assertEquals(failed.length, 4);
+      expect(successful.length).toBe( 1);
+      expect(failed.length).toBe( 4);
     });
   });
 
@@ -139,10 +136,10 @@ describe('Orchestrator - Enhanced Tests', () => {
 
       const result = await orchestrator.createAndExecuteTask(agentProfile, task);
 
-      assertEquals(mocks.terminalManager.spawnTerminal.calls.length, 1);
-      assertEquals(mocks.terminalManager.sendCommand.calls.length, 1);
-      assertEquals(mocks.coordinationManager.assignTask.calls.length, 1);
-      assertExists(result);
+      expect(mocks.terminalManager.spawnTerminal.calls.length).toBe( 1);
+      expect(mocks.terminalManager.sendCommand.calls.length).toBe( 1);
+      expect(mocks.coordinationManager.assignTask.calls.length).toBe( 1);
+      expect(result);
     });
 
     it('should handle task dependencies correctly', async () => {
@@ -155,7 +152,7 @@ describe('Orchestrator - Enhanced Tests', () => {
       }
 
       // Verify task scheduling respected dependencies
-      assertEquals(mocks.coordinationManager.assignTask.calls.length, 5);
+      expect(mocks.coordinationManager.assignTask.calls.length).toBe( 5);
     });
 
     it('should handle concurrent task execution', async () => {
@@ -172,15 +169,15 @@ describe('Orchestrator - Enhanced Tests', () => {
       );
 
       const results = await Promise.all(promises);
-      assertEquals(results.length, 10);
+      expect(results.length).toBe( 10);
       
       // Verify all tasks were processed
-      assertEquals(mocks.coordinationManager.assignTask.calls.length, 10);
+      expect(mocks.coordinationManager.assignTask.calls.length).toBe( 10);
     });
 
     it('should handle task timeouts properly', async () => {
       // Mock a task that hangs
-      mocks.terminalManager.sendCommand = spy(async () => {
+      mocks.terminalManager.sendCommand = jest.spyOn(async () => {
         await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute
         return 'Never reached';
       });
@@ -203,7 +200,7 @@ describe('Orchestrator - Enhanced Tests', () => {
 
     it('should handle task retry logic', async () => {
       let attemptCount = 0;
-      mocks.terminalManager.sendCommand = spy(async () => {
+      mocks.terminalManager.sendCommand = jest.spyOn(async () => {
         attemptCount++;
         if (attemptCount < 3) {
           throw new Error('Temporary failure');
@@ -221,8 +218,8 @@ describe('Orchestrator - Enhanced Tests', () => {
       };
 
       const result = await orchestrator.createAndExecuteTask(agentProfile, task);
-      assertEquals(result, 'Success on third attempt');
-      assertEquals(mocks.terminalManager.sendCommand.calls.length, 3);
+      expect(result).toBe( 'Success on third attempt');
+      expect(mocks.terminalManager.sendCommand.calls.length).toBe( 3);
     });
   });
 
@@ -234,19 +231,19 @@ describe('Orchestrator - Enhanced Tests', () => {
     it('should report overall health status correctly', async () => {
       const health = await orchestrator.getHealthStatus();
       
-      assertEquals(health.healthy, true);
-      assertExists(health.components);
-      assertEquals(Object.keys(health.components).length, 5); // 5 components
+      expect(health.healthy).toBe( true);
+      expect(health.components);
+      expect(Object.keys(health.components).length).toBe( 5); // 5 components
       
       // All components should be healthy in this test
       Object.values(health.components).forEach(componentHealth => {
-        assertEquals(componentHealth.healthy, true);
+        expect(componentHealth.healthy).toBe( true);
       });
     });
 
     it('should detect unhealthy components', async () => {
       // Make terminal manager unhealthy
-      mocks.terminalManager.getHealthStatus = spy(async () => ({
+      mocks.terminalManager.getHealthStatus = jest.spyOn(async () => ({
         healthy: false,
         error: 'Terminal manager is down',
         metrics: { activeTerminals: 0 },
@@ -254,9 +251,9 @@ describe('Orchestrator - Enhanced Tests', () => {
 
       const health = await orchestrator.getHealthStatus();
       
-      assertEquals(health.healthy, false);
-      assertEquals(health.components.terminal.healthy, false);
-      assertEquals(health.components.terminal.error, 'Terminal manager is down');
+      expect(health.healthy).toBe( false);
+      expect(health.components.terminal.healthy).toBe( false);
+      expect(health.components.terminal.error).toBe( 'Terminal manager is down');
     });
 
     it('should track performance metrics', async () => {
@@ -274,11 +271,11 @@ describe('Orchestrator - Enhanced Tests', () => {
       }
 
       const health = await orchestrator.getHealthStatus();
-      assertExists(health.metrics);
+      expect(health.metrics);
       
       if (health.metrics) {
-        assertEquals(typeof health.metrics.tasksExecuted, 'number');
-        assertEquals(typeof health.metrics.averageExecutionTime, 'number');
+        expect(typeof health.metrics.tasksExecuted).toBe( 'number');
+        expect(typeof health.metrics.averageExecutionTime).toBe( 'number');
       }
     });
   });
@@ -292,15 +289,15 @@ describe('Orchestrator - Enhanced Tests', () => {
       const agentId = 'test-agent';
       const bankId = await orchestrator.createMemoryBank(agentId);
       
-      assertExists(bankId);
-      assertEquals(mocks.memoryManager.createBank.calls.length, 1);
-      assertEquals(mocks.memoryManager.createBank.calls[0].args[0], agentId);
+      expect(bankId);
+      expect(mocks.memoryManager.createBank.calls.length).toBe( 1);
+      expect(mocks.memoryManager.createBank.calls[0].args[0]).toBe( agentId);
       
       await orchestrator.storeMemory(bankId, 'test-key', { data: 'test-value' });
-      assertEquals(mocks.memoryManager.store.calls.length, 1);
+      expect(mocks.memoryManager.store.calls.length).toBe( 1);
       
       const retrieved = await orchestrator.retrieveMemory(bankId, 'test-key');
-      assertEquals(retrieved, { data: 'test-value' });
+      expect(retrieved).toBe( { data: 'test-value' });
     });
 
     it('should handle memory operations under load', async () => {
@@ -314,11 +311,11 @@ describe('Orchestrator - Enhanced Tests', () => {
       });
 
       const results = await Promise.all(operations);
-      assertEquals(results.length, 100);
+      expect(results.length).toBe( 100);
       
       // Verify all values were stored and retrieved correctly
       results.forEach((result, i) => {
-        assertEquals(result, { value: i });
+        expect(result).toBe( { value: i });
       });
     });
 
@@ -342,7 +339,7 @@ describe('Orchestrator - Enhanced Tests', () => {
       });
 
       // Should not leak significant memory
-      assertEquals(leaked, false);
+      expect(leaked).toBe( false);
     });
   });
 
@@ -419,7 +416,7 @@ describe('Orchestrator - Enhanced Tests', () => {
 
       // Load test assertions
       TestAssertions.assertInRange(results.successfulRequests / results.totalRequests, 0.95, 1.0);
-      assertEquals(results.failedRequests, 0);
+      expect(results.failedRequests).toBe( 0);
       TestAssertions.assertInRange(results.averageResponseTime, 0, 1000);
       
       console.log(`Load test results: ${results.successfulRequests}/${results.totalRequests} successful, avg=${results.averageResponseTime.toFixed(2)}ms`);
@@ -436,7 +433,7 @@ describe('Orchestrator - Enhanced Tests', () => {
       
       for (const scenario of errorScenarios) {
         // Inject the error into terminal manager
-        mocks.terminalManager.sendCommand = spy(async () => {
+        mocks.terminalManager.sendCommand = jest.spyOn(async () => {
           throw scenario.error;
         });
 
@@ -509,14 +506,14 @@ describe('Orchestrator - Enhanced Tests', () => {
       
       // System should still be healthy
       const health = await orchestrator.getHealthStatus();
-      assertEquals(health.healthy, true);
+      expect(health.healthy).toBe( true);
     });
 
     it('should recover from temporary component failures', async () => {
       let failureCount = 0;
       
       // Make terminal manager fail first 3 times, then succeed
-      mocks.terminalManager.sendCommand = spy(async (terminalId: string, command: any) => {
+      mocks.terminalManager.sendCommand = jest.spyOn(async (terminalId: string, command: any) => {
         failureCount++;
         if (failureCount <= 3) {
           throw new Error('Temporary failure');
@@ -534,8 +531,8 @@ describe('Orchestrator - Enhanced Tests', () => {
       };
 
       const result = await orchestrator.createAndExecuteTask(agentProfile, task);
-      assertEquals(result, 'Success after 4 attempts');
-      assertEquals(failureCount, 4);
+      expect(result).toBe( 'Success after 4 attempts');
+      expect(failureCount).toBe( 4);
     });
   });
 
@@ -550,15 +547,15 @@ describe('Orchestrator - Enhanced Tests', () => {
       await orchestrator.shutdown();
       
       // Verify all components were shut down
-      assertEquals(mocks.terminalManager.shutdown.calls.length, 1);
-      assertEquals(mocks.memoryManager.shutdown.calls.length, 1);
-      assertEquals(mocks.coordinationManager.shutdown.calls.length, 1);
-      assertEquals(mocks.mcpServer.stop.calls.length, 1);
+      expect(mocks.terminalManager.shutdown.calls.length).toBe( 1);
+      expect(mocks.memoryManager.shutdown.calls.length).toBe( 1);
+      expect(mocks.coordinationManager.shutdown.calls.length).toBe( 1);
+      expect(mocks.mcpServer.stop.calls.length).toBe( 1);
       
       // Check shutdown event was emitted
       const events = mocks.eventBus.getEvents();
       const shutdownEvent = events.find(e => e.event === 'orchestrator.shutdown');
-      assertExists(shutdownEvent);
+      expect(shutdownEvent);
     });
 
     it('should handle shutdown with active tasks', async () => {
@@ -581,14 +578,14 @@ describe('Orchestrator - Enhanced Tests', () => {
       await Promise.allSettled([taskPromise, shutdownPromise]);
       
       // Verify shutdown completed
-      assertEquals(mocks.terminalManager.shutdown.calls.length, 1);
+      expect(mocks.terminalManager.shutdown.calls.length).toBe( 1);
     });
 
     it('should timeout shutdown if components hang', async () => {
       await orchestrator.initialize();
       
       // Make terminal manager hang during shutdown
-      mocks.terminalManager.shutdown = spy(async () => {
+      mocks.terminalManager.shutdown = jest.spyOn(async () => {
         await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute
       });
 

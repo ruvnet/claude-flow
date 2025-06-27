@@ -1,10 +1,10 @@
+/// <reference types="jest" />
+
 /**
  * Integration tests for the Workflow Engine
  */
 
-import { assertEquals, assertExists, assertThrows } from 'https://deno.land/std@0.208.0/assert/mod.ts';
-import { describe, it, beforeEach, afterEach } from 'https://deno.land/std@0.208.0/testing/bdd.ts';
-import { WorkflowEngine, WorkflowDefinition, ExecutionOptions } from '../../package/src/workflow/engine.ts';
+import { WorkflowEngine, WorkflowDefinition, ExecutionOptions } from '../../package/src/workflow/engine.js';
 
 describe('Workflow Engine Integration Tests', () => {
   let engine: WorkflowEngine;
@@ -12,12 +12,12 @@ describe('Workflow Engine Integration Tests', () => {
 
   beforeEach(async () => {
     engine = new WorkflowEngine({ debug: true, monitoring: false });
-    testWorkflowDir = await Deno.makeTempDir({ prefix: 'workflow-test-' });
+    testWorkflowDir =  fs.mkdtempSync(path.join(os.tmpdir(), "claude-flow-test-"));
   });
 
   afterEach(async () => {
     try {
-      await Deno.remove(testWorkflowDir, { recursive: true });
+      // TODO: Replace with mock - // TODO: Replace with mock -       await Deno.remove(testWorkflowDir, { recursive: true });
     } catch {
       // Ignore cleanup errors
     }
@@ -39,12 +39,12 @@ describe('Workflow Engine Integration Tests', () => {
         ]
       };
 
-      await Deno.writeTextFile(workflowPath, JSON.stringify(workflow, null, 2));
+      fs.writeFileSync(workflowPath,  JSON.stringify(workflow, null, 2, "utf8"));
       
       const loadedWorkflow = await engine.loadWorkflow(workflowPath);
-      assertEquals(loadedWorkflow.name, 'Test Workflow');
-      assertEquals(loadedWorkflow.tasks.length, 1);
-      assertEquals(loadedWorkflow.tasks[0].id, 'test-task');
+      expect(loadedWorkflow.name).toBe( 'Test Workflow');
+      expect(loadedWorkflow.tasks.length).toBe( 1);
+      expect(loadedWorkflow.tasks[0].id).toBe( 'test-task');
     });
 
     it('should load YAML workflow files', async () => {
@@ -59,19 +59,19 @@ tasks:
     description: "A YAML test task"
 `;
 
-      await Deno.writeTextFile(workflowPath, yamlContent);
+      fs.writeFileSync(workflowPath,  yamlContent, "utf8");
       
       const loadedWorkflow = await engine.loadWorkflow(workflowPath);
-      assertEquals(loadedWorkflow.name, 'YAML Test Workflow');
-      assertEquals(loadedWorkflow.tasks.length, 1);
-      assertEquals(loadedWorkflow.tasks[0].id, 'yaml-task');
+      expect(loadedWorkflow.name).toBe( 'YAML Test Workflow');
+      expect(loadedWorkflow.tasks.length).toBe( 1);
+      expect(loadedWorkflow.tasks[0].id).toBe( 'yaml-task');
     });
 
     it('should handle invalid workflow files', async () => {
       const workflowPath = `${testWorkflowDir}/invalid-workflow.json`;
-      await Deno.writeTextFile(workflowPath, 'invalid json content');
+      fs.writeFileSync(workflowPath,  'invalid json content', "utf8");
       
-      await assertThrows(
+      await expect(
         async () => await engine.loadWorkflow(workflowPath),
         Error,
         'Failed to load workflow file'
@@ -99,8 +99,8 @@ tasks:
       };
 
       const validation = await engine.validateWorkflow(workflow);
-      assertEquals(validation.valid, true);
-      assertEquals(validation.errors.length, 0);
+      expect(validation.valid).toBe( true);
+      expect(validation.errors.length).toBe( 0);
     });
 
     it('should detect missing required fields', async () => {
@@ -110,9 +110,9 @@ tasks:
       };
 
       const validation = await engine.validateWorkflow(workflow);
-      assertEquals(validation.valid, false);
-      assertEquals(validation.errors.includes('Workflow name is required'), true);
-      assertEquals(validation.errors.includes('At least one task is required'), true);
+      expect(validation.valid).toBe( false);
+      expect(validation.errors.includes('Workflow name is required')).toBe( true);
+      expect(validation.errors.includes('At least one task is required')).toBe( true);
     });
 
     it('should detect circular dependencies', async () => {
@@ -135,8 +135,8 @@ tasks:
       };
 
       const validation = await engine.validateWorkflow(workflow, true);
-      assertEquals(validation.valid, false);
-      assertEquals(validation.errors.includes('Circular dependencies detected'), true);
+      expect(validation.valid).toBe( false);
+      expect(validation.errors.includes('Circular dependencies detected')).toBe( true);
     });
 
     it('should validate agent assignments', async () => {
@@ -165,8 +165,8 @@ tasks:
       };
 
       const validation = await engine.validateWorkflow(workflow);
-      assertEquals(validation.valid, false);
-      assertEquals(validation.errors.some(e => e.includes('unknown agent nonexistent-agent')), true);
+      expect(validation.valid).toBe( false);
+      expect(validation.errors.some(e => e.includes('unknown agent nonexistent-agent'))).toBe( true);
     });
   });
 
@@ -189,13 +189,13 @@ tasks:
 
       const execution = await engine.executeWorkflow(workflow);
       
-      assertEquals(execution.workflowName, 'Simple Execution Test');
-      assertEquals(execution.status, 'completed');
-      assertEquals(execution.progress.total, 1);
-      assertEquals(execution.progress.completed, 1);
-      assertEquals(execution.progress.failed, 0);
-      assertExists(execution.completedAt);
-      assertExists(execution.duration);
+      expect(execution.workflowName).toBe( 'Simple Execution Test');
+      expect(execution.status).toBe( 'completed');
+      expect(execution.progress.total).toBe( 1);
+      expect(execution.progress.completed).toBe( 1);
+      expect(execution.progress.failed).toBe( 0);
+      expect(execution.completedAt);
+      expect(execution.duration);
     });
 
     it('should execute workflow with dependencies', async () => {
@@ -224,24 +224,24 @@ tasks:
 
       const execution = await engine.executeWorkflow(workflow);
       
-      assertEquals(execution.status, 'completed');
-      assertEquals(execution.progress.total, 3);
-      assertEquals(execution.progress.completed, 3);
+      expect(execution.status).toBe( 'completed');
+      expect(execution.progress.total).toBe( 3);
+      expect(execution.progress.completed).toBe( 3);
       
       // Verify execution order
       const task1 = execution.tasks.find(t => t.taskId === 'task1')!;
       const task2 = execution.tasks.find(t => t.taskId === 'task2')!;
       const task3 = execution.tasks.find(t => t.taskId === 'task3')!;
       
-      assertEquals(task1.status, 'completed');
-      assertEquals(task2.status, 'completed');
-      assertEquals(task3.status, 'completed');
+      expect(task1.status).toBe( 'completed');
+      expect(task2.status).toBe( 'completed');
+      expect(task3.status).toBe( 'completed');
       
       // Task 1 should complete before task 2
-      assertEquals(task1.completedAt! <= task2.startedAt!, true);
+      expect(task1.completedAt! <= task2.startedAt!).toBe( true);
       // Tasks 1 and 2 should complete before task 3
-      assertEquals(task1.completedAt! <= task3.startedAt!, true);
-      assertEquals(task2.completedAt! <= task3.startedAt!, true);
+      expect(task1.completedAt! <= task3.startedAt!).toBe( true);
+      expect(task2.completedAt! <= task3.startedAt!).toBe( true);
     });
 
     it('should handle parallel execution', async () => {
@@ -276,13 +276,13 @@ tasks:
       const execution = await engine.executeWorkflow(workflow);
       const endTime = Date.now();
       
-      assertEquals(execution.status, 'completed');
-      assertEquals(execution.progress.total, 3);
-      assertEquals(execution.progress.completed, 3);
+      expect(execution.status).toBe( 'completed');
+      expect(execution.progress.total).toBe( 3);
+      expect(execution.progress.completed).toBe( 3);
       
       // Parallel execution should be faster than sequential
       const executionTime = endTime - startTime;
-      assertEquals(executionTime < 5000, true); // Should complete in less than 5 seconds
+      expect(executionTime < 5000).toBe( true); // Should complete in less than 5 seconds
     });
 
     it('should handle conditional execution', async () => {
@@ -315,16 +315,16 @@ tasks:
 
       const execution = await engine.executeWorkflow(workflow);
       
-      assertEquals(execution.status, 'completed');
-      assertEquals(execution.progress.total, 2);
-      assertEquals(execution.progress.completed, 1);
-      assertEquals(execution.progress.skipped, 1);
+      expect(execution.status).toBe( 'completed');
+      expect(execution.progress.total).toBe( 2);
+      expect(execution.progress.completed).toBe( 1);
+      expect(execution.progress.skipped).toBe( 1);
       
       const requiredTask = execution.tasks.find(t => t.taskId === 'required-task')!;
       const optionalTask = execution.tasks.find(t => t.taskId === 'optional-task')!;
       
-      assertEquals(requiredTask.status, 'completed');
-      assertEquals(optionalTask.status, 'skipped');
+      expect(requiredTask.status).toBe( 'completed');
+      expect(optionalTask.status).toBe( 'skipped');
     });
 
     it('should handle task retries on failure', async () => {
@@ -357,13 +357,13 @@ tasks:
 
       const execution = await engine.executeWorkflow(workflow);
       
-      assertEquals(execution.status, 'completed');
-      assertEquals(execution.progress.completed, 1);
-      assertEquals(execution.progress.failed, 0);
+      expect(execution.status).toBe( 'completed');
+      expect(execution.progress.completed).toBe( 1);
+      expect(execution.progress.failed).toBe( 0);
       
       const task = execution.tasks.find(t => t.taskId === 'flaky-task')!;
-      assertEquals(task.status, 'completed');
-      assertEquals(task.retryCount, 1);
+      expect(task.status).toBe( 'completed');
+      expect(task.retryCount).toBe( 1);
     });
 
     it('should handle workflow timeout', async () => {
@@ -388,8 +388,8 @@ tasks:
       const execution = await engine.executeWorkflow(workflow);
       
       // The workflow should handle the timeout gracefully
-      assertEquals(execution.status, 'failed');
-      assertEquals(execution.progress.failed, 1);
+      expect(execution.status).toBe( 'failed');
+      expect(execution.progress.failed).toBe( 1);
     });
   });
 
@@ -409,9 +409,9 @@ tasks:
       const execution2 = await engine.executeWorkflow(workflow2);
       
       const executions = engine.listExecutions();
-      assertEquals(executions.length, 2);
-      assertEquals(executions.some(e => e.id === execution1.id), true);
-      assertEquals(executions.some(e => e.id === execution2.id), true);
+      expect(executions.length).toBe( 2);
+      expect(executions.some(e => e.id === execution1.id)).toBe( true);
+      expect(executions.some(e => e.id === execution2.id)).toBe( true);
     });
 
     it('should filter workflow executions', async () => {
@@ -423,15 +423,15 @@ tasks:
       const execution = await engine.executeWorkflow(workflow);
       
       const filteredByName = engine.listExecutions({ workflowName: 'Filter Test' });
-      assertEquals(filteredByName.length, 1);
-      assertEquals(filteredByName[0].id, execution.id);
+      expect(filteredByName.length).toBe( 1);
+      expect(filteredByName[0].id).toBe( execution.id);
       
       const filteredByStatus = engine.listExecutions({ status: 'completed' });
-      assertEquals(filteredByStatus.length, 1);
-      assertEquals(filteredByStatus[0].id, execution.id);
+      expect(filteredByStatus.length).toBe( 1);
+      expect(filteredByStatus[0].id).toBe( execution.id);
       
       const filteredByDifferentName = engine.listExecutions({ workflowName: 'Nonexistent' });
-      assertEquals(filteredByDifferentName.length, 0);
+      expect(filteredByDifferentName.length).toBe( 0);
     });
 
     it('should cancel workflow execution', async () => {
@@ -459,12 +459,12 @@ tasks:
       await new Promise(resolve => setTimeout(resolve, 100));
       
       const executions = engine.listExecutions();
-      assertEquals(executions.length, 1);
+      expect(executions.length).toBe( 1);
       
       await engine.cancelExecution(executions[0].id);
       
       const execution = await executionPromise;
-      assertEquals(execution.status, 'cancelled');
+      expect(execution.status).toBe( 'cancelled');
     });
   });
 
@@ -499,15 +499,15 @@ tasks:
 
       const execution = await engine.executeWorkflow(workflow);
       
-      assertEquals(execution.status, 'failed');
-      assertEquals(execution.progress.failed, 1);
-      assertEquals(execution.progress.completed, 0);
+      expect(execution.status).toBe( 'failed');
+      expect(execution.progress.failed).toBe( 1);
+      expect(execution.progress.completed).toBe( 0);
       
       const failingTask = execution.tasks.find(t => t.taskId === 'failing-task')!;
       const subsequentTask = execution.tasks.find(t => t.taskId === 'subsequent-task')!;
       
-      assertEquals(failingTask.status, 'failed');
-      assertEquals(subsequentTask.status, 'pending'); // Should not have started
+      expect(failingTask.status).toBe( 'failed');
+      expect(subsequentTask.status).toBe( 'pending'); // Should not have started
     });
 
     it('should handle task failures with continue policy', async () => {
@@ -540,15 +540,15 @@ tasks:
 
       const execution = await engine.executeWorkflow(workflow);
       
-      assertEquals(execution.status, 'failed'); // Overall failed due to one failure
-      assertEquals(execution.progress.failed, 1);
-      assertEquals(execution.progress.completed, 1);
+      expect(execution.status).toBe( 'failed'); // Overall failed due to one failure
+      expect(execution.progress.failed).toBe( 1);
+      expect(execution.progress.completed).toBe( 1);
       
       const failingTask = execution.tasks.find(t => t.taskId === 'failing-task')!;
       const successTask = execution.tasks.find(t => t.taskId === 'success-task')!;
       
-      assertEquals(failingTask.status, 'failed');
-      assertEquals(successTask.status, 'completed');
+      expect(failingTask.status).toBe( 'failed');
+      expect(successTask.status).toBe( 'completed');
     });
   });
 
@@ -575,9 +575,9 @@ tasks:
 
       const execution = await engine.executeWorkflow(workflow);
       
-      assertEquals(execution.status, 'completed');
-      assertEquals(execution.context.variables.testValue, 'Hello World');
-      assertEquals(execution.context.variables.numericValue, 42);
+      expect(execution.status).toBe( 'completed');
+      expect(execution.context.variables.testValue).toBe( 'Hello World');
+      expect(execution.context.variables.numericValue).toBe( 42);
     });
 
     it('should handle output storage and retrieval', async () => {
@@ -615,9 +615,9 @@ tasks:
 
       const execution = await engine.executeWorkflow(workflow);
       
-      assertEquals(execution.status, 'completed');
-      assertEquals(execution.context.outputs['producer-task.result'], 'produced data');
-      assertEquals(execution.context.outputs['producer-task.data'].value, 123);
+      expect(execution.status).toBe( 'completed');
+      expect(execution.context.outputs['producer-task.result']).toBe( 'produced data');
+      expect(execution.context.outputs['producer-task.data'].value).toBe( 123);
     });
   });
 });

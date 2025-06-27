@@ -1,13 +1,13 @@
+/// <reference types="jest" />
+
 /**
  * Test suite for SystemMonitor
  */
 
-import { assertEquals, assertExists } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { beforeEach, describe, it } from 'https://deno.land/std@0.224.0/testing/bdd.ts';
-import { SystemMonitor } from '../../../../src/cli/commands/start/system-monitor.ts';
-import { ProcessManager } from '../../../../src/cli/commands/start/process-manager.ts';
-import { eventBus } from '../../../../src/core/event-bus.ts';
-import { SystemEvents } from '../../../../src/utils/types.ts';
+import { SystemMonitor } from '../../../../src/cli/commands/start/system-monitor.js';
+import { ProcessManager } from '../../../../src/cli/commands/start/process-manager.js';
+import { eventBus } from '../../../../src/core/event-bus.js';
+import { SystemEvents } from '../../../../src/utils/types.js';
 
 describe('SystemMonitor', () => {
   let processManager: ProcessManager;
@@ -20,7 +20,7 @@ describe('SystemMonitor', () => {
 
   describe('initialization', () => {
     it('should create SystemMonitor instance', () => {
-      assertExists(systemMonitor);
+      expect(systemMonitor);
     });
 
     it('should setup event listeners', () => {
@@ -32,7 +32,7 @@ describe('SystemMonitor', () => {
       eventBus.emit(SystemEvents.TASK_COMPLETED, { taskId: 'task-1' });
       
       const events = monitor.getRecentEvents(10);
-      assertEquals(events.length >= 2, true);
+      expect(events.length >= 2).toBe( true);
     });
   });
 
@@ -46,9 +46,9 @@ describe('SystemMonitor', () => {
       const events = systemMonitor.getRecentEvents(10);
       const agentEvent = events.find(e => e.type === 'agent_spawned');
       
-      assertExists(agentEvent);
-      assertEquals(agentEvent?.data.agentId, 'agent-123');
-      assertEquals(agentEvent?.level, 'info');
+      expect(agentEvent);
+      expect(agentEvent?.data.agentId).toBe( 'agent-123');
+      expect(agentEvent?.level).toBe( 'info');
     });
 
     it('should track agent terminated events', () => {
@@ -60,9 +60,9 @@ describe('SystemMonitor', () => {
       const events = systemMonitor.getRecentEvents(10);
       const event = events.find(e => e.type === 'agent_terminated');
       
-      assertExists(event);
-      assertEquals(event?.data.reason, 'Task completed');
-      assertEquals(event?.level, 'warning');
+      expect(event);
+      expect(event?.data.reason).toBe( 'Task completed');
+      expect(event?.level).toBe( 'warning');
     });
 
     it('should track task events', () => {
@@ -86,13 +86,13 @@ describe('SystemMonitor', () => {
       const completed = events.find(e => e.type === 'task_completed');
       const failed = events.find(e => e.type === 'task_failed');
       
-      assertExists(assigned);
-      assertExists(completed);
-      assertExists(failed);
+      expect(assigned);
+      expect(completed);
+      expect(failed);
       
-      assertEquals(assigned?.level, 'info');
-      assertEquals(completed?.level, 'success');
-      assertEquals(failed?.level, 'error');
+      expect(assigned?.level).toBe( 'info');
+      expect(completed?.level).toBe( 'success');
+      expect(failed?.level).toBe( 'error');
     });
 
     it('should track system errors', () => {
@@ -104,9 +104,9 @@ describe('SystemMonitor', () => {
       const events = systemMonitor.getRecentEvents(10);
       const errorEvent = events.find(e => e.type === 'system_error');
       
-      assertExists(errorEvent);
-      assertEquals(errorEvent?.data.component, 'TestComponent');
-      assertEquals(errorEvent?.level, 'error');
+      expect(errorEvent);
+      expect(errorEvent?.data.component).toBe( 'TestComponent');
+      expect(errorEvent?.level).toBe( 'error');
     });
 
     it('should track process manager events', () => {
@@ -130,9 +130,9 @@ describe('SystemMonitor', () => {
       const stopped = events.find(e => e.type === 'process_stopped');
       const error = events.find(e => e.type === 'process_error');
       
-      assertExists(started);
-      assertExists(stopped);
-      assertExists(error);
+      expect(started);
+      expect(stopped);
+      expect(error);
     });
 
     it('should limit stored events to maxEvents', () => {
@@ -145,7 +145,7 @@ describe('SystemMonitor', () => {
       }
       
       const events = systemMonitor.getRecentEvents(200);
-      assertEquals(events.length <= 100, true);
+      expect(events.length <= 100).toBe( true);
     });
   });
 
@@ -157,39 +157,39 @@ describe('SystemMonitor', () => {
         type: 'agent_spawned',
         data: { agentId: 'agent-1', profile: { type: 'researcher' } }
       });
-      assertEquals(agentSpawnedMsg.includes('Agent spawned'), true);
-      assertEquals(agentSpawnedMsg.includes('agent-1'), true);
-      assertEquals(agentSpawnedMsg.includes('researcher'), true);
+      expect(agentSpawnedMsg.includes('Agent spawned')).toBe( true);
+      expect(agentSpawnedMsg.includes('agent-1')).toBe( true);
+      expect(agentSpawnedMsg.includes('researcher')).toBe( true);
       
       const taskCompletedMsg = formatMessage({
         type: 'task_completed',
         data: { taskId: 'task-1' }
       });
-      assertEquals(taskCompletedMsg.includes('Task completed'), true);
-      assertEquals(taskCompletedMsg.includes('task-1'), true);
+      expect(taskCompletedMsg.includes('Task completed')).toBe( true);
+      expect(taskCompletedMsg.includes('task-1')).toBe( true);
       
       const systemErrorMsg = formatMessage({
         type: 'system_error',
         data: { component: 'TestComp', error: { message: 'Error msg' } }
       });
-      assertEquals(systemErrorMsg.includes('System error'), true);
-      assertEquals(systemErrorMsg.includes('TestComp'), true);
-      assertEquals(systemErrorMsg.includes('Error msg'), true);
+      expect(systemErrorMsg.includes('System error')).toBe( true);
+      expect(systemErrorMsg.includes('TestComp')).toBe( true);
+      expect(systemErrorMsg.includes('Error msg')).toBe( true);
     });
 
     it('should get correct event icons', () => {
       const getIcon = systemMonitor['getEventIcon'].bind(systemMonitor);
       
-      assertEquals(getIcon('agent_spawned'), '🤖');
-      assertEquals(getIcon('agent_terminated'), '🔚');
-      assertEquals(getIcon('task_assigned'), '📌');
-      assertEquals(getIcon('task_completed'), '✅');
-      assertEquals(getIcon('task_failed'), '❌');
-      assertEquals(getIcon('system_error'), '⚠️');
-      assertEquals(getIcon('process_started'), '▶️');
-      assertEquals(getIcon('process_stopped'), '⏹️');
-      assertEquals(getIcon('process_error'), '🚨');
-      assertEquals(getIcon('unknown'), '•');
+      expect(getIcon('agent_spawned')).toBe( '🤖');
+      expect(getIcon('agent_terminated')).toBe( '🔚');
+      expect(getIcon('task_assigned')).toBe( '📌');
+      expect(getIcon('task_completed')).toBe( '✅');
+      expect(getIcon('task_failed')).toBe( '❌');
+      expect(getIcon('system_error')).toBe( '⚠️');
+      expect(getIcon('process_started')).toBe( '▶️');
+      expect(getIcon('process_stopped')).toBe( '⏹️');
+      expect(getIcon('process_error')).toBe( '🚨');
+      expect(getIcon('unknown')).toBe( '•');
     });
   });
 
@@ -205,11 +205,11 @@ describe('SystemMonitor', () => {
       }) as any;
       
       globalThis.clearInterval = ((id: number) => {
-        assertEquals(id, intervalId);
+        expect(id).toBe( intervalId);
       }) as any;
       
       systemMonitor.start();
-      assertExists(intervalId);
+      expect(intervalId);
       
       systemMonitor.stop();
       
@@ -226,10 +226,10 @@ describe('SystemMonitor', () => {
       systemMonitor['collectMetrics']();
       
       const process = processManager.getProcess('event-bus');
-      assertExists(process?.metrics?.cpu);
-      assertExists(process?.metrics?.memory);
-      assertEquals(typeof process?.metrics?.cpu, 'number');
-      assertEquals(typeof process?.metrics?.memory, 'number');
+      expect(process?.metrics?.cpu);
+      expect(process?.metrics?.memory);
+      expect(typeof process?.metrics?.cpu).toBe( 'number');
+      expect(typeof process?.metrics?.memory).toBe( 'number');
     });
   });
 
@@ -250,9 +250,9 @@ describe('SystemMonitor', () => {
       
       // Check output contains expected content
       const output = logOutput.join('\n');
-      assertEquals(output.includes('Recent System Events'), true);
-      assertEquals(output.includes('Agent spawned'), true);
-      assertEquals(output.includes('Task completed'), true);
+      expect(output.includes('Recent System Events')).toBe( true);
+      expect(output.includes('Agent spawned')).toBe( true);
+      expect(output.includes('Task completed')).toBe( true);
       
       // Restore
       console.log = originalLog;
@@ -275,11 +275,11 @@ describe('SystemMonitor', () => {
       
       // Check output contains expected content
       const output = logOutput.join('\n');
-      assertEquals(output.includes('System Health'), true);
-      assertEquals(output.includes('Status:'), true);
-      assertEquals(output.includes('Uptime:'), true);
-      assertEquals(output.includes('Process Status:'), true);
-      assertEquals(output.includes('System Metrics:'), true);
+      expect(output.includes('System Health')).toBe( true);
+      expect(output.includes('Status:')).toBe( true);
+      expect(output.includes('Uptime:')).toBe( true);
+      expect(output.includes('Process Status:')).toBe( true);
+      expect(output.includes('System Metrics:')).toBe( true);
       
       // Restore
       console.log = originalLog;
@@ -303,8 +303,8 @@ describe('SystemMonitor', () => {
       
       // Check output contains error section
       const output = logOutput.join('\n');
-      assertEquals(output.includes('Recent Errors:'), true);
-      assertEquals(output.includes('TestComponent'), true);
+      expect(output.includes('Recent Errors:')).toBe( true);
+      expect(output.includes('TestComponent')).toBe( true);
       
       // Restore
       console.log = originalLog;
@@ -315,11 +315,11 @@ describe('SystemMonitor', () => {
     it('should format uptime correctly', () => {
       const formatUptime = systemMonitor['formatUptime'].bind(systemMonitor);
       
-      assertEquals(formatUptime(1000), '1s');
-      assertEquals(formatUptime(60000), '1m 0s');
-      assertEquals(formatUptime(3600000), '1h 0m 0s');
-      assertEquals(formatUptime(86400000), '1d 0h 0m');
-      assertEquals(formatUptime(90061000), '1d 1h 1m'); 
+      expect(formatUptime(1000)).toBe( '1s');
+      expect(formatUptime(60000)).toBe( '1m 0s');
+      expect(formatUptime(3600000)).toBe( '1h 0m 0s');
+      expect(formatUptime(86400000)).toBe( '1d 0h 0m');
+      expect(formatUptime(90061000)).toBe( '1d 1h 1m'); 
     });
   });
 });

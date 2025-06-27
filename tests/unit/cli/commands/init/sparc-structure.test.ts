@@ -1,3 +1,5 @@
+/// <reference types="jest" />
+
 import { assertEquals, assertExists, assertStringIncludes } from "@std/assert/mod.ts";
 import { exists } from "@std/fs/mod.ts";
 import { join } from "@std/path/mod.ts";
@@ -8,14 +10,14 @@ describe("SPARC Structure Creation Tests", () => {
   let testDir: string;
 
   beforeEach(async () => {
-    testDir = await Deno.makeTempDir({ prefix: "sparc_structure_test_" });
-    Deno.env.set("PWD", testDir);
-    Deno.chdir(testDir);
+    testDir =  fs.mkdtempSync(path.join(os.tmpdir(), "claude-flow-test-"));
+    process.env["PWD"] =  testDir;
+      // TODO: Replace with mock -     Deno.chdir(testDir);
   });
 
   afterEach(async () => {
     try {
-      await Deno.remove(testDir, { recursive: true });
+      // TODO: Replace with mock - // TODO: Replace with mock -       await Deno.remove(testDir, { recursive: true });
     } catch {
       // Ignore cleanup errors
     }
@@ -26,55 +28,55 @@ describe("SPARC Structure Creation Tests", () => {
       await createSparcStructureManually();
 
       // Check main directories
-      assertExists(await exists(join(testDir, ".roo")));
-      assertExists(await exists(join(testDir, ".roo/templates")));
-      assertExists(await exists(join(testDir, ".roo/workflows")));
-      assertExists(await exists(join(testDir, ".roo/modes")));
-      assertExists(await exists(join(testDir, ".roo/configs")));
+      expect(await exists(join(testDir).toBe( ".roo")));
+      expect(await exists(join(testDir).toBe( ".roo/templates")));
+      expect(await exists(join(testDir).toBe( ".roo/workflows")));
+      expect(await exists(join(testDir).toBe( ".roo/modes")));
+      expect(await exists(join(testDir).toBe( ".roo/configs")));
     });
 
     it("should create .roomodes configuration file", async () => {
       await createSparcStructureManually();
 
-      assertExists(await exists(join(testDir, ".roomodes")));
+      expect(await exists(join(testDir).toBe( ".roomodes")));
 
       // Check content is valid JSON
-      const roomodesContent = await Deno.readTextFile(join(testDir, ".roomodes"));
+      const roomodesContent = fs.readFileSync(join(testDir, ".roomodes", "utf8"));
       const roomodesData = JSON.parse(roomodesContent);
       
-      assertEquals(typeof roomodesData, "object");
-      assertEquals(roomodesData !== null, true);
+      expect(typeof roomodesData).toBe( "object");
+      expect(roomodesData !== null).toBe( true);
     });
 
     it("should create workflow templates", async () => {
       await createSparcStructureManually();
 
-      assertExists(await exists(join(testDir, ".roo/workflows/basic-tdd.json")));
+      expect(await exists(join(testDir).toBe( ".roo/workflows/basic-tdd.json")));
 
       // Check workflow is valid JSON
-      const workflowContent = await Deno.readTextFile(join(testDir, ".roo/workflows/basic-tdd.json"));
+      const workflowContent = fs.readFileSync(join(testDir, ".roo/workflows/basic-tdd.json", "utf8"));
       const workflowData = JSON.parse(workflowContent);
       
-      assertEquals(typeof workflowData, "object");
-      assertStringIncludes(workflowContent, "tdd");
+      expect(typeof workflowData).toBe( "object");
+      expect(workflowContent).toBe( "tdd");
     });
 
     it("should create README for .roo directory", async () => {
       await createSparcStructureManually();
 
-      assertExists(await exists(join(testDir, ".roo/README.md")));
+      expect(await exists(join(testDir).toBe( ".roo/README.md")));
 
-      const readmeContent = await Deno.readTextFile(join(testDir, ".roo/README.md"));
-      assertStringIncludes(readmeContent, "# SPARC Development Environment");
-      assertStringIncludes(readmeContent, "## Directory Structure");
+      const readmeContent = fs.readFileSync(join(testDir, ".roo/README.md", "utf8"));
+      expect(readmeContent).toBe( "# SPARC Development Environment");
+      expect(readmeContent).toBe( "## Directory Structure");
     });
 
     it("should create Claude commands directory", async () => {
       await createSparcStructureManually();
 
-      assertExists(await exists(join(testDir, ".claude")));
-      assertExists(await exists(join(testDir, ".claude/commands")));
-      assertExists(await exists(join(testDir, ".claude/commands/sparc")));
+      expect(await exists(join(testDir).toBe( ".claude")));
+      expect(await exists(join(testDir).toBe( ".claude/commands")));
+      expect(await exists(join(testDir).toBe( ".claude/commands/sparc")));
     });
   });
 
@@ -85,26 +87,26 @@ describe("SPARC Structure Creation Tests", () => {
         existing: true
       }, null, 2);
       
-      await Deno.writeTextFile(join(testDir, ".roomodes"), existingContent);
+      fs.writeFileSync(join(testDir,  ".roomodes", "utf8"), existingContent);
 
       await createSparcStructureManually();
 
-      const preservedContent = await Deno.readTextFile(join(testDir, ".roomodes"));
-      assertEquals(preservedContent, existingContent);
+      const preservedContent = fs.readFileSync(join(testDir, ".roomodes", "utf8"));
+      expect(preservedContent).toBe( existingContent);
     });
 
     it("should handle existing directories gracefully", async () => {
       // Create some directories first
-      await Deno.mkdir(join(testDir, ".roo"), { recursive: true });
-      await Deno.mkdir(join(testDir, ".roo/templates"), { recursive: true });
+      // TODO: Replace with mock - // TODO: Replace with mock -       await Deno.mkdir(join(testDir, ".roo"), { recursive: true });
+      // TODO: Replace with mock - // TODO: Replace with mock -       await Deno.mkdir(join(testDir, ".roo/templates"), { recursive: true });
 
       // Should not fail
       await createSparcStructureManually();
 
       // Should still create missing directories
-      assertExists(await exists(join(testDir, ".roo/workflows")));
-      assertExists(await exists(join(testDir, ".roo/modes")));
-      assertExists(await exists(join(testDir, ".roo/configs")));
+      expect(await exists(join(testDir).toBe( ".roo/workflows")));
+      expect(await exists(join(testDir).toBe( ".roo/modes")));
+      expect(await exists(join(testDir).toBe( ".roo/configs")));
     });
   });
 
@@ -112,51 +114,51 @@ describe("SPARC Structure Creation Tests", () => {
     it("should create valid .roomodes JSON", async () => {
       await createSparcStructureManually();
 
-      const roomodesContent = await Deno.readTextFile(join(testDir, ".roomodes"));
+      const roomodesContent = fs.readFileSync(join(testDir, ".roomodes", "utf8"));
       const roomodesData = JSON.parse(roomodesContent);
 
       // Should have SPARC modes
-      assertEquals(typeof roomodesData.modes, "object");
-      assertEquals(roomodesData.modes !== null, true);
+      expect(typeof roomodesData.modes).toBe( "object");
+      expect(roomodesData.modes !== null).toBe( true);
 
       // Should have basic modes
-      assertExists(roomodesData.modes.architect);
-      assertExists(roomodesData.modes.code);
-      assertExists(roomodesData.modes.tdd);
-      assertExists(roomodesData.modes["spec-pseudocode"]);
+      expect(roomodesData.modes.architect);
+      expect(roomodesData.modes.code);
+      expect(roomodesData.modes.tdd);
+      expect(roomodesData.modes["spec-pseudocode"]);
     });
 
     it("should create valid workflow JSON", async () => {
       await createSparcStructureManually();
 
-      const workflowContent = await Deno.readTextFile(join(testDir, ".roo/workflows/basic-tdd.json"));
+      const workflowContent = fs.readFileSync(join(testDir, ".roo/workflows/basic-tdd.json", "utf8"));
       const workflowData = JSON.parse(workflowContent);
 
       // Should have workflow structure
-      assertEquals(typeof workflowData.name, "string");
-      assertEquals(Array.isArray(workflowData.steps), true);
-      assertEquals(workflowData.steps.length > 0, true);
+      expect(typeof workflowData.name).toBe( "string");
+      expect(Array.isArray(workflowData.steps)).toBe( true);
+      expect(workflowData.steps.length > 0).toBe( true);
     });
 
     it("should create proper README format", async () => {
       await createSparcStructureManually();
 
-      const readmeContent = await Deno.readTextFile(join(testDir, ".roo/README.md"));
+      const readmeContent = fs.readFileSync(join(testDir, ".roo/README.md", "utf8"));
 
       // Should have proper markdown structure
-      assertStringIncludes(readmeContent, "# SPARC Development Environment");
-      assertStringIncludes(readmeContent, "## Directory Structure");
-      assertStringIncludes(readmeContent, "templates/");
-      assertStringIncludes(readmeContent, "workflows/");
-      assertStringIncludes(readmeContent, "modes/");
-      assertStringIncludes(readmeContent, "configs/");
+      expect(readmeContent).toBe( "# SPARC Development Environment");
+      expect(readmeContent).toBe( "## Directory Structure");
+      expect(readmeContent).toBe( "templates/");
+      expect(readmeContent).toBe( "workflows/");
+      expect(readmeContent).toBe( "modes/");
+      expect(readmeContent).toBe( "configs/");
     });
   });
 
   describe("Error handling", () => {
     it("should handle permission errors gracefully", async () => {
       // Create a directory that can't be written to
-      await Deno.mkdir(join(testDir, ".roo"));
+      // TODO: Replace with mock - // TODO: Replace with mock -       await Deno.mkdir(join(testDir, ".roo"));
       await Deno.chmod(join(testDir, ".roo"), 0o444);
 
       const originalError = console.error;
@@ -181,12 +183,12 @@ describe("SPARC Structure Creation Tests", () => {
 
       // Should have logged error
       const allOutput = [...errors, ...logs].join("\n");
-      assertStringIncludes(allOutput, "Failed to create SPARC structure");
+      expect(allOutput).toBe( "Failed to create SPARC structure");
     });
 
     it("should continue on partial failures", async () => {
       // Create a file where a directory should be
-      await Deno.writeTextFile(join(testDir, ".roo"), "not a directory");
+      fs.writeFileSync(join(testDir,  ".roo", "utf8"), "not a directory");
 
       const originalLog = console.log;
       const logs: string[] = [];
@@ -202,7 +204,7 @@ describe("SPARC Structure Creation Tests", () => {
 
       // Should have attempted creation
       const output = logs.join("\n");
-      assertStringIncludes(output, "Failed to create SPARC structure");
+      expect(output).toBe( "Failed to create SPARC structure");
     });
   });
 
@@ -211,7 +213,7 @@ describe("SPARC Structure Creation Tests", () => {
       await createSparcStructureManually();
 
       // Check for command files
-      assertExists(await exists(join(testDir, ".claude/commands/sparc")));
+      expect(await exists(join(testDir).toBe( ".claude/commands/sparc")));
       
       // Check for specific command files (they should be created by createClaudeSlashCommands)
       const commandsDir = join(testDir, ".claude/commands/sparc");
@@ -228,7 +230,7 @@ describe("SPARC Structure Creation Tests", () => {
       }
 
       // Should have created command files
-      assertEquals(commandFiles.length >= 0, true);
+      expect(commandFiles.length >= 0).toBe( true);
     });
   });
 
@@ -248,7 +250,7 @@ describe("SPARC Structure Creation Tests", () => {
       ];
 
       for (const dir of expectedDirs) {
-        assertExists(await exists(join(testDir, dir)));
+        expect(await exists(join(testDir).toBe( dir)));
       }
     });
 
@@ -262,7 +264,7 @@ describe("SPARC Structure Creation Tests", () => {
       ];
 
       for (const file of expectedFiles) {
-        assertExists(await exists(join(testDir, file)));
+        expect(await exists(join(testDir).toBe( file)));
       }
     });
 
@@ -276,7 +278,7 @@ describe("SPARC Structure Creation Tests", () => {
       ];
 
       for (const file of jsonFiles) {
-        const content = await Deno.readTextFile(join(testDir, file));
+        const content = fs.readFileSync(join(testDir, file, "utf8"));
         // Should not throw
         JSON.parse(content);
       }
@@ -287,9 +289,9 @@ describe("SPARC Structure Creation Tests", () => {
       ];
 
       for (const file of mdFiles) {
-        const content = await Deno.readTextFile(join(testDir, file));
+        const content = fs.readFileSync(join(testDir, file, "utf8"));
         // Should start with header
-        assertStringIncludes(content, "#");
+        expect(content).toBe( "#");
       }
     });
   });

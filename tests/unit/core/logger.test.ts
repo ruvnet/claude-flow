@@ -1,3 +1,5 @@
+/// <reference types="jest" />
+
 /**
  * Unit tests for Logger
  */
@@ -12,11 +14,11 @@ import {
   spy,
   stub,
   assertSpyCalls,
-} from '../../test.utils.ts';
-import { Logger, LogLevel } from '../../../src/core/logger.ts';
-import { LoggingConfig } from '../../../src/utils/types.ts';
-import { cleanupTestEnv, setupTestEnv } from '../../test.config.ts';
-import { captureConsole, createTestFile } from '../../test.utils.ts';
+} from '../../test.utils.js';
+import { Logger, LogLevel } from '../../../src/core/logger.js';
+import { LoggingConfig } from '../../../src/utils/types.js';
+import { cleanupTestEnv, setupTestEnv } from '../../test.config.js';
+import { captureConsole, createTestFile } from '../../test.utils.js';
 
 describe('Logger', () => {
   let logger: Logger;
@@ -55,7 +57,7 @@ describe('Logger', () => {
       const logger1 = Logger.getInstance(config);
       const logger2 = Logger.getInstance();
       
-      assertEquals(logger1, logger2);
+      expect(logger1).toBe( logger2);
     });
 
     it('should throw if no config provided on first getInstance', () => {
@@ -68,8 +70,8 @@ describe('Logger', () => {
         error = e as Error;
       }
       
-      assertExists(error);
-      assertEquals(error!.message, 'Logger configuration required for initialization');
+      expect(error);
+      expect(error!.message).toBe( 'Logger configuration required for initialization');
     });
 
     it('should configure logging level', () => {
@@ -91,8 +93,8 @@ describe('Logger', () => {
       const output = consoleCapture.getOutput();
       const errors = consoleCapture.getErrors();
       
-      assertEquals(output.length, 0);
-      assertEquals(errors.length, 1);
+      expect(output.length).toBe( 0);
+      expect(errors.length).toBe( 1);
     });
   });
 
@@ -110,21 +112,21 @@ describe('Logger', () => {
       logger.debug('debug message', { data: 'test' });
       
       const output = consoleCapture.getOutput();
-      assertExists(output.find(o => o.includes('DEBUG') && o.includes('debug message')));
+      expect(output.find(o => o.includes('DEBUG') && o.includes('debug message')));
     });
 
     it('should log info messages', () => {
       logger.info('info message', { data: 'test' });
       
       const output = consoleCapture.getOutput();
-      assertExists(output.find(o => o.includes('INFO') && o.includes('info message')));
+      expect(output.find(o => o.includes('INFO') && o.includes('info message')));
     });
 
     it('should log warn messages', () => {
       logger.warn('warn message', { data: 'test' });
       
       const output = consoleCapture.getOutput();
-      assertExists(output.find(o => o.includes('WARN') && o.includes('warn message')));
+      expect(output.find(o => o.includes('WARN') && o.includes('warn message')));
     });
 
     it('should log error messages', () => {
@@ -132,7 +134,7 @@ describe('Logger', () => {
       logger.error('error message', error);
       
       const errors = consoleCapture.getErrors();
-      assertExists(errors.find(e => e.includes('ERROR') && e.includes('error message')));
+      expect(errors.find(e => e.includes('ERROR') && e.includes('error message')));
     });
 
     it('should respect log level hierarchy', () => {
@@ -160,10 +162,10 @@ describe('Logger', () => {
       const errors = consoleCapture.getErrors();
       const allLogs = [...output, ...errors];
       
-      assertEquals(allLogs.filter(l => l.includes('debug')).length, 0);
-      assertEquals(allLogs.filter(l => l.includes('info')).length, 0);
-      assertEquals(allLogs.filter(l => l.includes('warn')).length, 1);
-      assertEquals(allLogs.filter(l => l.includes('error')).length, 1);
+      expect(allLogs.filter(l => l.includes('debug')).length).toBe( 0);
+      expect(allLogs.filter(l => l.includes('info')).length).toBe( 0);
+      expect(allLogs.filter(l => l.includes('warn')).length).toBe( 1);
+      expect(allLogs.filter(l => l.includes('error')).length).toBe( 1);
     });
   });
 
@@ -181,10 +183,10 @@ describe('Logger', () => {
       const output = consoleCapture.getOutput();
       const log = JSON.parse(output[0]);
       
-      assertEquals(log.level, 'INFO');
-      assertEquals(log.message, 'test message');
-      assertEquals(log.data, { key: 'value' });
-      assertExists(log.timestamp);
+      expect(log.level).toBe( 'INFO');
+      expect(log.message).toBe( 'test message');
+      expect(log.data).toBe( { key: 'value' });
+      expect(log.timestamp);
     });
 
     it('should format logs as text', () => {
@@ -198,10 +200,10 @@ describe('Logger', () => {
       logger.info('test message', { key: 'value' });
       
       const output = consoleCapture.getOutput();
-      assertExists(output[0].match(/\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\]/));
-      assertExists(output[0].includes('INFO'));
-      assertExists(output[0].includes('test message'));
-      assertExists(output[0].includes('{"key":"value"}'));
+      expect(output[0].match(/\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\]/));
+      expect(output[0].includes('INFO'));
+      expect(output[0].includes('test message'));
+      expect(output[0].includes('{"key":"value"}'));
     });
 
     it('should format errors properly in text mode', () => {
@@ -218,8 +220,8 @@ describe('Logger', () => {
       logger.error('error occurred', error);
       
       const errors = consoleCapture.getErrors();
-      assertExists(errors[0].includes('Error: test error'));
-      assertExists(errors[0].includes('Stack:'));
+      expect(errors[0].includes('Error: test error'));
+      expect(errors[0].includes('Stack:'));
     });
 
     it('should format errors properly in JSON mode', () => {
@@ -237,10 +239,10 @@ describe('Logger', () => {
       const errors = consoleCapture.getErrors();
       const log = JSON.parse(errors[0]);
       
-      assertExists(log.error);
-      assertEquals(log.error.name, 'Error');
-      assertEquals(log.error.message, 'test error');
-      assertExists(log.error.stack);
+      expect(log.error);
+      expect(log.error.name).toBe( 'Error');
+      expect(log.error.message).toBe( 'test error');
+      expect(log.error.stack);
     });
   });
 
@@ -256,7 +258,7 @@ describe('Logger', () => {
       logger.info('console log');
       
       const output = consoleCapture.getOutput();
-      assertEquals(output.length, 1);
+      expect(output.length).toBe( 1);
     });
 
     it('should log to file only', async () => {
@@ -273,12 +275,12 @@ describe('Logger', () => {
       // Wait for file write
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      const content = await Deno.readTextFile(tempLogFile);
-      assertExists(content.includes('file log'));
+      const content = fs.readFileSync(tempLogFile, "utf8");
+      expect(content.includes('file log'));
       
       // Should not log to console
       const output = consoleCapture.getOutput();
-      assertEquals(output.length, 0);
+      expect(output.length).toBe( 0);
     });
 
     it('should log to both console and file', async () => {
@@ -297,12 +299,12 @@ describe('Logger', () => {
       
       // Check console
       const output = consoleCapture.getOutput();
-      assertEquals(output.length, 1);
-      assertExists(output[0].includes('both log'));
+      expect(output.length).toBe( 1);
+      expect(output[0].includes('both log'));
       
       // Check file
-      const content = await Deno.readTextFile(tempLogFile);
-      assertExists(content.includes('both log'));
+      const content = fs.readFileSync(tempLogFile, "utf8");
+      expect(content.includes('both log'));
     });
 
     it('should throw if file destination without filePath', () => {
@@ -319,8 +321,8 @@ describe('Logger', () => {
         error = e as Error;
       }
       
-      assertExists(error);
-      assertEquals(error!.message, 'File path required for file logging');
+      expect(error);
+      expect(error!.message).toBe( 'File path required for file logging');
     });
   });
 
@@ -356,7 +358,7 @@ describe('Logger', () => {
       }
       
       // Should have rotated file
-      assertEquals(files.length > 1, true);
+      expect(files.length > 1).toBe( true);
     });
   });
 
@@ -382,9 +384,9 @@ describe('Logger', () => {
       logger.debug('should now appear');
       
       const output = consoleCapture.getOutput();
-      assertEquals(output.filter(o => o.includes('should appear')).length, 1);
-      assertEquals(output.filter(o => o.includes('should not appear')).length, 0);
-      assertEquals(output.filter(o => o.includes('should now appear')).length, 1);
+      expect(output.filter(o => o.includes('should appear')).length).toBe( 1);
+      expect(output.filter(o => o.includes('should not appear')).length).toBe( 0);
+      expect(output.filter(o => o.includes('should now appear')).length).toBe( 1);
     });
 
     it('should close file handle when changing destination', async () => {
@@ -403,8 +405,8 @@ describe('Logger', () => {
       
       // Now spy on the file handle
       const fileHandle = logger['fileHandle'];
-      assertExists(fileHandle);
-      const fileHandleSpy = spy(fileHandle, 'close');
+      expect(fileHandle);
+      const fileHandleSpy = jest.spyOn(fileHandle, 'close');
       
       await logger.configure({
         level: 'info',
@@ -412,7 +414,7 @@ describe('Logger', () => {
         destination: 'console',
       });
       
-      assertSpyCalls(fileHandleSpy, 1);
+      expect(fileHandleSpy).toBe( 1);
     });
   });
 
@@ -432,7 +434,7 @@ describe('Logger', () => {
       const output = consoleCapture.getOutput();
       const log = JSON.parse(output[0]);
       
-      assertEquals(log.context.component, 'test-component');
+      expect(log.context.component).toBe( 'test-component');
     });
 
     it('should merge child context with parent context', () => {
@@ -451,8 +453,8 @@ describe('Logger', () => {
       const output = consoleCapture.getOutput();
       const log = JSON.parse(output[0]);
       
-      assertEquals(log.context.service, 'api');
-      assertEquals(log.context.component, 'auth');
+      expect(log.context.service).toBe( 'api');
+      expect(log.context.component).toBe( 'auth');
     });
   });
 
@@ -467,7 +469,7 @@ describe('Logger', () => {
       
       // Capture console.error
       const originalError = console.error;
-      const errorSpy = spy();
+      const errorSpy = jest.spyOn();
       console.error = errorSpy;
       
       try {
@@ -478,8 +480,8 @@ describe('Logger', () => {
         await new Promise(resolve => setTimeout(resolve, 100));
         
         // Should log error to console
-        assertSpyCalls(errorSpy, 1);
-        assertEquals(errorSpy.calls[0].args[0], 'Failed to write to log file:');
+        expect(errorSpy).toBe( 1);
+        expect(errorSpy.calls[0].args[0]).toBe( 'Failed to write to log file:');
       } finally {
         console.error = originalError;
       }
@@ -498,7 +500,7 @@ describe('Logger', () => {
       const errors = consoleCapture.getErrors();
       const log = JSON.parse(errors[0]);
       
-      assertEquals(log.error, { custom: 'error object' });
+      expect(log.error).toBe( { custom: 'error object' });
     });
   });
 
@@ -522,10 +524,10 @@ describe('Logger', () => {
       const duration = Date.now() - start;
       
       // Should complete quickly (< 1 second for 1000 logs)
-      assertEquals(duration < 1000, true);
+      expect(duration < 1000).toBe( true);
       
       const output = consoleCapture.getOutput();
-      assertEquals(output.length, count);
+      expect(output.length).toBe( count);
     });
   });
 });

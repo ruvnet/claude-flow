@@ -1,0 +1,152 @@
+{
+  "issues": [
+    {
+      "id": "persistence-bottleneck",
+      "issueNumbers": ["#49", "#76", "#83", "#98"],
+      "title": "JSON File Persistence Bottleneck",
+      "description": "Flat JSON files used for core data persistence causing scalability issues and concurrency problems",
+      "impact": 9,
+      "effort": 5,
+      "roi": 1.8,
+      "parallelizable": true,
+      "category": "Performance & Scalability"
+    },
+    {
+      "id": "missing-tests",
+      "issueNumbers": ["#10", "#17", "#22", "#30", "#32", "#45", "#51", "#52"],
+      "title": "Missing Test Coverage",
+      "description": "Lack of unit and integration tests makes refactoring risky and prevents confident changes",
+      "impact": 7,
+      "effort": 4,
+      "roi": 1.75,
+      "parallelizable": true,
+      "category": "Maintainability & Testing"
+    },
+    {
+      "id": "code-duplication",
+      "issueNumbers": ["#02", "#07", "#14", "#19", "#28", "#33", "#42", "#47", "#53", "#60", "#65", "#73", "#81", "#84", "#90", "#95"],
+      "title": "Code Duplication & Multiple CLI Implementations",
+      "description": "Multiple overlapping CLI implementations and duplicated logic across shell scripts and TypeScript",
+      "impact": 7,
+      "effort": 5,
+      "roi": 1.4,
+      "parallelizable": true,
+      "category": "Code Duplication & DRY Violations"
+    },
+    {
+      "id": "dual-runtime",
+      "issueNumbers": ["#72", "#79"],
+      "title": "Dual Runtime Environment Complexity",
+      "description": "Both Node.js and Deno runtimes creating architectural confusion and maintenance overhead",
+      "impact": 8,
+      "effort": 6,
+      "roi": 1.33,
+      "parallelizable": false,
+      "category": "Architectural Complexity"
+    },
+    {
+      "id": "global-state",
+      "issueNumbers": ["#15", "#21"],
+      "title": "Global State Management Issues",
+      "description": "Global state causing concurrency issues and data integrity risks with concurrent operations",
+      "impact": 8,
+      "effort": 6,
+      "roi": 1.33,
+      "parallelizable": false,
+      "category": "State Management"
+    },
+    {
+      "id": "synchronous-execution",
+      "issueNumbers": ["#96"],
+      "title": "Synchronous Task Execution",
+      "description": "In-process synchronous task execution preventing true parallel agent operations",
+      "impact": 8,
+      "effort": 7,
+      "roi": 1.14,
+      "parallelizable": false,
+      "category": "Performance & Scalability"
+    },
+    {
+      "id": "poor-boundaries",
+      "issueNumbers": ["#64", "#69", "#86"],
+      "title": "Poor Module Boundaries",
+      "description": "Potential circular dependencies, direct process spawning without abstraction, brittle agent spawning mechanism",
+      "impact": 7,
+      "effort": 7,
+      "roi": 1.0,
+      "parallelizable": true,
+      "category": "Architectural Complexity"
+    },
+    {
+      "id": "fragile-ipc",
+      "issueNumbers": ["#97"],
+      "title": "Fragile Inter-Process Communication",
+      "description": "Unreliable communication between processes limiting distributed operations",
+      "impact": 6,
+      "effort": 6,
+      "roi": 1.0,
+      "parallelizable": false,
+      "category": "Performance & Scalability"
+    },
+    {
+      "id": "missing-service-layer",
+      "issueNumbers": ["#03", "#04", "#09", "#11", "#16", "#23", "#24", "#29", "#34", "#40", "#41", "#44", "#46", "#57", "#59", "#62", "#67", "#74", "#82", "#88", "#99"],
+      "title": "Missing Service Layer Abstraction",
+      "description": "Business logic mixed with CLI concerns, no clear separation of concerns",
+      "impact": 6,
+      "effort": 8,
+      "roi": 0.75,
+      "parallelizable": true,
+      "category": "Architectural Complexity"
+    }
+  ],
+  "phases": [
+    {
+      "id": "phase1-quick-wins",
+      "name": "Quick Wins & Foundation",
+      "duration": "2-4 weeks",
+      "issues": ["persistence-bottleneck", "missing-tests"],
+      "description": "High ROI items that can be done in parallel with immediate benefits. SQLite migration provides instant performance gains while test framework enables safe refactoring.",
+      "parallelizable": true
+    },
+    {
+      "id": "phase2-consolidation", 
+      "name": "Consolidation & Cleanup",
+      "duration": "4-6 weeks",
+      "issues": ["code-duplication", "dual-runtime"],
+      "description": "Eliminate redundancy by choosing single runtime and consolidating multiple CLI implementations. Reduces maintenance burden significantly.",
+      "parallelizable": false
+    },
+    {
+      "id": "phase3-architecture",
+      "name": "Core Architecture Improvements",
+      "duration": "6-8 weeks", 
+      "issues": ["global-state", "synchronous-execution", "poor-boundaries"],
+      "description": "Address fundamental architectural issues that block scalability. Requires careful coordination but enables true parallel agent operations.",
+      "parallelizable": false
+    },
+    {
+      "id": "phase4-advanced",
+      "name": "Advanced Architecture",
+      "duration": "8-12 weeks",
+      "issues": ["fragile-ipc", "missing-service-layer"],
+      "description": "Long-term architectural improvements for enterprise readiness. Lower ROI but necessary for production deployment.",
+      "parallelizable": true
+    }
+  ],
+  "rationale": {
+    "selection_criteria": "Issues selected based on ROI calculation (impact/effort) excluding all security-related items. Focus on architectural improvements that enable parallelization and have clear boundaries.",
+    "roi_methodology": "ROI = Impact(1-10) / Effort(1-10). Higher ROI indicates better value. Impact considers scalability, maintainability, and operational benefits. Effort considers complexity, dependencies, and time required.",
+    "phase_rationale": "Phases organized to maximize early wins (Phase 1), reduce complexity (Phase 2), enable scalability (Phase 3), and prepare for enterprise deployment (Phase 4). Each phase builds on previous work.",
+    "parallelization_focus": "Prioritized issues that can be worked on concurrently by multiple teams. Test framework and persistence layer can progress independently. Consolidation work requires sequential execution.",
+    "exclusions": "All security-related issues (#01, #13, #26, #37, #50, #55, #77, #78, #89, #92) excluded per requirements. Configuration management issues with security implications also excluded."
+  },
+  "metadata": {
+    "generated_at": "2025-06-27T00:52:00Z",
+    "total_issues_analyzed": 99,
+    "security_issues_excluded": 18,
+    "architectural_issues_selected": 9,
+    "estimated_total_duration": "20-30 weeks",
+    "recommended_team_size": "4-6 developers"
+  }
+}
