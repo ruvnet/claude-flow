@@ -6,16 +6,16 @@ import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
 import { Table } from '@cliffy/table';
 import { Confirm, Input } from '@cliffy/prompt';
+import { promises as fs } from 'node:fs';
 import { formatDuration, formatStatusIndicator, formatProgressBar } from '../formatter.js';
 import { generateId } from '../../utils/helpers.js';
-import { DenoCompat } from '../../utils/deno-compat.js';
 
 export const workflowCommand = new Command()
   .description('Execute and manage workflows')
   .action(() => {
     workflowCommand.showHelp();
   })
-  .command('run', Command
+  .command('run', Command)
     .description('Execute a workflow from file')
     .arguments('<workflow-file:string>')
     .option('-d, --dry-run', 'Validate workflow without executing')
@@ -25,49 +25,43 @@ export const workflowCommand = new Command()
     .option('--fail-fast', 'Stop on first task failure')
     .action(async (options: any, workflowFile: string) => {
       await runWorkflow(workflowFile, options);
-    }),
-  )
-  .command('validate', Command
+    })
+  .command('validate', Command)
     .description('Validate a workflow file')
     .arguments('<workflow-file:string>')
     .option('--strict', 'Use strict validation mode')
     .action(async (options: any, workflowFile: string) => {
       await validateWorkflow(workflowFile, options);
-    }),
-  )
-  .command('list', Command
+    })
+  .command('list', Command)
     .description('List running workflows')
     .option('--all', 'Include completed workflows')
     .option('--format <format:string>', 'Output format (table, json)', { default: 'table' })
     .action(async (options: any) => {
       await listWorkflows(options);
-    }),
-  )
-  .command('status', Command
+    })
+  .command('status', Command)
     .description('Show workflow execution status')
     .arguments('<workflow-id:string>')
     .option('-w, --watch', 'Watch workflow progress')
     .action(async (options: any, workflowId: string) => {
       await showWorkflowStatus(workflowId, options);
-    }),
-  )
-  .command('stop', Command
+    })
+  .command('stop', Command)
     .description('Stop a running workflow')
     .arguments('<workflow-id:string>')
     .option('-f, --force', 'Force stop without cleanup')
     .action(async (options: any, workflowId: string) => {
       await stopWorkflow(workflowId, options);
-    }),
-  )
-  .command('template', Command
+    })
+  .command('template', Command)
     .description('Generate workflow templates')
     .arguments('<template-type:string>')
     .option('-o, --output <file:string>', 'Output file path')
     .option('--format <format:string>', 'Template format (json, yaml)', { default: 'json' })
     .action(async (options: any, templateType: string) => {
       await generateTemplate(templateType, options);
-    }),
-  );
+    });
 
 interface WorkflowDefinition {
   name: string;
@@ -415,7 +409,7 @@ async function generateTemplate(templateType: string, options: any): Promise<voi
     content = JSON.stringify(template, null, 2);
   }
 
-  await DenoCompat.writeTextFile(outputFile, content);
+  await fs.writeFile(outputFile, content, 'utf-8');
 
   console.log(colors.green('✓ Workflow template generated'));
   console.log(`${colors.white('Template:')} ${templateType}`);
@@ -426,7 +420,7 @@ async function generateTemplate(templateType: string, options: any): Promise<voi
 
 async function loadWorkflow(workflowFile: string): Promise<WorkflowDefinition> {
   try {
-    const content = await DenoCompat.readTextFile(workflowFile);
+    const content = await fs.readFile(workflowFile, 'utf-8');
     
     if (workflowFile.endsWith('.yaml') || workflowFile.endsWith('.yml')) {
       // In production, use a proper YAML parser

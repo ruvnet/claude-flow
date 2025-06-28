@@ -8,7 +8,7 @@ import * as crypto from 'crypto';
 import { MigrationBackup, BackupFile } from './types';
 import { logger } from './logger';
 import chalk from 'chalk';
-import * as inquirer from 'inquirer';
+import inquirer from 'inquirer';
 
 export class RollbackManager {
   private projectPath: string;
@@ -127,7 +127,7 @@ export class RollbackManager {
           const backup = await fs.readJson(manifestPath);
           backups.push(backup);
         } catch (error) {
-          logger.warn(`Invalid backup manifest in ${folder}: ${error.message}`);
+          logger.warn(`Invalid backup manifest in ${folder}: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
     }
@@ -145,10 +145,11 @@ export class RollbackManager {
     let selectedBackup: MigrationBackup;
 
     if (backupId) {
-      selectedBackup = backups.find(b => b.metadata.backupId === backupId);
-      if (!selectedBackup) {
+      const backup = backups.find(b => b.metadata.backupId === backupId);
+      if (!backup) {
         throw new Error(`Backup not found: ${backupId}`);
       }
+      selectedBackup = backup;
     } else if (interactive) {
       selectedBackup = await this.selectBackupInteractively(backups);
     } else {
@@ -236,7 +237,7 @@ export class RollbackManager {
         try {
           await fs.chmod(targetPath, parseInt(file.permissions, 8));
         } catch (error) {
-          logger.warn(`Could not restore permissions for ${file.path}: ${error.message}`);
+          logger.warn(`Could not restore permissions for ${file.path}: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
     }

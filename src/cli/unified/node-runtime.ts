@@ -3,7 +3,7 @@
  * Provides Node.js-specific implementations of runtime operations
  */
 
-import { promises as fs } from 'fs';
+import { promises as fs, watchFile, unwatchFile } from 'fs';
 import { spawn as nodeSpawn } from 'child_process';
 import { resolve, join } from 'path';
 import type { RuntimeAdapter, SpawnOptions, ProcessResult, FileStats } from './interfaces.js';
@@ -173,9 +173,13 @@ export class NodeRuntimeAdapter implements RuntimeAdapter {
 
   /** Watch file for changes */
   watchFile(path: string, callback: (eventType: string, filename: string) => void): () => void {
-    const watcher = fs.watchFile(path, callback);
+    // Node's watchFile has a different signature, so we need to adapt it
+    const listener = () => {
+      callback('change', path);
+    };
+    watchFile(path, listener);
     return () => {
-      fs.unwatchFile(path, callback);
+      unwatchFile(path, listener);
     };
   }
 }

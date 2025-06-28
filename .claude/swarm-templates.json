@@ -1,0 +1,73 @@
+{
+  "templates": {
+    "typescript-fix": {
+      "name": "TypeScript Error Fix Swarm",
+      "description": "Fix remaining 551 TypeScript errors",
+      "agents": [
+        {
+          "role": "Type Definition Specialist",
+          "focus": "TS18046, TS2339, TS2304 errors",
+          "files": "src/**/*.ts"
+        },
+        {
+          "role": "Database Type Expert",
+          "focus": "SQLite type definitions",
+          "files": "src/persistence/**/*.ts"
+        },
+        {
+          "role": "Missing Module Implementer",
+          "focus": "WorkflowEngine implementation",
+          "files": "src/workflow/**/*.ts"
+        }
+      ]
+    },
+    "feature-development": {
+      "name": "Feature Development Swarm",
+      "description": "Implement new features with TDD",
+      "agents": [
+        {
+          "role": "Test Designer",
+          "focus": "Write tests first"
+        },
+        {
+          "role": "Implementation Expert",
+          "focus": "Implement features"
+        },
+        {
+          "role": "Documentation Writer",
+          "focus": "Update docs and examples"
+        }
+      ]
+    },
+    "performance-optimization": {
+      "name": "Performance Optimization Swarm",
+      "description": "Optimize system performance",
+      "agents": [
+        {
+          "role": "Profiler",
+          "focus": "Identify bottlenecks"
+        },
+        {
+          "role": "Optimizer",
+          "focus": "Implement optimizations"
+        },
+        {
+          "role": "Benchmark Tester",
+          "focus": "Measure improvements"
+        }
+      ]
+    }
+  },
+  "best_practices": {
+    "memory_usage": "Always store findings in memory for cross-agent coordination",
+    "batch_operations": "Use parallel execution with batch tools",
+    "validation": "Run tests after each major change",
+    "documentation": "Update CLAUDE.md with new findings"
+  },
+  "reference_memory_keys": [
+    "phase1_swarm_operation_complete",
+    "swarm_quick_reference",
+    "typescript_root_causes",
+    "jest_root_causes"
+  ]
+}

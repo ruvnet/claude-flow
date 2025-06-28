@@ -188,6 +188,7 @@ export interface Config {
   logging: LoggingConfig;
   credentials?: CredentialsConfig;
   security?: SecurityConfig;
+  swarm?: SwarmConfig;
 }
 
 export interface OrchestratorConfig {
@@ -216,7 +217,7 @@ export interface MemoryConfig {
   backend: 'sqlite' | 'markdown' | 'hybrid';
   cacheSizeMB: number;
   syncInterval: number;
-  conflictResolution: 'last-write' | 'crdt' | 'manual';
+  conflictResolution: 'timestamp' | 'crdt' | 'manual';
   retentionDays: number;
   sqlitePath?: string;
   markdownDir?: string;
@@ -509,4 +510,13 @@ export interface SecurityConfig {
   auditLogging: boolean;
   maskSensitiveValues: boolean;
   allowEnvironmentOverrides: boolean;
+}
+
+export interface SwarmConfig {
+  coordinationMode: 'centralized' | 'distributed' | 'hierarchical' | 'mesh' | 'hybrid';
+  consensusThreshold: number;
+  enableMetrics: boolean;
+  maxAgents?: number;
+  parallel?: boolean;
+  monitor?: boolean;
 }

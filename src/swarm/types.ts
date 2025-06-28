@@ -898,6 +898,7 @@ export type EventType =
   
   // Task events
   | 'task.created'
+  | 'task.queued'
   | 'task.assigned'
   | 'task.started'
   | 'task.paused'
@@ -906,6 +907,10 @@ export type EventType =
   | 'task.failed'
   | 'task.cancelled'
   | 'task.retried'
+  
+  // Objective events
+  | 'objective.completed'
+  | 'objective.failed'
   
   // Coordination events
   | 'coordination.load_balanced'

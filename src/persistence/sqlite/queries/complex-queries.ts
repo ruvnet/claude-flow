@@ -1,5 +1,74 @@
 import { getDatabase } from '../database';
 import { Agent, Task, SwarmMemoryEntry, Objective } from '../models';
+import type { CommunicationPatternRow as CommunicationEdgeRow, AgentNodeRow as CommunicationNodeRow } from '../types/row-types.js';
+
+// Type definitions for database query results
+interface AgentWorkloadRow {
+  agent_id: string;
+  agent_name: string;
+  agent_type: string;
+  active_task_count: number;
+  pending_task_count: number;
+  completed_today: number;
+  average_completion_time: number | null;
+  current_load: number | null;
+}
+
+interface TaskDependencyRow {
+  task_id: string;
+  task_type: string;
+  status: string;
+  dependencies: string;
+  dependents: string;
+}
+
+interface MemoryUsageRow {
+  date: string;
+  hour: number;
+  entry_count: number;
+  unique_agents: number;
+  avg_priority: number;
+  top_types: string;
+}
+
+interface ObjectiveProgressRow {
+  objective_id: string;
+  description: string;
+  status: string;
+  total_tasks: number;
+  completed_tasks: number;
+  failed_tasks: number;
+  progress_percentage: number;
+  blocked_tasks: string;
+}
+
+interface ResourceUsageRow {
+  timestamp: string;
+  resource_type: string;
+  usage_value: number;
+  resource_limit: number | null;
+}
+
+interface CollaborationMetricsRow {
+  agent1_id: string;
+  agent1_name: string;
+  agent1_type: string;
+  agent2_id: string;
+  agent2_name: string;
+  agent2_type: string;
+  collaboration_count: number;
+}
+
+interface TaskPerformanceRow {
+  task_type: string;
+  total_count: number;
+  completed_count: number;
+  failed_count: number;
+  avg_duration: number;
+  min_duration: number;
+  max_duration: number;
+  success_rate: number;
+}
 
 /**
  * Complex query utilities for advanced operations
@@ -46,7 +115,8 @@ export class ComplexQueries {
     const db = getDatabase();
     return db.withConnection(conn => {
       const stmt = conn.prepare(sql);
-      return stmt.all().map(row => ({
+      const rows = stmt.all() as AgentWorkloadRow[];
+      return rows.map((row) => ({
         agentId: row.agent_id,
         agentName: row.agent_name,
         agentType: row.agent_type,
@@ -128,7 +198,8 @@ export class ComplexQueries {
     const db = getDatabase();
     return db.withConnection(conn => {
       const stmt = conn.prepare(sql);
-      return stmt.all(...params).map(row => ({
+      const rows = stmt.all(...params) as TaskDependencyRow[];
+      return rows.map((row) => ({
         taskId: row.task_id,
         taskType: row.task_type,
         status: row.status,
@@ -177,9 +248,9 @@ export class ComplexQueries {
     const db = getDatabase();
     return db.withConnection(conn => {
       const stmt = conn.prepare(sql);
-      const results = stmt.all(days);
+      const results = stmt.all(days) as MemoryUsageRow[];
       
-      return results.map(row => {
+      return results.map((row: MemoryUsageRow) => {
         const types = JSON.parse(row.top_types || '[]');
         const uniqueTypes = new Map<string, number>();
         
@@ -257,7 +328,8 @@ export class ComplexQueries {
     const db = getDatabase();
     return db.withConnection(conn => {
       const stmt = conn.prepare(sql);
-      return stmt.all().map(row => {
+      const rows = stmt.all() as ObjectiveProgressRow[];
+      return rows.map((row) => {
         const blockedTasks = JSON.parse(row.blocked_tasks || '[]')
           .filter((t: any) => t !== null)
           .map((t: any) => ({
@@ -337,7 +409,7 @@ export class ComplexQueries {
     const db = getDatabase();
     return db.withConnection(conn => {
       const edgeStmt = conn.prepare(sql);
-      const edges = edgeStmt.all(days).map(row => ({
+      const edges = (edgeStmt.all(days) as CommunicationEdgeRow[]).map((row) => ({
         from: row.sender_id,
         to: row.receiver_id,
         weight: row.total_messages,
@@ -345,7 +417,7 @@ export class ComplexQueries {
       }));
 
       const nodeStmt = conn.prepare(nodesSql);
-      const nodes = nodeStmt.all(days).map(row => ({
+      const nodes = (nodeStmt.all(days) as CommunicationNodeRow[]).map((row) => ({
         id: row.id,
         label: row.label,
         type: row.type,
@@ -394,7 +466,17 @@ export class ComplexQueries {
           )
       `);
 
-      const underperformingAgents = underperformingAgentsStmt.all();
+      interface UnderperformingAgentRow {
+        id: string;
+        name: string;
+        type: string;
+        tasks_completed: number;
+        tasks_failed: number;
+        failure_rate: number;
+        avg_task_duration: number;
+      }
+      
+      const underperformingAgents = underperformingAgentsStmt.all() as UnderperformingAgentRow[];
       for (const agent of underperformingAgents) {
         anomalies.push({
           type: 'agent',
@@ -416,6 +498,15 @@ export class ComplexQueries {
       }
 
       // Check for stuck tasks
+      interface StuckTaskRow {
+        id: string;
+        type: string;
+        assigned_agent: string;
+        status: string;
+        started_at: string;
+        seconds_in_progress: number;
+      }
+      
       const stuckTasksStmt = conn.prepare(`
         SELECT 
           id,
@@ -429,7 +520,12 @@ export class ComplexQueries {
           AND started_at < datetime('now', '-1 hour')
       `);
 
-      const stuckTasks = stuckTasksStmt.all();
+      const stuckTasks = stuckTasksStmt.all() as Array<{
+        id: string;
+        type: string;
+        assigned_agent: string;
+        seconds_in_progress: number;
+      }>;
       for (const task of stuckTasks) {
         anomalies.push({
           type: 'task',
@@ -486,7 +582,13 @@ export class ComplexQueries {
         HAVING acknowledged_count < total_receivers * 0.8
       `);
 
-      const deliveryIssues = deliveryIssuesStmt.all();
+      const deliveryIssues = deliveryIssuesStmt.all() as Array<{
+        id: string;
+        type: string;
+        sender_id: string;
+        acknowledged_count: number;
+        total_receivers: number;
+      }>;
       for (const message of deliveryIssues) {
         const deliveryRate = (message.acknowledged_count / message.total_receivers) * 100;
         anomalies.push({

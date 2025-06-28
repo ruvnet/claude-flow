@@ -222,7 +222,7 @@ export class DatabaseConnectionPool extends EventEmitter {
     }
   }
 
-  getMetrics(): PerformanceMetrics {
+  getMetrics(): PerformanceMetrics & { averageQueryTime: number } {
     return {
       ...this.metrics,
       averageQueryTime: this.metrics.totalQueries > 0
@@ -350,6 +350,31 @@ export async function executeMany(
       stmt.run(...params);
     }
   });
+}
+
+// Type-safe query helpers
+export function typedQuery<T>(
+  sql: string
+): (params?: any[]) => Promise<T[]> {
+  return async (params: any[] = []) => {
+    const db = getDatabase();
+    return db.withConnection((conn) => {
+      const stmt = conn.prepare(sql);
+      return stmt.all(...params) as T[];
+    });
+  };
+}
+
+export function typedQueryOne<T>(
+  sql: string
+): (params?: any[]) => Promise<T | undefined> {
+  return async (params: any[] = []) => {
+    const db = getDatabase();
+    return db.withConnection((conn) => {
+      const stmt = conn.prepare(sql);
+      return stmt.get(...params) as T | undefined;
+    });
+  };
 }
 
 // Export types

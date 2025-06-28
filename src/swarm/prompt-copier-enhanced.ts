@@ -1,8 +1,13 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Worker } from 'worker_threads';
-import { PromptCopier, CopyOptions, CopyResult, FileInfo } from './prompt-copier';
-import { logger } from '../logger';
+import { PromptCopier, CopyOptions, CopyResult, FileInfo } from './prompt-copier.js';
+import { Logger } from '../core/logger.js';
+
+const logger = new Logger(
+  { level: 'info', format: 'json', destination: 'console' },
+  { component: 'PromptCopierEnhanced' }
+);
 
 interface WorkerPool {
   workers: Worker[];
@@ -220,7 +225,7 @@ export class EnhancedPromptCopier extends PromptCopier {
       } catch (error) {
         this.errors.push({
           file: file.path,
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
           phase: 'verify'
         });
       }

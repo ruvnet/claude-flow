@@ -122,7 +122,7 @@ export class SparcTaskExecutor {
     } catch (error) {
       this.logger.error('SPARC task execution failed', {
         taskId: task.id.id,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       });
       throw error;
     }
@@ -438,7 +438,7 @@ export class SparcTaskExecutor {
   }
 
   private generateUserStories(appType: string): any[] {
-    const stories = {
+    const stories: Record<string, any[]> = {
       'rest-api': [
         { id: 'US001', story: 'As a developer, I want to create resources via POST endpoints', priority: 'high' },
         { id: 'US002', story: 'As a developer, I want to retrieve resources via GET endpoints', priority: 'high' },
@@ -464,7 +464,7 @@ export class SparcTaskExecutor {
   }
 
   private generateAcceptanceCriteria(appType: string): any {
-    const criteria = {
+    const criteria: Record<string, any> = {
       'rest-api': {
         endpoints: ['All CRUD operations return appropriate status codes', 'API responses follow consistent format'],
         performance: ['Response time < 200ms for simple queries', 'Can handle 100 concurrent requests'],
@@ -556,7 +556,7 @@ export class SparcTaskExecutor {
   // Utility methods for language-specific details
 
   private getTestFramework(language: string): string {
-    const frameworks = {
+    const frameworks: Record<string, string> = {
       python: 'pytest',
       javascript: 'jest',
       typescript: 'jest',
@@ -566,7 +566,7 @@ export class SparcTaskExecutor {
   }
 
   private getProjectStructure(appType: string, language: string): any {
-    const structures = {
+    const structures: Record<string, any> = {
       'python-rest-api': {
         directories: ['src', 'tests', 'docs', 'config', 'migrations', 'scripts'],
         files: ['requirements.txt', 'setup.py', 'pytest.ini', '.gitignore', 'Dockerfile']
@@ -597,7 +597,7 @@ export class SparcTaskExecutor {
   }
 
   private getSourceFileName(name: string, language: string): string {
-    const extensions = {
+    const extensions: Record<string, string> = {
       python: 'py',
       javascript: 'js',
       typescript: 'ts',
@@ -609,7 +609,7 @@ export class SparcTaskExecutor {
   // Content generation methods
 
   private getFunctionalRequirements(appType: string): string[] {
-    const requirements = {
+    const requirements: Record<string, string[]> = {
       'rest-api': [
         'Implement RESTful endpoints for all resources',
         'Support JSON request/response format',
@@ -647,7 +647,7 @@ export class SparcTaskExecutor {
   }
 
   private getTechnicalRequirements(appType: string): string[] {
-    const tech = {
+    const tech: Record<string, string[]> = {
       'rest-api': [
         'Use appropriate web framework (Express, Flask, FastAPI)',
         'Implement database ORM/ODM',

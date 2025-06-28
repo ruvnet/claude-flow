@@ -1083,7 +1083,7 @@ export class AnalyticsManager extends EventEmitter {
 
     for (const dashboardData of defaultDashboards) {
       if (!Array.from(this.dashboards.values()).some(d => d.name === dashboardData.name)) {
-        await this.createDashboard(dashboardData);
+        await this.createDashboard(dashboardData as Parameters<typeof this.createDashboard>[0]);
       }
     }
   }
@@ -1227,7 +1227,9 @@ export class AnalyticsManager extends EventEmitter {
         title: `Anomaly detected in ${metric.name}`,
         description: `The metric ${metric.name} has deviated significantly from its normal pattern`,
         type: 'anomaly',
-        category: metric.category,
+        category: (['performance', 'usage', 'cost', 'security', 'quality'].includes(metric.category) 
+          ? metric.category 
+          : 'performance') as 'performance' | 'usage' | 'cost' | 'security' | 'quality',
         confidence: Math.min(95, deviation * 20),
         impact: deviation > 3 ? 'high' : 'medium',
         priority: deviation > 3 ? 'high' : 'medium',

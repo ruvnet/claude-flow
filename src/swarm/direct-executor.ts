@@ -47,7 +47,7 @@ export class DirectTaskExecutor {
       }
 
       // Execute based on task type and objective
-      const result = await this.executeTaskByType(task, agent, targetDir);
+      const result = await this.executeTaskByType(task, agent, targetDir || './output');
 
       const endTime = Date.now();
       const executionTime = endTime - startTime;
@@ -77,7 +77,7 @@ export class DirectTaskExecutor {
     } catch (error) {
       this.logger.error('Task execution failed', {
         taskId: task.id.id,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       });
       throw error;
     }
@@ -86,7 +86,7 @@ export class DirectTaskExecutor {
   private async executeTaskByType(
     task: TaskDefinition,
     agent: AgentState,
-    targetDir?: string
+    targetDir: string
   ): Promise<any> {
     const objective = task.description.toLowerCase();
     
@@ -137,7 +137,7 @@ export class DirectTaskExecutor {
     }
   }
 
-  private async executeAnalyzerTask(task: TaskDefinition, targetDir?: string): Promise<any> {
+  private async executeAnalyzerTask(task: TaskDefinition, targetDir: string): Promise<any> {
     this.logger.info('Executing analyzer task', { taskName: task.name });
     
     const analysis = {
@@ -522,7 +522,7 @@ console.log('Created by Claude Flow Swarm');
     };
   }
 
-  private async executeTestingTask(task: TaskDefinition, targetDir?: string): Promise<any> {
+  private async executeTestingTask(task: TaskDefinition, targetDir: string): Promise<any> {
     this.logger.info('Executing testing task', { taskName: task.name });
     
     const testPlan = {
@@ -547,7 +547,7 @@ console.log('Created by Claude Flow Swarm');
     return testPlan;
   }
 
-  private async executeReviewTask(task: TaskDefinition, targetDir?: string): Promise<any> {
+  private async executeReviewTask(task: TaskDefinition, targetDir: string): Promise<any> {
     this.logger.info('Executing review task', { taskName: task.name });
     
     const review = {
@@ -575,7 +575,7 @@ console.log('Created by Claude Flow Swarm');
     return review;
   }
 
-  private async executeDocumentationTask(task: TaskDefinition, targetDir?: string): Promise<any> {
+  private async executeDocumentationTask(task: TaskDefinition, targetDir: string): Promise<any> {
     this.logger.info('Executing documentation task', { taskName: task.name });
     
     const docs = `# Documentation
@@ -602,7 +602,7 @@ See the generated API documentation.
     return { documentation: 'Created', location: targetDir };
   }
 
-  private async executeResearchTask(task: TaskDefinition, targetDir?: string): Promise<any> {
+  private async executeResearchTask(task: TaskDefinition, targetDir: string): Promise<any> {
     this.logger.info('Executing research task', { taskName: task.name });
     
     const research = {
@@ -629,7 +629,7 @@ See the generated API documentation.
     return research;
   }
 
-  private async executeCoordinationTask(task: TaskDefinition, targetDir?: string): Promise<any> {
+  private async executeCoordinationTask(task: TaskDefinition, targetDir: string): Promise<any> {
     this.logger.info('Executing coordination task', { taskName: task.name });
     
     return {
@@ -639,7 +639,7 @@ See the generated API documentation.
     };
   }
 
-  private async executeGenericTask(task: TaskDefinition, targetDir?: string): Promise<any> {
+  private async executeGenericTask(task: TaskDefinition, targetDir: string): Promise<any> {
     this.logger.info('Executing generic task', { taskName: task.name });
     
     return {

@@ -8,6 +8,7 @@ import * as crypto from 'crypto';
 import { MigrationAnalysis, MigrationRisk } from './types';
 import { logger } from './logger';
 import chalk from 'chalk';
+// @ts-ignore - glob types not installed
 import { glob } from 'glob';
 
 export class MigrationAnalyzer {

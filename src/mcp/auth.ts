@@ -436,3 +436,34 @@ export const Permissions = {
 } as const;
 
 export type Permission = typeof Permissions[keyof typeof Permissions];
+
+// Additional types that are referenced in index.ts
+export interface AuthContext {
+  user: string;
+  permissions: string[];
+  token?: string;
+  sessionId?: string;
+}
+
+export interface TokenInfo {
+  token: string;
+  user: string;
+  permissions: string[];
+  issuedAt: Date;
+  expiresAt: Date;
+}
+
+export interface TokenGenerationOptions {
+  expiresIn?: number;
+  permissions?: string[];
+  scopes?: string[];
+}
+
+export interface AuthSession {
+  id: string;
+  user: string;
+  authenticated: boolean;
+  authContext?: AuthContext;
+  createdAt: Date;
+  lastActivity: Date;
+}

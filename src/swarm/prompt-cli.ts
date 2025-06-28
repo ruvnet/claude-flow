@@ -2,7 +2,8 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
-import { copyPrompts, copyPromptsEnhanced } from './prompt-copier-enhanced';
+import { copyPromptsEnhanced } from './prompt-copier-enhanced.js';
+import { copyPrompts } from './prompt-copier.js';
 import { 
   PromptConfigManager, 
   PromptPathResolver, 
@@ -10,8 +11,13 @@ import {
   createProgressBar,
   formatFileSize,
   formatDuration
-} from './prompt-utils';
-import { logger } from '../logger';
+} from './prompt-utils.js';
+import { Logger } from '../core/logger.js';
+
+const logger = new Logger(
+  { level: 'info', format: 'json', destination: 'console' },
+  { component: 'PromptCLI' }
+);
 
 const program = new Command();
 
@@ -67,7 +73,7 @@ program
       // Create progress bar
       let progressBar: ReturnType<typeof createProgressBar> | null = null;
       
-      copyOptions.progressCallback = (progress) => {
+      copyOptions.progressCallback = (progress: import('./prompt-copier').CopyProgress) => {
         if (!progressBar) {
           progressBar = createProgressBar(progress.total);
         }
@@ -100,7 +106,7 @@ program
 
       if (result.errors.length > 0) {
         console.log('\n=== Errors ===');
-        result.errors.forEach(error => {
+        result.errors.forEach((error: import('./prompt-copier').CopyError) => {
           console.log(`❌ ${error.file}: ${error.error} (${error.phase})`);
         });
       }

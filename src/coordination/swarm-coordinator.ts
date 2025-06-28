@@ -4,6 +4,7 @@ import { generateId } from '../utils/helpers.js';
 import { SwarmMonitor } from './swarm-monitor.js';
 import { AdvancedTaskScheduler } from './advanced-scheduler.js';
 import { MemoryManager } from '../memory/manager.js';
+import type { Message } from '../types/missing-types.js';
 
 export interface SwarmAgent {
   id: string;
@@ -173,7 +174,9 @@ export class SwarmCoordinator extends EventEmitter {
     this.stopBackgroundWorkers();
 
     // Stop subsystems
-    await this.scheduler.stop();
+    if (this.scheduler && 'stop' in this.scheduler && typeof this.scheduler.stop === 'function') {
+      await this.scheduler.stop();
+    }
     
     if (this.monitor) {
       this.monitor.stop();
@@ -487,11 +490,11 @@ export class SwarmCoordinator extends EventEmitter {
       agent.metrics.tasksFailed++;
       agent.metrics.lastActivity = new Date();
 
-      if (this.monitor) {
+      if (this.monitor && agent.id && task.error) {
         this.monitor.taskFailed(agent.id, taskId, task.error);
       }
 
-      if (this.circuitBreaker) {
+      if (this.circuitBreaker && agent.id) {
         this.circuitBreaker.recordFailure(agent.id);
       }
     }
@@ -678,7 +681,7 @@ export class SwarmCoordinator extends EventEmitter {
   }
 
   private handleAgentMessage(message: Message): void {
-    this.logger.debug(`Agent message: ${message.type} from ${message.from}`);
+    this.logger.debug(`Agent message: ${message.type} from ${message.source || 'unknown'}`);
     this.emit('agent:message', message);
   }
 

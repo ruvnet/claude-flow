@@ -4,9 +4,9 @@
 
 import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
+import { promises as fs } from 'node:fs';
 import { Task } from '../../utils/types.js';
 import { generateId } from '../../utils/helpers.js';
-import { DenoCompat } from '../../utils/deno-compat.js';
 
 export const taskCommand = new Command()
   .description('Manage tasks')
@@ -72,7 +72,7 @@ taskCommand
   .arguments('<workflow-file:string>')
   .action(async (workflowFile: string, options: any) => {
     try {
-      const content = await DenoCompat.readTextFile(workflowFile);
+      const content = await fs.readFile(workflowFile, 'utf-8');
       const workflow = JSON.parse(content);
       
       console.log(colors.green('Workflow loaded:'));

@@ -18,8 +18,9 @@ import { MigrationAnalyzer } from './migration-analyzer';
 import { logger } from './logger';
 import { ProgressReporter } from './progress-reporter';
 import { MigrationValidator } from './migration-validator';
+// @ts-ignore - glob types not installed
 import { glob } from 'glob';
-import * as inquirer from 'inquirer';
+import inquirer from 'inquirer';
 import chalk from 'chalk';
 
 export class MigrationRunner {
@@ -103,7 +104,10 @@ export class MigrationRunner {
       this.printSummary(result);
 
     } catch (error) {
-      result.errors.push({ error: error.message, stack: error.stack });
+      result.errors.push({ 
+        error: error instanceof Error ? error.message : String(error), 
+        stack: error instanceof Error ? error.stack : undefined 
+      });
       this.progress.error('Migration failed');
       
       // Attempt rollback on failure
@@ -472,15 +476,15 @@ export class MigrationRunner {
     return {
       version: '1.0.0',
       files: {
-        commands: [
-          { source: 'sparc.md', target: 'sparc.md' },
-          { source: 'sparc/architect.md', target: 'sparc-architect.md' },
-          { source: 'sparc/code.md', target: 'sparc-code.md' },
-          { source: 'sparc/tdd.md', target: 'sparc-tdd.md' },
-          { source: 'claude-flow-help.md', target: 'claude-flow-help.md' },
-          { source: 'claude-flow-memory.md', target: 'claude-flow-memory.md' },
-          { source: 'claude-flow-swarm.md', target: 'claude-flow-swarm.md' }
-        ],
+        commands: {
+          'sparc': { source: 'sparc.md', target: 'sparc.md' },
+          'sparc-architect': { source: 'sparc/architect.md', target: 'sparc-architect.md' },
+          'sparc-code': { source: 'sparc/code.md', target: 'sparc-code.md' },
+          'sparc-tdd': { source: 'sparc/tdd.md', target: 'sparc-tdd.md' },
+          'claude-flow-help': { source: 'claude-flow-help.md', target: 'claude-flow-help.md' },
+          'claude-flow-memory': { source: 'claude-flow-memory.md', target: 'claude-flow-memory.md' },
+          'claude-flow-swarm': { source: 'claude-flow-swarm.md', target: 'claude-flow-swarm.md' }
+        },
         configurations: {},
         templates: {}
       }

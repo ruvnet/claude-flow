@@ -6,6 +6,7 @@
 import { colors } from '@cliffy/ansi/colors';
 import { ProcessManager } from './process-manager.js';
 import { ProcessInfo, ProcessStatus, SystemStats } from './types.js';
+import { stdin, stdout } from 'process';
 
 export class ProcessUI {
   private processManager: ProcessManager;
@@ -35,25 +36,19 @@ export class ProcessUI {
     this.running = true;
     
     // Clear screen
-    console.clear();
+    process.stdout.write('\x1Bc');
 
     // Initial render
     this.render();
 
     // Simple input loop
-    const decoder = new TextDecoder();
-    const encoder = new TextEncoder();
-    
     while (this.running) {
       // Show prompt
-      await Deno.stdout.write(encoder.encode('\nCommand: '));
+      process.stdout.write('\nCommand: ');
       
-      // Read single character
-      const buf = new Uint8Array(1024);
-      const n = await Deno.stdin.read(buf);
-      if (n === null) break;
-      
-      const input = decoder.decode(buf.subarray(0, n)).trim();
+      // Read input line by line
+      const input = await this.readLine();
+      if (input === null) break;
       
       if (input.length > 0) {
         await this.handleCommand(input);
@@ -63,7 +58,7 @@ export class ProcessUI {
 
   async stop(): Promise<void> {
     this.running = false;
-    console.clear();
+    process.stdout.write('\x1Bc'); // Clear screen
   }
 
   private async handleCommand(input: string): Promise<void> {
@@ -111,7 +106,7 @@ export class ProcessUI {
   }
 
   private render(): void {
-    console.clear();
+    process.stdout.write('\x1Bc'); // Clear screen
     const processes = this.processManager.getAllProcesses();
     const stats = this.processManager.getSystemStats();
 
@@ -151,14 +146,14 @@ export class ProcessUI {
     console.log(colors.gray('[r] Refresh [h] Help [q] Quit'));
   }
 
-  private async showProcessMenu(process: ProcessInfo): Promise<void> {
+  private async showProcessMenu(processInfo: ProcessInfo): Promise<void> {
     console.log();
-    console.log(colors.cyan.bold(`Selected: ${process.name}`));
+    console.log(colors.cyan.bold(`Selected: ${processInfo.name}`));
     console.log(colors.gray('─'.repeat(40)));
     
-    if (process.status === ProcessStatus.STOPPED) {
+    if (processInfo.status === ProcessStatus.STOPPED) {
       console.log('[s] Start');
-    } else if (process.status === ProcessStatus.RUNNING) {
+    } else if (processInfo.status === ProcessStatus.RUNNING) {
       console.log('[x] Stop');
       console.log('[r] Restart');
     }
@@ -166,35 +161,31 @@ export class ProcessUI {
     console.log('[d] Details');
     console.log('[c] Cancel');
     
-    const decoder = new TextDecoder();
-    const encoder = new TextEncoder();
+    process.stdout.write('\nAction: ');
     
-    await Deno.stdout.write(encoder.encode('\nAction: '));
+    const action = await this.readLine();
+    if (action === null) return;
     
-    const buf = new Uint8Array(1024);
-    const n = await Deno.stdin.read(buf);
-    if (n === null) return;
+    const actionLower = action.toLowerCase();
     
-    const action = decoder.decode(buf.subarray(0, n)).trim().toLowerCase();
-    
-    switch (action) {
+    switch (actionLower) {
       case 's':
-        if (process.status === ProcessStatus.STOPPED) {
-          await this.startProcess(process.id);
+        if (processInfo.status === ProcessStatus.STOPPED) {
+          await this.startProcess(processInfo.id);
         }
         break;
       case 'x':
-        if (process.status === ProcessStatus.RUNNING) {
-          await this.stopProcess(process.id);
+        if (processInfo.status === ProcessStatus.RUNNING) {
+          await this.stopProcess(processInfo.id);
         }
         break;
       case 'r':
-        if (process.status === ProcessStatus.RUNNING) {
-          await this.restartProcess(process.id);
+        if (processInfo.status === ProcessStatus.RUNNING) {
+          await this.restartProcess(processInfo.id);
         }
         break;
       case 'd':
-        this.showProcessDetails(process);
+        this.showProcessDetails(processInfo);
         await this.waitForKey();
         break;
     }
@@ -202,38 +193,38 @@ export class ProcessUI {
     this.render();
   }
 
-  private showProcessDetails(process: ProcessInfo): void {
+  private showProcessDetails(processInfo: ProcessInfo): void {
     console.log();
-    console.log(colors.cyan.bold(`📋 Process Details: ${process.name}`));
+    console.log(colors.cyan.bold(`📋 Process Details: ${processInfo.name}`));
     console.log(colors.gray('─'.repeat(60)));
     
-    console.log(colors.white('ID:'), process.id);
-    console.log(colors.white('Type:'), process.type);
-    console.log(colors.white('Status:'), this.getStatusDisplay(process.status), process.status);
+    console.log(colors.white('ID:'), processInfo.id);
+    console.log(colors.white('Type:'), processInfo.type);
+    console.log(colors.white('Status:'), this.getStatusDisplay(processInfo.status), processInfo.status);
     
-    if (process.pid) {
-      console.log(colors.white('PID:'), process.pid);
+    if (processInfo.pid) {
+      console.log(colors.white('PID:'), processInfo.pid);
     }
     
-    if (process.startTime) {
-      const uptime = Date.now() - process.startTime;
+    if (processInfo.startTime) {
+      const uptime = Date.now() - processInfo.startTime;
       console.log(colors.white('Uptime:'), this.formatUptime(uptime));
     }
     
-    if (process.metrics) {
+    if (processInfo.metrics) {
       console.log();
       console.log(colors.white.bold('Metrics:'));
-      if (process.metrics.cpu !== undefined) {
-        console.log(colors.white('CPU:'), `${process.metrics.cpu.toFixed(1)}%`);
+      if (processInfo.metrics.cpu !== undefined) {
+        console.log(colors.white('CPU:'), `${processInfo.metrics.cpu.toFixed(1)}%`);
       }
-      if (process.metrics.memory !== undefined) {
-        console.log(colors.white('Memory:'), `${process.metrics.memory.toFixed(0)} MB`);
+      if (processInfo.metrics.memory !== undefined) {
+        console.log(colors.white('Memory:'), `${processInfo.metrics.memory.toFixed(0)} MB`);
       }
-      if (process.metrics.restarts !== undefined) {
-        console.log(colors.white('Restarts:'), process.metrics.restarts);
+      if (processInfo.metrics.restarts !== undefined) {
+        console.log(colors.white('Restarts:'), processInfo.metrics.restarts);
       }
-      if (process.metrics.lastError) {
-        console.log(colors.red('Last Error:'), process.metrics.lastError);
+      if (processInfo.metrics.lastError) {
+        console.log(colors.red('Last Error:'), processInfo.metrics.lastError);
       }
     }
     
@@ -242,8 +233,7 @@ export class ProcessUI {
   }
 
   private async waitForKey(): Promise<void> {
-    const buf = new Uint8Array(1);
-    await Deno.stdin.read(buf);
+    await this.readLine();
   }
 
   private getStatusDisplay(status: ProcessStatus): string {
@@ -370,15 +360,39 @@ export class ProcessUI {
       console.log(colors.yellow('⚠️  Some processes are still running.'));
       console.log('Stop all processes before exiting? [y/N]: ');
       
-      const decoder = new TextDecoder();
-      const buf = new Uint8Array(1024);
-      const n = await Deno.stdin.read(buf);
+      const answer = await this.readLine();
       
-      if (n && decoder.decode(buf.subarray(0, n)).trim().toLowerCase() === 'y') {
+      if (answer && answer.trim().toLowerCase() === 'y') {
         await this.stopAll();
       }
     }
     
     await this.stop();
+  }
+
+  private readLine(): Promise<string | null> {
+    return new Promise((resolve) => {
+      if (!stdin.readable) {
+        resolve(null);
+        return;
+      }
+
+      const onData = (data: Buffer) => {
+        stdin.pause();
+        stdin.removeListener('data', onData);
+        resolve(data.toString().trim());
+      };
+
+      const onEnd = () => {
+        stdin.removeListener('data', onData);
+        stdin.removeListener('end', onEnd);
+        resolve(null);
+      };
+
+      stdin.resume();
+      stdin.setEncoding('utf8');
+      stdin.once('data', onData);
+      stdin.once('end', onEnd);
+    });
   }
 }

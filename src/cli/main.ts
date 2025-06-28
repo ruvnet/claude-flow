@@ -29,7 +29,7 @@ async function main(): Promise<void> {
   try {
     // Initialize core systems
     await logger.configure({
-      level: process.env.CLAUDE_FLOW_LOG_LEVEL || 'info',
+      level: (process.env.CLAUDE_FLOW_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'info',
       format: 'text',
       destination: 'console',
     });

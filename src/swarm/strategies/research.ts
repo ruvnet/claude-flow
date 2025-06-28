@@ -106,7 +106,76 @@ export class ResearchStrategy extends BaseStrategy {
   };
 
   constructor(config: Partial<SwarmConfig> = {}) {
-    super(config);
+    // Create default config and merge with provided config
+    const defaultConfig: SwarmConfig = {
+      name: 'research-swarm',
+      description: 'Research strategy swarm',
+      version: '1.0.0',
+      mode: 'distributed' as SwarmMode,
+      strategy: 'research' as SwarmStrategy,
+      coordinationStrategy: 'hierarchical' as CoordinationStrategy,
+      maxAgents: 5,
+      maxTasks: 100,
+      maxDuration: 3600000, // 1 hour
+      resourceLimits: {},
+      qualityThreshold: 0.8,
+      reviewRequired: false,
+      testingRequired: false,
+      monitoring: {
+        metricsEnabled: true,
+        loggingEnabled: true,
+        tracingEnabled: false,
+        metricsInterval: 5000,
+        heartbeatInterval: 10000,
+        healthCheckInterval: 30000,
+        retentionPeriod: 3600000,
+        maxLogSize: 10 * 1024 * 1024,
+        maxMetricPoints: 10000,
+        alertingEnabled: false,
+        alertThresholds: {}
+      },
+      memory: {
+        namespace: 'research',
+        partitions: [],
+        permissions: {
+          read: ['*'],
+          write: ['*'],
+          delete: ['admin']
+        },
+        persistent: false,
+        backupEnabled: false,
+        distributed: false,
+        consistency: 'eventual',
+        cacheEnabled: true,
+        compressionEnabled: true
+      },
+      security: {
+        authenticationRequired: false,
+        authorizationRequired: false,
+        encryptionEnabled: false,
+        defaultPermissions: ['read', 'write'],
+        adminRoles: ['admin'],
+        auditEnabled: false,
+        auditLevel: 'info',
+        inputValidation: true,
+        outputSanitization: true
+      },
+      performance: {
+        cacheEnabled: true,
+        maxConcurrency: 10,
+        defaultTimeout: 300000,
+        cacheSize: 1000,
+        cacheTtl: 300000,
+        optimizationEnabled: true,
+        adaptiveScheduling: true,
+        predictiveLoading: true,
+        resourcePooling: true,
+        connectionPooling: true,
+        memoryPooling: true
+      }
+    };
+    
+    super({ ...defaultConfig, ...config });
     
     this.logger = new Logger(
       { level: 'info', format: 'text', destination: 'console' },
@@ -148,7 +217,7 @@ export class ResearchStrategy extends BaseStrategy {
     // Create research query planning task
     const queryPlanningTask = this.createResearchTask(
       'query-planning',
-      'research-planning',
+      'research' as TaskType,
       'Research Query Planning',
       `Analyze the research objective and create optimized search queries:
 
@@ -174,7 +243,7 @@ Focus on creating queries that will yield high-quality, credible results.`,
     // Create parallel web search tasks
     const webSearchTask = this.createResearchTask(
       'web-search',
-      'web-search',
+      'research' as TaskType,
       'Parallel Web Search Execution',
       `Execute parallel web searches based on the research plan:
 
@@ -202,7 +271,7 @@ Collect diverse, high-quality sources relevant to the research objective.`,
     // Create data extraction and processing task
     const dataExtractionTask = this.createResearchTask(
       'data-extraction',
-      'data-processing',
+      'analysis' as TaskType,
       'Parallel Data Extraction',
       `Extract and process data from collected sources:
 
@@ -337,7 +406,7 @@ Ensure the report is well-structured and actionable.`,
     const cacheKey = this.generateCacheKey('web-search', task.description);
     const cached = this.getFromCache(cacheKey);
     if (cached) {
-      this.metrics.cacheHits++;
+      this.researchMetrics.cacheHits++;
       return cached;
     }
 
@@ -358,7 +427,7 @@ Ensure the report is well-structured and actionable.`,
     
     // Cache results
     this.setCache(cacheKey, rankedResults, 3600000); // 1 hour TTL
-    this.metrics.cacheMisses++;
+    this.researchMetrics.cacheMisses++;
 
     return {
       results: rankedResults,
@@ -697,12 +766,12 @@ Ensure the report is well-structured and actionable.`,
   }
 
   private getFromCache(key: string): any | null {
-    const entry = this.cache.get(key);
+    const entry = this.researchCache.get(key);
     if (!entry) return null;
 
     const now = new Date();
     if (now.getTime() - entry.timestamp.getTime() > entry.ttl) {
-      this.cache.delete(key);
+      this.researchCache.delete(key);
       return null;
     }
 
@@ -712,7 +781,7 @@ Ensure the report is well-structured and actionable.`,
   }
 
   private setCache(key: string, data: any, ttl: number): void {
-    this.cache.set(key, {
+    this.researchCache.set(key, {
       key,
       data,
       timestamp: new Date(),
@@ -722,19 +791,19 @@ Ensure the report is well-structured and actionable.`,
     });
 
     // Cleanup old entries if cache is too large
-    if (this.cache.size > 1000) {
+    if (this.researchCache.size > 1000) {
       this.cleanupCache();
     }
   }
 
   private cleanupCache(): void {
-    const entries = Array.from(this.cache.entries());
+    const entries = Array.from(this.researchCache.entries());
     entries.sort((a, b) => a[1].lastAccessed.getTime() - b[1].lastAccessed.getTime());
     
     // Remove oldest 20% of entries
     const toRemove = Math.floor(entries.length * 0.2);
     for (let i = 0; i < toRemove; i++) {
-      this.cache.delete(entries[i][0]);
+      this.researchCache.delete(entries[i][0]);
     }
   }
 
@@ -789,21 +858,21 @@ Ensure the report is well-structured and actionable.`,
   }
 
   private updateMetrics(taskType: string, duration: number): void {
-    this.metrics.queriesExecuted++;
-    this.metrics.averageResponseTime = 
-      (this.metrics.averageResponseTime + duration) / 2;
+    this.researchMetrics.queriesExecuted++;
+    this.researchMetrics.averageResponseTime = 
+      (this.researchMetrics.averageResponseTime + duration) / 2;
   }
 
   // Public API for metrics
   getMetrics() {
     return {
       ...this.metrics,
-      cacheHitRate: this.metrics.cacheHits / (this.metrics.cacheHits + this.metrics.cacheMisses),
-      averageCredibilityScore: this.metrics.credibilityScores.length > 0 
-        ? this.metrics.credibilityScores.reduce((a, b) => a + b, 0) / this.metrics.credibilityScores.length 
+      cacheHitRate: this.researchMetrics.cacheHits / (this.researchMetrics.cacheHits + this.researchMetrics.cacheMisses),
+      averageCredibilityScore: this.researchMetrics.credibilityScores.length > 0 
+        ? this.researchMetrics.credibilityScores.reduce((a: number, b: number) => a + b, 0) / this.researchMetrics.credibilityScores.length 
         : 0,
       connectionPoolUtilization: this.connectionPool.active / this.connectionPool.max,
-      cacheSize: this.cache.size
+      cacheSize: this.researchCache.size
     };
   }
 

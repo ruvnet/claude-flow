@@ -8,22 +8,24 @@ import { Table } from '@cliffy/table';
 import { Confirm, Input } from '@cliffy/prompt';
 import { formatDuration, formatStatusIndicator } from '../formatter.js';
 import { generateId } from '../../utils/helpers.js';
-import { DenoCompat } from '../../utils/deno-compat.js';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import * as crypto from 'node:crypto';
+import * as os from 'node:os';
 
 export const sessionCommand = new Command()
   .description('Manage Claude-Flow sessions')
   .action(() => {
     sessionCommand.showHelp();
   })
-  .command('list', Command
+  .command('list', Command)
     .description('List all saved sessions')
     .option('-a, --active', 'Show only active sessions')
     .option('--format <format:string>', 'Output format (table, json)', { default: 'table' })
     .action(async (options: any) => {
       await listSessions(options);
-    }),
-  )
-  .command('save', Command
+    })
+  .command('save', Command)
     .description('Save current session state')
     .arguments('[name:string]')
     .option('-d, --description <desc:string>', 'Session description')
@@ -31,59 +33,52 @@ export const sessionCommand = new Command()
     .option('--auto', 'Auto-generate session name')
     .action(async (options: any, name: string | undefined) => {
       await saveSession(name, options);
-    }),
-  )
-  .command('restore', Command
+    })
+  .command('restore', Command)
     .description('Restore a saved session')
     .arguments('<session-id:string>')
     .option('-f, --force', 'Force restore without confirmation')
     .option('--merge', 'Merge with current session instead of replacing')
     .action(async (options: any, sessionId: string) => {
       await restoreSession(sessionId, options);
-    }),
-  )
-  .command('delete', Command
+    })
+  .command('delete', Command)
     .description('Delete a saved session')
     .arguments('<session-id:string>')
     .option('-f, --force', 'Skip confirmation prompt')
     .action(async (options: any, sessionId: string) => {
       await deleteSession(sessionId, options);
-    }),
-  )
-  .command('export', Command
+    })
+  .command('export', Command)
     .description('Export session to file')
     .arguments('<session-id:string> <output-file:string>')
     .option('--format <format:string>', 'Export format (json, yaml)', { default: 'json' })
     .option('--include-memory', 'Include agent memory in export')
     .action(async (options: any, sessionId: string, outputFile: string) => {
       await exportSession(sessionId, outputFile, options);
-    }),
-  )
-  .command('import', Command
+    })
+  .command('import', Command)
     .description('Import session from file')
     .arguments('<input-file:string>')
     .option('-n, --name <name:string>', 'Custom session name')
     .option('--overwrite', 'Overwrite existing session with same ID')
     .action(async (options: any, inputFile: string) => {
       await importSession(inputFile, options);
-    }),
-  )
-  .command('info', Command
+    })
+  .command('info', Command)
     .description('Show detailed session information')
     .arguments('<session-id:string>')
     .action(async (options: any, sessionId: string) => {
       await showSessionInfo(sessionId);
-    }),
-  )
-  .command('clean', Command
+    })
+  .command('clean', Command)
     .description('Clean up old or orphaned sessions')
     .option('--older-than <days:number>', 'Delete sessions older than N days', { default: 30 })
     .option('--dry-run', 'Show what would be deleted without deleting')
     .option('--orphaned', 'Only clean orphaned sessions')
     .action(async (options: any) => {
       await cleanSessions(options);
-    }),
-  );
+    });
 
 interface SessionData {
   id: string;
@@ -105,13 +100,13 @@ interface SessionData {
   };
 }
 
-const SESSION_DIR = '.claude-flow/sessions';
+const SESSION_DIR = path.join('.claude-flow', 'sessions');
 
 async function ensureSessionDir(): Promise<void> {
   try {
-    await DenoCompat.mkdir(SESSION_DIR, { recursive: true });
-  } catch (error) {
-    if (!(error instanceof DenoCompat.errors.AlreadyExists)) {
+    await fs.mkdir(SESSION_DIR, { recursive: true });
+  } catch (error: any) {
+    if (error.code !== 'EEXIST') {
       throw error;
     }
   }
@@ -188,14 +183,14 @@ async function saveSession(name: string | undefined, options: any): Promise<void
       state: currentState,
       metadata: {
         version: '1.0.0',
-        platform: DenoCompat.build.os,
+        platform: os.platform(),
         checksum: await calculateChecksum(currentState)
       }
     };
 
     await ensureSessionDir();
-    const filePath = `${SESSION_DIR}/${session.id}.json`;
-    await DenoCompat.writeTextFile(filePath, JSON.stringify(session, null, 2));
+    const filePath = path.join(SESSION_DIR, `${session.id}.json`);
+    await fs.writeFile(filePath, JSON.stringify(session, null, 2), 'utf8');
 
     console.log(colors.green('✓ Session saved successfully'));
     console.log(`${colors.white('ID:')} ${session.id}`);
@@ -279,8 +274,8 @@ async function restoreSession(sessionId: string, options: any): Promise<void> {
 
     // Update session metadata
     session.updatedAt = new Date();
-    const filePath = `${SESSION_DIR}/${session.id}.json`;
-    await DenoCompat.writeTextFile(filePath, JSON.stringify(session, null, 2));
+    const filePath = path.join(SESSION_DIR, `${session.id}.json`);
+    await fs.writeFile(filePath, JSON.stringify(session, null, 2), 'utf8');
 
     console.log(colors.green('✓ Session restored successfully'));
     console.log(colors.yellow('Note: This is a mock implementation. In production, this would connect to the orchestrator.'));
@@ -314,8 +309,8 @@ async function deleteSession(sessionId: string, options: any): Promise<void> {
       }
     }
 
-    const filePath = `${SESSION_DIR}/${session.id}.json`;
-    await DenoCompat.remove(filePath);
+    const filePath = path.join(SESSION_DIR, `${session.id}.json`);
+    await fs.unlink(filePath);
 
     console.log(colors.green('✓ Session deleted successfully'));
   } catch (error) {
@@ -353,7 +348,7 @@ async function exportSession(sessionId: string, outputFile: string, options: any
       content = JSON.stringify(exportData, null, 2);
     }
 
-    await Deno.writeTextFile(outputFile, content);
+    await fs.writeFile(outputFile, content, 'utf8');
 
     console.log(colors.green('✓ Session exported successfully'));
     console.log(`${colors.white('File:')} ${outputFile}`);
@@ -366,7 +361,7 @@ async function exportSession(sessionId: string, outputFile: string, options: any
 
 async function importSession(inputFile: string, options: any): Promise<void> {
   try {
-    const content = await DenoCompat.readTextFile(inputFile);
+    const content = await fs.readFile(inputFile, 'utf8');
     const sessionData = JSON.parse(content) as SessionData;
 
     // Validate session data structure
@@ -401,8 +396,8 @@ async function importSession(inputFile: string, options: any): Promise<void> {
     }
 
     await ensureSessionDir();
-    const filePath = `${SESSION_DIR}/${sessionData.id}.json`;
-    await Deno.writeTextFile(filePath, JSON.stringify(sessionData, null, 2));
+    const filePath = path.join(SESSION_DIR, `${sessionData.id}.json`);
+    await fs.writeFile(filePath, JSON.stringify(sessionData, null, 2), 'utf8');
 
     console.log(colors.green('✓ Session imported successfully'));
     console.log(`${colors.white('ID:')} ${sessionData.id}`);
@@ -452,9 +447,9 @@ async function showSessionInfo(sessionId: string): Promise<void> {
     console.log(`${colors.white('Integrity:')} ${integrityIcon} ${integrity ? 'Valid' : 'Corrupted'}`);
 
     // File info
-    const filePath = `${SESSION_DIR}/${session.id}.json`;
+    const filePath = path.join(SESSION_DIR, `${session.id}.json`);
     try {
-      const fileInfo = await DenoCompat.stat(filePath);
+      const fileInfo = await fs.stat(filePath);
       console.log();
       console.log(colors.cyan.bold('File Information'));
       console.log('─'.repeat(40));
@@ -516,8 +511,8 @@ async function cleanSessions(options: any): Promise<void> {
     let deleted = 0;
     for (const session of toDelete) {
       try {
-        const filePath = `${SESSION_DIR}/${session.id}.json`;
-        await DenoCompat.remove(filePath);
+        const filePath = path.join(SESSION_DIR, `${session.id}.json`);
+        await fs.unlink(filePath);
         deleted++;
       } catch (error) {
         console.error(colors.red(`Failed to delete ${session.name}:`), (error as Error).message);
@@ -534,10 +529,11 @@ async function loadAllSessions(): Promise<SessionData[]> {
   const sessions: SessionData[] = [];
   
   try {
-    for await (const entry of DenoCompat.readDir(SESSION_DIR)) {
-      if (entry.isFile && entry.name.endsWith('.json')) {
+    const entries = await fs.readdir(SESSION_DIR, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith('.json')) {
         try {
-          const content = await DenoCompat.readTextFile(`${SESSION_DIR}/${entry.name}`);
+          const content = await fs.readFile(path.join(SESSION_DIR, entry.name), 'utf8');
           const session = JSON.parse(content) as SessionData;
           
           // Convert date strings back to Date objects
@@ -550,8 +546,8 @@ async function loadAllSessions(): Promise<SessionData[]> {
         }
       }
     }
-  } catch (error) {
-    if (!(error instanceof DenoCompat.errors.NotFound)) {
+  } catch (error: any) {
+    if (error.code !== 'ENOENT') {
       throw error;
     }
   }
@@ -588,9 +584,7 @@ async function getCurrentSessionState(): Promise<any> {
 
 async function calculateChecksum(data: any): Promise<string> {
   const content = JSON.stringify(data, null, 0);
-  const encoder = new TextEncoder();
-  const dataBuffer = encoder.encode(content);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+  const hash = crypto.createHash('sha256');
+  hash.update(content);
+  return hash.digest('hex').substring(0, 16);
 }

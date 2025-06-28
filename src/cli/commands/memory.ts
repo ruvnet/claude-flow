@@ -5,7 +5,7 @@
 import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
 import { Table } from '@cliffy/table';
-import { DenoCompat } from '../../utils/deno-compat.js';
+import { promises as fs } from 'fs';
 
 interface MemoryEntry {
   key: string;
@@ -20,7 +20,7 @@ export class SimpleMemoryManager {
 
   async load() {
     try {
-      const content = await DenoCompat.readTextFile(this.filePath);
+      const content = await fs.readFile(this.filePath, 'utf8');
       this.data = JSON.parse(content);
     } catch {
       // File doesn't exist yet
@@ -29,8 +29,8 @@ export class SimpleMemoryManager {
   }
 
   async save() {
-    await DenoCompat.mkdir("./memory", { recursive: true });
-    await DenoCompat.writeTextFile(this.filePath, JSON.stringify(this.data, null, 2));
+    await fs.mkdir("./memory", { recursive: true });
+    await fs.writeFile(this.filePath, JSON.stringify(this.data, null, 2), 'utf8');
   }
 
   async store(key: string, value: string, namespace: string = "default") {
@@ -94,11 +94,11 @@ export class SimpleMemoryManager {
 
   async exportData(filePath: string) {
     await this.load();
-    await DenoCompat.writeTextFile(filePath, JSON.stringify(this.data, null, 2));
+    await fs.writeFile(filePath, JSON.stringify(this.data, null, 2), 'utf8');
   }
 
   async importData(filePath: string) {
-    const content = await DenoCompat.readTextFile(filePath);
+    const content = await fs.readFile(filePath, 'utf8');
     this.data = JSON.parse(content);
     await this.save();
   }
@@ -126,7 +126,7 @@ export const memoryCommand = new Command()
     memoryCommand.showHelp();
   })
   // Store command
-  .command('store', Command
+  .command('store', Command)
     .description('Store information in memory')
     .arguments('<key:string> <value:string>')
     .option('-n, --namespace <namespace:string>', 'Target namespace', { default: 'default' })
@@ -142,9 +142,8 @@ export const memoryCommand = new Command()
         console.error(colors.red('Failed to store:'), (error as Error).message);
       }
     })
-  )
   // Query command
-  .command('query', Command
+  .command('query', Command)
     .description('Search memory entries')
     .arguments('<search:string>')
     .option('-n, --namespace <namespace:string>', 'Filter by namespace')
@@ -176,9 +175,8 @@ export const memoryCommand = new Command()
         console.error(colors.red('Failed to query:'), (error as Error).message);
       }
     })
-  )
   // Export command
-  .command('export', Command
+  .command('export', Command)
     .description('Export memory to file')
     .arguments('<file:string>')
     .action(async (options: any, file: string) => {
@@ -194,9 +192,8 @@ export const memoryCommand = new Command()
         console.error(colors.red('Failed to export:'), (error as Error).message);
       }
     })
-  )
   // Import command
-  .command('import', Command
+  .command('import', Command)
     .description('Import memory from file')
     .arguments('<file:string>')
     .action(async (options: any, file: string) => {
@@ -212,9 +209,8 @@ export const memoryCommand = new Command()
         console.error(colors.red('Failed to import:'), (error as Error).message);
       }
     })
-  )
   // Stats command
-  .command('stats', Command
+  .command('stats', Command)
     .description('Show memory statistics')
     .action(async () => {
       try {
@@ -236,9 +232,8 @@ export const memoryCommand = new Command()
         console.error(colors.red('Failed to get stats:'), (error as Error).message);
       }
     })
-  )
   // Cleanup command
-  .command('cleanup', Command
+  .command('cleanup', Command)
     .description('Clean up old entries')
     .option('-d, --days <days:number>', 'Entries older than n days', { default: 30 })
     .action(async (options: any) => {
@@ -250,5 +245,4 @@ export const memoryCommand = new Command()
       } catch (error) {
         console.error(colors.red('Failed to cleanup:'), (error as Error).message);
       }
-    })
-  );
+    });

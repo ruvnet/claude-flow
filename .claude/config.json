@@ -3,11 +3,11 @@
   "project": {
     "name": "claude-code-flow",
     "type": "claude-flow",
-    "created": "2025-06-27T03:47:24.175Z"
+    "created": "2025-06-28T05:26:20.635Z"
   },
   "features": {
     "swarm": true,
-    "sparc": true,
+    "sparc": false,
     "memory": true,
     "terminal": true,
     "mcp": true

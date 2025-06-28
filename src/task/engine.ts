@@ -637,7 +637,7 @@ export class TaskEngine extends EventEmitter {
       task.description.toLowerCase().includes(searchLower) ||
       task.type.toLowerCase().includes(searchLower) ||
       task.tags.some(tag => tag.toLowerCase().includes(searchLower)) ||
-      (task.assignedAgent && task.assignedAgent.toLowerCase().includes(searchLower))
+      (task.assignedAgent ? task.assignedAgent.toLowerCase().includes(searchLower) : false)
     );
   }
 
@@ -681,7 +681,7 @@ export class TaskEngine extends EventEmitter {
       // Schedule retry with backoff
       setTimeout(() => {
         this.scheduleTask(task);
-      }, task.retryPolicy!.backoffMs * Math.pow(task.retryPolicy!.backoffMultiplier, task.metadata.retryCount - 1));
+      }, task.retryPolicy!.backoffMs * Math.pow(task.retryPolicy!.backoffMultiplier, (task.metadata.retryCount as number) - 1));
     }
   }
 

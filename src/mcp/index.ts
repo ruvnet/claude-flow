@@ -79,6 +79,19 @@ export { LoadBalancer, type ILoadBalancer, RequestQueue } from './load-balancer.
 export { createClaudeFlowTools, type ClaudeFlowToolContext } from './claude-flow-tools.js';
 export { createSwarmTools, type SwarmToolContext } from './swarm-tools.js';
 
+// Import types from missing-types
+import type { 
+  MCPOrchestrationConfig, 
+  OrchestrationComponents
+} from '../types/missing-types.js';
+
+// Import classes that will be instantiated
+import { MCPServer } from './server.js';
+import { MCPOrchestrationIntegration } from './orchestration-integration.js';
+import { MCPLifecycleManager } from './lifecycle-manager.js';
+import { MCPPerformanceMonitor } from './performance-monitor.js';
+import { MCPProtocolManager } from './protocol-manager.js';
+
 /**
  * MCP Integration Factory
  * Provides a simple way to create a complete MCP integration

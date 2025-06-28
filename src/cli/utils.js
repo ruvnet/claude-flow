@@ -1,4 +1,8 @@
 // utils.js - Shared CLI utility functions
+import { promises as fs } from 'fs';
+import { spawn } from 'child_process';
+import { promisify } from 'util';
+import path from 'path';
 
 // Color formatting functions
 export function printSuccess(message) {
@@ -27,21 +31,21 @@ export function validateArgs(args, minLength, usage) {
 }
 
 // File system helpers
-export async function ensureDirectory(path) {
+export async function ensureDirectory(dirPath) {
   try {
-    await Deno.mkdir(path, { recursive: true });
+    await fs.mkdir(dirPath, { recursive: true });
     return true;
   } catch (err) {
-    if (!(err instanceof Deno.errors.AlreadyExists)) {
+    if (err.code !== 'EEXIST') {
       throw err;
     }
     return true;
   }
 }
 
-export async function fileExists(path) {
+export async function fileExists(filePath) {
   try {
-    await Deno.stat(path);
+    await fs.stat(filePath);
     return true;
   } catch {
     return false;
@@ -49,17 +53,17 @@ export async function fileExists(path) {
 }
 
 // JSON helpers
-export async function readJsonFile(path, defaultValue = {}) {
+export async function readJsonFile(filePath, defaultValue = {}) {
   try {
-    const content = await Deno.readTextFile(path);
+    const content = await fs.readFile(filePath, 'utf8');
     return JSON.parse(content);
   } catch {
     return defaultValue;
   }
 }
 
-export async function writeJsonFile(path, data) {
-  await Deno.writeTextFile(path, JSON.stringify(data, null, 2));
+export async function writeJsonFile(filePath, data) {
+  await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
 }
 
 // String helpers
@@ -119,19 +123,45 @@ export function parseFlags(args) {
 // Process execution helpers
 export async function runCommand(command, args = [], options = {}) {
   try {
-    const cmd = new Deno.Command(command, {
-      args,
-      ...options
+    return new Promise((resolve) => {
+      const child = spawn(command, args, {
+        ...options,
+        stdio: 'pipe'
+      });
+      
+      let stdout = '';
+      let stderr = '';
+      
+      if (child.stdout) {
+        child.stdout.on('data', (data) => {
+          stdout += data.toString();
+        });
+      }
+      
+      if (child.stderr) {
+        child.stderr.on('data', (data) => {
+          stderr += data.toString();
+        });
+      }
+      
+      child.on('error', (err) => {
+        resolve({
+          success: false,
+          code: -1,
+          stdout: '',
+          stderr: err.message
+        });
+      });
+      
+      child.on('close', (code) => {
+        resolve({
+          success: code === 0,
+          code: code || 0,
+          stdout,
+          stderr
+        });
+      });
     });
-    
-    const result = await cmd.output();
-    
-    return {
-      success: result.code === 0,
-      code: result.code,
-      stdout: new TextDecoder().decode(result.stdout),
-      stderr: new TextDecoder().decode(result.stderr)
-    };
   } catch (err) {
     return {
       success: false,
@@ -162,7 +192,7 @@ export async function loadConfig(path = 'claude-flow.config.json') {
   };
   
   try {
-    const content = await Deno.readTextFile(path);
+    const content = await fs.readFile(path, 'utf8');
     return { ...defaultConfig, ...JSON.parse(content) };
   } catch {
     return defaultConfig;
@@ -191,11 +221,11 @@ export function chunk(array, size) {
 
 // Environment helpers
 export function getEnvVar(name, defaultValue = null) {
-  return Deno.env.get(name) ?? defaultValue;
+  return process.env[name] ?? defaultValue;
 }
 
 export function setEnvVar(name, value) {
-  Deno.env.set(name, value);
+  process.env[name] = value;
 }
 
 // Validation helpers

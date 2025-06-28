@@ -57,6 +57,9 @@ export interface StartOptions {
   verbose?: boolean;
   ui?: boolean;
   autoStart?: boolean;
+  force?: boolean;
+  healthCheck?: boolean;
+  timeout?: number;
 }
 
 export interface UIAction {

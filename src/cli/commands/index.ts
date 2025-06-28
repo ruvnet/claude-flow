@@ -1332,7 +1332,7 @@ Now, please proceed with the task: ${task}`;
         info("Starting enhanced monitoring dashboard...");
         console.log("Press Ctrl+C to exit");
         
-        const interval = options.interval * 1000;
+        const interval = Number(options.interval) * 1000;
         let running = true;
         
         const cleanup = () => {
@@ -1372,7 +1372,7 @@ Now, please proceed with the task: ${task}`;
             console.log("\n📊 System Overview:");
             const cpuUsage = Math.random() * 100;
             const memoryUsage = Math.random() * 1000;
-            const cpuColor = cpuUsage > options.threshold ? '🔴' : cpuUsage > options.threshold * 0.8 ? '🟡' : '🟢';
+            const cpuColor = cpuUsage > Number(options.threshold) ? '🔴' : cpuUsage > Number(options.threshold) * 0.8 ? '🟡' : '🟢';
             const memoryColor = memoryUsage > 800 ? '🔴' : memoryUsage > 600 ? '🟡' : '🟢';
             
             console.log(`   ${cpuColor} CPU: ${cpuUsage.toFixed(1)}%`);
@@ -1685,8 +1685,9 @@ Now, please proceed with the task: ${task}`;
   });
 
   // Migration command
-  const migrateCmd = createMigrateCommand();
-  cli.command(migrateCmd);
+  // TODO: Convert migrate command from commander to Cliffy format
+  // const migrateCmd = createMigrateCommand();
+  // cli.command(migrateCmd);
 
   // Swarm UI command (convenience wrapper)
   cli.command({

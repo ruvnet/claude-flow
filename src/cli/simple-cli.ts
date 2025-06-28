@@ -684,7 +684,7 @@ Mode: ${mode} | ${options.parallel ? 'Parallel' : 'Sequential'} | Memory: ${opti
     });
     
     claudeProcess.on('error', (error) => {
-      if (error.code === 'ENOENT') {
+      if ((error as any).code === 'ENOENT') {
         printError('Claude Code is not installed or not in PATH');
         console.log('\n📦 To install Claude Code:');
         console.log('  1. Install via Cursor/VS Code extension');
@@ -941,7 +941,7 @@ async function createProgram() {
       
       // List registered commands
       output += '\n' + chalk.yellow('Registered Commands:') + '\n';
-      const commands = cmd.commands.filter(c => !c._hidden);
+      const commands = cmd.commands;
       const maxCmdLength = Math.max(...commands.map(c => c.name().length));
       
       commands.forEach(subcmd => {
@@ -1572,7 +1572,7 @@ async function createProgram() {
           console.log(`📥 Imported ${Object.keys(data).length} entries`);
           console.log('✅ Memory imported successfully');
         } catch (error: any) {
-          if (error.code === 'ENOENT') {
+          if ((error as any).code === 'ENOENT') {
             printError(`File not found: ${file}`);
           } else if (error instanceof SyntaxError) {
             printError(`Invalid JSON in file: ${file}`);
@@ -2495,7 +2495,7 @@ Follow the red-green-refactor cycle strictly.`;
         });
         
         claudeProcess.on('error', (error) => {
-          if (error.code === 'ENOENT') {
+          if ((error as any).code === 'ENOENT') {
             printError('Claude Code is not installed or not in PATH');
             console.log('\n📦 To install Claude Code:');
             console.log('  1. Install via Cursor/VS Code extension');
@@ -2524,7 +2524,7 @@ Follow the red-green-refactor cycle strictly.`;
           }
         });
       } catch (err) {
-        printError(`Failed to create prompt file: ${err.message}`);
+        printError(`Failed to create prompt file: ${err instanceof Error ? err.message : String(err)}`);
         console.log('\n💡 Fallback - copy this prompt to use manually:');
         console.log('\n' + '─'.repeat(60));
         console.log(fullPrompt);
@@ -2946,9 +2946,9 @@ Follow the red-green-refactor cycle strictly.`;
       const aspects = options.aspects.split(',');
       
       console.log('\n📊 Analysis Results:');
-      models.forEach(model => {
+      models.forEach((model: string) => {
         console.log(`\n🧠 ${model}:`);
-        aspects.forEach(aspect => {
+        aspects.forEach((aspect: string) => {
           const score = Math.random() * 100;
           console.log(`  • ${aspect}: ${score.toFixed(1)}%`);
         });
@@ -2976,7 +2976,7 @@ Follow the red-green-refactor cycle strictly.`;
       const models = options.models.split(',');
       
       console.log('\n📊 Model Comparison Results:');
-      models.forEach((model, index) => {
+      models.forEach((model: string, index: number) => {
         console.log(`\n🧠 ${model}:`);
         console.log(`  Response length: ${Math.floor(Math.random() * 1000) + 500} tokens`);
         console.log(`  Response time: ${Math.floor(Math.random() * 5) + 2}s`);
@@ -3708,7 +3708,7 @@ Strategy: ${options.strategy} | Mode: ${options.mode} | Agents: ${options.maxAge
         });
 
         claudeProcess.on('error', (error) => {
-          if (error.code === 'ENOENT') {
+          if ((error as any).code === 'ENOENT') {
             printError('Claude Code is not installed or not in PATH');
             console.log('\n📦 To install Claude Code:');
             console.log('  1. Install via Cursor/VS Code extension');
@@ -3743,14 +3743,14 @@ Strategy: ${options.strategy} | Mode: ${options.mode} | Agents: ${options.maxAge
               await fs.writeFile(resultsPath, JSON.stringify(swarmConfig, null, 2));
               console.log(`📊 Results saved to: ${resultsPath}`);
             } catch (err) {
-              console.error(`Failed to save results: ${err.message}`);
+              console.error(`Failed to save results: ${err instanceof Error ? err.message : String(err)}`);
             }
           } else if (code !== null) {
             console.log(`\n⚠️  Swarm exited with code ${code}`);
           }
         });
       } catch (err) {
-        printError(`Failed to create prompt file: ${err.message}`);
+        printError(`Failed to create prompt file: ${err instanceof Error ? err.message : String(err)}`);
         // Fallback to simulation
         simulateSwarmExecution(swarmConfig);
       }
@@ -3908,7 +3908,7 @@ Strategy: ${options.strategy} | Mode: ${options.mode} | Agents: ${options.maxAge
             await fs.writeFile(path.join(sparcDir, file), content);
             console.log(`   ✅ Copied SPARC command file: ${file}`);
           } catch (copyError) {
-            console.log(`   ⚠️  Could not copy ${file}: ${copyError.message}`);
+            console.log(`   ⚠️  Could not copy ${file}: ${copyError instanceof Error ? copyError.message : String(copyError)}`);
           }
         }
       }

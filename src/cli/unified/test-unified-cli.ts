@@ -34,7 +34,7 @@ async function testUnifiedCLI() {
     await registry.execute('status', [], { json: true });
     console.log('   ✅ Status command executed successfully');
   } catch (error) {
-    console.log('   ❌ Status command failed:', error.message);
+    console.log('   ❌ Status command failed:', error instanceof Error ? error.message : String(error));
   }
   console.log();
 
@@ -45,7 +45,7 @@ async function testUnifiedCLI() {
     await main(['node', 'test', '--help']);
     console.log('   ✅ CLI entry point works with --help');
   } catch (error) {
-    console.log('   ❌ CLI entry point failed:', error.message);
+    console.log('   ❌ CLI entry point failed:', error instanceof Error ? error.message : String(error));
   }
 
   console.log('\n🎉 Unified CLI System Test Complete!');

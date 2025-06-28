@@ -44,6 +44,11 @@ export interface Config {
     format: 'json' | 'text';
     destination: 'console' | 'file';
   };
+  swarm?: {
+    coordinationMode: 'centralized' | 'distributed' | 'hierarchical' | 'mesh' | 'hybrid';
+    consensusThreshold: number;
+    enableMetrics: boolean;
+  };
 }
 
 /**
@@ -332,6 +337,13 @@ export class ConfigManager {
     if (logLevel === 'debug' || logLevel === 'info' || logLevel === 'warn' || logLevel === 'error') {
       this.config.logging.level = logLevel;
     }
+  }
+
+  /**
+   * Loads default configuration
+   */
+  loadDefault(): void {
+    this.config = this.deepClone(DEFAULT_CONFIG);
   }
 
   /**

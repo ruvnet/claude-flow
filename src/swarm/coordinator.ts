@@ -3,10 +3,10 @@
  */
 
 import { EventEmitter } from 'node:events';
+import { promises as fs } from 'node:fs';
+import { spawn } from 'node:child_process';
 import { Logger } from '../core/logger.js';
 import { generateId } from '../utils/helpers.js';
-// Phase 2 Runtime Migration: Deno compatibility layer
-import Deno from '../utils/deno-compat.js';
 import {
   SwarmId, AgentId, TaskId, AgentState, TaskDefinition, SwarmObjective,
   SwarmConfig, SwarmStatus, SwarmProgress, SwarmResults, SwarmMetrics,
@@ -183,7 +183,7 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
     // Pause all agents
     for (const agent of this.agents.values()) {
       if (agent.status === 'busy') {
-        await this.pauseAgent(agent.id);
+        await this.pauseAgent(agent.id.id);
       }
     }
     
@@ -209,7 +209,7 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
     // Resume all paused agents
     for (const agent of this.agents.values()) {
       if (agent.status === 'paused') {
-        await this.resumeAgent(agent.id);
+        await this.resumeAgent(agent.id.id);
       }
     }
     
@@ -510,8 +510,8 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
       agent.errorHistory.push({
         timestamp: new Date(),
         type: 'startup_error',
-        message: error.message,
-        stack: error.stack,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
         context: { agentId },
         severity: 'high',
         resolved: false
@@ -664,10 +664,11 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
 
     // Select agent if not specified
     if (!agentId) {
-      agentId = await this.selectAgentForTask(task);
-      if (!agentId) {
+      const selectedAgentId = await this.selectAgentForTask(task);
+      if (!selectedAgentId) {
         throw new Error('No suitable agent available for task');
       }
+      agentId = selectedAgentId;
     }
 
     const agent = this.agents.get(agentId);
@@ -1660,7 +1661,7 @@ Make sure the documentation is clear, complete, and helps users understand and u
       tasks.push(task4);
     } else {
       // For other strategies, create a comprehensive single task
-      tasks.push(this.createTaskForObjective('execute-objective', 'generic', {
+      tasks.push(this.createTaskForObjective('execute-objective', 'coding' as TaskType, {
         title: 'Execute Objective',
         description: objective.description,
         instructions: `Please complete the following request:
@@ -2175,7 +2176,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
         timeoutMinutes: this.config.taskTimeoutMinutes
       });
       
-      const result = await executor.executeTask(task, agent, targetDir);
+      const result = await executor.executeTask(task, agent, targetDir ?? undefined);
       
       this.logger.info('Task execution completed', { 
         taskId: task.id.id,
@@ -2188,7 +2189,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
     } catch (error) {
       this.logger.error('Task execution failed', { 
         taskId: task.id.id,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       });
       throw error;
     }
@@ -2302,7 +2303,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
     // Set working directory if specified
     if (targetDir) {
       // Ensure directory exists
-      await Deno.mkdir(targetDir, { recursive: true });
+      await fs.mkdir(targetDir, { recursive: true });
       
       // Add directory context to prompt
       const enhancedPrompt = `${prompt}\n\n## Important: Working Directory\nPlease ensure all files are created in: ${targetDir}`;
@@ -2311,34 +2312,33 @@ Ensure your implementation is complete, well-structured, and follows best practi
     
     try {
       // Check if claude command exists
-      const checkCommand = new Deno.Command('which', {
-        args: ['claude'],
-        stdout: 'piped',
-        stderr: 'piped',
+      const checkResult = await new Promise<{ success: boolean }>((resolve) => {
+        const checkProcess = spawn('which', ['claude'], {
+          stdio: ['ignore', 'pipe', 'pipe']
+        });
+        checkProcess.on('close', (code) => {
+          resolve({ success: code === 0 });
+        });
       });
-      const checkResult = await checkCommand.output();
       if (!checkResult.success) {
         throw new Error('Claude CLI not found. Please ensure claude is installed and in PATH.');
       }
       
       // Execute Claude with the prompt
-      const command = new Deno.Command("claude", {
-        args: claudeArgs,
-        cwd: targetDir || Deno.cwd(),
+      const claudeProcess = spawn('claude', claudeArgs, {
+        cwd: targetDir || process.cwd(),
         env: {
-          ...Deno.env.toObject(),
+          ...process.env,
           CLAUDE_INSTANCE_ID: instanceId,
           CLAUDE_SWARM_MODE: "true",
           CLAUDE_SWARM_ID: this.swarmId.id,
           CLAUDE_TASK_ID: task.id.id,
           CLAUDE_AGENT_ID: agent.id.id,
-          CLAUDE_WORKING_DIRECTORY: targetDir || Deno.cwd(),
+          CLAUDE_WORKING_DIRECTORY: targetDir || process.cwd(),
           CLAUDE_FLOW_MEMORY_ENABLED: "true",
           CLAUDE_FLOW_MEMORY_NAMESPACE: `swarm-${this.swarmId.id}`,
         },
-        stdin: "null",
-        stdout: "piped",
-        stderr: "piped",
+        stdio: ['ignore', 'pipe', 'pipe']
       });
       
       this.logger.info('Spawning Claude agent for task', { 
@@ -2348,11 +2348,30 @@ Ensure your implementation is complete, well-structured, and follows best practi
         targetDir 
       });
       
-      const child = command.spawn();
-      const { code, stdout, stderr } = await child.output();
+      // Collect output from the spawned process
+      const output = await new Promise<{ code: number; stdout: Buffer; stderr: Buffer }>((resolve, reject) => {
+        let stdout = Buffer.alloc(0);
+        let stderr = Buffer.alloc(0);
+        
+        claudeProcess.stdout?.on('data', (data) => {
+          stdout = Buffer.concat([stdout, data]);
+        });
+        
+        claudeProcess.stderr?.on('data', (data) => {
+          stderr = Buffer.concat([stderr, data]);
+        });
+        
+        claudeProcess.on('close', (code) => {
+          resolve({ code: code || 0, stdout, stderr });
+        });
+        
+        claudeProcess.on('error', reject);
+      });
+      
+      const { code, stdout, stderr } = output;
       
       if (code === 0) {
-        const output = new TextDecoder().decode(stdout);
+        const output = stdout.toString('utf8');
         this.logger.info('Claude agent completed task successfully', {
           taskId: task.id.id,
           outputLength: output.length
@@ -2365,7 +2384,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
           targetDir
         };
       } else {
-        const errorOutput = new TextDecoder().decode(stderr);
+        const errorOutput = stderr.toString('utf8');
         this.logger.error(`Claude agent failed with code ${code}`, { 
           taskId: task.id.id,
           error: errorOutput 
@@ -2376,7 +2395,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
     } catch (error) {
       this.logger.error('Failed to execute Claude agent', { 
         taskId: task.id.id,
-        error: error.message 
+        error: error instanceof Error ? error.message : String(error) 
       });
       throw error;
     }
@@ -2476,7 +2495,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
     
     try {
       // Ensure work directory exists
-      await Deno.mkdir(workDir, { recursive: true });
+      await fs.mkdir(workDir, { recursive: true });
       
       switch (task.type) {
         case 'coding':
@@ -2495,7 +2514,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
           return await this.executeGenericTask(task, workDir, agent);
       }
     } catch (error) {
-      throw new Error(`Task execution failed: ${error.message}`);
+      throw new Error(`Task execution failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   
@@ -2511,15 +2530,17 @@ Ensure your implementation is complete, well-structured, and follows best practi
     
     if (isGradio) {
       // Create a Gradio application
-      return await this.createGradioApp(task, workDir);
+      // TODO: Implement createGradioApp method
+      throw new Error('Gradio app creation not yet implemented');
     } else if (isPython && isRestAPI) {
       // Create a Python REST API (FastAPI)
-      return await this.createPythonRestAPI(task, workDir);
+      // TODO: Implement createPythonRestAPI method
+      throw new Error('Python REST API creation not yet implemented');
     } else if (isRestAPI) {
       // Create a REST API application
       const projectName = 'rest-api';
       const projectDir = `${workDir}/${projectName}`;
-      await Deno.mkdir(projectDir, { recursive: true });
+      await fs.mkdir(projectDir, { recursive: true });
       
       // Create main API file
       const apiCode = `const express = require('express');
@@ -2599,7 +2620,7 @@ app.listen(port, () => {
 module.exports = app;
 `;
       
-      await Deno.writeTextFile(`${projectDir}/server.js`, apiCode);
+      await fs.writeFile(`${projectDir}/server.js`, apiCode, 'utf8');
       
       // Create package.json
       const packageJson = {
@@ -2631,7 +2652,7 @@ module.exports = app;
         }
       };
       
-      await Deno.writeTextFile(
+      await fs.writeFile(
         `${projectDir}/package.json`, 
         JSON.stringify(packageJson, null, 2)
       );
@@ -2681,7 +2702,7 @@ ${task.description}
 Created by Claude Flow Swarm
 `;
       
-      await Deno.writeTextFile(`${projectDir}/README.md`, readme);
+      await fs.writeFile(`${projectDir}/README.md`, readme, 'utf8');
       
       // Create .gitignore
       const gitignore = `node_modules/
@@ -2691,7 +2712,7 @@ Created by Claude Flow Swarm
 coverage/
 `;
       
-      await Deno.writeTextFile(`${projectDir}/.gitignore`, gitignore);
+      await fs.writeFile(`${projectDir}/.gitignore`, gitignore, 'utf8');
       
       return {
         success: true,
@@ -2709,7 +2730,7 @@ coverage/
     } else if (isHelloWorld) {
       // Create a simple hello world application
       const projectDir = `${workDir}/hello-world`;
-      await Deno.mkdir(projectDir, { recursive: true });
+      await fs.mkdir(projectDir, { recursive: true });
       
       // Create main application file
       const mainCode = `#!/usr/bin/env node
@@ -2729,7 +2750,7 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 `;
       
-      await Deno.writeTextFile(`${projectDir}/index.js`, mainCode);
+      await fs.writeFile(`${projectDir}/index.js`, mainCode, 'utf8');
       
       // Create package.json
       const packageJson = {
@@ -2746,7 +2767,7 @@ if (typeof module !== 'undefined' && module.exports) {
         license: "MIT"
       };
       
-      await Deno.writeTextFile(
+      await fs.writeFile(
         `${projectDir}/package.json`, 
         JSON.stringify(packageJson, null, 2)
       );
@@ -2771,7 +2792,7 @@ npm start
 ${task.description}
 `;
       
-      await Deno.writeTextFile(`${projectDir}/README.md`, readme);
+      await fs.writeFile(`${projectDir}/README.md`, readme, 'utf8');
       
       return {
         success: true,
@@ -2790,7 +2811,7 @@ ${task.description}
     
     // For other code generation tasks, create a basic structure
     const projectDir = `${workDir}/generated-code`;
-    await Deno.mkdir(projectDir, { recursive: true });
+    await fs.mkdir(projectDir, { recursive: true });
     
     const code = `// Generated code for: ${task.name}
 // ${task.description}
@@ -2803,7 +2824,7 @@ function main() {
 main();
 `;
     
-    await Deno.writeTextFile(`${projectDir}/main.js`, code);
+    await fs.writeFile(`${projectDir}/main.js`, code, 'utf8');
     
     return {
       success: true,
@@ -2819,7 +2840,7 @@ main();
     this.logger.info('Executing analysis task', { taskId: task.id.id });
     
     const analysisDir = `${workDir}/analysis`;
-    await Deno.mkdir(analysisDir, { recursive: true });
+    await fs.mkdir(analysisDir, { recursive: true });
     
     const analysis = {
       task: task.name,
@@ -2837,7 +2858,7 @@ main();
       ]
     };
     
-    await Deno.writeTextFile(
+    await fs.writeFile(
       `${analysisDir}/analysis-report.json`,
       JSON.stringify(analysis, null, 2)
     );
@@ -2855,7 +2876,7 @@ main();
     this.logger.info('Executing documentation task', { taskId: task.id.id });
     
     const docsDir = `${workDir}/docs`;
-    await Deno.mkdir(docsDir, { recursive: true });
+    await fs.mkdir(docsDir, { recursive: true });
     
     const documentation = `# ${task.name}
 
@@ -2877,7 +2898,7 @@ ${task.instructions}
 - Further details would be added based on actual implementation
 `;
     
-    await Deno.writeTextFile(`${docsDir}/documentation.md`, documentation);
+    await fs.writeFile(`${docsDir}/documentation.md`, documentation, 'utf8');
     
     return {
       success: true,
@@ -2896,7 +2917,7 @@ ${task.instructions}
     this.logger.info('Executing testing task', { taskId: task.id.id });
     
     const testDir = `${workDir}/tests`;
-    await Deno.mkdir(testDir, { recursive: true });
+    await fs.mkdir(testDir, { recursive: true });
     
     const testCode = `// Test suite for: ${task.name}
 // ${task.description}
@@ -2917,7 +2938,7 @@ describe('${task.name}', () => {
 console.log('Tests completed for: ${task.name}');
 `;
     
-    await Deno.writeTextFile(`${testDir}/test.js`, testCode);
+    await fs.writeFile(`${testDir}/test.js`, testCode);
     
     return {
       success: true,
@@ -2938,7 +2959,7 @@ console.log('Tests completed for: ${task.name}');
     this.logger.info('Executing generic task', { taskId: task.id.id });
     
     const outputDir = `${workDir}/output`;
-    await Deno.mkdir(outputDir, { recursive: true });
+    await fs.mkdir(outputDir, { recursive: true });
     
     const output = {
       task: task.name,
@@ -2949,7 +2970,7 @@ console.log('Tests completed for: ${task.name}');
       result: 'Task executed successfully'
     };
     
-    await Deno.writeTextFile(
+    await fs.writeFile(
       `${outputDir}/result.json`,
       JSON.stringify(output, null, 2)
     );

@@ -29,7 +29,7 @@
     "MCP_TOOL_TIMEOUT": "120000",
     "DISABLE_COST_WARNINGS": "1",
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "0",
-    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "33000"
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "8192"
   },
   "cleanupPeriodDays": 90,
   "includeCoAuthoredBy": true,
@@ -46,7 +46,7 @@
   "claudeFlow": {
     "version": "1.0.72",
     "swarmDefaults": {
-      "maxAgents": 30,
+      "maxAgents": 10,
       "timeout": 3600000,
       "parallel": true,
       "monitor": true,
@@ -59,7 +59,7 @@
       "memoryKey": "sparc_session"
     },
     "memoryDefaults": {
-      "maxSize": "5GB",
+      "maxSize": "1GB",
       "autoCompress": true,
       "autoCleanup": true,
       "indexingEnabled": true,

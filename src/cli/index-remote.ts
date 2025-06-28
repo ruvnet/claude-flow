@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run --allow-all
+#!/usr/bin/env node
 /**
  * Claude-Flow CLI entry point - Remote execution friendly version
  * This version can be run directly from GitHub
@@ -69,7 +69,7 @@ function printWarning(message: string) {
 }
 
 async function main() {
-  const args = Deno.args;
+  const args = process.argv.slice(2);
   const command = args[0] || 'help';
   const subArgs = args.slice(1);
 
@@ -129,9 +129,10 @@ async function main() {
   }
 }
 
-if (import.meta.main) {
+// Check if this module is the main module
+if (require.main === module) {
   main().catch((error) => {
     printError(`Error: ${error.message}`);
-    Deno.exit(1);
+    process.exit(1);
   });
 }

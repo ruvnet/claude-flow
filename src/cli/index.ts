@@ -7,6 +7,8 @@
 // Import and run the simple CLI which doesn't have external dependencies
 import "./simple-cli.ts";
 // Spinner import removed - not available in current cliffy version
+import { Command } from '@cliffy/command';
+import { colors } from '@cliffy/ansi/colors';
 import { logger } from '../core/logger.js';
 import { configManager } from '../core/config.js';
 import { startCommand } from './commands/start.js';
@@ -33,8 +35,6 @@ const cli = new Command()
   .name('claude-flow')
   .version(VERSION)
   .description('Claude-Flow: Advanced AI agent orchestration system for multi-agent coordination')
-  .meta('Build', BUILD_DATE)
-  .meta('Runtime', 'Deno')
   .globalOption('-c, --config <path:string>', 'Path to configuration file', {
     default: './claude-flow.config.json',
   })
@@ -46,7 +46,7 @@ const cli = new Command()
   .globalOption('--no-color', 'Disable colored output')
   .globalOption('--json', 'Output in JSON format where applicable')
   .globalOption('--profile <profile:string>', 'Use named configuration profile')
-  .action(async (options) => {
+  .action(async (options: any) => {
     // If no subcommand, show banner and start REPL
     await setupLogging(options);
     
@@ -60,22 +60,22 @@ const cli = new Command()
 
 // Add subcommands
 cli
-  .command('start', startCommand)
-  .command('agent', agentCommand)
-  .command('task', taskCommand)
-  .command('memory', memoryCommand)
-  .command('config', configCommand)
-  .command('status', statusCommand)
-  .command('monitor', monitorCommand)
-  .command('session', sessionCommand)
-  .command('workflow', workflowCommand)
-  .command('mcp', mcpCommand)
-  .command('help', helpCommand)
+  .addCommand(startCommand)
+  .addCommand(agentCommand)
+  .addCommand(taskCommand)
+  .addCommand(memoryCommand)
+  .addCommand(configCommand)
+  .addCommand(statusCommand)
+  .addCommand(monitorCommand)
+  .addCommand(sessionCommand)
+  .addCommand(workflowCommand)
+  .addCommand(mcpCommand)
+  .addCommand(helpCommand)
   .command('repl', new Command()
     .description('Start interactive REPL mode with command completion')
     .option('--no-banner', 'Skip welcome banner')
     .option('--history-file <path:string>', 'Custom history file path')
-    .action(async (options) => {
+    .action(async (options: any) => {
       await setupLogging(options);
       if (options.banner !== false) {
         displayBanner(VERSION);
@@ -86,7 +86,7 @@ cli
   .command('version', new Command()
     .description('Show detailed version information')
     .option('--short', 'Show version number only')
-    .action(async (options) => {
+    .action(async (options: any) => {
       if (options.short) {
         console.log(VERSION);
       } else {
@@ -98,7 +98,7 @@ cli
     .description('Generate shell completion scripts')
     .arguments('[shell:string]')
     .option('--install', 'Install completion script automatically')
-    .action(async (options, shell) => {
+    .action(async (options: any, shell: string) => {
       const generator = new CompletionGenerator();
       await generator.generate(shell || 'detect', options.install === true);
     }),
@@ -119,7 +119,7 @@ async function handleError(error: unknown, options?: any): Promise<void> {
   }
   
   // Show stack trace in debug mode or verbose
-  if (Deno.env.get('CLAUDE_FLOW_DEBUG') === 'true' || options?.verbose) {
+  if (process.env.CLAUDE_FLOW_DEBUG === 'true' || options?.verbose) {
     console.error(colors.gray('\nStack trace:'));
     console.error(error);
   }
@@ -130,7 +130,7 @@ async function handleError(error: unknown, options?: any): Promise<void> {
     console.error(colors.gray('Or use "claude-flow help" to see available commands'));
   }
   
-  Deno.exit(1);
+  process.exit(1);
 }
 
 // Setup logging and configuration based on CLI options
@@ -175,15 +175,15 @@ async function setupLogging(options: any): Promise<void> {
 function setupSignalHandlers(): void {
   const gracefulShutdown = () => {
     console.log('\n' + colors.gray('Gracefully shutting down...'));
-    Deno.exit(0);
+    process.exit(0);
   };
   
-  Deno.addSignalListener('SIGINT', gracefulShutdown);
-  Deno.addSignalListener('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
+  process.on('SIGTERM', gracefulShutdown);
 }
 
 // Main entry point
-if (import.meta.main) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   let globalOptions: any = {};
   
   try {
@@ -191,7 +191,7 @@ if (import.meta.main) {
     setupSignalHandlers();
     
     // Pre-parse global options for error handling
-    const args = Deno.args;
+    const args = process.argv.slice(2);
     globalOptions = {
       verbose: args.includes('-v') || args.includes('--verbose'),
       quiet: args.includes('-q') || args.includes('--quiet'),
@@ -201,7 +201,8 @@ if (import.meta.main) {
     
     // Configure colors based on options
     if (globalOptions.noColor) {
-      colors.setColorEnabled(false);
+      // Disable colors by setting NO_COLOR environment variable
+      process.env.NO_COLOR = '1';
     }
     
     await cli.parse(args);

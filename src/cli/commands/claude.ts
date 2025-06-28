@@ -5,8 +5,8 @@
 import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
 import { spawn } from 'node:child_process';
+import { promises as fs } from 'node:fs';
 import { generateId } from '../../utils/helpers.js';
-import { DenoCompat } from '../../utils/deno-compat.js';
 
 export const claudeCommand = new Command()
   .description('Manage Claude instances')
@@ -112,7 +112,7 @@ export const claudeCommand = new Command()
     .option('--dry-run', 'Show what would be executed without running')
     .action(async (options: any, workflowFile: string) => {
       try {
-        const content = await DenoCompat.readTextFile(workflowFile);
+        const content = await fs.readFile(workflowFile, 'utf-8');
         const workflow = JSON.parse(content);
         
         console.log(colors.green('Loading workflow:'), workflow.name || 'Unnamed');

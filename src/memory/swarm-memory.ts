@@ -77,7 +77,9 @@ export class SwarmMemoryManager extends EventEmitter {
   constructor(config: Partial<SwarmMemoryConfig> = {}) {
     super();
     this.logger = new Logger({
-      level: 'info'
+      level: 'info',
+      format: 'text',
+      destination: 'console'
     });
     this.config = {
       namespace: 'swarm',
@@ -98,13 +100,10 @@ export class SwarmMemoryManager extends EventEmitter {
 
     // Create mock event bus for base memory
     const mockEventBus: IEventBus = {
-      emit: () => true,
-      on: () => this,
-      off: () => this,
-      once: () => this,
-      listenerCount: () => 0,
-      listeners: () => [],
-      eventNames: () => []
+      emit: () => {},
+      on: () => {},
+      off: () => {},
+      once: () => {}
     };
 
     const memoryConfig: MemoryConfig = {

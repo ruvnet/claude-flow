@@ -287,9 +287,9 @@ export class Orchestrator implements IOrchestrator {
   private initialized = false;
   private shutdownInProgress = false;
   private sessionManager: ISessionManager;
-  private healthCheckInterval?: number;
-  private maintenanceInterval?: number;
-  private metricsInterval?: number;
+  private healthCheckInterval?: NodeJS.Timeout;
+  private maintenanceInterval?: NodeJS.Timeout;
+  private metricsInterval?: NodeJS.Timeout;
   private agents = new Map<string, AgentProfile>();
   private taskQueue: Task[] = [];
   private taskHistory = new Map<string, Task>();

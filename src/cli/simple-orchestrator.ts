@@ -381,7 +381,7 @@ function startWebUI(host: string, port: number) {
       
       res.json({ success: true, message: 'Command executed' });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: (error as Error).message });
     }
   });
   
@@ -450,7 +450,7 @@ function startWebUI(host: string, port: number) {
       } catch (error) {
         ws.send(JSON.stringify({
           type: 'error',
-          data: `Invalid message format: ${error.message}`
+          data: `Invalid message format: ${(error as Error).message}`
         }));
       }
     });
@@ -493,7 +493,7 @@ function startWebUI(host: string, port: number) {
       executeCliCommand(command, ws);
       
     } catch (error) {
-      const errorMsg = `Error executing command: ${error.message}`;
+      const errorMsg = `Error executing command: ${(error as Error).message}`;
       outputHistory.push(errorMsg);
       sendResponse(ws, {
         type: 'error',
@@ -614,7 +614,7 @@ function startWebUI(host: string, port: number) {
     });
     
     child.on('error', (error) => {
-      const errorMsg = `<span class="error">Failed to execute command: ${error.message}</span>`;
+      const errorMsg = `<span class="error">Failed to execute command: ${(error as Error).message}</span>`;
       outputHistory.push(errorMsg);
       
       sendResponse(ws, {

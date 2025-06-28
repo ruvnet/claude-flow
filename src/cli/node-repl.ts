@@ -166,11 +166,14 @@ class CommandCompleter {
  */
 export async function startNodeREPL(options: any = {}): Promise<void> {
   
+  // Create readline interface with completer
+  const completer = new TabCompleter();
+  
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     prompt: '',
-    completer: undefined, // Will be set later
+    completer: (line: string) => completer.complete(line),
   });
 
   const context: REPLContext = {
@@ -382,11 +385,6 @@ export async function startNodeREPL(options: any = {}): Promise<void> {
 
   // Set up command completion
   completer.setCommands(commands);
-  
-  // Set completer function
-  rl.completer = (line: string) => {
-    return completer.complete(line);
-  };
   
   // Show initial status
   if (options.banner !== false) {

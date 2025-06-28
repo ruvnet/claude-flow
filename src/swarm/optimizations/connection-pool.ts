@@ -5,7 +5,7 @@
 
 import { EventEmitter } from 'node:events';
 import { Logger } from '../../core/logger.js';
-import { ClaudeAPI } from '../../services/claude/api.js';
+import type { ClaudeAPI } from '../../types/missing-types.js';
 
 export interface PoolConfig {
   min: number;
@@ -78,7 +78,13 @@ export class ClaudeConnectionPool extends EventEmitter {
   
   private async createConnection(): Promise<PooledConnection> {
     const id = `conn-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    const api = new ClaudeAPI();
+    // Mock ClaudeAPI instance - in production, this would be replaced with actual implementation
+    const api: ClaudeAPI = {
+      sendMessage: async (message: string) => `Response to: ${message}`,
+      complete: async (prompt: string, options?: any) => `Completion for: ${prompt}`,
+      disconnect: async () => {},
+      isConnected: () => true
+    };
     
     const connection: PooledConnection = {
       id,

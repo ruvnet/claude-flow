@@ -386,7 +386,8 @@ export class ResourceManager extends EventEmitter {
     });
 
     this.eventBus.on('resource:usage-update', (data) => {
-      this.updateResourceUsage(data.resourceId, data.usage);
+      const typedData = data as { resourceId: string; usage: any };
+      this.updateResourceUsage(typedData.resourceId, typedData.usage);
     });
 
     this.eventBus.on('resource:failure', (data) => {

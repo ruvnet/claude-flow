@@ -1095,6 +1095,15 @@ export class CloudManager extends EventEmitter {
       if (!Array.from(this.providers.values()).some(p => p.name === providerData.name)) {
         const provider: CloudProvider = {
           id: `provider-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: providerData.name,
+          type: providerData.type,
+          configuration: providerData.configuration as {
+            defaultRegion: string;
+            availableRegions: string[];
+            services: string[];
+            endpoints: Record<string, string>;
+            features: string[];
+          },
           credentials: {},
           status: 'inactive',
           quotas: {
@@ -1104,8 +1113,7 @@ export class CloudManager extends EventEmitter {
             requests: 1000000
           },
           createdAt: new Date(),
-          updatedAt: new Date(),
-          ...providerData
+          updatedAt: new Date()
         };
 
         this.providers.set(provider.id, provider);

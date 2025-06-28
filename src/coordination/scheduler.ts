@@ -13,7 +13,7 @@ interface ScheduledTask {
   agentId: string;
   attempts: number;
   lastAttempt?: Date;
-  timeout?: number;
+  timeout?: NodeJS.Timeout;
 }
 
 /**

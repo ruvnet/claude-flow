@@ -6,7 +6,10 @@ import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
 import { Table } from '@cliffy/table';
 import { formatHealthStatus, formatDuration, formatStatusIndicator } from '../formatter.js';
-import { DenoCompat } from '../../utils/deno-compat.js';
+import { promises as fs } from 'node:fs';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import process from 'node:process';
 
 export const statusCommand = new Command()
   .description('Show Claude-Flow system status')
@@ -25,7 +28,7 @@ export const statusCommand = new Command()
 async function showStatus(options: any): Promise<void> {
   try {
     // In a real implementation, this would connect to the running orchestrator
-    const status = await getSystemStatus();
+    const status = await getSystemStatus(options);
     
     if (options.json) {
       console.log(JSON.stringify(status, null, 2));
@@ -236,9 +239,9 @@ function showComponentStatus(status: any, componentName: string): void {
   }
 }
 
-async function getSystemStatus(): Promise<any> {
+async function getSystemStatus(options: any = {}): Promise<any> {
   // Mock status for now - in production, this would call the orchestrator API
-  return {
+  const baseStatus = {
     overall: 'healthy',
     version: '1.0.72',
     uptime: Date.now() - (Date.now() - 3600000), // 1 hour ago
@@ -323,7 +326,10 @@ async function getSystemStatus(): Promise<any> {
   
   // Add health check results if requested
   if (options.healthCheck) {
-    baseStatus.healthChecks = await performSystemHealthChecks();
+    return {
+      ...baseStatus,
+      healthChecks: await performSystemHealthChecks()
+    };
   }
   
   return baseStatus;
@@ -396,8 +402,8 @@ async function getRealSystemStatus(): Promise<any | null> {
 
 async function getPidFromFile(): Promise<number | null> {
   try {
-    if (await existsSync('.claude-flow.pid')) {
-      const pidData = await DenoCompat.readTextFile('.claude-flow.pid');
+    if (existsSync('.claude-flow.pid')) {
+      const pidData = await fs.readFile('.claude-flow.pid', 'utf8');
       const data = JSON.parse(pidData);
       return data.pid || null;
     }
@@ -409,8 +415,8 @@ async function getPidFromFile(): Promise<number | null> {
 
 async function getLastKnownStatus(): Promise<any | null> {
   try {
-    if (await existsSync('.claude-flow-last-status.json')) {
-      const statusData = await DenoCompat.readTextFile('.claude-flow-last-status.json');
+    if (existsSync('.claude-flow-last-status.json')) {
+      const statusData = await fs.readFile('.claude-flow-last-status.json', 'utf8');
       return JSON.parse(statusData);
     }
   } catch {
@@ -501,7 +507,7 @@ async function performSystemHealthChecks(): Promise<any> {
 async function checkDiskSpace(): Promise<{ status: string; details: string }> {
   try {
     // Basic disk space check
-    const stats = await DenoCompat.stat('.');
+    const stats = await fs.stat('.');
     return {
       status: 'healthy',
       details: 'Sufficient disk space available'
@@ -515,7 +521,7 @@ async function checkDiskSpace(): Promise<{ status: string; details: string }> {
 }
 
 async function checkMemoryUsage(): Promise<{ status: string; details: string }> {
-  const memoryInfo = DenoCompat.memoryUsage();
+  const memoryInfo = process.memoryUsage();
   const heapUsedMB = Math.round(memoryInfo.heapUsed / 1024 / 1024);
   
   if (heapUsedMB > 500) {
@@ -563,7 +569,7 @@ async function checkProcessHealth(): Promise<{ status: string; details: string }
   
   try {
     // Check if process exists
-    DenoCompat.kill(pid, 'SIGUSR1'); // Non-destructive signal
+    process.kill(pid, 'SIGUSR1'); // Non-destructive signal
     return {
       status: 'healthy',
       details: `Process ${pid} is running`

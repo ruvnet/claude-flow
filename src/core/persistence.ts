@@ -54,7 +54,7 @@ export class PersistenceManager {
 
   private createTables(): void {
     // Agents table
-    this.db.execute(`
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS agents (
         id TEXT PRIMARY KEY,
         type TEXT NOT NULL,
@@ -69,7 +69,7 @@ export class PersistenceManager {
     `);
 
     // Tasks table
-    this.db.execute(`
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS tasks (
         id TEXT PRIMARY KEY,
         type TEXT NOT NULL,
@@ -87,7 +87,7 @@ export class PersistenceManager {
     `);
 
     // Sessions table for terminal sessions
-    this.db.execute(`
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
         agent_id TEXT NOT NULL,

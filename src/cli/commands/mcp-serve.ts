@@ -15,7 +15,10 @@ import { ResourceManager } from '../../resources/resource-manager.js';
 import { MessageBus } from '../../communication/message-bus.js';
 import { RealTimeMonitor } from '../../monitoring/real-time-monitor.js';
 import { MemoryManager } from '../../memory/manager.js';
+import { DistributedMemorySystem } from '../../memory/distributed-memory.js';
 import { StdioTransport } from '../../mcp/transports/stdio.js';
+import { TerminalManager } from '../../terminal/manager.js';
+import { CoordinationManager } from '../../coordination/manager.js';
 
 /**
  * Main function to start MCP server
@@ -41,24 +44,59 @@ async function main() {
     
     // Initialize orchestration components
     const memoryManager = new MemoryManager(config.memory, eventBus, logger);
-    const orchestrator = new Orchestrator(config, eventBus, logger);
+    const distributedMemory = new DistributedMemorySystem({
+      replicationFactor: 1,
+      consistency: 'eventual',
+      syncInterval: 5000,
+      cacheTtl: 60000,
+      compressionEnabled: false,
+      encryptionEnabled: false
+    }, logger, eventBus);
+    
+    // Create missing dependencies for Orchestrator
+    const terminalManager = new TerminalManager(config.terminal, eventBus, logger);
+    const coordinationManager = new CoordinationManager(
+      config.coordination || { strategy: 'round-robin', maxConcurrentTasks: 10 },
+      eventBus,
+      logger
+    );
+    
+    // MCPServer will be created later, but we need a placeholder
+    const mcpServer = null as any; // Will be set after creation
+    
+    const orchestrator = new Orchestrator(
+      config,
+      terminalManager,
+      memoryManager,
+      coordinationManager,
+      mcpServer,
+      eventBus,
+      logger
+    );
     const swarmCoordinator = new SwarmCoordinator(
-      config.swarm || { coordinationMode: 'centralized', consensusThreshold: 0.7, enableMetrics: true },
-      logger,
-      eventBus
+      config.swarm || { 
+        coordinationStrategy: 'centralized',
+        maxAgents: 10,
+        maxConcurrentTasks: 20,
+        taskTimeout: 60000,
+        enableMonitoring: true,
+        enableWorkStealing: true,
+        enableCircuitBreaker: true
+      }
     );
     const agentManager = new AgentManager(
       config.orchestrator || {},
       logger,
       eventBus,
-      memoryManager
+      distributedMemory
     );
-    const resourceManager = new ResourceManager(eventBus, logger);
-    const messageBus = new MessageBus(logger, eventBus);
+    const resourceManager = new ResourceManager({}, logger, eventBus);
+    const messageBus = new MessageBus({}, logger, eventBus);
     const monitor = new RealTimeMonitor(
       { enableWebUI: false, webPort: 3001, refreshInterval: 1000 },
       logger,
-      eventBus
+      eventBus,
+      distributedMemory
     );
 
     // Set memory manager on orchestrator

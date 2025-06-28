@@ -2,8 +2,10 @@
  * Unified start command implementation with robust service management
  */
 
-// Phase 2 Runtime Migration: Deno compatibility layer
-import Deno from '../../../utils/deno-compat.js';
+// Node.js imports
+import { spawn } from 'node:child_process';
+import process from 'node:process';
+import { readFile, writeFile, unlink, mkdir, stat } from 'node:fs/promises';
 import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
 import { Confirm } from '@cliffy/prompt';
@@ -103,7 +105,7 @@ export const startCommand = new Command()
         systemMonitor.stop();
         await processManager.stopAll();
         console.log(colors.green.bold('✓'), 'Shutdown complete');
-        Deno.exit(0);
+        process.exit(0);
       } 
       // Daemon mode
       else if (options.daemon) {
@@ -120,14 +122,14 @@ export const startCommand = new Command()
         }
 
         // Create PID file with metadata
-        const pid = Deno.pid;
+        const pid = process.pid;
         const pidData = {
           pid,
           startTime: Date.now(),
           config: options.config || 'default',
           processes: processManager.getAllProcesses().map(p => ({ id: p.id, status: p.status }))
         };
-        await Deno.writeTextFile('.claude-flow.pid', JSON.stringify(pidData, null, 2));
+        await writeFile('.claude-flow.pid', JSON.stringify(pidData, null, 2), 'utf-8');
         console.log(colors.gray(`Process ID: ${pid}`));
         
         // Wait for services to be fully ready
@@ -156,11 +158,11 @@ export const startCommand = new Command()
         console.log(colors.gray('Press a key to select an option...'));
 
         // Handle user input
-        const decoder = new TextDecoder();
         while (true) {
-          const buf = new Uint8Array(1);
-          await Deno.stdin.read(buf);
-          const key = decoder.decode(buf);
+          const key = await new Promise<string>((resolve) => {
+            process.stdin.once('data', (data) => resolve(data.toString().trim()[0] || ''));
+            process.stdin.resume();
+          });
 
           switch (key) {
             case '1':
@@ -181,13 +183,16 @@ export const startCommand = new Command()
               break;
 
             case '4':
-              console.clear();
+              process.stdout.write('\x1Bc'); // Clear screen
               systemMonitor.printSystemHealth();
               console.log();
               systemMonitor.printEventLog(10);
               console.log();
               console.log(colors.gray('Press any key to continue...'));
-              await Deno.stdin.read(new Uint8Array(1));
+              await new Promise<void>((resolve) => {
+                process.stdin.once('data', () => resolve());
+                process.stdin.resume();
+              });
               break;
 
             case 'q':
@@ -196,12 +201,12 @@ export const startCommand = new Command()
               await processManager.stopAll();
               systemMonitor.stop();
               console.log(colors.green.bold('✓'), 'Shutdown complete');
-              Deno.exit(0);
+              process.exit(0);
               break;
           }
 
           // Redraw menu
-          console.clear();
+          process.stdout.write('\x1Bc'); // Clear screen
           console.log(colors.cyan('🧠 Claude-Flow Interactive Mode'));
           console.log(colors.gray('─'.repeat(60)));
           
@@ -237,7 +242,7 @@ export const startCommand = new Command()
         console.error(colors.red('Cleanup failed:'), cleanupErrorMessage);
       }
       
-      Deno.exit(1);
+      process.exit(1);
     }
   });
 
@@ -245,13 +250,13 @@ export const startCommand = new Command()
 
 async function isSystemRunning(): Promise<boolean> {
   try {
-    const pidData = await Deno.readTextFile('.claude-flow.pid');
+    const pidData = await readFile('.claude-flow.pid', 'utf-8');
     const data = JSON.parse(pidData);
     
     // Check if process is still running
     try {
-      Deno.kill(data.pid, 'SIGTERM');
-      return false; // Process was killed, so it was running
+      process.kill(data.pid, 0); // Signal 0 to check if process exists
+      return true; // Process is running
     } catch (error: unknown) {
       return false; // Process not found
     }
@@ -262,23 +267,23 @@ async function isSystemRunning(): Promise<boolean> {
 
 async function stopExistingInstance(): Promise<void> {
   try {
-    const pidData = await Deno.readTextFile('.claude-flow.pid');
+    const pidData = await readFile('.claude-flow.pid', 'utf-8');
     const data = JSON.parse(pidData);
     
     console.log(colors.yellow('Stopping existing instance...'));
-    Deno.kill(data.pid, 'SIGTERM');
+    process.kill(data.pid, 'SIGTERM');
     
     // Wait for graceful shutdown
     await new Promise(resolve => setTimeout(resolve, 2000));
     
     // Force kill if still running
     try {
-      Deno.kill(data.pid, 'SIGKILL');
+      process.kill(data.pid, 'SIGKILL');
     } catch (error: unknown) {
       // Process already stopped
     }
     
-    await Deno.remove('.claude-flow.pid').catch(() => {});
+    await unlink('.claude-flow.pid').catch(() => {});
     console.log(colors.green('✓ Existing instance stopped'));
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -309,15 +314,15 @@ async function performHealthChecks(): Promise<void> {
 
 async function checkDiskSpace(): Promise<void> {
   // Basic disk space check - would need platform-specific implementation
-  const stats = await Deno.stat('.');
-  if (!stats.isDirectory) {
+  const stats = await stat('.');
+  if (!stats.isDirectory()) {
     throw new Error('Current directory is not accessible');
   }
 }
 
 async function checkMemoryAvailable(): Promise<void> {
   // Memory check - would integrate with system memory monitoring
-  const memoryInfo = Deno.memoryUsage();
+  const memoryInfo = process.memoryUsage();
   if (memoryInfo.heapUsed > 500 * 1024 * 1024) { // 500MB threshold
     throw new Error('High memory usage detected');
   }
@@ -343,7 +348,7 @@ async function checkDependencies(): Promise<void> {
   const requiredDirs = ['.claude-flow', 'memory', 'logs'];
   for (const dir of requiredDirs) {
     try {
-      await Deno.mkdir(dir, { recursive: true });
+      await mkdir(dir, { recursive: true });
     } catch (error: unknown) {
       throw new Error(`Cannot create required directory: ${dir}`);
     }
@@ -362,11 +367,11 @@ function setupSystemEventHandlers(
     await processManager.stopAll();
     await cleanupOnShutdown();
     console.log(colors.green('✓ Shutdown complete'));
-    Deno.exit(0);
+    process.exit(0);
   };
   
-  Deno.addSignalListener('SIGINT', shutdownHandler);
-  Deno.addSignalListener('SIGTERM', shutdownHandler);
+  process.on('SIGINT', shutdownHandler);
+  process.on('SIGTERM', shutdownHandler);
   
   // Setup verbose logging if requested
   if (options.verbose) {
@@ -434,7 +439,7 @@ async function waitForSystemReady(processManager: ProcessManager): Promise<void>
 
 async function cleanupOnFailure(): Promise<void> {
   try {
-    await Deno.remove('.claude-flow.pid').catch(() => {});
+    await unlink('.claude-flow.pid').catch(() => {});
     console.log(colors.gray('Cleaned up PID file'));
   } catch (error: unknown) {
     // Ignore cleanup errors
@@ -443,7 +448,7 @@ async function cleanupOnFailure(): Promise<void> {
 
 async function cleanupOnShutdown(): Promise<void> {
   try {
-    await Deno.remove('.claude-flow.pid').catch(() => {});
+    await unlink('.claude-flow.pid').catch(() => {});
     console.log(colors.gray('Cleaned up PID file'));
   } catch (error: unknown) {
     // Ignore cleanup errors

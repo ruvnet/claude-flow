@@ -151,11 +151,12 @@ async function showStatus(ctx: CommandContext): Promise<void> {
       await showFullStatus(status, ctx.flags.verbose);
     }
   } catch (error) {
-    if (error.message.includes('ECONNREFUSED') || error.message.includes('connection refused')) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('connection refused')) {
       console.error(chalk.red('✗ Claude-Flow is not running'));
       console.log(chalk.gray('Start it with: claude-flow start'));
     } else {
-      console.error(chalk.red('Error getting status:'), error.message);
+      console.error(chalk.red('Error getting status:'), errorMessage);
     }
   }
 }
@@ -176,7 +177,7 @@ async function watchStatus(ctx: CommandContext): Promise<void> {
     try {
       await showStatus({ ...ctx, flags: { ...ctx.flags, json: false } });
     } catch (error) {
-      console.error(chalk.red('Status update failed:'), error.message);
+      console.error(chalk.red('Status update failed:'), error instanceof Error ? error.message : String(error));
     }
     
     await new Promise(resolve => setTimeout(resolve, interval));

@@ -7,6 +7,7 @@ import * as path from 'path';
 import { ValidationResult, ValidationCheck } from './types';
 import { logger } from './logger';
 import chalk from 'chalk';
+// @ts-ignore - glob types not installed
 import { glob } from 'glob';
 
 export class MigrationValidator {
@@ -148,7 +149,7 @@ export class MigrationValidator {
       }
       
     } catch (error) {
-      result.errors.push(`Failed to validate ${command}: ${error.message}`);
+      result.errors.push(`Failed to validate ${command}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -197,7 +198,7 @@ export class MigrationValidator {
           }
         }
       } catch (error) {
-        result.errors.push(`Invalid .roomodes file: ${error.message}`);
+        result.errors.push(`Invalid .roomodes file: ${error instanceof Error ? error.message : String(error)}`);
         check.passed = false;
       }
     }
@@ -233,7 +234,7 @@ export class MigrationValidator {
           }
           
         } catch (error) {
-          result.errors.push(`Cannot read file ${file}: ${error.message}`);
+          result.errors.push(`Cannot read file ${file}: ${error instanceof Error ? error.message : String(error)}`);
           check.passed = false;
         }
       }

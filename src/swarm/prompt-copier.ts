@@ -3,7 +3,12 @@ import * as path from 'path';
 import { createHash } from 'crypto';
 import { Worker } from 'worker_threads';
 import { EventEmitter } from 'events';
-import { logger } from '../logger';
+import { Logger } from '../core/logger.js';
+
+const logger = new Logger(
+  { level: 'info', format: 'json', destination: 'console' },
+  { component: 'PromptCopier' }
+);
 
 export interface CopyOptions {
   source: string;
@@ -56,10 +61,10 @@ export interface FileInfo {
 }
 
 export class PromptCopier extends EventEmitter {
-  private options: Required<CopyOptions>;
-  private fileQueue: FileInfo[] = [];
-  private copiedFiles: Set<string> = new Set();
-  private errors: CopyError[] = [];
+  protected options: Required<CopyOptions>;
+  protected fileQueue: FileInfo[] = [];
+  protected copiedFiles: Set<string> = new Set();
+  protected errors: CopyError[] = [];
   private backupMap: Map<string, string> = new Map();
   private rollbackStack: Array<() => Promise<void>> = [];
 
@@ -240,7 +245,7 @@ export class PromptCopier extends EventEmitter {
       } catch (error) {
         this.errors.push({
           file: file.path,
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
           phase: 'write'
         });
       }
@@ -274,7 +279,7 @@ export class PromptCopier extends EventEmitter {
       } catch (error) {
         this.errors.push({
           file: file.path,
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
           phase: 'write'
         });
       }
@@ -397,19 +402,19 @@ export class PromptCopier extends EventEmitter {
       } catch (error) {
         this.errors.push({
           file: file.path,
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
           phase: 'verify'
         });
       }
     }
   }
 
-  private async calculateFileHash(filePath: string): Promise<string> {
+  protected async calculateFileHash(filePath: string): Promise<string> {
     const content = await fs.readFile(filePath);
     return createHash('sha256').update(content).digest('hex');
   }
 
-  private async fileExists(filePath: string): Promise<boolean> {
+  protected async fileExists(filePath: string): Promise<boolean> {
     try {
       await fs.access(filePath);
       return true;
@@ -463,7 +468,7 @@ export class PromptCopier extends EventEmitter {
     }
   }
 
-  private reportProgress(completed: number): void {
+  protected reportProgress(completed: number): void {
     const progress: CopyProgress = {
       total: this.fileQueue.length,
       completed,

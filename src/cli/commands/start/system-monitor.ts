@@ -11,7 +11,7 @@ export class SystemMonitor {
   private processManager: ProcessManager;
   private events: any[] = [];
   private maxEvents = 100;
-  private metricsInterval?: number;
+  private metricsInterval?: NodeJS.Timeout;
 
   constructor(processManager: ProcessManager) {
     this.processManager = processManager;

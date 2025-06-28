@@ -6,6 +6,9 @@ import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
 import { Table } from '@cliffy/table';
 import { formatProgressBar, formatDuration, formatStatusIndicator } from '../formatter.js';
+import { writeFileSync, rmSync, existsSync } from 'fs';
+import process from 'process';
+import type { ComponentStatus, AlertData } from '../../types/missing-types.js';
 
 export const monitorCommand = new Command()
   .description('Start live monitoring dashboard')
@@ -35,24 +38,27 @@ class Dashboard {
   private data: MonitorData[] = [];
   private maxDataPoints = 60; // 2 minutes at 2-second intervals
   private running = true;
+  private alerts: any[] = [];
+  private startTime = Date.now();
+  private exportData: any[] = [];
 
   constructor(private options: any) {}
 
   async start(): Promise<void> {
     // Hide cursor and clear screen
-    Deno.stdout.writeSync(new TextEncoder().encode('\x1b[?25l'));
+    process.stdout.write('\x1b[?25l');
     console.clear();
 
     // Setup signal handlers
     const cleanup = () => {
       this.running = false;
-      Deno.stdout.writeSync(new TextEncoder().encode('\x1b[?25h')); // Show cursor
+      process.stdout.write('\x1b[?25h'); // Show cursor
       console.log('\n' + colors.gray('Monitor stopped'));
-      Deno.exit(0);
+      process.exit(0);
     };
 
-    Deno.addSignalListener('SIGINT', cleanup);
-    Deno.addSignalListener('SIGTERM', cleanup);
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
 
     // Start monitoring loop
     await this.monitoringLoop();
@@ -429,7 +435,7 @@ class Dashboard {
   
   private generateComponentStatus(): Record<string, ComponentStatus> {
     const components = ['orchestrator', 'terminal', 'memory', 'coordination', 'mcp'];
-    const statuses = ['healthy', 'degraded', 'error'];
+    const statuses: ('healthy' | 'degraded' | 'error')[] = ['healthy', 'degraded', 'error'];
     
     const result: Record<string, ComponentStatus> = {};
     
@@ -519,7 +525,7 @@ class Dashboard {
         alerts: this.alerts
       };
       
-      await Deno.writeTextFile(this.options.export, JSON.stringify(exportData, null, 2));
+      await writeFileSync(this.options.export, JSON.stringify(exportData, null, 2), 'utf8');
       console.log(colors.green(`✓ Monitoring data exported to ${this.options.export}`));
     } catch (error) {
       console.error(colors.red('Failed to export data:'), (error as Error).message);
@@ -542,8 +548,8 @@ async function startMonitorDashboard(options: any): Promise<void> {
   if (options.export) {
     // Check if export path is writable
     try {
-      await Deno.writeTextFile(options.export, '');
-      await Deno.remove(options.export);
+      writeFileSync(options.export, '', 'utf8');
+      rmSync(options.export, { force: true });
     } catch {
       console.error(colors.red(`Cannot write to export file: ${options.export}`));
       return;

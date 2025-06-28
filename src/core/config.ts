@@ -19,7 +19,7 @@ interface FormatParser {
 }
 
 // Configuration change record
-interface ConfigChange {
+export interface ConfigChange {
   timestamp: string;
   path: string;
   oldValue: any;
@@ -251,9 +251,69 @@ const DEFAULT_CONFIG: Config = {
 };
 
 /**
- * Configuration manager
+ * Configuration manager interface defining all required methods
  */
-export class ConfigManager {
+export interface IConfigManager {
+  // Core configuration methods
+  load(configPath?: string): Promise<Config>;
+  get(maskSensitive?: boolean): Config;
+  getSecure(): Config;
+  update(updates: Partial<Config>, options?: { user?: string; reason?: string; source?: 'cli' | 'api' | 'file' | 'env' }): Config;
+  loadDefault(): void;
+  save(path?: string, format?: string): Promise<void>;
+  
+  // Profile management methods
+  loadProfiles(): Promise<void>;
+  applyProfile(profileName: string): Promise<void>;
+  saveProfile(profileName: string, config?: Partial<Config>): Promise<void>;
+  deleteProfile(profileName: string): Promise<void>;
+  listProfiles(): Promise<string[]>;
+  getProfile(profileName: string): Promise<Partial<Config> | undefined>;
+  getCurrentProfile(): string | undefined;
+  
+  // Configuration value methods
+  set(path: string, value: any, options?: { user?: string; reason?: string; source?: 'cli' | 'api' | 'file' | 'env' }): void;
+  getValue(path: string, decrypt?: boolean): any;
+  reset(): void;
+  
+  // Schema and validation methods
+  getSchema(): any;
+  getDiff(): any;
+  export(): any;
+  import(data: any): void;
+  
+  // Template management methods
+  getAvailableTemplates(): string[];
+  createTemplate(templateName: string): any;
+  
+  // Format parser methods
+  getFormatParsers(): Record<string, FormatParser>;
+  
+  // File validation methods
+  validateFile(configFile: string): Promise<{ valid: boolean; errors: string[] }>;
+  
+  // Change tracking methods
+  getPathHistory(path: string, limit: number): ConfigChange[];
+  getChangeHistory(limit: number): ConfigChange[];
+  
+  // Backup and restore methods
+  backup(path?: string): Promise<string>;
+  restore(backupPath: string): Promise<void>;
+  
+  // Security and utility methods (private implementations)
+  maskSensitiveValues(config: Config): Config;
+  trackChanges(oldConfig: Config, updates: Partial<Config>, options: any): void;
+  recordChange(change: ConfigChange): void;
+  isSensitivePath(path: string): boolean;
+  encryptValue(value: any): any;
+  decryptValue(value: any): any;
+  isEncryptedValue(value: any): boolean;
+}
+
+/**
+ * Configuration manager implementation
+ */
+export class ConfigManager implements IConfigManager {
   private static instance: ConfigManager;
   private config: Config;
   private configPath?: string;
@@ -285,7 +345,7 @@ export class ConfigManager {
   /**
    * Initializes encryption for sensitive configuration values
    */
-  private initializeEncryption(): void {
+  private async initializeEncryption(): Promise<void> {
     try {
       const keyFile = join(this.userConfigDir, '.encryption-key');
       // Check if key file exists (simplified for demo)
@@ -1105,6 +1165,280 @@ export class ConfigManager {
   private validate(config: Config): void {
     this.validateWithDependencies(config);
   }
+
+  /**
+   * Masks sensitive values in configuration
+   */
+  maskSensitiveValues(config: Config): Config {
+    const masked = JSON.parse(JSON.stringify(config));
+    
+    const maskValue = (obj: any, path: string = ''): void => {
+      for (const key in obj) {
+        const fullPath = path ? `${path}.${key}` : key;
+        
+        if (this.isSensitivePath(fullPath)) {
+          const classification = SECURITY_CLASSIFICATIONS[fullPath];
+          if (classification?.maskPattern) {
+            obj[key] = classification.maskPattern;
+          } else if (typeof obj[key] === 'string') {
+            obj[key] = '********';
+          } else {
+            obj[key] = '[MASKED]';
+          }
+        } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+          maskValue(obj[key], fullPath);
+        }
+      }
+    };
+    
+    maskValue(masked);
+    return masked;
+  }
+
+  /**
+   * Tracks changes between old and new configurations
+   */
+  trackChanges(oldConfig: Config, updates: Partial<Config>, options: any): void {
+    const findChanges = (old: any, updated: any, path: string = ''): void => {
+      for (const key in updated) {
+        const fullPath = path ? `${path}.${key}` : key;
+        const oldValue = old?.[key];
+        const newValue = updated[key];
+        
+        if (typeof newValue === 'object' && newValue !== null && !Array.isArray(newValue)) {
+          findChanges(oldValue || {}, newValue, fullPath);
+        } else if (oldValue !== newValue) {
+          this.recordChange({
+            timestamp: new Date().toISOString(),
+            path: fullPath,
+            oldValue: oldValue,
+            newValue: newValue,
+            user: options?.user,
+            reason: options?.reason,
+            source: options?.source || 'api'
+          });
+        }
+      }
+    };
+    
+    findChanges(oldConfig, updates);
+  }
+
+  /**
+   * Records a configuration change
+   */
+  recordChange(change: ConfigChange): void {
+    this.changeHistory.push(change);
+    
+    // Keep only last 1000 changes
+    if (this.changeHistory.length > 1000) {
+      this.changeHistory = this.changeHistory.slice(-1000);
+    }
+  }
+
+  /**
+   * Checks if a path contains sensitive data
+   */
+  isSensitivePath(path: string): boolean {
+    const pathParts = path.toLowerCase().split('.');
+    
+    // Check against security classifications
+    if (SECURITY_CLASSIFICATIONS[path]) {
+      return SECURITY_CLASSIFICATIONS[path].level !== 'public';
+    }
+    
+    // Check against sensitive keywords
+    return SENSITIVE_PATHS.some(sensitive => 
+      pathParts.some(part => part.includes(sensitive.toLowerCase()))
+    );
+  }
+
+  /**
+   * Encrypts a value
+   */
+  encryptValue(value: any): any {
+    if (!this.encryptionKey) {
+      return value;
+    }
+    
+    try {
+      const cipher = createCipher('aes-256-cbc', this.encryptionKey);
+      const encrypted = cipher.update(JSON.stringify(value), 'utf8', 'hex') + cipher.final('hex');
+      return { __encrypted: true, value: encrypted };
+    } catch (error) {
+      console.warn('Encryption failed:', (error as Error).message);
+      return value;
+    }
+  }
+
+  /**
+   * Decrypts a value
+   */
+  decryptValue(value: any): any {
+    if (!this.isEncryptedValue(value) || !this.encryptionKey) {
+      return value;
+    }
+    
+    try {
+      const decipher = createDecipher('aes-256-cbc', this.encryptionKey);
+      const decrypted = decipher.update(value.value, 'hex', 'utf8') + decipher.final('utf8');
+      return JSON.parse(decrypted);
+    } catch (error) {
+      console.warn('Decryption failed:', (error as Error).message);
+      return value;
+    }
+  }
+
+  /**
+   * Checks if a value is encrypted
+   */
+  isEncryptedValue(value: any): boolean {
+    return value && typeof value === 'object' && value.__encrypted === true && typeof value.value === 'string';
+  }
+
+  /**
+   * Gets available configuration templates
+   */
+  getAvailableTemplates(): string[] {
+    return ['development', 'production', 'testing', 'enterprise', 'minimal'];
+  }
+
+  /**
+   * Creates a configuration template
+   */
+  createTemplate(templateName: string): any {
+    const templates: Record<string, Partial<Config>> = {
+      development: {
+        logging: { level: 'debug', format: 'text', destination: 'console' },
+        orchestrator: { maxConcurrentAgents: 5, taskQueueSize: 50, healthCheckInterval: 60000, shutdownTimeout: 10000 },
+        terminal: { poolSize: 3, type: 'auto' as const, recycleAfter: 100, healthCheckInterval: 30000, commandTimeout: 30000 },
+      },
+      production: {
+        logging: { level: 'info', format: 'json', destination: 'file' },
+        orchestrator: { maxConcurrentAgents: 20, taskQueueSize: 500, healthCheckInterval: 60000, shutdownTimeout: 10000 },
+        terminal: { poolSize: 10, type: 'auto' as const, recycleAfter: 100, healthCheckInterval: 30000, commandTimeout: 30000 },
+        security: { encryptionEnabled: true, auditLogging: true, maskSensitiveValues: true, allowEnvironmentOverrides: false },
+      },
+      testing: {
+        logging: { level: 'debug', format: 'text', destination: 'console' },
+        orchestrator: { maxConcurrentAgents: 2, taskQueueSize: 10, healthCheckInterval: 60000, shutdownTimeout: 10000 },
+        terminal: { poolSize: 1, type: 'auto' as const, recycleAfter: 100, healthCheckInterval: 30000, commandTimeout: 30000 },
+      },
+      enterprise: {
+        logging: { level: 'info', format: 'json', destination: 'file' },
+        orchestrator: { maxConcurrentAgents: 50, taskQueueSize: 1000, healthCheckInterval: 60000, shutdownTimeout: 10000 },
+        terminal: { poolSize: 20, type: 'native' as const, recycleAfter: 100, healthCheckInterval: 30000, commandTimeout: 30000 },
+        security: { encryptionEnabled: true, auditLogging: true, maskSensitiveValues: true, allowEnvironmentOverrides: false },
+        memory: { backend: 'sqlite' as const, cacheSizeMB: 500, syncInterval: 5000, conflictResolution: 'timestamp' as const, retentionDays: 30 },
+      },
+      minimal: {
+        logging: { level: 'warn', format: 'text', destination: 'console' },
+        orchestrator: { maxConcurrentAgents: 1, taskQueueSize: 10, healthCheckInterval: 60000, shutdownTimeout: 10000 },
+        terminal: { poolSize: 1, type: 'auto' as const, recycleAfter: 100, healthCheckInterval: 30000, commandTimeout: 30000 },
+      },
+    };
+    
+    return templates[templateName] || {};
+  }
+
+  /**
+   * Gets format parsers
+   */
+  getFormatParsers(): Record<string, FormatParser> {
+    return this.formatParsers;
+  }
+
+  /**
+   * Validates a configuration file
+   */
+  async validateFile(configFile: string): Promise<{ valid: boolean; errors: string[] }> {
+    try {
+      const config = await this.loadFromFile(configFile);
+      const fullConfig = deepMergeConfig(deepClone(DEFAULT_CONFIG), config);
+      
+      const errors: string[] = [];
+      try {
+        this.validateWithDependencies(fullConfig);
+      } catch (error) {
+        if (error instanceof ValidationError) {
+          errors.push(...error.message.split('\n').filter(e => e.trim()));
+        } else {
+          errors.push((error as Error).message);
+        }
+      }
+      
+      return { valid: errors.length === 0, errors };
+    } catch (error) {
+      return { valid: false, errors: [(error as Error).message] };
+    }
+  }
+
+  /**
+   * Gets change history for a specific path
+   */
+  getPathHistory(path: string, limit: number = 10): ConfigChange[] {
+    return this.changeHistory
+      .filter(change => change.path === path)
+      .slice(-limit);
+  }
+
+  /**
+   * Gets overall change history
+   */
+  getChangeHistory(limit: number = 100): ConfigChange[] {
+    return this.changeHistory.slice(-limit);
+  }
+
+  /**
+   * Backs up current configuration
+   */
+  async backup(path?: string): Promise<string> {
+    const backupPath = path || join(this.userConfigDir, `backup-${Date.now()}.json`);
+    const backupData = {
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
+      config: this.config,
+      profile: this.currentProfile,
+      changeHistory: this.changeHistory.slice(-100),
+    };
+    
+    await fs.writeFile(backupPath, JSON.stringify(backupData, null, 2));
+    return backupPath;
+  }
+
+  /**
+   * Restores configuration from backup
+   */
+  async restore(backupPath: string): Promise<void> {
+    try {
+      const backupContent = await fs.readFile(backupPath, 'utf8');
+      const backupData = JSON.parse(backupContent);
+      
+      if (!backupData.config) {
+        throw new ConfigError('Invalid backup file format');
+      }
+      
+      this.validateWithDependencies(backupData.config);
+      
+      this.config = backupData.config;
+      this.currentProfile = backupData.profile;
+      
+      if (backupData.changeHistory) {
+        this.changeHistory = backupData.changeHistory;
+      }
+      
+      this.recordChange({
+        timestamp: new Date().toISOString(),
+        path: 'CONFIG_RESTORED',
+        oldValue: null,
+        newValue: backupData.timestamp,
+        source: 'file'
+      });
+    } catch (error) {
+      throw new ConfigError(`Failed to restore from backup: ${(error as Error).message}`);
+    }
+  }
+
 }
 
 // Export singleton instance

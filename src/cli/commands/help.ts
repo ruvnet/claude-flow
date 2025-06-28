@@ -6,6 +6,7 @@ import { Command } from '@cliffy/command';
 import { colors } from '@cliffy/ansi/colors';
 import { Table } from '@cliffy/table';
 import { Select } from '@cliffy/prompt';
+import process from 'process';
 
 export const helpCommand = new Command()
   .description('Comprehensive help system with examples and tutorials')
@@ -798,7 +799,7 @@ async function startInteractiveHelp(): Promise<void> {
       options: categories,
     });
     
-    const choice = typeof result === 'string' ? result : result.value;
+    const choice = typeof result === 'string' ? result : (result as any).value;
     
     if (choice === 'exit') {
       console.log(colors.gray('Goodbye!'));
@@ -816,9 +817,7 @@ async function startInteractiveHelp(): Promise<void> {
     console.log();
     console.log(colors.gray('Press Enter to continue...'));
     await new Promise(resolve => {
-      const stdin = Deno.stdin;
-      const buffer = new Uint8Array(1);
-      stdin.read(buffer).then(() => resolve(undefined));
+      process.stdin.once('data', () => resolve(undefined));
     });
     
     console.clear();

@@ -2,6 +2,7 @@
  * Enhanced Interactive REPL for Claude-Flow
  */
 
+import { promises as fs } from 'fs';
 import { Input, Confirm, Select } from '@cliffy/prompt';
 import { colors } from '@cliffy/ansi/colors';
 import { Table } from '@cliffy/table';
@@ -57,8 +58,8 @@ class CommandHistory {
 
   private async loadHistory(): Promise<void> {
     try {
-      const content = await Deno.readTextFile(this.historyFile);
-      this.history = content.split('\n').filter(line => line.trim());
+      const content = await fs.readFile(this.historyFile, 'utf8');
+      this.history = content.split('\n').filter((line: string) => line.trim());
     } catch {
       // History file doesn't exist yet
     }
@@ -66,7 +67,7 @@ class CommandHistory {
 
   private async saveHistory(): Promise<void> {
     try {
-      await Deno.writeTextFile(this.historyFile, this.history.join('\n'));
+      await fs.writeFile(this.historyFile, this.history.join('\n'), 'utf8');
     } catch {
       // Ignore save errors
     }
@@ -163,7 +164,7 @@ export async function startREPL(options: any = {}): Promise<void> {
   const context: REPLContext = {
     options,
     history: [],
-    workingDirectory: Deno.cwd(),
+    workingDirectory: process.cwd(),
     connectionStatus: 'disconnected',
     lastActivity: new Date(),
   };
@@ -329,9 +330,9 @@ export async function startREPL(options: any = {}): Promise<void> {
         }
         
         try {
-          const newDir = args[0] === '~' ? Deno.env.get('HOME') || '/' : args[0];
-          Deno.chdir(newDir);
-          ctx.workingDirectory = Deno.cwd();
+          const newDir = args[0] === '~' ? process.env.HOME || '/' : args[0];
+          process.chdir(newDir);
+          ctx.workingDirectory = process.cwd();
           console.log(colors.gray(`Changed to: ${ctx.workingDirectory}`));
         } catch (error) {
           console.error(colors.red('Error:'), error instanceof Error ? error.message : String(error));
@@ -360,7 +361,7 @@ export async function startREPL(options: any = {}): Promise<void> {
       description: 'Exit the REPL',
       handler: async () => {
         console.log(colors.gray('Goodbye!'));
-        Deno.exit(0);
+        process.exit(0);
       },
     },
   ];
@@ -379,8 +380,7 @@ export async function startREPL(options: any = {}): Promise<void> {
     try {
       const prompt = createPrompt(context);
       const input = await Input.prompt({
-        message: prompt,
-        suggestions: (input: string) => completer.complete(input),
+        message: prompt
       });
 
       if (!input.trim()) {
@@ -1014,7 +1014,7 @@ async function showWorkflowList(): Promise<void> {
 
 async function handleWorkflowRun(filename: string): Promise<void> {
   try {
-    await Deno.stat(filename);
+    await fs.stat(filename);
     console.log(colors.yellow(`Running workflow: ${filename}`));
     await new Promise(resolve => setTimeout(resolve, 1000));
     
