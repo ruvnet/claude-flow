@@ -9,7 +9,7 @@ import { EventBus } from '../../core/event-bus.js';
 import { Logger } from '../../core/logger.js';
 import { ConfigManager } from '../../config/config-manager.js';
 import { Orchestrator } from '../../core/orchestrator.js';
-import { SwarmCoordinator } from '../../coordination/swarm-coordinator.js';
+import { SwarmCoordinator, SwarmConfig as SwarmCoordinatorConfig } from '../../coordination/swarm-coordinator.js';
 import { AgentManager } from '../../agents/agent-manager.js';
 import { ResourceManager } from '../../resources/resource-manager.js';
 import { MessageBus } from '../../communication/message-bus.js';
@@ -19,6 +19,7 @@ import { DistributedMemorySystem } from '../../memory/distributed-memory.js';
 import { StdioTransport } from '../../mcp/transports/stdio.js';
 import { TerminalManager } from '../../terminal/manager.js';
 import { CoordinationManager } from '../../coordination/manager.js';
+import { SwarmConfig } from '../../swarm/types.js';
 
 /**
  * Main function to start MCP server
@@ -74,7 +75,7 @@ async function main() {
       logger
     );
     const swarmCoordinator = new SwarmCoordinator(
-      config.swarm || { 
+      config.swarm as Partial<SwarmCoordinatorConfig> || { 
         coordinationStrategy: 'centralized',
         maxAgents: 10,
         maxConcurrentTasks: 20,
@@ -93,7 +94,27 @@ async function main() {
     const resourceManager = new ResourceManager({}, logger, eventBus);
     const messageBus = new MessageBus({}, logger, eventBus);
     const monitor = new RealTimeMonitor(
-      { enableWebUI: false, webPort: 3001, refreshInterval: 1000 },
+      { 
+        updateInterval: 1000,
+        retentionPeriod: 86400000,
+        alertingEnabled: true,
+        alertThresholds: {
+          cpu: { warning: 70, critical: 90 },
+          memory: { warning: 75, critical: 85 },
+          disk: { warning: 80, critical: 90 },
+          errorRate: { warning: 5, critical: 10 },
+          responseTime: { warning: 1000, critical: 3000 },
+          queueDepth: { warning: 100, critical: 500 },
+          agentHealth: { warning: 3, critical: 1 },
+          swarmUtilization: { warning: 80, critical: 95 }
+        },
+        metricsEnabled: true,
+        tracingEnabled: false,
+        dashboardEnabled: false,
+        exportEnabled: false,
+        exportFormat: 'json',
+        debugMode: false
+      },
       logger,
       eventBus,
       distributedMemory

@@ -4,12 +4,13 @@
  * semantic clustering, caching, and progressive refinement
  */
 
-import { BaseStrategy, DecompositionResult, StrategyMetrics } from './base.js';
+import { BaseStrategy, DecompositionResult, StrategyMetrics, TaskBatch } from './base.js';
 import { Logger } from '../../core/logger.js';
 import { generateId } from '../../utils/helpers.js';
 import {
   SwarmObjective, TaskDefinition, TaskId, TaskType, TaskPriority,
-  SwarmConfig, SWARM_CONSTANTS
+  SwarmConfig, SWARM_CONSTANTS, SwarmMode, SwarmStrategy, CoordinationStrategy, AccessLevel,
+  AgentState
 } from '../types.js';
 
 // Research-specific interfaces
@@ -113,7 +114,7 @@ export class ResearchStrategy extends BaseStrategy {
       version: '1.0.0',
       mode: 'distributed' as SwarmMode,
       strategy: 'research' as SwarmStrategy,
-      coordinationStrategy: 'hierarchical' as CoordinationStrategy,
+      coordinationStrategy: 'hierarchical' as unknown as CoordinationStrategy,
       maxAgents: 5,
       maxTasks: 100,
       maxDuration: 3600000, // 1 hour
@@ -132,15 +133,19 @@ export class ResearchStrategy extends BaseStrategy {
         maxLogSize: 10 * 1024 * 1024,
         maxMetricPoints: 10000,
         alertingEnabled: false,
-        alertThresholds: {}
+        alertThresholds: {},
+        exportEnabled: false,
+        exportFormat: 'json',
+        exportDestination: 'file'
       },
       memory: {
         namespace: 'research',
         partitions: [],
         permissions: {
-          read: ['*'],
-          write: ['*'],
-          delete: ['admin']
+          read: 'public' as AccessLevel,
+          write: 'public' as AccessLevel,
+          delete: 'team' as AccessLevel,
+          share: 'public' as AccessLevel
         },
         persistent: false,
         backupEnabled: false,
@@ -197,12 +202,7 @@ export class ResearchStrategy extends BaseStrategy {
     });
   }
 
-  async decomposeObjective(objective: SwarmObjective): Promise<{
-    tasks: TaskDefinition[];
-    dependencies: Map<string, string[]>;
-    estimatedDuration: number;
-    resourceRequirements: any;
-  }> {
+  async decomposeObjective(objective: SwarmObjective): Promise<DecompositionResult> {
     this.logger.info('Decomposing research objective', {
       objectiveId: objective.id,
       description: objective.description
@@ -368,13 +368,69 @@ Ensure the report is well-structured and actionable.`,
       tasks,
       dependencies,
       estimatedDuration: totalDuration,
-      resourceRequirements: {
-        memory: SWARM_CONSTANTS.DEFAULT_MEMORY_LIMIT * 1.5,
-        cpu: SWARM_CONSTANTS.DEFAULT_CPU_LIMIT * 1.2,
-        network: 'high',
-        storage: 'medium'
-      }
+      recommendedStrategy: 'research',
+      complexity: this.estimateComplexity(objective.description),
+      batchGroups: this.createBatchGroups(tasks, dependencies)
     };
+  }
+
+  private createBatchGroups(tasks: TaskDefinition[], dependencies: Map<string, string[]>): TaskBatch[] {
+    const batches: TaskBatch[] = [];
+    const processed = new Set<string>();
+    
+    // Group tasks by dependency level
+    const levels = new Map<string, number>();
+    
+    // Find tasks with no dependencies (level 0)
+    tasks.forEach(task => {
+      if (!dependencies.has(task.id.id)) {
+        levels.set(task.id.id, 0);
+      }
+    });
+    
+    // Calculate levels for dependent tasks
+    let changed = true;
+    while (changed) {
+      changed = false;
+      tasks.forEach(task => {
+        if (!levels.has(task.id.id)) {
+          const deps = dependencies.get(task.id.id) || [];
+          const depLevels = deps.map(d => levels.get(d)).filter(l => l !== undefined) as number[];
+          if (depLevels.length === deps.length) {
+            levels.set(task.id.id, Math.max(...depLevels) + 1);
+            changed = true;
+          }
+        }
+      });
+    }
+    
+    // Group tasks by level into batches
+    const tasksByLevel = new Map<number, TaskDefinition[]>();
+    tasks.forEach(task => {
+      const level = levels.get(task.id.id) || 0;
+      if (!tasksByLevel.has(level)) {
+        tasksByLevel.set(level, []);
+      }
+      tasksByLevel.get(level)!.push(task);
+    });
+    
+    // Create batch groups
+    Array.from(tasksByLevel.entries())
+      .sort(([a], [b]) => a - b)
+      .forEach(([level, levelTasks]) => {
+        batches.push({
+          id: `batch-${level}`,
+          tasks: levelTasks,
+          canRunInParallel: true,
+          estimatedDuration: Math.max(...levelTasks.map(t => t.constraints.timeoutAfter || 0)),
+          requiredResources: {
+            memory: SWARM_CONSTANTS.DEFAULT_MEMORY_LIMIT,
+            cpu: SWARM_CONSTANTS.DEFAULT_CPU_LIMIT
+          }
+        });
+      });
+    
+    return batches;
   }
 
   // Research-specific optimizations for task execution
@@ -384,18 +440,26 @@ Ensure the report is well-structured and actionable.`,
     try {
       // Apply research-specific optimizations based on task type
       switch (task.type) {
-        case 'web-search':
-          return await this.executeOptimizedWebSearch(task, agent);
-        case 'data-processing':
-          return await this.executeOptimizedDataExtraction(task, agent);
+        case 'research':
+          // Handle research tasks including web search
+          if (task.description?.toLowerCase().includes('search') || 
+              task.description?.toLowerCase().includes('gather')) {
+            return await this.executeOptimizedWebSearch(task, agent);
+          }
+          return await this.executeGenericResearchTask(task, agent);
         case 'analysis':
+          // Handle analysis tasks including data processing
+          if (task.description?.toLowerCase().includes('data') || 
+              task.description?.toLowerCase().includes('extract')) {
+            return await this.executeOptimizedDataExtraction(task, agent);
+          }
           return await this.executeOptimizedClustering(task, agent);
         default:
           return await this.executeGenericResearchTask(task, agent);
       }
     } finally {
       const duration = Date.now() - startTime;
-      this.updateMetrics(task.type, duration);
+      this.updateResearchMetrics(task.type, duration);
     }
   }
 
@@ -857,14 +921,14 @@ Ensure the report is well-structured and actionable.`,
     };
   }
 
-  private updateMetrics(taskType: string, duration: number): void {
+  protected updateResearchMetrics(taskType: string, duration: number): void {
     this.researchMetrics.queriesExecuted++;
     this.researchMetrics.averageResponseTime = 
       (this.researchMetrics.averageResponseTime + duration) / 2;
   }
 
   // Public API for metrics
-  getMetrics() {
+  public override getMetrics() {
     return {
       ...this.metrics,
       cacheHitRate: this.researchMetrics.cacheHits / (this.researchMetrics.cacheHits + this.researchMetrics.cacheMisses),
@@ -901,5 +965,102 @@ Ensure the report is well-structured and actionable.`,
     }
 
     return refinedObjective;
+  }
+
+  // Implement abstract methods from BaseStrategy
+  async selectAgentForTask(task: TaskDefinition, availableAgents: AgentState[]): Promise<string | null> {
+    // Filter agents that have research capabilities
+    const researchAgents = availableAgents.filter(agent => 
+      agent.status === 'idle' && 
+      agent.capabilities.research &&
+      agent.type === 'researcher'
+    );
+
+    if (researchAgents.length === 0) {
+      this.logger.warn('No available research agents for task', { taskId: task.id });
+      return null;
+    }
+
+    // Select agent with best performance metrics
+    const bestAgent = researchAgents.reduce((best, current) => {
+      const currentScore = (current.metrics?.successRate || 0) * 0.5 + 
+                          (1 - (current.metrics?.averageExecutionTime || 1000000) / 1000000) * 0.5;
+      const bestScore = (best.metrics?.successRate || 0) * 0.5 + 
+                       (1 - (best.metrics?.averageExecutionTime || 1000000) / 1000000) * 0.5;
+      
+      return currentScore > bestScore ? current : best;
+    });
+
+    this.logger.info('Selected agent for research task', {
+      taskId: task.id,
+      agentId: bestAgent.id,
+      agentType: bestAgent.type
+    });
+
+    return bestAgent.id.id;
+  }
+
+  async optimizeTaskSchedule(tasks: TaskDefinition[], agents: AgentState[]): Promise<any[]> {
+    // Group tasks by priority and dependencies
+    const taskGroups = new Map<TaskPriority, TaskDefinition[]>();
+    
+    tasks.forEach(task => {
+      const priority = task.priority || 'medium';
+      if (!taskGroups.has(priority)) {
+        taskGroups.set(priority, []);
+      }
+      taskGroups.get(priority)!.push(task);
+    });
+
+    // Create agent allocations
+    const allocations: any[] = [];
+    const availableAgents = agents.filter(a => a.status === 'idle' && a.type === 'researcher');
+    let agentIndex = 0;
+
+    // Allocate high priority tasks first
+    const priorities: TaskPriority[] = ['critical', 'high', 'normal', 'low', 'background'];
+    
+    for (const priority of priorities) {
+      const priorityTasks = taskGroups.get(priority) || [];
+      
+      for (const task of priorityTasks) {
+        if (agentIndex >= availableAgents.length) {
+          agentIndex = 0; // Round-robin if we run out of agents
+        }
+        
+        const agent = availableAgents[agentIndex];
+        
+        // Find or create allocation for this agent
+        let allocation = allocations.find(a => a.agentId === agent.id.id);
+        if (!allocation) {
+          allocation = {
+            agentId: agent.id.id,
+            tasks: [],
+            estimatedWorkload: 0,
+            capabilities: []
+          };
+          allocations.push(allocation);
+        }
+        
+        allocation.tasks.push(task.id.id);
+        allocation.estimatedWorkload += this.estimateTaskDuration(task.description);
+        
+        agentIndex++;
+      }
+    }
+
+    this.logger.info('Optimized task schedule', {
+      totalTasks: tasks.length,
+      totalAgents: availableAgents.length,
+      allocations: allocations.length
+    });
+
+    return allocations;
+  }
+
+  private estimateTaskDuration(description: string): number {
+    // Use the existing method from BaseStrategy
+    const pattern = this.taskPatterns.find(p => p.pattern.test(description));
+    return pattern ? pattern.estimatedDuration : 300000; // Default 5 minutes
   }
 }

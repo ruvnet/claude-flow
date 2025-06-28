@@ -114,24 +114,24 @@ export class AuditModel {
       params.push(options.endDate.toISOString());
     }
 
-    let query = `SELECT * FROM ${this.TABLE_NAME}`;
+    let sqlQuery = `SELECT * FROM ${this.TABLE_NAME}`;
     if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
+      sqlQuery += ' WHERE ' + conditions.join(' AND ');
     }
 
-    query += ' ORDER BY timestamp DESC';
+    sqlQuery += ' ORDER BY timestamp DESC';
 
     if (options.limit) {
-      query += ' LIMIT ?';
+      sqlQuery += ' LIMIT ?';
       params.push(options.limit);
     }
 
     if (options.offset) {
-      query += ' OFFSET ?';
+      sqlQuery += ' OFFSET ?';
       params.push(options.offset);
     }
 
-    const results = await query<any>(query, params);
+    const results = await query<any>(sqlQuery, params);
     return results.map(this.mapToAuditLog);
   }
 

@@ -34,7 +34,7 @@ export interface TaskSchedule {
   timezone?: string;
 }
 
-export interface WorkflowTask extends Task {
+export interface WorkflowTask extends Omit<Task, 'dependencies'> {
   dependencies: TaskDependency[];
   resourceRequirements: ResourceRequirement[];
   schedule?: TaskSchedule;
@@ -674,8 +674,9 @@ export class TaskEngine extends EventEmitter {
     if (!task) return;
 
     // Implement retry logic based on retryPolicy
-    if (task.retryPolicy && (task.metadata?.retryCount || 0) < task.retryPolicy.maxAttempts) {
-      task.metadata = { ...task.metadata, retryCount: (task.metadata?.retryCount || 0) + 1 };
+    const retryCount = Number(task.metadata?.retryCount || 0);
+    if (task.retryPolicy && retryCount < task.retryPolicy.maxAttempts) {
+      task.metadata = { ...task.metadata, retryCount: retryCount + 1 };
       task.status = 'pending';
       
       // Schedule retry with backoff

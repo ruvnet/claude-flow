@@ -706,28 +706,51 @@ async function executeSwarm(swarmId: string, objective: string, options: any): P
     memoryNamespace: options.memoryNamespace
   });
   
-  // Initialize task executor
-  const executor = new TaskExecutor({
-    coordinator,
-    memoryManager,
-    parallel: options.parallel,
-    taskTimeoutMinutes: options.taskTimeoutMinutes,
+  // Initialize background executor
+  const executor = new BackgroundExecutor({
+    maxConcurrentTasks: options.parallel ? 10 : 1,
+    defaultTimeout: (options.taskTimeoutMinutes || 30) * 60 * 1000,
+    logPath: './background-tasks',
+    enablePersistence: true
   });
   
-  // Start the swarm
+  // Start the swarm and executor
   await coordinator.start();
+  await executor.start();
   
-  // Create initial task
-  const initialTask = {
-    id: generateId('task'),
+  // Create the swarm objective with coordinator
+  const objectiveId = await coordinator.createObjective(
     objective,
-    strategy: options.strategy,
-    priority: 1,
-    dependencies: [],
-  };
+    options.strategy as 'auto' | 'research' | 'development' | 'analysis'
+  );
   
-  // Execute the swarm
-  await executor.execute(initialTask);
+  // Execute the objective
+  await coordinator.executeObjective(objectiveId);
+  
+  // Monitor progress if requested
+  if (options.monitor) {
+    const updateInterval = setInterval(() => {
+      const status = coordinator.getSwarmStatus();
+      console.log('\nSwarm Progress:');
+      console.log(`  Objectives: ${status.objectives}`);
+      console.log(`  Tasks: ${status.tasks.running} running, ${status.tasks.completed} completed, ${status.tasks.failed} failed`);
+      console.log(`  Agents: ${status.agents.busy} busy, ${status.agents.idle} idle`);
+    }, 2000);
+    
+    // Clean up interval when done
+    process.on('beforeExit', () => clearInterval(updateInterval));
+  }
+  
+  // Wait for objective completion
+  await new Promise<void>((resolve) => {
+    const checkStatus = setInterval(() => {
+      const objectiveStatus = coordinator.getObjectiveStatus(objectiveId);
+      if (objectiveStatus && (objectiveStatus.status === 'completed' || objectiveStatus.status === 'failed')) {
+        clearInterval(checkStatus);
+        resolve();
+      }
+    }, 1000);
+  });
   
   success('✅ Swarm execution completed successfully!');
 }

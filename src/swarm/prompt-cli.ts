@@ -46,7 +46,7 @@ program
       const configManager = new PromptConfigManager();
       const config = await configManager.loadConfig();
       
-      let copyOptions;
+      let copyOptions: any; // Allow dynamic properties for progressCallback
       
       if (options.profile) {
         const profileOptions = configManager.getProfile(options.profile);

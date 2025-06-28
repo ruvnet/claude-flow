@@ -49,9 +49,9 @@ export const Deno = {
   
   // Command execution
   Command: class {
-    private command: string;
-    private args: string[];
-    private options: any;
+    command: string;
+    args: string[];
+    options: any;
     
     constructor(command: string, options?: any) {
       this.command = command;

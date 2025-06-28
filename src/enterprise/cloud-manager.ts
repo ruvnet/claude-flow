@@ -1097,7 +1097,7 @@ export class CloudManager extends EventEmitter {
           id: `provider-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           name: providerData.name,
           type: providerData.type,
-          configuration: providerData.configuration as {
+          configuration: providerData.configuration as unknown as {
             defaultRegion: string;
             availableRegions: string[];
             services: string[];
@@ -1111,6 +1111,13 @@ export class CloudManager extends EventEmitter {
             storage: 1000,
             bandwidth: 1000,
             requests: 1000000
+          },
+          pricing: providerData.pricing as {
+            currency: string;
+            computePerHour: number;
+            storagePerGB: number;
+            bandwidthPerGB: number;
+            requestsPer1000: number;
           },
           createdAt: new Date(),
           updatedAt: new Date()

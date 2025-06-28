@@ -1456,7 +1456,6 @@ function deepClone<T>(obj: T): T {
 // Export types for external use
 export type {
   FormatParser,
-  ConfigChange,
   SecurityClassification,
   ValidationRule
 };

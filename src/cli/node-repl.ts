@@ -166,8 +166,9 @@ class CommandCompleter {
  */
 export async function startNodeREPL(options: any = {}): Promise<void> {
   
-  // Create readline interface with completer
-  const completer = new TabCompleter();
+  // Create history and completer instances
+  const history = new CommandHistory(options.historyFile);
+  const completer = new CommandCompleter();
   
   const rl = readline.createInterface({
     input: process.stdin,
@@ -184,9 +185,6 @@ export async function startNodeREPL(options: any = {}): Promise<void> {
     lastActivity: new Date(),
     rl,
   };
-
-  const history = new CommandHistory(options.historyFile);
-  const completer = new CommandCompleter();
   
   const commands: REPLCommand[] = [
     {

@@ -137,11 +137,13 @@ export class CLIError extends Error implements CLIError {
   constructor(
     message: string,
     public code: string = 'CLI_ERROR',
-    public exitCode: number = 1,
-    public showUsage: boolean = false
+    public exitCode?: number,
+    public showUsage?: boolean
   ) {
     super(message);
     this.name = 'CLIError';
+    if (exitCode !== undefined) this.exitCode = exitCode;
+    if (showUsage !== undefined) this.showUsage = showUsage;
   }
 }
 

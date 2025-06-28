@@ -291,7 +291,7 @@ if (require.main === module) {
           output: process.stdout
         });
         
-        readline.question('Are you sure you want to reset the database? (yes/no): ', async (answer) => {
+        readline.question('Are you sure you want to reset the database? (yes/no): ', async (answer: string) => {
           if (answer.toLowerCase() === 'yes') {
             await runner.reset();
             console.log('Database has been reset');

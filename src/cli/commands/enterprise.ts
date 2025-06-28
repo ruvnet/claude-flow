@@ -486,7 +486,12 @@ export const enterpriseCommands: Command[] = [
                       (ctx.flags.endpoints as string).split(',') : [],
                     secrets: {},
                     environment_variables: {},
-                    resources: {}
+                    resources: {
+                      cpu: '1',
+                      memory: '2Gi',
+                      storage: '10Gi',
+                      replicas: 1
+                    }
                   }
                 });
 

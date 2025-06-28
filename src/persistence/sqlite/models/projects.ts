@@ -341,8 +341,8 @@ export class ProjectModel {
 
   static async getStatistics(): Promise<{
     totalProjects: number;
-    projectsByStatus: Record<Project['status'], number>;
-    projectsByPriority: Record<Project['priority'], number>;
+    projectsByStatus: Record<NonNullable<Project['status']>, number>;
+    projectsByPriority: Record<NonNullable<Project['priority']>, number>;
     averageBudgetUtilization: number;
     averageCompletionRate: number;
   }> {
@@ -381,7 +381,7 @@ export class ProjectModel {
       `);
       const completion = completionStmt.get() as any;
 
-      const projectsByStatus: Record<Project['status'], number> = {
+      const projectsByStatus: Record<NonNullable<Project['status']>, number> = {
         planning: 0,
         active: 0,
         'on-hold': 0,
@@ -391,11 +391,11 @@ export class ProjectModel {
 
       statusResults.forEach(row => {
         if (row.status) {
-          projectsByStatus[row.status as Project['status']] = row.count;
+          projectsByStatus[row.status as NonNullable<Project['status']>] = row.count;
         }
       });
 
-      const projectsByPriority: Record<Project['priority'], number> = {
+      const projectsByPriority: Record<NonNullable<Project['priority']>, number> = {
         low: 0,
         medium: 0,
         high: 0,
@@ -404,7 +404,7 @@ export class ProjectModel {
 
       priorityResults.forEach(row => {
         if (row.priority) {
-          projectsByPriority[row.priority as Project['priority']] = row.count;
+          projectsByPriority[row.priority as NonNullable<Project['priority']>] = row.count;
         }
       });
 

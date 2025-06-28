@@ -63,7 +63,7 @@ export const startCommand = new Command()
       console.log(colors.blue('Initializing system components...'));
       const initPromise = processManager.initialize(options.config);
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Initialization timeout')), options.timeout * 1000)
+        setTimeout(() => reject(new Error('Initialization timeout')), (options.timeout || 30) * 1000)
       );
       
       await Promise.race([initPromise, timeoutPromise]);

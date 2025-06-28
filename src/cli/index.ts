@@ -60,17 +60,17 @@ const cli = new Command()
 
 // Add subcommands
 cli
-  .addCommand(startCommand)
-  .addCommand(agentCommand)
-  .addCommand(taskCommand)
-  .addCommand(memoryCommand)
-  .addCommand(configCommand)
-  .addCommand(statusCommand)
-  .addCommand(monitorCommand)
-  .addCommand(sessionCommand)
-  .addCommand(workflowCommand)
-  .addCommand(mcpCommand)
-  .addCommand(helpCommand)
+  .command('start', startCommand as any)
+  .command('agent', agentCommand as any)
+  .command('task', taskCommand as any)
+  .command('memory', memoryCommand as any)
+  .command('config', configCommand as any)
+  .command('status', statusCommand as any)
+  .command('monitor', monitorCommand as any)
+  .command('session', sessionCommand as any)
+  .command('workflow', workflowCommand as any)
+  .command('mcp', mcpCommand as any)
+  .command('help', helpCommand as any)
   .command('repl', new Command()
     .description('Start interactive REPL mode with command completion')
     .option('--no-banner', 'Skip welcome banner')
@@ -81,7 +81,7 @@ cli
         displayBanner(VERSION);
       }
       await startREPL(options);
-    }),
+    }) as any,
   )
   .command('version', new Command()
     .description('Show detailed version information')
@@ -92,7 +92,7 @@ cli
       } else {
         displayVersion(VERSION, BUILD_DATE);
       }
-    }),
+    }) as any,
   )
   .command('completion', new Command()
     .description('Generate shell completion scripts')
@@ -101,7 +101,7 @@ cli
     .action(async (options: any, shell: string) => {
       const generator = new CompletionGenerator();
       await generator.generate(shell || 'detect', options.install === true);
-    }),
+    }) as any,
   );
 
 // Global error handler

@@ -257,7 +257,8 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
         requiredApprovals: [],
         allowedFailures: Math.floor(this.config.maxAgents * 0.1),
         recoveryTime: 5 * 60 * 1000, // 5 minutes
-        milestones: []
+        milestones: [],
+        resourceLimits: {} // Initialize empty resource limits
       },
       tasks: [],
       dependencies: [],
@@ -412,7 +413,8 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
       taskHistory: [],
       errorHistory: [],
       childAgents: [],
-      collaborators: []
+      collaborators: [],
+      completedTasks: []
     };
 
     this.agents.set(agentId.id, agentState);
@@ -2167,7 +2169,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
     
     try {
       // Use Claude Flow executor for full SPARC system in non-interactive mode
-      const { ClaudeFlowExecutor } = await import('./claude-flow-executor.ts');
+      const { ClaudeFlowExecutor } = await import('./claude-flow-executor.js');
       const executor = new ClaudeFlowExecutor({ 
         logger: this.logger,
         claudeFlowPath: '/workspaces/claude-code-flow/bin/claude-flow',

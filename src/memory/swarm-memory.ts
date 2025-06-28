@@ -110,7 +110,7 @@ export class SwarmMemoryManager extends EventEmitter {
       backend: 'sqlite',
       cacheSizeMB: 50,
       syncInterval: 30000,
-      conflictResolution: 'last-write',
+      conflictResolution: 'timestamp',
       retentionDays: 30,
       sqlitePath: this.config.persistencePath
     };

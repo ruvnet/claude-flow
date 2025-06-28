@@ -99,7 +99,7 @@ export function createMCPCommand() {
         
         const eventBus = EventBus.getInstance();
         const logger = new Logger(createDefaultLoggingConfig({ level: 'info' }));
-        const configManager = new ConfigManager();
+        const configManager = ConfigManager.getInstance();
         
         try {
           await configManager.load('claude-flow.config.json');
@@ -235,7 +235,7 @@ export function createMCPCommand() {
         
         const eventBus = EventBus.getInstance();
         const logger = new Logger(createDefaultLoggingConfig({ level: 'info' }));
-        const configManager = new ConfigManager();
+        const configManager = ConfigManager.getInstance();
         
         // Configure logger to use stderr for logs to avoid polluting stdio
         if (!options.verbose) {

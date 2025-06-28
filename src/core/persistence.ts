@@ -34,7 +34,7 @@ export interface PersistedTask {
 }
 
 export class PersistenceManager {
-  private db: Database.Database;
+  private db!: Database.Database; // Initialized in initialize()
   private dbPath: string;
 
   constructor(dataDir: string = "./memory") {

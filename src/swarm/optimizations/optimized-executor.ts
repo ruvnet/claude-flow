@@ -142,12 +142,12 @@ export class OptimizedExecutor extends EventEmitter {
       try {
         // Execute with connection pool
         const executionResult = await this.connectionPool.execute(async (api) => {
-          const response: any = await api.complete({
+          const response: any = await api.complete(JSON.stringify({
             messages: this.buildMessages(task),
             model: task.metadata?.model || 'claude-3-5-sonnet-20241022',
             max_tokens: task.metadata?.maxTokens || 4096,
             temperature: task.metadata?.temperature || 0.7
-          });
+          }));
           
           return {
             success: true,
@@ -187,7 +187,7 @@ export class OptimizedExecutor extends EventEmitter {
           accuracy: executionResult.success ? 0.9 : 0,
           executionTime,
           resourcesUsed: {
-            tokens: executionResult.usage || 0
+            tokens: (executionResult.usage?.inputTokens || 0) + (executionResult.usage?.outputTokens || 0)
           },
           validated: true
         };
@@ -295,7 +295,7 @@ export class OptimizedExecutor extends EventEmitter {
     // Add main task objective
     messages.push({
       role: 'user',
-      content: task.objective
+      content: task.description
     });
     
     // Add context if available
@@ -322,7 +322,7 @@ export class OptimizedExecutor extends EventEmitter {
   
   private getTaskCacheKey(task: TaskDefinition): string {
     // Create a cache key based on task properties
-    return `${task.type}-${task.objective}-${JSON.stringify(task.metadata || {})}`;
+    return `${task.type}-${task.description}-${JSON.stringify(task.metadata || {})}`;
   }
   
   private isRecoverableError(error: any): boolean {

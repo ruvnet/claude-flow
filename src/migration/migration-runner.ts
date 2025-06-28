@@ -160,7 +160,7 @@ export class MigrationRunner {
     await fs.ensureDir(commandsTarget);
 
     // Copy optimized commands
-    for (const command of this.manifest.files.commands) {
+    for (const command of Object.values(this.manifest.files.commands)) {
       const sourceFile = path.join(commandsSource, command.source);
       const targetFile = path.join(commandsTarget, command.target);
 

@@ -109,7 +109,30 @@ export class SwarmCoordinator extends EventEmitter {
     this.backgroundWorkers = new Map();
 
     // Initialize memory manager
-    this.memoryManager = new MemoryManager({ namespace: this.config.memoryNamespace });
+    // Create a minimal memory config
+    const memoryConfig = {
+      backend: 'sqlite' as const,
+      databasePath: './.claude-flow/memory.db',
+      cacheSizeMB: 100,
+      compressionEnabled: false,
+      encryptionEnabled: false,
+      syncInterval: 60000,
+      conflictResolution: 'timestamp' as const,
+      retentionDays: 30,
+      metadata: {
+        namespace: this.config.memoryNamespace || 'swarm'
+      }
+    };
+    
+    // Create minimal event bus and logger for memory manager
+    const eventBus = {
+      emit: () => true,
+      on: () => {},
+      off: () => {},
+      once: () => {}
+    } as any;
+    
+    this.memoryManager = new MemoryManager(memoryConfig, eventBus, this.logger);
 
     if (this.config.enableMonitoring) {
       this.monitor = new SwarmMonitor({

@@ -38,6 +38,7 @@ export type AgentType =
   | 'tester'         // Tests and validates functionality
   | 'documenter'     // Creates and maintains documentation
   | 'monitor'        // Monitors system health and performance
+  | 'architect'      // Designs system architecture and structure
   | 'specialist';    // Domain-specific specialized agent
 
 export type AgentStatus = 
