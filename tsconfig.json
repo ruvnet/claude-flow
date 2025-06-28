@@ -11,6 +11,10 @@
     "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
+      "@/*": ["./src/*"],
+      "@test/*": ["./tests/*"],
+      "@fixtures/*": ["./tests/fixtures/*"],
+      "@mocks/*": ["./tests/mocks/*"],
       "@cliffy/ansi/colors": ["./src/utils/cliffy-compat/colors"],
       "@cliffy/table": ["./src/utils/cliffy-compat/table"],
       "@cliffy/prompt": ["./src/utils/cliffy-compat/prompt"],

@@ -15,7 +15,7 @@ export const sessionCommand = new Command()
   .action(() => {
     sessionCommand.showHelp();
   })
-  .command('list', new Command()
+  .command('list', Command
     .description('List all saved sessions')
     .option('-a, --active', 'Show only active sessions')
     .option('--format <format:string>', 'Output format (table, json)', { default: 'table' })
@@ -23,7 +23,7 @@ export const sessionCommand = new Command()
       await listSessions(options);
     }),
   )
-  .command('save', new Command()
+  .command('save', Command
     .description('Save current session state')
     .arguments('[name:string]')
     .option('-d, --description <desc:string>', 'Session description')
@@ -33,7 +33,7 @@ export const sessionCommand = new Command()
       await saveSession(name, options);
     }),
   )
-  .command('restore', new Command()
+  .command('restore', Command
     .description('Restore a saved session')
     .arguments('<session-id:string>')
     .option('-f, --force', 'Force restore without confirmation')
@@ -42,7 +42,7 @@ export const sessionCommand = new Command()
       await restoreSession(sessionId, options);
     }),
   )
-  .command('delete', new Command()
+  .command('delete', Command
     .description('Delete a saved session')
     .arguments('<session-id:string>')
     .option('-f, --force', 'Skip confirmation prompt')
@@ -50,7 +50,7 @@ export const sessionCommand = new Command()
       await deleteSession(sessionId, options);
     }),
   )
-  .command('export', new Command()
+  .command('export', Command
     .description('Export session to file')
     .arguments('<session-id:string> <output-file:string>')
     .option('--format <format:string>', 'Export format (json, yaml)', { default: 'json' })
@@ -59,7 +59,7 @@ export const sessionCommand = new Command()
       await exportSession(sessionId, outputFile, options);
     }),
   )
-  .command('import', new Command()
+  .command('import', Command
     .description('Import session from file')
     .arguments('<input-file:string>')
     .option('-n, --name <name:string>', 'Custom session name')
@@ -68,14 +68,14 @@ export const sessionCommand = new Command()
       await importSession(inputFile, options);
     }),
   )
-  .command('info', new Command()
+  .command('info', Command
     .description('Show detailed session information')
     .arguments('<session-id:string>')
     .action(async (options: any, sessionId: string) => {
       await showSessionInfo(sessionId);
     }),
   )
-  .command('clean', new Command()
+  .command('clean', Command
     .description('Clean up old or orphaned sessions')
     .option('--older-than <days:number>', 'Delete sessions older than N days', { default: 30 })
     .option('--dry-run', 'Show what would be deleted without deleting')

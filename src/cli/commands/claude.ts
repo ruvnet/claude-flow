@@ -13,7 +13,7 @@ export const claudeCommand = new Command()
   .action(() => {
     claudeCommand.showHelp();
   })
-  .command('spawn', new Command()
+  .command('spawn')
     .description('Spawn a new Claude instance with specific configuration')
     .arguments('<task:string>')
     .option('-t, --tools <tools:string>', 'Allowed tools (comma-separated)', { 
@@ -105,9 +105,8 @@ export const claudeCommand = new Command()
       } catch (error) {
         console.error(colors.red('Failed to spawn Claude:'), (error as Error).message);
       }
-    }),
-  )
-  .command('batch', new Command()
+    })
+  .command('batch')
     .description('Spawn multiple Claude instances from workflow')
     .arguments('<workflow-file:string>')
     .option('--dry-run', 'Show what would be executed without running')
@@ -172,5 +171,4 @@ export const claudeCommand = new Command()
       } catch (error) {
         console.error(colors.red('Failed to process workflow:'), (error as Error).message);
       }
-    }),
-  );
+    });

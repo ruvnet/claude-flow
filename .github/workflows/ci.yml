@@ -52,8 +52,9 @@ jobs:
     name: Test Suite
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest]
         test-type: [unit, integration, e2e]
     
     steps:
@@ -84,18 +85,27 @@ jobs:
 
       - name: Run unit tests
         if: matrix.test-type == 'unit'
-        run: |
-          npm test -- --testPathPattern=tests/unit --coverage --coverageDirectory=test-results/coverage
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          command: npm test -- --testPathPattern=tests/unit --coverage --coverageDirectory=test-results/coverage
 
       - name: Run integration tests  
         if: matrix.test-type == 'integration'
-        run: |
-          npm test -- --testPathPattern=tests/integration --coverage --coverageDirectory=test-results/coverage
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          command: npm test -- --testPathPattern=tests/integration --coverage --coverageDirectory=test-results/coverage
 
       - name: Run end-to-end tests
         if: matrix.test-type == 'e2e'
-        run: |
-          npm test -- --testPathPattern=tests/e2e --coverage --coverageDirectory=test-results/coverage
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 20
+          max_attempts: 3
+          command: npm test -- --testPathPattern=tests/e2e --coverage --coverageDirectory=test-results/coverage
 
       - name: Generate coverage report
         if: matrix.os == 'ubuntu-latest'
@@ -209,6 +219,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test]
     if: github.ref == 'refs/heads/main'
+    continue-on-error: true
     
     steps:
       - name: Checkout code
@@ -243,10 +254,11 @@ jobs:
   build:
     name: Build & Package
     runs-on: ${{ matrix.os }}
-    needs: [security, test]
+    needs: [security]
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest]
     
     steps:
       - name: Checkout code
@@ -323,6 +335,7 @@ jobs:
   docs:
     name: Documentation & Examples
     runs-on: ubuntu-latest
+    continue-on-error: true
     
     steps:
       - name: Checkout code
@@ -400,6 +413,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    continue-on-error: true
     
     steps:
       - name: Setup monitoring

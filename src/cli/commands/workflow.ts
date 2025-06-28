@@ -15,7 +15,7 @@ export const workflowCommand = new Command()
   .action(() => {
     workflowCommand.showHelp();
   })
-  .command('run', new Command()
+  .command('run', Command
     .description('Execute a workflow from file')
     .arguments('<workflow-file:string>')
     .option('-d, --dry-run', 'Validate workflow without executing')
@@ -27,7 +27,7 @@ export const workflowCommand = new Command()
       await runWorkflow(workflowFile, options);
     }),
   )
-  .command('validate', new Command()
+  .command('validate', Command
     .description('Validate a workflow file')
     .arguments('<workflow-file:string>')
     .option('--strict', 'Use strict validation mode')
@@ -35,7 +35,7 @@ export const workflowCommand = new Command()
       await validateWorkflow(workflowFile, options);
     }),
   )
-  .command('list', new Command()
+  .command('list', Command
     .description('List running workflows')
     .option('--all', 'Include completed workflows')
     .option('--format <format:string>', 'Output format (table, json)', { default: 'table' })
@@ -43,7 +43,7 @@ export const workflowCommand = new Command()
       await listWorkflows(options);
     }),
   )
-  .command('status', new Command()
+  .command('status', Command
     .description('Show workflow execution status')
     .arguments('<workflow-id:string>')
     .option('-w, --watch', 'Watch workflow progress')
@@ -51,7 +51,7 @@ export const workflowCommand = new Command()
       await showWorkflowStatus(workflowId, options);
     }),
   )
-  .command('stop', new Command()
+  .command('stop', Command
     .description('Stop a running workflow')
     .arguments('<workflow-id:string>')
     .option('-f, --force', 'Force stop without cleanup')
@@ -59,7 +59,7 @@ export const workflowCommand = new Command()
       await stopWorkflow(workflowId, options);
     }),
   )
-  .command('template', new Command()
+  .command('template', Command
     .description('Generate workflow templates')
     .arguments('<template-type:string>')
     .option('-o, --output <file:string>', 'Output file path')

@@ -26,8 +26,36 @@ import { CircuitBreaker, CircuitState } from '../../../src/coordination/circuit-
 import { ConflictResolver } from '../../../src/coordination/conflict-resolution.js';
 import { SystemEvents } from '../../../src/utils/types.js';
 import { createMocks } from '../../mocks/index.js';
-import { TestDataBuilder } from '../../test.utils.js';
+import { createTestConfig } from '../../utils/test-utils.js';
 import { cleanupTestEnv, setupTestEnv } from '../../test.config.js';
+
+// Test helper functions
+function createTestTask(overrides?: Partial<any>): any {
+  return {
+    id: `task-${Date.now()}-${Math.random()}`,
+    type: 'test',
+    description: 'Test task',
+    priority: 1,
+    dependencies: [],
+    status: 'pending',
+    input: {},
+    createdAt: new Date(),
+    ...overrides,
+  };
+}
+
+function createTestAgentProfile(overrides?: Partial<any>): any {
+  return {
+    id: `agent-${Date.now()}-${Math.random()}`,
+    name: 'test-agent',
+    type: 'implementer',
+    capabilities: ['code', 'test'],
+    systemPrompt: 'Test agent prompt',
+    maxConcurrentTasks: 5,
+    priority: 1,
+    ...overrides,
+  };
+}
 
 describe('CoordinationManager', () => {
   let manager: CoordinationManager;
@@ -39,7 +67,7 @@ describe('CoordinationManager', () => {
     setupTestEnv();
     time = jest.useFakeTimers();
     
-    config = TestDataBuilder.config().coordination;
+    config = createTestConfig().coordination;
     mocks = createMocks();
     
     manager = new CoordinationManager(
@@ -50,7 +78,7 @@ describe('CoordinationManager', () => {
   });
 
   afterEach(async () => {
-    time.restore();
+    jest.useRealTimers();
     try {
       await manager.shutdown();
     } catch {
@@ -90,7 +118,7 @@ describe('CoordinationManager', () => {
     });
 
     it('should assign task to agent', async () => {
-      const task = TestDataBuilder.task();
+      const task = createTestTask();
       const agentId = 'test-agent';
 
       await manager.assignTask(task, agentId);
@@ -100,7 +128,7 @@ describe('CoordinationManager', () => {
     });
 
     it('should get agent tasks', async () => {
-      const task = TestDataBuilder.task();
+      const task = createTestTask();
       const agentId = 'test-agent';
 
       await manager.assignTask(task, agentId);
@@ -111,7 +139,7 @@ describe('CoordinationManager', () => {
     });
 
     it('should cancel task', async () => {
-      const task = TestDataBuilder.task();
+      const task = createTestTask();
       const agentId = 'test-agent';
 
       await manager.assignTask(task, agentId);
@@ -291,14 +319,14 @@ describe('WorkStealingCoordinator', () => {
   });
 
   it('should find best agent for task', () => {
-    const task = TestDataBuilder.task({ type: 'test' });
+    const task = createTestTask({ type: 'test' });
     const agents = [
-      TestDataBuilder.agentProfile({
+      createTestAgentProfile({
         id: 'agent-1',
         capabilities: ['test'],
         priority: 5,
       }),
-      TestDataBuilder.agentProfile({
+      createTestAgentProfile({
         id: 'agent-2',
         capabilities: ['other'],
         priority: 10,
@@ -345,7 +373,7 @@ describe('DependencyGraph', () => {
   });
 
   it('should add task without dependencies', () => {
-    const task = TestDataBuilder.task({
+    const task = createTestTask({
       id: 'task-1',
       dependencies: [],
     });
@@ -355,11 +383,11 @@ describe('DependencyGraph', () => {
   });
 
   it('should add task with completed dependencies', () => {
-    const task1 = TestDataBuilder.task({
+    const task1 = createTestTask({
       id: 'task-1',
       dependencies: [],
     });
-    const task2 = TestDataBuilder.task({
+    const task2 = createTestTask({
       id: 'task-2',
       dependencies: ['task-1'],
     });
@@ -372,11 +400,11 @@ describe('DependencyGraph', () => {
   });
 
   it('should handle task completion and mark dependents ready', () => {
-    const task1 = TestDataBuilder.task({
+    const task1 = createTestTask({
       id: 'task-1',
       dependencies: [],
     });
-    const task2 = TestDataBuilder.task({
+    const task2 = createTestTask({
       id: 'task-2',
       dependencies: ['task-1'],
     });
@@ -392,11 +420,11 @@ describe('DependencyGraph', () => {
   });
 
   it('should detect circular dependencies', () => {
-    const task1 = TestDataBuilder.task({
+    const task1 = createTestTask({
       id: 'task-1',
       dependencies: ['task-2'],
     });
-    const task2 = TestDataBuilder.task({
+    const task2 = createTestTask({
       id: 'task-2',
       dependencies: ['task-1'],
     });
@@ -412,15 +440,15 @@ describe('DependencyGraph', () => {
   });
 
   it('should perform topological sort', () => {
-    const task1 = TestDataBuilder.task({
+    const task1 = createTestTask({
       id: 'task-1',
       dependencies: [],
     });
-    const task2 = TestDataBuilder.task({
+    const task2 = createTestTask({
       id: 'task-2',
       dependencies: ['task-1'],
     });
-    const task3 = TestDataBuilder.task({
+    const task3 = createTestTask({
       id: 'task-3',
       dependencies: ['task-2'],
     });
@@ -437,11 +465,11 @@ describe('DependencyGraph', () => {
   });
 
   it('should find critical path', () => {
-    const task1 = TestDataBuilder.task({
+    const task1 = createTestTask({
       id: 'task-1',
       dependencies: [],
     });
-    const task2 = TestDataBuilder.task({
+    const task2 = createTestTask({
       id: 'task-2',
       dependencies: ['task-1'],
     });
@@ -455,11 +483,11 @@ describe('DependencyGraph', () => {
   });
 
   it('should export to DOT format', () => {
-    const task1 = TestDataBuilder.task({
+    const task1 = createTestTask({
       id: 'task-1',
       dependencies: [],
     });
-    const task2 = TestDataBuilder.task({
+    const task2 = createTestTask({
       id: 'task-2',
       dependencies: ['task-1'],
     });

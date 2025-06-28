@@ -2,6 +2,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { spawnSync } from 'child_process';
 
 /**
  * Test utilities for Claude-Flow
@@ -47,7 +48,11 @@ export const spy = jest.fn;
 export const stub = jest.fn;
 
 export function assertSpyCall(spyFn: jest.SpyInstance, callIndex: number, expectedArgs?: any[]): void {
-  expect(spyFn).toHaveBeenNthCalledWith(callIndex + 1).toBe( ...(expectedArgs || []));
+  if (expectedArgs && expectedArgs.length) {
+    expect(spyFn).toHaveBeenNthCalledWith(callIndex + 1, ...expectedArgs);
+  } else {
+    expect(spyFn).toHaveBeenNthCalledWith(callIndex + 1);
+  }
 }
 
 export function assertSpyCalls(spyFn: jest.SpyInstance, callCount: number): void {
@@ -175,15 +180,15 @@ export function captureConsole(): {
  * Creates a test file in a temporary directory
  */
 export async function createTestFile(
-  path: string,
+  fileName: string,
   content: string,
 ): Promise<string> {
-  const tempDir =  fs.mkdtempSync(path.join(os.tmpdir(), "claude-flow-test-"));
-  const filePath = `${tempDir}/${path}`;
-  const dir = filePath.substring(0, filePath.lastIndexOf('/'));
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'claude-flow-test-'));
+  const filePath = path.join(tempDir, fileName);
+  const dir = path.dirname(filePath);
   
-      // TODO: Replace with mock - // TODO: Replace with mock -   await Deno.mkdir(dir, { recursive: true });
-  fs.writeFileSync(filePath,  content, "utf8");
+  await fs.promises.mkdir(dir, { recursive: true });
+  await fs.promises.writeFile(filePath, content, 'utf8');
   
   return filePath;
 }
@@ -195,18 +200,17 @@ export async function runCommand(
   args: string[],
   options: { stdin?: string; env?: Record<string, string> } = {},
 ): Promise<{ stdout: string; stderr: string; code: number }> {
-  const cmdOptions: Deno.CommandOptions = {
-    args: ['run', '--allow-all', 'src/cli/index.ts', ...args],
-    stdout: 'piped',
-    stderr: 'piped',
+  const cliPath = path.resolve(process.cwd(), 'src/cli/index.ts');
+
+  const result = spawnSync('node', [cliPath, ...args], {
+    input: options.stdin,
+    env: { ...process.env, ...options.env },
+    encoding: 'utf8'
+  });
+
+  return {
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+    code: typeof result.status === 'number' ? result.status : -1
   };
-
-  if (options.stdin) {
-    cmdOptions.stdin = 'piped';
-  }
-
-  if (options.env) {
-    cmdOptions.env = options.env;
-  }
-
-      // TODO: Implement mock command execution
+}

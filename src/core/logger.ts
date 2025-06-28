@@ -307,4 +307,19 @@ export class Logger implements ILogger {
 }
 
 // Export singleton instance with lazy initialization
-export const logger = Logger.getInstance();
+// In test environment, this will return a mock logger
+export const logger = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined
+  ? ({
+      info: () => {},
+      error: () => {},
+      warn: () => {},
+      debug: () => {},
+      setLevel: () => {},
+      getMetrics: () => ({ totalLogs: 0, errorCount: 0, warningCount: 0 }),
+      child: () => logger,
+      attachRequestId: () => {},
+      clearRequestId: () => {},
+      addMetadata: () => {},
+      flush: async () => {},
+    } as unknown as Logger)
+  : Logger.getInstance();

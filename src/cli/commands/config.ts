@@ -16,7 +16,7 @@ export const configCommand = new Command()
   .action(() => {
     configCommand.showHelp();
   })
-  .command('show', new Command()
+  .command('show', Command
     .description('Show current configuration')
     .option('--format <format:string>', 'Output format (json, yaml)', { default: 'json' })
     .option('--diff', 'Show only differences from defaults')
@@ -40,7 +40,7 @@ export const configCommand = new Command()
       }
     }),
   )
-  .command('get', new Command()
+  .command('get', Command
     .description('Get a specific configuration value')
     .arguments('<path:string>')
     .action(async (options: any, path: string) => {
@@ -59,7 +59,7 @@ export const configCommand = new Command()
       }
     }),
   )
-  .command('set', new Command()
+  .command('set', Command
     .description('Set a configuration value with validation and change tracking')
     .arguments('<path:string> <value:string>')
     .option('--type <type:string>', 'Value type (string, number, boolean, json)', { default: 'auto' })
@@ -110,7 +110,7 @@ export const configCommand = new Command()
       }
     }),
   )
-  .command('reset', new Command()
+  .command('reset', Command
     .description('Reset configuration to defaults')
     .option('--confirm', 'Skip confirmation prompt')
     .action(async (options: any) => {
@@ -130,7 +130,7 @@ export const configCommand = new Command()
       console.log(colors.green('✓ Configuration reset to defaults'));
     }),
   )
-  .command('init', new Command()
+  .command('init', Command
     .description('Initialize a new configuration file with enterprise templates')
     .arguments('[output-file:string]')
     .option('--force', 'Overwrite existing file')
@@ -186,7 +186,7 @@ export const configCommand = new Command()
       }
     }),
   )
-  .command('validate', new Command()
+  .command('validate', Command
     .description('Validate a configuration file')
     .arguments('<config-file:string>')
     .option('--strict', 'Use strict validation')
@@ -218,12 +218,12 @@ export const configCommand = new Command()
       }
     }),
   )
-  .command('profile', new Command()
+  .command('profile', Command
     .description('Manage configuration profiles')
     .action(() => {
       console.log(colors.gray('Usage: config profile <list|save|load|delete> [options]'));
     })
-    .command('list', new Command()
+    .command('list', Command
       .description('List all configuration profiles')
       .action(async () => {
         try {
@@ -252,7 +252,7 @@ export const configCommand = new Command()
         }
       }),
     )
-    .command('save', new Command()
+    .command('save', Command
       .description('Save current configuration as a profile')
       .arguments('<profile-name:string>')
       .option('--force', 'Overwrite existing profile')
@@ -272,7 +272,7 @@ export const configCommand = new Command()
         }
       }),
     )
-    .command('load', new Command()
+    .command('load', Command
       .description('Load a configuration profile')
       .arguments('<profile-name:string>')
       .action(async (options: any, profileName: string) => {
@@ -284,7 +284,7 @@ export const configCommand = new Command()
         }
       }),
     )
-    .command('delete', new Command()
+    .command('delete', Command
       .description('Delete a configuration profile')
       .arguments('<profile-name:string>')
       .option('--force', 'Skip confirmation prompt')
@@ -309,7 +309,7 @@ export const configCommand = new Command()
         }
       }),
     )
-    .command('show', new Command()
+    .command('show', Command
       .description('Show profile configuration')
       .arguments('<profile-name:string>')
       .action(async (options: any, profileName: string) => {
@@ -327,7 +327,7 @@ export const configCommand = new Command()
       }),
     ),
   )
-  .command('export', new Command()
+  .command('export', Command
     .description('Export configuration')
     .arguments('<output-file:string>')
     .option('--include-defaults', 'Include default values')
@@ -352,7 +352,7 @@ export const configCommand = new Command()
       }
     }),
   )
-  .command('import', new Command()
+  .command('import', Command
     .description('Import configuration')
     .arguments('<input-file:string>')
     .option('--merge', 'Merge with current configuration')
@@ -378,7 +378,7 @@ export const configCommand = new Command()
       }
     }),
   )
-  .command('schema', new Command()
+  .command('schema', Command
     .description('Show configuration schema')
     .option('--path <path:string>', 'Show schema for specific path')
     .action(async (options: any) => {
@@ -396,7 +396,7 @@ export const configCommand = new Command()
       }
     }),
   )
-  .command('history', new Command()
+  .command('history', Command
     .description('Show configuration change history')
     .option('--path <path:string>', 'Show history for specific configuration path')
     .option('--limit <limit:number>', 'Maximum number of changes to show', { default: 20 })
@@ -445,7 +445,7 @@ export const configCommand = new Command()
       }
     }),
   )
-  .command('backup', new Command()
+  .command('backup', Command
     .description('Backup current configuration')
     .arguments('[backup-path:string]')
     .option('--auto-name', 'Generate automatic backup filename')
@@ -462,7 +462,7 @@ export const configCommand = new Command()
       }
     }),
   )
-  .command('restore', new Command()
+  .command('restore', Command
     .description('Restore configuration from backup')
     .arguments('<backup-path:string>')
     .option('--force', 'Skip confirmation prompt')
@@ -489,7 +489,7 @@ export const configCommand = new Command()
       }
     }),
   )
-  .command('templates', new Command()
+  .command('templates', Command
     .description('List available configuration templates')
     .option('--detailed', 'Show detailed template information')
     .action(async (options: any) => {

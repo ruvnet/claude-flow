@@ -79,7 +79,7 @@ describe('Helpers', () => {
       
       await promise; // Should not throw
       
-      time.restore();
+      jest.useRealTimers();
     });
 
     it('should work with zero delay', async () => {

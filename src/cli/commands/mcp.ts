@@ -23,7 +23,7 @@ export const mcpCommand = new Command()
     console.log('  restart - Restart the MCP server');
     console.log('  logs    - Show MCP server logs');
   })
-  .command('start', new Command()
+  .command('start', Command
     .description('Start the MCP server')
     .option('-p, --port <port:number>', 'Port for MCP server', { default: 3000 })
     .option('-h, --host <host:string>', 'Host for MCP server', { default: 'localhost' })
@@ -53,7 +53,7 @@ export const mcpCommand = new Command()
       }
     })
   )
-  .command('stop', new Command()
+  .command('stop', Command
     .description('Stop the MCP server')
     .action(async () => {
       try {
@@ -70,7 +70,7 @@ export const mcpCommand = new Command()
       }
     })
   )
-  .command('status', new Command()
+  .command('status', Command
     .description('Show MCP server status')
     .action(async () => {
       try {
@@ -93,7 +93,7 @@ export const mcpCommand = new Command()
       }
     })
   )
-  .command('tools', new Command()
+  .command('tools', Command
     .description('List available MCP tools')
     .action(() => {
       console.log(colors.cyan('Available MCP Tools:'));
@@ -119,7 +119,7 @@ export const mcpCommand = new Command()
       console.log('  • memory_index - Index and search content');
     })
   )
-  .command('config', new Command()
+  .command('config', Command
     .description('Show MCP configuration')
     .action(async () => {
       try {
@@ -132,7 +132,7 @@ export const mcpCommand = new Command()
       }
     })
   )
-  .command('restart', new Command()
+  .command('restart', Command
     .description('Restart the MCP server')
     .action(async () => {
       try {
@@ -153,7 +153,7 @@ export const mcpCommand = new Command()
       }
     })
   )
-  .command('logs', new Command()
+  .command('logs', Command
     .description('Show MCP server logs')
     .option('-n, --lines <lines:number>', 'Number of log lines to show', { default: 50 })
     .action((options: any) => {

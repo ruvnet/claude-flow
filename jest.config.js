@@ -1,3 +1,12 @@
+// Shared module name mapper for consistent resolution across all projects
+const sharedModuleNameMapper = {
+  '^(\\.{1,2}/.*)\\.js$': '$1',
+  '^@/(.*)$': '<rootDir>/src/$1',
+  '^@test/(.*)$': '<rootDir>/tests/$1',
+  '^@fixtures/(.*)$': '<rootDir>/tests/fixtures/$1',
+  '^@mocks/(.*)$': '<rootDir>/tests/mocks/$1',
+};
+
 export default {
   // TypeScript preset for ESM modules
   preset: 'ts-jest/presets/default-esm',
@@ -15,9 +24,7 @@ export default {
       transform: {
         '^.+\\.ts$': ['ts-jest', { useESM: true }]
       },
-      moduleNameMapper: {
-        '^(\\.{1,2}/.*)\\.js$': '$1',
-      },
+      moduleNameMapper: sharedModuleNameMapper,
     },
     {
       displayName: 'integration',
@@ -29,14 +36,7 @@ export default {
       transform: {
         '^.+\\.ts$': ['ts-jest', { useESM: true }]
       },
-      moduleNameMapper: {
-        '^(\\.{1,2}/.*)\\.js$': '$1',
-      },
-      globals: {
-        'ts-jest': {
-          testTimeout: 45000
-        }
-      },
+      moduleNameMapper: sharedModuleNameMapper,
     },
     {
       displayName: 'e2e',
@@ -48,39 +48,14 @@ export default {
       transform: {
         '^.+\\.ts$': ['ts-jest', { useESM: true }]
       },
-      moduleNameMapper: {
-        '^(\\.{1,2}/.*)\\.js$': '$1',
-      },
-      globals: {
-        'ts-jest': {
-          testTimeout: 90000
-        }
-      },
+      moduleNameMapper: sharedModuleNameMapper,
     },
   ],
   
   // Global configuration
-  globals: {
-    'ts-jest': {
-      useESM: true,
-      tsconfig: {
-        module: 'es2022',
-        target: 'es2022',
-        moduleResolution: 'node',
-        allowJs: true,
-        esModuleInterop: true,
-      }
-    }
-  },
   
   // Module resolution
-  moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
-    '^@/(.*)$': '<rootDir>/src/$1',
-    '^@test/(.*)$': '<rootDir>/tests/$1',
-    '^@fixtures/(.*)$': '<rootDir>/tests/fixtures/$1',
-    '^@mocks/(.*)$': '<rootDir>/tests/mocks/$1',
-  },
+  moduleNameMapper: sharedModuleNameMapper,
   
   // Transform configuration (applied globally for fallback)
   transform: {
@@ -159,7 +134,23 @@ export default {
   ],
   
   // Haste module configuration to prevent collisions
+  haste: {
+    forceNodeFilesystemAPI: true,
+    retainAllFiles: false,
+    enableSymlinks: false,
+    throwOnModuleCollision: false
+  },
+  
   modulePathIgnorePatterns: [
+    '<rootDir>/examples/',
+    '<rootDir>/dist/',
+    '<rootDir>/build/',
+    '<rootDir>/.jest-cache/',
+    'package\\.json$'  // Ignore package.json files in module resolution
+  ],
+  
+  // Additional exclusions for examples
+  watchPathIgnorePatterns: [
     '<rootDir>/examples/'
   ],
   

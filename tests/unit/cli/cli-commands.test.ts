@@ -159,13 +159,12 @@ class MockCLI {
 describe('CLI Commands - Comprehensive Tests', () => {
   let cli: MockCLI;
   let tempDir: string;
-  let fakeTime: FakeTime;
 
   beforeEach(async () => {
     setupTestEnv();
     cli = new MockCLI();
     tempDir = await FileSystemTestUtils.createTempDir('cli-test-');
-    fakeTime = jest.useFakeTimers();
+    jest.useFakeTimers();
     
     // Set up test configuration
     fs.writeFileSync(

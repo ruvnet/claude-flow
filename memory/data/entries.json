@@ -103,5 +103,182 @@
     "checksum": "c9a55fd5fbc5a2665c0bd7d9f1ef89008c7d3277fe75eabdbcb0cd9bda367591",
     "references": [],
     "dependencies": []
+  },
+  {
+    "id": "entry_mcfjh2s1_n6wppe00n",
+    "key": "typescript_root_causes",
+    "value": "{\"total_errors\":553,\"error_categories\":{\"TS2345_command_type\":{\"count\":\"~200+\",\"pattern\":\".command(name, new Command())\",\"root_cause\":\"Cliffy compatibility layer expects typeof Command but receives Command instance\",\"affected_files\":[\"All CLI command files\"],\"fix_approach\":\"Update compatibility layer to accept instances or change usage pattern\"},\"TS18046_unknown_type\":{\"count\":64,\"pattern\":\"row is of type unknown\",\"root_cause\":\"SQLite query results not properly typed\",\"affected_files\":[\"src/persistence/sqlite/queries/complex-queries.ts\"],\"fix_approach\":\"Add type assertions or interfaces for database rows\"},\"TS2339_missing_properties\":{\"count\":\"~50+\",\"examples\":[\"getAvailableTemplates\",\"createTemplate\",\"validateFile\"],\"root_cause\":\"ConfigManager interface missing method declarations\",\"affected_files\":[\"src/cli/commands/config.ts\"],\"fix_approach\":\"Update ConfigManager interface with missing methods\"},\"module_resolution\":{\"pattern\":\"@/core/* imports\",\"root_cause\":\"Path mapping mismatch between tsconfig and jest.config\",\"tsconfig_paths\":[\"@cliffy/* only\"],\"jest_paths\":[\"@/ -> src/\"],\"fix_approach\":\"Add @/ path mapping to tsconfig.json\"}},\"configuration_issues\":{\"mixed_strictness\":{\"tsconfig_json\":\"strict: true\",\"tsconfig_cli_json\":\"strict: false\",\"impact\":\"Inconsistent type checking across codebase\"},\"inheritance_chain\":{\"tsconfig_cli_extends\":\"tsconfig.json\",\"overrides\":[\"strict\",\"noImplicitAny\",\"strictNullChecks\"],\"problem\":\"CLI files bypass strict checking despite main config\"}},\"architectural_issues\":{\"command_system_conflict\":\"Mixing Cliffy and Commander patterns\",\"module_system_conflict\":\"ES modules vs CommonJS patterns\",\"type_definition_gaps\":\"Missing type definitions for database and config APIs\"},\"priority_fixes\":[\"1. Fix Command type mismatch in compatibility layer\",\"2. Add @/ path mapping to tsconfig.json\",\"3. Type SQLite query results\",\"4. Update ConfigManager interface\",\"5. Standardize module system\"]}",
+    "type": "object",
+    "namespace": "default",
+    "tags": [],
+    "metadata": {},
+    "owner": "system",
+    "accessLevel": "shared",
+    "createdAt": "2025-06-28T01:05:00.241Z",
+    "updatedAt": "2025-06-28T01:05:00.241Z",
+    "lastAccessedAt": "2025-06-28T01:05:00.241Z",
+    "version": 1,
+    "size": 2128,
+    "compressed": true,
+    "checksum": "8f3eff7206105421b82d48f9a098df9e2cf2724d1a47b864c496463e4d5bc500",
+    "references": [],
+    "dependencies": []
+  },
+  {
+    "id": "entry_mcfjhnlg_uquk6rglv",
+    "key": "jest_root_causes",
+    "value": "{\"analysis_complete\":true,\"timestamp\":\"2025-06-28\",\"root_causes\":[{\"id\":1,\"severity\":\"high\",\"issue\":\"ts-jest globals configuration deprecated\",\"details\":\"jest.config.js uses deprecated globals configuration for ts-jest at lines 63-74. The useESM and tsconfig options should be moved into the transform configuration.\",\"solution\":\"Move ts-jest options from globals to transform configuration and run jest --clearCache\"},{\"id\":2,\"severity\":\"medium\",\"issue\":\"Haste module naming collisions\",\"details\":\"Examples directory contains multiple sub-projects with duplicate file names (package.json, jest.config.js, test.js, etc.) causing Haste to report collisions despite exclusion attempts.\",\"solution\":\"Add explicit haste configuration with throwOnModuleCollision: false or restructure examples directory\"},{\"id\":3,\"severity\":\"critical\",\"issue\":\"Tests importing non-existent workflow modules\",\"details\":\"workflow-engine.test.ts and workflow-yaml-json.test.ts import ../../package/src/workflow/engine.js which doesnt exist. No package directory and no workflow module in src/\",\"solution\":\"Remove obsolete tests or implement missing workflow modules\"},{\"id\":4,\"severity\":\"high\",\"issue\":\"Module resolution mismatch between Jest and TypeScript\",\"details\":\"Jest moduleNameMapper defines @/ aliases but tsconfig.json lacks corresponding path mappings, causing ts-jest compilation failures\",\"solution\":\"Add paths configuration to tsconfig.json: {@/*: [src/*]} with baseUrl: .\"}],\"affected_files\":[\"/workspaces/claude-code-flow/jest.config.js\",\"/workspaces/claude-code-flow/tests/integration/workflow-engine.test.ts\",\"/workspaces/claude-code-flow/tests/integration/workflow-yaml-json.test.ts\",\"/workspaces/claude-code-flow/tests/unit/coordination/swarm-coordinator.test.ts\"],\"recommendations\":[\"Immediate: Fix jest.config.js transform configuration and clear cache\",\"Immediate: Remove or stub workflow tests\",\"Short-term: Add TypeScript path mappings\",\"Long-term: Extract examples to separate workspace/package\",\"Long-term: Create single source of truth for path mappings\"]}",
+    "type": "object",
+    "namespace": "default",
+    "tags": [],
+    "metadata": {},
+    "owner": "system",
+    "accessLevel": "shared",
+    "createdAt": "2025-06-28T01:05:27.220Z",
+    "updatedAt": "2025-06-28T01:05:27.220Z",
+    "lastAccessedAt": "2025-06-28T01:05:27.220Z",
+    "version": 1,
+    "size": 2192,
+    "compressed": true,
+    "checksum": "4c5a3c75b68f18c12c39fdff1a61f8bff5f4562553d4e5adfd71270bbe7ee3ed",
+    "references": [],
+    "dependencies": []
+  },
+  {
+    "id": "entry_mcfjklne_357tfxke1",
+    "key": "typescript_analysis_complete",
+    "value": "{\"phase\":\"P2 Analysis Complete\",\"total_errors\":553,\"root_causes_validated\":{\"cli_abstraction_failure\":{\"errors\":\"200+\",\"severity\":\"critical\",\"cause\":\"Three-layer command system with incompatible APIs\",\"solution\":\"Remove cliffy-compat, standardize on Commander.js\"},\"module_resolution_mismatch\":{\"errors\":\"varies\",\"severity\":\"critical\",\"cause\":\"Path mappings differ between tsconfig and jest\",\"solution\":\"Add @/* mapping to tsconfig.json\"},\"database_type_erosion\":{\"errors\":\"64\",\"severity\":\"high\",\"cause\":\"SQLite queries return unknown types\",\"solution\":\"Add DTO interfaces or query builder\"},\"configuration_drift\":{\"errors\":\"varies\",\"severity\":\"high\",\"cause\":\"Multiple tsconfigs with different strictness\",\"solution\":\"Single tsconfig with consistent settings\"}},\"architectural_insights\":{\"failed_compatibility\":\"Deno/Node bridge created more problems than it solved\",\"overengineering\":\"Three abstraction layers for simple CLI commands\",\"type_boundaries\":\"Type safety lost at database and CLI boundaries\",\"technical_debt\":\"Growing faster than remediation efforts\"},\"quick_wins\":[\"Add @/* path mapping (5 min)\",\"Remove tsconfig.cli.json (10 min)\",\"Generate DB type definitions (30 min)\",\"Port 2-3 commands to test approach (1 hr)\"],\"phase1_ready\":true,\"handoff_to_I2\":\"TypeScript fixes can begin immediately with quick wins\"}",
+    "type": "object",
+    "namespace": "default",
+    "tags": [],
+    "metadata": {},
+    "owner": "system",
+    "accessLevel": "shared",
+    "createdAt": "2025-06-28T01:07:44.666Z",
+    "updatedAt": "2025-06-28T01:07:44.666Z",
+    "lastAccessedAt": "2025-06-28T01:07:44.666Z",
+    "version": 1,
+    "size": 1467,
+    "compressed": true,
+    "checksum": "1b970abcf2ded38332bae4543241bc3256ae528bb13b2e052c3874717e400d23",
+    "references": [],
+    "dependencies": []
+  },
+  {
+    "id": "entry_mcfkgsv5_hzgnds9fd",
+    "key": "test_suite_results",
+    "value": "{\"verifier\":\"T2 - Test Suite Verifier\",\"phase\":\"Phase 3 - Test Verification\",\"timestamp\":\"2025-06-28T00:00:00Z\",\"summary\":{\"status\":\"FAILED\",\"critical_issues\":5,\"tests_runnable\":false,\"root_cause\":\"Test infrastructure incompatible with recent changes\"},\"findings\":{\"jest_configuration\":{\"status\":\"PASS\",\"details\":\"Jest properly configured with Haste collision prevention in jest.config.js\"},\"haste_module_collisions\":{\"status\":\"PASS\",\"details\":\"No Haste module collisions detected in test output\"},\"module_resolution\":{\"status\":\"FAIL\",\"details\":\"Module imports fail due to logger singleton initialization error in test environment\"},\"workflow_tests\":{\"status\":\"PARTIAL\",\"details\":{\"workflow-yaml-json.test.ts\":\"Properly disabled with describe.skip\",\"workflow-engine.test.ts\":\"Not disabled, imports non-existent modules from package/src\"}}},\"critical_issues\":[{\"id\":\"logger-singleton\",\"severity\":\"CRITICAL\",\"file\":\"/workspaces/claude-code-flow/src/core/logger.ts:310\",\"issue\":\"Logger exports singleton that initializes on import\",\"impact\":\"Breaks all tests importing logger module directly or indirectly\",\"fix\":\"Make logger initialization lazy or provide default test configuration\"},{\"id\":\"mock-assertions\",\"severity\":\"HIGH\",\"files\":[\"orchestrator.test.ts\",\"enhanced-orchestrator.test.ts\",\"coordination.test.ts\"],\"issue\":\"Tests use wrong Jest assertion pattern\",\"example\":\"expect(mock.method).toBe(1) instead of expect(mock.method).toHaveBeenCalledTimes(1)\",\"impact\":\"All mock-based assertions fail with type errors\"},{\"id\":\"missing-imports\",\"severity\":\"MEDIUM\",\"file\":\"/workspaces/claude-code-flow/tests/unit/cli/cli-commands.test.ts:949\",\"issue\":\"PerformanceTestUtils used but not imported\",\"fix\":\"Add import { PerformanceTestUtils } from '../../utils/test-utils.js'\"},{\"id\":\"undefined-utils\",\"severity\":\"MEDIUM\",\"file\":\"/workspaces/claude-code-flow/tests/unit/coordination/coordination.test.ts:42\",\"issue\":\"TestDataBuilder.config() returns undefined\",\"fix\":\"Import TestDataBuilder or use createTestConfig() instead\"},{\"id\":\"timer-api\",\"severity\":\"LOW\",\"files\":[\"orchestrator.test.ts\",\"coordination.test.ts\"],\"issue\":\"Using time.restore() instead of jest.useRealTimers()\",\"fix\":\"Replace time.restore() with jest.useRealTimers()\"}],\"test_execution_results\":{\"npm_test_output\":\"Command times out after 5 minutes\",\"failing_tests\":[\"tests/integration/memory-coordination.test.ts - Logger configuration error\",\"tests/unit/cli/cli-commands.test.ts - Multiple failures\",\"tests/unit/core/orchestrator.test.ts - All tests fail\",\"tests/unit/core/enhanced-orchestrator.test.ts - Mock assertion errors\",\"tests/unit/coordination/coordination.test.ts - TestDataBuilder undefined\"],\"error_patterns\":{\"logger_error\":\"Logger configuration required for initialization\",\"mock_errors\":\"expect(received).toBe(expected) - comparing function to number\",\"import_errors\":\"ReferenceError: PerformanceTestUtils is not defined\",\"config_errors\":\"Cannot read properties of undefined (reading 'config')\"}},\"recommendations\":{\"immediate_actions\":[\"1. Fix logger singleton pattern to support test environment\",\"2. Update all mock assertions to use correct Jest API\",\"3. Add missing imports for test utilities\",\"4. Fix or disable workflow-engine.test.ts\",\"5. Update timer API usage in tests\"],\"test_infrastructure\":{\"available\":\"Good mock infrastructure exists in tests/mocks/index.ts\",\"issue\":\"Tests not using available infrastructure correctly\",\"mock_logger\":\"MockLogger class available and functional\"}},\"conclusion\":\"Test suite cannot run due to critical infrastructure issues. The Implementation Group's changes to logger and other modules require corresponding test infrastructure updates. No regressions can be verified until these issues are resolved.\"}",
+    "type": "object",
+    "namespace": "default",
+    "tags": [],
+    "metadata": {},
+    "owner": "system",
+    "accessLevel": "shared",
+    "createdAt": "2025-06-28T01:32:47.009Z",
+    "updatedAt": "2025-06-28T01:32:47.009Z",
+    "lastAccessedAt": "2025-06-28T01:32:47.009Z",
+    "version": 1,
+    "size": 4017,
+    "compressed": true,
+    "checksum": "3a9afe45e49ab19d54a705a06c15c9e585a93bcd88bedb69fa86d123d55b2a15",
+    "references": [],
+    "dependencies": []
+  },
+  {
+    "id": "entry_mcfl4m2x_ad553kota",
+    "key": "emergency_fix_status",
+    "value": {
+      "phase": 0,
+      "status": "initializing",
+      "phases": {
+        "phase1": {
+          "status": "pending",
+          "errors": 56,
+          "agents": []
+        },
+        "phase2": {
+          "status": "pending",
+          "agents": []
+        },
+        "phase3": {
+          "status": "pending",
+          "agents": []
+        },
+        "phase4": {
+          "status": "pending"
+        },
+        "phase5": {
+          "status": "pending"
+        }
+      },
+      "started_at": "2025-06-28T01:50:00Z",
+      "build_errors": 56
+    },
+    "type": "object",
+    "namespace": "default",
+    "tags": [],
+    "metadata": {},
+    "owner": "system",
+    "accessLevel": "shared",
+    "createdAt": "2025-06-28T01:51:17.961Z",
+    "updatedAt": "2025-06-28T01:51:17.961Z",
+    "lastAccessedAt": "2025-06-28T01:51:17.961Z",
+    "version": 1,
+    "size": 327,
+    "compressed": false,
+    "checksum": "1c70d4607f634e29d1f6453ff660d290077c4dc58ee34293f3b38f42c6f2711c",
+    "references": [],
+    "dependencies": []
+  },
+  {
+    "id": "entry_mcfl9vks_x8kbgnpye",
+    "key": "emergency_fix_status",
+    "value": {
+      "phase": 1,
+      "status": "critical_discovery",
+      "phases": {
+        "phase1": {
+          "status": "in_progress",
+          "errors": 551,
+          "original_errors": 56,
+          "agents": [
+            "orchestrator"
+          ],
+          "discovery": "Fixed 3 syntax errors in claude.ts which exposed 551 total errors"
+        },
+        "phase2": {
+          "status": "blocked",
+          "agents": []
+        },
+        "phase3": {
+          "status": "blocked",
+          "agents": []
+        },
+        "phase4": {
+          "status": "blocked"
+        },
+        "phase5": {
+          "status": "blocked"
+        }
+      },
+      "started_at": "2025-06-28T01:50:00Z",
+      "build_errors": 551,
+      "critical_update": "Emergency is much larger than initially assessed"
+    },
+    "type": "object",
+    "namespace": "default",
+    "tags": [],
+    "metadata": {},
+    "owner": "system",
+    "accessLevel": "shared",
+    "createdAt": "2025-06-28T01:55:23.548Z",
+    "updatedAt": "2025-06-28T01:55:23.548Z",
+    "lastAccessedAt": "2025-06-28T01:55:23.548Z",
+    "version": 1,
+    "size": 523,
+    "compressed": false,
+    "checksum": "03db0589f4410addb8d7feb9c86fab6d0658572cb197e03ae1cf5624f0b87865",
+    "references": [],
+    "dependencies": []
   }
 ]

@@ -126,7 +126,7 @@ export const memoryCommand = new Command()
     memoryCommand.showHelp();
   })
   // Store command
-  .command('store', new Command()
+  .command('store', Command
     .description('Store information in memory')
     .arguments('<key:string> <value:string>')
     .option('-n, --namespace <namespace:string>', 'Target namespace', { default: 'default' })
@@ -144,7 +144,7 @@ export const memoryCommand = new Command()
     })
   )
   // Query command
-  .command('query', new Command()
+  .command('query', Command
     .description('Search memory entries')
     .arguments('<search:string>')
     .option('-n, --namespace <namespace:string>', 'Filter by namespace')
@@ -178,7 +178,7 @@ export const memoryCommand = new Command()
     })
   )
   // Export command
-  .command('export', new Command()
+  .command('export', Command
     .description('Export memory to file')
     .arguments('<file:string>')
     .action(async (options: any, file: string) => {
@@ -196,7 +196,7 @@ export const memoryCommand = new Command()
     })
   )
   // Import command
-  .command('import', new Command()
+  .command('import', Command
     .description('Import memory from file')
     .arguments('<file:string>')
     .action(async (options: any, file: string) => {
@@ -214,7 +214,7 @@ export const memoryCommand = new Command()
     })
   )
   // Stats command
-  .command('stats', new Command()
+  .command('stats', Command
     .description('Show memory statistics')
     .action(async () => {
       try {
@@ -238,7 +238,7 @@ export const memoryCommand = new Command()
     })
   )
   // Cleanup command
-  .command('cleanup', new Command()
+  .command('cleanup', Command
     .description('Clean up old entries')
     .option('-d, --days <days:number>', 'Entries older than n days', { default: 30 })
     .action(async (options: any) => {
