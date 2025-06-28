@@ -240,37 +240,68 @@ function showComponentStatus(status: any, componentName: string): void {
 }
 
 async function getSystemStatus(options: any = {}): Promise<any> {
-  // Mock status for now - in production, this would call the orchestrator API
+  // Try to get real status from running orchestrator
+  const realStatus = await getRealSystemStatus();
+  
+  if (realStatus) {
+    // Transform real status to expected format
+    const components: any = {};
+    realStatus.processes.forEach((proc: any) => {
+      components[proc.id] = {
+        status: proc.status === 'running' ? 'healthy' : proc.status,
+        uptime: proc.startTime ? Date.now() - proc.startTime : 0,
+        details: `${proc.name} - ${proc.type}`
+      };
+    });
+
+    return {
+      overall: realStatus.processes.every((p: any) => p.status === 'running') ? 'healthy' : 'degraded',
+      version: '1.0.72',
+      uptime: realStatus.systemStats?.systemUptime || 0,
+      startTime: new Date(realStatus.timestamp),
+      components,
+      agents: [], // TODO: Get real agents when implemented
+      recentTasks: [], // TODO: Get real tasks when implemented
+      resources: {
+        'Memory (MB)': { used: 256, total: 1024 },
+        'CPU (%)': { used: 15, total: 100 },
+        'Agents': { used: realStatus.systemStats?.runningProcesses || 0, total: 10 },
+        'Tasks': { used: 0, total: 100 }
+      }
+    };
+  }
+  
+  // Fallback to mock status if no real orchestrator is running
   const baseStatus = {
-    overall: 'healthy',
+    overall: 'stopped',
     version: '1.0.72',
-    uptime: Date.now() - (Date.now() - 3600000), // 1 hour ago
-    startTime: new Date(Date.now() - 3600000),
+    uptime: 0,
+    startTime: new Date(),
     components: {
       orchestrator: {
-        status: 'healthy',
-        uptime: 3600000,
-        details: 'Managing 3 agents'
+        status: 'stopped',
+        uptime: 0,
+        details: 'Not running'
       },
       terminal: {
-        status: 'healthy',
-        uptime: 3600000,
-        details: 'Pool: 2/5 active sessions'
+        status: 'stopped',
+        uptime: 0,
+        details: 'Terminal pool offline'
       },
       memory: {
-        status: 'healthy',
-        uptime: 3600000,
-        details: 'SQLite + 95MB cache'
+        status: 'stopped',
+        uptime: 0,
+        details: 'Memory system offline'
       },
       coordination: {
-        status: 'healthy',
-        uptime: 3600000,
-        details: '12 active tasks'
+        status: 'stopped',
+        uptime: 0,
+        details: 'Coordination offline'
       },
       mcp: {
-        status: 'healthy',
-        uptime: 3600000,
-        details: 'Listening on stdio'
+        status: 'stopped',
+        uptime: 0,
+        details: 'MCP server offline'
       }
     },
     resources: {
@@ -392,9 +423,12 @@ function calculateTrend(history: number[]): number {
 
 async function getRealSystemStatus(): Promise<any | null> {
   try {
-    // Try to connect to running orchestrator
-    // This would be implemented based on actual IPC/HTTP communication
-    return null; // Not implemented yet
+    // Try to read from state file created by running orchestrator
+    if (existsSync('.claude-flow-state.json')) {
+      const stateData = await fs.readFile('.claude-flow-state.json', 'utf8');
+      return JSON.parse(stateData);
+    }
+    return null;
   } catch {
     return null;
   }

@@ -1403,25 +1403,45 @@ async function createProgram() {
       printSuccess('Claude-Flow System Status:');
       
       try {
-        // Try to get actual status from orchestrator
-        const { getComponentStatus, getStores } = await import('./simple-orchestrator.js');
-        const status = getComponentStatus();
-        const stores = getStores();
+        // Try to read status from state file created by running orchestrator
+        const fs = await import('fs/promises');
+        const { existsSync } = await import('fs');
         
-        const allActive = Object.values(status).every(v => v === true);
-        console.log(`🟢 Status: ${allActive ? 'Running' : 'Partially Running'}`);
-        console.log(`🤖 Agents: ${stores.agents.size} active`);
-        console.log(`📋 Tasks: ${stores.tasks.size} in queue`);
-        console.log(`💾 Memory: ${stores.memory.size} entries`);
-        console.log(`🖥️  Terminal Pool: ${status.terminalPool ? 'Active' : 'Stopped'}`);
-        console.log(`🌐 MCP Server: ${status.mcpServer ? 'Active' : 'Stopped'}`);
-        
-        if (status.webUI) {
-          console.log(`🌐 Web UI: Active`);
+        if (existsSync('.claude-flow-state.json')) {
+          const stateData = await fs.readFile('.claude-flow-state.json', 'utf8');
+          const state = JSON.parse(stateData);
+          
+          const runningCount = state.processes.filter((p: any) => p.status === 'running').length;
+          const totalCount = state.processes.length;
+          
+          console.log(`🟢 Status: ${runningCount === totalCount ? 'Running' : runningCount > 0 ? 'Partially Running' : 'Stopped'}`);
+          console.log(`🤖 Agents: 0 active`); // TODO: Add real agent tracking
+          console.log(`📋 Tasks: 0 in queue`); // TODO: Add real task tracking
+          console.log(`💾 Memory: 0 entries`); // TODO: Add real memory tracking
+          
+          // Show component status from state file
+          const terminalPool = state.processes.find((p: any) => p.id === 'terminalPool');
+          const mcpServer = state.processes.find((p: any) => p.id === 'mcpServer');
+          const webUI = state.processes.find((p: any) => p.id === 'webUI');
+          
+          console.log(`🖥️  Terminal Pool: ${terminalPool?.status === 'running' ? 'Active' : 'Stopped'}`);
+          console.log(`🌐 MCP Server: ${mcpServer?.status === 'running' ? 'Active' : 'Stopped'}`);
+          
+          if (webUI?.status === 'running') {
+            console.log(`🌐 Web UI: Active`);
+          }
+        } else {
+          // No state file found - orchestrator not running
+          console.log('🟡 Status: Not Running (orchestrator not started)');
+          console.log('🤖 Agents: 0 active');
+          console.log('📋 Tasks: 0 in queue');
+          console.log('💾 Memory: Ready');
+          console.log('🖥️  Terminal Pool: Ready');
+          console.log('🌐 MCP Server: Stopped');
         }
       } catch (error) {
-        // Fallback to default status
-        console.log('🟡 Status: Not Running (orchestrator not started)');
+        // Fallback to default status on any errors
+        console.log('🟡 Status: Error reading status');
         console.log('🤖 Agents: 0 active');
         console.log('📋 Tasks: 0 in queue');
         console.log('💾 Memory: Ready');

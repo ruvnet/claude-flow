@@ -9,6 +9,7 @@ import { createServer } from 'http';
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { promises as fs } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -679,8 +680,56 @@ function startWebUI(host: string, port: number) {
   });
 }
 
+// Save system state for inter-command communication
+async function saveSystemState(): Promise<void> {
+  try {
+    const state = {
+      timestamp: new Date().toISOString(),
+      processes: Object.entries(componentStatus).map(([id, status]) => ({
+        id,
+        name: getComponentName(id),
+        type: id,
+        status: status ? 'running' : 'stopped',
+        pid: process.pid,
+        startTime: startTime || Date.now(),
+        metrics: {}
+      })),
+      systemStats: {
+        totalProcesses: Object.keys(componentStatus).length,
+        runningProcesses: Object.values(componentStatus).filter(Boolean).length,
+        stoppedProcesses: Object.values(componentStatus).filter(s => !s).length,
+        errorProcesses: 0,
+        systemUptime: startTime ? Date.now() - startTime : 0,
+        totalMemory: 0,
+        totalCpu: 0
+      },
+      orchestratorPid: process.pid
+    };
+
+    await fs.writeFile('.claude-flow-state.json', JSON.stringify(state, null, 2));
+  } catch (error) {
+    console.error('Failed to save system state:', error);
+  }
+}
+
+function getComponentName(id: string): string {
+  const names: Record<string, string> = {
+    eventBus: 'Event Bus',
+    orchestrator: 'Orchestrator Engine',
+    memoryManager: 'Memory Manager',
+    terminalPool: 'Terminal Pool',
+    mcpServer: 'MCP Server',
+    coordinationManager: 'Coordination Manager',
+    webUI: 'Web UI'
+  };
+  return names[id] || id;
+}
+
+let startTime: number;
+
 // Start all components
 export async function startOrchestrator(options: any) {
+  startTime = Date.now();
   console.log('\n🚀 Starting orchestration components...\n');
 
   // Start Event Bus
@@ -744,6 +793,9 @@ export async function startOrchestrator(options: any) {
 
   console.log('\n💡 Use "claude-flow status" to check system status');
   console.log('💡 Use "claude-flow stop" to stop the orchestrator');
+  
+  // Save system state for other commands to access
+  await saveSystemState();
   
   // Keep the process running
   if (!options.daemon) {

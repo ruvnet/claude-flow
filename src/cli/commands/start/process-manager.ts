@@ -19,6 +19,8 @@ import { MCPServer } from '../../../mcp/server.js';
 import { eventBus } from '../../../core/event-bus.js';
 import { logger } from '../../../core/logger.js';
 import { configManager } from '../../../core/config.js';
+import { promises as fs } from 'node:fs';
+import { existsSync } from 'node:fs';
 
 export class ProcessManager extends EventEmitter {
   private processes: Map<string, ProcessInfo> = new Map();
@@ -260,6 +262,9 @@ export class ProcessManager extends EventEmitter {
         // Continue with other processes
       }
     }
+    
+    // Save initial system state
+    await this.saveSystemState();
   }
 
   async stopAll(): Promise<void> {
@@ -315,6 +320,8 @@ export class ProcessManager extends EventEmitter {
     if (process) {
       process.status = status;
       this.emit('statusChanged', { processId, status });
+      // Save state whenever status changes
+      this.saveSystemState().catch(console.error);
     }
   }
 
@@ -342,5 +349,29 @@ export class ProcessManager extends EventEmitter {
       `[${new Date().toISOString()}] Process ${processId} started`,
       `[${new Date().toISOString()}] Process ${processId} is running normally`
     ];
+  }
+
+  // State persistence for inter-command communication
+  async saveSystemState(): Promise<void> {
+    try {
+      const state = {
+        timestamp: new Date().toISOString(),
+        processes: Array.from(this.processes.entries()).map(([id, process]) => ({
+          id,
+          name: process.name,
+          type: process.type,
+          status: process.status,
+          pid: process.pid,
+          startTime: process.startTime,
+          metrics: process.metrics
+        })),
+        systemStats: this.getSystemStats(),
+        orchestratorPid: globalThis.process?.pid || 0
+      };
+
+      await fs.writeFile('.claude-flow-state.json', JSON.stringify(state, null, 2));
+    } catch (error) {
+      console.error('Failed to save system state:', error);
+    }
   }
 }

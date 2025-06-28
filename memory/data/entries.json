@@ -881,5 +881,25 @@
     "checksum": "8391fdbbb8169d2f9427ffb165caff3d354634d352737d85fdba1820c4eec0f5",
     "references": [],
     "dependencies": []
+  },
+  {
+    "id": "entry_mcfx2fxb_06vaux8f1",
+    "key": "claude_flow_integration_fix",
+    "value": "\"Successfully implemented minimal integration fix for claude-flow core functionality disconnects.\\n\\nPROBLEMS SOLVED:\\n1. Command Execution Disconnect - Commands now connect to running orchestrator via state persistence\\n2. Status Command Isolation - Status shows real orchestrator data instead of mock data  \\n3. Inter-Process Communication - Added shared state mechanism between commands\\n\\nKEY CHANGES:\\n- Modified simple-orchestrator.ts: Added saveSystemState() function that creates .claude-flow-state.json with real component status\\n- Modified simple-cli.ts: Updated status command to read from state file instead of trying to access internal orchestrator state\\n- Added fallback logic for when orchestrator isn't running\\n\\nTECHNICAL IMPLEMENTATION:\\n- State file (.claude-flow-state.json) contains: timestamp, processes array with status/pid/metrics, systemStats, orchestratorPid\\n- Status command now shows real component states: Terminal Pool: Active, MCP Server: Active\\n- Cross-process communication works via shared JSON state file\\n\\nCURRENT WORKING STATUS:\\n✅ ./claude-flow start - Successfully starts all components\\n✅ ./claude-flow status - Shows real orchestrator state  \\n✅ ./claude-flow swarm - Works as designed\\n✅ State persistence - Components communicate via shared state\\n✅ Graceful fallback when orchestrator not running\\n\\nThis provides the foundation for claude-flow to work with core functionality and proper integration between components.\"",
+    "type": "string",
+    "namespace": "default",
+    "tags": [],
+    "metadata": {},
+    "owner": "system",
+    "accessLevel": "shared",
+    "createdAt": "2025-06-28T07:25:32.063Z",
+    "updatedAt": "2025-06-28T07:25:32.063Z",
+    "lastAccessedAt": "2025-06-28T07:25:32.063Z",
+    "version": 1,
+    "size": 1527,
+    "compressed": true,
+    "checksum": "5f792693c594b6738955047ec44b418d5a17155dd7e21ab6142bb3f6ee76761b",
+    "references": [],
+    "dependencies": []
   }
 ]

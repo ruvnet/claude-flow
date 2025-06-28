@@ -414,6 +414,9 @@ async function startWithProgress(processManager: ProcessManager, mode: 'all' | '
       await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
+  
+  // Save system state after all processes are started
+  await processManager.saveSystemState();
 }
 
 async function waitForSystemReady(processManager: ProcessManager): Promise<void> {
