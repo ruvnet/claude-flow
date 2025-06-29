@@ -1,0 +1,273 @@
+name: 🤖 AI Code Quality Agent
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [ main, develop ]
+  schedule:
+    # Run daily at 3 AM UTC for proactive monitoring
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      analysis_depth:
+        description: 'Analysis depth (quick/full/deep)'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+        - quick
+        - full
+        - deep
+
+env:
+  NODE_VERSION: '20.x'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  ai-code-analysis:
+    name: 🧠 AI-Powered Code Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      security-events: write
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better analysis
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 🔧 Install Dependencies
+        run: |
+          # Install Python dependencies
+          pip install requests
+          
+          # Install Node.js dependencies
+          npm ci
+
+      - name: 🔍 Extract PR Information
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
+          echo "PR_TITLE=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
+          echo "PR_AUTHOR=${{ github.event.pull_request.user.login }}" >> $GITHUB_ENV
+
+      - name: 🤖 Run AI Code Quality Agent
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ env.PR_NUMBER }}
+          ANALYSIS_DEPTH: ${{ github.event.inputs.analysis_depth || 'full' }}
+        run: |
+          echo "🚀 Starting AI Code Quality Analysis..."
+          echo "Analysis Depth: $ANALYSIS_DEPTH"
+          
+          # Make the script executable
+          chmod +x scripts/ai-code-quality-agent.py
+          
+          # Run the AI agent
+          python scripts/ai-code-quality-agent.py
+
+      - name: 📊 Generate Enhanced Metrics
+        run: |
+          echo "📈 Generating additional metrics..."
+          
+          # Code complexity analysis
+          npm run check-deps:json || echo "Dependency check skipped"
+          
+          # Generate file size report
+          find src -name "*.ts" -o -name "*.js" | head -20 | xargs wc -l > file-sizes.txt
+          
+          # Count TODO/FIXME comments
+          grep -r "TODO\|FIXME\|XXX\|HACK" src --include="*.ts" --include="*.js" | wc -l > tech-debt-count.txt || echo "0" > tech-debt-count.txt
+
+      - name: 🔒 Security Scan Enhancement
+        run: |
+          echo "🛡️ Running enhanced security analysis..."
+          
+          # Check for hardcoded secrets patterns
+          echo "Scanning for potential secrets..."
+          grep -r -i "password\|secret\|key\|token" src --include="*.ts" --include="*.js" | grep -v "// " | head -10 > potential-secrets.txt || touch potential-secrets.txt
+          
+          # Check for unsafe patterns
+          echo "Scanning for unsafe patterns..."
+          grep -r "eval\|innerHTML\|document.write" src --include="*.ts" --include="*.js" > unsafe-patterns.txt || touch unsafe-patterns.txt
+
+      - name: 📋 Create Comprehensive Report
+        run: |
+          echo "📝 Creating comprehensive analysis report..."
+          
+          cat > comprehensive-report.md << 'EOF'
+          # 🤖 Comprehensive AI Code Quality Report
+          
+          **Repository:** ${{ github.repository }}
+          **Branch:** ${{ github.ref_name }}
+          **Commit:** ${{ github.sha }}
+          **Triggered by:** ${{ github.event_name }}
+          **Analysis Time:** $(date -u)
+          
+          ## 📊 Quick Stats
+          
+          EOF
+          
+          # Add file statistics
+          echo "- **Total TypeScript/JavaScript files:** $(find src -name '*.ts' -o -name '*.js' | wc -l)" >> comprehensive-report.md
+          echo "- **Lines of code:** $(find src -name '*.ts' -o -name '*.js' | xargs wc -l | tail -1 | awk '{print $1}')" >> comprehensive-report.md
+          echo "- **Tech debt items:** $(cat tech-debt-count.txt)" >> comprehensive-report.md
+          echo "- **Potential security concerns:** $(wc -l < potential-secrets.txt)" >> comprehensive-report.md
+          echo "- **Unsafe patterns found:** $(wc -l < unsafe-patterns.txt)" >> comprehensive-report.md
+          
+          # Add AI analysis if it exists
+          if [ -f "ai-code-quality-report.md" ]; then
+            echo "" >> comprehensive-report.md
+            echo "## 🧠 AI Analysis Results" >> comprehensive-report.md
+            cat ai-code-quality-report.md >> comprehensive-report.md
+          fi
+          
+          # Add security findings
+          if [ -s "potential-secrets.txt" ]; then
+            echo "" >> comprehensive-report.md
+            echo "## 🔒 Potential Security Concerns" >> comprehensive-report.md
+            echo '```' >> comprehensive-report.md
+            head -10 potential-secrets.txt >> comprehensive-report.md
+            echo '```' >> comprehensive-report.md
+          fi
+          
+          # Add unsafe patterns
+          if [ -s "unsafe-patterns.txt" ]; then
+            echo "" >> comprehensive-report.md
+            echo "## ⚠️ Unsafe Patterns Detected" >> comprehensive-report.md
+            echo '```' >> comprehensive-report.md
+            head -10 unsafe-patterns.txt >> comprehensive-report.md
+            echo '```' >> comprehensive-report.md
+          fi
+
+      - name: 📤 Upload Analysis Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-code-analysis-${{ github.run_number }}
+          path: |
+            ai-code-quality-report.md
+            comprehensive-report.md
+            file-sizes.txt
+            tech-debt-count.txt
+            potential-secrets.txt
+            unsafe-patterns.txt
+            circular-deps.json
+          retention-days: 30
+
+      - name: 💬 Comment on PR (Success)
+        if: github.event_name == 'pull_request' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let report = '# 🤖 AI Code Quality Analysis - ✅ PASSED\n\n';
+            
+            try {
+              if (fs.existsSync('comprehensive-report.md')) {
+                const content = fs.readFileSync('comprehensive-report.md', 'utf8');
+                report += content;
+              } else {
+                report += '✅ No critical issues detected by AI analysis.\n';
+              }
+            } catch (error) {
+              report += '⚠️ Could not read analysis report.\n';
+            }
+            
+            report += '\n---\n*🤖 This analysis was performed by the AI Code Quality Agent*';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
+
+      - name: 💬 Comment on PR (Failure)
+        if: github.event_name == 'pull_request' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let report = '# 🤖 AI Code Quality Analysis - ❌ ISSUES FOUND\n\n';
+            report += '⚠️ **Critical issues detected that require attention before merging.**\n\n';
+            
+            try {
+              if (fs.existsSync('comprehensive-report.md')) {
+                const content = fs.readFileSync('comprehensive-report.md', 'utf8');
+                report += content;
+              }
+            } catch (error) {
+              report += '❌ Analysis failed. Please check the workflow logs.\n';
+            }
+            
+            report += '\n---\n*🤖 This analysis was performed by the AI Code Quality Agent*';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
+
+      - name: 🚨 Create Issue for Critical Problems
+        if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let body = '# 🚨 Critical Code Quality Issues Detected\n\n';
+            body += `**Commit:** ${context.sha}\n`;
+            body += `**Branch:** ${context.ref}\n`;
+            body += `**Workflow:** ${context.workflow}\n\n`;
+            
+            try {
+              if (fs.existsSync('comprehensive-report.md')) {
+                const content = fs.readFileSync('comprehensive-report.md', 'utf8');
+                body += content;
+              }
+            } catch (error) {
+              body += 'Could not read analysis report. Check workflow logs.\n';
+            }
+            
+            body += '\n---\n*🤖 Auto-generated by AI Code Quality Agent*';
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Critical Code Quality Issues - ${new Date().toISOString().split('T')[0]}`,
+              body: body,
+              labels: ['bug', 'code-quality', 'ai-detected']
+            });
+
+      - name: 📈 Update Status Check
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ AI Code Quality Agent: PASSED"
+          else
+            echo "❌ AI Code Quality Agent: FAILED"
+            exit 1
+          fi

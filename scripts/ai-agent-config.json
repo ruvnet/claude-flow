@@ -1,0 +1,167 @@
+{
+  "agent_name": "AI Code Quality Agent",
+  "version": "1.0.0",
+  "description": "Automated code quality analysis using AI for Claude-Flow repository",
+  
+  "analysis_rules": {
+    "typescript_strict_mode": {
+      "enabled": true,
+      "fail_on_errors": true,
+      "max_errors": 0
+    },
+    
+    "security_patterns": {
+      "enabled": true,
+      "patterns": [
+        {
+          "pattern": "eval\\(",
+          "severity": "high",
+          "message": "Use of eval() detected - potential security risk"
+        },
+        {
+          "pattern": "innerHTML.*=.*[^\\w]",
+          "severity": "medium",
+          "message": "innerHTML usage without sanitization"
+        },
+        {
+          "pattern": "(password|secret|key|token)\\s*=\\s*['\"][^'\"]+['\"]",
+          "severity": "high",
+          "message": "Potential hardcoded secret detected"
+        },
+        {
+          "pattern": "document\\.write\\(",
+          "severity": "medium",
+          "message": "document.write() usage detected"
+        }
+      ]
+    },
+    
+    "code_quality": {
+      "enabled": true,
+      "rules": [
+        {
+          "name": "excessive_any_usage",
+          "pattern": ":\\s*any\\b",
+          "threshold": 5,
+          "severity": "medium",
+          "message": "Excessive use of 'any' type - consider proper typing"
+        },
+        {
+          "name": "long_functions",
+          "max_lines": 50,
+          "severity": "low",
+          "message": "Function is too long - consider breaking it down"
+        },
+        {
+          "name": "deep_nesting",
+          "max_depth": 4,
+          "severity": "medium",
+          "message": "Deep nesting detected - consider refactoring"
+        }
+      ]
+    },
+    
+    "architectural_concerns": {
+      "enabled": true,
+      "patterns": [
+        {
+          "name": "circular_dependencies",
+          "check_command": "npm run check-deps:json",
+          "severity": "high"
+        },
+        {
+          "name": "duplicate_code",
+          "similarity_threshold": 0.8,
+          "severity": "medium"
+        }
+      ]
+    }
+  },
+  
+  "ai_analysis": {
+    "enabled": true,
+    "model": "codex-mini-latest",
+    "max_file_size": 5000,
+    "max_files_per_run": 10,
+    "temperature": 0.1,
+    "analysis_prompts": {
+      "code_review": "Analyze this code for quality, security, and architectural issues. Focus on TypeScript best practices, potential bugs, and maintainability concerns.",
+      "security_review": "Perform a security analysis of this code. Look for vulnerabilities, unsafe patterns, and potential attack vectors.",
+      "architecture_review": "Review this code from an architectural perspective. Identify design patterns, coupling issues, and scalability concerns."
+    }
+  },
+  
+  "reporting": {
+    "formats": ["markdown", "json"],
+    "include_suggestions": true,
+    "include_ai_analysis": true,
+    "max_issues_per_report": 20,
+    "severity_levels": ["high", "medium", "low"],
+    "pr_comment_template": "ai-analysis-pr-template.md"
+  },
+  
+  "integrations": {
+    "github": {
+      "enabled": true,
+      "post_pr_comments": true,
+      "create_issues_for_critical": true,
+      "labels": ["ai-detected", "code-quality", "needs-review"]
+    },
+    "slack": {
+      "enabled": false,
+      "webhook_url": "",
+      "channels": ["#code-quality", "#ai-alerts"]
+    }
+  },
+  
+  "file_filters": {
+    "include_patterns": [
+      "src/**/*.ts",
+      "src/**/*.js",
+      "src/**/*.tsx",
+      "src/**/*.jsx"
+    ],
+    "exclude_patterns": [
+      "node_modules/**",
+      "dist/**",
+      "coverage/**",
+      "**/*.test.ts",
+      "**/*.spec.ts",
+      "**/*.d.ts"
+    ],
+    "max_file_size_kb": 100
+  },
+  
+  "thresholds": {
+    "critical_issues": {
+      "max_high_severity": 0,
+      "max_medium_severity": 5,
+      "max_low_severity": 20
+    },
+    "typescript_errors": {
+      "max_errors": 0,
+      "fail_build": true
+    },
+    "security_vulnerabilities": {
+      "max_high": 0,
+      "max_medium": 2,
+      "fail_build_on_high": true
+    },
+    "code_coverage": {
+      "min_percentage": 70,
+      "fail_on_decrease": true
+    }
+  },
+  
+  "claude_flow_specific": {
+    "check_sparc_compliance": true,
+    "validate_agent_patterns": true,
+    "check_mcp_integration": true,
+    "monitor_swarm_coordination": true,
+    "architectural_patterns": [
+      "orchestrator_pattern",
+      "facade_pattern",
+      "dependency_injection"
+    ]
+  }
+}
