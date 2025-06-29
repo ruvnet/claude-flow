@@ -177,21 +177,53 @@ class CodeQualityAgent:
                     cwd=self.repo_root
                 )
             else:
-                # Get recent changes
+                # For manual runs or when no PR, get recent changes or all files
                 result = subprocess.run(
                     ['git', 'diff', '--name-only', 'HEAD~1', 'HEAD'],
                     capture_output=True,
                     text=True,
                     cwd=self.repo_root
                 )
-            
+
             if result.returncode == 0:
                 files = [f.strip() for f in result.stdout.split('\n') if f.strip()]
                 # Filter for TypeScript/JavaScript files
-                return [f for f in files if f.endswith(('.ts', '.js', '.tsx', '.jsx'))]
+                ts_js_files = [f for f in files if f.endswith(('.ts', '.js', '.tsx', '.jsx'))]
+
+                # If no changed files found, analyze some key files for manual runs
+                if not ts_js_files and not self.pr_number:
+                    print("🔍 No changed files found, analyzing key source files...")
+                    # Get all TypeScript/JavaScript files in src directory
+                    all_files_result = subprocess.run(
+                        ['find', 'src', '-name', '*.ts', '-o', '-name', '*.js', '-o', '-name', '*.tsx', '-o', '-name', '*.jsx'],
+                        capture_output=True,
+                        text=True,
+                        cwd=self.repo_root
+                    )
+                    if all_files_result.returncode == 0:
+                        all_files = [f.strip() for f in all_files_result.stdout.split('\n') if f.strip()]
+                        # Return first 10 files for analysis
+                        return all_files[:10]
+
+                return ts_js_files
         except Exception as e:
             print(f"Error getting changed files: {e}")
-        
+
+        # Fallback: analyze some key files
+        try:
+            print("🔍 Fallback: analyzing key source files...")
+            fallback_result = subprocess.run(
+                ['find', 'src', '-name', '*.ts', '-o', '-name', '*.js'],
+                capture_output=True,
+                text=True,
+                cwd=self.repo_root
+            )
+            if fallback_result.returncode == 0:
+                files = [f.strip() for f in fallback_result.stdout.split('\n') if f.strip()]
+                return files[:5]  # Analyze first 5 files
+        except Exception as e:
+            print(f"Fallback error: {e}")
+
         return []
 
     def analyze_file(self, file_path: str) -> None:
@@ -235,15 +267,23 @@ class CodeQualityAgent:
 
             # AI-powered analysis (if API key available)
             if self.openai_api_key and len(content) < 5000:  # Limit size for API
+                print(f"🤖 Running AI analysis on {file_path}...")
                 ai_analysis = self.analyze_code_with_ai(content[:2000], file_path)
                 if ai_analysis:
+                    print(f"✅ AI analysis completed for {file_path}")
                     for issue in ai_analysis.get('issues', []):
                         issue['file'] = file_path
                         issues.append(issue)
-                    
+
                     self.analysis_results['suggestions'].extend(
                         [f"{file_path}: {s}" for s in ai_analysis.get('suggestions', [])]
                     )
+                else:
+                    print(f"⚠️ AI analysis failed for {file_path}")
+            elif not self.openai_api_key:
+                print(f"⚠️ Skipping AI analysis for {file_path} (no API key)")
+            else:
+                print(f"⚠️ Skipping AI analysis for {file_path} (file too large: {len(content)} chars)")
 
             self.analysis_results['issues'].extend(issues)
 
@@ -257,8 +297,14 @@ class CodeQualityAgent:
         
         # Analyze changed files
         changed_files = self.get_changed_files()
-        for file_path in changed_files[:10]:  # Limit to 10 files
-            self.analyze_file(file_path)
+        print(f"📁 Found {len(changed_files)} files to analyze")
+
+        if not changed_files:
+            print("⚠️ No files found for analysis")
+        else:
+            for i, file_path in enumerate(changed_files[:10], 1):  # Limit to 10 files
+                print(f"🔍 Analyzing file {i}/{min(len(changed_files), 10)}: {file_path}")
+                self.analyze_file(file_path)
 
         # Generate report
         report = f"""# 🤖 AI Code Quality Analysis Report
