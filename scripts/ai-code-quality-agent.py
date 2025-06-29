@@ -129,7 +129,7 @@ class CodeQualityAgent:
                             'model': model,
                             'messages': [{'role': 'user', 'content': prompt}],
                             'temperature': 0.1,
-                            'max_tokens': 1000
+                            'max_tokens': 1500  # Increased for better analysis
                         },
                         timeout=30
                     )
@@ -266,24 +266,43 @@ class CodeQualityAgent:
                 })
 
             # AI-powered analysis (if API key available)
-            if self.openai_api_key and len(content) < 5000:  # Limit size for API
-                print(f"🤖 Running AI analysis on {file_path}...")
-                ai_analysis = self.analyze_code_with_ai(content[:2000], file_path)
-                if ai_analysis:
-                    print(f"✅ AI analysis completed for {file_path}")
-                    for issue in ai_analysis.get('issues', []):
-                        issue['file'] = file_path
-                        issues.append(issue)
+            if self.openai_api_key:
+                # Increase size limit and use chunking for larger files
+                max_chunk_size = 8000  # Increased from 5000
+                if len(content) <= max_chunk_size:
+                    print(f"🤖 Running AI analysis on {file_path}...")
+                    ai_analysis = self.analyze_code_with_ai(content, file_path)
+                    if ai_analysis:
+                        print(f"✅ AI analysis completed for {file_path}")
+                        for issue in ai_analysis.get('issues', []):
+                            issue['file'] = file_path
+                            issues.append(issue)
 
-                    self.analysis_results['suggestions'].extend(
-                        [f"{file_path}: {s}" for s in ai_analysis.get('suggestions', [])]
-                    )
+                        self.analysis_results['suggestions'].extend(
+                            [f"{file_path}: {s}" for s in ai_analysis.get('suggestions', [])]
+                        )
+                    else:
+                        print(f"⚠️ AI analysis failed for {file_path}")
+                elif len(content) <= 20000:  # For larger files, analyze key sections
+                    print(f"🤖 Running chunked AI analysis on {file_path} ({len(content)} chars)...")
+                    # Analyze first chunk (imports, interfaces, main classes)
+                    chunk = content[:max_chunk_size]
+                    ai_analysis = self.analyze_code_with_ai(chunk, file_path)
+                    if ai_analysis:
+                        print(f"✅ Chunked AI analysis completed for {file_path}")
+                        for issue in ai_analysis.get('issues', []):
+                            issue['file'] = file_path
+                            issues.append(issue)
+
+                        self.analysis_results['suggestions'].extend(
+                            [f"{file_path}: {s}" for s in ai_analysis.get('suggestions', [])]
+                        )
+                    else:
+                        print(f"⚠️ Chunked AI analysis failed for {file_path}")
                 else:
-                    print(f"⚠️ AI analysis failed for {file_path}")
-            elif not self.openai_api_key:
-                print(f"⚠️ Skipping AI analysis for {file_path} (no API key)")
+                    print(f"⚠️ Skipping AI analysis for {file_path} (file too large: {len(content)} chars)")
             else:
-                print(f"⚠️ Skipping AI analysis for {file_path} (file too large: {len(content)} chars)")
+                print(f"⚠️ Skipping AI analysis for {file_path} (no API key)")
 
             self.analysis_results['issues'].extend(issues)
 
