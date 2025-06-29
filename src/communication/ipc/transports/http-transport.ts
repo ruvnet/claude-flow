@@ -150,8 +150,7 @@ export class HTTPTransport extends BaseTransport {
   private readonly basePath: string = '/ipc';
   
   constructor(port: number = 0, host: string = 'localhost') {
-    const path = `http://${host}:${port}${this.basePath}`;
-    super(TransportType.HTTP, path);
+    super(TransportType.HTTP, `http://${host}:${port}/ipc`);
     
     this.port = port;
     this.host = host;

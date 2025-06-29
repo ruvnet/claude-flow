@@ -5,7 +5,7 @@
  * with automatic backups and integrity validation
  */
 
-import { Logger } from '@/shared/logger.js';
+import { Logger } from '@/core/logger.js';
 import { ProcessRegistryDatabase } from './database.js';
 import { ProcessInfo, RegistryValidationResult } from './types.js';
 import { createHash } from 'crypto';

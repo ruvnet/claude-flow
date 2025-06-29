@@ -1,0 +1,21 @@
+echo "🔍 Running TypeScript validation..."
+
+# Run TypeScript type checking
+if ! npm run typecheck; then
+    echo "❌ TypeScript validation failed!"
+    echo "💡 Fix all TypeScript errors before committing."
+    echo "📝 Run 'npm run typecheck' to see detailed errors."
+    exit 1
+fi
+
+echo "🔍 Running ESLint validation..."
+
+# Run ESLint
+if ! npm run lint; then
+    echo "❌ ESLint validation failed!"
+    echo "💡 Fix all linting errors before committing."
+    echo "📝 Run 'npm run lint' to see detailed errors."
+    exit 1
+fi
+
+echo "✅ All validations passed! Proceeding with commit..."

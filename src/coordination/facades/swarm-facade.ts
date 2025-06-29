@@ -54,7 +54,7 @@ export class SwarmFacade {
 
       // Handle background execution if requested
       if (options.background) {
-        this.backgroundExecutor = new BackgroundExecutor(this.logger);
+        this.backgroundExecutor = new BackgroundExecutor({});
         await this.backgroundExecutor.execute({
           coordinator: this.coordinator,
           objective: options.objective,

@@ -180,8 +180,8 @@ export interface OrchestrationComponents {
   logger?: any;
 }
 
-// Claude API interface
-export interface ClaudeAPI {
+// Claude API Configuration interface
+export interface ClaudeAPIConfig {
   id: string;
   baseURL: string;
   apiKey?: string;
@@ -192,4 +192,12 @@ export interface ClaudeAPI {
   timeout?: number;
   retryAttempts?: number;
   retryDelay?: number;
+}
+
+// Claude API interface - execution interface with methods
+export interface ClaudeAPI {
+  sendMessage(message: string): Promise<string>;
+  complete(prompt: string, options?: any): Promise<string>;
+  disconnect(): Promise<void>;
+  isConnected(): boolean;
 }

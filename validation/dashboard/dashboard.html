@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swarm Validation Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: #2c3e50; color: white; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+        .card { background: white; padding: 20px; border-radius: 5px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .status-healthy { color: #27ae60; }
+        .status-warning { color: #f39c12; }
+        .status-critical { color: #e74c3c; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .agents-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+        .agent-card { background: #ecf0f1; padding: 10px; border-radius: 3px; text-align: center; }
+        .metric { font-size: 2em; font-weight: bold; margin-bottom: 5px; }
+        .alert { background: #ffebee; border-left: 4px solid #e74c3c; padding: 15px; margin-bottom: 10px; }
+        .activity { border-left: 3px solid #3498db; padding: 10px; margin-bottom: 10px; background: #f8f9fa; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #34495e; color: white; }
+        .timestamp { font-size: 0.9em; color: #666; }
+    </style>
+    <script>
+        function refreshDashboard() {
+            location.reload();
+        }
+        setInterval(refreshDashboard, 30000); // Refresh every 30 seconds
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔄 Swarm Validation Dashboard</h1>
+            <p>Swarm ID: swarm-development-hierarchical-1751184493913</p>
+            <p class="timestamp">Last Updated: 2025-06-29T08:19:56.893Z</p>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>🏥 System Health</h2>
+                <div class="metric status-unknown">
+                    UNKNOWN
+                </div>
+                <p>Validation data unavailable</p>
+            </div>
+
+            <div class="card">
+                <h2>👥 Agent Summary</h2>
+                <div class="agents-grid">
+                    <div class="agent-card">
+                        <div class="metric">0</div>
+                        <div>Total Agents</div>
+                    </div>
+                    <div class="agent-card">
+                        <div class="metric">0</div>
+                        <div>Recent Activity</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        
+
+        <div class="grid">
+            <div class="card">
+                <h2>📊 Agent Status</h2>
+                <table>
+                    <tr><th>Status</th><th>Count</th></tr>
+                    
+                </table>
+            </div>
+
+            <div class="card">
+                <h2>🎭 Agent Roles</h2>
+                <table>
+                    <tr><th>Role</th><th>Count</th></tr>
+                    
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📈 Recent Activity</h2>
+            
+        </div>
+
+        <div class="card">
+            <h2>🔍 Validation History</h2>
+            <table>
+                <tr><th>Timestamp</th><th>Agent</th><th>TypeScript Errors</th><th>Build</th><th>Tests</th></tr>
+                
+            </table>
+        </div>
+    </div>
+</body>
+</html>

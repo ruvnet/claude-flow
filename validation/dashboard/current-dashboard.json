@@ -1,0 +1,17 @@
+{
+  "timestamp": "2025-06-29T08:19:56.893Z",
+  "swarm_id": "swarm-development-hierarchical-1751184493913",
+  "agent_states": {
+    "total_agents": 0,
+    "agents_by_status": {},
+    "agents_by_role": {},
+    "recent_completions": 0
+  },
+  "system_health": {
+    "status": "unknown",
+    "message": "Validation data unavailable"
+  },
+  "validation_history": [],
+  "recent_activity": [],
+  "alerts": []
+}

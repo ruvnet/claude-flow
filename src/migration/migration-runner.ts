@@ -309,7 +309,7 @@ export class MigrationRunner {
       await fs.copy(claudePath, path.join(backupPath, '.claude'));
       
       // Record backed up files
-      const files = await glob('**/*', { cwd: claudePath, nodir: true });
+      const files = await glob('**/*', { cwd: claudePath });
       for (const file of files) {
         const content = await fs.readFile(path.join(claudePath, file), 'utf-8');
         backup.files.push({

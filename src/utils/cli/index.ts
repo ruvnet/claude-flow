@@ -3,12 +3,15 @@
  * Centralizes all CLI-related imports and provides consistent interface
  */
 
-// Re-export all cliffy-compat utilities
-export { Command } from '../cliffy-compat/command.js';
-export { colors } from '../cliffy-compat/colors.js';
+// Import and re-export all cliffy-compat utilities
+import { Command } from '../cliffy-compat/command.js';
+export { Command };
+import { colors } from '../cliffy-compat/colors.js';
+export { colors };
 import { Table } from '../cliffy-compat/table.js';
 export { Table };
-export { Select, Input, Confirm, Checkbox } from '../cliffy-compat/prompt.js';
+import { Select, Input, Confirm, Checkbox } from '../cliffy-compat/prompt.js';
+export { Select, Input, Confirm, Checkbox };
 
 // Re-export our color utilities
 export { colors as internalColors } from '../colors.js';
@@ -111,9 +114,8 @@ export const table = {
   
   // Create a status table
   status: (items: Array<{ name: string; status: 'running' | 'success' | 'error' | 'warning' | 'stopped'; message?: string }>): Table => {
-    const t = new Table({
-      head: ['Component', 'Status', 'Message']
-    });
+    const t = new Table();
+    t.header(['Component', 'Status', 'Message']);
     
     items.forEach(item => {
       t.push([

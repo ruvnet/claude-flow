@@ -185,7 +185,13 @@ export class TaskEngine extends EventEmitter {
     
     // Store in memory if manager available
     if (this.memoryManager) {
-      await this.memoryManager.store(`task:${task.id}`, task);
+      await this.memoryManager.remember({
+        key: `task:${task.id}`,
+        content: JSON.stringify(task),
+        type: 'artifact',
+        agentId: 'task-engine',
+        sessionId: 'task-management'
+      });
     }
 
     this.emit('task:created', { task });
@@ -342,7 +348,13 @@ export class TaskEngine extends EventEmitter {
 
     // Update memory
     if (this.memoryManager) {
-      await this.memoryManager.store(`task:${taskId}`, task);
+      await this.memoryManager.remember({
+        key: `task:${taskId}`,
+        content: JSON.stringify(task),
+        type: 'artifact',
+        agentId: 'task-engine',
+        sessionId: 'task-management'
+      });
     }
 
     this.emit('task:cancelled', { taskId, reason });
@@ -402,7 +414,13 @@ export class TaskEngine extends EventEmitter {
     this.workflows.set(workflow.id, workflow);
     
     if (this.memoryManager) {
-      await this.memoryManager.store(`workflow:${workflow.id}`, workflow);
+      await this.memoryManager.remember({
+        key: `workflow:${workflow.id}`,
+        content: JSON.stringify(workflow),
+        type: 'artifact',
+        agentId: 'task-engine',
+        sessionId: 'task-management'
+      });
     }
 
     return workflow;
@@ -411,7 +429,7 @@ export class TaskEngine extends EventEmitter {
   /**
    * Get dependency visualization
    */
-  getDependencyGraph(): { nodes: Array<{ id: string; label: string; status: string }>; edges: Array<{ from: string; to: string }> } {
+  getDependencyGraph(): { nodes: Array<{ id: string; label: string; status: string; priority?: number; progress?: number; estimatedDuration?: number; tags?: string[] }>; edges: Array<{ from: string; to: string; type?: string; lag?: number }> } {
     const nodes = Array.from(this.tasks.values()).map(task => ({
       id: task.id,
       label: task.description,
@@ -422,7 +440,7 @@ export class TaskEngine extends EventEmitter {
       tags: task.tags
     }));
 
-    const edges: Array<{ from: string; to: string }> = [];
+    const edges: Array<{ from: string; to: string; type?: string; lag?: number }> = [];
     for (const task of this.tasks.values()) {
       for (const dep of task.dependencies) {
         edges.push({
@@ -547,8 +565,20 @@ export class TaskEngine extends EventEmitter {
       await this.releaseTaskResources(task.id);
       
       if (this.memoryManager) {
-        await this.memoryManager.store(`task:${task.id}`, task);
-        await this.memoryManager.store(`execution:${execution.id}`, execution);
+        await this.memoryManager.remember({
+          key: `task:${task.id}`,
+          content: JSON.stringify(task),
+          type: 'artifact',
+          agentId: 'task-engine',
+          sessionId: 'task-management'
+        });
+        await this.memoryManager.remember({
+          key: `execution:${execution.id}`,
+          content: JSON.stringify(execution),
+          type: 'observation',
+          agentId: 'task-engine',
+          sessionId: 'task-management'
+        });
       }
     }
   }
@@ -587,7 +617,13 @@ export class TaskEngine extends EventEmitter {
     task.checkpoints.push(checkpoint);
     
     if (this.memoryManager) {
-      await this.memoryManager.store(`checkpoint:${checkpoint.id}`, checkpoint);
+      await this.memoryManager.remember({
+        key: `checkpoint:${checkpoint.id}`,
+        content: JSON.stringify(checkpoint),
+        type: 'artifact',
+        agentId: 'task-engine',
+        sessionId: 'task-management'
+      });
     }
   }
 

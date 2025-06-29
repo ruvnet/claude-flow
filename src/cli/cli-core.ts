@@ -5,9 +5,7 @@
 
 import chalk from "chalk";
 import fs from "fs-extra";
-import path from "path";
 import { VERSION, Command, CommandContext, Option } from "./types/cli-types.js";
-import { success, error, warning, info } from "./shared/utils.js";
 
 class CLI {
   private commands: Map<string, Command> = new Map();
@@ -59,14 +57,14 @@ class CLI {
     // Parse arguments manually since we're replacing the Deno parse function
     const flags = this.parseArgs(args);
 
-    if (flags.version || flags.v) {
+    if (flags['version'] || flags['v']) {
       console.log(`${this.name} v${VERSION}`);
       return;
     }
 
-    const commandName = flags._[0]?.toString() || "";
+    const commandName = flags['_'][0]?.toString() || "";
     
-    if (!commandName || flags.help || flags.h) {
+    if (!commandName || flags['help'] || flags['h']) {
       this.showHelp();
       return;
     }
@@ -79,9 +77,9 @@ class CLI {
     }
 
     const ctx: CommandContext = {
-      args: flags._.slice(1).map(String),
+      args: flags['_'].slice(1).map(String),
       flags: flags as Record<string, unknown>,
-      config: await this.loadConfig(flags.config as string),
+      config: await this.loadConfig(flags['config'] as string),
     };
 
     try {
@@ -92,7 +90,7 @@ class CLI {
       }
     } catch (error) {
       console.error(chalk.red(`Error executing command '${commandName}':`), (error as Error).message);
-      if (flags.verbose) {
+      if (flags['verbose']) {
         console.error(error);
       }
       process.exit(1);
@@ -106,26 +104,28 @@ class CLI {
     while (i < args.length) {
       const arg = args[i];
       
-      if (arg.startsWith('--')) {
+      if (arg && arg.startsWith('--')) {
         const key = arg.slice(2);
-        if (i + 1 < args.length && !args[i + 1].startsWith('-')) {
-          result[key] = args[i + 1];
+        const nextArg = args[i + 1];
+        if (i + 1 < args.length && nextArg && !nextArg.startsWith('-')) {
+          result[key] = nextArg;
           i += 2;
         } else {
           result[key] = true;
           i++;
         }
-      } else if (arg.startsWith('-')) {
+      } else if (arg && arg.startsWith('-')) {
         const key = arg.slice(1);
-        if (i + 1 < args.length && !args[i + 1].startsWith('-')) {
-          result[key] = args[i + 1];
+        const nextArg = args[i + 1];
+        if (i + 1 < args.length && nextArg && !nextArg.startsWith('-')) {
+          result[key] = nextArg;
           i += 2;
         } else {
           result[key] = true;
           i++;
         }
       } else {
-        result._.push(arg);
+        result['_'].push(arg);
         i++;
       }
     }
@@ -143,57 +143,9 @@ class CLI {
     }
   }
 
-  private getBooleanFlags(): string[] {
-    const flags: string[] = [];
-    for (const opt of [...this.globalOptions, ...this.getAllOptions()]) {
-      if (opt.type === "boolean") {
-        flags.push(opt.name);
-        if (opt.short) flags.push(opt.short);
-      }
-    }
-    return flags;
-  }
+  // Removed unused helper methods that were causing TS6133 errors
 
-  private getStringFlags(): string[] {
-    const flags: string[] = [];
-    for (const opt of [...this.globalOptions, ...this.getAllOptions()]) {
-      if (opt.type === "string" || opt.type === "number") {
-        flags.push(opt.name);
-        if (opt.short) flags.push(opt.short);
-      }
-    }
-    return flags;
-  }
-
-  private getAliases(): Record<string, string> {
-    const aliases: Record<string, string> = {};
-    for (const opt of [...this.globalOptions, ...this.getAllOptions()]) {
-      if (opt.short) {
-        aliases[opt.short] = opt.name;
-      }
-    }
-    return aliases;
-  }
-
-  private getDefaults(): Record<string, unknown> {
-    const defaults: Record<string, unknown> = {};
-    for (const opt of [...this.globalOptions, ...this.getAllOptions()]) {
-      if (opt.default !== undefined) {
-        defaults[opt.name] = opt.default;
-      }
-    }
-    return defaults;
-  }
-
-  private getAllOptions(): Option[] {
-    const options: Option[] = [];
-    for (const cmd of this.commands.values()) {
-      if (cmd.options) {
-        options.push(...cmd.options);
-      }
-    }
-    return options;
-  }
+  // Removed getAllOptions method as it was unused
 
   private showHelp(): void {
     console.log(`

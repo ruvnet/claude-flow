@@ -12,7 +12,7 @@ export {
 // Advanced Memory Manager
 export {
   AdvancedMemoryManager,
-  type MemoryEntry,
+  type MemoryEntry as AdvancedMemoryEntry,
   type MemoryIndex,
   type QueryOptions,
   type ExportOptions,
@@ -60,5 +60,5 @@ export { MarkdownBackend } from './backends/markdown.js';
 export {
   MemoryFacade,
   type MemoryOperationOptions,
-  type MemoryEntry
+  type MemoryEntry as FacadeMemoryEntry
 } from './facades/memory-facade.js';

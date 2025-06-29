@@ -71,15 +71,82 @@ export const ConfigPresets = {
    * Minimal configuration for testing
    */
   testing: (): Partial<ClaudeFlowConfig> => ({
-    daemon: { enabled: false },
-    registry: { backend: 'memory' },
-    security: { authentication: { method: 'none' } },
-    monitoring: { enabled: false },
+    daemon: { 
+      enabled: false,
+      autoStart: false,
+      pidFile: '/tmp/claudeflow-test.pid',
+      logFile: '/tmp/claudeflow-test.log',
+      ipc: {
+        transport: 'unix',
+        path: '/tmp/claudeflow-test.sock',
+        timeout: 5000
+      },
+      healthCheck: {
+        enabled: false,
+        interval: 30000,
+        timeout: 5000
+      }
+    },
+    registry: { 
+      backend: 'memory',
+      backup: {
+        enabled: false,
+        interval: 3600000,
+        retention: 1,
+        path: './test-backups'
+      },
+      cleanup: {
+        orphanedProcessTimeout: 60000,
+        heartbeatTimeout: 30000,
+        maxProcessHistory: 100
+      },
+      persistence: {
+        enabled: false
+      }
+    },
+    security: { 
+      authentication: { method: 'none' },
+      authorization: {
+        enabled: false
+      },
+      encryption: {
+        enabled: false
+      },
+      audit: {
+        enabled: false
+      }
+    },
+    monitoring: { 
+      enabled: false,
+      metrics: {
+        enabled: false
+      },
+      logging: {
+        level: 'debug',
+        format: 'text'
+      },
+      tracing: {
+        enabled: false
+      },
+      alerting: {
+        enabled: false
+      }
+    },
     performance: {
       maxConcurrentAgents: 2,
       agentTimeoutMs: 10000,
       memoryLimit: '256MB',
-      cpuLimit: 50
+      cpuLimit: 50,
+      cache: {
+        enabled: false,
+        size: '10MB',
+        ttl: 300
+      },
+      pooling: {
+        enabled: false,
+        minSize: 1,
+        maxSize: 2
+      }
     }
   }),
 

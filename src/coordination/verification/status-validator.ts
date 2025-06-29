@@ -7,10 +7,9 @@ import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { 
-  SwarmStatusSchema, 
-  StatusValidationError,
-  VerificationResult 
+  SwarmStatusSchema
 } from './schema.js';
+import { StatusValidationError } from './schema.js';
 
 /**
  * Status file validator
@@ -376,9 +375,9 @@ export function createStatusValidationError(
   filePath: string,
   validation_errors: string[]
 ): StatusValidationError {
-  const error = new Error(message) as StatusValidationError;
-  error.name = 'StatusValidationError';
-  error.filePath = filePath;
-  error.validation_errors = validation_errors;
-  return error;
+  return new StatusValidationError(
+    message,
+    filePath,
+    validation_errors
+  );
 }

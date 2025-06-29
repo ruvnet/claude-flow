@@ -5,6 +5,8 @@
  * for all swarm operations to prevent aspirational reporting.
  */
 
+import { SwarmVerificationFramework } from './framework.js';
+
 export {
   // Core framework
   SwarmVerificationFramework,
@@ -38,9 +40,7 @@ export const VERIFICATION_FRAMEWORK_NAME = 'Claude-Flow Swarm Verification Frame
 /**
  * Quick setup function for basic verification
  */
-export function createBasicVerificationFramework(logger: any): SwarmVerificationFramework {
-  const { SwarmVerificationFramework } = require('./framework.js');
-  
+export function createBasicVerificationFramework(logger: any) {
   return new SwarmVerificationFramework(logger, {
     enforcement_enabled: true,
     fail_fast: false,

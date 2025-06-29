@@ -824,8 +824,7 @@ export class SwarmCoordinator extends EventEmitter {
       // Create objective from request
       const objectiveId = await this.createObjective(
         request.objective,
-        request.strategy || 'auto',
-        []
+        request.strategy || 'auto'
       );
       
       // Execute the objective
@@ -846,9 +845,9 @@ export class SwarmCoordinator extends EventEmitter {
   }
 
   /**
-   * Stop the coordinator
+   * Stop the coordinator (enhanced implementation)
    */
-  async stop(): Promise<void> {
+  async stopCoordinator(): Promise<void> {
     this.logger.info('Stopping swarm coordinator...');
     this.isRunning = false;
     

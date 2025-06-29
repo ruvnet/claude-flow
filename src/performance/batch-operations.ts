@@ -83,7 +83,14 @@ export class BatchProcessor<T, R> {
 
     try {
       const results = await this.processor(items);
-      batch.forEach((b, i) => b.resolve(results[i]));
+      batch.forEach((b, i) => {
+        const result = results[i];
+        if (result !== undefined) {
+          b.resolve(result);
+        } else {
+          b.reject(new Error(`No result for item at index ${i}`));
+        }
+      });
     } catch (error) {
       batch.forEach(b => b.reject(error));
     } finally {

@@ -6,7 +6,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { spawn } from '@/tracing/index.js';
-import { Logger } from '@/shared/logger.js';
+import { Logger } from '@/core/logger.js';
 import { ProcessRegistryDatabase } from './database.js';
 import {
   ProcessRegistry,

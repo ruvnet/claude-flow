@@ -6,7 +6,7 @@
 
 import { copyFile, mkdir, readdir, stat } from 'fs/promises';
 import { join, dirname } from 'path';
-import { Logger } from '@/shared/logger.js';
+import { Logger } from '@/core/logger.js';
 import { ProcessRegistryDatabase } from './database.js';
 import { RegistryRecovery, RegistryValidationResult } from './types.js';
 

@@ -5,7 +5,7 @@
  * operation queuing and automatic replay on reconnection
  */
 
-import { Logger } from '@/shared/logger.js';
+import { Logger } from '@/core/logger.js';
 import { EventEmitter } from 'events';
 import { writeFile, readFile, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';

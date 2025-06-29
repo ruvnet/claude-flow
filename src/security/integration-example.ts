@@ -22,23 +22,54 @@ export async function createSecureOrchestratorExample() {
     orchestrator: {
       maxConcurrentAgents: 5,
       taskQueueSize: 100,
+      healthCheckInterval: 30000,
+      shutdownTimeout: 10000,
       dataDir: './data',
-      enablePersistence: true,
+      persistSessions: true,
+    },
+    terminal: {
+      type: 'auto',
+      poolSize: 5,
+      recycleAfter: 100,
+      healthCheckInterval: 30000,
+      commandTimeout: 30000,
+    },
+    memory: {
+      backend: 'sqlite',
+      cacheSizeMB: 100,
+      syncInterval: 5000,
+      conflictResolution: 'timestamp',
+      retentionDays: 30,
+    },
+    coordination: {
+      maxRetries: 3,
+      retryDelay: 1000,
+      deadlockDetection: true,
+      resourceTimeout: 30000,
+      messageTimeout: 10000,
+    },
+    mcp: {
+      transport: 'stdio',
+    },
+    logging: {
+      level: 'info',
+      format: 'json',
+      destination: 'console',
     },
     security: {
-      enabled: true,
-      requireAuth: true,
-      enforceWhitelist: true,
-      auditAll: true,
+      encryptionEnabled: true,
+      auditLogging: true,
+      maskSensitiveValues: true,
+      allowEnvironmentOverrides: false,
     },
   };
 
   // Create dependencies
   const eventBus = EventBus.getInstance();
-  const terminalManager = new TerminalManager(config, logger);
-  const memoryManager = new MemoryManager(config.memory || {}, eventBus, logger);
-  const coordinationManager = new CoordinationManager(eventBus, logger);
-  const mcpServer = new MCPServer(config, logger);
+  const terminalManager = new TerminalManager(config.terminal, eventBus, logger);
+  const memoryManager = new MemoryManager(config.memory, eventBus, logger);
+  const coordinationManager = new CoordinationManager(config.coordination, eventBus, logger);
+  const mcpServer = new MCPServer(config.mcp, eventBus, logger);
 
   // Create base orchestrator
   const baseOrchestrator = new Orchestrator(
@@ -72,9 +103,12 @@ export async function createSecureOrchestratorExample() {
     // Spawn an agent (will check permissions and log)
     const agentId = await secureOrchestrator.spawnAgent({
       id: 'agent-1',
+      name: 'Research Agent 1',
       type: 'researcher',
       capabilities: ['search', 'analyze'],
-      config: {},
+      systemPrompt: 'You are a research assistant.',
+      maxConcurrentTasks: 1,
+      priority: 1,
     });
 
     logger.info('Agent spawned securely', { agentId });
@@ -89,6 +123,37 @@ export function createSecureCLIExample() {
     orchestrator: {
       maxConcurrentAgents: 5,
       taskQueueSize: 100,
+      healthCheckInterval: 30000,
+      shutdownTimeout: 10000,
+    },
+    terminal: {
+      type: 'auto',
+      poolSize: 5,
+      recycleAfter: 100,
+      healthCheckInterval: 30000,
+      commandTimeout: 30000,
+    },
+    memory: {
+      backend: 'sqlite',
+      cacheSizeMB: 100,
+      syncInterval: 5000,
+      conflictResolution: 'timestamp',
+      retentionDays: 30,
+    },
+    coordination: {
+      maxRetries: 3,
+      retryDelay: 1000,
+      deadlockDetection: true,
+      resourceTimeout: 30000,
+      messageTimeout: 10000,
+    },
+    mcp: {
+      transport: 'stdio',
+    },
+    logging: {
+      level: 'info',
+      format: 'json',
+      destination: 'console',
     },
   };
 

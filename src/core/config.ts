@@ -6,9 +6,9 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { createHash, randomBytes, createCipher, createDecipher } from 'crypto';
+import { randomBytes, createCipher, createDecipher } from 'crypto';
 import { Config } from '../utils/types.js';
-import { deepMerge, safeParseJSON } from '../utils/helpers.js';
+import { safeParseJSON } from '../utils/helpers.js';
 import { ConfigError, ValidationError } from '../utils/errors.js';
 
 // Format parsers
@@ -24,8 +24,8 @@ export interface ConfigChange {
   path: string;
   oldValue: any;
   newValue: any;
-  user?: string;
-  reason?: string;
+  user?: string | undefined;
+  reason?: string | undefined;
   source: 'cli' | 'api' | 'file' | 'env';
 }
 
@@ -89,14 +89,10 @@ const FORMAT_PARSERS: Record<string, FormatParser> = {
       // Simple YAML parser for basic key-value pairs
       const lines = content.split('\n');
       const result: any = {};
-      let current = result;
-      const stack: any[] = [result];
       
       for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#')) continue;
-        
-        const indent = line.length - line.trimStart().length;
         const colonIndex = trimmed.indexOf(':');
         
         if (colonIndex === -1) continue;
@@ -113,7 +109,7 @@ const FORMAT_PARSERS: Record<string, FormatParser> = {
           parsedValue = value.slice(1, -1);
         }
         
-        current[key] = parsedValue;
+        result[key] = parsedValue;
       }
       
       return result;
@@ -721,13 +717,18 @@ export class ConfigManager implements IConfigManager {
     
     for (let i = 0; i < keys.length - 1; i++) {
       const key = keys[i];
-      if (!(key in current)) {
+      if (key && !(key in current)) {
         current[key] = {};
       }
-      current = current[key];
+      if (key) {
+        current = current[key];
+      }
     }
     
-    current[keys[keys.length - 1]] = value;
+    const finalKey = keys[keys.length - 1];
+    if (finalKey) {
+      current[finalKey] = value;
+    }
     
     // Validate the path-specific rule and dependencies
     this.validatePath(path, value);
@@ -870,12 +871,18 @@ export class ConfigManager implements IConfigManager {
           const pathParts = fullPath.split('.');
           let target = diff;
           for (let i = 0; i < pathParts.length - 1; i++) {
-            if (!target[pathParts[i]]) {
-              target[pathParts[i]] = {};
+            const pathPart = pathParts[i];
+            if (pathPart && !target[pathPart]) {
+              target[pathPart] = {};
             }
-            target = target[pathParts[i]];
+            if (pathPart) {
+              target = target[pathPart];
+            }
           }
-          target[pathParts[pathParts.length - 1]] = currentValue;
+          const finalPart = pathParts[pathParts.length - 1];
+          if (finalPart) {
+            target[finalPart] = currentValue;
+          }
         }
       }
     };
@@ -977,7 +984,7 @@ export class ConfigManager implements IConfigManager {
     const config: Partial<Config> = {};
 
     // Orchestrator settings
-    const maxAgents = process.env.CLAUDE_FLOW_MAX_AGENTS;
+    const maxAgents = process.env['CLAUDE_FLOW_MAX_AGENTS'];
     if (maxAgents) {
       if (!config.orchestrator) {
         config.orchestrator = {} as any;
@@ -990,7 +997,7 @@ export class ConfigManager implements IConfigManager {
     }
 
     // Terminal settings
-    const terminalType = process.env.CLAUDE_FLOW_TERMINAL_TYPE;
+    const terminalType = process.env['CLAUDE_FLOW_TERMINAL_TYPE'];
     if (terminalType === 'vscode' || terminalType === 'native' || terminalType === 'auto') {
       config.terminal = {
         ...DEFAULT_CONFIG.terminal,
@@ -1000,7 +1007,7 @@ export class ConfigManager implements IConfigManager {
     }
 
     // Memory settings
-    const memoryBackend = process.env.CLAUDE_FLOW_MEMORY_BACKEND;
+    const memoryBackend = process.env['CLAUDE_FLOW_MEMORY_BACKEND'];
     if (memoryBackend === 'sqlite' || memoryBackend === 'markdown' || memoryBackend === 'hybrid') {
       config.memory = {
         ...DEFAULT_CONFIG.memory,
@@ -1010,7 +1017,7 @@ export class ConfigManager implements IConfigManager {
     }
 
     // MCP settings
-    const mcpTransport = process.env.CLAUDE_FLOW_MCP_TRANSPORT;
+    const mcpTransport = process.env['CLAUDE_FLOW_MCP_TRANSPORT'];
     if (mcpTransport === 'stdio' || mcpTransport === 'http' || mcpTransport === 'websocket') {
       config.mcp = {
         ...DEFAULT_CONFIG.mcp,
@@ -1019,7 +1026,7 @@ export class ConfigManager implements IConfigManager {
       };
     }
 
-    const mcpPort = process.env.CLAUDE_FLOW_MCP_PORT;
+    const mcpPort = process.env['CLAUDE_FLOW_MCP_PORT'];
     if (mcpPort) {
       config.mcp = {
         ...DEFAULT_CONFIG.mcp,
@@ -1029,7 +1036,7 @@ export class ConfigManager implements IConfigManager {
     }
 
     // Logging settings
-    const logLevel = process.env.CLAUDE_FLOW_LOG_LEVEL;
+    const logLevel = process.env['CLAUDE_FLOW_LOG_LEVEL'];
     if (logLevel === 'debug' || logLevel === 'info' || logLevel === 'warn' || logLevel === 'error') {
       config.logging = {
         ...DEFAULT_CONFIG.logging,

@@ -1,0 +1,300 @@
+name: TypeScript Error Reporting
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run error analysis daily at 6 AM UTC
+    - cron: '0 6 * * *'
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  typescript-error-analysis:
+    name: TypeScript Error Analysis & Reporting
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate TypeScript Error Report
+        id: error-report
+        run: |
+          echo "🔍 Generating comprehensive TypeScript error analysis..."
+          node scripts/error-reporter.js || echo "Errors found - report generated"
+        continue-on-error: true
+
+      - name: Upload Error Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: typescript-error-reports-${{ github.run_id }}
+          path: |
+            reports/
+            ci-gate-results.json
+          retention-days: 30
+
+      - name: Create Error Report Summary
+        if: always()
+        run: |
+          echo "## TypeScript Error Analysis Report" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "reports/typescript-errors-*.json" ]; then
+            echo "📊 **Error Report Generated**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🔍 **Analysis Results:**" >> $GITHUB_STEP_SUMMARY
+            
+            # Extract summary from latest report
+            LATEST_REPORT=$(ls -t reports/typescript-errors-*.json | head -1)
+            if [ -f "$LATEST_REPORT" ]; then
+              TOTAL_ERRORS=$(jq -r '.summary.totalErrors' "$LATEST_REPORT")
+              echo "- **Total Errors:** $TOTAL_ERRORS" >> $GITHUB_STEP_SUMMARY
+              
+              echo "- **Top Error Categories:**" >> $GITHUB_STEP_SUMMARY
+              jq -r '.summary.categories | to_entries | sort_by(.value) | reverse | limit(5; .[]) | "  - \(.key): \(.value)"' "$LATEST_REPORT" >> $GITHUB_STEP_SUMMARY
+              
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "📁 **Files with Most Errors:**" >> $GITHUB_STEP_SUMMARY
+              jq -r '.summary.files | to_entries | sort_by(.value) | reverse | limit(5; .[]) | "  - \(.key): \(.value)"' "$LATEST_REPORT" >> $GITHUB_STEP_SUMMARY
+              
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "🔧 **Recommendations:**" >> $GITHUB_STEP_SUMMARY
+              jq -r '.recommendations[] | select(.priority == "high") | "- **\(.title):** \(.description)"' "$LATEST_REPORT" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "✅ **No TypeScript errors found!**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Comment on PR with Error Analysis
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Check if error reports exist
+            const reportsDir = 'reports';
+            let comment = '## 🔍 TypeScript Error Analysis\\n\\n';
+            
+            try {
+              if (fs.existsSync(reportsDir)) {
+                const files = fs.readdirSync(reportsDir);
+                const jsonFiles = files.filter(f => f.endsWith('.json'));
+                
+                if (jsonFiles.length > 0) {
+                  const latestReport = jsonFiles.sort().reverse()[0];
+                  const reportPath = path.join(reportsDir, latestReport);
+                  const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+                  
+                  comment += `❌ **${report.summary.totalErrors} TypeScript errors found**\\n\\n`;
+                  comment += '### 📊 Error Summary\\n';
+                  comment += '| Category | Count |\\n';
+                  comment += '|----------|-------|\\n';
+                  
+                  Object.entries(report.summary.categories)
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 5)
+                    .forEach(([category, count]) => {
+                      comment += `| ${category} | ${count} |\\n`;
+                    });
+                  
+                  comment += '\\n### 🔧 Top Recommendations\\n';
+                  report.recommendations
+                    .filter(rec => rec.priority === 'high')
+                    .slice(0, 3)
+                    .forEach(rec => {
+                      comment += `- **${rec.title}:** ${rec.description}\\n`;
+                    });
+                  
+                  comment += '\\n### 📁 Files Needing Attention\\n';
+                  Object.entries(report.summary.files)
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 5)
+                    .forEach(([file, count]) => {
+                      comment += `- \`${file}\`: ${count} error(s)\\n`;
+                    });
+                  
+                } else {
+                  comment += '✅ **No TypeScript errors detected!**\\n';
+                }
+              } else {
+                comment += '✅ **No TypeScript errors detected!**\\n';
+              }
+            } catch (error) {
+              comment += `⚠️ **Error generating report:** ${error.message}\\n`;
+            }
+            
+            comment += '\\n---\\n*Report generated by Agent 2: CI/CD Specialist*';
+            
+            // Post comment on PR
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  error-trend-analysis:
+    name: Error Trend Analysis
+    runs-on: ubuntu-latest
+    needs: [typescript-error-analysis]
+    if: github.ref == 'refs/heads/main'
+    continue-on-error: true
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get full history for trend analysis
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Error Reports
+        uses: actions/download-artifact@v4
+        with:
+          name: typescript-error-reports-${{ github.run_id }}
+          path: current-reports/
+
+      - name: Generate Trend Analysis
+        run: |
+          echo "📈 Generating TypeScript error trend analysis..."
+          
+          # Create trend analysis script
+          cat > trend-analysis.js << 'EOF'
+          import { promises as fs } from 'fs';
+          import path from 'path';
+          
+          async function analyzeTrends() {
+            const reportsDir = 'current-reports';
+            const trendFile = 'error-trend-analysis.json';
+            
+            try {
+              const files = await fs.readdir(reportsDir);
+              const jsonFiles = files.filter(f => f.endsWith('.json'));
+              
+              if (jsonFiles.length === 0) {
+                console.log('✅ No error reports to analyze - no TypeScript errors!');
+                return;
+              }
+              
+              const latestReport = jsonFiles.sort().reverse()[0];
+              const reportPath = path.join(reportsDir, latestReport);
+              const report = JSON.parse(await fs.readFile(reportPath, 'utf8'));
+              
+              const trend = {
+                timestamp: new Date().toISOString(),
+                commit: process.env.GITHUB_SHA,
+                branch: process.env.GITHUB_REF_NAME,
+                totalErrors: report.summary.totalErrors,
+                categories: report.summary.categories,
+                topFiles: Object.entries(report.summary.files)
+                  .sort(([,a], [,b]) => b - a)
+                  .slice(0, 10)
+                  .reduce((obj, [file, count]) => {
+                    obj[file] = count;
+                    return obj;
+                  }, {}),
+                recommendations: report.recommendations.map(r => r.category)
+              };
+              
+              await fs.writeFile(trendFile, JSON.stringify(trend, null, 2));
+              console.log(`📊 Trend analysis saved to ${trendFile}`);
+              
+              // Output metrics for GitHub Actions
+              console.log(`::set-output name=total_errors::${trend.totalErrors}`);
+              console.log(`::set-output name=trend_file::${trendFile}`);
+              
+            } catch (error) {
+              console.error('Error analyzing trends:', error);
+            }
+          }
+          
+          analyzeTrends();
+          EOF
+          
+          node trend-analysis.js
+
+      - name: Upload Trend Analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-trend-analysis-${{ github.run_id }}
+          path: error-trend-analysis.json
+          retention-days: 90
+
+  notify-teams:
+    name: Notify Development Teams
+    runs-on: ubuntu-latest
+    needs: [typescript-error-analysis, error-trend-analysis]
+    if: failure() && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Send Slack Notification
+        if: env.SLACK_WEBHOOK_URL
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#typescript-quality'
+          text: |
+            🚨 TypeScript Error Alert - Main Branch
+            
+            New TypeScript errors detected in main branch.
+            
+            📊 Run ID: ${{ github.run_id }}
+            📝 Commit: ${{ github.sha }}
+            👤 Author: ${{ github.actor }}
+            
+            Please review the error analysis report and address critical issues.
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Create GitHub Issue for High Error Count
+        if: needs.error-trend-analysis.outputs.total_errors > 100
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 High TypeScript Error Count Alert',
+              body: `
+              ## TypeScript Error Alert
+              
+              **Error Count:** ${{ needs.error-trend-analysis.outputs.total_errors }}
+              **Commit:** ${{ github.sha }}
+              **Workflow:** ${{ github.workflow }}
+              **Run ID:** ${{ github.run_id }}
+              
+              The TypeScript error count has exceeded the threshold of 100 errors.
+              Please prioritize fixing these errors to maintain code quality.
+              
+              ### Next Steps:
+              1. Review the error analysis report
+              2. Identify quick wins for error reduction
+              3. Create focused tasks for error remediation
+              4. Consider enabling stricter CI gates
+              
+              **Report:** [View Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              `,
+              labels: ['typescript', 'technical-debt', 'high-priority']
+            });

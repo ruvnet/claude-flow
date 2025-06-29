@@ -18,14 +18,24 @@
     "check-deps:json": "madge --circular src/ --json > circular-deps.json",
     "check-deps:summary": "madge src/ --summary",
     "check": "tsc --noEmit --pretty false && npm run check-deps",
+    "check:strict": "tsc --project tsconfig.ci.json --noEmit",
+    "ci:gates": "node scripts/ci-gates.js",
+    "ci:validate": "npm run ci:gates",
     "pretest": "npm run check",
     "test": "jest",
     "lint": "eslint src --ext .ts,.js",
     "format": "prettier --write src",
     "verify": "npm run check && npm run lint && npm run test",
     "verify:quick": "npm run check && npm run lint",
+    "verify:strict": "npm run check:strict && npm run lint && npm run test",
+    "report:errors": "node scripts/error-reporter.js",
+    "report:ci": "npm run ci:gates && npm run report:errors",
     "prepublishOnly": "npm run verify && node scripts/prepare-publish.js",
-    "prepare-publish": "node scripts/prepare-publish.js"
+    "prepare-publish": "node scripts/prepare-publish.js",
+    "prepare": "husky",
+    "pre-commit": "npm run typecheck && npm run lint",
+    "validate": "node scripts/validate-typescript.js",
+    "validate-strict": "npm run validate && npm run test"
   },
   "keywords": [
     "claude",
@@ -108,7 +118,8 @@
     "semantic-release": "^24.2.5",
     "ts-jest": "^29.4.0",
     "tsx": "^4.20.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "husky": "^9.0.11"
   },
   "pkg": {
     "targets": [

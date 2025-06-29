@@ -64,6 +64,10 @@ export interface SwarmMemoryConfig {
   enableKnowledgeBase: boolean;
   enableCrossAgentSharing: boolean;
   persistencePath: string;
+  logger?: ILogger;
+  persistent?: boolean;
+  maxSize?: number;
+  ttl?: number;
 }
 
 interface PersistenceRequest {
@@ -94,7 +98,7 @@ export class SwarmMemoryManager extends EventEmitter {
 
   constructor(config: Partial<SwarmMemoryConfig> = {}) {
     super();
-    this.logger = new Logger({
+    this.logger = config.logger || new Logger({
       level: 'info',
       format: 'text',
       destination: 'console'
@@ -833,17 +837,15 @@ export class SwarmMemoryManager extends EventEmitter {
    * Wrapper methods for MemoryFacade compatibility
    */
   async store(key: string, value: any, metadata?: any): Promise<void> {
-    await this.remember({
-      id: generateId(),
-      agentId: metadata?.agentId || 'default',
-      type: metadata?.type || 'state',
-      content: { key, value },
-      timestamp: new Date(),
-      metadata: {
+    await this.remember(
+      metadata?.agentId || 'default',
+      metadata?.type || 'state',
+      { key, value },
+      {
         ...metadata,
         key
       }
-    });
+    );
   }
 
   async get(key: string): Promise<any> {

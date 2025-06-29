@@ -111,20 +111,19 @@ export interface TaskCommandContext {
 export function createTaskCreateCommand(context: TaskCommandContext): Command {
   return new Command('create')
     .description('Create a new task with comprehensive options')
-    .arguments('<type>', 'Task type (e.g., research, development, analysis)')
-    .arguments('<description>', 'Task description')
-    .option('-p, --priority <number>', 'Task priority (0-100)', '50')
+    .arguments('<type> <description>')
+    .option('-p, --priority <number>', 'Task priority (0-100)', { default: '50' })
     .option('-d, --dependencies <deps>', 'Comma-separated dependency task IDs')
-    .option('--dep-type <type>', 'Dependency type: finish-to-start, start-to-start, finish-to-finish, start-to-finish', 'finish-to-start')
-    .option('--dep-lag <ms>', 'Dependency lag in milliseconds', '0')
+    .option('--dep-type <type>', 'Dependency type: finish-to-start, start-to-start, finish-to-finish, start-to-finish', { default: 'finish-to-start' })
+    .option('--dep-lag <ms>', 'Dependency lag in milliseconds', { default: '0' })
     .option('-a, --assign <agent>', 'Assign to specific agent')
     .option('-t, --tags <tags>', 'Comma-separated tags')
-    .option('--timeout <ms>', 'Task timeout in milliseconds', '300000')
+    .option('--timeout <ms>', 'Task timeout in milliseconds', { default: '300000' })
     .option('--estimated-duration <ms>', 'Estimated duration in milliseconds')
-    .option('--max-retries <count>', 'Maximum retry attempts', '3')
-    .option('--retry-backoff <ms>', 'Retry backoff in milliseconds', '1000')
-    .option('--retry-multiplier <factor>', 'Retry backoff multiplier', '2')
-    .option('--rollback <strategy>', 'Rollback strategy: previous-checkpoint, initial-state, custom', 'previous-checkpoint')
+    .option('--max-retries <count>', 'Maximum retry attempts', { default: '3' })
+    .option('--retry-backoff <ms>', 'Retry backoff in milliseconds', { default: '1000' })
+    .option('--retry-multiplier <factor>', 'Retry backoff multiplier', { default: '2' })
+    .option('--rollback <strategy>', 'Rollback strategy: previous-checkpoint, initial-state, custom', { default: 'previous-checkpoint' })
     .option('--start-time <datetime>', 'Scheduled start time (ISO format)')
     .option('--deadline <datetime>', 'Task deadline (ISO format)')
     .option('--recurring <interval>', 'Recurring interval: daily, weekly, monthly')
@@ -219,7 +218,7 @@ export function createTaskCreateCommand(context: TaskCommandContext): Command {
           timeout: options.timeout ? parseInt(String(options.timeout)) : 0,
           estimatedDurationMs: options.estimatedDuration ? parseInt(options.estimatedDuration) : undefined,
           retryPolicy: {
-            maxAttempts: options.retries ? parseInt(options.retries) : 0,
+            maxAttempts: options.retries ? parseInt(String(options.retries)) : 0,
             backoffMs: options.retryBackoff ? parseInt(options.retryBackoff) : 0,
             backoffMultiplier: options.retryMultiplier ? parseFloat(options.retryMultiplier) : 1.5
           },
@@ -236,11 +235,17 @@ export function createTaskCreateCommand(context: TaskCommandContext): Command {
         // Create task using TodoWrite for coordination
         if (context.memoryManager) {
           // Store task creation in memory for coordination
-          await context.memoryManager.store('task:creation', {
-            action: 'create_task',
-            taskData,
-            timestamp: new Date(),
-            requestedBy: 'cli'
+          await context.memoryManager.remember({
+            key: 'task:creation',
+            content: JSON.stringify({
+              action: 'create_task',
+              taskData,
+              timestamp: new Date(),
+              requestedBy: 'cli'
+            }),
+            type: 'artifact',
+            agentId: 'cli',
+            sessionId: 'task-management'
           });
         }
 
@@ -293,11 +298,11 @@ export function createTaskListCommand(context: TaskCommandContext): Command {
     .option('--created-before <date>', 'Filter tasks created before date (ISO format)')
     .option('--due-before <date>', 'Filter tasks due before date (ISO format)')
     .option('--search <term>', 'Search in description, type, and tags')
-    .option('--sort <field>', 'Sort by field: createdAt, priority, deadline, status, estimatedDuration', 'createdAt')
-    .option('--sort-dir <direction>', 'Sort direction: asc, desc', 'desc')
-    .option('--limit <number>', 'Limit number of results', '50')
-    .option('--offset <number>', 'Offset for pagination', '0')
-    .option('--format <format>', 'Output format: table, json, tree', 'table')
+    .option('--sort <field>', 'Sort by field: createdAt, priority, deadline, status, estimatedDuration', { default: 'createdAt' })
+    .option('--sort-dir <direction>', 'Sort direction: asc, desc', { default: 'desc' })
+    .option('--limit <number>', 'Limit number of results', { default: '50' })
+    .option('--offset <number>', 'Offset for pagination', { default: '0' })
+    .option('--format <format>', 'Output format: table, json, tree', { default: 'table' })
     .option('--show-dependencies', 'Show dependency relationships')
     .option('--show-progress', 'Show progress bars')
     .option('--show-metrics', 'Show performance metrics')
@@ -362,11 +367,17 @@ export function createTaskListCommand(context: TaskCommandContext): Command {
 
         // Store query in memory for coordination
         if (context.memoryManager) {
-          await context.memoryManager.store('task:query:latest', {
-            filter,
-            sort,
-            results: result.total,
-            timestamp: new Date()
+          await context.memoryManager.remember({
+            key: 'task:query:latest',
+            content: JSON.stringify({
+              filter,
+              sort,
+              results: result.total,
+              timestamp: new Date()
+            }),
+            type: 'observation',
+            agentId: 'cli',
+            sessionId: 'task-management'
           });
         }
 
@@ -400,14 +411,14 @@ export function createTaskListCommand(context: TaskCommandContext): Command {
 export function createTaskStatusCommand(context: TaskCommandContext): Command {
   return new Command('status')
     .description('Get detailed task status with progress and metrics')
-    .arguments('<task-id>', 'Task ID to check status')
+    .arguments('<task-id>')
     .option('--show-logs', 'Show execution logs')
     .option('--show-checkpoints', 'Show task checkpoints')
     .option('--show-metrics', 'Show performance metrics')
     .option('--show-dependencies', 'Show dependency status')
     .option('--show-resources', 'Show resource allocation')
     .option('--watch', 'Watch for status changes (refresh every 5s)')
-    .option('--format <format>', 'Output format: detailed, json, compact', 'detailed')
+    .option('--format <format>', 'Output format: detailed, json, compact', { default: 'detailed' })
     .action(async (taskId: string, options: TaskOptions) => {
       try {
         const displayStatus = async () => {
@@ -420,10 +431,16 @@ export function createTaskStatusCommand(context: TaskCommandContext): Command {
 
           // Store status check in memory
           if (context.memoryManager) {
-            await context.memoryManager.store(`task:status:${taskId}`, {
-              ...status,
-              checkedAt: new Date(),
-              checkedBy: 'cli'
+            await context.memoryManager.remember({
+              key: `task:status:${taskId}`,
+              content: JSON.stringify({
+                ...status,
+                checkedAt: new Date(),
+                checkedBy: 'cli'
+              }),
+              type: 'observation',
+              agentId: 'cli',
+              sessionId: 'task-management'
             });
           }
 
@@ -577,8 +594,8 @@ export function createTaskStatusCommand(context: TaskCommandContext): Command {
 export function createTaskCancelCommand(context: TaskCommandContext): Command {
   return new Command('cancel')
     .description('Cancel a task with optional rollback and cleanup')
-    .arguments('<task-id>', 'Task ID to cancel')
-    .option('-r, --reason <reason>', 'Cancellation reason', 'User requested')
+    .arguments('<task-id>')
+    .option('-r, --reason <reason>', 'Cancellation reason', { default: 'User requested' })
     .option('--no-rollback', 'Skip rollback to previous checkpoint')
     .option('--force', 'Force cancellation even if task is completed')
     .option('--cascade', 'Cancel dependent tasks as well')
@@ -627,13 +644,19 @@ export function createTaskCancelCommand(context: TaskCommandContext): Command {
 
         // Store cancellation request in memory for coordination
         if (context.memoryManager) {
-          await context.memoryManager.store(`task:cancellation:${taskId}`, {
-            taskId,
-            reason: options.reason,
-            rollback: !options.noRollback,
-            cascade: options.cascade,
-            requestedAt: new Date(),
-            requestedBy: 'cli'
+          await context.memoryManager.remember({
+            key: `task:cancellation:${taskId}`,
+            content: JSON.stringify({
+              taskId,
+              reason: options.reason,
+              rollback: !options.noRollback,
+              cascade: options.cascade,
+              requestedAt: new Date(),
+              requestedBy: 'cli'
+            }),
+            type: 'decision',
+            agentId: 'cli',
+            sessionId: 'task-management'
           });
         }
 
@@ -674,19 +697,20 @@ export function createTaskCancelCommand(context: TaskCommandContext): Command {
  * Task Workflow Command - Workflow execution engine with parallel processing
  */
 export function createTaskWorkflowCommand(context: TaskCommandContext): Command {
-  return new Command('workflow')
-    .description('Execute and manage workflows with parallel processing')
-    .command(
-      new Command('create')
-        .description('Create a new workflow')
-        .arguments('<name>', 'Workflow name')
-        .option('-d, --description <desc>', 'Workflow description')
-        .option('-f, --file <file>', 'Load workflow from JSON file')
-        .option('--max-concurrent <number>', 'Maximum concurrent tasks', '10')
-        .option('--strategy <strategy>', 'Parallelism strategy: breadth-first, depth-first, priority-based', 'priority-based')
-        .option('--error-handling <strategy>', 'Error handling: fail-fast, continue-on-error, retry-failed', 'fail-fast')
-        .option('--max-retries <number>', 'Maximum workflow retries', '3')
-        .action(async (name: string, options: WorkflowOptions) => {
+  const workflowCommand = new Command('workflow')
+    .description('Execute and manage workflows with parallel processing');
+
+  // Create subcommand
+  const createCommand = workflowCommand.command('create')
+    .description('Create a new workflow')
+    .arguments('<name>')
+    .option('-d, --description <desc>', 'Workflow description')
+    .option('-f, --file <file>', 'Load workflow from JSON file')
+    .option('--max-concurrent <number>', 'Maximum concurrent tasks', { default: '10' })
+    .option('--strategy <strategy>', 'Parallelism strategy: breadth-first, depth-first, priority-based', { default: 'priority-based' })
+    .option('--error-handling <strategy>', 'Error handling: fail-fast, continue-on-error, retry-failed', { default: 'fail-fast' })
+    .option('--max-retries <number>', 'Maximum workflow retries', { default: '3' })
+    .action(async (name: string, options: WorkflowOptions) => {
           try {
             console.log(chalk.blue(`🔧 Creating workflow: ${name}`));
 
@@ -722,69 +746,70 @@ export function createTaskWorkflowCommand(context: TaskCommandContext): Command 
           } catch (error) {
             console.error(chalk.red('❌ Error creating workflow:'), error instanceof Error ? error.message : error);
           }
-        })
-    )
-    .command(
-      new Command('execute')
-        .description('Execute a workflow')
-        .arguments('<workflow-id>', 'Workflow ID to execute')
-        .option('--variables <json>', 'Workflow variables as JSON')
-        .option('--dry-run', 'Show execution plan without executing')
-        .option('--monitor', 'Monitor execution progress')
-        .action(async (workflowId: string, options: WorkflowOptions | TaskOptions) => {
-          try {
-            console.log(chalk.blue(`🚀 Executing workflow: ${workflowId}`));
+        });
 
-            // This would need access to workflow storage
-            // For now, showing the structure
+  // Execute subcommand
+  workflowCommand.command('execute')
+    .description('Execute a workflow')
+    .arguments('<workflow-id>')
+    .option('--variables <json>', 'Workflow variables as JSON')
+    .option('--dry-run', 'Show execution plan without executing')
+    .option('--monitor', 'Monitor execution progress')
+    .action(async (workflowId: string, options: WorkflowOptions | TaskOptions) => {
+      try {
+        console.log(chalk.blue(`🚀 Executing workflow: ${workflowId}`));
 
-            if (options.dryRun) {
-              console.log(chalk.yellow('🔍 Dry run - execution plan would be shown here'));
-              return;
-            }
+        // This would need access to workflow storage
+        // For now, showing the structure
 
-            if ('monitor' in options && options.monitor) {
-              console.log(chalk.blue('👀 Monitoring workflow execution...'));
-              // Would implement real-time monitoring
-            }
+        if (options.dryRun) {
+          console.log(chalk.yellow('🔍 Dry run - execution plan would be shown here'));
+          return;
+        }
 
-            console.log(chalk.green('✅ Workflow execution started'));
+        if ('monitor' in options && options.monitor) {
+          console.log(chalk.blue('👀 Monitoring workflow execution...'));
+          // Would implement real-time monitoring
+        }
 
-          } catch (error) {
-            console.error(chalk.red('❌ Error executing workflow:'), error instanceof Error ? error.message : error);
+        console.log(chalk.green('✅ Workflow execution started'));
+
+      } catch (error) {
+        console.error(chalk.red('❌ Error executing workflow:'), error instanceof Error ? error.message : error);
+      }
+    });
+
+  // Visualize subcommand
+  workflowCommand.command('visualize')
+    .description('Visualize workflow dependency graph')
+    .arguments('<workflow-id>')
+    .option('--format <format>', 'Output format: ascii, dot, json', { default: 'ascii' })
+    .option('--output <file>', 'Output file (for dot/json formats)')
+    .action(async (workflowId: string, options: WorkflowOptions | TaskOptions) => {
+      try {
+        console.log(chalk.blue(`📊 Visualizing workflow: ${workflowId}`));
+
+        const graph = context.taskEngine.getDependencyGraph();
+
+        if (options.format === 'json') {
+          const output = JSON.stringify(graph, null, 2);
+          if ('output' in options && options.output) {
+            const fs = await import('fs/promises');
+            await fs.writeFile(options.output, output);
+            console.log(chalk.green(`💾 Graph saved to: ${options.output}`));
+          } else {
+            console.log(output);
           }
-        })
-    )
-    .command(
-      new Command('visualize')
-        .description('Visualize workflow dependency graph')
-        .arguments('<workflow-id>', 'Workflow ID to visualize')
-        .option('--format <format>', 'Output format: ascii, dot, json', 'ascii')
-        .option('--output <file>', 'Output file (for dot/json formats)')
-        .action(async (workflowId: string, options: WorkflowOptions | TaskOptions) => {
-          try {
-            console.log(chalk.blue(`📊 Visualizing workflow: ${workflowId}`));
+        } else if (options.format === 'ascii') {
+          displayDependencyGraph(graph);
+        }
 
-            const graph = context.taskEngine.getDependencyGraph();
+      } catch (error) {
+        console.error(chalk.red('❌ Error visualizing workflow:'), error instanceof Error ? error.message : error);
+      }
+    });
 
-            if (options.format === 'json') {
-              const output = JSON.stringify(graph, null, 2);
-              if ('output' in options && options.output) {
-                const fs = await import('fs/promises');
-                await fs.writeFile(options.output, output);
-                console.log(chalk.green(`💾 Graph saved to: ${options.output}`));
-              } else {
-                console.log(output);
-              }
-            } else if (options.format === 'ascii') {
-              displayDependencyGraph(graph);
-            }
-
-          } catch (error) {
-            console.error(chalk.red('❌ Error visualizing workflow:'), error instanceof Error ? error.message : error);
-          }
-        })
-    );
+  return workflowCommand;
 }
 
 // Helper functions for display

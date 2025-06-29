@@ -6,7 +6,7 @@
 
 import { ProcessInfo, ProcessRegistry } from './types.js';
 import { getProcessRegistry } from './registry.js';
-import { Logger } from '@/shared/logger.js';
+import { Logger } from '@/core/logger.js';
 
 const logger = Logger.getInstance().child({ component: 'RegistryIntegration' });
 

@@ -8,16 +8,15 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
 import type { ILogger } from '../../core/logger.js';
-import { StatusValidator, findStatusFiles } from './status-validator.js';
+import { StatusValidator } from './status-validator.js';
 import type { 
   SwarmStatusSchema,
   VerificationCommand,
   VerificationResult,
   AgentVerificationRequirements,
-  CoordinatorVerificationConfig,
-  VerificationEnforcementError,
-  DEFAULT_VERIFICATION_COMMANDS
+  CoordinatorVerificationConfig
 } from './schema.js';
+import { VerificationEnforcementError } from './schema.js';
 
 /**
  * Main verification framework
@@ -455,10 +454,16 @@ export class SwarmVerificationFramework {
     
     while (missing.length > 0 && (Date.now() - startTime) < timeout) {
       for (let i = missing.length - 1; i >= 0; i--) {
-        if (existsSync(missing[i])) {
-          const path = missing.splice(i, 1)[0];
-          found.push(path);
-          this.logger.debug(`Found status file: ${path}`);
+        const path = missing[i];
+        if (path && existsSync(path)) {
+          const removedPaths = missing.splice(i, 1);
+          if (removedPaths.length > 0) {
+            const removedPath = removedPaths[0];
+            if (removedPath) {
+              found.push(removedPath);
+              this.logger.debug(`Found status file: ${removedPath}`);
+            }
+          }
         }
       }
       
@@ -532,12 +537,12 @@ export function createVerificationEnforcementError(
   verification_failures: VerificationResult[],
   missing_status_file?: boolean
 ): VerificationEnforcementError {
-  const error = new Error(message) as VerificationEnforcementError;
-  error.name = 'VerificationEnforcementError';
-  error.agentId = agentId;
-  error.verification_failures = verification_failures;
-  error.missing_status_file = missing_status_file;
-  return error;
+  return new VerificationEnforcementError(
+    message,
+    agentId,
+    verification_failures,
+    missing_status_file
+  );
 }
 
 /**

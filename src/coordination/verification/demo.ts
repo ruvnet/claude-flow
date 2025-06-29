@@ -13,7 +13,7 @@ import { join } from 'node:path';
  */
 async function demonstrateVerificationFramework() {
   console.log('🔍 Starting Verification Framework Demonstration');
-  console.log('=' * 60);
+  console.log('='.repeat(60));
 
   // Initialize logger and framework
   const logger = new Logger({
@@ -65,7 +65,7 @@ async function demonstrateVerificationFramework() {
   verificationResults.forEach((result, index) => {
     const status = result.matches_expectation ? '✅' : '❌';
     console.log(`  ${status} Command ${index + 1}: ${result.command}`);
-    console.log(`     Success: ${result.success}, Expected: ${commands[index].expectation}`);
+    console.log(`     Success: ${result.success}, Expected: ${commands[index]?.expectation ?? 'unknown'}`);
     console.log(`     Matches Expectation: ${result.matches_expectation}`);
     console.log(`     Duration: ${result.duration}ms`);
     if (result.output && result.output.trim()) {
@@ -301,7 +301,9 @@ async function createExampleStatusFiles() {
 }
 
 // Run the demonstration
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Check if this file is being run directly
+const isMainModule = process.argv[1] && (process.argv[1].endsWith('demo.ts') || process.argv[1].endsWith('demo.js'));
+if (isMainModule) {
   demonstrateVerificationFramework()
     .then(() => createExampleStatusFiles())
     .then(() => {

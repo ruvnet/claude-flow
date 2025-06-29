@@ -43,9 +43,14 @@ jobs:
         run: |
           npm run format || echo "Format check skipped - not configured"
 
+      - name: CI Gates - TypeScript Strict Mode Enforcement
+        run: |
+          echo "🔒 Running CI Gates with TypeScript Strict Mode Enforcement"
+          npm run ci:gates
+          
       - name: Type check (Quality Gate)
         run: |
-          npm run check
+          npm run check:strict
 
   # Unit and integration tests
   test:
@@ -273,11 +278,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Pre-build Quality Gate
+      - name: Pre-build Quality Gate - Strict Mode
         run: |
-          echo "Running mandatory pre-build quality checks..."
-          npm run check
-          echo "✅ Quality gate passed - no TypeScript errors found"
+          echo "🔒 Running mandatory pre-build quality checks with strict mode..."
+          npm run ci:gates
+          npm run check:strict
+          echo "✅ Strict quality gate passed - zero TypeScript errors policy enforced"
 
       - name: Build TypeScript
         run: |
@@ -391,12 +397,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Final Quality Gate Check
+      - name: Final Quality Gate Check - Zero Error Policy
         run: |
-          echo "🔐 DEPLOYMENT QUALITY GATE: Verifying zero TypeScript errors policy"
-          npm run check
-          echo "✅ DEPLOYMENT APPROVED: No TypeScript errors found"
-          echo "🚀 Proceeding with deployment..."
+          echo "🔐 DEPLOYMENT QUALITY GATE: Enforcing Zero TypeScript Errors Policy"
+          echo "🔒 Running comprehensive CI gates validation..."
+          npm run ci:gates
+          npm run check:strict
+          echo "✅ DEPLOYMENT APPROVED: Zero TypeScript errors policy enforced"
+          echo "🚀 Proceeding with deployment - all gates passed"
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4

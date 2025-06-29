@@ -6,19 +6,19 @@
 export interface BoundedMapOptions<K, V> {
   maxSize: number;
   evictionPolicy?: 'lru' | 'lfu' | 'fifo';
-  onEviction?: (value: V, key: K) => void;
+  onEviction?: ((value: V, key: K) => void) | undefined;
 }
 
 export interface BoundedSetOptions<T> {
   maxSize: number;
   evictionPolicy?: 'lru' | 'lfu' | 'fifo';
-  onEviction?: (value: T) => void;
+  onEviction?: ((value: T) => void) | undefined;
 }
 
 export interface MemoryPressureMonitorOptions {
   memoryThreshold: number; // in MB
   checkInterval: number; // in ms
-  onPressure?: (pressure: number) => void;
+  onPressure?: ((pressure: number) => void) | undefined;
 }
 
 /**
@@ -27,7 +27,7 @@ export interface MemoryPressureMonitorOptions {
 export class BoundedMap<K, V> extends Map<K, V> {
   private maxSize: number;
   private evictionPolicy: string;
-  private onEviction?: (value: V, key: K) => void;
+  private onEviction?: ((value: V, key: K) => void) | undefined;
   private accessOrder: K[] = [];
 
   constructor(options: BoundedMapOptions<K, V>) {
@@ -37,7 +37,7 @@ export class BoundedMap<K, V> extends Map<K, V> {
     this.onEviction = options.onEviction;
   }
 
-  set(key: K, value: V): this {
+  override set(key: K, value: V): this {
     // Remove from access order if exists
     const index = this.accessOrder.indexOf(key);
     if (index > -1) {
@@ -58,7 +58,7 @@ export class BoundedMap<K, V> extends Map<K, V> {
     return this;
   }
 
-  get(key: K): V | undefined {
+  override get(key: K): V | undefined {
     const value = super.get(key);
     if (value !== undefined && this.evictionPolicy === 'lru') {
       // Move to end (most recent)
@@ -71,7 +71,7 @@ export class BoundedMap<K, V> extends Map<K, V> {
     return value;
   }
 
-  delete(key: K): boolean {
+  override delete(key: K): boolean {
     const index = this.accessOrder.indexOf(key);
     if (index > -1) {
       this.accessOrder.splice(index, 1);
@@ -92,7 +92,7 @@ export class BoundedMap<K, V> extends Map<K, V> {
     super.delete(keyToEvict);
   }
 
-  clear(): void {
+  override clear(): void {
     this.accessOrder = [];
     super.clear();
   }
@@ -113,7 +113,7 @@ export class BoundedMap<K, V> extends Map<K, V> {
 export class BoundedSet<T> extends Set<T> {
   private maxSize: number;
   private evictionPolicy: string;
-  private onEviction?: (value: T) => void;
+  private onEviction?: ((value: T) => void) | undefined;
   private accessOrder: T[] = [];
 
   constructor(options: BoundedSetOptions<T>) {
@@ -123,7 +123,7 @@ export class BoundedSet<T> extends Set<T> {
     this.onEviction = options.onEviction;
   }
 
-  add(value: T): this {
+  override add(value: T): this {
     // Remove from access order if exists
     const index = this.accessOrder.indexOf(value);
     if (index > -1) {
@@ -144,7 +144,7 @@ export class BoundedSet<T> extends Set<T> {
     return this;
   }
 
-  has(value: T): boolean {
+  override has(value: T): boolean {
     const exists = super.has(value);
     if (exists && this.evictionPolicy === 'lru') {
       // Move to end (most recent)
@@ -157,7 +157,7 @@ export class BoundedSet<T> extends Set<T> {
     return exists;
   }
 
-  delete(value: T): boolean {
+  override delete(value: T): boolean {
     const index = this.accessOrder.indexOf(value);
     if (index > -1) {
       this.accessOrder.splice(index, 1);
@@ -177,9 +177,18 @@ export class BoundedSet<T> extends Set<T> {
     super.delete(valueToEvict);
   }
 
-  clear(): void {
+  override clear(): void {
     this.accessOrder = [];
     super.clear();
+  }
+
+  getStats(): any {
+    return {
+      size: this.size,
+      maxSize: this.maxSize,
+      evictionPolicy: this.evictionPolicy,
+      accessOrderLength: this.accessOrder.length
+    };
   }
 }
 
@@ -189,8 +198,8 @@ export class BoundedSet<T> extends Set<T> {
 export class MemoryPressureMonitor {
   private memoryThreshold: number;
   private checkInterval: number;
-  private onPressure?: (pressure: number) => void;
-  private timer?: NodeJS.Timeout;
+  private onPressure?: ((pressure: number) => void) | undefined;
+  private timer?: NodeJS.Timeout | undefined;
   private callbacks: Map<string, () => void> = new Map();
   private currentPressure: number = 0;
 
@@ -267,7 +276,7 @@ export class MemoryPressureMonitor {
 export interface BoundedQueueOptions<T> {
   maxSize: number;
   evictionPolicy?: 'fifo' | 'lifo';
-  onEviction?: (item: T) => void;
+  onEviction?: ((item: T) => void) | undefined;
 }
 
 /**
@@ -277,7 +286,7 @@ export class BoundedQueue<T> {
   private items: T[] = [];
   private readonly maxSize: number;
   private readonly evictionPolicy: 'fifo' | 'lifo';
-  private readonly onEviction?: (item: T) => void;
+  private readonly onEviction?: ((item: T) => void) | undefined;
 
   constructor(options: BoundedQueueOptions<T>) {
     this.maxSize = options.maxSize;
@@ -323,5 +332,20 @@ export class BoundedQueue<T> {
 
   toArray(): T[] {
     return [...this.items];
+  }
+
+  get isEmpty(): boolean {
+    return this.items.length === 0;
+  }
+
+  getStats(): any {
+    return {
+      size: this.size,
+      maxSize: this.maxSize,
+      evictionPolicy: this.evictionPolicy,
+      isEmpty: this.isEmpty,
+      isFull: this.isFull,
+      utilization: this.size / this.maxSize
+    };
   }
 }
