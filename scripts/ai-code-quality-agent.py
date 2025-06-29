@@ -113,8 +113,8 @@ class CodeQualityAgent:
         """
 
         try:
-            # Try different model names in case codex-mini-latest isn't available
-            models_to_try = ['gpt-3.5-turbo', 'gpt-4o-mini', 'gpt-4', 'codex-mini-latest']
+            # Try different model names, prioritizing o4-mini-2025-04-16
+            models_to_try = ['o4-mini-2025-04-16', 'gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-4']
 
             for model in models_to_try:
                 try:
