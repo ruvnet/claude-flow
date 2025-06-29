@@ -12,16 +12,16 @@ import {
   IPCConnection,
   createOrchestratorServer,
   createOrchestratorClient,
-  IPCPaths
+  IPCPaths,
+  MessageHandler
 } from '../index.js';
-import { MessageHandler } from '../server.js';
 
 /**
  * Command IPC integration class
  */
 export class CommandIPCIntegration {
   private server?: IPCServer;
-  private client?: IPCClient;
+  protected client?: IPCClient;
   
   /**
    * Start IPC server for a command
@@ -327,7 +327,7 @@ export class ProcessRegistryIPC {
     this.server.registerHandler('heartbeat', this.handleHeartbeat.bind(this));
     
     // Handle process messages
-    this.server.on('process-message', (connection: IPCConnection, message: IPCMessage) => {
+    (this.server as any).on('process-message', (connection: IPCConnection, message: IPCMessage) => {
       this.handleProcessMessage(connection, message);
     });
     

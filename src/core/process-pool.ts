@@ -5,7 +5,7 @@
  * interface that provides process management, monitoring, and resource control.
  */
 
-import { ChildProcess } from 'node:child_process';
+import { ChildProcess } from '../tracing/index.js';
 import { spawn } from '../tracing/index.js';
 import { EventEmitter } from 'node:events';
 import { Logger } from './logger.js';

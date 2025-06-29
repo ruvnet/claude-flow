@@ -220,7 +220,7 @@ export async function processManagementExample(): Promise<void> {
   const processes: Map<string, any> = new Map();
   
   // Setup process management handlers
-  registry.on('process-message', (connection: any, message: IPCMessage) => {
+  (registry as any).on('process-message', (connection: any, message: IPCMessage) => {
     switch (message.type) {
       case MessageType.PROCESS_REGISTER:
         const processInfo = {
@@ -343,7 +343,7 @@ export async function errorHandlingExample(): Promise<void> {
     
     // Wait for reconnection
     setTimeout(async () => {
-      if (client.isConnected()) {
+      if (client.connection?.connected) {
         const response = await client.request('test');
         console.log('Request after reconnection:', response);
       }

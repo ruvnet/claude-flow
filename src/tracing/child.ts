@@ -5,7 +5,8 @@
  * track usage patterns, collect metrics, and enforce thresholds.
  */
 
-import { spawn as _spawn, exec as _exec, execFile as _execFile, fork as _fork, ChildProcess, SpawnOptions, ExecOptions, ExecFileOptions, ForkOptions } from 'node:child_process';
+import { spawn as _spawn, exec as _exec, execFile as _execFile, fork as _fork, ChildProcess } from 'node:child_process';
+import type { SpawnOptions, ExecOptions, ExecFileOptions, ForkOptions } from 'node:child_process';
 import { metrics } from './metrics.js';
 
 export interface TracedSpawnOptions extends SpawnOptions {
@@ -389,7 +390,8 @@ export function isThresholdExceeded(): boolean {
 }
 
 // Re-export types for convenience
-export { ChildProcess, SpawnOptions, ExecOptions, ExecFileOptions, ForkOptions };
+export { ChildProcess };
+export type { SpawnOptions, ExecOptions, ExecFileOptions, ForkOptions };
 
 // Re-export original functions for cases where tracing needs to be bypassed
 export { _spawn as spawnOriginal, _exec as execOriginal, _execFile as execFileOriginal, _fork as forkOriginal };

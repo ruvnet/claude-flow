@@ -8,17 +8,16 @@ import { Config } from '../utils/types.js';
 import { Orchestrator } from '../core/orchestrator.js';
 import { createSecureOrchestrator, SecureOrchestratorConfig } from '../core/secure-orchestrator.js';
 import { addSecurityMiddleware, createAuthCommand } from '../cli/secure-cli.js';
-import { createEventBus } from '../core/event-bus.js';
-import { createTerminalManager } from '../terminal/manager.js';
-import { createMemoryManager } from '../memory/manager.js';
-import { createCoordinationManager } from '../coordination/manager.js';
-import { createMCPServer } from '../mcp/server.js';
+import { EventBus } from '../core/event-bus.js';
+import { TerminalManager } from '../terminal/manager.js';
+import { MemoryManager } from '../memory/manager.js';
+import { CoordinationManager } from '../coordination/manager.js';
+import { MCPServer } from '../mcp/server.js';
 
 /**
  * Example: Creating a secure orchestrator
  */
 export async function createSecureOrchestratorExample() {
-  const logger = createLogger({ level: 'info' });
   const config: Config = {
     orchestrator: {
       maxConcurrentAgents: 5,
@@ -35,11 +34,11 @@ export async function createSecureOrchestratorExample() {
   };
 
   // Create dependencies
-  const eventBus = createEventBus(logger);
-  const terminalManager = createTerminalManager(config, logger);
-  const memoryManager = createMemoryManager(config, logger);
-  const coordinationManager = createCoordinationManager(eventBus, logger);
-  const mcpServer = createMCPServer(config, logger);
+  const eventBus = EventBus.getInstance();
+  const terminalManager = new TerminalManager(config, logger);
+  const memoryManager = new MemoryManager(config.memory || {}, eventBus, logger);
+  const coordinationManager = new CoordinationManager(eventBus, logger);
+  const mcpServer = new MCPServer(config, logger);
 
   // Create base orchestrator
   const baseOrchestrator = new Orchestrator(
@@ -86,7 +85,6 @@ export async function createSecureOrchestratorExample() {
  * Example: Creating a secure CLI application
  */
 export function createSecureCLIExample() {
-  const logger = createLogger({ level: 'info' });
   const config: Config = {
     orchestrator: {
       maxConcurrentAgents: 5,
@@ -144,7 +142,6 @@ export function createSecureCLIExample() {
  * Example: Using security components directly
  */
 export async function directSecurityExample() {
-  const logger = createLogger({ level: 'info' });
   
   // Import security components
   const {

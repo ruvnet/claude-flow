@@ -6,6 +6,7 @@ import { EventEmitter } from 'node:events';
 import { promises as fs } from 'node:fs';
 import { Logger } from '../core/logger.js';
 import { generateId } from '../utils/helpers.js';
+import type { SpawnOptions } from '../tracing/index.js';
 
 // Unified process execution interface
 interface ProcessPoolCommand {
@@ -14,7 +15,7 @@ interface ProcessPoolCommand {
   options?: {
     cwd?: string;
     env?: Record<string, string>;
-    stdio?: import('child_process').StdioOptions;
+    stdio?: SpawnOptions['stdio'];
   };
 }
 

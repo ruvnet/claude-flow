@@ -3,7 +3,7 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { ChildProcess, spawn } from '../tracing/index.js';
+import { ChildProcess, spawn, SpawnOptions } from '../tracing/index.js';
 import { ILogger } from '../core/logger.js';
 import { IEventBus } from '../core/event-bus.js';
 
@@ -14,7 +14,7 @@ interface ProcessPoolCommand {
   options?: {
     cwd?: string;
     env?: Record<string, string>;
-    stdio?: import('child_process').StdioOptions;
+    stdio?: SpawnOptions['stdio'];
   };
 }
 

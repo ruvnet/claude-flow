@@ -21,7 +21,7 @@ export * from './helpers.js';
 
 // Individual exports to avoid conflicts
 export { colors as utilColors } from './colors.js';
-export { formatBytes, formatTime, formatMemory } from './formatters.js';
+export { formatBytes, formatUptime, formatDuration } from './formatters.js';
 
 // Re-export specific compatibility layers
 export * from './cliffy-compat/command.js';

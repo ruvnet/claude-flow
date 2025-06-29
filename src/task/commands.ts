@@ -111,8 +111,8 @@ export interface TaskCommandContext {
 export function createTaskCreateCommand(context: TaskCommandContext): Command {
   return new Command('create')
     .description('Create a new task with comprehensive options')
-    .argument('<type>', 'Task type (e.g., research, development, analysis)')
-    .argument('<description>', 'Task description')
+    .arguments('<type>', 'Task type (e.g., research, development, analysis)')
+    .arguments('<description>', 'Task description')
     .option('-p, --priority <number>', 'Task priority (0-100)', '50')
     .option('-d, --dependencies <deps>', 'Comma-separated dependency task IDs')
     .option('--dep-type <type>', 'Dependency type: finish-to-start, start-to-start, finish-to-finish, start-to-finish', 'finish-to-start')
@@ -214,12 +214,12 @@ export function createTaskCreateCommand(context: TaskCommandContext): Command {
           dependencies,
           resourceRequirements,
           schedule,
-          assignedAgent: options.assign,
+          assignedAgent: options.assignTo,
           tags: options.tags ? options.tags.split(',').map((t: string) => t.trim()) : [],
           timeout: options.timeout ? parseInt(String(options.timeout)) : 0,
           estimatedDurationMs: options.estimatedDuration ? parseInt(options.estimatedDuration) : undefined,
           retryPolicy: {
-            maxAttempts: options.maxRetries ? parseInt(options.maxRetries) : 0,
+            maxAttempts: options.retries ? parseInt(options.retries) : 0,
             backoffMs: options.retryBackoff ? parseInt(options.retryBackoff) : 0,
             backoffMultiplier: options.retryMultiplier ? parseFloat(options.retryMultiplier) : 1.5
           },
@@ -400,7 +400,7 @@ export function createTaskListCommand(context: TaskCommandContext): Command {
 export function createTaskStatusCommand(context: TaskCommandContext): Command {
   return new Command('status')
     .description('Get detailed task status with progress and metrics')
-    .argument('<task-id>', 'Task ID to check status')
+    .arguments('<task-id>', 'Task ID to check status')
     .option('--show-logs', 'Show execution logs')
     .option('--show-checkpoints', 'Show task checkpoints')
     .option('--show-metrics', 'Show performance metrics')
@@ -577,7 +577,7 @@ export function createTaskStatusCommand(context: TaskCommandContext): Command {
 export function createTaskCancelCommand(context: TaskCommandContext): Command {
   return new Command('cancel')
     .description('Cancel a task with optional rollback and cleanup')
-    .argument('<task-id>', 'Task ID to cancel')
+    .arguments('<task-id>', 'Task ID to cancel')
     .option('-r, --reason <reason>', 'Cancellation reason', 'User requested')
     .option('--no-rollback', 'Skip rollback to previous checkpoint')
     .option('--force', 'Force cancellation even if task is completed')
@@ -676,10 +676,10 @@ export function createTaskCancelCommand(context: TaskCommandContext): Command {
 export function createTaskWorkflowCommand(context: TaskCommandContext): Command {
   return new Command('workflow')
     .description('Execute and manage workflows with parallel processing')
-    .addCommand(
+    .command(
       new Command('create')
         .description('Create a new workflow')
-        .argument('<name>', 'Workflow name')
+        .arguments('<name>', 'Workflow name')
         .option('-d, --description <desc>', 'Workflow description')
         .option('-f, --file <file>', 'Load workflow from JSON file')
         .option('--max-concurrent <number>', 'Maximum concurrent tasks', '10')
@@ -724,10 +724,10 @@ export function createTaskWorkflowCommand(context: TaskCommandContext): Command 
           }
         })
     )
-    .addCommand(
+    .command(
       new Command('execute')
         .description('Execute a workflow')
-        .argument('<workflow-id>', 'Workflow ID to execute')
+        .arguments('<workflow-id>', 'Workflow ID to execute')
         .option('--variables <json>', 'Workflow variables as JSON')
         .option('--dry-run', 'Show execution plan without executing')
         .option('--monitor', 'Monitor execution progress')
@@ -755,10 +755,10 @@ export function createTaskWorkflowCommand(context: TaskCommandContext): Command 
           }
         })
     )
-    .addCommand(
+    .command(
       new Command('visualize')
         .description('Visualize workflow dependency graph')
-        .argument('<workflow-id>', 'Workflow ID to visualize')
+        .arguments('<workflow-id>', 'Workflow ID to visualize')
         .option('--format <format>', 'Output format: ascii, dot, json', 'ascii')
         .option('--output <file>', 'Output file (for dot/json formats)')
         .action(async (workflowId: string, options: WorkflowOptions | TaskOptions) => {

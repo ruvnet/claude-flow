@@ -1,4 +1,24 @@
 {
+  "totalSpawns": 1,
+  "successfulSpawns": 0,
+  "failedSpawns": 0,
+  "averageDuration": 0,
+  "commandFrequency": {
+    "bash": 1
+  },
+  "lastExecutions": [
+    {
+      "id": "exec-1751182398926-ecjfwiu",
+      "command": "bash",
+      "args": [
+        "-c",
+        "(echo \"2\"; cat \"/tmp/swarm-prompt-1751182398925.txt\") | claude --dangerously-skip-permissions"
+      ],
+      "startTime": 1751182398926
+    }
+  ],
+  "alertsTriggered": 0,
+  "thresholdViolations": [],
   "timestamp": "2025-06-29T05:32:16.722Z",
   "metrics": {
     "totalSpawns": 11,

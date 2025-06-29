@@ -260,3 +260,68 @@ export class MemoryPressureMonitor {
     };
   }
 }
+
+/**
+ * Bounded queue interface options
+ */
+export interface BoundedQueueOptions<T> {
+  maxSize: number;
+  evictionPolicy?: 'fifo' | 'lifo';
+  onEviction?: (item: T) => void;
+}
+
+/**
+ * Bounded queue implementation with size limits
+ */
+export class BoundedQueue<T> {
+  private items: T[] = [];
+  private readonly maxSize: number;
+  private readonly evictionPolicy: 'fifo' | 'lifo';
+  private readonly onEviction?: (item: T) => void;
+
+  constructor(options: BoundedQueueOptions<T>) {
+    this.maxSize = options.maxSize;
+    this.evictionPolicy = options.evictionPolicy || 'fifo';
+    this.onEviction = options.onEviction;
+  }
+
+  get size(): number {
+    return this.items.length;
+  }
+
+  get isFull(): boolean {
+    return this.items.length >= this.maxSize;
+  }
+
+  enqueue(item: T): boolean {
+    if (this.isFull) {
+      // Evict based on policy
+      const evicted = this.evictionPolicy === 'fifo' 
+        ? this.items.shift() 
+        : this.items.pop();
+      
+      if (evicted !== undefined && this.onEviction) {
+        this.onEviction(evicted);
+      }
+    }
+
+    this.items.push(item);
+    return true;
+  }
+
+  dequeue(): T | undefined {
+    return this.items.shift();
+  }
+
+  peek(): T | undefined {
+    return this.items[0];
+  }
+
+  clear(): void {
+    this.items = [];
+  }
+
+  toArray(): T[] {
+    return [...this.items];
+  }
+}

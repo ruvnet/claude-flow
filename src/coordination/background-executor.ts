@@ -1,4 +1,4 @@
-import { ChildProcess } from '../tracing/index.js';
+import { ChildProcess, SpawnOptions } from '../tracing/index.js';
 import { EventEmitter } from 'node:events';
 import { Logger } from '../core/logger.js';
 import { generateId } from '../utils/helpers.js';
@@ -14,7 +14,7 @@ interface ProcessPoolCommand {
     env?: Record<string, string>;
     timeout?: number;
     detached?: boolean;
-    stdio?: import('child_process').StdioOptions;
+    stdio?: SpawnOptions['stdio'];
   };
 }
 

@@ -6,6 +6,7 @@ import { AdvancedTaskScheduler } from './advanced-scheduler.js';
 import { MemoryManager } from '../memory/manager.js';
 import { SwarmVerificationFramework, getDefaultVerificationRequirements } from './verification/index.js';
 import type { Message, TaskResult, WorkStealingCoordinator, CircuitBreaker } from '../types/missing-types.js';
+import { StubWorkStealingCoordinator, StubCircuitBreaker } from '../types/missing-types.js';
 import type { AgentVerificationRequirements } from './verification/index.js';
 
 export interface SwarmAgent {

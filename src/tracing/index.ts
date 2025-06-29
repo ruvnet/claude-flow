@@ -42,10 +42,10 @@ export {
 } from './child.js';
 
 // Re-export Node.js types for convenience
-export {
-  type ChildProcess,
-  type SpawnOptions,
-  type ExecOptions,
-  type ExecFileOptions,
-  type ForkOptions
+export { ChildProcess } from './child.js';
+export type {
+  SpawnOptions,
+  ExecOptions,
+  ExecFileOptions,
+  ForkOptions
 } from './child.js';

@@ -752,9 +752,10 @@ export class SwarmMemoryManager extends EventEmitter {
     // Clear least recently used entries beyond threshold
     const threshold = Math.floor(this.config.maxEntries * 0.7); // Keep only 70%
     const entries = Array.from(this.entries.entries());
+    let toRemove = 0;
     
     if (entries.length > threshold) {
-      const toRemove = entries.length - threshold;
+      toRemove = entries.length - threshold;
       this.logger.info(`Emergency cleanup: removing ${toRemove} entries`);
       
       // The bounded map will handle LRU eviction automatically when new items are added

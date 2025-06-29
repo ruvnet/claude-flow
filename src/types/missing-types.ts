@@ -2,8 +2,11 @@
  * Missing types required by coordination and swarm modules
  */
 
-// Re-export commonly used types from swarm
-export type { SwarmStrategy, SwarmMode } from '../swarm/types.js';
+// Import commonly used types from swarm
+import type { SwarmStrategy, SwarmMode } from '../swarm/types.js';
+
+// Re-export them
+export type { SwarmStrategy, SwarmMode };
 
 // Message type for coordination
 export interface Message {
@@ -155,4 +158,38 @@ export interface SwarmExecutionRequest {
   review?: boolean;
   research?: boolean;
   output?: string;
+}
+
+// MCP Orchestration types
+export interface MCPOrchestrationConfig {
+  enabledFeatures?: string[];
+  maxConcurrentRequests?: number;
+  timeout?: number;
+  retryPolicy?: {
+    maxRetries: number;
+    backoffMultiplier: number;
+  };
+}
+
+export interface OrchestrationComponents {
+  eventBus?: any;
+  terminalManager?: any;
+  memoryManager?: any;
+  coordinationManager?: any;
+  mcpServer?: any;
+  logger?: any;
+}
+
+// Claude API interface
+export interface ClaudeAPI {
+  id: string;
+  baseURL: string;
+  apiKey?: string;
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+  headers?: Record<string, string>;
+  timeout?: number;
+  retryAttempts?: number;
+  retryDelay?: number;
 }

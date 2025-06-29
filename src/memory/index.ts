@@ -6,47 +6,54 @@
 // Memory Manager
 export {
   MemoryManager,
-  type IMemoryManager,
-  type MemoryManagerOptions
+  type IMemoryManager
 } from './manager.js';
 
 // Advanced Memory Manager
 export {
   AdvancedMemoryManager,
-  type AdvancedMemoryOptions,
-  type MemoryStats
+  type MemoryEntry,
+  type MemoryIndex,
+  type QueryOptions,
+  type ExportOptions,
+  type ImportOptions,
+  type MemoryStatistics,
+  type CleanupOptions,
+  type RetentionPolicy
 } from './advanced-memory-manager.js';
 
 // Swarm Memory
 export {
   SwarmMemoryManager,
-  type SwarmMemoryOptions
+  type SwarmMemoryEntry,
+  type SwarmMemoryQuery,
+  type SwarmKnowledgeBase,
+  type SwarmMemoryConfig
 } from './swarm-memory.js';
 
 // Distributed Memory
 export {
-  DistributedMemory,
-  type DistributedMemoryOptions,
-  type NodeInfo
+  DistributedMemorySystem,
+  type DistributedMemoryConfig,
+  type MemoryNode,
+  type SyncOperation,
+  type MemoryQuery as DistributedMemoryQuery,
+  type MemoryStatistics as DistributedMemoryStatistics
 } from './distributed-memory.js';
 
 // Cache
 export {
-  MemoryCache,
-  type CacheOptions,
-  type CacheEntry
+  MemoryCache
 } from './cache.js';
 
 // Indexer
 export {
-  MemoryIndexer,
-  type IndexerOptions,
-  type IndexEntry
+  MemoryIndexer
 } from './indexer.js';
 
 // Backends
-export { BaseBackend, type BackendOptions } from './backends/base.js';
-export { SqliteBackend } from './backends/sqlite.js';
+export { type IMemoryBackend } from './backends/base.js';
+export { SQLiteBackend } from './backends/sqlite.js';
 export { MarkdownBackend } from './backends/markdown.js';
 
 // Facades for external module access

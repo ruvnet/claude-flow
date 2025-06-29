@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { writeFile, readFile, mkdir, readdir } from 'fs/promises';
 import { join } from 'path';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess } from '../tracing/index.js';
 import { Logger } from '../core/logger.js';
 import { ConfigManager } from '../core/config.js';
 

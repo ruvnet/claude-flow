@@ -6,7 +6,8 @@
 export * from './types.js';
 
 // Export ConfigManager
-export { ConfigManager, configManager, ConfigChangeEvent } from './ConfigManager.js';
+export { ConfigManager, configManager } from './ConfigManager.js';
+export type { ConfigChangeEvent } from './ConfigManager.js';
 
 // Export validator
 export { validateConfig } from './validator.js';

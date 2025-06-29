@@ -577,7 +577,7 @@ function startWebUI(host: string, port: number) {
     });
     
     // Handle stdout
-    child.stdout.on('data', (data) => {
+    child.stdout?.on('data', (data) => {
       const output = data.toString();
       outputHistory.push(output);
       
@@ -591,7 +591,7 @@ function startWebUI(host: string, port: number) {
     });
     
     // Handle stderr
-    child.stderr.on('data', (data) => {
+    child.stderr?.on('data', (data) => {
       const error = data.toString();
       outputHistory.push(error);
       

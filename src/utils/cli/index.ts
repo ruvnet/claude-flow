@@ -6,7 +6,8 @@
 // Re-export all cliffy-compat utilities
 export { Command } from '../cliffy-compat/command.js';
 export { colors } from '../cliffy-compat/colors.js';
-export { Table } from '../cliffy-compat/table.js';
+import { Table } from '../cliffy-compat/table.js';
+export { Table };
 export { Select, Input, Confirm, Checkbox } from '../cliffy-compat/prompt.js';
 
 // Re-export our color utilities
