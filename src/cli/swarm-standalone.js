@@ -108,7 +108,7 @@ if (!swarmPath) {
   // Try to use Claude wrapper approach
   try {
     // Note: spawnSync not available in tracing framework, using spawn instead
-    const { spawn } = await import('../tracing/index.js');
+    const { spawn: tracedSpawn1 } = await import('../tracing/index.js');
     
     // Check if claude command exists (using secure spawnSync)
     try {
@@ -168,7 +168,7 @@ Please coordinate this swarm task by:
 Use all available tools including file operations, web search, and code execution as needed.`;
 
     // Execute Claude non-interactively by piping the prompt
-    const { spawn } = await import('../tracing/index.js');
+    const { spawn: tracedSpawn2 } = await import('../tracing/index.js');
     
     const claudeArgs = [];
     
@@ -178,7 +178,7 @@ Use all available tools including file operations, web search, and code executio
     }
     
     // Spawn claude process
-    const claudeProcess = spawn('claude', claudeArgs, {
+    const claudeProcess = tracedSpawn2('claude', claudeArgs, {
       stdio: ['pipe', 'inherit', 'inherit'],
       shell: false
     });

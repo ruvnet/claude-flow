@@ -14,7 +14,11 @@
     "no-unused-vars": "warn",
     "no-console": "off",
     "prefer-const": "warn",
-    "no-undef": "off"
+    "no-undef": "off",
+    "no-case-declarations": "off",
+    "no-constant-condition": "off",
+    "no-control-regex": "off",
+    "no-prototype-builtins": "off"
   },
   "ignorePatterns": [
     "node_modules/",

@@ -246,7 +246,7 @@ exit 0
       // Execute the background script safely using spawn
       try {
         // Note: spawnSync not available in tracing framework, using spawn instead
-        const { spawn } = await import('../../tracing/index.js');
+        const { spawn: tracedSpawn1 } = await import('../../tracing/index.js');
         const result = spawnSync(bgScriptPath, commandArgs, {
           stdio: 'inherit',
           shell: false // Explicitly disable shell to prevent injection
@@ -356,7 +356,7 @@ exit 0
         const path = await import('path');
         const { fileURLToPath } = await import('url');
         const fs = await import('fs');
-        const { spawn } = await import('../../tracing/index.js');
+        const { spawn: tracedSpawn2 } = await import('../../tracing/index.js');
         
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
@@ -386,7 +386,7 @@ exit 0
           }
           
           console.log('🚀 Starting advanced swarm execution...');
-          const swarmProcess = spawn(Deno.execPath(), ['run', '--allow-all', swarmDemoPath, ...swarmArgs], {
+          const swarmProcess = tracedSpawn2(Deno.execPath(), ['run', '--allow-all', swarmDemoPath, ...swarmArgs], {
             stdio: 'inherit'
           });
           
@@ -408,7 +408,7 @@ exit 0
       // Try to use Claude wrapper approach like SPARC does
       try {
         // Note: spawnSync not available in tracing framework, using spawn instead
-        const { spawn } = await import('../../tracing/index.js');
+        const { spawn: tracedSpawn3 } = await import('../../tracing/index.js');
         
         // Check if claude command exists (using secure spawnSync)
         try {
@@ -508,7 +508,7 @@ IMPORTANT:
 Begin execution now. Create all necessary files and provide a complete, working solution.`;
 
         // Execute Claude non-interactively by piping the prompt
-        const { spawn } = await import('../../tracing/index.js');
+        const { spawn: tracedSpawn4 } = await import('../../tracing/index.js');
         
         const claudeArgs = [];
         
@@ -528,7 +528,7 @@ Begin execution now. Create all necessary files and provide a complete, working 
         );
         
         // Spawn claude process with sanitized arguments
-        const claudeProcess = spawn('claude', sanitizedArgs, {
+        const claudeProcess = tracedSpawn4('claude', sanitizedArgs, {
           stdio: ['pipe', 'inherit', 'inherit'],
           shell: false // Explicitly disable shell to prevent injection
         });
