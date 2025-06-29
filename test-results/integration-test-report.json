@@ -1,0 +1,8 @@
+{
+  "timestamp": "2025-06-29T11:33:25.596Z",
+  "totalSuites": 0,
+  "overallResults": [],
+  "recommendations": [
+    "Test coverage incomplete - ensure all integration test suites are running"
+  ]
+}

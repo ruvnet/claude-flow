@@ -91,8 +91,8 @@ export interface Agent {
   type: AgentType;
   status: AgentStatus;
   capabilities: AgentCapabilities;
-  currentTask?: string;
-  sessionId?: string;
+  currentTask?: string | undefined;
+  sessionId?: string | undefined;
   createdAt: Date;
   lastActiveAt: Date;
   metadata: Record<string, unknown>;
@@ -317,15 +317,15 @@ export interface StateSubscriber {
   id: string;
   path: string;
   callback: StateChangeCallback;
-  filter?: StateChangeFilter;
+  filter?: StateChangeFilter | undefined;
 }
 
 export type StateChangeCallback = (change: StateChange) => void;
 
 export interface StateChangeFilter {
-  actionTypes?: string[];
-  paths?: string[];
-  sources?: string[];
+  actionTypes?: string[] | undefined;
+  paths?: string[] | undefined;
+  sources?: string[] | undefined;
 }
 
 export type Unsubscribe = () => void;

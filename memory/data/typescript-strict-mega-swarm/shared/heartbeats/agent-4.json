@@ -1,0 +1,10 @@
+{
+  "agentId": 4,
+  "timestamp": "${new Date().toISOString()}",
+  "status": "healthy",
+  "coordinationRole": "primary-coordinator",
+  "phase": "reconnaissance",
+  "nextHeartbeat": "${new Date(Date.now() + 60000).toISOString()}",
+  "coordinationInfrastructure": "fully-operational",
+  "emergencyResponseReady": true
+}

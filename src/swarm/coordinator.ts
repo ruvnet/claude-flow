@@ -85,7 +85,7 @@ import {
   SwarmConfig, SwarmStatus, SwarmProgress, SwarmResults, SwarmMetrics,
   SwarmMode, SwarmStrategy, AgentType, TaskType, TaskStatus, TaskPriority,
   SwarmEvent, EventType, SwarmEventEmitter, ValidationResult,
-  SWARM_CONSTANTS
+  SWARM_CONSTANTS, AgentError
 } from './types.js';
 import { AutoStrategy } from './strategies/auto.js';
 
@@ -584,15 +584,18 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
       
     } catch (error) {
       agent.status = 'error';
-      agent.errorHistory.push({
+      const errorEntry: AgentError = {
         timestamp: new Date(),
         type: 'startup_error',
         message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
         context: { agentId },
         severity: 'high',
         resolved: false
-      });
+      };
+      if (error instanceof Error && error.stack) {
+        errorEntry.stack = error.stack;
+      }
+      agent.errorHistory.push(errorEntry);
       
       this.logger.error('Failed to start agent', { agentId, error });
       throw error;
@@ -768,7 +771,7 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
     // Update status history
     task.statusHistory.push({
       timestamp: new Date(),
-      from: task.statusHistory[task.statusHistory.length - 1].to,
+      from: task.statusHistory[task.statusHistory.length - 1]?.to ?? 'pending',
       to: 'assigned',
       reason: `Assigned to agent ${agent.name}`,
       triggeredBy: 'system'
@@ -888,7 +891,7 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
 
     // Update agent state
     agent.status = 'idle';
-    agent.currentTask = undefined;
+    delete agent.currentTask;
     agent.metrics.tasksCompleted++;
     agent.metrics.lastActivity = new Date();
     agent.taskHistory.push(task.id);
@@ -952,20 +955,23 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
 
     // Update agent state
     agent.status = 'idle';
-    agent.currentTask = undefined;
+    delete agent.currentTask;
     agent.metrics.tasksFailed++;
     agent.metrics.lastActivity = new Date();
     
     // Add to error history
-    agent.errorHistory.push({
+    const errorEntry: AgentError = {
       timestamp: new Date(),
       type: 'task_failure',
       message: error.message,
-      stack: error.stack,
       context: { taskId },
       severity: 'medium',
       resolved: false
-    });
+    };
+    if (error.stack) {
+      errorEntry.stack = error.stack;
+    }
+    agent.errorHistory.push(errorEntry);
 
     // Determine if we should retry
     const shouldRetry = task.error.retryable && 
@@ -973,7 +979,7 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
 
     if (shouldRetry) {
       task.status = 'retrying';
-      task.assignedTo = undefined;
+      delete task.assignedTo;
       
       // Update status history
       task.statusHistory.push({
@@ -1045,13 +1051,13 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
 
     if (agent) {
       agent.status = 'idle';
-      agent.currentTask = undefined;
+      delete agent.currentTask;
     }
 
     // Update status history
     task.statusHistory.push({
       timestamp: new Date(),
-      from: task.statusHistory[task.statusHistory.length - 1].to,
+      from: task.statusHistory[task.statusHistory.length - 1]?.to ?? 'pending',
       to: 'cancelled',
       reason: `Task cancelled: ${reason}`,
       triggeredBy: 'system'
@@ -1090,7 +1096,11 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
     // Sort by score (highest first)
     scoredAgents.sort((a, b) => b.score - a.score);
 
-    return scoredAgents[0].agent.id.id;
+    const firstAgent = scoredAgents[0];
+    if (!firstAgent) {
+      throw new Error('No suitable agent found');
+    }
+    return firstAgent.agent.id.id;
   }
 
   private calculateAgentScore(agent: AgentState, task: TaskDefinition): number {
@@ -1491,15 +1501,15 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
   private stopBackgroundProcesses(): void {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = undefined;
+      delete this.heartbeatTimer;
     }
     if (this.monitoringTimer) {
       clearInterval(this.monitoringTimer);
-      this.monitoringTimer = undefined;
+      delete this.monitoringTimer;
     }
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
-      this.cleanupTimer = undefined;
+      delete this.cleanupTimer;
     }
     // Stop all execution intervals
     if (this.executionIntervals) {
@@ -1868,10 +1878,10 @@ Ensure your implementation is complete, well-structured, and follows best practi
     
     // Add all tasks to the tasks map
     for (const task of objective.tasks) {
-      task.context.objectiveId = objective.id;
+      task.context['objectiveId'] = objective.id;
       // Propagate target directory to all tasks
-      if (objectiveTargetDir && !task.context.targetDir) {
-        task.context.targetDir = objectiveTargetDir;
+      if (objectiveTargetDir && !task.context['targetDir']) {
+        task.context['targetDir'] = objectiveTargetDir;
       }
       this.tasks.set(task.id.id, task);
     }
@@ -1936,7 +1946,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
         // Find queued tasks
         const queuedTasks = Array.from(this.tasks.values())
           .filter(task => 
-            task.context?.objectiveId === objective.id && 
+            task.context?.['objectiveId'] === objective.id && 
             task.status === 'queued'
           );
         
@@ -1962,12 +1972,15 @@ Ensure your implementation is complete, well-structured, and follows best practi
           
           if (suitableAgents.length > 0) {
             // Assign to first suitable agent
-            await this.assignTask(task.id.id, suitableAgents[0].id.id);
-            
-            // Remove agent from idle list
-            const agentIndex = idleAgents.findIndex(a => a.id.id === suitableAgents[0].id.id);
-            if (agentIndex >= 0) {
-              idleAgents.splice(agentIndex, 1);
+            const firstAgent = suitableAgents[0];
+            if (firstAgent) {
+              await this.assignTask(task.id.id, firstAgent.id.id);
+              
+              // Remove agent from idle list
+              const agentIndex = idleAgents.findIndex(a => a.id.id === firstAgent.id.id);
+              if (agentIndex >= 0) {
+                idleAgents.splice(agentIndex, 1);
+              }
             }
           }
         }
@@ -1975,14 +1988,14 @@ Ensure your implementation is complete, well-structured, and follows best practi
         // Check for completed tasks and process dependencies
         const completedTasks = Array.from(this.tasks.values())
           .filter(task => 
-            task.context?.objectiveId === objective.id && 
+            task.context?.['objectiveId'] === objective.id && 
             task.status === 'completed'
           );
         
         // Find tasks that can now be queued (dependencies met)
         const pendingTasks = Array.from(this.tasks.values())
           .filter(task => 
-            task.context?.objectiveId === objective.id && 
+            task.context?.['objectiveId'] === objective.id && 
             task.status === 'created' &&
             this.taskDependenciesMet(task, completedTasks)
           );
@@ -2014,7 +2027,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
         // Check for stuck/timed out tasks
         const runningTasks = Array.from(this.tasks.values())
           .filter(task => 
-            task.context?.objectiveId === objective.id && 
+            task.context?.['objectiveId'] === objective.id && 
             task.status === 'running'
           );
         
@@ -2048,7 +2061,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
                 const agent = this.agents.get(task.assignedTo.id);
                 if (agent) {
                   agent.status = 'idle';
-                  agent.currentTask = undefined;
+                  delete agent.currentTask;
                   agent.metrics.tasksFailed++;
                 }
               }
@@ -2069,7 +2082,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
         
         // Update objective progress
         const allTasks = Array.from(this.tasks.values())
-          .filter(task => task.context?.objectiveId === objective.id);
+          .filter(task => task.context?.['objectiveId'] === objective.id);
         
         objective.progress.totalTasks = allTasks.length;
         objective.progress.completedTasks = allTasks.filter(t => t.status === 'completed').length;
@@ -2245,13 +2258,17 @@ Ensure your implementation is complete, well-structured, and follows best practi
     try {
       // Use Claude Flow executor for full SPARC system in non-interactive mode
       const { ClaudeFlowExecutor } = await import('./claude-flow-executor.js');
-      const executor = new ClaudeFlowExecutor({ 
+      const { ClaudeFlowExecutorConfig } = await import('./claude-flow-executor.js') as any;
+      const executorConfig: any = { 
         logger: this.logger,
         claudeFlowPath: '/workspaces/claude-code-flow/bin/claude-flow',
         enableSparc: true,
-        verbose: this.config.logging?.level === 'debug',
-        timeoutMinutes: this.config.taskTimeoutMinutes
-      });
+        verbose: this.config.logging?.level === 'debug'
+      };
+      if (this.config.taskTimeoutMinutes !== undefined) {
+        executorConfig.timeoutMinutes = this.config.taskTimeoutMinutes;
+      }
+      const executor = new ClaudeFlowExecutor(executorConfig);
       
       const result = await executor.executeTask(task, agent, targetDir ?? undefined);
       
@@ -2327,13 +2344,13 @@ Ensure your implementation is complete, well-structured, and follows best practi
     }
     
     // If not found and task has context with targetDir, use that
-    if (!targetDir && task.context?.targetDir) {
-      targetDir = task.context.targetDir;
+    if (!targetDir && task.context?.['targetDir']) {
+      targetDir = task.context['targetDir'];
     }
     
     // If still not found, check objective description from context
-    if (!targetDir && task.context?.objectiveId) {
-      const objective = this.objectives.get(task.context.objectiveId);
+    if (!targetDir && task.context?.['objectiveId']) {
+      const objective = this.objectives.get(task.context['objectiveId']);
       if (objective) {
         for (const pattern of patterns) {
           const match = objective.description.match(pattern);

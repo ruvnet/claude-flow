@@ -255,7 +255,7 @@ export class AdvancedTaskExecutor extends EventEmitter {
           const taskError: TaskError = {
             type: 'execution_failed',
             message: errorMessage,
-            stack: errorStack,
+            ...(errorStack !== undefined && { stack: errorStack }),
             context: {
               retryCount,
               maxRetries,
@@ -374,11 +374,11 @@ export class AdvancedTaskExecutor extends EventEmitter {
         AGENT_ID: agent.id.id,
         TASK_TYPE: task.type
       },
-      input: task.input ? JSON.stringify({
+      ...(task.input && { input: JSON.stringify({
         task: task,
         agent: agent,
         input: task.input
-      }) : undefined,
+      }) }),
       timeout: this.config.defaultTimeout
     };
 

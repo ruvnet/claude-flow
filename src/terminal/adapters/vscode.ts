@@ -321,14 +321,14 @@ export class VSCodeAdapter implements ITerminalAdapter {
     
     if (osplatform === 'win32') {
       // Windows defaults
-      const comspec = process.env.COMSPEC;
+      const comspec = process.env['COMSPEC'];
       if (comspec?.toLowerCase().includes('powershell')) {
         return 'powershell';
       }
       return 'cmd';
     } else {
       // Unix-like defaults
-      const shell = process.env.SHELL;
+      const shell = process.env['SHELL'];
       if (shell) {
         const shellName = shell.split('/').pop();
         if (shellName && ['bash', 'zsh', 'fish', 'sh'].includes(shellName)) {

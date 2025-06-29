@@ -43,7 +43,7 @@ export class CompletionGenerator {
   }
 
   private async detectShell(): Promise<string> {
-    const shell = process.env.SHELL || '';
+    const shell = process.env['SHELL'] || '';
     
     if (shell.includes('bash')) return 'bash';
     if (shell.includes('zsh')) return 'zsh';

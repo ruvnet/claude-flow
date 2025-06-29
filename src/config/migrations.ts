@@ -40,11 +40,11 @@ export const migrations: ConfigMigration[] = [
     migrate: (config: any): any => {
       if (!config.runtime) {
         config.runtime = {
-          environment: process.env.NODE_ENV || 'development',
+          environment: process.env['NODE_ENV'] || 'development',
           processTitle: 'claude-flow',
           features: {
             experimental: false,
-            debug: process.env.NODE_ENV !== 'production',
+            debug: process.env['NODE_ENV'] !== 'production',
             profiling: false
           }
         };

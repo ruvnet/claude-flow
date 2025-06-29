@@ -11,7 +11,7 @@ import { logger } from '../core/logger.js';
 import { main as unifiedMain } from './unified/cli.js';
 
 // Environment setup
-process.env.NODE_ENV = process.env.NODE_ENV || 'production';
+process.env['NODE_ENV'] = process.env['NODE_ENV'] || 'production';
 
 // Global error handlers
 process.on('uncaughtException', (error) => {
@@ -29,7 +29,7 @@ async function main(): Promise<void> {
   try {
     // Initialize core systems
     await logger.configure({
-      level: (process.env.CLAUDE_FLOW_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'info',
+      level: (process.env['CLAUDE_FLOW_LOG_LEVEL'] as 'debug' | 'info' | 'warn' | 'error') || 'info',
       format: 'text',
       destination: 'console',
     });

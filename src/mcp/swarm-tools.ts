@@ -45,13 +45,13 @@ export function createSwarmTools(logger: ILogger): MCPTool[] {
         const { type, task, name } = input;
         
         // Get swarm ID from environment
-        const swarmId = process.env.CLAUDE_SWARM_ID;
+        const swarmId = process.env['CLAUDE_SWARM_ID'];
         if (!swarmId) {
           throw new Error('Not running in swarm context');
         }
         
         // Get parent agent ID if available
-        const parentId = process.env.CLAUDE_SWARM_AGENT_ID;
+        const parentId = process.env['CLAUDE_SWARM_AGENT_ID'];
         
         try {
           // Legacy functionality - would integrate with swarm spawn system
@@ -84,7 +84,7 @@ export function createSwarmTools(logger: ILogger): MCPTool[] {
         properties: {},
       },
       handler: async (input: any, context?: SwarmToolContext) => {
-        const swarmId = process.env.CLAUDE_SWARM_ID || 'default-swarm';
+        const swarmId = process.env['CLAUDE_SWARM_ID'] || 'default-swarm';
         
         // Legacy functionality - would integrate with swarm state system
         const mockState = {
@@ -752,12 +752,12 @@ export const swarmStatusTool = {
 export async function handleDispatchAgent(args: any): Promise<any> {
   const { type, task, name } = args;
   
-  const swarmId = process.env.CLAUDE_SWARM_ID;
+  const swarmId = process.env['CLAUDE_SWARM_ID'];
   if (!swarmId) {
     throw new Error('Not running in swarm context');
   }
   
-  const parentId = process.env.CLAUDE_SWARM_AGENT_ID;
+  const parentId = process.env['CLAUDE_SWARM_AGENT_ID'];
   
   try {
     // Legacy functionality - would integrate with swarm spawn system
@@ -779,7 +779,7 @@ export async function handleDispatchAgent(args: any): Promise<any> {
 }
 
 export async function handleSwarmStatus(args: any): Promise<any> {
-  const swarmId = process.env.CLAUDE_SWARM_ID || 'default-swarm';
+  const swarmId = process.env['CLAUDE_SWARM_ID'] || 'default-swarm';
   
   // Legacy functionality - would integrate with swarm state system
   const mockState = {

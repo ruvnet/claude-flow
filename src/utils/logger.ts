@@ -29,10 +29,9 @@ interface LoggerConfig {
  * Default logger configuration
  */
 const defaultConfig: LoggerConfig = {
-  level: (process.env.LOG_LEVEL as LogLevel) || 'info',
-  colors: !process.env.NO_COLOR && process.env.NODE_ENV !== 'test',
-  timestamps: process.env.LOG_TIMESTAMPS === 'true',
-  context: undefined
+  level: (process.env['LOG_LEVEL'] as LogLevel) || 'info',
+  colors: !process.env['NO_COLOR'] && process.env['NODE_ENV'] !== 'test',
+  timestamps: process.env['LOG_TIMESTAMPS'] === 'true'
 };
 
 /**
@@ -148,8 +147,8 @@ class Logger {
       level,
       message,
       timestamp: new Date(),
-      context,
-      data
+      ...(context !== undefined && { context }),
+      ...(data !== undefined && { data })
     };
     
     const formatted = formatMessage(entry, this.config);

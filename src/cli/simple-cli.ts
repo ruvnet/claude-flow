@@ -1671,8 +1671,8 @@ async function createProgram() {
         // Check if we're in a TTY
         const isTTY = process.stdin.isTTY;
         const hasRawMode = typeof process.stdin.setRawMode === 'function';
-        const isVSCode = process.env.TERM_PROGRAM === 'vscode';
-        const isCI = process.env.CI || process.env.GITHUB_ACTIONS;
+        const isVSCode = process.env['TERM_PROGRAM'] === 'vscode';
+        const isCI = process.env['CI'] || process.env['GITHUB_ACTIONS'];
         
         if (isTTY && hasRawMode && !isVSCode && !isCI) {
           console.log(chalk.default.green('✅ Interactive UI supported'));
@@ -1697,9 +1697,9 @@ async function createProgram() {
         
         console.log();
         console.log(chalk.default.white('Environment details:'));
-        console.log(chalk.default.gray(`• Terminal: ${process.env.TERM || 'unknown'}`));
+        console.log(chalk.default.gray(`• Terminal: ${process.env['TERM'] || 'unknown'}`));
         console.log(chalk.default.gray(`• TTY: ${isTTY ? 'yes' : 'no'}`));
-        console.log(chalk.default.gray(`• Program: ${process.env.TERM_PROGRAM || 'unknown'}`));
+        console.log(chalk.default.gray(`• Program: ${process.env['TERM_PROGRAM'] || 'unknown'}`));
         console.log(chalk.default.gray(`• Platform: ${process.platform}`));
       } catch (error) {
         printError('Failed to check UI support');

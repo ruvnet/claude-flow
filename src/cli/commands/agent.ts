@@ -16,6 +16,7 @@ import { Logger } from '../../core/logger.js';
 import { DistributedMemorySystem } from '../../memory/distributed-memory.js';
 import { formatDuration, formatBytes, formatPercentage } from '../../utils/formatters.js';
 import { createDefaultLoggingConfig } from '../../types/unified-cli.js';
+import { safeGetWithDefault } from '../../types/optional-property-utils.js';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 
@@ -887,7 +888,7 @@ function getCapabilitiesForType(type: string): string[] {
     custom: ['user-defined'],
   };
 
-  return capabilities[type] || capabilities.custom;
+  return safeGetWithDefault(capabilities, type, capabilities['custom']) as string[];
 }
 
 function getDefaultPromptForType(type: string): string {
@@ -899,5 +900,5 @@ function getDefaultPromptForType(type: string): string {
     custom: 'You are a custom agent. Follow the user\'s instructions.',
   };
 
-  return prompts[type] || prompts.custom;
+  return safeGetWithDefault(prompts, type, prompts['custom']) as string;
 }

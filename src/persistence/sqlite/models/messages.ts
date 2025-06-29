@@ -406,7 +406,7 @@ export class MessageModel {
       content = row.content;
     }
 
-    return {
+    const message: Message = {
       id: row.id,
       type: row.type,
       senderId: row.sender_id,
@@ -414,17 +414,31 @@ export class MessageModel {
       content,
       priority: row.priority,
       reliability: row.reliability,
-      correlationId: row.correlation_id,
-      replyTo: row.reply_to,
-      ttlMs: row.ttl_ms,
       compressed: !!row.compressed,
       encrypted: !!row.encrypted,
       sizeBytes: row.size_bytes,
       contentType: row.content_type,
       route: JSON.parse(row.route || '[]'),
-      createdAt: new Date(row.created_at),
-      expiresAt: row.expires_at ? new Date(row.expires_at) : undefined
+      createdAt: new Date(row.created_at)
     };
+    
+    if (row.correlation_id !== null && row.correlation_id !== undefined) {
+      message.correlationId = row.correlation_id;
+    }
+    
+    if (row.reply_to !== null && row.reply_to !== undefined) {
+      message.replyTo = row.reply_to;
+    }
+    
+    if (row.ttl_ms !== null && row.ttl_ms !== undefined) {
+      message.ttlMs = row.ttl_ms;
+    }
+    
+    if (row.expires_at !== null && row.expires_at !== undefined) {
+      message.expiresAt = new Date(row.expires_at);
+    }
+    
+    return message;
   }
 
   private static mapToMessageWithAcknowledgments(

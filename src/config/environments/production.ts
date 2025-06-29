@@ -53,7 +53,7 @@ export const productionConfig: ClaudeFlowConfig = {
   security: {
     authentication: {
       method: 'jwt',
-      jwtSecret: process.env.JWT_SECRET || 'CHANGE_THIS_IN_PRODUCTION'
+      jwtSecret: process.env['JWT_SECRET'] || 'CHANGE_THIS_IN_PRODUCTION'
     },
     authorization: {
       enabled: true,
@@ -92,8 +92,8 @@ export const productionConfig: ClaudeFlowConfig = {
       enabled: true,
       rules: '/etc/claudeflow/alert-rules.yaml',
       webhooks: [
-        process.env.SLACK_WEBHOOK || '',
-        process.env.PAGERDUTY_WEBHOOK || ''
+        process.env['SLACK_WEBHOOK'] || '',
+        process.env['PAGERDUTY_WEBHOOK'] || ''
       ].filter(Boolean)
     }
   },

@@ -1,12 +1,30 @@
 {
-  "totalSpawns": 3,
+  "totalSpawns": 5,
   "successfulSpawns": 0,
   "failedSpawns": 0,
   "averageDuration": 0,
   "commandFrequency": {
-    "bash": 3
+    "bash": 5
   },
   "lastExecutions": [
+    {
+      "id": "exec-1751191904978-ar5qggl",
+      "command": "bash",
+      "args": [
+        "-c",
+        "(echo \"2\"; cat \"/tmp/swarm-prompt-1751191904977.txt\") | claude --dangerously-skip-permissions"
+      ],
+      "startTime": 1751191904978
+    },
+    {
+      "id": "exec-1751190300568-4a8m2lz",
+      "command": "bash",
+      "args": [
+        "-c",
+        "(echo \"2\"; cat \"/tmp/swarm-prompt-1751190300567.txt\") | claude --dangerously-skip-permissions"
+      ],
+      "startTime": 1751190300568
+    },
     {
       "id": "exec-1751185727860-pkxmw3g",
       "command": "bash",

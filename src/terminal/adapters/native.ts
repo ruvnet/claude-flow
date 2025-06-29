@@ -59,7 +59,9 @@ class NativeTerminal implements Terminal {
       });
       
       // Get PID
-      this.pid = this.process.pid;
+      if (this.process.pid !== undefined) {
+        this.pid = this.process.pid;
+      }
 
       // Set up output handlers
       this.setupOutputHandlers();
@@ -424,7 +426,7 @@ export class NativeAdapter implements ITerminalAdapter {
     
     if (osplatform === 'win32') {
       // Windows shell detection
-      const comspec = process.env.COMSPEC;
+      const comspec = process.env['COMSPEC'];
       if (comspec?.toLowerCase().includes('powershell')) {
         return 'powershell';
       }
@@ -443,7 +445,7 @@ export class NativeAdapter implements ITerminalAdapter {
       return 'cmd';
     } else {
       // Unix-like shell detection
-      const shell = process.env.SHELL;
+      const shell = process.env['SHELL'];
       if (shell) {
         const shellName = shell.split('/').pop();
         if (shellName && this.isShellSupported(shellName)) {

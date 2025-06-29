@@ -294,12 +294,12 @@ export class AuthManager implements IAuthManager {
     if (typeof credentials === 'object' && credentials !== null) {
       const creds = credentials as Record<string, unknown>;
       
-      if (typeof creds.token === 'string') {
-        return creds.token;
+      if (typeof creds['token'] === 'string') {
+        return creds['token'] as string;
       }
       
-      if (typeof creds.authorization === 'string') {
-        const match = creds.authorization.match(/^Bearer\s+(.+)$/i);
+      if (typeof creds['authorization'] === 'string') {
+        const match = (creds['authorization'] as string).match(/^Bearer\s+(.+)$/i);
         return match ? match[1] : null;
       }
     }
@@ -311,15 +311,15 @@ export class AuthManager implements IAuthManager {
     if (typeof credentials === 'object' && credentials !== null) {
       const creds = credentials as Record<string, unknown>;
       
-      if (typeof creds.username === 'string' && typeof creds.password === 'string') {
+      if (typeof creds['username'] === 'string' && typeof creds['password'] === 'string') {
         return {
-          username: creds.username,
-          password: creds.password,
+          username: creds['username'] as string,
+          password: creds['password'] as string,
         };
       }
 
-      if (typeof creds.authorization === 'string') {
-        const match = creds.authorization.match(/^Basic\s+(.+)$/i);
+      if (typeof creds['authorization'] === 'string') {
+        const match = (creds['authorization'] as string).match(/^Basic\s+(.+)$/i);
         if (match) {
           try {
             const decoded = atob(match[1]);
@@ -374,7 +374,7 @@ export class AuthManager implements IAuthManager {
     const now = new Date();
     let cleaned = 0;
 
-    for (const [token, data] of this.tokenStore.entries()) {
+    for (const [token, data] of Array.from(this.tokenStore.entries())) {
       if (data.expiresAt < now) {
         this.tokenStore.delete(token);
         cleaned++;

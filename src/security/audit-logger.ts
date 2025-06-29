@@ -244,7 +244,7 @@ export const AuditHelpers = {
       userId,
       action: 'login',
       outcome: success ? 'success' : 'failure',
-      details,
+      ...(details !== undefined && { details }),
     });
   },
 
@@ -281,7 +281,7 @@ export const AuditHelpers = {
       resource: processId,
       action: `spawn:${processType}`,
       outcome: success ? 'success' : 'failure',
-      errorMessage: error,
+      ...(error !== undefined && { errorMessage: error }),
       details: { processType, processId },
     });
   },
@@ -300,7 +300,7 @@ export const AuditHelpers = {
       userId,
       action: command,
       outcome: success ? 'success' : 'failure',
-      errorMessage: error,
+      ...(error !== undefined && { errorMessage: error }),
       details: { command, args },
     });
   },
@@ -317,7 +317,7 @@ export const AuditHelpers = {
       userId,
       action: violation,
       outcome: 'error',
-      details,
+      ...(details !== undefined && { details }),
     });
   },
 };

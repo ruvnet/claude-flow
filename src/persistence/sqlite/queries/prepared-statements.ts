@@ -294,7 +294,10 @@ export class BatchOperations {
   ): Promise<number> {
     if (records.length === 0) return 0;
 
-    const columns = Object.keys(records[0]);
+    const firstRecord = records[0];
+    if (!firstRecord) return 0;
+    
+    const columns = Object.keys(firstRecord);
     const placeholders = columns.map(() => '?').join(', ');
     const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`;
 

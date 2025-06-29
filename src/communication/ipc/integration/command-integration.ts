@@ -33,7 +33,7 @@ export class CommandIPCIntegration {
       path,
       security: {
         enableAuthentication: true,
-        authToken: process.env.CLAUDE_FLOW_IPC_TOKEN || 'default-token'
+        authToken: process.env['CLAUDE_FLOW_IPC_TOKEN'] || 'default-token'
       }
     });
     
@@ -312,7 +312,7 @@ export class ProcessRegistryIPC {
   constructor() {
     this.server = createOrchestratorServer({
       enableAuthentication: true,
-      authToken: process.env.CLAUDE_FLOW_IPC_TOKEN || 'default-token'
+      authToken: process.env['CLAUDE_FLOW_IPC_TOKEN'] || 'default-token'
     });
   }
   

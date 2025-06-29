@@ -13,7 +13,7 @@ import { Logger } from '../../core/logger.js';
 
 export interface TaskStateAdapterConfig {
   engineId: string;
-  namespace?: string;
+  namespace?: string | undefined;
 }
 
 export interface Task {
@@ -24,15 +24,15 @@ export interface Task {
   status: 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
   priority: number;
   dependencies: string[];
-  assignedTo?: string;
-  agentType?: string;
-  result?: any;
-  error?: string;
+  assignedTo?: string | undefined;
+  agentType?: string | undefined;
+  result?: any | undefined;
+  error?: string | undefined;
   createdAt: Date;
-  startedAt?: Date;
-  completedAt?: Date;
-  estimatedDuration?: number;
-  actualDuration?: number;
+  startedAt?: Date | undefined;
+  completedAt?: Date | undefined;
+  estimatedDuration?: number | undefined;
+  actualDuration?: number | undefined;
   retryCount: number;
   maxRetries: number;
   metadata: Record<string, unknown>;

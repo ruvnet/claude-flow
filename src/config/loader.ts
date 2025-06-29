@@ -21,14 +21,14 @@ export async function loadConfiguration(options?: {
   try {
     // Set environment if provided
     if (environment) {
-      process.env.NODE_ENV = environment;
+      process.env['NODE_ENV'] = environment;
     }
     
     // Try to load from specified path or find default
     const config = await initializeConfig(configPath);
     
     // Enable hot reloading if requested
-    if (enableHotReload && process.env.NODE_ENV !== 'production') {
+    if (enableHotReload && process.env['NODE_ENV'] !== 'production') {
       configManager.watchConfig((event) => {
         logger.info('Configuration updated', {
           changedKeys: event.changedKeys

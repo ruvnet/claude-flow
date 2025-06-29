@@ -373,7 +373,7 @@ export class ToolRegistry extends EventEmitter {
   discoverTools(query: ToolDiscoveryQuery = {}): Array<{ tool: MCPTool; capability: ToolCapability }> {
     const results: Array<{ tool: MCPTool; capability: ToolCapability }> = [];
 
-    for (const [name, tool] of this.tools) {
+    for (const [name, tool] of Array.from(this.tools)) {
       const capability = this.capabilities.get(name);
       if (!capability) continue;
 
@@ -472,7 +472,7 @@ export class ToolRegistry extends EventEmitter {
         });
       }
     } else {
-      for (const metrics of this.metrics.values()) {
+      for (const metrics of Array.from(this.metrics.values())) {
         Object.assign(metrics, {
           totalInvocations: 0,
           successfulInvocations: 0,
@@ -508,7 +508,7 @@ export class ToolRegistry extends EventEmitter {
     };
 
     // Count by category
-    for (const capability of this.capabilities.values()) {
+    for (const capability of Array.from(this.capabilities.values())) {
       stats.toolsByCategory[capability.category] = (stats.toolsByCategory[capability.category] || 0) + 1;
       
       for (const tag of capability.tags) {
@@ -520,7 +520,7 @@ export class ToolRegistry extends EventEmitter {
     let totalExecutionTime = 0;
     let totalSuccessful = 0;
     
-    for (const metrics of this.metrics.values()) {
+    for (const metrics of Array.from(this.metrics.values())) {
       stats.totalInvocations += metrics.totalInvocations;
       totalSuccessful += metrics.successfulInvocations;
       totalExecutionTime += metrics.totalExecutionTime;

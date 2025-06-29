@@ -307,24 +307,41 @@ export class TaskModel {
     return result.changes;
   }
 
-  private static mapToTask(row: any): Task {
-    return {
+  static mapToTask(row: any): Task {
+    const task: Task = {
       id: row.id,
       type: row.type,
-      description: row.description,
       status: row.status,
       priority: row.priority,
       dependencies: JSON.parse(row.dependencies || '[]'),
       metadata: JSON.parse(row.metadata || '{}'),
-      assignedAgent: row.assigned_agent,
       progress: row.progress,
-      error: row.error,
       createdAt: new Date(row.created_at),
-      startedAt: row.started_at ? new Date(row.started_at) : undefined,
-      completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
       retryCount: row.retry_count,
       maxRetries: row.max_retries,
       timeoutMs: row.timeout_ms
     };
+    
+    if (row.description !== null && row.description !== undefined) {
+      task.description = row.description;
+    }
+    
+    if (row.assigned_agent !== null && row.assigned_agent !== undefined) {
+      task.assignedAgent = row.assigned_agent;
+    }
+    
+    if (row.error !== null && row.error !== undefined) {
+      task.error = row.error;
+    }
+    
+    if (row.started_at !== null && row.started_at !== undefined) {
+      task.startedAt = new Date(row.started_at);
+    }
+    
+    if (row.completed_at !== null && row.completed_at !== undefined) {
+      task.completedAt = new Date(row.completed_at);
+    }
+    
+    return task;
   }
 }

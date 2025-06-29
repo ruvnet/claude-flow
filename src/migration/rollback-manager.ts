@@ -145,7 +145,7 @@ export class RollbackManager {
     let selectedBackup: MigrationBackup;
 
     if (backupId) {
-      const backup = backups.find(b => b.metadata.backupId === backupId);
+      const backup = backups.find(b => b.metadata['backupId'] === backupId);
       if (!backup) {
         throw new Error(`Backup not found: ${backupId}`);
       }
@@ -153,7 +153,11 @@ export class RollbackManager {
     } else if (interactive) {
       selectedBackup = await this.selectBackupInteractively(backups);
     } else {
-      selectedBackup = backups[0]; // Most recent
+      const mostRecentBackup = backups[0];
+      if (!mostRecentBackup) {
+        throw new Error('No valid backup found');
+      }
+      selectedBackup = mostRecentBackup; // Most recent
     }
 
     logger.info(`Rolling back to backup from ${selectedBackup.timestamp.toISOString()}...`);
@@ -176,7 +180,7 @@ export class RollbackManager {
     // Create pre-rollback backup
     const preRollbackBackup = await this.createBackup({
       type: 'pre-rollback',
-      rollingBackTo: selectedBackup.metadata.backupId
+      rollingBackTo: selectedBackup.metadata['backupId']
     });
 
     try {
@@ -205,9 +209,9 @@ export class RollbackManager {
 
   private async selectBackupInteractively(backups: MigrationBackup[]): Promise<MigrationBackup> {
     const choices = backups.map(backup => ({
-      name: `${backup.timestamp.toLocaleString()} - ${backup.files.length} files (${backup.metadata.type || 'migration'})`,
+      name: `${backup.timestamp.toLocaleString()} - ${backup.files.length} files (${backup.metadata['type'] || 'migration'})`,
       value: backup,
-      short: backup.metadata.backupId
+      short: backup.metadata['backupId']
     }));
 
     const answer = await inquirer.prompt([{
@@ -299,9 +303,9 @@ export class RollbackManager {
     logger.info(`Cleaning up ${backupsToDelete.length} old backups...`);
 
     for (const backup of backupsToDelete) {
-      const backupPath = path.join(this.backupDir, backup.metadata.backupId);
+      const backupPath = path.join(this.backupDir, backup.metadata['backupId']);
       await fs.remove(backupPath);
-      logger.debug(`Removed backup: ${backup.metadata.backupId}`);
+      logger.debug(`Removed backup: ${backup.metadata['backupId']}`);
     }
 
     logger.success(`Cleanup completed, removed ${backupsToDelete.length} backups`);
@@ -309,7 +313,7 @@ export class RollbackManager {
 
   async getBackupInfo(backupId: string): Promise<MigrationBackup | null> {
     const backups = await this.listBackups();
-    return backups.find(b => b.metadata.backupId === backupId) || null;
+    return backups.find(b => b.metadata['backupId'] === backupId) || null;
   }
 
   async exportBackup(backupId: string, exportPath: string): Promise<void> {
@@ -318,7 +322,7 @@ export class RollbackManager {
       throw new Error(`Backup not found: ${backupId}`);
     }
 
-    const backupPath = path.join(this.backupDir, backup.metadata.backupId);
+    const backupPath = path.join(this.backupDir, backup.metadata['backupId']);
     await fs.copy(backupPath, exportPath);
     
     logger.success(`Backup exported to ${exportPath}`);
@@ -332,12 +336,12 @@ export class RollbackManager {
     }
 
     const backup = await fs.readJson(manifestPath);
-    const backupPath = path.join(this.backupDir, backup.metadata.backupId);
+    const backupPath = path.join(this.backupDir, backup.metadata['backupId']);
 
     await fs.copy(importPath, backupPath);
     await this.updateBackupIndex(backup);
 
-    logger.success(`Backup imported: ${backup.metadata.backupId}`);
+    logger.success(`Backup imported: ${backup.metadata['backupId']}`);
     return backup;
   }
 
@@ -349,7 +353,7 @@ export class RollbackManager {
       index = await fs.readJson(indexPath);
     }
 
-    index[backup.metadata.backupId] = {
+    index[backup.metadata['backupId']] = {
       timestamp: backup.timestamp,
       version: backup.version,
       fileCount: backup.files.length,
@@ -371,16 +375,16 @@ export class RollbackManager {
     backups.forEach((backup, index) => {
       const isRecent = index === 0;
       const date = backup.timestamp.toLocaleString();
-      const type = backup.metadata.type || 'migration';
+      const type = backup.metadata['type'] || 'migration';
       const fileCount = backup.files.length;
       
-      console.log(`\n${isRecent ? chalk.green('●') : chalk.gray('○')} ${chalk.bold(backup.metadata.backupId)}`);
+      console.log(`\n${isRecent ? chalk.green('●') : chalk.gray('○')} ${chalk.bold(backup.metadata['backupId'])}`);
       console.log(`  ${chalk.gray('Date:')} ${date}`);
       console.log(`  ${chalk.gray('Type:')} ${type}`);
       console.log(`  ${chalk.gray('Files:')} ${fileCount}`);
       
-      if (backup.metadata.strategy) {
-        console.log(`  ${chalk.gray('Strategy:')} ${backup.metadata.strategy}`);
+      if (backup.metadata['strategy']) {
+        console.log(`  ${chalk.gray('Strategy:')} ${backup.metadata['strategy']}`);
       }
     });
 

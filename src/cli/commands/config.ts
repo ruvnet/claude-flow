@@ -11,6 +11,7 @@ import { deepMerge } from '../../utils/helpers.js';
 import { join } from 'path';
 import { promises as fs } from 'fs';
 import { writeFileSync } from 'fs';
+import { safeEnv } from '../../types/strict-mode-utilities.js';
 
 // Helper function for template descriptions
 function getTemplateDescription(templateName: string): string {
@@ -210,7 +211,7 @@ export const configCommand = new Command()
         }
 
         // Get user info for change tracking
-        const user = process.env.USER || process.env.USERNAME || 'unknown';
+        const user = safeEnv.get('USER') || safeEnv.get('USERNAME') || 'unknown';
         const reason = options.reason;
         
         configManager.set(path, parsedValue, { user, reason, source: 'cli' });

@@ -6,6 +6,8 @@ import { EventEmitter } from 'node:events';
 import { ChildProcess, spawn, SpawnOptions } from '../tracing/index.js';
 import { ILogger } from '../core/logger.js';
 import { IEventBus } from '../core/event-bus.js';
+import { createProcessPoolResult, type ProcessPoolResult } from '../types/optional-property-utils.js';
+import { StrictProcessResult, createProcessResult } from '../types/strict-mode-utilities.js';
 
 // Unified process execution interface
 interface ProcessPoolCommand {
@@ -18,12 +20,7 @@ interface ProcessPoolCommand {
   };
 }
 
-interface ProcessPoolResult {
-  exitCode: number;
-  output: string;
-  error?: string;
-  pid?: number;
-}
+// ProcessPoolResult interface imported from optional-property-utils
 
 class ProcessPool {
   private logger: ILogger;
@@ -32,7 +29,7 @@ class ProcessPool {
     this.logger = logger;
   }
 
-  async executeCommand(cmd: ProcessPoolCommand): Promise<{ process: ChildProcess; result: Promise<ProcessPoolResult> }> {
+  async executeCommand(cmd: ProcessPoolCommand): Promise<{ process: ChildProcess; result: Promise<StrictProcessResult> }> {
     // Use traced spawn directly from imports
     const childProcess = spawn(cmd.command, cmd.args, {
       env: cmd.options?.env || process.env,
@@ -40,22 +37,24 @@ class ProcessPool {
       cwd: cmd.options?.cwd
     });
 
-    const resultPromise = new Promise<ProcessPoolResult>((resultResolve) => {
+    const resultPromise = new Promise<StrictProcessResult>((resultResolve) => {
       childProcess.on('exit', (code: number | null) => {
-        resultResolve({
+        const result = createProcessResult({
           exitCode: code || 0,
           output: '',
           pid: childProcess.pid
         });
+        resultResolve(result);
       });
 
       childProcess.on('error', (error: Error) => {
-        resultResolve({
+        const result = createProcessResult({
           exitCode: 1,
           output: '',
           error: error.message,
           pid: childProcess.pid
         });
+        resultResolve(result);
       });
     });
 

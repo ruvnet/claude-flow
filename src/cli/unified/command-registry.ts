@@ -253,13 +253,13 @@ class DefaultLogger implements Logger {
   }
 
   debug(message: string, ...args: any[]): void {
-    if (process.env.DEBUG || process.env.VERBOSE) {
+    if (process.env['DEBUG'] || process.env['VERBOSE']) {
       console.log(chalk.gray(`🐛 ${message}`), ...args);
     }
   }
 
   verbose(message: string, ...args: any[]): void {
-    if (process.env.VERBOSE) {
+    if (process.env['VERBOSE']) {
       console.log(chalk.gray(`📝 ${message}`), ...args);
     }
   }

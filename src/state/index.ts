@@ -43,25 +43,25 @@ import type { StatePersistenceConfig } from './types.js';
 export interface StateSystemConfig {
   persistence?: {
     enabled: boolean;
-    backends?: ('filesystem' | 'memory')[];
-    primaryBackend?: string;
-    filePath?: string;
-    autoSave?: boolean;
-    snapshotInterval?: number;
-    maxSnapshots?: number;
-  };
+    backends?: ('filesystem' | 'memory')[] | undefined;
+    primaryBackend?: string | undefined;
+    filePath?: string | undefined;
+    autoSave?: boolean | undefined;
+    snapshotInterval?: number | undefined;
+    maxSnapshots?: number | undefined;
+  } | undefined;
   adapters?: {
-    swarm?: { coordinatorId: string; namespace?: string };
-    agent?: { managerId: string; namespace?: string };
-    task?: { engineId: string; namespace?: string };
-    memory?: { managerId: string; namespace?: string };
-  };
+    swarm?: { coordinatorId: string; namespace?: string | undefined } | undefined;
+    agent?: { managerId: string; namespace?: string | undefined } | undefined;
+    task?: { engineId: string; namespace?: string | undefined } | undefined;
+    memory?: { managerId: string; namespace?: string | undefined } | undefined;
+  } | undefined;
 }
 
 export interface StateSystem {
   stateManager: UnifiedStateManager;
   adapters: StateAdapterFactory;
-  persistence?: StatePersistenceManager;
+  persistence?: StatePersistenceManager | undefined;
 }
 
 /**

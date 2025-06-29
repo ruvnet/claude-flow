@@ -2,11 +2,12 @@
  * HTTP transport for MCP
  */
 
-import express, { Express, Request, Response } from 'express';
+import type { Express, Request, Response } from 'express';
 import { createServer, Server } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
-import cors from 'cors';
-import helmet from 'helmet';
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ITransport, RequestHandler, NotificationHandler } from './base.js';
@@ -91,7 +92,7 @@ export class HttpTransport implements ITransport {
     this.running = false;
 
     // Close all WebSocket connections
-    for (const ws of this.activeWebSockets) {
+    for (const ws of Array.from(this.activeWebSockets)) {
       try {
         ws.close();
       } catch {
@@ -164,9 +165,8 @@ export class HttpTransport implements ITransport {
 
   private setupRoutes(): void {
     // Get current file directory for static files
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-    const consoleDir = join(__dirname, '../../ui/console');
+    // Using process.cwd() as base since import.meta requires different module settings
+    const consoleDir = join(process.cwd(), 'src/ui/console');
 
     // Serve static files for the web console
     this.app.use('/console', express.static(consoleDir));
@@ -201,7 +201,7 @@ export class HttpTransport implements ITransport {
     });
 
     // Error handler
-    this.app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    this.app.use((err: any, req: Request, res: Response, next: any) => {
       this.logger.error('Express error', err);
       res.status(500).json({ 
         error: 'Internal server error',
@@ -442,7 +442,7 @@ export class HttpTransport implements ITransport {
     // Broadcast notification to all connected WebSocket clients
     const message = JSON.stringify(notification);
     
-    for (const ws of this.activeWebSockets) {
+    for (const ws of Array.from(this.activeWebSockets)) {
       try {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(message);

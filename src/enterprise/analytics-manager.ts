@@ -475,7 +475,7 @@ export class AnalyticsManager extends EventEmitter {
     aggregation?: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'p95' | 'p99';
     groupBy?: string[];
     filters?: Record<string, any>;
-  }): Promise<Record<string, any[]>> {
+  }): Promise<Record<string, any[] | undefined>> {
     const results: Record<string, any[]> = {};
 
     for (const metricName of query.metrics) {
@@ -745,18 +745,18 @@ export class AnalyticsManager extends EventEmitter {
     return {
       system: {
         cpu: {
-          usage: this.getLatestValue(systemMetrics['cpu-usage']) || 0,
+          usage: this.getLatestValue(systemMetrics['cpu-usage'] || []) || 0,
           cores: 8, // Would be detected from system
           loadAverage: [1.2, 1.5, 1.8] // Would be collected from system
         },
         memory: {
-          used: this.getLatestValue(systemMetrics['memory-usage']) || 0,
+          used: this.getLatestValue(systemMetrics['memory-usage'] || []) || 0,
           free: 4000000000, // Would be calculated
           total: 8000000000,
           usage: 50
         },
         disk: {
-          used: this.getLatestValue(systemMetrics['disk-usage']) || 0,
+          used: this.getLatestValue(systemMetrics['disk-usage'] || []) || 0,
           free: 100000000000,
           total: 500000000000,
           usage: 20,
@@ -772,22 +772,22 @@ export class AnalyticsManager extends EventEmitter {
       },
       application: {
         responseTime: {
-          avg: this.getLatestValue(appMetrics['response-time']) || 0,
+          avg: this.getLatestValue(appMetrics['response-time'] || []) || 0,
           p50: 150,
           p95: 500,
           p99: 1000
         },
         throughput: {
-          requestsPerSecond: this.getLatestValue(appMetrics['request-rate']) || 0,
+          requestsPerSecond: this.getLatestValue(appMetrics['request-rate'] || []) || 0,
           transactionsPerSecond: 50
         },
         errors: {
-          rate: this.getLatestValue(appMetrics['error-rate']) || 0,
+          rate: this.getLatestValue(appMetrics['error-rate'] || []) || 0,
           count: 10,
           types: { '500': 5, '404': 3, '400': 2 }
         },
         availability: {
-          uptime: this.getLatestValue(appMetrics['uptime']) || 0,
+          uptime: this.getLatestValue(appMetrics['uptime'] || []) || 0,
           sla: 99.9,
           incidents: 2
         }
@@ -799,12 +799,12 @@ export class AnalyticsManager extends EventEmitter {
           max: 100
         },
         queries: {
-          avgExecutionTime: this.getLatestValue(dbMetrics['query-time']) || 0,
+          avgExecutionTime: this.getLatestValue(dbMetrics['query-time'] || []) || 0,
           slowQueries: 5,
           deadlocks: 0
         },
         storage: {
-          size: this.getLatestValue(dbMetrics['db-size']) || 0,
+          size: this.getLatestValue(dbMetrics['db-size'] || []) || 0,
           growth: 1000000, // bytes per day
           fragmentation: 5
         }
@@ -841,13 +841,13 @@ export class AnalyticsManager extends EventEmitter {
     return {
       users: {
         total: 10000,
-        active: this.getLatestValue(usageData['active-users']) || 0,
+        active: this.getLatestValue(usageData['active-users'] || []) || 0,
         new: 50,
         returning: 1500,
         churn: 25
       },
       sessions: {
-        total: this.getLatestValue(usageData['sessions']) || 0,
+        total: this.getLatestValue(usageData['sessions'] || []) || 0,
         duration: {
           avg: 15 * 60, // 15 minutes
           median: 12 * 60
@@ -865,7 +865,7 @@ export class AnalyticsManager extends EventEmitter {
         leastUsed: ['advanced-filters', 'export', 'integrations']
       },
       api: {
-        calls: this.getLatestValue(usageData['api-calls']) || 0,
+        calls: this.getLatestValue(usageData['api-calls'] || []) || 0,
         uniqueConsumers: 150,
         avgResponseTime: 250,
         errorRate: 2.5,
@@ -1235,7 +1235,7 @@ export class AnalyticsManager extends EventEmitter {
         priority: deviation > 3 ? 'high' : 'medium',
         data: {
           metrics: [metric.name],
-          timeRange: { start: recent[0].timestamp, end: metric.timestamp },
+          timeRange: { start: recent[0]?.timestamp ?? new Date(), end: metric.timestamp },
           values: { current: metric.value, average, stdDev },
           baseline: { average, stdDev },
           deviation
@@ -1297,8 +1297,9 @@ export class AnalyticsManager extends EventEmitter {
       aggregation: 'avg'
     });
 
-    if (responseTimeData['response-time']?.length > 0) {
-      const values = responseTimeData['response-time'].map((d: any) => d.value);
+    const responseTimeArray = responseTimeData['response-time'];
+    if (responseTimeArray && responseTimeArray.length > 0) {
+      const values = responseTimeArray.map((d: any) => d.value);
       const recent = values.slice(-5);
       const earlier = values.slice(0, -5);
 
@@ -1444,7 +1445,7 @@ export class AnalyticsManager extends EventEmitter {
 
     return Object.entries(buckets).map(([timestamp, bucketMetrics]) => {
       const values = bucketMetrics.map(m => m.value);
-      let aggregatedValue: number;
+      let aggregatedValue: number = 0;
 
       switch (aggregation) {
         case 'sum':
@@ -1461,11 +1462,11 @@ export class AnalyticsManager extends EventEmitter {
           break;
         case 'p95':
           values.sort((a, b) => a - b);
-          aggregatedValue = values[Math.floor(values.length * 0.95)];
+          aggregatedValue = values[Math.floor(values.length * 0.95)] ?? 0;
           break;
         case 'p99':
           values.sort((a, b) => a - b);
-          aggregatedValue = values[Math.floor(values.length * 0.99)];
+          aggregatedValue = values[Math.floor(values.length * 0.99)] ?? 0;
           break;
         case 'avg':
         default:
@@ -1480,7 +1481,7 @@ export class AnalyticsManager extends EventEmitter {
     }).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
 
-  private getLatestValue(dataPoints: any[]): number {
+  private getLatestValue(dataPoints: any[] | undefined): number {
     if (!dataPoints || dataPoints.length === 0) return 0;
     return dataPoints[dataPoints.length - 1]?.value || 0;
   }

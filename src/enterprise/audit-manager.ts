@@ -429,8 +429,6 @@ export class AuditManager extends EventEmitter {
       eventType: eventData.eventType,
       category: eventData.category,
       severity: eventData.severity || 'medium',
-      userId: eventData.userId,
-      sessionId: eventData.sessionId,
       resource: eventData.resource,
       action: eventData.action,
       outcome: eventData.outcome,
@@ -449,7 +447,9 @@ export class AuditManager extends EventEmitter {
         hash: '',
         verified: false
       },
-      metadata: {}
+      metadata: {},
+      ...( eventData.userId ? { userId: eventData.userId } : {}),
+      ...( eventData.sessionId ? { sessionId: eventData.sessionId } : {})
     };
 
     // Calculate integrity hash
@@ -834,7 +834,7 @@ export class AuditManager extends EventEmitter {
         e.outcome === 'denied' || e.eventType === 'unauthorized_access'
       ).length,
       privilegedActions: entries.filter(e => 
-        e.details.privileged === true
+        e.details['privileged'] === true
       ).length,
       suspiciousPatterns: entries.filter(e => 
         e.severity === 'critical'
@@ -1219,8 +1219,8 @@ export class AuditManager extends EventEmitter {
     const match = period.match(/(\d+)([ymd])/);
     if (!match) return 0;
     
-    const value = parseInt(match[1]);
-    const unit = match[2];
+    const value = parseInt(match[1]!);
+    const unit = match[2]!;
     
     switch (unit) {
       case 'y': return value * 365;
@@ -1320,7 +1320,7 @@ export class AuditManager extends EventEmitter {
     if (reportType === 'compliance') {
       // Check for data access patterns
       const dataAccess = entries.filter(e => 
-        e.category === 'data-access' && e.details.pii === true
+        e.category === 'data-access' && e.details['pii'] === true
       );
       
       if (dataAccess.length > 0) {
@@ -1464,7 +1464,7 @@ export class AuditManager extends EventEmitter {
       // Would implement failed login threshold checking
     }
 
-    if (entry.category === 'data-access' && entry.details.privileged) {
+    if (entry.category === 'data-access' && entry.details['privileged']) {
       this.emit('security:alert', {
         type: 'privileged-access',
         entry,

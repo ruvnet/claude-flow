@@ -119,7 +119,7 @@ async function handleError(error: unknown, options?: any): Promise<void> {
   }
   
   // Show stack trace in debug mode or verbose
-  if (process.env.CLAUDE_FLOW_DEBUG === 'true' || options?.verbose) {
+  if (process.env['CLAUDE_FLOW_DEBUG'] === 'true' || options?.verbose) {
     console.error(colors.gray('\nStack trace:'));
     console.error(error);
   }
@@ -202,7 +202,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     // Configure colors based on options
     if (globalOptions.noColor) {
       // Disable colors by setting NO_COLOR environment variable
-      process.env.NO_COLOR = '1';
+      process.env['NO_COLOR'] = '1';
     }
     
     await cli.parse(args);

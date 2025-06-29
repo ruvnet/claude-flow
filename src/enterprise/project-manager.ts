@@ -244,8 +244,8 @@ export class ProjectManager extends EventEmitter {
       timeline: {
         plannedStart: projectData.timeline?.plannedStart || new Date(),
         plannedEnd: projectData.timeline?.plannedEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        actualStart: projectData.timeline?.actualStart,
-        actualEnd: projectData.timeline?.actualEnd
+        ...(projectData.timeline?.actualStart !== undefined ? { actualStart: projectData.timeline.actualStart } : {}),
+        ...(projectData.timeline?.actualEnd !== undefined ? { actualEnd: projectData.timeline.actualEnd } : {})
       },
       tags: projectData.tags || [],
       metadata: projectData.metadata || {},
@@ -400,7 +400,10 @@ export class ProjectManager extends EventEmitter {
       throw new Error(`Phase not found: ${phaseId}`);
     }
 
-    const updatedPhase = { ...project.phases[phaseIndex], ...updates };
+    const filteredUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([_, value]) => value !== undefined)
+    ) as Partial<ProjectPhase>;
+    const updatedPhase = { ...project.phases[phaseIndex], ...filteredUpdates } as ProjectPhase;
     project.phases[phaseIndex] = updatedPhase;
     project.updatedAt = new Date();
 
@@ -446,7 +449,7 @@ export class ProjectManager extends EventEmitter {
       throw new Error(`Team member not found: ${memberId}`);
     }
 
-    const member = project.collaboration.teamMembers[memberIndex];
+    const member = project.collaboration.teamMembers[memberIndex]!;
     project.collaboration.teamMembers.splice(memberIndex, 1);
     project.updatedAt = new Date();
 

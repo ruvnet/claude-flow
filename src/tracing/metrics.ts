@@ -156,9 +156,15 @@ class ProcessMetricsCollector extends EventEmitter {
     execution.endTime = Date.now();
     execution.duration = execution.endTime - execution.startTime;
     execution.success = success;
-    execution.exitCode = exitCode;
-    execution.error = error;
-    execution.pid = pid;
+    if (exitCode !== undefined) {
+      execution.exitCode = exitCode;
+    }
+    if (error !== undefined) {
+      execution.error = error;
+    }
+    if (pid !== undefined) {
+      execution.pid = pid;
+    }
     
     // Update success/failure counts
     if (success) {
@@ -391,8 +397,9 @@ class ProcessMetricsCollector extends EventEmitter {
       return 'None';
     }
     
-    return Object.entries(this.metrics.commandFrequency)
-      .sort(([,a], [,b]) => b - a)[0][0];
+    const entries = Object.entries(this.metrics.commandFrequency)
+      .sort(([,a], [,b]) => b - a);
+    return entries[0]?.[0] ?? 'None';
   }
 }
 

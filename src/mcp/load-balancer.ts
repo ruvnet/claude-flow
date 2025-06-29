@@ -385,7 +385,7 @@ export class LoadBalancer implements ILoadBalancer {
     const cutoffTime = Date.now() - 300000; // 5 minutes ago
     let cleaned = 0;
 
-    for (const [sessionId, rateLimiter] of this.sessionRateLimiters.entries()) {
+    for (const [sessionId, rateLimiter] of Array.from(this.sessionRateLimiters.entries())) {
       // If the rate limiter has full tokens, it hasn't been used recently
       if (rateLimiter.getTokens() === this.config.maxRequestsPerSecond) {
         this.sessionRateLimiters.delete(sessionId);

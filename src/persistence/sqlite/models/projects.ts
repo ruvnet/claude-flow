@@ -441,40 +441,61 @@ export class ProjectModel {
   }
 
   private static mapToProject(row: any): Project {
-    return {
+    const project: Project = {
       id: row.id,
       name: row.name,
-      description: row.description,
-      type: row.type,
-      status: row.status,
-      priority: row.priority,
       owner: row.owner,
       stakeholders: JSON.parse(row.stakeholders || '[]'),
       budgetTotal: row.budget_total,
       budgetSpent: row.budget_spent,
       budgetCurrency: row.budget_currency,
-      plannedStart: row.planned_start ? new Date(row.planned_start) : undefined,
-      plannedEnd: row.planned_end ? new Date(row.planned_end) : undefined,
-      actualStart: row.actual_start ? new Date(row.actual_start) : undefined,
-      actualEnd: row.actual_end ? new Date(row.actual_end) : undefined,
       tags: JSON.parse(row.tags || '[]'),
       metadata: JSON.parse(row.metadata || '{}'),
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
     };
+    
+    if (row.description !== null && row.description !== undefined) {
+      project.description = row.description;
+    }
+    
+    if (row.type !== null && row.type !== undefined) {
+      project.type = row.type;
+    }
+    
+    if (row.status !== null && row.status !== undefined) {
+      project.status = row.status;
+    }
+    
+    if (row.priority !== null && row.priority !== undefined) {
+      project.priority = row.priority;
+    }
+    
+    if (row.planned_start !== null && row.planned_start !== undefined) {
+      project.plannedStart = new Date(row.planned_start);
+    }
+    
+    if (row.planned_end !== null && row.planned_end !== undefined) {
+      project.plannedEnd = new Date(row.planned_end);
+    }
+    
+    if (row.actual_start !== null && row.actual_start !== undefined) {
+      project.actualStart = new Date(row.actual_start);
+    }
+    
+    if (row.actual_end !== null && row.actual_end !== undefined) {
+      project.actualEnd = new Date(row.actual_end);
+    }
+    
+    return project;
   }
 
   private static mapToPhase(row: any): ProjectPhase {
-    return {
+    const phase: ProjectPhase = {
       id: row.id,
       projectId: row.project_id,
       name: row.name,
-      description: row.description,
       status: row.status,
-      startDate: row.start_date ? new Date(row.start_date) : undefined,
-      endDate: row.end_date ? new Date(row.end_date) : undefined,
-      estimatedDurationHours: row.estimated_duration_hours,
-      actualDurationHours: row.actual_duration_hours,
       dependencies: JSON.parse(row.dependencies || '[]'),
       assignedTeam: JSON.parse(row.assigned_team || '[]'),
       deliverables: JSON.parse(row.deliverables || '[]'),
@@ -484,6 +505,28 @@ export class ProjectModel {
       documentationScore: row.documentation_score,
       securityScore: row.security_score
     };
+    
+    if (row.description !== null && row.description !== undefined) {
+      phase.description = row.description;
+    }
+    
+    if (row.start_date !== null && row.start_date !== undefined) {
+      phase.startDate = new Date(row.start_date);
+    }
+    
+    if (row.end_date !== null && row.end_date !== undefined) {
+      phase.endDate = new Date(row.end_date);
+    }
+    
+    if (row.estimated_duration_hours !== null && row.estimated_duration_hours !== undefined) {
+      phase.estimatedDurationHours = row.estimated_duration_hours;
+    }
+    
+    if (row.actual_duration_hours !== null && row.actual_duration_hours !== undefined) {
+      phase.actualDurationHours = row.actual_duration_hours;
+    }
+    
+    return phase;
   }
 
   private static mapToProjectWithPhases(project: any, phases: any[]): ProjectWithPhases {

@@ -253,11 +253,15 @@ export class SwarmMemoryManager extends EventEmitter {
       accessLevel: options.accessLevel || 'team',
       createdAt: now,
       updatedAt: now,
-      expiresAt: options.ttl ? new Date(now.getTime() + options.ttl) : undefined,
       version: 1,
       references: [],
       dependencies: []
     };
+    
+    // Add expiresAt if TTL is specified
+    if (options.ttl) {
+      entry.expiresAt = new Date(now.getTime() + options.ttl);
+    }
 
     // Validate entry size
     const entrySize = this.calculateEntrySize(entry);
@@ -562,15 +566,22 @@ export class SwarmMemoryManager extends EventEmitter {
     // Create shared copy
     const sharedEntryId = generateId('shared-mem');
     const sharedEntry: MemoryEntry = {
-      ...entry,
       id: sharedEntryId,
+      key: entry.key,
+      value: entry.value,
+      type: entry.type,
+      tags: [...entry.tags],
       owner: targetAgent,
       accessLevel: options.accessLevel || entry.accessLevel,
       createdAt: new Date(),
       updatedAt: new Date(),
-      expiresAt: options.expiresAt,
-      references: [...entry.references, entry.id]
+      version: entry.version,
+      references: [...entry.references, entry.id],
+      dependencies: [...entry.dependencies]
     };
+    if (options.expiresAt) {
+      sharedEntry.expiresAt = options.expiresAt;
+    }
 
     // Store shared entry
     this.entries.set(sharedEntryId, sharedEntry);
@@ -613,10 +624,11 @@ export class SwarmMemoryManager extends EventEmitter {
 
     for (const targetAgent of targetAgents) {
       try {
-        const sharedId = await this.shareMemory(key, targetAgent, {
-          ...options,
-          sharer: options.broadcaster
-        });
+        const shareOptions: any = { ...options };
+        if (options.broadcaster) {
+          shareOptions.sharer = options.broadcaster;
+        }
+        const sharedId = await this.shareMemory(key, targetAgent, shareOptions);
         sharedIds.push(sharedId);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -690,12 +702,14 @@ export class SwarmMemoryManager extends EventEmitter {
       type: options.type || 'knowledge',
       entries: [],
       maxSize: options.maxSize || this.config.maxMemorySize,
-      ttl: options.ttl,
       readOnly: options.readOnly || false,
       shared: options.shared || true,
       indexed: options.indexed !== false,
       compressed: options.compressed || this.config.enableCompression
     };
+    if (options.ttl !== undefined) {
+      partition.ttl = options.ttl;
+    }
 
     this.partitions.set(name, partition);
     this.memory.partitions.push(partition);
@@ -1229,17 +1243,17 @@ export class SwarmMemoryManager extends EventEmitter {
   private stopBackgroundProcesses(): void {
     if (this.syncTimer) {
       clearInterval(this.syncTimer);
-      this.syncTimer = undefined;
+      delete this.syncTimer;
     }
     
     if (this.backupTimer) {
       clearInterval(this.backupTimer);
-      this.backupTimer = undefined;
+      delete this.backupTimer;
     }
     
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
-      this.cleanupTimer = undefined;
+      delete this.cleanupTimer;
     }
   }
 

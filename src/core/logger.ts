@@ -5,7 +5,7 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { Buffer } from 'node:buffer';
-import process from 'node:process';
+import * as process from 'node:process';
 import { LoggingConfig } from '../utils/types.js';
 import { formatBytes } from '../utils/helpers.js';
 
@@ -78,7 +78,7 @@ export class Logger implements ILogger {
     if (!Logger.instance) {
       if (!config) {
         // Use default config if none provided and not in test environment
-        const isTestEnv = process.env.CLAUDE_FLOW_ENV === 'test';
+        const isTestEnv = process.env['CLAUDE_FLOW_ENV'] === 'test';
         if (isTestEnv) {
           throw new Error('Logger configuration required for initialization');
         }
@@ -317,7 +317,7 @@ export class Logger implements ILogger {
 
 // Export singleton instance with lazy initialization
 // In test environment, this will return a mock logger
-export const logger = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined
+export const logger = process.env['NODE_ENV'] === 'test' || process.env['JEST_WORKER_ID'] !== undefined
   ? ({
       info: () => {},
       error: () => {},

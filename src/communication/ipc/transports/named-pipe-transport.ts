@@ -249,7 +249,7 @@ export class NamedPipeTransport extends BaseTransport {
   }> {
     // Simplified version - full implementation would use Windows APIs
     return {
-      owner: process.env.USERNAME || 'unknown',
+      owner: process.env['USERNAME'] || 'unknown',
       permissions: 'default'
     };
   }

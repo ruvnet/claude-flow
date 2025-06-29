@@ -536,17 +536,24 @@ export class ResourceManager extends EventEmitter {
       id: reservationId,
       resourceId: '', // Will be set when resource is found
       agentId,
-      taskId: options.taskId,
       requirements,
       status: 'pending',
       priority: options.priority || 'normal',
       createdAt: now,
-      expiresAt: options.timeout ? new Date(now.getTime() + options.timeout) : 
-                 new Date(now.getTime() + this.config.reservationTimeout),
       metadata: {
         preemptible: options.preemptible || false
       }
     };
+    
+    if (options.taskId !== undefined) {
+      reservation.taskId = options.taskId;
+    }
+    
+    if (options.timeout) {
+      reservation.expiresAt = new Date(now.getTime() + options.timeout);
+    } else {
+      reservation.expiresAt = new Date(now.getTime() + this.config.reservationTimeout);
+    }
 
     this.reservations.set(reservationId, reservation);
 
@@ -618,7 +625,6 @@ export class ResourceManager extends EventEmitter {
       reservationId,
       resourceId: resource.id,
       agentId: reservation.agentId,
-      taskId: reservation.taskId,
       allocated: this.calculateAllocation(reservation.requirements, resource),
       actualUsage: this.createEmptyUsage(),
       efficiency: 1.0,
@@ -626,6 +632,10 @@ export class ResourceManager extends EventEmitter {
       status: 'active',
       qosViolations: []
     };
+    
+    if (reservation.taskId !== undefined) {
+      allocation.taskId = reservation.taskId;
+    }
 
     this.allocations.set(allocationId, allocation);
     resource.allocations.push(allocation);
@@ -987,9 +997,18 @@ export class ResourceManager extends EventEmitter {
     candidates: Array<{ resource: Resource; score: number }>,
     requirements: ResourceRequirements
   ): Resource {
+    if (candidates.length === 0) {
+      throw new Error('No candidate resources available');
+    }
+    
+    const firstCandidate = candidates[0];
+    if (!firstCandidate) {
+      throw new Error('Invalid candidate array');
+    }
+    
     switch (this.config.allocationStrategy) {
       case 'first-fit':
-        return candidates[0].resource;
+        return firstCandidate.resource;
 
       case 'best-fit':
         // Find resource with smallest waste
@@ -1010,7 +1029,7 @@ export class ResourceManager extends EventEmitter {
       case 'balanced':
       default:
         // Use highest score (balanced approach)
-        return candidates[0].resource;
+        return firstCandidate.resource;
     }
   }
 
@@ -1472,11 +1491,11 @@ export class ResourceManager extends EventEmitter {
 
     // Calculate utilization
     const totalUtilization = resources.reduce((sum, r) => sum + this.calculateResourceUtilization(r), 0);
-    metrics.utilization = totalUtilization / resources.length;
+    metrics['utilization'] = totalUtilization / resources.length;
 
     // Calculate queue depth (simplified)
     const totalReservations = resources.reduce((sum, r) => sum + r.reservations.length, 0);
-    metrics.queue_depth = totalReservations;
+    metrics['queue_depth'] = totalReservations;
 
     return metrics;
   }

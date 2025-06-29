@@ -119,7 +119,7 @@ export class DatabaseConnectionPool extends EventEmitter {
 
     for (let i = this.connections.length - 1; i >= this.options.min; i--) {
       const conn = this.connections[i];
-      if (!conn.isInUse() && conn.getIdleTime() > this.options.idleTimeout) {
+      if (conn && !conn.isInUse() && conn.getIdleTime() > this.options.idleTimeout) {
         toRemove.push(conn);
         this.connections.splice(i, 1);
       }

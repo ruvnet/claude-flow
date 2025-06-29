@@ -58,9 +58,9 @@ export interface MigrationResult {
 }
 
 export interface MigrationError {
-  file?: string;
+  file?: string | undefined;
   error: string;
-  stack?: string;
+  stack?: string | undefined;
 }
 
 export interface ValidationResult {

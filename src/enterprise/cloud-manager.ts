@@ -942,11 +942,11 @@ export class CloudManager extends EventEmitter {
     }
 
     if (scalingConfig.replicas !== undefined) {
-      resource.configuration.tags.replicas = scalingConfig.replicas.toString();
+      resource.configuration.tags['replicas'] = scalingConfig.replicas.toString();
     }
 
     if (scalingConfig.autoScaling) {
-      resource.configuration.tags.autoScaling = JSON.stringify(scalingConfig.autoScaling);
+      resource.configuration.tags['autoScaling'] = JSON.stringify(scalingConfig.autoScaling);
     }
 
     resource.updatedAt = new Date();

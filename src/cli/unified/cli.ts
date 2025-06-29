@@ -141,7 +141,7 @@ function handleCommandError(error: any): void {
     process.exit(error.exitCode);
   } else {
     console.error(chalk.red(`Unexpected error: ${error.message}`));
-    if (process.env.DEBUG) {
+    if (process.env['DEBUG']) {
       console.error(error.stack);
     }
     process.exit(1);
@@ -245,7 +245,7 @@ export async function main(argv: string[] = process.argv): Promise<void> {
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch(error => {
     console.error(chalk.red('Fatal error:'), error.message);
-    if (process.env.DEBUG) {
+    if (process.env['DEBUG']) {
       console.error(error.stack);
     }
     process.exit(1);

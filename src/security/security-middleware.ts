@@ -75,7 +75,7 @@ export class SecurityMiddleware implements ISecurityMiddleware {
     const authConfig: MCPAuthConfig = {
       enabled: config.authentication.enabled,
       method: config.authentication.method,
-      sessionTimeout: config.authentication.sessionTimeout,
+      ...(config.authentication.sessionTimeout !== undefined && { sessionTimeout: config.authentication.sessionTimeout }),
     };
     this.authManager = new AuthManager(authConfig, logger);
 
@@ -83,9 +83,9 @@ export class SecurityMiddleware implements ISecurityMiddleware {
     this.auditLogger = createAuditLogger(
       {
         logDir: config.audit.logDir,
-        rotationInterval: config.audit.rotationInterval,
-        retentionDays: config.audit.retentionDays,
-        enableConsoleLog: config.audit.enableConsoleLog,
+        ...(config.audit.rotationInterval !== undefined && { rotationInterval: config.audit.rotationInterval }),
+        ...(config.audit.retentionDays !== undefined && { retentionDays: config.audit.retentionDays }),
+        ...(config.audit.enableConsoleLog !== undefined && { enableConsoleLog: config.audit.enableConsoleLog }),
       },
       logger,
     );
@@ -93,10 +93,10 @@ export class SecurityMiddleware implements ISecurityMiddleware {
     // Initialize input validator
     this.inputValidator = createInputValidator(
       {
-        enableStrictMode: config.validation.enableStrictMode,
-        maxInputLength: config.validation.maxInputLength,
-        blockedCommands: config.validation.blockedCommands,
-        blockedPaths: config.validation.blockedPaths,
+        ...(config.validation.enableStrictMode !== undefined && { enableStrictMode: config.validation.enableStrictMode }),
+        ...(config.validation.maxInputLength !== undefined && { maxInputLength: config.validation.maxInputLength }),
+        ...(config.validation.blockedCommands !== undefined && { blockedCommands: config.validation.blockedCommands }),
+        ...(config.validation.blockedPaths !== undefined && { blockedPaths: config.validation.blockedPaths }),
         allowedCommands: config.authorization.commandWhitelist,
       },
       logger,
@@ -105,7 +105,7 @@ export class SecurityMiddleware implements ISecurityMiddleware {
     // Initialize command whitelist
     this.commandWhitelist = createCommandWhitelist(
       {
-        strictMode: config.authorization.strictMode,
+        ...(config.authorization.strictMode !== undefined && { strictMode: config.authorization.strictMode }),
         enableRateLimiting: true,
       },
       logger,
@@ -127,7 +127,7 @@ export class SecurityMiddleware implements ISecurityMiddleware {
       if (result.success && result.user) {
         const context: SecurityContext = {
           userId: result.user,
-          permissions: result.permissions,
+          ...(result.permissions !== undefined && { permissions: result.permissions }),
           sessionId: SecureCrypto.generateSecureSessionId(),
         };
 
@@ -150,7 +150,7 @@ export class SecurityMiddleware implements ISecurityMiddleware {
           },
         );
 
-        return { success: false, error: result.error };
+        return { success: false, ...(result.error !== undefined && { error: result.error }) };
       }
     } catch (error) {
       this.logger.error('Authentication error', error);
@@ -271,12 +271,12 @@ export class SecurityMiddleware implements ISecurityMiddleware {
     await this.auditLogger.log({
       timestamp: new Date(),
       eventType,
-      userId: context.userId,
-      sessionId: context.sessionId,
-      ip: context.ip,
-      userAgent: context.userAgent,
-      action: details.action as string || eventType,
-      outcome: details.success === false ? 'failure' : 'success',
+      ...(context.userId !== undefined && { userId: context.userId }),
+      ...(context.sessionId !== undefined && { sessionId: context.sessionId }),
+      ...(context.ip !== undefined && { ip: context.ip }),
+      ...(context.userAgent !== undefined && { userAgent: context.userAgent }),
+      action: details['action'] as string || eventType,
+      outcome: details['success'] === false ? 'failure' : 'success',
       details,
     });
   }
@@ -384,10 +384,10 @@ export const SecurityHelpers = {
   },
 
   sanitizeContext: (context: SecurityContext): SecurityContext => ({
-    userId: context.userId?.substring(0, 128),
-    sessionId: context.sessionId?.substring(0, 128),
-    permissions: context.permissions?.slice(0, 100),
-    ip: context.ip?.substring(0, 45),
-    userAgent: context.userAgent?.substring(0, 512),
+    ...(context.userId !== undefined && { userId: context.userId.substring(0, 128) }),
+    ...(context.sessionId !== undefined && { sessionId: context.sessionId.substring(0, 128) }),
+    ...(context.permissions !== undefined && { permissions: context.permissions.slice(0, 100) }),
+    ...(context.ip !== undefined && { ip: context.ip.substring(0, 45) }),
+    ...(context.userAgent !== undefined && { userAgent: context.userAgent.substring(0, 512) }),
   }),
 };

@@ -28,7 +28,7 @@ async function main() {
   // Initialize core components
   const eventBus = EventBus.getInstance();
   const logger = new Logger({
-    level: (process.env.CLAUDE_FLOW_LOG_LEVEL || 'error') as 'debug' | 'info' | 'warn' | 'error',
+    level: (process.env['CLAUDE_FLOW_LOG_LEVEL'] || 'error') as 'debug' | 'info' | 'warn' | 'error',
     format: 'text',
     destination: 'console'
   });

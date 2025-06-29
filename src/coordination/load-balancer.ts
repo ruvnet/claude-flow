@@ -375,6 +375,10 @@ export class LoadBalancer extends EventEmitter {
     });
 
     const selectedAgent = sortedCandidates[0];
+    if (!selectedAgent) {
+      throw new Error('No suitable agent found for load balancing');
+    }
+    
     const selectedScore = scores.get(selectedAgent.id.id) || 0;
     const selectedReason = reasons.get(selectedAgent.id.id) || 'unknown';
 
@@ -386,7 +390,8 @@ export class LoadBalancer extends EventEmitter {
     }));
 
     // Calculate confidence based on score gap
-    const secondBestScore = alternatives.length > 0 ? alternatives[0].score : 0;
+    const firstAlternative = alternatives[0];
+    const secondBestScore = firstAlternative ? firstAlternative.score : 0;
     const confidence = Math.min(1, (selectedScore - secondBestScore) + 0.5);
 
     return {
@@ -426,15 +431,15 @@ export class LoadBalancer extends EventEmitter {
     // Check language compatibility
     if (task.requirements.capabilities.includes('coding')) {
       const hasLanguage = agent.capabilities.languages.some(lang =>
-        task.context.language === lang
+        task.context['language'] === lang
       );
       score += hasLanguage ? 1 : 0;
       totalChecks++;
     }
 
     // Check framework compatibility
-    if (task.context.framework) {
-      const hasFramework = agent.capabilities.frameworks.includes(task.context.framework);
+    if (task.context['framework']) {
+      const hasFramework = agent.capabilities.frameworks.includes(task.context['framework']);
       score += hasFramework ? 1 : 0;
       totalChecks++;
     }
@@ -881,8 +886,8 @@ class LoadPredictor {
   }
 
   predict(task: TaskDefinition): LoadPrediction {
-    const currentLoad = this.history.length > 0 ? 
-      this.history[this.history.length - 1].load : 0;
+    const lastHistoryItem = this.history[this.history.length - 1];
+    const currentLoad = lastHistoryItem ? lastHistoryItem.load : 0;
 
     let predictedLoad = currentLoad;
     let confidence = 0.5;
@@ -939,7 +944,10 @@ class SimpleLinearModel {
     if (data.length < 2) return;
 
     // Convert timestamps to relative time points
-    const startTime = data[0].timestamp.getTime();
+    const firstDataPoint = data[0];
+    if (!firstDataPoint) return;
+    
+    const startTime = firstDataPoint.timestamp.getTime();
     const points = data.map((point, index) => ({
       x: index, // Use index as x for simplicity
       y: point.load

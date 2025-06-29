@@ -14,8 +14,8 @@
       },
       "capabilities": {
         "tools": true,
-        "prompts": false,
-        "resources": false
+        "prompts": true,
+        "resources": true
       }
     },
     "claude-flow-advanced": {

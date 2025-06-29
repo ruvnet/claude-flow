@@ -124,7 +124,7 @@ export class NetworkPartitionHandler extends EventEmitter {
     this.isLocalMode = true;
     
     // Configure system for offline operation
-    process.env.CLAUDE_FLOW_OFFLINE_MODE = 'true';
+    process.env['CLAUDE_FLOW_OFFLINE_MODE'] = 'true';
     
     // Notify all components about offline mode
     this.emit('local-mode-enabled', { timestamp: new Date() });
@@ -286,7 +286,7 @@ export class NetworkPartitionHandler extends EventEmitter {
 
   private async resumeNormalMode(): Promise<void> {
     this.isLocalMode = false;
-    delete process.env.CLAUDE_FLOW_OFFLINE_MODE;
+    delete process.env['CLAUDE_FLOW_OFFLINE_MODE'];
     
     this.emit('normal-mode-resumed', { timestamp: new Date() });
     

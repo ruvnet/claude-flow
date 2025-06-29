@@ -360,7 +360,11 @@ export class MigrationRunner {
         throw new Error('No backups found');
       }
       backups.sort().reverse();
-      backupPath = path.join(backupDir, backups[0]);
+      const mostRecentBackup = backups[0];
+      if (!mostRecentBackup) {
+        throw new Error('No valid backup found');
+      }
+      backupPath = path.join(backupDir, mostRecentBackup);
     }
 
     if (!await fs.pathExists(backupPath)) {

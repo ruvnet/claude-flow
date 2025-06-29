@@ -1,0 +1,89 @@
+{
+  "conflictResolutionProtocols": {
+    "fileModificationProtocol": {
+      "lockAcquisition": {
+        "process": [
+          "Agent announces intent to modify file via memory",
+          "Check existing locks in typescript-strict-mega-swarm/shared/file-locks",
+          "If no lock exists, acquire lock with expiration (30 minutes)",
+          "If lock exists, check if expired or request coordination",
+          "Store lock details with agent ID, timestamp, and dependencies"
+        ],
+        "lockTypes": {
+          "read": "Multiple agents can read simultaneously",
+          "write": "Exclusive access for modifications",
+          "exclusive": "Complete isolation for critical operations"
+        },
+        "lockTimeout": 1800000,
+        "lockRenewal": 600000
+      },
+      "conflictDetection": {
+        "simultaneousWrites": {
+          "detection": "Monitor file-locks memory for collision attempts",
+          "resolution": "Priority-based (agent ID ascending) or dependency-based",
+          "notification": "Broadcast to typescript-strict-mega-swarm/shared/conflicts"
+        },
+        "dependencyCircular": {
+          "detection": "Cross-reference agent dependencies in status updates",
+          "resolution": "Break cycles by dependency graph analysis",
+          "escalation": "Emergency protocol if unresolvable"
+        },
+        "resourceContention": {
+          "detection": "Monitor system resources and agent progress",
+          "resolution": "Queue management and prioritization",
+          "throttling": "Limit concurrent operations if needed"
+        }
+      },
+      "resolutionStrategies": {
+        "priorityBased": {
+          "factors": ["agent phase", "task criticality", "dependency depth"],
+          "weights": [0.4, 0.35, 0.25],
+          "calculation": "Sum of weighted factors determines priority"
+        },
+        "dependencyBased": {
+          "algorithm": "Topological sort of dependency graph",
+          "blocking": "Wait for dependencies to complete",
+          "timeout": "Escalate if dependency chain exceeds 60 minutes"
+        },
+        "timeBasedFairness": {
+          "queueing": "First-come-first-served with starvation prevention",
+          "maxWait": 1800000,
+          "fairnessBoost": "Increase priority after waiting > 30 minutes"
+        }
+      }
+    },
+    "emergencyProtocols": {
+      "deadlockDetection": {
+        "monitoring": "Continuous scan of agent status and dependencies",
+        "criteria": "Circular wait conditions lasting > 15 minutes",
+        "response": "Automatic deadlock breaking via dependency removal"
+      },
+      "systemOverload": {
+        "detection": "More than 50% of agents blocked for > 10 minutes",
+        "response": "Activate emergency coordination mode",
+        "actions": ["Pause new operations", "Clear expired locks", "Redistribute work"]
+      },
+      "criticalFailures": {
+        "detection": "Agent failure cascades or system-wide errors",
+        "response": "Emergency stop and recovery procedures",
+        "recovery": "Checkpoint restoration and selective restart"
+      }
+    }
+  },
+  "implementationDetails": {
+    "memoryKeys": {
+      "activeLocks": "typescript-strict-mega-swarm/shared/file-locks",
+      "conflicts": "typescript-strict-mega-swarm/shared/conflicts",
+      "resolutions": "typescript-strict-mega-swarm/shared/resolutions",
+      "emergencies": "typescript-strict-mega-swarm/shared/emergency"
+    },
+    "checkIntervals": {
+      "lockMonitoring": 30000,
+      "conflictDetection": 60000,
+      "deadlockScan": 300000,
+      "systemHealth": 120000
+    }
+  },
+  "timestamp": "${new Date().toISOString()}",
+  "version": "1.0.0"
+}

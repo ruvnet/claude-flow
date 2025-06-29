@@ -239,8 +239,11 @@ export class MarkdownBackend implements IMemoryBackend {
   }
 
   private getEntryFilePath(entry: MemoryEntry): string {
-    const date = entry.timestamp.toISOString().split('T')[0];
-    const time = entry.timestamp.toISOString().split('T')[1].replace(/:/g, '-').split('.')[0];
+    const isoString = entry.timestamp.toISOString();
+    const parts = isoString.split('T');
+    const date = parts[0] || '';
+    const timePart = parts[1] || '';
+    const time = timePart.replace(/:/g, '-').split('.')[0] || '';
     
     return path.join(this.baseDir, 'agents', entry.agentId, date, `${time}_${entry.id}.md`);
   }

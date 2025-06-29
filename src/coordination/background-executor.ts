@@ -59,8 +59,8 @@ class ProcessPool {
             resultResolve({
               exitCode: code || 0,
               output: stdout,
-              error: stderr,
-              pid: childProcess.pid
+              ...(stderr && { error: stderr }),
+              ...(childProcess.pid !== undefined && { pid: childProcess.pid })
             });
           });
 
@@ -118,8 +118,8 @@ export class BackgroundExecutor extends EventEmitter {
   private processes: Map<string, ChildProcess>;
   private queue: string[];
   private isRunning: boolean = false;
-  private checkTimer?: NodeJS.Timeout;
-  private cleanupTimer?: NodeJS.Timeout;
+  private checkTimer?: NodeJS.Timeout | undefined;
+  private cleanupTimer?: NodeJS.Timeout | undefined;
   private processPool: ProcessPool;
 
   constructor(config: Partial<BackgroundExecutorConfig> = {}) {
@@ -307,17 +307,19 @@ export class BackgroundExecutor extends EventEmitter {
         command: task.command,
         args: task.args,
         options: {
-          cwd: task.options?.cwd,
+          ...(task.options?.cwd && { cwd: task.options.cwd }),
           env: { ...process.env, ...task.options?.env } as Record<string, string>,
-          detached: task.options?.detached,
-          timeout: task.options?.timeout,
-          stdio: ['ignore', 'pipe', 'pipe']
+          ...(task.options?.detached !== undefined && { detached: task.options.detached }),
+          ...(task.options?.timeout !== undefined && { timeout: task.options.timeout }),
+          stdio: ['ignore', 'pipe', 'pipe'] as SpawnOptions['stdio']
         }
       };
 
       const { process: childProcess, result } = await this.processPool.executeCommand(processCommand);
 
-      task.pid = childProcess.pid;
+      if (childProcess.pid !== undefined) {
+        task.pid = childProcess.pid;
+      }
       this.processes.set(task.id, childProcess);
 
       // Handle process output
@@ -333,7 +335,9 @@ export class BackgroundExecutor extends EventEmitter {
       result.then(async (processResult) => {
         task.endTime = new Date();
         task.output = processResult.output;
-        task.error = processResult.error;
+        if (processResult.error !== undefined) {
+          task.error = processResult.error;
+        }
 
         if (processResult.exitCode === 0) {
           task.status = 'completed';

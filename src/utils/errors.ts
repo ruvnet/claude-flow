@@ -240,7 +240,7 @@ export function getErrorDetails(error: unknown): unknown {
 export function fatal(error: unknown, code = 1): never {
   if (error instanceof Error) {
     console.error(formatError(error));
-    if (error.stack && process.env.NODE_ENV !== 'production') {
+    if (error.stack && process.env['NODE_ENV'] !== 'production') {
       console.error(error.stack);
     }
   } else {

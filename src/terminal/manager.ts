@@ -301,8 +301,8 @@ export class TerminalManager implements ITerminalManager {
 
   private isVSCodeEnvironment(): boolean {
     // Check for VSCode-specific environment variables
-    return process.env.TERM_PROGRAM === 'vscode' ||
-           process.env.VSCODE_PID !== undefined ||
-           process.env.VSCODE_IPC_HOOK !== undefined;
+    return process.env['TERM_PROGRAM'] === 'vscode' ||
+           process.env['VSCODE_PID'] !== undefined ||
+           process.env['VSCODE_IPC_HOOK'] !== undefined;
   }
 }

@@ -304,36 +304,36 @@ export class ConfigManager {
    */
   private loadFromEnv(): void {
     // Orchestrator settings
-    const maxAgents = process.env.CLAUDE_FLOW_MAX_AGENTS;
+    const maxAgents = process.env['CLAUDE_FLOW_MAX_AGENTS'];
     if (maxAgents) {
       this.config.orchestrator.maxConcurrentAgents = parseInt(maxAgents, 10);
     }
 
     // Terminal settings
-    const terminalType = process.env.CLAUDE_FLOW_TERMINAL_TYPE;
+    const terminalType = process.env['CLAUDE_FLOW_TERMINAL_TYPE'];
     if (terminalType === 'vscode' || terminalType === 'native' || terminalType === 'auto') {
       this.config.terminal.type = terminalType;
     }
 
     // Memory settings
-    const memoryBackend = process.env.CLAUDE_FLOW_MEMORY_BACKEND;
+    const memoryBackend = process.env['CLAUDE_FLOW_MEMORY_BACKEND'];
     if (memoryBackend === 'sqlite' || memoryBackend === 'markdown' || memoryBackend === 'hybrid') {
       this.config.memory.backend = memoryBackend;
     }
 
     // MCP settings
-    const mcpTransport = process.env.CLAUDE_FLOW_MCP_TRANSPORT;
+    const mcpTransport = process.env['CLAUDE_FLOW_MCP_TRANSPORT'];
     if (mcpTransport === 'stdio' || mcpTransport === 'http' || mcpTransport === 'websocket') {
       this.config.mcp.transport = mcpTransport;
     }
 
-    const mcpPort = process.env.CLAUDE_FLOW_MCP_PORT;
+    const mcpPort = process.env['CLAUDE_FLOW_MCP_PORT'];
     if (mcpPort) {
       this.config.mcp.port = parseInt(mcpPort, 10);
     }
 
     // Logging settings
-    const logLevel = process.env.CLAUDE_FLOW_LOG_LEVEL;
+    const logLevel = process.env['CLAUDE_FLOW_LOG_LEVEL'];
     if (logLevel === 'debug' || logLevel === 'info' || logLevel === 'warn' || logLevel === 'error') {
       this.config.logging.level = logLevel;
     }

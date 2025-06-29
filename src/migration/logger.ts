@@ -11,11 +11,11 @@ export interface LogEntry {
   level: 'info' | 'warn' | 'error' | 'success' | 'debug';
   message: string;
   context?: any;
-  stack?: string;
+  stack?: string | undefined;
 }
 
 export class MigrationLogger {
-  private logFile?: string;
+  private logFile?: string | undefined;
   private entries: LogEntry[] = [];
 
   constructor(logFile?: string) {
@@ -46,7 +46,7 @@ export class MigrationLogger {
   }
 
   debug(message: string, context?: any): void {
-    if (process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development') {
+    if (process.env['DEBUG'] === 'true' || process.env['NODE_ENV'] === 'development') {
       this.log('debug', message, context);
       console.log(chalk.gray(`🔍 ${message}`));
     }
@@ -129,7 +129,7 @@ export class MigrationLogger {
 export const logger = new MigrationLogger();
 
 // Set log file if in production
-if (process.env.NODE_ENV === 'production') {
+if (process.env['NODE_ENV'] === 'production') {
   const logFile = path.join(process.cwd(), 'logs', 'migration.log');
   logger['logFile'] = logFile;
 }

@@ -195,7 +195,7 @@ export class SessionManager implements ISessionManager {
 
   getActiveSessions(): MCPSession[] {
     const activeSessions: MCPSession[] = [];
-    for (const session of this.sessions.values()) {
+    for (const session of Array.from(this.sessions.values())) {
       if (!this.isSessionExpired(session)) {
         activeSessions.push(session);
       }
@@ -206,7 +206,7 @@ export class SessionManager implements ISessionManager {
   cleanupExpiredSessions(): void {
     const expiredSessions: string[] = [];
     
-    for (const [sessionId, session] of this.sessions) {
+    for (const [sessionId, session] of Array.from(this.sessions)) {
       if (this.isSessionExpired(session)) {
         expiredSessions.push(sessionId);
       }
@@ -234,7 +234,7 @@ export class SessionManager implements ISessionManager {
     let authenticated = 0;
     let expired = 0;
 
-    for (const session of this.sessions.values()) {
+    for (const session of Array.from(this.sessions.values())) {
       if (this.isSessionExpired(session)) {
         expired++;
       } else {

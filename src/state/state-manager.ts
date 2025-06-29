@@ -492,7 +492,7 @@ export class UnifiedStateManager extends EventEmitter {
    */
   private getActionPath(action: StateAction): string[] {
     const parts = action.type.split('/');
-    if (parts.length >= 2) {
+    if (parts.length >= 2 && parts[0]) {
       return [parts[0]]; // Return domain (e.g., 'swarm', 'agents')
     }
     return [];
@@ -618,12 +618,16 @@ export class UnifiedStateManager extends EventEmitter {
     let current = obj;
     for (let i = 0; i < path.length - 1; i++) {
       const key = path[i];
+      if (!key) return;
       if (current[key] == null || typeof current[key] !== 'object') {
         current[key] = {};
       }
       current = current[key];
     }
-    current[path[path.length - 1]] = value;
+    const lastKey = path[path.length - 1];
+    if (lastKey) {
+      current[lastKey] = value;
+    }
   }
 
   /**
@@ -633,10 +637,13 @@ export class UnifiedStateManager extends EventEmitter {
     let current = obj;
     for (let i = 0; i < path.length - 1; i++) {
       const key = path[i];
-      if (current[key] == null) return;
+      if (!key || current[key] == null) return;
       current = current[key];
     }
-    delete current[path[path.length - 1]];
+    const lastKey = path[path.length - 1];
+    if (lastKey) {
+      delete current[lastKey];
+    }
   }
 }
 

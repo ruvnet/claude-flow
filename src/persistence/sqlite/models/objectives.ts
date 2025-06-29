@@ -1,5 +1,5 @@
 import { execute, query, queryOne, getDatabase } from '../database';
-import { Task } from './tasks';
+import { Task, TaskModel } from './tasks';
 
 export interface Objective {
   id: string;
@@ -374,19 +374,32 @@ export class ObjectiveModel {
         )
       : 0;
 
-    return {
+    const result: ObjectiveWithTasks = {
       id: objective.id,
       description: objective.description,
-      strategy: objective.strategy,
       status: objective.status,
       createdAt: new Date(objective.created_at),
-      completedAt: objective.completed_at ? new Date(objective.completed_at) : undefined,
-      tasks: tasks.map(t => ({
-        taskId: t.task_id,
-        sequenceOrder: t.sequence_order,
-        task: t.id ? TaskModel.mapToTask(t) : undefined
-      })),
+      tasks: tasks.map(t => {
+        const taskObj: { taskId: string; sequenceOrder: number; task?: Task } = {
+          taskId: t.task_id,
+          sequenceOrder: t.sequence_order
+        };
+        if (t.id) {
+          taskObj.task = TaskModel.mapToTask(t);
+        }
+        return taskObj;
+      }),
       progress
     };
+    
+    if (objective.strategy !== null && objective.strategy !== undefined) {
+      result.strategy = objective.strategy;
+    }
+    
+    if (objective.completed_at !== null && objective.completed_at !== undefined) {
+      result.completedAt = new Date(objective.completed_at);
+    }
+    
+    return result;
   }
 }

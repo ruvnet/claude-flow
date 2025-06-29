@@ -401,7 +401,7 @@ export class SecurityManager extends EventEmitter {
       name: scanData.name,
       type: scanData.type,
       status: 'pending',
-      projectId: scanData.projectId,
+      ...(scanData.projectId && { projectId: scanData.projectId }),
       target: scanData.target,
       configuration: {
         scanner: this.getDefaultScanner(scanData.type),
@@ -437,7 +437,7 @@ export class SecurityManager extends EventEmitter {
         manualReview: [],
         recommendations: []
       },
-      schedule: scanData.schedule,
+      ...(scanData.schedule && { schedule: scanData.schedule }),
       notifications: {
         channels: [],
         thresholds: {

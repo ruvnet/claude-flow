@@ -1,0 +1,50 @@
+
+> claude-flow@1.0.72 check:strict
+> tsc --project tsconfig.ci.json --noEmit
+
+src/agents/agent-manager.ts(29,11): error TS6133: 'logger' is declared but its value is never read.
+src/agents/agent-manager.ts(45,23): error TS2345: Argument of type '{ exitCode: number; output: string; pid: number | undefined; }' is not assignable to parameter of type 'ProcessPoolResult | PromiseLike<ProcessPoolResult>'.
+  Type '{ exitCode: number; output: string; pid: number | undefined; }' is not assignable to type 'ProcessPoolResult' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'pid' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/agents/agent-manager.ts(53,23): error TS2345: Argument of type '{ exitCode: number; output: string; error: string; pid: number | undefined; }' is not assignable to parameter of type 'ProcessPoolResult | PromiseLike<ProcessPoolResult>'.
+  Type '{ exitCode: number; output: string; error: string; pid: number | undefined; }' is not assignable to type 'ProcessPoolResult' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'pid' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/agents/agent-manager.ts(75,3): error TS6133: 'TaskId' is declared but its value is never read.
+src/agents/agent-manager.ts(76,3): error TS6133: 'TaskDefinition' is declared but its value is never read.
+src/agents/agent-manager.ts(204,11): error TS6133: 'scalingOperations' is declared but its value is never read.
+src/agents/agent-manager.ts(914,11): error TS6133: 'startTime' is declared but its value is never read.
+src/agents/agent-manager.ts(969,30): error TS6133: 'agentId' is declared but its value is never read.
+src/agents/agent-registry.ts(7,22): error TS6133: 'AgentId' is declared but its value is never read.
+src/agents/agent-registry.ts(435,5): error TS6133: 'taskType' is declared but its value is never read.
+src/cli/commands/advanced-memory-commands.ts(8,10): error TS6133: 'join' is declared but its value is never read.
+src/cli/commands/advanced-memory-commands.ts(8,25): error TS6133: 'basename' is declared but its value is never read.
+src/cli/commands/advanced-memory-commands.ts(146,15): error TS2375: Type '{ fullTextSearch: any; namespace: any; type: any; tags: any; owner: any; accessLevel: any; keyPattern: any; valueSearch: any; createdAfter: Date | undefined; createdBefore: Date | undefined; updatedAfter: Date | undefined; updatedBefore: Date | undefined; sizeGreaterThan: any; sizeLessThan: any; includeExpired: any; limit: any; offset: any; sortBy: any; sortOrder: any; aggregateBy: any; includeMetadata: any; }' is not assignable to type 'QueryOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'createdAfter' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/cli/commands/advanced-memory-commands.ts(301,15): error TS2375: Type '{ format: ExportOptions["format"]; namespace: any; type: any; includeMetadata: any; compression: any; encryption: { enabled: true; key: any; } | undefined; filtering: QueryOptions | undefined; }' is not assignable to type 'ExportOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'encryption' are incompatible.
+    Type '{ enabled: true; key: any; } | undefined' is not assignable to type '{ enabled: boolean; algorithm?: string; key?: string; }'.
+      Type 'undefined' is not assignable to type '{ enabled: boolean; algorithm?: string; key?: string; }'.
+src/cli/commands/advanced-memory-commands.ts(421,15): error TS2375: Type '{ format: ImportOptions["format"]; namespace: any; conflictResolution: ImportOptions["conflictResolution"]; validation: any; transformation: { keyMapping?: Record<string, string>; valueTransformation?: (value: any) => any; metadataExtraction?: (entry: any) => Record<string, any>; } | undefined; dryRun: any; }' is not assignable to type 'ImportOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'transformation' are incompatible.
+    Type '{ keyMapping?: Record<string, string>; valueTransformation?: (value: any) => any; metadataExtraction?: (entry: any) => Record<string, any>; } | undefined' is not assignable to type '{ keyMapping?: Record<string, string>; valueTransformation?: (value: any) => any; metadataExtraction?: (entry: any) => Record<string, any>; }'.
+      Type 'undefined' is not assignable to type '{ keyMapping?: Record<string, string>; valueTransformation?: (value: any) => any; metadataExtraction?: (entry: any) => Record<string, any>; }'.
+src/cli/commands/advanced-memory-commands.ts(672,15): error TS2375: Type '{ dryRun: any; removeExpired: any; removeOlderThan: any; removeUnaccessed: any; removeOrphaned: any; removeDuplicates: any; compressEligible: any; archiveOld: { enabled: true; olderThan: any; archivePath: any; } | undefined; retentionPolicies: any; }' is not assignable to type 'CleanupOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'archiveOld' are incompatible.
+    Type '{ enabled: true; olderThan: any; archivePath: any; } | undefined' is not assignable to type '{ enabled: boolean; olderThan: number; archivePath: string; }'.
+      Type 'undefined' is not assignable to type '{ enabled: boolean; olderThan: number; archivePath: string; }'.
+src/cli/commands/agent.ts(10,1): error TS6133: 'AgentProfile' is declared but its value is never read.
+src/cli/commands/agent.ts(11,1): error TS6133: 'generateId' is declared but its value is never read.
+src/cli/commands/agent.ts(13,1): error TS6133: 'MemoryManager' is declared but its value is never read.
+src/cli/commands/agent.ts(424,20): error TS6133: 'options' is declared but its value is never read.
+src/cli/commands/agent.ts(709,48): error TS6133: 'manager' is declared but its value is never read.
+src/cli/commands/agent.ts(800,29): error TS6133: 'agentId' is declared but its value is never read.
+src/cli/commands/agent.ts(881,10): error TS6133: 'getCapabilitiesForType' is declared but its value is never read.
+src/cli/commands/agent.ts(890,3): error TS2322: Type 'string[] | undefined' is not assignable to type 'string[]'.
+  Type 'undefined' is not assignable to type 'string[]'.
+src/cli/commands/agent.ts(890,45): error TS4111: Property 'custom' comes from an index signature, so it must be accessed with ['custom'].

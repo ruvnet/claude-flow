@@ -104,12 +104,12 @@ export class NodeRuntimeAdapter implements RuntimeAdapter {
 
   /** Check if running in development mode */
   isDevelopment(): boolean {
-    return process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev';
+    return process.env['NODE_ENV'] === 'development' || process.env['NODE_ENV'] === 'dev';
   }
 
   /** Check if running in production mode */
   isProduction(): boolean {
-    return process.env.NODE_ENV === 'production';
+    return process.env['NODE_ENV'] === 'production';
   }
 
   /** Get the current Node.js version */

@@ -264,7 +264,7 @@ export class MCPPerformanceMonitor extends EventEmitter {
     this.alertRules.delete(ruleId);
     
     // Resolve any active alerts for this rule
-    for (const [alertId, alert] of this.activeAlerts.entries()) {
+    for (const [alertId, alert] of Array.from(this.activeAlerts.entries())) {
       if (alert.ruleId === ruleId) {
         this.resolveAlert(alertId);
       }
@@ -444,7 +444,7 @@ export class MCPPerformanceMonitor extends EventEmitter {
   private checkAlerts(): void {
     const metrics = this.getCurrentMetrics();
 
-    for (const rule of this.alertRules.values()) {
+    for (const rule of Array.from(this.alertRules.values())) {
       if (!rule.enabled) continue;
 
       const value = this.getMetricValue(metrics, rule.metric);
@@ -626,7 +626,7 @@ export class MCPPerformanceMonitor extends EventEmitter {
     const now = Date.now();
     
     // Clean up old request metrics
-    for (const [id, metrics] of this.requestMetrics.entries()) {
+    for (const [id, metrics] of Array.from(this.requestMetrics.entries())) {
       if (now - metrics.startTime > this.config.requestTimeout) {
         this.requestMetrics.delete(id);
       }

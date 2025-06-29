@@ -1,0 +1,30 @@
+{
+  "timestamp": "2025-06-29T00:00:00Z",
+  "total_errors": 885,
+  "error_breakdown": {
+    "TS4111": { "count": 461, "description": "Property from index signature must be accessed with bracket notation", "severity": "easy-fix" },
+    "TS2412": { "count": 73, "description": "Type issues with object type aliases", "severity": "medium" },
+    "TS18048": { "count": 60, "description": "Value is possibly 'undefined'", "severity": "medium" },
+    "TS2345": { "count": 56, "description": "Argument type mismatch", "severity": "medium" },
+    "TS2375": { "count": 54, "description": "exactOptionalPropertyTypes issues", "severity": "hard" },
+    "TS2532": { "count": 43, "description": "Object is possibly 'undefined'", "severity": "medium" },
+    "TS2379": { "count": 43, "description": "Parameter assignment with exactOptionalPropertyTypes", "severity": "hard" },
+    "TS2484": { "count": 35, "description": "Export declaration conflicts", "severity": "medium" },
+    "TS2322": { "count": 29, "description": "Type assignment issues", "severity": "medium" },
+    "TS2538": { "count": 18, "description": "Type cannot be used as index type", "severity": "medium" },
+    "TS2769": { "count": 6, "description": "No overload matches", "severity": "hard" },
+    "TS2344": { "count": 3, "description": "Type constraint issues", "severity": "hard" },
+    "TS2488": { "count": 2, "description": "Iterator method missing", "severity": "medium" },
+    "TS2722": { "count": 1, "description": "Cannot invoke possibly 'undefined'", "severity": "medium" },
+    "TS2677": { "count": 1, "description": "Type predicate assignment issue", "severity": "hard" }
+  },
+  "priority_fixes": [
+    "TS4111 - Automate bracket notation conversion (461 errors)",
+    "TS2375/TS2379 - Consider disabling exactOptionalPropertyTypes (97 errors)",
+    "TS2412 - Review type aliases and interfaces (73 errors)"
+  ],
+  "tsconfig_optimizations": {
+    "consider_disabling": ["exactOptionalPropertyTypes", "noPropertyAccessFromIndexSignature"],
+    "maintain_strict": ["strictNullChecks", "noImplicitAny", "strict"]
+  }
+}

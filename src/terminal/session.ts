@@ -163,17 +163,17 @@ export class TerminalSession {
     }
 
     // Set working directory if specified
-    if (this.profile.metadata?.workingDirectory) {
+    if (this.profile.metadata?.['workingDirectory']) {
       await this.terminal.executeCommand(
-        `cd "${this.profile.metadata.workingDirectory}"`,
+        `cd "${this.profile.metadata['workingDirectory']}"`,
       );
     }
   }
 
   private async runInitializationCommands(): Promise<void> {
     // Run any profile-specific initialization commands
-    if (this.profile.metadata?.initCommands) {
-      const commands = this.profile.metadata.initCommands as string[];
+    if (this.profile.metadata?.['initCommands']) {
+      const commands = this.profile.metadata['initCommands'] as string[];
       for (const command of commands) {
         await this.terminal.executeCommand(command);
       }
@@ -185,8 +185,8 @@ export class TerminalSession {
 
   private async runCleanupCommands(): Promise<void> {
     // Run any profile-specific cleanup commands
-    if (this.profile.metadata?.cleanupCommands) {
-      const commands = this.profile.metadata.cleanupCommands as string[];
+    if (this.profile.metadata?.['cleanupCommands']) {
+      const commands = this.profile.metadata['cleanupCommands'] as string[];
       for (const command of commands) {
         try {
           await this.terminal.executeCommand(command);

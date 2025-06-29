@@ -309,12 +309,14 @@ export class TaskExecutor extends EventEmitter {
       const processCommand: ProcessCommand = {
         command: command.command,
         args: command.args,
-        input: command.input,
         env,
         cwd: context.workingDirectory,
         timeout: timeout,
         detached: options.detached || false
       };
+      if (command.input !== undefined) {
+        processCommand.input = command.input;
+      }
       
       const processResult = await this.processPool.execute(processCommand);
       
@@ -589,11 +591,11 @@ export class TaskExecutor extends EventEmitter {
     try {
       // Scan working directory for artifacts
       const files = await this.scanDirectory(context.workingDirectory);
-      artifacts.files = files;
+      artifacts['files'] = files;
 
       // Check for specific artifact types
-      artifacts.logs = await this.collectLogs(context.logDirectory);
-      artifacts.outputs = await this.collectOutputs(context.workingDirectory);
+      artifacts['logs'] = await this.collectLogs(context.logDirectory);
+      artifacts['outputs'] = await this.collectOutputs(context.workingDirectory);
 
     } catch (error) {
       this.logger.warn('Error collecting artifacts', {
@@ -1044,10 +1046,14 @@ class ProcessPool extends EventEmitter implements IProcessExecutor {
           exitCode,
           stdout,
           stderr,
-          duration,
-          pid: childProcess.pid,
-          signal: signal || undefined
+          duration
         };
+        if (childProcess.pid !== undefined) {
+          result.pid = childProcess.pid;
+        }
+        if (signal) {
+          result.signal = signal;
+        }
         
         if (isTimeout) {
           result.stderr = `Process timed out after ${command.timeout}ms`;
@@ -1092,7 +1098,11 @@ class ProcessPool extends EventEmitter implements IProcessExecutor {
     
     // Check for dangerous commands
     const dangerousCommands = ['rm', 'del', 'format', 'fdisk', 'mkfs'];
-    const command = path.basename(input[0]).toLowerCase();
+    const firstInput = input[0];
+    if (!firstInput) {
+      return false;
+    }
+    const command = path.basename(firstInput).toLowerCase();
     
     if (dangerousCommands.includes(command)) {
       return false;

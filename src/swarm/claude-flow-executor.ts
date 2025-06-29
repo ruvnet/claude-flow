@@ -64,12 +64,15 @@ export class ProcessPool {
         });
 
         proc.on('close', (code) => {
-          resolve({
+          const result: ProcessPoolResult = {
             exitCode: code || 0,
             output: stdout,
-            error: stderr || undefined,
             artifacts
-          });
+          };
+          if (stderr) {
+            result.error = stderr;
+          }
+          resolve(result);
         });
 
         proc.on('error', reject);
@@ -276,8 +279,8 @@ export class ClaudeFlowExecutor {
     }
 
     // Add context if available
-    if (task.context?.targetDir) {
-      description += ` in ${task.context.targetDir}`;
+    if (task.context?.['targetDir']) {
+      description += ` in ${task.context['targetDir']}`;
     }
 
     return description.replace(/"/g, '\\"');
@@ -287,7 +290,7 @@ export class ClaudeFlowExecutor {
     const [cmd, ...args] = command;
     
     const processCommand: ProcessPoolCommand = {
-      command: cmd,
+      command: cmd || '',
       args,
       options: {
         shell: true,

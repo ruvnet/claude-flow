@@ -26,7 +26,7 @@ export interface MemoryEntry {
   createdAt: Date;
   updatedAt: Date;
   lastAccessedAt: Date;
-  expiresAt?: Date;
+  expiresAt?: Date | undefined;
   version: number;
   size: number;
   compressed: boolean;
@@ -45,56 +45,56 @@ export interface MemoryIndex {
 }
 
 export interface QueryOptions {
-  namespace?: string;
-  type?: string;
-  tags?: string[];
-  owner?: string;
-  accessLevel?: 'private' | 'shared' | 'public';
-  keyPattern?: string;
-  valueSearch?: string;
-  fullTextSearch?: string;
-  createdAfter?: Date;
-  createdBefore?: Date;
-  updatedAfter?: Date;
-  updatedBefore?: Date;
-  lastAccessedAfter?: Date;
-  lastAccessedBefore?: Date;
-  sizeGreaterThan?: number;
-  sizeLessThan?: number;
-  includeExpired?: boolean;
-  limit?: number;
-  offset?: number;
-  sortBy?: 'key' | 'createdAt' | 'updatedAt' | 'lastAccessedAt' | 'size' | 'type';
-  sortOrder?: 'asc' | 'desc';
-  aggregateBy?: 'namespace' | 'type' | 'owner' | 'tags';
-  includeMetadata?: boolean;
+  namespace?: string | undefined;
+  type?: string | undefined;
+  tags?: string[] | undefined;
+  owner?: string | undefined;
+  accessLevel?: 'private' | 'shared' | 'public' | undefined;
+  keyPattern?: string | undefined;
+  valueSearch?: string | undefined;
+  fullTextSearch?: string | undefined;
+  createdAfter?: Date | undefined;
+  createdBefore?: Date | undefined;
+  updatedAfter?: Date | undefined;
+  updatedBefore?: Date | undefined;
+  lastAccessedAfter?: Date | undefined;
+  lastAccessedBefore?: Date | undefined;
+  sizeGreaterThan?: number | undefined;
+  sizeLessThan?: number | undefined;
+  includeExpired?: boolean | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
+  sortBy?: 'key' | 'createdAt' | 'updatedAt' | 'lastAccessedAt' | 'size' | 'type' | undefined;
+  sortOrder?: 'asc' | 'desc' | undefined;
+  aggregateBy?: 'namespace' | 'type' | 'owner' | 'tags' | undefined;
+  includeMetadata?: boolean | undefined;
 }
 
 export interface ExportOptions {
   format: 'json' | 'csv' | 'xml' | 'yaml';
-  namespace?: string;
-  type?: string;
-  includeMetadata?: boolean;
-  compression?: boolean;
+  namespace?: string | undefined;
+  type?: string | undefined;
+  includeMetadata?: boolean | undefined;
+  compression?: boolean | undefined;
   encryption?: {
     enabled: boolean;
-    algorithm?: string;
-    key?: string;
-  };
-  filtering?: QueryOptions;
+    algorithm?: string | undefined;
+    key?: string | undefined;
+  } | undefined;
+  filtering?: QueryOptions | undefined;
 }
 
 export interface ImportOptions {
   format: 'json' | 'csv' | 'xml' | 'yaml';
-  namespace?: string;
+  namespace?: string | undefined;
   conflictResolution: 'overwrite' | 'skip' | 'merge' | 'rename';
-  validation?: boolean;
+  validation?: boolean | undefined;
   transformation?: {
-    keyMapping?: Record<string, string>;
-    valueTransformation?: (value: any) => any;
-    metadataExtraction?: (entry: any) => Record<string, any>;
-  };
-  dryRun?: boolean;
+    keyMapping?: Record<string, string> | undefined;
+    valueTransformation?: ((value: any) => any) | undefined;
+    metadataExtraction?: ((entry: any) => Record<string, any>) | undefined;
+  } | undefined;
+  dryRun?: boolean | undefined;
 }
 
 export interface MemoryStatistics {
@@ -117,8 +117,8 @@ export interface MemoryStatistics {
     entriesCreatedLast24h: number;
     entriesUpdatedLast24h: number;
     entriesAccessedLast24h: number;
-    oldestEntry?: Date;
-    newestEntry?: Date;
+    oldestEntry?: Date | undefined;
+    newestEntry?: Date | undefined;
   };
   performance: {
     averageQueryTime: number;
@@ -207,7 +207,7 @@ export class AdvancedMemoryManager extends EventEmitter {
 
   private statistics: MemoryStatistics;
   private operationMetrics = new Map<string, { count: number; totalTime: number }>();
-  private cleanupInterval?: NodeJS.Timeout;
+  private cleanupInterval?: NodeJS.Timeout | undefined;
 
   constructor(config: Partial<typeof AdvancedMemoryManager.prototype.config> = {}, logger: ILogger) {
     super();
@@ -508,7 +508,7 @@ export class AdvancedMemoryManager extends EventEmitter {
   async query(options: QueryOptions = {}): Promise<{
     entries: MemoryEntry[];
     total: number;
-    aggregations?: Record<string, any>;
+    aggregations?: Record<string, any> | undefined;
   }> {
     const startTime = Date.now();
     
@@ -1208,16 +1208,16 @@ export class AdvancedMemoryManager extends EventEmitter {
     
     switch (aggregateBy) {
       case 'namespace':
-        aggregations.namespaces = this.aggregateByProperty(entries, 'namespace');
+        aggregations['namespaces'] = this.aggregateByProperty(entries, 'namespace');
         break;
       case 'type':
-        aggregations.types = this.aggregateByProperty(entries, 'type');
+        aggregations['types'] = this.aggregateByProperty(entries, 'type');
         break;
       case 'owner':
-        aggregations.owners = this.aggregateByProperty(entries, 'owner');
+        aggregations['owners'] = this.aggregateByProperty(entries, 'owner');
         break;
       case 'tags':
-        aggregations.tags = this.aggregateByTags(entries);
+        aggregations['tags'] = this.aggregateByTags(entries);
         break;
     }
     
@@ -1343,15 +1343,24 @@ export class AdvancedMemoryManager extends EventEmitter {
   private parseCsvImport(content: string): any[] {
     // Simple CSV parsing
     const lines = content.split('\n');
-    const headers = lines[0].split(',');
+    const firstLine = lines[0];
+    if (!firstLine) return [];
+    
+    const headers = firstLine.split(',');
     const entries = [];
     
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',');
+      const line = lines[i];
+      if (!line) continue;
+      
+      const values = line.split(',');
       const entry: any = {};
       
       for (let j = 0; j < headers.length; j++) {
-        entry[headers[j]] = values[j];
+        const header = headers[j];
+        if (header) {
+          entry[header] = values[j];
+        }
       }
       
       entries.push(entry);
@@ -1604,7 +1613,9 @@ export class AdvancedMemoryManager extends EventEmitter {
     const duplicates: Array<{ key: string; namespace: string; entries: MemoryEntry[] }> = [];
     for (const [compositeKey, entryList] of keyMap) {
       if (entryList.length > 1) {
-        const [namespace, key] = compositeKey.split(':', 2);
+        const parts = compositeKey.split(':', 2);
+        const namespace = parts[0] || '';
+        const key = parts[1] || '';
         duplicates.push({ key, namespace, entries: entryList });
       }
     }

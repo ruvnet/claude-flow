@@ -167,7 +167,7 @@ export class CommandWhitelist implements ICommandWhitelist {
       // Check allowed arguments
       if (policy.allowedArgs && args.length > 0) {
         const firstArg = args[0];
-        if (!policy.allowedArgs.includes(firstArg)) {
+        if (firstArg !== undefined && !policy.allowedArgs.includes(firstArg)) {
           await this.logCommandAttempt(command, args, userId || 'anonymous', false, 'Invalid argument');
           return false;
         }

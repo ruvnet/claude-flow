@@ -196,9 +196,9 @@ export class TaskCoordinator extends EventEmitter {
       key,
       value,
       timestamp: new Date(),
-      namespace: options.namespace,
-      tags: options.tags,
-      expiresAt: options.expiresAt
+      ...(options.namespace !== undefined && { namespace: options.namespace }),
+      ...(options.tags !== undefined && { tags: options.tags }),
+      ...(options.expiresAt !== undefined && { expiresAt: options.expiresAt })
     };
 
     this.memoryStore.set(key, entry);
@@ -335,7 +335,7 @@ export class TaskCoordinator extends EventEmitter {
           objective: task.objective,
           status: 'running',
           startedAt: new Date(),
-          memoryKey: task.memoryKey,
+          ...(task.memoryKey !== undefined && { memoryKey: task.memoryKey }),
           coordinationContext
         });
 
@@ -594,9 +594,9 @@ export class TaskCoordinator extends EventEmitter {
       tags: todo.tags || [],
       metadata: {
         todoId: todo.id,
-        batchOptimized: todo.batchOptimized,
-        parallelExecution: todo.parallelExecution,
-        memoryKey: todo.memoryKey
+        ...(todo.batchOptimized !== undefined && { batchOptimized: todo.batchOptimized }),
+        ...(todo.parallelExecution !== undefined && { parallelExecution: todo.parallelExecution }),
+        ...(todo.memoryKey !== undefined && { memoryKey: todo.memoryKey })
       }
     };
 
@@ -747,7 +747,7 @@ export class TaskCoordinator extends EventEmitter {
 
   private async handleTaskCreated(data: { task: WorkflowTask }): Promise<void> {
     // Update corresponding todo if exists
-    const todoId = data.task.metadata?.todoId;
+    const todoId = data.task.metadata?.['todoId'];
     if (todoId) {
       await this.updateTodoProgress(todoId as string, 'in_progress', {
         taskId: data.task.id,
@@ -771,7 +771,7 @@ export class TaskCoordinator extends EventEmitter {
   private async handleTaskCompleted(data: { taskId: string; result: unknown }): Promise<void> {
     // Update todo and store results
     const task = (await this.taskEngine.getTaskStatus(data.taskId))?.task;
-    const todoId = task?.metadata?.todoId;
+    const todoId = task?.metadata?.['todoId'];
     
     if (todoId) {
       await this.updateTodoProgress(todoId as string, 'completed', {

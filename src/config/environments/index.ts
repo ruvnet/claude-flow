@@ -14,7 +14,7 @@ import { ClaudeFlowConfig, RuntimeConfig } from '../types.js';
  * Get configuration for specific environment
  */
 export function getEnvironmentConfig(env?: string): ClaudeFlowConfig {
-  const environment = env || process.env.NODE_ENV || 'development';
+  const environment = env || process.env['NODE_ENV'] || 'development';
   
   switch (environment) {
     case 'production':
@@ -36,14 +36,14 @@ export function getEnvironmentConfig(env?: string): ClaudeFlowConfig {
  * Check if running in production
  */
 export function isProduction(): boolean {
-  return process.env.NODE_ENV === 'production';
+  return process.env['NODE_ENV'] === 'production';
 }
 
 /**
  * Check if running in staging
  */
 export function isStaging(): boolean {
-  return process.env.NODE_ENV === 'staging';
+  return process.env['NODE_ENV'] === 'staging';
 }
 
 /**

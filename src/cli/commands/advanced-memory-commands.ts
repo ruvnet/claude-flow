@@ -7,7 +7,23 @@ import { Command } from 'commander';
 import { promises as fs } from 'node:fs';
 import { join, extname, basename } from 'node:path';
 import chalk from 'chalk';
-import { AdvancedMemoryManager, QueryOptions, ExportOptions, ImportOptions, CleanupOptions } from '../../memory/advanced-memory-manager.js';
+import { AdvancedMemoryManager } from '../../memory/advanced-memory-manager.js';
+import { 
+  createQueryOptions, 
+  createExportOptions, 
+  createImportOptions, 
+  createCleanupOptions,
+  type QueryOptions,
+  type ExportOptions,
+  type ImportOptions,
+  type CleanupOptions
+} from '../../types/optional-property-utils.js';
+import { 
+  StrictQueryOptions, 
+  StrictExportOptions, 
+  StrictImportOptions, 
+  StrictCleanupOptions 
+} from '../../types/strict-mode-utilities.js';
 import { Logger } from '../../core/logger.js';
 
 // Initialize logger
@@ -142,8 +158,8 @@ export function createAdvancedMemoryCommand(): Command {
         const manager = await ensureMemoryManager();
         const startTime = Date.now();
 
-        // Build query options
-        const queryOptions: QueryOptions = {
+        // Build query options safely to satisfy exactOptionalPropertyTypes
+        const queryOptions = createQueryOptions({
           fullTextSearch: search,
           namespace: options.namespace,
           type: options.type,
@@ -156,16 +172,12 @@ export function createAdvancedMemoryCommand(): Command {
           createdBefore: options.createdBefore ? new Date(options.createdBefore) : undefined,
           updatedAfter: options.updatedAfter ? new Date(options.updatedAfter) : undefined,
           updatedBefore: options.updatedBefore ? new Date(options.updatedBefore) : undefined,
-          sizeGreaterThan: options.sizeGt,
-          sizeLessThan: options.sizeLt,
-          includeExpired: options.includeExpired,
           limit: options.limit,
           offset: options.offset,
           sortBy: options.sortBy,
           sortOrder: options.sortOrder,
-          aggregateBy: options.aggregateBy,
           includeMetadata: options.includeMetadata
-        };
+        });
 
         const result = await manager.query(queryOptions);
         const duration = Date.now() - startTime;
@@ -287,7 +299,7 @@ export function createAdvancedMemoryCommand(): Command {
         }
 
         // Parse filter query if provided
-        let filtering: QueryOptions | undefined;
+        let filtering: StrictQueryOptions | undefined;
         if (options.filterQuery) {
           try {
             filtering = JSON.parse(options.filterQuery);
@@ -297,8 +309,8 @@ export function createAdvancedMemoryCommand(): Command {
           }
         }
 
-        // Build export options
-        const exportOptions: ExportOptions = {
+        // Build export options safely to satisfy exactOptionalPropertyTypes
+        const exportOptions = createExportOptions({
           format: format as ExportOptions['format'],
           namespace: options.namespace,
           type: options.type,
@@ -308,8 +320,8 @@ export function createAdvancedMemoryCommand(): Command {
             enabled: true,
             key: options.encryptKey
           } : undefined,
-          filtering
-        };
+          filtering: filtering
+        });
 
         printInfo(`Starting export to ${file} (format: ${format})`);
         const startTime = Date.now();
@@ -384,9 +396,13 @@ export function createAdvancedMemoryCommand(): Command {
         }
 
         // Parse transformation options
-        let transformation: ImportOptions['transformation'];
+        let transformation: StrictImportOptions['transformation'] = undefined;
         if (options.keyMapping || options.valueTransform || options.metadataExtract) {
-          transformation = {};
+          transformation = {
+            keyMapping: undefined,
+            valueTransformation: undefined,
+            metadataExtraction: undefined
+          };
           
           if (options.keyMapping) {
             try {
@@ -417,15 +433,15 @@ export function createAdvancedMemoryCommand(): Command {
           }
         }
 
-        // Build import options
-        const importOptions: ImportOptions = {
+        // Build import options safely to satisfy exactOptionalPropertyTypes
+        const importOptions = createImportOptions({
           format: format as ImportOptions['format'],
           namespace: options.namespace,
           conflictResolution: options.conflictResolution as ImportOptions['conflictResolution'],
           validation: options.validation,
-          transformation,
+          transformation: transformation,
           dryRun: options.dryRun
-        };
+        });
 
         if (options.dryRun) {
           printWarning('DRY RUN MODE - No changes will be made');
@@ -668,8 +684,8 @@ export function createAdvancedMemoryCommand(): Command {
           options.archiveOlderThan = options.archiveOlderThan || 90;
         }
 
-        // Build cleanup options
-        const cleanupOptions: CleanupOptions = {
+        // Build cleanup options safely to satisfy exactOptionalPropertyTypes
+        const cleanupOptions = createCleanupOptions({
           dryRun: options.dryRun,
           removeExpired: options.removeExpired,
           removeOlderThan: options.removeOlderThan,
@@ -680,10 +696,10 @@ export function createAdvancedMemoryCommand(): Command {
           archiveOld: options.archiveOld ? {
             enabled: true,
             olderThan: options.archiveOlderThan || 365,
-            archivePath: options.archivePath
+            archivePath: options.archivePath || './archive'
           } : undefined,
-          retentionPolicies
-        };
+          retentionPolicies: retentionPolicies
+        });
 
         printInfo('Starting memory cleanup...');
         const startTime = Date.now();

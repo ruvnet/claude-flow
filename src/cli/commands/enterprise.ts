@@ -9,6 +9,7 @@ import { AnalyticsManager } from '../../enterprise/analytics-manager.js';
 import { AuditManager } from '../../enterprise/audit-manager.js';
 import { Logger } from '../../core/logger.js';
 import { ConfigManager } from '../../core/config.js';
+import { safeGet, safeGetWithDefault } from '../../types/optional-property-utils.js';
 
 const { bold, blue, green, yellow, red, cyan, magenta } = colors;
 
@@ -95,12 +96,12 @@ export const enterpriseCommands: Command[] = [
           try {
             const project = await manager.createProject({
               name,
-              description: ctx.flags.description as string || `Project: ${name}`,
-              type: (ctx.flags.type as any) || 'custom',
-              priority: (ctx.flags.priority as any) || 'medium',
-              owner: ctx.flags.owner as string || 'system',
-              stakeholders: ctx.flags.stakeholders ? 
-                (ctx.flags.stakeholders as string).split(',') : []
+              description: safeGetWithDefault(ctx.flags, 'description', `Project: ${name}`) as string,
+              type: safeGetWithDefault(ctx.flags, 'type', 'custom'),
+              priority: safeGetWithDefault(ctx.flags, 'priority', 'medium'),
+              owner: safeGetWithDefault(ctx.flags, 'owner', 'system') as string,
+              stakeholders: safeGet(ctx.flags, 'stakeholders') ? 
+                (safeGet(ctx.flags, 'stakeholders') as string).split(',') : []
             });
 
             success(`Project created: ${project.name}`);
@@ -109,7 +110,7 @@ export const enterpriseCommands: Command[] = [
             console.log(`${blue('Priority:')} ${project.priority}`);
             console.log(`${blue('Owner:')} ${project.owner}`);
 
-            if (ctx.flags.verbose) {
+            if (ctx.flags['verbose']) {
               console.log(`${blue('Timeline:')} ${project.timeline.plannedStart.toLocaleDateString()} - ${project.timeline.plannedEnd.toLocaleDateString()}`);
               console.log(`${blue('Budget:')} ${project.budget.total} ${project.budget.currency}`);
             }
@@ -122,10 +123,10 @@ export const enterpriseCommands: Command[] = [
         case 'list': {
           try {
             const filters: any = {};
-            if (ctx.flags.status) filters.status = ctx.flags.status;
-            if (ctx.flags.type) filters.type = ctx.flags.type;
-            if (ctx.flags.priority) filters.priority = ctx.flags.priority;
-            if (ctx.flags.owner) filters.owner = ctx.flags.owner;
+            if (ctx.flags['status']) filters.status = ctx.flags['status'];
+            if (ctx.flags['type']) filters.type = ctx.flags['type'];
+            if (ctx.flags['priority']) filters.priority = ctx.flags['priority'];
+            if (ctx.flags['owner']) filters.owner = ctx.flags['owner'];
 
             const projects = await manager.listProjects(filters);
 
@@ -146,7 +147,7 @@ export const enterpriseCommands: Command[] = [
               console.log(`  Status: ${statusColor(project.status)} | Type: ${project.type} | Priority: ${project.priority}`);
               console.log(`  Owner: ${project.owner} | Updated: ${project.updatedAt.toLocaleDateString()}`);
               
-              if (ctx.flags.verbose) {
+              if (ctx.flags['verbose']) {
                 const progress = manager['calculateProjectProgress'] ? 
                   await (manager as any).calculateProjectProgress(project) : 0;
                 console.log(`  Progress: ${progress.toFixed(1)}% | Phases: ${project.phases.length}`);
@@ -340,15 +341,15 @@ export const enterpriseCommands: Command[] = [
           try {
             const deployment = await manager.createDeployment({
               name,
-              version: ctx.flags.version as string || 'latest',
-              projectId: ctx.flags.project as string || 'default',
-              environmentId: ctx.flags.environment as string || 'development',
-              strategyId: ctx.flags.strategy as string || 'rolling',
+              version: ctx.flags['version'] as string || 'latest',
+              projectId: ctx.flags['project'] as string || 'default',
+              environmentId: ctx.flags['environment'] as string || 'development',
+              strategyId: ctx.flags['strategy'] as string || 'rolling',
               initiatedBy: 'cli-user',
               source: {
-                repository: ctx.flags.repo as string || 'local',
-                branch: ctx.flags.branch as string || 'main',
-                commit: ctx.flags.commit as string || 'HEAD'
+                repository: ctx.flags['repo'] as string || 'local',
+                branch: ctx.flags['branch'] as string || 'main',
+                commit: ctx.flags['commit'] as string || 'HEAD'
               }
             });
 
@@ -359,7 +360,7 @@ export const enterpriseCommands: Command[] = [
             console.log(`${blue('Strategy:')} ${deployment.strategyId}`);
             console.log(`${blue('Status:')} ${deployment.status}`);
 
-            if (!ctx.flags.dryRun) {
+            if (!ctx.flags['dryRun']) {
               info('Starting deployment...');
               await manager.executeDeployment(deployment.id);
             } else {
@@ -374,8 +375,8 @@ export const enterpriseCommands: Command[] = [
         case 'list': {
           try {
             const filters: any = {};
-            if (ctx.flags.environment) filters.environmentId = ctx.flags.environment;
-            if (ctx.flags.status) filters.status = ctx.flags.status;
+            if (ctx.flags['environment']) filters.environmentId = ctx.flags['environment'];
+            if (ctx.flags['status']) filters.status = ctx.flags['status'];
 
             // Note: This would need to be implemented in DeploymentManager
             const deployments: Deployment[] = [];
@@ -430,9 +431,9 @@ export const enterpriseCommands: Command[] = [
         case 'metrics': {
           try {
             const filters: any = {};
-            if (ctx.flags.environment) filters.environmentId = ctx.flags.environment;
-            if (ctx.flags.timeRange) {
-              const range = (ctx.flags.timeRange as string).split(',');
+            if (ctx.flags['environment']) filters.environmentId = ctx.flags['environment'];
+            if (ctx.flags['timeRange']) {
+              const range = (ctx.flags['timeRange'] as string).split(',');
               filters.timeRange = {
                 start: new Date(range[0]),
                 end: new Date(range[1])
@@ -478,12 +479,12 @@ export const enterpriseCommands: Command[] = [
               try {
                 const environment = await manager.createEnvironment({
                   name,
-                  type: (ctx.flags.type as any) || 'development',
+                  type: (ctx.flags['type'] as any) || 'development',
                   configuration: {
-                    region: ctx.flags.region as string || 'us-east-1',
-                    provider: (ctx.flags.provider as any) || 'aws',
-                    endpoints: ctx.flags.endpoints ? 
-                      (ctx.flags.endpoints as string).split(',') : [],
+                    region: ctx.flags['region'] as string || 'us-east-1',
+                    provider: (ctx.flags['provider'] as any) || 'aws',
+                    endpoints: ctx.flags['endpoints'] ? 
+                      (ctx.flags['endpoints'] as string).split(',') : [],
                     secrets: {},
                     environment_variables: {},
                     resources: {
@@ -585,14 +586,14 @@ export const enterpriseCommands: Command[] = [
                   name,
                   type,
                   credentials: {
-                    accessKey: ctx.flags.accessKey as string,
-                    secretKey: ctx.flags.secretKey as string,
-                    projectId: ctx.flags.projectId as string
+                    accessKey: ctx.flags['accessKey'] as string,
+                    secretKey: ctx.flags['secretKey'] as string,
+                    projectId: ctx.flags['projectId'] as string
                   },
                   configuration: {
-                    defaultRegion: ctx.flags.region as string || 'us-east-1',
-                    availableRegions: ctx.flags.regions ? 
-                      (ctx.flags.regions as string).split(',') : [],
+                    defaultRegion: ctx.flags['region'] as string || 'us-east-1',
+                    availableRegions: ctx.flags['regions'] ? 
+                      (ctx.flags['regions'] as string).split(',') : [],
                     services: [],
                     endpoints: {},
                     features: []
@@ -641,17 +642,17 @@ export const enterpriseCommands: Command[] = [
                 const resource = await manager.createResource({
                   name,
                   type,
-                  providerId: ctx.flags.provider as string || 'default',
-                  region: ctx.flags.region as string || 'us-east-1',
+                  providerId: ctx.flags['provider'] as string || 'default',
+                  region: ctx.flags['region'] as string || 'us-east-1',
                   configuration: {
-                    size: ctx.flags.size as string || 'small',
-                    tags: ctx.flags.tags ? 
-                      JSON.parse(ctx.flags.tags as string) : {}
+                    size: ctx.flags['size'] as string || 'small',
+                    tags: ctx.flags['tags'] ? 
+                      JSON.parse(ctx.flags['tags'] as string) : {}
                   },
                   metadata: {
-                    environment: ctx.flags.environment as string || 'development',
-                    owner: ctx.flags.owner as string || 'system',
-                    purpose: ctx.flags.purpose as string || 'general'
+                    environment: ctx.flags['environment'] as string || 'development',
+                    owner: ctx.flags['owner'] as string || 'system',
+                    purpose: ctx.flags['purpose'] as string || 'general'
                   }
                 });
 
@@ -683,8 +684,8 @@ export const enterpriseCommands: Command[] = [
 
               try {
                 await manager.scaleResource(resourceId, {
-                  size: ctx.flags.size as string,
-                  replicas: ctx.flags.replicas as number
+                  size: ctx.flags['size'] as string,
+                  replicas: ctx.flags['replicas'] as number
                 });
 
                 success(`Resource scaled: ${resourceId}`);
@@ -845,18 +846,18 @@ export const enterpriseCommands: Command[] = [
           try {
             const scan = await manager.createSecurityScan({
               name,
-              type: (ctx.flags.type as any) || 'vulnerability',
+              type: (ctx.flags['type'] as any) || 'vulnerability',
               target: {
                 type: 'repository',
                 path: target,
-                branch: ctx.flags.branch as string || 'main'
+                branch: ctx.flags['branch'] as string || 'main'
               },
-              projectId: ctx.flags.project as string,
+              projectId: ctx.flags['project'] as string,
               configuration: {
-                severity: ctx.flags.severity ? 
-                  (ctx.flags.severity as string).split(',') as any : undefined,
-                formats: ctx.flags.format ? 
-                  (ctx.flags.format as string).split(',') : undefined
+                severity: ctx.flags['severity'] ? 
+                  (ctx.flags['severity'] as string).split(',') as any : undefined,
+                formats: ctx.flags['format'] ? 
+                  (ctx.flags['format'] as string).split(',') : undefined
               }
             });
 
@@ -899,15 +900,15 @@ export const enterpriseCommands: Command[] = [
                 const incident = await manager.createSecurityIncident({
                   title,
                   description: ctx.args.slice(3).join(' ') || title,
-                  severity: (ctx.flags.severity as any) || 'medium',
-                  type: (ctx.flags.type as any) || 'security-breach',
+                  severity: (ctx.flags['severity'] as any) || 'medium',
+                  type: (ctx.flags['type'] as any) || 'security-breach',
                   source: {
                     type: 'user-report',
                     details: { reporter: 'cli-user' }
                   },
                   affected: {
-                    systems: ctx.flags.systems ? 
-                      (ctx.flags.systems as string).split(',') : []
+                    systems: ctx.flags['systems'] ? 
+                      (ctx.flags['systems'] as string).split(',') : []
                   }
                 });
 
@@ -946,8 +947,8 @@ export const enterpriseCommands: Command[] = [
 
           try {
             const checks = await manager.runComplianceAssessment(frameworks, {
-              projectId: ctx.flags.project as string,
-              environment: ctx.flags.environment as string
+              projectId: ctx.flags['project'] as string,
+              environment: ctx.flags['environment'] as string
             });
 
             success(`Compliance assessment completed: ${checks.length} checks`);
@@ -982,8 +983,8 @@ export const enterpriseCommands: Command[] = [
         case 'metrics': {
           try {
             const filters: any = {};
-            if (ctx.flags.project) filters.projectId = ctx.flags.project;
-            if (ctx.flags.environment) filters.environment = ctx.flags.environment;
+            if (ctx.flags['project']) filters.projectId = ctx.flags['project'];
+            if (ctx.flags['environment']) filters.environment = ctx.flags['environment'];
 
             const metrics = await manager.getSecurityMetrics(filters);
 
@@ -1069,7 +1070,7 @@ export const enterpriseCommands: Command[] = [
                 const dashboard = await manager.createDashboard({
                   name,
                   description: ctx.args.slice(3).join(' ') || `Dashboard: ${name}`,
-                  type: (ctx.flags.type as any) || 'operational',
+                  type: (ctx.flags['type'] as any) || 'operational',
                   widgets: [] // Would be populated based on template
                 });
 
@@ -1100,11 +1101,11 @@ export const enterpriseCommands: Command[] = [
         case 'insights': {
           try {
             const scope: any = {};
-            if (ctx.flags.metrics) {
-              scope.metrics = (ctx.flags.metrics as string).split(',');
+            if (ctx.flags['metrics']) {
+              scope.metrics = (ctx.flags['metrics'] as string).split(',');
             }
-            if (ctx.flags.timerange) {
-              const range = ctx.flags.timerange as string;
+            if (ctx.flags['timerange']) {
+              const range = ctx.flags['timerange'] as string;
               const now = new Date();
               let start: Date;
               
@@ -1262,15 +1263,15 @@ export const enterpriseCommands: Command[] = [
               }
 
               try {
-                const features = ctx.flags.features ? 
-                  (ctx.flags.features as string).split(',') : ['cpu-usage', 'memory-usage'];
-                const target = ctx.flags.target as string || 'response-time';
+                const features = ctx.flags['features'] ? 
+                  (ctx.flags['features'] as string).split(',') : ['cpu-usage', 'memory-usage'];
+                const target = ctx.flags['target'] as string || 'response-time';
 
                 const model = await manager.trainPredictiveModel({
                   name,
                   description: `Predictive model: ${name}`,
-                  type: (ctx.flags.type as any) || 'regression',
-                  algorithm: ctx.flags.algorithm as string || 'linear-regression',
+                  type: (ctx.flags['type'] as any) || 'regression',
+                  algorithm: ctx.flags['algorithm'] as string || 'linear-regression',
                   features,
                   target,
                   trainingPeriod: {
@@ -1299,8 +1300,8 @@ export const enterpriseCommands: Command[] = [
               }
 
               try {
-                const input = ctx.flags.input ? 
-                  JSON.parse(ctx.flags.input as string) : 
+                const input = ctx.flags['input'] ? 
+                  JSON.parse(ctx.flags['input'] as string) : 
                   { 'cpu-usage': 50, 'memory-usage': 60 };
 
                 const prediction = await manager.makePrediction(modelId, input);
@@ -1382,25 +1383,25 @@ export const enterpriseCommands: Command[] = [
           try {
             const entry = await manager.logAuditEvent({
               eventType,
-              category: (ctx.flags.category as any) || 'system-change',
-              severity: (ctx.flags.severity as any) || 'medium',
-              userId: ctx.flags.user as string,
+              category: (ctx.flags['category'] as any) || 'system-change',
+              severity: (ctx.flags['severity'] as any) || 'medium',
+              userId: ctx.flags['user'] as string,
               resource: {
-                type: ctx.flags.resourceType as string || 'system',
-                id: ctx.flags.resourceId as string || 'unknown',
-                name: ctx.flags.resourceName as string
+                type: ctx.flags['resourceType'] as string || 'system',
+                id: ctx.flags['resourceId'] as string || 'unknown',
+                name: ctx.flags['resourceName'] as string
               },
               action,
-              outcome: (ctx.flags.outcome as any) || 'success',
-              details: ctx.flags.details ? JSON.parse(ctx.flags.details as string) : {},
+              outcome: (ctx.flags['outcome'] as any) || 'success',
+              details: ctx.flags['details'] ? JSON.parse(ctx.flags['details'] as string) : {},
               context: {
                 source: 'cli',
-                ipAddress: ctx.flags.ip as string,
-                userAgent: ctx.flags.userAgent as string
+                ipAddress: ctx.flags['ip'] as string,
+                userAgent: ctx.flags['userAgent'] as string
               },
               compliance: {
-                frameworks: ctx.flags.frameworks ? 
-                  (ctx.flags.frameworks as string).split(',') : []
+                frameworks: ctx.flags['frameworks'] ? 
+                  (ctx.flags['frameworks'] as string).split(',') : []
               }
             });
 
@@ -1420,7 +1421,7 @@ export const enterpriseCommands: Command[] = [
           const reportType = (ctx.args[1] as any) || 'compliance';
 
           try {
-            const timeRange = ctx.flags.timerange as string || '30d';
+            const timeRange = ctx.flags['timerange'] as string || '30d';
             const now = new Date();
             let start: Date;
 
@@ -1447,7 +1448,7 @@ export const enterpriseCommands: Command[] = [
               type: reportType,
               scope: {
                 timeRange: { start, end: now },
-                compliance: ctx.flags.framework ? [ctx.flags.framework as string] : [],
+                compliance: ctx.flags['framework'] ? [ctx.flags['framework'] as string] : [],
                 systems: [],
                 users: [],
                 events: []
@@ -1463,7 +1464,7 @@ export const enterpriseCommands: Command[] = [
             console.log(`${blue('Compliance Score:')} ${report.summary.complianceScore.toFixed(1)}%`);
             console.log(`${blue('Risk Level:')} ${report.summary.riskLevel}`);
 
-            if (report.findings.length > 0 && ctx.flags.verbose) {
+            if (report.findings.length > 0 && ctx.flags['verbose']) {
               console.log(`\n${bold('Findings:')}`);
               for (const finding of report.findings.slice(0, 5)) {
                 console.log(`  ${finding.severity.toUpperCase()}: ${finding.title}`);
@@ -1487,8 +1488,8 @@ export const enterpriseCommands: Command[] = [
 
         case 'export': {
           try {
-            const format = (ctx.flags.export as any) || 'json';
-            const timeRange = ctx.flags.timerange as string || '30d';
+            const format = (ctx.flags['export'] as any) || 'json';
+            const timeRange = ctx.flags['timerange'] as string || '30d';
             const now = new Date();
             let start: Date;
 
@@ -1513,21 +1514,21 @@ export const enterpriseCommands: Command[] = [
               format,
               scope: {
                 timeRange: { start, end: now },
-                categories: ctx.flags.categories ? 
-                  (ctx.flags.categories as string).split(',') : undefined,
-                severity: ctx.flags.severity ? 
-                  (ctx.flags.severity as string).split(',') : undefined
+                categories: ctx.flags['categories'] ? 
+                  (ctx.flags['categories'] as string).split(',') : undefined,
+                severity: ctx.flags['severity'] ? 
+                  (ctx.flags['severity'] as string).split(',') : undefined
               },
-              destination: ctx.flags.output as string || './audit-export',
-              encryption: ctx.flags.encrypt as boolean || false,
-              compression: ctx.flags.compress as boolean || false
+              destination: ctx.flags['output'] as string || './audit-export',
+              encryption: ctx.flags['encrypt'] as boolean || false,
+              compression: ctx.flags['compress'] as boolean || false
             });
 
             success(`Audit data exported: ${filepath}`);
             console.log(`${blue('Format:')} ${format}`);
             console.log(`${blue('Time Range:')} ${timeRange}`);
-            console.log(`${blue('Encrypted:')} ${ctx.flags.encrypt ? 'Yes' : 'No'}`);
-            console.log(`${blue('Compressed:')} ${ctx.flags.compress ? 'Yes' : 'No'}`);
+            console.log(`${blue('Encrypted:')} ${ctx.flags['encrypt'] ? 'Yes' : 'No'}`);
+            console.log(`${blue('Compressed:')} ${ctx.flags['compress'] ? 'Yes' : 'No'}`);
           } catch (err) {
             error(`Failed to export audit data: ${(err as Error).message}`);
           }
@@ -1549,7 +1550,7 @@ export const enterpriseCommands: Command[] = [
             console.log(`${blue('Corrupted Entries:')} ${verification.summary.corruptedEntries}`);
             console.log(`${blue('Missing Entries:')} ${verification.summary.missingEntries}`);
 
-            if (verification.issues.length > 0 && ctx.flags.verbose) {
+            if (verification.issues.length > 0 && ctx.flags['verbose']) {
               console.log(`\n${bold('Issues:')}`);
               for (const issue of verification.issues.slice(0, 5)) {
                 console.log(`  ${issue.severity.toUpperCase()}: ${issue.description}`);
@@ -1563,7 +1564,7 @@ export const enterpriseCommands: Command[] = [
 
         case 'metrics': {
           try {
-            const timeRange = ctx.flags.timerange as string || '30d';
+            const timeRange = ctx.flags['timerange'] as string || '30d';
             const now = new Date();
             let start: Date;
 

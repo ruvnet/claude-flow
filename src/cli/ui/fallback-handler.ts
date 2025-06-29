@@ -145,7 +145,7 @@ export function checkUISupport(): {
   }
 
   // Check for VS Code terminal
-  if (process.env.TERM_PROGRAM === 'vscode') {
+  if (process.env['TERM_PROGRAM'] === 'vscode') {
     return {
       supported: false,
       reason: 'Running in VS Code integrated terminal',
@@ -154,7 +154,7 @@ export function checkUISupport(): {
   }
 
   // Check for other problematic environments
-  if (process.env.CI || process.env.GITHUB_ACTIONS) {
+  if (process.env['CI'] || process.env['GITHUB_ACTIONS']) {
     return {
       supported: false,
       reason: 'Running in CI/CD environment',
@@ -187,8 +187,8 @@ export function showUISupport(): void {
   
   console.log();
   console.log(chalk.white('Environment details:'));
-  console.log(chalk.gray(`• Terminal: ${process.env.TERM || 'unknown'}`));
+  console.log(chalk.gray(`• Terminal: ${process.env['TERM'] || 'unknown'}`));
   console.log(chalk.gray(`• TTY: ${process.stdin.isTTY ? 'yes' : 'no'}`));
-  console.log(chalk.gray(`• Program: ${process.env.TERM_PROGRAM || 'unknown'}`));
+  console.log(chalk.gray(`• Program: ${process.env['TERM_PROGRAM'] || 'unknown'}`));
   console.log(chalk.gray(`• Platform: ${process.platform}`));
 }

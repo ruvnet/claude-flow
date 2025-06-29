@@ -63,7 +63,7 @@ export class StubWorkStealingCoordinator implements WorkStealingCoordinator {
   }
 
   updateLoads(loads: Map<string, number>): void {
-    for (const [workerId, load] of loads) {
+    for (const [workerId, load] of Array.from(loads.entries())) {
       this.loads.set(workerId, load);
     }
   }

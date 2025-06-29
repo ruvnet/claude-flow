@@ -361,7 +361,7 @@ export class RealTimeMonitor extends EventEmitter {
     // Group by metric name
     const metricGroups = new Map<string, MetricPoint[]>();
     for (const point of this.metricsBuffer) {
-      const metricName = point.tags.metric || 'unknown';
+      const metricName = point.tags['metric'] || 'unknown';
       const group = metricGroups.get(metricName) || [];
       group.push(point);
       metricGroups.set(metricName, group);
@@ -424,7 +424,7 @@ export class RealTimeMonitor extends EventEmitter {
     // Check for alert resolution
     for (const [alertId, alert] of this.activeAlerts) {
       if (!alert.resolved) {
-        const rule = this.alertRules.get(alert.context.ruleId);
+        const rule = this.alertRules.get(alert.context['ruleId']);
         if (rule && this.isAlertResolved(rule, alert)) {
           this.resolveAlert(alertId, 'condition_resolved');
         }
@@ -449,7 +449,7 @@ export class RealTimeMonitor extends EventEmitter {
     if (conditionMet) {
       // Check if we already have an active alert for this rule
       const existingAlert = Array.from(this.activeAlerts.values())
-        .find(alert => alert.context.ruleId === rule.id && !alert.resolved);
+        .find(alert => alert.context['ruleId'] === rule.id && !alert.resolved);
 
       if (!existingAlert) {
         this.createAlert(rule, point);
@@ -540,8 +540,8 @@ export class RealTimeMonitor extends EventEmitter {
     if (!alert) return;
 
     alert.resolved = true;
-    alert.context.resolutionReason = reason;
-    alert.context.resolvedAt = new Date();
+    alert.context['resolutionReason'] = reason;
+    alert.context['resolvedAt'] = new Date();
 
     this.logger.info('Alert resolved', { alertId, reason });
     this.emit('alert:resolved', { alert, reason });

@@ -229,8 +229,8 @@ export class ClaudeConnectionPool extends EventEmitter {
     
     conn.inUse = false;
     conn.lastUsedAt = new Date();
-    conn.acquiredAt = undefined;
-    conn.acquiredBy = undefined;
+    delete conn.acquiredAt;
+    delete conn.acquiredBy;
     
     this.emit('connection:released', conn);
     this.logger.debug('Connection released', { 
@@ -422,7 +422,7 @@ export class ClaudeConnectionPool extends EventEmitter {
   private stopEvictionTimer(): void {
     if (this.evictionTimer) {
       clearInterval(this.evictionTimer);
-      this.evictionTimer = undefined;
+      delete this.evictionTimer;
     }
   }
   
@@ -442,7 +442,7 @@ export class ClaudeConnectionPool extends EventEmitter {
   private stopHealthCheckTimer(): void {
     if (this.healthCheckTimer) {
       clearInterval(this.healthCheckTimer);
-      this.healthCheckTimer = undefined;
+      delete this.healthCheckTimer;
     }
   }
   
@@ -462,7 +462,7 @@ export class ClaudeConnectionPool extends EventEmitter {
   private stopLeakDetectionTimer(): void {
     if (this.leakDetectionTimer) {
       clearInterval(this.leakDetectionTimer);
-      this.leakDetectionTimer = undefined;
+      delete this.leakDetectionTimer;
     }
   }
   

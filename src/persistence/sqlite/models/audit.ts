@@ -373,15 +373,26 @@ export class AuditModel {
   ): Promise<string> {
     const id = `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    return this.create({
+    const auditEntry: Omit<AuditLog, 'timestamp'> = {
       id,
       entityType,
       entityId,
       userId,
-      action,
-      details,
-      ipAddress: request?.ip,
-      userAgent: request?.userAgent
-    });
+      action
+    };
+    
+    if (details !== undefined) {
+      auditEntry.details = details;
+    }
+    
+    if (request?.ip !== undefined) {
+      auditEntry.ipAddress = request.ip;
+    }
+    
+    if (request?.userAgent !== undefined) {
+      auditEntry.userAgent = request.userAgent;
+    }
+    
+    return this.create(auditEntry);
   }
 }

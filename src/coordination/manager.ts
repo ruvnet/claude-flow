@@ -346,6 +346,10 @@ export class CoordinationManager implements ICoordinationManager {
       // Find the agent with the lowest priority or least work done
       const agentToPreempt = deadlock.agents[0]; // Simplified
       
+      if (!agentToPreempt) {
+        throw new Error('No agents available to preempt in deadlock');
+      }
+      
       // Release all resources held by this agent
       await this.resourceManager.releaseAllForAgent(agentToPreempt);
       

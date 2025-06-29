@@ -81,8 +81,8 @@ export async function initializeTaskManagement(
 
   const commandContext: TaskCommandContext = {
     taskEngine,
-    memoryManager: config.memoryManager,
-    logger: config.logger
+    ...(config.memoryManager !== undefined && { memoryManager: config.memoryManager }),
+    ...(config.logger !== undefined && { logger: config.logger })
   };
 
   const commands = {

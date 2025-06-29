@@ -1092,7 +1092,7 @@ export class DeploymentManager extends EventEmitter {
       level,
       message,
       source,
-      metadata
+      ...(metadata !== undefined ? { metadata } : {})
     };
 
     stage.logs.push(log);
@@ -1252,8 +1252,8 @@ export class DeploymentManager extends EventEmitter {
       a.createdAt.getTime() - b.createdAt.getTime()
     );
     
-    const firstDeployment = sortedDeployments[0];
-    const lastDeployment = sortedDeployments[sortedDeployments.length - 1];
+    const firstDeployment = sortedDeployments[0]!;
+    const lastDeployment = sortedDeployments[sortedDeployments.length - 1]!;
     
     const timeSpan = lastDeployment.createdAt.getTime() - firstDeployment.createdAt.getTime();
     const days = timeSpan / (1000 * 60 * 60 * 24);

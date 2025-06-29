@@ -178,7 +178,7 @@ export class MCPOrchestrationIntegration extends EventEmitter {
       }
 
       // Clear reconnect timers
-      for (const timer of this.reconnectTimers.values()) {
+      for (const timer of Array.from(this.reconnectTimers.values())) {
         clearTimeout(timer);
       }
       this.reconnectTimers.clear();
@@ -660,7 +660,7 @@ export class MCPOrchestrationIntegration extends EventEmitter {
   private async setupComponentIntegrations(): Promise<void> {
     const promises = [];
 
-    for (const [component, status] of this.integrationStatus.entries()) {
+    for (const [component, status] of Array.from(this.integrationStatus.entries())) {
       if (status.enabled) {
         promises.push(this.connectComponent(component));
       }
@@ -765,7 +765,7 @@ export class MCPOrchestrationIntegration extends EventEmitter {
   }
 
   private async performHealthChecks(): Promise<void> {
-    for (const [component, status] of this.integrationStatus.entries()) {
+    for (const [component, status] of Array.from(this.integrationStatus.entries())) {
       if (!status.enabled || !status.connected) continue;
 
       try {

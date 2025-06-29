@@ -1,0 +1,57 @@
+{
+  "memoryCoordinationPatterns": {
+    "namespaceStrategy": {
+      "global": "typescript-strict-mega-swarm/",
+      "phases": {
+        "reconnaissance": "typescript-strict-mega-swarm/recon/",
+        "foundation": "typescript-strict-mega-swarm/foundation/",
+        "parallel": "typescript-strict-mega-swarm/parallel/",
+        "validation": "typescript-strict-mega-swarm/validation/"
+      },
+      "agents": {
+        "pattern": "typescript-strict-mega-swarm/{phase}/agent-{id}/",
+        "shared": "typescript-strict-mega-swarm/shared/",
+        "coordination": "typescript-strict-mega-swarm/coordination/"
+      }
+    },
+    "communicationChannels": {
+      "statusUpdates": "typescript-strict-mega-swarm/shared/status-updates",
+      "fileModifications": "typescript-strict-mega-swarm/shared/file-locks",
+      "emergencyBroadcast": "typescript-strict-mega-swarm/shared/emergency",
+      "phaseCoordination": "typescript-strict-mega-swarm/shared/phase-sync",
+      "conflictResolution": "typescript-strict-mega-swarm/shared/conflicts"
+    },
+    "dataStructures": {
+      "agentStatus": {
+        "agentId": "number",
+        "phase": "string",
+        "currentTask": "string",
+        "status": "pending|in_progress|blocked|completed",
+        "progress": "number (0-100)",
+        "lastUpdate": "ISO timestamp",
+        "dependencies": "array of agent IDs",
+        "outputs": "array of file paths",
+        "errors": "array of error objects"
+      },
+      "fileLock": {
+        "filepath": "string",
+        "lockedBy": "agent ID",
+        "lockTime": "ISO timestamp",
+        "lockType": "read|write|exclusive",
+        "expiration": "ISO timestamp",
+        "dependencies": "array of dependent files"
+      },
+      "conflictReport": {
+        "conflictId": "string",
+        "type": "file_collision|dependency_circular|resource_contention",
+        "involvedAgents": "array of agent IDs",
+        "files": "array of file paths",
+        "severity": "low|medium|high|critical",
+        "resolution": "string",
+        "status": "pending|resolving|resolved"
+      }
+    }
+  },
+  "timestamp": "${new Date().toISOString()}",
+  "version": "1.0.0"
+}

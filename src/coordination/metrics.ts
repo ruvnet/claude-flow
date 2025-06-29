@@ -457,7 +457,7 @@ export class CoordinationMetricsCollector {
     
     for (const priority of priorities) {
       result[priority] = this.samples.filter(s => 
-        s.metric === 'task.created' && s.tags?.priority === priority
+        s.metric === 'task.created' && s.tags && s.tags['priority'] === priority
       ).length;
     }
     
@@ -471,15 +471,15 @@ export class CoordinationMetricsCollector {
     const types = new Set<string>();
     
     for (const sample of this.samples) {
-      if (sample.metric === 'task.created' && sample.tags?.type) {
-        types.add(sample.tags.type);
+      if (sample.metric === 'task.created' && sample.tags && sample.tags['type']) {
+        types.add(sample.tags['type']);
       }
     }
     
     const result: Record<string, number> = {};
     for (const type of types) {
       result[type] = this.samples.filter(s => 
-        s.metric === 'task.created' && s.tags?.type === type
+        s.metric === 'task.created' && s.tags && s.tags['type'] === type
       ).length;
     }
     
@@ -493,15 +493,15 @@ export class CoordinationMetricsCollector {
     const types = new Set<string>();
     
     for (const sample of this.samples) {
-      if (sample.metric === 'agent.spawned' && sample.tags?.type) {
-        types.add(sample.tags.type);
+      if (sample.metric === 'agent.spawned' && sample.tags && sample.tags['type']) {
+        types.add(sample.tags['type']);
       }
     }
     
     const result: Record<string, number> = {};
     for (const type of types) {
       result[type] = this.samples.filter(s => 
-        s.metric === 'agent.spawned' && s.tags?.type === type
+        s.metric === 'agent.spawned' && s.tags && s.tags['type'] === type
       ).length;
     }
     

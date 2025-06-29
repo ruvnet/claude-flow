@@ -56,14 +56,19 @@ export class PriorityResolutionStrategy implements ConflictResolutionStrategy {
     // Sort by priority (descending)
     priorities.sort((a, b) => b.priority - a.priority);
 
-    const winner = priorities[0].agentId;
+    const firstPriority = priorities[0];
+    if (!firstPriority) {
+      throw new Error('No agents to resolve conflict');
+    }
+    
+    const winner = firstPriority.agentId;
     const losers = priorities.slice(1).map(p => p.agentId);
 
     return {
       type: 'priority',
       winner,
       losers,
-      reason: `Agent ${winner} has highest priority (${priorities[0].priority})`,
+      reason: `Agent ${winner} has highest priority (${firstPriority.priority})`,
       timestamp: new Date(),
     };
   }
@@ -87,7 +92,12 @@ export class TimestampResolutionStrategy implements ConflictResolutionStrategy {
     // Sort by timestamp (ascending - earliest first)
     timestamps.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-    const winner = timestamps[0].agentId;
+    const firstTimestamp = timestamps[0];
+    if (!firstTimestamp) {
+      throw new Error('No agents to resolve conflict');
+    }
+    
+    const winner = firstTimestamp.agentId;
     const losers = timestamps.slice(1).map(t => t.agentId);
 
     return {

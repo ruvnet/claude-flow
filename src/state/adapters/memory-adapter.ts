@@ -591,15 +591,21 @@ export class MemoryStateAdapter {
       if (!usage[entry.agentId]) {
         usage[entry.agentId] = { entries: 0, size: 0, banks: 0 };
       }
-      usage[entry.agentId].entries++;
-      usage[entry.agentId].size += entry.size;
+      const agentUsage = usage[entry.agentId];
+      if (agentUsage) {
+        agentUsage.entries++;
+        agentUsage.size += entry.size;
+      }
     });
 
     banks.forEach(bank => {
       if (!usage[bank.agentId]) {
         usage[bank.agentId] = { entries: 0, size: 0, banks: 0 };
       }
-      usage[bank.agentId].banks++;
+      const agentUsage = usage[bank.agentId];
+      if (agentUsage) {
+        agentUsage.banks++;
+      }
     });
 
     return usage;

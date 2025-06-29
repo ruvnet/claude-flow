@@ -20,7 +20,10 @@ export class SecureCrypto {
     let result = '';
     
     for (let i = 0; i < length; i++) {
-      result += charset[bytes[i] % charset.length];
+      const byte = bytes[i];
+      if (byte !== undefined) {
+        result += charset[byte % charset.length];
+      }
     }
     
     return result;

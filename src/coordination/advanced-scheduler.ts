@@ -64,7 +64,8 @@ export class CapabilitySchedulingStrategy implements SchedulingStrategy {
       return priorityB - priorityA;
     });
 
-    return capableAgents[0].id;
+    const selectedAgent = capableAgents[0];
+    return selectedAgent ? selectedAgent.id : null;
   }
 }
 
@@ -81,7 +82,8 @@ export class RoundRobinSchedulingStrategy implements SchedulingStrategy {
     }
 
     this.lastIndex = (this.lastIndex + 1) % agents.length;
-    return agents[this.lastIndex].id;
+    const selectedAgent = agents[this.lastIndex];
+    return selectedAgent ? selectedAgent.id : null;
   }
 }
 

@@ -1,0 +1,1364 @@
+src/agents/agent-manager.ts(45,23): error TS2345: Argument of type '{ exitCode: number; output: string; pid: number | undefined; }' is not assignable to parameter of type 'ProcessPoolResult | PromiseLike<ProcessPoolResult>'.
+  Type '{ exitCode: number; output: string; pid: number | undefined; }' is not assignable to type 'ProcessPoolResult' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'pid' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/agents/agent-manager.ts(53,23): error TS2345: Argument of type '{ exitCode: number; output: string; error: string; pid: number | undefined; }' is not assignable to parameter of type 'ProcessPoolResult | PromiseLike<ProcessPoolResult>'.
+  Type '{ exitCode: number; output: string; error: string; pid: number | undefined; }' is not assignable to type 'ProcessPoolResult' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'pid' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/cli/commands/advanced-memory-commands.ts(146,15): error TS2375: Type '{ fullTextSearch: any; namespace: any; type: any; tags: any; owner: any; accessLevel: any; keyPattern: any; valueSearch: any; createdAfter: Date | undefined; createdBefore: Date | undefined; ... 10 more ...; includeMetadata: any; }' is not assignable to type 'QueryOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'createdAfter' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/cli/commands/advanced-memory-commands.ts(301,15): error TS2375: Type '{ format: ExportOptions["format"]; namespace: any; type: any; includeMetadata: any; compression: any; encryption: { enabled: true; key: any; } | undefined; filtering: QueryOptions | undefined; }' is not assignable to type 'ExportOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'encryption' are incompatible.
+    Type '{ enabled: true; key: any; } | undefined' is not assignable to type '{ enabled: boolean; algorithm?: string; key?: string; }'.
+      Type 'undefined' is not assignable to type '{ enabled: boolean; algorithm?: string; key?: string; }'.
+src/cli/commands/advanced-memory-commands.ts(421,15): error TS2375: Type '{ format: ImportOptions["format"]; namespace: any; conflictResolution: ImportOptions["conflictResolution"]; validation: any; transformation: { keyMapping?: Record<string, string>; valueTransformation?: (value: any) => any; metadataExtraction?: (entry: any) => Record<string, any>; } | undefined; dryRun: any; }' is not assignable to type 'ImportOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'transformation' are incompatible.
+    Type '{ keyMapping?: Record<string, string>; valueTransformation?: (value: any) => any; metadataExtraction?: (entry: any) => Record<string, any>; } | undefined' is not assignable to type '{ keyMapping?: Record<string, string>; valueTransformation?: (value: any) => any; metadataExtraction?: (entry: any) => Record<string, any>; }'.
+      Type 'undefined' is not assignable to type '{ keyMapping?: Record<string, string>; valueTransformation?: (value: any) => any; metadataExtraction?: (entry: any) => Record<string, any>; }'.
+src/cli/commands/advanced-memory-commands.ts(672,15): error TS2375: Type '{ dryRun: any; removeExpired: any; removeOlderThan: any; removeUnaccessed: any; removeOrphaned: any; removeDuplicates: any; compressEligible: any; archiveOld: { enabled: true; olderThan: any; archivePath: any; } | undefined; retentionPolicies: any; }' is not assignable to type 'CleanupOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'archiveOld' are incompatible.
+    Type '{ enabled: true; olderThan: any; archivePath: any; } | undefined' is not assignable to type '{ enabled: boolean; olderThan: number; archivePath: string; }'.
+      Type 'undefined' is not assignable to type '{ enabled: boolean; olderThan: number; archivePath: string; }'.
+src/cli/commands/agent.ts(890,3): error TS2322: Type 'string[] | undefined' is not assignable to type 'string[]'.
+  Type 'undefined' is not assignable to type 'string[]'.
+src/cli/commands/agent.ts(890,45): error TS4111: Property 'custom' comes from an index signature, so it must be accessed with ['custom'].
+src/cli/commands/agent.ts(902,3): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/commands/agent.ts(902,35): error TS4111: Property 'custom' comes from an index signature, so it must be accessed with ['custom'].
+src/cli/commands/config.ts(213,34): error TS4111: Property 'USER' comes from an index signature, so it must be accessed with ['USER'].
+src/cli/commands/config.ts(213,54): error TS4111: Property 'USERNAME' comes from an index signature, so it must be accessed with ['USERNAME'].
+src/cli/commands/enterprise.ts(98,38): error TS4111: Property 'description' comes from an index signature, so it must be accessed with ['description'].
+src/cli/commands/enterprise.ts(99,32): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/cli/commands/enterprise.ts(100,36): error TS4111: Property 'priority' comes from an index signature, so it must be accessed with ['priority'].
+src/cli/commands/enterprise.ts(101,32): error TS4111: Property 'owner' comes from an index signature, so it must be accessed with ['owner'].
+src/cli/commands/enterprise.ts(102,39): error TS4111: Property 'stakeholders' comes from an index signature, so it must be accessed with ['stakeholders'].
+src/cli/commands/enterprise.ts(103,28): error TS4111: Property 'stakeholders' comes from an index signature, so it must be accessed with ['stakeholders'].
+src/cli/commands/enterprise.ts(112,27): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/commands/enterprise.ts(125,27): error TS4111: Property 'status' comes from an index signature, so it must be accessed with ['status'].
+src/cli/commands/enterprise.ts(125,62): error TS4111: Property 'status' comes from an index signature, so it must be accessed with ['status'].
+src/cli/commands/enterprise.ts(126,27): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/cli/commands/enterprise.ts(126,58): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/cli/commands/enterprise.ts(127,27): error TS4111: Property 'priority' comes from an index signature, so it must be accessed with ['priority'].
+src/cli/commands/enterprise.ts(127,66): error TS4111: Property 'priority' comes from an index signature, so it must be accessed with ['priority'].
+src/cli/commands/enterprise.ts(128,27): error TS4111: Property 'owner' comes from an index signature, so it must be accessed with ['owner'].
+src/cli/commands/enterprise.ts(128,60): error TS4111: Property 'owner' comes from an index signature, so it must be accessed with ['owner'].
+src/cli/commands/enterprise.ts(149,29): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/commands/enterprise.ts(258,27): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/commands/enterprise.ts(343,34): error TS4111: Property 'version' comes from an index signature, so it must be accessed with ['version'].
+src/cli/commands/enterprise.ts(344,36): error TS4111: Property 'project' comes from an index signature, so it must be accessed with ['project'].
+src/cli/commands/enterprise.ts(345,40): error TS4111: Property 'environment' comes from an index signature, so it must be accessed with ['environment'].
+src/cli/commands/enterprise.ts(346,37): error TS4111: Property 'strategy' comes from an index signature, so it must be accessed with ['strategy'].
+src/cli/commands/enterprise.ts(349,39): error TS4111: Property 'repo' comes from an index signature, so it must be accessed with ['repo'].
+src/cli/commands/enterprise.ts(350,35): error TS4111: Property 'branch' comes from an index signature, so it must be accessed with ['branch'].
+src/cli/commands/enterprise.ts(351,35): error TS4111: Property 'commit' comes from an index signature, so it must be accessed with ['commit'].
+src/cli/commands/enterprise.ts(362,28): error TS4111: Property 'dryRun' comes from an index signature, so it must be accessed with ['dryRun'].
+src/cli/commands/enterprise.ts(377,27): error TS4111: Property 'environment' comes from an index signature, so it must be accessed with ['environment'].
+src/cli/commands/enterprise.ts(377,74): error TS4111: Property 'environment' comes from an index signature, so it must be accessed with ['environment'].
+src/cli/commands/enterprise.ts(378,27): error TS4111: Property 'status' comes from an index signature, so it must be accessed with ['status'].
+src/cli/commands/enterprise.ts(378,62): error TS4111: Property 'status' comes from an index signature, so it must be accessed with ['status'].
+src/cli/commands/enterprise.ts(433,27): error TS4111: Property 'environment' comes from an index signature, so it must be accessed with ['environment'].
+src/cli/commands/enterprise.ts(433,74): error TS4111: Property 'environment' comes from an index signature, so it must be accessed with ['environment'].
+src/cli/commands/enterprise.ts(434,27): error TS4111: Property 'timeRange' comes from an index signature, so it must be accessed with ['timeRange'].
+src/cli/commands/enterprise.ts(435,40): error TS4111: Property 'timeRange' comes from an index signature, so it must be accessed with ['timeRange'].
+src/cli/commands/enterprise.ts(437,33): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/cli/commands/enterprise.ts(438,31): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/cli/commands/enterprise.ts(481,36): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/cli/commands/enterprise.ts(483,39): error TS4111: Property 'region' comes from an index signature, so it must be accessed with ['region'].
+src/cli/commands/enterprise.ts(484,42): error TS4111: Property 'provider' comes from an index signature, so it must be accessed with ['provider'].
+src/cli/commands/enterprise.ts(485,42): error TS4111: Property 'endpoints' comes from an index signature, so it must be accessed with ['endpoints'].
+src/cli/commands/enterprise.ts(486,34): error TS4111: Property 'endpoints' comes from an index signature, so it must be accessed with ['endpoints'].
+src/cli/commands/enterprise.ts(588,42): error TS4111: Property 'accessKey' comes from an index signature, so it must be accessed with ['accessKey'].
+src/cli/commands/enterprise.ts(589,42): error TS4111: Property 'secretKey' comes from an index signature, so it must be accessed with ['secretKey'].
+src/cli/commands/enterprise.ts(590,42): error TS4111: Property 'projectId' comes from an index signature, so it must be accessed with ['projectId'].
+src/cli/commands/enterprise.ts(593,46): error TS4111: Property 'region' comes from an index signature, so it must be accessed with ['region'].
+src/cli/commands/enterprise.ts(594,49): error TS4111: Property 'regions' comes from an index signature, so it must be accessed with ['regions'].
+src/cli/commands/enterprise.ts(595,34): error TS4111: Property 'regions' comes from an index signature, so it must be accessed with ['regions'].
+src/cli/commands/enterprise.ts(644,41): error TS4111: Property 'provider' comes from an index signature, so it must be accessed with ['provider'].
+src/cli/commands/enterprise.ts(645,37): error TS4111: Property 'region' comes from an index signature, so it must be accessed with ['region'].
+src/cli/commands/enterprise.ts(647,37): error TS4111: Property 'size' comes from an index signature, so it must be accessed with ['size'].
+src/cli/commands/enterprise.ts(648,37): error TS4111: Property 'tags' comes from an index signature, so it must be accessed with ['tags'].
+src/cli/commands/enterprise.ts(649,44): error TS4111: Property 'tags' comes from an index signature, so it must be accessed with ['tags'].
+src/cli/commands/enterprise.ts(652,44): error TS4111: Property 'environment' comes from an index signature, so it must be accessed with ['environment'].
+src/cli/commands/enterprise.ts(653,38): error TS4111: Property 'owner' comes from an index signature, so it must be accessed with ['owner'].
+src/cli/commands/enterprise.ts(654,40): error TS4111: Property 'purpose' comes from an index signature, so it must be accessed with ['purpose'].
+src/cli/commands/enterprise.ts(686,35): error TS4111: Property 'size' comes from an index signature, so it must be accessed with ['size'].
+src/cli/commands/enterprise.ts(687,39): error TS4111: Property 'replicas' comes from an index signature, so it must be accessed with ['replicas'].
+src/cli/commands/enterprise.ts(724,27): error TS4111: Property 'provider' comes from an index signature, so it must be accessed with ['provider'].
+src/cli/commands/enterprise.ts(724,68): error TS4111: Property 'provider' comes from an index signature, so it must be accessed with ['provider'].
+src/cli/commands/enterprise.ts(725,27): error TS4111: Property 'environment' comes from an index signature, so it must be accessed with ['environment'].
+src/cli/commands/enterprise.ts(725,72): error TS4111: Property 'environment' comes from an index signature, so it must be accessed with ['environment'].
+src/cli/commands/enterprise.ts(756,27): error TS4111: Property 'provider' comes from an index signature, so it must be accessed with ['provider'].
+src/cli/commands/enterprise.ts(756,68): error TS4111: Property 'provider' comes from an index signature, so it must be accessed with ['provider'].
+src/cli/commands/enterprise.ts(757,27): error TS4111: Property 'environment' comes from an index signature, so it must be accessed with ['environment'].
+src/cli/commands/enterprise.ts(757,72): error TS4111: Property 'environment' comes from an index signature, so it must be accessed with ['environment'].
+src/cli/commands/enterprise.ts(848,32): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/cli/commands/enterprise.ts(852,35): error TS4111: Property 'branch' comes from an index signature, so it must be accessed with ['branch'].
+src/cli/commands/enterprise.ts(854,36): error TS4111: Property 'project' comes from an index signature, so it must be accessed with ['project'].
+src/cli/commands/enterprise.ts(855,15): error TS2375: Type '{ severity: any; formats: string[] | undefined; }' is not assignable to type 'Partial<{ scanner: string; rules: string[]; excludes: string[]; severity: SecuritySeverity[]; formats: string[]; outputPath: string; }>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'formats' are incompatible.
+    Type 'string[] | undefined' is not assignable to type 'string[]'.
+      Type 'undefined' is not assignable to type 'string[]'.
+src/cli/commands/enterprise.ts(856,37): error TS4111: Property 'severity' comes from an index signature, so it must be accessed with ['severity'].
+src/cli/commands/enterprise.ts(857,30): error TS4111: Property 'severity' comes from an index signature, so it must be accessed with ['severity'].
+src/cli/commands/enterprise.ts(858,36): error TS4111: Property 'format' comes from an index signature, so it must be accessed with ['format'].
+src/cli/commands/enterprise.ts(859,30): error TS4111: Property 'format' comes from an index signature, so it must be accessed with ['format'].
+src/cli/commands/enterprise.ts(902,40): error TS4111: Property 'severity' comes from an index signature, so it must be accessed with ['severity'].
+src/cli/commands/enterprise.ts(903,36): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/cli/commands/enterprise.ts(909,40): error TS4111: Property 'systems' comes from an index signature, so it must be accessed with ['systems'].
+src/cli/commands/enterprise.ts(910,34): error TS4111: Property 'systems' comes from an index signature, so it must be accessed with ['systems'].
+src/cli/commands/enterprise.ts(949,36): error TS4111: Property 'project' comes from an index signature, so it must be accessed with ['project'].
+src/cli/commands/enterprise.ts(950,38): error TS4111: Property 'environment' comes from an index signature, so it must be accessed with ['environment'].
+src/cli/commands/enterprise.ts(985,27): error TS4111: Property 'project' comes from an index signature, so it must be accessed with ['project'].
+src/cli/commands/enterprise.ts(985,66): error TS4111: Property 'project' comes from an index signature, so it must be accessed with ['project'].
+src/cli/commands/enterprise.ts(986,27): error TS4111: Property 'environment' comes from an index signature, so it must be accessed with ['environment'].
+src/cli/commands/enterprise.ts(986,72): error TS4111: Property 'environment' comes from an index signature, so it must be accessed with ['environment'].
+src/cli/commands/enterprise.ts(1072,36): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/cli/commands/enterprise.ts(1103,27): error TS4111: Property 'metrics' comes from an index signature, so it must be accessed with ['metrics'].
+src/cli/commands/enterprise.ts(1104,42): error TS4111: Property 'metrics' comes from an index signature, so it must be accessed with ['metrics'].
+src/cli/commands/enterprise.ts(1106,27): error TS4111: Property 'timerange' comes from an index signature, so it must be accessed with ['timerange'].
+src/cli/commands/enterprise.ts(1107,39): error TS4111: Property 'timerange' comes from an index signature, so it must be accessed with ['timerange'].
+src/cli/commands/enterprise.ts(1265,44): error TS4111: Property 'features' comes from an index signature, so it must be accessed with ['features'].
+src/cli/commands/enterprise.ts(1266,30): error TS4111: Property 'features' comes from an index signature, so it must be accessed with ['features'].
+src/cli/commands/enterprise.ts(1267,42): error TS4111: Property 'target' comes from an index signature, so it must be accessed with ['target'].
+src/cli/commands/enterprise.ts(1272,36): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/cli/commands/enterprise.ts(1273,40): error TS4111: Property 'algorithm' comes from an index signature, so it must be accessed with ['algorithm'].
+src/cli/commands/enterprise.ts(1302,41): error TS4111: Property 'input' comes from an index signature, so it must be accessed with ['input'].
+src/cli/commands/enterprise.ts(1303,40): error TS4111: Property 'input' comes from an index signature, so it must be accessed with ['input'].
+src/cli/commands/enterprise.ts(1385,36): error TS4111: Property 'category' comes from an index signature, so it must be accessed with ['category'].
+src/cli/commands/enterprise.ts(1386,36): error TS4111: Property 'severity' comes from an index signature, so it must be accessed with ['severity'].
+src/cli/commands/enterprise.ts(1387,33): error TS4111: Property 'user' comes from an index signature, so it must be accessed with ['user'].
+src/cli/commands/enterprise.ts(1389,33): error TS4111: Property 'resourceType' comes from an index signature, so it must be accessed with ['resourceType'].
+src/cli/commands/enterprise.ts(1390,31): error TS4111: Property 'resourceId' comes from an index signature, so it must be accessed with ['resourceId'].
+src/cli/commands/enterprise.ts(1391,33): error TS4111: Property 'resourceName' comes from an index signature, so it must be accessed with ['resourceName'].
+src/cli/commands/enterprise.ts(1394,35): error TS4111: Property 'outcome' comes from an index signature, so it must be accessed with ['outcome'].
+src/cli/commands/enterprise.ts(1395,34): error TS4111: Property 'details' comes from an index signature, so it must be accessed with ['details'].
+src/cli/commands/enterprise.ts(1395,65): error TS4111: Property 'details' comes from an index signature, so it must be accessed with ['details'].
+src/cli/commands/enterprise.ts(1398,38): error TS4111: Property 'ip' comes from an index signature, so it must be accessed with ['ip'].
+src/cli/commands/enterprise.ts(1399,38): error TS4111: Property 'userAgent' comes from an index signature, so it must be accessed with ['userAgent'].
+src/cli/commands/enterprise.ts(1402,39): error TS4111: Property 'frameworks' comes from an index signature, so it must be accessed with ['frameworks'].
+src/cli/commands/enterprise.ts(1403,30): error TS4111: Property 'frameworks' comes from an index signature, so it must be accessed with ['frameworks'].
+src/cli/commands/enterprise.ts(1423,41): error TS4111: Property 'timerange' comes from an index signature, so it must be accessed with ['timerange'].
+src/cli/commands/enterprise.ts(1450,39): error TS4111: Property 'framework' comes from an index signature, so it must be accessed with ['framework'].
+src/cli/commands/enterprise.ts(1450,62): error TS4111: Property 'framework' comes from an index signature, so it must be accessed with ['framework'].
+src/cli/commands/enterprise.ts(1466,57): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/commands/enterprise.ts(1490,39): error TS4111: Property 'export' comes from an index signature, so it must be accessed with ['export'].
+src/cli/commands/enterprise.ts(1491,41): error TS4111: Property 'timerange' comes from an index signature, so it must be accessed with ['timerange'].
+src/cli/commands/enterprise.ts(1514,15): error TS2375: Type '{ timeRange: { start: Date; end: Date; }; categories: string[] | undefined; severity: string[] | undefined; }' is not assignable to type '{ timeRange: { start: Date; end: Date; }; categories?: string[]; severity?: string[]; users?: string[]; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'categories' are incompatible.
+    Type 'string[] | undefined' is not assignable to type 'string[]'.
+      Type 'undefined' is not assignable to type 'string[]'.
+src/cli/commands/enterprise.ts(1516,39): error TS4111: Property 'categories' comes from an index signature, so it must be accessed with ['categories'].
+src/cli/commands/enterprise.ts(1517,30): error TS4111: Property 'categories' comes from an index signature, so it must be accessed with ['categories'].
+src/cli/commands/enterprise.ts(1518,37): error TS4111: Property 'severity' comes from an index signature, so it must be accessed with ['severity'].
+src/cli/commands/enterprise.ts(1519,30): error TS4111: Property 'severity' comes from an index signature, so it must be accessed with ['severity'].
+src/cli/commands/enterprise.ts(1521,38): error TS4111: Property 'output' comes from an index signature, so it must be accessed with ['output'].
+src/cli/commands/enterprise.ts(1522,37): error TS4111: Property 'encrypt' comes from an index signature, so it must be accessed with ['encrypt'].
+src/cli/commands/enterprise.ts(1523,38): error TS4111: Property 'compress' comes from an index signature, so it must be accessed with ['compress'].
+src/cli/commands/enterprise.ts(1529,60): error TS4111: Property 'encrypt' comes from an index signature, so it must be accessed with ['encrypt'].
+src/cli/commands/enterprise.ts(1530,61): error TS4111: Property 'compress' comes from an index signature, so it must be accessed with ['compress'].
+src/cli/commands/enterprise.ts(1552,61): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/commands/enterprise.ts(1566,41): error TS4111: Property 'timerange' comes from an index signature, so it must be accessed with ['timerange'].
+src/cli/commands/index.ts(79,33): error TS4111: Property 'force' comes from an index signature, so it must be accessed with ['force'].
+src/cli/commands/index.ts(79,63): error TS4111: Property 'f' comes from an index signature, so it must be accessed with ['f'].
+src/cli/commands/index.ts(80,35): error TS4111: Property 'minimal' comes from an index signature, so it must be accessed with ['minimal'].
+src/cli/commands/index.ts(80,67): error TS4111: Property 'm' comes from an index signature, so it must be accessed with ['m'].
+src/cli/commands/index.ts(216,24): error TS4111: Property 'daemon' comes from an index signature, so it must be accessed with ['daemon'].
+src/cli/commands/index.ts(268,35): error TS4111: Property 'priority' comes from an index signature, so it must be accessed with ['priority'].
+src/cli/commands/index.ts(269,39): error TS4111: Property 'deps' comes from an index signature, so it must be accessed with ['deps'].
+src/cli/commands/index.ts(269,57): error TS4111: Property 'deps' comes from an index signature, so it must be accessed with ['deps'].
+src/cli/commands/index.ts(296,31): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/commands/index.ts(366,27): error TS4111: Property 'execute' comes from an index signature, so it must be accessed with ['execute'].
+src/cli/commands/index.ts(462,36): error TS4111: Property 'name' comes from an index signature, so it must be accessed with ['name'].
+src/cli/commands/index.ts(474,41): error TS4111: Property 'prompt' comes from an index signature, so it must be accessed with ['prompt'].
+src/cli/commands/index.ts(475,47): error TS4111: Property 'maxTasks' comes from an index signature, so it must be accessed with ['maxTasks'].
+src/cli/commands/index.ts(476,37): error TS4111: Property 'priority' comes from an index signature, so it must be accessed with ['priority'].
+src/cli/commands/index.ts(526,26): error TS4111: Property 'watch' comes from an index signature, so it must be accessed with ['watch'].
+src/cli/commands/index.ts(526,45): error TS4111: Property 'w' comes from an index signature, so it must be accessed with ['w'].
+src/cli/commands/index.ts(527,29): error TS4111: Property 'interval' comes from an index signature, so it must be accessed with ['interval'].
+src/cli/commands/index.ts(527,51): error TS4111: Property 'i' comes from an index signature, so it must be accessed with ['i'].
+src/cli/commands/index.ts(528,30): error TS4111: Property 'component' comes from an index signature, so it must be accessed with ['component'].
+src/cli/commands/index.ts(528,53): error TS4111: Property 'c' comes from an index signature, so it must be accessed with ['c'].
+src/cli/commands/index.ts(529,25): error TS4111: Property 'json' comes from an index signature, so it must be accessed with ['json'].
+src/cli/commands/index.ts(530,29): error TS4111: Property 'detailed' comes from an index signature, so it must be accessed with ['detailed'].
+src/cli/commands/index.ts(531,32): error TS4111: Property 'healthCheck' comes from an index signature, so it must be accessed with ['healthCheck'].
+src/cli/commands/index.ts(532,28): error TS4111: Property 'history' comes from an index signature, so it must be accessed with ['history'].
+src/cli/commands/index.ts(563,23): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/commands/index.ts(626,25): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/commands/index.ts(650,34): error TS4111: Property 'port' comes from an index signature, so it must be accessed with ['port'].
+src/cli/commands/index.ts(651,34): error TS4111: Property 'host' comes from an index signature, so it must be accessed with ['host'].
+src/cli/commands/index.ts(762,35): error TS4111: Property 'lines' comes from an index signature, so it must be accessed with ['lines'].
+src/cli/commands/index.ts(911,41): error TS4111: Property 'namespace' comes from an index signature, so it must be accessed with ['namespace'].
+src/cli/commands/index.ts(911,74): error TS4111: Property 'n' comes from an index signature, so it must be accessed with ['n'].
+src/cli/commands/index.ts(932,41): error TS4111: Property 'namespace' comes from an index signature, so it must be accessed with ['namespace'].
+src/cli/commands/index.ts(932,74): error TS4111: Property 'n' comes from an index signature, so it must be accessed with ['n'].
+src/cli/commands/index.ts(933,37): error TS4111: Property 'limit' comes from an index signature, so it must be accessed with ['limit'].
+src/cli/commands/index.ts(933,66): error TS4111: Property 'l' comes from an index signature, so it must be accessed with ['l'].
+src/cli/commands/index.ts(1025,36): error TS4111: Property 'days' comes from an index signature, so it must be accessed with ['days'].
+src/cli/commands/index.ts(1025,64): error TS4111: Property 'd' comes from an index signature, so it must be accessed with ['d'].
+src/cli/commands/index.ts(1122,17): error TS2532: Object is possibly 'undefined'.
+src/cli/commands/index.ts(1136,35): error TS4111: Property 'tools' comes from an index signature, so it must be accessed with ['tools'].
+src/cli/commands/index.ts(1138,27): error TS4111: Property 'parallel' comes from an index signature, so it must be accessed with ['parallel'].
+src/cli/commands/index.ts(1142,27): error TS4111: Property 'research' comes from an index signature, so it must be accessed with ['research'].
+src/cli/commands/index.ts(1170,27): error TS4111: Property 'parallel' comes from an index signature, so it must be accessed with ['parallel'].
+src/cli/commands/index.ts(1178,27): error TS4111: Property 'research' comes from an index signature, so it must be accessed with ['research'].
+src/cli/commands/index.ts(1196,16): error TS4111: Property 'parallel' comes from an index signature, so it must be accessed with ['parallel'].
+src/cli/commands/index.ts(1197,16): error TS4111: Property 'parallel' comes from an index signature, so it must be accessed with ['parallel'].
+src/cli/commands/index.ts(1204,16): error TS4111: Property 'parallel' comes from an index signature, so it must be accessed with ['parallel'].
+src/cli/commands/index.ts(1205,16): error TS4111: Property 'research' comes from an index signature, so it must be accessed with ['research'].
+src/cli/commands/index.ts(1209,21): error TS4111: Property 'mode' comes from an index signature, so it must be accessed with ['mode'].
+src/cli/commands/index.ts(1210,32): error TS4111: Property 'coverage' comes from an index signature, so it must be accessed with ['coverage'].
+src/cli/commands/index.ts(1211,32): error TS4111: Property 'commit' comes from an index signature, so it must be accessed with ['commit'].
+src/cli/commands/index.ts(1238,27): error TS4111: Property 'noPermissions' comes from an index signature, so it must be accessed with ['noPermissions'].
+src/cli/commands/index.ts(1242,27): error TS4111: Property 'config' comes from an index signature, so it must be accessed with ['config'].
+src/cli/commands/index.ts(1243,56): error TS4111: Property 'config' comes from an index signature, so it must be accessed with ['config'].
+src/cli/commands/index.ts(1246,27): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/commands/index.ts(1250,27): error TS4111: Property 'dryRun' comes from an index signature, so it must be accessed with ['dryRun'].
+src/cli/commands/index.ts(1250,71): error TS4111: Property 'd' comes from an index signature, so it must be accessed with ['d'].
+src/cli/commands/index.ts(1256,46): error TS4111: Property 'mode' comes from an index signature, so it must be accessed with ['mode'].
+src/cli/commands/index.ts(1257,50): error TS4111: Property 'coverage' comes from an index signature, so it must be accessed with ['coverage'].
+src/cli/commands/index.ts(1258,48): error TS4111: Property 'commit' comes from an index signature, so it must be accessed with ['commit'].
+src/cli/commands/index.ts(1261,57): error TS4111: Property 'parallel' comes from an index signature, so it must be accessed with ['parallel'].
+src/cli/commands/index.ts(1269,48): error TS4111: Property 'mode' comes from an index signature, so it must be accessed with ['mode'].
+src/cli/commands/index.ts(1270,51): error TS4111: Property 'coverage' comes from an index signature, so it must be accessed with ['coverage'].
+src/cli/commands/index.ts(1271,49): error TS4111: Property 'commit' comes from an index signature, so it must be accessed with ['commit'].
+src/cli/commands/index.ts(1286,45): error TS4111: Property 'mode' comes from an index signature, so it must be accessed with ['mode'].
+src/cli/commands/index.ts(1287,50): error TS4111: Property 'coverage' comes from an index signature, so it must be accessed with ['coverage'].
+src/cli/commands/index.ts(1288,47): error TS4111: Property 'commit' comes from an index signature, so it must be accessed with ['commit'].
+src/cli/commands/index.ts(1292,61): error TS4111: Property 'parallel' comes from an index signature, so it must be accessed with ['parallel'].
+src/cli/commands/index.ts(1358,29): error TS4111: Property 'dryRun' comes from an index signature, so it must be accessed with ['dryRun'].
+src/cli/commands/index.ts(1429,29): error TS4111: Property 'interval' comes from an index signature, so it must be accessed with ['interval'].
+src/cli/commands/index.ts(1429,51): error TS4111: Property 'i' comes from an index signature, so it must be accessed with ['i'].
+src/cli/commands/index.ts(1430,28): error TS4111: Property 'compact' comes from an index signature, so it must be accessed with ['compact'].
+src/cli/commands/index.ts(1430,49): error TS4111: Property 'c' comes from an index signature, so it must be accessed with ['c'].
+src/cli/commands/index.ts(1431,26): error TS4111: Property 'focus' comes from an index signature, so it must be accessed with ['focus'].
+src/cli/commands/index.ts(1431,45): error TS4111: Property 'f' comes from an index signature, so it must be accessed with ['f'].
+src/cli/commands/index.ts(1432,27): error TS4111: Property 'alerts' comes from an index signature, so it must be accessed with ['alerts'].
+src/cli/commands/index.ts(1433,27): error TS4111: Property 'export' comes from an index signature, so it must be accessed with ['export'].
+src/cli/commands/index.ts(1434,30): error TS4111: Property 'threshold' comes from an index signature, so it must be accessed with ['threshold'].
+src/cli/commands/index.ts(1435,29): error TS4111: Property 'logLevel' comes from an index signature, so it must be accessed with ['logLevel'].
+src/cli/commands/index.ts(1436,29): error TS4111: Property 'noGraphs' comes from an index signature, so it must be accessed with ['noGraphs'].
+src/cli/commands/index.ts(1619,39): error TS4111: Property 'interval' comes from an index signature, so it must be accessed with ['interval'].
+src/cli/commands/index.ts(1858,23): error TS4111: Property 'batch' comes from an index signature, so it must be accessed with ['batch'].
+src/cli/commands/index.ts(1862,23): error TS4111: Property 'parallel' comes from an index signature, so it must be accessed with ['parallel'].
+src/cli/commands/index.ts(1866,23): error TS4111: Property 'orchestration' comes from an index signature, so it must be accessed with ['orchestration'].
+src/cli/commands/index.ts(1960,17): error TS4111: Property 'ui' comes from an index signature, so it must be accessed with ['ui'].
+src/cli/commands/index.ts(2017,27): error TS4111: Property 'daemon' comes from an index signature, so it must be accessed with ['daemon'].
+src/cli/commands/index.ts(2017,47): error TS4111: Property 'd' comes from an index signature, so it must be accessed with ['d'].
+src/cli/commands/index.ts(2018,25): error TS4111: Property 'port' comes from an index signature, so it must be accessed with ['port'].
+src/cli/commands/index.ts(2018,43): error TS4111: Property 'p' comes from an index signature, so it must be accessed with ['p'].
+src/cli/commands/index.ts(2019,33): error TS4111: Property 'mcpTransport' comes from an index signature, so it must be accessed with ['mcpTransport'].
+src/cli/commands/index.ts(2020,23): error TS4111: Property 'ui' comes from an index signature, so it must be accessed with ['ui'].
+src/cli/commands/index.ts(2020,39): error TS4111: Property 'u' comes from an index signature, so it must be accessed with ['u'].
+src/cli/commands/index.ts(2021,28): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/commands/index.ts(2021,49): error TS4111: Property 'v' comes from an index signature, so it must be accessed with ['v'].
+src/cli/commands/index.ts(2022,30): error TS4111: Property 'autoStart' comes from an index signature, so it must be accessed with ['autoStart'].
+src/cli/commands/index.ts(2023,27): error TS4111: Property 'config' comes from an index signature, so it must be accessed with ['config'].
+src/cli/commands/index.ts(2024,26): error TS4111: Property 'force' comes from an index signature, so it must be accessed with ['force'].
+src/cli/commands/index.ts(2025,32): error TS4111: Property 'healthCheck' comes from an index signature, so it must be accessed with ['healthCheck'].
+src/cli/commands/index.ts(2026,28): error TS4111: Property 'timeout' comes from an index signature, so it must be accessed with ['timeout'].
+src/cli/commands/index.ts(2363,3): error TS2322: Type 'string[] | undefined' is not assignable to type 'string[]'.
+  Type 'undefined' is not assignable to type 'string[]'.
+src/cli/commands/index.ts(2363,45): error TS4111: Property 'custom' comes from an index signature, so it must be accessed with ['custom'].
+src/cli/commands/index.ts(2375,3): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/commands/index.ts(2375,35): error TS4111: Property 'custom' comes from an index signature, so it must be accessed with ['custom'].
+src/cli/commands/mcp-serve.ts(31,25): error TS4111: Property 'CLAUDE_FLOW_LOG_LEVEL' comes from an index signature, so it must be accessed with ['CLAUDE_FLOW_LOG_LEVEL'].
+src/cli/commands/mcp-serve.ts(138,7): error TS2379: Argument of type '{ transport: "stdio"; port: undefined; host: undefined; corsEnabled: boolean; tlsEnabled: boolean; }' is not assignable to parameter of type 'MCPConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'host' are incompatible.
+    Type 'undefined' is not assignable to type 'string'.
+src/cli/commands/memory.ts(113,22): error TS2532: Object is possibly 'undefined'.
+src/cli/commands/memory.ts(114,30): error TS2532: Object is possibly 'undefined'.
+src/cli/commands/migrate.ts(150,52): error TS18048: 'latestBackup' is possibly 'undefined'.
+src/cli/commands/monitor.ts(461,9): error TS2322: Type '"error" | "healthy" | "degraded" | undefined' is not assignable to type '"error" | "healthy" | "degraded"'.
+  Type 'undefined' is not assignable to type '"error" | "healthy" | "degraded"'.
+src/cli/commands/registry.ts(102,35): error TS18048: 'process' is possibly 'undefined'.
+src/cli/commands/registry.ts(103,35): error TS18048: 'process' is possibly 'undefined'.
+src/cli/commands/registry.ts(104,35): error TS18048: 'process' is possibly 'undefined'.
+src/cli/commands/registry.ts(105,35): error TS18048: 'process' is possibly 'undefined'.
+src/cli/commands/registry.ts(106,48): error TS18048: 'process' is possibly 'undefined'.
+src/cli/commands/registry.ts(106,64): error TS18048: 'process' is possibly 'undefined'.
+src/cli/commands/registry.ts(107,44): error TS18048: 'process' is possibly 'undefined'.
+src/cli/commands/registry.ts(108,61): error TS18048: 'process' is possibly 'undefined'.
+src/cli/commands/registry.ts(109,35): error TS18048: 'process' is possibly 'undefined'.
+src/cli/commands/registry.ts(110,35): error TS18048: 'process' is possibly 'undefined'.
+src/cli/commands/registry.ts(117,9): error TS18048: 'process' is possibly 'undefined'.
+src/cli/commands/registry.ts(119,34): error TS18048: 'process' is possibly 'undefined'.
+src/cli/commands/sparc.ts(73,31): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/commands/sparc.ts(160,19): error TS4111: Property 'dryRun' comes from an index signature, so it must be accessed with ['dryRun'].
+src/cli/commands/sparc.ts(207,19): error TS4111: Property 'dryRun' comes from an index signature, so it must be accessed with ['dryRun'].
+src/cli/commands/sparc.ts(221,60): error TS18048: 'step' is possibly 'undefined'.
+src/cli/commands/sparc.ts(224,36): error TS18048: 'step' is possibly 'undefined'.
+src/cli/commands/sparc.ts(228,33): error TS18048: 'step' is possibly 'undefined'.
+src/cli/commands/sparc.ts(229,25): error TS18048: 'step' is possibly 'undefined'.
+src/cli/commands/sparc.ts(232,51): error TS18048: 'step' is possibly 'undefined'.
+src/cli/commands/sparc.ts(234,19): error TS18048: 'step' is possibly 'undefined'.
+src/cli/commands/sparc.ts(240,39): error TS18048: 'step' is possibly 'undefined'.
+src/cli/commands/sparc.ts(245,21): error TS4111: Property 'sequential' comes from an index signature, so it must be accessed with ['sequential'].
+src/cli/commands/sparc.ts(293,19): error TS4111: Property 'dryRun' comes from an index signature, so it must be accessed with ['dryRun'].
+src/cli/commands/sparc.ts(554,28): error TS4111: Property 'project' comes from an index signature, so it must be accessed with ['project'].
+src/cli/commands/sparc.ts(555,27): error TS4111: Property 'readme' comes from an index signature, so it must be accessed with ['readme'].
+src/cli/commands/sparc.ts(556,24): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/commands/sparc.ts(560,32): error TS4111: Property 'mode' comes from an index signature, so it must be accessed with ['mode'].
+src/cli/commands/sparc.ts(561,29): error TS4111: Property 'coverage' comes from an index signature, so it must be accessed with ['coverage'].
+src/cli/commands/sparc.ts(562,25): error TS4111: Property 'parallel' comes from an index signature, so it must be accessed with ['parallel'].
+src/cli/commands/sparc.ts(565,29): error TS4111: Property 'output' comes from an index signature, so it must be accessed with ['output'].
+src/cli/commands/start/process-manager.ts(112,11): error TS2412: Type 'number | undefined' is not assignable to type 'number' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'number'.
+src/cli/commands/start/process-manager.ts(122,11): error TS2412: Type 'number | undefined' is not assignable to type 'number' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'number'.
+src/cli/commands/start/process-manager.ts(132,11): error TS2412: Type 'number | undefined' is not assignable to type 'number' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'number'.
+src/cli/commands/start/process-manager.ts(142,11): error TS2412: Type 'number | undefined' is not assignable to type 'number' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'number'.
+src/cli/commands/start/process-manager.ts(152,11): error TS2412: Type 'number | undefined' is not assignable to type 'number' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'number'.
+src/cli/commands/start/process-manager.ts(171,11): error TS2412: Type 'number | undefined' is not assignable to type 'number' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'number'.
+src/cli/commands/start/process-ui-simple.ts(100,38): error TS2345: Argument of type 'ProcessInfo | undefined' is not assignable to parameter of type 'ProcessInfo'.
+  Type 'undefined' is not assignable to type 'ProcessInfo'.
+src/cli/commands/start/start-command.ts(419,41): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/commands/swarm.ts(22,17): error TS4111: Property 'help' comes from an index signature, so it must be accessed with ['help'].
+src/cli/commands/swarm.ts(22,35): error TS4111: Property 'h' comes from an index signature, so it must be accessed with ['h'].
+src/cli/commands/swarm.ts(57,27): error TS4111: Property 'persistence' comes from an index signature, so it must be accessed with ['persistence'].
+src/cli/commands/swarm.ts(62,25): error TS4111: Property 'strategy' comes from an index signature, so it must be accessed with ['strategy'].
+src/cli/commands/swarm.ts(63,26): error TS4111: Property 'maxAgents' comes from an index signature, so it must be accessed with ['maxAgents'].
+src/cli/commands/swarm.ts(64,25): error TS4111: Property 'maxDepth' comes from an index signature, so it must be accessed with ['maxDepth'].
+src/cli/commands/swarm.ts(65,25): error TS4111: Property 'research' comes from an index signature, so it must be accessed with ['research'].
+src/cli/commands/swarm.ts(66,25): error TS4111: Property 'parallel' comes from an index signature, so it must be accessed with ['parallel'].
+src/cli/commands/swarm.ts(67,32): error TS4111: Property 'memoryNamespace' comes from an index signature, so it must be accessed with ['memoryNamespace'].
+src/cli/commands/swarm.ts(68,24): error TS4111: Property 'timeout' comes from an index signature, so it must be accessed with ['timeout'].
+src/cli/commands/swarm.ts(69,23): error TS4111: Property 'review' comes from an index signature, so it must be accessed with ['review'].
+src/cli/commands/swarm.ts(70,28): error TS4111: Property 'coordinator' comes from an index signature, so it must be accessed with ['coordinator'].
+src/cli/commands/swarm.ts(71,23): error TS4111: Property 'config' comes from an index signature, so it must be accessed with ['config'].
+src/cli/commands/swarm.ts(71,53): error TS4111: Property 'c' comes from an index signature, so it must be accessed with ['c'].
+src/cli/commands/swarm.ts(72,24): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/commands/swarm.ts(72,56): error TS4111: Property 'v' comes from an index signature, so it must be accessed with ['v'].
+src/cli/commands/swarm.ts(73,23): error TS4111: Property 'dryRun' comes from an index signature, so it must be accessed with ['dryRun'].
+src/cli/commands/swarm.ts(73,89): error TS4111: Property 'd' comes from an index signature, so it must be accessed with ['d'].
+src/cli/commands/swarm.ts(74,24): error TS4111: Property 'monitor' comes from an index signature, so it must be accessed with ['monitor'].
+src/cli/commands/swarm.ts(75,19): error TS4111: Property 'ui' comes from an index signature, so it must be accessed with ['ui'].
+src/cli/commands/swarm.ts(76,27): error TS4111: Property 'background' comes from an index signature, so it must be accessed with ['background'].
+src/cli/commands/swarm.ts(77,28): error TS4111: Property 'persistence' comes from an index signature, so it must be accessed with ['persistence'].
+src/cli/commands/swarm.ts(78,28): error TS4111: Property 'distributed' comes from an index signature, so it must be accessed with ['distributed'].
+src/cli/commands/swarm.ts(118,72): error TS2379: Argument of type '{ stdio: "inherit"; processName: string; processType: "service"; parentId: undefined; metadata: { swarmId: string; ui: boolean; }; }' is not assignable to parameter of type 'Omit<ProcessExecutionOptions, "command" | "args">' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'parentId' are incompatible.
+    Type 'undefined' is not assignable to type 'string'.
+src/cli/commands/swarm.ts(210,9): error TS2345: Argument of type '"coordinator" | "researcher" | "developer" | "analyzer" | "reviewer" | undefined' is not assignable to parameter of type '"coordinator" | "researcher" | "developer" | "analyzer" | "reviewer"'.
+  Type 'undefined' is not assignable to type '"coordinator" | "researcher" | "developer" | "analyzer" | "reviewer"'.
+src/cli/commands/swarm.ts(211,32): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/commands/workflow.ts(535,55): error TS18048: 'taskExec' is possibly 'undefined'.
+src/cli/commands/workflow.ts(539,5): error TS18048: 'taskExec' is possibly 'undefined'.
+src/cli/commands/workflow.ts(540,5): error TS18048: 'taskExec' is possibly 'undefined'.
+src/cli/commands/workflow.ts(549,7): error TS18048: 'taskExec' is possibly 'undefined'.
+src/cli/commands/workflow.ts(550,7): error TS18048: 'taskExec' is possibly 'undefined'.
+src/cli/commands/workflow.ts(554,7): error TS18048: 'taskExec' is possibly 'undefined'.
+src/cli/commands/workflow.ts(555,7): error TS18048: 'taskExec' is possibly 'undefined'.
+src/cli/commands/workflow.ts(556,7): error TS18048: 'taskExec' is possibly 'undefined'.
+src/cli/completion.ts(46,31): error TS4111: Property 'SHELL' comes from an index signature, so it must be accessed with ['SHELL'].
+src/cli/index.ts(93,33): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/index.ts(122,19): error TS4111: Property 'CLAUDE_FLOW_DEBUG' comes from an index signature, so it must be accessed with ['CLAUDE_FLOW_DEBUG'].
+src/cli/index.ts(205,19): error TS4111: Property 'NO_COLOR' comes from an index signature, so it must be accessed with ['NO_COLOR'].
+src/cli/main.ts(14,13): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/cli/main.ts(14,36): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/cli/main.ts(32,27): error TS4111: Property 'CLAUDE_FLOW_LOG_LEVEL' comes from an index signature, so it must be accessed with ['CLAUDE_FLOW_LOG_LEVEL'].
+src/cli/node-repl.ts(101,41): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/node-repl.ts(103,28): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/node-repl.ts(108,39): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/node-repl.ts(112,31): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/node-repl.ts(124,28): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/node-repl.ts(129,45): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/node-repl.ts(136,28): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/node-repl.ts(141,45): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/node-repl.ts(148,43): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/node-repl.ts(155,43): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/node-repl.ts(200,37): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/node-repl.ts(347,56): error TS4111: Property 'HOME' comes from an index signature, so it must be accessed with ['HOME'].
+src/cli/node-repl.ts(348,25): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/node-repl.ts(413,40): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/node-repl.ts(427,47): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(99,41): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(105,39): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(120,28): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(125,45): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(132,28): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(137,45): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(144,43): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(151,43): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(186,37): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(333,56): error TS4111: Property 'HOME' comes from an index signature, so it must be accessed with ['HOME'].
+src/cli/repl.ts(334,25): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(402,42): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(416,49): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(618,36): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(625,29): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(740,30): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(747,32): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(885,36): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(971,33): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/repl.ts(978,34): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/secure-cli.ts(151,9): error TS2412: Type 'undefined' is not assignable to type 'SecurityContext' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/cli/secure-cli.ts(152,9): error TS2412: Type 'undefined' is not assignable to type 'Date' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/cli/simple-cli.ts(747,13): error TS2532: Object is possibly 'undefined'.
+src/cli/simple-cli.ts(755,26): error TS2532: Object is possibly 'undefined'.
+src/cli/simple-cli.ts(1674,38): error TS4111: Property 'TERM_PROGRAM' comes from an index signature, so it must be accessed with ['TERM_PROGRAM'].
+src/cli/simple-cli.ts(1675,34): error TS4111: Property 'CI' comes from an index signature, so it must be accessed with ['CI'].
+src/cli/simple-cli.ts(1675,52): error TS4111: Property 'GITHUB_ACTIONS' comes from an index signature, so it must be accessed with ['GITHUB_ACTIONS'].
+src/cli/simple-cli.ts(1700,67): error TS4111: Property 'TERM' comes from an index signature, so it must be accessed with ['TERM'].
+src/cli/simple-cli.ts(1702,66): error TS4111: Property 'TERM_PROGRAM' comes from an index signature, so it must be accessed with ['TERM_PROGRAM'].
+src/cli/simple-mcp.ts(265,38): error TS2379: Argument of type '{ transport: "stdio"; port: undefined; host: undefined; corsEnabled: boolean; tlsEnabled: boolean; }' is not assignable to parameter of type 'MCPConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'host' are incompatible.
+    Type 'undefined' is not assignable to type 'string'.
+src/cli/simple-orchestrator.ts(360,38): error TS4111: Property 'limit' comes from an index signature, so it must be accessed with ['limit'].
+src/cli/ui/compatible-ui.ts(110,41): error TS2345: Argument of type 'UIProcess | undefined' is not assignable to parameter of type 'UIProcess'.
+  Type 'undefined' is not assignable to type 'UIProcess'.
+src/cli/ui/fallback-handler.ts(148,19): error TS4111: Property 'TERM_PROGRAM' comes from an index signature, so it must be accessed with ['TERM_PROGRAM'].
+src/cli/ui/fallback-handler.ts(157,19): error TS4111: Property 'CI' comes from an index signature, so it must be accessed with ['CI'].
+src/cli/ui/fallback-handler.ts(157,37): error TS4111: Property 'GITHUB_ACTIONS' comes from an index signature, so it must be accessed with ['GITHUB_ACTIONS'].
+src/cli/ui/fallback-handler.ts(190,53): error TS4111: Property 'TERM' comes from an index signature, so it must be accessed with ['TERM'].
+src/cli/ui/fallback-handler.ts(192,52): error TS4111: Property 'TERM_PROGRAM' comes from an index signature, so it must be accessed with ['TERM_PROGRAM'].
+src/cli/unified/cli.ts(144,21): error TS4111: Property 'DEBUG' comes from an index signature, so it must be accessed with ['DEBUG'].
+src/cli/unified/cli.ts(248,21): error TS4111: Property 'DEBUG' comes from an index signature, so it must be accessed with ['DEBUG'].
+src/cli/unified/command-registry.ts(256,21): error TS4111: Property 'DEBUG' comes from an index signature, so it must be accessed with ['DEBUG'].
+src/cli/unified/command-registry.ts(256,42): error TS4111: Property 'VERBOSE' comes from an index signature, so it must be accessed with ['VERBOSE'].
+src/cli/unified/command-registry.ts(262,21): error TS4111: Property 'VERBOSE' comes from an index signature, so it must be accessed with ['VERBOSE'].
+src/cli/unified/commands/status.ts(47,19): error TS4111: Property 'watch' comes from an index signature, so it must be accessed with ['watch'].
+src/cli/unified/commands/status.ts(141,52): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/unified/commands/status.ts(143,19): error TS4111: Property 'json' comes from an index signature, so it must be accessed with ['json'].
+src/cli/unified/commands/status.ts(148,19): error TS4111: Property 'component' comes from an index signature, so it must be accessed with ['component'].
+src/cli/unified/commands/status.ts(149,51): error TS4111: Property 'component' comes from an index signature, so it must be accessed with ['component'].
+src/cli/unified/commands/status.ts(151,46): error TS4111: Property 'verbose' comes from an index signature, so it must be accessed with ['verbose'].
+src/cli/unified/commands/status.ts(165,31): error TS4111: Property 'interval' comes from an index signature, so it must be accessed with ['interval'].
+src/cli/unified/commands/status.ts(168,56): error TS4111: Property 'interval' comes from an index signature, so it must be accessed with ['interval'].
+src/cli/unified/node-runtime.ts(107,24): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/cli/unified/node-runtime.ts(107,66): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/cli/unified/node-runtime.ts(112,24): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/cli/utils/deno-compat.ts(107,13): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/communication/ipc/client.ts(75,7): error TS2412: Type 'undefined' is not assignable to type 'IPCConnection' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/communication/ipc/client.ts(238,5): error TS2412: Type 'undefined' is not assignable to type 'IPCConnection' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/communication/ipc/client.ts(273,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/communication/ipc/client.ts(289,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/communication/ipc/client.ts(324,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/communication/ipc/index.ts(115,40): error TS2379: Argument of type '{ socketPath: string | undefined; }' is not assignable to parameter of type 'UnixSocketConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'socketPath' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/communication/ipc/index.ts(120,42): error TS2379: Argument of type '{ socketPath: string | undefined; }' is not assignable to parameter of type 'UnixSocketConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'socketPath' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/communication/ipc/index.ts(179,34): error TS2379: Argument of type '{ path: string; security: IPCSecurityOptions | undefined; }' is not assignable to parameter of type 'Partial<IPCConfig>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'security' are incompatible.
+    Type 'IPCSecurityOptions | undefined' is not assignable to type 'IPCSecurityOptions'.
+      Type 'undefined' is not assignable to type 'IPCSecurityOptions'.
+src/communication/ipc/index.ts(198,34): error TS2379: Argument of type '{ path: string; security: IPCSecurityOptions | undefined; }' is not assignable to parameter of type 'Partial<IPCConfig>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'security' are incompatible.
+    Type 'IPCSecurityOptions | undefined' is not assignable to type 'IPCSecurityOptions'.
+      Type 'undefined' is not assignable to type 'IPCSecurityOptions'.
+src/communication/ipc/integration/command-integration.ts(36,32): error TS4111: Property 'CLAUDE_FLOW_IPC_TOKEN' comes from an index signature, so it must be accessed with ['CLAUDE_FLOW_IPC_TOKEN'].
+src/communication/ipc/integration/command-integration.ts(315,30): error TS4111: Property 'CLAUDE_FLOW_IPC_TOKEN' comes from an index signature, so it must be accessed with ['CLAUDE_FLOW_IPC_TOKEN'].
+src/communication/ipc/transports/http-transport.ts(32,5): error TS2412: Type 'ServerResponse<IncomingMessage> | undefined' is not assignable to type 'ServerResponse<IncomingMessage>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'ServerResponse<IncomingMessage>'.
+src/communication/ipc/transports/named-pipe-transport.ts(252,26): error TS4111: Property 'USERNAME' comes from an index signature, so it must be accessed with ['USERNAME'].
+src/communication/ipc/transports/unix-socket-transport.ts(162,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/communication/message-bus.ts(373,7): error TS2375: Type '{ correlationId: string | undefined; replyTo: string | undefined; ttl: number | undefined; compressed: boolean; encrypted: boolean; size: number; contentType: string; encoding: string; route: string[]; }' is not assignable to type 'MessageMetadata' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'correlationId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/communication/message-bus.ts(443,63): error TS2379: Argument of type '{ priority: MessagePriority | undefined; ttl: number | undefined; channel: string; }' is not assignable to parameter of type '{ priority?: MessagePriority; reliability?: ReliabilityLevel; ttl?: number; correlationId?: string; replyTo?: string; channel?: string; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'priority' are incompatible.
+    Type 'MessagePriority | undefined' is not assignable to type 'MessagePriority'.
+      Type 'undefined' is not assignable to type 'MessagePriority'.
+src/communication/message-bus.ts(461,11): error TS2375: Type '{ id: string; topic: string; subscriber: AgentId; filter: MessageFilter | undefined; ackRequired: boolean; qos: 0 | 1 | 2; createdAt: Date; }' is not assignable to type 'TopicSubscription' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'filter' are incompatible.
+    Type 'MessageFilter | undefined' is not assignable to type 'MessageFilter'.
+      Type 'undefined' is not assignable to type 'MessageFilter'.
+src/communication/message-bus.ts(729,52): error TS2345: Argument of type 'Message | undefined' is not assignable to parameter of type 'Message'.
+  Type 'undefined' is not assignable to type 'Message'.
+src/communication/message-bus.ts(733,7): error TS2322: Type 'Message | undefined' is not assignable to type 'Message | null'.
+  Type 'undefined' is not assignable to type 'Message | null'.
+src/communication/message-bus.ts(917,45): error TS2532: Object is possibly 'undefined'.
+src/communication/message-bus.ts(932,27): error TS2532: Object is possibly 'undefined'.
+src/communication/message-bus.ts(932,52): error TS2532: Object is possibly 'undefined'.
+src/config/ConfigManager.ts(161,13): error TS18048: 'key' is possibly 'undefined'.
+src/config/ConfigManager.ts(161,45): error TS2538: Type 'undefined' cannot be used as an index type.
+src/config/ConfigManager.ts(162,16): error TS2538: Type 'undefined' cannot be used as an index type.
+src/config/ConfigManager.ts(164,23): error TS2538: Type 'undefined' cannot be used as an index type.
+src/config/ConfigManager.ts(168,29): error TS2538: Type 'undefined' cannot be used as an index type.
+src/config/ConfigManager.ts(169,12): error TS2538: Type 'undefined' cannot be used as an index type.
+src/config/ConfigManager.ts(273,20): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/config/ConfigManager.ts(355,29): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/config/ConfigManager.ts(447,33): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/config/ConfigManager.ts(451,28): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/config/config-manager.ts(223,13): error TS18048: 'key' is possibly 'undefined'.
+src/config/config-manager.ts(224,17): error TS2538: Type 'undefined' cannot be used as an index type.
+src/config/config-manager.ts(226,25): error TS2538: Type 'undefined' cannot be used as an index type.
+src/config/config-manager.ts(230,13): error TS2538: Type 'undefined' cannot be used as an index type.
+src/config/config-manager.ts(307,35): error TS4111: Property 'CLAUDE_FLOW_MAX_AGENTS' comes from an index signature, so it must be accessed with ['CLAUDE_FLOW_MAX_AGENTS'].
+src/config/config-manager.ts(313,38): error TS4111: Property 'CLAUDE_FLOW_TERMINAL_TYPE' comes from an index signature, so it must be accessed with ['CLAUDE_FLOW_TERMINAL_TYPE'].
+src/config/config-manager.ts(319,39): error TS4111: Property 'CLAUDE_FLOW_MEMORY_BACKEND' comes from an index signature, so it must be accessed with ['CLAUDE_FLOW_MEMORY_BACKEND'].
+src/config/config-manager.ts(325,38): error TS4111: Property 'CLAUDE_FLOW_MCP_TRANSPORT' comes from an index signature, so it must be accessed with ['CLAUDE_FLOW_MCP_TRANSPORT'].
+src/config/config-manager.ts(330,33): error TS4111: Property 'CLAUDE_FLOW_MCP_PORT' comes from an index signature, so it must be accessed with ['CLAUDE_FLOW_MCP_PORT'].
+src/config/config-manager.ts(336,34): error TS4111: Property 'CLAUDE_FLOW_LOG_LEVEL' comes from an index signature, so it must be accessed with ['CLAUDE_FLOW_LOG_LEVEL'].
+src/config/environments/index.ts(17,42): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/config/environments/index.ts(39,22): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/config/environments/index.ts(46,22): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/config/environments/production.ts(56,30): error TS4111: Property 'JWT_SECRET' comes from an index signature, so it must be accessed with ['JWT_SECRET'].
+src/config/environments/production.ts(95,21): error TS4111: Property 'SLACK_WEBHOOK' comes from an index signature, so it must be accessed with ['SLACK_WEBHOOK'].
+src/config/environments/production.ts(96,21): error TS4111: Property 'PAGERDUTY_WEBHOOK' comes from an index signature, so it must be accessed with ['PAGERDUTY_WEBHOOK'].
+src/config/loader.ts(24,19): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/config/loader.ts(31,40): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/config/migrations.ts(43,36): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/config/migrations.ts(47,32): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/coordination/advanced-scheduler.ts(67,12): error TS2532: Object is possibly 'undefined'.
+src/coordination/advanced-scheduler.ts(84,12): error TS2532: Object is possibly 'undefined'.
+src/coordination/advanced-task-executor.ts(255,17): error TS2375: Type '{ type: string; message: string; stack: string | undefined; context: { retryCount: number; maxRetries: number; taskType: TaskType; }; recoverable: false; retryable: false; }' is not assignable to type 'TaskError' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'stack' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/coordination/advanced-task-executor.ts(368,11): error TS2375: Type '{ command: string; args: string[]; env: { TASK_ID: string; AGENT_ID: string; TASK_TYPE: TaskType; }; input: string | undefined; timeout: number; }' is not assignable to type 'ProcessCommand' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'input' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/coordination/background-executor.ts(59,27): error TS2345: Argument of type '{ exitCode: any; output: string; error: string; pid: number | undefined; }' is not assignable to parameter of type 'ProcessPoolResult | PromiseLike<ProcessPoolResult>'.
+  Type '{ exitCode: any; output: string; error: string; pid: number | undefined; }' is not assignable to type 'ProcessPoolResult' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'pid' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/coordination/background-executor.ts(183,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/coordination/background-executor.ts(188,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/coordination/background-executor.ts(309,9): error TS2375: Type '{ cwd: string | undefined; env: Record<string, string>; detached: boolean | undefined; timeout: number | undefined; stdio: ("pipe" | "ignore")[]; }' is not assignable to type '{ cwd?: string; env?: Record<string, string>; timeout?: number; detached?: boolean; stdio?: StdioOptions | undefined; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'cwd' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/coordination/background-executor.ts(320,7): error TS2412: Type 'number | undefined' is not assignable to type 'number' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'number'.
+src/coordination/background-executor.ts(336,9): error TS2412: Type 'string | undefined' is not assignable to type 'string' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'string'.
+src/coordination/conflict-resolution.ts(59,20): error TS2532: Object is possibly 'undefined'.
+src/coordination/conflict-resolution.ts(66,56): error TS2532: Object is possibly 'undefined'.
+src/coordination/conflict-resolution.ts(90,20): error TS2532: Object is possibly 'undefined'.
+src/coordination/load-balancer.ts(378,38): error TS18048: 'selectedAgent' is possibly 'undefined'.
+src/coordination/load-balancer.ts(379,40): error TS18048: 'selectedAgent' is possibly 'undefined'.
+src/coordination/load-balancer.ts(389,55): error TS2532: Object is possibly 'undefined'.
+src/coordination/load-balancer.ts(393,22): error TS18048: 'selectedAgent' is possibly 'undefined'.
+src/coordination/load-balancer.ts(429,22): error TS4111: Property 'language' comes from an index signature, so it must be accessed with ['language'].
+src/coordination/load-balancer.ts(436,22): error TS4111: Property 'framework' comes from an index signature, so it must be accessed with ['framework'].
+src/coordination/load-balancer.ts(437,80): error TS4111: Property 'framework' comes from an index signature, so it must be accessed with ['framework'].
+src/coordination/load-balancer.ts(885,7): error TS2532: Object is possibly 'undefined'.
+src/coordination/load-balancer.ts(942,23): error TS2532: Object is possibly 'undefined'.
+src/coordination/manager.ts(350,53): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/coordination/manager.ts(353,49): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/coordination/metrics.ts(460,48): error TS4111: Property 'priority' comes from an index signature, so it must be accessed with ['priority'].
+src/coordination/metrics.ts(474,60): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/coordination/metrics.ts(475,31): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/coordination/metrics.ts(482,48): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/coordination/metrics.ts(496,61): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/coordination/metrics.ts(497,31): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/coordination/metrics.ts(504,49): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/coordination/resources.ts(198,11): error TS2532: Object is possibly 'undefined'.
+src/coordination/resources.ts(199,28): error TS2532: Object is possibly 'undefined'.
+src/coordination/swarm-coordinator.ts(513,7): error TS2412: Type 'undefined' is not assignable to type 'SwarmTask' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/coordination/swarm-coordinator.ts(558,7): error TS2412: Type 'undefined' is not assignable to type 'SwarmTask' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/coordination/swarm-coordinator.ts(574,7): error TS2412: Type 'undefined' is not assignable to type 'string' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/coordination/swarm-coordinator.ts(663,7): error TS2322: Type 'SwarmAgent | undefined' is not assignable to type 'SwarmAgent | null'.
+  Type 'undefined' is not assignable to type 'SwarmAgent | null'.
+src/coordination/swarm-monitor.ts(123,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/coordination/swarm-monitor.ts(176,7): error TS2412: Type 'number | undefined' is not assignable to type 'number' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'number'.
+src/coordination/work-stealing.ts(109,24): error TS18048: 'maxLoaded' is possibly 'undefined'.
+src/coordination/work-stealing.ts(109,46): error TS18048: 'minLoaded' is possibly 'undefined'.
+src/coordination/work-stealing.ts(121,13): error TS18048: 'maxLoaded' is possibly 'undefined'.
+src/coordination/work-stealing.ts(122,11): error TS18048: 'minLoaded' is possibly 'undefined'.
+src/coordination/work-stealing.ts(129,20): error TS18048: 'maxLoaded' is possibly 'undefined'.
+src/coordination/work-stealing.ts(130,20): error TS18048: 'minLoaded' is possibly 'undefined'.
+src/coordination/work-stealing.ts(190,12): error TS2532: Object is possibly 'undefined'.
+src/coordination/work-stealing.ts(208,14): error TS4111: Property 'workloads' comes from an index signature, so it must be accessed with ['workloads'].
+src/coordination/work-stealing.ts(216,11): error TS4111: Property 'totalTasks' comes from an index signature, so it must be accessed with ['totalTasks'].
+src/coordination/work-stealing.ts(217,11): error TS4111: Property 'avgTasksPerAgent' comes from an index signature, so it must be accessed with ['avgTasksPerAgent'].
+src/coordination/work-stealing.ts(218,11): error TS4111: Property 'minTasks' comes from an index signature, so it must be accessed with ['minTasks'].
+src/coordination/work-stealing.ts(219,11): error TS4111: Property 'maxTasks' comes from an index signature, so it must be accessed with ['maxTasks'].
+src/coordination/work-stealing.ts(220,11): error TS4111: Property 'imbalance' comes from an index signature, so it must be accessed with ['imbalance'].
+src/core/logger.ts(81,39): error TS4111: Property 'CLAUDE_FLOW_ENV' comes from an index signature, so it must be accessed with ['CLAUDE_FLOW_ENV'].
+src/core/logger.ts(320,35): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/core/logger.ts(320,70): error TS4111: Property 'JEST_WORKER_ID' comes from an index signature, so it must be accessed with ['JEST_WORKER_ID'].
+src/core/orchestrator-fixed.ts(101,31): error TS2379: Argument of type '{ id: string; type: string; description: string; status: string; progress: number; assignedAgent: string | undefined; error: string | undefined; }' is not assignable to parameter of type 'TaskInfo' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'assignedAgent' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/core/orchestrator-fixed.ts(231,32): error TS18048: 'agent' is possibly 'undefined'.
+src/core/orchestrator-fixed.ts(233,7): error TS18048: 'agent' is possibly 'undefined'.
+src/core/orchestrator-fixed.ts(234,62): error TS18048: 'agent' is possibly 'undefined'.
+src/core/orchestrator-fixed.ts(237,67): error TS18048: 'agent' is possibly 'undefined'.
+src/core/orchestrator.ts(584,20): error TS4111: Property 'terminal' comes from an index signature, so it must be accessed with ['terminal'].
+src/core/orchestrator.ts(585,20): error TS4111: Property 'memory' comes from an index signature, so it must be accessed with ['memory'].
+src/core/orchestrator.ts(586,20): error TS4111: Property 'coordination' comes from an index signature, so it must be accessed with ['coordination'].
+src/core/orchestrator.ts(587,20): error TS4111: Property 'mcp' comes from an index signature, so it must be accessed with ['mcp'].
+src/core/orchestrator.ts(590,20): error TS4111: Property 'orchestrator' comes from an index signature, so it must be accessed with ['orchestrator'].
+src/core/orchestrator.ts(932,52): error TS4111: Property 'requiredCapabilities' comes from an index signature, so it must be accessed with ['requiredCapabilities'].
+src/core/orchestrator.ts(960,12): error TS2532: Object is possibly 'undefined'.
+src/core/orchestrator.ts(1072,43): error TS4111: Property 'errorCount' comes from an index signature, so it must be accessed with ['errorCount'].
+src/core/orchestrator.ts(1098,40): error TS4111: Property 'retryCount' comes from an index signature, so it must be accessed with ['retryCount'].
+src/core/orchestrator.ts(1143,33): error TS18048: 'targetAgent' is possibly 'undefined'.
+src/core/orchestrator.ts(1145,74): error TS18048: 'targetAgent' is possibly 'undefined'.
+src/core/orchestrator.ts(1229,44): error TS4111: Property 'critical' comes from an index signature, so it must be accessed with ['critical'].
+src/core/process-pool.ts(294,48): error TS2379: Argument of type '{ name: string; type: "service" | "task" | "agent" | "swarm"; command: string[]; parentId: string; metadata: Record<string, any> | undefined; }' is not assignable to parameter of type 'RegisterOptions & { parentId: string; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Type '{ name: string; type: "service" | "task" | "agent" | "swarm"; command: string[]; parentId: string; metadata: Record<string, any> | undefined; }' is not assignable to type 'RegisterOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'metadata' are incompatible.
+      Type 'Record<string, any> | undefined' is not assignable to type 'Record<string, any>'.
+        Type 'undefined' is not assignable to type 'Record<string, any>'.
+src/core/process-pool.ts(357,15): error TS2375: Type '{ success: boolean; exitCode: number; stdout: string | undefined; stderr: string | undefined; duration: number; pid: number | undefined; metadata: { executionId: string; timeout: boolean; signal: string | null; command: string; args: string[] | undefined; }; }' is not assignable to type 'ProcessExecutionResult' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'stdout' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/enterprise/analytics-manager.ts(748,38): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'any[]'.
+  Type 'undefined' is not assignable to type 'any[]'.
+src/enterprise/analytics-manager.ts(753,37): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'any[]'.
+  Type 'undefined' is not assignable to type 'any[]'.
+src/enterprise/analytics-manager.ts(759,37): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'any[]'.
+  Type 'undefined' is not assignable to type 'any[]'.
+src/enterprise/analytics-manager.ts(775,36): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'any[]'.
+  Type 'undefined' is not assignable to type 'any[]'.
+src/enterprise/analytics-manager.ts(781,50): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'any[]'.
+  Type 'undefined' is not assignable to type 'any[]'.
+src/enterprise/analytics-manager.ts(785,37): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'any[]'.
+  Type 'undefined' is not assignable to type 'any[]'.
+src/enterprise/analytics-manager.ts(790,39): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'any[]'.
+  Type 'undefined' is not assignable to type 'any[]'.
+src/enterprise/analytics-manager.ts(802,49): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'any[]'.
+  Type 'undefined' is not assignable to type 'any[]'.
+src/enterprise/analytics-manager.ts(807,37): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'any[]'.
+  Type 'undefined' is not assignable to type 'any[]'.
+src/enterprise/analytics-manager.ts(844,37): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'any[]'.
+  Type 'undefined' is not assignable to type 'any[]'.
+src/enterprise/analytics-manager.ts(850,36): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'any[]'.
+  Type 'undefined' is not assignable to type 'any[]'.
+src/enterprise/analytics-manager.ts(868,36): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'any[]'.
+  Type 'undefined' is not assignable to type 'any[]'.
+src/enterprise/analytics-manager.ts(1238,31): error TS2532: Object is possibly 'undefined'.
+src/enterprise/analytics-manager.ts(1300,9): error TS2532: Object is possibly 'undefined'.
+src/enterprise/analytics-manager.ts(1301,22): error TS2532: Object is possibly 'undefined'.
+src/enterprise/analytics-manager.ts(1464,11): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/enterprise/analytics-manager.ts(1468,11): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/enterprise/audit-manager.ts(426,11): error TS2375: Type '{ id: string; timestamp: Date; eventType: string; category: "security" | "data-access" | "authorization" | "compliance" | "business" | "authentication" | "system-change"; severity: "low" | ... 2 more ... | "critical"; ... 9 more ...; metadata: {}; }' is not assignable to type 'AuditEntry' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'userId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/enterprise/audit-manager.ts(837,19): error TS4111: Property 'privileged' comes from an index signature, so it must be accessed with ['privileged'].
+src/enterprise/audit-manager.ts(1222,28): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/enterprise/audit-manager.ts(1323,51): error TS4111: Property 'pii' comes from an index signature, so it must be accessed with ['pii'].
+src/enterprise/audit-manager.ts(1467,59): error TS4111: Property 'privileged' comes from an index signature, so it must be accessed with ['privileged'].
+src/enterprise/cloud-manager.ts(945,35): error TS4111: Property 'replicas' comes from an index signature, so it must be accessed with ['replicas'].
+src/enterprise/cloud-manager.ts(949,35): error TS4111: Property 'autoScaling' comes from an index signature, so it must be accessed with ['autoScaling'].
+src/enterprise/deployment-manager.ts(1090,11): error TS2375: Type '{ timestamp: Date; level: "error" | "debug" | "info" | "warn"; message: string; source: string; metadata: Record<string, any> | undefined; }' is not assignable to type 'DeploymentLog' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'metadata' are incompatible.
+    Type 'Record<string, any> | undefined' is not assignable to type 'Record<string, any>'.
+      Type 'undefined' is not assignable to type 'Record<string, any>'.
+src/enterprise/deployment-manager.ts(1258,22): error TS18048: 'lastDeployment' is possibly 'undefined'.
+src/enterprise/deployment-manager.ts(1258,59): error TS18048: 'firstDeployment' is possibly 'undefined'.
+src/enterprise/project-manager.ts(244,7): error TS2375: Type '{ plannedStart: Date; plannedEnd: Date; actualStart: Date | undefined; actualEnd: Date | undefined; }' is not assignable to type '{ plannedStart: Date; plannedEnd: Date; actualStart?: Date; actualEnd?: Date; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'actualStart' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/enterprise/project-manager.ts(404,5): error TS2375: Type '{ id?: string; name?: string; description?: string; status?: "planned" | "in-progress" | "completed" | "blocked" | "cancelled"; startDate?: Date; endDate?: Date; estimatedDuration?: number; ... 9 more ...; qualityMetrics?: { testCoverage: number; codeQuality: number; documentation: number; securityScore: number; }; }' is not assignable to type 'ProjectPhase' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Property 'id' is optional in type '{ id?: string; name?: string; description?: string; status?: "completed" | "cancelled" | "blocked" | "planned" | "in-progress"; startDate?: Date; endDate?: Date; estimatedDuration?: number; ... 9 more ...; qualityMetrics?: { ...; }; }' but required in type 'ProjectPhase'.
+src/enterprise/project-manager.ts(416,5): error TS2375: Type '{ id?: string; name?: string; description?: string; status?: "planned" | "in-progress" | "completed" | "blocked" | "cancelled"; startDate?: Date; endDate?: Date; estimatedDuration?: number; ... 9 more ...; qualityMetrics?: { testCoverage: number; codeQuality: number; documentation: number; securityScore: number; }; }' is not assignable to type 'ProjectPhase' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Property 'id' is optional in type '{ id?: string; name?: string; description?: string; status?: "completed" | "cancelled" | "blocked" | "planned" | "in-progress"; startDate?: Date; endDate?: Date; estimatedDuration?: number; ... 9 more ...; qualityMetrics?: { ...; }; }' but required in type 'ProjectPhase'.
+src/enterprise/project-manager.ts(456,19): error TS18048: 'member' is possibly 'undefined'.
+src/enterprise/security-manager.ts(399,11): error TS2375: Type '{ id: string; name: string; type: "dependency" | "infrastructure" | "compliance" | "vulnerability" | "code-quality" | "secrets" | "container"; status: "pending"; projectId: string | undefined; ... 11 more ...; auditLog: never[]; }' is not assignable to type 'SecurityScan' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'projectId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/mcp/auth.ts(297,24): error TS4111: Property 'token' comes from an index signature, so it must be accessed with ['token'].
+src/mcp/auth.ts(298,22): error TS4111: Property 'token' comes from an index signature, so it must be accessed with ['token'].
+src/mcp/auth.ts(301,24): error TS4111: Property 'authorization' comes from an index signature, so it must be accessed with ['authorization'].
+src/mcp/auth.ts(302,29): error TS4111: Property 'authorization' comes from an index signature, so it must be accessed with ['authorization'].
+src/mcp/auth.ts(303,24): error TS2322: Type 'string | undefined' is not assignable to type 'string | null'.
+  Type 'undefined' is not assignable to type 'string | null'.
+src/mcp/auth.ts(314,24): error TS4111: Property 'username' comes from an index signature, so it must be accessed with ['username'].
+src/mcp/auth.ts(314,62): error TS4111: Property 'password' comes from an index signature, so it must be accessed with ['password'].
+src/mcp/auth.ts(316,27): error TS4111: Property 'username' comes from an index signature, so it must be accessed with ['username'].
+src/mcp/auth.ts(317,27): error TS4111: Property 'password' comes from an index signature, so it must be accessed with ['password'].
+src/mcp/auth.ts(321,24): error TS4111: Property 'authorization' comes from an index signature, so it must be accessed with ['authorization'].
+src/mcp/auth.ts(322,29): error TS4111: Property 'authorization' comes from an index signature, so it must be accessed with ['authorization'].
+src/mcp/auth.ts(325,34): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/mcp/lifecycle-manager.ts(146,5): error TS2412: Type 'undefined' is not assignable to type 'Promise<void>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/mcp/lifecycle-manager.ts(185,11): error TS2375: Type '{ healthy: false; state: LifecycleState; uptime: number; lastRestart: Date | undefined; components: { server: false; transport: false; sessions: false; tools: false; auth: false; loadBalancer: false; }; }' is not assignable to type 'HealthCheckResult' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'lastRestart' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/mcp/lifecycle-manager.ts(209,7): error TS2412: Type 'Record<string, number> | undefined' is not assignable to type 'Record<string, number>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'Record<string, number>'.
+src/mcp/lifecycle-manager.ts(216,59): error TS4111: Property 'transportConnections' comes from an index signature, so it must be accessed with ['transportConnections'].
+src/mcp/lifecycle-manager.ts(217,58): error TS4111: Property 'activeSessions' comes from an index signature, so it must be accessed with ['activeSessions'].
+src/mcp/lifecycle-manager.ts(218,56): error TS4111: Property 'registeredTools' comes from an index signature, so it must be accessed with ['registeredTools'].
+src/mcp/lifecycle-manager.ts(219,54): error TS4111: Property 'authenticatedSessions' comes from an index signature, so it must be accessed with ['authenticatedSessions'].
+src/mcp/lifecycle-manager.ts(220,62): error TS4111: Property 'rateLimitedRequests' comes from an index signature, so it must be accessed with ['rateLimitedRequests'].
+src/mcp/lifecycle-manager.ts(230,24): error TS4111: Property 'healthCheckDuration' comes from an index signature, so it must be accessed with ['healthCheckDuration'].
+src/mcp/lifecycle-manager.ts(298,7): error TS2412: Type 'undefined' is not assignable to type 'IMCPServer' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/mcp/lifecycle-manager.ts(302,5): error TS2412: Type 'undefined' is not assignable to type 'Date' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/mcp/lifecycle-manager.ts(332,11): error TS2375: Type '{ timestamp: Date; state: LifecycleState; previousState: LifecycleState; error: Error | undefined; }' is not assignable to type 'LifecycleEvent' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'error' are incompatible.
+    Type 'Error | undefined' is not assignable to type 'Error'.
+      Type 'undefined' is not assignable to type 'Error'.
+src/mcp/lifecycle-manager.ts(429,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/mcp/lifecycle-manager.ts(447,7): error TS2412: Type 'undefined' is not assignable to type 'IMCPServer' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/mcp/lifecycle-manager.ts(449,7): error TS2412: Type 'undefined' is not assignable to type 'Date' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/mcp/mcp-factory.ts(100,5): error TS2375: Type '{ server: MCPServer; lifecycleManager: MCPLifecycleManager | undefined; performanceMonitor: MCPPerformanceMonitor | undefined; }' is not assignable to type '{ server: MCPServer; lifecycleManager?: MCPLifecycleManager; performanceMonitor?: MCPPerformanceMonitor; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'lifecycleManager' are incompatible.
+    Type 'MCPLifecycleManager | undefined' is not assignable to type 'MCPLifecycleManager'.
+      Type 'undefined' is not assignable to type 'MCPLifecycleManager'.
+src/mcp/mcp-factory.ts(238,7): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/mcp/mcp-factory.ts(239,7): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/mcp/mcp-factory.ts(240,7): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/mcp/orchestration-integration.ts(705,7): error TS2412: Type 'undefined' is not assignable to type 'string' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/mcp/orchestration-integration.ts(763,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/mcp/orchestration-integration.ts(775,9): error TS2412: Type 'undefined' is not assignable to type 'string' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/mcp/performance-monitor.ts(156,5): error TS2412: Type 'string | undefined' is not assignable to type 'string' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'string'.
+src/mcp/performance-monitor.ts(214,7): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/mcp/performance-monitor.ts(215,7): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/mcp/performance-monitor.ts(347,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/mcp/performance-monitor.ts(352,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/mcp/performance-monitor.ts(357,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/mcp/performance-monitor.ts(514,5): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/mcp/performance-monitor.ts(536,35): error TS18048: 'first' is possibly 'undefined'.
+src/mcp/performance-monitor.ts(536,62): error TS18048: 'last' is possibly 'undefined'.
+src/mcp/performance-monitor.ts(537,33): error TS18048: 'first' is possibly 'undefined'.
+src/mcp/performance-monitor.ts(537,51): error TS18048: 'last' is possibly 'undefined'.
+src/mcp/performance-monitor.ts(538,32): error TS18048: 'first' is possibly 'undefined'.
+src/mcp/performance-monitor.ts(538,49): error TS18048: 'last' is possibly 'undefined'.
+src/mcp/protocol-manager.ts(394,7): error TS2375: Type '{ listChanged: boolean | undefined; }' is not assignable to type '{ listChanged?: boolean; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'listChanged' are incompatible.
+    Type 'boolean | undefined' is not assignable to type 'boolean'.
+      Type 'undefined' is not assignable to type 'boolean'.
+src/mcp/protocol-manager.ts(401,7): error TS2375: Type '{ listChanged: boolean | undefined; subscribe: boolean | undefined; }' is not assignable to type '{ listChanged?: boolean; subscribe?: boolean; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'listChanged' are incompatible.
+    Type 'boolean | undefined' is not assignable to type 'boolean'.
+      Type 'undefined' is not assignable to type 'boolean'.
+src/mcp/protocol-manager.ts(409,7): error TS2375: Type '{ listChanged: boolean | undefined; }' is not assignable to type '{ listChanged?: boolean; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'listChanged' are incompatible.
+    Type 'boolean | undefined' is not assignable to type 'boolean'.
+      Type 'undefined' is not assignable to type 'boolean'.
+src/mcp/server.ts(212,17): error TS4111: Property 'rateLimitedRequests' comes from an index signature, so it must be accessed with ['rateLimitedRequests'].
+src/mcp/server.ts(213,17): error TS4111: Property 'averageResponseTime' comes from an index signature, so it must be accessed with ['averageResponseTime'].
+src/mcp/server.ts(214,17): error TS4111: Property 'requestsPerSecond' comes from an index signature, so it must be accessed with ['requestsPerSecond'].
+src/mcp/server.ts(215,17): error TS4111: Property 'circuitBreakerTrips' comes from an index signature, so it must be accessed with ['circuitBreakerTrips'].
+src/mcp/session-manager.ts(362,24): error TS4111: Property 'token' comes from an index signature, so it must be accessed with ['token'].
+src/mcp/session-manager.ts(363,22): error TS4111: Property 'token' comes from an index signature, so it must be accessed with ['token'].
+src/mcp/session-manager.ts(365,24): error TS4111: Property 'authorization' comes from an index signature, so it must be accessed with ['authorization'].
+src/mcp/session-manager.ts(366,29): error TS4111: Property 'authorization' comes from an index signature, so it must be accessed with ['authorization'].
+src/mcp/session-manager.ts(367,24): error TS2322: Type 'string | undefined' is not assignable to type 'string | null'.
+  Type 'undefined' is not assignable to type 'string | null'.
+src/mcp/session-manager.ts(378,24): error TS4111: Property 'username' comes from an index signature, so it must be accessed with ['username'].
+src/mcp/session-manager.ts(378,62): error TS4111: Property 'password' comes from an index signature, so it must be accessed with ['password'].
+src/mcp/session-manager.ts(380,27): error TS4111: Property 'username' comes from an index signature, so it must be accessed with ['username'].
+src/mcp/session-manager.ts(381,27): error TS4111: Property 'password' comes from an index signature, so it must be accessed with ['password'].
+src/mcp/session-manager.ts(385,24): error TS4111: Property 'authorization' comes from an index signature, so it must be accessed with ['authorization'].
+src/mcp/session-manager.ts(386,29): error TS4111: Property 'authorization' comes from an index signature, so it must be accessed with ['authorization'].
+src/mcp/session-manager.ts(389,34): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/mcp/session-manager.ts(391,13): error TS2375: Type '{ username: string | undefined; password: string | undefined; }' is not assignable to type '{ username?: string; password?: string; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'username' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/mcp/session-manager.ts(407,21): error TS4111: Property 'username' comes from an index signature, so it must be accessed with ['username'].
+src/mcp/session-manager.ts(407,39): error TS4111: Property 'user' comes from an index signature, so it must be accessed with ['user'].
+src/mcp/session-manager.ts(408,28): error TS4111: Property 'permissions' comes from an index signature, so it must be accessed with ['permissions'].
+src/mcp/swarm-tools.ts(48,37): error TS4111: Property 'CLAUDE_SWARM_ID' comes from an index signature, so it must be accessed with ['CLAUDE_SWARM_ID'].
+src/mcp/swarm-tools.ts(54,38): error TS4111: Property 'CLAUDE_SWARM_AGENT_ID' comes from an index signature, so it must be accessed with ['CLAUDE_SWARM_AGENT_ID'].
+src/mcp/swarm-tools.ts(87,37): error TS4111: Property 'CLAUDE_SWARM_ID' comes from an index signature, so it must be accessed with ['CLAUDE_SWARM_ID'].
+src/mcp/swarm-tools.ts(755,31): error TS4111: Property 'CLAUDE_SWARM_ID' comes from an index signature, so it must be accessed with ['CLAUDE_SWARM_ID'].
+src/mcp/swarm-tools.ts(760,32): error TS4111: Property 'CLAUDE_SWARM_AGENT_ID' comes from an index signature, so it must be accessed with ['CLAUDE_SWARM_AGENT_ID'].
+src/mcp/swarm-tools.ts(782,31): error TS4111: Property 'CLAUDE_SWARM_ID' comes from an index signature, so it must be accessed with ['CLAUDE_SWARM_ID'].
+src/mcp/tools.ts(292,31): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/mcp/transports/http.ts(107,7): error TS2412: Type 'undefined' is not assignable to type 'WebSocketServer' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/mcp/transports/http.ts(115,7): error TS2412: Type 'undefined' is not assignable to type 'Server<typeof IncomingMessage, typeof ServerResponse>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/mcp/transports/http.ts(415,56): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/mcp/transports/stdio.ts(71,7): error TS2412: Type 'undefined' is not assignable to type 'Interface' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/memory/advanced-memory-manager.ts(314,13): error TS2375: Type '{ id: string; key: string; value: any; type: string; namespace: string; tags: string[]; metadata: Record<string, any>; owner: string; accessLevel: "private" | "public" | "shared"; createdAt: Date; ... 8 more ...; dependencies: never[]; }' is not assignable to type 'MemoryEntry' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'expiresAt' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/memory/advanced-memory-manager.ts(427,46): error TS2379: Argument of type '{ namespace: string | undefined; }' is not assignable to parameter of type '{ namespace?: string; updateLastAccessed?: boolean; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'namespace' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/memory/advanced-memory-manager.ts(575,7): error TS2375: Type '{ entries: MemoryEntry[]; total: number; aggregations: Record<string, any> | undefined; }' is not assignable to type '{ entries: MemoryEntry[]; total: number; aggregations?: Record<string, any>; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'aggregations' are incompatible.
+    Type 'Record<string, any> | undefined' is not assignable to type 'Record<string, any>'.
+      Type 'undefined' is not assignable to type 'Record<string, any>'.
+src/memory/advanced-memory-manager.ts(1211,22): error TS4111: Property 'namespaces' comes from an index signature, so it must be accessed with ['namespaces'].
+src/memory/advanced-memory-manager.ts(1214,22): error TS4111: Property 'types' comes from an index signature, so it must be accessed with ['types'].
+src/memory/advanced-memory-manager.ts(1217,22): error TS4111: Property 'owners' comes from an index signature, so it must be accessed with ['owners'].
+src/memory/advanced-memory-manager.ts(1220,22): error TS4111: Property 'tags' comes from an index signature, so it must be accessed with ['tags'].
+src/memory/advanced-memory-manager.ts(1346,21): error TS2532: Object is possibly 'undefined'.
+src/memory/advanced-memory-manager.ts(1350,22): error TS2532: Object is possibly 'undefined'.
+src/memory/advanced-memory-manager.ts(1354,15): error TS2538: Type 'undefined' cannot be used as an index type.
+src/memory/advanced-memory-manager.ts(1475,7): error TS2375: Type '{ entriesCreatedLast24h: number; entriesUpdatedLast24h: number; entriesAccessedLast24h: number; oldestEntry: Date | undefined; newestEntry: Date | undefined; }' is not assignable to type '{ entriesCreatedLast24h: number; entriesUpdatedLast24h: number; entriesAccessedLast24h: number; oldestEntry?: Date; newestEntry?: Date; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'oldestEntry' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/memory/advanced-memory-manager.ts(1608,27): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/memory/advanced-memory-manager.ts(1608,32): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/memory/advanced-memory-manager.ts(1951,9): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/memory/backends/markdown.ts(243,18): error TS2532: Object is possibly 'undefined'.
+src/memory/backends/markdown.ts(245,61): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/memory/backends/sqlite.ts(303,15): error TS4111: Property 'id' comes from an index signature, so it must be accessed with ['id'].
+src/memory/backends/sqlite.ts(304,20): error TS4111: Property 'agent_id' comes from an index signature, so it must be accessed with ['agent_id'].
+src/memory/backends/sqlite.ts(305,22): error TS4111: Property 'session_id' comes from an index signature, so it must be accessed with ['session_id'].
+src/memory/backends/sqlite.ts(306,17): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/memory/backends/sqlite.ts(307,20): error TS4111: Property 'content' comes from an index signature, so it must be accessed with ['content'].
+src/memory/backends/sqlite.ts(308,31): error TS4111: Property 'context' comes from an index signature, so it must be accessed with ['context'].
+src/memory/backends/sqlite.ts(309,31): error TS4111: Property 'timestamp' comes from an index signature, so it must be accessed with ['timestamp'].
+src/memory/backends/sqlite.ts(310,28): error TS4111: Property 'tags' comes from an index signature, so it must be accessed with ['tags'].
+src/memory/backends/sqlite.ts(311,20): error TS4111: Property 'version' comes from an index signature, so it must be accessed with ['version'].
+src/memory/backends/sqlite.ts(314,13): error TS4111: Property 'parent_id' comes from an index signature, so it must be accessed with ['parent_id'].
+src/memory/backends/sqlite.ts(315,28): error TS4111: Property 'parent_id' comes from an index signature, so it must be accessed with ['parent_id'].
+src/memory/backends/sqlite.ts(318,13): error TS4111: Property 'metadata' comes from an index signature, so it must be accessed with ['metadata'].
+src/memory/backends/sqlite.ts(319,39): error TS4111: Property 'metadata' comes from an index signature, so it must be accessed with ['metadata'].
+src/memory/distributed-memory.ts(257,11): error TS2375: Type '{ id: string; name: string; type: MemoryType; entries: never[]; maxSize: number; ttl: number | undefined; readOnly: boolean; shared: boolean; indexed: boolean; compressed: boolean; }' is not assignable to type 'MemoryPartition' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'ttl' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/memory/distributed-memory.ts(356,13): error TS2375: Type '{ id: string; key: string; value: any; type: string; tags: string[]; owner: AgentId; accessLevel: AccessLevel; createdAt: Date; updatedAt: Date; expiresAt: Date | undefined; version: number; references: never[]; dependencies: never[]; }' is not assignable to type 'MemoryEntry' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'expiresAt' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/memory/distributed-memory.ts(480,46): error TS2379: Argument of type '{ partition: string | undefined; }' is not assignable to parameter of type '{ partition?: string; consistency?: ConsistencyLevel; maxAge?: number; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'partition' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/memory/facades/memory-facade.ts(34,43): error TS2379: Argument of type '{ logger: ILogger; namespace: string; persistent: boolean; maxSize: number | undefined; ttl: number | undefined; }' is not assignable to parameter of type 'Partial<SwarmMemoryConfig>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'maxSize' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/memory/facades/memory-facade.ts(109,43): error TS2379: Argument of type '{ logger: ILogger; namespace: string; persistent: boolean; maxSize: number | undefined; ttl: number | undefined; }' is not assignable to parameter of type 'Partial<SwarmMemoryConfig>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'maxSize' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/memory/manager.ts(225,11): error TS2375: Type '{ id: string; agentId: string; sessionId: string; type: "error" | "observation" | "insight" | "decision" | "artifact"; content: string; context: { namespace: string; }; timestamp: Date; tags: string[]; version: number; metadata: Record<...> | undefined; }' is not assignable to type 'MemoryEntry' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'metadata' are incompatible.
+    Type 'Record<string, unknown> | undefined' is not assignable to type 'Record<string, unknown>'.
+      Type 'undefined' is not assignable to type 'Record<string, unknown>'.
+src/memory/swarm-memory.ts(226,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/memory/swarm-memory.ts(768,15): error TS2488: Type '[string, SwarmMemoryEntry] | undefined' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/memory/swarm-memory.ts(856,33): error TS2532: Object is possibly 'undefined'.
+src/memory/swarm-memory.ts(864,28): error TS4111: Property 'key' comes from an index signature, so it must be accessed with ['key'].
+src/memory/swarm-memory.ts(875,27): error TS2532: Object is possibly 'undefined'.
+src/migration/logger.ts(22,5): error TS2412: Type 'string | undefined' is not assignable to type 'string' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'string'.
+src/migration/logger.ts(49,21): error TS4111: Property 'DEBUG' comes from an index signature, so it must be accessed with ['DEBUG'].
+src/migration/logger.ts(49,53): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/migration/logger.ts(56,11): error TS2375: Type '{ timestamp: Date; level: "error" | "debug" | "info" | "warn" | "success"; message: string; context: any; stack: string | undefined; }' is not assignable to type 'LogEntry' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'stack' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/migration/logger.ts(132,17): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/migration/migration-runner.ts(106,26): error TS2379: Argument of type '{ error: string; stack: string | undefined; }' is not assignable to parameter of type 'MigrationError' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'stack' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/migration/migration-runner.ts(363,41): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/migration/rollback-manager.ts(148,51): error TS4111: Property 'backupId' comes from an index signature, so it must be accessed with ['backupId'].
+src/migration/rollback-manager.ts(156,7): error TS2322: Type 'MigrationBackup | undefined' is not assignable to type 'MigrationBackup'.
+  Type 'undefined' is not assignable to type 'MigrationBackup'.
+src/migration/rollback-manager.ts(179,46): error TS4111: Property 'backupId' comes from an index signature, so it must be accessed with ['backupId'].
+src/migration/rollback-manager.ts(208,101): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/migration/rollback-manager.ts(210,30): error TS4111: Property 'backupId' comes from an index signature, so it must be accessed with ['backupId'].
+src/migration/rollback-manager.ts(302,68): error TS4111: Property 'backupId' comes from an index signature, so it must be accessed with ['backupId'].
+src/migration/rollback-manager.ts(304,55): error TS4111: Property 'backupId' comes from an index signature, so it must be accessed with ['backupId'].
+src/migration/rollback-manager.ts(312,41): error TS4111: Property 'backupId' comes from an index signature, so it must be accessed with ['backupId'].
+src/migration/rollback-manager.ts(321,66): error TS4111: Property 'backupId' comes from an index signature, so it must be accessed with ['backupId'].
+src/migration/rollback-manager.ts(352,27): error TS4111: Property 'backupId' comes from an index signature, so it must be accessed with ['backupId'].
+src/migration/rollback-manager.ts(374,36): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].
+src/migration/rollback-manager.ts(377,100): error TS4111: Property 'backupId' comes from an index signature, so it must be accessed with ['backupId'].
+src/migration/rollback-manager.ts(382,27): error TS4111: Property 'strategy' comes from an index signature, so it must be accessed with ['strategy'].
+src/migration/rollback-manager.ts(383,69): error TS4111: Property 'strategy' comes from an index signature, so it must be accessed with ['strategy'].
+src/monitoring/real-time-monitor.ts(364,37): error TS4111: Property 'metric' comes from an index signature, so it must be accessed with ['metric'].
+src/monitoring/real-time-monitor.ts(427,56): error TS4111: Property 'ruleId' comes from an index signature, so it must be accessed with ['ruleId'].
+src/monitoring/real-time-monitor.ts(452,38): error TS4111: Property 'ruleId' comes from an index signature, so it must be accessed with ['ruleId'].
+src/monitoring/real-time-monitor.ts(543,19): error TS4111: Property 'resolutionReason' comes from an index signature, so it must be accessed with ['resolutionReason'].
+src/monitoring/real-time-monitor.ts(544,19): error TS4111: Property 'resolvedAt' comes from an index signature, so it must be accessed with ['resolvedAt'].
+src/persistence/sqlite/database.ts(122,12): error TS18048: 'conn' is possibly 'undefined'.
+src/persistence/sqlite/database.ts(122,30): error TS18048: 'conn' is possibly 'undefined'.
+src/persistence/sqlite/database.ts(123,23): error TS2345: Argument of type 'DatabaseConnection | undefined' is not assignable to parameter of type 'DatabaseConnection'.
+  Type 'undefined' is not assignable to type 'DatabaseConnection'.
+src/persistence/sqlite/models/audit.ts(376,24): error TS2379: Argument of type '{ id: string; entityType: string; entityId: string; userId: string; action: string; details: Record<string, any> | undefined; ipAddress: string | undefined; userAgent: string | undefined; }' is not assignable to parameter of type 'Omit<AuditLog, "timestamp">' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'details' are incompatible.
+    Type 'Record<string, any> | undefined' is not assignable to type 'Record<string, any>'.
+      Type 'undefined' is not assignable to type 'Record<string, any>'.
+src/persistence/sqlite/models/messages.ts(409,5): error TS2375: Type '{ id: any; type: any; senderId: any; receivers: any; content: string | Record<string, any>; priority: any; reliability: any; correlationId: any; replyTo: any; ttlMs: any; compressed: boolean; ... 5 more ...; expiresAt: Date | undefined; }' is not assignable to type 'Message' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'expiresAt' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/persistence/sqlite/models/objectives.ts(377,5): error TS2375: Type '{ id: any; description: any; strategy: any; status: any; createdAt: Date; completedAt: Date | undefined; tasks: { taskId: any; sequenceOrder: any; task: any; }[]; progress: number; }' is not assignable to type 'ObjectiveWithTasks' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'completedAt' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/persistence/sqlite/models/projects.ts(444,5): error TS2375: Type '{ id: any; name: any; description: any; type: any; status: any; priority: any; owner: any; stakeholders: any; budgetTotal: any; budgetSpent: any; budgetCurrency: any; plannedStart: Date | undefined; ... 6 more ...; updatedAt: Date; }' is not assignable to type 'Project' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'plannedStart' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/persistence/sqlite/models/projects.ts(468,5): error TS2375: Type '{ id: any; projectId: any; name: any; description: any; status: any; startDate: Date | undefined; endDate: Date | undefined; estimatedDurationHours: any; actualDurationHours: any; ... 7 more ...; securityScore: any; }' is not assignable to type 'ProjectPhase' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'startDate' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/persistence/sqlite/models/tasks.ts(311,5): error TS2375: Type '{ id: any; type: any; description: any; status: any; priority: any; dependencies: any; metadata: any; assignedAgent: any; progress: any; error: any; createdAt: Date; startedAt: Date | undefined; completedAt: Date | undefined; retryCount: any; maxRetries: any; timeoutMs: any; }' is not assignable to type 'Task' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'startedAt' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/persistence/sqlite/queries/prepared-statements.ts(297,33): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(o: {}): string[]', gave the following error.
+    Argument of type 'T | undefined' is not assignable to parameter of type '{}'.
+      Type 'undefined' is not assignable to type '{}'.
+  Overload 2 of 2, '(o: object): string[]', gave the following error.
+    Argument of type 'T | undefined' is not assignable to parameter of type 'object'.
+      Type 'undefined' is not assignable to type 'object'.
+src/resources/resource-manager.ts(535,11): error TS2375: Type '{ id: string; resourceId: string; agentId: AgentId; taskId: TaskId | undefined; requirements: ResourceRequirements; status: "pending"; priority: ResourcePriority; createdAt: Date; expiresAt: Date; metadata: { ...; }; }' is not assignable to type 'ResourceReservation' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'taskId' are incompatible.
+    Type 'TaskId | undefined' is not assignable to type 'TaskId'.
+      Type 'undefined' is not assignable to type 'TaskId'.
+src/resources/resource-manager.ts(616,11): error TS2375: Type '{ id: string; reservationId: string; resourceId: string; agentId: AgentId; taskId: TaskId | undefined; allocated: ResourceLimits; actualUsage: ResourceUsage; efficiency: number; startTime: Date; status: "active"; qosViolations: never[]; }' is not assignable to type 'ResourceAllocation' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'taskId' are incompatible.
+    Type 'TaskId | undefined' is not assignable to type 'TaskId'.
+      Type 'undefined' is not assignable to type 'TaskId'.
+src/resources/resource-manager.ts(992,16): error TS2532: Object is possibly 'undefined'.
+src/resources/resource-manager.ts(1013,16): error TS2532: Object is possibly 'undefined'.
+src/resources/resource-manager.ts(1475,13): error TS4111: Property 'utilization' comes from an index signature, so it must be accessed with ['utilization'].
+src/resources/resource-manager.ts(1479,13): error TS4111: Property 'queue_depth' comes from an index signature, so it must be accessed with ['queue_depth'].
+src/security/audit-logger.ts(241,27): error TS2379: Argument of type '{ timestamp: Date; eventType: AuditEventType.AUTHENTICATION; userId: string; action: string; outcome: "success" | "failure"; details: Record<string, unknown> | undefined; }' is not assignable to parameter of type 'AuditEvent' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'details' are incompatible.
+    Type 'Record<string, unknown> | undefined' is not assignable to type 'Record<string, unknown>'.
+      Type 'undefined' is not assignable to type 'Record<string, unknown>'.
+src/security/audit-logger.ts(277,27): error TS2379: Argument of type '{ timestamp: Date; eventType: AuditEventType.PROCESS_SPAWN; userId: string; resource: string; action: string; outcome: "success" | "failure"; errorMessage: string | undefined; details: { ...; }; }' is not assignable to parameter of type 'AuditEvent' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'errorMessage' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/security/audit-logger.ts(297,27): error TS2379: Argument of type '{ timestamp: Date; eventType: AuditEventType.COMMAND_EXECUTION; userId: string; action: string; outcome: "success" | "failure"; errorMessage: string | undefined; details: { command: string; args: string[]; }; }' is not assignable to parameter of type 'AuditEvent' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'errorMessage' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/security/audit-logger.ts(314,27): error TS2379: Argument of type '{ timestamp: Date; eventType: AuditEventType.SECURITY_VIOLATION; userId: string; action: string; outcome: "error"; details: Record<string, unknown> | undefined; }' is not assignable to parameter of type 'AuditEvent' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'details' are incompatible.
+    Type 'Record<string, unknown> | undefined' is not assignable to type 'Record<string, unknown>'.
+      Type 'undefined' is not assignable to type 'Record<string, unknown>'.
+src/security/command-whitelist.ts(170,42): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/security/crypto-utils.ts(23,25): error TS2532: Object is possibly 'undefined'.
+src/security/security-middleware.ts(75,11): error TS2375: Type '{ enabled: boolean; method: "token" | "basic" | "oauth"; sessionTimeout: number | undefined; }' is not assignable to type 'MCPAuthConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'sessionTimeout' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/security/security-middleware.ts(84,7): error TS2379: Argument of type '{ logDir: string; rotationInterval: number | undefined; retentionDays: number | undefined; enableConsoleLog: boolean | undefined; }' is not assignable to parameter of type '{ logDir: string; rotationInterval?: number; retentionDays?: number; enableConsoleLog?: boolean; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'rotationInterval' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/security/security-middleware.ts(95,7): error TS2379: Argument of type '{ enableStrictMode: boolean | undefined; maxInputLength: number | undefined; blockedCommands: string[] | undefined; blockedPaths: string[] | undefined; allowedCommands: string[]; }' is not assignable to parameter of type '{ allowedCommands?: string[]; blockedCommands?: string[]; blockedPaths?: string[]; maxInputLength?: number; enableStrictMode?: boolean; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'blockedCommands' are incompatible.
+    Type 'string[] | undefined' is not assignable to type 'string[]'.
+      Type 'undefined' is not assignable to type 'string[]'.
+src/security/security-middleware.ts(107,7): error TS2379: Argument of type '{ strictMode: boolean | undefined; enableRateLimiting: true; }' is not assignable to parameter of type '{ defaultPolicies?: CommandPolicy[]; strictMode?: boolean; enableRateLimiting?: boolean; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'strictMode' are incompatible.
+    Type 'boolean | undefined' is not assignable to type 'boolean'.
+      Type 'undefined' is not assignable to type 'boolean'.
+src/security/security-middleware.ts(128,15): error TS2375: Type '{ userId: string; permissions: string[] | undefined; sessionId: string; }' is not assignable to type 'SecurityContext' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'permissions' are incompatible.
+    Type 'string[] | undefined' is not assignable to type 'string[]'.
+      Type 'undefined' is not assignable to type 'string[]'.
+src/security/security-middleware.ts(153,9): error TS2375: Type '{ success: false; error: string | undefined; }' is not assignable to type '{ success: boolean; context?: SecurityContext; error?: string; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'error' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/security/security-middleware.ts(271,32): error TS2379: Argument of type '{ timestamp: Date; eventType: AuditEventType; userId: string | undefined; sessionId: string | undefined; ip: string | undefined; userAgent: string | undefined; action: string; outcome: "success" | "failure"; details: Record<...>; }' is not assignable to parameter of type 'AuditEvent' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'userId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/security/security-middleware.ts(278,23): error TS4111: Property 'action' comes from an index signature, so it must be accessed with ['action'].
+src/security/security-middleware.ts(279,24): error TS4111: Property 'success' comes from an index signature, so it must be accessed with ['success'].
+src/security/security-middleware.ts(386,68): error TS2375: Type '{ userId: string | undefined; sessionId: string | undefined; permissions: string[] | undefined; ip: string | undefined; userAgent: string | undefined; }' is not assignable to type 'SecurityContext' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'userId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/services/process-registry/integration.ts(37,9): error TS2375: Type '{ id: string; name: string; type: "service" | "task" | "agent" | "swarm"; pid: number; parentId: string | undefined; startTime: Date; status: "starting"; command: string[]; environment: Record<string, string>; resources: { ...; }; healthCheck: { ...; }; metadata: Record<...> | undefined; }' is not assignable to type 'ProcessInfo' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'parentId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/services/process-registry/integration.ts(97,9): error TS2375: Type '{ id: string; name: string; type: "service" | "task" | "agent" | "swarm"; pid: number; parentId: string; startTime: Date; status: "starting"; command: string[]; environment: Record<string, string>; resources: { ...; }; healthCheck: { ...; }; metadata: Record<...> | undefined; }' is not assignable to type 'ProcessInfo' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'metadata' are incompatible.
+    Type 'Record<string, any> | undefined' is not assignable to type 'Record<string, any>'.
+      Type 'undefined' is not assignable to type 'Record<string, any>'.
+src/services/process-registry/integration.ts(136,19): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/services/process-registry/integration.ts(178,18): error TS2345: Argument of type 'ProcessInfo | undefined' is not assignable to parameter of type 'ProcessInfo'.
+  Type 'undefined' is not assignable to type 'ProcessInfo'.
+src/services/process-registry/network-partition-handler.ts(127,17): error TS4111: Property 'CLAUDE_FLOW_OFFLINE_MODE' comes from an index signature, so it must be accessed with ['CLAUDE_FLOW_OFFLINE_MODE'].
+src/services/process-registry/network-partition-handler.ts(167,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/services/process-registry/network-partition-handler.ts(222,22): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'number' is not assignable to parameter of type 'string'.
+src/services/process-registry/network-partition-handler.ts(222,31): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/services/process-registry/network-partition-handler.ts(289,24): error TS4111: Property 'CLAUDE_FLOW_OFFLINE_MODE' comes from an index signature, so it must be accessed with ['CLAUDE_FLOW_OFFLINE_MODE'].
+src/services/process-registry/recovery.ts(176,56): error TS2379: Argument of type '{ parentId: undefined; }' is not assignable to parameter of type 'Partial<ProcessInfo>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'parentId' are incompatible.
+    Type 'undefined' is not assignable to type 'string'.
+src/services/process-registry/registry.ts(226,27): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/services/process-registry/registry.ts(295,77): error TS4111: Property 'autoRestart' comes from an index signature, so it must be accessed with ['autoRestart'].
+src/state/adapters/agent-adapter.ts(165,31): error TS2379: Argument of type '{ currentTask: undefined; status: "idle"; lastActiveAt: Date; }' is not assignable to parameter of type 'Partial<Agent>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'currentTask' are incompatible.
+    Type 'undefined' is not assignable to type 'string'.
+src/state/adapters/memory-adapter.ts(594,7): error TS2532: Object is possibly 'undefined'.
+src/state/adapters/memory-adapter.ts(595,7): error TS2532: Object is possibly 'undefined'.
+src/state/adapters/memory-adapter.ts(602,7): error TS2532: Object is possibly 'undefined'.
+src/state/adapters/task-adapter.ts(229,29): error TS2379: Argument of type '{ assignedTo: string; agentType: string | undefined; status: "running"; }' is not assignable to parameter of type 'Partial<Task>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'agentType' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/state/index.ts(123,3): error TS2375: Type '{ stateManager: UnifiedStateManager; adapters: StateAdapterFactory; persistence: StatePersistenceManager | undefined; }' is not assignable to type 'StateSystem' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'persistence' are incompatible.
+    Type 'StatePersistenceManager | undefined' is not assignable to type 'StatePersistenceManager'.
+      Type 'undefined' is not assignable to type 'StatePersistenceManager'.
+src/state/persistence.ts(592,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/state/state-manager.ts(234,11): error TS2375: Type '{ id: string; path: string; callback: StateChangeCallback; filter: StateChangeFilter | undefined; }' is not assignable to type 'StateSubscriber' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'filter' are incompatible.
+    Type 'StateChangeFilter | undefined' is not assignable to type 'StateChangeFilter'.
+      Type 'undefined' is not assignable to type 'StateChangeFilter'.
+src/state/state-manager.ts(496,15): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/state/state-manager.ts(621,19): error TS2538: Type 'undefined' cannot be used as an index type.
+src/state/state-manager.ts(621,50): error TS2538: Type 'undefined' cannot be used as an index type.
+src/state/state-manager.ts(622,17): error TS2538: Type 'undefined' cannot be used as an index type.
+src/state/state-manager.ts(624,25): error TS2538: Type 'undefined' cannot be used as an index type.
+src/state/state-manager.ts(626,13): error TS2538: Type 'undefined' cannot be used as an index type.
+src/state/state-manager.ts(636,19): error TS2538: Type 'undefined' cannot be used as an index type.
+src/state/state-manager.ts(637,25): error TS2538: Type 'undefined' cannot be used as an index type.
+src/state/state-manager.ts(639,20): error TS2538: Type 'undefined' cannot be used as an index type.
+src/swarm/claude-flow-executor.ts(67,19): error TS2345: Argument of type '{ exitCode: number; output: string; error: string | undefined; artifacts: Record<string, any>; }' is not assignable to parameter of type 'ProcessPoolResult | PromiseLike<ProcessPoolResult>'.
+  Type '{ exitCode: number; output: string; error: string | undefined; artifacts: Record<string, any>; }' is not assignable to type 'ProcessPoolResult' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'error' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/swarm/claude-flow-executor.ts(279,23): error TS4111: Property 'targetDir' comes from an index signature, so it must be accessed with ['targetDir'].
+src/swarm/claude-flow-executor.ts(280,42): error TS4111: Property 'targetDir' comes from an index signature, so it must be accessed with ['targetDir'].
+src/swarm/claude-flow-executor.ts(290,7): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/swarm/coordinator.ts(587,31): error TS2379: Argument of type '{ timestamp: Date; type: string; message: string; stack: string | undefined; context: { agentId: string; }; severity: "high"; resolved: false; }' is not assignable to parameter of type 'AgentError' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'stack' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/swarm/coordinator.ts(771,13): error TS2532: Object is possibly 'undefined'.
+src/swarm/coordinator.ts(891,5): error TS2412: Type 'undefined' is not assignable to type 'TaskId' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/coordinator.ts(955,5): error TS2412: Type 'undefined' is not assignable to type 'TaskId' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/coordinator.ts(976,7): error TS2412: Type 'undefined' is not assignable to type 'AgentId' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/coordinator.ts(1048,7): error TS2412: Type 'undefined' is not assignable to type 'TaskId' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/coordinator.ts(1054,13): error TS2532: Object is possibly 'undefined'.
+src/swarm/coordinator.ts(1093,12): error TS2532: Object is possibly 'undefined'.
+src/swarm/coordinator.ts(1494,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/coordinator.ts(1498,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/coordinator.ts(1502,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/coordinator.ts(1871,20): error TS4111: Property 'objectiveId' comes from an index signature, so it must be accessed with ['objectiveId'].
+src/swarm/coordinator.ts(1873,47): error TS4111: Property 'targetDir' comes from an index signature, so it must be accessed with ['targetDir'].
+src/swarm/coordinator.ts(1874,22): error TS4111: Property 'targetDir' comes from an index signature, so it must be accessed with ['targetDir'].
+src/swarm/coordinator.ts(1939,27): error TS4111: Property 'objectiveId' comes from an index signature, so it must be accessed with ['objectiveId'].
+src/swarm/coordinator.ts(1965,47): error TS2532: Object is possibly 'undefined'.
+src/swarm/coordinator.ts(1968,70): error TS2532: Object is possibly 'undefined'.
+src/swarm/coordinator.ts(1978,27): error TS4111: Property 'objectiveId' comes from an index signature, so it must be accessed with ['objectiveId'].
+src/swarm/coordinator.ts(1985,27): error TS4111: Property 'objectiveId' comes from an index signature, so it must be accessed with ['objectiveId'].
+src/swarm/coordinator.ts(2017,27): error TS4111: Property 'objectiveId' comes from an index signature, so it must be accessed with ['objectiveId'].
+src/swarm/coordinator.ts(2051,19): error TS2412: Type 'undefined' is not assignable to type 'TaskId' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/coordinator.ts(2072,41): error TS4111: Property 'objectiveId' comes from an index signature, so it must be accessed with ['objectiveId'].
+src/swarm/coordinator.ts(2248,47): error TS2379: Argument of type '{ logger: Logger; claudeFlowPath: string; enableSparc: true; verbose: boolean; timeoutMinutes: number | undefined; }' is not assignable to parameter of type 'ClaudeFlowExecutorConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'timeoutMinutes' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/swarm/coordinator.ts(2330,37): error TS4111: Property 'targetDir' comes from an index signature, so it must be accessed with ['targetDir'].
+src/swarm/coordinator.ts(2331,32): error TS4111: Property 'targetDir' comes from an index signature, so it must be accessed with ['targetDir'].
+src/swarm/coordinator.ts(2335,37): error TS4111: Property 'objectiveId' comes from an index signature, so it must be accessed with ['objectiveId'].
+src/swarm/coordinator.ts(2336,58): error TS4111: Property 'objectiveId' comes from an index signature, so it must be accessed with ['objectiveId'].
+src/swarm/executor.ts(309,13): error TS2375: Type '{ command: string; args: string[]; input: string | undefined; env: { CLAUDE_TASK_ID: string; CLAUDE_AGENT_ID: string; CLAUDE_SESSION_ID: string; CLAUDE_WORKING_DIR: string; TZ?: string; }; cwd: string; timeout: number; detached: boolean; }' is not assignable to type 'ProcessCommand' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'input' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/swarm/executor.ts(592,17): error TS4111: Property 'files' comes from an index signature, so it must be accessed with ['files'].
+src/swarm/executor.ts(595,17): error TS4111: Property 'logs' comes from an index signature, so it must be accessed with ['logs'].
+src/swarm/executor.ts(596,17): error TS4111: Property 'outputs' comes from an index signature, so it must be accessed with ['outputs'].
+src/swarm/executor.ts(1042,15): error TS2375: Type '{ success: boolean; exitCode: number; stdout: string; stderr: string; duration: number; pid: number | undefined; signal: string | undefined; }' is not assignable to type 'ProcessResult' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'pid' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/swarm/executor.ts(1095,35): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/swarm/memory.ts(246,11): error TS2375: Type '{ id: string; key: string; value: any; type: MemoryType; tags: string[]; owner: AgentId; accessLevel: AccessLevel; createdAt: Date; updatedAt: Date; expiresAt: Date | undefined; version: number; references: never[]; dependencies: never[]; }' is not assignable to type 'MemoryEntry' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'expiresAt' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/swarm/memory.ts(564,11): error TS2375: Type '{ id: string; owner: AgentId; accessLevel: AccessLevel; createdAt: Date; updatedAt: Date; expiresAt: Date | undefined; references: string[]; key: string; ... 5 more ...; dependencies: string[]; }' is not assignable to type 'MemoryEntry' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'expiresAt' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/swarm/memory.ts(616,67): error TS2379: Argument of type '{ sharer: AgentId | undefined; partition?: string; broadcaster?: AgentId; accessLevel?: AccessLevel; }' is not assignable to parameter of type 'Partial<{ partition: string; sharer: AgentId; accessLevel: AccessLevel; expiresAt: Date; }>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'sharer' are incompatible.
+    Type 'AgentId | undefined' is not assignable to type 'AgentId'.
+      Type 'undefined' is not assignable to type 'AgentId'.
+src/swarm/memory.ts(687,11): error TS2375: Type '{ id: string; name: string; type: MemoryType; entries: never[]; maxSize: number; ttl: number | undefined; readOnly: boolean; shared: true; indexed: boolean; compressed: boolean; }' is not assignable to type 'MemoryPartition' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'ttl' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/swarm/memory.ts(1232,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/memory.ts(1237,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/memory.ts(1242,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/optimizations/connection-pool.ts(232,5): error TS2412: Type 'undefined' is not assignable to type 'Date' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/optimizations/connection-pool.ts(233,5): error TS2412: Type 'undefined' is not assignable to type 'string' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/optimizations/connection-pool.ts(425,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/optimizations/connection-pool.ts(445,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/optimizations/connection-pool.ts(465,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/optimizations/optimized-executor.ts(147,35): error TS4111: Property 'model' comes from an index signature, so it must be accessed with ['model'].
+src/swarm/optimizations/optimized-executor.ts(148,40): error TS4111: Property 'maxTokens' comes from an index signature, so it must be accessed with ['maxTokens'].
+src/swarm/optimizations/optimized-executor.ts(149,41): error TS4111: Property 'temperature' comes from an index signature, so it must be accessed with ['temperature'].
+src/swarm/optimizations/optimized-executor.ts(288,24): error TS4111: Property 'systemPrompt' comes from an index signature, so it must be accessed with ['systemPrompt'].
+src/swarm/optimizations/optimized-executor.ts(291,32): error TS4111: Property 'systemPrompt' comes from an index signature, so it must be accessed with ['systemPrompt'].
+src/swarm/optimizations/optimized-executor.ts(303,24): error TS4111: Property 'previousResults' comes from an index signature, so it must be accessed with ['previousResults'].
+src/swarm/optimizations/optimized-executor.ts(307,26): error TS4111: Property 'previousResults' comes from an index signature, so it must be accessed with ['previousResults'].
+src/swarm/optimizations/optimized-executor.ts(311,24): error TS4111: Property 'relatedTasks' comes from an index signature, so it must be accessed with ['relatedTasks'].
+src/swarm/optimizations/optimized-executor.ts(315,26): error TS4111: Property 'relatedTasks' comes from an index signature, so it must be accessed with ['relatedTasks'].
+src/swarm/optimizations/ttl-map.ts(38,5): error TS2412: Type 'number | undefined' is not assignable to type 'number' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'number'.
+src/swarm/optimizations/ttl-map.ts(39,5): error TS2412: Type '(<K, V>(key: K, value: V) => void) | undefined' is not assignable to type '<K, V>(key: K, value: V) => void' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type '<K, V>(key: K, value: V) => void'.
+src/swarm/optimizations/ttl-map.ts(258,7): error TS2412: Type 'undefined' is not assignable to type 'Timeout' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/prompt-copier-enhanced.ts(135,13): error TS2532: Object is possibly 'undefined'.
+src/swarm/prompt-copier-enhanced.ts(150,9): error TS2532: Object is possibly 'undefined'.
+src/swarm/prompt-copier-enhanced.ts(151,9): error TS2532: Object is possibly 'undefined'.
+src/swarm/prompt-copier-enhanced.ts(190,5): error TS2412: Type 'undefined' is not assignable to type 'WorkerPool' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/swarm/prompt-copier.ts(454,15): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/swarm/prompt-manager.ts(109,7): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/swarm/prompt-manager.ts(269,7): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/swarm/prompt-manager.ts(280,9): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/swarm/prompt-manager.ts(285,5): error TS2375: Type '{ forward: CopyResult; backward: CopyResult | undefined; }' is not assignable to type '{ forward: CopyResult; backward?: CopyResult; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'backward' are incompatible.
+    Type 'CopyResult | undefined' is not assignable to type 'CopyResult'.
+      Type 'undefined' is not assignable to type 'CopyResult'.
+src/swarm/prompt-manager.ts(298,24): error TS2379: Argument of type '{ source: string; destination: string; conflictResolution: "overwrite"; verify: boolean | undefined; }' is not assignable to parameter of type 'CopyOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'verify' are incompatible.
+    Type 'boolean | undefined' is not assignable to type 'boolean'.
+      Type 'undefined' is not assignable to type 'boolean'.
+src/swarm/prompt-utils.ts(249,44): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/swarm/prompt-utils.ts(284,18): error TS2538: Type 'undefined' cannot be used as an index type.
+src/swarm/prompt-utils.ts(284,25): error TS18048: 'value' is possibly 'undefined'.
+src/swarm/strategies/auto.ts(110,27): error TS2532: Object is possibly 'undefined'.
+src/swarm/strategies/auto.ts(111,61): error TS2532: Object is possibly 'undefined'.
+src/swarm/strategies/research.ts(870,33): error TS2532: Object is possibly 'undefined'.
+src/swarm/strategies/research.ts(1034,62): error TS18048: 'agent' is possibly 'undefined'.
+src/swarm/strategies/research.ts(1037,22): error TS18048: 'agent' is possibly 'undefined'.
+src/swarm/workers/copy-worker.ts(45,5): error TS2375: Type '{ success: true; file: string; hash: string | undefined; }' is not assignable to type 'WorkerResult' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'hash' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/task/commands.ts(155,37): error TS2379: Argument of type '{ resourceId: string; type: "cpu"; amount: number; unit: string; exclusive: boolean | undefined; priority: number; }' is not assignable to parameter of type 'ResourceRequirement' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'exclusive' are incompatible.
+    Type 'boolean | undefined' is not assignable to type 'boolean'.
+      Type 'undefined' is not assignable to type 'boolean'.
+src/task/commands.ts(165,37): error TS2379: Argument of type '{ resourceId: string; type: "memory"; amount: number; unit: string; exclusive: boolean | undefined; priority: number; }' is not assignable to parameter of type 'ResourceRequirement' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'exclusive' are incompatible.
+    Type 'boolean | undefined' is not assignable to type 'boolean'.
+      Type 'undefined' is not assignable to type 'boolean'.
+src/task/commands.ts(175,37): error TS2379: Argument of type '{ resourceId: string; type: "disk"; amount: number; unit: string; exclusive: boolean | undefined; priority: number; }' is not assignable to parameter of type 'ResourceRequirement' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'exclusive' are incompatible.
+    Type 'boolean | undefined' is not assignable to type 'boolean'.
+      Type 'undefined' is not assignable to type 'boolean'.
+src/task/commands.ts(185,37): error TS2379: Argument of type '{ resourceId: string; type: "network"; amount: number; unit: string; exclusive: boolean | undefined; priority: number; }' is not assignable to parameter of type 'ResourceRequirement' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'exclusive' are incompatible.
+    Type 'boolean | undefined' is not assignable to type 'boolean'.
+      Type 'undefined' is not assignable to type 'boolean'.
+src/task/commands.ts(202,13): error TS2412: Type '{ interval: "daily" | "weekly" | "monthly"; count: number | undefined; } | undefined' is not assignable to type '{ interval: "daily" | "weekly" | "monthly"; count?: number; until?: Date; } | undefined' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/task/commands.ts(209,15): error TS2375: Type '{ type: string; description: string; priority: number; dependencies: { taskId: string; type: "finish-to-start" | "start-to-start" | "finish-to-finish" | "start-to-finish"; lag: number; }[]; ... 8 more ...; input: any; }' is not assignable to type 'Partial<WorkflowTask>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'schedule' are incompatible.
+    Type 'TaskSchedule | undefined' is not assignable to type 'TaskSchedule'.
+      Type 'undefined' is not assignable to type 'TaskSchedule'.
+src/task/commands.ts(326,11): error TS2375: Type '{ min: number | undefined; max: number | undefined; }' is not assignable to type '{ min?: number; max?: number; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'min' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/task/commands.ts(391,42): error TS2379: Argument of type '{ showProgress: boolean | undefined; showMetrics: boolean | undefined; showDependencies: boolean | undefined; }' is not assignable to parameter of type 'TaskListOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'showDependencies' are incompatible.
+    Type 'boolean | undefined' is not assignable to type 'boolean'.
+      Type 'undefined' is not assignable to type 'boolean'.
+src/task/commands.ts(717,17): error TS2375: Type '{ name: string; description: string | undefined; parallelism: { maxConcurrent: number; strategy: "priority-based" | "breadth-first" | "depth-first"; }; errorHandling: { strategy: "fail-fast" | "continue-on-error" | "retry-failed"; maxRetries: number; }; }' is not assignable to type 'Partial<Workflow>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'description' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/task/coordination.ts(195,11): error TS2375: Type '{ key: string; value: any; timestamp: Date; namespace: string | undefined; tags: string[] | undefined; expiresAt: Date | undefined; }' is not assignable to type 'MemoryEntry' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'namespace' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/task/coordination.ts(332,45): error TS2379: Argument of type '{ agentId: string; batchId: string; objective: string; status: "running"; startedAt: Date; memoryKey: string | undefined; coordinationContext: CoordinationContext; }' is not assignable to parameter of type 'AgentCoordinationState' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'memoryKey' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/task/coordination.ts(603,45): error TS2379: Argument of type '{ type: string; description: string; priority: number; assignedAgent: string | undefined; tags: string[]; metadata: { todoId: string; batchOptimized: boolean | undefined; parallelExecution: boolean | undefined; memoryKey: string | undefined; }; }' is not assignable to parameter of type 'Partial<WorkflowTask>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'assignedAgent' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/task/coordination.ts(750,40): error TS4111: Property 'todoId' comes from an index signature, so it must be accessed with ['todoId'].
+src/task/coordination.ts(774,36): error TS4111: Property 'todoId' comes from an index signature, so it must be accessed with ['todoId'].
+src/task/engine.ts(158,11): error TS2375: Type '{ id: string; type: string; description: string; priority: number; status: "pending"; input: Record<string, unknown>; createdAt: Date; dependencies: TaskDependency[]; ... 9 more ...; metadata: Record<...>; }' is not assignable to type 'WorkflowTask' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'schedule' are incompatible.
+    Type 'TaskSchedule | undefined' is not assignable to type 'TaskSchedule'.
+      Type 'undefined' is not assignable to type 'TaskSchedule'.
+src/task/engine.ts(305,5): error TS2375: Type '{ task: WorkflowTask; execution: TaskExecution | undefined; dependencies: { task: WorkflowTask; satisfied: boolean; }[]; dependents: WorkflowTask[]; resourceStatus: { ...; }[]; }' is not assignable to type '{ task: WorkflowTask; execution?: TaskExecution; dependencies: { task: WorkflowTask; satisfied: boolean; }[]; dependents: WorkflowTask[]; resourceStatus: { ...; }[]; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'execution' are incompatible.
+    Type 'TaskExecution | undefined' is not assignable to type 'TaskExecution'.
+      Type 'undefined' is not assignable to type 'TaskExecution'.
+src/task/engine.ts(446,20): error TS2379: Argument of type '{ from: string; to: string; type: "finish-to-start" | "start-to-start" | "finish-to-finish" | "start-to-finish"; lag: number | undefined; }' is not assignable to parameter of type '{ from: string; to: string; type?: string; lag?: number; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'lag' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/task/engine.ts(455,14): error TS2322: Type '{ id: string; label: string; status: TaskStatus; priority: number; progress: number; estimatedDuration: number | undefined; tags: string[]; }[]' is not assignable to type '{ id: string; label: string; status: string; priority?: number; progress?: number; estimatedDuration?: number; tags?: string[]; }[]'.
+  Type '{ id: string; label: string; status: TaskStatus; priority: number; progress: number; estimatedDuration: number | undefined; tags: string[]; }' is not assignable to type '{ id: string; label: string; status: string; priority?: number; progress?: number; estimatedDuration?: number; tags?: string[]; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'estimatedDuration' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/task/engine.ts(638,38): error TS18048: 'targetCheckpoint' is possibly 'undefined'.
+src/task/engine.ts(641,68): error TS18048: 'targetCheckpoint' is possibly 'undefined'.
+src/task/engine.ts(665,9): error TS2412: Type 'undefined' is not assignable to type 'string' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/task/engine.ts(666,9): error TS2412: Type 'undefined' is not assignable to type 'Date' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/task/engine.ts(714,46): error TS4111: Property 'retryCount' comes from an index signature, so it must be accessed with ['retryCount'].
+src/task/engine.ts(722,101): error TS4111: Property 'retryCount' comes from an index signature, so it must be accessed with ['retryCount'].
+src/task/index.ts(82,9): error TS2375: Type '{ taskEngine: TaskEngine; memoryManager: IMemoryManager | undefined; logger: ILogger | undefined; }' is not assignable to type 'TaskCommandContext' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'memoryManager' are incompatible.
+    Type 'IMemoryManager | undefined' is not assignable to type 'IMemoryManager'.
+      Type 'undefined' is not assignable to type 'IMemoryManager'.
+src/terminal/adapters/native.ts(62,7): error TS2412: Type 'number | undefined' is not assignable to type 'number' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'number'.
+src/terminal/adapters/native.ts(427,35): error TS4111: Property 'COMSPEC' comes from an index signature, so it must be accessed with ['COMSPEC'].
+src/terminal/adapters/native.ts(446,33): error TS4111: Property 'SHELL' comes from an index signature, so it must be accessed with ['SHELL'].
+src/terminal/adapters/vscode.ts(324,35): error TS4111: Property 'COMSPEC' comes from an index signature, so it must be accessed with ['COMSPEC'].
+src/terminal/adapters/vscode.ts(331,33): error TS4111: Property 'SHELL' comes from an index signature, so it must be accessed with ['SHELL'].
+src/terminal/manager.ts(304,24): error TS4111: Property 'TERM_PROGRAM' comes from an index signature, so it must be accessed with ['TERM_PROGRAM'].
+src/terminal/manager.ts(305,24): error TS4111: Property 'VSCODE_PID' comes from an index signature, so it must be accessed with ['VSCODE_PID'].
+src/terminal/manager.ts(306,24): error TS4111: Property 'VSCODE_IPC_HOOK' comes from an index signature, so it must be accessed with ['VSCODE_IPC_HOOK'].
+src/terminal/session.ts(166,32): error TS4111: Property 'workingDirectory' comes from an index signature, so it must be accessed with ['workingDirectory'].
+src/terminal/session.ts(168,38): error TS4111: Property 'workingDirectory' comes from an index signature, so it must be accessed with ['workingDirectory'].
+src/terminal/session.ts(175,32): error TS4111: Property 'initCommands' comes from an index signature, so it must be accessed with ['initCommands'].
+src/terminal/session.ts(176,46): error TS4111: Property 'initCommands' comes from an index signature, so it must be accessed with ['initCommands'].
+src/terminal/session.ts(188,32): error TS4111: Property 'cleanupCommands' comes from an index signature, so it must be accessed with ['cleanupCommands'].
+src/terminal/session.ts(189,46): error TS4111: Property 'cleanupCommands' comes from an index signature, so it must be accessed with ['cleanupCommands'].
+src/tracing/metrics.ts(159,5): error TS2412: Type 'number | undefined' is not assignable to type 'number' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'number'.
+src/tracing/metrics.ts(160,5): error TS2412: Type 'string | undefined' is not assignable to type 'string' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'string'.
+src/tracing/metrics.ts(161,5): error TS2412: Type 'number | undefined' is not assignable to type 'number' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'number'.
+src/tracing/metrics.ts(394,12): error TS2532: Object is possibly 'undefined'.
+src/types/missing-types.ts(78,13): error TS2488: Type '[string, number] | undefined' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/utils/cliffy-compat/command.ts(133,35): error TS2379: Argument of type '{ exitCode: number | undefined; }' is not assignable to parameter of type 'ErrorOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'exitCode' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/utils/colors.ts(36,30): error TS4111: Property 'NO_COLOR' comes from an index signature, so it must be accessed with ['NO_COLOR'].
+src/utils/colors.ts(36,54): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/utils/errors.ts(243,36): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/utils/helpers.ts(325,26): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/utils/helpers.ts(558,64): error TS4111: Property 'en' comes from an index signature, so it must be accessed with ['en'].
+src/utils/helpers.ts(559,26): error TS18048: 'localeGreeting' is possibly 'undefined'.
+src/utils/helpers.ts(559,50): error TS18048: 'localeGreeting' is possibly 'undefined'.
+src/utils/logger.ts(31,7): error TS2375: Type '{ level: LogLevel; colors: boolean; timestamps: boolean; context: undefined; }' is not assignable to type 'LoggerConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'context' are incompatible.
+    Type 'undefined' is not assignable to type 'string'.
+src/utils/logger.ts(32,23): error TS4111: Property 'LOG_LEVEL' comes from an index signature, so it must be accessed with ['LOG_LEVEL'].
+src/utils/logger.ts(33,24): error TS4111: Property 'NO_COLOR' comes from an index signature, so it must be accessed with ['NO_COLOR'].
+src/utils/logger.ts(33,48): error TS4111: Property 'NODE_ENV' comes from an index signature, so it must be accessed with ['NODE_ENV'].
+src/utils/logger.ts(34,27): error TS4111: Property 'LOG_TIMESTAMPS' comes from an index signature, so it must be accessed with ['LOG_TIMESTAMPS'].
+src/utils/logger.ts(147,11): error TS2375: Type '{ level: LogLevel; message: string; timestamp: Date; context: string | undefined; data: unknown; }' is not assignable to type 'LogEntry' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'context' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.

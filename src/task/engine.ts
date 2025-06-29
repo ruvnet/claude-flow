@@ -165,7 +165,7 @@ export class TaskEngine extends EventEmitter {
       createdAt: new Date(),
       dependencies: taskData.dependencies || [],
       resourceRequirements: taskData.resourceRequirements || [],
-      schedule: taskData.schedule,
+      ...(taskData.schedule !== undefined && { schedule: taskData.schedule }),
       retryPolicy: taskData.retryPolicy || {
         maxAttempts: 3,
         backoffMs: 1000,
@@ -173,7 +173,7 @@ export class TaskEngine extends EventEmitter {
       },
       timeout: taskData.timeout || 300000, // 5 minutes default
       tags: taskData.tags || [],
-      estimatedDurationMs: taskData.estimatedDurationMs,
+      ...(taskData.estimatedDurationMs !== undefined && { estimatedDurationMs: taskData.estimatedDurationMs }),
       progressPercentage: 0,
       checkpoints: [],
       rollbackStrategy: taskData.rollbackStrategy || 'previous-checkpoint',
@@ -304,7 +304,7 @@ export class TaskEngine extends EventEmitter {
 
     return {
       task,
-      execution,
+      ...(execution !== undefined && { execution }),
       dependencies,
       dependents,
       resourceStatus
@@ -446,13 +446,13 @@ export class TaskEngine extends EventEmitter {
         edges.push({
           from: dep.taskId,
           to: task.id,
-          type: dep.type,
-          lag: dep.lag
+          ...(dep.type !== undefined && { type: dep.type }),
+          ...(dep.lag !== undefined && { lag: dep.lag })
         });
       }
     }
 
-    return { nodes, edges };
+    return { nodes, edges } as { nodes: Array<{ id: string; label: string; status: string; priority?: number; progress?: number; estimatedDuration?: number; tags?: string[] }>; edges: Array<{ from: string; to: string; type?: string; lag?: number }> };
   }
 
   // Private helper methods
@@ -635,6 +635,9 @@ export class TaskEngine extends EventEmitter {
       : task.checkpoints[task.checkpoints.length - 1];
 
     // Restore state from checkpoint
+    if (!targetCheckpoint) {
+      throw new Error('No checkpoint found for rollback');
+    }
     this.taskState.set(task.id, { ...targetCheckpoint.state });
     
     // Remove checkpoints after the target
@@ -662,8 +665,8 @@ export class TaskEngine extends EventEmitter {
     for (const resource of this.resources.values()) {
       if (resource.lockedBy === taskId) {
         resource.locked = false;
-        resource.lockedBy = undefined;
-        resource.lockedAt = undefined;
+        delete resource.lockedBy;
+        delete resource.lockedAt;
       }
     }
   }
@@ -711,7 +714,7 @@ export class TaskEngine extends EventEmitter {
     if (!task) return;
 
     // Implement retry logic based on retryPolicy
-    const retryCount = Number(task.metadata?.retryCount || 0);
+    const retryCount = Number(task.metadata?.['retryCount'] || 0);
     if (task.retryPolicy && retryCount < task.retryPolicy.maxAttempts) {
       task.metadata = { ...task.metadata, retryCount: retryCount + 1 };
       task.status = 'pending';
@@ -719,7 +722,7 @@ export class TaskEngine extends EventEmitter {
       // Schedule retry with backoff
       setTimeout(() => {
         this.scheduleTask(task);
-      }, task.retryPolicy!.backoffMs * Math.pow(task.retryPolicy!.backoffMultiplier, (task.metadata.retryCount as number) - 1));
+      }, task.retryPolicy!.backoffMs * Math.pow(task.retryPolicy!.backoffMultiplier, (task.metadata['retryCount'] as number) - 1));
     }
   }
 

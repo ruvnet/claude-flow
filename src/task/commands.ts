@@ -157,7 +157,7 @@ export function createTaskCreateCommand(context: TaskCommandContext): Command {
             type: 'cpu',
             amount: parseFloat(String(options.cpu)),
             unit: 'cores',
-            exclusive: options.exclusiveResources,
+            ...(options.exclusiveResources !== undefined && { exclusive: options.exclusiveResources }),
             priority: options.priority ? parseInt(String(options.priority)) : 0
           });
         }
@@ -167,7 +167,7 @@ export function createTaskCreateCommand(context: TaskCommandContext): Command {
             type: 'memory',
             amount: parseFloat(String(options.memory)),
             unit: 'MB',
-            exclusive: options.exclusiveResources,
+            ...(options.exclusiveResources !== undefined && { exclusive: options.exclusiveResources }),
             priority: options.priority ? parseInt(String(options.priority)) : 0
           });
         }
@@ -177,7 +177,7 @@ export function createTaskCreateCommand(context: TaskCommandContext): Command {
             type: 'disk',
             amount: parseFloat(String(options.disk)),
             unit: 'MB',
-            exclusive: options.exclusiveResources,
+            ...(options.exclusiveResources !== undefined && { exclusive: options.exclusiveResources }),
             priority: options.priority ? parseInt(String(options.priority)) : 0
           });
         }
@@ -187,7 +187,7 @@ export function createTaskCreateCommand(context: TaskCommandContext): Command {
             type: 'network',
             amount: parseFloat(String(options.network)),
             unit: 'Mbps',
-            exclusive: options.exclusiveResources,
+            ...(options.exclusiveResources !== undefined && { exclusive: options.exclusiveResources }),
             priority: options.priority ? parseInt(String(options.priority)) : 0
           });
         }
@@ -201,7 +201,7 @@ export function createTaskCreateCommand(context: TaskCommandContext): Command {
             timezone: options.timezone,
             recurring: options.recurring ? {
               interval: options.recurring as "daily" | "weekly" | "monthly",
-              count: options.recurringCount ? parseInt(options.recurringCount) : undefined
+              ...(options.recurringCount && { count: parseInt(options.recurringCount) })
             } : undefined
           };
         }
@@ -323,7 +323,10 @@ export function createTaskListCommand(context: TaskCommandContext): Command {
         
         if (options.priority) {
           const [min, max] = options.priority.split('-').map((p: string) => parseInt(p));
-          filter.priority = { min, max: max || min };
+          filter.priority = { 
+            ...(min !== undefined && { min }), 
+            ...(max !== undefined ? { max } : min !== undefined ? { max: min } : {}) 
+          };
         }
         
         if (options.tags) {
@@ -389,9 +392,9 @@ export function createTaskListCommand(context: TaskCommandContext): Command {
           displayTaskTree(result.tasks);
         } else {
           displayTaskTable(result.tasks, {
-            showProgress: options.showProgress,
-            showMetrics: options.showMetrics,
-            showDependencies: options.showDependencies
+            ...(options.showProgress !== undefined && { showProgress: options.showProgress }),
+            ...(options.showMetrics !== undefined && { showMetrics: options.showMetrics }),
+            ...(options.showDependencies !== undefined && { showDependencies: options.showDependencies })
           });
         }
 
@@ -716,7 +719,7 @@ export function createTaskWorkflowCommand(context: TaskCommandContext): Command 
 
             let workflowData: Partial<Workflow> = {
               name,
-              description: options.description,
+              ...(options.description && { description: options.description }),
               parallelism: {
                 maxConcurrent: options.maxConcurrent ? parseInt(options.maxConcurrent) : 5,
                 strategy: (options.strategy || 'priority-based') as "priority-based" | "breadth-first" | "depth-first"

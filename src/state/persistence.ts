@@ -323,7 +323,7 @@ export class StatePersistenceManager {
   private logger: Logger;
   private backends: Map<string, PersistenceBackend> = new Map();
   private config: StatePersistenceConfig;
-  private autoSaveInterval?: NodeJS.Timeout;
+  private autoSaveInterval?: NodeJS.Timeout | undefined;
 
   constructor(config: StatePersistenceConfig) {
     this.config = config;

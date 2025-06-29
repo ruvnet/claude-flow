@@ -300,23 +300,23 @@ export class SQLiteBackend implements IMemoryBackend {
 
   private rowToEntry(row: Record<string, unknown>): MemoryEntry {
     const entry: MemoryEntry = {
-      id: row.id as string,
-      agentId: row.agent_id as string,
-      sessionId: row.session_id as string,
-      type: row.type as MemoryEntry['type'],
-      content: row.content as string,
-      context: JSON.parse(row.context as string),
-      timestamp: new Date(row.timestamp as string),
-      tags: JSON.parse(row.tags as string),
-      version: row.version as number,
+      id: row['id'] as string,
+      agentId: row['agent_id'] as string,
+      sessionId: row['session_id'] as string,
+      type: row['type'] as MemoryEntry['type'],
+      content: row['content'] as string,
+      context: JSON.parse(row['context'] as string),
+      timestamp: new Date(row['timestamp'] as string),
+      tags: JSON.parse(row['tags'] as string),
+      version: row['version'] as number,
     };
     
-    if (row.parent_id) {
-      entry.parentId = row.parent_id as string;
+    if (row['parent_id']) {
+      entry.parentId = row['parent_id'] as string;
     }
     
-    if (row.metadata) {
-      entry.metadata = JSON.parse(row.metadata as string);
+    if (row['metadata']) {
+      entry.metadata = JSON.parse(row['metadata'] as string);
     }
     
     return entry;

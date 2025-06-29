@@ -344,7 +344,7 @@ export async function startNodeREPL(options: any = {}): Promise<void> {
         }
         
         try {
-          const newDir = args[0] === '~' ? process.env.HOME || '/' : args[0];
+          const newDir = args[0] === '~' ? process.env['HOME'] || '/' : args[0];
           process.chdir(newDir);
           ctx.workingDirectory = process.cwd();
           console.log(colors.gray(`Changed to: ${ctx.workingDirectory}`));

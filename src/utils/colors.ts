@@ -33,7 +33,7 @@ const ANSI_CODES = {
 };
 
 // Check if colors should be disabled
-const NO_COLOR = process.env.NO_COLOR || process.env.NODE_ENV === 'test';
+const NO_COLOR = process.env['NO_COLOR'] || process.env['NODE_ENV'] === 'test';
 
 function colorize(code: string, text: string): string {
   if (NO_COLOR) return text;

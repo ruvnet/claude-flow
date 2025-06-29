@@ -322,7 +322,7 @@ export function parseDuration(duration: string): number {
     throw new Error(`Invalid duration format: ${duration}`);
   }
 
-  const value = parseInt(match[1], 10);
+  const value = parseInt(match[1]!, 10);
   const unit = match[2];
 
   switch (unit) {
@@ -555,8 +555,8 @@ export function greeting(name?: string, options?: {
       zh: { informal: '你好', formal: '您好' }
     };
 
-    const localeGreeting = greetings[opts.locale] || greetings.en;
-    return opts.formal ? localeGreeting.formal : localeGreeting.informal;
+    const localeGreeting = greetings[opts.locale] || greetings['en'];
+    return opts.formal ? localeGreeting!.formal : localeGreeting!.informal;
   };
 
   // Build the greeting

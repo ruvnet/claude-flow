@@ -144,9 +144,9 @@ export class OptimizedExecutor extends EventEmitter {
         const executionResult = await this.connectionPool.execute(async (api) => {
           const response: any = await api.complete(JSON.stringify({
             messages: this.buildMessages(task),
-            model: task.metadata?.model || 'claude-3-5-sonnet-20241022',
-            max_tokens: task.metadata?.maxTokens || 4096,
-            temperature: task.metadata?.temperature || 0.7
+            model: task.metadata?.['model'] || 'claude-3-5-sonnet-20241022',
+            max_tokens: task.metadata?.['maxTokens'] || 4096,
+            temperature: task.metadata?.['temperature'] || 0.7
           }));
           
           return {
@@ -285,10 +285,10 @@ export class OptimizedExecutor extends EventEmitter {
     const messages = [];
     
     // Add system message if needed
-    if (task.metadata?.systemPrompt) {
+    if (task.metadata?.['systemPrompt']) {
       messages.push({
         role: 'system',
-        content: task.metadata.systemPrompt
+        content: task.metadata['systemPrompt']
       });
     }
     
@@ -300,19 +300,19 @@ export class OptimizedExecutor extends EventEmitter {
     
     // Add context if available
     if (task.context) {
-      if (task.context.previousResults?.length) {
+      if (task.context['previousResults']?.length) {
         messages.push({
           role: 'assistant',
           content: 'Previous results:\n' + 
-            task.context.previousResults.map((r: any) => r.output).join('\n\n')
+            task.context['previousResults'].map((r: any) => r.output).join('\n\n')
         });
       }
       
-      if (task.context.relatedTasks?.length) {
+      if (task.context['relatedTasks']?.length) {
         messages.push({
           role: 'user',
           content: 'Related context:\n' + 
-            task.context.relatedTasks.map((t: any) => t.objective).join('\n')
+            task.context['relatedTasks'].map((t: any) => t.objective).join('\n')
         });
       }
     }

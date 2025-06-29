@@ -130,7 +130,11 @@ export class Command {
   }
 
   error(message: string, exit: boolean = true): void {
-    this.commander.error(message, { exitCode: exit ? 1 : undefined });
+    if (exit) {
+      this.commander.error(message, { exitCode: 1 });
+    } else {
+      this.commander.error(message, {});
+    }
   }
 
   // Additional cliffy-specific methods

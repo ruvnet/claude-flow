@@ -316,7 +316,7 @@ export class ConfigManager extends EventEmitter {
     const changes: string[] = [];
     const allKeys = new Set([...Object.keys(obj1 || {}), ...Object.keys(obj2 || {})]);
     
-    for (const key of allKeys) {
+    for (const key of Array.from(allKeys)) {
       const path = prefix ? `${prefix}.${key}` : key;
       
       if (!(key in obj1) || !(key in obj2) || obj1[key] !== obj2[key]) {
@@ -352,7 +352,7 @@ export class ConfigManager extends EventEmitter {
   }
 
   private getDefaultConfig(): ClaudeFlowConfig {
-    const env = process.env.NODE_ENV || 'development';
+    const env = process.env['NODE_ENV'] || 'development';
     
     return {
       version: this.getCurrentVersion(),
@@ -444,11 +444,11 @@ export class ConfigManager extends EventEmitter {
 
   private getDefaultRuntimeConfig(): RuntimeConfig {
     return {
-      environment: (process.env.NODE_ENV || 'development') as any,
+      environment: (process.env['NODE_ENV'] || 'development') as any,
       processTitle: 'claude-flow',
       features: {
         experimental: false,
-        debug: process.env.NODE_ENV !== 'production',
+        debug: process.env['NODE_ENV'] !== 'production',
         profiling: false
       }
     };
