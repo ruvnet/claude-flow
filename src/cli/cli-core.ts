@@ -6,32 +6,8 @@
 import chalk from "chalk";
 import fs from "fs-extra";
 import path from "path";
-
-export const VERSION = "1.0.43";
-
-interface CommandContext {
-  args: string[];
-  flags: Record<string, unknown>;
-  config?: Record<string, unknown> | undefined;
-}
-
-interface Command {
-  name: string;
-  description: string;
-  aliases?: string[];
-  subcommands?: Command[];
-  action?: (ctx: CommandContext) => Promise<void> | void;
-  options?: Option[];
-}
-
-interface Option {
-  name: string;
-  short?: string;
-  description: string;
-  type?: "string" | "boolean" | "number";
-  default?: unknown;
-  required?: boolean;
-}
+import { VERSION, Command, CommandContext, Option } from "./types/cli-types.js";
+import { success, error, warning, info } from "./shared/utils.js";
 
 class CLI {
   private commands: Map<string, Command> = new Map();
@@ -266,40 +242,9 @@ Created by rUv - Built with ❤️ for the Claude community
   }
 }
 
-// Helper functions
-function success(message: string): void {
-  console.log(chalk.green(`✅ ${message}`));
-}
+// Helper functions are now imported from ./shared/utils.js
 
-function error(message: string): void {
-  console.error(chalk.red(`❌ ${message}`));
-}
+// Export only the CLI class
+export { CLI };
 
-function warning(message: string): void {
-  console.warn(chalk.yellow(`⚠️  ${message}`));
-}
-
-function info(message: string): void {
-  console.log(chalk.blue(`ℹ️  ${message}`));
-}
-
-// Export for use in other modules
-export { CLI, success, error, warning, info };
-export type { Command, CommandContext, Option };
-
-// Main CLI setup if running directly
-async function main() {
-  if (process.argv[1] && (process.argv[1].endsWith('cli-core.js') || process.argv[1].endsWith('cli-core.ts'))) {
-    const cli = new CLI("claude-flow", "Advanced AI Agent Orchestration System");
-
-    // Import and register all commands
-    const { setupCommands } = await import("./commands/index.js");
-    setupCommands(cli);
-
-    // Run the CLI
-    await cli.run();
-  }
-}
-
-// Execute main if this is the entry point
-main().catch(console.error);
+// Note: Main entry point has been moved to main.ts to avoid circular dependencies

@@ -76,6 +76,29 @@ export class SecureOrchestrator implements IOrchestrator {
   }
 
   /**
+   * Authenticate with the security middleware
+   */
+  async authenticate(credentials: { token?: string; username?: string; password?: string }): Promise<{
+    success: boolean;
+    context?: SecurityContext;
+    error?: string;
+  }> {
+    try {
+      const result = await this.security.authenticate(credentials);
+      if (result.success && result.context) {
+        this.currentContext = result.context;
+      }
+      return result;
+    } catch (error) {
+      this.logger.error('Authentication failed', { error });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Authentication failed'
+      };
+    }
+  }
+
+  /**
    * Get current security context or throw if not authenticated
    */
   private getContext(): SecurityContext {

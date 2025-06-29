@@ -107,6 +107,8 @@ export interface IPCServer extends EventEmitter {
   start(): Promise<void>;
   stop(): Promise<void>;
   broadcast(message: IPCMessage, excludeConnection?: string): Promise<void>;
+  registerHandler(command: string, handler: MessageHandler): void;
+  unregisterHandler(command: string): void;
   
   // Events
   on(event: 'connection', listener: (connection: IPCConnection) => void): this;
@@ -187,3 +189,12 @@ export class IPCError extends Error {
     this.name = 'IPCError';
   }
 }
+
+/**
+ * Message handler type
+ */
+export type MessageHandler = (
+  payload: any,
+  connection: IPCConnection,
+  message: IPCMessage
+) => Promise<any>;

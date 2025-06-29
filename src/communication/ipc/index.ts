@@ -112,12 +112,12 @@ export class IPCFactory {
         if (process.platform === 'win32') {
           throw new Error('Unix sockets are not supported on Windows');
         }
-        return new UnixSocketTransport(config.path);
+        return new UnixSocketTransport({ socketPath: config.path });
         
       case TransportType.NAMED_PIPE:
         if (process.platform !== 'win32') {
           console.warn('Named pipes are primarily for Windows, using Unix socket instead');
-          return new UnixSocketTransport(config.path);
+          return new UnixSocketTransport({ socketPath: config.path });
         }
         return new NamedPipeTransport(config.path);
         

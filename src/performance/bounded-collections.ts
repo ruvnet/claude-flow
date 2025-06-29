@@ -1,413 +1,262 @@
 /**
- * Bounded Collections Implementation
- * Provides size-limited alternatives to unbounded collections
+ * Bounded Collections for Performance Optimization
+ * Provides memory-efficient data structures with size limits and eviction policies
  */
 
-export interface BoundedCollectionConfig {
+export interface BoundedMapOptions<K, V> {
   maxSize: number;
-  evictionPolicy?: 'lru' | 'fifo' | 'priority';
-  onEviction?: (item: any) => void;
+  evictionPolicy?: 'lru' | 'lfu' | 'fifo';
+  onEviction?: (value: V, key: K) => void;
+}
+
+export interface BoundedSetOptions<T> {
+  maxSize: number;
+  evictionPolicy?: 'lru' | 'lfu' | 'fifo';
+  onEviction?: (value: T) => void;
+}
+
+export interface MemoryPressureMonitorOptions {
+  memoryThreshold: number; // in MB
+  checkInterval: number; // in ms
+  onPressure?: (pressure: number) => void;
 }
 
 /**
- * Bounded Map with automatic eviction
+ * Bounded Map with configurable eviction policies
  */
 export class BoundedMap<K, V> extends Map<K, V> {
-  private config: BoundedCollectionConfig;
-  private accessOrder: Map<K, number> = new Map(); // For LRU tracking
-  private accessCounter = 0;
+  private maxSize: number;
+  private evictionPolicy: string;
+  private onEviction?: (value: V, key: K) => void;
+  private accessOrder: K[] = [];
 
-  constructor(config: BoundedCollectionConfig) {
+  constructor(options: BoundedMapOptions<K, V>) {
     super();
-    this.config = { evictionPolicy: 'lru', ...config };
+    this.maxSize = options.maxSize;
+    this.evictionPolicy = options.evictionPolicy || 'lru';
+    this.onEviction = options.onEviction;
   }
 
   set(key: K, value: V): this {
-    // Track access for LRU
-    if (this.config.evictionPolicy === 'lru') {
-      this.accessOrder.set(key, ++this.accessCounter);
+    // Remove from access order if exists
+    const index = this.accessOrder.indexOf(key);
+    if (index > -1) {
+      this.accessOrder.splice(index, 1);
     }
 
-    // If already exists, just update
-    if (this.has(key)) {
-      super.set(key, value);
-      return this;
-    }
+    // Add to end (most recent)
+    this.accessOrder.push(key);
 
-    // Check if we need to evict
-    if (this.size >= this.config.maxSize) {
-      this.evictOne();
-    }
-
+    // Set value
     super.set(key, value);
+
+    // Check size and evict if necessary
+    while (this.size > this.maxSize) {
+      this.evictOldest();
+    }
+
     return this;
   }
 
   get(key: K): V | undefined {
     const value = super.get(key);
-    
-    // Update access order for LRU
-    if (value !== undefined && this.config.evictionPolicy === 'lru') {
-      this.accessOrder.set(key, ++this.accessCounter);
+    if (value !== undefined && this.evictionPolicy === 'lru') {
+      // Move to end (most recent)
+      const index = this.accessOrder.indexOf(key);
+      if (index > -1) {
+        this.accessOrder.splice(index, 1);
+        this.accessOrder.push(key);
+      }
     }
-    
     return value;
   }
 
   delete(key: K): boolean {
-    this.accessOrder.delete(key);
+    const index = this.accessOrder.indexOf(key);
+    if (index > -1) {
+      this.accessOrder.splice(index, 1);
+    }
     return super.delete(key);
   }
 
+  private evictOldest(): void {
+    if (this.accessOrder.length === 0) return;
+
+    const keyToEvict = this.accessOrder.shift()!;
+    const value = this.get(keyToEvict);
+    
+    if (value !== undefined && this.onEviction) {
+      this.onEviction(value, keyToEvict);
+    }
+    
+    super.delete(keyToEvict);
+  }
+
   clear(): void {
-    this.accessOrder.clear();
+    this.accessOrder = [];
     super.clear();
   }
 
-  private evictOne(): void {
-    let keyToEvict: K | undefined;
-
-    switch (this.config.evictionPolicy) {
-      case 'lru':
-        keyToEvict = this.getLRUKey();
-        break;
-      case 'fifo':
-        keyToEvict = this.keys().next().value;
-        break;
-      case 'priority':
-        // For priority, we'd need the value to have a priority property
-        keyToEvict = this.keys().next().value;
-        break;
-      default:
-        keyToEvict = this.keys().next().value;
-    }
-
-    if (keyToEvict !== undefined) {
-      const evictedValue = this.get(keyToEvict);
-      this.delete(keyToEvict);
-      
-      if (this.config.onEviction && evictedValue !== undefined) {
-        this.config.onEviction(evictedValue);
-      }
-    }
-  }
-
-  private getLRUKey(): K | undefined {
-    let oldestKey: K | undefined;
-    let oldestAccess = Infinity;
-
-    for (const [key, access] of this.accessOrder) {
-      if (access < oldestAccess) {
-        oldestAccess = access;
-        oldestKey = key;
-      }
-    }
-
-    return oldestKey;
-  }
-
-  getStats() {
+  getStats(): any {
     return {
       size: this.size,
-      maxSize: this.config.maxSize,
-      utilization: this.size / this.config.maxSize,
-      evictionPolicy: this.config.evictionPolicy
+      maxSize: this.maxSize,
+      evictionPolicy: this.evictionPolicy,
+      accessOrderLength: this.accessOrder.length
     };
   }
 }
 
 /**
- * Bounded Array with automatic rotation
- */
-export class BoundedArray<T> extends Array<T> {
-  private config: BoundedCollectionConfig;
-
-  constructor(config: BoundedCollectionConfig) {
-    super();
-    this.config = { evictionPolicy: 'fifo', ...config };
-  }
-
-  push(...items: T[]): number {
-    for (const item of items) {
-      if (this.length >= this.config.maxSize) {
-        this.evictOne();
-      }
-      super.push(item);
-    }
-    return this.length;
-  }
-
-  unshift(...items: T[]): number {
-    for (let i = items.length - 1; i >= 0; i--) {
-      if (this.length >= this.config.maxSize) {
-        this.evictOne();
-      }
-      super.unshift(items[i]);
-    }
-    return this.length;
-  }
-
-  private evictOne(): void {
-    let evictedItem: T | undefined;
-
-    switch (this.config.evictionPolicy) {
-      case 'fifo':
-        evictedItem = this.shift();
-        break;
-      case 'lru':
-        // For arrays, LIFO (last in, first out) approximates LRU
-        evictedItem = this.pop();
-        break;
-      default:
-        evictedItem = this.shift();
-    }
-
-    if (this.config.onEviction && evictedItem !== undefined) {
-      this.config.onEviction(evictedItem);
-    }
-  }
-
-  getStats() {
-    return {
-      size: this.length,
-      maxSize: this.config.maxSize,
-      utilization: this.length / this.config.maxSize,
-      evictionPolicy: this.config.evictionPolicy
-    };
-  }
-}
-
-/**
- * Bounded Set with automatic eviction
+ * Bounded Set with configurable eviction policies
  */
 export class BoundedSet<T> extends Set<T> {
-  private config: BoundedCollectionConfig;
-  private accessOrder: Map<T, number> = new Map();
-  private accessCounter = 0;
+  private maxSize: number;
+  private evictionPolicy: string;
+  private onEviction?: (value: T) => void;
+  private accessOrder: T[] = [];
 
-  constructor(config: BoundedCollectionConfig) {
+  constructor(options: BoundedSetOptions<T>) {
     super();
-    this.config = { evictionPolicy: 'lru', ...config };
+    this.maxSize = options.maxSize;
+    this.evictionPolicy = options.evictionPolicy || 'lru';
+    this.onEviction = options.onEviction;
   }
 
   add(value: T): this {
-    // Track access for LRU
-    if (this.config.evictionPolicy === 'lru') {
-      this.accessOrder.set(value, ++this.accessCounter);
+    // Remove from access order if exists
+    const index = this.accessOrder.indexOf(value);
+    if (index > -1) {
+      this.accessOrder.splice(index, 1);
     }
 
-    // If already exists, just update access
-    if (this.has(value)) {
-      return this;
-    }
+    // Add to end (most recent)
+    this.accessOrder.push(value);
 
-    // Check if we need to evict
-    if (this.size >= this.config.maxSize) {
-      this.evictOne();
-    }
-
+    // Add value
     super.add(value);
+
+    // Check size and evict if necessary
+    while (this.size > this.maxSize) {
+      this.evictOldest();
+    }
+
     return this;
   }
 
   has(value: T): boolean {
     const exists = super.has(value);
-    
-    // Update access order for LRU
-    if (exists && this.config.evictionPolicy === 'lru') {
-      this.accessOrder.set(value, ++this.accessCounter);
+    if (exists && this.evictionPolicy === 'lru') {
+      // Move to end (most recent)
+      const index = this.accessOrder.indexOf(value);
+      if (index > -1) {
+        this.accessOrder.splice(index, 1);
+        this.accessOrder.push(value);
+      }
     }
-    
     return exists;
   }
 
   delete(value: T): boolean {
-    this.accessOrder.delete(value);
+    const index = this.accessOrder.indexOf(value);
+    if (index > -1) {
+      this.accessOrder.splice(index, 1);
+    }
     return super.delete(value);
   }
 
+  private evictOldest(): void {
+    if (this.accessOrder.length === 0) return;
+
+    const valueToEvict = this.accessOrder.shift()!;
+    
+    if (this.onEviction) {
+      this.onEviction(valueToEvict);
+    }
+    
+    super.delete(valueToEvict);
+  }
+
   clear(): void {
-    this.accessOrder.clear();
+    this.accessOrder = [];
     super.clear();
   }
-
-  private evictOne(): void {
-    let valueToEvict: T | undefined;
-
-    switch (this.config.evictionPolicy) {
-      case 'lru':
-        valueToEvict = this.getLRUValue();
-        break;
-      case 'fifo':
-        valueToEvict = this.values().next().value;
-        break;
-      default:
-        valueToEvict = this.values().next().value;
-    }
-
-    if (valueToEvict !== undefined) {
-      this.delete(valueToEvict);
-      
-      if (this.config.onEviction) {
-        this.config.onEviction(valueToEvict);
-      }
-    }
-  }
-
-  private getLRUValue(): T | undefined {
-    let oldestValue: T | undefined;
-    let oldestAccess = Infinity;
-
-    for (const [value, access] of this.accessOrder) {
-      if (access < oldestAccess) {
-        oldestAccess = access;
-        oldestValue = value;
-      }
-    }
-
-    return oldestValue;
-  }
-
-  getStats() {
-    return {
-      size: this.size,
-      maxSize: this.config.maxSize,
-      utilization: this.size / this.config.maxSize,
-      evictionPolicy: this.config.evictionPolicy
-    };
-  }
 }
 
 /**
- * Bounded Queue with automatic eviction
- */
-export class BoundedQueue<T> {
-  private queue: T[] = [];
-  private config: BoundedCollectionConfig;
-
-  constructor(config: BoundedCollectionConfig) {
-    this.config = { evictionPolicy: 'fifo', ...config };
-  }
-
-  enqueue(item: T): void {
-    if (this.queue.length >= this.config.maxSize) {
-      this.evictOne();
-    }
-    this.queue.push(item);
-  }
-
-  dequeue(): T | undefined {
-    return this.queue.shift();
-  }
-
-  peek(): T | undefined {
-    return this.queue[0];
-  }
-
-  get size(): number {
-    return this.queue.length;
-  }
-
-  get isEmpty(): boolean {
-    return this.queue.length === 0;
-  }
-
-  clear(): void {
-    this.queue = [];
-  }
-
-  private evictOne(): void {
-    let evictedItem: T | undefined;
-
-    switch (this.config.evictionPolicy) {
-      case 'fifo':
-        evictedItem = this.queue.shift();
-        break;
-      case 'lru':
-        // For queues, we could track access but for simplicity use LIFO
-        evictedItem = this.queue.pop();
-        break;
-      default:
-        evictedItem = this.queue.shift();
-    }
-
-    if (this.config.onEviction && evictedItem !== undefined) {
-      this.config.onEviction(evictedItem);
-    }
-  }
-
-  getStats() {
-    return {
-      size: this.queue.length,
-      maxSize: this.config.maxSize,
-      utilization: this.queue.length / this.config.maxSize,
-      evictionPolicy: this.config.evictionPolicy
-    };
-  }
-
-  toArray(): T[] {
-    return [...this.queue];
-  }
-}
-
-/**
- * Memory pressure monitor for proactive cleanup
+ * Memory Pressure Monitor
  */
 export class MemoryPressureMonitor {
-  private monitors: Map<string, () => void> = new Map();
-  private config: {
-    checkInterval: number;
-    memoryThreshold: number; // MB
-  };
+  private memoryThreshold: number;
+  private checkInterval: number;
+  private onPressure?: (pressure: number) => void;
+  private timer?: NodeJS.Timeout;
+  private callbacks: Map<string, () => void> = new Map();
+  private currentPressure: number = 0;
 
-  constructor(config: { checkInterval?: number; memoryThreshold?: number } = {}) {
-    this.config = {
-      checkInterval: config.checkInterval || 30000, // 30 seconds
-      memoryThreshold: config.memoryThreshold || 100, // 100 MB
-      ...config
-    };
-
+  constructor(options: MemoryPressureMonitorOptions) {
+    this.memoryThreshold = options.memoryThreshold * 1024 * 1024; // Convert MB to bytes
+    this.checkInterval = options.checkInterval;
+    this.onPressure = options.onPressure;
     this.startMonitoring();
   }
 
-  registerCleanup(name: string, cleanup: () => void): void {
-    this.monitors.set(name, cleanup);
-  }
-
-  unregisterCleanup(name: string): void {
-    this.monitors.delete(name);
-  }
-
   private startMonitoring(): void {
-    setInterval(() => {
-      const memUsage = process.memoryUsage();
-      const heapUsedMB = memUsage.heapUsed / 1024 / 1024;
-
-      if (heapUsedMB > this.config.memoryThreshold) {
-        console.log(`Memory pressure detected: ${heapUsedMB.toFixed(2)}MB used`);
-        this.triggerCleanups();
-      }
-    }, this.config.checkInterval);
+    this.timer = setInterval(() => {
+      this.checkMemoryPressure();
+    }, this.checkInterval);
   }
 
-  private triggerCleanups(): void {
-    for (const [name, cleanup] of this.monitors) {
-      try {
-        cleanup();
-        console.log(`Triggered cleanup for: ${name}`);
-      } catch (error) {
-        console.error(`Cleanup failed for ${name}:`, error);
+  private checkMemoryPressure(): void {
+    const memUsage = process.memoryUsage();
+    const totalMemory = memUsage.heapUsed + memUsage.external;
+    this.currentPressure = totalMemory / this.memoryThreshold;
+
+    if (totalMemory > this.memoryThreshold) {
+      if (this.onPressure) {
+        this.onPressure(this.currentPressure);
+      }
+      
+      // Execute cleanup callbacks
+      for (const [, callback] of this.callbacks) {
+        try {
+          callback();
+        } catch (error) {
+          console.error('Error executing cleanup callback:', error);
+        }
       }
     }
   }
 
-  getMemoryStats() {
+  registerCleanup(id: string, callback: () => void): void {
+    this.callbacks.set(id, callback);
+  }
+
+  unregisterCleanup(id: string): void {
+    this.callbacks.delete(id);
+  }
+
+  getCurrentPressure(): number {
+    return this.currentPressure;
+  }
+
+  stop(): void {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = undefined;
+    }
+  }
+
+  getMemoryStats(): any {
     const memUsage = process.memoryUsage();
+    const totalMemory = memUsage.heapUsed + memUsage.external;
     return {
-      heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
-      heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024),
-      external: Math.round(memUsage.external / 1024 / 1024),
-      rss: Math.round(memUsage.rss / 1024 / 1024)
+      heapUsed: memUsage.heapUsed,
+      external: memUsage.external,
+      totalMemory,
+      memoryThreshold: this.memoryThreshold,
+      currentPressure: this.currentPressure,
+      isOverThreshold: totalMemory > this.memoryThreshold
     };
   }
 }

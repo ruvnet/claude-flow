@@ -8,7 +8,7 @@
 const blessed = require('blessed');
 const fs = require('fs').promises;
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn } = require('../../tracing/index.js');
 
 class SwarmUI {
   constructor() {
@@ -567,7 +567,7 @@ class SwarmUI {
     
     try {
       // Kill all swarm processes safely using spawn
-      const { spawn } = require('child_process');
+      const { spawn } = require('../../tracing/index.js');
       const pkill = spawn('pkill', ['-f', 'claude-flow swarm'], {
         shell: false // Prevent shell injection
       });

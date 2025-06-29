@@ -14,7 +14,7 @@ interface ProcessPoolCommand {
   options?: {
     cwd?: string;
     env?: Record<string, string>;
-    stdio?: string[];
+    stdio?: import('child_process').StdioOptions;
   };
 }
 
@@ -92,6 +92,7 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
   private logger: Logger;
   private config: SwarmConfig;
   private swarmId: SwarmId;
+  private processPool: ProcessPool;
   
   // Core state management
   private agents: Map<string, AgentState> = new Map();

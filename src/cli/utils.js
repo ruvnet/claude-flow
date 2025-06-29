@@ -1,6 +1,6 @@
 // utils.js - Shared CLI utility functions
 import { promises as fs } from 'fs';
-import { spawn } from 'child_process';
+import { spawn } from '../tracing/index.js';
 import { promisify } from 'util';
 import path from 'path';
 

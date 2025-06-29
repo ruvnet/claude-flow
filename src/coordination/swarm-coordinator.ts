@@ -497,7 +497,7 @@ export class SwarmCoordinator extends EventEmitter {
       try {
         await this.enforceTaskVerification(task, agent, result);
       } catch (error) {
-        this.logger.error(`Task verification failed for ${taskId}: ${error.message}`);
+        this.logger.error(`Task verification failed for ${taskId}: ${error instanceof Error ? error.message : String(error)}`);
         await this.handleTaskFailed(taskId, error);
         return;
       }
@@ -600,7 +600,7 @@ export class SwarmCoordinator extends EventEmitter {
           this.logger.info(`Objective ${objectiveId} completed with verification`);
           this.emit('objective:completed', objective);
         } catch (error) {
-          this.logger.error(`Objective verification failed for ${objectiveId}: ${error.message}`);
+          this.logger.error(`Objective verification failed for ${objectiveId}: ${error instanceof Error ? error.message : String(error)}`);
           objective.status = 'failed';
           objective.completedAt = new Date();
           this.emit('objective:failed', { objective, error });

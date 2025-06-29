@@ -40,6 +40,11 @@ export class Command {
     this.commander = new CommanderCommand(name);
   }
 
+  // Getter to access underlying commander instance
+  getCommander(): CommanderCommand {
+    return this.commander;
+  }
+
   name(name: string): this {
     this.commander.name(name);
     return this;

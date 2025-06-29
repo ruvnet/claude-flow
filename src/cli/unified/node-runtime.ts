@@ -4,7 +4,7 @@
  */
 
 import { promises as fs, watchFile, unwatchFile } from 'fs';
-import { spawn as nodeSpawn } from 'child_process';
+import { spawn as nodeSpawn } from '../../tracing/index.js';
 import { resolve, join } from 'path';
 import type { RuntimeAdapter, SpawnOptions, ProcessResult, FileStats } from './interfaces.js';
 

@@ -14,7 +14,7 @@ async function testBasicIPC() {
     const server = IPCFactory.createServer();
     
     // Register test handler
-    server.registerHandler('test', async (payload) => {
+    server.registerHandler('test', async (payload: { message: string; testId: number }) => {
       console.log('   Server received:', payload);
       return { 
         echo: payload,

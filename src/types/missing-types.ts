@@ -25,11 +25,17 @@ export interface TaskResult {
   error?: string;
 }
 
+// Work stealing suggestion type
+export interface WorkStealingSuggestion {
+  from: string;
+  to: string;
+}
+
 // Work stealing coordinator interface
 export interface WorkStealingCoordinator {
   registerWorker(workerId: string, capacity: number): void;
   updateLoads(loads: Map<string, number>): void;
-  suggestWorkStealing(overloadedWorker: string): string | null;
+  suggestWorkStealing(): WorkStealingSuggestion[];
   getWorkerLoads(): Map<string, number>;
   removeWorker(workerId: string): void;
 }
@@ -59,18 +65,29 @@ export class StubWorkStealingCoordinator implements WorkStealingCoordinator {
     }
   }
 
-  suggestWorkStealing(overloadedWorker: string): string | null {
-    let bestWorker = null;
-    let lowestLoad = Infinity;
+  suggestWorkStealing(): WorkStealingSuggestion[] {
+    const suggestions: WorkStealingSuggestion[] = [];
+    const sortedWorkers = Array.from(this.loads.entries())
+      .sort((a, b) => b[1] - a[1]); // Sort by load descending
     
-    for (const [workerId, load] of this.loads) {
-      if (workerId !== overloadedWorker && load < lowestLoad) {
-        lowestLoad = load;
-        bestWorker = workerId;
+    // Find overloaded workers and suggest work stealing
+    for (let i = 0; i < sortedWorkers.length; i++) {
+      const [overloadedId, overloadedLoad] = sortedWorkers[i];
+      if (overloadedLoad > 0.8) { // Overloaded threshold
+        for (let j = sortedWorkers.length - 1; j > i; j--) {
+          const [underloadedId, underloadedLoad] = sortedWorkers[j];
+          if (underloadedLoad < 0.3) { // Underloaded threshold
+            suggestions.push({
+              from: overloadedId,
+              to: underloadedId
+            });
+            break;
+          }
+        }
       }
     }
     
-    return bestWorker;
+    return suggestions;
   }
 
   getWorkerLoads(): Map<string, number> {

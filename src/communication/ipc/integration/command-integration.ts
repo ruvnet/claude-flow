@@ -8,6 +8,8 @@ import {
   IPCServer,
   IPCClient,
   MessageType,
+  IPCMessage,
+  IPCConnection,
   createOrchestratorServer,
   createOrchestratorClient,
   IPCPaths
@@ -189,11 +191,11 @@ export class CommandIPCIntegration {
 export class SwarmCommandIPC extends CommandIPCIntegration {
   private activeSwarms: Map<string, any> = new Map();
   
-  protected getCommandName(): string {
+  protected override getCommandName(): string {
     return 'swarm';
   }
   
-  protected async executeCommand(args: any, options: any): Promise<any> {
+  protected override async executeCommand(args: any, options: any): Promise<any> {
     const { objective, strategy, mode } = args;
     const swarmId = crypto.randomUUID();
     
@@ -232,11 +234,11 @@ export class SwarmCommandIPC extends CommandIPCIntegration {
 export class AgentCommandIPC extends CommandIPCIntegration {
   private agents: Map<string, any> = new Map();
   
-  protected getCommandName(): string {
+  protected override getCommandName(): string {
     return 'agent';
   }
   
-  protected async executeCommand(args: any, options: any): Promise<any> {
+  protected override async executeCommand(args: any, options: any): Promise<any> {
     const { action, type, name } = args;
     
     switch (action) {
@@ -325,7 +327,7 @@ export class ProcessRegistryIPC {
     this.server.registerHandler('heartbeat', this.handleHeartbeat.bind(this));
     
     // Handle process messages
-    this.server.on('process-message', (connection, message) => {
+    this.server.on('process-message', (connection: IPCConnection, message: IPCMessage) => {
       this.handleProcessMessage(connection, message);
     });
     
@@ -389,7 +391,7 @@ export class ProcessRegistryIPC {
     return { message: 'Heartbeat received' };
   }
   
-  private handleProcessMessage(connection: any, message: any): void {
+  private handleProcessMessage(connection: IPCConnection, message: IPCMessage): void {
     console.log('Process message received:', message);
     // Handle process-specific messages
   }

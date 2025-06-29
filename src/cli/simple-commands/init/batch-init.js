@@ -5,7 +5,6 @@ import {
   ResourceThresholdMonitor, 
   BatchOptimizer 
 } from './performance-monitor.js';
-import { initCommand } from './index.js';
 import { createSparcStructureManually } from './sparc-structure.js';
 import { createClaudeSlashCommands } from './claude-commands/slash-commands.js';
 import { 

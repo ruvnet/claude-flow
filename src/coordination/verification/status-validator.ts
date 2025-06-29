@@ -41,7 +41,7 @@ export class StatusValidator {
       try {
         status = JSON.parse(content);
       } catch (parseError) {
-        errors.push(`Invalid JSON in status file: ${parseError.message}`);
+        errors.push(`Invalid JSON in status file: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
         return { valid: false, errors };
       }
       
@@ -60,7 +60,7 @@ export class StatusValidator {
       };
       
     } catch (error) {
-      errors.push(`Error reading status file: ${error.message}`);
+      errors.push(`Error reading status file: ${error instanceof Error ? error.message : String(error)}`);
       return { valid: false, errors };
     }
   }

@@ -6,7 +6,7 @@
 import readline from 'readline';
 import fs from 'fs/promises';
 import path from 'path';
-import { spawn } from 'child_process';
+import { spawn } from '../tracing/index.js';
 import colors from 'chalk';
 import Table from 'cli-table3';
 import inquirer from 'inquirer';

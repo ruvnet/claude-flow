@@ -6,7 +6,7 @@ import { Command } from '@cliffy/command';
 import { logger } from '../core/logger';
 import { Config } from '../utils/types.js';
 import { Orchestrator } from '../core/orchestrator.js';
-import { createSecureOrchestrator } from '../core/secure-orchestrator.js';
+import { createSecureOrchestrator, SecureOrchestratorConfig } from '../core/secure-orchestrator.js';
 import { addSecurityMiddleware, createAuthCommand } from '../cli/secure-cli.js';
 import { createEventBus } from '../core/event-bus.js';
 import { createTerminalManager } from '../terminal/manager.js';
@@ -56,7 +56,7 @@ export async function createSecureOrchestratorExample() {
   const secureOrchestrator = createSecureOrchestrator(
     baseOrchestrator,
     logger,
-    config,
+    config as SecureOrchestratorConfig,
   );
 
   // Example: Authenticate and use orchestrator
@@ -102,7 +102,8 @@ export function createSecureCLIExample() {
 
   // Add commands
   app
-    .command('status', 'Get system status')
+    .command('status')
+    .description('Get system status')
     .action(() => {
       console.log('System status: OK');
     });
@@ -110,7 +111,8 @@ export function createSecureCLIExample() {
   app
     .command('agent')
     .description('Agent management')
-    .command('spawn <type:string>', 'Spawn a new agent')
+    .command('spawn <type:string>')
+    .description('Spawn a new agent')
     .action((type: string) => {
       console.log(`Spawning ${type} agent...`);
     });
@@ -118,7 +120,8 @@ export function createSecureCLIExample() {
   app
     .command('task')
     .description('Task management')
-    .command('create <type:string>', 'Create a new task')
+    .command('create <type:string>')
+    .description('Create a new task')
     .option('-p, --priority <priority:string>', 'Task priority')
     .action((type: string, options: any) => {
       console.log(`Creating ${type} task with priority ${options.priority || 'normal'}`);
@@ -131,7 +134,8 @@ export function createSecureCLIExample() {
   });
 
   // Add auth command
-  app.command('auth', createAuthCommand(secureCLI));
+  const authCommand = createAuthCommand(secureCLI);
+  app.command('auth', authCommand.constructor as typeof Command);
 
   return app;
 }

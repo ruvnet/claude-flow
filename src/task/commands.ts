@@ -6,6 +6,7 @@
 import { Command } from '../utils/cliffy-compat/command.js';
 import chalk from 'chalk';
 import { TaskEngine, WorkflowTask, TaskFilter, TaskSort, Workflow, ResourceRequirement, TaskSchedule } from './engine';
+import { TaskStatus } from '../utils/types';
 import { generateId } from '../utils/helpers';
 
 import type { IMemoryManager } from '../memory/manager';
@@ -14,32 +15,72 @@ import type { ILogger } from '../core/logger';
 // Command option types
 export interface TaskCreateOptions {
   depends?: string[];
+  dependencies?: string;
+  depType?: string;
+  depLag?: string;
   priority?: number;
   assignTo?: string;
   resources?: string[];
   memory?: number;
   cpu?: number;
+  disk?: string;
+  network?: string;
+  exclusiveResources?: boolean;
   timeout?: number;
   retries?: number;
   schedule?: string;
   recurrence?: string;
-  tags?: string[];
+  startTime?: string;
+  deadline?: string;
+  recurring?: string;
+  recurringCount?: string;
+  timezone?: string;
+  estimatedDuration?: string;
+  retryBackoff?: string;
+  retryMultiplier?: string;
+  rollback?: string;
+  input?: string;
+  dryRun?: boolean;
+  tags?: string;
 }
 
 export interface TaskListOptions {
   status?: string;
   assignedTo?: string;
-  tags?: string[];
+  agent?: string;
+  priority?: string;
+  createdAfter?: string;
+  createdBefore?: string;
+  dueBefore?: string;
+  search?: string;
+  tags?: string;
   sort?: string;
+  sortDir?: string;
+  offset?: number;
   limit?: number;
   verbose?: boolean;
   json?: boolean;
   graph?: boolean;
+  format?: string;
+  showDependencies?: boolean;
+  showProgress?: boolean;
+  showMetrics?: boolean;
 }
 
 export interface TaskOptions {
   watch?: boolean;
   json?: boolean;
+  format?: string;
+  showDependencies?: boolean;
+  showResources?: boolean;
+  showCheckpoints?: boolean;
+  showMetrics?: boolean;
+  showLogs?: boolean;
+  force?: boolean;
+  cascade?: boolean;
+  noRollback?: boolean;
+  reason?: string;
+  dryRun?: boolean;
 }
 
 export interface WorkflowOptions {
@@ -47,6 +88,15 @@ export interface WorkflowOptions {
   parallel?: boolean;
   continueOnError?: boolean;
   verbose?: boolean;
+  description?: string;
+  maxConcurrent?: string;
+  strategy?: string;
+  errorHandling?: string;
+  maxRetries?: string;
+  file?: string;
+  monitor?: boolean;
+  format?: string;
+  output?: string;
 }
 
 export interface TaskCommandContext {
@@ -95,8 +145,8 @@ export function createTaskCreateCommand(context: TaskCommandContext): Command {
         const dependencies = options.dependencies 
           ? options.dependencies.split(',').map((depId: string) => ({
               taskId: depId.trim(),
-              type: options.depType,
-              lag: parseInt(options.depLag)
+              type: (options.depType || 'finish-to-start') as 'finish-to-start' | 'start-to-start' | 'finish-to-finish' | 'start-to-finish',
+              lag: options.depLag ? parseInt(options.depLag) : 0
             }))
           : [];
 
@@ -106,40 +156,40 @@ export function createTaskCreateCommand(context: TaskCommandContext): Command {
           resourceRequirements.push({
             resourceId: 'cpu',
             type: 'cpu',
-            amount: parseFloat(options.cpu),
+            amount: parseFloat(String(options.cpu)),
             unit: 'cores',
             exclusive: options.exclusiveResources,
-            priority: parseInt(options.priority)
+            priority: options.priority ? parseInt(String(options.priority)) : 0
           });
         }
         if (options.memory) {
           resourceRequirements.push({
             resourceId: 'memory',
             type: 'memory',
-            amount: parseFloat(options.memory),
+            amount: parseFloat(String(options.memory)),
             unit: 'MB',
             exclusive: options.exclusiveResources,
-            priority: parseInt(options.priority)
+            priority: options.priority ? parseInt(String(options.priority)) : 0
           });
         }
         if (options.disk) {
           resourceRequirements.push({
             resourceId: 'disk',
             type: 'disk',
-            amount: parseFloat(options.disk),
+            amount: parseFloat(String(options.disk)),
             unit: 'MB',
             exclusive: options.exclusiveResources,
-            priority: parseInt(options.priority)
+            priority: options.priority ? parseInt(String(options.priority)) : 0
           });
         }
         if (options.network) {
           resourceRequirements.push({
             resourceId: 'network',
             type: 'network',
-            amount: parseFloat(options.network),
+            amount: parseFloat(String(options.network)),
             unit: 'Mbps',
             exclusive: options.exclusiveResources,
-            priority: parseInt(options.priority)
+            priority: options.priority ? parseInt(String(options.priority)) : 0
           });
         }
 
@@ -151,7 +201,7 @@ export function createTaskCreateCommand(context: TaskCommandContext): Command {
             deadline: options.deadline ? new Date(options.deadline) : undefined,
             timezone: options.timezone,
             recurring: options.recurring ? {
-              interval: options.recurring,
+              interval: options.recurring as "daily" | "weekly" | "monthly",
               count: options.recurringCount ? parseInt(options.recurringCount) : undefined
             } : undefined
           };
@@ -160,20 +210,20 @@ export function createTaskCreateCommand(context: TaskCommandContext): Command {
         const taskData: Partial<WorkflowTask> = {
           type,
           description,
-          priority: parseInt(options.priority),
+          priority: options.priority ? parseInt(String(options.priority)) : 0,
           dependencies,
           resourceRequirements,
           schedule,
           assignedAgent: options.assign,
           tags: options.tags ? options.tags.split(',').map((t: string) => t.trim()) : [],
-          timeout: parseInt(options.timeout),
+          timeout: options.timeout ? parseInt(String(options.timeout)) : 0,
           estimatedDurationMs: options.estimatedDuration ? parseInt(options.estimatedDuration) : undefined,
           retryPolicy: {
-            maxAttempts: parseInt(options.maxRetries),
-            backoffMs: parseInt(options.retryBackoff),
-            backoffMultiplier: parseFloat(options.retryMultiplier)
+            maxAttempts: options.maxRetries ? parseInt(options.maxRetries) : 0,
+            backoffMs: options.retryBackoff ? parseInt(options.retryBackoff) : 0,
+            backoffMultiplier: options.retryMultiplier ? parseFloat(options.retryMultiplier) : 1.5
           },
-          rollbackStrategy: options.rollback,
+          rollbackStrategy: options.rollback as "custom" | "previous-checkpoint" | "initial-state" | undefined,
           input: options.input ? JSON.parse(options.input) : {}
         };
 
@@ -259,7 +309,7 @@ export function createTaskListCommand(context: TaskCommandContext): Command {
         const filter: TaskFilter = {};
         
         if (options.status) {
-          filter.status = options.status.split(',');
+          filter.status = options.status.split(',') as TaskStatus[];
         }
         
         if (options.agent) {
@@ -293,16 +343,16 @@ export function createTaskListCommand(context: TaskCommandContext): Command {
 
         // Build sort
         const sort: TaskSort = {
-          field: options.sort,
-          direction: options.sortDir
+          field: (options.sort || 'createdAt') as TaskSort['field'],
+          direction: (options.sortDir || 'desc') as 'asc' | 'desc'
         };
 
         // Get tasks
         const result = await context.taskEngine.listTasks(
           filter,
           sort,
-          parseInt(options.limit),
-          parseInt(options.offset)
+          options.limit ? parseInt(String(options.limit)) : 10,
+          options.offset ? parseInt(String(options.offset)) : 0
         );
 
         if (result.tasks.length === 0) {
@@ -335,7 +385,7 @@ export function createTaskListCommand(context: TaskCommandContext): Command {
         }
 
         if (result.hasMore) {
-          console.log(chalk.blue(`\n💡 Use --offset ${parseInt(options.offset) + parseInt(options.limit)} to see more results`));
+          console.log(chalk.blue(`\n💡 Use --offset ${(options.offset ? parseInt(String(options.offset)) : 0) + (options.limit ? parseInt(String(options.limit)) : 10)} to see more results`));
         }
 
       } catch (error) {
@@ -644,12 +694,12 @@ export function createTaskWorkflowCommand(context: TaskCommandContext): Command 
               name,
               description: options.description,
               parallelism: {
-                maxConcurrent: parseInt(options.maxConcurrent),
-                strategy: options.strategy
+                maxConcurrent: options.maxConcurrent ? parseInt(options.maxConcurrent) : 5,
+                strategy: (options.strategy || 'priority-based') as "priority-based" | "breadth-first" | "depth-first"
               },
               errorHandling: {
-                strategy: options.errorHandling,
-                maxRetries: parseInt(options.maxRetries)
+                strategy: (options.errorHandling || 'fail-fast') as "fail-fast" | "continue-on-error" | "retry-failed",
+                maxRetries: options.maxRetries ? parseInt(options.maxRetries) : 3
               }
             };
 
@@ -693,7 +743,7 @@ export function createTaskWorkflowCommand(context: TaskCommandContext): Command 
               return;
             }
 
-            if (options.monitor) {
+            if ('monitor' in options && options.monitor) {
               console.log(chalk.blue('👀 Monitoring workflow execution...'));
               // Would implement real-time monitoring
             }
@@ -719,7 +769,7 @@ export function createTaskWorkflowCommand(context: TaskCommandContext): Command 
 
             if (options.format === 'json') {
               const output = JSON.stringify(graph, null, 2);
-              if (options.output) {
+              if ('output' in options && options.output) {
                 const fs = await import('fs/promises');
                 await fs.writeFile(options.output, output);
                 console.log(chalk.green(`💾 Graph saved to: ${options.output}`));
@@ -767,7 +817,7 @@ function formatDuration(ms: number): string {
   return `${seconds}s`;
 }
 
-function getLogLevelColor(level: string): typeof chalk.ChalkFunction {
+function getLogLevelColor(level: string): typeof chalk {
   switch (level) {
     case 'debug': return chalk.gray;
     case 'info': return chalk.blue;

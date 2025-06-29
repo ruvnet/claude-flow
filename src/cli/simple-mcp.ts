@@ -67,7 +67,7 @@ export function createMCPCommand() {
       // Default to stdio mode (same as serve)
       if (!options.http) {
         // Use the dedicated stdio server (exact same as serve command)
-        const { spawn } = await import('child_process');
+        const { spawn } = await import('../tracing/index.js');
         const serverPath = '/workspaces/claude-code-flow/src/cli/mcp-stdio-server.ts';
         
         const child = spawn('npx', ['tsx', serverPath], {
@@ -200,7 +200,7 @@ export function createMCPCommand() {
     .option('--verbose', 'Enable verbose logging to stderr')
     .action(async (options) => {
       // Use the dedicated stdio server
-      const { spawn } = await import('child_process');
+      const { spawn } = await import('../tracing/index.js');
       const serverPath = '/workspaces/claude-code-flow/src/cli/mcp-stdio-server.ts';
       
       const child = spawn('npx', ['tsx', serverPath], {

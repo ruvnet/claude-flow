@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess } from '../../tracing/index.js';
 import { promisify } from 'util';
 
 // Create a Deno-like API object

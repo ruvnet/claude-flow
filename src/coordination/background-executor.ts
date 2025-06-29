@@ -1,4 +1,4 @@
-import { ChildProcess } from 'node:child_process';
+import { ChildProcess } from '../tracing/index.js';
 import { EventEmitter } from 'node:events';
 import { Logger } from '../core/logger.js';
 import { generateId } from '../utils/helpers.js';
@@ -14,7 +14,7 @@ interface ProcessPoolCommand {
     env?: Record<string, string>;
     timeout?: number;
     detached?: boolean;
-    stdio?: string[];
+    stdio?: import('child_process').StdioOptions;
   };
 }
 
@@ -35,7 +35,7 @@ class ProcessPool {
   async executeCommand(cmd: ProcessPoolCommand): Promise<{ process: ChildProcess; result: Promise<ProcessPoolResult> }> {
     return new Promise((resolve, reject) => {
       // Import spawn only when needed for execution
-      import('node:child_process').then(({ spawn }) => {
+      import('../tracing/index.js').then(({ spawn }) => {
         const childProcess: ChildProcess = spawn(cmd.command, cmd.args, {
           cwd: cmd.options?.cwd,
           env: { ...process.env, ...cmd.options?.env } as Record<string, string>,

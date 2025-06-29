@@ -29,7 +29,7 @@ export async function basicExample(): Promise<void> {
   });
   
   // Register a command handler
-  server.registerHandler('greet', async (payload) => {
+  server.registerHandler('greet', async (payload: { name: string }) => {
     const { name } = payload;
     return { message: `Hello, ${name}!` };
   });
@@ -67,12 +67,12 @@ export async function multiAgentExample(): Promise<void> {
   const agents: Map<string, { server: IPCServer; client: IPCClient }> = new Map();
   
   // Register orchestrator handlers
-  orchestrator.registerHandler('register-agent', async (payload) => {
+  orchestrator.registerHandler('register-agent', async (payload: { agentId: string; type: string; capabilities: string[] }) => {
     console.log('Agent registered:', payload);
     return { success: true };
   });
   
-  orchestrator.registerHandler('task-assignment', async (payload) => {
+  orchestrator.registerHandler('task-assignment', async (payload: { agentId: string; task: { type: string; data: any } }) => {
     const { agentId, task } = payload;
     console.log(`Assigning task to agent ${agentId}:`, task);
     
@@ -97,7 +97,7 @@ export async function multiAgentExample(): Promise<void> {
     
     // Create agent server
     const agentServer = createAgentServer(agentId);
-    agentServer.registerHandler('execute-task', async (payload) => {
+    agentServer.registerHandler('execute-task', async (payload: { type: string; data: any }) => {
       console.log(`Agent ${agentId} executing task:`, payload);
       return { result: `Task completed by ${agentId}` };
     });
@@ -167,7 +167,7 @@ export async function secureExample(): Promise<void> {
     }
   });
   
-  server.registerHandler('secure-data', async (payload) => {
+  server.registerHandler('secure-data', async (payload: any) => {
     return { 
       secret: 'This is encrypted data',
       timestamp: new Date()
@@ -220,7 +220,7 @@ export async function processManagementExample(): Promise<void> {
   const processes: Map<string, any> = new Map();
   
   // Setup process management handlers
-  registry.on('process-message', (connection, message) => {
+  registry.on('process-message', (connection: any, message: IPCMessage) => {
     switch (message.type) {
       case MessageType.PROCESS_REGISTER:
         const processInfo = {

@@ -14,7 +14,8 @@ import {
   IPCSecurityOptions,
   MessageType,
   IPCError,
-  IPCErrorCode
+  IPCErrorCode,
+  MessageHandler
 } from './types.js';
 
 /**
@@ -305,14 +306,6 @@ export class IPCServerImpl extends EventEmitter implements IPCServer {
   }
 }
 
-/**
- * Message handler type
- */
-export type MessageHandler = (
-  payload: any,
-  connection: IPCConnection,
-  message: IPCMessage
-) => Promise<any>;
 
 /**
  * Simple rate limiter using token bucket algorithm

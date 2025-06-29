@@ -86,11 +86,11 @@ export async function initializeTaskManagement(
   };
 
   const commands = {
-    create: createTaskCreateCommand(commandContext),
-    list: createTaskListCommand(commandContext),
-    status: createTaskStatusCommand(commandContext),
-    cancel: createTaskCancelCommand(commandContext),
-    workflow: createTaskWorkflowCommand(commandContext)
+    create: createTaskCreateCommand(commandContext).getCommander(),
+    list: createTaskListCommand(commandContext).getCommander(),
+    status: createTaskStatusCommand(commandContext).getCommander(),
+    cancel: createTaskCancelCommand(commandContext).getCommander(),
+    workflow: createTaskWorkflowCommand(commandContext).getCommander()
   };
 
   return {

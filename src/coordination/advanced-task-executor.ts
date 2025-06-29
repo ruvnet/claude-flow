@@ -3,7 +3,7 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { ChildProcess } from 'node:child_process';
+import { ChildProcess } from '../tracing/index.js';
 import { TaskDefinition, TaskResult, TaskStatus, AgentState, TaskError } from '../swarm/types.js';
 import { ProcessCommand, ProcessResult, IProcessExecutor as ProcessExecutor } from '../swarm/executor.js';
 import { ILogger } from '../core/logger.js';

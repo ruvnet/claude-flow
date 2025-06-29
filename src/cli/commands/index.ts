@@ -1,5 +1,6 @@
-import { CLI, success, error, warning, info, VERSION } from "../cli-core.js";
-import type { Command, CommandContext } from "../cli-core.js";
+import { CLI } from "../cli-core.js";
+import { success, error, warning, info } from "../shared/utils.js";
+import { VERSION, Command, CommandContext } from "../types/cli-types.js";
 import { processPool } from '../../core/process-pool.js';
 import colors from "chalk";
 const { bold, blue, yellow } = colors;
@@ -856,7 +857,7 @@ export function setupCommands(cli: CLI): void {
           console.log("\n🧪 Testing Process Tracing Framework\n");
           
           // Test with simple process
-          const { spawn } = await import('child_process');
+          const { spawn } = await import('../../tracing/index.js');
           const testChild = spawn('echo', ['Tracing test successful!']);
           
           await new Promise<void>((resolve, reject) => {
@@ -1277,7 +1278,7 @@ Now, please proceed with the task: ${task}`;
             console.log('');
             
             // Execute Claude command
-            const { spawn } = await import("child_process");
+            const { spawn } = await import('../../tracing/index.js');
             const child = spawn("claude", claudeCmd.slice(1).map(arg => arg.replace(/^"|"$/g, '')), {
               env: {
                 ...process.env,
@@ -1362,7 +1363,7 @@ Now, please proceed with the task: ${task}`;
               
               console.log(`\n🚀 Spawning Claude for task: ${task.name || taskId}`);
               
-              const { spawn } = await import("child_process");
+              const { spawn } = await import('../../tracing/index.js');
               const child = spawn("claude", claudeCmd.slice(1).map(arg => arg.replace(/^"|"$/g, '')), {
                 env: {
                   ...process.env,

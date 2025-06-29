@@ -77,7 +77,7 @@ export class ConfigManager extends EventEmitter {
           logger.warn('Configuration warnings:', validation.warnings);
         }
 
-        this.config = parsedConfig;
+        this.config = parsedConfig as ClaudeFlowConfig;
         return this.config;
       }
     } catch (error) {

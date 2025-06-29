@@ -3,7 +3,7 @@
  * Orchestrates verification enforcement and command execution
  */
 
-import { spawn } from 'node:child_process';
+import { spawn } from '../../tracing/index.js';
 import { writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -112,7 +112,7 @@ export class SwarmVerificationFramework {
           success: false,
           exitCode: -1,
           output: '',
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
           duration,
           matches_expectation: false
         };
@@ -120,7 +120,7 @@ export class SwarmVerificationFramework {
         results.push(verificationResult);
         
         if (command.critical && this.config.fail_fast) {
-          this.logger.error(`Critical verification command failed with error: ${error.message}`);
+          this.logger.error(`Critical verification command failed with error: ${error instanceof Error ? error.message : String(error)}`);
           break;
         }
       }
@@ -424,7 +424,7 @@ export class SwarmVerificationFramework {
       };
       
     } catch (error) {
-      errors.push(`Verification failed: ${error.message}`);
+      errors.push(`Verification failed: ${error instanceof Error ? error.message : String(error)}`);
       
       return {
         agentId: requirement.agentId,

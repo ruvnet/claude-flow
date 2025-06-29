@@ -80,6 +80,11 @@ export class ProcessRegistryDatabase {
     ]);
   }
 
+  // Alias for insertProcess to maintain compatibility
+  async register(process: ProcessInfo): Promise<void> {
+    return this.insertProcess(process);
+  }
+
   async updateProcess(processId: string, updates: Partial<ProcessInfo>): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 

@@ -14,7 +14,7 @@ interface ProcessPoolCommand {
   options?: {
     cwd?: string;
     env?: Record<string, string>;
-    stdio?: string[];
+    stdio?: import('child_process').StdioOptions;
   };
 }
 
@@ -33,38 +33,33 @@ class ProcessPool {
   }
 
   async executeCommand(cmd: ProcessPoolCommand): Promise<{ process: ChildProcess; result: Promise<ProcessPoolResult> }> {
-    return new Promise((resolve, reject) => {
-      // Import spawn only when needed for execution
-      // Use traced spawn for process execution
-      Promise.resolve({ spawn }).then(({ spawn }) => {
-        const childProcess = spawn(cmd.command, cmd.args, {
-          env: cmd.options?.env || process.env,
-          stdio: cmd.options?.stdio || ['pipe', 'pipe', 'pipe'],
-          cwd: cmd.options?.cwd
-        });
-
-        const resultPromise = new Promise<ProcessPoolResult>((resultResolve) => {
-          childProcess.on('exit', (code: number | null) => {
-            resultResolve({
-              exitCode: code || 0,
-              output: '',
-              pid: childProcess.pid
-            });
-          });
-
-          childProcess.on('error', (error: Error) => {
-            resultResolve({
-              exitCode: 1,
-              output: '',
-              error: error.message,
-              pid: childProcess.pid
-            });
-          });
-        });
-
-        resolve({ process: childProcess, result: resultPromise });
-      }).catch(reject);
+    // Use traced spawn directly from imports
+    const childProcess = spawn(cmd.command, cmd.args, {
+      env: cmd.options?.env || process.env,
+      stdio: cmd.options?.stdio || ['pipe', 'pipe', 'pipe'],
+      cwd: cmd.options?.cwd
     });
+
+    const resultPromise = new Promise<ProcessPoolResult>((resultResolve) => {
+      childProcess.on('exit', (code: number | null) => {
+        resultResolve({
+          exitCode: code || 0,
+          output: '',
+          pid: childProcess.pid
+        });
+      });
+
+      childProcess.on('error', (error: Error) => {
+        resultResolve({
+          exitCode: 1,
+          output: '',
+          error: error.message,
+          pid: childProcess.pid
+        });
+      });
+    });
+
+    return { process: childProcess, result: resultPromise };
   }
 }
 import { 
@@ -1073,7 +1068,7 @@ export class AgentManager extends EventEmitter {
       command: runtimeCommand,
       args,
       options: {
-        env: processEnv,
+        env: processEnv as Record<string, string>,
         stdio: ['pipe', 'pipe', 'pipe'],
         cwd: agent.environment.workingDirectory
       }

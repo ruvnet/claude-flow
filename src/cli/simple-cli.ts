@@ -465,7 +465,7 @@ function getStrategyRefinement(strategy: string): string {
 
 // Helper function to launch SPARC execution with comprehensive configuration
 async function launchSparcExecution(mode: string, prompt: string, options: any) {
-  const { spawn } = await import('child_process');
+  const { spawn } = await import('../tracing/index.js');
   
   // Load the full SPARC prompt from .claude/commands/sparc/{mode}.md
   let sparcPrompt = await loadSparcPrompt(mode);
@@ -2469,7 +2469,7 @@ See .claude/commands/swarm/ for detailed documentation on each strategy.
     .option('--coverage-target <percentage>', 'Code coverage target', '95')
     .option('--memory-key <key>', 'Memory key for TDD session data')
     .action(async (description, options) => {
-      const { spawn } = await import('child_process');
+      const { spawn } = await import('../tracing/index.js');
       
       printSuccess('Launching Claude Code with SPARC TDD mode...');
       console.log(`📝 Feature: ${description}`);
@@ -3269,7 +3269,7 @@ Run 'claude-flow swarm <subcommand> --help' for subcommand help.
       console.log(`⏱️  Timeout: ${options.timeout} minutes`);
 
       // Launch Claude Code with swarm configuration
-      const { spawn } = await import('child_process');
+      const { spawn } = await import('../tracing/index.js');
       
       // Load strategy-specific SPARC prompt
       const strategyMode = getSwarmStrategyMode(options.strategy);

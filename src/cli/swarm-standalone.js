@@ -4,7 +4,7 @@
  * This handles swarm execution when installed via npm
  */
 
-import { spawn } from 'node:child_process';
+import { spawn } from '../tracing/index.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -107,7 +107,8 @@ if (!swarmPath) {
   
   // Try to use Claude wrapper approach
   try {
-    const { spawnSync } = await import('child_process');
+    // Note: spawnSync not available in tracing framework, using spawn instead
+    const { spawn } = await import('../tracing/index.js');
     
     // Check if claude command exists (using secure spawnSync)
     try {
@@ -167,7 +168,7 @@ Please coordinate this swarm task by:
 Use all available tools including file operations, web search, and code execution as needed.`;
 
     // Execute Claude non-interactively by piping the prompt
-    const { spawn } = await import('child_process');
+    const { spawn } = await import('../tracing/index.js');
     
     const claudeArgs = [];
     

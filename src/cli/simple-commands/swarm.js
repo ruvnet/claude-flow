@@ -220,7 +220,8 @@ exit 0
     }
     
     // Node.js environment - use background script
-    const { execSync } = await import('child_process');
+    // Note: execSync not available in tracing framework, using exec instead
+    const { exec } = await import('../../tracing/index.js');
     const path = await import('path');
     const fs = await import('fs');
     
@@ -244,7 +245,8 @@ exit 0
       
       // Execute the background script safely using spawn
       try {
-        const { spawnSync } = await import('child_process');
+        // Note: spawnSync not available in tracing framework, using spawn instead
+        const { spawn } = await import('../../tracing/index.js');
         const result = spawnSync(bgScriptPath, commandArgs, {
           stdio: 'inherit',
           shell: false // Explicitly disable shell to prevent injection
@@ -354,7 +356,7 @@ exit 0
         const path = await import('path');
         const { fileURLToPath } = await import('url');
         const fs = await import('fs');
-        const { spawn } = await import('child_process');
+        const { spawn } = await import('../../tracing/index.js');
         
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
@@ -405,7 +407,8 @@ exit 0
       
       // Try to use Claude wrapper approach like SPARC does
       try {
-        const { spawnSync } = await import('child_process');
+        // Note: spawnSync not available in tracing framework, using spawn instead
+        const { spawn } = await import('../../tracing/index.js');
         
         // Check if claude command exists (using secure spawnSync)
         try {
@@ -505,7 +508,7 @@ IMPORTANT:
 Begin execution now. Create all necessary files and provide a complete, working solution.`;
 
         // Execute Claude non-interactively by piping the prompt
-        const { spawn } = await import('child_process');
+        const { spawn } = await import('../../tracing/index.js');
         
         const claudeArgs = [];
         

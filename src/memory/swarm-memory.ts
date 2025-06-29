@@ -371,7 +371,9 @@ export class SwarmMemoryManager extends EventEmitter {
 
     // Associate with target agent
     if (!this.agentMemories.has(targetAgentId)) {
-      this.agentMemories.set(targetAgentId, new Set());
+      this.agentMemories.set(targetAgentId, new BoundedSet<string>({
+        maxSize: 1000
+      }));
     }
     this.agentMemories.get(targetAgentId)!.add(sharedEntry.id);
 
@@ -534,7 +536,9 @@ export class SwarmMemoryManager extends EventEmitter {
 
           // Rebuild agent memory associations
           if (!this.agentMemories.has(entry.agentId)) {
-            this.agentMemories.set(entry.agentId, new Set());
+            this.agentMemories.set(entry.agentId, new BoundedSet<string>({
+              maxSize: 1000
+            }));
           }
           this.agentMemories.get(entry.agentId)!.add(entry.id);
         }
@@ -822,5 +826,77 @@ export class SwarmMemoryManager extends EventEmitter {
 
   async recallBatch(queries: SwarmMemoryQuery[]): Promise<SwarmMemoryEntry[][]> {
     return Promise.all(queries.map(query => this.recall(query)));
+  }
+
+  /**
+   * Wrapper methods for MemoryFacade compatibility
+   */
+  async store(key: string, value: any, metadata?: any): Promise<void> {
+    await this.remember({
+      id: generateId(),
+      agentId: metadata?.agentId || 'default',
+      type: metadata?.type || 'state',
+      content: { key, value },
+      timestamp: new Date(),
+      metadata: {
+        ...metadata,
+        key
+      }
+    });
+  }
+
+  async get(key: string): Promise<any> {
+    const entries = await this.recall({
+      tags: [key],
+      limit: 1
+    });
+    return entries.length > 0 ? entries[0].content.value : null;
+  }
+
+  async list(pattern?: string): Promise<string[]> {
+    const entries = await this.recall({
+      limit: 1000
+    });
+    const keys = entries
+      .map(e => e.metadata.key)
+      .filter(key => key && (!pattern || key.includes(pattern)));
+    return [...new Set(keys)];
+  }
+
+  async delete(key: string): Promise<boolean> {
+    const entries = await this.recall({
+      tags: [key],
+      limit: 1
+    });
+    if (entries.length > 0) {
+      this.entries.delete(entries[0].id);
+      this.performanceMetrics.memorySaves++;
+      return true;
+    }
+    return false;
+  }
+
+  async clear(): Promise<void> {
+    await this.clearMemory();
+  }
+
+  async export(): Promise<any> {
+    return await this.exportMemory();
+  }
+
+  async getStats(): Promise<any> {
+    const stats = {
+      totalEntries: this.entries.size,
+      knowledgeBases: this.knowledgeBases.size,
+      agentCount: this.agentMemories.size,
+      performanceMetrics: { ...this.performanceMetrics },
+      memoryPressure: this.memoryMonitor.getCurrentPressure(),
+      config: { ...this.config }
+    };
+    return stats;
+  }
+
+  async cleanup(): Promise<void> {
+    await this.shutdown();
   }
 }

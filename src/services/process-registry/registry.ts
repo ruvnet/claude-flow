@@ -5,7 +5,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { spawn } from 'child_process';
+import { spawn } from '@/tracing/index.js';
 import { Logger } from '@/shared/logger.js';
 import { ProcessRegistryDatabase } from './database.js';
 import {

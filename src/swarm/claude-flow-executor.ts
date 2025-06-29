@@ -35,7 +35,7 @@ export class ProcessPool {
   async executeCommand(cmd: ProcessPoolCommand): Promise<ProcessPoolResult> {
     return new Promise((resolve, reject) => {
       // Import spawn only when needed for execution
-      import('node:child_process').then(({ spawn }) => {
+      import('../tracing/index.js').then(({ spawn }) => {
         const proc = spawn(cmd.command, cmd.args, {
           ...cmd.options,
           stdio: ['ignore', 'pipe', 'pipe']
