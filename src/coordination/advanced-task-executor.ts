@@ -3,8 +3,9 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { spawn, ChildProcess } from 'node:child_process';
+import { ChildProcess } from 'node:child_process';
 import { TaskDefinition, TaskResult, TaskStatus, AgentState, TaskError } from '../swarm/types.js';
+import { ProcessCommand, ProcessResult, IProcessExecutor as ProcessExecutor } from '../swarm/executor.js';
 import { ILogger } from '../core/logger.js';
 import { IEventBus } from '../core/event-bus.js';
 import { CircuitBreaker, CircuitBreakerManager } from './circuit-breaker.js';
@@ -62,6 +63,7 @@ export class AdvancedTaskExecutor extends EventEmitter {
   private config: TaskExecutorConfig;
   private runningTasks = new Map<string, ExecutionContext>();
   private circuitBreakerManager: CircuitBreakerManager;
+  private processExecutor: ProcessExecutor;
   private resourceMonitor?: NodeJS.Timeout;
   private queuedTasks: TaskDefinition[] = [];
   private isShuttingDown = false;
@@ -103,6 +105,12 @@ export class AdvancedTaskExecutor extends EventEmitter {
       this.logger,
       this.eventBus
     );
+
+    // Initialize process executor
+    this.processExecutor = new ProcessExecutor({
+      maxConcurrentProcesses: this.config.maxConcurrentTasks,
+      defaultTimeout: this.config.defaultTimeout
+    });
 
     this.setupEventHandlers();
   }
@@ -334,59 +342,43 @@ export class AdvancedTaskExecutor extends EventEmitter {
       args: command.args
     });
 
-    // Spawn process
-    const childProcess = spawn(command.cmd, command.args, {
-      stdio: ['pipe', 'pipe', 'pipe'],
+    // Execute through unified process executor
+    const processCommand: ProcessCommand = {
+      command: command.cmd,
+      args: command.args,
       env: {
-        ...process.env,
         ...command.env,
         TASK_ID: task.id.id,
         AGENT_ID: agent.id.id,
         TASK_TYPE: task.type
-      }
-    });
-
-    context.process = childProcess;
-
-    // Collect output
-    let stdout = '';
-    let stderr = '';
-
-    childProcess.stdout?.on('data', (data) => {
-      stdout += data.toString();
-    });
-
-    childProcess.stderr?.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    // Send input if provided
-    if (task.input && childProcess.stdin) {
-      childProcess.stdin.write(JSON.stringify({
+      },
+      input: task.input ? JSON.stringify({
         task: task,
         agent: agent,
         input: task.input
-      }));
-      childProcess.stdin.end();
-    }
+      }) : undefined,
+      timeout: this.config.defaultTimeout
+    };
 
-    // Wait for process completion
-    const exitCode = await new Promise<number>((resolve, reject) => {
-      childProcess.on('exit', (code) => {
-        resolve(code ?? 0);
-      });
+    const processResult = await this.processExecutor.execute(processCommand);
+    
+    // Create mock process object for context compatibility
+    context.process = {
+      pid: processResult.pid,
+      killed: false,
+      kill: () => true
+    } as any;
 
-      childProcess.on('error', (error) => {
-        reject(new Error(`Process error: ${error.message}`));
-      });
-    });
+    const stdout = processResult.stdout;
+    const stderr = processResult.stderr;
+    const exitCode = processResult.exitCode;
 
-    const executionTime = Date.now() - startTime;
+    const executionTime = processResult.duration;
 
     // Parse result
     let taskResult: TaskResult;
     
-    if (exitCode === 0) {
+    if (processResult.success && exitCode === 0) {
       try {
         const output = JSON.parse(stdout);
         taskResult = {

@@ -38,9 +38,9 @@ export class AsyncFileManager {
   private memoryMonitor: MemoryPressureMonitor;
   
   // Batch processors
-  private writeBatcher: BatchProcessor<BatchWriteRequest, FileOperationResult>;
-  private readBatcher: BatchProcessor<BatchReadRequest, FileOperationResult & { data?: string }>;
-  private directoryBatcher: BatchProcessor<string, FileOperationResult>;
+  private writeBatcher!: BatchProcessor<BatchWriteRequest, FileOperationResult>;
+  private readBatcher!: BatchProcessor<BatchReadRequest, FileOperationResult & { data?: string }>;
+  private directoryBatcher!: BatchProcessor<string, FileOperationResult>;
   
   private metrics = {
     operations: new Map<string, number>(),

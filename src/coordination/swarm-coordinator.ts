@@ -4,7 +4,9 @@ import { generateId } from '../utils/helpers.js';
 import { SwarmMonitor } from './swarm-monitor.js';
 import { AdvancedTaskScheduler } from './advanced-scheduler.js';
 import { MemoryManager } from '../memory/manager.js';
+import { SwarmVerificationFramework, getDefaultVerificationRequirements } from './verification/index.js';
 import type { Message, TaskResult, WorkStealingCoordinator, CircuitBreaker } from '../types/missing-types.js';
+import type { AgentVerificationRequirements } from './verification/index.js';
 
 export interface SwarmAgent {
   id: string;
@@ -64,6 +66,14 @@ export interface SwarmConfig {
   healthCheckInterval: number;
   maxRetries: number;
   backoffMultiplier: number;
+  // Optional logger for external injection
+  logger?: any;
+  // Additional swarm facade options
+  timeout?: number;
+  mode?: any;
+  parallel?: boolean;
+  distributed?: boolean;
+  persistence?: boolean;
 }
 
 export class SwarmCoordinator extends EventEmitter {
@@ -78,11 +88,13 @@ export class SwarmCoordinator extends EventEmitter {
   private backgroundWorkers: Map<string, NodeJS.Timeout>;
   private workStealer?: WorkStealingCoordinator;
   private circuitBreaker?: CircuitBreaker;
+  private verificationFramework: SwarmVerificationFramework;
   private isRunning: boolean = false;
 
   constructor(config: Partial<SwarmConfig> = {}) {
     super();
-    this.logger = new Logger({
+    // Use provided logger or create new one
+    this.logger = config.logger || new Logger({
       level: 'info',
       format: 'json',
       destination: 'console'
@@ -134,12 +146,30 @@ export class SwarmCoordinator extends EventEmitter {
     
     this.memoryManager = new MemoryManager(memoryConfig, eventBus, this.logger);
 
+    // Initialize verification framework
+    this.verificationFramework = new SwarmVerificationFramework(this.logger, {
+      enforcement_enabled: true,
+      status_timeout_ms: 30000,
+      fail_fast: false,
+      status_directory: './.claude-flow/swarm-status'
+    });
+
     if (this.config.enableMonitoring) {
       this.monitor = new SwarmMonitor({
         updateInterval: 1000,
         enableAlerts: true,
         enableHistory: true
       });
+    }
+
+    // Initialize work stealer if enabled
+    if (this.config.enableWorkStealing) {
+      this.workStealer = new StubWorkStealingCoordinator();
+    }
+
+    // Initialize circuit breaker if enabled
+    if (this.config.enableCircuitBreaker) {
+      this.circuitBreaker = new StubCircuitBreaker();
     }
 
     this.setupEventHandlers();
@@ -174,6 +204,9 @@ export class SwarmCoordinator extends EventEmitter {
 
     // Start subsystems
     await this.memoryManager.initialize();
+    
+    // Store verification framework in memory for agent coordination
+    await this.storeVerificationFrameworkInMemory();
     
     if (this.monitor) {
       await this.monitor.start();
@@ -459,6 +492,17 @@ export class SwarmCoordinator extends EventEmitter {
 
     const agent = task.assignedTo ? this.agents.get(task.assignedTo) : null;
 
+    // VERIFICATION ENFORCEMENT: Validate task completion before marking as completed
+    if (agent) {
+      try {
+        await this.enforceTaskVerification(task, agent, result);
+      } catch (error) {
+        this.logger.error(`Task verification failed for ${taskId}: ${error.message}`);
+        await this.handleTaskFailed(taskId, error);
+        return;
+      }
+    }
+
     task.status = 'completed';
     task.completedAt = new Date();
     task.result = result;
@@ -487,11 +531,12 @@ export class SwarmCoordinator extends EventEmitter {
       metadata: {
         type: 'task-result',
         taskType: task.type,
-        agentId: agent?.id
+        agentId: agent?.id,
+        verified: true
       }
     });
 
-    this.logger.info(`Task ${taskId} completed successfully`);
+    this.logger.info(`Task ${taskId} completed successfully with verification`);
     this.emit('task:completed', { task, result });
 
     // Check if objective is complete
@@ -536,7 +581,7 @@ export class SwarmCoordinator extends EventEmitter {
     }
   }
 
-  private checkObjectiveCompletion(completedTask: SwarmTask): void {
+  private async checkObjectiveCompletion(completedTask: SwarmTask): Promise<void> {
     for (const [objectiveId, objective] of this.objectives) {
       if (objective.status !== 'executing') continue;
 
@@ -546,10 +591,20 @@ export class SwarmCoordinator extends EventEmitter {
       });
 
       if (allTasksComplete) {
-        objective.status = 'completed';
-        objective.completedAt = new Date();
-        this.logger.info(`Objective ${objectiveId} completed`);
-        this.emit('objective:completed', objective);
+        // VERIFICATION ENFORCEMENT: Verify entire objective before completion
+        try {
+          await this.enforceObjectiveVerification(objectiveId, objective);
+          
+          objective.status = 'completed';
+          objective.completedAt = new Date();
+          this.logger.info(`Objective ${objectiveId} completed with verification`);
+          this.emit('objective:completed', objective);
+        } catch (error) {
+          this.logger.error(`Objective verification failed for ${objectiveId}: ${error.message}`);
+          objective.status = 'failed';
+          objective.completedAt = new Date();
+          this.emit('objective:failed', { objective, error });
+        }
       }
     }
   }
@@ -756,5 +811,265 @@ export class SwarmCoordinator extends EventEmitter {
       },
       uptime: this.monitor ? this.monitor.getSummary().uptime : 0
     };
+  }
+
+  /**
+   * Execute a swarm operation
+   */
+  async execute(request: any): Promise<void> {
+    try {
+      this.logger.info('Starting swarm execution', { objective: request.objective });
+      
+      // Create objective from request
+      const objectiveId = await this.createObjective(
+        request.objective,
+        request.strategy || 'auto',
+        []
+      );
+      
+      // Execute the objective
+      await this.executeObjective(objectiveId);
+      
+      this.logger.info('Swarm execution completed', { objectiveId });
+    } catch (error) {
+      this.logger.error('Swarm execution failed', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Get status (alias for getSwarmStatus)
+   */
+  getStatus(): any {
+    return this.getSwarmStatus();
+  }
+
+  /**
+   * Stop the coordinator
+   */
+  async stop(): Promise<void> {
+    this.logger.info('Stopping swarm coordinator...');
+    this.isRunning = false;
+    
+    // Stop all background workers
+    for (const [workerId, timer] of this.backgroundWorkers) {
+      clearTimeout(timer);
+    }
+    this.backgroundWorkers.clear();
+    
+    // Clean up monitor
+    if (this.monitor) {
+      await this.monitor.stop();
+    }
+    
+    this.emit('coordinator:stopped');
+  }
+
+  /**
+   * Cleanup resources
+   */
+  async cleanup(): Promise<void> {
+    this.logger.info('Cleaning up swarm coordinator...');
+    
+    // Stop if still running
+    if (this.isRunning) {
+      await this.stop();
+    }
+    
+    // Clear all data structures
+    this.agents.clear();
+    this.tasks.clear();
+    this.objectives.clear();
+    
+    // Cleanup memory manager
+    if (this.memoryManager) {
+      // Memory manager cleanup would go here
+    }
+    
+    this.emit('coordinator:cleanup');
+  }
+
+  /**
+   * VERIFICATION ENFORCEMENT: Verify task completion before marking as completed
+   */
+  private async enforceTaskVerification(
+    task: SwarmTask, 
+    agent: SwarmAgent, 
+    result: any
+  ): Promise<void> {
+    this.logger.info(`Enforcing verification for task ${task.id} by agent ${agent.id}`);
+    
+    // Get verification requirements for this agent
+    const agentType = this.determineAgentVerificationType(task.type);
+    const requirements = getDefaultVerificationRequirements(agent.id, agentType);
+    
+    // Create status file for the agent
+    const statusFilePath = await this.verificationFramework.createAgentStatusFile(
+      agent.id,
+      task.description,
+      requirements.required_commands.map(cmd => cmd.command)
+    );
+    
+    // Execute verification commands
+    const verificationResults = await this.verificationFramework.executeVerificationCommands(
+      requirements.required_commands
+    );
+    
+    // Update status file with results
+    const hasErrors = verificationResults.some(r => !r.matches_expectation);
+    await this.verificationFramework.updateStatusFile(statusFilePath, {
+      ok: !hasErrors,
+      errors: hasErrors ? verificationResults.filter(r => !r.matches_expectation).length : 0,
+      spawned: 1,
+      verification_results: verificationResults,
+      details: {
+        objective: task.description,
+        strategy: 'task-execution',
+        mode: 'individual',
+        duration: result.duration || 0
+      }
+    });
+    
+    // Enforce verification rules
+    if (hasErrors) {
+      const failedCommands = verificationResults
+        .filter(r => !r.matches_expectation)
+        .map(r => r.command);
+      
+      throw new Error(
+        `Task verification failed for agent ${agent.id}. ` +
+        `Failed commands: ${failedCommands.join(', ')}`
+      );
+    }
+    
+    this.logger.info(`Task verification passed for ${task.id}`);
+  }
+
+  /**
+   * VERIFICATION ENFORCEMENT: Verify entire objective before completion
+   */
+  private async enforceObjectiveVerification(
+    objectiveId: string, 
+    objective: SwarmObjective
+  ): Promise<void> {
+    this.logger.info(`Enforcing verification for objective ${objectiveId}`);
+    
+    // Collect all agent verification requirements
+    const agentRequirements: AgentVerificationRequirements[] = [];
+    const uniqueAgents = new Set<string>();
+    
+    for (const task of objective.tasks) {
+      const taskObj = this.tasks.get(task.id);
+      if (taskObj?.assignedTo && !uniqueAgents.has(taskObj.assignedTo)) {
+        uniqueAgents.add(taskObj.assignedTo);
+        const agent = this.agents.get(taskObj.assignedTo);
+        if (agent) {
+          const agentType = this.determineAgentVerificationType(taskObj.type);
+          const requirements = getDefaultVerificationRequirements(agent.id, agentType);
+          agentRequirements.push(requirements);
+        }
+      }
+    }
+    
+    // Enforce verification for all agents
+    const verificationResult = await this.verificationFramework.enforceVerification(
+      agentRequirements
+    );
+    
+    // Check if all agents passed verification
+    if (!verificationResult.success) {
+      const failedAgents = verificationResult.results
+        .filter(r => !r.verification_success || !r.status_valid)
+        .map(r => r.agentId);
+      
+      throw new Error(
+        `Objective verification failed. ` +
+        `Failed agents: ${failedAgents.join(', ')}. ` +
+        `Summary: ${verificationResult.summary.successful_agents}/${verificationResult.summary.total_agents} passed`
+      );
+    }
+    
+    // Store verification result in memory
+    await this.memoryManager.remember({
+      namespace: this.config.memoryNamespace,
+      key: `objective:${objectiveId}:verification`,
+      content: JSON.stringify(verificationResult),
+      metadata: {
+        type: 'objective-verification',
+        objectiveId,
+        totalAgents: verificationResult.summary.total_agents,
+        successfulAgents: verificationResult.summary.successful_agents
+      }
+    });
+    
+    this.logger.info(`Objective verification passed for ${objectiveId}`);
+  }
+
+  /**
+   * Determine verification type based on task type
+   */
+  private determineAgentVerificationType(
+    taskType: string
+  ): 'typescript' | 'test' | 'build' | 'general' {
+    if (taskType.includes('test')) return 'test';
+    if (taskType.includes('build') || taskType.includes('implement')) return 'build';
+    if (taskType.includes('typescript') || taskType.includes('type')) return 'typescript';
+    return 'general';
+  }
+
+  /**
+   * Get verification framework (for external access)
+   */
+  getVerificationFramework(): SwarmVerificationFramework {
+    return this.verificationFramework;
+  }
+
+  /**
+   * Store verification framework in memory for other agents
+   */
+  async storeVerificationFrameworkInMemory(): Promise<void> {
+    const frameworkInfo = {
+      framework_version: '1.0.0',
+      enforcement_enabled: true,
+      config: this.verificationFramework.getConfig(),
+      documentation: {
+        purpose: 'Enforce verification before reporting for swarm operations',
+        required_fields: ['ok', 'errors', 'spawned', 'timestamp', 'verification_commands'],
+        enforcement_rules: [
+          'Missing status.json file = operation failure',
+          'Invalid status.json schema = operation failure', 
+          'ok: false or errors > 0 = operation failure',
+          'Failed verification commands = operation failure'
+        ]
+      },
+      templates: {
+        status_schema: {
+          ok: 'boolean - Overall operation success',
+          errors: 'number - Number of errors (must be 0 for ok: true)',
+          spawned: 'number - Number of agents/processes spawned',
+          timestamp: 'string - ISO timestamp',
+          verification_commands: 'string[] - Commands executed for verification'
+        },
+        verification_commands: {
+          typescript: ['npm run typecheck'],
+          test: ['npm test'],
+          build: ['npm run build'],
+          general: ['npm run typecheck', "grep -r spawn src --include='*.ts' | wc -l"]
+        }
+      }
+    };
+    
+    await this.memoryManager.remember({
+      namespace: this.config.memoryNamespace,
+      key: 'swarm-development-hierarchical-1751174468691/verification-system/framework',
+      content: JSON.stringify(frameworkInfo),
+      metadata: {
+        type: 'verification-framework',
+        version: '1.0.0',
+        created_by: 'SwarmCoordinator'
+      }
+    });
+    
+    this.logger.info('Verification framework stored in memory for agent coordination');
   }
 }

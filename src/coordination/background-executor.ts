@@ -1,9 +1,84 @@
-import { spawn, ChildProcess } from 'node:child_process';
+import { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { Logger } from '../core/logger.js';
 import { generateId } from '../utils/helpers.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+
+// Unified process execution interface
+interface ProcessPoolCommand {
+  command: string;
+  args: string[];
+  options?: {
+    cwd?: string;
+    env?: Record<string, string>;
+    timeout?: number;
+    detached?: boolean;
+    stdio?: string[];
+  };
+}
+
+interface ProcessPoolResult {
+  exitCode: number;
+  output: string;
+  error?: string;
+  pid?: number;
+}
+
+class ProcessPool {
+  private logger: Logger;
+
+  constructor(logger: Logger) {
+    this.logger = logger;
+  }
+
+  async executeCommand(cmd: ProcessPoolCommand): Promise<{ process: ChildProcess; result: Promise<ProcessPoolResult> }> {
+    return new Promise((resolve, reject) => {
+      // Import spawn only when needed for execution
+      import('node:child_process').then(({ spawn }) => {
+        const childProcess: ChildProcess = spawn(cmd.command, cmd.args, {
+          cwd: cmd.options?.cwd,
+          env: { ...process.env, ...cmd.options?.env } as Record<string, string>,
+          detached: cmd.options?.detached,
+          stdio: cmd.options?.stdio || ['ignore', 'pipe', 'pipe']
+        });
+
+        const resultPromise = new Promise<ProcessPoolResult>((resultResolve) => {
+          let stdout = '';
+          let stderr = '';
+
+          childProcess.stdout?.on('data', (data: any) => {
+            stdout += data.toString();
+          });
+
+          childProcess.stderr?.on('data', (data: any) => {
+            stderr += data.toString();
+          });
+
+          childProcess.on('close', (code: any) => {
+            resultResolve({
+              exitCode: code || 0,
+              output: stdout,
+              error: stderr,
+              pid: childProcess.pid
+            });
+          });
+
+          // Handle timeout if specified
+          if (cmd.options?.timeout) {
+            setTimeout(() => {
+              if (!childProcess.killed) {
+                childProcess.kill('SIGTERM');
+              }
+            }, cmd.options.timeout);
+          }
+        });
+
+        resolve({ process: childProcess, result: resultPromise });
+      }).catch(reject);
+    });
+  }
+}
 
 export interface BackgroundTask {
   id: string;
@@ -45,6 +120,7 @@ export class BackgroundExecutor extends EventEmitter {
   private isRunning: boolean = false;
   private checkTimer?: NodeJS.Timeout;
   private cleanupTimer?: NodeJS.Timeout;
+  private processPool: ProcessPool;
 
   constructor(config: Partial<BackgroundExecutorConfig> = {}) {
     super();
@@ -67,6 +143,7 @@ export class BackgroundExecutor extends EventEmitter {
     this.tasks = new Map();
     this.processes = new Map();
     this.queue = [];
+    this.processPool = new ProcessPool(this.logger);
   }
 
   async start(): Promise<void> {
@@ -225,44 +302,46 @@ export class BackgroundExecutor extends EventEmitter {
         await fs.mkdir(logDir, { recursive: true });
       }
 
-      // Spawn process
-      const childProcess = spawn(task.command, task.args, {
-        cwd: task.options?.cwd,
-        env: { ...process.env, ...task.options?.env },
-        detached: task.options?.detached,
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
+      // Spawn process using ProcessPool
+      const processCommand: ProcessPoolCommand = {
+        command: task.command,
+        args: task.args,
+        options: {
+          cwd: task.options?.cwd,
+          env: { ...process.env, ...task.options?.env } as Record<string, string>,
+          detached: task.options?.detached,
+          timeout: task.options?.timeout,
+          stdio: ['ignore', 'pipe', 'pipe']
+        }
+      };
+
+      const { process: childProcess, result } = await this.processPool.executeCommand(processCommand);
 
       task.pid = childProcess.pid;
       this.processes.set(task.id, childProcess);
 
-      // Collect output
-      let stdout = '';
-      let stderr = '';
-
+      // Handle process output
       childProcess.stdout?.on('data', (data: any) => {
-        stdout += data.toString();
         this.emit('task:output', { taskId: task.id, data: data.toString() });
       });
 
       childProcess.stderr?.on('data', (data: any) => {
-        stderr += data.toString();
         this.emit('task:error', { taskId: task.id, data: data.toString() });
       });
 
       // Handle process completion
-      childProcess.on('close', async (code: any) => {
+      result.then(async (processResult) => {
         task.endTime = new Date();
-        task.output = stdout;
-        task.error = stderr;
+        task.output = processResult.output;
+        task.error = processResult.error;
 
-        if (code === 0) {
+        if (processResult.exitCode === 0) {
           task.status = 'completed';
           this.logger.info(`Task ${task.id} completed successfully`);
           this.emit('task:completed', task);
         } else {
           task.status = 'failed';
-          this.logger.error(`Task ${task.id} failed with code ${code}`);
+          this.logger.error(`Task ${task.id} failed with code ${processResult.exitCode}`);
           
           // Retry logic
           if (task.retryCount < (task.options?.retries || 0)) {
@@ -280,6 +359,18 @@ export class BackgroundExecutor extends EventEmitter {
 
         if (this.config.enablePersistence) {
           await this.saveTaskOutput(task);
+        }
+      }).catch(async (error) => {
+        task.status = 'failed';
+        task.error = String(error);
+        task.endTime = new Date();
+        
+        this.logger.error(`Task ${task.id} process error:`, error);
+        this.emit('task:failed', task);
+        this.processes.delete(task.id);
+
+        if (this.config.enablePersistence) {
+          await this.saveTaskState(task);
         }
       });
 
@@ -478,5 +569,56 @@ export class BackgroundExecutor extends EventEmitter {
       failed: tasks.filter(t => t.status === 'failed').length,
       queueLength: this.queue.length
     };
+  }
+
+  /**
+   * Execute a background task request
+   */
+  async execute(request: any): Promise<string> {
+    this.logger.info('Executing background request', { request });
+    
+    // Start the executor if not already running
+    if (!this.isRunning) {
+      await this.start();
+    }
+    
+    // Submit the request as a background task
+    if (request.coordinator && request.objective) {
+      // This is a swarm coordination request
+      return this.submitTask(
+        'script',
+        'node',
+        ['-e', `console.log('Executing swarm: ${request.objective}');`],
+        {
+          cwd: process.cwd(),
+          timeout: 300000 // 5 minutes
+        }
+      );
+    }
+    
+    // Generic command execution
+    return this.submitTask(
+      'command',
+      request.command || 'echo',
+      request.args || ['Background task executed'],
+      request.options || {}
+    );
+  }
+
+  /**
+   * Cleanup resources
+   */
+  async cleanup(): Promise<void> {
+    this.logger.info('Cleaning up background executor...');
+    
+    // Stop the executor
+    await this.stop();
+    
+    // Clear all tasks and processes
+    this.tasks.clear();
+    this.processes.clear();
+    this.queue.length = 0;
+    
+    this.emit('executor:cleanup');
   }
 }

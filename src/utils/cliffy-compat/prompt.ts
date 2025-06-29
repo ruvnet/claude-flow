@@ -30,6 +30,15 @@ export interface SelectOptions<T = string> {
   search?: boolean;
 }
 
+export interface CheckboxOptions<T = string> {
+  message: string;
+  options: Array<{ name: string; value: T; checked?: boolean } | T>;
+  default?: T[];
+  hint?: string;
+  maxRows?: number;
+  search?: boolean;
+}
+
 export class Input {
   static async prompt(options: InputOptions | string): Promise<string> {
     const opts = typeof options === 'string' ? { message: options } : options;
@@ -73,6 +82,32 @@ export class Select<T = string> {
     
     const result = await inquirer.prompt([{
       type: options.search ? 'autocomplete' : 'list',
+      name: 'value',
+      message: options.message,
+      choices,
+      default: options.default,
+      pageSize: options.maxRows,
+    }]);
+    
+    return result.value;
+  }
+}
+
+export class Checkbox<T = string> {
+  static async prompt<T = string>(options: CheckboxOptions<T>): Promise<T[]> {
+    const choices = options.options.map(opt => {
+      if (typeof opt === 'object' && opt !== null && 'name' in opt) {
+        return {
+          name: opt.name,
+          value: opt.value,
+          checked: opt.checked || false
+        };
+      }
+      return { name: String(opt), value: opt, checked: false };
+    });
+    
+    const result = await inquirer.prompt([{
+      type: 'checkbox',
       name: 'value',
       message: options.message,
       choices,

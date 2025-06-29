@@ -29,6 +29,10 @@ export type {
  * Factory function to create all adapters with a single state manager
  */
 import { UnifiedStateManager } from '../state-manager.js';
+import { SwarmStateAdapter, SwarmStateAdapterConfig } from './swarm-adapter.js';
+import { AgentStateAdapter, AgentStateAdapterConfig } from './agent-adapter.js';
+import { TaskStateAdapter, TaskStateAdapterConfig } from './task-adapter.js';
+import { MemoryStateAdapter, MemoryStateAdapterConfig } from './memory-adapter.js';
 
 export interface StateAdapterFactory {
   swarm: SwarmStateAdapter;

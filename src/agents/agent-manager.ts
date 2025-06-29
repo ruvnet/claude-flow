@@ -3,9 +3,70 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { spawn, ChildProcess } from 'node:child_process';
+import { ChildProcess, spawn } from '../tracing/index.js';
 import { ILogger } from '../core/logger.js';
 import { IEventBus } from '../core/event-bus.js';
+
+// Unified process execution interface
+interface ProcessPoolCommand {
+  command: string;
+  args: string[];
+  options?: {
+    cwd?: string;
+    env?: Record<string, string>;
+    stdio?: string[];
+  };
+}
+
+interface ProcessPoolResult {
+  exitCode: number;
+  output: string;
+  error?: string;
+  pid?: number;
+}
+
+class ProcessPool {
+  private logger: ILogger;
+
+  constructor(logger: ILogger) {
+    this.logger = logger;
+  }
+
+  async executeCommand(cmd: ProcessPoolCommand): Promise<{ process: ChildProcess; result: Promise<ProcessPoolResult> }> {
+    return new Promise((resolve, reject) => {
+      // Import spawn only when needed for execution
+      // Use traced spawn for process execution
+      Promise.resolve({ spawn }).then(({ spawn }) => {
+        const childProcess = spawn(cmd.command, cmd.args, {
+          env: cmd.options?.env || process.env,
+          stdio: cmd.options?.stdio || ['pipe', 'pipe', 'pipe'],
+          cwd: cmd.options?.cwd
+        });
+
+        const resultPromise = new Promise<ProcessPoolResult>((resultResolve) => {
+          childProcess.on('exit', (code: number | null) => {
+            resultResolve({
+              exitCode: code || 0,
+              output: '',
+              pid: childProcess.pid
+            });
+          });
+
+          childProcess.on('error', (error: Error) => {
+            resultResolve({
+              exitCode: 1,
+              output: '',
+              error: error.message,
+              pid: childProcess.pid
+            });
+          });
+        });
+
+        resolve({ process: childProcess, result: resultPromise });
+      }).catch(reject);
+    });
+  }
+}
 import { 
   AgentId, 
   AgentType, 
@@ -129,6 +190,7 @@ export class AgentManager extends EventEmitter {
   private eventBus: IEventBus;
   private memory: DistributedMemorySystem;
   private config: AgentManagerConfig;
+  private processPool: ProcessPool;
 
   // Agent tracking
   private agents = new Map<string, AgentState>();
@@ -188,6 +250,7 @@ export class AgentManager extends EventEmitter {
     this.logger = logger;
     this.eventBus = eventBus;
     this.memory = memory;
+    this.processPool = new ProcessPool(logger);
 
     this.config = {
       maxAgents: 50,
@@ -1006,13 +1069,25 @@ export class AgentManager extends EventEmitter {
                           agent.environment.runtime === 'browser' ? 'node' : // fallback for browser
                           'deno'; // default fallback
 
-    const childProcess = spawn(runtimeCommand, args, {
-      env: processEnv,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      cwd: agent.environment.workingDirectory
-    });
+    const processCommand: ProcessPoolCommand = {
+      command: runtimeCommand,
+      args,
+      options: {
+        env: processEnv,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        cwd: agent.environment.workingDirectory
+      }
+    };
+
+    const { process: childProcess, result } = await this.processPool.executeCommand(processCommand);
 
     // Handle process events
+    result.then((processResult) => {
+      this.handleProcessExit(agent.id.id, processResult.exitCode);
+    }).catch((error) => {
+      this.handleProcessError(agent.id.id, error);
+    });
+
     childProcess.on('exit', (code: number | null) => {
       this.handleProcessExit(agent.id.id, code);
     });

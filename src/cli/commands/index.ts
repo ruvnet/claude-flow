@@ -1,5 +1,6 @@
 import { CLI, success, error, warning, info, VERSION } from "../cli-core.js";
 import type { Command, CommandContext } from "../cli-core.js";
+import { processPool } from '../../core/process-pool.js';
 import colors from "chalk";
 const { bold, blue, yellow } = colors;
 import { Orchestrator } from "../../core/orchestrator-fixed.js";
@@ -777,6 +778,109 @@ export function setupCommands(cli: CLI): void {
         default: {
           error(`Unknown mcp subcommand: ${subcommand}`);
           console.log("Available subcommands: start, stop, status, tools, config, restart, logs");
+          break;
+        }
+      }
+    },
+  });
+
+  // Process Tracing command
+  cli.command({
+    name: "trace",
+    description: "Manage process execution tracing",
+    action: async (ctx: CommandContext) => {
+      const subcommand = ctx.args[0];
+      
+      switch (subcommand) {
+        case "status": {
+          console.log("\n🔍 Process Execution Tracing Status\n");
+          
+          // Check if tracing files exist
+          const tracingFiles = [
+            'src/tracing/index.ts',
+            'src/tracing/child.ts', 
+            'src/tracing/metrics.ts'
+          ];
+          
+          console.log("📁 Framework Files:");
+          for (const file of tracingFiles) {
+            const { access } = await import("fs/promises");
+            try {
+              await access(file);
+              console.log(`   ✅ ${file}`);
+            } catch {
+              console.log(`   ❌ ${file} (missing)`);
+            }
+          }
+          
+          // Check metrics file
+          const { readFile } = await import("fs/promises");
+          const { join } = await import("path");
+          const metricsFile = join(process.cwd(), '.claude-flow', 'process-metrics.json');
+          
+          console.log("\n📊 Metrics:");
+          try {
+            const metricsData = await readFile(metricsFile, 'utf-8');
+            const metrics = JSON.parse(metricsData);
+            
+            console.log(`   Total Processes: ${metrics.summary.totalProcesses}`);
+            console.log(`   Success Rate: ${metrics.summary.successRate}`);
+            console.log(`   Average Duration: ${metrics.summary.averageDuration}`);
+            console.log(`   Last Updated: ${new Date(metrics.timestamp).toLocaleString()}`);
+            
+            if (metrics.metrics.totalSpawns >= 9) {
+              warning(`⚠️  Threshold Warning: Process count (${metrics.metrics.totalSpawns}) exceeds recommended threshold (9)`);
+            }
+            
+          } catch (error) {
+            console.log("   No metrics available yet");
+          }
+          
+          success("✨ Process execution tracing framework is active!");
+          break;
+        }
+        case "reset": {
+          const { unlink } = await import("fs/promises");
+          const { join } = await import("path");
+          const metricsFile = join(process.cwd(), '.claude-flow', 'process-metrics.json');
+          
+          try {
+            await unlink(metricsFile);
+            success("✅ Tracing metrics have been reset");
+          } catch (error) {
+            warning("⚠️  No metrics file found to reset");
+          }
+          break;
+        }
+        case "test": {
+          console.log("\n🧪 Testing Process Tracing Framework\n");
+          
+          // Test with simple process
+          const { spawn } = await import('child_process');
+          const testChild = spawn('echo', ['Tracing test successful!']);
+          
+          await new Promise<void>((resolve, reject) => {
+            testChild.on('close', (code) => {
+              if (code === 0) {
+                success("✅ Test spawn completed successfully");
+                resolve();
+              } else {
+                error(`❌ Test spawn failed with code: ${code}`);
+                reject(new Error(`Process failed with code ${code}`));
+              }
+            });
+            
+            testChild.on('error', (err) => {
+              error(`❌ Test spawn error: ${err.message}`);
+              reject(err);
+            });
+          });
+          
+          success("🎉 Tracing framework test completed successfully!");
+          break;
+        }
+        default: {
+          console.log("Available subcommands: status, reset, test");
           break;
         }
       }
@@ -1681,8 +1785,8 @@ Now, please proceed with the task: ${task}`;
       // Execute the appropriate registry subcommand
       try {
         await registryCommand.parse([subcommand || "list", ...registryCtx.args]);
-      } catch (error) {
-        error(`Registry command failed: ${(error as Error).message}`);
+      } catch (err) {
+        console.error(`Registry command failed: ${(err as Error).message}`);
       }
     },
   });

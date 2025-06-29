@@ -6,7 +6,23 @@ import { Command, colors, Table } from '../../utils/cli/index.js';
 import { formatProgressBar, formatDuration, formatStatusIndicator } from '../formatter.js';
 import { writeFileSync, rmSync, existsSync } from 'fs';
 import process from 'process';
-import type { ComponentStatus, AlertData } from '../../types/missing-types.js';
+// Define types locally since import is not working
+type ComponentStatus = {
+  status: 'healthy' | 'degraded' | 'error';
+  load: number;
+  uptime: number;
+  errors: number;
+  lastError?: string;
+};
+
+type AlertData = {
+  id: string;
+  type: 'info' | 'warning' | 'error' | 'critical';
+  message: string;
+  component: string;
+  timestamp: number;
+  acknowledged: boolean;
+};
 
 export const monitorCommand = new Command()
   .description('Start live monitoring dashboard')

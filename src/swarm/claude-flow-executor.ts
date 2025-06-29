@@ -6,7 +6,85 @@
 import { TaskDefinition, AgentState, TaskResult } from './types.js';
 import { Logger } from '../core/logger.js';
 import * as path from 'node:path';
-import { spawn } from 'node:child_process';
+
+export interface ProcessPoolCommand {
+  command: string;
+  args: string[];
+  options?: {
+    cwd?: string;
+    env?: Record<string, string>;
+    timeout?: number;
+    shell?: boolean;
+  };
+}
+
+export interface ProcessPoolResult {
+  exitCode: number;
+  output: string;
+  error?: string;
+  artifacts?: Record<string, any>;
+}
+
+export class ProcessPool {
+  private logger: Logger;
+
+  constructor(logger: Logger) {
+    this.logger = logger;
+  }
+
+  async executeCommand(cmd: ProcessPoolCommand): Promise<ProcessPoolResult> {
+    return new Promise((resolve, reject) => {
+      // Import spawn only when needed for execution
+      import('node:child_process').then(({ spawn }) => {
+        const proc = spawn(cmd.command, cmd.args, {
+          ...cmd.options,
+          stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        let stdout = '';
+        let stderr = '';
+        const artifacts: Record<string, any> = {};
+
+        proc.stdout?.on('data', (data) => {
+          const chunk = data.toString();
+          stdout += chunk;
+          
+          // Parse artifacts from output
+          const artifactMatch = chunk.match(/Created file: (.+)/g);
+          if (artifactMatch) {
+            artifactMatch.forEach((match: string) => {
+              const filePath = match.replace('Created file: ', '').trim();
+              artifacts[filePath] = true;
+            });
+          }
+        });
+
+        proc.stderr?.on('data', (data) => {
+          stderr += data.toString();
+        });
+
+        proc.on('close', (code) => {
+          resolve({
+            exitCode: code || 0,
+            output: stdout,
+            error: stderr || undefined,
+            artifacts
+          });
+        });
+
+        proc.on('error', reject);
+
+        // Handle timeout if specified
+        if (cmd.options?.timeout) {
+          setTimeout(() => {
+            proc.kill('SIGTERM');
+            reject(new Error('Command execution timeout'));
+          }, cmd.options.timeout);
+        }
+      }).catch(reject);
+    });
+  }
+}
 
 export interface ClaudeFlowExecutorConfig {
   logger?: Logger;
@@ -22,6 +100,7 @@ export class ClaudeFlowExecutor {
   private enableSparc: boolean;
   private verbose: boolean;
   private timeoutMinutes: number;
+  private processPool: ProcessPool;
 
   constructor(config: ClaudeFlowExecutorConfig = {}) {
     this.logger = config.logger || new Logger(
@@ -32,6 +111,7 @@ export class ClaudeFlowExecutor {
     this.enableSparc = config.enableSparc ?? true;
     this.verbose = config.verbose ?? false;
     this.timeoutMinutes = config.timeoutMinutes ?? 59;
+    this.processPool = new ProcessPool(this.logger);
   }
 
   async executeTask(
@@ -204,70 +284,34 @@ export class ClaudeFlowExecutor {
   }
 
   private async executeCommand(command: string[]): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const [cmd, ...args] = command;
-      
-      const proc = spawn(cmd, args, {
+    const [cmd, ...args] = command;
+    
+    const processCommand: ProcessPoolCommand = {
+      command: cmd,
+      args,
+      options: {
         shell: true,
+        timeout: this.timeoutMinutes * 60 * 1000,
         env: {
           ...process.env,
           CLAUDE_FLOW_NON_INTERACTIVE: 'true',
           CLAUDE_FLOW_AUTO_CONFIRM: 'true'
         }
-      });
+      }
+    };
 
-      let stdout = '';
-      let stderr = '';
-      const artifacts: Record<string, any> = {};
-
-      proc.stdout.on('data', (data) => {
-        const chunk = data.toString();
-        stdout += chunk;
-        
-        // Parse artifacts from output
-        const artifactMatch = chunk.match(/Created file: (.+)/g);
-        if (artifactMatch) {
-          artifactMatch.forEach((match: string) => {
-            const filePath = match.replace('Created file: ', '').trim();
-            artifacts[filePath] = true;
-          });
-        }
-      });
-
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      proc.on('close', (code) => {
-        clearTimeout(timeoutId); // Clear timeout when process completes
-        if (code === 0) {
-          resolve({
-            output: stdout,
-            artifacts,
-            exitCode: code,
-            error: null
-          });
-        } else {
-          resolve({
-            output: stdout,
-            artifacts,
-            exitCode: code,
-            error: stderr || `Command exited with code ${code}`
-          });
-        }
-      });
-
-      proc.on('error', (err) => {
-        reject(err);
-      });
-
-      // Handle timeout - configurable for SPARC operations
-      const timeoutMs = this.timeoutMinutes * 60 * 1000;
-      const timeoutId = setTimeout(() => {
-        proc.kill('SIGTERM');
-        reject(new Error('Command execution timeout'));
-      }, timeoutMs);
-    });
+    try {
+      const result = await this.processPool.executeCommand(processCommand);
+      
+      return {
+        output: result.output,
+        artifacts: result.artifacts || {},
+        exitCode: result.exitCode,
+        error: result.exitCode === 0 ? null : (result.error || `Command exited with code ${result.exitCode}`)
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 }
 

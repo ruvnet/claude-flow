@@ -1,0 +1,5 @@
+
+✖ Error: Graphviz could not be found. Ensure that "gvpr" is in your $PATH. Error: spawn gvpr ENOENT
+    at checkGraphvizInstalled (/workspaces/claude-code-flow/node_modules/madge/lib/graph.js:33:10)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+

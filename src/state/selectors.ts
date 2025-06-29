@@ -159,7 +159,7 @@ export const getBusyAgents: StateSelector<Agent[]> = getAgentsByStatus('busy');
 /**
  * Get failed agents
  */
-export const getFailedAgents: StateSelector<Agent[]> = getAgentsByStatus('failed');
+export const getFailedAgents: StateSelector<Agent[]> = getAgentsByStatus('error');
 
 /**
  * Get agent pools

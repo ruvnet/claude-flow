@@ -4,15 +4,15 @@
  */
 
 import type { 
-  SwarmAgent, 
-  SwarmTask, 
   SwarmObjective,
   AgentType,
   AgentStatus,
   AgentCapabilities,
   AgentMetrics,
-  TaskStatus
+  TaskStatus,
+  AgentState as SwarmAgentState
 } from '../swarm/types.js';
+import type { SwarmAgent, SwarmTask } from './adapters/swarm-adapter.js';
 import type { 
   AgentProfile, 
   AgentSession, 

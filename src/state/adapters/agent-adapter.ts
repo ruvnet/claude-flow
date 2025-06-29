@@ -503,9 +503,17 @@ export class AgentStateAdapter {
       return idleAgents;
     }
 
-    return idleAgents.filter(agent => 
-      capabilities.every(cap => agent.capabilities.includes(cap))
-    );
+    return idleAgents.filter(agent => {
+      // Check if agent has all required capabilities
+      const agentCapabilities = agent.capabilities;
+      return capabilities.every(cap => {
+        // Check in each capability array
+        return agentCapabilities.languages?.includes(cap) ||
+               agentCapabilities.frameworks?.includes(cap) ||
+               agentCapabilities.domains?.includes(cap) ||
+               agentCapabilities.tools?.includes(cap);
+      });
+    });
   }
 
   /**

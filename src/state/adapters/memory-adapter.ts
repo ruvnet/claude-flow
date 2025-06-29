@@ -82,7 +82,7 @@ export class MemoryStateAdapter {
    */
   public getAllEntries(): MemoryEntry[] {
     const state = this.stateManager.getState();
-    return Array.from(state.memory.entries.values()) as MemoryEntry[];
+    return Array.from(state.memory.entries.values()) as unknown as MemoryEntry[];
   }
 
   /**

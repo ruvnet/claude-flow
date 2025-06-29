@@ -115,7 +115,7 @@ export class TaskStateAdapter {
    */
   public getAllTasks(): Task[] {
     const state = this.stateManager.getState();
-    return Array.from(state.tasks.tasks.values()) as Task[];
+    return Array.from(state.tasks.tasks.values()) as unknown as Task[];
   }
 
   /**
@@ -279,7 +279,7 @@ export class TaskStateAdapter {
    */
   public getAllWorkflows(): Workflow[] {
     const state = this.stateManager.getState();
-    return Array.from(state.tasks.workflows.values()) as Workflow[];
+    return Array.from(state.tasks.workflows.values()) as unknown as Workflow[];
   }
 
   /**
@@ -337,7 +337,7 @@ export class TaskStateAdapter {
    */
   public getExecutionsForTask(taskId: string): TaskExecution[] {
     return Array.from(this.stateManager.getState().tasks.executions.values())
-      .filter((exec: any) => exec.taskId === taskId) as TaskExecution[];
+      .filter((exec: any) => exec.taskId === taskId) as unknown as TaskExecution[];
   }
 
   /**
@@ -387,7 +387,7 @@ export class TaskStateAdapter {
    */
   public getTaskDependencies(taskId: string): TaskDependency[] {
     const state = this.stateManager.getState();
-    return state.tasks.dependencies.get(taskId) || [];
+    return (state.tasks.dependencies.get(taskId) || []) as unknown as TaskDependency[];
   }
 
   /**

@@ -2,7 +2,7 @@
  * Advanced Task Executor with timeout handling and process management
  */
 
-import { spawn, ChildProcess } from 'node:child_process';
+import { ChildProcess, spawn } from '../tracing/index.js';
 import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -304,190 +304,69 @@ export class TaskExecutor extends EventEmitter {
       workingDir: context.workingDirectory
     });
 
-    let outputBuffer = '';
-    let errorBuffer = '';
-    let isTimeout = false;
-    let childProcess: ChildProcess | null = null;
-    let timeoutHandle: NodeJS.Timeout | null = null;
-
     try {
-      // Create a promise that resolves when the process completes
-      const processPromise = new Promise<ExecutionResult>((resolve, reject) => {
-        try {
-          // Spawn Claude process
-          childProcess = spawn(command.command, command.args, {
-            cwd: context.workingDirectory,
-            env,
-            stdio: ['pipe', 'pipe', 'pipe'],
-            detached: options.detached || false
-          });
-
-          if (!childProcess.pid) {
-            reject(new Error('Failed to spawn Claude process'));
-            return;
-          }
-
-          this.logger.info('Claude process started', {
-            sessionId,
-            pid: childProcess.pid,
-            command: command.command
-          });
-
-          // Handle process output
-          if (childProcess.stdout) {
-            childProcess.stdout.on('data', (data: Buffer) => {
-              const chunk = data.toString();
-              outputBuffer += chunk;
-              
-              if (this.config.streamOutput) {
-                this.emit('output', {
-                  sessionId,
-                  type: 'stdout',
-                  data: chunk
-                });
-              }
-            });
-          }
-
-          if (childProcess.stderr) {
-            childProcess.stderr.on('data', (data: Buffer) => {
-              const chunk = data.toString();
-              errorBuffer += chunk;
-              
-              if (this.config.streamOutput) {
-                this.emit('output', {
-                  sessionId,
-                  type: 'stderr',
-                  data: chunk
-                });
-              }
-            });
-          }
-
-          // Handle process completion
-          childProcess.on('close', async (code: number | null, signal: string | null) => {
-            const duration = Date.now() - startTime;
-            const exitCode = code || 0;
-            
-            this.logger.info('Claude process completed', {
-              sessionId,
-              exitCode,
-              signal,
-              duration,
-              isTimeout
-            });
-
-            try {
-              // Collect resource usage
-              const resourceUsage = await this.collectResourceUsage(sessionId);
-              
-              // Collect artifacts
-              const artifacts = await this.collectArtifacts(context);
-              
-              const result: ExecutionResult = {
-                success: !isTimeout && exitCode === 0,
-                output: outputBuffer,
-                error: errorBuffer,
-                exitCode,
-                duration,
-                resourcesUsed: resourceUsage,
-                artifacts,
-                metadata: {
-                  sessionId,
-                  timeout: isTimeout,
-                  signal,
-                  command: command.command,
-                  args: command.args
-                }
-              };
-
-              if (isTimeout) {
-                reject(new Error(`Claude execution timed out after ${timeout}ms`));
-              } else if (exitCode !== 0) {
-                reject(new Error(`Claude execution failed with exit code ${exitCode}: ${errorBuffer}`));
-              } else {
-                resolve(result);
-              }
-
-            } catch (error) {
-              reject(error);
-            }
-          });
-
-          // Handle process errors
-          childProcess.on('error', (error: Error) => {
-            this.logger.error('Claude process error', {
-              sessionId,
-              error: error.message
-            });
-            reject(error);
-          });
-
-          // Send input if provided
-          if (command.input && childProcess.stdin) {
-            childProcess.stdin.write(command.input);
-            childProcess.stdin.end();
-          }
-
-          // If detached, unreference to allow parent to exit
-          if (options.detached) {
-            childProcess.unref();
-          }
-
-        } catch (error) {
-          reject(error);
-        }
-      });
-
-      // Create timeout promise
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutHandle = setTimeout(() => {
-          isTimeout = true;
-          if (childProcess) {
-            this.logger.warn('Claude execution timeout, killing process', {
-              sessionId,
-              pid: childProcess.pid,
-              timeout
-            });
-            
-            // Graceful shutdown first
-            childProcess.kill('SIGTERM');
-            
-            // Force kill after grace period
-            setTimeout(() => {
-              if (childProcess && !childProcess.killed) {
-                childProcess.kill('SIGKILL');
-              }
-            }, this.config.killTimeout);
-          }
-          reject(new Error(`Claude execution timed out after ${timeout}ms`));
-        }, timeout);
-      });
-
-      // Race between process completion and timeout
-      const result = await Promise.race([processPromise, timeoutPromise]);
+      // Execute Claude process through ProcessPool
+      const processCommand: ProcessCommand = {
+        command: command.command,
+        args: command.args,
+        input: command.input,
+        env,
+        cwd: context.workingDirectory,
+        timeout: timeout,
+        detached: options.detached || false
+      };
       
-      // Clear timeout if process completed
-      if (timeoutHandle) {
-        clearTimeout(timeoutHandle);
+      const processResult = await this.processPool.execute(processCommand);
+      
+      const duration = Date.now() - startTime;
+      
+      this.logger.info('Claude process completed', {
+        sessionId,
+        exitCode: processResult.exitCode,
+        signal: processResult.signal,
+        duration,
+        success: processResult.success
+      });
+
+      // Collect resource usage
+      const resourceUsage = await this.collectResourceUsage(sessionId);
+      
+      // Collect artifacts
+      const artifacts = await this.collectArtifacts(context);
+      
+      const result: ExecutionResult = {
+        success: processResult.success,
+        output: processResult.stdout,
+        error: processResult.stderr,
+        exitCode: processResult.exitCode,
+        duration,
+        resourcesUsed: resourceUsage,
+        artifacts,
+        metadata: {
+          sessionId,
+          timeout: !processResult.success && processResult.stderr.includes('timed out'),
+          signal: processResult.signal,
+          command: command.command,
+          args: command.args,
+          pid: processResult.pid
+        }
+      };
+
+      if (!processResult.success) {
+        if (processResult.stderr.includes('timed out')) {
+          throw new Error(`Claude execution timed out after ${timeout}ms`);
+        } else if (processResult.exitCode !== 0) {
+          throw new Error(`Claude execution failed with exit code ${processResult.exitCode}: ${processResult.stderr}`);
+        }
       }
       
       return result;
 
     } catch (error) {
-      // Clear timeout on error
-      if (timeoutHandle) {
-        clearTimeout(timeoutHandle);
-      }
-      
-      // Kill process if still running
-      if (childProcess && !childProcess.killed) {
-        childProcess.kill('SIGKILL');
-      }
-      
       throw error;
     }
   }
+
 
   private buildClaudeCommand(
     task: TaskDefinition,
@@ -1019,12 +898,43 @@ class ResourceMonitor extends EventEmitter {
   }
 }
 
-class ProcessPool extends EventEmitter {
+// ===== UNIFIED PROCESS EXECUTOR INTERFACE =====
+
+export interface IProcessExecutor {
+  execute(command: ProcessCommand): Promise<ProcessResult>;
+  validateInput(input: string[]): boolean;
+  sanitizeArgs(args: string[]): string[];
+  shutdown(): Promise<void>;
+}
+
+export interface ProcessCommand {
+  command: string;
+  args: string[];
+  input?: string;
+  env?: Record<string, string>;
+  cwd?: string;
+  timeout?: number;
+  detached?: boolean;
+}
+
+export interface ProcessResult {
+  success: boolean;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  duration: number;
+  pid?: number;
+  signal?: string;
+}
+
+class ProcessPool extends EventEmitter implements IProcessExecutor {
   private config: ExecutionConfig;
   private totalExecutions = 0;
   private totalDuration = 0;
   private successCount = 0;
   private errorCount = 0;
+  private activeProcesses = new Map<string, ChildProcess>();
+  private processMetrics = new Map<string, ProcessMetrics>();
 
   constructor(config: ExecutionConfig) {
     super();
@@ -1036,7 +946,186 @@ class ProcessPool extends EventEmitter {
   }
 
   async shutdown(): Promise<void> {
-    // Shutdown process pool
+    // Kill all active processes
+    const killPromises = Array.from(this.activeProcesses.values())
+      .map(process => this.killProcess(process));
+    
+    await Promise.allSettled(killPromises);
+    this.activeProcesses.clear();
+    this.processMetrics.clear();
+  }
+
+  async execute(command: ProcessCommand): Promise<ProcessResult> {
+    const processId = generateId('process');
+    const startTime = Date.now();
+    
+    this.totalExecutions++;
+    
+    // Validate and sanitize inputs
+    if (!this.validateInput([command.command, ...command.args])) {
+      throw new Error('Invalid command or arguments');
+    }
+    
+    const sanitizedArgs = this.sanitizeArgs(command.args);
+    
+    return new Promise((resolve, reject) => {
+      // Use traced spawn for process execution
+      const childProcess = spawn(command.command, sanitizedArgs, {
+        cwd: command.cwd || process.cwd(),
+        env: command.env ? { ...process.env, ...command.env } : process.env,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        detached: command.detached || false
+      });
+
+      if (!childProcess.pid) {
+        this.errorCount++;
+        reject(new Error('Failed to spawn process'));
+        return;
+      }
+
+      this.activeProcesses.set(processId, childProcess);
+      this.processMetrics.set(processId, {
+        startTime,
+        pid: childProcess.pid,
+        command: command.command,
+        args: sanitizedArgs
+      });
+
+      let stdout = '';
+      let stderr = '';
+      let isTimeout = false;
+      let timeoutHandle: NodeJS.Timeout | null = null;
+
+      // Set up timeout if specified
+      if (command.timeout) {
+        timeoutHandle = setTimeout(() => {
+          isTimeout = true;
+          this.killProcess(childProcess);
+        }, command.timeout);
+      }
+
+      // Collect output
+      if (childProcess.stdout) {
+        childProcess.stdout.on('data', (data: Buffer) => {
+          stdout += data.toString();
+        });
+      }
+
+      if (childProcess.stderr) {
+        childProcess.stderr.on('data', (data: Buffer) => {
+          stderr += data.toString();
+        });
+      }
+
+      // Handle process completion
+      childProcess.on('close', (code: number | null, signal: string | null) => {
+        const duration = Date.now() - startTime;
+        const exitCode = code || 0;
+        
+        // Clear timeout
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+        }
+        
+        // Update metrics
+        this.totalDuration += duration;
+        if (!isTimeout && exitCode === 0) {
+          this.successCount++;
+        } else {
+          this.errorCount++;
+        }
+        
+        // Cleanup
+        this.activeProcesses.delete(processId);
+        this.processMetrics.delete(processId);
+        
+        const result: ProcessResult = {
+          success: !isTimeout && exitCode === 0,
+          exitCode,
+          stdout,
+          stderr,
+          duration,
+          pid: childProcess.pid,
+          signal: signal || undefined
+        };
+        
+        if (isTimeout) {
+          result.stderr = `Process timed out after ${command.timeout}ms`;
+        }
+        
+        resolve(result);
+      });
+
+      // Handle process errors
+      childProcess.on('error', (error: Error) => {
+        this.errorCount++;
+        
+        // Clear timeout
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+        }
+        
+        // Cleanup
+        this.activeProcesses.delete(processId);
+        this.processMetrics.delete(processId);
+        
+        reject(error);
+      });
+
+      // Send input if provided
+      if (command.input && childProcess.stdin) {
+        childProcess.stdin.write(command.input);
+        childProcess.stdin.end();
+      }
+
+      // If detached, unreference to allow parent to exit
+      if (command.detached) {
+        childProcess.unref();
+      }
+    });
+  }
+
+  validateInput(input: string[]): boolean {
+    if (!input || input.length === 0) {
+      return false;
+    }
+    
+    // Check for dangerous commands
+    const dangerousCommands = ['rm', 'del', 'format', 'fdisk', 'mkfs'];
+    const command = path.basename(input[0]).toLowerCase();
+    
+    if (dangerousCommands.includes(command)) {
+      return false;
+    }
+    
+    // Check for shell injection patterns
+    const shellPatterns = [';', '&&', '||', '|', '>', '<', '`', '$'];
+    const fullCommand = input.join(' ');
+    
+    return !shellPatterns.some(pattern => fullCommand.includes(pattern));
+  }
+
+  sanitizeArgs(args: string[]): string[] {
+    return args.map(arg => {
+      // Remove dangerous characters but preserve necessary ones
+      return arg.replace(/[;&|><`$]/g, '');
+    });
+  }
+
+  private async killProcess(process: ChildProcess): Promise<void> {
+    if (process.killed) {
+      return;
+    }
+    
+    // Graceful shutdown first
+    process.kill('SIGTERM');
+    
+    // Force kill after timeout
+    setTimeout(() => {
+      if (!process.killed) {
+        process.kill('SIGKILL');
+      }
+    }, this.config.killTimeout || 5000);
   }
 
   getTotalExecutions(): number {
@@ -1054,6 +1143,21 @@ class ProcessPool extends EventEmitter {
   getErrorRate(): number {
     return this.totalExecutions > 0 ? this.errorCount / this.totalExecutions : 0;
   }
+
+  getActiveProcessCount(): number {
+    return this.activeProcesses.size;
+  }
+  
+  getProcessMetrics(): ProcessMetrics[] {
+    return Array.from(this.processMetrics.values());
+  }
+}
+
+interface ProcessMetrics {
+  startTime: number;
+  pid: number;
+  command: string;
+  args: string[];
 }
 
 // ===== INTERFACES =====

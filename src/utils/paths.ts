@@ -122,7 +122,7 @@ export const validation = {
       '/usr', '/bin', '/etc', '/var'
     ];
     
-    return !protectedPaths.some(protected => absolute.startsWith(protected));
+    return !protectedPaths.some(protectedPath => absolute.startsWith(protectedPath));
   },
   
   isTemporary: (path: string): boolean => {

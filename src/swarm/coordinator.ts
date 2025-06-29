@@ -4,9 +4,81 @@
 
 import { EventEmitter } from 'node:events';
 import { promises as fs } from 'node:fs';
-import { spawn } from 'node:child_process';
 import { Logger } from '../core/logger.js';
 import { generateId } from '../utils/helpers.js';
+
+// Unified process execution interface
+interface ProcessPoolCommand {
+  command: string;
+  args: string[];
+  options?: {
+    cwd?: string;
+    env?: Record<string, string>;
+    stdio?: string[];
+  };
+}
+
+interface ProcessPoolResult {
+  exitCode: number;
+  output: string;
+  error?: string;
+}
+
+class ProcessPool {
+  private logger: Logger;
+
+  constructor(logger: Logger) {
+    this.logger = logger;
+  }
+
+  async executeCommand(cmd: ProcessPoolCommand): Promise<ProcessPoolResult> {
+    return new Promise((resolve, reject) => {
+      // Import traced spawn for execution monitoring
+      import('../tracing/index.js').then(({ spawn }) => {
+        const proc = spawn(cmd.command, cmd.args, {
+          ...cmd.options,
+          stdio: cmd.options?.stdio || ['ignore', 'pipe', 'pipe']
+        });
+
+        let stdout = Buffer.alloc(0);
+        let stderr = Buffer.alloc(0);
+
+        proc.stdout?.on('data', (data) => {
+          stdout = Buffer.concat([stdout, data]);
+        });
+
+        proc.stderr?.on('data', (data) => {
+          stderr = Buffer.concat([stderr, data]);
+        });
+
+        proc.on('close', (code) => {
+          resolve({
+            exitCode: code || 0,
+            output: stdout.toString('utf8'),
+            error: stderr.toString('utf8')
+          });
+        });
+
+        proc.on('error', reject);
+      }).catch(reject);
+    });
+  }
+
+  async checkCommand(command: string): Promise<boolean> {
+    try {
+      const result = await this.executeCommand({
+        command: 'which',
+        args: [command],
+        options: {
+          stdio: ['ignore', 'pipe', 'pipe']
+        }
+      });
+      return result.exitCode === 0;
+    } catch {
+      return false;
+    }
+  }
+}
 import {
   SwarmId, AgentId, TaskId, AgentState, TaskDefinition, SwarmObjective,
   SwarmConfig, SwarmStatus, SwarmProgress, SwarmResults, SwarmMetrics,
@@ -58,6 +130,7 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
       { level: logLevel, format: logFormat, destination: logDestination },
       { component: 'SwarmCoordinator' }
     );
+    this.processPool = new ProcessPool(this.logger);
     this.swarmId = this.generateSwarmId();
     
     // Initialize configuration with defaults
@@ -2314,35 +2387,12 @@ Ensure your implementation is complete, well-structured, and follows best practi
     
     try {
       // Check if claude command exists
-      const checkResult = await new Promise<{ success: boolean }>((resolve) => {
-        const checkProcess = spawn('which', ['claude'], {
-          stdio: ['ignore', 'pipe', 'pipe']
-        });
-        checkProcess.on('close', (code) => {
-          resolve({ success: code === 0 });
-        });
-      });
-      if (!checkResult.success) {
+      const checkResult = await this.processPool.checkCommand('claude');
+      if (!checkResult) {
         throw new Error('Claude CLI not found. Please ensure claude is installed and in PATH.');
       }
       
       // Execute Claude with the prompt
-      const claudeProcess = spawn('claude', claudeArgs, {
-        cwd: targetDir || process.cwd(),
-        env: {
-          ...process.env,
-          CLAUDE_INSTANCE_ID: instanceId,
-          CLAUDE_SWARM_MODE: "true",
-          CLAUDE_SWARM_ID: this.swarmId.id,
-          CLAUDE_TASK_ID: task.id.id,
-          CLAUDE_AGENT_ID: agent.id.id,
-          CLAUDE_WORKING_DIRECTORY: targetDir || process.cwd(),
-          CLAUDE_FLOW_MEMORY_ENABLED: "true",
-          CLAUDE_FLOW_MEMORY_NAMESPACE: `swarm-${this.swarmId.id}`,
-        },
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
-      
       this.logger.info('Spawning Claude agent for task', { 
         taskId: task.id.id,
         agentId: agent.id.id,
@@ -2350,48 +2400,45 @@ Ensure your implementation is complete, well-structured, and follows best practi
         targetDir 
       });
       
-      // Collect output from the spawned process
-      const output = await new Promise<{ code: number; stdout: Buffer; stderr: Buffer }>((resolve, reject) => {
-        let stdout = Buffer.alloc(0);
-        let stderr = Buffer.alloc(0);
-        
-        claudeProcess.stdout?.on('data', (data) => {
-          stdout = Buffer.concat([stdout, data]);
-        });
-        
-        claudeProcess.stderr?.on('data', (data) => {
-          stderr = Buffer.concat([stderr, data]);
-        });
-        
-        claudeProcess.on('close', (code) => {
-          resolve({ code: code || 0, stdout, stderr });
-        });
-        
-        claudeProcess.on('error', reject);
+      // Execute using ProcessPool
+      const output = await this.processPool.executeCommand({
+        command: 'claude',
+        args: claudeArgs,
+        options: {
+          cwd: targetDir || process.cwd(),
+          env: {
+            ...process.env,
+            CLAUDE_INSTANCE_ID: instanceId,
+            CLAUDE_SWARM_MODE: "true",
+            CLAUDE_SWARM_ID: this.swarmId.id,
+            CLAUDE_TASK_ID: task.id.id,
+            CLAUDE_AGENT_ID: agent.id.id,
+            CLAUDE_WORKING_DIRECTORY: targetDir || process.cwd(),
+            CLAUDE_FLOW_MEMORY_ENABLED: "true",
+            CLAUDE_FLOW_MEMORY_NAMESPACE: `swarm-${this.swarmId.id}`,
+          },
+          stdio: ['ignore', 'pipe', 'pipe']
+        }
       });
       
-      const { code, stdout, stderr } = output;
-      
-      if (code === 0) {
-        const output = stdout.toString('utf8');
+      if (output.exitCode === 0) {
         this.logger.info('Claude agent completed task successfully', {
           taskId: task.id.id,
-          outputLength: output.length
+          outputLength: output.output.length
         });
         
         return {
           success: true,
-          output,
+          output: output.output,
           instanceId,
           targetDir
         };
       } else {
-        const errorOutput = stderr.toString('utf8');
-        this.logger.error(`Claude agent failed with code ${code}`, { 
+        this.logger.error(`Claude agent failed with code ${output.exitCode}`, { 
           taskId: task.id.id,
-          error: errorOutput 
+          error: output.error 
         });
-        throw new Error(`Claude execution failed: ${errorOutput}`);
+        throw new Error(`Claude execution failed: ${output.error}`);
       }
       
     } catch (error) {

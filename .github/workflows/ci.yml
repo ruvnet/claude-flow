@@ -43,9 +43,9 @@ jobs:
         run: |
           npm run format || echo "Format check skipped - not configured"
 
-      - name: Type check
+      - name: Type check (Quality Gate)
         run: |
-          npm run typecheck
+          npm run check
 
   # Unit and integration tests
   test:
@@ -273,6 +273,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Pre-build Quality Gate
+        run: |
+          echo "Running mandatory pre-build quality checks..."
+          npm run check
+          echo "✅ Quality gate passed - no TypeScript errors found"
+
       - name: Build TypeScript
         run: |
           npm run build
@@ -367,7 +373,7 @@ jobs:
     name: Deploy & Release
     runs-on: ubuntu-latest
     needs: [security, test, performance, build, claude-integration, docs]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.security.result == 'success' && needs.build.result == 'success'
     
     steps:
       - name: Checkout code
@@ -384,6 +390,13 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Final Quality Gate Check
+        run: |
+          echo "🔐 DEPLOYMENT QUALITY GATE: Verifying zero TypeScript errors policy"
+          npm run check
+          echo "✅ DEPLOYMENT APPROVED: No TypeScript errors found"
+          echo "🚀 Proceeding with deployment..."
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4

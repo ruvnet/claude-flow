@@ -2,7 +2,7 @@
  * Claude Swarm Mode - Self-orchestrating agent swarms using claude-flow
  */
 
-import { spawn } from 'node:child_process';
+import { processPool } from '../../core/process-pool.js';
 import { promises as fs } from 'node:fs';
 import process from 'node:process';
 import { chmod } from 'node:fs/promises';
@@ -50,7 +50,7 @@ export async function swarmAction(ctx: CommandContext) {
   }
   
   // Initialize facades
-  const logger = ctx.logger || console;
+  const logger = (ctx as any).logger || console;
   const swarmFacade = new SwarmFacade(logger);
   const memoryFacade = new MemoryFacade(logger, {
     namespace: ctx.flags['memory-namespace'] as string || 'swarm',
@@ -96,6 +96,9 @@ export async function swarmAction(ctx: CommandContext) {
     return;
   }
   
+  // Initialize swarmProcessId for use in UI mode
+  let swarmProcessId: string;
+  
   // If UI mode is requested, use the blessed UI version
   if (options.ui) {
     try {
@@ -112,27 +115,14 @@ export async function swarmAction(ctx: CommandContext) {
       }
       
       if (options.ui) {
-        const code = await new Promise<number>((resolve, reject) => {
-          const childProcess = spawn('node', [uiScriptPath], {
-            stdio: 'inherit'
-          });
-          
-          // Register UI process
-          registerChildProcess(childProcess.pid!, {
-            name: `swarm-ui-${swarmId}`,
-            type: 'service',
-            command: ['node', uiScriptPath],
-            parentId: swarmProcessId,
-            metadata: { swarmId, ui: true }
-          }).catch(err => {
-            warning(`Failed to register UI process: ${err.message}`);
-          });
-          
-          childProcess.on('error', reject);
-          childProcess.on('exit', (code) => {
-            resolve(code || 0);
-          });
+        const result = await processPool.executeNode(uiScriptPath, [], {
+          stdio: 'inherit',
+          processName: `swarm-ui-${swarmId}`,
+          processType: 'service',
+          parentId: undefined, // Will be set after process registration
+          metadata: { swarmId, ui: true }
         });
+        const code = result.exitCode;
         
         if (code !== 0) {
           error(`Swarm UI exited with code ${code}`);
@@ -151,7 +141,7 @@ export async function swarmAction(ctx: CommandContext) {
   console.log(`🎯 Strategy: ${options.strategy}`);
   
   // Register swarm with process registry
-  const swarmProcessId = await registerCurrentProcess({
+  swarmProcessId = await registerCurrentProcess({
     name: `swarm-${swarmId}`,
     type: 'swarm',
     command: process.argv,
@@ -191,7 +181,7 @@ export async function swarmAction(ctx: CommandContext) {
     const memory = new SwarmMemoryManager({
       namespace: options.memoryNamespace,
       enableDistribution: options.distributed,
-      enableKnowledgeBase: true,
+      // enableKnowledgeBase: true, // TODO: Add to MemoryConfig type
       persistencePath: `./swarm-runs/${swarmId}/memory`
     });
 
@@ -418,14 +408,16 @@ async function executeAgentTask(agentId: string, task: any, options: any, agentD
   
   try {
     // Check if claude CLI is available and not in simulation mode
-    const checkResult = await new Promise<{ success: boolean }>((resolve) => {
-      const childProcess = spawn('which', ['claude']);
-      
-      childProcess.on('error', () => resolve({ success: false }));
-      childProcess.on('exit', (code) => {
-        resolve({ success: code === 0 });
-      });
-    });
+    const checkResult = await processPool.execute({
+      command: 'which',
+      args: ['claude'],
+      captureOutput: true,
+      processName: 'claude-check',
+      processType: 'tool'
+    }).then(
+      () => ({ success: true }),
+      () => ({ success: false })
+    );
     
     if (checkResult.success && options.simulate !== true) {
       // Write prompt to a file for claude to read
@@ -487,16 +479,13 @@ exit \${PIPESTATUS[0]}`;
       console.log(`    ┌─ Claude Output ─────────────────────────────`);
       
       try {
-        const { code, success } = await new Promise<{ code: number, success: boolean }>((resolve, reject) => {
-          const childProcess = spawn('bash', [wrapperPath], {
-            stdio: 'inherit'  // This allows real-time streaming to console
-          });
-          
-          childProcess.on('error', reject);
-          childProcess.on('exit', (code) => {
-            resolve({ code: code || 0, success: code === 0 });
-          });
+        const result = await processPool.executeShell(`bash "${wrapperPath}"`, {
+          stdio: 'inherit',
+          processName: `claude-agent-${agentId}`,
+          processType: 'agent',
+          metadata: { agentId, task: task.type }
         });
+        const { code, success } = { code: result.exitCode, success: result.success };
         
         console.log(`    └─────────────────────────────────────────────`);
         
@@ -532,23 +521,19 @@ exit \${PIPESTATUS[0]}`;
       const claudeFlowBin = `${projectRoot}/bin/claude-flow`;
       
       // Execute claude-flow command
-      const { code, stdout, stderr } = await new Promise<{ code: number, stdout: Buffer, stderr: Buffer }>((resolve, reject) => {
-        const childProcess = spawn(claudeFlowBin, claudeFlowArgs);
-        const stdoutChunks: Buffer[] = [];
-        const stderrChunks: Buffer[] = [];
-        
-        childProcess.stdout?.on('data', (chunk) => stdoutChunks.push(chunk));
-        childProcess.stderr?.on('data', (chunk) => stderrChunks.push(chunk));
-        
-        childProcess.on('error', reject);
-        childProcess.on('exit', (code) => {
-          resolve({
-            code: code || 0,
-            stdout: Buffer.concat(stdoutChunks),
-            stderr: Buffer.concat(stderrChunks)
-          });
-        });
+      const result = await processPool.execute({
+        command: claudeFlowBin,
+        args: claudeFlowArgs,
+        captureOutput: true,
+        processName: `claude-flow-agent-${agentId}`,
+        processType: 'agent',
+        metadata: { agentId, task: task.type }
       });
+      const { code, stdout, stderr } = {
+        code: result.exitCode,
+        stdout: Buffer.from(result.stdout || ''),
+        stderr: Buffer.from(result.stderr || '')
+      };
       
       // Save output
       await fs.writeFile(`${agentDir}/output.txt`, stdout.toString());

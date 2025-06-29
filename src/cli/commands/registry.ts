@@ -134,7 +134,7 @@ export const registryCommand = new Command()
       await registry.terminate(processId, options.signal);
       console.log(`Process ${processId} terminated`);
     } catch (error) {
-      console.error(`Failed to terminate process: ${error.message}`);
+      console.error(`Failed to terminate process: ${(error as Error).message}`);
     }
   })
   
@@ -150,7 +150,7 @@ export const registryCommand = new Command()
       await registry.restart(processId);
       console.log(`Process ${processId} restarted`);
     } catch (error) {
-      console.error(`Failed to restart process: ${error.message}`);
+      console.error(`Failed to restart process: ${(error as Error).message}`);
     }
   })
   

@@ -1,5 +1,6 @@
 import { success, error, warning, info } from "../cli-core.js";
 import type { CommandContext } from "../cli-core.js";
+import { processPool } from '../../core/process-pool.js';
 import colors from "chalk";
 const { blue, yellow, green, magenta, cyan } = colors;
 
@@ -463,28 +464,30 @@ async function executeClaudeWithSparc(
   }
 
   try {
-    const { spawn } = await import("child_process");
-    const child = spawn("claude", claudeArgs, {
+    const result = await processPool.executeClaude(enhancedTask, {
+      tools: tools.split(','),
+      noPermissions: flags.noPermissions || flags["no-permissions"],
+      config: flags.config,
+      stdio: "inherit",
       env: {
-        ...process.env,
         CLAUDE_INSTANCE_ID: instanceId,
         CLAUDE_SPARC_MODE: "true",
         CLAUDE_FLOW_MEMORY_ENABLED: "true",
         CLAUDE_FLOW_MEMORY_NAMESPACE: flags.namespace || "sparc",
       },
-      stdio: "inherit",
+      processName: `sparc-${instanceId}`,
+      processType: 'agent',
+      metadata: {
+        instanceId,
+        sparcMode: true,
+        namespace: flags.namespace || "sparc"
+      }
     });
 
-    const status = await new Promise<{ success: boolean; code: number | null }>((resolve) => {
-      child.on("close", (code) => {
-        resolve({ success: code === 0, code });
-      });
-    });
-
-    if (status.success) {
+    if (result.success) {
       success(`SPARC instance ${instanceId} completed successfully`);
     } else {
-      error(`SPARC instance ${instanceId} exited with code ${status.code}`);
+      error(`SPARC instance ${instanceId} exited with code ${result.exitCode}`);
     }
   } catch (err) {
     error(`Failed to execute Claude: ${err instanceof Error ? err.message : String(err)}`);

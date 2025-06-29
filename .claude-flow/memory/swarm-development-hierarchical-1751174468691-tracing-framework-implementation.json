@@ -1,0 +1,84 @@
+{
+  "tracing-framework": {
+    "status": "implemented",
+    "timestamp": "2025-06-29T09:00:00.000Z",
+    "components": {
+      "metrics.ts": {
+        "description": "Process execution metrics collection and monitoring",
+        "features": [
+          "ProcessMetricsCollector singleton",
+          "Automatic spawn counting",
+          "Success/failure rate tracking",
+          "Average duration calculation",
+          "Command frequency analysis",
+          "Threshold violation detection",
+          "JSON persistence",
+          "Alert system"
+        ],
+        "thresholds": {
+          "spawn_count": 9,
+          "failure_rate": 0.3,
+          "alert_on_violation": true
+        }
+      },
+      "child.ts": {
+        "description": "Traced versions of child_process functions",
+        "functions": [
+          "spawn() - with execution tracking",
+          "exec() - with callback wrapping",
+          "execFile() - with argument parsing",
+          "fork() - with Node.js module tracking"
+        ],
+        "features": [
+          "Automatic metrics recording",
+          "Debug logging",
+          "Execution ID tracking",
+          "Event listener attachment",
+          "Original function re-exports"
+        ]
+      },
+      "index.ts": {
+        "description": "Main export module for tracing framework",
+        "exports": "All tracing functions, metrics, types, and interfaces"
+      },
+      "test-tracing.ts": {
+        "description": "Comprehensive test suite for tracing framework",
+        "tests": [
+          "Basic spawn tracing",
+          "Threshold enforcement",
+          "Metrics collection",
+          "Export functionality"
+        ]
+      }
+    },
+    "integration": {
+      "process-pool.ts": "Updated to use traced spawn function",
+      "executor.ts": "Replaced require() with traced import",
+      "coordinator.ts": "Updated dynamic import to use tracing",
+      "agent-manager.ts": "Integrated traced spawn and ChildProcess"
+    },
+    "verification": {
+      "test_command": "node src/tracing/test-tracing.ts",
+      "metrics_file": ".claude-flow/process-metrics.json",
+      "debug_logging": "Console debug output for all spawns"
+    },
+    "enforcement": {
+      "spawn_threshold": 9,
+      "failure_rate_threshold": 0.3,
+      "alert_system": true,
+      "metrics_persistence": true,
+      "debug_mode": false
+    },
+    "usage_patterns": {
+      "traced_spawn": "import { spawn } from '../tracing/index.js'",
+      "metrics_access": "import { getMetrics } from '../tracing/index.js'",
+      "threshold_check": "import { isThresholdExceeded } from '../tracing/index.js'"
+    },
+    "coordination_notes": {
+      "process_consolidation": "Integrates with ProcessPool for unified management",
+      "swarm_operations": "Tracks all process spawns in swarm coordination",
+      "memory_integration": "Stores metrics in .claude-flow directory",
+      "batch_tools": "Compatible with existing batch operations"
+    }
+  }
+}

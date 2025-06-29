@@ -186,7 +186,7 @@ export class ProcessManager extends EventEmitter {
           type: process.type === ProcessType.ORCHESTRATOR ? 'service' as const : 
                 process.type === ProcessType.MCP_SERVER ? 'service' as const : 
                 process.type === ProcessType.MEMORY_MANAGER ? 'service' as const : 'task' as const,
-          pid: process.pid || process.pid,
+          pid: process.pid || 0, // Fallback to 0 if pid is undefined
           startTime: new Date(process.startTime),
           status: 'running' as const,
           command: [processId],

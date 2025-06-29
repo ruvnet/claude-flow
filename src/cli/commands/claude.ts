@@ -4,7 +4,7 @@
 
 import { Command } from '../../utils/cliffy-compat/command.js';
 import { colors } from '../../utils/cliffy-compat/colors.js';
-import { spawn } from 'node:child_process';
+import { processPool } from '../../core/process-pool.js';
 import { promises as fs } from 'node:fs';
 import { generateId } from '../../utils/helpers.js';
 
@@ -78,29 +78,37 @@ export const claudeCommand = new Command()
         console.log(colors.gray(`Task: ${task}`));
         console.log(colors.gray(`Tools: ${tools}`));
         
-        // Spawn Claude process
-        const claude = spawn('claude', claudeArgs, {
-          stdio: 'inherit',
-          env: {
-            ...process.env,
-            CLAUDE_INSTANCE_ID: instanceId,
-            CLAUDE_FLOW_MODE: options.mode,
-            CLAUDE_FLOW_COVERAGE: options.coverage.toString(),
-            CLAUDE_FLOW_COMMIT: options.commit,
-          }
-        });
-        
-        claude.on('error', (err) => {
-          console.error(colors.red('Failed to spawn Claude:'), err.message);
-        });
-        
-        claude.on('exit', (code) => {
-          if (code === 0) {
+        // Execute Claude process using ProcessPool
+        try {
+          const result = await processPool.executeClaude(task, {
+            tools: tools.split(','),
+            noPermissions: options.noPermissions,
+            config: options.config,
+            stdio: 'inherit',
+            env: {
+              CLAUDE_INSTANCE_ID: instanceId,
+              CLAUDE_FLOW_MODE: options.mode,
+              CLAUDE_FLOW_COVERAGE: options.coverage.toString(),
+              CLAUDE_FLOW_COMMIT: options.commit,
+            },
+            processName: `claude-${instanceId}`,
+            processType: 'agent',
+            metadata: {
+              instanceId,
+              task,
+              mode: options.mode,
+              coverage: options.coverage
+            }
+          });
+          
+          if (result.success) {
             console.log(colors.green(`Claude instance ${instanceId} completed successfully`));
           } else {
-            console.log(colors.red(`Claude instance ${instanceId} exited with code ${code}`));
+            console.log(colors.red(`Claude instance ${instanceId} exited with code ${result.exitCode}`));
           }
-        });
+        } catch (err) {
+          console.error(colors.red('Failed to execute Claude:'), (err as Error).message);
+        }
         
       } catch (error) {
         console.error(colors.red('Failed to spawn Claude:'), (error as Error).message);
@@ -123,7 +131,7 @@ export const claudeCommand = new Command()
           return;
         }
         
-        for (const task of workflow.tasks) {
+        const executeTask = async (task: any) => {
           const claudeArgs = [task.description || task.name];
           
           // Add tools
@@ -143,29 +151,61 @@ export const claudeCommand = new Command()
           if (options.dryRun) {
             console.log(colors.yellow(`\nDRY RUN - Task: ${task.name || task.id}`));
             console.log(colors.gray(`claude ${claudeArgs.join(' ')}`));
+            return { success: true, taskId: task.id || task.name };
           } else {
-            console.log(colors.blue(`\nSpawning Claude for task: ${task.name || task.id}`));
+            console.log(colors.blue(`\nExecuting Claude for task: ${task.name || task.id}`));
             
-            const claude = spawn('claude', claudeArgs, {
-              stdio: 'inherit',
-              env: {
-                ...process.env,
-                CLAUDE_TASK_ID: task.id || generateId('task'),
-                CLAUDE_TASK_TYPE: task.type || 'general',
-              }
-            });
-            
-            // Wait for completion if sequential
-            if (!workflow.parallel) {
-              await new Promise((resolve) => {
-                claude.on('exit', resolve);
-              });
+            try {
+              const result = await processPool.executeClaude(
+                task.description || task.name,
+                {
+                  tools: Array.isArray(task.tools) ? task.tools : task.tools?.split(','),
+                  noPermissions: task.skipPermissions,
+                  config: task.config,
+                  stdio: 'inherit',
+                  env: {
+                    CLAUDE_TASK_ID: task.id || generateId('task'),
+                    CLAUDE_TASK_TYPE: task.type || 'general',
+                  },
+                  processName: `claude-batch-${task.id || generateId('task')}`,
+                  processType: 'agent',
+                  metadata: {
+                    taskId: task.id,
+                    taskType: task.type,
+                    workflowParallel: workflow.parallel
+                  }
+                }
+              );
+              
+              console.log(colors.green(`Task ${task.name || task.id} completed with exit code ${result.exitCode}`));
+              return { success: result.success, taskId: task.id || task.name, exitCode: result.exitCode };
+            } catch (err) {
+              console.error(colors.red(`Task ${task.name || task.id} failed:`), (err as Error).message);
+              return { success: false, taskId: task.id || task.name, error: (err as Error).message };
             }
           }
-        }
+        };
         
-        if (!options.dryRun && workflow.parallel) {
-          console.log(colors.green('\nAll Claude instances spawned in parallel mode'));
+        if (workflow.parallel && !options.dryRun) {
+          // Execute all tasks in parallel
+          console.log(colors.blue('\nExecuting all tasks in parallel...'));
+          const results = await Promise.allSettled(
+            workflow.tasks.map((task: any) => executeTask(task))
+          );
+          
+          const successCount = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+          const failureCount = results.length - successCount;
+          
+          console.log(colors.green(`\nParallel execution completed: ${successCount} successful, ${failureCount} failed`));
+        } else {
+          // Execute tasks sequentially
+          for (const task of workflow.tasks) {
+            const result = await executeTask(task);
+            if (!result.success && !options.dryRun) {
+              console.log(colors.red('Stopping sequential execution due to task failure'));
+              break;
+            }
+          }
         }
         
       } catch (error) {

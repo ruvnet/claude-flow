@@ -4,7 +4,30 @@
  */
 
 import { UnifiedStateManager } from '../state-manager.js';
-import type { SwarmAgent, SwarmTask, SwarmObjective } from '../../coordination/swarm-coordinator.js';
+import type { SwarmObjective as SwarmTypesObjective, AgentState as SwarmAgentState, TaskId } from '../../swarm/types.js';
+import type { SwarmObjective as CoordinatorObjective } from '../../coordination/swarm-coordinator.js';
+
+// Use coordinator objective type for compatibility
+type SwarmObjective = CoordinatorObjective;
+
+// Type aliases for swarm-specific entities
+export type SwarmAgent = SwarmAgentState;
+export type SwarmTask = {
+  id: TaskId;
+  agentId: string;
+  objective: string;
+  status: string;
+  createdAt: Date;
+  metadata?: Record<string, any>;
+  // Additional properties used in the code
+  assignedTo?: string;
+  type?: string;
+  priority?: number;
+  startedAt?: Date;
+  completedAt?: Date;
+  result?: any;
+  error?: string;
+};
 import type { StateChangeCallback, Unsubscribe } from '../types.js';
 import { Logger } from '../../core/logger.js';
 
@@ -242,7 +265,7 @@ export class SwarmStateAdapter {
    */
   public getObjective(objectiveId: string): SwarmObjective | undefined {
     const state = this.stateManager.getState();
-    return state.swarm.activeSwarms.get(objectiveId);
+    return state.swarm.activeSwarms.get(objectiveId) as SwarmObjective | undefined;
   }
 
   /**
@@ -250,7 +273,7 @@ export class SwarmStateAdapter {
    */
   public getAllObjectives(): SwarmObjective[] {
     const state = this.stateManager.getState();
-    return Array.from(state.swarm.activeSwarms.values());
+    return Array.from(state.swarm.activeSwarms.values()) as unknown as SwarmObjective[];
   }
 
   /**
@@ -440,7 +463,7 @@ export class SwarmStateAdapter {
    */
   public getPendingTasksByPriority(): SwarmTask[] {
     return this.getTasksByStatus('pending')
-      .sort((a, b) => b.priority - a.priority);
+      .sort((a, b) => (b.priority || 0) - (a.priority || 0));
   }
 
   /**

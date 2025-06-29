@@ -3,7 +3,7 @@
  */
 
 // Node.js imports
-import { spawn } from 'node:child_process';
+import { processPool } from '../../../core/process-pool.js';
 import process from 'node:process';
 import { readFile, writeFile, unlink, mkdir, stat } from 'node:fs/promises';
 import { Command } from '../../../utils/cliffy-compat/command.js';

@@ -78,14 +78,14 @@ export function initializeStateSystem(config: StateSystemConfig = {}): StateSyst
   let persistence: StatePersistenceManager | undefined;
   if (config.persistence?.enabled !== false) {
     const persistenceConfig = config.persistence || {};
-    const backends = persistenceConfig.backends || ['filesystem'];
-    const primaryBackend = persistenceConfig.primaryBackend || backends[0];
+    const backends = (persistenceConfig as any).backends || ['filesystem'];
+    const primaryBackend = (persistenceConfig as any).primaryBackend || backends[0];
     
-    const backendInstances = backends.map(backend => {
+    const backendInstances = backends.map((backend: string) => {
       switch (backend) {
         case 'filesystem':
           return new FileSystemPersistenceBackend(
-            persistenceConfig.filePath || './.claude-flow/state.json'
+            (persistenceConfig as any).filePath || './.claude-flow/state.json'
           );
         case 'memory':
           return new MemoryPersistenceBackend();
@@ -97,15 +97,15 @@ export function initializeStateSystem(config: StateSystemConfig = {}): StateSyst
     const persistenceManagerConfig: StatePersistenceConfig = {
       backends: backendInstances,
       primaryBackend,
-      snapshotInterval: persistenceConfig.snapshotInterval || 60000, // 1 minute
-      maxSnapshots: persistenceConfig.maxSnapshots || 10,
+      snapshotInterval: (persistenceConfig as any).snapshotInterval || 60000, // 1 minute
+      maxSnapshots: (persistenceConfig as any).maxSnapshots || 10,
       compressSnapshots: false
     };
 
     persistence = new StatePersistenceManager(persistenceManagerConfig);
 
     // Start auto-save if enabled
-    if (persistenceConfig.autoSave !== false) {
+    if ((persistenceConfig as any).autoSave !== false) {
       persistence.startAutoSave(() => stateManager.getState());
     }
 

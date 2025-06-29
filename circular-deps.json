@@ -1,0 +1,25 @@
+[
+  [
+    "cli/cli-core.ts",
+    "cli/commands/index.ts"
+  ],
+  [
+    "cli/cli-core.ts",
+    "cli/commands/index.ts",
+    "cli/commands/enterprise.ts"
+  ],
+  [
+    "cli/cli-core.ts",
+    "cli/commands/index.ts",
+    "cli/commands/sparc.ts"
+  ],
+  [
+    "cli/cli-core.ts",
+    "cli/commands/index.ts",
+    "cli/commands/swarm.ts"
+  ],
+  [
+    "cli/simple-commands/init/batch-init.js",
+    "cli/simple-commands/init/index.js"
+  ]
+]

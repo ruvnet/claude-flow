@@ -6,11 +6,17 @@
 // Orchestrator
 export { 
   Orchestrator,
-  type AgentInfo,
-  type TaskInfo,
-  type SessionInfo,
-  type WorkflowStatus,
-  type HealthCheckResult
+  type IOrchestrator,
+  type ISessionManager
+} from './orchestrator.js';
+
+// Legacy compatibility types from orchestrator-fixed
+export type {
+  AgentInfo,
+  TaskInfo,
+  SessionInfo,
+  WorkflowStatus,
+  HealthCheckResult
 } from './orchestrator-fixed.js';
 
 // Event Bus

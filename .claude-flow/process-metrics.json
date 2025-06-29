@@ -1,0 +1,146 @@
+{
+  "timestamp": "2025-06-29T05:32:16.722Z",
+  "metrics": {
+    "totalSpawns": 11,
+    "successfulSpawns": 11,
+    "failedSpawns": 0,
+    "averageDuration": 10.909090909090908,
+    "lastExecutions": [
+      {
+        "id": "exec-1751175136715-1qwd5wu",
+        "command": "echo",
+        "args": [
+          "Process 8"
+        ],
+        "startTime": 1751175136715,
+        "endTime": 1751175136721,
+        "duration": 6,
+        "exitCode": 0,
+        "success": true,
+        "pid": 201633
+      },
+      {
+        "id": "exec-1751175136714-fsbzlog",
+        "command": "echo",
+        "args": [
+          "Process 7"
+        ],
+        "startTime": 1751175136714,
+        "endTime": 1751175136721,
+        "duration": 7,
+        "exitCode": 0,
+        "success": true,
+        "pid": 201632
+      },
+      {
+        "id": "exec-1751175136712-dpjzo1g",
+        "command": "echo",
+        "args": [
+          "Process 6"
+        ],
+        "startTime": 1751175136712,
+        "endTime": 1751175136721,
+        "duration": 9,
+        "exitCode": 0,
+        "success": true,
+        "pid": 201631
+      },
+      {
+        "id": "exec-1751175136711-c0xk8bv",
+        "command": "echo",
+        "args": [
+          "Process 5"
+        ],
+        "startTime": 1751175136711,
+        "endTime": 1751175136721,
+        "duration": 10,
+        "exitCode": 0,
+        "success": true,
+        "pid": 201630
+      },
+      {
+        "id": "exec-1751175136709-5xxsos8",
+        "command": "echo",
+        "args": [
+          "Process 4"
+        ],
+        "startTime": 1751175136709,
+        "endTime": 1751175136721,
+        "duration": 12,
+        "exitCode": 0,
+        "success": true,
+        "pid": 201629
+      },
+      {
+        "id": "exec-1751175136707-hm3qanm",
+        "command": "echo",
+        "args": [
+          "Process 3"
+        ],
+        "startTime": 1751175136707,
+        "endTime": 1751175136721,
+        "duration": 14,
+        "exitCode": 0,
+        "success": true,
+        "pid": 201628
+      },
+      {
+        "id": "exec-1751175136706-i0bst5d",
+        "command": "echo",
+        "args": [
+          "Process 2"
+        ],
+        "startTime": 1751175136706,
+        "endTime": 1751175136721,
+        "duration": 15,
+        "exitCode": 0,
+        "success": true,
+        "pid": 201627
+      },
+      {
+        "id": "exec-1751175136704-ynu7wsv",
+        "command": "echo",
+        "args": [
+          "Process 1"
+        ],
+        "startTime": 1751175136704,
+        "endTime": 1751175136721,
+        "duration": 17,
+        "exitCode": 0,
+        "success": true,
+        "pid": 201626
+      },
+      {
+        "id": "exec-1751175136702-tflxopg",
+        "command": "echo",
+        "args": [
+          "Process 0"
+        ],
+        "startTime": 1751175136702,
+        "endTime": 1751175136721,
+        "duration": 19,
+        "exitCode": 0,
+        "success": true,
+        "pid": 201625
+      },
+      {
+        "id": "exec-1751175136716-egianux",
+        "command": "echo",
+        "args": [
+          "Process 9"
+        ],
+        "startTime": 1751175136716,
+        "endTime": 1751175136722,
+        "duration": 6,
+        "exitCode": 0,
+        "success": true,
+        "pid": 201634
+      }
+    ]
+  },
+  "summary": {
+    "totalProcesses": 11,
+    "successRate": "100.00%",
+    "averageDuration": "10.91ms"
+  }
+}
