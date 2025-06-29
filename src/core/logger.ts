@@ -24,7 +24,16 @@ export enum LogLevel {
   ERROR = 3,
 }
 
-interface LogEntry {
+export interface LoggerOptions {
+  level?: 'debug' | 'info' | 'warn' | 'error';
+  format?: 'json' | 'text';
+  destination?: 'console' | 'file' | 'both';
+  filePath?: string;
+  maxFileSize?: number;
+  maxFiles?: number;
+}
+
+export interface LogEntry {
   timestamp: string;
   level: string;
   message: string;

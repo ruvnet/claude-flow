@@ -2,14 +2,11 @@
  * Session management commands for Claude-Flow
  */
 
-import { Command } from '@cliffy/command';
-import { colors } from '@cliffy/ansi/colors';
-import { Table } from '@cliffy/table';
-import { Confirm, Input } from '@cliffy/prompt';
+import { Command, colors, Table, Confirm, Input } from '../../utils/cli/index.js';
 import { formatDuration, formatStatusIndicator } from '../formatter.js';
 import { generateId } from '../../utils/helpers.js';
 import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
+import { paths } from '../../utils/paths.js';
 import * as crypto from 'node:crypto';
 import * as os from 'node:os';
 
@@ -100,7 +97,7 @@ interface SessionData {
   };
 }
 
-const SESSION_DIR = path.join('.claude-flow', 'sessions');
+const SESSION_DIR = paths.join('.claude-flow', 'sessions');
 
 async function ensureSessionDir(): Promise<void> {
   try {
@@ -189,7 +186,7 @@ async function saveSession(name: string | undefined, options: any): Promise<void
     };
 
     await ensureSessionDir();
-    const filePath = path.join(SESSION_DIR, `${session.id}.json`);
+    const filePath = paths.join(SESSION_DIR, `${session.id}.json`);
     await fs.writeFile(filePath, JSON.stringify(session, null, 2), 'utf8');
 
     console.log(colors.green('✓ Session saved successfully'));
@@ -274,7 +271,7 @@ async function restoreSession(sessionId: string, options: any): Promise<void> {
 
     // Update session metadata
     session.updatedAt = new Date();
-    const filePath = path.join(SESSION_DIR, `${session.id}.json`);
+    const filePath = paths.join(SESSION_DIR, `${session.id}.json`);
     await fs.writeFile(filePath, JSON.stringify(session, null, 2), 'utf8');
 
     console.log(colors.green('✓ Session restored successfully'));
@@ -309,7 +306,7 @@ async function deleteSession(sessionId: string, options: any): Promise<void> {
       }
     }
 
-    const filePath = path.join(SESSION_DIR, `${session.id}.json`);
+    const filePath = paths.join(SESSION_DIR, `${session.id}.json`);
     await fs.unlink(filePath);
 
     console.log(colors.green('✓ Session deleted successfully'));
@@ -396,7 +393,7 @@ async function importSession(inputFile: string, options: any): Promise<void> {
     }
 
     await ensureSessionDir();
-    const filePath = path.join(SESSION_DIR, `${sessionData.id}.json`);
+    const filePath = paths.join(SESSION_DIR, `${sessionData.id}.json`);
     await fs.writeFile(filePath, JSON.stringify(sessionData, null, 2), 'utf8');
 
     console.log(colors.green('✓ Session imported successfully'));
@@ -447,7 +444,7 @@ async function showSessionInfo(sessionId: string): Promise<void> {
     console.log(`${colors.white('Integrity:')} ${integrityIcon} ${integrity ? 'Valid' : 'Corrupted'}`);
 
     // File info
-    const filePath = path.join(SESSION_DIR, `${session.id}.json`);
+    const filePath = paths.join(SESSION_DIR, `${session.id}.json`);
     try {
       const fileInfo = await fs.stat(filePath);
       console.log();
@@ -511,7 +508,7 @@ async function cleanSessions(options: any): Promise<void> {
     let deleted = 0;
     for (const session of toDelete) {
       try {
-        const filePath = path.join(SESSION_DIR, `${session.id}.json`);
+        const filePath = paths.join(SESSION_DIR, `${session.id}.json`);
         await fs.unlink(filePath);
         deleted++;
       } catch (error) {
@@ -533,7 +530,7 @@ async function loadAllSessions(): Promise<SessionData[]> {
     for (const entry of entries) {
       if (entry.isFile() && entry.name.endsWith('.json')) {
         try {
-          const content = await fs.readFile(path.join(SESSION_DIR, entry.name), 'utf8');
+          const content = await fs.readFile(paths.join(SESSION_DIR, entry.name), 'utf8');
           const session = JSON.parse(content) as SessionData;
           
           // Convert date strings back to Date objects

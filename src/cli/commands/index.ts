@@ -13,6 +13,7 @@ import { SimpleMemoryManager } from "./memory.js";
 import { sparcAction } from "./sparc.js";
 import { createMigrateCommand } from "./migrate.js";
 import { enterpriseCommands } from "./enterprise.js";
+import { registryCommand } from "./registry.js";
 
 // Import enhanced orchestration commands
 import { startCommand } from "./start.js";
@@ -82,7 +83,13 @@ export function setupCommands(cli: CLI): void {
         
         for (const file of files) {
           const { access } = await import("fs/promises");
-          const exists = await access(file).then(() => true).catch(() => false);
+          let exists = false;
+          try {
+            await access(file);
+            exists = true;
+          } catch {
+            exists = false;
+          }
           if (exists) {
             existingFiles.push(file);
           }
@@ -535,7 +542,13 @@ export function setupCommands(cli: CLI): void {
         
         // Check if orchestrator is running by looking for the log file
         const { access } = await import("fs/promises");
-        const isRunning = await access("orchestrator.log").then(() => true).catch(() => false);
+        let isRunning = false;
+        try {
+          await access("orchestrator.log");
+          isRunning = true;
+        } catch {
+          isRunning = false;
+        }
         
         success("Claude-Flow System Status:");
         console.log(`🟢 Status: ${isRunning ? 'Running' : 'Stopped'}`);
@@ -592,7 +605,13 @@ export function setupCommands(cli: CLI): void {
           const stats = await persist.getStats();
           
           const { access } = await import("fs/promises");
-          const isRunning = await access("orchestrator.log").then(() => true).catch(() => false);
+          let isRunning = false;
+        try {
+          await access("orchestrator.log");
+          isRunning = true;
+        } catch {
+          isRunning = false;
+        }
           
           success("Claude-Flow System Status:");
           console.log(`🟢 Status: ${isRunning ? 'Running' : 'Stopped'}`);
@@ -1322,7 +1341,13 @@ Now, please proceed with the task: ${task}`;
         const stats = await persist.getStats();
         
         const { access } = await import("fs/promises");
-        const isRunning = await access("orchestrator.log").then(() => true).catch(() => false);
+        let isRunning = false;
+        try {
+          await access("orchestrator.log");
+          isRunning = true;
+        } catch {
+          isRunning = false;
+        }
         
         if (!isRunning) {
           warning("Orchestrator is not running. Start it first with 'claude-flow start'");
@@ -1470,7 +1495,13 @@ Now, please proceed with the task: ${task}`;
         try {
           const persist = await getPersistence();
           const { access } = await import("fs/promises");
-          const isRunning = await access("orchestrator.log").then(() => true).catch(() => false);
+          let isRunning = false;
+        try {
+          await access("orchestrator.log");
+          isRunning = true;
+        } catch {
+          isRunning = false;
+        }
           
           if (!isRunning) {
             warning("Orchestrator is not running. Start it first with 'claude-flow start'");
@@ -1599,6 +1630,61 @@ Now, please proceed with the task: ${task}`;
       },
     ],
     action: swarmAction,
+  });
+
+  // Registry command
+  cli.command({
+    name: "registry",
+    description: "Manage and view the process registry",
+    options: [
+      {
+        name: "type",
+        short: "t",
+        description: "Filter by process type (swarm, agent, task, service)",
+        type: "string",
+      },
+      {
+        name: "status",
+        short: "s",
+        description: "Filter by status",
+        type: "string",
+      },
+      {
+        name: "tree",
+        description: "Display as tree hierarchy",
+        type: "boolean",
+      },
+      {
+        name: "repair",
+        description: "Attempt to repair registry issues",
+        type: "boolean",
+      },
+      {
+        name: "dry-run",
+        description: "Show what would be done without making changes",
+        type: "boolean",
+      },
+    ],
+    action: async (ctx: CommandContext) => {
+      const subcommand = ctx.args[0];
+      
+      // Import cliffy Command to use the registry command structure
+      const { Command } = await import("../../utils/cliffy-compat/command.js");
+      
+      // Create a new context for the registry command
+      const registryCtx = {
+        ...ctx,
+        // Adjust args to match what the registry command expects
+        args: ctx.args.slice(1),
+      };
+      
+      // Execute the appropriate registry subcommand
+      try {
+        await registryCommand.parse([subcommand || "list", ...registryCtx.args]);
+      } catch (error) {
+        error(`Registry command failed: ${(error as Error).message}`);
+      }
+    },
   });
 
   // Enhanced SPARC command

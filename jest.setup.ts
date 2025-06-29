@@ -41,7 +41,9 @@ process.env.CLAUDE_FLOW_DATA_DIR = testDataDir;
 global.__TEST_DB_PATH__ = join(testDataDir, 'test.db');
 process.env.CLAUDE_FLOW_DB_PATH = global.__TEST_DB_PATH__;
 
-// Configure console for tests
+// Configure console for tests with proper cleanup
+const originalConsole = { ...console };
+
 if (!process.env.DEBUG_TESTS) {
   global.console = {
     ...console,
@@ -52,6 +54,11 @@ if (!process.env.DEBUG_TESTS) {
     error: jest.fn(),
   };
 }
+
+// Ensure console is restored after tests
+afterAll(() => {
+  global.console = originalConsole;
+});
 
 // Custom matchers
 expect.extend({
@@ -106,13 +113,35 @@ expect.extend({
   },
 });
 
-// Increase timeout for CI environments
-if (process.env.CI === 'true') {
-  jest.setTimeout(30000);
-}
+// Set timeouts based on environment
+const DEFAULT_TIMEOUT = process.env.CI === 'true' ? 30000 : 10000;
+jest.setTimeout(DEFAULT_TIMEOUT);
 
-// Global teardown
-afterAll(() => {
+// Add global test lifecycle hooks for better isolation
+beforeEach(() => {
+  // Clear all module mocks before each test
+  jest.clearAllMocks();
+  
+  // Reset any global state
+  if (global.__TEST_DATA_DIR__) {
+    process.env.CLAUDE_FLOW_DATA_DIR = global.__TEST_DATA_DIR__;
+  }
+});
+
+// Clean up after each test
+afterEach(() => {
+  // Clear any pending timers
+  jest.clearAllTimers();
+  
+  // Clear any pending promises
+  jest.runOnlyPendingTimers();
+});
+
+// Global teardown with comprehensive cleanup
+afterAll(async () => {
+  // Give async operations time to complete
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
   // Clean up test data directory
   try {
     if (global.__TEST_DATA_DIR__) {
@@ -124,12 +153,44 @@ afterAll(() => {
   
   // Restore original environment
   process.env = { ...global.__ORIGINAL_ENV__ };
+  
+  // Force garbage collection if available
+  if (global.gc) {
+    global.gc();
+  }
 });
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
+// Handle unhandled promise rejections with proper cleanup
+const unhandledRejectionHandler = (reason: any, promise: Promise<any>) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   throw reason;
+};
+
+process.on('unhandledRejection', unhandledRejectionHandler);
+
+// Clean up handlers on exit
+afterAll(() => {
+  process.removeListener('unhandledRejection', unhandledRejectionHandler);
+});
+
+// Track test performance
+const testPerformance = new Map<string, number>();
+
+beforeEach(() => {
+  const testName = expect.getState().currentTestName || 'unknown';
+  testPerformance.set(testName, Date.now());
+});
+
+afterEach(() => {
+  const testName = expect.getState().currentTestName || 'unknown';
+  const startTime = testPerformance.get(testName);
+  if (startTime) {
+    const duration = Date.now() - startTime;
+    if (duration > 5000 && process.env.DEBUG_SLOW_TESTS) {
+      console.warn(`⚠️  Slow test detected: ${testName} took ${duration}ms`);
+    }
+    testPerformance.delete(testName);
+  }
 });
 
 // Export test utilities
@@ -144,7 +205,7 @@ export const testUtils = {
     return path;
   },
   
-  // Wait for a condition to be true
+  // Wait for a condition to be true with better error handling
   waitFor: async (
     condition: () => boolean | Promise<boolean>,
     timeout = 5000,
@@ -152,7 +213,14 @@ export const testUtils = {
   ): Promise<void> => {
     const startTime = Date.now();
     while (Date.now() - startTime < timeout) {
-      if (await condition()) return;
+      try {
+        if (await condition()) return;
+      } catch (error) {
+        // If condition throws, continue waiting
+        if (Date.now() - startTime + interval >= timeout) {
+          throw new Error(`Condition threw error: ${error.message}`);
+        }
+      }
       await new Promise(resolve => setTimeout(resolve, interval));
     }
     throw new Error(`Condition not met within ${timeout}ms`);

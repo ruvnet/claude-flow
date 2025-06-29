@@ -6,6 +6,8 @@ import { IEventBus } from '../core/event-bus.js';
 import { MemoryConfig } from '../utils/types.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { BoundedMap, BoundedSet, MemoryPressureMonitor } from '../performance/bounded-collections.js';
+import { BatchProcessor } from '../performance/batch-operations.js';
 
 export interface SwarmMemoryEntry {
   id: string;
@@ -64,15 +66,31 @@ export interface SwarmMemoryConfig {
   persistencePath: string;
 }
 
+interface PersistenceRequest {
+  type: 'store' | 'update' | 'delete';
+  entryId: string;
+  entry?: SwarmMemoryEntry;
+}
+
 export class SwarmMemoryManager extends EventEmitter {
   private logger: ILogger;
   private config: SwarmMemoryConfig;
   private baseMemory: MemoryManager;
-  private entries: Map<string, SwarmMemoryEntry>;
-  private knowledgeBases: Map<string, SwarmKnowledgeBase>;
-  private agentMemories: Map<string, Set<string>>; // agentId -> set of entry IDs
+  private entries: BoundedMap<string, SwarmMemoryEntry>;
+  private knowledgeBases: BoundedMap<string, SwarmKnowledgeBase>;
+  private agentMemories: BoundedMap<string, BoundedSet<string>>; // agentId -> bounded set of entry IDs
   private syncTimer?: NodeJS.Timeout;
   private isInitialized: boolean = false;
+  private memoryMonitor: MemoryPressureMonitor;
+  private persistenceBatcher: BatchProcessor<PersistenceRequest, boolean>;
+  
+  private performanceMetrics = {
+    memorySaves: 0,
+    memoryEvictions: 0,
+    cacheHits: 0,
+    cacheMisses: 0,
+    batchOperations: 0
+  };
 
   constructor(config: Partial<SwarmMemoryConfig> = {}) {
     super();
@@ -94,9 +112,55 @@ export class SwarmMemoryManager extends EventEmitter {
       ...config
     };
 
-    this.entries = new Map();
-    this.knowledgeBases = new Map();
-    this.agentMemories = new Map();
+    // Initialize bounded collections with performance optimizations
+    this.entries = new BoundedMap<string, SwarmMemoryEntry>({
+      maxSize: this.config.maxEntries,
+      evictionPolicy: 'lru',
+      onEviction: (entry) => {
+        this.performanceMetrics.memoryEvictions++;
+        this.logger.debug(`Evicted memory entry: ${entry.id} (type: ${entry.type})`);
+        this.emit('memory:evicted', entry);
+      }
+    });
+
+    this.knowledgeBases = new BoundedMap<string, SwarmKnowledgeBase>({
+      maxSize: Math.ceil(this.config.maxEntries / 10), // 10% of max entries for knowledge bases
+      evictionPolicy: 'lru',
+      onEviction: (kb) => {
+        this.logger.debug(`Evicted knowledge base: ${kb.id}`);
+        this.emit('knowledgebase:evicted', kb);
+      }
+    });
+
+    this.agentMemories = new BoundedMap<string, BoundedSet<string>>({
+      maxSize: 1000, // Support up to 1000 agents
+      evictionPolicy: 'lru',
+      onEviction: (agentSet) => {
+        this.logger.debug(`Evicted agent memory set`);
+      }
+    });
+
+    // Initialize memory pressure monitor
+    this.memoryMonitor = new MemoryPressureMonitor({
+      memoryThreshold: 200, // 200MB threshold for swarm memory
+      checkInterval: 30000  // Check every 30 seconds
+    });
+
+    // Register cleanup callbacks
+    this.memoryMonitor.registerCleanup('swarm-entries', () => {
+      this.performEmergencyCleanup();
+    });
+
+    // Initialize persistence batcher
+    this.persistenceBatcher = new BatchProcessor(
+      this.processPersistenceBatch.bind(this),
+      {
+        maxBatchSize: 100,
+        maxWaitTime: 1000, // 1 second
+        flushOnSize: true,
+        maxQueueSize: 5000
+      }
+    );
 
     // Create mock event bus for base memory
     const mockEventBus: IEventBus = {
@@ -187,32 +251,28 @@ export class SwarmMemoryManager extends EventEmitter {
 
     this.entries.set(entryId, entry);
 
-    // Associate with agent
+    // Associate with agent using bounded set
     if (!this.agentMemories.has(agentId)) {
-      this.agentMemories.set(agentId, new Set());
+      this.agentMemories.set(agentId, new BoundedSet<string>({
+        maxSize: Math.ceil(this.config.maxEntries / 100), // Each agent can have up to 1% of total entries
+        evictionPolicy: 'lru',
+        onEviction: (entryId) => {
+          // When an entry ID is evicted from an agent's memory, remove it from main entries too
+          this.entries.delete(entryId);
+          this.logger.debug(`Evicted entry ${entryId} from agent ${agentId} memory`);
+        }
+      }));
     }
     this.agentMemories.get(agentId)!.add(entryId);
 
-    // Store in base memory for persistence
-    await this.baseMemory.store({
-      id: entryId,
-      agentId,
-      sessionId: 'swarm-session',
-      type: 'artifact',
-      content: JSON.stringify(entry),
-      context: {
-        swarmType: type,
-        shareLevel: entry.metadata.shareLevel
-      },
-      timestamp: entry.timestamp,
-      tags: entry.metadata.tags || [],
-      version: 1,
-      metadata: {
-        type: 'swarm-memory',
-        entryType: type,
-        shareLevel: entry.metadata.shareLevel
-      }
+    // Store in base memory for persistence (batched)
+    await this.persistenceBatcher.add({
+      type: 'store',
+      entryId,
+      entry
     });
+    
+    this.performanceMetrics.memorySaves++;
 
     this.logger.debug(`Agent ${agentId} remembered: ${type} - ${entryId}`);
     this.emit('memory:added', entry);
@@ -632,5 +692,135 @@ export class SwarmMemoryManager extends EventEmitter {
     }
 
     this.emit('memory:cleared', { agentId });
+  }
+
+  // Performance optimization methods
+  private async processPersistenceBatch(requests: PersistenceRequest[]): Promise<boolean[]> {
+    this.performanceMetrics.batchOperations++;
+    const results: boolean[] = [];
+
+    for (const request of requests) {
+      try {
+        switch (request.type) {
+          case 'store':
+            if (request.entry) {
+              await this.baseMemory.store({
+                id: request.entryId,
+                agentId: request.entry.agentId,
+                sessionId: 'swarm-session',
+                type: 'artifact',
+                content: JSON.stringify(request.entry),
+                context: {
+                  swarmType: request.entry.type,
+                  shareLevel: request.entry.metadata.shareLevel
+                },
+                timestamp: request.entry.timestamp,
+                tags: request.entry.metadata.tags || [],
+                version: 1,
+                metadata: {
+                  type: 'swarm-memory',
+                  entryType: request.entry.type,
+                  shareLevel: request.entry.metadata.shareLevel
+                }
+              });
+            }
+            break;
+          case 'update':
+            // Handle updates if needed
+            break;
+          case 'delete':
+            // Handle deletions if needed
+            break;
+        }
+        results.push(true);
+      } catch (error) {
+        this.logger.error('Batch persistence failed', { request, error });
+        results.push(false);
+      }
+    }
+
+    return results;
+  }
+
+  private performEmergencyCleanup(): void {
+    this.logger.warn('Performing emergency memory cleanup due to pressure');
+    
+    // Clear least recently used entries beyond threshold
+    const threshold = Math.floor(this.config.maxEntries * 0.7); // Keep only 70%
+    const entries = Array.from(this.entries.entries());
+    
+    if (entries.length > threshold) {
+      const toRemove = entries.length - threshold;
+      this.logger.info(`Emergency cleanup: removing ${toRemove} entries`);
+      
+      // The bounded map will handle LRU eviction automatically when new items are added
+      // But we can also manually trigger some cleanup
+      for (let i = 0; i < toRemove && entries.length > 0; i++) {
+        const [entryId] = entries[i];
+        this.entries.delete(entryId);
+      }
+    }
+
+    // Clear old knowledge base entries
+    for (const [kbId, kb] of this.knowledgeBases) {
+      if (kb.entries.length > 100) { // Limit KB entries
+        kb.entries = kb.entries.slice(-50); // Keep only latest 50
+      }
+    }
+
+    this.performanceMetrics.memoryEvictions += toRemove || 0;
+  }
+
+  // Enhanced public API methods with performance metrics
+  getEnhancedMemoryStats() {
+    const baseStats = this.getMemoryStats();
+    
+    return {
+      ...baseStats,
+      performance: {
+        ...this.performanceMetrics,
+        evictionRate: this.performanceMetrics.memoryEvictions / Math.max(this.performanceMetrics.memorySaves, 1),
+        cacheHitRate: this.performanceMetrics.cacheHits / Math.max(this.performanceMetrics.cacheHits + this.performanceMetrics.cacheMisses, 1)
+      },
+      boundedCollections: {
+        entries: this.entries.getStats(),
+        knowledgeBases: this.knowledgeBases.getStats(),
+        agentMemories: this.agentMemories.getStats()
+      },
+      memoryPressure: this.memoryMonitor.getMemoryStats(),
+      batchProcessor: this.persistenceBatcher.getStats()
+    };
+  }
+
+  async flushPendingOperations(): Promise<void> {
+    await this.persistenceBatcher.flushAll();
+  }
+
+  // Optimized batch operations
+  async rememberBatch(
+    entries: Array<{
+      agentId: string;
+      type: SwarmMemoryEntry['type'];
+      content: any;
+      metadata?: Partial<SwarmMemoryEntry['metadata']>;
+    }>
+  ): Promise<string[]> {
+    const entryIds: string[] = [];
+    
+    for (const entryData of entries) {
+      const entryId = await this.remember(
+        entryData.agentId,
+        entryData.type,
+        entryData.content,
+        entryData.metadata
+      );
+      entryIds.push(entryId);
+    }
+
+    return entryIds;
+  }
+
+  async recallBatch(queries: SwarmMemoryQuery[]): Promise<SwarmMemoryEntry[][]> {
+    return Promise.all(queries.map(query => this.recall(query)));
   }
 }

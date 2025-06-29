@@ -70,9 +70,15 @@
     "inquirer": "^9.3.7",
     "nanoid": "^5.1.5",
     "ora": "^7.0.1",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "uuid": "^11.1.0",
     "ws": "^8.18.2"
   },
   "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^10.3.5",
     "@swc/cli": "^0.7.7",
     "@swc/core": "^1.12.7",
     "@types/blessed": "^0.1.25",
@@ -90,13 +96,10 @@
     "jest-watch-typeahead": "^2.2.2",
     "pkg": "^5.8.1",
     "prettier": "^3.6.2",
+    "semantic-release": "^24.2.5",
     "ts-jest": "^29.4.0",
     "tsx": "^4.20.3",
-    "typescript": "^5.8.3",
-    "semantic-release": "^24.2.5",
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/git": "^10.0.1",
-    "@semantic-release/github": "^10.3.5"
+    "typescript": "^5.8.3"
   },
   "pkg": {
     "targets": [

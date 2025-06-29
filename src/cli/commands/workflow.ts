@@ -2,10 +2,10 @@
  * Workflow execution commands for Claude-Flow
  */
 
-import { Command } from '@cliffy/command';
-import { colors } from '@cliffy/ansi/colors';
-import { Table } from '@cliffy/table';
-import { Confirm, Input } from '@cliffy/prompt';
+import { Command } from '../../utils/cliffy-compat/command.js';
+import { colors } from '../../utils/cliffy-compat/colors.js';
+import { Table } from '../../utils/cliffy-compat/table.js';
+import { Confirm, Input } from '../../utils/cliffy-compat/prompt.js';
 import { promises as fs } from 'node:fs';
 import { formatDuration, formatStatusIndicator, formatProgressBar } from '../formatter.js';
 import { generateId } from '../../utils/helpers.js';

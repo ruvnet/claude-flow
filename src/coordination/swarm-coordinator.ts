@@ -4,7 +4,7 @@ import { generateId } from '../utils/helpers.js';
 import { SwarmMonitor } from './swarm-monitor.js';
 import { AdvancedTaskScheduler } from './advanced-scheduler.js';
 import { MemoryManager } from '../memory/manager.js';
-import type { Message } from '../types/missing-types.js';
+import type { Message, TaskResult, WorkStealingCoordinator, CircuitBreaker } from '../types/missing-types.js';
 
 export interface SwarmAgent {
   id: string;
@@ -31,7 +31,7 @@ export interface SwarmTask {
   dependencies: string[];
   assignedTo?: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
-  result?: any;
+  result?: TaskResult;
   error?: string;
   createdAt: Date;
   startedAt?: Date;
@@ -76,8 +76,8 @@ export class SwarmCoordinator extends EventEmitter {
   private scheduler?: AdvancedTaskScheduler;
   private memoryManager: MemoryManager;
   private backgroundWorkers: Map<string, NodeJS.Timeout>;
-  private workStealer?: any; // Work stealing coordinator
-  private circuitBreaker?: any; // Circuit breaker for fault tolerance
+  private workStealer?: WorkStealingCoordinator;
+  private circuitBreaker?: CircuitBreaker;
   private isRunning: boolean = false;
 
   constructor(config: Partial<SwarmConfig> = {}) {

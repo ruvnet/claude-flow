@@ -2,8 +2,8 @@
  * Output formatting utilities for CLI
  */
 
-import { colors } from '@cliffy/ansi/colors';
-import { Table } from '@cliffy/table';
+import { colors } from '../utils/cliffy-compat/colors.js';
+import { Table } from '../utils/cliffy-compat/table.js';
 // Box is not available in the current cliffy version
 import { AgentProfile, Task, MemoryEntry, HealthStatus } from '../utils/types.js';
 

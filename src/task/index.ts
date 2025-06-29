@@ -48,21 +48,25 @@ export type {
 /**
  * Initialize the complete task management system
  */
+import type { IMemoryManager } from '../memory/manager.js';
+import type { ILogger } from '../core/logger.js';
+import type { Command } from 'commander';
+
 export async function initializeTaskManagement(
   config: {
     maxConcurrentTasks?: number;
-    memoryManager?: any;
-    logger?: any;
+    memoryManager?: IMemoryManager;
+    logger?: ILogger;
   } = {}
 ): Promise<{
   taskEngine: TaskEngine;
   taskCoordinator: TaskCoordinator;
   commands: {
-    create: any;
-    list: any;
-    status: any;
-    cancel: any;
-    workflow: any;
+    create: Command;
+    list: Command;
+    status: Command;
+    cancel: Command;
+    workflow: Command;
   };
 }> {
   const taskEngine = new TaskEngine(
@@ -153,7 +157,7 @@ export async function launchParallelAgents(
  */
 export async function storeCoordinationData(
   key: string,
-  value: any,
+  value: unknown,
   options: {
     namespace?: string;
     tags?: string[];

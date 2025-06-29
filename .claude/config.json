@@ -7,7 +7,7 @@
   },
   "features": {
     "swarm": true,
-    "sparc": false,
+    "sparc": true,
     "memory": true,
     "terminal": true,
     "mcp": true

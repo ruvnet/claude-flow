@@ -2,9 +2,9 @@
  * Memory management commands
  */
 
-import { Command } from '@cliffy/command';
-import { colors } from '@cliffy/ansi/colors';
-import { Table } from '@cliffy/table';
+import { Command } from '../../utils/cliffy-compat/command.js';
+import { colors } from '../../utils/cliffy-compat/colors.js';
+import { Table } from '../../utils/cliffy-compat/table.js';
 import { promises as fs } from 'fs';
 
 interface MemoryEntry {

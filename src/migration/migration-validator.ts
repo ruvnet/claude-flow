@@ -7,8 +7,7 @@ import * as path from 'path';
 import { ValidationResult, ValidationCheck } from './types';
 import { logger } from './logger';
 import chalk from 'chalk';
-// @ts-ignore - glob types not installed
-import { glob } from 'glob';
+import { glob } from './glob-helper.js';
 
 export class MigrationValidator {
   private requiredFiles = [

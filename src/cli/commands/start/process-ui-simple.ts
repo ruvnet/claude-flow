@@ -3,7 +3,7 @@
  * Uses basic stdin reading for compatibility
  */
 
-import { colors } from '@cliffy/ansi/colors';
+import { colors } from '../../../utils/cliffy-compat/colors.js';
 import { ProcessManager } from './process-manager.js';
 import { ProcessInfo, ProcessStatus, SystemStats } from './types.js';
 import { stdin, stdout } from 'process';

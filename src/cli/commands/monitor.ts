@@ -2,9 +2,7 @@
  * Monitor command for Claude-Flow - Live dashboard mode
  */
 
-import { Command } from '@cliffy/command';
-import { colors } from '@cliffy/ansi/colors';
-import { Table } from '@cliffy/table';
+import { Command, colors, Table } from '../../utils/cli/index.js';
 import { formatProgressBar, formatDuration, formatStatusIndicator } from '../formatter.js';
 import { writeFileSync, rmSync, existsSync } from 'fs';
 import process from 'process';

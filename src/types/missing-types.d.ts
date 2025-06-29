@@ -138,3 +138,316 @@ export interface Colors {
 
 // Re-export existsSync type
 export { existsSync } from 'fs';
+
+// Work Stealing types
+export interface WorkStealingConfig {
+  enabled: boolean;
+  stealThreshold: number;
+  maxStealBatch: number;
+  stealInterval: number;
+}
+
+export interface AgentWorkload {
+  agentId: string;
+  taskCount: number;
+  avgTaskDuration: number;
+  cpuUsage: number;
+  memoryUsage: number;
+  priority: number;
+  capabilities: string[];
+}
+
+export interface WorkStealingCoordinator {
+  initialize(): Promise<void>;
+  shutdown(): Promise<void>;
+  updateWorkload(agentId: string, workload: AgentWorkload): void;
+  getWorkload(agentId: string): AgentWorkload | undefined;
+  shouldSteal(fromAgent: string, toAgent: string): boolean;
+  stealTasks(fromAgent: string, toAgent: string, count: number): Promise<void>;
+  getMetrics(): WorkStealingMetrics;
+}
+
+export interface WorkStealingMetrics {
+  totalSteals: number;
+  successfulSteals: number;
+  failedSteals: number;
+  avgStealSize: number;
+  lastStealTime?: Date;
+}
+
+// Circuit Breaker types
+export interface CircuitBreakerConfig {
+  failureThreshold: number;
+  successThreshold: number;
+  timeout: number;
+  halfOpenLimit: number;
+}
+
+export enum CircuitState {
+  CLOSED = 'closed',
+  OPEN = 'open',
+  HALF_OPEN = 'half-open',
+}
+
+export interface CircuitBreakerMetrics {
+  state: CircuitState;
+  failures: number;
+  successes: number;
+  lastFailureTime?: Date;
+  lastSuccessTime?: Date;
+  totalRequests: number;
+  rejectedRequests: number;
+  halfOpenRequests: number;
+}
+
+export interface CircuitBreaker {
+  call<T>(operation: () => Promise<T>): Promise<T>;
+  isOpen(): boolean;
+  isClosed(): boolean;
+  isHalfOpen(): boolean;
+  getMetrics(): CircuitBreakerMetrics;
+  reset(): void;
+}
+
+// Task Result types
+export interface TaskResult {
+  success: boolean;
+  output?: string | Record<string, unknown>;
+  error?: string;
+  executionTime?: number;
+  metadata?: Record<string, unknown>;
+}
+
+// Worker Thread types
+export interface WorkerData {
+  type: string;
+  payload: unknown;
+}
+
+export interface WorkerMessage {
+  id: string;
+  type: 'result' | 'error' | 'progress' | 'log';
+  data: unknown;
+}
+
+// Handler Function types
+export type HandlerFunction<T = unknown, R = unknown> = (input: T, context?: HandlerContext) => Promise<R>;
+
+export interface HandlerContext {
+  logger?: ILogger;
+  config?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+// Generic Component Status
+export interface ComponentMetrics {
+  status: 'healthy' | 'degraded' | 'error';
+  uptime: number;
+  requestCount: number;
+  errorCount: number;
+  averageResponseTime: number;
+  lastError?: string;
+  lastErrorTime?: Date;
+}
+
+// ILogger interface (if not defined elsewhere)
+export interface ILogger {
+  debug(message: string, meta?: unknown): void;
+  info(message: string, meta?: unknown): void;
+  warn(message: string, meta?: unknown): void;
+  error(message: string, error?: unknown): void;
+}
+
+// Process Registry types
+export interface ProcessInfo {
+  pid: number;
+  name: string;
+  type: string;
+  status: 'running' | 'stopped' | 'error';
+  startTime: Date;
+  cpuUsage?: number;
+  memoryUsage?: number;
+}
+
+// Database Query types
+export interface QueryOptions {
+  limit?: number;
+  offset?: number;
+  orderBy?: string;
+  orderDirection?: 'asc' | 'desc';
+  where?: Record<string, unknown>;
+}
+
+export interface QueryResult<T = unknown> {
+  rows: T[];
+  total: number;
+  page?: number;
+  pageSize?: number;
+}
+
+// Migration types
+export interface Migration {
+  id: string;
+  name: string;
+  timestamp: number;
+  up: () => Promise<void>;
+  down: () => Promise<void>;
+}
+
+export interface MigrationStatus {
+  id: string;
+  name: string;
+  executedAt?: Date;
+  status: 'pending' | 'completed' | 'failed';
+  error?: string;
+}
+
+// Resource Manager types
+export interface ResourceLimits {
+  maxMemory?: number;
+  maxCpu?: number;
+  maxDisk?: number;
+  maxConnections?: number;
+}
+
+export interface ResourceUsage {
+  memory: number;
+  cpu: number;
+  disk: number;
+  connections: number;
+  timestamp: Date;
+}
+
+// Session types
+export interface SessionData {
+  id: string;
+  userId?: string;
+  createdAt: Date;
+  expiresAt?: Date;
+  data: Record<string, unknown>;
+}
+
+// Event Handler types
+export type EventHandler<T = unknown> = (event: T) => void | Promise<void>;
+
+export interface EventSubscription {
+  id: string;
+  event: string;
+  handler: EventHandler;
+  once?: boolean;
+}
+
+// Configuration Validation types
+export interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
+  warnings?: ValidationWarning[];
+}
+
+export interface ValidationError {
+  field: string;
+  message: string;
+  value?: unknown;
+}
+
+export interface ValidationWarning {
+  field: string;
+  message: string;
+  suggestion?: string;
+}
+
+// Performance Monitoring types
+export interface PerformanceMetrics {
+  requestsPerSecond: number;
+  averageLatency: number;
+  p95Latency: number;
+  p99Latency: number;
+  errorRate: number;
+  throughput: number;
+}
+
+// CLI Command types
+export interface CommandDefinition {
+  name: string;
+  description: string;
+  options?: CommandOption[];
+  arguments?: CommandArgument[];
+  handler: CommandHandler;
+}
+
+export interface CommandOption {
+  name: string;
+  short?: string;
+  description: string;
+  type?: 'string' | 'number' | 'boolean';
+  required?: boolean;
+  default?: unknown;
+}
+
+export interface CommandArgument {
+  name: string;
+  description: string;
+  required?: boolean;
+  variadic?: boolean;
+}
+
+export type CommandHandler = (args: Record<string, unknown>, options: Record<string, unknown>) => Promise<void>;
+
+// WebSocket types
+export interface WebSocketMessage {
+  type: string;
+  id?: string;
+  payload?: unknown;
+  timestamp?: Date;
+}
+
+export interface WebSocketClient {
+  id: string;
+  socket: unknown;
+  authenticated: boolean;
+  permissions: string[];
+  connectedAt: Date;
+  lastActivity: Date;
+}
+
+// File System types
+export interface FileInfo {
+  name: string;
+  path: string;
+  size: number;
+  isDirectory: boolean;
+  modifiedAt: Date;
+  createdAt: Date;
+  permissions?: string;
+}
+
+// Backup types
+export interface BackupOptions {
+  destination: string;
+  includePatterns?: string[];
+  excludePatterns?: string[];
+  compression?: boolean;
+  encryption?: boolean;
+}
+
+export interface BackupResult {
+  success: boolean;
+  backupPath: string;
+  filesBackedUp: number;
+  totalSize: number;
+  duration: number;
+  errors?: string[];
+}
+
+// Monitoring Alert types
+export interface MonitoringAlert {
+  id: string;
+  type: 'cpu' | 'memory' | 'disk' | 'error' | 'custom';
+  severity: 'info' | 'warning' | 'error' | 'critical';
+  message: string;
+  timestamp: Date;
+  source: string;
+  metadata?: Record<string, unknown>;
+  acknowledged?: boolean;
+  resolvedAt?: Date;
+}

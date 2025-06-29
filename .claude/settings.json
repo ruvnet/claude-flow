@@ -46,7 +46,7 @@
   "claudeFlow": {
     "version": "1.0.72",
     "swarmDefaults": {
-      "maxAgents": 10,
+      "maxAgents": 30,
       "timeout": 3600000,
       "parallel": true,
       "monitor": true,

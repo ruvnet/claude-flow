@@ -13,24 +13,40 @@ export class WebSocketClient {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 1000;
+    this.maxReconnectDelay = 30000; // Maximum 30 seconds
     this.messageQueue = [];
     this.requestHandlers = new Map();
     this.eventListeners = new Map();
     this.messageId = 1;
+    this.connectionId = null; // Track connection instances
+    this.isShuttingDown = false; // Prevent new connections during shutdown
     
     // Heartbeat configuration
     this.heartbeatInterval = 30000; // 30 seconds
     this.heartbeatTimer = null;
     this.lastPongReceived = Date.now();
     this.connectionTimeout = 10000; // 10 seconds
+    this.maxPongTimeout = 90000; // 90 seconds - force disconnect if no pong
+    this.connectionHealthTimer = null;
+    
+    // Connection leak prevention
+    this.maxPendingRequests = 1000;
+    this.requestTimeoutMs = 30000;
+    this.cleanupIntervalMs = 60000; // 1 minute
+    this.cleanupTimer = null;
     
     this.setupEventListeners();
+    this.startCleanupTimer();
   }
   
   /**
    * Connect to WebSocket server
    */
   async connect(url, authToken = '') {
+    if (this.isShuttingDown) {
+      throw new Error('Client is shutting down, cannot connect');
+    }
+    
     if (this.isConnecting || this.isConnected) {
       console.warn('Already connected or connecting');
       return;
@@ -39,11 +55,13 @@ export class WebSocketClient {
     this.url = url;
     this.authToken = authToken;
     this.isConnecting = true;
+    this.connectionId = this.generateConnectionId();
     
     try {
       await this.establishConnection();
     } catch (error) {
       this.isConnecting = false;
+      this.connectionId = null;
       throw error;
     }
   }
@@ -52,8 +70,16 @@ export class WebSocketClient {
    * Establish WebSocket connection
    */
   async establishConnection() {
+    const currentConnectionId = this.connectionId;
+    
     return new Promise((resolve, reject) => {
       try {
+        // Validate we're still supposed to connect
+        if (this.isShuttingDown || this.connectionId !== currentConnectionId) {
+          reject(new Error('Connection cancelled'));
+          return;
+        }
+        
         // Create WebSocket connection
         this.ws = new WebSocket(this.url);
         
@@ -62,12 +88,21 @@ export class WebSocketClient {
           if (this.ws && this.ws.readyState !== WebSocket.OPEN) {
             this.ws.close();
             this.isConnecting = false;
+            this.connectionId = null;
             reject(new Error('Connection timeout'));
           }
         }, this.connectionTimeout);
         
         this.ws.onopen = () => {
           clearTimeout(connectionTimer);
+          
+          // Double-check we still want this connection
+          if (this.isShuttingDown || this.connectionId !== currentConnectionId) {
+            this.ws.close();
+            reject(new Error('Connection cancelled during setup'));
+            return;
+          }
+          
           this.isConnected = true;
           this.isConnecting = false;
           this.reconnectAttempts = 0;
@@ -75,6 +110,7 @@ export class WebSocketClient {
           
           this.emit('connected');
           this.startHeartbeat();
+          this.startConnectionHealthCheck();
           this.processMessageQueue();
           
           console.log('WebSocket connected to:', this.url);
@@ -103,6 +139,7 @@ export class WebSocketClient {
         
       } catch (error) {
         this.isConnecting = false;
+        this.connectionId = null;
         reject(error);
       }
     });
@@ -112,8 +149,12 @@ export class WebSocketClient {
    * Disconnect from WebSocket server
    */
   disconnect() {
+    this.isShuttingDown = true;
+    this.connectionId = null;
+    
     if (this.ws) {
       this.stopHeartbeat();
+      this.stopConnectionHealthCheck();
       this.ws.close(1000, 'User initiated disconnect');
       this.ws = null;
     }
@@ -122,15 +163,30 @@ export class WebSocketClient {
     this.isConnecting = false;
     this.reconnectAttempts = 0;
     this.messageQueue = [];
-    this.requestHandlers.clear();
     
+    // Clean up pending request handlers
+    this.cleanupRequestHandlers(new Error('Connection closed'));
+    
+    this.stopCleanupTimer();
     this.emit('disconnected');
   }
   
   /**
    * Send a request and wait for response
    */
-  async sendRequest(method, params = {}) {
+  async sendRequest(method, params = {}, timeout = this.requestTimeoutMs) {
+    if (!this.isConnected) {
+      throw new Error('Cannot send request: not connected');
+    }
+    
+    if (this.isShuttingDown) {
+      throw new Error('Cannot send request: client is shutting down');
+    }
+    
+    if (this.requestHandlers.size >= this.maxPendingRequests) {
+      throw new Error('Too many pending requests');
+    }
+    
     const id = this.generateMessageId();
     const request = {
       jsonrpc: '2.0',
@@ -140,19 +196,32 @@ export class WebSocketClient {
     };
     
     return new Promise((resolve, reject) => {
-      // Store request handler
-      this.requestHandlers.set(id, { resolve, reject });
-      
-      // Send request
-      this.sendMessage(request);
-      
       // Set timeout for request
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         if (this.requestHandlers.has(id)) {
           this.requestHandlers.delete(id);
           reject(new Error(`Request timeout for method: ${method}`));
         }
-      }, 30000); // 30 second timeout
+      }, timeout);
+      
+      // Store request handler with timeout reference
+      this.requestHandlers.set(id, { 
+        resolve, 
+        reject, 
+        timeoutId,
+        method,
+        timestamp: Date.now()
+      });
+      
+      // Send request
+      try {
+        this.sendMessage(request);
+      } catch (error) {
+        // Clean up on send failure
+        clearTimeout(timeoutId);
+        this.requestHandlers.delete(id);
+        reject(error);
+      }
     });
   }
   
@@ -208,6 +277,11 @@ export class WebSocketClient {
         const handler = this.requestHandlers.get(message.id);
         this.requestHandlers.delete(message.id);
         
+        // Clear timeout to prevent memory leak
+        if (handler.timeoutId) {
+          clearTimeout(handler.timeoutId);
+        }
+        
         if (message.error) {
           handler.reject(new Error(message.error.message || 'Request failed'));
         } else {
@@ -255,20 +329,34 @@ export class WebSocketClient {
    * Attempt to reconnect
    */
   async attemptReconnection() {
-    this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    if (this.isShuttingDown) {
+      return;
+    }
     
-    console.log(`Attempting reconnection ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
-    this.emit('reconnecting', { attempt: this.reconnectAttempts, delay });
+    this.reconnectAttempts++;
+    
+    // Exponential backoff with jitter and maximum delay
+    const baseDelay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    const jitter = Math.random() * 1000; // Add up to 1 second of jitter
+    const delay = Math.min(baseDelay + jitter, this.maxReconnectDelay);
+    
+    console.log(`Attempting reconnection ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${Math.round(delay)}ms`);
+    this.emit('reconnecting', { attempt: this.reconnectAttempts, delay: Math.round(delay) });
     
     setTimeout(async () => {
+      if (this.isShuttingDown) {
+        return;
+      }
+      
       try {
+        this.connectionId = this.generateConnectionId();
         await this.establishConnection();
       } catch (error) {
         console.error('Reconnection failed:', error);
         
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
           this.emit('reconnection_failed');
+          this.cleanupRequestHandlers(new Error('Max reconnection attempts reached'));
         } else {
           this.attemptReconnection();
         }
@@ -400,8 +488,109 @@ export class WebSocketClient {
       url: this.url,
       reconnectAttempts: this.reconnectAttempts,
       queuedMessages: this.messageQueue.length,
-      pendingRequests: this.requestHandlers.size
+      pendingRequests: this.requestHandlers.size,
+      isShuttingDown: this.isShuttingDown,
+      connectionId: this.connectionId,
+      lastPongReceived: this.lastPongReceived
     };
+  }
+  
+  /**
+   * Generate unique connection ID
+   */
+  generateConnectionId() {
+    return `conn-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+  }
+  
+  /**
+   * Clean up request handlers
+   */
+  cleanupRequestHandlers(error) {
+    for (const [id, handler] of this.requestHandlers.entries()) {
+      if (handler.timeoutId) {
+        clearTimeout(handler.timeoutId);
+      }
+      handler.reject(error || new Error('Request cancelled'));
+    }
+    this.requestHandlers.clear();
+  }
+  
+  /**
+   * Start connection health monitoring
+   */
+  startConnectionHealthCheck() {
+    this.stopConnectionHealthCheck();
+    
+    this.connectionHealthTimer = setInterval(() => {
+      if (this.isConnected) {
+        const timeSinceLastPong = Date.now() - this.lastPongReceived;
+        
+        if (timeSinceLastPong > this.maxPongTimeout) {
+          console.warn('Connection health check failed - forcing disconnect');
+          this.ws.close(1006, 'Health check timeout');
+        }
+      }
+    }, this.heartbeatInterval);
+  }
+  
+  /**
+   * Stop connection health monitoring
+   */
+  stopConnectionHealthCheck() {
+    if (this.connectionHealthTimer) {
+      clearInterval(this.connectionHealthTimer);
+      this.connectionHealthTimer = null;
+    }
+  }
+  
+  /**
+   * Start cleanup timer for stale requests
+   */
+  startCleanupTimer() {
+    this.stopCleanupTimer();
+    
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupStaleRequests();
+    }, this.cleanupIntervalMs);
+  }
+  
+  /**
+   * Stop cleanup timer
+   */
+  stopCleanupTimer() {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+  }
+  
+  /**
+   * Clean up stale requests
+   */
+  cleanupStaleRequests() {
+    const now = Date.now();
+    const staleRequestIds = [];
+    
+    for (const [id, handler] of this.requestHandlers.entries()) {
+      if (handler.timestamp && (now - handler.timestamp) > this.requestTimeoutMs * 2) {
+        staleRequestIds.push(id);
+      }
+    }
+    
+    for (const id of staleRequestIds) {
+      const handler = this.requestHandlers.get(id);
+      if (handler) {
+        if (handler.timeoutId) {
+          clearTimeout(handler.timeoutId);
+        }
+        handler.reject(new Error('Request cleanup: stale request'));
+        this.requestHandlers.delete(id);
+      }
+    }
+    
+    if (staleRequestIds.length > 0) {
+      console.warn(`Cleaned up ${staleRequestIds.length} stale requests`);
+    }
   }
   
   /**

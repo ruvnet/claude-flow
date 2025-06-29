@@ -3,9 +3,9 @@
  * Features: Security masking, multi-format support, validation, change tracking
  */
 
-import { Command } from '@cliffy/command';
-import { colors } from '@cliffy/ansi/colors';
-import { Confirm, Input, Select } from '@cliffy/prompt';
+import { Command } from '../../utils/cliffy-compat/command.js';
+import { colors } from '../../utils/cliffy-compat/colors.js';
+import { Confirm, Input, Select } from '../../utils/cliffy-compat/prompt.js';
 import { configManager, ConfigChange } from '../../core/config.js';
 import { deepMerge } from '../../utils/helpers.js';
 import { join } from 'path';

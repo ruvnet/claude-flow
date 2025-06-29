@@ -2,7 +2,7 @@
  * System Monitor - Real-time monitoring of system processes
  */
 
-import { colors } from '@cliffy/ansi/colors';
+import { colors } from '../../../utils/cliffy-compat/colors.js';
 import { ProcessManager } from './process-manager.js';
 import { SystemEvents } from '../../../utils/types.js';
 import { eventBus } from '../../../core/event-bus.js';

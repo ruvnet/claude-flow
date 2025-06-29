@@ -50,6 +50,18 @@ export default {
       },
       moduleNameMapper: sharedModuleNameMapper,
     },
+    {
+      displayName: 'validation',
+      testEnvironment: 'node',
+      testMatch: ['<rootDir>/tests/validation/**/*.test.ts'],
+      setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+      preset: 'ts-jest/presets/default-esm',
+      extensionsToTreatAsEsm: ['.ts'],
+      transform: {
+        '^.+\\.ts$': ['ts-jest', { useESM: true }]
+      },
+      moduleNameMapper: sharedModuleNameMapper,
+    },
   ],
   
   // Global configuration
@@ -112,9 +124,31 @@ export default {
   coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
   
   // Performance and optimization
-  maxWorkers: '50%',
+  maxWorkers: process.env.CI === 'true' ? '50%' : 2,
   cache: true,
   cacheDirectory: '<rootDir>/.jest-cache',
+  
+  // Faster test execution
+  testEnvironmentOptions: {
+    customExportConditions: ['node', 'node-addons'],
+  },
+  
+  // Disable source maps in tests for better performance
+  globals: {
+    'ts-jest': {
+      isolatedModules: true,
+      tsconfig: {
+        sourceMap: false,
+        inlineSourceMap: false,
+      }
+    }
+  },
+  
+  // Test isolation
+  clearMocks: true,
+  resetMocks: true,
+  restoreMocks: true,
+  resetModules: false, // Only reset when needed for specific tests
   
   // Watch mode settings
   watchPlugins: [
@@ -159,6 +193,9 @@ export default {
   bail: process.env.CI === 'true' ? 1 : 0,
   errorOnDeprecated: true,
   
-  // Set default test timeouts
-  testTimeout: 30000,
+  // Set default test timeouts - lower for faster feedback
+  testTimeout: process.env.CI === 'true' ? 30000 : 10000,
+  
+  // Detect slow tests
+  slowTestThreshold: 5,
 };

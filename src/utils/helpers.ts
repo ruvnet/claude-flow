@@ -2,6 +2,8 @@
  * Utility helper functions for Claude-Flow
  */
 
+import { SecureCrypto } from '../security/crypto-utils.js';
+
 // Utility helper functions
 
 /**
@@ -22,15 +24,13 @@ export function helloWorld(): string {
  * Generates a unique identifier
  */
 export function generateId(prefix?: string): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substr(2, 9);
-  return prefix ? `${prefix}_${timestamp}_${random}` : `${timestamp}_${random}`;
+  return prefix ? SecureCrypto.generateSecureId(prefix, 12) : SecureCrypto.generateSecureId('id', 12);
 }
 
 /**
  * Creates a timeout promise that rejects after the specified time
  */
-export function timeout<T>(promise: Promise<T>, ms: number, message?: string): Promise<T> {
+export async function timeout<T>(promise: Promise<T>, ms: number, message?: string): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   let completed = false;
   
@@ -43,24 +43,25 @@ export function timeout<T>(promise: Promise<T>, ms: number, message?: string): P
     }, ms);
   });
 
-  const wrappedPromise = promise.then((result) => {
+  try {
+    const result = await Promise.race([
+      promise,
+      timeoutPromise,
+    ]);
+    
     completed = true;
     if (timeoutId !== undefined) {
       clearTimeout(timeoutId);
     }
+    
     return result;
-  }, (error) => {
+  } catch (error) {
     completed = true;
     if (timeoutId !== undefined) {
       clearTimeout(timeoutId);
     }
     throw error;
-  });
-
-  return Promise.race([
-    wrappedPromise,
-    timeoutPromise,
-  ]);
+  }
 }
 
 /**

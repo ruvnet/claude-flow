@@ -11,6 +11,7 @@ export interface ProcessInfo {
   startTime?: number;
   config?: Record<string, any>;
   metrics?: ProcessMetrics;
+  registryId?: string;  // ID in the process registry
 }
 
 export enum ProcessType {
@@ -34,6 +35,10 @@ export enum ProcessStatus {
 export interface ProcessMetrics {
   cpu?: number;
   memory?: number;
+  memoryUsage?: {
+    heap?: number;
+    rss?: number;
+  };
   uptime?: number;
   restarts?: number;
   lastError?: string;

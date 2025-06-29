@@ -10,7 +10,8 @@ import {
   AsyncTestUtils, 
   TestAssertions,
   MockFactory,
-  FileSystemTestUtils
+  FileSystemTestUtils,
+  PerformanceTestUtils
 } from '../../utils/test-utils.js';
 import { generateCLITestScenarios } from '../../fixtures/generators.js';
 import { setupTestEnv, cleanupTestEnv, TEST_CONFIG } from '../../test.config.js';

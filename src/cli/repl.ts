@@ -3,9 +3,9 @@
  */
 
 import { promises as fs } from 'fs';
-import { Input, Confirm, Select } from '@cliffy/prompt';
-import { colors } from '@cliffy/ansi/colors';
-import { Table } from '@cliffy/table';
+import { Input, Confirm, Select } from '../utils/cliffy-compat/prompt.js';
+import { colors } from '../utils/cliffy-compat/colors.js';
+import { Table } from '../utils/cliffy-compat/table.js';
 import { AgentProfile, Task } from '../utils/types.js';
 import { generateId } from '../utils/helpers.js';
 import { formatStatusIndicator, formatDuration, formatProgressBar } from './formatter.js';

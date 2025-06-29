@@ -3,7 +3,7 @@
  */
 
 import { EventEmitter } from './event-emitter.js';
-import { colors } from '@cliffy/ansi/colors';
+import { colors } from '../../../utils/cliffy-compat/colors.js';
 import { 
   ProcessInfo, 
   ProcessType, 
@@ -18,6 +18,7 @@ import { CoordinationManager } from '../../../coordination/manager.js';
 import { MCPServer } from '../../../mcp/server.js';
 import { eventBus } from '../../../core/event-bus.js';
 import { logger } from '../../../core/logger.js';
+import { getProcessRegistry } from '../../../services/process-registry/registry.js';
 import { configManager } from '../../../core/config.js';
 import { promises as fs } from 'node:fs';
 import { existsSync } from 'node:fs';
@@ -108,7 +109,7 @@ export class ProcessManager extends EventEmitter {
       switch (process.type) {
         case ProcessType.EVENT_BUS:
           // Event bus is already initialized globally
-          process.pid = globalThis.process?.pid || 0;
+          process.pid = globalThis.process?.pid || process.pid;
           break;
 
         case ProcessType.MEMORY_MANAGER:
@@ -118,6 +119,7 @@ export class ProcessManager extends EventEmitter {
             logger
           );
           await this.memoryManager.initialize();
+          process.pid = globalThis.process?.pid || process.pid;
           break;
 
         case ProcessType.TERMINAL_POOL:
@@ -127,6 +129,7 @@ export class ProcessManager extends EventEmitter {
             logger
           );
           await this.terminalManager.initialize();
+          process.pid = globalThis.process?.pid || process.pid;
           break;
 
         case ProcessType.COORDINATOR:
@@ -136,6 +139,7 @@ export class ProcessManager extends EventEmitter {
             logger
           );
           await this.coordinationManager.initialize();
+          process.pid = globalThis.process?.pid || process.pid;
           break;
 
         case ProcessType.MCP_SERVER:
@@ -145,6 +149,7 @@ export class ProcessManager extends EventEmitter {
             logger
           );
           await this.mcpServer.start();
+          process.pid = globalThis.process?.pid || process.pid;
           break;
 
         case ProcessType.ORCHESTRATOR:
@@ -163,11 +168,51 @@ export class ProcessManager extends EventEmitter {
             logger
           );
           await this.orchestrator.initialize();
+          process.pid = globalThis.process?.pid || process.pid;
           break;
       }
 
       process.startTime = Date.now();
       this.updateProcessStatus(processId, ProcessStatus.RUNNING);
+      
+      // Register with process registry
+      try {
+        const registry = getProcessRegistry();
+        await registry.initialize();
+        
+        const registryProcessInfo = {
+          id: `${processId}-${Date.now()}`,
+          name: process.name,
+          type: process.type === ProcessType.ORCHESTRATOR ? 'service' as const : 
+                process.type === ProcessType.MCP_SERVER ? 'service' as const : 
+                process.type === ProcessType.MEMORY_MANAGER ? 'service' as const : 'task' as const,
+          pid: process.pid || process.pid,
+          startTime: new Date(process.startTime),
+          status: 'running' as const,
+          command: [processId],
+          environment: {},
+          resources: {
+            memory: process.metrics?.memoryUsage?.heap || 0,
+            cpu: process.metrics?.cpu || 0
+          },
+          healthCheck: {
+            interval: 30000,
+            timeout: 5000,
+            retries: 3
+          },
+          metadata: {
+            processType: process.type,
+            processId: process.id
+          }
+        };
+        
+        const registryId = await registry.register(registryProcessInfo);
+        process.registryId = registryId;
+        logger.debug(`Process ${processId} registered with ID: ${registryId}`);
+      } catch (error) {
+        logger.warn(`Failed to register process ${processId} with registry:`, error);
+      }
+      
       this.emit('processStarted', { processId, process });
 
     } catch (error) {
@@ -228,6 +273,18 @@ export class ProcessManager extends EventEmitter {
       }
 
       this.updateProcessStatus(processId, ProcessStatus.STOPPED);
+      
+      // Unregister from process registry
+      if (process.registryId) {
+        try {
+          const registry = getProcessRegistry();
+          await registry.unregister(process.registryId);
+          logger.debug(`Process ${processId} unregistered from registry`);
+        } catch (error) {
+          logger.warn(`Failed to unregister process ${processId} from registry:`, error);
+        }
+      }
+      
       this.emit('processStopped', { processId });
 
     } catch (error) {

@@ -61,3 +61,9 @@ export {
   type CoordinationMetrics,
   type MetricsSample,
 } from './metrics.js';
+
+// Facades for external module access
+export {
+  SwarmFacade,
+  type SwarmOperationOptions,
+} from './facades/swarm-facade.js';

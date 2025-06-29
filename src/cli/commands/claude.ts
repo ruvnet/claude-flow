@@ -2,8 +2,8 @@
  * Claude instance management commands
  */
 
-import { Command } from '@cliffy/command';
-import { colors } from '@cliffy/ansi/colors';
+import { Command } from '../../utils/cliffy-compat/command.js';
+import { colors } from '../../utils/cliffy-compat/colors.js';
 import { spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import { generateId } from '../../utils/helpers.js';

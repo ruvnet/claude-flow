@@ -232,28 +232,46 @@ export class TaskExecutor extends EventEmitter {
   }
 
   private async executeWithTimeout(session: ExecutionSession): Promise<ExecutionResult> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        this.logger.warn('Execution timeout', {
-          sessionId: session.id,
-          timeout: session.config.timeoutMs
-        });
-        
-        session.stop('Timeout').then(() => {
+    let timeout: NodeJS.Timeout | null = null;
+    
+    try {
+      // Create a timeout promise that rejects after the specified time
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeout = setTimeout(async () => {
+          this.logger.warn('Execution timeout', {
+            sessionId: session.id,
+            timeout: session.config.timeoutMs
+          });
+          
+          try {
+            await session.stop('Timeout');
+          } catch (stopError) {
+            this.logger.error('Error stopping session on timeout', { stopError });
+          }
+          
           reject(new Error(`Execution timed out after ${session.config.timeoutMs}ms`));
-        });
-      }, session.config.timeoutMs);
-
-      session.execute()
-        .then(result => {
-          clearTimeout(timeout);
-          resolve(result);
-        })
-        .catch(error => {
-          clearTimeout(timeout);
-          reject(error);
-        });
-    });
+        }, session.config.timeoutMs);
+      });
+      
+      // Race between execution and timeout
+      const result = await Promise.race([
+        session.execute(),
+        timeoutPromise
+      ]);
+      
+      // Clear timeout if execution completed successfully
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      
+      return result;
+    } catch (error) {
+      // Clear timeout on error
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      throw error;
+    }
   }
 
   private async executeClaudeWithTimeout(
@@ -286,164 +304,189 @@ export class TaskExecutor extends EventEmitter {
       workingDir: context.workingDirectory
     });
 
-    return new Promise((resolve, reject) => {
-      let outputBuffer = '';
-      let errorBuffer = '';
-      let isTimeout = false;
-      let process: ChildProcess | null = null;
+    let outputBuffer = '';
+    let errorBuffer = '';
+    let isTimeout = false;
+    let childProcess: ChildProcess | null = null;
+    let timeoutHandle: NodeJS.Timeout | null = null;
 
-      // Setup timeout
-      const timeoutHandle = setTimeout(() => {
-        isTimeout = true;
-        if (process) {
-          this.logger.warn('Claude execution timeout, killing process', {
-            sessionId,
-            pid: process.pid,
-            timeout
-          });
-          
-          // Graceful shutdown first
-          process.kill('SIGTERM');
-          
-          // Force kill after grace period
-          setTimeout(() => {
-            if (process && !process.killed) {
-              process.kill('SIGKILL');
-            }
-          }, this.config.killTimeout);
-        }
-      }, timeout);
-
-      try {
-        // Spawn Claude process
-        process = spawn(command.command, command.args, {
-          cwd: context.workingDirectory,
-          env,
-          stdio: ['pipe', 'pipe', 'pipe'],
-          detached: options.detached || false
-        });
-
-        if (!process.pid) {
-          clearTimeout(timeoutHandle);
-          reject(new Error('Failed to spawn Claude process'));
-          return;
-        }
-
-        this.logger.info('Claude process started', {
-          sessionId,
-          pid: process.pid,
-          command: command.command
-        });
-
-        // Handle process output
-        if (process.stdout) {
-          process.stdout.on('data', (data: Buffer) => {
-            const chunk = data.toString();
-            outputBuffer += chunk;
-            
-            if (this.config.streamOutput) {
-              this.emit('output', {
-                sessionId,
-                type: 'stdout',
-                data: chunk
-              });
-            }
-          });
-        }
-
-        if (process.stderr) {
-          process.stderr.on('data', (data: Buffer) => {
-            const chunk = data.toString();
-            errorBuffer += chunk;
-            
-            if (this.config.streamOutput) {
-              this.emit('output', {
-                sessionId,
-                type: 'stderr',
-                data: chunk
-              });
-            }
-          });
-        }
-
-        // Handle process completion
-        process.on('close', async (code: number | null, signal: string | null) => {
-          clearTimeout(timeoutHandle);
-          
-          const duration = Date.now() - startTime;
-          const exitCode = code || 0;
-          
-          this.logger.info('Claude process completed', {
-            sessionId,
-            exitCode,
-            signal,
-            duration,
-            isTimeout
+    try {
+      // Create a promise that resolves when the process completes
+      const processPromise = new Promise<ExecutionResult>((resolve, reject) => {
+        try {
+          // Spawn Claude process
+          childProcess = spawn(command.command, command.args, {
+            cwd: context.workingDirectory,
+            env,
+            stdio: ['pipe', 'pipe', 'pipe'],
+            detached: options.detached || false
           });
 
-          try {
-            // Collect resource usage
-            const resourceUsage = await this.collectResourceUsage(sessionId);
-            
-            // Collect artifacts
-            const artifacts = await this.collectArtifacts(context);
-            
-            const result: ExecutionResult = {
-              success: !isTimeout && exitCode === 0,
-              output: outputBuffer,
-              error: errorBuffer,
-              exitCode,
-              duration,
-              resourcesUsed: resourceUsage,
-              artifacts,
-              metadata: {
-                sessionId,
-                timeout: isTimeout,
-                signal,
-                command: command.command,
-                args: command.args
-              }
-            };
-
-            if (isTimeout) {
-              reject(new Error(`Claude execution timed out after ${timeout}ms`));
-            } else if (exitCode !== 0) {
-              reject(new Error(`Claude execution failed with exit code ${exitCode}: ${errorBuffer}`));
-            } else {
-              resolve(result);
-            }
-
-          } catch (error) {
-            reject(error);
+          if (!childProcess.pid) {
+            reject(new Error('Failed to spawn Claude process'));
+            return;
           }
-        });
 
-        // Handle process errors
-        process.on('error', (error: Error) => {
-          clearTimeout(timeoutHandle);
-          this.logger.error('Claude process error', {
+          this.logger.info('Claude process started', {
             sessionId,
-            error: error.message
+            pid: childProcess.pid,
+            command: command.command
           });
+
+          // Handle process output
+          if (childProcess.stdout) {
+            childProcess.stdout.on('data', (data: Buffer) => {
+              const chunk = data.toString();
+              outputBuffer += chunk;
+              
+              if (this.config.streamOutput) {
+                this.emit('output', {
+                  sessionId,
+                  type: 'stdout',
+                  data: chunk
+                });
+              }
+            });
+          }
+
+          if (childProcess.stderr) {
+            childProcess.stderr.on('data', (data: Buffer) => {
+              const chunk = data.toString();
+              errorBuffer += chunk;
+              
+              if (this.config.streamOutput) {
+                this.emit('output', {
+                  sessionId,
+                  type: 'stderr',
+                  data: chunk
+                });
+              }
+            });
+          }
+
+          // Handle process completion
+          childProcess.on('close', async (code: number | null, signal: string | null) => {
+            const duration = Date.now() - startTime;
+            const exitCode = code || 0;
+            
+            this.logger.info('Claude process completed', {
+              sessionId,
+              exitCode,
+              signal,
+              duration,
+              isTimeout
+            });
+
+            try {
+              // Collect resource usage
+              const resourceUsage = await this.collectResourceUsage(sessionId);
+              
+              // Collect artifacts
+              const artifacts = await this.collectArtifacts(context);
+              
+              const result: ExecutionResult = {
+                success: !isTimeout && exitCode === 0,
+                output: outputBuffer,
+                error: errorBuffer,
+                exitCode,
+                duration,
+                resourcesUsed: resourceUsage,
+                artifacts,
+                metadata: {
+                  sessionId,
+                  timeout: isTimeout,
+                  signal,
+                  command: command.command,
+                  args: command.args
+                }
+              };
+
+              if (isTimeout) {
+                reject(new Error(`Claude execution timed out after ${timeout}ms`));
+              } else if (exitCode !== 0) {
+                reject(new Error(`Claude execution failed with exit code ${exitCode}: ${errorBuffer}`));
+              } else {
+                resolve(result);
+              }
+
+            } catch (error) {
+              reject(error);
+            }
+          });
+
+          // Handle process errors
+          childProcess.on('error', (error: Error) => {
+            this.logger.error('Claude process error', {
+              sessionId,
+              error: error.message
+            });
+            reject(error);
+          });
+
+          // Send input if provided
+          if (command.input && childProcess.stdin) {
+            childProcess.stdin.write(command.input);
+            childProcess.stdin.end();
+          }
+
+          // If detached, unreference to allow parent to exit
+          if (options.detached) {
+            childProcess.unref();
+          }
+
+        } catch (error) {
           reject(error);
-        });
-
-        // Send input if provided
-        if (command.input && process.stdin) {
-          process.stdin.write(command.input);
-          process.stdin.end();
         }
+      });
 
-        // If detached, unreference to allow parent to exit
-        if (options.detached) {
-          process.unref();
-        }
+      // Create timeout promise
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          isTimeout = true;
+          if (childProcess) {
+            this.logger.warn('Claude execution timeout, killing process', {
+              sessionId,
+              pid: childProcess.pid,
+              timeout
+            });
+            
+            // Graceful shutdown first
+            childProcess.kill('SIGTERM');
+            
+            // Force kill after grace period
+            setTimeout(() => {
+              if (childProcess && !childProcess.killed) {
+                childProcess.kill('SIGKILL');
+              }
+            }, this.config.killTimeout);
+          }
+          reject(new Error(`Claude execution timed out after ${timeout}ms`));
+        }, timeout);
+      });
 
-      } catch (error) {
+      // Race between process completion and timeout
+      const result = await Promise.race([processPromise, timeoutPromise]);
+      
+      // Clear timeout if process completed
+      if (timeoutHandle) {
         clearTimeout(timeoutHandle);
-        reject(error);
       }
-    });
+      
+      return result;
+
+    } catch (error) {
+      // Clear timeout on error
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+      
+      // Kill process if still running
+      if (childProcess && !childProcess.killed) {
+        childProcess.kill('SIGKILL');
+      }
+      
+      throw error;
+    }
   }
 
   private buildClaudeCommand(

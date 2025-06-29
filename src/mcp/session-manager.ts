@@ -13,6 +13,7 @@ import {
 import { ILogger } from '../core/logger.js';
 import { MCPError } from '../utils/errors.js';
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { SecureCrypto } from '../security/crypto-utils.js';
 
 export interface ISessionManager {
   createSession(transport: 'stdio' | 'http' | 'websocket'): MCPSession;
@@ -260,9 +261,7 @@ export class SessionManager implements ISessionManager {
   }
 
   private generateSessionId(): string {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substr(2, 9);
-    return `session_${timestamp}_${random}`;
+    return SecureCrypto.generateSecureSessionId();
   }
 
   private isSessionExpired(session: MCPSession): boolean {

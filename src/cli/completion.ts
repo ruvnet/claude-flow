@@ -2,7 +2,7 @@
  * Shell completion generator for Claude-Flow CLI
  */
 
-import { colors } from '@cliffy/ansi/colors';
+import { colors } from '../utils/cliffy-compat/colors.js';
 import { promises as fs } from 'fs';
 import { homedir } from 'os';
 import { join, dirname } from 'path';

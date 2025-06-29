@@ -2,10 +2,7 @@
  * Comprehensive help system for Claude-Flow CLI
  */
 
-import { Command } from '@cliffy/command';
-import { colors } from '@cliffy/ansi/colors';
-import { Table } from '@cliffy/table';
-import { Select } from '@cliffy/prompt';
+import { Command, colors, Table, Select } from '../../utils/cli/index.js';
 import process from 'process';
 
 export const helpCommand = new Command()

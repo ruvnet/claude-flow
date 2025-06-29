@@ -155,24 +155,28 @@ class SessionManager implements ISessionManager {
       session.endTime = new Date();
 
       // Terminate terminal with timeout
-      await Promise.race([
-        this.terminalManager.terminateTerminal(session.terminalId),
-        delay(5000).then(() => {
-          throw new Error('Terminal termination timeout');
-        })
-      ]).catch(error => {
+      try {
+        await Promise.race([
+          this.terminalManager.terminateTerminal(session.terminalId),
+          delay(5000).then(() => {
+            throw new Error('Terminal termination timeout');
+          })
+        ]);
+      } catch (error) {
         this.logger.error('Error terminating terminal', { sessionId, error });
-      });
+      }
 
       // Close memory bank with timeout
-      await Promise.race([
-        this.memoryManager.closeBank(session.memoryBankId),
-        delay(5000).then(() => {
-          throw new Error('Memory bank close timeout');
-        })
-      ]).catch(error => {
+      try {
+        await Promise.race([
+          this.memoryManager.closeBank(session.memoryBankId),
+          delay(5000).then(() => {
+            throw new Error('Memory bank close timeout');
+          })
+        ]);
+      } catch (error) {
         this.logger.error('Error closing memory bank', { sessionId, error });
-      });
+      }
 
       // Clean up
       this.sessionProfiles.delete(sessionId);

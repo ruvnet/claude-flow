@@ -1,0 +1,109 @@
+{
+  "version": "1.0.0",
+  "daemon": {
+    "enabled": true,
+    "autoStart": false,
+    "pidFile": "/tmp/claudeflow.pid",
+    "logFile": "/tmp/claudeflow.log",
+    "ipc": {
+      "transport": "unix",
+      "path": "/tmp/claudeflow.sock",
+      "timeout": 5000,
+      "retryOptions": {
+        "maxRetries": 3,
+        "retryDelay": 1000,
+        "backoffMultiplier": 2
+      }
+    },
+    "healthCheck": {
+      "enabled": true,
+      "interval": 30000,
+      "timeout": 5000
+    }
+  },
+  "registry": {
+    "backend": "sqlite",
+    "path": "./claudeflow.db",
+    "backup": {
+      "enabled": true,
+      "interval": 3600000,
+      "retention": 7,
+      "path": "./backups",
+      "compression": true,
+      "encryption": false
+    },
+    "cleanup": {
+      "orphanedProcessTimeout": 300000,
+      "heartbeatTimeout": 60000,
+      "maxProcessHistory": 1000,
+      "staleDataThreshold": 600000
+    },
+    "persistence": {
+      "enabled": true,
+      "flushInterval": 60000,
+      "compressionLevel": 6
+    }
+  },
+  "security": {
+    "authentication": {
+      "method": "token",
+      "tokenFile": "./.claudeflow-token"
+    },
+    "authorization": {
+      "enabled": false,
+      "rbac": false
+    },
+    "encryption": {
+      "enabled": false
+    },
+    "audit": {
+      "enabled": true,
+      "logFile": "./claudeflow-audit.log",
+      "level": "basic"
+    }
+  },
+  "monitoring": {
+    "enabled": true,
+    "metrics": {
+      "enabled": false
+    },
+    "logging": {
+      "level": "info",
+      "format": "json",
+      "outputs": ["console", "file"]
+    },
+    "tracing": {
+      "enabled": false
+    },
+    "alerting": {
+      "enabled": false
+    }
+  },
+  "performance": {
+    "maxConcurrentAgents": 10,
+    "agentTimeoutMs": 300000,
+    "memoryLimit": "1GB",
+    "cpuLimit": 80,
+    "cache": {
+      "enabled": true,
+      "size": "100MB",
+      "ttl": 3600,
+      "strategy": "lru"
+    },
+    "pooling": {
+      "enabled": true,
+      "minSize": 2,
+      "maxSize": 10,
+      "idleTimeoutMs": 300000
+    }
+  },
+  "runtime": {
+    "environment": "development",
+    "processTitle": "claude-flow",
+    "features": {
+      "experimental": false,
+      "debug": true,
+      "profiling": false
+    }
+  }
+}

@@ -93,11 +93,7 @@ describe("Calculator", () => {
     });
 
     it("should throw error when dividing by zero", () => {
-      expect(
-        () => calculator.divide(10, 0),
-        Error,
-        "Division by zero"
-      );
+      expect(() => calculator.divide(10, 0)).toThrow("Division by zero");
     });
   });
 
@@ -115,7 +111,8 @@ describe("Calculator", () => {
 
   describe("instance", () => {
     it("should create a calculator instance", () => {
-      expect(calculator);
+      expect(calculator).toBeDefined();
+      expect(calculator).toBeInstanceOf(Calculator);
       expect(typeof calculator.add).toBe("function");
       expect(typeof calculator.subtract).toBe("function");
       expect(typeof calculator.multiply).toBe("function");
@@ -133,19 +130,21 @@ describe("Calculator with mocks", () => {
     calculator.add(2, 3);
     calculator.add(4, 5);
 
-    expect(addSpy.calls.length).toBe(2);
-    expect(addSpy.calls[0].args).toEqual([2, 3]);
-    expect(addSpy.calls[1].args).toEqual([4, 5]);
+    expect(addSpy).toHaveBeenCalledTimes(2);
+    expect(addSpy).toHaveBeenNthCalledWith(1, 2, 3);
+    expect(addSpy).toHaveBeenNthCalledWith(2, 4, 5);
+    
+    addSpy.mockRestore();
   });
 
   it("should stub a method", () => {
     const calculator = new Calculator();
-    const multiplyStub = jest.spyOn(calculator, "multiply", () => 100);
+    const multiplyStub = jest.spyOn(calculator, "multiply").mockImplementation(() => 100);
 
     const result = calculator.multiply(2, 3);
     expect(result).toBe(100); // Stubbed value
 
-    multiplyStub.restore();
+    multiplyStub.mockRestore();
     const realResult = calculator.multiply(2, 3);
     expect(realResult).toBe(6); // Real value after restore
   });

@@ -2,9 +2,7 @@
  * Status command for Claude-Flow
  */
 
-import { Command } from '@cliffy/command';
-import { colors } from '@cliffy/ansi/colors';
-import { Table } from '@cliffy/table';
+import { Command, colors, Table } from '../../utils/cli/index.js';
 import { formatHealthStatus, formatDuration, formatStatusIndicator } from '../formatter.js';
 import { promises as fs } from 'node:fs';
 import { existsSync } from 'node:fs';

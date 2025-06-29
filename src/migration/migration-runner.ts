@@ -18,8 +18,7 @@ import { MigrationAnalyzer } from './migration-analyzer';
 import { logger } from './logger';
 import { ProgressReporter } from './progress-reporter';
 import { MigrationValidator } from './migration-validator';
-// @ts-ignore - glob types not installed
-import { glob } from 'glob';
+import { glob } from './glob-helper.js';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 

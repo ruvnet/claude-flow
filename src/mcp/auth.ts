@@ -6,6 +6,7 @@ import { MCPAuthConfig, MCPSession } from '../utils/types.js';
 import { ILogger } from '../core/logger.js';
 import { MCPError } from '../utils/errors.js';
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { SecureCrypto } from '../security/crypto-utils.js';
 
 export interface IAuthManager {
   authenticate(credentials: unknown): Promise<AuthResult>;
@@ -365,16 +366,8 @@ export class AuthManager implements IAuthManager {
   }
 
   private createSecureToken(): string {
-    // Generate a secure random token
-    const timestamp = Date.now().toString(36);
-    const random1 = Math.random().toString(36).substring(2, 15);
-    const random2 = Math.random().toString(36).substring(2, 15);
-    const hash = createHash('sha256')
-      .update(`${timestamp}${random1}${random2}`)
-      .digest('hex')
-      .substring(0, 32);
-    
-    return `mcp_${timestamp}_${hash}`;
+    // Generate a cryptographically secure token
+    return SecureCrypto.generateSecureToken();
   }
 
   private cleanupExpiredTokens(): void {

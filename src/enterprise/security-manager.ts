@@ -4,6 +4,7 @@ import { join } from 'path';
 import { spawn } from 'child_process';
 import { Logger } from '../core/logger.js';
 import { ConfigManager } from '../core/config.js';
+import { SecureCrypto } from '../security/crypto-utils.js';
 
 export interface SecurityScan {
   id: string;
@@ -396,7 +397,7 @@ export class SecurityManager extends EventEmitter {
     schedule?: SecurityScan['schedule'];
   }): Promise<SecurityScan> {
     const scan: SecurityScan = {
-      id: `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: SecureCrypto.generateSecureId('scan', 12),
       name: scanData.name,
       type: scanData.type,
       status: 'pending',
@@ -549,7 +550,7 @@ export class SecurityManager extends EventEmitter {
     affected?: Partial<SecurityIncident['affected']>;
   }): Promise<SecurityIncident> {
     const incident: SecurityIncident = {
-      id: `incident-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: SecureCrypto.generateSecureId('incident', 12),
       title: incidentData.title,
       description: incidentData.description,
       severity: incidentData.severity,
@@ -688,14 +689,14 @@ export class SecurityManager extends EventEmitter {
     applicability?: Partial<SecurityPolicy['applicability']>;
   }): Promise<SecurityPolicy> {
     const policy: SecurityPolicy = {
-      id: `policy-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: SecureCrypto.generateSecureId('policy', 12),
       name: policyData.name,
       description: policyData.description,
       type: policyData.type,
       version: '1.0.0',
       status: 'draft',
       rules: policyData.rules.map(rule => ({
-        id: `rule-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: SecureCrypto.generateSecureId('rule', 12),
         ...rule
       })),
       enforcement: {
@@ -1146,7 +1147,7 @@ export class SecurityManager extends EventEmitter {
         const vuln = vulnData as any;
         
         findings.push({
-          id: `finding-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: SecureCrypto.generateSecureId('finding', 12),
           title: `${vuln.severity} vulnerability in ${packageName}`,
           description: vuln.title || 'Vulnerability detected',
           severity: vuln.severity as SecuritySeverity,
@@ -1364,7 +1365,7 @@ export class SecurityManager extends EventEmitter {
     details: Record<string, any>
   ): void {
     const entry: SecurityAuditEntry = {
-      id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: SecureCrypto.generateSecureId('audit', 12),
       timestamp: new Date(),
       userId,
       action,

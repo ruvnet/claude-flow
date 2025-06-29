@@ -7,8 +7,8 @@
 // Import and run the simple CLI which doesn't have external dependencies
 import "./simple-cli.ts";
 // Spinner import removed - not available in current cliffy version
-import { Command } from '@cliffy/command';
-import { colors } from '@cliffy/ansi/colors';
+import { Command } from '../utils/cliffy-compat/command.js';
+import { colors } from '../utils/cliffy-compat/colors.js';
 import { logger } from '../core/logger.js';
 import { configManager } from '../core/config.js';
 import { startCommand } from './commands/start.js';

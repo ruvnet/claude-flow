@@ -6,8 +6,8 @@
 import { spawn } from 'node:child_process';
 import process from 'node:process';
 import { readFile, writeFile, unlink, mkdir, stat } from 'node:fs/promises';
-import { Command } from '@cliffy/command';
-import { colors } from '@cliffy/ansi/colors';
+import { Command } from '../../../utils/cliffy-compat/command.js';
+import { colors } from '../../../utils/cliffy-compat/colors.js';
 import { Confirm } from '@cliffy/prompt';
 import { ProcessManager } from './process-manager.js';
 import { ProcessUI } from './process-ui.js';
@@ -16,6 +16,7 @@ import { StartOptions } from './types.js';
 import { eventBus } from '../../../core/event-bus.js';
 import { logger } from '../../../core/logger.js';
 import { formatDuration } from '../../formatter.js';
+import { registerCurrentProcess, registerChildProcess } from '../../../services/process-registry/integration.js';
 
 export const startCommand = new Command()
   .description('Start the Claude-Flow orchestration system')
@@ -34,6 +35,22 @@ export const startCommand = new Command()
   .action(async (options: StartOptions) => {
     console.log(colors.cyan('🧠 Claude-Flow Orchestration System'));
     console.log(colors.gray('─'.repeat(60)));
+
+    // Register the orchestration system with the process registry
+    const orchestratorProcessId = await registerCurrentProcess({
+      name: 'claude-flow-orchestrator',
+      type: 'service',
+      command: process.argv,
+      healthCheckInterval: 30000,
+      metadata: {
+        port: options.port,
+        transport: options.mcpTransport,
+        ui: options.ui,
+        daemon: options.daemon
+      }
+    });
+
+    console.log(colors.gray(`📋 Process registered: ${orchestratorProcessId}`));
 
     try {
       // Check if already running

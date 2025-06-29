@@ -3,15 +3,56 @@
  * Integrates with TodoWrite/TodoRead for coordination and Memory for persistence
  */
 
-import { Command } from 'commander';
+import { Command } from '../utils/cliffy-compat/command.js';
 import chalk from 'chalk';
-import { TaskEngine, WorkflowTask, TaskFilter, TaskSort, Workflow, ResourceRequirement, TaskSchedule } from './engine.js';
-import { generateId } from '../utils/helpers.js';
+import { TaskEngine, WorkflowTask, TaskFilter, TaskSort, Workflow, ResourceRequirement, TaskSchedule } from './engine';
+import { generateId } from '../utils/helpers';
+
+import type { IMemoryManager } from '../memory/manager';
+import type { ILogger } from '../core/logger';
+
+// Command option types
+export interface TaskCreateOptions {
+  depends?: string[];
+  priority?: number;
+  assignTo?: string;
+  resources?: string[];
+  memory?: number;
+  cpu?: number;
+  timeout?: number;
+  retries?: number;
+  schedule?: string;
+  recurrence?: string;
+  tags?: string[];
+}
+
+export interface TaskListOptions {
+  status?: string;
+  assignedTo?: string;
+  tags?: string[];
+  sort?: string;
+  limit?: number;
+  verbose?: boolean;
+  json?: boolean;
+  graph?: boolean;
+}
+
+export interface TaskOptions {
+  watch?: boolean;
+  json?: boolean;
+}
+
+export interface WorkflowOptions {
+  dryRun?: boolean;
+  parallel?: boolean;
+  continueOnError?: boolean;
+  verbose?: boolean;
+}
 
 export interface TaskCommandContext {
   taskEngine: TaskEngine;
-  memoryManager?: any;
-  logger?: any;
+  memoryManager?: IMemoryManager;
+  logger?: ILogger;
 }
 
 /**
@@ -46,7 +87,7 @@ export function createTaskCreateCommand(context: TaskCommandContext): Command {
     .option('--exclusive-resources', 'Require exclusive access to resources')
     .option('--input <json>', 'Task input as JSON string')
     .option('--dry-run', 'Show what would be created without creating')
-    .action(async (type: string, description: string, options: any) => {
+    .action(async (type: string, description: string, options: TaskCreateOptions) => {
       try {
         console.log(chalk.blue('🔧 Creating new task...'));
         
@@ -210,7 +251,7 @@ export function createTaskListCommand(context: TaskCommandContext): Command {
     .option('--show-dependencies', 'Show dependency relationships')
     .option('--show-progress', 'Show progress bars')
     .option('--show-metrics', 'Show performance metrics')
-    .action(async (options: any) => {
+    .action(async (options: TaskListOptions) => {
       try {
         console.log(chalk.blue('📋 Listing tasks...'));
 
@@ -317,7 +358,7 @@ export function createTaskStatusCommand(context: TaskCommandContext): Command {
     .option('--show-resources', 'Show resource allocation')
     .option('--watch', 'Watch for status changes (refresh every 5s)')
     .option('--format <format>', 'Output format: detailed, json, compact', 'detailed')
-    .action(async (taskId: string, options: any) => {
+    .action(async (taskId: string, options: TaskOptions) => {
       try {
         const displayStatus = async () => {
           const status = await context.taskEngine.getTaskStatus(taskId);
@@ -492,7 +533,7 @@ export function createTaskCancelCommand(context: TaskCommandContext): Command {
     .option('--force', 'Force cancellation even if task is completed')
     .option('--cascade', 'Cancel dependent tasks as well')
     .option('--dry-run', 'Show what would be cancelled without cancelling')
-    .action(async (taskId: string, options: any) => {
+    .action(async (taskId: string, options: TaskOptions) => {
       try {
         console.log(chalk.blue(`⏹️  Preparing to cancel task: ${taskId}`));
 
@@ -595,7 +636,7 @@ export function createTaskWorkflowCommand(context: TaskCommandContext): Command 
         .option('--strategy <strategy>', 'Parallelism strategy: breadth-first, depth-first, priority-based', 'priority-based')
         .option('--error-handling <strategy>', 'Error handling: fail-fast, continue-on-error, retry-failed', 'fail-fast')
         .option('--max-retries <number>', 'Maximum workflow retries', '3')
-        .action(async (name: string, options: any) => {
+        .action(async (name: string, options: WorkflowOptions) => {
           try {
             console.log(chalk.blue(`🔧 Creating workflow: ${name}`));
 
@@ -640,7 +681,7 @@ export function createTaskWorkflowCommand(context: TaskCommandContext): Command 
         .option('--variables <json>', 'Workflow variables as JSON')
         .option('--dry-run', 'Show execution plan without executing')
         .option('--monitor', 'Monitor execution progress')
-        .action(async (workflowId: string, options: any) => {
+        .action(async (workflowId: string, options: WorkflowOptions | TaskOptions) => {
           try {
             console.log(chalk.blue(`🚀 Executing workflow: ${workflowId}`));
 
@@ -670,7 +711,7 @@ export function createTaskWorkflowCommand(context: TaskCommandContext): Command 
         .argument('<workflow-id>', 'Workflow ID to visualize')
         .option('--format <format>', 'Output format: ascii, dot, json', 'ascii')
         .option('--output <file>', 'Output file (for dot/json formats)')
-        .action(async (workflowId: string, options: any) => {
+        .action(async (workflowId: string, options: WorkflowOptions | TaskOptions) => {
           try {
             console.log(chalk.blue(`📊 Visualizing workflow: ${workflowId}`));
 
@@ -726,7 +767,7 @@ function formatDuration(ms: number): string {
   return `${seconds}s`;
 }
 
-function getLogLevelColor(level: string): any {
+function getLogLevelColor(level: string): typeof chalk.ChalkFunction {
   switch (level) {
     case 'debug': return chalk.gray;
     case 'info': return chalk.blue;
@@ -736,7 +777,7 @@ function getLogLevelColor(level: string): any {
   }
 }
 
-function displayTaskTable(tasks: WorkflowTask[], options: any): void {
+function displayTaskTable(tasks: WorkflowTask[], options: TaskListOptions): void {
   console.log(chalk.yellow('\n📋 Tasks:'));
   console.log('─'.repeat(80));
   
@@ -756,7 +797,7 @@ function displayTaskTree(tasks: WorkflowTask[]): void {
   console.log('Tree visualization would be implemented here');
 }
 
-function displayDependencyGraph(graph: { nodes: any[]; edges: any[] }): void {
+function displayDependencyGraph(graph: { nodes: Array<{ id: string; label: string; status: string }>; edges: Array<{ from: string; to: string }> }): void {
   console.log(chalk.yellow('\n🕸️  Dependency Graph:'));
   console.log(`📊 Nodes: ${graph.nodes.length}, Edges: ${graph.edges.length}`);
   

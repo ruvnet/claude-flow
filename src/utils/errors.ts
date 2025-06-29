@@ -229,3 +229,56 @@ export function getErrorDetails(error: unknown): unknown {
   }
   return undefined;
 }
+
+/**
+ * Simple error handling utilities for common patterns
+ */
+
+/**
+ * Fatal error handler that logs and exits
+ */
+export function fatal(error: unknown, code = 1): never {
+  if (error instanceof Error) {
+    console.error(formatError(error));
+    if (error.stack && process.env.NODE_ENV !== 'production') {
+      console.error(error.stack);
+    }
+  } else {
+    console.error(String(error));
+  }
+  process.exit(code);
+}
+
+/**
+ * Wraps an async function with fatal error handling
+ */
+export async function wrap<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    fatal(error);
+  }
+}
+
+/**
+ * Wraps a sync function with fatal error handling
+ */
+export function wrapSync<T>(fn: () => T): T {
+  try {
+    return fn();
+  } catch (error) {
+    fatal(error);
+  }
+}
+
+/**
+ * Safe error handler that doesn't exit process
+ */
+export function safeHandle(error: unknown, fallback?: unknown): unknown {
+  if (error instanceof Error) {
+    console.error(formatError(error));
+  } else {
+    console.error(String(error));
+  }
+  return fallback;
+}

@@ -9,7 +9,7 @@ import { ClaudeConnectionPool } from './connection-pool.js';
 import { AsyncFileManager } from './async-file-manager.js';
 import { TTLMap } from './ttl-map.js';
 import { CircularBuffer } from './circular-buffer.js';
-import PQueue from 'p-queue';
+import PQueue from './simple-queue.js';
 import { 
   TaskDefinition, 
   TaskResult, 

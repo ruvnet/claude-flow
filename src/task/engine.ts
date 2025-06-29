@@ -6,6 +6,7 @@
 import { EventEmitter } from 'events';
 import { Task, TaskStatus, AgentProfile, Resource } from '../utils/types.js';
 import { generateId } from '../utils/helpers.js';
+import type { IMemoryManager } from '../memory/manager.js';
 
 export interface TaskDependency {
   taskId: string;
@@ -137,7 +138,7 @@ export class TaskEngine extends EventEmitter {
 
   constructor(
     private maxConcurrent: number = 10,
-    private memoryManager?: any // Memory interface for persistence
+    private memoryManager?: IMemoryManager
   ) {
     super();
     this.setupEventHandlers();
@@ -410,7 +411,7 @@ export class TaskEngine extends EventEmitter {
   /**
    * Get dependency visualization
    */
-  getDependencyGraph(): { nodes: any[]; edges: any[] } {
+  getDependencyGraph(): { nodes: Array<{ id: string; label: string; status: string }>; edges: Array<{ from: string; to: string }> } {
     const nodes = Array.from(this.tasks.values()).map(task => ({
       id: task.id,
       label: task.description,
@@ -421,7 +422,7 @@ export class TaskEngine extends EventEmitter {
       tags: task.tags
     }));
 
-    const edges: any[] = [];
+    const edges: Array<{ from: string; to: string }> = [];
     for (const task of this.tasks.values()) {
       for (const dep of task.dependencies) {
         edges.push({

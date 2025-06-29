@@ -9,10 +9,13 @@ import { chmod } from 'node:fs/promises';
 import { generateId } from '../../utils/helpers.js';
 import { success, error, warning, info } from "../cli-core.js";
 import type { CommandContext } from "../cli-core.js";
+import { SwarmFacade } from '../../coordination/index.js';
+import { MemoryFacade } from '../../memory/index.js';
+import type { SwarmStrategy, SwarmMode } from '../../types/missing-types.js';
+import { registerCurrentProcess, registerChildProcess } from '../../services/process-registry/integration.js';
 import { SwarmCoordinator } from '../../coordination/swarm-coordinator.js';
 import { BackgroundExecutor } from '../../coordination/background-executor.js';
-import { SwarmMemoryManager } from '../../memory/swarm-memory.js';
-import type { SwarmStrategy, SwarmMode } from '../../types/missing-types.js';
+import { SwarmMemoryManager } from '../../swarm/memory.js';
 
 export async function swarmAction(ctx: CommandContext) {
   // First check if help is requested
@@ -46,7 +49,16 @@ export async function swarmAction(ctx: CommandContext) {
     return;
   }
   
+  // Initialize facades
+  const logger = ctx.logger || console;
+  const swarmFacade = new SwarmFacade(logger);
+  const memoryFacade = new MemoryFacade(logger, {
+    namespace: ctx.flags['memory-namespace'] as string || 'swarm',
+    persistent: ctx.flags.persistence !== false
+  });
+
   const options = {
+    objective,
     strategy: ctx.flags.strategy as string || 'auto',
     maxAgents: ctx.flags.maxAgents as number || ctx.flags['max-agents'] as number || 5,
     maxDepth: ctx.flags.maxDepth as number || ctx.flags['max-depth'] as number || 3,
@@ -105,6 +117,17 @@ export async function swarmAction(ctx: CommandContext) {
             stdio: 'inherit'
           });
           
+          // Register UI process
+          registerChildProcess(childProcess.pid!, {
+            name: `swarm-ui-${swarmId}`,
+            type: 'service',
+            command: ['node', uiScriptPath],
+            parentId: swarmProcessId,
+            metadata: { swarmId, ui: true }
+          }).catch(err => {
+            warning(`Failed to register UI process: ${err.message}`);
+          });
+          
           childProcess.on('error', reject);
           childProcess.on('exit', (code) => {
             resolve(code || 0);
@@ -126,6 +149,22 @@ export async function swarmAction(ctx: CommandContext) {
   success(`🐝 Initializing Claude Swarm: ${swarmId}`);
   console.log(`📋 Objective: ${objective}`);
   console.log(`🎯 Strategy: ${options.strategy}`);
+  
+  // Register swarm with process registry
+  const swarmProcessId = await registerCurrentProcess({
+    name: `swarm-${swarmId}`,
+    type: 'swarm',
+    command: process.argv,
+    healthCheckInterval: 30000,
+    metadata: {
+      swarmId,
+      objective,
+      strategy: options.strategy,
+      maxAgents: options.maxAgents
+    }
+  });
+  
+  console.log(`🔍 Swarm registered with process ID: ${swarmProcessId}`);
   
   try {
     // Initialize swarm coordination system
