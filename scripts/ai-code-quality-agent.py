@@ -113,52 +113,40 @@ class CodeQualityAgent:
         """
 
         try:
-            # Try different model names, prioritizing o4-mini-2025-04-16
-            models_to_try = ['o4-mini-2025-04-16', 'gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-4']
+            print(f"🤖 Running AI analysis with o4-mini-2025-04-16")
+            response = requests.post(
+                'https://api.openai.com/v1/chat/completions',
+                headers={
+                    'Authorization': f'Bearer {self.openai_api_key}',
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'model': 'o4-mini-2025-04-16',
+                    'messages': [{'role': 'user', 'content': prompt}],
+                    'temperature': 0.1,
+                    'max_tokens': 1500
+                },
+                timeout=30
+            )
 
-            for model in models_to_try:
-                try:
-                    print(f"🤖 Trying AI analysis with model: {model}")
-                    response = requests.post(
-                        'https://api.openai.com/v1/chat/completions',
-                        headers={
-                            'Authorization': f'Bearer {self.openai_api_key}',
-                            'Content-Type': 'application/json'
-                        },
-                        json={
-                            'model': model,
-                            'messages': [{'role': 'user', 'content': prompt}],
-                            'temperature': 0.1,
-                            'max_tokens': 1500  # Increased for better analysis
-                        },
-                        timeout=30
-                    )
-
-                    if response.status_code == 200:
-                        content = response.json()['choices'][0]['message']['content']
-                        print(f"✅ AI analysis successful with model: {model}")
-                        # Try to extract JSON from the response
-                        start = content.find('{')
-                        end = content.rfind('}') + 1
-                        if start != -1 and end != 0:
-                            return json.loads(content[start:end])
-                        else:
-                            # If no JSON found, create a simple response
-                            return {
-                                "issues": [],
-                                "suggestions": [content[:200] + "..." if len(content) > 200 else content],
-                                "score": 7
-                            }
-                    else:
-                        print(f"❌ Model {model} failed with status: {response.status_code}")
-                        if response.status_code == 404:
-                            continue  # Try next model
-                        else:
-                            print(f"Error response: {response.text}")
-
-                except requests.exceptions.RequestException as e:
-                    print(f"❌ Request error with model {model}: {e}")
-                    continue
+            if response.status_code == 200:
+                content = response.json()['choices'][0]['message']['content']
+                print(f"✅ AI analysis successful")
+                # Try to extract JSON from the response
+                start = content.find('{')
+                end = content.rfind('}') + 1
+                if start != -1 and end != 0:
+                    return json.loads(content[start:end])
+                else:
+                    # If no JSON found, create a simple response
+                    return {
+                        "issues": [],
+                        "suggestions": [content[:200] + "..." if len(content) > 200 else content],
+                        "score": 7
+                    }
+            else:
+                print(f"❌ API request failed with status {response.status_code}: {response.text}")
+                return None
 
         except Exception as e:
             print(f"❌ AI analysis error: {e}")
