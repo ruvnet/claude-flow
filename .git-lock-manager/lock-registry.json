@@ -1,0 +1,26 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2025-06-29T13:06:00Z",
+  "locks": {},
+  "queue": [],
+  "reservations": {},
+  "metadata": {
+    "agent_id": "agent-2",
+    "operation": "typescript-strict-final-push",
+    "lock_timeout": 7200,
+    "queue_timeout": 1800,
+    "max_concurrent_locks": 10
+  },
+  "protocols": {
+    "lock_request": {
+      "required_fields": ["agent_id", "file_path", "operation_type", "estimated_duration"],
+      "max_duration": 7200,
+      "approval_required": false
+    },
+    "conflict_resolution": {
+      "priority_order": ["WS-B", "WS-D", "WS-A", "WS-C", "WS-E"],
+      "escalation_timeout": 1800,
+      "force_unlock_authority": ["agent-1", "agent-2"]
+    }
+  }
+}

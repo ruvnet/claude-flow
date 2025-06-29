@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2025-06-29T13:12:08Z",
+  "queue": [],
+  "processing": null,
+  "completed": [],
+  "failed": [],
+  "metadata": {
+    "agent_id": "agent-2",
+    "workstream_priority": ["WS-B", "WS-D", "WS-A", "WS-C", "WS-E"],
+    "max_concurrent_merges": 1,
+    "merge_timeout": 3600
+  }
+}

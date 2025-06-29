@@ -446,8 +446,8 @@ describe('Swarm Validation Framework', () => {
       console.log(`Scaling events:`, scaleMetrics);
     });
     
-    // Helper method for variance calculation
-    calculateVariance(values: number[]): number {
+    // Helper function for variance calculation
+    function calculateVariance(values: number[]): number {
       const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
       const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
       return squaredDiffs.reduce((sum, diff) => sum + diff, 0) / values.length;
@@ -1071,7 +1071,7 @@ describe('Swarm Validation Framework', () => {
     });
     
     // Helper method for checksum calculation
-    calculateChecksum(dataMap: Map<string, string>): string {
+    function calculateChecksum(dataMap: Map<string, string>): string {
       const sortedEntries = Array.from(dataMap.entries()).sort();
       const dataString = JSON.stringify(sortedEntries);
       // Simple checksum - in real implementation, use crypto.createHash

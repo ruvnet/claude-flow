@@ -1,0 +1,267 @@
+{
+  "swarmConfig": {
+    "id": "typescript-strict-final-push",
+    "version": "2.0.0",
+    "objective": "Complete TypeScript strict mode compliance by eliminating all 474 remaining errors",
+    "strategy": "development",
+    "mode": "hierarchical",
+    "maxAgents": 30,
+    "timeout": 120,
+    "qualityThreshold": 0.98,
+    "memoryNamespace": "typescript-strict-final-push",
+    
+    "agentGroups": [
+      {
+        "id": "command-control",
+        "name": "Command & Control",
+        "agents": [1, 2, 3],
+        "priority": "critical",
+        "roles": {
+          "1": {
+            "name": "Supreme Commander",
+            "responsibilities": ["Overall strategy coordination", "Quality gate enforcement", "Progress monitoring"],
+            "memoryKeys": ["global-progress", "quality-metrics", "agent-status"]
+          },
+          "2": {
+            "name": "Conflict Resolution Specialist",
+            "responsibilities": ["Git conflict resolution", "File locking management", "Merge coordination"],
+            "tools": ["git-lock-manager", "conflict-resolver"],
+            "memoryKeys": ["file-locks", "conflict-queue"]
+          },
+          "3": {
+            "name": "Progress Monitor",
+            "responsibilities": ["Real-time metrics tracking", "Error count monitoring", "Performance tracking"],
+            "updateInterval": 60,
+            "memoryKeys": ["error-counts", "performance-metrics"]
+          }
+        }
+      },
+      
+      {
+        "id": "mechanical-fix-team",
+        "name": "Mechanical Fix Strike Team",
+        "agents": [4, 5, 6, 7, 8, 9, 10, 11],
+        "priority": "high",
+        "targetErrors": ["TS4111"],
+        "errorCount": 192,
+        "strategy": "batch-processing",
+        "roles": {
+          "4-11": {
+            "name": "Bracket Notation Specialists",
+            "pattern": "Replace obj.property with obj['property'] for index signatures",
+            "tools": ["fix-bracket-notation.ts"],
+            "fileGroups": {
+              "4-5": ["src/cli/commands/**/*.ts"],
+              "6-7": ["src/mcp/**/*.ts", "src/types/**/*.ts"],
+              "8-9": ["src/coordination/**/*.ts", "src/core/**/*.ts"],
+              "10-11": ["src/**/*.ts"]
+            }
+          }
+        },
+        "completionTarget": 30,
+        "successMetric": "TS4111 errors reduced to 0"
+      },
+      
+      {
+        "id": "type-safety-specialists",
+        "name": "Type Safety Specialists",
+        "agents": [12, 13, 14, 15, 16, 17],
+        "priority": "high",
+        "targetErrors": ["TS2345", "TS2412", "TS2375", "TS2379", "TS2322"],
+        "errorCount": 133,
+        "strategy": "pattern-application",
+        "patterns": {
+          "conditionalSpread": "...(value !== undefined && { key: value })",
+          "typeGuards": "if (value !== undefined) { /* use value */ }",
+          "strictInterfaces": "Use helper functions for complex type creation"
+        },
+        "roles": {
+          "12-14": {
+            "name": "Assignment Specialists",
+            "targetErrors": ["TS2345", "TS2412"],
+            "focus": "Type assignment compatibility"
+          },
+          "15-16": {
+            "name": "Optional Property Experts",
+            "targetErrors": ["TS2375", "TS2379"],
+            "focus": "exactOptionalPropertyTypes compliance"
+          },
+          "17": {
+            "name": "Pattern Documentation Lead",
+            "responsibilities": ["Document successful patterns", "Share solutions via memory"],
+            "memoryKeys": ["type-patterns", "solution-catalog"]
+          }
+        }
+      },
+      
+      {
+        "id": "module-teams",
+        "name": "Module Deep Dive Teams",
+        "agents": [18, 19, 20, 21, 22, 23, 24, 25, 26, 27],
+        "priority": "high",
+        "strategy": "targeted-elimination",
+        "teams": [
+          {
+            "agents": [18, 19, 20, 21, 22, 23],
+            "target": "src/cli/commands",
+            "errorCount": 191,
+            "subTargets": {
+              "18-19": ["src/cli/commands/enterprise.ts", "src/cli/commands/agent.ts"],
+              "20-21": ["src/cli/commands/advanced-memory-commands.ts", "src/cli/commands/config.ts"],
+              "22-23": ["src/cli/commands/index.ts", "src/cli/commands/**/*.ts"]
+            }
+          },
+          {
+            "agents": [24, 25],
+            "target": "src/mcp",
+            "errorCount": 61,
+            "focus": ["Iterator patterns", "MCP protocol compliance"]
+          },
+          {
+            "agents": [26, 27],
+            "target": "src/types",
+            "errorCount": 41,
+            "focus": ["Duplicate export resolution", "Type utility fixes"]
+          }
+        ]
+      },
+      
+      {
+        "id": "cleanup-squad",
+        "name": "Cleanup & Edge Case Squad",
+        "agents": [28, 29, 30],
+        "priority": "medium",
+        "roles": {
+          "28": {
+            "name": "Duplicate Export Eliminator",
+            "targetErrors": ["TS2484"],
+            "errorCount": 35,
+            "strategy": "Consolidate exports, remove duplicates"
+          },
+          "29": {
+            "name": "Edge Case Handler",
+            "targetErrors": ["TS18048", "TS2532", "TS2538", "TS2769", "TS2344", "TS2488"],
+            "errorCount": 88,
+            "focus": "Possibly undefined values and misc errors"
+          },
+          "30": {
+            "name": "Final Validator",
+            "responsibilities": ["Integration testing", "Build verification", "Performance validation"],
+            "checkpoints": ["All tests pass", "Build succeeds", "No performance regression"]
+          }
+        }
+      }
+    ],
+    
+    "phases": [
+      {
+        "id": "lightning-recon",
+        "name": "Lightning Reconnaissance",
+        "duration": 10,
+        "agents": "all",
+        "tasks": [
+          "Verify current error count matches 474",
+          "Deploy teams to assigned areas",
+          "Establish memory coordination channels"
+        ]
+      },
+      {
+        "id": "mechanical-blitz",
+        "name": "Mechanical Fix Blitz",
+        "duration": 30,
+        "agents": [4, 5, 6, 7, 8, 9, 10, 11],
+        "expectedReduction": "474 → 282 errors",
+        "parallelExecution": true
+      },
+      {
+        "id": "type-safety-assault",
+        "name": "Type Safety Assault",
+        "duration": 40,
+        "agents": [12, 13, 14, 15, 16, 17],
+        "expectedReduction": "282 → 149 errors",
+        "dependencies": ["mechanical-blitz"]
+      },
+      {
+        "id": "module-operations",
+        "name": "Module-Specific Operations",
+        "duration": 30,
+        "agents": [18, 19, 20, 21, 22, 23, 24, 25, 26, 27],
+        "expectedReduction": "149 → 35 errors",
+        "parallelExecution": true
+      },
+      {
+        "id": "final-cleanup",
+        "name": "Final Cleanup & Validation",
+        "duration": 10,
+        "agents": [28, 29, 30],
+        "expectedReduction": "35 → 0 errors",
+        "finalValidation": true
+      }
+    ],
+    
+    "qualityGates": [
+      {
+        "time": 20,
+        "name": "Mechanical Progress",
+        "target": "50% of TS4111 errors eliminated",
+        "errorTarget": 378
+      },
+      {
+        "time": 40,
+        "name": "Type Safety Progress",
+        "target": "All TS4111 eliminated, 50% type errors fixed",
+        "errorTarget": 237
+      },
+      {
+        "time": 60,
+        "name": "Module Progress",
+        "target": "75% total reduction",
+        "errorTarget": 118
+      },
+      {
+        "time": 80,
+        "name": "Near Completion",
+        "target": "90% reduction achieved",
+        "errorTarget": 47
+      },
+      {
+        "time": 100,
+        "name": "Final Push",
+        "target": "95% reduction",
+        "errorTarget": 23
+      },
+      {
+        "time": 120,
+        "name": "Mission Complete",
+        "target": "0 errors, all validations pass",
+        "errorTarget": 0
+      }
+    ],
+    
+    "coordinationStrategy": {
+      "conflictResolution": "priority-based",
+      "fileAllocation": "exclusive-lock",
+      "progressTracking": "real-time",
+      "communication": "memory-based",
+      "emergencyProtocol": {
+        "buildBreak": "pause-all",
+        "testFailure": "rollback-checkpoint",
+        "performanceIssue": "reduce-parallelism"
+      }
+    },
+    
+    "successPatterns": {
+      "fromPreviousSwarm": [
+        "Bracket notation for all index signatures",
+        "Conditional spreading for optional properties",
+        "Delete instead of undefined assignment",
+        "Type guards for possibly undefined",
+        "Helper functions for complex types"
+      ],
+      "tools": [
+        "scripts/fix-bracket-notation.ts",
+        "scripts/build-monitor.ts"
+      ]
+    }
+  }
+}

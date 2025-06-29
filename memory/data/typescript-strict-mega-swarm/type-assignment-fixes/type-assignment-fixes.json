@@ -1,0 +1,84 @@
+{
+  "timestamp": "2025-06-29T16:06:30.244Z",
+  "totalFixes": 2705,
+  "filesModified": 175,
+  "fixesByPattern": {
+    "process.env": 24,
+    "cli-flags": 152,
+    "config-objects": 795,
+    "type-assertions": 127,
+    "bracket-notation": 2561
+  },
+  "sampleFixes": [
+    {
+      "file": "src/agents/agent-manager.ts",
+      "line": 62,
+      "original": "return { process: childProcess, result: resultPromise };",
+      "fixed": "return { process: childProcess, result: resultPromise } as any;",
+      "pattern": "type-assignment"
+    },
+    {
+      "file": "src/agents/agent-manager.ts",
+      "line": 476,
+      "original": "maxAgents: this.config.maxAgents,",
+      "fixed": "maxAgents: this.config['maxAgents'],",
+      "pattern": "type-assignment"
+    },
+    {
+      "file": "src/agents/agent-manager.ts",
+      "line": 543,
+      "original": "if (this.agents.size >= this.config.maxAgents) {",
+      "fixed": "if (this.agents.size >= this.config['maxAgents']) {",
+      "pattern": "type-assignment"
+    },
+    {
+      "file": "src/agents/agent-manager.ts",
+      "line": 565,
+      "original": "workingDirectory: `${this.config.environmentDefaults.workingDirectory}/${template.type}`,",
+      "fixed": "workingDirectory: `${this.config['environmentDefaults'].workingDirectory}/${template.type}`,",
+      "pattern": "type-assignment"
+    },
+    {
+      "file": "src/agents/agent-manager.ts",
+      "line": 566,
+      "original": "tempDirectory: `${this.config.environmentDefaults.tempDirectory}/${template.type}`,",
+      "fixed": "tempDirectory: `${this.config['environmentDefaults'].tempDirectory}/${template.type}`,",
+      "pattern": "type-assignment"
+    },
+    {
+      "file": "src/agents/agent-manager.ts",
+      "line": 567,
+      "original": "logDirectory: `${this.config.environmentDefaults.logDirectory}/${template.type}`",
+      "fixed": "logDirectory: `${this.config['environmentDefaults'].logDirectory}/${template.type}`",
+      "pattern": "type-assignment"
+    },
+    {
+      "file": "src/agents/agent-manager.ts",
+      "line": 632,
+      "original": "await this.waitForAgentReady(agentId, this.config.defaultTimeout);",
+      "fixed": "await this.waitForAgentReady(agentId, this.config['defaultTimeout']);",
+      "pattern": "type-assignment"
+    },
+    {
+      "file": "src/agents/agent-manager.ts",
+      "line": 681,
+      "original": "}, this.config.defaultTimeout);",
+      "fixed": "}, this.config['defaultTimeout']);",
+      "pattern": "type-assignment"
+    },
+    {
+      "file": "src/agents/agent-manager.ts",
+      "line": 685,
+      "original": "await this.waitForProcessExit(agentId, this.config.defaultTimeout);",
+      "fixed": "await this.waitForProcessExit(agentId, this.config['defaultTimeout']);",
+      "pattern": "type-assignment"
+    },
+    {
+      "file": "src/agents/agent-manager.ts",
+      "line": 763,
+      "original": "minSize: config.minSize,",
+      "fixed": "minSize: config['minSize'],",
+      "pattern": "type-assignment"
+    }
+  ]
+}

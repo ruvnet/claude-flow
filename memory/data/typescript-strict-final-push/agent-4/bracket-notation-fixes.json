@@ -1,0 +1,127 @@
+{
+  "timestamp": "2025-06-29T13:11:00.094Z",
+  "totalFixes": 129,
+  "filesModified": 13,
+  "fixes": [
+    {
+      "file": "src/cli/commands/enterprise.ts",
+      "line": 758,
+      "original": "if (ctx.flags.environment) filters.environment = ctx.flags.environment;",
+      "fixed": "if (ctx.flags['environment']) filters.environment = ctx.flags['environment'];"
+    },
+    {
+      "file": "src/cli/commands/enterprise.ts",
+      "line": 757,
+      "original": "if (ctx.flags.provider) filters.providerId = ctx.flags.provider;",
+      "fixed": "if (ctx.flags['provider']) filters.providerId = ctx.flags['provider'];"
+    },
+    {
+      "file": "src/cli/commands/enterprise.ts",
+      "line": 726,
+      "original": "if (ctx.flags.environment) filters.environment = ctx.flags.environment;",
+      "fixed": "if (ctx.flags['environment']) filters.environment = ctx.flags['environment'];"
+    },
+    {
+      "file": "src/cli/commands/enterprise.ts",
+      "line": 725,
+      "original": "if (ctx.flags.provider) filters.providerId = ctx.flags.provider;",
+      "fixed": "if (ctx.flags['provider']) filters.providerId = ctx.flags['provider'];"
+    },
+    {
+      "file": "src/cli/commands/enterprise.ts",
+      "line": 259,
+      "original": "if (ctx.flags.verbose && Object.keys(report.details).length > 0) {",
+      "fixed": "if (ctx.flags['verbose'] && Object.keys(report.details).length > 0) {"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 2026,
+      "original": "timeout: ctx.flags.timeout || 60",
+      "fixed": "timeout: ctx.flags['timeout'] || 60"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 2025,
+      "original": "healthCheck: ctx.flags.healthCheck || ctx.flags['health-check'],",
+      "fixed": "healthCheck: ctx.flags['healthCheck'] || ctx.flags['health-check'],"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 2024,
+      "original": "force: ctx.flags.force,",
+      "fixed": "force: ctx.flags['force'],"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 2023,
+      "original": "config: ctx.flags.config,",
+      "fixed": "config: ctx.flags['config'],"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 2022,
+      "original": "autoStart: ctx.flags.autoStart || ctx.flags['auto-start'],",
+      "fixed": "autoStart: ctx.flags['autoStart'] || ctx.flags['auto-start'],"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 2021,
+      "original": "verbose: ctx.flags.verbose || ctx.flags.v,",
+      "fixed": "verbose: ctx.flags['verbose'] || ctx.flags['v'],"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 2020,
+      "original": "ui: ctx.flags.ui || ctx.flags.u,",
+      "fixed": "ui: ctx.flags['ui'] || ctx.flags['u'],"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 2019,
+      "original": "mcpTransport: ctx.flags.mcpTransport || ctx.flags['mcp-transport'] || 'stdio',",
+      "fixed": "mcpTransport: ctx.flags['mcpTransport'] || ctx.flags['mcp-transport'] || 'stdio',"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 2018,
+      "original": "port: ctx.flags.port || ctx.flags.p || 3000,",
+      "fixed": "port: ctx.flags['port'] || ctx.flags['p'] || 3000,"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 2017,
+      "original": "daemon: ctx.flags.daemon || ctx.flags.d,",
+      "fixed": "daemon: ctx.flags['daemon'] || ctx.flags['d'],"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 1960,
+      "original": "ctx.flags.ui = true;",
+      "fixed": "ctx.flags['ui'] = true;"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 1866,
+      "original": "if (ctx.flags.orchestration) {",
+      "fixed": "if (ctx.flags['orchestration']) {"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 1862,
+      "original": "if (ctx.flags.parallel) {",
+      "fixed": "if (ctx.flags['parallel']) {"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 1858,
+      "original": "if (ctx.flags.batch) {",
+      "fixed": "if (ctx.flags['batch']) {"
+    },
+    {
+      "file": "src/cli/commands/index.ts",
+      "line": 1619,
+      "original": "const interval = (ctx.flags.interval as number || 2) * 1000;",
+      "fixed": "const interval = (ctx.flags['interval'] as number || 2) * 1000;"
+    }
+  ]
+}

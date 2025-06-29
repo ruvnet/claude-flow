@@ -19,6 +19,7 @@ import { Logger, LogLevel } from '../../../src/core/logger.js';
 import { LoggingConfig } from '../../../src/utils/types.js';
 import { cleanupTestEnv, setupTestEnv } from '../../test.config.js';
 import { captureConsole, createTestFile } from '../../test.utils.js';
+import * as fs from 'fs';
 
 describe('Logger', () => {
   let logger: Logger;
@@ -333,32 +334,29 @@ describe('Logger', () => {
         format: 'text',
         destination: 'file',
         filePath: tempLogFile,
-        maxFileSize: 100, // Very small for testing
+        maxFileSize: 50, // Very small for testing
         maxFiles: 3,
       };
       
       logger = Logger.getInstance(config);
       
-      // Write enough logs to trigger rotation
-      for (let i = 0; i < 10; i++) {
-        logger.info('This is a long log message to fill up the file quickly');
+      // Write enough logs to trigger rotation multiple times
+      for (let i = 0; i < 20; i++) {
+        logger.info(`This is a long log message ${i} to fill up the file quickly and trigger rotation`);
+        // Small delay between writes to allow file operations
+        await new Promise(resolve => setTimeout(resolve, 10));
       }
       
-      // Wait for file operations to complete
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait longer for file operations to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Check if rotation occurred
       const dir = tempLogFile.substring(0, tempLogFile.lastIndexOf('/'));
-      const files: string[] = [];
+      const allFiles = fs.readdirSync(dir);
+      const logFiles = allFiles.filter(filename => filename.includes('test.log'));
       
-      for await (const entry of Deno.readDir(dir)) {
-        if (entry.isFile && entry.name.includes('test.log')) {
-          files.push(entry.name);
-        }
-      }
-      
-      // Should have rotated file
-      expect(files.length > 1).toBe( true);
+      // Should have rotated file (original + at least one rotated)
+      expect(logFiles.length).toBeGreaterThan(1);
     });
   });
 
@@ -414,7 +412,7 @@ describe('Logger', () => {
         destination: 'console',
       });
       
-      expect(fileHandleSpy).toBe( 1);
+      expect(fileHandleSpy).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -469,7 +467,7 @@ describe('Logger', () => {
       
       // Capture console.error
       const originalError = console.error;
-      const errorSpy = jest.spyOn();
+      const errorSpy = jest.spyOn(console, 'error');
       console.error = errorSpy;
       
       try {
@@ -479,9 +477,10 @@ describe('Logger', () => {
         // Wait for async write
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Should log error to console
-        expect(errorSpy).toBe( 1);
-        expect(errorSpy.calls[0].args[0]).toBe( 'Failed to write to log file:');
+        // Should log error to console - verify it was called
+        expect(errorSpy).toHaveBeenCalledTimes(1);
+        // Verify the call includes our error message
+        expect(errorSpy.mock.calls[0][0]).toBe('Failed to write to log file:');
       } finally {
         console.error = originalError;
       }

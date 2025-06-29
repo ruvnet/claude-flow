@@ -1,0 +1,84 @@
+{
+  "agent": "Agent 11 - Security Auditor",
+  "memory_reference": "swarm-development-hierarchical-1751206792481/security-11",
+  "audit_date": "2025-06-29",
+  "audit_scope": "Comprehensive security vulnerability assessment",
+  "files_examined": 13,
+  "vulnerabilities_found": {
+    "critical": [
+      {
+        "title": "Exposed API Keys in Repository",
+        "file": "zen-mcp-server/.env",
+        "lines": "14, 17",
+        "description": "Gemini and OpenAI API keys committed to repository",
+        "keys_exposed": [
+          "GEMINI_API_KEY=***REDACTED***",
+          "OPENAI_API_KEY=***REDACTED***"
+        ],
+        "action_required": "IMMEDIATE - Revoke keys, regenerate, implement secrets management"
+      }
+    ],
+    "high": [
+      {
+        "title": "Weak Password Hashing (SHA-256)",
+        "file": "src/mcp/auth.ts",
+        "lines": "352-353",
+        "description": "Using unsalted SHA-256 instead of bcrypt/argon2id",
+        "remediation": "Implement proper password hashing with salt"
+      },
+      {
+        "title": "Insecure JWT Secret Fallback",
+        "file": "src/config/environments/production.ts",
+        "line": "56",
+        "description": "Hardcoded fallback 'CHANGE_THIS_IN_PRODUCTION'",
+        "remediation": "Remove fallback, fail-fast on missing secret"
+      }
+    ],
+    "medium": [
+      {
+        "title": "Incomplete TLS Implementation",
+        "file": "src/mcp/transports/http.ts",
+        "description": "TLS flag accepted but only HTTP server created"
+      },
+      {
+        "title": "In-Memory Token Storage",
+        "file": "src/mcp/auth.ts",
+        "description": "Tokens lost on restart, no persistent revocation"
+      },
+      {
+        "title": "Overly Permissive Static Tokens",
+        "file": "src/mcp/auth.ts",
+        "description": "Static tokens get wildcard (*) permissions"
+      }
+    ],
+    "low": [
+      {
+        "title": "Permissive CORS Configuration",
+        "file": "src/mcp/transports/http.ts",
+        "description": "Default allows any origin"
+      }
+    ]
+  },
+  "positive_findings": [
+    "Strong input validation with injection protection",
+    "Proper SQL injection prevention via prepared statements",
+    "Comprehensive rate limiting implementation", 
+    "Security headers via Helmet middleware",
+    "Extensive audit logging capabilities",
+    "Command authorization and whitelisting",
+    "Current dependencies with no critical CVEs"
+  ],
+  "overall_risk": "HIGH",
+  "immediate_actions": [
+    "Revoke exposed API keys immediately",
+    "Remove keys from git history",
+    "Implement secrets management solution",
+    "Fix insecure JWT fallback",
+    "Upgrade password hashing algorithm"
+  ],
+  "compliance_status": {
+    "SOC2": "Non-compliant - multiple control violations",
+    "GDPR": "Partially compliant - weak password hashing concerns",
+    "PCI_DSS": "Would require significant hardening"
+  }
+}

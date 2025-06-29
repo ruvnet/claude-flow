@@ -56,7 +56,13 @@ async function fixBracketNotation() {
           
           // Common patterns to fix:
           // process.env.VARIABLE -> process.env['VARIABLE']
+          // ctx.flags.property -> ctx.flags['property'] (CLI options)
           // obj.property -> obj['property'] (when from index signature)
+          
+          // Skip import statements completely
+          if (originalLine.trim().startsWith('import ') || originalLine.trim().startsWith('export ')) {
+            return;
+          }
           
           // Pattern 1: process.env.PROPERTY
           let fixedLine = originalLine.replace(
@@ -64,18 +70,26 @@ async function fixBracketNotation() {
             "process.env['$1']"
           );
           
-          // Pattern 2: Generic property access that needs brackets
-          // This is trickier and might need manual review
+          // Pattern 2: CLI flags pattern ctx.flags.property (most common in our case)
           if (fixedLine === originalLine) {
-            // Try to find property access patterns
             fixedLine = originalLine.replace(
-              /(\w+)\.([A-Z_][A-Z0-9_]*)/g,
-              (match, obj, prop) => {
-                // Only fix if it looks like an environment variable or constant
-                if (prop === prop.toUpperCase()) {
-                  return `${obj}['${prop}']`;
+              /(\b\w+\.flags)\.([a-zA-Z_][a-zA-Z0-9_-]*)/g,
+              "$1['$2']"
+            );
+          }
+          
+          // Pattern 3: Other object property access (but be more careful)
+          if (fixedLine === originalLine) {
+            // Only fix specific known patterns that cause TS4111
+            // Look for patterns like: someObj.property where property needs brackets
+            fixedLine = originalLine.replace(
+              /(\b(?:ctx\.flags|options|config|params|args|data|result)\.[\w\[\]'"]*)\.([a-zA-Z_][a-zA-Z0-9_-]*)/g,
+              (match, prefix, property) => {
+                // Don't fix if it's already in brackets or quotes
+                if (prefix.includes('[') || prefix.includes("'") || prefix.includes('"')) {
+                  return match;
                 }
-                return match;
+                return `${prefix}['${property}']`;
               }
             );
           }
@@ -111,7 +125,7 @@ async function fixBracketNotation() {
   };
   
   writeFileSync(
-    'memory/data/typescript-strict-mega-swarm/build-agent-7/bracket-notation-fixes.json',
+    'memory/data/typescript-strict-final-push/agent-4/bracket-notation-fixes.json',
     JSON.stringify(report, null, 2)
   );
   

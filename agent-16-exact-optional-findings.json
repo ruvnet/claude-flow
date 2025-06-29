@@ -1,0 +1,62 @@
+[
+  {
+    "file": "src/cli/commands/advanced-memory-commands.ts",
+    "line": 163,
+    "code": "TS2379",
+    "summary": "Object with undefined values for optional properties in query options"
+  },
+  {
+    "file": "src/cli/commands/swarm.ts", 
+    "line": 118,
+    "code": "TS2379",
+    "summary": "parentId: undefined in ProcessExecutionOptions"
+  },
+  {
+    "file": "src/cli/simple-mcp.ts",
+    "line": 265,
+    "code": "TS2379", 
+    "summary": "port: undefined, host: undefined in MCPConfig"
+  },
+  {
+    "file": "src/communication/ipc/index.ts",
+    "line": 115,
+    "code": "TS2379",
+    "summary": "socketPath: string | undefined in UnixSocketConfig"
+  },
+  {
+    "file": "src/communication/ipc/index.ts",
+    "line": 120,
+    "code": "TS2379",
+    "summary": "socketPath: string | undefined in UnixSocketConfig"
+  },
+  {
+    "file": "src/communication/ipc/index.ts",
+    "line": 179,
+    "code": "TS2379",
+    "summary": "security: IPCSecurityOptions | undefined in Partial<IPCConfig>"
+  },
+  {
+    "file": "src/communication/ipc/index.ts",
+    "line": 198,
+    "code": "TS2379",
+    "summary": "security: IPCSecurityOptions | undefined in Partial<IPCConfig>"
+  },
+  {
+    "file": "src/communication/message-bus.ts",
+    "line": 373,
+    "code": "TS2375",
+    "summary": "Multiple undefined optional properties in MessageMetadata"
+  },
+  {
+    "file": "src/communication/message-bus.ts",
+    "line": 443,
+    "code": "TS2379",
+    "summary": "priority and ttl with undefined values"
+  },
+  {
+    "file": "src/communication/message-bus.ts",
+    "line": 461,
+    "code": "TS2375",
+    "summary": "filter: MessageFilter | undefined in TopicSubscription"
+  }
+]
