@@ -28,7 +28,7 @@ jobs:
           deno-version: ${{ env.DENO_VERSION }}
 
       - name: Run security audit
-        run:  < /dev/null | 
+        run: |
           # Check for security vulnerabilities in dependencies
           deno cache --reload src/cli/index.ts
           
