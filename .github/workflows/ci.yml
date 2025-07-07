@@ -44,13 +44,13 @@ jobs:
           
       - name: Lint code
         run: |
-          # Exclude Jest test files from Deno linting
-          deno lint --exclude=src/test-utils/
+          # Jest test files excluded via deno.json configuration
+          deno lint
 
       - name: Format check
         run: |
-          # Exclude Jest test files from Deno formatting
-          deno fmt --check --exclude=src/test-utils/
+          # Jest test files excluded via deno.json configuration  
+          deno fmt --check
 
       - name: Type check
         run: |
@@ -103,8 +103,8 @@ jobs:
       - name: Run Jest unit tests
         if: matrix.test-type == 'unit'
         run: |
-          # Run Jest tests (ignoring Deno linting for Jest-specific files)
-          npm test src/test-utils -- --coverage --coverageDirectory=test-results/coverage || true
+          # Run Jest tests for test-cleanup patterns (Issue #120)
+          npm run test:cleanup
 
       - name: Run integration tests  
         if: matrix.test-type == 'integration'
