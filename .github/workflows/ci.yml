@@ -10,7 +10,7 @@ on:
     - cron: '0 2 * * *'
 
 env:
-  DENO_VERSION: '1.40.0'
+  DENO_VERSION: '2.0.0'
   NODE_VERSION: '18'
 
 jobs:
