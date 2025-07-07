@@ -14,7 +14,7 @@
       "tags": ["recommended"],
       "include": [
         "ban-untagged-todo",
-        "camelcase",
+        "camelcase", 
         "eqeqeq",
         "explicit-function-return-type",
         "no-await-in-loop",
@@ -22,7 +22,9 @@
         "no-const-assign",
         "no-explicit-any",
         "no-sparse-arrays",
-        "no-throw-literal",
+        "no-throw-literal"
+      ],
+      "exclude": [
         "prefer-ascii"
       ]
     },

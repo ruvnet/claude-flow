@@ -9,7 +9,7 @@ import WebSocket from 'ws';
 
 async function testWebSocket() {
     // eslint-disable-next-line no-console
-    console.log('Testing Claude-Flow WebSocket Console Interface...\n');
+    console.log('🧪 Testing Claude-Flow WebSocket Console Interface...\n');
     
     return new Promise((resolve, reject) => {
         const ws = new WebSocket('ws://localhost:3000');
@@ -26,13 +26,13 @@ async function testWebSocket() {
         
         ws.on('open', () => {
             // eslint-disable-next-line no-console
-            console.log('WebSocket connection established');
+            console.log('✅ WebSocket connection established');
             testResults.connection = true;
             
             // Test timeout
             testTimeout = setTimeout(() => {
                 // eslint-disable-next-line no-console
-                console.log('Test timeout reached');
+                console.log('⏰ Test timeout reached');
                 ws.close();
                 resolve(testResults);
             }, 10000);
@@ -44,7 +44,7 @@ async function testWebSocket() {
                 messageCount++;
                 
                 // eslint-disable-next-line no-console
-                console.log(`Message ${messageCount}:`, message.type);
+                console.log(`📨 Message ${messageCount}:`, message.type);
                 
                 switch (message.type) {
                     case 'status':
@@ -55,7 +55,7 @@ async function testWebSocket() {
                         // Send a test command after receiving status
                         setTimeout(() => {
                             // eslint-disable-next-line no-console
-                            console.log('Sending test command: "status"');
+                            console.log('🚀 Sending test command: "status"');
                             ws.send(JSON.stringify({
                                 type: 'command',
                                 data: 'status'
@@ -77,7 +77,7 @@ async function testWebSocket() {
                         // Send another command to test multiple commands
                         setTimeout(() => {
                             // eslint-disable-next-line no-console
-                            console.log('Sending test command: "help"');
+                            console.log('🚀 Sending test command: "help"');
                             ws.send(JSON.stringify({
                                 type: 'command',
                                 data: 'help'
@@ -92,7 +92,7 @@ async function testWebSocket() {
                         
                     case 'error':
                         // eslint-disable-next-line no-console
-                        console.log('Error received:', message.data);
+                        console.log('❌ Error received:', message.data);
                         testResults.errors.push(message.data);
                         break;
                         
@@ -102,21 +102,21 @@ async function testWebSocket() {
                 }
             } catch (error) {
                 // eslint-disable-next-line no-console
-                console.error('Failed to parse message:', error.message);
+                console.error('❌ Failed to parse message:', error.message);
                 testResults.errors.push(`Parse error: ${error.message}`);
             }
         });
         
         ws.on('close', () => {
             // eslint-disable-next-line no-console
-            console.log('WebSocket connection closed');
+            console.log('🔌 WebSocket connection closed');
             clearTimeout(testTimeout);
             resolve(testResults);
         });
         
         ws.on('error', (error) => {
             // eslint-disable-next-line no-console
-            console.error('WebSocket error:', error.message);
+            console.error('❌ WebSocket error:', error.message);
             testResults.errors.push(`WebSocket error: ${error.message}`);
             clearTimeout(testTimeout);
             reject(error);
