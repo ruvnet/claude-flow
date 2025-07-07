@@ -81,7 +81,7 @@ export class CoordinationMetricsCollector {
   private taskStartTimes = new Map<string, Date>();
   private messageStartTimes = new Map<string, Date>();
   private lockStartTimes = new Map<string, Date>();
-  private collectionInterval?: number;
+  private collectionInterval?: NodeJS.Timeout;
   
   // Counters
   private counters = {

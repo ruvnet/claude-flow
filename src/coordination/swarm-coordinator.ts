@@ -83,7 +83,7 @@ export class SwarmCoordinator extends EventEmitter {
 
   constructor(config: Partial<SwarmConfig> = {}) {
     super();
-    this.logger = new Logger('SwarmCoordinator');
+    this.logger = new Logger({ level: 'info', format: 'text', destination: 'console' });
     this.config = {
       maxAgents: 10,
       maxConcurrentTasks: 5,

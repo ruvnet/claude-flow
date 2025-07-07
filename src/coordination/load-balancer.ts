@@ -174,24 +174,29 @@ export class LoadBalancer extends EventEmitter {
   }
 
   private setupEventHandlers(): void {
-    this.eventBus.on('agent:load-update', (data: AgentLoadUpdateData) => {
-      this.updateAgentLoad(data.agentId, data.load);
+    this.eventBus.on('agent:load-update', (data: unknown) => {
+      const loadData = data as AgentLoadUpdateData;
+      this.updateAgentLoad(loadData.agentId, loadData.load);
     });
 
-    this.eventBus.on('task:queued', (data: TaskQueueData) => {
-      this.updateTaskQueue(data.agentId, data.task, 'add');
+    this.eventBus.on('task:queued', (data: unknown) => {
+      const queueData = data as TaskQueueData;
+      this.updateTaskQueue(queueData.agentId, queueData.task, 'add');
     });
 
-    this.eventBus.on('task:started', (data: TaskQueueData) => {
-      this.updateTaskQueue(data.agentId, data.task, 'remove');
+    this.eventBus.on('task:started', (data: unknown) => {
+      const startedData = data as TaskQueueData;
+      this.updateTaskQueue(startedData.agentId, startedData.task, 'remove');
     });
 
-    this.eventBus.on('workstealing:request', (data: WorkStealingRequestData) => {
-      this.executeWorkStealing(data.sourceAgent, data.targetAgent, data.taskCount);
+    this.eventBus.on('workstealing:request', (data: unknown) => {
+      const wsData = data as WorkStealingRequestData;
+      this.executeWorkStealing(wsData.sourceAgent, wsData.targetAgent, wsData.taskCount);
     });
 
-    this.eventBus.on('agent:performance-update', (data: AgentPerformanceData) => {
-      this.updatePerformanceBaseline(data.agentId, data.metrics);
+    this.eventBus.on('agent:performance-update', (data: unknown) => {
+      const perfData = data as AgentPerformanceData;
+      this.updatePerformanceBaseline(perfData.agentId, perfData.metrics);
     });
   }
 

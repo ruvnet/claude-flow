@@ -618,7 +618,11 @@ export class AdvancedTaskExecutor extends EventEmitter {
     queuedTasks: number;
     maxConcurrentTasks: number;
     totalCapacity: number;
-    resourceLimits: typeof this.config.resourceLimits;
+    resourceLimits: {
+      memory: number;
+      cpu: number;
+      disk: number;
+    };
     circuitBreakers: Record<string, any>;
   } {
     return {
