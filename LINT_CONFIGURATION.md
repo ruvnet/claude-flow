@@ -6,6 +6,28 @@ This project uses Deno's recommended lint rules with one important exception:
 
 ### Disabled Rules
 
+#### `no-console` - **DISABLED**
+
+**Decision**: We allow console usage throughout the codebase without restriction.
+
+**Rationale**: 
+- Claude-Flow is a **command-line interface tool** where console output is the primary user interaction method
+- Console logging is a **core feature**, not a code quality issue
+- Users expect and rely on verbose console feedback for CLI tools
+- Test files legitimately require console output for debugging and validation
+- Development tools are expected to provide detailed console logging
+
+**Context-Specific Appropriateness**:
+- ✅ **CLI Tools**: Console output is expected and necessary
+- ❌ **Web Applications**: Console pollution is problematic  
+- ❌ **Libraries**: Console output interferes with consuming applications
+- ❌ **Server Applications**: Structured logging is preferred
+
+**Alternative Consideration**: 
+The `no-console` rule is valuable for web applications and libraries where console.log statements should not reach production. However, for CLI tools, console output is the intended delivery mechanism for user feedback, progress updates, error messages, and results.
+
+**No Mitigation Required**: Console usage is appropriate and expected in this context.
+
 #### `prefer-ascii` - **DISABLED**
 
 **Decision**: We allow Unicode characters (including emojis) in our codebase for enhanced user experience.

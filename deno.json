@@ -18,14 +18,14 @@
         "eqeqeq",
         "explicit-function-return-type",
         "no-await-in-loop",
-        "no-console",
         "no-const-assign",
         "no-explicit-any",
         "no-sparse-arrays",
         "no-throw-literal"
       ],
       "exclude": [
-        "prefer-ascii"
+        "prefer-ascii",
+        "no-console"
       ]
     },
     "exclude": [
