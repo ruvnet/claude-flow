@@ -170,9 +170,9 @@ Claude Flow supports automated hooks in `.claude/settings.json`:
 ```json
 {
   "hooks": {
-    "onEdit": ["npx claude-flow hook post-edit --file {file}"],
-    "onTask": ["npx claude-flow hook pre-task --description {task}"],
-    "onSessionEnd": ["npx claude-flow hook session-end --summary"]
+    "onEdit": ["npx claude-flow hooks post-edit --file {file}"],
+    "onTask": ["npx claude-flow hooks pre-task --description {task}"],
+    "onSessionEnd": ["npx claude-flow hooks session-end --summary"]
   }
 }
 ```

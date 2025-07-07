@@ -442,7 +442,7 @@ Hook executed before task execution.
 
 ## Usage
 \`\`\`bash
-npx claude-flow hook pre-task [options]
+npx claude-flow hooks pre-task [options]
 \`\`\`
 
 ## Options
@@ -453,13 +453,13 @@ npx claude-flow hook pre-task [options]
 ## Examples
 \`\`\`bash
 # Basic pre-task hook
-npx claude-flow hook pre-task --description "Building API endpoints"
+npx claude-flow hooks pre-task --description "Building API endpoints"
 
 # With auto-spawn
-npx claude-flow hook pre-task --description "Complex refactoring" --auto-spawn-agents
+npx claude-flow hooks pre-task --description "Complex refactoring" --auto-spawn-agents
 
 # Load context
-npx claude-flow hook pre-task --description "Continue feature" --load-context
+npx claude-flow hooks pre-task --description "Continue feature" --load-context
 \`\`\`
 `,
       'post-task': `# post-task
@@ -468,7 +468,7 @@ Hook executed after task completion.
 
 ## Usage
 \`\`\`bash
-npx claude-flow hook post-task [options]
+npx claude-flow hooks post-task [options]
 \`\`\`
 
 ## Options
@@ -479,13 +479,13 @@ npx claude-flow hook post-task [options]
 ## Examples
 \`\`\`bash
 # Basic post-task
-npx claude-flow hook post-task --task-id task-123
+npx claude-flow hooks post-task --task-id task-123
 
 # With performance analysis
-npx claude-flow hook post-task --task-id task-123 --analyze-performance
+npx claude-flow hooks post-task --task-id task-123 --analyze-performance
 
 # Update memory
-npx claude-flow hook post-task --task-id task-123 --update-memory
+npx claude-flow hooks post-task --task-id task-123 --update-memory
 \`\`\`
 `,
       'pre-edit': `# pre-edit
@@ -494,7 +494,7 @@ Hook executed before file edits.
 
 ## Usage
 \`\`\`bash
-npx claude-flow hook pre-edit [options]
+npx claude-flow hooks pre-edit [options]
 \`\`\`
 
 ## Options
@@ -505,13 +505,13 @@ npx claude-flow hook pre-edit [options]
 ## Examples
 \`\`\`bash
 # Pre-edit hook
-npx claude-flow hook pre-edit --file src/api.js
+npx claude-flow hooks pre-edit --file src/api.js
 
 # With validation
-npx claude-flow hook pre-edit --file src/api.js --validate-syntax
+npx claude-flow hooks pre-edit --file src/api.js --validate-syntax
 
 # Create backup
-npx claude-flow hook pre-edit --file src/api.js --backup
+npx claude-flow hooks pre-edit --file src/api.js --backup
 \`\`\`
 `,
       'post-edit': `# post-edit
@@ -520,7 +520,7 @@ Hook executed after file edits.
 
 ## Usage
 \`\`\`bash
-npx claude-flow hook post-edit [options]
+npx claude-flow hooks post-edit [options]
 \`\`\`
 
 ## Options
@@ -531,13 +531,13 @@ npx claude-flow hook post-edit [options]
 ## Examples
 \`\`\`bash
 # Post-edit hook
-npx claude-flow hook post-edit --file src/api.js
+npx claude-flow hooks post-edit --file src/api.js
 
 # Store in memory
-npx claude-flow hook post-edit --file src/api.js --memory-key "api-changes"
+npx claude-flow hooks post-edit --file src/api.js --memory-key "api-changes"
 
 # With formatting
-npx claude-flow hook post-edit --file src/api.js --format
+npx claude-flow hooks post-edit --file src/api.js --format
 \`\`\`
 `,
       'session-end': `# session-end
@@ -546,7 +546,7 @@ Hook executed at session end.
 
 ## Usage
 \`\`\`bash
-npx claude-flow hook session-end [options]
+npx claude-flow hooks session-end [options]
 \`\`\`
 
 ## Options
@@ -557,13 +557,13 @@ npx claude-flow hook session-end [options]
 ## Examples
 \`\`\`bash
 # End session
-npx claude-flow hook session-end
+npx claude-flow hooks session-end
 
 # Export metrics
-npx claude-flow hook session-end --export-metrics
+npx claude-flow hooks session-end --export-metrics
 
 # Full closure
-npx claude-flow hook session-end --export-metrics --generate-summary --persist-state
+npx claude-flow hooks session-end --export-metrics --generate-summary --persist-state
 \`\`\`
 `
     },
@@ -1245,7 +1245,7 @@ function createEnhancedSettingsJsonFallback() {
           hooks: [
             {
               type: "command",
-              command: "npx claude-flow hook pre-edit --file \"${CLAUDE_FLOW_FILE}\" --validate-syntax --auto-assign-agents",
+              command: "npx claude-flow hooks pre-edit --file \"${CLAUDE_FLOW_FILE}\" --validate-syntax --auto-assign-agents",
               blocking: false
             }
           ]
@@ -1255,7 +1255,7 @@ function createEnhancedSettingsJsonFallback() {
           hooks: [
             {
               type: "command",
-              command: "npx claude-flow hook pre-write --file \"${CLAUDE_FLOW_FILE}\" --prepare-directory",
+              command: "npx claude-flow hooks pre-write --file \"${CLAUDE_FLOW_FILE}\" --prepare-directory",
               blocking: true
             }
           ]
@@ -1265,7 +1265,7 @@ function createEnhancedSettingsJsonFallback() {
           hooks: [
             {
               type: "command",
-              command: "npx claude-flow hook pre-command --command \"${CLAUDE_FLOW_COMMAND}\" --validate-safety",
+              command: "npx claude-flow hooks pre-command --command \"${CLAUDE_FLOW_COMMAND}\" --validate-safety",
               blocking: true
             }
           ]
@@ -1275,7 +1275,7 @@ function createEnhancedSettingsJsonFallback() {
           hooks: [
             {
               type: "command",
-              command: "npx claude-flow hook pre-task --description \"${CLAUDE_FLOW_TASK}\" --auto-spawn-agents --optimize-topology",
+              command: "npx claude-flow hooks pre-task --description \"${CLAUDE_FLOW_TASK}\" --auto-spawn-agents --optimize-topology",
               blocking: false
             }
           ]
@@ -1287,7 +1287,7 @@ function createEnhancedSettingsJsonFallback() {
           hooks: [
             {
               type: "command",
-              command: "npx claude-flow hook post-edit --file \"${CLAUDE_FLOW_FILE}\" --format-code --update-memory --train-neural"
+              command: "npx claude-flow hooks post-edit --file \"${CLAUDE_FLOW_FILE}\" --format-code --update-memory --train-neural"
             }
           ]
         },
@@ -1296,7 +1296,7 @@ function createEnhancedSettingsJsonFallback() {
           hooks: [
             {
               type: "command",
-              command: "npx claude-flow hook post-command --command \"${CLAUDE_FLOW_COMMAND}\" --track-metrics --store-results"
+              command: "npx claude-flow hooks post-command --command \"${CLAUDE_FLOW_COMMAND}\" --track-metrics --store-results"
             }
           ]
         },
@@ -1305,7 +1305,7 @@ function createEnhancedSettingsJsonFallback() {
           hooks: [
             {
               type: "command",
-              command: "npx claude-flow hook post-task --task-id \"${CLAUDE_FLOW_TASK_ID}\" --analyze-performance --update-telemetry"
+              command: "npx claude-flow hooks post-task --task-id \"${CLAUDE_FLOW_TASK_ID}\" --analyze-performance --update-telemetry"
             }
           ]
         },
@@ -1314,7 +1314,7 @@ function createEnhancedSettingsJsonFallback() {
           hooks: [
             {
               type: "command",
-              command: "npx claude-flow hook post-search --pattern \"${CLAUDE_FLOW_PATTERN}\" --cache-results --optimize-future"
+              command: "npx claude-flow hooks post-search --pattern \"${CLAUDE_FLOW_PATTERN}\" --cache-results --optimize-future"
             }
           ]
         }
@@ -1324,7 +1324,7 @@ function createEnhancedSettingsJsonFallback() {
           hooks: [
             {
               type: "command",
-              command: "npx claude-flow hook notification --message \"${CLAUDE_FLOW_MESSAGE}\" --update-status --broadcast-agents"
+              command: "npx claude-flow hooks notification --message \"${CLAUDE_FLOW_MESSAGE}\" --update-status --broadcast-agents"
             }
           ]
         }
@@ -1334,7 +1334,7 @@ function createEnhancedSettingsJsonFallback() {
           hooks: [
             {
               type: "command",
-              command: "npx claude-flow hook session-end --generate-summary --persist-state --export-metrics --cleanup-temp"
+              command: "npx claude-flow hooks session-end --generate-summary --persist-state --export-metrics --cleanup-temp"
             }
           ]
         }
@@ -1344,7 +1344,7 @@ function createEnhancedSettingsJsonFallback() {
           hooks: [
             {
               type: "command",
-              command: "npx claude-flow hook agent-stop --agent-id \"${CLAUDE_FLOW_AGENT_ID}\" --save-knowledge --update-swarm-status"
+              command: "npx claude-flow hooks agent-stop --agent-id \"${CLAUDE_FLOW_AGENT_ID}\" --save-knowledge --update-swarm-status"
             }
           ]
         }

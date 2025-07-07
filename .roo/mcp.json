@@ -92,12 +92,6 @@
         "generate_typescript_types",
         "listProjects"
       ]
-    },
-    "mem0": {
-      "url": "https://mcp.composio.dev/mem0/abandoned-creamy-horse-Y39-hm?agent=cursor"
-    },
-    "perplexityai": {
-      "url": "https://mcp.composio.dev/perplexityai/abandoned-creamy-horse-Y39-hm?agent=cursor"
     }
   }
 }

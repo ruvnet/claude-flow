@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx claude-flow hook pre-edit --file \"${CLAUDE_FLOW_FILE}\" --validate-syntax --auto-assign-agents",
+            "command": "npx claude-flow hooks pre-edit --file \"${CLAUDE_FLOW_FILE}\" --validate-syntax --auto-assign-agents",
             "blocking": false
           }
         ]
@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx claude-flow hook pre-write --file \"${CLAUDE_FLOW_FILE}\" --prepare-directory",
+            "command": "npx claude-flow hooks pre-write --file \"${CLAUDE_FLOW_FILE}\" --prepare-directory",
             "blocking": true
           }
         ]
@@ -60,7 +60,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx claude-flow hook pre-command --command \"${CLAUDE_FLOW_COMMAND}\" --validate-safety",
+            "command": "npx claude-flow hooks pre-command --command \"${CLAUDE_FLOW_COMMAND}\" --validate-safety",
             "blocking": true
           }
         ]
@@ -70,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx claude-flow hook pre-task --description \"${CLAUDE_FLOW_TASK}\" --auto-spawn-agents --optimize-topology",
+            "command": "npx claude-flow hooks pre-task --description \"${CLAUDE_FLOW_TASK}\" --auto-spawn-agents --optimize-topology",
             "blocking": false
           }
         ]
@@ -82,7 +82,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx claude-flow hook post-edit --file \"${CLAUDE_FLOW_FILE}\" --format-code --update-memory --train-neural"
+            "command": "npx claude-flow hooks post-edit --file \"${CLAUDE_FLOW_FILE}\" --format-code --update-memory --train-neural"
           }
         ]
       },
@@ -91,7 +91,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx claude-flow hook post-command --command \"${CLAUDE_FLOW_COMMAND}\" --track-metrics --store-results"
+            "command": "npx claude-flow hooks post-command --command \"${CLAUDE_FLOW_COMMAND}\" --track-metrics --store-results"
           }
         ]
       },
@@ -100,7 +100,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx claude-flow hook post-task --task-id \"${CLAUDE_FLOW_TASK_ID}\" --analyze-performance --update-telemetry"
+            "command": "npx claude-flow hooks post-task --task-id \"${CLAUDE_FLOW_TASK_ID}\" --analyze-performance --update-telemetry"
           }
         ]
       },
@@ -109,7 +109,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx claude-flow hook post-search --pattern \"${CLAUDE_FLOW_PATTERN}\" --cache-results --optimize-future"
+            "command": "npx claude-flow hooks post-search --pattern \"${CLAUDE_FLOW_PATTERN}\" --cache-results --optimize-future"
           }
         ]
       }
@@ -119,7 +119,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx claude-flow hook notification --message \"${CLAUDE_FLOW_MESSAGE}\" --update-status --broadcast-agents"
+            "command": "npx claude-flow hooks notification --message \"${CLAUDE_FLOW_MESSAGE}\" --update-status --broadcast-agents"
           }
         ]
       }
@@ -129,7 +129,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx claude-flow hook session-end --generate-summary --persist-state --export-metrics --cleanup-temp"
+            "command": "npx claude-flow hooks session-end --generate-summary --persist-state --export-metrics --cleanup-temp"
           }
         ]
       }
@@ -139,7 +139,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx claude-flow hook agent-stop --agent-id \"${CLAUDE_FLOW_AGENT_ID}\" --save-knowledge --update-swarm-status"
+            "command": "npx claude-flow hooks agent-stop --agent-id \"${CLAUDE_FLOW_AGENT_ID}\" --save-knowledge --update-swarm-status"
           }
         ]
       }

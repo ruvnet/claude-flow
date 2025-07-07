@@ -1,11 +1,11 @@
-# hook pre-task
+# hooks pre-task
 
 Execute pre-task preparations and context loading.
 
 ## Usage
 
 ```bash
-npx claude-flow hook pre-task [options]
+npx claude-flow hooks pre-task [options]
 ```
 
 ## Options
@@ -20,22 +20,22 @@ npx claude-flow hook pre-task [options]
 
 ### Basic pre-task hook
 ```bash
-npx claude-flow hook pre-task --description "Implement user authentication"
+npx claude-flow hooks pre-task --description "Implement user authentication"
 ```
 
 ### With memory loading
 ```bash
-npx claude-flow hook pre-task -d "Continue API development" --load-memory
+npx claude-flow hooks pre-task -d "Continue API development" --load-memory
 ```
 
 ### Manual agent control
 ```bash
-npx claude-flow hook pre-task -d "Debug issue #123" --auto-spawn-agents false
+npx claude-flow hooks pre-task -d "Debug issue #123" --auto-spawn-agents false
 ```
 
 ### Full optimization
 ```bash
-npx claude-flow hook pre-task -d "Refactor codebase" --optimize-topology --estimate-complexity
+npx claude-flow hooks pre-task -d "Refactor codebase" --optimize-topology --estimate-complexity
 ```
 
 ## Features
@@ -75,7 +75,7 @@ This hook is automatically called by Claude Code when:
 Manual usage in agents:
 ```bash
 # In agent coordination
-npx claude-flow hook pre-task --description "Your task here"
+npx claude-flow hooks pre-task --description "Your task here"
 ```
 
 ## Output
@@ -94,7 +94,7 @@ Returns JSON with:
 
 ## See Also
 
-- `hook post-task` - Post-task cleanup
+- `hooks post-task` - Post-task cleanup
 - `agent spawn` - Manual agent creation
 - `memory usage` - Memory management
 - `swarm init` - Swarm initialization

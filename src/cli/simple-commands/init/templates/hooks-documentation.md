@@ -16,7 +16,7 @@ These hooks run **before** Claude Code executes specific tools:
   "matcher": "Edit|MultiEdit",
   "hooks": [{
     "type": "command",
-    "command": "npx claude-flow hook pre-edit --file \"${CLAUDE_FLOW_FILE}\" --validate-syntax --auto-assign-agents",
+    "command": "npx claude-flow hooks pre-edit --file \"${CLAUDE_FLOW_FILE}\" --validate-syntax --auto-assign-agents",
     "blocking": false
   }]
 }
@@ -34,7 +34,7 @@ These hooks run **before** Claude Code executes specific tools:
   "matcher": "Write",
   "hooks": [{
     "type": "command",
-    "command": "npx claude-flow hook pre-write --file \"${CLAUDE_FLOW_FILE}\" --prepare-directory",
+    "command": "npx claude-flow hooks pre-write --file \"${CLAUDE_FLOW_FILE}\" --prepare-directory",
     "blocking": true
   }]
 }
@@ -52,7 +52,7 @@ These hooks run **before** Claude Code executes specific tools:
   "matcher": "Bash",
   "hooks": [{
     "type": "command",
-    "command": "npx claude-flow hook pre-command --command \"${CLAUDE_FLOW_COMMAND}\" --validate-safety",
+    "command": "npx claude-flow hooks pre-command --command \"${CLAUDE_FLOW_COMMAND}\" --validate-safety",
     "blocking": true
   }]
 }
@@ -70,7 +70,7 @@ These hooks run **before** Claude Code executes specific tools:
   "matcher": "Task",
   "hooks": [{
     "type": "command",
-    "command": "npx claude-flow hook pre-task --description \"${CLAUDE_FLOW_TASK}\" --auto-spawn-agents --optimize-topology",
+    "command": "npx claude-flow hooks pre-task --description \"${CLAUDE_FLOW_TASK}\" --auto-spawn-agents --optimize-topology",
     "blocking": false
   }]
 }
@@ -92,7 +92,7 @@ These hooks run **after** Claude Code completes tool execution:
   "matcher": "Edit|MultiEdit|Write",
   "hooks": [{
     "type": "command",
-    "command": "npx claude-flow hook post-edit --file \"${CLAUDE_FLOW_FILE}\" --format-code --update-memory --train-neural"
+    "command": "npx claude-flow hooks post-edit --file \"${CLAUDE_FLOW_FILE}\" --format-code --update-memory --train-neural"
   }]
 }
 ```
@@ -108,7 +108,7 @@ These hooks run **after** Claude Code completes tool execution:
   "matcher": "Bash",
   "hooks": [{
     "type": "command",
-    "command": "npx claude-flow hook post-command --command \"${CLAUDE_FLOW_COMMAND}\" --track-metrics --store-results"
+    "command": "npx claude-flow hooks post-command --command \"${CLAUDE_FLOW_COMMAND}\" --track-metrics --store-results"
   }]
 }
 ```
@@ -124,7 +124,7 @@ These hooks run **after** Claude Code completes tool execution:
   "matcher": "Task",
   "hooks": [{
     "type": "command",
-    "command": "npx claude-flow hook post-task --task-id \"${CLAUDE_FLOW_TASK_ID}\" --analyze-performance --update-telemetry"
+    "command": "npx claude-flow hooks post-task --task-id \"${CLAUDE_FLOW_TASK_ID}\" --analyze-performance --update-telemetry"
   }]
 }
 ```
@@ -140,7 +140,7 @@ These hooks run **after** Claude Code completes tool execution:
   "matcher": "Read|Grep|Glob",
   "hooks": [{
     "type": "command",
-    "command": "npx claude-flow hook post-search --pattern \"${CLAUDE_FLOW_PATTERN}\" --cache-results --optimize-future"
+    "command": "npx claude-flow hooks post-search --pattern \"${CLAUDE_FLOW_PATTERN}\" --cache-results --optimize-future"
   }]
 }
 ```
@@ -158,7 +158,7 @@ Handles system notifications and broadcasts to agents:
 {
   "hooks": [{
     "type": "command",
-    "command": "npx claude-flow hook notification --message \"${CLAUDE_FLOW_MESSAGE}\" --update-status --broadcast-agents"
+    "command": "npx claude-flow hooks notification --message \"${CLAUDE_FLOW_MESSAGE}\" --update-status --broadcast-agents"
   }]
 }
 ```
@@ -176,7 +176,7 @@ Executes when the main Claude Code session ends:
 {
   "hooks": [{
     "type": "command",
-    "command": "npx claude-flow hook session-end --generate-summary --persist-state --export-metrics --cleanup-temp"
+    "command": "npx claude-flow hooks session-end --generate-summary --persist-state --export-metrics --cleanup-temp"
   }]
 }
 ```
@@ -194,7 +194,7 @@ Executes when a spawned agent completes its task:
 {
   "hooks": [{
     "type": "command",
-    "command": "npx claude-flow hook agent-stop --agent-id \"${CLAUDE_FLOW_AGENT_ID}\" --save-knowledge --update-swarm-status"
+    "command": "npx claude-flow hooks agent-stop --agent-id \"${CLAUDE_FLOW_AGENT_ID}\" --save-knowledge --update-swarm-status"
   }]
 }
 ```
@@ -248,7 +248,7 @@ If hooks are causing issues:
 
 3. **Test individual hooks**:
    ```bash
-   npx claude-flow hook test pre-edit --file test.js
+   npx claude-flow hooks test pre-edit --file test.js
    ```
 
 4. **Reset to defaults**:

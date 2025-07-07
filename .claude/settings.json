@@ -1,14 +1,15 @@
 {
   "env": {
-    "RUV_SWARM_AUTO_COMMIT": "false",
-    "RUV_SWARM_AUTO_PUSH": "false",
-    "RUV_SWARM_HOOKS_ENABLED": "false",
-    "RUV_SWARM_TELEMETRY_ENABLED": "true",
-    "RUV_SWARM_REMOTE_EXECUTION": "true"
+    "CLAUDE_FLOW_AUTO_COMMIT": "false",
+    "CLAUDE_FLOW_AUTO_PUSH": "false",
+    "CLAUDE_FLOW_HOOKS_ENABLED": "true",
+    "CLAUDE_FLOW_TELEMETRY_ENABLED": "true",
+    "CLAUDE_FLOW_REMOTE_EXECUTION": "true",
+    "CLAUDE_FLOW_GITHUB_INTEGRATION": "true"
   },
   "permissions": {
     "allow": [
-      "Bash(npx ruv-swarm *)",
+      "Bash(npx claude-flow *)",
       "Bash(npm run lint)",
       "Bash(npm run test:*)",
       "Bash(npm test *)",
@@ -19,6 +20,7 @@
       "Bash(git commit *)",
       "Bash(git push)",
       "Bash(git config *)",
+      "Bash(gh *)",
       "Bash(node *)",
       "Bash(which *)",
       "Bash(pwd)",
@@ -31,21 +33,151 @@
       "Bash(eval *)"
     ]
   },
-  "hooks": {},
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow hooks pre-edit --file \"${CLAUDE_FLOW_FILE}\" --validate-syntax --auto-assign-agents",
+            "blocking": false
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow hooks pre-write --file \"${CLAUDE_FLOW_FILE}\" --prepare-directory",
+            "blocking": true
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow hooks pre-command --command \"${CLAUDE_FLOW_COMMAND}\" --validate-safety",
+            "blocking": true
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow hooks pre-task --description \"${CLAUDE_FLOW_TASK}\" --auto-spawn-agents --optimize-topology",
+            "blocking": false
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow hooks post-edit --file \"${CLAUDE_FLOW_FILE}\" --format-code --update-memory --train-neural"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow hooks post-command --command \"${CLAUDE_FLOW_COMMAND}\" --track-metrics --store-results"
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow hooks post-task --task-id \"${CLAUDE_FLOW_TASK_ID}\" --analyze-performance --update-telemetry"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow hooks post-search --pattern \"${CLAUDE_FLOW_PATTERN}\" --cache-results --optimize-future"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow hooks notification --message \"${CLAUDE_FLOW_MESSAGE}\" --update-status --broadcast-agents"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow hooks session-end --generate-summary --persist-state --export-metrics --cleanup-temp"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow hooks agent-stop --agent-id \"${CLAUDE_FLOW_AGENT_ID}\" --save-knowledge --update-swarm-status"
+          }
+        ]
+      }
+    ]
+  },
   "mcpServers": {
-    "ruv-swarm": {
+    "claude-flow": {
       "command": "npx",
       "args": [
-        "ruv-swarm",
+        "claude-flow",
         "mcp",
         "start"
       ],
       "env": {
-        "RUV_SWARM_HOOKS_ENABLED": "false",
-        "RUV_SWARM_TELEMETRY_ENABLED": "true",
-        "RUV_SWARM_REMOTE_READY": "true"
+        "CLAUDE_FLOW_HOOKS_ENABLED": "true",
+        "CLAUDE_FLOW_TELEMETRY_ENABLED": "true",
+        "CLAUDE_FLOW_REMOTE_READY": "true",
+        "CLAUDE_FLOW_GITHUB_INTEGRATION": "true"
       }
     }
   },
-  "includeCoAuthoredBy": true
+  "includeCoAuthoredBy": true,
+  "features": {
+    "autoTopologySelection": true,
+    "parallelExecution": true,
+    "neuralTraining": true,
+    "bottleneckAnalysis": true,
+    "smartAutoSpawning": true,
+    "selfHealingWorkflows": true,
+    "crossSessionMemory": true,
+    "githubIntegration": true
+  },
+  "performance": {
+    "maxAgents": 10,
+    "defaultTopology": "hierarchical",
+    "executionStrategy": "parallel",
+    "tokenOptimization": true,
+    "cacheEnabled": true,
+    "telemetryLevel": "detailed"
+  }
 }

@@ -60,6 +60,23 @@ For more information, visit: https://github.com/ruvnet/claude-code-flow
   // Try to run the actual CLI if in development mode
   if (isDev) {
     const nodeBin = process.execPath;
+    
+    // Route hooks and mcp commands to simple-cli.js
+    if (args[0] === 'hooks' || args[0] === 'mcp') {
+      const simpleCLIPath = path.join(__dirname, 'src', 'cli', 'simple-cli.js');
+      if (fs.existsSync(simpleCLIPath)) {
+        const child = spawn(nodeBin, [simpleCLIPath, ...args], {
+          stdio: 'inherit',
+          cwd: __dirname
+        });
+        
+        child.on('exit', (code) => {
+          process.exit(code);
+        });
+        return;
+      }
+    }
+    
     const cliPath = path.join(__dirname, 'src', 'cli', 'main.ts');
     
     if (fs.existsSync(cliPath)) {
