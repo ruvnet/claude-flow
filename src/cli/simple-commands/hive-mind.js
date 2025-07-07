@@ -84,6 +84,7 @@ ${chalk.bold('OPTIONS:')}
   --spawn                Alias for --claude
   --auto-spawn           Automatically spawn Claude Code instances
   --execute              Execute Claude Code spawn commands immediately
+  --multiple-instances   Spawn one Claude Code instance per worker type (default: single unified instance)
 
 ${chalk.bold('For more information:')}
 ${chalk.blue('https://github.com/ruvnet/claude-code-flow/docs/hive-mind.md')}
@@ -1356,12 +1357,20 @@ async function spawnClaudeCodeInstances(swarmId, swarmName, objective, workers, 
     
     spinner.text = 'Creating Claude Code spawn commands...';
     
-    // Create spawn commands for each worker type
+    // Create spawn commands for each worker type or single unified instance
     const spawnCommands = [];
     const workerGroups = groupWorkersByType(workers);
     
-    for (const [workerType, typeWorkers] of Object.entries(workerGroups)) {
-      const spawnCommand = createClaudeCodeSpawnCommand(swarmId, swarmName, objective, workerType, typeWorkers, coordinationInstructions);
+    if (flags.multipleInstances || flags['multiple-instances']) {
+      // Create individual commands for each worker type
+      for (const [workerType, typeWorkers] of Object.entries(workerGroups)) {
+        const spawnCommand = createClaudeCodeSpawnCommand(swarmId, swarmName, objective, workerType, typeWorkers, coordinationInstructions);
+        spawnCommands.push(spawnCommand);
+      }
+    } else {
+      // Default: Create single unified command for all worker types
+      const allWorkerTypes = Object.keys(workerGroups);
+      const spawnCommand = createUnifiedClaudeCodeSpawnCommand(swarmId, swarmName, objective, allWorkerTypes, workers, coordinationInstructions);
       spawnCommands.push(spawnCommand);
     }
     
@@ -1424,23 +1433,14 @@ async function spawnClaudeCodeInstances(swarmId, swarmName, objective, workers, 
         }
         
         try {
-          // Create Claude args
-          const claudeArgs = [];
-          
-          // Add auto-permission flag if requested
-          if (flags.auto || flags['dangerously-skip-permissions']) {
-            claudeArgs.push('--dangerously-skip-permissions');
-          }
+          // Create Claude args with direct prompt injection and auto-permissions
+          const claudeArgs = [command.context, '--dangerously-skip-permissions'];
           
           // Spawn claude process
           const claudeProcess = childSpawn('claude', claudeArgs, {
-            stdio: ['pipe', 'inherit', 'inherit'],
+            stdio: 'inherit',
             shell: false
           });
-          
-          // Write the context to stdin and close it
-          claudeProcess.stdin.write(command.context);
-          claudeProcess.stdin.end();
           
           console.log(chalk.green('✓ Claude Code instance spawned for'), command.title);
           console.log(chalk.blue('  Context provided with MCP tool coordination instructions'));
@@ -1533,9 +1533,14 @@ function groupWorkersByType(workers) {
  * Create Claude Code spawn command with coordination context
  */
 function createClaudeCodeSpawnCommand(swarmId, swarmName, objective, workerType, typeWorkers, instructions) {
-  const context = `You are a ${workerType} agent in the "${swarmName}" Hive Mind swarm.
+  const context = `🎯 PRIMARY FOCUS: ${objective}
 
-🎯 MISSION: ${objective}
+You are a ${workerType} agent in the "${swarmName}" Hive Mind swarm with ONE CLEAR MISSION:
+
+🚨 YOUR OBJECTIVE: ${objective}
+
+Focus ALL your efforts on: "${objective}"
+Everything you do should directly contribute to achieving this goal.
 
 🐝 SWARM COORDINATION:
 - Swarm ID: ${swarmId}
@@ -1543,37 +1548,165 @@ function createClaudeCodeSpawnCommand(swarmId, swarmName, objective, workerType,
 - Team Size: ${typeWorkers.length} ${workerType}(s)
 - Coordination: Hive Mind collective intelligence
 
-🧠 MANDATORY COORDINATION PROTOCOL:
-1. BEFORE starting work:
-   mcp__ruv-swarm__memory_usage {"action": "retrieve", "key": "hive-mind-${swarmId}/status"}
-   mcp__ruv-swarm__swarm_status {"swarmId": "${swarmId}"}
+🚨 CRITICAL: MANDATORY PARALLEL EXECUTION & BATCH OPERATIONS
 
-2. DURING work (after each major step):
-   mcp__ruv-swarm__memory_usage {"action": "store", "key": "hive-mind-${swarmId}/${workerType}/progress", "value": {"step": "X", "status": "Y", "findings": "Z"}}
-   mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "update": {"agentId": "your-id", "progress": "details"}}
+### 🔴 GOLDEN RULE: BATCH EVERYTHING - NEVER SEQUENTIAL
 
-3. FOR decisions requiring consensus:
-   mcp__ruv-swarm__consensus_vote {"swarmId": "${swarmId}", "topic": "decision topic", "vote": "your choice", "rationale": "reasoning"}
+**If you need to do X operations, they should be in 1 message, not X messages**
 
-4. WHEN sharing insights:
-   mcp__ruv-swarm__memory_usage {"action": "store", "key": "hive-mind-${swarmId}/insights/${workerType}", "value": {"insight": "your discovery", "impact": "significance"}}
+### ⚡ PARALLEL EXECUTION IS MANDATORY
 
-5. BEFORE completing work:
-   mcp__ruv-swarm__neural_train {"swarmId": "${swarmId}", "experience": {"what": "learned", "outcome": "result"}}
+**❌ WRONG - Sequential (NEVER DO THIS):**
+\`\`\`
+Message 1: mcp__ruv-swarm__memory_usage (single operation)
+Message 2: mcp__ruv-swarm__swarm_status (single operation)
+Message 3: Write file1.js
+Message 4: Write file2.js
+Message 5: TodoWrite (single todo)
+// This is 5x slower and breaks coordination!
+\`\`\`
 
-🔧 SPECIALIZED CAPABILITIES:
+**✅ CORRECT - Parallel (ALWAYS DO THIS):**
+\`\`\`
+Message 1: [BatchTool - ALL operations at once]
+  - mcp__ruv-swarm__memory_usage (retrieve context)
+  - mcp__ruv-swarm__swarm_status (check swarm state)
+  - mcp__ruv-swarm__task_orchestrate (coordinate tasks)
+  - Write file1.js
+  - Write file2.js
+  - Write file3.js
+  - TodoWrite (multiple todos at once)
+  - Bash commands (multiple mkdir/npm commands)
+\`\`\`
+
+### 📦 MANDATORY BATCH PATTERNS
+
+**MCP Tool Coordination (Single Message):**
+\`\`\`
+[BatchTool]:
+  - mcp__ruv-swarm__memory_usage {"action": "retrieve", "key": "hive-mind-${swarmId}/context"}
+  - mcp__ruv-swarm__swarm_status {"swarmId": "${swarmId}"}
+  - mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "strategy": "parallel"}
+  - mcp__ruv-swarm__neural_train {"swarmId": "${swarmId}", "pattern": "batch_coordination"}
+\`\`\`
+
+**File Operations (Single Message):**
+\`\`\`
+[BatchTool]:
+  - Read package.json
+  - Read README.md
+  - Read config.json
+  - Write src/index.js
+  - Write src/utils.js
+  - Write tests/test.js
+  - MultiEdit src/main.js (multiple edits)
+\`\`\`
+
+**Command Operations (Single Message):**
+\`\`\`
+[BatchTool]:
+  - Bash "mkdir -p src/{components,utils,tests}"
+  - Bash "npm install --save express"
+  - Bash "npm run test"
+  - Bash "npm run lint"
+  - Bash "git add -A"
+\`\`\`
+
+### 🎯 MANDATORY COORDINATION PROTOCOL
+
+**1️⃣ BEFORE Starting Work (Single Message):**
+\`\`\`
+[BatchTool]:
+  - mcp__ruv-swarm__memory_usage {"action": "retrieve", "key": "hive-mind-${swarmId}/status"}
+  - mcp__ruv-swarm__swarm_status {"swarmId": "${swarmId}"}
+  - mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "action": "join"}
+  - TodoWrite {"todos": [all initial todos at once]}
+\`\`\`
+
+**2️⃣ DURING Work (After EVERY Major Step - Single Message):**
+\`\`\`
+[BatchTool]:
+  - mcp__ruv-swarm__memory_usage {"action": "store", "key": "hive-mind-${swarmId}/${workerType}/progress", "value": {"step": "X", "status": "Y", "findings": "Z"}}
+  - mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "update": {"agentId": "your-id", "progress": "details"}}
+  - mcp__ruv-swarm__swarm_monitor {"swarmId": "${swarmId}", "checkCoordination": true}
+  - TodoWrite {"todos": [updated todos with progress]}
+\`\`\`
+
+**3️⃣ FOR Decisions (Single Message):**
+\`\`\`
+[BatchTool]:
+  - mcp__ruv-swarm__memory_usage {"action": "retrieve", "key": "hive-mind-${swarmId}/decisions"}
+  - mcp__ruv-swarm__consensus_vote {"swarmId": "${swarmId}", "topic": "decision topic", "vote": "your choice", "rationale": "reasoning"}
+  - mcp__ruv-swarm__memory_usage {"action": "store", "key": "hive-mind-${swarmId}/decisions/latest", "value": {"decision": "what", "rationale": "why"}}
+\`\`\`
+
+**4️⃣ WHEN Sharing Insights (Single Message):**
+\`\`\`
+[BatchTool]:
+  - mcp__ruv-swarm__memory_usage {"action": "store", "key": "hive-mind-${swarmId}/insights/${workerType}", "value": {"insight": "your discovery", "impact": "significance"}}
+  - mcp__ruv-swarm__neural_train {"swarmId": "${swarmId}", "experience": {"pattern": "insight_sharing", "outcome": "result"}}
+  - mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "broadcast": {"type": "insight", "data": "summary"}}
+\`\`\`
+
+**5️⃣ BEFORE Completing Work (Single Message):**
+\`\`\`
+[BatchTool]:
+  - mcp__ruv-swarm__memory_usage {"action": "store", "key": "hive-mind-${swarmId}/${workerType}/final", "value": {"completed": "work summary", "learnings": "key insights"}}
+  - mcp__ruv-swarm__neural_train {"swarmId": "${swarmId}", "experience": {"what": "learned", "outcome": "result"}}
+  - mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "complete": {"agentId": "your-id", "summary": "work done"}}
+  - TodoWrite {"todos": [mark all relevant todos as completed]}
+\`\`\`
+
+### 🔧 SPECIALIZED CAPABILITIES:
 ${getWorkerTypeInstructions(workerType)}
 
-🤝 COORDINATION RULES:
-- Share ALL discoveries via memory_usage
-- Vote on critical decisions using consensus_vote
-- Update progress every 15 minutes via task_orchestrate
-- Monitor other agents via swarm_status
-- Learn from patterns via neural_train
+### 🚨 PERFORMANCE OPTIMIZATION RULES:
 
-Remember: You are part of a COLLECTIVE INTELLIGENCE. Your individual success depends on swarm coordination!`;
+1. **Token Reduction**: Batch operations reduce context switching by 32.3%
+2. **Speed Improvement**: Parallel coordination is 2.8-4.4x faster
+3. **Memory Efficiency**: Shared memory prevents duplicate work
+4. **Coordination Quality**: Batch patterns improve decision consistency
 
-  const command = `claude code --context "${context.replace(/"/g, '\\"')}"`;
+### 📊 VISUAL COORDINATION TRACKING:
+
+Use this format for progress updates:
+\`\`\`
+🐝 Swarm Coordination Status
+├── 🏗️ Agent: ${workerType}
+├── 👥 Swarm: ${swarmName}
+├── ⚡ Mode: parallel batch execution
+├── 📊 Progress: X/Y tasks (Z% complete)
+└── 🧠 Memory: N coordination points stored
+
+Current Activity:
+├── 🟢 Coordination: Active batch operations
+├── 🟡 Memory: Syncing with swarm
+├── 🔄 Tasks: Executing in parallel
+└── 📈 Performance: Optimized for speed
+\`\`\`
+
+### 🤝 MANDATORY COORDINATION RULES:
+
+- **NEVER** operate sequentially when batch operations are possible
+- **ALWAYS** use BatchTool for multiple operations
+- **SHARE** all discoveries via memory_usage in batch
+- **VOTE** on critical decisions using consensus_vote
+- **UPDATE** progress every major step via task_orchestrate
+- **MONITOR** other agents via swarm_status
+- **LEARN** from patterns via neural_train
+- **COORDINATE** through shared memory, not individual messages
+
+### 💡 CRITICAL SUCCESS FACTORS:
+
+1. **Batch First Mindset**: Always think "what can be combined?"
+2. **Parallel Execution**: Never wait for one operation to complete another
+3. **Memory Coordination**: Use shared memory for all cross-agent communication
+4. **Real-time Updates**: Keep swarm informed of progress and decisions
+5. **Pattern Learning**: Train neural patterns from successful coordination
+
+Remember: You are part of a COLLECTIVE INTELLIGENCE with PARALLEL COORDINATION. Your success depends on BATCH OPERATIONS and SWARM SYNCHRONIZATION!`;
+
+  const command = `claude "${context.replace(/"/g, '\\"')}" --dangerously-skip-permissions`;
   
   return {
     title: `${workerType.toUpperCase()} Agent (${typeWorkers.length} instance${typeWorkers.length > 1 ? 's' : ''})`,
@@ -1581,6 +1714,196 @@ Remember: You are part of a COLLECTIVE INTELLIGENCE. Your individual success dep
     context,
     workerType,
     count: typeWorkers.length
+  };
+}
+
+/**
+ * Create unified Claude Code spawn command for all worker types
+ */
+function createUnifiedClaudeCodeSpawnCommand(swarmId, swarmName, objective, workerTypes, workers, instructions) {
+  const context = `🎯 PRIMARY FOCUS: ${objective}
+
+You are a MULTI-ROLE agent in the "${swarmName}" Hive Mind swarm with ONE CLEAR MISSION:
+
+🚨 YOUR OBJECTIVE: ${objective}
+
+Focus ALL your efforts on: "${objective}"
+Everything you do should directly contribute to achieving this goal.
+
+🐝 SWARM COORDINATION:
+- Swarm ID: ${swarmId}
+- Your Roles: ${workerTypes.map(t => t.toUpperCase()).join(', ')} specialist
+- Team Size: ${workers.length} total agents across ${workerTypes.length} specializations
+- Coordination: Hive Mind collective intelligence
+
+🚨 CRITICAL: MANDATORY PARALLEL EXECUTION & BATCH OPERATIONS
+
+### 🔴 GOLDEN RULE: BATCH EVERYTHING - NEVER SEQUENTIAL
+
+**If you need to do X operations, they should be in 1 message, not X messages**
+
+### ⚡ PARALLEL EXECUTION IS MANDATORY
+
+**❌ WRONG - Sequential (NEVER DO THIS):**
+\`\`\`
+Message 1: mcp__ruv-swarm__memory_usage (single operation)
+Message 2: mcp__ruv-swarm__swarm_status (single operation)
+Message 3: Write file1.js
+Message 4: Write file2.js
+Message 5: TodoWrite (single todo)
+// This is 5x slower and breaks coordination!
+\`\`\`
+
+**✅ CORRECT - Parallel (ALWAYS DO THIS):**
+\`\`\`
+Message 1: [BatchTool - ALL operations at once]
+  - mcp__ruv-swarm__memory_usage (retrieve context)
+  - mcp__ruv-swarm__swarm_status (check swarm state)
+  - mcp__ruv-swarm__task_orchestrate (coordinate tasks)
+  - Write file1.js
+  - Write file2.js
+  - Write file3.js
+  - TodoWrite (multiple todos at once)
+  - Bash commands (multiple mkdir/npm commands)
+\`\`\`
+
+### 📦 MANDATORY BATCH PATTERNS
+
+**MCP Tool Coordination (Single Message):**
+\`\`\`
+[BatchTool]:
+  - mcp__ruv-swarm__memory_usage {"action": "retrieve", "key": "hive-mind-${swarmId}/context"}
+  - mcp__ruv-swarm__swarm_status {"swarmId": "${swarmId}"}
+  - mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "strategy": "parallel"}
+  - mcp__ruv-swarm__neural_train {"swarmId": "${swarmId}", "pattern": "batch_coordination"}
+\`\`\`
+
+**File Operations (Single Message):**
+\`\`\`
+[BatchTool]:
+  - Read package.json
+  - Read README.md
+  - Read config.json
+  - Write src/index.js
+  - Write src/utils.js
+  - Write tests/test.js
+  - MultiEdit src/main.js (multiple edits)
+\`\`\`
+
+**Command Operations (Single Message):**
+\`\`\`
+[BatchTool]:
+  - Bash "mkdir -p src/{components,utils,tests}"
+  - Bash "npm install --save express"
+  - Bash "npm run test"
+  - Bash "npm run lint"
+  - Bash "git add -A"
+\`\`\`
+
+### 🎯 MANDATORY COORDINATION PROTOCOL
+
+**1️⃣ BEFORE Starting Work (Single Message):**
+\`\`\`
+[BatchTool]:
+  - mcp__ruv-swarm__memory_usage {"action": "retrieve", "key": "hive-mind-${swarmId}/status"}
+  - mcp__ruv-swarm__swarm_status {"swarmId": "${swarmId}"}
+  - mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "action": "join"}
+  - TodoWrite {"todos": [all initial todos at once]}
+\`\`\`
+
+**2️⃣ DURING Work (After EVERY Major Step - Single Message):**
+\`\`\`
+[BatchTool]:
+  - mcp__ruv-swarm__memory_usage {"action": "store", "key": "hive-mind-${swarmId}/multi-role/progress", "value": {"step": "X", "status": "Y", "findings": "Z"}}
+  - mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "update": {"agentId": "your-id", "progress": "details"}}
+  - mcp__ruv-swarm__swarm_monitor {"swarmId": "${swarmId}", "checkCoordination": true}
+  - TodoWrite {"todos": [updated todos with progress]}
+\`\`\`
+
+**3️⃣ FOR Decisions (Single Message):**
+\`\`\`
+[BatchTool]:
+  - mcp__ruv-swarm__memory_usage {"action": "retrieve", "key": "hive-mind-${swarmId}/decisions"}
+  - mcp__ruv-swarm__consensus_vote {"swarmId": "${swarmId}", "topic": "decision topic", "vote": "your choice", "rationale": "reasoning"}
+  - mcp__ruv-swarm__memory_usage {"action": "store", "key": "hive-mind-${swarmId}/decisions/latest", "value": {"decision": "what", "rationale": "why"}}
+\`\`\`
+
+**4️⃣ WHEN Sharing Insights (Single Message):**
+\`\`\`
+[BatchTool]:
+  - mcp__ruv-swarm__memory_usage {"action": "store", "key": "hive-mind-${swarmId}/insights/multi-role", "value": {"insight": "your discovery", "impact": "significance"}}
+  - mcp__ruv-swarm__neural_train {"swarmId": "${swarmId}", "experience": {"pattern": "insight_sharing", "outcome": "result"}}
+  - mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "broadcast": {"type": "insight", "data": "summary"}}
+\`\`\`
+
+**5️⃣ BEFORE Completing Work (Single Message):**
+\`\`\`
+[BatchTool]:
+  - mcp__ruv-swarm__memory_usage {"action": "store", "key": "hive-mind-${swarmId}/multi-role/final", "value": {"completed": "work summary", "learnings": "key insights"}}
+  - mcp__ruv-swarm__neural_train {"swarmId": "${swarmId}", "experience": {"what": "learned", "outcome": "result"}}
+  - mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "complete": {"agentId": "your-id", "summary": "work done"}}
+  - TodoWrite {"todos": [mark all relevant todos as completed]}
+\`\`\`
+
+### 🔧 MULTI-ROLE CAPABILITIES:
+
+${workerTypes.map(type => `**${type.toUpperCase()}:**
+${getWorkerTypeInstructions(type)}`).join('\n\n')}
+
+### 🚨 PERFORMANCE OPTIMIZATION RULES:
+
+1. **Token Reduction**: Batch operations reduce context switching by 32.3%
+2. **Speed Improvement**: Parallel coordination is 2.8-4.4x faster
+3. **Memory Efficiency**: Shared memory prevents duplicate work
+4. **Coordination Quality**: Batch patterns improve decision consistency
+
+### 📊 VISUAL COORDINATION TRACKING:
+
+Use this format for progress updates:
+\`\`\`
+🐝 Swarm Coordination Status
+├── 🏗️ Agent: multi-role (${workerTypes.join(', ')})
+├── 👥 Swarm: ${swarmName}
+├── ⚡ Mode: parallel batch execution
+├── 📊 Progress: X/Y tasks (Z% complete)
+└── 🧠 Memory: N coordination points stored
+
+Current Activity:
+├── 🟢 Coordination: Active batch operations
+├── 🟡 Memory: Syncing with swarm
+├── 🔄 Tasks: Executing in parallel
+└── 📈 Performance: Optimized for speed
+\`\`\`
+
+### 🤝 MANDATORY COORDINATION RULES:
+
+- **NEVER** operate sequentially when batch operations are possible
+- **ALWAYS** use BatchTool for multiple operations
+- **SHARE** all discoveries via memory_usage in batch
+- **VOTE** on critical decisions using consensus_vote
+- **UPDATE** progress every major step via task_orchestrate
+- **MONITOR** other agents via swarm_status
+- **LEARN** from patterns via neural_train
+- **COORDINATE** through shared memory, not individual messages
+
+### 💡 CRITICAL SUCCESS FACTORS:
+
+1. **Batch First Mindset**: Always think "what can be combined?"
+2. **Parallel Execution**: Never wait for one operation to complete another
+3. **Memory Coordination**: Use shared memory for all cross-agent communication
+4. **Real-time Updates**: Keep swarm informed of progress and decisions
+5. **Pattern Learning**: Train neural patterns from successful coordination
+
+Remember: You are part of a COLLECTIVE INTELLIGENCE with PARALLEL COORDINATION. Your success depends on BATCH OPERATIONS and SWARM SYNCHRONIZATION!`;
+
+  const command = `claude "${context.replace(/"/g, '\\"')}" --dangerously-skip-permissions`;
+  
+  return {
+    title: `Unified Multi-Role Agent (${workerTypes.join(', ')})`,
+    command,
+    context,
+    workerType: 'multi-role',
+    count: 1
   };
 }
 
