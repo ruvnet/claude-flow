@@ -1392,11 +1392,13 @@ async function spawnClaudeCodeInstances(swarmId, swarmName, objective, workers, 
     spawnCommands.forEach((command, index) => {
       console.log(chalk.yellow(`\n${index + 1}. ${command.title}`));
       console.log(chalk.gray('   Command:'));
-      console.log(chalk.green(`   ${command.command}`));
+      console.log(chalk.green(`   claude "[comprehensive hive-mind coordination prompt]" --dangerously-skip-permissions`));
+      console.log(chalk.gray(`   Prompt Length: ${command.context.length} characters`));
+      console.log(chalk.gray('   Includes: BatchTool guidance, agent spawning patterns, coordination protocols'));
       
       if (flags.verbose) {
-        console.log(chalk.gray('   Context:'));
-        console.log(chalk.blue(`   "${command.context.substring(0, 100)}..."`));
+        console.log(chalk.gray('   Full Command:'));
+        console.log(chalk.blue(`   ${command.command}`));
       }
     });
     
@@ -1533,20 +1535,17 @@ function groupWorkersByType(workers) {
  * Create Claude Code spawn command with coordination context
  */
 function createClaudeCodeSpawnCommand(swarmId, swarmName, objective, workerType, typeWorkers, instructions) {
-  const context = `🎯 PRIMARY FOCUS: ${objective}
+  const context = `🎯 MISSION: ${objective}
 
-You are a ${workerType} agent in the "${swarmName}" Hive Mind swarm with ONE CLEAR MISSION:
+You are a ${workerType.toUpperCase()} agent in the "${swarmName}" Hive Mind swarm.
 
-🚨 YOUR OBJECTIVE: ${objective}
-
-Focus ALL your efforts on: "${objective}"
-Everything you do should directly contribute to achieving this goal.
-
-🐝 SWARM COORDINATION:
-- Swarm ID: ${swarmId}
-- Your Role: ${workerType.toUpperCase()} specialist
-- Team Size: ${typeWorkers.length} ${workerType}(s)
-- Coordination: Hive Mind collective intelligence
+🐝 SWARM CONFIGURATION:
+────────────────────────────────────────────────────────────
+Swarm: ${swarmName} (${swarmId})
+Your Role: ${workerType.toUpperCase()} specialist
+Team: ${typeWorkers.length} ${workerType}(s) | Queen: strategic | Consensus: majority
+MCP Tools: Full ruv-swarm integration enabled
+────────────────────────────────────────────────────────────
 
 🚨 CRITICAL: MANDATORY PARALLEL EXECUTION & BATCH OPERATIONS
 
@@ -1577,6 +1576,61 @@ Message 1: [BatchTool - ALL operations at once]
   - Write file3.js
   - TodoWrite (multiple todos at once)
   - Bash commands (multiple mkdir/npm commands)
+\`\`\`
+
+### 🤖 AGENT SPAWNING WITH BATCHTOOL
+
+**CRITICAL: When you need multiple agents, spawn them ALL in parallel using BatchTool:**
+
+**❌ WRONG - Sequential Agent Spawning:**
+\`\`\`
+Message 1: mcp__ruv-swarm__agent_spawn (researcher)
+Message 2: mcp__ruv-swarm__agent_spawn (coder)
+Message 3: mcp__ruv-swarm__agent_spawn (analyst)
+Message 4: mcp__ruv-swarm__agent_spawn (tester)
+// This creates coordination delays and inefficiency!
+\`\`\`
+
+**✅ CORRECT - Parallel Agent Spawning:**
+\`\`\`
+Message 1: [BatchTool - Spawn ALL agents at once]
+  - mcp__ruv-swarm__swarm_init {"topology": "hierarchical", "maxAgents": 8, "strategy": "parallel"}
+  - mcp__ruv-swarm__agent_spawn {"type": "researcher", "name": "Research Lead", "capabilities": ["web_search", "analysis"]}
+  - mcp__ruv-swarm__agent_spawn {"type": "coder", "name": "Backend Dev", "capabilities": ["nodejs", "apis", "databases"]}
+  - mcp__ruv-swarm__agent_spawn {"type": "coder", "name": "Frontend Dev", "capabilities": ["react", "ui", "testing"]}
+  - mcp__ruv-swarm__agent_spawn {"type": "analyst", "name": "System Architect", "capabilities": ["design", "patterns", "scalability"]}
+  - mcp__ruv-swarm__agent_spawn {"type": "tester", "name": "QA Engineer", "capabilities": ["testing", "automation", "ci_cd"]}
+  - mcp__ruv-swarm__agent_spawn {"type": "coordinator", "name": "Project Manager", "capabilities": ["coordination", "monitoring"]}
+  - TodoWrite {"todos": [{"id": "init", "content": "Initialize swarm coordination", "status": "in_progress", "priority": "high"}]}
+\`\`\`
+
+### 🚀 SWARM INITIALIZATION PATTERN
+
+**MANDATORY: Always start with full swarm initialization in ONE message:**
+\`\`\`
+[BatchTool - Complete Swarm Setup]:
+  - mcp__ruv-swarm__swarm_init {"topology": "mesh", "maxAgents": 10, "strategy": "adaptive"}
+  - mcp__ruv-swarm__agent_spawn {"type": "architect", "name": "System Designer"}
+  - mcp__ruv-swarm__agent_spawn {"type": "researcher", "name": "Tech Research"}
+  - mcp__ruv-swarm__agent_spawn {"type": "coder", "name": "API Developer"}
+  - mcp__ruv-swarm__agent_spawn {"type": "coder", "name": "Service Developer"}
+  - mcp__ruv-swarm__agent_spawn {"type": "analyst", "name": "Performance Analyst"}
+  - mcp__ruv-swarm__agent_spawn {"type": "tester", "name": "Integration Tester"}
+  - mcp__ruv-swarm__agent_spawn {"type": "coordinator", "name": "DevOps Lead"}
+  - mcp__ruv-swarm__memory_usage {"action": "store", "key": "swarm/init", "value": {"objective": "${objective}", "started": "timestamp"}}
+  - mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "strategy": "parallel", "priority": "high"}
+  - TodoWrite {"todos": [multiple initialization todos]}
+\`\`\`
+
+### 🔄 CONTINUOUS COORDINATION PATTERN
+
+**After spawning agents, coordinate them in batches:**
+\`\`\`
+[BatchTool - Agent Coordination]:
+  - mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "distribute": "evenly"}
+  - mcp__ruv-swarm__memory_usage {"action": "store", "key": "coordination/status", "value": {"active_agents": "count"}}
+  - mcp__ruv-swarm__swarm_monitor {"swarmId": "${swarmId}", "track": "all_agents"}
+  - mcp__ruv-swarm__neural_train {"swarmId": "${swarmId}", "pattern": "parallel_coordination"}
 \`\`\`
 
 ### 📦 MANDATORY BATCH PATTERNS
@@ -1704,7 +1758,34 @@ Current Activity:
 4. **Real-time Updates**: Keep swarm informed of progress and decisions
 5. **Pattern Learning**: Train neural patterns from successful coordination
 
-Remember: You are part of a COLLECTIVE INTELLIGENCE with PARALLEL COORDINATION. Your success depends on BATCH OPERATIONS and SWARM SYNCHRONIZATION!`;
+### 🛠️ TOOL USAGE GUIDELINES:
+
+**FOR CODE AND WEB OPERATIONS - Use Claude Code Native Tools:**
+- **Code Tasks**: Use Read, Write, Edit, MultiEdit, Bash tools for all file operations
+- **Web Research**: Use WebSearch and WebFetch for web-based research
+- **File Management**: Use Glob, Grep, LS for file system operations
+- **Command Execution**: Use Bash for all system commands and package management
+
+**FOR COORDINATION - Use MCP Swarm Tools:**
+- **Agent Management**: Use mcp__ruv-swarm__agent_spawn for creating agents
+- **Memory Sharing**: Use mcp__ruv-swarm__memory_usage for cross-agent communication
+- **Task Coordination**: Use mcp__ruv-swarm__task_orchestrate for work distribution
+- **Consensus Building**: Use mcp__ruv-swarm__consensus_vote for decisions
+- **Monitoring**: Use mcp__ruv-swarm__swarm_monitor for progress tracking
+
+**EXAMPLE - Correct Tool Selection:**
+\`\`\`
+[BatchTool - Code Development with Coordination]:
+  - Read package.json                    # Claude Code native
+  - Write src/server.js                  # Claude Code native  
+  - Bash "npm install express"           # Claude Code native
+  - WebSearch "Node.js best practices"   # Claude Code native
+  - mcp__ruv-swarm__memory_usage {...}   # MCP for coordination
+  - mcp__ruv-swarm__agent_spawn {...}    # MCP for coordination
+  - TodoWrite {...}                      # Claude Code native
+\`\`\`
+
+Remember: You are part of a COLLECTIVE INTELLIGENCE with PARALLEL COORDINATION. Your success depends on BATCH OPERATIONS, PROPER TOOL SELECTION, and SWARM SYNCHRONIZATION!`;
 
   const command = `claude "${context.replace(/"/g, '\\"')}" --dangerously-skip-permissions`;
   
@@ -1721,20 +1802,17 @@ Remember: You are part of a COLLECTIVE INTELLIGENCE with PARALLEL COORDINATION. 
  * Create unified Claude Code spawn command for all worker types
  */
 function createUnifiedClaudeCodeSpawnCommand(swarmId, swarmName, objective, workerTypes, workers, instructions) {
-  const context = `🎯 PRIMARY FOCUS: ${objective}
+  const context = `🎯 MISSION: ${objective}
 
-You are a MULTI-ROLE agent in the "${swarmName}" Hive Mind swarm with ONE CLEAR MISSION:
+You are a MULTI-ROLE agent in the "${swarmName}" Hive Mind swarm.
 
-🚨 YOUR OBJECTIVE: ${objective}
-
-Focus ALL your efforts on: "${objective}"
-Everything you do should directly contribute to achieving this goal.
-
-🐝 SWARM COORDINATION:
-- Swarm ID: ${swarmId}
-- Your Roles: ${workerTypes.map(t => t.toUpperCase()).join(', ')} specialist
-- Team Size: ${workers.length} total agents across ${workerTypes.length} specializations
-- Coordination: Hive Mind collective intelligence
+🐝 SWARM CONFIGURATION:
+────────────────────────────────────────────────────────────
+Swarm: ${swarmName} (${swarmId})
+Your Roles: ${workerTypes.map(t => t.toUpperCase()).join(', ')} specialist
+Team: ${workers.length} agents | Queen: strategic | Consensus: majority
+MCP Tools: Full ruv-swarm integration enabled
+────────────────────────────────────────────────────────────
 
 🚨 CRITICAL: MANDATORY PARALLEL EXECUTION & BATCH OPERATIONS
 
@@ -1765,6 +1843,61 @@ Message 1: [BatchTool - ALL operations at once]
   - Write file3.js
   - TodoWrite (multiple todos at once)
   - Bash commands (multiple mkdir/npm commands)
+\`\`\`
+
+### 🤖 AGENT SPAWNING WITH BATCHTOOL
+
+**CRITICAL: When you need multiple agents, spawn them ALL in parallel using BatchTool:**
+
+**❌ WRONG - Sequential Agent Spawning:**
+\`\`\`
+Message 1: mcp__ruv-swarm__agent_spawn (researcher)
+Message 2: mcp__ruv-swarm__agent_spawn (coder)
+Message 3: mcp__ruv-swarm__agent_spawn (analyst)
+Message 4: mcp__ruv-swarm__agent_spawn (tester)
+// This creates coordination delays and inefficiency!
+\`\`\`
+
+**✅ CORRECT - Parallel Agent Spawning:**
+\`\`\`
+Message 1: [BatchTool - Spawn ALL agents at once]
+  - mcp__ruv-swarm__swarm_init {"topology": "hierarchical", "maxAgents": 8, "strategy": "parallel"}
+  - mcp__ruv-swarm__agent_spawn {"type": "researcher", "name": "Research Lead", "capabilities": ["web_search", "analysis"]}
+  - mcp__ruv-swarm__agent_spawn {"type": "coder", "name": "Backend Dev", "capabilities": ["nodejs", "apis", "databases"]}
+  - mcp__ruv-swarm__agent_spawn {"type": "coder", "name": "Frontend Dev", "capabilities": ["react", "ui", "testing"]}
+  - mcp__ruv-swarm__agent_spawn {"type": "analyst", "name": "System Architect", "capabilities": ["design", "patterns", "scalability"]}
+  - mcp__ruv-swarm__agent_spawn {"type": "tester", "name": "QA Engineer", "capabilities": ["testing", "automation", "ci_cd"]}
+  - mcp__ruv-swarm__agent_spawn {"type": "coordinator", "name": "Project Manager", "capabilities": ["coordination", "monitoring"]}
+  - TodoWrite {"todos": [{"id": "init", "content": "Initialize swarm coordination", "status": "in_progress", "priority": "high"}]}
+\`\`\`
+
+### 🚀 SWARM INITIALIZATION PATTERN
+
+**MANDATORY: Always start with full swarm initialization in ONE message:**
+\`\`\`
+[BatchTool - Complete Swarm Setup]:
+  - mcp__ruv-swarm__swarm_init {"topology": "mesh", "maxAgents": 10, "strategy": "adaptive"}
+  - mcp__ruv-swarm__agent_spawn {"type": "architect", "name": "System Designer"}
+  - mcp__ruv-swarm__agent_spawn {"type": "researcher", "name": "Tech Research"}
+  - mcp__ruv-swarm__agent_spawn {"type": "coder", "name": "API Developer"}
+  - mcp__ruv-swarm__agent_spawn {"type": "coder", "name": "Service Developer"}
+  - mcp__ruv-swarm__agent_spawn {"type": "analyst", "name": "Performance Analyst"}
+  - mcp__ruv-swarm__agent_spawn {"type": "tester", "name": "Integration Tester"}
+  - mcp__ruv-swarm__agent_spawn {"type": "coordinator", "name": "DevOps Lead"}
+  - mcp__ruv-swarm__memory_usage {"action": "store", "key": "swarm/init", "value": {"objective": "${objective}", "started": "timestamp"}}
+  - mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "strategy": "parallel", "priority": "high"}
+  - TodoWrite {"todos": [multiple initialization todos]}
+\`\`\`
+
+### 🔄 CONTINUOUS COORDINATION PATTERN
+
+**After spawning agents, coordinate them in batches:**
+\`\`\`
+[BatchTool - Agent Coordination]:
+  - mcp__ruv-swarm__task_orchestrate {"swarmId": "${swarmId}", "distribute": "evenly"}
+  - mcp__ruv-swarm__memory_usage {"action": "store", "key": "coordination/status", "value": {"active_agents": "count"}}
+  - mcp__ruv-swarm__swarm_monitor {"swarmId": "${swarmId}", "track": "all_agents"}
+  - mcp__ruv-swarm__neural_train {"swarmId": "${swarmId}", "pattern": "parallel_coordination"}
 \`\`\`
 
 ### 📦 MANDATORY BATCH PATTERNS
@@ -1894,7 +2027,34 @@ Current Activity:
 4. **Real-time Updates**: Keep swarm informed of progress and decisions
 5. **Pattern Learning**: Train neural patterns from successful coordination
 
-Remember: You are part of a COLLECTIVE INTELLIGENCE with PARALLEL COORDINATION. Your success depends on BATCH OPERATIONS and SWARM SYNCHRONIZATION!`;
+### 🛠️ TOOL USAGE GUIDELINES:
+
+**FOR CODE AND WEB OPERATIONS - Use Claude Code Native Tools:**
+- **Code Tasks**: Use Read, Write, Edit, MultiEdit, Bash tools for all file operations
+- **Web Research**: Use WebSearch and WebFetch for web-based research
+- **File Management**: Use Glob, Grep, LS for file system operations
+- **Command Execution**: Use Bash for all system commands and package management
+
+**FOR COORDINATION - Use MCP Swarm Tools:**
+- **Agent Management**: Use mcp__ruv-swarm__agent_spawn for creating agents
+- **Memory Sharing**: Use mcp__ruv-swarm__memory_usage for cross-agent communication
+- **Task Coordination**: Use mcp__ruv-swarm__task_orchestrate for work distribution
+- **Consensus Building**: Use mcp__ruv-swarm__consensus_vote for decisions
+- **Monitoring**: Use mcp__ruv-swarm__swarm_monitor for progress tracking
+
+**EXAMPLE - Correct Tool Selection:**
+\`\`\`
+[BatchTool - Code Development with Coordination]:
+  - Read package.json                    # Claude Code native
+  - Write src/server.js                  # Claude Code native  
+  - Bash "npm install express"           # Claude Code native
+  - WebSearch "Node.js best practices"   # Claude Code native
+  - mcp__ruv-swarm__memory_usage {...}   # MCP for coordination
+  - mcp__ruv-swarm__agent_spawn {...}    # MCP for coordination
+  - TodoWrite {...}                      # Claude Code native
+\`\`\`
+
+Remember: You are part of a COLLECTIVE INTELLIGENCE with PARALLEL COORDINATION. Your success depends on BATCH OPERATIONS, PROPER TOOL SELECTION, and SWARM SYNCHRONIZATION!`;
 
   const command = `claude "${context.replace(/"/g, '\\"')}" --dangerously-skip-permissions`;
   
