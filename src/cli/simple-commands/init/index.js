@@ -63,6 +63,7 @@ export async function initCommand(subArgs, flags) {
   // Default to enhanced Claude Flow v2 init
   // Use --basic flag for old behavior
   if (!flags.basic && !flags.minimal && !flags.sparc) {
+    console.log('🚀 Initializing Claude Flow v2.0.0 with enhanced features...');
     return await enhancedClaudeFlowInit(flags);
   }
   
@@ -959,8 +960,6 @@ async function setupCoordinationSystem(workingDir) {
  * Enhanced Claude Flow v2.0.0 initialization
  */
 async function enhancedClaudeFlowInit(flags) {
-  console.log('🚀 Initializing Claude Flow v2.0.0 with enhanced features...');
-  
   const workingDir = process.cwd();
   const force = flags.force || flags.f;
   const dryRun = flags.dryRun || flags['dry-run'] || flags.d;
@@ -1059,7 +1058,7 @@ ${commands.map(cmd => `- [${cmd}](./${cmd}.md)`).join('\n')}
       // Unix wrapper
       const unixWrapper = createWrapperScript('unix');
       await Deno.writeTextFile(`${workingDir}/claude-flow`, unixWrapper);
-      await require('fs').promises.chmod(`${workingDir}/claude-flow`, 0o755);
+      await chmod(`${workingDir}/claude-flow`, 0o755);
       
       // Windows wrapper
       await Deno.writeTextFile(`${workingDir}/claude-flow.bat`, createWrapperScript('windows'));
@@ -1079,7 +1078,7 @@ ${commands.map(cmd => `- [${cmd}](./${cmd}.md)`).join('\n')}
         const content = createHelperScript(helper);
         if (content) {
           await Deno.writeTextFile(`${claudeDir}/helpers/${helper}`, content);
-          await require('fs').promises.chmod(`${claudeDir}/helpers/${helper}`, 0o755);
+          await chmod(`${claudeDir}/helpers/${helper}`, 0o755);
         }
       }
     }

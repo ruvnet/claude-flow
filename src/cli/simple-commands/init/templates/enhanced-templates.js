@@ -1239,26 +1239,116 @@ function createEnhancedSettingsJsonFallback() {
       ]
     },
     hooks: {
-      preEdit: {
-        enabled: true,
-        actions: ["auto-assign-agents", "validate-syntax", "load-context"]
-      },
-      postEdit: {
-        enabled: true,
-        actions: ["format-code", "update-memory", "train-neural", "analyze-performance"]
-      },
-      preCommand: {
-        enabled: true,
-        actions: ["validate-safety", "prepare-resources", "optimize-execution"]
-      },
-      postCommand: {
-        enabled: true,
-        actions: ["track-metrics", "store-results", "update-telemetry"]
-      },
-      sessionEnd: {
-        enabled: true,
-        actions: ["generate-summary", "persist-state", "export-metrics"]
-      }
+      PreToolUse: [
+        {
+          matcher: "Edit|MultiEdit",
+          hooks: [
+            {
+              type: "command",
+              command: "npx claude-flow hook pre-edit --file \"${CLAUDE_FLOW_FILE}\" --validate-syntax --auto-assign-agents",
+              blocking: false
+            }
+          ]
+        },
+        {
+          matcher: "Write",
+          hooks: [
+            {
+              type: "command",
+              command: "npx claude-flow hook pre-write --file \"${CLAUDE_FLOW_FILE}\" --prepare-directory",
+              blocking: true
+            }
+          ]
+        },
+        {
+          matcher: "Bash",
+          hooks: [
+            {
+              type: "command",
+              command: "npx claude-flow hook pre-command --command \"${CLAUDE_FLOW_COMMAND}\" --validate-safety",
+              blocking: true
+            }
+          ]
+        },
+        {
+          matcher: "Task",
+          hooks: [
+            {
+              type: "command",
+              command: "npx claude-flow hook pre-task --description \"${CLAUDE_FLOW_TASK}\" --auto-spawn-agents --optimize-topology",
+              blocking: false
+            }
+          ]
+        }
+      ],
+      PostToolUse: [
+        {
+          matcher: "Edit|MultiEdit|Write",
+          hooks: [
+            {
+              type: "command",
+              command: "npx claude-flow hook post-edit --file \"${CLAUDE_FLOW_FILE}\" --format-code --update-memory --train-neural"
+            }
+          ]
+        },
+        {
+          matcher: "Bash",
+          hooks: [
+            {
+              type: "command",
+              command: "npx claude-flow hook post-command --command \"${CLAUDE_FLOW_COMMAND}\" --track-metrics --store-results"
+            }
+          ]
+        },
+        {
+          matcher: "Task",
+          hooks: [
+            {
+              type: "command",
+              command: "npx claude-flow hook post-task --task-id \"${CLAUDE_FLOW_TASK_ID}\" --analyze-performance --update-telemetry"
+            }
+          ]
+        },
+        {
+          matcher: "Read|Grep|Glob",
+          hooks: [
+            {
+              type: "command",
+              command: "npx claude-flow hook post-search --pattern \"${CLAUDE_FLOW_PATTERN}\" --cache-results --optimize-future"
+            }
+          ]
+        }
+      ],
+      Notification: [
+        {
+          hooks: [
+            {
+              type: "command",
+              command: "npx claude-flow hook notification --message \"${CLAUDE_FLOW_MESSAGE}\" --update-status --broadcast-agents"
+            }
+          ]
+        }
+      ],
+      Stop: [
+        {
+          hooks: [
+            {
+              type: "command",
+              command: "npx claude-flow hook session-end --generate-summary --persist-state --export-metrics --cleanup-temp"
+            }
+          ]
+        }
+      ],
+      SubagentStop: [
+        {
+          hooks: [
+            {
+              type: "command",
+              command: "npx claude-flow hook agent-stop --agent-id \"${CLAUDE_FLOW_AGENT_ID}\" --save-knowledge --update-swarm-status"
+            }
+          ]
+        }
+      ]
     },
     mcpServers: {
       "claude-flow": {
