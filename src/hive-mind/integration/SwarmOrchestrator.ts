@@ -20,8 +20,8 @@ import {
 
 export class SwarmOrchestrator extends EventEmitter {
   private hiveMind: HiveMind;
-  private db: DatabaseManager;
-  private mcpWrapper: MCPToolWrapper;
+  private db!: DatabaseManager;
+  private mcpWrapper!: MCPToolWrapper;
   private executionPlans: Map<string, ExecutionPlan>;
   private taskAssignments: Map<string, TaskAssignment[]>;
   private activeExecutions: Map<string, any>;
@@ -90,7 +90,7 @@ export class SwarmOrchestrator extends EventEmitter {
     
     // Create assignments for each phase
     const phaseAssignments = await Promise.all(
-      phases.map(phase => this.createPhaseAssignments(task, phase, analysis))
+      phases.map((phase: any) => this.createPhaseAssignments(task, phase, analysis))
     );
     
     return {
@@ -135,7 +135,7 @@ export class SwarmOrchestrator extends EventEmitter {
       
     } catch (error) {
       execution.status = 'failed';
-      execution.error = error;
+      (execution as any).error = error;
       await this.handleTaskFailure(task, execution, error);
     } finally {
       this.activeExecutions.delete(task.id);
@@ -510,7 +510,7 @@ export class SwarmOrchestrator extends EventEmitter {
     // Filter available agents with required capabilities
     const suitableAgents = agents.filter(agent => 
       agent.status === 'idle' &&
-      requiredCapabilities.every(cap => agent.capabilities.includes(cap))
+      requiredCapabilities.every(cap => agent.capabilities.includes(cap as any))
     );
     
     if (suitableAgents.length === 0) {

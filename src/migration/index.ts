@@ -21,7 +21,7 @@ program
   .version('1.0.0');
 
 program
-  .command('analyze [path]')
+  .command('analyze [path]', 'Analyze existing project for migration readiness')
   .description('Analyze existing project for migration readiness')
   .option('-d, --detailed', 'Show detailed analysis')
   .option('-o, --output <file>', 'Output analysis to file')
@@ -43,7 +43,7 @@ program
   });
 
 program
-  .command('migrate [path]')
+  .command('migrate [path]', 'Migrate project to optimized prompts')
   .description('Migrate project to optimized prompts')
   .option('-s, --strategy <type>', 'Migration strategy: full, selective, merge', 'selective')
   .option('-b, --backup <dir>', 'Backup directory', '.claude-backup')
@@ -71,7 +71,7 @@ program
   });
 
 program
-  .command('rollback [path]')
+  .command('rollback [path]', 'Rollback to previous configuration')
   .description('Rollback to previous configuration')
   .option('-b, --backup <dir>', 'Backup directory to restore from', '.claude-backup')
   .option('-t, --timestamp <time>', 'Restore from specific timestamp')
@@ -93,7 +93,7 @@ program
   });
 
 program
-  .command('validate [path]')
+  .command('validate [path]', 'Validate migration was successful')
   .description('Validate migration was successful')
   .option('-v, --verbose', 'Show detailed validation results')
   .action(async (projectPath: string = '.', options: any) => {
@@ -118,7 +118,7 @@ program
   });
 
 program
-  .command('list-backups [path]')
+  .command('list-backups [path]', 'List available backups')
   .description('List available backups')
   .option('-b, --backup <dir>', 'Backup directory', '.claude-backup')
   .action(async (projectPath: string = '.', options: any) => {
@@ -138,7 +138,7 @@ program
 
 // Show help if no command provided
 if (!process.argv.slice(2).length) {
-  program.help();
+  program.outputHelp();
 }
 
 program.parse(process.argv);

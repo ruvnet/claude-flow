@@ -54,7 +54,7 @@ export class AsyncFileManager {
   async writeFile(path: string, data: string | Buffer): Promise<FileOperationResult> {
     const start = Date.now();
     
-    return await this.writeQueue.add(async () => {
+    return await this.writeQueue.add(async (): Promise<FileOperationResult> => {
       try {
         // Ensure directory exists
         await this.ensureDirectory(dirname(path));
@@ -96,7 +96,7 @@ export class AsyncFileManager {
   async readFile(path: string): Promise<FileOperationResult & { data?: string }> {
     const start = Date.now();
     
-    return await this.readQueue.add(async () => {
+    return await this.readQueue.add(async (): Promise<FileOperationResult & { data?: string }> => {
       try {
         const data = await fs.readFile(path, 'utf8');
         const duration = Date.now() - start;
@@ -157,7 +157,7 @@ export class AsyncFileManager {
   async deleteFile(path: string): Promise<FileOperationResult> {
     const start = Date.now();
     
-    return this.writeQueue.add(async () => {
+    return this.writeQueue.add(async (): Promise<FileOperationResult> => {
       try {
         await fs.unlink(path);
         
@@ -231,7 +231,7 @@ export class AsyncFileManager {
   async copyFile(source: string, destination: string): Promise<FileOperationResult> {
     const start = Date.now();
     
-    return this.writeQueue.add(async () => {
+    return this.writeQueue.add(async (): Promise<FileOperationResult> => {
       try {
         await this.ensureDirectory(dirname(destination));
         await fs.copyFile(source, destination);

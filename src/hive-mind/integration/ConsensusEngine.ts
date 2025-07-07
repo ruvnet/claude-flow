@@ -508,16 +508,16 @@ export class ConsensusEngine extends EventEmitter {
       
       try {
         // Calculate average voting time
-        const recentProposals = this.db.getRecentConsensusProposals(10);
+        const recentProposals = await this.db.getRecentConsensusProposals(10);
         
         if (recentProposals.length > 0) {
           const votingTimes = recentProposals
-            .filter(p => p.completed_at)
-            .map(p => new Date(p.completed_at).getTime() - new Date(p.created_at).getTime());
+            .filter((p: any) => p.completed_at)
+            .map((p: any) => new Date(p.completed_at).getTime() - new Date(p.created_at).getTime());
           
           if (votingTimes.length > 0) {
             this.metrics.avgVotingTime = 
-              votingTimes.reduce((a, b) => a + b, 0) / votingTimes.length;
+              votingTimes.reduce((a: number, b: number) => a + b, 0) / votingTimes.length;
           }
         }
         

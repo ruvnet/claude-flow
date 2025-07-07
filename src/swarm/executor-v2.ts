@@ -43,7 +43,7 @@ export class TaskExecutorV2 extends TaskExecutor {
     });
   }
 
-  async executeClaudeTask(
+  override async executeClaudeTask(
     task: TaskDefinition,
     agent: AgentState,
     claudeOptions: ClaudeExecutionOptionsV2 = {}
@@ -71,7 +71,7 @@ export class TaskExecutorV2 extends TaskExecutor {
       // Handle interactive errors with retry
       if (this.isInteractiveError(error) && enhancedOptions.retryOnInteractiveError) {
         this.logger.warn('Interactive error detected, retrying with non-interactive mode', {
-          error: error.message
+          error: (error as Error).message
         });
         
         // Force non-interactive mode and retry
@@ -279,7 +279,7 @@ export class TaskExecutorV2 extends TaskExecutor {
           } catch (collectionError) {
             this.logger.error('Error collecting execution results', {
               sessionId,
-              error: collectionError.message
+              error: (collectionError as Error).message
             });
             
             // Still resolve with basic result
@@ -300,7 +300,7 @@ export class TaskExecutorV2 extends TaskExecutor {
         clearTimeout(timeoutHandle);
         this.logger.error('Failed to spawn process', {
           sessionId,
-          error: spawnError.message
+          error: (spawnError as Error).message
         });
         reject(spawnError);
       }
