@@ -693,11 +693,12 @@ export class SwarmOrchestrator extends EventEmitter {
    * Notify agent of task cancellation
    */
   private async notifyAgentTaskCancelled(agentId: string, taskId: string): Promise<void> {
+    const status = await this.hiveMind.getFullStatus();
     // Send cancellation message to agent
     await this.db.createCommunication({
       from_agent_id: 'orchestrator',
       to_agent_id: agentId,
-      swarm_id: this.hiveMind.id,
+      swarm_id: status.swarmId,
       message_type: 'task_cancellation',
       content: JSON.stringify({ taskId, reason: 'User cancelled' }),
       priority: 'urgent'
@@ -709,7 +710,8 @@ export class SwarmOrchestrator extends EventEmitter {
    */
   private async analyzeLoadDistribution(): Promise<any> {
     const agents = await this.hiveMind.getAgents();
-    const tasks = await this.db.getActiveTasks(this.hiveMind.id);
+    const status = await this.hiveMind.getFullStatus();
+    const tasks = await this.db.getActiveTasks(status.swarmId);
     
     const busyAgents = agents.filter(a => a.status === 'busy');
     const idleAgents = agents.filter(a => a.status === 'idle');
@@ -764,11 +766,12 @@ export class SwarmOrchestrator extends EventEmitter {
    * Notify agents of reassignment
    */
   private async notifyAgentReassignment(fromAgentId: string, toAgentId: string, taskId: string): Promise<void> {
+    const status = await this.hiveMind.getFullStatus();
     // Notify source agent
     await this.db.createCommunication({
       from_agent_id: 'orchestrator',
       to_agent_id: fromAgentId,
-      swarm_id: this.hiveMind.id,
+      swarm_id: status.swarmId,
       message_type: 'task_reassignment',
       content: JSON.stringify({ taskId, reassignedTo: toAgentId }),
       priority: 'high'
@@ -781,7 +784,7 @@ export class SwarmOrchestrator extends EventEmitter {
     await this.db.createCommunication({
       from_agent_id: 'orchestrator',
       to_agent_id: toAgentId,
-      swarm_id: this.hiveMind.id,
+      swarm_id: status.swarmId,
       message_type: 'task_assignment',
       content: JSON.stringify({ 
         taskId, 

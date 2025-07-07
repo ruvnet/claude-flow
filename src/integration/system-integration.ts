@@ -10,7 +10,7 @@ import { MemoryManager } from '../memory/manager.js';
 import { AgentManager } from '../agents/agent-manager.js';
 import { TaskEngine } from '../task/engine.js';
 import { RealTimeMonitor } from '../monitoring/real-time-monitor.js';
-import { McpServer } from '../mcp/server.js';
+import { MCPServer } from '../mcp/server.js';
 import { getErrorMessage } from '../utils/error-handler.js';
 import type { IntegrationConfig, SystemHealth, ComponentStatus } from './types.js';
 
@@ -147,7 +147,11 @@ export class SystemIntegration {
       // Initialize memory manager
       try {
         const { MemoryManager } = await import('../memory/manager.js');
-        this.memoryManager = new MemoryManager();
+        this.memoryManager = new MemoryManager(
+          { backend: 'memory', cacheSizeMB: 64 },
+          this.eventBus,
+          this.logger
+        );
         if (typeof this.memoryManager.initialize === 'function') {
           await this.memoryManager.initialize();
         }
@@ -174,7 +178,12 @@ export class SystemIntegration {
       // Initialize agent manager
       try {
         const { AgentManager } = await import('../agents/agent-manager.js');
-        this.agentManager = new AgentManager(this.eventBus, this.logger);
+        this.agentManager = new AgentManager(
+          { maxAgents: 10 },
+          this.logger,
+          this.eventBus,
+          this.memoryManager
+        );
         if (typeof this.agentManager.initialize === 'function') {
           await this.agentManager.initialize();
         }
@@ -190,11 +199,7 @@ export class SystemIntegration {
       // Initialize swarm coordinator
       try {
         const { SwarmCoordinator } = await import('../coordination/swarm-coordinator.js');
-        this.swarmCoordinator = new SwarmCoordinator(
-          this.eventBus,
-          this.logger,
-          this.memoryManager!
-        );
+        this.swarmCoordinator = new SwarmCoordinator();
         if (typeof this.swarmCoordinator.initialize === 'function') {
           await this.swarmCoordinator.initialize();
         }
@@ -202,7 +207,7 @@ export class SystemIntegration {
       } catch (error) {
         this.logger.warn('Swarm coordinator not available, using mock:', getErrorMessage(error));
         const { MockSwarmCoordinator } = await import('./mock-components.js');
-        this.swarmCoordinator = new MockSwarmCoordinator(this.eventBus, this.logger, this.memoryManager!);
+        this.swarmCoordinator = new MockSwarmCoordinator();
         await this.swarmCoordinator.initialize();
         this.updateComponentStatus('swarm', 'warning', 'Using mock swarm coordinator');
       }
@@ -225,8 +230,7 @@ export class SystemIntegration {
       try {
         const { TaskEngine } = await import('../task/engine.js');
         this.taskEngine = new TaskEngine(
-          this.eventBus,
-          this.logger,
+          10,
           this.memoryManager!
         );
         if (typeof this.taskEngine.initialize === 'function') {
@@ -236,7 +240,7 @@ export class SystemIntegration {
       } catch (error) {
         this.logger.warn('Task engine not available, using mock:', getErrorMessage(error));
         const { MockTaskEngine } = await import('./mock-components.js');
-        this.taskEngine = new MockTaskEngine(this.eventBus, this.logger, this.memoryManager!);
+        this.taskEngine = new MockTaskEngine();
         await this.taskEngine.initialize();
         this.updateComponentStatus('tasks', 'warning', 'Using mock task engine');
       }
@@ -258,7 +262,12 @@ export class SystemIntegration {
       // Initialize real-time monitor
       try {
         const { RealTimeMonitor } = await import('../monitoring/real-time-monitor.js');
-        this.monitor = new RealTimeMonitor(this.eventBus, this.logger);
+        this.monitor = new RealTimeMonitor(
+          { updateInterval: 5000 },
+          this.logger,
+          this.eventBus,
+          this.memoryManager!
+        );
         if (typeof this.monitor.initialize === 'function') {
           await this.monitor.initialize();
         }
@@ -266,15 +275,19 @@ export class SystemIntegration {
       } catch (error) {
         this.logger.warn('Real-time monitor not available, using mock:', getErrorMessage(error));
         const { MockRealTimeMonitor } = await import('./mock-components.js');
-        this.monitor = new MockRealTimeMonitor(this.eventBus, this.logger);
+        this.monitor = new MockRealTimeMonitor();
         await this.monitor.initialize();
         this.updateComponentStatus('monitor', 'warning', 'Using mock monitor');
       }
       
       // Initialize MCP server
       try {
-        const { McpServer } = await import('../mcp/server.js');
-        this.mcpServer = new McpServer(this.eventBus, this.logger);
+        const { MCPServer } = await import('../mcp/server.js');
+        this.mcpServer = new MCPServer(
+          { transport: 'stdio' },
+          this.eventBus,
+          this.logger
+        );
         if (typeof this.mcpServer.initialize === 'function') {
           await this.mcpServer.initialize();
         }
@@ -282,7 +295,7 @@ export class SystemIntegration {
       } catch (error) {
         this.logger.warn('MCP server not available, using mock:', getErrorMessage(error));
         const { MockMcpServer } = await import('./mock-components.js');
-        this.mcpServer = new MockMcpServer(this.eventBus, this.logger);
+        this.mcpServer = new MockMcpServer();
         await this.mcpServer.initialize();
         this.updateComponentStatus('mcp', 'warning', 'Using mock MCP server');
       }
@@ -338,18 +351,18 @@ export class SystemIntegration {
    */
   private setupEventHandlers(): void {
     // System health monitoring
-    this.eventBus.on('component:status', (event) => {
+    this.eventBus.on('component:status', (event: any) => {
       this.updateComponentStatus(event.component, event.status, event.message);
     });
     
     // Error handling
-    this.eventBus.on('system:error', (event) => {
+    this.eventBus.on('system:error', (event: any) => {
       this.logger.error(`System Error in ${event.component}:`, event.error);
       this.updateComponentStatus(event.component, 'unhealthy', event.error.message);
     });
     
     // Performance monitoring
-    this.eventBus.on('performance:metric', (event) => {
+    this.eventBus.on('performance:metric', (event: any) => {
       this.logger.debug(`Performance Metric: ${event.metric} = ${event.value}`);
     });
   }

@@ -175,9 +175,9 @@ export class MockSwarmCoordinator {
   private swarms: Map<string, any> = new Map();
 
   constructor(
-    private eventBus: EventBus,
-    private logger: Logger,
-    private memoryManager: MockMemoryManager
+    eventBus?: EventBus,
+    logger?: Logger,
+    memoryManager?: MockMemoryManager
   ) {}
 
   async initialize(): Promise<void> {
@@ -240,9 +240,9 @@ export class MockTaskEngine {
   private tasks: Map<string, any> = new Map();
 
   constructor(
-    private eventBus: EventBus,
-    private logger: Logger,
-    private memoryManager: MockMemoryManager
+    eventBus?: EventBus,
+    logger?: Logger,
+    memoryManager?: MockMemoryManager
   ) {}
 
   async initialize(): Promise<void> {
@@ -296,7 +296,7 @@ export class MockTaskEngine {
 }
 
 export class MockRealTimeMonitor {
-  constructor(private eventBus: EventBus, private logger: Logger) {}
+  constructor(eventBus?: EventBus, logger?: Logger) {}
 
   async initialize(): Promise<void> {
     // Mock initialization
@@ -333,7 +333,7 @@ export class MockRealTimeMonitor {
 }
 
 export class MockMcpServer {
-  constructor(private eventBus: EventBus, private logger: Logger) {}
+  constructor(eventBus?: EventBus, logger?: Logger) {}
 
   async initialize(): Promise<void> {
     // Mock initialization

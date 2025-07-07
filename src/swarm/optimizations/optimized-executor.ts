@@ -17,7 +17,8 @@ import type {
   AgentId,
   TaskStatus,
   TaskType,
-  TaskPriority
+  TaskPriority,
+  TaskId
 } from '../types.js';
 
 export interface ExecutorConfig {
@@ -51,12 +52,49 @@ export interface ExecutionMetrics {
   activeExecutions: number;
 }
 
+// Extended TaskResult interface for optimized executor
+export interface OptimizedTaskResult extends TaskResult {
+  taskId: string;
+  agentId: string;
+  success: boolean;
+  error?: {
+    type: string;
+    message: string;
+    code?: string;
+    stack?: string;
+    context: Record<string, any>;
+    recoverable: boolean;
+    retryable: boolean;
+  };
+  tokensUsed?: {
+    inputTokens: number;
+    outputTokens: number;
+  };
+  timestamp: Date;
+}
+
+// Extended TaskDefinition interface for optimized executor
+export interface OptimizedTaskDefinition extends TaskDefinition {
+  objective: string;
+  metadata?: {
+    model?: string;
+    temperature?: number;
+    systemPrompt?: string;
+    [key: string]: any;
+  };
+  context: {
+    previousResults?: OptimizedTaskResult[];
+    relatedTasks?: OptimizedTaskDefinition[];
+    [key: string]: any;
+  };
+}
+
 export class OptimizedExecutor extends EventEmitter {
   private logger: Logger;
   private connectionPool: ClaudeConnectionPool;
   private fileManager: AsyncFileManager;
   private executionQueue: PQueue;
-  private resultCache: TTLMap<string, TaskResult>;
+  private resultCache: TTLMap<string, OptimizedTaskResult>;
   private executionHistory: CircularBuffer<{
     taskId: string;
     duration: number;
@@ -125,7 +163,7 @@ export class OptimizedExecutor extends EventEmitter {
     }
   }
   
-  async executeTask(task: TaskDefinition, agentId: AgentId): Promise<TaskResult> {
+  async executeTask(task: OptimizedTaskDefinition, agentId: AgentId): Promise<OptimizedTaskResult> {
     const startTime = Date.now();
     const taskKey = this.getTaskCacheKey(task);
     
@@ -134,17 +172,17 @@ export class OptimizedExecutor extends EventEmitter {
       const cached = this.resultCache.get(taskKey);
       if (cached) {
         this.metrics.cacheHits++;
-        this.logger.debug('Cache hit for task', { taskId: task.id });
+        this.logger.debug('Cache hit for task', { taskId: task.id.id });
         return cached;
       }
       this.metrics.cacheMisses++;
     }
     
     // Add to active executions
-    this.activeExecutions.add(task.id);
+    this.activeExecutions.add(task.id.id);
     
     // Queue the execution
-    const result = await this.executionQueue.add(async () => {
+    const result = await this.executionQueue.add<OptimizedTaskResult>(async (): Promise<OptimizedTaskResult> => {
       try {
         // Execute with connection pool
         const executionResult = await this.connectionPool.execute(async (api) => {
@@ -167,9 +205,9 @@ export class OptimizedExecutor extends EventEmitter {
         
         // Save result to file asynchronously
         if (this.config.fileOperations?.outputDir) {
-          const outputPath = `${this.config.fileOperations.outputDir}/${task.id}.json`;
+          const outputPath = `${this.config.fileOperations.outputDir}/${task.id.id}.json`;
           await this.fileManager.writeJSON(outputPath, {
-            taskId: task.id,
+            taskId: task.id.id,
             agentId: agentId.id,
             result: executionResult,
             timestamp: new Date()
@@ -177,13 +215,20 @@ export class OptimizedExecutor extends EventEmitter {
         }
         
         // Create task result
-        const taskResult: TaskResult = {
-          taskId: task.id,
+        const taskResult: OptimizedTaskResult = {
+          taskId: task.id.id,
           agentId: agentId.id,
           success: executionResult.success,
           output: executionResult.output,
-          error: undefined,
+          artifacts: {},
+          metadata: {},
+          quality: 1.0,
+          completeness: 1.0,
+          accuracy: 1.0,
           executionTime: Date.now() - startTime,
+          resourcesUsed: { tokens: (executionResult.usage?.inputTokens || 0) + (executionResult.usage?.outputTokens || 0) },
+          validated: false,
+          error: undefined,
           tokensUsed: executionResult.usage,
           timestamp: new Date()
         };
@@ -200,7 +245,7 @@ export class OptimizedExecutor extends EventEmitter {
         
         // Record in history
         this.executionHistory.push({
-          taskId: task.id,
+          taskId: task.id.id,
           duration: taskResult.executionTime,
           status: 'success',
           timestamp: new Date()
@@ -210,7 +255,7 @@ export class OptimizedExecutor extends EventEmitter {
         if (this.config.monitoring?.slowTaskThreshold && 
             taskResult.executionTime > this.config.monitoring.slowTaskThreshold) {
           this.logger.warn('Slow task detected', {
-            taskId: task.id,
+            taskId: task.id.id,
             duration: taskResult.executionTime,
             threshold: this.config.monitoring.slowTaskThreshold
           });
@@ -223,52 +268,60 @@ export class OptimizedExecutor extends EventEmitter {
         this.metrics.totalExecuted++;
         this.metrics.totalFailed++;
         
-        const errorResult: TaskResult = {
-          taskId: task.id,
+        const errorResult: OptimizedTaskResult = {
+          taskId: task.id.id,
           agentId: agentId.id,
           success: false,
           output: '',
+          artifacts: {},
+          metadata: {},
+          quality: 0,
+          completeness: 0,
+          accuracy: 0,
+          executionTime: Date.now() - startTime,
+          resourcesUsed: {},
+          validated: false,
           error: {
             type: error instanceof Error ? error.constructor.name : 'UnknownError',
             message: error instanceof Error ? error.message : 'Unknown error',
             code: (error as any).code,
             stack: error instanceof Error ? error.stack : undefined,
-            context: { taskId: task.id, agentId: agentId.id },
+            context: { taskId: task.id.id, agentId: agentId.id },
             recoverable: this.isRecoverableError(error),
             retryable: this.isRetryableError(error)
           },
-          executionTime: Date.now() - startTime,
           timestamp: new Date()
         };
         
         // Record in history
         this.executionHistory.push({
-          taskId: task.id,
+          taskId: task.id.id,
           duration: errorResult.executionTime,
           status: 'failed',
           timestamp: new Date()
         });
         
         this.emit('task:failed', errorResult);
-        throw error;
+        return errorResult;
       } finally {
-        this.activeExecutions.delete(task.id);
+        this.activeExecutions.delete(task.id.id);
       }
     });
     
-    return result;
+    return result as OptimizedTaskResult;
   }
   
   async executeBatch(
-    tasks: TaskDefinition[], 
+    tasks: OptimizedTaskDefinition[], 
     agentId: AgentId
-  ): Promise<TaskResult[]> {
-    return Promise.all(
+  ): Promise<OptimizedTaskResult[]> {
+    const results = await Promise.all(
       tasks.map(task => this.executeTask(task, agentId))
     );
+    return results;
   }
   
-  private buildMessages(task: TaskDefinition): any[] {
+  private buildMessages(task: OptimizedTaskDefinition): any[] {
     const messages = [];
     
     // Add system message if needed
@@ -307,7 +360,7 @@ export class OptimizedExecutor extends EventEmitter {
     return messages;
   }
   
-  private getTaskCacheKey(task: TaskDefinition): string {
+  private getTaskCacheKey(task: OptimizedTaskDefinition): string {
     // Create a cache key based on task properties
     return `${task.type}-${task.objective}-${JSON.stringify(task.metadata || {})}`;
   }

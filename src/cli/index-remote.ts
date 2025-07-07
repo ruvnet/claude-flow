@@ -130,7 +130,7 @@ async function main() {
   }
 }
 
-if (import.meta.main) {
+if (typeof require !== 'undefined' && require.main === module) {
   main().catch((error) => {
     printError(`Error: ${(error instanceof Error ? error.message : String(error))}`);
     process.exit(1);

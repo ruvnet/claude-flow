@@ -6,7 +6,7 @@ import { getErrorMessage } from '../utils/error-handler.js';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { Buffer } from 'node:buffer';
-import process from 'node:process';
+import * as process from 'node:process';
 import type { LoggingConfig } from '../utils/types.js';
 import { formatBytes } from '../utils/helpers.js';
 

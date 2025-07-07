@@ -3,7 +3,7 @@
  * Detects execution environment and recommends appropriate flags
  */
 
-import chalk from 'chalk';
+import * as chalk from 'chalk';
 
 export interface ExecutionEnvironment {
   isInteractive: boolean;
@@ -200,24 +200,24 @@ export function applySmartDefaults<T extends Record<string, any>>(
   // Apply defaults based on environment
   if ((environment.isVSCode || environment.isCI || !environment.supportsRawMode) && 
       !options.hasOwnProperty('skipPermissions')) {
-    enhanced.skipPermissions = true;
-    enhanced.dangerouslySkipPermissions = true;
+    (enhanced as any).skipPermissions = true;
+    (enhanced as any).dangerouslySkipPermissions = true;
     appliedDefaults.push('--dangerously-skip-permissions');
   }
   
   if ((environment.isCI || !environment.isInteractive) && 
       !options.hasOwnProperty('nonInteractive')) {
-    enhanced.nonInteractive = true;
+    (enhanced as any).nonInteractive = true;
     appliedDefaults.push('--non-interactive');
   }
   
   if (environment.isCI && !options.hasOwnProperty('json')) {
-    enhanced.json = true;
+    (enhanced as any).json = true;
     appliedDefaults.push('--json');
   }
   
   if (!environment.supportsColor && !options.hasOwnProperty('noColor')) {
-    enhanced.noColor = true;
+    (enhanced as any).noColor = true;
     appliedDefaults.push('--no-color');
   }
   

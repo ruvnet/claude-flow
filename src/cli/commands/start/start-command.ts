@@ -100,12 +100,12 @@ export const startCommand = new Command()
       if (options.ui) {
         // Check if web server is available
         try {
-          const { ClaudeCodeWebServer } = await import('../../simple-commands/web-server.js');
+          const { startWebServer } = await import('../../simple-commands/web-server.js');
           
           // Start the web server
           console.log(chalk.blue('Starting Web UI server...'));
-          const webServer = new ClaudeCodeWebServer(options.port);
-          await webServer.start();
+          const webServer = await startWebServer({ port: options.port });
+          console.log(chalk.green(`Web UI started on port ${webServer.port}`));
           
           // Open browser if possible
           const openCommand = process.platform === 'darwin' ? 'open' :

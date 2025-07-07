@@ -385,9 +385,11 @@ export async function startNodeREPL(options: any = {}): Promise<void> {
   // Set up command completion
   completer.setCommands(commands);
   
-  // Set completer function
-  rl.completer = (line: string) => {
-    return completer.complete(line);
+  // Set completer function (using custom implementation)
+  const originalCompleter = (rl as any).completer;
+  (rl as any).completer = (line: string) => {
+    const completions = completer.complete(line);
+    return [completions, line];
   };
   
   // Show initial status

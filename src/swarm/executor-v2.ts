@@ -7,14 +7,18 @@ import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import chalk from 'chalk';
+import * as chalk from 'chalk';
 import { Logger } from '../core/logger.js';
 import { generateId } from '../utils/helpers.js';
-import { detectExecutionEnvironment, applySmartDefaults } from '../cli/utils/environment-detector.js';
+import { detectExecutionEnvironment, applySmartDefaults, type ExecutionEnvironment } from '../cli/utils/environment-detector.js';
 import {
   TaskDefinition, AgentState, TaskResult, SwarmEvent, EventType,
   SWARM_CONSTANTS
 } from './types.js';
+import {
+  TaskExecutor, type ExecutionConfig, type ExecutionContext, type ExecutionResult,
+  type ResourceUsage, type ClaudeExecutionOptions, type ClaudeCommand
+} from './executor.js';
 
 export interface ClaudeExecutionOptionsV2 extends ClaudeExecutionOptions {
   nonInteractive?: boolean;
@@ -22,10 +26,11 @@ export interface ClaudeExecutionOptionsV2 extends ClaudeExecutionOptions {
   promptDefaults?: Record<string, any>;
   environmentOverride?: Record<string, string>;
   retryOnInteractiveError?: boolean;
+  dangerouslySkipPermissions?: boolean;
 }
 
 export class TaskExecutorV2 extends TaskExecutor {
-  private environment = detectExecutionEnvironment();
+  private environment: ExecutionEnvironment = detectExecutionEnvironment();
   
   constructor(config: Partial<ExecutionConfig> = {}) {
     super(config);
@@ -71,7 +76,7 @@ export class TaskExecutorV2 extends TaskExecutor {
         
         // Force non-interactive mode and retry
         enhancedOptions.nonInteractive = true;
-        enhancedOptions.dangerouslySkipPermissions = true;
+        (enhancedOptions as any).dangerouslySkipPermissions = true;
         
         return await this.executeClaudeWithTimeoutV2(
           generateId('claude-execution-retry'),
@@ -94,7 +99,7 @@ export class TaskExecutorV2 extends TaskExecutor {
     options: ClaudeExecutionOptionsV2
   ): Promise<ExecutionResult> {
     const startTime = Date.now();
-    const timeout = options.timeout || this.config.timeoutMs;
+    const timeout = (options as any).timeout || this.config.timeoutMs;
 
     // Build Claude command with v2 enhancements
     const command = this.buildClaudeCommandV2(task, agent, options);
@@ -114,7 +119,7 @@ export class TaskExecutorV2 extends TaskExecutor {
 
     // Add prompt defaults if provided
     if (options.promptDefaults) {
-      env.CLAUDE_PROMPT_DEFAULTS = JSON.stringify(options.promptDefaults);
+      (env as any).CLAUDE_PROMPT_DEFAULTS = JSON.stringify(options.promptDefaults);
     }
 
     this.logger.debug('Executing Claude command v2', {
@@ -157,7 +162,7 @@ export class TaskExecutorV2 extends TaskExecutor {
           cwd: context.workingDirectory,
           env,
           stdio: options.nonInteractive ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe'],
-          detached: options.detached || false,
+          detached: (options as any).detached || false,
           // Disable shell to avoid shell-specific issues
           shell: false
         });
@@ -313,7 +318,7 @@ export class TaskExecutorV2 extends TaskExecutor {
     // Build prompt
     const prompt = this.buildClaudePrompt(task, agent);
     
-    if (options.useStdin) {
+    if ((options as any).useStdin) {
       input = prompt;
     } else {
       args.push('-p', prompt);
@@ -325,22 +330,22 @@ export class TaskExecutorV2 extends TaskExecutor {
     }
 
     // Add model if specified
-    if (options.model) {
-      args.push('--model', options.model);
+    if ((options as any).model) {
+      args.push('--model', (options as any).model);
     }
 
     // Add max tokens if specified
-    if (options.maxTokens) {
-      args.push('--max-tokens', options.maxTokens.toString());
+    if ((options as any).maxTokens) {
+      args.push('--max-tokens', (options as any).maxTokens.toString());
     }
 
     // Add temperature if specified
-    if (options.temperature !== undefined) {
-      args.push('--temperature', options.temperature.toString());
+    if ((options as any).temperature !== undefined) {
+      args.push('--temperature', (options as any).temperature.toString());
     }
 
     // Skip permissions check for non-interactive environments
-    if (options.nonInteractive || options.dangerouslySkipPermissions || 
+    if (options.nonInteractive || (options as any).dangerouslySkipPermissions || 
         this.environment.recommendedFlags.includes('--dangerously-skip-permissions')) {
       args.push('--dangerously-skip-permissions');
     }
@@ -356,8 +361,8 @@ export class TaskExecutorV2 extends TaskExecutor {
     }
 
     // Add output format
-    if (options.outputFormat) {
-      args.push('--output-format', options.outputFormat);
+    if ((options as any).outputFormat) {
+      args.push('--output-format', (options as any).outputFormat);
     } else if (options.nonInteractive) {
       // Default to JSON for non-interactive mode
       args.push('--output-format', 'json');
@@ -371,7 +376,7 @@ export class TaskExecutorV2 extends TaskExecutor {
     }));
 
     return {
-      command: options.claudePath || 'claude',
+      command: (options as any).claudePath || 'claude',
       args,
       input
     };

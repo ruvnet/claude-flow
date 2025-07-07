@@ -622,16 +622,16 @@ export class DatabaseManager extends EventEmitter {
   // Utility operations
 
   async deleteMemoryEntry(key: string, namespace: string): Promise<void> {
-    const startTime = performance.now();
+    const startTime = Date.now();
     
     try {
       this.db.prepare('DELETE FROM memory WHERE key = ? AND namespace = ?').run(key, namespace);
       
-      const duration = performance.now() - startTime;
+      const duration = Date.now() - startTime;
       this.recordPerformance('delete_memory', duration);
       
     } catch (error) {
-      this.recordPerformance('delete_memory_error', performance.now() - startTime);
+      this.recordPerformance('delete_memory_error', Date.now() - startTime);
       throw error;
     }
   }
@@ -662,6 +662,21 @@ export class DatabaseManager extends EventEmitter {
   private recordPerformance(operation: string, duration: number): void {
     // Simple performance tracking - could be expanded
     console.debug(`DB Operation ${operation}: ${duration.toFixed(2)}ms`);
+  }
+
+  // Additional Consensus operations
+
+  async getConsensusProposal(id: string): Promise<any> {
+    return this.db.prepare('SELECT * FROM consensus WHERE id = ?').get(id);
+  }
+
+  async updateConsensusStatus(id: string, status: string): Promise<void> {
+    this.db.prepare('UPDATE consensus SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(status, id);
+  }
+
+  async getRecentConsensusProposals(limit: number): Promise<any[]> {
+    return this.db.prepare('SELECT * FROM consensus ORDER BY created_at DESC LIMIT ?').all(limit);
   }
 
   /**

@@ -1,13 +1,18 @@
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import { getErrorMessage } from '../utils/error-handler.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Worker } from 'worker_threads';
 import { PromptCopier } from './prompt-copier.js';
 import type { CopyOptions, CopyResult, FileInfo } from './prompt-copier.js';
+
+// Re-export types for external use
+export type { CopyOptions, CopyResult, FileInfo };
 import { logger } from '../core/logger.js';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// Handle __dirname for CommonJS compatibility
+const __dirname = process.cwd();
 
 interface WorkerPool {
   workers: Worker[];
@@ -23,8 +28,8 @@ export class EnhancedPromptCopier extends PromptCopier {
     super(options);
   }
 
-  protected async copyFilesParallel(): Promise<void> {
-    const workerCount = Math.min(this.options.maxWorkers, this.fileQueue.length);
+  protected override async copyFilesParallel(): Promise<void> {
+    const workerCount = Math.min(this.options.maxWorkers || 4, this.fileQueue.length);
     
     // Initialize worker pool
     this.workerPool = await this.initializeWorkerPool(workerCount);
@@ -76,7 +81,11 @@ export class EnhancedPromptCopier extends PromptCopier {
   }
 
   private async processWithWorkerPool(): Promise<void> {
-    const chunkSize = Math.max(1, Math.floor(this.fileQueue.length / this.workerPool!.workers.length / 2));
+    if (!this.workerPool) {
+      throw new Error('Worker pool not initialized');
+    }
+    
+    const chunkSize = Math.max(1, Math.floor(this.fileQueue.length / this.workerPool.workers.length / 2));
     const chunks: FileInfo[][] = [];
     
     // Create chunks for better distribution
@@ -96,7 +105,12 @@ export class EnhancedPromptCopier extends PromptCopier {
 
   private async processChunkWithWorker(chunk: FileInfo[]): Promise<void> {
     return new Promise((resolve, reject) => {
-      const pool = this.workerPool!;
+      if (!this.workerPool) {
+        reject(new Error('Worker pool not initialized'));
+        return;
+      }
+      
+      const pool = this.workerPool;
       
       const tryAssignWork = () => {
         // Find available worker
@@ -151,6 +165,7 @@ export class EnhancedPromptCopier extends PromptCopier {
         pool.workers[availableWorkerIndex].postMessage(workerData);
       };
       
+      
       tryAssignWork();
     });
   }
@@ -191,7 +206,7 @@ export class EnhancedPromptCopier extends PromptCopier {
   }
 
   // Override verification to use worker results
-  protected async verifyFiles(): Promise<void> {
+  protected override async verifyFiles(): Promise<void> {
     logger.info('Verifying copied files...');
     
     for (const file of this.fileQueue) {
@@ -238,3 +253,6 @@ export async function copyPromptsEnhanced(options: CopyOptions): Promise<CopyRes
   const copier = new EnhancedPromptCopier(options);
   return copier.copy();
 }
+
+// Export alias for backward compatibility
+export { copyPromptsEnhanced as copyPrompts };

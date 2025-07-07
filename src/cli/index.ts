@@ -36,19 +36,15 @@ const cli = new Command()
   .name('claude-flow')
   .version(VERSION)
   .description('Claude-Flow: Advanced AI agent orchestration system for multi-agent coordination')
-  .meta('Build', BUILD_DATE)
-  .meta('Runtime', 'Deno')
-  .globalOption('-c, --config <path:string>', 'Path to configuration file', {
-    default: './claude-flow.config.json',
-  })
-  .globalOption('-v, --verbose', 'Enable verbose logging')
-  .globalOption('-q, --quiet', 'Suppress non-essential output')
-  .globalOption('--log-level <level:string>', 'Set log level (debug, info, warn, error)', {
-    default: 'info',
-  })
-  .globalOption('--no-color', 'Disable colored output')
-  .globalOption('--json', 'Output in JSON format where applicable')
-  .globalOption('--profile <profile:string>', 'Use named configuration profile')
+  .option('--build-date', 'Show build date', BUILD_DATE)
+  .option('--runtime', 'Show runtime info', 'Deno')
+  .option('-c, --config <path:string>', 'Path to configuration file', './claude-flow.config.json')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .option('-q, --quiet', 'Suppress non-essential output')
+  .option('--log-level <level:string>', 'Set log level (debug, info, warn, error)', 'info')
+  .option('--no-color', 'Disable colored output')
+  .option('--json', 'Output in JSON format where applicable')
+  .option('--profile <profile:string>', 'Use named configuration profile')
   .action(async (options: any) => {
     // If no subcommand, show banner and start REPL
     await setupLogging(options);
@@ -63,18 +59,18 @@ const cli = new Command()
 
 // Add subcommands
 cli
-  .command('start', startCommand)
-  .command('agent', agentCommand)
-  .command('task', taskCommand)
-  .command('memory', memoryCommand)
-  .command('config', configCommand)
-  .command('status', statusCommand)
-  .command('monitor', monitorCommand)
-  .command('session', sessionCommand)
-  .command('workflow', workflowCommand)
-  .command('mcp', mcpCommand)
-  .command('help', helpCommand)
-  .command('repl', new Command()
+  .addCommand('start', startCommand)
+  .addCommand('agent', agentCommand)
+  .addCommand('task', taskCommand)
+  .addCommand('memory', memoryCommand)
+  .addCommand('config', configCommand)
+  .addCommand('status', statusCommand)
+  .addCommand('monitor', monitorCommand)
+  .addCommand('session', sessionCommand)
+  .addCommand('workflow', workflowCommand)
+  .addCommand('mcp', mcpCommand)
+  .addCommand('help', helpCommand)
+  .addCommand('repl', new Command()
     .description('Start interactive REPL mode with command completion')
     .option('--no-banner', 'Skip welcome banner')
     .option('--history-file <path:string>', 'Custom history file path')
@@ -84,9 +80,8 @@ cli
         displayBanner(VERSION);
       }
       await startREPL(options);
-    }),
-  )
-  .command('version', new Command()
+    }))
+  .addCommand('version', new Command()
     .description('Show detailed version information')
     .option('--short', 'Show version number only')
     .action(async (options: any) => {
@@ -95,17 +90,15 @@ cli
       } else {
         displayVersion(VERSION, BUILD_DATE);
       }
-    }),
-  )
-  .command('completion', new Command()
+    }))
+  .addCommand('completion', new Command()
     .description('Generate shell completion scripts')
     .arguments('[shell:string]')
     .option('--install', 'Install completion script automatically')
     .action(async (options: any, shell: any) => {
       const generator = new CompletionGenerator();
       await generator.generate(shell || 'detect', options.install === true);
-    }),
-  );
+    }));
 
 // Global error handler
 async function handleError(error: unknown, options?: any): Promise<void> {
@@ -186,7 +179,7 @@ function setupSignalHandlers(): void {
 }
 
 // Main entry point
-if (import.meta.main) {
+if (typeof require !== 'undefined' && require.main === module) {
   let globalOptions: any = {};
   
   try {
@@ -204,7 +197,8 @@ if (import.meta.main) {
     
     // Configure colors based on options
     if (globalOptions.noColor) {
-      colors.setColorEnabled(false);
+      // Disable colors if needed
+      process.env.NO_COLOR = '1';
     }
     
     await cli.parse(args);

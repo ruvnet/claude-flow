@@ -1,19 +1,76 @@
 #!/usr/bin/env -S deno run --allow-all
 import { getErrorMessage } from '../utils/error-handler.js';
+
+// Type declarations for Deno runtime
+declare const Deno: {
+  args: string[];
+  exit: (code?: number) => never;
+  env: {
+    get: (key: string) => string | undefined;
+    set: (key: string, value: string) => void;
+    toObject: () => Record<string, string>;
+  };
+  stdout: {
+    write: (data: Uint8Array) => Promise<number>;
+  };
+  [key: string]: any;
+};
 /**
  * Simple CLI wrapper for Claude-Flow (JavaScript version)
  * This version avoids TypeScript issues in node_modules
  */
 
 import { promises as fs } from 'node:fs';
-import { 
-  executeCommand, 
-  hasCommand, 
-  showCommandHelp, 
-  showAllCommands,
-  listCommands 
-} from './command-registry.js';
-import { parseFlags } from './utils.js';
+// Import with any type to avoid module resolution issues
+const commandRegistryModule = require('./command-registry.js');
+const executeCommand = commandRegistryModule.executeCommand;
+const hasCommand = commandRegistryModule.hasCommand;
+const showCommandHelp = commandRegistryModule.showCommandHelp;
+const showAllCommands = commandRegistryModule.showAllCommands;
+const listCommands = commandRegistryModule.listCommands;
+
+// Type definitions for external modules
+interface CommandRegistry {
+  executeCommand: (command: string, args: string[]) => Promise<void>;
+  hasCommand: (command: string) => boolean;
+  showCommandHelp: (command: string) => void;
+  showAllCommands: () => void;
+  listCommands: () => string[];
+}
+
+interface Utils {
+  parseFlags: (args: string[]) => Record<string, any>;
+}
+
+// Type assertions to avoid TS7016 errors
+const commandRegistry = {
+  executeCommand: executeCommand as (command: string, args: string[]) => Promise<void>,
+  hasCommand: hasCommand as (command: string) => boolean,
+  showCommandHelp: showCommandHelp as (command: string) => void,
+  showAllCommands: showAllCommands as () => void,
+  listCommands: listCommands as () => string[]
+};
+// Import with any type to avoid module resolution issues
+const utilsModule = require('./utils.js');
+const parseFlags = utilsModule.parseFlags;
+
+// Type assertion for parseFlags
+const typedParseFlags = parseFlags as (args: string[]) => Record<string, any>;
+
+// Type definitions for command flags
+interface CommandFlags {
+  tools?: string;
+  noPermissions?: boolean;
+  config?: string;
+  mode?: string;
+  parallel?: boolean;
+  research?: boolean;
+  coverage?: number;
+  commit?: string;
+  verbose?: boolean;
+  dryRun?: boolean;
+  [key: string]: any;
+}
 
 const VERSION = '2.0.0';
 
@@ -369,7 +426,7 @@ async function main() {
           
         case 'batch-exec':
           // Batch command execution
-          const batchSession = subArgs.find(arg => !arg.startsWith('--'));
+          const batchSession = subArgs.find((arg: string) => !arg.startsWith('--'));
           const commandsFlag = subArgs.indexOf('--commands');
           const fileFlag = subArgs.indexOf('--file');
           
@@ -455,7 +512,7 @@ async function main() {
           
         case 'cleanup':
           // Cleanup idle terminals
-          const idleTime = subArgs.find(arg => arg.includes('--idle-longer-than'));
+          const idleTime = subArgs.find((arg: string) => arg.includes('--idle-longer-than'));
           printSuccess('Cleaning up idle terminals...');
           console.log('🧹 Scanning for idle sessions');
           if (idleTime) {
@@ -506,7 +563,7 @@ async function main() {
         case 'share':
           // Share terminal session
           const shareId = subArgs[1];
-          const accessLevel = subArgs.find(arg => arg.includes('--access-level'));
+          const accessLevel = subArgs.find((arg: string) => arg.includes('--access-level'));
           if (shareId) {
             printSuccess(`Sharing terminal session: ${shareId}`);
             console.log(`🔗 Share URL: https://claude-flow.local/terminal/${shareId}/view`);
@@ -521,7 +578,7 @@ async function main() {
           // Multi-terminal configuration
           const multiCmd = subArgs[1];
           if (multiCmd === 'create') {
-            const configName = subArgs.find(arg => !arg.startsWith('--'));
+            const configName = subArgs.find((arg: string) => !arg.startsWith('--'));
             printSuccess(`Creating multi-terminal configuration: ${configName || 'default'}`);
             console.log('📋 Configuration template created');
           } else {
@@ -546,7 +603,7 @@ async function main() {
           
         case 'batch-create':
           // Batch create terminals
-          const configFile = subArgs.find(arg => arg.includes('--config'));
+          const configFile = subArgs.find((arg: string) => arg.includes('--config'));
           printSuccess('Creating multiple terminal sessions...');
           if (configFile) {
             console.log(`📄 Loading config from: ${configFile.split('=')[1]}`);
@@ -1193,7 +1250,7 @@ async function main() {
           }
           
           // Parse flags
-          const flags = {};
+          const flags: CommandFlags = {};
           for (let i = taskEndIndex; i < subArgs.length; i++) {
             const arg = subArgs[i];
             if (arg === '--tools' || arg === '-t') {
@@ -1456,9 +1513,9 @@ ${flags.mode === 'full' || !flags.mode ? `Full-stack development covering all as
       const deployCmd = subArgs[0];
       switch (deployCmd) {
         case 'ha-cluster':
-          const nodes = subArgs.find(arg => arg.includes('--nodes'));
-          const regions = subArgs.find(arg => arg.includes('--regions'));
-          const replicationFactor = subArgs.find(arg => arg.includes('--replication-factor'));
+          const nodes = subArgs.find((arg: string) => arg.includes('--nodes'));
+          const regions = subArgs.find((arg: string) => arg.includes('--regions'));
+          const replicationFactor = subArgs.find((arg: string) => arg.includes('--replication-factor'));
           
           printSuccess('Deploying High Availability Cluster...');
           console.log('🏗️  HA Configuration:');
@@ -2035,19 +2092,19 @@ async function startRepl() {
   console.log('Type "help" for available commands, "exit" to quit\n');
   
   const replState = {
-    history: [],
+    history: [] as string[],
     historyIndex: -1,
-    currentSession: null,
+    currentSession: null as string | null,
     context: {
-      agents: [],
-      tasks: [],
-      terminals: [],
-      memory: {}
+      agents: [] as any[],
+      tasks: [] as any[],
+      terminals: [] as any[],
+      memory: {} as Record<string, any>
     }
   };
   
   // REPL command handlers
-  const replCommands = {
+  const replCommands: Record<string, (...args: string[]) => Promise<void> | void> = {
     help: () => {
       console.log(`
 📚 Available REPL Commands:
@@ -2112,7 +2169,7 @@ Shortcuts:
     
     config: async (key: string) => {
       try {
-        const config = JSON.parse(await fs.readFile('claude-flow.config.json'));
+        const config = JSON.parse(await fs.readFile('claude-flow.config.json', 'utf8'));
         if (key) {
           const keys = key.split('.');
           let value = config;
@@ -3229,6 +3286,7 @@ For more information about SPARC methodology, see: https://github.com/ruvnet/cla
 `;
 }
 
-if (import.meta.main) {
-  await main();
+// Check if this is the main module being executed
+if (typeof require !== 'undefined' && require.main === module) {
+  main().catch(console.error);
 }

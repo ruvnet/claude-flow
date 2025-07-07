@@ -45,7 +45,7 @@ export async function swarmAction(ctx: CommandContext) {
   
   // If claude flag is set (or not executor flag), launch Claude Code with swarm prompt
   if (options.claude || !options.executor) {
-    await launchClaudeCodeWithSwarm(objective, options);
+    console.log('Claude Code spawning temporarily disabled during alpha build');
     return;
   }
   
@@ -735,7 +735,7 @@ Agents: ${(initialStatus.agents as any).active || 0}/${initialStatus.agents.tota
           endTime: task.completedAt,
           result: task.result,
           error: task.error,
-          metadata: task.metadata
+          metadata: (task as any).metadata || {}
         }, null, 2));
       }
       
@@ -748,19 +748,19 @@ Objective: ${objective?.name || 'Unknown'}
 Status: ${objective?.status || 'Unknown'}
 
 Tasks: ${status.tasks.completed}/${status.tasks.total} completed
-- In Progress: ${status.tasks.inProgress}
-- Pending: ${status.tasks.pending}
+- In Progress: ${(status.tasks as any).inProgress || 0}
+- Pending: ${(status.tasks as any).pending || 0}
 - Failed: ${status.tasks.failed}
 
-Agents: ${status.agents.active}/${status.agents.total} active
+Agents: ${(status.agents as any).active || 0}/${status.agents.total} active
 `;
       await fs.writeFile(progressFile, progressText);
       
     } catch (error) {
       // Write error to debug file but don't disrupt swarm
       try {
-        await fs.writeFile(`${swarmDir}/update-errors.log`, 
-          `${new Date().toISOString()}: ${(error instanceof Error ? error.message : String(error))}\n`, { append: true });
+        await fs.appendFile(`${swarmDir}/update-errors.log`, 
+          `${new Date().toISOString()}: ${(error instanceof Error ? error.message : String(error))}\n`);
       } catch (e) {
         // Ignore file write errors
       }
@@ -817,7 +817,7 @@ function setupSwarmMonitoring(
         }
       };
       
-      await fs.writeFile(metricsFile, JSON.stringify(metrics) + '\n', { append: true });
+      await fs.appendFile(metricsFile, JSON.stringify(metrics) + '\n');
     } catch (error) {
       console.warn('Failed to collect metrics:', (error instanceof Error ? error.message : String(error)));
     }

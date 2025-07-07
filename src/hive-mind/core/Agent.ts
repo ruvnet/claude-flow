@@ -15,6 +15,7 @@ import {
   AgentCapability,
   Task,
   Message,
+  MessageType,
   AgentConfig,
   ExecutionResult
 } from '../types.js';
@@ -296,7 +297,7 @@ export class Agent extends EventEmitter {
       fromAgentId: this.id,
       toAgentId,
       swarmId: this.swarmId,
-      type: messageType,
+      type: messageType as MessageType,
       content,
       timestamp: new Date(),
       requiresResponse: false
@@ -606,7 +607,7 @@ export class Agent extends EventEmitter {
     if (patterns.suggestedCapabilities) {
       // Update capabilities based on learning
       const newCapabilities = patterns.suggestedCapabilities.filter(
-        (cap: string) => !this.capabilities.includes(cap)
+        (cap: string) => !this.capabilities.includes(cap as AgentCapability)
       );
       
       if (newCapabilities.length > 0) {

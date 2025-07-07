@@ -57,12 +57,12 @@ export interface FileInfo {
 }
 
 export class PromptCopier extends EventEmitter {
-  private options: Required<CopyOptions>;
-  private fileQueue: FileInfo[] = [];
-  private copiedFiles: Set<string> = new Set();
-  private errors: CopyError[] = [];
-  private backupMap: Map<string, string> = new Map();
-  private rollbackStack: Array<() => Promise<void>> = [];
+  protected options: Required<CopyOptions>;
+  protected fileQueue: FileInfo[] = [];
+  protected copiedFiles: Set<string> = new Set();
+  protected errors: CopyError[] = [];
+  protected backupMap: Map<string, string> = new Map();
+  protected rollbackStack: Array<() => Promise<void>> = [];
 
   constructor(options: CopyOptions) {
     super();
@@ -97,6 +97,7 @@ export class PromptCopier extends EventEmitter {
           copiedFiles: 0,
           failedFiles: 0,
           skippedFiles: 0,
+          errors: [],
           duration: Date.now() - startTime
         };
       }
@@ -248,7 +249,7 @@ export class PromptCopier extends EventEmitter {
     }
   }
 
-  private async copyFilesParallel(): Promise<void> {
+  protected async copyFilesParallel(): Promise<void> {
     const workerCount = Math.min(this.options.maxWorkers, this.fileQueue.length);
     const chunkSize = Math.ceil(this.fileQueue.length / workerCount);
     const workers: Promise<void>[] = [];
@@ -266,7 +267,7 @@ export class PromptCopier extends EventEmitter {
     await Promise.all(workers);
   }
 
-  private async processChunk(files: FileInfo[], workerId: number): Promise<void> {
+  protected async processChunk(files: FileInfo[], workerId: number): Promise<void> {
     for (const file of files) {
       try {
         await this.copyFile(file);
@@ -365,7 +366,7 @@ export class PromptCopier extends EventEmitter {
     await fs.writeFile(destPath, mergedContent, 'utf-8');
   }
 
-  private async verifyFiles(): Promise<void> {
+  protected async verifyFiles(): Promise<void> {
     logger.info('Verifying copied files...');
     
     for (const file of this.fileQueue) {
@@ -405,12 +406,12 @@ export class PromptCopier extends EventEmitter {
     }
   }
 
-  private async calculateFileHash(filePath: string): Promise<string> {
+  protected async calculateFileHash(filePath: string): Promise<string> {
     const content = await fs.readFile(filePath);
     return createHash('sha256').update(content).digest('hex');
   }
 
-  private async fileExists(filePath: string): Promise<boolean> {
+  protected async fileExists(filePath: string): Promise<boolean> {
     try {
       await fs.access(filePath);
       return true;
@@ -464,7 +465,7 @@ export class PromptCopier extends EventEmitter {
     }
   }
 
-  private reportProgress(completed: number): void {
+  protected reportProgress(completed: number): void {
     const progress: CopyProgress = {
       total: this.fileQueue.length,
       completed,

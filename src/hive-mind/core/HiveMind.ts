@@ -27,7 +27,7 @@ import {
 } from '../types.js';
 
 export class HiveMind extends EventEmitter {
-  private id: string;
+  public readonly id: string;
   private config: HiveMindConfig;
   private queen: Queen;
   private agents: Map<string, Agent>;
@@ -120,7 +120,8 @@ export class HiveMind extends EventEmitter {
     
     const config = JSON.parse(swarmData.config);
     const hiveMind = new HiveMind(config);
-    hiveMind.id = swarmId;
+    // Set the ID using the private property access
+    (hiveMind as any).id = swarmId;
     
     await hiveMind.initialize();
     
@@ -199,7 +200,7 @@ export class HiveMind extends EventEmitter {
       name: options.name || `${options.type}-${Date.now()}`,
       type: options.type,
       swarmId: this.id,
-      capabilities: options.capabilities || this.getDefaultCapabilities(options.type)
+      capabilities: (options.capabilities || this.getDefaultCapabilities(options.type)) as AgentCapability[]
     });
     
     await agent.initialize();
@@ -302,7 +303,7 @@ export class HiveMind extends EventEmitter {
     const performance = await this.calculatePerformanceMetrics();
     
     // Determine health status
-    const health = this.determineHealth(agents, tasks, performance);
+    const health = this.determineHealth(agents, tasks, performance) as 'healthy' | 'degraded' | 'critical' | 'unknown';
     
     // Get any warnings
     const warnings = this.getSystemWarnings(agents, tasks, performance);
@@ -426,7 +427,8 @@ export class HiveMind extends EventEmitter {
     this.started = false;
     
     // Shutdown all agents
-    for (const agent of this.agents.values()) {
+    const agentArray = Array.from(this.agents.values());
+    for (const agent of agentArray) {
       await agent.shutdown();
     }
     
@@ -468,7 +470,7 @@ export class HiveMind extends EventEmitter {
       const requiredCapabilities = JSON.parse(task.required_capabilities || '[]');
       
       // Check if agent has required capabilities
-      if (requiredCapabilities.every((cap: string) => agent.capabilities.includes(cap))) {
+      if (requiredCapabilities.every((cap: string) => agent.capabilities.includes(cap as AgentCapability))) {
         await this.orchestrator.assignTaskToAgent(task.id, agent.id);
         break; // Only assign one task at a time
       }

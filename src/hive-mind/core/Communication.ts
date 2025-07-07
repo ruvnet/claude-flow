@@ -41,7 +41,18 @@ export class Communication extends EventEmitter {
       totalMessages: 0,
       avgLatency: 0,
       activeChannels: 0,
-      messagesByType: {},
+      messagesByType: {
+        direct: 0,
+        broadcast: 0,
+        consensus: 0,
+        query: 0,
+        response: 0,
+        notification: 0,
+        task_assignment: 0,
+        progress_update: 0,
+        coordination: 0,
+        channel: 0
+      },
       throughput: 0
     };
   }
@@ -380,7 +391,8 @@ export class Communication extends EventEmitter {
       if (!this.isActive) return;
       
       // Process messages by priority
-      for (const [priority, messages] of this.messageQueue) {
+      const messageQueueArray = Array.from(this.messageQueue.entries());
+      for (const [priority, messages] of messageQueueArray) {
         if (messages.length === 0) continue;
         
         // Process batch of messages
@@ -409,7 +421,8 @@ export class Communication extends EventEmitter {
         }
       } else {
         // Broadcast message
-        for (const agent of this.agents.values()) {
+        const agentArray = Array.from(this.agents.values());
+        for (const agent of agentArray) {
           if (agent.id !== message.fromAgentId) {
             await agent.receiveMessage(message);
           }

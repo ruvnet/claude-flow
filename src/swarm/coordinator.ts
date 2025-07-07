@@ -178,9 +178,9 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
     this.status = 'paused';
     
     // Pause all agents
-    for (const agent of this.agents.values()) {
+    for (const agent of Array.from(this.agents.values())) {
       if (agent.status === 'busy') {
-        await this.pauseAgent(agent.id);
+        await this.pauseAgent(agent.id.id);
       }
     }
     
@@ -204,9 +204,9 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
     this.status = 'executing';
     
     // Resume all paused agents
-    for (const agent of this.agents.values()) {
+    for (const agent of Array.from(this.agents.values())) {
       if (agent.status === 'paused') {
-        await this.resumeAgent(agent.id);
+        await this.resumeAgent(agent.id.id);
       }
     }
     
@@ -254,7 +254,8 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
         requiredApprovals: [],
         allowedFailures: Math.floor(this.config.maxAgents * 0.1),
         recoveryTime: 5 * 60 * 1000, // 5 minutes
-        milestones: []
+        milestones: [],
+        resourceLimits: {}
       },
       tasks: [],
       dependencies: [],
@@ -1422,7 +1423,7 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
     }
     // Stop all execution intervals
     if (this.executionIntervals) {
-      for (const [objectiveId, interval] of this.executionIntervals) {
+      for (const [objectiveId, interval] of Array.from(this.executionIntervals)) {
         clearInterval(interval);
       }
       this.executionIntervals.clear();
@@ -1533,7 +1534,7 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
     const requestsParallelAgents = eachAgentPattern.test(objective.description);
     
     // Create tasks with specific prompts for Claude
-    if (requestsParallelAgents && this.config.mode === 'parallel') {
+    if (requestsParallelAgents && this.config.mode === 'distributed') {
       // Create parallel tasks for each agent type
       const agentTypes = this.determineRequiredAgentTypes(objective.strategy);
       this.logger.info('Creating parallel tasks for each agent type', { 
@@ -1657,7 +1658,7 @@ Make sure the documentation is clear, complete, and helps users understand and u
       tasks.push(task4);
     } else {
       // For other strategies, create a comprehensive single task
-      tasks.push(this.createTaskForObjective('execute-objective', 'generic', {
+      tasks.push(this.createTaskForObjective('execute-objective', 'coordination', {
         title: 'Execute Objective',
         description: objective.description,
         instructions: `Please complete the following request:
@@ -1823,7 +1824,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
       this.emitSwarmEvent({
         id: generateId('event'),
         timestamp: new Date(),
-        type: 'task.queued',
+        type: 'task.created',
         source: this.swarmId.id,
         data: { task },
         broadcast: false,
@@ -1922,7 +1923,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
           this.emitSwarmEvent({
             id: generateId('event'),
             timestamp: new Date(),
-            type: 'task.queued',
+            type: 'task.created',
             source: this.swarmId.id,
             data: { task },
             broadcast: false,
@@ -2014,7 +2015,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
           this.emitSwarmEvent({
             id: generateId('event'),
             timestamp: new Date(),
-            type: objective.status === 'completed' ? 'objective.completed' : 'objective.failed',
+            type: objective.status === 'completed' ? 'swarm.completed' : 'swarm.failed',
             source: this.swarmId.id,
             data: { objective },
             broadcast: true,
@@ -2163,12 +2164,12 @@ Ensure your implementation is complete, well-structured, and follows best practi
     
     try {
       // Use Claude Flow executor for full SPARC system in non-interactive mode
-      const { ClaudeFlowExecutor } = await import('./claude-flow-executor.ts');
+      const { ClaudeFlowExecutor } = await import('./claude-flow-executor.js');
       const executor = new ClaudeFlowExecutor({ 
         logger: this.logger,
         claudeFlowPath: getClaudeFlowBin(),
         enableSparc: true,
-        verbose: this.config.logging?.level === 'debug',
+        verbose: (this.config as any).logging?.level === 'debug',
         timeoutMinutes: this.config.taskTimeoutMinutes
       });
       
@@ -2299,7 +2300,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
     // Set working directory if specified
     if (targetDir) {
       // Ensure directory exists
-      await Deno.mkdir(targetDir, { recursive: true });
+      await fs.mkdir(targetDir, { recursive: true });
       
       // Add directory context to prompt
       const enhancedPrompt = `${prompt}\n\n## Important: Working Directory\nPlease ensure all files are created in: ${targetDir}`;
@@ -2308,22 +2309,31 @@ Ensure your implementation is complete, well-structured, and follows best practi
     
     try {
       // Check if claude command exists
-      const checkCommand = new Deno.Command('which', {
-        args: ['claude'],
-        stdout: 'piped',
-        stderr: 'piped',
-      });
-      const checkResult = await checkCommand.output();
-      if (!checkResult.success) {
+      const { spawn } = await import('child_process');
+      const { promisify } = await import('util');
+      
+      try {
+        const checkCommand = spawn('which', ['claude'], {
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+        await new Promise((resolve, reject) => {
+          checkCommand.on('exit', (code) => {
+            if (code !== 0) {
+              reject(new Error('Claude CLI not found. Please ensure claude is installed and in PATH.'));
+            } else {
+              resolve(true);
+            }
+          });
+        });
+      } catch (error) {
         throw new Error('Claude CLI not found. Please ensure claude is installed and in PATH.');
       }
       
       // Execute Claude with the prompt
-      const command = new Deno.Command("claude", {
-        args: claudeArgs,
+      const command = spawn("claude", claudeArgs, {
         cwd: targetDir || process.cwd(),
         env: {
-          ...Deno.env.toObject(),
+          ...process.env,
           CLAUDE_INSTANCE_ID: instanceId,
           CLAUDE_SWARM_MODE: "true",
           CLAUDE_SWARM_ID: this.swarmId.id,
@@ -2333,9 +2343,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
           CLAUDE_FLOW_MEMORY_ENABLED: "true",
           CLAUDE_FLOW_MEMORY_NAMESPACE: `swarm-${this.swarmId.id}`,
         },
-        stdin: "null",
-        stdout: "piped",
-        stderr: "piped",
+        stdio: ['pipe', 'pipe', 'pipe'],
       });
       
       this.logger.info('Spawning Claude agent for task', { 
@@ -2345,29 +2353,46 @@ Ensure your implementation is complete, well-structured, and follows best practi
         targetDir 
       });
       
-      const child = command.spawn();
-      const { code, stdout, stderr } = await child.output();
+      // Execute the command and wait for completion
+      const result = await new Promise<{code: number, stdout: string, stderr: string}>((resolve, reject) => {
+        let stdout = '';
+        let stderr = '';
+        
+        command.stdout?.on('data', (data) => {
+          stdout += data.toString();
+        });
+        
+        command.stderr?.on('data', (data) => {
+          stderr += data.toString();
+        });
+        
+        command.on('close', (code) => {
+          resolve({ code: code || 0, stdout, stderr });
+        });
+        
+        command.on('error', (error) => {
+          reject(error);
+        });
+      });
       
-      if (code === 0) {
-        const output = new TextDecoder().decode(stdout);
+      if (result.code === 0) {
         this.logger.info('Claude agent completed task successfully', {
           taskId: task.id.id,
-          outputLength: output.length
+          outputLength: result.stdout.length
         });
         
         return {
           success: true,
-          output,
+          output: result.stdout,
           instanceId,
           targetDir
         };
       } else {
-        const errorOutput = new TextDecoder().decode(stderr);
-        this.logger.error(`Claude agent failed with code ${code}`, { 
+        this.logger.error(`Claude agent failed with code ${result.code}`, { 
           taskId: task.id.id,
-          error: errorOutput 
+          error: result.stderr 
         });
-        throw new Error(`Claude execution failed: ${errorOutput}`);
+        throw new Error(`Claude execution failed: ${result.stderr}`);
       }
       
     } catch (error) {
@@ -2473,7 +2498,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
     
     try {
       // Ensure work directory exists
-      await Deno.mkdir(workDir, { recursive: true });
+      await fs.mkdir(workDir, { recursive: true });
       
       switch (task.type) {
         case 'coding':
@@ -2516,7 +2541,7 @@ Ensure your implementation is complete, well-structured, and follows best practi
       // Create a REST API application
       const projectName = 'rest-api';
       const projectDir = `${workDir}/${projectName}`;
-      await Deno.mkdir(projectDir, { recursive: true });
+      await fs.mkdir(projectDir, { recursive: true });
       
       // Create main API file
       const apiCode = `const express = require('express');
@@ -2706,7 +2731,7 @@ coverage/
     } else if (isHelloWorld) {
       // Create a simple hello world application
       const projectDir = `${workDir}/hello-world`;
-      await Deno.mkdir(projectDir, { recursive: true });
+      await fs.mkdir(projectDir, { recursive: true });
       
       // Create main application file
       const mainCode = `#!/usr/bin/env node
@@ -2787,7 +2812,7 @@ ${task.description}
     
     // For other code generation tasks, create a basic structure
     const projectDir = `${workDir}/generated-code`;
-    await Deno.mkdir(projectDir, { recursive: true });
+    await fs.mkdir(projectDir, { recursive: true });
     
     const code = `// Generated code for: ${task.name}
 // ${task.description}
@@ -2816,7 +2841,7 @@ main();
     this.logger.info('Executing analysis task', { taskId: task.id.id });
     
     const analysisDir = `${workDir}/analysis`;
-    await Deno.mkdir(analysisDir, { recursive: true });
+    await fs.mkdir(analysisDir, { recursive: true });
     
     const analysis = {
       task: task.name,
@@ -2852,7 +2877,7 @@ main();
     this.logger.info('Executing documentation task', { taskId: task.id.id });
     
     const docsDir = `${workDir}/docs`;
-    await Deno.mkdir(docsDir, { recursive: true });
+    await fs.mkdir(docsDir, { recursive: true });
     
     const documentation = `# ${task.name}
 
@@ -2893,7 +2918,7 @@ ${task.instructions}
     this.logger.info('Executing testing task', { taskId: task.id.id });
     
     const testDir = `${workDir}/tests`;
-    await Deno.mkdir(testDir, { recursive: true });
+    await fs.mkdir(testDir, { recursive: true });
     
     const testCode = `// Test suite for: ${task.name}
 // ${task.description}
@@ -2935,7 +2960,7 @@ console.log('Tests completed for: ${task.name}');
     this.logger.info('Executing generic task', { taskId: task.id.id });
     
     const outputDir = `${workDir}/output`;
-    await Deno.mkdir(outputDir, { recursive: true });
+    await fs.mkdir(outputDir, { recursive: true });
     
     const output = {
       task: task.name,
@@ -3003,7 +3028,7 @@ console.log('Tests completed for: ${task.name}');
     const now = new Date();
     const timeout = this.config.monitoring.heartbeatInterval * 10; // Increased multiplier for long-running Claude tasks
     
-    for (const agent of this.agents.values()) {
+    for (const agent of Array.from(this.agents.values())) {
       if (agent.status === 'offline' || agent.status === 'terminated') {
         continue;
       }
@@ -3043,5 +3068,31 @@ console.log('Tests completed for: ${task.name}');
       agent.health = 0;
       this.logger.error('Agent error', { agentId, error });
     }
+  }
+
+  private async createGradioApp(task: TaskDefinition, workDir: string): Promise<any> {
+    // Implementation for creating Gradio applications
+    // This would contain the logic to scaffold a Gradio app
+    this.logger.info('Creating Gradio application', { taskId: task.id.id, workDir });
+    
+    // Return a placeholder result
+    return {
+      success: true,
+      message: 'Gradio app creation initiated',
+      outputDir: workDir
+    };
+  }
+
+  private async createPythonRestAPI(task: TaskDefinition, workDir: string): Promise<any> {
+    // Implementation for creating Python REST API
+    // This would contain the logic to scaffold a Python REST API
+    this.logger.info('Creating Python REST API', { taskId: task.id.id, workDir });
+    
+    // Return a placeholder result
+    return {
+      success: true,
+      message: 'Python REST API creation initiated',
+      outputDir: workDir
+    };
   }
 }

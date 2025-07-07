@@ -201,7 +201,7 @@ export class WorkStealingCoordinator {
     let minTasks = Infinity;
     let maxTasks = 0;
 
-    for (const [agentId, workload] of this.workloads) {
+    for (const [agentId, workload] of Array.from(this.workloads.entries())) {
       totalTasks += workload.taskCount;
       minTasks = Math.min(minTasks, workload.taskCount);
       maxTasks = Math.max(maxTasks, workload.taskCount);
