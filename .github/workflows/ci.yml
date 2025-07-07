@@ -22,15 +22,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
       - name: Setup Deno
         uses: denoland/setup-deno@v1
         with:
           deno-version: ${{ env.DENO_VERSION }}
 
+      - name: Install Node.js dependencies
+        run: |
+          npm ci
+
       - name: Run security audit
         run: |
           # Check for security vulnerabilities in dependencies
-          deno cache --reload src/cli/index.ts
+          npm audit --audit-level=moderate
           
       - name: Lint code
         run: |
@@ -84,20 +94,24 @@ jobs:
           mkdir -p test-results/coverage
           mkdir -p test-results/reports
 
+      - name: Install Node.js dependencies
+        run: |
+          npm ci
+
       - name: Run unit tests
         if: matrix.test-type == 'unit'
         run: |
-          deno task test:unit --coverage=test-results/coverage
+          npm test -- --coverage --coverageDirectory=test-results/coverage
 
       - name: Run integration tests  
         if: matrix.test-type == 'integration'
         run: |
-          deno task test:integration --coverage=test-results/coverage
+          npm run test:deno -- --suites integration --coverage --output-dir=test-results
 
       - name: Run end-to-end tests
         if: matrix.test-type == 'e2e'
         run: |
-          deno task test:e2e --coverage=test-results/coverage
+          npm run test:deno -- --suites e2e --coverage --output-dir=test-results
 
       - name: Generate coverage report
         if: matrix.os == 'ubuntu-latest'
