@@ -27,7 +27,7 @@ export class SparcTaskExecutor {
   private enableTDD: boolean;
   private qualityThreshold: number;
   private enableMemory: boolean;
-  private phases: Map<string, SparcPhase>;
+  private phases!: Map<string, SparcPhase>;
 
   constructor(config: SparcExecutorConfig = {}) {
     this.logger = config.logger || new Logger(
@@ -459,7 +459,7 @@ export class SparcTaskExecutor {
       ]
     };
     
-    return stories[appType] || [
+    return (stories as any)[appType] || [
       { id: 'US001', story: 'As a user, I want to use the main functionality', priority: 'high' }
     ];
   }
@@ -478,7 +478,7 @@ export class SparcTaskExecutor {
       }
     };
     
-    return criteria[appType] || {
+    return (criteria as any)[appType] || {
       functionality: ['Core features work as expected'],
       quality: ['Code follows best practices']
     };
@@ -563,7 +563,7 @@ export class SparcTaskExecutor {
       typescript: 'jest',
       java: 'junit'
     };
-    return frameworks[language] || 'generic';
+    return (frameworks as any)[language] || 'generic';
   }
 
   private getProjectStructure(appType: string, language: string): any {
@@ -578,7 +578,7 @@ export class SparcTaskExecutor {
       }
     };
     
-    return structures[`${language}-${appType}`] || {
+    return (structures as any)[`${language}-${appType}`] || {
       directories: ['src', 'tests', 'docs'],
       files: ['README.md', '.gitignore']
     };

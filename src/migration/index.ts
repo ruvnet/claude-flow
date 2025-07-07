@@ -25,7 +25,7 @@ program
   .description('Analyze existing project for migration readiness')
   .option('-d, --detailed', 'Show detailed analysis')
   .option('-o, --output <file>', 'Output analysis to file')
-  .action(async (projectPath = '.', options) => {
+  .action(async (projectPath: string = '.', options: any) => {
     try {
       const analyzer = new MigrationAnalyzer();
       const analysis = await analyzer.analyze(path.resolve(projectPath));
@@ -51,7 +51,7 @@ program
   .option('--dry-run', 'Simulate migration without making changes')
   .option('--preserve-custom', 'Preserve custom commands and configurations')
   .option('--skip-validation', 'Skip post-migration validation')
-  .action(async (projectPath = '.', options) => {
+  .action(async (projectPath: string = '.', options: any) => {
     try {
       const runner = new MigrationRunner({
         projectPath: path.resolve(projectPath),
@@ -76,7 +76,7 @@ program
   .option('-b, --backup <dir>', 'Backup directory to restore from', '.claude-backup')
   .option('-t, --timestamp <time>', 'Restore from specific timestamp')
   .option('-f, --force', 'Force rollback without prompts')
-  .action(async (projectPath = '.', options) => {
+  .action(async (projectPath: string = '.', options: any) => {
     try {
       const runner = new MigrationRunner({
         projectPath: path.resolve(projectPath),
@@ -96,7 +96,7 @@ program
   .command('validate [path]')
   .description('Validate migration was successful')
   .option('-v, --verbose', 'Show detailed validation results')
-  .action(async (projectPath = '.', options) => {
+  .action(async (projectPath: string = '.', options: any) => {
     try {
       const runner = new MigrationRunner({
         projectPath: path.resolve(projectPath),
@@ -121,7 +121,7 @@ program
   .command('list-backups [path]')
   .description('List available backups')
   .option('-b, --backup <dir>', 'Backup directory', '.claude-backup')
-  .action(async (projectPath = '.', options) => {
+  .action(async (projectPath: string = '.', options: any) => {
     try {
       const runner = new MigrationRunner({
         projectPath: path.resolve(projectPath),
@@ -138,7 +138,7 @@ program
 
 // Show help if no command provided
 if (!process.argv.slice(2).length) {
-  program.outputHelp();
+  program.help();
 }
 
 program.parse(process.argv);

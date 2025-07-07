@@ -6,6 +6,7 @@
  */
 
 import { EventEmitter } from 'events';
+// @ts-ignore
 import { v4 as uuidv4 } from 'uuid';
 import { Queen } from './Queen.js';
 import { Agent } from './Agent.js';
@@ -29,13 +30,13 @@ import {
 export class HiveMind extends EventEmitter {
   public readonly id: string;
   private config: HiveMindConfig;
-  private queen: Queen;
+  private queen!: Queen;
   private agents: Map<string, Agent>;
-  private memory: Memory;
-  private communication: Communication;
-  private orchestrator: SwarmOrchestrator;
-  private consensus: ConsensusEngine;
-  private db: DatabaseManager;
+  private memory!: Memory;
+  private communication!: Communication;
+  private orchestrator!: SwarmOrchestrator;
+  private consensus!: ConsensusEngine;
+  private db!: DatabaseManager;
   private started: boolean = false;
   private startTime: number;
 

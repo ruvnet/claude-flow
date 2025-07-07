@@ -107,19 +107,20 @@ export class DirectTaskExecutor {
     // Route to appropriate implementation based on agent type and task
     switch (agent.type) {
       case 'analyst':
-        return this.executeAnalyzerTask(task, targetDir);
+        return this.executeAnalyzerTask(task, targetDir || './output');
       
       case 'coder':
-        if (isRestAPI) return this.createRestAPI(targetDir, task);
-        if (isTodo) return this.createTodoApp(targetDir, task);
-        if (isChat) return this.createChatApp(targetDir, task);
-        if (isAuth) return this.createAuthService(targetDir, task);
-        if (isHelloWorld) return this.createHelloWorld(targetDir, task);
-        if (isCalculator) return this.createCalculator(targetDir, task);
-        return this.createGenericApp(targetDir, task);
+        const workingDir = targetDir || './output';
+        if (isRestAPI) return this.createRestAPI(workingDir, task);
+        if (isTodo) return this.createTodoApp(workingDir, task);
+        if (isChat) return this.createChatApp(workingDir, task);
+        if (isAuth) return this.createAuthService(workingDir, task);
+        if (isHelloWorld) return this.createHelloWorld(workingDir, task);
+        if (isCalculator) return this.createCalculator(workingDir, task);
+        return this.createGenericApp(workingDir, task);
       
       case 'tester':
-        return this.executeTestingTask(task, targetDir);
+        return this.executeTestingTask(task, targetDir || './output');
       
       case 'reviewer':
         if (task.name.toLowerCase().includes('analyze') || task.name.toLowerCase().includes('plan')) {

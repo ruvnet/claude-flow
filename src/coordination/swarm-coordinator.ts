@@ -109,9 +109,8 @@ export class SwarmCoordinator extends EventEmitter {
     const eventBus = EventBus.getInstance();
     this.memoryManager = new MemoryManager({
       backend: 'sqlite',
-      namespace: this.config.memoryNamespace,
+      // namespace: this.config.memoryNamespace, // Remove namespace if not supported
       cacheSizeMB: 50,
-      syncOnExit: true,
       maxEntries: 10000,
       ttlMinutes: 60
     }, eventBus, this.logger);
@@ -179,7 +178,9 @@ export class SwarmCoordinator extends EventEmitter {
     this.stopBackgroundWorkers();
 
     // Stop subsystems
-    await this.scheduler.shutdown();
+    if (this.scheduler) {
+      await this.scheduler.shutdown();
+    }
     
     if (this.monitor) {
       this.monitor.stop();
@@ -246,7 +247,7 @@ export class SwarmCoordinator extends EventEmitter {
     await this.memoryManager.store({
       id: `objective:${objectiveId}`,
       agentId: 'swarm-coordinator',
-      type: 'objective',
+      type: 'artifact',
       content: JSON.stringify(objective),
       namespace: this.config.memoryNamespace,
       timestamp: new Date(),
@@ -466,7 +467,7 @@ export class SwarmCoordinator extends EventEmitter {
     await this.memoryManager.store({
       id: `task:${taskId}:result`,
       agentId: agent?.id || 'unknown',
-      type: 'task-result',
+      type: 'artifact',
       content: JSON.stringify(result),
       namespace: this.config.memoryNamespace,
       timestamp: new Date(),
@@ -671,7 +672,7 @@ export class SwarmCoordinator extends EventEmitter {
       await this.memoryManager.store({
         id: 'swarm:state',
         agentId: 'swarm-coordinator',
-        type: 'swarm-state',
+        type: 'artifact',
         content: JSON.stringify(state),
         namespace: this.config.memoryNamespace,
         timestamp: new Date(),
@@ -692,7 +693,7 @@ export class SwarmCoordinator extends EventEmitter {
     this.emit('monitor:alert', alert);
   }
 
-  private handleAgentMessage(message: Message): void {
+  private handleAgentMessage(message: any): void {
     this.logger.debug(`Agent message: ${message.type} from ${message.from}`);
     this.emit('agent:message', message);
   }

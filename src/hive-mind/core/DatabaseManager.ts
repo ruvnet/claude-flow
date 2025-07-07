@@ -17,9 +17,9 @@ const __dirname = path.dirname(__filename);
 
 export class DatabaseManager extends EventEmitter {
   private static instance: DatabaseManager;
-  private db: Database.Database;
+  private db!: Database.Database;
   private statements: Map<string, Database.Statement>;
-  private dbPath: string;
+  private dbPath!: string;
 
   private constructor() {
     super();
@@ -192,7 +192,7 @@ export class DatabaseManager extends EventEmitter {
   }
 
   async getActiveSwarmId(): Promise<string | null> {
-    const result = this.statements.get('getActiveSwarm')!.get();
+    const result = this.statements.get('getActiveSwarm')!.get() as any;
     return result ? result.id : null;
   }
 
@@ -229,8 +229,8 @@ export class DatabaseManager extends EventEmitter {
     const values: any[] = [];
     
     for (const [key, value] of Object.entries(updates)) {
-      if (value && typeof value === 'object' && value._raw) {
-        setClauses.push(`${key} = ${value._raw}`);
+      if (value && typeof value === 'object' && (value as any)._raw) {
+        setClauses.push(`${key} = ${(value as any)._raw}`);
       } else {
         setClauses.push(`${key} = ?`);
         values.push(value);
@@ -525,7 +525,7 @@ export class DatabaseManager extends EventEmitter {
   }
 
   async submitConsensusVote(proposalId: string, agentId: string, vote: boolean, reason?: string): Promise<void> {
-    const proposal = this.db.prepare('SELECT * FROM consensus WHERE id = ?').get(proposalId);
+    const proposal = this.db.prepare('SELECT * FROM consensus WHERE id = ?').get(proposalId) as any;
     if (!proposal) return;
     
     const votes = JSON.parse(proposal.votes || '{}');
@@ -566,20 +566,20 @@ export class DatabaseManager extends EventEmitter {
         SUM(CASE WHEN status = 'busy' THEN 1 ELSE 0 END) as busyAgents
       FROM agents 
       WHERE swarm_id = ?
-    `).get(swarmId);
+    `).get(swarmId) as any;
     
     const taskStats = this.db.prepare(`
       SELECT 
         COUNT(*) as taskBacklog
       FROM tasks 
       WHERE swarm_id = ? AND status IN ('pending', 'assigned')
-    `).get(swarmId);
+    `).get(swarmId) as any;
     
     return {
       ...agentStats,
       ...taskStats,
-      agentUtilization: agentStats.agentCount > 0 
-        ? agentStats.busyAgents / agentStats.agentCount 
+      agentUtilization: (agentStats as any).agentCount > 0 
+        ? (agentStats as any).busyAgents / (agentStats as any).agentCount 
         : 0
     };
   }

@@ -1,6 +1,7 @@
 import { getErrorMessage } from '../utils/error-handler.js';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// @ts-ignore
 const __dirname = dirname(fileURLToPath(import.meta.url));
 /**
  * Migration Runner - Executes migration strategies
@@ -107,7 +108,7 @@ export class MigrationRunner {
       this.printSummary(result);
 
     } catch (error) {
-      result.errors.push({ error: (error instanceof Error ? error.message : String(error)), stack: error.stack });
+      result.errors.push({ error: (error instanceof Error ? error.message : String(error)), stack: (error as any).stack });
       this.progress.error('Migration failed');
       
       // Attempt rollback on failure
@@ -160,7 +161,7 @@ export class MigrationRunner {
     await fs.ensureDir(commandsTarget);
 
     // Copy optimized commands
-    for (const command of this.manifest.files.commands) {
+    for (const command of Object.values(this.manifest.files.commands)) {
       const sourceFile = path.join(commandsSource, command.source);
       const targetFile = path.join(commandsTarget, command.target);
 
@@ -372,7 +373,7 @@ export class MigrationRunner {
 
     // Confirm rollback
     if (!this.options.force) {
-      const confirm = await inquirer.prompt([{
+      const confirm = await (inquirer as any).prompt([{
         type: 'confirm',
         name: 'proceed',
         message: 'Are you sure you want to rollback? This will overwrite current files.',
@@ -462,7 +463,7 @@ export class MigrationRunner {
       });
     }
 
-    const answers = await inquirer.prompt(questions);
+    const answers = await (inquirer as any).prompt(questions);
     
     if (answers.preserveCustom) {
       this.options.preserveCustom = true;

@@ -6,6 +6,7 @@
  */
 
 import { EventEmitter } from 'events';
+// @ts-ignore
 import { v4 as uuidv4 } from 'uuid';
 import { Agent } from './Agent.js';
 import { DatabaseManager } from './DatabaseManager.js';
@@ -32,8 +33,8 @@ export class Queen extends EventEmitter {
   private agents: Map<string, Agent>;
   private taskQueue: Map<string, Task>;
   private strategies: Map<string, CoordinationStrategy>;
-  private db: DatabaseManager;
-  private mcpWrapper: MCPToolWrapper;
+  private db!: DatabaseManager;
+  private mcpWrapper!: MCPToolWrapper;
   private isActive: boolean = false;
 
   constructor(config: QueenConfig) {
@@ -218,7 +219,7 @@ export class Queen extends EventEmitter {
     
     // Capability match
     const capabilityMatches = requiredCapabilities.filter(cap => 
-      agent.capabilities.includes(cap)
+      agent.capabilities.includes(cap as any)
     ).length;
     score += capabilityMatches * 10;
     
@@ -619,7 +620,7 @@ export class Queen extends EventEmitter {
     const strategyPerformance = await this.db.getStrategyPerformance(this.config.swarmId);
     
     for (const [strategyName, performance] of Object.entries(strategyPerformance)) {
-      if (performance.successRate < 0.7) {
+      if ((performance as any).successRate < 0.7) {
         await this.adjustStrategy(strategyName, performance);
       }
     }

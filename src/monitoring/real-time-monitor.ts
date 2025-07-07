@@ -197,11 +197,11 @@ export class RealTimeMonitor extends EventEmitter {
 
   private setupEventHandlers(): void {
     // Agent events
-    this.eventBus.on('agent:metrics-update', (data) => {
+    this.eventBus.on('agent:metrics-update', (data: any) => {
       this.updateAgentMetrics(data.agentId, data.metrics);
     });
 
-    this.eventBus.on('agent:status-changed', (data) => {
+    this.eventBus.on('agent:status-changed', (data: any) => {
       this.recordMetric('agent.status.change', 1, { 
         agentId: data.agentId, 
         from: data.from, 
@@ -210,30 +210,30 @@ export class RealTimeMonitor extends EventEmitter {
     });
 
     // Task events
-    this.eventBus.on('task:started', (data) => {
+    this.eventBus.on('task:started', (data: any) => {
       this.recordMetric('task.started', 1, { taskId: data.taskId, agentId: data.agentId });
     });
 
-    this.eventBus.on('task:completed', (data) => {
+    this.eventBus.on('task:completed', (data: any) => {
       this.recordMetric('task.completed', 1, { taskId: data.taskId });
       this.recordMetric('task.duration', data.duration, { taskId: data.taskId });
     });
 
-    this.eventBus.on('task:failed', (data) => {
+    this.eventBus.on('task:failed', (data: any) => {
       this.recordMetric('task.failed', 1, { taskId: data.taskId, error: data.error });
     });
 
     // System events
-    this.eventBus.on('system:resource-update', (data) => {
+    this.eventBus.on('system:resource-update', (data: any) => {
       this.updateSystemMetrics(data);
     });
 
-    this.eventBus.on('swarm:metrics-update', (data) => {
+    this.eventBus.on('swarm:metrics-update', (data: any) => {
       this.updateSwarmMetrics(data.metrics);
     });
 
     // Error events
-    this.eventBus.on('error', (data) => {
+    this.eventBus.on('error', (data: any) => {
       this.handleError(data);
     });
   }

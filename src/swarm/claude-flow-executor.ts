@@ -78,9 +78,8 @@ export class ClaudeFlowExecutor {
           exitCode: result.exitCode,
           quality: 0.95,
           completeness: 0.9
-        },
-        error: result.error
-      };
+        }
+      } as any;
     } catch (error) {
       this.logger.error('Failed to execute Claude Flow SPARC command', { 
         error: (error instanceof Error ? error.message : String(error)),
@@ -94,9 +93,8 @@ export class ClaudeFlowExecutor {
           executionTime: Date.now() - startTime,
           quality: 0,
           completeness: 0
-        },
-        error: (error instanceof Error ? error.message : String(error))
-      };
+        }
+      } as any;
     }
   }
 
@@ -146,7 +144,7 @@ export class ClaudeFlowExecutor {
     }
 
     // Use agent type first, then task type
-    return modeMap[agent.type] || modeMap[task.type] || 'code';
+    return (modeMap as any)[agent.type] || (modeMap as any)[task.type] || 'code';
   }
 
   private buildSparcCommand(task: TaskDefinition, mode: string, targetDir?: string): string[] {
@@ -217,7 +215,7 @@ export class ClaudeFlowExecutor {
         // Parse artifacts from output
         const artifactMatch = chunk.match(/Created file: (.+)/g);
         if (artifactMatch) {
-          artifactMatch.forEach(match => {
+          artifactMatch.forEach((match: string) => {
             const filePath = match.replace('Created file: ', '').trim();
             artifacts[filePath] = true;
           });

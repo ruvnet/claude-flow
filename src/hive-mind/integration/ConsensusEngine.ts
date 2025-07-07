@@ -18,8 +18,8 @@ import {
 
 export class ConsensusEngine extends EventEmitter {
   private threshold: number;
-  private db: DatabaseManager;
-  private mcpWrapper: MCPToolWrapper;
+  private db!: DatabaseManager;
+  private mcpWrapper!: MCPToolWrapper;
   private activeProposals: Map<string, ConsensusProposal>;
   private votingStrategies: Map<string, VotingStrategy>;
   private metrics: ConsensusMetrics;
@@ -110,7 +110,7 @@ export class ConsensusEngine extends EventEmitter {
    * Get proposal status
    */
   async getProposalStatus(proposalId: string): Promise<any> {
-    const dbProposal = this.db.getConsensusProposal(proposalId);
+    const dbProposal = await this.db.getConsensusProposal(proposalId);
     if (!dbProposal) {
       throw new Error('Proposal not found');
     }
