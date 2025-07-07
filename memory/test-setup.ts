@@ -23,7 +23,9 @@ afterAll(async () => {
     '/tmp/replication-test'
   ];
 
+  // Process directories sequentially to avoid parallel filesystem operations
   for (const dir of testDirs) {
+    // eslint-disable-next-line no-await-in-loop
     await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 });
