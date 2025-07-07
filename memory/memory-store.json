@@ -5,6 +5,18 @@
       "value": "value18",
       "namespace": "default",
       "timestamp": 1751683807565
+    },
+    {
+      "key": "coder-test-results",
+      "value": "{\"test\":\"successful\",\"capabilities\":[\"MultiEdit\",\"Write\",\"Batch Operations\"]}",
+      "namespace": "default",
+      "timestamp": 1751892091289
+    },
+    {
+      "key": "coder-test-complete",
+      "value": "{\"status\":\"complete\",\"timestamp\":\"2025-07-07\",\"tested\":[\"MultiEdit\",\"Write\",\"Memory\",\"Batch Operations\"],\"issues\":[\"hooks not available\",\"sparc mode error\"]}",
+      "namespace": "default",
+      "timestamp": 1751892126125
     }
   ]
 }

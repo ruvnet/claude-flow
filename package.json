@@ -4,7 +4,7 @@
   "description": "Enterprise-grade AI agent orchestration with ruv-swarm integration (Alpha Release)",
   "main": "cli.mjs",
   "bin": {
-    "claude-flow": "./claude-flow"
+    "claude-flow": "./cli.mjs"
   },
   "scripts": {
     "dev": "tsx src/cli/main.ts",

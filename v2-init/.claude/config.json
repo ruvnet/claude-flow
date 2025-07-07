@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "sparc": {
+    "enabled": true,
+    "modes": [
+      "orchestrator",
+      "coder",
+      "researcher",
+      "tdd",
+      "architect",
+      "reviewer",
+      "debugger",
+      "tester",
+      "analyzer",
+      "optimizer",
+      "documenter",
+      "designer",
+      "innovator",
+      "swarm-coordinator",
+      "memory-manager",
+      "batch-executor",
+      "workflow-manager"
+    ]
+  },
+  "swarm": {
+    "enabled": true,
+    "strategies": [
+      "research",
+      "development",
+      "analysis",
+      "testing",
+      "optimization",
+      "maintenance"
+    ]
+  }
+}

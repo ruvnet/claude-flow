@@ -1,0 +1,114 @@
+{
+  "env": {
+    "CLAUDE_FLOW_AUTO_COMMIT": "false",
+    "CLAUDE_FLOW_AUTO_PUSH": "false",
+    "CLAUDE_FLOW_HOOKS_ENABLED": "true",
+    "CLAUDE_FLOW_TELEMETRY_ENABLED": "true",
+    "CLAUDE_FLOW_REMOTE_EXECUTION": "true",
+    "CLAUDE_FLOW_GITHUB_INTEGRATION": "true"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npx claude-flow *)",
+      "Bash(npm run lint)",
+      "Bash(npm run test:*)",
+      "Bash(npm test *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push)",
+      "Bash(git config *)",
+      "Bash(gh *)",
+      "Bash(node *)",
+      "Bash(which *)",
+      "Bash(pwd)",
+      "Bash(ls *)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(curl * | bash)",
+      "Bash(wget * | sh)",
+      "Bash(eval *)"
+    ]
+  },
+  "hooks": {
+    "preEdit": {
+      "enabled": true,
+      "actions": [
+        "auto-assign-agents",
+        "validate-syntax",
+        "load-context"
+      ]
+    },
+    "postEdit": {
+      "enabled": true,
+      "actions": [
+        "format-code",
+        "update-memory",
+        "train-neural",
+        "analyze-performance"
+      ]
+    },
+    "preCommand": {
+      "enabled": true,
+      "actions": [
+        "validate-safety",
+        "prepare-resources",
+        "optimize-execution"
+      ]
+    },
+    "postCommand": {
+      "enabled": true,
+      "actions": [
+        "track-metrics",
+        "store-results",
+        "update-telemetry"
+      ]
+    },
+    "sessionEnd": {
+      "enabled": true,
+      "actions": [
+        "generate-summary",
+        "persist-state",
+        "export-metrics"
+      ]
+    }
+  },
+  "mcpServers": {
+    "claude-flow": {
+      "command": "npx",
+      "args": [
+        "claude-flow",
+        "mcp",
+        "start"
+      ],
+      "env": {
+        "CLAUDE_FLOW_HOOKS_ENABLED": "true",
+        "CLAUDE_FLOW_TELEMETRY_ENABLED": "true",
+        "CLAUDE_FLOW_REMOTE_READY": "true",
+        "CLAUDE_FLOW_GITHUB_INTEGRATION": "true"
+      }
+    }
+  },
+  "includeCoAuthoredBy": true,
+  "features": {
+    "autoTopologySelection": true,
+    "parallelExecution": true,
+    "neuralTraining": true,
+    "bottleneckAnalysis": true,
+    "smartAutoSpawning": true,
+    "selfHealingWorkflows": true,
+    "crossSessionMemory": true,
+    "githubIntegration": true
+  },
+  "performance": {
+    "maxAgents": 10,
+    "defaultTopology": "hierarchical",
+    "executionStrategy": "parallel",
+    "tokenOptimization": true,
+    "cacheEnabled": true,
+    "telemetryLevel": "detailed"
+  }
+}

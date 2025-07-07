@@ -1,40 +1,45 @@
 #!/usr/bin/env bash
-# Claude-Flow local wrapper
-# This script ensures claude-flow runs from your project directory
+# Claude-Flow wrapper that works from any directory
+# This script finds and executes claude-flow from the project root
 
-# Save the current directory
-PROJECT_DIR="${PWD}"
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Set environment to ensure correct working directory
-export PWD="${PROJECT_DIR}"
-export CLAUDE_WORKING_DIR="${PROJECT_DIR}"
+# Save the current working directory
+CURRENT_DIR="${PWD}"
 
-# Try to find claude-flow binary
-# Check common locations for npm/npx installations
+# Set environment to track where claude-flow was called from
+export CLAUDE_WORKING_DIR="${CURRENT_DIR}"
+export CLAUDE_PROJECT_ROOT="${SCRIPT_DIR}"
 
-# Development mode - use local bin
-if [ -f "${PROJECT_DIR}/bin/claude-flow" ]; then
-  cd "${PROJECT_DIR}"
-  exec "${PROJECT_DIR}/bin/claude-flow" "$@"
-fi
+# Check if we're in development mode (running from the git repo)
+if [ -f "${SCRIPT_DIR}/src/cli/simple-cli.js" ]; then
+  # Development mode - run directly with node
+  cd "${CURRENT_DIR}"
+  exec node "${SCRIPT_DIR}/src/cli/simple-cli.js" "$@"
 
-# 1. Local node_modules (npm install claude-flow)
-if [ -f "${PROJECT_DIR}/node_modules/.bin/claude-flow" ]; then
-  cd "${PROJECT_DIR}"
-  exec "${PROJECT_DIR}/node_modules/.bin/claude-flow" "$@"
+# Check for local bin version
+elif [ -f "${SCRIPT_DIR}/bin/claude-flow" ]; then
+  cd "${CURRENT_DIR}"
+  exec "${SCRIPT_DIR}/bin/claude-flow" "$@"
 
-# 2. Parent directory node_modules (monorepo setup)
-elif [ -f "${PROJECT_DIR}/../node_modules/.bin/claude-flow" ]; then
-  cd "${PROJECT_DIR}"
-  exec "${PROJECT_DIR}/../node_modules/.bin/claude-flow" "$@"
+# Check for dist version (after build)
+elif [ -f "${SCRIPT_DIR}/dist/cli/simple-cli.js" ]; then
+  cd "${CURRENT_DIR}"
+  exec node "${SCRIPT_DIR}/dist/cli/simple-cli.js" "$@"
 
-# 3. Global installation (npm install -g claude-flow)
+# Check for local node_modules installation
+elif [ -f "${SCRIPT_DIR}/node_modules/.bin/claude-flow" ]; then
+  cd "${CURRENT_DIR}"
+  exec "${SCRIPT_DIR}/node_modules/.bin/claude-flow" "$@"
+
+# Check if claude-flow is globally installed
 elif command -v claude-flow &> /dev/null; then
-  cd "${PROJECT_DIR}"
+  cd "${CURRENT_DIR}"
   exec claude-flow "$@"
 
-# 4. Fallback to npx (will download if needed)
+# Fallback to npx
 else
-  cd "${PROJECT_DIR}"
+  cd "${CURRENT_DIR}"
   exec npx claude-flow@latest "$@"
 fi

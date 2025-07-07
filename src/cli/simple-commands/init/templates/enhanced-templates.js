@@ -16,6 +16,13 @@ const loadTemplate = (filename) => {
 };
 
 export function createEnhancedClaudeMd() {
+  // First try to load the claude-flow specific template
+  const specificTemplate = loadTemplate('CLAUDE-FLOW-SPECIFIC.md');
+  if (specificTemplate) {
+    return specificTemplate;
+  }
+  
+  // Fallback to generic template if specific not found
   const template = loadTemplate('CLAUDE.md');
   if (!template) {
     // Fallback to hardcoded if template file not found
@@ -1125,42 +1132,73 @@ if (Test-Path "$scriptPath\\package.json") {
 
 // Fallback functions for when templates can't be loaded
 function createEnhancedClaudeMdFallback() {
-  // Read from the actual template file we created
+  // Try to read from the claude-flow specific template first
   try {
-    return readFileSync(join(__dirname, 'CLAUDE.md'), 'utf8');
+    return readFileSync(join(__dirname, 'CLAUDE-FLOW-SPECIFIC.md'), 'utf8');
   } catch (error) {
-    // If that fails, return a minimal version
-    return `# Claude Code Configuration for Claude Flow
+    // Try the generic template next
+    try {
+      return readFileSync(join(__dirname, 'CLAUDE.md'), 'utf8');
+    } catch (error) {
+      // If both fail, return a minimal claude-flow focused version
+      return `# Claude Code Configuration
 
-## 🚀 IMPORTANT: Claude Flow AI-Driven Development
+## Build Commands
+- \`npm run build\`: Build the project using Deno compile
+- \`npm run test\`: Run the full test suite
+- \`npm run lint\`: Run ESLint and format checks
+- \`npm run typecheck\`: Run TypeScript type checking
+- \`npx claude-flow start\`: Start the orchestration system
+- \`npx claude-flow --help\`: Show all available commands
 
-### Claude Code Handles:
-- ✅ **ALL file operations** (Read, Write, Edit, MultiEdit)
-- ✅ **ALL code generation** and development tasks
-- ✅ **ALL bash commands** and system operations
-- ✅ **ALL actual implementation** work
-- ✅ **Project navigation** and code analysis
+## Code Style Preferences
+- Use ES modules (import/export) syntax, not CommonJS (require)
+- Destructure imports when possible
+- Use TypeScript for all new code
+- Follow existing naming conventions
+- Add JSDoc comments for public APIs
+- Use async/await instead of Promise chains
 
-### Claude Flow MCP Tools Handle:
-- 🧠 **Coordination only** - Orchestrating Claude Code's actions
-- 💾 **Memory management** - Persistent state across sessions
-- 🤖 **Neural features** - Cognitive patterns and learning
-- 📊 **Performance tracking** - Monitoring and metrics
-- 🐝 **Swarm orchestration** - Multi-agent coordination
-- 🔗 **GitHub integration** - Advanced repository management
+## Project Architecture
+This is a Claude-Flow AI agent orchestration system with:
+- **CLI Interface**: Command-line tools for managing the system
+- **Orchestrator**: Core engine for coordinating agents and tasks
+- **Memory System**: Persistent storage and retrieval
+- **MCP Integration**: Model Context Protocol server for Claude
 
-### ⚠️ Key Principle:
-**MCP tools DO NOT create content or write code.** They coordinate and enhance Claude Code's native capabilities.
+## Claude Flow CLI Commands
+
+### Swarm Management
+- \`npx claude-flow swarm "task"\`: Create and execute an agent swarm
+- \`npx claude-flow swarm --mode distributed\`: Use distributed execution
+- \`npx claude-flow swarm --max-agents 10\`: Limit agent count
+
+### Agent Operations
+- \`npx claude-flow agent list\`: List all active agents
+- \`npx claude-flow agent spawn <type>\`: Spawn a specific agent type
+- \`npx claude-flow agent metrics <id>\`: View agent performance metrics
+
+### Memory Management
+- \`npx claude-flow memory store <key> <value>\`: Store data in memory
+- \`npx claude-flow memory get <key>\`: Retrieve data from memory
+- \`npx claude-flow memory list\`: List all memory keys
+
+### MCP Server
+- \`npx claude-flow mcp start\`: Start MCP server
+- \`npx claude-flow mcp status\`: Check MCP server status
+- \`npx claude-flow mcp stop\`: Stop MCP server
 
 ## Quick Start
 
 1. Add MCP server: \`claude mcp add claude-flow npx claude-flow mcp start\`
-2. Initialize swarm: \`mcp__claude-flow__swarm_init { topology: "hierarchical" }\`
-3. Spawn agents: \`mcp__claude-flow__agent_spawn { type: "coder" }\`
-4. Orchestrate: \`mcp__claude-flow__task_orchestrate { task: "Build feature" }\`
+2. Use MCP tools in Claude Code:
+   - \`mcp__claude-flow__swarm_init\`: Initialize swarm
+   - \`mcp__claude-flow__agent_spawn\`: Create agents
+   - \`mcp__claude-flow__task_orchestrate\`: Orchestrate tasks
 
-See full documentation in \`.claude/commands/\`
+Remember: Claude Flow coordinates, Claude Code creates!
 `;
+    }
   }
 }
 

@@ -31,6 +31,10 @@ import {
   createSparcModesOverview,
   createSwarmStrategyTemplates 
 } from './templates/sparc-modes.js';
+import { 
+  createAllCommandTemplates,
+  createCommandDirectories 
+} from './templates/all-commands.js';
 import { showInitHelp } from './help.js';
 import { 
   batchInitCommand, 
@@ -47,6 +51,7 @@ import {
   createHelperScript,
   COMMAND_STRUCTURE
 } from './templates/enhanced-templates.js';
+import { createGithubEnhancedCommands } from './templates/github-enhanced.js';
 
 export async function initCommand(subArgs, flags) {
   // Show help if requested
@@ -96,13 +101,14 @@ export async function initCommand(subArgs, flags) {
   const initDryRun = subArgs.includes('--dry-run') || subArgs.includes('-d') || flags.dryRun;
   const initOptimized = initSparc && initForce; // Use optimized templates when both flags are present
   const selectedModes = flags.modes ? flags.modes.split(',') : null; // Support selective mode initialization
+  const initClaudeFlow = subArgs.includes('--claude-flow') || flags.claudeFlow;
   if (initClaudeFlow) {
     return enhancedClaudeFlowInit(subArgs, flags, initDryRun, initForce);
   }
   
   // Get the actual working directory (where the command was run from)
-  // Use PWD environment variable which preserves the original directory
-  const workingDir = process.env.PWD || cwd();
+  // Use CLAUDE_WORKING_DIR from our wrapper, fallback to PWD or cwd()
+  const workingDir = process.env.CLAUDE_WORKING_DIR || process.env.PWD || cwd();
   console.log(`📁 Initializing in: ${workingDir}`);
   
   // Change to the working directory to ensure all file operations happen there
@@ -249,6 +255,47 @@ export async function initCommand(subArgs, flags) {
         console.log(`  ⚠️  Could not create swarm files: ${err.message}`);
       }
       
+      // Create GitHub command files with enhanced documentation
+      try {
+        const githubTargetDir = `${workingDir}/.claude/commands/github`;
+        await Deno.mkdir(githubTargetDir, { recursive: true });
+        
+        console.log('  📁 Creating GitHub command files...');
+        
+        // Create enhanced GitHub documentation
+        const githubEnhancedDocs = createGithubEnhancedCommands();
+        for (const [filename, content] of Object.entries(githubEnhancedDocs)) {
+          try {
+            await Deno.writeTextFile(`${githubTargetDir}/${filename}`, content);
+            console.log(`    ✓ Created ${filename}`);
+          } catch (err) {
+            console.log(`    ⚠️  Could not create ${filename}: ${err.message}`);
+          }
+        }
+        
+        // Create standard GitHub command docs from existing patterns
+        const githubCommands = [
+          'github-swarm', 'repo-analyze', 'pr-enhance', 'issue-triage', 'code-review',
+          'pr-manager', 'release-manager', 'issue-tracker', 'workflow-automation'
+        ];
+        
+        for (const command of githubCommands) {
+          try {
+            const doc = createCommandDoc('github', command);
+            if (doc && !githubEnhancedDocs[`${command}.md`]) {
+              await Deno.writeTextFile(`${githubTargetDir}/${command}.md`, doc);
+              console.log(`    ✓ Created ${command}.md`);
+            }
+          } catch (err) {
+            console.log(`    ⚠️  Could not create ${command}.md: ${err.message}`);
+          }
+        }
+        
+        console.log('  ✅ GitHub command files created successfully');
+      } catch (err) {
+        console.log(`  ⚠️  Could not create GitHub files: ${err.message}`);
+      }
+      
       // Create .claude/config.json
       try {
         const configContent = {
@@ -267,6 +314,45 @@ export async function initCommand(subArgs, flags) {
         console.log('  ✓ Created .claude/config.json');
       } catch (err) {
         console.log(`  ⚠️  Could not create config.json: ${err.message}`);
+      }
+      
+      // Create ALL command directories and files
+      console.log('  📁 Creating comprehensive command documentation...');
+      
+      try {
+        const allCommands = createAllCommandTemplates();
+        const commandDirs = createCommandDirectories();
+        
+        // Create all command directories
+        for (const dir of commandDirs) {
+          const dirPath = `${workingDir}/.claude/commands/${dir}`;
+          try {
+            await Deno.mkdir(dirPath, { recursive: true });
+          } catch (err) {
+            if (err.code !== 'EEXIST') {
+              console.log(`    ⚠️  Could not create ${dir} directory: ${err.message}`);
+            }
+          }
+        }
+        
+        // Create all command files
+        for (const [category, files] of Object.entries(allCommands)) {
+          const categoryDir = `${workingDir}/.claude/commands/${category}`;
+          console.log(`    📝 Creating ${category} commands...`);
+          
+          for (const [filename, content] of Object.entries(files)) {
+            try {
+              await Deno.writeTextFile(`${categoryDir}/${filename}`, content);
+              console.log(`      ✓ Created ${filename}`);
+            } catch (err) {
+              console.log(`      ⚠️  Could not create ${filename}: ${err.message}`);
+            }
+          }
+        }
+        
+        console.log('  ✅ All command documentation created successfully');
+      } catch (err) {
+        console.log(`  ⚠️  Could not create command documentation: ${err.message}`);
       }
     }
     
@@ -950,6 +1036,15 @@ ${commands.map(cmd => `- [${cmd}](./${cmd}.md)`).join('\n')}
           const doc = createCommandDoc(category, command);
           if (doc) {
             await Deno.writeTextFile(`${categoryDir}/${command}.md`, doc);
+          }
+        }
+        
+        // Add enhanced GitHub documentation if this is the github category
+        if (category === 'github') {
+          const enhancedGithubDocs = createGithubEnhancedCommands();
+          for (const [filename, content] of Object.entries(enhancedGithubDocs)) {
+            await Deno.writeTextFile(`${categoryDir}/${filename}`, content);
+            console.log(`    ✓ Created enhanced ${filename}`);
           }
         }
         
