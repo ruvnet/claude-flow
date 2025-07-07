@@ -159,18 +159,6 @@ export class CompatibleUI {
     console.log(chalk.gray('Commands: [1-9] Process details [s] Status [l] List [r] Refresh [h] Help [q] Quit'));
   }
 
-  private showHelp(): void {
-    console.log();
-    console.log(chalk.cyan.bold('📖 Available Commands'));
-    console.log(chalk.gray('─'.repeat(40)));
-    console.log(chalk.white('[1-9]'), 'Show process details');
-    console.log(chalk.white('[s]'), 'Show system status');
-    console.log(chalk.white('[l]'), 'List all processes');
-    console.log(chalk.white('[r]'), 'Refresh display');
-    console.log(chalk.white('[h]'), 'Show this help');
-    console.log(chalk.white('[q]'), 'Quit application');
-    console.log();
-  }
 
   private showStatus(): void {
     const stats = this.getSystemStats();

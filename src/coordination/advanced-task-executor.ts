@@ -223,7 +223,7 @@ export class AdvancedTaskExecutor extends EventEmitter {
           const taskError: TaskError = {
             type: 'execution_failed',
             message: (error instanceof Error ? error.message : String(error)),
-            stack: error.stack,
+            stack: (error instanceof Error ? error.stack : undefined),
             context: {
               retryCount,
               maxRetries,
@@ -395,7 +395,12 @@ export class AdvancedTaskExecutor extends EventEmitter {
           completeness: output.completeness || 1.0,
           accuracy: output.accuracy || 0.9,
           executionTime,
-          resourcesUsed: context.resources,
+          resourcesUsed: {
+            memory: context.resources.memory,
+            cpu: context.resources.cpu,
+            disk: context.resources.disk,
+            network: context.resources.network
+          },
           validated: false
         };
       } catch (error) {
@@ -407,7 +412,12 @@ export class AdvancedTaskExecutor extends EventEmitter {
           completeness: 1.0,
           accuracy: 0.7,
           executionTime,
-          resourcesUsed: context.resources,
+          resourcesUsed: {
+            memory: context.resources.memory,
+            cpu: context.resources.cpu,
+            disk: context.resources.disk,
+            network: context.resources.network
+          },
           validated: false
         };
       }

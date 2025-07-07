@@ -280,11 +280,11 @@ export class MessageBus extends EventEmitter {
 
   private setupEventHandlers(): void {
     this.eventBus.on('agent:connected', (data) => {
-      this.handleAgentConnected(data.agentId);
+      this.handleAgentConnected((data as any).agentId);
     });
 
     this.eventBus.on('agent:disconnected', (data) => {
-      this.handleAgentDisconnected(data.agentId);
+      this.handleAgentDisconnected((data as any).agentId);
     });
 
     this.deliveryManager.on('delivery:success', (data) => {
