@@ -3,7 +3,7 @@ import { getErrorMessage } from '../../utils/error-handler.js';
  * MCP command for Claude-Flow
  */
 
-import { Command } from '@cliffy/command';
+import { Command } from 'commander';
 import chalk from 'chalk';
 import { logger } from '../../core/logger.js';
 import { configManager } from '../../core/config.js';
@@ -12,7 +12,7 @@ import { eventBus } from '../../core/event-bus.js';
 
 let mcpServer: MCPServer | null = null;
 
-export const mcpCommand = new Command()
+export const mcpCommand = new Command('mcp')
   .description('Manage MCP server and tools')
   .action(() => {
     console.log(chalk.yellow('Please specify a subcommand:'));
@@ -23,12 +23,14 @@ export const mcpCommand = new Command()
     console.log('  config  - Show MCP configuration');
     console.log('  restart - Restart the MCP server');
     console.log('  logs    - Show MCP server logs');
-  })
-  .command('start', new Command()
-    .description('Start the MCP server')
-    .option('-p, --port <port:number>', 'Port for MCP server', { default: 3000 })
-    .option('-h, --host <host:string>', 'Host for MCP server', { default: 'localhost' })
-    .option('--transport <transport:string>', 'Transport type (stdio, http)', { default: 'stdio' })
+  });
+
+mcpCommand
+  .command('start')
+  .description('Start the MCP server')
+  .option('-p, --port <port>', 'Port for MCP server', '3000')
+    .option('-h, --host <host>', 'Host for MCP server', 'localhost')
+    .option('--transport <transport>', 'Transport type (stdio, http)', 'stdio')
     .action(async (options: any) => {
       try {
         const config = await configManager.load();
@@ -52,9 +54,10 @@ export const mcpCommand = new Command()
         console.error(chalk.red(`❌ Failed to start MCP server: ${(error as Error).message}`));
         process.exit(1);
       }
-    })
-  )
-  .command('stop', new Command()
+    });
+
+mcpCommand
+  .command('stop')
     .description('Stop the MCP server')
     .action(async () => {
       try {
@@ -69,9 +72,10 @@ export const mcpCommand = new Command()
         console.error(chalk.red(`❌ Failed to stop MCP server: ${(error as Error).message}`));
         process.exit(1);
       }
-    })
-  )
-  .command('status', new Command()
+    });
+
+mcpCommand
+  .command('status')
     .description('Show MCP server status')
     .action(async () => {
       try {
@@ -92,9 +96,10 @@ export const mcpCommand = new Command()
       } catch (error) {
         console.error(chalk.red(`❌ Failed to get MCP status: ${(error as Error).message}`));
       }
-    })
-  )
-  .command('tools', new Command()
+    });
+
+mcpCommand
+  .command('tools')
     .description('List available MCP tools')
     .action(() => {
       console.log(chalk.cyan('Available MCP Tools:'));
@@ -118,9 +123,10 @@ export const mcpCommand = new Command()
       console.log('  • memory_store - Store information');
       console.log('  • memory_query - Query stored information');
       console.log('  • memory_index - Index and search content');
-    })
-  )
-  .command('config', new Command()
+    });
+
+mcpCommand
+  .command('config')
     .description('Show MCP configuration')
     .action(async () => {
       try {
@@ -131,9 +137,10 @@ export const mcpCommand = new Command()
       } catch (error) {
         console.error(chalk.red(`❌ Failed to show MCP config: ${(error as Error).message}`));
       }
-    })
-  )
-  .command('restart', new Command()
+    });
+
+mcpCommand
+  .command('restart')
     .description('Restart the MCP server')
     .action(async () => {
       try {
@@ -152,11 +159,12 @@ export const mcpCommand = new Command()
         console.error(chalk.red(`❌ Failed to restart MCP server: ${(error as Error).message}`));
         process.exit(1);
       }
-    })
-  )
-  .command('logs', new Command()
+    });
+
+mcpCommand
+  .command('logs')
     .description('Show MCP server logs')
-    .option('-n, --lines <lines:number>', 'Number of log lines to show', { default: 50 })
+    .option('-n, --lines <lines>', 'Number of log lines to show', '50')
     .action((options: any) => {
       console.log(chalk.cyan(`MCP Server Logs (last ${options.lines} lines):`));
       
@@ -188,5 +196,4 @@ export const mcpCommand = new Command()
           console.log(chalk.gray(entry));
         }
       }
-    })
-  );
+    });

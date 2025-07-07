@@ -59,18 +59,18 @@ const cli = new Command()
 
 // Add subcommands
 cli
-  .addCommand('start', startCommand)
-  .addCommand('agent', agentCommand)
-  .addCommand('task', taskCommand)
-  .addCommand('memory', memoryCommand)
-  .addCommand('config', configCommand)
-  .addCommand('status', statusCommand)
-  .addCommand('monitor', monitorCommand)
-  .addCommand('session', sessionCommand)
-  .addCommand('workflow', workflowCommand)
-  .addCommand('mcp', mcpCommand)
-  .addCommand('help', helpCommand)
-  .addCommand('repl', new Command()
+  .addCommand(startCommand)
+  .addCommand(agentCommand)
+  .addCommand(taskCommand)
+  .addCommand(memoryCommand)
+  .addCommand(configCommand)
+  .addCommand(statusCommand)
+  .addCommand(monitorCommand)
+  .addCommand(sessionCommand)
+  .addCommand(workflowCommand)
+  .addCommand(mcpCommand)
+  .addCommand(helpCommand)
+  .addCommand(new Command('repl')
     .description('Start interactive REPL mode with command completion')
     .option('--no-banner', 'Skip welcome banner')
     .option('--history-file <path:string>', 'Custom history file path')
@@ -81,7 +81,7 @@ cli
       }
       await startREPL(options);
     }))
-  .addCommand('version', new Command()
+  .addCommand(new Command('version')
     .description('Show detailed version information')
     .option('--short', 'Show version number only')
     .action(async (options: any) => {
@@ -91,11 +91,11 @@ cli
         displayVersion(VERSION, BUILD_DATE);
       }
     }))
-  .addCommand('completion', new Command()
+  .addCommand(new Command('completion')
     .description('Generate shell completion scripts')
-    .arguments('[shell:string]')
+    .argument('[shell]', 'Shell type (bash, zsh, fish)')
     .option('--install', 'Install completion script automatically')
-    .action(async (options: any, shell: any) => {
+    .action(async (shell: any, options: any) => {
       const generator = new CompletionGenerator();
       await generator.generate(shell || 'detect', options.install === true);
     }));
