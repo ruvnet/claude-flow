@@ -80,7 +80,11 @@
     "bin/",
     "test-results/",
     "coverage/",
-    "src/test-utils/"
+    "jest.setup.js",
+    "jest.config.js",
+    "cli.js",
+    "src/**/__tests__/",
+    "src/**/tests/"
   ],
   "vendor": false
 }

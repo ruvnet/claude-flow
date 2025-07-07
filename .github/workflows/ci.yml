@@ -103,18 +103,20 @@ jobs:
       - name: Run Jest unit tests
         if: matrix.test-type == 'unit'
         run: |
-          # Run Jest tests for test-cleanup patterns (Issue #120)
-          npm run test:cleanup
+          # Run Jest tests for Node.js integrations and test-cleanup patterns
+          npm test
 
-      - name: Run integration tests  
+      - name: Run Deno integration tests  
         if: matrix.test-type == 'integration'
         run: |
-          npm run test:deno -- --suites integration --coverage --output-dir=test-results
+          # Run Deno integration tests including test-cleanup patterns
+          deno test tests/integration/ tests/unit/test-cleanup/ --allow-all --coverage=test-results/coverage
 
-      - name: Run end-to-end tests
+      - name: Run Deno end-to-end tests
         if: matrix.test-type == 'e2e'
         run: |
-          npm run test:deno -- --suites e2e --coverage --output-dir=test-results
+          # Run Deno E2E tests
+          deno test tests/e2e/ --allow-all --coverage=test-results/coverage
 
       - name: Generate coverage report
         if: matrix.os == 'ubuntu-latest'
