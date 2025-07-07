@@ -15,6 +15,7 @@
     "build:simple": "npm run build:ts && pkg dist/cli/simple-cli.js --output bin/claude-flow-simple",
     "typecheck": "tsc --noEmit",
     "test": "jest",
+    "test:cleanup": "jest src/test-utils/__tests__/test-cleanup.test.ts",
     "test:deno": "deno task test",
     "lint": "eslint src --ext .ts,.js",
     "format": "prettier --write src",

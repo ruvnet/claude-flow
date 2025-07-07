@@ -79,7 +79,8 @@
     "dist/",
     "bin/",
     "test-results/",
-    "coverage/"
+    "coverage/",
+    "src/test-utils/"
   ],
   "vendor": false
 }
