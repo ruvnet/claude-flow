@@ -1,7 +1,7 @@
 /**
  * Test suite for TestCleanup utilities
  * Validates Issue #120 implementation
- * CI trigger: test run
+ * CI trigger: test run with Actions enabled
  */
 
 import { TestCleanup, AsyncTestUtils, TestAssertions } from '../test-cleanup';
