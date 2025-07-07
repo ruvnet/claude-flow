@@ -380,3 +380,4 @@ npx claude-flow@latest init --sparc
 **Built with ❤️ by [rUv](https://github.com/ruvnet) | Powered by Claude AI**
 
 </div>
+# CI Status
