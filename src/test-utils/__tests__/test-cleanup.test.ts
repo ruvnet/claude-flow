@@ -1,6 +1,7 @@
 /**
  * Test suite for TestCleanup utilities
  * Validates Issue #120 implementation
+ * CI trigger: test run
  */
 
 import { TestCleanup, AsyncTestUtils, TestAssertions } from '../test-cleanup';
@@ -164,26 +165,24 @@ describe('TestCleanup', () => {
 });
 
 describe('AsyncTestUtils', () => {
-  let cleanup: TestCleanup;
-
   beforeEach(() => {
-    cleanup = new TestCleanup();
     AsyncTestUtils.resetCleanup();
   });
 
   afterEach(async () => {
-    await cleanup.cleanup();
+    await AsyncTestUtils.getCleanup().cleanup();
   });
 
   describe('waitFor', () => {
     test('should wait for condition to be true', async () => {
       let condition = false;
       
+      // Set condition to true after a short delay
       setTimeout(() => {
         condition = true;
-      }, 100);
+      }, 50);
       
-      await AsyncTestUtils.waitFor(() => condition, { timeout: 500 });
+      await AsyncTestUtils.waitFor(() => condition, { timeout: 200, interval: 10 });
       
       expect(condition).toBe(true);
     });
@@ -228,6 +227,14 @@ describe('AsyncTestUtils', () => {
 });
 
 describe('PerformanceTestUtils', () => {
+  beforeEach(() => {
+    PerformanceTestUtils.resetCleanup();
+  });
+
+  afterEach(async () => {
+    await PerformanceTestUtils.getCleanup().cleanup();
+  });
+
   describe('measurePerformance', () => {
     test('should measure execution time and memory', async () => {
       const operation = async () => {
@@ -337,7 +344,6 @@ describe('TestAssertions', () => {
       async () => {
         throw new Error('Test error');
       },
-      Error,
       'Test error'
     );
   });

@@ -265,12 +265,9 @@ export class PerformanceTestUtils {
         activeRequests.add(requestPromise);
         
         // Wait for interval using cleanup-tracked timeout
-        await this.cleanup.createTimeoutPromise<void>(
-          (resolve) => {
-            this.cleanup.setTimeout(resolve, targetInterval);
-          },
-          targetInterval + 100
-        );
+        await new Promise<void>((resolve) => {
+          this.cleanup.setTimeout(() => resolve(), targetInterval);
+        });
       }
     }
 

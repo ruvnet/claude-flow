@@ -278,43 +278,37 @@ export class AsyncTestUtils {
     const { timeout = 5000, interval = 100, message = 'Condition not met' } = options;
     const start = Date.now();
 
-    return this.cleanup.createTimeoutPromise<void>(
-      (resolve, reject) => {
-        const checkCondition = async () => {
-          try {
-            if (Date.now() - start >= timeout) {
-              reject(new Error(`${message} (timeout: ${timeout}ms)`));
-              return;
-            }
-
-            if (await condition()) {
-              resolve();
-              return;
-            }
-
-            this.cleanup.setTimeout(checkCondition, interval);
-          } catch (error) {
-            reject(error);
+    return new Promise<void>((resolve, reject) => {
+      const checkCondition = async () => {
+        try {
+          if (Date.now() - start >= timeout) {
+            reject(new Error(`${message} (timeout: ${timeout}ms)`));
+            return;
           }
-        };
 
-        checkCondition();
-      },
-      timeout + 1000, // Give extra time for the timeout logic
-      message
-    );
+          if (await condition()) {
+            resolve();
+            return;
+          }
+
+          // Use cleanup-tracked setTimeout
+          this.cleanup.setTimeout(checkCondition, interval);
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      checkCondition();
+    });
   }
 
   /**
    * Wait with proper cleanup registration
    */
   static async delay(ms: number): Promise<void> {
-    return this.cleanup.createTimeoutPromise<void>(
-      (resolve) => {
-        this.cleanup.setTimeout(resolve, ms);
-      },
-      ms + 1000
-    );
+    return new Promise<void>((resolve) => {
+      this.cleanup.setTimeout(() => resolve(), ms);
+    });
   }
 
   /**
@@ -325,13 +319,13 @@ export class AsyncTestUtils {
     timeoutMs: number,
     message?: string
   ): Promise<T> {
-    return this.cleanup.createTimeoutPromise<T>(
-      (resolve, reject) => {
-        promise.then(resolve).catch(reject);
-      },
-      timeoutMs,
-      message
-    );
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      this.cleanup.setTimeout(() => {
+        reject(new Error(message || `Promise timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+
+    return Promise.race([promise, timeoutPromise]);
   }
 }
 
@@ -351,6 +345,12 @@ export class TestAssertions {
       await AsyncTestUtils.withTimeout(fn(), 5000, 'Test assertion timeout');
       throw new Error(message || 'Expected function to throw, but it did not');
     } catch (error) {
+      // If this is our "expected to throw" error, that means the function didn't throw
+      if ((error as Error).message === (message || 'Expected function to throw, but it did not')) {
+        throw error;
+      }
+      
+      // Function did throw, now check if it matches expected error
       if (expectedError) {
         if (typeof expectedError === 'string') {
           if (!(error as Error).message.includes(expectedError)) {
@@ -366,6 +366,7 @@ export class TestAssertions {
           }
         }
       }
+      // If we get here, the function threw as expected
     }
   }
 
