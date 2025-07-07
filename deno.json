@@ -1,5 +1,5 @@
 {
-  "nodeModulesDir": "auto",
+  "nodeModulesDir": true,
   "compilerOptions": {
     "lib": ["deno.ns", "deno.window", "esnext"],
     "strict": true,
