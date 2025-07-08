@@ -1,6 +1,7 @@
 import { success, error, warning, info } from "../cli-core.js";
 import type { CommandContext } from "../cli-core.js";
 import colors from "chalk";
+import { createSafeReadlineInterface } from "../../utils/tty-error-handler.js";
 const { blue, yellow, green, magenta, cyan } = colors;
 
 interface SparcMode {
@@ -237,15 +238,17 @@ async function runTddFlow(ctx: CommandContext): Promise<void> {
       if (ctx.flags.sequential !== false) {
         console.log("Phase completed. Press Enter to continue to next phase, or Ctrl+C to stop...");
         await new Promise<void>(async (resolve) => {
-          const readline = await import("readline");
-          const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout
-          });
-          rl.question("", () => {
-            rl.close();
+          const rl = await createSafeReadlineInterface();
+          if (rl) {
+            rl.question("", () => {
+              rl.close();
+              resolve();
+            });
+          } else {
+            // In non-interactive mode, just continue
+            console.log("Non-interactive mode detected, continuing...");
             resolve();
-          });
+          }
         });
       }
     }
@@ -318,16 +321,18 @@ async function runSparcWorkflow(ctx: CommandContext): Promise<void> {
 
       if (workflow.sequential !== false && i < workflow.steps.length - 1) {
         console.log("Step completed. Press Enter to continue, or Ctrl+C to stop...");
-        await new Promise<void>((resolve) => {
-          const readline = require("readline");
-          const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout
-          });
-          rl.question("", () => {
-            rl.close();
+        await new Promise<void>(async (resolve) => {
+          const rl = await createSafeReadlineInterface();
+          if (rl) {
+            rl.question("", () => {
+              rl.close();
+              resolve();
+            });
+          } else {
+            // In non-interactive mode, just continue
+            console.log("Non-interactive mode detected, continuing...");
             resolve();
-          });
+          }
         });
       }
     }
