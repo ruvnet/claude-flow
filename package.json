@@ -1,6 +1,6 @@
 {
   "name": "claude-flow",
-  "version": "2.0.0-alpha.43",
+  "version": "2.0.0-alpha.48",
   "description": "Enterprise-grade AI agent orchestration with ruv-swarm integration (Alpha Release)",
   "main": "cli.mjs",
   "bin": {

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Claude-Flow Smart Dispatcher - Detects and uses the best available runtime
 
-VERSION="2.0.0-alpha.43"
+VERSION="2.0.0-alpha.48"
 
 # Determine the correct path based on how the script is invoked
 if [ -L "$0" ]; then

@@ -3,7 +3,7 @@
  * Provides clear, actionable command documentation
  */
 
-export const VERSION = '2.0.0-alpha.43';
+export const VERSION = '2.0.0-alpha.48';
 
 export const MAIN_HELP = `
 🌊 Claude-Flow v${VERSION} - Enterprise-Grade AI Agent Orchestration Platform
@@ -17,7 +17,7 @@ USAGE:
 
 🚀 QUICK START:
   # First time setup (creates CLAUDE.md & .claude/commands)
-  npx claude-flow@2.0.0 init --sparc
+  npx claude-flow@alpha init --sparc
   
   # 🐝 HIVE MIND QUICK START (NEW!):
   claude-flow hive-mind wizard          # Interactive setup wizard
