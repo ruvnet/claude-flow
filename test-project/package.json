@@ -1,0 +1,21 @@
+{
+  "name": "swarm-test-project",
+  "version": "1.0.0",
+  "description": "Test project created by GitHub Swarm",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "jest",
+    "lint": "eslint src/",
+    "build": "echo \"Build complete\""
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.4.0"
+  },
+  "devDependencies": {
+    "jest": "^29.5.0",
+    "eslint": "^8.42.0",
+    "supertest": "^6.3.3"
+  }
+}
