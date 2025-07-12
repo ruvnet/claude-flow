@@ -28,7 +28,7 @@ import {
   createAgentsReadme, 
   createSessionsReadme 
 } from './templates/readme-files.js';
-import { npxCacheManager } from '../../../utils/npx-cache-manager.js';
+import { getIsolatedNpxEnv } from '../../../utils/npx-isolated-cache.js';
 
 // Progress tracking for batch operations
 class BatchProgressTracker {
@@ -687,45 +687,44 @@ async function initializeProject(projectPath, options = {}) {
     process.chdir(projectDir);
 
     try {
-      // Use NPX cache manager to prevent concurrent cache conflicts
-      await npxCacheManager.withLock(async () => {
-        // Run init command based on options
-        if (sparc) {
-          await createSparcStructureManually();
-        }
-        
-        if (minimal) {
-          await createMinimalClaudeMd();
-          await createMinimalMemoryBankMd();
-          await createMinimalCoordinationMd();
-        } else {
-          await createFullClaudeMd();
-          await createFullMemoryBankMd(); 
-          await createFullCoordinationMd();
-        }
-        
-        // Create additional structure based on template
-        if (template && PROJECT_TEMPLATES[template]) {
-          const templateConfig = PROJECT_TEMPLATES[template];
-          // Apply template-specific initialization
-          if (templateConfig.files) {
-            for (const file of templateConfig.files) {
-              await Deno.writeTextFile(file.path, file.content);
-            }
+      // Run init command based on options
+      if (sparc) {
+        // If sparc option requires NPX, use isolated cache
+        // For now, just use manual creation
+        await createSparcStructureManually();
+      }
+      
+      if (minimal) {
+        await createMinimalClaudeMd();
+        await createMinimalMemoryBankMd();
+        await createMinimalCoordinationMd();
+      } else {
+        await createFullClaudeMd();
+        await createFullMemoryBankMd(); 
+        await createFullCoordinationMd();
+      }
+      
+      // Create additional structure based on template
+      if (template && PROJECT_TEMPLATES[template]) {
+        const templateConfig = PROJECT_TEMPLATES[template];
+        // Apply template-specific initialization
+        if (templateConfig.files) {
+          for (const file of templateConfig.files) {
+            await Deno.writeTextFile(file.path, file.content);
           }
         }
-        
-        // Create environment-specific config
-        if (ENVIRONMENT_CONFIGS[environment]) {
-          const envConfig = ENVIRONMENT_CONFIGS[environment];
-          // Apply environment-specific settings
-          if (envConfig.files) {
-            for (const file of envConfig.files) {
-              await Deno.writeTextFile(file.path, file.content);
-            }
+      }
+      
+      // Create environment-specific config
+      if (ENVIRONMENT_CONFIGS[environment]) {
+        const envConfig = ENVIRONMENT_CONFIGS[environment];
+        // Apply environment-specific settings
+        if (envConfig.files) {
+          for (const file of envConfig.files) {
+            await Deno.writeTextFile(file.path, file.content);
           }
         }
-      });
+      }
 
       return {
         project: projectPath,

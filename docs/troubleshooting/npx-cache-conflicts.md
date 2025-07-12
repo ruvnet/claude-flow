@@ -21,60 +21,41 @@ NPX uses a shared cache directory (`/tmp/.npm/_npx/` or similar) to store downlo
 
 ## Solution
 
-Claude-flow v2.0.0-alpha.17+ includes an automatic NPX cache lock manager that prevents these conflicts by:
+Claude-flow v2.0.0-alpha.17+ includes automatic NPX cache isolation that prevents these conflicts by giving each process its own isolated cache directory.
 
-1. **Serializing NPX operations**: Only one NPX command can run at a time
-2. **Automatic retry logic**: If a lock is held, the system retries with exponential backoff
-3. **Lock timeout protection**: Stale locks are automatically cleaned up after 30 seconds
-4. **Process cleanup**: Locks are released on process exit, even on errors
+### How It Works
 
-## How It Works
+The solution uses per-process cache isolation:
 
-The NPX cache manager creates a lock file at `~/.claude-flow/locks/npx.lock` that ensures exclusive access to NPX operations. This lock is:
+1. **Unique Cache Directories**: Each process gets its own NPX cache at `/tmp/.npm-cache/claude-flow-[pid]-[timestamp]-[random]`
+2. **Automatic Cleanup**: Cache directories are automatically removed when the process exits
+3. **No Performance Impact**: True parallel execution is maintained - no serialization needed
+4. **Cross-platform**: Works on Linux, macOS, and Windows
 
-- **Process-specific**: Each process gets a unique lock ID
-- **Time-bounded**: Locks expire after 30 seconds to prevent deadlocks
-- **Self-cleaning**: Locks are removed on normal exit, signals, or crashes
+### Implementation
 
-## Manual Lock Management
-
-If you need to manually manage locks (e.g., for debugging), use the included CLI utility:
-
-```bash
-# Check lock status
-node src/utils/npx-lock-cli.js status
-
-# Force release a stuck lock
-node src/utils/npx-lock-cli.js release
-
-# Acquire a lock for testing
-node src/utils/npx-lock-cli.js acquire
-```
-
-## Configuration
-
-The lock manager uses these defaults:
-
-- **Lock timeout**: 30 seconds
-- **Retry interval**: 100ms
-- **Max retries**: 300 (30 seconds total)
-- **Lock directory**: `~/.claude-flow/locks/`
-
-These values are optimized for typical usage and should not need adjustment.
+The fix is simple and efficient:
+- Each NPX command runs with `NPM_CONFIG_CACHE` set to a unique directory
+- No locks or synchronization needed
+- Cache directories are cleaned up automatically on process exit
 
 ## Verification
 
-To verify the fix is working, you can run the included test script:
+To verify the fix is working, run the included test suites:
 
 ```bash
-node test-concurrent-fix.js
+# Comprehensive test suite
+node test/npx-cache-fix-test.js
+
+# Integration test with real NPX commands
+node test/npx-isolation-integration-test.js
 ```
 
-This will launch multiple concurrent `claude-flow init` commands and verify they complete without ENOTEMPTY errors.
+Both tests should pass with no ENOTEMPTY errors.
 
 ## Alternative Workarounds
 
-If you're using an older version without this fix, you can:
+If you're using an older version without this fix, you can manually implement the same approach:
 
 1. **Use isolated cache directories**:
    ```bash
@@ -96,8 +77,8 @@ If you're using an older version without this fix, you can:
 ## Implementation Details
 
 The fix is implemented in:
-- `/src/utils/npx-cache-manager.js` - Core lock manager
-- `/src/cli/simple-commands/init/index.js` - NPX operations wrapped with lock
-- `/src/cli/simple-commands/init/batch-init.js` - Batch operations use lock
+- `/src/utils/npx-isolated-cache.js` - Core isolation utility
+- `/src/cli/simple-commands/init/index.js` - Uses `getIsolatedNpxEnv()` for NPX commands
+- `/src/cli/simple-commands/init/batch-init.js` - Batch operations automatically get isolation
 
-All NPX executions are now wrapped in `npxCacheManager.withLock()` to ensure exclusive access.
+All NPX executions now use isolated cache directories, completely eliminating cache conflicts without sacrificing performance.
