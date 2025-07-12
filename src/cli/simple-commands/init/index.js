@@ -49,6 +49,7 @@ import {
   createHelperScript,
   COMMAND_STRUCTURE
 } from './templates/enhanced-templates.js';
+import { getIsolatedNpxEnv } from '../../../utils/npx-isolated-cache.js';
 
 /**
  * Check if Claude Code CLI is installed
@@ -378,15 +379,15 @@ export async function initCommand(subArgs, flags) {
         // Check if create-sparc exists and run it
         let sparcInitialized = false;
         try {
+          // Use isolated NPX cache to prevent concurrent conflicts
           const createSparcCommand = new Deno.Command('npx', {
             args: ['-y', 'create-sparc', 'init', '--force'],
             cwd: workingDir, // Use the original working directory
             stdout: 'inherit',
             stderr: 'inherit',
-            env: {
-              ...Deno.env.toObject(),
+            env: getIsolatedNpxEnv({
               PWD: workingDir, // Ensure PWD is set correctly
-            },
+            }),
           });
           
           console.log('  🔄 Running: npx -y create-sparc init --force');

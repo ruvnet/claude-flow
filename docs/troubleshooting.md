@@ -46,6 +46,34 @@ npx claude-flow@2.0.0 swarm "test objective"
 
 ---
 
+### ✅ FIXED: NPX Cache Conflicts (v2.0.0-alpha.17+)
+
+**Previous Issue**: ENOTEMPTY errors when running multiple claude-flow instances concurrently
+
+**Symptoms (FIXED)**:
+```bash
+npm error code ENOTEMPTY
+npm error syscall rename
+npm error ENOTEMPTY: directory not empty, rename '/private/tmp/.npm/_npx/[hash]/node_modules/[package]' -> '[dest]'
+```
+
+**✅ SOLUTION**: Automatic per-process cache isolation
+- Each process gets its own NPX cache directory
+- True parallel execution maintained (no serialization)
+- Automatic cleanup on process exit
+- Zero performance overhead
+
+**Verification**:
+```bash
+# Test concurrent operations (should work flawlessly)
+node test/npx-cache-fix-test.js
+node test/npx-isolation-integration-test.js
+```
+
+**📖 Detailed Guide**: [NPX Cache Conflicts](./troubleshooting/npx-cache-conflicts.md)
+
+---
+
 ### ✅ FIXED: Swarm LoadBalancer Error
 
 **Previous Issue**: `LoadBalancer is not defined` error in swarm operations
