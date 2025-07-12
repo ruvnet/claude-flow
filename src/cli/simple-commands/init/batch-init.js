@@ -2,7 +2,6 @@
 import { printSuccess, printError, printWarning, printInfo } from '../../utils.js';
 import { Deno, cwd, exit, existsSync } from '../../node-compat.js';
 import process from 'process';
-import path from 'path';
 import { 
   PerformanceMonitor, 
   ResourceThresholdMonitor, 
@@ -28,7 +27,6 @@ import {
   createAgentsReadme, 
   createSessionsReadme 
 } from './templates/readme-files.js';
-import { getIsolatedNpxEnv } from '../../../utils/npx-isolated-cache.js';
 
 // Progress tracking for batch operations
 class BatchProgressTracker {
