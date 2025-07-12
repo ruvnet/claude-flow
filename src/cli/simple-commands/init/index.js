@@ -49,6 +49,7 @@ import {
   createHelperScript,
   COMMAND_STRUCTURE
 } from './templates/enhanced-templates.js';
+import { npxCacheManager } from '../../../utils/npx-cache-manager.js';
 
 /**
  * Check if Claude Code CLI is installed
@@ -378,30 +379,33 @@ export async function initCommand(subArgs, flags) {
         // Check if create-sparc exists and run it
         let sparcInitialized = false;
         try {
-          const createSparcCommand = new Deno.Command('npx', {
-            args: ['-y', 'create-sparc', 'init', '--force'],
-            cwd: workingDir, // Use the original working directory
-            stdout: 'inherit',
-            stderr: 'inherit',
-            env: {
-              ...Deno.env.toObject(),
-              PWD: workingDir, // Ensure PWD is set correctly
-            },
-          });
-          
-          console.log('  🔄 Running: npx -y create-sparc init --force');
-          const createSparcResult = await createSparcCommand.output();
-          
-          if (createSparcResult.success) {
-            console.log('  ✅ SPARC environment initialized successfully');
-            sparcInitialized = true;
-          } else {
-            printWarning('create-sparc failed, creating basic SPARC structure manually...');
+          // Use NPX cache manager to prevent concurrent cache conflicts
+          await npxCacheManager.withLock(async () => {
+            const createSparcCommand = new Deno.Command('npx', {
+              args: ['-y', 'create-sparc', 'init', '--force'],
+              cwd: workingDir, // Use the original working directory
+              stdout: 'inherit',
+              stderr: 'inherit',
+              env: {
+                ...Deno.env.toObject(),
+                PWD: workingDir, // Ensure PWD is set correctly
+              },
+            });
             
-            // Fallback: create basic SPARC structure manually
-            await createSparcStructureManually();
-            sparcInitialized = true; // Manual creation still counts as initialized
-          }
+            console.log('  🔄 Running: npx -y create-sparc init --force');
+            const createSparcResult = await createSparcCommand.output();
+            
+            if (createSparcResult.success) {
+              console.log('  ✅ SPARC environment initialized successfully');
+              sparcInitialized = true;
+            } else {
+              printWarning('create-sparc failed, creating basic SPARC structure manually...');
+              
+              // Fallback: create basic SPARC structure manually
+              await createSparcStructureManually();
+              sparcInitialized = true; // Manual creation still counts as initialized
+            }
+          });
         } catch (err) {
           printWarning('create-sparc not available, creating basic SPARC structure manually...');
           

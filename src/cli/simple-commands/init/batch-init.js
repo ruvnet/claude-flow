@@ -2,6 +2,7 @@
 import { printSuccess, printError, printWarning, printInfo } from '../../utils.js';
 import { Deno, cwd, exit, existsSync } from '../../node-compat.js';
 import process from 'process';
+import path from 'path';
 import { 
   PerformanceMonitor, 
   ResourceThresholdMonitor, 
@@ -27,6 +28,7 @@ import {
   createAgentsReadme, 
   createSessionsReadme 
 } from './templates/readme-files.js';
+import { npxCacheManager } from '../../../utils/npx-cache-manager.js';
 
 // Progress tracking for batch operations
 class BatchProgressTracker {
@@ -653,6 +655,95 @@ export function validateBatchOptions(options) {
   }
 
   return errors;
+}
+
+// Initialize a single project with given options
+async function initializeProject(projectPath, options = {}) {
+  const {
+    template = null,
+    environment = 'dev',
+    sparc = false,
+    minimal = false,
+    force = false
+  } = options;
+
+  try {
+    // Create project directory
+    const projectDir = path.join(process.cwd(), projectPath);
+    
+    if (existsSync(projectDir) && !force) {
+      return {
+        project: projectPath,
+        success: false,
+        error: `Directory ${projectPath} already exists. Use --force to overwrite.`
+      };
+    }
+
+    // Ensure directory exists
+    await Deno.mkdir(projectDir, { recursive: true });
+    
+    // Change to project directory
+    const originalCwd = process.cwd();
+    process.chdir(projectDir);
+
+    try {
+      // Use NPX cache manager to prevent concurrent cache conflicts
+      await npxCacheManager.withLock(async () => {
+        // Run init command based on options
+        if (sparc) {
+          await createSparcStructureManually();
+        }
+        
+        if (minimal) {
+          await createMinimalClaudeMd();
+          await createMinimalMemoryBankMd();
+          await createMinimalCoordinationMd();
+        } else {
+          await createFullClaudeMd();
+          await createFullMemoryBankMd(); 
+          await createFullCoordinationMd();
+        }
+        
+        // Create additional structure based on template
+        if (template && PROJECT_TEMPLATES[template]) {
+          const templateConfig = PROJECT_TEMPLATES[template];
+          // Apply template-specific initialization
+          if (templateConfig.files) {
+            for (const file of templateConfig.files) {
+              await Deno.writeTextFile(file.path, file.content);
+            }
+          }
+        }
+        
+        // Create environment-specific config
+        if (ENVIRONMENT_CONFIGS[environment]) {
+          const envConfig = ENVIRONMENT_CONFIGS[environment];
+          // Apply environment-specific settings
+          if (envConfig.files) {
+            for (const file of envConfig.files) {
+              await Deno.writeTextFile(file.path, file.content);
+            }
+          }
+        }
+      });
+
+      return {
+        project: projectPath,
+        success: true,
+        template,
+        environment
+      };
+    } finally {
+      // Restore original directory
+      process.chdir(originalCwd);
+    }
+  } catch (error) {
+    return {
+      project: projectPath,
+      success: false,
+      error: error.message
+    };
+  }
 }
 
 // Export template and environment configurations for external use
