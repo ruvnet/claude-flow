@@ -1682,3 +1682,38 @@ describe('Edge Cases', () => {
     });
   });
 });
+
+// =============================================================================
+// memory_store handler: undefined/null value guard (#1032)
+// =============================================================================
+
+describe('memory_store undefined value guard (#1032)', () => {
+  it('should return error when value is undefined', async () => {
+    const { memoryTools } = await import('../src/mcp-tools/memory-tools.js');
+    const tool = memoryTools.find(t => t.name === 'memory_store')!;
+    expect(tool).toBeDefined();
+
+    const result: any = await tool.handler({ key: 'test-key' });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Missing required parameter: value');
+  });
+
+  it('should return error when value is null', async () => {
+    const { memoryTools } = await import('../src/mcp-tools/memory-tools.js');
+    const tool = memoryTools.find(t => t.name === 'memory_store')!;
+
+    const result: any = await tool.handler({ key: 'test-key', value: null });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Missing required parameter: value');
+  });
+
+  it('should not crash and should include key in error response', async () => {
+    const { memoryTools } = await import('../src/mcp-tools/memory-tools.js');
+    const tool = memoryTools.find(t => t.name === 'memory_store')!;
+
+    const result: any = await tool.handler({ key: 'my-key', value: undefined });
+    expect(result.success).toBe(false);
+    expect(result.key).toBe('my-key');
+    expect(result.stored).toBe(false);
+  });
+});
