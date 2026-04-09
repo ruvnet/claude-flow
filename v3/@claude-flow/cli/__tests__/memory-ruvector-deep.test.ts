@@ -1717,3 +1717,33 @@ describe('memory_store undefined value guard (#1032)', () => {
     expect(result.stored).toBe(false);
   });
 });
+
+// =============================================================================
+// memory_store handler: numeric value coercion (#1005)
+// =============================================================================
+
+describe('memory_store numeric value coercion (#1005)', () => {
+  it('should accept a numeric value without crashing', async () => {
+    const { memoryTools } = await import('../src/mcp-tools/memory-tools.js');
+    const tool = memoryTools.find(t => t.name === 'memory_store')!;
+
+    // Simulates what happens when arg parser coerces "25" to number 25
+    const result: any = await tool.handler({ key: 'numeric-key', value: 25 });
+    // Should not crash — value gets JSON.stringify'd to "25"
+    expect(result).toBeDefined();
+    if (result.error) {
+      expect(result.error).not.toMatch(/must be of type string/);
+    }
+  });
+
+  it('should accept zero as a value', async () => {
+    const { memoryTools } = await import('../src/mcp-tools/memory-tools.js');
+    const tool = memoryTools.find(t => t.name === 'memory_store')!;
+
+    const uniqueKey = `zero-key-${Date.now()}`;
+    const result: any = await tool.handler({ key: uniqueKey, value: 0 });
+    expect(result).toBeDefined();
+    // 0 gets JSON.stringify'd to "0" — should not be treated as null/undefined
+    expect(result.error).toBeUndefined();
+  });
+});
