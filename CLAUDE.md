@@ -1,8 +1,9 @@
-# Claude Code Configuration - Ruflo v3.5
+# Claude Code Configuration - Ruflo v3.10
 
-> **Ruflo v3.6** (2026-04-29) — Stable release with agent federation and comms-first coordination.
-> 6,000+ commits, 314 MCP tools, 16 agent roles + custom types, 19 AgentDB controllers, 21 native plugins.
-> Packages: `@claude-flow/cli@3.6.10`, `claude-flow@3.6.10`, `ruflo@3.6.10`
+> **Ruflo v3.10** (2026-06-04) — Stable release with agent federation, comms-first coordination, and a self-learning hooks loop.
+> 6,000+ commits · 314 MCP tools · 98 agents · 26 CLI commands (140+ subcommands) · 30 skills · 33 native plugins · AgentDB + HNSW vector memory.
+> Packages: `@claude-flow/cli@3.10.37`, `claude-flow@3.10.37`, `ruflo@3.10.37` (all published to `latest`; `alpha`/`v3alpha` dist-tags kept in sync for legacy installs).
+> **What users actually run:** `npx ruflo@latest` — the thin wrapper around `@claude-flow/cli`. After `init`, just use Claude Code normally; the hooks system routes tasks, learns patterns, and coordinates agents in the background.
 
 ## Behavioral Rules (Always Enforced)
 
@@ -34,16 +35,84 @@
 - Use event sourcing for state changes
 - Ensure input validation at system boundaries
 
-### Key Packages
+### Repository Layout (top level)
 
-| Package | Path | Purpose |
-|---------|------|---------|
-| `@claude-flow/cli` | `v3/@claude-flow/cli/` | CLI entry point (26 commands) |
-| `@claude-flow/codex` | `v3/@claude-flow/codex/` | Dual-mode Claude + Codex collaboration |
-| `@claude-flow/guidance` | `v3/@claude-flow/guidance/` | Governance control plane |
-| `@claude-flow/hooks` | `v3/@claude-flow/hooks/` | 17 hooks + 12 workers |
-| `@claude-flow/memory` | `v3/@claude-flow/memory/` | AgentDB + HNSW search |
-| `@claude-flow/security` | `v3/@claude-flow/security/` | Input validation, CVE remediation |
+| Path | Contents |
+|------|----------|
+| `v3/@claude-flow/` | The monorepo source — 24 workspace packages (see Key Packages below) |
+| `v3/src/`, `v3/implementation/`, `v3/mcp/`, `v3/crates/` | Shared core, domain implementations, MCP server, Rust crates |
+| `plugins/` | 33 `ruflo-*` native plugins (each its own README + agents/commands/skills) |
+| `.claude/` | Claude Code config: `agents/` (108 agent defs), `commands/`, `helpers/`, hooks |
+| `.claude-plugin/` | Claude Code plugin marketplace manifest (`marketplace.json`, `plugin.json`) |
+| `.agents/` | Codex / Agentic AI Foundation config (`config.toml`) — see `AGENTS.md` |
+| `docs/` | Architecture decision records (ADRs), reviews, user/federation guides |
+| `scripts/`, `tests/`, `bin/` | Utility scripts, root tests, the `claude-flow` bin shim |
+| `ruflo/` | The published `ruflo` wrapper package (depends on `@claude-flow/cli`) |
+| `CLAUDE.md` / `AGENTS.md` | Instructions for Claude Code / Codex respectively |
+
+### Key Packages (`v3/@claude-flow/*`)
+
+| Package | Purpose |
+|---------|---------|
+| `cli` | CLI entry point (26 commands, 140+ subcommands) — `v3/@claude-flow/cli/` |
+| `cli-core` | Shared CLI primitives, command parsing, output rendering |
+| `shared` | Cross-package types, utilities, constants |
+| `mcp` | MCP server + 314 tool registry (Core, Intelligence, Agents, Memory, DevTools) |
+| `memory` | AgentDB + HNSW vector search, controller registry, hybrid backend |
+| `neural` | SONA, MoE, EWC++ neural learning (RuVector intelligence) |
+| `hooks` | 17 hooks + 12 background workers (self-learning loop) |
+| `guidance` | Governance control plane (policy, claims, anti-drift gates) |
+| `security` | Input validation, path security, CVE remediation, SafeExecutor |
+| `codex` | Dual-mode Claude Code + OpenAI Codex collaboration |
+| `swarm` | Swarm coordinator, topologies, consensus |
+| `agents` | Agent role definitions (`coder`, `tester`, `architect`, …) |
+| `integration` | agentic-flow bridge, token optimizer (Agent Booster) |
+| `providers` | AI provider abstraction (Anthropic, OpenAI, Google, …) |
+| `embeddings` | Vector embeddings (sql.js cache, ONNX backend, hyperbolic) |
+| `performance` | Profiling + benchmarking |
+| `deployment` | Deploy / rollback / release management |
+| `claims` | Claims-based authorization |
+| `browser` | Browser automation with AI-optimized snapshots |
+| `aidefence` | AI defence / threat mitigation layer |
+| `testing` | Shared test harness + TDD utilities |
+| `plugin-agent-federation` | Cross-instance agent federation (9 MCP tools + 10 CLI cmds) |
+| `plugin-iot-cognitum` | IoT / Cognitum appliance integration |
+| `plugins` | Plugin system core (manager, discovery, IPFS store) |
+
+## Build, Test & Development Workflow
+
+The monorepo uses **pnpm workspaces** (`v3/pnpm-workspace.yaml` globs `@claude-flow/*`), **TypeScript** (`tsc`), and **Vitest** for tests. Node 20+ is required.
+
+```bash
+# --- From v3/ (the monorepo root) ---
+cd v3
+pnpm install                 # install all workspace deps
+pnpm -r build                # build every package (tsc)
+pnpm typecheck               # pnpm -r typecheck across all packages
+pnpm test                    # vitest run (all)
+pnpm test:unit               # __tests__/unit only
+pnpm test:integration        # __tests__/integration (memory, swarm, mcp, plugin, workflow)
+pnpm test:coverage           # with coverage
+pnpm test:security           # @claude-flow/security suite
+pnpm bench                   # @claude-flow/performance benchmarks
+
+# --- Single package (e.g. the CLI) ---
+cd v3/@claude-flow/cli
+npm run build                # tsc
+npm run test                 # vitest run
+
+# --- From repo root (umbrella) ---
+npm run build:ts             # builds the CLI
+npm test                     # vitest
+npm run test:security        # v3/__tests__/security/
+```
+
+**Conventions to honor when editing code:**
+- TypeScript-first; keep files under 500 lines (split when they grow).
+- Typed interfaces for all public APIs; validate input at system boundaries (Zod via `@claude-flow/security`).
+- TDD London School (mock-first) for new code; co-locate `*.test.ts` with source.
+- A `.githooks/pre-commit` hook runs on commit — don't bypass it without reason.
+- Run `pnpm typecheck` and the relevant `pnpm test:*` before pushing.
 
 ## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
 
@@ -382,6 +451,25 @@ This project is configured with Claude Flow V3 (Anti-Drift Defaults):
 | `process` | 4 | Background process management |
 | `doctor` | 1 | System diagnostics with health checks |
 | `completions` | 4 | Shell completions (bash, zsh, fish, powershell) |
+
+### Newer Commands (added since v3.6)
+
+| Command | Description |
+|---------|-------------|
+| `autopilot` | Autonomous end-to-end task execution loop |
+| `guidance` | Governance control plane (policy + anti-drift gates) |
+| `route` | Intelligence routing — recommend tier/agent for a task |
+| `verify` | Truth-score verification of agent outputs |
+| `issues` | GitHub issue triage and swarm coordination |
+| `analyze` | Codebase / quality analysis |
+| `progress` | Live task/swarm progress reporting |
+| `cleanup` | Workspace and artifact cleanup |
+| `update` | Self-update the CLI to the latest published version |
+| `appliance` | Cognitum agentic appliance integration |
+| `benchmark` / `gaia-bench` | Benchmarking suites (perf + GAIA) |
+| `transfer-store` | Cross-platform pattern transfer store |
+
+> The full surface is discoverable at runtime: `npx ruflo@latest --help` and `npx ruflo@latest <command> --help`.
 
 ### Quick CLI Examples
 
@@ -1105,23 +1193,62 @@ export const LIVE_REGISTRY_CID = 'NEW_CID_FROM_PINATA';
 curl -s "https://gateway.pinata.cloud/ipfs/{NEW_CID}" | jq '.totalPlugins'
 ```
 
-## Optional Plugins (20 Available)
+## Plugins
 
-Plugins are distributed via IPFS and can be installed with the CLI. Browse and install from the official registry:
+There are two plugin surfaces in this repo:
+
+1. **Native `ruflo-*` plugins** (33) — live in `plugins/`, shipped via the Claude Code plugin marketplace (`.claude-plugin/marketplace.json`). Each has its own README + agents/commands/skills.
+2. **IPFS-distributed `@claude-flow/*` plugins** — installed at runtime via the CLI and the Pinata/IPFS registry.
 
 ```bash
 # List all available plugins
-npx claude-flow@v3alpha plugins list
+npx ruflo@latest plugins list
 
-# Install a plugin
-npx claude-flow@v3alpha plugins install @claude-flow/plugin-name
-
-# Enable/disable
-npx claude-flow@v3alpha plugins enable @claude-flow/plugin-name
-npx claude-flow@v3alpha plugins disable @claude-flow/plugin-name
+# Install / enable / disable
+npx ruflo@latest plugins install @claude-flow/plugin-name
+npx ruflo@latest plugins enable @claude-flow/plugin-name
+npx ruflo@latest plugins disable @claude-flow/plugin-name
 ```
 
-### Core Plugins
+### Native `ruflo-*` Plugins (33, in `plugins/`)
+
+| Plugin | Focus |
+|--------|-------|
+| `ruflo-core` | Core loop — agents, commands, skills, hooks |
+| `ruflo-agent` | Agent lifecycle and roles |
+| `ruflo-swarm` | Multi-agent swarm orchestration |
+| `ruflo-sparc` | SPARC methodology workflows |
+| `ruflo-intelligence` | RuVector intelligence (SONA/MoE/EWC++) |
+| `ruflo-neural-trader` | AI trading agents, backtesting (112+ tools) |
+| `ruflo-ruvector` | GPU-accelerated search + Graph RAG (103 tools) |
+| `ruflo-ruvllm` | Local LLM runtime integration |
+| `ruflo-agentdb` | AgentDB memory backend |
+| `ruflo-rag-memory` | RAG / vector memory patterns |
+| `ruflo-knowledge-graph` | Knowledge-graph construction + query |
+| `ruflo-graph-intelligence` | Graph analysis (PageRank, topology) |
+| `ruflo-rvf` | RuVector File format tooling |
+| `ruflo-federation` | Cross-instance agent federation |
+| `ruflo-aidefence` | AI defence / threat mitigation |
+| `ruflo-security-audit` | Security scanning + hardening |
+| `ruflo-autopilot` | Autonomous task-execution loop |
+| `ruflo-loop-workers` | Recurring background workers |
+| `ruflo-workflows` | Event-driven workflow automation |
+| `ruflo-goals` | Goal-oriented action planning (GOAP) |
+| `ruflo-observability` | Metrics, tracing, telemetry |
+| `ruflo-cost-tracker` | Token/cost tracking |
+| `ruflo-market-data` | Market data feeds |
+| `ruflo-browser` | Browser automation w/ AI snapshots |
+| `ruflo-jujutsu` | Jujutsu (jj) version control for agents |
+| `ruflo-migrations` | V2→V3 migration tooling |
+| `ruflo-ddd` | Domain-Driven Design scaffolding |
+| `ruflo-adr` | Architecture Decision Record management |
+| `ruflo-docs` | Auto-documentation |
+| `ruflo-testgen` | Test generation + gap analysis |
+| `ruflo-daa` | Decentralized autonomous agents |
+| `ruflo-iot-cognitum` | IoT / Cognitum appliance |
+| `ruflo-plugin-creator` | Scaffold new plugins |
+
+### Core Plugins (IPFS-distributed `@claude-flow/*`)
 
 | Plugin | Version | Description |
 |--------|---------|-------------|
@@ -1169,7 +1296,7 @@ npx claude-flow@v3alpha plugins install ./path/to/my-plugin
 npx claude-flow@v3alpha plugins publish
 ```
 
-Registry source: IPFS via Pinata (`QmXbfEAaR7D2Ujm4GAkbwcGZQMHqAMpwDoje4583uNP834`)
+Registry source: IPFS via Pinata. The live CID is the single source of truth in `v3/@claude-flow/cli/src/plugins/store/discovery.ts` (`LIVE_REGISTRY_CID`) — read it from there rather than hardcoding, since it rotates on every registry update.
 
 ## Support
 
