@@ -7628,6 +7628,7 @@ cp -r ./data-backup-v2 ./data
 | 🐛 Issues & Bugs | [github.com/ruvnet/claude-flow/issues](https://github.com/ruvnet/claude-flow/issues) |
 | 💼 Professional Implementation | [ruv.io](https://ruv.io) — Enterprise consulting, custom integrations, and production deployment |
 | 💬 Discord Community | [Agentics Foundation](https://discord.com/invite/dfxmpwkG2D) |
+| 🕹️ Fun Ruflo Tutorial | [LearnRuflo while building a game](https://learnruflo.vercel.app/) |
 
 ## License
 
