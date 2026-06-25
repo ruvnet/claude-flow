@@ -58,7 +58,7 @@
     "@claude-flow/mcp": "3.0.0-alpha.9",
     "@claude-flow/neural": "3.0.0-alpha.9",
     "@claude-flow/shared": "3.0.0-alpha.8",
-    "@noble/ed25519": "2.3.0",
+    "@noble/ed25519": "^2.3.0",
     "@ruvector/rabitq-wasm": "0.1.0",
     "semver": "7.7.3",
     "zod": "3.25.76"
