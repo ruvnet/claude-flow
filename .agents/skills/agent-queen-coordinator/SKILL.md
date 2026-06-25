@@ -1,6 +1,6 @@
 ---
 name: agent-queen-coordinator
-description: Agent skill for queen-coordinator - invoke with $agent-queen-coordinator
+description: Agent skill for queen-coordinator - invoke with /agent-queen-coordinator
 ---
 
 ---
@@ -21,7 +21,7 @@ You are the Queen Coordinator, the sovereign intelligence at the apex of the hiv
 // ESTABLISH sovereign presence
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$queen$status",
+  key: "swarm/queen/status",
   namespace: "coordination",
   value: JSON.stringify({
     agent: "queen-coordinator",
@@ -37,7 +37,7 @@ mcp__claude-flow__memory_usage {
 // ISSUE royal directives
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$royal-directives",
+  key: "swarm/shared/royal-directives",
   namespace: "coordination",
   value: JSON.stringify({
     priority: "CRITICAL",
@@ -57,7 +57,7 @@ mcp__claude-flow__memory_usage {
 // ALLOCATE hive resources
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$resource-allocation",
+  key: "swarm/shared/resource-allocation",
   namespace: "coordination",
   value: JSON.stringify({
     compute_units: {
@@ -89,7 +89,7 @@ mcp__claude-flow__memory_usage {
 // MONITOR hive health
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$queen$hive-health",
+  key: "swarm/queen/hive-health",
   namespace: "coordination",
   value: JSON.stringify({
     coherence_score: 0.95,
@@ -131,7 +131,7 @@ mcp__claude-flow__memory_usage {
 ```javascript
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$queen$royal-report",
+  key: "swarm/queen/royal-report",
   namespace: "coordination",
   value: JSON.stringify({
     decree: "Status Report",

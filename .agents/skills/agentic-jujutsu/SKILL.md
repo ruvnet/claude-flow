@@ -41,7 +41,7 @@ await jj.log(10);
 
 // Self-learning trajectory
 const id = jj.startTrajectory('Implement authentication');
-await jj.branchCreate('feature$auth');
+await jj.branchCreate('feature/auth');
 await jj.newCommit('Add auth');
 jj.addToTrajectory();
 jj.finalizeTrajectory(0.9, 'Clean implementation');
@@ -63,7 +63,7 @@ const trajectoryId = jj.startTrajectory('Deploy to production');
 
 // Perform operations (automatically tracked)
 await jj.execute(['git', 'push', 'origin', 'main']);
-await jj.branchCreate('release$v1.0');
+await jj.branchCreate('release/v1.0');
 await jj.newCommit('Release v1.0');
 
 // Record operations to trajectory
@@ -419,10 +419,10 @@ for (let i = 1; i <= 10; i++) {
 
 | Metric | Git | Agentic Jujutsu |
 |--------|-----|-----------------|
-| Concurrent commits | 15 ops$s | 350 ops$s (23x) |
+| Concurrent commits | 15 ops/s | 350 ops/s (23x) |
 | Context switching | 500-1000ms | 50-100ms (10x) |
 | Conflict resolution | 30-40% auto | 87% auto (2.5x) |
-| Lock waiting | 50 min$day | 0 min (∞) |
+| Lock waiting | 50 min/day | 0 min (∞) |
 | Quantum fingerprints | N/A | <1ms |
 
 ## Best Practices
@@ -575,7 +575,7 @@ async function learnFromWork() {
     jj.startTrajectory('Add user profile feature');
     
     // Do work
-    await jj.branchCreate('feature$user-profile');
+    await jj.branchCreate('feature/user-profile');
     await jj.newCommit('Add user profile model');
     await jj.newCommit('Add profile API endpoints');
     await jj.newCommit('Add profile UI');
@@ -624,8 +624,8 @@ async function agentSwarm(taskList) {
 
 ## Related Documentation
 
-- **NPM Package**: https:/$npmjs.com$package$agentic-jujutsu
-- **GitHub**: https:/$github.com$ruvnet$agentic-flow$tree$main$packages$agentic-jujutsu
+- **NPM Package**: https://npmjs.com/package/agentic-jujutsu
+- **GitHub**: https://github.com/ruvnet/agentic-flow/tree/main/packages/agentic-jujutsu
 - **Full README**: See package README.md
 - **Validation Guide**: docs/VALIDATION_FIXES_v2.3.1.md
 - **AgentDB Guide**: docs/AGENTDB_GUIDE.md
@@ -634,7 +634,7 @@ async function agentSwarm(taskList) {
 
 - **v2.3.2** - Documentation updates
 - **v2.3.1** - Validation fixes for ReasoningBank
-- **v2.3.0** - Quantum-resistant security with @qudag$napi-core
+- **v2.3.0** - Quantum-resistant security with @qudag/napi-core
 - **v2.1.0** - Self-learning AI with ReasoningBank
 - **v2.0.0** - Zero-dependency installation with embedded jj binary
 

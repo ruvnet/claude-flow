@@ -1,6 +1,6 @@
 ---
 name: agent-matrix-optimizer
-description: Agent skill for matrix-optimizer - invoke with $agent-matrix-optimizer
+description: Agent skill for matrix-optimizer - invoke with /agent-matrix-optimizer
 ---
 
 ---

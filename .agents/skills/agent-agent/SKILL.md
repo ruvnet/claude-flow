@@ -1,6 +1,6 @@
 ---
 name: agent-agent
-description: Agent skill for agent - invoke with $agent-agent
+description: Agent skill for agent - invoke with /agent-agent
 ---
 
 ---

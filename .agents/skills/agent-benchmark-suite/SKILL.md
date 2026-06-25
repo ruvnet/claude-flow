@@ -1,6 +1,6 @@
 ---
 name: agent-benchmark-suite
-description: Agent skill for benchmark-suite - invoke with $agent-benchmark-suite
+description: Agent skill for benchmark-suite - invoke with /agent-benchmark-suite
 ---
 
 ---
@@ -618,7 +618,7 @@ npx claude-flow error-analysis --logs <log-files>
 
 ### With CI/CD Pipeline
 - **Automated Testing**: Integrates with CI/CD for continuous performance validation
-- **Quality Gates**: Provides pass$fail criteria for deployment decisions
+- **Quality Gates**: Provides pass/fail criteria for deployment decisions
 - **Regression Prevention**: Catches performance regressions before production
 
 ## Performance Benchmarks

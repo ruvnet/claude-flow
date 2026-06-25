@@ -1,6 +1,6 @@
 ---
 name: agent-release-swarm
-description: Agent skill for release-swarm - invoke with $agent-release-swarm
+description: Agent skill for release-swarm - invoke with /agent-release-swarm
 ---
 
 ---
@@ -54,7 +54,7 @@ Orchestrate complex software releases using AI swarms that handle everything fro
 # Plan next release using gh CLI
 # Get commit history since last release
 LAST_TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
-COMMITS=$(gh api repos/:owner/:repo$compare/${LAST_TAG}...HEAD --jq '.commits')
+COMMITS=$(gh api repos/:owner/:repo/compare/${LAST_TAG}...HEAD --jq '.commits')
 
 # Get merged PRs
 MERGED_PRS=$(gh pr list --state merged --base main --json number,title,labels,mergedAt \
@@ -84,7 +84,7 @@ npx ruv-swarm github release-version \
 ```bash
 # Full release automation with gh CLI
 # Generate changelog from PRs and commits
-CHANGELOG=$(gh api repos/:owner/:repo$compare/${LAST_TAG}...HEAD \
+CHANGELOG=$(gh api repos/:owner/:repo/compare/${LAST_TAG}...HEAD \
   --jq '.commits[].commit.message' | \
   npx ruv-swarm github generate-changelog)
 
@@ -116,7 +116,7 @@ gh issue create \
 
 ### Release Config File
 ```yaml
-# .github$release-swarm.yml
+# .github/release-swarm.yml
 version: 1
 release:
   versioning:
@@ -142,7 +142,7 @@ release:
       publish: docker push app:$VERSION
       
     - name: binaries
-      build: .$scripts$build-binaries.sh
+      build: ./scripts/build-binaries.sh
       upload: github-release
       
   deployment:
@@ -174,7 +174,7 @@ PRS=$(gh pr list --state merged --base main --json number,title,labels,author,me
 CONTRIBUTORS=$(echo "$PRS" | jq -r '[.author.login] | unique | join(", ")')
 
 # Get commit messages
-COMMITS=$(gh api repos/:owner/:repo$compare$v1.0.0...HEAD \
+COMMITS=$(gh api repos/:owner/:repo/compare/v1.0.0...HEAD \
   --jq '.commits[].commit.message')
 
 # Generate categorized changelog
@@ -307,7 +307,7 @@ npx ruv-swarm github hotfix \
 
 ### Standard Release Flow
 ```yaml
-# .github$workflows$release.yml
+# .github/workflows/release.yml
 name: Release Workflow
 on:
   push:
@@ -317,7 +317,7 @@ jobs:
   release-swarm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions$checkout@v3
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           
@@ -372,7 +372,7 @@ jobs:
           # Create announcement issue
           gh issue create \
             --title "🚀 Released ${{ github.ref_name }}" \
-            --body "See [release notes](https:/$github.com/${{ github.repository }}$releases$tag/${{ github.ref_name }})" \
+            --body "See [release notes](https://github.com/${{ github.repository }}$releases/tag/${{ github.ref_name }})" \
             --label "announcement"
 ```
 
@@ -490,8 +490,8 @@ Description of the fix...
 
 ## 💥 Breaking Changes
 ### API endpoint renamed
-- Before: `$api$old-endpoint`
-- After: `$api$new-endpoint`
+- Before: `/api/old-endpoint`
+- After: `/api/new-endpoint`
 - Migration: Update all client calls...
 
 ## 📈 Performance Improvements
@@ -547,7 +547,7 @@ npx ruv-swarm github npm-release \
 ```bash
 # Docker multi-arch release
 npx ruv-swarm github docker-release \
-  --platforms "linux$amd64,linux$arm64" \
+  --platforms "linux/amd64,linux/arm64" \
   --tags "latest,v2.0.0,stable" \
   --scan-vulnerabilities \
   --push-to "dockerhub,gcr,ecr"
@@ -585,4 +585,4 @@ npx ruv-swarm github rollback \
   --notify-users
 ```
 
-See also: [workflow-automation.md](.$workflow-automation.md), [multi-repo-swarm.md](.$multi-repo-swarm.md)
+See also: [workflow-automation.md](./workflow-automation.md), [multi-repo-swarm.md](./multi-repo-swarm.md)

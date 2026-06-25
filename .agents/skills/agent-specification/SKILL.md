@@ -1,6 +1,6 @@
 ---
 name: agent-specification
-description: Agent skill for specification - invoke with $agent-specification
+description: Agent skill for specification - invoke with /agent-specification
 ---
 
 ---
@@ -161,7 +161,7 @@ This system provides user authentication and authorization...
 ## 2. Functional Requirements
 
 ### 2.1 Authentication
-- FR-2.1.1: Support email$password login
+- FR-2.1.1: Support email/password login
 - FR-2.1.2: Implement OAuth2 providers
 - FR-2.1.3: Two-factor authentication
 
@@ -225,13 +225,13 @@ info:
   version: 1.0.0
 
 paths:
-  $auth$login:
+  $auth/login:
     post:
       summary: User login
       requestBody:
         required: true
         content:
-          application$json:
+          application/json:
             schema:
               type: object
               required: [email, password]
@@ -246,7 +246,7 @@ paths:
         200:
           description: Successful login
           content:
-            application$json:
+            application/json:
               schema:
                 type: object
                 properties:
@@ -272,7 +272,7 @@ Before completing specification:
 ## Best Practices
 
 1. **Be Specific**: Avoid ambiguous terms like "fast" or "user-friendly"
-2. **Make it Testable**: Each requirement should have clear pass$fail criteria
+2. **Make it Testable**: Each requirement should have clear pass/fail criteria
 3. **Consider Edge Cases**: What happens when things go wrong?
 4. **Think End-to-End**: Consider the full user journey
 5. **Version Control**: Track specification changes

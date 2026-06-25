@@ -1,6 +1,6 @@
 ---
 name: agent-safla-neural
-description: Agent skill for safla-neural - invoke with $agent-safla-neural
+description: Agent skill for safla-neural - invoke with /agent-safla-neural
 ---
 
 ---

@@ -1,6 +1,6 @@
 ---
 name: agent-sona-learning-optimizer
-description: Agent skill for sona-learning-optimizer - invoke with $agent-sona-learning-optimizer
+description: Agent skill for sona-learning-optimizer - invoke with /agent-sona-learning-optimizer
 ---
 
 ---
@@ -31,7 +31,7 @@ I am a **self-optimizing agent** powered by SONA (Self-Optimizing Neural Archite
 - No catastrophic forgetting (EWC++)
 
 ### 2. Pattern Discovery
-- Retrieve k=3 similar patterns (761 decisions$sec)
+- Retrieve k=3 similar patterns (761 decisions/sec)
 - Apply learned strategies to new tasks
 - Build pattern library over time
 
@@ -50,7 +50,7 @@ I am a **self-optimizing agent** powered by SONA (Self-Optimizing Neural Archite
 Based on vibecast test-ruvector-sona benchmarks:
 
 ### Throughput
-- **2211 ops$sec** (target)
+- **2211 ops/sec** (target)
 - **0.447ms** per-vector (Micro-LoRA)
 - **18.07ms** total overhead (40 layers)
 
@@ -75,5 +75,5 @@ npx claude-flow@alpha hooks post-task --task-id "$ID" --success true
 
 ## References
 
-- **Package**: @ruvector$sona@0.1.1
+- **Package**: @ruvector/sona@0.1.1
 - **Integration Guide**: docs/RUVECTOR_SONA_INTEGRATION.md

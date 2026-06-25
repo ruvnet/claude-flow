@@ -25,16 +25,16 @@ tools:
 hooks:
   pre_task: |
     echo "🐝 Initializing release swarm coordination..."
-    npx claude-flow@v3alpha hook pre-task --mode release-swarm --init-swarm
+    npx claude-flow@v3alpha hooks pre-task --mode release-swarm --init-swarm
   post_edit: |
     echo "🔄 Synchronizing release swarm state and validating changes..."
-    npx claude-flow@v3alpha hook post-edit --mode release-swarm --sync-swarm
+    npx claude-flow@v3alpha hooks post-edit --mode release-swarm --sync-swarm
   post_task: |
     echo "🎯 Release swarm task completed. Coordinating final deployment..."
-    npx claude-flow@v3alpha hook post-task --mode release-swarm --finalize-release
+    npx claude-flow@v3alpha hooks post-task --mode release-swarm --finalize-release
   notification: |
     echo "📡 Broadcasting release completion across all swarm agents..."
-    npx claude-flow@v3alpha hook notification --mode release-swarm --broadcast
+    npx claude-flow@v3alpha hooks notification --mode release-swarm --broadcast
 ---
 
 # Release Swarm - Intelligent Release Automation

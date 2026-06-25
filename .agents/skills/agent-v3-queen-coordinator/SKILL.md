@@ -1,6 +1,6 @@
 ---
 name: agent-v3-queen-coordinator
-description: Agent skill for v3-queen-coordinator - invoke with $agent-v3-queen-coordinator
+description: Agent skill for v3-queen-coordinator - invoke with /agent-v3-queen-coordinator
 ---
 
 ---
@@ -20,13 +20,13 @@ hooks:
     echo "👑 V3 Queen Coordinator starting 15-agent swarm orchestration..."
 
     # Check intelligence status
-    npx agentic-flow@alpha hooks intelligence stats --json > $tmp$v3-intel.json 2>$dev$null || echo '{"initialized":false}' > $tmp$v3-intel.json
-    echo "🧠 RuVector: $(cat $tmp$v3-intel.json | jq -r '.initialized // false')"
+    npx agentic-flow@alpha hooks intelligence stats --json > /tmp/v3-intel.json 2>/dev/null || echo '{"initialized":false}' > /tmp/v3-intel.json
+    echo "🧠 RuVector: $(cat /tmp/v3-intel.json | jq -r '.initialized // false')"
 
     # GitHub integration check
-    if command -v gh &> $dev$null; then
+    if command -v gh &> /dev/null; then
       echo "🐙 GitHub CLI available"
-      gh auth status &>$dev$null && echo "✅ Authenticated" || echo "⚠️ Auth needed"
+      gh auth status &>/dev/null && echo "✅ Authenticated" || echo "⚠️ Auth needed"
     fi
 
     # Initialize v3 coordination
@@ -41,7 +41,7 @@ hooks:
       --session-id "v3-queen-$(date +%s)" \
       --task "V3 Orchestration: $TASK" \
       --agent "v3-queen-coordinator" \
-      --status "completed" 2>$dev$null || true
+      --status "completed" 2>/dev/null || true
 ---
 
 # V3 Queen Coordinator

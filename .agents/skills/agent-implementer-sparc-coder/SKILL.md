@@ -1,6 +1,6 @@
 ---
 name: agent-implementer-sparc-coder
-description: Agent skill for implementer-sparc-coder - invoke with $agent-implementer-sparc-coder
+description: Agent skill for implementer-sparc-coder - invoke with /agent-implementer-sparc-coder
 ---
 
 ---
@@ -31,7 +31,7 @@ hooks:
     if [ -f "package.json" ]; then
       npm test --if-present
     elif [ -f "pytest.ini" ] || [ -f "setup.py" ]; then
-      python -m pytest --version > $dev$null 2>&1 && python -m pytest -v || echo "pytest not available"
+      python -m pytest --version > /dev/null 2>&1 && python -m pytest -v || echo "pytest not available"
     fi
     echo "📊 Implementation metrics stored in memory"
 ---
@@ -67,27 +67,27 @@ This agent specializes in the implementation phases of SPARC methodology, focusi
 ### Phase 1: Test Creation (Red)
 ```javascript
 [Parallel Test Creation]:
-  - Write("tests$unit$auth.test.js", authTestSuite)
-  - Write("tests$unit$user.test.js", userTestSuite)
-  - Write("tests$integration$api.test.js", apiTestSuite)
+  - Write("tests/unit/auth.test.js", authTestSuite)
+  - Write("tests/unit/user.test.js", userTestSuite)
+  - Write("tests/integration/api.test.js", apiTestSuite)
   - Bash("npm test")  // Verify all fail
 ```
 
 ### Phase 2: Implementation (Green)
 ```javascript
 [Parallel Implementation]:
-  - Write("src$auth$service.js", authImplementation)
-  - Write("src$user$model.js", userModel)
-  - Write("src$api$routes.js", apiRoutes)
+  - Write("src/auth/service.js", authImplementation)
+  - Write("src/user/model.js", userModel)
+  - Write("src/api/routes.js", apiRoutes)
   - Bash("npm test")  // Verify all pass
 ```
 
 ### Phase 3: Refinement (Refactor)
 ```javascript
 [Parallel Refactoring]:
-  - MultiEdit("src$auth$service.js", optimizations)
-  - MultiEdit("src$user$model.js", improvements)
-  - Edit("src$api$routes.js", cleanup)
+  - MultiEdit("src/auth/service.js", optimizations)
+  - MultiEdit("src/user/model.js", improvements)
+  - Edit("src/api/routes.js", cleanup)
   - Bash("npm test && npm run lint")
 ```
 
@@ -117,7 +117,7 @@ class AuthService {
 ### 2. API Route Pattern
 ```javascript
 // Pattern: Validation + Error Handling
-router.post('$auth$login', 
+router.post('$auth/login', 
   validateRequest(loginSchema),
   rateLimiter,
   async (req, res, next) => {
@@ -169,7 +169,7 @@ src/
 ```
 
 ### Implementation Guidelines
-1. **Single Responsibility**: Each function$class does one thing
+1. **Single Responsibility**: Each function/class does one thing
 2. **DRY Principle**: Don't repeat yourself
 3. **YAGNI**: You aren't gonna need it
 4. **KISS**: Keep it simple, stupid

@@ -1,6 +1,6 @@
 ---
 name: agent-v3-integration-architect
-description: Agent skill for v3-integration-architect - invoke with $agent-v3-integration-architect
+description: Agent skill for v3-integration-architect - invoke with /agent-v3-integration-architect
 ---
 
 ---
@@ -20,7 +20,7 @@ hooks:
     echo "🔗 V3 Integration Architect starting agentic-flow@alpha deep integration..."
 
     # Check agentic-flow status
-    npx agentic-flow@alpha --version 2>$dev$null | head -1 || echo "⚠️ agentic-flow@alpha not available"
+    npx agentic-flow@alpha --version 2>/dev/null | head -1 || echo "⚠️ agentic-flow@alpha not available"
 
     echo "🎯 ADR-001: Eliminate 10,000+ duplicate lines"
     echo "📊 Current duplicate functionality:"
@@ -30,7 +30,7 @@ hooks:
     echo "  • SessionManager vs Session Mgmt (50% overlap)"
 
     # Check integration points
-    ls -la services$agentic-flow-hooks/ 2>$dev$null | wc -l | xargs echo "🔧 Current hook integrations:"
+    ls -la services/agentic-flow-hooks/ 2>/dev/null | wc -l | xargs echo "🔧 Current hook integrations:"
 
   post_execution: |
     echo "🔗 agentic-flow@alpha integration milestone complete"
@@ -40,7 +40,7 @@ hooks:
       --session-id "v3-integration-$(date +%s)" \
       --task "Integration: $TASK" \
       --agent "v3-integration-architect" \
-      --code-reduction "10000+" 2>$dev$null || true
+      --code-reduction "10000+" 2>/dev/null || true
 ---
 
 # V3 Integration Architect
@@ -150,7 +150,7 @@ class MCPToolsIntegration {
 
   async setupHookTypes(): Promise<void> {
     const hookTypes = await this.agenticFlow.hooks.getTypes();
-    // 19 hook types: pre$post execution, error handling, etc.
+    // 19 hook types: pre/post execution, error handling, etc.
     await this.configureClaudeFlowHooks(hookTypes);
   }
 }
@@ -232,9 +232,9 @@ class SessionMigration {
 class CompatibilityCleanup {
   async removeDeprecatedCode(): Promise<void> {
     // Remove old implementations
-    await this.removeFile('src$core/SwarmCoordinator.ts'); // 800+ lines
-    await this.removeFile('src$agents/AgentManager.ts');   // 1,736 lines
-    await this.removeFile('src$task/TaskScheduler.ts');    // 500+ lines
+    await this.removeFile('src/core/SwarmCoordinator.ts'); // 800+ lines
+    await this.removeFile('src/agents/AgentManager.ts');   // 1,736 lines
+    await this.removeFile('src/task/TaskScheduler.ts');    // 500+ lines
 
     // Total code reduction: 10,000+ lines → <5,000 lines
   }

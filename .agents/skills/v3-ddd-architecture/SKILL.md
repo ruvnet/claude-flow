@@ -25,7 +25,7 @@ Task("Interface design", "Design clean domain interfaces", "core-architect")
 
 ### Current Architecture Analysis
 ```
-├── PROBLEMATIC: core$orchestrator.ts (1,440 lines - GOD OBJECT)
+├── PROBLEMATIC: core/orchestrator.ts (1,440 lines - GOD OBJECT)
 │   ├── Task management responsibilities
 │   ├── Session management responsibilities
 │   ├── Health monitoring responsibilities
@@ -33,13 +33,13 @@ Task("Interface design", "Design clean domain interfaces", "core-architect")
 │   └── Event coordination responsibilities
 │
 └── TARGET: Modular DDD Architecture
-    ├── core$domains/
+    ├── core/domains/
     │   ├── task-management/
     │   ├── session-management/
     │   ├── health-monitoring/
     │   ├── lifecycle-management/
     │   └── event-coordination/
-    └── core$shared/
+    └── core/shared/
         ├── interfaces/
         ├── value-objects/
         └── domain-events/
@@ -49,7 +49,7 @@ Task("Interface design", "Design clean domain interfaces", "core-architect")
 
 #### 1. Task Management Domain
 ```typescript
-// core$domains$task-management/
+// core/domains/task-management/
 interface TaskManagementDomain {
   // Entities
   Task: TaskEntity;
@@ -71,7 +71,7 @@ interface TaskManagementDomain {
 
 #### 2. Session Management Domain
 ```typescript
-// core$domains$session-management/
+// core/domains/session-management/
 interface SessionManagementDomain {
   // Entities
   Session: SessionEntity;
@@ -92,7 +92,7 @@ interface SessionManagementDomain {
 
 #### 3. Health Monitoring Domain
 ```typescript
-// core$domains$health-monitoring/
+// core/domains/health-monitoring/
 interface HealthMonitoringDomain {
   // Entities
   HealthCheck: HealthCheckEntity;
@@ -115,7 +115,7 @@ interface HealthMonitoringDomain {
 
 ### Core Kernel
 ```typescript
-// core$kernel$claude-flow-kernel.ts
+// core/kernel/claude-flow-kernel.ts
 export class ClaudeFlowKernel {
   private domains: Map<string, Domain> = new Map();
   private eventBus: DomainEventBus;
@@ -148,7 +148,7 @@ export class ClaudeFlowKernel {
 
 ### Plugin Architecture
 ```typescript
-// core$plugins/
+// core/plugins/
 interface DomainPlugin {
   name: string;
   version: string;
@@ -179,7 +179,7 @@ export class SwarmCoordinationPlugin implements DomainPlugin {
 
 ### Event-Driven Communication
 ```typescript
-// core$shared$domain-events/
+// core/shared/domain-events/
 abstract class DomainEvent {
   public readonly eventId: string;
   public readonly aggregateId: string;
@@ -259,7 +259,7 @@ export class TaskCompletedHandler {
 
 ### Application Layer (Use Cases)
 ```typescript
-// core$application$use-cases/
+// core/application/use-cases/
 export class AssignTaskUseCase {
   constructor(
     private taskRepository: ITaskRepository,
@@ -296,7 +296,7 @@ export class AssignTaskUseCase {
 
 ### Bounded Context Modules
 ```typescript
-// core$domains$task-management$module.ts
+// core/domains/task-management/module.ts
 export const taskManagementModule = {
   name: 'task-management',
 

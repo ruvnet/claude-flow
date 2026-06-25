@@ -1,6 +1,6 @@
 ---
 name: agent-workflow
-description: Agent skill for workflow - invoke with $agent-workflow
+description: Agent skill for workflow - invoke with /agent-workflow
 ---
 
 ---

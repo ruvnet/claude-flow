@@ -1,6 +1,6 @@
 ---
 name: agent-swarm
-description: Agent skill for swarm - invoke with $agent-swarm
+description: Agent skill for swarm - invoke with /agent-swarm
 ---
 
 ---

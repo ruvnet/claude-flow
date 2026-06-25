@@ -1,6 +1,6 @@
 ---
 name: agent-arch-system-design
-description: Agent skill for arch-system-design - invoke with $agent-arch-system-design
+description: Agent skill for arch-system-design - invoke with /agent-arch-system-design
 ---
 
 ---
@@ -25,8 +25,8 @@ triggers:
     - "design pattern"
     - "architectural decision"
   file_patterns:
-    - "**$architecture/**"
-    - "**$design/**"
+    - "**/architecture/**"
+    - "**/design/**"
     - "*.adr.md"  # Architecture Decision Records
     - "*.puml"    # PlantUML diagrams
   task_patterns:
@@ -55,8 +55,8 @@ capabilities:
   
 constraints:
   allowed_paths:
-    - "docs$architecture/**"
-    - "docs$design/**"
+    - "docs/architecture/**"
+    - "docs/design/**"
     - "diagrams/**"
     - "*.md"
     - "README.md"
@@ -115,7 +115,7 @@ hooks:
   post_execution: |
     echo "✅ Architecture design completed"
     echo "📄 Architecture documents created:"
-    find docs$architecture -name "*.md" -newer $tmp$arch_timestamp 2>$dev$null || echo "See above for details"
+    find docs/architecture -name "*.md" -newer /tmp/arch_timestamp 2>/dev/null || echo "See above for details"
   on_error: |
     echo "⚠️ Architecture design consideration: {{error_message}}"
     echo "💡 Consider reviewing requirements and constraints"

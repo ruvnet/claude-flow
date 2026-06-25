@@ -1,6 +1,6 @@
 ---
 name: agent-spec-mobile-react-native
-description: Agent skill for spec-mobile-react-native - invoke with $agent-spec-mobile-react-native
+description: Agent skill for spec-mobile-react-native - invoke with /agent-spec-mobile-react-native
 ---
 
 ---
@@ -28,8 +28,8 @@ triggers:
     - "**/*.jsx"
     - "**/*.tsx"
     - "**/App.js"
-    - "**$ios/**/*.m"
-    - "**$android/**/*.java"
+    - "**/ios/**/*.m"
+    - "**/android/**/*.java"
     - "app.json"
   task_patterns:
     - "create * mobile app"
@@ -69,8 +69,8 @@ constraints:
   forbidden_paths:
     - "node_modules/**"
     - ".git/**"
-    - "ios$build/**"
-    - "android$build/**"
+    - "ios/build/**"
+    - "android/build/**"
   max_file_size: 5242880  # 5MB for assets
   allowed_file_types:
     - ".js"
@@ -136,7 +136,7 @@ hooks:
     echo "🔧 Common fixes:"
     echo "  - Clear metro cache: npx react-native start --reset-cache"
     echo "  - Reinstall pods: cd ios && pod install"
-    echo "  - Clean build: cd android && .$gradlew clean"
+    echo "  - Clean build: cd android && ./gradlew clean"
     
 examples:
   - trigger: "create a login screen for React Native app"

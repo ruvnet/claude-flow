@@ -30,7 +30,7 @@ mcp__claude-flow__context_restore({
 
 **Fallback with npx:**
 ```bash
-npx claude-flow hook session-restore --session-id "sess-123"
+npx claude-flow@v3alpha hooks session-restore --session-id "sess-123"
 ```
 
 ### 3. Memory Types

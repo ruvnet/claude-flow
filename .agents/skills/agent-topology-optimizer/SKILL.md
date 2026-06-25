@@ -1,6 +1,6 @@
 ---
 name: agent-topology-optimizer
-description: Agent skill for topology-optimizer - invoke with $agent-topology-optimizer
+description: Agent skill for topology-optimizer - invoke with /agent-topology-optimizer
 ---
 
 ---
@@ -492,15 +492,15 @@ class NeuralTopologyOptimizer {
   async initializeModels() {
     // Load pre-trained models or train new ones
     this.models.topology_predictor = await mcp.model_load({ 
-      modelPath: '$models$topology_optimizer.model' 
+      modelPath: '$models/topology_optimizer.model' 
     });
     
     this.models.performance_estimator = await mcp.model_load({ 
-      modelPath: '$models$performance_estimator.model' 
+      modelPath: '$models/performance_estimator.model' 
     });
     
     this.models.pattern_recognizer = await mcp.model_load({ 
-      modelPath: '$models$pattern_recognizer.model' 
+      modelPath: '$models/pattern_recognizer.model' 
     });
   }
   
@@ -541,7 +541,7 @@ class NeuralTopologyOptimizer {
     if (trainingResult.success) {
       await mcp.model_save({
         modelId: trainingResult.modelId,
-        path: '$models$topology_optimizer.model'
+        path: '$models/topology_optimizer.model'
       });
     }
     

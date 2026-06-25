@@ -1,6 +1,6 @@
 ---
 name: agent-github-modes
-description: Agent skill for github-modes - invoke with $agent-github-modes
+description: Agent skill for github-modes - invoke with /agent-github-modes
 ---
 
 ---
@@ -22,7 +22,7 @@ hooks:
     echo "Starting github-modes..."
     echo "Initializing GitHub workflow coordination"
     gh auth status || (echo "GitHub CLI authentication required" && exit 1)
-    git status > $dev$null || (echo "Not in a git repository" && exit 1)
+    git status > /dev/null || (echo "Not in a git repository" && exit 1)
   post: |
     echo "Completed github-modes"
     echo "GitHub operations synchronized"
@@ -42,7 +42,7 @@ This document describes all GitHub integration modes available in Claude-Flow wi
 - **Max Parallel Operations**: 10
 - **Batch Optimized**: Yes
 - **Tools**: gh CLI commands, TodoWrite, TodoRead, Task, Memory, Bash
-- **Usage**: `$github gh-coordinator <GitHub workflow description>`
+- **Usage**: `/github gh-coordinator <GitHub workflow description>`
 - **Best For**: Complex GitHub workflows, multi-repo coordination
 
 ### pr-manager
@@ -51,7 +51,7 @@ This document describes all GitHub integration modes available in Claude-Flow wi
 - **Multi-reviewer**: Yes
 - **Conflict Resolution**: Intelligent
 - **Tools**: gh pr create, gh pr view, gh pr review, gh pr merge, TodoWrite, Task
-- **Usage**: `$github pr-manager <PR management task>`
+- **Usage**: `/github pr-manager <PR management task>`
 - **Best For**: PR reviews, merge coordination, conflict resolution
 
 ### issue-tracker
@@ -60,7 +60,7 @@ This document describes all GitHub integration modes available in Claude-Flow wi
 - **Label Management**: Smart
 - **Progress Tracking**: Real-time
 - **Tools**: gh issue create, gh issue edit, gh issue comment, gh issue list, TodoWrite
-- **Usage**: `$github issue-tracker <issue management task>`
+- **Usage**: `/github issue-tracker <issue management task>`
 - **Best For**: Project management, issue coordination, progress tracking
 
 ### release-manager
@@ -69,7 +69,7 @@ This document describes all GitHub integration modes available in Claude-Flow wi
 - **Versioning**: Semantic
 - **Deployment**: Multi-stage
 - **Tools**: gh pr create, gh pr merge, gh release create, Bash, TodoWrite
-- **Usage**: `$github release-manager <release task>`
+- **Usage**: `/github release-manager <release task>`
 - **Best For**: Release management, version coordination, deployment pipelines
 
 ## Repository Management Modes
@@ -80,7 +80,7 @@ This document describes all GitHub integration modes available in Claude-Flow wi
 - **Multi-repo**: Support
 - **Template Management**: Advanced
 - **Tools**: gh repo create, gh repo clone, git commands, Write, Read, Bash
-- **Usage**: `$github repo-architect <repository management task>`
+- **Usage**: `/github repo-architect <repository management task>`
 - **Best For**: Repository setup, structure optimization, multi-repo management
 
 ### code-reviewer
@@ -89,7 +89,7 @@ This document describes all GitHub integration modes available in Claude-Flow wi
 - **Security Analysis**: Yes
 - **Performance Check**: Automated
 - **Tools**: gh pr view --json files, gh pr review, gh pr comment, Read, Write
-- **Usage**: `$github code-reviewer <review task>`
+- **Usage**: `/github code-reviewer <review task>`
 - **Best For**: Code quality, security reviews, performance analysis
 
 ### branch-manager
@@ -98,7 +98,7 @@ This document describes all GitHub integration modes available in Claude-Flow wi
 - **Merge Strategy**: Intelligent
 - **Conflict Prevention**: Proactive
 - **Tools**: gh api (for branch operations), git commands, Bash
-- **Usage**: `$github branch-manager <branch management task>`
+- **Usage**: `/github branch-manager <branch management task>`
 - **Best For**: Branch coordination, merge strategies, workflow management
 
 ## Integration Commands
@@ -109,7 +109,7 @@ This document describes all GitHub integration modes available in Claude-Flow wi
 - **Version Alignment**: Automatic
 - **Dependency Resolution**: Advanced
 - **Tools**: git commands, gh pr create, Read, Write, Bash
-- **Usage**: `$github sync-coordinator <sync task>`
+- **Usage**: `/github sync-coordinator <sync task>`
 - **Best For**: Package synchronization, version management, dependency updates
 
 ### ci-orchestrator
@@ -118,7 +118,7 @@ This document describes all GitHub integration modes available in Claude-Flow wi
 - **Test Coordination**: Parallel
 - **Deployment**: Automated
 - **Tools**: gh pr checks, gh workflow list, gh run list, Bash, TodoWrite, Task
-- **Usage**: `$github ci-orchestrator <CI/CD task>`
+- **Usage**: `/github ci-orchestrator <CI/CD task>`
 - **Best For**: CI/CD coordination, test management, deployment automation
 
 ### security-guardian
@@ -127,14 +127,14 @@ This document describes all GitHub integration modes available in Claude-Flow wi
 - **Compliance Check**: Continuous
 - **Vulnerability Management**: Proactive
 - **Tools**: gh search code, gh issue create, gh secret list, Read, Write
-- **Usage**: `$github security-guardian <security task>`
+- **Usage**: `/github security-guardian <security task>`
 - **Best For**: Security audits, compliance checks, vulnerability management
 
 ## Usage Examples
 
 ### Creating a coordinated pull request workflow:
 ```bash
-$github pr-manager "Review and merge feature$new-integration branch with automated testing and multi-reviewer coordination"
+$github pr-manager "Review and merge feature/new-integration branch with automated testing and multi-reviewer coordination"
 ```
 
 ### Managing repository synchronization:

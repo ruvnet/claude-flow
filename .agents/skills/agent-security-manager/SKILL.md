@@ -1,6 +1,6 @@
 ---
 name: agent-security-manager
-description: Agent skill for security-manager - invoke with $agent-security-manager
+description: Agent skill for security-manager - invoke with /agent-security-manager
 ---
 
 ---

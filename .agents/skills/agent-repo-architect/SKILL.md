@@ -1,6 +1,6 @@
 ---
 name: agent-repo-architect
-description: Agent skill for repo-architect - invoke with $agent-repo-architect
+description: Agent skill for repo-architect - invoke with /agent-repo-architect
 ---
 
 ---
@@ -67,8 +67,8 @@ mcp__claude-flow__agent_spawn { type: "optimizer", name: "Structure Optimizer" }
 mcp__claude-flow__agent_spawn { type: "coordinator", name: "Multi-Repo Coordinator" }
 
 // Analyze current repository structure
-LS("$workspaces$ruv-FANN$claude-code-flow$claude-code-flow")
-LS("$workspaces$ruv-FANN$ruv-swarm$npm")
+LS("$workspaces/ruv-FANN/claude-code-flow/claude-code-flow")
+LS("$workspaces/ruv-FANN/ruv-swarm/npm")
 
 // Search for related repositories
 mcp__github__search_repositories {
@@ -102,15 +102,15 @@ mcp__github__push_files {
   branch: "main",
   files: [
     {
-      path: ".claude$commands$github$github-modes.md",
+      path: ".claude/commands/github/github-modes.md",
       content: "[GitHub modes template]"
     },
     {
-      path: ".claude$commands$sparc$sparc-modes.md", 
+      path: ".claude/commands/sparc/sparc-modes.md", 
       content: "[SPARC modes template]"
     },
     {
-      path: ".claude$config.json",
+      path: ".claude/config.json",
       content: JSON.stringify({
         version: "1.0",
         mcp_servers: {
@@ -182,19 +182,19 @@ repositories.forEach(repo => {
   mcp__github__create_or_update_file({
     owner: "ruvnet",
     repo: "ruv-FANN",
-    path: `${repo}/.github$workflows$integration.yml`,
+    path: `${repo}/.github/workflows/integration.yml`,
     content: `name: Integration Tests
 on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions$checkout@v3
-      - uses: actions$setup-node@v3
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with: { node-version: '20' }
       - run: npm install && npm test`,
     message: "ci: Standardize integration workflow across repositories",
-    branch: "structure$standardization"
+    branch: "structure/standardization"
   })
 })
 ```
@@ -213,10 +213,10 @@ jobs:
   mcp__claude-flow__agent_spawn { type: "coordinator", name: "Multi-Repo Coordinator" }
   
   // Analyze current repository structures
-  LS("$workspaces$ruv-FANN$claude-code-flow$claude-code-flow")
-  LS("$workspaces$ruv-FANN$ruv-swarm$npm") 
-  Read("$workspaces$ruv-FANN$claude-code-flow$claude-code-flow$package.json")
-  Read("$workspaces$ruv-FANN$ruv-swarm$npm$package.json")
+  LS("$workspaces/ruv-FANN/claude-code-flow/claude-code-flow")
+  LS("$workspaces/ruv-FANN/ruv-swarm/npm") 
+  Read("$workspaces/ruv-FANN/claude-code-flow/claude-code-flow/package.json")
+  Read("$workspaces/ruv-FANN/ruv-swarm/npm/package.json")
   
   // Search for architectural patterns using gh CLI
   ARCH_PATTERNS=$(Bash(`gh search repos "language:javascript template architecture" \
@@ -227,22 +227,22 @@ jobs:
   
   // Create optimized structure files
   mcp__github__push_files {
-    branch: "architecture$optimization",
+    branch: "architecture/optimization",
     files: [
       {
-        path: "claude-code-flow$claude-code-flow/.github/ISSUE_TEMPLATE$integration.yml",
+        path: "claude-code-flow/claude-code-flow/.github/ISSUE_TEMPLATE/integration.yml",
         content: "[Integration issue template]"
       },
       {
-        path: "claude-code-flow$claude-code-flow/.github/PULL_REQUEST_TEMPLATE.md",
+        path: "claude-code-flow/claude-code-flow/.github/PULL_REQUEST_TEMPLATE.md",
         content: "[Standardized PR template]"
       },
       {
-        path: "claude-code-flow$claude-code-flow$docs/ARCHITECTURE.md",
+        path: "claude-code-flow/claude-code-flow/docs/ARCHITECTURE.md",
         content: "[Architecture documentation]"
       },
       {
-        path: "ruv-swarm$npm/.github$workflows$cross-package-test.yml",
+        path: "ruv-swarm/npm/.github/workflows/cross-package-test.yml",
         content: "[Cross-package testing workflow]"
       }
     ],
@@ -261,7 +261,7 @@ jobs:
   // Store architecture analysis
   mcp__claude-flow__memory_usage {
     action: "store",
-    key: "architecture$analysis$results",
+    key: "architecture/analysis/results",
     value: {
       timestamp: Date.now(),
       repositories_analyzed: ["claude-code-flow", "ruv-swarm"],
@@ -391,10 +391,10 @@ const integrationPattern = {
 ## Integration with Development Workflow
 
 ### Seamless integration with:
-- `$github sync-coordinator` - For cross-repo synchronization
-- `$github release-manager` - For coordinated releases
-- `$sparc architect` - For detailed architecture design
-- `$sparc optimizer` - For performance optimization
+- `/github sync-coordinator` - For cross-repo synchronization
+- `/github release-manager` - For coordinated releases
+- `/sparc architect` - For detailed architecture design
+- `/sparc optimizer` - For performance optimization
 
 ### Workflow Enhancement:
 - Automated structure validation

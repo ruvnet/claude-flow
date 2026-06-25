@@ -1,6 +1,6 @@
 ---
 name: agent-pseudocode
-description: Agent skill for pseudocode - invoke with $agent-pseudocode
+description: Agent skill for pseudocode - invoke with /agent-pseudocode
 ---
 
 ---
@@ -271,7 +271,7 @@ INTERFACE: AuthenticationStrategy
 
 CLASS: EmailPasswordStrategy IMPLEMENTS AuthenticationStrategy
     authenticate(credentials):
-        // Email$password logic
+        // Email/password logic
         
 CLASS: OAuthStrategy IMPLEMENTS AuthenticationStrategy
     authenticate(credentials):
@@ -308,7 +308,7 @@ CLASS: EventEmitter
 1. **Language Agnostic**: Don't use language-specific syntax
 2. **Clear Logic**: Focus on algorithm flow, not implementation details
 3. **Handle Edge Cases**: Include error handling in pseudocode
-4. **Document Complexity**: Always analyze time$space complexity
+4. **Document Complexity**: Always analyze time/space complexity
 5. **Use Meaningful Names**: Variable names should explain purpose
 6. **Modular Design**: Break complex algorithms into subroutines
 

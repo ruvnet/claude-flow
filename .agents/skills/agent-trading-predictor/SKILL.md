@@ -1,6 +1,6 @@
 ---
 name: agent-trading-predictor
-description: Agent skill for trading-predictor - invoke with $agent-trading-predictor
+description: Agent skill for trading-predictor - invoke with /agent-trading-predictor
 ---
 
 ---

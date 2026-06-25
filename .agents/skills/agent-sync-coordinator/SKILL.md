@@ -1,6 +1,6 @@
 ---
 name: agent-sync-coordinator
-description: Agent skill for sync-coordinator - invoke with $agent-sync-coordinator
+description: Agent skill for sync-coordinator - invoke with /agent-sync-coordinator
 ---
 
 ---
@@ -72,20 +72,20 @@ mcp__claude-flow__agent_spawn { type: "coder", name: "Integration Developer" }
 mcp__claude-flow__agent_spawn { type: "tester", name: "Validation Engineer" }
 
 // Analyze current package states
-Read("$workspaces$ruv-FANN$claude-code-flow$claude-code-flow$package.json")
-Read("$workspaces$ruv-FANN$ruv-swarm$npm$package.json")
+Read("$workspaces/ruv-FANN/claude-code-flow/claude-code-flow/package.json")
+Read("$workspaces/ruv-FANN/ruv-swarm/npm/package.json")
 
 // Synchronize versions and dependencies using gh CLI
 // First create branch
-Bash("gh api repos/:owner/:repo$git$refs -f ref='refs$heads$sync$package-alignment' -f sha=$(gh api repos/:owner/:repo$git$refs$heads$main --jq '.object.sha')")
+Bash("gh api repos/:owner/:repo/git/refs -f ref='refs/heads/sync/package-alignment' -f sha=$(gh api repos/:owner/:repo/git/refs/heads/main --jq '.object.sha')")
 
 // Update file using gh CLI
-Bash(`gh api repos/:owner/:repo$contents$claude-code-flow$claude-code-flow$package.json \
+Bash(`gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/package.json \
   --method PUT \
   -f message="feat: Align Node.js version requirements across packages" \
-  -f branch="sync$package-alignment" \
+  -f branch="sync/package-alignment" \
   -f content="$(echo '{ updated package.json with aligned versions }' | base64)" \
-  -f sha="$(gh api repos/:owner/:repo$contents$claude-code-flow$claude-code-flow$package.json?ref=sync$package-alignment --jq '.sha')")`)
+  -f sha="$(gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/package.json?ref=sync/package-alignment --jq '.sha')")`)
 
 // Orchestrate validation
 mcp__claude-flow__task_orchestrate {
@@ -99,24 +99,24 @@ mcp__claude-flow__task_orchestrate {
 ```javascript
 // Synchronize CLAUDE.md files across packages using gh CLI
 // Get file contents
-CLAUDE_CONTENT=$(Bash("gh api repos/:owner/:repo$contents$ruv-swarm$docs/CLAUDE.md --jq '.content' | base64 -d"))
+CLAUDE_CONTENT=$(Bash("gh api repos/:owner/:repo/contents/ruv-swarm/docs/CLAUDE.md --jq '.content' | base64 -d"))
 
 // Update claude-code-flow CLAUDE.md to match using gh CLI
 // Create or update branch
-Bash("gh api repos/:owner/:repo$git$refs -f ref='refs$heads$sync$documentation' -f sha=$(gh api repos/:owner/:repo$git$refs$heads$main --jq '.object.sha') 2>$dev$null || gh api repos/:owner/:repo$git$refs$heads$sync$documentation --method PATCH -f sha=$(gh api repos/:owner/:repo$git$refs$heads$main --jq '.object.sha')")
+Bash("gh api repos/:owner/:repo/git/refs -f ref='refs/heads/sync/documentation' -f sha=$(gh api repos/:owner/:repo/git/refs/heads/main --jq '.object.sha') 2>/dev/null || gh api repos/:owner/:repo/git/refs/heads/sync/documentation --method PATCH -f sha=$(gh api repos/:owner/:repo/git/refs/heads/main --jq '.object.sha')")
 
 // Update file
-Bash(`gh api repos/:owner/:repo$contents$claude-code-flow$claude-code-flow/CLAUDE.md \
+Bash(`gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/CLAUDE.md \
   --method PUT \
   -f message="docs: Synchronize CLAUDE.md with ruv-swarm integration patterns" \
-  -f branch="sync$documentation" \
+  -f branch="sync/documentation" \
   -f content="$(echo '# Claude Code Configuration for ruv-swarm\n\n[synchronized content]' | base64)" \
-  -f sha="$(gh api repos/:owner/:repo$contents$claude-code-flow$claude-code-flow/CLAUDE.md?ref=sync$documentation --jq '.sha' 2>$dev$null || echo '')")`)
+  -f sha="$(gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/CLAUDE.md?ref=sync/documentation --jq '.sha' 2>/dev/null || echo '')")`)
 
 // Store sync state in memory
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "sync$documentation$status",
+  key: "sync/documentation/status",
   value: { timestamp: Date.now(), status: "synchronized", files: ["CLAUDE.md"] }
 }
 ```
@@ -127,18 +127,18 @@ mcp__claude-flow__memory_usage {
 mcp__github__push_files {
   owner: "ruvnet",
   repo: "ruv-FANN",
-  branch: "feature$github-commands",
+  branch: "feature/github-commands",
   files: [
     {
-      path: "claude-code-flow$claude-code-flow/.claude$commands$github$github-modes.md",
+      path: "claude-code-flow/claude-code-flow/.claude/commands/github/github-modes.md",
       content: "[GitHub modes documentation]"
     },
     {
-      path: "claude-code-flow$claude-code-flow/.claude$commands$github$pr-manager.md", 
+      path: "claude-code-flow/claude-code-flow/.claude/commands/github/pr-manager.md", 
       content: "[PR manager documentation]"
     },
     {
-      path: "ruv-swarm$npm$src$github-coordinator$claude-hooks.js",
+      path: "ruv-swarm/npm/src/github-coordinator/claude-hooks.js",
       content: "[GitHub coordination hooks]"
     }
   ],
@@ -149,7 +149,7 @@ mcp__github__push_files {
 Bash(`gh pr create \
   --repo :owner/:repo \
   --title "Feature: GitHub Workflow Integration with Swarm Coordination" \
-  --head "feature$github-commands" \
+  --head "feature/github-commands" \
   --base "main" \
   --body "## 🚀 GitHub Workflow Integration
 
@@ -160,7 +160,7 @@ Bash(`gh pr create \
 - ✅ Cross-package synchronization
 
 ### Integration Points
-- Claude-code-flow: GitHub command modes in .claude$commands$github/
+- Claude-code-flow: GitHub command modes in .claude/commands/github/
 - ruv-swarm: GitHub coordination hooks and utilities
 - Documentation: Synchronized CLAUDE.md instructions
 
@@ -196,26 +196,26 @@ This integration uses ruv-swarm agents for:
   mcp__claude-flow__agent_spawn { type: "reviewer", name: "Quality Reviewer" }
   
   // Read current state of both packages
-  Read("$workspaces$ruv-FANN$claude-code-flow$claude-code-flow$package.json")
-  Read("$workspaces$ruv-FANN$ruv-swarm$npm$package.json")
-  Read("$workspaces$ruv-FANN$claude-code-flow$claude-code-flow/CLAUDE.md")
-  Read("$workspaces$ruv-FANN$ruv-swarm$docs/CLAUDE.md")
+  Read("$workspaces/ruv-FANN/claude-code-flow/claude-code-flow/package.json")
+  Read("$workspaces/ruv-FANN/ruv-swarm/npm/package.json")
+  Read("$workspaces/ruv-FANN/claude-code-flow/claude-code-flow/CLAUDE.md")
+  Read("$workspaces/ruv-FANN/ruv-swarm/docs/CLAUDE.md")
   
   // Synchronize multiple files simultaneously
   mcp__github__push_files {
-    branch: "sync$complete-integration",
+    branch: "sync/complete-integration",
     files: [
-      { path: "claude-code-flow$claude-code-flow$package.json", content: "[aligned package.json]" },
-      { path: "claude-code-flow$claude-code-flow/CLAUDE.md", content: "[synchronized CLAUDE.md]" },
-      { path: "claude-code-flow$claude-code-flow/.claude$commands$github$github-modes.md", content: "[GitHub modes]" }
+      { path: "claude-code-flow/claude-code-flow/package.json", content: "[aligned package.json]" },
+      { path: "claude-code-flow/claude-code-flow/CLAUDE.md", content: "[synchronized CLAUDE.md]" },
+      { path: "claude-code-flow/claude-code-flow/.claude/commands/github/github-modes.md", content: "[GitHub modes]" }
     ],
     message: "feat: Complete package synchronization with GitHub integration"
   }
   
   // Run validation tests
-  Bash("cd $workspaces$ruv-FANN$claude-code-flow$claude-code-flow && npm install")
-  Bash("cd $workspaces$ruv-FANN$claude-code-flow$claude-code-flow && npm test")
-  Bash("cd $workspaces$ruv-FANN$ruv-swarm$npm && npm test")
+  Bash("cd $workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm install")
+  Bash("cd $workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm test")
+  Bash("cd $workspaces/ruv-FANN/ruv-swarm/npm && npm test")
   
   // Track synchronization progress
   TodoWrite { todos: [
@@ -229,7 +229,7 @@ This integration uses ruv-swarm agents for:
   // Store comprehensive sync state
   mcp__claude-flow__memory_usage {
     action: "store",
-    key: "sync$complete$status",
+    key: "sync/complete/status",
     value: {
       timestamp: Date.now(),
       packages_synced: ["claude-code-flow", "ruv-swarm"],
@@ -263,9 +263,9 @@ const syncStrategy = {
 ```javascript
 // Keep documentation consistent across packages
 const docSyncPattern = {
-  sourceOfTruth: "ruv-swarm$docs/CLAUDE.md",
+  sourceOfTruth: "ruv-swarm/docs/CLAUDE.md",
   targets: [
-    "claude-code-flow$claude-code-flow/CLAUDE.md",
+    "claude-code-flow/claude-code-flow/CLAUDE.md",
     "CLAUDE.md"  // Root level
   ],
   customSections: {
@@ -375,7 +375,7 @@ const syncConflictResolver = async (conflicts) => {
   // Store conflict context in swarm memory
   await mcp__claude_flow__memory_usage({
     action: "store",
-    key: "sync$conflicts$current",
+    key: "sync/conflicts/current",
     value: {
       conflicts,
       resolution_strategy: "automated_with_validation",
@@ -397,7 +397,7 @@ const syncConflictResolver = async (conflicts) => {
 # Store detailed synchronization metrics
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "sync$metrics$session",
+  key: "sync/metrics/session",
   value: {
     packages_synchronized: ["claude-code-flow", "ruv-swarm"],
     version_alignment_score: 98.5,
@@ -431,7 +431,7 @@ mcp__claude-flow__coordination_sync { swarmId: "error-recovery-swarm" }
 # Store recovery state
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "sync$recovery$state",
+  key: "sync/recovery/state",
   value: {
     error_type: "version_conflict",
     recovery_strategy: "incremental_rollback",

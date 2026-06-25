@@ -7,7 +7,7 @@ description: "Create new Claude Code Skills with proper YAML frontmatter, progre
 
 ## What This Skill Does
 
-Creates production-ready Claude Code Skills with proper YAML frontmatter, progressive disclosure architecture, and complete file$folder structure. This skill guides you through building skills that Claude can autonomously discover and use across all surfaces (Claude.ai, Claude Code, SDK, API).
+Creates production-ready Claude Code Skills with proper YAML frontmatter, progressive disclosure architecture, and complete file/folder structure. This skill guides you through building skills that Claude can autonomously discover and use across all surfaces (Claude.ai, Claude Code, SDK, API).
 
 ## Prerequisites
 
@@ -21,10 +21,10 @@ Creates production-ready Claude Code Skills with proper YAML frontmatter, progre
 
 ```bash
 # 1. Create skill directory (MUST be at top level, NOT in subdirectories!)
-mkdir -p ~/.claude$skills$my-first-skill
+mkdir -p ~/.claude/skills/my-first-skill
 
 # 2. Create SKILL.md with proper format
-cat > ~/.claude$skills$my-first-skill/SKILL.md << 'EOF'
+cat > ~/.claude/skills/my-first-skill/SKILL.md << 'EOF'
 ---
 name: "My First Skill"
 description: "Brief description of what this skill does and when Claude should use it. Maximum 1024 characters."
@@ -125,17 +125,17 @@ tags: ["dev", "api"]   # NOT part of spec
 
 #### Minimal Skill (Required)
 ```
-~/.claude$skills/                    # Personal skills location
+~/.claude/skills/                    # Personal skills location
 └── my-skill/                        # Skill directory (MUST be at top level!)
     └── SKILL.md                     # REQUIRED: Main skill file
 ```
 
-**IMPORTANT**: Skills MUST be directly under `~/.claude$skills/[skill-name]/`.
+**IMPORTANT**: Skills MUST be directly under `~/.claude/skills/[skill-name]/`.
 Claude Code does NOT support nested subdirectories or namespaces!
 
 #### Full-Featured Skill (Recommended)
 ```
-~/.claude$skills/
+~/.claude/skills/
 └── my-skill/                        # Top-level skill directory
         ├── SKILL.md                 # REQUIRED: Main skill file
         ├── README.md                # Optional: Human-readable docs
@@ -161,20 +161,20 @@ Claude Code does NOT support nested subdirectories or namespaces!
 
 **Personal Skills** (available across all projects):
 ```
-~/.claude$skills/
+~/.claude/skills/
 └── [your-skills]/
 ```
-- **Path**: `~/.claude$skills/` or `$HOME/.claude$skills/`
+- **Path**: `~/.claude/skills/` or `/HOME/.claude/skills/`
 - **Scope**: Available in all projects for this user
 - **Version Control**: NOT committed to git (outside repo)
 - **Use Case**: Personal productivity tools, custom workflows
 
 **Project Skills** (team-shared, version controlled):
 ```
-<project-root>/.claude$skills/
+<project-root>/.claude/skills/
 └── [team-skills]/
 ```
-- **Path**: `.claude$skills/` in project root
+- **Path**: `.claude/skills/` in project root
 - **Scope**: Available only in this project
 - **Version Control**: SHOULD be committed to git
 - **Use Case**: Team workflows, project-specific tools, shared knowledge
@@ -201,7 +201,7 @@ description: "Creates REST APIs..."   # ~50 chars
 ```
 
 #### Level 2: SKILL.md Body
-**Loaded**: When skill is triggered$matched
+**Loaded**: When skill is triggered/matched
 **Size**: ~1-10KB typically
 **Purpose**: Main instructions and procedures
 **Context**: Only loaded for ACTIVE skills
@@ -229,7 +229,7 @@ description: "Creates REST APIs..."   # ~50 chars
 # In SKILL.md
 See [Advanced Configuration](docs/ADVANCED.md) for complex scenarios.
 See [API Reference](docs/API_REFERENCE.md) for complete documentation.
-Use template: `resources$templates$api-template.js`
+Use template: `resources/templates/api-template.js`
 
 # Claude will load these files ONLY if needed
 ```
@@ -332,15 +332,15 @@ Success message
 See [API_REFERENCE.md](docs/API_REFERENCE.md)
 
 ### Examples
-See [examples/](resources$examples/)
+See [examples/](resources/examples/)
 
 ### Related Skills
 - [Related Skill 1](#)
 - [Related Skill 2](#)
 
 ### Resources
-- [External Link 1](https:/$example.com)
-- [Documentation](https:/$docs.example.com)
+- [External Link 1](https://example.com)
+- [Documentation](https://docs.example.com)
 ```
 
 ---
@@ -435,13 +435,13 @@ Reference from SKILL.md:
 ## Setup
 Run the setup script:
 ```bash
-.$scripts$setup.sh
+.$scripts/setup.sh
 ```
 
 ## Validation
 Validate your configuration:
 ```bash
-node scripts$validate.js config.json
+node scripts/validate.js config.json
 ```
 ```
 
@@ -472,11 +472,11 @@ Reference from SKILL.md:
 ## Templates
 Use the component template:
 ```bash
-cp resources$templates$component.tsx.template src$components/MyComponent.tsx
+cp resources/templates/component.tsx.template src/components/MyComponent.tsx
 ```
 
 ## Examples
-See working examples in `resources$examples/`:
+See working examples in `resources/examples/`:
 - `basic-example/` - Simple component
 - `advanced-example/` - With hooks and context
 ```
@@ -495,14 +495,14 @@ See [Troubleshooting Guide](docs/TROUBLESHOOTING.md) if you encounter errors.
 
 #### Relative File Paths
 ```markdown
-Use the template located at `resources$templates$api-template.js`
-See examples in `resources$examples$basic-usage/`
+Use the template located at `resources/templates/api-template.js`
+See examples in `resources/examples/basic-usage/`
 ```
 
 #### Inline File Content
 ```markdown
 ## Example Configuration
-See `resources$examples$config.json`:
+See `resources/examples/config.json`:
 ```json
 {
   "option": "value"
@@ -528,7 +528,7 @@ Before publishing a skill, verify:
 
 **File Structure**:
 - [ ] SKILL.md exists in skill directory
-- [ ] Directory is DIRECTLY in `~/.claude$skills/[skill-name]/` or `.claude$skills/[skill-name]/`
+- [ ] Directory is DIRECTLY in `~/.claude/skills/[skill-name]/` or `.claude/skills/[skill-name]/`
 - [ ] Uses clear, descriptive directory name
 - [ ] **NO nested subdirectories** (Claude Code requires top-level structure)
 
@@ -612,8 +612,8 @@ description: "Detailed what with key features. When to use with specific trigger
 
 ## Quick Start
 ```bash
-.$scripts$setup.sh
-.$scripts$generate.sh my-project
+.$scripts/setup.sh
+.$scripts/generate.sh my-project
 ```
 
 ## Configuration
@@ -634,13 +634,13 @@ Edit `config.json`:
 [Steps for complex scenarios]
 
 ## Available Scripts
-- `scripts$setup.sh` - Initial setup
-- `scripts$generate.sh` - Code generation
-- `scripts$validate.sh` - Validation
+- `scripts/setup.sh` - Initial setup
+- `scripts/generate.sh` - Code generation
+- `scripts/validate.sh` - Validation
 
 ## Resources
-- Templates: `resources$templates/`
-- Examples: `resources$examples/`
+- Templates: `resources/templates/`
+- Examples: `resources/examples/`
 
 ## Troubleshooting
 [Common issues and solutions]
@@ -675,12 +675,12 @@ description: "Comprehensive what with all features and integrations. Use when [t
 
 ### Installation
 ```bash
-.$scripts$install.sh
+.$scripts/install.sh
 ```
 
 ### First Use
 ```bash
-.$scripts$quickstart.sh
+.$scripts/quickstart.sh
 ```
 
 Expected output:
@@ -725,12 +725,12 @@ See [Configuration Guide](docs/CONFIGURATION.md)
 
 ### Feature 1: Custom Templates
 ```bash
-.$scripts$generate.sh --template custom
+.$scripts/generate.sh --template custom
 ```
 
 ### Feature 2: Batch Processing
 ```bash
-.$scripts$batch.sh --input data.json
+.$scripts/batch.sh --input data.json
 ```
 
 ### Feature 3: CI/CD Integration
@@ -742,27 +742,27 @@ See [CI/CD Guide](docs/CICD.md)
 
 | Script | Purpose | Usage |
 |--------|---------|-------|
-| `install.sh` | Install dependencies | `.$scripts$install.sh` |
-| `generate.sh` | Generate code | `.$scripts$generate.sh [name]` |
-| `validate.sh` | Validate output | `.$scripts$validate.sh` |
-| `deploy.sh` | Deploy to environment | `.$scripts$deploy.sh [env]` |
+| `install.sh` | Install dependencies | `.$scripts/install.sh` |
+| `generate.sh` | Generate code | `.$scripts/generate.sh [name]` |
+| `validate.sh` | Validate output | `.$scripts/validate.sh` |
+| `deploy.sh` | Deploy to environment | `.$scripts/deploy.sh [env]` |
 
 ---
 
 ## Resources
 
 ### Templates
-- `resources$templates$basic.template` - Basic template
-- `resources$templates$advanced.template` - Advanced template
+- `resources/templates/basic.template` - Basic template
+- `resources/templates/advanced.template` - Advanced template
 
 ### Examples
-- `resources$examples$basic/` - Simple example
-- `resources$examples$advanced/` - Complex example
-- `resources$examples$integration/` - Integration example
+- `resources/examples/basic/` - Simple example
+- `resources/examples/advanced/` - Complex example
+- `resources/examples/integration/` - Integration example
 
 ### Schemas
-- `resources$schemas$config.schema.json` - Configuration schema
-- `resources$schemas$output.schema.json` - Output validation
+- `resources/schemas/config.schema.json` - Configuration schema
+- `resources/schemas/output.schema.json` - Output validation
 
 ---
 
@@ -775,7 +775,7 @@ See [CI/CD Guide](docs/CICD.md)
 ```bash
 # Install prerequisites
 npm install -g required-package
-.$scripts$install.sh --force
+.$scripts/install.sh --force
 ```
 
 ### Issue: Validation Errors
@@ -788,13 +788,13 @@ npm install -g required-package
 Complete API documentation: [API_REFERENCE.md](docs/API_REFERENCE.md)
 
 ## Related Skills
-- [Related Skill 1](..$related-skill-1/)
-- [Related Skill 2](..$related-skill-2/)
+- [Related Skill 1](../related-skill-1/)
+- [Related Skill 2](../related-skill-2/)
 
 ## Resources
-- [Official Documentation](https:/$example.com$docs)
-- [GitHub Repository](https:/$github.com$example$repo)
-- [Community Forum](https:/$forum.example.com)
+- [Official Documentation](https://example.com/docs)
+- [GitHub Repository](https://github.com/example/repo)
+- [Community Forum](https://forum.example.com)
 
 ---
 
@@ -824,7 +824,7 @@ Creates well-structured README.md files with badges, installation, usage, and co
 ## Quick Start
 ```bash
 # Answer a few questions
-.$scripts$generate-readme.sh
+.$scripts/generate-readme.sh
 
 # README.md created with:
 # - Project title and description
@@ -834,7 +834,7 @@ Creates well-structured README.md files with badges, installation, usage, and co
 ```
 
 ## Customization
-Edit sections in `resources$templates$sections/` before generating.
+Edit sections in `resources/templates/sections/` before generating.
 ```
 
 ### Example 2: Code Generation Skill
@@ -854,20 +854,20 @@ description: "Generate React functional components with TypeScript, hooks, tests
 
 ## Quick Start
 ```bash
-.$scripts$generate-component.sh MyComponent
+.$scripts/generate-component.sh MyComponent
 
 # Creates:
-# - src$components/MyComponent/MyComponent.tsx
-# - src$components/MyComponent/MyComponent.test.tsx
-# - src$components/MyComponent/MyComponent.stories.tsx
-# - src$components/MyComponent$index.ts
+# - src/components/MyComponent/MyComponent.tsx
+# - src/components/MyComponent/MyComponent.test.tsx
+# - src/components/MyComponent/MyComponent.stories.tsx
+# - src/components/MyComponent/index.ts
 ```
 
 ## Step-by-Step Guide
 
 ### 1. Run Generator
 ```bash
-.$scripts$generate-component.sh ComponentName
+.$scripts/generate-component.sh ComponentName
 ```
 
 ### 2. Choose Template
@@ -877,10 +877,10 @@ description: "Generate React functional components with TypeScript, hooks, tests
 - With API: Data fetching component
 
 ### 3. Customize
-Edit generated files in `src$components/ComponentName/`
+Edit generated files in `src/components/ComponentName/`
 
 ## Templates
-See `resources$templates/` for available component templates.
+See `resources/templates/` for available component templates.
 ```
 
 ---
@@ -888,13 +888,13 @@ See `resources$templates/` for available component templates.
 ## Learn More
 
 ### Official Resources
-- [Anthropic Agent Skills Documentation](https:/$docs.claude.com$en$docs$agents-and-tools$agent-skills)
-- [GitHub Skills Repository](https:/$github.com$anthropics$skills)
-- [Claude Code Documentation](https:/$docs.claude.com$en$docs$claude-code)
+- [Anthropic Agent Skills Documentation](https://docs.claude.com/en/docs/agents-and-tools/agent-skills)
+- [GitHub Skills Repository](https://github.com/anthropics/skills)
+- [Claude Code Documentation](https://docs.claude.com/en/docs/claude-code)
 
 ### Community
-- [Skills Marketplace](https:/$github.com$anthropics$skills) - Browse community skills
-- [Anthropic Discord](https:/$discord.gg$anthropic) - Get help from community
+- [Skills Marketplace](https://github.com/anthropics/skills) - Browse community skills
+- [Anthropic Discord](https://discord.gg/anthropic) - Get help from community
 
 ### Advanced Topics
 - Multi-file skills with complex navigation

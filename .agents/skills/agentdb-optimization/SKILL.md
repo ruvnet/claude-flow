@@ -37,11 +37,11 @@ npx agentdb@latest benchmark
 ### Enable Optimizations
 
 ```typescript
-import { createAgentDBAdapter } from 'agentic-flow$reasoningbank';
+import { createAgentDBAdapter } from 'agentic-flow/reasoningbank';
 
 // Optimized configuration
 const adapter = await createAgentDBAdapter({
-  dbPath: '.agentdb$optimized.db',
+  dbPath: '.agentdb/optimized.db',
   quantizationType: 'binary',   // 32x memory reduction
   cacheSize: 1000,               // In-memory cache
   enableLearning: true,
@@ -67,7 +67,7 @@ const adapter = await createAgentDBAdapter({
 ```
 
 **Use Cases**:
-- Mobile$edge deployment
+- Mobile/edge deployment
 - Large-scale vector storage (millions of vectors)
 - Real-time search with memory constraints
 
@@ -78,7 +78,7 @@ const adapter = await createAgentDBAdapter({
 
 ### 2. Scalar Quantization (4x Reduction)
 
-**Best For**: Balanced performance$accuracy, moderate datasets
+**Best For**: Balanced performance/accuracy, moderate datasets
 **Trade-off**: ~1-2% accuracy loss, 4x memory reduction, 3x faster
 
 ```typescript
@@ -114,7 +114,7 @@ const adapter = await createAgentDBAdapter({
 
 **Use Cases**:
 - High-dimensional embeddings (>512 dims)
-- Image$video embeddings
+- Image/video embeddings
 - Large-scale similarity search
 
 **Performance**:
@@ -146,7 +146,7 @@ AgentDB automatically builds HNSW indices:
 
 ```typescript
 const adapter = await createAgentDBAdapter({
-  dbPath: '.agentdb$vectors.db',
+  dbPath: '.agentdb/vectors.db',
   // HNSW automatically enabled
 });
 
@@ -161,7 +161,7 @@ const results = await adapter.retrieveWithReasoning(queryEmbedding, {
 ```typescript
 // Advanced HNSW configuration
 const adapter = await createAgentDBAdapter({
-  dbPath: '.agentdb$vectors.db',
+  dbPath: '.agentdb/vectors.db',
   hnswM: 16,              // Connections per layer (default: 16)
   hnswEfConstruction: 200, // Build quality (default: 200)
   hnswEfSearch: 100,       // Search quality (default: 100)
@@ -316,7 +316,7 @@ await adapter.prune({
 
 ```bash
 # Get comprehensive stats
-npx agentdb@latest stats .agentdb$vectors.db
+npx agentdb@latest stats .agentdb/vectors.db
 
 # Output:
 # Total Patterns: 125,430
@@ -449,7 +449,7 @@ const adapter = await createAgentDBAdapter({
 
 ```bash
 # Check database size
-npx agentdb@latest stats .agentdb$vectors.db
+npx agentdb@latest stats .agentdb/vectors.db
 
 # Enable quantization
 # Use 'binary' for 32x reduction
@@ -497,10 +497,10 @@ const adapter = await createAgentDBAdapter({
 
 ## Learn More
 
-- **Quantization Paper**: docs$quantization-techniques.pdf
-- **HNSW Algorithm**: docs$hnsw-index.pdf
-- **GitHub**: https:/$github.com$ruvnet$agentic-flow$tree$main$packages$agentdb
-- **Website**: https:/$agentdb.ruv.io
+- **Quantization Paper**: docs/quantization-techniques.pdf
+- **HNSW Algorithm**: docs/hnsw-index.pdf
+- **GitHub**: https://github.com/ruvnet/agentic-flow/tree/main/packages/agentdb
+- **Website**: https://agentdb.ruv.io
 
 ---
 

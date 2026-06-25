@@ -42,9 +42,9 @@ Target Performance:
 
 ### MCP Server Architecture
 ```typescript
-// src$core$mcp$mcp-server.ts
-import { Server } from '@modelcontextprotocol$sdk$server$index.js';
-import { StdioServerTransport } from '@modelcontextprotocol$sdk$server$stdio.js';
+// src/core/mcp/mcp-server.ts
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
 interface OptimizedMCPConfig {
   // Connection pooling
@@ -117,7 +117,7 @@ export class OptimizedMCPServer {
 
 ### Advanced Connection Pooling
 ```typescript
-// src$core$mcp$connection-pool.ts
+// src/core/mcp/connection-pool.ts
 interface PooledConnection {
   id: string;
   connection: MCPConnection;
@@ -232,7 +232,7 @@ export class ConnectionPool {
 
 ### O(1) Tool Lookup Implementation
 ```typescript
-// src$core$mcp$fast-tool-registry.ts
+// src/core/mcp/fast-tool-registry.ts
 interface ToolIndexEntry {
   name: string;
   handler: ToolHandler;
@@ -337,7 +337,7 @@ export class FastToolRegistry {
 
 ### Intelligent Load Balancer
 ```typescript
-// src$core$mcp$load-balancer.ts
+// src/core/mcp/load-balancer.ts
 interface ServerInstance {
   id: string;
   endpoint: string;
@@ -424,7 +424,7 @@ export class MCPLoadBalancer {
 
 ### High-Performance Transport
 ```typescript
-// src$core$mcp$optimized-transport.ts
+// src/core/mcp/optimized-transport.ts
 export class OptimizedTransport {
   private compression: boolean = true;
   private batching: boolean = true;
@@ -505,7 +505,7 @@ export class OptimizedTransport {
 
 ### Real-time MCP Metrics
 ```typescript
-// src$core$mcp$metrics.ts
+// src/core/mcp/metrics.ts
 interface MCPMetrics {
   requestCount: number;
   errorCount: number;
@@ -601,7 +601,7 @@ export class MCPMetricsCollector {
 
 ### Pre-compiled Tool Index
 ```typescript
-// src$core$mcp$tool-precompiler.ts
+// src/core/mcp/tool-precompiler.ts
 export class ToolPrecompiler {
   async precompileTools(): Promise<CompiledToolRegistry> {
     const tools = await this.loadAllTools();
@@ -660,7 +660,7 @@ export class ToolPrecompiler {
 
 ### Multi-Level Caching
 ```typescript
-// src$core$mcp$multi-level-cache.ts
+// src/core/mcp/multi-level-cache.ts
 export class MultiLevelCache {
   private l1Cache: Map<string, any> = new Map(); // In-memory, fastest
   private l2Cache: LRUCache<string, any>; // LRU cache, larger capacity
@@ -672,7 +672,7 @@ export class MultiLevelCache {
       ttl: config.l2TTL || 300000 // 5 minutes
     });
 
-    this.l3Cache = new DiskCache(config.l3Path || './.cache$mcp');
+    this.l3Cache = new DiskCache(config.l3Path || './.cache/mcp');
   }
 
   async get(key: string): Promise<any | null> {
@@ -728,7 +728,7 @@ export class MultiLevelCache {
 - [ ] **Connection Pool**: >90% hit rate
 - [ ] **Memory Usage**: 50% reduction in idle memory
 - [ ] **Error Rate**: <1% failed requests
-- [ ] **Throughput**: >1000 requests$second
+- [ ] **Throughput**: >1000 requests/second
 
 ### Monitoring Dashboards
 ```typescript

@@ -1,6 +1,6 @@
 ---
 name: agent-swarm-memory-manager
-description: Agent skill for swarm-memory-manager - invoke with $agent-swarm-memory-manager
+description: Agent skill for swarm-memory-manager - invoke with /agent-swarm-memory-manager
 ---
 
 ---
@@ -21,7 +21,7 @@ You are the Swarm Memory Manager, the distributed consciousness keeper of the hi
 // INITIALIZE memory namespace
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$memory-manager$status",
+  key: "swarm/memory-manager/status",
   namespace: "coordination",
   value: JSON.stringify({
     agent: "memory-manager",
@@ -35,7 +35,7 @@ mcp__claude-flow__memory_usage {
 // CREATE memory index for fast retrieval
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$memory-index",
+  key: "swarm/shared/memory-index",
   namespace: "coordination",
   value: JSON.stringify({
     agents: {},
@@ -58,7 +58,7 @@ mcp__claude-flow__memory_usage {
 // SYNC memory across all agents
 mcp__claude-flow__memory_usage {
   action: "store", 
-  key: "swarm$shared$sync-manifest",
+  key: "swarm/shared/sync-manifest",
   namespace: "coordination",
   value: JSON.stringify({
     version: "1.0.0",
@@ -72,7 +72,7 @@ mcp__claude-flow__memory_usage {
 // BROADCAST memory updates
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$broadcast$memory-update",
+  key: "swarm/broadcast/memory-update",
   namespace: "coordination", 
   value: JSON.stringify({
     update_type: "incremental|full",
@@ -106,7 +106,7 @@ const batchRead = async (keys) => {
   // Cache results for other agents
   mcp__claude-flow__memory_usage {
     action: "store",
-    key: "swarm$shared$cache",
+    key: "swarm/shared/cache",
     namespace: "coordination",
     value: JSON.stringify(results)
   };
@@ -150,7 +150,7 @@ const atomicWrite = async (key, value) => {
 ```javascript
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$memory-manager$metrics",
+  key: "swarm/memory-manager/metrics",
   namespace: "coordination",
   value: JSON.stringify({
     operations_per_second: 1000,
@@ -167,7 +167,7 @@ mcp__claude-flow__memory_usage {
 
 ### Works With:
 - **collective-intelligence-coordinator**: For knowledge integration
-- **All agents**: For memory read$write operations
+- **All agents**: For memory read/write operations
 - **queen-coordinator**: For priority memory allocation
 - **neural-pattern-analyzer**: For memory pattern optimization
 

@@ -1,6 +1,6 @@
 ---
 name: agent-pagerank-analyzer
-description: Agent skill for pagerank-analyzer - invoke with $agent-pagerank-analyzer
+description: Agent skill for pagerank-analyzer - invoke with /agent-pagerank-analyzer
 ---
 
 ---

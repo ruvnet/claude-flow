@@ -73,7 +73,7 @@ npx ruv-swarm github board-init \
 ### 1. Issue Management & Triage
 
 <details>
-<summary><strong>Automated Issue Creation<$strong><$summary>
+<summary><strong>Automated Issue Creation</strong></summary>
 
 #### Single Issue with Swarm Coordination
 
@@ -134,10 +134,10 @@ gh issue create \
   --label "documentation,integration"
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Issue-to-Swarm Conversion<$strong><$summary>
+<summary><strong>Issue-to-Swarm Conversion</strong></summary>
 
 #### Transform Issues into Swarm Tasks
 
@@ -176,15 +176,15 @@ $swarm estimate
 $swarm start
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Automated Issue Triage<$strong><$summary>
+<summary><strong>Automated Issue Triage</strong></summary>
 
 #### Auto-Label Based on Content
 
 ```javascript
-// .github$swarm-labels.json
+// .github/swarm-labels.json
 {
   "rules": [
     {
@@ -223,10 +223,10 @@ npx ruv-swarm github find-duplicates \
   --close-duplicates
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Task Decomposition & Progress Tracking<$strong><$summary>
+<summary><strong>Task Decomposition & Progress Tracking</strong></summary>
 
 #### Break Down Issues into Subtasks
 
@@ -306,10 +306,10 @@ if [[ $(echo "$PROGRESS" | jq -r '.completion') -eq 100 ]]; then
 fi
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Stale Issue Management<$strong><$summary>
+<summary><strong>Stale Issue Management</strong></summary>
 
 #### Auto-Close Stale Issues with Swarm Analysis
 
@@ -335,7 +335,7 @@ echo "$STALE_ISSUES" | jq -r '.number' | while read -r num; do
       gh issue edit $num --add-label "stale"
       ;;
     "keep")
-      gh issue edit $num --remove-label "stale" 2>$dev$null || true
+      gh issue edit $num --remove-label "stale" 2>/dev/null || true
       ;;
     "needs-info")
       gh issue comment $num --body "This issue needs more information. Please provide additional context or it may be closed as stale."
@@ -352,12 +352,12 @@ gh issue list --label stale --state open --json number,updatedAt \
   done
 ```
 
-<$details>
+</details>
 
 ### 2. Project Board Automation
 
 <details>
-<summary><strong>Board Initialization & Configuration<$strong><$summary>
+<summary><strong>Board Initialization & Configuration</strong></summary>
 
 #### Connect Swarm to GitHub Project
 
@@ -382,7 +382,7 @@ gh project field-create $PROJECT_ID --owner @me \
 #### Board Mapping Configuration
 
 ```yaml
-# .github$board-sync.yml
+# .github/board-sync.yml
 version: 1
 project:
   name: "AI Development Board"
@@ -426,10 +426,10 @@ mapping:
       source: task.estimatedCompletion
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Task Synchronization<$strong><$summary>
+<summary><strong>Task Synchronization</strong></summary>
 
 #### Real-time Board Sync
 
@@ -447,7 +447,7 @@ npx ruv-swarm github board-sync \
 
 # Enable real-time board updates
 npx ruv-swarm github board-realtime \
-  --webhook-endpoint "https:/$api.example.com$github-sync" \
+  --webhook-endpoint "https://api.example.com/github-sync" \
   --update-frequency "immediate" \
   --batch-updates false
 ```
@@ -460,7 +460,7 @@ ISSUES=$(gh issue list --label "enhancement" --json number,title,body)
 
 # Add issues to project
 echo "$ISSUES" | jq -r '.[].number' | while read -r issue; do
-  gh project item-add $PROJECT_ID --owner @me --url "https:/$github.com/$GITHUB_REPOSITORY$issues/$issue"
+  gh project item-add $PROJECT_ID --owner @me --url "https://github.com/$GITHUB_REPOSITORY/issues/$issue"
 done
 
 # Process with swarm
@@ -471,10 +471,10 @@ npx ruv-swarm github board-import-issues \
   --assign-agents
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Smart Card Management<$strong><$summary>
+<summary><strong>Smart Card Management</strong></summary>
 
 #### Auto-Assignment
 
@@ -508,10 +508,10 @@ npx ruv-swarm github board-bulk \
   --notify-assignees
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Custom Views & Dashboards<$strong><$summary>
+<summary><strong>Custom Views & Dashboards</strong></summary>
 
 #### View Configuration
 
@@ -572,12 +572,12 @@ npx ruv-swarm github board-bulk \
 }
 ```
 
-<$details>
+</details>
 
 ### 3. Sprint Planning & Tracking
 
 <details>
-<summary><strong>Sprint Management<$strong><$summary>
+<summary><strong>Sprint Management</strong></summary>
 
 #### Initialize Sprint with Swarm Coordination
 
@@ -621,10 +621,10 @@ npx ruv-swarm github kanban-board \
   --continuous-flow
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Progress Tracking & Analytics<$strong><$summary>
+<summary><strong>Progress Tracking & Analytics</strong></summary>
 
 #### Board Analytics
 
@@ -687,10 +687,10 @@ npx ruv-swarm github team-metrics \
   --anonymous-option
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Release Planning<$strong><$summary>
+<summary><strong>Release Planning</strong></summary>
 
 #### Release Coordination
 
@@ -703,12 +703,12 @@ npx ruv-swarm github release-plan-board \
   --optimize-scope
 ```
 
-<$details>
+</details>
 
 ### 4. Advanced Coordination
 
 <details>
-<summary><strong>Multi-Board Synchronization<$strong><$summary>
+<summary><strong>Multi-Board Synchronization</strong></summary>
 
 #### Cross-Board Sync
 
@@ -729,10 +729,10 @@ npx ruv-swarm github cross-org-sync \
   --conflict-resolution "source-wins"
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Issue Dependencies & Epic Management<$strong><$summary>
+<summary><strong>Issue Dependencies & Epic Management</strong></summary>
 
 #### Dependency Resolution
 
@@ -754,25 +754,25 @@ npx ruv-swarm github epic-swarm \
   --orchestrate
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Cross-Repository Coordination<$strong><$summary>
+<summary><strong>Cross-Repository Coordination</strong></summary>
 
 #### Multi-Repo Issue Management
 
 ```bash
 # Handle issues across repositories
 npx ruv-swarm github cross-repo \
-  --issue "org$repo#456" \
-  --related "org$other-repo#123" \
+  --issue "org/repo#456" \
+  --related "org/other-repo#123" \
   --coordinate
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Team Collaboration<$strong><$summary>
+<summary><strong>Team Collaboration</strong></summary>
 
 #### Work Distribution
 
@@ -807,7 +807,7 @@ npx ruv-swarm github review-coordinate \
   --ensure-coverage
 ```
 
-<$details>
+</details>
 
 ---
 
@@ -942,7 +942,7 @@ Updates will be posted automatically by swarm agents during implementation.
 ### Swarm Task Template
 
 ```markdown
-<!-- .github/ISSUE_TEMPLATE$swarm-task.yml -->
+<!-- .github/ISSUE_TEMPLATE/swarm-task.yml -->
 name: Swarm Task
 description: Create a task for AI swarm processing
 body:
@@ -976,7 +976,7 @@ body:
 ### GitHub Actions for Issue Management
 
 ```yaml
-# .github$workflows$issue-swarm.yml
+# .github/workflows/issue-swarm.yml
 name: Issue Swarm Handler
 on:
   issues:
@@ -987,7 +987,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Process Issue
-        uses: ruvnet$swarm-action@v1
+        uses: ruvnet/swarm-action@v1
         with:
           command: |
             if [[ "${{ github.event.label.name }}" == "swarm-ready" ]]; then
@@ -1223,7 +1223,7 @@ npx ruv-swarm github issue-init $ISSUE_NUM \
 # 3. Add to project board
 PROJECT_ID=$(gh project list --owner @me --format json | jq -r '.projects[0].id')
 gh project item-add $PROJECT_ID --owner @me \
-  --url "https:/$github.com/$GITHUB_REPOSITORY$issues/$ISSUE_NUM"
+  --url "https://github.com/$GITHUB_REPOSITORY/issues/$ISSUE_NUM"
 
 # 4. Set up automated tracking
 npx ruv-swarm github board-sync \
@@ -1265,10 +1265,10 @@ npx ruv-swarm github board-kpis
 
 ## Additional Resources
 
-- [GitHub CLI Documentation](https:/$cli.github.com$manual/)
-- [GitHub Projects Documentation](https:/$docs.github.com$en$issues$planning-and-tracking-with-projects)
-- [Swarm Coordination Guide](https:/$github.com$ruvnet$ruv-swarm)
-- [Claude Flow Documentation](https:/$github.com$ruvnet$claude-flow)
+- [GitHub CLI Documentation](https://cli.github.com/manual/)
+- [GitHub Projects Documentation](https://docs.github.com/en/issues/planning-and-tracking-with-projects)
+- [Swarm Coordination Guide](https://github.com/ruvnet/ruv-swarm)
+- [Claude Flow Documentation](https://github.com/ruvnet/claude-flow)
 
 ---
 

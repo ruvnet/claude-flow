@@ -1,6 +1,6 @@
 ---
 name: agent-pr-manager
-description: Agent skill for pr-manager - invoke with $agent-pr-manager
+description: Agent skill for pr-manager - invoke with /agent-pr-manager
 ---
 
 ---
@@ -29,7 +29,7 @@ hooks:
   pre:
     - "gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)"
     - "git status --porcelain"
-    - "gh pr list --state open --limit 1 >$dev$null || echo 'No open PRs'"
+    - "gh pr list --state open --limit 1 >/dev/null || echo 'No open PRs'"
     - "npm test --silent || echo 'Tests may need attention'"
   post:
     - "gh pr status || echo 'No active PR in current branch'"
@@ -65,7 +65,7 @@ mcp__github__create_pull_request {
   owner: "ruvnet",
   repo: "ruv-FANN",
   title: "Integration: claude-code-flow and ruv-swarm",
-  head: "integration$claude-code-flow-ruv-swarm",
+  head: "integration/claude-code-flow-ruv-swarm",
   base: "main",
   body: "Comprehensive integration between packages..."
 }
@@ -92,7 +92,7 @@ mcp__github__create_pull_request_review {
   event: "APPROVE",
   comments: [
     { path: "package.json", line: 78, body: "Dependency integration verified" },
-    { path: "src$index.js", line: 45, body: "Import structure optimized" }
+    { path: "src/index.js", line: 45, body: "Import structure optimized" }
   ]
 }
 ```
@@ -115,7 +115,7 @@ mcp__github__merge_pull_request {
 // Post-merge coordination
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "pr/54$merged",
+  key: "pr/54/merged",
   value: { timestamp: Date.now(), status: "success" }
 }
 ```
@@ -175,11 +175,11 @@ mcp__claude-flow__memory_usage {
 ## Integration with Other Modes
 
 ### Works seamlessly with:
-- `$github issue-tracker` - For project coordination
-- `$github branch-manager` - For branch strategy
-- `$github ci-orchestrator` - For CI/CD integration
-- `$sparc reviewer` - For detailed code analysis
-- `$sparc tester` - For comprehensive testing
+- `/github issue-tracker` - For project coordination
+- `/github branch-manager` - For branch strategy
+- `/github ci-orchestrator` - For CI/CD integration
+- `/sparc reviewer` - For detailed code analysis
+- `/sparc tester` - For comprehensive testing
 
 ## Error Handling
 

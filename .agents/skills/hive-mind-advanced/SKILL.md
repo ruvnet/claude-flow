@@ -124,7 +124,7 @@ npx claude-flow hive-mind stop <session-id>
 - Progress tracking with completion percentages
 - Parent-child process management
 - Session logs with event tracking
-- Export$import capabilities
+- Export/import capabilities
 
 ### Consensus Building
 
@@ -255,7 +255,7 @@ npx claude-flow sparc tdd "User authentication" --hive-mind
 
 ```bash
 # Repository analysis with hive mind
-npx claude-flow hive-mind spawn "Analyze repo quality" --objective "owner$repo"
+npx claude-flow hive-mind spawn "Analyze repo quality" --objective "owner/repo"
 
 # PR review coordination
 npx claude-flow hive-mind spawn "Review PR #123" --queen-type tactical
@@ -662,7 +662,7 @@ npx claude-flow hive-mind spawn "Review PR #456" \
 # - Performance reviewers
 # - Test coverage analyzers
 # - Documentation reviewers
-# - Consensus on approval$changes
+# - Consensus on approval/changes
 ```
 
 ## Skill Progression
@@ -686,7 +686,7 @@ npx claude-flow hive-mind spawn "Review PR #456" \
 3. Custom worker types
 4. Multi-hive coordination
 5. Neural pattern training
-6. Session export$import
+6. Session export/import
 7. Performance tuning
 
 ## Related Skills
@@ -699,10 +699,10 @@ npx claude-flow hive-mind spawn "Review PR #456" \
 
 ## References
 
-- [Hive Mind Documentation](https:/$github.com$ruvnet$claude-flow$docs$hive-mind)
-- [Collective Intelligence Patterns](https:/$github.com$ruvnet$claude-flow$docs$patterns)
-- [Byzantine Consensus](https:/$github.com$ruvnet$claude-flow$docs$consensus)
-- [Memory Optimization](https:/$github.com$ruvnet$claude-flow$docs$memory)
+- [Hive Mind Documentation](https://github.com/ruvnet/claude-flow/docs/hive-mind)
+- [Collective Intelligence Patterns](https://github.com/ruvnet/claude-flow/docs/patterns)
+- [Byzantine Consensus](https://github.com/ruvnet/claude-flow/docs/consensus)
+- [Memory Optimization](https://github.com/ruvnet/claude-flow/docs/memory)
 
 ---
 

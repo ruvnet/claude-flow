@@ -34,7 +34,7 @@ npx agentdb@latest create-plugin -t decision-transformer -n my-agent
 npx agentdb@latest create-plugin -t q-learning --dry-run
 
 # Custom output directory
-npx agentdb@latest create-plugin -t actor-critic -o .$plugins
+npx agentdb@latest create-plugin -t actor-critic -o ./plugins
 ```
 
 ### List Available Templates
@@ -68,11 +68,11 @@ npx agentdb@latest plugin-info my-agent
 ## Quick Start with API
 
 ```typescript
-import { createAgentDBAdapter } from 'agentic-flow$reasoningbank';
+import { createAgentDBAdapter } from 'agentic-flow/reasoningbank';
 
 // Initialize with learning enabled
 const adapter = await createAgentDBAdapter({
-  dbPath: '.agentdb$learning.db',
+  dbPath: '.agentdb/learning.db',
   enableLearning: true,       // Enable learning plugins
   enableReasoning: true,
   cacheSize: 1000,
@@ -146,7 +146,7 @@ npx agentdb@latest create-plugin -t decision-transformer -n dt-agent
 
 **Type**: Value-Based RL (Off-Policy)
 **Best For**: Discrete action spaces, sample efficiency
-**Strengths**: Proven, simple, works well for small$medium problems
+**Strengths**: Proven, simple, works well for small/medium problems
 
 ```bash
 npx agentdb@latest create-plugin -t q-learning -n q-agent
@@ -198,7 +198,7 @@ npx agentdb@latest create-plugin -t sarsa -n sarsa-agent
 
 **Type**: Policy Gradient with Value Baseline
 **Best For**: Continuous actions, variance reduction
-**Strengths**: Stable, works for continuous$discrete actions
+**Strengths**: Stable, works for continuous/discrete actions
 
 ```bash
 npx agentdb@latest create-plugin -t actor-critic -n ac-agent
@@ -382,7 +382,7 @@ await adapter.train({
 // Store experiences with priority (TD error)
 await adapter.insertPattern({
   // ... standard fields
-  confidence: tdError,  // Use TD error as confidence$priority
+  confidence: tdError,  // Use TD error as confidence/priority
   // ...
 });
 
@@ -533,10 +533,10 @@ await adapter.retrieveWithReasoning(queryEmbedding, {
 
 ## Learn More
 
-- **Algorithm Papers**: See docs$algorithms/ for detailed papers
-- **GitHub**: https:/$github.com$ruvnet$agentic-flow$tree$main$packages$agentdb
+- **Algorithm Papers**: See docs/algorithms/ for detailed papers
+- **GitHub**: https://github.com/ruvnet/agentic-flow/tree/main/packages/agentdb
 - **MCP Integration**: `npx agentdb@latest mcp`
-- **Website**: https:/$agentdb.ruv.io
+- **Website**: https://agentdb.ruv.io
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: agent-memory-coordinator
-description: Agent skill for memory-coordinator - invoke with $agent-memory-coordinator
+description: Agent skill for memory-coordinator - invoke with /agent-memory-coordinator
 ---
 
 ---
@@ -129,9 +129,9 @@ Contents:
 ## Best Practices
 
 ### Effective Memory Usage
-1. **Use Clear Keys**: `project$auth$jwt-config`
+1. **Use Clear Keys**: `project/auth/jwt-config`
 2. **Set Appropriate TTL**: Don't store temporary data forever
-3. **Namespace Properly**: Organize by project$feature$agent
+3. **Namespace Properly**: Organize by project/feature/agent
 4. **Document Stored Data**: Include metadata about purpose
 5. **Regular Cleanup**: Remove obsolete entries
 

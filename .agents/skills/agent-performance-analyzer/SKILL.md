@@ -1,6 +1,6 @@
 ---
 name: agent-performance-analyzer
-description: Agent skill for performance-analyzer - invoke with $agent-performance-analyzer
+description: Agent skill for performance-analyzer - invoke with /agent-performance-analyzer
 ---
 
 ---

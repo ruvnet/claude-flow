@@ -31,7 +31,7 @@ This skill provides comprehensive GitHub Actions automation with AI swarm coordi
 ## Quick Start
 
 <details>
-<summary>💡 Basic Usage - Click to expand<$summary>
+<summary>💡 Basic Usage - Click to expand</summary>
 
 ### Initialize GitHub Workflow Automation
 ```bash
@@ -46,7 +46,7 @@ npx ruv-swarm actions generate-workflow \
 ```bash
 # Optimize existing workflow
 npx ruv-swarm actions optimize \
-  --workflow ".github$workflows$ci.yml" \
+  --workflow ".github/workflows/ci.yml" \
   --suggest-parallelization
 
 # Analyze failed runs
@@ -55,14 +55,14 @@ gh run view <run-id> --json jobs,conclusion | \
     --suggest-fixes
 ```
 
-<$details>
+</details>
 
 ## Core Capabilities
 
 ### 🤖 Swarm-Powered GitHub Modes
 
 <details>
-<summary>Available GitHub Integration Modes<$summary>
+<summary>Available GitHub Integration Modes</summary>
 
 #### 1. gh-coordinator
 **GitHub workflow orchestration and coordination**
@@ -167,16 +167,16 @@ npx ruv-swarm actions security \
   --create-issues
 ```
 
-<$details>
+</details>
 
 ### 🔧 Workflow Templates
 
 <details>
-<summary>Production-Ready GitHub Actions Templates<$summary>
+<summary>Production-Ready GitHub Actions Templates</summary>
 
 #### 1. Intelligent CI with Swarms
 ```yaml
-# .github$workflows$swarm-ci.yml
+# .github/workflows/swarm-ci.yml
 name: Intelligent CI with Swarms
 on: [push, pull_request]
 
@@ -184,10 +184,10 @@ jobs:
   swarm-analysis:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions$checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Initialize Swarm
-        uses: ruvnet$swarm-action@v1
+        uses: ruvnet/swarm-action@v1
         with:
           topology: mesh
           max-agents: 6
@@ -202,7 +202,7 @@ jobs:
 
 #### 2. Multi-Language Detection
 ```yaml
-# .github$workflows$polyglot-swarm.yml
+# .github/workflows/polyglot-swarm.yml
 name: Polyglot Project Handler
 on: push
 
@@ -210,7 +210,7 @@ jobs:
   detect-and-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions$checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Detect Languages
         id: detect
@@ -227,7 +227,7 @@ jobs:
 
 #### 3. Adaptive Security Scanning
 ```yaml
-# .github$workflows$security-swarm.yml
+# .github/workflows/security-swarm.yml
 name: Intelligent Security Scan
 on:
   schedule:
@@ -257,7 +257,7 @@ jobs:
 
 #### 4. Self-Healing Pipeline
 ```yaml
-# .github$workflows$self-healing.yml
+# .github/workflows/self-healing.yml
 name: Self-Healing Pipeline
 on: workflow_run
 
@@ -276,7 +276,7 @@ jobs:
 
 #### 5. Progressive Deployment
 ```yaml
-# .github$workflows$smart-deployment.yml
+# .github/workflows/smart-deployment.yml
 name: Smart Deployment
 on:
   push:
@@ -302,7 +302,7 @@ jobs:
 
 #### 6. Performance Regression Detection
 ```yaml
-# .github$workflows$performance-guard.yml
+# .github/workflows/performance-guard.yml
 name: Performance Guard
 on: pull_request
 
@@ -320,7 +320,7 @@ jobs:
 
 #### 7. PR Validation Swarm
 ```yaml
-# .github$workflows$pr-validation.yml
+# .github/workflows/pr-validation.yml
 name: PR Validation Swarm
 on: pull_request
 
@@ -343,7 +343,7 @@ jobs:
 
 #### 8. Intelligent Release
 ```yaml
-# .github$workflows$intelligent-release.yml
+# .github/workflows/intelligent-release.yml
 name: Intelligent Release
 on:
   push:
@@ -362,12 +362,12 @@ jobs:
             --publish-smart
 ```
 
-<$details>
+</details>
 
 ### 📊 Monitoring & Analytics
 
 <details>
-<summary>Workflow Analysis & Optimization<$summary>
+<summary>Workflow Analysis & Optimization</summary>
 
 #### Workflow Analytics
 ```bash
@@ -406,14 +406,14 @@ npx ruv-swarm actions resources \
   --cost-optimize
 ```
 
-<$details>
+</details>
 
 ## Advanced Features
 
 ### 🧪 Dynamic Test Strategies
 
 <details>
-<summary>Intelligent Test Selection & Execution<$summary>
+<summary>Intelligent Test Selection & Execution</summary>
 
 #### Smart Test Selection
 ```yaml
@@ -456,12 +456,12 @@ npx ruv-swarm actions parallel-strategy \
   --cost-aware
 ```
 
-<$details>
+</details>
 
 ### 🔮 Predictive Analysis
 
 <details>
-<summary>AI-Powered Workflow Predictions<$summary>
+<summary>AI-Powered Workflow Predictions</summary>
 
 #### Predictive Failures
 ```bash
@@ -490,12 +490,12 @@ npx ruv-swarm actions auto-optimize \
   --track-savings
 ```
 
-<$details>
+</details>
 
 ### 🎯 Custom Actions Development
 
 <details>
-<summary>Build Your Own Swarm Actions<$summary>
+<summary>Build Your Own Swarm Actions</summary>
 
 #### Custom Swarm Action Template
 ```javascript
@@ -508,7 +508,7 @@ inputs:
     required: true
 runs:
   using: 'node16'
-  main: 'dist$index.js'
+  main: 'dist/index.js'
 
 // index.js
 const { SwarmAction } = require('ruv-swarm');
@@ -525,14 +525,14 @@ async function run() {
 run().catch(error => core.setFailed(error.message));
 ```
 
-<$details>
+</details>
 
 ## Integration with Claude-Flow
 
 ### 🔄 Swarm Coordination Patterns
 
 <details>
-<summary>MCP-Based GitHub Workflow Coordination<$summary>
+<summary>MCP-Based GitHub Workflow Coordination</summary>
 
 #### Initialize GitHub Swarm
 ```javascript
@@ -574,12 +574,12 @@ npx claude-flow@alpha hooks post-task \
   --export-github-summary
 ```
 
-<$details>
+</details>
 
 ### 📦 Batch Operations
 
 <details>
-<summary>Concurrent GitHub Operations<$summary>
+<summary>Concurrent GitHub Operations</summary>
 
 #### Parallel GitHub CLI Commands
 ```javascript
@@ -597,18 +597,18 @@ npx claude-flow@alpha hooks post-task \
   ]}
 ```
 
-<$details>
+</details>
 
 ## Best Practices
 
 ### 🏗️ Workflow Organization
 
 <details>
-<summary>Structure Your GitHub Workflows<$summary>
+<summary>Structure Your GitHub Workflows</summary>
 
 #### 1. Use Reusable Workflows
 ```yaml
-# .github$workflows$reusable-swarm.yml
+# .github/workflows/reusable-swarm.yml
 name: Reusable Swarm Workflow
 on:
   workflow_call:
@@ -629,10 +629,10 @@ jobs:
 #### 2. Implement Proper Caching
 ```yaml
 - name: Cache Swarm Dependencies
-  uses: actions$cache@v3
+  uses: actions/cache@v3
   with:
     path: ~/.npm
-    key: ${{ runner.os }}-swarm-${{ hashFiles('**$package-lock.json') }}
+    key: ${{ runner.os }}-swarm-${{ hashFiles('**/package-lock.json') }}
 ```
 
 #### 3. Set Appropriate Timeouts
@@ -660,12 +660,12 @@ jobs:
     runs-on: ubuntu-latest
 ```
 
-<$details>
+</details>
 
 ### 🔒 Security Best Practices
 
 <details>
-<summary>Secure Your GitHub Workflows<$summary>
+<summary>Secure Your GitHub Workflows</summary>
 
 #### 1. Store Configurations Securely
 ```yaml
@@ -684,7 +684,7 @@ permissions:
   contents: read
 
 - name: Configure AWS Credentials
-  uses: aws-actions$configure-aws-credentials@v2
+  uses: aws-actions/configure-aws-credentials@v2
   with:
     role-to-assume: arn:aws:iam::123456789012:role/GitHubAction
     aws-region: us-east-1
@@ -707,21 +707,21 @@ permissions:
       --compliance-report
 ```
 
-<$details>
+</details>
 
 ### ⚡ Performance Optimization
 
 <details>
-<summary>Maximize Workflow Performance<$summary>
+<summary>Maximize Workflow Performance</summary>
 
 #### 1. Cache Swarm Dependencies
 ```yaml
-- uses: actions$cache@v3
+- uses: actions/cache@v3
   with:
     path: |
       ~/.npm
       node_modules
-    key: ${{ runner.os }}-swarm-${{ hashFiles('**$package-lock.json') }}
+    key: ${{ runner.os }}-swarm-${{ hashFiles('**/package-lock.json') }}
 ```
 
 #### 2. Use Appropriate Runner Sizes
@@ -757,14 +757,14 @@ strategy:
   max-parallel: 3
 ```
 
-<$details>
+</details>
 
 ## Debugging & Troubleshooting
 
 ### 🐛 Debug Tools
 
 <details>
-<summary>Debug GitHub Workflow Issues<$summary>
+<summary>Debug GitHub Workflow Issues</summary>
 
 #### Debug Mode
 ```yaml
@@ -801,18 +801,18 @@ gh run view <run-id> --json jobs,conclusion | \
 # Download and analyze logs
 gh run download <run-id>
 npx ruv-swarm actions analyze-logs \
-  --directory .$logs \
+  --directory ./logs \
   --identify-errors
 ```
 
-<$details>
+</details>
 
 ## Real-World Examples
 
 ### 🚀 Complete Workflows
 
 <details>
-<summary>Production-Ready Integration Examples<$summary>
+<summary>Production-Ready Integration Examples</summary>
 
 #### Example 1: Full-Stack Application CI/CD
 ```yaml
@@ -837,7 +837,7 @@ jobs:
     needs: initialize
     runs-on: ubuntu-latest
     steps:
-      - uses: actions$checkout@v3
+      - uses: actions/checkout@v3
       - name: Backend Tests
         run: |
           npx ruv-swarm agents spawn --type tester \
@@ -848,7 +848,7 @@ jobs:
     needs: initialize
     runs-on: ubuntu-latest
     steps:
-      - uses: actions$checkout@v3
+      - uses: actions/checkout@v3
       - name: Frontend Tests
         run: |
           npx ruv-swarm agents spawn --type tester \
@@ -859,7 +859,7 @@ jobs:
     needs: initialize
     runs-on: ubuntu-latest
     steps:
-      - uses: actions$checkout@v3
+      - uses: actions/checkout@v3
       - name: Security Scan
         run: |
           npx ruv-swarm agents spawn --type security \
@@ -868,7 +868,7 @@ jobs:
 
   deploy:
     needs: [backend, frontend, security]
-    if: github.ref == 'refs$heads$main'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy
@@ -889,7 +889,7 @@ jobs:
     outputs:
       packages: ${{ steps.detect.outputs.packages }}
     steps:
-      - uses: actions$checkout@v3
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -919,21 +919,21 @@ jobs:
 # Synchronize multiple repositories
 npx claude-flow@alpha github sync-coordinator \
   "Synchronize version updates across:
-   - github.com$org$repo-a
-   - github.com$org$repo-b
-   - github.com$org$repo-c
+   - github.com/org/repo-a
+   - github.com/org/repo-b
+   - github.com/org/repo-c
 
    Update dependencies, align versions, create PRs"
 ```
 
-<$details>
+</details>
 
 ## Command Reference
 
 ### 📚 Quick Command Guide
 
 <details>
-<summary>All Available Commands<$summary>
+<summary>All Available Commands</summary>
 
 #### Workflow Generation
 ```bash
@@ -949,7 +949,7 @@ npx ruv-swarm actions optimize [options]
   --workflow <path>        Path to workflow file
   --suggest-parallelization Suggest parallel execution
   --reduce-redundancy      Remove redundant steps
-  --estimate-savings       Estimate time$cost savings
+  --estimate-savings       Estimate time/cost savings
 ```
 
 #### Analysis
@@ -972,7 +972,7 @@ npx ruv-swarm actions smart-test [options]
 ```bash
 npx ruv-swarm actions security [options]
   --deep-scan             Deep security analysis
-  --format <format>       Output format (json$text)
+  --format <format>       Output format (json/text)
   --create-issues         Auto-create GitHub issues
 ```
 
@@ -993,27 +993,27 @@ npx ruv-swarm actions analytics [options]
   --suggest-improvements  Improvement suggestions
 ```
 
-<$details>
+</details>
 
 ## Integration Checklist
 
 ### ✅ Setup Verification
 
 <details>
-<summary>Verify Your Setup<$summary>
+<summary>Verify Your Setup</summary>
 
 - [ ] GitHub CLI (`gh`) installed and authenticated
 - [ ] Git configured with user credentials
 - [ ] Node.js v16+ installed
 - [ ] `claude-flow@alpha` package available
-- [ ] Repository has `.github$workflows` directory
+- [ ] Repository has `.github/workflows` directory
 - [ ] GitHub Actions enabled on repository
 - [ ] Necessary secrets configured
 - [ ] Runner permissions verified
 
 #### Quick Setup Script
 ```bash
-#!$bin$bash
+#!$bin/bash
 # setup-github-automation.sh
 
 # Install dependencies
@@ -1023,17 +1023,17 @@ npm install -g claude-flow@alpha
 gh auth status || gh auth login
 
 # Create workflow directory
-mkdir -p .github$workflows
+mkdir -p .github/workflows
 
 # Generate initial workflow
 npx ruv-swarm actions generate-workflow \
   --analyze-codebase \
-  --create-optimal-pipeline > .github$workflows$ci.yml
+  --create-optimal-pipeline > .github/workflows/ci.yml
 
 echo "✅ GitHub workflow automation setup complete"
 ```
 
-<$details>
+</details>
 
 ## Related Skills
 
@@ -1044,10 +1044,10 @@ echo "✅ GitHub workflow automation setup complete"
 
 ## Support & Documentation
 
-- **GitHub CLI Docs**: https:/$cli.github.com$manual/
-- **GitHub Actions**: https:/$docs.github.com$en$actions
-- **Claude-Flow**: https:/$github.com$ruvnet$claude-flow
-- **Ruv-Swarm**: https:/$github.com$ruvnet$ruv-swarm
+- **GitHub CLI Docs**: https://cli.github.com/manual/
+- **GitHub Actions**: https://docs.github.com/en/actions
+- **Claude-Flow**: https://github.com/ruvnet/claude-flow
+- **Ruv-Swarm**: https://github.com/ruvnet/ruv-swarm
 
 ## Version History
 

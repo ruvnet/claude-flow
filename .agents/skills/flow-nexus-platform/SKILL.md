@@ -162,7 +162,7 @@ mcp__flow-nexus__sandbox_execute({
   sandbox_id: "sandbox_id",
   code: `
     console.log('Hello from sandbox!');
-    const result = await fetch('https:/$api.example.com$data');
+    const result = await fetch('https://api.example.com/data');
     const data = await result.json();
     return data;
   `,
@@ -196,7 +196,7 @@ mcp__flow-nexus__sandbox_status({
 ```javascript
 mcp__flow-nexus__sandbox_upload({
   sandbox_id: "sandbox_id",
-  file_path: "$app$config$database.json",
+  file_path: "$app/config/database.json",
   content: JSON.stringify(databaseConfig, null, 2)
 })
 ```
@@ -281,7 +281,7 @@ mcp__flow-nexus__sandbox_create({
   name: "fullstack-app",
   install_packages: [
     "prisma",
-    "@prisma$client",
+    "@prisma/client",
     "next-auth",
     "zod"
   ],
@@ -356,9 +356,9 @@ mcp__flow-nexus__app_store_publish_app({
   metadata: {
     author: "Your Name",
     license: "MIT",
-    repository: "github.com$username$repo",
-    homepage: "https:/$yourapp.com",
-    documentation: "https:/$docs.yourapp.com"
+    repository: "github.com/username/repo",
+    homepage: "https://yourapp.com",
+    documentation: "https://docs.yourapp.com"
   }
 })
 ```
@@ -385,8 +385,8 @@ mcp__flow-nexus__template_deploy({
   deployment_name: "my-production-api",
   variables: {
     api_key: "your_api_key",
-    database_url: "postgres:/$user:pass@host:5432$db",
-    redis_url: "redis:/$localhost:6379"
+    database_url: "postgres://user:pass@host:5432/db",
+    redis_url: "redis://localhost:6379"
   },
   env_vars: {
     NODE_ENV: "production",
@@ -436,7 +436,7 @@ mcp__flow-nexus__market_data()
 3. **Testing**: Include test suite and CI/CD configuration
 4. **Versioning**: Use semantic versioning (MAJOR.MINOR.PATCH)
 5. **Licensing**: Add clear license information (MIT, Apache, etc.)
-6. **Deployment**: Include Docker$docker-compose configurations
+6. **Deployment**: Include Docker/docker-compose configurations
 7. **Migrations**: Provide upgrade guides for version updates
 8. **Security**: Document security considerations and best practices
 
@@ -511,12 +511,12 @@ mcp__flow-nexus__configure_auto_refill({
 ### Credit Pricing
 
 **Service Costs:**
-- **Swarm Operations**: 1-10 credits$hour
-- **Sandbox Execution**: 0.5-5 credits$hour
-- **Neural Training**: 5-50 credits$job
-- **Workflow Runs**: 0.1-1 credit$execution
-- **Storage**: 0.01 credits/GB$day
-- **API Calls**: 0.001-0.01 credits$request
+- **Swarm Operations**: 1-10 credits/hour
+- **Sandbox Execution**: 0.5-5 credits/hour
+- **Neural Training**: 5-50 credits/job
+- **Workflow Runs**: 0.1-1 credit/execution
+- **Storage**: 0.01 credits/GB/day
+- **API Calls**: 0.001-0.01 credits/request
 
 ### Earning Credits
 
@@ -547,7 +547,7 @@ mcp__flow-nexus__app_store_earn_ruv({
 - Community support
 - 1GB storage
 
-**Pro Tier ($29$month)**
+**Pro Tier ($29/month)**
 - 1000 credits monthly
 - Priority sandbox access (10 concurrent)
 - Unlimited swarm agents
@@ -716,9 +716,9 @@ mcp__flow-nexus__achievements_list({
 ```javascript
 mcp__flow-nexus__storage_upload({
   bucket: "my-bucket", // public, private, shared, temp
-  path: "data$users.json",
+  path: "data/users.json",
   content: JSON.stringify(userData, null, 2),
-  content_type: "application$json"
+  content_type: "application/json"
 })
 ```
 
@@ -735,7 +735,7 @@ mcp__flow-nexus__storage_list({
 ```javascript
 mcp__flow-nexus__storage_get_url({
   bucket: "my-bucket",
-  path: "data$report.pdf",
+  path: "data/report.pdf",
   expires_in: 3600 // seconds (default: 1 hour)
 })
 ```
@@ -744,7 +744,7 @@ mcp__flow-nexus__storage_get_url({
 ```javascript
 mcp__flow-nexus__storage_delete({
   bucket: "my-bucket",
-  path: "data$old-file.json"
+  path: "data/old-file.json"
 })
 ```
 
@@ -809,7 +809,7 @@ mcp__flow-nexus__execution_files_list({
 ```javascript
 mcp__flow-nexus__execution_file_get({
   file_id: "file_id",
-  file_path: "$path$to$file.js" // alternative
+  file_path: "$path/to/file.js" // alternative
 })
 ```
 
@@ -1004,7 +1004,7 @@ mcp__flow-nexus__challenge_submit({
 ## Troubleshooting
 
 ### Authentication Issues
-- **Login Failed**: Check email$password, verify email first
+- **Login Failed**: Check email/password, verify email first
 - **Token Expired**: Re-login to get fresh tokens
 - **Permission Denied**: Check tier limits, upgrade if needed
 
@@ -1012,7 +1012,7 @@ mcp__flow-nexus__challenge_submit({
 - **Sandbox Won't Start**: Check template compatibility, verify credits
 - **Execution Timeout**: Increase timeout parameter or optimize code
 - **Out of Memory**: Use larger template or optimize memory usage
-- **Package Install Failed**: Check package name, verify npm$pip availability
+- **Package Install Failed**: Check package name, verify npm/pip availability
 
 ### Payment Issues
 - **Payment Failed**: Check payment method, sufficient funds
@@ -1028,12 +1028,12 @@ mcp__flow-nexus__challenge_submit({
 
 ## Support & Resources
 
-- **Documentation**: https:/$docs.flow-nexus.ruv.io
-- **API Reference**: https:/$api.flow-nexus.ruv.io$docs
-- **Status Page**: https:/$status.flow-nexus.ruv.io
-- **Community Forum**: https:/$community.flow-nexus.ruv.io
-- **GitHub Issues**: https:/$github.com$ruvnet$flow-nexus$issues
-- **Discord**: https:/$discord.gg$flow-nexus
+- **Documentation**: https://docs.flow-nexus.ruv.io
+- **API Reference**: https://api.flow-nexus.ruv.io/docs
+- **Status Page**: https://status.flow-nexus.ruv.io
+- **Community Forum**: https://community.flow-nexus.ruv.io
+- **GitHub Issues**: https://github.com/ruvnet/flow-nexus/issues
+- **Discord**: https://discord.gg/flow-nexus
 - **Email Support**: support@flow-nexus.ruv.io (Pro/Enterprise only)
 
 ---
@@ -1041,7 +1041,7 @@ mcp__flow-nexus__challenge_submit({
 ## Progressive Disclosure
 
 <details>
-<summary><strong>Advanced Sandbox Configuration<$strong><$summary>
+<summary><strong>Advanced Sandbox Configuration</strong></summary>
 
 ### Custom Docker Images
 ```javascript
@@ -1051,7 +1051,7 @@ mcp__flow-nexus__sandbox_create({
   startup_script: `
     apt-get update
     apt-get install -y custom-package
-    git clone https:/$github.com$user$repo
+    git clone https://github.com/user/repo
     cd repo && npm install
   `
 })
@@ -1069,14 +1069,14 @@ mcp__flow-nexus__sandbox_execute({
 mcp__flow-nexus__sandbox_execute({
   sandbox_id: "id",
   code: "npm start",
-  working_dir: "$app$dist"
+  working_dir: "$app/dist"
 })
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Advanced Storage Patterns<$strong><$summary>
+<summary><strong>Advanced Storage Patterns</strong></summary>
 
 ### Large File Upload (Chunked)
 ```javascript
@@ -1095,22 +1095,22 @@ for (let i = 0; i < chunks.length; i++) {
 // Upload to temp for processing
 mcp__flow-nexus__storage_upload({
   bucket: "temp",
-  path: "processing$data.json",
+  path: "processing/data.json",
   content: data
 })
 
 // Move to permanent storage after processing
 mcp__flow-nexus__storage_upload({
   bucket: "private",
-  path: "archive$processed-data.json",
+  path: "archive/processed-data.json",
   content: processedData
 })
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Advanced Real-time Patterns<$strong><$summary>
+<summary><strong>Advanced Real-time Patterns</strong></summary>
 
 ### Multi-Table Sync
 ```javascript
@@ -1137,7 +1137,7 @@ mcp__flow-nexus__realtime_subscribe({
 // (handled by your application logic)
 ```
 
-<$details>
+</details>
 
 ---
 

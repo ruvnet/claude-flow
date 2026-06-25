@@ -1,6 +1,6 @@
 ---
 name: agent-issue-tracker
-description: Agent skill for issue-tracker - invoke with $agent-issue-tracker
+description: Agent skill for issue-tracker - invoke with /agent-issue-tracker
 ---
 
 ---
@@ -97,7 +97,7 @@ mcp__claude-flow__task_orchestrate {
 // Update issue with progress from swarm memory
 mcp__claude-flow__memory_usage {
   action: "retrieve",
-  key: "issue/54$progress"
+  key: "issue/54/progress"
 }
 
 // Add coordinated progress comment
@@ -126,7 +126,7 @@ mcp__github__add_issue_comment {
 // Store progress in swarm memory
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "issue/54$latest_update",
+  key: "issue/54/latest_update",
   value: { timestamp: Date.now(), progress: "89%", status: "near_completion" }
 }
 ```
@@ -135,7 +135,7 @@ mcp__claude-flow__memory_usage {
 ```javascript
 // Search and coordinate related issues
 mcp__github__search_issues {
-  q: "repo:ruvnet$ruv-FANN label:integration state:open",
+  q: "repo:ruvnet/ruv-FANN label:integration state:open",
   sort: "created",
   order: "desc"
 }
@@ -172,7 +172,7 @@ mcp__github__update_issue {
   Bash(`gh issue create \
     --repo :owner/:repo \
     --title "Bug: PR merge conflicts in integration branch" \
-    --body "Resolve merge conflicts in integration$claude-code-flow-ruv-swarm..." \
+    --body "Resolve merge conflicts in integration/claude-code-flow-ruv-swarm..." \
     --label "bug,integration,urgent"`)
     
   Bash(`gh issue create \
@@ -192,7 +192,7 @@ mcp__github__update_issue {
   // Store initial coordination state
   mcp__claude-flow__memory_usage {
     action: "store",
-    key: "project$github_integration$issues",
+    key: "project/github_integration/issues",
     value: { created: Date.now(), total_issues: 3, status: "initialized" }
   }
 ```
@@ -304,10 +304,10 @@ Updates will be posted automatically by swarm agents during implementation.
 ## Integration with Other Modes
 
 ### Seamless integration with:
-- `$github pr-manager` - Link issues to pull requests
-- `$github release-manager` - Coordinate release issues
-- `$sparc orchestrator` - Complex project coordination
-- `$sparc tester` - Automated testing workflows
+- `/github pr-manager` - Link issues to pull requests
+- `/github release-manager` - Coordinate release issues
+- `/sparc orchestrator` - Complex project coordination
+- `/sparc tester` - Automated testing workflows
 
 ## Metrics and Analytics
 

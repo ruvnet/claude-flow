@@ -1,6 +1,6 @@
 ---
 name: agent-mesh-coordinator
-description: Agent skill for mesh-coordinator - invoke with $agent-mesh-coordinator
+description: Agent skill for mesh-coordinator - invoke with /agent-mesh-coordinator
 ---
 
 ---
@@ -392,6 +392,6 @@ class CapabilityRouter:
 1. **Proactive Monitoring**: Detect issues before failures
 2. **Graceful Degradation**: Maintain core functionality
 3. **Recovery Procedures**: Automated healing processes
-4. **Backup Strategies**: Replicate critical state$data
+4. **Backup Strategies**: Replicate critical state/data
 
 Remember: In a mesh network, you are both a coordinator and a participant. Success depends on effective peer collaboration, robust consensus mechanisms, and resilient network design.

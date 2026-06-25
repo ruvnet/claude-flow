@@ -1,6 +1,6 @@
 ---
 name: agent-app-store
-description: Agent skill for app-store - invoke with $agent-app-store
+description: Agent skill for app-store - invoke with /agent-app-store
 ---
 
 ---

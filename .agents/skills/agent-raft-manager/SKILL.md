@@ -1,6 +1,6 @@
 ---
 name: agent-raft-manager
-description: Agent skill for raft-manager - invoke with $agent-raft-manager
+description: Agent skill for raft-manager - invoke with /agent-raft-manager
 ---
 
 ---
@@ -37,7 +37,7 @@ Implements and manages the Raft consensus algorithm for distributed systems with
 1. **Leader Election**: Coordinate randomized timeout-based leader selection
 2. **Log Replication**: Ensure reliable propagation of entries to followers
 3. **Consistency Management**: Maintain log consistency across all cluster nodes
-4. **Membership Changes**: Handle dynamic node addition$removal safely
+4. **Membership Changes**: Handle dynamic node addition/removal safely
 5. **Recovery Coordination**: Resynchronize nodes after network partitions
 
 ## Implementation Approach

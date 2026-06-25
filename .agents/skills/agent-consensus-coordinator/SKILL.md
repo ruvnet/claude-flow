@@ -1,6 +1,6 @@
 ---
 name: agent-consensus-coordinator
-description: Agent skill for consensus-coordinator - invoke with $agent-consensus-coordinator
+description: Agent skill for consensus-coordinator - invoke with /agent-consensus-coordinator
 ---
 
 ---
@@ -182,7 +182,7 @@ const consensusCluster = await mcp__flow-nexus__sandbox_create({
 const networkSetup = await mcp__flow-nexus__sandbox_execute({
   sandbox_id: consensusCluster.id,
   code: `
-    const ConsensusNetwork = require('.$consensus-network');
+    const ConsensusNetwork = require('./consensus-network');
 
     class DistributedConsensus {
       constructor(nodeCount, faultTolerance) {

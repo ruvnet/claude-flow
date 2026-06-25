@@ -1,6 +1,6 @@
 ---
 name: agent-dev-backend-api
-description: Agent skill for dev-backend-api - invoke with $agent-dev-backend-api
+description: Agent skill for dev-backend-api - invoke with /agent-dev-backend-api
 ---
 
 ---
@@ -30,9 +30,9 @@ triggers:
     - "backend"
     - "server"
   file_patterns:
-    - "**$api/**/*.js"
-    - "**$routes/**/*.js"
-    - "**$controllers/**/*.js"
+    - "**/api/**/*.js"
+    - "**/routes/**/*.js"
+    - "**/controllers/**/*.js"
     - "*.resolver.js"
   task_patterns:
     - "create * endpoint"
@@ -116,10 +116,10 @@ hooks:
 
     # 🧠 v2.0.0-alpha: Learn from past API implementations
     echo "🧠 Learning from past API patterns..."
-    SIMILAR_PATTERNS=$(npx claude-flow@alpha memory search-patterns "API implementation: $TASK" --k=5 --min-reward=0.85 2>$dev$null || echo "")
+    SIMILAR_PATTERNS=$(npx claude-flow@alpha memory search-patterns "API implementation: $TASK" --k=5 --min-reward=0.85 2>/dev/null || echo "")
     if [ -n "$SIMILAR_PATTERNS" ]; then
       echo "📚 Found similar successful API patterns"
-      npx claude-flow@alpha memory get-pattern-stats "API implementation" --k=5 2>$dev$null || true
+      npx claude-flow@alpha memory get-pattern-stats "API implementation" --k=5 2>/dev/null || true
     fi
 
     # Store task start for learning
@@ -127,17 +127,17 @@ hooks:
       --session-id "backend-dev-$(date +%s)" \
       --task "API: $TASK" \
       --input "$TASK_CONTEXT" \
-      --status "started" 2>$dev$null || true
+      --status "started" 2>/dev/null || true
 
   post_execution: |
     echo "✅ API development completed"
     echo "📊 Running API tests..."
-    npm run test:api 2>$dev$null || echo "No API tests configured"
+    npm run test:api 2>/dev/null || echo "No API tests configured"
 
     # 🧠 v2.0.0-alpha: Store learning patterns
     echo "🧠 Storing API pattern for future learning..."
-    REWARD=$(if npm run test:api 2>$dev$null; then echo "0.95"; else echo "0.7"; fi)
-    SUCCESS=$(if npm run test:api 2>$dev$null; then echo "true"; else echo "false"; fi)
+    REWARD=$(if npm run test:api 2>/dev/null; then echo "0.95"; else echo "0.7"; fi)
+    SUCCESS=$(if npm run test:api 2>/dev/null; then echo "true"; else echo "false"; fi)
 
     npx claude-flow@alpha memory store-pattern \
       --session-id "backend-dev-$(date +%s)" \
@@ -145,7 +145,7 @@ hooks:
       --output "$TASK_OUTPUT" \
       --reward "$REWARD" \
       --success "$SUCCESS" \
-      --critique "API implementation with $(find . -name '*.route.js' -o -name '*.controller.js' | wc -l) endpoints" 2>$dev$null || true
+      --critique "API implementation with $(find . -name '*.route.js' -o -name '*.controller.js' | wc -l) endpoints" 2>/dev/null || true
 
     # Train neural patterns on successful implementations
     if [ "$SUCCESS" = "true" ]; then
@@ -153,7 +153,7 @@ hooks:
       npx claude-flow@alpha neural train \
         --pattern-type "coordination" \
         --training-data "$TASK_OUTPUT" \
-        --epochs 50 2>$dev$null || true
+        --epochs 50 2>/dev/null || true
     fi
 
   on_error: |
@@ -167,7 +167,7 @@ hooks:
       --output "Failed: {{error_message}}" \
       --reward "0.0" \
       --success "false" \
-      --critique "Error: {{error_message}}" 2>$dev$null || true
+      --critique "Error: {{error_message}}" 2>/dev/null || true
 examples:
   - trigger: "create user authentication endpoints"
     response: "I'll create comprehensive user authentication endpoints including login, logout, register, and token refresh..."

@@ -1,6 +1,6 @@
 ---
 name: agent-project-board-sync
-description: Agent skill for project-board-sync - invoke with $agent-project-board-sync
+description: Agent skill for project-board-sync - invoke with /agent-project-board-sync
 ---
 
 ---
@@ -31,7 +31,7 @@ tools:
 hooks:
   pre:
     - "gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)"
-    - "gh project list --owner @me --limit 1 >$dev$null || echo 'No projects accessible'"
+    - "gh project list --owner @me --limit 1 >/dev/null || echo 'No projects accessible'"
     - "git status --porcelain || echo 'Not in git repository'"
     - "gh api user | jq -r '.login' || echo 'API access check'"
   post:
@@ -86,7 +86,7 @@ npx ruv-swarm github board-sync \
 ```bash
 # Enable real-time board updates
 npx ruv-swarm github board-realtime \
-  --webhook-endpoint "https:/$api.example.com$github-sync" \
+  --webhook-endpoint "https://api.example.com/github-sync" \
   --update-frequency "immediate" \
   --batch-updates false
 ```
@@ -95,7 +95,7 @@ npx ruv-swarm github board-realtime \
 
 ### Board Mapping Configuration
 ```yaml
-# .github$board-sync.yml
+# .github/board-sync.yml
 version: 1
 project:
   name: "AI Development Board"
@@ -209,7 +209,7 @@ ISSUES=$(gh issue list --label "enhancement" --json number,title,body)
 
 # Add issues to project
 echo "$ISSUES" | jq -r '.[].number' | while read -r issue; do
-  gh project item-add $PROJECT_ID --owner @me --url "https:/$github.com/$GITHUB_REPOSITORY$issues/$issue"
+  gh project item-add $PROJECT_ID --owner @me --url "https://github.com/$GITHUB_REPOSITORY/issues/$issue"
 done
 
 # Process with swarm
@@ -511,4 +511,4 @@ npx ruv-swarm github team-metrics \
   --anonymous-option
 ```
 
-See also: [swarm-issue.md](.$swarm-issue.md), [multi-repo-swarm.md](.$multi-repo-swarm.md)
+See also: [swarm-issue.md](./swarm-issue.md), [multi-repo-swarm.md](./multi-repo-swarm.md)

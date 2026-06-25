@@ -94,7 +94,7 @@ mcp__claude-flow__task_orchestrate({
 {
   "PostToolUse": [{
     "matcher": "^Bash$",
-    "command": "npx claude-flow hook post-bash --exit-code '${tool.result.exitCode}' --auto-recover"
+    "command": "npx claude-flow@v3alpha hooks post-bash --exit-code '${tool.result.exitCode}' --auto-recover"
   }]
 }
 ```

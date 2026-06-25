@@ -257,7 +257,7 @@ claude-flow stream-chain pipeline optimize --timeout 90 --verbose
 Each pipeline execution provides:
 
 - **Progress**: Step-by-step execution status
-- **Results**: Success$failure per step
+- **Results**: Success/failure per step
 - **Timing**: Total and per-step execution time
 - **Summary**: Consolidated results and recommendations
 
@@ -265,7 +265,7 @@ Each pipeline execution provides:
 
 ## Custom Pipeline Definitions
 
-Define reusable pipelines in `.claude-flow$config.json`:
+Define reusable pipelines in `.claude-flow/config.json`:
 
 ### Configuration Format
 
@@ -278,7 +278,7 @@ Define reusable pipelines in `.claude-flow$config.json`:
         "description": "Comprehensive security analysis",
         "prompts": [
           "Scan codebase for security vulnerabilities",
-          "Categorize issues by severity (critical$high$medium$low)",
+          "Categorize issues by severity (critical/high/medium/low)",
           "Generate fixes with priority and implementation steps",
           "Create security test suite"
         ],
@@ -444,7 +444,7 @@ claude-flow stream-chain run \
   "Design architecture" \
   --verbose
 
-# Results stored in .claude-flow$memory$stream-chain/
+# Results stored in .claude-flow/memory/stream-chain/
 ```
 
 ### Neural Pattern Training
@@ -484,7 +484,7 @@ Verify pipeline name and custom definitions:
 
 ```bash
 # Check available pipelines
-cat .claude-flow$config.json | grep -A 10 "streamChain"
+cat .claude-flow/config.json | grep -A 10 "streamChain"
 ```
 
 ---

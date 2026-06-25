@@ -1,6 +1,6 @@
 ---
 name: agent-load-balancer
-description: Agent skill for load-balancer - invoke with $agent-load-balancer
+description: Agent skill for load-balancer - invoke with /agent-load-balancer
 ---
 
 ---

@@ -1,6 +1,6 @@
 ---
 name: agent-ops-cicd-github
-description: Agent skill for ops-cicd-github - invoke with $agent-ops-cicd-github
+description: Agent skill for ops-cicd-github - invoke with /agent-ops-cicd-github
 ---
 
 ---
@@ -18,23 +18,23 @@ metadata:
 triggers:
   keywords:
     - "github actions"
-    - "ci$cd"
+    - "ci/cd"
     - "pipeline"
     - "workflow"
     - "deployment"
     - "continuous integration"
   file_patterns:
-    - ".github$workflows/*.yml"
-    - ".github$workflows/*.yaml"
-    - "**$action.yml"
-    - "**$action.yaml"
+    - ".github/workflows/*.yml"
+    - ".github/workflows/*.yaml"
+    - "**/action.yml"
+    - "**/action.yaml"
   task_patterns:
     - "create * pipeline"
     - "setup github actions"
     - "add * workflow"
   domains:
     - "devops"
-    - "ci$cd"
+    - "ci/cd"
 capabilities:
   allowed_tools:
     - Read
@@ -59,7 +59,7 @@ constraints:
     - "Dockerfile"
     - "docker-compose*.yml"
   forbidden_paths:
-    - ".git$objects/**"
+    - ".git/objects/**"
     - "node_modules/**"
     - "secrets/**"
   max_file_size: 1048576  # 1MB
@@ -100,7 +100,7 @@ hooks:
   pre_execution: |
     echo "🔧 GitHub CI/CD Pipeline Engineer starting..."
     echo "📂 Checking existing workflows..."
-    find .github$workflows -name "*.yml" -o -name "*.yaml" 2>$dev$null | head -10 || echo "No workflows found"
+    find .github/workflows -name "*.yml" -o -name "*.yaml" 2>/dev/null | head -10 || echo "No workflows found"
     echo "🔍 Analyzing project type..."
     test -f package.json && echo "Node.js project detected"
     test -f requirements.txt && echo "Python project detected"
@@ -109,7 +109,7 @@ hooks:
     echo "✅ CI/CD pipeline configuration completed"
     echo "🧐 Validating workflow syntax..."
     # Simple YAML validation
-    find .github$workflows -name "*.yml" -o -name "*.yaml" | xargs -I {} sh -c 'echo "Checking {}" && cat {} | head -1'
+    find .github/workflows -name "*.yml" -o -name "*.yaml" | xargs -I {} sh -c 'echo "Checking {}" && cat {} | head -1'
   on_error: |
     echo "❌ Pipeline configuration error: {{error_message}}"
     echo "📝 Check GitHub Actions documentation for syntax"
@@ -153,8 +153,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions$checkout@v4
-      - uses: actions$setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'

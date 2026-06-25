@@ -53,7 +53,7 @@ npx ruv-swarm github review-init \
 ## 📚 Table of Contents
 
 <details>
-<summary><strong>Core Features<$strong><$summary>
+<summary><strong>Core Features</strong></summary>
 
 - [Multi-Agent Review System](#multi-agent-review-system)
 - [Specialized Review Agents](#specialized-review-agents)
@@ -61,10 +61,10 @@ npx ruv-swarm github review-init \
 - [Automated Workflows](#automated-workflows)
 - [Quality Gates & Checks](#quality-gates--checks)
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Review Agents<$strong><$summary>
+<summary><strong>Review Agents</strong></summary>
 
 - [Security Review Agent](#security-review-agent)
 - [Performance Review Agent](#performance-review-agent)
@@ -72,27 +72,27 @@ npx ruv-swarm github review-init \
 - [Style & Convention Agent](#style--convention-agent)
 - [Accessibility Agent](#accessibility-agent)
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Advanced Features<$strong><$summary>
+<summary><strong>Advanced Features</strong></summary>
 
 - [Context-Aware Reviews](#context-aware-reviews)
 - [Learning from History](#learning-from-history)
 - [Cross-PR Analysis](#cross-pr-analysis)
 - [Custom Review Agents](#custom-review-agents)
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Integration & Automation<$strong><$summary>
+<summary><strong>Integration & Automation</strong></summary>
 
 - [CI/CD Integration](#cicd-integration)
 - [Webhook Handlers](#webhook-handlers)
 - [PR Comment Commands](#pr-comment-commands)
 - [Automated Fixes](#automated-fixes)
 
-<$details>
+</details>
 
 ---
 
@@ -156,7 +156,7 @@ fi
 ```
 
 <details>
-<summary><strong>Security Checks Performed<$strong><$summary>
+<summary><strong>Security Checks Performed</strong></summary>
 
 ```javascript
 {
@@ -179,10 +179,10 @@ fi
 }
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Comment Template: Security Issue<$strong><$summary>
+<summary><strong>Comment Template: Security Issue</strong></summary>
 
 ```markdown
 🔒 **Security Issue: [Type]**
@@ -205,7 +205,7 @@ fi
 - [Security Best Practices](link)
 ```
 
-<$details>
+</details>
 
 ---
 
@@ -223,7 +223,7 @@ npx ruv-swarm github review-performance \
 ```
 
 <details>
-<summary><strong>Performance Metrics Analyzed<$strong><$summary>
+<summary><strong>Performance Metrics Analyzed</strong></summary>
 
 ```javascript
 {
@@ -245,7 +245,7 @@ npx ruv-swarm github review-performance \
 }
 ```
 
-<$details>
+</details>
 
 ---
 
@@ -263,7 +263,7 @@ npx ruv-swarm github review-architecture \
 ```
 
 <details>
-<summary><strong>Architecture Analysis<$strong><$summary>
+<summary><strong>Architecture Analysis</strong></summary>
 
 ```javascript
 {
@@ -285,7 +285,7 @@ npx ruv-swarm github review-architecture \
 }
 ```
 
-<$details>
+</details>
 
 ---
 
@@ -302,7 +302,7 @@ npx ruv-swarm github review-style \
 ```
 
 <details>
-<summary><strong>Style Checks<$strong><$summary>
+<summary><strong>Style Checks</strong></summary>
 
 ```javascript
 {
@@ -324,7 +324,7 @@ npx ruv-swarm github review-style \
 }
 ```
 
-<$details>
+</details>
 
 ---
 
@@ -387,7 +387,7 @@ $swarm review --agents security,performance
 ```
 
 <details>
-<summary><strong>Webhook Handler for Comment Commands<$strong><$summary>
+<summary><strong>Webhook Handler for Comment Commands</strong></summary>
 
 ```javascript
 // webhook-handler.js
@@ -413,7 +413,7 @@ createServer((req, res) => {
 }).listen(3000);
 ```
 
-<$details>
+</details>
 
 ---
 
@@ -422,7 +422,7 @@ createServer((req, res) => {
 ### Configuration File
 
 ```yaml
-# .github$review-swarm.yml
+# .github/review-swarm.yml
 version: 1
 review:
   auto-trigger: true
@@ -464,19 +464,19 @@ review:
 {
   "triggers": {
     "high-risk-files": {
-      "paths": ["**$auth/**", "**$payment/**", "**$admin/**"],
+      "paths": ["**/auth/**", "**/payment/**", "**/admin/**"],
       "agents": ["security", "architecture"],
       "depth": "comprehensive",
       "require-approval": true
     },
     "performance-critical": {
-      "paths": ["**$api/**", "**$database/**", "**$cache/**"],
+      "paths": ["**/api/**", "**/database/**", "**/cache/**"],
       "agents": ["performance", "database"],
       "benchmarks": true,
       "regression-threshold": "5%"
     },
     "ui-changes": {
-      "paths": ["**$components/**", "**$styles/**", "**$pages/**"],
+      "paths": ["**/components/**", "**/styles/**", "**/pages/**"],
       "agents": ["accessibility", "style", "i18n"],
       "visual-tests": true,
       "responsive-check": true
@@ -492,7 +492,7 @@ review:
 ### Auto-Review on PR Creation
 
 ```yaml
-# .github$workflows$auto-review.yml
+# .github/workflows/auto-review.yml
 name: Automated Code Review
 on:
   pull_request:
@@ -504,7 +504,7 @@ jobs:
   swarm-review:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions$checkout@v3
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -576,7 +576,7 @@ echo "$COMMENTS" | jq -c '.[]' | while read -r comment; do
   # Create inline review comments
   gh api \
     --method POST \
-    $repos/:owner/:repo$pulls/123$comments \
+    $repos/:owner/:repo/pulls/123/comments \
     -f path="$FILE" \
     -f line="$LINE" \
     -f body="$BODY" \
@@ -607,10 +607,10 @@ protection_rules:
   required_status_checks:
     strict: true
     contexts:
-      - "review-swarm$security"
-      - "review-swarm$performance"
-      - "review-swarm$architecture"
-      - "review-swarm$tests"
+      - "review-swarm/security"
+      - "review-swarm/performance"
+      - "review-swarm/architecture"
+      - "review-swarm/tests"
 ```
 
 ### Define Quality Gates
@@ -742,7 +742,7 @@ class CustomReviewAgent {
 
   async checkTodoComments(pr) {
     // Implementation
-    const todoRegex = /\/\/\s*TODO|\/\*\s*TODO$gi;
+    const todoRegex = /\/\/\s*TODO|\/\*\s*TODO/gi;
     return todoRegex.test(pr.diff);
   }
 
@@ -762,7 +762,7 @@ module.exports = CustomReviewAgent;
 # Register custom review agent
 npx ruv-swarm github register-agent \
   --name "custom-reviewer" \
-  --file ".$custom-review-agent.js" \
+  --file "./custom-review-agent.js" \
   --category "standards"
 ```
 
@@ -773,7 +773,7 @@ npx ruv-swarm github register-agent \
 ### Integration with Build Pipeline
 
 ```yaml
-# .github$workflows$build-and-review.yml
+# .github/workflows/build-and-review.yml
 name: Build and Review
 on: [pull_request]
 
@@ -781,7 +781,7 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions$checkout@v3
+      - uses: actions/checkout@v3
       - run: npm install
       - run: npm test
       - run: npm run build
@@ -974,12 +974,12 @@ npx ruv-swarm github export-metrics \
 ### 4. PR Templates
 
 ```markdown
-<!-- .github$pull_request_template.md -->
+<!-- .github/pull_request_template.md -->
 ## Swarm Configuration
-- Topology: [mesh$hierarchical$ring$star]
+- Topology: [mesh/hierarchical/ring/star]
 - Max Agents: [number]
-- Auto-spawn: [yes$no]
-- Priority: [high$medium$low]
+- Auto-spawn: [yes/no]
+- Priority: [high/medium/low]
 
 ## Tasks for Swarm
 - [ ] Task 1 description
@@ -1058,7 +1058,7 @@ fi
 ### Common Issues
 
 <details>
-<summary><strong>Issue: Review agents not spawning<$strong><$summary>
+<summary><strong>Issue: Review agents not spawning</strong></summary>
 
 **Solution:**
 ```bash
@@ -1072,10 +1072,10 @@ gh auth status
 npx ruv-swarm github review-init --pr 123 --force
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Issue: Comments not posting to PR<$strong><$summary>
+<summary><strong>Issue: Comments not posting to PR</strong></summary>
 
 **Solution:**
 ```bash
@@ -1089,10 +1089,10 @@ gh api rate_limit
 npx ruv-swarm github review-comments --pr 123 --batch
 ```
 
-<$details>
+</details>
 
 <details>
-<summary><strong>Issue: Review taking too long<$strong><$summary>
+<summary><strong>Issue: Review taking too long</strong></summary>
 
 **Solution:**
 ```bash
@@ -1106,7 +1106,7 @@ npx ruv-swarm github review-init --pr 123 --agents "security,style" --max-agents
 npx ruv-swarm github review-init --pr 123 --parallel --cache-results
 ```
 
-<$details>
+</details>
 
 ---
 
@@ -1118,9 +1118,9 @@ npx ruv-swarm github review-init --pr 123 --parallel --cache-results
 - `swarm-coordination` - Advanced swarm orchestration
 
 ### Documentation
-- [GitHub CLI Documentation](https:/$cli.github.com$manual/)
-- [RUV Swarm Guide](https:/$github.com$ruvnet$ruv-swarm)
-- [Claude Flow Integration](https:/$github.com$ruvnet$claude-flow)
+- [GitHub CLI Documentation](https://cli.github.com/manual/)
+- [RUV Swarm Guide](https://github.com/ruvnet/ruv-swarm)
+- [Claude Flow Integration](https://github.com/ruvnet/claude-flow)
 
 ### Support
 - GitHub Issues: Report bugs and request features

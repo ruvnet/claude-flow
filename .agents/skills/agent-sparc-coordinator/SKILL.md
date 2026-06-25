@@ -1,6 +1,6 @@
 ---
 name: agent-sparc-coordinator
-description: Agent skill for sparc-coordinator - invoke with $agent-sparc-coordinator
+description: Agent skill for sparc-coordinator - invoke with /agent-sparc-coordinator
 ---
 
 ---

@@ -26,16 +26,16 @@ tools:
 hooks:
   pre_task: |
     echo "🏗️ Initializing repository architecture analysis..."
-    npx claude-flow@v3alpha hook pre-task --mode repo-architect --analyze-structure
+    npx claude-flow@v3alpha hooks pre-task --mode repo-architect --analyze-structure
   post_edit: |
     echo "📐 Validating architecture changes and updating structure documentation..."
-    npx claude-flow@v3alpha hook post-edit --mode repo-architect --validate-structure
+    npx claude-flow@v3alpha hooks post-edit --mode repo-architect --validate-structure
   post_task: |
     echo "🏛️ Architecture task completed. Generating structure recommendations..."
-    npx claude-flow@v3alpha hook post-task --mode repo-architect --generate-recommendations
+    npx claude-flow@v3alpha hooks post-task --mode repo-architect --generate-recommendations
   notification: |
     echo "📋 Notifying stakeholders of architecture improvements..."
-    npx claude-flow@v3alpha hook notification --mode repo-architect
+    npx claude-flow@v3alpha hooks notification --mode repo-architect
 ---
 
 # GitHub Repository Architect
@@ -116,9 +116,9 @@ mcp__github__push_files {
           }
         },
         hooks: {
-          pre_task: "npx claude-flow@v3alpha hook pre-task",
-          post_edit: "npx claude-flow@v3alpha hook post-edit", 
-          notification: "npx claude-flow@v3alpha hook notification"
+          pre_task: "npx claude-flow@v3alpha hooks pre-task",
+          post_edit: "npx claude-flow@v3alpha hooks post-edit", 
+          notification: "npx claude-flow@v3alpha hooks notification"
         }
       }, null, 2)
     },

@@ -1,6 +1,6 @@
 ---
 name: agent-orchestrator-task
-description: Agent skill for orchestrator-task - invoke with $agent-orchestrator-task
+description: Agent skill for orchestrator-task - invoke with /agent-orchestrator-task
 ---
 
 ---

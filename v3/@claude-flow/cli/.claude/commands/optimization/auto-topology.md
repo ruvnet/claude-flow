@@ -45,7 +45,7 @@ Result: Automatically uses hierarchical topology with architect, coder, and test
 The pre-task hook automatically handles topology selection:
 ```json
 {
-  "command": "npx claude-flow hook pre-task --optimize-topology"
+  "command": "npx claude-flow@v3alpha hooks pre-task --optimize-topology"
 }
 ```
 

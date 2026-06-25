@@ -1,6 +1,6 @@
 ---
 name: agent-resource-allocator
-description: Agent skill for resource-allocator - invoke with $agent-resource-allocator
+description: Agent skill for resource-allocator - invoke with /agent-resource-allocator
 ---
 
 ---
@@ -155,7 +155,7 @@ class PredictiveScaler {
     // Engineer features
     const features = await this.featureEngineering.engineer(trainingData);
     
-    // Train$update models
+    // Train/update models
     await this.updateModels(features);
     
     // Generate predictions
@@ -191,7 +191,7 @@ class PredictiveScaler {
     if (validation.accuracy > 0.85) {
       await mcp.model_save({
         modelId: model.modelId,
-        path: '$models$scaling_predictor.model'
+        path: '$models/scaling_predictor.model'
       });
       
       return {

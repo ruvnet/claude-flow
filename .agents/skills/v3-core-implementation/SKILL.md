@@ -73,7 +73,7 @@ src/
 
 ### Entity Base Class
 ```typescript
-// src$core$shared$domain$entity.ts
+// src/core/shared/domain/entity.ts
 export abstract class Entity<T> {
   protected readonly _id: T;
   private _domainEvents: DomainEvent[] = [];
@@ -118,7 +118,7 @@ export abstract class Entity<T> {
 
 ### Value Object Base Class
 ```typescript
-// src$core$shared$domain$value-object.ts
+// src/core/shared/domain/value-object.ts
 export abstract class ValueObject<T> {
   protected readonly props: T;
 
@@ -146,7 +146,7 @@ export abstract class ValueObject<T> {
 
 ### Aggregate Root
 ```typescript
-// src$core$shared$domain$aggregate-root.ts
+// src/core/shared/domain/aggregate-root.ts
 export abstract class AggregateRoot<T> extends Entity<T> {
   private _version: number = 0;
 
@@ -169,12 +169,12 @@ export abstract class AggregateRoot<T> extends Entity<T> {
 
 ### Task Entity
 ```typescript
-// src$core$domains$task-management$entities$task.entity.ts
-import { AggregateRoot } from '../../..$shared$domain$aggregate-root';
-import { TaskId } from '..$value-objects$task-id.vo';
-import { TaskStatus } from '..$value-objects$task-status.vo';
-import { Priority } from '..$value-objects$priority.vo';
-import { TaskAssignedEvent } from '..$events$task-assigned.event';
+// src/core/domains/task-management/entities/task.entity.ts
+import { AggregateRoot } from '../../../shared/domain/aggregate-root';
+import { TaskId } from '../value-objects/task-id.vo';
+import { TaskStatus } from '../value-objects/task-status.vo';
+import { Priority } from '../value-objects/priority.vo';
+import { TaskAssignedEvent } from '../events/task-assigned.event';
 
 interface TaskProps {
   id: TaskId;
@@ -258,7 +258,7 @@ export class Task extends AggregateRoot<TaskId> {
 
 ### Task Value Objects
 ```typescript
-// src$core$domains$task-management$value-objects$task-id.vo.ts
+// src/core/domains/task-management/value-objects/task-id.vo.ts
 export class TaskId extends ValueObject<string> {
   private constructor(value: string) {
     super({ value });
@@ -280,7 +280,7 @@ export class TaskId extends ValueObject<string> {
   }
 }
 
-// src$core$domains$task-management$value-objects$task-status.vo.ts
+// src/core/domains/task-management/value-objects/task-status.vo.ts
 type TaskStatusType = 'pending' | 'assigned' | 'in_progress' | 'completed' | 'failed';
 
 export class TaskStatus extends ValueObject<TaskStatusType> {
@@ -305,7 +305,7 @@ export class TaskStatus extends ValueObject<TaskStatusType> {
   public isFailed(): boolean { return this.value === 'failed'; }
 }
 
-// src$core$domains$task-management$value-objects$priority.vo.ts
+// src/core/domains/task-management/value-objects/priority.vo.ts
 type PriorityLevel = 'low' | 'medium' | 'high' | 'critical';
 
 export class Priority extends ValueObject<PriorityLevel> {
@@ -333,10 +333,10 @@ export class Priority extends ValueObject<PriorityLevel> {
 
 ### Task Scheduling Service
 ```typescript
-// src$core$domains$task-management$services$task-scheduling.service.ts
-import { Injectable } from '../../..$shared$infrastructure$dependency-container';
-import { Task } from '..$entities$task.entity';
-import { Priority } from '..$value-objects$priority.vo';
+// src/core/domains/task-management/services/task-scheduling.service.ts
+import { Injectable } from '../../../shared/infrastructure/dependency-container';
+import { Task } from '../entities/task.entity';
+import { Priority } from '../value-objects/priority.vo';
 
 @Injectable()
 export class TaskSchedulingService {
@@ -375,7 +375,7 @@ export class TaskSchedulingService {
 
 ### Task Repository Interface
 ```typescript
-// src$core$domains$task-management$repositories$task.repository.ts
+// src/core/domains/task-management/repositories/task.repository.ts
 export interface ITaskRepository {
   save(task: Task): Promise<void>;
   findById(id: TaskId): Promise<Task | null>;
@@ -388,7 +388,7 @@ export interface ITaskRepository {
 
 ### SQLite Implementation
 ```typescript
-// src$core$domains$task-management$repositories$sqlite-task.repository.ts
+// src/core/domains/task-management/repositories/sqlite-task.repository.ts
 @Injectable()
 export class SqliteTaskRepository implements ITaskRepository {
   constructor(
@@ -448,7 +448,7 @@ export class SqliteTaskRepository implements ITaskRepository {
 
 ### Use Case Implementation
 ```typescript
-// src$core$application$use-cases$assign-task.use-case.ts
+// src/core/application/use-cases/assign-task.use-case.ts
 @Injectable()
 export class AssignTaskUseCase {
   constructor(
@@ -531,9 +531,9 @@ export class AssignTaskUseCase {
 
 ### Container Configuration
 ```typescript
-// src$core$shared$infrastructure$dependency-container.ts
+// src/core/shared/infrastructure/dependency-container.ts
 import { Container } from 'inversify';
-import { TYPES } from '.$types';
+import { TYPES } from './types';
 
 export class DependencyContainer {
   private container: Container;
@@ -595,7 +595,7 @@ export class DependencyContainer {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "declaration": true,
-    "outDir": ".$dist",
+    "outDir": "./dist",
     "strict": true,
     "exactOptionalPropertyTypes": true,
     "noImplicitReturns": true,
@@ -612,9 +612,9 @@ export class DependencyContainer {
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@core/*": ["src$core/*"],
-      "@shared/*": ["src$core$shared/*"],
-      "@domains/*": ["src$core$domains/*"]
+      "@core/*": ["src/core/*"],
+      "@shared/*": ["src/core/shared/*"],
+      "@domains/*": ["src/core/domains/*"]
     }
   },
   "include": ["src/**/*"],
@@ -626,7 +626,7 @@ export class DependencyContainer {
 
 ### Domain Unit Tests
 ```typescript
-// src$core$domains$task-management/__tests__$entities$task.entity.test.ts
+// src/core/domains/task-management/__tests__/entities/task.entity.test.ts
 describe('Task Entity', () => {
   let task: Task;
 
@@ -682,7 +682,7 @@ describe('Task Entity', () => {
 
 ### Integration Tests
 ```typescript
-// src$core$domains$task-management/__tests__$integration$task-repository.integration.test.ts
+// src/core/domains/task-management/__tests__/integration/task-repository.integration.test.ts
 describe('TaskRepository Integration', () => {
   let repository: SqliteTaskRepository;
   let db: Database;
@@ -729,7 +729,7 @@ describe('TaskRepository Integration', () => {
 
 ### Entity Caching
 ```typescript
-// src$core$shared$infrastructure$entity-cache.ts
+// src/core/shared/infrastructure/entity-cache.ts
 @Injectable()
 export class EntityCache<T extends Entity<any>> {
   private cache = new Map<string, { entity: T; timestamp: number }>();

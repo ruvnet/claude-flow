@@ -1,6 +1,6 @@
 ---
 name: Pair Programming
-description: AI-assisted pair programming with multiple modes (driver$navigator$switch), real-time verification, quality monitoring, and comprehensive testing. Supports TDD, debugging, refactoring, and learning sessions. Features automatic role switching, continuous code review, security scanning, and performance optimization with truth-score verification.
+description: AI-assisted pair programming with multiple modes (driver/navigator/switch), real-time verification, quality monitoring, and comprehensive testing. Supports TDD, debugging, refactoring, and learning sessions. Features automatic role switching, continuous code review, security scanning, and performance optimization with truth-score verification.
 ---
 
 # Pair Programming
@@ -9,12 +9,12 @@ Collaborative AI pair programming with intelligent role management, real-time qu
 
 ## What This Skill Does
 
-This skill provides professional pair programming capabilities with AI assistance, supporting multiple collaboration modes, continuous verification, and integrated testing. It manages driver$navigator roles, performs real-time code review, tracks quality metrics, and ensures high standards through truth-score verification.
+This skill provides professional pair programming capabilities with AI assistance, supporting multiple collaboration modes, continuous verification, and integrated testing. It manages driver/navigator roles, performs real-time code review, tracks quality metrics, and ensures high standards through truth-score verification.
 
 **Key Capabilities:**
 - **Multiple Modes**: Driver, Navigator, Switch, TDD, Review, Mentor, Debug
 - **Real-Time Verification**: Automatic quality scoring with rollback on failures
-- **Role Management**: Seamless switching between driver$navigator roles
+- **Role Management**: Seamless switching between driver/navigator roles
 - **Testing Integration**: Auto-generate tests, track coverage, continuous testing
 - **Code Review**: Security scanning, performance analysis, best practice enforcement
 - **Session Persistence**: Auto-save, recovery, export, and sharing
@@ -382,7 +382,7 @@ $leaderboard [--personal|team]
 #### Role & Mode Commands
 ```
 $switch [--immediate]
-  Switch driver$navigator roles
+  Switch driver/navigator roles
 
 $mode <type>
   Change mode (driver|navigator|switch|tdd|review|mentor|debug)
@@ -398,21 +398,21 @@ $handoff
 
 | Alias | Full Command |
 |-------|-------------|
-| `$s` | `$suggest` |
-| `$e` | `$explain` |
-| `$t` | `$test` |
-| `$r` | `$review` |
-| `$c` | `$commit` |
-| `$g` | `$goto` |
-| `$f` | `$find` |
-| `$h` | `$help` |
-| `$sw` | `$switch` |
-| `$st` | `$status` |
+| `/s` | `/suggest` |
+| `/e` | `/explain` |
+| `/t` | `/test` |
+| `/r` | `/review` |
+| `/c` | `/commit` |
+| `/g` | `/goto` |
+| `/f` | `/find` |
+| `/h` | `/help` |
+| `/sw` | `/switch` |
+| `/st` | `/status` |
 
 ### Configuration
 
 #### Basic Configuration
-Create `.claude-flow$pair-config.json`:
+Create `.claude-flow/pair-config.json`:
 
 ```json
 {
@@ -779,7 +779,7 @@ $analyze UserService.js
 
 $suggest refactoring plan
 > AI suggests:
-  1. Convert callbacks to async$await
+  1. Convert callbacks to async/await
   2. Add error boundaries
   3. Extract dependencies
   4. Add unit tests
@@ -787,18 +787,18 @@ $suggest refactoring plan
 $test-gen --before-refactor
 > AI generates tests for current behavior
 
-$refactor callbacks to async$await
+$refactor callbacks to async/await
 # You refactor with AI guidance
 
 $test
 > All tests passing ✅
 
 $review --compare
-> AI shows before$after comparison
+> AI shows before/after comparison
 > Code complexity: 35 → 12
 > Truth score: 0.99 ✅
 
-$commit --message "refactor: modernize UserService with async$await"
+$commit --message "refactor: modernize UserService with async/await"
 ```
 
 #### Example 5: Performance Optimization
@@ -865,11 +865,11 @@ claude-flow pair --start \
 
 $design REST API for blog platform
 > AI designs endpoints:
-  POST   $api$posts
-  GET    $api$posts
-  GET    $api$posts/:id
-  PUT    $api$posts/:id
-  DELETE $api$posts/:id
+  POST   $api/posts
+  GET    $api/posts
+  GET    $api/posts/:id
+  PUT    $api/posts/:id
+  DELETE $api/posts/:id
 
 $implement CRUD endpoints with validation
 > AI implements with Express + Joi validation
@@ -956,7 +956,7 @@ Next Switch: in 3 minutes
 └── Commits: 3
 
 🎯 Focus: Implementation
-📝 Current File: src$auth$login.js
+📝 Current File: src/auth/login.js
 ```
 
 #### Session History
@@ -1094,7 +1094,7 @@ claude-flow pair --start --ide vscode
 1. **Test Early** - Run tests after each change
 2. **Verify Before Commit** - Check truth scores
 3. **Review Security** - Always for sensitive code
-4. **Profile Performance** - Use `$perf` for optimization
+4. **Profile Performance** - Use `/perf` for optimization
 5. **Save Sessions** - For complex work
 6. **Learn from AI** - Ask questions frequently
 

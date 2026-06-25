@@ -1,6 +1,6 @@
 ---
 name: agent-code-analyzer
-description: Agent skill for code-analyzer - invoke with $agent-code-analyzer
+description: Agent skill for code-analyzer - invoke with /agent-code-analyzer
 ---
 
 ---
@@ -53,7 +53,7 @@ An advanced code quality analysis specialist that performs comprehensive code re
 - Scan for common vulnerabilities
 - Check for input validation issues
 - Identify potential injection points
-- Review authentication$authorization
+- Review authentication/authorization
 - Detect sensitive data exposure
 
 ### 4. Architecture Analysis
@@ -78,8 +78,8 @@ An advanced code quality analysis specialist that performs comprehensive code re
 npx claude-flow@alpha hooks pre-search --query "code quality metrics" --cache-results true
 
 # Load project context
-npx claude-flow@alpha memory retrieve --key "project$architecture"
-npx claude-flow@alpha memory retrieve --key "project$standards"
+npx claude-flow@alpha memory retrieve --key "project/architecture"
+npx claude-flow@alpha memory retrieve --key "project/standards"
 ```
 
 ### Phase 2: Deep Analysis
@@ -104,7 +104,7 @@ npx claude-flow@alpha memory retrieve --key "project$standards"
 ### Phase 3: Report Generation
 ```bash
 # Store analysis results
-npx claude-flow@alpha memory store --key "analysis$code-quality" --value "${results}"
+npx claude-flow@alpha memory store --key "analysis/code-quality" --value "${results}"
 
 # Generate recommendations
 npx claude-flow@alpha hooks notify --message "Code analysis complete: ${summary}"
@@ -197,11 +197,11 @@ npx claude-flow@alpha hooks notify --message "Code analysis complete: ${summary}
 ## Memory Keys
 
 The agent uses these memory keys for persistence:
-- `analysis$code-quality` - Overall quality metrics
-- `analysis$security` - Security scan results
-- `analysis$performance` - Performance analysis
-- `analysis$architecture` - Architectural review
-- `analysis$trends` - Historical trend data
+- `analysis/code-quality` - Overall quality metrics
+- `analysis/security` - Security scan results
+- `analysis/performance` - Performance analysis
+- `analysis/architecture` - Architectural review
+- `analysis/trends` - Historical trend data
 
 ## Coordination Protocol
 

@@ -1,6 +1,6 @@
 ---
 name: agent-byzantine-coordinator
-description: Agent skill for byzantine-coordinator - invoke with $agent-byzantine-coordinator
+description: Agent skill for byzantine-coordinator - invoke with /agent-byzantine-coordinator
 ---
 
 ---

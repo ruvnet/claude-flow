@@ -79,7 +79,7 @@ npx ruflo@alpha truth
 npx ruflo@alpha verify check
 
 # Verify specific file with custom threshold
-npx ruflo@alpha verify check --file src$app.js --threshold 0.98
+npx ruflo@alpha verify check --file src/app.js --threshold 0.98
 
 # Rollback last failed verification
 npx ruflo@alpha verify rollback --last-good
@@ -106,7 +106,7 @@ npx ruflo@alpha truth --period 7d
 # View scores for specific agent
 npx ruflo@alpha truth --agent coder --period 24h
 
-# Find files$tasks below threshold
+# Find files/tasks below threshold
 npx ruflo@alpha truth --threshold 0.8
 ```
 
@@ -131,7 +131,7 @@ npx ruflo@alpha truth --format html --export report.html
 npx ruflo@alpha truth --watch
 
 # Export metrics automatically
-npx ruflo@alpha truth --export .claude-flow$metrics$truth-$(date +%Y%m%d).json
+npx ruflo@alpha truth --export .claude-flow/metrics/truth-$(date +%Y%m%d).json
 ```
 
 #### Truth Score Dashboard
@@ -187,13 +187,13 @@ Execute comprehensive verification checks on code, tasks, or agent outputs.
 **File Verification:**
 ```bash
 # Verify single file
-npx ruflo@alpha verify check --file src$app.js
+npx ruflo@alpha verify check --file src/app.js
 
 # Verify directory recursively
 npx ruflo@alpha verify check --directory src/
 
 # Verify with auto-fix enabled
-npx ruflo@alpha verify check --file src$utils.js --auto-fix
+npx ruflo@alpha verify check --file src/utils.js --auto-fix
 
 # Verify current working directory
 npx ruflo@alpha verify check
@@ -243,7 +243,7 @@ The verification system evaluates:
    - Vulnerability scanning
    - Secret detection
    - Input validation
-   - Authentication$authorization checks
+   - Authentication/authorization checks
 
 4. **Performance**
    - Algorithmic complexity
@@ -359,7 +359,7 @@ npx ruflo@alpha verify report --from 2025-01-01 --to 2025-01-31
 - Overall truth scores
 - Per-agent performance metrics
 - Task completion quality
-- Verification pass$fail rates
+- Verification pass/fail rates
 - Rollback frequency
 - Quality improvement trends
 - Statistical confidence intervals
@@ -391,13 +391,13 @@ npx ruflo@alpha verify dashboard --refresh 5s
 - Task history timeline
 - Rollback history viewer
 - Export to PDF/HTML
-- Filter by time period$agent$score
+- Filter by time period/agent/score
 
 ### Configuration
 
 #### Default Configuration
 
-Set verification preferences in `.claude-flow$config.json`:
+Set verification preferences in `.claude-flow/config.json`:
 
 ```json
 {
@@ -425,7 +425,7 @@ Set verification preferences in `.claude-flow$config.json`:
     "criticalThreshold": 0.75,
     "autoExport": {
       "enabled": true,
-      "path": ".claude-flow$metrics$truth-daily.json"
+      "path": ".claude-flow/metrics/truth-daily.json"
     }
   }
 }
@@ -472,7 +472,7 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions$checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Install Dependencies
         run: npm install
@@ -490,7 +490,7 @@ jobs:
           fi
 
       - name: Upload Report
-        uses: actions$upload-artifact@v3
+        uses: actions/upload-artifact@v3
         with:
           name: verification-report
           path: verification.json
@@ -566,19 +566,19 @@ Send metrics to external monitoring systems:
 ```bash
 # Export to Prometheus
 npx ruflo@alpha truth --format json | \
-  curl -X POST https:/$pushgateway.example.com$metrics$job$claude-flow \
+  curl -X POST https://pushgateway.example.com/metrics/job/claude-flow \
   -d @-
 
 # Send to DataDog
 npx ruflo@alpha verify report --format json | \
-  curl -X POST "https:/$api.datadoghq.com$api$v1$series?api_key=${DD_API_KEY}" \
-  -H "Content-Type: application$json" \
+  curl -X POST "https://api.datadoghq.com/api/v1/series?api_key=${DD_API_KEY}" \
+  -H "Content-Type: application/json" \
   -d @-
 
 # Custom webhook
 npx ruflo@alpha truth --format json | \
-  curl -X POST https:/$metrics.example.com$api$truth \
-  -H "Content-Type: application$json" \
+  curl -X POST https://metrics.example.com/api/truth \
+  -H "Content-Type: application/json" \
   -d @-
 ```
 
@@ -590,11 +590,11 @@ Automatically verify before commits:
 # Install pre-commit hook
 npx ruflo@alpha verify install-hook --pre-commit
 
-# .git$hooks$pre-commit example:
-#!$bin$bash
-npx ruflo@alpha verify check --threshold 0.95 --json > $tmp$verify.json
+# .git/hooks/pre-commit example:
+#!$bin/bash
+npx ruflo@alpha verify check --threshold 0.95 --json > /tmp/verify.json
 
-score=$(jq '.overallScore' $tmp$verify.json)
+score=$(jq '.overallScore' /tmp/verify.json)
 if (( $(echo "$score < 0.95" | bc -l) )); then
   echo "❌ Verification failed with score: $score"
   echo "Run 'npx ruflo@alpha verify check --verbose' for details"
@@ -687,7 +687,7 @@ Verification commands return standard exit codes:
 
 ### Additional Resources
 
-- Truth Scoring Algorithm: See `$docs$truth-scoring.md`
-- Verification Criteria: See `$docs$verification-criteria.md`
-- Integration Examples: See `$examples$verification/`
-- API Reference: See `$docs$api$verification.md`
+- Truth Scoring Algorithm: See `/docs/truth-scoring.md`
+- Verification Criteria: See `/docs/verification-criteria.md`
+- Integration Examples: See `/examples/verification/`
+- API Reference: See `/docs/api/verification.md`

@@ -231,11 +231,11 @@ async function executeHook(hookType: string, options: Record<string, any>): Prom
 **Verification:**
 ```bash
 # Should fail with error
-claude-flow hook pre-task --description "test; whoami"
-claude-flow hook pre-task --description "test && ls"
+claude-flow@v3alpha hooks pre-task --description "test; whoami"
+claude-flow@v3alpha hooks pre-task --description "test && ls"
 
 # Should succeed
-claude-flow hook pre-task --description "legitimate task description"
+claude-flow@v3alpha hooks pre-task --description "legitimate task description"
 ```
 
 ---

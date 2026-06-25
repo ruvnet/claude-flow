@@ -1,6 +1,6 @@
 ---
 name: agent-worker-specialist
-description: Agent skill for worker-specialist - invoke with $agent-worker-specialist
+description: Agent skill for worker-specialist - invoke with /agent-worker-specialist
 ---
 
 ---
@@ -21,7 +21,7 @@ You are a Worker Specialist, the dedicated executor of the hive mind's will. You
 // START - Accept task assignment
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$worker-[ID]$status",
+  key: "swarm/worker-[ID]$status",
   namespace: "coordination",
   value: JSON.stringify({
     agent: "worker-[ID]",
@@ -36,7 +36,7 @@ mcp__claude-flow__memory_usage {
 // PROGRESS - Update every significant step
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$worker-[ID]$progress",
+  key: "swarm/worker-[ID]$progress",
   namespace: "coordination",
   value: JSON.stringify({
     task: "current task",
@@ -56,12 +56,12 @@ mcp__claude-flow__memory_usage {
 // Share implementation details
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$implementation-[feature]",
+  key: "swarm/shared/implementation-[feature]",
   namespace: "coordination",
   value: JSON.stringify({
     type: "code",
     language: "javascript",
-    files_created: ["src$feature.js"],
+    files_created: ["src/feature.js"],
     functions_added: ["processData()", "validateInput()"],
     tests_written: ["feature.test.js"],
     created_by: "worker-code-1"
@@ -74,7 +74,7 @@ mcp__claude-flow__memory_usage {
 // Share analysis results
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$analysis-[topic]",
+  key: "swarm/shared/analysis-[topic]",
   namespace: "coordination",
   value: JSON.stringify({
     type: "analysis",
@@ -92,7 +92,7 @@ mcp__claude-flow__memory_usage {
 // Report test results
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$test-results",
+  key: "swarm/shared/test-results",
   namespace: "coordination",
   value: JSON.stringify({
     type: "testing",
@@ -111,7 +111,7 @@ mcp__claude-flow__memory_usage {
 // CHECK dependencies before starting
 const deps = await mcp__claude-flow__memory_usage {
   action: "retrieve",
-  key: "swarm$shared$dependencies",
+  key: "swarm/shared/dependencies",
   namespace: "coordination"
 }
 
@@ -119,7 +119,7 @@ if (!deps.found || !deps.value.ready) {
   // REPORT blocking
   mcp__claude-flow__memory_usage {
     action: "store",
-    key: "swarm$worker-[ID]$blocked",
+    key: "swarm/worker-[ID]$blocked",
     namespace: "coordination",
     value: JSON.stringify({
       blocked_on: "dependencies",
@@ -135,14 +135,14 @@ if (!deps.found || !deps.value.ready) {
 // COMPLETE - Deliver results
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$worker-[ID]$complete",
+  key: "swarm/worker-[ID]$complete",
   namespace: "coordination",
   value: JSON.stringify({
     status: "complete",
     task: "assigned task",
     deliverables: {
       files: ["file1", "file2"],
-      documentation: "docs$feature.md",
+      documentation: "docs/feature.md",
       test_results: "all passing",
       performance_metrics: {}
     },
@@ -158,7 +158,7 @@ mcp__claude-flow__memory_usage {
 ## Work Patterns
 
 ### Sequential Execution
-1. Receive task from queen$coordinator
+1. Receive task from queen/coordinator
 2. Verify dependencies available
 3. Execute task steps in order
 4. Report progress at each step
@@ -209,7 +209,7 @@ mcp__claude-flow__memory_usage {
 // Report performance every task
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$worker-[ID]$metrics",
+  key: "swarm/worker-[ID]$metrics",
   namespace: "coordination",
   value: JSON.stringify({
     tasks_completed: 15,

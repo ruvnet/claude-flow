@@ -21,65 +21,65 @@ Implements vector-based semantic search using AgentDB's high-performance vector 
 
 ```bash
 # Initialize with default dimensions (1536 for OpenAI ada-002)
-npx agentdb@latest init .$vectors.db
+npx agentdb@latest init ./vectors.db
 
 # Custom dimensions for different embedding models
-npx agentdb@latest init .$vectors.db --dimension 768  # sentence-transformers
-npx agentdb@latest init .$vectors.db --dimension 384  # all-MiniLM-L6-v2
+npx agentdb@latest init ./vectors.db --dimension 768  # sentence-transformers
+npx agentdb@latest init ./vectors.db --dimension 384  # all-MiniLM-L6-v2
 
 # Use preset configurations
-npx agentdb@latest init .$vectors.db --preset small   # <10K vectors
-npx agentdb@latest init .$vectors.db --preset medium  # 10K-100K vectors
-npx agentdb@latest init .$vectors.db --preset large   # >100K vectors
+npx agentdb@latest init ./vectors.db --preset small   # <10K vectors
+npx agentdb@latest init ./vectors.db --preset medium  # 10K-100K vectors
+npx agentdb@latest init ./vectors.db --preset large   # >100K vectors
 
 # In-memory database for testing
-npx agentdb@latest init .$vectors.db --in-memory
+npx agentdb@latest init ./vectors.db --in-memory
 ```
 
 ### Query Vector Database
 
 ```bash
 # Basic similarity search
-npx agentdb@latest query .$vectors.db "[0.1,0.2,0.3,...]"
+npx agentdb@latest query ./vectors.db "[0.1,0.2,0.3,...]"
 
 # Top-k results
-npx agentdb@latest query .$vectors.db "[0.1,0.2,0.3]" -k 10
+npx agentdb@latest query ./vectors.db "[0.1,0.2,0.3]" -k 10
 
 # With similarity threshold (cosine similarity)
-npx agentdb@latest query .$vectors.db "0.1 0.2 0.3" -t 0.75 -m cosine
+npx agentdb@latest query ./vectors.db "0.1 0.2 0.3" -t 0.75 -m cosine
 
 # Different distance metrics
-npx agentdb@latest query .$vectors.db "[...]" -m euclidean  # L2 distance
-npx agentdb@latest query .$vectors.db "[...]" -m dot        # Dot product
+npx agentdb@latest query ./vectors.db "[...]" -m euclidean  # L2 distance
+npx agentdb@latest query ./vectors.db "[...]" -m dot        # Dot product
 
 # JSON output for automation
-npx agentdb@latest query .$vectors.db "[...]" -f json -k 5
+npx agentdb@latest query ./vectors.db "[...]" -f json -k 5
 
 # Verbose output with distances
-npx agentdb@latest query .$vectors.db "[...]" -v
+npx agentdb@latest query ./vectors.db "[...]" -v
 ```
 
 ### Import/Export Vectors
 
 ```bash
 # Export vectors to JSON
-npx agentdb@latest export .$vectors.db .$backup.json
+npx agentdb@latest export ./vectors.db ./backup.json
 
 # Import vectors from JSON
-npx agentdb@latest import .$backup.json
+npx agentdb@latest import ./backup.json
 
 # Get database statistics
-npx agentdb@latest stats .$vectors.db
+npx agentdb@latest stats ./vectors.db
 ```
 
 ## Quick Start with API
 
 ```typescript
-import { createAgentDBAdapter, computeEmbedding } from 'agentic-flow$reasoningbank';
+import { createAgentDBAdapter, computeEmbedding } from 'agentic-flow/reasoningbank';
 
 // Initialize with vector search optimizations
 const adapter = await createAgentDBAdapter({
-  dbPath: '.agentdb$vectors.db',
+  dbPath: '.agentdb/vectors.db',
   enableLearning: false,       // Vector search only
   enableReasoning: true,       // Enable semantic matching
   quantizationType: 'binary',  // 32x memory reduction
@@ -236,13 +236,13 @@ const adapter = await createAgentDBAdapter({
 
 ```bash
 # Cosine similarity (default, best for most use cases)
-npx agentdb@latest query .$db.sqlite "[...]" -m cosine
+npx agentdb@latest query ./db.sqlite "[...]" -m cosine
 
 # Euclidean distance (L2 norm)
-npx agentdb@latest query .$db.sqlite "[...]" -m euclidean
+npx agentdb@latest query ./db.sqlite "[...]" -m euclidean
 
 # Dot product (for normalized vectors)
-npx agentdb@latest query .$db.sqlite "[...]" -m dot
+npx agentdb@latest query ./db.sqlite "[...]" -m dot
 ```
 
 ## Advanced Features
@@ -276,7 +276,7 @@ npx agentdb@latest query .$db.sqlite "[...]" -m dot
 ### Issue: Slow search performance
 ```bash
 # Check if HNSW indexing is enabled (automatic)
-npx agentdb@latest stats .$vectors.db
+npx agentdb@latest stats ./vectors.db
 
 # Expected: <100µs search time
 ```
@@ -290,7 +290,7 @@ npx agentdb@latest stats .$vectors.db
 ### Issue: Poor relevance
 ```bash
 # Adjust similarity threshold
-npx agentdb@latest query .$db.sqlite "[...]" -t 0.8  # Higher threshold
+npx agentdb@latest query ./db.sqlite "[...]" -t 0.8  # Higher threshold
 
 # Or use MMR for diverse results
 # Use in adapter: useMMR: true
@@ -303,17 +303,17 @@ npx agentdb@latest query .$db.sqlite "[...]" -t 0.8  # Higher threshold
 # - sentence-transformers: 768
 # - all-MiniLM-L6-v2: 384
 
-npx agentdb@latest init .$db.sqlite --dimension 768
+npx agentdb@latest init ./db.sqlite --dimension 768
 ```
 
 ## Database Statistics
 
 ```bash
 # Get comprehensive stats
-npx agentdb@latest stats .$vectors.db
+npx agentdb@latest stats ./vectors.db
 
 # Shows:
-# - Total patterns$vectors
+# - Total patterns/vectors
 # - Database size
 # - Average confidence
 # - Domains distribution
@@ -331,9 +331,9 @@ npx agentdb@latest stats .$vectors.db
 
 ## Learn More
 
-- GitHub: https:/$github.com$ruvnet$agentic-flow$tree$main$packages$agentdb
-- Documentation: node_modules$agentic-flow/docs/AGENTDB_INTEGRATION.md
+- GitHub: https://github.com/ruvnet/agentic-flow/tree/main/packages/agentdb
+- Documentation: node_modules/agentic-flow/docs/AGENTDB_INTEGRATION.md
 - MCP Integration: `npx agentdb@latest mcp` for Claude Code
-- Website: https:/$agentdb.ruv.io
+- Website: https://agentdb.ruv.io
 - CLI Help: `npx agentdb@latest --help`
 - Command Help: `npx agentdb@latest help <command>`

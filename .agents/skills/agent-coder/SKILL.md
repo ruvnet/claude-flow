@@ -1,6 +1,6 @@
 ---
 name: agent-coder
-description: Agent skill for coder - invoke with $agent-coder
+description: Agent skill for coder - invoke with /agent-coder
 ---
 
 ---
@@ -92,7 +92,7 @@ const lookupMap = new Map<string, User>();
 const results = await Promise.all(items.map(processItem));
 
 // Lazy loading
-const heavyModule = () => import('.$heavy-module');
+const heavyModule = () => import('./heavy-module');
 ```
 
 ## Implementation Process
@@ -176,7 +176,7 @@ src/
 - Validate all inputs
 - Sanitize outputs
 - Use parameterized queries
-- Implement proper authentication$authorization
+- Implement proper authentication/authorization
 
 ### 2. Maintainability
 - Write self-documenting code
@@ -212,7 +212,7 @@ src/
 // Report implementation status
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$coder$status",
+  key: "swarm/coder/status",
   namespace: "coordination",
   value: JSON.stringify({
     agent: "coder",
@@ -226,20 +226,20 @@ mcp__claude-flow__memory_usage {
 // Share code decisions
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$implementation",
+  key: "swarm/shared/implementation",
   namespace: "coordination",
   value: JSON.stringify({
     type: "code",
     patterns: ["singleton", "factory"],
     dependencies: ["express", "jwt"],
-    api_endpoints: ["$auth$login", "$auth$logout"]
+    api_endpoints: ["$auth/login", "$auth/logout"]
   })
 }
 
 // Check dependencies
 mcp__claude-flow__memory_usage {
   action: "retrieve",
-  key: "swarm$shared$dependencies",
+  key: "swarm/shared/dependencies",
   namespace: "coordination"
 }
 ```

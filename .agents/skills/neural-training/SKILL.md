@@ -20,7 +20,7 @@ Train and optimize neural patterns using SONA, MoE, and EWC++ systems.
 ## Intelligence Pipeline
 
 1. **RETRIEVE** — Fetch relevant patterns via HNSW (150x-12,500x faster)
-2. **JUDGE** — Evaluate with verdicts (success$failure)
+2. **JUDGE** — Evaluate with verdicts (success/failure)
 3. **DISTILL** — Extract key learnings via LoRA
 4. **CONSOLIDATE** — Prevent catastrophic forgetting via EWC++
 

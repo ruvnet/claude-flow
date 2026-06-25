@@ -1,6 +1,6 @@
 ---
 name: agent-swarm-pr
-description: Agent skill for swarm-pr - invoke with $agent-swarm-pr
+description: Agent skill for swarm-pr - invoke with /agent-swarm-pr
 ---
 
 ---
@@ -73,7 +73,7 @@ $swarm status
 ### 3. Automated PR Workflows
 
 ```yaml
-# .github$workflows$swarm-pr.yml
+# .github/workflows/swarm-pr.yml
 name: Swarm PR Handler
 on:
   pull_request:
@@ -85,7 +85,7 @@ jobs:
   swarm-handler:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions$checkout@v3
+      - uses: actions/checkout@v3
       - name: Handle Swarm Command
         run: |
           if [[ "${{ github.event.comment.body }}" == $swarm* ]]; then
@@ -199,12 +199,12 @@ npx ruv-swarm github pr-fix 123 \
 
 ### 1. PR Templates
 ```markdown
-<!-- .github$pull_request_template.md -->
+<!-- .github/pull_request_template.md -->
 ## Swarm Configuration
-- Topology: [mesh$hierarchical$ring$star]
+- Topology: [mesh/hierarchical/ring/star]
 - Max Agents: [number]
-- Auto-spawn: [yes$no]
-- Priority: [high$medium$low]
+- Auto-spawn: [yes/no]
+- Priority: [high/medium/low]
 
 ## Tasks for Swarm
 - [ ] Task 1 description
@@ -216,9 +216,9 @@ npx ruv-swarm github pr-fix 123 \
 # Require swarm completion before merge
 required_status_checks:
   contexts:
-    - "swarm$tasks-complete"
-    - "swarm$tests-pass"
-    - "swarm$review-approved"
+    - "swarm/tasks-complete"
+    - "swarm/tests-pass"
+    - "swarm/review-approved"
 ```
 
 ### 3. PR Merge Automation
@@ -420,7 +420,7 @@ mcp__claude-flow__task_orchestrate {
 # Store merge decision context
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "pr$merge_decisions/#{pr_number}",
+  key: "pr/merge_decisions/#{pr_number}",
   value: {
     ready_to_merge: true,
     validation_passed: true,
@@ -430,4 +430,4 @@ mcp__claude-flow__memory_usage {
 }
 ```
 
-See also: [swarm-issue.md](.$swarm-issue.md), [sync-coordinator.md](.$sync-coordinator.md), [workflow-automation.md](.$workflow-automation.md)
+See also: [swarm-issue.md](./swarm-issue.md), [sync-coordinator.md](./sync-coordinator.md), [workflow-automation.md](./workflow-automation.md)

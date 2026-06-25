@@ -1,6 +1,6 @@
 ---
 name: agent-performance-optimizer
-description: Agent skill for performance-optimizer - invoke with $agent-performance-optimizer
+description: Agent skill for performance-optimizer - invoke with /agent-performance-optimizer
 ---
 
 ---

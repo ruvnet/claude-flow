@@ -1,6 +1,6 @@
 ---
 name: agent-authentication
-description: Agent skill for authentication - invoke with $agent-authentication
+description: Agent skill for authentication - invoke with /agent-authentication
 ---
 
 ---

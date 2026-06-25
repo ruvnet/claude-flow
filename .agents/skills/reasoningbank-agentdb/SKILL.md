@@ -25,7 +25,7 @@ Provides ReasoningBank adaptive learning patterns using AgentDB's high-performan
 
 ```bash
 # Initialize AgentDB for ReasoningBank
-npx agentdb@latest init ./.agentdb$reasoningbank.db --dimension 1536
+npx agentdb@latest init ./.agentdb/reasoningbank.db --dimension 1536
 
 # Start MCP server for Claude Code integration
 npx agentdb@latest mcp
@@ -36,10 +36,10 @@ claude mcp add agentdb npx agentdb@latest mcp
 
 ```bash
 # Automatic migration with validation
-npx agentdb@latest migrate --source .swarm$memory.db
+npx agentdb@latest migrate --source .swarm/memory.db
 
 # Verify migration
-npx agentdb@latest stats ./.agentdb$reasoningbank.db
+npx agentdb@latest stats ./.agentdb/reasoningbank.db
 ```
 
 ---
@@ -47,11 +47,11 @@ npx agentdb@latest stats ./.agentdb$reasoningbank.db
 ## Quick Start with API
 
 ```typescript
-import { createAgentDBAdapter, computeEmbedding } from 'agentic-flow$reasoningbank';
+import { createAgentDBAdapter, computeEmbedding } from 'agentic-flow/reasoningbank';
 
 // Initialize ReasoningBank with AgentDB
 const rb = await createAgentDBAdapter({
-  dbPath: '.agentdb$reasoningbank.db',
+  dbPath: '.agentdb/reasoningbank.db',
   enableLearning: true,      // Enable learning plugins
   enableReasoning: true,      // Enable reasoning agents
   cacheSize: 1000,            // 1000 pattern cache
@@ -275,7 +275,7 @@ import {
   retrieveMemories,
   judgeTrajectory,
   distillMemories
-} from 'agentic-flow$reasoningbank';
+} from 'agentic-flow/reasoningbank';
 
 // Legacy API works unchanged (uses AgentDB backend automatically)
 const memories = await retrieveMemories(query, {
@@ -315,7 +315,7 @@ Organize memories by abstraction level:
 // Low-level: Specific implementation
 await rb.insertPattern({
   type: 'concrete',
-  domain: 'debugging$null-pointer',
+  domain: 'debugging/null-pointer',
   pattern_data: JSON.stringify({
     embedding,
     pattern: { bug: 'NPE in UserService.getUser()', fix: 'Add null check' }
@@ -376,13 +376,13 @@ const transferredKnowledge = backendExperience.memories.map(mem => ({
 
 ```bash
 # Export trajectories and patterns
-npx agentdb@latest export ./.agentdb$reasoningbank.db .$backup.json
+npx agentdb@latest export ./.agentdb/reasoningbank.db ./backup.json
 
 # Import experiences
-npx agentdb@latest import .$experiences.json
+npx agentdb@latest import ./experiences.json
 
 # Get statistics
-npx agentdb@latest stats ./.agentdb$reasoningbank.db
+npx agentdb@latest stats ./.agentdb/reasoningbank.db
 # Shows: total patterns, domains, confidence distribution
 ```
 
@@ -390,10 +390,10 @@ npx agentdb@latest stats ./.agentdb$reasoningbank.db
 
 ```bash
 # Migrate from legacy ReasoningBank
-npx agentdb@latest migrate --source .swarm$memory.db --target .agentdb$reasoningbank.db
+npx agentdb@latest migrate --source .swarm/memory.db --target .agentdb/reasoningbank.db
 
 # Validate migration
-npx agentdb@latest stats .agentdb$reasoningbank.db
+npx agentdb@latest stats .agentdb/reasoningbank.db
 ```
 
 ---
@@ -403,10 +403,10 @@ npx agentdb@latest stats .agentdb$reasoningbank.db
 ### Issue: Migration fails
 ```bash
 # Check source database exists
-ls -la .swarm$memory.db
+ls -la .swarm/memory.db
 
 # Run with verbose logging
-DEBUG=agentdb:* npx agentdb@latest migrate --source .swarm$memory.db
+DEBUG=agentdb:* npx agentdb@latest migrate --source .swarm/memory.db
 ```
 
 ### Issue: Low confidence scores
@@ -434,10 +434,10 @@ await rb.optimize();
 
 ## Learn More
 
-- **AgentDB Integration**: node_modules$agentic-flow/docs/AGENTDB_INTEGRATION.md
-- **GitHub**: https:/$github.com$ruvnet$agentic-flow$tree$main$packages$agentdb
+- **AgentDB Integration**: node_modules/agentic-flow/docs/AGENTDB_INTEGRATION.md
+- **GitHub**: https://github.com/ruvnet/agentic-flow/tree/main/packages/agentdb
 - **MCP Integration**: `npx agentdb@latest mcp`
-- **Website**: https:/$agentdb.ruv.io
+- **Website**: https://agentdb.ruv.io
 
 ---
 

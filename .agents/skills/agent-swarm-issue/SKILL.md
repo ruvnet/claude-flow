@@ -1,6 +1,6 @@
 ---
 name: agent-swarm-issue
-description: Agent skill for swarm-issue - invoke with $agent-swarm-issue
+description: Agent skill for swarm-issue - invoke with /agent-swarm-issue
 ---
 
 ---
@@ -81,7 +81,7 @@ $swarm start
 ### 3. Issue Templates for Swarms
 
 ```markdown
-<!-- .github/ISSUE_TEMPLATE$swarm-task.yml -->
+<!-- .github/ISSUE_TEMPLATE/swarm-task.yml -->
 name: Swarm Task
 description: Create a task for AI swarm processing
 body:
@@ -112,7 +112,7 @@ body:
 
 ### Auto-Label Based on Content
 ```javascript
-// .github$swarm-labels.json
+// .github/swarm-labels.json
 {
   "rules": [
     {
@@ -155,8 +155,8 @@ ISSUE=$(gh issue view 456 --json title,body,labels,assignees,comments,projectIte
 REFERENCES=$(gh issue view 456 --json body --jq '.body' | \
   grep -oE '#[0-9]+' | while read -r ref; do
     NUM=${ref#\#}
-    gh issue view $NUM --json number,title,state 2>$dev$null || \
-    gh pr view $NUM --json number,title,state 2>$dev$null
+    gh issue view $NUM --json number,title,state 2>/dev/null || \
+    gh pr view $NUM --json number,title,state 2>/dev/null
   done | jq -s '.')
 
 # Initialize swarm
@@ -282,7 +282,7 @@ npx ruv-swarm github create-issues \
 
 ### GitHub Actions for Issues
 ```yaml
-# .github$workflows$issue-swarm.yml
+# .github/workflows/issue-swarm.yml
 name: Issue Swarm Handler
 on:
   issues:
@@ -293,7 +293,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Process Issue
-        uses: ruvnet$swarm-action@v1
+        uses: ruvnet/swarm-action@v1
         with:
           command: |
             if [[ "${{ github.event.label.name }}" == "swarm-ready" ]]; then
@@ -373,7 +373,7 @@ echo "$STALE_ISSUES" | jq -r '.number' | while read -r num; do
       ;;
     "keep")
       # Remove stale label if present
-      gh issue edit $num --remove-label "stale" 2>$dev$null || true
+      gh issue edit $num --remove-label "stale" 2>/dev/null || true
       ;;
     "needs-info")
       # Request more information
@@ -434,8 +434,8 @@ npx ruv-swarm github milestone-swarm \
 ```bash
 # Handle issues across repositories
 npx ruv-swarm github cross-repo \
-  --issue "org$repo#456" \
-  --related "org$other-repo#123" \
+  --issue "org/repo#456" \
+  --related "org/other-repo#123" \
   --coordinate
 ```
 
@@ -575,4 +575,4 @@ const postHook = async (results) => {
 };
 ```
 
-See also: [swarm-pr.md](.$swarm-pr.md), [sync-coordinator.md](.$sync-coordinator.md), [workflow-automation.md](.$workflow-automation.md)
+See also: [swarm-pr.md](./swarm-pr.md), [sync-coordinator.md](./sync-coordinator.md), [workflow-automation.md](./workflow-automation.md)

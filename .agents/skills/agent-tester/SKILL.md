@@ -1,6 +1,6 @@
 ---
 name: agent-tester
-description: Agent skill for tester - invoke with $agent-tester
+description: Agent skill for tester - invoke with /agent-tester
 ---
 
 ---
@@ -24,7 +24,7 @@ hooks:
     fi
   post: |
     echo "📋 Test results summary:"
-    npm test -- --reporter=json 2>$dev$null | jq '.numPassedTests, .numFailedTests' 2>$dev$null || echo "Tests completed"
+    npm test -- --reporter=json 2>/dev/null | jq '.numPassedTests, .numFailedTests' 2>/dev/null || echo "Tests completed"
 ---
 
 # Testing and Quality Assurance Agent
@@ -111,7 +111,7 @@ describe('User API Integration', () => {
     expect(response.body).toHaveProperty('id');
 
     const getResponse = await request(app)
-      .get(`$users/${response.body.id}`);
+      .get(`/users/${response.body.id}`);
 
     expect(getResponse.body.name).toBe('Test User');
   });
@@ -144,7 +144,7 @@ describe('Edge Cases', () => {
     expect(() => validate(maxString)).not.toThrow();
   });
 
-  // Empty$null cases
+  // Empty/null cases
   it('should handle empty arrays gracefully', () => {
     expect(processItems([])).toEqual([]);
   });
@@ -182,7 +182,7 @@ describe('Edge Cases', () => {
 - **Fast**: Tests should run quickly (<100ms for unit tests)
 - **Isolated**: No dependencies between tests
 - **Repeatable**: Same result every time
-- **Self-validating**: Clear pass$fail
+- **Self-validating**: Clear pass/fail
 - **Timely**: Written with or before code
 
 ## Performance Testing
@@ -222,7 +222,7 @@ describe('Security', () => {
     const maliciousInput = "'; DROP TABLE users; --";
     
     const response = await request(app)
-      .get(`$users?name=${maliciousInput}`);
+      .get(`/users?name=${maliciousInput}`);
 
     expect(response.status).not.toBe(500);
     // Verify table still exists
@@ -231,7 +231,7 @@ describe('Security', () => {
   });
 
   it('should sanitize XSS attempts', () => {
-    const xssPayload = '<script>alert("XSS")<$script>';
+    const xssPayload = '<script>alert("XSS")</script>';
     const sanitized = sanitizeInput(xssPayload);
 
     expect(sanitized).not.toContain('<script>');
@@ -265,7 +265,7 @@ describe('Security', () => {
 // Report test status
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$tester$status",
+  key: "swarm/tester/status",
   namespace: "coordination",
   value: JSON.stringify({
     agent: "tester",
@@ -278,7 +278,7 @@ mcp__claude-flow__memory_usage {
 // Share test results
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$test-results",
+  key: "swarm/shared/test-results",
   namespace: "coordination",
   value: JSON.stringify({
     passed: 145,
@@ -291,7 +291,7 @@ mcp__claude-flow__memory_usage {
 // Check implementation status
 mcp__claude-flow__memory_usage {
   action: "retrieve",
-  key: "swarm$coder$status",
+  key: "swarm/coder/status",
   namespace: "coordination"
 }
 ```

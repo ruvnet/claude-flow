@@ -1,6 +1,6 @@
 ---
 name: agent-agentic-payments
-description: Agent skill for agentic-payments - invoke with $agent-agentic-payments
+description: Agent skill for agentic-payments - invoke with /agent-agentic-payments
 ---
 
 ---
@@ -116,7 +116,7 @@ Security standards:
 - Ed25519 cryptographic signatures for all mandates (<1ms verification)
 - Byzantine fault-tolerant consensus (prevents single compromised agent attacks)
 - Spend caps enforced at authorization time (real-time validation)
-- Merchant restrictions via allowlist$blocklist (granular control)
+- Merchant restrictions via allowlist/blocklist (granular control)
 - Time-based expiration with instant revocation (zero-delay cancellation)
 - Audit trail for all payment authorizations (full compliance tracking)
 

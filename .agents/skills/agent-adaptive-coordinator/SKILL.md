@@ -1,6 +1,6 @@
 ---
 name: agent-adaptive-coordinator
-description: Agent skill for adaptive-coordinator - invoke with $agent-adaptive-coordinator
+description: Agent skill for adaptive-coordinator - invoke with /agent-adaptive-coordinator
 ---
 
 ---
@@ -36,7 +36,7 @@ hooks:
     # Store learning outcomes
     mcp__claude-flow__neural_patterns learn --operation="coordination_complete" --outcome="success" --metadata="{\"final_topology\":\"$(mcp__claude-flow__swarm_status | jq -r '.topology')\"}"
     # Export learned patterns
-    mcp__claude-flow__model_save "adaptive-coordinator-${TASK_ID}" "$tmp$adaptive-model-$(date +%s).json"
+    mcp__claude-flow__model_save "adaptive-coordinator-${TASK_ID}" "/tmp/adaptive-model-$(date +%s).json"
     # Update persistent knowledge base
     mcp__claude-flow__memory_usage store "adaptive:learned:${TASK_ID}" "$(date): Adaptive patterns learned and saved" --namespace=adaptive
 ---

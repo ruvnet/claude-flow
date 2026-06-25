@@ -1,6 +1,6 @@
 ---
 name: agent-quorum-manager
-description: Agent skill for quorum-manager - invoke with $agent-quorum-manager
+description: Agent skill for quorum-manager - invoke with /agent-quorum-manager
 ---
 
 ---

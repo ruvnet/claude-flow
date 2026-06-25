@@ -1,6 +1,6 @@
 ---
 name: agent-neural-network
-description: Agent skill for neural-network - invoke with $agent-neural-network
+description: Agent skill for neural-network - invoke with /agent-neural-network
 ---
 
 ---

@@ -1,6 +1,6 @@
 ---
 name: agent-performance-benchmarker
-description: Agent skill for performance-benchmarker - invoke with $agent-performance-benchmarker
+description: Agent skill for performance-benchmarker - invoke with /agent-performance-benchmarker
 ---
 
 ---
@@ -587,22 +587,22 @@ class ResourceUsageMonitor {
     
     // Memory bottleneck detection
     const memoryGrowth = this.calculateMemoryGrowth();
-    if (memoryGrowth.rate > 1024 * 1024) { // 1MB$s growth
+    if (memoryGrowth.rate > 1024 * 1024) { // 1MB/s growth
       bottlenecks.push({
         type: 'MEMORY',
         severity: 'MEDIUM',
-        description: `High memory growth rate (${(memoryGrowth.rate / 1024 / 1024).toFixed(2)} MB$s)`
+        description: `High memory growth rate (${(memoryGrowth.rate / 1024 / 1024).toFixed(2)} MB/s)`
       });
     }
     
     // Network bottleneck detection
     const avgNetworkOut = this.measurements.reduce((sum, m) => sum + m.network.bytesOut, 0) / 
                           this.measurements.length;
-    if (avgNetworkOut > 100 * 1024 * 1024) { // 100 MB$s
+    if (avgNetworkOut > 100 * 1024 * 1024) { // 100 MB/s
       bottlenecks.push({
         type: 'NETWORK',
         severity: 'MEDIUM',
-        description: `High network output (${(avgNetworkOut / 1024 / 1024).toFixed(2)} MB$s)`
+        description: `High network output (${(avgNetworkOut / 1024 / 1024).toFixed(2)} MB/s)`
       });
     }
     

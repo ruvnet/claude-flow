@@ -1,6 +1,6 @@
 ---
 name: agent-crdt-synchronizer
-description: Agent skill for crdt-synchronizer - invoke with $agent-crdt-synchronizer
+description: Agent skill for crdt-synchronizer - invoke with /agent-crdt-synchronizer
 ---
 
 ---

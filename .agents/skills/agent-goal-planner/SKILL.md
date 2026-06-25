@@ -1,6 +1,6 @@
 ---
 name: agent-goal-planner
-description: Agent skill for goal-planner - invoke with $agent-goal-planner
+description: Agent skill for goal-planner - invoke with /agent-goal-planner
 ---
 
 ---

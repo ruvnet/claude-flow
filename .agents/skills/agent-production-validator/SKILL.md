@@ -1,6 +1,6 @@
 ---
 name: agent-production-validator
-description: Agent skill for production-validator - invoke with $agent-production-validator
+description: Agent skill for production-validator - invoke with /agent-production-validator
 ---
 
 ---
@@ -19,7 +19,7 @@ hooks:
   pre: |
     echo "🔍 Production Validator starting: $TASK"
     # Verify no mock implementations remain
-    echo "🚫 Scanning for mock$fake implementations..."
+    echo "🚫 Scanning for mock/fake implementations..."
     grep -r "mock\|fake\|stub\|TODO\|FIXME" src/ || echo "✅ No mock implementations found"
   post: |
     echo "✅ Production validation complete"
@@ -56,9 +56,9 @@ const validateImplementation = async (codebase: string[]) => {
     $mock[A-Z]\w+$g,           // mockService, mockRepository
     $fake[A-Z]\w+$g,           // fakeDatabase, fakeAPI
     $stub[A-Z]\w+$g,           // stubMethod, stubService
-    /TODO.*implementation$gi,   // TODO: implement this
-    /FIXME.*mock$gi,           // FIXME: replace mock
-    $throw new Error\(['"]not implemented$gi
+    /TODO.*implementation/gi,   // TODO: implement this
+    /FIXME.*mock/gi,           // FIXME: replace mock
+    $throw new Error\(['"]not implemented/gi
   ];
   
   for (const file of codebase) {
@@ -66,7 +66,7 @@ const validateImplementation = async (codebase: string[]) => {
       if (pattern.test(file.content)) {
         violations.push({
           file: file.path,
-          issue: 'Mock$fake implementation found',
+          issue: 'Mock/fake implementation found',
           pattern: pattern.source
         });
       }
@@ -129,7 +129,7 @@ describe('External API Validation', () => {
   it('should integrate with real payment service', async () => {
     const paymentService = new PaymentService({
       apiKey: process.env.STRIPE_TEST_KEY, // Real test API
-      baseUrl: 'https:/$api.stripe.com$v1'
+      baseUrl: 'https://api.stripe.com/v1'
     });
     
     // Test actual API call
@@ -147,7 +147,7 @@ describe('External API Validation', () => {
   it('should handle real API errors gracefully', async () => {
     const paymentService = new PaymentService({
       apiKey: 'invalid_key',
-      baseUrl: 'https:/$api.stripe.com$v1'
+      baseUrl: 'https://api.stripe.com/v1'
     });
     
     await expect(paymentService.createPaymentIntent({
@@ -247,7 +247,7 @@ describe('Performance Validation', () => {
     while (Date.now() - startTime < duration) {
       const batchStart = Date.now();
       const batch = Array.from({ length: requestsPerSecond }, () =>
-        apiClient.get('$api$users').catch(() => null)
+        apiClient.get('$api/users').catch(() => null)
       );
       
       const results = await Promise.all(batch);
@@ -313,17 +313,17 @@ const validateEnvironment = () => {
 describe('Security Validation', () => {
   it('should enforce authentication', async () => {
     const response = await request(app)
-      .get('$api$protected')
+      .get('$api/protected')
       .expect(401);
     
     expect(response.body.error).toBe('Authentication required');
   });
   
   it('should validate input sanitization', async () => {
-    const maliciousInput = '<script>alert("xss")<$script>';
+    const maliciousInput = '<script>alert("xss")</script>';
     
     const response = await request(app)
-      .post('$api$users')
+      .post('$api/users')
       .send({ name: maliciousInput })
       .set('Authorization', `Bearer ${validToken}`)
       .expect(400);

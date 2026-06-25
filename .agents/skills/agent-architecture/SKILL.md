@@ -1,6 +1,6 @@
 ---
 name: agent-architecture
-description: Agent skill for architecture - invoke with $agent-architecture
+description: Agent skill for architecture - invoke with /agent-architecture
 ---
 
 ---
@@ -113,10 +113,10 @@ components:
     
     interfaces:
       rest:
-        - POST $auth$login
-        - POST $auth$logout
-        - POST $auth$refresh
-        - GET $auth$verify
+        - POST $auth/login
+        - POST $auth/logout
+        - POST $auth/refresh
+        - GET $auth/verify
       
       grpc:
         - VerifyToken(token) -> User
@@ -138,7 +138,7 @@ components:
       
       external:
         - postgresql (data)
-        - redis (cache$sessions)
+        - redis (cache/sessions)
         - rabbitmq (events)
     
     scaling:
@@ -147,7 +147,7 @@ components:
       metrics:
         - cpu > 70%
         - memory > 80%
-        - request_rate > 1000$sec
+        - request_rate > 1000/sec
 ```
 
 ### 3. Data Architecture
@@ -215,9 +215,9 @@ info:
   description: Authentication and authorization service
 
 servers:
-  - url: https:/$api.example.com$v1
+  - url: https://api.example.com/v1
     description: Production
-  - url: https:/$staging-api.example.com$v1
+  - url: https://staging-api.example.com/v1
     description: Staging
 
 components:
@@ -245,7 +245,7 @@ components:
         roles:
           type: array
           items:
-            $ref: '#$components$schemas/Role'
+            $ref: '#/components/schemas/Role'
     
     Error:
       type: object
@@ -259,7 +259,7 @@ components:
           type: object
 
 paths:
-  $auth$login:
+  $auth/login:
     post:
       summary: User login
       operationId: login
@@ -267,7 +267,7 @@ paths:
       requestBody:
         required: true
         content:
-          application$json:
+          application/json:
             schema:
               type: object
               required: [email, password]
@@ -280,7 +280,7 @@ paths:
         200:
           description: Successful login
           content:
-            application$json:
+            application/json:
               schema:
                 type: object
                 properties:
@@ -289,14 +289,14 @@ paths:
                   refreshToken:
                     type: string
                   user:
-                    $ref: '#$components$schemas/User'
+                    $ref: '#/components/schemas/User'
 ```
 
 ### 5. Infrastructure Architecture
 
 ```yaml
 # Kubernetes Deployment Architecture
-apiVersion: apps$v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: auth-service
@@ -430,7 +430,7 @@ scalability_patterns:
     triggers:
       - cpu_utilization: "> 70%"
       - memory_utilization: "> 80%"
-      - request_rate: "> 1000 req$sec"
+      - request_rate: "> 1000 req/sec"
       - response_time: "> 200ms p95"
   
   caching_strategy:

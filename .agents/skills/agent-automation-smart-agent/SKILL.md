@@ -1,6 +1,6 @@
 ---
 name: agent-automation-smart-agent
-description: Agent skill for automation-smart-agent - invoke with $agent-automation-smart-agent
+description: Agent skill for automation-smart-agent - invoke with /agent-automation-smart-agent
 ---
 
 ---

@@ -23,16 +23,16 @@ Provides memory management patterns for AI agents using AgentDB's persistent sto
 
 ```bash
 # Initialize vector database
-npx agentdb@latest init .$agents.db
+npx agentdb@latest init ./agents.db
 
 # Or with custom dimensions
-npx agentdb@latest init .$agents.db --dimension 768
+npx agentdb@latest init ./agents.db --dimension 768
 
 # Use preset configurations
-npx agentdb@latest init .$agents.db --preset large
+npx agentdb@latest init ./agents.db --preset large
 
 # In-memory database for testing
-npx agentdb@latest init .$memory.db --in-memory
+npx agentdb@latest init ./memory.db --in-memory
 ```
 
 ### Start MCP Server for Claude Code
@@ -65,11 +65,11 @@ npx agentdb@latest create-plugin -t decision-transformer -n my-agent
 ## Quick Start with API
 
 ```typescript
-import { createAgentDBAdapter } from 'agentic-flow$reasoningbank';
+import { createAgentDBAdapter } from 'agentic-flow/reasoningbank';
 
 // Initialize with default configuration
 const adapter = await createAgentDBAdapter({
-  dbPath: '.agentdb$reasoningbank.db',
+  dbPath: '.agentdb/reasoningbank.db',
   enableLearning: true,      // Enable learning plugins
   enableReasoning: true,      // Enable reasoning agents
   quantizationType: 'scalar', // binary | scalar | product | none
@@ -189,29 +189,29 @@ await memory.consolidate({
 
 ```bash
 # Query with vector embedding
-npx agentdb@latest query .$agents.db "[0.1,0.2,0.3,...]"
+npx agentdb@latest query ./agents.db "[0.1,0.2,0.3,...]"
 
 # Top-k results
-npx agentdb@latest query .$agents.db "[0.1,0.2,0.3]" -k 10
+npx agentdb@latest query ./agents.db "[0.1,0.2,0.3]" -k 10
 
 # With similarity threshold
-npx agentdb@latest query .$agents.db "0.1 0.2 0.3" -t 0.75
+npx agentdb@latest query ./agents.db "0.1 0.2 0.3" -t 0.75
 
 # JSON output
-npx agentdb@latest query .$agents.db "[...]" -f json
+npx agentdb@latest query ./agents.db "[...]" -f json
 ```
 
 ### Import/Export Data
 
 ```bash
 # Export vectors to file
-npx agentdb@latest export .$agents.db .$backup.json
+npx agentdb@latest export ./agents.db ./backup.json
 
 # Import vectors from file
-npx agentdb@latest import .$backup.json
+npx agentdb@latest import ./backup.json
 
 # Get database statistics
-npx agentdb@latest stats .$agents.db
+npx agentdb@latest stats ./agents.db
 ```
 
 ### Performance Benchmarks
@@ -229,12 +229,12 @@ npx agentdb@latest benchmark
 ## Integration with ReasoningBank
 
 ```typescript
-import { createAgentDBAdapter, migrateToAgentDB } from 'agentic-flow$reasoningbank';
+import { createAgentDBAdapter, migrateToAgentDB } from 'agentic-flow/reasoningbank';
 
 // Migrate from legacy ReasoningBank
 const result = await migrateToAgentDB(
-  '.swarm$memory.db',           // Source (legacy)
-  '.agentdb$reasoningbank.db'   // Destination (AgentDB)
+  '.swarm/memory.db',           // Source (legacy)
+  '.agentdb/reasoningbank.db'   // Destination (AgentDB)
 );
 
 console.log(`✅ Migrated ${result.patternsMigrated} patterns`);
@@ -293,7 +293,7 @@ npx agentdb@latest plugin-info <name>
 
 ## Best Practices
 
-1. **Enable quantization**: Use scalar$binary for 4-32x memory reduction
+1. **Enable quantization**: Use scalar/binary for 4-32x memory reduction
 2. **Use caching**: 1000 pattern cache for <1ms retrieval
 3. **Batch operations**: 500x faster than individual inserts
 4. **Train regularly**: Update learning models with new experiences
@@ -305,7 +305,7 @@ npx agentdb@latest plugin-info <name>
 ### Issue: Memory growing too large
 ```bash
 # Check database size
-npx agentdb@latest stats .$agents.db
+npx agentdb@latest stats ./agents.db
 
 # Enable quantization
 # Use 'binary' (32x smaller) or 'scalar' (4x smaller)
@@ -320,7 +320,7 @@ npx agentdb@latest stats .$agents.db
 ### Issue: Migration from legacy ReasoningBank
 ```bash
 # Automatic migration with validation
-npx agentdb@latest migrate --source .swarm$memory.db
+npx agentdb@latest migrate --source .swarm/memory.db
 ```
 
 ## Performance Characteristics
@@ -333,7 +333,7 @@ npx agentdb@latest migrate --source .swarm$memory.db
 
 ## Learn More
 
-- GitHub: https:/$github.com$ruvnet$agentic-flow$tree$main$packages$agentdb
-- Documentation: node_modules$agentic-flow/docs/AGENTDB_INTEGRATION.md
+- GitHub: https://github.com/ruvnet/agentic-flow/tree/main/packages/agentdb
+- Documentation: node_modules/agentic-flow/docs/AGENTDB_INTEGRATION.md
 - MCP Integration: `npx agentdb@latest mcp` for Claude Code
-- Website: https:/$agentdb.ruv.io
+- Website: https://agentdb.ruv.io

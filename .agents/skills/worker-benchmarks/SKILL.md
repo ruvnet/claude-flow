@@ -74,14 +74,14 @@ Tests memory pattern key generation.
    Operation: detect
    Count: 1,000
    Avg: 0.045ms | p95: 0.120ms (target: 5ms)
-   Throughput: 22,222 ops$s
+   Throughput: 22,222 ops/s
    Memory Δ: 0.12MB
 
 ✅ Worker Registry
    Operation: crud
    Count: 1,500
    Avg: 1.234ms | p95: 3.456ms (target: 10ms)
-   Throughput: 810 ops$s
+   Throughput: 810 ops/s
    Memory Δ: 2.34MB
 
 ───────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ Peak Memory: 8.90MB
 
 ## Integration with Settings
 
-Benchmark thresholds are configured in `.claude$settings.json`:
+Benchmark thresholds are configured in `.claude/settings.json`:
 
 ```json
 {
@@ -116,7 +116,7 @@ Benchmark thresholds are configured in `.claude$settings.json`:
 ## Programmatic Usage
 
 ```typescript
-import { workerBenchmarks, runBenchmarks } from 'agentic-flow$workers$worker-benchmarks';
+import { workerBenchmarks, runBenchmarks } from 'agentic-flow/workers/worker-benchmarks';
 
 // Run full suite
 const suite = await runBenchmarks();

@@ -84,7 +84,7 @@ npx claude-flow bottleneck detect --threshold 10 --export critical-issues.json
 - Agent utilization rates
 - Parallel execution efficiency
 - Resource contention
-- CPU$memory usage patterns
+- CPU/memory usage patterns
 
 **Memory Bottlenecks:**
 - Cache hit rates
@@ -271,7 +271,7 @@ npx claude-flow analysis performance-report --compare swarm-123 --format markdow
 # Custom output with specific sections
 npx claude-flow analysis performance-report \
   --sections summary,metrics,recommendations \
-  --output reports$perf-analysis.html \
+  --output reports/perf-analysis.html \
   --format html
 
 # Weekly performance report
@@ -279,12 +279,12 @@ npx claude-flow analysis performance-report \
   --time-range 7d \
   --include-metrics \
   --format markdown \
-  --output docs$weekly-performance.md
+  --output docs/weekly-performance.md
 
 # JSON format for CI/CD integration
 npx claude-flow analysis performance-report \
   --format json \
-  --output build$performance.json
+  --output build/performance.json
 ```
 
 #### Sample Markdown Report
@@ -377,14 +377,14 @@ npx claude-flow swarm monitor --interval 5
 while true; do
   npx claude-flow analysis performance-report \
     --format json \
-    --output logs$perf-$(date +%Y%m%d-%H%M).json
+    --output logs/perf-$(date +%Y%m%d-%H%M).json
   sleep 3600
 done
 ```
 
 ### CI/CD Integration
 ```yaml
-# .github$workflows$performance.yml
+# .github/workflows/performance.yml
 name: Performance Analysis
 on: [push, pull_request]
 
@@ -392,7 +392,7 @@ jobs:
   analyze:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions$checkout@v2
+      - uses: actions/checkout@v2
       - name: Run Performance Analysis
         run: |
           npx claude-flow analysis performance-report \
@@ -404,7 +404,7 @@ jobs:
             --threshold 15 \
             --export bottlenecks.json
       - name: Upload Reports
-        uses: actions$upload-artifact@v2
+        uses: actions/upload-artifact@v2
         with:
           name: performance-reports
           path: |
@@ -414,7 +414,7 @@ jobs:
 
 ### Custom Analysis Scripts
 ```javascript
-// scripts$analyze-performance.js
+// scripts/analyze-performance.js
 const { exec } = require('child_process');
 const fs = require('fs');
 
@@ -438,7 +438,7 @@ async function analyzePerformance() {
 
   // Save combined analysis
   fs.writeFileSync(
-    'analysis$combined-report.json',
+    'analysis/combined-report.json',
     JSON.stringify(analysis, null, 2)
   );
 
@@ -550,11 +550,11 @@ npx claude-flow bottleneck detect --fix
 
 ## See Also
 
-- [Bottleneck Detection Guide]($workspaces$claude-code-flow/.claude$commands$analysis$bottleneck-detect.md)
-- [Performance Report Guide]($workspaces$claude-code-flow/.claude$commands$analysis$performance-report.md)
-- [Performance Bottlenecks Overview]($workspaces$claude-code-flow/.claude$commands$analysis$performance-bottlenecks.md)
-- [Swarm Monitoring Documentation](..$swarm-orchestration/SKILL.md)
-- [Memory Management Documentation](..$memory-management/SKILL.md)
+- [Bottleneck Detection Guide]($workspaces/claude-code-flow/.claude/commands/analysis/bottleneck-detect.md)
+- [Performance Report Guide]($workspaces/claude-code-flow/.claude/commands/analysis/performance-report.md)
+- [Performance Bottlenecks Overview]($workspaces/claude-code-flow/.claude/commands/analysis/performance-bottlenecks.md)
+- [Swarm Monitoring Documentation](../swarm-orchestration/SKILL.md)
+- [Memory Management Documentation](../memory-management/SKILL.md)
 
 ---
 

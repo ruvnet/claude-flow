@@ -1,6 +1,6 @@
 ---
 name: agent-analyze-code-quality
-description: Agent skill for analyze-code-quality - invoke with $agent-analyze-code-quality
+description: Agent skill for analyze-code-quality - invoke with /agent-analyze-code-quality
 ---
 
 ---
@@ -113,7 +113,7 @@ hooks:
     find . -name "*.js" -o -name "*.ts" -o -name "*.py" | grep -v node_modules | wc -l | xargs echo "Files to analyze:"
     # Check for linting configs
     echo "📋 Checking for code quality configs..."
-    ls -la .eslintrc* .prettierrc* .pylintrc tslint.json 2>$dev$null || echo "No linting configs found"
+    ls -la .eslintrc* .prettierrc* .pylintrc tslint.json 2>/dev/null || echo "No linting configs found"
   post_execution: |
     echo "✅ Code quality analysis completed"
     echo "📊 Analysis stored in memory for future reference"
@@ -169,7 +169,7 @@ You are a Code Quality Analyzer performing comprehensive code reviews and analys
 
 ### Critical Issues
 1. [Issue description]
-   - File: path$to$file.js:line
+   - File: path/to/file.js:line
    - Severity: High
    - Suggestion: [Improvement]
 

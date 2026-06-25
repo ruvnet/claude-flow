@@ -29,7 +29,7 @@ Current CLI Issues:
 ├── index.ts: 108KB monolithic file
 ├── enterprise.ts: 68KB feature module
 ├── Limited interactivity: Basic command parsing
-├── Hooks integration: Basic pre$post execution
+├── Hooks integration: Basic pre/post execution
 └── No intelligent workflows: Manual command chaining
 
 Target Architecture:
@@ -42,7 +42,7 @@ Target Architecture:
 
 ### Modular Command Architecture
 ```typescript
-// src$cli$core$command-registry.ts
+// src/cli/core/command-registry.ts
 interface CommandModule {
   name: string;
   description: string;
@@ -103,7 +103,7 @@ export class ModularCommandRegistry {
 
 ### Swarm Commands Module
 ```typescript
-// src$cli$commands$swarm$swarm.command.ts
+// src/cli/commands/swarm/swarm.command.ts
 @Command({
   name: 'swarm',
   description: 'Swarm coordination and management',
@@ -191,7 +191,7 @@ export class SwarmCommand {
 
 ### Learning Commands Module
 ```typescript
-// src$cli$commands$learning$learning.command.ts
+// src/cli/commands/learning/learning.command.ts
 @Command({
   name: 'learning',
   description: 'Learning system management and optimization',
@@ -268,7 +268,7 @@ export class LearningCommand {
 
 ### Advanced Prompt Service
 ```typescript
-// src$cli$services$interactive-prompt.service.ts
+// src/cli/services/interactive-prompt.service.ts
 interface PromptOptions {
   message: string;
   type: 'select' | 'multiselect' | 'input' | 'confirm' | 'progress';
@@ -384,7 +384,7 @@ export class InteractivePromptService {
 
 ### Deep CLI Hooks Integration
 ```typescript
-// src$cli$hooks$cli-hooks-manager.ts
+// src/cli/hooks/cli-hooks-manager.ts
 interface CLIHookEvent {
   type: 'command_start' | 'command_end' | 'command_error' | 'agent_spawn' | 'task_complete';
   command: string;
@@ -453,7 +453,7 @@ export class CLIHooksManager {
 
 ### Learning Integration
 ```typescript
-// src$cli$hooks$learning-hooks-integration.ts
+// src/cli/hooks/learning-hooks-integration.ts
 export class LearningHooksIntegration {
   constructor(
     private agenticFlowHooks: AgenticFlowHooksClient,
@@ -556,7 +556,7 @@ export class LearningHooksIntegration {
 
 ### Workflow Orchestrator
 ```typescript
-// src$cli$workflows$workflow-orchestrator.ts
+// src/cli/workflows/workflow-orchestrator.ts
 interface WorkflowStep {
   id: string;
   command: string;
@@ -666,7 +666,7 @@ export class WorkflowOrchestrator {
 
 ### Command Performance Monitoring
 ```typescript
-// src$cli$performance$command-performance.ts
+// src/cli/performance/command-performance.ts
 export class CommandPerformanceMonitor {
   private metrics = new Map<string, CommandMetrics>();
 
@@ -740,7 +740,7 @@ export class CommandPerformanceMonitor {
 
 ### Intelligent Command Completion
 ```typescript
-// src$cli$completion$intelligent-completion.ts
+// src/cli/completion/intelligent-completion.ts
 export class IntelligentCompletion {
   constructor(
     private learningService: LearningService,

@@ -1,6 +1,6 @@
 ---
 name: agent-data-ml-model
-description: Agent skill for data-ml-model - invoke with $agent-data-ml-model
+description: Agent skill for data-ml-model - invoke with /agent-data-ml-model
 ---
 
 ---
@@ -26,8 +26,8 @@ triggers:
     - "neural network"
   file_patterns:
     - "**/*.ipynb"
-    - "**$model.py"
-    - "**$train.py"
+    - "**/model.py"
+    - "**/train.py"
     - "**/*.pkl"
     - "**/*.h5"
   task_patterns:
@@ -58,7 +58,7 @@ constraints:
     - "data/**"
     - "models/**"
     - "notebooks/**"
-    - "src$ml/**"
+    - "src/ml/**"
     - "experiments/**"
     - "*.ipynb"
   forbidden_paths:
@@ -108,7 +108,7 @@ hooks:
     echo "📁 Checking for datasets..."
     find . -name "*.csv" -o -name "*.parquet" | grep -E "(data|dataset)" | head -5
     echo "📦 Checking ML libraries..."
-    python -c "import sklearn, pandas, numpy; print('Core ML libraries available')" 2>$dev$null || echo "ML libraries not installed"
+    python -c "import sklearn, pandas, numpy; print('Core ML libraries available')" 2>/dev/null || echo "ML libraries not installed"
   post_execution: |
     echo "✅ ML model development completed"
     echo "📊 Model artifacts:"
@@ -144,7 +144,7 @@ You are a Machine Learning Model Developer specializing in end-to-end ML workflo
 
 2. **Preprocessing**
    - Handle missing values
-   - Feature scaling$normalization
+   - Feature scaling/normalization
    - Encoding categorical variables
    - Feature selection
 

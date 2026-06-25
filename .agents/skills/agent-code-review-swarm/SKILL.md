@@ -1,6 +1,6 @@
 ---
 name: agent-code-review-swarm
-description: Agent skill for code-review-swarm - invoke with $agent-code-review-swarm
+description: Agent skill for code-review-swarm - invoke with /agent-code-review-swarm
 ---
 
 ---
@@ -102,7 +102,7 @@ npx ruv-swarm github review-architecture \
 
 ### 3. Review Configuration
 ```yaml
-# .github$review-swarm.yml
+# .github/review-swarm.yml
 version: 1
 review:
   auto-trigger: true
@@ -262,7 +262,7 @@ npx ruv-swarm github review-batch \
 
 ### Auto-Review on Push
 ```yaml
-# .github$workflows$auto-review.yml
+# .github/workflows/auto-review.yml
 name: Automated Code Review
 on:
   pull_request:
@@ -272,7 +272,7 @@ jobs:
   swarm-review:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions$checkout@v3
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           
@@ -308,17 +308,17 @@ jobs:
 {
   "triggers": {
     "high-risk-files": {
-      "paths": ["**$auth/**", "**$payment/**"],
+      "paths": ["**/auth/**", "**/payment/**"],
       "agents": ["security", "architecture"],
       "depth": "comprehensive"
     },
     "performance-critical": {
-      "paths": ["**$api/**", "**$database/**"],
+      "paths": ["**/api/**", "**/database/**"],
       "agents": ["performance", "database"],
       "benchmarks": true
     },
     "ui-changes": {
-      "paths": ["**$components/**", "**$styles/**"],
+      "paths": ["**/components/**", "**/styles/**"],
       "agents": ["accessibility", "style", "i18n"],
       "visual-tests": true
     }
@@ -353,7 +353,7 @@ echo "$COMMENTS" | jq -c '.[]' | while read -r comment; do
   # Create review with inline comments
   gh api \
     --method POST \
-    $repos/:owner/:repo$pulls/123$comments \
+    $repos/:owner/:repo/pulls/123/comments \
     -f path="$FILE" \
     -f line="$LINE" \
     -f body="$BODY" \
@@ -402,9 +402,9 @@ npx ruv-swarm github review-comments \
 protection_rules:
   required_status_checks:
     contexts:
-      - "review-swarm$security"
-      - "review-swarm$performance"
-      - "review-swarm$architecture"
+      - "review-swarm/security"
+      - "review-swarm/performance"
+      - "review-swarm/architecture"
 ```
 
 ### Quality Gates
@@ -540,4 +540,4 @@ npx ruv-swarm github review-report \
   --email-stakeholders
 ```
 
-See also: [swarm-pr.md](.$swarm-pr.md), [workflow-automation.md](.$workflow-automation.md)
+See also: [swarm-pr.md](./swarm-pr.md), [workflow-automation.md](./workflow-automation.md)

@@ -1,6 +1,6 @@
 ---
 name: agent-user-tools
-description: Agent skill for user-tools - invoke with $agent-user-tools
+description: Agent skill for user-tools - invoke with /agent-user-tools
 ---
 
 ---
@@ -35,14 +35,14 @@ mcp__flow-nexus__user_update_profile({
 // Storage Management
 mcp__flow-nexus__storage_upload({
   bucket: "private",
-  path: "projects$config.json",
+  path: "projects/config.json",
   content: JSON.stringify(data),
-  content_type: "application$json"
+  content_type: "application/json"
 })
 
 mcp__flow-nexus__storage_get_url({
   bucket: "public",
-  path: "assets$image.png",
+  path: "assets/image.png",
   expires_in: 3600
 })
 

@@ -144,9 +144,9 @@ class SystemMigration {
 class CodeCleanup {
   async removeDeprecatedCode(): Promise<void> {
     // Remove massive duplicate implementations
-    await this.removeFile('src$core/SwarmCoordinator.ts');    // 800+ lines
+    await this.removeFile('src/core/SwarmCoordinator.ts');    // 800+ lines
     await this.removeFile('src.agents/AgentManager.ts');      // 1,736+ lines
-    await this.removeFile('src$task/TaskScheduler.ts');       // 500+ lines
+    await this.removeFile('src/task/TaskScheduler.ts');       // 500+ lines
 
     // Total reduction: 10,000+ → <5,000 lines
   }

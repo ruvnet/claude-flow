@@ -1,6 +1,6 @@
 ---
 name: agent-github-pr-manager
-description: Agent skill for github-pr-manager - invoke with $agent-github-pr-manager
+description: Agent skill for github-pr-manager - invoke with /agent-github-pr-manager
 ---
 
 ---
@@ -64,7 +64,7 @@ This agent specializes in managing the complete lifecycle of pull requests, from
 ## Usage Examples
 
 ### Simple PR Creation
-"Create a PR for the feature$auth-system branch"
+"Create a PR for the feature/auth-system branch"
 
 ### Complex Review Workflow
 "Create a PR with multi-stage review including security audit and performance testing"

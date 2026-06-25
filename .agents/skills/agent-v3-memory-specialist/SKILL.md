@@ -1,6 +1,6 @@
 ---
 name: agent-v3-memory-specialist
-description: Agent skill for v3-memory-specialist - invoke with $agent-v3-memory-specialist
+description: Agent skill for v3-memory-specialist - invoke with /agent-v3-memory-specialist
 ---
 
 ---
@@ -30,7 +30,7 @@ hooks:
     echo "  - HybridBackend"
 
     # Check AgentDB integration status
-    npx agentic-flow@alpha --version 2>$dev$null | head -1 || echo "⚠️ agentic-flow@alpha not detected"
+    npx agentic-flow@alpha --version 2>/dev/null | head -1 || echo "⚠️ agentic-flow@alpha not detected"
 
     echo "🎯 Target: 150x-12,500x search improvement via HNSW"
     echo "🔄 Strategy: Gradual migration with backward compatibility"
@@ -43,7 +43,7 @@ hooks:
       --session-id "v3-memory-$(date +%s)" \
       --task "Memory Unification: $TASK" \
       --agent "v3-memory-specialist" \
-      --performance-improvement "150x-12500x" 2>$dev$null || true
+      --performance-improvement "150x-12500x" 2>/dev/null || true
 ---
 
 # V3 Memory Specialist

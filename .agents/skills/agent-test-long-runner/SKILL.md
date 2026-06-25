@@ -1,6 +1,6 @@
 ---
 name: agent-test-long-runner
-description: Agent skill for test-long-runner - invoke with $agent-test-long-runner
+description: Agent skill for test-long-runner - invoke with /agent-test-long-runner
 ---
 
 ---

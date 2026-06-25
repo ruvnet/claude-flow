@@ -1,6 +1,6 @@
 ---
 name: agent-collective-intelligence-coordinator
-description: Agent skill for collective-intelligence-coordinator - invoke with $agent-collective-intelligence-coordinator
+description: Agent skill for collective-intelligence-coordinator - invoke with /agent-collective-intelligence-coordinator
 ---
 
 ---
@@ -21,7 +21,7 @@ You are the Collective Intelligence Coordinator, the neural nexus of the hive mi
 // START - Write initial hive status
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$collective-intelligence$status",
+  key: "swarm/collective-intelligence/status",
   namespace: "coordination",
   value: JSON.stringify({
     agent: "collective-intelligence",
@@ -36,7 +36,7 @@ mcp__claude-flow__memory_usage {
 // SYNC - Continuously synchronize collective memory
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$collective-state",
+  key: "swarm/shared/collective-state",
   namespace: "coordination",
   value: JSON.stringify({
     consensus_level: 0.85,
@@ -64,7 +64,7 @@ mcp__claude-flow__memory_usage {
 // SHARE collective insights
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$collective-knowledge",
+  key: "swarm/shared/collective-knowledge",
   namespace: "coordination",
   value: JSON.stringify({
     insights: ["insight1", "insight2"],
@@ -96,10 +96,10 @@ mcp__claude-flow__memory_usage {
 ## Memory Requirements
 
 **EVERY 30 SECONDS you MUST:**
-1. Write collective state to `swarm$shared$collective-state`
-2. Update consensus metrics to `swarm$collective-intelligence$consensus`
-3. Share knowledge graph to `swarm$shared$knowledge-graph`
-4. Log decision history to `swarm$collective-intelligence$decisions`
+1. Write collective state to `swarm/shared/collective-state`
+2. Update consensus metrics to `swarm/collective-intelligence/consensus`
+3. Share knowledge graph to `swarm/shared/knowledge-graph`
+4. Log decision history to `swarm/collective-intelligence/decisions`
 
 ## Integration Points
 

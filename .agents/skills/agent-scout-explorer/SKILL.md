@@ -1,6 +1,6 @@
 ---
 name: agent-scout-explorer
-description: Agent skill for scout-explorer - invoke with $agent-scout-explorer
+description: Agent skill for scout-explorer - invoke with /agent-scout-explorer
 ---
 
 ---
@@ -21,7 +21,7 @@ You are a Scout Explorer, the eyes and sensors of the hive mind. Your mission is
 // DEPLOY - Signal exploration start
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$scout-[ID]$status",
+  key: "swarm/scout-[ID]$status",
   namespace: "coordination",
   value: JSON.stringify({
     agent: "scout-[ID]",
@@ -35,7 +35,7 @@ mcp__claude-flow__memory_usage {
 // DISCOVER - Report findings in real-time
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$discovery-[timestamp]",
+  key: "swarm/shared/discovery-[timestamp]",
   namespace: "coordination",
   value: JSON.stringify({
     type: "discovery",
@@ -56,7 +56,7 @@ mcp__claude-flow__memory_usage {
 // Map codebase structure
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$codebase-map",
+  key: "swarm/shared/codebase-map",
   namespace: "coordination",
   value: JSON.stringify({
     type: "map",
@@ -78,7 +78,7 @@ mcp__claude-flow__memory_usage {
 // Analyze external dependencies
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$dependency-analysis",
+  key: "swarm/shared/dependency-analysis",
   namespace: "coordination",
   value: JSON.stringify({
     type: "dependencies",
@@ -97,13 +97,13 @@ mcp__claude-flow__memory_usage {
 // Identify performance bottlenecks
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$performance-bottlenecks",
+  key: "swarm/shared/performance-bottlenecks",
   namespace: "coordination",
   value: JSON.stringify({
     type: "performance",
     bottlenecks: [
-      {location: "api$endpoint", issue: "N+1 queries", severity: "high"},
-      {location: "frontend$render", issue: "large bundle size", severity: "medium"}
+      {location: "api/endpoint", issue: "N+1 queries", severity: "high"},
+      {location: "frontend/render", issue: "large bundle size", severity: "medium"}
     ],
     metrics: {
       load_time_ms: 3500,
@@ -120,13 +120,13 @@ mcp__claude-flow__memory_usage {
 // ALERT - Report threats immediately
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$threat-alert",
+  key: "swarm/shared/threat-alert",
   namespace: "coordination",
   value: JSON.stringify({
     type: "threat",
     severity: "critical",
     description: "SQL injection vulnerability in user input",
-    location: "src$api$users.js:45",
+    location: "src/api/users.js:45",
     mitigation: "sanitize input, use prepared statements",
     detected_by: "scout-security-1",
     requires_immediate_action: true
@@ -139,13 +139,13 @@ mcp__claude-flow__memory_usage {
 // OPPORTUNITY - Report improvement possibilities
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$opportunity",
+  key: "swarm/shared/opportunity",
   namespace: "coordination",
   value: JSON.stringify({
     type: "opportunity",
     category: "optimization|refactor|feature",
     description: "Can parallelize data processing",
-    location: "src$processor.js",
+    location: "src/processor.js",
     potential_impact: "3x performance improvement",
     effort_required: "medium",
     identified_by: "scout-optimizer-1"
@@ -158,7 +158,7 @@ mcp__claude-flow__memory_usage {
 // ENVIRONMENT - Monitor system state
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$scout-[ID]$environment",
+  key: "swarm/scout-[ID]$environment",
   namespace: "coordination",
   value: JSON.stringify({
     system_resources: {
@@ -233,7 +233,7 @@ mcp__claude-flow__memory_usage {
 // Track exploration efficiency
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$scout-[ID]$metrics",
+  key: "swarm/scout-[ID]$metrics",
   namespace: "coordination",
   value: JSON.stringify({
     areas_explored: 25,

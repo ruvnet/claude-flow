@@ -1,6 +1,6 @@
 ---
 name: agent-performance-monitor
-description: Agent skill for performance-monitor - invoke with $agent-performance-monitor
+description: Agent skill for performance-monitor - invoke with /agent-performance-monitor
 ---
 
 ---

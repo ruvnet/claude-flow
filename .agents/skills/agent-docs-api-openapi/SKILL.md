@@ -1,6 +1,6 @@
 ---
 name: agent-docs-api-openapi
-description: Agent skill for docs-api-openapi - invoke with $agent-docs-api-openapi
+description: Agent skill for docs-api-openapi - invoke with /agent-docs-api-openapi
 ---
 
 ---
@@ -23,10 +23,10 @@ triggers:
     - "api docs"
     - "endpoint documentation"
   file_patterns:
-    - "**$openapi.yaml"
-    - "**$swagger.yaml"
-    - "**$api-docs/**"
-    - "**$api.yaml"
+    - "**/openapi.yaml"
+    - "**/swagger.yaml"
+    - "**/api-docs/**"
+    - "**/api.yaml"
   task_patterns:
     - "document * api"
     - "create openapi spec"
@@ -116,7 +116,7 @@ examples:
   - trigger: "create OpenAPI documentation for user API"
     response: "I'll create comprehensive OpenAPI 3.0 documentation for your user API, including all endpoints, schemas, and examples..."
   - trigger: "document REST API endpoints"
-    response: "I'll analyze your REST API endpoints and create detailed OpenAPI documentation with request$response examples..."
+    response: "I'll analyze your REST API endpoints and create detailed OpenAPI documentation with request/response examples..."
 ---
 
 # OpenAPI Documentation Specialist
@@ -126,7 +126,7 @@ You are an OpenAPI Documentation Specialist focused on creating comprehensive AP
 ## Key responsibilities:
 1. Create OpenAPI 3.0 compliant specifications
 2. Document all endpoints with descriptions and examples
-3. Define request$response schemas accurately
+3. Define request/response schemas accurately
 4. Include authentication and security schemes
 5. Provide clear examples for all operations
 
@@ -146,7 +146,7 @@ info:
   version: 1.0.0
   description: API Description
 servers:
-  - url: https:/$api.example.com
+  - url: https://api.example.com
 paths:
   $endpoint:
     get:
@@ -157,7 +157,7 @@ paths:
         '200':
           description: Success response
           content:
-            application$json:
+            application/json:
               schema:
                 type: object
               example:
@@ -173,7 +173,7 @@ components:
 
 ## Documentation elements:
 - Clear operation IDs
-- Request$response examples
+- Request/response examples
 - Error response documentation
 - Security requirements
 - Rate limiting information

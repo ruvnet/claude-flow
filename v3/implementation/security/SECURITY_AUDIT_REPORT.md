@@ -167,7 +167,7 @@ const child = spawn('npx', ['ruv-swarm', 'hook', ...args], {
 **Attack Vector:**
 ```bash
 # Attacker-controlled input could inject commands
-claude-flow hook pre-task --description "test; whoami; echo"
+claude-flow@v3alpha hooks pre-task --description "test; whoami; echo"
 ```
 
 **Recommendation:**

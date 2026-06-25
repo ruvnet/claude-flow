@@ -1,6 +1,6 @@
 ---
 name: agent-sandbox
-description: Agent skill for sandbox - invoke with $agent-sandbox
+description: Agent skill for sandbox - invoke with /agent-sandbox
 ---
 
 ---
@@ -44,7 +44,7 @@ mcp__flow-nexus__sandbox_execute({
 // File Management
 mcp__flow-nexus__sandbox_upload({
   sandbox_id: "id",
-  file_path: "$app$config.json",
+  file_path: "$app/config.json",
   content: JSON.stringify(config)
 })
 

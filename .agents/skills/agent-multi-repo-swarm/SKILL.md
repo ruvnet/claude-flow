@@ -1,6 +1,6 @@
 ---
 name: agent-multi-repo-swarm
-description: Agent skill for multi-repo-swarm - invoke with $agent-multi-repo-swarm
+description: Agent skill for multi-repo-swarm - invoke with /agent-multi-repo-swarm
 ---
 
 ---
@@ -30,7 +30,7 @@ hooks:
   pre:
     - "gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)"
     - "git status --porcelain || echo 'Not in git repository'"
-    - "gh repo list --limit 1 >$dev$null || (echo 'No repo access' && exit 1)"
+    - "gh repo list --limit 1 >/dev/null || (echo 'No repo access' && exit 1)"
   post:
     - "gh pr list --state open --limit 5 | grep -q . && echo 'Active PRs found'"
     - "git log --oneline -5 | head -3"
@@ -53,13 +53,13 @@ REPOS=$(gh repo list org --limit 100 --json name,description,languages \
 
 # Get repository details
 REPO_DETAILS=$(echo "$REPOS" | jq -r '.name' | while read -r repo; do
-  gh api repos$org/$repo --jq '{name, default_branch, languages, topics}'
+  gh api repos/org/$repo --jq '{name, default_branch, languages, topics}'
 done | jq -s '.')
 
 # Initialize swarm with repository context
 npx ruv-swarm github multi-repo-init \
   --repo-details "$REPO_DETAILS" \
-  --repos "org$frontend,org$backend,org$shared" \
+  --repos "org/frontend,org/backend,org/shared" \
   --topology hierarchical \
   --shared-memory \
   --sync-strategy eventual
@@ -76,8 +76,8 @@ REPOS=$(gh repo list my-organization --limit 100 \
 # Analyze repository dependencies
 DEPS=$(echo "$REPOS" | jq -r '.name' | while read -r repo; do
   # Get package.json if it exists
-  if gh api repos$my-organization/$repo$contents$package.json --jq '.content' 2>$dev$null; then
-    gh api repos$my-organization/$repo$contents$package.json \
+  if gh api repos/my-organization/$repo/contents/package.json --jq '.content' 2>/dev/null; then
+    gh api repos/my-organization/$repo/contents/package.json \
       --jq '.content' | base64 -d | jq '{name, dependencies, devDependencies}'
   fi
 done | jq -s '.')
@@ -100,10 +100,10 @@ MATCHING_REPOS=$(gh repo list org --limit 100 --json name \
 # Execute task and create PRs
 echo "$MATCHING_REPOS" | while read -r repo; do
   # Clone repo
-  gh repo clone org/$repo $tmp/$repo -- --depth=1
+  gh repo clone org/$repo /tmp/$repo -- --depth=1
   
   # Execute task
-  cd $tmp/$repo
+  cd /tmp/$repo
   npx ruv-swarm github task-execute \
     --task "update-dependencies" \
     --repo "org/$repo"
@@ -121,13 +121,13 @@ echo "$MATCHING_REPOS" | while read -r repo; do
       --body "Automated dependency update across services" \
       --label "dependencies,automated")
     
-    echo "$PR_URL" >> $tmp$created-prs.txt
+    echo "$PR_URL" >> /tmp/created-prs.txt
   fi
   cd -
 done
 
 # Link related PRs
-PR_URLS=$(cat $tmp$created-prs.txt)
+PR_URLS=$(cat /tmp/created-prs.txt)
 npx ruv-swarm github link-prs --urls "$PR_URLS"
 ```
 
@@ -135,29 +135,29 @@ npx ruv-swarm github link-prs --urls "$PR_URLS"
 
 ### Multi-Repo Config File
 ```yaml
-# .swarm$multi-repo.yml
+# .swarm/multi-repo.yml
 version: 1
 organization: my-org
 repositories:
   - name: frontend
-    url: github.com$my-org$frontend
+    url: github.com/my-org/frontend
     role: ui
     agents: [coder, designer, tester]
     
   - name: backend
-    url: github.com$my-org$backend
+    url: github.com/my-org/backend
     role: api
     agents: [architect, coder, tester]
     
   - name: shared
-    url: github.com$my-org$shared
+    url: github.com/my-org/shared
     role: library
     agents: [analyst, coder]
 
 coordination:
   topology: hierarchical
   communication: webhook
-  memory: redis:/$shared-memory
+  memory: redis://shared-memory
   
 dependencies:
   - from: frontend
@@ -202,7 +202,7 @@ TRACKING_ISSUE=$(gh issue create \
 # Get all repos with TypeScript
 TS_REPOS=$(gh repo list org --limit 100 --json name | jq -r '.[].name' | \
   while read -r repo; do
-    if gh api repos$org/$repo$contents$package.json 2>$dev$null | \
+    if gh api repos/org/$repo/contents/package.json 2>/dev/null | \
        jq -r '.content' | base64 -d | grep -q '"typescript"'; then
       echo "$repo"
     fi
@@ -211,8 +211,8 @@ TS_REPOS=$(gh repo list org --limit 100 --json name | jq -r '.[].name' | \
 # Update each repository
 echo "$TS_REPOS" | while read -r repo; do
   # Clone and update
-  gh repo clone org/$repo $tmp/$repo -- --depth=1
-  cd $tmp/$repo
+  gh repo clone org/$repo /tmp/$repo -- --depth=1
+  cd /tmp/$repo
   
   # Update dependency
   npm install --save-dev typescript@5.0.0
@@ -269,7 +269,7 @@ const { MultiRepoSwarm } = require('ruv-swarm');
 
 const swarm = new MultiRepoSwarm({
   webhook: {
-    url: 'https:/$swarm-coordinator.example.com',
+    url: 'https://swarm-coordinator.example.com',
     secret: process.env.WEBHOOK_SECRET
   }
 });
@@ -438,7 +438,7 @@ npx ruv-swarm github microservices \
 ```bash
 # Update shared library across consumers
 npx ruv-swarm github lib-update \
-  --library "org$shared-lib" \
+  --library "org/shared-lib" \
   --version "2.0.0" \
   --find-consumers \
   --update-imports \
@@ -539,9 +539,9 @@ npx ruv-swarm github perf-analysis \
 ```bash
 # Update full-stack application
 npx ruv-swarm github fullstack-update \
-  --frontend "org$web-app" \
-  --backend "org$api-server" \
-  --database "org$db-migrations" \
+  --frontend "org/web-app" \
+  --backend "org/api-server" \
+  --database "org/db-migrations" \
   --coordinate-deployment
 ```
 
@@ -555,4 +555,4 @@ npx ruv-swarm github cross-team \
   --track-progress
 ```
 
-See also: [swarm-pr.md](.$swarm-pr.md), [project-board-sync.md](.$project-board-sync.md)
+See also: [swarm-pr.md](./swarm-pr.md), [project-board-sync.md](./project-board-sync.md)

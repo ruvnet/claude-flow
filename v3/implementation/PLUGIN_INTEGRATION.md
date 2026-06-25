@@ -125,7 +125,7 @@ claude --plugin-dir ./claude-flow/plugin
 ### Via npx Init
 
 ```bash
-npx claude-flow@alpha init --hooks
+npx claude-flow@v3alpha init hooks
 ```
 
 ## Configuration

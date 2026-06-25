@@ -1,6 +1,6 @@
 ---
 name: agent-planner
-description: Agent skill for planner - invoke with $agent-planner
+description: Agent skill for planner - invoke with /agent-planner
 ---
 
 ---
@@ -133,7 +133,7 @@ mcp__claude-flow__task_orchestrate {
 // Share task breakdown
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$planner$task-breakdown",
+  key: "swarm/planner/task-breakdown",
   namespace: "coordination",
   value: JSON.stringify({
     main_task: "authentication",
@@ -158,7 +158,7 @@ mcp__claude-flow__task_status {
 // Report planning status
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$planner$status",
+  key: "swarm/planner/status",
   namespace: "coordination",
   value: JSON.stringify({
     agent: "planner",

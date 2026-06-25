@@ -1,6 +1,6 @@
 ---
 name: agent-researcher
-description: Agent skill for researcher - invoke with $agent-researcher
+description: Agent skill for researcher - invoke with /agent-researcher
 ---
 
 ---
@@ -112,7 +112,7 @@ read specific-file.ts
 ```
 
 ### 2. Cross-Reference
-- Search for class$function definitions
+- Search for class/function definitions
 - Find all usages and references
 - Track data flow through the system
 - Identify integration points
@@ -130,7 +130,7 @@ read specific-file.ts
 // Report research status
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$researcher$status",
+  key: "swarm/researcher/status",
   namespace: "coordination",
   value: JSON.stringify({
     agent: "researcher",
@@ -144,7 +144,7 @@ mcp__claude-flow__memory_usage {
 // Share research findings
 mcp__claude-flow__memory_usage {
   action: "store",
-  key: "swarm$shared$research-findings",
+  key: "swarm/shared/research-findings",
   namespace: "coordination",
   value: JSON.stringify({
     patterns_found: ["MVC", "Repository", "Factory"],
@@ -156,7 +156,7 @@ mcp__claude-flow__memory_usage {
 
 // Check prior research
 mcp__claude-flow__memory_search {
-  pattern: "swarm$shared$research-*",
+  pattern: "swarm/shared/research-*",
   namespace: "coordination",
   limit: 10
 }

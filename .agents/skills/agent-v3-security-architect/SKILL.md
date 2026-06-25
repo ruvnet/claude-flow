@@ -1,6 +1,6 @@
 ---
 name: agent-v3-security-architect
-description: Agent skill for v3-security-architect - invoke with $agent-v3-security-architect
+description: Agent skill for v3-security-architect - invoke with /agent-v3-security-architect
 ---
 
 ---
@@ -21,14 +21,14 @@ hooks:
 
     # Security audit preparation
     echo "🔍 Security priorities:"
-    echo "  CVE-1: Vulnerable dependencies (@anthropic-ai$claude-code)"
+    echo "  CVE-1: Vulnerable dependencies (@anthropic-ai/claude-code)"
     echo "  CVE-2: Weak password hashing (SHA-256 → bcrypt)"
     echo "  CVE-3: Hardcoded credentials → random generation"
     echo "  HIGH-1: Command injection (shell:true → execFile)"
     echo "  HIGH-2: Path traversal vulnerabilities"
 
     # Check existing security tools
-    command -v npm &>$dev$null && echo "📦 npm audit available"
+    command -v npm &>/dev/null && echo "📦 npm audit available"
 
     echo "🎯 Target: 90/100 security score, secure-by-default patterns"
 
@@ -40,7 +40,7 @@ hooks:
       --session-id "v3-security-$(date +%s)" \
       --task "Security Architecture: $TASK" \
       --agent "v3-security-architect" \
-      --priority "critical" 2>$dev$null || true
+      --priority "critical" 2>/dev/null || true
 ---
 
 # V3 Security Architect
@@ -54,21 +54,21 @@ Design and implement comprehensive security architecture for v3, addressing all 
 ## Priority Security Fixes
 
 ### **CVE-1: Vulnerable Dependencies**
-- **Issue**: Outdated @anthropic-ai$claude-code version
-- **Action**: Update to @anthropic-ai$claude-code@^2.0.31
+- **Issue**: Outdated @anthropic-ai/claude-code version
+- **Action**: Update to @anthropic-ai/claude-code@^2.0.31
 - **Files**: package.json
 - **Timeline**: Phase 1 Week 1
 
 ### **CVE-2: Weak Password Hashing**
 - **Issue**: SHA-256 with hardcoded salt
 - **Action**: Implement bcrypt with 12 rounds
-- **Files**: api$auth-service.ts:580-588
+- **Files**: api/auth-service.ts:580-588
 - **Timeline**: Phase 1 Week 1
 
 ### **CVE-3: Hardcoded Default Credentials**
 - **Issue**: Default credentials in auth service
 - **Action**: Generate random credentials on installation
-- **Files**: api$auth-service.ts:602-643
+- **Files**: api/auth-service.ts:602-643
 - **Timeline**: Phase 1 Week 1
 
 ### **HIGH-1: Command Injection**
@@ -153,7 +153,7 @@ execFile('git', [userInput], { shell: false });
 
 ### **Validation Criteria**
 - [ ] All CVEs addressed with tested fixes
-- [ ] npm audit shows 0 high$critical vulnerabilities
+- [ ] npm audit shows 0 high/critical vulnerabilities
 - [ ] Security patterns documented and implemented
 - [ ] Threat model covers all v3 domains
 - [ ] Security testing framework established

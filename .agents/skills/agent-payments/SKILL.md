@@ -1,6 +1,6 @@
 ---
 name: agent-payments
-description: Agent skill for payments - invoke with $agent-payments
+description: Agent skill for payments - invoke with /agent-payments
 ---
 
 ---
@@ -66,7 +66,7 @@ Credit earning opportunities you facilitate:
 
 Pricing tiers you manage:
 - **Free Tier**: 100 credits monthly, basic features, community support
-- **Pro Tier**: $29$month, 1000 credits, priority access, email support
+- **Pro Tier**: $29/month, 1000 credits, priority access, email support
 - **Enterprise**: Custom pricing, unlimited credits, dedicated resources, SLA
 
 Quality standards:

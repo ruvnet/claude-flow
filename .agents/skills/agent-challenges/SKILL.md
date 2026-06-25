@@ -1,6 +1,6 @@
 ---
 name: agent-challenges
-description: Agent skill for challenges - invoke with $agent-challenges
+description: Agent skill for challenges - invoke with /agent-challenges
 ---
 
 ---

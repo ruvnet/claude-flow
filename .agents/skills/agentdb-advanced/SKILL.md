@@ -36,11 +36,11 @@ QUIC (Quick UDP Internet Connections) enables sub-millisecond latency synchroniz
 ### Enable QUIC Sync
 
 ```typescript
-import { createAgentDBAdapter } from 'agentic-flow$reasoningbank';
+import { createAgentDBAdapter } from 'agentic-flow/reasoningbank';
 
 // Initialize with QUIC synchronization
 const adapter = await createAgentDBAdapter({
-  dbPath: '.agentdb$distributed.db',
+  dbPath: '.agentdb/distributed.db',
   enableQUICSync: true,
   syncPort: 4433,
   syncPeers: [
@@ -104,7 +104,7 @@ Best for normalized vectors, semantic similarity:
 
 ```bash
 # CLI
-npx agentdb@latest query .$vectors.db "[0.1,0.2,...]" -m cosine
+npx agentdb@latest query ./vectors.db "[0.1,0.2,...]" -m cosine
 
 # API
 const result = await adapter.retrieveWithReasoning(queryEmbedding, {
@@ -128,7 +128,7 @@ Best for spatial data, geometric similarity:
 
 ```bash
 # CLI
-npx agentdb@latest query .$vectors.db "[0.1,0.2,...]" -m euclidean
+npx agentdb@latest query ./vectors.db "[0.1,0.2,...]" -m euclidean
 
 # API
 const result = await adapter.retrieveWithReasoning(queryEmbedding, {
@@ -152,7 +152,7 @@ Best for pre-normalized vectors, fast computation:
 
 ```bash
 # CLI
-npx agentdb@latest query .$vectors.db "[0.1,0.2,...]" -m dot
+npx agentdb@latest query ./vectors.db "[0.1,0.2,...]" -m dot
 
 # API
 const result = await adapter.retrieveWithReasoning(queryEmbedding, {
@@ -274,15 +274,15 @@ const result = await adapter.retrieveWithReasoning(queryEmbedding, {
 ```typescript
 // Separate databases for different domains
 const knowledgeDB = await createAgentDBAdapter({
-  dbPath: '.agentdb$knowledge.db',
+  dbPath: '.agentdb/knowledge.db',
 });
 
 const conversationDB = await createAgentDBAdapter({
-  dbPath: '.agentdb$conversations.db',
+  dbPath: '.agentdb/conversations.db',
 });
 
 const codeDB = await createAgentDBAdapter({
-  dbPath: '.agentdb$code.db',
+  dbPath: '.agentdb/code.db',
 });
 
 // Use appropriate database for each task
@@ -296,9 +296,9 @@ await codeDB.insertPattern({ /* code */ });
 ```typescript
 // Shard by domain for horizontal scaling
 const shards = {
-  'domain-a': await createAgentDBAdapter({ dbPath: '.agentdb$shard-a.db' }),
-  'domain-b': await createAgentDBAdapter({ dbPath: '.agentdb$shard-b.db' }),
-  'domain-c': await createAgentDBAdapter({ dbPath: '.agentdb$shard-c.db' }),
+  'domain-a': await createAgentDBAdapter({ dbPath: '.agentdb/shard-a.db' }),
+  'domain-b': await createAgentDBAdapter({ dbPath: '.agentdb/shard-b.db' }),
+  'domain-c': await createAgentDBAdapter({ dbPath: '.agentdb/shard-c.db' }),
 };
 
 // Route queries to appropriate shard
@@ -381,7 +381,7 @@ class AgentDBPool {
   static async getInstance() {
     if (!this.instance) {
       this.instance = await createAgentDBAdapter({
-        dbPath: '.agentdb$production.db',
+        dbPath: '.agentdb/production.db',
         quantizationType: 'scalar',
         cacheSize: 2000,
       });
@@ -446,26 +446,26 @@ console.log('Database Stats:', {
 
 ```bash
 # Export with compression
-npx agentdb@latest export .$vectors.db .$backup.json.gz --compress
+npx agentdb@latest export ./vectors.db ./backup.json.gz --compress
 
 # Import from backup
-npx agentdb@latest import .$backup.json.gz --decompress
+npx agentdb@latest import ./backup.json.gz --decompress
 
 # Merge databases
-npx agentdb@latest merge .$db1.sqlite .$db2.sqlite .$merged.sqlite
+npx agentdb@latest merge ./db1.sqlite ./db2.sqlite ./merged.sqlite
 ```
 
 ### Database Optimization
 
 ```bash
 # Vacuum database (reclaim space)
-sqlite3 .agentdb$vectors.db "VACUUM;"
+sqlite3 .agentdb/vectors.db "VACUUM;"
 
 # Analyze for query optimization
-sqlite3 .agentdb$vectors.db "ANALYZE;"
+sqlite3 .agentdb/vectors.db "ANALYZE;"
 
 # Rebuild indices
-npx agentdb@latest reindex .$vectors.db
+npx agentdb@latest reindex ./vectors.db
 ```
 
 ---
@@ -474,7 +474,7 @@ npx agentdb@latest reindex .$vectors.db
 
 ```bash
 # AgentDB configuration
-AGENTDB_PATH=.agentdb$reasoningbank.db
+AGENTDB_PATH=.agentdb/reasoningbank.db
 AGENTDB_ENABLED=true
 
 # Performance tuning
@@ -539,10 +539,10 @@ const result = await adapter.retrieveWithReasoning(queryEmbedding, {
 
 ## Learn More
 
-- **QUIC Protocol**: docs$quic-synchronization.pdf
-- **Hybrid Search**: docs$hybrid-search-guide.md
-- **GitHub**: https:/$github.com$ruvnet$agentic-flow$tree$main$packages$agentdb
-- **Website**: https:/$agentdb.ruv.io
+- **QUIC Protocol**: docs/quic-synchronization.pdf
+- **Hybrid Search**: docs/hybrid-search-guide.md
+- **GitHub**: https://github.com/ruvnet/agentic-flow/tree/main/packages/agentdb
+- **Website**: https://agentdb.ruv.io
 
 ---
 

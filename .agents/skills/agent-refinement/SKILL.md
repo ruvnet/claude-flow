@@ -1,6 +1,6 @@
 ---
 name: agent-refinement
-description: Agent skill for refinement - invoke with $agent-refinement
+description: Agent skill for refinement - invoke with /agent-refinement
 ---
 
 ---

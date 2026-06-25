@@ -601,9 +601,9 @@ claude mcp add flow-nexus npx flow-nexus@latest mcp start
 
 ## Support & Resources
 
-- **Platform**: https:/$flow-nexus.ruv.io
-- **Documentation**: https:/$github.com$ruvnet$flow-nexus
-- **Issues**: https:/$github.com$ruvnet$flow-nexus$issues
+- **Platform**: https://flow-nexus.ruv.io
+- **Documentation**: https://github.com/ruvnet/flow-nexus
+- **Issues**: https://github.com/ruvnet/flow-nexus/issues
 
 ---
 
