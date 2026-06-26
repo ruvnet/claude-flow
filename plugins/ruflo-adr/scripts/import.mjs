@@ -35,7 +35,9 @@ const CLI_PKG = process.env.CLI_CORE === '1'
   : '@claude-flow/cli@latest';
 
 const ROOT = process.env.ADR_ROOT || process.cwd();
-const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'v2', '.next', '.turbo', 'build']);
+// `.claude` holds git worktrees (`.claude/worktrees/<name>/`) that are full repo
+// copies — scanning them double/triple-counts every ADR. Skip it like build dirs.
+const SKIP_DIRS = new Set(['node_modules', '.git', '.claude', 'dist', 'v2', '.next', '.turbo', 'build']);
 
 function findAdrs(dir, out = []) {
   let entries;
@@ -54,6 +56,27 @@ function findAdrs(dir, out = []) {
   return out;
 }
 
+// Canonical ADR id used for BOTH node keys (parseId) and edge endpoints
+// (extractAdrRefs). Without a single normalizer the two disagree on
+// zero-padding: a `0001-foo.md` node was keyed `ADR-0001` while a
+// `Supersedes: ADR-0001` ref resolved to `ADR-001`, so every edge to a
+// 4-digit ADR was flagged as dangling. Strip the `ADR-` prefix, drop leading
+// zeros, then pad back to a 3-digit minimum so `0001`, `ADR-0001` and `1` all
+// collapse to `ADR-001`, while `097` stays `ADR-097`.
+function normalizeAdrId(raw) {
+  const digits = String(raw).replace(/^ADR[-\s]?/i, '').replace(/\D.*$/, '').replace(/^0+(?=\d)/, '');
+  return digits ? `ADR-${digits.padStart(3, '0')}` : String(raw).toUpperCase();
+}
+
+// `npm exec` (the npx layer) re-validates forwarded args and rejects any token
+// that starts with a non-ASCII dash (— – ―) as "probably invalid". ADR titles
+// routinely use em-dashes ("ADR-005 — Title"), which made every `memory store`
+// call fail with exit code 1 and persisted nothing. Normalize unicode dashes to
+// an ASCII hyphen in CLI-bound strings.
+function sanitizeForCli(s) {
+  return typeof s === 'string' ? s.replace(/[‒–—―−]/g, '-') : s;
+}
+
 function parseAdr(path) {
   const text = readFileSync(path, 'utf-8');
   const id = parseId(path, text);
@@ -70,14 +93,11 @@ function parseId(path, text) {
   const fm = /^---\s*$([\s\S]*?)^---\s*$/m.exec(text);
   if (fm) {
     const m = /^id:\s*(\S+)/m.exec(fm[1]);
-    if (m) return m[1].toUpperCase();
+    if (m) return normalizeAdrId(m[1]);
   }
   const fname = basename(path, '.md');
   const m = /^(ADR-?\d+|\d{3,4})/i.exec(fname);
-  if (m) {
-    const raw = m[1];
-    return raw.toUpperCase().startsWith('ADR') ? raw.toUpperCase().replace(/^ADR-?/, 'ADR-') : `ADR-${raw}`;
-  }
+  if (m) return normalizeAdrId(m[1]);
   return fname;
 }
 
@@ -97,10 +117,23 @@ function parseStatus(text) {
     const m = /^status:\s*(.+)$/im.exec(fm[1]);
     if (m) return m[1].trim();
   }
-  // Match `**Status**:` plus `**Status**:` with possible adornments.
-  // Strip parenthetical qualifiers like "Proposed (v3.6.x)" -> "Proposed".
-  const m = /^\*\*Status\*\*:\s*([A-Za-z][A-Za-z\- ]*?)(?:\s*\(.*?\))?\s*$/m.exec(text);
-  return m ? m[1].trim() : 'Unknown';
+  // Pull the raw status string from one of two body forms, then reduce it to
+  // its leading word. Both forms are widespread and the value is often adorned
+  // with qualifiers the graph doesn't need ("Aceito — Fase 1 (...) em prod",
+  // "Proposed (draft)"), so we keep only the first word ("Aceito", "Proposed").
+  let raw = null;
+  // Bold-line form: optional list marker ("- "), colon outside (`**Status**:`)
+  // OR inside (`**Status:**`) the emphasis.
+  const bold = /^\s*(?:[-*]\s+)?\*\*Status:?\*\*:?\s*(.+)$/mi.exec(text);
+  if (bold) raw = bold[1];
+  // Nygard-style `## Status` section: first non-empty line under the heading.
+  if (raw === null) {
+    const sec = /^#{1,6}\s*Status\s*$([\s\S]*?)(?=^#{1,6}\s|\Z)/m.exec(text);
+    if (sec) raw = sec[1].split('\n').map((l) => l.trim()).find(Boolean) || '';
+  }
+  if (raw === null) return 'Unknown';
+  const w = /^([A-Za-z][A-Za-z-]*)/.exec(raw.trim());
+  return w ? w[1] : 'Unknown';
 }
 
 function parseDate(text) {
@@ -154,14 +187,18 @@ function parseLinks(text, selfId) {
       }
     }
   }
-  // Body relationship lines
-  const supersedes = /\*\*Supersedes\*\*:\s*(.+)$/m.exec(text);
+  // Body relationship lines. Accept the colon either outside (`**Supersedes**:`)
+  // or inside (`**Supersedes:**`) the emphasis, plus an optional parenthetical
+  // qualifier before it (`**Supersedes (partial):**`).
+  const bodyRel = (label) =>
+    new RegExp(`^\\s*(?:[-*]\\s+)?\\*\\*(?:${label})(?:\\s*\\([^)]*\\))?:?\\*\\*:?\\s*(.+)$`, 'mi').exec(text);
+  const supersedes = bodyRel('Supersedes');
   if (supersedes) for (const ref of extractAdrRefs(supersedes[1])) out.push({ from: ref, to: selfId, relation: 'supersedes' });
-  const amended = /\*\*(?:Amended[ -]by|Amends)\*\*:\s*(.+)$/m.exec(text);
+  const amended = bodyRel('Amended[ -]by|Amends');
   if (amended) for (const ref of extractAdrRefs(amended[1])) out.push({ from: selfId, to: ref, relation: 'amends' });
-  const related = /\*\*Related\*\*:\s*(.+)$/m.exec(text);
+  const related = bodyRel('Related');
   if (related) for (const ref of extractAdrRefs(related[1])) out.push({ from: selfId, to: ref, relation: 'related' });
-  const dependsOn = /\*\*Depends[ -]on\*\*:\s*(.+)$/m.exec(text);
+  const dependsOn = bodyRel('Depends[ -]on');
   if (dependsOn) for (const ref of extractAdrRefs(dependsOn[1])) out.push({ from: selfId, to: ref, relation: 'depends-on' });
   return out;
 }
@@ -177,7 +214,7 @@ function extractAdrRefs(s) {
     .replace(/`[^`]*`/g, '');             // any backtick-quoted span
   const re = /\bADR-?(\d+)\b/gi;
   let m;
-  while ((m = re.exec(cleaned))) refs.add(`ADR-${m[1].padStart(3, '0').replace(/^0+(\d{3,})/, '$1')}`);
+  while ((m = re.exec(cleaned))) refs.add(normalizeAdrId(m[1]));
   return [...refs];
 }
 
@@ -185,8 +222,8 @@ function memoryStore(namespace, key, value) {
   const r = spawnSync('npx', [
     CLI_PKG, 'memory', 'store',
     '--namespace', namespace,
-    '--key', key,
-    '--value', typeof value === 'string' ? value : JSON.stringify(value),
+    '--key', sanitizeForCli(key),
+    '--value', sanitizeForCli(typeof value === 'string' ? value : JSON.stringify(value)),
   ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
   if (r.status !== 0) {
     if (/UNIQUE constraint/i.test(r.stderr || r.stdout || '')) return 'exists';
@@ -210,6 +247,10 @@ for (const a of adrs) {
 let storedRecords = 0, storedEdges = 0;
 const errors = [];
 if (!dryRun) {
+  // `memory store` fails with "Database not initialized" until the backend DB
+  // exists. Without this, the first stores of every run are lost (the DB is only
+  // created lazily) — initialize once up front so all records/edges persist.
+  spawnSync('npx', [CLI_PKG, 'memory', 'init'], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
   for (const a of adrs) {
     const r = memoryStore('adr-patterns', `${a.id}::${basename(a.file, '.md')}`,
       `${a.title} — ${a.context || '(no context)'}\n\nfile: ${a.file}\nstatus: ${a.status}\ndate: ${a.date}\ntags: ${a.tags.join(',')}`);
@@ -220,6 +261,7 @@ if (!dryRun) {
     const key = `${e.relation}:${e.from}->${e.to}:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const r = memoryStore('adr-edges', key, JSON.stringify({ ...e, capturedAt: new Date().toISOString() }));
     if (r === 'ok' || r === 'exists') storedEdges++;
+    else errors.push(`edge ${e.relation} ${e.from}->${e.to}: ${r}`);
   }
 }
 
