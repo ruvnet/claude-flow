@@ -159,12 +159,15 @@ export async function createWasmAgent(config: WasmAgentConfig = {}): Promise<Was
 async function attachJsModelProvider(agent: any, config: WasmAgentConfig): Promise<boolean> {
   const hasAny = !!(process.env.ANTHROPIC_API_KEY || process.env.OPENROUTER_API_KEY || process.env.OLLAMA_API_KEY);
   if (!hasAny) return false;
-  const mod = await import('@ruvector/rvagent-wasm');
   const { callAnthropicMessages, resolveAnthropicModel } = await import('../mcp-tools/agent-execute-core.js');
   const model = resolveAnthropicModel(config.model);
   const systemPrompt = config.instructions || 'You are a helpful coding assistant running in a Ruflo WASM agent sandbox.';
 
-  const provider = new mod.JsModelProvider(async (messagesJson: string) => {
+  // #fix — pass the raw fn straight to set_model_provider. `new JsModelProvider(fn)`
+  // throws "requires a function argument" once the agent-execute-core graph is
+  // loaded (wasm-bindgen interaction); set_model_provider accepts a Function
+  // directly (per d.ts) and works. Verified glm-5.2:cloud end-to-end.
+  agent.set_model_provider(async (messagesJson: string) => {
     const messages: Array<{ role: string; content: string }> = JSON.parse(messagesJson);
     const lastUser = [...messages].reverse().find(m => m.role === 'user');
     const prompt = lastUser?.content ?? messagesJson;
@@ -172,7 +175,6 @@ async function attachJsModelProvider(agent: any, config: WasmAgentConfig): Promi
     if (!result.success) throw new Error(result.error ?? 'provider call failed');
     return JSON.stringify({ role: 'assistant', content: result.output ?? '' });
   });
-  agent.set_model_provider(provider);
   return true;
 }
 
