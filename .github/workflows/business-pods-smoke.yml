@@ -31,18 +31,26 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: install + build CLI
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+      - name: install + build CLI (pnpm, v3 workspace)
+        # The root package.json uses npm/workspaces but the v3/ tree is a
+        # pnpm workspace (v3/pnpm-workspace.yaml). npm chokes on
+        # `workspace:*` here — use pnpm in the v3 dir instead.
+        working-directory: v3
         run: |
-          npm install --no-audit --no-fund --ignore-optional --workspaces=false
-          (cd v3/@claude-flow/cli && npm install --no-audit --no-fund --ignore-optional && npm run build)
+          pnpm install --frozen-lockfile
+          pnpm --filter @claude-flow/cli build
       - name: vitest — business-pod-tools
-        run: |
-          (cd v3/@claude-flow/cli && npx vitest run __tests__/business-pod-tools.test.ts)
+        working-directory: v3/@claude-flow/cli
+        run: pnpm vitest run __tests__/business-pod-tools.test.ts
       - name: node --test — pod-tick
-        run: |
-          node --test plugins/ruflo-business-pods/scripts/pod-tick.test.mjs
+        run: node --test plugins/ruflo-business-pods/scripts/pod-tick.test.mjs
       - name: smoke contract
         run: bash plugins/ruflo-business-pods/scripts/smoke.sh
