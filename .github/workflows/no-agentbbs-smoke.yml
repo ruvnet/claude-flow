@@ -141,13 +141,25 @@ jobs:
             console.log('OK — every agentbbs reference under ' + root + ' is dynamically guarded.');
           "
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+
       - name: Rule 3 — runtime drill (install without optional deps, run smoke)
         # Install without the optional `agentbbs` package so the loadAgentbbs()
         # path returns null and every handler must short-circuit to degraded.
         # smoke-agentbbs.sh accepts DEGRADED:agentbbs-not-found as a PASS for
         # step 8, so the whole script should still exit 0.
+        # Uses pnpm (the v3/ workspace's real package manager) since some root
+        # deps use the `workspace:*` protocol that npm doesn't support.
         run: |
           set -e
-          npm install --no-audit --no-fund --ignore-optional --workspaces=false
-          (cd v3/@claude-flow/cli && npm install --no-audit --no-fund --ignore-optional && npm run build)
+          (cd v3 && pnpm install --frozen-lockfile --no-optional)
+          # ...@claude-flow/cli builds the cli's workspace deps first
+          (cd v3 && pnpm --filter "@claude-flow/cli..." build)
           bash scripts/smoke-agentbbs.sh

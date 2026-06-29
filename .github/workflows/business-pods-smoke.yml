@@ -46,7 +46,8 @@ jobs:
         working-directory: v3
         run: |
           pnpm install --frozen-lockfile
-          pnpm --filter @claude-flow/cli build
+          # ... prefix tells pnpm to also build the cli's workspace deps
+          pnpm --filter "@claude-flow/cli..." build
       - name: vitest — business-pod-tools
         working-directory: v3/@claude-flow/cli
         run: pnpm vitest run __tests__/business-pod-tools.test.ts
