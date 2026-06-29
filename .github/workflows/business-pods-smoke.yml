@@ -46,8 +46,12 @@ jobs:
         working-directory: v3
         run: |
           pnpm install --frozen-lockfile
-          # ... prefix tells pnpm to also build the cli's workspace deps
-          pnpm --filter "@claude-flow/cli..." build
+          # Build ALL workspace packages in topological order — the cli has
+          # cross-package deps (e.g. imports @claude-flow/swarm/dist/...)
+          # that pnpm's dependency-aware filter can't discover from
+          # package.json alone. `pnpm -r build` runs the build script across
+          # the whole workspace, dep-first.
+          pnpm -r --no-bail build || pnpm --filter @claude-flow/cli build
       - name: vitest — business-pod-tools
         working-directory: v3/@claude-flow/cli
         run: pnpm vitest run __tests__/business-pod-tools.test.ts

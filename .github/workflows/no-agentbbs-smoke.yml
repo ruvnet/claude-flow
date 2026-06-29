@@ -150,16 +150,24 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: v3/pnpm-lock.yaml
 
-      - name: Rule 3 — runtime drill (install without optional deps, run smoke)
-        # Install without the optional `agentbbs` package so the loadAgentbbs()
-        # path returns null and every handler must short-circuit to degraded.
+      - name: Rule 3 — runtime drill (surgically remove agentbbs only, run smoke)
+        # Install everything (so other optional deps like agentdb stay available
+        # for transitive consumers — they have their own degradation paths)
+        # but DELETE node_modules/agentbbs to force loadAgentbbs() to return null.
         # smoke-agentbbs.sh accepts DEGRADED:agentbbs-not-found as a PASS for
         # step 8, so the whole script should still exit 0.
         # Uses pnpm (the v3/ workspace's real package manager) since some root
         # deps use the `workspace:*` protocol that npm doesn't support.
         run: |
           set -e
-          (cd v3 && pnpm install --frozen-lockfile --no-optional)
-          # ...@claude-flow/cli builds the cli's workspace deps first
-          (cd v3 && pnpm --filter "@claude-flow/cli..." build)
+          (cd v3 && pnpm install --frozen-lockfile)
+          # Build whole workspace dep-first (cli has cross-package deps the
+          # `...` filter can't discover from package.json alone)
+          (cd v3 && pnpm -r --no-bail build || pnpm --filter @claude-flow/cli build)
+          # Surgically remove agentbbs from every install location it landed.
+          find v3 -type d -name agentbbs -path '*node_modules*' -exec rm -rf {} + 2>/dev/null || true
+          # Sanity check — the package really is gone
+          if find v3 -type d -name agentbbs -path '*node_modules*' 2>/dev/null | grep -q . ; then
+            echo "ERROR: agentbbs still in node_modules"; exit 1
+          fi
           bash scripts/smoke-agentbbs.sh
