@@ -58,6 +58,10 @@ import { agenticowTools } from './mcp-tools/agenticow-tools.js';
 import { agentbbsTools } from './mcp-tools/agentbbs-tools.js';
 // ADR-164 Phase 2 — Business-pod template validation (pure local, no optional deps).
 import { businessPodTools } from './mcp-tools/business-pod-tools.js';
+// ADR-164 Phase 4 §5.1.8 — http_fetch MCP tool (secure-by-default HTTP probe
+// for ops-pod synthetic-endpoint benches). Default-rejects private addresses
+// + auth headers; opt-in via CLAUDE_FLOW_HTTP_FETCH_ALLOW_PRIVATE / _AUTH=1.
+import { httpFetchTools } from './mcp-tools/http-fetch-tools.js';
 // #1916: coverage-aware routing tools — defined in ruvector/coverage-tools.ts
 // but were never registered, so the `ruflo hooks coverage-*` CLI subcommands
 // failed with `Tool not found: hooks_coverage-route`.
@@ -149,6 +153,8 @@ registerTools([
   // ADR-164 Phase 2 + Phase 3 — business_pod_validate + business_pod_route_backend
   // (2 tools, no optional dep — schema validator + §3.4 domain-affinity router)
   ...businessPodTools,
+  // ADR-164 Phase 4 §5.1.8 — http_fetch (1 tool, secure-by-default HTTP probe)
+  ...httpFetchTools,
 ]);
 
 /**

@@ -11,7 +11,7 @@ import { HandshakeService } from '../domain/services/handshake-service.js';
 import { RoutingService, type RoutingResult } from '../domain/services/routing-service.js';
 import { AuditService } from '../domain/services/audit-service.js';
 import { PIIPipelineService } from '../domain/services/pii-pipeline-service.js';
-import { TrustEvaluator, type ImmediateDowngradeReason } from './trust-evaluator.js';
+import { TrustEvaluator, type ImmediateDowngradeReason, type BootstrapElevationAuditEntry } from './trust-evaluator.js';
 import { PolicyEngine } from './policy-engine.js';
 import {
   type Budget,
@@ -547,6 +547,43 @@ export class FederationCoordinator {
       });
     }
     if (tasks.length > 0) await Promise.all(tasks);
+  }
+
+  /**
+   * Founder-bootstrap trust elevation (ADR-164 §3.5.4 — operator escape hatch
+   * used in the autopilot Day-1 scenario where a freshly-joined BBS peer
+   * needs TRUSTED before organic minInteractions thresholds can accrue).
+   *
+   * Refuses if the target node is not a registered federation peer (returns
+   * null). On success, writes a `trust_level_changed` audit entry tagged
+   * `bootstrap_elevation` with the operator-supplied reason, and returns
+   * the audit entry so the CLI / caller can print it to stdout.
+   */
+  async bootstrapElevatePeer(
+    nodeId: string,
+    newLevel: TrustLevel,
+    reason: string,
+  ): Promise<BootstrapElevationAuditEntry | null> {
+    this.ensureInitialized();
+    const peer = this.discovery.getPeer(nodeId);
+    if (!peer) return null;
+
+    const entry = this.trustEvaluator.bootstrapElevate(peer, newLevel, reason);
+
+    await this.audit.log('trust_level_changed', {
+      targetNodeId: nodeId,
+      trustLevel: newLevel,
+      metadata: {
+        tag: 'bootstrap_elevation',
+        previousLevel: entry.previousLevel,
+        newLevel: entry.newLevel,
+        reason: entry.reason,
+        operatorBypass: true,
+        timestamp: entry.timestamp,
+      },
+    });
+
+    return entry;
   }
 
   /**

@@ -35,3 +35,5 @@ export { agenticowTools } from './agenticow-tools.js';
 export { agentbbsTools } from './agentbbs-tools.js';
 // ADR-164 Phase 2 — Business-pod template validation
 export { businessPodTools } from './business-pod-tools.js';
+// ADR-164 Phase 4 §5.1.8 — http_fetch (secure-by-default HTTP probe)
+export { httpFetchTools } from './http-fetch-tools.js';

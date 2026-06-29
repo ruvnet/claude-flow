@@ -158,6 +158,103 @@ export function createCliCommands(
       },
     },
     {
+      name: 'federation trust elevate',
+      description:
+        'ADR-164 §3.5.4 — Founder-bootstrap trust elevation escape hatch. ' +
+        'Hand-promote a registered BBS peer past the organic minInteractions ' +
+        'threshold (e.g. 500 for ATTESTED→TRUSTED) so #exec / #finance pods can ' +
+        'reach the share-context capability on Day 1. Refuses if the target ' +
+        'is not a registered federation peer. Every invocation writes a ' +
+        '`trust_level_changed` audit entry tagged `bootstrap_elevation`.',
+      arguments: [{ name: 'node-id', description: 'BBS / federation node id to elevate', required: true }],
+      options: [
+        {
+          name: 'to',
+          description: 'Target trust level (VERIFIED, ATTESTED, TRUSTED, PRIVILEGED, or numeric 1-4)',
+          type: 'string',
+          required: true,
+        },
+        {
+          name: 'reason',
+          description: 'Operator-supplied reason — appears verbatim in the audit log',
+          type: 'string',
+          required: true,
+        },
+        {
+          name: 'audit',
+          description: 'MANDATORY — print the resulting audit-log entry to stdout',
+          type: 'boolean',
+          default: false,
+        },
+      ],
+      handler: async (args) => {
+        const coordinator = requireCoordinator(getCoordinator);
+        const nodeId = (args._?.[0] ?? '') as string;
+        if (!nodeId) {
+          console.error('node-id is required');
+          process.exitCode = 1;
+          return;
+        }
+
+        const rawTo = args['to'];
+        const reason = args['reason'];
+        const auditFlag = args['audit'];
+
+        if (typeof reason !== 'string' || reason.trim().length === 0) {
+          console.error('--reason is required and must be a non-empty string');
+          process.exitCode = 1;
+          return;
+        }
+        if (auditFlag !== true && auditFlag !== 'true') {
+          console.error(
+            '--audit is mandatory for bootstrap elevation (ADR-164 §3.5.4). ' +
+            'Pass --audit to acknowledge the audit-log emission.',
+          );
+          process.exitCode = 1;
+          return;
+        }
+
+        let target: TrustLevel | null = null;
+        const toStr = String(rawTo).trim().toUpperCase();
+        switch (toStr) {
+          case 'VERIFIED': case '1': target = TrustLevel.VERIFIED; break;
+          case 'ATTESTED': case '2': target = TrustLevel.ATTESTED; break;
+          case 'TRUSTED':  case '3': target = TrustLevel.TRUSTED;  break;
+          case 'PRIVILEGED': case '4': target = TrustLevel.PRIVILEGED; break;
+        }
+        if (target === null) {
+          console.error(
+            `--to value "${rawTo}" not recognized. ` +
+            `Use VERIFIED, ATTESTED, TRUSTED, PRIVILEGED, or numeric 1-4.`,
+          );
+          process.exitCode = 1;
+          return;
+        }
+
+        const entry = await coordinator.bootstrapElevatePeer(nodeId, target, reason);
+        if (entry === null) {
+          console.error(
+            `Node "${nodeId}" is not a registered federation peer. ` +
+            `Run "ruflo-federation peers add <endpoint>" first.`,
+          );
+          process.exitCode = 1;
+          return;
+        }
+
+        // --audit is mandatory; always print the entry to stdout.
+        const human =
+          `[BOOTSTRAP-ELEVATION] ${entry.timestamp}\n` +
+          `  nodeId:         ${entry.nodeId}\n` +
+          `  previousLevel:  ${getTrustLevelLabel(entry.previousLevel)} (${entry.previousLevel})\n` +
+          `  newLevel:       ${getTrustLevelLabel(entry.newLevel)} (${entry.newLevel})\n` +
+          `  reason:         ${entry.reason}\n` +
+          `  operatorBypass: ${entry.operatorBypass}\n` +
+          `  tag:            ${entry.tag}`;
+        console.log(human);
+        console.log(JSON.stringify(entry));
+      },
+    },
+    {
       name: 'federation trust',
       description: 'View or modify trust level for a specific node',
       arguments: [{ name: 'node-id', description: 'Node ID to inspect or modify', required: true }],

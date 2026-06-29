@@ -412,4 +412,62 @@ describe('TrustEvaluator', () => {
       expect(called).toBe(true);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // bootstrapElevate — ADR-164 §3.5.4 founder-bootstrap escape hatch
+  // -------------------------------------------------------------------------
+  describe('bootstrapElevate', () => {
+    it('throws on empty reason', () => {
+      const node = makeNode(TrustLevel.VERIFIED);
+      expect(() => evaluator.bootstrapElevate(node, TrustLevel.TRUSTED, '')).toThrow(/non-empty reason/);
+      expect(() => evaluator.bootstrapElevate(node, TrustLevel.TRUSTED, '   ')).toThrow(/non-empty reason/);
+    });
+
+    it('bypasses minInteractions to jump VERIFIED → TRUSTED in a single call', () => {
+      const node = makeNode(TrustLevel.VERIFIED, 'fresh-peer');
+      // Organic upgrade VERIFIED→ATTESTED requires score≥0.7 AND minInteractions=50.
+      // ATTESTED→TRUSTED requires score≥0.85 AND minInteractions=500. The
+      // bootstrap path must skip both thresholds.
+      const entry = evaluator.bootstrapElevate(node, TrustLevel.TRUSTED, 'Day-1 #exec autopilot bring-up');
+      expect(entry.tag).toBe('bootstrap_elevation');
+      expect(entry.nodeId).toBe('fresh-peer');
+      expect(entry.previousLevel).toBe(TrustLevel.VERIFIED);
+      expect(entry.newLevel).toBe(TrustLevel.TRUSTED);
+      expect(entry.reason).toBe('Day-1 #exec autopilot bring-up');
+      expect(entry.operatorBypass).toBe(true);
+      expect(node.trustLevel).toBe(TrustLevel.TRUSTED);
+    });
+
+    it('emits onTrustChange callback so downstream code can react', () => {
+      let observed: { nodeId: string; previous: TrustLevel; next: TrustLevel } | null = null;
+      const evaluatorWithCb = new TrustEvaluator({
+        onTrustChange: (nodeId, result) => {
+          observed = {
+            nodeId,
+            previous: result.previousLevel,
+            next: result.newLevel,
+          };
+        },
+      });
+      const node = makeNode(TrustLevel.UNTRUSTED, 'cb-node');
+      const entry = evaluatorWithCb.bootstrapElevate(node, TrustLevel.TRUSTED, 'manual elevate for smoke test');
+      expect(entry).toBeDefined();
+      expect(observed).not.toBeNull();
+      expect(observed!.nodeId).toBe('cb-node');
+      expect(observed!.previous).toBe(TrustLevel.UNTRUSTED);
+      expect(observed!.next).toBe(TrustLevel.TRUSTED);
+    });
+
+    it('rejects out-of-range trust levels', () => {
+      const node = makeNode(TrustLevel.VERIFIED);
+      expect(() => evaluator.bootstrapElevate(node, TrustLevel.UNTRUSTED, 'x')).toThrow(/VERIFIED..PRIVILEGED/);
+      expect(() => evaluator.bootstrapElevate(node, 99 as TrustLevel, 'x')).toThrow(/VERIFIED..PRIVILEGED/);
+    });
+
+    it('audit entry timestamp is an ISO-8601 string', () => {
+      const node = makeNode(TrustLevel.VERIFIED);
+      const entry = evaluator.bootstrapElevate(node, TrustLevel.ATTESTED, 'iso check');
+      expect(entry.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    });
+  });
 });
