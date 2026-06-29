@@ -33,3 +33,5 @@ export { testgenTools } from './testgen-tools.js';
 export { agenticowTools } from './agenticow-tools.js';
 // ADR-164 — AgentBBS federated business-domain BBS rooms (Phase 1)
 export { agentbbsTools } from './agentbbs-tools.js';
+// ADR-164 Phase 2 — Business-pod template validation
+export { businessPodTools } from './business-pod-tools.js';

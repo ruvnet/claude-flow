@@ -56,6 +56,8 @@ import { agenticowTools } from './mcp-tools/agenticow-tools.js';
 // ADR-164 — AgentBBS federated business-domain BBS rooms (Phase 1).
 // Optional runtime dep, every handler returns `{degraded: true}` when missing.
 import { agentbbsTools } from './mcp-tools/agentbbs-tools.js';
+// ADR-164 Phase 2 — Business-pod template validation (pure local, no optional deps).
+import { businessPodTools } from './mcp-tools/business-pod-tools.js';
 // #1916: coverage-aware routing tools — defined in ruvector/coverage-tools.ts
 // but were never registered, so the `ruflo hooks coverage-*` CLI subcommands
 // failed with `Tool not found: hooks_coverage-route`.
@@ -144,6 +146,8 @@ registerTools([
   ...agenticowTools,
   // ADR-164 — AgentBBS federated business-domain BBS rooms (4 tools, Phase 1, graceful-degraded)
   ...agentbbsTools,
+  // ADR-164 Phase 2 — business_pod_validate (1 tool, no optional dep)
+  ...businessPodTools,
 ]);
 
 /**

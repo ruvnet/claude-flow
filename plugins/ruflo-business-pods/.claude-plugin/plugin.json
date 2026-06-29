@@ -1,0 +1,25 @@
+{
+  "name": "ruflo-business-pods",
+  "description": "ADR-164 Phase 2 — business-domain pod templates for the federated business autopilot. Ships the sales pod template (templates/sales.json) and a single-tick runner (scripts/pod-tick.mjs) that pre-flights templates via business_pod_validate, reserves budget through a file-based stub ledger (atomic SQLite tracker is Phase 3 per ADR-164.1), resolves each agent role against ruflo's agent registry, constructs dry-run prompts, and posts an envelope summary to the room via federation_bbs_publish. Dry-run by default — --live is reserved for Phase 3 Managed-Agent + claude-p wiring.",
+  "version": "0.1.0",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "pods",
+    "business",
+    "sales",
+    "adr-164",
+    "adr-164.1",
+    "phase-2",
+    "pod-template",
+    "pod-tick",
+    "budget-reservation",
+    "dry-run-default",
+    "agent-registry-resolution"
+  ]
+}

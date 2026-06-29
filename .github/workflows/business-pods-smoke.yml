@@ -1,0 +1,48 @@
+# ADR-164 Phase 2 — sales-pod smoke contract.
+#
+# Asserts that the business-pod template surface (sales.json + pod-schema
+# validator + business_pod_validate MCP tool + pod-tick.mjs dry-run runner)
+# stays green on every PR that touches the relevant files.
+name: business-pods-smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/ruflo-business-pods/**'
+      - 'v3/@claude-flow/cli/src/business-pods/**'
+      - 'v3/@claude-flow/cli/src/mcp-tools/business-pod-tools.ts'
+      - 'v3/@claude-flow/cli/src/mcp-tools/index.ts'
+      - 'v3/@claude-flow/cli/src/mcp-client.ts'
+      - '.github/workflows/business-pods-smoke.yml'
+  pull_request:
+    paths:
+      - 'plugins/ruflo-business-pods/**'
+      - 'v3/@claude-flow/cli/src/business-pods/**'
+      - 'v3/@claude-flow/cli/src/mcp-tools/business-pod-tools.ts'
+      - 'v3/@claude-flow/cli/src/mcp-tools/index.ts'
+      - 'v3/@claude-flow/cli/src/mcp-client.ts'
+      - '.github/workflows/business-pods-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: install + build CLI
+        run: |
+          npm install --no-audit --no-fund --ignore-optional --workspaces=false
+          (cd v3/@claude-flow/cli && npm install --no-audit --no-fund --ignore-optional && npm run build)
+      - name: vitest — business-pod-tools
+        run: |
+          (cd v3/@claude-flow/cli && npx vitest run __tests__/business-pod-tools.test.ts)
+      - name: node --test — pod-tick
+        run: |
+          node --test plugins/ruflo-business-pods/scripts/pod-tick.test.mjs
+      - name: smoke contract
+        run: bash plugins/ruflo-business-pods/scripts/smoke.sh
