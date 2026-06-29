@@ -12,7 +12,7 @@
 - ADR-001 (deep-integration philosophy — build as extension, not parallel implementation)
 - PR #2500 (agenticow v3.15.0 ship — precedent for the optional-dep onboarding pattern)
 **External references**:
-- `agentbbs@0.1.0` — [`ruvnet/agentbbs`](https://github.com/ruvnet/agentbbs) — v0.1.0, published 2026-06-29, same author (ruv@ruv.net)
+- `agentbbs@0.1.0` (npm launcher) / Rust workspace — [`ruvnet/agentbbs`](https://github.com/ruvnet/agentbbs) — mature Rust workspace: 13 crates (`agentbbs`, `agentbbs-arena`, `agentbbs-core`, `agentbbs-federation`, `agentbbs-mcp`, `agentbbs-tui`, `agentbbs-web`, `agentbbs-wasm`, plus `late-cli`, `late-core`, `late-nethack`, `late-ssh`, `late-web`), 30+ release tags (latest seen: `v0.34.9-nethack`), 7 GitHub Actions workflows (`agentbbs.yml`, `build.yml`, `ci.yml`, `deploy.yml`, `deploy_cli.yml`, `deploy_infra.yml`, `deploy_nethack.yml`), existing MCP server at `crates/agentbbs-mcp/` (`server.rs`, `client.rs`, `transport.rs`, `lib.rs` + `tests/mcp.rs`), existing federation crate at `crates/agentbbs-federation/`, postgres-backed integration tests, Docker + docker-compose + monitoring stack, `deny.toml` (cargo-deny supply-chain scans), `.gitguardian.yaml` (secret scanning), FSL-1.1-Apache-2.0 license (converts to Apache-2.0 after 2 years); same author (ruv@ruv.net)
 - `@claude-flow/plugin-agent-federation` — `v3/@claude-flow/plugin-agent-federation/src/`
 
 ---
@@ -38,7 +38,7 @@ This ADR sits at the intersection of three existing components:
 |--------|-----------------|-----|
 | ruflo federation (ADR-097, ADR-111) | Trust-scored peer connections, PII pipeline, budget hop enforcement, WG mesh transport | No concept of "business domain"; federation is agent-to-agent, not role-to-domain-to-human |
 | Managed Agents (ADR-115) | Cloud agent execution with SSE event streaming | No persistent room concept; sessions are ephemeral |
-| agentbbs@0.1.0 | BBS-style web UI + TUI + SSH front door for human-agent interaction, organized into "rooms" | No typed federation envelopes; persistence semantics unknown; v0.1.0, 16 h old as of this writing |
+| agentbbs (npm launcher v0.1.0; Rust workspace v0.34.9-nethack) | BBS-style web UI + TUI + SSH front door for human-agent interaction, organized into "rooms"; existing `crates/agentbbs-mcp/` MCP server with server/client/transport layers + integration test suite; existing `crates/agentbbs-federation/` crate; Docker + monitoring stack; postgres-backed CI; 7 CI workflows | Typed federation-envelope compatibility with ruflo's wire format is unverified; `agentbbs-mcp` tool interface needs explicit compat check against our `MCPTool` interface; FSL-1.1-Apache-2.0 license (converts to Apache-2.0 after 2 years) has integration implications for ruflo's MIT distribution; `cargo` required at first run (Rust compilation); npm launcher version vs. Rust workspace version are independent versioning tracks |
 
 The proposal is to wire these three together: federation provides the trust + PII + budget primitives; Managed Agents provides cloud-scale execution for appropriate workloads; agentbbs provides the human-facing cockpit.
 
@@ -46,7 +46,17 @@ The proposal is to wire these three together: federation provides the trust + PI
 
 agentbbs is authored by the same maintainer (rUv), follows the same ADR convention, and is explicitly framed as an interaction layer for agent systems. It provides a BBS (bulletin board system) metaphor — rooms, posts, subscriptions — that maps naturally onto business functions. The SSH front door is significant: agents that cannot run a local MCP server can still participate by speaking SSH.
 
-The honest risk is that agentbbs is v0.1.0, published 16 h before this ADR was written, with no test suite visible in the public repository and persistence semantics that are unspecified. This ADR treats it the same way ADR-150 treated `metaharness@0.1.x`: adopt as an `optionalDependency`, build graceful-degraded paths everywhere, ship a smoke contract on day one, and gate deeper integration behind measured evidence.
+Critically, the npm package `agentbbs@0.1.0` is a thin launcher only. The actual project is a mature Rust workspace tracked under `ruvnet/agentbbs` with 30+ release tags (latest: `v0.34.9-nethack`), a working CI pipeline including rustfmt, clippy, and postgres-backed integration tests, and two directly relevant crates:
+
+- **`crates/agentbbs-mcp/`** — an existing MCP server implementation (`server.rs`, `client.rs`, `transport.rs`, `lib.rs`) with its own integration test (`tests/mcp.rs`). Before writing any new MCP plumbing, this integration must verify whether `agentbbs-mcp` already exposes compatible tool endpoints that ruflo's `MCPTool` interface can consume directly. If so, Phase 1 and Phase 2 integration costs drop significantly.
+
+- **`crates/agentbbs-federation/`** — an existing federation crate. Before specifying "new upstream changes" for federation envelope handling (Section 5.2), this crate must be surveyed to determine which capabilities already exist. It may already accept typed payloads that are close to ruflo's `FederationEnvelope` wire format.
+
+The project also ships `deny.toml` (cargo-deny supply-chain scanning) and `.gitguardian.yaml` (secret scanning), which are hygiene signals consistent with a production-tracked codebase. Docker, docker-compose, and a monitoring stack are present, indicating the project has been deployed rather than only prototyped.
+
+The integration risks are therefore not about project maturity in the general sense. The specific risks are: (a) the npm launcher version track and the Rust workspace version track are independently versioned — the integration must pin against the Rust workspace tag, not the npm package semver; (b) the FSL-1.1-Apache-2.0 license converts to Apache-2.0 after 2 years, which is compatible with ruflo's MIT distribution for most commercial contexts but requires legal review before embedding agentbbs binaries in a ruflo distribution; (c) `cargo` must be present on the operator's machine for the Rust binary to build at first run; (d) the `agentbbs-mcp` server's tool interface needs explicit compatibility verification against ruflo's `MCPTool` interface before Phase 2. See Section 9.1 for the rewritten risk register.
+
+This ADR treats agentbbs the same way ADR-150 treated `metaharness@0.1.x` in terms of the integration pattern: `optionalDependency`, graceful-degraded paths, smoke contract on day one, and deeper phases gated behind measured evidence. It does NOT treat agentbbs as an unproven project — the Rust workspace evidence justifies confidence in its foundational architecture.
 
 ---
 
@@ -318,6 +328,37 @@ inputSchema: {
 //   in the MCP tool result). The human presents it to the agentbbs SSH/web
 //   front door on connect.
 //
+// Two-phase authentication model:
+//
+//   Phase A — Handshake (token is single-use):
+//     The 15-minute Ed25519 token is un-replayable. It is consumed by a
+//     SINGLE USE to open a WebSocket or SSH channel. Once the channel is
+//     opened, the token is invalidated immediately: the agentbbs server
+//     records the JTI (nonce) so that any replay of the same token against
+//     a new connection fails with 401. The token MUST NOT be persisted by
+//     the client or used for any subsequent request.
+//
+//   Phase B — Session (channel is long-lived):
+//     Once the Phase A handshake succeeds, the open channel remains active
+//     until one of three conditions occurs:
+//       (i)   The user explicitly closes the connection.
+//       (ii)  An idle timeout fires (default: 30 minutes of no inbound or
+//             outbound traffic on the channel; configurable via the BBS
+//             server's session policy).
+//       (iii) The BBS node restarts (channel is torn down; client must
+//             perform a new Phase A handshake to reconnect).
+//     During Phase B, NO re-validation of the token occurs. The channel
+//     is already authenticated. Long-running streams (e.g., `subscribe
+//     #sales` via SSH — see Section 5.2.5) are Phase B sessions: the SSH
+//     session stays open for the duration of the stream WITHOUT re-checking
+//     the token mid-stream. Requiring mid-stream re-validation would break
+//     the streaming contract.
+//
+//   Re-authentication:
+//     After a channel closes (any of the three conditions above), a new
+//     call to federation_bbs_human_join is required to obtain a fresh
+//     single-use token before reconnecting.
+//
 // Graceful degradation: token is generated locally even if agentbbs is
 //   unreachable. The human can present it later when BBS reconnects.
 ```
@@ -424,6 +465,45 @@ BBS rooms are operator-registered peers (humans with admin access issued the tok
 Human messages arriving via the BBS room inherit the room's trust level. An `accessLevel: 'admin'` human token elevates the interaction to `TrustLevel.TRUSTED` (level 3) for the duration of the session — never higher, even with an admin token, because `TrustLevel.PRIVILEGED` (level 4, which grants `remote-spawn`) requires `minInteractions: 5000` in `TRUST_TRANSITION_THRESHOLDS`.
 
 Override messages from humans are enveloped in the standard `FederationEnvelope` with `messageType: 'task-assignment'` (an existing `FederationMessageType`). The receiving pod agent checks the token signature before acting on the override. Unsigned or expired tokens are rejected by the `HandshakeService` before they reach the pod.
+
+#### 3.5.4 Founder-bootstrap trust elevation
+
+The organic trust accrual path (`minInteractions: 500` to reach `TRUSTED`, `minInteractions: 5000` for `PRIVILEGED`) means the `#exec` cross-pod synthesizer cannot operate at full capability on Day 1. In practice, the operator who registers the BBS rooms knows they are legitimate. An escape hatch is required to unblock production deployments without waiting for organic accrual.
+
+**CLI command** (new subcommand under `ruflo federation`):
+
+```bash
+ruflo federation trust elevate <bbs-node-id> \
+  --to TRUSTED \
+  --reason "<human-readable justification>" \
+  --audit
+```
+
+Constraints:
+- `--reason` is **mandatory** and stored verbatim in the audit log. The command rejects invocations that omit it.
+- `--audit` is **mandatory** and prints the audit-log entry to stdout immediately after writing it, so the operator can record it externally before proceeding.
+- The elevation bypasses the `TRUST_TRANSITION_THRESHOLDS` gate entirely but MUST write a special audit entry tagged `type: 'bootstrap_elevation'` to `AuditService`. This entry includes `nodeId`, `elevatedTo`, `reason`, `operatorIdentity` (from the session token), and `timestamp`.
+- The command only elevates to `TRUSTED` (level 3). It cannot be used to reach `PRIVILEGED` (level 4) — `--to PRIVILEGED` is rejected.
+
+**Implementation wire point**: add a new method to `application/trust-evaluator.ts`:
+
+```typescript
+/**
+ * Operator escape hatch — bypasses TRUST_TRANSITION_THRESHOLDS for registered
+ * BBS room nodes. Writes a 'bootstrap_elevation' audit entry.
+ * Requires: reason is non-empty string; audit flag triggers stdout print.
+ */
+async bootstrapElevate(
+  nodeId: string,
+  toLevel: TrustLevel.TRUSTED,   // only TRUSTED is permitted
+  reason: string,
+  audit: boolean
+): Promise<void>;
+```
+
+The CLI subcommand calls `bootstrapElevate` and exits non-zero if `reason` is empty or `audit` is false.
+
+**Security caveat**: Production deployments SHOULD require multi-party sign-off before invoking this command (e.g., two operators, one acting as auditor who records the stdout output). Phase 1 may ship with a single-operator escape hatch; enforcing multi-party sign-off is a **Phase 5 hardening** item. The reason-and-audit gate provides a papertrail even for single-operator Phase 1 deployments.
 
 ---
 
@@ -553,14 +633,29 @@ Ops covers infrastructure monitoring, deployment readiness, and internal tooling
     { "role": "deploy-scout",      "agentType": "cicd-engineer",      "description": "Tracks deployment pipeline state", "preferLocal": false },
     { "role": "incident-responder","agentType": "security-auditor",   "description": "Triages and escalates incidents to #exec", "preferLocal": false }
   ],
-  "allowedMcpTools": ["memory_store", "memory_search", "federation_bbs_publish", "federation_bbs_watch", "federation_send"],
+  "allowedMcpTools": [
+    "memory_store", "memory_search",
+    "federation_bbs_publish", "federation_bbs_watch", "federation_send",
+    "aidefence_analyze", "aidefence_scan", "aidefence_stats",
+    "terminal_execute",
+    "http_fetch",
+    "agent_execute"
+  ],
+  "_allowedMcpTools_notes": [
+    "aidefence_* — alerting and threat-detection signals from the AIDefence subsystem",
+    "terminal_execute — shell execution for ops scripts (e.g. health-check probes, log scrapes)",
+    "http_fetch — external HTTP endpoint monitoring (see §5.1.8 for contract; Phase 2 prerequisite)",
+    "agent_execute — delegates to cloud Managed Agents with AWS/GCP/Azure SDK access for cloud-infra ops",
+    "Cloud-provider MCP servers (e.g. aws-mcp, gcp-mcp) are deployment-specific; NOT bundled. Must be registered per-installation via `ruflo mcp config add`."
+  ],
   "bench": {
     "name": "ops-availability-bench",
     "description": "Measures service availability and incident response lag",
     "successCriteria": [
       "No unacknowledged P1 alert older than 15 min",
       "Deployment pipeline green or escalated within 30 min",
-      "Infra health check at least every 4h"
+      "Infra health check at least every 4h",
+      "HTTP endpoint monitor: probe a synthetic endpoint returning 200 OK 90% / 500 10% of the time; pod must detect the 500 rate and post an alert to #ops within 60 seconds"
     ],
     "scheduleHours": 4
   },
@@ -838,7 +933,56 @@ interface BusinessOwnerAuditEvent {
 
 **File to modify**: `v3/@claude-flow/plugin-agent-federation/src/domain/services/audit-service.ts`
 
-#### 5.1.7 Optional dependency wiring in root package.json and ruflo wrapper
+#### 5.1.8 New MCP tool: `http_fetch` (Phase 2 prerequisite)
+
+The Ops pod requires the ability to probe external HTTP endpoints for availability monitoring. This tool does not exist in ruflo today and must be created.
+
+**Minimal contract**:
+
+```typescript
+// New tool in plugins/ruflo-bbs-federation/src/mcp-tools.ts (or a shared http plugin)
+{
+  name: 'http_fetch',
+  description: 'Perform a monitored HTTP GET/POST against an external endpoint. Subject to allowlist, timeout, and response-size constraints.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      url: {
+        type: 'string',
+        description: 'Target URL. Must match at least one pattern in the configured URL allowlist.',
+      },
+      method: {
+        type: 'string',
+        enum: ['GET', 'POST', 'HEAD'],
+        default: 'GET',
+        description: 'HTTP method.',
+      },
+      timeoutMs: {
+        type: 'number',
+        description: 'Request timeout in milliseconds. Default 5000. Max 30000.',
+        default: 5000,
+      },
+      headers: {
+        type: 'object',
+        description: 'Additional headers. Auth headers (Authorization, Cookie, X-Api-Key) are BLOCKED unless the URL is on the explicit auth-header allowlist.',
+        additionalProperties: { type: 'string' },
+      },
+    },
+    required: ['url'],
+  },
+}
+```
+
+**Security constraints** (all enforced server-side, not by caller):
+1. **URL allowlist**: the operator configures a list of URL patterns (e.g. `["https://status.myservice.com/*", "https://api.monitoring.example.com/health"]`). Requests to unlisted URLs are rejected with `403 URL_NOT_ALLOWLISTED`.
+2. **Timeout cap**: maximum 30 seconds. Requests exceeding the cap are killed and return `{ error: 'TIMEOUT' }`.
+3. **Response-size cap**: maximum 256 KB of response body. Larger responses are truncated at the cap; a `truncated: true` field is added to the result.
+4. **No auth-header pass-through**: `Authorization`, `Cookie`, and `X-Api-Key` headers are stripped from all requests unless the URL is explicitly on a separate `authAllowedUrls` list (empty by default). This prevents the Ops pod from inadvertently leaking credentials to external endpoints.
+5. **Audit logging**: every `http_fetch` call is logged to `AuditService` with URL, method, response status, latency, and caller agent ID.
+
+**Phase gate**: `http_fetch` is a **Phase 2 prerequisite** for the Ops pod. Phase 1 can ship the stub (returns `{ degraded: true, reason: "http_fetch not yet implemented" }`). The ops bench scenario (§4.4) cannot complete until Phase 2 ships the full implementation.
+
+#### 5.1.9 Optional dependency wiring in root package.json and ruflo wrapper
 
 `agentbbs` must be added to `optionalDependencies` in:
 - `/Users/cohen/Projects/ruflo/package.json` (root umbrella)
@@ -856,13 +1000,19 @@ try {
 }
 ```
 
-### 5.2 In agentbbs upstream (changes needed in `ruvnet/agentbbs`)
+### 5.2 In agentbbs upstream (verification-first approach for `ruvnet/agentbbs`)
 
-These are requests to the agentbbs maintainer (same author, ruv). They are not blockers for Phase 1 but are required before Phase 3.
+The agentbbs project is a mature Rust workspace with 30+ release tags. Many capabilities this ADR originally listed as "changes needed" may already exist in `crates/agentbbs-federation/` or `crates/agentbbs-mcp/`. The correct Phase 1 action is **survey-first**: read the existing crate source before writing any new upstream request. This section is therefore restructured as a series of compatibility checks, each with an "if-exists" and "if-missing" branch.
 
-#### 5.2.1 Typed federation-envelope message kind
+These requests go to the agentbbs maintainer (same author, ruv). Items marked **VERIFY FIRST** must be investigated against the live upstream source before any upstream PR is opened.
 
-agentbbs today (v0.1.0) presumably accepts free-form text posts. It needs to accept a typed federation envelope as a post body with:
+#### 5.2.1 Federation-envelope message kind compatibility
+
+**VERIFY FIRST**: Survey `crates/agentbbs-federation/` for an existing typed message schema. The crate likely defines its own envelope format (given its maturity). If it does, the integration question changes from "add a new type" to "map ruflo's `FederationEnvelope` fields to agentbbs-federation's existing type."
+
+Required outcome regardless of whether existing or new:
+- The BBS must round-trip the `hmacSignature` field intact through post storage and retrieval (not stripped by any sanitization layer).
+- The `piiScanResult` must be stored alongside the post body so re-ingesting agents can verify that PII scanning already ran.
 
 ```json
 {
@@ -877,45 +1027,73 @@ agentbbs today (v0.1.0) presumably accepts free-form text posts. It needs to acc
 }
 ```
 
-The `hmacSignature` must be preserved intact through BBS round-tripping (not stripped by any sanitization layer). The `piiScanResult` must be stored alongside the post so re-ingestion by other agents can verify that PII scanning already ran.
+**If `crates/agentbbs-federation/` already supports a comparable typed envelope**: write a thin adapter in `ruflo-bbs-federation/src/mcp-tools.ts` that maps ruflo's `FederationEnvelope` fields to the upstream type. No upstream change required.
 
-**Upstream file to add**: a typed message schema in agentbbs's post handler.
+**If the crate does not yet accept this shape**: file a minimal upstream PR adding the typed message kind. This remains a Phase 3 prerequisite (not Phase 1).
 
 #### 5.2.2 Web UI domain-aware rendering
 
-The BBS web UI should render `federation-envelope` posts with domain-aware components:
+The BBS web UI (`crates/agentbbs-web/`) should render `federation-envelope` posts with domain-aware components:
 - `pod-status` → status badge + agent health grid
 - `task-result` → collapsible result panel
 - `alert` → colored alert box with room color coding
 - `bench-result` → sparkline chart for the domain bench metric
 
-This is a UI feature request, not a blocking requirement for CLI/TUI/SSH operation.
+**VERIFY FIRST**: Check whether `crates/agentbbs-web/` already has a pluggable renderer or message-type dispatch system. If it does, the integration may only require adding a ruflo-specific renderer registration rather than patching core web UI code.
+
+This is a UI feature request, not a blocking requirement for CLI/TUI/SSH operation. Phase 4 gated.
 
 #### 5.2.3 Durable event log (persistence guarantee)
 
-agentbbs v0.1.0's persistence semantics are unspecified. For the business audit trail to be correct, the BBS must retain events for at least the `retentionDays` specified in each pod's `auditReadView`. The canonical source of truth is the federation audit log (`audit-service.ts`); the BBS is a display layer. However, the `sinceTs` replay in `federation_bbs_watch` requires the BBS to have a durable log it can replay from.
+**VERIFY FIRST**: The agentbbs CI pipeline uses postgres (postgres-backed integration tests confirmed in `ci.yml`). This is strong evidence that event persistence is already implemented against a postgres backend. Survey `crates/agentbbs-core/` or `crates/agentbbs/` for a retention or event-log API.
 
-**Upstream requirement**: document and implement event persistence with at least configurable N-day retention.
+Required outcome:
+- Events must be retained for at least the `retentionDays` specified in each pod's `auditReadView` (longest is 365 days for finance and HR).
+- The `sinceTs` replay in `federation_bbs_watch` requires an event-log query endpoint that accepts a timestamp and returns events in order.
+
+**If postgres-backed retention already exists**: verify that retention duration is configurable and that the query API is accessible from the `agentbbs-mcp` server. Document the API path in the Phase 2 integration spec; no upstream change needed.
+
+**If retention is not configurable**: file a minimal upstream PR to expose retention period as a BBS server config option. Phase 2 prerequisite.
 
 #### 5.2.4 Federation keypair authentication handshake
 
-When a human connects to the BBS (web or SSH), the BBS must validate the single-use token issued by `federation_bbs_human_join`. The token is Ed25519-signed by the ruflo node's federation keypair. The BBS needs:
-- A way to learn the node's public key (via the federation manifest, which is already a published artifact)
-- A token validation endpoint that checks: signature, expiry, single-use nonce, room scope
+**VERIFY FIRST**: Survey `crates/agentbbs-mcp/src/server.rs` and the auth layer in `crates/agentbbs-core/` or `crates/agentbbs/` for an existing authentication mechanism. The `late-ssh` crate may already implement Ed25519-based SSH authentication; if so, the ruflo token validation requirement becomes a matter of teaching the BBS to accept ruflo's token shape rather than building authentication from scratch.
 
-**Upstream requirement**: token validation in agentbbs auth layer.
+Required outcome:
+- The BBS validates the single-use Ed25519 token issued by `federation_bbs_human_join` (see §3.2.4 Phase A).
+- Validation must check: signature (against the ruflo node's published public key from the federation manifest), expiry (`expiresAt`), single-use nonce (JTI recorded per §3.2.4 Phase A semantics), and room scope (`roomId` match).
+
+**If `crates/agentbbs-mcp/` already exposes an auth hook**: extend it to accept ruflo's token shape via configuration. No net-new auth code in agentbbs required.
+
+**If no auth hook exists**: file an upstream PR adding a token-validation endpoint. Phase 4 prerequisite.
 
 #### 5.2.5 SSH "room subscribe" command
 
-The SSH front door should support:
+**VERIFY FIRST**: The `late-ssh` crate is the SSH front door. Survey whether it already supports a streaming subscribe command. Given the project's maturity and SSH focus, a room-subscribe capability may already exist under a different command name.
+
+Required outcome regardless:
 ```
 ssh bbs.local subscribe #sales
 ```
-which streams all events for that room to stdout in the `federation-envelope` JSON format. This allows agents without a local MCP server to participate as consumers via a simple SSH pipe.
+streams all events for that room to stdout in `federation-envelope` JSON format. This allows agents without a local MCP server to participate as consumers via a simple SSH pipe.
+
+The long-running SSH stream is a Phase B session (§3.2.4): once the Phase A handshake completes, the stream runs without re-validating the token mid-stream. The `late-ssh` implementation must NOT interrupt a running stream for re-authentication.
+
+**If `late-ssh` already supports room streaming**: verify the output format is JSON-serializable and aligns with the `federation-envelope` shape. A format adapter may be all that is needed.
+
+**If the command does not yet exist**: file an upstream PR. Phase 4 prerequisite.
 
 #### 5.2.6 Per-room access controls
 
-The BBS must enforce that only authorized identities (humans with valid tokens, and agents registered to a room's pod) can post to or read from a room. The initial model: each room has an allowlist of `(identity, accessLevel)` pairs, managed by the ruflo node via `federation_bbs_register`.
+**VERIFY FIRST**: Survey `crates/agentbbs-federation/` for existing per-room authorization primitives. A federation crate in a mature project likely already has some concept of room membership or peer authorization.
+
+Required outcome:
+- Only authorized identities (humans with valid tokens, and agents registered to a room's pod) can post to or read from a room.
+- Initial model: each room has an allowlist of `(identity, accessLevel)` pairs, managed by the ruflo node via `federation_bbs_register`.
+
+**If `crates/agentbbs-federation/` already implements room-scoped authorization**: wire ruflo's `federation_bbs_register` to set the allowlist via the existing API. No upstream change needed.
+
+**If per-room ACLs do not exist**: file a minimal upstream PR. Phase 3 prerequisite.
 
 ---
 
@@ -996,9 +1174,17 @@ For accounting purposes, one BBS publish = one spend event in the `federation-sp
 
 ### 7.3 Budget circuit breaker hardening
 
-The existing `enforceBudget` function in `federation-budget.ts` is synchronous and cannot be raced by two concurrent send calls (documented in the file's security invariants comment at line 7). The per-room monthly tracker (`BbsRoomBudgetTracker`) is an async read-then-write which *can* be raced. The implementation must use optimistic locking or a memory-level compare-and-swap to prevent two concurrent publishes from both passing a nearly-exhausted budget.
+> **Atomicity design lives in ADR-164.1; this section summarises the requirements only.** ADR-164.1 (the companion atomic budget-tracker ADR, being written in parallel) specifies the full concurrency design. See §9.5 for the associated risk entry which forwards to ADR-164.1.
 
-This is flagged as an open risk requiring hardened tests before Phase 3 (see Section 10.5).
+The existing `enforceBudget` function in `federation-budget.ts` is synchronous and cannot be raced by two concurrent send calls (documented in the file's security invariants comment at line 7). The per-room monthly tracker (`BbsRoomBudgetTracker`) is an async read-then-write which *can* be raced. ADR-164.1 must satisfy the following four requirements:
+
+1. **Atomic reserve-and-commit**: spending must use a reserve-then-commit protocol. A call to `federation_bbs_publish` must atomically reserve the estimated spend (preventing concurrent calls from both seeing non-zero balance) and commit the actual spend only after the underlying `sendMessage` call returns success. If `sendMessage` fails, the reserved amount is released.
+
+2. **Write-side serialization**: no read-then-write windows are permitted for the per-room balance. Either a database-level row lock (for postgres backends) or a process-level serialization primitive (e.g., a Mutex per roomId in-memory, backed by a CAS operation in the persistence layer) must ensure that two concurrent publishes cannot both pass a nearly-exhausted budget.
+
+3. **Explicit expiry semantics for unconfirmed reservations**: if a reserve succeeds but the publisher crashes before committing, the reserved amount must expire after a configurable timeout (default: 60 seconds) and return to the available balance. ADR-164.1 must define the expiry mechanism and its interaction with the monthly reset cron.
+
+4. **Audit-log integration**: every reserve, commit, and release operation must write a `federation_spend` event to `AuditService`. The event type must be distinguishable (`reserve`, `commit`, `release-success`, `release-expiry`) so the audit trail accurately reflects the lifecycle of each spend unit.
 
 ---
 
@@ -1083,11 +1269,17 @@ Exit criteria: Full 7-pod deployment running for ≥30 days in a real business e
 
 ## 9. Open questions and risks
 
-### 9.1 agentbbs is v0.1.0, ~16 hours old at time of writing
+### 9.1 Real integration risks for the agentbbs Rust workspace
 
-This is the most significant risk. The upstream project has no visible test suite, no published API stability guarantee, and persistence semantics that are unspecified. The integration is designed to survive agentbbs being entirely absent (graceful degradation), but Phase 2 and beyond depend on upstream features (typed envelopes, durable log, token validation) that do not yet exist.
+The previous version of this ADR mis-stated agentbbs as "v0.1.0, 16 hours old, no test suite." That was incorrect — the npm launcher is v0.1.0 but the Rust workspace is mature (30+ release tags, postgres-backed CI, 13 crates including `agentbbs-mcp` and `agentbbs-federation`). The actual risks are different:
 
-Mitigation: treat agentbbs the same as `metaharness@0.1.x` at the time of ADR-150 — adopt cautiously, build the integration layer to be resilient, and gate deeper phases behind upstream evidence. Do not bet Phase 3 on upstream features that are not shipped.
+**Risk 9.1.a — npm launcher version vs. Rust workspace version drift**: The npm package `agentbbs@0.1.0` and the Rust workspace (currently at `v0.34.9-nethack`) are independently versioned. The integration must pin against the Rust workspace tag for compatibility purposes. If a future npm release silently picks up an incompatible Rust binary, the BBS cockpit may break without a semver signal. Mitigation: pin the Rust binary version explicitly in `plugin.json` and add a Phase 1 smoke check that asserts the binary version reported by `agentbbs --version` matches the pinned value.
+
+**Risk 9.1.b — FSL-1.1-Apache-2.0 license implications**: The Functional Source License converts to Apache-2.0 after 2 years. In the current FSL period, ruflo (MIT) may distribute agentbbs as an `optionalDependency` for use by operators, but embedding agentbbs binaries in a ruflo distribution that is itself sold as a product may require explicit FSL compliance review. Mitigation: legal review before Phase 3. Phase 1 and Phase 2 are unaffected (operator installs agentbbs separately; ruflo does not bundle it).
+
+**Risk 9.1.c — `cargo` required at first run**: The Rust workspace compiles from source on the operator's machine unless a pre-built binary is available. Operators without `cargo` in their PATH will see a compilation failure, not a graceful-degradation response. Mitigation: the `no-bbs-smoke.yml` CI workflow must test the absent-agentbbs path (graceful degradation), not only the present-agentbbs path. Document the `cargo` requirement prominently in `plugins/ruflo-bbs-federation/README.md`. Phase 3+ may consider shipping a pre-built binary via npm for common platforms.
+
+**Risk 9.1.d — `agentbbs-mcp` compatibility with ruflo's `MCPTool` interface**: The existing `crates/agentbbs-mcp/src/server.rs` implements an MCP server, but its tool interface shape (JSON-RPC envelope, tool name conventions, parameter types) has not been verified against ruflo's `MCPTool` interface. If there is a mismatch (e.g., different `inputSchema` conventions or different transport handshake), the four BBS MCP tools in §3.2 may need an adapter layer. Mitigation: Phase 1 deliverable includes a documented compatibility matrix produced by reading `crates/agentbbs-mcp/src/server.rs` against ruflo's `MCPTool` type definition. Incompatibilities are resolved in Phase 1 (adapter shim) before Phase 2 proceeds.
 
 ### 9.2 Persistence semantics of agentbbs BBS rooms
 
@@ -1111,8 +1303,10 @@ The trust model (Section 3.5) starts BBS rooms at `TrustLevel.ATTESTED`. There i
 
 The perpetual-loop pattern (`cronSchedule` + Darwin /loop) means agents run indefinitely. A buggy bench that never terminates, or an agent that calls expensive models in a tight loop, can exhaust a monthly budget in hours. The `BbsRoomBudgetTracker` (Section 5.1.5) is the primary defense, but it has an async race condition (Section 7.3) that could allow brief overshoot.
 
+**See ADR-164.1 §3 for the resolved concurrency design** (atomic reserve-and-commit, write-side serialization, expiry semantics, audit-log integration). The race condition risk is considered resolved by ADR-164.1; this section tracks the remaining operational risks.
+
 Mitigation requirements for Phase 2 before GA:
-1. Hardened tests for the `BbsRoomBudgetTracker` race: two concurrent publishes against a budget of $0.01 must not both succeed.
+1. Hardened tests for the `BbsRoomBudgetTracker` race, verifying the ADR-164.1 design: two concurrent publishes against a budget of $0.01 must not both succeed. These tests must be green before Phase 2 exit criteria are declared met.
 2. A daily `federation_report_spend` rollup for each room, alerting to `#exec` if the trailing 7-day spend rate implies monthly cap breach before month end.
 3. An emergency `federation_evict` shortcut in the BBS UI for the business owner (do not require terminal access to stop a runaway pod).
 
@@ -1190,3 +1384,29 @@ The brief said "Finance pod prefers local." This ADR extended that to HR as well
 The brief described the budget circuit breaker "per-room spend caps" but did not specify whether the cap is per-call or monthly. This ADR chose monthly because: (a) the CFO mental model is a monthly budget, not a per-API-call limit; (b) the existing `enforceBudget` already handles per-call limits; (c) a monthly tracker is the additive layer needed, not a modification to the existing mechanism.
 
 The brief said "agenticow was shipped today via PR #2500 / v3.15.0." This ADR references it as the precedent for optional-dep onboarding pattern. The actual PR content was not read directly, but the agenticow findings file (`docs/agenticow/findings.md`) confirms the measured-evidence approach used there.
+
+---
+
+### Peer review corrections (2026-06-29) — resolved in this edit
+
+The following corrections were applied during peer review of this ADR. Each is marked with the section(s) it affected.
+
+**Correction PR-1 — Agentbbs maturity assessment rewrite** (affects §External references header, §1.2 table, §1.3, §5.2, §9.1)
+
+The initial draft characterized agentbbs as "v0.1.0, 16 hours old, no test suite, unproven." This was incorrect. The npm package `agentbbs@0.1.0` is a thin launcher; the actual project is a mature Rust workspace at `github.com/ruvnet/agentbbs` with 13 crates, 30+ release tags (latest: `v0.34.9-nethack`), 7 GitHub Actions CI workflows, postgres-backed integration tests, existing `crates/agentbbs-mcp/` MCP server, existing `crates/agentbbs-federation/` federation crate, Docker stack, `deny.toml`, and `.gitguardian.yaml`. All passages asserting immaturity were replaced with accurate language. §5.2 was restructured from "changes needed" to "verify-first" — each sub-section now surveys the existing crate before specifying any upstream PR. §9.1 was rewritten with the four real integration risks: (a) npm launcher / Rust workspace version drift, (b) FSL license implications, (c) `cargo` required at first run, (d) `agentbbs-mcp` interface compatibility. Status: **resolved** — all affected passages updated in this edit.
+
+**Correction PR-2 — Atomic budget tracker forward-reference to ADR-164.1** (affects §7.3, §9.5)
+
+§7.3 previously described the async race condition in `BbsRoomBudgetTracker` and flagged it as an open risk. Per review, the atomicity design is being specified in a companion ADR-164.1 (written in parallel). §7.3 was rewritten to: (a) declare "atomicity design lives in ADR-164.1; this section summarises requirements only," (b) enumerate the four requirements ADR-164.1 must satisfy (atomic reserve-and-commit, write-side serialization, explicit expiry semantics for unconfirmed reservations, audit-log integration for every reserve/commit/release), and (c) not attempt to resolve the concurrency design itself. §9.5 was updated to forward to "ADR-164.1 §3 for the resolved concurrency design." Status: **resolved** — §7.3 and §9.5 updated in this edit. ADR-164.1 must be authored to satisfy the four requirements listed in §7.3.
+
+**Correction PR-3 — Trust elevation escape hatch §3.5.4** (affects §3.5)
+
+The organic trust accrual path (`minInteractions: 500` for `TRUSTED`) blocks the `#exec` cross-pod synthesizer from operating at full capability on Day 1. A founder-bootstrap escape hatch was added as §3.5.4. Specifies: new CLI subcommand `ruflo federation trust elevate <bbs-node-id> --to TRUSTED --reason "<text>" --audit`; `--reason` and `--audit` are mandatory; audit entry is tagged `bootstrap_elevation`; elevation is capped at `TRUSTED` (level 3); multi-party sign-off is a Phase 5 hardening item; Phase 1 ships with single-operator escape hatch; wire point is a new `bootstrapElevate()` method on `application/trust-evaluator.ts`. Status: **resolved** — §3.5.4 added in this edit.
+
+**Correction PR-4 — Token expiry vs. long-lived streams (two-phase auth)** (affects §3.2.4)
+
+§3.2.4 previously described the 15-minute Ed25519 token as the session mechanism without distinguishing handshake from session. Per review, the token must be single-use for the handshake (Phase A) and the resulting channel must be long-lived without mid-stream re-validation (Phase B). §3.2.4 was rewritten with explicit Phase A / Phase B language: Phase A consumes the token on first use (JTI/nonce recorded, replay rejected); Phase B keeps the channel open until explicit close, idle timeout (default 30 min), or BBS restart — no mid-stream re-auth. The SSH "room subscribe" long-running stream is explicitly called out as a Phase B session that must not re-validate mid-stream. Status: **resolved** — §3.2.4 updated in this edit.
+
+**Correction PR-5 — Ops pod tooling expansion** (affects §4.4, §5.1)
+
+The Ops pod's `allowedMcpTools` was insufficient for real ops work. Updated to include: `aidefence_*` (threat detection signals), `terminal_execute` (ops script execution), `http_fetch` (external endpoint monitoring — NEW tool, Phase 2 prerequisite), `agent_execute` (delegation to cloud Managed Agents with AWS/GCP/Azure SDK), and a note that cloud-provider MCP servers are deployment-specific and not bundled. A new §5.1.8 was added specifying the `http_fetch` tool's minimal contract: URL allowlist, 30s timeout cap, 256 KB response-size cap, no auth-header pass-through without explicit `authAllowedUrls` entry, audit logging on every call. Phase gate: Phase 2 prerequisite; Phase 1 ships a stub. The ops bench was updated with a concrete scenario: monitor a synthetic HTTP endpoint returning 200 OK 90% / 500 10% of the time; pod must detect the 500 rate and post an alert to `#ops` within 60 seconds. Status: **resolved** — §4.4 and §5.1.8 updated in this edit. `http_fetch` tool must be implemented before Phase 2 ops bench can pass.
