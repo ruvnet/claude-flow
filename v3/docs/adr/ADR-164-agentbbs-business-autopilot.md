@@ -1000,100 +1000,133 @@ try {
 }
 ```
 
-### 5.2 In agentbbs upstream (verification-first approach for `ruvnet/agentbbs`)
+### 5.2 In agentbbs upstream — survey findings (`ruvnet/agentbbs` @ ca3c6e0, 2026-06-29)
 
-The agentbbs project is a mature Rust workspace with 30+ release tags. Many capabilities this ADR originally listed as "changes needed" may already exist in `crates/agentbbs-federation/` or `crates/agentbbs-mcp/`. The correct Phase 1 action is **survey-first**: read the existing crate source before writing any new upstream request. This section is therefore restructured as a series of compatibility checks, each with an "if-exists" and "if-missing" branch.
+The agentbbs project is a mature Rust workspace with 30+ release tags. The Phase 1 survey of `crates/agentbbs-federation/` + `crates/agentbbs-mcp/` (commit `ca3c6e0` on `main`) resolved each compatibility check below. The survey is now concrete: each sub-section names the existing primitive ruflo will adapt to, or the genuine gap that needs an upstream PR.
 
-These requests go to the agentbbs maintainer (same author, ruv). Items marked **VERIFY FIRST** must be investigated against the live upstream source before any upstream PR is opened.
+A symmetric regression guard — [`ruvnet/AgentBBS#3`](https://github.com/ruvnet/AgentBBS/pull/3) — was opened against agentbbs and asserts on every PR + nightly cron that the four MCP tool names, four `FederationPayload` variants, and three `RufloAdapter` subcommand names this section depends on continue to exist. Drift becomes a failed nightly workflow within 24h of the upstream change landing.
+
+Requests for upstream changes go to the agentbbs maintainer (same author, ruv). Each sub-section closes with a definite "no upstream PR needed for Phase 1" or "file issue X" — the survey replaces all earlier "VERIFY FIRST" hedges.
 
 #### 5.2.1 Federation-envelope message kind compatibility
 
-**VERIFY FIRST**: Survey `crates/agentbbs-federation/` for an existing typed message schema. The crate likely defines its own envelope format (given its maturity). If it does, the integration question changes from "add a new type" to "map ruflo's `FederationEnvelope` fields to agentbbs-federation's existing type."
+**Already covered by `crates/agentbbs-federation/src/envelope.rs::FederationPayload`.**
 
-Required outcome regardless of whether existing or new:
-- The BBS must round-trip the `hmacSignature` field intact through post storage and retrieval (not stripped by any sanitization layer).
-- The `piiScanResult` must be stored alongside the post body so re-ingesting agents can verify that PII scanning already ran.
+The enum is `#[serde(tag = "type", rename_all = "snake_case")]` with four variants:
 
-```json
-{
-  "kind": "federation-envelope",
-  "envelopeId": "...",
-  "sourceNodeId": "...",
-  "targetNodeId": "...",
-  "messageType": "context-share",
-  "payload": { ... },
-  "hmacSignature": "...",
-  "piiScanResult": { ... }
+```rust
+pub enum FederationPayload {
+    AnnounceBoard(Board),
+    ReplicateMessage(Message),
+    PeerHello { node: AgentId, protocol: String },
+    Ack { id: String },
 }
 ```
 
-**If `crates/agentbbs-federation/` already supports a comparable typed envelope**: write a thin adapter in `ruflo-bbs-federation/src/mcp-tools.ts` that maps ruflo's `FederationEnvelope` fields to the upstream type. No upstream change required.
+Each envelope is sealed by `FederationEnvelope::seal()` over deterministic canonical bytes signed with the sending node's Ed25519 key. `FederationEnvelope::open()` re-derives those bytes and verifies the signature; tampered or forged envelopes are rejected with `Error::BadSignature` (validated by `forged_node_id_rejected` + `tampered_payload_rejected` in `lib.rs` tests).
 
-**If the crate does not yet accept this shape**: file a minimal upstream PR adding the typed message kind. This remains a Phase 3 prerequisite (not Phase 1).
+**Ruflo's adapter strategy for Phase 1 → Phase 3**:
+- `federation_bbs_publish` → wraps the typed pod event inside a `ReplicateMessage(Message)` where `MessageBody.subject` carries the ruflo `msgType` discriminator (`pod-status` / `task-result` / `alert` / `human-override-ack` / `bench-result`) and `MessageBody.body` is the JSON-serialized typed payload.
+- `federation_bbs_register` → drives `AnnounceBoard(Board)`; the agentbbs `Board` struct already round-trips through the PII scrubber in `Federator::announce_board()` (egress strips PII from `description` via `strip_pii`).
+- The `hmacSignature` field in ruflo's `FederationEnvelope` shape is replaced by agentbbs's Ed25519-over-canonical-bytes signature on the outer `FederationEnvelope`. Stronger than HMAC; no behavior change needed in ruflo's Phase 1 layer — the agentbbs side computes + validates the signature.
+- `piiScanResult` is **not** stored alongside the payload by agentbbs (PII is scrubbed and discarded). For ruflo's audit trail requirement, the `piiScanResult` must be persisted in ruflo's local `AuditService` (already the canonical record per §6.2) *before* the envelope is dispatched to agentbbs.
 
-#### 5.2.2 Web UI domain-aware rendering
+**No upstream PR required for Phase 1.** A possible Phase 3 enhancement: if richer routing per typed event becomes valuable, propose a `RufloEvent { envelope_id, msg_type, payload }` variant. Filed as a follow-up — not blocking.
 
-The BBS web UI (`crates/agentbbs-web/`) should render `federation-envelope` posts with domain-aware components:
-- `pod-status` → status badge + agent health grid
-- `task-result` → collapsible result panel
-- `alert` → colored alert box with room color coding
-- `bench-result` → sparkline chart for the domain bench metric
+#### 5.2.2 MCP tool registration shape
 
-**VERIFY FIRST**: Check whether `crates/agentbbs-web/` already has a pluggable renderer or message-type dispatch system. If it does, the integration may only require adding a ruflo-specific renderer registration rather than patching core web UI code.
+**Already covered by `crates/agentbbs-mcp/src/server.rs` — but as a static surface, not a dynamic registry.**
 
-This is a UI feature request, not a blocking requirement for CLI/TUI/SSH operation. Phase 4 gated.
+The MCP server exposes exactly four tools, registered as a hardcoded JSON array in `McpServer::tools_list()`: `list_boards`, `read_board`, `post_message`, `search_memory`. Dispatch in `tools_call()` is a hardcoded `match name { ... }` — there is no plugin/handler-registration hook.
 
-#### 5.2.3 Durable event log (persistence guarantee)
+Ruflo's `federation_bbs_register` / `federation_bbs_publish` / `federation_bbs_watch` / `federation_bbs_human_join` are **ruflo-owned MCP tools** that live in ruflo's MCP server, not in agentbbs's. The Phase 2 wire-up calls into agentbbs via one of two paths:
 
-**VERIFY FIRST**: The agentbbs CI pipeline uses postgres (postgres-backed integration tests confirmed in `ci.yml`). This is strong evidence that event persistence is already implemented against a postgres backend. Survey `crates/agentbbs-core/` or `crates/agentbbs/` for a retention or event-log API.
+- (A) Spawn `agentbbs mcp` as a subprocess and drive its stdio JSON-RPC pipe — `federation_bbs_publish` becomes `tools/call name=post_message`, `federation_bbs_watch` becomes repeated `tools/call name=read_board`, `federation_bbs_register` becomes a board-creation call via the agentbbs CLI (no MCP tool for board creation — see gap below).
+- (B) Depend on the agentbbs Rust crates directly via a native binding (heavier, deferred to Phase 4+).
 
-Required outcome:
-- Events must be retained for at least the `retentionDays` specified in each pod's `auditReadView` (longest is 365 days for finance and HR).
-- The `sinceTs` replay in `federation_bbs_watch` requires an event-log query endpoint that accepts a timestamp and returns events in order.
+**Phase 1**: ruflo's `agentbbsBin` argument is documented as "Reserved for Phase 2 wire-up; ignored in Phase 1". Phase 1 implements the ruflo-side MCP tool surface only; the spawned subprocess wiring lands in Phase 2.
 
-**If postgres-backed retention already exists**: verify that retention duration is configurable and that the query API is accessible from the `agentbbs-mcp` server. Document the API path in the Phase 2 integration spec; no upstream change needed.
+**Genuine gap (filed as follow-up issue, not blocking Phase 1)**: `agentbbs-mcp` does not currently expose a `create_board` tool — board creation only happens via the direct `Bbs::create_board()` Rust API or via `agentbbs ssh` admin commands. For ruflo's `federation_bbs_register` to map cleanly to MCP, either (i) ruflo's Phase 2 register implementation drives `agentbbs federate …` CLI subcommands rather than MCP, or (ii) upstream adds `create_board` to the four-tool MCP surface. Filed as gap #1 below.
 
-**If retention is not configurable**: file a minimal upstream PR to expose retention period as a BBS server config option. Phase 2 prerequisite.
+**No upstream PR required for Phase 1.** The web UI rendering concern previously documented here is moved to Phase 4 and re-scoped — `agentbbs-web` is out of scope until ruflo's pods publish enough events to make per-message-type rendering worthwhile.
 
-#### 5.2.4 Federation keypair authentication handshake
+#### 5.2.3 Subscription / streaming for `federation_bbs_watch`
 
-**VERIFY FIRST**: Survey `crates/agentbbs-mcp/src/server.rs` and the auth layer in `crates/agentbbs-core/` or `crates/agentbbs/` for an existing authentication mechanism. The `late-ssh` crate may already implement Ed25519-based SSH authentication; if so, the ruflo token validation requirement becomes a matter of teaching the BBS to accept ruflo's token shape rather than building authentication from scratch.
+**Genuinely missing — but matches ruflo's Phase 1 polling design.**
 
-Required outcome:
-- The BBS validates the single-use Ed25519 token issued by `federation_bbs_human_join` (see §3.2.4 Phase A).
-- Validation must check: signature (against the ruflo node's published public key from the federation manifest), expiry (`expiresAt`), single-use nonce (JTI recorded per §3.2.4 Phase A semantics), and room scope (`roomId` match).
+`crates/agentbbs-mcp/src/server.rs::initialize()` returns `capabilities.resources.subscribe = false`. The transport (`crates/agentbbs-mcp/src/transport.rs::serve_stdio`) is strict newline-delimited JSON-RPC request/response; there is no server-initiated push frame.
 
-**If `crates/agentbbs-mcp/` already exposes an auth hook**: extend it to accept ruflo's token shape via configuration. No net-new auth code in agentbbs required.
+This matches ruflo's `federation_bbs_watch` Phase 1 contract verbatim: the tool description says *"Phase 1 is polling — Phase 4 layers streaming on the same surface."* The Phase 2 implementation will repeatedly call `tools/call name=read_board` with the agentbbs-side message ordering (`Message.id` is content-addressed and `Store::list_messages` returns ordered) and filter by ruflo's monotonic `sinceEnvelopeId`.
 
-**If no auth hook exists**: file an upstream PR adding a token-validation endpoint. Phase 4 prerequisite.
+**Phase 4 gap (filed as follow-up issue, not blocking Phase 1)**: a streaming-subscribe path. Two design options for upstream:
+- (A) Add `resources/subscribe` per the MCP spec — the server pushes `notifications/resources/updated` frames; ruflo consumes them in a long-poll loop.
+- (B) Add an `agentbbs ssh subscribe #room` CLI subcommand that streams envelope JSON to stdout (the agentbbs project's SSH-first ethos suggests this is the more natural extension). Filed as gap #2 below.
 
-#### 5.2.5 SSH "room subscribe" command
+**Durability and retention** were previously bundled into this sub-section; they're now their own concern in §5.2.5.
 
-**VERIFY FIRST**: The `late-ssh` crate is the SSH front door. Survey whether it already supports a streaming subscribe command. Given the project's maturity and SSH focus, a room-subscribe capability may already exist under a different command name.
+**No upstream PR required for Phase 1.**
 
-Required outcome regardless:
+#### 5.2.4 Integration seam — `RufloAdapter` already exists (other direction)
+
+**Surprise finding: agentbbs already drives `npx ruflo federation` via `crates/agentbbs-federation/src/adapter.rs::RufloAdapter`.**
+
+The adapter wraps a `CommandRunner` trait (production `TokioCommandRunner`, test `FakeCommandRunner`) and shells out to:
+
 ```
-ssh bbs.local subscribe #sales
+npx ruflo federation init
+npx ruflo federation join <addr>
+npx ruflo federation status
 ```
-streams all events for that room to stdout in `federation-envelope` JSON format. This allows agents without a local MCP server to participate as consumers via a simple SSH pipe.
 
-The long-running SSH stream is a Phase B session (§3.2.4): once the Phase A handshake completes, the stream runs without re-validating the token mid-stream. The `late-ssh` implementation must NOT interrupt a running stream for re-authentication.
+This means the integration direction agentbbs anticipated is: **agentbbs → ruflo as the federation control plane**. Ruflo's ADR-164 goes the *opposite* direction: ruflo → agentbbs as the room/event substrate. Both can coexist (asymmetric driving — ruflo manages federation peers, agentbbs publishes room events).
 
-**If `late-ssh` already supports room streaming**: verify the output format is JSON-serializable and aligns with the `federation-envelope` shape. A format adapter may be all that is needed.
+**Implications for ruflo**:
+- Ruflo's CLI must keep `npx ruflo federation {init,join,status}` alive as a stable surface. Renaming or removing these breaks the agentbbs side silently. The regression guard at [`ruvnet/AgentBBS#3`](https://github.com/ruvnet/AgentBBS/pull/3) catches this — its third static-contract check greps for these exact subcommands in `adapter.rs` and fires if either side drifts.
+- `RufloAdapter` is the seam through which agentbbs can use ruflo's memory/federation layer. Ruflo's Phase 2 wire-up will likely add a *reciprocal* `AgentBbsAdapter` (in ruflo) that drives `agentbbs federate` / `agentbbs mcp` from the ruflo side — mirroring the symmetric pattern.
+- Ed25519 authentication (the previous "keypair handshake" concern) is **already implemented** in the envelope layer (§5.2.1). The `federation_bbs_human_join` single-use token validation is a ruflo-side concern (token minting + JTI replay protection), not an agentbbs concern — agentbbs just stores the signed envelopes.
 
-**If the command does not yet exist**: file an upstream PR. Phase 4 prerequisite.
+**No upstream PR required for Phase 1.** Reciprocal `AgentBbsAdapter` is a ruflo Phase 2 deliverable (§5.1, not §5.2).
 
-#### 5.2.6 Per-room access controls
+#### 5.2.5 Durable event retention and `sinceTs` replay
 
-**VERIFY FIRST**: Survey `crates/agentbbs-federation/` for existing per-room authorization primitives. A federation crate in a mature project likely already has some concept of room membership or peer authorization.
+**Partial — postgres backend exists, but `agentbbs mcp` default uses in-memory store.**
 
-Required outcome:
-- Only authorized identities (humans with valid tokens, and agents registered to a room's pod) can post to or read from a room.
-- Initial model: each room has an allowlist of `(identity, accessLevel)` pairs, managed by the ruflo node via `federation_bbs_register`.
+`agentbbs.yml` + `ci.yml` both spin up `postgres:18-alpine` as a service container, confirming there is at least one postgres-backed `Store` impl somewhere in the workspace (likely under `agentbbs-web` or `agentbbs-gcp`). However, the integration tests in `crates/agentbbs-mcp/tests/mcp.rs` build the server with `MemoryStore`, and the `agentbbs` umbrella binary's `Command::Mcp` path in `crates/agentbbs/src/main.rs` does not surface a `--store postgres://...` flag in the public CLI usage (`agentbbs mcp` takes no documented store args).
 
-**If `crates/agentbbs-federation/` already implements room-scoped authorization**: wire ruflo's `federation_bbs_register` to set the allowlist via the existing API. No upstream change needed.
+**Implications for ruflo's `federation_bbs_watch` `sinceTs` replay**:
+- Phase 1 + 2 ruflo's `federation_bbs_watch` polls the most-recent window (no `sinceTs` durability requirement — the ruflo-side `AuditService` is the canonical record per §6.2; agentbbs is the display projection).
+- Phase 3+ (cross-session replay after BBS reconnect) requires durable agentbbs storage. The `sinceTs` query API needs to be exposed via `agentbbs mcp` as either a tool argument or a separate tool. Filed as gap #3 below.
 
-**If per-room ACLs do not exist**: file a minimal upstream PR. Phase 3 prerequisite.
+**No upstream PR required for Phase 1/2.** Gap #3 is a Phase 3 prerequisite.
+
+#### 5.2.6 Existing CI regression coverage and the gap this ADR fills
+
+**No existing test exercises the agentbbs ↔ ruflo integration end-to-end.**
+
+`agentbbs.yml` runs fmt + clippy + nextest + cargo-deny over the agentbbs workspace. `agentbbs-federation`'s `ruflo_adapter_shells_npx` test uses `FakeCommandRunner` — it asserts the *intended* `npx ruflo federation …` invocations are emitted, but never spawns the real published `ruflo` CLI. Symmetric story for ruflo's side (Phase 1 doesn't shell out to agentbbs at all).
+
+So the integration is currently held together by convention, not by a test. The regression guard at [`ruvnet/AgentBBS#3`](https://github.com/ruvnet/AgentBBS/pull/3) closes the gap with three contract-grep checks plus a live `agentbbs mcp` stdio roundtrip:
+
+1. `agentbbs-mcp/src/server.rs` still registers `list_boards`, `read_board`, `post_message`, `search_memory`
+2. `agentbbs-federation/src/envelope.rs::FederationPayload` still has `AnnounceBoard`, `ReplicateMessage`, `PeerHello`, `Ack`
+3. `agentbbs-federation/src/adapter.rs` still shells out to `npx ruflo federation {init,join,status}`
+
+Per-room authorization (the original concern in this sub-section) is deferred — agentbbs's current model uses a global `Caps` permission set per MCP-server connection (`Role::Sysop`, `Role::Member`, `Role::Guest` in `crates/agentbbs-core/src/caps.rs`), not per-room ACLs. Each ruflo pod will get its own `(roomId, Caps)` binding by spawning a separate `agentbbs mcp` subprocess per room with the room's Caps — a process-level isolation pattern that doesn't require any upstream change. Filed as gap #4 below if multi-room-per-subprocess ever becomes a requirement.
+
+**No upstream PR required for Phase 1/2.**
+
+---
+
+#### Genuine gaps (filed as follow-up issues against `ruvnet/agentbbs`)
+
+| # | Gap | Phase blocked | Severity |
+|---|-----|--------------|----------|
+| 1 | No `create_board` MCP tool — board creation is Rust-API or SSH-admin only | 2 | Low (workaround: ruflo's Phase 2 `federation_bbs_register` calls `agentbbs federate` CLI) |
+| 2 | No subscription / push frame in MCP — `resources.subscribe = false` hardcoded | 4 | Low (Phase 1-3 polling is by design) |
+| 3 | `agentbbs mcp` default uses `MemoryStore`; no documented `--store postgres://...` flag despite postgres being in CI | 3 | Medium (durable replay deferred) |
+| 4 | `Caps` is per-connection, not per-room | 5+ | Low (workaround: process-per-room) |
+
+Draft bodies for these issues are kept in the Phase 1 hand-off ticket and will be filed against `ruvnet/agentbbs` once Phase 1 lands.
 
 ---
 
