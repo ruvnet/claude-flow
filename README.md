@@ -48,6 +48,15 @@ User --> Ruflo (CLI/MCP) --> Router --> Swarm --> Agents --> Memory --> LLM Prov
 
 ![Ruflo Plugins](./ruflo-plugins.gif)
 
+
+## Skill Hub
+
+[Skill Hub](https://skill.442595.xyz/) — **4083+** AI Agent Skills across 22 functional categories.
+
+- 🛠️ **Dev Tools** · 🤖 **Agent Framework** · 🎨 **Design UI** · 📊 **Data AI** · 🔒 **Security** and more
+- 🔍 Platform: Claude Code, Codex, Cursor, OpenCode, Hermes
+- 🌐 Bilingual CN+EN  |  🐙 [GitHub](https://github.com/rdone4425/skill)
+
 ## Quick Start
 
 There are **two different install paths** with very different surface areas. Pick based on what you need (#1744):
