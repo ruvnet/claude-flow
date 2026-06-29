@@ -5,86 +5,24 @@
  * Includes model routing integration for intelligent model selection.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { type MCPTool, getProjectCwd } from './types.js';
+import { type MCPTool } from './types.js';
 import { validateIdentifier, validateText, validateAgentSpawn } from './validate-input.js';
 import { executeAgentTask } from './agent-execute-core.js';
+import { agentRepository } from '../agent-store/agent-repository.js';
+import type { AgentRecord, ClaudeModel } from '../agent-store/agent-repository.js';
 
-// Storage paths
-const STORAGE_DIR = '.claude-flow';
-const AGENT_DIR = 'agents';
-const AGENT_FILE = 'store.json';
 // #1916: hive-mind_spawn writes its workers to `.claude-flow/agents.json`
 // (a *different* file from the canonical `.claude-flow/agents/store.json`
 // used here). agent_status / agent_list / agent_logs merge that store so a
 // hive-spawned worker is resolvable instead of returning `not_found`.
 const HIVE_AGENT_FILE = 'agents.json';
 
-// Model types matching Claude Agent SDK
-type ClaudeModel = 'haiku' | 'sonnet' | 'opus' | 'opus-4.7' | 'inherit';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { getProjectCwd } from './types.js';
 
-interface AgentRecord {
-  agentId: string;
-  agentType: string;
-  status: 'idle' | 'busy' | 'terminated';
-  health: number;
-  taskCount: number;
-  config: Record<string, unknown>;
-  createdAt: string;
-  domain?: string;
-  model?: ClaudeModel;  // Tier label assigned to this agent
-  modelRoutedBy?: 'explicit' | 'router' | 'codemod' | 'default' | 'hybrid';  // ADR-026/143/149
-  /** ADR-149 — concrete picked model id (e.g. inclusionai/ling-2.6-flash). */
-  modelId?: string;
-  /** ADR-148 — execution provider hint. */
-  provider?: 'anthropic' | 'openrouter';
-  /** ADR-148 — concrete OpenRouter slug when provider='openrouter'. */
-  openrouterModel?: string;
-  lastResult?: Record<string, unknown>;
-}
-
-interface AgentStore {
-  agents: Record<string, AgentRecord>;
-  version: string;
-}
-
-function getAgentDir(): string {
-  return join(getProjectCwd(), STORAGE_DIR, AGENT_DIR);
-}
-
-function getAgentPath(): string {
-  return join(getAgentDir(), AGENT_FILE);
-}
-
-function ensureAgentDir(): void {
-  const dir = getAgentDir();
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-}
-
-function loadAgentStore(): AgentStore {
-  try {
-    const path = getAgentPath();
-    if (existsSync(path)) {
-      const data = readFileSync(path, 'utf-8');
-      return JSON.parse(data);
-    }
-  } catch {
-    // Return empty store on error
-  }
-  return { agents: {}, version: '3.0.0' };
-}
-
-function saveAgentStore(store: AgentStore): void {
-  ensureAgentDir();
-  writeFileSync(getAgentPath(), JSON.stringify(store, null, 2), 'utf-8');
-}
-
-// #1916: read hive-mind-spawned workers from `.claude-flow/agents.json`.
 function getHiveAgentPath(): string {
-  return join(getProjectCwd(), STORAGE_DIR, HIVE_AGENT_FILE);
+  return join(getProjectCwd(), '.claude-flow', HIVE_AGENT_FILE);
 }
 
 function loadHiveAgents(): Record<string, AgentRecord> {
@@ -96,19 +34,12 @@ function loadHiveAgents(): Record<string, AgentRecord> {
         return data.agents as Record<string, AgentRecord>;
       }
     }
-  } catch {
-    // Ignore — hive store is optional/best-effort.
-  }
+  } catch {}
   return {};
 }
 
-/**
- * #1916: merged view of every tracked agent — the canonical agent store
- * plus hive-mind-spawned workers. On an id collision the canonical record
- * wins (it carries model-routing + lastResult that the hive store omits).
- */
 function loadAllAgents(): Record<string, AgentRecord> {
-  return { ...loadHiveAgents(), ...loadAgentStore().agents };
+  return { ...loadHiveAgents(), ...agentRepository.loadStore().agents };
 }
 
 // Default model mappings for agent types (can be overridden)
@@ -296,7 +227,7 @@ export const agentTools: MCPTool[] = [
         return { success: false, error: `Input validation failed: ${validation.errors.join('; ')}` };
       }
 
-      const store = loadAgentStore();
+      const store = agentRepository.loadStore();
       const agentId = (input.agentId as string) || `agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const agentType = input.agentType as string;
       const config = (input.config as Record<string, unknown>) || {};
@@ -333,7 +264,7 @@ export const agentTools: MCPTool[] = [
       };
 
       store.agents[agentId] = agent;
-      saveAgentStore(store);
+      agentRepository.saveStore(store);
 
       // #2085 — also push to the swarm store's agents array so that
       // swarm_status reports the new agent. Without this, agent_spawn
@@ -457,12 +388,12 @@ export const agentTools: MCPTool[] = [
       const v = validateIdentifier(input.agentId, 'agentId');
       if (!v.valid) return { success: false, error: `Input validation failed: ${v.error}` };
 
-      const store = loadAgentStore();
+      const store = agentRepository.loadStore();
       const agentId = input.agentId as string;
 
       if (store.agents[agentId]) {
         store.agents[agentId].status = 'terminated';
-        saveAgentStore(store);
+        agentRepository.saveStore(store);
         return {
           success: true,
           agentId,
@@ -590,7 +521,7 @@ export const agentTools: MCPTool[] = [
         if (!v.valid) return { action: input.action, error: `Input validation failed: ${v.error}` };
       }
 
-      const store = loadAgentStore();
+      const store = agentRepository.loadStore();
       const agents = Object.values(store.agents).filter(a => a.status !== 'terminated');
       const action = (input.action as string) || 'status';  // Default to status
 
@@ -658,7 +589,7 @@ export const agentTools: MCPTool[] = [
           }
         }
 
-        saveAgentStore(store);
+        agentRepository.saveStore(store);
         return {
           action,
           agentType,
@@ -681,7 +612,7 @@ export const agentTools: MCPTool[] = [
             }
           }
         }
-        saveAgentStore(store);
+        agentRepository.saveStore(store);
         return {
           action,
           agentType: agentType || 'all',
@@ -710,7 +641,7 @@ export const agentTools: MCPTool[] = [
         if (!v.valid) return { agentId: input.agentId, error: `Input validation failed: ${v.error}` };
       }
 
-      const store = loadAgentStore();
+      const store = agentRepository.loadStore();
       const agents = Object.values(store.agents).filter(a => a.status !== 'terminated');
       const threshold = (input.threshold as number) || 0.5;
 
@@ -794,7 +725,7 @@ export const agentTools: MCPTool[] = [
         if (!vs.valid) return { success: false, agentId: input.agentId, error: `Input validation failed: ${vs.error}` };
       }
 
-      const store = loadAgentStore();
+      const store = agentRepository.loadStore();
       const agentId = input.agentId as string;
       const agent = store.agents[agentId];
 
@@ -805,7 +736,7 @@ export const agentTools: MCPTool[] = [
         if (input.config) {
           agent.config = { ...agent.config, ...(input.config as Record<string, unknown>) };
         }
-        saveAgentStore(store);
+        agentRepository.saveStore(store);
 
         return {
           success: true,

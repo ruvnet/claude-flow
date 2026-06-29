@@ -11,8 +11,11 @@
 
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateIdentifier, validateText } from './validate-input.js';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { orchestrate } from '../orchestration/orchestration-service.js';
+import { orchestrationStore } from '../orchestration/orchestration-store.js';
+import type { OrchestrationRecord } from '../orchestration/types.js';
 
 // Storage paths
 const STORAGE_DIR = '.claude-flow';
@@ -717,98 +720,102 @@ export const coordinationTools: MCPTool[] = [
       if (input.agents && Array.isArray(input.agents)) {
         for (const a of input.agents as string[]) { const vA = validateIdentifier(a, 'agents[]'); if (!vA.valid) return { success: false, error: vA.error }; }
       }
-      const store = loadCoordStore();
-      const task = input.task as string;
-      const agents = (input.agents as string[]) || Object.keys(store.nodes);
-      const strategy = (input.strategy as string) || 'parallel';
 
-      const orchestrationId = `orch-${Date.now()}`;
-
-      // ADR-093 F7: this tool only schedules an orchestration record — it
-      // does not actually execute. Previously it returned a hardcoded
-      // `estimatedCompletion: "50ms"` which was misleading. Now we return
-      // an honest stub-status with a note pointing callers at agent_spawn
-      // / Task tool / hive-mind tools for real orchestration. Persist the
-      // record so callers can list/inspect what was scheduled.
-      const orchestration = {
-        id: orchestrationId,
-        task,
-        strategy,
-        agents,
-        status: 'scheduled' as const,
-        scheduledAt: new Date().toISOString(),
-        topology: store.topology.type,
-      };
-      // Best-effort persist — keep last 100 scheduled orchestrations.
-      type CoordStoreShape = ReturnType<typeof loadCoordStore> & {
-        orchestrations?: Array<typeof orchestration>;
-      };
-      const orchStore = store as CoordStoreShape;
-      if (!Array.isArray(orchStore.orchestrations)) orchStore.orchestrations = [];
-      orchStore.orchestrations.push(orchestration);
-      if (orchStore.orchestrations.length > 100) {
-        orchStore.orchestrations = orchStore.orchestrations.slice(-100);
-      }
-      saveCoordStore(orchStore);
-
-      return {
-        success: true,
-        orchestrationId,
-        task,
-        strategy,
-        agents,
-        status: 'scheduled',
-        topology: store.topology.type,
-        // Honest stub: no executor wired up yet. Don't lie about completion time.
-        executor: 'none',
-        _note: 'coordination_orchestrate currently records the orchestration request but does not execute it. For real multi-agent execution use agent_spawn + the Task tool, or hive-mind_spawn for queen-led coordination. Real executor tracked in issue #2140.',
-      };
+      return orchestrate({
+        task: input.task as string,
+        agents: input.agents as string[] | undefined,
+        strategy: input.strategy as 'parallel' | 'sequential' | 'pipeline' | 'broadcast' | undefined,
+        timeout: input.timeout as number | undefined,
+      });
     },
   },
   {
     name: 'coordination_metrics',
-    description: 'Get coordination metrics Use when native Task is wrong because the work crosses multiple agents that need to vote/sync/load-balance — TodoWrite + a single Task cannot orchestrate consensus. For one-off subtask dispatch, native Task is fine.',
+    description: 'Get coordination metrics derived from orchestration execution records. Use when native Task is wrong because the work crosses multiple agents that need to vote/sync/load-balance — TodoWrite + a single Task cannot orchestrate consensus. For one-off subtask dispatch, native Task is fine.',
     category: 'coordination',
     inputSchema: {
       type: 'object',
       properties: {
         metric: { type: 'string', enum: ['all', 'latency', 'throughput', 'availability'], description: 'Metric type' },
-        timeRange: { type: 'string', description: 'Time range' },
+        timeRange: { type: 'string', description: 'Time range: <N>m (minutes), <N>h (hours), <N>d (days)' },
       },
     },
     handler: async (input) => {
-      const store = loadCoordStore();
       const metric = (input.metric as string) || 'all';
+      const timeRange = input.timeRange as string | undefined;
 
-      const nodes = Object.values(store.nodes);
-      const activeNodes = nodes.filter(n => n.status === 'active');
+      const records = orchestrationStore.getMetricsRecords();
+
+      let filteredRecords = records;
+      if (timeRange) {
+        if (typeof timeRange !== 'string') {
+          return { success: false, error: 'timeRange must be a string' };
+        }
+        const match = timeRange.match(/^(\d+)(m|h|d)$/);
+        if (!match) {
+          return { success: false, error: `Invalid timeRange format: "${timeRange}". Use <N>m, <N>h, or <N>d.` };
+        }
+        const value = parseInt(match[1], 10);
+        const unit = match[2];
+        const cutoff = Date.now() - (
+          unit === 'm' ? value * 60 * 1000 :
+          unit === 'h' ? value * 60 * 60 * 1000 :
+          value * 24 * 60 * 60 * 1000
+        );
+        filteredRecords = records.filter(r => {
+          const t = r.completedAt || r.startedAt;
+          return t && new Date(t).getTime() >= cutoff;
+        });
+      }
+
+      const completedRecords = filteredRecords.filter(r => r.status === 'completed' || r.status === 'partial' || r.status === 'failed');
+      const durations = completedRecords.map(r => r.durationMs).filter((d): d is number => d != null).sort((a, b) => a - b);
+      const n = durations.length;
+
+      const p50 = n > 0 ? durations[Math.floor(n * 0.5)] : null;
+      const p95 = n > 0 ? durations[Math.floor(n * 0.95)] : null;
+      const p99 = n > 0 ? durations[Math.floor(n * 0.99)] : null;
+      const avg = n > 0 ? durations.reduce((s, d) => s + d, 0) / n : null;
+
+      const byStatus: Record<string, number> = {};
+      for (const r of filteredRecords) {
+        byStatus[r.status] = (byStatus[r.status] || 0) + 1;
+      }
+
+      const totalOrchestrations = filteredRecords.length;
+      const successCount = byStatus['completed'] || 0;
+      const partialCount = byStatus['partial'] || 0;
+      const failedCount = byStatus['failed'] || 0;
+      const successRate = totalOrchestrations > 0
+        ? Math.round((successCount / totalOrchestrations) * 10000) / 100
+        : 0;
+
+      const timeRangeWindow = timeRange || 'all';
+      const throughputUnit = timeRange
+        ? (timeRange.endsWith('m') ? 'ops/min' : timeRange.endsWith('h') ? 'ops/h' : 'ops/d')
+        : 'total';
 
       const metrics = {
         latency: {
-          avg: null,
-          p50: null,
-          p95: null,
-          p99: null,
+          avg,
+          p50,
+          p95,
+          p99,
           unit: 'ms',
-          _note: 'Real-time latency metrics not available — coordination is state-tracking only',
         },
         throughput: {
-          current: null,
-          peak: null,
-          avg: null,
-          unit: 'ops/s',
-          _note: 'Real-time throughput metrics not available — coordination is state-tracking only',
+          count: filteredRecords.length,
+          unit: throughputUnit,
+          byStatus,
         },
         availability: {
-          uptime: null,
-          _note: 'Uptime not tracked — coordination store has no persistent start time',
-          activeNodes: activeNodes.length,
-          totalNodes: nodes.length,
-          syncCount: store.sync.syncCount,
-          lastSync: store.sync.lastSync,
-          conflicts: store.sync.conflicts,
-          pendingChanges: store.sync.pendingChanges,
-          syncStatus: store.sync.conflicts === 0 ? 'healthy' : 'conflicts',
+          totalOrchestrations,
+          completed: successCount,
+          partial: partialCount,
+          failed: failedCount,
+          successRate,
+          running: byStatus['running'] || 0,
+          timeRange: timeRangeWindow,
         },
       };
 

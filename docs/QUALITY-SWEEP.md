@@ -17,7 +17,7 @@
 Session 1 commits:
 - `6d864e578` chore(quality-sweep): T1/T3/T5 — dep dedup, dead script removal, stale comment
 - `d82c5c721` chore(quality-sweep): T7/T10 — remove trivial assertion, tighten protobufjs override
-- coordination_orchestrate stub — add issue #2140 reference to _note field
+- coordination_orchestrate stub replaced with real orchestrate service (parallel/sequential/pipeline/broadcast)
 - STATUS.md — update stale 3.6.x counts to 3.10.x reality (MCP 323, CLI 45)
 - `ff685013a` witness regen pass — 117 verified, 0 missing, 0 drifted
 
@@ -33,7 +33,7 @@ Draft PR: #2139
 - T2 (done): All plugin scripts wired or documented. 0 violations.
 - T3 (done): Deleted `scripts/regenerate-witness.mjs` (pointed at non-existent root verification.md.json). Wired `scripts/smoke-memory-no-stray-db.mjs` to CI as `memory-no-stray-db-smoke` job. 5 remaining unreferenced scripts are intentional utilities (documented).
 - T4 (clean): All 5 TODO/FIXME entries in cli/src are part of the `analyze` tool's scan logic, not implementation TODOs.
-- T5 (done): Removed stale "placeholder" comment from `analyze.ts`. `coordination_orchestrate` stub linked to issue #2140. All stubs either honestly labeled or removed.
+- T5 (done): Removed stale "placeholder" comment from `analyze.ts`. `coordination_orchestrate` stub replaced with real orchestration service (parallel/sequential/pipeline/broadcast). All stubs either honestly labeled, replaced, or removed.
 - T6 (deferred to 3.12.0): No obvious O(n2) in hot paths. Profile-guided work requires instrumentation.
 - T7 (done): All 46 skips documented. Removed the one `expect(true).toBe(true)` trivial assertion in coverage-router.test.ts.
 - T8 (done): All file paths cited in ADR-120 through ADR-130 verified to exist. No drift.
@@ -60,7 +60,7 @@ Draft PR: #2139
 | T2 | Dead-code sweep -- `plugins/**` | **done** | 0 violations found; all scripts wired | done |
 | T3 | Stale scripts | **done** | regenerate-witness.mjs deleted; smoke-memory-no-stray-db wired to CI; 5 remaining are documented utilities | done |
 | T4 | Slop hunt -- `any` types, magic numbers, TODOs | **clean** | 0 implementation TODOs; any in non-ambient code is acceptable optional-module pattern | done |
-| T5 | Mocked / placeholder claims | **done** | All placeholders either wired, honestly stubbed with issue ref (#2140), or legitimate fallbacks | done |
+| T5 | Mocked / placeholder claims | **done** | coordination_orchestrate stub replaced with real service; coordination_metrics wired; all stubs labeled or replaced | done |
 | T6 | Perf hotspots | **deferred to 3.12.0** | Requires profiling infra; no obvious O(n2) in hot paths confirmed | done (deferred scope) |
 | T7 | Test honesty | **done** | 0 trivial assertions; all 46 skips documented | done |
 | T8 | ADR implementation drift | **done** | All file paths in ADR-120 through ADR-130 verified at HEAD | done |
