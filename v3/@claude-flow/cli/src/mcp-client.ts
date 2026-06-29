@@ -50,6 +50,9 @@ import { guidanceTools } from './mcp-tools/guidance-tools.js';
 import { autopilotTools } from './mcp-tools/autopilot-tools.js';
 // ADR-150 — MetaHarness MCP tools (score / genome / mcp-scan / threat-model / oia-audit)
 import { metaharnessTools } from './mcp-tools/metaharness-tools.js';
+// agenticow@~0.2.3 — Copy-On-Write memory branching tools (162-byte branches);
+// optional runtime dep, every handler returns `{degraded: true}` when missing.
+import { agenticowTools } from './mcp-tools/agenticow-tools.js';
 // #1916: coverage-aware routing tools — defined in ruvector/coverage-tools.ts
 // but were never registered, so the `ruflo hooks coverage-*` CLI subcommands
 // failed with `Tool not found: hooks_coverage-route`.
@@ -134,6 +137,8 @@ registerTools([
   ...coverageRouterTools,
   // ADR-150 — MetaHarness static-analysis tools (5)
   ...metaharnessTools,
+  // agenticow@~0.2.3 — COW memory branching (4 tools, graceful-degraded when missing)
+  ...agenticowTools,
 ]);
 
 /**

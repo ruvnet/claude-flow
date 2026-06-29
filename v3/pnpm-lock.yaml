@@ -152,6 +152,9 @@ importers:
       '@metaharness/kernel':
         specifier: ~0.1.0
         version: 0.1.0
+      '@metaharness/redblue':
+        specifier: ~0.1.1
+        version: 0.1.4
       '@metaharness/router':
         specifier: ~0.3.2
         version: 0.3.2(@ruvector/tiny-dancer@0.1.22)
@@ -188,6 +191,9 @@ importers:
       agentic-flow:
         specifier: ^3.0.0-alpha.1
         version: 3.0.0-alpha.2
+      agenticow:
+        specifier: ~0.2.3
+        version: 0.2.3
       metaharness:
         specifier: ~0.2.6
         version: 0.2.6(@metaharness/kernel@0.1.0)
@@ -1755,6 +1761,14 @@ packages:
         optional: true
     dependencies:
       '@ruvector/emergent-time': 0.1.0
+    dev: false
+    optional: true
+
+  /@metaharness/redblue@0.1.4:
+    resolution: {integrity: sha512-JaAk6bs3xA7Ks5RnAcZoxI3WfzpYL+Bk262SCI07w82BDOA7C6VxwGM63F7b86lRTKUVjTEnSqf7QZ3uyElT/g==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
+    requiresBuild: true
     dev: false
     optional: true
 
@@ -5735,6 +5749,14 @@ packages:
     requiresBuild: true
     optional: true
 
+  /@ruvector/rvf-node-linux-x64-gnu@0.2.0:
+    resolution: {integrity: sha512-P1UaZaWoh6GAm+CUV2tOzKm+J0Z48PFO7OJ3BnPMh6rSFPMbnpdrjbV+WxacV8zsNeceE5iJxwLUYFK5q5YHkg==}
+    cpu: [x64]
+    os: [linux]
+    requiresBuild: true
+    dev: false
+    optional: true
+
   /@ruvector/rvf-node-win32-x64-msvc@0.1.7:
     resolution: {integrity: sha512-sgnoNphOnbD4d3+YyQ83MlGO7sX4kbcDwsFNz7p2mlTaDR8coQXoudSaPrMeMpeUojFUqoxeDvVly/un3jADig==}
     cpu: [x64]
@@ -5752,6 +5774,19 @@ packages:
       '@ruvector/rvf-node-linux-arm64-gnu': 0.1.7
       '@ruvector/rvf-node-linux-x64-gnu': 0.1.7
       '@ruvector/rvf-node-win32-x64-msvc': 0.1.7
+    optional: true
+
+  /@ruvector/rvf-node@0.2.0:
+    resolution: {integrity: sha512-9BxoECGiQ7ttj6V0ClLK83DLxaxraRRWzIt06IgETUxTYdqGQ3MZgacEBn7vWRecTK8X9/LrZrIOmNcQZx6OuA==}
+    engines: {node: '>= 16'}
+    requiresBuild: true
+    optionalDependencies:
+      '@ruvector/rvf-node-darwin-arm64': 0.1.7
+      '@ruvector/rvf-node-darwin-x64': 0.1.7
+      '@ruvector/rvf-node-linux-arm64-gnu': 0.1.7
+      '@ruvector/rvf-node-linux-x64-gnu': 0.2.0
+      '@ruvector/rvf-node-win32-x64-msvc': 0.1.7
+    dev: false
     optional: true
 
   /@ruvector/rvf-solver@0.1.8:
@@ -7526,6 +7561,16 @@ packages:
       - sury
       - utf-8-validate
     dev: false
+
+  /agenticow@0.2.3:
+    resolution: {integrity: sha512-vJ0hspUqCi6tWt3QR2CNoka9J+0q1ApL9pKfHCqy/KTRmHaEp+6dljRNIWjjJvPL9kX5VV3dPjatjwNMrye2BQ==}
+    engines: {node: '>=18'}
+    hasBin: true
+    requiresBuild: true
+    dependencies:
+      '@ruvector/rvf-node': 0.2.0
+    dev: false
+    optional: true
 
   /agentkeepalive@4.6.0:
     resolution: {integrity: sha512-kja8j7PjmncONqaTsB8fQ+wE2mSU2DJ9D4XKoJ5PFWIdRMa6SLSN1ff4mOr4jCbfRSsxR4keIiySJU0N9T5hIQ==}
