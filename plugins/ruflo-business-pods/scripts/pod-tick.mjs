@@ -93,6 +93,9 @@ const KNOWN_AGENT_TYPES = new Set([
   'memory-specialist', 'swarm-specialist', 'performance-engineer', 'core-architect',
   'test-architect', 'planner', 'task-orchestrator', 'perf-analyzer', 'backend-dev',
   'api-docs', 'cicd-engineer', 'code-analyzer', 'database-specialist',
+  // ADR-164 Phase 3 — added for the marketing/hr pods (content drafting +
+  // onboarding-template generation). Mirror in pod-schema.ts KNOWN_AGENT_TYPES.
+  'base-template-generator',
 ]);
 const CRON_RE = /^([\d*/,\-]+\s+){4,5}[\d*/,\-]+$/;
 

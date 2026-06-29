@@ -1,0 +1,67 @@
+{
+  "name": "ops",
+  "displayName": "Operations",
+  "roomId": "ops",
+  "agents": [
+    {
+      "role": "deploy-scout",
+      "agentType": "cicd-engineer",
+      "description": "Tracks deployment pipeline state and surfaces red builds within 30 min",
+      "preferLocal": true
+    },
+    {
+      "role": "infra-monitor",
+      "agentType": "perf-analyzer",
+      "description": "Monitors service health, latency p95, and uptime against SLO targets",
+      "preferLocal": true
+    },
+    {
+      "role": "incident-analyzer",
+      "agentType": "code-analyzer",
+      "description": "Triages incident traces, classifies root-cause patterns, and escalates P1 to #exec",
+      "preferLocal": true
+    }
+  ],
+  "allowedMcpTools": [
+    "memory_store",
+    "memory_search",
+    "federation_bbs_register",
+    "federation_bbs_publish",
+    "federation_bbs_watch",
+    "federation_bbs_human_join",
+    "aidefence_analyze",
+    "aidefence_scan",
+    "aidefence_stats",
+    "terminal_execute",
+    "agent_execute",
+    "http_fetch"
+  ],
+  "_allowedMcpTools_notes": [
+    "TODO(phase-3-http-fetch): http_fetch MCP tool is referenced per ADR-164 §4.4 + §5.1.8 but does not exist yet — it is a Phase 3 prerequisite. The validator accepts the unknown tool name and the smoke contract surfaces a structured warning rather than a hard rejection. The ops bench scenario (synthetic 200/500 HTTP probe) cannot pass until http_fetch ships per ADR-164 §5.1.8 (URL allowlist, 30s timeout, 256 KB cap, no auth pass-through without explicit authAllowedUrls entry, audit logging on every call).",
+    "aidefence_* — alerting and threat-detection signals from the AIDefence subsystem",
+    "terminal_execute — shell execution for ops scripts (e.g. health-check probes, log scrapes)",
+    "agent_execute — delegates to cloud Managed Agents with AWS/GCP/Azure SDK access for cloud-infra ops (Phase 4)",
+    "Cloud-provider MCP servers (e.g. aws-mcp, gcp-mcp) are deployment-specific; NOT bundled. Must be registered per-installation via ruflo mcp config add."
+  ],
+  "bench": {
+    "name": "ops-availability-bench",
+    "description": "Measures service availability and incident response lag. Includes the synthetic-HTTP-endpoint test per ADR-164 §4.4: probe a synthetic endpoint returning 200 OK 90% of the time and 500 OK 10% of the time; the pod MUST detect the 500-rate and post an alert envelope to #ops within 60 seconds. The bench depends on http_fetch (TODO phase-3-http-fetch) and degrades to a stub-warning when http_fetch is unavailable.",
+    "successCriteria": [
+      "No unacknowledged P1 alert older than 15 min",
+      "Deployment pipeline green or escalated within 30 min",
+      "Infra health check at least every 4h",
+      "HTTP endpoint monitor: detect 500-rate on synthetic 90/10 endpoint and post alert to #ops within 60s (requires http_fetch — see TODO phase-3-http-fetch)"
+    ],
+    "scheduleHours": 1
+  },
+  "piiPolicy": "soc2",
+  "budgetUsdMonthly": 50,
+  "budgetUsdPerRun": 0.05,
+  "preferLocalExecution": true,
+  "cronSchedule": "*/30 * * * *",
+  "auditReadView": {
+    "includedEventTypes": ["task-result", "alert", "bench-result"],
+    "retentionDays": 90
+  },
+  "reservationExpiryMs": 60000
+}

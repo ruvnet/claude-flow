@@ -146,7 +146,8 @@ registerTools([
   ...agenticowTools,
   // ADR-164 — AgentBBS federated business-domain BBS rooms (4 tools, Phase 1, graceful-degraded)
   ...agentbbsTools,
-  // ADR-164 Phase 2 — business_pod_validate (1 tool, no optional dep)
+  // ADR-164 Phase 2 + Phase 3 — business_pod_validate + business_pod_route_backend
+  // (2 tools, no optional dep — schema validator + §3.4 domain-affinity router)
   ...businessPodTools,
 ]);
 

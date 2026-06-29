@@ -140,6 +140,96 @@ else
   fi
 fi
 
+# --- ADR-164 Phase 3: 6 additional pod templates + domain-affinity router ---
+
+PHASE3_PODS=(marketing finance ops support hr exec)
+
+step "9. Phase 3: all 7 pod templates validate against pod-schema"
+ALL_PODS=(sales "${PHASE3_PODS[@]}")
+miss9=""
+for p in "${ALL_PODS[@]}"; do
+  F="$PLUGIN/templates/${p}.json"
+  if [[ ! -f "$F" ]]; then
+    miss9="$miss9 ${p}.json(missing)"
+    continue
+  fi
+  if ! node -e "
+    import('$PLUGIN/scripts/pod-tick.mjs').then(m => {
+      const t = JSON.parse(require('node:fs').readFileSync('$F','utf-8'));
+      const v = m.validatePodTemplate(t);
+      if (v.name !== '$p') process.exit(1);
+    }).catch(e => { console.error(e.message); process.exit(1); });
+  " >/dev/null 2>&1; then
+    miss9="$miss9 ${p}.json(invalid)"
+  fi
+done
+[[ -z "$miss9" ]] && ok || bad "templates failed:$miss9"
+
+step "10. Phase 3: dry-run each pod's tick exits 0 with status=success"
+TMP3="$(mktemp -d -t business-pods-smoke3-XXXXXX)"
+miss10=""
+for p in "${PHASE3_PODS[@]}"; do
+  WORK="$TMP3/$p"
+  OUT="$(node "$PLUGIN/scripts/pod-tick.mjs" \
+    --pod-template "$PLUGIN/templates/${p}.json" \
+    --base-path "$WORK" \
+    --dry-run \
+    --tick-id "smoke-${p}-tick" 2>/dev/null)" || OUT=""
+  if [[ -z "$OUT" ]]; then
+    miss10="$miss10 ${p}(no-output)"
+    continue
+  fi
+  if ! node -e "
+    const o = JSON.parse(\`$OUT\`.trim().split('\n').pop());
+    if (o.podName !== '$p') process.exit(1);
+    if (o.status !== 'success') process.exit(1);
+    if (o.totalUsd !== 0) process.exit(1);
+    if (!o.envelopeId) process.exit(1);
+  " 2>/dev/null; then
+    miss10="$miss10 ${p}(stdout-mismatch)"
+  fi
+done
+rm -rf "$TMP3"
+[[ -z "$miss10" ]] && ok || bad "pods failed dry-run:$miss10"
+
+step "11. business_pod_route_backend returns expected backend per §3.4"
+# Smoke check three pods against the deterministic routing rule:
+#   preferLocalExecution=true              → 'local-stdio'
+#   else AND budgetUsdMonthly >= 50        → 'cloud-managed'
+#   else                                   → 'remote-peer'
+# Per the validated templates:
+#   sales: preferLocal=false, budget=50  → cloud-managed
+#   marketing: preferLocal=false, budget=40 → remote-peer
+#   finance: preferLocal=true             → local-stdio
+if (cd "$CLI" && node --experimental-vm-modules -e "
+  (async () => {
+    const m = await import('./dist/src/mcp-tools/business-pod-tools.js');
+    const find = (n) => m.businessPodTools.find((t) => t.name === n);
+    const tool = find('business_pod_route_backend');
+    if (!tool) { console.error('tool not found'); process.exit(1); }
+    const fs = await import('node:fs');
+    const p = await import('node:path');
+    const tplDir = p.resolve('$PLUGIN/templates');
+    const cases = [
+      ['sales',     'cloud-managed'],
+      ['marketing', 'remote-peer'],
+      ['finance',   'local-stdio'],
+    ];
+    for (const [name, expected] of cases) {
+      const podTemplate = JSON.parse(fs.readFileSync(p.join(tplDir, name + '.json'), 'utf-8'));
+      const r = await tool.handler({ podTemplate });
+      if (!r.success || r.backend !== expected) {
+        console.error('case ' + name + ' expected ' + expected + ' got ' + JSON.stringify(r));
+        process.exit(1);
+      }
+    }
+  })().catch((e) => { console.error(e.message); process.exit(1); });
+" >/dev/null 2>&1); then
+  ok
+else
+  bad "business_pod_route_backend smoke failed (cli build may be stale: cd $CLI && npm run build)"
+fi
+
 rm -rf "$TMPDIR_BASE"
 
 printf "\n%d passed, %d failed\n" "$PASS" "$FAIL"

@@ -213,6 +213,53 @@ test('CLI: budget reservation creates ledger and commits to $0 on dry-run', () =
   }
 });
 
+// ADR-164 Phase 3 — every additional pod template (marketing/finance/ops/
+// support/hr/exec) must validate and produce a successful dry-run tick. The
+// existing sales template is covered by 'CLI: dry-run on sales.json' above;
+// this loop covers the new six.
+const PHASE3_PODS = ['marketing', 'finance', 'ops', 'support', 'hr', 'exec'];
+for (const pod of PHASE3_PODS) {
+  test(`Phase 3: ${pod}.json validates and dry-runs cleanly`, () => {
+    const podPath = join(PLUGIN_ROOT, 'templates', `${pod}.json`);
+    // schema validation first
+    const raw = JSON.parse(readFileSync(podPath, 'utf-8'));
+    const t = validatePodTemplate(raw);
+    assert.equal(t.name, pod);
+    // every agentType must be in the registry — pod-tick.mjs hard-checks this
+    for (const a of t.agents) {
+      assert.ok(
+        KNOWN_AGENT_TYPES.has(a.agentType),
+        `${pod}.json agentType "${a.agentType}" not in KNOWN_AGENT_TYPES`,
+      );
+    }
+    // dry-run the tick end-to-end
+    const work = tmp(`pod-tick-${pod}-`);
+    try {
+      const res = spawnSync('node', [
+        POD_TICK,
+        '--pod-template', podPath,
+        '--base-path', work,
+        '--dry-run',
+        '--tick-id', `phase3-${pod}-tick`,
+      ], { encoding: 'utf-8' });
+      assert.equal(res.status, 0, `non-zero exit for ${pod}: stderr=${res.stderr}`);
+      const out = JSON.parse(res.stdout.trim().split('\n').pop());
+      assert.equal(out.podName, pod);
+      assert.equal(out.tickId, `phase3-${pod}-tick`);
+      assert.equal(out.agentsRan, t.agents.length);
+      assert.equal(out.totalUsd, 0); // dry-run actual = $0
+      assert.equal(out.status, 'success');
+      assert.equal(out.dryRun, true);
+      assert.ok(out.envelopeId);
+      // envelope JSONL exists
+      const ledgerPath = join(work, 'budget', `${t.roomId}.json`);
+      assert.ok(existsSync(ledgerPath), `${pod} ledger should exist`);
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
+  });
+}
+
 test('CLI: envelope is written to room JSONL backing store', async () => {
   const work = tmp();
   try {

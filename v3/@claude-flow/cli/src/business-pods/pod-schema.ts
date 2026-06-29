@@ -310,4 +310,8 @@ export const KNOWN_AGENT_TYPES = [
   'cicd-engineer',
   'code-analyzer',
   'database-specialist',
+  // ADR-164 Phase 3 — added for the marketing/hr pods (content drafting +
+  // onboarding-template generation). Mirror this addition in the JS copy
+  // inside plugins/ruflo-business-pods/scripts/pod-tick.mjs.
+  'base-template-generator',
 ] as const;

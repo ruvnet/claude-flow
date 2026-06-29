@@ -1,0 +1,54 @@
+{
+  "name": "exec",
+  "displayName": "Executive",
+  "roomId": "exec",
+  "agents": [
+    {
+      "role": "cross-pod-synthesizer",
+      "agentType": "task-orchestrator",
+      "description": "Aggregates status envelopes from every sub-pod and produces an end-of-day executive summary",
+      "preferLocal": true
+    },
+    {
+      "role": "strategic-architect",
+      "agentType": "system-architect",
+      "description": "Detects cross-domain architectural risk signals and proposes mitigations",
+      "preferLocal": true
+    },
+    {
+      "role": "exec-researcher",
+      "agentType": "researcher",
+      "description": "Researches external market/risk context for the daily executive briefing",
+      "preferLocal": true
+    }
+  ],
+  "allowedMcpTools": [
+    "memory_store",
+    "memory_search",
+    "federation_bbs_register",
+    "federation_bbs_publish",
+    "federation_bbs_watch",
+    "federation_bbs_human_join"
+  ],
+  "bench": {
+    "name": "exec-dashboard-bench",
+    "description": "Measures executive-summary quality and cross-pod escalation timeliness. PII policy is GDPR — most restrictive across all pods because #exec synthesizes envelopes from every sub-pod including finance and HR. Trust note (ADR-164 §3.5.4): #exec requires the `share-context` capability which on Day 1 may need the founder-bootstrap CLI escape hatch (`ruflo federation trust elevate <bbs-node-id> --to TRUSTED --reason ... --audit`) because organic trust accrual (minInteractions: 500) has not yet completed. The bench treats this as a known transient; subsequent ticks operate under accrued TRUSTED level.",
+    "successCriteria": [
+      "Executive summary produced at least every 24h",
+      "All P1 escalations from sub-pods acknowledged in #exec within 15 min",
+      "No cross-domain risk signal older than 1h unreviewed",
+      "share-context capability check: if not yet TRUSTED, bench logs a structured warning citing ADR-164 §3.5.4 founder-bootstrap escape hatch"
+    ],
+    "scheduleHours": 24
+  },
+  "piiPolicy": "gdpr",
+  "budgetUsdMonthly": 60,
+  "budgetUsdPerRun": 2.50,
+  "preferLocalExecution": true,
+  "cronSchedule": "0 17 * * 1-5",
+  "auditReadView": {
+    "includedEventTypes": ["task-result", "alert", "bench-result", "pod-status", "human-override-ack"],
+    "retentionDays": 365
+  },
+  "reservationExpiryMs": 90000
+}
