@@ -1,0 +1,137 @@
+# ADR-164 architectural constraint enforcement.
+#
+#   "Ruflo remains operational if the agentbbs package is removed."
+#
+# This workflow asserts three architectural rules from ADR-164 §5.1.1:
+#   1. agentbbs lives in `optionalDependencies`, NEVER `dependencies`
+#   2. Every code path that touches agentbbs in v3/@claude-flow/cli/src/
+#      is preceded by `loadAgentbbs()` (or a dynamic `import('agentbbs')`)
+#   3. Runtime drill: with `--no-optional` / unreachable registry, the smoke
+#      contract exits 0 (graceful degradation).
+#
+# If this job ever fails, an agentbbs API has accidentally been promoted to
+# a hard runtime requirement — breaking the optional-dep playbook from
+# ADR-150 / agenticow / metaharness. The fix is either to make the new code
+# path graceful, or to write a new ADR that supersedes the constraint.
+name: no-agentbbs-smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/ruflo-bbs-federation/**'
+      - 'v3/@claude-flow/cli/src/mcp-tools/agentbbs-tools.ts'
+      - 'v3/@claude-flow/cli/src/mcp-client.ts'
+      - 'v3/@claude-flow/cli/src/mcp-tools/index.ts'
+      - 'v3/@claude-flow/cli/package.json'
+      - 'scripts/smoke-agentbbs.sh'
+      - '.github/workflows/no-agentbbs-smoke.yml'
+  pull_request:
+    paths:
+      - 'plugins/ruflo-bbs-federation/**'
+      - 'v3/@claude-flow/cli/src/mcp-tools/agentbbs-tools.ts'
+      - 'v3/@claude-flow/cli/src/mcp-client.ts'
+      - 'v3/@claude-flow/cli/src/mcp-tools/index.ts'
+      - 'v3/@claude-flow/cli/package.json'
+      - 'scripts/smoke-agentbbs.sh'
+      - '.github/workflows/no-agentbbs-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke-without-agentbbs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Rule 1 — agentbbs must NOT appear in non-optional dependencies anywhere
+        # Static check: every package.json that could carry the dep must list
+        # agentbbs only under optionalDependencies. If it appears in
+        # `dependencies` anywhere, we've broken the architectural constraint.
+        run: |
+          node -e "
+            const { readFileSync, readdirSync, statSync } = require('fs');
+            const { join } = require('path');
+            const candidates = [
+              'package.json',
+              'ruflo/package.json',
+              'v3/@claude-flow/cli/package.json',
+            ];
+            try {
+              for (const p of readdirSync('plugins')) {
+                const pj = join('plugins', p, 'package.json');
+                try { statSync(pj); candidates.push(pj); } catch {}
+              }
+            } catch {}
+            const offenders = [];
+            for (const c of candidates) {
+              let json;
+              try { json = JSON.parse(readFileSync(c, 'utf-8')); } catch { continue; }
+              for (const dep of Object.keys(json.dependencies || {})) {
+                if (/^agentbbs$/.test(dep)) {
+                  offenders.push({ file: c, dep });
+                }
+              }
+            }
+            if (offenders.length) {
+              console.error('ADR-164 architectural constraint violated:');
+              for (const o of offenders) console.error('  ' + o.file + ' → ' + o.dep + ' in dependencies (must be optionalDependencies)');
+              process.exit(1);
+            }
+            console.log('OK — agentbbs is not in non-optional dependencies anywhere.');
+          "
+
+      - name: Rule 2 — every `agentbbs` usage in cli/src must be guarded by loadAgentbbs / dynamic import
+        # Walk every .ts under v3/@claude-flow/cli/src that mentions agentbbs.
+        # For each match, the SAME file must also reference loadAgentbbs() OR
+        # use a dynamic import('agentbbs'). Static `import ... from 'agentbbs'`
+        # is forbidden — it would make the dep mandatory.
+        run: |
+          node -e "
+            const { readFileSync, readdirSync, statSync } = require('fs');
+            const { join } = require('path');
+            const root = 'v3/@claude-flow/cli/src';
+            const offenders = [];
+            function walk(dir) {
+              for (const e of readdirSync(dir)) {
+                const p = join(dir, e);
+                const st = statSync(p);
+                if (st.isDirectory()) { walk(p); continue; }
+                if (!p.endsWith('.ts')) continue;
+                const src = readFileSync(p, 'utf-8');
+                // Static import — forbidden:
+                if (/^\s*import\s+[^;]*from\s+['\"]agentbbs['\"]/m.test(src)) {
+                  offenders.push({ file: p, reason: 'static import of agentbbs' });
+                  continue;
+                }
+                // If file mentions agentbbs at all, require a guard.
+                if (/agentbbs/.test(src)) {
+                  const guarded = /loadAgentbbs|import\(['\"]agentbbs['\"]\)/m.test(src);
+                  if (!guarded) {
+                    offenders.push({ file: p, reason: 'agentbbs reference without loadAgentbbs/dynamic import guard' });
+                  }
+                }
+              }
+            }
+            walk(root);
+            if (offenders.length) {
+              console.error('ADR-164 rule 2 violated:');
+              for (const o of offenders) console.error('  ' + o.file + ': ' + o.reason);
+              process.exit(1);
+            }
+            console.log('OK — every agentbbs reference under ' + root + ' is dynamically guarded.');
+          "
+
+      - name: Rule 3 — runtime drill (install without optional deps, run smoke)
+        # Install without the optional `agentbbs` package so the loadAgentbbs()
+        # path returns null and every handler must short-circuit to degraded.
+        # smoke-agentbbs.sh accepts DEGRADED:agentbbs-not-found as a PASS for
+        # step 8, so the whole script should still exit 0.
+        run: |
+          set -e
+          npm install --no-audit --no-fund --ignore-optional --workspaces=false
+          (cd v3/@claude-flow/cli && npm install --no-audit --no-fund --ignore-optional && npm run build)
+          bash scripts/smoke-agentbbs.sh

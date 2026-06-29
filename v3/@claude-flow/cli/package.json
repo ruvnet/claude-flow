@@ -106,6 +106,7 @@
     "yaml": "^2.8.0"
   },
   "optionalDependencies": {
+    "agentbbs": "~0.1.0",
     "agenticow": "~0.2.3",
     "@claude-flow/aidefence": "^3.0.2",
     "@claude-flow/codex": "^3.0.0-alpha.8",

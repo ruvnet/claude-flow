@@ -53,6 +53,9 @@ import { metaharnessTools } from './mcp-tools/metaharness-tools.js';
 // agenticow@~0.2.3 — Copy-On-Write memory branching tools (162-byte branches);
 // optional runtime dep, every handler returns `{degraded: true}` when missing.
 import { agenticowTools } from './mcp-tools/agenticow-tools.js';
+// ADR-164 — AgentBBS federated business-domain BBS rooms (Phase 1).
+// Optional runtime dep, every handler returns `{degraded: true}` when missing.
+import { agentbbsTools } from './mcp-tools/agentbbs-tools.js';
 // #1916: coverage-aware routing tools — defined in ruvector/coverage-tools.ts
 // but were never registered, so the `ruflo hooks coverage-*` CLI subcommands
 // failed with `Tool not found: hooks_coverage-route`.
@@ -139,6 +142,8 @@ registerTools([
   ...metaharnessTools,
   // agenticow@~0.2.3 — COW memory branching (4 tools, graceful-degraded when missing)
   ...agenticowTools,
+  // ADR-164 — AgentBBS federated business-domain BBS rooms (4 tools, Phase 1, graceful-degraded)
+  ...agentbbsTools,
 ]);
 
 /**

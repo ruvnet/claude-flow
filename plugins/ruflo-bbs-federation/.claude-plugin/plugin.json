@@ -1,0 +1,25 @@
+{
+  "name": "ruflo-bbs-federation",
+  "description": "AgentBBS federated business-domain BBS room integration for ruflo (ADR-164 Phase 1). Exposes federation_bbs_register / federation_bbs_publish / federation_bbs_watch / federation_bbs_human_join MCP tools that wrap the agentbbs Rust workspace as a special-tier federation peer. agentbbs lives in optionalDependencies; every handler gracefully degrades to {degraded:true} when the package is missing, mirroring the architectural constraint pattern from ADR-150 and agenticow (PR #2500).",
+  "version": "0.1.0",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "bbs",
+    "federation",
+    "agentbbs",
+    "business-autopilot",
+    "domain-pods",
+    "cockpit",
+    "ed25519",
+    "optional-dependency",
+    "graceful-degradation",
+    "adr-164",
+    "phase-1-mvp"
+  ]
+}
