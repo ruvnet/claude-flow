@@ -185,6 +185,9 @@ importers:
       '@ruvector/tiny-dancer':
         specifier: ^0.1.22
         version: 0.1.22
+      agentbbs:
+        specifier: ~0.1.0
+        version: 0.1.0
       agentdb:
         specifier: ^3.0.0-alpha.17
         version: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
@@ -6947,6 +6950,14 @@ packages:
     hasBin: true
     requiresBuild: true
     dev: false
+
+  /agentbbs@0.1.0:
+    resolution: {integrity: sha512-XOEjlgdObklxnZdA0yS6pAcKId99SsFwH5ZF5qNByWs6VsTht1oxjbuFhuapGV7fNnQ6Y2XLq0GbtZ7t+sQMbw==}
+    engines: {node: '>=18'}
+    hasBin: true
+    requiresBuild: true
+    dev: false
+    optional: true
 
   /agentdb@1.6.1:
     resolution: {integrity: sha512-OO/hwO+MYtqsgz+6CyrY2BCjcgRWGv5Ob7nFupNEt7m1ZchIArCwvBAcJgFMFNFqWxH6AN2ThiQKBmfXboBkPg==}
