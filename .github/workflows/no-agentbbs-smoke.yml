@@ -107,11 +107,27 @@ jobs:
                   offenders.push({ file: p, reason: 'static import of agentbbs' });
                   continue;
                 }
-                // If file mentions agentbbs at all, require a guard.
+                // If file mentions agentbbs at all, require a guard — except
+                // for files that ONLY re-export our own agentbbsTools symbol
+                // (the symbol itself contains the loadAgentbbs guard).
                 if (/agentbbs/.test(src)) {
-                  const guarded = /loadAgentbbs|import\(['\"]agentbbs['\"]\)/m.test(src);
-                  if (!guarded) {
-                    offenders.push({ file: p, reason: 'agentbbs reference without loadAgentbbs/dynamic import guard' });
+                  // Strip benign re-exports + comment mentions, then check the rest.
+                  // Patterns we treat as safe (do not require their own loadAgentbbs guard):
+                  //   - `export { agentbbsTools } from './agentbbs-tools.js';`
+                  //   - `import { agentbbsTools } from './mcp-tools/agentbbs-tools.js';`
+                  //   - `...agentbbsTools,`
+                  //   - any comment line mentioning agentbbs
+                  const stripped = src
+                    .replace(/^\s*\/\/.*$/gm, '')                                   // single-line comments
+                    .replace(/\/\*[\s\S]*?\*\//g, '')                               // block comments
+                    .replace(/export\s+\{[^}]*agentbbsTools[^}]*\}\s+from\s+['\"][^'\"]+agentbbs-tools[^'\"]*['\"];?/g, '')
+                    .replace(/import\s+\{[^}]*agentbbsTools[^}]*\}\s+from\s+['\"][^'\"]+agentbbs-tools[^'\"]*['\"];?/g, '')
+                    .replace(/\.\.\.agentbbsTools,?/g, '');
+                  if (/agentbbs/.test(stripped)) {
+                    const guarded = /loadAgentbbs|import\(['\"]agentbbs['\"]\)/m.test(src);
+                    if (!guarded) {
+                      offenders.push({ file: p, reason: 'agentbbs reference without loadAgentbbs/dynamic import guard' });
+                    }
                   }
                 }
               }
