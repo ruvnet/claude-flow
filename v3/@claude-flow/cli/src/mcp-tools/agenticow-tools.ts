@@ -121,10 +121,7 @@ async function openWithLineage(api: AgenticowApi, file: string, dimension?: numb
 export const agenticowTools: MCPTool[] = [
   {
     name: 'agenticow_branch',
-    description:
-      'COW-fork a base memory. Branches are ~162 bytes regardless of base size. ' +
-      'Use for per-Darwin-iteration, per-user, or per-session memory personalization ' +
-      'without copying the parent file.',
+    description: 'agenticow@~0.2.3 — COW-fork a base .rvf memory file. Measured 162-byte branches regardless of base size (verified at N=1k/10k/50k). Use when you need per-Darwin-iteration / per-user / per-session memory personalization. Copying the parent .rvf file is wrong because full-copy snapshots grow linearly (the 3.3 GB Darwin-worktree bloat fixed in v3.14.4); agenticow gives read-through semantics (parent ∪ edits, child wins) at constant 162 B. Optional dep — degrades to {degraded:true} when missing.',
     category: 'memory',
     tags: ['agenticow', 'memory', 'cow', 'branch'],
     inputSchema: {
@@ -167,9 +164,7 @@ export const agenticowTools: MCPTool[] = [
   },
   {
     name: 'agenticow_checkpoint',
-    description:
-      'Freeze a restore point on a memory file. Subsequent edits can be rolled back to this checkpoint. ' +
-      'Use before an experimental Darwin tick or speculative agent edit.',
+    description: 'agenticow — freeze a labelled restore point on an .rvf memory file. Subsequent edits stay in a fresh COW child; rollback returns here. Use when you are about to run an experimental Darwin tick or speculative agent edit that may need to be discarded. Relying on the working node alone is wrong because there is no "undo last N writes" semantics — without a checkpoint, a bad ingest contaminates the base. Persists via .agenticow.json lineage manifest so it survives close+reopen.',
     category: 'memory',
     tags: ['agenticow', 'memory', 'cow', 'checkpoint'],
     inputSchema: {
@@ -198,10 +193,7 @@ export const agenticowTools: MCPTool[] = [
   },
   {
     name: 'agenticow_rollback',
-    description:
-      'Discard edits made since the most recent checkpoint on a memory file. ' +
-      'Use when a Darwin tick / agent experiment regressed and you want to revert ' +
-      'memory state without re-running everything.',
+    description: 'agenticow — discard all edits since the most recent checkpoint on an .rvf memory file. Reuses a fresh COW child derived from the checkpoint. Use when a Darwin tick or agent experiment regressed and you want to revert memory state without re-running. Deleting+rebuilding the .rvf is wrong because rebuild cost is O(N) and the data after the bad point is lost; rollback is O(edits-since-checkpoint) and the earlier history stays intact via the lineage manifest.',
     category: 'memory',
     tags: ['agenticow', 'memory', 'cow', 'rollback'],
     inputSchema: {
@@ -228,10 +220,7 @@ export const agenticowTools: MCPTool[] = [
   },
   {
     name: 'agenticow_promote',
-    description:
-      'Merge a branch\'s edits into a base memory file. After promote the branch ' +
-      'edits become part of the base lineage. Used for federation merges and ' +
-      'when a successful per-user branch should graduate to shared memory.',
+    description: 'agenticow — merge a branch\'s edits back into its base (or an explicit target) memory file. After promote, branch edits become part of base lineage. Use when a per-user / per-Darwin-iteration branch has been validated and should graduate to shared memory (federation merge, A/B winner). Manually re-ingesting edits into the base is wrong because the edit set is opaque to the caller and tombstones (deletions) are easily missed; promote applies the full edit + tombstone set atomically.',
     category: 'memory',
     tags: ['agenticow', 'memory', 'cow', 'promote', 'merge'],
     inputSchema: {
