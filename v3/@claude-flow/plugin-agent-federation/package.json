@@ -40,7 +40,7 @@
     "@claude-flow/security": "workspace:*",
     "agentic-flow": "2.0.12-fix.8",
     "typescript": "^5.4.0",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "keywords": [
     "federation",

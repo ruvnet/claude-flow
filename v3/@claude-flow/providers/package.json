@@ -50,7 +50,7 @@
     "dotenv": "^16.4.5",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "peerDependencies": {
     "@ruvector/ruvllm": "^0.2.3"

@@ -27,7 +27,7 @@
   "devDependencies": {
     "@claude-flow/shared": "workspace:*",
     "typescript": "^5.4.0",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "peerDependencies": {
     "multicast-dns": "^7.2.5"

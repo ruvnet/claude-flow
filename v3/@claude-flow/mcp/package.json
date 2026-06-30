@@ -25,7 +25,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/ws": "^8.5.10",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "keywords": [
     "mcp",

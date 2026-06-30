@@ -42,9 +42,9 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "@vitest/coverage-v8": "^4.0.16",
+    "@vitest/coverage-v8": "^4.1.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "engines": {
     "node": ">=20.0.0",
@@ -54,13 +54,21 @@
   "dependencies": {
     "semantic-release": "25.0.2"
   },
+  "overrides": {
+    "handlebars": ">=4.7.9",
+    "protobufjs": ">=8.6.0"
+  },
   "pnpm": {
     "neverBuiltDependencies": [
       "sharp"
     ],
     "overrides": {
       "@ruvector/gnn": "0.1.25",
-      "@ruvector/gnn-linux-x64-gnu": "0.1.25"
+      "@ruvector/gnn-linux-x64-gnu": "0.1.25",
+      "vitest": ">=4.1.0",
+      "@vitest/coverage-v8": ">=4.1.0",
+      "handlebars": ">=4.7.9",
+      "protobufjs": ">=8.6.0"
     }
   }
 }

@@ -93,7 +93,7 @@
   },
   "devDependencies": {
     "typescript": "^5.3.0",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "dependencies": {
     "@claude-flow/cli-core": "3.7.0-alpha.5",
