@@ -1,10 +1,10 @@
 {
   "manifest": {
     "schema": "ruflo-witness/v1",
-    "issuedAt": "2026-06-26T18:39:32.030Z",
-    "gitCommit": "8ae87524553569dcd6ba6a7e7e96fbea6b0e0b74",
-    "branch": "fix/issues-2469-2473-2474",
-    "os": "linux",
+    "issuedAt": "2026-06-30T02:20:22.361Z",
+    "gitCommit": "abd5bf8e409e9836234df929365a0a9032519019",
+    "branch": "fix/adr-165-phase1-cve-remediation",
+    "os": "macos",
     "releases": {},
     "summary": {
       "totalFixes": 117,
@@ -40,7 +40,7 @@
         "id": "F4",
         "desc": "agentdb_pattern-store memory-store fallback",
         "file": "v3/@claude-flow/cli/dist/src/mcp-tools/agentdb-tools.js",
-        "sha256": "37ed9db655686f26ea1009a8f6d503f4a50b7e92af7f32d6cc225711808b56e3",
+        "sha256": "6a5eb4783e2b017521ba871f8fae182c6fb93ce2742c7ebba0690add0ed105e1",
         "marker": "memory-store-fallback",
         "markerVerified": true
       },
@@ -112,7 +112,7 @@
         "id": "#1697",
         "desc": "rvf-wasm overrides",
         "file": "package.json",
-        "sha256": "0e073899e24bcf0c28c8522d4dd6a433f058de20925cc138b7ffbdfa5b2247bc",
+        "sha256": "a5ea4270acda771df4d6c89871e78f3253fd0cb4d6eb886c1f5942777b21c3cf",
         "marker": "@ruvector/rvf-wasm",
         "markerVerified": true
       },
@@ -128,7 +128,7 @@
         "id": "#1691",
         "desc": "Windows daemon fork()",
         "file": "v3/@claude-flow/cli/dist/src/commands/daemon.js",
-        "sha256": "713ce62d72b572a6e4beee0d9a600a6849d1d64beec1a3abb1d672183e2b9e02",
+        "sha256": "b65afdf086d14346add9b13f65a8141f3d110696ea09ee131da8ed7b1c8d3e62",
         "marker": "fork(cliPath",
         "markerVerified": true
       },
@@ -136,7 +136,7 @@
         "id": "#1721",
         "desc": "postinstall copies all dist/src/* siblings",
         "file": "v3/@claude-flow/cli/package.json",
-        "sha256": "b7f24076b4f9469feccfe4e7e61c1173bfbc31a8613ab987bd72ee3638cffc64",
+        "sha256": "c2008555e708e9a9de7bb4f5e55bc03cc40364e79bbbe96bbb64006d56ff059b",
         "marker": "postinstall.cjs",
         "markerVerified": true
       },
@@ -240,7 +240,7 @@
         "id": "CAP-MCP-agentdb-tools",
         "desc": "MCP tools (15): agentdb_batch, agentdb_causal-edge, agentdb_consolidate, …",
         "file": "v3/@claude-flow/cli/dist/src/mcp-tools/agentdb-tools.js",
-        "sha256": "37ed9db655686f26ea1009a8f6d503f4a50b7e92af7f32d6cc225711808b56e3",
+        "sha256": "6a5eb4783e2b017521ba871f8fae182c6fb93ce2742c7ebba0690add0ed105e1",
         "marker": "agentdb_batch",
         "markerVerified": true
       },
@@ -456,7 +456,7 @@
         "id": "#1795",
         "desc": "umbrella package missing cli-core dep (ERR_MODULE_NOT_FOUND)",
         "file": "package.json",
-        "sha256": "0e073899e24bcf0c28c8522d4dd6a433f058de20925cc138b7ffbdfa5b2247bc",
+        "sha256": "a5ea4270acda771df4d6c89871e78f3253fd0cb4d6eb886c1f5942777b21c3cf",
         "marker": "@claude-flow/cli-core",
         "markerVerified": true
       },
@@ -598,10 +598,10 @@
       },
       {
         "id": "#1609",
-        "desc": "vitest bumped to ^4.0.16 (drops 4 moderate esbuild CVEs)",
+        "desc": "vitest bumped to ^4.1.0 (ADR-165 Phase 1: closes critical GHSA-5xrq + 4 moderate esbuild CVEs)",
         "file": "v3/@claude-flow/aidefence/package.json",
-        "sha256": "0a9d315b4c1c74b2f86befd070c73a5651d9d1fcdd0b81c38aa2663976952483",
-        "marker": "\"vitest\": \"^4.0.16\"",
+        "sha256": "06e884242aea1b0eeeb00b6842a80eceaadd00d50fa91b38bae2f26147e521e5",
+        "marker": "\"vitest\": \"^4.1.0\"",
         "markerVerified": true
       },
       {
@@ -624,7 +624,7 @@
         "id": "#1825",
         "desc": "hotfix: workspace: protocol leak in cli optionalDependencies",
         "file": "v3/@claude-flow/cli/package.json",
-        "sha256": "b7f24076b4f9469feccfe4e7e61c1173bfbc31a8613ab987bd72ee3638cffc64",
+        "sha256": "c2008555e708e9a9de7bb4f5e55bc03cc40364e79bbbe96bbb64006d56ff059b",
         "marker": "\"@claude-flow/memory\": \"^3.0.0-alpha.",
         "markerVerified": true
       },
@@ -696,7 +696,7 @@
         "id": "ADR-097-Phase2b-coordinator",
         "desc": "Coordinator outbound short-circuit on !peer.isActive (companion to ADR-097-Phase2b) — refuses sends to SUSPENDED/EVICTED peers before session lookup, no remaining-budget echo",
         "file": "v3/@claude-flow/plugin-agent-federation/dist/application/federation-coordinator.js",
-        "sha256": "4ec03c4b422ce30e3a3f4aeb816b6254d43fc2bc4ad3c8c8f64baab8a0eeab7c",
+        "sha256": "b95be1f848895c62778fd761e47df62c8a0c0c5321cba154f939a1cc78544ded",
         "marker": "PEER_EVICTED",
         "markerVerified": true
       },
@@ -824,7 +824,7 @@
         "id": "#1889",
         "desc": "agentdb_pattern-search now has a symmetric memory-store-fallback path (tiered: semantic → substring). Previously pattern-store wrote to memory-store-fallback while pattern-search only queried ReasoningBank (always empty), so writes were silently lost. New CI smoke at plugins/ruflo-core/scripts/test-mcp-roundtrips.mjs catches the paired-tool-round-trip regression class.",
         "file": "v3/@claude-flow/cli/dist/src/mcp-tools/agentdb-tools.js",
-        "sha256": "37ed9db655686f26ea1009a8f6d503f4a50b7e92af7f32d6cc225711808b56e3",
+        "sha256": "6a5eb4783e2b017521ba871f8fae182c6fb93ce2742c7ebba0690add0ed105e1",
         "marker": "controller: 'memory-store-fallback'",
         "markerVerified": true
       },
@@ -840,7 +840,7 @@
         "id": "#1914",
         "desc": "daemon start no longer SIGTERMs daemons belonging to OTHER workspaces (ADR-014 per-workspace scope). Forked daemon argv is stamped with `--workspace <root>` (kept last) and killStaleDaemons{Posix,Windows} filter on it via daemonCommandLineBelongsToWorkspace — exact trailing match, never a path-prefix match, so `/a/proj` start can't reap `/a/proj-other`'s daemon. Pre-#1914 daemons (no stamp) are left for `daemon stop` (PID file). Unit guard __tests__/daemon-workspace-scope.test.ts.",
         "file": "v3/@claude-flow/cli/dist/src/commands/daemon.js",
-        "sha256": "713ce62d72b572a6e4beee0d9a600a6849d1d64beec1a3abb1d672183e2b9e02",
+        "sha256": "b65afdf086d14346add9b13f65a8141f3d110696ea09ee131da8ed7b1c8d3e62",
         "marker": "daemonCommandLineBelongsToWorkspace",
         "markerVerified": true
       },
@@ -952,10 +952,10 @@
   },
   "integrity": {
     "manifestHashAlgo": "sha256",
-    "manifestHash": "530379f5fad813796c5228b02da1fa0bebc535e0c84977979efbb7c4edd5a799",
+    "manifestHash": "b495b66a39ffb6a358c66f2c591b6ed7f6bbe87de570cc7d5e3d23a59b5d1134",
     "signatureAlgo": "ed25519",
-    "publicKey": "8f0ce12dba96b3959138478ae151df3d05e735eb28eaf61197ca7ae834f18f8e",
-    "signature": "112d067bab1119c4d94344dfd23057d43d17ec67ee16cdea000ceaf20e5dbbb946e023dc1facd13d4a5155105043e5f406665223bd719bf3108820955f9c6908",
+    "publicKey": "d4a4add8dfd0f9a53a19d0a4bff62c16191fcbaa2110e1d36b14ee23c907422d",
+    "signature": "1ce4cdeb33cd6db3a22db9ccce592ac7a5028b784ae99080d4bd27ce22b12ce8820f01aa4d2a53f9a77308a2665d5a32fb66bdbb920706d7fc946b03ab5ec603",
     "seedDerivation": "sha256(gitCommit + ':ruflo-witness/v1')"
   }
 }
