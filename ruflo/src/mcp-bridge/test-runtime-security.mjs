@@ -135,6 +135,37 @@ async function testBridge(label, entry) {
       } catch (e) {
         assert(false, `R4. terminal_execute threw: ${e.message}`);
       }
+
+      // R6 — #2425 djimit streamable-HTTP session cleanup: DELETE /mcp → 204
+      try {
+        const r = await fetch(`http://127.0.0.1:${port}/mcp`, {
+          method: "DELETE",
+          headers: {
+            "Authorization": `Bearer ${TOKEN}`,
+            "Mcp-Session-Id": "test-cleanup",
+          },
+        });
+        assert(r.status === 204, `R6. DELETE /mcp → 204 (got ${r.status})`);
+        assert(!!r.headers.get("Mcp-Session-Id"), "R6b. Mcp-Session-Id header echoed on /mcp*");
+      } catch (e) {
+        assert(false, `R6. DELETE /mcp threw: ${e.message}`);
+      }
+
+      // R7 — #2425 notifications/initialized returns 202 Accepted with empty body
+      try {
+        const r = await fetch(`http://127.0.0.1:${port}/mcp`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${TOKEN}`,
+          },
+          body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+        });
+        assert(r.status === 202, `R7. notifications/initialized → 202 (got ${r.status})`);
+        assert((await r.text()) === "", "R7b. notifications/initialized has empty body");
+      } catch (e) {
+        assert(false, `R7. notifications/initialized threw: ${e.message}`);
+      }
     }
     await killAndWait(b.child);
   }

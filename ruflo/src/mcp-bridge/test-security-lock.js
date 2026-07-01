@@ -58,6 +58,16 @@ const CHECKS = [
     rx: /MCP_CORS_ORIGIN[\s\S]*?CORS_ALLOWLIST/,
     hint: "CORS must respect MCP_CORS_ORIGIN allowlist (Phase 3b)",
   },
+  {
+    id: "7. streamable-http-delete-handler (#2425)",
+    rx: /app\.delete\(\s*["']\/mcp["']\s*,/,
+    hint: "DELETE /mcp must be handled for streamable-HTTP session cleanup (#2425)",
+  },
+  {
+    id: "8. mcp-session-id-header (#2425)",
+    rx: /Mcp-Session-Id/,
+    hint: "Mcp-Session-Id header must be echoed on /mcp* responses (#2425)",
+  },
 ];
 
 let hardFail = false;
