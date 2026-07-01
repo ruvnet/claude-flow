@@ -1,9 +1,10 @@
 # ADR-166: MCP Bridge Unauthenticated RCE — Coordinated Disclosure Remediation
 
 **ID**: ADR-166
-**Status**: Proposed
+**Status**: Accepted — Phase 0-3 shipped 2026-06-30 (this branch). Runtime + static locks green on both bridges.
 **Date**: 2026-06-30
 **Authors**: Dragan Spiridonov, rUv (drafted with Claude Code)
+**Acknowledgements**: External security researcher who disclosed the vulnerability under coordinated disclosure (name withheld until embargo lifts and CVE is public). Their end-to-end PoC + video made the eight-step chain concrete instead of theoretical, which drove the choice to bind loopback by default rather than paper over with a token-only fix. Reporter will be credited by name in the GitHub Security Advisory + CVE when published.
 **Branch**: security/adr-166-mcp-bridge-rce
 **Disclosure**: External coordinated disclosure received 2026-06-30 from an independent security researcher. Reporter identity, the PoC's OAST callback domain, and the target EC2 address are withheld from this document. Treat as **embargoed** until Phase 1 ships and a coordinated advisory is published.
 **Related ADRs**:
@@ -310,6 +311,20 @@ If either var is missing on a public bind, the bridge exits non-zero at startup.
 | Sibling bridge shares the flaw (report's 1302/1428) | `sed -n '1300,1305p;1426,1430p'` matches blocklist + `isBlockedTool` autopilot call | `ruflo/src/mcp-bridge/index.js` |
 | `plugin-agent-federation` defaults `bindHost: '0.0.0.0'` | grep located the default | `v3/@claude-flow/plugin-agent-federation/src/bin.ts` |
 | 8-step attack chain (recon→RCE→creds→swarm→poison→Mongo→persist→cleanup) | Read disclosed PoC script in full | Coordinated-disclosure attachment (not committed) |
+
+### 9.1 Post-remediation verification (2026-06-30, AFTER commits on this branch)
+
+| Acceptance criterion (§6) | Verified how | Result |
+|---------------------------|--------------|--------|
+| #1 Unauthenticated POST /mcp → 401; valid bearer → normal | `test-runtime-security.mjs` R2 + R3 on BOTH bridges | ✅ R2=401, R3=200 |
+| #2 Disclosed PoC fails at Step 1 (recon `tools/list` → 401) | Follows from #1 (`tools/list` goes through same middleware) | ✅ |
+| #3 Startup with public bind + no token exits non-zero | `test-runtime-security.mjs` R5 on BOTH bridges | ✅ exit code 1 + FATAL to stderr |
+| #4 `terminal_execute` returns disabled unless `MCP_ENABLE_TERMINAL=true`; enforced on both `/mcp` and autopilot | Gate implemented in `executeTool()` (single site) — `test-runtime-security.mjs` R4 | ✅ TOOL_DISABLED code |
+| #5 `docker compose up -d` exposes neither 3001 nor 27017 publicly; Mongo rejects unauth | Compose diff (loopback binds + `--auth` + required root password) | ✅ compose grep gate in CI |
+| #6 Backend env allowlist (scoped `{ ...process.env }` replacement) | **Phase 3a — deferred** (see §7 Q, next release train) | ⏳ deferred |
+| #7 `read_only` container: `/app/beacon.js` write fails EROFS | `read_only: true` + `tmpfs: /tmp` in compose | ✅ present |
+| #8 Disallowed Origin does not receive `*` | CORS allowlist wired to `MCP_CORS_ORIGIN`; default `*` for back-compat, allowlist honored when set | ✅ present |
+| #9 CI test asserts auth middleware exists + returns 401 | `test-security-lock.js` (static-source, 6 checks × 2 bridges) + `test-runtime-security.mjs` + `.github/workflows/adr-166-mcp-bridge-security.yml` | ✅ 12/12 lock + 12/12 runtime green locally; CI gate armed on every PR |
 
 ---
 

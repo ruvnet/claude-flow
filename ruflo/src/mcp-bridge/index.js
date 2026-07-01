@@ -772,7 +772,30 @@ async function executeGoapSearch(query, args) {
 // TOOL EXECUTOR
 // =============================================================================
 
+// ADR-166 §6 Phase 1d + 2a — server-side tool gate.
+// Enforced HERE (not just in the autopilot handler) so /mcp, /mcp/:group,
+// autopilot, and any future path share ONE denial gate. Was the missing
+// link that made the disclosed unauthenticated-RCE chain reach shell.
+const DANGEROUS_TOOLS = Object.freeze(new Set([
+  "terminal_execute",
+  "ruflo__terminal_execute",
+  "devtools__terminal_execute",
+]));
+function isTerminalTool(name) {
+  return DANGEROUS_TOOLS.has(name) || /terminal_execute/i.test(name);
+}
+const MCP_ENABLE_TERMINAL = process.env.MCP_ENABLE_TERMINAL === "true";
+
 async function executeTool(name, args) {
+  // Deny dangerous tools unless the operator explicitly opted in.
+  // Enforced on every path (not just autopilot) — root cause of ADR-166 V2/V3.
+  if (isTerminalTool(name) && !MCP_ENABLE_TERMINAL) {
+    return {
+      error:
+        `Tool "${name}" is disabled by default. Set MCP_ENABLE_TERMINAL=true to allow.`,
+      code: "TOOL_DISABLED",
+    };
+  }
   // Validate that search-like tools have a non-empty query to prevent 400 errors
   if (!args || typeof args !== "object") args = {};
   const rawQuery = args.query ?? args.q ?? args.input ?? "";
@@ -859,9 +882,18 @@ const GROUP_DISPLAY_NAMES = {
 const app = express();
 app.use(express.json({ limit: "10mb" }));
 
-// ---------- CORS middleware ----------
+// ---------- CORS middleware (ADR-166 §6 Phase 3b) ----------
+const CORS_ALLOWLIST = (process.env.MCP_CORS_ORIGIN || "*")
+  .split(",").map(s => s.trim()).filter(Boolean);
+const CORS_WILDCARD = CORS_ALLOWLIST.length === 1 && CORS_ALLOWLIST[0] === "*";
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const origin = req.get("origin") || "";
+  if (CORS_WILDCARD) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  } else if (origin && CORS_ALLOWLIST.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.sendStatus(204);
@@ -1704,6 +1736,18 @@ async function main() {
     console.log(`MCP Bridge v2.0.0 on port ${PORT} (${BIND_HOST})`);
     const enabled = Object.entries(TOOL_GROUPS).filter(([, g]) => g.enabled).map(([n]) => n);
     console.log(`Active groups: ${enabled.join(", ")}`);
+    // ADR-166 §6 — startup posture banner
+    console.log(
+      `[security] bind=${BIND_HOST} auth=${process.env.MCP_AUTH_TOKEN ? "bearer" : "off (local-only)"} ` +
+      `terminal=${MCP_ENABLE_TERMINAL ? "ENABLED (⚠ opt-in)" : "disabled"}`,
+    );
+    if (MCP_ENABLE_TERMINAL) {
+      console.warn(
+        "[security] WARNING: terminal_execute is enabled. This tool grants shell access " +
+        "inside the bridge container to any client the auth layer accepts. Ensure " +
+        "MCP_AUTH_TOKEN is set on any non-loopback bind. See ADR-166 §6 Phase 1d.",
+      );
+    }
   });
 
   const anyBackendNeeded = BACKEND_DEFS.some(isBackendNeeded);
