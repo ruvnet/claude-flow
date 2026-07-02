@@ -28,6 +28,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-020](../../implementation/adrs/ADR-020-headless-worker-integration.md) | Headless Worker Integration | Complete |
 | [ADR-046](../../implementation/adrs/ADR-046-ruflo-rebrand.md) | Dual Umbrella: claude-flow + ruflo | Accepted |
 | [ADR-047](../../implementation/adrs/ADR-047-fast-mode-integration.md) | Fast Mode Integration | Proposed |
+| [ADR-147](ADR-147-dream-cycle-performance-latency-aware-scheduling.md) | Latency-Aware Critical Path Scheduling for Swarm Orchestration | Proposed |
 
 ## Summary Documents
 
