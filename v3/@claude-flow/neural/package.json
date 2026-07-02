@@ -125,7 +125,7 @@
     "@ruvector/sona": "0.1.5"
   },
   "optionalDependencies": {
-    "agentdb": "^2.0.0 || ^3.0.0-alpha.1"
+    "agentdb": "^3.0.0-alpha.17"
   },
   "publishConfig": {
     "access": "public",

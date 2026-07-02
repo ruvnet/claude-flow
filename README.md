@@ -184,6 +184,14 @@ npm install -g ruflo@latest
 
 > 💡 **Windows users:** the `curl ... | bash` form needs a POSIX shell (Git-Bash, WSL, MSYS). The `npx ruflo@latest init wizard` line works natively in PowerShell and cmd. If you hit an `'bash' is not recognized` error, use the `npx` line instead — both end up running the same init flow.
 
+**Slim install (ADR-169):** the heavy vector/embedding/telemetry stack is entirely optional. If you only need the CLI, swarm coordination, and the MCP server, install with optionals omitted — ~108 MB instead of ~900 MB+, in seconds:
+
+```bash
+npm install -g ruflo@latest --omit=optional
+```
+
+Features that need the heavy stack (vector memory search, ONNX embeddings) degrade gracefully and tell you what to install when first used.
+
 ### MCP Server
 
 ```bash

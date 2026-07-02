@@ -31,7 +31,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "agentdb": ">=2.0.0-alpha.1"
+    "agentdb": "^3.0.0-alpha.17"
   },
   "peerDependenciesMeta": {
     "agentdb": {

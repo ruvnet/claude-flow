@@ -1001,7 +1001,9 @@ done
 - Never forget the `ruflo` package — it's the thin wrapper users actually run via `npx ruflo`
 - The legacy `alpha` and `v3alpha` tags MUST stay pointed at the latest stable so old install commands keep working
 - `ruflo` source is in `/ruflo/` — it depends on `@claude-flow/cli`
-- Also remember to update `ruflo/package.json` overrides when adding new pinned transitives (see #2112 lesson — root overrides do NOT propagate to the published `ruflo` wrapper)
+- Overrides are DEV-CONTEXT ONLY (ADR-171): npm honors `overrides` only in the root package of an install, so neither block protects `npx ruflo` consumers — consumer-facing CVE floors must be real dependency-range bumps in the owning packages. To change overrides, edit `config/overrides.json` and run `node scripts/sync-overrides.mjs` (CI fails on drift; never hand-edit the blocks in `package.json` or `ruflo/package.json`)
+- Before publishing `ruflo`, run `npm pack --dry-run` in `ruflo/` — the tarball must be bin-only (≤10 files, no `src/`, no `.swarm/`/`.claude-flow/`/`*.db`/`*.log` state; enforced by `.github/workflows/ruflo-package-guards.yml`)
+- `ruflo` pins `@claude-flow/cli` EXACTLY (not a caret range) — bump the pin to the lockstep version as part of every publish
 
 ### GitHub Release after publish
 

@@ -1,0 +1,82 @@
+# ADR-168 / ADR-171 guards for the published `ruflo` wrapper:
+#  - pack-gate: the tarball must stay bin-only (no src/, no runtime state)
+#  - overrides-drift: /package.json and /ruflo/package.json overrides blocks
+#    must match config/overrides.json (single source of truth)
+#  - slim-smoke: the packed wrapper must install and run with --omit=optional
+name: ruflo-package-guards
+
+on:
+  pull_request:
+    paths:
+      - 'ruflo/**'
+      - 'config/overrides.json'
+      - 'scripts/sync-overrides.mjs'
+      - 'package.json'
+      - '.github/workflows/ruflo-package-guards.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ruflo/**'
+      - 'config/overrides.json'
+      - 'scripts/sync-overrides.mjs'
+      - 'package.json'
+
+jobs:
+  pack-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: ruflo tarball must be bin-only and state-free
+        working-directory: ruflo
+        run: |
+          npm pack --dry-run --json > /tmp/pack.json
+          node -e '
+            const [pack] = JSON.parse(require("fs").readFileSync("/tmp/pack.json", "utf-8"));
+            const files = pack.files.map(f => f.path);
+            const forbidden = files.filter(p =>
+              /(^|\/)(\.claude-flow|\.swarm|logs)\//.test(p) ||
+              /\.(db|sqlite|index|log)$/.test(p) ||
+              p.startsWith("src/") || p.startsWith("dist/"));
+            if (forbidden.length) {
+              console.error("Forbidden paths in tarball:", forbidden);
+              process.exit(1);
+            }
+            if (files.length > 10) {
+              console.error(`Tarball has ${files.length} files (limit 10):`, files);
+              process.exit(1);
+            }
+            console.log(`pack-gate OK: ${files.length} files, ${pack.unpackedSize} bytes unpacked`);
+          '
+
+  overrides-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/sync-overrides.mjs --check
+
+  slim-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: pack wrapper and install slim
+        run: |
+          TARBALL=$(cd ruflo && npm pack --silent)
+          mkdir -p /tmp/slim && cd /tmp/slim
+          npm init -y > /dev/null
+          npm install "$GITHUB_WORKSPACE/ruflo/$TARBALL" --omit=optional --no-audit --no-fund
+          du -sh node_modules
+      - name: smoke the slim install
+        working-directory: /tmp/slim
+        run: |
+          npx ruflo --version
+          npx ruflo --help > /dev/null
+          echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | timeout 60 npx ruflo mcp start | head -c 200 > /dev/null || true
