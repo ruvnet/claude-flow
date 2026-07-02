@@ -17,7 +17,9 @@ services:
       MCP_AUTH_TOKEN: "${MCP_AUTH_TOKEN}"
   mongodb:
     # Public deployment uses stronger Mongo isolation — auth + non-mapped host port.
-    ports: []  # remove the host port mapping; access only over the docker network
+    # `!override` is required: a plain empty list MERGES with (i.e. keeps) the
+    # base mapping instead of removing it.
+    ports: !override []  # remove the host port mapping; access only over the docker network
     environment:
       MONGO_INITDB_ROOT_USERNAME: "${MONGO_ROOT_USERNAME}"
       MONGO_INITDB_ROOT_PASSWORD: "${MONGO_ROOT_PASSWORD}"

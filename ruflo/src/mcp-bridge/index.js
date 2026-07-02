@@ -120,7 +120,7 @@ const TOOL_GROUPS = {
 
 // ADR-166 §6 Phase 3a (V4) — scoped backend environment.
 // Backends must NOT inherit the full parent env: the bridge process holds
-// every provider key injected by compose, so `env: { ...process.env }` hands
+// every provider key injected by compose, so spreading the whole parent env hands
 // all of them to any compromised child. Each child now gets:
 //   1. a minimal safe base (process/locale/tmp + proxy config, since
 //      backends need outbound network, incl. NODE_EXTRA_CA_CERTS via NODE_*)
