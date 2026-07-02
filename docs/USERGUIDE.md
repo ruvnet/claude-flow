@@ -900,25 +900,24 @@ Not every task needs the most powerful (and expensive) model. Ruflo analyzes eac
 
 Complex projects fail when implementation drifts from the original plan. Ruflo solves this with a spec-first approach: define your architecture through ADRs (Architecture Decision Records), organize code into DDD bounded contexts, and let the system enforce compliance as agents work. The result is implementations that match specifications — even across multi-agent swarms working in parallel.
 
-**How It Prevents Drift:**
+**The Workflow (spec → build → enforce):**
 
-| Capability | What It Does |
-|------------|--------------|
-| 🎯 **Spec-First Planning** | Agents generate ADRs before writing code, capturing requirements and decisions |
-| 🔍 **Real-Time Compliance** | Statusline shows ADR compliance %, catches deviations immediately |
-| 🚧 **Bounded Contexts** | Each domain (Security, Memory, etc.) has clear boundaries agents can't cross |
-| ✅ **Validation Gates** | `hooks progress` blocks merges that violate specifications |
-| 🔄 **Living Documentation** | ADRs update automatically as requirements evolve |
+1. **Specify** — Agents generate ADRs from requirements (via SPARC) *before* writing code, capturing decisions up front.
+2. **Bound** — Code is organized into 5 DDD bounded contexts with clean interfaces, so agents can't pollute across domains.
+3. **Monitor** — The statusline shows live ADR compliance %, and drift detection flags any divergence from spec immediately.
+4. **Gate** — `hooks progress` blocks merges that violate the spec; ADRs update as requirements evolve (living documentation).
 
-**Specification Features:**
+**Features:**
 
-| Feature | Description |
-|---------|-------------|
-| **Architecture Decision Records** | 70+ ADRs defining system behavior, integration patterns, and security requirements |
-| **Domain-Driven Design** | 5 bounded contexts with clean interfaces preventing cross-domain pollution |
-| **Automated Spec Generation** | Agents create specs from requirements using SPARC methodology |
-| **Drift Detection** | Continuous monitoring flags when code diverges from spec |
-| **Hierarchical Coordination** | Queen agent enforces spec compliance across all worker agents |
+| Theme | Feature | What It Does |
+|-------|---------|--------------|
+| 📐 Specs | **Architecture Decision Records** | 70+ ADRs define system behavior, integration patterns, and security requirements |
+| 📐 Specs | **Automated Spec Generation** | Agents create specs from requirements using SPARC methodology |
+| 🚧 Boundaries | **Domain-Driven Design** | 5 bounded contexts with clean interfaces prevent cross-domain pollution |
+| 🔍 Enforcement | **Drift Detection** | Continuous monitoring + statusline compliance % catch deviations in real time |
+| 🔍 Enforcement | **Validation Gates** | `hooks progress` blocks merges that violate specifications |
+| 🔄 Enforcement | **Living Documentation** | ADRs update automatically as requirements evolve |
+| 👑 Coordination | **Hierarchical Coordination** | Queen agent enforces spec compliance across all worker agents |
 
 **DDD Bounded Contexts:**
 ```
