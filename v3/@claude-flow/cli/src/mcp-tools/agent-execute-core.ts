@@ -8,63 +8,8 @@
  * place rather than duplicated.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { getProjectCwd } from './types.js';
-
-const STORAGE_DIR = '.claude-flow';
-const AGENT_DIR = 'agents';
-const AGENT_FILE = 'store.json';
-
-type ClaudeModel = 'haiku' | 'sonnet' | 'opus' | 'opus-4.7' | 'inherit';
-
-export interface AgentRecord {
-  agentId: string;
-  agentType: string;
-  status: 'idle' | 'busy' | 'terminated';
-  health: number;
-  taskCount: number;
-  config: Record<string, unknown>;
-  createdAt: string;
-  domain?: string;
-  model?: ClaudeModel;
-  modelRoutedBy?: 'explicit' | 'router' | 'codemod' | 'default' | 'hybrid';
-  /**
-   * ADR-149 — concrete picked model id (e.g. `openai/gpt-4.1`,
-   * `inclusionai/ling-2.6-flash`). Present when the cost-optimal neural
-   * router contributed to the decision; downstream `executeAgentInline`
-   * uses this to dispatch via the correct provider's API instead of
-   * falling back to MODEL_MAP[tier].
-   */
-  modelId?: string;
-  /** ADR-148 phase 2 — execution provider hint. */
-  provider?: 'anthropic' | 'openrouter';
-  /** ADR-148 phase 2 — concrete OpenRouter slug when provider='openrouter'. */
-  openrouterModel?: string;
-  lastResult?: Record<string, unknown>;
-}
-
-interface AgentStore {
-  agents: Record<string, AgentRecord>;
-  version: string;
-}
-
-function getAgentDir(): string { return join(getProjectCwd(), STORAGE_DIR, AGENT_DIR); }
-function getAgentPath(): string { return join(getAgentDir(), AGENT_FILE); }
-function ensureAgentDir(): void {
-  const dir = getAgentDir();
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-}
-function loadAgentStore(): AgentStore {
-  try {
-    if (existsSync(getAgentPath())) return JSON.parse(readFileSync(getAgentPath(), 'utf-8'));
-  } catch { /* fall through */ }
-  return { agents: {}, version: '3.0.0' };
-}
-function saveAgentStore(store: AgentStore): void {
-  ensureAgentDir();
-  writeFileSync(getAgentPath(), JSON.stringify(store, null, 2), 'utf-8');
-}
+import { agentRepository } from '../agent-store/agent-repository.js';
+export type { AgentRecord } from '../agent-store/agent-repository.js';
 
 // #1906/#2232 — Current model ids (Claude 4.x family):
 //   Opus 4.8    → claude-opus-4-8   (current, the `opus` alias)
@@ -473,7 +418,7 @@ export interface AgentExecuteResult {
 }
 
 export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentExecuteResult> {
-  const store = loadAgentStore();
+  const store = agentRepository.loadStore();
   const agent = store.agents[input.agentId];
   if (!agent) return { success: false, agentId: input.agentId, error: 'Agent not found' };
   if (agent.status === 'terminated') return { success: false, agentId: input.agentId, error: 'Agent has been terminated' };
@@ -513,7 +458,7 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
 
   agent.status = 'busy';
   agent.taskCount = (agent.taskCount || 0) + 1;
-  saveAgentStore(store);
+  agentRepository.saveStore(store);
 
   const startedAt = Date.now();
 
@@ -645,11 +590,11 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
       ...(fallbackHistory.length > 0 ? { fallbackHistory } : {}),
     };
     agent.lastResult = out as unknown as Record<string, unknown>;
-    saveAgentStore(store);
+    agentRepository.saveStore(store);
     return out;
   }
 
-  saveAgentStore(store);
+  agentRepository.saveStore(store);
   // No-provider-configured error → surface the same actionable message
   // the router built, with a #2042-aware remediation pointer.
   const noProvider = (result.error || '').includes('No LLM provider configured');

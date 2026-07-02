@@ -28,6 +28,12 @@ vi.mock('node:fs', () => {
     readdirSync: vi.fn(() => []),
     unlinkSync: vi.fn(),
     statSync: vi.fn(() => ({ size: 100, isFile: () => true, isDirectory: () => false })),
+    openSync: vi.fn(() => 123),
+    renameSync: vi.fn((src: string, dest: string) => {
+      const data = memStore.get(src);
+      if (data !== undefined) memStore.set(dest, data);
+      memStore.delete(src);
+    }),
   };
 });
 
@@ -41,6 +47,12 @@ vi.mock('fs', () => {
     readdirSync: vi.fn(() => []),
     unlinkSync: vi.fn(),
     statSync: vi.fn(() => ({ size: 100, isFile: () => true, isDirectory: () => false })),
+    openSync: vi.fn(() => 123),
+    renameSync: vi.fn((src: string, dest: string) => {
+      const data = memStore.get(src);
+      if (data !== undefined) memStore.set(dest, data);
+      memStore.delete(src);
+    }),
   };
 });
 
@@ -777,8 +789,9 @@ describe('MCP Tools Deep Test Suite', () => {
     it('coordination_orchestrate accepts task', async () => {
       const tool = coordinationTools.find(t => t.name === 'coordination_orchestrate')!;
       const result: any = await tool.handler({ task: 'test task' });
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false); // no agents available
       expect(result.orchestrationId).toBeDefined();
+      expect(result.status).toBe('failed');
     });
   });
 
