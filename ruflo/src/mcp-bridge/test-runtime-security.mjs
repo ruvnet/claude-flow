@@ -10,12 +10,18 @@
  *   R3. with MCP_AUTH_TOKEN set: authenticated POST /mcp → 200 (or ≠401)
  *   R4. terminal_execute call → TOOL_DISABLED error unless MCP_ENABLE_TERMINAL=true
  *   R5. public bind without MCP_AUTH_TOKEN → process exits ≠0 within 3s
+ *   R6. spawned backend env is SCOPED (ADR-166 Phase 3a, V4): a canary secret
+ *       set in the bridge's env must NOT reach a backend child; allowlisted
+ *       keys (ANTHROPIC_API_KEY for the `claude` backend) must. Verified by
+ *       putting a fake `claude` executable on PATH that dumps its env.
  *
  *   node test-runtime-security.mjs
  */
 
 import { spawn } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -160,6 +166,60 @@ async function testBridge(label, entry) {
       assert(false, "R5b. FATAL message expected in stderr");
     }
     await killAndWait(b.child);
+  }
+
+  // R6 — backend env scoping (V4): CANARY must not reach the child; the
+  // backend's allowlisted key must. Uses a fake `claude` binary on PATH so
+  // the `claude-code` group spawns it without any network fetch.
+  {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-envscope-"));
+    const dumpFile = path.join(tmp, "child-env.json");
+    const fakeClaude = path.join(tmp, "claude");
+    fs.writeFileSync(
+      fakeClaude,
+      "#!/usr/bin/env node\n" +
+      `require("node:fs").writeFileSync(${JSON.stringify(dumpFile)}, JSON.stringify(process.env));\n` +
+      "process.exit(0);\n",
+      { mode: 0o755 },
+    );
+
+    const port = await pickPort();
+    const b = await startBridge(entry, {
+      PORT: String(port),
+      MCP_BIND_HOST: "127.0.0.1",
+      MCP_AUTH_TOKEN: TOKEN,
+      MCP_GROUP_DEVTOOLS: "false",
+      MCP_GROUP_INTELLIGENCE: "false",
+      MCP_GROUP_AGENTS: "false",
+      MCP_GROUP_MEMORY: "false",
+      MCP_GROUP_CLAUDE_CODE: "true",
+      PATH: `${tmp}${path.delimiter}${process.env.PATH || ""}`,
+      CANARY_SECRET: "leak-if-you-see-me",
+      OPENAI_API_KEY: "test-openai-key-not-for-claude",
+      ANTHROPIC_API_KEY: "test-anthropic-key",
+    }, { waitMs: 500 });
+    await b.ready;
+
+    // Poll for the env dump written by the fake backend (spawned at startup).
+    let childEnv = null;
+    for (let i = 0; i < 40 && !childEnv; i++) {
+      if (fs.existsSync(dumpFile)) {
+        try { childEnv = JSON.parse(fs.readFileSync(dumpFile, "utf-8")); } catch { /* partial write */ }
+      }
+      if (!childEnv) await sleep(250);
+    }
+    if (!childEnv) {
+      assert(false, "R6. backend child spawned and dumped its env (fake `claude` on PATH)");
+    } else {
+      assert(true, "R6. backend child spawned and dumped its env (fake `claude` on PATH)");
+      assert(!("CANARY_SECRET" in childEnv), "R6b. parent CANARY_SECRET does NOT leak into backend env");
+      assert(!("OPENAI_API_KEY" in childEnv), "R6c. non-allowlisted provider key (OPENAI_API_KEY) withheld from `claude` backend");
+      assert(!("MCP_AUTH_TOKEN" in childEnv), "R6d. bridge MCP_AUTH_TOKEN withheld from backend env");
+      assert(childEnv.ANTHROPIC_API_KEY === "test-anthropic-key", "R6e. allowlisted ANTHROPIC_API_KEY IS forwarded to `claude` backend");
+      assert(typeof childEnv.PATH === "string" && childEnv.PATH.length > 0, "R6f. safe base env (PATH) present in backend env");
+    }
+    await killAndWait(b.child);
+    fs.rmSync(tmp, { recursive: true, force: true });
   }
 }
 
