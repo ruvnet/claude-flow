@@ -1,0 +1,16 @@
+{
+  "name": "ruflo",
+  "version": "0.1.0",
+  "description": "\ud83c\udf0a The leading agent orchestration platform for Claude. Deploy intelligent multi-agent swarms, coordinate autonomous workflows, and build conversational AI systems. Features    enterprise-grade archite",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "repository": "https://github.com/ruvnet/ruflo",
+  "keywords": [
+    "mcp",
+    "codex"
+  ],
+  "mcpServers": "./.mcp.json"
+}
