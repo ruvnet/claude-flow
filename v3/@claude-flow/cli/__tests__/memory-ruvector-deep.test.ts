@@ -16,6 +16,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 // =============================================================================
 // Memory Initializer
@@ -68,6 +71,60 @@ describe('Memory Initializer', () => {
     it('should set WAL journal mode pragma', async () => {
       const { MEMORY_SCHEMA_V3 } = await import('../src/memory/memory-initializer.js');
       expect(MEMORY_SCHEMA_V3).toContain('PRAGMA journal_mode = WAL');
+    });
+  });
+
+  describe('storeEntry durability', () => {
+    it('falls through to a durable SQLite write when the AgentDB bridge reports a cache-only success', async () => {
+      vi.resetModules();
+      vi.doMock('../src/memory/memory-bridge.js', () => ({
+        bridgeStoreEntry: vi.fn(async () => ({
+          success: true,
+          id: 'bridge-cache-only',
+        })),
+        bridgeGenerateEmbedding: vi.fn(async () => null),
+        bridgeGetEntry: vi.fn(async () => null),
+        bridgeSearchEntries: vi.fn(async () => null),
+        bridgeListEntries: vi.fn(async () => null),
+      }));
+
+      const workdir = mkdtempSync(join(tmpdir(), 'memory-durable-'));
+      const dbPath = join(workdir, 'memory.db');
+      try {
+        const memory = await import('../src/memory/memory-initializer.js');
+        const init = await memory.initializeMemoryDatabase({
+          dbPath,
+          force: true,
+          verbose: false,
+        });
+        expect(init.success).toBe(true);
+
+        const stored = await memory.storeEntry({
+          key: 'durable-key',
+          value: 'durable value',
+          namespace: 'durability-test',
+          dbPath,
+          generateEmbeddingFlag: false,
+          upsert: true,
+        });
+
+        expect(stored.success).toBe(true);
+        expect(stored.id).not.toBe('bridge-cache-only');
+
+        const retrieved = await memory.getEntry({
+          key: 'durable-key',
+          namespace: 'durability-test',
+          dbPath,
+        });
+
+        expect(retrieved.success).toBe(true);
+        expect(retrieved.found).toBe(true);
+        expect(retrieved.entry?.content).toBe('durable value');
+      } finally {
+        rmSync(workdir, { recursive: true, force: true });
+        vi.doUnmock('../src/memory/memory-bridge.js');
+        vi.resetModules();
+      }
     });
   });
 

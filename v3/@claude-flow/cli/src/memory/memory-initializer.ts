@@ -131,6 +131,161 @@ async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> 
   }
 }
 
+async function rawMemoryEntryExists(options: {
+  key: string;
+  namespace?: string;
+  dbPath?: string;
+}): Promise<boolean> {
+  const { key, namespace = 'default', dbPath: customPath } = options;
+  const swarmDir = getMemoryRoot();
+  const dbPath = customPath ? path.resolve(customPath) : path.join(swarmDir, 'memory.db');
+
+  try {
+    if (!fs.existsSync(dbPath)) return false;
+
+    const initSqlJs = (await import('sql.js')).default;
+    const SQL = await initSqlJs();
+    const fileBuffer = readFileMaybeEncrypted(dbPath, null);
+    const db = new SQL.Database(fileBuffer);
+    const stmt = db.prepare(`
+      SELECT 1
+      FROM memory_entries
+      WHERE status = 'active'
+        AND key = ?
+        AND namespace = ?
+      LIMIT 1
+    `);
+    stmt.bind([key, namespace]);
+    const found = stmt.step();
+    stmt.free();
+    db.close();
+    return found;
+  } catch {
+    return false;
+  }
+}
+
+async function storeEntryWithBetterSqlite(options: {
+  key: string;
+  value: string;
+  namespace?: string;
+  generateEmbeddingFlag?: boolean;
+  tags?: string[];
+  ttl?: number;
+  dbPath?: string;
+  upsert?: boolean;
+}): Promise<{
+  success: boolean;
+  id: string;
+  embedding?: { dimensions: number; model: string };
+  error?: string;
+}> {
+  const {
+    key,
+    value,
+    namespace = 'default',
+    generateEmbeddingFlag = true,
+    tags = [],
+    ttl,
+    dbPath: customPath,
+    upsert = false
+  } = options;
+  const swarmDir = getMemoryRoot();
+  const dbPath = customPath ? path.resolve(customPath) : path.join(swarmDir, 'memory.db');
+
+  try {
+    if (!fs.existsSync(dbPath)) {
+      return { success: false, id: '', error: 'Database not initialized. Run: claude-flow memory init' };
+    }
+
+    await ensureSchemaColumns(dbPath);
+
+    const require = createRequire(import.meta.url);
+    const Database = require('better-sqlite3');
+    const db = new Database(dbPath);
+    const id = `entry_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const now = Date.now();
+
+    let embeddingJson: string | null = null;
+    let embeddingDimensions: number | null = null;
+    let embeddingModel: string | null = null;
+
+    if (generateEmbeddingFlag && value.length > 0) {
+      const embResult = await generateEmbedding(value);
+      embeddingJson = JSON.stringify(embResult.embedding);
+      embeddingDimensions = embResult.dimensions;
+      embeddingModel = embResult.model;
+    }
+
+    const insertSql = upsert
+      ? `INSERT OR REPLACE INTO memory_entries (
+          id, key, namespace, content, type,
+          embedding, embedding_dimensions, embedding_model,
+          tags, metadata, created_at, updated_at, expires_at, status
+        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')`
+      : `INSERT INTO memory_entries (
+          id, key, namespace, content, type,
+          embedding, embedding_dimensions, embedding_model,
+          tags, metadata, created_at, updated_at, expires_at, status
+        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')`;
+
+    const write = db.transaction(() => {
+      try {
+        db.prepare(
+          `INSERT OR IGNORE INTO vector_indexes (id, name, dimensions) VALUES (?, ?, ?)`
+        ).run(namespace, namespace, embeddingDimensions ?? 384);
+      } catch {
+        /* vector_indexes may not exist on legacy DBs — fall through */
+      }
+
+      db.prepare(insertSql).run(
+        id,
+        key,
+        namespace,
+        value,
+        embeddingJson,
+        embeddingDimensions,
+        embeddingModel,
+        tags.length > 0 ? JSON.stringify(tags) : null,
+        '{}',
+        now,
+        now,
+        ttl ? now + (ttl * 1000) : null
+      );
+    });
+
+    write();
+    try {
+      db.pragma('wal_checkpoint(TRUNCATE)');
+    } catch {
+      /* checkpoint is best-effort */
+    }
+    db.close();
+
+    if (embeddingJson) {
+      const embResult = JSON.parse(embeddingJson) as number[];
+      await addToHNSWIndex(id, embResult, {
+        id,
+        key,
+        namespace,
+        content: value
+      });
+    }
+
+    return {
+      success: true,
+      id,
+      embedding: embeddingJson ? { dimensions: embeddingDimensions!, model: embeddingModel! } : undefined
+    };
+  } catch (error) {
+    return {
+      success: false,
+      id: '',
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
 /**
  * Enhanced schema with pattern confidence, temporal decay, versioning
  * Vector embeddings enabled for semantic search
@@ -2318,8 +2473,31 @@ export async function storeEntry(options: {
           content: options.value,
         }).catch(() => {});
       }
-      return bridgeResult;
+      if (!bridgeResult.success) {
+        return bridgeResult;
+      }
+      if (await rawMemoryEntryExists(options)) {
+        return bridgeResult;
+      }
+
+      // The AgentDB bridge can report success after writing only to an
+      // in-process/cache-backed controller. Verify the configured SQLite store
+      // before accepting success; otherwise write through to the durable DB.
+      const durableResult = await storeEntryWithBetterSqlite(options);
+      if (durableResult.success) {
+        return durableResult;
+      }
+      return {
+        success: false,
+        id: bridgeResult.id || '',
+        error: `Bridge reported success but durable SQLite verification failed: ${durableResult.error || 'unknown error'}`
+      };
     }
+  }
+
+  const betterSqliteResult = await storeEntryWithBetterSqlite(options);
+  if (betterSqliteResult.success) {
+    return betterSqliteResult;
   }
 
   // Fallback: raw sql.js
