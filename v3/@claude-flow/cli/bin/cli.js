@@ -93,14 +93,18 @@ console.log = (...args) => {
   _origLog.apply(console, args);
 };
 
-// #2256 fast path: --version / -V / --help / -h must NOT trigger heavy
-// imports (agentic-flow, ruvector ONNX, etc.) — those eagerly download a
-// 23 MB ONNX model on cold cache, blocking 60+ s and causing SIGTERM
-// under common timeout windows (npx default, MCP stdio 30 s). Resolve
-// version directly from package.json and exit before any heavy import.
+// #2256 / ADR-170 fast paths: --version / -V and --help / -h must NOT
+// trigger heavy imports (agentic-flow, ruvector ONNX, etc.) — those eagerly
+// download a 23 MB ONNX model on cold cache, blocking 60+ s and causing
+// SIGTERM under common timeout windows (npx default, MCP stdio 30 s).
+// Guards fire whenever the flag is present and there is NO command word —
+// i.e. every argument starts with '-' (`-V --no-color` is served here,
+// `agent --version` still reaches the real CLI). `<command> --help` also
+// falls through, since it needs lazy command loading for real help output.
 {
   const _argv = process.argv.slice(2);
-  if (_argv.length === 1 && (_argv[0] === '--version' || _argv[0] === '-V')) {
+  const _flagsOnly = _argv.length > 0 && _argv.every((a) => a.startsWith('-'));
+  if (_flagsOnly && (_argv.includes('--version') || _argv.includes('-V'))) {
     try {
       const __dirname = dirname(fileURLToPath(import.meta.url));
       const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
@@ -110,10 +114,49 @@ console.log = (...args) => {
     }
     process.exit(0);
   }
-  // --help / -h with no other args also stays lightweight — fall through
-  // to the existing fast help path inside index.ts; we don't short-circuit
-  // here because some users pass `<command> --help` which needs lazy command
-  // loading. The version short-circuit is the only one safe to inline.
+  if (_flagsOnly && (_argv.includes('--help') || _argv.includes('-h'))) {
+    // ADR-170 Phase 1.3: static help fast path (mirrors ruflo/bin/ruflo.js).
+    // KEEP THIS TEXT IN SYNC with the top-level command registry in
+    // src/commands/index.ts (commandLoaders keys) — it is intentionally
+    // static so `--help` never parses the ~45k-LOC command graph.
+    let _v = '0.0.0';
+    try {
+      const __dirname = dirname(fileURLToPath(import.meta.url));
+      _v = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')).version || _v;
+    } catch { /* best-effort */ }
+    process.stdout.write(`ruflo v${_v} — AI Agent Orchestration Platform
+
+USAGE:
+  ruflo <command> [subcommand] [options]
+
+CORE COMMANDS:
+  init         Initialize RuFlo in the current directory
+  start        Start the RuFlo orchestration system
+  status       Show system status
+  agent        Agent management commands
+  swarm        Swarm coordination commands
+  memory       Memory management commands
+  task         Task management commands
+  session      Session management commands
+  mcp          MCP server management
+  hooks        Self-learning hooks system
+
+MORE COMMANDS:
+  config, daemon, doctor, update, plugins, security, neural, performance,
+  workflow, hive-mind, providers, deployment, claims, embeddings, migrate,
+  completions, verify, analyze, route, progress, issues, ruvector, benchmark,
+  guidance, appliance, appliance-advanced, transfer-store, cleanup, autopilot,
+  gaia-bench, metaharness, eject, process
+
+OPTIONS:
+  -h, --help       Show help (use \`ruflo <command> --help\` for command details)
+  -V, --version    Show version
+  --no-color       Disable colored output
+
+Run \`ruflo <command> --help\` for detailed usage of a command.
+`);
+    process.exit(0);
+  }
 }
 
 // Check if we should run in MCP server mode

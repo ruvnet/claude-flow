@@ -11,6 +11,8 @@
  *   4. `requireAuth` uses `timingSafeEqual` (constant-time compare)
  *   5. `executeTool` denies terminal_execute unless `MCP_ENABLE_TERMINAL === "true"` (Phase 1d + 2a)
  *   6. CORS respects `MCP_CORS_ORIGIN` allowlist (Phase 3b)
+ *   7. Backends spawn with scoped env via `scopedBackendEnv()` (Phase 3a, V4)
+ *   8. No backend spawns with full `{ ...process.env }` inheritance (Phase 3a, V4)
  *
  * Runs offline (no server, no deps). CI-safe.
  *

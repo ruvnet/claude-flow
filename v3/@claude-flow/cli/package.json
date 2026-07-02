@@ -75,8 +75,13 @@
   },
   "files": [
     "dist",
+    "!dist/**/*.map",
+    "!dist/tsconfig.tsbuildinfo",
+    "!dist/**/tests/**",
+    "!dist/**/test-*",
+    "!dist/src/benchmarks",
     "bin",
-    "scripts",
+    "scripts/postinstall.cjs",
     ".claude",
     "plugins",
     "README.md"

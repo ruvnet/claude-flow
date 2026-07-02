@@ -27,6 +27,13 @@ import { createHmac, randomUUID } from "crypto";
 const BRIDGE_URL = process.env.MCP_BRIDGE_URL || "http://mcp-bridge:3001";
 const KERNEL_SECRET = process.env.RVF_KERNEL_SECRET || randomUUID();
 const KERNEL_ID = `rvf-kernel-${process.pid}`;
+// ADR-166 §7 Q1 (post-ADR-166 residual #3) — the bridge enforces
+// `Authorization: Bearer <MCP_AUTH_TOKEN>` on every route when a token is
+// configured. The X-RVF-Signature HMAC below is NOT verified by the bridge
+// (kept for defense-in-depth / future verification), so the kernel must also
+// forward the bearer token or every call 401s against an authenticated bridge.
+// Inject MCP_AUTH_TOKEN into the container/process env that runs this kernel.
+const MCP_AUTH_TOKEN = process.env.MCP_AUTH_TOKEN || "";
 
 // ---- META_IDX: Tool Registry Cache ----
 let toolCache = null;
@@ -55,6 +62,11 @@ async function forwardTobridge(method, params) {
     "Content-Type": "application/json",
     "X-RVF-Kernel": KERNEL_ID,
   };
+
+  // Bearer auth — the only credential the bridge actually verifies (ADR-166).
+  if (MCP_AUTH_TOKEN) {
+    headers["Authorization"] = `Bearer ${MCP_AUTH_TOKEN}`;
+  }
 
   // Sign request if secret is configured
   if (process.env.RVF_KERNEL_SECRET) {

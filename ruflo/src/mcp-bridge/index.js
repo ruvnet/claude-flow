@@ -118,11 +118,42 @@ const TOOL_GROUPS = {
 // STDIO MCP CLIENT — Connects to external MCP servers via child process
 // =============================================================================
 
+// ADR-166 §6 Phase 3a (V4) — scoped backend environment.
+// Backends must NOT inherit the full parent env: the bridge process holds
+// every provider key injected by compose, so `env: { ...process.env }` hands
+// all of them to any compromised child. Each child now gets:
+//   1. a minimal safe base (process/locale/tmp + proxy config, since
+//      backends need outbound network, incl. NODE_EXTRA_CA_CERTS via NODE_*)
+//   2. only the env names its BACKEND_DEFS entry allowlists via `envAllowlist`
+const SAFE_ENV_NAMES = new Set([
+  "PATH", "HOME", "TMPDIR", "TMP", "TEMP", "LANG", "TERM", "USER", "LOGNAME",
+  // Outbound network config — backends fetch via npx and call provider APIs.
+  "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY",
+  "http_proxy", "https_proxy", "no_proxy",
+]);
+const SAFE_ENV_PREFIXES = ["NODE_", "LC_"];
+
+function scopedBackendEnv(envAllowlist = []) {
+  const childEnv = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value === undefined) continue;
+    if (
+      SAFE_ENV_NAMES.has(key) ||
+      SAFE_ENV_PREFIXES.some((p) => key.startsWith(p)) ||
+      envAllowlist.includes(key)
+    ) {
+      childEnv[key] = value;
+    }
+  }
+  return childEnv;
+}
+
 class StdioMcpClient {
-  constructor(name, command, args = []) {
+  constructor(name, command, args = [], envAllowlist = []) {
     this.name = name;
     this.command = command;
     this.args = args;
+    this.envAllowlist = envAllowlist;
     this.process = null;
     this.tools = [];
     this.ready = false;
@@ -135,7 +166,8 @@ class StdioMcpClient {
       try {
         this.process = spawn(this.command, this.args, {
           stdio: ["pipe", "pipe", "pipe"],
-          env: { ...process.env },
+          // V4: scoped env — safe base + this backend's allowlisted keys only.
+          env: scopedBackendEnv(this.envAllowlist),
         });
 
         this.process.stdout.on("data", (data) => this._onData(data.toString()));
@@ -251,13 +283,23 @@ class StdioMcpClient {
 // BACKEND REGISTRY
 // =============================================================================
 
+// `envAllowlist` (V4, ADR-166 §6 Phase 3a): the ONLY non-base env var names
+// forwarded to that backend's child process — scoped to the provider keys the
+// backend actually needs. Everything else (other providers' keys, MCP_* bridge
+// config, Mongo credentials, …) is withheld from children.
 const BACKEND_DEFS = [
-  { name: "ruvector",       command: "npx", args: ["-y", "ruvector", "mcp", "start"],   groups: ["intelligence"] },
-  { name: "ruflo",          command: "npx", args: ["-y", "ruflo", "mcp", "start"],      groups: ["agents", "memory", "devtools", "security", "browser", "neural"] },
-  { name: "agentic-flow",   command: "npx", args: ["-y", "agentic-flow@alpha", "mcp", "start"], groups: ["agentic-flow"] },
-  { name: "claude",         command: "claude", args: ["mcp", "serve"],                  groups: ["claude-code"] },
-  { name: "gemini-mcp",     command: "npx", args: ["-y", "gemini-mcp-server"],          groups: ["gemini"] },
-  { name: "codex",          command: "npx", args: ["-y", "@openai/codex", "mcp-server"], groups: ["codex"] },
+  { name: "ruvector",       command: "npx", args: ["-y", "ruvector", "mcp", "start"],   groups: ["intelligence"],
+    envAllowlist: [] },
+  { name: "ruflo",          command: "npx", args: ["-y", "ruflo", "mcp", "start"],      groups: ["agents", "memory", "devtools", "security", "browser", "neural"],
+    envAllowlist: ["ANTHROPIC_API_KEY"] },
+  { name: "agentic-flow",   command: "npx", args: ["-y", "agentic-flow@alpha", "mcp", "start"], groups: ["agentic-flow"],
+    envAllowlist: ["ANTHROPIC_API_KEY", "OPENROUTER_API_KEY"] },
+  { name: "claude",         command: "claude", args: ["mcp", "serve"],                  groups: ["claude-code"],
+    envAllowlist: ["ANTHROPIC_API_KEY"] },
+  { name: "gemini-mcp",     command: "npx", args: ["-y", "gemini-mcp-server"],          groups: ["gemini"],
+    envAllowlist: ["GOOGLE_API_KEY", "GEMINI_API_KEY"] },
+  { name: "codex",          command: "npx", args: ["-y", "@openai/codex", "mcp-server"], groups: ["codex"],
+    envAllowlist: ["OPENAI_API_KEY"] },
 ];
 
 const mcpBackends = new Map();
@@ -302,7 +344,7 @@ async function initBackends() {
 
   await Promise.allSettled(
     needed.map(async (b) => {
-      const client = new StdioMcpClient(b.name, b.command, b.args);
+      const client = new StdioMcpClient(b.name, b.command, b.args, b.envAllowlist);
       const ok = await client.start();
       if (ok) {
         mcpBackends.set(b.name, client);

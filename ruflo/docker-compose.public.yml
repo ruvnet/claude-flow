@@ -1,17 +1,19 @@
 # Optional public deployment override.
 # Use: docker compose -f docker-compose.yml -f docker-compose.public.yml up -d
 #
-# Required env vars (set in .env or your secrets manager):
-#   MCP_BIND_HOST=0.0.0.0
+# The base compose keeps the bridge unpublished (compose-network only) and
+# already requires MCP_AUTH_TOKEN. This override PUBLISHES port 3001 on the
+# host — only do this deliberately (ADR-166 "optional public deployment
+# pattern"). Set in .env or your secrets manager:
 #   MCP_AUTH_TOKEN=<base64 token, >=32 bytes; openssl rand -base64 32>
-#
-# Without both, the bridge will exit non-zero at startup.
+#   MCP_PUBLIC_HOST_IP=<host interface to publish on; default 0.0.0.0>
 services:
   mcp-bridge:
     ports:
-      - "${MCP_BIND_HOST:-127.0.0.1}:3001:3001"
+      - "${MCP_PUBLIC_HOST_IP:-0.0.0.0}:3001:3001"
     environment:
-      MCP_BIND_HOST: "${MCP_BIND_HOST}"
+      # Container-internal bind stays 0.0.0.0 (inherited from base); the
+      # fail-closed gate requires MCP_AUTH_TOKEN, which the base enforces.
       MCP_AUTH_TOKEN: "${MCP_AUTH_TOKEN}"
   mongodb:
     # Public deployment uses stronger Mongo isolation — auth + non-mapped host port.

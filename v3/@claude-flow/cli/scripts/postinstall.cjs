@@ -147,6 +147,11 @@ function main() {
   }
   for (const base of bases) {
     try { copySiblings(base); } catch { /* phase 1 best-effort */ }
+    // ADR-095 G7 / ADR-170 Phase 1.2: augmentExports was defined but never
+    // called, leaving agentdb subpath imports (AttestationLog, MutationGuard,
+    // …) blocked by Node's strict exports enforcement. Best-effort like
+    // phase 1 — a failure must never break install.
+    try { augmentExports(base); } catch { /* phase 2 best-effort */ }
   }
 }
 
