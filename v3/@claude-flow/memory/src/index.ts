@@ -93,6 +93,7 @@ export type {
 
   // Utility Types
   EmbeddingGenerator,
+  BatchEmbeddingGenerator,
 } from './types.js';
 
 // Utility Functions and Constants (runtime values)
@@ -176,6 +177,15 @@ export type {
   RegistryHealthReport,
   RuntimeConfig,
 } from './controller-registry.js';
+
+// ===== Tiered Memory with Temporal Validity (Zep/Graphiti-style) =====
+export { TieredMemoryStore, isTemporallyValid } from './tiered-memory.js';
+export type {
+  TemporalStoreOptions,
+  TieredRecallOptions,
+  TieredMemoryEntry,
+  TieredStoreResult,
+} from './tiered-memory.js';
 
 // ===== Core Components =====
 export { AgentDBAdapter } from './agentdb-adapter.js';

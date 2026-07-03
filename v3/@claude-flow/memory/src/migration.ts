@@ -20,6 +20,7 @@ import {
   MemoryType,
   MemoryEntryInput,
   EmbeddingGenerator,
+  BatchEmbeddingGenerator,
   createDefaultEntry,
 } from './types.js';
 import { AgentDBAdapter } from './agentdb-adapter.js';
@@ -32,6 +33,7 @@ const DEFAULT_MIGRATION_CONFIG: Partial<MigrationConfig> = {
   generateEmbeddings: true,
   validateData: true,
   continueOnError: true,
+  embeddingConcurrency: 8,
 };
 
 /**
@@ -66,17 +68,20 @@ export class MemoryMigrator extends EventEmitter {
   private config: MigrationConfig;
   private target: AgentDBAdapter;
   private embeddingGenerator?: EmbeddingGenerator;
+  private batchEmbeddingGenerator?: BatchEmbeddingGenerator;
   private progress: MigrationProgress;
 
   constructor(
     target: AgentDBAdapter,
     config: Partial<MigrationConfig>,
-    embeddingGenerator?: EmbeddingGenerator
+    embeddingGenerator?: EmbeddingGenerator,
+    batchEmbeddingGenerator?: BatchEmbeddingGenerator
   ) {
     super();
     this.target = target;
     this.config = { ...DEFAULT_MIGRATION_CONFIG, ...config } as MigrationConfig;
     this.embeddingGenerator = embeddingGenerator;
+    this.batchEmbeddingGenerator = batchEmbeddingGenerator;
     this.progress = this.initializeProgress();
   }
 
@@ -322,9 +327,14 @@ export class MemoryMigrator extends EventEmitter {
   // ===== Batch Processing =====
 
   private async processBatch(batch: LegacyEntry[]): Promise<void> {
+    // Phase 1 — validate + transform (no embedding yet). Per-entry errors
+    // keep the same semantics as the previous sequential loop: validation
+    // failures are skipped, transform failures are failed, and one bad
+    // entry never fails the batch when continueOnError is set.
+    const transformed: Array<{ legacy: LegacyEntry; entry: MemoryEntry }> = [];
+
     for (const legacyEntry of batch) {
       try {
-        // Validate if enabled
         if (this.config.validateData) {
           const validation = this.validateEntry(legacyEntry);
           if (!validation.valid) {
@@ -343,12 +353,7 @@ export class MemoryMigrator extends EventEmitter {
           }
         }
 
-        // Transform to new format
-        const newEntry = await this.transformEntry(legacyEntry);
-
-        // Store in target
-        await this.target.store(newEntry);
-        this.progress.migrated++;
+        transformed.push({ legacy: legacyEntry, entry: this.transformEntry(legacyEntry) });
       } catch (error) {
         if (this.config.continueOnError) {
           this.addError(
@@ -363,9 +368,105 @@ export class MemoryMigrator extends EventEmitter {
         }
       }
     }
+
+    // Phase 2 — embed the whole batch at once (true batch API) or with
+    // bounded concurrency. Previously this awaited one ONNX inference per
+    // entry inside the loop — N sequential inferences per batch on the
+    // memory_import_claude hot path. Embedding failures remain warnings:
+    // the entry is still stored, just without a vector (same as before).
+    if (this.config.generateEmbeddings) {
+      await this.embedBatch(transformed);
+    }
+
+    // Phase 3 — store, preserving per-entry error handling.
+    for (const { legacy, entry } of transformed) {
+      try {
+        await this.target.store(entry);
+        this.progress.migrated++;
+      } catch (error) {
+        if (this.config.continueOnError) {
+          this.addError(
+            legacy.key || 'unknown',
+            (error as Error).message,
+            'STORE_ERROR',
+            true
+          );
+          this.progress.failed++;
+        } else {
+          throw error;
+        }
+      }
+    }
   }
 
-  private async transformEntry(legacy: LegacyEntry): Promise<MemoryEntry> {
+  /**
+   * Generate embeddings for a transformed batch.
+   *
+   * Strategy:
+   * 1. If a {@link BatchEmbeddingGenerator} is available, embed all batch
+   *    contents in ONE call (single padded forward pass on ONNX backends).
+   * 2. If the batch call fails, or only a single-text generator exists,
+   *    fall back to bounded-concurrency single-text embedding
+   *    (config.embeddingConcurrency, default 8 — never unbounded).
+   *
+   * Per-entry failures emit `migration:warning` and leave that entry
+   * without an embedding — one bad entry never fails the batch.
+   */
+  private async embedBatch(
+    transformed: Array<{ legacy: LegacyEntry; entry: MemoryEntry }>
+  ): Promise<void> {
+    if (transformed.length === 0) return;
+    if (!this.batchEmbeddingGenerator && !this.embeddingGenerator) return;
+
+    // Preferred path: one true batch call for all contents.
+    if (this.batchEmbeddingGenerator) {
+      try {
+        const embeddings = await this.batchEmbeddingGenerator(
+          transformed.map(({ entry }) => entry.content)
+        );
+        if (embeddings.length !== transformed.length) {
+          throw new Error(
+            `Batch embedding generator returned ${embeddings.length} vectors for ${transformed.length} inputs`
+          );
+        }
+        for (let i = 0; i < transformed.length; i++) {
+          transformed[i].entry.embedding = embeddings[i];
+        }
+        return;
+      } catch (error) {
+        this.emit('migration:warning', {
+          message: `Batch embedding failed (${(error as Error).message}); falling back to per-entry embedding`,
+        });
+        // Fall through to the bounded-concurrency path if possible.
+        if (!this.embeddingGenerator) return;
+      }
+    }
+
+    // Fallback: bounded concurrency over the single-text generator.
+    const generator = this.embeddingGenerator!;
+    const concurrency = Math.max(1, this.config.embeddingConcurrency ?? 8);
+    let nextIndex = 0;
+
+    const worker = async (): Promise<void> => {
+      while (nextIndex < transformed.length) {
+        const i = nextIndex++;
+        const { legacy, entry } = transformed[i];
+        try {
+          entry.embedding = await generator(entry.content);
+        } catch (error) {
+          this.emit('migration:warning', {
+            message: `Failed to generate embedding for ${legacy.key}: ${(error as Error).message}`,
+          });
+        }
+      }
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, transformed.length) }, () => worker())
+    );
+  }
+
+  private transformEntry(legacy: LegacyEntry): MemoryEntry {
     // Map namespace if configured
     let namespace = legacy.namespace || 'default';
     if (this.config.namespaceMapping && this.config.namespaceMapping[namespace]) {
@@ -415,18 +516,7 @@ export class MemoryMigrator extends EventEmitter {
     entry.createdAt = createdAt;
     entry.updatedAt = updatedAt;
 
-    // Generate embedding if configured
-    if (this.config.generateEmbeddings && this.embeddingGenerator) {
-      try {
-        entry.embedding = await this.embeddingGenerator(content);
-      } catch (error) {
-        // Log but don't fail
-        this.emit('migration:warning', {
-          message: `Failed to generate embedding for ${legacy.key}: ${(error as Error).message}`,
-        });
-      }
-    }
-
+    // Embeddings are generated batch-wise in embedBatch() — not here.
     return entry;
   }
 
@@ -631,12 +721,14 @@ export function createMigrator(
   source: MigrationSource,
   sourcePath: string,
   options: Partial<MigrationConfig> = {},
-  embeddingGenerator?: EmbeddingGenerator
+  embeddingGenerator?: EmbeddingGenerator,
+  batchEmbeddingGenerator?: BatchEmbeddingGenerator
 ): MemoryMigrator {
   return new MemoryMigrator(
     target,
     { source, sourcePath, ...options },
-    embeddingGenerator
+    embeddingGenerator,
+    batchEmbeddingGenerator
   );
 }
 
@@ -647,7 +739,8 @@ export async function migrateMultipleSources(
   target: AgentDBAdapter,
   sources: Array<{ source: MigrationSource; path: string }>,
   options: Partial<MigrationConfig> = {},
-  embeddingGenerator?: EmbeddingGenerator
+  embeddingGenerator?: EmbeddingGenerator,
+  batchEmbeddingGenerator?: BatchEmbeddingGenerator
 ): Promise<MigrationResult[]> {
   const results: MigrationResult[] = [];
 
@@ -657,7 +750,8 @@ export async function migrateMultipleSources(
       source,
       sourcePath,
       options,
-      embeddingGenerator
+      embeddingGenerator,
+      batchEmbeddingGenerator
     );
     const result = await migrator.migrate();
     results.push(result);

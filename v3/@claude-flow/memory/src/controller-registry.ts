@@ -25,6 +25,7 @@ import { MemoryGraph } from './memory-graph.js';
 import type { MemoryGraphConfig } from './memory-graph.js';
 import { TieredCacheManager } from './cache-manager.js';
 import type { CacheConfig } from './types.js';
+import { TieredMemoryStore } from './tiered-memory.js';
 
 // ===== Types =====
 
@@ -1192,45 +1193,14 @@ export class ControllerRegistry extends EventEmitter {
   /**
    * Lightweight in-memory tiered store (fallback when HierarchicalMemory
    * cannot be initialized from agentdb).
-   * Enforces per-tier size limits to prevent unbounded memory growth.
+   *
+   * Promoted to the first-class {@link TieredMemoryStore} module, which
+   * adds Zep/Graphiti-style temporal validity (validFrom / validUntil /
+   * supersededBy) while keeping the legacy duck-typed API:
+   * store(key, value, tier) / recall(query, topK) / getTierStats().
    */
-  private createTieredMemoryStub() {
-    const MAX_PER_TIER = 5000;
-    const tiers: Record<string, Map<string, { value: string; ts: number }>> = {
-      working: new Map(),
-      episodic: new Map(),
-      semantic: new Map(),
-    };
-    return {
-      store(key: string, value: string, tier = 'working') {
-        const t = tiers[tier] || tiers.working;
-        // Evict oldest if at capacity
-        if (t.size >= MAX_PER_TIER) {
-          const oldest = t.keys().next().value;
-          if (oldest !== undefined) t.delete(oldest);
-        }
-        t.set(key, { value: value.substring(0, 100_000), ts: Date.now() });
-      },
-      recall(query: string, topK = 5) {
-        const safeTopK = Math.min(Math.max(1, topK), 100);
-        const q = query.toLowerCase().substring(0, 10_000);
-        const results: Array<{ key: string; value: string; tier: string; ts: number }> = [];
-        for (const [tierName, map] of Object.entries(tiers)) {
-          for (const [key, entry] of map) {
-            if (key.toLowerCase().includes(q) || entry.value.toLowerCase().includes(q)) {
-              results.push({ key, value: entry.value, tier: tierName, ts: entry.ts });
-              if (results.length >= safeTopK * 3) break; // Early exit for large stores
-            }
-          }
-        }
-        return results.sort((a, b) => b.ts - a.ts).slice(0, safeTopK);
-      },
-      getTierStats() {
-        return Object.fromEntries(
-          Object.entries(tiers).map(([name, map]) => [name, map.size]),
-        );
-      },
-    };
+  private createTieredMemoryStub(): TieredMemoryStore {
+    return new TieredMemoryStore();
   }
 
   /**
