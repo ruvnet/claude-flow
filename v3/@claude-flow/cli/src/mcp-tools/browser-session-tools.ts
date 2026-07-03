@@ -12,7 +12,11 @@
  *     (for trajectory hooks + RVF), and the bridged `memory` namespace (for
  *     AgentDB index). They do not inline a replay engine; replay
  *     enumerates trajectory steps and returns them for the caller to dispatch.
- *   - Pinned to ruvector@0.2.25 to match `ruflo-ruvector` ADR-0001.
+ *   - ruvector resolution is local-first: if a locally installed `ruvector`
+ *     package is found (the CLI already depends on ruvector@0.2.27), its bin
+ *     is spawned directly with `node`; otherwise we fall back to
+ *     `npx -y ruvector@0.2.27`. The previous 0.2.25 pin forced cold npx
+ *     downloads of a *second* ruvector version — 4 per browser session.
  *   - Best-effort: missing dependencies (no `ruvector`, no `agent-browser`,
  *     no AgentDB controller) degrade gracefully with a structured error
  *     rather than a process crash.
@@ -21,7 +25,11 @@
 import type { MCPTool, MCPToolResult } from './types.js';
 import { validateIdentifier, validateText } from './validate-input.js';
 
-const RUVECTOR_PIN = 'ruvector@0.2.25';
+// Pin matches the version in this package's own dependency tree so the npx
+// fallback never downloads a second ruvector. Subcommand surface verified
+// against ruvector@0.2.27 --help: `rvf create/compact/status/derive/segments`
+// and `hooks trajectory-begin/step/end` all exist with the flags used below.
+const RUVECTOR_PIN = 'ruvector@0.2.27';
 const RVF_DIR_DEFAULT = '.ruflo/browser-sessions';
 
 interface ShellResult {
@@ -50,6 +58,58 @@ async function shell(cmd: string, args: string[], opts: { timeout?: number } = {
       stderr: err.stderr,
     };
   }
+}
+
+/**
+ * Resolve the locally installed ruvector CLI (memoized). Returns the absolute
+ * path to its bin script, or null when ruvector is not installed locally.
+ * Spawning `node <bin>` directly avoids the ~2-8s cold `npx -y ruvector@…`
+ * download that previously hit every ruvector shell-out (4 per session).
+ */
+let ruvectorCliPromise: Promise<string | null> | null = null;
+
+function resolveLocalRuvectorCli(): Promise<string | null> {
+  if (ruvectorCliPromise) return ruvectorCliPromise;
+  ruvectorCliPromise = (async () => {
+    try {
+      const { createRequire } = await import('node:module');
+      const path = await import('node:path');
+      const { readFile } = await import('node:fs/promises');
+      const req = createRequire(import.meta.url);
+      const entry = req.resolve('ruvector');
+      // Walk up from the resolved entry to the package root (package.json
+      // itself may not be exported, so we can't require.resolve it directly).
+      let dir = path.dirname(entry);
+      for (let i = 0; i < 6; i++) {
+        try {
+          const pkg = JSON.parse(await readFile(path.join(dir, 'package.json'), 'utf-8')) as {
+            name?: string;
+            bin?: string | Record<string, string>;
+          };
+          if (pkg.name === 'ruvector') {
+            const bin = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.ruvector;
+            return bin ? path.join(dir, bin) : null;
+          }
+        } catch {
+          // no package.json at this level — keep walking
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
+      }
+    } catch {
+      // ruvector not installed locally
+    }
+    return null;
+  })();
+  return ruvectorCliPromise;
+}
+
+/** Run a ruvector CLI command: local install first, npx pin as fallback. */
+async function ruvector(args: string[], opts: { timeout?: number } = {}): Promise<ShellResult> {
+  const cli = await resolveLocalRuvectorCli();
+  if (cli) return shell(process.execPath, [cli, ...args], opts);
+  return shell('npx', ['-y', RUVECTOR_PIN, ...args], opts);
 }
 
 async function ensureSessionsDir(): Promise<string> {
@@ -124,15 +184,24 @@ export const browserSessionTools: MCPTool[] = [
       //
       // 384 matches the MiniLM-L6 default used elsewhere in the
       // toolchain (ONNX embedder + AgentDB vector indexes).
-      const rvf = await shell(
-        'npx',
-        ['-y', RUVECTOR_PIN, 'rvf', 'create', rvfPath, '--dimension', '384'],
+      const rvf = await ruvector(
+        ['rvf', 'create', rvfPath, '--dimension', '384'],
         { timeout: 60000 },
       );
       if (!rvf.success) return fail('rvf create failed', { detail: rvf.error, stderr: rvf.stderr, sessionId, rvfPath });
 
-      // 2. trajectory-begin
-      const tb = await shell('npx', ['-y', RUVECTOR_PIN, 'hooks', 'trajectory-begin', '--session-id', sessionId, '--task', input.task as string]);
+      // 2. trajectory-begin.
+      // Flag names verified against ruvector 0.2.25 AND 0.2.27 --help:
+      // trajectory-begin takes `-c/--context` + `-a/--agent` — the
+      // `--session-id`/`--task` flags previously passed here were never
+      // valid on either version (commander exited with "unknown option"),
+      // so every trajectory call failed. Same bug class as the #2015
+      // `rvf create --kind` fix documented above. The session id is folded
+      // into the context string since ruvector tracks a single current
+      // trajectory per project.
+      const tb = await ruvector(['hooks', 'trajectory-begin',
+        '--context', `${sessionId}: ${input.task as string}`,
+        '--agent', 'browser-session']);
       if (!tb.success) return fail('trajectory-begin failed', { detail: tb.error, stderr: tb.stderr, sessionId, rvfPath });
 
       // 3. browser_open via agent-browser
@@ -144,11 +213,11 @@ export const browserSessionTools: MCPTool[] = [
         }
       }
 
-      // 4. log the open as the first trajectory step
-      await shell('npx', ['-y', RUVECTOR_PIN, 'hooks', 'trajectory-step',
-        '--session-id', sessionId,
-        '--action', 'browser_open',
-        '--args', JSON.stringify({ url: input.url }),
+      // 4. log the open as the first trajectory step.
+      // trajectory-step takes `--action`/`--result` only (no --session-id /
+      // --args on 0.2.25 or 0.2.27) — args are folded into the action string.
+      await ruvector(['hooks', 'trajectory-step',
+        '--action', `browser_open ${JSON.stringify({ url: input.url })}`,
         '--result', 'ok']);
 
       return ok({
@@ -187,14 +256,18 @@ export const browserSessionTools: MCPTool[] = [
       const verdict = input.verdict as string;
       if (!['pass', 'fail', 'partial'].includes(verdict)) return fail(`invalid verdict: ${verdict}`);
 
-      // 1. trajectory-end
-      const te = await shell('npx', ['-y', RUVECTOR_PIN, 'hooks', 'trajectory-end',
-        '--session-id', input.session as string,
-        '--verdict', verdict]);
+      // 1. trajectory-end.
+      // trajectory-end takes `--success` + `--quality <0-1>` (no
+      // --session-id / --verdict on 0.2.25 or 0.2.27) — the verdict maps to
+      // quality: pass=1 (+ --success), partial=0.5, fail=0.
+      const teArgs = ['hooks', 'trajectory-end',
+        '--quality', verdict === 'pass' ? '1' : verdict === 'partial' ? '0.5' : '0'];
+      if (verdict === 'pass') teArgs.push('--success');
+      const te = await ruvector(teArgs);
       if (!te.success) return fail('trajectory-end failed', { detail: te.error, stderr: te.stderr });
 
       // 2. rvf compact
-      const compact = await shell('npx', ['-y', RUVECTOR_PIN, 'rvf', 'compact', input.rvf_path as string]);
+      const compact = await ruvector(['rvf', 'compact', input.rvf_path as string]);
       if (!compact.success) return fail('rvf compact failed', { detail: compact.error, stderr: compact.stderr });
 
       // 3. AgentDB index — best-effort via memory store (claude-flow bridges)
@@ -246,7 +319,7 @@ export const browserSessionTools: MCPTool[] = [
       if (!vS.valid) return fail(vS.error || 'invalid session');
 
       // 1. Verify RVF container exists
-      const status = await shell('npx', ['-y', RUVECTOR_PIN, 'rvf', 'status', input.rvf_path as string]);
+      const status = await ruvector(['rvf', 'status', input.rvf_path as string]);
       if (!status.success) return fail('rvf status failed', { detail: status.error, stderr: status.stderr });
 
       // 2. Derive child container if requested
@@ -258,13 +331,13 @@ export const browserSessionTools: MCPTool[] = [
         const dir = path.dirname(input.rvf_path as string);
         replayId = `${input.session}-replay-${Date.now()}`;
         replayPath = path.join(dir, `${replayId}.rvf`);
-        const dr = await shell('npx', ['-y', RUVECTOR_PIN, 'rvf', 'derive', input.rvf_path as string, replayPath]);
+        const dr = await ruvector(['rvf', 'derive', input.rvf_path as string, replayPath]);
         if (!dr.success) return fail('rvf derive failed', { detail: dr.error, stderr: dr.stderr });
       }
 
       // 3. Surface the trajectory steps from the segments listing — the caller is
       //    expected to read trajectory.ndjson from the RVF container and dispatch.
-      const segments = await shell('npx', ['-y', RUVECTOR_PIN, 'rvf', 'segments', input.rvf_path as string]);
+      const segments = await ruvector(['rvf', 'segments', input.rvf_path as string]);
 
       return ok({
         sourceSession: input.session,
