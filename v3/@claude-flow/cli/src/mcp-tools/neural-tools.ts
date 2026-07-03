@@ -17,98 +17,119 @@ import { validateIdentifier, validateText } from './validate-input.js';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-// Try to import real embeddings.
-// Tier 0 (NEW, ADR-089): ruvector@0.2.27 bundled ONNX (no sharp dep, fixes ADR-086's
+// Real embeddings — resolved LAZILY on first use.
+// Perf (measured 2026-07): the previous top-level-await version of this block
+// ran `await import('ruvector')` + `initOnnxEmbedder()` + a probe embed at
+// module-import time, adding ~450ms (warm) to ~2800ms (cold) to EVERY CLI
+// command, because mcp-client statically imports this module. ensureEmbeddings()
+// keeps the exact same tier chain and degraded/fallback semantics, but only
+// pays the cost when a handler actually needs an embedding.
+// Tier 0 (ADR-089): ruvector@0.2.27 bundled ONNX (no sharp dep, fixes ADR-086's
 //   silent-fallback bug at source; closes the chain described in ruvnet/ruvector#523).
 // Tier 1: agentic-flow v3 ReasoningBank (was Tier 1 — broken on darwin-arm64 without sharp)
 // Tier 2-3: @claude-flow/embeddings
 let realEmbeddings: { embed: (text: string) => Promise<number[]> } | null = null;
 let embeddingServiceName: string = 'none';
-try {
-  // Tier 0: ruvector@0.2.27 — bundled all-MiniLM-L6-v2 + parallel worker pool.
-  // Probe with isOnnxAvailable() and verify an actual embed succeeds (avoids
-  // the type-load-success-but-runtime-fails trap from ADR-086).
-  // NOTE: ruvector's embed() returns `{embedding, dimension, timeMs}` — we
-  // unwrap to plain number[] for the shared interface.
-  const rv = await import('ruvector').catch(() => null) as any;
-  if (rv?.embed && typeof rv.embed === 'function' && rv.isOnnxAvailable?.()) {
+let embeddingsPromise: Promise<void> | null = null;
+
+/**
+ * Memoized lazy initialiser for the embedding provider chain. Safe to call
+ * concurrently (single shared promise). If every tier fails to import or
+ * probe, `realEmbeddings` stays null and callers use the explicit
+ * hash-fallback path — identical degraded semantics to the old eager block.
+ */
+function ensureEmbeddings(): Promise<void> {
+  if (embeddingsPromise) return embeddingsPromise;
+  embeddingsPromise = (async () => {
     try {
-      if (typeof rv.initOnnxEmbedder === 'function') await rv.initOnnxEmbedder();
-      const probe = await rv.embed('probe');
-      // Handle both shapes: ruvector wraps as {embedding, dimension, timeMs};
-      // some versions returned raw Float32Array.
-      const probeVec = probe?.embedding ?? probe;
-      if (probeVec && (Array.isArray(probeVec) || (probeVec as ArrayLike<number>).length > 0)) {
-        realEmbeddings = {
-          embed: async (text: string) => {
-            const r = await rv.embed(text);
-            const v = r?.embedding ?? r;
-            return Array.isArray(v) ? v : Array.from(v as ArrayLike<number>);
-          },
-        };
-        embeddingServiceName = 'ruvector@0.2.27 (bundled all-MiniLM-L6-v2)';
+      // Tier 0: ruvector@0.2.27 — bundled all-MiniLM-L6-v2 + parallel worker pool.
+      // Probe with isOnnxAvailable() and verify an actual embed succeeds (avoids
+      // the type-load-success-but-runtime-fails trap from ADR-086). The probe now
+      // runs on first embed request instead of at import time.
+      // NOTE: ruvector's embed() returns `{embedding, dimension, timeMs}` — we
+      // unwrap to plain number[] for the shared interface.
+      const rv = await import('ruvector').catch(() => null) as any;
+      if (rv?.embed && typeof rv.embed === 'function' && rv.isOnnxAvailable?.()) {
+        try {
+          if (typeof rv.initOnnxEmbedder === 'function') await rv.initOnnxEmbedder();
+          const probe = await rv.embed('probe');
+          // Handle both shapes: ruvector wraps as {embedding, dimension, timeMs};
+          // some versions returned raw Float32Array.
+          const probeVec = probe?.embedding ?? probe;
+          if (probeVec && (Array.isArray(probeVec) || (probeVec as ArrayLike<number>).length > 0)) {
+            realEmbeddings = {
+              embed: async (text: string) => {
+                const r = await rv.embed(text);
+                const v = r?.embedding ?? r;
+                return Array.isArray(v) ? v : Array.from(v as ArrayLike<number>);
+              },
+            };
+            embeddingServiceName = 'ruvector@0.2.27 (bundled all-MiniLM-L6-v2)';
+          }
+        } catch {
+          // ruvector embed failed at runtime; fall through to next tier
+        }
       }
+
+      // Tier 1: agentic-flow v3 ReasoningBank (kept for backward-compat; may
+      // silently fall back on darwin-arm64 without sharp — that's the bug
+      // Tier 0 was added to bypass).
+      if (!realEmbeddings) {
+        const rb = await import('agentic-flow/reasoningbank').catch(() => null);
+        if (rb?.computeEmbedding) {
+          realEmbeddings = { embed: (text: string) => rb.computeEmbedding(text) };
+          embeddingServiceName = 'agentic-flow/reasoningbank';
+        }
+      }
+
+      // Tier 2: @claude-flow/embeddings with agentic-flow provider
+      if (!realEmbeddings) {
+        const embeddingsModule = await import('@claude-flow/embeddings').catch(() => null);
+        if (embeddingsModule?.createEmbeddingService) {
+          try {
+            const service = embeddingsModule.createEmbeddingService({ provider: 'agentic-flow' });
+            realEmbeddings = {
+              embed: async (text: string) => {
+                const result = await service.embed(text);
+                return Array.from(result.embedding);
+              },
+            };
+            embeddingServiceName = 'agentic-flow';
+          } catch {
+            // agentic-flow provider not available, try ONNX
+          }
+        }
+      }
+
+      // Tier 3: @claude-flow/embeddings with ONNX provider
+      if (!realEmbeddings) {
+        const embeddingsModule = await import('@claude-flow/embeddings').catch(() => null);
+        if (embeddingsModule?.createEmbeddingService) {
+          try {
+            const service = embeddingsModule.createEmbeddingService({ provider: 'onnx' });
+            realEmbeddings = {
+              embed: async (text: string) => {
+                const result = await service.embed(text);
+                return Array.from(result.embedding);
+              },
+            };
+            embeddingServiceName = 'onnx';
+          } catch {
+            // ONNX provider not available, fall through to mock
+          }
+        }
+      }
+
+      // No Tier 4 mock fallback. If all real-embedder tiers fail to import or
+      // probe, leave realEmbeddings null and let downstream code use the
+      // explicit hash-fallback path with a clear _embeddingNote in stats.
+      // Silently substituting mock embeddings would hide a missing production
+      // dependency from callers — that's the bug ADR-086 was about.
     } catch {
-      // ruvector embed failed at runtime; fall through to next tier
+      // No embedding provider available, will use fallback
     }
-  }
-
-  // Tier 1: agentic-flow v3 ReasoningBank (kept for backward-compat; may
-  // silently fall back on darwin-arm64 without sharp — that's the bug
-  // Tier 0 was added to bypass).
-  if (!realEmbeddings) {
-    const rb = await import('agentic-flow/reasoningbank').catch(() => null);
-    if (rb?.computeEmbedding) {
-      realEmbeddings = { embed: (text: string) => rb.computeEmbedding(text) };
-      embeddingServiceName = 'agentic-flow/reasoningbank';
-    }
-  }
-
-  // Tier 2: @claude-flow/embeddings with agentic-flow provider
-  if (!realEmbeddings) {
-    const embeddingsModule = await import('@claude-flow/embeddings').catch(() => null);
-    if (embeddingsModule?.createEmbeddingService) {
-      try {
-        const service = embeddingsModule.createEmbeddingService({ provider: 'agentic-flow' });
-        realEmbeddings = {
-          embed: async (text: string) => {
-            const result = await service.embed(text);
-            return Array.from(result.embedding);
-          },
-        };
-        embeddingServiceName = 'agentic-flow';
-      } catch {
-        // agentic-flow provider not available, try ONNX
-      }
-    }
-  }
-
-  // Tier 3: @claude-flow/embeddings with ONNX provider
-  if (!realEmbeddings) {
-    const embeddingsModule = await import('@claude-flow/embeddings').catch(() => null);
-    if (embeddingsModule?.createEmbeddingService) {
-      try {
-        const service = embeddingsModule.createEmbeddingService({ provider: 'onnx' });
-        realEmbeddings = {
-          embed: async (text: string) => {
-            const result = await service.embed(text);
-            return Array.from(result.embedding);
-          },
-        };
-        embeddingServiceName = 'onnx';
-      } catch {
-        // ONNX provider not available, fall through to mock
-      }
-    }
-  }
-
-  // No Tier 4 mock fallback. If all real-embedder tiers fail to import or
-  // probe, leave realEmbeddings null and let downstream code use the
-  // explicit hash-fallback path with a clear _embeddingNote in stats.
-  // Silently substituting mock embeddings would hide a missing production
-  // dependency from callers — that's the bug ADR-086 was about.
-} catch {
-  // No embedding provider available, will use fallback
+  })();
+  return embeddingsPromise;
 }
 
 // Storage paths
@@ -221,8 +242,9 @@ export async function storeNeuralPatterns(items: Array<{
   metadata?: Record<string, unknown>;
 }>): Promise<{ stored: number; total: number }> {
   if (!items || items.length === 0) return { stored: 0, total: 0 };
-  // realEmbeddings is initialised by the top-level IIFE in this module;
-  // generateEmbedding() falls back to a hash-based embedding if it isn't.
+  // realEmbeddings is initialised lazily by ensureEmbeddings() (invoked from
+  // generateEmbedding()); it falls back to a hash-based embedding if no
+  // provider is available.
   const store = loadNeuralStore();
   let stored = 0;
   for (const item of items) {
@@ -248,6 +270,9 @@ export async function storeNeuralPatterns(items: Array<{
 
 // Generate embedding - uses real ML embeddings if available, falls back to deterministic hash
 async function generateEmbedding(text?: string, dims: number = 384): Promise<number[]> {
+  // Lazily resolve the embedding provider on first real use (perf: keeps
+  // ONNX init off the CLI startup path — see ensureEmbeddings()).
+  if (text) await ensureEmbeddings();
   // If real embeddings available and text provided, use them
   if (realEmbeddings && text) {
     try {
@@ -801,6 +826,9 @@ export const neuralTools: MCPTool[] = [
     handler: async (input) => {
       if (input.modelId) { const v = validateIdentifier(input.modelId as string, 'modelId'); if (!v.valid) return { success: false, error: v.error }; }
 
+      // Resolve provider so embeddingProvider in the result matches the old
+      // eager-init reporting.
+      await ensureEmbeddings();
       const store = loadNeuralStore();
       const method = (input.method as string) || 'quantize';
       const targetReduction = (input.targetSize as number) || 0.5;
@@ -912,6 +940,9 @@ export const neuralTools: MCPTool[] = [
     handler: async (input) => {
       if (input.modelId) { const v = validateIdentifier(input.modelId as string, 'modelId'); if (!v.valid) return { success: false, error: v.error }; }
 
+      // Resolve provider so _realEmbeddings/embeddingProvider report the same
+      // values the old eager-init version produced.
+      await ensureEmbeddings();
       const store = loadNeuralStore();
 
       if (input.modelId) {
@@ -979,6 +1010,9 @@ export const neuralTools: MCPTool[] = [
     handler: async (input) => {
       if (input.modelId) { const v = validateIdentifier(input.modelId as string, 'modelId'); if (!v.valid) return { success: false, error: v.error }; }
 
+      // Resolve provider so embeddingProvider in the result matches the old
+      // eager-init reporting.
+      await ensureEmbeddings();
       const store = loadNeuralStore();
       const target = (input.target as string) || 'balanced';
       const patterns = Object.values(store.patterns);
