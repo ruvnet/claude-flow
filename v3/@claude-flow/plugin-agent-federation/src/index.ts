@@ -114,3 +114,35 @@ export {
   type PolicyEvaluationResult,
   type PolicyEngineDeps,
 } from './application/policy-engine.js';
+
+// A2A (Agent2Agent, Linux Foundation) Agent Card adapter — cards only.
+export {
+  A2A_PROTOCOL_VERSION,
+  A2A_WELL_KNOWN_PATH,
+  RUFLO_FEDERATION_BINDING,
+  RUFLO_FEDERATION_EXTENSION_URI,
+  toAgentCard,
+  fromAgentCard,
+  validateAgentCard,
+  type A2AAgentCard,
+  type A2AAgentInterface,
+  type A2AAgentSkill,
+  type A2AAgentCapabilities,
+  type A2AAgentExtension,
+  type A2AAgentProvider,
+  type ToAgentCardOptions,
+  type AgentCardValidation,
+} from './a2a/agent-card.js';
+export {
+  startAgentCardServer,
+  isLoopbackHost,
+  type AgentCardServerOptions,
+  type AgentCardServerHandle,
+} from './a2a/well-known.js';
+export {
+  fetchAgentCard,
+  consumeAgentCard,
+  resolveAgentCardUrl,
+  type FetchAgentCardOptions,
+  type FetchAgentCardResult,
+} from './a2a/consume.js';

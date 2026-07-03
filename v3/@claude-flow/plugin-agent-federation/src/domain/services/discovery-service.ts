@@ -2,7 +2,7 @@ import { FederationNode, type FederationNodeProps } from '../entities/federation
 import { TrustLevel } from '../entities/trust-level.js';
 import type { WgManifestSection } from '../value-objects/wg-config.js';
 
-export type DiscoveryMechanism = 'static' | 'dns-sd' | 'ipfs-registry';
+export type DiscoveryMechanism = 'static' | 'dns-sd' | 'ipfs-registry' | 'a2a-card';
 
 export interface FederationManifest {
   readonly nodeId: string;
@@ -134,6 +134,25 @@ export class DiscoveryService {
     });
 
     this.knownPeers.set(nodeId, node);
+    this.deps.onPeerDiscovered?.(node);
+    return node;
+  }
+
+  /**
+   * Register an externally-discovered peer (e.g. mapped from an A2A Agent
+   * Card via `fromAgentCard`). Unlike `addStaticPeer` this takes a fully
+   * constructed node — the caller owns validation of the external format —
+   * and the node keeps whatever trust level it was constructed with
+   * (A2A-card peers arrive UNTRUSTED). Existing peers are refreshed, not
+   * replaced, so accumulated trust state survives re-discovery.
+   */
+  registerExternalPeer(node: FederationNode): FederationNode {
+    const existing = this.knownPeers.get(node.nodeId);
+    if (existing) {
+      existing.markSeen();
+      return existing;
+    }
+    this.knownPeers.set(node.nodeId, node);
     this.deps.onPeerDiscovered?.(node);
     return node;
   }
