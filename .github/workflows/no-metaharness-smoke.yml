@@ -102,6 +102,14 @@ jobs:
           export npm_config_registry=https://no-such-registry-9c8c43.example.invalid/
           # Disable network-cache to ensure the npx miss is fresh
           export NPX_NO_LOCAL=1
+          # Since the pinned-cache resolution (_invoke.mjs), skills no longer
+          # go through npx: they resolve locally-installed metaharness first,
+          # then a versioned ~/.ruflo cache. Both defeat this drill's absence
+          # simulation (metaharness IS installed in the CI workspace, and the
+          # meta-smoke step above warms the cache). Use the purpose-built test
+          # seams so "absent" means absent again:
+          export RUFLO_METAHARNESS_SKIP_LOCAL=1
+          export RUFLO_METAHARNESS_CACHE_BASE="$(mktemp -d)/empty-cache-root"
 
           # iter 55 — expanded from 4 to 7 skills. The new entries are:
           # oia-audit (composite, calls all 5 sub-skills), mint (scaffolds
