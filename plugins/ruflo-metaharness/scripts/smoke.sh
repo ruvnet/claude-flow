@@ -8,6 +8,29 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
+# ---------------------------------------------------------------------------
+# Derived surface counts (converged arch review, 2026-07).
+# The MCP-tool count (was hardcoded 15 in 4 places) and the CLI-subcommand
+# count (was hardcoded 13 in 2 places, plus the 16 footnote) are derived ONCE
+# from the source-of-truth files here. Every assertion below compares an
+# INDEPENDENT surface (CLAUDE.md catalog, test-mcp-tools literal, footnote
+# occurrences, runScript refs) against these derived values — never a surface
+# against itself. Adding a tool/subcommand upstream now only requires updating
+# the OTHER surfaces, not this script.
+TOOLS_SRC="$ROOT/../../v3/@claude-flow/cli/src/mcp-tools/metaharness-tools.ts"
+SUBS_SRC="$ROOT/../../v3/@claude-flow/cli/src/commands/metaharness.ts"
+EXPECTED_TOOLS=$(grep -cE "name: 'metaharness_" "$TOOLS_SRC" 2>/dev/null; true)
+EXPECTED_SUBS=$(grep -cE "^[[:space:]]+'?[a-z-]+'?:[[:space:]]*'[a-z-]+\.mjs'" "$SUBS_SRC" 2>/dev/null; true)
+: "${EXPECTED_TOOLS:=0}"
+: "${EXPECTED_SUBS:=0}"
+
+step "0. derived surface counts extracted (tools >= 15, subcommands >= 13 — regex-rot floor)"
+if [[ "$EXPECTED_TOOLS" -ge 15 && "$EXPECTED_SUBS" -ge 13 ]]; then
+  ok
+else
+  bad "extraction-regex-rot: EXPECTED_TOOLS=$EXPECTED_TOOLS EXPECTED_SUBS=$EXPECTED_SUBS"
+fi
+
 step "1. plugin.json declares 0.1.0 with adr-150 keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 if [[ "$v" != "0.1.0" ]]; then
@@ -43,6 +66,26 @@ grep -q "emitDegradedJsonAndExit" "$F" || miss="$miss no-degraded-helper"
 grep -q "metaharness-not-available" "$F" || miss="$miss no-degraded-reason"
 # ADR-150 architectural constraint #3: graceful degradation must be present
 grep -q "degraded: true" "$F" || miss="$miss no-degraded-flag"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "3b. _invoke.mjs shared plumbing layer (consolidation, 2026-07)"
+F="$ROOT/scripts/_invoke.mjs"
+miss=""
+[[ -f "$F" ]] || miss="$miss missing"
+node --check "$F" 2>/dev/null || miss="$miss syntax-error"
+# The consolidated helpers every adapter (_harness/_darwin/_redblue/gepa) uses
+for sym in DEGRADED_RX classifyDegraded injectJson parseTrailingJson ensureCachedInstall makeDegradedEmitter importOptionalLibrary findLocalPackageDir; do
+  grep -q "export.*${sym}" "$F" || miss="$miss no-${sym}"
+done
+# Superset degraded regex must include the npm-level failure marker
+grep -q "npm ERR" "$F" || miss="$miss degraded-rx-missing-npm-err"
+# The -timeout vs -not-available distinction is load-bearing
+grep -q -- "-timeout" "$F" || miss="$miss no-timeout-reason"
+grep -q -- "-not-available" "$F" || miss="$miss no-not-available-reason"
+# All four adapters import from it
+for a in _harness _darwin _redblue gepa; do
+  grep -q "from './_invoke.mjs'\|from './_darwin.mjs'" "$ROOT/scripts/${a}.mjs" || miss="$miss ${a}-not-adapting"
+done
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "4. score.mjs harness present + parses + uses _harness.mjs + alert"
@@ -170,24 +213,29 @@ if (!od.metaharness) { console.error('missing metaharness in optionalDependencie
 if (j.dependencies && j.dependencies.metaharness) { console.error('metaharness leaked into dependencies'); process.exit(1); }
 " 2>/dev/null && ok || bad "ruflo wrapper missing metaharness optionalDep"
 
-step "17r. _harness.mjs npx-argv regression guard (iter 27 fix lock)"
+step "17r. _harness.mjs pinned-version + no-@latest regression guard (supersedes iter 27)"
 F="$ROOT/scripts/_harness.mjs"
 miss=""
-# THE BUG WAS: passing '-y metaharness@latest' as a single argv token
-# to spawnSync. Lock the array-form invocation so it can't regress.
-# A correct invocation looks like:
-#   spawnSync('npx', ['-y', 'metaharness@latest', ...], ...)
-# A broken one looks like:
-#   spawnSync('npx', ['-y metaharness@latest', ...], ...)
-# OR:
-#   execCli('-y metaharness@latest', args, opts)
-if grep -qE "execCli\(\s*['\"]-y metaharness@latest['\"]" "$F" 2>/dev/null; then
-  miss="$miss bug-regressed-string-form"
+# SECURITY (HIGH, converged review 2026-07): the pre-consolidation helper
+# shelled to `npx -y metaharness@latest` — a compromised upstream publish
+# would execute arbitrary code on user machines, and @latest forced a
+# registry check per call. Lock the fix: NO @latest anywhere in the loader,
+# a pinned tilde range, and node-direct invocation of resolved bin paths
+# (local walk-up install or one-time versioned cache).
+if grep -q "metaharness@latest" "$F" 2>/dev/null; then
+  miss="$miss at-latest-regressed"
 fi
-# Confirm the fix is in place
-grep -q "execCli(\[\s*'-y'\s*,\s*'metaharness@latest'" "$F" 2>/dev/null || \
-  grep -q "execCli(\[ *'-y', 'metaharness@latest'" "$F" 2>/dev/null || miss="$miss no-array-form-fix"
-# cwd + env pass-through (added by iter 27)
+grep -q "METAHARNESS_PIN_VERSION = '~" "$F" 2>/dev/null || miss="$miss no-pinned-range"
+# node-direct spawn of the resolved bin (not an npx shim)
+grep -qE "spawnSync\('node'" "$F" 2>/dev/null || miss="$miss no-node-direct-sync"
+grep -qE "spawn\('node'" "$F" 2>/dev/null || miss="$miss no-node-direct-async"
+# resolution order: local install first, then versioned cache install
+grep -q "findLocalPackageDir" "$F" 2>/dev/null || miss="$miss no-local-resolution"
+grep -q "ensureCachedInstall" "$F" 2>/dev/null || miss="$miss no-cache-install"
+# BOTH bins resolved from the package.json bin map (metaharness + harness)
+grep -q "bin.metaharness" "$F" 2>/dev/null || miss="$miss no-metaharness-bin"
+grep -q "bin.harness" "$F" 2>/dev/null || miss="$miss no-harness-bin"
+# cwd + env pass-through (iter 27 behavior retained)
 grep -q "cwd: opts" "$F" || miss="$miss no-cwd-passthrough"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
@@ -722,7 +770,7 @@ for k in $KEYS; do
   grep -qE "npx ruflo metaharness ${k}([ \\\\]|$)" "$CMD" 2>/dev/null \
     || miss="$miss subcommand-${k}-not-in-claude-md"
 done
-[[ "$COUNT" == "13" ]] || miss="$miss subcommand-count-stale:$COUNT-expected-13"
+[[ "$COUNT" == "$EXPECTED_SUBS" ]] || miss="$miss subcommand-count-stale:$COUNT-expected-$EXPECTED_SUBS"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "17z56. every MCP tool documented in CLAUDE.md (iter 93)"
@@ -742,12 +790,12 @@ for t in $TOOLS; do
   grep -q "mcp__claude-flow__${t}" "$CMD" 2>/dev/null \
     || miss="$miss ${t}-not-in-claude-md"
 done
-# Lock count: 15 MCP tools (mint deliberately excluded — see iter 73).
-# Bumped from 9 → 12 after ADR-153 added metaharness_bench,
-# metaharness_evolve, and metaharness_security_bench. Bumped from 12 → 13
-# after @metaharness/redblue integration added metaharness_redblue.
-# Bumped from 13 → 15 after metaharness@0.3.0 learn + darwin@0.8.0 gepa.
-[[ "$COUNT" == "15" ]] || miss="$miss mcp-tool-count-stale:$COUNT-expected-15"
+# Count derived from the wrapper source (mint deliberately excluded — see
+# iter 73). The historical bump ladder (9→12→13→15) is gone: the extraction
+# loop above and $EXPECTED_TOOLS both come from metaharness-tools.ts, so this
+# equality only catches loop/derivation divergence; the REAL cross-surface
+# check is the per-tool CLAUDE.md grep in the loop.
+[[ "$COUNT" == "$EXPECTED_TOOLS" ]] || miss="$miss mcp-tool-count-stale:$COUNT-expected-$EXPECTED_TOOLS"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "17z55. MCP enum + SEVERITY_RANK vocabulary aligned (iter 92)"
@@ -822,11 +870,11 @@ for f in $REFS; do
   COUNT=$((COUNT + 1))
   [[ -f "$SCRIPTS_DIR/$f" ]] || miss="$miss mcp-script-${f}-missing"
 done
-# Should be 15 unique scripts (one per MCP tool; mint deliberately excluded).
-# Bumped from 9 → 12 after ADR-153 added bench/evolve/security_bench tools.
-# Bumped from 12 → 13 after @metaharness/redblue integration added redblue.mjs.
-# Bumped from 13 → 15 after metaharness@0.3.0 learn + darwin@0.8.0 gepa.
-[[ "$COUNT" == "15" ]] || miss="$miss mcp-script-count-stale:$COUNT-expected-15"
+# One unique runScript() ref per MCP tool (mint deliberately excluded).
+# Cross-aspect check: runScript('*.mjs') call sites vs the derived
+# `name: 'metaharness_*'` declaration count in the same file — a handler
+# added without a script ref (or vice-versa) diverges these.
+[[ "$COUNT" == "$EXPECTED_TOOLS" ]] || miss="$miss mcp-script-count-stale:$COUNT-expected-$EXPECTED_TOOLS"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "17z52. SUBCOMMANDS map entries point at existing script files (iter 89)"
@@ -846,9 +894,10 @@ for f in $MAPPINGS; do
   COUNT=$((COUNT + 1))
   [[ -f "$SCRIPTS_DIR/$f" ]] || miss="$miss script-${f}-missing"
 done
-# Iter 73's description string + redblue + learn/gepa lists 13 subcommands.
-# SUBCOMMANDS map should have the same 13 entries. Lock the count at exactly 13.
-[[ "$COUNT" == "13" ]] || miss="$miss mapping-count-stale:$COUNT-expected-13"
+# SUBCOMMANDS map entry count vs the derived $EXPECTED_SUBS (same source,
+# so this catches loop/derivation divergence; the real check is the per-file
+# existence assertion in the loop above).
+[[ "$COUNT" == "$EXPECTED_SUBS" ]] || miss="$miss mapping-count-stale:$COUNT-expected-$EXPECTED_SUBS"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "17z51. all metaharness scripts produce parseable JSON in --format json mode (iter 88)"
@@ -1401,10 +1450,13 @@ grep -q "iter 58 — reuse auditResult from the parallel batch" "$F" 2>/dev/null
 
 step "17z20. iter-55 gaps B + C closed (iter 57)"
 miss=""
-# Gap B: _harness.mjs regex catches ENOTFOUND-class network errors
-HARNESS="$ROOT/scripts/_harness.mjs"
-grep -q "ENOTFOUND" "$HARNESS" 2>/dev/null || miss="$miss no-enotfound-regex"
-grep -q "getaddrinfo\|ECONNREFUSED\|ETIMEDOUT" "$HARNESS" 2>/dev/null || miss="$miss no-network-error-regex"
+# Gap B: the degraded-classification regex catches ENOTFOUND-class network
+# errors. Consolidation (2026-07) moved DEGRADED_RX to _invoke.mjs — check it
+# there, plus confirm _harness.mjs actually routes through the shared classifier.
+INVOKE="$ROOT/scripts/_invoke.mjs"
+grep -q "ENOTFOUND" "$INVOKE" 2>/dev/null || miss="$miss no-enotfound-regex"
+grep -q "getaddrinfo\|ECONNREFUSED\|ETIMEDOUT" "$INVOKE" 2>/dev/null || miss="$miss no-network-error-regex"
+grep -q "classifyDegraded" "$ROOT/scripts/_harness.mjs" 2>/dev/null || miss="$miss harness-not-using-shared-classifier"
 # Gap C: drift-from-history probes oia-audit to disambiguate no-history vs dep-absent
 DRIFT="$ROOT/scripts/drift-from-history.mjs"
 grep -q "disambiguate" "$DRIFT" 2>/dev/null || miss="$miss no-disambiguate-comment"
@@ -1630,13 +1682,11 @@ CODE=$?
 step "17z9. MCP success-semantic footnote + audit_trend file inputs (iter 46)"
 miss=""
 WRAPPER="$ROOT/../../v3/@claude-flow/cli/src/mcp-tools/metaharness-tools.ts"
-# Success-semantic constant declared + appended to N descriptions = N+1 occurrences.
-# Iter 46 set this at 9 (8 tools); iter 54 added the 9th → 10. ADR-153
-# added 3 more tools (bench/evolve/security_bench) → 1 + 12 = 13.
-# @metaharness/redblue integration added 1 more → 1 + 13 = 14.
-# learn + gepa (metaharness@0.3.0 / darwin@0.8.0) added 2 more → 1 + 15 = 16.
+# Success-semantic constant declared + appended to N tool descriptions =
+# N+1 occurrences. N is the derived tool count — cross-aspect check within
+# the wrapper: footnote appends vs `name:` declarations.
 COUNT=$(grep -c "MCP_SUCCESS_SEMANTIC" "$WRAPPER" 2>/dev/null; true)
-[[ "$COUNT" == "16" ]] || miss="$miss footnote-count:$COUNT-expected-16"
+[[ "$COUNT" == "$((EXPECTED_TOOLS + 1))" ]] || miss="$miss footnote-count:$COUNT-expected-$((EXPECTED_TOOLS + 1))"
 # audit_trend now exposes baselineFile / currentFile
 grep -q "baselineFile" "$WRAPPER" 2>/dev/null || miss="$miss no-baseline-file"
 grep -q "currentFile" "$WRAPPER" 2>/dev/null || miss="$miss no-current-file"
@@ -1674,10 +1724,9 @@ grep -q "success = exitCode === 0" "$WRAPPER" 2>/dev/null || miss="$miss no-exit
 COUNT_OLD=$(grep -c "success: !r.degraded" "$WRAPPER" 2>/dev/null; true)
 [[ "$COUNT_OLD" == "0" ]] || miss="$miss old-pattern-still-present:$COUNT_OLD"
 COUNT_NEW=$(grep -c "success: r.success" "$WRAPPER" 2>/dev/null; true)
-# Iter 54 added a 9th tool → 9. ADR-153 added 3 more (bench, evolve,
-# security_bench) → 12. @metaharness/redblue integration added 1 more → 13.
-# learn + gepa added 2 more → 15. Future iters that add tools should bump this.
-[[ "$COUNT_NEW" == "15" ]] || miss="$miss new-pattern-count:$COUNT_NEW-expected-15"
+# One `success: r.success` per handler = the derived tool count. Cross-aspect
+# check within the wrapper: handler success-wiring vs `name:` declarations.
+[[ "$COUNT_NEW" == "$EXPECTED_TOOLS" ]] || miss="$miss new-pattern-count:$COUNT_NEW-expected-$EXPECTED_TOOLS"
 # Runtime anchors: iter 44 success assertions present
 T="$ROOT/scripts/test-mcp-tools.mjs"
 grep -q "iter 44 fix" "$T" 2>/dev/null || miss="$miss no-iter44-anchors"
@@ -2041,9 +2090,11 @@ grep -q "result has 'exitCode'" "$F" || miss="$miss no-exitcode-assertion"
 for tool in metaharness_score metaharness_genome metaharness_mcp_scan metaharness_threat_model metaharness_oia_audit metaharness_audit_list metaharness_audit_trend metaharness_similarity metaharness_drift_from_history metaharness_bench metaharness_evolve metaharness_security_bench metaharness_redblue metaharness_learn metaharness_gepa; do
   grep -q "${tool}" "$F" || miss="$miss missing-${tool}"
 done
-# Count assertion must match iter-54 (8 → 9), then ADR-153 (9 → 12), then
-# redblue (12 → 13), then learn/gepa (13 → 15)
-grep -q "tools.length === 15" "$F" || miss="$miss tool-count-assertion-stale"
+# test-mcp-tools.mjs keeps its own hardcoded `tools.length === N` literal —
+# it is the RUNTIME side of the cross-check. This grep derives N from the
+# wrapper source, so adding a tool without bumping the test literal fails
+# here (independent surfaces compared, per the derived-counts contract).
+grep -q "tools.length === $EXPECTED_TOOLS" "$F" || miss="$miss tool-count-assertion-stale:expected-tools.length===$EXPECTED_TOOLS"
 # Graceful skip when dist absent (so the script is smoke-runnable pre-build)
 grep -q "SKIPPED" "$F" || miss="$miss no-skip-doc"
 [[ -z "$miss" ]] && ok || bad "$miss"

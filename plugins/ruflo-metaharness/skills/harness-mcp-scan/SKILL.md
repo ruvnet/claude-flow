@@ -13,7 +13,9 @@ tool; pure static analysis.
 
 Implementation: [`scripts/mcp-scan.mjs`](../../scripts/mcp-scan.mjs).
 
-1. Shell `npx -p metaharness@latest harness mcp-scan <path> --json`.
+1. Invoke the pinned `harness` binary (`metaharness@~0.3.0`, resolved from a
+   local install or the one-time `~/.ruflo/metaharness-cache-<pin>` cache —
+   never `@latest`): `harness mcp-scan <path> --json`.
 2. Parse `findings[]` with `{ severity, id, server, tool, message }`.
 3. `--fail-on <severity>`: exit 1 when any finding is at or above that
    level. Default `high`.

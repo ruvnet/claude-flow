@@ -38,7 +38,7 @@ needs its own ADR.
 
 ## Tools (subprocess-only, no library imports)
 
-- All skills shell out to `npx metaharness ...` or `npx -p metaharness@latest harness ...` via the `_harness.mjs` shared helper.
+- All skills shell out to the pinned `metaharness` / `harness` binaries (`metaharness@~0.3.0`, local install or one-time versioned cache — never `@latest`) via the `_harness.mjs` shared helper.
 - 60s hard timeout per subprocess.
 - Output captured + parsed; `--json` flag forced unless the script opts out.
 - No `@metaharness/*` import statement appears outside the optional-router path in `v3/@claude-flow/cli/src/ruvector/neural-router.ts`.

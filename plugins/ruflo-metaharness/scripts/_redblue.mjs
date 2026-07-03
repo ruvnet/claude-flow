@@ -1,7 +1,10 @@
 // _redblue.mjs — invocation helper for `@metaharness/redblue`.
 //
 // Sibling of `_darwin.mjs` / `_harness.mjs`. Targets the `redblue` binary
-// from the standalone `@metaharness/redblue@~0.1.4` package.
+// from the standalone `@metaharness/redblue@~0.1.4` package. Shared plumbing
+// (degraded classification, versioned cache install, degraded emitter) lives
+// in `_invoke.mjs`; what stays here is the genuinely-redblue part: the
+// node-direct invocation rationale below.
 //
 // Subcommands surfaced (matches redblue 0.1.x):
 //   - `redblue init   [--out redblue.yaml]`
@@ -21,12 +24,13 @@
 // no error. Darwin's CLI doesn't suffer this (calls main() unconditionally).
 //
 // Workaround: install the package once into a ruflo-owned cache dir
-// (~/.ruflo/redblue-cache) and invoke `node <abs_path>/dist/cli/index.js`
-// directly. argv[1] then equals the real path and isMain becomes true.
+// (~/.ruflo/redblue-cache-<pin>, via _invoke.ensureCachedInstall) and invoke
+// `node <abs_path>/dist/cli/index.js` directly. argv[1] then equals the real
+// path and isMain becomes true.
 //
 // Track upstream fix at: github.com/ruvnet/agent-harness-generator/issues
-// (file separately — when fixed, we can drop the cached-install path and
-// go back to the `npx -y -p ...` pattern used by _darwin.mjs).
+// (file separately — when fixed, we could go back to a bin-shim pattern,
+// though the node-direct cached path is now the family-wide standard anyway).
 //
 // CONTRACT (matches runMetaharness/runDarwin):
 //   - returns `{ stdout, stderr, exitCode, durationMs, degraded, reason? }`
@@ -43,69 +47,29 @@
 //   $OPENROUTER_API_KEY which we never inject.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import {
+  classifyDegraded,
+  ensureCachedInstall,
+  makeDegradedEmitter,
+} from './_invoke.mjs';
 
 const DEFAULT_TIMEOUT_MS = 120_000;
-const INSTALL_TIMEOUT_MS = 180_000;  // npm install can be slow on cold cache
 
 // Pinned semver range. Bump in lock-step with optionalDependencies in
 // @claude-flow/cli/package.json + ruflo/package.json.
-const REDBLUE_PIN = '@metaharness/redblue@~0.1.4';
 const REDBLUE_PKG = '@metaharness/redblue';
 const REDBLUE_PIN_VERSION = '~0.1.4';
+const REDBLUE_PIN = `${REDBLUE_PKG}@${REDBLUE_PIN_VERSION}`;
+
+const REASON_PREFIX = 'metaharness-redblue';
 
 // Cache dir is versioned by the pin so bumping REDBLUE_PIN_VERSION
-// invalidates stale installs — ensureInstalled() short-circuits on
-// existsSync(RESOLVED_CLI), so an unversioned dir would keep serving
-// the old package forever after a pin bump.
-const CACHE_DIR = join(
-  homedir(), '.ruflo', `redblue-cache-${REDBLUE_PIN_VERSION.replace(/[~^]/g, '')}`,
-);
-const RESOLVED_CLI = join(
-  CACHE_DIR, 'node_modules', '@metaharness', 'redblue', 'dist', 'cli', 'index.js',
-);
-
-const DEGRADED_RX = /could not determine executable|404|not installed|MODULE_NOT_FOUND|ENOTFOUND|getaddrinfo|ECONNREFUSED|ETIMEDOUT|npm ERR/i;
-
-function ensureInstalled() {
-  if (existsSync(RESOLVED_CLI)) return { ok: true };
-  try {
-    mkdirSync(CACHE_DIR, { recursive: true });
-  } catch (e) {
-    return { ok: false, reason: 'cache-dir-create-failed', error: String(e) };
-  }
-  // Use `npm install --prefix` so the package lands in a known location;
-  // this avoids npx's symlinked shim entirely (the upstream bin-bootstrap bug).
-  // shell:false; argv only.
-  const r = spawnSync('npm', [
-    'install',
-    '--no-audit', '--no-fund', '--no-package-lock',
-    '--prefix', CACHE_DIR,
-    `${REDBLUE_PKG}@${REDBLUE_PIN_VERSION}`,
-  ], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    encoding: 'utf-8',
-    timeout: INSTALL_TIMEOUT_MS,
-    shell: process.platform === 'win32',
-  });
-  if (r.status !== 0 || !existsSync(RESOLVED_CLI)) {
-    return {
-      ok: false,
-      reason: 'install-failed',
-      stderr: (r.stderr || '').slice(0, 600),
-      stdout: (r.stdout || '').slice(0, 600),
-    };
-  }
-  return { ok: true };
-}
-
-function classifyDegraded(stderr, exitCode) {
-  if (exitCode === null) return { degraded: true, reason: 'metaharness-redblue-timeout' };
-  if (DEGRADED_RX.test(stderr)) return { degraded: true, reason: 'metaharness-redblue-not-available' };
-  return { degraded: false };
-}
+// invalidates stale installs (handled inside ensureCachedInstall). The
+// resolved layout matches the pre-consolidation helper so existing caches
+// keep serving.
+const CLI_REL_PATH = join('dist', 'cli', 'index.js');
 
 /**
  * Sync invocation. `redblue` runs are bounded by `max_cost_usd` and
@@ -117,7 +81,11 @@ export function runRedblue(args, opts = {}) {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   // 1. Ensure redblue is installed in our cache dir (one-time install).
-  const install = ensureInstalled();
+  const install = ensureCachedInstall({
+    pkg: REDBLUE_PKG,
+    pinVersion: REDBLUE_PIN_VERSION,
+    cliRelPath: CLI_REL_PATH,
+  });
   if (!install.ok) {
     return {
       stdout: install.stdout ?? '',
@@ -126,14 +94,14 @@ export function runRedblue(args, opts = {}) {
       durationMs: Date.now() - start,
       degraded: true,
       reason: install.reason === 'install-failed'
-        ? 'metaharness-redblue-not-available'
-        : `metaharness-redblue-${install.reason}`,
+        ? `${REASON_PREFIX}-not-available`
+        : `${REASON_PREFIX}-${install.reason}`,
     };
   }
 
   // 2. Invoke `node <real-path-to-cli> <args>` so upstream's isMain check
   //    succeeds (argv[1] matches import.meta.url).
-  const r = spawnSync('node', [RESOLVED_CLI, ...args], {
+  const r = spawnSync('node', [install.cliPath, ...args], {
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf-8',
     timeout: timeoutMs,
@@ -144,7 +112,7 @@ export function runRedblue(args, opts = {}) {
   const durationMs = Date.now() - start;
   const stdout = r.stdout || '';
   const stderr = r.stderr || '';
-  const classified = classifyDegraded(stderr, r.status);
+  const classified = classifyDegraded(stderr, r.status, REASON_PREFIX);
   if (classified.degraded) {
     return {
       stdout, stderr,
@@ -164,19 +132,12 @@ export function runRedblue(args, opts = {}) {
 
 /**
  * Match the existing `emit*DegradedJsonAndExit` shape used by sibling
- * scripts so MCP tool consumers see one contract.
+ * scripts so MCP tool consumers see one contract. Exit 0 — ADR-150
+ * architectural constraint #3.
  */
-export function emitRedblueDegradedJsonAndExit(reason) {
-  const payload = {
-    degraded: true,
-    reason,
-    hint: 'Install with `npm i -D ' + REDBLUE_PIN + '` or run `npx -y ' + REDBLUE_PIN + ' --help` to verify network access.',
-    generatedAt: new Date().toISOString(),
-  };
-  console.log(JSON.stringify(payload, null, 2));
-  // Exit 0 — ADR-150 architectural constraint #3.
-  process.exit(0);
-}
+export const emitRedblueDegradedJsonAndExit = makeDegradedEmitter(REDBLUE_PKG, REDBLUE_PIN_VERSION);
 
 export const REDBLUE_VERSION_PIN = REDBLUE_PIN;
-export const REDBLUE_CACHE_DIR = CACHE_DIR;
+export const REDBLUE_CACHE_DIR = join(
+  homedir(), '.ruflo', `redblue-cache-${REDBLUE_PIN_VERSION.replace(/[~^]/g, '')}`,
+);

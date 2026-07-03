@@ -22,11 +22,12 @@
 //
 // MODULE RESOLUTION (ADR-150 graceful degradation)
 // ================================================
+// Delegated to _invoke.importOptionalLibrary (family-wide consolidation):
 // 1. Try bare `import('@metaharness/darwin/gepa')` — free when the optional
 //    dep is installed in an ancestor node_modules.
 // 2. Fall back to a ruflo-owned versioned cache install
-//    (~/.ruflo/darwin-cache-<pin>) — same pattern as _redblue.mjs; the
-//    versioned dir means pin bumps invalidate stale caches automatically.
+//    (~/.ruflo/darwin-cache-<pin>) — the versioned dir means pin bumps
+//    invalidate stale caches automatically.
 // 3. Both fail → `{degraded: true}` exit 0. Never throws.
 //
 // EXIT CODES
@@ -34,20 +35,11 @@
 //   1  --alert-on-invalid and validate found errors
 //   2  config error (bad op / missing file)
 
-import { readFileSync, existsSync, mkdirSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { readFileSync, existsSync } from 'node:fs';
+import { importGepa, DARWIN_VERSION_PIN } from './_darwin.mjs';
 
-// Bump in lock-step with DARWIN_PIN in _darwin.mjs + optionalDependencies.
-const DARWIN_PIN_VERSION = '~0.8.0';
-const CACHE_DIR = join(
-  homedir(), '.ruflo', `darwin-cache-${DARWIN_PIN_VERSION.replace(/[~^]/g, '')}`,
-);
-const CACHED_GEPA = join(
-  CACHE_DIR, 'node_modules', '@metaharness', 'darwin', 'dist', 'gepa', 'index.js',
-);
+// Pin lives in _darwin.mjs (DARWIN_VERSION_PIN) — single source of truth.
+const DARWIN_PIN_VERSION = DARWIN_VERSION_PIN.split('@').pop();
 
 const ARGS = (() => {
   const a = {
@@ -81,44 +73,6 @@ function emitDegradedAndExit(reason) {
     generatedAt: new Date().toISOString(),
   }, null, 2));
   process.exit(0);  // ADR-150 — ruflo stays operational without MetaHarness
-}
-
-async function importGepa() {
-  try {
-    return await import('@metaharness/darwin/gepa');
-  } catch (e) {
-    const msg = String(e?.message ?? e);
-    // Fall back on absence AND on stale installs: a pre-0.8.0 darwin in an
-    // ancestor node_modules has no './gepa' subpath, which throws
-    // ERR_PACKAGE_PATH_NOT_EXPORTED rather than MODULE_NOT_FOUND.
-    const recoverable = /Cannot find (module|package)|ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND|ERR_PACKAGE_PATH_NOT_EXPORTED|is not defined by "exports"/i;
-    if (!recoverable.test(msg)) throw e;
-  }
-  // Cached-install fallback.
-  if (!existsSync(CACHED_GEPA)) {
-    try {
-      mkdirSync(CACHE_DIR, { recursive: true });
-    } catch {
-      return null;
-    }
-    const r = spawnSync('npm', [
-      'install',
-      '--no-audit', '--no-fund', '--no-package-lock',
-      '--prefix', CACHE_DIR,
-      `@metaharness/darwin@${DARWIN_PIN_VERSION}`,
-    ], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf-8',
-      timeout: 180_000,
-      shell: process.platform === 'win32',
-    });
-    if (r.status !== 0 || !existsSync(CACHED_GEPA)) return null;
-  }
-  try {
-    return await import(pathToFileURL(CACHED_GEPA).href);
-  } catch {
-    return null;
-  }
 }
 
 function readJsonFile(path, label) {
