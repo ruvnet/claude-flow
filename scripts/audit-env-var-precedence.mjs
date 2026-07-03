@@ -55,6 +55,7 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'CLAUDE_FLOW_DISABLE_BRIDGE',   // CI/test: force raw sql.js path — intentionally no CLI flag
   'RUFLO_HOOK_SKIP_NPX',          // CI: suppress cold-install latency in smoke tests
   'RUFLO_SUBLINEAR_NATIVE',       // Manual override for native vs WASM sublinear — CI/perf knob
+  'RUFLO_METAHARNESS_CACHE_BASE', // CI/test seam: relocates the ~/.ruflo pinned-cache root in metaharness smoke tests — intentionally env-only, plugin scripts have no CLI-flag surface
 
   // ── Feature flags (set by init into settings.json, not user-typed CLI) ──────
   'CLAUDE_FLOW_V3_ENABLED',
