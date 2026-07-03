@@ -1299,3 +1299,21 @@ and meters every call — so delegation is cost-governed and preserves the main 
 server via a local `.mcp.json` (gitignored) and export your gateway key as `COGNITUM_DEV_KEY`
 in your shell. Build steps + the exact `.mcp.json` block are in the internal meta-llm
 dev-bridge README. **Never commit the key or an inline gateway URL.**
+
+### `ask` vs `delegate` — pick by task shape (load-bearing)
+
+**Use `metallm_ask` for single-shot facts, summaries, classification, and small code
+questions. Use `metallm_delegate` only when the task needs autonomous multi-step execution
+or isolated agent context.**
+
+Why the split is strict: `metallm_delegate` spawns a full `claude -p` sub-agent, which loads
+its entire harness context **even for a trivial task** — measured floor ≈ **$0.26/call**
+(~43k input tokens) before any real work. `metallm_ask` is a single gateway completion —
+measured ≈ **$0.0001** for a small query, ~2500× cheaper. So delegating casually is
+expensive at volume; `delegate` pays off only when offloading the sub-task's context from
+the main session is worth the floor. When in doubt, `ask`.
+
+Routing caveat (tracked): `metallm_ask` **auto** currently over-tiers some trivial prompts to
+`mid` (sonnet-5) instead of `low` — the bridge's `/v1/messages` path may miss ADR-236
+host-normalization (meta-llm issue #38). Forced tiers work correctly; cost impact is small
+per call but real at volume.
