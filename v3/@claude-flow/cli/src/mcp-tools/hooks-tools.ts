@@ -2513,15 +2513,18 @@ export const hooksTrajectoryStart: MCPTool = {
     properties: {
       task: { type: 'string', description: 'Task description' },
       agent: { type: 'string', description: 'Agent type' },
+      sessionId: { type: 'string', description: 'Session id for the execution-state tree (default: CLAUDE_FLOW_SESSION_ID or "default")' },
     },
     required: ['task'],
   },
   handler: async (params: Record<string, unknown>) => {
     const task = params.task as string;
     const agent = (params.agent as string) || 'coder';
+    const sessionId = (params.sessionId as string) || process.env.CLAUDE_FLOW_SESSION_ID || 'default';
 
     { const v = validateText(task, 'task'); if (!v.valid) return { success: false, error: v.error }; }
     if (params.agent) { const v = validateIdentifier(params.agent as string, 'agent'); if (!v.valid) return { success: false, error: v.error }; }
+    if (params.sessionId) { const v = validateIdentifier(params.sessionId as string, 'sessionId'); if (!v.valid) return { success: false, error: v.error }; }
 
     const trajectoryId = `traj-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     const startedAt = new Date().toISOString();
@@ -2536,6 +2539,13 @@ export const hooksTrajectoryStart: MCPTool = {
     };
 
     activeTrajectories.set(trajectoryId, trajectory);
+
+    // MAGE-style execution-state-tree mirror (prototype, ruvector/trajectory-tree.ts).
+    // Non-fatal by design — the semantic trajectory path below is untouched.
+    try {
+      const { getTrajectoryTree } = await import('../ruvector/trajectory-tree.js');
+      getTrajectoryTree().openTrajectory({ sessionId, trajectoryId, task, agent });
+    } catch { /* prototype path — never blocks trajectory recording */ }
 
     // Persist pending trajectory to disk so it survives MCP restarts
     const storeFn = await getRealStoreFunction();
@@ -2600,6 +2610,12 @@ export const hooksTrajectoryStep: MCPTool = {
         timestamp,
       });
     }
+
+    // MAGE-style execution-state-tree mirror (prototype, non-fatal)
+    try {
+      const { getTrajectoryTree } = await import('../ruvector/trajectory-tree.js');
+      getTrajectoryTree().appendStep({ trajectoryId, stepId, action, quality });
+    } catch { /* prototype path — never blocks step recording */ }
 
     // ADR-130 Phase 3: fire-and-forget causal edge write
     // trajectory context node → step node (relation: "trajectory-caused")
@@ -2688,6 +2704,12 @@ export const hooksTrajectoryEnd: MCPTool = {
       // Remove from active trajectories
       activeTrajectories.delete(trajectoryId);
     }
+
+    // MAGE-style execution-state-tree mirror (prototype, non-fatal)
+    try {
+      const { getTrajectoryTree } = await import('../ruvector/trajectory-tree.js');
+      getTrajectoryTree().closeTrajectory({ trajectoryId, success });
+    } catch { /* prototype path — never blocks trajectory finalization */ }
 
     // SONA Learning - process trajectory outcome for routing optimization
     let sonaResult: { learned: boolean; patternKey: string; confidence: number } = {
@@ -2995,6 +3017,9 @@ export const hooksPatternSearch: MCPTool = {
       topK: { type: 'number', description: 'Number of results' },
       minConfidence: { type: 'number', description: 'Minimum similarity threshold (0-1)' },
       namespace: { type: 'string', description: 'Namespace to search (default: pattern)' },
+      strategy: { type: 'string', enum: ['semantic', 'state-tree'], description: 'Retrieval strategy. Default "semantic" (unchanged behavior). "state-tree" returns the MAGE-style root→current execution-state path for a session instead of embedding search (prototype).' },
+      sessionId: { type: 'string', description: 'Session id for strategy="state-tree" (default: CLAUDE_FLOW_SESSION_ID or "default")' },
+      depth: { type: 'number', description: 'For strategy="state-tree": max path nodes returned, counted from the current node upward' },
     },
     required: ['query'],
   },
@@ -3003,9 +3028,44 @@ export const hooksPatternSearch: MCPTool = {
     const topK = (params.topK as number) || 5;
     const minConfidence = (params.minConfidence as number) || 0.3;
     const namespace = (params.namespace as string) || 'pattern';
+    const strategy = (params.strategy as string) || 'semantic';
 
     { const v = validateText(query, 'query'); if (!v.valid) return { success: false, error: v.error }; }
     if (params.namespace) { const v = validateIdentifier(params.namespace as string, 'namespace'); if (!v.valid) return { success: false, error: v.error }; }
+
+    // Opt-in MAGE-style positional retrieval (prototype). Default stays the
+    // semantic vector path below — zero behavior change unless requested.
+    if (strategy === 'state-tree') {
+      const sessionId = (params.sessionId as string) || process.env.CLAUDE_FLOW_SESSION_ID || 'default';
+      if (params.sessionId) { const v = validateIdentifier(params.sessionId as string, 'sessionId'); if (!v.valid) return { success: false, error: v.error }; }
+      try {
+        const { getTrajectoryTree } = await import('../ruvector/trajectory-tree.js');
+        const recall = getTrajectoryTree().recallPath({
+          sessionId,
+          depth: typeof params.depth === 'number' ? (params.depth as number) : undefined,
+          siblingWindow: topK,
+        });
+        return {
+          query,
+          strategy: 'state-tree',
+          backend: 'state-tree',
+          sessionId: recall.sessionId,
+          currentId: recall.currentId,
+          path: recall.path,
+          siblings: recall.siblings,
+          note: 'Positional root→current execution-state path (no embedding search). Prototype — see ruvector/trajectory-tree.ts limitations.',
+        };
+      } catch (error) {
+        return {
+          query,
+          strategy: 'state-tree',
+          backend: 'state-tree-unavailable',
+          path: [],
+          siblings: [],
+          error: String(error),
+        };
+      }
+    }
 
     // Phase 3: Try ReasoningBank search via bridge first
     try {
