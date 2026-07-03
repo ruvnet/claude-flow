@@ -278,7 +278,14 @@ export function validateAgentCard(value: unknown): AgentCardValidation {
 
 /** Slugify a card name into a stable nodeId when no extension identity exists. */
 function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64) || 'a2a-peer';
+  // Linear-time dash trim (no /^-+|-+$/ regex — that anchor+quantifier pattern
+  // is polynomial-time on adversarial all-dash input, flagged js/polynomial-redos).
+  const collapsed = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  let start = 0;
+  let end = collapsed.length;
+  while (start < end && collapsed.charCodeAt(start) === 45 /* '-' */) start++;
+  while (end > start && collapsed.charCodeAt(end - 1) === 45 /* '-' */) end--;
+  return collapsed.slice(start, end).slice(0, 64) || 'a2a-peer';
 }
 
 function findFederationExtension(card: A2AAgentCard): A2AAgentExtension | undefined {
