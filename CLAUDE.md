@@ -1329,3 +1329,32 @@ Routing caveat (tracked): `metallm_ask` **auto** currently over-tiers some trivi
 `mid` (sonnet-5) instead of `low` — the bridge's `/v1/messages` path may miss ADR-236
 host-normalization (meta-llm issue #38). Forced tiers work correctly; cost impact is small
 per call but real at volume.
+
+## Integrity & verification discipline (load-bearing)
+
+These practices are enforced across ruflo/metaharness/meta-llm work. They exist because
+each was learned the hard way — a documented behavior that wasn't real, a benchmark that
+was gamed, a gate that green-lit itself.
+
+- **Verify by execution, never by docs or `--help`.** A parser existing ≠ a command working;
+  a `.d.ts`/README ≠ the runtime; a "documented" output file ≠ one the harness produces. Run
+  the real thing against the real artifact before claiming a capability. (Repeatedly this
+  session the documented schema diverged from source — GAIA `trajectories.jsonl` documented
+  but not produced; stale published `.d.ts`; CLI help vs actual dispatch.)
+- **A gate must never pass itself without evidence — `skip`, don't fake.** Integrity/audit
+  checks return `skip` + a named `harness_gap` when the data they need isn't present; they
+  NEVER return a false `pass`. A verifier that green-lights itself is the exact Goodhart
+  failure it is meant to catch (ADR-239, ADR-0026, ADR-167, ADR-231).
+- **Provably-clean claims.** A benchmark/SOTA number or a promoted policy carries a signed
+  attestation, not just a signature. Signing proves transport (bytes untampered); a
+  pre-submission exploit audit proves earning (score not reward-hacked). Post-Berkeley-RDI,
+  don't quote a number you can't attest. `(score, cost, integrity-attestation)`.
+- **Calibrate "accepted" against ground truth, not the verifier's self-agreement.** Mechanical
+  completeness is dangerously weak — it accepts named artifacts with no actual work
+  (`artifact_presence_is_not_completion`). Anchor gates to human-adjudicated or lagged truth.
+- **One agent per repo area; worktrees are additive.** Parallel agents each own a disjoint
+  file/dir set off `origin/main`; never two agents in the same code at once. This kept a
+  ~15-PR day conflict-free.
+- **Honest scope in every report.** Distinguish proven-by-execution vs built-but-mocked vs
+  speculative; pre-existing CI red vs introduced; measured vs estimated cost. Surface silent
+  caps and skips rather than letting them read as full coverage.
