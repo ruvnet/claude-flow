@@ -21,6 +21,33 @@
  *   AUD-7 split-integrity          validation-split results presented as
  *                                  held-out standing
  *
+ * Static source-scan family (ADR-167; ported from the reverted #2547 duplicate
+ * gaia-integrity.mjs). These scan the harness sources + produced artifacts
+ * rather than the trajectory, so they are enforceable NOW — they do not depend
+ * on trajectory instrumentation. They still skip (never false-pass) when the
+ * source population they need is absent (e.g. run standalone outside the repo):
+ *
+ *   AUD-8 answer-key-reads         answer/gold/solution/ground-truth-shaped
+ *                                  file paths referenced by the runner sources
+ *                                  or the produced artifacts OUTSIDE the
+ *                                  sanctioned dataset dir(s) — fail-closed
+ *                                  (RDI: answer keys read from unsanitized
+ *                                  config)
+ *   AUD-9 dynamic-eval             eval() / new Function() / exec-family calls
+ *                                  with a non-literal (task-content-derivable)
+ *                                  first argument in the gaia-bench runner
+ *                                  sources — fail-closed (RDI: trojanized test
+ *                                  infra). Fixed-string commands, .exec()
+ *                                  (RegExp.prototype.exec), and comment lines
+ *                                  are excluded; multi-line calls are handled.
+ *   AUD-10 judge-injection         judge-directed prompt-injection markers
+ *                                  ("ignore previous", "you are the judge",
+ *                                  "score this as correct", ...) embedded in
+ *                                  the agent's PRODUCED answer/output aimed at
+ *                                  the LLM-as-judge — WARN. Distinct from AUD-3
+ *                                  oracle-leakage, which scans the agent's
+ *                                  INPUT prompt for the gold answer.
+ *
  * Inputs (real schemas — see ADR-167 §3):
  *   --results       BenchRunOutput JSON from `gaia-bench run --output json`
  *                   ({ level, model, summary, results: QuestionResult[] })
@@ -48,9 +75,11 @@
  * 2 usage error.
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { resolve } from 'node:path';
+import { resolve, join, relative, isAbsolute } from 'node:path';
+import { homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 
 // ---------------------------------------------------------------------------
 // Normalisation — replicates gaia-judge.ts normaliseAnswer() exactly, so the
@@ -111,6 +140,82 @@ const GRADER_SURFACE_PATTERNS = [
 const WRITE_CAPABLE_TOOLS = new Set([
   'python_exec', 'file_write', 'bash', 'shell', 'exec', 'write_file',
 ]);
+
+// ---------------------------------------------------------------------------
+// Static source-scan patterns (AUD-8/9/10) — ported from the reverted #2547
+// gaia-integrity.mjs. The false-positive refinements below are load-bearing:
+// they let the audit pass clean against ruflo's own runner (which legitimately
+// shells out `gcloud secrets versions access …` via multi-line execSync with a
+// fixed-string command).
+// ---------------------------------------------------------------------------
+
+// Answer-key-shaped file-path fragment (AUD-8). Matches answer / answer_key /
+// gold(en) / solution(s) / ground_truth / labels, bounded by a path/extension.
+const ANSWER_KEY_PATTERN =
+  /(?:^|[/\\_.-])(answer(?:s|[_-]?key)?|gold(?:en)?[_-]?(?:answers?|labels?|set)?|solutions?|ground[_-]?truth|labels)(?:[/\\_.-]|\.(?:json|jsonl|csv|txt|yaml|yml)\b|$)/i;
+
+// A string that plausibly denotes a filesystem path (has a separator + a data
+// extension). Global — reset lastIndex before each line.
+const PATH_SHAPED =
+  /(?:^|[\s"'`=(])((?:~|\.{1,2})?[\w~.-]*[/\\][\w/\\ .~-]*\.(?:json|jsonl|csv|txt|yaml|yml|parquet))/g;
+
+// Judge-directed prompt-injection markers embedded in produced output (AUD-10).
+const JUDGE_INJECTION_PATTERNS = [
+  { id: 'ignore-previous', re: /ignore\s+(?:all\s+|the\s+|any\s+)?(?:previous|prior|above)\s+(?:instructions?|prompts?|context)/i },
+  { id: 'you-are-the-judge', re: /you\s+are\s+(?:the|an?)\s+(?:judge|evaluator|grader|scorer)/i },
+  { id: 'score-this-as', re: /(?:score|grade|mark|rate)\s+this\s+(?:answer\s+|response\s+)?as\s+(?:correct|pass|1|100|a\+?|perfect)/i },
+  { id: 'final-grade-directive', re: /(?:final\s+(?:grade|score|verdict)|verdict)\s*[:=]\s*(?:correct|pass(?:ed)?|1\b|true)/i },
+  { id: 'as-the-evaluator', re: /as\s+the\s+(?:evaluator|judge|grader)[,:]?\s+(?:you\s+)?(?:must|should|will)/i },
+  { id: 'respond-with-correct', re: /respond\s+(?:only\s+)?with\s+["'`]?(?:correct|pass|true|1)["'`]?/i },
+  { id: 'system-override-block', re: /<\s*(?:system|judge|evaluator)[^>]*>\s*/i },
+  { id: 'disregard-instructions', re: /disregard\s+(?:all\s+|the\s+|your\s+)?(?:previous\s+|prior\s+)?(?:instructions?|rubric|criteria)/i },
+];
+
+// Dynamic-evaluation call patterns in runner sources (AUD-9). The negative
+// lookbehind (?<![.\w]) excludes RegExp.prototype.exec (`FOO_RE.exec(...)`,
+// `/re/.exec(...)`) and identifiers like `retrieval`.
+const DYNAMIC_EVAL_PATTERNS = [
+  { id: 'eval-call', re: /(?<![.\w])eval\s*\(/ },
+  { id: 'new-function', re: /new\s+Function\s*\(/ },
+];
+
+// Matches a child_process exec-family call; `.exec(` is deliberately excluded.
+const EXEC_CALL_RE = /(?<![.\w])(execSync|execFileSync|execFile|exec|spawnSync|spawn)\s*\(/;
+
+/**
+ * Return the text of an exec-family call's first argument, joining up to
+ * `lookahead` following lines for multi-line calls (`execSync(\n  'cmd', …)`).
+ */
+function execFirstArg(lines, i, lookahead = 3) {
+  const m = EXEC_CALL_RE.exec(lines[i]);
+  if (!m) return null;
+  let text = lines[i].slice(m.index + m[0].length);
+  for (let j = 1; j <= lookahead && text.trim() === ''; j++) {
+    if (i + j >= lines.length) break;
+    text = lines[i + j];
+  }
+  return { fn: m[1], arg: text.trim() };
+}
+
+/**
+ * A first argument is "safe" when it is a plain string literal with no
+ * interpolation — a fixed command cannot be derived from task content.
+ */
+function isLiteralArg(arg) {
+  return /^'[^']*'\s*[,)]?/.test(arg)
+    || /^"[^"]*"\s*[,)]?/.test(arg)
+    || /^`[^`$]*`\s*[,)]?/.test(arg);
+}
+
+function expandHome(p) {
+  return typeof p === 'string' && p.startsWith('~') ? join(homedir(), p.slice(1)) : p;
+}
+
+/** True when `child` resolves to `parent` or somewhere beneath it. */
+function isUnder(child, parent) {
+  const rel = relative(resolve(parent), resolve(child));
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+}
 
 // ---------------------------------------------------------------------------
 // Input parsing
@@ -458,13 +563,146 @@ export function checkSplitIntegrity(metadata) {
   };
 }
 
+/**
+ * AUD-8 answer-key-reads (CRITICAL — RDI: benchmarks gamed by reading answer
+ * keys from unsanitized config). Scan the runner sources AND the produced
+ * artifacts for answer/gold/solution/ground-truth-shaped file paths referenced
+ * OUTSIDE the sanctioned dataset dir(s). Fail-closed. Enforceable NOW (static);
+ * skips only when no source/artifact text is available to scan.
+ *
+ * `sources`: [{ path, text, kind? }] — runner sources + raw artifact texts.
+ * `datasetDirs`: sanctioned dataset dirs; a match under one of them is allowed.
+ */
+export function checkAnswerKeyReads({ sources = [], datasetDirs = [] } = {}) {
+  const scannable = sources.filter((s) => s && typeof s.text === 'string');
+  if (scannable.length === 0) {
+    return {
+      id: 'answer-key-reads', severity: 'critical', status: 'skip', evidence: [],
+      harness_gap:
+        'no runner source or produced artifact text available to scan for ' +
+        'answer-key path references (expected gaia-* runner sources under ' +
+        'v3/@claude-flow/cli/src and/or the results/trajectory artifacts) — ' +
+        'run inside the repo or pass --results/--trajectories',
+    };
+  }
+  const sanctioned = datasetDirs.map((d) => resolve(expandHome(d)));
+  const evidence = [];
+  for (const { path: src, text, kind } of scannable) {
+    for (const line of text.split('\n')) {
+      PATH_SHAPED.lastIndex = 0;
+      let m;
+      while ((m = PATH_SHAPED.exec(line)) !== null) {
+        const rawPath = m[1];
+        if (!ANSWER_KEY_PATTERN.test(rawPath)) continue;
+        const abs = resolve(expandHome(rawPath));
+        if (sanctioned.some((d) => isUnder(abs, d))) continue;
+        evidence.push(
+          `${kind ?? 'source'} ${src}: answer-key-shaped path "${rawPath}" ` +
+          `referenced outside sanctioned dataset dir — ${line.trim().slice(0, 160)}`,
+        );
+      }
+    }
+  }
+  return {
+    id: 'answer-key-reads', severity: 'critical',
+    status: evidence.length ? 'fail' : 'pass',
+    evidence: evidence.sort(),
+  };
+}
+
+/**
+ * AUD-9 dynamic-eval (CRITICAL — RDI: trojanized test infrastructure). Static
+ * scan of the gaia-bench runner sources for eval() / new Function() / an
+ * exec-family call whose first argument is not a fixed string literal (i.e.
+ * potentially derived from task content). Fail-closed. Skips when the runner
+ * sources cannot be located (never false-passes).
+ *
+ * Refinements preserved from #2547 (they suppressed 8 false positives on
+ * ruflo's own `gcloud secrets …` execSync calls): comment lines skipped;
+ * multi-line calls resolved via execFirstArg; RegExp.prototype.exec excluded by
+ * the (?<![.\w]) lookbehind; fixed-string commands treated as safe.
+ */
+export function checkDynamicEval({ runnerSources = [] } = {}) {
+  const scannable = runnerSources.filter((s) => s && typeof s.text === 'string');
+  if (scannable.length === 0) {
+    return {
+      id: 'dynamic-eval', severity: 'critical', status: 'skip', evidence: [],
+      harness_gap:
+        'gaia runner sources not located (expected v3/@claude-flow/cli/src/' +
+        'benchmarks/gaia-* and src/commands/gaia-bench.ts) — cannot statically ' +
+        'attest the runner performs no dynamic evaluation of task content; ' +
+        'run inside the repo or pass --repo-root',
+    };
+  }
+  const evidence = [];
+  for (const { path: src, text } of scannable) {
+    const lines = text.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) continue;
+      for (const { id, re } of DYNAMIC_EVAL_PATTERNS) {
+        if (re.test(line)) {
+          evidence.push(`${src}:${i + 1}: ${id} — ${trimmed.slice(0, 160)}`);
+        }
+      }
+      const call = execFirstArg(lines, i);
+      if (call && !isLiteralArg(call.arg)) {
+        const pat = call.arg.includes('${') ? 'exec-interpolated-template' : 'exec-nonliteral';
+        evidence.push(`${src}:${i + 1}: ${pat} (${call.fn}) — ${trimmed.slice(0, 160)}`);
+      }
+    }
+  }
+  return {
+    id: 'dynamic-eval', severity: 'critical',
+    status: evidence.length ? 'fail' : 'pass',
+    evidence: evidence.sort(),
+  };
+}
+
+/**
+ * AUD-10 judge-injection (WARN). Scan the agent's PRODUCED answer + its
+ * llm_call outputs for judge-directed prompt-injection markers aimed at the
+ * LLM-as-judge. Distinct from AUD-3 oracle-leakage (which scans the agent's
+ * INPUT prompt for the gold answer) — this is the output-side attack surface,
+ * so both run. Enforceable NOW from the results file (trajectory optional).
+ */
+export function checkJudgeInjection({ results = [], trajById = new Map() } = {}) {
+  const evidence = [];
+  const scan = (label, text) => {
+    if (typeof text !== 'string' || !text) return;
+    for (const { id, re } of JUDGE_INJECTION_PATTERNS) {
+      const m = re.exec(text);
+      if (!m) continue;
+      const excerpt = text
+        .slice(Math.max(0, m.index - 30), m.index + m[0].length + 30)
+        .replace(/\s+/g, ' ').trim();
+      evidence.push(`${label}: judge-injection marker "${id}" — "${excerpt}"`);
+    }
+  };
+  for (const r of results) {
+    scan(`task ${r.task_id} answer`, r.answer);
+    for (const step of trajSteps(trajById.get(r.task_id))) {
+      if (step.type === 'llm_call') scan(`task ${r.task_id} llm_call output`, step.output);
+    }
+  }
+  return {
+    id: 'judge-injection', severity: 'warn',
+    status: evidence.length ? 'fail' : 'pass',
+    evidence: evidence.sort(),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Report assembly
 // ---------------------------------------------------------------------------
 
 export const AUDITED_AT_PLACEHOLDER = 'AUDITED_AT_PLACEHOLDER';
 
-export function runAudit({ results, trajById = new Map(), metadata = null, auditedAt } = {}) {
+export function runAudit({
+  results, trajById = new Map(), metadata = null, auditedAt,
+  runnerSources = [], artifactSources = [], datasetDirs = [],
+} = {}) {
   const checks = [
     checkAnswerLeakage(results, trajById),
     checkNoWork(results, trajById),
@@ -473,6 +711,9 @@ export function runAudit({ results, trajById = new Map(), metadata = null, audit
     checkNormalizationCollision(results),
     checkVotingDisclosure(metadata),
     checkSplitIntegrity(metadata),
+    checkAnswerKeyReads({ sources: [...runnerSources, ...artifactSources], datasetDirs }),
+    checkDynamicEval({ runnerSources }),
+    checkJudgeInjection({ results, trajById }),
   ];
   const criticalFails = checks.filter((c) => c.severity === 'critical' && c.status === 'fail');
   const warnFails = checks.filter((c) => c.severity === 'warn' && c.status === 'fail');
@@ -504,15 +745,18 @@ export function runAudit({ results, trajById = new Map(), metadata = null, audit
 // ---------------------------------------------------------------------------
 
 function parseCliArgs(argv) {
-  const out = { _: [] };
+  const out = { _: [], 'dataset-dir': [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--strict' || a === '--json' || a === '--help') { out[a.slice(2)] = true; continue; }
+    if (a === '--strict' || a === '--json' || a === '--help' || a === '--skip-source-scan') {
+      out[a.slice(2)] = true; continue;
+    }
     if (a.startsWith('--')) {
       const key = a.slice(2);
       const next = argv[i + 1];
-      if (next !== undefined && !next.startsWith('--')) { out[key] = next; i++; }
-      else { out[key] = true; }
+      const val = (next !== undefined && !next.startsWith('--')) ? (i++, next) : true;
+      if (key === 'dataset-dir') { if (typeof val === 'string') out['dataset-dir'].push(val); }
+      else out[key] = val;
     } else out._.push(a);
   }
   return out;
@@ -520,11 +764,65 @@ function parseCliArgs(argv) {
 
 function usage() {
   return 'Usage: node gaia-audit.mjs --results <file> [--trajectories <file>] ' +
-    '[--metadata <file>] [--out <report.json>] [--audited-at <iso8601>] [--strict] [--json]';
+    '[--metadata <file>] [--out <report.json>] [--audited-at <iso8601>] ' +
+    '[--repo-root <dir>] [--dataset-dir <dir>]... [--skip-source-scan] [--strict] [--json]';
 }
 
 function sha256Hex(buf) {
   return createHash('sha256').update(buf).digest('hex');
+}
+
+function safeReadFile(p) {
+  try { return readFileSync(p, 'utf8'); } catch { return null; }
+}
+
+/** Walk `dir`, collecting basename-`gaia*` .ts/.mjs/.js source files. */
+function walkGaiaSources(dir, acc = []) {
+  let entries;
+  try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return acc; }
+  for (const e of entries) {
+    if (e.name === 'node_modules' || e.name === '.git' || e.name === 'dist') continue;
+    const p = join(dir, e.name);
+    if (e.isDirectory()) walkGaiaSources(p, acc);
+    else if (/^gaia.*\.(?:ts|mjs|js)$/.test(e.name)) acc.push(p);
+  }
+  return acc;
+}
+
+/**
+ * Gather the gaia-bench runner sources (AUD-8/9 static-scan population) from
+ * `repoRoot`. Returns [] when the tree is absent (standalone/ejected run) so
+ * the checks skip honestly rather than false-pass.
+ */
+function gatherRunnerSources(repoRoot) {
+  const dirs = [
+    join(repoRoot, 'v3/@claude-flow/cli/src/benchmarks'),
+    join(repoRoot, 'v3/@claude-flow/cli/src/commands'),
+  ];
+  const out = [];
+  for (const d of dirs) {
+    for (const f of walkGaiaSources(d)) {
+      const text = safeReadFile(f);
+      if (text != null) out.push({ path: f, text, kind: 'runner' });
+    }
+  }
+  return out;
+}
+
+/**
+ * Derive the repo root from --repo-root or by walking up from this script
+ * (plugins/ruflo-workflows/scripts/gaia-audit.mjs → three levels up), falling
+ * back to cwd. Only used to locate runner sources; a wrong guess just makes the
+ * source-scan checks skip.
+ */
+function deriveRepoRoot(explicit) {
+  if (typeof explicit === 'string' && explicit) return resolve(expandHome(explicit));
+  try {
+    const here = fileURLToPath(import.meta.url);
+    const guess = resolve(here, '..', '..', '..', '..');
+    if (existsSync(join(guess, 'v3/@claude-flow/cli/src/benchmarks'))) return guess;
+  } catch { /* fall through */ }
+  return process.cwd();
 }
 
 async function main() {
@@ -546,13 +844,19 @@ async function main() {
     return text;
   };
 
+  // Raw artifact texts double as the AUD-8 answer-key-scan population.
+  const artifactSources = [];
+
   let results;
+  let resultsText;
   try {
-    results = parseResults(readInput('results', args.results));
+    resultsText = readInput('results', args.results);
+    results = parseResults(resultsText);
   } catch (e) {
     console.error(`gaia-audit: could not parse results file: ${e.message}`);
     process.exit(2);
   }
+  artifactSources.push({ path: resolve(args.results), text: resultsText, kind: 'artifact' });
   if (!Array.isArray(results) || results.length === 0 || !results.every((r) => r && typeof r.task_id === 'string')) {
     console.error('gaia-audit: results file has no QuestionResult records (expected task_id/correct/answer/expected_output fields)');
     process.exit(2);
@@ -560,17 +864,43 @@ async function main() {
 
   let trajById = new Map();
   if (args.trajectories && typeof args.trajectories === 'string') {
-    try { trajById = parseTrajectories(readInput('trajectories', args.trajectories)); }
-    catch (e) { console.error(`gaia-audit: could not parse trajectories file: ${e.message}`); process.exit(2); }
+    let trajText;
+    try {
+      trajText = readInput('trajectories', args.trajectories);
+      trajById = parseTrajectories(trajText);
+    } catch (e) { console.error(`gaia-audit: could not parse trajectories file: ${e.message}`); process.exit(2); }
+    artifactSources.push({ path: resolve(args.trajectories), text: trajText, kind: 'artifact' });
   }
   let metadata = null;
   if (args.metadata && typeof args.metadata === 'string') {
-    try { metadata = JSON.parse(readInput('metadata', args.metadata)); }
-    catch (e) { console.error(`gaia-audit: could not parse metadata file: ${e.message}`); process.exit(2); }
+    let metaText;
+    try {
+      metaText = readInput('metadata', args.metadata);
+      metadata = JSON.parse(metaText);
+    } catch (e) { console.error(`gaia-audit: could not parse metadata file: ${e.message}`); process.exit(2); }
+    artifactSources.push({ path: resolve(args.metadata), text: metaText, kind: 'artifact' });
+  }
+
+  // Static source-scan context (AUD-8/9). Skipped entirely with
+  // --skip-source-scan; otherwise runner sources are located from the repo and
+  // dataset dirs default to the HF + ruflo cache locations gaia-loader uses.
+  let runnerSources = [];
+  let artifactScan = [];
+  let datasetDirs = [];
+  if (!args['skip-source-scan']) {
+    runnerSources = gatherRunnerSources(deriveRepoRoot(args['repo-root']));
+    artifactScan = artifactSources;
+    datasetDirs = (args['dataset-dir'] && args['dataset-dir'].length)
+      ? args['dataset-dir'].map((d) => resolve(expandHome(d)))
+      : [
+          join(homedir(), '.cache', 'huggingface'),
+          join(homedir(), '.cache', 'ruflo', 'gaia', 'dataset'),
+        ];
   }
 
   const report = runAudit({
     results, trajById, metadata,
+    runnerSources, artifactSources: artifactScan, datasetDirs,
     auditedAt: typeof args['audited-at'] === 'string' ? args['audited-at'] : undefined,
   });
   report.inputs = inputs;

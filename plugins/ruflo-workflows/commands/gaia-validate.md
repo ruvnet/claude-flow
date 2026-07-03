@@ -82,18 +82,34 @@ reward-hacking vectors:
 node plugins/ruflo-workflows/scripts/gaia-audit.mjs \
   --results ~/.cache/ruflo/gaia/results-latest.json \
   --trajectories <submission>/trajectories.jsonl \
-  --metadata <submission>/metadata.json
+  --metadata <submission>/metadata.json \
+  [--repo-root <dir>] [--dataset-dir <dir>]... [--skip-source-scan]
 ```
 
 | Check | Severity | RDI/METR vector |
 |-------|----------|-----------------|
 | answer-leakage | CRITICAL | gold answer appears in a fetched tool output (GAIA's #1 vector) |
 | no-work-pass | CRITICAL | correct with zero turns / zero output tokens / no LLM call |
-| oracle-leakage | CRITICAL | gold answer present in the agent-visible prompt |
+| oracle-leakage | CRITICAL | gold answer present in the agent-visible **input** prompt |
 | grader-isolation | CRITICAL | tool call targets judge/grader/witness paths (monkey-patching) |
 | normalization-collision | WARN | degenerate/generic answer credited under aggressive normalization |
 | voting-disclosure | WARN | hidden best-of-N not disclosed in metadata |
 | split-integrity | WARN/INFO | validation-split (public gold) presented as held-out |
+| answer-key-reads | CRITICAL | answer/gold/solution/ground-truth-shaped path read outside the sanctioned dataset dir (runner sources + produced artifacts) |
+| dynamic-eval | CRITICAL | `eval()` / `new Function()` / exec of a non-literal (task-derivable) command in the gaia-bench runner sources |
+| judge-injection | WARN | prompt-injection markers in the agent's **produced** answer/output aimed at the LLM judge |
+
+The last three form the **static source-scan family** (ported from the reverted
+#2547 duplicate): they scan the harness sources + produced artifacts rather than
+the trajectory, so they enforce today with no instrumentation. `answer-key-reads`
+and `dynamic-eval` are fail-closed; both `skip` (never false-pass) when the
+runner sources cannot be located (e.g. run standalone) or under
+`--skip-source-scan`. `--repo-root` overrides where the runner sources are found;
+`--dataset-dir` (repeatable) sets the sanctioned dataset dirs (default
+`~/.cache/huggingface`, `~/.cache/ruflo/gaia/dataset`). `dynamic-eval` is tuned
+to pass ruflo's own multi-line `gcloud secrets … execSync` calls (fixed-string
+commands and `RegExp.prototype.exec` are not flagged). `judge-injection` is
+output-side and distinct from `oracle-leakage` (input-side), so both run.
 
 Exit 0 clean · exit 1 on any CRITICAL fail (or WARN fail under `--strict`) ·
 exit 2 usage error. Checks whose data the trajectory schema does not yet

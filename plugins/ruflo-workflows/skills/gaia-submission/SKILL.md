@@ -100,8 +100,11 @@ signed *into* the witness manifest as an ADR-103 fix marker, so a ruflo GAIA
 submission attests both transport-integrity *and* earning-integrity.
 
 If the gate blocks, treat it as a real finding — inspect `audit-report.json`
-(answer-leakage, no-work pass, oracle leakage, or grader monkey-patching) rather
-than reaching for `--allow-dirty`. Checks the current trajectory schema cannot
+(answer-leakage, no-work pass, oracle leakage, grader monkey-patching, an
+answer-key read outside the dataset dir, or dynamic eval/exec of task content in
+the runner) rather than reaching for `--allow-dirty`. The static source-scan
+family (answer-key-reads, dynamic-eval, judge-injection) enforces today with no
+trajectory instrumentation; the trajectory-fed checks the current schema cannot
 feed are reported as `harness_gap`s (ADR-167 §7), not passes.
 
 ## Phase 5 — Compare and report
