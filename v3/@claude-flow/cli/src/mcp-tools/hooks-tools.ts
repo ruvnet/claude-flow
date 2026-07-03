@@ -4518,6 +4518,68 @@ export const hooksModelStats: MCPTool = {
   },
 };
 
+// Model verify — confidence-gated tier escalation (post-generation).
+// The heuristics live in ruvector/output-verifier.ts; this wrapper adds the
+// MCP surface and feeds the verdict into the SAME learning stream that
+// hooks_model-outcome uses (ModelRouter.recordOutcome → Thompson priors), so
+// the router learns from escalations. A dedicated tool (rather than a
+// "verify mode" on hooks_model-outcome) was chosen because outcome recording
+// is a terminal write while verify is a MID-LOOP decision point that returns
+// a verdict the agent acts on — overloading outcome would conflate the two
+// and break the route → generate → verify → (escalate) → outcome sequence.
+export const hooksModelVerify: MCPTool = {
+  name: 'hooks_model-verify',
+  description: 'Verify a generated output with CHEAP structural signals ($0, no LLM call) and get an escalation verdict — the post-generation half of confidence-gated tier routing (route → generate → verify → escalate on failure). Checks: empty/truncated output, refusal patterns, degenerate repetition, and real syntax parsing for code/JSON tasks (TypeScript compiler / JSON.parse). Returns {confident, reasons[], suggestedTier, suggestedModel, escalate}. By default the verdict is recorded into the model-routing learning stream (success when confident, escalated when not) so the bandit learns which task shapes the cheap tier fails on. Use after generating with the tier hooks_model-route picked, BEFORE accepting the output; not a semantic-quality judge — it only catches structurally unusable outputs.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      task: { type: 'string', description: 'The task the output was generated for' },
+      output: { type: 'string', description: 'The generated output to verify' },
+      model: { type: 'string', enum: ['haiku', 'sonnet', 'opus'], description: 'Model that produced the output (drives the escalation ladder; default haiku)' },
+      tierUsed: { type: 'number', enum: [1, 2, 3], description: 'Tier that produced the output; derived from model when absent' },
+      taskKind: { type: 'string', enum: ['code', 'json', 'text', 'auto'], description: 'Force the task kind; default auto-detect' },
+      record: { type: 'boolean', description: 'Record the verdict into the routing learning stream (default true; requires model)' },
+    },
+    required: ['task', 'output'],
+  },
+  handler: async (params: Record<string, unknown>) => {
+    const task = params.task as string;
+    const output = params.output as string;
+    const model = params.model as 'haiku' | 'sonnet' | 'opus' | undefined;
+
+    { const v = validateText(task, 'task'); if (!v.valid) return { success: false, error: v.error }; }
+    if (typeof output !== 'string') return { success: false, error: 'output must be a string' };
+
+    const { verifyAndEscalate } = await import('../ruvector/output-verifier.js');
+    const verdict = await verifyAndEscalate({
+      task,
+      output,
+      model,
+      tierUsed: params.tierUsed as 1 | 2 | 3 | undefined,
+      taskKind: params.taskKind as 'code' | 'json' | 'text' | 'auto' | undefined,
+    });
+
+    // Feed the verdict into the existing outcome/learning stream (same path
+    // as hooks_model-outcome) so escalations update the Thompson priors.
+    let recorded = false;
+    if (params.record !== false && model) {
+      const router = await getModelRouterInstance();
+      if (router) {
+        router.recordOutcome(task, model, verdict.confident ? 'success' : 'escalated');
+        recorded = true;
+      }
+    }
+
+    return {
+      ...verdict,
+      model: model ?? 'haiku',
+      recorded,
+      recordedOutcome: recorded ? (verdict.confident ? 'success' : 'escalated') : null,
+      timestamp: new Date().toISOString(),
+    };
+  },
+};
+
 // Supported source extensions for codemods.
 const CODEMOD_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.mts', '.cts']);
 const CODEMOD_MAX_FILES = 2000;
@@ -4910,6 +4972,7 @@ export const hooksTools: MCPTool[] = [
   hooksModelRoute,
   hooksModelOutcome,
   hooksModelStats,
+  hooksModelVerify,
   // Deterministic Tier-1 codemod execution (ADR-143)
   hooksCodemod,
 ];
