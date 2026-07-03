@@ -28,7 +28,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -112,8 +112,7 @@ console.log('\nCase 2: dist manifest files missing (source-only, deps installed)
     const src = join(realNodeModules, '@noble', 'ed25519');
     const dst = join(tmp, 'node_modules', '@noble', 'ed25519');
     try {
-      // fs.symlinkSync via spawnSync to avoid extra import for the rare-path branch.
-      spawnSync('ln', ['-s', src, dst]);
+      symlinkSync(src, dst, process.platform === 'win32' ? 'junction' : 'dir');
     } catch { /* best-effort */ }
   }
 
