@@ -151,13 +151,13 @@ importers:
         specifier: ^3.0.0-alpha.10
         version: link:../security
       '@metaharness/darwin':
-        specifier: ~0.3.1
-        version: 0.3.1
+        specifier: ~0.8.0
+        version: 0.8.0
       '@metaharness/kernel':
-        specifier: ~0.1.0
-        version: 0.1.0
+        specifier: ~0.1.2
+        version: 0.1.2
       '@metaharness/redblue':
-        specifier: ~0.1.1
+        specifier: ~0.1.4
         version: 0.1.4
       '@metaharness/router':
         specifier: ~0.3.2
@@ -202,8 +202,8 @@ importers:
         specifier: ~0.2.3
         version: 0.2.3
       metaharness:
-        specifier: ~0.2.6
-        version: 0.2.6(@metaharness/kernel@0.1.0)
+        specifier: ~0.2.8
+        version: 0.2.8(@metaharness/kernel@0.1.2)
       ruvector:
         specifier: ^0.2.27
         version: 0.2.27(@ruvector/diskann@0.1.0)(@ruvector/router@0.1.30)(zod@3.25.76)
@@ -1754,16 +1754,16 @@ packages:
     dev: false
     optional: true
 
-  /@metaharness/darwin@0.3.1:
-    resolution: {integrity: sha512-gNQQQiSsbcsSXG9g1C7IJoX50Ozw1nIg6Nez40OVKo5PSvlGjDKElBjFng7M7O7bIrlBo0fS9lcP5hjEQXi+iQ==}
+  /@metaharness/darwin@0.8.0:
+    resolution: {integrity: sha512-Pgefr/es0Btofh7GxQrOAg/i43ZKcLUfeD9rndOAkpA8s3ZYohSmfLerJLNsGOOKc2eTvmmauljl8QEVmKC2dw==}
     engines: {node: '>=20.0.0'}
     hasBin: true
     requiresBuild: true
     dev: false
     optional: true
 
-  /@metaharness/kernel@0.1.0:
-    resolution: {integrity: sha512-KDrrdbtw39S3o8YS/r52k3GGQyX5LvQ78raaZ1NiHxAyApwWnLfVLX/66ZdzjUZwwU2xjUs/3GkrHgQXtOUtFg==}
+  /@metaharness/kernel@0.1.2:
+    resolution: {integrity: sha512-3+8blfjmxXq1Pc7ixMs/mtH4GnQr9U+DUJlLPwHjf803gKrTQKW4l1uLU10n9FwqmIHCbuC+7kBXhGbaE9LQBg==}
     engines: {node: '>=20.0.0'}
     requiresBuild: true
     peerDependencies:
@@ -1795,6 +1795,14 @@ packages:
         optional: true
     dependencies:
       '@ruvector/tiny-dancer': 0.1.22
+    dev: false
+    optional: true
+
+  /@metaharness/weight-eft@0.1.1:
+    resolution: {integrity: sha512-GSg0APPAbRK93OzrzlE+R8hfEK+I5+Zhmh0Z28RC9Mk5/MjhPo3shqINO7ye8VPGYHIO4rars9FwCWbe/V4cEQ==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
+    requiresBuild: true
     dev: false
     optional: true
 
@@ -10491,8 +10499,8 @@ packages:
   /merge-stream@2.0.0:
     resolution: {integrity: sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w==}
 
-  /metaharness@0.2.6(@metaharness/kernel@0.1.0):
-    resolution: {integrity: sha512-9xQFQuKWqflSpNPzsudhl6GwZnbw5OSOhpNRvYND8Fgw0Xz/mQfMQG+p7apX5CJV0qqf/ydODJ7+jvHoWaoJkg==}
+  /metaharness@0.2.8(@metaharness/kernel@0.1.2):
+    resolution: {integrity: sha512-TFc8fcJR02e4z3ikRMqxmWSqpzPQgGV8S0vd0N2gYUOmtcAnxOfoSmcNbrgGjFrBZDjfCFoZgfIaBlUY+kE1Dg==}
     engines: {node: '>=20.0.0'}
     hasBin: true
     requiresBuild: true
@@ -10503,7 +10511,9 @@ packages:
         optional: true
     dependencies:
       '@metaharness/darwin': 0.2.8
-      '@metaharness/kernel': 0.1.0
+      '@metaharness/kernel': 0.1.2
+      '@metaharness/redblue': 0.1.4
+      '@metaharness/weight-eft': 0.1.1
       kolorist: 1.8.0
       prompts: 2.4.2
     optionalDependencies:
