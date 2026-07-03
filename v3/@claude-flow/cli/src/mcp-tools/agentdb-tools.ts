@@ -37,6 +37,21 @@ function validateScore(value: unknown, defaultVal: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
+/**
+ * Validate an optional ISO-8601 timestamp param (temporal validity fields).
+ * Returns { value } when absent or valid, { error } when present but unparseable.
+ */
+function validateIsoTimestamp(value: unknown, name: string): { value?: string; error?: string } {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== 'string' || value.length === 0 || value.length > 64) {
+    return { error: `${name} must be a non-empty ISO-8601 timestamp string (max 64 chars)` };
+  }
+  if (Number.isNaN(Date.parse(value))) {
+    return { error: `${name} is not a parseable ISO-8601 timestamp: ${value.substring(0, 64)}` };
+  }
+  return { value };
+}
+
 function sanitizeError(error: unknown): string {
   if (error instanceof Error) {
     // Strip filesystem paths from error messages
@@ -603,6 +618,18 @@ export const agentdbHierarchicalStore: MCPTool = {
         enum: ['working', 'episodic', 'semantic'],
         default: 'working',
       },
+      validFrom: {
+        type: 'string',
+        description: 'Optional ISO-8601 timestamp from which this fact is valid (temporal validity — Zep/Graphiti-style). Omit for always-valid.',
+      },
+      validUntil: {
+        type: 'string',
+        description: 'Optional ISO-8601 timestamp after which this fact is no longer valid. Expired facts are hidden from recall unless includeExpired=true.',
+      },
+      supersedes: {
+        type: 'string',
+        description: 'Optional id (or key) of an existing entry this fact supersedes. The old entry is INVALIDATED (stamped validUntil=now + supersededBy=<new id>), not deleted — it stays auditable via recall includeExpired=true.',
+      },
     },
     required: ['key', 'value'],
   },
@@ -621,8 +648,24 @@ export const agentdbHierarchicalStore: MCPTool = {
       if (!['working', 'episodic', 'semantic'].includes(tier)) {
         return { success: false, error: `Invalid tier: ${tier}. Must be working, episodic, or semantic` };
       }
+      // Temporal validity fields (all optional, backward compatible)
+      const validFrom = validateIsoTimestamp(params.validFrom, 'validFrom');
+      if (validFrom.error) return { success: false, error: validFrom.error };
+      const validUntil = validateIsoTimestamp(params.validUntil, 'validUntil');
+      if (validUntil.error) return { success: false, error: validUntil.error };
+      const supersedes = params.supersedes !== undefined
+        ? validateString(params.supersedes, 'supersedes', 1000)
+        : undefined;
+      if (params.supersedes !== undefined && !supersedes) {
+        return { success: false, error: 'supersedes must be a non-empty string (entry id or key, max 1KB)' };
+      }
       const bridge = await getBridge();
-      const result = await bridge.bridgeHierarchicalStore({ key, value, tier });
+      const result = await bridge.bridgeHierarchicalStore({
+        key, value, tier,
+        validFrom: validFrom.value,
+        validUntil: validUntil.value,
+        supersedes: supersedes ?? undefined,
+      });
       return result ?? { success: false, error: 'AgentDB bridge not available. Use memory_store/memory_search instead.' };
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
@@ -641,6 +684,11 @@ export const agentdbHierarchicalRecall: MCPTool = {
       query: { type: 'string', description: 'Recall query' },
       tier: { type: 'string', description: 'Filter by tier (working, episodic, semantic)' },
       topK: { type: 'number', description: 'Number of results (default: 5)' },
+      includeExpired: {
+        type: 'boolean',
+        description: 'Include temporally-invalid entries (superseded, expired, or not-yet-valid). Audit escape hatch — default false.',
+        default: false,
+      },
     },
     required: ['query'],
   },
@@ -660,6 +708,7 @@ export const agentdbHierarchicalRecall: MCPTool = {
         query,
         tier: tier ?? undefined,
         topK: validatePositiveInt(params.topK, 5, MAX_TOP_K),
+        includeExpired: params.includeExpired === true,
       });
       return result ?? { results: [], error: 'AgentDB bridge not available. Use memory_search instead.' };
     } catch (error) {

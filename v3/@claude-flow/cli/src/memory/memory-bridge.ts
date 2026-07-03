@@ -2307,10 +2307,22 @@ export async function bridgeHealthCheck(
  *
  * Real HierarchicalMemory API (agentdb alpha.10+):
  *   store(content, importance?, tier?, options?) → Promise<string>
- * Stub API (fallback):
- *   store(key, value, tier) — synchronous
+ * Fallback API (@claude-flow/memory TieredMemoryStore):
+ *   store(key, value, tier, temporalOptions?) — synchronous, returns
+ *   { id, key, tier, superseded? }
+ *
+ * Temporal validity (Zep/Graphiti-style, impl/memory-sota):
+ * - validFrom / validUntil (ISO) travel with the entry.
+ * - supersedes=<entryId|key> INVALIDATES the old entry (validUntil=now +
+ *   supersededBy=newId) instead of deleting it. Natively supported by the
+ *   TieredMemoryStore fallback; on the real agentdb HierarchicalMemory the
+ *   temporal fields are stored in metadata, and supersede is reported as
+ *   unsupported (no public update API) rather than silently dropped.
  */
-export async function bridgeHierarchicalStore(params: { key: string; value: string; tier?: string; importance?: number }): Promise<any> {
+export async function bridgeHierarchicalStore(params: {
+  key: string; value: string; tier?: string; importance?: number;
+  validFrom?: string; validUntil?: string; supersedes?: string;
+}): Promise<any> {
   const registry = await getRegistry();
   if (!registry) return null;
   try {
@@ -2320,15 +2332,34 @@ export async function bridgeHierarchicalStore(params: { key: string; value: stri
 
     // Detect real HierarchicalMemory (has async store returning id) vs stub
     if (typeof hm.getStats === 'function' && typeof hm.promote === 'function') {
-      // Real agentdb HierarchicalMemory
+      // Real agentdb HierarchicalMemory — temporal fields ride in metadata
+      // so bridgeHierarchicalRecall can filter on them.
+      const metadata: Record<string, unknown> = { key: params.key };
+      if (params.validFrom) metadata.validFrom = params.validFrom;
+      if (params.validUntil) metadata.validUntil = params.validUntil;
       const id = await hm.store(params.value, params.importance || 0.5, tier, {
-        metadata: { key: params.key },
+        metadata,
         tags: [params.key],
       });
-      return { success: true, id, key: params.key, tier };
+      const result: any = { success: true, id, key: params.key, tier };
+      if (params.supersedes) {
+        // No public update/invalidate API on agentdb HierarchicalMemory —
+        // surface the limitation honestly instead of silently dropping it.
+        result.superseded = null;
+        result.warning = 'supersedes is not supported by the native agentdb HierarchicalMemory backend (no update API); the referenced entry was left untouched';
+      }
+      return result;
     }
-    // Stub fallback
-    hm.store(params.key, params.value, tier);
+    // TieredMemoryStore fallback (temporal-aware) / legacy stub
+    const storeResult = hm.store(params.key, params.value, tier, {
+      validFrom: params.validFrom,
+      validUntil: params.validUntil,
+      supersedes: params.supersedes,
+    });
+    if (storeResult && typeof storeResult === 'object') {
+      return { success: true, ...storeResult };
+    }
+    // Legacy stub (returns void) — temporal options were ignored
     return { success: true, key: params.key, tier };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
@@ -2342,7 +2373,7 @@ export async function bridgeHierarchicalStore(params: { key: string; value: stri
  * Stub API (fallback):
  *   recall(query: string, topK: number) → synchronous array
  */
-export async function bridgeHierarchicalRecall(params: { query: string; tier?: string; topK?: number }): Promise<any> {
+export async function bridgeHierarchicalRecall(params: { query: string; tier?: string; topK?: number; includeExpired?: boolean }): Promise<any> {
   const registry = await getRegistry();
   if (!registry) return null;
   try {
@@ -2360,11 +2391,33 @@ export async function bridgeHierarchicalRecall(params: { query: string; tier?: s
         memoryQuery.tier = params.tier;
       }
       const results = await hm.recall(memoryQuery);
-      return { results: results || [], controller: 'hierarchicalMemory' };
+      // Temporal filter over metadata (validFrom/validUntil stamped by
+      // bridgeHierarchicalStore). Entries without the fields are always
+      // valid — legacy behavior unchanged.
+      const filtered = params.includeExpired
+        ? (results || [])
+        : (results || []).filter((r: any) => {
+            const meta = r?.metadata || {};
+            const now = Date.now();
+            if (meta.validFrom) {
+              const from = Date.parse(String(meta.validFrom));
+              if (!Number.isNaN(from) && from > now) return false;
+            }
+            if (meta.validUntil) {
+              const until = Date.parse(String(meta.validUntil));
+              if (!Number.isNaN(until) && until <= now) return false;
+            }
+            return true;
+          });
+      return { results: filtered, controller: 'hierarchicalMemory' };
     }
 
-    // Stub fallback — recall(string, number)
-    const results = hm.recall(params.query, params.topK || 5);
+    // TieredMemoryStore fallback — recall(string, number, options?).
+    // Temporal filtering happens inside the store; the legacy stub simply
+    // ignores the extra argument.
+    const results = hm.recall(params.query, params.topK || 5, {
+      includeExpired: params.includeExpired === true,
+    });
     const filtered = params.tier
       ? results.filter((r: any) => r.tier === params.tier)
       : results;
