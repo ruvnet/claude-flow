@@ -17,7 +17,7 @@
     "prepublishOnly": "npm run build && node -e \"const m = await import('./dist/index.js'); const required = ['ControllerRegistry','MemoryService','UnifiedMemoryService','PersistentSonaCoordinator','RvfLearningStore','RvfMigrator']; const missing = required.filter(k => !m[k]); if (missing.length) { console.error('Missing exports:', missing); process.exit(1); } const forbidden = ['HnswLite','RvfBackend']; const leaks = forbidden.filter(k => k in m); if (leaks.length) { console.error('Forbidden public exports present (ADR-125):', leaks); process.exit(1); } console.log('All required exports present; ADR-125 surface clean');\""
   },
   "dependencies": {
-    "agentdb": "^3.0.0-alpha.16",
+    "agentdb": "^3.0.0-alpha.17",
     "sql.js": "^1.10.3"
   },
   "optionalDependencies": {
