@@ -58,7 +58,7 @@ no network, registry unreachable), the script emits:
 {
   "degraded": true,
   "reason": "metaharness-not-available",
-  "hint": "Install metaharness manually with `npm i -D metaharness` or run `npx metaharness@latest --version` to verify network access."
+  "hint": "Install with `npm i -D metaharness@~0.3.0` (pinned range — this plugin never fetches @latest) or verify network access for the one-time cache install."
 }
 ```
 

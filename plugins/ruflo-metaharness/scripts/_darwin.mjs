@@ -4,6 +4,11 @@
 // but targets the separate darwin binary (`metaharness-darwin`) which is
 // published as its own npm package (`@metaharness/darwin@~0.8.0`).
 //
+// Shared plumbing (degraded classification, --json injection, trailing-JSON
+// parse, degraded emitter) lives in `_invoke.mjs`. What stays here is the
+// genuinely-darwin part: the ASYNC STREAMING variant (`runDarwinAsync`) that
+// long `evolve` runs need for per-generation progress visibility.
+//
 // Three subcommands surfaced (matches darwin 0.8.x — same verbs as 0.3.x,
 // with GEPA-engine evolve flags added upstream: --selection modes,
 // --crossover, --epistasis, --curriculum, --mutator ruvllm, --sandbox):
@@ -28,15 +33,24 @@
 //   smoke shapes only.
 
 import { spawnSync, spawn } from 'node:child_process';
+import {
+  classifyDegraded,
+  importOptionalLibrary,
+  injectJson,
+  makeDegradedEmitter,
+  parseTrailingJson,
+} from './_invoke.mjs';
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 // Pinned semver range. Bump in lock-step with optionalDependencies in
 // @claude-flow/cli/package.json + ruflo/package.json. The `~` allows
 // patch upgrades without re-pinning.
-const DARWIN_PIN = '@metaharness/darwin@~0.8.0';
+const DARWIN_PKG = '@metaharness/darwin';
+const DARWIN_PIN_VERSION = '~0.8.0';
+const DARWIN_PIN = `${DARWIN_PKG}@${DARWIN_PIN_VERSION}`;
 
-const DEGRADED_RX = /could not determine executable|404|not installed|MODULE_NOT_FOUND|ENOTFOUND|getaddrinfo|ECONNREFUSED|ETIMEDOUT/i;
+const REASON_PREFIX = 'metaharness-darwin';
 
 function buildArgv(args, wantJson) {
   // `metaharness-darwin` historically does NOT take --json on every
@@ -45,30 +59,14 @@ function buildArgv(args, wantJson) {
   // explicitly request it, but never silently inject it on subcommands
   // that don't accept it. The shape that does support --json is the
   // single-verb `evolve` and `bench verify`.
-  if (!wantJson || args.includes('--json')) return args;
-  return [...args, '--json'];
+  return injectJson(args, wantJson);
 }
 
-function classifyDegraded(stderr, exitCode) {
-  if (exitCode === null) return { degraded: true, reason: 'metaharness-darwin-timeout' };
-  if (DEGRADED_RX.test(stderr)) return { degraded: true, reason: 'metaharness-darwin-not-available' };
-  return { degraded: false };
-}
-
-function maybeParseJson(stdout) {
-  // darwin's evolve emits a final JSON object at end of stdout when --json
-  // is passed; everything before is human-readable progress. Grab the LAST
-  // {...} block, not the first — the first may be a per-generation log line.
-  const matches = [...stdout.matchAll(/\{[\s\S]*?\}/g)];
-  if (matches.length === 0) return null;
-  // Try last match first; fall back to greedy single-block match.
-  for (let i = matches.length - 1; i >= 0; i--) {
-    try { return JSON.parse(matches[i][0]); } catch { /* try previous */ }
-  }
-  const greedy = /\{[\s\S]*\}/.exec(stdout);
-  if (greedy) { try { return JSON.parse(greedy[0]); } catch { return null; } }
-  return null;
-}
+// darwin's evolve emits a final JSON object at end of stdout when --json
+// is passed; everything before is human-readable progress. Grab the LAST
+// {...} block, not the first — the first may be a per-generation log line.
+// (This last-block parse is now the family-wide shared implementation.)
+const maybeParseJson = parseTrailingJson;
 
 /**
  * Sync invocation. Use for short subcommands (`bench verify`, smoke shapes).
@@ -90,7 +88,7 @@ export function runDarwin(args, opts = {}) {
   const durationMs = Date.now() - start;
   const stdout = r.stdout || '';
   const stderr = r.stderr || '';
-  const classified = classifyDegraded(stderr, r.status);
+  const classified = classifyDegraded(stderr, r.status, REASON_PREFIX);
   if (classified.degraded) {
     return {
       stdout, stderr,
@@ -142,7 +140,9 @@ export function runDarwinAsync(args, opts = {}) {
         for (const line of lines) opts.onProgress(line);
       }
     });
+    let timedOut = false;
     const timer = setTimeout(() => {
+      timedOut = true;
       try { p.kill('SIGTERM'); } catch { /* ignore */ }
     }, timeoutMs);
     if (opts.signal) {
@@ -156,13 +156,13 @@ export function runDarwinAsync(args, opts = {}) {
         stdout,
         stderr: stderr + String(e?.message ?? e),
         exitCode: 127, json: null, durationMs: Date.now() - start,
-        degraded: true, reason: 'metaharness-darwin-not-available',
+        degraded: true, reason: `${REASON_PREFIX}-not-available`,
       });
     });
     p.on('close', (code) => {
       clearTimeout(timer);
       const durationMs = Date.now() - start;
-      const classified = classifyDegraded(stderr, code);
+      const classified = classifyDegraded(stderr, timedOut ? null : code, REASON_PREFIX);
       if (classified.degraded) {
         resolve({
           stdout, stderr,
@@ -185,18 +185,26 @@ export function runDarwinAsync(args, opts = {}) {
 /**
  * Match the existing `emitDegradedJsonAndExit` shape used by the
  * metaharness-umbrella scripts so MCP tool consumers see one contract.
+ * Exit 0 — ADR-150 architectural constraint: ruflo continues to function
+ * when MetaHarness is absent. Same posture as the umbrella scripts.
  */
-export function emitDarwinDegradedJsonAndExit(reason) {
-  const payload = {
-    degraded: true,
-    reason,
-    hint: 'Install with `npm i -D ' + DARWIN_PIN + '` or run `npx -y ' + DARWIN_PIN + ' --help` to verify network access.',
-    generatedAt: new Date().toISOString(),
-  };
-  console.log(JSON.stringify(payload, null, 2));
-  // Exit 0 — ADR-150 architectural constraint: ruflo continues to function
-  // when MetaHarness is absent. Same posture as the umbrella scripts.
-  process.exit(0);
-}
+export const emitDarwinDegradedJsonAndExit = makeDegradedEmitter(DARWIN_PKG, DARWIN_PIN_VERSION);
 
 export const DARWIN_VERSION_PIN = DARWIN_PIN;
+
+/**
+ * Resolver for the darwin GEPA LIBRARY entry (`@metaharness/darwin/gepa`).
+ * Lives here (not in gepa.mjs) because gepa.mjs is a CLI script that runs
+ * main() on import — this module is the import-safe home for the darwin
+ * pin. Used by gepa.mjs (genome/validate/render/analyze ops) and by
+ * evolve.mjs --diagnose (failure-class analysis of run transcripts).
+ * Returns the module namespace or null. Never throws on absence.
+ */
+export function importGepa() {
+  return importOptionalLibrary({
+    specifier: '@metaharness/darwin/gepa',
+    pkg: DARWIN_PKG,
+    pinVersion: DARWIN_PIN_VERSION,
+    entryRelPath: 'dist/gepa/index.js',
+  });
+}

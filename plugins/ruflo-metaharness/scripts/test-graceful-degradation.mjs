@@ -31,10 +31,20 @@
 //   2  setup error
 
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
+
+// Since the versioned-cache consolidation (_invoke.mjs), a warm
+// ~/.ruflo/<pkg>-cache-<pin> or a locally installed metaharness would satisfy
+// resolution WITHOUT touching the (unreachable) registry — making this drill
+// vacuous on developer machines. Point the cache base at an empty temp dir
+// and disable local walk-up resolution so the install path (and therefore
+// the degraded contract) is actually exercised.
+const EMPTY_CACHE_BASE = mkdtempSync(join(tmpdir(), 'ruflo-degradation-drill-'));
 
 const ARGS = (() => {
   const a = { keep: false };
@@ -61,6 +71,8 @@ function runWithUnreachableRegistry(scriptName, extraArgs) {
       ...process.env,
       npm_config_registry: UNREACHABLE_REGISTRY,
       NPM_CONFIG_REGISTRY: UNREACHABLE_REGISTRY,
+      RUFLO_METAHARNESS_CACHE_BASE: EMPTY_CACHE_BASE,
+      RUFLO_METAHARNESS_SKIP_LOCAL: '1',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf-8',
@@ -135,6 +147,10 @@ function main() {
     assert(acceptable.includes(r.exitCode) || (acceptable.length === 1 && r.exitCode === 0),
       `${s.name} exit code in {${acceptable.join(',')}} (got ${r.killedByTimeout ? 'timeout' : r.exitCode})`);
     assert(/"degraded"\s*:\s*true/.test(r.stdout), `${s.name} emits "degraded": true`);
+  }
+
+  if (!ARGS.keep) {
+    try { rmSync(EMPTY_CACHE_BASE, { recursive: true, force: true }); } catch { /* best-effort */ }
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

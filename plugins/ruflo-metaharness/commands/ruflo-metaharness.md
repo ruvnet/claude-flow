@@ -3,9 +3,11 @@ name: ruflo-metaharness
 description: MetaHarness integration — score, genome, mint, mcp-scan, threat-model — via subprocess invocations honoring ADR-150 architectural constraint
 ---
 
-MetaHarness integration commands. All shell out to `npx metaharness ...`
-or `npx -p metaharness@latest harness ...` via the `_harness.mjs`
-shared helper; no library imports on ruflo's boot path.
+MetaHarness integration commands. All shell out to the PINNED
+`metaharness`/`harness` binaries (`metaharness@~0.3.0` — resolved from a local
+install or a one-time `~/.ruflo/metaharness-cache-<pin>` install, never
+`@latest`) via the `_harness.mjs` shared helper; no library imports on
+ruflo's boot path.
 
 **`harness score [--path .] [--alert-on-fit-below N] [--format table|json]`** -- 5-dimension readiness scorecard (harnessFit / compileConfidence / taskCoverage / toolSafety / memoryUsefulness + estCostPerRunUsd + scaffoldReady).
 1. Run `node plugins/ruflo-metaharness/scripts/score.mjs --path <dir>`
