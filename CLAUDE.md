@@ -1151,6 +1151,16 @@ npx ruflo metaharness redblue attack prompt --count 3
 npx ruflo metaharness redblue patch --mock-judge # baseline → blue-team patch → retest delta
 npx ruflo metaharness redblue report --in report.json
                                                  # render existing report as markdown
+npx ruflo metaharness learn --host claude-code --model haiku --slice slices/lite.json
+                                                 # metaharness@0.3.0 / upstream ADR-235 —
+                                                 #   GEPA learning run; $0 dry-run default,
+                                                 #   --run to spend; needs a metaharness
+                                                 #   repo checkout (--repo / $METAHARNESS_REPO)
+npx ruflo metaharness gepa --op genome           # darwin@0.8.0 GEPA library — load + validate
+                                                 #   the shipped cand-6 genome (or --path <f>)
+npx ruflo metaharness gepa --op render           # genome → the system prompt it compiles to
+npx ruflo metaharness gepa --op analyze --transcript run.json
+                                                 # classify failure modes in a transcript
 
 # Dedicated command
 npx ruflo eject --name my-harness                # lift ruflo project → standalone harness
@@ -1173,6 +1183,8 @@ mcp__claude-flow__metaharness_bench               # ADR-153 — create/verify be
 mcp__claude-flow__metaharness_evolve              # MAP-Elites driver — evolve a harness across bench suites
 mcp__claude-flow__metaharness_security_bench      # security-focused benchmark suite gate
 mcp__claude-flow__metaharness_redblue             # @metaharness/redblue — adversarial red/blue LLM testing (init|run|patch|attack|report)
+mcp__claude-flow__metaharness_learn               # metaharness@0.3.0 — GEPA learning run ($0 dry-run default; run=true to spend)
+mcp__claude-flow__metaharness_gepa                # darwin@0.8.0 — GEPA genome ops (genome|validate|render|analyze); gepaOptimize stays library-only
 ```
 
 ### Routing integration (ADR-148/149)

@@ -26,6 +26,8 @@ MetaHarness integration plugin for ruflo. Surfaces the upstream `metaharness` / 
 | `harness-bench` | `/harness-bench --op create\|verify --repo <path>` | Manage `@metaharness/darwin` bench suites — fixed evaluation corpora for `harness-evolve` |
 | `harness-evolve` | `/harness-evolve --repo <path> [--generations 3] [--sandbox real\|mock\|agent]` | Run `@metaharness/darwin evolve` — mutate seven policy surfaces, sandbox-score variants, promote measured wins |
 | `harness-security-bench` | `/harness-security-bench [--population 2] [--cycles 1] [--alert-on-fail]` | "Darwin Shield" / ADR-155 — evolve a security-detection harness against a 10-vuln corpus |
+| `harness-learn` | `/harness-learn --host <h> --model <m> --slice <manifest> [--repo <checkout>] [--run]` | metaharness@0.3.0 / upstream ADR-235 — GEPA learning run; $0 dry-run default, `--run` to spend; needs a metaharness repo checkout |
+| `harness-gepa` | `/harness-gepa --op genome\|validate\|render\|analyze [--path <genome.json>]` | darwin@0.8.0 GEPA library surface — genome load/validate/render + transcript failure analysis; `gepaOptimize` stays library-only |
 
 ## Phase-0 baseline (ruflo itself, 2026-06-16)
 

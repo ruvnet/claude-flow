@@ -29,7 +29,7 @@ ground-truth set. Running this nightly gives us:
 
 Implementation: [`scripts/security-bench.mjs`](../../scripts/security-bench.mjs).
 
-1. Shell to `npx -y @metaharness/darwin@~0.3.1 metaharness-darwin security bench --population N --cycles N [--seed S]`.
+1. Shell to `npx -y @metaharness/darwin@~0.8.0 metaharness-darwin security bench --population N --cycles N [--seed S]`.
 2. Default timeout = `3s × 19 evaluations × population × cycles + 30s overhead`.
    At default `--population 2 --cycles 1` ≈ 144s; at `--population 4 --cycles 3` ≈ 12 min.
 3. Parse the markdown report — overall PASS/FAIL plus per-gate

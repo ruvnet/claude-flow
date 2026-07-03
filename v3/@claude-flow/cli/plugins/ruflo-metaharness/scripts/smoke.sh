@@ -151,9 +151,9 @@ F="$ROOT/../../v3/@claude-flow/cli/src/commands/metaharness.ts"
 miss=""
 [[ -f "$F" ]] || miss="$miss command-file-missing"
 grep -q "name: 'metaharness'" "$F" 2>/dev/null || miss="$miss no-name-field"
-# All 8 subcommands must each be present in the dispatch table.
+# All core subcommands must each be present in the dispatch table.
 # Match either quoted ('mcp-scan': ...) or unquoted shorthand (score: ...) keys.
-for sub in score genome mcp-scan threat-model oia-audit audit-list audit-trend mint; do
+for sub in score genome mcp-scan threat-model oia-audit audit-list audit-trend mint redblue learn gepa; do
   grep -qE "(^|[[:space:]])'?${sub}'?:" "$F" 2>/dev/null || miss="$miss missing-$sub"
 done
 # Registered in the loader
@@ -342,7 +342,7 @@ miss=""
 ROOTPJ="$ROOT/../../package.json"
 RUFLOPJ="$ROOT/../../ruflo/package.json"
 CLIPJ="$ROOT/../../v3/@claude-flow/cli/package.json"
-for pkg in "metaharness" "@metaharness/router" "@metaharness/kernel"; do
+for pkg in "metaharness" "@metaharness/router" "@metaharness/kernel" "@metaharness/redblue"; do
   ROOT_PIN=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$ROOTPJ')).optionalDependencies?.['$pkg'] || '')" 2>/dev/null)
   RUFLO_PIN=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$RUFLOPJ')).optionalDependencies?.['$pkg'] || '')" 2>/dev/null)
   CLI_PIN=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$CLIPJ')).optionalDependencies?.['$pkg'] || '')" 2>/dev/null)
@@ -657,8 +657,13 @@ grep -q "metaharness drift-from-history" "$W" 2>/dev/null || miss="$miss no-cli-
 grep -q '"path": "file"' "$W" 2>/dev/null || miss="$miss no-path-file-assert"
 grep -q '"skippedAuditList": true' "$W" 2>/dev/null || miss="$miss no-skip-true-assert"
 grep -q "/tmp/drift-baseline.json" "$W" 2>/dev/null || miss="$miss no-baseline-path"
-# Iter-98 step lives in the metaharness-real-data job
-grep -B100 "Drift-from-history dispatcher round-trip" "$W" 2>/dev/null | grep -q "metaharness-real-data:" \
+# Iter-98 step lives in the metaharness-real-data job. The brittle
+# fixed-window lookback (-B100) broke once the job grew past 100 lines;
+# instead use awk to find the most recent top-level job header above
+# the step and check it is metaharness-real-data.
+last_job=$(awk '/^  [a-zA-Z_-]+:[[:space:]]*$/ { last=$0 }
+                /Drift-from-history dispatcher round-trip/ { print last; exit }' "$W" 2>/dev/null)
+echo "$last_job" | grep -q "metaharness-real-data:" \
   || miss="$miss not-in-real-data-job"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
@@ -717,7 +722,7 @@ for k in $KEYS; do
   grep -qE "npx ruflo metaharness ${k}([ \\\\]|$)" "$CMD" 2>/dev/null \
     || miss="$miss subcommand-${k}-not-in-claude-md"
 done
-[[ "$COUNT" == "10" ]] || miss="$miss subcommand-count-stale:$COUNT-expected-10"
+[[ "$COUNT" == "13" ]] || miss="$miss subcommand-count-stale:$COUNT-expected-13"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "17z56. every MCP tool documented in CLAUDE.md (iter 93)"
@@ -737,8 +742,12 @@ for t in $TOOLS; do
   grep -q "mcp__claude-flow__${t}" "$CMD" 2>/dev/null \
     || miss="$miss ${t}-not-in-claude-md"
 done
-# Lock count: 9 MCP tools (mint deliberately excluded — see iter 73)
-[[ "$COUNT" == "9" ]] || miss="$miss mcp-tool-count-stale:$COUNT-expected-9"
+# Lock count: 15 MCP tools (mint deliberately excluded — see iter 73).
+# Bumped from 9 → 12 after ADR-153 added metaharness_bench,
+# metaharness_evolve, and metaharness_security_bench. Bumped from 12 → 13
+# after @metaharness/redblue integration added metaharness_redblue.
+# Bumped from 13 → 15 after metaharness@0.3.0 learn + darwin@0.8.0 gepa.
+[[ "$COUNT" == "15" ]] || miss="$miss mcp-tool-count-stale:$COUNT-expected-15"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "17z55. MCP enum + SEVERITY_RANK vocabulary aligned (iter 92)"
@@ -813,8 +822,11 @@ for f in $REFS; do
   COUNT=$((COUNT + 1))
   [[ -f "$SCRIPTS_DIR/$f" ]] || miss="$miss mcp-script-${f}-missing"
 done
-# Should be 9 unique scripts (one per MCP tool; mint deliberately excluded)
-[[ "$COUNT" == "9" ]] || miss="$miss mcp-script-count-stale:$COUNT-expected-9"
+# Should be 15 unique scripts (one per MCP tool; mint deliberately excluded).
+# Bumped from 9 → 12 after ADR-153 added bench/evolve/security_bench tools.
+# Bumped from 12 → 13 after @metaharness/redblue integration added redblue.mjs.
+# Bumped from 13 → 15 after metaharness@0.3.0 learn + darwin@0.8.0 gepa.
+[[ "$COUNT" == "15" ]] || miss="$miss mcp-script-count-stale:$COUNT-expected-15"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "17z52. SUBCOMMANDS map entries point at existing script files (iter 89)"
@@ -834,9 +846,9 @@ for f in $MAPPINGS; do
   COUNT=$((COUNT + 1))
   [[ -f "$SCRIPTS_DIR/$f" ]] || miss="$miss script-${f}-missing"
 done
-# Iter 73's description string lists 10 subcommands. SUBCOMMANDS map should
-# have the same 10 entries. Lock the count at exactly 10.
-[[ "$COUNT" == "10" ]] || miss="$miss mapping-count-stale:$COUNT-expected-10"
+# Iter 73's description string + redblue + learn/gepa lists 13 subcommands.
+# SUBCOMMANDS map should have the same 13 entries. Lock the count at exactly 13.
+[[ "$COUNT" == "13" ]] || miss="$miss mapping-count-stale:$COUNT-expected-13"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "17z51. all metaharness scripts produce parseable JSON in --format json mode (iter 88)"
@@ -1130,8 +1142,9 @@ step "17z36. CLI subcommand list current + mint anti-MCP guard (iter 73)"
 miss=""
 DISP="$ROOT/../../v3/@claude-flow/cli/src/commands/metaharness.ts"
 WRAPPER="$ROOT/../../v3/@claude-flow/cli/src/mcp-tools/metaharness-tools.ts"
-# iter-73 description string lists all 10 dispatchable subcommands
-for sub in score genome mcp-scan threat-model oia-audit audit-list audit-trend similarity drift-from-history mint; do
+# All 13 dispatchable subcommands present (iter-73 had 10; @metaharness/redblue
+# added redblue.mjs; metaharness@0.3.0/darwin@0.8.0 added learn.mjs + gepa.mjs).
+for sub in score genome mcp-scan threat-model oia-audit audit-list audit-trend similarity drift-from-history mint redblue learn gepa; do
   grep -q "${sub}" "$DISP" 2>/dev/null || miss="$miss subcommand-${sub}-not-listed"
 done
 # ANTI-MINT GUARD: mint is intentionally CLI-only per ADR-150 §Sandboxing
@@ -1618,9 +1631,12 @@ step "17z9. MCP success-semantic footnote + audit_trend file inputs (iter 46)"
 miss=""
 WRAPPER="$ROOT/../../v3/@claude-flow/cli/src/mcp-tools/metaharness-tools.ts"
 # Success-semantic constant declared + appended to N descriptions = N+1 occurrences.
-# Iter 46 set this at 9 (8 tools); iter 54 added the 9th tool → expect 10.
+# Iter 46 set this at 9 (8 tools); iter 54 added the 9th → 10. ADR-153
+# added 3 more tools (bench/evolve/security_bench) → 1 + 12 = 13.
+# @metaharness/redblue integration added 1 more → 1 + 13 = 14.
+# learn + gepa (metaharness@0.3.0 / darwin@0.8.0) added 2 more → 1 + 15 = 16.
 COUNT=$(grep -c "MCP_SUCCESS_SEMANTIC" "$WRAPPER" 2>/dev/null; true)
-[[ "$COUNT" == "10" ]] || miss="$miss footnote-count:$COUNT-expected-10"
+[[ "$COUNT" == "16" ]] || miss="$miss footnote-count:$COUNT-expected-16"
 # audit_trend now exposes baselineFile / currentFile
 grep -q "baselineFile" "$WRAPPER" 2>/dev/null || miss="$miss no-baseline-file"
 grep -q "currentFile" "$WRAPPER" 2>/dev/null || miss="$miss no-current-file"
@@ -1658,8 +1674,10 @@ grep -q "success = exitCode === 0" "$WRAPPER" 2>/dev/null || miss="$miss no-exit
 COUNT_OLD=$(grep -c "success: !r.degraded" "$WRAPPER" 2>/dev/null; true)
 [[ "$COUNT_OLD" == "0" ]] || miss="$miss old-pattern-still-present:$COUNT_OLD"
 COUNT_NEW=$(grep -c "success: r.success" "$WRAPPER" 2>/dev/null; true)
-# Iter 54 added a 9th tool. Future iters that add tools should bump this.
-[[ "$COUNT_NEW" == "9" ]] || miss="$miss new-pattern-count:$COUNT_NEW-expected-9"
+# Iter 54 added a 9th tool → 9. ADR-153 added 3 more (bench, evolve,
+# security_bench) → 12. @metaharness/redblue integration added 1 more → 13.
+# learn + gepa added 2 more → 15. Future iters that add tools should bump this.
+[[ "$COUNT_NEW" == "15" ]] || miss="$miss new-pattern-count:$COUNT_NEW-expected-15"
 # Runtime anchors: iter 44 success assertions present
 T="$ROOT/scripts/test-mcp-tools.mjs"
 grep -q "iter 44 fix" "$T" 2>/dev/null || miss="$miss no-iter44-anchors"
@@ -2017,12 +2035,15 @@ grep -q "result has 'success'" "$F" || miss="$miss no-success-assertion"
 grep -q "result has 'data'" "$F" || miss="$miss no-data-assertion"
 grep -q "result has 'degraded'" "$F" || miss="$miss no-degraded-assertion"
 grep -q "result has 'exitCode'" "$F" || miss="$miss no-exitcode-assertion"
-# All 9 tool names enumerated (similarity iter 36, drift_from_history iter 54)
-for tool in metaharness_score metaharness_genome metaharness_mcp_scan metaharness_threat_model metaharness_oia_audit metaharness_audit_list metaharness_audit_trend metaharness_similarity metaharness_drift_from_history; do
+# All 15 tool names enumerated (similarity iter 36, drift_from_history iter 54,
+# ADR-153 added bench/evolve/security_bench, @metaharness/redblue added redblue,
+# metaharness@0.3.0/darwin@0.8.0 added learn + gepa)
+for tool in metaharness_score metaharness_genome metaharness_mcp_scan metaharness_threat_model metaharness_oia_audit metaharness_audit_list metaharness_audit_trend metaharness_similarity metaharness_drift_from_history metaharness_bench metaharness_evolve metaharness_security_bench metaharness_redblue metaharness_learn metaharness_gepa; do
   grep -q "${tool}" "$F" || miss="$miss missing-${tool}"
 done
-# Count assertion must match iter-54 expansion (8 → 9)
-grep -q "tools.length === 9" "$F" || miss="$miss tool-count-assertion-stale"
+# Count assertion must match iter-54 (8 → 9), then ADR-153 (9 → 12), then
+# redblue (12 → 13), then learn/gepa (13 → 15)
+grep -q "tools.length === 15" "$F" || miss="$miss tool-count-assertion-stale"
 # Graceful skip when dist absent (so the script is smoke-runnable pre-build)
 grep -q "SKIPPED" "$F" || miss="$miss no-skip-doc"
 [[ -z "$miss" ]] && ok || bad "$miss"

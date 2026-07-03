@@ -60,6 +60,13 @@ function safetyChecks() {
 
 function main() {
   safetyChecks();
+  // ADR-150 architectural-constraint #3 (graceful degradation): even the
+  // dry-run path must report degraded:true when metaharness is unreachable
+  // — otherwise users with no network / proxy block see a happy-looking
+  // plan and only hit the failure on --confirm. The no-metaharness-smoke
+  // CI gate asserts every script emits a `"degraded"` field in this case.
+  const probe = runMetaharness(['--version'], { json: false, timeoutMs: 15_000 });
+  if (probe.degraded) { emitDegradedJsonAndExit(probe.reason); return; }
   const plan = {
     action: 'metaharness new',
     name: ARGS.name,

@@ -1,7 +1,7 @@
 // _redblue.mjs — invocation helper for `@metaharness/redblue`.
 //
 // Sibling of `_darwin.mjs` / `_harness.mjs`. Targets the `redblue` binary
-// from the standalone `@metaharness/redblue@~0.1.1` package.
+// from the standalone `@metaharness/redblue@~0.1.4` package.
 //
 // Subcommands surfaced (matches redblue 0.1.x):
 //   - `redblue init   [--out redblue.yaml]`
@@ -52,11 +52,17 @@ const INSTALL_TIMEOUT_MS = 180_000;  // npm install can be slow on cold cache
 
 // Pinned semver range. Bump in lock-step with optionalDependencies in
 // @claude-flow/cli/package.json + ruflo/package.json.
-const REDBLUE_PIN = '@metaharness/redblue@~0.1.1';
+const REDBLUE_PIN = '@metaharness/redblue@~0.1.4';
 const REDBLUE_PKG = '@metaharness/redblue';
-const REDBLUE_PIN_VERSION = '~0.1.1';
+const REDBLUE_PIN_VERSION = '~0.1.4';
 
-const CACHE_DIR = join(homedir(), '.ruflo', 'redblue-cache');
+// Cache dir is versioned by the pin so bumping REDBLUE_PIN_VERSION
+// invalidates stale installs — ensureInstalled() short-circuits on
+// existsSync(RESOLVED_CLI), so an unversioned dir would keep serving
+// the old package forever after a pin bump.
+const CACHE_DIR = join(
+  homedir(), '.ruflo', `redblue-cache-${REDBLUE_PIN_VERSION.replace(/[~^]/g, '')}`,
+);
 const RESOLVED_CLI = join(
   CACHE_DIR, 'node_modules', '@metaharness', 'redblue', 'dist', 'cli', 'index.js',
 );

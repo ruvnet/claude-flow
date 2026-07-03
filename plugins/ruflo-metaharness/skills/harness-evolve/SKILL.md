@@ -35,7 +35,7 @@ Implementation: [`scripts/evolve.mjs`](../../scripts/evolve.mjs).
    ≤ 20, `--concurrency` ≤ 8, sandbox/selection/mutator are known values).
 2. Without `--confirm`: print plan + exit 0 (mirrors `harness-mint` safety
    convention; defense in depth over the upstream `safety.ts` checks).
-3. With `--confirm`: shell to `npx -y @metaharness/darwin@~0.3.1 metaharness-darwin evolve <repo> ...`
+3. With `--confirm`: shell to `npx -y @metaharness/darwin@~0.8.0 metaharness-darwin evolve <repo> ...`
    via the shared `_darwin.mjs` async helper. Per-generation progress is
    forwarded to stderr; final champion JSON is captured from stdout.
 4. Compute timeout from `generations × children × per-variant` (per-variant

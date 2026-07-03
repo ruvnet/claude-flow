@@ -2,9 +2,11 @@
 //
 // Mirrors `_harness.mjs` for the umbrella `metaharness` / `harness` binaries,
 // but targets the separate darwin binary (`metaharness-darwin`) which is
-// published as its own npm package (`@metaharness/darwin@~0.3.1`).
+// published as its own npm package (`@metaharness/darwin@~0.8.0`).
 //
-// Three subcommands surfaced (matches darwin 0.3.x):
+// Three subcommands surfaced (matches darwin 0.8.x — same verbs as 0.3.x,
+// with GEPA-engine evolve flags added upstream: --selection modes,
+// --crossover, --epistasis, --curriculum, --mutator ruvllm, --sandbox):
 //   - `metaharness-darwin evolve <repo> [...]`         — harness self-improvement
 //   - `metaharness-darwin bench <create|verify> ...`   — bench-suite lifecycle
 //   - `metaharness-darwin security bench [...]`        — Darwin Shield (upstream ADR-155)
@@ -32,7 +34,7 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 // Pinned semver range. Bump in lock-step with optionalDependencies in
 // @claude-flow/cli/package.json + ruflo/package.json. The `~` allows
 // patch upgrades without re-pinning.
-const DARWIN_PIN = '@metaharness/darwin@~0.3.1';
+const DARWIN_PIN = '@metaharness/darwin@~0.8.0';
 
 const DEGRADED_RX = /could not determine executable|404|not installed|MODULE_NOT_FOUND|ENOTFOUND|getaddrinfo|ECONNREFUSED|ETIMEDOUT/i;
 

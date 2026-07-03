@@ -24,6 +24,13 @@
  *
  *   - metaharness_redblue        red-team → judge → blue-patch → retest → report
  *
+ * metaharness@0.3.0 + @metaharness/darwin@0.8.0 add two more:
+ *
+ *   - metaharness_learn          upstream ADR-235 GEPA learning run ($0 dry-run
+ *                                default; run=true to spend; needs repo checkout)
+ *   - metaharness_gepa           GEPA library surface — genome load/validate/
+ *                                render + transcript failure analysis
+ *
  * Every tool resolves the corresponding plugin script
  * (`plugins/ruflo-metaharness/scripts/<X>.mjs`) via the same locator
  * the commands/metaharness.ts dispatcher uses, then spawns it with
@@ -529,6 +536,76 @@ export const metaharnessTools: MCPTool[] = [
       if (input.alertOnFail === true) args.push('--alert-on-fail');
       if (input.timeoutMs !== undefined) args.push('--timeout-ms', String(input.timeoutMs));
       const r = await runScript('redblue.mjs', args);
+      return { success: r.success, data: r.json, degraded: r.degraded, exitCode: r.exitCode };
+    },
+  },
+  // ───────────────────────────────────────────────────────────────────────
+  // metaharness@0.3.0 `learn` + @metaharness/darwin@0.8.0 GEPA (2 tools).
+  //
+  // learn — upstream ADR-235 GEPA learning run. $0 dry-run by default;
+  // spending requires the explicit `run: true` opt-in, forwarded as --run.
+  // Requires a metaharness repo checkout (the learning harness is too heavy
+  // for the npm package) — absent checkout returns a structured
+  // {status: "checkout-required"} payload, distinct from degraded.
+  //
+  // gepa — the darwin GEPA *library* surface (genome load/validate/render,
+  // transcript analysis). gepaOptimize itself is deliberately NOT exposed:
+  // it takes an in-process evaluate() callback that cannot cross the
+  // subprocess boundary; optimization runs live behind metaharness_evolve.
+  // ───────────────────────────────────────────────────────────────────────
+  {
+    name: 'metaharness_learn',
+    description: 'ADR-235 (upstream) — GEPA learning run via `metaharness learn`: optimizes a harness genome against a SWE-bench-style slice manifest. $0 DRY-RUN BY DEFAULT — it resolves the slice and prices the run without model calls; pass run=true to actually spend (model calls + Docker sandboxes). Requires a local metaharness repo checkout (repo param or $METAHARNESS_REPO); without one the tool returns {status:"checkout-required"} with clone instructions — that is a precondition report, not an error. Use when you want the harness policy to LEARN from a task corpus rather than hand-editing prompts; manual prompt tweaking is wrong because GEPA scores candidates against held-out slices and only promotes measured winners. Long real runs exceed the 120s MCP subprocess budget — run those via `ruflo metaharness learn` in a terminal instead. ' + MCP_SUCCESS_SEMANTIC,
+    category: 'metaharness',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        host: { type: 'string', description: 'Target host harness (e.g. claude-code, codex, pi-dev, hermes)' },
+        model: { type: 'string', description: 'Model to learn against (upstream model id)' },
+        slice: { type: 'string', description: 'Path to a slice manifest JSON' },
+        repo: { type: 'string', description: 'Path to a metaharness repo checkout (sets $METAHARNESS_REPO)' },
+        run: { type: 'boolean', description: 'EXPLICIT SPEND OPT-IN — without this the run is a $0 dry-run', default: false },
+        alertOnFail: { type: 'boolean', description: 'Exit 1 when the learn run reports failure', default: false },
+        timeoutMs: { type: 'number', description: 'Subprocess hard timeout override' },
+      },
+    },
+    handler: async (input) => {
+      const args: string[] = [];
+      if (input.host) args.push('--host', String(input.host));
+      if (input.model) args.push('--model', String(input.model));
+      if (input.slice) args.push('--slice', String(input.slice));
+      if (input.repo) args.push('--repo', String(input.repo));
+      if (input.run === true) args.push('--run');
+      if (input.alertOnFail === true) args.push('--alert-on-fail');
+      if (input.timeoutMs !== undefined) args.push('--timeout-ms', String(input.timeoutMs));
+      const r = await runScript('learn.mjs', args);
+      return { success: r.success, data: r.json, degraded: r.degraded, exitCode: r.exitCode };
+    },
+  },
+  {
+    name: 'metaharness_gepa',
+    description: 'GEPA genome operations from the `@metaharness/darwin/gepa` library entry (darwin 0.8.0). op=genome loads + validates a genome (default: the shipped cand-6 — first holdout-confirmed cheap-tier policy promotion, provenance in the package); op=validate returns structural errors for a genome JSON; op=render compiles a genome to the system prompt it encodes (inspect what a policy actually says before adopting it); op=analyze classifies failure modes in a transcript JSON array. Use when adopting/auditing/debugging evolved harness policies — reading genome JSON by eye is wrong because the behavior lives in the rendered system prompt and the component interactions, not the raw fields. NOTE: gepaOptimize (bring-your-own-evaluator optimization) is library-only — import @metaharness/darwin/gepa directly, or use metaharness_evolve for sandbox-scored evolution. ' + MCP_SUCCESS_SEMANTIC,
+    category: 'metaharness',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        op: { type: 'string', enum: ['genome', 'validate', 'render', 'analyze'], description: 'genome = load + validate; validate = structural errors only; render = genome → system prompt; analyze = transcript failure classes' },
+        path: { type: 'string', description: 'Genome JSON path (genome/validate/render; default: shipped cand-6)' },
+        transcript: { type: 'string', description: 'Transcript JSON array path (required for op=analyze)' },
+        ext: { type: 'string', description: 'render only — target file extension hint' },
+        glob: { type: 'string', description: 'render only — target glob hint' },
+        alertOnInvalid: { type: 'boolean', description: 'Exit 1 when validation finds errors (gate-style)', default: false },
+      },
+      required: ['op'],
+    },
+    handler: async (input) => {
+      const args: string[] = ['--op', String(input.op)];
+      if (input.path) args.push('--path', String(input.path));
+      if (input.transcript) args.push('--transcript', String(input.transcript));
+      if (input.ext) args.push('--ext', String(input.ext));
+      if (input.glob) args.push('--glob', String(input.glob));
+      if (input.alertOnInvalid === true) args.push('--alert-on-invalid');
+      const r = await runScript('gepa.mjs', args);
       return { success: r.success, data: r.json, degraded: r.degraded, exitCode: r.exitCode };
     },
   },

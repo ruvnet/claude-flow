@@ -60,9 +60,15 @@ const SUBCOMMANDS: Record<string, string> = {
   // iter 53 — one-command drift detection (compose audit-list + oia-audit + audit-trend)
   'drift-from-history': 'drift-from-history.mjs',
   mint: 'mint.mjs',
-  // @metaharness/redblue@~0.1.1 — adversarial red/blue LLM testing
+  // @metaharness/redblue@~0.1.4 — adversarial red/blue LLM testing
   // (init|run|patch|attack|report sub-subcommands handled by redblue.mjs)
   redblue: 'redblue.mjs',
+  // metaharness@0.3.0 — upstream ADR-235 GEPA learning run ($0 dry-run
+  // default; --run to spend; needs a metaharness repo checkout)
+  learn: 'learn.mjs',
+  // @metaharness/darwin@0.8.0 — GEPA library surface (genome ops; the
+  // gepaOptimize loop itself stays library-only / behind evolve)
+  gepa: 'gepa.mjs',
 };
 
 /**
@@ -125,10 +131,10 @@ export const metaharnessCommand: Command = {
   options: [
     {
       name: 'subcommand',
-      // iter 73 — list reflects all 10 dispatchable subcommands (was
+      // iter 73 — list reflects all dispatchable subcommands (was
       // stale at the iter-3 list of 5). Keep this synced with the
       // SUBCOMMANDS map above.
-      description: 'One of: score | genome | mcp-scan | threat-model | oia-audit | audit-list | audit-trend | similarity | drift-from-history | mint | redblue',
+      description: 'One of: score | genome | mcp-scan | threat-model | oia-audit | audit-list | audit-trend | similarity | drift-from-history | mint | redblue | learn | gepa',
       type: 'string' as const,
     },
   ],

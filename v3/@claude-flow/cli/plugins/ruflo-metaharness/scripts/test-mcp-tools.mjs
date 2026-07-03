@@ -74,7 +74,7 @@ async function main() {
   // ──────────────────────────────────────────────────────────────────
   console.log('Phase 1 — module shape');
   assert(Array.isArray(tools), 'metaharnessTools is an array');
-  assert(tools.length === 9, `9 tools registered (got ${tools.length})`);
+  assert(tools.length === 15, `15 tools registered (got ${tools.length})`);
 
   const expectedNames = new Set([
     'metaharness_score',
@@ -88,6 +88,16 @@ async function main() {
     'metaharness_similarity',
     // iter 54 — one-command drift detection (composes audit-list + oia-audit + audit-trend)
     'metaharness_drift_from_history',
+    // ADR-153 — bench suites + evolve driver + security-focused bench
+    'metaharness_bench',
+    'metaharness_evolve',
+    'metaharness_security_bench',
+    // @metaharness/redblue@~0.1.4 — adversarial red/blue LLM testing
+    'metaharness_redblue',
+    // metaharness@0.3.0 — upstream ADR-235 GEPA learning run
+    'metaharness_learn',
+    // @metaharness/darwin@0.8.0 — GEPA library surface (genome ops)
+    'metaharness_gepa',
   ]);
   const actualNames = new Set(tools.map((t) => t.name));
   for (const name of expectedNames) {
@@ -141,6 +151,22 @@ async function main() {
       // test doesn't pollute namespaces.
       input = { dryRun: true };
     }
+    if (tool.name === 'metaharness_redblue') {
+      // `attack` preview is the fastest path that exercises the upstream
+      // binary without needing OPENROUTER_API_KEY or running any model
+      // calls. Count=1 keeps cold-cache npx fetch the dominant cost.
+      input = { subcommand: 'attack', family: 'prompt', count: 1 };
+    }
+    if (tool.name === 'metaharness_learn') {
+      // No repo checkout in CI → structured {status:"checkout-required"}
+      // exit-0 path. $0: without run=true upstream never spends anyway.
+      input = {};
+    }
+    if (tool.name === 'metaharness_gepa') {
+      // op is required; `genome` loads + validates the SHIPPED cand-6
+      // genome — pure-local library call once darwin is cached.
+      input = { op: 'genome' };
+    }
 
     // iter 124 → 130 — timeouts have crept up as CI cold-cache npx
     // warmup costs got measured. Final budgets:
@@ -153,7 +179,16 @@ async function main() {
     // ONNX). 180s gives 30x headroom over the local cost.
     const isChainTool = tool.name === 'metaharness_drift_from_history'
       || tool.name === 'metaharness_oia_audit'
-      || tool.name === 'metaharness_audit_list';
+      || tool.name === 'metaharness_audit_list'
+      // redblue: `attack prompt --count 1` is preview-only (no model
+      // calls) but the cold-cache `npx -y @metaharness/redblue@~0.1.4`
+      // fetch can take 30-60s. 180s gives 3x headroom.
+      || tool.name === 'metaharness_redblue'
+      // learn: cold-cache `npx -y metaharness@latest` fetch dominates.
+      // gepa: one-time `npm install --prefix ~/.ruflo/darwin-cache-*`
+      // fallback install can take 30-60s on cold cache.
+      || tool.name === 'metaharness_learn'
+      || tool.name === 'metaharness_gepa';
     const timeoutMs = isChainTool ? 180_000 : 60_000;
     const handlerPromise = tool.handler(input);
     const timeoutPromise = new Promise((_, reject) =>
@@ -428,7 +463,7 @@ async function main() {
     for (const f of failures) console.log(`  - ${f}`);
     process.exit(1);
   }
-  console.log('\n✓ All 9 MCP tools satisfy the runtime contract.');
+  console.log('\n✓ All 15 MCP tools satisfy the runtime contract.');
 }
 
 main().catch((e) => {
