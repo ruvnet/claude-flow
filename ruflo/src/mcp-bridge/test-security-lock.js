@@ -11,6 +11,8 @@
  *   4. `requireAuth` uses `timingSafeEqual` (constant-time compare)
  *   5. `executeTool` denies terminal_execute unless `MCP_ENABLE_TERMINAL === "true"` (Phase 1d + 2a)
  *   6. CORS respects `MCP_CORS_ORIGIN` allowlist (Phase 3b)
+ *   7. Backends spawn with scoped env via `scopedBackendEnv()` (Phase 3a, V4)
+ *   8. No backend spawns with full `{ ...process.env }` inheritance (Phase 3a, V4)
  *
  * Runs offline (no server, no deps). CI-safe.
  *
@@ -58,6 +60,16 @@ const CHECKS = [
     rx: /MCP_CORS_ORIGIN[\s\S]*?CORS_ALLOWLIST/,
     hint: "CORS must respect MCP_CORS_ORIGIN allowlist (Phase 3b)",
   },
+  {
+    id: "7. scoped-backend-env",
+    rx: /env:\s*scopedBackendEnv\(/,
+    hint: "backend children must spawn with env: scopedBackendEnv(...) (ADR-166 Phase 3a, V4)",
+  },
+  {
+    id: "8. no-full-env-inheritance",
+    forbiddenRx: /env:\s*\{\s*\.\.\.process\.env\s*\}/,
+    hint: "no spawn may pass env: { ...process.env } — full parent-env inheritance leaks every provider key (V4)",
+  },
 ];
 
 let hardFail = false;
@@ -71,7 +83,9 @@ for (const bridge of BRIDGES) {
   const rel = path.relative(path.join(HERE, "..", ".."), bridge);
   console.log(`\n# ${rel}`);
   for (const check of CHECKS) {
-    if (check.rx.test(src)) {
+    // `rx` must match; `forbiddenRx` must NOT match.
+    const ok = check.forbiddenRx ? !check.forbiddenRx.test(src) : check.rx.test(src);
+    if (ok) {
       console.log(`  ✓ ${check.id}`);
     } else {
       console.log(`  ✗ ${check.id}`);

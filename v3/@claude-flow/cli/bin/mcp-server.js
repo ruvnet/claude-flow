@@ -9,25 +9,85 @@
 
 import { randomUUID } from 'crypto';
 
-// Suppress the SPECIFIC cosmetic "[AgentDB Patch] Controller index not found"
-// noise. Tight match (both prefix AND "Controller index not found") so other
-// [AgentDB Patch] warnings about real issues still flow through. Also patch
-// console.log because the underlying call site uses it. See bin/cli.js for
-// the same rationale.
+// Console filters — duplicated from bin/cli.js (#2253 / ADR-170 Phase 4).
+// TODO(ADR-170 Phase 4): extract this filter block + the JSON-RPC framing
+// loop into one shared module imported by both bin/cli.js and this file, so
+// the two copies cannot drift again (this file previously lacked the
+// stdout→stderr redirect and re-opened the #2253 stdout-corruption bug).
+//
+// 1. Suppress the SPECIFIC cosmetic "[AgentDB Patch] Controller index not
+//    found" noise. Tight match (both prefix AND "Controller index not
+//    found") so other [AgentDB Patch] warnings about real issues still flow
+//    through.
+//
+// 2. Redirect noisy stdout writes from upstream embedder libraries
+//    (ruvector ONNX loader, ruvector-onnx-embeddings-wasm parallel
+//    embedder) to stderr. Those libraries use console.log for progress
+//    messages — "Loading model:", "  Downloading: …", "🚀 Initializing N
+//    workers" — which corrupts MCP JSON-RPC stdio (#2253). The MCP stdio
+//    framer reads stdout only; progress belongs on stderr.
+//
+// 3. Drop agentdb's misleading "falling back to mock embeddings" cluster —
+//    memory-bridge's rescueAgentdbEmbedder swaps to ruvector ONNX in that
+//    exact case, so the warnings are stale. See bin/cli.js for details.
 const _origWarn = console.warn;
 const _origLog = console.log;
+const _origError = console.error;
 const _isCosmeticAgentdbPatchNoise = (msg) =>
   msg.includes('[AgentDB Patch]') && msg.includes('Controller index not found');
+const _STDERR_REDIRECT_PREFIXES = [
+  'Loading model: ',
+  '  Downloading: ',
+  '  Cache hit: ',
+  '  Disk cache hit: ',
+  'Model cache cleared',
+  '🚀 Initializing ',
+  '✅ ',
+];
+const _AGENTDB_MOCK_FALLBACK_DROP_PREFIXES = [
+  'Transformers.js initialization failed:',
+  '   Falling back to mock embeddings for testing',
+  '   This is normal if:',
+  '     - Running offline/without internet access',
+  '     - Model not yet downloaded',
+  '     - Network connectivity issues',
+  '   To use real embeddings:',
+  '     - Ensure internet connectivity for first',
+  '     - Or pre-download: npx agentdb',
+];
+const _shouldRedirectToStderr = (msg) => {
+  for (const prefix of _STDERR_REDIRECT_PREFIXES) {
+    if (msg.startsWith(prefix)) return true;
+  }
+  return false;
+};
+const _isAgentdbMockFallbackNoise = (msg) => {
+  for (const prefix of _AGENTDB_MOCK_FALLBACK_DROP_PREFIXES) {
+    if (msg.startsWith(prefix)) return true;
+  }
+  return false;
+};
 console.warn = (...args) => {
-  if (_isCosmeticAgentdbPatchNoise(String(args[0] ?? ''))) return;
+  const head = String(args[0] ?? '');
+  if (_isCosmeticAgentdbPatchNoise(head)) return;
+  if (_isAgentdbMockFallbackNoise(head)) return;
   _origWarn.apply(console, args);
 };
 console.log = (...args) => {
-  if (_isCosmeticAgentdbPatchNoise(String(args[0] ?? ''))) return;
+  const head = String(args[0] ?? '');
+  if (_isCosmeticAgentdbPatchNoise(head)) return;
+  if (_shouldRedirectToStderr(head)) {
+    _origError.apply(console, args);
+    return;
+  }
   _origLog.apply(console, args);
 };
 
-import { listMCPTools, callMCPTool, hasTool } from '../dist/src/mcp-client.js';
+// Dynamic import ON PURPOSE (parity with bin/cli.js): a static import is
+// hoisted and evaluated before the console filters above are installed, so
+// module-load-time progress lines from agentic-flow/ruvector would hit
+// stdout unfiltered and corrupt JSON-RPC (#2253).
+const { listMCPTools, callMCPTool, hasTool } = await import('../dist/src/mcp-client.js');
 
 const VERSION = '3.0.0';
 const sessionId = `mcp-${Date.now()}-${randomUUID().slice(0, 8)}`;

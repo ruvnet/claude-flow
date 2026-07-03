@@ -3,7 +3,14 @@
 #
 # Usage:
 #   cp .env.example .env   # fill in your API keys
+#   echo "MCP_AUTH_TOKEN=$(openssl rand -base64 32)" >> .env
 #   docker compose up -d
+#
+# ADR-166/167 (post-ADR-166 residual #2): the bridge binds 0.0.0.0 INSIDE its
+# container (sibling containers like chat-ui can't reach a loopback bind), so
+# MCP_AUTH_TOKEN is REQUIRED — the bridge fail-closed gate refuses a
+# non-loopback bind without a token. The port is NOT published to the host;
+# the bridge is only reachable on the compose network.
 
 services:
   # --- MongoDB (ADR-166 §6 Phase 2b — auth on by default) ---
@@ -17,7 +24,9 @@ services:
     environment:
       MONGO_INITDB_DATABASE: ${MONGODB_DB_NAME:-chat-db}
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-ruflo}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?FATAL: MONGO_INITDB_ROOT_PASSWORD is required. Generate: MONGO_INITDB_ROOT_PASSWORD=$(openssl rand -base64 32)}
+      # Quoted — the required-var message contains ": " which is invalid in an
+      # unquoted YAML scalar (broke `docker compose config`).
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGO_INITDB_ROOT_PASSWORD:?FATAL - MONGO_INITDB_ROOT_PASSWORD is required. Generate with openssl rand -base64 32}"
     command: ["--auth"]
 
   # --- MCP Bridge (ruvocal version — Gemini grounded search, autopilot SSE) ---
@@ -26,8 +35,10 @@ services:
       context: ./src/ruvocal/mcp-bridge
       dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:3001:3001"
+    # Not published to the host — reachable only from the compose network
+    # (chat-ui, nginx). Use docker-compose.public.yml to publish deliberately.
+    expose:
+      - "3001"
     environment:
       PORT: "3001"
       NODE_ENV: production
@@ -55,8 +66,11 @@ services:
       # API keys for optional groups
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # --- ADR-166 §6 security surface ---
-      MCP_BIND_HOST: ${MCP_BIND_HOST:-127.0.0.1}
-      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
+      # 0.0.0.0 inside the container so sibling containers (chat-ui, nginx)
+      # can dial http://mcp-bridge:3001 — a 127.0.0.1 bind here is DOA.
+      # Safe because the port is NOT host-published and the token is required.
+      MCP_BIND_HOST: ${MCP_BIND_HOST:-0.0.0.0}
+      MCP_AUTH_TOKEN: "${MCP_AUTH_TOKEN:?MCP_AUTH_TOKEN must be set - the bridge binds a non-loopback interface inside its container, so auth is required. Generate with openssl rand -base64 32}"
       MCP_ENABLE_TERMINAL: ${MCP_ENABLE_TERMINAL:-false}
       MCP_CORS_ORIGIN: ${MCP_CORS_ORIGIN:-*}
     # ADR-166 §6 Phase 2c — read-only rootfs breaks the PoC's /app/beacon.js write.
@@ -97,6 +111,16 @@ services:
     expose:
       - "3000"
     environment:
+      # ADR-166 residual #3 — authenticated client path. The bridge enforces
+      # `Authorization: Bearer <MCP_AUTH_TOKEN>` on every route, so:
+      #   - OPENAI_API_KEY (chat-ui's bearer toward OPENAI_BASE_URL, i.e. the
+      #     bridge's /models + /chat/completions) is set to the MCP token. The
+      #     real provider keys live in the bridge container only.
+      #   - Each MCP_SERVERS entry carries an Authorization header (chat-ui's
+      #     MCP registry forwards per-server `headers` on every MCP call).
+      #   - MCP_AUTH_TOKEN is exported plainly so the RVF stdio kernel
+      #     (mcp-stdio-kernel.js), if used inside this container, inherits it.
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN}
       # Runtime config injected via DOTENV_LOCAL (entrypoint.sh writes .env.local)
       DOTENV_LOCAL: |
         MONGODB_URL=mongodb://${MONGO_INITDB_ROOT_USERNAME:-ruflo}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGODB_DB_NAME:-chat-db}?authSource=admin
@@ -109,8 +133,8 @@ services:
         ENABLE_DATA_EXPORT=true
         ALLOW_IFRAME=true
         OPENAI_BASE_URL=http://mcp-bridge:3001
-        OPENAI_API_KEY=${OPENAI_API_KEY:-sk-placeholder}
-        MCP_SERVERS=[{"name":"Core Tools","url":"http://mcp-bridge:3001/mcp/core"},{"name":"Intelligence & Learning","url":"http://mcp-bridge:3001/mcp/intelligence"},{"name":"Agents & Orchestration","url":"http://mcp-bridge:3001/mcp/agents"},{"name":"Memory & Knowledge","url":"http://mcp-bridge:3001/mcp/memory"},{"name":"Dev Tools & Analysis","url":"http://mcp-bridge:3001/mcp/devtools"}]
+        OPENAI_API_KEY=${MCP_AUTH_TOKEN}
+        MCP_SERVERS=[{"name":"Core Tools","url":"http://mcp-bridge:3001/mcp/core","headers":{"Authorization":"Bearer ${MCP_AUTH_TOKEN}"}},{"name":"Intelligence & Learning","url":"http://mcp-bridge:3001/mcp/intelligence","headers":{"Authorization":"Bearer ${MCP_AUTH_TOKEN}"}},{"name":"Agents & Orchestration","url":"http://mcp-bridge:3001/mcp/agents","headers":{"Authorization":"Bearer ${MCP_AUTH_TOKEN}"}},{"name":"Memory & Knowledge","url":"http://mcp-bridge:3001/mcp/memory","headers":{"Authorization":"Bearer ${MCP_AUTH_TOKEN}"}},{"name":"Dev Tools & Analysis","url":"http://mcp-bridge:3001/mcp/devtools","headers":{"Authorization":"Bearer ${MCP_AUTH_TOKEN}"}}]
         COOKIE_SECURE=${COOKIE_SECURE:-false}
         COOKIE_SAMESITE=${COOKIE_SAMESITE:-lax}
     depends_on:

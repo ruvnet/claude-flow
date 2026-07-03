@@ -1,0 +1,12 @@
+# Defense in depth (ADR-168): the "files" whitelist in package.json is the
+# primary gate; these patterns make sure daemon/agent runtime state can never
+# ship in a published tarball even if "files" regresses.
+**/.claude-flow/
+**/.swarm/
+**/logs/
+*.db
+*.sqlite
+*.index
+*.log
+.env
+.env.*

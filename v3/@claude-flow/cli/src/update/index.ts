@@ -46,15 +46,25 @@ export type { UpdateHistoryEntry, UpdateExecutionResult } from './executor.js';
 // Re-export a convenience function for startup
 import { checkForUpdates, DEFAULT_CONFIG } from './checker.js';
 import type { UpdateCheckResult } from './checker.js';
-import { executeMultipleUpdates } from './executor.js';
-import { getInstalledVersion } from './checker.js';
 
 /**
- * Run auto-update check on startup
- * This is the main entry point for the auto-update system
+ * Run update check on startup — NOTIFY-ONLY (ADR-170 Phase 1.1).
+ *
+ * This function must NEVER install anything. It previously auto-applied
+ * patch updates via `execFileSync('npm', ['install', ...])`, a blocking
+ * global npm install running inside an unawaited promise that raced the
+ * `process.exit(0)` teardown in bin/cli.js — usually killed mid-fetch,
+ * occasionally stalling a random command for the length of an npm install.
+ *
+ * Installs are the exclusive domain of the explicit `update` command
+ * (src/commands/update.ts → executeUpdate / executeMultipleUpdates).
+ *
+ * The `autoUpdate` option is retained for API compatibility but is
+ * ignored; `updatesApplied` is always empty.
  */
 export async function runStartupUpdateCheck(options: {
   verbose?: boolean;
+  /** @deprecated Ignored — the startup path is notify-only (ADR-170). */
   autoUpdate?: boolean;
 }): Promise<{
   checked: boolean;
@@ -80,31 +90,9 @@ export async function runStartupUpdateCheck(options: {
     result.checked = true;
     result.updatesAvailable = results;
 
-    // Auto-update if enabled
-    if (options.autoUpdate !== false) {
-      const autoUpdateable = results.filter((r) => r.shouldAutoUpdate);
-
-      if (autoUpdateable.length > 0) {
-        // Get current installed packages
-        const installedPackages: Record<string, string> = {};
-        for (const update of autoUpdateable) {
-          const version = getInstalledVersion(update.package);
-          if (version) {
-            installedPackages[update.package] = version;
-          }
-        }
-
-        // Execute updates
-        const updateResults = await executeMultipleUpdates(
-          autoUpdateable,
-          installedPackages
-        );
-
-        result.updatesApplied = updateResults
-          .filter((r) => r.success)
-          .map((r) => `${r.package}@${r.version}`);
-      }
-    }
+    // ADR-170 Phase 1.1: notify-only. No install is ever executed here —
+    // callers surface `updatesAvailable` and direct users to the explicit
+    // `update` command.
 
     return result;
   } catch {
