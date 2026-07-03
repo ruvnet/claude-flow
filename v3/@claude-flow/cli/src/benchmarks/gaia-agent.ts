@@ -65,6 +65,11 @@ import {
   argsHash as convergenceArgsHash,
 } from './gaia-convergence.js';
 import type { ConvergenceState } from './gaia-convergence.js';
+import {
+  assembleTrajectory,
+  type SerializedTrajectory,
+  type TrajectoryStep,
+} from './gaia-trajectory.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -131,6 +136,15 @@ export interface GaiaAgentResult {
   convergenceTrigger?: string;
   /** True when the convergence layer recovered the answer from prior message history. */
   convergenceUsedFallback?: boolean;
+  /**
+   * ADR-167 §4: redacted, size-bounded serialization of the ordered steps
+   * actually taken this run (agent-visible prompt, LLM calls, tool calls, and
+   * fetched tool results). Persisted by gaia-bench.ts to trajectories.jsonl so
+   * gaia-audit.mjs can enforce answer-leakage / oracle-leakage /
+   * grader-isolation instead of skipping them. Capture-only — it does not
+   * change any of the agent's decisions or scoring.
+   */
+  trajectory?: SerializedTrajectory;
   error?: string;
 }
 
@@ -489,6 +503,49 @@ async function executeToolCalls(
 }
 
 // ---------------------------------------------------------------------------
+// Trajectory capture helpers (ADR-167 §4) — flatten the Anthropic content
+// blocks the loop already holds into plain text for the audit record. Pure,
+// no side effects, no scoring impact.
+// ---------------------------------------------------------------------------
+
+/** Join the text blocks of an assistant/model response into one string. */
+function assistantText(content: ContentBlock[]): string {
+  return content
+    .filter((b) => b.type === 'text')
+    .map((b) => (b as TextBlock).text)
+    .join('\n');
+}
+
+/** Render an initial user-turn content (string or block array) as text. */
+function contentToText(content: ContentBlock[] | string): string {
+  if (typeof content === 'string') return content;
+  return content
+    .map((b) =>
+      b.type === 'text'
+        ? (b as TextBlock).text
+        : (b as { type?: string }).type === 'image'
+          ? '[image attachment]'
+          : JSON.stringify(b),
+    )
+    .join('\n');
+}
+
+/** Render a tool_result content (string or mixed block array) as text. */
+function toolResultText(content: string | unknown[]): string {
+  if (typeof content === 'string') return content;
+  return content
+    .map((c) => {
+      if (c && typeof c === 'object') {
+        const obj = c as { type?: string; text?: string };
+        if (obj.type === 'image') return '[image attachment]';
+        if (typeof obj.text === 'string') return obj.text;
+      }
+      return typeof c === 'string' ? c : JSON.stringify(c);
+    })
+    .join('\n');
+}
+
+// ---------------------------------------------------------------------------
 // Main agent loop
 // ---------------------------------------------------------------------------
 
@@ -526,9 +583,26 @@ export async function runGaiaAgent(
   // Convergence layer state — tracks turns, tokens, and tool call patterns.
   const convState: ConvergenceState = createConvergenceState();
 
+  const initialContent = buildInitialContent(question);
   const messages: MessageParam[] = [
-    { role: 'user', content: buildInitialContent(question) },
+    { role: 'user', content: initialContent },
   ];
+
+  // --- ADR-167 §4 trajectory capture (in-memory; serialized at return) ------
+  // The agent-visible prompt = system prompt + the initial user turn. This is
+  // the ONLY oracle surface the audit's oracle-leakage check scans; it never
+  // contains question.final_answer (buildInitialContent does not inject it).
+  const promptText = `${buildSystemPrompt()}\n\n${contentToText(initialContent)}`;
+  const rawSteps: TrajectoryStep[] = [{ type: 'prompt', content: promptText }];
+  const buildTrajectory = (): SerializedTrajectory =>
+    assembleTrajectory({
+      prompt: promptText,
+      turns,
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+      toolsUsed: Object.keys(toolCallsByName),
+      steps: rawSteps,
+    });
 
   let turns = 0;
 
@@ -558,12 +632,19 @@ export async function runGaiaAgent(
               .join('\n');
             totalInputTokens += r.usage.input_tokens;
             totalOutputTokens += r.usage.output_tokens;
+            rawSteps.push({
+              type: 'llm_call',
+              output: textParts,
+              tokens_in: r.usage.input_tokens,
+              tokens_out: r.usage.output_tokens,
+            });
             return textParts;
           },
           earlyTrigger,
         );
         return {
           questionId: question.task_id,
+          trajectory: buildTrajectory(),
           finalAnswer: commitResult.answer,
           turns,
           toolCallsByName,
@@ -590,6 +671,7 @@ export async function runGaiaAgent(
     } catch (err) {
       return {
         questionId: question.task_id,
+        trajectory: buildTrajectory(),
         finalAnswer: null,
         turns,
         toolCallsByName,
@@ -604,6 +686,15 @@ export async function runGaiaAgent(
     totalInputTokens += resp.usage.input_tokens;
     totalOutputTokens += resp.usage.output_tokens;
 
+    // ADR-167 §4: record this model call (output + token counts). checkNoWork
+    // counts llm_call steps; the assistant text is the answer-bearing surface.
+    rawSteps.push({
+      type: 'llm_call',
+      output: assistantText(resp.content),
+      tokens_in: resp.usage.input_tokens,
+      tokens_out: resp.usage.output_tokens,
+    });
+
     // Update convergence state: record token usage for this turn (tool calls tracked below).
     if (enableConvergence) {
       recordTurn(convState, resp.usage.input_tokens, []);
@@ -613,6 +704,7 @@ export async function runGaiaAgent(
       const finalAnswer = extractFinalAnswer(resp);
       return {
         questionId: question.task_id,
+        trajectory: buildTrajectory(),
         finalAnswer,
         turns,
         toolCallsByName,
@@ -630,6 +722,9 @@ export async function runGaiaAgent(
         if (block.type === 'tool_use') {
           const toolBlock = block as ToolUseBlock;
           toolCallsByName[toolBlock.name] = (toolCallsByName[toolBlock.name] ?? 0) + 1;
+          // ADR-167 §4: record the tool call name + args. checkGraderIsolation
+          // scans these for writes/introspection targeting the judge/witness.
+          rawSteps.push({ type: 'tool_call', name: toolBlock.name, input: toolBlock.input });
           if (enableConvergence) {
             toolCallsThisTurn.push({
               name: toolBlock.name,
@@ -652,6 +747,24 @@ export async function runGaiaAgent(
 
       // Execute all tool calls in parallel
       const toolResults = await executeToolCalls(resp, catalogue);
+
+      // ADR-167 §4: record each fetched tool_result output (answer-leakage
+      // surface). Resolve the tool name from the originating tool_use block.
+      const toolNameById = new Map<string, string>();
+      for (const block of resp.content) {
+        if (block.type === 'tool_use') {
+          const tb = block as ToolUseBlock;
+          toolNameById.set(tb.id, tb.name);
+        }
+      }
+      for (const tr of toolResults) {
+        rawSteps.push({
+          type: 'tool_result',
+          name: toolNameById.get(tr.tool_use_id),
+          output: toolResultText(tr.content),
+          is_error: tr.is_error === true,
+        });
+      }
 
       // Append assistant turn (with tool_use blocks)
       messages.push({ role: 'assistant', content: resp.content });
@@ -685,6 +798,7 @@ export async function runGaiaAgent(
     const finalAnswer = extractFinalAnswer(resp);
     return {
       questionId: question.task_id,
+      trajectory: buildTrajectory(),
       finalAnswer,
       turns,
       toolCallsByName,
@@ -716,12 +830,19 @@ export async function runGaiaAgent(
           .join('\n');
         totalInputTokens += r.usage.input_tokens;
         totalOutputTokens += r.usage.output_tokens;
+        rawSteps.push({
+          type: 'llm_call',
+          output: textParts,
+          tokens_in: r.usage.input_tokens,
+          tokens_out: r.usage.output_tokens,
+        });
         return textParts;
       },
       'max_turns',
     );
     return {
       questionId: question.task_id,
+      trajectory: buildTrajectory(),
       finalAnswer: commitResult.answer,
       turns,
       toolCallsByName,
@@ -737,6 +858,7 @@ export async function runGaiaAgent(
 
   return {
     questionId: question.task_id,
+    trajectory: buildTrajectory(),
     finalAnswer: null,
     turns,
     toolCallsByName,

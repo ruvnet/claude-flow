@@ -35,6 +35,8 @@
  * Refs: ADR-133, ADR-135, ADR-136, #2165, iter 28/34/36/37/39
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 
@@ -292,7 +294,7 @@ const runCommand: Command = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const benchmarksBase = new URL('../benchmarks/', import.meta.url).href;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { loadGaia } = (await import(benchmarksBase + 'gaia-loader.js')) as any;
+    const { loadGaia, getGaiaCacheDir } = (await import(benchmarksBase + 'gaia-loader.js')) as any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { runGaiaAgent } = (await import(benchmarksBase + 'gaia-agent.js')) as any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -392,6 +394,13 @@ const runCommand: Command = {
     log('');
 
     const allModelOutputs: BenchRunOutput[] = [];
+
+    // ADR-167 §4: collect redacted, size-bounded trajectory records (one per
+    // question, across all models) for trajectories.jsonl. Kept separate from
+    // `results` so the QuestionResult[] stdout/HAL shape stays byte-for-byte
+    // unchanged — this is purely additive.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const trajectoryRecords: Array<Record<string, any>> = [];
 
     // Resolve the API key once (shared across all per-question agent calls).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -592,16 +601,24 @@ const runCommand: Command = {
               hardnessDifficulty: predictedDifficulty,
               hardnessConfidence: predictedConfidence,
               decomposed: decomposedResult?.decomposed === true,
+              // Carried out-of-band; stripped before results[] (see below).
+              __trajectory: lastAgentResult.trajectory,
             } as QuestionResult;
           }),
         );
 
         for (const r of batchResults) {
-          results.push(r);
-          totalInputTokens += r.inputTokens ?? 0;
-          totalOutputTokens += r.outputTokens ?? 0;
-          totalTurns += r.turns ?? 0;
-          totalWallMs += r.wallMs ?? 0;
+          // Split the out-of-band trajectory off so QuestionResult[] stays unchanged.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { __trajectory, ...clean } = r as QuestionResult & { __trajectory?: any };
+          results.push(clean as QuestionResult);
+          if (__trajectory && typeof __trajectory === 'object') {
+            trajectoryRecords.push({ task_id: clean.task_id, ...__trajectory });
+          }
+          totalInputTokens += clean.inputTokens ?? 0;
+          totalOutputTokens += clean.outputTokens ?? 0;
+          totalTurns += clean.turns ?? 0;
+          totalWallMs += clean.wallMs ?? 0;
         }
       }
 
@@ -636,6 +653,50 @@ const runCommand: Command = {
         log(`  Hardness  : easy=${hardnessDist.easy} medium=${hardnessDist.medium} hard=${hardnessDist.hard}`);
       }
       log('');
+    }
+
+    // ADR-167 §4/§7: persist trajectories.jsonl + run-metadata.json to the
+    // cache dir the /gaia submit flow reads (~/.cache/ruflo/gaia). This is a
+    // pure side-effect — the QuestionResult[] JSON on stdout is unchanged.
+    // Unblocks gaia-audit.mjs answer-leakage / oracle-leakage / grader-isolation
+    // (via trajectories.jsonl) and voting-disclosure / split-integrity (via
+    // run-metadata.json). Never writes secrets: every string field was passed
+    // through the redactor in gaia-trajectory.ts before it reached here.
+    try {
+      const cacheDir: string = getGaiaCacheDir();
+      fs.mkdirSync(cacheDir, { recursive: true });
+
+      const trajPath = path.join(cacheDir, 'trajectories.jsonl');
+      const jsonl = trajectoryRecords.length
+        ? trajectoryRecords.map((r) => JSON.stringify(r)).join('\n') + '\n'
+        : '';
+      fs.writeFileSync(trajPath, jsonl, 'utf-8');
+
+      const totalQuestions = allModelOutputs.reduce((a, m) => a + m.summary.total, 0);
+      const metaPath = path.join(cacheDir, 'run-metadata.json');
+      const metadata = {
+        harness: 'ruflo-gaia-bench',
+        gaia_level: level,
+        // gaia-loader.ts hard-codes split=validation for real HF loads; the
+        // smoke fixture is its own thing. Record the truth (do not relabel).
+        gaia_split: smokeOnly ? 'smoke' : 'validation',
+        models,
+        // AUD-6: disclose the self-consistency N so hidden best-of-N is ruled out.
+        voting_attempts: votingAttempts,
+        planning_interval: planningInterval,
+        hardness_routing: hardnessRouting,
+        tool_catalogue: ['web_search', 'file_read', 'grounded_query'],
+        total_questions: totalQuestions,
+        trajectories: trajectoryRecords.length,
+      };
+      fs.writeFileSync(metaPath, JSON.stringify(metadata, null, 2) + '\n', 'utf-8');
+
+      log(`Trajectories: ${trajectoryRecords.length} record(s) -> ${trajPath}`);
+      log(`Metadata    : ${metaPath}`);
+    } catch (err) {
+      // Never fail the run on a serialization side-effect.
+      const msg = err instanceof Error ? err.message : String(err);
+      log(`WARN: could not write trajectories/metadata: ${msg}`);
     }
 
     // Output results
