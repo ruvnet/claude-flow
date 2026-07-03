@@ -28,7 +28,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-020](../../implementation/adrs/ADR-020-headless-worker-integration.md) | Headless Worker Integration | Complete |
 | [ADR-046](../../implementation/adrs/ADR-046-ruflo-rebrand.md) | Dual Umbrella: claude-flow + ruflo | Accepted |
 | [ADR-047](../../implementation/adrs/ADR-047-fast-mode-integration.md) | Fast Mode Integration | Proposed |
-| [ADR-178](ADR-178-dream-cycle-security-vmg-repe-ipi.md) | Verifiable Memory Governance and RepE IPI Detection | Proposed |
+| [ADR-167](ADR-167-automem-memory-rl-training-loop.md) | AutoMem-Style RL Training Loop for AgentDB Memory Operations | Proposed |
 
 ## Summary Documents
 
@@ -71,5 +71,5 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 
 ---
 
-**Last Updated:** 2026-01-14
-**CLI Version:** @claude-flow/cli@3.0.0-alpha.104
+**Last Updated:** 2026-07-03
+**CLI Version:** @claude-flow/cli@3.6.10
