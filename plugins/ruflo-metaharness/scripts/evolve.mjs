@@ -24,6 +24,23 @@
 //   node scripts/evolve.mjs --repo . --confirm --generations 5 --children 3
 //   node scripts/evolve.mjs --repo . --confirm --sandbox mock              # no real tests
 //   node scripts/evolve.mjs --repo . --confirm --selection pareto
+//   node scripts/evolve.mjs --repo . --confirm --diagnose                  # + GEPA failure diagnosis
+//
+// --diagnose (GEPA failure diagnosis — the natural-language-diagnosis trick
+// from GEPA, scoped modestly): after the evolve run completes, the losing /
+// failed variants' transcripts are run through darwin's gepa
+// `analyzeTranscript` + `classifyFailure` ops and a `diagnosis` section
+// (failure classes + counts + dominant class per variant) is appended to the
+// emitted JSON report. UPSTREAM SHAPE NOTE (verified against darwin 0.8.0):
+// `metaharness-darwin evolve --json` emits a TEXT leaderboard on stdout — no
+// JSON, no transcripts. The per-variant run records live at
+// `<repo>/.metaharness/runs/<id>.json` as sandbox exec traces
+// ({taskId, exitCode, stdout, stderr}), which are NOT gepa {actionRaw, obs}
+// transcripts. So the diagnosis layer (a) uses gepa-shaped transcripts when
+// a run record embeds them (agent-sandbox / future upstream), (b) falls back
+// to the champion's transcript, and (c) otherwise emits
+// `diagnosis: {available: false, reason, traceSummary}` with a mechanical
+// per-variant trace summary — it NEVER fails the run.
 //
 // EXIT CODES
 //   0  evolved OK (or dry-run, or degraded — MetaHarness Darwin not available)
@@ -31,9 +48,9 @@
 //   2  config error or evolution failure
 //   99 reserved — upstream "safety-disqualified" (propagated)
 
-import { runDarwinAsync, emitDarwinDegradedJsonAndExit } from './_darwin.mjs';
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { runDarwinAsync, emitDarwinDegradedJsonAndExit, importGepa } from './_darwin.mjs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 const ARGS = (() => {
   const a = {
@@ -56,6 +73,7 @@ const ARGS = (() => {
     ruvllmModel: null,
     confirm: false,
     alertOnNoImprovement: false,
+    diagnose: false,
     format: 'json',
     timeoutMs: null,  // computed below if unset
   };
@@ -80,6 +98,7 @@ const ARGS = (() => {
     else if (v === '--ruvllm-model') a.ruvllmModel = process.argv[++i];
     else if (v === '--confirm') a.confirm = true;
     else if (v === '--alert-on-no-improvement') a.alertOnNoImprovement = true;
+    else if (v === '--diagnose') a.diagnose = true;
     else if (v === '--format') a.format = process.argv[++i];
     else if (v === '--timeout-ms') a.timeoutMs = parseInt(process.argv[++i], 10);
   }
@@ -119,6 +138,141 @@ function safetyChecks() {
   return repoPath;
 }
 
+// ---------------------------------------------------------------------------
+// --diagnose support (GEPA failure diagnosis)
+// ---------------------------------------------------------------------------
+
+/** True when `arr` looks like a gepa transcript: [{actionRaw?, obs?}, ...]. */
+function looksLikeGepaTranscript(arr) {
+  return Array.isArray(arr) && arr.length > 0 &&
+    arr.every((e) => e && typeof e === 'object' && ('actionRaw' in e || 'obs' in e));
+}
+
+/**
+ * Pull every gepa-shaped transcript out of one run record. Upstream darwin
+ * 0.8.0 run records carry sandbox exec traces (NOT gepa transcripts), but a
+ * record MAY embed `transcript` arrays (agent sandbox / future upstream) —
+ * accept `record.transcript`, `record.traces[i].transcript`, or `traces`
+ * itself when its entries are {actionRaw, obs}-shaped.
+ */
+function extractGepaTranscripts(record) {
+  const out = [];
+  if (looksLikeGepaTranscript(record?.transcript)) {
+    out.push({ taskId: null, exitCode: null, entries: record.transcript });
+  }
+  const traces = Array.isArray(record?.traces) ? record.traces : [];
+  if (looksLikeGepaTranscript(traces)) {
+    out.push({ taskId: null, exitCode: null, entries: traces });
+  } else {
+    for (const t of traces) {
+      if (looksLikeGepaTranscript(t?.transcript)) {
+        out.push({ taskId: t.taskId ?? null, exitCode: t.exitCode ?? null, entries: t.transcript });
+      }
+    }
+  }
+  return out;
+}
+
+/** Mechanical per-variant summary of sandbox exec traces (the always-available fallback signal). */
+function summarizeTraces(record) {
+  const traces = Array.isArray(record?.traces) ? record.traces : [];
+  return {
+    tasks: traces.length,
+    failed: traces.filter((t) => t?.exitCode !== 0).length,
+    timedOut: traces.filter((t) => t?.timedOut === true).length,
+    blockedActions: traces.reduce((n, t) => n + (Array.isArray(t?.blockedActions) ? t.blockedActions.length : 0), 0),
+  };
+}
+
+/**
+ * Build the `diagnosis` section for the emitted report. Never throws and
+ * never affects the run's exit code — any internal failure degrades to
+ * `{available: false, reason}`.
+ */
+async function buildDiagnosis(repoPath) {
+  try {
+    const metaDir = join(repoPath, '.metaharness');
+    const runsDir = join(metaDir, 'runs');
+    if (!existsSync(runsDir)) {
+      return { available: false, reason: 'no-run-records: <repo>/.metaharness/runs does not exist' };
+    }
+    let winnerId = null;
+    try {
+      winnerId = JSON.parse(readFileSync(join(metaDir, 'reports', 'winner.json'), 'utf-8'))?.variant?.id ?? null;
+    } catch { /* winner unknown — treat all variants as candidates */ }
+
+    const records = [];
+    for (const f of readdirSync(runsDir).filter((f) => f.endsWith('.json')).slice(0, 100)) {
+      try {
+        records.push({ id: f.replace(/\.json$/, ''), rec: JSON.parse(readFileSync(join(runsDir, f), 'utf-8')) });
+      } catch { /* skip unreadable record */ }
+    }
+    if (records.length === 0) {
+      return { available: false, reason: 'no-run-records: <repo>/.metaharness/runs contains no parseable records' };
+    }
+
+    // Losing/failed variants are the primary diagnosis targets; the champion
+    // is the fallback when no loser exposes a transcript.
+    const losers = records.filter((r) =>
+      r.id !== winnerId &&
+      (r.rec?.score?.promoted === false ||
+       (Array.isArray(r.rec?.traces) && r.rec.traces.some((t) => t?.exitCode !== 0 || t?.timedOut))));
+    const champion = records.filter((r) => r.id === winnerId);
+
+    let scope = 'losing-variants';
+    let pool = losers.map((r) => ({ ...r, transcripts: extractGepaTranscripts(r.rec) }))
+      .filter((r) => r.transcripts.length > 0);
+    if (pool.length === 0) {
+      scope = 'champion-fallback';
+      pool = champion.map((r) => ({ ...r, transcripts: extractGepaTranscripts(r.rec) }))
+        .filter((r) => r.transcripts.length > 0);
+    }
+
+    if (pool.length === 0) {
+      // Verified upstream shape (darwin 0.8.0): run records are sandbox exec
+      // traces, not gepa transcripts. Emit the mechanical trace summary so
+      // --diagnose still yields signal.
+      const target = losers.length ? losers : records;
+      return {
+        available: false,
+        reason: 'no-gepa-transcripts: run records contain sandbox exec traces ({taskId, exitCode, stdout, stderr}), not gepa {actionRaw, obs} transcripts',
+        traceSummary: Object.fromEntries(target.map((r) => [r.id, summarizeTraces(r.rec)])),
+      };
+    }
+
+    const gepa = await importGepa();
+    if (!gepa || typeof gepa.analyzeTranscript !== 'function') {
+      return { available: false, reason: 'metaharness-darwin-gepa-not-available' };
+    }
+
+    const classLabel = (n) => {
+      const raw = gepa.FAILURE_CLASSES?.[n];
+      return raw ? String(raw).split(' (')[0] : `class-${n}`;
+    };
+
+    const totals = {};
+    const variants = [];
+    for (const r of pool) {
+      const classes = {};
+      for (const t of r.transcripts) {
+        const analysis = gepa.analyzeTranscript(t.entries);
+        const cls = typeof gepa.classifyFailure === 'function'
+          ? gepa.classifyFailure({ goldResolved: t.exitCode === 0, analysis })
+          : -1;
+        const label = classLabel(cls);
+        classes[label] = (classes[label] || 0) + 1;
+        totals[label] = (totals[label] || 0) + 1;
+      }
+      const dominantClass = Object.entries(classes).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+      variants.push({ id: r.id, transcripts: r.transcripts.length, failureClasses: classes, dominantClass });
+    }
+
+    return { available: true, scope, variants, totals };
+  } catch (e) {
+    return { available: false, reason: `diagnosis-failed: ${e?.message ?? e}` };
+  }
+}
+
 // Compute a sensible timeout from the search shape if caller didn't specify.
 // Rough budget: each variant ~= 30s (sandbox test command + safety inspect),
 // total ~= generations × children × per-variant / concurrency.
@@ -146,6 +300,7 @@ async function main() {
     epistasis: ARGS.epistasis,
     curriculum: ARGS.curriculum,
     mutator: ARGS.mutator,
+    diagnose: ARGS.diagnose,
     estVariants: ARGS.generations * ARGS.children,
     timeoutMs: ARGS.timeoutMs ?? defaultTimeoutMs(),
     output: `${repoPath}/.metaharness/{archive.json, lineage.json, variants/, runs/, reports/winner.json}`,
@@ -232,6 +387,11 @@ async function main() {
     },
     generatedAt: new Date().toISOString(),
   };
+
+  // GEPA failure diagnosis — opt-in, additive, never fails the run.
+  if (ARGS.diagnose) {
+    payload.data.diagnosis = await buildDiagnosis(repoPath);
+  }
 
   console.log(JSON.stringify(payload, null, 2));
   if (ARGS.alertOnNoImprovement && noImprovement) process.exit(1);
