@@ -1277,3 +1277,25 @@ Registry source: IPFS via Pinata (`QmXbfEAaR7D2Ujm4GAkbwcGZQMHqAMpwDoje4583uNP83
 ---
 
 Remember: **Claude Flow coordinates, Claude Code creates!**
+
+## Gateway-Delegated Development (meta-llm dev-bridge)
+
+For complex reasoning, architecture decisions, or hard bug-fixes, **delegate via the
+`metallm_delegate` MCP tool rather than solving inline.** The meta-llm gateway governs the
+work: it routes cheap-tier-first, escalates genuinely-hard tasks to the frontier (Fable),
+and meters every call — so delegation is cost-governed and preserves the main session's context.
+
+- **Default to `cognitum-auto`** — the gateway picks the tier by difficulty. Only pass an
+  explicit tier (`cognitum-low|mid|high`) when you must force one.
+- Prompt-wrapping does **not** inflate cost — the gateway normalizes host scaffolds so an
+  everyday sub-task still routes to the cheap tier. Trust `cognitum-auto`.
+- Use **`metallm_delegate`** for agentic sub-tasks needing tools/files in a working dir
+  (its `cwd` is sandboxed); use **`metallm_ask`** for a single-shot question — it returns
+  the gateway's real metered cost + resolved tier/model in-band.
+- Reserve the main (inline) session for orchestration, integration, and final review;
+  push expensive per-sub-task reasoning through the gateway.
+
+**Setup (per developer, local — never committed):** register the `metallm-dev-bridge` MCP
+server via a local `.mcp.json` (gitignored) and export your gateway key as `COGNITUM_DEV_KEY`
+in your shell. Build steps + the exact `.mcp.json` block are in the internal meta-llm
+dev-bridge README. **Never commit the key or an inline gateway URL.**
