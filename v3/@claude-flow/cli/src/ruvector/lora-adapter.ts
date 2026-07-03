@@ -20,6 +20,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
+import { createRequire } from 'module';
 
 // ============================================================================
 // Types & Constants
@@ -135,6 +136,24 @@ const DEFAULT_CONFIG: LoRAConfig = {
 
 let ruvllmPipeline: any = null;
 let pipelineLoaded = false;
+
+/**
+ * Which training backend a train call would use — WITHOUT loading the
+ * pipeline (#2549). Before this existed, status surfaces read module state
+ * that only a prior in-process train populates, so a fresh read-only
+ * process always reported 'js-fallback'/'unavailable' even with
+ * @ruvector/ruvllm installed. The pipeline stays lazy: this only probes
+ * module resolution.
+ */
+export function resolveTrainingBackend(): 'ruvllm' | 'js-fallback' {
+  if (pipelineLoaded) return ruvllmPipeline ? 'ruvllm' : 'js-fallback';
+  try {
+    createRequire(import.meta.url).resolve('@ruvector/ruvllm');
+    return 'ruvllm';
+  } catch {
+    return 'js-fallback';
+  }
+}
 
 async function loadTrainingPipeline(adapter: LoRAAdapter): Promise<any> {
   if (pipelineLoaded) return ruvllmPipeline;
@@ -407,9 +426,7 @@ export class LoRAAdapter {
         ? this.adaptationNormSum / this.totalAdaptations
         : 0,
       lastUpdate: this.lastUpdate,
-      _trainingBackend: pipelineLoaded
-        ? (ruvllmPipeline ? 'ruvllm' : 'js-fallback')
-        : 'js-fallback',
+      _trainingBackend: resolveTrainingBackend(),
     };
   }
 

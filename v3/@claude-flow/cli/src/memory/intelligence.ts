@@ -15,6 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
+import { resolveTrainingBackend } from '../ruvector/lora-adapter.js';
 
 // ============================================================================
 // Persistence Configuration
@@ -1261,15 +1262,27 @@ export function getIntelligenceStats(): IntelligenceStats & {
   }
   const ruvllmStats = ruvllmCoordinator?.stats?.() || null;
 
-  // Fetch cross-module stats for unified reporting
+  // Fetch cross-module stats for unified reporting.
+  //
+  // #2549 — two prior defects here: `trainingBackend` was declared and
+  // returned but never assigned (always 'unavailable'), and contrastive
+  // availability was read ONLY from an in-process global that a fresh
+  // read-only `neural status` process never populates. Both made the
+  // native @ruvector/ruvllm path invisible even when installed. Backend
+  // now comes from the lora-adapter's capability probe; the global still
+  // wins when present because it carries live in-process session counts.
   let contrastiveTrainer: { triplets: number; agents: number } | string = 'unavailable';
   let trainingBackend = 'unavailable';
   try {
-    // Synchronous check — contrastiveTrainer is module-level in sona-optimizer
-    // We read it via the SONAOptimizer singleton if available
+    trainingBackend = resolveTrainingBackend();
+  } catch { /* module absent — stay 'unavailable' */ }
+  try {
     const sonaModule = (globalThis as any).__claudeFlowSonaStats;
-    if (sonaModule) {
-      contrastiveTrainer = sonaModule._contrastiveTrainer || 'unavailable';
+    if (sonaModule?._contrastiveTrainer) {
+      contrastiveTrainer = sonaModule._contrastiveTrainer;
+    } else if (trainingBackend === 'ruvllm') {
+      // Module resolves but no in-process session — available, idle.
+      contrastiveTrainer = 'available';
     }
   } catch { /* not available */ }
 

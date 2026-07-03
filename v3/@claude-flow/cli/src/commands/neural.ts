@@ -525,17 +525,27 @@ const statusCommand: Command = {
           },
           {
             component: 'Contrastive Trainer',
-            status: stats._contrastiveTrainer && stats._contrastiveTrainer !== 'unavailable' ? output.success('Active') : output.dim('Unavailable'),
-            details: stats._contrastiveTrainer && stats._contrastiveTrainer !== 'unavailable'
+            // #2549 — three states: live session (object with counts),
+            // 'available' (module resolves, no in-process session — the
+            // normal case for a read-only status process), 'unavailable'
+            // (module genuinely does not resolve).
+            status: typeof stats._contrastiveTrainer === 'object'
+              ? output.success('Active')
+              : stats._contrastiveTrainer === 'available'
+                ? output.success('Available')
+                : output.dim('Unavailable'),
+            details: typeof stats._contrastiveTrainer === 'object'
               ? `${(stats._contrastiveTrainer as any).triplets ?? 0} triplets, ${(stats._contrastiveTrainer as any).agents ?? 0} agents`
-              : 'Install @ruvector/ruvllm',
+              : stats._contrastiveTrainer === 'available'
+                ? 'ready — trains in-process on demand'
+                : 'Install @ruvector/ruvllm',
           },
           {
             component: 'Training Pipeline',
-            status: stats._trainingBackend === 'ruvllm' ? output.success('Active') : output.dim(stats._trainingBackend || 'Unavailable'),
+            status: stats._trainingBackend === 'ruvllm' ? output.success('Available') : output.dim(stats._trainingBackend || 'Unavailable'),
             details: stats._trainingBackend === 'ruvllm'
-              ? 'ruvllm checkpoints enabled'
-              : 'JS fallback (no checkpoints)',
+              ? 'native @ruvector/ruvllm pipeline'
+              : 'JS fallback',
           },
           await (async () => {
             try {
