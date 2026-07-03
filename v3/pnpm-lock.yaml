@@ -14,6 +14,7 @@ overrides:
   '@vitest/coverage-v8': '>=4.1.0'
   handlebars: '>=4.7.9'
   protobufjs: '>=8.6.0'
+  '@ruvector/ruvllm': '>=2.5.7'
 
 importers:
 
@@ -524,8 +525,8 @@ importers:
   '@claude-flow/providers':
     dependencies:
       '@ruvector/ruvllm':
-        specifier: ^0.2.3
-        version: 0.2.4
+        specifier: '>=2.5.7'
+        version: 2.5.7
       events:
         specifier: ^3.3.0
         version: 3.3.0
@@ -5584,26 +5585,10 @@ packages:
       '@ruvector/router-linux-x64-gnu': 0.1.30
       '@ruvector/router-win32-x64-msvc': 0.1.30
 
-  /@ruvector/ruvllm-darwin-arm64@0.2.0:
-    resolution: {integrity: sha512-3oEMNEoGJqfTJXf1Th49HPTlETMxLzlBc1yBY1RqCMoqSrNKsM66+3Npx0O/GdYfFnKRU2wa/mlLPuBY2lUqYQ==}
-    engines: {node: '>= 18'}
-    cpu: [arm64]
-    os: [darwin]
-    requiresBuild: true
-    optional: true
-
   /@ruvector/ruvllm-darwin-arm64@2.0.1:
     resolution: {integrity: sha512-giZb+TbErKLgURLC3CSmJKJl0bnJn+jFZk488ppyzrR6YGft6kO329Twnd+TiJNDxVOMgZefwVdsbF9jrUIgAQ==}
     engines: {node: '>= 18'}
     cpu: [arm64]
-    os: [darwin]
-    requiresBuild: true
-    optional: true
-
-  /@ruvector/ruvllm-darwin-x64@0.2.0:
-    resolution: {integrity: sha512-Niu9oG9hkbDJ1IpfXluRRfO4vwPwCdISW+ff1H+NjmIk8028CIg2w5iq3qbIaj6WzTQ9YqA68V5aMD9t0w8A6g==}
-    engines: {node: '>= 18'}
-    cpu: [x64]
     os: [darwin]
     requiresBuild: true
     optional: true
@@ -5616,26 +5601,10 @@ packages:
     requiresBuild: true
     optional: true
 
-  /@ruvector/ruvllm-linux-arm64-gnu@0.2.0:
-    resolution: {integrity: sha512-ykOqwiqRbf29idXYMmuDdZqOsRMbYgzpWhmk/BcSRVBMUsO4W2Q0UkgLZgt6PIKxSf1k2qt8x8uSmO5tYTD8Iw==}
-    engines: {node: '>= 18'}
-    cpu: [arm64]
-    os: [linux]
-    requiresBuild: true
-    optional: true
-
   /@ruvector/ruvllm-linux-arm64-gnu@2.0.1:
     resolution: {integrity: sha512-+u6Fe/Dsy4Y11m9IUmuoUeFtoUWc1ZVXxGB4JYomNDll63D03a0cpeKKaslgwOfFlfXlrFcs/eDrsYr07tQP5g==}
     engines: {node: '>= 18'}
     cpu: [arm64]
-    os: [linux]
-    requiresBuild: true
-    optional: true
-
-  /@ruvector/ruvllm-linux-x64-gnu@0.2.0:
-    resolution: {integrity: sha512-8JHH7ft00rqCRyiP0wuAThOVwSodj0gaTZcG1jBBqtnwApmdmTWN8EpuffrHHhhRO+Uvny6T5r7TiAh+Xu+QuQ==}
-    engines: {node: '>= 18'}
-    cpu: [x64]
     os: [linux]
     requiresBuild: true
     optional: true
@@ -5654,14 +5623,6 @@ packages:
     dev: false
     optional: true
 
-  /@ruvector/ruvllm-win32-x64-msvc@0.2.0:
-    resolution: {integrity: sha512-ksm+AZVqkkYLVq2Rbc7Rx+gSH7egFWlcH3E5dQpro98Oslc7jUH+uNDRjDVUS3lZXchV+Ot5WPLM4pClRxFm9w==}
-    engines: {node: '>= 18'}
-    cpu: [x64]
-    os: [win32]
-    requiresBuild: true
-    optional: true
-
   /@ruvector/ruvllm-win32-x64-msvc@2.0.1:
     resolution: {integrity: sha512-sRGNOMAcyC5p/nITnR0HLFUEObZ9Mh/T1erNiqhKrNUqIPZM1qAYBgN3xmZp02isdiTilRpxQihz3j4EzGPXIw==}
     engines: {node: '>= 18'}
@@ -5670,26 +5631,10 @@ packages:
     requiresBuild: true
     optional: true
 
-  /@ruvector/ruvllm@0.2.4:
-    resolution: {integrity: sha512-cNAkcKZIqqy+3fxOb1z8bS1cJzJgsUpqNIdMk29RDr+a5g/fLgmHTVEzdBW6kHfDTc5tFUr10Juh9K6w0cKufg==}
+  /@ruvector/ruvllm@2.5.7:
+    resolution: {integrity: sha512-XxvUsPZaiIfK5/n1/Vgv3Gz9+cgBbvHbN/4OKHrLcpbw0eY9b9+BsQmvmYGfBwiVumQcgn8wmFiqRTqBrTa3BA==}
     engines: {node: '>= 18'}
     hasBin: true
-    dependencies:
-      chalk: 4.1.2
-      commander: 12.1.0
-      ora: 5.4.1
-    optionalDependencies:
-      '@ruvector/ruvllm-darwin-arm64': 0.2.0
-      '@ruvector/ruvllm-darwin-x64': 0.2.0
-      '@ruvector/ruvllm-linux-arm64-gnu': 0.2.0
-      '@ruvector/ruvllm-linux-x64-gnu': 0.2.0
-      '@ruvector/ruvllm-win32-x64-msvc': 0.2.0
-
-  /@ruvector/ruvllm@2.5.6:
-    resolution: {integrity: sha512-B29ej1aJCNN7UCiIj0wtDMLCe01UWA7KMPTSAriGeey13aNYnstsTD+lz3tkglLSMSdwf9ozQ+N4lVQXvc96+A==}
-    engines: {node: '>= 18'}
-    hasBin: true
-    requiresBuild: true
     dependencies:
       chalk: 4.1.2
       commander: 12.1.0
@@ -5700,7 +5645,6 @@ packages:
       '@ruvector/ruvllm-linux-arm64-gnu': 2.0.1
       '@ruvector/ruvllm-linux-x64-gnu': 2.0.1
       '@ruvector/ruvllm-win32-x64-msvc': 2.0.1
-    optional: true
 
   /@ruvector/rvagent-wasm@0.1.0:
     resolution: {integrity: sha512-zhcnU7XfBEfDwkDFscehq6qGU/TW4LNr287xHHXCuNsaTBPlb8YSnkuMNWg6BBIK/X+UdWAsyYESN5jbNQEaBQ==}
@@ -6927,7 +6871,7 @@ packages:
       '@ruvector/gnn': 0.1.25
       '@ruvector/graph-node': 0.1.26
       '@ruvector/router': 0.1.26
-      '@ruvector/ruvllm': 0.2.4
+      '@ruvector/ruvllm': 2.5.7
       '@ruvector/sona': 0.1.5
       ajv: 8.17.1
       chalk: 5.6.2
@@ -6988,7 +6932,7 @@ packages:
       '@ruvector/gnn': 0.1.25
       '@ruvector/graph-node': 0.1.26
       '@ruvector/router': 0.1.30
-      '@ruvector/ruvllm': 0.2.4
+      '@ruvector/ruvllm': 2.5.7
       '@ruvector/sona': 0.1.7
       ajv: 8.18.0
       chalk: 5.6.2
@@ -7053,7 +6997,7 @@ packages:
       '@ruvector/gnn': 0.1.25
       '@ruvector/graph-node': 2.0.3
       '@ruvector/router': 0.1.30
-      '@ruvector/ruvllm': 2.5.6
+      '@ruvector/ruvllm': 2.5.7
       '@ruvector/rvf': 0.1.9
       '@ruvector/rvf-node': 0.1.8
       '@ruvector/rvf-solver': 0.1.8
@@ -7209,7 +7153,7 @@ packages:
       '@ruvector/core': 0.1.30
       '@ruvector/edge-full': 0.1.0
       '@ruvector/router': 0.1.30
-      '@ruvector/ruvllm': 0.2.4
+      '@ruvector/ruvllm': 2.5.7
       '@ruvector/tiny-dancer': 0.1.22
       '@supabase/supabase-js': 2.89.0
       '@xenova/transformers': 2.17.2
@@ -7265,7 +7209,7 @@ packages:
       '@ruvector/core': 0.1.30
       '@ruvector/edge-full': 0.1.0
       '@ruvector/router': 0.1.30
-      '@ruvector/ruvllm': 0.2.4
+      '@ruvector/ruvllm': 2.5.7
       '@ruvector/tiny-dancer': 0.1.18
       '@supabase/supabase-js': 2.89.0
       axios: 1.13.2
@@ -7322,7 +7266,7 @@ packages:
       '@ruvector/core': 0.1.30
       '@ruvector/edge-full': 0.1.0
       '@ruvector/router': 0.1.26
-      '@ruvector/ruvllm': 0.2.4
+      '@ruvector/ruvllm': 2.5.7
       '@ruvector/tiny-dancer': 0.1.22
       '@supabase/supabase-js': 2.89.0
       '@xenova/transformers': 2.17.2
@@ -10470,7 +10414,7 @@ packages:
       kolorist: 1.8.0
       prompts: 2.4.2
     optionalDependencies:
-      '@ruvector/ruvllm': 2.5.6
+      '@ruvector/ruvllm': 2.5.7
     dev: false
     optional: true
 
@@ -12000,7 +11944,7 @@ packages:
       '@ruvector/diskann': '>=0.1.0'
       '@ruvector/pi-brain': '>=0.1.0'
       '@ruvector/router': '>=0.1.0'
-      '@ruvector/ruvllm': '>=2.0.0'
+      '@ruvector/ruvllm': '>=2.5.7'
     peerDependenciesMeta:
       '@ruvector/diskann':
         optional: true

@@ -543,8 +543,19 @@ const statusCommand: Command = {
           {
             component: 'Training Pipeline',
             status: stats._trainingBackend === 'ruvllm' ? output.success('Available') : output.dim(stats._trainingBackend || 'Unavailable'),
+            // Checkpoint capability is version-gated: saveCheckpoint(path)
+            // was a silent no-op before @ruvector/ruvllm 2.5.7 (#2549).
             details: stats._trainingBackend === 'ruvllm'
-              ? 'native @ruvector/ruvllm pipeline'
+              ? await (async () => {
+                  try {
+                    const { nativeCheckpointsSupported } = await import('../ruvector/lora-adapter.js');
+                    return nativeCheckpointsSupported()
+                      ? 'native @ruvector/ruvllm pipeline + disk checkpoints'
+                      : 'native @ruvector/ruvllm pipeline (checkpoints need >=2.5.7)';
+                  } catch {
+                    return 'native @ruvector/ruvllm pipeline';
+                  }
+                })()
               : 'JS fallback',
           },
           await (async () => {

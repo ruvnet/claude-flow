@@ -55,3 +55,29 @@ describe('#2549 — training backend capability reporting', () => {
     expect(stats._contrastiveTrainer).not.toBe('unavailable');
   });
 });
+
+describe('#2549 follow-up — native checkpoint capability gate', () => {
+  it('nativeCheckpointsSupported reflects the resolved ruvllm version (>=2.5.7)', async () => {
+    const { nativeCheckpointsSupported } = await import('../src/ruvector/lora-adapter.js');
+    if (!ruvllmResolves()) {
+      expect(nativeCheckpointsSupported()).toBe(false);
+      return;
+    }
+    const req = createRequire(import.meta.url);
+    const { dirname, join } = await import('node:path');
+    const { existsSync, readFileSync } = await import('node:fs');
+    let dir = dirname(req.resolve('@ruvector/ruvllm'));
+    let version = '0.0.0';
+    for (let i = 0; i < 5; i++) {
+      const p = join(dir, 'package.json');
+      if (existsSync(p)) {
+        const pkg = JSON.parse(readFileSync(p, 'utf-8'));
+        if (pkg.name === '@ruvector/ruvllm') { version = pkg.version; break; }
+      }
+      dir = dirname(dir);
+    }
+    const [maj, min, pat] = version.split('.').map(Number);
+    const expected = maj > 2 || (maj === 2 && (min > 5 || (min === 5 && pat >= 7)));
+    expect(nativeCheckpointsSupported()).toBe(expected);
+  });
+});

@@ -155,6 +155,31 @@ export function resolveTrainingBackend(): 'ruvllm' | 'js-fallback' {
   }
 }
 
+/**
+ * Whether the resolved @ruvector/ruvllm persists checkpoints to disk.
+ * saveCheckpoint(path) was a silent no-op (private, void, wrote 0 bytes)
+ * before 2.5.7 — status surfaces must not advertise checkpoints against
+ * older versions. Reads the resolved package's version; the package does
+ * not export ./package.json, so walk up from the resolved entry instead.
+ */
+export function nativeCheckpointsSupported(): boolean {
+  try {
+    const req = createRequire(import.meta.url);
+    let dir = dirname(req.resolve('@ruvector/ruvllm'));
+    for (let i = 0; i < 5; i++) {
+      const pkgPath = join(dir, 'package.json');
+      if (existsSync(pkgPath)) {
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+        if (pkg.name !== '@ruvector/ruvllm') { dir = dirname(dir); continue; }
+        const [maj, min, pat] = String(pkg.version).split('.').map(Number);
+        return maj > 2 || (maj === 2 && (min > 5 || (min === 5 && pat >= 7)));
+      }
+      dir = dirname(dir);
+    }
+  } catch { /* unresolved — no native checkpoints */ }
+  return false;
+}
+
 async function loadTrainingPipeline(adapter: LoRAAdapter): Promise<any> {
   if (pipelineLoaded) return ruvllmPipeline;
   pipelineLoaded = true;
@@ -529,11 +554,17 @@ export class LoRAAdapter {
    * Falls back to writing our own weight JSON if ruvllm is unavailable.
    */
   async saveCheckpoint(path: string): Promise<boolean> {
+    // Parent dir must exist for BOTH paths: ruvllm <2.5.7 never wrote a
+    // file at all, and the JS fallback's writeFileSync throws ENOENT on a
+    // missing dir — which the catch silently converted to `false` (#2549).
+    try {
+      mkdirSync(dirname(path), { recursive: true });
+    } catch { /* fs errors surface on write below */ }
     const pipeline = await loadTrainingPipeline(this);
     if (pipeline) {
       try {
         pipeline.saveCheckpoint(path);
-        // Verify ruvllm actually wrote the file (some versions are no-op)
+        // Verify ruvllm actually wrote the file (<2.5.7 is a silent no-op)
         const fs = await import('fs');
         if (fs.existsSync(path)) return true;
       } catch { /* fall through to JS fallback */ }

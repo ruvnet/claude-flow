@@ -79,7 +79,8 @@
     "@opentelemetry/otlp-grpc-exporter-base": ">=0.220.0",
     "@opentelemetry/otlp-transformer": ">=0.220.0",
     "agentdb": ">=3.0.0-alpha.17",
-    "agentic-flow": ">=2.0.14"
+    "agentic-flow": ">=2.0.14",
+    "@ruvector/ruvllm": ">=2.5.7"
   },
   "engines": {
     "node": ">=20.0.0"
