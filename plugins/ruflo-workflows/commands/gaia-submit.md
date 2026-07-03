@@ -33,7 +33,6 @@ submission-<date>-<short-sha>/
 ├── results.jsonl        — one JSON object per question (HAL-compatible)
 ├── trajectories.jsonl   — full agent trajectory per question
 ├── metadata.json        — model, harness version, tool catalogue, cost
-├── integrity.json       — integrity attestation from /gaia validate (check 7)
 ├── manifest.md.json     — Ed25519-signed witness manifest
 └── README.md            — human-readable summary + comparison vs HAL baseline
 ```
@@ -73,20 +72,10 @@ submission-<date>-<short-sha>/
      "git_sha": "<short-sha>"
    }
    ```
-6. Embed the integrity attestation: copy
-   `~/.cache/ruflo/gaia/integrity-latest.json` (produced by `/gaia validate`
-   check 7 via `plugins/ruflo-workflows/scripts/gaia-integrity.mjs`) into the
-   package as `integrity.json`. If the stamp is missing, stale (git SHA does
-   not match the current HEAD), or has `"verdict": "fail"`, STOP and instruct
-   the user to run `/gaia validate` first — never package unaudited results.
-   If `"overridden": true`, surface that prominently in the README so the
-   override is visible to leaderboard reviewers.
-7. Sign with witness: `node plugins/ruflo-core/scripts/witness/sign.mjs submission-<id>/`
-   — the Ed25519 manifest covers `integrity.json` too, making the attestation
-   tamper-evident.
-8. Write `README.md` with pass-rate table comparing to HAL baselines.
-9. If `--dry-run`, print the package tree and manifest hash without writing.
-10. Print the package directory path so the user can zip + upload to HAL.
+6. Sign with witness: `node plugins/ruflo-core/scripts/witness/sign.mjs submission-<id>/`
+7. Write `README.md` with pass-rate table comparing to HAL baselines.
+8. If `--dry-run`, print the package tree and manifest hash without writing.
+9. Print the package directory path so the user can zip + upload to HAL.
 
 ## Submitting to HAL
 

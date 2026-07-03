@@ -1,7 +1,7 @@
 {
   "name": "ruflo-workflows",
-  "description": "Workflow automation across two surfaces: the 10 workflow_* MCP tools (create/run/execute/status/list/pause/resume/cancel/delete/template) with full state-machine lifecycle (created \u2192 running \u2194 paused \u2192 completed/cancelled), and native Claude Code Workflow JS orchestration (.claude/workflows/*.js \u2014 agent/parallel/pipeline/phase fan-out). Includes GAIA benchmark component for Princeton HAL leaderboard submissions.",
-  "version": "0.5.0",
+  "description": "Workflow automation across two surfaces: the 10 workflow_* MCP tools (create/run/execute/status/list/pause/resume/cancel/delete/template) with full state-machine lifecycle (created → running ↔ paused → completed/cancelled), and native Claude Code Workflow JS orchestration (.claude/workflows/*.js — agent/parallel/pipeline/phase fan-out). Includes GAIA benchmark component for Princeton HAL leaderboard submissions.",
+  "version": "0.4.0",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -26,13 +26,11 @@
     "benchmark",
     "hal-leaderboard",
     "evaluation",
-    "agent-benchmark",
-    "integrity",
-    "submission-integrity"
+    "agent-benchmark"
   ],
   "components": {
     "gaia": {
-      "description": "GAIA benchmark component \u2014 run, submit, validate, and track Princeton HAL leaderboard scores \u2014 includes fail-closed submission integrity checklist (scripts/gaia-integrity.mjs)",
+      "description": "GAIA benchmark component — run, submit, validate, and track Princeton HAL leaderboard scores",
       "commands": [
         "gaia",
         "gaia-run",
@@ -52,11 +50,7 @@
         "gaia-submission-coordinator"
       ],
       "cli_backend": "@claude-flow/cli gaia-bench",
-      "adrs": [
-        "ADR-133",
-        "ADR-135",
-        "ADR-136"
-      ],
+      "adrs": ["ADR-133", "ADR-135", "ADR-136"],
       "memory_namespaces": [
         "gaia-runs",
         "gaia-submissions",
@@ -65,20 +59,12 @@
       ]
     },
     "native_workflows": {
-      "description": "Native Claude Code Workflow JS orchestration \u2014 deterministic subagent fan-out via agent/parallel/pipeline/phase, authored as .claude/workflows/*.js named workflows",
+      "description": "Native Claude Code Workflow JS orchestration — deterministic subagent fan-out via agent/parallel/pipeline/phase, authored as .claude/workflows/*.js named workflows",
       "location": ".claude/workflows/*.js",
-      "api": [
-        "agent",
-        "parallel",
-        "pipeline",
-        "phase",
-        "log"
-      ],
-      "invocation": "Workflow tool \u2014 Workflow({ name }) | Workflow({ scriptPath }) | Workflow({ resumeFromRunId })",
+      "api": ["agent", "parallel", "pipeline", "phase", "log"],
+      "invocation": "Workflow tool — Workflow({ name }) | Workflow({ scriptPath }) | Workflow({ resumeFromRunId })",
       "reference_workflow": ".claude/workflows/plugin-contract-audit.js",
-      "adrs": [
-        "ADR-0002"
-      ]
+      "adrs": ["ADR-0002"]
     }
   }
 }

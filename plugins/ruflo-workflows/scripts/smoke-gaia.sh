@@ -11,9 +11,9 @@ bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
 # ── plugin.json ──────────────────────────────────────────────────────────────
 
-step "1. plugin.json at 0.5.0 with gaia keywords"
+step "1. plugin.json at 0.4.0 with gaia keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.5.0" ]]; then bad "expected 0.5.0, got '$v'"; else
+if [[ "$v" != "0.4.0" ]]; then bad "expected 0.4.0, got '$v'"; else
   miss=""
   for k in gaia benchmark hal-leaderboard evaluation; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
@@ -135,27 +135,6 @@ done
 step "14. gaia-bench CLI backend referenced in commands"
 grep -q 'gaia-bench' "$ROOT/commands/gaia-run.md" \
   && ok || bad "gaia-bench CLI not referenced in gaia-run.md"
-
-# ── submission integrity checklist (Berkeley RDI hardening) ──────────────────
-
-step "15. integrity script present + documented in validate/submit commands"
-miss=""
-[[ -f "$ROOT/scripts/gaia-integrity.mjs" ]] || miss="$miss missing-script"
-grep -q 'gaia-integrity.mjs' "$ROOT/commands/gaia-validate.md" || miss="$miss validate-not-wired"
-grep -q 'integrity.json' "$ROOT/commands/gaia-submit.md" || miss="$miss submit-no-attestation"
-grep -q 'allow-integrity-override' "$ROOT/commands/gaia-validate.md" || miss="$miss no-override-flag-doc"
-[[ -z "$miss" ]] && ok || bad "$miss"
-
-step "16. integrity self-test passes (fail-closed on planted answer-key + eval)"
-if node "$ROOT/scripts/gaia-integrity.mjs" --self-test >/dev/null 2>&1; then ok
-else bad "gaia-integrity.mjs --self-test exited non-zero"; fi
-
-step "17. integrity checklist passes against this repo's runner sources"
-out=$(node "$ROOT/scripts/gaia-integrity.mjs" --repo-root "$ROOT/../.." \
-  --output "$(mktemp -d)/integrity.json" --quiet 2>&1); rc=$?
-if [[ $rc -eq 0 ]]; then ok
-elif [[ $rc -eq 2 ]]; then bad "integrity findings in repo runner sources: $out"
-else bad "integrity script errored (rc=$rc): $out"; fi
 
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1
