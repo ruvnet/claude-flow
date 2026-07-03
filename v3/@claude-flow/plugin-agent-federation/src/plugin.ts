@@ -51,6 +51,11 @@ type LoadedTransport = AgentTransport & {
 import { dispatchInbound, canonicalizeEnvelopeForVerify } from './application/inbound-dispatcher.js';
 import { createMcpTools } from './mcp-tools.js';
 import { createCliCommands } from './cli-commands.js';
+// A2A (Agent2Agent, Linux Foundation) Agent Card adapter — cards only.
+// Opt-in via config.a2aCard; serves /.well-known/agent-card.json on a
+// 127.0.0.1-default bind (ADR-166 posture preserved).
+import { toAgentCard } from './a2a/agent-card.js';
+import { startAgentCardServer, type AgentCardServerHandle } from './a2a/well-known.js';
 
 export class AgentFederationPlugin implements ClaudeFlowPlugin {
   readonly name = '@claude-flow/plugin-agent-federation';
@@ -66,6 +71,9 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
   // in-process behavior — preserves backward compat for tests that
   // don't supply a port).
   private transport: LoadedTransport | null = null;
+  // A2A Agent Card well-known endpoint (opt-in via config.a2aCard). Null
+  // when the HTTP surface is off — everything else works without it.
+  private agentCardServer: AgentCardServerHandle | null = null;
 
   async initialize(context: PluginContext): Promise<void> {
     this.context = context;
@@ -407,10 +415,63 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
       );
     }
 
+    // A2A Agent Card well-known endpoint (opt-in, graceful). Enabled with
+    // config.a2aCard = true + config.a2aCardPort. Serves the local node's
+    // manifest as a spec-compliant A2A 1.0 card at
+    // /.well-known/agent-card.json. Binds 127.0.0.1 unless config.a2aCardHost
+    // is set AND config.a2aCardAllowNonLoopback is true (ADR-166: never
+    // loosen binding implicitly). A bind failure logs and degrades — the
+    // rest of federation is unaffected.
+    const a2aEnabled = config['a2aCard'] === true;
+    const a2aPort = config['a2aCardPort'] as number | undefined;
+    if (a2aEnabled && typeof a2aPort === 'number') {
+      try {
+        this.agentCardServer = await startAgentCardServer({
+          getCard: () => {
+            const manifest = discovery.getLocalManifest() ?? {
+              nodeId,
+              publicKey: publicKeyHex,
+              endpoint,
+              capabilities: {
+                agentTypes: coordConfig.capabilities,
+                maxConcurrentSessions: 10,
+                supportedProtocols: ['websocket', 'http'],
+                complianceModes: complianceMode === 'none' ? [] : [complianceMode],
+              },
+              version: this.version,
+              signature: '',
+              timestamp: new Date().toISOString(),
+            };
+            return toAgentCard(manifest);
+          },
+          port: a2aPort,
+          host: (config['a2aCardHost'] as string | undefined) ?? '127.0.0.1',
+          allowNonLoopback: config['a2aCardAllowNonLoopback'] === true,
+        });
+        context.logger.info(`A2A agent card served at ${this.agentCardServer.url}`);
+      } catch (err) {
+        context.logger.warn(
+          `A2A agent card endpoint unavailable (${err instanceof Error ? err.message : err}); ` +
+            'federation continues without the A2A discovery surface',
+        );
+        this.agentCardServer = null;
+      }
+    }
+
     context.logger.info('Agent Federation plugin initialized');
   }
 
   async shutdown(): Promise<void> {
+    if (this.agentCardServer) {
+      try {
+        await this.agentCardServer.close();
+      } catch (err) {
+        this.context?.logger.warn(
+          `A2A agent card server close error: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+      this.agentCardServer = null;
+    }
     if (this.coordinator) {
       await this.coordinator.shutdown();
       this.coordinator = null;

@@ -232,9 +232,9 @@ describe('AgentFederationPlugin', () => {
   });
 
   describe('registerCLICommands', () => {
-    it('should return 10 CLI command definitions', () => {
+    it('should return 11 CLI command definitions', () => {
       const commands = plugin.registerCLICommands();
-      expect(commands).toHaveLength(10);
+      expect(commands).toHaveLength(11);
     });
 
     it.each([
@@ -247,6 +247,7 @@ describe('AgentFederationPlugin', () => {
       'federation status',
       'federation audit',
       'federation trust',
+      'federation trust elevate',
       'federation config',
     ] as const)('should include command "%s"', (expectedName) => {
       const commands = plugin.registerCLICommands();
