@@ -25,6 +25,8 @@ with the ruflo Ed25519 witness manifest.
 | `--run-id` | auto (from git SHA) | Short identifier embedded in the package directory name |
 | `--dry-run` | off | Build and validate the package but do not write it to disk |
 | `--no-sign` | off | Skip Ed25519 signing (not recommended for leaderboard submissions) |
+| `--allow-dirty` | off | Build the package even when the ADR-167 exploit audit reports a CRITICAL failure (records the failure in the package; not for leaderboard submissions) |
+| `--strict-audit` | off | Also refuse to build when the audit reports a WARN finding |
 
 ## Output package layout
 
@@ -33,9 +35,29 @@ submission-<date>-<short-sha>/
 ├── results.jsonl        — one JSON object per question (HAL-compatible)
 ├── trajectories.jsonl   — full agent trajectory per question
 ├── metadata.json        — model, harness version, tool catalogue, cost
-├── manifest.md.json     — Ed25519-signed witness manifest
+├── audit-report.json    — ADR-167 pre-submission exploit-audit report
+├── manifest.md.json     — Ed25519-signed witness manifest (signs audit-report.json's hash)
 └── README.md            — human-readable summary + comparison vs HAL baseline
 ```
+
+## Submission integrity gate (ADR-167)
+
+Before signing, `/gaia submit` runs the **pre-submission exploit audit** — a
+deterministic, $0 red-team of the known reward-hacking vectors that let UC
+Berkeley RDI hit ~98% on GAIA *without solving a single task* (leaked answer
+DBs, no-work passes, oracle leakage, grader monkey-patching).
+
+**Signing proves the package bytes are untampered; the audit proves the scores
+were earned.** The two are wired together: the audit report is registered as an
+ADR-103 witness **fix marker**, so its sha256 + `"clean": true` marker are
+signed *into* `manifest.md.json`.
+
+- If the audit reports a **CRITICAL** failure, `/gaia submit` **refuses** to
+  build the leaderboard package unless `--allow-dirty` is passed.
+- `--strict-audit` additionally refuses on WARN findings.
+- Checks whose data the current trajectory schema does not capture return
+  `skip` with a `harness_gap` note (ADR-167 §7) — they do not block, but the
+  gap is recorded in `audit-report.json` and thus in the signed manifest.
 
 ## HAL-compatible result schema (per question)
 
@@ -72,10 +94,31 @@ submission-<date>-<short-sha>/
      "git_sha": "<short-sha>"
    }
    ```
-6. Sign with witness: `node plugins/ruflo-core/scripts/witness/sign.mjs submission-<id>/`
-7. Write `README.md` with pass-rate table comparing to HAL baselines.
-8. If `--dry-run`, print the package tree and manifest hash without writing.
-9. Print the package directory path so the user can zip + upload to HAL.
+6. **Run the exploit audit (ADR-167)** before signing:
+   ```bash
+   node plugins/ruflo-workflows/scripts/gaia-audit.mjs \
+     --results <results> \
+     --trajectories submission-<id>/trajectories.jsonl \
+     --metadata submission-<id>/metadata.json \
+     --out submission-<id>/audit-report.json \
+     --audited-at "$SUBMITTED_AT" ${STRICT_AUDIT:+--strict}
+   ```
+   If it exits non-zero (CRITICAL fail, or WARN under `--strict-audit`) and
+   `--allow-dirty` was NOT passed, stop and report the findings — do not build
+   the package. `--audited-at` is set to `metadata.submitted_at` so the report
+   is reproducible.
+7. Register the audit report as a witness fix marker so its hash is signed into
+   the manifest, then sign:
+   ```bash
+   node plugins/ruflo-core/scripts/witness/regen.mjs \
+     --manifest submission-<id>/manifest.md.json \
+     --root submission-<id> \
+     --fixes gaia-audit-fix.json   # {id:"gaia-exploit-audit", file:"audit-report.json", marker:"\"clean\": true"}
+   ```
+8. Write `README.md` with pass-rate table comparing to HAL baselines.
+9. If `--dry-run`, print the package tree, the audit summary, and the manifest
+   hash without writing.
+10. Print the package directory path so the user can zip + upload to HAL.
 
 ## Submitting to HAL
 

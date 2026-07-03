@@ -1,0 +1,14 @@
+{
+  "submitted_at": "2026-07-03T00:00:00Z",
+  "harness": "ruflo@3.17.x / @claude-flow/cli@3.17.x",
+  "model": "claude-sonnet-4-6",
+  "gaia_level": 1,
+  "gaia_split": "validation",
+  "voting_attempts": 1,
+  "tool_catalogue": ["web_search", "file_read", "grounded_query"],
+  "total_questions": 3,
+  "pass_rate": 0.6667,
+  "est_cost_usd": 0.0412,
+  "adrs": ["ADR-133", "ADR-135", "ADR-136", "ADR-167"],
+  "git_sha": "fffff00"
+}

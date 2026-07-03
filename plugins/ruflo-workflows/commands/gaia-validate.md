@@ -21,10 +21,11 @@ results for the HAL leaderboard.
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--strict` | off | Fail on warnings (not just errors) |
+| `--strict` | off | Fail on warnings (not just errors); with `--audit`, also fails on WARN audit findings |
 | `--fix` | off | Attempt to auto-fix resolvable issues (e.g., install missing deps) |
 | `--skip-hf` | off | Skip the HF dataset connectivity check (useful offline) |
 | `--skip-build` | off | Skip the TypeScript build check |
+| `--audit` | off | Run the pre-submission exploit audit (ADR-167) when a results file exists |
 
 ## Checks performed
 
@@ -64,6 +65,41 @@ Confirm all required benchmark source files exist:
 node v3/@claude-flow/cli/bin/cli.js --version
 ```
 
+### 7. Submission integrity (exploit audit) — ADR-167
+
+Only runs when `--audit` is passed **and** a results file is available
+(default `~/.cache/ruflo/gaia/results-latest.json`). Motivated by UC Berkeley
+RDI's April-2026 finding that all 8 major agent benchmarks — GAIA included —
+were gamed to ~98-100% *without solving any task* (GAIA leaked ~98% of answers
+via public answer DBs + normalization collisions; o3/Claude-3.7 monkey-patch
+graders in 30%+ of runs, per METR).
+
+**Signing proves the bytes are untampered; this audit proves the score was
+earned.** It is a deterministic, $0, offline red-team of the known
+reward-hacking vectors:
+
+```bash
+node plugins/ruflo-workflows/scripts/gaia-audit.mjs \
+  --results ~/.cache/ruflo/gaia/results-latest.json \
+  --trajectories <submission>/trajectories.jsonl \
+  --metadata <submission>/metadata.json
+```
+
+| Check | Severity | RDI/METR vector |
+|-------|----------|-----------------|
+| answer-leakage | CRITICAL | gold answer appears in a fetched tool output (GAIA's #1 vector) |
+| no-work-pass | CRITICAL | correct with zero turns / zero output tokens / no LLM call |
+| oracle-leakage | CRITICAL | gold answer present in the agent-visible prompt |
+| grader-isolation | CRITICAL | tool call targets judge/grader/witness paths (monkey-patching) |
+| normalization-collision | WARN | degenerate/generic answer credited under aggressive normalization |
+| voting-disclosure | WARN | hidden best-of-N not disclosed in metadata |
+| split-integrity | WARN/INFO | validation-split (public gold) presented as held-out |
+
+Exit 0 clean · exit 1 on any CRITICAL fail (or WARN fail under `--strict`) ·
+exit 2 usage error. Checks whose data the trajectory schema does not yet
+capture return `skip` with a `harness_gap` note (see ADR-167 §7) — they never
+report a false pass.
+
 ## Expected output
 
 ```
@@ -90,5 +126,8 @@ Ready to run /gaia run
 2. Run `npx tsc --noEmit` in the CLI package directory; capture stderr.
 3. Run a 1-question dry-run fetch: `node … gaia-bench run --smoke-only --limit=1 --dry-run`.
 4. Run the witness verify script.
-5. Print the validation table and exit with code 1 if any errors (not warnings)
+5. If `--audit` is set and a results file exists, run
+   `plugins/ruflo-workflows/scripts/gaia-audit.mjs` (ADR-167); treat a CRITICAL
+   audit failure as an error and a WARN failure as a warning.
+6. Print the validation table and exit with code 1 if any errors (not warnings)
    are found, unless `--strict` is set in which case warnings also cause exit 1.

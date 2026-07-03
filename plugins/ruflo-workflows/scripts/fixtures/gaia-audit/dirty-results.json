@@ -1,0 +1,74 @@
+{
+  "level": 1,
+  "model": "claude-haiku-4-5",
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "passRate": 1.0,
+    "estCostUsd": 0.0009,
+    "meanTurns": 0.8,
+    "meanWallMs": 210
+  },
+  "results": [
+    {
+      "task_id": "fx-dirty-leak",
+      "question": "What is the exact designation of the compound in row 4 of the attached spreadsheet?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "cyclohexanecarboxylic acid",
+      "expected_output": "cyclohexanecarboxylic acid",
+      "turns": 2,
+      "wallMs": 340,
+      "inputTokens": 900,
+      "outputTokens": 40
+    },
+    {
+      "task_id": "fx-dirty-nowork",
+      "question": "How many total goals were scored in the 1998 FIFA World Cup?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "171",
+      "expected_output": "171",
+      "turns": 0,
+      "wallMs": 12,
+      "inputTokens": 0,
+      "outputTokens": 0
+    },
+    {
+      "task_id": "fx-dirty-oracle",
+      "question": "According to the report, what was the final revenue figure?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "42.7 million",
+      "expected_output": "42.7 million",
+      "turns": 1,
+      "wallMs": 260,
+      "inputTokens": 780,
+      "outputTokens": 30
+    },
+    {
+      "task_id": "fx-dirty-grader",
+      "question": "Compute the checksum of the provided dataset.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "a1b2c3",
+      "expected_output": "a1b2c3",
+      "turns": 3,
+      "wallMs": 520,
+      "inputTokens": 1200,
+      "outputTokens": 90
+    },
+    {
+      "task_id": "fx-dirty-collision",
+      "question": "Is the statement in the document logically consistent? Answer with the specific contradiction found.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "yes",
+      "expected_output": "yes, the depreciation schedule contradicts the stated asset lifetime",
+      "turns": 1,
+      "wallMs": 180,
+      "inputTokens": 640,
+      "outputTokens": 12
+    }
+  ]
+}

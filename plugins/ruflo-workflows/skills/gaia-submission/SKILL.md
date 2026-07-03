@@ -84,9 +84,25 @@ submission-<date>-<sha>/
 ├── results.jsonl        ← HAL-compatible, one JSON per line
 ├── trajectories.jsonl   ← full agent traces
 ├── metadata.json        ← harness info, model, tool catalogue
-├── manifest.md.json     ← Ed25519-signed witness
+├── audit-report.json    ← ADR-167 pre-submission exploit-audit report
+├── manifest.md.json     ← Ed25519-signed witness (signs audit-report.json's hash)
 └── README.md            ← human summary + leaderboard comparison
 ```
+
+### Integrity gate — the audit runs before signing (ADR-167)
+
+Post-RDI (UC Berkeley broke 8 agent benchmarks — GAIA to ~98% — without solving
+a task), a signature alone is not enough: **it proves the bytes are untampered,
+not that the score was earned.** `/gaia submit` therefore runs a deterministic,
+$0 exploit audit before signing and **refuses to build the leaderboard package
+on a CRITICAL failure** unless `--allow-dirty` is passed. The audit report is
+signed *into* the witness manifest as an ADR-103 fix marker, so a ruflo GAIA
+submission attests both transport-integrity *and* earning-integrity.
+
+If the gate blocks, treat it as a real finding — inspect `audit-report.json`
+(answer-leakage, no-work pass, oracle leakage, or grader monkey-patching) rather
+than reaching for `--allow-dirty`. Checks the current trajectory schema cannot
+feed are reported as `harness_gap`s (ADR-167 §7), not passes.
 
 ## Phase 5 — Compare and report
 
