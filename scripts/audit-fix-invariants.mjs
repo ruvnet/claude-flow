@@ -189,12 +189,12 @@ const INVARIANTS = [
     why: 'memory_import_claude accepts excludeFilePatterns (glob) for voice-fidelity / persona-restricted operators. Per-file granularity beyond the coarse allProjects:true/false.',
   },
 
-  // #1921 — pin @opentelemetry/core to dodge arborist Invalid Version
+  // #1921 — override @opentelemetry/core to dodge arborist Invalid Version
   {
     issue: '#1921',
     file: 'package.json',
-    substring: '"@opentelemetry/core": "1.25.1"',
-    why: 'overrides pin for @opentelemetry/core@1.25.1. Eliminates the npm 10.8.x arborist `Invalid Version: ` placeholder that fails every `npx claude-flow@alpha …` install (including all 5 hook fires).',
+    substring: '"@opentelemetry/core": ">=2.8.0"',
+    why: 'overrides entry for @opentelemetry/core (originally an exact 1.25.1 pin, raised to a >=2.8.0 floor in #2547 for the OTel 2.x audit fix). Keeping a single resolvable @opentelemetry/core in overrides eliminates the npm 10.8.x arborist `Invalid Version: ` placeholder that fails every `npx claude-flow@alpha …` install (including all 5 hook fires). Do not delete the override — retune the range instead.',
   },
 
   // #1910 — MCP stdio mode protects stdout from stray console.log
