@@ -14,6 +14,24 @@ That channel is directly reusable. It is verified generic:
 - On every CLI command (`src/index.ts:142`, awaited, silent-unless-blocked), `autoRefreshHelpersIfStale()` compares a version stamp; on mismatch it re-copies signed artifacts into the project, fail-closed.
 - `HelpersManifest = { version, files: Record<name, sha256> }` and `verifyHelpersManifest()` (Ed25519 against the baked `RUFLO_HELPERS_PUBKEY`) are **not hook-code-specific**. A parallel manifest for config artifacts, its own stamp file, and a sibling call at the same site would propagate a proven manifest to every already-`ruflo init`'d project on their next command — zero re-init, same fail-closed guarantee.
 
+## Container format: RVFA (stay in the ruvnet ecosystem)
+
+The propagated artifact is packaged as a **signed RVFA appliance** (`.rvf`), not a bespoke JSON blob — reusing ruvnet's own container rather than inventing a parallel one. RVFA is a general self-contained binary appliance (`rvfa-builder.ts`), signed with an Ed25519 footer (`rvfa-signing.ts`), and already carries the distribution/update primitives this ADR would otherwise reinvent: `RvfaPublisher` (IPFS/Pinata, **CID content-addressing**) and `RvfaPatcher` (**RVFP binary delta-patches**). Critically, its envelope parses + verifies with **pure Node** (`parseRvfaBinary()` = Buffer + native crypto) — the optional `@ruvector`/agenticow native module is needed only for *vector operations on the payload*, never to read the metadata section or check the signature. So the every-command adoption gate stays lightweight and dependency-free.
+
+Section mapping:
+
+| RVFA section | Contents | Read cost |
+|---|---|---|
+| **metadata** | the OCI-style constraint contract below (host/platform/compatibility/benchmark/`layer`/rollback) + receipt summary | zero-dep (pure Node parse) |
+| **payload** | the verified execution policy + the **replayable proof-trajectory as native ruvector data** (strengthens ADR-176's "replayable from receipts" — the proof is now a first-class container, not out-of-band JSON) | vector ops need the optional module; the *decision to adopt* does not |
+| **footer** | Ed25519 signature (`rvfa-signing`) | zero-dep (native crypto) |
+
+**Distribution is layered — keep the network off the critical path:**
+- **Default: ship-in-package + verify locally** on the every-command auto-refresh path (preserves the fail-closed, no-runtime-network posture of ADR-174). The version stamp becomes an immutable **champion CID**.
+- **Opt-in: IPFS/CID pull + RVFP delta-patches** as an out-of-band update (e.g. a daemon worker fetches the latest champion CID) — Pinata/network stays *off* the every-command path.
+
+Trade-offs recorded: (a) the suitability metadata MUST live in a zero-dep-readable RVFA section so adoption never requires the optional vector module; (b) `rvfa-signing` is a distinct Ed25519 root from `helper-signing` — purpose-fit for RVF appliances; we either accept two roots (hook code vs. config appliances) or share one key. The `verifyHelpersManifest` canonical-JSON pattern still governs the *hook-code* channel; RVFA governs the *config* channel.
+
 ## The core security concern: signed ≠ suitable
 
 A signature proves **authenticity** (this came from ruflo, unmodified). It does **not** prove **suitability** (this is safe/correct to apply *here*). A perfectly-signed configuration can still be wrong for a given install — different host version, platform, benchmark lineage, or an incompatible metaharness version. Propagating a signed-but-unsuitable manifest is a real failure mode.
@@ -27,7 +45,9 @@ Generalize the ADR-174 signed auto-refresh channel from shipping **hook code** t
 ### The manifest (OCI-metadata-style, not a bare blob)
 
 ```yaml
-# proven-config.manifest.json (signed; the receipt from ADR-176)
+# The RVFA metadata section (zero-dep readable) — the constraint contract that
+# gates adoption. The policy + replayable proof-trajectory ride the RVFA payload;
+# the Ed25519 signature is the RVFA footer.
 schema: ruflo.proven-config/v1
 policy:                       # the verified execution policy (internal: "genome")
   ref: sha256:…               #   content-addressed; the actual policy blob
@@ -72,10 +92,11 @@ External surfaces (the channel, CLI, docs) call these **proven configuration man
 
 ## Alternatives considered
 
-- **Ship a bare signed blob (authenticity only).** Rejected — the core concern above: signed ≠ suitable.
-- **A new fetch/update daemon.** Rejected — reuse the proven, awaited, fail-closed `index.ts:142` channel; it already runs on every command with the right cadence and safety posture.
-- **A distinct signing key/trust root for configs.** Reuse `helper-signing.ts` (optionally a sibling key with the same mechanism); do not invent a new pattern. Four Ed25519 roots already exist.
-- **Push/pull from a network endpoint at runtime.** Rejected as the default — the artifact ships *in* the installed package (npm-integrity-verified), copied locally; no runtime network trust beyond the standard install.
+- **A bespoke signed JSON blob (helper-signing style).** Rejected in favor of RVFA — a bespoke blob would reinvent distribution (CID), incremental updates (delta-patch), and container signing that RVFA already ships, and would sit *outside* the ruvnet ecosystem. The `helper-signing` canonical-JSON pattern still governs the hook-code channel; RVFA governs the config channel.
+- **RVFA fetched from IPFS on every command.** Rejected as the default — puts Pinata/network + credentials on the critical path. Ship-in-package + local verify is the default; IPFS/CID pull is opt-in, out-of-band.
+- **Ship a bare signed appliance (authenticity only, no constraints).** Rejected — the core concern: signed ≠ suitable. The constraint contract in the RVFA metadata section is load-bearing.
+- **A new fetch/update daemon.** Rejected — reuse the proven, awaited, fail-closed `index.ts:142` channel for the local path; the opt-in IPFS pull can ride an existing daemon worker.
+- **One shared Ed25519 root for hooks + configs.** Open — `rvfa-signing` is purpose-fit for RVF appliances; sharing one key across channels is a simplification we may or may not take. Recorded, not decided.
 
 ## Rollback
 
