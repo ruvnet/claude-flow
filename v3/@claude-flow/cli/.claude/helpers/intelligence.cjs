@@ -575,11 +575,14 @@ function getContext(prompt) {
  * recordEdit(file) — Called from post-edit. Budget: <2ms.
  * Appends to pending-insights.jsonl.
  */
-function recordEdit(file) {
+function recordEdit(file, success) {
   ensureDataDir();
   const entry = JSON.stringify({
     type: 'edit',
     file: file || 'unknown',
+    // ADR-174: record failures too, not just successes — the learning substrate
+    // needs negative examples. Defaults true; an explicit false is a failed edit.
+    success: success !== false,
     timestamp: Date.now(),
     sessionId: sessionGet('sessionId') || null,
   });

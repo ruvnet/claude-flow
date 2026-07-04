@@ -15,6 +15,56 @@ export const ATTRIBUTION_FOOTER =
   '🤖 Generated with [RuFlo](https://github.com/ruvnet/ruflo)';
 
 /**
+ * Detect whether a Claude Code PostToolUse payload represents a FAILED tool run.
+ *
+ * Why this matters: the learning substrate had 898 feedback records, 100%
+ * success, 0 failures — because the post-edit/post-task hooks recorded a
+ * hardcoded `success:true` and never inspected the tool outcome. With no
+ * negative examples, the oracle tier can't teach good-vs-bad (see the DB
+ * analysis + ADR-174). Claude Code passes the tool result in the PostToolUse
+ * hook payload (`tool_response`), which for a failed Write/Edit/Bash carries an
+ * error marker. This predicate is the single source of truth the generated
+ * hook inlines, and is unit-tested here so the detection stays honest.
+ *
+ * Conservative: returns true only on a POSITIVE error signal; ambiguous/missing
+ * payloads default to success (matches prior behavior, avoids false failures).
+ */
+export function isToolFailure(hookInput: unknown): boolean {
+  if (!hookInput || typeof hookInput !== 'object') return false;
+  const h = hookInput as Record<string, unknown>;
+  const tr = (h.tool_response ?? h.toolResponse ?? h.result) as unknown;
+  if (tr == null) return false;
+  if (typeof tr === 'string') {
+    return /\b(error|failed|failure|exception|not found|no such|permission denied|traceback)\b/i.test(tr);
+  }
+  if (typeof tr === 'object') {
+    const o = tr as Record<string, unknown>;
+    if (o.is_error === true || o.isError === true || o.success === false || o.error != null) return true;
+    // Bash tool: non-zero exit code is a failure.
+    const code = (o.exit_code ?? o.exitCode ?? o.code) as unknown;
+    if (typeof code === 'number' && code !== 0) return true;
+    // Nested content array (Claude tool result shape): {content:[...], is_error:true}
+    if (Array.isArray(o.content) && o.is_error === true) return true;
+  }
+  return false;
+}
+
+// The exact predicate the generated hook inlines — kept in sync with
+// isToolFailure() above (mirrored, since the generated .cjs has no imports).
+const TOOL_FAILURE_EXPR =
+  '(function(hi){' +
+  'if(!hi||typeof hi!=="object")return false;' +
+  'var tr=hi.tool_response!=null?hi.tool_response:(hi.toolResponse!=null?hi.toolResponse:hi.result);' +
+  'if(tr==null)return false;' +
+  'if(typeof tr==="string")return /\\b(error|failed|failure|exception|not found|no such|permission denied|traceback)\\b/i.test(tr);' +
+  'if(typeof tr==="object"){' +
+  'if(tr.is_error===true||tr.isError===true||tr.success===false||tr.error!=null)return true;' +
+  'var code=tr.exit_code!=null?tr.exit_code:(tr.exitCode!=null?tr.exitCode:tr.code);' +
+  'if(typeof code==="number"&&code!==0)return true;' +
+  'if(Array.isArray(tr.content)&&tr.is_error===true)return true;' +
+  '}return false;})(hookInput)';
+
+/**
  * Generate pre-commit hook script
  */
 export function generatePreCommitHook(): string {
@@ -469,6 +519,9 @@ export function generateHookHandler(): string {
     '  // hook (#1944). Pull `.command` off whichever stdin shape Claude Code sent.',
     '  var toolInputObj = hookInput.toolInput || hookInput.tool_input || {};',
     "  var prompt = hookInput.prompt || hookInput.command || toolInputObj.command || process.env.PROMPT || process.env.TOOL_INPUT_command || args.join(' ') || '';",
+    '  // Capture FAILURES, not just successes, so the learning substrate has',
+    '  // negative examples (see ADR-174 / DB analysis). Mirrors isToolFailure().',
+    '  var toolFailed = ' + TOOL_FAILURE_EXPR + ';',
     '',
     'const handlers = {',
     "  'route': () => {",
@@ -513,10 +566,10 @@ export function generateHookHandler(): string {
     '    if (intelligence && intelligence.recordEdit) {',
     '      try {',
     "        var file = process.env.TOOL_INPUT_file_path || args[0] || '';",
-    '        intelligence.recordEdit(file);',
+    '        intelligence.recordEdit(file, !toolFailed);',
     '      } catch (e) { /* non-fatal */ }',
     '    }',
-    "    console.log('[OK] Edit recorded');",
+    "    console.log(toolFailed ? '[LEARN] Edit FAILURE recorded' : '[OK] Edit recorded');",
     '  },',
     '',
     "  'session-restore': () => {",
@@ -572,10 +625,10 @@ export function generateHookHandler(): string {
     "  'post-task': () => {",
     '    if (intelligence && intelligence.feedback) {',
     '      try {',
-    '        intelligence.feedback(true);',
+    '        intelligence.feedback(!toolFailed);',
     '      } catch (e) { /* non-fatal */ }',
     '    }',
-    "    console.log('[OK] Task completed');",
+    "    console.log(toolFailed ? '[LEARN] Task FAILURE recorded' : '[OK] Task completed');",
     '  },',
     '',
     "  'compact-manual': () => {",
@@ -820,10 +873,12 @@ export function generateIntelligenceStub(): string {
     '    return lines2.join("\\n");',
     '  },',
     '',
-    '  recordEdit: function(file) {',
+    '  recordEdit: function(file, success) {',
     '    if (!file) return;',
     '    ensureDir(DATA_DIR);',
-    '    var line = JSON.stringify({ type: "edit", file: file, timestamp: Date.now() }) + "\\n";',
+    '    // success defaults to true; an explicit false (failed edit) is recorded',
+    '    // so consolidation/distillation gets a negative example (ADR-174).',
+    '    var line = JSON.stringify({ type: "edit", file: file, success: success !== false, timestamp: Date.now() }) + "\\n";',
     '    fs.appendFileSync(PENDING_PATH, line, "utf-8");',
     '  },',
     '',
