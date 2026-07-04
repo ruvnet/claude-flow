@@ -59,6 +59,46 @@ export interface ExploreOptions {
    * wins by default (stable). Set `'last'` to prefer the later candidate.
    */
   tieBreak?: 'first' | 'last';
+  /**
+   * PROMOTION GATE (ADR-171). A branch is promote-INELIGIBLE unless cleared by a
+   * real evaluation oracle, or by an explicitly-accepted Fable judge. When
+   * provided, the top-scoring candidate is promoted ONLY if this returns
+   * `{cleared:true, by:'oracle:test-exec'}` or `{cleared:true, by:'judge:fable'}`.
+   * `proxy:structural` can NEVER clear a promote — score rank alone does not
+   * graduate work into base. Omit for legacy score-only promotion (unverified).
+   */
+  clearance?: (
+    winnerResult: unknown,
+    label: string,
+  ) => Promise<{ cleared: boolean; by: PromotionProvenance; reason?: string }>;
+  /**
+   * Force the clearance gate even without a `clearance` fn — a missing gate then
+   * means the winner is ineligible (fail-closed). Default: gate enforced iff
+   * `clearance` is supplied.
+   */
+  requireClearance?: boolean;
+}
+
+/** Provenance of a promotion decision (ADR-171 trust tiers). */
+export type PromotionProvenance =
+  | 'oracle:test-exec'   // real evaluation — clears
+  | 'judge:fable'        // explicitly-accepted LLM judge — clears
+  | 'proxy:structural'   // score/structural only — NEVER clears a promote
+  | 'unverified';        // legacy score-only path (no gate configured)
+
+/**
+ * Causal failure receipt (ADR-171). Emitted for every discarded loser and for
+ * an ineligible/failed winner — a rollback that loses *why* is half-useful.
+ */
+export interface SpeculativeReceipt {
+  label: string;
+  score: number;
+  /** What the branch changed vs its lineage, when introspectable. */
+  diff: { added: number[]; overridden: number[]; deleted: number[] } | null;
+  /** Why this branch did not graduate. */
+  outcome: 'discarded-loser' | 'winner-ineligible' | 'winner-failed';
+  provenance: PromotionProvenance;
+  reason?: string;
 }
 
 export interface SpeculativeBranchOutcome<TResult> {
@@ -77,12 +117,27 @@ export interface SpeculativeResult<TResult> {
   scores: Record<string, number>;
   /** Whether the winner was successfully promoted into base. */
   promoted: boolean;
+  /** How the promotion decision was reached (ADR-171 provenance). */
+  promotedBy: PromotionProvenance;
+  /** Human-readable promotion decision, e.g. 'promoted:oracle:test-exec' or 'ineligible:proxy-cannot-clear'. */
+  promotionDecision: string;
   /** agenticow promote() stats for the winner ({ ingested, deleted }). */
   promoteStats: { ingested: number; deleted: number } | null;
   /** Labels of the discarded losers whose branch files were deleted. */
   discarded: string[];
+  /** Causal failure receipts for discarded losers + an ineligible winner. */
+  receipts: SpeculativeReceipt[];
   /** Per-candidate detail (score, path, result, kept). */
   branches: SpeculativeBranchOutcome<TResult>[];
+}
+
+function safeDiff(branch: MemoryHandle): SpeculativeReceipt['diff'] {
+  try {
+    const d = branch.diff?.();
+    return d ? { added: d.added ?? [], overridden: d.overridden ?? [], deleted: d.deleted ?? [] } : null;
+  } catch {
+    return null;
+  }
 }
 
 function deleteBranchFiles(path: string): void {
@@ -165,18 +220,72 @@ export async function explore<TResult>(
   for (const l of live) scores[l.label] = l.score;
 
   const winner = live[winnerIdx];
+  const receipts: SpeculativeReceipt[] = [];
 
-  // 3) Promote the winner's edits back into base.
-  const promoteStats = winner.branch.promote(base) as { ingested: number; deleted: number };
-  if (persist) {
-    winner.branch.save?.(manifestFor(winner.path));
+  // 3) PROMOTION GATE (ADR-171). The top score is a *nominee*, not a promotion.
+  //    A branch graduates into base only when cleared by a real oracle or an
+  //    explicitly-accepted Fable judge. proxy:structural / score-only never
+  //    clears. Fail-closed: requireClearance with no gate = ineligible.
+  const gate = opts.clearance;
+  const enforce = opts.requireClearance ?? !!gate;
+  let promoted = false;
+  let promotedBy: PromotionProvenance = 'unverified';
+  let promotionDecision: string;
+  let promoteStats: { ingested: number; deleted: number } | null = null;
+
+  let clearance: { cleared: boolean; by: PromotionProvenance; reason?: string };
+  if (gate) {
+    try {
+      clearance = await gate(winner.result, winner.label);
+    } catch (e) {
+      clearance = { cleared: false, by: 'proxy:structural', reason: `clearance threw: ${(e as Error)?.message ?? e}` };
+    }
+  } else if (enforce) {
+    clearance = { cleared: false, by: 'proxy:structural', reason: 'requireClearance set but no clearance gate provided' };
+  } else {
+    clearance = { cleared: true, by: 'unverified', reason: 'legacy score-only promotion (no gate configured)' };
   }
-  winner.branch.close?.();
 
-  // 4) Discard the losers — close handle, delete branch files (162 bytes each).
+  // proxy:structural can NEVER clear a promote, regardless of `cleared`.
+  const cleared = clearance.cleared
+    && (clearance.by === 'oracle:test-exec' || clearance.by === 'judge:fable' || (!enforce && clearance.by === 'unverified'));
+
+  if (cleared) {
+    promoteStats = winner.branch.promote(base) as { ingested: number; deleted: number };
+    if (persist) winner.branch.save?.(manifestFor(winner.path));
+    winner.branch.close?.();
+    promoted = true;
+    promotedBy = clearance.by;
+    promotionDecision = `promoted:${clearance.by}`;
+  } else {
+    // Winner is ineligible — base stays UNCHANGED. Emit a causal receipt and
+    // discard the branch (it did not earn graduation).
+    promotedBy = clearance.by;
+    promotionDecision = `ineligible:${clearance.by === 'proxy:structural' ? 'proxy-cannot-clear' : clearance.by}`;
+    receipts.push({
+      label: winner.label,
+      score: winner.score,
+      diff: safeDiff(winner.branch),
+      outcome: 'winner-ineligible',
+      provenance: clearance.by,
+      reason: clearance.reason ?? 'not cleared by oracle or accepted Fable judge',
+    });
+    winner.branch.close?.();
+    deleteBranchFiles(winner.path);
+  }
+
+  // 4) Discard the losers — receipt each, close handle, delete files.
   const discarded: string[] = [];
   for (let i = 0; i < live.length; i++) {
     if (i === winnerIdx) continue;
+    receipts.push({
+      label: live[i].label,
+      score: live[i].score,
+      diff: safeDiff(live[i].branch),
+      outcome: 'discarded-loser',
+      provenance: 'proxy:structural',
+      reason: `lower score than winner (${live[i].score} < ${winner.score})`,
+    });
     live[i].branch.close?.();
     deleteBranchFiles(live[i].path);
     discarded.push(live[i].label);
@@ -187,15 +296,18 @@ export async function explore<TResult>(
     path: l.path,
     score: l.score,
     result: l.result,
-    kept: i === winnerIdx,
+    kept: i === winnerIdx && promoted,
   }));
 
   return {
     winner: winner.label,
     scores,
-    promoted: true,
-    promoteStats: promoteStats ?? null,
+    promoted,
+    promotedBy,
+    promotionDecision,
+    promoteStats,
     discarded,
+    receipts,
     branches,
   };
 }

@@ -123,6 +123,11 @@ export const agenticowSpeculateTools: MCPTool[] = [
           enum: ['nearest', 'count'],
           description: "'nearest' = closest probe distance wins; 'count' = most accepted ingests wins. Default 'nearest'.",
         },
+        requireClearance: {
+          type: 'boolean',
+          description: 'ADR-171 fail-closed gate. When true, the top-scored winner is NOT promoted (base stays unchanged) and a provenance-tagged receipt is emitted — score alone cannot graduate work. Use when speculating over TASK outcomes rather than pure memory A/B. Default false (score-only promotion, tagged `unverified`).',
+          default: false,
+        },
       },
       required: ['basePath', 'candidates'],
     },
@@ -187,10 +192,20 @@ export const agenticowSpeculateTools: MCPTool[] = [
         return `${basePath}.spec-${safeSegment(label)}.rvf`;
       };
 
+      // ADR-171 promotion gate. For pure memory A/B the `score` IS the chosen
+      // metric (not a proxy for task correctness), so score-only promotion is
+      // legitimate and stays the default (tagged `unverified`, never
+      // masquerading as ground truth). Callers grafting this onto TASK work
+      // pass requireClearance:true to fail-closed — the winner is then
+      // ineligible unless a real clearance mechanism graduates it.
+      const requireClearance = input.requireClearance === true;
+      const exploreOpts: Parameters<typeof explore>[3] = { branchPath, persist: true };
+      if (requireClearance) exploreOpts.requireClearance = true;
+
       // Open base, run the speculative exploration, persist base with the winner promoted.
       const base = await openWithLineage(api, basePath, dimension);
       try {
-        const result = await explore(base, candidates, score, { branchPath, persist: true });
+        const result = await explore(base, candidates, score, exploreOpts);
         base.save?.(manifestFor(basePath));
         return {
           success: true,
@@ -199,8 +214,11 @@ export const agenticowSpeculateTools: MCPTool[] = [
           winner: result.winner,
           scores: result.scores,
           promoted: result.promoted,
+          promotedBy: result.promotedBy,
+          promotionDecision: result.promotionDecision,
           promoteStats: result.promoteStats,
           discarded: result.discarded,
+          receipts: result.receipts,
           branches: result.branches.map((b) => ({
             label: b.label,
             path: b.path,

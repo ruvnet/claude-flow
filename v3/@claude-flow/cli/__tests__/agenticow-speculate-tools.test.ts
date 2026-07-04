@@ -177,4 +177,71 @@ describe('agenticow_speculate — MCP handler happy path', () => {
       candidates: [{ label: 'a', ingest: [{ id: 1, vector: vAlpha }] }],
     })).rejects.toThrow(/requires a probe vector/);
   });
+
+  // ADR-171 promotion gate (#23) — the acceptance-test invariants.
+  it.skipIf(!havePkg)('requireClearance fail-closes: winner ineligible, base unchanged, receipts emitted', async () => {
+    const tool = findTool('agenticow_speculate');
+    const basePath = join(workdir, 'gate.rvf');
+    const r = await tool.handler({
+      basePath,
+      dimension: DIM,
+      probe: vBeta,
+      requireClearance: true,
+      candidates: [
+        { label: 'a', ingest: [{ id: 101, vector: vAlpha }] },
+        { label: 'b', ingest: [{ id: 202, vector: vBeta }] },
+      ],
+    }) as any;
+    expect(r.promoted).toBe(false);
+    expect(r.promotionDecision).toMatch(/^ineligible:/);
+    expect(r.receipts.length).toBeGreaterThan(0);
+    // Base must NOT contain any candidate vector — nothing graduated.
+    const base = acow.AgenticMemory.load(`${basePath}.agenticow.json`);
+    const ids = base.query(vBeta, 5).map((h: any) => h.id);
+    expect(ids).not.toContain(202);
+    base.close?.();
+  });
+});
+
+// Core-level gate semantics (exercises explore() directly with clearance fns).
+describe('speculative explore() — ADR-171 clearance gate', () => {
+  it.skipIf(!havePkg)('proxy:structural can never clear a promote, even claiming cleared:true', async () => {
+    const { explore } = await import('../src/agenticow/speculative-exploration.js');
+    const dir = mkdtempSync(join(tmpdir(), 'gate-core-'));
+    try {
+      const base = acow.AgenticMemory.open(join(dir, 'b.rvf'), { dimension: DIM });
+      base.ingest([{ id: 1, vector: vAlpha }]);
+      const cands = [{ label: 'x', fn: async (br: any) => { br.ingest([{ id: 9, vector: vBeta }]); return 5; } }];
+      const r = await explore(base, cands, (res: number) => res, {
+        branchPath: (l: string) => join(dir, `br-${l}.rvf`),
+        persist: true,
+        clearance: async () => ({ cleared: true, by: 'proxy:structural' as const }),
+      });
+      expect(r.promoted).toBe(false);
+      expect(r.promotionDecision).toBe('ineligible:proxy-cannot-clear');
+      base.close?.();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it.skipIf(!havePkg)('oracle:test-exec clears the winner into base', async () => {
+    const { explore } = await import('../src/agenticow/speculative-exploration.js');
+    const dir = mkdtempSync(join(tmpdir(), 'gate-oracle-'));
+    try {
+      const base = acow.AgenticMemory.open(join(dir, 'b.rvf'), { dimension: DIM });
+      base.ingest([{ id: 1, vector: vAlpha }]);
+      const cands = [{ label: 'x', fn: async (br: any) => { br.ingest([{ id: 9, vector: vBeta }]); return 5; } }];
+      const r = await explore(base, cands, (res: number) => res, {
+        branchPath: (l: string) => join(dir, `br-${l}.rvf`),
+        persist: true,
+        clearance: async () => ({ cleared: true, by: 'oracle:test-exec' as const }),
+      });
+      expect(r.promoted).toBe(true);
+      expect(r.promotedBy).toBe('oracle:test-exec');
+      base.close?.();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
