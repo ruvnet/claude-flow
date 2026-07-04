@@ -132,20 +132,20 @@ describe.skipIf(!haveNative)('memory distill CLI (ADR-174 Milestone 2)', () => {
     expect(data.report.skipped).toContain('judge:fable');
   });
 
-  it('--aggressive preset maps to dedup-distance 0.2 / batch-size 500', () => {
+  it('--aggressive preset maps to dedup-distance 0.3 / batch-size 500', () => {
     const resolved = resolveDistillConfig(makeCtx({ aggressive: true }, workdir));
     expect(resolved.ok).toBe(true);
     if (resolved.ok) {
-      expect(resolved.config.dedupDistance).toBe(0.2);
+      expect(resolved.config.dedupDistance).toBe(0.3);
       expect(resolved.config.batchSize).toBe(500);
     }
   });
 
-  it('--conservative preset maps to dedup-distance 0.08 / batch-size 100', () => {
+  it('--conservative preset maps to dedup-distance 0.1 / batch-size 100', () => {
     const resolved = resolveDistillConfig(makeCtx({ conservative: true }, workdir));
     expect(resolved.ok).toBe(true);
     if (resolved.ok) {
-      expect(resolved.config.dedupDistance).toBe(0.08);
+      expect(resolved.config.dedupDistance).toBe(0.1);
       expect(resolved.config.batchSize).toBe(100);
     }
   });
@@ -160,7 +160,7 @@ describe.skipIf(!haveNative)('memory distill CLI (ADR-174 Milestone 2)', () => {
     expect(resolved.ok).toBe(true);
     if (resolved.ok) {
       expect(resolved.config.batchSize).toBe(42);
-      expect(resolved.config.dedupDistance).toBe(0.2); // untouched preset value
+      expect(resolved.config.dedupDistance).toBe(0.3); // untouched preset value
     }
   });
 
@@ -168,7 +168,7 @@ describe.skipIf(!haveNative)('memory distill CLI (ADR-174 Milestone 2)', () => {
     const result = await sub('config').action!(makeCtx({ aggressive: true, db: '/tmp/nonexistent.db' }, workdir));
     expect(result?.success).toBe(true);
     const data = result?.data as any;
-    expect(data.dedupDistance).toBe(0.2);
+    expect(data.dedupDistance).toBe(0.3);
     expect(data.batchSize).toBe(500);
     expect(data.dbPath).toBe('/tmp/nonexistent.db');
   });

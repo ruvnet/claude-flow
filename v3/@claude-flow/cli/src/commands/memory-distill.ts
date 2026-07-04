@@ -54,14 +54,14 @@ export interface DistillCliConfig {
 const DEFAULT_CONFIG: DistillCliConfig = {
   dryRun: false,
   batchSize: 200,
-  dedupDistance: 0.12,
+  dedupDistance: 0.2, // ADR-174 M4-tuned platform default (~37% fewer patterns, retrieval-neutral)
   budgetUsd: 0,
   judge: 'structural',
 };
 
-// ADR-174 preset bundles.
-const AGGRESSIVE_PRESET = { dedupDistance: 0.2, batchSize: 500 };
-const CONSERVATIVE_PRESET = { dedupDistance: 0.08, batchSize: 100 };
+// ADR-174 preset bundles — distinct extremes around the 0.2 tuned default.
+const AGGRESSIVE_PRESET = { dedupDistance: 0.3, batchSize: 500 };   // more clustering → fewer, coarser patterns
+const CONSERVATIVE_PRESET = { dedupDistance: 0.1, batchSize: 100 }; // less clustering → more, granular patterns
 
 const DB_OPTION = {
   name: 'db',

@@ -143,4 +143,51 @@ describe.skipIf(!haveNative)('runDistillation — memory → structured intellig
     expect(r.skipped).toBeTruthy();
     expect(r.patterns).toBe(0);
   });
+
+  // ── ADR-174 operational invariant: embedding coverage is EXACTLY 1:1 ──
+  it('every pattern has exactly one embedding, even when a source vector is malformed', async () => {
+    const dbPath = join(workdir, 'embcov.db');
+    seedDb(dbPath);
+    // Add a row whose embedding column is non-null but unparseable — the old
+    // code would create a pattern with no embedding (coverage gap).
+    const db = new Database(dbPath);
+    db.prepare('INSERT INTO memory_entries (id, key, namespace, content, embedding) VALUES (?,?,?,?,?)')
+      .run('bad1', 'kb', 'commands', 'refactor thing in src/x.ts', 'NOT VALID JSON');
+    db.close();
+
+    const r = await runDistillation({ dbPath });
+    expect(r.patterns).toBeGreaterThan(0);
+    expect(r.patternEmbeddings).toBe(r.patterns); // report-level 1:1
+
+    // SQL invariant: zero patterns without an embedding.
+    const check = new Database(dbPath, { readonly: true });
+    const gap = (check.prepare(
+      'SELECT COUNT(*) AS c FROM reasoning_patterns rp LEFT JOIN pattern_embeddings pe ON pe.pattern_id = rp.id WHERE pe.pattern_id IS NULL',
+    ).get() as { c: number }).c;
+    expect(gap).toBe(0);
+    check.close();
+  });
+
+  // ── ADR-174 edge contract: edges are WEAK co-occurrence, never causal proof ──
+  it('relational edges are typed cooccurrence / proxy-tier / non-promoted', async () => {
+    const dbPath = join(workdir, 'edges.db');
+    seedDb(dbPath);
+    await runDistillation({ dbPath });
+
+    const db = new Database(dbPath, { readonly: true });
+    const edges = db.prepare('SELECT mechanism, confidence, metadata FROM causal_edges').all() as Array<{ mechanism: string; confidence: number; metadata: string }>;
+    expect(edges.length).toBeGreaterThan(0);
+    for (const e of edges) {
+      expect(e.mechanism).toBe('co-occurrence');
+      expect(e.confidence).toBeLessThan(0.5); // weak, never asserted as proof
+      const m = JSON.parse(e.metadata);
+      expect(m.edge_type).toBe('cooccurrence');
+      expect(m.provenance_tier).toBe('proxy:structural');
+      expect(m.promoted).toBe(false); // may rank retrieval, must NOT justify autonomous action
+    }
+    // No proxy edge is ever promoted.
+    const promotedProxyEdges = edges.filter(e => JSON.parse(e.metadata).promoted === true).length;
+    expect(promotedProxyEdges).toBe(0);
+    db.close();
+  });
 });

@@ -38,7 +38,7 @@ export interface DistillOptions {
   batchSize?: number;
   /** Hard cap on rows processed this invocation (default: unbounded within a run). */
   maxEntries?: number;
-  /** Cosine distance below which two entries collapse into one pattern (default 0.12). */
+  /** Cosine distance below which two entries collapse into one pattern (default 0.2, the ADR-174 M4-tuned platform default: ~37% fewer patterns, retrieval-neutral). */
   dedupDistance?: number;
   /** Report counts, write nothing (default false). */
   dryRun?: boolean;
@@ -121,7 +121,7 @@ function judgeFeedback(content: string): { success: boolean; reward: number } {
 export async function runDistillation(options: DistillOptions): Promise<DistillReport> {
   const {
     dbPath, namespaces, batchSize = 200, maxEntries,
-    dedupDistance = 0.12, dryRun = false, judge = 'structural',
+    dedupDistance = 0.2, dryRun = false, judge = 'structural',
     sinceRowid, verbose = false,
   } = options;
 
@@ -236,9 +236,20 @@ export async function runDistillation(options: DistillOptions): Promise<DistillR
 
         const maxRowid = Math.max(...src.map(r => r.rowid), cursor);
 
+        // Embedding-coverage invariant: a cluster is only written if it has an
+        // embeddable representative — reselect to any member with a valid
+        // (parseable) vector; skip the cluster if none (unretrievable anyway).
+        // Guarantees every reasoning_pattern has exactly one pattern_embedding.
+        const embVecOf = (cl: Cluster): number[] | null =>
+          cl.rep.embedding ?? cl.members.find(m => m.embedding)?.embedding ?? null;
+
         if (!dryRun) {
           const commit = db.transaction(() => {
+            let prevEpId: number | null = null;
             for (const cl of clusters) {
+              const embVec = embVecOf(cl);
+              if (!embVec) continue; // no embeddable member → skip (keeps 1:1)
+
               const distilled = distillTrajectoryContent(cl.rep.content);
               const taskType = distilled.labels[0] ?? ns;
               const approach = distilled.summary || serialiseDistilled(distilled).slice(0, 200);
@@ -247,7 +258,8 @@ export async function runDistillation(options: DistillOptions): Promise<DistillR
               const avgReward = successRate; // structural: reward == success fraction
               const promoted = cl.provenance === 'oracle:test-exec'; // proxy NEVER promotes (ADR-171)
               const provMeta = {
-                provenance: cl.provenance, promoted, sourceIds: cl.members.map(m => m.id).slice(0, 25),
+                provenance: cl.provenance, provenance_tier: cl.provenance, promoted,
+                sourceIds: cl.members.map(m => m.id).slice(0, 25),
                 paths: distilled.paths.slice(0, 10), namespace: ns, distilledBy: 'structural',
               };
 
@@ -268,37 +280,45 @@ export async function runDistillation(options: DistillOptions): Promise<DistillR
               if (promoted) report.promoted++;
 
               // pattern_embeddings: reuse the representative's existing 384-dim
-              // vector as a Float32 BLOB — $0, no re-embedding.
-              if (cl.rep.embedding) {
-                const buf = Buffer.from(Float32Array.from(cl.rep.embedding).buffer);
-                insPatEmb.run(patternId, buf);
-                report.patternEmbeddings++;
-              }
+              // vector as a Float32 BLOB — $0, no re-embedding. Guaranteed 1:1.
+              insPatEmb.run(patternId, Buffer.from(Float32Array.from(embVec).buffer));
+              report.patternEmbeddings++;
 
-              // causal edge: link this pattern's episode to the previous one in
-              // the same namespace batch as a weak co-occurrence signal (proxy,
-              // low confidence). Real doubly-robust discovery is a follow-up.
+              // WEAK relational edge — NOT causal proof. Links to the actual
+              // previous episode (not epId-1, which wrongly assumed consecutive
+              // rowids). Explicitly typed co-occurrence / proxy-tier / non-
+              // promoted: may rank retrieval, must NOT justify autonomous action
+              // (ADR-174 edge contract).
               const epId = Number(epInfo.lastInsertRowid);
-              if (report.episodes > 1 && cl.rep.embedding) {
+              if (prevEpId !== null) {
                 insEdge.run(
-                  epId - 1, 'episode', epId, 'episode',
+                  prevEpId, 'episode', epId, 'episode',
                   0, 0.3, 'co-occurrence',
-                  JSON.stringify({ provenance: 'proxy:structural', promoted: false, namespace: ns }),
+                  JSON.stringify({
+                    edge_type: 'cooccurrence',
+                    provenance_tier: 'proxy:structural',
+                    confidence: 0.3,
+                    promoted: false,
+                    namespace: ns,
+                    note: 'weak co-occurrence; may rank retrieval, must not justify autonomous action',
+                  }),
                 );
                 report.causalEdges++;
               }
+              prevEpId = epId;
             }
             setCursor.run(ns, maxRowid, Date.now());
           });
           commit();
         } else {
-          // dry-run accounting only
+          // dry-run accounting only — mirror the embeddable-cluster skip.
           for (const cl of clusters) {
+            if (!embVecOf(cl)) continue;
             report.patterns++;
+            report.episodes++;
             report.byProvenance[cl.provenance] = (report.byProvenance[cl.provenance] ?? 0) + 1;
             if (cl.provenance === 'oracle:test-exec') report.promoted++;
           }
-          report.episodes += clusters.length;
         }
 
         report.processed += rows.length;
