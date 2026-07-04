@@ -136,6 +136,12 @@ const DEFAULT_WORKER_TIMEOUT_MS = 16 * 60 * 1000;
 // over several ticks instead of blocking on one.
 const CONSOLIDATE_MAX_ENTRIES_PER_TICK = 1000;
 const CONSOLIDATE_BATCH_SIZE = 200;
+// ADR-174 M5: platform-default distillation config, chosen by the M4 self-
+// optimization grid-search (scripts/tune-distill.mjs) on the real ~7.9k-entry
+// corpus. Winner: batchSize=200, dedupDistance=0.2 (held-out MRR@10 0.753 vs
+// 0.749 baseline — measured on-par, not a large uplift; the payoff is the
+// populated substrate + trainable model). Override per-run via `memory distill`.
+const CONSOLIDATE_DEDUP_DISTANCE = 0.2;
 
 // ADR-174 M3 opt-out: set to skip the real distillation pass entirely (e.g.
 // constrained CI hosts, or a user who wants the daemon's other workers but
@@ -1515,6 +1521,7 @@ export class WorkerDaemon extends EventEmitter {
         dbPath: defaultMemoryDbPath(this.projectRoot),
         maxEntries: CONSOLIDATE_MAX_ENTRIES_PER_TICK,
         batchSize: CONSOLIDATE_BATCH_SIZE,
+        dedupDistance: CONSOLIDATE_DEDUP_DISTANCE,
       });
     } catch (error) {
       // Defensive only — runDistillation() is internally try/catch'd and

@@ -78,5 +78,8 @@ Disable via `-w` omission or `--no-distill`. All writes are additive to the prev
 
 ## Status of milestones
 
-- **M0 safety harness / M1 distillation service** — implemented + tested (this change).
-- **M2 CLI surface, M3 daemon wiring (replace the stub), M4 self-optimization, M5 platform-default promotion** — follow-up on this branch.
+- **M0 safety harness / M1 distillation service** — implemented + tested.
+- **M2 CLI surface** (`memory distill run|status|config`) — implemented + tested.
+- **M3 daemon wiring** (replaced the stub `consolidate` worker) — implemented + tested; the loop is now self-sustaining.
+- **M4 self-optimization** (`distill-tuning.ts` + `scripts/tune-distill.mjs`) — implemented + tested; winner `batchSize=200, dedupDistance=0.2`, held-out MRR@10 0.753 vs 0.749 baseline (measured on-par).
+- **M5 platform-default promotion** — the M4 winner is the daemon default (`CONSOLIDATE_DEDUP_DISTANCE = 0.2` in `worker-daemon.ts`); override per-run via `memory distill`.
