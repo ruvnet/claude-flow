@@ -59,9 +59,14 @@ export function allDeterministic(recorded: RecordedRun[], run: RunFn): boolean {
   return recorded.every(r => verifyReplay(r, run).deterministic);
 }
 
-/** File-backed store of recorded runs (JSONL, append-only). `get` returns the latest for an id. */
+/**
+ * File-backed store of recorded runs (JSONL). Append-only with a bounded cap:
+ * once it exceeds `maxEntries` it rotates to the newest `maxEntries` — so the
+ * store can never grow unbounded (runaway-storage guard). `get` returns the
+ * latest for an id.
+ */
 export class ReplayStore {
-  constructor(private readonly filePath: string) {}
+  constructor(private readonly filePath: string, private readonly maxEntries = 10000) {}
 
   private load(): RecordedRun[] {
     try {
@@ -72,7 +77,13 @@ export class ReplayStore {
   record(r: RecordedRun): void {
     try {
       fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
-      fs.appendFileSync(this.filePath, JSON.stringify(r) + '\n', 'utf-8');
+      const existing = this.load();
+      if (existing.length >= this.maxEntries) {
+        const kept = existing.slice(existing.length - (this.maxEntries - 1));
+        fs.writeFileSync(this.filePath, kept.concat(r).map(e => JSON.stringify(e)).join('\n') + '\n', 'utf-8');
+      } else {
+        fs.appendFileSync(this.filePath, JSON.stringify(r) + '\n', 'utf-8');
+      }
     } catch { /* best-effort */ }
   }
 

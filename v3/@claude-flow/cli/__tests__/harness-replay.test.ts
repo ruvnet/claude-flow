@@ -52,6 +52,13 @@ describe('ReplayStore', () => {
     expect(s.get('missing')).toBeUndefined();
   });
 
+  it('rotates at the cap (runaway-storage guard) — never exceeds maxEntries', () => {
+    const s = new ReplayStore(join(dir, 'capped.jsonl'), 5);
+    for (let i = 0; i < 20; i++) s.record(recordRun('r' + i, { x: i }, pure));
+    expect(s.all().length).toBeLessThanOrEqual(5);
+    expect(s.get('r19')).toBeDefined(); // newest retained
+  });
+
   it('measured: records + replays a batch quickly', () => {
     const N = 3000;
     const recs = Array.from({ length: N }, (_, i) => recordRun('r' + i, { x: i }, pure));

@@ -101,9 +101,14 @@ export interface AntiPattern {
   ts: number;
 }
 
-/** File-backed avoid-list of rejected trajectories/mutations. JSONL, append-only. */
+/**
+ * File-backed avoid-list of rejected trajectories/mutations. JSONL, append-only
+ * with a bounded cap: once the file exceeds `maxEntries` it is rewritten to the
+ * newest `maxEntries` (rotation), so the archive can never grow unbounded —
+ * runaway-storage guard. Deduped by fingerprint at the call site.
+ */
 export class AntiPatternArchive {
-  constructor(private readonly filePath: string) {}
+  constructor(private readonly filePath: string, private readonly maxEntries = 10000) {}
 
   private load(): AntiPattern[] {
     try {
@@ -114,7 +119,14 @@ export class AntiPatternArchive {
   record(entry: AntiPattern): void {
     try {
       fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
-      fs.appendFileSync(this.filePath, JSON.stringify(entry) + '\n', 'utf-8');
+      const existing = this.load();
+      if (existing.length >= this.maxEntries) {
+        // Rotate: keep the newest (maxEntries-1) + the new entry.
+        const kept = existing.slice(existing.length - (this.maxEntries - 1));
+        fs.writeFileSync(this.filePath, kept.concat(entry).map(e => JSON.stringify(e)).join('\n') + '\n', 'utf-8');
+      } else {
+        fs.appendFileSync(this.filePath, JSON.stringify(entry) + '\n', 'utf-8');
+      }
     } catch { /* best-effort */ }
   }
 

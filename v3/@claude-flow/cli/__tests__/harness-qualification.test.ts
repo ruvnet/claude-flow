@@ -70,6 +70,14 @@ describe('fingerprint + anti-pattern archive (negative learning)', () => {
     expect(arc.has(fp)).toBe(true);
     expect(arc.list().length).toBe(1);
   });
+
+  it('rotates at the cap (runaway-storage guard) — never exceeds maxEntries', () => {
+    const arc = new AntiPatternArchive(join(dir, 'capped.jsonl'), 5); // cap = 5
+    for (let i = 0; i < 20; i++) arc.record({ fingerprint: 'fp' + i, stage: 'qualification', reasons: ['r'], ts: i });
+    const all = arc.list();
+    expect(all.length).toBeLessThanOrEqual(5);
+    expect(all[all.length - 1].fingerprint).toBe('fp19'); // newest retained
+  });
 });
 
 describe('admitTrajectories — split + archive', () => {
