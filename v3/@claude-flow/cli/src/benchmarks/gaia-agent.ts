@@ -893,9 +893,13 @@ export function isAnswerCorrect(modelAnswer: string, expected: string): boolean 
   // Exact match
   if (normModel === normExpected) return true;
 
-  // Substring match (expected contained in model answer or vice versa)
-  if (normModel.includes(normExpected)) return true;
-  if (normExpected.includes(normModel)) return true;
+  // Forward-substring only: the model output CONTAINS the full expected
+  // answer (e.g. "The answer is Paris" ⊇ "Paris"). The REVERSE direction
+  // (expected ⊇ model) is removed — it's a normalization collision that
+  // scores a fragmentary model answer correct without solving the task
+  // (expected "Paris, France" vs model "a"; expected "1985" vs model "5").
+  // See #2566 / ADR-169 R1 (strict EM is the headline; substring is not).
+  if (normExpected.length > 0 && normModel.includes(normExpected)) return true;
 
   // Numeric match with tolerance
   const numModel = parseFloat(normModel.replace(/[^0-9.\-]/g, ''));
