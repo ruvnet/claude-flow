@@ -7,6 +7,7 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { select, confirm, input } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
+import { distillCommand } from './memory-distill.js';
 
 // Memory backends
 const BACKENDS = [
@@ -1683,7 +1684,7 @@ const initMemoryCommand: Command = {
 export const memoryCommand: Command = {
   name: 'memory',
   description: 'Memory management commands',
-  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand],
+  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand, distillCommand],
   options: [],
   examples: [
     { command: 'claude-flow memory store -k "key" -v "value"', description: 'Store data' },
@@ -1709,7 +1710,8 @@ export const memoryCommand: Command = {
       `${output.highlight('cleanup')}    - Clean expired entries`,
       `${output.highlight('compress')}   - Compress database`,
       `${output.highlight('export')}     - Export memory to file`,
-      `${output.highlight('import')}     - Import from file`
+      `${output.highlight('import')}     - Import from file`,
+      `${output.highlight('distill')}    - Distill memory_entries into structured intelligence (ADR-174)`
     ]);
 
     return { success: true };

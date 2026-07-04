@@ -17,6 +17,12 @@ const startCommand: Command = {
   description: 'Start the worker daemon with all enabled background workers',
   options: [
     { name: 'workers', short: 'w', type: 'string', description: 'Comma-separated list of workers to enable (default: map,audit,optimize,consolidate,testgaps)' },
+    // ADR-174 M3: consolidate now runs a real memory-distillation pass
+    // (memory_entries -> episodes/reasoning_patterns/causal_edges) instead of
+    // a no-op stub. This opt-out skips just that pass for the life of this
+    // daemon process, without touching persisted worker-enabled state — for
+    // permanently disabling the worker use `daemon enable -w consolidate --disable`.
+    { name: 'no-distill', type: 'boolean', description: 'Disable the consolidate worker\'s memory-distillation pass (ADR-174)' },
     { name: 'quiet', short: 'Q', type: 'boolean', description: 'Suppress output' },
     { name: 'background', short: 'b', type: 'boolean', description: 'Run daemon in background (detached process)', default: true },
     { name: 'foreground', short: 'f', type: 'boolean', description: 'Run daemon in foreground (blocks terminal)' },
@@ -38,10 +44,19 @@ const startCommand: Command = {
     { command: 'claude-flow daemon start --foreground', description: 'Start in foreground (blocks terminal)' },
     { command: 'claude-flow daemon start -w map,audit,optimize', description: 'Start with specific workers' },
     { command: 'claude-flow daemon start --headless --sandbox strict', description: 'Start with headless workers in strict sandbox' },
+    { command: 'claude-flow daemon start --no-distill', description: 'Start with the consolidate worker\'s distillation pass disabled' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const quiet = ctx.flags.quiet as boolean;
     const foreground = ctx.flags.foreground as boolean;
+    const noDistill = ctx.flags['no-distill'] as boolean | undefined;
+    // ADR-174 M3: honored by WorkerDaemon's consolidate worker directly via
+    // process.env — set it now so the foreground path (which runs in this
+    // same process) picks it up too; the background path forwards it to the
+    // forked child's env explicitly (see startBackgroundDaemon below).
+    if (noDistill) {
+      process.env.RUFLO_DAEMON_NO_DISTILL = '1';
+    }
     // #1914: a forked daemon child receives --workspace <root>; the launcher
     // and interactive invocations have no flag and fall back to cwd.
     const projectRoot = resolveWorkspaceFlag(ctx.flags.workspace) ?? process.cwd();
@@ -193,6 +208,7 @@ const startCommand: Command = {
           headless: ctx.flags.headless as boolean | undefined,
           sandbox: ctx.flags.sandbox as string | undefined,
           ttl: rawTtl,
+          noDistill,
         });
       } finally {
         // Release the lock NOW — startBackgroundDaemon has either written
@@ -405,10 +421,12 @@ interface ForwardedDaemonFlags {
   headless?: boolean;
   sandbox?: string;
   ttl?: string;
+  /** ADR-174 M3: disable the consolidate worker's memory-distillation pass. */
+  noDistill?: boolean;
 }
 
 async function startBackgroundDaemon(projectRoot: string, quiet: boolean, forwarded: ForwardedDaemonFlags = {}): Promise<CommandResult> {
-  const { maxCpuLoad, minFreeMemory, workers, headless, sandbox, ttl } = forwarded;
+  const { maxCpuLoad, minFreeMemory, workers, headless, sandbox, ttl, noDistill } = forwarded;
   // Validate and resolve project root
   const resolvedRoot = resolve(projectRoot);
   validatePath(resolvedRoot, 'Project root');
@@ -503,6 +521,11 @@ async function startBackgroundDaemon(projectRoot: string, quiet: boolean, forwar
   }
   if (typeof sandbox === 'string' && (sandbox === 'strict' || sandbox === 'permissive' || sandbox === 'disabled')) {
     forkArgs.push('--sandbox', sandbox);
+  }
+  // ADR-174 M3: forward the distillation opt-out to the forked foreground
+  // child; its own `start` action sets RUFLO_DAEMON_NO_DISTILL from this flag.
+  if (noDistill === true) {
+    forkArgs.push('--no-distill');
   }
   // #1914: stamp the workspace into argv (kept LAST) so the foreground daemon
   // process is self-identifying and `killStaleDaemons` only reaps daemons
@@ -1403,7 +1426,7 @@ export const daemonCommand: Command = {
       `${output.highlight('map')}         - Codebase mapping (5 min interval)`,
       `${output.highlight('audit')}       - Security analysis (10 min interval)`,
       `${output.highlight('optimize')}    - Performance optimization (15 min interval)`,
-      `${output.highlight('consolidate')} - Memory consolidation (30 min interval)`,
+      `${output.highlight('consolidate')} - Memory distillation: memory_entries -> episodes/reasoning_patterns/causal_edges (30 min interval, ADR-174; --no-distill to disable)`,
       `${output.highlight('testgaps')}    - Test coverage analysis (20 min interval)`,
       `${output.highlight('predict')}     - Predictive preloading (2 min, disabled by default)`,
       `${output.highlight('document')}    - Auto-documentation (60 min, disabled by default)`,

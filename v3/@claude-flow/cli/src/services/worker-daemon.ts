@@ -6,7 +6,8 @@
  * - map: Codebase mapping (5 min interval)
  * - audit: Security analysis (10 min interval)
  * - optimize: Performance optimization (15 min interval)
- * - consolidate: Memory consolidation (30 min interval)
+ * - consolidate: Memory distillation — memory_entries -> episodes/reasoning_patterns/
+ *   causal_edges (30 min interval, ADR-174; RUFLO_DAEMON_NO_DISTILL=1 / --no-distill to skip)
  * - testgaps: Test coverage analysis (20 min interval)
  */
 
@@ -22,6 +23,12 @@ import {
   type HeadlessWorkerType,
   type HeadlessExecutionResult,
 } from './headless-worker-executor.js';
+// ADR-174 M3: the consolidate worker below drives the real DISTILL/CONSOLIDATE
+// pass instead of writing a hardcoded { patternsConsolidated: 0 } stub. The
+// service itself is owned/frozen elsewhere (memory-distillation.ts) — it is
+// incremental (rowid cursor), non-destructive, transactional, and
+// quick_check-gated, so it's safe to call unconditionally on every tick.
+import { runDistillation, defaultMemoryDbPath, type DistillReport } from './memory-distillation.js';
 
 // Worker types matching hooks-tools.ts
 export type WorkerType =
@@ -110,7 +117,7 @@ const DEFAULT_WORKERS: WorkerConfigInternal[] = [
   { type: 'map', intervalMs: 15 * 60 * 1000, offsetMs: 0, priority: 'normal', description: 'Codebase mapping', enabled: true },
   { type: 'audit', intervalMs: 10 * 60 * 1000, offsetMs: 2 * 60 * 1000, priority: 'critical', description: 'Security analysis', enabled: true },
   { type: 'optimize', intervalMs: 15 * 60 * 1000, offsetMs: 4 * 60 * 1000, priority: 'high', description: 'Performance optimization', enabled: true },
-  { type: 'consolidate', intervalMs: 30 * 60 * 1000, offsetMs: 6 * 60 * 1000, priority: 'low', description: 'Memory consolidation', enabled: true },
+  { type: 'consolidate', intervalMs: 30 * 60 * 1000, offsetMs: 6 * 60 * 1000, priority: 'low', description: 'Memory distillation (ADR-174)', enabled: true },
   { type: 'testgaps', intervalMs: 20 * 60 * 1000, offsetMs: 8 * 60 * 1000, priority: 'normal', description: 'Test coverage analysis', enabled: true },
   { type: 'predict', intervalMs: 10 * 60 * 1000, offsetMs: 0, priority: 'low', description: 'Predictive preloading', enabled: false },
   { type: 'document', intervalMs: 60 * 60 * 1000, offsetMs: 0, priority: 'low', description: 'Auto-documentation', enabled: false },
@@ -119,6 +126,23 @@ const DEFAULT_WORKERS: WorkerConfigInternal[] = [
 // Worker timeout — must exceed the longest per-worker headless timeout (15 min for audit/refactor).
 // Previously 5 min, which caused orphan processes when daemon timeout fired before executor timeout (#1117).
 const DEFAULT_WORKER_TIMEOUT_MS = 16 * 60 * 1000;
+
+// ADR-174 M3: hard cap on rows the `consolidate` worker distills in a single
+// tick. The distillation service is cursor-driven (per-namespace rowid) and
+// batches in transactions of `batchSize`, so a capped `maxEntries` guarantees
+// this worker returns well within DEFAULT_WORKER_TIMEOUT_MS even against a
+// large backlog — the cursor just picks up where it left off next tick
+// (every 30 min per DEFAULT_WORKERS), draining an arbitrarily large backlog
+// over several ticks instead of blocking on one.
+const CONSOLIDATE_MAX_ENTRIES_PER_TICK = 1000;
+const CONSOLIDATE_BATCH_SIZE = 200;
+
+// ADR-174 M3 opt-out: set to skip the real distillation pass entirely (e.g.
+// constrained CI hosts, or a user who wants the daemon's other workers but
+// not this one without touching persisted worker-enabled state). Mirrors the
+// `--no-distill` flag on `daemon start` (see commands/daemon.ts), which sets
+// this env var on the forked/foreground daemon process.
+const NO_DISTILL_ENV = 'RUFLO_DAEMON_NO_DISTILL';
 
 // #2356 — Self-terminating lifecycle defaults. A background daemon with no
 // upper bound on its lifetime runs until the box reboots; in the field this
@@ -1440,8 +1464,27 @@ export class WorkerDaemon extends EventEmitter {
     return perf;
   }
 
+  /**
+   * ADR-174 M3: memory consolidation — runs the real DISTILL/CONSOLIDATE pass
+   * (memory-distillation.ts) against `.swarm/memory.db`, turning raw
+   * `memory_entries` into `episodes` / `reasoning_patterns` /
+   * `pattern_embeddings` / `causal_edges`. Previously this wrote a hardcoded
+   * `{ patternsConsolidated: 0 }` stub and touched no database — the root
+   * cause of the intelligence tables staying empty.
+   *
+   * Kept as `runConsolidateWorker` / worker type `'consolidate'` for
+   * back-compat with existing `-w consolidate` scripts and docs.
+   *
+   * Safety:
+   *  - Bounded via CONSOLIDATE_MAX_ENTRIES_PER_TICK so a large backlog can
+   *    never approach DEFAULT_WORKER_TIMEOUT_MS — the incremental cursor in
+   *    runDistillation() drains a bounded slice per tick and picks up where
+   *    it left off on the next scheduled run.
+   *  - runDistillation() never throws (it catches internally and returns
+   *    `{ skipped }` / `{ corrupt: true }`), but this worker still wraps the
+   *    call defensively — a background worker must never crash the daemon.
+   */
   private async runConsolidateWorker(): Promise<unknown> {
-    // Memory consolidation - clean up old patterns
     const consolidateFile = join(this.projectRoot, '.claude-flow', 'metrics', 'consolidation.json');
     const metricsDir = join(this.projectRoot, '.claude-flow', 'metrics');
 
@@ -1449,11 +1492,75 @@ export class WorkerDaemon extends EventEmitter {
       mkdirSync(metricsDir, { recursive: true });
     }
 
+    // Opt-out: RUFLO_DAEMON_NO_DISTILL=1 (or `daemon start --no-distill`)
+    // skips the real distillation pass entirely without touching persisted
+    // worker-enabled state (see also: `daemon enable -w consolidate --disable`,
+    // which disables the worker's schedule altogether).
+    if (process.env[NO_DISTILL_ENV] === '1') {
+      const disabledResult = {
+        timestamp: new Date().toISOString(),
+        distillationEnabled: false,
+        note: `Distillation disabled via ${NO_DISTILL_ENV}=1 / --no-distill`,
+        patternsConsolidated: 0,
+        memoryCleaned: 0,
+        duplicatesRemoved: 0,
+      };
+      writeFileSync(consolidateFile, JSON.stringify(disabledResult, null, 2));
+      return disabledResult;
+    }
+
+    let report: DistillReport;
+    try {
+      report = await runDistillation({
+        dbPath: defaultMemoryDbPath(this.projectRoot),
+        maxEntries: CONSOLIDATE_MAX_ENTRIES_PER_TICK,
+        batchSize: CONSOLIDATE_BATCH_SIZE,
+      });
+    } catch (error) {
+      // Defensive only — runDistillation() is internally try/catch'd and
+      // should never reach here. A worker must never crash the daemon.
+      const message = error instanceof Error ? error.message : String(error);
+      this.log('warn', `Consolidate worker: distillation threw unexpectedly: ${message}`);
+      const errorResult = {
+        timestamp: new Date().toISOString(),
+        distillationEnabled: true,
+        error: message,
+        patternsConsolidated: 0,
+        memoryCleaned: 0,
+        duplicatesRemoved: 0,
+      };
+      writeFileSync(consolidateFile, JSON.stringify(errorResult, null, 2));
+      return errorResult;
+    }
+
+    if (report.corrupt) {
+      this.log('warn', `Consolidate worker: memory DB reports corruption — ${report.skipped ?? 'skipped'}`);
+    } else if (report.skipped) {
+      this.log('info', `Consolidate worker: distillation skipped (${report.skipped})`);
+    }
+
     const result = {
       timestamp: new Date().toISOString(),
-      patternsConsolidated: 0,
-      memoryCleaned: 0,
-      duplicatesRemoved: 0,
+      distillationEnabled: true,
+      // Mapping onto the pre-existing metrics shape (ADR-174 M3):
+      patternsConsolidated: report.patterns,
+      // rows drained from the incremental cursor this tick — distillation is
+      // non-destructive (never mutates/deletes memory_entries), so "cleaned"
+      // here means "processed into the intelligence tables", not removed.
+      memoryCleaned: report.processed,
+      // clustering collapses near-duplicate entries into a single pattern
+      // rather than deleting them; this is the count that got merged away
+      // instead of becoming their own distinct pattern.
+      duplicatesRemoved: Math.max(0, report.processed - report.patterns),
+      episodes: report.episodes,
+      patternEmbeddings: report.patternEmbeddings,
+      causalEdges: report.causalEdges,
+      promoted: report.promoted,
+      byProvenance: report.byProvenance,
+      namespaces: report.namespaces,
+      dryRun: report.dryRun,
+      corrupt: report.corrupt ?? false,
+      skipped: report.skipped,
     };
 
     writeFileSync(consolidateFile, JSON.stringify(result, null, 2));
