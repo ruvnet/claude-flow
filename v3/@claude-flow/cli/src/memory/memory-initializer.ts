@@ -1347,10 +1347,141 @@ async function activateControllerRegistry(
  * it is a silent no-op — the split statusline query already prevents the count
  * from zeroing; only the HNSW flag and namespace routing stay degraded.
  */
-export async function repairVectorIndexes(
+/**
+ * Auto-recover a structurally-corrupt memory DB into a clean one, universally
+ * (better-sqlite3 only — no dependency on the external `sqlite3` CLI, which is
+ * absent on many npx hosts). Safe by construction:
+ *   1. Confirms corruption (quick_check) — no-op on a healthy DB.
+ *   2. Acquires an EXCLUSIVE lock (BEGIN IMMEDIATE). If another process is
+ *      writing, it SKIPS (returns reason:'writer-active') rather than racing a
+ *      writer and losing its in-flight writes — the mistake that must not recur.
+ *   3. Rebuilds a fresh DB table-by-table (schema + rows), skipping any single
+ *      table whose pages won't scan so one bad table can't abort the whole
+ *      rebuild.
+ *   4. VERIFIES the rebuild (integrity_check == ok AND recovered
+ *      memory_entries count >= the readable source count) BEFORE touching the
+ *      original.
+ *   5. Backs up the corrupt DB to `<db>.corrupt-<ts>.bak`, then atomically
+ *      renames the verified rebuild into place and drops stale -wal/-shm.
+ * On any failure the original + backup are left intact — never destructive.
+ */
+export async function recoverMemoryDatabase(
   dbPath: string,
   opts: { verbose?: boolean } = {},
-): Promise<{ repaired: boolean; tableCreated: boolean; namespaces: string[]; corrupt?: boolean }> {
+): Promise<{ recovered: boolean; backupPath?: string; rows?: number; reason?: string }> {
+  if (!dbPath || !fs.existsSync(dbPath)) return { recovered: false, reason: 'no-db' };
+
+  let Database: any;
+  try {
+    Database = (await import('better-sqlite3')).default;
+  } catch {
+    return { recovered: false, reason: 'no-native' };
+  }
+
+  const ts = Date.now();
+  const tmpPath = `${dbPath}.recovering-${ts}`;
+  const bakPath = `${dbPath}.corrupt-${ts}.bak`;
+  let src: any;
+  let dst: any;
+
+  try {
+    src = new Database(dbPath, { timeout: 1500 });
+
+    // Confirm corruption — never rewrite a healthy DB.
+    const qc = src.prepare('PRAGMA quick_check(1)').get() as Record<string, string> | undefined;
+    const qcVal = qc ? String(Object.values(qc)[0] ?? '') : '';
+    if (qcVal.toLowerCase() === 'ok') { src.close(); return { recovered: false, reason: 'not-corrupt' }; }
+
+    // Exclusive-writer guard: acquire the write lock. If busy, another process
+    // is writing — do NOT race it. Reading within this txn is still allowed.
+    try {
+      src.exec('BEGIN IMMEDIATE');
+    } catch {
+      src.close();
+      return { recovered: false, reason: 'writer-active' };
+    }
+
+    let srcRows = 0;
+    try { srcRows = (src.prepare('SELECT COUNT(*) AS c FROM memory_entries').get() as { c: number })?.c ?? 0; } catch { /* unreadable */ }
+
+    try { fs.rmSync(tmpPath, { force: true }); } catch { /* fresh */ }
+    dst = new Database(tmpPath);
+
+    // Copy schema: tables first (so data can be inserted), then indexes/triggers.
+    const objects = src
+      .prepare("SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%'")
+      .all() as Array<{ type: string; name: string; sql: string }>;
+    const tables = objects.filter(o => o.type === 'table');
+    const others = objects.filter(o => o.type !== 'table');
+
+    for (const t of tables) {
+      try { dst.exec(t.sql); } catch { /* skip an untranslatable table def */ }
+    }
+
+    // Copy rows table-by-table; a table whose pages won't scan is skipped whole.
+    let copiedEntries = 0;
+    for (const t of tables) {
+      try {
+        const cols = (dst.prepare(`PRAGMA table_info("${t.name}")`).all() as Array<{ name: string }>).map(c => c.name);
+        if (!cols.length) continue;
+        const colList = cols.map(c => `"${c}"`).join(',');
+        const placeholders = cols.map(() => '?').join(',');
+        const insert = dst.prepare(`INSERT OR IGNORE INTO "${t.name}" (${colList}) VALUES (${placeholders})`);
+        const rows = src.prepare(`SELECT ${colList} FROM "${t.name}"`).all() as Array<Record<string, unknown>>;
+        const runAll = dst.transaction((rs: Array<Record<string, unknown>>) => {
+          for (const r of rs) insert.run(cols.map(c => r[c] as any));
+        });
+        runAll(rows);
+        if (t.name === 'memory_entries') copiedEntries = rows.length;
+      } catch { /* skip a table whose data pages are unreadable */ }
+    }
+
+    for (const o of others) {
+      try { dst.exec(o.sql); } catch { /* an index over corrupt data — non-fatal */ }
+    }
+
+    dst.close(); dst = null;
+    try { src.exec('ROLLBACK'); } catch { /* ignore */ }
+    src.close(); src = null;
+
+    // Verify BEFORE touching the original.
+    const check = new Database(tmpPath, { readonly: true });
+    const integ = String(check.pragma('integrity_check', { simple: true }) ?? '');
+    let dstRows = 0;
+    try { dstRows = (check.prepare('SELECT COUNT(*) AS c FROM memory_entries').get() as { c: number })?.c ?? 0; } catch { /* */ }
+    check.close();
+
+    if (integ.toLowerCase() !== 'ok' || dstRows < srcRows) {
+      try { fs.rmSync(tmpPath, { force: true }); } catch { /* */ }
+      if (opts.verbose) {
+        console.log(`memory DB auto-recovery aborted (integrity=${integ}, rows ${dstRows}/${srcRows}) — original untouched`);
+      }
+      return { recovered: false, reason: 'verify-failed' };
+    }
+
+    // Back up the corrupt DB, then atomically swap in the verified rebuild.
+    fs.copyFileSync(dbPath, bakPath);
+    fs.renameSync(tmpPath, dbPath);
+    for (const s of ['-wal', '-shm']) { try { fs.rmSync(`${dbPath}${s}`, { force: true }); } catch { /* */ } }
+
+    if (opts.verbose) {
+      console.log(`memory DB auto-recovered: ${dstRows} rows, integrity ok. Corrupt original saved to ${bakPath}`);
+    }
+    return { recovered: true, backupPath: bakPath, rows: dstRows };
+  } catch (e) {
+    try { dst?.close(); } catch { /* */ }
+    try { src?.exec('ROLLBACK'); } catch { /* */ }
+    try { src?.close(); } catch { /* */ }
+    try { fs.rmSync(tmpPath, { force: true }); } catch { /* */ }
+    if (opts.verbose) console.log(`memory DB auto-recovery error: ${(e as Error)?.message ?? e}`);
+    return { recovered: false, reason: 'error' };
+  }
+}
+
+export async function repairVectorIndexes(
+  dbPath: string,
+  opts: { verbose?: boolean; autoRecover?: boolean } = {},
+): Promise<{ repaired: boolean; tableCreated: boolean; namespaces: string[]; corrupt?: boolean; recovered?: boolean; backupPath?: string }> {
   const res = { repaired: false, tableCreated: false, namespaces: [] as string[], corrupt: false };
   if (!dbPath || !fs.existsSync(dbPath)) return res;
 
@@ -1402,8 +1533,20 @@ export async function repairVectorIndexes(
     const qcVal = qc ? String(Object.values(qc)[0] ?? '') : '';
     if (qcVal.toLowerCase() !== 'ok') {
       res.corrupt = true;
-      db.close();
-      if (opts.verbose) {
+      db.close(); // release our handle before recovery may swap the file
+      if (opts.autoRecover) {
+        // Auto-fix: rebuild the corrupt DB (backup + verify + atomic swap), then
+        // provision vector_indexes on the clean rebuild. This is what makes any
+        // npx-deployed ruflo self-repair a corrupt memory DB on init / MCP start.
+        const rec = await recoverMemoryDatabase(dbPath, { verbose: opts.verbose });
+        if (rec.recovered) {
+          const healed = await repairVectorIndexes(dbPath, { verbose: opts.verbose });
+          return { ...healed, corrupt: true, recovered: true, backupPath: rec.backupPath };
+        }
+        if (opts.verbose) {
+          console.log(`vector_indexes repair skipped — corruption (${qcVal}); auto-recovery not run (${rec.reason ?? 'unknown'})`);
+        }
+      } else if (opts.verbose) {
         console.log(
           'vector_indexes repair SKIPPED — memory DB reports corruption (' + qcVal + '). ' +
           'Recover with:  sqlite3 <db> .recover | sqlite3 <db>.recovered',
@@ -1521,7 +1664,7 @@ export async function initializeMemoryDatabase(options: {
       // written by agentdb directly). Self-heal it here — this branch is hit on
       // every MCP-server start and `memory init`, so any ruflo repairs itself.
       // Idempotent + best-effort; never turns a healthy re-init into a failure.
-      const heal = await repairVectorIndexes(dbPath, { verbose });
+      const heal = await repairVectorIndexes(dbPath, { verbose, autoRecover: true });
       return {
         success: true,
         alreadyExists: true,

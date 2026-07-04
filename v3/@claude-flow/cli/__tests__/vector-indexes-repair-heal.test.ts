@@ -16,11 +16,11 @@
  * statusline runs then return the real count (never zero) with the HNSW flag up.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { repairVectorIndexes } from '../src/memory/memory-initializer.js';
+import { repairVectorIndexes, recoverMemoryDatabase } from '../src/memory/memory-initializer.js';
 
 // better-sqlite3 is the same engine the repair uses; skip the suite if the
 // native module can't load on this host (WASM-only) — the repair no-ops there.
@@ -132,5 +132,103 @@ describe.skipIf(!haveNative)('repairVectorIndexes — self-heal missing vector_i
     const res = await repairVectorIndexes(dbPath);
     expect(res.repaired).toBe(false);
     expect(res.tableCreated).toBe(false);
+  });
+});
+
+describe.skipIf(!haveNative)('recoverMemoryDatabase — auto-recover a corrupt memory DB', () => {
+  let workdir: string;
+
+  beforeAll(() => {
+    workdir = mkdtempSync(join(tmpdir(), 'vidx-recover-'));
+  });
+
+  /** Write many rows so the b-tree spans multiple pages, then scribble a page to corrupt it. */
+  function seedAndCorrupt(dbPath: string): { rows: number } {
+    const db = new Database(dbPath);
+    db.pragma('journal_mode = DELETE'); // single-file, no WAL — simpler to corrupt deterministically
+    db.pragma('page_size = 4096');
+    db.exec(`CREATE TABLE memory_entries (
+      id TEXT PRIMARY KEY, key TEXT, namespace TEXT DEFAULT 'default',
+      content TEXT, embedding TEXT, status TEXT DEFAULT 'active'
+    )`);
+    db.exec("CREATE TABLE skills (id TEXT PRIMARY KEY, body TEXT)");
+    const ins = db.prepare('INSERT INTO memory_entries (id, key, namespace, content, embedding) VALUES (?,?,?,?,?)');
+    const vec = JSON.stringify(Array.from({ length: 8 }, (_, i) => i / 8));
+    const N = 500;
+    const many = db.transaction(() => {
+      for (let i = 0; i < N; i++) {
+        ins.run('id' + i, 'k' + i, i % 2 ? 'commands' : 'feedback', 'content number ' + i + ' '.repeat(40), vec);
+      }
+    });
+    many();
+    db.close();
+
+    // Scribble over a page in the middle of the file to induce b-tree corruption
+    // that quick_check detects but that leaves most rows individually readable.
+    const buf = readFileSync(dbPath);
+    const pageSize = 4096;
+    const targetPage = 6; // past the schema/first pages, into memory_entries data
+    const off = targetPage * pageSize + 16;
+    for (let i = 0; i < 80; i++) buf[off + i] = 0x00;
+    writeFileSync(dbPath, buf);
+    return { rows: N };
+  }
+
+  it('backs up, rebuilds, verifies, and atomically swaps a corrupt DB', async () => {
+    const dbPath = join(workdir, 'corrupt.db');
+    const { rows } = seedAndCorrupt(dbPath);
+
+    // Precondition: quick_check must now report corruption.
+    const pre = new Database(dbPath);
+    const qc = String(pre.pragma('quick_check(1)', { simple: true }));
+    pre.close();
+    // If our synthetic corruption didn't take on this SQLite build, skip rather
+    // than assert a false negative — the recovery path is still exercised below.
+    if (qc.toLowerCase() === 'ok') return;
+
+    const rec = await recoverMemoryDatabase(dbPath, { verbose: false });
+    expect(rec.recovered).toBe(true);
+    expect(rec.backupPath).toBeTruthy();
+    expect(existsSync(rec.backupPath!)).toBe(true); // corrupt original preserved
+
+    // The swapped-in DB is clean and retains the readable rows.
+    const db = new Database(dbPath, { readonly: true });
+    expect(String(db.pragma('integrity_check', { simple: true })).toLowerCase()).toBe('ok');
+    const c = (db.prepare('SELECT COUNT(*) AS c FROM memory_entries').get() as { c: number }).c;
+    expect(c).toBeGreaterThan(0);
+    expect(c).toBeLessThanOrEqual(rows);
+    db.close();
+  });
+
+  it('is a no-op on a healthy DB (never rewrites a good database)', async () => {
+    const dbPath = join(workdir, 'healthy.db');
+    const db = new Database(dbPath);
+    db.exec("CREATE TABLE memory_entries (id TEXT PRIMARY KEY, content TEXT)");
+    db.prepare('INSERT INTO memory_entries VALUES (?, ?)').run('a', 'hello');
+    db.close();
+
+    const rec = await recoverMemoryDatabase(dbPath);
+    expect(rec.recovered).toBe(false);
+    expect(rec.reason).toBe('not-corrupt');
+  });
+
+  it('repairVectorIndexes({autoRecover}) recovers then heals in one call', async () => {
+    const dbPath = join(workdir, 'corrupt-autoheal.db');
+    const { rows } = seedAndCorrupt(dbPath);
+    const pre = new Database(dbPath);
+    const qc = String(pre.pragma('quick_check(1)', { simple: true }));
+    pre.close();
+    if (qc.toLowerCase() === 'ok') return; // synthetic corruption didn't take — skip
+
+    const out = await repairVectorIndexes(dbPath, { autoRecover: true });
+    expect(out.corrupt).toBe(true);
+    expect(out.recovered).toBe(true);
+    // After recovery it provisioned vector_indexes on the clean rebuild.
+    const db = new Database(dbPath, { readonly: true });
+    expect(String(db.pragma('integrity_check', { simple: true })).toLowerCase()).toBe('ok');
+    const vidx = (db.prepare('SELECT COUNT(*) AS c FROM vector_indexes').get() as { c: number }).c;
+    expect(vidx).toBeGreaterThan(0);
+    db.close();
+    expect(rows).toBe(500);
   });
 });

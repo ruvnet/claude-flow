@@ -608,6 +608,7 @@ export {
 export {
   initializeMemoryDatabase,
   repairVectorIndexes,
+  recoverMemoryDatabase,
   generateEmbedding,
   generateBatchEmbeddings,
   storeEntry,

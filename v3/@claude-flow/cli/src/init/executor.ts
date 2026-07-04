@@ -245,7 +245,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
         const memDbPath = path.join(targetDir, '.swarm', 'memory.db');
         if (fs.existsSync(memDbPath)) {
           const { repairVectorIndexes } = await import('../memory/memory-initializer.js');
-          await repairVectorIndexes(memDbPath);
+          await repairVectorIndexes(memDbPath, { autoRecover: true });
         }
       } catch { /* best-effort — never block init on memory repair */ }
     }
