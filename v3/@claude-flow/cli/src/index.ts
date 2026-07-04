@@ -163,6 +163,20 @@ export class CLI {
             this.output.printDebug(`Adopted proven config (${a.from} → ${a.to})`);
           }
         } catch { /* silent */ }
+
+        // Self-running daemon: ensure the background workers (distillation,
+        // backup, …) are actually firing without a manual `daemon start`.
+        // Single-instance (only spawns when none is alive; the spawned daemon
+        // re-checks its own lock), bounded (TTL/idle self-shutdown), opt-out via
+        // RUFLO_DAEMON_AUTOSTART=0. Skipped for `daemon` (no recursion). Detached
+        // + fire-and-forget, so it never blocks the command.
+        if (commandPath[0] !== 'daemon') {
+          try {
+            const { ensureDaemonRunning } = await import('./services/daemon-autostart.js');
+            const d = ensureDaemonRunning(process.cwd());
+            if (d.started && this.output.isVerbose()) this.output.printDebug('Started background daemon (auto)');
+          } catch { /* silent */ }
+        }
       }
 
       // Handle lazy-loaded commands that weren't recognized by the parser

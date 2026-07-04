@@ -186,6 +186,9 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   // precedence; these env vars only configure the headless daemon worker path.
   'RUFLO_BACKUP_KEEP',
   'RUFLO_BACKUP_GCS',
+  // Self-running daemon opt-out (auto-start on CLI use). A pure on/off toggle
+  // for a background behavior — no CLI flag equivalent; escape-hatch by design.
+  'RUFLO_DAEMON_AUTOSTART',
 ]);
 
 // ── Source directories to scan ────────────────────────────────────────────────
