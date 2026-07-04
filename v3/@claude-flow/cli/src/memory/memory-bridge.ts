@@ -725,6 +725,33 @@ export async function bridgeStoreEntry(options: {
       ttl ? now + (ttl * 1000) : null
     );
 
+    // #2558: keep `vector_indexes.total_vectors` accurate so status/tooling
+    // stop reporting "HNSW index: 0 vectors" while embedded entries exist.
+    try {
+      ctx.db
+        .prepare(
+          `UPDATE vector_indexes SET
+             total_vectors = (SELECT COUNT(*) FROM memory_entries
+                              WHERE namespace = ? AND embedding IS NOT NULL),
+             updated_at = ?
+           WHERE name = ?`,
+        )
+        .run(namespace, now, namespace);
+    } catch { /* vector_indexes may not exist on legacy DBs — non-fatal */ }
+
+    // #2558: better-sqlite3 opens the DB in WAL mode and, for the small write
+    // volumes typical of CLI usage, may never reach the auto-checkpoint
+    // threshold — leaving committed rows only in the -wal file. WAL-blind
+    // readers (the sql.js fallback search path; the statusline's read-only
+    // `sqlite3` vector count) then see a stale/empty main DB file and report
+    // "0 vectors" / empty search. A PASSIVE checkpoint flushes committed pages
+    // into the main file without blocking writers. Best-effort, never fatal.
+    try {
+      if (typeof ctx.db.pragma === 'function') {
+        ctx.db.pragma('wal_checkpoint(PASSIVE)');
+      }
+    } catch { /* non-WAL, busy, or unsupported — non-fatal */ }
+
     // Phase 2: Write-through to TieredCache
     const safeNs = String(namespace).replace(/:/g, '_');
     const safeKey = String(key).replace(/:/g, '_');
@@ -842,18 +869,35 @@ export async function bridgeSearchEntries(options: {
         bm25ScoreVal = Math.min(bm25ScoreVal / 10, 1.0);
       }
 
-      // Reciprocal rank fusion: combine semantic and BM25
-      // Weight: 0.7 semantic + 0.3 BM25 when both embeddings present
-      // Fall back to BM25-only when either query or row lacks an embedding
-      const score = semanticScore > 0
-        ? (0.7 * semanticScore + 0.3 * bm25ScoreVal)
-        : bm25ScoreVal;
+      // #2558: keyword-coverage floor for the lexical signal.
+      // BM25's IDF collapses toward zero when a term appears in most/all
+      // documents (routine on small memory corpora), and the /10 normalization
+      // crushed exact-keyword hits well below the default 0.3 threshold — so
+      // `memory search` recalled NOTHING even when the content literally
+      // contained the query term (issue #2558: "keyword recall random"). The
+      // pre-BM25 fallback guaranteed keyword recall via matchCount/words*0.5;
+      // this restores that guarantee. `coverage` is the fraction of query
+      // terms present in the document — a full-coverage hit must always be
+      // recallable regardless of IDF.
+      const contentLower = String(row.content || '').toLowerCase();
+      const matchedTerms = queryTerms.filter(t => contentLower.includes(t)).length;
+      const coverage = queryTerms.length > 0 ? matchedTerms / queryTerms.length : 0;
+      const lexicalScore = Math.max(bm25ScoreVal, coverage);
+
+      // Recall-friendly fusion: a strong semantic OR lexical signal alone must
+      // clear the threshold. `blended` (0.6 semantic + 0.4 lexical) drives
+      // ranking; taking max() with the raw semantic score means (a) a genuinely
+      // similar entry is never dropped just because it lacks the query's exact
+      // words, and (b) a full-coverage keyword hit (lexical=1 → blended≥0.4) is
+      // never dropped just because its embedding cosine is low or negative.
+      const blended = 0.6 * Math.max(0, semanticScore) + 0.4 * lexicalScore;
+      const score = Math.max(blended, semanticScore);
 
       if (score >= threshold) {
         // Phase 4: ExplainableRecall provenance
         const provenance = queryEmbedding
-          ? `semantic:${semanticScore.toFixed(3)}+bm25:${bm25ScoreVal.toFixed(3)}`
-          : `bm25:${bm25ScoreVal.toFixed(3)}`;
+          ? `semantic:${semanticScore.toFixed(3)}+lexical:${lexicalScore.toFixed(3)}`
+          : `lexical:${lexicalScore.toFixed(3)}`;
 
         results.push({
           id: String(row.id).substring(0, 12),
