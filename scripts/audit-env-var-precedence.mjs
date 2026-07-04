@@ -173,6 +173,13 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'CLAUDE_FLOW_ROUTER_TRAJECTORY_MAXSIZE',
   'CLAUDE_FLOW_ROUTER_TRAJECTORY_PATH',
   'CLAUDE_FLOW_ROUTER_TRAJECTORY_TASKLEN',
+  // Run-transcript capture (ADR-173 distill capture path) — opt-in, off by
+  // default background recorder (PII/retention surface, mirrors ROUTER_TRAJECTORY
+  // above). No user-facing command, so env-only by design; no CLI-flag precedence.
+  'CLAUDE_FLOW_RUN_TRANSCRIPTS',
+  'CLAUDE_FLOW_RUN_TRANSCRIPTS_PATH',
+  'CLAUDE_FLOW_RUN_TRANSCRIPTS_MAXROTATIONS',
+  'CLAUDE_FLOW_RUN_TRANSCRIPTS_MAXSIZE',
   'CLAUDE_FLOW_SWARM_DIR',  // Set by ruflo init / inter-process — not user-typed
 ]);
 
