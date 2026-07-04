@@ -94,7 +94,7 @@ export const agenticowTools: MCPTool[] = [
   },
   {
     name: 'agenticow_ingest',
-    description: 'agenticow — write vectors (with optional text payloads) into an .rvf memory branch or base. Records: [{id?, vector, text?}] — id auto-assigns when omitted. This is the write half that makes a branch usable: agenticow_branch creates an empty COW child, but without ingest it has nothing to read back. Use after branching to populate an agent/session-local memory. Editing the base directly is wrong when the writes are speculative — ingest into a branch, then promote only if validated. Persists via .agenticow.json lineage manifest.',
+    description: 'agenticow — write vectors (with optional text payloads) into an .rvf memory branch or base. Records: [{id?, vector, text?}] — id auto-assigns when omitted. This is the write half that makes a branch usable: agenticow_branch creates an empty COW child, but without ingest it has nothing to read back. Use when you have branched and must populate the branch (agenticow_branch alone leaves it empty). Editing the base directly is wrong when the writes are speculative — ingest into a branch, then promote only if validated. Persists via .agenticow.json lineage manifest.',
     category: 'memory',
     tags: ['agenticow', 'memory', 'cow', 'ingest', 'write'],
     inputSchema: {
@@ -149,7 +149,7 @@ export const agenticowTools: MCPTool[] = [
   },
   {
     name: 'agenticow_query',
-    description: 'agenticow — k-NN read across an .rvf memory branch\'s full COW lineage (parent ∪ edits, child wins), returning {id, distance, branch, text}. Read-only (no manifest write). The `branch` field on each hit tells you which lineage node the result came from — the read-through semantics that make branching useful. Use to retrieve from an agent/session branch without materializing a full copy. Re-opening the base and manually merging edits is wrong: query already spans the chain (and uses the single-call Rust path when the branch was forked with nativeAnn).',
+    description: 'agenticow — k-NN read across an .rvf memory branch\'s full COW lineage (parent ∪ edits, child wins), returning {id, distance, branch, text}. Read-only (no manifest write). The `branch` field on each hit tells you which lineage node the result came from — the read-through semantics that make branching useful. Use when you need to read from an agent/session branch without materializing a full copy. Re-opening the base and manually merging edits is wrong: query already spans the chain (and uses the single-call Rust path when the branch was forked with nativeAnn).',
     category: 'memory',
     tags: ['agenticow', 'memory', 'cow', 'query', 'read', 'search'],
     inputSchema: {
@@ -185,7 +185,7 @@ export const agenticowTools: MCPTool[] = [
   },
   {
     name: 'agenticow_diff',
-    description: 'agenticow — show what a branch changed relative to its lineage: {added, overridden, deleted} vector-id lists. Use before promote to preview the exact merge, or to audit what an agent/session branch actually wrote. Diffing by re-querying is wrong because deletions (tombstones) are invisible to a read — diff() surfaces them explicitly. Requires the branch was opened with edit tracking (default on).',
+    description: 'agenticow — show what a branch changed relative to its lineage: {added, overridden, deleted} vector-id lists. Use when you are about to promote and want to preview the exact merge, or when auditing what a branch actually wrote. Diffing by re-querying is wrong because deletions (tombstones) are invisible to a read — diff() surfaces them explicitly. Requires the branch was opened with edit tracking (default on).',
     category: 'memory',
     tags: ['agenticow', 'memory', 'cow', 'diff'],
     inputSchema: {
@@ -211,7 +211,7 @@ export const agenticowTools: MCPTool[] = [
   },
   {
     name: 'agenticow_lineage',
-    description: 'agenticow — walk the COW chain of an .rvf memory file: an ordered list of nodes (role working|checkpoint|base, id, label, parent, createdAt, mutations, tombstones). Use to understand branch history, find checkpoint ids for a targeted rollback, or debug a promote. Guessing the chain from filenames is wrong — lineage is the authoritative structure the store maintains.',
+    description: 'agenticow — walk the COW chain of an .rvf memory file: an ordered list of nodes (role working|checkpoint|base, id, label, parent, createdAt, mutations, tombstones). Use when you need branch history — to find checkpoint ids for a targeted rollback, or to debug a promote. Guessing the chain from filenames is wrong — lineage is the authoritative structure the store maintains.',
     category: 'memory',
     tags: ['agenticow', 'memory', 'cow', 'lineage', 'history'],
     inputSchema: {
@@ -237,7 +237,7 @@ export const agenticowTools: MCPTool[] = [
   },
   {
     name: 'agenticow_status',
-    description: 'agenticow — health/geometry of an .rvf memory file: {totalVectors, totalSegments, fileSize, currentEpoch, deadSpaceRatio, readOnly, chainDepth, dimension, metric}. Use to check vector count before/after ingest, spot compaction pressure (deadSpaceRatio), or confirm the dimension before ingesting into a shared base. Pure read.',
+    description: 'agenticow — health/geometry of an .rvf memory file: {totalVectors, totalSegments, fileSize, currentEpoch, deadSpaceRatio, readOnly, chainDepth, dimension, metric}. Use when you need to check vector count before/after ingest, spot compaction pressure (deadSpaceRatio), or confirm the dimension before ingesting into a shared base. Pure read.',
     category: 'memory',
     tags: ['agenticow', 'memory', 'cow', 'status'],
     inputSchema: {
