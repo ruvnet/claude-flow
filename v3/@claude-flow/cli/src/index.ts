@@ -607,6 +607,7 @@ export {
 // Memory & Intelligence (V3 Performance Features)
 export {
   initializeMemoryDatabase,
+  repairVectorIndexes,
   generateEmbedding,
   generateBatchEmbeddings,
   storeEntry,

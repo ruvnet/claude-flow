@@ -1314,6 +1314,166 @@ async function activateControllerRegistry(
 }
 
 /**
+ * Self-heal an EXISTING memory database that is missing the `vector_indexes`
+ * table or per-namespace rows.
+ *
+ * Why this exists: fresh installs create `vector_indexes` + seed rows, but a
+ * DB written by an older CLI or by agentdb directly may have thousands of
+ * embedded rows in `memory_entries` and NO `vector_indexes` table at all.
+ * Two things break as a result:
+ *   1. The statusline's vector count read collapsed to `0` (the count query
+ *      referenced the missing table and failed whole — now split, but the
+ *      HNSW flag still needs the table).
+ *   2. #1941 — `memory_search` routes per namespace via `vector_indexes`; a
+ *      namespace with no row returns 0 results even when entries exist.
+ *
+ * This is idempotent and conservative:
+ *   - Does NOTHING (no writes) when the table already exists and every embedded
+ *     namespace already has a row — the common already-healed path, hit on
+ *     every MCP start, must not write to the live DB unnecessarily.
+ *   - Before ANY write, runs `PRAGMA quick_check`; if the DB reports structural
+ *     corruption it SKIPS the repair entirely (returns `corrupt:true`) rather
+ *     than writing into a malformed btree and risking making it worse. The
+ *     caller/user should recover via `sqlite3 old.db .recover | sqlite3 new.db`.
+ *   - Does NOT checkpoint. mode=ro readers already see committed WAL frames, and
+ *     forcing a checkpoint on a DB with a torn WAL could persist latent damage.
+ *
+ * When a repair IS needed and the DB is healthy: creates the table if absent,
+ * seeds the fresh-install default rows, and backfills an accurate
+ * `total_vectors` per namespace. Runs on the existing-DB path of
+ * `initializeMemoryDatabase` (MCP start / `memory init`) and from `ruflo init`.
+ *
+ * Uses better-sqlite3 (WAL-safe, native). If the native module is unavailable
+ * it is a silent no-op — the split statusline query already prevents the count
+ * from zeroing; only the HNSW flag and namespace routing stay degraded.
+ */
+export async function repairVectorIndexes(
+  dbPath: string,
+  opts: { verbose?: boolean } = {},
+): Promise<{ repaired: boolean; tableCreated: boolean; namespaces: string[]; corrupt?: boolean }> {
+  const res = { repaired: false, tableCreated: false, namespaces: [] as string[], corrupt: false };
+  if (!dbPath || !fs.existsSync(dbPath)) return res;
+
+  let Database: any;
+  try {
+    Database = (await import('better-sqlite3')).default;
+  } catch {
+    // Native module absent (e.g. WASM-only host). Statusline fix still covers
+    // the display; nothing to repair here.
+    return res;
+  }
+
+  let db: any;
+  try {
+    db = new Database(dbPath, { timeout: 3000 });
+
+    const tableExists = (name: string): boolean =>
+      (db.prepare("SELECT COUNT(*) AS c FROM sqlite_master WHERE type='table' AND name=?").get(name)?.c ?? 0) > 0;
+
+    // Nothing to key off if there is no entries table.
+    if (!tableExists('memory_entries')) { db.close(); return res; }
+
+    const hasVectorIndexes = tableExists('vector_indexes');
+
+    // Namespaces that actually have embeddings.
+    const nsRows = db
+      .prepare(
+        "SELECT COALESCE(namespace, 'default') AS ns, COUNT(*) AS c " +
+        'FROM memory_entries WHERE embedding IS NOT NULL GROUP BY ns',
+      )
+      .all() as Array<{ ns: string; c: number }>;
+
+    // Which of those are already present in vector_indexes? If the table exists
+    // and every embedded namespace already has a row, the DB is already healed
+    // — return WITHOUT writing anything (common path on every MCP start).
+    let needsWrite = !hasVectorIndexes;
+    if (hasVectorIndexes) {
+      const present = new Set(
+        (db.prepare('SELECT name FROM vector_indexes').all() as Array<{ name: string }>).map(r => r.name),
+      );
+      needsWrite = nsRows.some(r => !present.has(String(r.ns || 'default')));
+    }
+    if (!needsWrite) { db.close(); return res; }
+
+    // A write is needed. GUARD: never write into a structurally corrupt DB —
+    // that risks worsening the damage. quick_check is cheaper than a full
+    // integrity_check and only runs on the rare repair path, not every start.
+    const qc = db.prepare('PRAGMA quick_check(1)').get() as Record<string, string> | undefined;
+    const qcVal = qc ? String(Object.values(qc)[0] ?? '') : '';
+    if (qcVal.toLowerCase() !== 'ok') {
+      res.corrupt = true;
+      db.close();
+      if (opts.verbose) {
+        console.log(
+          'vector_indexes repair SKIPPED — memory DB reports corruption (' + qcVal + '). ' +
+          'Recover with:  sqlite3 <db> .recover | sqlite3 <db>.recovered',
+        );
+      }
+      return res;
+    }
+
+    if (!hasVectorIndexes) {
+      db.exec(`CREATE TABLE IF NOT EXISTS vector_indexes (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        dimensions INTEGER NOT NULL,
+        metric TEXT DEFAULT 'cosine' CHECK(metric IN ('cosine', 'euclidean', 'dot')),
+        hnsw_m INTEGER DEFAULT 16,
+        hnsw_ef_construction INTEGER DEFAULT 200,
+        hnsw_ef_search INTEGER DEFAULT 100,
+        quantization_type TEXT CHECK(quantization_type IN ('none', 'scalar', 'product')),
+        quantization_bits INTEGER DEFAULT 8,
+        total_vectors INTEGER DEFAULT 0,
+        last_rebuild_at INTEGER,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+      )`);
+      res.tableCreated = true;
+    }
+
+    // 384 = default ONNX model dim (Xenova/all-MiniLM-L6-v2); HNSW rejects
+    // dim-mismatched inserts, so this must match the stored embeddings (#1947).
+    const ensureRow = db.prepare(
+      'INSERT OR IGNORE INTO vector_indexes (id, name, dimensions) VALUES (?, ?, 384)',
+    );
+    const setCount = db.prepare(
+      'UPDATE vector_indexes SET total_vectors = ?, updated_at = ? WHERE name = ?',
+    );
+
+    const backfill = db.transaction(() => {
+      // Parity with a fresh install's seed rows.
+      ensureRow.run('default', 'default');
+      ensureRow.run('patterns', 'patterns');
+
+      const now = Date.now();
+      for (const r of nsRows) {
+        const ns = String(r.ns || 'default');
+        ensureRow.run(ns, ns);
+        setCount.run(r.c, now, ns);
+        res.namespaces.push(ns);
+      }
+    });
+    backfill();
+
+    res.repaired = res.tableCreated || res.namespaces.length > 0;
+    db.close();
+
+    if (opts.verbose && res.repaired) {
+      console.log(
+        `vector_indexes ${res.tableCreated ? 'created' : 'refreshed'} — ` +
+        `backfilled ${res.namespaces.length} namespace(s)`,
+      );
+    }
+  } catch (e) {
+    try { db?.close(); } catch { /* already closed */ }
+    if (opts.verbose) {
+      console.log(`vector_indexes repair skipped: ${(e as Error)?.message ?? e}`);
+    }
+  }
+  return res;
+}
+
+/**
  * Initialize the memory database properly using sql.js
  */
 export async function initializeMemoryDatabase(options: {
@@ -1357,19 +1517,24 @@ export async function initializeMemoryDatabase(options: {
     // surfaced an `[ERROR]` and a "Initialization failed" spinner even when
     // the existing DB was perfectly healthy.
     if (fs.existsSync(dbPath) && !force) {
+      // #2568-followup: an existing DB may predate `vector_indexes` (or was
+      // written by agentdb directly). Self-heal it here — this branch is hit on
+      // every MCP-server start and `memory init`, so any ruflo repairs itself.
+      // Idempotent + best-effort; never turns a healthy re-init into a failure.
+      const heal = await repairVectorIndexes(dbPath, { verbose });
       return {
         success: true,
         alreadyExists: true,
         backend,
         dbPath,
         schemaVersion: '3.0.0',
-        tablesCreated: [],
+        tablesCreated: heal.tableCreated ? ['vector_indexes'] : [],
         indexesCreated: [],
         features: {
           vectorEmbeddings: false,
           patternLearning: false,
           temporalDecay: false,
-          hnswIndexing: false,
+          hnswIndexing: heal.repaired,
           migrationTracking: false
         }
       };

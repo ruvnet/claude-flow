@@ -235,6 +235,19 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       if (memRecord) {
         result.created.files.push('.claude-flow/memory-package.json');
       }
+
+      // #2568-followup: if this project already has a memory DB that predates
+      // the `vector_indexes` table (older CLI / agentdb-written), self-heal it
+      // so the statusline vector count + namespace routing work. Best-effort,
+      // dynamically imported so a WASM-only host without better-sqlite3 just
+      // skips it. Fresh projects have no DB yet — this is a no-op there.
+      try {
+        const memDbPath = path.join(targetDir, '.swarm', 'memory.db');
+        if (fs.existsSync(memDbPath)) {
+          const { repairVectorIndexes } = await import('../memory/memory-initializer.js');
+          await repairVectorIndexes(memDbPath);
+        }
+      } catch { /* best-effort — never block init on memory repair */ }
     }
 
     // Generate statusline
