@@ -12,6 +12,41 @@ import {
   getProgress, calculateReward, tryLoadLearning, validateNumber,
   validateTaskSources, LOG_FILE,
 } from '../autopilot-state.js';
+import { getCheckpointGate, CheckpointGate } from '../services/checkpoint-gate.js';
+
+/**
+ * Opt-in checkpoint/rollback gate for the autopilot tick (agenticow step 3).
+ *
+ * The autopilot loop's memory mutation happens OUT OF PROCESS — a re-engaged
+ * tick returns a continuation prompt, and the spawned agent (plus agentic-flow
+ * learning) mutates `.rvf` memory. So there is no in-process fn to wrap with
+ * CheckpointGate.guard() here; instead we bracket the loop across ticks:
+ *   - checkpoint the configured `.rvf` right before handing off a risky tick
+ *     (re-engage), and
+ *   - roll it back when the loop's own regression signal fires (stall auto-disable).
+ *
+ * Entirely opt-in: it does nothing unless CLAUDE_FLOW_AUTOPILOT_CHECKPOINT_MEM
+ * points at an `.rvf` file the loop mutates, agenticow is installed, and the
+ * CLAUDE_FLOW_AGENTICOW_DISABLE kill switch is unset. Every call is non-fatal —
+ * a checkpoint/rollback failure never breaks the loop.
+ */
+async function checkpointTick(label: string): Promise<void> {
+  const memPath = CheckpointGate.configuredMemPath();
+  if (!memPath) return;
+  try {
+    const r = await getCheckpointGate().checkpoint(memPath, label);
+    if (r.ok) appendLog({ ts: Date.now(), event: 'checkpoint', label, memPath });
+  } catch { /* non-fatal: memory branching is best-effort */ }
+}
+
+async function rollbackTick(reason: string): Promise<void> {
+  const memPath = CheckpointGate.configuredMemPath();
+  if (!memPath) return;
+  try {
+    const r = await getCheckpointGate().rollback(memPath);
+    if (r.ok) appendLog({ ts: Date.now(), event: 'rollback', reason, memPath });
+  } catch { /* non-fatal */ }
+}
 
 // ── Check Handler (for Stop hook) ─────────────────────────────
 
@@ -63,6 +98,9 @@ export async function autopilotCheck(): Promise<{ allowStop: boolean; reason: st
     state.enabled = false;
     saveState(state);
     appendLog({ ts: Date.now(), event: 'stall-auto-disable', iterations: state.iterations, completed: progress.completed });
+    // Regression signal: the loop stalled. Roll `.rvf` memory back to the last
+    // good per-tick checkpoint (opt-in via CLAUDE_FLOW_AUTOPILOT_CHECKPOINT_MEM).
+    await rollbackTick('stall-auto-disable');
     return { allowStop: true, reason: `Stalled: no progress in 10 iterations (${progress.completed}/${progress.total} complete)` };
   }
 
@@ -71,6 +109,10 @@ export async function autopilotCheck(): Promise<{ allowStop: boolean; reason: st
   state.lastCheck = Date.now();
   state.history.push({ ts: Date.now(), iteration: state.iterations, completed: progress.completed, total: progress.total });
   saveState(state);
+
+  // Checkpoint `.rvf` memory before the risky tick runs (opt-in). The next
+  // check() rolls back to here if this tick regresses (stall detection above).
+  await checkpointTick(`autopilot-iter-${state.iterations}`);
 
   const stallWarning = isStalled
     ? '\nWARNING: No progress in 5 iterations. Consider breaking tasks into smaller subtasks or trying a different approach.'
