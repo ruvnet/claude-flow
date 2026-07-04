@@ -32,91 +32,18 @@
  * @module @claude-flow/cli/mcp-tools/agenticow
  */
 
-import { existsSync } from 'node:fs';
 import type { MCPTool } from './types.js';
-import { getProjectCwd } from './types.js';
-import { resolve, isAbsolute } from 'node:path';
-
-const PACKAGE_NAME = 'agenticow';
-
-// Cache: module load is expensive enough to amortize across handler calls.
-// null = not yet attempted; false = attempted and unavailable; module = loaded.
-let _agenticowMod: any = null;
-let _loadAttempted = false;
-
-interface AgenticowApi {
-  open: (file: string, opts?: { dimension?: number; metric?: string }) => Promise<any>;
-  openBase: (file: string, opts?: any) => Promise<any>;
-  AgenticMemory: any;
-}
-
-async function loadAgenticow(): Promise<AgenticowApi | null> {
-  if (_loadAttempted) return _agenticowMod;
-  _loadAttempted = true;
-  try {
-    _agenticowMod = await import(PACKAGE_NAME);
-    return _agenticowMod;
-  } catch (err: any) {
-    if (err && (err.code === 'ERR_MODULE_NOT_FOUND' || err.code === 'MODULE_NOT_FOUND' ||
-                /Cannot find (module|package)/i.test(String(err.message)))) {
-      _agenticowMod = false;
-      return null;
-    }
-    throw err;
-  }
-}
-
-function degradedResult(reason: string): { success: true; degraded: true; reason: string } {
-  return { success: true, degraded: true, reason };
-}
-
-function resolveMemoryPath(path: string): string {
-  if (!path || typeof path !== 'string') throw new Error('memory path is required');
-  // D-2 style: reject path traversal in user-supplied paths
-  if (/\.\.[\\/]|\0/.test(path)) throw new Error('memory path contains disallowed characters');
-  return isAbsolute(path) ? path : resolve(getProjectCwd(), path);
-}
-
-/**
- * Lineage manifest companion path. agenticow persists the COW chain
- * (working → checkpoints → base) into `<file>.agenticow.json` next to the
- * `.rvf` data file. Without this, checkpoints and forks are in-memory only
- * and disappear when the AgenticMemory handle closes. Mirrors the bin
- * CLI's `manifestFor(file)` helper.
- */
-function manifestFor(file: string): string {
-  return `${file}.agenticow.json`;
-}
-
-function validateLabel(label: string): string {
-  if (!label || typeof label !== 'string') throw new Error('label is required');
-  if (label.length > 256) throw new Error('label exceeds 256 chars');
-  if (!/^[A-Za-z0-9_.\-:/@]+$/.test(label)) {
-    throw new Error('label may only contain [A-Za-z0-9_.\\-:/@]');
-  }
-  return label;
-}
-
-/**
- * Open (or create) a base memory file. When a lineage manifest exists at
- * `<file>.agenticow.json`, we load that to restore the COW chain (checkpoints,
- * ancestors). When only the `.rvf` exists, fresh-open it. When neither exists,
- * dimension is required to create. Mirrors the bin CLI's `loadMem()` helper.
- */
-async function openWithLineage(api: AgenticowApi, file: string, dimension?: number) {
-  const manifest = manifestFor(file);
-  if (existsSync(manifest)) {
-    // The class-level static method `load` reconstructs the full chain.
-    return (api.AgenticMemory as any).load(manifest);
-  }
-  const opts: any = {};
-  if (typeof dimension === 'number' && Number.isInteger(dimension) && dimension > 0) {
-    opts.dimension = dimension;
-  } else if (!existsSync(file)) {
-    throw new Error('dimension is required when creating a new memory file');
-  }
-  return api.open(file, opts);
-}
+// Loader + path/lineage helpers are shared with the SwarmMemoryBranches
+// service (src/services/swarm-memory-branches.ts) via one module so the
+// optional-dep dance and the COW open/fork semantics live in exactly one place.
+import {
+  loadAgenticow,
+  degradedResult,
+  resolveMemoryPath,
+  manifestFor,
+  validateLabel,
+  openWithLineage,
+} from './agenticow-loader.js';
 
 export const agenticowTools: MCPTool[] = [
   {

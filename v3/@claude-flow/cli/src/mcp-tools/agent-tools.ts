@@ -42,6 +42,14 @@ interface AgentRecord {
   /** ADR-148 — concrete OpenRouter slug when provider='openrouter'. */
   openrouterModel?: string;
   lastResult?: Record<string, unknown>;
+  /**
+   * ACOW — path to this agent's per-agent Copy-On-Write memory branch
+   * (agenticow), set only when the agent was spawned with `memoryBase`. On
+   * terminate the branch is promoted (merged to base) or discarded.
+   */
+  memoryBranch?: string;
+  /** ACOW — the shared base `.rvf` this agent's branch was forked from. */
+  memoryBase?: string;
 }
 
 interface AgentStore {
@@ -286,6 +294,8 @@ export const agentTools: MCPTool[] = [
           description: 'Claude model alias (haiku=fast/cheap, sonnet=balanced, opus=current Opus 4.8, opus-4.7=prior Opus pin)'
         },
         task: { type: 'string', description: 'Task description for intelligent model routing' },
+        memoryBase: { type: 'string', description: 'Opt-in: base .rvf memory file to fork a per-agent Copy-On-Write branch from (agenticow). When set, the agent gets an isolated ~162-byte COW branch instead of a full copy — promote on success, discard on terminate. Requires the optional `agenticow` dep; degrades to a no-op when absent or when CLAUDE_FLOW_NO_COW_MEMORY=1.' },
+        memoryDimension: { type: 'integer', description: 'Vector dimension for the COW base (required only when memoryBase does not exist yet)' },
       },
       required: ['agentType'],
     },
@@ -370,6 +380,31 @@ export const agentTools: MCPTool[] = [
         await addNode({ id: agentId, type: 'agent', name: agentType });
       } catch { /* graph-node not available */ }
 
+      // ACOW — opt-in per-agent COW memory branch. Only when the caller
+      // supplies `memoryBase` does the agent get an isolated 162-byte branch
+      // (vs a full .rvf copy). Lazy-imported so agenticow stays off the
+      // startup path. Non-fatal: a branch failure never blocks the spawn —
+      // the agent is already registered above.
+      let memoryBranch: string | undefined;
+      if (input.memoryBase) {
+        try {
+          const { SwarmMemoryBranches } = await import('../services/swarm-memory-branches.js');
+          const svc = new SwarmMemoryBranches();
+          const br = await svc.branchForAgent(String(input.memoryBase), agentId, {
+            dimension: typeof input.memoryDimension === 'number' ? input.memoryDimension : undefined,
+          });
+          if (br.branchPath) {
+            memoryBranch = br.branchPath;
+            agent.memoryBranch = br.branchPath;
+            agent.memoryBase = br.basePath;
+            store.agents[agentId] = agent;
+            saveAgentStore(store);
+          }
+          // else: degraded (agenticow missing / kill-switched) — agent stands
+          // without an isolated branch; callers see no memoryBranch field.
+        } catch { /* COW branch is best-effort; agent already registered */ }
+      }
+
       // Include deterministic codemod routing info if applicable
       const response: Record<string, unknown> = {
         success: true,
@@ -382,6 +417,7 @@ export const agentTools: MCPTool[] = [
         ...(routingResult.openrouterModel ? { openrouterModel: routingResult.openrouterModel } : {}),
         status: 'registered',
         createdAt: agent.createdAt,
+        ...(memoryBranch ? { memoryBranch, memoryBase: agent.memoryBase } : {}),
         note: 'Agent registered for coordination. Three execution paths: ' +
           '(1) call agent_execute(agentId, prompt) — direct LLM call via Anthropic Messages API (requires ANTHROPIC_API_KEY); ' +
           '(2) Claude Code Task tool — spawns a real subagent; ' +
@@ -450,6 +486,7 @@ export const agentTools: MCPTool[] = [
       properties: {
         agentId: { type: 'string', description: 'ID of agent to terminate' },
         force: { type: 'boolean', description: 'Force immediate termination' },
+        promoteMemory: { type: 'boolean', description: 'When the agent has a per-agent COW memory branch (spawned with memoryBase), promote (merge) its edits into the shared base on terminate. Default false → discard the branch (throw its edits away). No-op when the agent has no branch.' },
       },
       required: ['agentId'],
     },
@@ -461,13 +498,31 @@ export const agentTools: MCPTool[] = [
       const agentId = input.agentId as string;
 
       if (store.agents[agentId]) {
-        store.agents[agentId].status = 'terminated';
+        const rec = store.agents[agentId];
+        rec.status = 'terminated';
         saveAgentStore(store);
+
+        // ACOW — resolve the agent's COW memory branch on teardown: promote
+        // (merge into base) when asked, else discard. Non-fatal — a failure
+        // here never blocks termination. Discard needs no agenticow (pure fs),
+        // so cleanup still works in the degraded path.
+        let memory: Record<string, unknown> | undefined;
+        if (rec.memoryBranch) {
+          try {
+            const { SwarmMemoryBranches } = await import('../services/swarm-memory-branches.js');
+            const svc = new SwarmMemoryBranches();
+            memory = input.promoteMemory
+              ? (await svc.promoteAgent(agentId)) as unknown as Record<string, unknown>
+              : (await svc.discardAgent(agentId)) as unknown as Record<string, unknown>;
+          } catch { /* best-effort teardown */ }
+        }
+
         return {
           success: true,
           agentId,
           terminated: true,
           terminatedAt: new Date().toISOString(),
+          ...(memory ? { memory } : {}),
         };
       }
 
