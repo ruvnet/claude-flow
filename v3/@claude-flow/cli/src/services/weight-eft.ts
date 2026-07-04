@@ -429,7 +429,7 @@ export type RemoteTrainOutcome =
  * `spawn` is injected for testing so CI never touches a live host.
  */
 export async function runRemoteTrain(
-  args: RemoteTrainArgs & { execute?: boolean; yes?: boolean; spawn?: SpawnFn },
+  args: RemoteTrainArgs & { execute?: boolean; yes?: boolean; preflight?: boolean; spawn?: SpawnFn },
 ): Promise<RemoteTrainOutcome> {
   let plan: RemoteTrainPlan;
   try {
@@ -440,7 +440,10 @@ export async function runRemoteTrain(
 
   const spawn: SpawnFn = args.spawn ?? defaultSpawn;
 
-  // Preflight — read-only, safe in every mode. Failure is REPORTED not fatal.
+  // Preflight — read-only reachability/capability probes. These DO contact the
+  // remote host (ssh ... true), so a bare dry-run must NOT run them: "no
+  // implicit remote execution" (adversarial RC finding). Probes run only when
+  // executing, or when the caller explicitly opts in with --preflight.
   const runProbe = (s: RemoteStep): { label: string; ok: boolean; detail: string } => {
     try {
       const r = spawn(s.argv[0], s.argv.slice(1));
@@ -452,11 +455,16 @@ export async function runRemoteTrain(
       return { label: s.label, ok: false, detail: (e as Error).message };
     }
   };
-  const preflight = plan.preflight.map(runProbe);
+  const doProbe = args.execute === true || args.preflight === true;
+  const preflight = doProbe ? plan.preflight.map(runProbe) : [];
   const reachable = preflight[0]?.ok === true;
 
   if (!args.execute) {
-    return { degraded: false, mode: 'dry-run', plan, preflight };
+    // Bare dry-run is fully offline — plan + commands only, no host contact.
+    return {
+      degraded: false, mode: 'dry-run', plan, preflight,
+      reason: doProbe ? undefined : 'offline dry-run — no host contacted. Add --preflight to probe reachability/GPU, or --execute --yes to train.',
+    };
   }
   if (!args.yes) {
     return {

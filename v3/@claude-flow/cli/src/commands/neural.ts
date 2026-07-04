@@ -4581,10 +4581,12 @@ const distillTrainCommand: Command = {
     { name: 'remote-workdir', type: 'string', description: 'Remote working dir (default: ~/.ruflo-weft/<runId>)' },
     { name: 'execute', type: 'boolean', description: 'Opt in to REAL GPU compute on the remote host (still needs --yes)', default: 'false' },
     { name: 'yes', type: 'boolean', description: 'Second confirmation gate; required with --execute to actually spend', default: 'false' },
+    { name: 'preflight', type: 'boolean', description: 'Opt in to read-only reachability/GPU probes against the host (bare dry-run is fully offline and contacts nothing)', default: 'false' },
     { name: 'format', short: 'f', type: 'string', description: 'Output format: table, json', default: 'table' },
   ],
   examples: [
-    { command: 'claude-flow neural distill train --remote gpu-box', description: 'DRY-RUN: print the ssh/rsync/ruvllm commands + preflight (no training)' },
+    { command: 'claude-flow neural distill train --remote gpu-box', description: 'OFFLINE DRY-RUN: print the ssh/rsync/ruvllm commands only (no host contact)' },
+    { command: 'claude-flow neural distill train --remote gpu-box --preflight', description: 'DRY-RUN + read-only reachability/GPU probes against the host' },
     { command: 'RUFLO_DISTILL_REMOTE=gpu-box claude-flow neural distill train --execute --yes', description: 'Run the real remote tune (spends GPU time on your host)' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -4607,6 +4609,7 @@ const distillTrainCommand: Command = {
       remoteWorkdir: (ctx.flags['remote-workdir'] ?? ctx.flags.remoteWorkdir) ? String((ctx.flags['remote-workdir'] ?? ctx.flags.remoteWorkdir)) : undefined,
       execute: ctx.flags.execute === true,
       yes: ctx.flags.yes === true,
+      preflight: ctx.flags.preflight === true,
     });
 
     if ('degraded' in res && res.degraded) {

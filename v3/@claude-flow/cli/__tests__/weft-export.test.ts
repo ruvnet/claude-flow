@@ -323,7 +323,7 @@ describe('runRemoteTrain (spend-gated; spawn stubbed — never touches a live ho
   const okSpawn = (): SpawnLike => ({ status: 0, stdout: 'ok', stderr: '' });
   const args = { host: 'gpu-box', sftPath: '/l/sft.jsonl', dpoPath: '/l/dpo.jsonl', runId: 'r1' };
 
-  it('DRY-RUN by default: preflight runs, NO training steps executed', async () => {
+  it('BARE dry-run is fully OFFLINE — contacts nothing (no implicit remote exec)', async () => {
     const spawned: string[] = [];
     const spawn = (cmd: string, argv: string[]): SpawnLike => { spawned.push([cmd, ...argv].join(' ')); return okSpawn(); };
     const res = await runRemoteTrain({ ...args, spawn });
@@ -332,7 +332,20 @@ describe('runRemoteTrain (spend-gated; spawn stubbed — never touches a live ho
     expect(res.mode).toBe('dry-run');
     expect(res.steps).toBeUndefined();
     expect(res.plan.humanCommands.some((c) => c.includes('ruvllm microlora sft'))).toBe(true);
-    // only the 3 read-only preflight probes ran; no rsync / ruvllm training
+    // NOTHING spawned — not even a reachability ssh (adversarial RC hardening).
+    expect(spawned).toEqual([]);
+    expect(res.reason).toMatch(/offline/i);
+  });
+
+  it('--preflight opts into the read-only probes (still no training)', async () => {
+    const spawned: string[] = [];
+    const spawn = (cmd: string, argv: string[]): SpawnLike => { spawned.push([cmd, ...argv].join(' ')); return okSpawn(); };
+    const res = await runRemoteTrain({ ...args, preflight: true, spawn });
+    expect(res.degraded).toBe(false);
+    if (res.degraded) return;
+    expect(res.mode).toBe('dry-run');
+    // the 3 read-only preflight probes ran; no rsync / ruvllm training
+    expect(spawned.length).toBeGreaterThan(0);
     expect(spawned.every((c) => c.startsWith('ssh'))).toBe(true);
     expect(spawned.some((c) => c.includes('rsync') || c.includes('microlora'))).toBe(false);
   });
