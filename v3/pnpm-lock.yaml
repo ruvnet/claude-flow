@@ -163,6 +163,9 @@ importers:
       '@metaharness/router':
         specifier: ~0.3.2
         version: 0.3.2(@ruvector/tiny-dancer@0.1.22)
+      '@metaharness/weight-eft':
+        specifier: ^0.1.1
+        version: 0.1.1
       '@ruvector/attention':
         specifier: ^0.1.32
         version: 0.1.32
@@ -200,7 +203,7 @@ importers:
         specifier: ^3.0.0-alpha.1
         version: 3.0.0-alpha.2
       agenticow:
-        specifier: ~0.2.4
+        specifier: ^0.2.4
         version: 0.2.4
       metaharness:
         specifier: ~0.2.8
