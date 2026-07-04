@@ -1,0 +1,12 @@
+{
+  "manifest": {
+    "version": "3.21.1",
+    "files": {
+      "auto-memory-hook.mjs": "68be7e9a9eba7bf9c4e8a230db7bf61a243b965639f8504842799d6c6ca28762",
+      "hook-handler.cjs": "bc4d2d26823d49b3ab1dded2946b66369f1f67bd76b4c30dca9f3b6df3cca8f0",
+      "intelligence.cjs": "760cb82ed2000031abc1ac1fa90a014e7d91d93966e3aa4741b07ab7aff8d066"
+    }
+  },
+  "signature": "kv+8Fp6as/ead/lLRxUZ1sizU1zQZRm1yAcfymzxJjpzwNLBPWgBo3zrHDrBT2zf40EhxpD9da/i1jmGLHGRDw==",
+  "algorithm": "ed25519"
+}

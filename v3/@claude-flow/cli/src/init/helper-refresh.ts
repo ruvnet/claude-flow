@@ -17,6 +17,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
+import {
+  verifyHelpersManifest, sha256Hex, HELPERS_MANIFEST_FILE, type HelpersManifest,
+} from './helper-signing.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -54,39 +57,76 @@ function findPackageHelpersDir(): string | null {
   return null;
 }
 
-/** Re-copy the critical helpers into `helpersDir` and stamp `version`. */
-async function writeCriticalHelpers(helpersDir: string, version: string): Promise<boolean> {
+/**
+ * Re-copy the critical helpers into `helpersDir` and stamp `version`.
+ *
+ * SECURITY (fail-closed): when copying from the installed package, every source
+ * helper is verified against ruflo's Ed25519-signed manifest FIRST — nothing is
+ * copied unless the manifest signature is valid AND each helper's SHA-256
+ * matches. A tampered helper or manifest (e.g. a sibling package's postinstall
+ * overwriting on-disk hook code) is REFUSED, not propagated. The generator
+ * fallback needs no manifest — that content comes from the CLI's own compiled
+ * code, which is already the trust root.
+ */
+async function writeCriticalHelpers(
+  helpersDir: string,
+  version: string,
+): Promise<{ wrote: boolean; blocked?: string }> {
   const source = findPackageHelpersDir();
-  let wrote = false;
   if (source) {
+    // 1. Verify the signed manifest against the baked public key.
+    let trusted: HelpersManifest | null = null;
+    try {
+      trusted = verifyHelpersManifest(fs.readFileSync(path.join(source, HELPERS_MANIFEST_FILE), 'utf-8'));
+    } catch { trusted = null; }
+    if (!trusted) return { wrote: false, blocked: 'signed helpers manifest missing or signature invalid' };
+
+    // 2. Verify EVERY source helper's hash before copying ANYTHING (atomic gate).
+    const toCopy: string[] = [];
     for (const name of CRITICAL_HELPERS) {
       const sp = path.join(source, name);
-      const tp = path.join(helpersDir, name);
-      if (fs.existsSync(sp)) {
-        fs.copyFileSync(sp, tp);
-        try { fs.chmodSync(tp, '755'); } catch { /* non-fatal */ }
-        wrote = true;
+      if (!fs.existsSync(sp)) continue;
+      const expected = trusted.files[name];
+      if (!expected || sha256Hex(fs.readFileSync(sp)) !== expected) {
+        return { wrote: false, blocked: `integrity check failed for ${name} — refusing to install` };
       }
+      toCopy.push(name);
     }
-  } else {
-    // Source unresolvable (broken npx paths) — regenerate. Heavy import, lazy.
-    const gen = await import('./helpers-generator.js');
-    const files: Record<string, string> = {
-      'hook-handler.cjs': gen.generateHookHandler(),
-      'intelligence.cjs': gen.generateIntelligenceStub(),
-      'auto-memory-hook.mjs': gen.generateAutoMemoryHook(),
-    };
-    for (const [name, content] of Object.entries(files)) {
+
+    // 3. All verified — copy, plus the signed manifest itself as an audit trail.
+    let wrote = false;
+    for (const name of toCopy) {
       const tp = path.join(helpersDir, name);
-      fs.writeFileSync(tp, content, 'utf-8');
+      fs.copyFileSync(path.join(source, name), tp);
       try { fs.chmodSync(tp, '755'); } catch { /* non-fatal */ }
       wrote = true;
     }
+    try { fs.copyFileSync(path.join(source, HELPERS_MANIFEST_FILE), path.join(helpersDir, HELPERS_MANIFEST_FILE)); } catch { /* non-fatal */ }
+    if (wrote) {
+      try { fs.writeFileSync(path.join(helpersDir, HELPERS_STAMP_FILE), version, 'utf-8'); } catch { /* non-fatal */ }
+    }
+    return { wrote };
+  }
+
+  // Fallback: source unresolvable (broken npx paths) — regenerate from the CLI's
+  // OWN compiled generators (the trust root; no external file to verify).
+  const gen = await import('./helpers-generator.js');
+  const files: Record<string, string> = {
+    'hook-handler.cjs': gen.generateHookHandler(),
+    'intelligence.cjs': gen.generateIntelligenceStub(),
+    'auto-memory-hook.mjs': gen.generateAutoMemoryHook(),
+  };
+  let wrote = false;
+  for (const [name, content] of Object.entries(files)) {
+    const tp = path.join(helpersDir, name);
+    fs.writeFileSync(tp, content, 'utf-8');
+    try { fs.chmodSync(tp, '755'); } catch { /* non-fatal */ }
+    wrote = true;
   }
   if (wrote) {
     try { fs.writeFileSync(path.join(helpersDir, HELPERS_STAMP_FILE), version, 'utf-8'); } catch { /* non-fatal */ }
   }
-  return wrote;
+  return { wrote };
 }
 
 /**
@@ -96,7 +136,9 @@ async function writeCriticalHelpers(helpersDir: string, version: string): Promis
  * bump. Best-effort, never throws. No-op outside a ruflo project (requires an
  * existing hook-handler.cjs — never creates files in an unrelated directory).
  */
-export async function autoRefreshHelpersIfStale(cwd: string): Promise<{ refreshed: boolean; from?: string; to?: string }> {
+export async function autoRefreshHelpersIfStale(
+  cwd: string,
+): Promise<{ refreshed: boolean; from?: string; to?: string; blocked?: string }> {
   try {
     const helpersDir = path.join(cwd, '.claude', 'helpers');
     if (!fs.existsSync(path.join(helpersDir, 'hook-handler.cjs'))) return { refreshed: false };
@@ -104,8 +146,11 @@ export async function autoRefreshHelpersIfStale(cwd: string): Promise<{ refreshe
     let stamped = '';
     try { stamped = fs.readFileSync(path.join(helpersDir, HELPERS_STAMP_FILE), 'utf-8').trim(); } catch { /* pre-feature: unstamped */ }
     if (stamped === version) return { refreshed: false }; // up to date — fast path
-    const ok = await writeCriticalHelpers(helpersDir, version);
-    return ok ? { refreshed: true, from: stamped || '(unstamped)', to: version } : { refreshed: false };
+    const res = await writeCriticalHelpers(helpersDir, version);
+    // A blocked refresh is a SECURITY signal (tampered source/manifest) — surface
+    // it, don't advance the stamp, and leave the project's existing helpers intact.
+    if (res.blocked) return { refreshed: false, blocked: res.blocked };
+    return res.wrote ? { refreshed: true, from: stamped || '(unstamped)', to: version } : { refreshed: false };
   } catch {
     return { refreshed: false };
   }

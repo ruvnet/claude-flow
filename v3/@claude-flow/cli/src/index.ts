@@ -143,7 +143,11 @@ export class CLI {
         try {
           const { autoRefreshHelpersIfStale } = await import('./init/helper-refresh.js');
           const r = await autoRefreshHelpersIfStale(process.cwd());
-          if (r.refreshed && this.output.isVerbose()) {
+          if (r.blocked) {
+            // Integrity failure = potential on-disk tampering of hook code. Warn
+            // loudly (not silent) — the existing project helpers were left intact.
+            this.output.printWarning(`Skipped helper auto-refresh — ${r.blocked}. Reinstall @claude-flow/cli from a trusted source.`);
+          } else if (r.refreshed && this.output.isVerbose()) {
             this.output.printDebug(`Refreshed .claude/helpers (${r.from} → ${r.to})`);
           }
         } catch { /* silent */ }

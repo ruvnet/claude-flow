@@ -154,6 +154,30 @@ Governed memory consolidation with provenance, rollback, and no surprise model s
 
 Run distill **twice** on a copy of a production DB and require: `memory_entries` unchanged (count + content hash); the second run processes **0** rows; `proxy_promoted == 0`; `patterns_without_embeddings == 0`; and held-out MRR@10 no worse than baseline by more than 0.002. (Covered by `__tests__/memory-distillation.test.ts` + `distill-tuning.test.ts`.)
 
+## Security — signed provenance for the helper auto-refresh
+
+Hook fixes (like the failure-capture change) propagate via a version-stamped
+auto-refresh: on CLI startup, an initialized project's `.claude/helpers/*.cjs`
+are silently re-copied from the installed package if their stamp is stale. Since
+those helpers **auto-execute on every tool use**, the refresh is gated by
+**Ed25519 signed provenance** (fail-closed):
+
+- `scripts/sign-helpers.mjs` (publish-time) hashes the critical helpers, builds a
+  manifest `{version, files:{name→sha256}}`, signs it with ruflo's private key
+  (`$RUFLO_HELPERS_SIGNING_KEY`, **never committed**), and writes
+  `.claude/helpers/helpers.manifest.json`.
+- The public key is baked into `src/init/helper-signing.ts` (`RUFLO_HELPERS_PUBKEY`).
+- Before the refresh installs any helper, it verifies the manifest signature
+  against the baked key AND each source helper's SHA-256 against the manifest. A
+  tampered helper or manifest — e.g. a sibling package's `postinstall` overwriting
+  on-disk hook code — is **refused, not propagated**, and the CLI warns.
+- Threat model: this closes post-install / on-disk tampering of the helper files.
+  It does not defend against a wholesale-compromised CLI (which could replace the
+  baked key too) — but at that point the attacker already owns the binary you run.
+- **Publish requirement:** re-run `sign-helpers.mjs` whenever a critical helper
+  changes. The `helper-signing.test.ts` "hashes match shipped files" test fails in
+  CI if a helper is changed without re-signing, so a stale manifest cannot ship.
+
 ## Rollback
 
 Disable via `-w` omission or `--no-distill`. All writes are additive to the previously-empty target tables and never touch `memory_entries`, so full revert = stop the worker and optionally `DELETE FROM reasoning_patterns/pattern_embeddings/episodes/causal_edges` — zero data loss on the source.
