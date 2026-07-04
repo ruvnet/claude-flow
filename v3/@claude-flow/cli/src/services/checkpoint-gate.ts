@@ -27,20 +27,22 @@
  * The package is lazy-loaded on the first guard() call, so importing this
  * module has zero startup cost.
  *
- * NOTE ON DUPLICATION: the private loader + path/label/lineage helpers below
- * mirror `mcp-tools/agenticow-tools.ts`. They are intentionally re-implemented
- * here rather than shared, because extracting them into a common module would
- * require editing agenticow-tools.ts, which is owned by another workstream.
- * The helpers are tiny and the two copies are behaviourally identical.
+ * The optional-dep loader + path/label/lineage helpers are the canonical ones
+ * from `mcp-tools/agenticow-loader.ts` — one implementation shared across every
+ * agenticow consumer (verbs, swarm branches, speculative, oracle, this gate).
  *
  * @module @claude-flow/cli/services/checkpoint-gate
  */
 
-import { existsSync } from 'node:fs';
-import { resolve, isAbsolute } from 'node:path';
-import { getProjectCwd } from '../mcp-tools/types.js';
-
-const PACKAGE_NAME = 'agenticow';
+import {
+  type AgenticowApi,
+  loadAgenticow,
+  __resetAgenticowCache,
+  resolveMemoryPath,
+  manifestFor,
+  validateLabel,
+  openWithLineage,
+} from '../mcp-tools/agenticow-loader.js';
 
 /**
  * Env var pointing at the `.rvf` memory file that a long-horizon loop mutates.
@@ -55,17 +57,6 @@ export const CHECKPOINT_MEM_ENV = 'CLAUDE_FLOW_AUTOPILOT_CHECKPOINT_MEM';
  * feature without changing config or code.
  */
 export const KILL_SWITCH_ENV = 'CLAUDE_FLOW_AGENTICOW_DISABLE';
-
-// Cache: module load is expensive enough to amortize across calls.
-// null = not yet attempted; false = attempted and unavailable; module = loaded.
-let _agenticowMod: AgenticowApi | false | null = null;
-let _loadAttempted = false;
-
-interface AgenticowApi {
-  open: (file: string, opts?: { dimension?: number; metric?: string }) => Promise<any>;
-  openBase?: (file: string, opts?: any) => Promise<any>;
-  AgenticMemory: any;
-}
 
 /** Outcome of a guarded tick. `result` is undefined only when the tick threw
  *  AND `rethrow` was disabled. */
@@ -103,42 +94,6 @@ export interface GuardOptions<T> {
   checkpointId?: string;
 }
 
-// ── Shared validation / lineage helpers (mirror agenticow-tools.ts) ─────────
-
-function resolveMemoryPath(path: string): string {
-  if (!path || typeof path !== 'string') throw new Error('memory path is required');
-  // Reject path traversal in configured paths (mirrors agenticow-tools D-2).
-  if (/\.\.[\\/]|\0/.test(path)) throw new Error('memory path contains disallowed characters');
-  return isAbsolute(path) ? path : resolve(getProjectCwd(), path);
-}
-
-function manifestFor(file: string): string {
-  return `${file}.agenticow.json`;
-}
-
-function validateLabel(label: string): string {
-  if (!label || typeof label !== 'string') throw new Error('label is required');
-  if (label.length > 256) throw new Error('label exceeds 256 chars');
-  if (!/^[A-Za-z0-9_.\-:/@]+$/.test(label)) {
-    throw new Error('label may only contain [A-Za-z0-9_.\\-:/@]');
-  }
-  return label;
-}
-
-async function openWithLineage(api: AgenticowApi, file: string, dimension?: number) {
-  const manifest = manifestFor(file);
-  if (existsSync(manifest)) {
-    return (api.AgenticMemory as any).load(manifest);
-  }
-  const opts: any = {};
-  if (typeof dimension === 'number' && Number.isInteger(dimension) && dimension > 0) {
-    opts.dimension = dimension;
-  } else if (!existsSync(file)) {
-    throw new Error('dimension is required when creating a new memory file');
-  }
-  return api.open(file, opts);
-}
-
 function defaultIsRegression(result: unknown): boolean {
   if (!result || typeof result !== 'object') return false;
   const r = result as Record<string, unknown>;
@@ -167,23 +122,9 @@ export class CheckpointGate {
    */
   private async load(): Promise<AgenticowApi | null> {
     if (CheckpointGate.isKillSwitchSet()) return null;
-    if (_loadAttempted) return _agenticowMod || null;
-    _loadAttempted = true;
-    try {
-      _agenticowMod = (await import(PACKAGE_NAME)) as unknown as AgenticowApi;
-      return _agenticowMod;
-    } catch (err: any) {
-      if (
-        err &&
-        (err.code === 'ERR_MODULE_NOT_FOUND' ||
-          err.code === 'MODULE_NOT_FOUND' ||
-          /Cannot find (module|package)/i.test(String(err.message)))
-      ) {
-        _agenticowMod = false;
-        return null;
-      }
-      throw err;
-    }
+    // Delegates to the canonical loader (#22) — one cache, one degradation
+    // policy shared across every agenticow consumer.
+    return loadAgenticow();
   }
 
   /** True when agenticow can be engaged (present + not killed). */
@@ -342,7 +283,6 @@ export function getCheckpointGate(): CheckpointGate {
 
 /** Reset the lazy-load cache — test-only. */
 export function __resetCheckpointGateForTests(): void {
-  _agenticowMod = null;
-  _loadAttempted = false;
+  __resetAgenticowCache();
   _shared = null;
 }
