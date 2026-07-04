@@ -875,13 +875,37 @@ const DATA_DIR = join(PROJECT_ROOT, '.claude-flow', 'data');
 const STORE_PATH = join(DATA_DIR, 'auto-memory-store.json');
 
 const DIM = '\\x1b[2m';
+const YELLOW = '\\x1b[0;33m';
 const RESET = '\\x1b[0m';
 const dim = (msg) => console.log(\`  \${DIM}\${msg}\${RESET}\`);
+
+// #2545: fail LOUD instead of a silent dim skip when @claude-flow/memory is
+// unresolvable — self-learning imports are a no-op and the user must be told.
+function warnMemoryUnavailable() {
+  const l1 = \`[AutoMemory] @claude-flow/memory not resolvable from \${PROJECT_ROOT} — self-learning imports are DISABLED.\`;
+  const l2 = '             Fix: npm i -D @claude-flow/memory   (or re-run: npx ruflo@latest init, then npx ruflo@latest doctor --fix)';
+  console.log(\`\${YELLOW}\${l1}\${RESET}\`);
+  console.log(\`\${YELLOW}\${l2}\${RESET}\`);
+  process.stderr.write(\`\${l1}\\n\${l2}\\n\`);
+}
 
 // Ensure data dir
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 
 async function loadMemoryPackage() {
+  // Strategy 0 (#2545): sidecar recorded by \`init\` / \`doctor --fix\`. On the npx
+  // path @claude-flow/memory lands in the npx cache (unreachable by walk-up), so
+  // init records its absolute path here — the only strategy that works there.
+  try {
+    const sidecar = join(PROJECT_ROOT, '.claude-flow', 'memory-package.json');
+    if (existsSync(sidecar)) {
+      const rec = JSON.parse(readFileSync(sidecar, 'utf-8'));
+      if (rec && rec.distPath && existsSync(rec.distPath)) {
+        return await import(\`file://\${rec.distPath}\`);
+      }
+    }
+  } catch { /* fall through */ }
+
   // Strategy 1: Use createRequire for CJS-style resolution (handles nested node_modules
   // when installed as a transitive dependency via npx ruflo / npx claude-flow)
   try {
@@ -911,7 +935,7 @@ async function doImport() {
   const memPkg = await loadMemoryPackage();
 
   if (!memPkg || !memPkg.AutoMemoryBridge) {
-    dim('Memory package not available — auto memory import skipped (non-critical)');
+    warnMemoryUnavailable();
     return;
   }
 
@@ -928,7 +952,7 @@ async function doSync() {
   const memPkg = await loadMemoryPackage();
 
   if (!memPkg || !memPkg.AutoMemoryBridge) {
-    dim('Memory package not available — sync skipped (non-critical)');
+    warnMemoryUnavailable();
     return;
   }
 

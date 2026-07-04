@@ -27,9 +27,22 @@ const CYAN = '\x1b[0;36m';
 const DIM = '\x1b[2m';
 const RESET = '\x1b[0m';
 
+const YELLOW = '\x1b[0;33m';
 const log = (msg) => console.log(`${CYAN}[AutoMemory] ${msg}${RESET}`);
 const success = (msg) => console.log(`${GREEN}[AutoMemory] ✓ ${msg}${RESET}`);
 const dim = (msg) => console.log(`  ${DIM}${msg}${RESET}`);
+
+// #2545: fail LOUD instead of a silent dim skip. When @claude-flow/memory cannot
+// be resolved, self-learning imports are a no-op — the user must see this and be
+// told exactly how to fix it (on both stdout, so it shows in the Claude Code hook
+// transcript, and stderr, per the issue's requested channel).
+function warnMemoryUnavailable() {
+  const line1 = `[AutoMemory] @claude-flow/memory not resolvable from ${PROJECT_ROOT} — self-learning imports are DISABLED.`;
+  const line2 = '             Fix: npm i -D @claude-flow/memory   (or re-run: npx ruflo@latest init, then npx ruflo@latest doctor --fix)';
+  console.log(`${YELLOW}${line1}${RESET}`);
+  console.log(`${YELLOW}${line2}${RESET}`);
+  process.stderr.write(`${line1}\n${line2}\n`);
+}
 
 const DEBUG = !!(process.env.RUFLO_DEBUG || process.env.DEBUG);
 
@@ -152,6 +165,21 @@ class JsonFileBackend {
 // ============================================================================
 
 async function loadMemoryPackage() {
+  // Strategy 0 (#2545): sidecar recorded by `init` / `doctor --fix`. On the
+  // documented `npx ruflo` path @claude-flow/memory (an optionalDependency of
+  // the CLI) lands in the npx cache, which is NOT on the walk-up path from the
+  // project — so init resolves it from the CLI's own context and records the
+  // absolute path here. This is the only strategy that works on that install.
+  try {
+    const sidecar = join(PROJECT_ROOT, '.claude-flow', 'memory-package.json');
+    if (existsSync(sidecar)) {
+      const rec = JSON.parse(readFileSync(sidecar, 'utf-8'));
+      if (rec?.distPath && existsSync(rec.distPath)) {
+        return await import(`file://${rec.distPath}`);
+      }
+    }
+  } catch { /* fall through */ }
+
   // Strategy 1: Local dev (built dist)
   const localDist = join(PROJECT_ROOT, 'v3/@claude-flow/memory/dist/index.js');
   if (existsSync(localDist)) {
@@ -235,7 +263,7 @@ async function doImport() {
 
   const memPkg = await loadMemoryPackage();
   if (!memPkg || !memPkg.AutoMemoryBridge) {
-    dim('Memory package not available — skipping auto memory import');
+    warnMemoryUnavailable();
     return;
   }
 
@@ -288,7 +316,7 @@ async function doSync() {
 
   const memPkg = await loadMemoryPackage();
   if (!memPkg || !memPkg.AutoMemoryBridge) {
-    dim('Memory package not available — skipping sync');
+    warnMemoryUnavailable();
     return;
   }
 
@@ -346,8 +374,12 @@ async function doStatus() {
   const memPkg = await loadMemoryPackage();
   const config = readConfig();
 
+  const sidecar = join(PROJECT_ROOT, '.claude-flow', 'memory-package.json');
+  const hasSidecar = existsSync(sidecar);
+
   console.log('\n=== Auto Memory Bridge Status ===\n');
-  console.log(`  Package:        ${memPkg ? '✅ Available' : '❌ Not found'}`);
+  console.log(`  Package:        ${memPkg ? '✅ Available' : '❌ Not found — self-learning DISABLED (fix: npm i -D @claude-flow/memory)'}`);
+  console.log(`  Resolver:       ${hasSidecar ? '✅ .claude-flow/memory-package.json' : '⏸ no sidecar (run: npx ruflo@latest doctor --fix)'}`);
   console.log(`  Store:          ${existsSync(STORE_PATH) ? '✅ ' + STORE_PATH : '⏸ Not initialized'}`);
   console.log(`  LearningBridge: ${config.learningBridge.enabled ? '✅ Enabled' : '⏸ Disabled'}`);
   console.log(`  MemoryGraph:    ${config.memoryGraph.enabled ? '✅ Enabled' : '⏸ Disabled'}`);

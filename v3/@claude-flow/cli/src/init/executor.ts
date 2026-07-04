@@ -29,6 +29,7 @@ import {
   generateRufloHookCjs,
 } from './helpers-generator.js';
 import { generateClaudeMd } from './claudemd-generator.js';
+import { recordMemoryPackagePath } from './memory-package-resolver.js';
 
 /**
  * Skills to copy based on configuration
@@ -223,6 +224,17 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     // Generate helpers
     if (options.components.helpers) {
       await writeHelpers(targetDir, options, result);
+
+      // #2545: The auto-memory hook needs @claude-flow/memory, which is an
+      // optionalDependency of the CLI and lands in the npx cache — unreachable
+      // by a node_modules walk-up from the user's project. Resolve it from the
+      // CLI's own context now (where it IS present) and record the absolute
+      // path in a machine-local sidecar the hook reads first. Best-effort:
+      // when the optional dep is absent the hook fails loud and doctor flags it.
+      const memRecord = recordMemoryPackagePath(targetDir, 'init');
+      if (memRecord) {
+        result.created.files.push('.claude-flow/memory-package.json');
+      }
     }
 
     // Generate statusline
@@ -525,6 +537,13 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
         fs.writeFileSync(targetPath, content, 'utf-8');
         try { fs.chmodSync(targetPath, '755'); } catch {}
       }
+    }
+
+    // #2545: (re)record the resolved @claude-flow/memory path so the auto-memory
+    // hook can find it on the npx install path. Best-effort — see executeInit.
+    const memRecord = recordMemoryPackagePath(targetDir, 'upgrade');
+    if (memRecord) {
+      result.updated.push('.claude-flow/memory-package.json');
     }
 
     // 1. ALWAYS update statusline helper (force overwrite)

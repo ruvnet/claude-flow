@@ -191,6 +191,23 @@ npm install -g ruflo@latest
 claude mcp add ruflo -- npx ruflo@latest mcp start
 ```
 
+### Start the Background Daemon (enables self-learning + workers)
+
+The 12 background workers (audit, optimize, testgaps, map, document, …) run under
+the daemon. `init` sets everything up but does **not** start it — run this once so
+learning and the workers are actually live:
+
+```bash
+# Start the background worker daemon
+npx ruflo@latest daemon start
+
+# Verify everything is wired (learning bridge, daemon, memory, MCP)
+npx ruflo@latest doctor --fix
+```
+
+> 💡 `doctor --fix` also repairs the self-learning bridge if `@claude-flow/memory`
+> could not be resolved on the `npx` install path (#2545).
+
 ---
 
 ## What You Get

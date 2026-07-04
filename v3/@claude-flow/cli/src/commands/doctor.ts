@@ -15,6 +15,11 @@ import { execSync, exec } from 'child_process';
 import { promisify } from 'util';
 import { decodeKey, isEncryptionEnabled } from '../encryption/vault.js';
 import { isEncryptedBlob } from '../encryption/vault.js';
+import {
+  resolveMemoryPackageFromProject,
+  readMemoryPackageVersion,
+  recordMemoryPackagePath,
+} from '../init/memory-package-resolver.js';
 
 // Promisified exec with proper shell and env inheritance for cross-platform support
 const execAsync = promisify(exec);
@@ -265,6 +270,41 @@ async function checkMemoryDatabase(): Promise<HealthCheck> {
   }
 
   return { name: 'Memory Database', status: 'warn', message: 'Not initialized', fix: 'claude-flow memory configure --backend hybrid' };
+}
+
+// #2545: Check that the self-learning bridge can actually load @claude-flow/memory
+// the SAME way the SessionStart auto-memory hook does. On the documented `npx ruflo`
+// path the package lands in the npx cache — unreachable from the project — so the
+// hook silently no-op'd with no signal anywhere. This surfaces it.
+async function checkLearningBridge(): Promise<HealthCheck> {
+  const cwd = process.cwd();
+  const hookPath = join(cwd, '.claude', 'helpers', 'auto-memory-hook.mjs');
+
+  // Only relevant once init has deployed the hook; otherwise stay quiet.
+  if (!existsSync(hookPath)) {
+    return {
+      name: 'Learning Bridge',
+      status: 'pass',
+      message: 'auto-memory hook not installed (run: npx ruflo@latest init)',
+    };
+  }
+
+  const distPath = resolveMemoryPackageFromProject(cwd);
+  if (distPath) {
+    const version = readMemoryPackageVersion(distPath);
+    return {
+      name: 'Learning Bridge',
+      status: 'pass',
+      message: `@claude-flow/memory resolvable${version ? ` (v${version})` : ''}`,
+    };
+  }
+
+  return {
+    name: 'Learning Bridge',
+    status: 'fail',
+    message: '@claude-flow/memory NOT resolvable — SessionStart self-learning imports are a silent no-op',
+    fix: 'npx ruflo@latest doctor --fix   (records resolver sidecar) — or: npm i -D @claude-flow/memory',
+  };
 }
 
 // Check API keys
@@ -1084,6 +1124,7 @@ export const doctorCommand: Command = {
       checkStaleSettingsNpx, // #2448 — runaway `npx @latest` in statusLine/hooks
       checkDaemonStatus,
       checkMemoryDatabase,
+      checkLearningBridge, // #2545 — can the auto-memory hook actually load @claude-flow/memory?
       checkApiKeys,
       checkMcpServers,
       checkAIDefence, // #1807
@@ -1106,6 +1147,8 @@ export const doctorCommand: Command = {
       'stale-settings': checkStaleSettingsNpx, // #2448
       'daemon': checkDaemonStatus,
       'memory': checkMemoryDatabase,
+      'learning': checkLearningBridge, // #2545
+      'learning-bridge': checkLearningBridge, // #2545
       'api': checkApiKeys,
       'git': checkGit,
       'mcp': checkMcpServers,
@@ -1159,6 +1202,26 @@ export const doctorCommand: Command = {
     } catch (error) {
       spinner.stop();
       output.writeln(output.error('Failed to run health checks'));
+    }
+
+    // #2545: --fix / --install can actually repair the Learning Bridge by
+    // recording the resolver sidecar. When doctor runs via `npx ruflo`, the CLI
+    // CAN resolve its optional @claude-flow/memory dep (it is in the same npx
+    // cache), so writing the sidecar makes the SessionStart hook find it.
+    if ((showFix || autoInstall)) {
+      const lbResult = results.find(r => r.name === 'Learning Bridge');
+      if (lbResult && lbResult.status === 'fail') {
+        const record = recordMemoryPackagePath(process.cwd(), 'doctor');
+        if (record) {
+          const newCheck = await checkLearningBridge();
+          const idx = results.findIndex(r => r.name === 'Learning Bridge');
+          if (idx !== -1) results[idx] = newCheck;
+          const fixIdx = fixes.findIndex(f => f.startsWith('Learning Bridge:'));
+          if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
+          output.writeln(output.success(`Repaired Learning Bridge — wrote .claude-flow/memory-package.json → ${record.distPath}`));
+          output.writeln(formatCheck(newCheck));
+        }
+      }
     }
 
     // Auto-install missing dependencies if requested
