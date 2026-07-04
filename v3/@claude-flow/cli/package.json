@@ -75,8 +75,10 @@
   },
   "files": [
     "dist",
+    "!dist/**/*.map",
+    "!dist/**/*.tsbuildinfo",
     "bin",
-    "scripts",
+    "scripts/postinstall.cjs",
     ".claude",
     "plugins",
     "README.md"

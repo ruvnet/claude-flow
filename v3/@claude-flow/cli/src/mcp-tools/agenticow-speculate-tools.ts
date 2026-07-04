@@ -151,10 +151,17 @@ export const agenticowSpeculateTools: MCPTool[] = [
 
       // Build the generic {label, fn} candidates. Each fn ingests into its own
       // branch handle, then (for 'nearest') probes it so we can score.
+      // Map validated label → explicit branchPath so the branchPath() resolver
+      // below is O(1) instead of re-scanning + re-validating rawCandidates per
+      // candidate (explore() calls branchPath once per candidate → was O(n²)).
+      const explicitBranchPaths = new Map<string, string>();
       const candidates: SpeculativeCandidate<CandidateOutcome>[] = rawCandidates.map((c) => {
         const label = validateLabel(String(c.label));
         if (!Array.isArray(c.ingest) || c.ingest.length === 0) {
           throw new Error(`candidate ${label} must ingest at least one vector`);
+        }
+        if (typeof c.branchPath === 'string' && c.branchPath) {
+          explicitBranchPaths.set(label, c.branchPath);
         }
         const records = c.ingest.map((r) => ({
           ...(Number.isInteger(r.id) ? { id: r.id as number } : {}),
@@ -187,8 +194,8 @@ export const agenticowSpeculateTools: MCPTool[] = [
       };
 
       const branchPath = (label: string): string => {
-        const explicit = rawCandidates.find((c) => validateLabel(String(c.label)) === label)?.branchPath;
-        if (explicit) return resolveMemoryPath(String(explicit));
+        const explicit = explicitBranchPaths.get(label);
+        if (explicit) return resolveMemoryPath(explicit);
         return `${basePath}.spec-${safeSegment(label)}.rvf`;
       };
 

@@ -345,15 +345,14 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
  */
 function bm25Score(
   queryTerms: string[],
-  docContent: string,
+  docWords: string[],
+  docLength: number,
   avgDocLength: number,
   docCount: number,
   termDocFreqs: Map<string, number>,
 ): number {
   const k1 = 1.2;
   const b = 0.75;
-  const docWords = docContent.toLowerCase().split(/\s+/);
-  const docLength = docWords.length;
 
   let score = 0;
   for (const term of queryTerms) {
@@ -370,28 +369,40 @@ function bm25Score(
 }
 
 /**
- * Compute BM25 term document frequencies for a set of rows.
+ * Tokenize a corpus once per query. Each row is lowercased + split a single
+ * time; the resulting `{ contentLower, words }` feed BM25 term-frequency,
+ * per-doc BM25 scoring, and the #2558 coverage floor — which previously each
+ * re-lowercased+re-split the same content (3× string scans per row).
+ * Bit-identical to the prior split-per-consumer path.
+ */
+interface TokenizedDoc { contentLower: string; words: string[] }
+function tokenizeCorpus(rows: Array<{ content: string }>): TokenizedDoc[] {
+  return rows.map(row => {
+    const contentLower = (row.content || '').toLowerCase();
+    return { contentLower, words: contentLower.split(/\s+/) };
+  });
+}
+
+/**
+ * Compute BM25 term document frequencies over an already-tokenized corpus.
  */
 function computeTermDocFreqs(
   queryTerms: string[],
-  rows: Array<{ content: string }>,
+  docs: TokenizedDoc[],
 ): { termDocFreqs: Map<string, number>; avgDocLength: number } {
   const termDocFreqs = new Map<string, number>();
   let totalLength = 0;
 
-  for (const row of rows) {
-    const content = (row.content || '').toLowerCase();
-    const words = content.split(/\s+/);
-    totalLength += words.length;
-
+  for (const doc of docs) {
+    totalLength += doc.words.length;
     for (const term of queryTerms) {
-      if (content.includes(term)) {
+      if (doc.contentLower.includes(term)) {
         termDocFreqs.set(term, (termDocFreqs.get(term) || 0) + 1);
       }
     }
   }
 
-  return { termDocFreqs, avgDocLength: rows.length > 0 ? totalLength / rows.length : 1 };
+  return { termDocFreqs, avgDocLength: docs.length > 0 ? totalLength / docs.length : 1 };
 }
 
 // ===== Phase 2: TieredCache helpers =====
@@ -488,6 +499,11 @@ async function logAttestation(
   }
 }
 
+// Tracks db handles whose schema DDL has already been ensured, so getDb()
+// runs the CREATE…IF NOT EXISTS block at most once per handle instead of on
+// every bridge call. WeakSet so handles GC without leaking.
+const _schemaEnsuredDbs = new WeakSet<object>();
+
 /**
  * Get the AgentDB database handle and ensure memory_entries table exists.
  * Returns null if not available.
@@ -498,34 +514,41 @@ function getDb(registry: any): any | null {
 
   const db = agentdb.database;
 
-  // Ensure memory_entries table exists (idempotent)
-  try {
-    db.exec(`CREATE TABLE IF NOT EXISTS memory_entries (
-      id TEXT PRIMARY KEY,
-      key TEXT NOT NULL,
-      namespace TEXT DEFAULT 'default',
-      content TEXT NOT NULL,
-      type TEXT DEFAULT 'semantic',
-      embedding TEXT,
-      embedding_model TEXT DEFAULT 'local',
-      embedding_dimensions INTEGER,
-      tags TEXT,
-      metadata TEXT,
-      owner_id TEXT,
-      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-      updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-      expires_at INTEGER,
-      last_accessed_at INTEGER,
-      access_count INTEGER DEFAULT 0,
-      status TEXT DEFAULT 'active',
-      UNIQUE(namespace, key)
-    )`);
-    // Ensure indexes
-    db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_ns ON memory_entries(namespace)`);
-    db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_key ON memory_entries(key)`);
-    db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_status ON memory_entries(status)`);
-  } catch {
-    // Table already exists or db is read-only — that's fine
+  // Ensure memory_entries table exists (idempotent). The DDL is run at most
+  // once per db handle — re-parsing 4× CREATE…IF NOT EXISTS on every bridge
+  // call (store/search/get) was pure per-op overhead. Keyed by handle via a
+  // WeakSet so a new db instance re-ensures without a stale global flag.
+  if (!_schemaEnsuredDbs.has(db)) {
+    try {
+      db.exec(`CREATE TABLE IF NOT EXISTS memory_entries (
+        id TEXT PRIMARY KEY,
+        key TEXT NOT NULL,
+        namespace TEXT DEFAULT 'default',
+        content TEXT NOT NULL,
+        type TEXT DEFAULT 'semantic',
+        embedding TEXT,
+        embedding_model TEXT DEFAULT 'local',
+        embedding_dimensions INTEGER,
+        tags TEXT,
+        metadata TEXT,
+        owner_id TEXT,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+        expires_at INTEGER,
+        last_accessed_at INTEGER,
+        access_count INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'active',
+        UNIQUE(namespace, key)
+      )`);
+      // Ensure indexes
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_ns ON memory_entries(namespace)`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_key ON memory_entries(key)`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_status ON memory_entries(status)`);
+      _schemaEnsuredDbs.add(db);
+    } catch {
+      // Table already exists or db is read-only — that's fine. Don't mark
+      // ensured on failure so a later writable call can retry.
+    }
   }
 
   // ─── #2256-followup: rescue agentdb.embedder when its transformers.js
@@ -672,6 +695,7 @@ export async function bridgeStoreEntry(options: {
 
     // Generate embedding via AgentDB's embedder
     let embeddingJson: string | null = null;
+    let embeddingArr: number[] | null = null;
     let dimensions = 0;
     let model = 'local';
 
@@ -681,7 +705,8 @@ export async function bridgeStoreEntry(options: {
         if (embedder) {
           const emb = await embedder.embed(value);
           if (emb) {
-            embeddingJson = JSON.stringify(Array.from(emb));
+            embeddingArr = Array.from(emb) as number[];
+            embeddingJson = JSON.stringify(embeddingArr);
             dimensions = emb.length;
             model = 'Xenova/all-MiniLM-L6-v2';
           }
@@ -765,7 +790,7 @@ export async function bridgeStoreEntry(options: {
       success: true,
       id,
       embedding: embeddingJson ? { dimensions, model } : undefined,
-      rawEmbedding: embeddingJson ? JSON.parse(embeddingJson) as number[] : undefined,
+      rawEmbedding: embeddingArr ?? undefined,
       guarded: true,
       cached: true,
       attested: true,
@@ -841,14 +866,19 @@ export async function bridgeSearchEntries(options: {
       return null;
     }
 
-    // Phase 2: Compute BM25 term stats for the corpus
+    // Phase 2: Compute BM25 term stats for the corpus. Tokenize the corpus a
+    // single time and reuse the per-doc `{contentLower, words}` for term-freq,
+    // BM25 scoring, and the coverage floor below.
     const queryTerms = queryStr.toLowerCase().split(/\s+/).filter(t => t.length > 1);
-    const { termDocFreqs, avgDocLength } = computeTermDocFreqs(queryTerms, rows);
+    const docs = tokenizeCorpus(rows);
+    const { termDocFreqs, avgDocLength } = computeTermDocFreqs(queryTerms, docs);
     const docCount = rows.length;
 
     const results: { id: string; key: string; content: string; score: number; namespace: string; provenance?: string }[] = [];
 
-    for (const row of rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const doc = docs[i];
       let semanticScore = 0;
       let bm25ScoreVal = 0;
 
@@ -864,7 +894,7 @@ export async function bridgeSearchEntries(options: {
 
       // Phase 2: BM25 keyword scoring (replaces String.includes fallback)
       if (queryTerms.length > 0 && row.content) {
-        bm25ScoreVal = bm25Score(queryTerms, row.content, avgDocLength, docCount, termDocFreqs);
+        bm25ScoreVal = bm25Score(queryTerms, doc.words, doc.words.length, avgDocLength, docCount, termDocFreqs);
         // Normalize BM25 to 0-1 range (cap at 10 for normalization)
         bm25ScoreVal = Math.min(bm25ScoreVal / 10, 1.0);
       }
@@ -879,7 +909,7 @@ export async function bridgeSearchEntries(options: {
       // this restores that guarantee. `coverage` is the fraction of query
       // terms present in the document — a full-coverage hit must always be
       // recallable regardless of IDF.
-      const contentLower = String(row.content || '').toLowerCase();
+      const contentLower = doc.contentLower;
       const matchedTerms = queryTerms.filter(t => contentLower.includes(t)).length;
       const coverage = queryTerms.length > 0 ? matchedTerms / queryTerms.length : 0;
       const lexicalScore = Math.max(bm25ScoreVal, coverage);
