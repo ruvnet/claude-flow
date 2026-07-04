@@ -115,3 +115,128 @@ describe('#2549 follow-up — native training routing', () => {
     expect(await runNativeTraining({ embeddings: [new Float32Array(8)], epochs: 1, batchSize: 2, learningRate: 0.01, dim: 8 })).toBeNull();
   });
 });
+
+describe('training flywheel — validation split (--val-split)', () => {
+  it('validationSplit>0 surfaces a non-null bestValLoss when there are enough batches', async () => {
+    const { runNativeTraining, nativeTrainingAvailable } = await import('../src/services/native-training.js');
+    const embeddings = Array.from({ length: 16 }, (_, s) =>
+      Float32Array.from({ length: 8 }, (_, i) => Math.sin(s + i)));
+    if (!nativeTrainingAvailable()) {
+      // No native pipeline ⇒ no validation possible; runNativeTraining stays null.
+      expect(await runNativeTraining({ embeddings, epochs: 3, batchSize: 2, learningRate: 0.05, dim: 8, validationSplit: 0.25 })).toBeNull();
+      return;
+    }
+    const r = await runNativeTraining({
+      embeddings, epochs: 3, batchSize: 2, learningRate: 0.05, dim: 8, validationSplit: 0.25,
+    });
+    expect(r).not.toBeNull();
+    expect(r!.bestValLoss).not.toBeNull();
+    expect(typeof r!.bestValLoss).toBe('number');
+    expect(typeof r!.earlyStopped).toBe('boolean');
+  });
+
+  it('validationSplit=0 (disabled) leaves bestValLoss null', async () => {
+    const { runNativeTraining, nativeTrainingAvailable } = await import('../src/services/native-training.js');
+    if (!nativeTrainingAvailable()) return;
+    const embeddings = Array.from({ length: 12 }, (_, s) =>
+      Float32Array.from({ length: 8 }, (_, i) => Math.cos(s + i)));
+    const r = await runNativeTraining({ embeddings, epochs: 2, batchSize: 2, learningRate: 0.05, dim: 8, validationSplit: 0 });
+    expect(r).not.toBeNull();
+    expect(r!.bestValLoss).toBeNull();
+  });
+});
+
+describe('training flywheel — resume (--resume)', () => {
+  it('a missing --resume checkpoint fails loudly (throws), never silently fresh-trains', async () => {
+    const { runNativeTraining, nativeTrainingAvailable, ResumeFailedError } = await import('../src/services/native-training.js');
+    const embeddings = Array.from({ length: 6 }, (_, s) =>
+      Float32Array.from({ length: 8 }, (_, i) => Math.sin(s + i)));
+    const missing = '/definitely/does/not/exist/lora-checkpoint-0.json';
+    if (!nativeTrainingAvailable()) {
+      // Without the native module the whole path degrades to null (the
+      // resume check lives past module construction) — nothing to assert loudly.
+      expect(await runNativeTraining({ embeddings, epochs: 1, batchSize: 2, learningRate: 0.01, dim: 8, resumeFrom: missing })).toBeNull();
+      return;
+    }
+    await expect(
+      runNativeTraining({ embeddings, epochs: 1, batchSize: 2, learningRate: 0.01, dim: 8, resumeFrom: missing }),
+    ).rejects.toBeInstanceOf(ResumeFailedError);
+  });
+
+  it('resuming from a real checkpoint succeeds and records the resume mode', async () => {
+    const { runNativeTraining, nativeTrainingAvailable } = await import('../src/services/native-training.js');
+    if (!nativeTrainingAvailable()) return;
+    const { mkdtempSync, existsSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { tmpdir } = await import('node:os');
+    const dir = mkdtempSync(join(tmpdir(), 'resume-train-'));
+    try {
+      const embeddings = Array.from({ length: 8 }, (_, s) =>
+        Float32Array.from({ length: 8 }, (_, i) => Math.sin(s + i)));
+      const cp = join(dir, 'ckpt.json');
+      const first = await runNativeTraining({ embeddings, epochs: 2, batchSize: 2, learningRate: 0.02, dim: 8, checkpointPath: cp });
+      expect(first).not.toBeNull();
+      expect(existsSync(cp)).toBe(true);
+      const second = await runNativeTraining({ embeddings, epochs: 2, batchSize: 2, learningRate: 0.02, dim: 8, resumeFrom: cp });
+      expect(second).not.toBeNull();
+      expect(second!.resumed).toBe(true);
+      // 2.5.7 has no resumeFrom() ⇒ weights-only loadCheckpoint fallback.
+      expect(['resumeFrom', 'loadCheckpoint']).toContain(second!.resumeMode);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('training flywheel — checkpoint auto-load (loadLatestCheckpoint)', () => {
+  it('latestCheckpointInfo picks the newest lora-checkpoint-*.json by timestamp', async () => {
+    const { latestCheckpointInfo } = await import('../src/ruvector/lora-adapter.js');
+    const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { tmpdir } = await import('node:os');
+    const root = mkdtempSync(join(tmpdir(), 'cp-newest-'));
+    const cwd = process.cwd();
+    try {
+      const neuralDir = join(root, '.claude-flow', 'neural');
+      mkdirSync(neuralDir, { recursive: true });
+      const older = 1000000000000;
+      const newer = 2000000000000;
+      writeFileSync(join(neuralDir, `lora-checkpoint-${older}.json`), JSON.stringify({ A: [0], B: [0], scaling: 1 }));
+      writeFileSync(join(neuralDir, `lora-checkpoint-${newer}.json`), JSON.stringify({ A: [0], B: [0], scaling: 1 }));
+      writeFileSync(join(neuralDir, 'not-a-checkpoint.json'), '{}');
+      process.chdir(root);
+      const info = latestCheckpointInfo();
+      expect(info).not.toBeNull();
+      expect(info!.filename).toBe(`lora-checkpoint-${newer}.json`);
+      expect(typeof info!.ageLabel).toBe('string');
+    } finally {
+      process.chdir(cwd);
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('respects the CLAUDE_FLOW_NO_CHECKPOINT_AUTOLOAD kill-switch', async () => {
+    const { loadLatestCheckpoint, LoRAAdapter } = await import('../src/ruvector/lora-adapter.js');
+    const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { tmpdir } = await import('node:os');
+    const root = mkdtempSync(join(tmpdir(), 'cp-killswitch-'));
+    const cwd = process.cwd();
+    const prev = process.env.CLAUDE_FLOW_NO_CHECKPOINT_AUTOLOAD;
+    try {
+      const neuralDir = join(root, '.claude-flow', 'neural');
+      mkdirSync(neuralDir, { recursive: true });
+      writeFileSync(join(neuralDir, 'lora-checkpoint-3000000000000.json'), JSON.stringify({ A: [0], B: [0], scaling: 1 }));
+      process.chdir(root);
+      process.env.CLAUDE_FLOW_NO_CHECKPOINT_AUTOLOAD = '1';
+      const res = await loadLatestCheckpoint(new LoRAAdapter());
+      expect(res.loaded).toBe(false);
+      expect(res.path).toBeUndefined();
+    } finally {
+      if (prev === undefined) delete process.env.CLAUDE_FLOW_NO_CHECKPOINT_AUTOLOAD;
+      else process.env.CLAUDE_FLOW_NO_CHECKPOINT_AUTOLOAD = prev;
+      process.chdir(cwd);
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

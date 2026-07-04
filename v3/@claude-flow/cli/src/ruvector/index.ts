@@ -102,6 +102,9 @@ export {
   adaptEmbedding,
   trainLoRA,
   getLoRAStats,
+  loadLatestCheckpoint,
+  latestCheckpointInfo,
+  formatCheckpointAge,
   DEFAULT_RANK,
   DEFAULT_ALPHA,
   INPUT_DIM as LORA_INPUT_DIM,
@@ -110,6 +113,7 @@ export {
   type LoRAWeights,
   type AdaptationResult,
   type LoRAStats,
+  type CheckpointInfo,
 } from './lora-adapter.js';
 export {
   ModelRouter,

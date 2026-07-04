@@ -27,6 +27,8 @@ const trainCommand: Command = {
     { name: 'contrastive', type: 'boolean', description: 'Use contrastive learning (InfoNCE)', default: 'true' },
     { name: 'curriculum', type: 'boolean', description: 'Enable curriculum learning', default: 'false' },
     { name: 'backend', type: 'string', description: 'Training backend: auto (native when available), native (@ruvector/ruvllm TrainingPipeline, disk checkpoints), wasm (RuVector MicroLoRA/InfoNCE)', default: 'auto' },
+    { name: 'val-split', type: 'number', description: 'Validation holdout fraction 0..1 (native backend). >0 reports Best Val Loss + early stopping; 0 disables', default: '0.1' },
+    { name: 'resume', type: 'string', description: 'Resume native training from a checkpoint path (weights on 2.5.7; epoch position on >=2.6.0). Native backend only', default: '' },
   ],
   examples: [
     { command: 'claude-flow neural train -p coordination -e 100', description: 'Train coordination patterns' },
@@ -44,6 +46,17 @@ const trainCommand: Command = {
     // 'wasm' = RuVector MicroLoRA/InfoNCE (pre-3.19 behavior),
     // 'auto' = native when the module resolves, else wasm.
     const backendFlag = String(ctx.flags.backend || 'auto');
+    // Feature: validation split + resume (native TrainingPipeline leg).
+    const valSplitRaw = parseFloat((ctx.flags['val-split'] as string) ?? '0.1');
+    const valSplit = Number.isFinite(valSplitRaw) ? Math.max(0, Math.min(1, valSplitRaw)) : 0.1;
+    const resumePath = ctx.flags.resume ? String(ctx.flags.resume) : undefined;
+    // --resume is a native-only capability; refuse the WASM combination up
+    // front so the user gets a clear error rather than a silently-ignored flag.
+    if (resumePath && backendFlag === 'wasm') {
+      output.writeln();
+      output.writeln(output.error('--resume is only supported by the native backend; drop --backend wasm.'));
+      return { success: false, exitCode: 1 };
+    }
     const useWasm = ctx.flags.wasm !== false;
     const useFlash = ctx.flags.flash !== false;
     const useMoE = ctx.flags.moe === true;
@@ -218,18 +231,33 @@ const trainCommand: Command = {
       const nativeTraining = await import('../services/native-training.js');
       const useNative = backendFlag === 'native'
         || (backendFlag === 'auto' && nativeTraining.nativeTrainingAvailable());
+      // --resume only works on the native pipeline; if native is unavailable
+      // (module absent), fail loudly rather than silently fresh-train.
+      if (resumePath && !useNative) {
+        spinner.fail('--resume requires the native @ruvector/ruvllm backend, which is not available');
+        return { success: false, exitCode: 1 };
+      }
       let nativeResult: import('../services/native-training.js').NativeTrainingResult | null = null;
       if (useNative) {
         spinner.setText(`Training ${patternType} on native @ruvector/ruvllm pipeline...`);
         const path = await import('path');
-        nativeResult = await nativeTraining.runNativeTraining({
-          embeddings,
-          epochs,
-          batchSize,
-          learningRate,
-          dim,
-          checkpointPath: path.join(process.cwd(), '.claude-flow', 'neural', `lora-checkpoint-${Date.now()}.json`),
-        });
+        try {
+          nativeResult = await nativeTraining.runNativeTraining({
+            embeddings,
+            epochs,
+            batchSize,
+            learningRate,
+            dim,
+            validationSplit: valSplit,
+            resumeFrom: resumePath,
+            checkpointPath: path.join(process.cwd(), '.claude-flow', 'neural', `lora-checkpoint-${Date.now()}.json`),
+          });
+        } catch (err) {
+          // ResumeFailedError — an explicit --resume that could not load is a
+          // loud, exit-1 failure, never a silent fall-through to fresh training.
+          spinner.fail(`Resume failed: ${(err as Error).message}`);
+          return { success: false, exitCode: 1 };
+        }
         if (!nativeResult && backendFlag === 'native') {
           spinner.fail('Native backend requested (--backend native) but @ruvector/ruvllm training failed');
           return { success: false, exitCode: 1 };
@@ -374,8 +402,23 @@ const trainCommand: Command = {
           { metric: 'Backend', value: 'native (@ruvector/ruvllm TrainingPipeline)' },
           { metric: 'Native Steps', value: String(nativeResult.steps) },
           { metric: 'Final Loss', value: nativeResult.finalLoss.toExponential(3) },
-          { metric: 'Early Stopped', value: nativeResult.earlyStopped ? 'yes' : 'no' },
         );
+        // Validation metrics only surface when a holdout actually ran
+        // (bestValLoss is non-null); Early Stopped is only meaningful then.
+        if (nativeResult.bestValLoss !== null && nativeResult.bestValLoss !== undefined) {
+          tableData.push(
+            { metric: 'Best Val Loss', value: nativeResult.bestValLoss.toExponential(3) },
+            { metric: 'Early Stopped', value: nativeResult.earlyStopped ? 'yes' : 'no' },
+          );
+        }
+        if (nativeResult.resumed) {
+          tableData.push({
+            metric: 'Resumed',
+            value: nativeResult.resumeMode === 'resumeFrom'
+              ? `${resumePath} (epoch position restored)`
+              : `${resumePath} (weights only — epoch-position resume needs @ruvector/ruvllm >=2.6.0)`,
+          });
+        }
         if (nativeResult.checkpointPath) {
           tableData.push({
             metric: 'Checkpoint',
@@ -604,10 +647,14 @@ const statusCommand: Command = {
             details: stats._trainingBackend === 'ruvllm'
               ? await (async () => {
                   try {
-                    const { nativeCheckpointsSupported } = await import('../ruvector/lora-adapter.js');
-                    return nativeCheckpointsSupported()
+                    const { nativeCheckpointsSupported, latestCheckpointInfo } = await import('../ruvector/lora-adapter.js');
+                    // Most important info first (truncation-friendly): backend
+                    // capability, then the newest checkpoint + age when one exists.
+                    const base = nativeCheckpointsSupported()
                       ? 'native @ruvector/ruvllm pipeline + disk checkpoints'
                       : 'native @ruvector/ruvllm pipeline (checkpoints need >=2.5.7)';
+                    const cp = latestCheckpointInfo();
+                    return cp ? `${base} · latest: ${cp.filename} (${cp.ageLabel})` : base;
                   } catch {
                     return 'native @ruvector/ruvllm pipeline';
                   }
