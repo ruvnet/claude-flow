@@ -53,6 +53,9 @@ import { metaharnessTools } from './mcp-tools/metaharness-tools.js';
 // agenticow@~0.2.3 — Copy-On-Write memory branching tools (162-byte branches);
 // optional runtime dep, every handler returns `{degraded: true}` when missing.
 import { agenticowTools } from './mcp-tools/agenticow-tools.js';
+// agenticow step 4 — speculative branch-and-promote (A/B memory exploration).
+// Optional runtime dep, degrades to `{degraded: true}` when agenticow is missing.
+import { agenticowSpeculateTools } from './mcp-tools/agenticow-speculate-tools.js';
 // ADR-164 — AgentBBS federated business-domain BBS rooms (Phase 1).
 // Optional runtime dep, every handler returns `{degraded: true}` when missing.
 import { agentbbsTools } from './mcp-tools/agentbbs-tools.js';
@@ -148,6 +151,8 @@ registerTools([
   ...metaharnessTools,
   // agenticow@~0.2.4 — COW memory branching (9 tools: branch/checkpoint/rollback/promote + ingest/query/diff/lineage/status, graceful-degraded when missing)
   ...agenticowTools,
+  // agenticow step 4 — speculative branch-and-promote (1 tool, graceful-degraded when missing)
+  ...agenticowSpeculateTools,
   // ADR-164 — AgentBBS federated business-domain BBS rooms (4 tools, Phase 1, graceful-degraded)
   ...agentbbsTools,
   // ADR-164 Phase 2 + Phase 3 — business_pod_validate + business_pod_route_backend
