@@ -163,9 +163,11 @@ those helpers **auto-execute on every tool use**, the refresh is gated by
 **Ed25519 signed provenance** (fail-closed):
 
 - `scripts/sign-helpers.mjs` (publish-time) hashes the critical helpers, builds a
-  manifest `{version, files:{name→sha256}}`, signs it with ruflo's private key
-  (`$RUFLO_HELPERS_SIGNING_KEY`, **never committed**), and writes
-  `.claude/helpers/helpers.manifest.json`.
+  manifest `{version, files:{name→sha256}}`, signs it with ruflo's private key,
+  and writes `.claude/helpers/helpers.manifest.json`. The private key lives in
+  **GCP Secret Manager** (`RUFLO_HELPERS_SIGNING_SECRET=ruflo-helpers-signing-key`,
+  fetched via `gcloud secrets versions access`), with a local-PEM fallback
+  (`RUFLO_HELPERS_SIGNING_KEY`) for air-gapped signing. It is **never committed**.
 - The public key is baked into `src/init/helper-signing.ts` (`RUFLO_HELPERS_PUBKEY`).
 - Before the refresh installs any helper, it verifies the manifest signature
   against the baked key AND each source helper's SHA-256 against the manifest. A

@@ -2,15 +2,24 @@
 /**
  * Sign the critical helpers → .claude/helpers/helpers.manifest.json (ADR-174).
  *
- * Run at publish time WHENEVER a critical helper changes. Reads the private key
- * from $RUFLO_HELPERS_SIGNING_KEY (a PEM file path), defaulting to
- * ~/.ruflo/helpers-signing.key. NEVER commit the private key. The public half
- * is baked into src/init/helper-signing.ts (RUFLO_HELPERS_PUBKEY).
+ * Run at publish time WHENEVER a critical helper changes. NEVER commit the
+ * private key. The public half is baked into src/init/helper-signing.ts
+ * (RUFLO_HELPERS_PUBKEY).
  *
- * Usage:  RUFLO_HELPERS_SIGNING_KEY=/path/to/key node scripts/sign-helpers.mjs
+ * Private-key resolution (first that is set wins):
+ *   1. GCP Secret Manager (PREFERRED for CI/publish):
+ *        RUFLO_HELPERS_SIGNING_SECRET=<secret-name>   (e.g. ruflo-helpers-signing-key)
+ *        RUFLO_HELPERS_SIGNING_PROJECT=<gcp-project>  (optional; defaults to the
+ *                                                       active gcloud project)
+ *      Fetched via `gcloud secrets versions access latest`.
+ *   2. RUFLO_HELPERS_SIGNING_KEY=<pem-file-path>       (local / air-gapped)
+ *   3. ~/.ruflo/helpers-signing.key                    (dev default)
+ *
+ * Usage:  RUFLO_HELPERS_SIGNING_SECRET=ruflo-helpers-signing-key node scripts/sign-helpers.mjs
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { createHash, sign as edSign } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
@@ -20,12 +29,32 @@ const PKG_ROOT = join(__dirname, '..');
 const HELPERS_DIR = join(PKG_ROOT, '.claude', 'helpers');
 const CRITICAL = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs'];
 
-const keyPath = process.env.RUFLO_HELPERS_SIGNING_KEY || join(homedir(), '.ruflo', 'helpers-signing.key');
-if (!existsSync(keyPath)) {
-  console.error(`[sign-helpers] private key not found: ${keyPath}\n  set RUFLO_HELPERS_SIGNING_KEY to the PEM path.`);
-  process.exit(1);
+function loadPrivateKey() {
+  const secret = process.env.RUFLO_HELPERS_SIGNING_SECRET;
+  if (secret) {
+    const args = ['secrets', 'versions', 'access', 'latest', '--secret', secret];
+    const project = process.env.RUFLO_HELPERS_SIGNING_PROJECT;
+    if (project) args.push('--project', project);
+    try {
+      // stdio: key on stdout (captured), stderr inherited for auth prompts/errors.
+      return execFileSync('gcloud', args, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'inherit'] });
+    } catch (e) {
+      console.error(`[sign-helpers] failed to read GCP secret '${secret}'. Is gcloud authed? (gcloud auth login)`);
+      process.exit(1);
+    }
+  }
+  const keyPath = process.env.RUFLO_HELPERS_SIGNING_KEY || join(homedir(), '.ruflo', 'helpers-signing.key');
+  if (!existsSync(keyPath)) {
+    console.error(
+      `[sign-helpers] no signing key. Set RUFLO_HELPERS_SIGNING_SECRET (GCP) ` +
+      `or RUFLO_HELPERS_SIGNING_KEY (PEM path); tried ${keyPath}.`,
+    );
+    process.exit(1);
+  }
+  return readFileSync(keyPath, 'utf-8');
 }
-const privateKeyPem = readFileSync(keyPath, 'utf-8');
+
+const privateKeyPem = loadPrivateKey();
 
 const version = JSON.parse(readFileSync(join(PKG_ROOT, 'package.json'), 'utf-8')).version;
 const files = {};
