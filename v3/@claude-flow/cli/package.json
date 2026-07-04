@@ -117,7 +117,7 @@
     "@metaharness/kernel": "~0.1.2",
     "@metaharness/redblue": "~0.1.4",
     "@metaharness/router": "~0.3.2",
-    "@metaharness/weight-eft": "^0.1.1",
+    "@metaharness/weight-eft": "~0.1.1",
     "@ruvector/attention": "^0.1.32",
     "@ruvector/attention-darwin-arm64": "0.1.32",
     "@ruvector/diskann": "^0.1.0",
@@ -130,7 +130,7 @@
     "agentbbs": "~0.1.0",
     "agentdb": "^3.0.0-alpha.17",
     "agentic-flow": "^3.0.0-alpha.1",
-    "agenticow": "^0.2.4",
+    "agenticow": "~0.2.4",
     "metaharness": "~0.2.8",
     "ruvector": "^0.2.27"
   },
