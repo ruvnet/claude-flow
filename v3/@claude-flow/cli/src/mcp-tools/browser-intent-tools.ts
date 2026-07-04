@@ -479,9 +479,9 @@ export const browserIntentTools: MCPTool[] = [
   {
     name: 'browser_act',
     description:
-      'Execute a natural-language intent on the current page via page-agent (e.g. "Click the login button", "Fill the search box with cats and submit"). ' +
-      'Use this instead of chaining browser_snapshot + browser_click/fill when the target element is easier to describe than to select. ' +
-      'Optional dep (page-agent) — degrades to {degraded:true} when missing or when no OpenAI-compatible LLM provider is configured ' +
+      'Use when a target element is easier to describe than to select, or when an intent spans several steps: executes a natural-language instruction on the current page via page-agent (e.g. "Click the login button", "Fill the search box with cats and submit"). ' +
+      'Prefer this over chaining browser_snapshot + browser_click/fill for such multi-step intents; pair with browser_open/browser_screenshot for navigation and visual verification (page-agent is text-DOM only, so it is blind to canvas/visual-only UIs — keep the selector + screenshot tools for those). ' +
+      'Falls back to {degraded:true} when page-agent is not installed or no OpenAI-compatible LLM provider is configured ' +
       '(set OPENROUTER_API_KEY or OLLAMA_API_KEY; a bare ANTHROPIC_API_KEY is not sufficient — page-agent requires a /chat/completions-shaped endpoint).',
     category: 'browser',
     tags: ['browser', 'intent', 'nl', 'page-agent'],
