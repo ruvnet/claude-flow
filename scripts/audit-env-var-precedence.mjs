@@ -181,6 +181,11 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'CLAUDE_FLOW_RUN_TRANSCRIPTS_MAXROTATIONS',
   'CLAUDE_FLOW_RUN_TRANSCRIPTS_MAXSIZE',
   'CLAUDE_FLOW_SWARM_DIR',  // Set by ruflo init / inter-process — not user-typed
+  // Nightly backup daemon-worker config (ADR-174 follow-up). The interactive
+  // `memory backup` command exposes --keep / --gcs / --dir flags with proper
+  // precedence; these env vars only configure the headless daemon worker path.
+  'RUFLO_BACKUP_KEEP',
+  'RUFLO_BACKUP_GCS',
 ]);
 
 // ── Source directories to scan ────────────────────────────────────────────────

@@ -29,6 +29,7 @@ import {
 // incremental (rowid cursor), non-destructive, transactional, and
 // quick_check-gated, so it's safe to call unconditionally on every tick.
 import { runDistillation, defaultMemoryDbPath, type DistillReport } from './memory-distillation.js';
+import { backupMemoryDb } from './memory-backup.js';
 
 // Worker types matching hooks-tools.ts
 export type WorkerType =
@@ -43,7 +44,8 @@ export type WorkerType =
   | 'document'
   | 'refactor'
   | 'benchmark'
-  | 'testgaps';
+  | 'testgaps'
+  | 'backup';
 
 interface WorkerConfig {
   type: WorkerType;
@@ -119,6 +121,7 @@ const DEFAULT_WORKERS: WorkerConfigInternal[] = [
   { type: 'optimize', intervalMs: 15 * 60 * 1000, offsetMs: 4 * 60 * 1000, priority: 'high', description: 'Performance optimization', enabled: true },
   { type: 'consolidate', intervalMs: 30 * 60 * 1000, offsetMs: 6 * 60 * 1000, priority: 'low', description: 'Memory distillation (ADR-174)', enabled: true },
   { type: 'testgaps', intervalMs: 20 * 60 * 1000, offsetMs: 8 * 60 * 1000, priority: 'normal', description: 'Test coverage analysis', enabled: true },
+  { type: 'backup', intervalMs: 24 * 60 * 60 * 1000, offsetMs: 10 * 60 * 1000, priority: 'low', description: 'Nightly memory DB backup (WAL-safe, rotated)', enabled: true },
   { type: 'predict', intervalMs: 10 * 60 * 1000, offsetMs: 0, priority: 'low', description: 'Predictive preloading', enabled: false },
   { type: 'document', intervalMs: 60 * 60 * 1000, offsetMs: 0, priority: 'low', description: 'Auto-documentation', enabled: false },
 ];
@@ -1312,6 +1315,8 @@ export class WorkerDaemon extends EventEmitter {
         return this.runOptimizeWorkerLocal();
       case 'consolidate':
         return this.runConsolidateWorker();
+      case 'backup':
+        return this.runBackupWorker();
       case 'testgaps':
         return this.runTestGapsWorkerLocal();
       case 'predict':
@@ -1571,6 +1576,45 @@ export class WorkerDaemon extends EventEmitter {
     };
 
     writeFileSync(consolidateFile, JSON.stringify(result, null, 2));
+    return result;
+  }
+
+  /**
+   * Nightly memory-DB backup worker (24h interval). Takes a WAL-safe, consistent
+   * snapshot of .swarm/memory.db with rotation (keep last N). Never throws — a
+   * worker must not crash the daemon; a skip/error is written to the metrics
+   * file. Opt-out by omitting `backup` from `-w`; offsite GCS is opt-in via
+   * RUFLO_BACKUP_GCS (a gs:// prefix), retention via RUFLO_BACKUP_KEEP.
+   */
+  private async runBackupWorker(): Promise<unknown> {
+    const metricsDir = join(this.projectRoot, '.claude-flow', 'metrics');
+    if (!existsSync(metricsDir)) mkdirSync(metricsDir, { recursive: true });
+    const backupFile = join(metricsDir, 'backup.json');
+
+    let result: Record<string, unknown>;
+    try {
+      const keepEnv = Number(process.env.RUFLO_BACKUP_KEEP);
+      const r = await backupMemoryDb({
+        dbPath: defaultMemoryDbPath(this.projectRoot),
+        keep: Number.isFinite(keepEnv) && keepEnv > 0 ? keepEnv : 7,
+        gcs: process.env.RUFLO_BACKUP_GCS || undefined,
+      });
+      result = {
+        timestamp: new Date().toISOString(),
+        backedUp: r.backedUp,
+        path: r.path,
+        sizeBytes: r.sizeBytes ?? 0,
+        rotatedAway: r.rotatedAway?.length ?? 0,
+        gcsUri: r.gcsUri,
+        skipped: r.skipped,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.log('warn', `Backup worker failed: ${message}`);
+      result = { timestamp: new Date().toISOString(), backedUp: false, error: message };
+    }
+
+    writeFileSync(backupFile, JSON.stringify(result, null, 2));
     return result;
   }
 

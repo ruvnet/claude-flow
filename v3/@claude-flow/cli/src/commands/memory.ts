@@ -8,6 +8,7 @@ import { output } from '../output.js';
 import { select, confirm, input } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { distillCommand } from './memory-distill.js';
+import { backupCommand } from './memory-backup.js';
 
 // Memory backends
 const BACKENDS = [
@@ -1684,7 +1685,7 @@ const initMemoryCommand: Command = {
 export const memoryCommand: Command = {
   name: 'memory',
   description: 'Memory management commands',
-  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand, distillCommand],
+  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand, distillCommand, backupCommand],
   options: [],
   examples: [
     { command: 'claude-flow memory store -k "key" -v "value"', description: 'Store data' },
