@@ -1373,7 +1373,10 @@ export async function recoverMemoryDatabase(
 
   let Database: any;
   try {
-    Database = (await import('better-sqlite3')).default;
+    // Module name behind a variable so TS does not statically resolve the
+    // optional native dep's types at build time (CI may not install them).
+    const mod: string = 'better-sqlite3';
+    Database = (await import(mod)).default;
   } catch {
     return { recovered: false, reason: 'no-native' };
   }
@@ -1487,7 +1490,10 @@ export async function repairVectorIndexes(
 
   let Database: any;
   try {
-    Database = (await import('better-sqlite3')).default;
+    // Module name behind a variable so TS does not statically resolve the
+    // optional native dep's types at build time (CI may not install them).
+    const mod: string = 'better-sqlite3';
+    Database = (await import(mod)).default;
   } catch {
     // Native module absent (e.g. WASM-only host). Statusline fix still covers
     // the display; nothing to repair here.
