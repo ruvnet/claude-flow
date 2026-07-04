@@ -263,7 +263,7 @@ jobs:
   # #2267 + #2257 regression guards — fast, no install, run first so any
   # YAML or router regression is caught at PR-time, not at scheduled cron.
   static-regression-guards:
-    name: Static regression guards (#2267 YAML + #2257 router)
+    name: Static regression guards (#2267 YAML + #2257 router + #2562 lockfile)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -276,6 +276,28 @@ jobs:
         run: node scripts/smoke-workflows-yaml.mjs
       - name: "#2257 — router patterns must be word-boundary-anchored"
         run: node --import tsx scripts/smoke-router-regex.mjs
+      # #2562 — FAST lockfile-drift guard. Editing any v3 workspace manifest
+      # (esp. v3/@claude-flow/cli deps) without regenerating v3/pnpm-lock.yaml
+      # makes --frozen-lockfile fail in EVERY downstream install job (~34 red
+      # jobs, cascading — the #2540→#2552→#2562 recurrence). `--lockfile-only`
+      # verifies lock↔manifest consistency in seconds WITHOUT downloading
+      # anything, failing once here with a clear fix instead of 34× later.
+      - name: Setup pnpm (lockfile guard)
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - name: "#2562 — v3/pnpm-lock.yaml must match workspace package.json (frozen-lockfile drift)"
+        working-directory: v3
+        run: |
+          if pnpm install --frozen-lockfile --lockfile-only 2>lock-err.log; then
+            echo "✓ v3/pnpm-lock.yaml is consistent with all workspace manifests"
+          else
+            echo "::error title=Lockfile drift::v3/pnpm-lock.yaml is OUT OF SYNC with a package.json. Editing v3 workspace deps requires regenerating the lock in the SAME commit."
+            echo "::error title=How to fix::Run  cd v3 && pnpm install --lockfile-only && git add pnpm-lock.yaml  then commit."
+            echo "--- pnpm reported ---"
+            grep -A25 "OUTDATED_LOCKFILE\|not up to date\|don't match" lock-err.log | head -40 || cat lock-err.log | head -40
+            exit 1
+          fi
 
   test:
     name: Test V3 Packages
