@@ -28,6 +28,7 @@ import {
   generateAutoMemoryHook,
   generateRufloHookCjs,
 } from './helpers-generator.js';
+import { getInstalledCliVersion, HELPERS_STAMP_FILE } from './helper-refresh.js';
 import { generateClaudeMd } from './claudemd-generator.js';
 import { recordMemoryPackagePath } from './memory-package-resolver.js';
 
@@ -538,6 +539,15 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
         try { fs.chmodSync(targetPath, '755'); } catch {}
       }
     }
+
+    // Stamp the installed version so the startup auto-refresh treats these as
+    // current (no redundant re-copy on the next command).
+    try {
+      fs.writeFileSync(
+        path.join(targetDir, '.claude', 'helpers', HELPERS_STAMP_FILE),
+        getInstalledCliVersion(), 'utf-8',
+      );
+    } catch { /* non-fatal */ }
 
     // #2545: (re)record the resolved @claude-flow/memory path so the auto-memory
     // hook can find it on the npx install path. Best-effort — see executeInit.

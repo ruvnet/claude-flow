@@ -133,6 +133,22 @@ export class CLI {
         this.checkForUpdatesOnStartup().catch(() => {/* silent */});
       }
 
+      // Version-stamped helper auto-refresh — propagate hook fixes to an already
+      // initialized project without a manual re-init. Skip for init/upgrade
+      // (they refresh explicitly). AWAITED (not fire-and-forget) so a fast
+      // command can't exit before the copy lands; the fast path is a single
+      // stamp read + string compare (sub-ms), and the copy runs at most once per
+      // version bump. Best-effort + silent — never blocks or fails a command.
+      if (commandPath[0] !== 'init' && commandPath[0] !== 'update') {
+        try {
+          const { autoRefreshHelpersIfStale } = await import('./init/helper-refresh.js');
+          const r = await autoRefreshHelpersIfStale(process.cwd());
+          if (r.refreshed && this.output.isVerbose()) {
+            this.output.printDebug(`Refreshed .claude/helpers (${r.from} → ${r.to})`);
+          }
+        } catch { /* silent */ }
+      }
+
       // Handle lazy-loaded commands that weren't recognized by the parser
       // If commandPath is empty but positional has a command name, check if it's lazy-loadable
       if (commandPath.length === 0 && positional.length > 0 && !positional[0].startsWith('-')) {
