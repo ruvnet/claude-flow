@@ -14,7 +14,7 @@ overrides:
   '@vitest/coverage-v8': '>=4.1.0'
   handlebars: '>=4.7.9'
   protobufjs: '>=8.6.0'
-  '@ruvector/ruvllm': '>=2.5.7'
+  '@ruvector/ruvllm': '>=2.6.0'
 
 importers:
 
@@ -525,8 +525,8 @@ importers:
   '@claude-flow/providers':
     dependencies:
       '@ruvector/ruvllm':
-        specifier: '>=2.5.7'
-        version: 2.5.7
+        specifier: '>=2.6.0'
+        version: 2.6.0
       events:
         specifier: ^3.3.0
         version: 3.3.0
@@ -5631,8 +5631,8 @@ packages:
     requiresBuild: true
     optional: true
 
-  /@ruvector/ruvllm@2.5.7:
-    resolution: {integrity: sha512-XxvUsPZaiIfK5/n1/Vgv3Gz9+cgBbvHbN/4OKHrLcpbw0eY9b9+BsQmvmYGfBwiVumQcgn8wmFiqRTqBrTa3BA==}
+  /@ruvector/ruvllm@2.6.0:
+    resolution: {integrity: sha512-aXAIYTtjtsxINagNY9451/9+lbLO24yAKqLqRxad/FlkgJcR3uicMQCwayH/pFP0PbgGI5bQAL0PvkDC4Zz0lA==}
     engines: {node: '>= 18'}
     hasBin: true
     dependencies:
@@ -6871,7 +6871,7 @@ packages:
       '@ruvector/gnn': 0.1.25
       '@ruvector/graph-node': 0.1.26
       '@ruvector/router': 0.1.26
-      '@ruvector/ruvllm': 2.5.7
+      '@ruvector/ruvllm': 2.6.0
       '@ruvector/sona': 0.1.5
       ajv: 8.17.1
       chalk: 5.6.2
@@ -6932,7 +6932,7 @@ packages:
       '@ruvector/gnn': 0.1.25
       '@ruvector/graph-node': 0.1.26
       '@ruvector/router': 0.1.30
-      '@ruvector/ruvllm': 2.5.7
+      '@ruvector/ruvllm': 2.6.0
       '@ruvector/sona': 0.1.7
       ajv: 8.18.0
       chalk: 5.6.2
@@ -6997,7 +6997,7 @@ packages:
       '@ruvector/gnn': 0.1.25
       '@ruvector/graph-node': 2.0.3
       '@ruvector/router': 0.1.30
-      '@ruvector/ruvllm': 2.5.7
+      '@ruvector/ruvllm': 2.6.0
       '@ruvector/rvf': 0.1.9
       '@ruvector/rvf-node': 0.1.8
       '@ruvector/rvf-solver': 0.1.8
@@ -7153,7 +7153,7 @@ packages:
       '@ruvector/core': 0.1.30
       '@ruvector/edge-full': 0.1.0
       '@ruvector/router': 0.1.30
-      '@ruvector/ruvllm': 2.5.7
+      '@ruvector/ruvllm': 2.6.0
       '@ruvector/tiny-dancer': 0.1.22
       '@supabase/supabase-js': 2.89.0
       '@xenova/transformers': 2.17.2
@@ -7209,7 +7209,7 @@ packages:
       '@ruvector/core': 0.1.30
       '@ruvector/edge-full': 0.1.0
       '@ruvector/router': 0.1.30
-      '@ruvector/ruvllm': 2.5.7
+      '@ruvector/ruvllm': 2.6.0
       '@ruvector/tiny-dancer': 0.1.18
       '@supabase/supabase-js': 2.89.0
       axios: 1.13.2
@@ -7266,7 +7266,7 @@ packages:
       '@ruvector/core': 0.1.30
       '@ruvector/edge-full': 0.1.0
       '@ruvector/router': 0.1.26
-      '@ruvector/ruvllm': 2.5.7
+      '@ruvector/ruvllm': 2.6.0
       '@ruvector/tiny-dancer': 0.1.22
       '@supabase/supabase-js': 2.89.0
       '@xenova/transformers': 2.17.2
@@ -10414,7 +10414,7 @@ packages:
       kolorist: 1.8.0
       prompts: 2.4.2
     optionalDependencies:
-      '@ruvector/ruvllm': 2.5.7
+      '@ruvector/ruvllm': 2.6.0
     dev: false
     optional: true
 
@@ -11944,7 +11944,7 @@ packages:
       '@ruvector/diskann': '>=0.1.0'
       '@ruvector/pi-brain': '>=0.1.0'
       '@ruvector/router': '>=0.1.0'
-      '@ruvector/ruvllm': '>=2.5.7'
+      '@ruvector/ruvllm': '>=2.6.0'
     peerDependenciesMeta:
       '@ruvector/diskann':
         optional: true

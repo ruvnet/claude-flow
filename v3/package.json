@@ -69,7 +69,7 @@
       "@vitest/coverage-v8": ">=4.1.0",
       "handlebars": ">=4.7.9",
       "protobufjs": ">=8.6.0",
-      "@ruvector/ruvllm": ">=2.5.7"
+      "@ruvector/ruvllm": ">=2.6.0"
     }
   }
 }
