@@ -151,6 +151,18 @@ export class CLI {
             this.output.printDebug(`Refreshed .claude/helpers (${r.from} → ${r.to})`);
           }
         } catch { /* silent */ }
+
+        // ADR-177: adopt a signed proven-configuration champion if the package
+        // ships one newer than this project's stamp AND it is authentic +
+        // suitable for this environment. Sibling of the helper channel above —
+        // its own stamp + trust root; additive no-op when no champion ships.
+        try {
+          const { autoAdoptProvenConfigIfStale } = await import('./config/proven-config-refresh.js');
+          const a = await autoAdoptProvenConfigIfStale(process.cwd());
+          if (a.adopted && this.output.isVerbose()) {
+            this.output.printDebug(`Adopted proven config (${a.from} → ${a.to})`);
+          }
+        } catch { /* silent */ }
       }
 
       // Handle lazy-loaded commands that weren't recognized by the parser
