@@ -31,6 +31,8 @@ export { metaharnessTools } from './metaharness-tools.js';
 export { testgenTools } from './testgen-tools.js';
 // agenticow@~0.2.3 — Copy-On-Write memory branching (162-byte branches)
 export { agenticowTools } from './agenticow-tools.js';
+// agenticow step 4 — speculative branch-and-promote (A/B memory exploration)
+export { agenticowSpeculateTools } from './agenticow-speculate-tools.js';
 // ADR-164 — AgentBBS federated business-domain BBS rooms (Phase 1)
 export { agentbbsTools } from './agentbbs-tools.js';
 // ADR-164 Phase 2 — Business-pod template validation
