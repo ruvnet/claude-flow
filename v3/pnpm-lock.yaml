@@ -208,6 +208,9 @@ importers:
       metaharness:
         specifier: ~0.2.8
         version: 0.2.8(@metaharness/kernel@0.1.2)
+      page-agent:
+        specifier: ~1.11.0
+        version: 1.11.0(zod@3.25.76)
       ruvector:
         specifier: ^0.2.27
         version: 0.2.27(@ruvector/diskann@0.1.0)(@ruvector/router@0.1.30)(zod@3.25.76)
@@ -4852,6 +4855,44 @@ packages:
     dev: false
     optional: true
 
+  /@page-agent/core@1.11.0(zod@3.25.76):
+    resolution: {integrity: sha512-loeD+78vGfxBDj6tFnExhEIreb2NiyFfIxEkILYcfWyz8qUp9vZTpJm/hRNN0EkBsaPF328LfDydMcVKcZIEvw==}
+    requiresBuild: true
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
+    dependencies:
+      '@page-agent/llms': 1.11.0(zod@3.25.76)
+      '@page-agent/page-controller': 1.11.0
+      chalk: 5.6.2
+      zod: 3.25.76
+    dev: false
+    optional: true
+
+  /@page-agent/llms@1.11.0(zod@3.25.76):
+    resolution: {integrity: sha512-9coqfbv/jNa7XwwGlQUNrwb3pBgpjgRbAfzB2AYDekyoYtyKsWCFlh6O62ANq3qeqqAOgDWYuuB+Dh7npq2Q3g==}
+    requiresBuild: true
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
+    dependencies:
+      chalk: 5.6.2
+      zod: 3.25.76
+    dev: false
+    optional: true
+
+  /@page-agent/page-controller@1.11.0:
+    resolution: {integrity: sha512-DOG386ur+0yeC/jKECdGP97ugN+HDuyxPbmdvoUjMWpQcfIFh7QD+wIhdygKPWOvOnwzQxsehzf6IdVdlMQgfg==}
+    requiresBuild: true
+    dependencies:
+      ai-motion: 0.4.8
+    dev: false
+    optional: true
+
+  /@page-agent/ui@1.11.0:
+    resolution: {integrity: sha512-XSJlaNzj3j+uSNfGkkkxw6hyKw+d8fuZd/N1/NrxvTJIiUhVMXQ1PE30JRu5yWzbvmezKSCmloz8wbq4sWsrFw==}
+    requiresBuild: true
+    dev: false
+    optional: true
+
   /@peculiar/asn1-schema@2.6.0:
     resolution: {integrity: sha512-xNLYLBFTBKkCzEZIw842BxytQQATQv+lDTCEMZ8C196iJcJJMBUZxrhSTxLaohMyKK8QlzRNTRkUmanucnDSqg==}
     requiresBuild: true
@@ -7440,6 +7481,12 @@ packages:
     dependencies:
       clean-stack: 5.3.0
       indent-string: 5.0.0
+
+  /ai-motion@0.4.8:
+    resolution: {integrity: sha512-9nQVjf8lrYQWSW0sZdb9bES4x8Ei1w9C0S62po2KvRbMjslmjm0WMeszyW771SEauDnu4YGWqurLZ/gCkCTosQ==}
+    requiresBuild: true
+    dev: false
+    optional: true
 
   /ajv-formats@3.0.1(ajv@8.18.0):
     resolution: {integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==}
@@ -11166,6 +11213,21 @@ packages:
 
   /package-json-from-dist@1.0.1:
     resolution: {integrity: sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==}
+
+  /page-agent@1.11.0(zod@3.25.76):
+    resolution: {integrity: sha512-zoV2WAxRlIbt80CZzPtpw+DyBdLMRwarJJT7JJSYysUnw72SA/CaG54VpHv3bzbAXrPUZgHXqnn/9FPb3OKRIA==}
+    requiresBuild: true
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
+    dependencies:
+      '@page-agent/core': 1.11.0(zod@3.25.76)
+      '@page-agent/llms': 1.11.0(zod@3.25.76)
+      '@page-agent/page-controller': 1.11.0
+      '@page-agent/ui': 1.11.0
+      chalk: 5.6.2
+      zod: 3.25.76
+    dev: false
+    optional: true
 
   /parent-module@1.0.1:
     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}

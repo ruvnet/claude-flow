@@ -19,8 +19,11 @@ const browserSessions = new Map<string, {
 /**
  * Execute agent-browser CLI command.
  * Tries global agent-browser first, falls back to npx if ENOENT.
+ *
+ * Exported so browser-intent-tools.ts (ADR-175 `browser_act`) can reuse the same
+ * exec + fallback + session-plumbing instead of duplicating it.
  */
-async function execBrowserCommand(args: string[], session = 'default'): Promise<MCPToolResult> {
+export async function execBrowserCommand(args: string[], session = 'default'): Promise<MCPToolResult> {
   const { execFileSync } = await import('child_process');
   const fullArgs = ['--session', session, '--json', ...args];
 

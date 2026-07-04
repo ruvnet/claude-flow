@@ -36,6 +36,10 @@ import { daaTools } from './mcp-tools/daa-tools.js';
 import { coordinationTools } from './mcp-tools/coordination-tools.js';
 import { browserTools } from './mcp-tools/browser-tools.js';
 import { browserSessionTools } from './mcp-tools/browser-session-tools.js';
+// ADR-175 — page-agent natural-language intent layer (browser_act). Always
+// registered; degrades to {degraded:true} at call time when page-agent or an
+// OpenAI-compatible LLM provider isn't available.
+import { browserIntentTools } from './mcp-tools/browser-intent-tools.js';
 import { execFileSync } from 'node:child_process';
 // Phase 6: AgentDB v3 controller tools
 import { agentdbTools } from './mcp-tools/agentdb-tools.js';
@@ -95,6 +99,15 @@ function getBrowserSessionTools(): MCPTool[] {
 }
 
 /**
+ * ADR-175 `browser_act` — always registered like browserSessionTools; the
+ * handler itself resolves page-agent + LLM-provider availability at call
+ * time and returns `{degraded: true}` rather than throwing.
+ */
+function getBrowserIntentTools(): MCPTool[] {
+  return browserIntentTools;
+}
+
+/**
  * MCP Tool Registry
  * Maps tool names to their handler functions
  */
@@ -134,6 +147,7 @@ registerTools([
   ...coordinationTools,
   ...getBrowserTools(),
   ...getBrowserSessionTools(),
+  ...getBrowserIntentTools(),
   // Phase 6: AgentDB v3 controller tools
   ...agentdbTools,
   // RuVector WASM tools

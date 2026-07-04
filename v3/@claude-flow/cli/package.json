@@ -134,6 +134,7 @@
     "agentic-flow": "^3.0.0-alpha.1",
     "agenticow": "~0.2.4",
     "metaharness": "~0.2.8",
+    "page-agent": "~1.11.0",
     "ruvector": "^0.2.27"
   },
   "publishConfig": {
