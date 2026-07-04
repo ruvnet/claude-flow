@@ -146,7 +146,7 @@ registerTools([
   ...coverageRouterTools,
   // ADR-150 — MetaHarness static-analysis tools (5)
   ...metaharnessTools,
-  // agenticow@~0.2.3 — COW memory branching (4 tools, graceful-degraded when missing)
+  // agenticow@~0.2.4 — COW memory branching (9 tools: branch/checkpoint/rollback/promote + ingest/query/diff/lineage/status, graceful-degraded when missing)
   ...agenticowTools,
   // ADR-164 — AgentBBS federated business-domain BBS rooms (4 tools, Phase 1, graceful-degraded)
   ...agentbbsTools,

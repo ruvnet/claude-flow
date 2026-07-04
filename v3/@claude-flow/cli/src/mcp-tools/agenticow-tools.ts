@@ -131,6 +131,7 @@ export const agenticowTools: MCPTool[] = [
         branchPath: { type: 'string', description: 'Path to write the branch file' },
         label: { type: 'string', description: 'Human-readable label for the branch (alnum + _.-:/@ only)' },
         dimension: { type: 'integer', description: 'Vector dimension (required only when basePath does not exist yet)' },
+        nativeAnn: { type: 'boolean', description: 'Use the native Rust COW dual-graph ANN path (recall@10=1.0, query spans the COW boundary in one Rust call). Default false (exact JS chain-walk). Set true when the branch will be queried.', default: false },
       },
       required: ['basePath', 'branchPath', 'label'],
     },
@@ -142,10 +143,11 @@ export const agenticowTools: MCPTool[] = [
       const basePath = resolveMemoryPath(String(input.basePath));
       const branchPath = resolveMemoryPath(String(input.branchPath));
       const dim = input.dimension as number | undefined;
+      const nativeAnn = input.nativeAnn === true;
 
       const base = await openWithLineage(api, basePath, dim);
       try {
-        const branch = await base.fork(label, branchPath);
+        const branch = await base.fork(label, branchPath, { nativeAnn });
         // Persist lineage manifests so the branch (and base) reopen with
         // their COW chain intact. Without this, fork is in-memory only.
         await branch.save?.(manifestFor(branchPath));
@@ -156,9 +158,179 @@ export const agenticowTools: MCPTool[] = [
           basePath,
           branchPath,
           label,
+          nativeAnn,
         };
       } finally {
         await base.close?.();
+      }
+    },
+  },
+  {
+    name: 'agenticow_ingest',
+    description: 'agenticow — write vectors (with optional text payloads) into an .rvf memory branch or base. Records: [{id?, vector, text?}] — id auto-assigns when omitted. This is the write half that makes a branch usable: agenticow_branch creates an empty COW child, but without ingest it has nothing to read back. Use after branching to populate an agent/session-local memory. Editing the base directly is wrong when the writes are speculative — ingest into a branch, then promote only if validated. Persists via .agenticow.json lineage manifest.',
+    category: 'memory',
+    tags: ['agenticow', 'memory', 'cow', 'ingest', 'write'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Path to .rvf memory file (branch or base)' },
+        records: {
+          type: 'array',
+          description: 'Vectors to ingest: [{id?: number, vector: number[], text?: string}]',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'integer', description: 'Explicit id (auto-assigned when omitted)' },
+              vector: { type: 'array', items: { type: 'number' }, description: 'Embedding vector (length must equal the memory dimension)' },
+              text: { type: 'string', description: 'Optional payload surfaced on query hits' },
+            },
+            required: ['vector'],
+          },
+        },
+        dimension: { type: 'integer', description: 'Vector dimension (required only when path does not exist yet)' },
+      },
+      required: ['path', 'records'],
+    },
+    handler: async (input) => {
+      const api = await loadAgenticow();
+      if (!api) return degradedResult('agenticow-not-found');
+
+      const path = resolveMemoryPath(String(input.path));
+      const records = input.records as Array<{ id?: number; vector: number[]; text?: string }>;
+      if (!Array.isArray(records) || records.length === 0) {
+        throw new Error('records must be a non-empty array of {id?, vector, text?}');
+      }
+      for (const r of records) {
+        if (!Array.isArray(r.vector) || r.vector.length === 0) {
+          throw new Error('each record requires a non-empty numeric vector');
+        }
+      }
+      const dim = (input.dimension as number | undefined) ?? records[0].vector.length;
+      const mem = await openWithLineage(api, path, dim);
+      try {
+        const result = await mem.ingest(records.map((r) => ({
+          ...(typeof r.id === 'number' ? { id: r.id } : {}),
+          vector: r.vector,
+          ...(r.text !== undefined ? { text: r.text } : {}),
+        })));
+        await mem.save?.(manifestFor(path));
+        return { success: true, path, ingested: result };
+      } finally {
+        await mem.close?.();
+      }
+    },
+  },
+  {
+    name: 'agenticow_query',
+    description: 'agenticow — k-NN read across an .rvf memory branch\'s full COW lineage (parent ∪ edits, child wins), returning {id, distance, branch, text}. Read-only (no manifest write). The `branch` field on each hit tells you which lineage node the result came from — the read-through semantics that make branching useful. Use to retrieve from an agent/session branch without materializing a full copy. Re-opening the base and manually merging edits is wrong: query already spans the chain (and uses the single-call Rust path when the branch was forked with nativeAnn).',
+    category: 'memory',
+    tags: ['agenticow', 'memory', 'cow', 'query', 'read', 'search'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Path to .rvf memory file' },
+        vector: { type: 'array', items: { type: 'number' }, description: 'Query embedding vector' },
+        k: { type: 'integer', description: 'Number of nearest neighbors to return', default: 10 },
+        efSearch: { type: 'integer', description: 'HNSW efSearch per lineage store (higher = better recall, slower)' },
+      },
+      required: ['path', 'vector'],
+    },
+    handler: async (input) => {
+      const api = await loadAgenticow();
+      if (!api) return degradedResult('agenticow-not-found');
+
+      const path = resolveMemoryPath(String(input.path));
+      const vector = input.vector as number[];
+      if (!Array.isArray(vector) || vector.length === 0) {
+        throw new Error('vector must be a non-empty numeric array');
+      }
+      const k = typeof input.k === 'number' ? input.k : 10;
+      const opts: Record<string, unknown> = {};
+      if (typeof input.efSearch === 'number') opts.efSearch = input.efSearch;
+      const mem = await openWithLineage(api, path);
+      try {
+        const hits = await mem.query(vector, k, opts);
+        return { success: true, path, k, hits };
+      } finally {
+        await mem.close?.();
+      }
+    },
+  },
+  {
+    name: 'agenticow_diff',
+    description: 'agenticow — show what a branch changed relative to its lineage: {added, overridden, deleted} vector-id lists. Use before promote to preview the exact merge, or to audit what an agent/session branch actually wrote. Diffing by re-querying is wrong because deletions (tombstones) are invisible to a read — diff() surfaces them explicitly. Requires the branch was opened with edit tracking (default on).',
+    category: 'memory',
+    tags: ['agenticow', 'memory', 'cow', 'diff'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Path to branch .rvf file' },
+      },
+      required: ['path'],
+    },
+    handler: async (input) => {
+      const api = await loadAgenticow();
+      if (!api) return degradedResult('agenticow-not-found');
+
+      const path = resolveMemoryPath(String(input.path));
+      const mem = await openWithLineage(api, path);
+      try {
+        const diff = await mem.diff();
+        return { success: true, path, diff };
+      } finally {
+        await mem.close?.();
+      }
+    },
+  },
+  {
+    name: 'agenticow_lineage',
+    description: 'agenticow — walk the COW chain of an .rvf memory file: an ordered list of nodes (role working|checkpoint|base, id, label, parent, createdAt, mutations, tombstones). Use to understand branch history, find checkpoint ids for a targeted rollback, or debug a promote. Guessing the chain from filenames is wrong — lineage is the authoritative structure the store maintains.',
+    category: 'memory',
+    tags: ['agenticow', 'memory', 'cow', 'lineage', 'history'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Path to .rvf memory file' },
+      },
+      required: ['path'],
+    },
+    handler: async (input) => {
+      const api = await loadAgenticow();
+      if (!api) return degradedResult('agenticow-not-found');
+
+      const path = resolveMemoryPath(String(input.path));
+      const mem = await openWithLineage(api, path);
+      try {
+        const lineage = await mem.lineage();
+        return { success: true, path, lineage };
+      } finally {
+        await mem.close?.();
+      }
+    },
+  },
+  {
+    name: 'agenticow_status',
+    description: 'agenticow — health/geometry of an .rvf memory file: {totalVectors, totalSegments, fileSize, currentEpoch, deadSpaceRatio, readOnly, chainDepth, dimension, metric}. Use to check vector count before/after ingest, spot compaction pressure (deadSpaceRatio), or confirm the dimension before ingesting into a shared base. Pure read.',
+    category: 'memory',
+    tags: ['agenticow', 'memory', 'cow', 'status'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Path to .rvf memory file' },
+      },
+      required: ['path'],
+    },
+    handler: async (input) => {
+      const api = await loadAgenticow();
+      if (!api) return degradedResult('agenticow-not-found');
+
+      const path = resolveMemoryPath(String(input.path));
+      const mem = await openWithLineage(api, path);
+      try {
+        const status = await mem.status();
+        return { success: true, path, status };
+      } finally {
+        await mem.close?.();
       }
     },
   },
@@ -200,6 +372,7 @@ export const agenticowTools: MCPTool[] = [
       type: 'object',
       properties: {
         path: { type: 'string', description: 'Path to .rvf memory file' },
+        checkpointId: { type: 'string', description: 'Target checkpoint id from agenticow_lineage (omit to roll back to the most recent checkpoint)' },
       },
       required: ['path'],
     },
@@ -208,9 +381,10 @@ export const agenticowTools: MCPTool[] = [
       if (!api) return degradedResult('agenticow-not-found');
 
       const path = resolveMemoryPath(String(input.path));
+      const checkpointId = input.checkpointId ? String(input.checkpointId) : undefined;
       const mem = await openWithLineage(api, path);
       try {
-        const r = await mem.rollback();
+        const r = checkpointId ? await mem.rollback(checkpointId) : await mem.rollback();
         await mem.save?.(manifestFor(path));
         return { success: true, path, rolledBack: true, result: r };
       } finally {

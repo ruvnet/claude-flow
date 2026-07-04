@@ -200,8 +200,8 @@ importers:
         specifier: ^3.0.0-alpha.1
         version: 3.0.0-alpha.2
       agenticow:
-        specifier: ~0.2.3
-        version: 0.2.3
+        specifier: ~0.2.4
+        version: 0.2.4
       metaharness:
         specifier: ~0.2.8
         version: 0.2.8(@metaharness/kernel@0.1.2)
@@ -7402,8 +7402,8 @@ packages:
       - utf-8-validate
     dev: false
 
-  /agenticow@0.2.3:
-    resolution: {integrity: sha512-vJ0hspUqCi6tWt3QR2CNoka9J+0q1ApL9pKfHCqy/KTRmHaEp+6dljRNIWjjJvPL9kX5VV3dPjatjwNMrye2BQ==}
+  /agenticow@0.2.4:
+    resolution: {integrity: sha512-x7CqbLhivrHNYCN0mLCi5+xDWI1ycJJuMSGGZchmlu2J4RDLLDkRokzA2VM+OaocbCe6sb1mBgrGgP7rsmoCjQ==}
     engines: {node: '>=18'}
     hasBin: true
     requiresBuild: true
