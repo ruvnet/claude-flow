@@ -50,6 +50,8 @@ import {
   resolvePageAgentLLMConfig,
   buildPageAgentInjection,
   stripDemoAutoInit,
+  findDemoLeak,
+  DemoLeakError,
   recordBrowserTrajectory,
   PLACEHOLDER_API_KEY,
   BROWSER_ACT_RESULT_GLOBAL,
@@ -191,6 +193,47 @@ describe('resolvePageAgentLLMConfig — provider resolution + key safety', () =>
   it('stripDemoAutoInit is a no-op (best-effort) when the marker is absent', () => {
     const noMarker = 'window.PageAgent = function(){};';
     expect(stripDemoAutoInit(noMarker)).toBe(noMarker);
+  });
+
+  // ── Fail-closed demo-endpoint firewall ────────────────────────────────────
+  it('findDemoLeak flags each real demo-endpoint signature', () => {
+    expect(findDemoLeak('fetch("https://page-ag-testing-xyz.cn-shanghai.fcapp.run")')).toBeTruthy();
+    expect(findDemoLeak('const h = "svc.us-west.fcapp.run"')).toBeTruthy();
+    expect(findDemoLeak('var DEMO_MODEL = "qwen3.5-plus"')).toBeTruthy();
+  });
+
+  it('findDemoLeak returns null for a clean bundle', () => {
+    expect(findDemoLeak('window.PageAgent = function(){}; export {};')).toBeNull();
+  });
+
+  it('buildPageAgentInjection REFUSES (throws DemoLeakError) when the strip marker moved but the endpoint survives — fail-closed', () => {
+    // Simulate an upstream bundle change: the DEMO_MODEL marker is gone (so the
+    // text strip is a no-op) but the auto-connect endpoint is still present.
+    const movedMarkerBundle =
+      'window.PageAgent = function(){};\n' +
+      'setTimeout(function(){ fetch("https://page-ag-testing-newhash.cn-shanghai.fcapp.run", {method:"POST"}); });';
+    let thrown: unknown;
+    try {
+      buildPageAgentInjection(
+        movedMarkerBundle,
+        { baseURL: 'http://127.0.0.1:1', apiKey: PLACEHOLDER_API_KEY, model: 'm' },
+        'do a thing',
+      );
+    } catch (e) { thrown = e; }
+    expect(thrown).toBeInstanceOf(DemoLeakError);
+    // And critically: it never produced an injectable string carrying the endpoint.
+    expect((thrown as DemoLeakError).message).toMatch(/refusing to inject/i);
+  });
+
+  it('buildPageAgentInjection succeeds on a clean (endpoint-free) bundle', () => {
+    const clean = 'window.PageAgent = function(){ this.execute = function(){ return Promise.resolve({success:true}); }; };';
+    const script = buildPageAgentInjection(
+      clean,
+      { baseURL: 'http://127.0.0.1:1', apiKey: PLACEHOLDER_API_KEY, model: 'm' },
+      'do a thing',
+    );
+    expect(script).toContain('window.PageAgent');
+    expect(findDemoLeak(script)).toBeNull();
   });
 });
 

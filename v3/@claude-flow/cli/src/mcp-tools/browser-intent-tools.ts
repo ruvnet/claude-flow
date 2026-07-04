@@ -271,11 +271,45 @@ export function startLocalLLMProxy(real: { baseURL: string; apiKey: string }): P
 const DEMO_TAIL_MARKER = 'var DEMO_MODEL=';
 
 /**
- * Strip the demo bundle's auto-init tail so injecting it via eval doesn't
- * spin up a second `window.pageAgent` pointed at Alibaba's sandbox endpoint.
- * Falls back to injecting as-is (best-effort) if a future bundle version
- * changes the marker — `window.PageAgent = PageAgent` is set unconditionally
- * earlier in the same IIFE either way.
+ * Fail-CLOSED firewall signatures. page-agent's shipped IIFE (`page-agent.demo.js`)
+ * auto-POSTs page content to Alibaba's public sandbox on inject
+ * (`https://page-ag-testing-*.<region>.fcapp.run`, model `DEMO_MODEL`). We strip
+ * that tail, but the strip is only best-effort text matching. These signatures
+ * are the load-bearing guarantee: if ANY survive the strip, we REFUSE to inject.
+ * Version-independent — an upstream bundle change that moves/renames the marker
+ * can never silently re-enable the leak (the previous strip fell OPEN and
+ * injected as-is when the marker moved; this cannot).
+ */
+const DEMO_LEAK_SIGNATURES: RegExp[] = [
+  /page-ag-testing/i, // the demo endpoint subdomain prefix
+  /\.fcapp\.run/i,    // Alibaba Function Compute host (the demo backend)
+  /\bDEMO_MODEL\b/,   // the demo auto-init marker/model
+];
+
+/** Thrown when a bundle still contains a demo/sandbox endpoint after stripping. */
+export class DemoLeakError extends Error {
+  constructor(public readonly signature: string) {
+    super(
+      `page-agent bundle still contains a demo/sandbox endpoint (matched /${signature}/) ` +
+      'after stripping — refusing to inject to avoid leaking page content to Alibaba\'s sandbox',
+    );
+    this.name = 'DemoLeakError';
+  }
+}
+
+/** Returns the first demo-leak signature found in `source`, or null if clean. */
+export function findDemoLeak(source: string): string | null {
+  for (const re of DEMO_LEAK_SIGNATURES) {
+    if (re.test(source)) return re.source;
+  }
+  return null;
+}
+
+/**
+ * Strip the demo bundle's auto-init tail so injecting it via eval doesn't spin
+ * up a second `window.pageAgent` pointed at Alibaba's sandbox endpoint. This is
+ * best-effort at the text level; the real guarantee is the fail-closed
+ * `findDemoLeak` firewall enforced in `buildPageAgentInjection`, NOT this strip.
  */
 export function stripDemoAutoInit(iifeSource: string): string {
   const idx = iifeSource.indexOf(DEMO_TAIL_MARKER);
@@ -309,6 +343,9 @@ export function buildPageAgentInjection(
   task: string,
 ): string {
   const safeIife = stripDemoAutoInit(iifeSource);
+  // Fail-closed: never inject a bundle that still carries the demo endpoint.
+  const leak = findDemoLeak(safeIife);
+  if (leak) throw new DemoLeakError(leak);
   const cfgJson = JSON.stringify(pageConfig);
   const taskJson = JSON.stringify(task);
   return `${safeIife}
@@ -521,7 +558,16 @@ export const browserIntentTools: MCPTool[] = [
           model: llmConfig.model,
           language: 'en-US',
         };
-        const script = buildPageAgentInjection(iifeSource, pageConfig, task);
+        let script: string;
+        try {
+          script = buildPageAgentInjection(iifeSource, pageConfig, task);
+        } catch (err) {
+          if (err instanceof DemoLeakError) {
+            // Refuse to inject rather than leak page content to Alibaba's sandbox.
+            return degraded('page-agent bundle contains a demo endpoint we could not neutralize', err.message);
+          }
+          throw err;
+        }
         const inject = await execBrowserCommand(['eval', script], session);
         if (inject.isError) return fail('page-agent injection failed', { detail: inject.content[0]?.text });
 
