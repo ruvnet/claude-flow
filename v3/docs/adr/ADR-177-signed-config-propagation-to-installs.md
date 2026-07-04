@@ -98,6 +98,27 @@ External surfaces (the channel, CLI, docs) call these **proven configuration man
 - **A new fetch/update daemon.** Rejected — reuse the proven, awaited, fail-closed `index.ts:142` channel for the local path; the opt-in IPFS pull can ride an existing daemon worker.
 - **One shared Ed25519 root for hooks + configs.** Open — `rvfa-signing` is purpose-fit for RVF appliances; sharing one key across channels is a simplification we may or may not take. Recorded, not decided.
 
+## Backwards compatibility (with the ADR-174 updating system + older v3)
+
+The config channel must not regress any existing install. Three invariants guarantee it:
+
+1. **Additive-only.** A *new* RVFA config manifest + a *new* stamp (champion CID) + a *new* CLI code path. It never modifies the helper-code channel — `helpers.manifest.json`, `.helpers-version`, or `verifyHelpersManifest` are untouched. A 3.22.0–3.23.x install keeps its signed helper auto-refresh working unchanged; the config channel activates *alongside* it only when the CLI is upgraded to a version that ships this code.
+2. **`compatibility` constraint = the version gate.** Every manifest declares `compatibility: { ruflo: ">=X", metaharness: ">=Y" }` and a `platform`/`host` contract. An install that doesn't satisfy it **safely does not adopt** (fail-closed suitability is a graceful skip, not an error). So a new champion may *require* a newer CLI without ever breaking an older one — the constraint contract does the compat work per manifest.
+3. **Optional-dependency degradation (ADR-150).** The RVFA envelope (metadata + signature) is read with pure Node, so any CLI carrying this code can evaluate suitability + authenticity even without `@ruvector`/agenticow; an install lacking the native module simply does not hydrate the vector payload. No hard break.
+
+**Population behavior:**
+
+| Install / CLI | Behavior |
+|---|---|
+| pre-3.22.0 (no auto-refresh) | no propagation until the CLI is upgraded; then gets both channels (unstamped → refresh, existing tested path) |
+| 3.22.0–3.23.x CLI, not upgraded | helper channel works unchanged; ignores config manifests entirely (no regression, no new capability) |
+| CLI with ADR-177, install below a manifest's `compatibility` | signature + suitability evaluated; unsuitable → safe skip, keeps current config |
+| CLI with ADR-177, suitable install | adopts the signed champion on next command, zero action |
+
+**The one hazard:** do NOT rotate the *existing* `helper-signing` key — 3.22.0–3.23.x CLIs have its public key baked in and would fail-closed on a re-signed helper manifest. The `rvfa-signing` config key is a fresh root that only ships with new CLI versions, so it introduces no rotation on the existing channel. Baked public keys are version-pinned by design; new keys ride new CLIs.
+
+**Fundamental limit (not a regression):** a new capability reaches an install only once that install runs a CLI containing it. Old CLIs and old installs *no-op safely* rather than break.
+
 ## Rollback
 
 Every manifest carries `rollback.previous_manifest`. Reverting = re-adopt the pointed-to manifest (still local + signed) and advance the stamp back. A suitability failure or signature failure is itself a safe non-adoption — the install simply keeps what it has. Absent the optional metaharness stack, no config manifest ships and the channel is a hook-code-only no-op.
