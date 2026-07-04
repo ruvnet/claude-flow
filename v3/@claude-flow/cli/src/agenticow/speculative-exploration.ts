@@ -30,7 +30,7 @@ import {
   resolveMemoryPath,
   validateLabel,
   type AgenticowApi,
-} from '../mcp-tools/_agenticow.js';
+} from '../mcp-tools/agenticow-loader.js';
 
 /** A COW memory handle (agenticow `AgenticMemory`), kept `any` to avoid a hard type dep. */
 export type MemoryHandle = any;

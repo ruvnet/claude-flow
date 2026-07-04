@@ -28,7 +28,7 @@ import {
   openWithLineage,
   manifestFor,
   validateLabel,
-} from './_agenticow.js';
+} from './agenticow-loader.js';
 import {
   explore,
   type SpeculativeCandidate,
