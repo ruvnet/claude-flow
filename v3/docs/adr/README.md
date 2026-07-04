@@ -28,6 +28,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-020](../../implementation/adrs/ADR-020-headless-worker-integration.md) | Headless Worker Integration | Complete |
 | [ADR-046](../../implementation/adrs/ADR-046-ruflo-rebrand.md) | Dual Umbrella: claude-flow + ruflo | Accepted |
 | [ADR-047](../../implementation/adrs/ADR-047-fast-mode-integration.md) | Fast Mode Integration | Proposed |
+| [ADR-170](ADR-170-swarm-inverse-wisdom-dissent-mechanism.md) | Swarm Dissent Mechanism (Inverse-Wisdom Law) | Proposed |
 
 ## Summary Documents
 
@@ -60,7 +61,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 ## Security Status
 
 | CVE | Severity | Status |
-|-----|----------|--------|
+|-----|----------|---------|
 | CVE-2 | Critical | ✅ Fixed |
 | CVE-3 | Critical | ✅ Fixed |
 | HIGH-1 | High | ✅ Fixed |
@@ -70,5 +71,5 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 
 ---
 
-**Last Updated:** 2026-01-14
-**CLI Version:** @claude-flow/cli@3.0.0-alpha.104
+**Last Updated:** 2026-07-04
+**CLI Version:** @claude-flow/cli@3.6.10
