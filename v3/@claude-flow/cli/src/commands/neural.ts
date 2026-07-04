@@ -26,6 +26,7 @@ const trainCommand: Command = {
     { name: 'hyperbolic', type: 'boolean', description: 'Enable hyperbolic attention for hierarchical patterns', default: 'false' },
     { name: 'contrastive', type: 'boolean', description: 'Use contrastive learning (InfoNCE)', default: 'true' },
     { name: 'curriculum', type: 'boolean', description: 'Enable curriculum learning', default: 'false' },
+    { name: 'backend', type: 'string', description: 'Training backend: auto (native when available), native (@ruvector/ruvllm TrainingPipeline, disk checkpoints), wasm (RuVector MicroLoRA/InfoNCE)', default: 'auto' },
   ],
   examples: [
     { command: 'claude-flow neural train -p coordination -e 100', description: 'Train coordination patterns' },
@@ -38,6 +39,11 @@ const trainCommand: Command = {
     const learningRate = parseFloat(ctx.flags['learning-rate'] as string || '0.01');
     const batchSize = parseInt(ctx.flags['batch-size'] as string || '32', 10);
     const dim = Math.min(parseInt(ctx.flags.dim as string || '256', 10), 256);
+    // #2549 follow-up — backend routing: 'native' = @ruvector/ruvllm
+    // TrainingPipeline (real epochs/early-stopping/disk checkpoints),
+    // 'wasm' = RuVector MicroLoRA/InfoNCE (pre-3.19 behavior),
+    // 'auto' = native when the module resolves, else wasm.
+    const backendFlag = String(ctx.flags.backend || 'auto');
     const useWasm = ctx.flags.wasm !== false;
     const useFlash = ctx.flags.flash !== false;
     const useMoE = ctx.flags.moe === true;
@@ -204,6 +210,35 @@ const trainCommand: Command = {
 
       spinner.setText(`Training with ${embeddings.length} embeddings...`);
 
+      // #2549 — native TrainingPipeline leg. In 'auto'/'native' mode the
+      // LoRA training runs through @ruvector/ruvllm with the checkpoint
+      // taken from the TRAINED pipeline (the old best-effort block saved
+      // a fresh adapter's untrained weights). SONA/ReasoningBank
+      // persistence in the loop below runs regardless of backend.
+      const nativeTraining = await import('../services/native-training.js');
+      const useNative = backendFlag === 'native'
+        || (backendFlag === 'auto' && nativeTraining.nativeTrainingAvailable());
+      let nativeResult: import('../services/native-training.js').NativeTrainingResult | null = null;
+      if (useNative) {
+        spinner.setText(`Training ${patternType} on native @ruvector/ruvllm pipeline...`);
+        const path = await import('path');
+        nativeResult = await nativeTraining.runNativeTraining({
+          embeddings,
+          epochs,
+          batchSize,
+          learningRate,
+          dim,
+          checkpointPath: path.join(process.cwd(), '.claude-flow', 'neural', `lora-checkpoint-${Date.now()}.json`),
+        });
+        if (!nativeResult && backendFlag === 'native') {
+          spinner.fail('Native backend requested (--backend native) but @ruvector/ruvllm training failed');
+          return { success: false, exitCode: 1 };
+        }
+      }
+      // Native handles the LoRA leg; WASM contrastive runs when native
+      // didn't (absent module, or explicit --backend wasm).
+      const runWasmLeg = !nativeResult;
+
       // Main training loop with WASM acceleration
       for (let epoch = 0; epoch < epochs; epoch++) {
         const epochStart = performance.now();
@@ -218,7 +253,7 @@ const trainCommand: Command = {
         if (batch.length === 0) continue;
 
         // Training step with contrastive learning
-        if (useContrastive && batch.length >= 3 && useWasm && wasmFeatures.length > 0) {
+        if (runWasmLeg && useContrastive && batch.length >= 3 && useWasm && wasmFeatures.length > 0) {
           const anchor = batch[0];
           const positives = [batch[1]];
           const negatives = batch.slice(2);
@@ -302,16 +337,21 @@ const trainCommand: Command = {
       flushPatterns();
       const persistence = getPersistenceStatus();
 
-      // Save LoRA checkpoint via ruvllm TrainingPipeline if available
-      try {
-        const { LoRAAdapter } = await import('../ruvector/lora-adapter.js');
-        const path = await import('path');
-        const cpDir = path.join(process.cwd(), '.claude-flow', 'neural');
-        const cpPath = path.join(cpDir, `lora-checkpoint-${Date.now()}.json`);
-        const adapter = new LoRAAdapter({ inputDim: dim, outputDim: dim, rank: 4 });
-        await adapter.initBackend();
-        await adapter.saveCheckpoint(cpPath);
-      } catch { /* checkpoint save is best-effort */ }
+      // Checkpoint: when the native pipeline trained, its checkpoint (the
+      // TRAINED weights) was already written by runNativeTraining. The
+      // pre-3.19 fallback below saved a FRESH adapter's weights — only
+      // meaningful as a fallback when the native leg didn't run.
+      if (!nativeResult?.checkpointPath) {
+        try {
+          const { LoRAAdapter } = await import('../ruvector/lora-adapter.js');
+          const path = await import('path');
+          const cpDir = path.join(process.cwd(), '.claude-flow', 'neural');
+          const cpPath = path.join(cpDir, `lora-checkpoint-${Date.now()}.json`);
+          const adapter = new LoRAAdapter({ inputDim: dim, outputDim: dim, rank: 4 });
+          await adapter.initBackend();
+          await adapter.saveCheckpoint(cpPath);
+        } catch { /* checkpoint save is best-effort */ }
+      }
 
       output.writeln();
 
@@ -328,8 +368,24 @@ const trainCommand: Command = {
         { metric: 'Avg Epoch Time', value: `${(epochTimes.reduce((a, b) => a + b, 0) / epochTimes.length).toFixed(2)}ms` },
       ];
 
+      // Native pipeline metrics (#2549 — the LoRA leg trained on ruvllm)
+      if (nativeResult) {
+        tableData.push(
+          { metric: 'Backend', value: 'native (@ruvector/ruvllm TrainingPipeline)' },
+          { metric: 'Native Steps', value: String(nativeResult.steps) },
+          { metric: 'Final Loss', value: nativeResult.finalLoss.toExponential(3) },
+          { metric: 'Early Stopped', value: nativeResult.earlyStopped ? 'yes' : 'no' },
+        );
+        if (nativeResult.checkpointPath) {
+          tableData.push({
+            metric: 'Checkpoint',
+            value: `${nativeResult.checkpointPath}${nativeResult.checkpointBytes ? ` (${(nativeResult.checkpointBytes / 1024).toFixed(1)} KB)` : ''}`,
+          });
+        }
+      }
+
       // Add WASM-specific metrics
-      if (useWasm && wasmFeatures.length > 0) {
+      if (runWasmLeg && useWasm && wasmFeatures.length > 0) {
         const backendUsed = ruvectorStats?.backend || 'unknown';
         tableData.push(
           { metric: 'Backend', value: backendUsed === 'wasm' ? 'WASM (native)' : 'JS (fallback)' },

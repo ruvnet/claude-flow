@@ -81,3 +81,37 @@ describe('#2549 follow-up — native checkpoint capability gate', () => {
     expect(nativeCheckpointsSupported()).toBe(expected);
   });
 });
+
+describe('#2549 follow-up — native training routing', () => {
+  it('runNativeTraining trains and checkpoints through the native pipeline', async () => {
+    const { runNativeTraining, nativeTrainingAvailable } = await import('../src/services/native-training.js');
+    if (!nativeTrainingAvailable()) {
+      expect(await runNativeTraining({ embeddings: [], epochs: 1, batchSize: 2, learningRate: 0.01, dim: 8 })).toBeNull();
+      return;
+    }
+    const { mkdtempSync, existsSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { tmpdir } = await import('node:os');
+    const dir = mkdtempSync(join(tmpdir(), 'native-train-'));
+    try {
+      const embeddings = Array.from({ length: 6 }, (_, s) =>
+        Float32Array.from({ length: 8 }, (_, i) => Math.sin(s + i)));
+      const cp = join(dir, 'ckpt.json');
+      const r = await runNativeTraining({
+        embeddings, epochs: 2, batchSize: 2, learningRate: 0.01, dim: 8, checkpointPath: cp,
+      });
+      expect(r).not.toBeNull();
+      expect(typeof r!.finalLoss).toBe('number');
+      expect(r!.steps).toBeGreaterThan(0);
+      expect(r!.checkpointPath).toBe(cp);
+      expect(existsSync(cp)).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('returns null rather than throwing on degenerate input', async () => {
+    const { runNativeTraining } = await import('../src/services/native-training.js');
+    expect(await runNativeTraining({ embeddings: [new Float32Array(8)], epochs: 1, batchSize: 2, learningRate: 0.01, dim: 8 })).toBeNull();
+  });
+});
