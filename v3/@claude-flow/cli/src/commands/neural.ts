@@ -4366,11 +4366,300 @@ const routerCommand: Command = {
   },
 };
 
+// ============================================================================
+// ADR-150 weight-eft slice — `neural distill export | plan | eval | train`
+//
+// Turns ruflo's captured run transcripts into AUDITED TRAINING DATA + a
+// COST-PARETO measurement + a GPU TRAINING PLAN via the optional
+// `@metaharness/weight-eft` dependency. HARD honesty rule: this ships training
+// DATA + a cost audit + a GPU plan — it does NOT train a model and does NOT
+// "reduce escalation". weight-eft's own `train` never spawns; `resolved` in the
+// captured archive is a PROXY (no SWE-bench gold oracle). Every path degrades
+// gracefully ({degraded:true}) when the optional dep is absent (ADR-150).
+// ============================================================================
+
+const distillExportCommand: Command = {
+  name: 'export',
+  description: 'Export captured run transcripts → SFT (OpenAI chat) + DPO (TRL preference) JSONL + a guard report (contamination / reward-hack / long-context). $0, offline. Does NOT train.',
+  options: [
+    { name: 'archive', short: 'a', type: 'string', description: 'Run-transcript JSONL to read (default: $CLAUDE_FLOW_RUN_TRANSCRIPTS_PATH or .swarm/run-transcripts.jsonl)' },
+    { name: 'out-dir', short: 'o', type: 'string', description: 'Output dir for sft.jsonl / dpo.jsonl / export-report.json', default: '.claude-flow/neural/weft-export' },
+    { name: 'eval-holdout', type: 'string', description: 'Comma-separated instance_ids reserved for eval (contamination guard). Excluded + asserted-disjoint.' },
+    { name: 'max-tokens', type: 'number', description: 'Per-trajectory token budget (default weight-eft 28000)' },
+    { name: 'truncate', type: 'boolean', description: 'Truncate over-length trajectories instead of dropping', default: 'false' },
+    { name: 'keep-reward-hacked', type: 'boolean', description: 'Disable the reward-hacking filter (debug only; NOT recommended)', default: 'false' },
+    { name: 'format', short: 'f', type: 'string', description: 'Output format: table, json', default: 'table' },
+  ],
+  examples: [
+    { command: 'claude-flow neural distill export', description: 'Export from the default captured .swarm/run-transcripts.jsonl' },
+    { command: 'claude-flow neural distill export -a runs.jsonl -o ./out --eval-holdout astropy__astropy-1', description: 'Export a specific archive, holding out one instance' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { readRunTranscripts } = await import('../ruvector/run-transcript-recorder.js');
+    const { buildArchiveFromRecords, runExport } = await import('../services/weight-eft.js');
+    const fmt = (ctx.flags.format as string) || 'table';
+
+    const archivePath = (ctx.flags.archive as string | undefined)
+      ?? process.env.CLAUDE_FLOW_RUN_TRANSCRIPTS_PATH
+      ?? path.resolve(process.cwd(), '.swarm', 'run-transcripts.jsonl');
+    const { records, malformed } = readRunTranscripts(archivePath);
+    if (records.length === 0) {
+      const msg = `No run transcripts at ${archivePath}. Enable capture with CLAUDE_FLOW_RUN_TRANSCRIPTS=1, or pass --archive <file>.`;
+      if (fmt === 'json') output.writeln(JSON.stringify({ ok: false, archivePath, records: 0, malformed, error: msg }, null, 2));
+      else output.printError(msg);
+      return { success: false, exitCode: 1, data: { archivePath, records: 0 } };
+    }
+
+    const { trajectories, stats, proxyNote } = buildArchiveFromRecords(records);
+    const holdout = ((ctx.flags['eval-holdout'] ?? ctx.flags.evalHoldout) as string | undefined)?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
+    const maxTokens = (ctx.flags['max-tokens'] ?? ctx.flags.maxTokens) != null ? parseInt(String((ctx.flags['max-tokens'] ?? ctx.flags.maxTokens)), 10) : undefined;
+
+    const res = await runExport({
+      archive: trajectories,
+      evalHoldout: holdout,
+      maxTokens,
+      truncateOverLength: ctx.flags.truncate === true,
+      dropRewardHacked: (ctx.flags['keep-reward-hacked'] ?? ctx.flags.keepRewardHacked) === true ? false : undefined,
+    });
+
+    if (res.degraded) {
+      // ADR-150 graceful degradation: dep absent → not a runtime failure.
+      const payload = { degraded: true, reason: res.reason, archiveTrajectories: trajectories.length };
+      if (fmt === 'json') output.writeln(JSON.stringify(payload, null, 2));
+      else {
+        output.writeln(output.warning(`weight-eft unavailable (${res.reason}).`));
+        output.writeln(output.dim('Install the optional dep: npm i @metaharness/weight-eft. Archive was built (' + trajectories.length + ' trajectories) but not exported.'));
+      }
+      return { success: true, exitCode: 0, data: payload };
+    }
+
+    const outDir = path.resolve(process.cwd(), ((ctx.flags['out-dir'] ?? ctx.flags.outDir) as string) || '.claude-flow/neural/weft-export');
+    fs.mkdirSync(outDir, { recursive: true });
+    const sftPath = path.join(outDir, 'sft.jsonl');
+    const dpoPath = path.join(outDir, 'dpo.jsonl');
+    const reportPath = path.join(outDir, 'export-report.json');
+    fs.writeFileSync(sftPath, res.sftJsonl);
+    fs.writeFileSync(dpoPath, res.dpoJsonl);
+    fs.writeFileSync(reportPath, JSON.stringify({ report: res.report, archiveStats: stats, proxyNote }, null, 2));
+
+    const payload = {
+      ok: true, archivePath, outDir, sftPath, dpoPath, reportPath,
+      sftRows: res.sftRows, dpoRows: res.dpoRows, malformed,
+      archiveStats: stats, report: res.report, proxyNote,
+    };
+    if (fmt === 'json') { output.writeln(JSON.stringify(payload, null, 2)); return { success: true, data: payload }; }
+
+    output.writeln();
+    output.writeln(output.bold('weight-eft export — audited training data ($0, no model trained)'));
+    output.writeln(`  archive:      ${archivePath} (${records.length} records, ${malformed} malformed skipped)`);
+    output.writeln(`  trajectories: ${stats.total} (cheap ${stats.byTier.cheap} / frontier ${stats.byTier.frontier}), resolved ${stats.resolved}`);
+    output.writeln(`  SFT rows:     ${res.sftRows}  → ${sftPath}`);
+    output.writeln(`  DPO rows:     ${res.dpoRows}  → ${dpoPath}`);
+    output.writeln(`  guards:       holdout=${res.report.excludedByHoldout} reward-hacked=${res.report.droppedRewardHacked} over-length=${res.report.droppedOverLength} truncated=${res.report.truncatedOverLength}`);
+    output.writeln(`  report:       ${reportPath}`);
+    output.writeln();
+    output.writeln(output.warning('resolved provenance: ' + JSON.stringify(stats.byResolvedSource)));
+    output.writeln(output.dim(proxyNote));
+    return { success: true, data: payload };
+  },
+};
+
+const distillPlanCommand: Command = {
+  name: 'plan',
+  description: 'Print the two-stage (SFT → on-policy DPO) GPU training plan + the exact `ruvllm microlora` commands a GPU host would run. $0 dry-run — NEVER spawns a tune.',
+  options: [
+    { name: 'sft', type: 'string', description: 'Path to sft.jsonl (default: .claude-flow/neural/weft-export/sft.jsonl)' },
+    { name: 'dpo', type: 'string', description: 'Path to dpo.jsonl (default: .claude-flow/neural/weft-export/dpo.jsonl)' },
+    { name: 'base', short: 'b', type: 'string', description: 'Base model id to tune (7-14B band). Default Qwen2.5-Coder-7B-Instruct' },
+    { name: 'params-b', type: 'number', description: 'Base model param count in billions (gate [1,14]). Default 7' },
+    { name: 'adapter-prefix', type: 'string', description: 'Adapter output prefix', default: 'ruflo-weft' },
+    { name: 'format', short: 'f', type: 'string', description: 'Output format: table, json', default: 'table' },
+  ],
+  examples: [
+    { command: 'claude-flow neural distill plan', description: 'Print the GPU plan for the last export ($0 dry-run)' },
+    { command: 'claude-flow neural distill plan --base Qwen/Qwen2.5-Coder-7B-Instruct --params-b 7', description: 'Plan for a specific base model' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const path = await import('node:path');
+    const { runPlan, DEFAULT_BASE_MODEL } = await import('../services/weight-eft.js');
+    const fmt = (ctx.flags.format as string) || 'table';
+    const sftPath = (ctx.flags.sft as string) || path.resolve(process.cwd(), '.claude-flow/neural/weft-export/sft.jsonl');
+    const dpoPath = (ctx.flags.dpo as string) || path.resolve(process.cwd(), '.claude-flow/neural/weft-export/dpo.jsonl');
+    const base = ctx.flags.base
+      ? { id: String(ctx.flags.base), paramsB: (ctx.flags['params-b'] ?? ctx.flags.paramsB) != null ? parseInt(String((ctx.flags['params-b'] ?? ctx.flags.paramsB)), 10) : 7 }
+      : DEFAULT_BASE_MODEL;
+
+    const res = await runPlan({ base, sftPath, dpoPath, adapterPrefix: String((ctx.flags['adapter-prefix'] ?? ctx.flags.adapterPrefix) || 'ruflo-weft') });
+    if (res.degraded) {
+      const payload = { degraded: true, reason: res.reason };
+      if (fmt === 'json') output.writeln(JSON.stringify(payload, null, 2));
+      else { output.writeln(output.warning(`weight-eft unavailable (${res.reason}).`)); output.writeln(output.dim('Install: npm i @metaharness/weight-eft')); }
+      return { success: true, exitCode: 0, data: payload };
+    }
+    const payload = { ok: true, base: res.base, sft: res.sft, dpo: res.dpo, dryRun: true };
+    if (fmt === 'json') { output.writeln(JSON.stringify(payload, null, 2)); return { success: true, data: payload }; }
+    output.writeln();
+    output.writeln(output.bold(`weight-eft GPU training plan ($0 dry-run — no tune runs from ruflo)`));
+    output.writeln(`  base model: ${res.base.id} (${res.base.paramsB}B)`);
+    output.writeln(output.dim('  SFT stage:'));
+    output.writeln(`    ${res.sft.summary}`);
+    output.writeln(`    $ ${res.sft.command}`);
+    output.writeln(output.dim('  DPO stage (on-policy, init from SFT adapter):'));
+    output.writeln(`    ${res.dpo.summary}`);
+    output.writeln(`    $ ${res.dpo.command}`);
+    output.writeln();
+    output.writeln(output.dim('These commands run on a GPU host; ruflo does not execute them. See `neural distill train --remote` for a spend-gated remote path.'));
+    return { success: true, data: payload };
+  },
+};
+
+const distillEvalCommand: Command = {
+  name: 'eval',
+  description: 'Fold two CascadeOutcome[] JSON files (base vs adapter) into the cost-Pareto delta — escalation-rate reduction + $/resolved. $0. Measures cost, does NOT claim a tune ran.',
+  options: [
+    { name: 'base-outcomes', type: 'string', description: 'JSON file: CascadeOutcome[] for the BASE cascade run', required: true },
+    { name: 'adapter-outcomes', type: 'string', description: 'JSON file: CascadeOutcome[] for the ADAPTER cascade run', required: true },
+    { name: 'format', short: 'f', type: 'string', description: 'Output format: table, json', default: 'table' },
+  ],
+  examples: [
+    { command: 'claude-flow neural distill eval --base-outcomes base.json --adapter-outcomes adapter.json', description: 'Cost-Pareto delta between base and adapter cascade runs' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const fs = await import('node:fs');
+    const { runEval } = await import('../services/weight-eft.js');
+    const fmt = (ctx.flags.format as string) || 'table';
+    const basePath = (ctx.flags['base-outcomes'] ?? ctx.flags.baseOutcomes) as string | undefined;
+    const adapterPath = (ctx.flags['adapter-outcomes'] ?? ctx.flags.adapterOutcomes) as string | undefined;
+    if (!basePath || !adapterPath) {
+      output.printError('Both --base-outcomes and --adapter-outcomes are required.');
+      return { success: false, exitCode: 2 };
+    }
+    let baseOutcomes: unknown; let adapterOutcomes: unknown;
+    try {
+      baseOutcomes = JSON.parse(fs.readFileSync(basePath, 'utf8'));
+      adapterOutcomes = JSON.parse(fs.readFileSync(adapterPath, 'utf8'));
+    } catch (e) {
+      output.printError(`Failed to read outcome files: ${(e as Error).message}`);
+      return { success: false, exitCode: 1 };
+    }
+    if (!Array.isArray(baseOutcomes) || !Array.isArray(adapterOutcomes)) {
+      output.printError('Both files must contain a JSON array of CascadeOutcome objects.');
+      return { success: false, exitCode: 1 };
+    }
+    const res = await runEval({ baseOutcomes: baseOutcomes as never, adapterOutcomes: adapterOutcomes as never });
+    if (res.degraded) {
+      const payload = { degraded: true, reason: res.reason };
+      if (fmt === 'json') output.writeln(JSON.stringify(payload, null, 2));
+      else { output.writeln(output.warning(`weight-eft unavailable (${res.reason}).`)); output.writeln(output.dim('Install: npm i @metaharness/weight-eft')); }
+      return { success: true, exitCode: 0, data: payload };
+    }
+    if (fmt === 'json') { output.writeln(JSON.stringify({ ok: true, delta: res.delta }, null, 2)); return { success: true, data: res.delta }; }
+    output.writeln();
+    output.writeln(output.bold('weight-eft cost-Pareto delta (measurement only)'));
+    output.writeln(`  cheap-resolve lift:       ${res.delta.cheapResolveLift.toFixed(4)}`);
+    output.writeln(`  escalation-rate reduction: ${res.delta.escalationRateReduction.toFixed(4)}`);
+    output.writeln(`  $/resolved reduction:      ${res.delta.costPerResolvedReduction.toFixed(6)}`);
+    output.writeln(`  resolve-rate delta:        ${res.delta.resolveRateDelta.toFixed(4)} (expected ≈ 0 — ceiling unmoved)`);
+    output.writeln(`  verdict: ${res.delta.verdict}`);
+    return { success: true, data: res.delta };
+  },
+};
+
+const distillTrainCommand: Command = {
+  name: 'train',
+  description: 'Remote-GPU LoRA tune over SSH — DRY-RUN by default (prints ssh/rsync/ruvllm commands + read-only preflight). Real compute ONLY with --execute --yes (spends GPU time on YOUR host). Not a $0/local tune.',
+  options: [
+    { name: 'remote', short: 'r', type: 'string', description: 'SSH host or tailscale name (default: $RUFLO_DISTILL_REMOTE). Never hard-coded.' },
+    { name: 'base', short: 'b', type: 'string', description: 'Base model id to tune. Default Qwen2.5-Coder-7B-Instruct' },
+    { name: 'sft', type: 'string', description: 'Local sft.jsonl (default: .claude-flow/neural/weft-export/sft.jsonl)' },
+    { name: 'dpo', type: 'string', description: 'Local dpo.jsonl (default: .claude-flow/neural/weft-export/dpo.jsonl)' },
+    { name: 'adapter-dir', type: 'string', description: 'Local dir to fetch the trained adapter into', default: '.claude-flow/neural' },
+    { name: 'ssh-user', type: 'string', description: 'SSH user (default: current user)' },
+    { name: 'ssh-port', type: 'number', description: 'SSH port', default: '22' },
+    { name: 'remote-workdir', type: 'string', description: 'Remote working dir (default: ~/.ruflo-weft/<runId>)' },
+    { name: 'execute', type: 'boolean', description: 'Opt in to REAL GPU compute on the remote host (still needs --yes)', default: 'false' },
+    { name: 'yes', type: 'boolean', description: 'Second confirmation gate; required with --execute to actually spend', default: 'false' },
+    { name: 'format', short: 'f', type: 'string', description: 'Output format: table, json', default: 'table' },
+  ],
+  examples: [
+    { command: 'claude-flow neural distill train --remote gpu-box', description: 'DRY-RUN: print the ssh/rsync/ruvllm commands + preflight (no training)' },
+    { command: 'RUFLO_DISTILL_REMOTE=gpu-box claude-flow neural distill train --execute --yes', description: 'Run the real remote tune (spends GPU time on your host)' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const path = await import('node:path');
+    const { runRemoteTrain } = await import('../services/weight-eft.js');
+    const fmt = (ctx.flags.format as string) || 'table';
+    const host = (ctx.flags.remote as string | undefined) || process.env.RUFLO_DISTILL_REMOTE;
+    if (!host) {
+      output.printError('No remote host. Pass --remote <host> or set RUFLO_DISTILL_REMOTE.');
+      return { success: false, exitCode: 2 };
+    }
+    const res = await runRemoteTrain({
+      host,
+      base: ctx.flags.base ? String(ctx.flags.base) : undefined,
+      sftPath: (ctx.flags.sft as string) || path.resolve(process.cwd(), '.claude-flow/neural/weft-export/sft.jsonl'),
+      dpoPath: (ctx.flags.dpo as string) || path.resolve(process.cwd(), '.claude-flow/neural/weft-export/dpo.jsonl'),
+      adapterDir: ((ctx.flags['adapter-dir'] ?? ctx.flags.adapterDir) as string) || '.claude-flow/neural',
+      sshUser: (ctx.flags['ssh-user'] ?? ctx.flags.sshUser) ? String((ctx.flags['ssh-user'] ?? ctx.flags.sshUser)) : undefined,
+      sshPort: (ctx.flags['ssh-port'] ?? ctx.flags.sshPort) != null ? parseInt(String((ctx.flags['ssh-port'] ?? ctx.flags.sshPort)), 10) : undefined,
+      remoteWorkdir: (ctx.flags['remote-workdir'] ?? ctx.flags.remoteWorkdir) ? String((ctx.flags['remote-workdir'] ?? ctx.flags.remoteWorkdir)) : undefined,
+      execute: ctx.flags.execute === true,
+      yes: ctx.flags.yes === true,
+    });
+
+    if ('degraded' in res && res.degraded) {
+      const payload = { degraded: true, reason: res.reason };
+      if (fmt === 'json') output.writeln(JSON.stringify(payload, null, 2));
+      else output.writeln(output.warning(`remote-train unavailable (${res.reason}).`));
+      return { success: true, exitCode: 0, data: payload };
+    }
+    if (fmt === 'json') { output.writeln(JSON.stringify(res, null, 2)); return { success: res.mode !== 'preflight-failed', data: res }; }
+
+    output.writeln();
+    output.writeln(output.bold(`weight-eft remote-GPU tune [${res.mode}] on ${res.plan.host}`));
+    if (res.mode === 'dry-run') output.writeln(output.dim('DRY-RUN — no data transferred, no training. Re-run with --execute --yes to spend GPU time on your host.'));
+    if (res.reason) output.writeln(output.warning(res.reason));
+    output.writeln(`  base: ${res.plan.base}   remote workdir: ${res.plan.remoteWorkdir}   adapter → ${res.plan.adapterDir}/${res.plan.dpoAdapter}`);
+    if (res.preflight) {
+      output.writeln(output.dim('  preflight (read-only probes):'));
+      for (const p of res.preflight) output.writeln(`    [${p.ok ? 'ok ' : 'FAIL'}] ${p.label}: ${p.detail}`);
+    }
+    output.writeln(output.dim('  commands that ' + (res.mode === 'executed' ? 'ran' : 'WOULD run') + ':'));
+    for (const c of res.plan.humanCommands) output.writeln(`    $ ${c}`);
+    if (res.steps) {
+      output.writeln(output.dim('  execution:'));
+      for (const s of res.steps) output.writeln(`    [${s.ok ? 'ok ' : 'FAIL'}] ${s.label}: ${s.detail}`);
+    }
+    output.writeln();
+    output.writeln(output.dim('Honesty: ruflo does not train locally or at $0. This is an explicit, user-triggered remote-GPU spend. resolved-gold in the SFT data is still a proxy.'));
+    return { success: res.mode !== 'preflight-failed', data: res };
+  },
+};
+
+const distillCommand: Command = {
+  name: 'distill',
+  description: 'weight-eft training-data + cost-audit slice (ADR-150): export | plan | eval | train. Ships audited SFT/DPO data + a cost-Pareto measurement + a GPU plan. Does NOT train a model or reduce escalation.',
+  subcommands: [distillExportCommand, distillPlanCommand, distillEvalCommand, distillTrainCommand],
+  examples: [
+    { command: 'claude-flow neural distill export', description: 'Captured transcripts → audited SFT/DPO JSONL + guard report ($0)' },
+    { command: 'claude-flow neural distill plan', description: 'Print the GPU training plan + ruvllm commands ($0 dry-run)' },
+    { command: 'claude-flow neural distill eval --base-outcomes b.json --adapter-outcomes a.json', description: 'Cost-Pareto delta ($0)' },
+    { command: 'claude-flow neural distill train --remote gpu-box', description: 'Remote-GPU tune DRY-RUN (spend-gated behind --execute --yes)' },
+  ],
+  action: async (): Promise<CommandResult> => {
+    output.writeln('Use a subcommand: export | plan | eval | train');
+    output.writeln(output.dim('Ships audited training DATA + a cost audit + a GPU plan. It does NOT train a model or reduce escalation (weight-eft train never spawns; resolved is a proxy).'));
+    return { success: true };
+  },
+};
+
 // Main neural command
 export const neuralCommand: Command = {
   name: 'neural',
   description: 'Neural pattern training, MoE, Flash Attention, pattern learning',
-  subcommands: [trainCommand, statusCommand, patternsCommand, predictCommand, optimizeCommand, benchmarkCommand, listCommand, exportCommand, importCommand, routerCommand],
+  subcommands: [trainCommand, statusCommand, patternsCommand, predictCommand, optimizeCommand, benchmarkCommand, listCommand, exportCommand, importCommand, routerCommand, distillCommand],
   examples: [
     { command: 'claude-flow neural status', description: 'Check neural system status' },
     { command: 'claude-flow neural train -p coordination', description: 'Train coordination patterns' },

@@ -119,6 +119,7 @@
     "@metaharness/kernel": "~0.1.2",
     "@metaharness/redblue": "~0.1.4",
     "@metaharness/router": "~0.3.2",
+    "@metaharness/weight-eft": "~0.1.1",
     "metaharness": "~0.2.8",
     "@ruvector/attention": "^0.1.32",
     "@ruvector/attention-darwin-arm64": "0.1.32",
