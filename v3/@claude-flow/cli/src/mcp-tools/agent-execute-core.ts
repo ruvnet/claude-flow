@@ -628,6 +628,37 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
         });
       } catch { /* never break execution */ }
     }
+    // ADR-150 weight-eft capture seam — the ONLY place a run's full outcome is
+    // known here: prompt (issue), assistant transcript, model, tier, and a
+    // resolved PROXY. Gated behind CLAUDE_FLOW_RUN_TRANSCRIPTS=1 (off by
+    // default; PII/retention surface, mirrors the router trajectory recorder).
+    // HONESTY: `resolved` here is the WEAKEST proxy — 'api-success' means only
+    // that the model returned without an API error, NOT that the output is
+    // correct (ruflo has no SWE-bench gold oracle). model_patch is '' because
+    // this single-shot execute path produces no unified diff. Both facts are
+    // stamped so no downstream weight-eft export mistakes this for gold data.
+    if (process.env.CLAUDE_FLOW_RUN_TRANSCRIPTS === '1') {
+      try {
+        const { recordRunTranscript, tierForModel } = await import('../ruvector/run-transcript-recorder.js');
+        const modelId = agent.modelId ?? String(agent.model ?? 'unknown');
+        const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
+        if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+        messages.push({ role: 'user', content: input.prompt });
+        if (result.success && typeof result.output === 'string') {
+          messages.push({ role: 'assistant', content: result.output });
+        }
+        recordRunTranscript({
+          task: input.prompt,
+          model: modelId,
+          tier: tierForModel(modelId),
+          resolved: outcome === 'success',
+          resolvedSource: 'api-success',
+          messages,
+          source: 'agent-execute',
+          tokens: result.usage ? { input: result.usage.inputTokens, output: result.usage.outputTokens } : undefined,
+        });
+      } catch { /* never break execution */ }
+    }
   } catch {
     // Silent — bandit feedback must never block routing.
   }

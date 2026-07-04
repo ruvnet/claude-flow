@@ -13,6 +13,19 @@
  * Schema is versioned (`"v": 1`). New required fields bump the version;
  * additive optional fields do not.
  *
+ * COMPANION: run-transcript-recorder.ts (weight-eft capture path)
+ * --------------------------------------------------------------
+ * This recorder captures the routing DECISION only (task, embedding, scalar
+ * quality, tokens, cost) — enough to retrain the router. It deliberately does
+ * NOT carry the full message transcript, the produced patch, or a resolved
+ * boolean. `@metaharness/weight-eft` needs those to build SFT/DPO training
+ * rows, so a SEPARATE opt-in recorder — `run-transcript-recorder.ts` — captures
+ * the full run transcript to `.swarm/run-transcripts.jsonl`. Both share the
+ * `taskHash()` below as their join key, and both are off-by-default for the
+ * same PII/retention reason. Use `unifiedRecorderStatus()` (bottom of this
+ * file) to inspect both at once. Keeping them as two files keeps the routing
+ * hot path free of the heavier transcript payload.
+ *
  * @module router-trajectory
  */
 
@@ -395,4 +408,25 @@ export function pairTrajectoryRows(
 export function __resetTrajectoryRecorderForTests(): void {
   _cfg = null;
   _cachedSize = -1;
+}
+
+/**
+ * Unified status for BOTH the routing-decision recorder (this module) and the
+ * companion run-transcript recorder (the weight-eft capture path). The
+ * run-transcript recorder is loaded dynamically so this module has no static
+ * dependency on it (the reverse edge — run-transcript-recorder → taskHash —
+ * is the only static link, keeping the import acyclic).
+ */
+export async function unifiedRecorderStatus(): Promise<{
+  routerTrajectory: { enabled: boolean; path: string; taskCharLimit: number };
+  runTranscripts: { enabled: boolean; path: string } | { unavailable: true };
+}> {
+  const routerTrajectory = trajectoryRecorderStatus();
+  try {
+    const mod = await import('./run-transcript-recorder.js');
+    const s = mod.runTranscriptRecorderStatus();
+    return { routerTrajectory, runTranscripts: { enabled: s.enabled, path: s.path } };
+  } catch {
+    return { routerTrajectory, runTranscripts: { unavailable: true } };
+  }
 }
