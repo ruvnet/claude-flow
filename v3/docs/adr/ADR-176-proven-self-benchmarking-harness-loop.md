@@ -1,6 +1,6 @@
 # ADR-176 — Self-Optimizing Harness Loop (Receipt-Backed Evolution)
 
-- **Status:** Proposed
+- **Status:** Accepted (implemented — PR #2572)
 - **Date:** 2026-07-04
 - **Deciders:** ruflo core
 - **Related:** [ADR-150](ADR-150-metaharness-integration-surfaces.md) (metaharness integration contract + removability), [ADR-153](ADR-153-metaharness-darwin-mode-integration.md) (Darwin/evolve — *Proposed*), [ADR-155] (security-bench / Darwin Shield), [ADR-171](ADR-171-provenance-tiered-evaluation-oracle.md) (provenance tiers), [ADR-172](ADR-172-fable-advisor-harness.md) (Fable, cost-bounded), [ADR-174](ADR-174-memory-distillation-self-optimization.md) (distill loop + the held-out promote-gate pattern + Ed25519 signing), [ADR-177](ADR-177-signed-config-propagation-to-installs.md) (propagation to existing installs)

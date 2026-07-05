@@ -1,6 +1,6 @@
 # ADR-177 — Propagating Proven Configuration Manifests to Existing Installs
 
-- **Status:** Proposed
+- **Status:** Accepted (implemented — PR #2572)
 - **Date:** 2026-07-04
 - **Deciders:** ruflo core
 - **Related:** [ADR-174](ADR-174-memory-distillation-self-optimization.md) (the version-stamped, Ed25519-signed helper auto-refresh channel this generalizes), [ADR-176](ADR-176-proven-self-benchmarking-harness-loop.md) (produces the signed champion this ships), [ADR-171](ADR-171-provenance-tiered-evaluation-oracle.md) (provenance tiers), [ADR-150](ADR-150-metaharness-integration-surfaces.md) (optional-dependency + removability)

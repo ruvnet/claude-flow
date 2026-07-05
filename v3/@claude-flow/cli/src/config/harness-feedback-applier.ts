@@ -23,13 +23,14 @@ export interface ActivePolicy {
   appliedAt: number;
   previous?: string | null; // the champion this superseded (rollback pointer)
   rolledBack?: boolean;
+  params?: Record<string, unknown>; // the champion's policy payload (manifest.policy.value) consumers read
 }
 
 export interface ApplyResult { applied: boolean; from?: string | null; to?: string; reason?: string }
 
 interface AdoptedRecord {
   championId: string;
-  manifest?: { layer?: string; receipt?: { redblue?: string }; rollback?: { previousManifest?: string } };
+  manifest?: { layer?: string; policy?: { value?: Record<string, unknown> }; receipt?: { redblue?: string }; rollback?: { previousManifest?: string } };
   previous?: string | null;
 }
 
@@ -63,6 +64,7 @@ export function applyChampion(cwd: string, opts: { now?: number } = {}): ApplyRe
       layer: adopted.manifest?.layer,
       appliedAt: opts.now ?? Date.now(),
       previous: current?.championId ?? adopted.previous ?? null,
+      params: adopted.manifest?.policy?.value,
     };
     fs.mkdirSync(cfDir, { recursive: true });
     fs.writeFileSync(activePath, JSON.stringify(active, null, 2), 'utf-8');

@@ -38,6 +38,19 @@ describe('applyChampion', () => {
     expect(applyChampion(cwd, { now: 2 }).applied).toBe(false); // already active
   });
 
+  it('carries the manifest policy.value into the active policy params (ADR-176/177 last mile)', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'feedback-'));
+    mkdirSync(join(cwd, '.claude'), { recursive: true });
+    writeFileSync(join(cwd, '.claude', ADOPTED_CONFIG_FILE), JSON.stringify({
+      championId: 'sha256:ccc',
+      manifest: { layer: 'framework/node-cli', policy: { value: { alpha: 0.6, subjectWeight: 3.0 } } },
+      previous: null,
+    }));
+    expect(applyChampion(cwd, { now: 5 }).applied).toBe(true);
+    const active = activeChampion(cwd)!;
+    expect(active.params).toEqual({ alpha: 0.6, subjectWeight: 3.0 }); // consumers read these
+  });
+
   it('records the superseded champion as the rollback pointer', () => {
     const cwd = project({ championId: 'sha256:v1' });
     applyChampion(cwd, { now: 1 });

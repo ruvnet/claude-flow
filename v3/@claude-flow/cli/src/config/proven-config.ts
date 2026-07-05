@@ -37,7 +37,10 @@ export interface ProvenConfigReceipt {
 /** The constraint contract (ADR-177 §signed != suitable) + policy reference + receipt. */
 export interface ProvenConfigManifest {
   schema: string;                        // 'ruflo.proven-config/v1'
-  policy: { ref: string };               // content hash of the verified execution policy (RVFA payload)
+  policy: {
+    ref: string;                         // content hash of the verified execution policy (RVFA payload)
+    value?: Record<string, unknown>;     // the policy payload itself (config the applier makes active). Optional + additive: older CLIs verify the signature and ignore this field.
+  };
   host?: Record<string, string>;         // host name -> semver range (e.g. { 'claude-code': '>=1.9' })
   platform?: string[];                   // e.g. ['linux', 'macOS']
   compatibility?: Record<string, string>;// package -> semver range (e.g. { ruflo: '>=3.24.0' })

@@ -17,6 +17,27 @@ import { validateIdentifier, validateText } from './validate-input.js';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+/**
+ * ADR-176/177: an adopted+applied proven-config champion supplies the retrieval
+ * defaults (`.claude-flow/harness-active-policy.json` → params). Read it once,
+ * cached with a short TTL, fully fail-safe (any error → {} → hardcoded defaults).
+ * A caller's explicit param always still wins over the champion.
+ */
+let _champCache: { at: number; params: Record<string, unknown> } | null = null;
+function activeChampionParams(): Record<string, unknown> {
+  try {
+    if (_champCache && Date.now() - _champCache.at < 30_000) return _champCache.params;
+    const p = join(getProjectCwd(), '.claude-flow', 'harness-active-policy.json');
+    let params: Record<string, unknown> = {};
+    if (existsSync(p)) {
+      const active = JSON.parse(readFileSync(p, 'utf-8'));
+      if (active && !active.rolledBack && active.params && typeof active.params === 'object') params = active.params;
+    }
+    _champCache = { at: Date.now(), params };
+    return params;
+  } catch { return {}; }
+}
+
 // Real embeddings — resolved LAZILY on first use.
 // Perf (measured 2026-07): the previous top-level-await version of this block
 // ran `await import('ruvector')` + `initOnnxEmbedder()` + a probe embed at
@@ -647,8 +668,11 @@ export const neuralTools: MCPTool[] = [
         // sub-params than non-rerank (the cross-encoder adds semantic depth,
         // so the hybrid stage can be more keyword-focused). nDCG@3 0.900 →
         // 0.963 on rerank just by switching sw 2.0 → 3.0 in the hybrid stage.
-        const alpha = Number(input.alpha ?? 0.5);
-        const mmrLambda = Number(input.mmrLambda ?? 0.7);
+        // Champion-provided defaults (ADR-176/177): explicit input wins, then the
+        // adopted proven-config champion, then the hardcoded ADR-082 defaults.
+        const champ = activeChampionParams();
+        const alpha = Number(input.alpha ?? champ.alpha ?? 0.5);
+        const mmrLambda = Number(input.mmrLambda ?? champ.mmrLambda ?? 0.7);
 
         const { tokenize, buildCorpusStats, hybridScores, mmrRerank, multiFieldBM25, typePenalty } =
           await import('../memory/hybrid-retrieval.js');
@@ -694,8 +718,8 @@ export const neuralTools: MCPTool[] = [
         // ADR-083 joint grid: when rerank is on, the cross-encoder handles
         // semantic understanding, so the hybrid stage can be MORE
         // subject-focused (sw=3) — recovers nDCG@3 0.963.
-        const subjectWeight = Number(input.subjectWeight ?? (useRerank ? 3.0 : 2.0));
-        const bodyWeight = Number(input.bodyWeight ?? 1.0);
+        const subjectWeight = Number(input.subjectWeight ?? champ.subjectWeight ?? (useRerank ? 3.0 : 2.0));
+        const bodyWeight = Number(input.bodyWeight ?? champ.bodyWeight ?? 1.0);
         const bm25Arr = patterns.map((_, i) =>
           multiFieldBM25(queryTokens, subjectDocs[i], bodyDocs[i], subjectStats, bodyStats, subjectWeight, bodyWeight),
         );
@@ -705,7 +729,7 @@ export const neuralTools: MCPTool[] = [
         // penalty enabled) because some relevant work commits also match the
         // Merge/release regex. Callers wanting aggressive meta-commit
         // suppression can set {typePenaltyFactor: 0.5}.
-        const typeFactor = Number(input.typePenaltyFactor ?? 1.0);
+        const typeFactor = Number(input.typePenaltyFactor ?? champ.typePenaltyFactor ?? 1.0);
         const hybridArr = typeFactor === 1.0
           ? baseHybrid
           : baseHybrid.map((s, i) => s * typePenalty(patterns[i].name, typeFactor));

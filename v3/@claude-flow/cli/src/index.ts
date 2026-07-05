@@ -162,6 +162,14 @@ export class CLI {
           if (a.adopted && this.output.isVerbose()) {
             this.output.printDebug(`Adopted proven config (${a.from} → ${a.to})`);
           }
+          // Close the loop (ADR-176 phase 9): promote the adopted champion to the
+          // ACTIVE policy that consumers (neural_patterns retrieval, …) read. A
+          // no-op if nothing is adopted or it is already active; reversible.
+          const { applyChampion } = await import('./config/harness-feedback-applier.js');
+          const ap = applyChampion(process.cwd());
+          if (ap.applied && this.output.isVerbose()) {
+            this.output.printDebug(`Applied proven config to active policy (${ap.from ?? '(none)'} → ${ap.to})`);
+          }
         } catch { /* silent */ }
 
         // Self-running daemon: ensure the background workers (distillation,
