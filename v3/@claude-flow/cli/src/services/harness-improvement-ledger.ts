@@ -28,11 +28,38 @@ export interface LedgerEntry {
   baselineScore: number;         // held-out fitness of the incumbent
   candidateScore: number;        // held-out fitness of the candidate
   delta: number;                 // candidate - baseline
+  deltaCILow?: number;           // one-sided 95% bootstrap lower bound on the per-task delta
+  significant?: boolean;         // deltaCILow > 0 — the gain is not small-N noise
+  loopAccepted?: boolean;        // the accept() conjunction verdict (before the significance gate)
   anchorRegressed: boolean;      // did the candidate regress on the human anchor?
-  accepted: boolean;
+  accepted: boolean;             // FINAL decision = loopAccepted AND significant (what actually applied)
   gates: Record<string, boolean>;// accept() terms, for audit
   championRef?: string;          // == candidateRef when accepted
   reason: string;
+}
+
+/**
+ * One-sided 95% bootstrap lower bound on the mean of paired per-task deltas.
+ * Deterministic (seeded LCG) so the confidence bound is reproducible — the same
+ * evidence yields the same verdict. A positive lower bound means the improvement
+ * survives resampling: it is not an artifact of a lucky held-out task (small-N
+ * noise guard, "measured not marketing").
+ */
+export function bootstrapDeltaCILow(deltas: number[], opts: { iters?: number; alpha?: number; seed?: number } = {}): number {
+  const n = deltas.length;
+  if (n === 0) return 0;
+  const iters = opts.iters ?? 2000;
+  const alpha = opts.alpha ?? 0.05;
+  let seed = (opts.seed ?? 0x9e3779b1) >>> 0;
+  const rnd = () => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 4294967296; };
+  const means: number[] = new Array(iters);
+  for (let b = 0; b < iters; b++) {
+    let s = 0;
+    for (let i = 0; i < n; i++) s += deltas[Math.floor(rnd() * n)];
+    means[b] = s / n;
+  }
+  means.sort((a, b) => a - b);
+  return means[Math.floor(alpha * iters)];
 }
 
 export interface ImprovementSummary {

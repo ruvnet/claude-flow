@@ -26,7 +26,7 @@ import { runHarnessLoop } from './harness-loop.js';
 import { hashCorpus } from './harness-benchmark.js';
 import { harvestSelfSupervisedTasks, blendCorpus, type HarvestPattern } from './harness-corpus-harvester.js';
 import { applyChampionParams } from '../config/harness-feedback-applier.js';
-import { appendLedger, type LedgerEntry } from './harness-improvement-ledger.js';
+import { appendLedger, bootstrapDeltaCILow, type LedgerEntry } from './harness-improvement-ledger.js';
 
 export interface RetrievalConfig { alpha: number; subjectWeight: number; mmrLambda: number; bodyWeight: number; typePenaltyFactor: number; }
 export const DEFAULT_CONFIG: RetrievalConfig = { alpha: 0.5, subjectWeight: 2.0, mmrLambda: 0.7, bodyWeight: 1.0, typePenaltyFactor: 1.0 };
@@ -79,13 +79,23 @@ function grade(ranked: RankedItem[], expected: unknown): number {
 function neighbors(base: RetrievalConfig): RetrievalConfig[] {
   const steps: Record<keyof RetrievalConfig, number> = { alpha: 0.1, subjectWeight: 0.5, mmrLambda: 0.1, bodyWeight: 0.5, typePenaltyFactor: 0.25 };
   const out: RetrievalConfig[] = [];
+  const seen = new Set<string>();
+  // Per-axis moves at 1 AND 2 steps in each direction — enough to escape a flat
+  // single step and reach a multi-step optimum over successive ticks (the
+  // single-step search got stuck one hop short of the known champion).
   for (const ax of Object.keys(steps) as (keyof RetrievalConfig)[]) {
-    for (const dir of [-1, 1]) {
-      const v = +(base[ax] + dir * steps[ax]).toFixed(3);
-      if (ax === 'alpha' && (v <= 0 || v >= 1)) continue;
-      if (ax === 'mmrLambda' && (v < 0 || v > 1)) continue;
-      if (v <= 0) continue;
-      out.push({ ...base, [ax]: v });
+    for (const mult of [1, 2]) {
+      for (const dir of [-1, 1]) {
+        const v = +(base[ax] + dir * mult * steps[ax]).toFixed(3);
+        if (ax === 'alpha' && (v <= 0 || v >= 1)) continue;
+        if (ax === 'mmrLambda' && (v < 0 || v > 1)) continue;
+        if (v <= 0) continue;
+        const cand = { ...base, [ax]: v };
+        const k = cfgKey(cand);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push(cand);
+      }
     }
   }
   return out;
@@ -116,6 +126,14 @@ export async function runFlywheelTick(projectRoot: string, deps: FlywheelDeps): 
     const baseline: RetrievalConfig = { ...DEFAULT_CONFIG, ...(deps.activeParams?.() ?? {}) };
     const candidates = neighbors(baseline);
 
+    // OBJECTIVE = the human-labeled anchor (the relevance we actually care about,
+    // where headroom is known to exist). GUARD = the large, growing harvested set
+    // (don't wreck broad retrieval while tuning the objective). Optimize the
+    // trusted signal; guard breadth with the cheap one.
+    const objective = blended.tasks.filter((t) => anchorIdSet.has(t.id));
+    const guard = blended.tasks.filter((t) => !anchorIdSet.has(t.id));
+    if (objective.length < 4) return { ran: false, reason: 'objective (anchor) too small to gate' };
+
     // Precompute retrieval for baseline + all candidates over every task (async
     // I/O up front → the harness scoring stays pure/sync).
     const cache = new Map<string, RankedItem[]>();
@@ -128,25 +146,23 @@ export async function runFlywheelTick(projectRoot: string, deps: FlywheelDeps): 
     }
     const evalFn = (input: unknown, cfg: RetrievalConfig) => cache.get(`${(input as { id: string }).id}::${cfgKey(cfg)}`) ?? [];
     const gradeFn = (output: unknown, expected: unknown) => grade(output as RankedItem[], expected);
+    const heldScoreFor = (cfg: RetrievalConfig, t: { input: unknown; expected: unknown }) => gradeFn(evalFn(t.input, cfg), t.expected);
 
-    // Local hill-climb: pick the best-on-TRAIN neighbor (selection uses train only).
-    const { train, held } = split(blended.tasks, 0.5);
-    const trainScore = (cfg: RetrievalConfig) => train.reduce((s, t) => s + gradeFn(evalFn(t.input, cfg), t.expected), 0) / train.length;
+    // Local hill-climb on the OBJECTIVE train split (selection uses train only).
+    const { train, held } = split(objective, 0.5);
+    const trainScore = (cfg: RetrievalConfig) => train.reduce((s, t) => s + heldScoreFor(cfg, t), 0) / train.length;
     const baseTrain = trainScore(baseline);
     let candidate = baseline, candTrain = baseTrain;
     for (const c of candidates) { const s = trainScore(c); if (s > candTrain + 1e-9) { candTrain = s; candidate = c; } }
 
-    // anchor-no-regress (Goodhart guard): candidate must not regress vs baseline
-    // on the human anchor. Used as the adversarial redblue verdict.
-    const anchorTasksHeld = blended.tasks.filter((t) => anchorIdSet.has(t.id));
-    const anchorScore = (cfg: RetrievalConfig) => anchorTasksHeld.length
-      ? anchorTasksHeld.reduce((s, t) => s + gradeFn(evalFn(t.input, cfg), t.expected), 0) / anchorTasksHeld.length : 1;
-    const baseAnchor = anchorScore(baseline), candAnchor = anchorScore(candidate);
-    const anchorRegressed = candAnchor < baseAnchor - EPS;
+    // Generalization guard: the candidate must not regress the broad harvested
+    // set (bound to the adversarial redblue verdict). This replaces the earlier
+    // (inverted) design where the cheap metric was the objective.
+    const guardScore = (cfg: RetrievalConfig) => guard.length ? guard.reduce((s, t) => s + heldScoreFor(cfg, t), 0) / guard.length : 1;
+    const guardRegressed = guardScore(candidate) < guardScore(baseline) - EPS;
 
-    // Qualified trajectories — one per train task. Both the human anchor and the
-    // self-supervised self-retrieval tasks are deterministic, executable checks
-    // with an unambiguous ground truth → oracle:test-exec (not a proxy heuristic).
+    // Qualified trajectories — one per objective train task. Deterministic,
+    // executable checks with unambiguous ground truth → oracle:test-exec.
     const trajectories = train.map((t) => ({
       id: `fw-${t.id}`, steps: [{ action: 'retrieve', tier: 'oracle:test-exec' as const }],
       outcome: 'success' as const, benchmarkTaskId: `${blended.version}/${t.id}`,
@@ -154,17 +170,17 @@ export async function runFlywheelTick(projectRoot: string, deps: FlywheelDeps): 
     }));
     const replay = (tr: { recordedOutputs: unknown }) => tr.recordedOutputs;
 
-    const heldScoreFor = (cfg: RetrievalConfig, t: { input: unknown; expected: unknown }) => gradeFn(evalFn(t.input, cfg), t.expected);
-    const corpus = { version: blended.version, tasks: blended.tasks, corpusHash: hashCorpus(blended.tasks) };
+    const anchorRegressed = guardRegressed; // ledger field: did the broad guard set regress?
+    const corpus = { version: blended.version, tasks: objective, corpusHash: hashCorpus(objective) };
 
     const result = await runHarnessLoop<RetrievalConfig>({
       trajectories, corpus, baseline, candidate, evalFn, gradeFn, replay,
       verify: {
-        redblue: async () => (anchorRegressed ? 'FAIL' : 'PASS'),
-        drift: async () => held.filter((t) => heldScoreFor(candidate, t) < heldScoreFor(baseline, t) - EPS).length / Math.max(1, held.length),
+        redblue: async () => (guardRegressed ? 'FAIL' : 'PASS'),
+        drift: async () => guard.length ? guard.filter((t) => heldScoreFor(candidate, t) < heldScoreFor(baseline, t) - EPS).length / guard.length : 0,
       },
       canaryRunner: (input, cfg) => {
-        const t = blended.tasks.find((x) => x.id === (input as { id: string }).id)!;
+        const t = objective.find((x) => x.id === (input as { id: string }).id)!;
         const worse = heldScoreFor(cfg, t) < heldScoreFor(baseline, t) - EPS;
         return { ok: !worse, rolledBack: worse, latencyMs: 0, costUsd: 0, accepted: !worse };
       },
@@ -173,19 +189,30 @@ export async function runFlywheelTick(projectRoot: string, deps: FlywheelDeps): 
 
     const baselineScore = result.baselineScore ?? 0;
     const candidateScore = result.candidateScore ?? 0;
+
+    // Significance gate (SOTA noise guard): the per-held-out-task deltas must have
+    // a positive one-sided 95% bootstrap lower bound — the gain has to survive
+    // resampling, not ride on one lucky task. FINAL accept = loop-accept AND
+    // significant, so the ledger's accepted subsequence stays monotonic + real.
+    const heldDeltas = held.map((t) => heldScoreFor(candidate, t) - heldScoreFor(baseline, t));
+    const deltaCILow = bootstrapDeltaCILow(heldDeltas);
+    const significant = deltaCILow > 0;
+    const finalAccept = result.accepted && significant;
+
     const entry: LedgerEntry = {
       ts: deps.now ?? Date.now(),
       corpusVersion: blended.version, corpusHash: blended.corpusHash,
       corpusSize: blended.tasks.length, anchorSize: blended.anchorIds.length,
       baselineRef: refOf(baseline), candidateRef: refOf(candidate),
       baselineScore, candidateScore, delta: candidateScore - baselineScore,
-      anchorRegressed, accepted: result.accepted,
+      deltaCILow, significant, loopAccepted: result.accepted,
+      anchorRegressed, accepted: finalAccept,
       gates: Object.fromEntries(Object.entries(result.verdict?.terms ?? {}).map(([k, v]) => [k, v.pass])),
-      reason: result.reason,
+      reason: finalAccept ? result.reason : (result.accepted ? `held back — improvement not significant (CI low ${deltaCILow.toFixed(4)})` : result.reason),
     };
 
     let applied = false;
-    if (result.accepted && result.manifest) {
+    if (finalAccept && result.manifest) {
       entry.championRef = refOf(candidate);
       // Apply locally (self-optimization) + chain to the previous champion.
       const ap = applyChampionParams(projectRoot, {
@@ -197,7 +224,7 @@ export async function runFlywheelTick(projectRoot: string, deps: FlywheelDeps): 
     appendLedger(`${projectRoot}/.claude-flow/metrics`, entry);
 
     return {
-      ran: true, reason: result.reason, accepted: result.accepted, applied,
+      ran: true, reason: entry.reason, accepted: finalAccept, applied,
       baselineScore, candidateScore, delta: candidateScore - baselineScore,
       anchorRegressed, championRef: entry.championRef, corpusVersion: blended.version,
     };

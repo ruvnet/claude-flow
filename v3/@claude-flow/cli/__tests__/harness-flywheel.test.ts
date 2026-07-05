@@ -7,7 +7,7 @@ import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { harvestSelfSupervisedTasks, blendCorpus, hashBlend } from '../src/services/harness-corpus-harvester.js';
-import { appendLedger, summarizeImprovement, readLedger, type LedgerEntry } from '../src/services/harness-improvement-ledger.js';
+import { appendLedger, summarizeImprovement, readLedger, bootstrapDeltaCILow, type LedgerEntry } from '../src/services/harness-improvement-ledger.js';
 import { runFlywheelTick, DEFAULT_CONFIG, type FlywheelDeps, type RankedItem, type AnchorTask } from '../src/services/harness-flywheel.js';
 import { activeChampion } from '../src/config/harness-feedback-applier.js';
 
@@ -80,53 +80,81 @@ describe('improvement ledger', () => {
   });
 });
 
-// ── Flywheel tick ────────────────────────────────────────────────────────────
-const anchor: AnchorTask[] = [
-  { id: 'q0', input: { id: 'q0', q: 'alpha beta' }, expected: ['commit 0'] },
-  { id: 'q1', input: { id: 'q1', q: 'gamma delta' }, expected: ['commit 1'] },
-];
+describe('bootstrapDeltaCILow (SOTA small-N noise guard)', () => {
+  it('is deterministic and positive for a consistent improvement', () => {
+    const deltas = [0.1, 0.05, 0.2, 0.08, 0.12, 0.15];
+    const a = bootstrapDeltaCILow(deltas);
+    const b = bootstrapDeltaCILow(deltas);
+    expect(a).toBe(b);            // reproducible verdict
+    expect(a).toBeGreaterThan(0); // survives resampling → significant
+  });
 
-// A search stub where a HIGHER alpha ranks the correct doc better — so a neighbor
-// with alpha>0.5 should win and be promoted; anchor never regresses.
-function makeDeps(now: number): FlywheelDeps {
+  it('is not positive when the mean gain rides on one lucky task (noise)', () => {
+    const deltas = [0, 0, 0, 0, 0.6, 0]; // one outlier, rest flat
+    expect(bootstrapDeltaCILow(deltas)).toBeLessThanOrEqual(0); // CI low ≤ 0 → held back
+  });
+
+  it('is not positive with mixed signs (no real direction)', () => {
+    expect(bootstrapDeltaCILow([0.2, -0.2, 0.1, -0.15, 0.05, -0.1])).toBeLessThanOrEqual(0);
+  });
+});
+
+// ── Flywheel tick ────────────────────────────────────────────────────────────
+// 6 anchor tasks (objective ≥ 4). Each query names its target doc via `target:pNN`.
+const anchor: AnchorTask[] = Array.from({ length: 6 }, (_, i) => ({
+  id: `q${i}`, input: { id: `q${i}`, q: `target:p0${i} find the feature` }, expected: [`feature commit ${i}`],
+}));
+
+// Stub where a LOWER alpha ranks the anchor's target doc #1 (so a 2-step
+// neighbor alpha 0.5→0.3 improves the anchor). Harvested queries carry no
+// `target:` → default order, config-invariant → the guard set never regresses.
+function makeDeps(now: number, activeParams: () => Partial<{ alpha: number }> | null = () => null): FlywheelDeps {
   return {
     getPatterns: () => patterns,
     search: (query, cfg) => {
-      // deterministic ranking: correct doc's rank improves as alpha rises.
       const ranked: RankedItem[] = patterns.map((p) => ({ id: p.id, name: p.name }));
-      // move the doc whose token matches the query toward the top, more so at high alpha.
-      const boost = cfg.alpha >= 0.6 ? 0 : 2;
-      const target = patterns.find((p) => query.includes(`token${p.id.slice(1)}`) || p.content!.includes(query.split(' ')[0]));
-      if (target) {
-        const idx = ranked.findIndex((r) => r.id === target.id);
-        const to = Math.min(idx, boost);
-        ranked.splice(idx, 1); ranked.splice(to, 0, { id: target.id, name: target.name });
+      const m = query.match(/target:(p\d+)/);
+      if (m) {
+        const idx = ranked.findIndex((r) => r.id === m[1]);
+        if (idx >= 0) {
+          const to = cfg.alpha <= 0.4 ? 0 : 3;              // low alpha → target #1; else rank 4 (out of top-3)
+          const [item] = ranked.splice(idx, 1);
+          ranked.splice(to, 0, item);
+        }
       }
       return ranked.slice(0, 5);
     },
     anchorTasks: anchor,
-    activeParams: () => null, // start at defaults
+    activeParams,
     sample: 12,
     now,
   };
 }
 
 describe('runFlywheelTick', () => {
-  it('harvests, gates, and (when a neighbor dominates) applies + records proof; else honest no-op', async () => {
+  it('LEARNS: a lower-alpha neighbor improves the anchor without regressing the guard → applied + proven', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'fw-'));
     const r = await runFlywheelTick(cwd, makeDeps(1000));
     expect(r.ran).toBe(true);
-    expect(typeof r.baselineScore).toBe('number');
-    expect(typeof r.candidateScore).toBe('number');
-    // an attempt is always recorded (proof surface), accepted or not.
-    const ledger = readLedger(join(cwd, '.claude-flow', 'metrics'));
-    expect(ledger.length).toBe(1);
-    if (r.accepted) {
-      expect(r.applied).toBe(true);
-      expect(r.anchorRegressed).toBe(false);              // Goodhart guard held
-      expect(activeChampion(cwd)?.params).toBeDefined();  // champion is live
-      expect(r.candidateScore!).toBeGreaterThan(r.baselineScore!);
-    }
+    expect(r.accepted).toBe(true);
+    expect(r.applied).toBe(true);
+    expect(r.anchorRegressed).toBe(false);                 // guard held
+    expect(r.candidateScore!).toBeGreaterThan(r.baselineScore!); // real improvement
+    // the champion is live AND the proof ledger recorded a significant, accepted entry.
+    expect((activeChampion(cwd)?.params as { alpha: number }).alpha).toBeLessThanOrEqual(0.4);
+    const led = readLedger(join(cwd, '.claude-flow', 'metrics'));
+    expect(led.length).toBe(1);
+    expect(led[0].accepted).toBe(true);
+    expect(led[0].significant).toBe(true);                 // survived the bootstrap CI
+    expect(led[0].deltaCILow!).toBeGreaterThan(0);
+  });
+
+  it('records the attempt even on a no-op (proof surface is always written)', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'fw-'));
+    // start already at the optimum (alpha 0.3) → no neighbor improves → honest refuse.
+    await runFlywheelTick(cwd, makeDeps(1, () => ({ alpha: 0.3 })));
+    const led = readLedger(join(cwd, '.claude-flow', 'metrics'));
+    expect(led.length).toBe(1);
   });
 
   it('never throws on a tiny store — returns a clean no-op', async () => {
