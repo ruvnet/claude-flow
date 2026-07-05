@@ -54,6 +54,24 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
 const bytes = Buffer.from(JSON.stringify(canon(manifest)), 'utf-8');
 const signature = edSign(null, bytes, loadPrivateKey()).toString('base64');
 
+const signed = { manifest, signature, algorithm: 'ed25519' };
 const outPath = join(PKG_ROOT, '.claude', 'proven-config.signed.json');
-writeFileSync(outPath, JSON.stringify({ manifest, signature, algorithm: 'ed25519' }, null, 2) + '\n', 'utf-8');
+writeFileSync(outPath, JSON.stringify(signed, null, 2) + '\n', 'utf-8');
 console.log(`[sign-proven-config] signed → ${outPath} (policy ${manifest.policy?.ref?.slice(0, 20)}…)`);
+
+// ADR-177 final phase: also emit the RVFA-packaged champion when the built
+// module is available (post-build publish flow). Additive — the raw JSON above
+// is always written and remains a valid adopt source.
+try {
+  const rvfaMod = join(PKG_ROOT, 'dist', 'src', 'config', 'proven-config-rvfa.js');
+  if (existsSync(rvfaMod)) {
+    const { packProvenConfigRvfa } = await import(`file://${rvfaMod}`);
+    const rvfPath = join(PKG_ROOT, '.claude', 'proven-config.signed.rvf');
+    writeFileSync(rvfPath, packProvenConfigRvfa(signed));
+    console.log(`[sign-proven-config] packaged → ${rvfPath} (RVFA envelope)`);
+  } else {
+    console.log('[sign-proven-config] dist not built — skipped RVFA packaging (run npm run build first)');
+  }
+} catch (e) {
+  console.log(`[sign-proven-config] RVFA packaging skipped: ${e?.message ?? e}`);
+}

@@ -19,26 +19,55 @@ import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import { getInstalledCliVersion } from '../init/helper-refresh.js';
 import { evaluateForAdoption, type InstallEnv, type SignedProvenConfig } from './proven-config.js';
+import { unpackProvenConfigRvfa } from './proven-config-rvfa.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const PROVEN_CONFIG_STAMP = '.proven-config-version';
 /** The signed champion manifest shipped in the package (metadata; the RVFA payload rides alongside). */
 export const PROVEN_CONFIG_FILE = 'proven-config.signed.json';
+/** The RVFA-packaged champion (ADR-177 final phase). Preferred when present. */
+export const PROVEN_CONFIG_RVFA_FILE = 'proven-config.signed.rvf';
 /** Where an adopted champion is recorded in the project (consumed by the feedback applier, ADR-176 phase 9). */
 export const ADOPTED_CONFIG_FILE = 'proven-config.json';
 
-/** Locate the package's shipped signed champion, if any. Null when none ships. */
+/**
+ * Locate the package's shipped signed champion, if any. Null when none ships.
+ * The RVFA package is preferred over the raw JSON when both are present.
+ */
 function findPackageProvenConfig(): string | null {
-  const candidates: string[] = [];
+  const dirs: string[] = [];
   try {
     const esmRequire = createRequire(import.meta.url);
     const pkgRoot = path.dirname(esmRequire.resolve('@claude-flow/cli/package.json'));
-    candidates.push(path.join(pkgRoot, '.claude', PROVEN_CONFIG_FILE));
+    dirs.push(path.join(pkgRoot, '.claude'));
   } catch { /* not resolvable */ }
-  candidates.push(path.resolve(__dirname, '..', '..', '..', '.claude', PROVEN_CONFIG_FILE));
-  for (const c of candidates) if (fs.existsSync(c)) return c;
+  dirs.push(path.resolve(__dirname, '..', '..', '..', '.claude'));
+  // RVFA form first (ruvnet-native envelope), then the raw signed JSON fallback.
+  for (const d of dirs) {
+    const rvf = path.join(d, PROVEN_CONFIG_RVFA_FILE);
+    if (fs.existsSync(rvf)) return rvf;
+    const json = path.join(d, PROVEN_CONFIG_FILE);
+    if (fs.existsSync(json)) return json;
+  }
   return null;
+}
+
+/**
+ * Read a shipped champion from either packaging. `.rvf` → unpack the RVFA
+ * envelope (integrity-checked); anything else → parse as signed JSON. Returns
+ * null (never throws) on any failure. The Ed25519 signature is still verified
+ * downstream by adoptSignedConfig — this only decodes the transport.
+ */
+export function loadShippedChampion(srcPath: string): SignedProvenConfig | null {
+  try {
+    if (srcPath.endsWith('.rvf')) {
+      return unpackProvenConfigRvfa(fs.readFileSync(srcPath));
+    }
+    return JSON.parse(fs.readFileSync(srcPath, 'utf-8')) as SignedProvenConfig;
+  } catch {
+    return null;
+  }
 }
 
 /** Build the local environment the champion's constraints are checked against. */
@@ -109,8 +138,8 @@ export async function autoAdoptProvenConfigIfStale(cwd: string = process.cwd()):
     if (!fs.existsSync(path.join(cwd, '.claude'))) return { adopted: false };
     const src = findPackageProvenConfig();
     if (!src) return { adopted: false }; // no champion ships → no-op (additive)
-    let signed: SignedProvenConfig;
-    try { signed = JSON.parse(fs.readFileSync(src, 'utf-8')) as SignedProvenConfig; } catch { return { adopted: false, skipped: 'unreadable manifest' }; }
+    const signed = loadShippedChampion(src);
+    if (!signed) return { adopted: false, skipped: 'unreadable manifest' };
     return adoptSignedConfig(cwd, signed, currentInstallEnv(cwd));
   } catch {
     return { adopted: false };
