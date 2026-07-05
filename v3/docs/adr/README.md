@@ -71,5 +71,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 
 ---
 
-**Last Updated:** 2026-01-14
+| [ADR-176](ADR-176-dream-cycle-performance-polykv-shared-kv-pool.md) | Cross-Agent Shared KV Pool (PolyKV Architecture) | Proposed |
+
+**Last Updated:** 2026-07-05
 **CLI Version:** @claude-flow/cli@3.0.0-alpha.104
