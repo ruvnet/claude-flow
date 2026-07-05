@@ -53,7 +53,7 @@ export interface ShadowRegistration {
   registeredAt: number;
 }
 
-export interface CostReceipt { usd: 0; llmCalls: 0; tier: 'synthetic'; notes: string; }
+export interface CostReceipt { usd: number; llmCalls: number; tier: string; notes: string; }
 
 /** Multi-dimensional deltas vs the parent — distinguishes *why* a change is (un)safe. */
 export interface ChangeDeltas { benchmark: number; security: number; cost: number; }
@@ -87,7 +87,7 @@ export interface EvolveReceiptBundle {
   generation: number;
   parent: string | null;             // parent generation's promoted candidate hash (lineage link); null at the root
   branch: string;                    // DAG branch label (default 'main') — anticipates tenant/domain branches
-  kind: 'synthetic';
+  kind: 'synthetic' | 'real';        // 'real' = measured on live retrieval over a frozen anchor
   createdAt: number;
   // ── the seven required artifacts ──
   inputHoldoutHash: string;
@@ -125,9 +125,88 @@ export function classifyMutation(baseline: Record<string, number>, candidate: Re
 
 function mean(xs: number[]): number { return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0; }
 
-function mkManifest(policyValue: Record<string, number>): ProvenConfigManifest {
+function mkManifest(policyValue: Record<string, number>, layer = 'synthetic/proof', corpus = 'synthetic-proof-v1'): ProvenConfigManifest {
   const ref = sha256(canon(policyValue));
-  return { schema: 'ruflo.proven-config/v1', policy: { ref, value: policyValue }, layer: 'synthetic/proof', benchmark: { corpus: 'synthetic-proof-v1', corpusHash: sha256('synthetic-proof-v1') } };
+  return { schema: 'ruflo.proven-config/v1', policy: { ref, value: policyValue }, layer, benchmark: { corpus, corpusHash: sha256(corpus) } };
+}
+
+export interface AssembleOpts {
+  generation: number; parent: string | null; branch: string; now: number;
+  kind: 'synthetic' | 'real';
+  cost: { tier: string; notes: string };
+  redblue?: 'PASS' | 'FAIL' | 'SKIPPED'; drift?: number;
+  layer?: string; corpus?: string;
+}
+
+/**
+ * Assemble a receipt bundle from a holdout + configs. This is the SHARED core:
+ * the synthetic proof and a REAL measured round produce byte-identical bundle
+ * structure and run the SAME versioned accept() — so `verifyReceiptBundle`
+ * replays a real bundle exactly as it replays the synthetic fixture.
+ */
+export function assembleBundle(baseline: Record<string, number>, candidate: Record<string, number>, holdout: HoldoutTask[], o: AssembleOpts): EvolveReceiptBundle {
+  const baselineHeldOut = mean(holdout.map((h) => h.baselineScore));
+  const candidateHeldOut = mean(holdout.map((h) => h.candidateScore));
+  const canaryRollbackRate = holdout.filter((h) => h.candidateScore < h.baselineScore - 1e-9).length / holdout.length;
+
+  const verdictInputs: PromotionVerdict = {
+    heldOutScore: candidateHeldOut, baselineHeldOutScore: baselineHeldOut,
+    redblue: o.redblue ?? 'PASS', drift: o.drift ?? 0, driftThreshold: 0.05,
+    replayDeterministic: true, receiptCoverage: 1, canaryRollbackRate, baselineRollbackRate: 0,
+  };
+  const result = accept(verdictInputs);
+
+  const baselineManifest = mkManifest(baseline, o.layer, o.corpus);
+  const candidateManifest = mkManifest(candidate, o.layer, o.corpus);
+  const baselineManifestHash = manifestHash(baselineManifest);
+  const candidateManifestHash = manifestHash(candidateManifest);
+  const inputHoldoutHash = sha256(canon(holdout));
+
+  const decisionReceipt: DecisionReceipt = {
+    promotionRuleVersion: PROMOTION_RULE_VERSION, verdictInputs, result, promoted: result.accept,
+    reason: result.accept ? 'promoted (all accept/v1 terms held)' : `rejected — ${result.failed.join(', ')}`,
+  };
+  const shadow: ShadowRegistration | null = result.accept ? {
+    registrationId: sha256(`${candidateManifestHash}|gen${o.generation}|shadow`).replace('sha256:', 'shadow:'),
+    state: 'shadow', served: false, candidateManifestHash, registeredAt: o.now,
+  } : null;
+
+  const { mutationClass, mutationSummary } = classifyMutation(baseline, candidate);
+  const deltas: ChangeDeltas = { benchmark: candidateHeldOut - baselineHeldOut, security: o.redblue === 'FAIL' ? -1 : 0, cost: 0 };
+  const promotion: PromotionRecord | null = result.accept ? { parentManifestHash: o.parent, candidateManifestHash, mutationClass, mutationSummary, deltas, decisionReceipt } : null;
+  const regression: RegressionRecord | null = result.accept ? null : {
+    candidateManifestHash, ancestor: o.parent ?? baselineManifestHash, mutationClass,
+    failureCause: FAILURE_CAUSE[result.failed[0]] ?? 'holdout', failedTerms: result.failed,
+  };
+
+  return {
+    label: PROOF_LABEL, disclaimers: NOT_CLAIMS, generation: o.generation, parent: o.parent, branch: o.branch, kind: o.kind, createdAt: o.now,
+    inputHoldoutHash, baselineManifestHash, candidateManifestHash,
+    meetsPromotionRule: { version: PROMOTION_RULE_VERSION, result: result.accept },
+    decisionReceipt, shadow,
+    costReceipt: { usd: 0, llmCalls: 0, tier: o.cost.tier, notes: o.cost.notes },
+    mutationClass, mutationSummary, deltas, promotion, regression,
+    holdout, baselineManifest, candidateManifest,
+  };
+}
+
+/**
+ * Build a REAL evolve-round receipt bundle from MEASURED holdout scores (live
+ * retrieval over a frozen anchor). Same gate, same replayability as the
+ * synthetic proof — but `kind: 'real'` and the scores come from actual runs.
+ * `redblue` should be 'FAIL' if the candidate regressed a frozen security/anchor
+ * slice; drift from real distribution shift. $0 (no LLM/network on this path).
+ */
+export function runRealEvolveRound(opts: {
+  baseline: Record<string, number>; candidate: Record<string, number>; holdout: HoldoutTask[];
+  generation: number; parent: string | null; branch?: string; now: number;
+  redblue?: 'PASS' | 'FAIL' | 'SKIPPED'; drift?: number; corpus: string;
+}): EvolveReceiptBundle {
+  return assembleBundle(opts.baseline, opts.candidate, opts.holdout, {
+    generation: opts.generation, parent: opts.parent, branch: opts.branch ?? 'main', now: opts.now, kind: 'real',
+    cost: { tier: 'real-local', notes: 'measured on the frozen anchor via live retrieval — no LLM, no network' },
+    redblue: opts.redblue, drift: opts.drift, layer: 'real/retrieval', corpus: opts.corpus,
+  });
 }
 
 /**
@@ -154,65 +233,10 @@ export function runSyntheticProofRound(opts: { now: number; generation?: number;
     { taskId: 't4', baselineScore: 0.70, candidateScore: opts.regress ? 0.55 : 0.78 },
   ];
 
-  const baselineHeldOut = mean(holdout.map((h) => h.baselineScore));
-  const candidateHeldOut = mean(holdout.map((h) => h.candidateScore));
-  const canaryRollbackRate = holdout.filter((h) => h.candidateScore < h.baselineScore - 1e-9).length / holdout.length;
-
-  const verdictInputs: PromotionVerdict = {
-    heldOutScore: candidateHeldOut,
-    baselineHeldOutScore: baselineHeldOut,
-    redblue: 'PASS',
-    drift: 0,
-    driftThreshold: 0.05,
-    replayDeterministic: true,
-    receiptCoverage: 1,
-    canaryRollbackRate,
-    baselineRollbackRate: 0,
-  };
-  const result = accept(verdictInputs);
-
-  const baselineManifest = mkManifest(baseline);
-  const candidateManifest = mkManifest(candidate);
-  const baselineManifestHash = manifestHash(baselineManifest);
-  const candidateManifestHash = manifestHash(candidateManifest);
-  const inputHoldoutHash = sha256(canon(holdout));
-
-  const decisionReceipt: DecisionReceipt = {
-    promotionRuleVersion: PROMOTION_RULE_VERSION,
-    verdictInputs, result, promoted: result.accept,
-    reason: result.accept ? 'promoted (all accept/v1 terms held)' : `rejected — ${result.failed.join(', ')}`,
-  };
-
-  // SHADOW registration ONLY on pass — and it is explicitly NOT served.
-  const shadow: ShadowRegistration | null = result.accept ? {
-    registrationId: sha256(`${candidateManifestHash}|gen${generation}|shadow`).replace('sha256:', 'shadow:'),
-    state: 'shadow', served: false, candidateManifestHash, registeredAt: opts.now,
-  } : null;
-
-  // Causality (why), not just provenance (what).
-  const { mutationClass, mutationSummary } = classifyMutation(baseline, candidate);
-  const deltas: ChangeDeltas = {
-    benchmark: candidateHeldOut - baselineHeldOut,
-    security: 0,                     // synthetic: no security regression (redblue PASS)
-    cost: 0,                         // synthetic: $0 both sides
-  };
-  const promotion: PromotionRecord | null = result.accept ? {
-    parentManifestHash: parent, candidateManifestHash, mutationClass, mutationSummary, deltas, decisionReceipt,
-  } : null;
-  const regression: RegressionRecord | null = result.accept ? null : {
-    candidateManifestHash, ancestor: parent ?? baselineManifestHash, mutationClass,
-    failureCause: FAILURE_CAUSE[result.failed[0]] ?? 'holdout', failedTerms: result.failed,
-  };
-
-  return {
-    label: PROOF_LABEL, disclaimers: NOT_CLAIMS, generation, parent, branch, kind: 'synthetic', createdAt: opts.now,
-    inputHoldoutHash, baselineManifestHash, candidateManifestHash,
-    meetsPromotionRule: { version: PROMOTION_RULE_VERSION, result: result.accept },
-    decisionReceipt, shadow,
-    costReceipt: { usd: 0, llmCalls: 0, tier: 'synthetic', notes: 'deterministic synthetic round — no model, no network, no real store' },
-    mutationClass, mutationSummary, deltas, promotion, regression,
-    holdout, baselineManifest, candidateManifest,
-  };
+  return assembleBundle(baseline, candidate, holdout, {
+    generation, parent, branch, now: opts.now, kind: 'synthetic',
+    cost: { tier: 'synthetic', notes: 'deterministic synthetic round — no model, no network, no real store' },
+  });
 }
 
 export interface VerifyReport {

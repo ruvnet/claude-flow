@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  runSyntheticProofRound, verifyReceiptBundle, reconstructLineage,
+  runSyntheticProofRound, runRealEvolveRound, verifyReceiptBundle, reconstructLineage,
   mutationEffectiveness, detectPlateau, classifyMutation,
   PROMOTION_RULE_VERSION, PROOF_LABEL,
 } from '../src/services/evolve-proof.js';
@@ -83,6 +83,43 @@ describe('verifyReceiptBundle — independent replay (no service logs)', () => {
     const v = verifyReceiptBundle(b);
     expect(v.valid).toBe(true);               // the rejection is itself replayable
     expect(v.explanation).toMatch(/FAIL under accept\/v1/);
+  });
+});
+
+describe('runRealEvolveRound — measured round, same gate + replayability as synthetic', () => {
+  const holdout = [
+    { taskId: 'q05', baselineScore: 0.5, candidateScore: 0.66 },
+    { taskId: 'q06', baselineScore: 0.8, candidateScore: 0.8 },
+    { taskId: 'q07', baselineScore: 0.7, candidateScore: 0.78 },
+  ];
+  const baseline = { alpha: 0.5, subjectWeight: 2, mmrLambda: 0.7, bodyWeight: 1, typePenaltyFactor: 1 };
+  const candidate = { alpha: 0.3, subjectWeight: 1, mmrLambda: 0.5, bodyWeight: 1.5, typePenaltyFactor: 0.5 };
+
+  it('a real measured improvement promotes, is kind:real, and replays independently', () => {
+    const b = runRealEvolveRound({ baseline, candidate, holdout, generation: 0, parent: null, now: 1, redblue: 'PASS', corpus: 'ADR-081-frozen-v1' });
+    expect(b.kind).toBe('real');
+    expect(b.decisionReceipt.promoted).toBe(true);
+    expect(b.costReceipt.usd).toBe(0);                 // $0 path
+    expect(b.shadow?.served).toBe(false);              // shadow, not served
+    const v = verifyReceiptBundle(b);
+    expect(v.valid).toBe(true);                        // independently replayable
+    expect(v.explanation).toMatch(/PASS under accept\/v1/);
+  });
+
+  it('a real round that regresses train (redblue FAIL) is rejected', () => {
+    const b = runRealEvolveRound({ baseline, candidate, holdout, generation: 0, parent: null, now: 1, redblue: 'FAIL', corpus: 'x' });
+    expect(b.decisionReceipt.promoted).toBe(false);
+    expect(b.regression?.failureCause).toBe('security'); // redblue term
+    expect(verifyReceiptBundle(b).valid).toBe(true);      // rejection still replayable
+  });
+
+  it('two real rounds chain (winner→next baseline) into an intact lineage', () => {
+    const g0 = runRealEvolveRound({ baseline, candidate, holdout, generation: 0, parent: null, now: 1, corpus: 'x' });
+    const g1 = runRealEvolveRound({ baseline: candidate, candidate: { ...candidate, alpha: 0.2 }, holdout, generation: 1, parent: g0.candidateManifestHash, now: 2, corpus: 'x' });
+    const t = reconstructLineage([g0, g1]);
+    expect(t.promotions).toBe(2);
+    expect(t.lineageIntact).toBe(true);
+    expect(t.allReplayable).toBe(true);
   });
 });
 
