@@ -30,7 +30,6 @@ import {
 // quick_check-gated, so it's safe to call unconditionally on every tick.
 import { runDistillation, defaultMemoryDbPath, type DistillReport } from './memory-distillation.js';
 import { backupMemoryDb } from './memory-backup.js';
-import { runHarnessLoopWorker } from './harness-worker.js';
 
 // Worker types matching hooks-tools.ts
 export type WorkerType =
@@ -1636,8 +1635,18 @@ export class WorkerDaemon extends EventEmitter {
 
     let result: Record<string, unknown>;
     try {
-      const r = await runHarnessLoopWorker(this.projectRoot, { maxTrajectories: 2000 });
-      result = { timestamp: new Date().toISOString(), ...r };
+      // ADR-176 flywheel: self-optimize retrieval on the install's REAL data,
+      // gate on held-out + anchor-no-regress, apply locally on accept, and
+      // record proof-of-improvement. Opt-in ($0 no-op without RUFLO_HARNESS_LOOP).
+      const { runFlywheelWorker } = await import('./harness-flywheel-runtime.js');
+      const fw = await runFlywheelWorker(this.projectRoot, { sample: 40 });
+      let summary: unknown = null;
+      try {
+        const { summarizeImprovement } = await import('./harness-improvement-ledger.js');
+        summary = summarizeImprovement(join(this.projectRoot, '.claude-flow', 'metrics'));
+      } catch { /* no ledger yet */ }
+      if (fw.accepted) this.log('info', `Flywheel: champion applied (+${(fw.delta ?? 0).toFixed(4)} held-out) — ${fw.corpusVersion}`);
+      result = { timestamp: new Date().toISOString(), flywheel: fw, improvement: summary };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.log('warn', `Harness worker failed: ${message}`);

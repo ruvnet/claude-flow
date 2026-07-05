@@ -217,6 +217,17 @@ function loadNeuralStore(): NeuralStore {
   return { models: {}, patterns: {}, version: '3.0.0' };
 }
 
+/**
+ * ADR-176 flywheel: expose the stored patterns (id/name/content) so the
+ * self-optimizing loop can harvest a benchmark corpus from real usage. Additive,
+ * read-only, never throws.
+ */
+export function getStorePatterns(): Array<{ id: string; name: string; content?: string }> {
+  try {
+    return Object.values(loadNeuralStore().patterns ?? {}).map((p) => ({ id: p.id, name: p.name, content: p.content }));
+  } catch { return []; }
+}
+
 function saveNeuralStore(store: NeuralStore): void {
   ensureNeuralDir();
   writeFileSync(getNeuralPath(), JSON.stringify(store, null, 2), 'utf-8');

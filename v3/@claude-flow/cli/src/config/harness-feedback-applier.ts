@@ -75,6 +75,38 @@ export function applyChampion(cwd: string, opts: { now?: number } = {}): ApplyRe
 }
 
 /**
+ * Apply a champion directly by its config payload (local self-optimization,
+ * ADR-176 flywheel). Unlike applyChampion (which reads a propagated, signed,
+ * adopted record), this activates a LOCALLY-mined champion that just cleared the
+ * install's own measured gate — no signing, because nothing is propagated. Still
+ * reversible (records `previous`) and idempotent. Consumers read `params`.
+ */
+export function applyChampionParams(
+  cwd: string,
+  opts: { championId: string; params?: Record<string, unknown>; layer?: string; previous?: string | null; now?: number },
+): ApplyResult {
+  try {
+    const cfDir = path.join(cwd, '.claude-flow');
+    const activePath = path.join(cfDir, ACTIVE_POLICY_FILE);
+    const current = readJson<ActivePolicy>(activePath);
+    if (current?.championId === opts.championId && !current.rolledBack) return { applied: false, reason: 'already active' };
+    const active: ActivePolicy = {
+      championId: opts.championId,
+      provenanceTier: 'oracle:test-exec', // only a gate-cleared champion reaches here
+      layer: opts.layer,
+      appliedAt: opts.now ?? Date.now(),
+      previous: opts.previous ?? current?.championId ?? null,
+      params: opts.params,
+    };
+    fs.mkdirSync(cfDir, { recursive: true });
+    fs.writeFileSync(activePath, JSON.stringify(active, null, 2), 'utf-8');
+    return { applied: true, from: active.previous, to: active.championId };
+  } catch (e) {
+    return { applied: false, reason: `error: ${(e as Error)?.message ?? e}` };
+  }
+}
+
+/**
  * Reverse the last apply: point the active policy back at its `previous`
  * champion (reversibility, ADR-177 rollback pointer). No-op if there is no
  * previous. The previous champion's policy is fetched by ref by consumers.

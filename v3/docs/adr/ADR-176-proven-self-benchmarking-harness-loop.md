@@ -122,6 +122,20 @@ Global baseline
 
 A repository adopts the most-specific layer whose manifest passes *its own* benchmark; layers it can't clear fall back to the parent. This scopes what any single manifest claims and keeps generalization an empirical, per-layer question.
 
+## The self-optimizing flywheel — getting smarter *as it runs*
+
+The stages above optimize *once, on demand*. To make an install improve **continuously and autonomously**, three things must be true, and each is engineered to stay honest:
+
+1. **The yardstick grows from real usage.** A corpus harvester (`harness-corpus-harvester.ts`) mines the install's own store into a **self-supervised self-retrieval** benchmark: a stored doc is unambiguous ground truth for a query derived from its *own body with the subject tokens withheld* ("find this doc from its content when the obvious title words are gone"). The label is the doc's identity — an `oracle:test-exec`-grade executable check, not a proxy guess — so the test set expands as the store does. This is the mechanism the earlier "fixed hand-labeled corpus" limitation demanded.
+
+2. **A Goodhart anchor prevents metric drift.** The growing auto-signal is blended with the small human-labeled seed (ADR-081) kept as a **never-regress anchor**. The promotion rule's adversarial term (`redblue`) is bound to "candidate must not regress on the human anchor," so optimizing the cheap auto-metric can never silently walk away from real relevance. Multi-objective by construction, matching the Goodhart-resistance principle above.
+
+3. **Improvement is proven, not asserted.** Every tick appends to an **improvement ledger** (`harness-improvement-ledger.ts`) — corpus version+hash, baseline vs candidate held-out score, every `accept()` term, and the outcome. Because the loop only accepts a *strict* improvement that regresses no task, the accepted subsequence is **monotonically non-decreasing by construction**, and each champion **chains** to its predecessor (`baseline_ref == previous champion_ref`). `summarizeImprovement()` folds this into an auditable claim; a single non-improving or unchained "accept" flips the `monotonic`/`chainIntact` flags — the ledger cannot launder a regression, and it also records the *refusals* (proof the gate is not a rubber stamp).
+
+**Local vs global trust.** A tick that clears the install's own measured gate is applied **locally, unsigned** — the install is trusting its *own* execution-verified evidence on its *own* data; nothing is propagated, so no signature is required (`applyChampionParams`). Cross-install propagation still requires the config-signed champion (ADR-177). This split is what lets the flywheel run autonomously at $0 without weakening the propagation trust root: local self-optimization and global distribution are different trust domains.
+
+The flywheel runs as the (opt-in, `$0`-default) daemon worker; a live multi-tick run climbs the held-out score until it plateaus, then honestly stops promoting — convergence, not perpetual motion.
+
 ## Naming (see ADR-177)
 
 Internally, an optimized artifact is a *genome*. **Once propagated, it is a "proven configuration manifest" / "verified execution policy"** — names that emphasize reproducibility and constraints over evolutionary novelty. External surfaces (CLI, docs, the propagation channel) use the manifest naming.
@@ -166,4 +180,5 @@ Every stage is additive and gated; the loop only *proposes*. A champion is appli
 7. **Host registry + hierarchical layers** — claude-code/codex; global→language→framework→repo.
 8. **Daemon worker** — scheduled, $0-default, budget-capped.
 9. **Feedback applier** — apply the signed champion to routing/agent config, provenance-tagged, reversible.
+10. **Self-optimizing flywheel** — corpus harvester (self-supervised, growing) + human anchor (Goodhart guard) + improvement ledger (monotonic-by-construction proof) + local-apply/global-sign trust split, wired into the daemon worker so an install improves autonomously as it runs. *(Implemented — the first mint produced a real +0.0738 nDCG@3 champion over the ADR-082-tuned baseline; the live flywheel climbs held-out score to convergence.)*
 10. **Propagation** — ADR-177.
