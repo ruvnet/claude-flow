@@ -7,6 +7,7 @@
   ],
   "generation": 0,
   "parent": null,
+  "branch": "main",
   "kind": "synthetic",
   "createdAt": 1700000000000,
   "inputHoldoutHash": "sha256:ecb638290f7aec024fb0643829f69698e2ac4215038d3577b6afcff0eb703ff8",
@@ -75,6 +76,71 @@
     "tier": "synthetic",
     "notes": "deterministic synthetic round — no model, no network, no real store"
   },
+  "mutationClass": "retrieval:multi",
+  "mutationSummary": "alpha:0.5→0.3, bodyWeight:1→1.5, mmrLambda:0.7→0.5, subjectWeight:2→1, typePenaltyFactor:1→0.5",
+  "deltas": {
+    "benchmark": 0.07200000000000006,
+    "security": 0,
+    "cost": 0
+  },
+  "promotion": {
+    "parentManifestHash": null,
+    "candidateManifestHash": "sha256:d17cbe4d0bd2ff9a73d9bcb706905858e5a4b01bca074c6235e479505487e126",
+    "mutationClass": "retrieval:multi",
+    "mutationSummary": "alpha:0.5→0.3, bodyWeight:1→1.5, mmrLambda:0.7→0.5, subjectWeight:2→1, typePenaltyFactor:1→0.5",
+    "deltas": {
+      "benchmark": 0.07200000000000006,
+      "security": 0,
+      "cost": 0
+    },
+    "decisionReceipt": {
+      "promotionRuleVersion": "accept/v1",
+      "verdictInputs": {
+        "heldOutScore": 0.772,
+        "baselineHeldOutScore": 0.7,
+        "redblue": "PASS",
+        "drift": 0,
+        "driftThreshold": 0.05,
+        "replayDeterministic": true,
+        "receiptCoverage": 1,
+        "canaryRollbackRate": 0,
+        "baselineRollbackRate": 0
+      },
+      "result": {
+        "accept": true,
+        "terms": {
+          "held_out_improves": {
+            "value": "0.7720 > 0.7000",
+            "pass": true
+          },
+          "redblue_pass": {
+            "value": "PASS",
+            "pass": true
+          },
+          "drift_within": {
+            "value": "0 <= 0.05",
+            "pass": true
+          },
+          "replay_deterministic": {
+            "value": true,
+            "pass": true
+          },
+          "receipt_coverage_full": {
+            "value": 1,
+            "pass": true
+          },
+          "canary_no_worse": {
+            "value": "0 <= 0",
+            "pass": true
+          }
+        },
+        "failed": []
+      },
+      "promoted": true,
+      "reason": "promoted (all accept/v1 terms held)"
+    }
+  },
+  "regression": null,
   "holdout": [
     {
       "taskId": "t0",

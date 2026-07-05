@@ -150,6 +150,18 @@ Three things must be true, each engineered to stay honest:
 
 **Local vs global trust.** A locally-mined, gate-cleared champion may be adopted **locally, unsigned** (the install trusting its own execution-verified evidence on its own data). Cross-install propagation still requires the config-signed champion (ADR-177). Local self-optimization and global distribution are separate trust domains.
 
+## Version control for operating policies
+
+The right mental model is **git, but for executable decision policies**. Each generation is a commit with a parent, a diff, verification, a signature, reproducibility, and deployment history — and **generation 0 is the immutable root of the evolution graph** (replay starts there; it never changes). This makes the lineage a **knowledge base**, not just an audit trail:
+
+- **Causality, not just provenance.** A promotion record carries `mutationClass`, `mutationSummary`, and multi-dimensional `deltas` (benchmark / security / cost) alongside the decision receipt — so the graph answers *which mutation classes reliably pay off*, not merely *which policy won* (`PromotionRecord`, `classifyMutation`).
+- **Mutation effectiveness → evidence-grounded meta-learning.** `mutationEffectiveness()` aggregates attempts / promotions / mean-Δ per class; after enough generations the optimizer can bias toward classes with historical payoff rather than searching uniformly.
+- **Regression ancestry.** A rejected candidate records its `failureCause` (holdout / security / drift / replay / governance / canary / significance) and its ancestor — so "which design decisions repeatedly regress?" becomes answerable (`RegressionRecord`).
+- **A DAG, not a linked list.** Lineage is modeled as a graph with branch labels (`main`, and future tenant/domain branches like `legal` / `coding` / `customer-A`). The invariant is *a child's baseline == its parent's promoted candidate* — it holds for linear chains and forks alike (`reconstructLineage`).
+- **Statistical plateau, not intuition.** `detectPlateau()` over a rolling window separates **local-optimum** (no gains + candidate variance shrinking), **noisy-benchmark** (no gains + high non-shrinking variance), and **optimizer-failure** (no gains + candidates barely vary), rather than "no promotion for a while."
+
+**The milestone that matters.** Not "generation 1," nor "generation 10." The first significant milestone is: *the system autonomously discovers a **second** independently-verified improvement that survives a **frozen anchor suite** and enters the immutable lineage **without human intervention**.* At that point the thesis moves from design to demonstrated capability — the wheel has provably turned. Everything shipped so far is the substrate for reaching that milestone honestly; it has **not** been reached yet.
+
 ## Naming (see ADR-177)
 
 Internally, an optimized artifact is a *genome*. **Once propagated, it is a "proven configuration manifest" / "verified execution policy"** — names that emphasize reproducibility and constraints over evolutionary novelty. External surfaces (CLI, docs, the propagation channel) use the manifest naming.

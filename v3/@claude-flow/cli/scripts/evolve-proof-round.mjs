@@ -71,6 +71,10 @@ console.log(`meetsPromotionRule version : ${bundle.meetsPromotionRule.version}  
 console.log(`decision receipt           : promoted=${bundle.decisionReceipt.promoted}  reason="${bundle.decisionReceipt.reason}"`);
 console.log(`SHADOW registration id     : ${bundle.shadow.registrationId}  (state=${bundle.shadow.state}, served=${bundle.shadow.served})`);
 console.log(`cost receipt               : $${bundle.costReceipt.usd}  llmCalls=${bundle.costReceipt.llmCalls}  tier=${bundle.costReceipt.tier}`);
+console.log('--- causality (why, not just what) ---');
+console.log(`mutation class             : ${bundle.mutationClass}`);
+console.log(`mutation summary           : ${bundle.mutationSummary}`);
+console.log(`deltas                     : benchmark=${bundle.deltas.benchmark.toFixed(4)} security=${bundle.deltas.security} cost=${bundle.deltas.cost}`);
 console.log('--- proofs ---');
 console.log(`gate wiring (accept/v1)    : decision decided by the real versioned accept() ✓`);
 console.log(`receipt persistence        : ${bundlePath}`);
@@ -81,8 +85,9 @@ console.log(`hash checks                : holdout=${verify.hashChecks.inputHoldo
 console.log(`recomputed decision matches: ${verify.decisionMatches}`);
 console.log(`why                        : ${verify.explanation}`);
 console.log(`bundle valid (independent) : ${verify.valid}`);
-console.log('--- lineage (acceptance test) ---');
-console.log(`generations=${lineage.generations} promotions=${lineage.promotions} rejections=${lineage.rejections} lineageIntact=${lineage.lineageIntact} allReplayable=${lineage.allReplayable}`);
+console.log('--- lineage (acceptance test) — immutable root of the evolution graph ---');
+console.log(`generations=${lineage.generations} promotions=${lineage.promotions} rejections=${lineage.rejections} branches=[${lineage.branches.join(',')}] lineageIntact=${lineage.lineageIntact} allReplayable=${lineage.allReplayable}`);
+console.log(`rootHash=${lineage.rootHash}`);
 
 const ok = verify.valid && !autoServed && lineage.lineageIntact;
 console.log('='.repeat(78));

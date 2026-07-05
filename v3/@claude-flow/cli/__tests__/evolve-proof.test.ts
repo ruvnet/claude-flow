@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   runSyntheticProofRound, verifyReceiptBundle, reconstructLineage,
+  mutationEffectiveness, detectPlateau, classifyMutation,
   PROMOTION_RULE_VERSION, PROOF_LABEL,
 } from '../src/services/evolve-proof.js';
 
@@ -85,31 +86,106 @@ describe('verifyReceiptBundle — independent replay (no service logs)', () => {
   });
 });
 
-describe('reconstructLineage — flywheel acceptance test scaffolding', () => {
+describe('causality — the record explains WHY, not just what', () => {
+  it('a promotion carries a mutation class, summary, and multi-dimensional deltas', () => {
+    const b = runSyntheticProofRound({ now: 1 });
+    expect(b.mutationClass).toBe('retrieval:multi');           // 5 knobs changed
+    expect(b.mutationSummary).toMatch(/alpha:0.5→0.3/);
+    expect(b.deltas.benchmark).toBeGreaterThan(0);
+    expect(b.deltas.security).toBe(0);
+    expect(b.promotion).not.toBeNull();
+    expect(b.regression).toBeNull();
+    expect(verifyReceiptBundle(b).causalConsistent).toBe(true);
+  });
+
+  it('a rejection records failure cause + ancestor (regression ancestry)', () => {
+    const b = runSyntheticProofRound({ now: 1, regress: true });
+    expect(b.promotion).toBeNull();
+    expect(b.regression).not.toBeNull();
+    expect(b.regression!.failureCause).toBe('canary');         // regressing task → canary_no_worse fails first
+    expect(b.regression!.failedTerms.length).toBeGreaterThan(0);
+    expect(b.regression!.ancestor).toBeTruthy();
+  });
+
+  it('classifyMutation names single-knob vs multi-knob changes', () => {
+    expect(classifyMutation({ alpha: 0.5, x: 1 }, { alpha: 0.3, x: 1 }).mutationClass).toBe('retrieval:alpha');
+    expect(classifyMutation({ alpha: 0.5, x: 1 }, { alpha: 0.3, x: 2 }).mutationClass).toBe('retrieval:multi');
+  });
+});
+
+// helper: build a linear promoted chain of `n` generations
+function chainOf(n: number, branch = 'main'): ReturnType<typeof runSyntheticProofRound>[] {
+  const cfg = (a: number) => ({ alpha: a, subjectWeight: 2, mmrLambda: 0.7, bodyWeight: 1, typePenaltyFactor: 1 });
+  const out = [];
+  let parent: string | null = null, base = cfg(0.9);
+  for (let g = 0; g < n; g++) {
+    const cand = cfg(+(0.9 - (g + 1) * 0.01).toFixed(3));
+    const b = runSyntheticProofRound({ now: g + 1, generation: g, parent, branch, baseline: base, candidate: cand });
+    out.push(b); parent = b.candidateManifestHash; base = cand;
+  }
+  return out;
+}
+
+describe('reconstructLineage — DAG back to the immutable root', () => {
   it('a single gen-0 bundle reconstructs a trivially-intact, replayable lineage', () => {
     const t = reconstructLineage([runSyntheticProofRound({ now: 1, generation: 0, parent: null })]);
     expect(t.generations).toBe(1);
     expect(t.promotions).toBe(1);
     expect(t.lineageIntact).toBe(true);
-    expect(t.allReplayable).toBe(true);
+    expect(t.rootHash).toBeTruthy();
+    expect(t.branches).toEqual(['main']);
   });
 
-  it('a chained lineage (winner→next baseline) reconstructs back to gen 0', () => {
-    const g0 = runSyntheticProofRound({ now: 1, generation: 0, parent: null,
-      baseline: { alpha: 0.5, subjectWeight: 2, mmrLambda: 0.7, bodyWeight: 1, typePenaltyFactor: 1 },
-      candidate: { alpha: 0.4, subjectWeight: 2, mmrLambda: 0.7, bodyWeight: 1, typePenaltyFactor: 1 } });
-    const g1 = runSyntheticProofRound({ now: 2, generation: 1, parent: g0.candidateManifestHash,
-      baseline: { alpha: 0.4, subjectWeight: 2, mmrLambda: 0.7, bodyWeight: 1, typePenaltyFactor: 1 }, // inherits g0 winner
-      candidate: { alpha: 0.3, subjectWeight: 2, mmrLambda: 0.7, bodyWeight: 1, typePenaltyFactor: 1 } });
-    const t = reconstructLineage([g0, g1]);
-    expect(t.promotions).toBe(2);
+  it('a chained lineage reconstructs back to the immutable root with intact DAG invariants', () => {
+    const t = reconstructLineage(chainOf(3));
+    expect(t.promotions).toBe(3);
     expect(t.lineageIntact).toBe(true);
     expect(t.cumulativeHeldOutImprovement).toBeGreaterThan(0);
   });
 
-  it('detects a broken lineage (a gen that did not inherit the previous winner)', () => {
+  it('supports branches (DAG, not a linked list) — a fork off gen 0 keeps the lineage intact', () => {
+    const main = chainOf(2, 'main');
+    // branch off the root (main gen 0) into a separate branch that inherits its policy.
+    const rootCand = main[0].candidateManifest.policy.value as Record<string, number>;
+    const branch = runSyntheticProofRound({
+      now: 99, generation: 1, branch: 'legal', parent: main[0].candidateManifestHash,
+      baseline: rootCand, candidate: { ...rootCand, subjectWeight: 3 },
+    });
+    const t = reconstructLineage([...main, branch]);
+    expect(t.branches.sort()).toEqual(['legal', 'main']);
+    expect(t.lineageIntact).toBe(true);
+  });
+
+  it('detects >1 root, a missing parent, and a non-inheriting child', () => {
+    expect(reconstructLineage([runSyntheticProofRound({ now: 1, generation: 1, parent: 'sha256:ghost' })]).lineageIntact).toBe(false);
     const g0 = runSyntheticProofRound({ now: 1, generation: 0, parent: null });
-    const g1 = runSyntheticProofRound({ now: 2, generation: 1, parent: 'sha256:wrong-parent' });
-    expect(reconstructLineage([g0, g1]).lineageIntact).toBe(false);
+    const g0b = runSyntheticProofRound({ now: 2, generation: 0, parent: null }); // 2nd root
+    expect(reconstructLineage([g0, g0b]).problems.some((p) => /one immutable root/.test(p))).toBe(true);
+  });
+});
+
+describe('mutationEffectiveness — evidence-grounded meta-learning', () => {
+  it('aggregates attempts/promotions/mean-delta per mutation class', () => {
+    const bundles = [
+      runSyntheticProofRound({ now: 1 }),                       // multi, promoted
+      runSyntheticProofRound({ now: 2, regress: true }),        // multi, rejected
+    ];
+    const stats = mutationEffectiveness(bundles);
+    const multi = stats.find((s) => s.mutationClass === 'retrieval:multi')!;
+    expect(multi.attempts).toBe(2);
+    expect(multi.promotions).toBe(1);
+    expect(multi.meanDelta).toBeGreaterThan(0);
+  });
+});
+
+describe('detectPlateau — rigorous, not intuitive', () => {
+  it('insufficient-data below the window', () => {
+    expect(detectPlateau(chainOf(3), { window: 20 }).status).toBe('insufficient-data');
+  });
+
+  it('reports active while improvements keep landing', () => {
+    const r = detectPlateau(chainOf(20), { window: 20 });
+    expect(r.status).toBe('active');
+    expect(r.promotionRate).toBe(1);
   });
 });
