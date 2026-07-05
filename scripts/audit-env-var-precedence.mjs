@@ -189,6 +189,9 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   // Self-running daemon opt-out (auto-start on CLI use). A pure on/off toggle
   // for a background behavior — no CLI flag equivalent; escape-hatch by design.
   'RUFLO_DAEMON_AUTOSTART',
+  // Self-optimizing harness loop opt-IN (ADR-176). Background daemon-worker
+  // toggle; $0-default even when on. Escape-hatch by design.
+  'RUFLO_HARNESS_LOOP',
 ]);
 
 // ── Source directories to scan ────────────────────────────────────────────────
