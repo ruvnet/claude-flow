@@ -88,9 +88,11 @@ describe('verifyReceiptBundle — independent replay (no service logs)', () => {
 
 describe('runRealEvolveRound — measured round, same gate + replayability as synthetic', () => {
   const holdout = [
-    { taskId: 'q05', baselineScore: 0.5, candidateScore: 0.66 },
-    { taskId: 'q06', baselineScore: 0.8, candidateScore: 0.8 },
-    { taskId: 'q07', baselineScore: 0.7, candidateScore: 0.78 },
+    { taskId: 'q05', baselineScore: 0.50, candidateScore: 0.62 },
+    { taskId: 'q06', baselineScore: 0.80, candidateScore: 0.86 },
+    { taskId: 'q07', baselineScore: 0.70, candidateScore: 0.78 },
+    { taskId: 'q08', baselineScore: 0.60, candidateScore: 0.70 },
+    { taskId: 'q09', baselineScore: 0.72, candidateScore: 0.80 },
   ];
   const baseline = { alpha: 0.5, subjectWeight: 2, mmrLambda: 0.7, bodyWeight: 1, typePenaltyFactor: 1 };
   const candidate = { alpha: 0.3, subjectWeight: 1, mmrLambda: 0.5, bodyWeight: 1.5, typePenaltyFactor: 0.5 };

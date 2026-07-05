@@ -20,10 +20,17 @@
  */
 import { createHash } from 'node:crypto';
 import { accept, type PromotionVerdict, type AcceptResult } from './harness-benchmark.js';
+import { bootstrapDeltaCILow } from './harness-improvement-ledger.js';
 import { canonicalManifestBytes, type ProvenConfigManifest } from '../config/proven-config.js';
 
-/** The promotion rule is versioned so a receipt pins exactly which semantics decided it. */
-export const PROMOTION_RULE_VERSION = 'accept/v1';
+/**
+ * The promotion rule is versioned so a receipt pins exactly which semantics
+ * decided it. v1+sig = the accept() conjunction AND a statistical-significance
+ * term: the per-held-out-task deltas must have a positive one-sided 95% bootstrap
+ * lower bound, so a small-N mean gain can't ride on noise. The canary term is a
+ * SEPARATE deployment-safety signal (a distinct slice), not held-out dominance.
+ */
+export const PROMOTION_RULE_VERSION = 'accept/v1+sig';
 export const PROOF_LABEL = 'single-round proof-of-mechanism';
 export const NOT_CLAIMS = ['not flywheel proof', 'not compounding learning', 'not production learning'] as const;
 
@@ -41,7 +48,9 @@ export interface DecisionReceipt {
   promotionRuleVersion: string;
   verdictInputs: PromotionVerdict;   // the exact inputs fed to accept()
   result: AcceptResult;              // accept()'s decision + per-term breakdown
-  promoted: boolean;
+  significant: boolean;              // per-task delta bootstrap CI lower bound > 0
+  deltaCILow: number;                // that lower bound (recomputable from holdout)
+  promoted: boolean;                 // = result.accept AND significant (the FINAL decision)
   reason: string;
 }
 
@@ -135,6 +144,7 @@ export interface AssembleOpts {
   kind: 'synthetic' | 'real';
   cost: { tier: string; notes: string };
   redblue?: 'PASS' | 'FAIL' | 'SKIPPED'; drift?: number;
+  canaryRollbackRate?: number;       // SEPARATE deployment-safety signal; default = strict per-held-out-task regression
   layer?: string; corpus?: string;
 }
 
@@ -147,7 +157,13 @@ export interface AssembleOpts {
 export function assembleBundle(baseline: Record<string, number>, candidate: Record<string, number>, holdout: HoldoutTask[], o: AssembleOpts): EvolveReceiptBundle {
   const baselineHeldOut = mean(holdout.map((h) => h.baselineScore));
   const candidateHeldOut = mean(holdout.map((h) => h.candidateScore));
-  const canaryRollbackRate = holdout.filter((h) => h.candidateScore < h.baselineScore - 1e-9).length / holdout.length;
+  // Canary is a SEPARATE deployment-safety signal (default: strict per-held-out
+  // regression, preserving synthetic behavior; real rounds pass a distinct slice).
+  const canaryRollbackRate = o.canaryRollbackRate ?? holdout.filter((h) => h.candidateScore < h.baselineScore - 1e-9).length / holdout.length;
+  // Statistical-significance term (small-N noise guard): bootstrap lower bound on
+  // the per-task deltas must be > 0.
+  const deltaCILow = bootstrapDeltaCILow(holdout.map((h) => h.candidateScore - h.baselineScore));
+  const significant = deltaCILow > 0;
 
   const verdictInputs: PromotionVerdict = {
     heldOutScore: candidateHeldOut, baselineHeldOutScore: baselineHeldOut,
@@ -155,6 +171,7 @@ export function assembleBundle(baseline: Record<string, number>, candidate: Reco
     replayDeterministic: true, receiptCoverage: 1, canaryRollbackRate, baselineRollbackRate: 0,
   };
   const result = accept(verdictInputs);
+  const promoted = result.accept && significant;
 
   const baselineManifest = mkManifest(baseline, o.layer, o.corpus);
   const candidateManifest = mkManifest(candidate, o.layer, o.corpus);
@@ -162,27 +179,28 @@ export function assembleBundle(baseline: Record<string, number>, candidate: Reco
   const candidateManifestHash = manifestHash(candidateManifest);
   const inputHoldoutHash = sha256(canon(holdout));
 
+  const failed = [...result.failed, ...(!significant ? ['significant'] : [])];
   const decisionReceipt: DecisionReceipt = {
-    promotionRuleVersion: PROMOTION_RULE_VERSION, verdictInputs, result, promoted: result.accept,
-    reason: result.accept ? 'promoted (all accept/v1 terms held)' : `rejected — ${result.failed.join(', ')}`,
+    promotionRuleVersion: PROMOTION_RULE_VERSION, verdictInputs, result, significant, deltaCILow, promoted,
+    reason: promoted ? `promoted (all ${PROMOTION_RULE_VERSION} terms held)` : `rejected — ${failed.join(', ')}`,
   };
-  const shadow: ShadowRegistration | null = result.accept ? {
+  const shadow: ShadowRegistration | null = promoted ? {
     registrationId: sha256(`${candidateManifestHash}|gen${o.generation}|shadow`).replace('sha256:', 'shadow:'),
     state: 'shadow', served: false, candidateManifestHash, registeredAt: o.now,
   } : null;
 
   const { mutationClass, mutationSummary } = classifyMutation(baseline, candidate);
   const deltas: ChangeDeltas = { benchmark: candidateHeldOut - baselineHeldOut, security: o.redblue === 'FAIL' ? -1 : 0, cost: 0 };
-  const promotion: PromotionRecord | null = result.accept ? { parentManifestHash: o.parent, candidateManifestHash, mutationClass, mutationSummary, deltas, decisionReceipt } : null;
-  const regression: RegressionRecord | null = result.accept ? null : {
+  const promotion: PromotionRecord | null = promoted ? { parentManifestHash: o.parent, candidateManifestHash, mutationClass, mutationSummary, deltas, decisionReceipt } : null;
+  const regression: RegressionRecord | null = promoted ? null : {
     candidateManifestHash, ancestor: o.parent ?? baselineManifestHash, mutationClass,
-    failureCause: FAILURE_CAUSE[result.failed[0]] ?? 'holdout', failedTerms: result.failed,
+    failureCause: !significant && result.accept ? 'significance' : (FAILURE_CAUSE[result.failed[0]] ?? 'holdout'), failedTerms: failed,
   };
 
   return {
     label: PROOF_LABEL, disclaimers: NOT_CLAIMS, generation: o.generation, parent: o.parent, branch: o.branch, kind: o.kind, createdAt: o.now,
     inputHoldoutHash, baselineManifestHash, candidateManifestHash,
-    meetsPromotionRule: { version: PROMOTION_RULE_VERSION, result: result.accept },
+    meetsPromotionRule: { version: PROMOTION_RULE_VERSION, result: promoted },
     decisionReceipt, shadow,
     costReceipt: { usd: 0, llmCalls: 0, tier: o.cost.tier, notes: o.cost.notes },
     mutationClass, mutationSummary, deltas, promotion, regression,
@@ -226,11 +244,11 @@ export function runSyntheticProofRound(opts: { now: number; generation?: number;
   // Deterministic synthetic holdout. Default: candidate never worse, sometimes
   // better (Pareto). regress: candidate worse on one task (drives a REJECT).
   const holdout: HoldoutTask[] = [
-    { taskId: 't0', baselineScore: 0.60, candidateScore: 0.72 },
-    { taskId: 't1', baselineScore: 0.80, candidateScore: 0.80 },
-    { taskId: 't2', baselineScore: 0.50, candidateScore: 0.66 },
-    { taskId: 't3', baselineScore: 0.90, candidateScore: 0.90 },
-    { taskId: 't4', baselineScore: 0.70, candidateScore: opts.regress ? 0.55 : 0.78 },
+    { taskId: 't0', baselineScore: 0.60, candidateScore: 0.70 },
+    { taskId: 't1', baselineScore: 0.80, candidateScore: 0.86 },
+    { taskId: 't2', baselineScore: 0.50, candidateScore: 0.62 },
+    { taskId: 't3', baselineScore: 0.72, candidateScore: 0.80 },
+    { taskId: 't4', baselineScore: 0.66, candidateScore: opts.regress ? 0.50 : 0.78 },
   ];
 
   return assembleBundle(baseline, candidate, holdout, {
@@ -271,7 +289,12 @@ export function verifyReceiptBundle(bundle: EvolveReceiptBundle): VerifyReport {
 
   const baselineHeldOut = mean(bundle.holdout.map((h) => h.baselineScore));
   const candidateHeldOut = mean(bundle.holdout.map((h) => h.candidateScore));
-  const canaryRollbackRate = bundle.holdout.filter((h) => h.candidateScore < h.baselineScore - 1e-9).length / bundle.holdout.length;
+  // The canary is a SEPARATE slice (not embedded) — trust the recorded rate; the
+  // held-out means + significance ARE independently recomputed from the holdout,
+  // so holdout tampering is still caught (via means/significance/decision).
+  const canaryRollbackRate = bundle.decisionReceipt.verdictInputs.canaryRollbackRate;
+  const deltaCILow = bootstrapDeltaCILow(bundle.holdout.map((h) => h.candidateScore - h.baselineScore));
+  const significant = deltaCILow > 0;
 
   // Re-run the SAME versioned rule on independently-recomputed inputs.
   const ruleVersionMatches = bundle.decisionReceipt.promotionRuleVersion === PROMOTION_RULE_VERSION
@@ -280,9 +303,10 @@ export function verifyReceiptBundle(bundle: EvolveReceiptBundle): VerifyReport {
 
   const decision = accept({
     ...bundle.decisionReceipt.verdictInputs,
-    heldOutScore: candidateHeldOut, baselineHeldOutScore: baselineHeldOut, canaryRollbackRate,
+    heldOutScore: candidateHeldOut, baselineHeldOutScore: baselineHeldOut,
   });
-  const decisionMatches = decision.accept === bundle.decisionReceipt.promoted && decision.accept === bundle.meetsPromotionRule.result;
+  const promotedRecomputed = decision.accept && significant;
+  const decisionMatches = promotedRecomputed === bundle.decisionReceipt.promoted && promotedRecomputed === bundle.meetsPromotionRule.result;
   if (!decisionMatches) mismatches.push('recomputed decision != recorded decision');
 
   // no-auto-serve: a shadow registration must never be marked served.
@@ -292,7 +316,7 @@ export function verifyReceiptBundle(bundle: EvolveReceiptBundle): VerifyReport {
   // causal record consistency: a pass carries a promotion record (with a delta
   // that matches the recompute) and no regression; a reject carries the inverse.
   const benchmarkDeltaMatches = Math.abs(bundle.deltas.benchmark - (candidateHeldOut - baselineHeldOut)) < 1e-9;
-  const causalConsistent = decision.accept
+  const causalConsistent = promotedRecomputed
     ? (bundle.promotion !== null && bundle.regression === null && benchmarkDeltaMatches)
     : (bundle.promotion === null && bundle.regression !== null);
   if (!causalConsistent) mismatches.push('causal record inconsistent with the decision (promotion/regression/delta)');
@@ -300,9 +324,9 @@ export function verifyReceiptBundle(bundle: EvolveReceiptBundle): VerifyReport {
   const valid = hashChecks.inputHoldout && hashChecks.baselineManifest && hashChecks.candidateManifest
     && ruleVersionMatches && decisionMatches && noAutoServe && causalConsistent;
 
-  const why = decision.accept
-    ? `PASS under ${PROMOTION_RULE_VERSION}: held_out ${candidateHeldOut.toFixed(4)} > ${baselineHeldOut.toFixed(4)}, canary rollback ${canaryRollbackRate} ≤ 0, all terms held`
-    : `FAIL under ${PROMOTION_RULE_VERSION}: ${decision.failed.join(', ')}`;
+  const why = promotedRecomputed
+    ? `PASS under ${PROMOTION_RULE_VERSION}: held_out ${candidateHeldOut.toFixed(4)} > ${baselineHeldOut.toFixed(4)} (Δ CI-low ${deltaCILow.toFixed(4)} > 0, significant), canary rollback ${canaryRollbackRate} ≤ 0, all terms held`
+    : `FAIL under ${PROMOTION_RULE_VERSION}: ${[...decision.failed, ...(!significant ? ['significant'] : [])].join(', ')}`;
 
   return {
     valid, hashChecks,

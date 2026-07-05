@@ -34,9 +34,20 @@ import { join } from 'node:path';
  */
 interface CorpusStatsEntry { fp: string; subjectDocs: string[][]; bodyDocs: string[][]; subjectStats: unknown; bodyStats: unknown }
 let _corpusStatsCache: CorpusStatsEntry | null = null;
-// Single-entry (query, store) → embedding + cosine cache. One query is scored
-// across many configs consecutively (flywheel), so a size-1 cache suffices.
-let _cosineCache: { key: string; queryEmbedding: number[]; cosineArr: number[] } | null = null;
+// (query, store) → embedding + cosine cache. Small LRU (not size-1): the flywheel
+// scores many configs across several queries in interleaved order, so a size-1
+// cache would thrash. Cap keeps memory bounded; eviction is oldest-first.
+const _cosineCache = new Map<string, { queryEmbedding: number[]; cosineArr: number[] }>();
+const _COSINE_CACHE_MAX = 128;
+function _cosineCacheGet(key: string): { queryEmbedding: number[]; cosineArr: number[] } | undefined {
+  const v = _cosineCache.get(key);
+  if (v) { _cosineCache.delete(key); _cosineCache.set(key, v); } // LRU touch
+  return v;
+}
+function _cosineCacheSet(key: string, v: { queryEmbedding: number[]; cosineArr: number[] }): void {
+  _cosineCache.set(key, v);
+  if (_cosineCache.size > _COSINE_CACHE_MAX) _cosineCache.delete(_cosineCache.keys().next().value as string);
+}
 function corpusFingerprint(patterns: Array<{ id: string; name?: string; content?: string }>): string {
   let h = 2166136261 >>> 0;
   for (const p of patterns) {
@@ -718,13 +729,14 @@ export const neuralTools: MCPTool[] = [
         // (the flywheel's access pattern) embeds + cosines once, not per config.
         const _cosKey = `${corpusFingerprint(patterns)}::${query}`;
         let queryEmbedding: number[], cosineArr: number[];
-        if (_cosineCache && _cosineCache.key === _cosKey) {
-          queryEmbedding = _cosineCache.queryEmbedding;
-          cosineArr = _cosineCache.cosineArr;
+        const _hit = _cosineCacheGet(_cosKey);
+        if (_hit) {
+          queryEmbedding = _hit.queryEmbedding;
+          cosineArr = _hit.cosineArr;
         } else {
           queryEmbedding = await generateEmbedding(query, 384);
           cosineArr = patterns.map((p) => cosineSimilarity(queryEmbedding, p.embedding));
-          _cosineCache = { key: _cosKey, queryEmbedding, cosineArr };
+          _cosineCacheSet(_cosKey, { queryEmbedding, cosineArr });
         }
 
         if (mode === 'cosine') {
