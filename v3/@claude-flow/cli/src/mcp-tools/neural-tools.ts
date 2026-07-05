@@ -97,24 +97,24 @@ function ensureEmbeddings(): Promise<void> {
   if (embeddingsPromise) return embeddingsPromise;
   embeddingsPromise = (async () => {
     try {
-      // Tier -1 (PRIMARY): Lattice WASM — real multi-model semantic embeddings
-      // (miniLM / bge / paraphrase-miniLM / GPU qwen3-0.6b) ahead of everything.
-      // Optional + FAIL-CLOSED: absent/init-fail ⇒ fall straight through to the
-      // existing ruvector-ONNX → hash tiers with zero regression.
+      // Tier -1 (PRIMARY): optional WASM embedder — a pluggable real embedder
+      // ahead of everything. OPT-IN (RUFLO_EMBED_WASM_PKG) + FAIL-CLOSED: unset
+      // or absent/init-fail ⇒ fall straight through to the existing
+      // ruvector-ONNX → hash tiers with zero regression.
       try {
-        const lat = await import('../ruvector/lattice-wasm.js').catch(() => null);
-        if (lat && await lat.latticeAvailable()) {
-          const model = lat.DEFAULT_LATTICE_MODEL;
+        const we = await import('../ruvector/wasm-embedder.js').catch(() => null);
+        if (we && await we.wasmEmbedderAvailable()) {
+          const model = we.DEFAULT_EMBED_MODEL;
           realEmbeddings = {
             embed: async (text: string) => {
-              const v = await lat.latticeEmbed(text, model);
-              if (!v || !v.length) throw new Error('lattice embed failed'); // → generateEmbedding falls to next tier
+              const v = await we.wasmEmbed(text, model);
+              if (!v || !v.length) throw new Error('wasm embed failed'); // → generateEmbedding falls to next tier
               return v;
             },
           };
-          embeddingServiceName = `lattice-wasm/${model} (${lat.latticeModels().length} model${lat.latticeModels().length === 1 ? '' : 's'})`;
+          embeddingServiceName = `wasm-embedder/${model} (${we.wasmEmbedderModels().length} model${we.wasmEmbedderModels().length === 1 ? '' : 's'})`;
         }
-      } catch { /* lattice absent — fall through */ }
+      } catch { /* not configured — fall through */ }
 
       // Tier 0: ruvector@0.2.27 — bundled all-MiniLM-L6-v2 + parallel worker pool.
       // Probe with isOnnxAvailable() and verify an actual embed succeeds (avoids
@@ -370,6 +370,7 @@ async function generateEmbedding(text?: string, dims: number = 384): Promise<num
   // Hash-based deterministic embedding (better than pure random for consistency)
   // NOTE: No semantic meaning — only useful for consistent deduplication, not similarity search
   if (text) {
+    (await import('../memory/embedding-policy.js')).enforceNoStub('neural-tools.generateEmbedding'); // "no stubs" strict mode
     if (embeddingServiceName === 'none') {
       embeddingServiceName = 'hash-fallback';
     }

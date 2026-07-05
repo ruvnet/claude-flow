@@ -14,6 +14,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { enforceNoStub } from '../memory/embedding-policy.js';
 
 // ============================================================================
 // Types
@@ -304,6 +305,7 @@ export function generateEmbedding(text: string, dimensions: number = 768): Float
     }
   }
 
+  enforceNoStub('vector-db.generateEmbedding'); // "no stubs" strict mode → throw instead of hash
   const embedding = generateHashEmbedding(text, dimensions);
   // Tag the result so consumers can detect it came from hash fallback
   Object.defineProperty(embedding, '_warning', {

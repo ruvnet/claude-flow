@@ -2291,6 +2291,7 @@ export async function generateLocalEmbedding(text: string): Promise<{
 
   // Deterministic hash-based fallback (for testing/demo without ONNX).
   // AUDIT #3: backend='mock' — these vectors do NOT carry real semantics.
+  (await import('./embedding-policy.js')).enforceNoStub('memory-initializer.generateLocalEmbedding'); // "no stubs" strict mode
   const embedding = generateHashEmbedding(text, state.dimensions);
   return {
     embedding,
