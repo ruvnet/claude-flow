@@ -97,14 +97,33 @@ function ensureEmbeddings(): Promise<void> {
   if (embeddingsPromise) return embeddingsPromise;
   embeddingsPromise = (async () => {
     try {
+      // Tier -1 (PRIMARY): Lattice WASM — real multi-model semantic embeddings
+      // (miniLM / bge / paraphrase-miniLM / GPU qwen3-0.6b) ahead of everything.
+      // Optional + FAIL-CLOSED: absent/init-fail ⇒ fall straight through to the
+      // existing ruvector-ONNX → hash tiers with zero regression.
+      try {
+        const lat = await import('../ruvector/lattice-wasm.js').catch(() => null);
+        if (lat && await lat.latticeAvailable()) {
+          const model = lat.DEFAULT_LATTICE_MODEL;
+          realEmbeddings = {
+            embed: async (text: string) => {
+              const v = await lat.latticeEmbed(text, model);
+              if (!v || !v.length) throw new Error('lattice embed failed'); // → generateEmbedding falls to next tier
+              return v;
+            },
+          };
+          embeddingServiceName = `lattice-wasm/${model} (${lat.latticeModels().length} model${lat.latticeModels().length === 1 ? '' : 's'})`;
+        }
+      } catch { /* lattice absent — fall through */ }
+
       // Tier 0: ruvector@0.2.27 — bundled all-MiniLM-L6-v2 + parallel worker pool.
       // Probe with isOnnxAvailable() and verify an actual embed succeeds (avoids
       // the type-load-success-but-runtime-fails trap from ADR-086). The probe now
       // runs on first embed request instead of at import time.
       // NOTE: ruvector's embed() returns `{embedding, dimension, timeMs}` — we
       // unwrap to plain number[] for the shared interface.
-      const rv = await import('ruvector').catch(() => null) as any;
-      if (rv?.embed && typeof rv.embed === 'function' && rv.isOnnxAvailable?.()) {
+      const rv = !realEmbeddings ? await import('ruvector').catch(() => null) as any : null;
+      if (!realEmbeddings && rv?.embed && typeof rv.embed === 'function' && rv.isOnnxAvailable?.()) {
         try {
           if (typeof rv.initOnnxEmbedder === 'function') await rv.initOnnxEmbedder();
           const probe = await rv.embed('probe');
