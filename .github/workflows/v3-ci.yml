@@ -330,6 +330,15 @@ jobs:
         working-directory: v3
         run: pnpm --recursive --no-bail run build || true
 
+      - name: "ADR-176/177 — self-learning proof artifacts must stay valid"
+        # Guard the committed evidence that makes the flywheel claim honest:
+        # the proof-of-mechanism + REAL compounding lineage must replay
+        # independently (rehash + re-run accept/v1+sig, no service logs), the
+        # lineage must reconstruct to >=2 promotions back to the immutable root,
+        # and the shipped config champion must verify against the baked pubkey.
+        working-directory: v3/@claude-flow/cli
+        run: node scripts/smoke-flywheel-proof.mjs
+
       - name: Run tests
         working-directory: v3
         # Tolerate exit code 139 (SIGSEGV) ONLY when it occurs at process
