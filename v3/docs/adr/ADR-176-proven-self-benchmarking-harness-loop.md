@@ -124,17 +124,31 @@ A repository adopts the most-specific layer whose manifest passes *its own* benc
 
 ## The self-optimizing flywheel — getting smarter *as it runs*
 
-The stages above optimize *once, on demand*. To make an install improve **continuously and autonomously**, three things must be true, and each is engineered to stay honest:
+The stages above optimize *once, on demand*. A **flywheel** is the closed loop where each *verified* improvement becomes the baseline for the next cycle, so gains **compound** instead of being rediscovered:
 
-1. **The yardstick grows from real usage.** A corpus harvester (`harness-corpus-harvester.ts`) mines the install's own store into a **self-supervised self-retrieval** benchmark: a stored doc is unambiguous ground truth for a query derived from its *own body with the subject tokens withheld* ("find this doc from its content when the obvious title words are gone"). The label is the doc's identity — an `oracle:test-exec`-grade executable check, not a proxy guess — so the test set expands as the store does. This is the mechanism the earlier "fixed hand-labeled corpus" limitation demanded.
+```
+Observe → Benchmark(immutable holdout) → Evolve(candidates) → Verify(holdout, security,
+drift, replay, governance) → Promote(winner = new baseline, signed) → Deploy(SHADOW first,
+adopt only after local verification) → Observe again
+```
 
-2. **A Goodhart anchor prevents metric drift.** The growing auto-signal is blended with the small human-labeled seed (ADR-081) kept as a **never-regress anchor**. The promotion rule's adversarial term (`redblue`) is bound to "candidate must not regress on the human anchor," so optimizing the cheap auto-metric can never silently walk away from real relevance. Multi-objective by construction, matching the Goodhart-resistance principle above.
+The property that makes it a flywheel, not a search engine: **every generation starts from the best *verified* policy, and the full lineage back to generation 0 is reconstructable, each promotion backed by signed, independently-replayable receipts.** A search engine explores and discards; the flywheel accumulates verified winners with an auditable lineage.
 
-3. **Improvement is proven, not asserted.** Every tick appends to an **improvement ledger** (`harness-improvement-ledger.ts`) — corpus version+hash, baseline vs candidate held-out score, every `accept()` term, and the outcome. Because the loop only accepts a *strict* improvement that regresses no task, the accepted subsequence is **monotonically non-decreasing by construction**, and each champion **chains** to its predecessor (`baseline_ref == previous champion_ref`). `summarizeImprovement()` folds this into an auditable claim; a single non-improving or unchained "accept" flips the `monotonic`/`chainIntact` flags — the ledger cannot launder a regression, and it also records the *refusals* (proof the gate is not a rubber stamp).
+Three things must be true, each engineered to stay honest:
 
-**Local vs global trust.** A tick that clears the install's own measured gate is applied **locally, unsigned** — the install is trusting its *own* execution-verified evidence on its *own* data; nothing is propagated, so no signature is required (`applyChampionParams`). Cross-install propagation still requires the config-signed champion (ADR-177). This split is what lets the flywheel run autonomously at $0 without weakening the propagation trust root: local self-optimization and global distribution are different trust domains.
+1. **The yardstick grows from real usage.** A corpus harvester (`harness-corpus-harvester.ts`) mines the install's own store into a **self-supervised self-retrieval** benchmark: a stored doc is unambiguous ground truth for a query derived from its *own body with the subject tokens withheld*. An `oracle:test-exec`-grade executable check, not a proxy — so the test set expands as the store does.
 
-The flywheel runs as the (opt-in, `$0`-default) daemon worker; a live multi-tick run climbs the held-out score until it plateaus, then honestly stops promoting — convergence, not perpetual motion.
+2. **Optimize the trusted objective; guard breadth with the cheap signal.** The optimization target is the **human-labeled** anchor (ADR-081) — the relevance we actually care about, where headroom is known to exist. The large, growing harvested set is the **no-regression generalization guard** (bound to the `redblue` term), so tuning the objective can't quietly wreck broad retrieval. *(An earlier inverted design — optimize the cheap harvested metric, guard with the human anchor — was corrected after a live run showed the best candidate regressing the anchor: the gate correctly refused, exposing the mismatch.)*
+
+3. **Improvement is proven, not asserted.** Every tick appends to an **improvement ledger** (`harness-improvement-ledger.ts`) with the corpus hash, baseline vs candidate held-out score, a **bootstrap confidence lower bound** on the per-task delta (the gain must survive resampling — small-N noise guard), every `accept()` term, and the outcome. Because the loop only accepts a *strict, significant* improvement that regresses no task, the accepted subsequence is **monotonic-by-construction** and each champion **chains** to its predecessor. `summarizeImprovement()` folds this into an auditable claim; a single non-improving or unchained accept flips the `monotonic`/`chainIntact` flags — the ledger cannot launder a regression, and it records the *refusals* too.
+
+**Deploy shadow-first — no auto-serve.** A promoted candidate is registered in **SHADOW** (`served: false`); serving is a separate, locally-verified adoption step, never automatic. The `evolve-proof.ts` receipt bundle carries the seven artifacts — input-holdout hash, baseline + candidate manifest hashes, `meetsPromotionRule` version, decision receipt, SHADOW registration id, cost receipt — so a third party can rehash the inputs and **re-run the same versioned `accept()` to confirm *why* a candidate passed or failed without trusting any service log** (`verifyReceiptBundle`).
+
+**Telemetry makes it observable, not aspirational.** `reconstructLineage()` answers: generations run, candidates evaluated, promotions, cumulative held-out improvement, rejection rate, plateau — so one can see whether the system is *genuinely compounding* or *merely searching*.
+
+**Status (honest).** Implemented + independently verifiable: the **generation-0 proof-of-mechanism** (`.claude/evolve-proof/generation-0.json`) — gate wiring, receipt persistence, SHADOW registration, no-auto-serve, replayable from disk — plus the harvester, the significance-gated ledger, and lineage/telemetry, all unit-proven (a controlled tick learns + applies + records a significant, chained entry). **Not yet demonstrated:** a real *multi-generation compounding climb on live data* — the harness is wired and the lineage scaffolding exists, but the end-to-end compounding run (winners accumulating across generations on the real store) is the next step, gated on making the live retrieval search cheap enough to iterate. Generation 0 is the fixture that work builds on. No synthetic pass here is evidence of real-world improvement.
+
+**Local vs global trust.** A locally-mined, gate-cleared champion may be adopted **locally, unsigned** (the install trusting its own execution-verified evidence on its own data). Cross-install propagation still requires the config-signed champion (ADR-177). Local self-optimization and global distribution are separate trust domains.
 
 ## Naming (see ADR-177)
 
@@ -180,5 +194,9 @@ Every stage is additive and gated; the loop only *proposes*. A champion is appli
 7. **Host registry + hierarchical layers** — claude-code/codex; global→language→framework→repo.
 8. **Daemon worker** — scheduled, $0-default, budget-capped.
 9. **Feedback applier** — apply the signed champion to routing/agent config, provenance-tagged, reversible.
-10. **Self-optimizing flywheel** — corpus harvester (self-supervised, growing) + human anchor (Goodhart guard) + improvement ledger (monotonic-by-construction proof) + local-apply/global-sign trust split, wired into the daemon worker so an install improves autonomously as it runs. *(Implemented — the first mint produced a real +0.0738 nDCG@3 champion over the ADR-082-tuned baseline; the live flywheel climbs held-out score to convergence.)*
+10. **Self-optimizing flywheel** — corpus harvester (self-supervised, growing) + human-objective / harvested-guard + significance-gated improvement ledger (monotonic-by-construction proof) + shadow-first / no-auto-serve + lineage telemetry. *(Partially implemented, honestly scoped: the one-shot mint produced a real +0.0738 nDCG@3 champion over the ADR-082-tuned baseline; the **generation-0 proof-of-mechanism** is implemented + independently replayable; the **multi-generation compounding climb on live data** is NOT yet demonstrated — it is the next step (A-P3b), for which generation 0 is the fixture. A live single-tick refused to promote until the objective was reoriented, which is the gate working, not the flywheel compounding.)*
+
+## Acceptance test — the flywheel (distinct from the one-shot loop above)
+
+After multiple generations, the **complete lineage from the current policy back to generation 0 must be reconstructable**, every promotion supported by signed receipts and **independently replayable evidence** — i.e. rehash each bundle's inputs and re-run the versioned `accept()` to confirm the recorded decision, without trusting any service log. `reconstructLineage()` + `verifyReceiptBundle()` implement this check; generation 0 passes it today (trivially, as a single node).
 10. **Propagation** — ADR-177.
