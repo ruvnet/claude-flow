@@ -1635,18 +1635,21 @@ export class WorkerDaemon extends EventEmitter {
 
     let result: Record<string, unknown>;
     try {
-      // ADR-176 flywheel: self-optimize retrieval on the install's REAL data,
-      // gate on held-out + anchor-no-regress, apply locally on accept, and
-      // record proof-of-improvement. Opt-in ($0 no-op without RUFLO_HARNESS_LOOP).
-      const { runFlywheelWorker } = await import('./harness-flywheel-runtime.js');
-      const fw = await runFlywheelWorker(this.projectRoot, { sample: 40 });
-      let summary: unknown = null;
+      // ADR-176 flywheel (A-P3b autonomy loop): run ONE COMPOUNDING generation
+      // on the install's REAL data — read the persisted champion as baseline,
+      // gate a constrained candidate on the frozen self-supervised held-out with
+      // the human-anchor guard + separate canary, and on a verified promotion
+      // advance the champion so the NEXT tick compounds. Shadow-first (serve lags
+      // one tick). Opt-in ($0 no-op without RUFLO_HARNESS_LOOP).
+      const { runFlywheelGenerationWorker } = await import('./harness-flywheel-runtime.js');
+      const gen = await runFlywheelGenerationWorker(this.projectRoot, { sample: 120 });
+      let status: unknown = null;
       try {
-        const { summarizeImprovement } = await import('./harness-improvement-ledger.js');
-        summary = summarizeImprovement(join(this.projectRoot, '.claude-flow', 'metrics'));
-      } catch { /* no ledger yet */ }
-      if (fw.accepted) this.log('info', `Flywheel: champion applied (+${(fw.delta ?? 0).toFixed(4)} held-out) — ${fw.corpusVersion}`);
-      result = { timestamp: new Date().toISOString(), flywheel: fw, improvement: summary };
+        const { flywheelStatus } = await import('./harness-flywheel-generations.js');
+        status = flywheelStatus(this.projectRoot);
+      } catch { /* no lineage yet */ }
+      if (gen.promoted) this.log('info', `Flywheel gen ${gen.generation}: PROMOTED (+${(gen.delta ?? 0).toFixed(4)} held-out, significant=${gen.significant}) — champion advanced`);
+      result = { timestamp: new Date().toISOString(), flywheel: gen, lineage: status };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.log('warn', `Harness worker failed: ${message}`);

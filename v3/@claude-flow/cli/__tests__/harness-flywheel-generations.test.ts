@@ -1,0 +1,97 @@
+/**
+ * Stateful flywheel — the autonomy loop (ADR-176 A-P3b). Proves the daemon path
+ * COMPOUNDS across ticks (winner→next baseline via persisted lineage), is
+ * shadow-first (serve lags promotion by one tick), and surfaces status. Deps
+ * injected → deterministic, no ONNX.
+ */
+import { describe, it, expect } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import {
+  runFlywheelGeneration, flywheelStatus, loadPromotions, currentChampion, servedChampion,
+  type GenerationDeps, type AnchorTask,
+} from '../src/services/harness-flywheel-generations.js';
+import type { RankedItem } from '../src/services/harness-flywheel.js';
+
+// 60 docs; each body carries its own id token 3× so the harvested query recovers it.
+const patterns = Array.from({ length: 60 }, (_, i) => {
+  const id = `p${String(i).padStart(2, '0')}`;
+  return { id, name: `feature ${i}`, content: `${id} ${id} ${id} alpha beta gamma delta epsilon widget subsystem` };
+});
+const anchor: AnchorTask[] = [{ id: 'anchor-0', q: 'anchor find zero', labels: ['feature 0'] }];
+
+// Stub: self-retrieval rank of the target improves in TWO steps as alpha falls
+// (0.5→rank3, ~0.3→rank1, ~0.2→rank0) → two successive improvements possible.
+// Anchor ranking is config-independent → human relevance flat → redblue PASS.
+function makeDeps(now: number, applyLog?: string[]): GenerationDeps {
+  return {
+    getPatterns: () => patterns,
+    search: (q, cfg) => {
+      const m = q.match(/p\d+/);
+      const ids: RankedItem[] = patterns.map((p) => ({ id: p.id, name: p.name }));
+      if (m) {
+        const idx = ids.findIndex((x) => x.id === m[0]);
+        const to = cfg.alpha <= 0.25 ? 0 : cfg.alpha <= 0.45 ? 1 : 3;
+        const [item] = ids.splice(idx, 1); ids.splice(to, 0, item);
+        return ids.slice(0, 5);
+      }
+      return ids.slice(0, 5); // anchor: fixed → 'feature 0' at rank 0 → constant nDCG
+    },
+    anchorTasks: anchor,
+    sample: 120,
+    now,
+    applyFn: (cfg, hash) => { applyLog?.push(hash); },
+  };
+}
+
+describe('runFlywheelGeneration — compounding autonomy loop', () => {
+  it('compounds across ticks and is shadow-first (serve lags promotion by one tick)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'fwg-'));
+    const applied: string[] = [];
+
+    // tick 0: first generation off the DEFAULT baseline → promotes; NOT served yet (shadow).
+    const g0 = await runFlywheelGeneration(root, makeDeps(1000, applied));
+    expect(g0.ran).toBe(true);
+    expect(g0.promoted).toBe(true);
+    expect(g0.generation).toBe(0);
+    expect(g0.anchorRegressed).toBe(false);       // human relevance preserved
+    expect(loadPromotions(root).length).toBe(1);
+    expect(servedChampion(root).championHash).toBeNull(); // shadow — nothing served yet
+    expect(applied.length).toBe(0);
+
+    // tick 1: serves gen-0 champion FIRST (1-tick shadow delay), then compounds → gen-1.
+    const g1 = await runFlywheelGeneration(root, makeDeps(2000, applied));
+    const promos = loadPromotions(root);
+    expect(servedChampion(root).championHash).toBe(promos[0].candidateManifestHash); // gen-0 now served
+    expect(applied[0]).toBe(promos[0].candidateManifestHash);
+    expect(g1.promoted).toBe(true);
+    expect(g1.generation).toBe(1);
+    // compounding: gen-1's baseline is gen-0's promoted candidate.
+    expect(promos[1].baselineManifestHash).toBe(promos[0].candidateManifestHash);
+    expect(promos[1].deltas.benchmark).toBeGreaterThan(0);
+  });
+
+  it('surfaces an auditable status: intact replayable lineage + telemetry', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'fwg-'));
+    await runFlywheelGeneration(root, makeDeps(1000));
+    await runFlywheelGeneration(root, makeDeps(2000));
+    await runFlywheelGeneration(root, makeDeps(3000)); // likely a refusal (ceiling) — still recorded
+
+    const s = flywheelStatus(root);
+    expect(s.generations).toBeGreaterThanOrEqual(2);
+    expect(s.lineage.promotions).toBe(s.generations);
+    expect(s.lineage.lineageIntact).toBe(true);       // chains back to the immutable root
+    expect(s.lineage.allReplayable).toBe(true);        // every bundle re-runs accept/v1+sig
+    expect(s.attempts).toBeGreaterThanOrEqual(s.generations); // refusals recorded too
+    expect(s.mutation[0].mutationClass).toMatch(/retrieval/);
+    expect(s.champion.hash).toBe(currentChampion(root).hash);
+  });
+
+  it('no-op (never throws) on a store too small to harvest', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'fwg-'));
+    const r = await runFlywheelGeneration(root, { ...makeDeps(1), getPatterns: () => patterns.slice(0, 5) });
+    expect(r.ran).toBe(false);
+    expect(r.reason).toMatch(/too small/);
+  });
+});
