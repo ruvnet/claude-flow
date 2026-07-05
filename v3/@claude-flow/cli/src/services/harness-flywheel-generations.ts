@@ -25,7 +25,7 @@ import {
   type EvolveReceiptBundle, type LineageTelemetry, type PlateauReport, type MutationStat,
 } from './evolve-proof.js';
 import { harvestSelfSupervisedTasks, type HarvestPattern } from './harness-corpus-harvester.js';
-import { applyChampionParams } from '../config/harness-feedback-applier.js';
+import { applyChampionParams, rollbackActivePolicy } from '../config/harness-feedback-applier.js';
 import { DEFAULT_CONFIG, type RetrievalConfig, type RankedItem } from './harness-flywheel.js';
 
 export const FLYWHEEL_DIR = ['.claude-flow', 'flywheel'];
@@ -249,6 +249,55 @@ export async function runFlywheelGeneration(root: string, deps: GenerationDeps):
     };
   } catch (e) {
     return { ran: false, reason: `error: ${(e as Error)?.message ?? e}`, generation: 0 };
+  }
+}
+
+// ── Deployment-safety canary: drift detection on the REAL evolving store ──────
+const DRIFT_TOL = 0.02;
+
+export interface DriftCheck { checked: boolean; rolledBack: boolean; reason: string; servedScore?: number; predecessorScore?: number; }
+
+/**
+ * A real deployment-safety check on real (not fabricated) data: the store keeps
+ * changing as ruflo is used, so a champion benchmarked at promotion time can
+ * DRIFT. Each tick, re-score the currently-SERVED champion against its
+ * predecessor on a FRESH harvest of the current store; if it now regresses
+ * (self-retrieval OR the human anchor), automatically ROLL BACK the active policy
+ * to the predecessor. This is the honest analogue of a live-traffic canary —
+ * genuine ongoing measurement + genuine rollback — without fabricating traffic.
+ * $0; never throws.
+ */
+export async function checkServedChampionDrift(root: string, deps: GenerationDeps): Promise<DriftCheck> {
+  try {
+    const served = servedChampion(root);
+    if (!served.championHash || served.fromGeneration == null || !served.config) return { checked: false, rolledBack: false, reason: 'nothing served' };
+    const bundle = readJson<EvolveReceiptBundle>(path.join(dir(root), `generation-${served.fromGeneration}.json`));
+    if (!bundle) return { checked: false, rolledBack: false, reason: 'served bundle missing' };
+    const predecessor = (bundle.baselineManifest.policy.value ?? {}) as unknown as RetrievalConfig;
+    const servedCfg = served.config as unknown as RetrievalConfig;
+
+    const patterns = await deps.getPatterns();
+    if (!patterns || patterns.length < 12) return { checked: false, rolledBack: false, reason: 'store too small' };
+    const harvested = harvestSelfSupervisedTasks(patterns, { sample: deps.sample ?? 120 });
+    const nT = Math.floor(harvested.length * 0.4), nH = Math.floor(harvested.length * 0.4);
+    const FRESH = harvested.slice(nT, nT + nH); // fresh held slice from the CURRENT store
+    if (FRESH.length < 12) return { checked: false, rolledBack: false, reason: 'fresh slice too small' };
+
+    const cache = new Map<string, RankedItem[]>();
+    const ranked = async (id: string, q: string, cfg: RetrievalConfig) => { const ck = `${id}::${key(cfg)}`; if (!cache.has(ck)) cache.set(ck, (await deps.search(q, cfg)) || []); return cache.get(ck)!; };
+    const meanRR = async (cfg: RetrievalConfig) => { let s = 0; for (const t of FRESH) s += rr(await ranked(t.id, t.input.q, cfg), t.expected); return s / FRESH.length; };
+    const anchorMean = async (cfg: RetrievalConfig) => { let s = 0; for (const a of deps.anchorTasks) s += ndcg3((await ranked(a.id, a.q, cfg)).map((x) => x.name), a.labels); return s / deps.anchorTasks.length; };
+
+    const servedScore = await meanRR(servedCfg), predScore = await meanRR(predecessor);
+    const servedAnchor = await anchorMean(servedCfg), predAnchor = await anchorMean(predecessor);
+    const drifted = servedScore < predScore - DRIFT_TOL || servedAnchor < predAnchor - DRIFT_TOL;
+    if (drifted) {
+      rollbackActivePolicy(root, { now: deps.now });
+      try { fs.writeFileSync(path.join(dir(root), SERVED_FILE), JSON.stringify({ championHash: null, config: null, servedAt: deps.now, fromGeneration: null }, null, 2), 'utf-8'); } catch { /* */ }
+    }
+    return { checked: true, rolledBack: drifted, reason: drifted ? `drift → rolled back (served ${servedScore.toFixed(3)} < predecessor ${predScore.toFixed(3)})` : 'stable', servedScore, predecessorScore: predScore };
+  } catch (e) {
+    return { checked: false, rolledBack: false, reason: `error: ${(e as Error)?.message ?? e}` };
   }
 }
 

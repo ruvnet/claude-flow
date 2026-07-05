@@ -9,7 +9,7 @@ import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
-  runFlywheelGeneration, flywheelStatus, loadPromotions, currentChampion, servedChampion,
+  runFlywheelGeneration, checkServedChampionDrift, flywheelStatus, loadPromotions, currentChampion, servedChampion,
   axisEffectiveness, biasedGrid,
   type GenerationDeps, type AnchorTask,
 } from '../src/services/harness-flywheel-generations.js';
@@ -106,6 +106,33 @@ describe('runFlywheelGeneration — compounding autonomy loop', () => {
     const alphaVariants = new Set(grid.map((g) => g.alpha)).size;
     const bwVariants = new Set(grid.map((g) => g.bodyWeight)).size; // unproductive here
     expect(alphaVariants).toBeGreaterThan(bwVariants); // compute concentrated on the paying axis
+  });
+
+  it('deployment canary: rolls back a served champion that has DRIFTED on the current store', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'fwg-'));
+    await runFlywheelGeneration(root, makeDeps(1000)); // gen 0 promoted (low-alpha champion)
+    await runFlywheelGeneration(root, makeDeps(2000)); // serves gen 0
+    expect(servedChampion(root).championHash).not.toBeNull();
+
+    // stable: on the SAME store the served champion still beats its predecessor.
+    const stable = await checkServedChampionDrift(root, makeDeps(3000));
+    expect(stable.checked).toBe(true);
+    expect(stable.rolledBack).toBe(false);
+
+    // DRIFT: the store's signal flips (now HIGHER alpha wins) → the served
+    // low-alpha champion underperforms its predecessor → auto rollback.
+    const drifted = await checkServedChampionDrift(root, {
+      ...makeDeps(4000),
+      search: (q, cfg) => {
+        const m = q.match(/p\d+/);
+        const ids = patterns.map((p) => ({ id: p.id, name: p.name }));
+        if (m) { const i = ids.findIndex((x) => x.id === m[0]); const to = cfg.alpha >= 0.45 ? 0 : 3; const [it] = ids.splice(i, 1); ids.splice(to, 0, it); return ids.slice(0, 5); }
+        return ids.slice(0, 5);
+      },
+    });
+    expect(drifted.checked).toBe(true);
+    expect(drifted.rolledBack).toBe(true);
+    expect(servedChampion(root).championHash).toBeNull(); // reverted
   });
 
   it('no-op (never throws) on a store too small to harvest', async () => {

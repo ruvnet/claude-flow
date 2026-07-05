@@ -6,7 +6,7 @@
  */
 import { harnessLoopOptedIn } from './harness-worker.js';
 import { runFlywheelTick, type FlywheelDeps, type FlywheelResult, type RetrievalConfig, type AnchorTask } from './harness-flywheel.js';
-import { runFlywheelGeneration, type GenerationResult, type AnchorTask as GenAnchorTask } from './harness-flywheel-generations.js';
+import { runFlywheelGeneration, checkServedChampionDrift, type GenerationResult, type GenerationDeps, type AnchorTask as GenAnchorTask } from './harness-flywheel-generations.js';
 
 /** The frozen ADR-081 human-relevance anchor in the generation runner's shape. */
 const GEN_ANCHOR: GenAnchorTask[] = [
@@ -85,7 +85,7 @@ export async function runFlywheelGenerationWorker(
     const neural = await import('../mcp-tools/neural-tools.js');
     const tool = neural.neuralTools.find((t) => t.name === 'neural_patterns');
     if (!tool) return { ran: false, reason: 'neural_patterns tool unavailable', generation: 0 };
-    return await runFlywheelGeneration(projectRoot, {
+    const deps: GenerationDeps = {
       getPatterns: () => neural.getStorePatterns(),
       search: async (query, cfg: RetrievalConfig) => {
         const r = await tool.handler({ action: 'search', query, mode: 'hybrid', limit: 5, rerank: false, ...cfg }) as { results?: Array<{ id?: string; name?: string }> };
@@ -94,7 +94,11 @@ export async function runFlywheelGenerationWorker(
       anchorTasks: GEN_ANCHOR,
       sample: opts.sample ?? 120,
       now: opts.now ?? Date.now(),
-    });
+    };
+    // Deployment-safety canary first: roll back the served champion if the real
+    // store has drifted since it was promoted. Then run the next generation.
+    await checkServedChampionDrift(projectRoot, deps);
+    return await runFlywheelGeneration(projectRoot, deps);
   } catch (e) {
     return { ran: false, reason: `error: ${(e as Error)?.message ?? e}`, generation: 0 };
   }
