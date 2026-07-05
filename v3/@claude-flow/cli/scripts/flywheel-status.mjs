@@ -24,6 +24,12 @@ console.log('='.repeat(64));
 console.log(`generations (promotions) : ${s.generations}`);
 console.log(`attempts (incl. refusals): ${s.attempts}`);
 console.log(`cumulative held-out Δ    : ${s.lineage.cumulativeHeldOutImprovement.toFixed(4)}`);
+// Anti-overfitting view: proxy (self-supervised) gain vs FROZEN human-relevance gain.
+const bench = s.cumulativeBenchmarkDelta ?? 0, human = s.cumulativeHumanRelevanceDelta ?? 0;
+const overfit = bench > 0.02 && human <= 0.005;
+console.log(`cumulative proxy Δ       : ${bench.toFixed(4)}  (self-supervised self-retrieval)`);
+console.log(`cumulative HUMAN Δ       : ${human.toFixed(4)}  (frozen human-labeled eval)${overfit ? '   ⚠️  proxy up but human flat → OVERFITTING' : ''}`);
+console.log(`frozen human eval        : ${s.humanEvalHash ? s.humanEvalHash.slice(0, 26) + '…' : '(none)'}`);
 console.log(`lineage intact           : ${s.lineage.lineageIntact}   replayable: ${s.lineage.allReplayable}`);
 console.log(`immutable root           : ${(s.lineage.rootHash || '(none yet)').slice(0, 26)}…`);
 console.log(`plateau                  : ${s.plateau.status} — ${s.plateau.rationale}`);

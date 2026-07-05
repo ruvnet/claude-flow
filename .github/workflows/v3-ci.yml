@@ -339,6 +339,14 @@ jobs:
         working-directory: v3/@claude-flow/cli
         run: node scripts/smoke-flywheel-proof.mjs
 
+      - name: "ADR-176 — clean-room replay acceptance test (offline, identical hashes)"
+        # Replay a PROMOTED generation from its receipt alone: recompute every
+        # hash bit-identically and re-run accept/v1+sig to reproduce promoted=true,
+        # with network access trapped. Proves promotions are reproducible without
+        # trusting any service log.
+        working-directory: v3/@claude-flow/cli
+        run: node scripts/replay-generation.mjs
+
       - name: Run tests
         working-directory: v3
         # Tolerate exit code 139 (SIGSEGV) ONLY when it occurs at process

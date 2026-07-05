@@ -40,6 +40,7 @@ export interface GenerationDeps {
   getPatterns: () => HarvestPattern[] | Promise<HarvestPattern[]>;
   search: (q: string, cfg: RetrievalConfig) => Promise<RankedItem[]> | RankedItem[];
   anchorTasks: AnchorTask[];
+  humanEvalHash?: string;            // content hash of the FROZEN human eval set anchorTasks come from
   sample?: number;
   now: number;
   applyFn?: (cfg: Record<string, number>, hash: string, generation: number) => void;
@@ -236,8 +237,11 @@ export async function runFlywheelGeneration(root: string, deps: GenerationDeps):
     const canaryRollbackRate = CANARY.length ? cRoll / CANARY.length : 0;
     const candAnchor = await anchorMean(cand);
     const redblue: 'PASS' | 'FAIL' = candAnchor >= baseAnchor - ANCHOR_TOL ? 'PASS' : 'FAIL';
+    // per-generation HUMAN-RELEVANCE delta on the frozen eval set (anti-overfitting
+    // visibility): if this stays ~0 while benchmark Δ > 0, the loop is overfitting.
+    const humanRelevanceDelta = candAnchor - baseAnchor;
 
-    const bundle = runRealEvolveRound({ baseline: baseline as unknown as Record<string, number>, candidate: cand as unknown as Record<string, number>, holdout, generation, parent, branch: 'main', now: deps.now, redblue, canaryRollbackRate, corpus: FROZEN_CORPUS });
+    const bundle = runRealEvolveRound({ baseline: baseline as unknown as Record<string, number>, candidate: cand as unknown as Record<string, number>, holdout, generation, parent, branch: 'main', now: deps.now, redblue, canaryRollbackRate, humanRelevanceDelta, humanEvalHash: deps.humanEvalHash, corpus: FROZEN_CORPUS });
     appendAttempt(root, bundle);
     if (bundle.decisionReceipt.promoted) appendPromotion(root, bundle);
 
@@ -309,6 +313,9 @@ export interface FlywheelStatus {
   plateau: PlateauReport;
   mutation: MutationStat[];
   axisEffectiveness: AxisStat[];      // per-dimension payoff driving the meta-learning bias
+  cumulativeBenchmarkDelta: number;   // Σ self-supervised (proxy) Δ over promotions
+  cumulativeHumanRelevanceDelta: number; // Σ frozen human-eval Δ over promotions — if ≈0 while benchmark≫0 ⇒ overfitting
+  humanEvalHash: string | null;       // frozen human eval set the deltas are against
   served: ServedState;
   champion: { config: Record<string, number>; hash: string | null };
 }
@@ -325,6 +332,9 @@ export function flywheelStatus(root: string): FlywheelStatus {
     plateau: detectPlateau(attempts.length ? attempts : promotions, { window: 5 }),
     mutation: mutationEffectiveness(attempts.length ? attempts : promotions),
     axisEffectiveness: axisEffectiveness(promotions),
+    cumulativeBenchmarkDelta: promotions.reduce((s, b) => s + (b.deltas.benchmark ?? 0), 0),
+    cumulativeHumanRelevanceDelta: promotions.reduce((s, b) => s + (b.deltas.humanRelevance ?? 0), 0),
+    humanEvalHash: promotions.length ? (promotions[promotions.length - 1].humanEvalHash ?? null) : null,
     served: servedChampion(root),
     champion: { config: champ.config, hash: champ.hash },
   };

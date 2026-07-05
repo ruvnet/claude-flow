@@ -135,6 +135,23 @@ describe('runFlywheelGeneration — compounding autonomy loop', () => {
     expect(servedChampion(root).championHash).toBeNull(); // reverted
   });
 
+  it('records a per-generation human-relevance delta and exposes the overfitting signal', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'fwg-'));
+    await runFlywheelGeneration(root, { ...makeDeps(1000), humanEvalHash: 'sha256:frozen-test' });
+    const promos = loadPromotions(root);
+    expect(promos.length).toBeGreaterThanOrEqual(1);
+    // the human-relevance delta is recorded on every promotion (against the frozen set)
+    expect(promos[0].deltas.humanRelevance).toBeDefined();
+    expect(promos[0].humanEvalHash).toBe('sha256:frozen-test');
+
+    const s = flywheelStatus(root);
+    expect(s.cumulativeBenchmarkDelta).toBeGreaterThan(0);           // proxy (self-retrieval) improved
+    // stub's anchor is config-independent → human relevance flat → the overfitting
+    // signal is now VISIBLE (proxy up, human ~0), not hidden.
+    expect(Math.abs(s.cumulativeHumanRelevanceDelta)).toBeLessThan(0.01);
+    expect(s.humanEvalHash).toBe('sha256:frozen-test');
+  });
+
   it('no-op (never throws) on a store too small to harvest', async () => {
     const root = mkdtempSync(join(tmpdir(), 'fwg-'));
     const r = await runFlywheelGeneration(root, { ...makeDeps(1), getPatterns: () => patterns.slice(0, 5) });
