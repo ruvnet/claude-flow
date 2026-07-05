@@ -31,6 +31,8 @@ console.log(`served champion          : ${s.served.championHash ? s.served.champ
 console.log(`current champion config  : ${JSON.stringify(s.champion.config)}`);
 console.log('mutation effectiveness   :');
 for (const m of s.mutation) console.log(`  ${m.mutationClass.padEnd(22)} attempts=${m.attempts} promotions=${m.promotions} meanΔ=${m.meanDelta.toFixed(4)}`);
+console.log('axis payoff (meta-learn) :');
+for (const a of s.axisEffectiveness) console.log(`  ${a.axis.padEnd(18)} promotions=${a.promotions} meanΔ=${a.meanDelta.toFixed(4)}${a.meanDelta > 0 ? '  ← biased toward' : ''}`);
 console.log('lineage:');
 for (const n of s.lineage.nodes) console.log(`  gen ${n.generation} [${n.branch}] ${n.promoted ? '✓' : '✗'} Δ=${n.delta.toFixed(4)} ${n.mutationClass} replay=${n.replayable}`);
 process.exit(0);

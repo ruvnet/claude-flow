@@ -133,21 +133,57 @@ function coarseGrid(): RetrievalConfig[] {
       g.push({ alpha, subjectWeight, mmrLambda, bodyWeight, typePenaltyFactor });
   return g;
 }
-function localGrid(c: RetrievalConfig): RetrievalConfig[] {
-  const ax = {
-    alpha: [c.alpha, +(c.alpha - 0.1).toFixed(2), +(c.alpha + 0.1).toFixed(2)].filter((v) => v > 0 && v < 1),
-    subjectWeight: [...new Set([c.subjectWeight, Math.max(0.5, c.subjectWeight - 0.5), c.subjectWeight + 0.5])],
-    mmrLambda: [c.mmrLambda, +(c.mmrLambda - 0.1).toFixed(2), +(c.mmrLambda + 0.1).toFixed(2)].filter((v) => v >= 0 && v <= 1),
-    bodyWeight: [...new Set([c.bodyWeight, Math.max(0.5, c.bodyWeight - 0.5), c.bodyWeight + 0.5])],
-    typePenaltyFactor: [...new Set([c.typePenaltyFactor, Math.max(0.25, c.typePenaltyFactor - 0.25), Math.min(1, c.typePenaltyFactor + 0.25)])],
-  };
-  const g: RetrievalConfig[] = [], u = new Set<string>();
-  for (const alpha of ax.alpha) for (const subjectWeight of ax.subjectWeight) for (const mmrLambda of ax.mmrLambda)
-    for (const bodyWeight of ax.bodyWeight) for (const typePenaltyFactor of ax.typePenaltyFactor) {
-      const cfg = { alpha, subjectWeight, mmrLambda, bodyWeight, typePenaltyFactor };
-      if (u.has(key(cfg))) continue; u.add(key(cfg)); g.push(cfg);
+// ── Evidence-grounded meta-learning: bias the search by axis payoff ───────────
+const AXES: (keyof RetrievalConfig)[] = ['alpha', 'subjectWeight', 'mmrLambda', 'bodyWeight', 'typePenaltyFactor'];
+const STEP: Record<keyof RetrievalConfig, number> = { alpha: 0.1, subjectWeight: 0.5, mmrLambda: 0.1, bodyWeight: 0.5, typePenaltyFactor: 0.25 };
+function clampAxis(a: keyof RetrievalConfig, v: number): number | null {
+  const r = +v.toFixed(3);
+  if (a === 'alpha') return r > 0 && r < 1 ? r : null;
+  if (a === 'mmrLambda') return r >= 0 && r <= 1 ? r : null;
+  return r > 0 ? r : null;
+}
+
+export interface AxisStat { axis: string; promotions: number; meanDelta: number; }
+/**
+ * Which policy AXES have historically paid off — attribute each promotion's
+ * held-out Δ to the axes that changed in it. Turns the lineage into a
+ * knowledge base the optimizer can act on (not just audit).
+ */
+export function axisEffectiveness(promotions: EvolveReceiptBundle[]): AxisStat[] {
+  const by = new Map<string, number[]>();
+  for (const b of promotions) {
+    const base = (b.baselineManifest.policy.value ?? {}) as Record<string, number>;
+    const cand = (b.candidateManifest.policy.value ?? {}) as Record<string, number>;
+    for (const a of AXES) if (base[a] !== cand[a]) { const d = by.get(a) ?? []; d.push(b.deltas.benchmark); by.set(a, d); }
+  }
+  return AXES.map((a) => ({ axis: a, promotions: (by.get(a) ?? []).length, meanDelta: mean(by.get(a) ?? []) }))
+    .sort((x, y) => y.meanDelta - x.meanDelta);
+}
+
+/**
+ * Candidate set biased by measured axis payoff (meta-learning). Every axis keeps
+ * a ±1 exploration floor (never abandon a dimension), but axes with a positive
+ * historical Δ get EXPANDED range (±2, ±3) and PAIRWISE joint moves with other
+ * productive axes — so compute concentrates on the dimensions that have actually
+ * produced gains, instead of a uniform grid. Deterministic; bounded.
+ */
+export function biasedGrid(c: RetrievalConfig, ranking: AxisStat[]): RetrievalConfig[] {
+  const productive = ranking.filter((r) => r.meanDelta > 1e-9).map((r) => r.axis as keyof RetrievalConfig);
+  const out: RetrievalConfig[] = [], seen = new Set<string>();
+  const add = (cfg: RetrievalConfig) => { const k = key(cfg); if (!seen.has(k)) { seen.add(k); out.push(cfg); } };
+  // exploration floor — single-axis ±1 for every axis
+  for (const a of AXES) for (const dir of [-1, 1]) { const v = clampAxis(a, c[a] + dir * STEP[a]); if (v != null) add({ ...c, [a]: v }); }
+  // exploitation — productive axes get wider range
+  for (const a of productive) for (const m of [2, 3]) for (const dir of [-1, 1]) { const v = clampAxis(a, c[a] + dir * m * STEP[a]); if (v != null) add({ ...c, [a]: v }); }
+  // exploitation — joint moves among productive axis pairs
+  for (let i = 0; i < productive.length; i++) for (let j = i + 1; j < productive.length; j++) {
+    const a = productive[i], b = productive[j];
+    for (const da of [-1, 1]) for (const db of [-1, 1]) {
+      const va = clampAxis(a, c[a] + da * STEP[a]), vb = clampAxis(b, c[b] + db * STEP[b]);
+      if (va != null && vb != null) add({ ...c, [a]: va, [b]: vb });
     }
-  return g;
+  }
+  return out;
 }
 
 /**
@@ -182,7 +218,9 @@ export async function runFlywheelGeneration(root: string, deps: GenerationDeps):
     const anchorMean = async (cfg: RetrievalConfig) => { let s = 0; for (const a of deps.anchorTasks) s += ndcg3((await ranked(a.id, a.q, cfg)).map((x) => x.name), a.labels); return s / deps.anchorTasks.length; };
 
     const baseAnchor = await anchorMean(baseline);
-    const grid = generation === 0 ? coarseGrid() : localGrid(baseline);
+    // Meta-learning: after gen 0, bias the search toward axes that have
+    // historically paid off (a uniform coarse grid only for the first generation).
+    const grid = generation === 0 ? coarseGrid() : biasedGrid(baseline, axisEffectiveness(loadPromotions(root)));
     // constrained (Pareto) selection: best self-retrieval on TRAIN subject to no anchor regression.
     let cand = baseline, candTrain = await meanRR(TRAIN, baseline);
     for (const c of grid) {
@@ -221,6 +259,7 @@ export interface FlywheelStatus {
   lineage: LineageTelemetry;
   plateau: PlateauReport;
   mutation: MutationStat[];
+  axisEffectiveness: AxisStat[];      // per-dimension payoff driving the meta-learning bias
   served: ServedState;
   champion: { config: Record<string, number>; hash: string | null };
 }
@@ -236,6 +275,7 @@ export function flywheelStatus(root: string): FlywheelStatus {
     lineage: reconstructLineage(promotions),
     plateau: detectPlateau(attempts.length ? attempts : promotions, { window: 5 }),
     mutation: mutationEffectiveness(attempts.length ? attempts : promotions),
+    axisEffectiveness: axisEffectiveness(promotions),
     served: servedChampion(root),
     champion: { config: champ.config, hash: champ.hash },
   };

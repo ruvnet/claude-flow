@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   runFlywheelGeneration, flywheelStatus, loadPromotions, currentChampion, servedChampion,
+  axisEffectiveness, biasedGrid,
   type GenerationDeps, type AnchorTask,
 } from '../src/services/harness-flywheel-generations.js';
 import type { RankedItem } from '../src/services/harness-flywheel.js';
@@ -86,6 +87,25 @@ describe('runFlywheelGeneration — compounding autonomy loop', () => {
     expect(s.attempts).toBeGreaterThanOrEqual(s.generations); // refusals recorded too
     expect(s.mutation[0].mutationClass).toMatch(/retrieval/);
     expect(s.champion.hash).toBe(currentChampion(root).hash);
+  });
+
+  it('meta-learning: attributes payoff to the axis that moved and biases the search toward it', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'fwg-'));
+    await runFlywheelGeneration(root, makeDeps(1000)); // gen 0 moves alpha (the only axis that helps)
+    const promos = loadPromotions(root);
+    expect(promos.length).toBeGreaterThanOrEqual(1);
+
+    const eff = axisEffectiveness(promos);
+    expect(eff[0].axis).toBe('alpha');           // alpha ranked top by measured Δ
+    expect(eff[0].meanDelta).toBeGreaterThan(0);
+
+    // the biased grid explores the productive axis (alpha) at a wider range than
+    // an unproductive one, and includes joint moves only among productive axes.
+    const champ = currentChampion(root).config as { alpha: number; subjectWeight: number };
+    const grid = biasedGrid(champ as never, eff);
+    const alphaVariants = new Set(grid.map((g) => g.alpha)).size;
+    const bwVariants = new Set(grid.map((g) => g.bodyWeight)).size; // unproductive here
+    expect(alphaVariants).toBeGreaterThan(bwVariants); // compute concentrated on the paying axis
   });
 
   it('no-op (never throws) on a store too small to harvest', async () => {
