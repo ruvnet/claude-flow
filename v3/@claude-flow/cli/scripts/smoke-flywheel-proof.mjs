@@ -26,6 +26,14 @@ const ok = (m) => console.log(`✓ ${m}`);
 const ep = await import(`file://${d('services/evolve-proof.js')}`);
 const rvfa = await import(`file://${d('config/proven-config-rvfa.js')}`);
 const pc = await import(`file://${d('config/proven-config.js')}`);
+const fe = await import(`file://${d('services/harness-frozen-eval.js')}`);
+
+// 0. the frozen public human-labeled eval set must not have drifted (pinned hash)
+try {
+  const e = fe.loadFrozenHumanEval();
+  e.corpusHash === fe.FROZEN_HUMAN_EVAL_HASH ? ok(`frozen human eval set intact (${e.tasks.length} tasks, ${e.corpusHash.slice(0, 18)}…)`)
+    : fail(`frozen human eval hash drifted`);
+} catch (err) { fail(`frozen human eval load: ${err.message}`); }
 
 // 1. synthetic proof-of-mechanism fixture
 const g0 = JSON.parse(readFileSync(cl('evolve-proof/generation-0.json'), 'utf-8'));

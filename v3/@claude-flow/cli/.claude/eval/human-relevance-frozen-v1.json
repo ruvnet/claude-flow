@@ -1,0 +1,17 @@
+{
+  "version": "human-relevance-frozen-v1",
+  "description": "Frozen, public, human-labeled relevance eval set (ADR-081). Immutable — the red/blue anchor the flywheel must never regress AND against which per-generation human-relevance deltas are reported. Do not edit; supersede with a new version file.",
+  "metric": "nDCG@3 over labelled substring-relevance",
+  "tasks": [
+    { "id": "hr-0", "q": "how was the Opus model alias fixed", "labels": ["opus 4.8", "opus alias", "opus model alias", "#2232"] },
+    { "id": "hr-1", "q": "self-learning wiring task-completed pretrain", "labels": ["self-learning", "adr-074", "#2245", "task-completed"] },
+    { "id": "hr-2", "q": "deterministic codemod engine var-to-const", "labels": ["deterministic tier-1 codemod", "adr-143", "codemod", "var-to-const"] },
+    { "id": "hr-3", "q": "MCP server orphan leak parent-death", "labels": ["mcp orphan", "parent-death", "#2234", "orphan on every claude"] },
+    { "id": "hr-4", "q": "unified learning stats aggregator", "labels": ["unified learning-stats", "adr-075"] },
+    { "id": "hr-5", "q": "structured distillation 4-field schema", "labels": ["structured distillation", "adr-076", "4-field schema"] },
+    { "id": "hr-6", "q": "SQL injection migrate.ts table identifier", "labels": ["sql injection", "migrate.ts", "agentdb", "cve"] },
+    { "id": "hr-7", "q": "recall@k HNSW benchmark harness", "labels": ["hnsw", "recall@k", "benchmark intelligence"] },
+    { "id": "hr-8", "q": "Q-learning encoder keyword block", "labels": ["q-state encoder", "keyword block", "#2239", "q-encoder"] },
+    { "id": "hr-9", "q": "security hardening crypto random IDs", "labels": ["cwe-347", "crypto.randomuuid", "random id", "crypto random"] }
+  ]
+}

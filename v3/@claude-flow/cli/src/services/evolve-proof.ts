@@ -65,7 +65,13 @@ export interface ShadowRegistration {
 export interface CostReceipt { usd: number; llmCalls: number; tier: string; notes: string; }
 
 /** Multi-dimensional deltas vs the parent — distinguishes *why* a change is (un)safe. */
-export interface ChangeDeltas { benchmark: number; security: number; cost: number; }
+export interface ChangeDeltas {
+  benchmark: number;          // the optimization objective (e.g. self-supervised self-retrieval)
+  security: number;           // redblue verdict (-1 = FAILED)
+  cost: number;
+  humanRelevance?: number;    // per-generation Δ on the FROZEN human-labeled eval set (ADR-176 anti-overfitting).
+                              // ~0 across generations while `benchmark` > 0 ⇒ overfitting to the proxy — now visible.
+}
 
 /**
  * Causal promotion record (not just provenance). Answers *why* a candidate won —
@@ -110,6 +116,7 @@ export interface EvolveReceiptBundle {
   mutationClass: string;
   mutationSummary: string;
   deltas: ChangeDeltas;
+  humanEvalHash?: string;            // the frozen human eval set the humanRelevance delta is measured against
   promotion: PromotionRecord | null; // populated on pass
   regression: RegressionRecord | null; // populated on reject
   // ── embedded evidence (so verification needs no service logs) ──
@@ -145,6 +152,8 @@ export interface AssembleOpts {
   cost: { tier: string; notes: string };
   redblue?: 'PASS' | 'FAIL' | 'SKIPPED'; drift?: number;
   canaryRollbackRate?: number;       // SEPARATE deployment-safety signal; default = strict per-held-out-task regression
+  humanRelevanceDelta?: number;      // per-gen Δ on the frozen human eval set
+  humanEvalHash?: string;            // which frozen human eval set the delta is against
   layer?: string; corpus?: string;
 }
 
@@ -190,7 +199,7 @@ export function assembleBundle(baseline: Record<string, number>, candidate: Reco
   } : null;
 
   const { mutationClass, mutationSummary } = classifyMutation(baseline, candidate);
-  const deltas: ChangeDeltas = { benchmark: candidateHeldOut - baselineHeldOut, security: o.redblue === 'FAIL' ? -1 : 0, cost: 0 };
+  const deltas: ChangeDeltas = { benchmark: candidateHeldOut - baselineHeldOut, security: o.redblue === 'FAIL' ? -1 : 0, cost: 0, humanRelevance: o.humanRelevanceDelta };
   const promotion: PromotionRecord | null = promoted ? { parentManifestHash: o.parent, candidateManifestHash, mutationClass, mutationSummary, deltas, decisionReceipt } : null;
   const regression: RegressionRecord | null = promoted ? null : {
     candidateManifestHash, ancestor: o.parent ?? baselineManifestHash, mutationClass,
@@ -203,7 +212,7 @@ export function assembleBundle(baseline: Record<string, number>, candidate: Reco
     meetsPromotionRule: { version: PROMOTION_RULE_VERSION, result: promoted },
     decisionReceipt, shadow,
     costReceipt: { usd: 0, llmCalls: 0, tier: o.cost.tier, notes: o.cost.notes },
-    mutationClass, mutationSummary, deltas, promotion, regression,
+    mutationClass, mutationSummary, deltas, humanEvalHash: o.humanEvalHash, promotion, regression,
     holdout, baselineManifest, candidateManifest,
   };
 }
@@ -218,12 +227,15 @@ export function assembleBundle(baseline: Record<string, number>, candidate: Reco
 export function runRealEvolveRound(opts: {
   baseline: Record<string, number>; candidate: Record<string, number>; holdout: HoldoutTask[];
   generation: number; parent: string | null; branch?: string; now: number;
-  redblue?: 'PASS' | 'FAIL' | 'SKIPPED'; drift?: number; canaryRollbackRate?: number; corpus: string;
+  redblue?: 'PASS' | 'FAIL' | 'SKIPPED'; drift?: number; canaryRollbackRate?: number;
+  humanRelevanceDelta?: number; humanEvalHash?: string; corpus: string;
 }): EvolveReceiptBundle {
   return assembleBundle(opts.baseline, opts.candidate, opts.holdout, {
     generation: opts.generation, parent: opts.parent, branch: opts.branch ?? 'main', now: opts.now, kind: 'real',
     cost: { tier: 'real-local', notes: 'measured on the frozen anchor via live retrieval — no LLM, no network' },
-    redblue: opts.redblue, drift: opts.drift, canaryRollbackRate: opts.canaryRollbackRate, layer: 'real/retrieval', corpus: opts.corpus,
+    redblue: opts.redblue, drift: opts.drift, canaryRollbackRate: opts.canaryRollbackRate,
+    humanRelevanceDelta: opts.humanRelevanceDelta, humanEvalHash: opts.humanEvalHash,
+    layer: 'real/retrieval', corpus: opts.corpus,
   });
 }
 
