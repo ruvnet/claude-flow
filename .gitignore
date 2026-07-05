@@ -177,3 +177,7 @@ v3/@claude-flow/cli/plugins/
 # in v3/@claude-flow/cli/.claude/helpers/helpers.manifest.json.
 .claude/helpers/.helpers-version
 .claude/helpers/helpers.manifest.json
+
+# Runtime proven-config adoption state (per-install, not source)
+.claude/proven-config.json
+.claude/.proven-config-version
