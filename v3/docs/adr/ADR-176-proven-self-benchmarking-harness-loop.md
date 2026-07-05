@@ -1,6 +1,6 @@
 # ADR-176 — Self-Optimizing Harness Loop (Receipt-Backed Evolution)
 
-- **Status:** Accepted (implemented — PR #2572)
+- **Status:** Accepted — **demonstrated** (flywheel milestone met: 2 real, significant, independently-replayable compounding promotions; PR #2572)
 - **Date:** 2026-07-04
 - **Deciders:** ruflo core
 - **Related:** [ADR-150](ADR-150-metaharness-integration-surfaces.md) (metaharness integration contract + removability), [ADR-153](ADR-153-metaharness-darwin-mode-integration.md) (Darwin/evolve — *Proposed*), [ADR-155] (security-bench / Darwin Shield), [ADR-171](ADR-171-provenance-tiered-evaluation-oracle.md) (provenance tiers), [ADR-172](ADR-172-fable-advisor-harness.md) (Fable, cost-bounded), [ADR-174](ADR-174-memory-distillation-self-optimization.md) (distill loop + the held-out promote-gate pattern + Ed25519 signing), [ADR-177](ADR-177-signed-config-propagation-to-installs.md) (propagation to existing installs)
@@ -146,7 +146,15 @@ Three things must be true, each engineered to stay honest:
 
 **Telemetry makes it observable, not aspirational.** `reconstructLineage()` answers: generations run, candidates evaluated, promotions, cumulative held-out improvement, rejection rate, plateau — so one can see whether the system is *genuinely compounding* or *merely searching*.
 
-**Status (honest).** Implemented + independently verifiable: the **generation-0 proof-of-mechanism** (`.claude/evolve-proof/generation-0.json`) — gate wiring, receipt persistence, SHADOW registration, no-auto-serve, replayable from disk — plus the harvester, the significance-gated ledger, and lineage/telemetry, all unit-proven (a controlled tick learns + applies + records a significant, chained entry). **Not yet demonstrated:** a real *multi-generation compounding climb on live data* — the harness is wired and the lineage scaffolding exists, but the end-to-end compounding run (winners accumulating across generations on the real store) is the next step, gated on making the live retrieval search cheap enough to iterate. Generation 0 is the fixture that work builds on. No synthetic pass here is evidence of real-world improvement.
+**Status (honest) — DEMONSTRATED.** The flywheel milestone has been met on real data (`.claude/evolve-proof/real-generation-{0,1}.json`, reproducible via `scripts/flywheel-generations.mjs`, replayable from disk with no service logs):
+
+- **gen 0** (immutable root): self-retrieval RR **0.496 → 0.758** (Δ +0.262, bootstrap CI-low **0.181 > 0** → significant), human anchor preserved (0.776 vs 0.796, within guard), canary 0 rollbacks → promoted.
+- **gen 1** (compounds on gen 0): RR **0.758 → 0.847** (Δ +0.090, CI-low **0.039 > 0**), anchor preserved (0.792), canary 0 → promoted. Its baseline == gen 0's promoted candidate — the winner *became* the baseline.
+- `reconstructLineage` → **promotions=2, lineageIntact=true, allReplayable=true**, single immutable root; both bundles re-run `accept/v1+sig` to their recorded verdicts independently.
+
+The discovery was **autonomous** — a coarse→local multi-axis grid with **constrained (Pareto) selection** (maximize the frozen self-supervised held-out *subject to* the human-relevance guard) found both winners; no config was hand-picked.
+
+**Honest scope of the claim.** The measured improvement is on a **self-supervised self-retrieval** benchmark (find a doc from its own body), gated so human-labeled relevance does **not** regress. So the demonstrated capability is: *retrieval gets generation-over-generation better at self-retrieval while preserving human relevance and deployment safety* — it is **not** a claim that human-labeled relevance improved (that is held flat by design). Proving compounding gains on human-labeled relevance directly would need a large human-labeled suite (out of scope for $0 autonomous operation). The value shown is that **the wheel provably turns**: verified improvements accumulate into an auditable, replayable lineage without human intervention.
 
 **Local vs global trust.** A locally-mined, gate-cleared champion may be adopted **locally, unsigned** (the install trusting its own execution-verified evidence on its own data). Cross-install propagation still requires the config-signed champion (ADR-177). Local self-optimization and global distribution are separate trust domains.
 
@@ -160,7 +168,7 @@ The right mental model is **git, but for executable decision policies**. Each ge
 - **A DAG, not a linked list.** Lineage is modeled as a graph with branch labels (`main`, and future tenant/domain branches like `legal` / `coding` / `customer-A`). The invariant is *a child's baseline == its parent's promoted candidate* — it holds for linear chains and forks alike (`reconstructLineage`).
 - **Statistical plateau, not intuition.** `detectPlateau()` over a rolling window separates **local-optimum** (no gains + candidate variance shrinking), **noisy-benchmark** (no gains + high non-shrinking variance), and **optimizer-failure** (no gains + candidates barely vary), rather than "no promotion for a while."
 
-**The milestone that matters.** Not "generation 1," nor "generation 10." The first significant milestone is: *the system autonomously discovers a **second** independently-verified improvement that survives a **frozen anchor suite** and enters the immutable lineage **without human intervention**.* At that point the thesis moves from design to demonstrated capability — the wheel has provably turned. Everything shipped so far is the substrate for reaching that milestone honestly; it has **not** been reached yet.
+**The milestone that matters.** Not "generation 1," nor "generation 10." The first significant milestone is: *the system autonomously discovers a **second** independently-verified improvement that survives a **frozen anchor suite** and enters the immutable lineage **without human intervention**.* At that point the thesis moves from design to demonstrated capability — the wheel has provably turned. **This milestone has now been met** (see *Status — DEMONSTRATED* above): two successive significant promotions on a frozen self-supervised held-out, each preserving the human-relevance guard, chained + independently replayable back to the immutable root.
 
 ## Naming (see ADR-177)
 
@@ -206,7 +214,7 @@ Every stage is additive and gated; the loop only *proposes*. A champion is appli
 7. **Host registry + hierarchical layers** — claude-code/codex; global→language→framework→repo.
 8. **Daemon worker** — scheduled, $0-default, budget-capped.
 9. **Feedback applier** — apply the signed champion to routing/agent config, provenance-tagged, reversible.
-10. **Self-optimizing flywheel** — corpus harvester (self-supervised, growing) + human-objective / harvested-guard + significance-gated improvement ledger (monotonic-by-construction proof) + shadow-first / no-auto-serve + lineage telemetry. *(Partially implemented, honestly scoped: the one-shot mint produced a real +0.0738 nDCG@3 champion over the ADR-082-tuned baseline; the **generation-0 proof-of-mechanism** is implemented + independently replayable; the **multi-generation compounding climb on live data** is NOT yet demonstrated — it is the next step (A-P3b), for which generation 0 is the fixture. A live single-tick refused to promote until the objective was reoriented, which is the gate working, not the flywheel compounding.)*
+10. **Self-optimizing flywheel** — corpus harvester (self-supervised, growing) + constrained (Pareto) multi-axis Evolve + significance-gated rule (`accept/v1+sig`) + separated canary + shadow-first / no-auto-serve + DAG lineage telemetry. *(**DEMONSTRATED** — `scripts/flywheel-generations.mjs` autonomously produced 2 real, significant, anchor-safe, independently-replayable compounding promotions on a frozen self-supervised held-out (RR 0.496→0.758→0.847), chained to the immutable root; see *Status — DEMONSTRATED*. Getting there required: retrieval-stats + per-query cosine caching (~14x, made generations iterable), significance in the rule (small-N noise guard), separating the canary from the held-out, and constrained selection (improve the proxy subject to the human-relevance guard). The one-shot mint separately produced a real +0.0738 nDCG@3 champion over the ADR-082-tuned baseline.)*
 
 ## Acceptance test — the flywheel (distinct from the one-shot loop above)
 

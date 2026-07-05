@@ -218,12 +218,12 @@ export function assembleBundle(baseline: Record<string, number>, candidate: Reco
 export function runRealEvolveRound(opts: {
   baseline: Record<string, number>; candidate: Record<string, number>; holdout: HoldoutTask[];
   generation: number; parent: string | null; branch?: string; now: number;
-  redblue?: 'PASS' | 'FAIL' | 'SKIPPED'; drift?: number; corpus: string;
+  redblue?: 'PASS' | 'FAIL' | 'SKIPPED'; drift?: number; canaryRollbackRate?: number; corpus: string;
 }): EvolveReceiptBundle {
   return assembleBundle(opts.baseline, opts.candidate, opts.holdout, {
     generation: opts.generation, parent: opts.parent, branch: opts.branch ?? 'main', now: opts.now, kind: 'real',
     cost: { tier: 'real-local', notes: 'measured on the frozen anchor via live retrieval — no LLM, no network' },
-    redblue: opts.redblue, drift: opts.drift, layer: 'real/retrieval', corpus: opts.corpus,
+    redblue: opts.redblue, drift: opts.drift, canaryRollbackRate: opts.canaryRollbackRate, layer: 'real/retrieval', corpus: opts.corpus,
   });
 }
 

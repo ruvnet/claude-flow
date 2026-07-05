@@ -1,0 +1,406 @@
+{
+  "label": "single-round proof-of-mechanism",
+  "disclaimers": [
+    "not flywheel proof",
+    "not compounding learning",
+    "not production learning"
+  ],
+  "generation": 1,
+  "parent": "sha256:3515c407c0555d491432fdce2405389fa6d33831fc64d342364defbf7cf7ffef",
+  "branch": "main",
+  "kind": "real",
+  "createdAt": 1700000201000,
+  "inputHoldoutHash": "sha256:9cdb7bdefd9d6897a5f6a5645c92a6616adefaf6d5c54b66f1a21b03ec6e841c",
+  "baselineManifestHash": "sha256:3515c407c0555d491432fdce2405389fa6d33831fc64d342364defbf7cf7ffef",
+  "candidateManifestHash": "sha256:fdb91acd74a34d71d5263f91fe230c87e18f8e69ef36bab77ca47b98692078c7",
+  "meetsPromotionRule": {
+    "version": "accept/v1+sig",
+    "result": true
+  },
+  "decisionReceipt": {
+    "promotionRuleVersion": "accept/v1+sig",
+    "verdictInputs": {
+      "heldOutScore": 0.8473484848484848,
+      "baselineHeldOutScore": 0.7575757575757577,
+      "redblue": "PASS",
+      "drift": 0,
+      "driftThreshold": 0.05,
+      "replayDeterministic": true,
+      "receiptCoverage": 1,
+      "canaryRollbackRate": 0,
+      "baselineRollbackRate": 0
+    },
+    "result": {
+      "accept": true,
+      "terms": {
+        "held_out_improves": {
+          "value": "0.8473 > 0.7576",
+          "pass": true
+        },
+        "redblue_pass": {
+          "value": "PASS",
+          "pass": true
+        },
+        "drift_within": {
+          "value": "0 <= 0.05",
+          "pass": true
+        },
+        "replay_deterministic": {
+          "value": true,
+          "pass": true
+        },
+        "receipt_coverage_full": {
+          "value": 1,
+          "pass": true
+        },
+        "canary_no_worse": {
+          "value": "0 <= 0",
+          "pass": true
+        }
+      },
+      "failed": []
+    },
+    "significant": true,
+    "deltaCILow": 0.038636363636363635,
+    "promoted": true,
+    "reason": "promoted (all accept/v1+sig terms held)"
+  },
+  "shadow": {
+    "registrationId": "shadow:8a148c1931e94b7f2b448e1327d08ba31924f3cd6773fc85064b4cc4b0a5359c",
+    "state": "shadow",
+    "served": false,
+    "candidateManifestHash": "sha256:fdb91acd74a34d71d5263f91fe230c87e18f8e69ef36bab77ca47b98692078c7",
+    "registeredAt": 1700000201000
+  },
+  "costReceipt": {
+    "usd": 0,
+    "llmCalls": 0,
+    "tier": "real-local",
+    "notes": "measured on the frozen anchor via live retrieval — no LLM, no network"
+  },
+  "mutationClass": "retrieval:multi",
+  "mutationSummary": "alpha:0.3→0.2, bodyWeight:1→1.5, mmrLambda:0.9→1, subjectWeight:1→0.5, typePenaltyFactor:1→0.75",
+  "deltas": {
+    "benchmark": 0.08977272727272712,
+    "security": 0,
+    "cost": 0
+  },
+  "promotion": {
+    "parentManifestHash": "sha256:3515c407c0555d491432fdce2405389fa6d33831fc64d342364defbf7cf7ffef",
+    "candidateManifestHash": "sha256:fdb91acd74a34d71d5263f91fe230c87e18f8e69ef36bab77ca47b98692078c7",
+    "mutationClass": "retrieval:multi",
+    "mutationSummary": "alpha:0.3→0.2, bodyWeight:1→1.5, mmrLambda:0.9→1, subjectWeight:1→0.5, typePenaltyFactor:1→0.75",
+    "deltas": {
+      "benchmark": 0.08977272727272712,
+      "security": 0,
+      "cost": 0
+    },
+    "decisionReceipt": {
+      "promotionRuleVersion": "accept/v1+sig",
+      "verdictInputs": {
+        "heldOutScore": 0.8473484848484848,
+        "baselineHeldOutScore": 0.7575757575757577,
+        "redblue": "PASS",
+        "drift": 0,
+        "driftThreshold": 0.05,
+        "replayDeterministic": true,
+        "receiptCoverage": 1,
+        "canaryRollbackRate": 0,
+        "baselineRollbackRate": 0
+      },
+      "result": {
+        "accept": true,
+        "terms": {
+          "held_out_improves": {
+            "value": "0.8473 > 0.7576",
+            "pass": true
+          },
+          "redblue_pass": {
+            "value": "PASS",
+            "pass": true
+          },
+          "drift_within": {
+            "value": "0 <= 0.05",
+            "pass": true
+          },
+          "replay_deterministic": {
+            "value": true,
+            "pass": true
+          },
+          "receipt_coverage_full": {
+            "value": 1,
+            "pass": true
+          },
+          "canary_no_worse": {
+            "value": "0 <= 0",
+            "pass": true
+          }
+        },
+        "failed": []
+      },
+      "significant": true,
+      "deltaCILow": 0.038636363636363635,
+      "promoted": true,
+      "reason": "promoted (all accept/v1+sig terms held)"
+    }
+  },
+  "regression": null,
+  "holdout": [
+    {
+      "taskId": "hv-pattern-1780161324685-1d-tgm8",
+      "baselineScore": 0.5,
+      "candidateScore": 0.5
+    },
+    {
+      "taskId": "hv-pattern-1780161324686-1g-p25o",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324686-1j-m5hq",
+      "baselineScore": 0.5,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324686-1m-j0ig",
+      "baselineScore": 0,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324687-1p-2lpj",
+      "baselineScore": 0.5,
+      "candidateScore": 0.5
+    },
+    {
+      "taskId": "hv-pattern-1780161324687-1s-ibq9",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324688-1v-qvm9",
+      "baselineScore": 0.5,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324688-1y-hjpj",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324689-21-o5x6",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324689-24-hkmf",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324690-27-igfa",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324690-2a-6t0p",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324690-2d-5hqx",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324691-2g-grco",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324691-2j-zfni",
+      "baselineScore": 0.25,
+      "candidateScore": 0.25
+    },
+    {
+      "taskId": "hv-pattern-1780161324691-2m-wx6m",
+      "baselineScore": 0,
+      "candidateScore": 0.2
+    },
+    {
+      "taskId": "hv-pattern-1780161324692-2p-8jhd",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324692-2s-c4t4",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324692-2v-afrs",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324693-2y-2ozh",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324693-31-ac3v",
+      "baselineScore": 0.3333333333333333,
+      "candidateScore": 0.3333333333333333
+    },
+    {
+      "taskId": "hv-pattern-1780161324694-34-ysmt",
+      "baselineScore": 0.5,
+      "candidateScore": 0.5
+    },
+    {
+      "taskId": "hv-pattern-1780161324694-37-lvvk",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324694-3a-i470",
+      "baselineScore": 0.25,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324695-3d-9awr",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324695-3g-y9cu",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324695-3j-wi4w",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324696-3m-tzr2",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324696-3p-49pp",
+      "baselineScore": 0,
+      "candidateScore": 0
+    },
+    {
+      "taskId": "hv-pattern-1780161324698-3s-5w1r",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324698-3v-4fri",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324698-3y-v3g2",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324699-41-hvmz",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324699-44-nys5",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324699-47-jghz",
+      "baselineScore": 0.5,
+      "candidateScore": 0.5
+    },
+    {
+      "taskId": "hv-pattern-1780161324700-4a-3pj8",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324700-4d-rmrn",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324700-4g-tb58",
+      "baselineScore": 0,
+      "candidateScore": 0
+    },
+    {
+      "taskId": "hv-pattern-1780161324701-4j-kodm",
+      "baselineScore": 0,
+      "candidateScore": 0.5
+    },
+    {
+      "taskId": "hv-pattern-1780161324701-4m-dt4j",
+      "baselineScore": 0.5,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324701-4p-e7fi",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324702-4s-bo8j",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324702-4v-6orz",
+      "baselineScore": 1,
+      "candidateScore": 1
+    },
+    {
+      "taskId": "hv-pattern-1780161324702-4y-0o2q",
+      "baselineScore": 1,
+      "candidateScore": 1
+    }
+  ],
+  "baselineManifest": {
+    "schema": "ruflo.proven-config/v1",
+    "policy": {
+      "ref": "sha256:7caf5bfd2878b84825b5f641f447a9ecaf177258fecd8b4e82d823d98fb84097",
+      "value": {
+        "alpha": 0.3,
+        "subjectWeight": 1,
+        "mmrLambda": 0.9,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      }
+    },
+    "layer": "real/retrieval",
+    "benchmark": {
+      "corpus": "harvested-selfsup-frozen-v1",
+      "corpusHash": "sha256:cfeda09c42a88e2dc86efd650ff167880d7482a8e1af176bf861a09e6cca01be"
+    }
+  },
+  "candidateManifest": {
+    "schema": "ruflo.proven-config/v1",
+    "policy": {
+      "ref": "sha256:046b42190078dd450c4baa5b409cbc369662cc4dec5e847c8b839f9a2aed0ff5",
+      "value": {
+        "alpha": 0.2,
+        "subjectWeight": 0.5,
+        "mmrLambda": 1,
+        "bodyWeight": 1.5,
+        "typePenaltyFactor": 0.75
+      }
+    },
+    "layer": "real/retrieval",
+    "benchmark": {
+      "corpus": "harvested-selfsup-frozen-v1",
+      "corpusHash": "sha256:cfeda09c42a88e2dc86efd650ff167880d7482a8e1af176bf861a09e6cca01be"
+    }
+  }
+}
