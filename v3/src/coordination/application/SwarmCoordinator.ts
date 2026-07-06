@@ -364,6 +364,12 @@ export class SwarmCoordinator {
 
   /**
    * Reach consensus among agents
+   *
+   * TODO(security-review): Replace Math.random() voting simulation
+   * with real LLM-based agent voting. The current implementation is a
+   * placeholder — every agent flips a coin. Production consensus must
+   * call each agent's actual reasoning path and tally structured
+   * verdicts. Tracked in ruflo#XXXX.
    */
   async reachConsensus(
     decision: ConsensusDecision,
@@ -374,7 +380,8 @@ export class SwarmCoordinator {
     for (const agentId of agentIds) {
       const agent = this.agents.get(agentId);
       if (agent) {
-        // Simulate voting (in real implementation, would involve LLM calls)
+        // TODO: Replace with real LLM-based agent voting.
+        // Currently a placeholder that flips a coin per agent.
         const vote = {
           agentId,
           vote: Math.random() > 0.5 ? 'approve' : 'reject'
