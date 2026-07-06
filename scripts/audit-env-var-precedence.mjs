@@ -57,6 +57,12 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'RUFLO_SUBLINEAR_NATIVE',       // Manual override for native vs WASM sublinear — CI/perf knob
   'RUFLO_METAHARNESS_CACHE_BASE', // CI/test seam: relocates the ~/.ruflo pinned-cache root in metaharness smoke tests — intentionally env-only, plugin scripts have no CLI-flag surface
 
+  // ── Embedding substrate toggles (3.25.x — opt-in tier + fail-closed ops flag) ─
+  'RUFLO_REQUIRE_REAL_EMBEDDINGS', // Fail-closed "no stubs" strict mode — deploy/CI ops toggle, not a per-invocation CLI flag (ADR-176)
+  'RUFLO_EMBED_WASM_PKG',          // Opt-in specifier for the optional WASM embedder tier — env-only deployment config, inert by default
+  'RUFLO_LATTICE_WASM_PKG',        // Back-compat alias of RUFLO_EMBED_WASM_PKG
+  'RUFLO_EMBED_MODEL',             // Model name for the optional WASM embedder — substrate config, env-only
+
   // ── Feature flags (set by init into settings.json, not user-typed CLI) ──────
   'CLAUDE_FLOW_V3_ENABLED',
   'CLAUDE_FLOW_HOOKS_ENABLED',
