@@ -17,7 +17,18 @@
  * incremental migration.
  */
 
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  closeSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeSync,
+} from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import {
   decryptBuffer,
   encryptBuffer,
@@ -25,6 +36,74 @@ import {
   isEncryptedBlob,
   isEncryptionEnabled,
 } from './encryption/vault.js';
+
+/**
+ * Crash-safe atomic file write (issue #2584).
+ *
+ * A plain `writeFileSync(dbPath, db.export())` of a large sql.js image is NOT
+ * crash-safe: a kill/OOM mid-write — or a second process rewriting the same
+ * path concurrently — leaves a half-written image, and reopening it yields
+ * `database disk image is malformed`. The corruption window scales with file
+ * size, so a 185 MB monolithic flush is especially exposed.
+ *
+ * This writes to a unique temp sibling, fsyncs the bytes to disk, then
+ * `rename()`s over the target. rename() is atomic on POSIX within one
+ * filesystem, so a reader/reopen sees either the old complete image or the new
+ * complete image — never a torn one. The directory entry is best-effort fsynced
+ * so the rename itself survives a crash. On any failure the temp file is
+ * removed and the original is left untouched.
+ */
+export function writeFileAtomic(
+  path: string,
+  data: Buffer,
+  opts: { mode?: number } = {},
+): void {
+  const mode = opts.mode ?? 0o600;
+  const dir = dirname(path);
+  const tmp = join(
+    dir,
+    `.${basename(path)}.tmp-${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+  );
+  let fd: number | undefined;
+  try {
+    fd = openSync(tmp, 'wx', mode);
+    if (data.length > 0) writeSync(fd, data, 0, data.length, 0);
+    fsyncSync(fd); // durability: force bytes to disk BEFORE the rename
+    closeSync(fd);
+    fd = undefined;
+    renameSync(tmp, path); // atomic swap — readers never see a torn image
+    try {
+      chmodSync(path, mode);
+    } catch {
+      // Windows / FS without POSIX modes — silently skip.
+    }
+    // Best-effort: fsync the directory so the rename survives a power loss.
+    try {
+      const dfd = openSync(dir, 'r');
+      try {
+        fsyncSync(dfd);
+      } finally {
+        closeSync(dfd);
+      }
+    } catch {
+      // Directory fsync unsupported (e.g. Windows) — the rename is still atomic.
+    }
+  } catch (e) {
+    if (fd !== undefined) {
+      try {
+        closeSync(fd);
+      } catch {
+        /* already closed */
+      }
+    }
+    try {
+      unlinkSync(tmp);
+    } catch {
+      /* temp never created / already gone */
+    }
+    throw e;
+  }
+}
 
 /**
  * Create a directory tree with mode 0700 (owner-only). No-op if exists.
@@ -77,19 +156,11 @@ export function writeFileRestricted(
     payload = encryptBuffer(plaintext, getKey());
   }
 
-  // For encrypted payloads we always have a Buffer — pass through without an
-  // encoding so writeFileSync doesn't try to text-decode it.
-  if (Buffer.isBuffer(payload)) {
-    writeFileSync(path, payload);
-  } else {
-    writeFileSync(path, payload, encoding);
-  }
-
-  try {
-    chmodSync(path, 0o600);
-  } catch {
-    // Windows / FS without POSIX modes — silently skip.
-  }
+  // Atomic write (temp → fsync → rename) so a torn/concurrent flush can never
+  // leave a half-written file — the failure mode behind issue #2584. Buffers go
+  // straight through; strings are encoded first (default utf-8).
+  const buf = Buffer.isBuffer(payload) ? payload : Buffer.from(payload, encoding);
+  writeFileAtomic(path, buf, { mode: 0o600 });
 }
 
 /**

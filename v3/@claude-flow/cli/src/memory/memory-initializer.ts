@@ -12,7 +12,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { createRequire } from 'node:module';
-import { readFileMaybeEncrypted, writeFileRestricted } from '../fs-secure.js';
+import { readFileMaybeEncrypted, writeFileAtomic, writeFileRestricted } from '../fs-secure.js';
+import { restoreMemoryDbFromBackup } from '../services/memory-backup.js';
 
 /**
  * #2356 — cached, synchronous capability probe for @ruvector/core. `getHNSWStatus`
@@ -1368,8 +1369,19 @@ async function activateControllerRegistry(
 export async function recoverMemoryDatabase(
   dbPath: string,
   opts: { verbose?: boolean } = {},
-): Promise<{ recovered: boolean; backupPath?: string; rows?: number; reason?: string }> {
+): Promise<{ recovered: boolean; backupPath?: string; rows?: number; reason?: string; restoredFromBackup?: boolean; from?: string; restoreReason?: string }> {
   if (!dbPath || !fs.existsSync(dbPath)) return { recovered: false, reason: 'no-db' };
+
+  // Fallback for when the in-place rebuild can't produce a verified DB (issue
+  // #2584): rebuild-from-corrupt salvages nothing when the damage is total, so
+  // restore the newest integrity-ok backup instead of leaving the store dead.
+  const restoreFromBackup = async (reason: string) => {
+    const r = await restoreMemoryDbFromBackup(dbPath, { verbose: opts.verbose });
+    if (r.restored) {
+      return { recovered: true, restoredFromBackup: true, backupPath: r.corruptBackupPath, rows: r.rows, from: r.from };
+    }
+    return { recovered: false, reason, restoreReason: r.skipped };
+  };
 
   let Database: any;
   try {
@@ -1378,7 +1390,7 @@ export async function recoverMemoryDatabase(
     const mod: string = 'better-sqlite3';
     Database = (await import(mod)).default;
   } catch {
-    return { recovered: false, reason: 'no-native' };
+    return await restoreFromBackup('no-native');
   }
 
   const ts = Date.now();
@@ -1457,9 +1469,9 @@ export async function recoverMemoryDatabase(
     if (integ.toLowerCase() !== 'ok' || dstRows < srcRows) {
       try { fs.rmSync(tmpPath, { force: true }); } catch { /* */ }
       if (opts.verbose) {
-        console.log(`memory DB auto-recovery aborted (integrity=${integ}, rows ${dstRows}/${srcRows}) — original untouched`);
+        console.log(`memory DB rebuild-in-place failed (integrity=${integ}, rows ${dstRows}/${srcRows}) — trying newest good backup`);
       }
-      return { recovered: false, reason: 'verify-failed' };
+      return await restoreFromBackup('verify-failed');
     }
 
     // Back up the corrupt DB, then atomically swap in the verified rebuild.
@@ -1476,8 +1488,8 @@ export async function recoverMemoryDatabase(
     try { src?.exec('ROLLBACK'); } catch { /* */ }
     try { src?.close(); } catch { /* */ }
     try { fs.rmSync(tmpPath, { force: true }); } catch { /* */ }
-    if (opts.verbose) console.log(`memory DB auto-recovery error: ${(e as Error)?.message ?? e}`);
-    return { recovered: false, reason: 'error' };
+    if (opts.verbose) console.log(`memory DB rebuild-in-place error (${(e as Error)?.message ?? e}) — trying newest good backup`);
+    return await restoreFromBackup('error');
   }
 }
 
@@ -1945,9 +1957,9 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
 
     const changes = db.getRowsModified();
 
-    // Save
+    // Save (atomic — issue #2584: a torn full-image flush corrupts the store)
     const data = db.export();
-    fs.writeFileSync(path_, Buffer.from(data));
+    writeFileAtomic(path_, Buffer.from(data));
     db.close();
 
     return {
