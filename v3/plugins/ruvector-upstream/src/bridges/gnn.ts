@@ -61,7 +61,7 @@ export class GnnBridge implements WasmBridge<GnnModule> {
     this._status = 'loading';
 
     try {
-      const wasmModule = await import('@ruvector/gnn-wasm').catch(() => null);
+      const wasmModule = await import('@ruvector/gnn-wasm' as string).catch(() => null);
 
       if (wasmModule) {
         this._module = wasmModule as unknown as GnnModule;
