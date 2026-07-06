@@ -19,6 +19,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "protobufjs": "7.5.5",
     "sublinear-time-solver": "^1.7.0",
     "zod": "^3.22.4"
   },
