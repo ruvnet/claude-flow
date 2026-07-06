@@ -351,16 +351,31 @@ function parseMemoryDir(dir, entries) {
     const files = fs.readdirSync(dir).filter(f => f.endsWith('.md'));
     for (const file of files) {
       const filePath = path.join(dir, file);
-      const content = fs.readFileSync(filePath, 'utf-8');
+      let content = fs.readFileSync(filePath, 'utf-8');
       if (!content.trim()) continue;
+
+      // Per-fact memory files open with a YAML frontmatter block
+      // (---\nname: ...\ndescription: ...\n---). Without stripping it first,
+      // the section splitter below reads line 1 ("---") as the title, so
+      // every such file ranked with summary "---" in [INTELLIGENCE] output.
+      // Pull `description:` (fallback `name:`) as the real title and drop
+      // the frontmatter from the body before section-splitting.
+      let frontmatterTitle = '';
+      const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (fm) {
+        const descMatch = fm[1].match(/^description:\s*(.+)$/m);
+        const nameMatch = fm[1].match(/^name:\s*(.+)$/m);
+        frontmatterTitle = (descMatch && descMatch[1].trim()) || (nameMatch && nameMatch[1].trim()) || '';
+        content = content.slice(fm[0].length);
+      }
 
       // Parse markdown sections as separate entries
       const sections = content.split(/^##?\s+/m).filter(Boolean);
       for (let sIdx = 0; sIdx < sections.length; sIdx++) {
         const section = sections[sIdx];
         const lines = section.trim().split('\n');
-        const title = lines[0].trim();
-        const body = lines.slice(1).join('\n').trim();
+        const title = frontmatterTitle || lines[0].trim();
+        const body = frontmatterTitle ? section.trim() : lines.slice(1).join('\n').trim();
         if (!body || body.length < 10) continue;
 
         const id = `mem-${file.replace('.md', '')}-${title.replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 30)}-${sIdx}`;
@@ -1032,7 +1047,7 @@ function stats(outputJson) {
   return report;
 }
 
-module.exports = { init, getContext, recordEdit, feedback, consolidate, stats };
+module.exports = { init, getContext, recordEdit, feedback, consolidate, stats, parseMemoryDir };
 
 // ── CLI entrypoint ──────────────────────────────────────────────────────────
 if (require.main === module) {
