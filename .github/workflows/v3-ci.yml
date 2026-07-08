@@ -487,7 +487,7 @@ jobs:
       - name: Install workspace + build memory (pnpm — needed for workspace:* protocol)
         working-directory: v3
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install --frozen-lockfile --ignore-scripts
           pnpm --filter @claude-flow/memory... run build
 
       - name: Pack memory tarball

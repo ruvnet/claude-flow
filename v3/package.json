@@ -60,7 +60,8 @@
   },
   "pnpm": {
     "neverBuiltDependencies": [
-      "sharp"
+      "sharp",
+      "onnxruntime-node"
     ],
     "overrides": {
       "@ruvector/gnn": "0.1.25",
