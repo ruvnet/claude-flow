@@ -17,8 +17,12 @@
 # Usage: ruflo-hook.sh <hook-subcommand> [args…]   (the literal `hooks`
 # word is prepended here, so callers pass e.g. `post-edit -f "$FILE" -s true`).
 
-# Swallow all diagnostics — nothing this script prints should reach Claude Code.
-exec 2>/dev/null
+# Swallow all diagnostics — nothing this script prints should reach the host.
+# stdout is silenced too because Cursor (#2613) imports Claude Code hooks under
+# its stricter `preToolUse` contract that requires valid-JSON stdout and
+# fail-closes on any other text. Claude Code doesn't consume this stdout either,
+# so redirecting it is a pure cleanup with no functional cost.
+exec 1>/dev/null 2>/dev/null
 
 run() { "$@" || true; }
 

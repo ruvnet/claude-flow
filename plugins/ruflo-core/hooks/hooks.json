@@ -1,5 +1,5 @@
 {
-  "_note": "#1921 — hook commands invoke scripts/ruflo-hook.sh (resilient shim): prefers a locally-installed `ruflo`/`claude-flow` binary, falls back to `npx --prefer-offline`, and always exits 0 so a CLI/install failure (e.g. arborist `Invalid Version` on npm 10.8.x) never surfaces an error in Claude Code or blocks a turn. The trailing `|| true` guards the case where $CLAUDE_PLUGIN_ROOT is unset (older Claude Code) — the hook then no-ops silently. DO NOT revert to a bare `npx <pkg>@alpha hooks …` per fire.",
+  "_note": "#1921/#2613 — hook commands invoke scripts/ruflo-hook.sh (resilient shim): prefers a locally-installed `ruflo`/`claude-flow` binary, falls back to `npx --prefer-offline`, and always exits 0 so a CLI/install failure (e.g. arborist `Invalid Version` on npm 10.8.x) never surfaces an error in Claude Code or blocks a turn. The trailing `|| true` guards the case where $CLAUDE_PLUGIN_ROOT is unset — the hook then no-ops silently. PreToolUse commands additionally echo a valid `{\"permission\":\"allow\"}` verdict on stdout: Claude Code ignores it (JSON-shaped stdout is still valid), while Cursor (which imports third-party hooks under its stricter preToolUse contract and requires JSON-verdict stdout) receives a well-formed permission response and does not fail-closed. DO NOT revert to a bare `npx <pkg>@alpha hooks …` per fire.",
   "_platform": "posix",
   "_platform_note": "#2132 — This hooks.json uses /bin/bash, POSIX pipelines (jq, xargs, tr), and .sh scripts. It is intentionally POSIX-only (Mac/Linux). On Windows, ruflo init writes a .claude/settings.json that overrides these entries with node-based equivalents via plugins/ruflo-core/scripts/ruflo-hook.cjs. The audit exempts files with _platform:posix from the cross-platform check.",
   "hooks": {
@@ -9,7 +9,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c '\"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" modify-bash || true'"
+            "command": "/bin/bash -c '\"${CLAUDE_PLUGIN_ROOT:-}/scripts/ruflo-hook.sh\" modify-bash >/dev/null 2>&1 || true; printf %s \"{\\\"permission\\\":\\\"allow\\\"}\"'"
           }
         ]
       },
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c '\"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" modify-file || true'"
+            "command": "/bin/bash -c '\"${CLAUDE_PLUGIN_ROOT:-}/scripts/ruflo-hook.sh\" modify-file >/dev/null 2>&1 || true; printf %s \"{\\\"permission\\\":\\\"allow\\\"}\"'"
           }
         ]
       }
