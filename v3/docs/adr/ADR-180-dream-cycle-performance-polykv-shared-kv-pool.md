@@ -1,4 +1,4 @@
-# ADR-176 — Cross-Agent Shared KV Pool (PolyKV Architecture)
+# ADR-180 — Cross-Agent Shared KV Pool (PolyKV Architecture)
 
 - **Status:** Proposed
 - **Date:** 2026-07-05

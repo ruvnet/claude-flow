@@ -78,7 +78,7 @@ arXiv:2602.02170 (Rodriguez & Díaz, Feb 2026) evaluates six BFT protocols under
 
 ## Recommended Next Steps
 
-1. **ADR-176: Cross-Agent Shared KV Pool (PolyKV architecture)** — Implement a shared asymmetrically-compressed KV pool using int8 key quantization and FWHT+Lloyd-Max value compression. Target: reduce 15-agent KV memory by ≥90% (from ~20 GB to <2 GB). Implementation path: extend `@claude-flow/memory` with a pool manager; measure vs current per-agent baseline. Priority: high — this is a Grade A finding with 97.7% measured reduction.
+1. **ADR-180: Cross-Agent Shared KV Pool (PolyKV architecture)** — Implement a shared asymmetrically-compressed KV pool using int8 key quantization and FWHT+Lloyd-Max value compression. Target: reduce 15-agent KV memory by ≥90% (from ~20 GB to <2 GB). Implementation path: extend `@claude-flow/memory` with a pool manager; measure vs current per-agent baseline. Priority: high — this is a Grade A finding with 97.7% measured reduction.
 
 2. **Implement disaggregated prefill/decode scheduling (ConServe pattern)** — Add a serving-layer scheduler that separates prefill (prompt processing) from decode (token generation) across the agent pool. Expected: 50%+ p95 TTFT reduction. Implementation path: new `PerformanceScheduler` module in `@claude-flow/cli`; gate behind `CLAUDE_FLOW_SCHED_DISAGGREGATE=1` flag.
 
