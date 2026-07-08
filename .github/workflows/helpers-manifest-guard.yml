@@ -1,0 +1,74 @@
+name: helpers-manifest-guard
+
+# Regression guard for issue #2593.
+#
+# Root cause: `scripts/sign-helpers.mjs` existed but was NOT wired into
+# `prepublishOnly`, so intelligence.cjs shipped in 3.24/3.25 with a stale
+# 3.23.0 manifest hash. writeCriticalHelpers then fail-closed on every CLI
+# run in stamped projects with a tamper warning.
+#
+# The fix (commit b6f4750fa) wired `sign-helpers.mjs` + `verify-helpers.mjs`
+# into prepublishOnly. This guard fails if either script gets dropped from
+# prepublishOnly again, or if either script file goes missing.
+
+on:
+  pull_request:
+    paths:
+      - 'v3/@claude-flow/cli/.claude/helpers/auto-memory-hook.mjs'
+      - 'v3/@claude-flow/cli/.claude/helpers/hook-handler.cjs'
+      - 'v3/@claude-flow/cli/.claude/helpers/intelligence.cjs'
+      - 'v3/@claude-flow/cli/.claude/helpers/helpers.manifest.json'
+      - 'v3/@claude-flow/cli/scripts/sign-helpers.mjs'
+      - 'v3/@claude-flow/cli/scripts/verify-helpers.mjs'
+      - 'v3/@claude-flow/cli/package.json'
+      - '.github/workflows/helpers-manifest-guard.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'v3/@claude-flow/cli/.claude/helpers/**'
+      - 'v3/@claude-flow/cli/scripts/sign-helpers.mjs'
+      - 'v3/@claude-flow/cli/scripts/verify-helpers.mjs'
+      - 'v3/@claude-flow/cli/package.json'
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 1. The scripts themselves must exist. If either is deleted, the
+      #    prepublishOnly command below silently no-ops on that step and
+      #    manifest drift ships again.
+      - name: sign-helpers.mjs and verify-helpers.mjs exist
+        run: |
+          set -euo pipefail
+          test -f v3/@claude-flow/cli/scripts/sign-helpers.mjs   || { echo '::error::scripts/sign-helpers.mjs missing (#2593)';   exit 1; }
+          test -f v3/@claude-flow/cli/scripts/verify-helpers.mjs || { echo '::error::scripts/verify-helpers.mjs missing (#2593)'; exit 1; }
+
+      # 2. prepublishOnly MUST invoke BOTH sign-helpers and verify-helpers.
+      #    This is the exact regression from #2593 — sign existed but was
+      #    never called by publish. Reading scripts.prepublishOnly directly
+      #    from the parsed JSON avoids false positives from comments/strings.
+      - name: prepublishOnly wires sign-helpers + verify-helpers
+        run: |
+          set -euo pipefail
+          pp=$(node -e "process.stdout.write(require('./v3/@claude-flow/cli/package.json').scripts.prepublishOnly || '')")
+          echo "prepublishOnly: $pp"
+          echo "$pp" | grep -q 'sign-helpers.mjs'   || { echo '::error::prepublishOnly must call scripts/sign-helpers.mjs (#2593)';   exit 1; }
+          echo "$pp" | grep -q 'verify-helpers.mjs' || { echo '::error::prepublishOnly must call scripts/verify-helpers.mjs (#2593)'; exit 1; }
+
+      # 3. verify-helpers must run sign FIRST then verify — verify has to
+      #    run AFTER sign or a stale manifest would fail-close the release.
+      - name: sign runs before verify in prepublishOnly
+        run: |
+          set -euo pipefail
+          pp=$(node -e "process.stdout.write(require('./v3/@claude-flow/cli/package.json').scripts.prepublishOnly || '')")
+          sign_pos=$(echo "$pp" | grep -bo 'sign-helpers.mjs'   | head -1 | cut -d: -f1)
+          ver_pos=$(echo  "$pp" | grep -bo 'verify-helpers.mjs' | head -1 | cut -d: -f1)
+          if [ "$sign_pos" -ge "$ver_pos" ]; then
+            echo "::error::sign-helpers.mjs must run BEFORE verify-helpers.mjs in prepublishOnly (#2593)"
+            exit 1
+          fi
