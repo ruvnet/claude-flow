@@ -71,16 +71,19 @@ const storeCommand: Command = {
     {
       name: 'upsert',
       short: 'u',
-      description: 'Update if key exists (insert or replace)',
+      // #2594: default true so `store → delete → store` doesn't hit the UNIQUE
+      // (namespace, key) constraint on the soft-deleted row. Pass --no-upsert
+      // for strict insert semantics.
+      description: 'Update if key exists (default; pass --no-upsert for strict insert)',
       type: 'boolean',
-      default: false
+      default: true
     },
     DB_PATH_OPTION
   ],
   examples: [
     { command: 'claude-flow memory store -k "api/auth" -v "JWT implementation"', description: 'Store text' },
     { command: 'claude-flow memory store -k "pattern/singleton" --vector', description: 'Store vector' },
-    { command: 'claude-flow memory store -k "pattern" -v "updated" --upsert', description: 'Update existing' }
+    { command: 'claude-flow memory store -k "pattern" -v "new" --no-upsert', description: 'Strict insert (fail if key exists)' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const key = ctx.flags.key as string;
