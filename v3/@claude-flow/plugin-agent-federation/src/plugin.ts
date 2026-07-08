@@ -478,7 +478,7 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
     }
     if (this.transport) {
       try {
-        await this.transport.close();
+        await this.transport.close?.();
       } catch (err) {
         this.context?.logger.warn(
           `Federation transport close error: ${err instanceof Error ? err.message : err}`,

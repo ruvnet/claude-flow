@@ -36,13 +36,17 @@
 // with `ERR_MODULE_NOT_FOUND` (issue #2578). agentic-flow remains an
 // OPTIONAL peer dep, so the loader must compile without touching its
 // exports map at all.
-export interface AgentTransport {
-  send?: (msg: AgentMessage) => Promise<void> | void;
-  onMessage?: (handler: (msg: AgentMessage) => void) => void;
-  close?: () => Promise<void> | void;
+export interface AgentMessage {
+  id: string;
+  type: 'task' | 'result' | 'status' | 'coordination' | 'heartbeat' | string;
+  payload: unknown;
+  metadata?: Record<string, unknown>;
   [key: string]: unknown;
 }
-export interface AgentMessage {
+export interface AgentTransport {
+  send: (address: string, message: AgentMessage) => Promise<void>;
+  onMessage: (handler: (address: string, message: AgentMessage) => void) => void;
+  close?: () => Promise<void> | void;
   [key: string]: unknown;
 }
 export interface QuicTransportConfig {
@@ -77,7 +81,13 @@ async function loadAgenticFlowQuicTransport(
     };
   };
   try {
-    mod = (await import('agentic-flow/transport/loader')) as typeof mod;
+    // Cast through `unknown` because upstream's exported AgentTransport /
+    // AgentMessage carry a richer surface (InboundMessageHandler with an
+    // options bag, extra fields) that intentionally differs from our
+    // locally-declared minimal shim. The shim exists so the plugin can
+    // compile without importing agentic-flow's exports map at all
+    // (#2578). Downstream code (`plugin.ts`) uses our shim types.
+    mod = (await import('agentic-flow/transport/loader')) as unknown as typeof mod;
   } catch {
     return null;
   }
