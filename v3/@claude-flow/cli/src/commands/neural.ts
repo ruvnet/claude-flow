@@ -580,7 +580,9 @@ const statusCommand: Command = {
           },
           {
             component: 'ReasoningBank',
-            status: stats.reasoningBankSize > 0 ? output.success('Active') : output.dim('Empty'),
+            status: (stats.patternsLearned > 0 || stats.reasoningBankSize > 0)
+              ? output.success('Active')
+              : output.dim('Empty'),
             details: `${stats.patternsLearned} patterns stored`,
           },
           {
