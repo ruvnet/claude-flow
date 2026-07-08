@@ -299,11 +299,25 @@ async function checkLearningBridge(): Promise<HealthCheck> {
     };
   }
 
+  // #2599: Self-heal on plain `doctor` (not just --fix). The project-side resolver
+  // fails when the sidecar is stale or missing (e.g. npx cache generation rotated),
+  // but the CLI process itself can resolve @claude-flow/memory from its own module
+  // context. Write the sidecar automatically instead of hard-failing the check.
+  const record = recordMemoryPackagePath(cwd, 'doctor-auto');
+  if (record) {
+    const version = readMemoryPackageVersion(record.distPath);
+    return {
+      name: 'Learning Bridge',
+      status: 'pass',
+      message: `@claude-flow/memory resolvable via auto-recorded sidecar${version ? ` (v${version})` : ''}`,
+    };
+  }
+
   return {
     name: 'Learning Bridge',
     status: 'fail',
     message: '@claude-flow/memory NOT resolvable — SessionStart self-learning imports are a silent no-op',
-    fix: 'npx ruflo@latest doctor --fix   (records resolver sidecar) — or: npm i -D @claude-flow/memory',
+    fix: 'npm i -D @claude-flow/memory   (optional dep appears absent — likely --omit=optional install)',
   };
 }
 
