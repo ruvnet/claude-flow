@@ -1,4 +1,4 @@
-# ADR-178: Skill Evolution Worker (SEW) — Runtime RL-Based Skill Acquisition for SONA
+# ADR-180: Skill Evolution Worker (SEW) — Runtime RL-Based Skill Acquisition for SONA
 
 - **Status:** Proposed
 - **Authors:** claude (dream-cycle agent, 2026-07-07)
