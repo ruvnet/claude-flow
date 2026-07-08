@@ -72,7 +72,7 @@ Verifier: `sha256sum` this file → must equal Report SHA-256; then `printf '%s%
 
 ## Recommended Next Steps
 
-1. **Implement AutoMem-style memory RL training loop in AgentDB** (ADR-180): add a two-phase meta-learning system — Phase 1 optimizes the memory scaffold (what/how to store) from trajectory review; Phase 2 trains a dedicated `memory-specialist` agent from successful episodes. Target: ≥2x improvement on `@claude-flow/performance benchmark --suite memory-long-horizon`. This is the single highest-leverage memory enhancement identified in 2026 SOTA.
+1. **Implement AutoMem-style memory RL training loop in AgentDB** (ADR-181): add a two-phase meta-learning system — Phase 1 optimizes the memory scaffold (what/how to store) from trajectory review; Phase 2 trains a dedicated `memory-specialist` agent from successful episodes. Target: ≥2x improvement on `@claude-flow/performance benchmark --suite memory-long-horizon`. This is the single highest-leverage memory enhancement identified in 2026 SOTA.
 
 2. **Publish Ruflo LongMemEval score** to close the competitive visibility gap: instrument AgentDB against the LongMemEval harness (open-source, conversational retrieval), publish the number. Current competitors (Hindsight 94.6%, SuperMemory 81.6%) have public scores; Ruflo has none, making capability claims non-credible to evaluators.
 
