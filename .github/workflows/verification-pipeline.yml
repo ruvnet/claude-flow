@@ -269,6 +269,14 @@ jobs:
           test -f v3/@claude-flow/cli/bin/cli.js && echo "CLI binary exists" || echo "⚠️ CLI binary not found (non-blocking)"
         continue-on-error: true
 
+      # Pre-warm npx cache so downstream --version smoke checks don't pay
+      # cold-install cost for the CLI + wrapper (#2561).
+      - name: Pre-warm npx cache for CLI smoke checks
+        run: |
+          npm install -g @claude-flow/cli@alpha ruflo@alpha --prefer-offline --no-audit --no-fund || \
+            echo "⚠️ Pre-warm install skipped (non-blocking)"
+        continue-on-error: true
+
       - name: Package for distribution
         run: |
           echo "📦 Creating package..."
