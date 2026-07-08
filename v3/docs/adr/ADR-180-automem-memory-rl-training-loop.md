@@ -1,4 +1,4 @@
-# ADR-167: AutoMem-Style RL Training Loop for AgentDB Memory Operations
+# ADR-180: AutoMem-Style RL Training Loop for AgentDB Memory Operations
 
 **Status:** Proposed
 **Date:** 2026-07-03

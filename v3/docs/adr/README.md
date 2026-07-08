@@ -28,7 +28,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-020](../../implementation/adrs/ADR-020-headless-worker-integration.md) | Headless Worker Integration | Complete |
 | [ADR-046](../../implementation/adrs/ADR-046-ruflo-rebrand.md) | Dual Umbrella: claude-flow + ruflo | Accepted |
 | [ADR-047](../../implementation/adrs/ADR-047-fast-mode-integration.md) | Fast Mode Integration | Proposed |
-| [ADR-167](ADR-167-automem-memory-rl-training-loop.md) | AutoMem-Style RL Training Loop for AgentDB Memory Operations | Proposed |
+| [ADR-180](ADR-180-automem-memory-rl-training-loop.md) | AutoMem-Style RL Training Loop for AgentDB Memory Operations | Proposed |
 
 ## Summary Documents
 
