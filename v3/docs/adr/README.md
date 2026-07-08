@@ -29,7 +29,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-046](../../implementation/adrs/ADR-046-ruflo-rebrand.md) | Dual Umbrella: claude-flow + ruflo | Accepted |
 | [ADR-047](../../implementation/adrs/ADR-047-fast-mode-integration.md) | Fast Mode Integration | Proposed |
 | [ADR-178](ADR-178-dream-cycle-security-vmg-repe-ipi.md) | Verifiable Memory Governance and RepE IPI Detection | Proposed |
-| [ADR-166](ADR-166-agentdb-retrieval-security.md) | AgentDB Retrieval Security Layer | Proposed |
+| [ADR-180](ADR-180-agentdb-retrieval-security.md) | AgentDB Retrieval Security Layer | Proposed |
 
 ## Summary Documents
 

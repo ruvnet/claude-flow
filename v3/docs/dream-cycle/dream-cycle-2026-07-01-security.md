@@ -59,7 +59,7 @@
 
 ## Recommended Next Steps
 
-1. **Add `AgentDbRetrievalGuard` to the read path** (`v3/@claude-flow/memory/src/agentdb/retrieval-guard.ts`): run each retrieved chunk through a lightweight injection detector (regex + semantic boundary check) before injecting into agent context. Target: reduce retrieval-layer ASR from ~100% (current) toward SMSR's 0% certified bound. Priority: **High** (ADR-166).
+1. **Add `AgentDbRetrievalGuard` to the read path** (`v3/@claude-flow/memory/src/agentdb/retrieval-guard.ts`): run each retrieved chunk through a lightweight injection detector (regex + semantic boundary check) before injecting into agent context. Target: reduce retrieval-layer ASR from ~100% (current) toward SMSR's 0% certified bound. Priority: **High** (ADR-180).
 
 2. **Implement `MemoryPoisonForensics` background worker** (13th worker slot, priority: `critical`): record behavioral trajectory signatures on each AgentDB write sequence; flag anomalies where trust-change score exceeds 2σ baseline. SOTA benchmark: AUC=0.9904 is achievable without retraining across frontier models (arXiv:2606.30566).
 

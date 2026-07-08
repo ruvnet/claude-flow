@@ -1,6 +1,6 @@
-# ADR-166: AgentDB Retrieval Security Layer
+# ADR-180: AgentDB Retrieval Security Layer
 
-**ID**: ADR-166  
+**ID**: ADR-180  
 **Status**: Proposed  
 **Date**: 2026-07-01  
 **Authors**: claude (dream-cycle agent, 2026-07-01)  
