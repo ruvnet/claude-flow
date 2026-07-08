@@ -2578,12 +2578,11 @@ export async function verifyMemoryInit(dbPath: string, options?: {
       });
     }
 
-    // Cleanup test entry
-    db.run(`DELETE FROM memory_entries WHERE id = ?`, [testId]);
-
-    // Save changes
-    const data = db.export();
-    writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+    // Verification is read-only: sql.js holds an in-memory copy; discarding it on
+    // close() leaves the on-disk DB untouched. Writing back here would race the
+    // still-open better-sqlite3 handle (WAL) owned by ControllerRegistry /
+    // repairVectorIndexes — atomic rename fails with EPERM on Windows (#2596)
+    // and risks clobbering concurrent writes on all platforms.
     db.close();
 
     const passed = tests.filter(t => t.passed).length;
