@@ -89,7 +89,7 @@
     "test:plugin-store": "npx tsx src/plugins/tests/standalone-test.ts",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
     "postinstall": "node ./scripts/postinstall.cjs",
-    "prepublishOnly": "cp ../../../README.md ./README.md && rm -rf plugins && mkdir -p plugins && cp -r ../../../plugins/ruflo-metaharness plugins/",
+    "prepublishOnly": "cp ../../../README.md ./README.md && rm -rf plugins && mkdir -p plugins && cp -r ../../../plugins/ruflo-metaharness plugins/ && node scripts/sign-helpers.mjs && node scripts/verify-helpers.mjs",
     "release": "npm version prerelease --preid=alpha && npm run publish:all",
     "publish:all": "./scripts/publish.sh"
   },
