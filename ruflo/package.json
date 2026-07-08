@@ -42,13 +42,7 @@
   "dependencies": {
     "@claude-flow/cli": "^3.23.0"
   },
-  "optionalDependencies": {
-    "metaharness": "~0.2.8",
-    "@metaharness/router": "~0.3.2",
-    "@metaharness/kernel": "~0.1.2",
-    "@metaharness/darwin": "~0.8.0",
-    "@metaharness/redblue": "~0.1.4"
-  },
+  "optionalDependencies": {},
   "overrides": {
     "ruvector": "^0.2.27",
     "better-sqlite3": ">=12.8.0",
