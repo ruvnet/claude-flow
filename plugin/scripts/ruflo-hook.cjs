@@ -14,7 +14,7 @@
  * Behaviour mirrors ruflo-hook.sh:
  *   1. Reads hook JSON payload from stdin.
  *   2. Prefers a locally installed `ruflo` or `claude-flow` binary.
- *   3. Falls back to `npx --prefer-offline ruflo@latest`.
+ *   3. Falls back to `npx --prefer-offline ruflo@alpha`.
  *   4. Always exits 0 — hook subcommands are best-effort telemetry.
  *   5. Swallows all stderr — nothing should surface to Claude Code.
  *
@@ -157,7 +157,7 @@ function main() {
   // a spurious failure even though the shim itself works correctly.
   // The bash version doesn't hit this because it backgrounded the work.
   if (process.env.RUFLO_HOOK_SKIP_NPX !== '1') {
-    invokeHook('npx', ['--prefer-offline', '--yes', 'ruflo@latest'], hookArgs, stdinData);
+    invokeHook('npx', ['--prefer-offline', '--yes', 'ruflo@alpha'], hookArgs, stdinData);
   }
 
   done();

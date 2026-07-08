@@ -12,12 +12,19 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
 const SHIM_PATH = resolve(REPO_ROOT, 'plugins', 'ruflo-core', 'scripts', 'ruflo-hook.cjs');
+const SH_SHIM_PATH = resolve(REPO_ROOT, 'plugins', 'ruflo-core', 'scripts', 'ruflo-hook.sh');
+// Sibling copies must stay in sync — #2132 shipped three .cjs mirrors
+const SIBLING_CJS_PATHS = [
+  resolve(REPO_ROOT, 'plugin', 'scripts', 'ruflo-hook.cjs'),
+  resolve(REPO_ROOT, '.claude-plugin', 'scripts', 'ruflo-hook.cjs'),
+];
 
 let passed = 0;
 let failed = 0;
@@ -114,6 +121,21 @@ console.log(`Shim path: ${SHIM_PATH}\n`);
   // stderr may contain npx fallback output — but must not be a Node.js Error
   const hasNodeError = r.stderr && /^Error:/m.test(r.stderr);
   assert(!hasNodeError, 'No unhandled Node.js error on stderr');
+}
+
+// Test 10: dist-tag parity — .cjs shims + .sh shim must reference the same ruflo@<tag>
+// (Regression guard for #2600 — .cjs drifted to ruflo@latest while .sh used ruflo@alpha.)
+{
+  const tagRe = /ruflo@([a-z0-9][a-z0-9._-]*)/i;
+  const extractTag = (p) => {
+    const m = readFileSync(p, 'utf8').match(tagRe);
+    return m ? m[1] : null;
+  };
+  const shTag = extractTag(SH_SHIM_PATH);
+  const cjsPaths = [SHIM_PATH, ...SIBLING_CJS_PATHS];
+  const cjsTags = cjsPaths.map(extractTag);
+  const allMatch = shTag && cjsTags.every((t) => t === shTag);
+  assert(allMatch, `dist-tag parity: .sh=${shTag}, .cjs=${JSON.stringify(cjsTags)}`);
 }
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
