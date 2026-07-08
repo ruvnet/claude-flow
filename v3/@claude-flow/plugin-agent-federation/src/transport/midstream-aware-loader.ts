@@ -28,19 +28,28 @@
  * surface from agentic-flow so consumers only import from one place.
  */
 
-// Type-only imports are erased at compile time — they do not force the
-// installation of `agentic-flow`. The value import (`loadQuicTransport`)
-// is now lazy via `loadAgenticFlowQuicTransport()` below so the
-// federation plugin can install + boot in environments that block the
-// koa transitive chain that agentic-flow pulls in (e.g. hardened npm
-// registries that block `cookies@0.9.1` per issue #1949).
-import type {
-  AgentTransport,
-  AgentMessage,
-  QuicTransportConfig,
-} from 'agentic-flow/transport/loader';
-
-export type { AgentTransport, AgentMessage, QuicTransportConfig };
+// Minimal locally-declared type surface. Previously imported as
+// `import type { … } from 'agentic-flow/transport/loader'`, but that
+// subpath is not part of agentic-flow's published `exports` map — a
+// strict `moduleResolution: bundler` build or an external verifier
+// that literally does `import 'agentic-flow/transport/loader'` fails
+// with `ERR_MODULE_NOT_FOUND` (issue #2578). agentic-flow remains an
+// OPTIONAL peer dep, so the loader must compile without touching its
+// exports map at all.
+export interface AgentTransport {
+  send?: (msg: AgentMessage) => Promise<void> | void;
+  onMessage?: (handler: (msg: AgentMessage) => void) => void;
+  close?: () => Promise<void> | void;
+  [key: string]: unknown;
+}
+export interface AgentMessage {
+  [key: string]: unknown;
+}
+export interface QuicTransportConfig {
+  port?: number;
+  host?: string;
+  [key: string]: unknown;
+}
 
 /**
  * Lazy loader for agentic-flow's `loadQuicTransport`. Returns `null`
