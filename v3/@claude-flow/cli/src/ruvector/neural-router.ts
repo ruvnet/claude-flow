@@ -318,10 +318,14 @@ function loadSeedCorpus(path: string): DracoRow[] | null {
 }
 
 async function resolveBackend(cfg: NeuralRouterConfig): Promise<ResolvedBackend> {
-  // 1. Optional dep present?
-  let mh: typeof import('@metaharness/router');
+  // 1. Optional dep present? Indirect the specifier through a string variable
+  //    so tsc doesn't statically resolve `@metaharness/router` at build time
+  //    (TS2307 when the optional dep isn't installed — #2586 pattern).
+  const metaharnessRouterPkg: string = '@metaharness/router';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- optional dep; surface is fluid across upstream versions
+  let mh: any;
   try {
-    mh = await import('@metaharness/router');
+    mh = await import(metaharnessRouterPkg);
   } catch {
     return { available: false, router: null, routedBy: null, reason: '@metaharness/router not installed' };
   }

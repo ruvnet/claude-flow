@@ -211,7 +211,14 @@ export async function isRuvectorAvailable(): Promise<boolean> {
  */
 export async function isWasmBackendAvailable(): Promise<boolean> {
   try {
-    const wasm = await import('@ruvector/learning-wasm');
+    // Indirect the specifier through a string variable so tsc doesn't
+    // statically resolve this optional dep at build time (TS2307 when
+    // absent — #2586 pattern). Same runtime behaviour: try/catch guards.
+    const learningWasmPkg: string = '@ruvector/learning-wasm';
+    const wasm = (await import(learningWasmPkg)) as {
+      WasmMicroLoRA?: unknown;
+      initSync?: unknown;
+    };
     return typeof wasm.WasmMicroLoRA === 'function' && typeof wasm.initSync === 'function';
   } catch {
     return false;

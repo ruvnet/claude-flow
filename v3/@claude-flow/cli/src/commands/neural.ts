@@ -1761,8 +1761,12 @@ const benchmarkCommand: Command = {
     spinner.start();
 
     try {
+      // Indirect the specifier through a string variable so tsc doesn't
+      // statically resolve this optional dependency at build time (TS2307
+      // when it isn't installed — install-safety / Build V3 pattern from #2586).
+      const attentionPkg: string = '@ruvector/attention';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic import of optional native WASM module with no type declarations
-      const attention = await import('@ruvector/attention') as unknown as Record<string, new (...args: number[]) => { computeRaw: (q: Float32Array, k: Float32Array[], v: Float32Array[]) => Float32Array }>;
+      const attention = await import(attentionPkg) as unknown as Record<string, new (...args: number[]) => { computeRaw: (q: Float32Array, k: Float32Array[], v: Float32Array[]) => Float32Array }>;
 
       // Manual benchmark since benchmarkAttention has a binding bug
       const benchmarkMechanism = async (name: string, mechanism: { computeRaw: (q: Float32Array, k: Float32Array[], v: Float32Array[]) => Float32Array }) => {
@@ -1853,14 +1857,23 @@ const benchmarkCommand: Command = {
       spinner.start();
       spinner.setText('Benchmarking MicroLoRA adaptation...');
 
-      // Load WASM file directly (Node.js compatible)
+      // Load WASM file directly (Node.js compatible). Indirect the specifier
+      // through a string variable so tsc doesn't statically resolve this
+      // optional dependency at build time (TS2307 when absent — #2586 pattern).
       const fs = await import('fs');
       const { createRequire } = await import('module');
       const require = createRequire(import.meta.url);
-      const wasmPath = require.resolve('@ruvector/learning-wasm/ruvector_learning_wasm_bg.wasm');
+      const learningWasmPkg: string = '@ruvector/learning-wasm';
+      const wasmPath = require.resolve(`${learningWasmPkg}/ruvector_learning_wasm_bg.wasm`);
       const wasmBuffer = fs.readFileSync(wasmPath);
 
-      const learningWasm = await import('@ruvector/learning-wasm');
+      const learningWasm = await import(learningWasmPkg) as {
+        initSync: (opts: { module: Buffer | Uint8Array }) => void;
+        WasmMicroLoRA: new (dim: number, lr: number, wd: number) => {
+          adapt_array: (gradient: Float32Array) => void;
+          free: () => void;
+        };
+      };
       learningWasm.initSync({ module: wasmBuffer });
 
       const lora = new learningWasm.WasmMicroLoRA(dim, 0.1, 0.01);
@@ -1967,9 +1980,15 @@ const routerTrainCommand: Command = {
     const corpusPath = ctx.flags.corpus as string | undefined;
     const outPath = (ctx.flags.out as string) || './router.krr.json';
     const qualityBar = parseFloat(ctx.flags['quality-bar'] as string || '0.8') || 0.8;
-    let mh: typeof import('@metaharness/router');
+    // Indirect the optional-dep specifier through a string variable so tsc
+    // doesn't statically resolve `@metaharness/router` at build time (TS2307
+    // when it isn't installed — #2586 pattern). The dep is optional at
+    // runtime; the catch below emits a clear operator message.
+    const metaharnessRouterPkg: string = '@metaharness/router';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic import of optional dep; call surface is fluid across upstream versions
+    let mh: any;
     try {
-      mh = await import('@metaharness/router');
+      mh = await import(metaharnessRouterPkg);
     } catch {
       output.printError('@metaharness/router is not installed. `npm install @metaharness/router@^0.3.2` then re-run.');
       return { success: false, exitCode: 1 };
