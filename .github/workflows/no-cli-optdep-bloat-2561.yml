@@ -1,0 +1,118 @@
+# Regression guard for #2561 — CLI optionalDependencies bloat causes cold
+# `npx -y @claude-flow/cli@alpha --version` (and `ruflo@alpha` wrapper) to
+# time out because npm must resolve/download every optional dep before Node
+# ever executes bin/cli.js and can hit its in-process --version fast-path.
+#
+# The fix (commit 610575ea5) pruned the CLI's optionalDependencies from ~26
+# entries down to 5 core packages, and emptied ruflo's optionalDependencies.
+# This guard fails CI if either budget is exceeded, OR if any of the
+# specific heavy packages that caused the timeout are re-added.
+#
+# If this guard trips, either:
+#   (a) prune the dep back out and route the capability through a lazy
+#       runtime install / plugin store install, or
+#   (b) supersede this guard in a follow-up PR with a new cold-npx
+#       benchmark proving the added deps do not re-introduce the timeout.
+name: no-cli-optdep-bloat-2561
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'v3/@claude-flow/cli/package.json'
+      - 'ruflo/package.json'
+      - '.github/workflows/no-cli-optdep-bloat-2561.yml'
+  pull_request:
+    paths:
+      - 'v3/@claude-flow/cli/package.json'
+      - 'ruflo/package.json'
+      - '.github/workflows/no-cli-optdep-bloat-2561.yml'
+  workflow_dispatch:
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enforce CLI + ruflo optionalDependencies budget (#2561)
+        run: |
+          node -e '
+            const fs = require("fs");
+            const cli = JSON.parse(fs.readFileSync("v3/@claude-flow/cli/package.json", "utf8"));
+            const ruflo = JSON.parse(fs.readFileSync("ruflo/package.json", "utf8"));
+
+            const cliOpt = Object.keys(cli.optionalDependencies || {});
+            const rufloOpt = Object.keys(ruflo.optionalDependencies || {});
+
+            // Budgets set by #2561 (610575ea5). Tightened intentionally so the
+            // in-process --version fast-path at bin/cli.js:101-117 is not
+            // starved by a cold npm install of dozens of native/wasm deps.
+            const CLI_MAX = 8;
+            const RUFLO_MAX = 0;
+
+            // Specific packages proven to trigger the cold-npx timeout in
+            // #2561. Re-adding any of these to optionalDependencies re-opens
+            // the regression regardless of the count budget.
+            const FORBIDDEN = [
+              "@claude-flow/aidefence",
+              "@claude-flow/codex",
+              "@claude-flow/embeddings",
+              "@claude-flow/guidance",
+              "@claude-flow/plugin-gastown-bridge",
+              "@metaharness/darwin",
+              "@metaharness/kernel",
+              "@metaharness/redblue",
+              "@metaharness/router",
+              "@metaharness/weight-eft",
+              "metaharness",
+              "@ruvector/attention",
+              "@ruvector/attention-darwin-arm64",
+              "@ruvector/diskann",
+              "@ruvector/learning-wasm",
+              "@ruvector/router",
+              "@ruvector/ruvllm-wasm",
+              "@ruvector/rvagent-wasm",
+              "@ruvector/sona",
+              "@ruvector/tiny-dancer",
+              "agentbbs",
+              "agenticow",
+              "page-agent"
+            ];
+
+            let failed = false;
+
+            if (cliOpt.length > CLI_MAX) {
+              console.error(`FAIL (#2561): v3/@claude-flow/cli optionalDependencies=${cliOpt.length} exceeds budget ${CLI_MAX}`);
+              console.error(`  entries: ${cliOpt.join(", ")}`);
+              failed = true;
+            } else {
+              console.log(`OK: v3/@claude-flow/cli optionalDependencies=${cliOpt.length} (budget ${CLI_MAX})`);
+            }
+
+            if (rufloOpt.length > RUFLO_MAX) {
+              console.error(`FAIL (#2561): ruflo optionalDependencies=${rufloOpt.length} exceeds budget ${RUFLO_MAX}`);
+              console.error(`  entries: ${rufloOpt.join(", ")}`);
+              failed = true;
+            } else {
+              console.log(`OK: ruflo optionalDependencies=${rufloOpt.length} (budget ${RUFLO_MAX})`);
+            }
+
+            const reAdded = FORBIDDEN.filter(p => cliOpt.includes(p) || rufloOpt.includes(p));
+            if (reAdded.length > 0) {
+              console.error(`FAIL (#2561): forbidden heavy optionalDependencies re-added: ${reAdded.join(", ")}`);
+              console.error(`  these packages caused the cold npx --version timeout in #2561`);
+              failed = true;
+            } else {
+              console.log(`OK: no forbidden heavy optionalDependencies present`);
+            }
+
+            if (failed) {
+              console.error("");
+              console.error("See #2561 for context. If you truly need one of these deps at the CLI");
+              console.error("layer, prove cold `npx -y @claude-flow/cli@alpha --version` still");
+              console.error("returns under 60s and update this guard in the same PR.");
+              process.exit(1);
+            }
+          '
