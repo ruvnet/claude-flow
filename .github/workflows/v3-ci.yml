@@ -484,10 +484,37 @@ jobs:
         with:
           version: ${{ env.PNPM_VERSION }}
 
+      - name: Guard #2590 — onnxruntime-node postinstall must be skipped
+        # Regression guard for ruvnet/ruflo#2590 — onnxruntime-node's postinstall
+        # fetches a GPU nupkg from nuget.org that ETIMEDOUTs from GitHub runners,
+        # taking `pnpm install --frozen-lockfile` down. The fix requires BOTH:
+        #   1) v3/package.json → pnpm.neverBuiltDependencies contains "onnxruntime-node"
+        #   2) this workflow's memory-smoke install uses --ignore-scripts
+        # If either regresses, this step fails BEFORE the flaky network install.
+        run: |
+          set -euo pipefail
+          # (1) neverBuiltDependencies gate
+          node -e '
+            const j = require("./v3/package.json");
+            const list = (j.pnpm && j.pnpm.neverBuiltDependencies) || [];
+            if (!list.includes("onnxruntime-node")) {
+              console.error("REGRESSION #2590: v3/package.json pnpm.neverBuiltDependencies missing onnxruntime-node");
+              console.error("  got:", JSON.stringify(list));
+              process.exit(1);
+            }
+            console.log("ok: onnxruntime-node in pnpm.neverBuiltDependencies");
+          '
+          # (2) workflow install step must pass --ignore-scripts (belt-and-braces)
+          if ! grep -qE "pnpm install --frozen-lockfile --ignore-scripts" .github/workflows/v3-ci.yml; then
+            echo "REGRESSION #2590: memory-smoke install step lost --ignore-scripts"
+            exit 1
+          fi
+          echo "ok: --ignore-scripts present on memory-smoke pnpm install"
+
       - name: Install workspace + build memory (pnpm — needed for workspace:* protocol)
         working-directory: v3
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install --frozen-lockfile --ignore-scripts
           pnpm --filter @claude-flow/memory... run build
 
       - name: Pack memory tarball
