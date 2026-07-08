@@ -19,7 +19,7 @@
  * an envelope to the integrator's handler IFF it passes safety gates."
  */
 
-import type { AgentMessage } from 'agentic-flow/transport/loader';
+import type { AgentMessage } from '../transport/midstream-aware-loader.js';
 import type { DiscoveryService } from '../domain/services/discovery-service.js';
 import type { AuditService } from '../domain/services/audit-service.js';
 import { FederationNodeState } from '../domain/value-objects/federation-node-state.js';
