@@ -1,0 +1,143 @@
+{
+  "version": "1.3",
+  "description": "Text-only agent capability benchmark — verifiable multi-step reasoning tasks scoreable without tool use. Format inspired by GAIA / SWE-bench / GSM8K. The fixture mixes EASY (regression-floor) and HARD (model-gradient) questions so the pass rate has signal across Haiku → Sonnet → Opus. Real GAIA (web browsing, attachments, HF dataset) remains future work.",
+  "answerFormat": "Each question requires the model to reply with the answer wrapped in <answer>...</answer> tags. The harness extracts the tag contents and checks against `expected` per `matchMode`. Per-task `maxTokens` overrides the default cap.",
+  "tasks": [
+    {
+      "id": "math-prime",
+      "category": "easy:reasoning",
+      "prompt": "What is the smallest 3-digit prime number that does not contain the digit 7?",
+      "expected": "101",
+      "matchMode": "exact",
+      "maxTokens": 192
+    },
+    {
+      "id": "logic-syllogism",
+      "category": "easy:reasoning",
+      "prompt": "All routers in tier 1 cost less than $0.001 per call. The Booster router is in tier 1. The Sonnet router costs $0.003 per call. Is the Sonnet router in tier 1? Answer with just \"yes\" or \"no\".",
+      "expected": "no",
+      "matchMode": "exact",
+      "maxTokens": 160
+    },
+    {
+      "id": "regex-match",
+      "category": "easy:code-reasoning",
+      "prompt": "Given the regex /^([a-z]+)-(\\d+)$/ and the input string 'pattern-1779526376', what is the value of capture group 2?",
+      "expected": "1779526376",
+      "matchMode": "exact",
+      "maxTokens": 192
+    },
+    {
+      "id": "gsm8k-trip",
+      "category": "hard:gsm8k-style",
+      "prompt": "A delivery van starts a route with 240 packages. At stop A it drops off 1/4 of its current load and picks up 6 new packages. At stop B it drops off 1/3 of its current load and picks up 4 new packages. At stop C it drops off half of its current load. How many packages does the van have after stop C? Answer with the integer.",
+      "expected": "64",
+      "matchMode": "exact",
+      "maxTokens": 256
+    },
+    {
+      "id": "gsm8k-discount",
+      "category": "hard:gsm8k-style",
+      "prompt": "A store sells 3 widgets and 2 sprockets for $23. It also sells 2 widgets and 4 sprockets for $26. What is the price of one widget? Answer with the integer dollar amount only.",
+      "expected": "5",
+      "matchMode": "exact",
+      "maxTokens": 256
+    },
+    {
+      "id": "code-trace",
+      "category": "hard:code-trace",
+      "prompt": "Consider this JavaScript code:\n```\nconst counts = new Map();\nfor (const c of 'abracadabra') {\n  counts.set(c, (counts.get(c) ?? 0) + 1);\n}\nlet maxK = '', maxV = 0;\nfor (const [k, v] of counts) {\n  if (v > maxV || (v === maxV && k < maxK)) { maxK = k; maxV = v; }\n}\nconsole.log(`${maxK}:${maxV}`);\n```\nWhat does it print? Answer with just the printed string.",
+      "expected": "a:5",
+      "matchMode": "exact",
+      "maxTokens": 192
+    },
+    {
+      "id": "hard-graph-shortest",
+      "category": "hard:graph-reasoning",
+      "prompt": "A directed graph has these weighted edges: A→B(3), A→C(7), B→C(2), B→D(5), C→D(1), C→E(4), D→E(2). What is the cost of the shortest path from A to E? Answer with the integer.",
+      "expected": "8",
+      "matchMode": "exact",
+      "maxTokens": 192
+    },
+    {
+      "id": "hard-probability",
+      "category": "hard:probability",
+      "prompt": "A bag contains 5 red, 3 blue, and 2 green balls. Two balls are drawn without replacement. What is the probability that both balls are the same color? Express as a fraction in lowest terms in the form a/b (e.g. 3/10).",
+      "expected": "14/45",
+      "matchMode": "exact",
+      "maxTokens": 256
+    },
+    {
+      "id": "expert-marble-inverse",
+      "category": "expert:inverse-arithmetic",
+      "prompt": "A bag of marbles is split as follows: 40% are given to Alice, then 25% of the REMAINING marbles are given to Bob, then half of the remaining marbles (after Alice and Bob) are given to Carol. Carol receives exactly 18 marbles. How many marbles were in the bag originally? Answer with the integer.",
+      "expected": "80",
+      "matchMode": "exact",
+      "maxTokens": 512
+    },
+    {
+      "id": "expert-crt",
+      "category": "expert:number-theory",
+      "prompt": "Find the smallest positive integer n such that all three of these hold simultaneously: n mod 7 = 3, n mod 9 = 4, n mod 11 = 5. Answer with just the integer.",
+      "expected": "346",
+      "matchMode": "exact",
+      "maxTokens": 768
+    },
+    {
+      "id": "expert-bayes",
+      "category": "expert:bayesian",
+      "prompt": "A medical test has 95% sensitivity (true positive rate) and 90% specificity (true negative rate). In the screened population, 1% of people have the disease. A patient tests positive. What is the probability the patient actually has the disease, rounded to the nearest whole percent? Answer with just the integer percentage (no '%' sign).",
+      "expected": "9",
+      "matchMode": "exact",
+      "maxTokens": 512
+    },
+    {
+      "id": "expert-banana",
+      "category": "expert:combinatorics",
+      "prompt": "In how many distinct arrangements of the letters of the word BANANA do no two N's appear next to each other? Answer with the integer.",
+      "expected": "40",
+      "matchMode": "exact",
+      "maxTokens": 512
+    },
+    {
+      "id": "expert-rectangle",
+      "category": "expert:diophantine",
+      "prompt": "A rectangle has positive integer side lengths. Its perimeter (in linear units) is numerically equal to its area (in square units). Two rectangles that are rotations of each other (e.g. 3x6 and 6x3) count as the same rectangle. What is the sum of the areas of all distinct such rectangles? Answer with the integer.",
+      "expected": "34",
+      "matchMode": "exact",
+      "maxTokens": 512
+    },
+    {
+      "id": "expert-dice-reroll",
+      "category": "expert:expected-value",
+      "prompt": "You roll a fair 6-sided die. If the result is a 6, you reroll exactly once and take the new result. Otherwise, you keep the original result. What is the expected value of your final number? Express the answer as a fraction in lowest terms in the form a/b (no spaces, no surrounding text).",
+      "expected": "37/12",
+      "matchMode": "exact",
+      "maxTokens": 512
+    },
+    {
+      "id": "sonnet-killer-knights",
+      "category": "sonnet-killer:logic-puzzle",
+      "prompt": "On an island, knights always tell the truth and knaves always lie. You meet four people named Alice, Bob, Carol, and Dan. They make the following statements: Alice says 'Bob and Carol are different types (one is a knight, the other is a knave).' Bob says 'Alice is a knave.' Carol says 'Dan is a knave.' Dan says 'Carol is a knave.' How many knaves are among the four people? Answer with just the integer.",
+      "expected": "2",
+      "matchMode": "exact",
+      "maxTokens": 768
+    },
+    {
+      "id": "sonnet-killer-hofstadter",
+      "category": "sonnet-killer:recursive-sequence",
+      "prompt": "A sequence is defined on the positive integers by f(1) = 1 and, for every n > 1, f(n) = f(n - f(n-1)) + 1. Compute f(10). Answer with just the integer.",
+      "expected": "4",
+      "matchMode": "exact",
+      "maxTokens": 768
+    },
+    {
+      "id": "sonnet-killer-modexp",
+      "category": "sonnet-killer:number-theory",
+      "prompt": "What are the last two digits of 7 raised to the 2026th power? Answer with exactly the two-digit number (e.g. '07' if it's seven, '49' if it's forty-nine).",
+      "expected": "49",
+      "matchMode": "exact",
+      "maxTokens": 512
+    }
+  ]
+}

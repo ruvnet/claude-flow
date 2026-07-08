@@ -10,19 +10,21 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import capabilityCommand from './performance-capability.js';
 
 // Benchmark subcommand - REAL measurements
 const benchmarkCommand: Command = {
   name: 'benchmark',
   description: 'Run performance benchmarks',
   options: [
-    { name: 'suite', short: 's', type: 'string', description: 'Benchmark suite: all, wasm, neural, memory, search', default: 'all' },
+    { name: 'suite', short: 's', type: 'string', description: 'Benchmark suite: all, wasm, neural, memory, search, agent (control-plane only — for LLM-driven capability eval use `performance capability`)', default: 'all' },
     { name: 'iterations', short: 'i', type: 'number', description: 'Number of iterations', default: '100' },
     { name: 'warmup', short: 'w', type: 'number', description: 'Warmup iterations', default: '10' },
     { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json, csv', default: 'text' },
   ],
   examples: [
     { command: 'claude-flow performance benchmark -s neural', description: 'Benchmark neural operations' },
+    { command: 'claude-flow performance benchmark -s agent', description: 'Agent CONTROL PLANE latency (no LLM) — for capability eval use `performance capability`' },
     { command: 'claude-flow performance benchmark -i 1000', description: 'Run with 1000 iterations' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -218,6 +220,128 @@ const benchmarkCommand: Command = {
         p99: `${percentile(storeTimes, 99).toFixed(1)}ms`,
         improvement: mean < 50 ? output.success('Target met') : output.warning('Slow'),
       });
+    }
+
+    // 6. Agent Control-Plane Latency Probe (#2156 capabilities scan)
+    //
+    // IMPORTANT: this is a CONTROL-PLANE latency probe, NOT a capability
+    // benchmark. It measures whether the routing/memory/hooks plumbing is
+    // responding within its budget — it does NOT measure whether the model
+    // gives correct answers. For real LLM-driven capability evaluation
+    // (pass-rate on agent-style tasks), use the sibling subcommand
+    // `performance capability`, which calls the Anthropic API against a
+    // verifiable-answer fixture and reports a pass rate + cost.
+    //
+    // Three sub-measurements cover the ADR-026 routing pipeline:
+    //   - Router decide   : Q-Learning agent selection latency
+    //   - Pattern search  : SONA / ReasoningBank prior-pattern lookup
+    //   - Step record     : trajectory step recording with embedding
+    //
+    // Composite "Agent Round-Trip" sums all three. No ANTHROPIC_API_KEY
+    // required — this is the agent control plane, not the model output.
+    if (suite === 'all' || suite === 'agent') {
+      spinner.setText('Benchmarking agent control plane...');
+
+      try {
+        const { createQLearningRouter } = await import('../ruvector/index.js');
+        const { findSimilarPatterns, recordStep } = await import('../memory/intelligence.js');
+
+        const router = createQLearningRouter();
+        await router.initialize();
+
+        const tasks = [
+          'implement OAuth2 authentication flow',
+          'fix flaky test in user-service',
+          'optimize HNSW search for 1M vectors',
+          'review security of new endpoint',
+          'design database schema for events',
+        ];
+
+        const decideTimes: number[] = [];
+        const patternTimes: number[] = [];
+        const recordTimes: number[] = [];
+        const roundTripTimes: number[] = [];
+
+        // Warmup: router.route is sync but pattern/embedding paths cache on first hit
+        for (let i = 0; i < Math.min(warmup, 5); i++) {
+          router.route(tasks[i % tasks.length], false);
+          await findSimilarPatterns(tasks[i % tasks.length], { k: 5 }).catch(() => []);
+        }
+
+        // Measurement: cap iterations at 50 — each iteration does up to 3 async
+        // calls (pattern search includes an embedding) so 50 already gives us
+        // a tight p95/p99 in <5s on a modern dev box.
+        const agentIterations = Math.min(iterations, 50);
+        for (let i = 0; i < agentIterations; i++) {
+          const task = tasks[i % tasks.length];
+          const tripStart = performance.now();
+
+          const decideStart = performance.now();
+          router.route(task, false);
+          decideTimes.push(performance.now() - decideStart);
+
+          const patternStart = performance.now();
+          await findSimilarPatterns(task, { k: 5 }).catch(() => []);
+          patternTimes.push(performance.now() - patternStart);
+
+          const recordStart = performance.now();
+          await recordStep({
+            type: 'action',
+            content: `bench: ${task}`,
+            metadata: { source: 'agent-benchmark', iter: i },
+          }).catch(() => false);
+          recordTimes.push(performance.now() - recordStart);
+
+          roundTripTimes.push(performance.now() - tripStart);
+        }
+
+        const decideMean = decideTimes.reduce((a, b) => a + b, 0) / decideTimes.length;
+        const patternMean = patternTimes.reduce((a, b) => a + b, 0) / patternTimes.length;
+        const recordMean = recordTimes.reduce((a, b) => a + b, 0) / recordTimes.length;
+        const roundTripMean = roundTripTimes.reduce((a, b) => a + b, 0) / roundTripTimes.length;
+
+        // Targets (capability-regression thresholds — derived from ADR-026 + SONA budgets):
+        //   Router decide   <2ms    (Q-Learning lookup, in-process)
+        //   Pattern search  <50ms   (HNSW + embed; ONNX embed dominates cold path)
+        //   Step record     <25ms   (embed + SONA record; <0.05ms SONA target post-embed)
+        //   Round-trip      <80ms   (sum + overhead headroom)
+        results.push({
+          operation: 'Router Decide',
+          mean: `${decideMean.toFixed(2)}ms`,
+          p95: `${percentile(decideTimes, 95).toFixed(2)}ms`,
+          p99: `${percentile(decideTimes, 99).toFixed(2)}ms`,
+          improvement: decideMean < 2 ? output.success('Target met') : output.warning('Slow'),
+        });
+        results.push({
+          operation: 'Pattern Search',
+          mean: `${patternMean.toFixed(2)}ms`,
+          p95: `${percentile(patternTimes, 95).toFixed(2)}ms`,
+          p99: `${percentile(patternTimes, 99).toFixed(2)}ms`,
+          improvement: patternMean < 50 ? output.success('Target met') : output.warning('Slow'),
+        });
+        results.push({
+          operation: 'Step Record',
+          mean: `${recordMean.toFixed(2)}ms`,
+          p95: `${percentile(recordTimes, 95).toFixed(2)}ms`,
+          p99: `${percentile(recordTimes, 99).toFixed(2)}ms`,
+          improvement: recordMean < 25 ? output.success('Target met') : output.warning('Slow'),
+        });
+        results.push({
+          operation: 'Agent Ctrl-Plane RTT',
+          mean: `${roundTripMean.toFixed(2)}ms`,
+          p95: `${percentile(roundTripTimes, 95).toFixed(2)}ms`,
+          p99: `${percentile(roundTripTimes, 99).toFixed(2)}ms`,
+          improvement: roundTripMean < 80 ? output.success('Target met') : output.warning('Above target'),
+        });
+      } catch (err) {
+        results.push({
+          operation: 'Agent Ctrl-Plane RTT',
+          mean: 'N/A',
+          p95: 'N/A',
+          p99: 'N/A',
+          improvement: output.warning(`init failed: ${(err as Error).message.slice(0, 30)}`),
+        });
+      }
     }
 
     const totalTime = ((Date.now() - startTotal) / 1000).toFixed(2);
@@ -620,7 +744,7 @@ export const performanceCommand: Command = {
   name: 'performance',
   description: 'Performance profiling, benchmarking, optimization, metrics',
   aliases: ['perf'],
-  subcommands: [benchmarkCommand, profileCommand, metricsCommand, optimizeCommand, bottleneckCommand],
+  subcommands: [benchmarkCommand, profileCommand, metricsCommand, optimizeCommand, bottleneckCommand, capabilityCommand],
   examples: [
     { command: 'claude-flow performance benchmark', description: 'Run benchmarks' },
     { command: 'claude-flow performance profile', description: 'Profile application' },
@@ -633,7 +757,8 @@ export const performanceCommand: Command = {
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
-      'benchmark  - Run performance benchmarks (WASM, neural, search)',
+      'benchmark  - Run performance benchmarks (WASM, neural, search, agent control plane)',
+      'capability - Run LLM-driven agent capability eval against Anthropic API (requires ANTHROPIC_API_KEY)',
       'profile    - Profile CPU, memory, I/O usage',
       'metrics    - View and export performance metrics',
       'optimize   - Get optimization recommendations',

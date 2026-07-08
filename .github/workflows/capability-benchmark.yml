@@ -1,0 +1,201 @@
+name: Capability Benchmark (#2156)
+
+# Cost-bearing job — calls the Anthropic API. Three triggers:
+#
+#   1. PR labeled `bench:capability` (gradient mode: Haiku + Sonnet)
+#      → posts a results comment back to the PR
+#
+#   2. Nightly cron on main (regression detection)
+#      → opens / updates a tracking issue if pass rate drops below threshold
+#
+#   3. Manual workflow_dispatch (ops + ad-hoc capability runs)
+#      → optional `models` input to override the default
+#
+# Costs (approximate, current fixture, claude-haiku-4-5 + claude-sonnet-4-6):
+#   Per run:  ~$0.02
+#   Nightly:  ~$0.60 / month
+#
+# Refs: #2156 (Dream Cycle 2026-05-27 capabilities scan)
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * *'   # daily at 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      models:
+        description: 'Comma-separated Anthropic models'
+        required: false
+        default: 'claude-haiku-4-5,claude-sonnet-4-6'
+      concurrency:
+        description: 'Parallel in-flight requests'
+        required: false
+        default: '6'
+
+env:
+  PNPM_VERSION: '9.15.4'
+
+jobs:
+  capability-benchmark:
+    name: Capability benchmark (#2156)
+    runs-on: ubuntu-latest
+    # PR runs only when the bench:capability label is present.
+    # Schedule + workflow_dispatch always run.
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'bench:capability'))
+    permissions:
+      contents: read
+      pull-requests: write   # post PR comment
+      issues: write          # open / update tracking issue on cron failure
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+
+      - name: Build CLI (and workspace deps)
+        working-directory: v3
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --recursive --no-bail run build || true
+          test -f @claude-flow/cli/bin/cli.js \
+            || (echo "cli build did not produce bin/cli.js"; exit 1)
+
+      - name: Resolve models + concurrency
+        id: cfg
+        shell: bash
+        run: |
+          MODELS="${{ github.event.inputs.models }}"
+          CONC="${{ github.event.inputs.concurrency }}"
+          : "${MODELS:=claude-haiku-4-5,claude-sonnet-4-6}"
+          : "${CONC:=6}"
+          echo "models=$MODELS" >> "$GITHUB_OUTPUT"
+          echo "concurrency=$CONC" >> "$GITHUB_OUTPUT"
+
+      - name: Run capability benchmark
+        id: bench
+        working-directory: v3/@claude-flow/cli
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        shell: bash
+        run: |
+          set -e
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY secret is not configured for this repo."
+            exit 1
+          fi
+          node bin/cli.js performance capability \
+            -M "${{ steps.cfg.outputs.models }}" \
+            -c "${{ steps.cfg.outputs.concurrency }}" \
+            -o json > /tmp/capability.json
+          # Extract the JSON portion (skip the header lines printed before --output json kicks in).
+          node -e '
+            const fs=require("fs");
+            const raw=fs.readFileSync("/tmp/capability.json","utf-8");
+            const i=raw.indexOf("{");
+            if(i<0){console.error("no JSON in output");process.exit(1);}
+            const data=JSON.parse(raw.slice(i));
+            fs.writeFileSync("/tmp/capability-clean.json", JSON.stringify(data, null, 2));
+            console.log("models:", data.models?.join(",") ?? "?");
+            console.log("questions:", data.questions);
+            console.log("wallMs:", data.wallMs?.toFixed?.(0) ?? data.wallMs);
+            for (const s of (data.summaries || [])) {
+              console.log(`  ${s.model}: ${(s.passRate*100).toFixed(1)}% (${s.passed}/${s.total}) cost=$${s.estCostUsd.toFixed(4)}`);
+            }
+          '
+          mv /tmp/capability-clean.json /tmp/capability.json
+
+      - name: Build markdown summary
+        id: summary
+        shell: bash
+        run: |
+          node -e '
+            const fs=require("fs");
+            const data=JSON.parse(fs.readFileSync("/tmp/capability.json","utf-8"));
+            const summaries = data.summaries || [];
+            let md = "## Capability Benchmark (#2156)\n\n";
+            md += `**Run**: \`${data.models?.join(", ") ?? "?"}\` · ${data.questions} questions · concurrency=${data.concurrency} · wall=${(data.wallMs/1000).toFixed(2)}s\n\n`;
+            md += "| Model | Pass | Mean Lat | Tokens (in/out) | Est. Cost |\n";
+            md += "|---|---|---|---|---|\n";
+            for (const s of summaries) {
+              md += `| \`${s.model}\` | **${(s.passRate*100).toFixed(1)}% (${s.passed}/${s.total})** | ${s.meanLatencyMs.toFixed(0)}ms | ${s.totalInputTokens} / ${s.totalOutputTokens} | $${s.estCostUsd.toFixed(4)} |\n`;
+            }
+            // Per-question failure breakdown so reviewers can see which questions slipped
+            const fails = (data.results||[]).filter(r=>!r.correct);
+            if (fails.length) {
+              md += "\n### Failures\n\n";
+              md += "| Model | Question | Got | Expected |\n|---|---|---|---|\n";
+              for (const f of fails) {
+                const got = f.error ? `error: ${f.error}` : (f.answer || "").slice(0,40);
+                md += `| \`${f.model}\` | \`${f.id}\` | ${got || "(empty)"} | ${f.expected.slice(0,40)} |\n`;
+              }
+            }
+            md += "\n<sub>Triggered by " + process.env.TRIGGER + " · workflow: capability-benchmark.yml · run: " + process.env.GITHUB_RUN_ID + "</sub>\n";
+            fs.writeFileSync("/tmp/summary.md", md);
+            // Also expose pass-rate for downstream regression-gate logic
+            const minRate = Math.min(...summaries.map(s=>s.passRate));
+            fs.writeFileSync(process.env.GITHUB_OUTPUT, "min_pass_rate=" + minRate + "\n", { flag: "a" });
+          '
+        env:
+          TRIGGER: ${{ github.event_name }}
+
+      - name: Upload results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: capability-benchmark-${{ github.run_id }}
+          path: |
+            /tmp/capability.json
+            /tmp/summary.md
+          retention-days: 30
+
+      - name: Post PR comment
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/summary.md
+
+      - name: Open / update regression tracking issue on cron failure
+        if: github.event_name == 'schedule' && steps.summary.outputs.min_pass_rate < '0.75'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MIN_RATE: ${{ steps.summary.outputs.min_pass_rate }}
+        shell: bash
+        run: |
+          set -e
+          DATE=$(date -u +%Y-%m-%d)
+          TITLE="[capability-bench] regression: min pass-rate $MIN_RATE on $DATE"
+          # Avoid duplicate issues — re-open / comment on an existing one if title matches today
+          EXISTING=$(gh issue list --repo "${{ github.repository }}" --state open --search "in:title capability-bench regression" --json number --jq '.[0].number // empty')
+          BODY=$(cat /tmp/summary.md)
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "${{ github.repository }}" --body "$BODY"
+          else
+            gh issue create --repo "${{ github.repository }}" --title "$TITLE" --label capability-bench,regression --body "$BODY"
+          fi
+
+      - name: Fail step if any model dropped below 50%
+        if: steps.summary.outputs.min_pass_rate < '0.5'
+        shell: bash
+        run: |
+          echo "::error::Min pass rate ${{ steps.summary.outputs.min_pass_rate }} is below the 50% capability floor — see summary artifact."
+          exit 1

@@ -1418,6 +1418,49 @@ jobs:
         shell: bash
         run: node scripts/smoke-pre-bash-hook.mjs
 
+  agent-benchmark-suite-smoke:
+    # Regression guard for ruvnet/ruflo#2156 — Dream Cycle 2026-05-27 capabilities
+    # scan found that ruflo had no agent control-plane benchmark, only
+    # infrastructure benchmarks (HNSW, embeddings, SONA adaptation, WASM Flash
+    # Attention). This smoke verifies the `--suite agent` option is wired in and
+    # produces the four expected operation rows (Router Decide, Pattern Search,
+    # Step Record, Agent Round-Trip) without requiring an external LLM key. If
+    # any of these regress or get renamed, downstream capability dashboards lose
+    # their entry point — fail fast in CI.
+    name: agent benchmark suite smoke (#2156)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+
+      - name: Build cli (smoke runs against dist/)
+        working-directory: v3
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile
+          # Build all workspace deps first — cli depends on cli-core, memory, etc.
+          # Match the proven cli-npx-install-smoke pattern (recursive + no-bail).
+          pnpm --recursive --no-bail run build || true
+          test -f @claude-flow/cli/bin/cli.js \
+            || (echo "cli build did not produce bin/cli.js"; exit 1)
+
+      - name: Run agent benchmark smoke (no API keys required)
+        shell: bash
+        run: node scripts/smoke-agent-benchmark-suite.mjs
+
   mcp-protocol-smoke:
     # Regression guard for ruvnet/ruflo#1874 — boots the HTTP MCP server,
     # sends a real `initialize` request, and validates the response wire
