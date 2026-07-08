@@ -771,9 +771,10 @@ export function isAnswerCorrect(modelAnswer: string, expected: string): boolean 
   // Exact match
   if (normModel === normExpected) return true;
 
-  // Substring match (expected contained in model answer or vice versa)
+  // Substring match: expected contained in model answer (forward only).
+  // Reverse (normExpected.includes(normModel)) removed — see #2566 / ADR-169 R1:
+  // it scored fragmentary model answers ("a" vs "Paris, France") as correct.
   if (normModel.includes(normExpected)) return true;
-  if (normExpected.includes(normModel)) return true;
 
   // Numeric match with tolerance
   const numModel = parseFloat(normModel.replace(/[^0-9.\-]/g, ''));
