@@ -854,7 +854,7 @@ Run `npx claude-flow@v3alpha doctor` to check:
 
 ```bash
 # Add MCP servers
-claude mcp add claude-flow npx claude-flow@v3alpha mcp start
+claude mcp add claude-flow -- npx -y ruflo@latest mcp start
 claude mcp add ruv-swarm npx ruv-swarm mcp start  # Optional
 claude mcp add flow-nexus npx flow-nexus@latest mcp start  # Optional
 

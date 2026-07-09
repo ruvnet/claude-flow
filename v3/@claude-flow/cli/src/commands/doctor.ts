@@ -479,52 +479,104 @@ async function checkMcpServers(): Promise<HealthCheck> {
 
   const isRufloKey = (k: string) =>
     k === 'ruflo' || k === 'ruflo_alpha' || k === 'claude-flow' || k === 'claude-flow_alpha';
+  // Canonical MCP-server key is `claude-flow` — matches the `mcp__claude-flow__*`
+  // prefix that ~166 plugin tool references depend on (#2206). A `ruflo`-keyed
+  // entry pointing at the same binary is the legacy duplicate created by
+  // pre-rename setup docs that #2612 tracks; doctor treats it as removable.
+  const isCurrentRufloKey = (k: string) => k === 'claude-flow' || k === 'claude-flow_alpha';
+  const isLegacyRufloKey = (k: string) => k === 'ruflo' || k === 'ruflo_alpha';
+  const isRufloServer = (server: unknown): boolean => {
+    if (!server || typeof server !== 'object') return false;
+    const entry = server as { command?: unknown; args?: unknown };
+    const command = typeof entry.command === 'string' ? entry.command : '';
+    const args = Array.isArray(entry.args)
+      ? entry.args.filter((arg): arg is string => typeof arg === 'string')
+      : [];
+    const haystack = [command, ...args].join(' ');
+    return /\b(?:ruflo|claude-flow|@claude-flow\/cli)(?:@[\w.-]+)?\b/.test(haystack);
+  };
+
+  let totalServersSeen = 0;
+  const rufloLocations: string[] = [];
+  const duplicateLocations: string[] = [];
+  const legacyLocations: string[] = [];
+  const currentLocations: string[] = [];
+
+  const inspectServers = (
+    servers: unknown,
+    location: string
+  ): { total: number; hasRuflo: boolean } => {
+    if (!servers || typeof servers !== 'object') return { total: 0, hasRuflo: false };
+
+    const entries = Object.entries(servers as Record<string, unknown>);
+    const activeRufloEntries = entries.filter(([key, server]) => isRufloKey(key) && isRufloServer(server));
+    const hasLegacy = activeRufloEntries.some(([key]) => isLegacyRufloKey(key));
+    const hasCurrent = activeRufloEntries.some(([key]) => isCurrentRufloKey(key));
+
+    if (activeRufloEntries.length > 0) {
+      rufloLocations.push(`${location}: ${activeRufloEntries.map(([key]) => key).join(', ')}`);
+    }
+    if (hasLegacy && hasCurrent) {
+      duplicateLocations.push(`${location}: ${activeRufloEntries.map(([key]) => key).join(' + ')}`);
+    }
+    for (const [key] of activeRufloEntries) {
+      if (isLegacyRufloKey(key)) legacyLocations.push(`${location}: ${key}`);
+      if (isCurrentRufloKey(key)) currentLocations.push(`${location}: ${key}`);
+    }
+
+    return { total: entries.length, hasRuflo: activeRufloEntries.length > 0 };
+  };
 
   for (const configPath of mcpConfigPaths) {
     if (!existsSync(configPath)) continue;
     try {
       const content = JSON.parse(readFileSync(configPath, 'utf8'));
       // Top-level mcpServers (legacy / desktop form)
-      const topServers = content.mcpServers || content.servers || {};
-      const topServerKeys = Object.keys(topServers);
-      const topHasRuflo = topServerKeys.some(isRufloKey);
+      const topResult = inspectServers(content.mcpServers || content.servers || {}, `${configPath} top-level`);
+      totalServersSeen += topResult.total;
 
       // Project-scoped (Claude Code shape): projects[*].mcpServers.ruflo
-      let projectHits = 0;
-      let projectScannedServers = 0;
       if (content.projects && typeof content.projects === 'object') {
-        for (const projectVal of Object.values(content.projects)) {
+        for (const [projectKey, projectVal] of Object.entries(content.projects)) {
           const pm = (projectVal as { mcpServers?: Record<string, unknown> })?.mcpServers;
           if (pm && typeof pm === 'object') {
-            const keys = Object.keys(pm);
-            projectScannedServers += keys.length;
-            if (keys.some(isRufloKey)) projectHits += 1;
+            const projectResult = inspectServers(pm, `${configPath} projects[${projectKey}]`);
+            totalServersSeen += projectResult.total;
           }
         }
-      }
-
-      const totalServers = topServerKeys.length + projectScannedServers;
-      if (topHasRuflo || projectHits > 0) {
-        const where = topHasRuflo
-          ? 'top-level'
-          : `${projectHits} project-scoped`;
-        return {
-          name: 'MCP Servers',
-          status: 'pass',
-          message: `${totalServers} servers (ruflo configured: ${where})`,
-        };
-      }
-      if (totalServers > 0) {
-        return {
-          name: 'MCP Servers',
-          status: 'warn',
-          message: `${totalServers} servers (ruflo not found)`,
-          fix: 'claude mcp add ruflo -- npx -y ruflo@latest mcp start',
-        };
       }
     } catch {
       // continue to next path
     }
+  }
+
+  if (duplicateLocations.length > 0 || (legacyLocations.length > 0 && currentLocations.length > 0)) {
+    const locations = duplicateLocations.length > 0
+      ? duplicateLocations.join('; ')
+      : `legacy ${legacyLocations.join('; ')} + current ${currentLocations.join('; ')}`;
+    return {
+      name: 'MCP Servers',
+      status: 'warn',
+      message: `Duplicate Ruflo MCP registrations found (${locations}) — Claude Code will start both tool schemas`,
+      fix: 'Remove the legacy `ruflo`-keyed MCP registration (pre-rename duplicate) and keep the canonical `claude-flow` entry: `claude mcp add claude-flow -- npx -y ruflo@latest mcp start`. The canonical key stays `claude-flow` so the ~166 `mcp__claude-flow__*` plugin tool references keep resolving (#2206).',
+    };
+  }
+
+  if (rufloLocations.length > 0) {
+    return {
+      name: 'MCP Servers',
+      status: 'pass',
+      message: `${totalServersSeen} servers (ruflo configured: ${rufloLocations.join('; ')})`,
+    };
+  }
+
+  if (totalServersSeen > 0) {
+    return {
+      name: 'MCP Servers',
+      status: 'warn',
+      message: `${totalServersSeen} servers (ruflo not found)`,
+      fix: 'claude mcp add claude-flow -- npx -y ruflo@latest mcp start',
+    };
   }
 
   return {
