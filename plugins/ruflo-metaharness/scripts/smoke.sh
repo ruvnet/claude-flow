@@ -204,14 +204,27 @@ LOADER="$ROOT/../../v3/@claude-flow/cli/src/commands/index.ts"
 grep -q "metaharness: () => import" "$LOADER" 2>/dev/null || miss="$miss not-registered-in-loader"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
-step "16. ruflo wrapper has metaharness in optionalDependencies (architectural constraint #2)"
+step "16. ruflo wrapper keeps metaharness out of hard dependencies (ADR-150 constraint #2)"
 F="$ROOT/../../ruflo/package.json"
+# ADR-150 §"Architectural constraint" rule #2 states that when @metaharness/*
+# or `metaharness` appears in a package's dep graph, it MUST be in
+# `optionalDependencies` — never in `dependencies`. It does NOT require
+# ruflo to depend on metaharness at all. Historically this smoke asserted
+# the presence of metaharness in ruflo optionalDeps, which conflicted with
+# the #2561 "guard" budget (RUFLO_MAX=0 for optionalDependencies) that was
+# added to protect the cold `npx -y ruflo@alpha --version` startup path
+# from a heavy optional-dep install. #2561 is stronger evidence: metaharness
+# is on its FORBIDDEN list because installing it during ruflo's postinstall
+# caused a measured `npx --version` timeout. Correct reading of ADR-150 #2:
+# if metaharness IS present anywhere in ruflo's deps, it MUST be optional;
+# absence is fine (ruflo delegates to @claude-flow/cli, which itself keeps
+# metaharness as a runtime dynamic import via ADR-150 rule #1).
 node -e "
 const j = JSON.parse(require('fs').readFileSync('$F','utf-8'));
-const od = j.optionalDependencies || {};
-if (!od.metaharness) { console.error('missing metaharness in optionalDependencies'); process.exit(1); }
-if (j.dependencies && j.dependencies.metaharness) { console.error('metaharness leaked into dependencies'); process.exit(1); }
-" 2>/dev/null && ok || bad "ruflo wrapper missing metaharness optionalDep"
+const deps = j.dependencies || {};
+const forbidden = Object.keys(deps).filter(k => k === 'metaharness' || k.startsWith('@metaharness/'));
+if (forbidden.length) { console.error('ADR-150 rule #2 violated: ' + forbidden.join(', ') + ' must be optionalDependencies, not dependencies'); process.exit(1); }
+" 2>/dev/null && ok || bad "metaharness leaked into ruflo wrapper hard dependencies"
 
 step "17r. _harness.mjs pinned-version + no-@latest regression guard (supersedes iter 27)"
 F="$ROOT/scripts/_harness.mjs"
