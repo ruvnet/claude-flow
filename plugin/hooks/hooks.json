@@ -1,10 +1,7 @@
 {
   "$schema": "https://code.claude.com/schemas/hooks.json",
-  "description": "Claude Flow hooks configuration — uses stdin-jq-xargs pattern to prevent shell-injection when tool inputs contain quotes / redirects / special chars (#1747). Hook subcommands run via scripts/ruflo-hook.sh (#1921).",
-  "_security_note": "All commands read the hook payload from stdin (Claude Code passes a JSON object), extract fields with jq, and pass them to the CLI as a single argv element via xargs -0. This bypasses shell re-parsing entirely. DO NOT inline $TOOL_INPUT_* / $PROMPT / $TOOL_NAME directly in a quoted command string — interpolation is not shell-safe (creates empty files at CWD when input contains '>' redirects).",
-  "_resilience_note": "#1921 — hook subcommands invoke scripts/ruflo-hook.sh (resilient shim): prefers a locally-installed `ruflo`/`claude-flow` binary, falls back to `npx --prefer-offline`, always exits 0. The trailing `|| true` on each pipeline guards the case where $CLAUDE_PLUGIN_ROOT is unset. DO NOT revert to a bare `npx <pkg>@alpha hooks …` per fire.",
-  "_platform": "posix",
-  "_platform_note": "#2132 — This hooks.json uses /bin/bash, POSIX pipelines (jq, xargs, tr), and .sh scripts. It is intentionally POSIX-only (Mac/Linux). On Windows, ruflo init writes a .claude/settings.json that overrides these entries with node-based equivalents via plugins/ruflo-core/scripts/ruflo-hook.cjs. The audit exempts files with _platform:posix from the cross-platform check.",
+  "description": "Claude Flow hooks configuration — #2272 cross-platform: all hook commands use `node` + `scripts/ruflo-hook.cjs` (always exits 0). The .cjs shim handles stdin JSON parsing internally (no jq needed) and works on Mac, Linux, and Windows.",
+  "_resilience_note": "#1921 / #2272 — hook commands invoke scripts/ruflo-hook.cjs via node on all platforms. The shim prefers a locally-installed `ruflo`/`claude-flow` binary, falls back to `npx --prefer-offline`, always exits 0. DO NOT revert to bare `npx` or `/bin/bash` per fire.",
   "hooks": {
     "PreToolUse": [
       {
@@ -13,7 +10,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat | jq -r '.tool_input.file_path // .tool_input.path // empty' | tr '\\n' '\\0' | xargs -0 -I {} \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" pre-edit --file '{}' || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.cjs\" pre-edit",
             "timeout": 5000,
             "continueOnError": true
           }
@@ -25,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat | jq -r '.tool_input.command // empty' | tr '\\n' '\\0' | xargs -0 -I {} \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" pre-command --command '{}' || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.cjs\" pre-command",
             "timeout": 3000,
             "continueOnError": true
           }
@@ -37,7 +34,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat | jq -r '.tool_input.description // empty | .[:200]' | tr '\\n' '\\0' | xargs -0 -I {} \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" pre-task --description '{}' || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.cjs\" pre-task",
             "timeout": 5000,
             "continueOnError": true
           }
@@ -49,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat | jq -r '.tool_input.pattern // .tool_input.query // empty' | tr '\\n' '\\0' | xargs -0 -I {} \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" pre-search --query '{}' || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.cjs\" pre-search",
             "timeout": 2000,
             "continueOnError": true
           }
@@ -61,7 +58,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat | jq -r '.tool_name // empty' | tr '\\n' '\\0' | xargs -0 -I {} \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" mcp-pre --tool '{}' || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.cjs\" mcp-pre",
             "timeout": 3000,
             "continueOnError": true
           }
@@ -75,7 +72,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat | jq -r '.tool_input.file_path // .tool_input.path // empty' | tr '\\n' '\\0' | xargs -0 -I {} \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" post-edit --file '{}' --train-patterns || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.cjs\" post-edit --train-patterns",
             "timeout": 5000,
             "continueOnError": true
           }
@@ -87,7 +84,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat | jq -r '.tool_input.command // empty' | tr '\\n' '\\0' | xargs -0 -I {} \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" post-command --command '{}' --track-metrics true --store-results true || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.cjs\" post-command --track-metrics true --store-results true",
             "timeout": 3000,
             "continueOnError": true
           }
@@ -99,7 +96,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat | jq -r '.tool_response.agent_id // .tool_response.task_id // empty' | tr '\\n' '\\0' | xargs -0 -I {} \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" post-task --task-id '{}' --analyze-performance || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.cjs\" post-task",
             "timeout": 5000,
             "continueOnError": true
           }
@@ -111,7 +108,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat | jq -r '.tool_input.pattern // .tool_input.query // empty' | tr '\\n' '\\0' | xargs -0 -I {} \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" post-search --query '{}' --cache-results || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.cjs\" post-search",
             "timeout": 2000,
             "continueOnError": true
           }
@@ -123,7 +120,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat | jq -r '.tool_name // empty' | tr '\\n' '\\0' | xargs -0 -I {} \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" mcp-post --tool '{}' || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.cjs\" mcp-post",
             "timeout": 3000,
             "continueOnError": true
           }
@@ -136,7 +133,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat | jq -r '.prompt // empty' | tr '\\n' '\\0' | xargs -0 -I {} \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" route --task '{}' --include-explanation || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.cjs\" route",
             "timeout": 5000,
             "continueOnError": true
           }
@@ -149,7 +146,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat | jq -r '.session_id // empty' | tr '\\n' '\\0' | xargs -0 -I {} \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" session-start --session-id '{}' --load-context || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.cjs\" session-start",
             "timeout": 10000,
             "continueOnError": true
           }
@@ -184,7 +181,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat | jq -r '.message // empty' | tr '\\n' '\\0' | xargs -0 -I {} \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" notify --message '{}' --swarm-status || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.cjs\" notify",
             "timeout": 3000,
             "continueOnError": true
           }
