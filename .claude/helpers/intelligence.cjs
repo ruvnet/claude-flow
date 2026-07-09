@@ -587,6 +587,16 @@ function recordEdit(file, success) {
     sessionId: sessionGet('sessionId') || null,
   });
   fs.appendFileSync(PENDING_PATH, entry + '\n', 'utf-8');
+  // Runaway-storage guard: pending-insights is append-only and only drained by
+  // consolidation. If it grows past ~512KB (thousands of un-consolidated edits
+  // — e.g. the daemon never ran), keep only the most recent 2000 lines so it
+  // can never grow unbounded. Cheap (a statSync per edit; rewrite only when over).
+  try {
+    if (fs.statSync(PENDING_PATH).size > 512 * 1024) {
+      const lines = fs.readFileSync(PENDING_PATH, 'utf-8').split('\n').filter(Boolean);
+      if (lines.length > 2000) fs.writeFileSync(PENDING_PATH, lines.slice(-2000).join('\n') + '\n', 'utf-8');
+    }
+  } catch (e) { /* non-fatal */ }
 }
 
 /**
