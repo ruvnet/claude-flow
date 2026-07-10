@@ -31,10 +31,17 @@ import { markCreditExhausted } from './credit-notifier.js';
 const EVENTS_FILE = 'funnel-events.jsonl';
 const FLUSH_STATE_FILE = 'funnel-events-flush.json';
 
-/** Default endpoint — overridable by env for staging / self-hosted deploys. */
+/**
+ * Default endpoint — the ruflo-funnel-analytics endpoint on the ruv.io
+ * domain, mapped via Cloud Run domain mapping to the cognitum-analytics
+ * Cloud Function on cognitum-20260110. Overridable by env for staging or
+ * self-hosted deploys. The domain choice is deliberate: an rUv-authored
+ * OSS project's telemetry endpoint belongs on rUv's own domain, not on
+ * cognitum.one — that keeps the CLI attribution honest.
+ */
 export const DEFAULT_ENDPOINT =
   process.env.RUFLO_FUNNEL_EVENTS_ENDPOINT ??
-  'https://cognitum-analytics-63rzcdswba-uc.a.run.app/v1/events';
+  'https://funnel.ruv.io/v1/events';
 
 /** Cap per POST — server enforces its own limits too; this is a safety net. */
 export const MAX_BATCH = 100;

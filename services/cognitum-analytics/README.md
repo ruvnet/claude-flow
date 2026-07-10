@@ -65,15 +65,41 @@ The client transport ships with:
 
 ```
 DEFAULT_ENDPOINT = process.env.RUFLO_FUNNEL_EVENTS_ENDPOINT ??
-  'https://cognitum-analytics-63rzcdswba-uc.a.run.app/v1/events'
+  'https://funnel.ruv.io/v1/events'
 ```
 
-If the Cloud Run URL hash differs after the first deploy, either update
-`DEFAULT_ENDPOINT` in `v3/@claude-flow/cli/src/funnel/event-transport.ts`
-and re-publish, or (recommended) point the domain
-`https://cognitum.one/v1/events` at the function via Cloud Run mapping
-and set `DEFAULT_ENDPOINT` there. Same result, doesn't break on hash
-change.
+`funnel.ruv.io` is a Cloud Run domain mapping onto this function. Same URL
+survives redeploys and Cloud Run hostname-hash changes. The DNS record is
+a CNAME on Cloudflare:
+
+```
+funnel.ruv.io  CNAME  ghs.googlehosted.com  (unproxied — Cloud Run needs
+                                              direct TLS termination)
+```
+
+If you need to recreate the mapping from scratch:
+
+```bash
+gcloud beta run domain-mappings create \
+  --service=cognitum-analytics --domain=funnel.ruv.io \
+  --region=us-central1 --project=cognitum-20260110
+
+# Then add the CNAME above via Cloudflare API or dashboard:
+CF_TOKEN=$(gcloud secrets versions access latest \
+  --secret=CLOUDFLARE_API_TOKEN --project=cognitum-20260110)
+ZONE_ID=$(curl -s -H "Authorization: Bearer $CF_TOKEN" \
+  "https://api.cloudflare.com/client/v4/zones?name=ruv.io" \
+  | jq -r '.result[0].id')
+curl -s -X POST \
+  -H "Authorization: Bearer $CF_TOKEN" \
+  -H "Content-Type: application/json" \
+  "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
+  -d '{"type":"CNAME","name":"funnel","content":"ghs.googlehosted.com","ttl":1,"proxied":false}'
+```
+
+Cert issuance is automatic once the CNAME resolves; Cloud Run polls
+hourly for the record, so a fresh mapping is usually live within an
+hour but often within minutes.
 
 ## Verification (post-deploy)
 
