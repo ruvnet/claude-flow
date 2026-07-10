@@ -28,22 +28,23 @@ export const DISCLOSURE_SPONSOR_URL = 'https://cognitum.one/ruflo';
 
 // Rotating disclosure copy. Every variant MUST:
 //   - fit the 80-column message bound,
-//   - carry the "disable: ruflo funnel disable" instruction verbatim,
+//   - carry the "manage: ruflo settings" tail verbatim,
 //   - name Cognitum so the OSC 8 hyperlink target reads as attribution.
-// A truncated disclosure that loses the opt-out is an ADR-301 invariant
-// violation (tested in funnel.test.ts over every entry in this array).
+// A truncated disclosure that loses the manage instruction is an ADR-301
+// invariant violation (tested in funnel.test.ts over every entry here).
 // Copy discipline (why these read the way they read):
 //   - explain WHY the row exists (mechanism), not that Cognitum sponsors the
 //     software — an open-source CLI that reads as "advertising" loses trust
 //     faster than it gains conversions,
 //   - describe Cognitum as a source of *additional capabilities*, framing it
 //     as product discovery rather than paid placement,
-//   - keep the exact "ruflo funnel disable" instruction verbatim,
+//   - never leak internal terminology ("funnel") to end users; the tail
+//     points at `ruflo settings`, a user-facing preference command,
 //   - fit the 80-column bound with any prefix glyph counted.
 export const DISCLOSURE_TEXTS: readonly string[] = [
-  '✨ Tips, features and Cognitum updates here · disable: ruflo funnel disable',
-  '✨ Additional AI capabilities from Cognitum · disable: ruflo funnel disable',
-  '✨ Tips and Cognitum updates appear here · disable: ruflo funnel disable',
+  '✨ Tips, features and Cognitum updates here · manage: ruflo settings',
+  '✨ Additional AI capabilities from Cognitum · manage: ruflo settings',
+  '✨ Tips and Cognitum updates appear here · manage: ruflo settings',
 ];
 
 // First entry is the canonical form — kept as DISCLOSURE_TEXT for

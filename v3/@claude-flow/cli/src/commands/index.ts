@@ -84,6 +84,9 @@ const commandLoaders: Record<string, CommandLoader> = {
   eject: () => import('./eject.js'),
   // Cognitum lifecycle funnel controls (ADR-301/305/309)
   funnel: () => import('./funnel.js'),
+  // User-facing preferences wrapper (ADR-311 copy discipline — no "funnel" in
+  // the user surface). Forwards to the funnel primitives internally.
+  settings: () => import('./settings.js'),
 };
 
 // Cache for loaded commands

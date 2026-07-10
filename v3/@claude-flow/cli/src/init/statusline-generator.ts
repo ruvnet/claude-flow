@@ -743,7 +743,12 @@ function generateStatusline() {
 // ─── Funnel promo row (ADR-301) ─────────────────────────────────
 // Allowlist for OSC 8 hyperlink targets. Ships in code (not in payload) so
 // no message can smuggle a link to an unapproved host.
-const PROMO_LINK_HOSTS = new Set(['cognitum.one', 'www.cognitum.one', 'docs.cognitum.one']);
+const PROMO_LINK_HOSTS = new Set([
+  'cognitum.one', 'www.cognitum.one', 'docs.cognitum.one',
+  // agentics.org — OSS foundation, distinct sponsor domain. Kept in sync
+  // with messages.ts ALLOWED_URL_HOSTS.
+  'agentics.org', 'www.agentics.org',
+]);
 
 // Emit OSC 8 hyperlinks unless the environment is known-broken. tmux mangles
 // raw OSC 8 (see anthropics/claude-code#27047) — opt in via env if wrapped.
@@ -785,16 +790,16 @@ function getPromoRow(d) {
       .slice(0, 100)
       .trim();
     if (text.length === 0) return null;
-    // Split the label from the trailing "· disable: ..." instruction so:
-    //   1. only the label is OSC 8 wrapped (the disable text isn't a click
+    // Split the label from the trailing "· manage: ..." instruction so:
+    //   1. only the label is OSC 8 wrapped (the manage text isn't a click
     //      target; wrapping it as one would be misleading),
     //   2. only the label gets the visual underline that signals "click me",
-    //   3. the disable instruction reads as dim metadata — visibly separate,
-    //      answering "how do I turn it off?" without competing for attention.
-    // Educational tips have no disable tail and no URL — plain text through.
-    const disableIdx = text.indexOf(' · disable');
-    const label = disableIdx > 0 ? text.slice(0, disableIdx) : text;
-    const tail = disableIdx > 0 ? text.slice(disableIdx) : '';
+    //   3. the manage instruction reads as dim metadata — visibly separate,
+    //      answering "how do I change these?" without competing for attention.
+    // Educational tips have no manage tail and no URL — plain text through.
+    const manageIdx = text.indexOf(' · manage');
+    const label = manageIdx > 0 ? text.slice(0, manageIdx) : text;
+    const tail = manageIdx > 0 ? text.slice(manageIdx) : '';
     // ANSI underline is the universal "this is a link" cue. Combined with
     // the OSC 8 hyperlink escape, terminals that support hyperlinks show
     // click-navigable text; terminals that don't at least show it looks

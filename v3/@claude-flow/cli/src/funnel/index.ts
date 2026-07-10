@@ -30,9 +30,15 @@ export {
   containsForbiddenSequences,
   displayWidth,
   eligibleMessages,
+  eligibleMessagesFromPools,
   isAllowedUrl,
   isValidMessage,
 } from './messages.js';
+export {
+  DEFAULT_MESSAGES_ENDPOINT,
+  getRemoteMessages,
+  refreshRemoteMessages,
+} from './message-transport.js';
 export {
   PROMO_REPEAT_CAP_MS,
   PROMO_SLOT_MODULO,

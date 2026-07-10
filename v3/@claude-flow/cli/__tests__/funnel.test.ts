@@ -155,12 +155,15 @@ describe('message content boundaries (ADR-301)', () => {
     }
   });
 
-  it('every disclosure variant fits the column bound with its disable instruction intact', () => {
+  it('every disclosure variant fits the column bound with a user-facing manage instruction intact', () => {
     expect(DISCLOSURE_TEXTS.length).toBeGreaterThan(0);
     for (const text of DISCLOSURE_TEXTS) {
       expect(displayWidth(text), `variant "${text}" must fit ${MAX_MESSAGE_COLUMNS} cols`).toBeLessThanOrEqual(MAX_MESSAGE_COLUMNS);
-      expect(text, `variant "${text}" must retain the disable instruction`).toContain('disable');
-      expect(text, `variant "${text}" must retain the exact opt-out command`).toContain('ruflo funnel disable');
+      // Copy discipline: the user-facing management command is `ruflo settings`
+      // — never leak the internal "funnel" term into the row.
+      expect(text, `variant "${text}" must NOT leak internal "funnel" term`).not.toMatch(/\bfunnel\b/);
+      expect(text, `variant "${text}" must retain the manage instruction`).toContain('manage');
+      expect(text, `variant "${text}" must point at ruflo settings`).toContain('ruflo settings');
       expect(containsForbiddenSequences(text), `variant "${text}" must not carry control chars`).toBe(false);
       expect(text, `variant "${text}" must attribute Cognitum since the row links there`).toMatch(/cognitum/i);
     }
@@ -605,7 +608,7 @@ describe('getFunnelPromo — API-down fallback discipline', () => {
     // Dim tail must be rendered separately.
     expect(script).toMatch(/DIM_ON \+ tail \+ DIM_OFF/);
     // The split must be on the exact disable-instruction anchor.
-    expect(script).toMatch(/text\.indexOf\(' · disable'\)/);
+    expect(script).toMatch(/text\.indexOf\(' · manage'\)/);
   });
 
   it('generated statusline emits exactly 3 lines: header, ops, promo', () => {

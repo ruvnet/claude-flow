@@ -10,7 +10,8 @@
  */
 
 import type { FunnelMessage } from './types.js';
-import { eligibleMessages } from './messages.js';
+import { MESSAGES, eligibleMessagesFromPools } from './messages.js';
+import { getRemoteMessages, refreshRemoteMessages } from './message-transport.js';
 import { readStateJson, writeStateJson } from './state.js';
 
 const ROTATION_FILE = 'funnel-rotation.json';
@@ -28,7 +29,11 @@ interface RotationState {
 }
 
 export function selectMessage(now: Date = new Date()): FunnelMessage | null {
-  const pool = eligibleMessages(now);
+  // Kick a background refresh — never awaited, never blocks render. The
+  // remote pool becomes visible on subsequent selects once cached.
+  void refreshRemoteMessages();
+  // Merge: remote pool authoritative, in-code pool fallback (by id).
+  const pool = eligibleMessagesFromPools(MESSAGES, getRemoteMessages(), now);
   const educational = pool.filter((m) => m.class === 'educational');
   const promotional = pool.filter((m) => m.class === 'promotional');
   if (educational.length === 0 && promotional.length === 0) return null;
