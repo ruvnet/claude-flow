@@ -88,6 +88,37 @@ Default answer is No, same as every other consent gate in this system (ADR-302/3
 - `/status` reports `{ data_plane: "local" | "cloud:<provider>" | "sponsored:cognitum", version, proxy_token_valid }`
 - Config file `~/.ruflo/proxy-config.toml`: bind address, default data plane, sponsored-mode consent flag mirror (source of truth stays client-side in ruflo's consent store; the proxy reads it, never writes it)
 
+### Addendum (2026-07-10): the wire protocol had to be Anthropic's, not OpenAI's
+
+The initial scaffold above (`/v1/chat/completions`, `/v1/sponsor/chat/completions`) shipped
+before anyone verified the claim in this ADR's title against the actual Claude Code binary.
+Direct inspection of the installed CLI showed it POSTs `{ANTHROPIC_BASE_URL}/v1/messages`
+(the Anthropic Messages API), authenticating with `Authorization: Bearer <ANTHROPIC_AUTH_TOKEN>`,
+defaulting to `stream: true` — never the OpenAI chat-completions shape the scaffold assumed.
+As built, every Claude Code request through the proxy would have 404'd.
+
+The proxy now also serves `POST /v1/messages` — the endpoint Claude Code actually calls, with
+JSON and SSE-streaming passthrough and a `cognitum_api_key` config field forwarded as `x-api-key`
+to `cognitum_api_base` (Cognitum's gateway requires this on both Cloud and Sponsored calls; there
+was previously no way to authenticate to it at all). Because Claude Code has no way to select a
+data plane per request — it only ever calls this one path — the plane decision moved server-side:
+`/v1/messages` reads `~/.ruflo/rate-limit-status.json` directly (same file, same 6h TTL ruflo's
+own reader applies) and activates the Sponsored plane automatically whenever
+`sponsored_consent_granted` is set and the flag is currently active, falling back to
+`default_data_plane` the instant it clears. The original OpenAI-shaped routes are unchanged and
+still served, for any non-Claude-Code client that wants them.
+
+Verified live end-to-end (2026-07-10): the real installed Claude Code CLI, pointed at the fixed
+proxy via `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN`, completed real requests through to the live
+`apicompletions` Cloud Run service and back — both plain JSON and SSE streaming, both the normal
+plane and the rate-limit-triggered sponsored override, and confirmed the override reverting once
+the flag cleared.
+
+Still open: there is no automated way for `ruflo proxy sponsor-enable` to provision a real,
+per-user, scoped `cognitum_api_key` — the field must be populated manually today. Minting a
+sponsored-tier key automatically on enable is server-side work (Cognitum key-issuance) tracked as
+follow-up, not blocking today's fix.
+
 ## Consequences
 
 - Sponsored mode is a **goodwill / acquisition feature**, and its entire cost-control burden sits server-side (Cognitum's ceiling + circuit breaker) — the client never needs to reason about Cognitum's sponsorship budget, only about the boolean "is sponsored mode currently available/active."
