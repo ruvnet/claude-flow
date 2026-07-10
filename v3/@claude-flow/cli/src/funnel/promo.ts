@@ -25,7 +25,7 @@ import {
   selectDisclosureText,
   DISCLOSURE_TEXTS,
 } from './disclosure.js';
-import { attributionUrl } from './attribution.js';
+import { attributionUrl, clickTrackedUrl } from './attribution.js';
 import { selectMessage } from './rotation.js';
 
 export interface PromoContext {
@@ -87,15 +87,22 @@ export function getFunnelPromo(ctx: PromoContext): PromoRow | null {
 
   const msg = selectMessage(now);
   if (!msg) return null;
-  // Educational tips have no URL; promotional messages carry a base URL to
-  // an allowlisted host, and we wrap it with attribution here so both the
-  // OSC 8 renderer allowlist AND the analytics join key stay in the
-  // renderer/promo boundary.
-  const url = msg.url
-    ? attributionUrl(msg.url, {
-        medium: 'statusline', campaign: msg.class, content: msg.id, now,
-      })
-    : undefined;
+  // Educational tips have no URL; promotional messages route through the
+  // server click-redirect so `promo_open` + coarse geo are captured before
+  // 302ing to the real target. Disclosure text always goes through the
+  // sponsor URL (already handled above). If the click endpoint chain
+  // rejects the URL for any reason, we fall back to the UTM-decorated
+  // direct link so the click still lands where it should.
+  let url: string | undefined;
+  if (msg.url && msg.class === 'promotional') {
+    url = clickTrackedUrl(msg.id, msg.url, {
+      medium: 'statusline', campaign: msg.class, content: msg.id, now,
+    });
+  } else if (msg.url) {
+    url = attributionUrl(msg.url, {
+      medium: 'statusline', campaign: msg.class, content: msg.id, now,
+    });
+  }
   return { text: msg.text, kind: msg.class, url };
 }
 

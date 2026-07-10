@@ -89,6 +89,66 @@ transport picks up either signal:
 and calls `markCreditExhausted()` in `funnel/credit-notifier.ts`. The
 recovery surface fires on the next appropriate CLI render, per ADR-303.
 
+### 6. Impression + click tracking (ADR-305 vocabulary amendment)
+
+The event vocabulary in `funnel/types.ts` is expanded (amends ADR-305)
+with two new terms:
+
+| Event | Fired by | Carries |
+|---|---|---|
+| `promo_impression` | Client — every `rotation.selectMessage()` | `messageId` |
+| `promo_open` | Server — on every `/v1/click/{id}` redirect | `messageId`, `country` |
+
+`FunnelEvent` gains an optional `messageId` field (length ≤ 64, matches
+`[a-z0-9-]`). Any event WITHOUT the promo_impression / promo_open name
+drops `messageId` server-side so the schema stays predictable.
+
+### 7. Click redirect (`GET /v1/click/{messageId}`)
+
+Promotional messages route through a server-side redirect so the click
+can be recorded before the user leaves the terminal:
+
+```
+✨ Unlock Meta LLM routing → funnel.ruv.io/v1/click/promo-cognitum-meta-llm?to=…
+```
+
+Server flow:
+1. Validate `messageId` against `MESSAGE_ID_RE` (`/^[a-z0-9][a-z0-9-]{0,63}$/i`)
+2. Validate the `to` URL: must be https AND host must be in
+   `CLICK_ALLOWED_HOSTS` (`cognitum.one` variants + `agentics.org`
+   variants — allowlist ships in code, NOT in Firestore so a compromised
+   admin can't redirect users off-platform)
+3. Extract coarse geo (`extractCountry(req)`): ISO-3166 alpha-2 country
+   ONLY, from `CF-IPCountry` or `X-Appengine-Country`. Never city, never
+   lat/long — ADR-309 privacy invariant
+4. Firestore write: `funnel_events` doc + `funnel_aggregates` row keyed by
+   `(surface, event, day, release, messageId, country)`
+5. Firestore write failure **never blocks the redirect** — user intent to
+   navigate wins over analytics precision (ADR-308 failure policy)
+6. 302 to the target with `Cache-Control: no-store` so caches don't
+   swallow subsequent clicks
+
+Client wraps promotional URLs via `attribution.clickTrackedUrl(msgId, target, input)`
+before OSC 8 rendering. If the client-side wrap fails (unknown id, malformed
+target), it falls back to the direct UTM-decorated link.
+
+### 8. Coverage summary
+
+The Phase 2 analytics plane now answers:
+
+| Question | How |
+|---|---|
+| How many impressions per message per day? | `promo_impression` events + aggregates |
+| How many clicks per message per day? | `promo_open` events + aggregates |
+| Click-through rate | ratio of the two above |
+| Where in the world are clicks coming from? | `country` field on `promo_open` |
+| Conversions | `signup_opened`, `account_created`, `proxy_activated` (existing) |
+| Which install disabled notices | `funnel_disabled` (existing) |
+
+Zero PII, zero prompt content, zero paths — everything is either a closed
+enum, a message id (allowlisted shape), a country code (ISO alpha-2), or
+a daily bucket.
+
 ## Verified state at time of adoption
 
 - Cloud Run endpoint `cognitum-analytics-63rzcdswba-uc.a.run.app` — live

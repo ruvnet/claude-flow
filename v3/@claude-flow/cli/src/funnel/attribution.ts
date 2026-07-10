@@ -39,6 +39,16 @@ export interface AttributionInput {
 }
 
 /**
+ * Server-side click-redirect endpoint. When set, promotional URLs route
+ * through here so the server can record a `promo_open` event + coarse
+ * geo (from CF-IPCountry / X-Appengine-Country) before 302ing to the
+ * real cognitum.one / agentics.org / etc. target.
+ */
+const CLICK_ENDPOINT_BASE =
+  process.env.RUFLO_FUNNEL_CLICK_ENDPOINT ??
+  'https://funnel.ruv.io/v1/click';
+
+/**
  * Return `url` with UTM parameters appended, and — when telemetry consent is
  * granted — a `fid` query parameter carrying the pseudonymous funnel ID.
  * Preserves any query parameters the base URL already carried.
@@ -66,4 +76,36 @@ export function attributionUrl(url: string, input: AttributionInput): string {
   if (fid) params.set('fid', fid);
 
   return parsed.toString();
+}
+
+/**
+ * Wrap the target URL in a server-side click-redirect so the analytics
+ * function fires a `promo_open` event + records coarse geo before 302ing to
+ * the real destination.
+ *
+ * Only applied to promotional messages (they have a real URL destination).
+ * Disclosure/educational rows call attributionUrl directly.
+ *
+ * The click endpoint URL structure is:
+ *   https://funnel.ruv.io/v1/click/{messageId}?to=<utm-decorated-target>
+ *
+ * The server validates `to` against its own host allowlist, records the
+ * event, and 302s. If the click endpoint is unreachable at OSC 8 time,
+ * the browser falls back to the terminal's normal error page — but since
+ * this is a rare failure path and impressions are already recorded, the
+ * loss is bounded.
+ */
+export function clickTrackedUrl(messageId: string, targetUrl: string, input: AttributionInput): string {
+  const attributed = attributionUrl(targetUrl, input);
+  // If attribution rejected the URL (non-https, malformed), pass through
+  // verbatim — never smuggle a bad URL into the click endpoint.
+  if (attributed === targetUrl) {
+    try { const p = new URL(targetUrl); if (p.protocol !== 'https:') return targetUrl; }
+    catch { return targetUrl; }
+  }
+  // Sanitize the message id — allowlist [a-z0-9-] so a malformed id can't
+  // shape-shift the click endpoint path.
+  if (!/^[a-z0-9][a-z0-9-]{0,63}$/i.test(messageId)) return attributed;
+  const params = new URLSearchParams({ to: attributed });
+  return `${CLICK_ENDPOINT_BASE}/${encodeURIComponent(messageId)}?${params.toString()}`;
 }

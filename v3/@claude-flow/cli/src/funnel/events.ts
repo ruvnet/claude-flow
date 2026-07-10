@@ -32,6 +32,8 @@ const EVENT_NAMES: readonly FunnelEventName[] = [
   'signup_opened',
   'account_created',
   'proxy_activated',
+  'promo_impression',
+  'promo_open',
 ];
 const SURFACES: readonly FunnelSurface[] = ['statusline', 'init', 'credit_exhaustion'];
 
@@ -73,15 +75,19 @@ function dailyBucket(now: Date): string {
 /**
  * Record a funnel event to the local queue. No-op (returns false) when
  * telemetry consent is absent — consent-off means zero funnel records.
+ * `messageId` is only carried for promo_impression / promo_open events; on
+ * every other event it is dropped so the schema stays clean.
  */
 export function recordFunnelEvent(
   event: FunnelEventName,
   surface: FunnelSurface,
   release: string,
-  now: Date = new Date(),
+  optsOrNow: Date | { now?: Date; messageId?: string } = new Date(),
 ): boolean {
   if (!EVENT_NAMES.includes(event) || !SURFACES.includes(surface)) return false;
   if (!hasConsent('telemetry')) return false;
+  const now = optsOrNow instanceof Date ? optsOrNow : (optsOrNow.now ?? new Date());
+  const messageId = optsOrNow instanceof Date ? undefined : optsOrNow.messageId;
   const payload: FunnelEvent = {
     schemaVersion: 1,
     event,
@@ -91,6 +97,13 @@ export function recordFunnelEvent(
   };
   const id = getFunnelId(now);
   if (id) payload.pseudonymousId = id;
+  // messageId is only carried on promo events; validated + length-capped so
+  // the schema stays predictable.
+  if (messageId && (event === 'promo_impression' || event === 'promo_open')) {
+    if (typeof messageId === 'string' && messageId.length > 0 && messageId.length <= 64) {
+      payload.messageId = messageId;
+    }
+  }
   try {
     fs.mkdirSync(funnelStateDir(), { recursive: true, mode: 0o700 });
     const file = statePath(EVENTS_FILE);

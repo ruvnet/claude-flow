@@ -107,11 +107,16 @@ export interface NormalizedCreditError {
 // ─── ADR-309: funnel events (closed set, constrained schema) ────────────────
 
 export type FunnelEventName =
+  // ADR-305 core lifecycle events
   | 'disclosure_shown'
   | 'funnel_disabled'
   | 'signup_opened'
   | 'account_created'
-  | 'proxy_activated';
+  | 'proxy_activated'
+  // ADR-311 impression + click tracking (server-side click-redirect fires
+  // 'promo_open' after the client has fired 'promo_impression' on render).
+  | 'promo_impression'
+  | 'promo_open';
 
 export type FunnelSurface = 'statusline' | 'init' | 'credit_exhaustion';
 
@@ -122,6 +127,12 @@ export interface FunnelEvent {
   release: string;
   region?: string;
   pseudonymousId?: string;
+  /**
+   * Message id for promo_impression / promo_open — lets the analyst
+   * attribute clicks + impressions to a specific rotation entry without
+   * carrying prompt/URL/PII data.
+   */
+  messageId?: string;
   /** Daily bucket ("2026-07-10") — full timestamps are never recorded. */
   timestampBucket: string;
 }

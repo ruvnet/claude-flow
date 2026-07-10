@@ -13,6 +13,7 @@ import type { FunnelMessage } from './types.js';
 import { MESSAGES, eligibleMessagesFromPools } from './messages.js';
 import { getRemoteMessages, refreshRemoteMessages } from './message-transport.js';
 import { readStateJson, writeStateJson } from './state.js';
+import { recordFunnelEvent } from './events.js';
 
 const ROTATION_FILE = 'funnel-rotation.json';
 
@@ -28,7 +29,7 @@ interface RotationState {
   lastPromoId?: string;
 }
 
-export function selectMessage(now: Date = new Date()): FunnelMessage | null {
+export function selectMessage(now: Date = new Date(), release: string = 'unknown'): FunnelMessage | null {
   // Kick a background refresh — never awaited, never blocks render. The
   // remote pool becomes visible on subsequent selects once cached.
   void refreshRemoteMessages();
@@ -41,14 +42,26 @@ export function selectMessage(now: Date = new Date()): FunnelMessage | null {
   const slot = Math.floor(now.getTime() / ROTATION_SLOT_MS);
   const promoSlot = slot % PROMO_SLOT_MODULO === PROMO_SLOT_MODULO - 1;
 
+  let selected: FunnelMessage | null = null;
   if (promoSlot && promotional.length > 0 && promoCapClear(now)) {
-    const msg = promotional[Math.floor(slot / PROMO_SLOT_MODULO) % promotional.length];
-    recordPromoShown(msg, now);
-    return msg;
+    selected = promotional[Math.floor(slot / PROMO_SLOT_MODULO) % promotional.length];
+    recordPromoShown(selected, now);
+  } else if (educational.length > 0) {
+    selected = educational[slot % educational.length];
   }
 
-  if (educational.length === 0) return null; // never fill an educational slot with promo
-  return educational[slot % educational.length];
+  // Fire an impression event for whichever message was selected. Consent-gated
+  // (recordFunnelEvent no-ops without telemetry consent). Idempotency across
+  // renders in the same slot is handled by the same-slot deduplication in
+  // the events transport — we don't try to dedupe here because the slot
+  // math already returns the same id for the same slot, giving downstream
+  // aggregation a per-slot boolean.
+  if (selected) {
+    recordFunnelEvent('promo_impression', 'statusline', release, {
+      now, messageId: selected.id,
+    });
+  }
+  return selected;
 }
 
 function promoCapClear(now: Date): boolean {
