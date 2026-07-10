@@ -737,7 +737,9 @@ function generateStatusline() {
     lines.push(promoColor + promoRow + c.reset);
   }
 
-  return lines.join('\\n');
+  // Trailing blank line so Claude Code's input prompt gets breathing room
+  // instead of butting directly against the last statusline row.
+  return lines.join('\\n') + '\\n';
 }
 
 // ─── Funnel promo row (ADR-301) ─────────────────────────────────

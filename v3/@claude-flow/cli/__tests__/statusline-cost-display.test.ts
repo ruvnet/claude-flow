@@ -114,3 +114,38 @@ describe('statusline cost display — committed artifact drift guard', () => {
     expect(readFileSync(artifact, 'utf-8')).toBe(SCRIPT);
   });
 });
+
+describe('statusline trailing newline — breathing room before the input prompt', () => {
+  it('generator source appends a trailing newline after joining lines', () => {
+    // Source-level pin: a future edit can't silently drop the `+ '\n'` without
+    // this test noticing, even before anyone runs the script.
+    expect(SCRIPT).toContain("lines.join('\\n') + '\\n'");
+  });
+
+  it('the rendered statusline output ends with a real newline character', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'ruflo-statusline-nl-'));
+    const scriptPath = path.join(dir, 'statusline.cjs');
+    writeFileSync(scriptPath, SCRIPT, 'utf-8');
+    const payload = JSON.stringify({
+      model: { display_name: 'Opus 4.8' },
+      context_window: { used_percentage: 34 },
+      cost: { total_cost_usd: 1.3, total_duration_ms: 376000 },
+    });
+    try {
+      const out = execFileSync(process.execPath, [scriptPath], {
+        input: payload,
+        encoding: 'utf-8',
+        env: { PATH: '/nonexistent', HOME: dir },
+        timeout: 15000,
+      });
+      // console.log appends its own trailing newline on top of the one this
+      // fix adds, so the real output ends with the last content line, then
+      // exactly one blank line — not zero (no breathing room) and not two+
+      // (console.log double-counted the fix, or a duplicate `+ '\n'` crept in).
+      expect(out.endsWith('\n\n')).toBe(true);
+      expect(out.endsWith('\n\n\n')).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
