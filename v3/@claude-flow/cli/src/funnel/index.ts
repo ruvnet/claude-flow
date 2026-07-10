@@ -54,7 +54,7 @@ export {
   type CreditPromptSession,
   type ProviderErrorLike,
 } from './credit-errors.js';
-export { deleteFunnelData, getFunnelId, recordFunnelEvent } from './events.js';
+export { deleteFunnelData, getFunnelId, lastRecordedEvent, recordFunnelEvent } from './events.js';
 export { getFunnelPromo, type PromoContext } from './promo.js';
 export {
   RATE_LIMIT_TTL_MS,

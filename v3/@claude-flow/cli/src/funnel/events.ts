@@ -71,6 +71,27 @@ export function deleteFunnelData(): void {
   deleteStateFile(EVENTS_FILE);
 }
 
+/**
+ * Most recent local record of `event`, as a daily bucket (`YYYY-MM-DD`) —
+ * events never carry a full timestamp (ADR-309). Returns null when nothing
+ * is recorded, which is also what you get with telemetry consent off (the
+ * queue is never written at all in that case) — this can't distinguish
+ * "never happened" from "not being recorded," by design.
+ */
+export function lastRecordedEvent(event: FunnelEventName): string | null {
+  try {
+    const raw = fs.readFileSync(statePath(EVENTS_FILE), 'utf-8');
+    const lines = raw.split('\n').filter(Boolean);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const parsed = JSON.parse(lines[i]) as FunnelEvent;
+      if (parsed.event === event) return parsed.timestampBucket;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function dailyBucket(now: Date): string {
   return now.toISOString().slice(0, 10);
 }
