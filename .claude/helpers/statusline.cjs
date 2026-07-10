@@ -88,16 +88,20 @@ function resolveCliBin() {
   return null;
 }
 
+// Return { fresh, data }. 'fresh' is true only if within the TTL — but data
+// is returned regardless (stale-while-revalidate). This lets us serve last
+// known state (specifically the promo row) when the CLI is slow/unavailable,
+// so users don't see the funnel row flicker in and out on cache expiry.
 function readCache() {
   try {
     if (fs.existsSync(CACHE_FILE)) {
       const raw = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf-8'));
-      if (raw && raw._ts && (Date.now() - raw._ts) < CACHE_TTL_MS) {
-        return raw.data;
+      if (raw && raw._ts && raw.data) {
+        return { fresh: (Date.now() - raw._ts) < CACHE_TTL_MS, data: raw.data };
       }
     }
   } catch { /* ignore */ }
-  return null;
+  return { fresh: false, data: null };
 }
 
 function writeCache(data) {
@@ -113,8 +117,8 @@ function writeCache(data) {
  * and only counted ADRs in v3/implementation/adrs/ (missed v3/docs/adr/).
  */
 function getStatuslineData() {
-  const cached = readCache();
-  if (cached) return cached;
+  const cache = readCache();
+  if (cache.fresh) return cache.data;
 
   try {
     // #2337: prefer an already-installed CLI bin via direct `node` invocation
@@ -139,6 +143,14 @@ function getStatuslineData() {
     writeCache(data);
     return data;
   } catch { /* CLI unavailable or timed out */ }
+
+  // Stale-while-revalidate: if we have any cached data, keep serving it so the
+  // funnel row doesn't flicker on CLI hiccups. Overlay fresh local reads for
+  // the segments the CLI JSON doesn't populate; the promo row survives.
+  if (cache.data) {
+    applyLocalOverlays(cache.data);
+    return cache.data;
+  }
 
   // Fallback: use local file probes only (will be less accurate, but non-zero
   // when CLI is available and accurate when it's not).

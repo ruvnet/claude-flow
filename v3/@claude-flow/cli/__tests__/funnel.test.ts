@@ -578,6 +578,25 @@ describe('attributionUrl (ADR-305 measurement, no runtime network)', () => {
 });
 
 describe('getFunnelPromo — API-down fallback discipline', () => {
+  it('generated statusline script implements stale-while-revalidate for promo row', () => {
+    // The fix for the flicker bug: the promo row must survive CLI hiccups
+    // and cache-expiry-mid-render. readCache() returns { fresh, data } and
+    // getStatuslineData falls back to stale cache when the CLI fails, so
+    // the last known promo persists. This test pins that design in the
+    // generator template so a future edit that breaks the pattern trips CI.
+    const script = generateStatuslineScript({
+      statusline: { enabled: true, style: 'compact' as const },
+      runtime: { maxAgents: 15 },
+    });
+    // Cache reader must expose freshness rather than gating data behind TTL.
+    expect(script).toMatch(/const cache = readCache\(\)/);
+    expect(script).toMatch(/cache\.fresh/);
+    // On CLI failure, must serve stale cache data (with local overlays) not
+    // a bare buildLocalFallback() that would drop the promo field.
+    expect(script).toMatch(/if \(cache\.data\)/);
+    expect(script).toMatch(/applyLocalOverlays\(cache\.data\)/);
+  });
+
   it('renders the row without touching the network (no fetch import path)', async () => {
     // The promo module is imported at test module load; if it pulled in a
     // network library, this stringified module set would carry a fetch/https
