@@ -17,7 +17,15 @@
 import type { PromoRow } from './types.js';
 import { resolveFunnelEnabled } from './precedence.js';
 import { isCI } from './environment.js';
-import { DISCLOSURE_TEXT, getDisclosure, promoEligible, recordDisclosureShown } from './disclosure.js';
+import {
+  DISCLOSURE_SPONSOR_URL,
+  getDisclosure,
+  promoEligible,
+  recordDisclosureShown,
+  selectDisclosureText,
+  DISCLOSURE_TEXTS,
+} from './disclosure.js';
+import { attributionUrl } from './attribution.js';
 import { selectMessage } from './rotation.js';
 
 export interface PromoContext {
@@ -45,18 +53,54 @@ export function getFunnelPromo(ctx: PromoContext): PromoRow | null {
   // Disclosure gate: never a message before the disclosure has been shown
   // and its grace window has passed.
   const disclosure = getDisclosure();
+  // Disclosure — attribute the render so a landing at cognitum.one can be
+  // tied back to the surface + variant. UTM content is the variant index so
+  // rotation performance is measurable; fid is only appended when telemetry
+  // consent is present (ADR-309), so a non-consenting user still gets a
+  // functioning link, just without the attribution join key.
   if (disclosure.state === 'never_seen') {
     recordDisclosureShown(now);
-    return { text: DISCLOSURE_TEXT, kind: 'disclosure' };
+    const text = selectDisclosureText(now);
+    const content = disclosureContentId(text);
+    return {
+      text,
+      kind: 'disclosure',
+      url: attributionUrl(DISCLOSURE_SPONSOR_URL, {
+        medium: 'statusline', campaign: 'disclosure', content, now,
+      }),
+    };
   }
   if (!promoEligible(now)) {
     if (disclosure.state === 'disclosed_enabled') {
-      return { text: DISCLOSURE_TEXT, kind: 'disclosure' };
+      const text = selectDisclosureText(now);
+      const content = disclosureContentId(text);
+      return {
+        text,
+        kind: 'disclosure',
+        url: attributionUrl(DISCLOSURE_SPONSOR_URL, {
+          medium: 'statusline', campaign: 'disclosure', content, now,
+        }),
+      };
     }
     return null; // disclosed_disabled is caught by precedence, but stay fail-closed
   }
 
   const msg = selectMessage(now);
   if (!msg) return null;
-  return { text: msg.text, kind: msg.class, url: msg.url };
+  // Educational tips have no URL; promotional messages carry a base URL to
+  // an allowlisted host, and we wrap it with attribution here so both the
+  // OSC 8 renderer allowlist AND the analytics join key stay in the
+  // renderer/promo boundary.
+  const url = msg.url
+    ? attributionUrl(msg.url, {
+        medium: 'statusline', campaign: msg.class, content: msg.id, now,
+      })
+    : undefined;
+  return { text: msg.text, kind: msg.class, url };
+}
+
+/** Stable content id for the currently-selected disclosure variant. */
+function disclosureContentId(text: string): string {
+  const idx = DISCLOSURE_TEXTS.indexOf(text);
+  return idx >= 0 ? `disclosure-${idx + 1}` : 'disclosure-1';
 }

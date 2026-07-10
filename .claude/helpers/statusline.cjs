@@ -609,76 +609,104 @@ function generateStatusline() {
   // Separator
   lines.push(c.dim + '─'.repeat(53) + c.reset);
 
-  // Line 1: DDD Domains
+  // Design discipline (ADR to follow in #2623):
+  //   - show healthy state only when it confirms readiness,
+  //   - show zero values only when zero is actionable,
+  //   - show failures immediately,
+  //   - diagnostic detail lives behind `ruflo status --verbose`.
   const domainsColor = domainsCompleted >= 3 ? c.brightGreen : domainsCompleted > 0 ? c.yellow : c.red;
+  const agentsColor = activeAgents > 0 ? c.brightGreen : c.dim;
+  const hooksColor = hooksEnabled > 0 ? c.brightGreen : c.dim;
+  const intellColor = intelligencePct >= 80 ? c.brightGreen : intelligencePct >= 40 ? c.brightYellow : c.dim;
+  const secColor = secStatus === 'CLEAN' ? c.brightGreen
+                 : secStatus === 'PENDING' ? c.brightYellow
+                 : (secStatus === 'IN_PROGRESS' || secStatus === 'STALE') ? c.brightYellow
+                 : secStatus === 'NONE' ? c.dim : c.brightRed;
+  const sizeDisp = dbSizeKB >= 1024 ? (dbSizeKB / 1024).toFixed(1) + 'MB' : dbSizeKB + 'KB';
+  const integration = d.integration || {};
+  const mcpServers = (integration.mcpServers) || {};
+
+  // Row 1 — Architecture: Domains  ADRs   Goal (when no measured progress)
   let perfIndicator;
   if (hasHnsw && vectorCount > 0) {
     const speedup = vectorCount > 10000 ? '12500x' : vectorCount > 1000 ? '150x' : '10x';
-    perfIndicator = c.brightGreen + '⚡ HNSW ' + speedup + c.reset;
+    perfIndicator = c.brightGreen + 'HNSW ' + speedup + c.reset;
   } else if (patternsLearned > 0) {
     const pk = patternsLearned >= 1000 ? (patternsLearned / 1000).toFixed(1) + 'k' : String(patternsLearned);
-    perfIndicator = c.brightYellow + '📚 ' + pk + ' patterns' + c.reset;
+    perfIndicator = c.brightYellow + pk + ' patterns' + c.reset;
   } else {
-    perfIndicator = c.dim + '⚡ target: 150x-12500x' + c.reset;
+    perfIndicator = c.dim + 'Goal 150x-12500x' + c.reset;
   }
-  lines.push(
-    c.brightCyan + '🏗️  DDD Domains' + c.reset + '    ' + progressBar(domainsCompleted, totalDomains) + '  ' +
-    domainsColor + domainsCompleted + c.reset + '/' + c.brightWhite + totalDomains + c.reset + '    ' + perfIndicator
-  );
+  const archParts = [
+    c.cyan + 'Domains ' + c.reset + domainsColor + domainsCompleted + c.reset + '/' + c.brightWhite + totalDomains + c.reset,
+  ];
+  if (adrCount > 0) archParts.push(c.cyan + 'ADRs ' + c.brightWhite + adrCount + c.reset);
+  archParts.push(perfIndicator);
+  lines.push(c.brightCyan + '🏗️  Architecture' + c.reset + '   ' + archParts.join('   '));
 
-  // Line 2: Swarm + Hooks + CVE + Memory + Intelligence
-  const swarmInd = coordinationActive ? c.brightGreen + '◉' + c.reset : c.dim + '○' + c.reset;
-  const agentsColor = activeAgents > 0 ? c.brightGreen : c.red;
-  const secIcon = secStatus === 'CLEAN' ? '🟢' : (secStatus === 'IN_PROGRESS' || secStatus === 'STALE') ? '🟡' : (secStatus === 'NONE' ? '⚪' : '🔴');
-  const secColor = secStatus === 'CLEAN' ? c.brightGreen : (secStatus === 'IN_PROGRESS' || secStatus === 'STALE') ? c.brightYellow : (secStatus === 'NONE' ? c.dim : c.brightRed);
-  const hooksColor = hooksEnabled > 0 ? c.brightGreen : c.dim;
-  const intellColor = intelligencePct >= 80 ? c.brightGreen : intelligencePct >= 40 ? c.brightYellow : c.dim;
+  // Row 2 — Runtime: Swarm  [subAgents if >0]  Hooks  🧠pct  💾RAM (glyph-only
+  // for the last two so the row reads lighter and doesn't repeat "Memory RAM").
+  const swarmInd = coordinationActive ? c.brightGreen + '◉' + c.reset + ' ' : c.dim + '○' + c.reset + ' ';
+  const runtimeParts = [
+    c.cyan + 'Swarm ' + swarmInd + agentsColor + activeAgents + c.reset + '/' + c.brightWhite + maxAgents + c.reset,
+  ];
+  if (subAgents > 0) runtimeParts.push(c.brightPurple + '👥 ' + subAgents + c.reset);
+  runtimeParts.push(c.cyan + 'Hooks ' + hooksColor + hooksEnabled + c.reset + '/' + c.brightWhite + hooksTotal + c.reset);
+  runtimeParts.push(intellColor + '🧠 ' + intelligencePct + '%' + c.reset);
+  runtimeParts.push(c.brightCyan + '💾 ' + memoryMB + 'MB' + c.reset);
+  lines.push(c.brightYellow + '🤖 Runtime' + c.reset + '        ' + runtimeParts.join('   '));
 
-  lines.push(
-    c.brightYellow + '🤖 Swarm' + c.reset + '  ' + swarmInd + ' [' + agentsColor + String(activeAgents).padStart(2) + c.reset + '/' + c.brightWhite + maxAgents + c.reset + ']  ' +
-    c.brightPurple + '👥 ' + subAgents + c.reset + '    ' +
-    c.brightBlue + '🪝 ' + hooksColor + hooksEnabled + c.reset + '/' + c.brightWhite + hooksTotal + c.reset + '    ' +
-    secIcon + ' ' + secColor + 'CVE ' + cvesFixed + c.reset + '/' + c.brightWhite + totalCves + c.reset + '    ' +
-    c.brightCyan + '💾 ' + memoryMB + 'MB' + c.reset + '    ' +
-    intellColor + '🧠 ' + String(intelligencePct).padStart(3) + '%' + c.reset
-  );
+  // Row 3 — Health: color-first, urgency-tuned copy.
+  //   clean   → "✓ Security   ✓ No CVEs" (or just "✓" when nothing to certify)
+  //   pending → "Security scan pending"
+  //   problem → "N vulnerabilities" — never "CVE checks 0/3" (reads ambiguously)
+  const secLower = secStatus.toLowerCase();
+  const cvesClean = totalCves === 0 || cvesFixed === totalCves;
+  const healthAllGreen = (secStatus === 'CLEAN' || secStatus === 'NONE') && cvesClean;
+  const healthParts = [];
+  if (healthAllGreen) {
+    if (secStatus === 'CLEAN') healthParts.push(c.brightGreen + '✓ Security' + c.reset);
+    if (totalCves > 0) healthParts.push(c.brightGreen + '✓ No CVEs' + c.reset);
+    if (healthParts.length === 0) healthParts.push(c.brightGreen + '✓' + c.reset);
+  } else {
+    if (secStatus === 'PENDING') {
+      healthParts.push(c.brightYellow + 'Security scan pending' + c.reset);
+    } else if (secStatus === 'IN_PROGRESS') {
+      healthParts.push(c.brightYellow + 'Security scanning…' + c.reset);
+    } else if (secStatus === 'STALE') {
+      healthParts.push(c.brightYellow + 'Security scan stale' + c.reset);
+    } else if (secStatus !== 'NONE' && secStatus !== 'CLEAN') {
+      healthParts.push(c.brightRed + 'Security ' + secLower + c.reset);
+    }
+    if (totalCves > 0 && cvesFixed < totalCves) {
+      const unfixed = totalCves - cvesFixed;
+      const word = unfixed === 1 ? 'vulnerability' : 'vulnerabilities';
+      healthParts.push(c.brightRed + unfixed + ' ' + word + c.reset);
+    }
+  }
+  if (healthParts.length > 0) {
+    lines.push(c.brightRed + '🛡 Health' + c.reset + '         ' + healthParts.join('   '));
+  }
 
-  // Line 3: Architecture
-  const dddColor = dddProgress >= 50 ? c.brightGreen : dddProgress > 0 ? c.yellow : c.red;
-  const adrColor = adrCount > 0 ? (adrImpl === adrCount ? c.brightGreen : c.yellow) : c.dim;
-  const adrDisplay = adrColor + '●' + adrImpl + '/' + adrCount + c.reset;
-
-  lines.push(
-    c.brightPurple + '🔧 Architecture' + c.reset + '    ' +
-    c.cyan + 'ADRs' + c.reset + ' ' + adrDisplay + '  ' + c.dim + '│' + c.reset + '  ' +
-    c.cyan + 'DDD' + c.reset + ' ' + dddColor + '●' + String(dddProgress).padStart(3) + '%' + c.reset + '  ' + c.dim + '│' + c.reset + '  ' +
-    c.cyan + 'Security' + c.reset + ' ' + secColor + '●' + secStatus + c.reset
-  );
-
-  // Line 4: AgentDB, Tests, Integration
-  const hnswInd = hasHnsw ? c.brightGreen + '⚡' + c.reset : '';
-  const sizeDisp = dbSizeKB >= 1024 ? (dbSizeKB / 1024).toFixed(1) + 'MB' : dbSizeKB + 'KB';
-  const vectorColor = vectorCount > 0 ? c.brightGreen : c.dim;
-  const testColor = testFiles > 0 ? c.brightGreen : c.dim;
-
-  // MCP / DB integration from data
-  const integration = d.integration || {};
-  const mcpServers = (integration.mcpServers) || {};
-  let integStr = '';
+  // Row 4 — AgentDB: size + vectors + MCP status. No opaque "◆ DB" marker;
+  // the row header itself already says AgentDB.
+  const dbParts = [];
+  if (dbSizeKB > 0) dbParts.push(c.brightWhite + sizeDisp + c.reset);
+  if (vectorCount > 0) {
+    const hnswInd = hasHnsw ? c.brightGreen + '⚡' + c.reset : '';
+    dbParts.push(c.cyan + vectorCount + ' vectors' + c.reset + hnswInd);
+  }
   if (mcpServers.total > 0) {
-    const mcpCol = mcpServers.enabled === mcpServers.total ? c.brightGreen : mcpServers.enabled > 0 ? c.brightYellow : c.red;
-    integStr += c.cyan + 'MCP' + c.reset + ' ' + mcpCol + '●' + mcpServers.enabled + '/' + mcpServers.total + c.reset;
+    if (mcpServers.enabled === mcpServers.total) {
+      dbParts.push(c.brightGreen + 'MCP ready' + c.reset);
+    } else {
+      const mcpCol = mcpServers.enabled > 0 ? c.brightYellow : c.red;
+      dbParts.push(c.cyan + 'MCP ' + mcpCol + mcpServers.enabled + c.reset + '/' + c.brightWhite + mcpServers.total + c.reset);
+    }
   }
-  if (integration.hasDatabase) integStr += (integStr ? '  ' : '') + c.brightGreen + '◆' + c.reset + 'DB';
-  if (!integStr) integStr = c.dim + '● none' + c.reset;
-
-  lines.push(
-    c.brightCyan + '📊 AgentDB' + c.reset + '    ' +
-    c.cyan + 'Vectors' + c.reset + ' ' + vectorColor + '●' + vectorCount + hnswInd + c.reset + '  ' + c.dim + '│' + c.reset + '  ' +
-    c.cyan + 'Size' + c.reset + ' ' + c.brightWhite + sizeDisp + c.reset + '  ' + c.dim + '│' + c.reset + '  ' +
-    c.cyan + 'Tests' + c.reset + ' ' + testColor + '●' + testFiles + c.reset + ' ' + c.dim + '(~' + testCases + ' cases)' + c.reset + '  ' + c.dim + '│' + c.reset + '  ' +
-    integStr
-  );
+  if (dbParts.length > 0) {
+    lines.push(c.brightCyan + '🧠 AgentDB' + c.reset + '        ' + dbParts.join('   '));
+  }
 
   // Bottom row: funnel promo/tips surface (ADR-301). All policy gates
   // (RUFLO_FUNNEL, enterprise policy, funnel.enabled, CI, disclosure,
@@ -687,13 +715,52 @@ function generateStatusline() {
   // JSON passes through a tmp cache. Static text only — never animated.
   const promoRow = getPromoRow(d);
   if (promoRow) {
-    lines.push(c.dim + promoRow + c.reset);
+    // Color the row by content kind so it reads as *what it is*, not as noise:
+    //   disclosure  → brightCyan  (announcement, one-time-ish, links to capability)
+    //   promotional → brightPurple (Cognitum sponsor spot, distinct from tips)
+    //   educational → yellow      (a tip — same tone as the RAM segment icons)
+    const kind = (d && d.promo && d.promo.kind) || 'disclosure';
+    const promoColor = kind === 'promotional' ? c.brightPurple
+                     : kind === 'educational' ? c.yellow
+                     : c.brightCyan;
+    lines.push(promoColor + promoRow + c.reset);
   }
 
   return lines.join('\n');
 }
 
 // ─── Funnel promo row (ADR-301) ─────────────────────────────────
+// Allowlist for OSC 8 hyperlink targets. Ships in code (not in payload) so
+// no message can smuggle a link to an unapproved host.
+const PROMO_LINK_HOSTS = new Set(['cognitum.one', 'www.cognitum.one', 'docs.cognitum.one']);
+
+// Emit OSC 8 hyperlinks unless the environment is known-broken. tmux mangles
+// raw OSC 8 (see anthropics/claude-code#27047) — opt in via env if wrapped.
+function terminalSupportsHyperlinks() {
+  if (process.env.CI || process.env.GITHUB_ACTIONS) return false;
+  if (process.env.TERM === 'dumb') return false;
+  if (/^(0|false|off|no)$/i.test(String(process.env.RUFLO_STATUSLINE_HYPERLINKS || ''))) return false;
+  if (process.env.TMUX && !process.env.RUFLO_STATUSLINE_HYPERLINKS_TMUX) return false;
+  return true;
+}
+
+// Wrap a label in an OSC 8 hyperlink escape sequence. Falls back to the raw
+// label whenever the URL is not an allowlisted https target, when the terminal
+// can't render hyperlinks, or when parsing fails — a broken link must never
+// leave a raw URL or stray escape in the statusline output.
+function safeTerminalLink(label, url) {
+  if (!terminalSupportsHyperlinks()) return label;
+  if (typeof url !== 'string' || url.length === 0) return label;
+  let parsed;
+  try { parsed = new URL(url); } catch { return label; }
+  if (parsed.protocol !== 'https:') return label;
+  if (!PROMO_LINK_HOSTS.has(parsed.hostname)) return label;
+  const cleanLabel = String(label).replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, '');
+  if (cleanLabel.length === 0) return label;
+  const ESC = '\u001b';
+  return ESC + ']8;;' + parsed.href + ESC + '\\' + cleanLabel + ESC + ']8;;' + ESC + '\\';
+}
+
 function getPromoRow(d) {
   try {
     if (process.env.CI || process.env.GITHUB_ACTIONS) return null;
@@ -706,7 +773,11 @@ function getPromoRow(d) {
       .replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, '')
       .slice(0, 100)
       .trim();
-    return text.length > 0 ? text : null;
+    if (text.length === 0) return null;
+    // If the payload carries an allowlisted https URL, wrap the visible text
+    // in an OSC 8 hyperlink so the label is clickable without exposing the
+    // URL. Disclosure/educational rows have no URL and pass through as-is.
+    return safeTerminalLink(text, promo.url);
   } catch (e) {
     return null; // the promo row must never break the statusline
   }

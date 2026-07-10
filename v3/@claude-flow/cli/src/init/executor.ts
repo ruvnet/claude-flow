@@ -520,7 +520,8 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
     // 0. ALWAYS update critical helpers (force overwrite)
     const sourceHelpersForUpgrade = findSourceHelpersDir();
     if (sourceHelpersForUpgrade) {
-      const criticalHelpers = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs'];
+      // Keep in sync with helper-refresh.ts:CRITICAL_HELPERS.
+      const criticalHelpers = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs'];
       for (const helperName of criticalHelpers) {
         const targetPath = path.join(targetDir, '.claude', 'helpers', helperName);
         const sourcePath = path.join(sourceHelpersForUpgrade, helperName);

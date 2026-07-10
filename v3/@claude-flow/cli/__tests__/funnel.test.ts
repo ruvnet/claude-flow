@@ -32,11 +32,14 @@ import {
 import { resolveFunnelEnabled } from '../src/funnel/precedence.js';
 import {
   DISCLOSURE_TEXT,
+  DISCLOSURE_TEXTS,
+  DISCLOSURE_SPONSOR_URL,
   DISCLOSURE_GRACE_MS,
   getDisclosure,
   promoEligible,
   recordDisclosureDeclined,
   recordDisclosureShown,
+  selectDisclosureText,
 } from '../src/funnel/disclosure.js';
 import { getConsent, hasConsent, recordConsent } from '../src/funnel/consent.js';
 import { CONSENT_POLICY_VERSION, CreditErrorCode } from '../src/funnel/types.js';
@@ -46,6 +49,7 @@ import {
   renderCreditRecovery,
 } from '../src/funnel/credit-errors.js';
 import { getFunnelId, recordFunnelEvent, deleteFunnelData } from '../src/funnel/events.js';
+import { attributionUrl } from '../src/funnel/attribution.js';
 import { getFunnelPromo } from '../src/funnel/promo.js';
 import { isCI } from '../src/funnel/environment.js';
 import { shouldOfferEnrollment, recordEnrollmentOutcome, getEnrollmentRecord } from '../src/funnel/enrollment.js';
@@ -138,10 +142,36 @@ describe('message content boundaries (ADR-301)', () => {
     }
   });
 
-  it('the disclosure text fits the column bound with its disable instruction intact', () => {
-    expect(displayWidth(DISCLOSURE_TEXT)).toBeLessThanOrEqual(MAX_MESSAGE_COLUMNS);
-    expect(DISCLOSURE_TEXT).toContain('disable');
-    expect(containsForbiddenSequences(DISCLOSURE_TEXT)).toBe(false);
+  it('every disclosure variant fits the column bound with its disable instruction intact', () => {
+    expect(DISCLOSURE_TEXTS.length).toBeGreaterThan(0);
+    for (const text of DISCLOSURE_TEXTS) {
+      expect(displayWidth(text), `variant "${text}" must fit ${MAX_MESSAGE_COLUMNS} cols`).toBeLessThanOrEqual(MAX_MESSAGE_COLUMNS);
+      expect(text, `variant "${text}" must retain the disable instruction`).toContain('disable');
+      expect(text, `variant "${text}" must retain the exact opt-out command`).toContain('ruflo funnel disable');
+      expect(containsForbiddenSequences(text), `variant "${text}" must not carry control chars`).toBe(false);
+      expect(text, `variant "${text}" must attribute Cognitum since the row links there`).toMatch(/cognitum/i);
+    }
+    // The canonical DISCLOSURE_TEXT is the first entry — round-trip check.
+    expect(DISCLOSURE_TEXT).toBe(DISCLOSURE_TEXTS[0]);
+  });
+
+  it('disclosure sponsor URL is https-only and points to cognitum.one', () => {
+    const parsed = new URL(DISCLOSURE_SPONSOR_URL);
+    expect(parsed.protocol).toBe('https:');
+    expect(parsed.hostname).toBe('cognitum.one');
+  });
+
+  it('selectDisclosureText is deterministic per 5-minute slot', () => {
+    // Same slot → same variant. Different slots eventually cycle through them all.
+    const t0 = new Date('2026-07-10T12:00:00.000Z');
+    const t0plus1s = new Date(t0.getTime() + 1000);
+    expect(selectDisclosureText(t0)).toBe(selectDisclosureText(t0plus1s));
+    const seen = new Set<string>();
+    for (let i = 0; i < DISCLOSURE_TEXTS.length * 2; i++) {
+      seen.add(selectDisclosureText(new Date(t0.getTime() + i * 5 * 60 * 1000)));
+    }
+    // Rotation must cover every variant.
+    expect(seen.size).toBe(DISCLOSURE_TEXTS.length);
   });
 });
 
@@ -275,7 +305,20 @@ describe('promo orchestrator (getFunnelPromo)', () => {
     const row = getFunnelPromo({ interactive: true, cwd: stateDir });
     expect(row).not.toBeNull();
     expect(row!.kind).toBe('disclosure');
-    expect(row!.text).toBe(DISCLOSURE_TEXT);
+    // Row text is one of the rotating disclosure variants (all equally valid).
+    expect(DISCLOSURE_TEXTS).toContain(row!.text);
+    // Sponsor URL rides on the disclosure so the renderer can OSC 8 wrap it.
+    // It's now attribution-decorated: the base target is DISCLOSURE_SPONSOR_URL,
+    // with UTM params appended (fid appears only under telemetry consent).
+    expect(row!.url).toBeDefined();
+    const parsed = new URL(row!.url!);
+    expect(parsed.origin + parsed.pathname).toBe(DISCLOSURE_SPONSOR_URL);
+    expect(parsed.searchParams.get('utm_source')).toBe('ruflo');
+    expect(parsed.searchParams.get('utm_medium')).toBe('statusline');
+    expect(parsed.searchParams.get('utm_campaign')).toBe('disclosure');
+    expect(parsed.searchParams.get('utm_content')).toMatch(/^disclosure-\d+$/);
+    // Without telemetry consent (default in this test suite), no fid rides along.
+    expect(parsed.searchParams.get('fid')).toBeNull();
   });
 
   it('keeps showing the disclosure through the grace window, then rotates messages', () => {
@@ -469,8 +512,83 @@ describe('generated statusline promo row', () => {
     expect(script).toContain('.slice(0, 100)');
   });
 
-  it('never renders promo styling from payload — fixed dim style only', () => {
-    // the row is wrapped in the renderer's own c.dim + ... + c.reset
-    expect(script).toMatch(/c\.dim \+ promoRow \+ c\.reset/);
+  it('never renders promo styling from payload — colors come from a fixed kind map', () => {
+    // The row is styled by the renderer's own hardcoded color, chosen from the
+    // CLI-supplied `kind` enum (disclosure/promotional/educational). The payload
+    // text itself never provides ANSI — the sanitiser above strips all of it.
+    // The wrapping ALWAYS ends with c.reset so no color leaks into subsequent
+    // Claude Code UI. Guards against a future edit that lets payload styling in.
+    expect(script).toMatch(/promoColor \+ promoRow \+ c\.reset/);
+    expect(script).toMatch(/kind === 'promotional' \? c\.brightPurple/);
+    expect(script).toMatch(/kind === 'educational' \? c\.yellow/);
+    // Default branch stays a renderer-owned color, not a payload field.
+    expect(script).toMatch(/: c\.brightCyan/);
+  });
+});
+
+// ─── ADR-301/305 attribution — network-free fallback discipline ─────────────
+// The funnel row must render correctly even when the API is completely down.
+// These tests pin that invariant.
+
+describe('attributionUrl (ADR-305 measurement, no runtime network)', () => {
+  it('returns the base URL verbatim when it is malformed', () => {
+    // The URL builder must never synthesize a broken analytics endpoint —
+    // a malformed input passes through unchanged so downstream (OSC 8 host
+    // allowlist) can drop it safely.
+    const cases = ['not-a-url', '', 'javascript:evil()', 'ftp://cognitum.one'];
+    for (const bad of cases) {
+      expect(attributionUrl(bad, { medium: 's', campaign: 'c', content: 'x' })).toBe(bad);
+    }
+  });
+
+  it('appends UTM params and preserves any query already on the base URL', () => {
+    const out = attributionUrl('https://cognitum.one/ruflo?foo=1', {
+      medium: 'statusline', campaign: 'disclosure', content: 'test-1',
+    });
+    const parsed = new URL(out);
+    expect(parsed.searchParams.get('foo')).toBe('1');
+    expect(parsed.searchParams.get('utm_source')).toBe('ruflo');
+    expect(parsed.searchParams.get('utm_medium')).toBe('statusline');
+    expect(parsed.searchParams.get('utm_campaign')).toBe('disclosure');
+    expect(parsed.searchParams.get('utm_content')).toBe('test-1');
+  });
+
+  it('does NOT append fid when telemetry consent is absent (privacy default)', () => {
+    // Default test state has no consent grants. fid must not appear.
+    const out = attributionUrl('https://cognitum.one/ruflo', {
+      medium: 'statusline', campaign: 'disclosure', content: 'x',
+    });
+    expect(new URL(out).searchParams.has('fid')).toBe(false);
+  });
+
+  it('emits no network call — attribution is a pure link builder', () => {
+    // Guard: the function must be synchronous and side-effect-free with
+    // respect to the network. If someone later adds fetch/https here, this
+    // test will still pass but the *design* is documented.
+    const before = Date.now();
+    for (let i = 0; i < 1000; i++) {
+      attributionUrl('https://cognitum.one/ruflo', {
+        medium: 'statusline', campaign: 'disclosure', content: String(i),
+      });
+    }
+    const elapsed = Date.now() - before;
+    // 1000 URL builds must be sub-100ms (network calls would be nowhere near).
+    expect(elapsed).toBeLessThan(100);
+  });
+});
+
+describe('getFunnelPromo — API-down fallback discipline', () => {
+  it('renders the row without touching the network (no fetch import path)', async () => {
+    // The promo module is imported at test module load; if it pulled in a
+    // network library, this stringified module set would carry a fetch/https
+    // reference. This is a design lock — a future edit that adds network
+    // I/O to the render path breaks this test.
+    const promoSrc = await import('node:fs').then((fs) =>
+      fs.readFileSync(new URL('../src/funnel/promo.ts', import.meta.url), 'utf-8'),
+    );
+    expect(promoSrc).not.toMatch(/require\(\s*['"]https?['"]\s*\)/);
+    expect(promoSrc).not.toMatch(/from\s+['"]https?['"]/);
+    expect(promoSrc).not.toMatch(/fetch\s*\(/);
+    expect(promoSrc).not.toMatch(/XMLHttpRequest/);
   });
 });

@@ -24,8 +24,20 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const HELPERS_STAMP_FILE = '.helpers-version';
-/** ruflo-owned helpers that carry hook logic and must track the package version. */
-export const CRITICAL_HELPERS = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs'];
+/**
+ * ruflo-owned helpers that carry hook logic (or the render surface for the
+ * funnel disclosure row) and must track the package version. Adding to this
+ * list REQUIRES re-signing `helpers.manifest.json` at publish time — the
+ * integrity gate below refuses any file it doesn't have a signed hash for.
+ */
+export const CRITICAL_HELPERS = [
+  'auto-memory-hook.mjs',
+  'hook-handler.cjs',
+  'intelligence.cjs',
+  // statusline.cjs is here so the funnel disclosure row (ADR-301) reaches
+  // existing installs on the next `ruflo` command, not only fresh `ruflo init`.
+  'statusline.cjs',
+];
 
 /** Installed @claude-flow/cli version — the value the helpers are stamped with. */
 export function getInstalledCliVersion(): string {
@@ -111,10 +123,19 @@ async function writeCriticalHelpers(
   // Fallback: source unresolvable (broken npx paths) — regenerate from the CLI's
   // OWN compiled generators (the trust root; no external file to verify).
   const gen = await import('./helpers-generator.js');
+  const statusGen = await import('./statusline-generator.js');
   const files: Record<string, string> = {
     'hook-handler.cjs': gen.generateHookHandler(),
     'intelligence.cjs': gen.generateIntelligenceStub(),
     'auto-memory-hook.mjs': gen.generateAutoMemoryHook(),
+    // Fallback needs the same generator inputs `ruflo init` uses. We match the
+    // hardcoded default (maxAgents 15) because the fallback fires when the
+    // installed package is unresolvable — no way to read the user's project
+    // config from here. Fresh `ruflo init` still generates a per-project value.
+    'statusline.cjs': statusGen.generateStatuslineScript({
+      statusline: { enabled: true, style: 'compact' },
+      runtime: { maxAgents: 15 },
+    } as any),
   };
   let wrote = false;
   for (const [name, content] of Object.entries(files)) {
