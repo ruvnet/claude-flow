@@ -29,6 +29,11 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-046](../../implementation/adrs/ADR-046-ruflo-rebrand.md) | Dual Umbrella: claude-flow + ruflo | Accepted |
 | [ADR-047](../../implementation/adrs/ADR-047-fast-mode-integration.md) | Fast Mode Integration | Proposed |
 | [ADR-178](ADR-178-dream-cycle-security-vmg-repe-ipi.md) | Verifiable Memory Governance and RepE IPI Detection | Proposed |
+| [ADR-301](ADR-301-promotional-status-surface.md) | Promotional Status Surface for CLI Runtime | Proposed |
+| [ADR-302](ADR-302-post-init-capability-enrollment.md) | Post-Initialization Capability Enrollment | Proposed |
+| [ADR-303](ADR-303-credit-exhaustion-experience.md) | Intelligent Credit Exhaustion Experience | Proposed |
+| [ADR-304](ADR-304-local-meta-llm-proxy.md) | Local Meta LLM Proxy | Proposed |
+| [ADR-305](ADR-305-customer-lifecycle-funnel.md) | Customer Lifecycle Funnel (RuFlo → Cognitum) | Proposed |
 
 ## Summary Documents
 
