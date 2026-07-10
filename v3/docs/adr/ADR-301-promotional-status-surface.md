@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-07-10
 - **Deciders:** ruflo core
-- **Related:** [ADR-302](ADR-302-post-init-capability-enrollment.md) (post-init enrollment), [ADR-303](ADR-303-credit-exhaustion-experience.md) (credit exhaustion), [ADR-304](ADR-304-local-meta-llm-proxy.md) (local Meta LLM proxy), [ADR-305](ADR-305-customer-lifecycle-funnel.md) (funnel overview), [ADR-174](ADR-174-memory-distillation-self-optimization.md) / [ADR-177](ADR-177-signed-config-propagation-to-installs.md) (signed helper auto-refresh channel used to reach existing installs)
+- **Related:** [ADR-302](ADR-302-post-init-capability-enrollment.md) (post-init enrollment), [ADR-303](ADR-303-credit-exhaustion-experience.md) (credit exhaustion), [ADR-304](ADR-304-local-meta-llm-proxy.md) (local Meta LLM proxy), [ADR-305](ADR-305-customer-lifecycle-funnel.md) (funnel overview), [ADR-174](ADR-174-memory-distillation-self-optimization.md) / [ADR-177](ADR-177-signed-config-propagation-to-installs.md) (signed helper auto-refresh channel used to reach existing installs), [ADR-309](ADR-309-funnel-governance-privacy-ecosystem.md) (content approval, privacy), [ADR-310](ADR-310-funnel-rollout-measurement-emergency-controls.md) (rollout, release gates)
 
 ## Context
 
@@ -31,8 +31,8 @@ Reserve the bottom status row for a rotating promotional surface.
 - Pauses during interactive prompts.
 - Disabled in non-TTY environments.
 - Disabled in CI (`CI`, `GITHUB_ACTIONS`, and equivalents).
-- Respects `NO_COLOR` and accessibility modes (no animation; static text fallback).
-- Fully disableable: `RUFLO_STATUSLINE_PROMO=0` env var and `statusline.promo.enabled: false` in `claude-flow.config.json`.
+- Respects `NO_COLOR` and accessibility modes: **marquee and all animation are disabled for screen readers and reduced-motion terminals** — messages render as static plain text or not at all.
+- Fully disableable, with strict precedence (see Control Precedence below): `RUFLO_FUNNEL=0` env var, enterprise managed policy, and `funnel.enabled: false` in config all suppress the surface.
 
 ### Message classes
 
@@ -65,6 +65,39 @@ Example:
 - **New installs:** `statusline-generator.ts` emits the promo row by default (subject to the gates above).
 - **Existing installs:** the statusline is a generated helper covered by the ADR-174/ADR-177 signed helper auto-refresh channel — `autoRefreshHelpersIfStale()` re-copies signed helpers on version-stamp mismatch on the next CLI command. Shipping the new statusline bumps the helpers manifest version, so previously initialized projects pick it up with zero re-init, Ed25519-verified and fail-closed. No new distribution mechanism is required.
 
+### Existing-install disclosure gate
+
+An upgraded install must never wake up to promotional content it was not told about. Before the promo row renders for the first time on an upgraded installation, a one-time disclosure is shown:
+
+```ts
+type FunnelDisclosureState =
+  | "never_seen"
+  | "disclosed_enabled"
+  | "disclosed_disabled";
+
+if (
+  isInteractiveTTY &&
+  installationWasUpgraded &&
+  disclosureState === "never_seen"
+) {
+  showDisclosure({
+    message:
+      "Ruflo now displays occasional tips and Cognitum capability notices in the status line.",
+    disable:
+      "Set RUFLO_FUNNEL=0 or funnel.enabled=false to disable.",
+  });
+  persistDisclosureReceipt();
+}
+```
+
+Invariants:
+
+- Existing installs **never display promotional content before disclosure** (release-blocking gate in ADR-310).
+- The disable instruction appears **in the first disclosure itself**, not behind a link.
+- Disclosure is shown **once per user** (user-level receipt in `~/.ruflo/`), not once per project.
+- **Declining disables all funnel surfaces** (ADR-301, 302, and 303), recorded as `disclosed_disabled`.
+- New installs satisfy disclosure through the ADR-302 enrollment screen; this gate exists for upgrades.
+
 ## Content Policy
 
 Maximum length and pacing:
@@ -73,8 +106,12 @@ Maximum length and pacing:
 - 2 seconds minimum visibility per message
 - No animation on slow terminals
 
-Promotional frequency:
+Promotional frequency and content ratio (enforced by the rotation scheduler, reviewed per ADR-309):
 
+- **Educational content: at least 4 of every 5 rotations.**
+- **Promotional content: at most 1 of every 5 rotations.**
+- **The same promotion appears at most once every 30 minutes.**
+- **No urgency, countdowns, scarcity, or dark patterns** — messages state a capability and a link, nothing more.
 - Never more than one message displayed simultaneously
 - Never blocks user input
 - Never appears interleaved with command output
@@ -124,6 +161,20 @@ No prompt content or user data is collected. Telemetry-off means zero promo-rela
 - Continuous feature discovery
 - Higher Cognitum conversion
 - Zero workflow interruption
+
+## Control Precedence
+
+The promo surface honors the funnel-wide precedence chain (normative definition in ADR-305):
+
+```
+1. RUFLO_FUNNEL=0            (environment)
+2. Enterprise managed policy
+3. User config: funnel.enabled
+4. Package default
+5. Remote signed policy       (only when freshness feed is enabled)
+```
+
+A lower-precedence source can never re-enable what a higher-precedence source disabled.
 
 ## Guardrails / Consequences
 

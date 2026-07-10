@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-07-10
 - **Deciders:** ruflo core
-- **Related:** [ADR-301](ADR-301-promotional-status-surface.md) (promo status surface), [ADR-302](ADR-302-post-init-capability-enrollment.md) (post-init enrollment), [ADR-304](ADR-304-local-meta-llm-proxy.md) (local Meta LLM proxy), [ADR-305](ADR-305-customer-lifecycle-funnel.md) (funnel overview)
+- **Related:** [ADR-301](ADR-301-promotional-status-surface.md) (promo status surface), [ADR-302](ADR-302-post-init-capability-enrollment.md) (post-init enrollment), [ADR-304](ADR-304-local-meta-llm-proxy.md) (local Meta LLM proxy), [ADR-305](ADR-305-customer-lifecycle-funnel.md) (funnel overview), [ADR-308](ADR-308-cognitum-public-api-contract.md) (`GET /v1/credits`, error taxonomy)
 
 ## Context
 
@@ -57,33 +57,43 @@ The experience must clearly distinguish between:
 
 so that "unlimited local requests" is never conflated with unlimited cloud usage.
 
+## Credit Authority
+
+There is exactly one source of truth for credit balances: the **Cognitum account service**. The CLI and proxy query `GET /v1/credits` (ADR-308) — they never infer balances from provider errors, local counters, or heuristics. "Daily hosted credits exhausted" may only ever be asserted by the service that owns the ledger.
+
 ## Error Taxonomy (deterministic, fail-closed)
 
 The recovery experience is gated on a **deterministic classifier over explicit provider codes** — never on text-matching provider messages, which will eventually misclassify outages or authentication failures as exhaustion.
 
-Every provider error is normalized into a category by an explicit code table:
+Each provider adapter maps its native, machine-readable error codes into a canonical taxonomy:
 
-| Provider signal | Category | `confidence` |
-|-----------------|----------|--------------|
-| HTTP 429 + provider code `insufficient_quota` / `credit_exhausted` / `billing_hard_limit_reached` | `quota_exhausted` | 1 |
-| HTTP 429 + `rate_limit_exceeded` (retryable) | `rate_limited` | 1 |
-| HTTP 401/403 | `auth` | 1 |
-| HTTP 5xx, timeouts, connection resets | `provider_outage` | 1 |
-| Anything unmapped | `unknown` | 0 |
+```ts
+enum CreditErrorCode {
+  COGNITUM_CREDIT_EXHAUSTED,   // Cognitum ledger says balance is spent — the ONLY funnel trigger
+  PROVIDER_QUOTA_EXHAUSTED,    // upstream provider's own quota, not Cognitum credits
+  PROVIDER_RATE_LIMITED,       // retryable 429
+  AUTHENTICATION_FAILED,       // 401/403
+  SERVICE_UNAVAILABLE,         // 5xx, timeouts, connection resets
+}
+```
 
-The code table lives in one module per provider adapter, is versioned, and unmapped codes land in `unknown` — never coerced into `quota_exhausted`.
+Mapping rules:
 
-The gate is fail-closed:
+- Adapters map **codes, never message text**. An error with no mapped code stays unclassified (`confidence: 0`) — it is never coerced into `COGNITUM_CREDIT_EXHAUSTED`.
+- The mapping table lives in one versioned module per provider adapter and mirrors the ADR-308 server-side error taxonomy 1:1.
+- `PROVIDER_QUOTA_EXHAUSTED` is deliberately distinct from `COGNITUM_CREDIT_EXHAUSTED`: a provider's own quota running out is not a Cognitum upsell moment and must not claim to be one.
+
+The gate is fail-closed — **only** `COGNITUM_CREDIT_EXHAUSTED` triggers the funnel surface:
 
 ```ts
 showCreditRecovery =
-  error.category === 'quota_exhausted' &&
+  error.code === CreditErrorCode.COGNITUM_CREDIT_EXHAUSTED &&
   error.confidence === 1 &&
   !error.retryable &&
   !session.creditPromptShown;
 ```
 
-`rate_limited`, `auth`, `provider_outage`, and `unknown` always fall through to the ordinary error path. A missed upsell opportunity is acceptable; a wrong "out of credits" claim during a provider outage is not.
+`PROVIDER_QUOTA_EXHAUSTED`, `PROVIDER_RATE_LIMITED`, `AUTHENTICATION_FAILED`, `SERVICE_UNAVAILABLE`, and unclassified errors always fall through to the ordinary error path. A missed upsell opportunity is acceptable; a wrong "out of credits" claim during a provider outage is not.
 
 ## Requirements
 

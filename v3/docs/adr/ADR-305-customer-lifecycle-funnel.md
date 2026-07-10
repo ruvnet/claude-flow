@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-07-10
 - **Deciders:** ruflo core
-- **Related:** [ADR-301](ADR-301-promotional-status-surface.md) (promo status surface), [ADR-302](ADR-302-post-init-capability-enrollment.md) (post-init enrollment), [ADR-303](ADR-303-credit-exhaustion-experience.md) (credit exhaustion), [ADR-304](ADR-304-local-meta-llm-proxy.md) (local Meta LLM proxy)
+- **Related:** [ADR-301](ADR-301-promotional-status-surface.md) (promo status surface), [ADR-302](ADR-302-post-init-capability-enrollment.md) (post-init enrollment), [ADR-303](ADR-303-credit-exhaustion-experience.md) (credit exhaustion), [ADR-304](ADR-304-local-meta-llm-proxy.md) (local Meta LLM proxy product), [ADR-306](ADR-306-cognitum-authentication-account-linking.md) (auth), [ADR-307](ADR-307-proxy-runtime-packaging-lifecycle.md) (proxy runtime), [ADR-308](ADR-308-cognitum-public-api-contract.md) (API contract), [ADR-309](ADR-309-funnel-governance-privacy-ecosystem.md) (governance/privacy), [ADR-310](ADR-310-funnel-rollout-measurement-emergency-controls.md) (rollout, measurement, emergency controls)
 
 ## Context
 
@@ -52,6 +52,29 @@ Each stage is independently valuable to the user (a working install, a useful ti
 - **Fully disableable through configuration.** A single `funnel.enabled: false` (plus per-surface flags in ADRs 301–303) turns every touchpoint off; CI and non-TTY environments are always off.
 - **Open-source ruflo stays whole.** No existing capability moves behind the funnel; ADR-150 removability discipline applies to every funnel component.
 
+## Control Precedence (normative)
+
+Suppression sources are strictly ordered. **A lower-precedence source must never re-enable a higher-precedence disable.**
+
+```
+1. RUFLO_FUNNEL=0                 (environment — shells, dev containers, CI images, MDM-pushed profiles)
+2. Enterprise managed policy      (managed settings file deployed by endpoint management)
+3. User config: funnel.enabled    (claude-flow.config.json / user-level config)
+4. Package default
+5. Remote signed policy           (only when the freshness feed is enabled; see kill switches below)
+```
+
+```ts
+effectiveFunnelEnabled =
+  env !== false &&
+  enterprisePolicy !== false &&
+  userConfig !== false &&
+  packageDefault === true &&
+  remotePolicy !== false;
+```
+
+Enterprise documentation must cover: shell-environment deployment, dev-container configuration, CI environment defaults, MDM/endpoint-management deployment, air-gapped configuration, and audit verification (`ruflo doctor` prints the effective state and which source decided it).
+
 ## Attribution Rules
 
 Conversion numbers are meaningless unless they are reproducible. The following are defined **before** implementation, and no funnel event ships without them:
@@ -80,23 +103,45 @@ Gates are ordered: a failure at any level makes the levels below it irrelevant. 
 
 Level 3 targets are goals; levels 0–2 are hard gates.
 
-### Automatic disable (circuit breaker)
+### Automatic disable (kill switches — two mechanisms, honestly characterized)
 
-The biggest failure mode is optimizing signup rate while degrading developer trust. Guardrails therefore act, not just report:
+The biggest failure mode is optimizing signup rate while degrading developer trust. Guardrails therefore act, not just report. But the transport matters: the ADR-174/177 signed helper channel is **release-bound, not immediate** — it propagates on the next installed upgrade, not on demand. Claiming "immediate fleet-wide shutdown" over that channel would be false. Two distinct mechanisms, each with its real latency:
 
-- A level-0 breach (security regression or consent violation) **disables all funnel surfaces remotely** via the same signed helper/config channel (ADR-174/177) — the kill switch is a signed config flag, shipped like any other manifest update, and locally honored without user action.
-- A sustained level-1 or level-2 breach (latency, failure rate, or opt-out threshold crossed over a full release window) disables the offending surface in the next release, and re-enabling requires the metric back under threshold plus an ADR amendment noting the cause.
-- The circuit breaker state is inspectable: `ruflo doctor` reports whether funnel surfaces are active, disabled by user config, or disabled by guardrail.
+| | Release kill switch | Freshness kill switch |
+|---|---|---|
+| Transport | Policy flag ships in the npm package (ADR-174/177 stamp propagates to initialized projects) | Optional signed remote fetch: `GET /v1/funnel-policy` (ADR-308) |
+| Activation latency | **Next installed upgrade** | **Bounded by polling interval** |
+| Works offline | Yes | No (falls back to last valid signed policy) |
+| Default | **On — the default mechanism for all users** | **Off** — enabled only by explicit user or enterprise-administrator opt-in |
+| Payload | Policy data in-package | Signed, schema-validated policy data — **never executable code** |
 
-## Acceptance Test
+Policy:
 
-The funnel does not ship until the following passes end-to-end, and it remains a release-gate regression test thereafter:
+- **Consumer default: release-bound only.** No runtime network activity is introduced by the kill-switch mechanism itself.
+- **Enterprise managed deployments:** may opt into the signed freshness feed at a **6-hour** polling interval.
+- **Emergency revocation TTL: 24 hours maximum** — freshness-delivered *enables* expire unless renewed; freshness-delivered *disables* persist locally (see ADR-310 for full semantics).
+- **Failure mode: last known valid signed policy**, else package default. Invalid signature or schema → the fetched policy is discarded entirely.
+- A level-0 breach (security regression or consent violation) triggers both mechanisms: immediate policy publication to the freshness feed (reaches opted-in fleets within the polling interval) and an expedited release (reaches everyone else on upgrade).
+- A sustained level-1 or level-2 breach disables the offending surface in the next release; re-enabling requires the metric back under threshold plus an ADR amendment noting the cause.
+- Remote policy sits at the **bottom** of the control precedence — it can disable surfaces but can never re-enable anything a higher-precedence source turned off.
+- The state is inspectable: `ruflo doctor` reports whether funnel surfaces are active, disabled by user config, disabled by enterprise policy, or disabled by guardrail — and which mechanism delivered the decision.
 
-1. Take an **existing installation** (initialized on a prior version). Do **not** run `ruflo init`.
-2. Upgrade the package and execute one normal CLI command.
-3. Verify the signed helper refresh fired: helpers manifest version stamp updated, signature verified, `statusline.cjs` replaced.
-4. Confirm the promotional row appears **only** in an interactive TTY — and is absent under CI env vars, non-TTY stdout, and `NO_COLOR` static mode constraints.
-5. Set `funnel.enabled: false`. Prove that the ADR-301 promo row, the ADR-302 enrollment prompt, and the ADR-303 exhaustion screen are all suppressed — and that core CLI behavior (exit codes, command output, operational statusline rows, latency) is byte-for-byte unchanged from the enabled run apart from the suppressed surfaces.
+### Two measurement planes
+
+Opt-in production telemetry cannot enforce release gates — its sample is biased (opt-outs correlate with telemetry-off), and correctness must be provable before shipping, not observed after. Measurement therefore splits into two planes:
+
+1. **Release qualification (CI, enforces the hard gates).** Deterministic benchmarks and failure injection on every funnel-touching release — cold/warm startup percentiles, memory delta, output correctness, TTY/non-TTY/CI behavior, offline behavior, corrupt-policy and missing-credential injection — across the full platform × install-state × accessibility matrix. Levels 0–2 of the gate hierarchy are enforced **here**. Full specification in ADR-310.
+2. **Product analytics (production, adoption only).** Disclosure acceptance, disable rate, signup initiation and completion, proxy activation, 7/30-day retention, paid conversion — under the ADR-309 event schema and consent rules. Level-3 growth metrics are read **here**, and **never override release safety gates**.
+
+## Rollout and Acceptance
+
+Staged rollout (phases, cohort mechanics, promotion criteria, rollback discipline) and the full release-gate acceptance test are owned by [ADR-310](ADR-310-funnel-rollout-measurement-emergency-controls.md). In summary, the funnel does not ship until this passes end-to-end on an existing **offline** installation, upgraded in place, across TTY, non-TTY, CI, screen-reader/reduced-motion, and enterprise-disabled configurations:
+
+1. The signed helper refresh fires (manifest stamp updated, signature verified, `statusline.cjs` replaced) without running `ruflo init`.
+2. **No promotional content appears before the ADR-301 disclosure.**
+3. **No network request occurs without opt-in** (packet-capture verified).
+4. **`RUFLO_FUNNEL=0` suppresses every funnel surface** (ADR-301, 302, 303).
+5. All core ruflo commands remain behaviorally identical — exit codes, operational output, and latency within gate thresholds — in every configuration.
 
 ## Future Extensions
 

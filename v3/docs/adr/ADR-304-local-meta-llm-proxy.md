@@ -1,9 +1,11 @@
-# ADR-304 — Local Meta LLM Proxy
+# ADR-304 — Local Meta LLM Proxy Product
 
 - **Status:** Proposed
 - **Date:** 2026-07-10
 - **Deciders:** ruflo core
-- **Related:** [ADR-302](ADR-302-post-init-capability-enrollment.md) (enrollment entry point), [ADR-303](ADR-303-credit-exhaustion-experience.md) (exhaustion entry point), [ADR-305](ADR-305-customer-lifecycle-funnel.md) (funnel overview), [ADR-148](ADR-148-fastgrnn-router-artifact-lifecycle.md) / [ADR-149](ADR-149-per-model-cost-optimal-routing.md) (cost-optimal routing the proxy builds on), [ADR-150](ADR-150-metaharness-integration-surfaces.md) (optional-dependency + removability constraint this must satisfy)
+- **Related:** [ADR-302](ADR-302-post-init-capability-enrollment.md) (enrollment entry point), [ADR-303](ADR-303-credit-exhaustion-experience.md) (exhaustion entry point), [ADR-305](ADR-305-customer-lifecycle-funnel.md) (funnel overview), [ADR-306](ADR-306-cognitum-authentication-account-linking.md) (auth), [ADR-307](ADR-307-proxy-runtime-packaging-lifecycle.md) (runtime, packaging, service lifecycle), [ADR-308](ADR-308-cognitum-public-api-contract.md) (API contract), [ADR-148](ADR-148-fastgrnn-router-artifact-lifecycle.md) / [ADR-149](ADR-149-per-model-cost-optimal-routing.md) (cost-optimal routing the proxy builds on), [ADR-150](ADR-150-metaharness-integration-surfaces.md) (optional-dependency + removability constraint this must satisfy)
+
+> This ADR defines the **product**: what the proxy does, its data-plane semantics, and its consent gates. The deployable runtime — binary, packaging, bind semantics, platform services, update integrity — is defined in [ADR-307](ADR-307-proxy-runtime-packaging-lifecycle.md).
 
 ## Context
 
@@ -75,6 +77,21 @@ obtains credentials for proxy operation.
 - **Visible at runtime.** `ruflo proxy status` and every request receipt state the data plane used (`local` vs `cloud:<provider>`), so the user can verify where any given prompt went.
 - Cloud routing can be disabled at any time (`ruflo proxy config --local-only`), reverting to a purely local multi-backend router and revoking the `cloud-routing` consent receipt.
 
+## Relationship to the metallm dev-bridge
+
+The repository already carries an internal meta-llm gateway surface (`metallm_ask` / `metallm_delegate`, the dev-bridge MCP server). This proxy is related but **not** the same thing, and the boundary is explicit:
+
+| | metallm dev-bridge | ADR-304 proxy |
+|---|---|---|
+| Audience | Internal orchestration interface for development of ruflo itself | Supported, customer-facing product |
+| Contract | Best-effort, may change with the gateway | Versioned public API (ADR-308) |
+| Routing core | Shared (cognitum tier-routing policy family) | Shared |
+| Network contract | **No implicit dependency in either direction** | ADR-308 |
+
+- The shared routing core is a library boundary; the dev-bridge and the proxy consume it independently.
+- A **compatibility layer, explicitly versioned**, mediates anywhere the two must interoperate — the internal dev-bridge never becomes the de facto public contract, and public-contract changes never break internal tooling silently.
+- Deprecating or changing the dev-bridge has no effect on proxy customers, and vice versa.
+
 ## Constraints
 
 - **Optional and removable** (ADR-150 discipline): the proxy ships as an optional component; ruflo remains fully operational with it absent or uninstalled. No `dependencies` entry — install is an explicit user action.
@@ -85,6 +102,6 @@ obtains credentials for proxy operation.
 
 ## Consequences
 
-- New CLI surface: `ruflo proxy install|enable|disable|status|config`.
-- `ruflo doctor` gains a proxy health check component.
+- New CLI surface: `ruflo proxy …` — full lifecycle command set (`install|start|stop|status|logs|update|uninstall`) specified in ADR-307, plus `proxy config` for routing mode.
+- `ruflo doctor` gains a proxy health check component (details in ADR-307).
 - This is the conversion product the ADR-301/302/303 touchpoints funnel toward; activation rate is a North Star metric in ADR-305.
