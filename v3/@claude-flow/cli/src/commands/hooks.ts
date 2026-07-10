@@ -4275,12 +4275,26 @@ const statuslineCommand: Command = {
     const system = getSystemMetrics();
     const user = getUserInfo();
 
+    // Funnel promo row (ADR-301). The statusline is spawned with piped stdio
+    // by an interactive host, so interactivity is asserted here; all other
+    // gates (RUFLO_FUNNEL, enterprise policy, config, CI, disclosure,
+    // rotation ratio) are enforced inside getFunnelPromo. Never allowed to
+    // break the statusline.
+    let promo: import('../funnel/types.js').PromoRow | null = null;
+    try {
+      const { getFunnelPromo } = await import('../funnel/index.js');
+      promo = getFunnelPromo({ interactive: true });
+    } catch {
+      promo = null;
+    }
+
     const statusData = {
       user,
       v3Progress: progress,
       security,
       swarm,
       system,
+      promo,
       timestamp: new Date().toISOString()
     };
 

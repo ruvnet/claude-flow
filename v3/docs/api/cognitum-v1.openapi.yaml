@@ -1,0 +1,343 @@
+openapi: 3.1.0
+# ADR-308 — Cognitum Public API and Server Contract (v1).
+# This spec is the cross-organization boundary: it is checked into BOTH the
+# ruflo repository (this file) and the Cognitum server repository; CI in both
+# validates against it, and drift fails the build. Breaking changes require
+# /v2 with a documented overlap window.
+info:
+  title: Cognitum Public API
+  version: 1.0.0
+  description: >
+    Public contract between the open-source ruflo CLI / local Meta LLM proxy
+    and api.cognitum.one. Client failure policy is normative (ADR-308):
+    auth unavailable → local ruflo keeps working; telemetry unavailable →
+    drop or bounded local queue, never block the CLI; funnel policy
+    unavailable → last valid signed policy, else package default; proxy
+    backend unavailable → error to caller, never silent rerouting; deletion
+    unavailable → durable receipt + server-side retry.
+servers:
+  - url: https://api.cognitum.one
+security:
+  - bearerAuth: []
+paths:
+  /v1/auth/device:
+    post:
+      operationId: startDeviceAuthorization
+      summary: Start an RFC 8628 device authorization flow (ADR-306)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [client_id, scope]
+              properties:
+                client_id: { type: string }
+                scope:
+                  type: string
+                  description: >
+                    Space-separated scopes. Requested incrementally; each maps
+                    1:1 onto an ADR-302 consent domain (account.create,
+                    proxy.use, cloud.route, telemetry.write, hosted.memory.use).
+      responses:
+        '200':
+          description: Device code issued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [device_code, user_code, verification_uri, expires_in, interval]
+                properties:
+                  device_code: { type: string }
+                  user_code: { type: string }
+                  verification_uri: { type: string, format: uri }
+                  expires_in: { type: integer }
+                  interval: { type: integer }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /v1/auth/token:
+    post:
+      operationId: exchangeToken
+      summary: Exchange a device/authorization code or refresh token (ADR-306)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [grant_type]
+              properties:
+                grant_type:
+                  type: string
+                  enum: [urn:ietf:params:oauth:grant-type:device_code, authorization_code, refresh_token]
+                device_code: { type: string }
+                code: { type: string }
+                code_verifier: { type: string, description: PKCE verifier }
+                refresh_token: { type: string }
+      responses:
+        '200':
+          description: >
+            Token issued. Access-token lifetime is 10–15 minutes (ADR-306).
+            Responses carry the terms/privacy policy versions in force; a
+            version beyond the client's recorded consent receipt forces
+            re-consent (ADR-302 policyVersion rules).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_token, token_type, expires_in, policy_versions]
+                properties:
+                  access_token: { type: string }
+                  token_type: { type: string, enum: [Bearer] }
+                  expires_in: { type: integer, minimum: 600, maximum: 900 }
+                  refresh_token: { type: string }
+                  scope: { type: string }
+                  policy_versions: { $ref: '#/components/schemas/PolicyVersions' }
+        '400': { $ref: '#/components/responses/ApiError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /v1/auth/revoke:
+    post:
+      operationId: revokeToken
+      summary: Revoke a refresh token / session (ruflo auth logout)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        '200': { description: Revoked (idempotent — revoking a revoked token succeeds) }
+  /v1/events:
+    post:
+      operationId: ingestFunnelEvents
+      summary: Ingest funnel events (ADR-305/309 — consent-gated, idempotent)
+      description: >
+        Requires telemetry.write scope. Retention guarantee is contractual:
+        raw events ≤ 90 days, aggregates only thereafter (no identifiers in
+        aggregates). Events must conform to the closed ADR-309 schema —
+        daily/hourly timestamp buckets, no prompts/paths/repo names.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+          description: Client-generated per batch; retries never double-count.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [events]
+              properties:
+                events:
+                  type: array
+                  maxItems: 100
+                  items: { $ref: '#/components/schemas/FunnelEvent' }
+      responses:
+        '202': { description: Accepted }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /v1/events/{subject_id}:
+    delete:
+      operationId: deleteFunnelEvents
+      summary: Verifiable deletion of a pseudonymous subject's raw events (ADR-309)
+      parameters:
+        - name: subject_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          description: The pseudonymous funnel ID (printable via `ruflo funnel id`).
+      responses:
+        '200':
+          description: Deletion completed; durable receipt returned
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [receipt_id, deleted]
+                properties:
+                  receipt_id: { type: string }
+                  deleted: { type: boolean }
+        '202':
+          description: >
+            Deletion queued (service degraded) — durable receipt returned and
+            the server retries until confirmed (ADR-308 failure policy).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [receipt_id]
+                properties:
+                  receipt_id: { type: string }
+  /v1/funnel-policy:
+    get:
+      operationId: getFunnelPolicy
+      summary: Signed funnel policy feed (ADR-305 freshness kill switch — opt-in only)
+      security: []
+      description: >
+        Ed25519-signed, schema-validated policy DATA — never executable code.
+        Clients validate signature + schema before honoring anything; invalid
+        → discarded entirely, last valid signed policy (or package default)
+        stays in force. A policy can only DISABLE surfaces below the local
+        precedence chain; enables expire after ttl_hours (max 24).
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policy, signature, key_id]
+                properties:
+                  policy:
+                    type: object
+                    required: [schemaVersion, funnelEnabled, issued_at, ttl_hours]
+                    properties:
+                      schemaVersion: { type: integer, const: 1 }
+                      funnelEnabled: { type: boolean }
+                      disabledSurfaces:
+                        type: array
+                        items: { type: string, enum: [statusline, init, credit_exhaustion] }
+                      issued_at: { type: string, format: date-time }
+                      ttl_hours: { type: integer, minimum: 1, maximum: 24 }
+                  signature: { type: string, description: Ed25519 over canonical policy JSON }
+                  key_id: { type: string }
+          description: Current signed policy
+  /v1/proxy/chat/completions:
+    post:
+      operationId: proxyChatCompletions
+      summary: OpenAI-compatible cloud routing (ADR-304/307)
+      description: >
+        Requires cloud.route scope backed by the ADR-302 cloud-routing consent
+        receipt. Responses carry a request receipt: metered cost + resolved
+        tier/model + data plane, in-band. Backend unavailability returns an
+        error — the proxy never silently reroutes to another paid provider.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [model, messages]
+              properties:
+                model: { type: string, description: 'Concrete model or routing alias (cognitum-auto|low|mid|high)' }
+                messages: { type: array, items: { type: object } }
+              additionalProperties: true
+      responses:
+        '200':
+          description: Completion with request receipt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  receipt: { $ref: '#/components/schemas/RequestReceipt' }
+                additionalProperties: true
+        '402':
+          description: Credit exhaustion — the ONLY source of COGNITUM_CREDIT_EXHAUSTED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiErrorBody' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /v1/credits:
+    get:
+      operationId: getCredits
+      summary: Credit balances — the single credit authority (ADR-303)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [daily_remaining, daily_limit, resets_at]
+                properties:
+                  daily_remaining: { type: integer }
+                  daily_limit: { type: integer }
+                  resets_at: { type: string, format: date-time }
+          description: Current balances
+        '401': { $ref: '#/components/responses/ApiError' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  responses:
+    ApiError:
+      description: Machine-readable error (codes map 1:1 to the ADR-303 client taxonomy)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiErrorBody' }
+    RateLimited:
+      description: Rate limited — limits documented per endpoint and echoed in headers
+      headers:
+        Retry-After: { schema: { type: integer } }
+        X-RateLimit-Limit: { schema: { type: integer } }
+        X-RateLimit-Remaining: { schema: { type: integer } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiErrorBody' }
+  schemas:
+    ApiErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: >
+                Machine-readable code — clients classify on THIS, never on
+                message text (ADR-303). Canonical set mirrors the client
+                enum.
+              enum:
+                - cognitum_credit_exhausted
+                - insufficient_quota
+                - rate_limit_exceeded
+                - authentication_error
+                - permission_error
+                - service_unavailable
+                - invalid_request
+            message: { type: string }
+            retryable: { type: boolean }
+    PolicyVersions:
+      type: object
+      required: [terms, privacy]
+      properties:
+        terms: { type: integer }
+        privacy: { type: integer }
+    RequestReceipt:
+      type: object
+      required: [cost_usd, tier, model, data_plane]
+      properties:
+        cost_usd: { type: number }
+        tier: { type: string }
+        model: { type: string }
+        data_plane:
+          type: string
+          description: '"local" or "cloud:<provider>" — visible per request (ADR-304)'
+    FunnelEvent:
+      type: object
+      description: Closed ADR-309 schema — extending the event enum requires an ADR amendment.
+      required: [schemaVersion, event, surface, release, timestampBucket]
+      additionalProperties: false
+      properties:
+        schemaVersion: { type: integer, const: 1 }
+        event:
+          type: string
+          enum: [disclosure_shown, funnel_disabled, signup_opened, account_created, proxy_activated]
+        surface:
+          type: string
+          enum: [statusline, init, credit_exhaustion]
+        release: { type: string }
+        region: { type: string, description: Coarse, self-declared only }
+        pseudonymousId: { type: string, format: uuid }
+        timestampBucket:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}(T\d{2})?$'
+          description: Daily (default) or hourly bucket — full timestamps are rejected.

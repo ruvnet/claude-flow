@@ -765,6 +765,32 @@ async function checkVersionFreshness(): Promise<HealthCheck> {
  *   - plugins/ruflo-metaharness/skills/harness-similarity/SKILL.md
  *   - plugins/ruflo-metaharness/skills/harness-drift-from-history/SKILL.md  (iter 53)
  */
+/**
+ * ADR-305 — funnel state audit. Reports the effective enabled/disabled
+ * state and, critically for enterprise audit verification, WHICH
+ * precedence source decided it (env > enterprise > user > default).
+ * Informational: both states are `pass`; only a resolver failure warns.
+ */
+async function checkFunnel(): Promise<HealthCheck> {
+  try {
+    const { resolveFunnelEnabled, getDisclosure } = await import('../funnel/index.js');
+    const decision = resolveFunnelEnabled();
+    const disclosure = getDisclosure();
+    return {
+      name: 'Funnel (ADR-305)',
+      status: 'pass',
+      message: `${decision.enabled ? 'enabled' : 'disabled'} (decided by: ${decision.decidedBy}; disclosure: ${disclosure.state})`,
+    };
+  } catch (err) {
+    return {
+      name: 'Funnel (ADR-305)',
+      status: 'warn',
+      message: `state unreadable: ${err instanceof Error ? err.message : String(err)}`,
+      fix: 'ruflo funnel status',
+    };
+  }
+}
+
 async function checkMetaharnessIntegration(): Promise<HealthCheck> {
   // Locate plugins dir.
   //
@@ -1201,6 +1227,7 @@ export const doctorCommand: Command = {
       checkFederationBreaker, // ADR-097 Phase 4
       checkMetaharness, // ADR-150 — MetaHarness upstream package
       checkMetaharnessIntegration, // iter 45 — ruflo-side integration layer
+      checkFunnel, // ADR-305 — effective funnel state + deciding precedence source
     ];
 
     const componentMap: Record<string, () => Promise<HealthCheck>> = {
@@ -1226,6 +1253,7 @@ export const doctorCommand: Command = {
       'federation': checkFederationBreaker, // ADR-097 Phase 4
       'metaharness': checkMetaharness, // ADR-150 — upstream package
       'metaharness-integration': checkMetaharnessIntegration, // iter 45 — ruflo-side
+      'funnel': checkFunnel, // ADR-305
     };
 
     let checksToRun = allChecks;

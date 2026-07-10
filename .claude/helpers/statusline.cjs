@@ -188,13 +188,24 @@ function getLocalAgentDB() {
     const memDb = path.join(CWD, '.swarm', 'memory.db');
     if (fs.existsSync(memDb)) {
       const Q = String.fromCharCode(34);
-      const sql = Q + 'SELECT (SELECT COUNT(*) FROM memory_entries WHERE embedding IS NOT NULL)||' + "'|'" + '||(SELECT COUNT(*) FROM vector_indexes);' + Q;
-      const out = safeExec("sqlite3 'file:" + memDb + "?mode=ro' " + sql, 1500);
-      if (out && out.indexOf('|') !== -1) {
-        const parts = out.split('|');
-        result.vectorCount = parseInt(parts[0], 10) || 0;
-        result.hasHnsw = (parseInt(parts[1], 10) || 0) > 0;
-      }
+      // Two INDEPENDENT statements -- do NOT combine into one. Coupling the
+      // vector count with the vector_indexes row count in a single statement
+      // meant that on a DB missing the vector_indexes table (older/agentdb-
+      // written DBs), the whole statement failed at PREPARE time (SQLite
+      // compiles the full SQL before running), so the valid memory_entries
+      // count was discarded too and the statusline showed Vectors 0 despite
+      // thousands of real vectors. Split so a missing table can only zero the
+      // HNSW flag, never the count. The init self-heal provisions the table so
+      // the flag recovers on the next ruflo init / MCP start.
+      const countSql = Q + 'SELECT COUNT(*) FROM memory_entries WHERE embedding IS NOT NULL;' + Q;
+      const vc = safeExec("sqlite3 'file:" + memDb + "?mode=ro' " + countSql, 1500);
+      if (vc) result.vectorCount = parseInt(vc, 10) || 0;
+      // HNSW flag: separate statement. If vector_indexes is absent, sqlite3
+      // exits non-zero and safeExec returns empty -- hasHnsw stays false (exact
+      // original semantics: at least one index-config row present).
+      const hnswSql = Q + 'SELECT COUNT(*) FROM vector_indexes;' + Q;
+      const hn = safeExec("sqlite3 'file:" + memDb + "?mode=ro' " + hnswSql, 1500);
+      if (hn) result.hasHnsw = (parseInt(hn, 10) || 0) > 0;
     }
   } catch { /* ignore */ }
   return result;
@@ -669,7 +680,36 @@ function generateStatusline() {
     integStr
   );
 
+  // Bottom row: funnel promo/tips surface (ADR-301). All policy gates
+  // (RUFLO_FUNNEL, enterprise policy, funnel.enabled, CI, disclosure,
+  // 4:1 content ratio) run in the CLI that produced d.promo; this renderer
+  // re-applies the cheap ones as defense-in-depth because the delegated
+  // JSON passes through a tmp cache. Static text only — never animated.
+  const promoRow = getPromoRow(d);
+  if (promoRow) {
+    lines.push(c.dim + promoRow + c.reset);
+  }
+
   return lines.join('\n');
+}
+
+// ─── Funnel promo row (ADR-301) ─────────────────────────────────
+function getPromoRow(d) {
+  try {
+    if (process.env.CI || process.env.GITHUB_ACTIONS) return null;
+    if (/^(0|false|off|no)$/i.test(String(process.env.RUFLO_FUNNEL || ''))) return null;
+    const promo = d && d.promo;
+    if (!promo || typeof promo.text !== 'string') return null;
+    // Strip control chars / ANSI / bidi overrides and hard-cap length —
+    // promo copy is data and must never emit its own terminal sequences.
+    const text = promo.text
+      .replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, '')
+      .slice(0, 100)
+      .trim();
+    return text.length > 0 ? text : null;
+  } catch (e) {
+    return null; // the promo row must never break the statusline
+  }
 }
 
 // JSON output — delegates to CLI for accuracy; caller can use --json flag

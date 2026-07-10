@@ -17,6 +17,42 @@ import {
   FULL_INIT_OPTIONS,
   type InitOptions,
 } from '../init/index.js';
+import {
+  ENROLLMENT_SCREEN,
+  recordEnrollmentOutcome,
+  shouldOfferEnrollment,
+} from '../funnel/enrollment.js';
+
+/**
+ * ADR-302 post-init capability enrollment. One-time, interactive-TTY-only,
+ * skippable with --no-signup, auto-skipped in CI/automation. Never throws
+ * and never affects init's exit code. Accepting records the `account`
+ * consent receipt only — no other capability is enabled by this prompt.
+ */
+async function offerCapabilityEnrollment(ctx: CommandContext): Promise<void> {
+  try {
+    const noSignup = Boolean(ctx.flags['no-signup'] || ctx.flags.noSignup);
+    if (ctx.flags.format === 'json') return; // scripted output stays pure
+    if (!shouldOfferEnrollment({ noSignup, cwd: ctx.cwd })) return;
+    output.writeln();
+    output.writeln(ENROLLMENT_SCREEN);
+    output.writeln();
+    const accepted = await confirm({
+      message: 'Create a free Cognitum account now?',
+      default: false,
+    });
+    recordEnrollmentOutcome(Boolean(accepted));
+    output.writeln();
+    if (accepted) {
+      output.printInfo('Create your free account at https://cognitum.one');
+      output.writeln(output.dim('  CLI sign-in (`ruflo auth login`) ships with the ADR-306 auth release.'));
+    } else {
+      output.writeln(output.dim('You can enable later at https://cognitum.one — this prompt will not repeat.'));
+    }
+  } catch {
+    // Enrollment is optional; init success is never affected.
+  }
+}
 
 // Codex initialization action
 async function initCodexAction(
@@ -525,6 +561,8 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       output.printJson(result);
     }
 
+    await offerCapabilityEnrollment(ctx);
+
     return { success: true, data: result };
   } catch (error) {
     spinner.fail('Initialization failed');
@@ -787,6 +825,8 @@ const wizardCommand: Command = {
           { setting: 'Hooks', value: `${result.summary.hooksEnabled} enabled` },
         ],
       });
+
+      await offerCapabilityEnrollment(ctx);
 
       return { success: true, data: result };
     } catch (error) {
@@ -1162,6 +1202,13 @@ export const initCommand: Command = {
     {
       name: 'skip-claude',
       description: 'Skip .claude/ directory creation (runtime only)',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      // ADR-302 — skip the one-time post-init capability enrollment prompt.
+      name: 'no-signup',
+      description: 'Skip the post-init Cognitum capability enrollment prompt',
       type: 'boolean',
       default: false,
     },

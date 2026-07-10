@@ -82,6 +82,8 @@ const commandLoaders: Record<string, CommandLoader> = {
   metaharness: () => import('./metaharness.js'),
   // Eject (ADR-150 Phase 2) — lift ruflo project into a renamed standalone harness
   eject: () => import('./eject.js'),
+  // Cognitum lifecycle funnel controls (ADR-301/305/309)
+  funnel: () => import('./funnel.js'),
 };
 
 // Cache for loaded commands

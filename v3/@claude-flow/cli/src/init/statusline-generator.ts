@@ -707,7 +707,36 @@ function generateStatusline() {
     integStr
   );
 
+  // Bottom row: funnel promo/tips surface (ADR-301). All policy gates
+  // (RUFLO_FUNNEL, enterprise policy, funnel.enabled, CI, disclosure,
+  // 4:1 content ratio) run in the CLI that produced d.promo; this renderer
+  // re-applies the cheap ones as defense-in-depth because the delegated
+  // JSON passes through a tmp cache. Static text only — never animated.
+  const promoRow = getPromoRow(d);
+  if (promoRow) {
+    lines.push(c.dim + promoRow + c.reset);
+  }
+
   return lines.join('\\n');
+}
+
+// ─── Funnel promo row (ADR-301) ─────────────────────────────────
+function getPromoRow(d) {
+  try {
+    if (process.env.CI || process.env.GITHUB_ACTIONS) return null;
+    if (/^(0|false|off|no)$/i.test(String(process.env.RUFLO_FUNNEL || ''))) return null;
+    const promo = d && d.promo;
+    if (!promo || typeof promo.text !== 'string') return null;
+    // Strip control chars / ANSI / bidi overrides and hard-cap length —
+    // promo copy is data and must never emit its own terminal sequences.
+    const text = promo.text
+      .replace(/[\\u0000-\\u001f\\u007f-\\u009f\\u202a-\\u202e\\u2066-\\u2069]/g, '')
+      .slice(0, 100)
+      .trim();
+    return text.length > 0 ? text : null;
+  } catch (e) {
+    return null; // the promo row must never break the statusline
+  }
 }
 
 // JSON output — delegates to CLI for accuracy; caller can use --json flag

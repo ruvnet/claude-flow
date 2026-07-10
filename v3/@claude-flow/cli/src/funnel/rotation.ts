@@ -1,0 +1,62 @@
+/**
+ * Rotation scheduler — ADR-301 content ratio, enforced structurally.
+ *
+ *   - Educational: at least 4 of every 5 rotation slots.
+ *   - Promotional: at most 1 of every 5 slots (slot % 5 === 4), and only
+ *     when no promotion has shown in the last 30 minutes.
+ *   - Deterministic: selection is a pure function of (time slot, registry,
+ *     last-promo state) — no Math.random, so renders are reproducible and
+ *     the statusline cache can't skew the ratio.
+ */
+
+import type { FunnelMessage } from './types.js';
+import { eligibleMessages } from './messages.js';
+import { readStateJson, writeStateJson } from './state.js';
+
+const ROTATION_FILE = 'funnel-rotation.json';
+
+/** One rotation slot — ADR-301 allows 15–30s; 20s sits inside the band. */
+export const ROTATION_SLOT_MS = 20_000;
+/** The same promotion appears at most once every 30 minutes (ADR-301). */
+export const PROMO_REPEAT_CAP_MS = 30 * 60 * 1000;
+/** 1 promotional slot per 5 (ADR-301: ≤ 1 in 5 rotations). */
+export const PROMO_SLOT_MODULO = 5;
+
+interface RotationState {
+  lastPromoAt?: string;
+  lastPromoId?: string;
+}
+
+export function selectMessage(now: Date = new Date()): FunnelMessage | null {
+  const pool = eligibleMessages(now);
+  const educational = pool.filter((m) => m.class === 'educational');
+  const promotional = pool.filter((m) => m.class === 'promotional');
+  if (educational.length === 0 && promotional.length === 0) return null;
+
+  const slot = Math.floor(now.getTime() / ROTATION_SLOT_MS);
+  const promoSlot = slot % PROMO_SLOT_MODULO === PROMO_SLOT_MODULO - 1;
+
+  if (promoSlot && promotional.length > 0 && promoCapClear(now)) {
+    const msg = promotional[Math.floor(slot / PROMO_SLOT_MODULO) % promotional.length];
+    recordPromoShown(msg, now);
+    return msg;
+  }
+
+  if (educational.length === 0) return null; // never fill an educational slot with promo
+  return educational[slot % educational.length];
+}
+
+function promoCapClear(now: Date): boolean {
+  const state = readStateJson<RotationState>(ROTATION_FILE);
+  if (!state?.lastPromoAt) return true;
+  const last = Date.parse(state.lastPromoAt);
+  if (Number.isNaN(last)) return true;
+  return now.getTime() - last >= PROMO_REPEAT_CAP_MS;
+}
+
+function recordPromoShown(msg: FunnelMessage, now: Date): void {
+  writeStateJson(ROTATION_FILE, {
+    lastPromoAt: now.toISOString(),
+    lastPromoId: msg.id,
+  } satisfies RotationState);
+}
