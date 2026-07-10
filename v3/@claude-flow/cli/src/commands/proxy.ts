@@ -22,6 +22,7 @@ import { output } from '../output.js';
 import { hasConsent, recordConsent, revokeConsent, funnelStateDir } from '../funnel/index.js';
 import { recordFunnelEvent } from '../funnel/events.js';
 import { clearRateLimitStatus, readRateLimitStatus } from '../funnel/rate-limit-notifier.js';
+import { clearQuotaLowStatus, readQuotaLowStatus } from '../funnel/power-saver-notifier.js';
 import { getInstalledCliVersion } from '../init/helper-refresh.js';
 import * as path from 'path';
 
@@ -43,21 +44,30 @@ function readProxyConfigRaw(): string {
   }
 }
 
-function writeSponsoredConsentMirror(granted: boolean): void {
+function writeConsentMirrorLine(field: string, value: boolean): void {
   const dir = funnelStateDir();
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const target = path.join(dir, PROXY_CONFIG_FILE);
   const raw = readProxyConfigRaw();
-  const line = `sponsored_consent_granted = ${granted}`;
+  const line = `${field} = ${value}`;
+  const pattern = new RegExp(`^${field}\\s*=.*$`, 'm');
   let next: string;
-  if (/^sponsored_consent_granted\s*=.*$/m.test(raw)) {
-    next = raw.replace(/^sponsored_consent_granted\s*=.*$/m, line);
+  if (pattern.test(raw)) {
+    next = raw.replace(pattern, line);
   } else {
     next = raw.length > 0 ? `${raw.trimEnd()}\n${line}\n` : `${line}\n`;
   }
   const tmp = `${target}.tmp`;
   fs.writeFileSync(tmp, next, { encoding: 'utf-8', mode: 0o600 });
   fs.renameSync(tmp, target);
+}
+
+function writeSponsoredConsentMirror(granted: boolean): void {
+  writeConsentMirrorLine('sponsored_consent_granted', granted);
+}
+
+function writePowerSaverConsentMirror(granted: boolean): void {
+  writeConsentMirrorLine('power_saver_consent_granted', granted);
 }
 
 const SPONSOR_DISCLOSURE = [
@@ -135,19 +145,111 @@ const sponsorClearSub: Command = {
   name: 'sponsor-clear',
   description: 'Clear the rate-limited flag (your Claude limit has reset)',
   action: async (): Promise<CommandResult> => {
-    clearRateLimitStatus();
+    const changed = clearRateLimitStatus();
+    if (!changed) {
+      output.printError('Rate-limit flag was just toggled — try again in a few minutes (ADR-314 anti-abuse cooldown).');
+      return { success: false };
+    }
     output.printSuccess('Rate-limit flag cleared.');
+    return { success: true };
+  },
+};
+
+const POWER_SAVER_DISCLOSURE = [
+  'Enabling power saver mode.',
+  '',
+  "Everyday requests will route through Cognitum's own difficulty-based",
+  'router (cognitum-auto) instead of your Claude subscription directly —',
+  'simple messages stay cheap, genuinely hard reasoning still escalates to',
+  'a comparable frontier model. This is billed to YOUR OWN Cognitum',
+  'account (cloud-routing), not sponsored/free capacity — a separate',
+  'decision from sponsored downtime mode.',
+  '',
+  'Disable anytime: ruflo proxy power-saver-disable',
+].join('\n');
+
+const powerSaverEnableSub: Command = {
+  name: 'power-saver-enable',
+  description: 'Opt into power saver mode — route everyday requests through your own Cognitum account (ADR-314)',
+  options: [
+    { name: 'yes', description: 'Skip the confirmation prompt', type: 'boolean', default: false },
+  ],
+  action: async (ctx): Promise<CommandResult> => {
+    if (hasConsent('power-saver')) {
+      output.writeln('Power saver mode is already enabled.');
+      return { success: true, data: { alreadyEnabled: true } };
+    }
+    output.writeln(POWER_SAVER_DISCLOSURE);
+    output.writeln('');
+    if (!ctx.flags.yes) {
+      output.writeln('Re-run with --yes to confirm: ruflo proxy power-saver-enable --yes');
+      return { success: true, data: { confirmed: false } };
+    }
+    recordConsent('power-saver', true, 'proxy-power-saver-enable');
+    writePowerSaverConsentMirror(true);
+    recordFunnelEvent('power_saver_enabled', 'statusline', getInstalledCliVersion());
+    output.printSuccess('Power saver mode enabled.');
+    output.writeln('Flag it active with: ruflo settings notices quota-low');
+    output.writeln('Disable anytime: ruflo proxy power-saver-disable');
+    return { success: true, data: { confirmed: true } };
+  },
+};
+
+const powerSaverDisableSub: Command = {
+  name: 'power-saver-disable',
+  description: 'Revoke power-saver consent and stop routing through Cognitum for cost savings',
+  action: async (): Promise<CommandResult> => {
+    revokeConsent('power-saver', 'proxy-power-saver-disable');
+    writePowerSaverConsentMirror(false);
+    recordFunnelEvent('power_saver_disabled', 'statusline', getInstalledCliVersion());
+    output.printSuccess('Power saver mode disabled.');
+    return { success: true };
+  },
+};
+
+const powerSaverStatusSub: Command = {
+  name: 'power-saver-status',
+  description: 'Show power-saver consent + quota-low flag state',
+  action: async (): Promise<CommandResult> => {
+    const consented = hasConsent('power-saver');
+    const quotaLow = readQuotaLowStatus();
+    output.writeln(`Power saver consent: ${consented ? 'granted' : 'not granted'}`);
+    output.writeln(`Quota-low flag: ${quotaLow.low ? `set (since ${quotaLow.since})` : 'not set'}`);
+    if (quotaLow.low && !consented) {
+      output.writeln('');
+      output.writeln('You are flagged as running low but have not enabled power saver');
+      output.writeln('mode. Enable it with: ruflo proxy power-saver-enable --yes');
+    }
+    return { success: true, data: { consented, quotaLow } };
+  },
+};
+
+/** Convenience: clear the quota-low flag once you're back to normal. */
+const powerSaverClearSub: Command = {
+  name: 'power-saver-clear',
+  description: 'Clear the quota-low flag',
+  action: async (): Promise<CommandResult> => {
+    const changed = clearQuotaLowStatus();
+    if (!changed) {
+      output.printError('Quota-low flag was just toggled — try again in a few minutes (ADR-314 anti-abuse cooldown).');
+      return { success: false };
+    }
+    output.printSuccess('Quota-low flag cleared.');
     return { success: true };
   },
 };
 
 export const proxyCommand: Command = {
   name: 'proxy',
-  description: 'Meta LLM Proxy — sponsored downtime capacity (ADR-304/307/313)',
-  subcommands: [sponsorEnableSub, sponsorDisableSub, sponsorStatusSub, sponsorClearSub],
+  description: 'Meta LLM Proxy — sponsored downtime + power saver (ADR-304/307/313/314)',
+  subcommands: [
+    sponsorEnableSub, sponsorDisableSub, sponsorStatusSub, sponsorClearSub,
+    powerSaverEnableSub, powerSaverDisableSub, powerSaverStatusSub, powerSaverClearSub,
+  ],
   examples: [
     { command: 'ruflo proxy sponsor-status', description: 'Show current sponsored-mode state' },
     { command: 'ruflo proxy sponsor-enable --yes', description: 'Opt into sponsored downtime capacity' },
+    { command: 'ruflo proxy power-saver-enable --yes', description: 'Opt into power saver mode' },
   ],
   action: sponsorStatusSub.action,
 };

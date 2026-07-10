@@ -35,6 +35,12 @@ import {
   rateLimitNotice,
   readRateLimitStatus,
 } from '../funnel/rate-limit-notifier.js';
+import {
+  clearQuotaLowStatus,
+  markQuotaLow,
+  quotaLowNotice,
+  readQuotaLowStatus,
+} from '../funnel/power-saver-notifier.js';
 
 function setUserConfigEnabled(enabled: boolean): void {
   const cfg = readStateJson<Record<string, unknown>>('funnel.json') ?? {};
@@ -103,11 +109,19 @@ const rateLimitedSub: Command = {
   ],
   action: async (ctx): Promise<CommandResult> => {
     if (ctx.flags.clear) {
-      clearRateLimitStatus();
+      const changed = clearRateLimitStatus();
+      if (!changed) {
+        output.printError('Rate-limit flag was just toggled — try again in a few minutes (ADR-314 anti-abuse cooldown).');
+        return { success: false };
+      }
       output.printSuccess('Rate-limit flag cleared.');
       return { success: true };
     }
-    markRateLimited();
+    const changed = markRateLimited();
+    if (!changed) {
+      output.printError('Rate-limit flag was just toggled — try again in a few minutes (ADR-314 anti-abuse cooldown).');
+      return { success: false };
+    }
     output.printSuccess('Rate-limit flag set.');
     output.writeln('');
     output.writeln('This is a manual, self-reported flag — ruflo cannot detect Claude\'s');
@@ -121,10 +135,45 @@ const rateLimitedSub: Command = {
   },
 };
 
+const quotaLowSub: Command = {
+  name: 'quota-low',
+  description: 'Manually flag that your Claude quota is running low (ADR-314 power saver)',
+  options: [
+    { name: 'clear', description: 'Clear the flag', type: 'boolean', default: false },
+  ],
+  action: async (ctx): Promise<CommandResult> => {
+    if (ctx.flags.clear) {
+      const changed = clearQuotaLowStatus();
+      if (!changed) {
+        output.printError('Quota-low flag was just toggled — try again in a few minutes (ADR-314 anti-abuse cooldown).');
+        return { success: false };
+      }
+      output.printSuccess('Quota-low flag cleared.');
+      return { success: true };
+    }
+    const changed = markQuotaLow();
+    if (!changed) {
+      output.printError('Quota-low flag was just toggled — try again in a few minutes (ADR-314 anti-abuse cooldown).');
+      return { success: false };
+    }
+    output.printSuccess('Quota-low flag set.');
+    output.writeln('');
+    output.writeln('This is a manual, self-reported flag — ruflo cannot read your actual');
+    output.writeln('quota percentage today (see ADR-312/314). While flagged, and once you');
+    output.writeln('enable power saver mode, everyday requests route through Cognitum\'s');
+    output.writeln('own difficulty-based router (billed to your own Cognitum account):');
+    output.writeln('  ruflo proxy power-saver-enable');
+    output.writeln('');
+    output.writeln('Clear it any time: ruflo settings notices quota-low --clear');
+    const notice = quotaLowNotice();
+    return { success: true, data: { notice, status: readQuotaLowStatus() } };
+  },
+};
+
 const noticesCommand: Command = {
   name: 'notices',
   description: 'Control the statusline notices row',
-  subcommands: [noticesStatusSub, noticesOffSub, noticesOnSub, noticesIdSub, rateLimitedSub],
+  subcommands: [noticesStatusSub, noticesOffSub, noticesOnSub, noticesIdSub, rateLimitedSub, quotaLowSub],
   action: noticesStatusSub.action,
 };
 

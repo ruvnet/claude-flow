@@ -61,7 +61,12 @@ export type ConsentDomain =
   | 'hosted-memory'
   // ADR-313: separate from cloud-routing — sponsored capacity is Cognitum's
   // own model traffic, billed to Cognitum, not the user's cloud config.
-  | 'sponsored-downtime';
+  | 'sponsored-downtime'
+  // ADR-314: separate from both — power saver routes through the user's OWN
+  // Cognitum account (Cloud plane), not sponsored/free capacity, but it's
+  // still a distinct decision from generic cloud-routing (auto-rewrites the
+  // model to cognitum-auto, which cloud-routing consent alone doesn't imply).
+  | 'power-saver';
 
 export interface ConsentReceipt {
   granted: boolean;
@@ -129,7 +134,11 @@ export type FunnelEventName =
   // ADR-313 sponsored downtime mode
   | 'sponsor_mode_enabled'
   | 'sponsor_mode_disabled'
-  | 'sponsor_capacity_exhausted';
+  | 'sponsor_capacity_exhausted'
+  // ADR-314 power saver mode + anti-abuse
+  | 'power_saver_enabled'
+  | 'power_saver_disabled'
+  | 'toggle_cooldown_blocked';
 
 export type FunnelSurface = 'statusline' | 'init' | 'credit_exhaustion';
 

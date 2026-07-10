@@ -37,6 +37,9 @@ const EVENT_NAMES: readonly FunnelEventName[] = [
   'sponsor_mode_enabled',
   'sponsor_mode_disabled',
   'sponsor_capacity_exhausted',
+  'power_saver_enabled',
+  'power_saver_disabled',
+  'toggle_cooldown_blocked',
 ];
 const SURFACES: readonly FunnelSurface[] = ['statusline', 'init', 'credit_exhaustion'];
 

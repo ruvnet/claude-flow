@@ -70,6 +70,14 @@ import {
   rateLimitNotice,
   readRateLimitStatus,
 } from '../src/funnel/rate-limit-notifier.js';
+import {
+  QUOTA_LOW_TTL_MS,
+  clearQuotaLowStatus,
+  markQuotaLow,
+  quotaLowNotice,
+  readQuotaLowStatus,
+} from '../src/funnel/power-saver-notifier.js';
+import { TOGGLE_COOLDOWN_MS, cooldownActive, cooldownRemainingMin } from '../src/funnel/toggle-cooldown.js';
 import { shouldOfferEnrollment, recordEnrollmentOutcome, getEnrollmentRecord } from '../src/funnel/enrollment.js';
 import { generateStatuslineScript } from '../src/init/statusline-generator.js';
 
@@ -823,8 +831,11 @@ describe('rate-limit notifier (ADR-312 Phase 0 — manual, self-reported)', () =
   it('clearRateLimitStatus stamps `cleared` and flips `limited` false', () => {
     const t0 = new Date('2026-07-10T12:00:00.000Z');
     markRateLimited(t0);
-    clearRateLimitStatus(new Date(t0.getTime() + 1000));
-    const status = readRateLimitStatus(new Date(t0.getTime() + 1000));
+    // Past the ADR-314 §D1 toggle cooldown (10 min) — a clear inside that
+    // window is deliberately refused (covered separately below).
+    const t1 = new Date(t0.getTime() + 11 * 60 * 1000);
+    clearRateLimitStatus(t1);
+    const status = readRateLimitStatus(t1);
     expect(status.limited).toBe(false);
     expect(status.cleared).not.toBeNull();
   });
@@ -844,6 +855,107 @@ describe('rate-limit notifier (ADR-312 Phase 0 — manual, self-reported)', () =
     const notice = rateLimitNotice(new Date(t0.getTime() + 5 * 60 * 1000));
     expect(notice).toContain('5m ago');
     expect(notice).toContain('ruflo proxy sponsor-enable');
+  });
+});
+
+describe('toggle cooldown (ADR-314 §D1 — anti-abuse friction)', () => {
+  it('is inactive with no prior toggle', () => {
+    expect(cooldownActive(null, new Date())).toBe(false);
+  });
+
+  it('is active just before the cooldown window elapses', () => {
+    const t0 = new Date('2026-07-10T12:00:00.000Z');
+    const justBefore = new Date(t0.getTime() + TOGGLE_COOLDOWN_MS - 1000);
+    expect(cooldownActive(t0.toISOString(), justBefore)).toBe(true);
+  });
+
+  it('clears just after the cooldown window elapses', () => {
+    const t0 = new Date('2026-07-10T12:00:00.000Z');
+    const justAfter = new Date(t0.getTime() + TOGGLE_COOLDOWN_MS + 1000);
+    expect(cooldownActive(t0.toISOString(), justAfter)).toBe(false);
+  });
+
+  it('reports remaining minutes, floored to zero once elapsed', () => {
+    const t0 = new Date('2026-07-10T12:00:00.000Z');
+    const fiveMinIn = new Date(t0.getTime() + 5 * 60 * 1000);
+    expect(cooldownRemainingMin(t0.toISOString(), fiveMinIn)).toBe(5);
+    expect(cooldownRemainingMin(t0.toISOString(), new Date(t0.getTime() + TOGGLE_COOLDOWN_MS + 1000))).toBe(0);
+  });
+
+  it('rate-limit mark→clear inside the cooldown window is refused', () => {
+    const t0 = new Date('2026-07-10T12:30:00.000Z');
+    expect(markRateLimited(t0)).toBe(true);
+    const stillCoolingDown = new Date(t0.getTime() + 1000);
+    expect(clearRateLimitStatus(stillCoolingDown)).toBe(false);
+    // The refusal must not have silently applied — still limited.
+    expect(readRateLimitStatus(stillCoolingDown).limited).toBe(true);
+  });
+
+  it('rate-limit mark→clear after the cooldown window succeeds', () => {
+    const t0 = new Date('2026-07-10T12:31:00.000Z');
+    expect(markRateLimited(t0)).toBe(true);
+    const afterCooldown = new Date(t0.getTime() + TOGGLE_COOLDOWN_MS + 1000);
+    expect(clearRateLimitStatus(afterCooldown)).toBe(true);
+    expect(readRateLimitStatus(afterCooldown).limited).toBe(false);
+  });
+
+  it('re-marking an already-limited flag is not a state change — cooldown does not apply', () => {
+    const t0 = new Date('2026-07-10T12:32:00.000Z');
+    expect(markRateLimited(t0)).toBe(true);
+    // Immediately re-marking (still limited) must succeed — it's a no-op idempotent call.
+    expect(markRateLimited(new Date(t0.getTime() + 1000))).toBe(true);
+  });
+});
+
+describe('power-saver notifier (ADR-314 §A — manual, self-reported, mirrors rate-limit)', () => {
+  it('starts not-low', () => {
+    expect(readQuotaLowStatus().low).toBe(false);
+    expect(quotaLowNotice()).toBeNull();
+  });
+
+  it('markQuotaLow is idempotent — stable `since`', () => {
+    const t0 = new Date('2026-07-10T13:00:00.000Z');
+    markQuotaLow(t0);
+    const first = readQuotaLowStatus(t0);
+    expect(first.low).toBe(true);
+    expect(first.since).toBe(t0.toISOString());
+    markQuotaLow(new Date(t0.getTime() + 60_000));
+    const second = readQuotaLowStatus(new Date(t0.getTime() + 60_000));
+    expect(second.since).toBe(t0.toISOString());
+  });
+
+  it('clearQuotaLowStatus stamps `cleared` and flips `low` false, past the cooldown', () => {
+    const t0 = new Date('2026-07-10T13:01:00.000Z');
+    markQuotaLow(t0);
+    const t1 = new Date(t0.getTime() + TOGGLE_COOLDOWN_MS + 1000);
+    expect(clearQuotaLowStatus(t1)).toBe(true);
+    const status = readQuotaLowStatus(t1);
+    expect(status.low).toBe(false);
+    expect(status.cleared).not.toBeNull();
+  });
+
+  it('auto-expires the flag after the TTL', () => {
+    const t0 = new Date('2026-07-10T13:02:00.000Z');
+    markQuotaLow(t0);
+    const justBefore = readQuotaLowStatus(new Date(t0.getTime() + QUOTA_LOW_TTL_MS - 1000));
+    expect(justBefore.low).toBe(true);
+    const justAfter = readQuotaLowStatus(new Date(t0.getTime() + QUOTA_LOW_TTL_MS + 1000));
+    expect(justAfter.low).toBe(false);
+  });
+
+  it('quotaLowNotice humanizes age and points at power-saver-disable', () => {
+    const t0 = new Date('2026-07-10T13:03:00.000Z');
+    markQuotaLow(t0);
+    const notice = quotaLowNotice(new Date(t0.getTime() + 5 * 60 * 1000));
+    expect(notice).toContain('5m ago');
+    expect(notice).toContain('ruflo proxy power-saver-disable');
+  });
+
+  it('mark→clear inside the cooldown window is refused, same as rate-limit', () => {
+    const t0 = new Date('2026-07-10T13:04:00.000Z');
+    expect(markQuotaLow(t0)).toBe(true);
+    expect(clearQuotaLowStatus(new Date(t0.getTime() + 1000))).toBe(false);
+    expect(readQuotaLowStatus(new Date(t0.getTime() + 1000)).low).toBe(true);
   });
 });
 

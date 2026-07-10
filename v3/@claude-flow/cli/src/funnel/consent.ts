@@ -21,6 +21,7 @@ export const CONSENT_DOMAINS: ConsentDomain[] = [
   'cloud-routing',
   'hosted-memory',
   'sponsored-downtime',
+  'power-saver',
 ];
 
 export function readConsents(): ConsentFile {

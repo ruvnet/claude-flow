@@ -20,6 +20,7 @@
  */
 
 import { readStateJson, writeStateJson } from './state.js';
+import { cooldownActive } from './toggle-cooldown.js';
 
 export const RATE_LIMIT_STATUS_FILE = 'rate-limit-status.json';
 
@@ -30,6 +31,8 @@ export interface RateLimitStatus {
   limited: boolean;
   since: string | null;
   cleared: string | null;
+  /** ADR-314 §D1 — last time `limited` actually changed value; gates the toggle cooldown. */
+  lastToggleAt: string | null;
 }
 
 /** Read the current rate-limit status. Never throws. Applies the TTL. */
@@ -39,11 +42,12 @@ export function readRateLimitStatus(now: Date = new Date()): RateLimitStatus {
     limited: raw?.limited ?? false,
     since: raw?.since ?? null,
     cleared: raw?.cleared ?? null,
+    lastToggleAt: raw?.lastToggleAt ?? null,
   };
   if (status.limited && status.since) {
     const since = Date.parse(status.since);
     if (!Number.isNaN(since) && now.getTime() - since >= RATE_LIMIT_TTL_MS) {
-      return { limited: false, since: status.since, cleared: now.toISOString() };
+      return { limited: false, since: status.since, cleared: now.toISOString(), lastToggleAt: status.lastToggleAt };
     }
   }
   return status;
@@ -52,30 +56,42 @@ export function readRateLimitStatus(now: Date = new Date()): RateLimitStatus {
 /**
  * Mark as rate-limited — idempotent. Sets `since` on the first mark, leaves
  * it alone on subsequent marks so the user sees a stable "since" timestamp
- * until they clear it or the TTL expires.
+ * until they clear it or the TTL expires. Refuses to flip false→true inside
+ * the ADR-314 §D1 cooldown window (returns false; a no-op re-mark of an
+ * already-true flag is unaffected — that's not a state change).
  */
-export function markRateLimited(now: Date = new Date()): void {
+export function markRateLimited(now: Date = new Date()): boolean {
   const current = readRateLimitStatus(now);
-  if (current.limited && current.since) return; // already flagged
+  if (current.limited && current.since) return true; // already flagged, not a change
+  if (cooldownActive(current.lastToggleAt, now)) return false;
   writeStateJson(RATE_LIMIT_STATUS_FILE, {
     limited: true,
     since: current.since ?? now.toISOString(),
     cleared: null,
+    lastToggleAt: now.toISOString(),
   } satisfies RateLimitStatus);
+  return true;
 }
 
 /**
  * Clear rate-limited status. Called via `ruflo settings notices
  * rate-limited --clear`, automatically by the TTL, or once a real Phase 1/2
- * signal (ADR-312) confirms the limit has reset.
+ * signal (ADR-312) confirms the limit has reset. Refuses to flip true→false
+ * inside the cooldown window (returns false); clearing an already-clear
+ * flag is always allowed (not a state change, and TTL auto-clear must never
+ * be blocked by a cooldown it didn't itself trigger).
  */
-export function clearRateLimitStatus(now: Date = new Date()): void {
+export function clearRateLimitStatus(now: Date = new Date()): boolean {
   const current = readRateLimitStatus(now);
+  if (!current.limited) return true; // already clear, not a change
+  if (cooldownActive(current.lastToggleAt, now)) return false;
   writeStateJson(RATE_LIMIT_STATUS_FILE, {
     limited: false,
     since: current.since,
     cleared: now.toISOString(),
+    lastToggleAt: now.toISOString(),
   } satisfies RateLimitStatus);
+  return true;
 }
 
 /**
