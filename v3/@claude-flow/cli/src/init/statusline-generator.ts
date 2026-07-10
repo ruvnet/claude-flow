@@ -790,26 +790,30 @@ function getPromoRow(d) {
       .slice(0, 100)
       .trim();
     if (text.length === 0) return null;
-    // Split the label from the trailing "· manage: ..." instruction so:
-    //   1. only the label is OSC 8 wrapped (the manage text isn't a click
-    //      target; wrapping it as one would be misleading),
-    //   2. only the label gets the visual underline that signals "click me",
-    //   3. the manage instruction reads as dim metadata — visibly separate,
-    //      answering "how do I change these?" without competing for attention.
+    // Split the label from the trailing "· manage: ruflo settings" instruction
+    // so each part gets styling that matches what it actually IS:
+    //   1. label   — OSC 8 hyperlink + underline. A real clickable link.
+    //   2. "manage:" — dim. Just a connector word, no action implied.
+    //   3. "ruflo settings" — bold/bright, NOT underlined. This is a shell
+    //      command the user TYPES, not a link they CLICK — a terminal can
+    //      never safely execute a command from a click (that would let any
+    //      server-served message run arbitrary commands), so we deliberately
+    //      avoid the underline/OSC8 cues that imply "clickable". Bold+bright
+    //      instead signals "this is the important bit — copy/type it".
     // Educational tips have no manage tail and no URL — plain text through.
-    const manageIdx = text.indexOf(' · manage');
+    const manageIdx = text.indexOf(' · manage: ');
     const label = manageIdx > 0 ? text.slice(0, manageIdx) : text;
-    const tail = manageIdx > 0 ? text.slice(manageIdx) : '';
-    // ANSI underline is the universal "this is a link" cue. Combined with
-    // the OSC 8 hyperlink escape, terminals that support hyperlinks show
-    // click-navigable text; terminals that don't at least show it looks
-    // like a link so the user knows *something* is there.
+    const manageWord = manageIdx > 0 ? ' · manage: ' : '';
+    const command = manageIdx > 0 ? text.slice(manageIdx + manageWord.length) : '';
     const UL_ON = '\\u001b[4m';
     const UL_OFF = '\\u001b[24m';
     const DIM_ON = '\\u001b[2m';
     const DIM_OFF = '\\u001b[22m';
+    const BOLD_ON = '\\u001b[1m';
+    const BOLD_OFF = '\\u001b[22m';
     const linked = promo.url ? UL_ON + safeTerminalLink(label, promo.url) + UL_OFF : label;
-    return tail ? linked + DIM_ON + tail + DIM_OFF : linked;
+    if (!command) return linked;
+    return linked + DIM_ON + manageWord + DIM_OFF + BOLD_ON + command + BOLD_OFF;
   } catch (e) {
     return null; // the promo row must never break the statusline
   }

@@ -594,21 +594,30 @@ describe('attributionUrl (ADR-305 measurement, no runtime network)', () => {
 });
 
 describe('getFunnelPromo — API-down fallback discipline', () => {
-  it('generated statusline underlines only the clickable label, not the disable tail', () => {
-    // CTA affordance: the OSC 8 label is wrapped in ANSI underline ([4m)
-    // so terminals show it as a clickable link even when the OSC 8 hyperlink
-    // isn't supported. The trailing "· disable: ..." is dim + non-underlined
-    // so users read it as metadata, not as part of the click target.
+  it('generated statusline styles the label as a link and the command as bold-not-underlined', () => {
+    // CTA affordance: the OSC 8 label is wrapped in ANSI underline so terminals
+    // show it as a clickable link even when the OSC 8 hyperlink itself isn't
+    // supported.
+    //
+    // "manage: ruflo settings" is a shell command, not a URL -- a terminal can
+    // never safely execute a command from a click (that would let any
+    // server-served message run arbitrary commands), so it must NEVER be
+    // underlined or OSC-8-wrapped. Instead "ruflo settings" renders bold so it
+    // visually reads as "the important bit to copy/type", not a dead link.
     const script = generateStatuslineScript({
       statusline: { enabled: true, style: 'compact' as const },
       runtime: { maxAgents: 15 },
     });
-    // Underline on/off must sandwich the OSC 8 wrap.
+    // Underline on/off must sandwich the OSC 8 wrap on the label only.
     expect(script).toMatch(/UL_ON \+ safeTerminalLink\(label, promo\.url\) \+ UL_OFF/);
-    // Dim tail must be rendered separately.
-    expect(script).toMatch(/DIM_ON \+ tail \+ DIM_OFF/);
-    // The split must be on the exact disable-instruction anchor.
-    expect(script).toMatch(/text\.indexOf\(' · manage'\)/);
+    // "manage: " connector stays dim.
+    expect(script).toMatch(/DIM_ON \+ manageWord \+ DIM_OFF/);
+    // The command itself is bold, never underlined / OSC-8-wrapped.
+    expect(script).toMatch(/BOLD_ON \+ command \+ BOLD_OFF/);
+    expect(script).not.toMatch(/UL_ON \+ command/);
+    expect(script).not.toMatch(/safeTerminalLink\(command/);
+    // The split must be on the exact manage-instruction anchor.
+    expect(script).toMatch(/text\.indexOf\(' · manage: '\)/);
   });
 
   it('generated statusline emits exactly 3 lines: header, ops, promo', () => {
