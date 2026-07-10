@@ -119,6 +119,38 @@ per-user, scoped `cognitum_api_key` — the field must be populated manually tod
 sponsored-tier key automatically on enable is server-side work (Cognitum key-issuance) tracked as
 follow-up, not blocking today's fix.
 
+### Addendum (2026-07-10): a fourth data plane — Passthrough, now the default
+
+The fix above still left a real gap, surfaced by direct question rather than found proactively:
+none of Local/Cloud/Sponsored routes to the user's own Anthropic subscription. Setting
+`ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` — required to reach this proxy at all — makes Claude
+Code stop managing its own Max/Pro OAuth session entirely for as long as they're set (confirmed in
+the installed CLI's own source: the literal string `"Unset the environment variable to use your
+subscription instead"`). So with the proxy in the loop, **every** request bypassed the user's paid
+subscription, all the time — not just during the rate-limited window this feature exists for.
+
+Added `DataPlane::Passthrough`, now `default_data_plane`'s default value: the proxy reads Claude
+Code's own `~/.claude/.credentials.json` (read-only, never modified) and forwards unaltered to the
+real `https://api.anthropic.com/v1/messages` using the actual OAuth access token —
+`Authorization: Bearer <token>` plus `anthropic-beta: oauth-2025-04-20`, the exact mechanism Claude
+Code itself uses, merged with any beta flags the client already sent (e.g. prompt-caching). The
+proxy never attempts an OAuth refresh itself — an expired token fails Passthrough closed with a
+message pointing at a normal (non-proxied) `claude` run to refresh it, rather than reimplementing
+Anthropic's private refresh flow.
+
+Net effect: with the proxy always in the loop (`ANTHROPIC_BASE_URL` permanently set), a single
+continuous Claude Code session now gets genuine per-request dynamic behavior — real subscription
+usage by default, live diversion to Cognitum sponsored capacity the moment the rate-limit flag is
+set, and an automatic revert to the subscription the instant it clears. No session restart needed
+at either transition. Verified live: Passthrough returns a real Anthropic response using the actual
+subscription token (confirmed via response fields — `cache_creation`, `service_tier` — that only
+real Anthropic returns, never Cognitum); the sponsored/passthrough transition was verified in both
+directions within one running proxy process.
+
+OpenAI-shaped `/v1/chat/completions`/`/v1/sponsor/chat/completions` have no Anthropic↔OpenAI
+translator and treat Passthrough as Local — moot today since only `/v1/messages` is reachable from
+Claude Code.
+
 ## Consequences
 
 - Sponsored mode is a **goodwill / acquisition feature**, and its entire cost-control burden sits server-side (Cognitum's ceiling + circuit breaker) — the client never needs to reason about Cognitum's sponsorship budget, only about the boolean "is sponsored mode currently available/active."
