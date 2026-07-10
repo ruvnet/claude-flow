@@ -1,55 +1,33 @@
 /**
- * Existing-install disclosure gate — ADR-301.
+ * Existing-install disclosure gate — ADR-301, amended by ADR-311 to source
+ * the disclosure MESSAGE itself from the remote feed rather than hardcoding
+ * it in the CLI. Everything about WHETHER/WHEN to show a disclosure stays
+ * local (state machine below); everything about WHAT it says comes from
+ * the same remote pool as tips/promos, validated through the identical
+ * ADR-301 content pipeline (isValidMessage in messages.ts).
  *
  * Invariants (release-blocking, tested):
  *   - No promotional content before disclosure.
- *   - The disable instruction appears in the first disclosure itself.
+ *   - The manage instruction appears in the disclosure text itself.
  *   - Shown once per user (user-level receipt), not once per project.
  *   - Declining disables all funnel surfaces (enforced in precedence.ts).
+ *   - Fail-closed: if the remote feed has never successfully populated a
+ *     disclosure-class message, there is nothing to show — no local
+ *     fallback text exists (ADR-311 "zero local promo content").
  *
  * The disclosure text stays on the promo row for a grace window after its
  * first render so a single flash can't count as "the user was told"; only
  * after the window do promotional messages become eligible.
  */
 
-import type { DisclosureRecord, FunnelDisclosureState } from './types.js';
+import type { DisclosureRecord, FunnelDisclosureState, FunnelMessage } from './types.js';
 import { readStateJson, writeStateJson } from './state.js';
+import { getRemoteMessages } from './message-transport.js';
 
 const DISCLOSURE_FILE = 'funnel-disclosure.json';
 
 /** How long the disclosure text keeps the row before promo becomes eligible. */
 export const DISCLOSURE_GRACE_MS = 72 * 60 * 60 * 1000; // 72h
-
-// Sponsor URL wrapped in an OSC 8 escape at render time (allowlist in the
-// statusline renderer). Ships in code — no message payload can smuggle it.
-// The bare base URL; UTM attribution + the pseudonymous funnel ID are appended
-// by attributionUrl() below when consent permits.
-export const DISCLOSURE_SPONSOR_URL = 'https://cognitum.one/ruflo';
-
-// Rotating disclosure copy. Every variant MUST:
-//   - fit the 80-column message bound,
-//   - carry the "manage: ruflo settings" tail verbatim,
-//   - name Cognitum so the OSC 8 hyperlink target reads as attribution.
-// A truncated disclosure that loses the manage instruction is an ADR-301
-// invariant violation (tested in funnel.test.ts over every entry here).
-// Copy discipline (why these read the way they read):
-//   - explain WHY the row exists (mechanism), not that Cognitum sponsors the
-//     software — an open-source CLI that reads as "advertising" loses trust
-//     faster than it gains conversions,
-//   - describe Cognitum as a source of *additional capabilities*, framing it
-//     as product discovery rather than paid placement,
-//   - never leak internal terminology ("funnel") to end users; the tail
-//     points at `ruflo settings`, a user-facing preference command,
-//   - fit the 80-column bound with any prefix glyph counted.
-export const DISCLOSURE_TEXTS: readonly string[] = [
-  '✨ Tips, features and Cognitum updates here · manage: ruflo settings',
-  '✨ Additional AI capabilities from Cognitum · manage: ruflo settings',
-  '✨ Tips and Cognitum updates appear here · manage: ruflo settings',
-];
-
-// First entry is the canonical form — kept as DISCLOSURE_TEXT for
-// backwards compatibility with anything that imports the constant directly.
-export const DISCLOSURE_TEXT: string = DISCLOSURE_TEXTS[0];
 
 // One disclosure variant per 5-minute wall-clock slot. Longer than the
 // 20-second rotation cadence so a user watching the statusline sees the
@@ -57,14 +35,22 @@ export const DISCLOSURE_TEXT: string = DISCLOSURE_TEXTS[0];
 // session gets a different one than the previous one did.
 export const DISCLOSURE_ROTATION_SLOT_MS = 5 * 60 * 1000;
 
+/** Remote-cached messages tagged class==='disclosure' — the only source. */
+function getDisclosureMessagePool(): FunnelMessage[] {
+  return getRemoteMessages().filter((m) => m.class === 'disclosure');
+}
+
 /**
- * Deterministic slot-based selection over DISCLOSURE_TEXTS — no RNG so the
- * choice is reproducible for a given wall-clock instant (statusline caches
- * results, and any nondeterminism would skew the rotation).
+ * Deterministic slot-based selection over the remote disclosure pool — no
+ * RNG so the choice is reproducible for a given wall-clock instant. Returns
+ * null when the pool is empty (cold start before first fetch, or the remote
+ * feed is unreachable) — the caller must treat null as "show nothing".
  */
-export function selectDisclosureText(now: Date = new Date()): string {
+export function selectDisclosureMessage(now: Date = new Date()): FunnelMessage | null {
+  const pool = getDisclosureMessagePool();
+  if (pool.length === 0) return null;
   const slot = Math.floor(now.getTime() / DISCLOSURE_ROTATION_SLOT_MS);
-  return DISCLOSURE_TEXTS[slot % DISCLOSURE_TEXTS.length];
+  return pool[slot % pool.length];
 }
 
 export function getDisclosure(): DisclosureRecord {

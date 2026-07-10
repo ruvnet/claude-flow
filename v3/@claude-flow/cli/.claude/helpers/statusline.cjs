@@ -716,11 +716,24 @@ function generateStatusline() {
 // ─── Funnel promo row (ADR-301) ─────────────────────────────────
 // Allowlist for OSC 8 hyperlink targets. Ships in code (not in payload) so
 // no message can smuggle a link to an unapproved host.
+//
+// The final destination hosts (cognitum.one / agentics.org) AND the
+// click-redirect host are both allowlisted here: promo.ts routes every
+// clickable message through the server-side click-redirect (ADR-311 §7)
+// so promo_open + geo are captured before the 302 to the real target —
+// so the OSC 8 link the renderer emits points at the redirect host, not
+// the final destination directly.
 const PROMO_LINK_HOSTS = new Set([
   'cognitum.one', 'www.cognitum.one', 'docs.cognitum.one',
   // agentics.org — OSS foundation, distinct sponsor domain. Kept in sync
   // with messages.ts ALLOWED_URL_HOSTS.
   'agentics.org', 'www.agentics.org',
+  // Click-redirect host (funnel.ruv.io once its TLS cert is live; the raw
+  // Cloud Run hostname is allowlisted too since event-transport.ts /
+  // message-transport.ts / attribution.ts currently point at it as a TEMP
+  // fallback while the domain mapping's cert provisions).
+  'funnel.ruv.io',
+  'cognitum-analytics-63rzcdswba-uc.a.run.app',
 ]);
 
 // Emit OSC 8 hyperlinks unless the environment is known-broken. tmux mangles

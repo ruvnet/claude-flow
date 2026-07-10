@@ -18,15 +18,15 @@ import type { PromoRow } from './types.js';
 import { resolveFunnelEnabled } from './precedence.js';
 import { isCI } from './environment.js';
 import {
-  DISCLOSURE_SPONSOR_URL,
   getDisclosure,
   promoEligible,
   recordDisclosureShown,
-  selectDisclosureText,
-  DISCLOSURE_TEXTS,
+  selectDisclosureMessage,
 } from './disclosure.js';
-import { attributionUrl, clickTrackedUrl } from './attribution.js';
+import { clickTrackedUrl } from './attribution.js';
 import { selectMessage } from './rotation.js';
+import { recordFunnelEvent } from './events.js';
+import { getInstalledCliVersion } from '../init/helper-refresh.js';
 
 export interface PromoContext {
   cwd?: string;
@@ -50,64 +50,49 @@ export function getFunnelPromo(ctx: PromoContext): PromoRow | null {
   const decision = resolveFunnelEnabled(ctx.cwd ?? process.cwd(), env);
   if (!decision.enabled) return null;
 
+  const release = getInstalledCliVersion();
+
   // Disclosure gate: never a message before the disclosure has been shown
-  // and its grace window has passed.
+  // and its grace window has passed. The disclosure MESSAGE itself is now
+  // remote-sourced (ADR-311) — selectDisclosureMessage() returns null when
+  // the remote pool hasn't populated yet (cold start / outage), and per the
+  // "zero local promo content" design, null means show nothing this cycle.
   const disclosure = getDisclosure();
-  // Disclosure — attribute the render so a landing at cognitum.one can be
-  // tied back to the surface + variant. UTM content is the variant index so
-  // rotation performance is measurable; fid is only appended when telemetry
-  // consent is present (ADR-309), so a non-consenting user still gets a
-  // functioning link, just without the attribution join key.
   if (disclosure.state === 'never_seen') {
+    const msg = selectDisclosureMessage(now);
+    if (!msg) return null; // fail-closed: no remote disclosure cached yet
     recordDisclosureShown(now);
-    const text = selectDisclosureText(now);
-    const content = disclosureContentId(text);
-    return {
-      text,
-      kind: 'disclosure',
-      url: attributionUrl(DISCLOSURE_SPONSOR_URL, {
-        medium: 'statusline', campaign: 'disclosure', content, now,
-      }),
-    };
+    recordFunnelEvent('disclosure_shown', 'statusline', release, { now, messageId: msg.id });
+    const url = msg.url ? clickTrackedUrl(msg.id, msg.url, {
+      medium: 'statusline', campaign: 'disclosure', content: msg.id, now,
+    }) : undefined;
+    return { text: msg.text, kind: 'disclosure', url };
   }
   if (!promoEligible(now)) {
     if (disclosure.state === 'disclosed_enabled') {
-      const text = selectDisclosureText(now);
-      const content = disclosureContentId(text);
-      return {
-        text,
-        kind: 'disclosure',
-        url: attributionUrl(DISCLOSURE_SPONSOR_URL, {
-          medium: 'statusline', campaign: 'disclosure', content, now,
-        }),
-      };
+      const msg = selectDisclosureMessage(now);
+      if (!msg) return null; // fail-closed
+      const url = msg.url ? clickTrackedUrl(msg.id, msg.url, {
+        medium: 'statusline', campaign: 'disclosure', content: msg.id, now,
+      }) : undefined;
+      return { text: msg.text, kind: 'disclosure', url };
     }
     return null; // disclosed_disabled is caught by precedence, but stay fail-closed
   }
 
-  const msg = selectMessage(now);
+  const msg = selectMessage(now, release);
   if (!msg) return null;
-  // Educational tips have no URL; promotional messages route through the
-  // server click-redirect so `promo_open` + coarse geo are captured before
-  // 302ing to the real target. Disclosure text always goes through the
-  // sponsor URL (already handled above). If the click endpoint chain
-  // rejects the URL for any reason, we fall back to the UTM-decorated
-  // direct link so the click still lands where it should.
+  // Any message carrying a URL (educational tips included) routes through
+  // the server click-redirect so `promo_open` + coarse geo are captured
+  // before 302ing to the real target — click counting is uniform across
+  // the whole rotation, not just the promotional slot. If the click
+  // endpoint chain rejects the URL for any reason, fall back to the
+  // UTM-decorated direct link so the click still lands where it should.
   let url: string | undefined;
-  if (msg.url && msg.class === 'promotional') {
+  if (msg.url) {
     url = clickTrackedUrl(msg.id, msg.url, {
-      medium: 'statusline', campaign: msg.class, content: msg.id, now,
-    });
-  } else if (msg.url) {
-    url = attributionUrl(msg.url, {
       medium: 'statusline', campaign: msg.class, content: msg.id, now,
     });
   }
   return { text: msg.text, kind: msg.class, url };
-}
-
-/** Stable content id for the currently-selected disclosure variant. */
-function disclosureContentId(text: string): string {
-  const idx = DISCLOSURE_TEXTS.indexOf(text);
-  return idx >= 0 ? `disclosure-${idx + 1}` : 'disclosure-1';
 }

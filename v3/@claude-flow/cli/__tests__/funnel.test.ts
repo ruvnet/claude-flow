@@ -31,15 +31,13 @@ import {
 } from '../src/funnel/rotation.js';
 import { resolveFunnelEnabled } from '../src/funnel/precedence.js';
 import {
-  DISCLOSURE_TEXT,
-  DISCLOSURE_TEXTS,
-  DISCLOSURE_SPONSOR_URL,
   DISCLOSURE_GRACE_MS,
+  DISCLOSURE_ROTATION_SLOT_MS,
   getDisclosure,
   promoEligible,
   recordDisclosureDeclined,
   recordDisclosureShown,
-  selectDisclosureText,
+  selectDisclosureMessage,
 } from '../src/funnel/disclosure.js';
 import { getConsent, hasConsent, recordConsent } from '../src/funnel/consent.js';
 import { CONSENT_POLICY_VERSION, CreditErrorCode } from '../src/funnel/types.js';
@@ -82,6 +80,34 @@ beforeEach(() => {
   process.env.RUFLO_STATE_DIR = stateDir;
   for (const k of CLEAN_ENV_KEYS) delete process.env[k];
 });
+
+/**
+ * Seed the local remote-message cache exactly the way message-transport.ts's
+ * writeCache() would after a successful GET /v1/messages — ADR-311 makes
+ * this the ONLY content source (MESSAGES ships empty), so every test that
+ * exercises rotation/disclosure must seed this cache first.
+ */
+function seedRemoteMessages(messages: unknown[]): void {
+  fs.writeFileSync(
+    path.join(stateDir, 'funnel-messages-cache.json'),
+    JSON.stringify({ _ts: Date.now(), messages }),
+    'utf-8',
+  );
+}
+
+const TEST_DISCLOSURE_POOL = [
+  { id: 'disclosure-1', schemaVersion: 1, class: 'disclosure', text: '✨ Tips, features and Cognitum updates here · manage: ruflo settings', url: 'https://cognitum.one/ruflo' },
+  { id: 'disclosure-2', schemaVersion: 1, class: 'disclosure', text: '✨ Additional AI capabilities from Cognitum · manage: ruflo settings', url: 'https://cognitum.one/ruflo' },
+  { id: 'disclosure-3', schemaVersion: 1, class: 'disclosure', text: '✨ Tips and Cognitum updates appear here · manage: ruflo settings', url: 'https://cognitum.one/ruflo' },
+];
+
+const TEST_ROTATION_POOL = [
+  { id: 'edu-test-1', schemaVersion: 1, class: 'educational', text: 'edu tip one' },
+  { id: 'edu-test-2', schemaVersion: 1, class: 'educational', text: 'edu tip two' },
+  { id: 'edu-test-3', schemaVersion: 1, class: 'educational', text: 'edu tip three' },
+  { id: 'edu-test-4', schemaVersion: 1, class: 'educational', text: 'edu tip four' },
+  { id: 'promo-test-1', schemaVersion: 1, class: 'promotional', text: 'promo one', url: 'https://cognitum.one' },
+];
 
 afterEach(() => {
   process.env = savedEnv;
@@ -149,52 +175,51 @@ describe('message content boundaries (ADR-301)', () => {
     expect(isAllowedUrl('not a url')).toBe(false);
   });
 
-  it('every shipped message passes all boundaries', () => {
-    for (const m of MESSAGES) {
-      expect(isValidMessage(m), `shipped message ${m.id} must be valid`).toBe(true);
-    }
+  it('ships ZERO local messages (ADR-311 "zero local promo content" guarantee)', () => {
+    // The in-code MESSAGES pool is intentionally empty — all rotation
+    // content (tips, promos, disclosure) is remote-sourced. This test
+    // pins that guarantee; a future PR that adds a local message back
+    // in must consciously fail this test to do so.
+    expect(MESSAGES).toEqual([]);
   });
 
-  it('every disclosure variant fits the column bound with a user-facing manage instruction intact', () => {
-    expect(DISCLOSURE_TEXTS.length).toBeGreaterThan(0);
-    for (const text of DISCLOSURE_TEXTS) {
-      expect(displayWidth(text), `variant "${text}" must fit ${MAX_MESSAGE_COLUMNS} cols`).toBeLessThanOrEqual(MAX_MESSAGE_COLUMNS);
-      // Copy discipline: the user-facing management command is `ruflo settings`
-      // — never leak the internal "funnel" term into the row.
-      expect(text, `variant "${text}" must NOT leak internal "funnel" term`).not.toMatch(/\bfunnel\b/);
-      expect(text, `variant "${text}" must retain the manage instruction`).toContain('manage');
-      expect(text, `variant "${text}" must point at ruflo settings`).toContain('ruflo settings');
-      expect(containsForbiddenSequences(text), `variant "${text}" must not carry control chars`).toBe(false);
-      expect(text, `variant "${text}" must attribute Cognitum since the row links there`).toMatch(/cognitum/i);
-    }
-    // The canonical DISCLOSURE_TEXT is the first entry — round-trip check.
-    expect(DISCLOSURE_TEXT).toBe(DISCLOSURE_TEXTS[0]);
+  it('a disclosure-class message without the manage tail is rejected, never repaired', () => {
+    const base = { id: 'disclosure-x', schemaVersion: 1 as const, class: 'disclosure' as const };
+    expect(isValidMessage({ ...base, text: '✨ Missing the tail entirely' })).toBe(false);
+    expect(isValidMessage({ ...base, text: '✨ Has it · manage: ruflo settings' })).toBe(true);
   });
 
-  it('disclosure sponsor URL is https-only and points to cognitum.one', () => {
-    const parsed = new URL(DISCLOSURE_SPONSOR_URL);
-    expect(parsed.protocol).toBe('https:');
-    expect(parsed.hostname).toBe('cognitum.one');
+  it('selectDisclosureMessage returns null when no remote disclosure pool is cached (fail-closed)', () => {
+    // No seedRemoteMessages() call — cache is empty, matching a cold start
+    // or an unreachable remote feed. Per ADR-311, this means "show nothing".
+    expect(selectDisclosureMessage(new Date())).toBeNull();
   });
 
-  it('selectDisclosureText is deterministic per 5-minute slot', () => {
-    // Same slot → same variant. Different slots eventually cycle through them all.
+  it('selectDisclosureMessage is deterministic per 5-minute slot once seeded', () => {
+    seedRemoteMessages(TEST_DISCLOSURE_POOL);
     const t0 = new Date('2026-07-10T12:00:00.000Z');
     const t0plus1s = new Date(t0.getTime() + 1000);
-    expect(selectDisclosureText(t0)).toBe(selectDisclosureText(t0plus1s));
+    expect(selectDisclosureMessage(t0)?.id).toBe(selectDisclosureMessage(t0plus1s)?.id);
     const seen = new Set<string>();
-    for (let i = 0; i < DISCLOSURE_TEXTS.length * 2; i++) {
-      seen.add(selectDisclosureText(new Date(t0.getTime() + i * 5 * 60 * 1000)));
+    for (let i = 0; i < TEST_DISCLOSURE_POOL.length * 2; i++) {
+      seen.add(selectDisclosureMessage(new Date(t0.getTime() + i * DISCLOSURE_ROTATION_SLOT_MS))?.id ?? '');
     }
     // Rotation must cover every variant.
-    expect(seen.size).toBe(DISCLOSURE_TEXTS.length);
+    expect(seen.size).toBe(TEST_DISCLOSURE_POOL.length);
   });
 });
 
 // ─── ADR-301: rotation ratio ────────────────────────────────────────────────
 
 describe('rotation scheduler (ADR-301 content ratio)', () => {
+  it('returns null when no remote pool is cached (fail-closed, ADR-311)', () => {
+    // No seedRemoteMessages() call — MESSAGES ships empty, so an unseeded
+    // cache means nothing to rotate through. This is deliberate, not a bug.
+    expect(selectMessage(new Date())).toBeNull();
+  });
+
   it('promotional content appears only in 1-of-5 slots and honors the 30-min cap', () => {
+    seedRemoteMessages(TEST_ROTATION_POOL);
     const base = Date.UTC(2026, 6, 10, 12, 0, 0);
     let promos = 0;
     let educational = 0;
@@ -221,6 +246,7 @@ describe('rotation scheduler (ADR-301 content ratio)', () => {
   });
 
   it('is deterministic for a fixed time slot', () => {
+    seedRemoteMessages(TEST_ROTATION_POOL);
     const now = new Date(Date.UTC(2026, 6, 10, 12, 0, 1));
     const a = selectMessage(now);
     const b = selectMessage(now);
@@ -317,18 +343,28 @@ describe('promo orchestrator (getFunnelPromo)', () => {
     expect(getFunnelPromo({ interactive: true, env: { ...process.env, RUFLO_FUNNEL: '0' } })).toBeNull();
   });
 
+  it('renders nothing on first render when no remote pool is cached (fail-closed, ADR-311)', () => {
+    // No seedRemoteMessages() — this is a cold start or an unreachable API.
+    // Zero local content means zero row, not a fallback to hardcoded text.
+    expect(getFunnelPromo({ interactive: true, cwd: stateDir })).toBeNull();
+  });
+
   it('first interactive render is the disclosure, never a promotion', () => {
+    seedRemoteMessages(TEST_DISCLOSURE_POOL);
     const row = getFunnelPromo({ interactive: true, cwd: stateDir });
     expect(row).not.toBeNull();
     expect(row!.kind).toBe('disclosure');
-    // Row text is one of the rotating disclosure variants (all equally valid).
-    expect(DISCLOSURE_TEXTS).toContain(row!.text);
-    // Sponsor URL rides on the disclosure so the renderer can OSC 8 wrap it.
-    // It's now attribution-decorated: the base target is DISCLOSURE_SPONSOR_URL,
-    // with UTM params appended (fid appears only under telemetry consent).
+    // Row text is one of the seeded disclosure variants.
+    expect(TEST_DISCLOSURE_POOL.map((m) => m.text)).toContain(row!.text);
+    // The URL is click-tracked (routes through the server redirect) — the
+    // real cognitum.one/ruflo target rides in the `to` query param.
     expect(row!.url).toBeDefined();
-    const parsed = new URL(row!.url!);
-    expect(parsed.origin + parsed.pathname).toBe(DISCLOSURE_SPONSOR_URL);
+    const outer = new URL(row!.url!);
+    expect(outer.pathname).toMatch(/^\/v1\/click\/disclosure-\d+$/);
+    const to = outer.searchParams.get('to');
+    expect(to).toBeTruthy();
+    const parsed = new URL(to!);
+    expect(parsed.origin + parsed.pathname).toBe('https://cognitum.one/ruflo');
     expect(parsed.searchParams.get('utm_source')).toBe('ruflo');
     expect(parsed.searchParams.get('utm_medium')).toBe('statusline');
     expect(parsed.searchParams.get('utm_campaign')).toBe('disclosure');
@@ -338,6 +374,7 @@ describe('promo orchestrator (getFunnelPromo)', () => {
   });
 
   it('keeps showing the disclosure through the grace window, then rotates messages', () => {
+    seedRemoteMessages([...TEST_DISCLOSURE_POOL, ...TEST_ROTATION_POOL]);
     const t0 = new Date();
     recordDisclosureShown(t0);
     const during = getFunnelPromo({ interactive: true, cwd: stateDir, now: new Date(t0.getTime() + 1000) });

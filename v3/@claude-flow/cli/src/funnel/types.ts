@@ -26,7 +26,13 @@ export interface DisclosureRecord {
 
 // ─── ADR-301: messages ──────────────────────────────────────────────────────
 
-export type FunnelMessageClass = 'educational' | 'promotional';
+// 'disclosure' is a server-sourced message class (ADR-311 amendment) — the
+// existing-install disclosure notice is now fetched from the same remote
+// message feed as tips/promos, not hardcoded in the CLI. This keeps the
+// "zero local promo content" guarantee: nothing about WHAT is shown ships
+// in the package, only the mechanism for showing it (state tracking,
+// content pipeline, host allowlist).
+export type FunnelMessageClass = 'educational' | 'promotional' | 'disclosure';
 
 export interface FunnelMessage {
   id: string;

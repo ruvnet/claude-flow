@@ -86,10 +86,14 @@ export function isValidMessage(msg: unknown, now: Date = new Date()): msg is Fun
   const m = msg as Record<string, unknown>;
   if (m.schemaVersion !== 1) return false;
   if (typeof m.id !== 'string' || m.id.length === 0 || m.id.length > 64) return false;
-  if (m.class !== 'educational' && m.class !== 'promotional') return false;
+  if (m.class !== 'educational' && m.class !== 'promotional' && m.class !== 'disclosure') return false;
   if (typeof m.text !== 'string' || m.text.length === 0) return false;
   if (containsForbiddenSequences(m.text)) return false;
   if (displayWidth(m.text) > MAX_MESSAGE_COLUMNS) return false;
+  // Disclosure messages MUST carry the exact ADR-301 manage-instruction tail
+  // — losing that on a truncated/malformed remote message is an invariant
+  // violation, not a cosmetic issue. Never repaired; dropped instead.
+  if (m.class === 'disclosure' && !m.text.includes(' · manage: ruflo settings')) return false;
   if (m.url !== undefined) {
     if (typeof m.url !== 'string' || !isAllowedUrl(m.url)) return false;
   }
@@ -102,162 +106,20 @@ export function isValidMessage(msg: unknown, now: Date = new Date()): msg is Fun
 }
 
 /**
- * Curated in-package rotation (reviewed in PR like any code change — ADR-309
- * content approval). Ratio discipline (≥4:1 educational:promotional) is
- * enforced structurally by the scheduler in rotation.ts, not by this list.
+ * Local promo/message content: INTENTIONALLY EMPTY (ADR-311 amendment).
+ *
+ * All rotation content (educational tips, promotional messages, and the
+ * disclosure notice) is served exclusively from the remote message feed
+ * (GET /v1/messages -> message-transport.ts -> Firestore). Zero message
+ * text or URLs ship in the CLI package.
+ *
+ * Fail-closed by design: if the remote feed is unreachable (network down,
+ * cert issue, server outage) and no prior successful fetch has populated
+ * the local cache, the rotation has nothing to show and the promo row
+ * simply does not render that cycle. There is no local content to fall
+ * back to -- this is a deliberate choice, not an oversight.
  */
-export const MESSAGES: FunnelMessage[] = [
-  // Educational
-  {
-    id: 'edu-doctor',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '🩺 npx ruflo doctor --fix diagnoses and repairs common setup issues',
-  },
-  {
-    id: 'edu-memory-search',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '🧠 ruflo memory search --query "..." finds past patterns semantically',
-  },
-  {
-    id: 'edu-hooks-route',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '⚡ ruflo hooks route --task "..." picks the cheapest capable model tier',
-  },
-  {
-    id: 'edu-daemon-workers',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '🛠 ruflo daemon start enables 12 background workers (audit, testgaps, map…)',
-  },
-  {
-    id: 'edu-statusline-cost',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '💡 RUFLO_STATUSLINE_HIDE_COST=1 hides the session-cost segment',
-  },
-  {
-    id: 'edu-completions',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '⌨️  ruflo completions bash|zsh|fish installs shell tab-completion',
-  },
-  {
-    id: 'edu-security-scan',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '🔒 ruflo security scan --depth full audits dependencies and config',
-  },
-  {
-    id: 'edu-funnel-optout',
-    schemaVersion: 1,
-    class: 'educational',
-    text: 'ℹ️  These notices are configurable: ruflo funnel disable turns them off',
-  },
-  // More ruflo tips + tricks — deepens the educational rotation so the
-  // 4:1 ratio doesn't cycle the same 8 tips too often.
-  {
-    id: 'edu-swarm-init',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '🐝 ruflo swarm init --topology hierarchical spawns anti-drift agent teams',
-  },
-  {
-    id: 'edu-hive-mind',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '👑 ruflo hive-mind spawn — queen-led coordination with Byzantine consensus',
-  },
-  {
-    id: 'edu-agent-spawn',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '🤖 ruflo agent spawn -t coder --name mycoder starts a specialized worker',
-  },
-  {
-    id: 'edu-session-restore',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '💾 ruflo session restore --latest brings back your last session state',
-  },
-  {
-    id: 'edu-neural-train',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '🧬 ruflo neural train --pattern-type coordination learns from prior runs',
-  },
-  {
-    id: 'edu-hooks-list',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '🪝 ruflo hooks list shows all 17 hooks + 12 background workers available',
-  },
-  {
-    id: 'edu-plugin-install',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '🔌 ruflo plugins install <name> — 20+ plugins for extended capabilities',
-  },
-  {
-    id: 'edu-status-watch',
-    schemaVersion: 1,
-    class: 'educational',
-    text: '📊 ruflo status watch — real-time system + swarm health dashboard',
-  },
-  // Promotional (Cognitum) — capped by the scheduler at ≤1 in 5 rotations
-  {
-    id: 'promo-meta-llm-routing',
-    schemaVersion: 1,
-    class: 'promotional',
-    text: '✨ Unlock Meta LLM routing → cognitum.one',
-    url: 'https://cognitum.one',
-  },
-  {
-    id: 'promo-one-endpoint',
-    schemaVersion: 1,
-    class: 'promotional',
-    text: '⚡ Run Claude + GPT + Gemini behind one local endpoint → cognitum.one',
-    url: 'https://cognitum.one',
-  },
-  {
-    id: 'promo-cognitum-governance',
-    schemaVersion: 1,
-    class: 'promotional',
-    text: '🔐 Enterprise agent governance and policy → cognitum.one',
-    url: 'https://cognitum.one',
-  },
-  {
-    id: 'promo-cognitum-credits',
-    schemaVersion: 1,
-    class: 'promotional',
-    text: '💳 Bring your own key or use Cognitum credits → cognitum.one',
-    url: 'https://cognitum.one',
-  },
-  // Promotional (agentics.org — the OSS foundation, distinct sponsor)
-  {
-    id: 'promo-agentics-foundation',
-    schemaVersion: 1,
-    class: 'promotional',
-    text: '🌱 Support the open agent stack → agentics.org',
-    url: 'https://agentics.org',
-  },
-  {
-    id: 'promo-agentics-docs',
-    schemaVersion: 1,
-    class: 'promotional',
-    text: '📚 Open specs, RFCs and governance for OSS AI → agentics.org',
-    url: 'https://agentics.org',
-  },
-  {
-    id: 'promo-agentics-community',
-    schemaVersion: 1,
-    class: 'promotional',
-    text: '🏛 Join the open agent foundation → agentics.org',
-    url: 'https://agentics.org',
-  },
-];
+export const MESSAGES: FunnelMessage[] = [];
 
 /** Messages that survive every content boundary right now. */
 export function eligibleMessages(now: Date = new Date()): FunnelMessage[] {

@@ -17,12 +17,13 @@ export {
 } from './consent.js';
 export {
   DISCLOSURE_GRACE_MS,
-  DISCLOSURE_TEXT,
+  DISCLOSURE_ROTATION_SLOT_MS,
   getDisclosure,
   promoEligible,
   recordDisclosureDeclined,
   recordDisclosureReenabled,
   recordDisclosureShown,
+  selectDisclosureMessage,
 } from './disclosure.js';
 export {
   MAX_MESSAGE_COLUMNS,
