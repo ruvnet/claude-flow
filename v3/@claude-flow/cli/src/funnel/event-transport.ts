@@ -40,11 +40,7 @@ const FLUSH_STATE_FILE = 'funnel-events-flush.json';
  * cognitum.one — that keeps the CLI attribution honest.
  */
 export const DEFAULT_ENDPOINT =
-  process.env.RUFLO_FUNNEL_EVENTS_ENDPOINT ??
-  // TEMP: funnel.ruv.io TLS cert is still provisioning (Cloud Run domain
-  // mapping created 2026-07-10; async on Google's side). Using the raw
-  // Cloud Run URL until the cert lands, then flip back to funnel.ruv.io.
-  'https://cognitum-analytics-63rzcdswba-uc.a.run.app/v1/events';
+  process.env.RUFLO_FUNNEL_EVENTS_ENDPOINT ?? 'https://funnel.ruv.io/v1/events';
 
 /** Cap per POST — server enforces its own limits too; this is a safety net. */
 export const MAX_BATCH = 100;

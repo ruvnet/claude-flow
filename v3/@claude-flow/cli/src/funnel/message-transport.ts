@@ -39,10 +39,7 @@ const FETCH_TIMEOUT_MS = 4_000;
 
 /** Endpoint the client hits — overridable for staging / self-hosted. */
 export const DEFAULT_MESSAGES_ENDPOINT =
-  process.env.RUFLO_FUNNEL_MESSAGES_ENDPOINT ??
-  // TEMP: funnel.ruv.io TLS cert still provisioning — raw Cloud Run URL
-  // until it lands, then flip back to funnel.ruv.io.
-  'https://cognitum-analytics-63rzcdswba-uc.a.run.app/v1/messages';
+  process.env.RUFLO_FUNNEL_MESSAGES_ENDPOINT ?? 'https://funnel.ruv.io/v1/messages';
 
 interface CacheEnvelope {
   _ts: number;

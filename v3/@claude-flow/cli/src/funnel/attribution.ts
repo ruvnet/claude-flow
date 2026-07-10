@@ -45,10 +45,7 @@ export interface AttributionInput {
  * real cognitum.one / agentics.org / etc. target.
  */
 const CLICK_ENDPOINT_BASE =
-  process.env.RUFLO_FUNNEL_CLICK_ENDPOINT ??
-  // TEMP: funnel.ruv.io TLS cert still provisioning — raw Cloud Run URL
-  // until it lands, then flip back to funnel.ruv.io.
-  'https://cognitum-analytics-63rzcdswba-uc.a.run.app/v1/click';
+  process.env.RUFLO_FUNNEL_CLICK_ENDPOINT ?? 'https://funnel.ruv.io/v1/click';
 
 /**
  * Return `url` with UTM parameters appended, and — when telemetry consent is
