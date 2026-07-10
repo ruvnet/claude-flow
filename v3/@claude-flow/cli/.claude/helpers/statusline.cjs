@@ -49,6 +49,13 @@ const CWD = process.cwd();
 const CACHE_FILE = path.join(os.tmpdir(), 'ruflo-statusline-cache-' + require('crypto').createHash('md5').update(CWD).digest('hex').slice(0, 8) + '.json');
 const CACHE_TTL_MS = 60000;
 
+// Persistent last-known-good promo record. Lives outside the /tmp cache so it
+// survives a full cache wipe / cache write race / CLI failure combo. Written
+// every time we successfully render a promo; read as a last resort so the row
+// never blinks out mid-session (was: 'promo shows then hides' bug report).
+const PROMO_MEMO_FILE = path.join(os.homedir(), '.ruflo', 'statusline-promo.json');
+const PROMO_MEMO_TTL_MS = 6 * 60 * 60 * 1000; // 6h — long enough to bridge any hiccup, short enough that a real disable takes effect fast.
+
 // #2337: resolve an already-installed @claude-flow/cli (or ruflo) bin so we
 // can invoke it directly via `node`. The previous version called
 // `npx --yes @claude-flow/cli@latest` on every uncached render, which forces
@@ -106,6 +113,28 @@ function readCache() {
 
 function writeCache(data) {
   try { fs.writeFileSync(CACHE_FILE, JSON.stringify({ _ts: Date.now(), data }), 'utf-8'); } catch { /* ignore */ }
+  // Also memoize any promo we saw so the row can survive future CLI hiccups.
+  try {
+    if (data && data.promo && typeof data.promo === 'object') {
+      fs.mkdirSync(path.dirname(PROMO_MEMO_FILE), { recursive: true, mode: 0o700 });
+      fs.writeFileSync(PROMO_MEMO_FILE, JSON.stringify({ _ts: Date.now(), promo: data.promo }), { encoding: 'utf-8', mode: 0o600 });
+    }
+  } catch { /* ignore */ }
+}
+
+// Last resort: read a memoized promo (up to 6h old). Used when no cache and
+// no CLI response is available — the row still renders, so users don't see
+// the disclosure blink out. Returns null when the memo is absent, expired,
+// or malformed. Never throws.
+function readPromoMemo() {
+  try {
+    if (!fs.existsSync(PROMO_MEMO_FILE)) return null;
+    const raw = JSON.parse(fs.readFileSync(PROMO_MEMO_FILE, 'utf-8'));
+    if (raw && raw._ts && (Date.now() - raw._ts) < PROMO_MEMO_TTL_MS && raw.promo) {
+      return raw.promo;
+    }
+  } catch { /* ignore */ }
+  return null;
 }
 
 /**
@@ -116,9 +145,21 @@ function writeCache(data) {
  * (missed the .swarm/memory.db → AgentDB path), computed dddProgress wrong,
  * and only counted ADRs in v3/implementation/adrs/ (missed v3/docs/adr/).
  */
+// Overlay the memoized promo onto any data object that's missing one. This is
+// the safety net that keeps the funnel row rendered when an OLDER cached CLI
+// version is picked up by npx — that older CLI succeeds but omits promo, so
+// the JSON round-trips clean but without our row. We patch it back here.
+function overlayMemoPromo(data) {
+  if (data && !data.promo) {
+    const memoPromo = readPromoMemo();
+    if (memoPromo) data.promo = memoPromo;
+  }
+  return data;
+}
+
 function getStatuslineData() {
   const cache = readCache();
-  if (cache.fresh) return cache.data;
+  if (cache.fresh) return overlayMemoPromo(cache.data);
 
   try {
     // #2337: prefer an already-installed CLI bin via direct `node` invocation
@@ -140,6 +181,7 @@ function getStatuslineData() {
     // Overlay every block the CLI JSON omits (adrs/agentdb/tests/hooks/integration)
     // with real local reads, so those segments reflect actual state instead of 0.
     applyLocalOverlays(data);
+    overlayMemoPromo(data);
     writeCache(data);
     return data;
   } catch { /* CLI unavailable or timed out */ }
@@ -149,12 +191,12 @@ function getStatuslineData() {
   // the segments the CLI JSON doesn't populate; the promo row survives.
   if (cache.data) {
     applyLocalOverlays(cache.data);
+    overlayMemoPromo(cache.data);
     return cache.data;
   }
 
-  // Fallback: use local file probes only (will be less accurate, but non-zero
-  // when CLI is available and accurate when it's not).
-  return buildLocalFallback();
+  // Last resort: local probes + memo. Users still see the funnel row.
+  return overlayMemoPromo(buildLocalFallback());
 }
 
 // Count ADRs from BOTH known directories (fix for ruflo#2195: old code missed
@@ -590,7 +632,26 @@ function generateStatusline() {
 
   const lines = [];
 
-  // Header
+  // 3-line design (fits Claude Code's visible statusline area — line 4+ gets
+  // replaced by the system guidance / input prompt line, so the promo row
+  // must sit within the first 3 lines to be reliably visible):
+  //   Line 1 — Promo / disclosure row (funnel surface, ADR-301)
+  //   Line 2 — Header (version · git · model · timing · context · cost)
+  //   Line 3 — Compressed ops (Swarm · Hooks · 🧠 · 💾 · Health)
+
+  // ─── Line 1: promo / disclosure ────────────────────────────────
+  // Kept as line 1 so it's always visible even when the terminal viewport
+  // truncates. Colored by content kind so it reads as *what it is*.
+  const promoRow = getPromoRow(d);
+  if (promoRow) {
+    const kind = (d && d.promo && d.promo.kind) || 'disclosure';
+    const promoColor = kind === 'promotional' ? c.brightPurple
+                     : kind === 'educational' ? c.yellow
+                     : c.brightCyan;
+    lines.push(promoColor + promoRow + c.reset);
+  }
+
+  // ─── Line 2: header ────────────────────────────────────────────
   let header = c.bold + c.brightPurple + '▊ RuFlo V' + pkgVersion + ' ' + c.reset;
   header += (coordinationActive ? c.brightCyan : c.dim) + '● ' + c.brightCyan + git.name + c.reset;
   if (git.gitBranch) {
@@ -618,125 +679,35 @@ function generateStatusline() {
   }
   lines.push(header);
 
-  // Separator
-  lines.push(c.dim + '─'.repeat(53) + c.reset);
-
-  // Design discipline (ADR to follow in #2623):
-  //   - show healthy state only when it confirms readiness,
-  //   - show zero values only when zero is actionable,
-  //   - show failures immediately,
-  //   - diagnostic detail lives behind `ruflo status --verbose`.
-  const domainsColor = domainsCompleted >= 3 ? c.brightGreen : domainsCompleted > 0 ? c.yellow : c.red;
+  // ─── Line 3: compressed ops ────────────────────────────────────
+  // Everything actionable in one dense row. Show only what changes what you
+  // do next; diagnostic detail moves to `ruflo status --verbose`.
   const agentsColor = activeAgents > 0 ? c.brightGreen : c.dim;
   const hooksColor = hooksEnabled > 0 ? c.brightGreen : c.dim;
   const intellColor = intelligencePct >= 80 ? c.brightGreen : intelligencePct >= 40 ? c.brightYellow : c.dim;
-  const secColor = secStatus === 'CLEAN' ? c.brightGreen
-                 : secStatus === 'PENDING' ? c.brightYellow
-                 : (secStatus === 'IN_PROGRESS' || secStatus === 'STALE') ? c.brightYellow
-                 : secStatus === 'NONE' ? c.dim : c.brightRed;
-  const sizeDisp = dbSizeKB >= 1024 ? (dbSizeKB / 1024).toFixed(1) + 'MB' : dbSizeKB + 'KB';
-  const integration = d.integration || {};
-  const mcpServers = (integration.mcpServers) || {};
-
-  // Row 1 — Architecture: Domains  ADRs   Goal (when no measured progress)
-  let perfIndicator;
-  if (hasHnsw && vectorCount > 0) {
-    const speedup = vectorCount > 10000 ? '12500x' : vectorCount > 1000 ? '150x' : '10x';
-    perfIndicator = c.brightGreen + 'HNSW ' + speedup + c.reset;
-  } else if (patternsLearned > 0) {
-    const pk = patternsLearned >= 1000 ? (patternsLearned / 1000).toFixed(1) + 'k' : String(patternsLearned);
-    perfIndicator = c.brightYellow + pk + ' patterns' + c.reset;
-  } else {
-    perfIndicator = c.dim + 'Goal 150x-12500x' + c.reset;
-  }
-  const archParts = [
-    c.cyan + 'Domains ' + c.reset + domainsColor + domainsCompleted + c.reset + '/' + c.brightWhite + totalDomains + c.reset,
-  ];
-  if (adrCount > 0) archParts.push(c.cyan + 'ADRs ' + c.brightWhite + adrCount + c.reset);
-  archParts.push(perfIndicator);
-  lines.push(c.brightCyan + '🏗️  Architecture' + c.reset + '   ' + archParts.join('   '));
-
-  // Row 2 — Runtime: Swarm  [subAgents if >0]  Hooks  🧠pct  💾RAM (glyph-only
-  // for the last two so the row reads lighter and doesn't repeat "Memory RAM").
   const swarmInd = coordinationActive ? c.brightGreen + '◉' + c.reset + ' ' : c.dim + '○' + c.reset + ' ';
-  const runtimeParts = [
-    c.cyan + 'Swarm ' + swarmInd + agentsColor + activeAgents + c.reset + '/' + c.brightWhite + maxAgents + c.reset,
-  ];
-  if (subAgents > 0) runtimeParts.push(c.brightPurple + '👥 ' + subAgents + c.reset);
-  runtimeParts.push(c.cyan + 'Hooks ' + hooksColor + hooksEnabled + c.reset + '/' + c.brightWhite + hooksTotal + c.reset);
-  runtimeParts.push(intellColor + '🧠 ' + intelligencePct + '%' + c.reset);
-  runtimeParts.push(c.brightCyan + '💾 ' + memoryMB + 'MB' + c.reset);
-  lines.push(c.brightYellow + '🤖 Runtime' + c.reset + '        ' + runtimeParts.join('   '));
-
-  // Row 3 — Health: color-first, urgency-tuned copy.
-  //   clean   → "✓ Security   ✓ No CVEs" (or just "✓" when nothing to certify)
-  //   pending → "Security scan pending"
-  //   problem → "N vulnerabilities" — never "CVE checks 0/3" (reads ambiguously)
-  const secLower = secStatus.toLowerCase();
   const cvesClean = totalCves === 0 || cvesFixed === totalCves;
   const healthAllGreen = (secStatus === 'CLEAN' || secStatus === 'NONE') && cvesClean;
-  const healthParts = [];
+  const opsParts = [];
+  opsParts.push(c.cyan + 'Swarm ' + swarmInd + agentsColor + activeAgents + c.reset + '/' + c.brightWhite + maxAgents + c.reset);
+  if (subAgents > 0) opsParts.push(c.brightPurple + '👥 ' + subAgents + c.reset);
+  opsParts.push(c.cyan + 'Hooks ' + hooksColor + hooksEnabled + c.reset + '/' + c.brightWhite + hooksTotal + c.reset);
+  opsParts.push(intellColor + '🧠 ' + intelligencePct + '%' + c.reset);
+  opsParts.push(c.brightCyan + '💾 ' + memoryMB + 'MB' + c.reset);
+  // Health: one glyph when green, terse copy when there's something to act on.
   if (healthAllGreen) {
-    if (secStatus === 'CLEAN') healthParts.push(c.brightGreen + '✓ Security' + c.reset);
-    if (totalCves > 0) healthParts.push(c.brightGreen + '✓ No CVEs' + c.reset);
-    if (healthParts.length === 0) healthParts.push(c.brightGreen + '✓' + c.reset);
+    opsParts.push(c.brightGreen + '🛡 ✓' + c.reset);
   } else {
-    if (secStatus === 'PENDING') {
-      healthParts.push(c.brightYellow + 'Security scan pending' + c.reset);
-    } else if (secStatus === 'IN_PROGRESS') {
-      healthParts.push(c.brightYellow + 'Security scanning…' + c.reset);
-    } else if (secStatus === 'STALE') {
-      healthParts.push(c.brightYellow + 'Security scan stale' + c.reset);
-    } else if (secStatus !== 'NONE' && secStatus !== 'CLEAN') {
-      healthParts.push(c.brightRed + 'Security ' + secLower + c.reset);
-    }
+    if (secStatus === 'PENDING') opsParts.push(c.brightYellow + '🛡 scan pending' + c.reset);
+    else if (secStatus === 'IN_PROGRESS') opsParts.push(c.brightYellow + '🛡 scanning…' + c.reset);
+    else if (secStatus === 'STALE') opsParts.push(c.brightYellow + '🛡 scan stale' + c.reset);
+    else if (secStatus !== 'NONE' && secStatus !== 'CLEAN') opsParts.push(c.brightRed + '🛡 ' + secStatus.toLowerCase() + c.reset);
     if (totalCves > 0 && cvesFixed < totalCves) {
       const unfixed = totalCves - cvesFixed;
-      const word = unfixed === 1 ? 'vulnerability' : 'vulnerabilities';
-      healthParts.push(c.brightRed + unfixed + ' ' + word + c.reset);
+      opsParts.push(c.brightRed + '⚠ ' + unfixed + ' CVE' + (unfixed === 1 ? '' : 's') + c.reset);
     }
   }
-  if (healthParts.length > 0) {
-    lines.push(c.brightRed + '🛡 Health' + c.reset + '         ' + healthParts.join('   '));
-  }
-
-  // Row 4 — AgentDB: size + vectors + MCP status. No opaque "◆ DB" marker;
-  // the row header itself already says AgentDB.
-  const dbParts = [];
-  if (dbSizeKB > 0) dbParts.push(c.brightWhite + sizeDisp + c.reset);
-  if (vectorCount > 0) {
-    const hnswInd = hasHnsw ? c.brightGreen + '⚡' + c.reset : '';
-    dbParts.push(c.cyan + vectorCount + ' vectors' + c.reset + hnswInd);
-  }
-  if (mcpServers.total > 0) {
-    if (mcpServers.enabled === mcpServers.total) {
-      dbParts.push(c.brightGreen + 'MCP ready' + c.reset);
-    } else {
-      const mcpCol = mcpServers.enabled > 0 ? c.brightYellow : c.red;
-      dbParts.push(c.cyan + 'MCP ' + mcpCol + mcpServers.enabled + c.reset + '/' + c.brightWhite + mcpServers.total + c.reset);
-    }
-  }
-  if (dbParts.length > 0) {
-    lines.push(c.brightCyan + '🧠 AgentDB' + c.reset + '        ' + dbParts.join('   '));
-  }
-
-  // Bottom row: funnel promo/tips surface (ADR-301). All policy gates
-  // (RUFLO_FUNNEL, enterprise policy, funnel.enabled, CI, disclosure,
-  // 4:1 content ratio) run in the CLI that produced d.promo; this renderer
-  // re-applies the cheap ones as defense-in-depth because the delegated
-  // JSON passes through a tmp cache. Static text only — never animated.
-  const promoRow = getPromoRow(d);
-  if (promoRow) {
-    // Color the row by content kind so it reads as *what it is*, not as noise:
-    //   disclosure  → brightCyan  (announcement, one-time-ish, links to capability)
-    //   promotional → brightPurple (Cognitum sponsor spot, distinct from tips)
-    //   educational → yellow      (a tip — same tone as the RAM segment icons)
-    const kind = (d && d.promo && d.promo.kind) || 'disclosure';
-    const promoColor = kind === 'promotional' ? c.brightPurple
-                     : kind === 'educational' ? c.yellow
-                     : c.brightCyan;
-    lines.push(promoColor + promoRow + c.reset);
-  }
+  lines.push(opsParts.join('  ' + c.dim + '·' + c.reset + '  '));
 
   return lines.join('\n');
 }

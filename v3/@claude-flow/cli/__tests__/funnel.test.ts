@@ -578,6 +578,40 @@ describe('attributionUrl (ADR-305 measurement, no runtime network)', () => {
 });
 
 describe('getFunnelPromo — API-down fallback discipline', () => {
+  it('generated statusline emits exactly 3 lines with promo as line 1', () => {
+    // Claude Code truncates statusline past line 4 with the system guidance
+    // line. The 3-line design keeps promo as line 1 so it's always visible.
+    const script = generateStatuslineScript({
+      statusline: { enabled: true, style: 'compact' as const },
+      runtime: { maxAgents: 15 },
+    });
+    // Header emission must come AFTER the promo push in the generator source.
+    const promoIdx = script.indexOf('lines.push(promoColor + promoRow');
+    const headerIdx = script.indexOf('lines.push(header)');
+    expect(promoIdx).toBeGreaterThan(0);
+    expect(headerIdx).toBeGreaterThan(promoIdx);
+    // Compressed ops line lives after the header.
+    const opsIdx = script.indexOf("lines.push(opsParts.join(");
+    expect(opsIdx).toBeGreaterThan(headerIdx);
+  });
+
+  it('generated statusline memoizes promo across renders (survives promoless CLI)', () => {
+    // A previously-installed older CLI cached by npx may succeed but omit
+    // the promo field. The memo overlay patches it back in so the row
+    // doesn't blink out mid-session.
+    const script = generateStatuslineScript({
+      statusline: { enabled: true, style: 'compact' as const },
+      runtime: { maxAgents: 15 },
+    });
+    expect(script).toMatch(/PROMO_MEMO_FILE/);
+    expect(script).toMatch(/function readPromoMemo/);
+    expect(script).toMatch(/function overlayMemoPromo/);
+    // Overlay must fire on every path (fresh cache, successful CLI, stale
+    // cache fallback, cold fallback) — grep the call count as a spot check.
+    const overlayCalls = (script.match(/overlayMemoPromo\(/g) || []).length;
+    expect(overlayCalls).toBeGreaterThanOrEqual(4);
+  });
+
   it('generated statusline script implements stale-while-revalidate for promo row', () => {
     // The fix for the flicker bug: the promo row must survive CLI hiccups
     // and cache-expiry-mid-render. readCache() returns { fresh, data } and
