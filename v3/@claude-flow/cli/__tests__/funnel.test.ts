@@ -578,21 +578,20 @@ describe('attributionUrl (ADR-305 measurement, no runtime network)', () => {
 });
 
 describe('getFunnelPromo — API-down fallback discipline', () => {
-  it('generated statusline emits exactly 3 lines with promo as line 1', () => {
+  it('generated statusline emits exactly 3 lines: header, ops, promo', () => {
     // Claude Code truncates statusline past line 4 with the system guidance
-    // line. The 3-line design keeps promo as line 1 so it's always visible.
+    // line. The 3-line design puts RuFlo header on line 1, then ops, then
+    // promo — sequence matches order of pushes in the generator source.
     const script = generateStatuslineScript({
       statusline: { enabled: true, style: 'compact' as const },
       runtime: { maxAgents: 15 },
     });
-    // Header emission must come AFTER the promo push in the generator source.
-    const promoIdx = script.indexOf('lines.push(promoColor + promoRow');
     const headerIdx = script.indexOf('lines.push(header)');
-    expect(promoIdx).toBeGreaterThan(0);
-    expect(headerIdx).toBeGreaterThan(promoIdx);
-    // Compressed ops line lives after the header.
     const opsIdx = script.indexOf("lines.push(opsParts.join(");
+    const promoIdx = script.indexOf('lines.push(promoColor + promoRow');
+    expect(headerIdx).toBeGreaterThan(0);
     expect(opsIdx).toBeGreaterThan(headerIdx);
+    expect(promoIdx).toBeGreaterThan(opsIdx);
   });
 
   it('generated statusline memoizes promo across renders (survives promoless CLI)', () => {

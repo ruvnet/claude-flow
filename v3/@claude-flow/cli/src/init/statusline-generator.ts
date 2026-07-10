@@ -660,25 +660,12 @@ function generateStatusline() {
   const lines = [];
 
   // 3-line design (fits Claude Code's visible statusline area — line 4+ gets
-  // replaced by the system guidance / input prompt line, so the promo row
-  // must sit within the first 3 lines to be reliably visible):
-  //   Line 1 — Promo / disclosure row (funnel surface, ADR-301)
-  //   Line 2 — Header (version · git · model · timing · context · cost)
-  //   Line 3 — Compressed ops (Swarm · Hooks · 🧠 · 💾 · Health)
+  // replaced by the system guidance / input prompt line):
+  //   Line 1 — Header (RuFlo version · git · model · timing · context · cost)
+  //   Line 2 — Compressed ops (Swarm · Hooks · 🧠 · 💾 · Health)
+  //   Line 3 — Promo / disclosure row (funnel surface, ADR-301)
 
-  // ─── Line 1: promo / disclosure ────────────────────────────────
-  // Kept as line 1 so it's always visible even when the terminal viewport
-  // truncates. Colored by content kind so it reads as *what it is*.
-  const promoRow = getPromoRow(d);
-  if (promoRow) {
-    const kind = (d && d.promo && d.promo.kind) || 'disclosure';
-    const promoColor = kind === 'promotional' ? c.brightPurple
-                     : kind === 'educational' ? c.yellow
-                     : c.brightCyan;
-    lines.push(promoColor + promoRow + c.reset);
-  }
-
-  // ─── Line 2: header ────────────────────────────────────────────
+  // ─── Line 1: header ────────────────────────────────────────────
   let header = c.bold + c.brightPurple + '▊ RuFlo V' + pkgVersion + ' ' + c.reset;
   header += (coordinationActive ? c.brightCyan : c.dim) + '● ' + c.brightCyan + git.name + c.reset;
   if (git.gitBranch) {
@@ -706,7 +693,7 @@ function generateStatusline() {
   }
   lines.push(header);
 
-  // ─── Line 3: compressed ops ────────────────────────────────────
+  // ─── Line 2: compressed ops ────────────────────────────────────
   // Everything actionable in one dense row. Show only what changes what you
   // do next; diagnostic detail moves to \`ruflo status --verbose\`.
   const agentsColor = activeAgents > 0 ? c.brightGreen : c.dim;
@@ -735,6 +722,20 @@ function generateStatusline() {
     }
   }
   lines.push(opsParts.join('  ' + c.dim + '·' + c.reset + '  '));
+
+  // ─── Line 3: promo / disclosure ────────────────────────────────
+  // Colored by content kind so it reads as *what it is*, not as noise:
+  //   disclosure  → brightCyan   (announcement / capability link)
+  //   promotional → brightPurple (Cognitum sponsor spot)
+  //   educational → yellow       (a tip)
+  const promoRow = getPromoRow(d);
+  if (promoRow) {
+    const kind = (d && d.promo && d.promo.kind) || 'disclosure';
+    const promoColor = kind === 'promotional' ? c.brightPurple
+                     : kind === 'educational' ? c.yellow
+                     : c.brightCyan;
+    lines.push(promoColor + promoRow + c.reset);
+  }
 
   return lines.join('\\n');
 }
