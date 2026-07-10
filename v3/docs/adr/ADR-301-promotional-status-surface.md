@@ -81,6 +81,31 @@ Promotional frequency:
 
 Message content ships in-package (curated list, reviewed in PR like any code change). No runtime fetch of remote message payloads — remote content would be an injection surface into every user's terminal and would violate the no-runtime-network posture of the helper channel.
 
+## Signed Content Boundaries
+
+The helper *code* is signed (ADR-174/177), but message *copy* delivered through that channel is still remotely supplied content that lands in user terminals. The renderer therefore treats messages as untrusted data regardless of transport, enforcing all of the following before display:
+
+- **Data only.** Messages are inert JSON — never code, never template strings evaluated by the renderer, never shell-expanded. The renderer has no eval path.
+- **Schema validated.** Every message must validate against a versioned schema before entering the rotation; invalid messages are dropped, not repaired:
+
+  ```json
+  {
+    "id": "meta-llm-routing-2026-07",
+    "schemaVersion": 1,
+    "text": "✨ Unlock Meta LLM routing",
+    "url": "https://cognitum.one/routing",
+    "class": "cognitum",
+    "expiresAt": "2026-10-01T00:00:00Z"
+  }
+  ```
+
+- **Length bounded.** `text` ≤ 80 columns after grapheme-aware width measurement; over-length messages are dropped, not truncated mid-escape.
+- **URL allowlisted.** `url` must match an in-package allowlist of exact hosts (`cognitum.one`, `github.com/ruvnet/*`, official docs domains). Any other host — including lookalikes and IP literals — drops the message. The allowlist ships in code, not in the message payload.
+- **Cached with expiry.** Messages carry `expiresAt`; expired messages leave the rotation immediately. The rotation cache honors the same 60s delegation-cache discipline and never re-fetches.
+- **No terminal control sequences.** `text` is sanitized to printable characters plus emoji: all C0/C1 control bytes, ANSI/OSC/DCS escape sequences, and bidirectional override characters are stripped or the message is dropped. Styling (color, marquee) is applied exclusively by the renderer from its own fixed styles — copy can never emit its own escapes.
+
+A message that fails any check is skipped silently; the promo row falls back to the next valid message or renders nothing. Failure to validate never produces a visible error in the statusline.
+
 ## Telemetry
 
 Only anonymous aggregate metrics, and only when telemetry is already enabled:

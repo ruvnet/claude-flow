@@ -58,6 +58,37 @@ You can enable later:
 
 No repeated prompting after dismissal — the dismissal is recorded in user-level state (`~/.ruflo/enrollment.json`), not project-level, so re-running `init` in another project does not re-prompt.
 
+## Consent Domains (separate, never bundled)
+
+Accepting the enrollment screen is **not** blanket authorization. The flow involves four distinct decisions, each with its own consent, its own prompt moment, and its own record:
+
+| Domain | What it authorizes | Where consent is asked |
+|--------|--------------------|------------------------|
+| `account` | Creating/signing into a Cognitum account | This screen → `ruflo auth login` |
+| `proxy-install` | Installing the local Meta LLM proxy binary/service | `ruflo proxy install` (ADR-304) |
+| `telemetry` | Anonymous aggregate funnel metrics | Existing telemetry opt-in only — enrollment never toggles it |
+| `cloud-routing` | Prompts leaving the machine via api.cognitum.one | Explicit `ruflo proxy config --cloud` step (ADR-304); default **off** |
+
+Pressing Enter on the enrollment screen authorizes exactly one thing: launching `ruflo auth login`. It does not install the proxy, does not enable telemetry, and does not enable cloud routing.
+
+### Versioned consent receipts
+
+Each domain records an independent, versioned receipt in `~/.ruflo/consent.json`:
+
+```json
+{
+  "account":       { "granted": true,  "policyVersion": 1, "at": "2026-07-10T18:02:11Z", "surface": "post-init" },
+  "proxy-install": { "granted": true,  "policyVersion": 1, "at": "2026-07-10T18:03:40Z", "surface": "proxy-install" },
+  "telemetry":     { "granted": false, "policyVersion": 1, "at": "2026-07-10T18:02:11Z", "surface": "post-init" },
+  "cloud-routing": { "granted": false, "policyVersion": 1, "at": null,                    "surface": null }
+}
+```
+
+- A receipt is written on both grant **and** decline (a decline is a decision, not an absence).
+- `policyVersion` bumps when the meaning of a domain changes materially; a stale version means the consent must be re-asked before the capability activates — never silently carried forward.
+- Receipts are user-level, `0600`, never committed, never transmitted.
+- `ruflo auth logout` / `ruflo proxy uninstall` revoke the corresponding receipt.
+
 ## Requirements
 
 - **One-time only** — dismissal or completion is terminal; the prompt never reappears.

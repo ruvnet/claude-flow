@@ -49,7 +49,31 @@ Local backends (Ollama, vLLM, SGLang) are routed to directly by the local proxy 
 ruflo auth login
 ```
 
-obtains credentials for proxy operation. Users retain full control and may disable cloud routing at any time (`ruflo proxy config --local-only`), leaving the proxy as a purely local multi-backend router.
+obtains credentials for proxy operation.
+
+### Data-plane disclosure (cloud routing is off by default)
+
+"Local proxy" is easily read as "local inference." The two must never be conflated:
+
+- **Default state after `ruflo proxy install` is local-only.** The proxy routes exclusively to local backends (Ollama, vLLM, SGLang). No prompt leaves the machine, and no request is made to api.cognitum.one for inference.
+- **Cloud routing requires a separate explicit step** — `ruflo proxy config --cloud` — gated on the `cloud-routing` consent domain (ADR-302). Neither enrollment acceptance, `auth login`, nor proxy installation enables it.
+- **Pre-activation disclosure is mandatory.** Before cloud routing turns on, the UI states in plain terms what changes:
+
+  ```
+  Enabling cloud routing.
+
+  With cloud routing ON, prompts for cloud-tier requests are sent to
+  api.cognitum.one and forwarded to the selected provider
+  (Claude / GPT / Gemini / DeepSeek / OpenRouter).
+
+  Requests routed to local backends never leave this machine.
+
+  Enable cloud routing? [y/N]
+  ```
+
+  The default answer is No.
+- **Visible at runtime.** `ruflo proxy status` and every request receipt state the data plane used (`local` vs `cloud:<provider>`), so the user can verify where any given prompt went.
+- Cloud routing can be disabled at any time (`ruflo proxy config --local-only`), reverting to a purely local multi-backend router and revoking the `cloud-routing` consent receipt.
 
 ## Constraints
 

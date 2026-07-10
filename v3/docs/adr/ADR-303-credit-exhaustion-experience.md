@@ -57,9 +57,37 @@ The experience must clearly distinguish between:
 
 so that "unlimited local requests" is never conflated with unlimited cloud usage.
 
+## Error Taxonomy (deterministic, fail-closed)
+
+The recovery experience is gated on a **deterministic classifier over explicit provider codes** — never on text-matching provider messages, which will eventually misclassify outages or authentication failures as exhaustion.
+
+Every provider error is normalized into a category by an explicit code table:
+
+| Provider signal | Category | `confidence` |
+|-----------------|----------|--------------|
+| HTTP 429 + provider code `insufficient_quota` / `credit_exhausted` / `billing_hard_limit_reached` | `quota_exhausted` | 1 |
+| HTTP 429 + `rate_limit_exceeded` (retryable) | `rate_limited` | 1 |
+| HTTP 401/403 | `auth` | 1 |
+| HTTP 5xx, timeouts, connection resets | `provider_outage` | 1 |
+| Anything unmapped | `unknown` | 0 |
+
+The code table lives in one module per provider adapter, is versioned, and unmapped codes land in `unknown` — never coerced into `quota_exhausted`.
+
+The gate is fail-closed:
+
+```ts
+showCreditRecovery =
+  error.category === 'quota_exhausted' &&
+  error.confidence === 1 &&
+  !error.retryable &&
+  !session.creditPromptShown;
+```
+
+`rate_limited`, `auth`, `provider_outage`, and `unknown` always fall through to the ordinary error path. A missed upsell opportunity is acceptable; a wrong "out of credits" claim during a provider outage is not.
+
 ## Requirements
 
-- The upgrade message appears **only on genuine quota/credit exhaustion errors** — never on transient network failures, auth errors, or provider outages. Misclassifying an outage as "out of credits" erodes trust and misroutes the user; error classification must be conservative (exhaustion only when the provider response explicitly says so).
+- The upgrade message appears **only** when the classifier above fires — never on transient network failures, auth errors, provider outages, or unmapped errors.
 - The original error remains available (`--verbose` / exit code unchanged) — the contextual message wraps the failure, it does not mask it.
 - Non-TTY and CI environments get the plain error plus a single-line pointer (`Hint: ruflo auth login enables the free local Meta LLM proxy`), no interactive prompt.
 - Frequency-capped: at most one full contextual screen per session; subsequent exhaustions in the same session show the single-line hint.
