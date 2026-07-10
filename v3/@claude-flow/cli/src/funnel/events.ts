@@ -34,6 +34,9 @@ const EVENT_NAMES: readonly FunnelEventName[] = [
   'proxy_activated',
   'promo_impression',
   'promo_open',
+  'sponsor_mode_enabled',
+  'sponsor_mode_disabled',
+  'sponsor_capacity_exhausted',
 ];
 const SURFACES: readonly FunnelSurface[] = ['statusline', 'init', 'credit_exhaustion'];
 

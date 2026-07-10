@@ -20,6 +20,7 @@ export const CONSENT_DOMAINS: ConsentDomain[] = [
   'telemetry',
   'cloud-routing',
   'hosted-memory',
+  'sponsored-downtime',
 ];
 
 export function readConsents(): ConsentFile {

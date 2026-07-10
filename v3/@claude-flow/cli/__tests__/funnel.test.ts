@@ -63,6 +63,13 @@ import {
 } from '../src/funnel/credit-notifier.js';
 import { getFunnelPromo } from '../src/funnel/promo.js';
 import { isCI } from '../src/funnel/environment.js';
+import {
+  RATE_LIMIT_TTL_MS,
+  clearRateLimitStatus,
+  markRateLimited,
+  rateLimitNotice,
+  readRateLimitStatus,
+} from '../src/funnel/rate-limit-notifier.js';
 import { shouldOfferEnrollment, recordEnrollmentOutcome, getEnrollmentRecord } from '../src/funnel/enrollment.js';
 import { generateStatuslineScript } from '../src/init/statusline-generator.js';
 
@@ -790,5 +797,114 @@ describe('credit-notifier (ADR-303 out-of-band signal)', () => {
   it('returns null when credit is not exhausted (no surface)', () => {
     clearCreditStatus();
     expect(creditExhaustedNotice()).toBeNull();
+  });
+});
+
+// ─── ADR-312/313: rate-limit notifier + sponsored downtime override ────────
+
+describe('rate-limit notifier (ADR-312 Phase 0 — manual, self-reported)', () => {
+  it('starts not-limited', () => {
+    expect(readRateLimitStatus().limited).toBe(false);
+    expect(rateLimitNotice()).toBeNull();
+  });
+
+  it('markRateLimited is idempotent — stable `since`', () => {
+    const t0 = new Date('2026-07-10T12:00:00.000Z');
+    markRateLimited(t0);
+    const first = readRateLimitStatus(t0);
+    expect(first.limited).toBe(true);
+    expect(first.since).toBe(t0.toISOString());
+    // Marking again later must not move `since`.
+    markRateLimited(new Date(t0.getTime() + 60_000));
+    const second = readRateLimitStatus(new Date(t0.getTime() + 60_000));
+    expect(second.since).toBe(t0.toISOString());
+  });
+
+  it('clearRateLimitStatus stamps `cleared` and flips `limited` false', () => {
+    const t0 = new Date('2026-07-10T12:00:00.000Z');
+    markRateLimited(t0);
+    clearRateLimitStatus(new Date(t0.getTime() + 1000));
+    const status = readRateLimitStatus(new Date(t0.getTime() + 1000));
+    expect(status.limited).toBe(false);
+    expect(status.cleared).not.toBeNull();
+  });
+
+  it('auto-expires the flag after the TTL (a stale manual mark self-heals)', () => {
+    const t0 = new Date('2026-07-10T12:00:00.000Z');
+    markRateLimited(t0);
+    const justBefore = readRateLimitStatus(new Date(t0.getTime() + RATE_LIMIT_TTL_MS - 1000));
+    expect(justBefore.limited).toBe(true);
+    const justAfter = readRateLimitStatus(new Date(t0.getTime() + RATE_LIMIT_TTL_MS + 1000));
+    expect(justAfter.limited).toBe(false);
+  });
+
+  it('rateLimitNotice humanizes age and points at the sponsor command', () => {
+    const t0 = new Date('2026-07-10T12:00:00.000Z');
+    markRateLimited(t0);
+    const notice = rateLimitNotice(new Date(t0.getTime() + 5 * 60 * 1000));
+    expect(notice).toContain('5m ago');
+    expect(notice).toContain('ruflo proxy sponsor-enable');
+  });
+});
+
+describe('sponsored-downtime priority override (ADR-313)', () => {
+  it('does not override when the rate-limit flag is unset', () => {
+    seedRemoteMessages([...TEST_DISCLOSURE_POOL, ...TEST_ROTATION_POOL]);
+    const t0 = new Date();
+    recordDisclosureShown(t0);
+    const after = new Date(t0.getTime() + DISCLOSURE_GRACE_MS + 60_000);
+    const row = getFunnelPromo({ interactive: true, cwd: stateDir, now: after });
+    expect(row).not.toBeNull();
+    expect(row!.text).not.toMatch(/sponsor/i);
+  });
+
+  it('shows the enable-CTA when rate-limited without sponsored consent', () => {
+    seedRemoteMessages([...TEST_DISCLOSURE_POOL, ...TEST_ROTATION_POOL]);
+    const t0 = new Date();
+    recordDisclosureShown(t0);
+    const after = new Date(t0.getTime() + DISCLOSURE_GRACE_MS + 60_000);
+    markRateLimited(after);
+    const row = getFunnelPromo({ interactive: true, cwd: stateDir, now: after });
+    expect(row).not.toBeNull();
+    expect(row!.text).toContain('Free Cognitum capacity');
+    expect(row!.text).toContain('manage: ruflo proxy sponsor-enable');
+    expect(displayWidth(row!.text)).toBeLessThanOrEqual(MAX_MESSAGE_COLUMNS);
+  });
+
+  it('shows the active-status line when rate-limited WITH sponsored consent granted', () => {
+    seedRemoteMessages([...TEST_DISCLOSURE_POOL, ...TEST_ROTATION_POOL]);
+    const t0 = new Date();
+    recordDisclosureShown(t0);
+    const after = new Date(t0.getTime() + DISCLOSURE_GRACE_MS + 60_000);
+    markRateLimited(after);
+    recordConsent('sponsored-downtime', true, 'test');
+    const row = getFunnelPromo({ interactive: true, cwd: stateDir, now: after });
+    expect(row).not.toBeNull();
+    expect(row!.text).toContain('Running on sponsored Cognitum capacity');
+    expect(row!.text).toContain('manage: ruflo proxy sponsor-disable');
+    expect(displayWidth(row!.text)).toBeLessThanOrEqual(MAX_MESSAGE_COLUMNS);
+  });
+
+  it('the override preempts rotation even mid-promo-slot', () => {
+    // Regression guard: without the override, a promotional slot would
+    // otherwise render a rotation message here — confirm sponsored wins.
+    seedRemoteMessages([...TEST_DISCLOSURE_POOL, ...TEST_ROTATION_POOL]);
+    const t0 = new Date();
+    recordDisclosureShown(t0);
+    const after = new Date(t0.getTime() + DISCLOSURE_GRACE_MS + 60_000);
+    markRateLimited(after);
+    const row = getFunnelPromo({ interactive: true, cwd: stateDir, now: after });
+    expect(row!.kind).toBe('promotional');
+    expect(TEST_ROTATION_POOL.map((m) => m.text)).not.toContain(row!.text);
+  });
+
+  it('never overrides before the disclosure invariant is satisfied', () => {
+    // ADR-301: no promotional content before disclosure — even a rate-limit
+    // flag must not bypass the first-render disclosure gate.
+    seedRemoteMessages(TEST_DISCLOSURE_POOL);
+    markRateLimited(new Date());
+    const row = getFunnelPromo({ interactive: true, cwd: stateDir });
+    expect(row).not.toBeNull();
+    expect(row!.kind).toBe('disclosure');
   });
 });

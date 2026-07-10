@@ -27,6 +27,36 @@ import { clickTrackedUrl } from './attribution.js';
 import { selectMessage } from './rotation.js';
 import { recordFunnelEvent } from './events.js';
 import { getInstalledCliVersion } from '../init/helper-refresh.js';
+import { hasConsent } from './consent.js';
+import { readRateLimitStatus } from './rate-limit-notifier.js';
+
+/**
+ * ADR-313 priority override: when the user has manually flagged a Claude
+ * usage limit (ADR-312 Phase 0), preempt normal rotation with a dedicated
+ * CTA — same precedent as ADR-303's credit-exhaustion recovery surface.
+ * Two states depending on whether sponsored-downtime consent is granted:
+ *   - not yet enabled: an actionable CTA to enable it
+ *   - already enabled: a quiet status line confirming it's active
+ * Both message strings use the exact " · manage: " anchor the renderer
+ * already splits on (statusline-generator.ts getPromoRow) — no renderer
+ * change needed; the command portion renders bold, never as a fake link.
+ * Returns null when the rate-limit flag isn't set (no override).
+ */
+function getSponsoredDowntimeOverride(now: Date): PromoRow | null {
+  const status = readRateLimitStatus(now);
+  if (!status.limited) return null;
+
+  if (hasConsent('sponsored-downtime')) {
+    return {
+      text: '⚡ Running on sponsored Cognitum capacity · manage: ruflo proxy sponsor-disable',
+      kind: 'promotional',
+    };
+  }
+  return {
+    text: '⚡ Free Cognitum capacity while you wait · manage: ruflo proxy sponsor-enable',
+    kind: 'promotional',
+  };
+}
 
 export interface PromoContext {
   cwd?: string;
@@ -79,6 +109,14 @@ export function getFunnelPromo(ctx: PromoContext): PromoRow | null {
     }
     return null; // disclosed_disabled is caught by precedence, but stay fail-closed
   }
+
+  // ADR-313 priority override: a self-reported usage-limit flag preempts
+  // normal rotation, exactly the way ADR-303's credit-exhaustion recovery
+  // is designed to preempt it. Only reachable here — i.e. only after the
+  // disclosure invariant (ADR-301 "no promotional content before
+  // disclosure") has already been satisfied above.
+  const override = getSponsoredDowntimeOverride(now);
+  if (override) return override;
 
   const msg = selectMessage(now, release);
   if (!msg) return null;

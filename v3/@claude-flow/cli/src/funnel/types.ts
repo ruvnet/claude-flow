@@ -58,7 +58,10 @@ export type ConsentDomain =
   | 'proxy-install'
   | 'telemetry'
   | 'cloud-routing'
-  | 'hosted-memory';
+  | 'hosted-memory'
+  // ADR-313: separate from cloud-routing — sponsored capacity is Cognitum's
+  // own model traffic, billed to Cognitum, not the user's cloud config.
+  | 'sponsored-downtime';
 
 export interface ConsentReceipt {
   granted: boolean;
@@ -122,7 +125,11 @@ export type FunnelEventName =
   // ADR-311 impression + click tracking (server-side click-redirect fires
   // 'promo_open' after the client has fired 'promo_impression' on render).
   | 'promo_impression'
-  | 'promo_open';
+  | 'promo_open'
+  // ADR-313 sponsored downtime mode
+  | 'sponsor_mode_enabled'
+  | 'sponsor_mode_disabled'
+  | 'sponsor_capacity_exhausted';
 
 export type FunnelSurface = 'statusline' | 'init' | 'credit_exhaustion';
 

@@ -56,3 +56,11 @@ export {
 } from './credit-errors.js';
 export { deleteFunnelData, getFunnelId, recordFunnelEvent } from './events.js';
 export { getFunnelPromo, type PromoContext } from './promo.js';
+export {
+  RATE_LIMIT_TTL_MS,
+  clearRateLimitStatus,
+  markRateLimited,
+  rateLimitNotice,
+  readRateLimitStatus,
+  type RateLimitStatus,
+} from './rate-limit-notifier.js';

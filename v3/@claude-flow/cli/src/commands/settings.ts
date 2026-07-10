@@ -29,6 +29,12 @@ import {
   resolveFunnelEnabled,
 } from '../funnel/index.js';
 import { readStateJson, writeStateJson } from '../funnel/state.js';
+import {
+  clearRateLimitStatus,
+  markRateLimited,
+  rateLimitNotice,
+  readRateLimitStatus,
+} from '../funnel/rate-limit-notifier.js';
 
 function setUserConfigEnabled(enabled: boolean): void {
   const cfg = readStateJson<Record<string, unknown>>('funnel.json') ?? {};
@@ -89,10 +95,36 @@ const noticesIdSub: Command = {
   },
 };
 
+const rateLimitedSub: Command = {
+  name: 'rate-limited',
+  description: 'Manually flag that you have hit a Claude usage limit (ADR-312 Phase 0)',
+  options: [
+    { name: 'clear', description: 'Clear the flag', type: 'boolean', default: false },
+  ],
+  action: async (ctx): Promise<CommandResult> => {
+    if (ctx.flags.clear) {
+      clearRateLimitStatus();
+      output.printSuccess('Rate-limit flag cleared.');
+      return { success: true };
+    }
+    markRateLimited();
+    output.printSuccess('Rate-limit flag set.');
+    output.writeln('');
+    output.writeln('This is a manual, self-reported flag — ruflo cannot detect Claude\'s');
+    output.writeln('usage-limit state automatically today (see ADR-312). While flagged,');
+    output.writeln('the notices row may suggest sponsored Cognitum capacity as a bridge');
+    output.writeln('until your own limit resets: ruflo proxy sponsor-enable');
+    output.writeln('');
+    output.writeln('Clear it any time: ruflo settings notices rate-limited --clear');
+    const notice = rateLimitNotice();
+    return { success: true, data: { notice, status: readRateLimitStatus() } };
+  },
+};
+
 const noticesCommand: Command = {
   name: 'notices',
   description: 'Control the statusline notices row',
-  subcommands: [noticesStatusSub, noticesOffSub, noticesOnSub, noticesIdSub],
+  subcommands: [noticesStatusSub, noticesOffSub, noticesOnSub, noticesIdSub, rateLimitedSub],
   action: noticesStatusSub.action,
 };
 
