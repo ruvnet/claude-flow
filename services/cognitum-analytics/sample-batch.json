@@ -1,0 +1,15 @@
+{
+  "batchId": "01234567-89ab-cdef-0123-456789abcdef",
+  "events": [
+    {
+      "schemaVersion": 1,
+      "event": "disclosure_shown",
+      "surface": "statusline",
+      "release": "3.25.6",
+      "timestampBucket": "2026-07-10",
+      "pseudonymousId": "abcdef01-2345-6789-abcd-ef0123456789"
+    }
+  ],
+  "release": "3.25.6",
+  "emittedAt": "2026-07-10T15:30:00.000Z"
+}

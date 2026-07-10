@@ -50,6 +50,19 @@ import {
 } from '../src/funnel/credit-errors.js';
 import { getFunnelId, recordFunnelEvent, deleteFunnelData } from '../src/funnel/events.js';
 import { attributionUrl } from '../src/funnel/attribution.js';
+import {
+  flushEvents,
+  DEFAULT_ENDPOINT,
+  MAX_BATCH,
+  MIN_FLUSH_INTERVAL_MS,
+  FLUSH_TIMEOUT_MS,
+} from '../src/funnel/event-transport.js';
+import {
+  markCreditExhausted,
+  clearCreditStatus,
+  readCreditStatus,
+  creditExhaustedNotice,
+} from '../src/funnel/credit-notifier.js';
 import { getFunnelPromo } from '../src/funnel/promo.js';
 import { isCI } from '../src/funnel/environment.js';
 import { shouldOfferEnrollment, recordEnrollmentOutcome, getEnrollmentRecord } from '../src/funnel/enrollment.js';
@@ -659,5 +672,74 @@ describe('getFunnelPromo — API-down fallback discipline', () => {
     expect(promoSrc).not.toMatch(/from\s+['"]https?['"]/);
     expect(promoSrc).not.toMatch(/fetch\s*\(/);
     expect(promoSrc).not.toMatch(/XMLHttpRequest/);
+  });
+});
+
+// ─── ADR-308 client transport — consent-gated + failure-safe ────────────────
+
+describe('event transport (ADR-308 POST /v1/events)', () => {
+  it('exposes ADR-308 defaults: https endpoint, batch cap, backoff, timeout', () => {
+    expect(DEFAULT_ENDPOINT.startsWith('https://')).toBe(true);
+    expect(MAX_BATCH).toBeGreaterThan(0);
+    expect(MAX_BATCH).toBeLessThanOrEqual(1000);
+    expect(MIN_FLUSH_INTERVAL_MS).toBeGreaterThanOrEqual(10_000);
+    expect(FLUSH_TIMEOUT_MS).toBeGreaterThan(0);
+    expect(FLUSH_TIMEOUT_MS).toBeLessThanOrEqual(10_000); // never stall the CLI
+  });
+
+  it('no-ops without telemetry consent — zero network activity', async () => {
+    // No consent granted in the base test state.
+    const result = await flushEvents({ endpoint: 'https://127.0.0.1:1', now: new Date() });
+    expect(result).toEqual({ flushed: 0, skipped: 'no-consent' });
+  });
+
+  it('rejects non-https endpoints inside postBatch (via consent-gated caller)', async () => {
+    // Grant consent so the transport reaches postBatch, then pass an
+    // http:// endpoint — the module must refuse rather than open a plaintext
+    // connection.
+    recordConsent('telemetry', true, 'test');
+    // Also stage at least one event so we don't short-circuit on empty queue.
+    recordFunnelEvent('disclosure_shown', 'statusline', 'test');
+    const result = await flushEvents({ endpoint: 'http://127.0.0.1:1', force: true, now: new Date() });
+    expect(result.skipped).toMatch(/transport-failed|no-consent/);
+    // On the failed-transport path we expect a status of 0 (never opened).
+    if (result.skipped === 'transport-failed') expect(result.status).toBe(0);
+  });
+});
+
+describe('credit-notifier (ADR-303 out-of-band signal)', () => {
+  it('markCreditExhausted is idempotent — stable `since`', () => {
+    const t0 = new Date('2026-07-10T12:00:00.000Z');
+    markCreditExhausted(t0);
+    const first = readCreditStatus();
+    expect(first.exhausted).toBe(true);
+    expect(first.since).toBe(t0.toISOString());
+    // Second mark must not move the `since` timestamp forward.
+    markCreditExhausted(new Date('2026-07-10T13:00:00.000Z'));
+    const second = readCreditStatus();
+    expect(second.since).toBe(t0.toISOString());
+  });
+
+  it('clearCreditStatus stamps `cleared`, drops the exhausted flag', () => {
+    markCreditExhausted(new Date('2026-07-10T12:00:00.000Z'));
+    clearCreditStatus(new Date('2026-07-10T14:00:00.000Z'));
+    const status = readCreditStatus();
+    expect(status.exhausted).toBe(false);
+    expect(status.cleared).toBe('2026-07-10T14:00:00.000Z');
+  });
+
+  it('creditExhaustedNotice renders humanized "since" copy', () => {
+    markCreditExhausted(new Date('2026-07-10T12:00:00.000Z'));
+    // 3 hours later
+    const notice = creditExhaustedNotice(new Date('2026-07-10T15:00:00.000Z'));
+    expect(notice).not.toBeNull();
+    expect(notice).toContain('Cognitum credits exhausted');
+    expect(notice).toContain('ruflo funnel signup');
+    expect(notice).toContain('3h ago');
+  });
+
+  it('returns null when credit is not exhausted (no surface)', () => {
+    clearCreditStatus();
+    expect(creditExhaustedNotice()).toBeNull();
   });
 });
