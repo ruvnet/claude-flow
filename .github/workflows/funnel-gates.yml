@@ -41,48 +41,60 @@ on:
       - '.github/workflows/funnel-gates.yml'
   workflow_dispatch:
 
+# Setup mirrors the green "Build V3" job in v3-ci.yml exactly (pnpm 8 via
+# action-setup@v6, frozen-lockfile full install, workspace-wide build) — a
+# filtered install under a newer pnpm resolves the bare-semver workspace
+# deps from the registry instead of linking them, and the cli build then
+# can't find @claude-flow/cli-core's dist.
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8'
+
 jobs:
   invariants:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - name: Install workspace deps
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+      - name: Install dependencies
         working-directory: v3
-        run: pnpm install --filter @claude-flow/cli... --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Funnel invariant suite (ADR-310 gate map)
         working-directory: v3/@claude-flow/cli
         run: npx vitest run __tests__/funnel.test.ts __tests__/statusline-cost-display.test.ts
 
       - name: OpenAPI contract parses (ADR-308)
         run: |
+          python3 -m pip install --quiet pyyaml
           python3 -c "import yaml,sys; yaml.safe_load(open('v3/docs/api/cognitum-v1.openapi.yaml')); print('openapi yaml ok')"
 
   runtime-suppression:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - name: Install workspace deps
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+      - name: Install dependencies
         working-directory: v3
-        run: pnpm install --filter @claude-flow/cli... --no-frozen-lockfile
-      - name: Build CLI + workspace deps
+        run: pnpm install --frozen-lockfile
+      - name: Build workspace
         working-directory: v3
-        run: |
-          pnpm --filter @claude-flow/swarm run build
-          pnpm --filter @claude-flow/cli... run build
+        run: pnpm build
 
       # Gate: promo output in CI = 0. GitHub Actions sets CI=true — the real
       # environment IS the test fixture.
