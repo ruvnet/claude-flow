@@ -578,6 +578,23 @@ describe('attributionUrl (ADR-305 measurement, no runtime network)', () => {
 });
 
 describe('getFunnelPromo — API-down fallback discipline', () => {
+  it('generated statusline underlines only the clickable label, not the disable tail', () => {
+    // CTA affordance: the OSC 8 label is wrapped in ANSI underline ([4m)
+    // so terminals show it as a clickable link even when the OSC 8 hyperlink
+    // isn't supported. The trailing "· disable: ..." is dim + non-underlined
+    // so users read it as metadata, not as part of the click target.
+    const script = generateStatuslineScript({
+      statusline: { enabled: true, style: 'compact' as const },
+      runtime: { maxAgents: 15 },
+    });
+    // Underline on/off must sandwich the OSC 8 wrap.
+    expect(script).toMatch(/UL_ON \+ safeTerminalLink\(label, promo\.url\) \+ UL_OFF/);
+    // Dim tail must be rendered separately.
+    expect(script).toMatch(/DIM_ON \+ tail \+ DIM_OFF/);
+    // The split must be on the exact disable-instruction anchor.
+    expect(script).toMatch(/text\.indexOf\(' · disable'\)/);
+  });
+
   it('generated statusline emits exactly 3 lines: header, ops, promo', () => {
     // Claude Code truncates statusline past line 4 with the system guidance
     // line. The 3-line design puts RuFlo header on line 1, then ops, then

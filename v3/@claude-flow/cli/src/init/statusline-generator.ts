@@ -785,10 +785,26 @@ function getPromoRow(d) {
       .slice(0, 100)
       .trim();
     if (text.length === 0) return null;
-    // If the payload carries an allowlisted https URL, wrap the visible text
-    // in an OSC 8 hyperlink so the label is clickable without exposing the
-    // URL. Disclosure/educational rows have no URL and pass through as-is.
-    return safeTerminalLink(text, promo.url);
+    // Split the label from the trailing "· disable: ..." instruction so:
+    //   1. only the label is OSC 8 wrapped (the disable text isn't a click
+    //      target; wrapping it as one would be misleading),
+    //   2. only the label gets the visual underline that signals "click me",
+    //   3. the disable instruction reads as dim metadata — visibly separate,
+    //      answering "how do I turn it off?" without competing for attention.
+    // Educational tips have no disable tail and no URL — plain text through.
+    const disableIdx = text.indexOf(' · disable');
+    const label = disableIdx > 0 ? text.slice(0, disableIdx) : text;
+    const tail = disableIdx > 0 ? text.slice(disableIdx) : '';
+    // ANSI underline is the universal "this is a link" cue. Combined with
+    // the OSC 8 hyperlink escape, terminals that support hyperlinks show
+    // click-navigable text; terminals that don't at least show it looks
+    // like a link so the user knows *something* is there.
+    const UL_ON = '\\u001b[4m';
+    const UL_OFF = '\\u001b[24m';
+    const DIM_ON = '\\u001b[2m';
+    const DIM_OFF = '\\u001b[22m';
+    const linked = promo.url ? UL_ON + safeTerminalLink(label, promo.url) + UL_OFF : label;
+    return tail ? linked + DIM_ON + tail + DIM_OFF : linked;
   } catch (e) {
     return null; // the promo row must never break the statusline
   }
