@@ -21,7 +21,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = join(__dirname, '..');
 const HELPERS_DIR = resolve(process.argv[2] || join(PKG_ROOT, '.claude', 'helpers'));
-const CRITICAL = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs'];
+// Keep in sync with sign-helpers.mjs:CRITICAL and src/init/helper-refresh.ts:CRITICAL_HELPERS.
+const CRITICAL = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs'];
 
 const RUFLO_HELPERS_PUBKEY = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAhnFv74/CRcGWd0hL8zjyZ+52bIJ9SfcSgOutuKgo0Vg=
