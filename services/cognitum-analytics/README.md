@@ -1,116 +1,17 @@
-# cognitum-analytics — funnel-events Cloud Function (reference impl)
+# cognitum-analytics — moved out
 
-Endpoint the RuFlo funnel client posts batched telemetry to. Implements the
-ADR-308 contract (`POST /v1/events`) with:
+The RuFlo funnel analytics endpoint now lives in its own repo:
 
-- Idempotent batches keyed by `Idempotency-Key` header
-- Closed event vocabulary (ADR-305 §events) — unknown events are dropped
-- Firestore writes: raw events (`funnel_events` collection) + rolling
-  aggregates (`funnel_aggregates`) + per-tenant daily credit ledger
-  (`funnel_credit`) + idempotency journal (`funnel_idem`)
-- Credit ceiling — replies 402 `COGNITUM_CREDIT_EXHAUSTED` when the tenant
-  exceeds `CREDIT_CEILING_PER_DAY`. The client's transport picks this up
-  and surfaces the ADR-303 recovery UX asynchronously via
-  `credit-notifier.ts`.
+**https://github.com/cognitum-one/ruflo-funnel-api**
 
-## Layout
+per ADR-311 (server-side split from OSS CLI lifecycle).
 
-| File | Purpose |
-|---|---|
-| `index.js` | Function source — one HTTP handler, no framework beyond functions-framework |
-| `package.json` | Node 22 runtime, Firestore + functions-framework deps |
-| `sample-batch.json` | Fixture for local + smoke-test POSTs |
-| `deploy.sh` | gcloud CLI deploy — HUMAN-DRIVEN (autonomous loop never runs it) |
+Client contract (`POST /v1/events`) unchanged — see
+[ADR-308](../../v3/docs/adr/ADR-308-cognitum-public-api-contract.md).
+Server implementation, Cloud Function source, Firestore schema, and
+deploy scripts are all in the dedicated repo.
 
-## Local run
-
-```bash
-cd services/cognitum-analytics
-npm install
-GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json \
-  npm start
-# In another shell:
-npm run test:local
-```
-
-Requires `gcloud auth application-default login` first.
-
-## Deploy
-
-```bash
-cd services/cognitum-analytics
-gcloud auth login
-gcloud config set project cognitum-20260110
-./deploy.sh
-```
-
-Deploy runs `gcloud functions deploy --gen2` with the settings baked into
-the script. Environment overrides:
-
-| Var | Default | Effect |
-|---|---|---|
-| `PROJECT_ID` | `cognitum-20260110` | GCP project |
-| `REGION` | `us-central1` | Cloud Function region |
-| `FUNCTION_NAME` | `cognitum-analytics` | Function name (also the URL hash prefix) |
-| `FIRESTORE_COLLECTION` | `funnel_events` | Raw event collection |
-| `AGG_COLLECTION` | `funnel_aggregates` | Rolling aggregates |
-| `CREDIT_CEILING_PER_DAY` | `1000000` | Per-tenant credit ceiling |
-
-The deploy script smoke-tests the freshly-deployed endpoint by POSTing
-`sample-batch.json` and printing the JSON response.
-
-## Client wiring
-
-The client transport ships with:
-
-```
-DEFAULT_ENDPOINT = process.env.RUFLO_FUNNEL_EVENTS_ENDPOINT ??
-  'https://funnel.ruv.io/v1/events'
-```
-
-`funnel.ruv.io` is a Cloud Run domain mapping onto this function. Same URL
-survives redeploys and Cloud Run hostname-hash changes. The DNS record is
-a CNAME on Cloudflare:
-
-```
-funnel.ruv.io  CNAME  ghs.googlehosted.com  (unproxied — Cloud Run needs
-                                              direct TLS termination)
-```
-
-If you need to recreate the mapping from scratch:
-
-```bash
-gcloud beta run domain-mappings create \
-  --service=cognitum-analytics --domain=funnel.ruv.io \
-  --region=us-central1 --project=cognitum-20260110
-
-# Then add the CNAME above via Cloudflare API or dashboard:
-CF_TOKEN=$(gcloud secrets versions access latest \
-  --secret=CLOUDFLARE_API_TOKEN --project=cognitum-20260110)
-ZONE_ID=$(curl -s -H "Authorization: Bearer $CF_TOKEN" \
-  "https://api.cloudflare.com/client/v4/zones?name=ruv.io" \
-  | jq -r '.result[0].id')
-curl -s -X POST \
-  -H "Authorization: Bearer $CF_TOKEN" \
-  -H "Content-Type: application/json" \
-  "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
-  -d '{"type":"CNAME","name":"funnel","content":"ghs.googlehosted.com","ttl":1,"proxied":false}'
-```
-
-Cert issuance is automatic once the CNAME resolves; Cloud Run polls
-hourly for the record, so a fresh mapping is usually live within an
-hour but often within minutes.
-
-## Verification (post-deploy)
-
-```bash
-gcloud functions logs read cognitum-analytics --region=us-central1 --limit=20
-gcloud firestore documents list "funnel_events" --limit=5
-```
-
-Client-side:
-
-```bash
-# From a project with telemetry consent recorded:
-node -e "require('./v3/@claude-flow/cli/dist/src/funnel/event-transport.js').flushEvents().then(console.log)"
-```
+Client transport (this repo) points at `https://funnel.ruv.io/v1/events`
+by default — the Cloud Run domain mapping onto the deployed function.
+Override with the `RUFLO_FUNNEL_EVENTS_ENDPOINT` env var for staging or
+self-hosted deployments.
