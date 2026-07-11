@@ -10,7 +10,17 @@
  *     own lock + checkExistingDaemon() — so a race spawns at most one survivor,
  *   - bounded lifetime: the daemon self-terminates on TTL/idle (12h default,
  *     RUFLO_DAEMON_TTL_SECS) — auto-start never means "runs forever",
- *   - opt-out: RUFLO_DAEMON_AUTOSTART=0|false|no disables it entirely,
+ *   - opt-out: RUFLO_DAEMON_AUTOSTART=0|false|no disables it entirely, OR a
+ *     project-local `daemon.autostart: false` in claude-flow.config.json —
+ *     the file-based opt-out exists because the env var only reaches a
+ *     process that inherited it. A non-interactive shell (cron, CI, many
+ *     tool-invoked shells — bash skips ~/.bashrc entirely for these; see
+ *     its own `case $- in *i*) ;; *) return;; esac` guard) never re-sources
+ *     a shell rc file per invocation, so `export RUFLO_DAEMON_AUTOSTART=0`
+ *     in one such shell does NOT persist to the next one. A project config
+ *     field has no such gap — it's read fresh from disk every time,
+ *     independent of which shell (or whether any shell at all) launched
+ *     the command,
  *   - cheap: a pidfile read + a signal-0 liveness check on the fast path,
  *   - best-effort + silent: never blocks or fails a command.
  *
@@ -37,8 +47,20 @@ export function isDaemonAlive(projectRoot: string): boolean {
   }
 }
 
-function autostartDisabled(): boolean {
-  return /^(0|false|no|off)$/i.test(process.env.RUFLO_DAEMON_AUTOSTART ?? '');
+/** Project-local opt-out: `{ "daemon": { "autostart": false } }` in claude-flow.config.json. */
+function autostartDisabledByProjectConfig(projectRoot: string): boolean {
+  try {
+    const raw = fs.readFileSync(path.join(projectRoot, 'claude-flow.config.json'), 'utf-8');
+    const cfg = JSON.parse(raw);
+    return cfg?.daemon?.autostart === false;
+  } catch {
+    return false; // absent/malformed config = not disabled
+  }
+}
+
+function autostartDisabled(projectRoot: string): boolean {
+  if (/^(0|false|no|off)$/i.test(process.env.RUFLO_DAEMON_AUTOSTART ?? '')) return true;
+  return autostartDisabledByProjectConfig(projectRoot);
 }
 
 export interface EnsureResult { started: boolean; reason?: string }
@@ -66,7 +88,7 @@ export function ensureDaemonRunning(
   opts: { spawnFn?: SpawnDaemonFn; isAlive?: (root: string) => boolean } = {},
 ): EnsureResult {
   try {
-    if (autostartDisabled()) return { started: false, reason: 'disabled (RUFLO_DAEMON_AUTOSTART=0)' };
+    if (autostartDisabled(projectRoot)) return { started: false, reason: 'disabled (RUFLO_DAEMON_AUTOSTART=0 or project config)' };
     // Only in an initialized project (avoid scaffolding a daemon in a random dir).
     if (!fs.existsSync(path.join(projectRoot, '.claude-flow')) && !fs.existsSync(path.join(projectRoot, '.claude'))) {
       return { started: false, reason: 'not a ruflo project' };
