@@ -19,6 +19,55 @@ const os = require('os');
 
 const helpersDir = __dirname;
 
+// Resolve an installed @claude-flow/cli (or ruflo) bin — mirrors
+// statusline-generator.ts's resolveCliBin() candidate list. Used only to
+// spawn the detached funnel-refresh helper below; failures are silent (no
+// candidate found just means the refresh never fires this session).
+function resolveCliBinForHook() {
+  try {
+    const home = os.homedir();
+    const cwd = process.cwd();
+    const candidates = [
+      path.join(home, '.claude', 'plugins', 'marketplaces', 'ruflo', 'bin', 'cli.js'),
+      path.join(cwd, 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
+      path.join(cwd, 'node_modules', 'ruflo', 'bin', 'cli.js'),
+      path.join(cwd, 'v3', '@claude-flow', 'cli', 'bin', 'cli.js'),
+      // helpersDir is .claude/helpers/ inside the package itself when this
+      // file is running from a real @claude-flow/cli install (not a project
+      // that merely copied the helper) — its bin/ is two levels up.
+      path.join(helpersDir, '..', '..', 'bin', 'cli.js'),
+    ];
+    for (const p of candidates) {
+      if (fs.existsSync(p)) return p;
+    }
+  } catch (e) { /* ignore */ }
+  return null;
+}
+
+// Fire-and-forget doesn't work when the CALLER is itself a short-lived
+// subprocess (confirmed live: two consecutive statusline renders 5s apart
+// both saw an empty funnel-messages-cache, because the async HTTPS fetch
+// inside a `void refreshRemoteMessages()` call gets killed when the spawning
+// process exits before the request completes). Spawning fully DETACHED +
+// unref'd decouples the refresh's lifetime from this hook's — it keeps
+// running (up to message-transport.ts's own 4s fetch timeout) even after
+// session-restore's own process has already exited, so it actually gets a
+// chance to write the cache. Never awaited here — must not add to
+// SessionStart's own timeout budget.
+function spawnDetachedFunnelRefresh() {
+  try {
+    const cliBin = resolveCliBinForHook();
+    if (!cliBin) return;
+    const { spawn } = require('child_process');
+    const child = spawn(process.execPath, [cliBin, 'hooks', 'refresh-funnel', '--quiet'], {
+      detached: true,
+      stdio: 'ignore',
+      env: process.env,
+    });
+    child.unref();
+  } catch (e) { /* best-effort only */ }
+}
+
 // Safe require with stdout suppression - the helper modules have CLI
 // sections that run unconditionally on require(), so we mute console
 // during the require to prevent noisy output.
@@ -286,6 +335,10 @@ const handlers = {
         console.log(`[INTELLIGENCE] Loaded ${initResult.nodes} patterns, ${initResult.edges} edges`);
       }
     }
+    // Warm the funnel message cache once per session (see
+    // spawnDetachedFunnelRefresh's doc comment for why this must happen
+    // here, detached, rather than as the statusline's own fire-and-forget).
+    spawnDetachedFunnelRefresh();
   },
 
   'session-end': async () => {

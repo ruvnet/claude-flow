@@ -5263,6 +5263,51 @@ const notifyCommand: Command = {
   }
 };
 
+// Refresh-funnel subcommand — the fix for "promo doesn't load right away".
+//
+// refreshRemoteMessages() (funnel/message-transport.ts) is fire-and-forget
+// by design so the STATUSLINE's own per-render invocation never blocks on
+// a network call. But the statusline is spawned as a short-lived subprocess
+// per render (execSync from statusline-generator.ts) — a fire-and-forget
+// promise kicked off there has no "later" to run in; the process exits
+// before the HTTPS fetch can complete, so the local message cache never
+// actually gets written and the promo row never appears (confirmed live:
+// two consecutive cold-cache statusline renders, 5s apart, both returned
+// promo:null and the cache file was never created).
+//
+// This command exists to be invoked from a LONGER-LIVED context — the
+// SessionStart hook (see hook-handler.cjs's 'session-restore' handler,
+// which spawns this detached so it isn't killed when the hook's own
+// process exits, and isn't awaited so it doesn't add to the hook's own
+// timeout budget). One real, properly-awaited refresh attempt here, once
+// per session, is what actually gives refreshRemoteMessages() a chance to
+// finish before anything needs the cache.
+const refreshFunnelCommand: Command = {
+  name: 'refresh-funnel',
+  description: 'Best-effort background refresh of the funnel message cache (internal — see hook-handler.cjs session-restore)',
+  options: [
+    { name: 'quiet', description: 'Suppress output (used when spawned detached from a hook)', type: 'boolean', default: false },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    try {
+      const { refreshRemoteMessages } = await import('../funnel/index.js');
+      const result = await refreshRemoteMessages();
+      if (!ctx.flags.quiet) {
+        output.writeln(JSON.stringify(result));
+      }
+      return { success: true, data: result };
+    } catch (error) {
+      // Fail silent by design (matches message-transport.ts's own "fail
+      // silent" discipline) — a broken refresh must never surface as a
+      // hook error, only ever as "no promo this session."
+      if (!ctx.flags.quiet) {
+        output.printError(`refresh-funnel failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      return { success: true, data: { refreshed: false, skipped: 'error' } };
+    }
+  }
+};
+
 // Main hooks command
 export const hooksCommand: Command = {
   name: 'hooks',
@@ -5306,6 +5351,8 @@ export const hooksCommand: Command = {
     // Agent Teams integration
     teammateIdleCommand,
     taskCompletedCommand,
+    // Funnel background refresh — see refreshFunnelCommand's own doc comment
+    refreshFunnelCommand,
   ],
   options: [],
   examples: [
