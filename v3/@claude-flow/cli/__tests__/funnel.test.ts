@@ -439,6 +439,39 @@ describe('consent receipts (ADR-302)', () => {
   });
 });
 
+describe('training-data-sharing consent domain (ADR-315 Tier 2)', () => {
+  it('is unconsented by default, independent of sponsored-downtime', () => {
+    recordConsent('sponsored-downtime', true, 'proxy-sponsor-enable');
+    expect(hasConsent('sponsored-downtime')).toBe(true);
+    expect(hasConsent('training-data-sharing')).toBe(false);
+  });
+
+  it('granting sponsored-downtime never implicitly grants training-data-sharing', () => {
+    recordConsent('sponsored-downtime', true, 'proxy-sponsor-enable');
+    recordConsent('power-saver', true, 'proxy-power-saver-enable');
+    expect(hasConsent('training-data-sharing')).toBe(false);
+  });
+
+  it('records grant and decline as explicit decisions, same as every other domain', () => {
+    recordConsent('training-data-sharing', true, 'proxy-training-share-enable');
+    expect(hasConsent('training-data-sharing')).toBe(true);
+    recordConsent('training-data-sharing', false, 'proxy-training-share-disable');
+    expect(hasConsent('training-data-sharing')).toBe(false);
+    expect(getConsent('training-data-sharing').at).not.toBeNull(); // decline recorded, not absent
+  });
+
+  it('granting training-data-sharing does not implicitly grant sponsored-downtime', () => {
+    recordConsent('training-data-sharing', true, 'proxy-training-share-enable');
+    expect(hasConsent('sponsored-downtime')).toBe(false);
+  });
+
+  it('the funnel event schema accepts training_share_enabled/disabled once telemetry is consented', () => {
+    recordConsent('telemetry', true, 'test');
+    expect(recordFunnelEvent('training_share_enabled', 'statusline', '3.25.6')).toBe(true);
+    expect(recordFunnelEvent('training_share_disabled', 'statusline', '3.25.6')).toBe(true);
+  });
+});
+
 // ─── ADR-303: credit-error classifier ───────────────────────────────────────
 
 describe('credit-error classifier (ADR-303, fail-closed)', () => {

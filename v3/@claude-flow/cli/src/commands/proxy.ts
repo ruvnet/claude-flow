@@ -70,6 +70,10 @@ function writePowerSaverConsentMirror(granted: boolean): void {
   writeConsentMirrorLine('power_saver_consent_granted', granted);
 }
 
+function writeTrainingShareConsentMirror(granted: boolean): void {
+  writeConsentMirrorLine('training_share_consent_granted', granted);
+}
+
 const SPONSOR_DISCLOSURE = [
   'Enabling sponsored downtime mode.',
   '',
@@ -239,17 +243,87 @@ const powerSaverClearSub: Command = {
   },
 };
 
+const TRAINING_SHARE_DISCLOSURE = [
+  'Enabling training-data sharing.',
+  '',
+  'When a request runs on the sponsored plane, the proxy will attach a',
+  'consent header telling Cognitum it may retain that interaction —',
+  '(post safety-scan) — as input to its MicroLoRA training pipeline',
+  '(meta-llm ADR-251), gated through its existing SHADOW/promotion-rule',
+  'safety net; adaptations are never auto-served. This is content, not',
+  'just metadata, and is entirely separate from sponsored-downtime',
+  'consent — using free capacity never implicitly means this is on.',
+  '',
+  'Declining has zero effect on sponsored-capacity access.',
+  '',
+  'Disable anytime: ruflo proxy training-share-disable',
+].join('\n');
+
+const trainingShareEnableSub: Command = {
+  name: 'training-share-enable',
+  description: 'Opt into sharing sponsored-plane interaction content for meta-llm training (ADR-315)',
+  options: [
+    { name: 'yes', description: 'Skip the confirmation prompt', type: 'boolean', default: false },
+  ],
+  action: async (ctx): Promise<CommandResult> => {
+    if (hasConsent('training-data-sharing')) {
+      output.writeln('Training-data sharing is already enabled.');
+      return { success: true, data: { alreadyEnabled: true } };
+    }
+    output.writeln(TRAINING_SHARE_DISCLOSURE);
+    output.writeln('');
+    if (!ctx.flags.yes) {
+      output.writeln('Re-run with --yes to confirm: ruflo proxy training-share-enable --yes');
+      return { success: true, data: { confirmed: false } };
+    }
+    recordConsent('training-data-sharing', true, 'proxy-training-share-enable');
+    writeTrainingShareConsentMirror(true);
+    recordFunnelEvent('training_share_enabled', 'statusline', getInstalledCliVersion());
+    output.printSuccess('Training-data sharing enabled.');
+    output.writeln('Only sponsored-plane requests carry the consent header. Disable anytime:');
+    output.writeln('  ruflo proxy training-share-disable');
+    return { success: true, data: { confirmed: true } };
+  },
+};
+
+const trainingShareDisableSub: Command = {
+  name: 'training-share-disable',
+  description: 'Revoke training-data-sharing consent — stop sending the training consent header',
+  action: async (): Promise<CommandResult> => {
+    revokeConsent('training-data-sharing', 'proxy-training-share-disable');
+    writeTrainingShareConsentMirror(false);
+    recordFunnelEvent('training_share_disabled', 'statusline', getInstalledCliVersion());
+    output.printSuccess('Training-data sharing disabled.');
+    return { success: true };
+  },
+};
+
+const trainingShareStatusSub: Command = {
+  name: 'training-share-status',
+  description: 'Show training-data-sharing consent state',
+  action: async (): Promise<CommandResult> => {
+    const consented = hasConsent('training-data-sharing');
+    output.writeln(`Training-data sharing consent: ${consented ? 'granted' : 'not granted'}`);
+    if (consented) {
+      output.writeln('Sponsored-plane requests carry X-Cognitum-Training-Consent: true.');
+    }
+    return { success: true, data: { consented } };
+  },
+};
+
 export const proxyCommand: Command = {
   name: 'proxy',
-  description: 'Meta LLM Proxy — sponsored downtime + power saver (ADR-304/307/313/314)',
+  description: 'Meta LLM Proxy — sponsored downtime + power saver + training-data sharing (ADR-304/307/313/314/315)',
   subcommands: [
     sponsorEnableSub, sponsorDisableSub, sponsorStatusSub, sponsorClearSub,
     powerSaverEnableSub, powerSaverDisableSub, powerSaverStatusSub, powerSaverClearSub,
+    trainingShareEnableSub, trainingShareDisableSub, trainingShareStatusSub,
   ],
   examples: [
     { command: 'ruflo proxy sponsor-status', description: 'Show current sponsored-mode state' },
     { command: 'ruflo proxy sponsor-enable --yes', description: 'Opt into sponsored downtime capacity' },
     { command: 'ruflo proxy power-saver-enable --yes', description: 'Opt into power saver mode' },
+    { command: 'ruflo proxy training-share-enable --yes', description: 'Opt into training-data sharing (ADR-315)' },
   ],
   action: sponsorStatusSub.action,
 };

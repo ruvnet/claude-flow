@@ -40,6 +40,8 @@ const EVENT_NAMES: readonly FunnelEventName[] = [
   'power_saver_enabled',
   'power_saver_disabled',
   'toggle_cooldown_blocked',
+  'training_share_enabled',
+  'training_share_disabled',
 ];
 const SURFACES: readonly FunnelSurface[] = ['statusline', 'init', 'credit_exhaustion'];
 

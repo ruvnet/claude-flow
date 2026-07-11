@@ -72,7 +72,13 @@ export type ConsentDomain =
   // Cognitum account (Cloud plane), not sponsored/free capacity, but it's
   // still a distinct decision from generic cloud-routing (auto-rewrites the
   // model to cognitum-auto, which cloud-routing consent alone doesn't imply).
-  | 'power-saver';
+  | 'power-saver'
+  // ADR-315 Tier 2: separate from sponsored-downtime — using free/sponsored
+  // capacity must never implicitly mean donating prompt content for model
+  // training. This is the one consent domain in the whole family that
+  // gates raw interaction CONTENT leaving the client, not just a routing
+  // decision, so it is never bundled with anything else.
+  | 'training-data-sharing';
 
 export interface ConsentReceipt {
   granted: boolean;
@@ -144,7 +150,10 @@ export type FunnelEventName =
   // ADR-314 power saver mode + anti-abuse
   | 'power_saver_enabled'
   | 'power_saver_disabled'
-  | 'toggle_cooldown_blocked';
+  | 'toggle_cooldown_blocked'
+  // ADR-315 Tier 2 training-data-sharing consent
+  | 'training_share_enabled'
+  | 'training_share_disabled';
 
 export type FunnelSurface = 'statusline' | 'init' | 'credit_exhaustion';
 

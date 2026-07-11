@@ -1,9 +1,26 @@
 # ADR-315: Self-optimizing flywheel — training meta-llm from free/sponsored-user traffic
 
-- **Status**: Proposed
+- **Status**: Partially implemented — ruflo-side (Tier 2 client wiring) shipped 2026-07-11; meta-llm-side (consent-gated capture + scheduled tick) not started, tracked separately in meta-llm's own scope
 - **Date**: 2026-07-10
 - **Deciders**: ruv
 - **Related**: [ADR-313](ADR-313-sponsored-downtime-proxy-mode.md), [ADR-314](ADR-314-power-saver-mode-and-sponsored-abuse-prevention.md), meta-llm's [ADR-251](https://github.com/cognitum-one/meta-llm/blob/main/docs/adr/ADR-251-microlora-flywheel-service.md) (`POST /v1/microlora/evolve` — the training mechanism this ADR feeds, not reinvents)
+
+## Implementation status (2026-07-11)
+
+**ruflo client-side wiring — shipped**: `training-data-sharing` consent domain
+(`src/funnel/types.ts`/`consent.ts`), `ruflo proxy training-share-enable/-disable/-status`
+(`src/commands/proxy.ts`), `training_share_enabled/disabled` funnel events. Mirrors the
+ADR-313/314 pattern exactly — never bundled with `sponsored-downtime`, its own disclosure text,
+its own `training_share_consent_granted` mirror field in `proxy-config.toml`.
+
+**meta-proxy header relay — not yet implemented**: the Sponsored-plane
+`X-Cognitum-Training-Consent: true` header (reading the `training_share_consent_granted` mirror
+flag, omitted entirely rather than sent `false`) is still open work in `cognitum-one/meta-proxy`'s
+`src/routes/messages.rs`.
+
+**meta-llm consent-gated capture + scheduled tick — not started**: this is meta-llm's own scope
+per the "Server-side" section below; nothing in this ADR's client-side work depends on it existing
+yet — the header is emitted (once meta-proxy adds it) whether or not anything downstream reads it.
 
 ## Context
 
