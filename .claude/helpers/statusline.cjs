@@ -696,16 +696,19 @@ function generateStatusline() {
   }
   lines.push(opsParts.join('  ' + c.dim + '·' + c.reset + '  '));
 
-  // ─── Line 3: promo / disclosure ────────────────────────────────
+  // ─── Line 3: promo / disclosure / insight ───────────────────────
   // Colored by content kind so it reads as *what it is*, not as noise:
   //   disclosure  → brightCyan   (announcement / capability link)
   //   promotional → brightPurple (Cognitum sponsor spot)
   //   educational → yellow       (a tip)
+  //   insight     → brightRed    (environment/task-aware, local, actionable —
+  //                               distinct from remote content on purpose)
   const promoRow = getPromoRow(d);
   if (promoRow) {
     const kind = (d && d.promo && d.promo.kind) || 'disclosure';
     const promoColor = kind === 'promotional' ? c.brightPurple
                      : kind === 'educational' ? c.yellow
+                     : kind === 'insight' ? c.brightRed
                      : c.brightCyan;
     lines.push(promoColor + promoRow + c.reset);
   }

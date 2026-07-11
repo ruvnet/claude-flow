@@ -47,7 +47,13 @@ export interface FunnelMessage {
 
 export interface PromoRow {
   text: string;
-  kind: 'disclosure' | FunnelMessageClass;
+  // 'insight' is deliberately NOT part of FunnelMessageClass — insights are
+  // computed locally from environment/task state (CVEs, git, swarm), never
+  // remote-served, never run through the remote-content validation pipeline
+  // (messages.ts's isValidMessage()). Keeping it a separate literal here
+  // means "every FunnelMessageClass came from the remote/in-code content
+  // pipeline" stays a true invariant elsewhere in the codebase.
+  kind: 'disclosure' | FunnelMessageClass | 'insight';
   url?: string;
 }
 

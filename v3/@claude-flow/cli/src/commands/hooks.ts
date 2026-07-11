@@ -4275,6 +4275,19 @@ const statuslineCommand: Command = {
     const system = getSystemMetrics();
     const user = getUserInfo();
 
+    // Cheap, bounded, never allowed to break the statusline — feeds the
+    // local insight ticker (funnel/insights.ts) below. Reuses the same
+    // execSync + short timeout discipline as getUserInfo()'s git calls.
+    function getGitUncommittedCount(): number | undefined {
+      try {
+        const out = execSync('git status --porcelain 2>/dev/null', { encoding: 'utf-8', timeout: 3000 });
+        const lines = out.split('\n').filter((l) => l.trim().length > 0);
+        return lines.length;
+      } catch {
+        return undefined;
+      }
+    }
+
     // Funnel promo row (ADR-301). The statusline is spawned with piped stdio
     // by an interactive host, so interactivity is asserted here; all other
     // gates (RUFLO_FUNNEL, enterprise policy, config, CI, disclosure,
@@ -4283,7 +4296,10 @@ const statuslineCommand: Command = {
     let promo: import('../funnel/types.js').PromoRow | null = null;
     try {
       const { getFunnelPromo } = await import('../funnel/index.js');
-      promo = getFunnelPromo({ interactive: true });
+      promo = getFunnelPromo({
+        interactive: true,
+        localInsights: { security, swarm, gitUncommittedCount: getGitUncommittedCount() },
+      });
     } catch {
       promo = null;
     }

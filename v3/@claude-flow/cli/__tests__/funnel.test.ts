@@ -78,6 +78,7 @@ import {
   readQuotaLowStatus,
 } from '../src/funnel/power-saver-notifier.js';
 import { TOGGLE_COOLDOWN_MS, cooldownActive, cooldownRemainingMin } from '../src/funnel/toggle-cooldown.js';
+import { computeLocalInsights, selectLocalInsight } from '../src/funnel/insights.js';
 import { shouldOfferEnrollment, recordEnrollmentOutcome, getEnrollmentRecord } from '../src/funnel/enrollment.js';
 import { generateStatuslineScript } from '../src/init/statusline-generator.js';
 
@@ -1018,5 +1019,149 @@ describe('sponsored-downtime priority override (ADR-313)', () => {
     const row = getFunnelPromo({ interactive: true, cwd: stateDir });
     expect(row).not.toBeNull();
     expect(row!.kind).toBe('disclosure');
+  });
+});
+
+describe('local insight ticker (computeLocalInsights / selectLocalInsight)', () => {
+  it('returns nothing when no context signal applies', () => {
+    expect(computeLocalInsights({})).toEqual([]);
+    expect(selectLocalInsight({})).toBeNull();
+  });
+
+  it('surfaces pending CVEs at the highest priority', () => {
+    const insights = computeLocalInsights({ security: { status: 'IN_PROGRESS', cvesFixed: 1, totalCves: 3 } });
+    expect(insights).toHaveLength(1);
+    expect(insights[0].text).toContain('2 CVEs pending');
+    expect(insights[0].text).toContain('ruflo security scan --depth full');
+  });
+
+  it('singularizes "1 CVE" correctly', () => {
+    const insight = selectLocalInsight({ security: { status: 'IN_PROGRESS', cvesFixed: 2, totalCves: 3 } });
+    expect(insight!.text).toContain('1 CVE pending');
+    expect(insight!.text).not.toContain('1 CVEs');
+  });
+
+  it('falls back to "scan pending" only when there are zero pending CVEs but the scan itself is pending', () => {
+    const insight = selectLocalInsight({ security: { status: 'PENDING', cvesFixed: 3, totalCves: 3 } });
+    expect(insight!.text).toContain('Security scan pending');
+  });
+
+  it('is silent when security is CLEAN', () => {
+    expect(selectLocalInsight({ security: { status: 'CLEAN', cvesFixed: 3, totalCves: 3 } })).toBeNull();
+  });
+
+  it('surfaces uncommitted changes only above the threshold', () => {
+    expect(selectLocalInsight({ gitUncommittedCount: 20 })).toBeNull(); // at threshold, not over
+    const insight = selectLocalInsight({ gitUncommittedCount: 21 });
+    expect(insight!.text).toContain('21 uncommitted changes');
+  });
+
+  it('picks the highest-priority candidate when several apply at once', () => {
+    const insight = selectLocalInsight({
+      security: { status: 'IN_PROGRESS', cvesFixed: 2, totalCves: 3 }, // priority 90
+      gitUncommittedCount: 50, // priority 50
+    });
+    expect(insight!.id).toBe('insight-cves-pending');
+  });
+
+  it('surfaces power-saver mode only when both consented and flagged low', () => {
+    expect(selectLocalInsight({})).toBeNull();
+    recordConsent('power-saver', true, 'test');
+    expect(selectLocalInsight({})).toBeNull(); // consented but not flagged low
+    markQuotaLow(new Date());
+    const insight = selectLocalInsight({});
+    expect(insight!.text).toContain('Power saver mode active');
+  });
+
+  it('reads the ADR-315 flywheel-status cache when present and fresh', () => {
+    fs.writeFileSync(
+      path.join(stateDir, 'flywheel-status.json'),
+      JSON.stringify({ _ts: Date.now(), headline: 'test headline' }),
+      'utf-8',
+    );
+    const insight = selectLocalInsight({});
+    expect(insight!.text).toContain('test headline');
+  });
+
+  it('ignores an expired flywheel-status cache', () => {
+    fs.writeFileSync(
+      path.join(stateDir, 'flywheel-status.json'),
+      JSON.stringify({ _ts: Date.now() - 25 * 60 * 60 * 1000, headline: 'stale headline' }),
+      'utf-8',
+    );
+    expect(selectLocalInsight({})).toBeNull();
+  });
+});
+
+describe('local insight ticker integration with getFunnelPromo (ADR §5)', () => {
+  it('never shows an insight when localInsights context is omitted (backward compatible)', () => {
+    seedRemoteMessages([...TEST_DISCLOSURE_POOL, ...TEST_ROTATION_POOL]);
+    const t0 = new Date();
+    recordDisclosureShown(t0);
+    // slot 2 (of 5) — the reserved insight slot — but no context passed.
+    const insightSlotTime = new Date(t0.getTime() + DISCLOSURE_GRACE_MS + 60_000 + 2 * ROTATION_SLOT_MS);
+    const row = getFunnelPromo({ interactive: true, cwd: stateDir, now: insightSlotTime });
+    expect(row).not.toBeNull();
+    expect(row!.kind).not.toBe('insight');
+  });
+
+  it('shows the insight on its reserved slot when context signals one', () => {
+    seedRemoteMessages([...TEST_DISCLOSURE_POOL, ...TEST_ROTATION_POOL]);
+    const t0 = new Date(0);
+    recordDisclosureShown(t0);
+    const after = new Date(t0.getTime() + DISCLOSURE_GRACE_MS + 60_000);
+    // Find the next slot boundary where slot % 5 === 2 (promo.ts's reserved phase).
+    let probe = after;
+    while (Math.floor(probe.getTime() / ROTATION_SLOT_MS) % 5 !== 2) {
+      probe = new Date(probe.getTime() + ROTATION_SLOT_MS);
+    }
+    const row = getFunnelPromo({
+      interactive: true,
+      cwd: stateDir,
+      now: probe,
+      localInsights: { security: { status: 'IN_PROGRESS', cvesFixed: 0, totalCves: 1 } },
+    });
+    expect(row).not.toBeNull();
+    expect(row!.kind).toBe('insight');
+    expect(row!.text).toContain('CVE');
+  });
+
+  it('falls through to normal rotation on the insight slot when nothing is actionable', () => {
+    seedRemoteMessages([...TEST_DISCLOSURE_POOL, ...TEST_ROTATION_POOL]);
+    const t0 = new Date(0);
+    recordDisclosureShown(t0);
+    const after = new Date(t0.getTime() + DISCLOSURE_GRACE_MS + 60_000);
+    let probe = after;
+    while (Math.floor(probe.getTime() / ROTATION_SLOT_MS) % 5 !== 2) {
+      probe = new Date(probe.getTime() + ROTATION_SLOT_MS);
+    }
+    const row = getFunnelPromo({
+      interactive: true,
+      cwd: stateDir,
+      now: probe,
+      localInsights: { security: { status: 'CLEAN', cvesFixed: 1, totalCves: 1 } },
+    });
+    expect(row).not.toBeNull();
+    expect(row!.kind).not.toBe('insight'); // no actionable insight -> normal rotation
+  });
+
+  it('the ADR-313 sponsored override still wins even on the insight slot', () => {
+    seedRemoteMessages([...TEST_DISCLOSURE_POOL, ...TEST_ROTATION_POOL]);
+    const t0 = new Date(0);
+    recordDisclosureShown(t0);
+    const after = new Date(t0.getTime() + DISCLOSURE_GRACE_MS + 60_000);
+    let probe = after;
+    while (Math.floor(probe.getTime() / ROTATION_SLOT_MS) % 5 !== 2) {
+      probe = new Date(probe.getTime() + ROTATION_SLOT_MS);
+    }
+    markRateLimited(probe);
+    const row = getFunnelPromo({
+      interactive: true,
+      cwd: stateDir,
+      now: probe,
+      localInsights: { security: { status: 'IN_PROGRESS', cvesFixed: 0, totalCves: 1 } },
+    });
+    expect(row!.text).toContain('Cognitum capacity');
+    expect(row!.kind).not.toBe('insight');
   });
 });

@@ -8,7 +8,12 @@
  *   3. Disclosure gate — an upgraded install shows the disclosure text
  *      (with the disable instruction) before any message; promotional
  *      content only after the grace window.
- *   4. Rotation — 4:1 educational:promotional, 30-min promo repeat cap.
+ *   4. ADR-313 sponsored-downtime override — preempts everything below
+ *      while rate-limited (unconditional, not slot-based).
+ *   5. Local insight ticker (insights.ts) — a reserved 1-in-5 slot shows an
+ *      environment/task-aware suggestion (CVEs, uncommitted changes,
+ *      power-saver state) when one exists; otherwise falls through.
+ *   6. Rotation — 4:1 educational:promotional, 30-min promo repeat cap.
  *
  * Output is plain text (no ANSI — the renderer applies its own fixed
  * style), ≤ 80 columns, already sanitized by the message pipeline.
@@ -24,11 +29,12 @@ import {
   selectDisclosureMessage,
 } from './disclosure.js';
 import { clickTrackedUrl } from './attribution.js';
-import { selectMessage } from './rotation.js';
+import { selectMessage, ROTATION_SLOT_MS } from './rotation.js';
 import { recordFunnelEvent } from './events.js';
 import { getInstalledCliVersion } from '../init/helper-refresh.js';
 import { hasConsent } from './consent.js';
 import { readRateLimitStatus } from './rate-limit-notifier.js';
+import { selectLocalInsight, type LocalInsightContext } from './insights.js';
 
 /**
  * ADR-313 priority override: when the user has manually flagged a Claude
@@ -68,6 +74,25 @@ export interface PromoContext {
    * asserts interactivity; directly-run non-TTY invocations pass false.
    */
   interactive: boolean;
+  /**
+   * Local environment/task signal for the insight ticker (insights.ts) —
+   * optional and additive. Callers that don't pass it simply never see a
+   * local insight; the remote rotation is entirely unaffected either way.
+   */
+  localInsights?: LocalInsightContext;
+}
+
+/** 1 in 5 slots, a different phase than rotation.ts's promo slot (slot%5==4)
+ * so the two never collide — reserved for a local insight IF one exists;
+ * otherwise falls through to the normal remote rotation untouched. This is
+ * the "ticker" cadence: insights appear periodically, never permanently
+ * take over the row, and never appear at all when nothing is actionable. */
+const INSIGHT_SLOT_MODULO = 5;
+const INSIGHT_SLOT_PHASE = 2;
+
+function isInsightSlot(now: Date): boolean {
+  const slot = Math.floor(now.getTime() / ROTATION_SLOT_MS);
+  return slot % INSIGHT_SLOT_MODULO === INSIGHT_SLOT_PHASE;
 }
 
 export function getFunnelPromo(ctx: PromoContext): PromoRow | null {
@@ -117,6 +142,16 @@ export function getFunnelPromo(ctx: PromoContext): PromoRow | null {
   // disclosure") has already been satisfied above.
   const override = getSponsoredDowntimeOverride(now);
   if (override) return override;
+
+  // Local insight ticker: on its reserved 1-in-5 slot, show the highest-
+  // priority environment/task insight if one exists — CVEs pending,
+  // uncommitted changes, power-saver active, etc. (insights.ts). No
+  // insight this render (or no context passed) → fall straight through to
+  // the untouched remote rotation below, same as any other slot.
+  if (ctx.localInsights && isInsightSlot(now)) {
+    const insight = selectLocalInsight(ctx.localInsights);
+    if (insight) return { text: insight.text, kind: 'insight' };
+  }
 
   const msg = selectMessage(now, release);
   if (!msg) return null;
