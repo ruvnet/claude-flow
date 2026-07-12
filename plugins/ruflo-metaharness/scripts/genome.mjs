@@ -30,7 +30,9 @@ const ARGS = (() => {
 function main() {
   const r = runMetaharness(['genome', ARGS.path]);
   if (r.degraded) { emitDegradedJsonAndExit(r.reason); return; }
-  if (r.exitCode !== 0 || !r.json) {
+  // metaharness genome uses exit code as a verdict channel (0=ready, 1=needs-work,
+  // 2=blocked) — only a missing/unparseable payload is a real wrapper failure.
+  if (!r.json) {
     console.error(`genome: metaharness exited ${r.exitCode}`);
     if (r.stderr) console.error(r.stderr.slice(0, 400));
     process.exit(2);
