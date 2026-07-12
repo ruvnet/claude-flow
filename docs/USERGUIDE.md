@@ -2826,7 +2826,7 @@ npx ruflo@latest swarm init --v3-mode
 npx ruflo@latest memory search -q "authentication patterns"
 
 # Run security scan
-npx ruflo@latest security scan --depth full
+npx ruflo@latest security scan --depth deep
 
 # Performance benchmark
 npx ruflo@latest performance benchmark --suite all
@@ -2972,7 +2972,7 @@ Real-world scenarios and pre-built workflows for common tasks.
 
 | Scenario | What It Solves | How To Do It |
 |----------|----------------|--------------|
-| **Security Audit** | Find vulnerabilities before attackers do | `npx ruflo@latest security scan --depth full` |
+| **Security Audit** | Find vulnerabilities before attackers do | `npx ruflo@latest security scan --depth deep` |
 | **Dependency Scan** | Identify vulnerable packages and suggest upgrades | `npx ruflo@latest security cve --check` |
 | **Compliance Check** | Ensure code meets security standards | `npx ruflo@latest security audit` |
 
@@ -6076,7 +6076,7 @@ npx ruflo@latest security defend -i "test" -o json
 npx ruflo@latest security defend --stats
 
 # Full security audit
-npx ruflo@latest security scan --depth full
+npx ruflo@latest security scan --depth deep
 ```
 
 ### MCP Tools

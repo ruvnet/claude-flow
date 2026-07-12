@@ -424,8 +424,8 @@ export async function generateBuiltInSkill(
         {
           name: 'Full Security Scan',
           description: 'Run comprehensive security analysis on the codebase',
-          command: 'npx @claude-flow/cli security scan --depth full',
-          example: 'npx @claude-flow/cli security scan --depth full --output security-report.json',
+          command: 'npx @claude-flow/cli security scan --depth deep',
+          example: 'npx @claude-flow/cli security scan --depth deep --output security-report.json',
         },
         {
           name: 'Input Validation Check',

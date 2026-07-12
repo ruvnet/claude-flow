@@ -15,6 +15,7 @@ import type {
   ILogger,
 } from './types.js';
 import { validateSchema, formatValidationErrors } from './schema-validator.js';
+import { isPendingInputRequest, type PendingInputRequest } from './mrtr.js';
 
 interface ToolMetadata {
   tool: MCPTool;
@@ -271,7 +272,7 @@ export class ToolRegistry extends EventEmitter {
     name: string,
     input: Record<string, unknown>,
     context?: ToolContext
-  ): Promise<ToolCallResult> {
+  ): Promise<ToolCallResult | PendingInputRequest> {
     const startTime = performance.now();
     const metadata = this.tools.get(name);
 
@@ -282,8 +283,10 @@ export class ToolRegistry extends EventEmitter {
       };
     }
 
-    // Validate input against schema (security feature)
-    if (metadata.tool.inputSchema) {
+    // Validate input against schema (security feature). Opt out per-tool via
+    // validateInput:false for handlers that validate themselves or bridged
+    // tools whose declared schema is advisory only.
+    if (metadata.tool.inputSchema && metadata.tool.validateInput !== false) {
       const validation = validateSchema(input, metadata.tool.inputSchema);
       if (!validation.valid) {
         const errorMsg = formatValidationErrors(validation.errors);
@@ -314,6 +317,13 @@ export class ToolRegistry extends EventEmitter {
 
       const duration = performance.now() - startTime;
       this.updateAverageExecutionTime(metadata, duration);
+
+      // MRTR (MCP 2026-07-28): a paused tool carries its resume callback and
+      // must reach the server unwrapped for continuation registration.
+      if (isPendingInputRequest(result)) {
+        this.emit('tool:completed', { name, duration, success: true, inputRequired: true });
+        return result;
+      }
 
       this.logger.debug('Tool executed', {
         name,

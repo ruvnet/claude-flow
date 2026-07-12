@@ -337,7 +337,7 @@ npx @claude-flow/cli@latest memory search --query "authentication patterns"
 npx @claude-flow/cli@latest doctor --fix
 
 # Security scan
-npx @claude-flow/cli@latest security scan --depth full
+npx @claude-flow/cli@latest security scan --depth deep
 
 # Performance benchmark
 npx @claude-flow/cli@latest performance benchmark --suite all

@@ -1,25 +1,31 @@
 # task-orchestrate
 
-Orchestrate complex tasks across the swarm.
+> **Renamed in v3.25:** the `task orchestrate` subcommand no longer exists.
+> Task orchestration is now driven by `swarm start`. The `task` command
+> covers lifecycle only (`create`, `list`, `status`, `cancel`, `assign`,
+> `retry`). Use the commands below.
+
+Orchestrate complex objectives across the swarm.
 
 ## Usage
 ```bash
-npx claude-flow task orchestrate [options]
+npx claude-flow swarm start [options]
 ```
 
 ## Options
-- `--task <description>` - Task description
-- `--strategy <type>` - Orchestration strategy
-- `--priority <level>` - Task priority (low, medium, high, critical)
+- `--objective <description>` - What the swarm should accomplish
+- `--strategy <type>` - Orchestration strategy (e.g. `parallel`)
+- `--parallel` - Run agents concurrently
+- `--monitor` - Stream progress while the swarm runs
 
 ## Examples
 ```bash
-# Orchestrate development task
-npx claude-flow task orchestrate --task "Implement user authentication"
+# Orchestrate a development objective
+npx claude-flow swarm start --objective "Implement user authentication"
 
-# High priority task
-npx claude-flow task orchestrate --task "Fix production bug" --priority critical
-
-# With specific strategy
-npx claude-flow task orchestrate --task "Refactor codebase" --strategy parallel
+# Parallel strategy with live monitoring
+npx claude-flow swarm start --objective "Refactor codebase" --strategy parallel --monitor
 ```
+
+> Initialize the swarm topology first with `swarm init` (see
+> [swarm-init](./swarm-init.md)).

@@ -68,8 +68,8 @@ npx claude-flow swarm init --topology hierarchical --strategy auto --max-agents 
 # Spawn coordinator agent
 npx claude-flow agent spawn --type coordinator --capabilities "task-planning,resource-management"
 
-# Orchestrate tasks
-npx claude-flow task orchestrate --task "feature development" --strategy parallel --deps "auth,ui,api"
+# Orchestrate the objective across the swarm
+npx claude-flow swarm start --objective "feature development" --strategy parallel
 ```
 
 ## Orchestration Patterns

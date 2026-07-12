@@ -58,7 +58,7 @@ hooks:
     echo "✅ Security architecture analysis complete"
 
     # 1. Run comprehensive security validation
-    npx claude-flow@v3alpha security scan --depth full --output-format json > /tmp/security-scan.json 2>/dev/null
+    npx claude-flow@v3alpha security scan --depth deep --output-format json > /tmp/security-scan.json 2>/dev/null
     VULNERABILITIES=$(jq -r '.vulnerabilities | length' /tmp/security-scan.json 2>/dev/null || echo "0")
     CRITICAL_COUNT=$(jq -r '.vulnerabilities | map(select(.severity == "critical")) | length' /tmp/security-scan.json 2>/dev/null || echo "0")
 
@@ -834,7 +834,7 @@ mcp__claude-flow__memory_usage({
 
 ```bash
 # Full security scan
-npx claude-flow@v3alpha security scan --depth full
+npx claude-flow@v3alpha security scan --depth deep
 
 # CVE-specific checks
 npx claude-flow@v3alpha security cve --check CVE-2024-001

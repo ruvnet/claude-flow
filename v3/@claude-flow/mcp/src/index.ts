@@ -96,10 +96,42 @@ export type {
   CompletionReference,
   CompletionArgument,
   CompletionResult,
+  // MCP 2026-07-28 types
+  MCPRequestMeta,
 } from './types.js';
 
 // Error handling
 export { ErrorCodes, MCPServerError } from './types.js';
+
+// Protocol negotiation (MCP 2026-07-28, ADR-179)
+export {
+  PROTOCOL_2025_11_25,
+  PROTOCOL_2026_07_28,
+  LATEST_PROTOCOL_VERSION,
+  SUPPORTED_PROTOCOL_VERSIONS,
+  negotiateProtocolVersion,
+  isStatelessProtocol,
+  supportsMrtr,
+  DEPRECATED_METHODS_2026_07_28,
+  MCP_METHOD_HEADER,
+  MCP_NAME_HEADER,
+  MCP_PROTOCOL_VERSION_HEADER,
+  extractMcpName,
+} from './protocol.js';
+
+// Multi Round-Trip Requests (MCP 2026-07-28)
+export {
+  ContinuationManager,
+  ContinuationError,
+  createContinuationManager,
+  inputRequired,
+  isPendingInputRequest,
+} from './mrtr.js';
+export type {
+  InputRequiredResult,
+  PendingInputRequest,
+  ContinuationManagerOptions,
+} from './mrtr.js';
 
 // Server
 import { MCPServer, createMCPServer } from './server.js';
@@ -174,12 +206,15 @@ export {
   InMemoryTokenStorage,
   createGitHubOAuthConfig,
   createGoogleOAuthConfig,
+  registerOAuthClient,
 } from './oauth.js';
 export type {
   OAuthConfig,
   OAuthTokens,
   TokenStorage,
   AuthorizationRequest,
+  ClientRegistrationMetadata,
+  ClientRegistrationResult,
 } from './oauth.js';
 
 // Transport layer

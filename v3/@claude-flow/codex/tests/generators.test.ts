@@ -556,7 +556,7 @@ describe('generateBuiltInSkill', () => {
     expect(result.skillMd).toContain('name: security-audit');
     expect(result.skillMd).toContain('security scanning');
     expect(result.skillMd).toContain('Full Security Scan');
-    expect(result.skillMd).toContain('--depth full');
+    expect(result.skillMd).toContain('--depth deep');
   });
 
   it('should generate performance-analysis skill', async () => {

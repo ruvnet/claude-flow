@@ -24,6 +24,13 @@ export interface OAuthConfig {
   redirectUri: string;
   /** Scopes to request */
   scopes?: string[];
+  /**
+   * Expected authorization server issuer identifier (MCP 2026-07-28 auth
+   * hardening). When set, the `iss` authorization-response parameter is
+   * required and validated per RFC 9207, and stored credentials are bound
+   * to this issuer — tokens minted by a different server are rejected.
+   */
+  issuer?: string;
   /** Token storage adapter */
   tokenStorage?: TokenStorage;
   /** Enable PKCE (default: true) */
@@ -42,6 +49,8 @@ export interface OAuthTokens {
   expiresIn?: number;
   expiresAt?: number;
   scope?: string;
+  /** Issuer that minted these tokens (credential binding, MCP 2026-07-28). */
+  issuer?: string;
 }
 
 /**
@@ -160,15 +169,41 @@ export class OAuthManager extends EventEmitter {
   }
 
   /**
-   * Exchange authorization code for tokens
+   * Exchange authorization code for tokens.
+   *
+   * Pass the `iss` parameter from the authorization response redirect when
+   * present. If `config.issuer` is set, `iss` is required and must match
+   * exactly (RFC 9207 mix-up attack prevention, MCP 2026-07-28).
    */
-  async exchangeCode(code: string, state: string): Promise<OAuthTokens> {
+  async exchangeCode(
+    code: string,
+    state: string,
+    options?: { iss?: string }
+  ): Promise<OAuthTokens> {
     const pending = this.pendingRequests.get(state);
     if (!pending) {
       throw new Error('Invalid or expired state parameter');
     }
 
     this.pendingRequests.delete(state);
+
+    if (this.config.issuer) {
+      if (!options?.iss) {
+        this.logger.error('Authorization response missing iss parameter', {
+          expected: this.config.issuer,
+        });
+        throw new Error(
+          'Authorization response missing required iss parameter (RFC 9207)'
+        );
+      }
+      if (options.iss !== this.config.issuer) {
+        this.logger.error('Authorization response issuer mismatch', {
+          expected: this.config.issuer,
+          received: options.iss,
+        });
+        throw new Error('Authorization response iss does not match expected issuer (RFC 9207)');
+      }
+    }
 
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -268,6 +303,16 @@ export class OAuthManager extends EventEmitter {
       return null;
     }
 
+    // Credential binding (MCP 2026-07-28): never present tokens minted by a
+    // different authorization server than the one this manager targets.
+    if (this.config.issuer && tokens.issuer && tokens.issuer !== this.config.issuer) {
+      this.logger.warn('Stored tokens bound to a different issuer — refusing to use them', {
+        expected: this.config.issuer,
+        stored: tokens.issuer,
+      });
+      return null;
+    }
+
     // Check if token is expired (with 60 second buffer)
     if (tokens.expiresAt && Date.now() >= tokens.expiresAt - 60000) {
       if (tokens.refreshToken) {
@@ -324,6 +369,7 @@ export class OAuthManager extends EventEmitter {
       expiresIn: data.expires_in,
       expiresAt: data.expires_in ? Date.now() + data.expires_in * 1000 : undefined,
       scope: data.scope,
+      issuer: this.config.issuer,
     };
   }
 
@@ -403,6 +449,68 @@ export function oauthMiddleware(oauthManager: OAuthManager, storageKey: string =
 
     req.oauthToken = token;
     next();
+  };
+}
+
+/**
+ * Dynamic Client Registration metadata (RFC 7591). MCP 2026-07-28 requires
+ * `application_type` so authorization servers can enforce redirect-URI and
+ * secret-handling policy per client class.
+ */
+export interface ClientRegistrationMetadata {
+  redirect_uris: string[];
+  /** Required by MCP 2026-07-28. 'native' fits CLI/desktop MCP clients. */
+  application_type: 'web' | 'native';
+  client_name?: string;
+  token_endpoint_auth_method?: string;
+  grant_types?: string[];
+  response_types?: string[];
+  scope?: string;
+  [key: string]: unknown;
+}
+
+export interface ClientRegistrationResult {
+  clientId: string;
+  clientSecret?: string;
+  raw: Record<string, unknown>;
+}
+
+/**
+ * Register an OAuth client via Dynamic Client Registration (RFC 7591),
+ * always sending `application_type` per MCP 2026-07-28.
+ */
+export async function registerOAuthClient(
+  registrationEndpoint: string,
+  metadata: ClientRegistrationMetadata,
+  options?: { initialAccessToken?: string }
+): Promise<ClientRegistrationResult> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (options?.initialAccessToken) {
+    headers['Authorization'] = `Bearer ${options.initialAccessToken}`;
+  }
+
+  const response = await fetch(registrationEndpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(metadata),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Client registration failed: ${response.status} ${error}`);
+  }
+
+  const raw = (await response.json()) as Record<string, unknown>;
+  if (typeof raw.client_id !== 'string') {
+    throw new Error('Client registration response missing client_id');
+  }
+
+  return {
+    clientId: raw.client_id,
+    clientSecret: typeof raw.client_secret === 'string' ? raw.client_secret : undefined,
+    raw,
   };
 }
 
