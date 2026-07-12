@@ -122,6 +122,7 @@ export {
 // Multi Round-Trip Requests (MCP 2026-07-28)
 export {
   ContinuationManager,
+  ContinuationError,
   createContinuationManager,
   inputRequired,
   isPendingInputRequest,

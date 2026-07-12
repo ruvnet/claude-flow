@@ -285,6 +285,90 @@ describe('MCP 2026-07-28 specification', () => {
       manager.destroy();
     });
 
+    it('validates resume input against the advertised inputSchema', async () => {
+      const server = createMCPServer(
+        { name: 'Test', transport: 'in-process', statelessMode: true },
+        createMockLogger()
+      );
+      let handlerReached = false;
+      server.registerTool({
+        name: 'guarded',
+        description: 'Guards a privileged action behind a confirm enum',
+        inputSchema: { type: 'object', properties: {} },
+        handler: async () =>
+          inputRequired(
+            'confirm?',
+            async (answer) => { handlerReached = true; return `did ${answer}`; },
+            { type: 'string', enum: ['yes', 'no'] }
+          ),
+      });
+
+      const meta = { protocolVersion: PROTOCOL_2026_07_28 };
+      const paused = (await server.processRequest({
+        jsonrpc: '2.0', id: 20, method: 'tools/call',
+        params: { name: 'guarded', arguments: {} }, meta,
+      })).result as InputRequiredResult;
+
+      // Value outside the advertised enum must be rejected before the callback
+      const rejected = await server.processRequest({
+        jsonrpc: '2.0', id: 21, method: 'tools/call',
+        params: { continuationToken: paused.continuationToken, input: 'DROP TABLE' }, meta,
+      });
+
+      expect(rejected.error?.code).toBe(ErrorCodes.INVALID_PARAMS);
+      expect(handlerReached).toBe(false);
+      // Token is single-use even on a rejected resume — cannot retry with a valid value
+      expect(server.getContinuationManager().getPendingCount()).toBe(0);
+      await server.stop();
+    });
+
+    it('binds a continuation to its creating client (leaked-token replay protection)', async () => {
+      const manager = createContinuationManager(createMockLogger());
+      const wire = manager.register(inputRequired('x', async () => 'y'), 'tool', 'client-A');
+
+      // Different client presenting a leaked token is refused
+      await expect(manager.resume(wire.continuationToken, undefined, 'client-B'))
+        .rejects.toThrow(/does not belong to this client/);
+      // And the token is burned, so the legitimate client can't reuse it either
+      expect(manager.getPendingCount()).toBe(0);
+      manager.destroy();
+    });
+
+    it('allows the same client to resume its own continuation', async () => {
+      const manager = createContinuationManager(createMockLogger());
+      const wire = manager.register(inputRequired('x', async () => 'ok'), 'tool', 'client-A');
+      await expect(manager.resume(wire.continuationToken, undefined, 'client-A')).resolves.toBe('ok');
+      manager.destroy();
+    });
+
+    it('rejects a cross-session resume through the server', async () => {
+      const server = createMCPServer({ name: 'Test', transport: 'in-process' }, createMockLogger());
+      server.registerTool({
+        name: 'confirm-x',
+        description: 'confirm',
+        inputSchema: { type: 'object', properties: {} },
+        handler: async () => inputRequired('proceed?', async () => 'done'),
+      });
+
+      // Client A initializes (2026-07-28) and pauses a tool
+      await server.processRequest(initializeRequest(PROTOCOL_2026_07_28));
+      const paused = (await server.processRequest({
+        jsonrpc: '2.0', id: 22, method: 'tools/call',
+        params: { name: 'confirm-x', arguments: {} },
+      })).result as InputRequiredResult;
+      expect(paused.type).toBe('input_required');
+
+      // Client B initializes — replaces currentSession, so the resume now
+      // carries B's session id and must be refused.
+      await server.processRequest(initializeRequest(PROTOCOL_2026_07_28));
+      const replay = await server.processRequest({
+        jsonrpc: '2.0', id: 23, method: 'tools/call',
+        params: { continuationToken: paused.continuationToken, input: 'yes' },
+      });
+      expect(replay.error?.code).toBe(ErrorCodes.INVALID_PARAMS);
+      await server.stop();
+    });
+
     it('supports chained round trips (resume returns another input_required)', async () => {
       const server = createMCPServer(
         { name: 'Test', transport: 'in-process', statelessMode: true },

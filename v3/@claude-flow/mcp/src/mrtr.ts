@@ -7,8 +7,17 @@
  */
 
 import { EventEmitter } from 'events';
-import { randomBytes } from 'crypto';
+import { randomBytes, timingSafeEqual } from 'crypto';
 import type { JSONSchema, ILogger } from './types.js';
+import { validateSchema, formatValidationErrors } from './schema-validator.js';
+
+/** Raised when a resume request fails validation or client-binding checks. */
+export class ContinuationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ContinuationError';
+  }
+}
 
 /** Wire-format result returned to the client when a tool needs input. */
 export interface InputRequiredResult {
@@ -72,6 +81,12 @@ interface StoredContinuation {
   pending: PendingInputRequest;
   toolName: string;
   expiresAt: number;
+  /**
+   * Identity of the client that paused the tool. A resume must present the
+   * same key, so a leaked token can't be replayed by a different client.
+   * Undefined when the caller had no identity (e.g. stdio single-client).
+   */
+  clientKey?: string;
 }
 
 /**
@@ -101,8 +116,16 @@ export class ContinuationManager extends EventEmitter {
     this.cleanupTimer.unref?.();
   }
 
-  /** Store a paused tool and return the wire-format result for the client. */
-  register(pending: PendingInputRequest, toolName: string): InputRequiredResult {
+  /**
+   * Store a paused tool and return the wire-format result for the client.
+   * Pass the creating client's identity (from the request meta) so the
+   * resume can be bound to it.
+   */
+  register(
+    pending: PendingInputRequest,
+    toolName: string,
+    clientKey?: string
+  ): InputRequiredResult {
     if (this.continuations.size >= this.maxPending) {
       this.evictExpired();
       if (this.continuations.size >= this.maxPending) {
@@ -115,6 +138,7 @@ export class ContinuationManager extends EventEmitter {
       pending,
       toolName,
       expiresAt: Date.now() + this.ttl,
+      clientKey,
     });
 
     this.logger.debug('Continuation registered', { toolName, pending: this.continuations.size });
@@ -132,18 +156,61 @@ export class ContinuationManager extends EventEmitter {
    * Resume a paused tool with client-provided input. Single-use: the token
    * is consumed even if the resume callback throws. The result may itself
    * be another PendingInputRequest (chained round trips).
+   *
+   * @param clientKey identity of the resuming client, checked against the
+   *   client that created the continuation (leaked-token replay protection).
+   * @throws ContinuationError on unknown/expired token, client mismatch, or
+   *   input that fails the advertised inputSchema.
    */
-  async resume(token: string, input: unknown): Promise<unknown> {
+  async resume(token: string, input: unknown, clientKey?: string): Promise<unknown> {
     const stored = this.continuations.get(token);
     if (!stored || stored.expiresAt <= Date.now()) {
       this.continuations.delete(token);
-      throw new Error('Unknown or expired continuation token');
+      throw new ContinuationError('Unknown or expired continuation token');
+    }
+
+    // Bind resume to the creating client. The token is consumed regardless
+    // so a mismatched attempt also burns the (now-compromised) token.
+    if (!this.clientKeysMatch(stored.clientKey, clientKey)) {
+      this.continuations.delete(token);
+      this.emit('continuation:rejected', { token, toolName: stored.toolName, reason: 'client-mismatch' });
+      throw new ContinuationError('Continuation token does not belong to this client');
+    }
+
+    // Enforce the advertised inputSchema — resume gets the same validation
+    // fresh tools/call arguments get, so the schema is a real contract.
+    if (stored.pending.inputSchema) {
+      const validation = validateSchema(input, stored.pending.inputSchema);
+      if (!validation.valid) {
+        this.continuations.delete(token);
+        this.emit('continuation:rejected', { token, toolName: stored.toolName, reason: 'invalid-input' });
+        throw new ContinuationError(`Invalid input: ${formatValidationErrors(validation.errors)}`);
+      }
     }
 
     this.continuations.delete(token);
     this.emit('continuation:resumed', { token, toolName: stored.toolName });
 
     return stored.pending.resume(input);
+  }
+
+  /**
+   * Constant-time comparison of client identities. A continuation created
+   * without an identity (stdio) accepts a resume without one.
+   */
+  private clientKeysMatch(stored?: string, provided?: string): boolean {
+    if (stored === undefined) {
+      return provided === undefined;
+    }
+    if (provided === undefined) {
+      return false;
+    }
+    const a = Buffer.from(stored, 'utf-8');
+    const b = Buffer.from(provided, 'utf-8');
+    if (a.length !== b.length) {
+      return false;
+    }
+    return timingSafeEqual(a, b);
   }
 
   getPendingCount(): number {

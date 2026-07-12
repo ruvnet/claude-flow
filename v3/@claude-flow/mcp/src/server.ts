@@ -421,6 +421,16 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     return requested !== undefined && isStatelessProtocol(requested);
   }
 
+  /**
+   * Stable identity for MRTR continuation binding. Prefers the session id
+   * (stateful), then the transport-provided client key (stateless HTTP:
+   * client IP). Undefined for single-client transports with neither (stdio),
+   * where cross-client replay isn't possible anyway.
+   */
+  private clientKeyFor(request: MCPRequest): string | undefined {
+    return this.currentSession?.id ?? request.meta?.clientKey;
+  }
+
   /** Negotiated protocol revision governing this request. */
   private effectiveProtocolVersion(request: MCPRequest): MCPProtocolVersion {
     if (this.isStatelessRequest(request)) {
@@ -687,7 +697,11 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     // MRTR resume: re-enter a paused tool instead of a fresh invocation
     if (params?.continuationToken) {
       try {
-        const raw = await this.continuationManager.resume(params.continuationToken, params.input);
+        const raw = await this.continuationManager.resume(
+          params.continuationToken,
+          params.input,
+          this.clientKeyFor(request)
+        );
         return this.finalizeToolResult(request, params.name ?? 'continuation', raw);
       } catch (error) {
         return this.createErrorResponse(
@@ -767,7 +781,11 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         };
       }
 
-      const inputRequiredResult = this.continuationManager.register(raw, toolName);
+      const inputRequiredResult = this.continuationManager.register(
+        raw,
+        toolName,
+        this.clientKeyFor(request)
+      );
       return {
         jsonrpc: '2.0',
         id: request.id,
