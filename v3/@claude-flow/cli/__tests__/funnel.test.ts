@@ -788,6 +788,26 @@ describe('getFunnelPromo — API-down fallback discipline', () => {
     expect(script).toMatch(/applyLocalOverlays\(cache\.data\)/);
   });
 
+  it('the promo row has its own rotation-cadence freshness check, distinct from the general 60s cache TTL', () => {
+    // Bug report: "the promo area doesn't seem to be rotating every 20
+    // seconds." Root cause: CACHE_TTL_MS (60s, #2337's fix for excessive
+    // CLI re-invocation) let getStatuslineData() skip the CLI call — the
+    // ONLY place the rotation slot is recomputed — for up to 3 whole 20s
+    // rotation slots. A general cache.fresh check alone can never catch
+    // this; it must ALSO check a tighter, rotation-cadence-bound freshness
+    // signal before it's allowed to skip the CLI call.
+    const script = generateStatuslineScript({
+      statusline: { enabled: true, style: 'compact' as const },
+      runtime: { maxAgents: 15 },
+    });
+    expect(script).toMatch(/PROMO_ROTATION_SLOT_MS\s*=\s*20000/);
+    expect(script).toMatch(/promoFresh/);
+    // The early-return that skips the CLI call must require BOTH freshness
+    // signals — cache.fresh alone (the pre-fix bug) must not appear as the
+    // sole guard on that line.
+    expect(script).toMatch(/if \(cache\.fresh && cache\.promoFresh\)/);
+  });
+
   it('renders the row without touching the network (no fetch import path)', async () => {
     // The promo module is imported at test module load; if it pulled in a
     // network library, this stringified module set would carry a fetch/https

@@ -76,6 +76,21 @@ const CWD = process.cwd();
 const CACHE_FILE = path.join(os.tmpdir(), 'ruflo-statusline-cache-' + require('crypto').createHash('md5').update(CWD).digest('hex').slice(0, 8) + '.json');
 const CACHE_TTL_MS = 60000;
 
+// The promo/insight row is designed to rotate on a 20s cadence (funnel/
+// rotation.ts's ROTATION_SLOT_MS / funnel/promo.ts's insight-slot check —
+// duplicated here as a bare number since this generated script has no
+// runtime import of the funnel module; keep in sync if that constant ever
+// changes). The rotation slot is only ever (re)computed SERVER-SIDE inside
+// the CLI subprocess this file shells out to — so a general 60s data cache
+// (correct and necessary for #2337) silently made that 20s design
+// unreachable: cache.fresh stayed true across 2-3 whole rotation slots,
+// so the row visibly "didn't rotate" (user report). Fix: track promo
+// freshness on its OWN, tighter clock — when it lags behind the current
+// slot, fall through to a real CLI call even though the REST of the
+// cached data (security/swarm/system) is still within CACHE_TTL_MS. This
+// does not touch or regress #2337's fix; it only adds a narrower check.
+const PROMO_ROTATION_SLOT_MS = 20000;
+
 // Persistent last-known-good promo record. Lives outside the /tmp cache so it
 // survives a full cache wipe / cache write race / CLI failure combo. Written
 // every time we successfully render a promo; read as a last resort so the row
@@ -122,20 +137,24 @@ function resolveCliBin() {
   return null;
 }
 
-// Return { fresh, data }. 'fresh' is true only if within the TTL — but data
-// is returned regardless (stale-while-revalidate). This lets us serve last
-// known state (specifically the promo row) when the CLI is slow/unavailable,
-// so users don't see the funnel row flicker in and out on cache expiry.
+// Return { fresh, promoFresh, data }. 'fresh' is true only if within the TTL
+// — but data is returned regardless (stale-while-revalidate). This lets us
+// serve last known state (specifically the promo row) when the CLI is
+// slow/unavailable, so users don't see the funnel row flicker in and out on
+// cache expiry. 'promoFresh' is a SEPARATE, tighter check on the same clock
+// as PROMO_ROTATION_SLOT_MS — see that constant's comment for why the promo
+// row needs its own freshness bound distinct from the general 60s TTL.
 function readCache() {
   try {
     if (fs.existsSync(CACHE_FILE)) {
       const raw = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf-8'));
       if (raw && raw._ts && raw.data) {
-        return { fresh: (Date.now() - raw._ts) < CACHE_TTL_MS, data: raw.data };
+        const age = Date.now() - raw._ts;
+        return { fresh: age < CACHE_TTL_MS, promoFresh: age < PROMO_ROTATION_SLOT_MS, data: raw.data };
       }
     }
   } catch { /* ignore */ }
-  return { fresh: false, data: null };
+  return { fresh: false, promoFresh: false, data: null };
 }
 
 function writeCache(data) {
@@ -186,7 +205,11 @@ function overlayMemoPromo(data) {
 
 function getStatuslineData() {
   const cache = readCache();
-  if (cache.fresh) return overlayMemoPromo(cache.data);
+  // Both clocks must be satisfied to skip the CLI call entirely: the general
+  // 60s TTL (#2337 — don't re-spawn the CLI on every rapid re-render) AND the
+  // tighter promo-rotation clock (this fix — don't let a still-fresh 60s
+  // cache silently freeze the promo/insight row across multiple 20s slots).
+  if (cache.fresh && cache.promoFresh) return overlayMemoPromo(cache.data);
 
   try {
     // #2337: prefer an already-installed CLI bin via direct \`node\` invocation
