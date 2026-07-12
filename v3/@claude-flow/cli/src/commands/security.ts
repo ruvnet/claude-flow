@@ -220,6 +220,7 @@ const scanCommand: Command = {
       ].join('\n'), 'Scan Summary');
 
       // Auto-fix if requested
+      let fixApplied = false;
       if (fix && criticalCount + highCount > 0) {
         output.writeln();
         const fixSpinner = output.createSpinner({ text: 'Attempting to fix vulnerabilities...', spinner: 'dots' });
@@ -228,11 +229,41 @@ const scanCommand: Command = {
           try {
             execSync('npm audit fix', { cwd: path.resolve(target), encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
           } catch { /* npm audit fix may exit non-zero */ }
+          fixApplied = true;
           fixSpinner.succeed('Applied available fixes (run scan again to verify)');
         } catch {
           fixSpinner.fail('Some fixes could not be applied automatically');
         }
       }
+
+      // Persist a real evidence artifact for this scan run. This is what actually
+      // drives the statusline's CVE counter (see getSecurityStatus() in hooks.ts) —
+      // without this write, running `security scan` any number of times never moves
+      // the counter, because nothing on disk records that a real scan occurred.
+      try {
+        const scansDir = path.join(process.cwd(), '.claude', 'security-scans');
+        if (!fs.existsSync(scansDir)) {
+          fs.mkdirSync(scansDir, { recursive: true });
+        }
+        const now = new Date();
+        const fileSafeTimestamp = now.toISOString().replace(/[:.]/g, '-');
+        // Random suffix guards against filename collisions when two scans complete
+        // within the same millisecond (e.g. back-to-back runs in tests/CI).
+        const uniqueSuffix = Math.random().toString(36).slice(2, 8);
+        const artifactPath = path.join(scansDir, `${fileSafeTimestamp}-${uniqueSuffix}.json`);
+        fs.writeFileSync(artifactPath, JSON.stringify({
+          timestamp: now.toISOString(),
+          target,
+          depth,
+          scanType,
+          criticalCount,
+          highCount,
+          mediumCount,
+          lowCount,
+          totalFindings: findings.length,
+          fixApplied,
+        }, null, 2), 'utf-8');
+      } catch { /* artifact write failure should never fail the scan itself */ }
 
       return { success: findings.length === 0 || (criticalCount === 0 && highCount === 0) };
     } catch (error) {
