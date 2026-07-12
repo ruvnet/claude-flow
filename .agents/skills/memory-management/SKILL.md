@@ -28,15 +28,34 @@ AgentDB memory system with HNSW vector search. Provides 150x-12,500x faster patt
 ## Commands
 
 ### Store Pattern
-Store a pattern or knowledge item in memory
+Store a pattern or knowledge item in memory.
+
+> **Fail closed — do not trust the store's success output.** On Ruflo 3.25.6
+> the hybrid backend can print/return success while the write is not durably
+> persisted: after committing the row, the store path runs a
+> `wal_checkpoint(PASSIVE)` pragma whose failure is swallowed as "non-fatal"
+> (`memory-bridge.ts`), so a rejected/disallowed checkpoint still reports
+> `success: true`. **Always verify with a read-back and treat a missing or
+> mismatched value as a failed write** — never report a successful store on
+> the strength of the console message alone.
 
 ```bash
+# 1. Store
 npx @claude-flow/cli memory store --key "[key]" --value "[value]" --namespace patterns
+
+# 2. Verify persistence (fail closed): the retrieved value MUST match what
+#    was written. If retrieve returns nothing or a different value, the store
+#    did NOT persist — report failure, do not claim success.
+npx @claude-flow/cli memory retrieve --key "[key]" --namespace patterns
 ```
 
-**Example:**
+**Example (with verification):**
 ```bash
 npx @claude-flow/cli memory store --key "auth-jwt-pattern" --value "JWT validation with refresh tokens" --namespace patterns
+# Confirm it actually persisted before relying on it:
+npx @claude-flow/cli memory retrieve --key "auth-jwt-pattern" --namespace patterns
+# → must echo "JWT validation with refresh tokens". If empty/different, the
+#   write failed silently — retry on a supported backend or surface the error.
 ```
 
 ### Semantic Search
