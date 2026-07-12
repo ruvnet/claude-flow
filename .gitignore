@@ -136,6 +136,7 @@ claude-flow.config.json
 .swarm/
 .hive-mind/
 .claude-flow/
+.claude/security-scans/
 /memory/
 /coordination/
 /memory/claude-flow-data.json
