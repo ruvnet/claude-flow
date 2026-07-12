@@ -219,6 +219,35 @@ const scanCommand: Command = {
         `Total Issues: ${findings.length}`,
       ].join('\n'), 'Scan Summary');
 
+      // Persist the scan result so downstream consumers (the statusline's
+      // getSecurityStatus in funnel/local-signals.ts, which reads
+      // `.claude/security-scans/*.json`) reflect real scan state. Best-effort:
+      // a failed write must never fail the scan itself.
+      try {
+        const scanDirOut = path.join(path.resolve(target), '.claude', 'security-scans');
+        fs.mkdirSync(scanDirOut, { recursive: true });
+        const record = {
+          timestamp: new Date().toISOString(),
+          target,
+          depth,
+          type: scanType,
+          summary: {
+            critical: criticalCount,
+            high: highCount,
+            medium: mediumCount,
+            low: lowCount,
+            total: findings.length,
+          },
+          findings,
+        };
+        // Deterministic name keyed on scan config so repeated runs overwrite
+        // rather than accumulate stale reports.
+        const outFile = path.join(scanDirOut, `scan-${scanType}-${depth}.json`);
+        fs.writeFileSync(outFile, JSON.stringify(record, null, 2));
+      } catch {
+        // Persistence is advisory only — ignore write failures.
+      }
+
       // Auto-fix if requested
       if (fix && criticalCount + highCount > 0) {
         output.writeln();

@@ -81,6 +81,7 @@
   "overrides": {
     "ruvector": "^0.2.27",
     "better-sqlite3": ">=12.8.0",
+    "js-yaml": ">=4.3.0",
     "hono": ">=4.12.25",
     "@ruvector/rvf-wasm": "0.1.5",
     "@hono/node-server": ">=1.19.14",
