@@ -553,7 +553,7 @@ export class MCPServerManager extends EventEmitter {
     const bridged = listMCPTools().map((tool) => ({
       name: tool.name,
       description: tool.description || tool.name,
-      inputSchema: (tool.inputSchema as Record<string, unknown>) || { type: 'object', properties: {} },
+      inputSchema: tool.inputSchema || { type: 'object', properties: {} },
       validateInput: false,
       handler: async (input: unknown, ctx?: { sessionId?: string }) => {
         const toolName = tool.name;
