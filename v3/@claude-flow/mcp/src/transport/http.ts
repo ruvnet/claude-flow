@@ -22,6 +22,11 @@ import type {
   ILogger,
   AuthConfig,
 } from '../types.js';
+import {
+  MCP_METHOD_HEADER,
+  MCP_PROTOCOL_VERSION_HEADER,
+  extractMcpName,
+} from '../protocol.js';
 
 export interface HttpTransportConfig {
   host: string;
@@ -197,7 +202,9 @@ export class HttpTransport extends EventEmitter implements ITransport {
         credentials: true,
         maxAge: 86400,
         methods: ['GET', 'POST', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+        // Mcp-* headers: MCP 2026-07-28 gateway-routing transport headers
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'Mcp-Method', 'Mcp-Name', 'Mcp-Protocol-Version'],
+        exposedHeaders: ['Mcp-Method', 'Mcp-Name', 'Mcp-Protocol-Version'],
       }));
     }
 
@@ -382,6 +389,39 @@ export class HttpTransport extends EventEmitter implements ITransport {
         error: { code: -32600, message: 'Missing method' },
       });
       return;
+    }
+
+    // MCP 2026-07-28 transport headers: gateways route on Mcp-Method without
+    // parsing bodies, so a header/body mismatch means something rewrote one
+    // of them — reject rather than serve a misrouted request.
+    const headerMethod = req.header(MCP_METHOD_HEADER);
+    if (headerMethod && headerMethod !== message.method) {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        id: message.id ?? null,
+        error: { code: -32600, message: 'Mcp-Method header does not match request body method' },
+      });
+      return;
+    }
+
+    // Attach transport metadata (never serialized back out): protocol
+    // revision from the header drives stateless-mode negotiation; the client
+    // IP buckets rate limiting when no session exists.
+    const headerVersion = req.header(MCP_PROTOCOL_VERSION_HEADER);
+    message.meta = {
+      transport: 'http',
+      ...(headerVersion ? { protocolVersion: headerVersion } : {}),
+      ...(req.ip ? { clientKey: req.ip } : {}),
+    };
+
+    // Echo routing headers so gateways can classify responses symmetrically
+    res.setHeader('Mcp-Method', message.method);
+    const mcpName = extractMcpName(message);
+    if (mcpName) {
+      res.setHeader('Mcp-Name', mcpName);
+    }
+    if (headerVersion) {
+      res.setHeader('Mcp-Protocol-Version', headerVersion);
     }
 
     if (message.id === undefined) {

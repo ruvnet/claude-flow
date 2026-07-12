@@ -33,6 +33,19 @@ import { TaskManager, createTaskManager } from './task-manager.js';
 import { createTransport, TransportManager, createTransportManager } from './transport/index.js';
 import { RateLimiter, createRateLimiter, type RateLimitConfig } from './rate-limiter.js';
 import { SamplingManager, createSamplingManager, type SamplingConfig, type LLMProvider } from './sampling.js';
+import {
+  PROTOCOL_2025_11_25,
+  negotiateProtocolVersion,
+  isStatelessProtocol,
+  supportsMrtr,
+  DEPRECATED_METHODS_2026_07_28,
+} from './protocol.js';
+import {
+  ContinuationManager,
+  createContinuationManager,
+  isPendingInputRequest,
+  type PendingInputRequest,
+} from './mrtr.js';
 
 const DEFAULT_CONFIG: Partial<MCPServerConfig> = {
   name: 'Claude-Flow MCP Server V3',
@@ -75,6 +88,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   private readonly transportManager: TransportManager;
   private readonly rateLimiter: RateLimiter;
   private readonly samplingManager: SamplingManager;
+  private readonly continuationManager: ContinuationManager;
   private transport?: ITransport;
   private running = false;
   private startTime?: Date;
@@ -87,9 +101,9 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     version: '3.0.0',
   };
 
-  // MCP protocol version — spec-required YYYY-MM-DD date string (#1874).
-  // Claude Code's Zod validator rejects any other shape.
-  private readonly protocolVersion: MCPProtocolVersion = '2025-11-25';
+  // MCP protocol revision is negotiated per session (2025-11-25 or
+  // 2026-07-28, see protocol.ts). Spec-required YYYY-MM-DD date string
+  // (#1874) — Claude Code's Zod validator rejects any other shape.
 
   // Full MCP 2025-11-25 capabilities
   private capabilities: MCPCapabilities = {
@@ -138,6 +152,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       perSessionLimit: 50,
     });
     this.samplingManager = createSamplingManager(logger);
+    this.continuationManager = createContinuationManager(logger);
 
     if (this.config.connectionPool) {
       this.connectionPool = createConnectionPool(
@@ -190,6 +205,13 @@ export class MCPServer extends EventEmitter implements IMCPServer {
    */
   registerLLMProvider(provider: LLMProvider, isDefault: boolean = false): void {
     this.samplingManager.registerProvider(provider, isDefault);
+  }
+
+  /**
+   * Get continuation manager for MRTR (MCP 2026-07-28) inspection
+   */
+  getContinuationManager(): ContinuationManager {
+    return this.continuationManager;
   }
 
   async start(): Promise<void> {
@@ -265,6 +287,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       this.taskManager.destroy();
       this.resourceSubscriptions.clear();
       this.rateLimiter.destroy();
+      this.continuationManager.destroy();
 
       if (this.connectionPool) {
         await this.connectionPool.clear();
@@ -375,6 +398,37 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     return result;
   }
 
+  /**
+   * Process a single JSON-RPC request. Public entry point for in-process
+   * transports and embedding hosts; network transports route here via
+   * onRequest.
+   */
+  async processRequest(request: MCPRequest): Promise<MCPResponse> {
+    return this.handleRequest(request);
+  }
+
+  /**
+   * Whether this request is served without the initialize handshake or a
+   * session (MCP 2026-07-28 stateless protocol). Opt-in via config
+   * statelessMode, or per-request when the transport saw a stateless
+   * Mcp-Protocol-Version header (ADR-179).
+   */
+  private isStatelessRequest(request: MCPRequest): boolean {
+    if (this.config.statelessMode) {
+      return true;
+    }
+    const requested = request.meta?.protocolVersion;
+    return requested !== undefined && isStatelessProtocol(requested);
+  }
+
+  /** Negotiated protocol revision governing this request. */
+  private effectiveProtocolVersion(request: MCPRequest): MCPProtocolVersion {
+    if (this.isStatelessRequest(request)) {
+      return negotiateProtocolVersion(request.meta?.protocolVersion);
+    }
+    return this.currentSession?.protocolVersion ?? PROTOCOL_2025_11_25;
+  }
+
   private async handleRequest(request: MCPRequest): Promise<MCPResponse> {
     const startTime = performance.now();
     this.requestStats.total++;
@@ -384,10 +438,15 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       method: request.method,
     });
 
-    // Rate limiting check (skip for initialize)
+    const stateless = this.isStatelessRequest(request);
+
+    // Rate limiting check (skip for initialize). In stateless mode there is
+    // no session, so bucket by the transport-provided client identity.
     if (request.method !== 'initialize') {
-      const sessionId = this.currentSession?.id;
-      const rateLimitResult = this.rateLimiter.check(sessionId);
+      const rateLimitKey = stateless
+        ? request.meta?.clientKey
+        : this.currentSession?.id;
+      const rateLimitResult = this.rateLimiter.check(rateLimitKey);
       if (!rateLimitResult.allowed) {
         this.requestStats.failed++;
         return {
@@ -400,25 +459,29 @@ export class MCPServer extends EventEmitter implements IMCPServer {
           },
         };
       }
-      this.rateLimiter.consume(sessionId);
+      this.rateLimiter.consume(rateLimitKey);
     }
 
     try {
+      // Stateful clients keep the initialize handshake even when the server
+      // allows stateless traffic — both revisions are served side by side.
       if (request.method === 'initialize') {
         return await this.handleInitialize(request);
       }
 
-      const session = this.getOrCreateSession();
+      if (!stateless) {
+        const session = this.getOrCreateSession();
 
-      if (!session.isInitialized && request.method !== 'initialized') {
-        return this.createErrorResponse(
-          request.id,
-          ErrorCodes.SERVER_NOT_INITIALIZED,
-          'Server not initialized'
-        );
+        if (!session.isInitialized && request.method !== 'initialized') {
+          return this.createErrorResponse(
+            request.id,
+            ErrorCodes.SERVER_NOT_INITIALIZED,
+            'Server not initialized'
+          );
+        }
+
+        this.sessionManager.updateActivity(session.id);
       }
-
-      this.sessionManager.updateActivity(session.id);
 
       const response = await this.routeRequest(request);
 
@@ -481,13 +544,17 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       );
     }
 
+    const negotiated = negotiateProtocolVersion(params.protocolVersion);
+
     const session = this.sessionManager.createSession(this.config.transport);
-    this.sessionManager.initializeSession(session.id, params);
+    // Store the NEGOTIATED revision, not the client-requested one — it
+    // governs MRTR availability and deprecations for the session's lifetime.
+    this.sessionManager.initializeSession(session.id, { ...params, protocolVersion: negotiated });
     this.currentSession = session;
 
     const result: MCPInitializeResult = {
-      protocolVersion: this.protocolVersion,
-      capabilities: this.capabilities,
+      protocolVersion: negotiated,
+      capabilities: this.getCapabilities(negotiated),
       serverInfo: this.serverInfo,
       instructions: 'Claude-Flow MCP Server V3 ready for tool execution',
     };
@@ -495,6 +562,8 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     this.logger.info('Session initialized', {
       sessionId: session.id,
       clientInfo: params.clientInfo,
+      requestedProtocolVersion: params.protocolVersion,
+      negotiatedProtocolVersion: negotiated,
     });
 
     return {
@@ -504,7 +573,31 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     };
   }
 
+  /**
+   * Capabilities advertised for a negotiated revision. 2026-07-28 deprecates
+   * roots, sampling, and logging: the methods stay functional, but are no
+   * longer advertised to clients speaking the new revision.
+   */
+  private getCapabilities(version: MCPProtocolVersion): MCPCapabilities {
+    if (!isStatelessProtocol(version)) {
+      return this.capabilities;
+    }
+    return {
+      tools: this.capabilities.tools,
+      resources: this.capabilities.resources,
+      prompts: this.capabilities.prompts,
+    };
+  }
+
   private async routeRequest(request: MCPRequest): Promise<MCPResponse> {
+    const version = this.effectiveProtocolVersion(request);
+
+    if (DEPRECATED_METHODS_2026_07_28.has(request.method) && isStatelessProtocol(version)) {
+      this.logger.warn('Deprecated MCP method called (deprecated in 2026-07-28, still functional)', {
+        method: request.method,
+      });
+    }
+
     switch (request.method) {
       // Tool methods
       case 'tools/list':
@@ -583,7 +676,27 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   }
 
   private async handleToolsCall(request: MCPRequest): Promise<MCPResponse> {
-    const params = request.params as { name: string; arguments?: Record<string, unknown> };
+    const params = request.params as {
+      name?: string;
+      arguments?: Record<string, unknown>;
+      // MRTR resume (MCP 2026-07-28): continuation token + client input
+      continuationToken?: string;
+      input?: unknown;
+    };
+
+    // MRTR resume: re-enter a paused tool instead of a fresh invocation
+    if (params?.continuationToken) {
+      try {
+        const raw = await this.continuationManager.resume(params.continuationToken, params.input);
+        return this.finalizeToolResult(request, params.name ?? 'continuation', raw);
+      } catch (error) {
+        return this.createErrorResponse(
+          request.id,
+          ErrorCodes.INVALID_PARAMS,
+          error instanceof Error ? error.message : 'Continuation resume failed'
+        );
+      }
+    }
 
     if (!params?.name) {
       return this.createErrorResponse(
@@ -594,7 +707,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     }
 
     const context: ToolContext = {
-      sessionId: this.currentSession?.id || 'unknown',
+      sessionId: this.currentSession?.id || request.meta?.clientKey || 'unknown',
       requestId: request.id,
       orchestrator: this.orchestrator,
       swarmCoordinator: this.swarmCoordinator,
@@ -606,16 +719,12 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       context
     );
 
-    return {
-      jsonrpc: '2.0',
-      id: request.id,
-      result,
-    };
+    return this.finalizeToolResult(request, params.name, result);
   }
 
   private async handleToolExecution(request: MCPRequest): Promise<MCPResponse> {
     const context: ToolContext = {
-      sessionId: this.currentSession?.id || 'unknown',
+      sessionId: this.currentSession?.id || request.meta?.clientKey || 'unknown',
       requestId: request.id,
       orchestrator: this.orchestrator,
       swarmCoordinator: this.swarmCoordinator,
@@ -627,11 +736,71 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       context
     );
 
+    return this.finalizeToolResult(request, request.method, result);
+  }
+
+  /**
+   * Turn a tool handler outcome into a JSON-RPC response, registering MRTR
+   * continuations for 2026-07-28 clients. Legacy sessions get a terminal
+   * error result instead — MRTR needs the new revision.
+   */
+  private finalizeToolResult(
+    request: MCPRequest,
+    toolName: string,
+    raw: unknown
+  ): MCPResponse {
+    if (isPendingInputRequest(raw)) {
+      const version = this.effectiveProtocolVersion(request);
+      if (!supportsMrtr(version)) {
+        return {
+          jsonrpc: '2.0',
+          id: request.id,
+          result: {
+            content: [{
+              type: 'text',
+              text: `Tool requires additional input: ${raw.message}. ` +
+                'Re-invoke the tool with the required input included in its arguments ' +
+                '(multi round-trip requests need MCP protocol 2026-07-28).',
+            }],
+            isError: true,
+          },
+        };
+      }
+
+      const inputRequiredResult = this.continuationManager.register(raw, toolName);
+      return {
+        jsonrpc: '2.0',
+        id: request.id,
+        result: inputRequiredResult,
+      };
+    }
+
+    // Resumed continuations return raw handler output; fresh calls arrive
+    // already wrapped by the tool registry.
+    const result = this.isToolCallResult(raw)
+      ? raw
+      : {
+          content: [{
+            type: 'text' as const,
+            text: typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2),
+          }],
+          isError: false,
+        };
+
     return {
       jsonrpc: '2.0',
       id: request.id,
       result,
     };
+  }
+
+  private isToolCallResult(value: unknown): value is { content: unknown[]; isError: boolean } {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      Array.isArray((value as { content?: unknown }).content) &&
+      typeof (value as { isError?: unknown }).isError === 'boolean'
+    );
   }
 
   // ============================================================================

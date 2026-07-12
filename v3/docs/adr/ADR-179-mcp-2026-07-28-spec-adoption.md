@@ -1,6 +1,6 @@
 # ADR-179: MCP 2026-07-28 Specification Adoption and SDK v2 Migration Strategy
 
-**Status**: Proposed
+**Status**: Accepted — Phases 1–2 implemented in `@claude-flow/mcp` (2026-07-12): error-code split, transport headers, dual-version negotiation, opt-in stateless mode, MRTR, RFC 9207 `iss` validation + DCR `application_type`
 **Date**: 2026-07-12
 **References**: [MCP SDK beta announcement (2026-07-28 spec)](https://blog.modelcontextprotocol.io/posts/sdk-betas-2026-07-28/), ADR-012 (MCP Security Features), ADR-166 (MCP Bridge RCE Remediation)
 

@@ -32,6 +32,23 @@ export interface MCPRequest extends MCPMessage {
   id: RequestId;
   method: string;
   params?: Record<string, unknown>;
+  /**
+   * Transport-populated request metadata (MCP 2026-07-28). Never part of the
+   * JSON-RPC wire payload — transports attach it from headers/connection
+   * state so the server can negotiate per-request in stateless mode.
+   */
+  meta?: MCPRequestMeta;
+}
+
+export interface MCPRequestMeta {
+  /** From the Mcp-Protocol-Version header (2026-07-28 stateless clients). */
+  protocolVersion?: MCPProtocolVersion;
+  transport?: TransportType;
+  /**
+   * Connection/auth identity for rate limiting and tool context when no
+   * session exists (stateless mode). E.g. client IP or token fingerprint.
+   */
+  clientKey?: string;
 }
 
 export interface MCPNotification extends MCPMessage {
@@ -115,6 +132,13 @@ export interface MCPServerConfig {
   enableCaching?: boolean;
   cacheTTL?: number;
   logLevel?: 'debug' | 'info' | 'warn' | 'error';
+  /**
+   * MCP 2026-07-28 stateless mode (opt-in, ADR-179). Requests are served
+   * without the initialize handshake or a session, enabling round-robin
+   * load balancing. Stateful clients on the same server keep working —
+   * initialize is still honored when sent.
+   */
+  statelessMode?: boolean;
 }
 
 // ============================================================================
@@ -646,7 +670,11 @@ export const ErrorCodes = {
   REQUEST_CANCELLED: -32800,
   RATE_LIMITED: -32000,
   AUTHENTICATION_REQUIRED: -32001,
-  AUTHORIZATION_FAILED: -32002,
+  // -32003, not -32002: MCP 2026-07-28 standardizes error codes, and
+  // authorization failure must not be conflated with SERVER_NOT_INITIALIZED
+  // (which -32002 historically carried). Missing resources use the standard
+  // JSON-RPC INVALID_PARAMS (-32602), not an MCP-specific code.
+  AUTHORIZATION_FAILED: -32003,
 } as const;
 
 export class MCPServerError extends Error {
