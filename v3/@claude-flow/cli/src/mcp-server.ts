@@ -526,56 +526,8 @@ export class MCPServerManager extends EventEmitter {
     if (this.bridgedServer) {
       return this.bridgedServer;
     }
-
-    const { createMCPServer } = await import('@claude-flow/mcp');
-    const { listMCPTools, callMCPTool } = await import('./mcp-client.js');
-
-    // Route the package's internal logs to stderr — stdout is reserved for
-    // JSON-RPC frames (writeFrame), same constraint as the raw stdio loop.
-    const logger = {
-      debug: () => {},
-      info: () => {},
-      warn: (msg: string, data?: unknown) => process.stderr.write(`[mcp] WARN ${msg}${data ? ' ' + JSON.stringify(data) : ''}\n`),
-      error: (msg: string, data?: unknown) => process.stderr.write(`[mcp] ERROR ${msg}${data ? ' ' + JSON.stringify(data) : ''}\n`),
-    };
-
-    const server = createMCPServer(
-      { name: 'ruflo', version: '3.0.0', transport: 'in-process' },
-      logger
-    );
-
-    // Bridge every ruflo tool into the server's registry. validate:false so a
-    // tool whose declared schema is imperfect is never dropped, and
-    // validateInput:false so we preserve the raw stdio path's behavior of
-    // passing arguments straight to the handler (the real schema is still
-    // advertised in tools/list). callMCPTool already runs the ADR-146
-    // content-boundary guardrail internally.
-    const bridged = listMCPTools().map((tool) => ({
-      name: tool.name,
-      description: tool.description || tool.name,
-      inputSchema: tool.inputSchema || { type: 'object', properties: {} },
-      validateInput: false,
-      handler: async (input: unknown, ctx?: { sessionId?: string }) => {
-        const toolName = tool.name;
-        try {
-          const result = await callMCPTool(
-            toolName,
-            (input as Record<string, unknown>) || {},
-            { sessionId: ctx?.sessionId ?? sessionId }
-          );
-          trackRequest(toolName, true);
-          return result;
-        } catch (error) {
-          trackRequest(toolName, false);
-          throw error;
-        }
-      },
-    })) as unknown as Parameters<MCPServer['registerTools']>[0];
-
-    server.registerTools(bridged, { validate: false });
-
-    this.bridgedServer = server;
-    return server;
+    this.bridgedServer = await buildBridgedMcpServer(sessionId);
+    return this.bridgedServer;
   }
 
   /**
@@ -922,3 +874,76 @@ export async function getMCPServerStatus(): Promise<MCPServerStatus> {
 }
 
 export default MCPServerManager;
+
+/**
+ * Dependency seams for {@link buildBridgedMcpServer}, so the bridge can be
+ * unit-tested with the real ruflo tool registry (default) or fakes.
+ */
+export interface BridgedServerDeps {
+  createMCPServer?: typeof import('@claude-flow/mcp')['createMCPServer'];
+  listMCPTools?: typeof import('./mcp-client.js')['listMCPTools'];
+  callMCPTool?: typeof import('./mcp-client.js')['callMCPTool'];
+}
+
+/**
+ * Build a spec-compliant @claude-flow/mcp server with ruflo's tool registry
+ * bridged in. This is the single implementation behind the stdio transport
+ * (and is exercised directly by the stdio-bridge integration test), so stdio
+ * and HTTP/WS share one protocol layer: version negotiation
+ * (2025-11-25 / 2026-07-28), standard error codes, MRTR, and capabilities
+ * all come from the package rather than a hand-rolled handler (ADR-179).
+ */
+export async function buildBridgedMcpServer(
+  sessionId: string,
+  deps: BridgedServerDeps = {}
+): Promise<MCPServer> {
+  const createMCPServer = deps.createMCPServer ?? (await import('@claude-flow/mcp')).createMCPServer;
+  const mcpClient = await import('./mcp-client.js');
+  const listMCPTools = deps.listMCPTools ?? mcpClient.listMCPTools;
+  const callMCPTool = deps.callMCPTool ?? mcpClient.callMCPTool;
+
+  // Route the package's internal logs to stderr — stdout is reserved for
+  // JSON-RPC frames (writeFrame), same constraint as the raw stdio loop.
+  const logger = {
+    debug: () => {},
+    info: () => {},
+    warn: (msg: string, data?: unknown) => process.stderr.write(`[mcp] WARN ${msg}${data ? ' ' + JSON.stringify(data) : ''}\n`),
+    error: (msg: string, data?: unknown) => process.stderr.write(`[mcp] ERROR ${msg}${data ? ' ' + JSON.stringify(data) : ''}\n`),
+  };
+
+  const server = createMCPServer(
+    { name: 'ruflo', version: '3.0.0', transport: 'in-process' },
+    logger
+  );
+
+  // Bridge every ruflo tool into the server's registry. validate:false so a
+  // tool whose declared schema is imperfect is never dropped, and
+  // validateInput:false so we preserve the raw stdio path's behavior of
+  // passing arguments straight to the handler (the real schema is still
+  // advertised in tools/list). callMCPTool already runs the ADR-146
+  // content-boundary guardrail internally.
+  const bridged = listMCPTools().map((tool) => ({
+    name: tool.name,
+    description: tool.description || tool.name,
+    inputSchema: tool.inputSchema || { type: 'object', properties: {} },
+    validateInput: false,
+    handler: async (input: unknown, ctx?: { sessionId?: string }) => {
+      const toolName = tool.name;
+      try {
+        const result = await callMCPTool(
+          toolName,
+          (input as Record<string, unknown>) || {},
+          { sessionId: ctx?.sessionId ?? sessionId }
+        );
+        trackRequest(toolName, true);
+        return result;
+      } catch (error) {
+        trackRequest(toolName, false);
+        throw error;
+      }
+    },
+  })) as unknown as Parameters<MCPServer['registerTools']>[0];
+
+  server.registerTools(bridged, { validate: false });
+  return server;
+}
