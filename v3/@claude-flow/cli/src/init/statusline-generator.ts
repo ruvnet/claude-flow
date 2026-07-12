@@ -105,18 +105,30 @@ const PROMO_MEMO_TTL_MS = 6 * 60 * 60 * 1000; // 6h — long enough to bridge an
 // multiple concurrent Claude Code sessions this storms the host (reporter
 // saw load average 40-65 on a 12-core box).
 //
-// Returns the absolute path to bin/cli.js or null. Mirrors getPkgVersion()'s
-// path probing (project, monorepo, plugin marketplace, global node_modules
-// including custom-prefix layouts like ~/.npm-global).
-function resolveCliBin() {
+// Returns EVERY existing bin/cli.js candidate, in preference order (project,
+// monorepo, plugin marketplace, global node_modules including custom-prefix
+// layouts like ~/.npm-global) — mirrors getPkgVersion()'s own path probing.
+//
+// Returns a list, not a single winner: \`fs.existsSync\` only proves a file is
+// present, not that it actually runs. A marketplace/npx-cached install can
+// exist on disk but be broken (observed in practice: a stale marketplace
+// checkout whose dist/ imports a workspace package, '@claude-flow/cli-core',
+// that isn't bundled there — every invocation throws ERR_MODULE_NOT_FOUND).
+// Picking the first EXISTING path and never falling through meant a single
+// broken install silently killed the promo row for the entire session (the
+// CLI call always failed, so the memo could never refresh and eventually
+// expired). getStatuslineData() now walks this whole list and tries the next
+// candidate on failure, so one broken install can't permanently wedge it.
+function resolveCliBinCandidates() {
+  const candidates = [];
   try {
     const home = os.homedir();
-    const candidates = [
+    candidates.push(
       path.join(home, '.claude', 'plugins', 'marketplaces', 'ruflo', 'bin', 'cli.js'),
       path.join(CWD, 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
       path.join(CWD, 'node_modules', 'ruflo', 'bin', 'cli.js'),
       path.join(CWD, 'v3', '@claude-flow', 'cli', 'bin', 'cli.js'),
-    ];
+    );
     try {
       const binDir = path.dirname(process.execPath);
       const globalModuleDirs = [path.join(binDir, '..', 'lib', 'node_modules'), path.join(binDir, 'node_modules')];
@@ -130,11 +142,8 @@ function resolveCliBin() {
         );
       }
     } catch { /* ignore */ }
-    for (const p of candidates) {
-      if (fs.existsSync(p)) return p;
-    }
   } catch { /* ignore */ }
-  return null;
+  return candidates.filter((p) => { try { return fs.existsSync(p); } catch { return false; } });
 }
 
 // Return { fresh, promoFresh, data }. 'fresh' is true only if within the TTL
@@ -211,30 +220,33 @@ function getStatuslineData() {
   // cache silently freeze the promo/insight row across multiple 20s slots).
   if (cache.fresh && cache.promoFresh) return overlayMemoPromo(cache.data);
 
-  try {
-    // #2337: prefer an already-installed CLI bin via direct \`node\` invocation
-    // — no npx, no registry round-trip, no @latest re-resolve per render.
-    // Fall back to \`npx --prefer-offline @claude-flow/cli\` (no @latest) only
-    // when nothing is installed locally, so a cold environment still works.
-    const cliBin = resolveCliBin();
-    const cmd = cliBin
-      ? '"' + process.execPath + '" "' + cliBin + '" hooks statusline --json 2>/dev/null'
-      : 'npx --prefer-offline @claude-flow/cli hooks statusline --json 2>/dev/null';
-    const raw = execSync(
-      cmd,
-      { encoding: 'utf-8', timeout: 8000, stdio: ['pipe', 'pipe', 'pipe'], cwd: CWD }
-    ).trim();
-    // The CLI may emit preamble lines before the JSON — find the first '{'.
-    const jsonStart = raw.indexOf('{');
-    if (jsonStart === -1) throw new Error('no JSON in CLI output');
-    const data = JSON.parse(raw.slice(jsonStart));
-    // Overlay every block the CLI JSON omits (adrs/agentdb/tests/hooks/integration)
-    // with real local reads, so those segments reflect actual state instead of 0.
-    applyLocalOverlays(data);
-    overlayMemoPromo(data);
-    writeCache(data);
-    return data;
-  } catch { /* CLI unavailable or timed out */ }
+  // #2337: prefer an already-installed CLI bin via direct \`node\` invocation —
+  // no npx, no registry round-trip, no @latest re-resolve per render. Try
+  // every candidate that actually EXISTS (not just the first) before falling
+  // back to \`npx --prefer-offline @claude-flow/cli\` (no @latest); an existing
+  // but broken install (e.g. a stale marketplace checkout missing a bundled
+  // workspace dep) must not block trying the next one.
+  const cmds = resolveCliBinCandidates()
+    .map((bin) => '"' + process.execPath + '" "' + bin + '" hooks statusline --json 2>/dev/null')
+    .concat(['npx --prefer-offline @claude-flow/cli hooks statusline --json 2>/dev/null']);
+  for (const cmd of cmds) {
+    try {
+      const raw = execSync(
+        cmd,
+        { encoding: 'utf-8', timeout: 8000, stdio: ['pipe', 'pipe', 'pipe'], cwd: CWD }
+      ).trim();
+      // The CLI may emit preamble lines before the JSON — find the first '{'.
+      const jsonStart = raw.indexOf('{');
+      if (jsonStart === -1) throw new Error('no JSON in CLI output');
+      const data = JSON.parse(raw.slice(jsonStart));
+      // Overlay every block the CLI JSON omits (adrs/agentdb/tests/hooks/integration)
+      // with real local reads, so those segments reflect actual state instead of 0.
+      applyLocalOverlays(data);
+      overlayMemoPromo(data);
+      writeCache(data);
+      return data;
+    } catch { /* this candidate unavailable, broken, or timed out — try the next */ }
+  }
 
   // Stale-while-revalidate: if we have any cached data, keep serving it so the
   // funnel row doesn't flicker on CLI hiccups. Overlay fresh local reads for
