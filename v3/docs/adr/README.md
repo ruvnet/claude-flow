@@ -29,47 +29,8 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-046](../../implementation/adrs/ADR-046-ruflo-rebrand.md) | Dual Umbrella: claude-flow + ruflo | Accepted |
 | [ADR-047](../../implementation/adrs/ADR-047-fast-mode-integration.md) | Fast Mode Integration | Proposed |
 | [ADR-178](ADR-178-dream-cycle-security-vmg-repe-ipi.md) | Verifiable Memory Governance and RepE IPI Detection | Proposed |
+| [ADR-179](ADR-179-dream-cycle-intelligence-harness-cost-governor.md) | Dynamic Harness Cost Governor for Per-Task Token Budget Management | Proposed |
 
 ## Summary Documents
 
 - [ADR Status Summary](../../implementation/adrs/ADR-STATUS-SUMMARY.md) - Implementation status overview
-- [V3 ADRs Master](../../implementation/adrs/v3-adrs.md) - Complete ADR document
-- [Full README](../../implementation/adrs/README.md) - Detailed index with roadmap
-
-## Performance Targets
-
-| Metric | Target | Status |
-|--------|--------|--------|
-| HNSW Search | 150x-12,500x faster | ✅ Achieved |
-| Flash Attention | 2.49x-7.47x speedup | ✅ Achieved (alpha.102) |
-| Memory Reduction | 50-75% | ✅ Achieved |
-| MCP Response | <100ms | ✅ Achieved |
-| CLI Startup | <500ms | ✅ Achieved |
-
-## Neural Features (alpha.102+)
-
-| Component | Status | Lines | Notes |
-|-----------|--------|-------|-------|
-| SONA Optimizer | ✅ Real | 841 | Pattern learning from trajectories |
-| EWC++ Consolidation | ✅ Real | ~600 | Fisher matrix, prevents forgetting |
-| MoE Router | ✅ Real | ~500 | 8 experts with gating network |
-| Flash Attention | ✅ Real | ~500 | O(N) block attention |
-| LoRA Adapter | ✅ Real | ~400 | 128x compression (rank=8) |
-| Hyperbolic Embeddings | ✅ Real | - | Poincaré ball model |
-| Int8 Quantization | ✅ Real | - | 3.92x memory savings |
-
-## Security Status
-
-| CVE | Severity | Status |
-|-----|----------|--------|
-| CVE-2 | Critical | ✅ Fixed |
-| CVE-3 | Critical | ✅ Fixed |
-| HIGH-1 | High | ✅ Fixed |
-| HIGH-2 | High | ✅ Fixed |
-
-**Security Score:** 10/10
-
----
-
-**Last Updated:** 2026-01-14
-**CLI Version:** @claude-flow/cli@3.0.0-alpha.104
