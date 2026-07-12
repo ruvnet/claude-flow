@@ -23,6 +23,7 @@ export const CONSENT_DOMAINS: ConsentDomain[] = [
   'sponsored-downtime',
   'power-saver',
   'training-data-sharing',
+  'advisor-tips',
 ];
 
 export function readConsents(): ConsentFile {

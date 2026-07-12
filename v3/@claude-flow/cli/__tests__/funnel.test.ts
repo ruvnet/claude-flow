@@ -472,6 +472,36 @@ describe('training-data-sharing consent domain (ADR-315 Tier 2)', () => {
   });
 });
 
+describe('advisor-tips consent domain (ADR-316)', () => {
+  it('is unconsented by default, independent of every other domain', () => {
+    recordConsent('sponsored-downtime', true, 'proxy-sponsor-enable');
+    recordConsent('power-saver', true, 'proxy-power-saver-enable');
+    recordConsent('training-data-sharing', true, 'proxy-training-share-enable');
+    expect(hasConsent('advisor-tips')).toBe(false);
+  });
+
+  it('granting advisor-tips does not implicitly grant any other domain', () => {
+    recordConsent('advisor-tips', true, 'advisor-enable');
+    expect(hasConsent('sponsored-downtime')).toBe(false);
+    expect(hasConsent('power-saver')).toBe(false);
+    expect(hasConsent('training-data-sharing')).toBe(false);
+  });
+
+  it('records grant and decline as explicit decisions', () => {
+    recordConsent('advisor-tips', true, 'advisor-enable');
+    expect(hasConsent('advisor-tips')).toBe(true);
+    recordConsent('advisor-tips', false, 'advisor-disable');
+    expect(hasConsent('advisor-tips')).toBe(false);
+    expect(getConsent('advisor-tips').at).not.toBeNull();
+  });
+
+  it('the funnel event schema accepts advisor_tip_enabled/disabled once telemetry is consented', () => {
+    recordConsent('telemetry', true, 'test');
+    expect(recordFunnelEvent('advisor_tip_enabled', 'statusline', '3.25.6')).toBe(true);
+    expect(recordFunnelEvent('advisor_tip_disabled', 'statusline', '3.25.6')).toBe(true);
+  });
+});
+
 // ─── ADR-303: credit-error classifier ───────────────────────────────────────
 
 describe('credit-error classifier (ADR-303, fail-closed)', () => {
@@ -1123,6 +1153,56 @@ describe('local insight ticker (computeLocalInsights / selectLocalInsight)', () 
       'utf-8',
     );
     expect(selectLocalInsight({})).toBeNull();
+  });
+
+  it('surfaces the ADR-316 advisor tip only when consented, and never a stale-past-TTL cache', () => {
+    fs.writeFileSync(
+      path.join(stateDir, 'advisor-tip.json'),
+      JSON.stringify({ _ts: Date.now(), headline: 'commit your work' }),
+      'utf-8',
+    );
+    expect(selectLocalInsight({})).toBeNull(); // not consented — cache is ignored regardless
+    recordConsent('advisor-tips', true, 'test');
+    const insight = selectLocalInsight({});
+    expect(insight!.id).toBe('insight-advisor-tip');
+    expect(insight!.text).toContain('commit your work');
+  });
+
+  it('an expired advisor-tip cache is silent even when consented', () => {
+    recordConsent('advisor-tips', true, 'test');
+    fs.writeFileSync(
+      path.join(stateDir, 'advisor-tip.json'),
+      JSON.stringify({ _ts: Date.now() - 25 * 60 * 60 * 1000, headline: 'stale tip' }),
+      'utf-8',
+    );
+    expect(selectLocalInsight({})).toBeNull();
+  });
+
+  it('CVEs pending still outrank the advisor tip', () => {
+    recordConsent('advisor-tips', true, 'test');
+    fs.writeFileSync(
+      path.join(stateDir, 'advisor-tip.json'),
+      JSON.stringify({ _ts: Date.now(), headline: 'a tip' }),
+      'utf-8',
+    );
+    const insight = selectLocalInsight({ security: { status: 'IN_PROGRESS', cvesFixed: 0, totalCves: 1 } });
+    expect(insight!.id).toBe('insight-cves-pending');
+  });
+
+  it('the advisor tip outranks the flywheel-status placeholder', () => {
+    recordConsent('advisor-tips', true, 'test');
+    fs.writeFileSync(
+      path.join(stateDir, 'advisor-tip.json'),
+      JSON.stringify({ _ts: Date.now(), headline: 'a tip' }),
+      'utf-8',
+    );
+    fs.writeFileSync(
+      path.join(stateDir, 'flywheel-status.json'),
+      JSON.stringify({ _ts: Date.now(), headline: 'flywheel news' }),
+      'utf-8',
+    );
+    const insight = selectLocalInsight({});
+    expect(insight!.id).toBe('insight-advisor-tip');
   });
 });
 

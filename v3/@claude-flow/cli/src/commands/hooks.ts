@@ -10,6 +10,11 @@ import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { storeCommand } from './transfer-store.js';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import {
+  getSecurityStatus as sharedGetSecurityStatus,
+  getSwarmStatus as sharedGetSwarmStatus,
+  getGitUncommittedCount as sharedGetGitUncommittedCount,
+} from '../funnel/local-signals.js';
 
 /**
  * #1686 — `?? 0` only defaults null/undefined; NaN slips through and
@@ -4127,55 +4132,11 @@ const statuslineCommand: Command = {
       return { domainsCompleted, totalDomains, dddProgress, patternsLearned: learning.patterns, sessionsCompleted: learning.sessions };
     }
 
-    // Get security status
-    function getSecurityStatus() {
-      const scanResultsPath = path.join(process.cwd(), '.claude', 'security-scans');
-      let cvesFixed = 0;
-      const totalCves = 3;
-
-      if (fs.existsSync(scanResultsPath)) {
-        try {
-          const scans = fs.readdirSync(scanResultsPath).filter((f: string) => f.endsWith('.json'));
-          cvesFixed = Math.min(totalCves, scans.length);
-        } catch {
-          // Ignore
-        }
-      }
-
-      const auditPath = path.join(process.cwd(), '.swarm', 'security');
-      if (fs.existsSync(auditPath)) {
-        try {
-          const audits = fs.readdirSync(auditPath).filter((f: string) => f.includes('audit'));
-          cvesFixed = Math.min(totalCves, Math.max(cvesFixed, audits.length));
-        } catch {
-          // Ignore
-        }
-      }
-
-      const status = cvesFixed >= totalCves ? 'CLEAN' : cvesFixed > 0 ? 'IN_PROGRESS' : 'PENDING';
-      return { status, cvesFixed, totalCves };
-    }
-
-    // Get swarm status
-    function getSwarmStatus() {
-      let activeAgents = 0;
-      let coordinationActive = false;
-      const maxAgents = 15;
-      const isWindows = process.platform === 'win32';
-
-      try {
-        const psCmd = isWindows
-          ? 'tasklist /FI "IMAGENAME eq node.exe" /NH 2>NUL | find /c /v "" 2>NUL || echo 0'
-          : 'ps aux 2>/dev/null | grep -c agentic-flow || echo "0"';
-        const ps = execSync(psCmd, { encoding: 'utf-8', timeout: 3000 });
-        activeAgents = Math.max(0, parseInt(ps.trim()) - 1);
-        coordinationActive = activeAgents > 0;
-      } catch {
-        // ps/tasklist unavailable or timed out — report zero
-      }
-
-      return { activeAgents, maxAgents, coordinationActive };
-    }
+    // Security/swarm status — shared with the advisor-tip refresh (ADR-316)
+    // via funnel/local-signals.ts, a single source of truth so the two call
+    // sites can never silently drift on what these signals mean.
+    const getSecurityStatus = sharedGetSecurityStatus;
+    const getSwarmStatus = sharedGetSwarmStatus;
 
     // Get system metrics
     function getSystemMetrics() {
@@ -4274,19 +4235,7 @@ const statuslineCommand: Command = {
     const swarm = getSwarmStatus();
     const system = getSystemMetrics();
     const user = getUserInfo();
-
-    // Cheap, bounded, never allowed to break the statusline — feeds the
-    // local insight ticker (funnel/insights.ts) below. Reuses the same
-    // execSync + short timeout discipline as getUserInfo()'s git calls.
-    function getGitUncommittedCount(): number | undefined {
-      try {
-        const out = execSync('git status --porcelain 2>/dev/null', { encoding: 'utf-8', timeout: 3000 });
-        const lines = out.split('\n').filter((l) => l.trim().length > 0);
-        return lines.length;
-      } catch {
-        return undefined;
-      }
-    }
+    const getGitUncommittedCount = sharedGetGitUncommittedCount;
 
     // Funnel promo row (ADR-301). The statusline is spawned with piped stdio
     // by an interactive host, so interactivity is asserted here; all other
@@ -5324,6 +5273,45 @@ const refreshFunnelCommand: Command = {
   }
 };
 
+// Refresh-advisor subcommand — ADR-316's co-pilot tip. Mirrors
+// refreshFunnelCommand exactly: a properly-awaited CLI subcommand meant to
+// be spawned DETACHED from hook-handler.cjs's session-restore handler, so a
+// real (potentially multi-second, real-money) `claude -p` call gets a
+// chance to finish without ever blocking or being awaited by the hook's own
+// process. refreshAdvisorTipIfStale() itself is the safety net that makes
+// this cheap to call on every session-restore: it checks consent + a 24h
+// TTL BEFORE spending anything, so most invocations are a no-op file read.
+const refreshAdvisorCommand: Command = {
+  name: 'refresh-advisor',
+  description: 'Best-effort background refresh of the co-pilot advisor tip (internal — see hook-handler.cjs session-restore; ADR-316)',
+  options: [
+    { name: 'quiet', description: 'Suppress output (used when spawned detached from a hook)', type: 'boolean', default: false },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    try {
+      const { refreshAdvisorTipIfStale } = await import('../funnel/advisor-tip.js');
+      const { getSecurityStatus, getSwarmStatus, getGitUncommittedCount } = await import('../funnel/local-signals.js');
+      const result = await refreshAdvisorTipIfStale({
+        security: getSecurityStatus(),
+        swarm: getSwarmStatus(),
+        gitUncommittedCount: getGitUncommittedCount(),
+      });
+      if (!ctx.flags.quiet) {
+        output.writeln(JSON.stringify(result));
+      }
+      return { success: true, data: result };
+    } catch (error) {
+      // Fail silent by design (matches refresh-funnel's own discipline) — a
+      // broken advisor refresh must never surface as a hook error, only
+      // ever as "no tip this window."
+      if (!ctx.flags.quiet) {
+        output.printError(`refresh-advisor failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      return { success: true, data: { refreshed: false, reason: 'error' } };
+    }
+  }
+};
+
 // Main hooks command
 export const hooksCommand: Command = {
   name: 'hooks',
@@ -5369,6 +5357,8 @@ export const hooksCommand: Command = {
     taskCompletedCommand,
     // Funnel background refresh — see refreshFunnelCommand's own doc comment
     refreshFunnelCommand,
+    // Advisor co-pilot tip background refresh — ADR-316
+    refreshAdvisorCommand,
   ],
   options: [],
   examples: [

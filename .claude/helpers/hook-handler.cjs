@@ -68,6 +68,26 @@ function spawnDetachedFunnelRefresh() {
   } catch (e) { /* best-effort only */ }
 }
 
+// Same detached/unref'd pattern as spawnDetachedFunnelRefresh() above, for
+// ADR-316's co-pilot advisor tip. Safe to call on EVERY session-restore:
+// refresh-advisor's own action checks consent + a 24h TTL BEFORE spending
+// anything, so an unconsented or already-fresh install is a fast no-op file
+// read, never a network call. Never awaited here — must not add to
+// SessionStart's own timeout budget.
+function spawnDetachedAdvisorRefresh() {
+  try {
+    const cliBin = resolveCliBinForHook();
+    if (!cliBin) return;
+    const { spawn } = require('child_process');
+    const child = spawn(process.execPath, [cliBin, 'hooks', 'refresh-advisor', '--quiet'], {
+      detached: true,
+      stdio: 'ignore',
+      env: process.env,
+    });
+    child.unref();
+  } catch (e) { /* best-effort only */ }
+}
+
 // Safe require with stdout suppression - the helper modules have CLI
 // sections that run unconditionally on require(), so we mute console
 // during the require to prevent noisy output.
@@ -339,6 +359,10 @@ const handlers = {
     // spawnDetachedFunnelRefresh's doc comment for why this must happen
     // here, detached, rather than as the statusline's own fire-and-forget).
     spawnDetachedFunnelRefresh();
+    // ADR-316 co-pilot advisor tip — same detached pattern; cheap no-op
+    // when not consented or still within the 24h TTL (see refresh-advisor's
+    // own doc comment).
+    spawnDetachedAdvisorRefresh();
   },
 
   'session-end': async () => {

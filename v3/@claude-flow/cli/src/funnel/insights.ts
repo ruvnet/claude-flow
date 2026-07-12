@@ -25,6 +25,7 @@
 import { hasConsent } from './consent.js';
 import { readQuotaLowStatus } from './power-saver-notifier.js';
 import { readStateJson } from './state.js';
+import { readAdvisorTip } from './advisor-tip.js';
 
 export interface LocalInsight {
   id: string;
@@ -64,7 +65,10 @@ const FLYWHEEL_STATUS_TTL_MS = 24 * 60 * 60 * 1000;
 
 function flywheelInsight(now: Date): LocalInsight | null {
   const cache = readStateJson<FlywheelStatusCache>('flywheel-status.json');
-  if (!cache || !cache.headline || !cache._ts) return null;
+  // `!cache._ts` would wrongly treat a legitimate epoch-zero timestamp as
+  // absent (0 is falsy) — check the type explicitly instead (ADR-316 found
+  // this exact defect pattern live via a test using new Date(0)).
+  if (!cache || !cache.headline || typeof cache._ts !== 'number') return null;
   if (now.getTime() - cache._ts >= FLYWHEEL_STATUS_TTL_MS) return null;
   return { id: 'insight-flywheel-status', text: `🧬 ${cache.headline}`, priority: 40 };
 }
@@ -112,10 +116,33 @@ function proxyModeInsight(now: Date): LocalInsight | null {
   return null;
 }
 
+/**
+ * ADR-316 — a co-pilot tip from ruflo's Fable Advisor Harness
+ * (services/fable-harness.ts, ADR-172). Consent-gated (never surfaces a
+ * stale cached tip after the user disables it, even though the cache file
+ * itself isn't deleted on disable — this check is what actually enforces
+ * "off means off"). Purely a cache read here — no network call, no spend;
+ * the real `claude -p` call happens in advisor-tip.ts's
+ * refreshAdvisorTipIfStale(), invoked from a detached background process,
+ * never from this hot path.
+ */
+function advisorTipInsight(now: Date): LocalInsight | null {
+  if (!hasConsent('advisor-tips')) return null;
+  const tip = readAdvisorTip(now);
+  if (!tip) return null;
+  return { id: 'insight-advisor-tip', text: `🧭 ${tip.headline}`, priority: 45 };
+}
+
 /** All candidate insights for this render, unsorted. */
 export function computeLocalInsights(ctx: LocalInsightContext): LocalInsight[] {
   const now = ctx.now ?? new Date();
-  const candidates = [securityInsight(ctx), gitInsight(ctx), proxyModeInsight(now), flywheelInsight(now)];
+  const candidates = [
+    securityInsight(ctx),
+    gitInsight(ctx),
+    proxyModeInsight(now),
+    advisorTipInsight(now),
+    flywheelInsight(now),
+  ];
   return candidates.filter((i): i is LocalInsight => i !== null);
 }
 

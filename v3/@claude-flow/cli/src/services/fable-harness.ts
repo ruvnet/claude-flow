@@ -102,6 +102,30 @@ export interface ReflectResult {
   mutationHint: string;
 }
 
+/**
+ * ADR-316 — a compact, STRUCTURAL-ONLY snapshot of the current coding
+ * session for the statusline's co-pilot advisor tip. Every field here
+ * mirrors funnel/insights.ts's LocalInsightContext — no raw prompt/command/
+ * file content, ever (same bar as ADR-309, applied to a different, opt-in
+ * data flow). The model sees only what's already surfaced structurally
+ * elsewhere in the statusline.
+ */
+export interface CoPilotSnapshot {
+  security?: { status: string; cvesFixed: number; totalCves: number };
+  swarm?: { activeAgents: number; maxAgents: number; coordinationActive: boolean };
+  gitUncommittedCount?: number;
+  contextPctUsed?: number;
+}
+
+/** A single proactive suggestion for the insight ticker. */
+export interface CoPilotTip {
+  /** Short enough for a single statusline row (caller truncates further). */
+  headline: string;
+  /** One actionable sentence of extra detail. */
+  detail: string;
+  confidence: number;
+}
+
 /** Result of a raw claude spawn. */
 export interface ClaudeSpawnResult {
   stdout: string;
@@ -157,6 +181,18 @@ const REFLECT_SYSTEM_PROMPT = [
   'For each item, classify the failure and propose a concrete mutation hint.',
   'Reply with ONLY a JSON array, one object per input id, no prose:',
   '[{"id":"...","failureClass":"<short label>","diagnosis":"<one sentence>","mutationHint":"<actionable>"}]',
+].join('\n');
+
+const ADVISOR_SYSTEM_PROMPT = [
+  "You are RuFlo's co-pilot advisor: ONE short, proactive, actionable tip for",
+  'a developer, based on a single JSON object describing STRUCTURAL signals',
+  'from their current coding session (security scan status, swarm/agent',
+  'state, count of uncommitted files, context-window usage). There is no',
+  'prompt, command, or file content in the input — never assume or invent any.',
+  'If nothing in the snapshot genuinely warrants a tip, say so by returning',
+  'an empty array. Never pad with generic advice not grounded in the snapshot.',
+  'Reply with ONLY a JSON array containing zero or one object, no prose:',
+  '[] or [{"headline":"<=60 chars","detail":"<one actionable sentence>","confidence":0.0-1.0}]',
 ].join('\n');
 
 // ── Default spawner (real CLI) ───────────────────────────────────────────────
@@ -290,6 +326,22 @@ export class FableHarness {
     return out;
   }
 
+  /**
+   * ADR-316 — one proactive co-pilot tip from a structural session snapshot
+   * (no raw prompt/command/file content). A single-item "batch" — same
+   * budget/cwd/parsing discipline as judgeBatch/reflectFailures, just with
+   * exactly one call instead of a loop. Returns null when disabled, over
+   * budget, or the model found nothing worth surfacing (an empty verdict
+   * array is a valid, non-error answer here, not a parse failure).
+   */
+  async adviseCoPilotTip(snapshot: CoPilotSnapshot): Promise<CoPilotTip | null> {
+    if (!this.isEnabled()) return null;
+    if (this.spentUsd >= this.maxBudgetUsd) return null;
+    const parsed = await this.runBatch(ADVISOR_SYSTEM_PROMPT, [snapshot]);
+    if (parsed.length === 0) return null;
+    return normalizeCoPilotTip(parsed[0]);
+  }
+
   /** Build the argv for a `claude -p` call. Exposed shape for testability. */
   buildArgv(systemPrompt: string): string[] {
     const perCallCap = Math.max(0, this.maxBudgetUsd - this.spentUsd);
@@ -392,6 +444,17 @@ function normalizeReflect(raw: unknown): ReflectResult | null {
     failureClass: typeof o.failureClass === 'string' ? o.failureClass : 'unknown',
     diagnosis: typeof o.diagnosis === 'string' ? o.diagnosis : '',
     mutationHint: typeof o.mutationHint === 'string' ? o.mutationHint : '',
+  };
+}
+
+function normalizeCoPilotTip(raw: unknown): CoPilotTip | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.headline !== 'string' || !o.headline.trim()) return null;
+  return {
+    headline: o.headline.slice(0, 80),
+    detail: typeof o.detail === 'string' ? o.detail.slice(0, 200) : '',
+    confidence: clamp01(typeof o.confidence === 'number' ? o.confidence : Number(o.confidence)),
   };
 }
 

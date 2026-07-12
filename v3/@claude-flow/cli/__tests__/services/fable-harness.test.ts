@@ -156,6 +156,53 @@ describe('FableHarness — reflectFailures', () => {
   });
 });
 
+describe('FableHarness — adviseCoPilotTip (ADR-316)', () => {
+  it('makes ZERO spawns when no budget cap is set (off by default)', async () => {
+    const { fn, calls } = fakeSpawn(() => ({ stdout: envelope([]) }));
+    const h = new FableHarness({ spawnClaude: fn });
+    const tip = await h.adviseCoPilotTip({ gitUncommittedCount: 50 });
+    expect(tip).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
+  it('returns a normalized tip when the model finds one worth surfacing', async () => {
+    const { fn, calls } = fakeSpawn(() => ({
+      stdout: envelope([{ headline: 'Commit your work', detail: 'You have 50 uncommitted files.', confidence: 1.4 }]),
+    }));
+    const h = new FableHarness({ maxBudgetUsd: 0.5, spawnClaude: fn });
+    const tip = await h.adviseCoPilotTip({ gitUncommittedCount: 50 });
+    expect(calls).toHaveLength(1);
+    expect(tip).toEqual({ headline: 'Commit your work', detail: 'You have 50 uncommitted files.', confidence: 1 });
+  });
+
+  it('returns null when the model explicitly finds nothing worth surfacing (empty array is not an error)', async () => {
+    const { fn, calls } = fakeSpawn(() => ({ stdout: envelope([]) }));
+    const h = new FableHarness({ maxBudgetUsd: 0.5, spawnClaude: fn });
+    const tip = await h.adviseCoPilotTip({});
+    expect(calls).toHaveLength(1);
+    expect(tip).toBeNull();
+  });
+
+  it('sends the snapshot as stdin JSON, never as an argv positional', async () => {
+    const { fn, calls } = fakeSpawn(() => ({ stdout: envelope([]) }));
+    const h = new FableHarness({ maxBudgetUsd: 0.5, spawnClaude: fn });
+    await h.adviseCoPilotTip({ gitUncommittedCount: 7 });
+    expect(calls[0].prompt).toContain('"gitUncommittedCount":7');
+    expect(calls[0].argv.join(' ')).not.toContain('7');
+    expect(calls[0].cwd).not.toBe(process.cwd());
+  });
+
+  it('never returns a tip once the harness is already at/over budget', async () => {
+    const { fn, calls } = fakeSpawn(() => ({ stdout: envelope([{ headline: 'x', detail: 'y', confidence: 0.5 }]), costUsd: 10 }));
+    const h = new FableHarness({ maxBudgetUsd: 0.1, spawnClaude: fn });
+    const first = await h.adviseCoPilotTip({});
+    expect(first).not.toBeNull(); // first call runs (spent starts at 0)
+    const second = await h.adviseCoPilotTip({});
+    expect(second).toBeNull(); // now over budget — refuses without spawning
+    expect(calls).toHaveLength(1);
+  });
+});
+
 describe('extractVerdictArray', () => {
   it('parses an enveloped result string', () => {
     const arr = extractVerdictArray(envelope([{ id: 'x', resolved: true }]));

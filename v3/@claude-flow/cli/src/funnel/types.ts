@@ -78,7 +78,14 @@ export type ConsentDomain =
   // training. This is the one consent domain in the whole family that
   // gates raw interaction CONTENT leaving the client, not just a routing
   // decision, so it is never bundled with anything else.
-  | 'training-data-sharing';
+  | 'training-data-sharing'
+  // ADR-316: separate again — a periodic, budget-capped `claude -p` call to
+  // a headless Fable model for a proactive statusline tip. The payload is
+  // structural signals only (never raw prompt/command/file content, unlike
+  // the concern training-data-sharing gates), but it's still a real, opt-in
+  // network call with a real cost, and gets its own never-bundled decision
+  // like every other domain in this family.
+  | 'advisor-tips';
 
 export interface ConsentReceipt {
   granted: boolean;
@@ -153,7 +160,10 @@ export type FunnelEventName =
   | 'toggle_cooldown_blocked'
   // ADR-315 Tier 2 training-data-sharing consent
   | 'training_share_enabled'
-  | 'training_share_disabled';
+  | 'training_share_disabled'
+  // ADR-316 advisor co-pilot tip consent
+  | 'advisor_tip_enabled'
+  | 'advisor_tip_disabled';
 
 export type FunnelSurface = 'statusline' | 'init' | 'credit_exhaustion';
 

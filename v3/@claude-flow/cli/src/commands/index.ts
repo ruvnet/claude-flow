@@ -89,6 +89,8 @@ const commandLoaders: Record<string, CommandLoader> = {
   settings: () => import('./settings.js'),
   // Meta LLM Proxy — sponsored downtime capacity (ADR-304/307/313)
   proxy: () => import('./proxy.js'),
+  // Fable co-pilot advisor tip in the statusline insight ticker (ADR-316)
+  advisor: () => import('./advisor.js'),
 };
 
 // Cache for loaded commands

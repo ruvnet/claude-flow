@@ -42,6 +42,8 @@ const EVENT_NAMES: readonly FunnelEventName[] = [
   'toggle_cooldown_blocked',
   'training_share_enabled',
   'training_share_disabled',
+  'advisor_tip_enabled',
+  'advisor_tip_disabled',
 ];
 const SURFACES: readonly FunnelSurface[] = ['statusline', 'init', 'credit_exhaustion'];
 
