@@ -410,6 +410,51 @@ describe('MCP 2026-07-28 specification', () => {
     });
   });
 
+  describe('embedding support (stdio unification, ADR-179)', () => {
+    it('derives serverInfo from config so an embedding host keeps its identity', async () => {
+      const server = createMCPServer(
+        { name: 'ruflo', version: '3.0.0', transport: 'in-process' },
+        createMockLogger()
+      );
+      const response = await server.processRequest(initializeRequest(PROTOCOL_2025_11_25));
+      const result = response.result as { serverInfo: { name: string; version: string } };
+      expect(result.serverInfo.name).toBe('ruflo');
+      expect(result.serverInfo.version).toBe('3.0.0');
+      await server.stop();
+    });
+
+    it('validateInput:false skips execute-time validation but still advertises the schema', async () => {
+      const server = createMCPServer(
+        { name: 'Test', transport: 'in-process', statelessMode: true },
+        createMockLogger()
+      );
+      server.registerTools(
+        [{
+          name: 'bridged',
+          description: 'A bridged tool with a strict schema but lenient runtime',
+          inputSchema: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] },
+          validateInput: false,
+          handler: async (input: unknown) => ({ received: input }),
+        }],
+        { validate: false }
+      );
+
+      // tools/list advertises the real schema
+      const list = await server.processRequest({ jsonrpc: '2.0', id: 30, method: 'tools/list' });
+      const tool = (list.result as { tools: Array<{ name: string; inputSchema: { required?: string[] } }> })
+        .tools.find((t) => t.name === 'bridged');
+      expect(tool?.inputSchema.required).toEqual(['key']);
+
+      // ...but a call missing the required field is NOT rejected (validateInput:false)
+      const call = await server.processRequest({
+        jsonrpc: '2.0', id: 31, method: 'tools/call',
+        params: { name: 'bridged', arguments: {} },
+      });
+      expect((call.result as { isError: boolean }).isError).toBe(false);
+      await server.stop();
+    });
+  });
+
   describe('deprecated methods stay functional', () => {
     it('still routes logging/setLevel for 2026-07-28 clients, with a warning', async () => {
       const logger = createMockLogger();

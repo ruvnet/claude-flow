@@ -253,6 +253,13 @@ export interface MCPTool<TInput = unknown, TOutput = unknown> {
   cacheable?: boolean;
   cacheTTL?: number;
   timeout?: number;
+  /**
+   * Validate call input against inputSchema before invoking the handler
+   * (default true). Set false for tools whose handler does its own
+   * validation, or bridged/legacy tools whose declared schema is advisory —
+   * the schema is still advertised in tools/list either way.
+   */
+  validateInput?: boolean;
 }
 
 export interface ToolCallResult {

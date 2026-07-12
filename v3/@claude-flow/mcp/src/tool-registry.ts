@@ -283,8 +283,10 @@ export class ToolRegistry extends EventEmitter {
       };
     }
 
-    // Validate input against schema (security feature)
-    if (metadata.tool.inputSchema) {
+    // Validate input against schema (security feature). Opt out per-tool via
+    // validateInput:false for handlers that validate themselves or bridged
+    // tools whose declared schema is advisory only.
+    if (metadata.tool.inputSchema && metadata.tool.validateInput !== false) {
       const validation = validateSchema(input, metadata.tool.inputSchema);
       if (!validation.valid) {
         const errorMsg = formatValidationErrors(validation.errors);

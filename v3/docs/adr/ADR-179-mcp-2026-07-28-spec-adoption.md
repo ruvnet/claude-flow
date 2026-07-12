@@ -1,6 +1,6 @@
 # ADR-179: MCP 2026-07-28 Specification Adoption and SDK v2 Migration Strategy
 
-**Status**: Accepted — Phases 1–2 implemented in `@claude-flow/mcp` (2026-07-12): error-code split, transport headers, dual-version negotiation, opt-in stateless mode, MRTR, RFC 9207 `iss` validation + DCR `application_type`
+**Status**: Accepted — Phases 1–2 implemented in `@claude-flow/mcp` (2026-07-12): error-code split, transport headers, dual-version negotiation, opt-in stateless mode, MRTR, RFC 9207 `iss` validation + DCR `application_type`. **CLI stdio transport unified onto `@claude-flow/mcp`** (2026-07-12): the hand-rolled 2024-11-05 stdio handler in `@claude-flow/cli/src/mcp-server.ts` now delegates to the package (bridging the 314-tool registry), so stdio and HTTP/WS share one spec-compliant implementation.
 **Date**: 2026-07-12
 **References**: [MCP SDK beta announcement (2026-07-28 spec)](https://blog.modelcontextprotocol.io/posts/sdk-betas-2026-07-28/), ADR-012 (MCP Security Features), ADR-166 (MCP Bridge RCE Remediation)
 
@@ -22,6 +22,8 @@ The spec revision is not incremental — it changes the protocol's architectural
 ### Why this hits ruflo harder than most projects
 
 Ruflo has **two independent MCP surfaces**, and neither is insulated by an SDK upgrade path:
+
+> **Integration note (2026-07-12):** the CLI historically had *two* MCP code paths — `startHttpServer` used `@claude-flow/mcp`, but the default **stdio** transport (`startStdioServer`, what Claude Code invokes via `npx ruflo mcp start`) was a *separate* hand-rolled JSON-RPC loop hardcoding `protocolVersion: '2024-11-05'`. The stdio path has since been unified onto `@claude-flow/mcp` (`handleMCPMessage` → `MCPServer.processRequest`, with the ruflo tool registry bridged in via `registerTools({ validate: false })` and per-tool `validateInput: false` to preserve the raw path's pass-through behavior). Both transports now negotiate 2025-11-25/2026-07-28 from the same implementation. The stdio I/O hardening (stdout-frame isolation, `setBlocking` for large frames, bounded buffer, memory auto-init) is retained; only the protocol/dispatch layer changed.
 
 **Surface 1 — hand-rolled server (`v3/@claude-flow/mcp`)**. Our 314-tool MCP server does not depend on `@modelcontextprotocol/sdk`; it implements JSON-RPC, stdio/HTTP/WebSocket transports, connection pooling, and the tool registry directly. Every spec-affected area is load-bearing code we own:
 

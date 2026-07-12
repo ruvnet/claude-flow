@@ -22,6 +22,7 @@ import type {
   TransportType,
   ILogger,
   ToolContext,
+  ToolRegistrationOptions,
 } from './types.js';
 import { MCPServerError, ErrorCodes } from './types.js';
 import { ToolRegistry, createToolRegistry } from './tool-registry.js';
@@ -64,8 +65,9 @@ const DEFAULT_CONFIG: Partial<MCPServerConfig> = {
 export interface IMCPServer {
   start(): Promise<void>;
   stop(): Promise<void>;
-  registerTool(tool: MCPTool): boolean;
-  registerTools(tools: MCPTool[]): { registered: number; failed: string[] };
+  processRequest(request: MCPRequest): Promise<MCPResponse>;
+  registerTool(tool: MCPTool, options?: ToolRegistrationOptions): boolean;
+  registerTools(tools: MCPTool[], options?: ToolRegistrationOptions): { registered: number; failed: string[] };
   getHealthStatus(): Promise<{
     healthy: boolean;
     error?: string;
@@ -96,10 +98,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   private currentSession?: MCPSession;
   private resourceSubscriptions: Map<string, Set<string>> = new Map(); // sessionId -> subscribed URIs
 
-  private readonly serverInfo = {
-    name: 'Claude-Flow MCP Server V3',
-    version: '3.0.0',
-  };
+  private readonly serverInfo: { name: string; version: string };
 
   // MCP protocol revision is negotiated per session (2025-11-25 or
   // 2026-07-28, see protocol.ts). Spec-required YYYY-MM-DD date string
@@ -129,6 +128,10 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   ) {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config } as MCPServerConfig;
+    this.serverInfo = {
+      name: this.config.name || 'Claude-Flow MCP Server V3',
+      version: this.config.version || '3.0.0',
+    };
 
     this.toolRegistry = createToolRegistry(logger);
     this.sessionManager = createSessionManager(logger, {
@@ -305,12 +308,15 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     }
   }
 
-  registerTool(tool: MCPTool): boolean {
-    return this.toolRegistry.register(tool);
+  registerTool(tool: MCPTool, options?: ToolRegistrationOptions): boolean {
+    return this.toolRegistry.register(tool, options);
   }
 
-  registerTools(tools: MCPTool[]): { registered: number; failed: string[] } {
-    return this.toolRegistry.registerBatch(tools);
+  registerTools(
+    tools: MCPTool[],
+    options?: ToolRegistrationOptions
+  ): { registered: number; failed: string[] } {
+    return this.toolRegistry.registerBatch(tools, options);
   }
 
   unregisterTool(name: string): boolean {
