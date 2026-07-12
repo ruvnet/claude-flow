@@ -119,6 +119,14 @@
     "tag": "latest"
   },
   "overrides": {
-    "protobufjs": ">=7.5.6"
+    "protobufjs": ">=7.5.6",
+    "js-yaml": ">=4.3.0",
+    "express": ">=4.22.2",
+    "qs": ">=6.15.2",
+    "@opentelemetry/core": ">=2.8.0",
+    "@opentelemetry/resources": ">=2.8.0",
+    "@opentelemetry/sdk-trace-base": ">=2.8.0",
+    "@opentelemetry/sdk-node": ">=0.220.0",
+    "agentdb": ">=3.0.0-alpha.17"
   }
 }
