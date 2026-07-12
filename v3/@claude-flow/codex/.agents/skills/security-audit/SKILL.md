@@ -27,7 +27,7 @@ Security scanning and vulnerability detection.
 Run comprehensive security analysis
 
 ```bash
-npx @claude-flow/cli security scan --depth full
+npx @claude-flow/cli security scan --depth deep
 ```
 
 ### Input Validation Check

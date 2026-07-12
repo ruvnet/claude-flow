@@ -55,12 +55,12 @@ npx @claude-flow/cli memory search --query "authentication best practices" --lim
 Retrieve a specific memory entry by key
 
 ```bash
-npx @claude-flow/cli memory get --key "[key]" --namespace [namespace]
+npx @claude-flow/cli memory retrieve --key "[key]" --namespace [namespace]
 ```
 
 **Example:**
 ```bash
-npx @claude-flow/cli memory get --key "auth-jwt-pattern" --namespace patterns
+npx @claude-flow/cli memory retrieve --key "auth-jwt-pattern" --namespace patterns
 ```
 
 ### List Entries
@@ -82,11 +82,12 @@ Delete a memory entry
 npx @claude-flow/cli memory delete --key "[key]" --namespace [namespace]
 ```
 
-### Initialize HNSW Index
-Initialize HNSW vector search index
+### Build HNSW Index
+The HNSW vector index is built on demand during search — pass `--build-hnsw`
+to (re)build it before the query runs (enables the ANN speedup).
 
 ```bash
-npx @claude-flow/cli memory init --enable-hnsw
+npx @claude-flow/cli memory search --query "[search terms]" --build-hnsw
 ```
 
 ### Memory Stats

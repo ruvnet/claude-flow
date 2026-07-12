@@ -405,7 +405,7 @@ npx claude-flow@v3alpha memory search -q "authentication patterns"
 npx claude-flow@v3alpha doctor --fix
 
 # Security scan
-npx claude-flow@v3alpha security scan --depth full
+npx claude-flow@v3alpha security scan --depth deep
 
 # Performance benchmark
 npx claude-flow@v3alpha performance benchmark --suite all

@@ -33,12 +33,12 @@ Comprehensive security scanning and vulnerability detection. Includes input vali
 Run comprehensive security analysis on the codebase
 
 ```bash
-npx @claude-flow/cli security scan --depth full
+npx @claude-flow/cli security scan --depth deep
 ```
 
 **Example:**
 ```bash
-npx @claude-flow/cli security scan --depth full --output security-report.json
+npx @claude-flow/cli security scan --depth deep --output security-report.json
 ```
 
 ### Input Validation Check

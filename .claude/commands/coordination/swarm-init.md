@@ -80,6 +80,6 @@ mcp__claude-flow__swarm_init { topology: "hierarchical", maxAgents: 8 }
 ## See Also
 
 - `agent spawn` - Create swarm agents
-- `task orchestrate` - Coordinate task execution
+- `swarm start` - Orchestrate objectives across the swarm
 - `swarm status` - Check swarm state
 - `swarm monitor` - Real-time monitoring

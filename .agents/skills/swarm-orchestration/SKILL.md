@@ -72,16 +72,17 @@ Check the current swarm status
 npx @claude-flow/cli swarm status --verbose
 ```
 
-### Orchestrate Task
-Orchestrate a task across multiple agents
+### Orchestrate an Objective
+Orchestrate an objective across multiple agents (the `task orchestrate`
+subcommand was replaced by `swarm start` in v3.25).
 
 ```bash
-npx @claude-flow/cli task orchestrate --task "[task]" --strategy adaptive
+npx @claude-flow/cli swarm start --objective "[objective]" --strategy adaptive
 ```
 
 **Example:**
 ```bash
-npx @claude-flow/cli task orchestrate --task "refactor auth module" --strategy parallel --max-agents 4
+npx @claude-flow/cli swarm start --objective "refactor auth module" --strategy parallel
 ```
 
 ### List Agents
