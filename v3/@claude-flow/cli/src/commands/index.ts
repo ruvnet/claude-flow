@@ -40,6 +40,7 @@ const commandLoaders: Record<string, CommandLoader> = {
   'hive-mind': () => import('./hive-mind.js'),
   process: () => import('./process.js'),
   daemon: () => import('./daemon.js'),
+  version: () => import('./version.js'),
   // V3 Advanced Commands (less frequently used - lazy load)
   neural: () => import('./neural.js'),
   security: () => import('./security.js'),

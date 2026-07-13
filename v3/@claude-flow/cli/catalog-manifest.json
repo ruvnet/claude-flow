@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "generation": 1,
+  "generatedAt": "2026-07-13T15:53:12.461Z",
+  "gitSha": "c4ece06d",
+  "catalog": {
+    "agents": 164,
+    "tools": 387,
+    "skills": 34
+  },
+  "benchmark": null
+}

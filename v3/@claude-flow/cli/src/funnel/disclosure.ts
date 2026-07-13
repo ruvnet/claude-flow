@@ -27,7 +27,7 @@ import { getRemoteMessages } from './message-transport.js';
 const DISCLOSURE_FILE = 'funnel-disclosure.json';
 
 /** How long the disclosure text keeps the row before promo becomes eligible. */
-export const DISCLOSURE_GRACE_MS = 72 * 60 * 60 * 1000; // 72h
+export const DISCLOSURE_GRACE_MS = 24 * 60 * 60 * 1000; // 24h
 
 // One disclosure variant per 5-minute wall-clock slot. Longer than the
 // 20-second rotation cadence so a user watching the statusline sees the
