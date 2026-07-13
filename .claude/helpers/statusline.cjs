@@ -631,7 +631,11 @@ function generateStatusline() {
   const modelName = getModelFromStdin() || (d.user && d.user.modelName) || 'Claude Code';
   const ctxInfo = getContextFromStdin();
   const costInfo = getCostFromStdin();
-  const pkgVersion = getPkgVersion();
+  // Named RUFLO_VERSION (not pkgVersion) so the #1951 regression guard
+  // (scripts/audit-fix-invariants.mjs) can pin its presence in the emitted
+  // .cjs artifact — without it the header silently reverts to a hard-coded
+  // "RuFlo V3.5" for anyone whose install doesn't match the first probe path.
+  const RUFLO_VERSION = getPkgVersion();
 
   const progress = d.v3Progress || {};
   const security = d.security || {};
@@ -674,7 +678,7 @@ function generateStatusline() {
   //   Line 3 — Promo / disclosure row (funnel surface, ADR-301)
 
   // ─── Line 1: header ────────────────────────────────────────────
-  let header = c.bold + c.brightPurple + '▊ RuFlo V' + pkgVersion + ' ' + c.reset;
+  let header = c.bold + c.brightPurple + '▊ RuFlo V' + RUFLO_VERSION + ' ' + c.reset;
   header += (coordinationActive ? c.brightCyan : c.dim) + '● ' + c.brightCyan + git.name + c.reset;
   if (git.gitBranch) {
     header += '  ' + c.dim + '│' + c.reset + '  ' + c.brightBlue + '⏇ ' + git.gitBranch + c.reset;

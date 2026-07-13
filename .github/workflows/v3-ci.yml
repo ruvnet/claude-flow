@@ -269,9 +269,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
-      # js-yaml + tsx are needed by the smokes — install only those.
+      # js-yaml + tsx are needed by the smokes — install only those. Installed
+      # into an isolated prefix (not the repo root) and copied into node_modules
+      # rather than `npm install`-ed directly here: the root package.json now
+      # carries an `overrides.js-yaml` entry (CVE-1 fix), and npm refuses ANY
+      # direct/top-level install of a package that also has a top-level
+      # `overrides` entry for it (EOVERRIDE), regardless of version specifier.
       - name: Install smoke deps
-        run: npm install --no-save --no-package-lock js-yaml tsx
+        run: |
+          npm install --prefix /tmp/smoke-deps --no-package-lock js-yaml tsx
+          mkdir -p node_modules
+          cp -r /tmp/smoke-deps/node_modules/. node_modules/
       - name: "#2267 — every .github/workflows/*.yml must parse"
         run: node scripts/smoke-workflows-yaml.mjs
       - name: "#2257 — router patterns must be word-boundary-anchored"
