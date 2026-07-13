@@ -30,7 +30,10 @@ function loadPrivateKey() {
     const project = process.env.RUFLO_CONFIG_SIGNING_PROJECT || 'ruv-dev';
     if (project) args.push('--project', project);
     try {
-      return execFileSync('gcloud', args, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'inherit'] });
+      // stderr captured, not inherited — see sign-helpers.mjs::loadPrivateKey
+      // for why this key-fetch call never passes through a subprocess's raw
+      // stderr uncontrolled (CodeQL js/clear-text-logging).
+      return execFileSync('gcloud', args, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
     } catch {
       console.error(`[sign-proven-config] failed to read GCP secret '${secret}'. gcloud authed? (gcloud auth login)`);
       process.exit(1);
