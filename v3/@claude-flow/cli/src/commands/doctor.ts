@@ -154,8 +154,10 @@ async function checkConfigFile(): Promise<HealthCheck> {
  * the broken commands).
  */
 async function checkStaleSettingsNpx(): Promise<HealthCheck> {
-  // Same regex pattern the executor migration uses — kept in sync.
-  const BROKEN_RE = /npx\s+(?:--?\S+\s+)*@?claude-flow\/cli@latest\s+hooks\s+(?:statusline|\S+)/;
+  // Same regex pattern the executor migration uses — kept in sync. Flag-list
+  // repetition bounded at 10 (CodeQL js/redos — unbounded `*` here is
+  // exponential-backtracking-prone on a crafted settings.json).
+  const BROKEN_RE = /npx\s+(?:--?\S+\s+){0,10}@?claude-flow\/cli@latest\s+hooks\s+(?:statusline|\S+)/;
 
   // Look in both project-local and home-dir settings.
   const candidates = [

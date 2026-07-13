@@ -402,7 +402,11 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
   // load the ONNX model on every fire (~1s); Claude Code times out and hides
   // the status bar (#2450). The migration replaces the whole command with
   // NEW_STATUSLINE_CMD which invokes the local helper directly via `node -e`.
-  const BROKEN_STATUSLINE_RE = /(?:npx\s+(?:--?\S+\s+)*)?@?claude-flow(?:\/cli)?(?:@\S+)?\s+hooks\s+statusline/;
+  // Flag-list repetition bounded at 10 (real invocations never carry more) —
+  // an unbounded `*` here is exponential-backtracking-prone (CodeQL
+  // js/redos): a crafted settings.json command string with dozens of
+  // dash-token repetitions can hang this check for minutes.
+  const BROKEN_STATUSLINE_RE = /(?:npx\s+(?:--?\S+\s+){0,10})?@?claude-flow(?:\/cli)?(?:@\S+)?\s+hooks\s+statusline/;
   const existingStatusLine = existing.statusLine as Record<string, unknown> | undefined;
   if (existingStatusLine) {
     const existingCmd = typeof existingStatusLine.command === 'string' ? existingStatusLine.command : '';
@@ -423,7 +427,8 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
   // We walk each hook event's `hooks[]` and swap any command matching the
   // broken pattern for the local-helper form. Idempotent: re-running this
   // migration on already-correct settings is a no-op.
-  const BROKEN_HOOK_RE = /npx\s+(?:--?\S+\s+)*@?claude-flow\/cli@latest\s+hooks\s+(\S+)/;
+  // Bounded for the same reason as BROKEN_STATUSLINE_RE above (CodeQL js/redos).
+  const BROKEN_HOOK_RE = /npx\s+(?:--?\S+\s+){0,10}@?claude-flow\/cli@latest\s+hooks\s+(\S+)/;
   const localHookCmd = (sub: string): string => {
     // POSIX form mirrors settings-generator.ts::hookCmd() exactly.
     // Windows users hit a separate code path (cmd /c …) — Claude Code on
