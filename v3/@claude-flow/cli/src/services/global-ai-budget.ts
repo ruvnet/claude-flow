@@ -269,19 +269,34 @@ export class GlobalAiBudget {
   }
 
   /** Snapshot for `daemon status` / diagnostics. */
-  getUsage(): { lastHour: number; lastDay: number; active: number; pausedUntil?: number; pauseReason?: string } {
+  getUsage(): {
+    lastHour: number;
+    lastDay: number;
+    active: number;
+    pausedUntil?: number;
+    pauseReason?: string;
+    /** #2661 — 24h launch counts per worktree/workspace, most active first. */
+    byWorkspace: Array<{ workspace: string; launches: number }>;
+  } {
     try {
       const now = Date.now();
       const ledger = this.readLedger(now);
+      const byWs = new Map<string, number>();
+      for (const l of ledger.launches) {
+        byWs.set(l.workspace, (byWs.get(l.workspace) ?? 0) + 1);
+      }
       return {
         lastHour: ledger.launches.filter((l) => now - l.at < HOUR_MS).length,
         lastDay: ledger.launches.length,
         active: ledger.active.length,
         pausedUntil: ledger.pausedUntil && ledger.pausedUntil > now ? ledger.pausedUntil : undefined,
         pauseReason: ledger.pausedUntil && ledger.pausedUntil > now ? ledger.pauseReason : undefined,
+        byWorkspace: Array.from(byWs.entries())
+          .map(([workspace, launches]) => ({ workspace, launches }))
+          .sort((a, b) => b.launches - a.launches),
       };
     } catch {
-      return { lastHour: 0, lastDay: 0, active: 0 };
+      return { lastHour: 0, lastDay: 0, active: 0, byWorkspace: [] };
     }
   }
 

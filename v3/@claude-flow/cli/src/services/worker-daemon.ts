@@ -1022,35 +1022,59 @@ export class WorkerDaemon extends EventEmitter {
   private startLifecycleMonitor(): void {
     const ttlMs = this.config.ttlMs;
     const idleMs = this.config.idleShutdownMs;
-    if ((!ttlMs || ttlMs <= 0) && (!idleMs || idleMs <= 0)) {
-      return; // both limits disabled — preserve legacy run-until-stopped behavior
-    }
+    // #2661 — unlike ttl/idle (both optional), the workspace-removal check
+    // always runs, so the monitor is no longer skipped when both limits are
+    // disabled. A daemon whose worktree was deleted must not keep running.
 
     const CHECK_INTERVAL_MS = 60_000;
     this.lifecycleTimer = setInterval(() => {
       if (!this.running) return;
-      const now = Date.now();
-      const startedMs = this.startedAt?.getTime() ?? now;
-
-      if (ttlMs > 0 && now - startedMs >= ttlMs) {
-        void this.selfShutdown(`max age ${Math.round(ttlMs / 1000)}s reached`);
-        return;
-      }
-      if (idleMs > 0) {
-        const lastActivity = this.lastWorkerActivityMs() ?? startedMs;
-        if (now - lastActivity >= idleMs) {
-          void this.selfShutdown(`idle for ${Math.round(idleMs / 1000)}s (no worker activity)`);
-        }
+      const reason = this.lifecycleShutdownReason(Date.now());
+      if (reason) {
+        void this.selfShutdown(reason);
       }
     }, CHECK_INTERVAL_MS);
     if (typeof this.lifecycleTimer.unref === 'function') {
       this.lifecycleTimer.unref();
     }
 
-    const parts: string[] = [];
+    const parts: string[] = ['workspace-removal'];
     if (ttlMs > 0) parts.push(`ttl=${Math.round(ttlMs / 1000)}s`);
     if (idleMs > 0) parts.push(`idle=${Math.round(idleMs / 1000)}s`);
     this.log('info', `Lifecycle monitor active (${parts.join(', ')})`);
+  }
+
+  /**
+   * Decide whether the daemon should self-shutdown, and why. Extracted from
+   * the lifecycle timer so it is testable without racing a 60s interval or
+   * calling process.exit().
+   *
+   * #2661 (invariant 6, containment form): a removed worktree makes its
+   * daemon ineligible within one check interval — the daemon detects that
+   * its workspace directory is gone and shuts down instead of continuing to
+   * schedule jobs against a deleted tree. The full lease architecture
+   * (supervisor-dispatched jobs, heartbeats) is follow-up work; this stops
+   * the leak where recreated/removed worktrees leave schedulers behind.
+   */
+  private lifecycleShutdownReason(now: number): string | null {
+    if (!existsSync(this.projectRoot)) {
+      return 'workspace directory removed (#2661)';
+    }
+
+    const ttlMs = this.config.ttlMs;
+    const idleMs = this.config.idleShutdownMs;
+    const startedMs = this.startedAt?.getTime() ?? now;
+
+    if (ttlMs > 0 && now - startedMs >= ttlMs) {
+      return `max age ${Math.round(ttlMs / 1000)}s reached`;
+    }
+    if (idleMs > 0) {
+      const lastActivity = this.lastWorkerActivityMs() ?? startedMs;
+      if (now - lastActivity >= idleMs) {
+        return `idle for ${Math.round(idleMs / 1000)}s (no worker activity)`;
+      }
+    }
+    return null;
   }
 
   /**
@@ -1321,6 +1345,17 @@ export class WorkerDaemon extends EventEmitter {
             error: String(reason).slice(0, 500),
           });
           // Fall through to local switch.
+        } else if (result.dedupSkipped) {
+          // #2661 invariant 5 — the same job (repositoryId + HEAD + worker +
+          // config) already succeeded within the freshness window, e.g. in a
+          // sibling worktree. No model call happened; do NOT overwrite the
+          // persisted metrics (which hold the real prior result) and do NOT
+          // fall back to local — the work is already done.
+          this.log('info', `Worker ${workerConfig.type} dedup-skipped (same repo+HEAD job ran recently in another worktree)`);
+          return {
+            mode: 'headless-dedup-skip',
+            ...result,
+          };
         } else {
           // #1793: persist the headless result to the same metrics files the
           // local workers write to. Without this, AI-mode runs produced rich

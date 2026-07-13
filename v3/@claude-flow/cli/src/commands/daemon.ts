@@ -1051,6 +1051,11 @@ async function renderAllDaemonsStatus(): Promise<CommandResult> {
     const usage = budget.getUsage();
     const limits = budget.getLimits();
     output.writeln();
+    // #2661: per-workspace 24h launch attribution — which worktree is
+    // actually spending the shared budget.
+    const byWs = usage.byWorkspace.slice(0, 5).map(
+      (w) => `  ${w.launches}× ${w.workspace}`
+    );
     output.printBox(
       [
         `Launches (last hour): ${usage.lastHour}/${limits.maxLaunchesPerHour}`,
@@ -1059,6 +1064,7 @@ async function renderAllDaemonsStatus(): Promise<CommandResult> {
         usage.pausedUntil
           ? output.warning(`PAUSED until ${new Date(usage.pausedUntil).toISOString()} (${usage.pauseReason ?? 'quota error'})`)
           : `Circuit breaker: ${output.dim('closed (normal)')}`,
+        ...(byWs.length > 0 ? ['Launches by workspace (24h):', ...byWs] : []),
       ].join('\n'),
       'Global AI Budget (all workspaces)'
     );

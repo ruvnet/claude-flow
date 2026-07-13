@@ -108,3 +108,45 @@ describe('#2661 — AI workers are opt-in', () => {
     expect((result.output as { mode?: string })?.mode).not.toBe('headless');
   });
 });
+
+describe('#2661 — lifecycle: removed worktree shuts its daemon down', () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), 'daemon-2661-lc-'));
+    mkdirSync(join(tempDir, '.claude-flow', 'logs'), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true });
+    process.removeAllListeners('SIGTERM');
+    process.removeAllListeners('SIGINT');
+    process.removeAllListeners('SIGHUP');
+  });
+
+  // Access the private predicate directly — the production path wraps it in
+  // a 60s interval + process.exit(), neither of which belongs in a test.
+  type WithPredicate = { lifecycleShutdownReason(now: number): string | null };
+
+  it('reports no shutdown reason while the workspace exists (ttl/idle disabled)', () => {
+    const daemon = new WorkerDaemon(tempDir, { ttlMs: 0, idleShutdownMs: 0 });
+    const reason = (daemon as unknown as WithPredicate).lifecycleShutdownReason(Date.now());
+    expect(reason).toBeNull();
+  });
+
+  it('requests shutdown once the workspace directory is gone — even with ttl/idle disabled', () => {
+    const daemon = new WorkerDaemon(tempDir, { ttlMs: 0, idleShutdownMs: 0 });
+    rmSync(tempDir, { recursive: true, force: true });
+    const reason = (daemon as unknown as WithPredicate).lifecycleShutdownReason(Date.now());
+    expect(reason).toMatch(/workspace directory removed/);
+  });
+
+  it('still enforces the TTL through the shared predicate', () => {
+    const daemon = new WorkerDaemon(tempDir, { ttlMs: 1000, idleShutdownMs: 0 });
+    // No startedAt (daemon not started) → falls back to `now`, so a far
+    // future timestamp exceeds the 1s TTL deterministically.
+    (daemon as unknown as { startedAt?: Date }).startedAt = new Date(Date.now() - 5000);
+    const reason = (daemon as unknown as WithPredicate).lifecycleShutdownReason(Date.now());
+    expect(reason).toMatch(/max age/);
+  });
+});

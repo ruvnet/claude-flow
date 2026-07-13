@@ -25,6 +25,8 @@ import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 
 import { join, relative } from 'path';
 import type { WorkerType } from './worker-daemon.js';
 import { getGlobalAiBudget, isQuotaErrorText } from './global-ai-budget.js';
+import { resolveGitWorkspaceIdentity } from './git-workspace-identity.js';
+import { getAiJobDedupRegistry, computeAiJobKey, hashWorkerConfig } from './ai-job-dedup.js';
 
 // ============================================
 // Type Definitions
@@ -187,6 +189,14 @@ export interface HeadlessExecutionResult {
 
   /** Execution ID for tracking */
   executionId: string;
+
+  /**
+   * #2661 — true when the launch was skipped because the same job
+   * (repositoryId + HEAD + worker + config) succeeded within the freshness
+   * window, e.g. in a sibling worktree. No model call happened; consumers
+   * must not overwrite persisted metrics with this result.
+   */
+  dedupSkipped?: boolean;
 }
 
 /**
@@ -897,6 +907,48 @@ export class HeadlessWorkerExecutor extends EventEmitter {
     const startTime = Date.now();
     const executionId = `${workerType}_${startTime}_${Math.random().toString(36).slice(2, 8)}`;
 
+    // #2661 invariant 5 — cross-worktree job dedup. Worktrees of one
+    // repository at the same HEAD would otherwise run identical analyses
+    // once per worktree. jobKey = sha256(repositoryId, HEAD, worker,
+    // configHash); a success within the freshness window (the worker's own
+    // interval, floor 10 min) skips the launch entirely — no budget spend,
+    // no process. HEAD moves → new key → the job runs again.
+    const identity = resolveGitWorkspaceIdentity(this.projectRoot);
+    const jobKey = computeAiJobKey({
+      repositoryId: identity.repositoryId,
+      head: identity.head,
+      workerType,
+      configHash: hashWorkerConfig(headless),
+    });
+    const dedup = getAiJobDedupRegistry();
+    const envWindowSecs = Number.parseInt(process.env.RUFLO_AI_DEDUP_WINDOW_SECS || '', 10);
+    const freshnessMs = Number.isFinite(envWindowSecs) && envWindowSecs >= 0
+      ? envWindowSecs * 1000
+      : Math.max(baseConfig.intervalMs || 0, 10 * 60 * 1000);
+    const freshness = dedup.isFresh(jobKey, freshnessMs);
+    if (freshness.fresh) {
+      const skipped: HeadlessExecutionResult = {
+        success: true,
+        dedupSkipped: true,
+        output: '',
+        parsedOutput: undefined,
+        durationMs: 0,
+        model: 'none',
+        sandboxMode: headless.sandbox,
+        workerType,
+        timestamp: new Date(),
+        executionId,
+      };
+      this.logExecution(
+        executionId,
+        'result',
+        `dedup-skip: job ${jobKey.slice(0, 12)} succeeded ${Math.round((Date.now() - (freshness.lastRunAt ?? Date.now())) / 1000)}s ago (repo ${identity.repositoryId.slice(0, 12)}, head ${identity.head.slice(0, 12) || 'n/a'})`
+      );
+      this.emit('dedup:skipped', { executionId, workerType, jobKey, lastRunAt: freshness.lastRunAt });
+      this.processQueue();
+      return skipped;
+    }
+
     // #2661 — every autonomous launch must reserve a slot in the USER-GLOBAL
     // AI budget before any process is created. This is the hard invariant
     // that bounds aggregate launches across all worktree daemons: per-daemon
@@ -966,6 +1018,16 @@ export class HeadlessWorkerExecutor extends EventEmitter {
 
       // Log result
       this.logExecution(executionId, 'result', JSON.stringify(executionResult, null, 2));
+
+      // #2661 invariant 5 — record the success so sibling worktrees at the
+      // same HEAD skip this job for the rest of the freshness window.
+      if (result.success) {
+        dedup.recordSuccess(jobKey, {
+          workerType,
+          repositoryId: identity.repositoryId,
+          workspace: this.projectRoot,
+        });
+      }
 
       // #2661 — a quota/429/usage-limit failure opens the user-global
       // circuit breaker so EVERY daemon stops launching for the cooldown
