@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "generation": 1,
-  "generatedAt": "2026-07-13T15:53:12.461Z",
-  "gitSha": "c4ece06d",
+  "generatedAt": "2026-07-13T16:09:11.080Z",
+  "gitSha": "2d42012e",
   "catalog": {
     "agents": 164,
     "tools": 387,
