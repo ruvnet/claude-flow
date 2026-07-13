@@ -107,6 +107,14 @@ export interface DaemonConfig {
   // shutdown if no worker has run within this window (0 disables).
   ttlMs: number;
   idleShutdownMs: number;
+  // #2661 — explicit consent gate for scheduled AI workers. When false
+  // (the default), NO worker is ever promoted to headless `claude --print`
+  // execution, regardless of whether the Claude CLI is on PATH. Merely
+  // finding `claude` must not authorize recurring model calls: a default
+  // install produces zero autonomous Claude launches. Enable via
+  // `daemon start --headless`, `daemon.aiWorkers.enabled: true` in
+  // .claude-flow/config.json, or RUFLO_DAEMON_AI_WORKERS=1.
+  aiWorkersEnabled: boolean;
   workers: WorkerConfig[];
 }
 
@@ -261,6 +269,12 @@ export class WorkerDaemon extends EventEmitter {
       // env-or-default and honors an explicit 0 (disable).
       ttlMs: config?.ttlMs ?? fileConfig.ttlMs ?? readEnvSecsAsMs('RUFLO_DAEMON_TTL_SECS', DEFAULT_DAEMON_TTL_MS),
       idleShutdownMs: config?.idleShutdownMs ?? fileConfig.idleShutdownMs ?? readEnvSecsAsMs('RUFLO_DAEMON_IDLE_SECS', DEFAULT_DAEMON_IDLE_SHUTDOWN_MS),
+      // #2661 — AI workers are opt-in: flag > config.json > env > OFF.
+      // Deliberately NOT restored from daemon-state.json (initializeWorkerStates
+      // whitelist) so a stale state file can never resurrect consent.
+      aiWorkersEnabled: config?.aiWorkersEnabled
+        ?? fileConfig.aiWorkersEnabled
+        ?? (process.env.RUFLO_DAEMON_AI_WORKERS === '1'),
       workers: config?.workers ?? DEFAULT_WORKERS,
     };
 
@@ -295,6 +309,17 @@ export class WorkerDaemon extends EventEmitter {
    * Initialize headless executor if Claude Code is available
    */
   private async initHeadlessExecutor(): Promise<void> {
+    // #2661 — scheduled AI workers require explicit consent. Without it,
+    // don't even probe `claude --version`: headlessAvailable stays false,
+    // every worker runs its $0 local path, and a default install produces
+    // zero autonomous Claude launches regardless of worktree count.
+    if (!this.config.aiWorkersEnabled) {
+      this.log(
+        'info',
+        'AI workers disabled (default) - all workers run local-only. Enable with `daemon start --headless`, daemon.aiWorkers.enabled=true, or RUFLO_DAEMON_AI_WORKERS=1 (#2661)'
+      );
+      return;
+    }
     try {
       this.headlessExecutor = new HeadlessWorkerExecutor(this.projectRoot, {
         maxConcurrent: this.config.maxConcurrent,
@@ -415,6 +440,7 @@ export class WorkerDaemon extends EventEmitter {
     minFreeMemoryPercent?: number;
     ttlMs?: number;
     idleShutdownMs?: number;
+    aiWorkersEnabled?: boolean;
   } {
     const jsonPath = join(claudeFlowDir, 'config.json');
     const yamlPath = join(claudeFlowDir, 'config.yaml');
@@ -470,6 +496,8 @@ export class WorkerDaemon extends EventEmitter {
       // and env var; stored internally as ms. An explicit 0 disables.
       const rawTtl = cfg['daemon.ttlSecs'] ?? raw['daemon.ttlSecs'];
       const rawIdle = cfg['daemon.idleSecs'] ?? raw['daemon.idleSecs'];
+      // #2661 — explicit opt-in for scheduled AI workers.
+      const rawAiEnabled = cfg['daemon.aiWorkers.enabled'] ?? raw['daemon.aiWorkers.enabled'];
       return {
         autoStart: typeof raw['daemon.autoStart'] === 'boolean' ? raw['daemon.autoStart'] : undefined,
         maxConcurrent: (typeof rawMaxConcurrent === 'number' && rawMaxConcurrent > 0) ? rawMaxConcurrent : undefined,
@@ -478,6 +506,7 @@ export class WorkerDaemon extends EventEmitter {
         minFreeMemoryPercent: (typeof rawMinMem === 'number' && rawMinMem >= 0 && rawMinMem <= 100) ? rawMinMem : undefined,
         ttlMs: (typeof rawTtl === 'number' && rawTtl >= 0) ? rawTtl * 1000 : undefined,
         idleShutdownMs: (typeof rawIdle === 'number' && rawIdle >= 0) ? rawIdle * 1000 : undefined,
+        aiWorkersEnabled: typeof rawAiEnabled === 'boolean' ? rawAiEnabled : undefined,
       };
     } catch {
       return {};
@@ -965,6 +994,14 @@ export class WorkerDaemon extends EventEmitter {
       this.lifecycleTimer = undefined;
     }
 
+    // #2661 — reap in-flight headless `claude --print` children. They run
+    // detached (own process group on POSIX) and would otherwise outlive the
+    // daemon; `daemon stop --all` relies on SIGTERM → this path to cancel
+    // active Claude process groups.
+    if (this.headlessExecutor) {
+      try { this.headlessExecutor.cancelAll(); } catch { /* best-effort */ }
+    }
+
     this.running = false;
     this.removePidFile();
     this.saveState();
@@ -1256,8 +1293,11 @@ export class WorkerDaemon extends EventEmitter {
    * Run the actual worker logic
    */
   private async runWorkerLogic(workerConfig: WorkerConfig): Promise<unknown> {
-    // Check if this is a headless worker type and headless execution is available
-    if (isHeadlessWorker(workerConfig.type) && this.headlessAvailable && this.headlessExecutor) {
+    // Check if this is a headless worker type and headless execution is available.
+    // #2661 — aiWorkersEnabled is re-checked here (not just at init) as
+    // defence in depth: no code path may promote a worker to `claude --print`
+    // without explicit consent.
+    if (this.config.aiWorkersEnabled && isHeadlessWorker(workerConfig.type) && this.headlessAvailable && this.headlessExecutor) {
       try {
         this.log('info', `Running ${workerConfig.type} in headless mode (Claude Code AI)`);
         const result = await this.headlessExecutor.execute(workerConfig.type as HeadlessWorkerType);

@@ -24,6 +24,7 @@ import { EventEmitter } from 'events';
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'fs';
 import { join, relative } from 'path';
 import type { WorkerType } from './worker-daemon.js';
+import { getGlobalAiBudget, isQuotaErrorText } from './global-ai-budget.js';
 
 // ============================================
 // Type Definitions
@@ -775,6 +776,19 @@ export class HeadlessWorkerExecutor extends EventEmitter {
   }
 
   /**
+   * #2661 — signal a pool entry's whole process group, not just the head.
+   * Children are spawned `detached: true` on POSIX precisely so their MCP
+   * bridge grandchildren can be reaped with `kill(-pid)`; a head-only kill
+   * orphans them (#2098B).
+   */
+  private killEntryTree(proc: ChildProcess, signal: NodeJS.Signals): void {
+    if (process.platform !== 'win32' && typeof proc.pid === 'number') {
+      try { process.kill(-proc.pid, signal); return; } catch { /* fall through */ }
+    }
+    try { proc.kill(signal); } catch { /* already dead */ }
+  }
+
+  /**
    * Cancel a running execution
    */
   cancel(executionId: string): boolean {
@@ -784,7 +798,7 @@ export class HeadlessWorkerExecutor extends EventEmitter {
     }
 
     clearTimeout(entry.timeout);
-    entry.process.kill('SIGTERM');
+    this.killEntryTree(entry.process, 'SIGTERM');
     this.processPool.delete(executionId);
     this.emit('cancelled', { executionId });
 
@@ -804,10 +818,10 @@ export class HeadlessWorkerExecutor extends EventEmitter {
     const entries = Array.from(this.processPool.entries());
     for (const [executionId, entry] of entries) {
       clearTimeout(entry.timeout);
-      entry.process.kill('SIGTERM');
+      this.killEntryTree(entry.process, 'SIGTERM');
       // SIGKILL fallback after 5s to prevent orphan processes (#1395 Bug 6)
       setTimeout(() => {
-        try { if (!entry.process.killed) entry.process.kill('SIGKILL'); } catch { /* already dead */ }
+        try { if (!entry.process.killed) this.killEntryTree(entry.process, 'SIGKILL'); } catch { /* already dead */ }
       }, 5000).unref();
       this.emit('cancelled', { executionId });
       cancelled++;
@@ -883,6 +897,30 @@ export class HeadlessWorkerExecutor extends EventEmitter {
     const startTime = Date.now();
     const executionId = `${workerType}_${startTime}_${Math.random().toString(36).slice(2, 8)}`;
 
+    // #2661 — every autonomous launch must reserve a slot in the USER-GLOBAL
+    // AI budget before any process is created. This is the hard invariant
+    // that bounds aggregate launches across all worktree daemons: per-daemon
+    // maxConcurrent limits multiply with worktree count, the global budget
+    // does not. Denials return an error result (with a receipted reason)
+    // instead of queueing, so denied work never piles up into a retry storm.
+    const budget = getGlobalAiBudget();
+    const model = headless.model || 'sonnet';
+    const permit = await budget.reserve({ workerType, model, workspace: this.projectRoot });
+    if (!permit.allowed) {
+      const denied = this.createErrorResult(
+        workerType,
+        `Denied by global AI budget: ${permit.reason}`
+      );
+      denied.executionId = executionId;
+      this.logExecution(executionId, 'error', `budget-denied: ${permit.reason}`);
+      // NOTE: deliberately no `emit('error', ...)` here — Node treats
+      // unlistened 'error' events as throws, and callers consume the
+      // returned error result; `budget:denied` is the observable signal.
+      this.emit('budget:denied', { executionId, workerType, reason: permit.reason });
+      this.processQueue();
+      return denied;
+    }
+
     this.emit('start', { executionId, workerType, config: headless });
 
     try {
@@ -929,6 +967,15 @@ export class HeadlessWorkerExecutor extends EventEmitter {
       // Log result
       this.logExecution(executionId, 'result', JSON.stringify(executionResult, null, 2));
 
+      // #2661 — a quota/429/usage-limit failure opens the user-global
+      // circuit breaker so EVERY daemon stops launching for the cooldown
+      // window instead of retrying into an exhausted quota. Only inspected
+      // on failure: successful analysis output may legitimately discuss
+      // rate limiting in the user's own code.
+      if (!result.success && isQuotaErrorText(result.error)) {
+        await budget.recordQuotaError(`${workerType}: ${(result.error ?? '').slice(0, 200)}`);
+      }
+
       this.emit('complete', executionResult);
       return executionResult;
     } catch (error) {
@@ -938,10 +985,15 @@ export class HeadlessWorkerExecutor extends EventEmitter {
       executionResult.durationMs = Date.now() - startTime;
 
       this.logExecution(executionId, 'error', errorMessage);
+      if (isQuotaErrorText(errorMessage)) {
+        await budget.recordQuotaError(`${workerType}: ${errorMessage.slice(0, 200)}`);
+      }
       this.emit('error', executionResult);
 
       return executionResult;
     } finally {
+      // #2661 — free the global concurrency slot (launch counts persist).
+      await budget.release(permit.permitId);
       // Process next in queue
       this.processQueue();
     }
