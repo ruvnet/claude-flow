@@ -98,6 +98,84 @@ function spawnDetachedFunnelRefresh() {
   spawnDetachedHookRefresh('refresh-funnel');
 }
 
+// ADR-318/319: first-run auto-enable of spinner verbs + announcements.
+// Fires ONCE per install (marker at ~/.ruflo/first-run-enabled.json),
+// then never again — subsequent sessions see the marker and skip.
+// Default OFF — set RUFLO_AUTO_ENABLE_SURFACES=1 to opt in. Shipping this
+// default-on is a company-level product call, not a mechanism call; this
+// function is the mechanism, the default is a separate decision.
+//
+// Gates (any TRUE skips the auto-enable):
+//   - RUFLO_AUTO_ENABLE_SURFACES not truthy (default posture)
+//   - RUFLO_NO_AUTO_ENABLE truthy (explicit opt-out)
+//   - CI / GITHUB_ACTIONS truthy
+//   - stdout is not a TTY (piped, non-interactive)
+//   - Marker file already exists
+//
+// Behavior on success:
+//   - Detached spawn `ruflo spinner enable --yes` + `ruflo announcements enable --yes`
+//   - Write marker file so we never re-enable after user later disables
+//   - Print a one-line notification to stderr (visible in Claude Code's session output)
+function firstRunAutoEnableIfEligible() {
+  try {
+    const path = require('path');
+    const fs = require('fs');
+    const os = require('os');
+    const optIn = process.env.RUFLO_AUTO_ENABLE_SURFACES;
+    if (!optIn || /^(0|false|off|no)$/i.test(String(optIn))) return;
+    if (/^(1|true|on|yes)$/i.test(String(process.env.RUFLO_NO_AUTO_ENABLE || ''))) return;
+    if (process.env.CI || process.env.GITHUB_ACTIONS) return;
+    if (process.stdout && process.stdout.isTTY === false) return;
+    const markerPath = path.join(os.homedir(), '.ruflo', 'first-run-enabled.json');
+    if (fs.existsSync(markerPath)) return;
+
+    // Spawn the two enable commands detached + non-blocking. Any failure
+    // (missing CLI, existing settings.json state that refuses, etc.) is
+    // silent — auto-enable is best-effort and MUST NOT block session-restore.
+    // Uses execPath + resolved cli.js directly rather than spawnDetachedHookRefresh
+    // because that helper hardcodes 'hooks' as the top-level command.
+    const { spawn } = require('child_process');
+    const cliBin = resolveCliBinForHook();
+    const runDetached = (args) => {
+      try {
+        const spawnArgs = cliBin
+          ? [process.execPath, [cliBin, ...args]]
+          : [process.platform === 'win32' ? 'npx.cmd' : 'npx',
+             ['--prefer-offline', '@claude-flow/cli', ...args]];
+        const child = spawn(spawnArgs[0], spawnArgs[1], {
+          detached: true, stdio: 'ignore', env: process.env, windowsHide: true,
+        });
+        child.unref();
+      } catch { /* best-effort */ }
+    };
+    runDetached(['spinner', 'enable', '--yes']);
+    runDetached(['announcements', 'enable', '--yes']);
+
+    // Marker — written synchronously so a subsequent same-tick session-restore
+    // doesn't re-fire. If the enable spawns fail, marker still gets set;
+    // that's intentional — auto-enable is a "we tried once" contract, not
+    // a "keep trying until success" contract. Users can run enable manually.
+    try {
+      fs.mkdirSync(path.dirname(markerPath), { recursive: true, mode: 0o700 });
+      fs.writeFileSync(
+        markerPath,
+        JSON.stringify({ _ts: Date.now(), source: 'session-restore-hook' }, null, 2),
+        { encoding: 'utf-8', mode: 0o600 }
+      );
+    } catch { /* ignore — best effort */ }
+
+    // Notify the user something happened. stderr so it doesn't corrupt
+    // any downstream JSON stdout consumer.
+    try {
+      process.stderr.write(
+        '[ruflo] First-run: enabled spinner verbs + startup announcements. ' +
+        'Disable anytime with `ruflo spinner disable` / `ruflo announcements disable`. ' +
+        'Restart Claude Code once to see the changes take effect.\n'
+      );
+    } catch { /* ignore */ }
+  } catch { /* auto-enable must never break session-restore */ }
+}
+
 // Same fallback-aware pattern as spawnDetachedFunnelRefresh() above, for
 // ADR-316's co-pilot advisor tip. Safe to call on EVERY session-restore:
 // refresh-advisor's own action checks consent + a 24h TTL BEFORE spending
@@ -345,6 +423,11 @@ const handlers = {
   },
 
   'session-restore': async () => {
+    // ADR-318/319 first-run auto-enable — fire once per install, never
+    // re-fires after user disables. Respects RUFLO_NO_AUTO_ENABLE + CI.
+    // Fully non-blocking (detached spawn) so session-restore latency
+    // is unchanged.
+    firstRunAutoEnableIfEligible();
     if (session) {
       // Try restore first, fall back to start
       const existing = session.restore && session.restore();
