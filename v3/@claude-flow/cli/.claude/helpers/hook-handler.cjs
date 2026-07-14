@@ -98,41 +98,53 @@ function spawnDetachedFunnelRefresh() {
   spawnDetachedHookRefresh('refresh-funnel');
 }
 
-// ADR-318/319: first-run auto-enable of spinner verbs + announcements.
-// Fires ONCE per install (marker at ~/.ruflo/first-run-enabled.json),
-// then never again — subsequent sessions see the marker and skip.
-// Default OFF — set RUFLO_AUTO_ENABLE_SURFACES=1 to opt in. Shipping this
-// default-on is a company-level product call, not a mechanism call; this
-// function is the mechanism, the default is a separate decision.
+// ADR-318/319: first-run auto-enable of spinner verbs (default ON) +
+// announcements (default OFF, explicit opt-in). Fires ONCE per install
+// (marker at ~/.ruflo/first-run-enabled.json), then never again —
+// subsequent sessions see the marker and skip.
 //
-// Gates (any TRUE skips the auto-enable):
-//   - RUFLO_AUTO_ENABLE_SURFACES not truthy (default posture)
-//   - RUFLO_NO_AUTO_ENABLE truthy (explicit opt-out)
+// Split posture rationale:
+//   - Spinner verbs = low-intrusion (per-spin flash, append-mode mix
+//     with Claude Code defaults, moderate visibility over time). Default ON.
+//     Disclosure notification + one-command disable satisfies the ethical bar.
+//   - Announcements = higher-intrusion (prominent line at every Claude Code
+//     startup, more attention per view). Default OFF; opt-in via
+//     RUFLO_AUTO_ENABLE_ANNOUNCEMENTS=1 or explicit `ruflo announcements enable`.
+//
+// Gates (spinner is default-on unless any is TRUE):
+//   - RUFLO_NO_AUTO_ENABLE truthy (master opt-out — kills both)
+//   - RUFLO_NO_AUTO_ENABLE_SPINNER truthy (spinner-only opt-out)
 //   - CI / GITHUB_ACTIONS truthy
 //   - stdout is not a TTY (piped, non-interactive)
 //   - Marker file already exists
 //
-// Behavior on success:
-//   - Detached spawn `ruflo spinner enable --yes` + `ruflo announcements enable --yes`
-//   - Write marker file so we never re-enable after user later disables
-//   - Print a one-line notification to stderr (visible in Claude Code's session output)
+// Announcements needs the same gates PLUS RUFLO_AUTO_ENABLE_ANNOUNCEMENTS=1.
+//
+// Marker is written even if the spawns fail — auto-enable is a "we tried once"
+// contract, not "keep trying until success." Users can run enable manually.
 function firstRunAutoEnableIfEligible() {
   try {
     const path = require('path');
     const fs = require('fs');
     const os = require('os');
-    const optIn = process.env.RUFLO_AUTO_ENABLE_SURFACES;
-    if (!optIn || /^(0|false|off|no)$/i.test(String(optIn))) return;
-    if (/^(1|true|on|yes)$/i.test(String(process.env.RUFLO_NO_AUTO_ENABLE || ''))) return;
+    const truthy = (v) => v && !/^(0|false|off|no)$/i.test(String(v));
+    if (truthy(process.env.RUFLO_NO_AUTO_ENABLE)) return;
     if (process.env.CI || process.env.GITHUB_ACTIONS) return;
     if (process.stdout && process.stdout.isTTY === false) return;
     const markerPath = path.join(os.homedir(), '.ruflo', 'first-run-enabled.json');
     if (fs.existsSync(markerPath)) return;
 
-    // Spawn the two enable commands detached + non-blocking. Any failure
-    // (missing CLI, existing settings.json state that refuses, etc.) is
-    // silent — auto-enable is best-effort and MUST NOT block session-restore.
-    // Uses execPath + resolved cli.js directly rather than spawnDetachedHookRefresh
+    const enableSpinner = !truthy(process.env.RUFLO_NO_AUTO_ENABLE_SPINNER);
+    const enableAnnouncements = truthy(process.env.RUFLO_AUTO_ENABLE_ANNOUNCEMENTS);
+
+    // Nothing to do — user opted out of both. Skip marker write so if they
+    // change their mind and re-enable env vars later, first-run still fires.
+    if (!enableSpinner && !enableAnnouncements) return;
+
+    // Spawn the enable commands detached + non-blocking. Any failure
+    // (missing CLI, refused state, etc.) is silent — auto-enable is
+    // best-effort and MUST NOT block session-restore. Uses execPath +
+    // resolved cli.js directly rather than spawnDetachedHookRefresh
     // because that helper hardcodes 'hooks' as the top-level command.
     const { spawn } = require('child_process');
     const cliBin = resolveCliBinForHook();
@@ -148,28 +160,37 @@ function firstRunAutoEnableIfEligible() {
         child.unref();
       } catch { /* best-effort */ }
     };
-    runDetached(['spinner', 'enable', '--yes']);
-    runDetached(['announcements', 'enable', '--yes']);
+    if (enableSpinner) runDetached(['spinner', 'enable', '--yes']);
+    if (enableAnnouncements) runDetached(['announcements', 'enable', '--yes']);
 
-    // Marker — written synchronously so a subsequent same-tick session-restore
-    // doesn't re-fire. If the enable spawns fail, marker still gets set;
-    // that's intentional — auto-enable is a "we tried once" contract, not
-    // a "keep trying until success" contract. Users can run enable manually.
     try {
       fs.mkdirSync(path.dirname(markerPath), { recursive: true, mode: 0o700 });
       fs.writeFileSync(
         markerPath,
-        JSON.stringify({ _ts: Date.now(), source: 'session-restore-hook' }, null, 2),
+        JSON.stringify({
+          _ts: Date.now(),
+          source: 'session-restore-hook',
+          enabled: { spinner: enableSpinner, announcements: enableAnnouncements },
+        }, null, 2),
         { encoding: 'utf-8', mode: 0o600 }
       );
     } catch { /* ignore — best effort */ }
 
-    // Notify the user something happened. stderr so it doesn't corrupt
-    // any downstream JSON stdout consumer.
+    // Notification tells user exactly what happened. stderr so it doesn't
+    // corrupt any downstream JSON stdout consumer.
     try {
+      const parts = [];
+      if (enableSpinner) parts.push('spinner verbs');
+      if (enableAnnouncements) parts.push('startup announcements');
+      const disableCmds = [];
+      if (enableSpinner) disableCmds.push('`ruflo spinner disable`');
+      if (enableAnnouncements) disableCmds.push('`ruflo announcements disable`');
       process.stderr.write(
-        '[ruflo] First-run: enabled spinner verbs + startup announcements. ' +
-        'Disable anytime with `ruflo spinner disable` / `ruflo announcements disable`. ' +
+        '[ruflo] First-run: enabled ' + parts.join(' + ') + '. ' +
+        'Disable anytime with ' + disableCmds.join(' / ') + '. ' +
+        (enableSpinner && !enableAnnouncements
+          ? 'Announcements stay opt-in — set RUFLO_AUTO_ENABLE_ANNOUNCEMENTS=1 to enable those too. '
+          : '') +
         'Restart Claude Code once to see the changes take effect.\n'
       );
     } catch { /* ignore */ }

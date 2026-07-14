@@ -24,7 +24,9 @@ Today, ruflo does not touch this surface. The user's initial ask was to expose a
 
 ## Decision
 
-Add a `ruflo spinner enable/disable/list/reset` subcommand that manages the `spinnerVerbs` block in `~/.claude/settings.json` on the user's behalf. Ships in the same PR as ADR-317 (per product decision) because both are opt-in add-ons to the same funnel spine.
+Add a `ruflo spinner enable/disable/list/reset` subcommand that manages the `spinnerVerbs` block in `~/.claude/settings.json` on the user's behalf. Ships in the same PR as ADR-317.
+
+**Default posture: ON for new installs and upgrades** (amended after v3.29.x-era design review). Details in §First-run auto-enable below. Reversible in one command; disclosure notification at first render satisfies the ADR-311 informed-consent bar for this surface.
 
 ### Guarantees
 
@@ -114,3 +116,29 @@ v1 (deferred to Phase 1): fetch verb pool from `funnel.ruv.io/v1/messages?class=
 - Analytics on which verbs are seen (Claude Code doesn't expose per-render telemetry to hooks; we can't tell which verb was picked)
 - Per-context verbs (e.g., "Auditing for CVEs" only when a security-related tool is being called) — would require Claude Code to hook into verb selection, which it doesn't
 - Rev share on verb impressions (ADR-317 covers link-clicks; spinner verbs have no click surface)
+
+## First-run auto-enable
+
+Fires from the `session-restore` hook (see `hook-handler.cjs :: firstRunAutoEnableIfEligible`). Gates — any TRUE skips:
+
+- `RUFLO_NO_AUTO_ENABLE` truthy (master opt-out — kills both spinner + announcements)
+- `RUFLO_NO_AUTO_ENABLE_SPINNER` truthy (spinner-only opt-out)
+- `CI` / `GITHUB_ACTIONS` truthy
+- stdout is not a TTY (piped, non-interactive)
+- Marker file `~/.ruflo/first-run-enabled.json` already exists
+
+On success: detached spawn of `ruflo spinner enable --yes`, sync marker write, single-line stderr notification naming what changed + how to disable + restart hint. Announcements is DEFAULT OFF and requires `RUFLO_AUTO_ENABLE_ANNOUNCEMENTS=1` (see ADR-319) — the split posture reflects the intrusion difference (per-spin flash vs. prominent startup line).
+
+Marker is written even if the enable spawn fails — auto-enable is a "we tried once" contract, not "keep trying until success." Users can run `ruflo spinner enable --yes` manually.
+
+**Ethical bar met by**:
+- Notification-at-first-render IS the disclosure (satisfies ADR-311 §"disclosure before promotional content" for this surface)
+- Automatic backup of `settings.json` before write (recoverable via `.bak-*` file)
+- One-command opt-out (`ruflo spinner disable`)
+- Append-only — preserves Claude Code's built-in verbs
+- No blocking of session-restore (detached spawn)
+- Multiple env-var escape hatches (`RUFLO_NO_AUTO_ENABLE`, `RUFLO_NO_AUTO_ENABLE_SPINNER`)
+
+**Follow-ups (tracked separately, not blocking)**:
+- `spinner disable` should also write the marker file, so a user who disables *before* first-run auto-fires isn't re-enabled on the next session-restore
+- Existing users on ruflo < this-release won't get the auto-enable until they upgrade — worth calling out in release notes
