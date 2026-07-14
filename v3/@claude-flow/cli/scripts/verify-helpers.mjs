@@ -24,8 +24,11 @@ const HELPERS_DIR = resolve(process.argv[2] || join(PKG_ROOT, '.claude', 'helper
 // Keep in sync with sign-helpers.mjs:CRITICAL and src/init/helper-refresh.ts:CRITICAL_HELPERS.
 const CRITICAL = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs'];
 
+// KEEP IN SYNC with src/init/helper-signing.ts:RUFLO_HELPERS_PUBKEY.
+// Rotated 2026-07-14 (v3.29.0) after the previous private key was exposed in
+// a Claude Code session transcript. Old GCP secret v1 destroyed.
 const RUFLO_HELPERS_PUBKEY = `-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAhnFv74/CRcGWd0hL8zjyZ+52bIJ9SfcSgOutuKgo0Vg=
+MCowBQYDK2VwAyEAyLl9cG+V/C+ffKWaSwvOsHdXSWmB5e3x1z9NUNvq6Ys=
 -----END PUBLIC KEY-----`;
 
 function die(msg) { console.error(`[verify-helpers] ${msg}`); process.exit(1); }
