@@ -123,12 +123,18 @@ const CONFIG = {
 const CWD = process.cwd();
 
 // ─── Delegation cache ───────────────────────────────────────────
-// Cache the CLI JSON result for 60s so rapid prompt re-renders
-// (Claude Code refreshes the statusline several times a second while
-// streaming) don't re-invoke the CLI each time. #2337: bumped 10s→60s
-// because 10s was far too short for how often Claude Code re-renders.
+// Cache the CLI JSON result so rapid prompt re-renders (Claude Code
+// refreshes the statusline several times a second while streaming) don't
+// re-invoke the CLI each time.
+// #2337 bumped 10s → 60s.
+// Followup for anthropics/claude-code#70200 (Windows console-flash bug —
+// claude.exe spawns hook/statusline subprocesses without CREATE_NO_WINDOW,
+// producing a visible cmd flash on every render): bumped 60s → 300s to
+// reduce the flash rate 5x on Windows until the upstream fix ships.
+// Tradeoff: stat/git counters update every 5min instead of every 1min;
+// promo/insight row still rotates on its own tighter 20s promoFresh clock.
 const CACHE_FILE = path.join(os.tmpdir(), 'ruflo-statusline-cache-' + require('crypto').createHash('md5').update(CWD).digest('hex').slice(0, 8) + '.json');
-const CACHE_TTL_MS = 60000;
+const CACHE_TTL_MS = 300000;
 
 // The promo/insight row is designed to rotate on a 20s cadence (funnel/
 // rotation.ts's ROTATION_SLOT_MS / funnel/promo.ts's insight-slot check —
