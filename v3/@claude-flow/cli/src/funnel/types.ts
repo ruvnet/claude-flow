@@ -93,7 +93,14 @@ export type ConsentDomain =
   // Consent alone is a precondition — actual enrollment requires KYC +
   // Stripe Connect via the browser flow started by `ruflo funnel enroll`,
   // which can fail after consent for reasons outside the user's control.
-  | 'rev-share-payout';
+  | 'rev-share-payout'
+  // ADR-318: separate again — writing to ~/.claude/settings.json's
+  // spinnerVerbs.verbs[] to inject a curated ruflo verb pool into Claude
+  // Code's "✽ Channeling…" rotation. Distinct from the promo row surface
+  // (which we already own via the statusline hook) because this touches
+  // a Claude Code config file directly. Append-only, backup-first,
+  // ZWJ-marker-tagged for clean removal.
+  | 'spinner-verbs';
 
 export interface ConsentReceipt {
   granted: boolean;
