@@ -100,7 +100,14 @@ export type ConsentDomain =
   // (which we already own via the statusline hook) because this touches
   // a Claude Code config file directly. Append-only, backup-first,
   // ZWJ-marker-tagged for clean removal.
-  | 'spinner-verbs';
+  | 'spinner-verbs'
+  // ADR-319: separate again — writing to ~/.claude/settings.json's
+  // companyAnnouncements[] to add ruflo's curated startup announcements.
+  // Higher-attention, lower-frequency counterpart to spinner-verbs
+  // (once per Claude Code launch vs. every processing pause). Independent
+  // consent because a user might reasonably want spinner-verbs without
+  // startup announcements or vice versa.
+  | 'company-announcements';
 
 export interface ConsentReceipt {
   granted: boolean;
