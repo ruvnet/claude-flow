@@ -274,6 +274,211 @@ async function checkMemoryDatabase(): Promise<HealthCheck> {
   return { name: 'Memory Database', status: 'warn', message: 'Not initialized', fix: 'claude-flow memory configure --backend hybrid' };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// #2677 — memory doctor: functional checks (stuinfla)
+//
+// The existing `checkMemoryDatabase` above asserts existence + statability
+// only, so it CANNOT distinguish a healthy DB from a 99.97%-empty or
+// SQLite-malformed one. Stuinfla reported both cases live (81-store fleet).
+// The three checks below layer functional assertions on top, ordered so
+// the earliest chain-break is always the first red the user sees:
+//   1. Integrity          — can sql.js open it AND does PRAGMA integrity_check pass?
+//   2. Content            — do most memory_entries rows carry non-empty content?
+//   3. Embedding coverage — do most rows have a vector? (unembedded rows are
+//                           both unrecallable AND undistillable per ADR-174)
+// Ordering matters: content ratio is meaningless on a DB that can't open;
+// embedding coverage is meaningless on rows with no content. First red wins.
+//
+// Recall probe (stuinfla check 4) requires actual write+search+delete round
+// trips through the CLI's own memory pipeline — deferred to a follow-up PR
+// to keep this one purely additive and safe.
+//
+// Design rules (also from stuinfla's report):
+//   - "A check that cannot fail protects nothing" — every check has a
+//     demonstrable red state.
+//   - "UNKNOWN is never PASS" — if the check can't RUN, report warn/fail,
+//     never a reassuring pass. Encrypted-DB case gets warn with the caveat
+//     spelled out; corruption gets fail.
+//   - "Print the measurement, not a checkmark" — messages include the
+//     ratios so operators see the shape of the problem.
+
+/** Resolve the same DB path checkMemoryDatabase above uses. Returns null
+ * if no candidate exists (in which case none of these checks should
+ * fire — checkMemoryDatabase will already have surfaced the missing DB). */
+async function resolveMemoryDbPath(): Promise<string | null> {
+  const candidates: string[] = [];
+  try {
+    const { getMemoryRoot } = await import('../memory/memory-initializer.js');
+    candidates.push(join(getMemoryRoot(), 'memory.db'));
+  } catch { /* fall through to legacy candidates */ }
+  candidates.push('.swarm/memory.db', '.claude-flow/memory.db', 'data/memory/memory.db', 'data/memory.db');
+  for (const p of candidates) if (existsSync(p)) return p;
+  return null;
+}
+
+/** Open a sql.js Database over an on-disk file, returning null when the
+ * file can't be opened as a SQLite database (encrypted / corrupted / not
+ * a database). Callers decide whether that's warn or fail. */
+async function tryOpenSqlJs(dbPath: string): Promise<any | null> {
+  try {
+    const initSqlJs: any = (await import('sql.js')).default ?? (await import('sql.js'));
+    const SQL = await (typeof initSqlJs === 'function' ? initSqlJs() : initSqlJs.default());
+    const { readFileSync } = await import('fs');
+    const buf = readFileSync(dbPath);
+    return new SQL.Database(new Uint8Array(buf));
+  } catch { return null; }
+}
+
+// Check 1 — sql.js can open it AND PRAGMA integrity_check returns 'ok'.
+// Two fail modes handled distinctly per "UNKNOWN is never PASS":
+//   - Open fails: warn ("cannot open; encrypted DB or corrupt — doctor
+//     can't distinguish from this side")
+//   - Open succeeds but pragma != 'ok': fail (definite corruption)
+async function checkMemoryIntegrity(): Promise<HealthCheck> {
+  const dbPath = await resolveMemoryDbPath();
+  if (!dbPath) return { name: 'Memory Integrity', status: 'warn', message: 'no memory.db found (see Memory Database check above)' };
+  const db = await tryOpenSqlJs(dbPath);
+  if (!db) {
+    return {
+      name: 'Memory Integrity',
+      status: 'warn',
+      message: `${dbPath} — sql.js can't open (encrypted DB or corrupt; doctor can't tell which from outside)`,
+      fix: 'if encrypted: expected. if not: back up + `claude-flow memory init --force` to rebuild',
+    };
+  }
+  try {
+    const res = db.exec('PRAGMA integrity_check');
+    const rows: string[] = res[0]?.values?.map((v: any[]) => String(v[0])) ?? [];
+    if (rows.length === 1 && rows[0] === 'ok') {
+      return { name: 'Memory Integrity', status: 'pass', message: `${dbPath} — PRAGMA integrity_check: ok` };
+    }
+    return {
+      name: 'Memory Integrity',
+      status: 'fail',
+      message: `${dbPath} — PRAGMA integrity_check: ${rows.slice(0, 3).join('; ')}${rows.length > 3 ? ` (+${rows.length - 3} more)` : ''}`,
+      fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+    };
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    const encryptedOrCorrupt = msg.includes('file is not a database') || msg.includes('malformed');
+    return {
+      name: 'Memory Integrity',
+      status: 'warn',
+      message: encryptedOrCorrupt
+        ? `${dbPath} — DB refused query: ${msg} (encrypted DB or corruption; see Memory Integrity above)`
+        : `${dbPath} — probe threw: ${msg}`,
+    };
+  } finally { try { db.close(); } catch { /* best-effort */ } }
+}
+
+// Check 2 — memory_entries rows should mostly carry non-empty content.
+// Stuinfla's live case: 11,133 rows, 3 with content (0.03%). Threshold 95%
+// is the number he proposed. Values below → fail with the exact ratio in
+// the message ("Print the measurement, not a checkmark").
+async function checkMemoryContent(): Promise<HealthCheck> {
+  const dbPath = await resolveMemoryDbPath();
+  if (!dbPath) return { name: 'Memory Content', status: 'warn', message: 'no memory.db found' };
+  const db = await tryOpenSqlJs(dbPath);
+  if (!db) return { name: 'Memory Content', status: 'warn', message: 'DB unreadable (see Memory Integrity)' };
+  try {
+    const tables: string[] = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='memory_entries'")[0]?.values?.map((v: any[]) => String(v[0])) ?? [];
+    if (tables.length === 0) return { name: 'Memory Content', status: 'warn', message: 'no memory_entries table in DB — schema mismatch or empty init' };
+    const r = db.exec("SELECT count(*), sum(CASE WHEN length(trim(coalesce(content,'')))>0 THEN 1 ELSE 0 END) FROM memory_entries");
+    const total = Number(r[0]?.values?.[0]?.[0] ?? 0);
+    const populated = Number(r[0]?.values?.[0]?.[1] ?? 0);
+    if (total === 0) return { name: 'Memory Content', status: 'pass', message: `${dbPath} — 0 rows (fresh DB, expected)` };
+    const ratio = populated / total;
+    const pct = (ratio * 100).toFixed(2);
+    const detail = `content ${populated}/${total} (${pct}%)`;
+    if (ratio < 0.95) {
+      return {
+        name: 'Memory Content',
+        status: 'fail',
+        message: `${dbPath} — ${detail} below 95% floor`,
+        fix: 'schema drift likely (rename of value→content or similar). check migration state via `claude-flow migrate status`',
+      };
+    }
+    return { name: 'Memory Content', status: 'pass', message: `${dbPath} — ${detail}` };
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    const encryptedOrCorrupt = msg.includes('file is not a database') || msg.includes('malformed');
+    return {
+      name: 'Memory Content',
+      status: 'warn',
+      message: encryptedOrCorrupt
+        ? `${dbPath} — DB refused query: ${msg} (encrypted DB or corruption; see Memory Integrity above)`
+        : `${dbPath} — probe threw: ${msg}`,
+    };
+  } finally { try { db.close(); } catch { /* best-effort */ } }
+}
+
+// Check 3 — most memory_entries with content should also carry an embedding
+// vector. Rows without a vector are BOTH unrecallable (no similarity search
+// can find them) AND undistillable (ADR-174's distill skips rows with no
+// parseable vector). Same 95% threshold + fail-with-ratio pattern as check 2.
+//
+// Embedding storage varies across ruflo installs (agentdb migrations, HNSW
+// index vs inline vector column). Discovers the shape via schema probes,
+// falls back to warn if the schema is unrecognized (better than a false
+// pass, per "UNKNOWN is never PASS").
+async function checkMemoryEmbeddingCoverage(): Promise<HealthCheck> {
+  const dbPath = await resolveMemoryDbPath();
+  if (!dbPath) return { name: 'Memory Embedding Coverage', status: 'warn', message: 'no memory.db found' };
+  const db = await tryOpenSqlJs(dbPath);
+  if (!db) return { name: 'Memory Embedding Coverage', status: 'warn', message: 'DB unreadable (see Memory Integrity)' };
+  try {
+    // Schema-shape discovery. Three candidate columns / tables we've seen
+    // across the agentdb / ruvector history — first match wins.
+    const cols = db.exec("PRAGMA table_info(memory_entries)");
+    const colNames = new Set<string>((cols[0]?.values ?? []).map((v: any[]) => String(v[1])));
+    let vectorPredicate: string | null = null;
+    if (colNames.has('embedding')) vectorPredicate = "embedding IS NOT NULL AND length(embedding) > 0";
+    else if (colNames.has('vector')) vectorPredicate = "vector IS NOT NULL AND length(vector) > 0";
+    if (!vectorPredicate) {
+      const otherTables = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('vector_indexes','embeddings','memory_embeddings')")[0]?.values?.map((v: any[]) => String(v[0])) ?? [];
+      if (otherTables.length === 0) {
+        return {
+          name: 'Memory Embedding Coverage',
+          status: 'warn',
+          message: 'no embedding column/table recognized (agentdb schema mismatch or older format) — doctor cannot measure',
+        };
+      }
+      const tbl = otherTables[0];
+      const r = db.exec(`SELECT count(*) FROM memory_entries m WHERE EXISTS (SELECT 1 FROM ${tbl} e WHERE e.memory_id = m.id OR e.entry_id = m.id OR e.id = m.id)`);
+      const withEmbedding = Number(r[0]?.values?.[0]?.[0] ?? 0);
+      const total = Number(db.exec("SELECT count(*) FROM memory_entries WHERE length(trim(coalesce(content,'')))>0")[0]?.values?.[0]?.[0] ?? 0);
+      if (total === 0) return { name: 'Memory Embedding Coverage', status: 'pass', message: `${dbPath} — 0 content rows (nothing to embed)` };
+      const ratio = withEmbedding / total;
+      const pct = (ratio * 100).toFixed(2);
+      const detail = `embedded ${withEmbedding}/${total} (${pct}%) via ${tbl}`;
+      if (ratio < 0.95) return { name: 'Memory Embedding Coverage', status: 'fail', message: `${dbPath} — ${detail} below 95% floor`, fix: 'unembedded rows are unrecallable + undistillable — re-run `claude-flow memory embed --namespace <name>` for populated namespaces' };
+      return { name: 'Memory Embedding Coverage', status: 'pass', message: `${dbPath} — ${detail}` };
+    }
+    // Inline embedding column
+    const r = db.exec(`SELECT count(*), sum(CASE WHEN ${vectorPredicate} THEN 1 ELSE 0 END) FROM memory_entries WHERE length(trim(coalesce(content,'')))>0`);
+    const total = Number(r[0]?.values?.[0]?.[0] ?? 0);
+    const withEmb = Number(r[0]?.values?.[0]?.[1] ?? 0);
+    if (total === 0) return { name: 'Memory Embedding Coverage', status: 'pass', message: `${dbPath} — 0 content rows (nothing to embed)` };
+    const ratio = withEmb / total;
+    const pct = (ratio * 100).toFixed(2);
+    const detail = `embedded ${withEmb}/${total} (${pct}%)`;
+    if (ratio < 0.95) {
+      return { name: 'Memory Embedding Coverage', status: 'fail', message: `${dbPath} — ${detail} below 95% floor`, fix: 'unembedded rows are unrecallable + undistillable — re-run `claude-flow memory embed --namespace <name>` for populated namespaces' };
+    }
+    return { name: 'Memory Embedding Coverage', status: 'pass', message: `${dbPath} — ${detail}` };
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    const encryptedOrCorrupt = msg.includes('file is not a database') || msg.includes('malformed');
+    return {
+      name: 'Memory Embedding Coverage',
+      status: 'warn',
+      message: encryptedOrCorrupt
+        ? `${dbPath} — DB refused query: ${msg} (encrypted DB or corruption; see Memory Integrity above)`
+        : `${dbPath} — probe threw: ${msg}`,
+    };
+  } finally { try { db.close(); } catch { /* best-effort */ } }
+}
+
 // #2545: Check that the self-learning bridge can actually load @claude-flow/memory
 // the SAME way the SessionStart auto-memory hook does. On the documented `npx ruflo`
 // path the package lands in the npx cache — unreachable from the project — so the
@@ -1278,7 +1483,14 @@ export const doctorCommand: Command = {
       checkProxy, // ADR-313 — Meta LLM Proxy sponsored-downtime health
     ];
 
-    const componentMap: Record<string, () => Promise<HealthCheck>> = {
+    // #2677: `--component memory` now runs the whole memory-health suite,
+    // not just the existence check. Values can be a single check or an
+    // array — expanded at execution time. Stuinfla's report showed the
+    // existence-only check reporting PASS on a 99.97%-empty and even a
+    // SQLite-malformed DB; the array here layers integrity → content →
+    // embedding coverage over the existing existence probe, ordered so
+    // the earliest chain-break is always the first red the user sees.
+    const componentMap: Record<string, (() => Promise<HealthCheck>) | Array<() => Promise<HealthCheck>>> = {
       'version': checkVersionFreshness,
       'freshness': checkVersionFreshness,
       'node': checkNodeVersion,
@@ -1287,7 +1499,12 @@ export const doctorCommand: Command = {
       'config': checkConfigFile,
       'stale-settings': checkStaleSettingsNpx, // #2448
       'daemon': checkDaemonStatus,
-      'memory': checkMemoryDatabase,
+      'memory': [
+        checkMemoryDatabase,         // existing: exists + statable (unchanged)
+        checkMemoryIntegrity,        // #2677 check 1: sql.js open + PRAGMA integrity_check
+        checkMemoryContent,          // #2677 check 2: memory_entries content coverage
+        checkMemoryEmbeddingCoverage, // #2677 check 3: vector coverage on populated rows
+      ],
       'learning': checkLearningBridge, // #2545
       'learning-bridge': checkLearningBridge, // #2545
       'api': checkApiKeys,
@@ -1307,7 +1524,8 @@ export const doctorCommand: Command = {
 
     let checksToRun = allChecks;
     if (component && componentMap[component]) {
-      checksToRun = [componentMap[component]];
+      const entry = componentMap[component];
+      checksToRun = Array.isArray(entry) ? entry : [entry];
     }
 
     const results: HealthCheck[] = [];
