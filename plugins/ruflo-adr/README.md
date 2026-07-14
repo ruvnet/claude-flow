@@ -1,10 +1,10 @@
 # ruflo-adr
 
-ADR lifecycle management -- create, index, supersede, and link Architecture Decision Records to code.
+ADR lifecycle management -- create, index, reconcile, supersede, and link Architecture Decision Records to code.
 
 ## Overview
 
-Manages Architecture Decision Records through their full lifecycle (proposed, accepted, deprecated, superseded). ADRs are stored as markdown files in `docs/adr/` and indexed in AgentDB with causal edges tracking supersedes/amends/depends-on relationships. Includes compliance checking that scans git diffs for ADR violations.
+Manages Architecture Decision Records through their full lifecycle (proposed, accepted, deprecated, superseded). ADRs are stored as markdown files in `docs/adr/` and indexed in AgentDB with causal edges tracking supersedes/amends/depends-on relationships. Includes compliance checking that scans git diffs for ADR violations, and reconciliation (`adr-reindex`) for ADRs deleted from disk (#2666).
 
 ## Installation
 
@@ -23,9 +23,10 @@ claude --plugin-dir plugins/ruflo-adr
 | Skill | Usage | Description |
 |-------|-------|-------------|
 | `adr-create` | `/adr-create <title>` | Create a new ADR with sequential numbering and AgentDB registration |
-| `adr-index` | `/adr-index` | Build or rebuild the ADR index and dependency graph in AgentDB |
+| `adr-index` | `/adr-index` | Build or rebuild the ADR index and dependency graph in AgentDB (add/update only — never removes) |
 | `adr-review` | `/adr-review [--branch BRANCH]` | Review code changes against accepted ADRs for compliance violations |
 | `adr-verify` | `/adr-verify` | Read back adr-patterns + adr-edges namespaces, surface dangling refs / supersede cycles / status mismatches; exits 1 on cycles |
+| `adr-reindex` | `/adr-reindex` | Reconcile a **deleted** ADR file: drop-and-rebuild adr-patterns + adr-edges from what's on disk right now |
 
 ## Commands (7 subcommands)
 
@@ -66,12 +67,13 @@ This plugin owns the `adr-patterns` AgentDB namespace. It defers to [ruflo-agent
 
 ```bash
 bash plugins/ruflo-adr/scripts/smoke.sh
-# Expected: "15 passed, 0 failed"
+# Expected: "21 passed, 0 failed"
 ```
 
 ## Architecture Decisions
 
 - [`ADR-0001` — ruflo-adr plugin contract (pinning, namespace coordination, smoke as contract)](./docs/adrs/0001-adr-plugin-pattern.md)
+- [`ADR-0002` — Reconcile deleted ADRs (hard-delete primitive + drop-and-rebuild reindex)](./docs/adrs/0002-reconcile-deleted-adrs.md)
 
 ## Related Plugins
 

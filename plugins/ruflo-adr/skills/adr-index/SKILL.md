@@ -66,8 +66,13 @@ tags: <comma-separated>
 
 `#1697` / `commit abc123` / `PR 1234` references inside ADR bodies are stripped before regex extraction so they don't get misread as `ADR-1697` etc. See `extractAdrRefs()` in `scripts/import.mjs`.
 
+## What this skill cannot do
+
+`adr-index` only ever adds/upserts. If an ADR file was deleted (or a relation line removed from a surviving file), the row it wrote stays forever — `adr-verify` won't catch it either, since an orphan has no dangling ref and forms no cycle. Use the sibling `adr-reindex` skill to reconcile a deletion (issue #2666).
+
 ## Cross-references
 
 - `adr-create` — produces the ADR files this skill consumes
 - `adr-review` — runs over `adr-patterns` for compliance checks
 - `adr-verify` (sibling skill) — runs `scripts/verify.mjs` for graph-integrity gating
+- `adr-reindex` (sibling skill) — drop-and-rebuild reconcile for a deleted ADR file (this skill can only add, never remove)

@@ -706,6 +706,97 @@ const deleteCommand: Command = {
   }
 };
 
+// #2666 — Hard, namespace-scoped purge. `delete` above only ever
+// soft-deletes a single key (status='deleted', row stays and still occupies
+// the UNIQUE(namespace, key) slot — #2652). Reconciling an entire namespace
+// after its source-of-truth changed (e.g. a plugin's index after a source
+// file was removed) needs the row to actually be gone, not tombstoned.
+// Irreversible — always requires --namespace explicitly (no default) and
+// either interactive confirmation or --force.
+const purgeCommand: Command = {
+  name: 'purge',
+  description: 'Permanently delete every entry in a namespace (hard delete — not the soft delete/tombstone that `memory delete` uses)',
+  options: [
+    {
+      name: 'namespace',
+      short: 'n',
+      description: 'Namespace to purge (required — no default, to avoid an accidental whole-namespace wipe)',
+      type: 'string'
+    },
+    {
+      name: 'dry-run',
+      short: 'd',
+      description: 'Report how many entries would be deleted, without deleting them',
+      type: 'boolean',
+      default: false
+    },
+    {
+      name: 'force',
+      short: 'f',
+      description: 'Skip confirmation',
+      type: 'boolean',
+      default: false
+    },
+    DB_PATH_OPTION
+  ],
+  examples: [
+    { command: 'claude-flow memory purge --namespace stale-cache --dry-run', description: 'Preview a purge' },
+    { command: 'claude-flow memory purge --namespace stale-cache --force', description: 'Purge without confirmation (e.g. in a script)' }
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const namespace = ctx.flags.namespace as string;
+    const dryRun = ctx.flags.dryRun as boolean;
+    const force = ctx.flags.force as boolean;
+    const dbPath = ctx.flags.path as string | undefined;
+
+    if (!namespace) {
+      output.printError('Namespace is required. Use: memory purge -n "namespace" [--dry-run | --force]');
+      return { success: false, exitCode: 1 };
+    }
+
+    try {
+      const { listEntries, purgeNamespace, resolveDbPath: _rdbPurge } = await import('../memory/memory-initializer.js');
+      const resolvedDbPath = _rdbPurge(dbPath);
+
+      const preview = await listEntries({ namespace, limit: 1, dbPath: resolvedDbPath });
+      const previewCount = preview.total ?? preview.entries?.length ?? 0;
+
+      if (dryRun) {
+        output.printInfo(`Would permanently delete ${previewCount} entr${previewCount === 1 ? 'y' : 'ies'} from namespace "${namespace}" (dry run — nothing deleted)`);
+        return { success: true, data: { namespace, wouldDelete: previewCount } };
+      }
+
+      if (!force && ctx.interactive) {
+        const confirmed = await confirm({
+          message: `Permanently delete ${previewCount} entr${previewCount === 1 ? 'y' : 'ies'} from namespace "${namespace}"? This is a hard delete — not reversible with \`memory delete\`'s soft-undo.`,
+          default: false
+        });
+        if (!confirmed) {
+          output.printInfo('Operation cancelled');
+          return { success: true };
+        }
+      } else if (!force) {
+        output.printError(`Refusing to purge namespace "${namespace}" without --force in non-interactive mode`);
+        return { success: false, exitCode: 1 };
+      }
+
+      const result = await purgeNamespace({ namespace, dbPath: resolvedDbPath });
+
+      if (!result.success) {
+        output.printError(result.error || 'Failed to purge');
+        return { success: false, exitCode: 1 };
+      }
+
+      output.printSuccess(`Purged ${result.deletedCount} entr${result.deletedCount === 1 ? 'y' : 'ies'} from namespace "${namespace}"`);
+      output.printInfo(`Remaining entries (all namespaces): ${result.remainingEntries}`);
+      return { success: true, data: result };
+    } catch (error) {
+      output.printError(`Failed to purge: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return { success: false, exitCode: 1 };
+    }
+  }
+};
+
 // Stats command
 const statsCommand: Command = {
   name: 'stats',
@@ -1688,7 +1779,7 @@ const initMemoryCommand: Command = {
 export const memoryCommand: Command = {
   name: 'memory',
   description: 'Memory management commands',
-  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand, distillCommand, backupCommand],
+  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, purgeCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand, distillCommand, backupCommand],
   options: [],
   examples: [
     { command: 'claude-flow memory store -k "key" -v "value"', description: 'Store data' },

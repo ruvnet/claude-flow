@@ -1239,6 +1239,70 @@ export async function bridgeDeleteEntry(options: {
   }
 }
 
+// #2666 — Hard, namespace-scoped purge. bridgeDeleteEntry above only ever
+// soft-deletes a single (namespace, key); this is a real
+// `DELETE FROM memory_entries WHERE namespace = ?` against the live
+// better-sqlite3-style handle, for callers (e.g. a plugin's index-reconcile
+// step) that need a namespace to be genuinely empty rather than tombstoned.
+// Irreversible — callers must gate this behind an explicit confirmation.
+export async function bridgePurgeNamespace(options: {
+  namespace: string;
+  dbPath?: string;
+}): Promise<{
+  success: boolean;
+  deletedCount: number;
+  remainingEntries: number;
+  guarded?: boolean;
+  error?: string;
+} | null> {
+  const registry = await getRegistry(options.dbPath);
+  if (!registry) return null;
+
+  const ctx = getDb(registry);
+  if (!ctx) return null;
+
+  try {
+    const { namespace } = options;
+
+    const guardResult = await guardValidate(registry, 'purge', { namespace });
+    if (!guardResult.allowed) {
+      return { success: false, deletedCount: 0, remainingEntries: 0, error: `MutationGuard rejected: ${guardResult.reason}` };
+    }
+
+    let deletedCount = 0;
+    try {
+      const result = ctx.db.prepare(`DELETE FROM memory_entries WHERE namespace = ?`).run(namespace);
+      deletedCount = result?.changes ?? 0;
+    } catch (e) {
+      return { success: false, deletedCount: 0, remainingEntries: 0, error: e instanceof Error ? e.message : String(e) };
+    }
+
+    const safeNs = String(namespace).replace(/:/g, '_');
+    await cacheInvalidate(registry, `namespace:${safeNs}`);
+
+    if (deletedCount > 0) {
+      await logAttestation(registry, 'purge', namespace, { namespace, deletedCount });
+    }
+
+    let remaining = 0;
+    try {
+      const row = ctx.db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE status = 'active'`).get();
+      remaining = row?.cnt ?? 0;
+    } catch {
+      // Non-fatal
+    }
+
+    return {
+      success: true,
+      deletedCount,
+      remainingEntries: remaining,
+      guarded: true,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ===== Phase 2: Embedding bridge =====
 
 /**

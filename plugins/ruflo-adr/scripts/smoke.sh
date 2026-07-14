@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-adr v0.2.0 (ADR-0001).
+# Structural smoke test for ruflo-adr v0.4.0 (ADR-0001, ADR-0002).
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0
@@ -9,10 +9,10 @@ ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
 # 1. plugin.json bump + new keywords
-step "1. plugin.json declares 0.3.0 with new keywords"
+step "1. plugin.json declares 0.4.0 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.3.0" ]]; then
-  bad "expected 0.3.0, got '$v'"
+if [[ "$v" != "0.4.0" ]]; then
+  bad "expected 0.4.0, got '$v'"
 else
   miss=""
   for k in lifecycle compliance causal-graph mcp; do
@@ -21,10 +21,10 @@ else
   [[ -z "$miss" ]] && ok || bad "missing keywords:$miss"
 fi
 
-# 2. All 4 skills present with valid frontmatter
-step "2. skills (adr-create, adr-index, adr-review, adr-verify) present with name/description/allowed-tools"
+# 2. All 5 skills present with valid frontmatter
+step "2. skills (adr-create, adr-index, adr-review, adr-verify, adr-reindex) present with name/description/allowed-tools"
 miss=""
-for s in adr-create adr-index adr-review adr-verify; do
+for s in adr-create adr-index adr-review adr-verify adr-reindex; do
   f="$ROOT/skills/$s/SKILL.md"
   [[ -f "$f" ]] || { miss="$miss missing-$s"; continue; }
   for k in 'name:' 'description:' 'allowed-tools:'; do
@@ -95,14 +95,17 @@ for s in import.mjs verify.mjs; do
 done
 [[ -z "$miss" ]] && ok || bad "$miss"
 
-# 12. import.mjs handles both ADR formats + has issue-number false-positive guard
-step "12. import.mjs supports v3 + plugin formats and strips issue numbers"
-F="$ROOT/scripts/import.mjs"
+# 12. shared parser lib handles both ADR formats + has issue-number false-positive
+# guard (#2666: moved from import.mjs into lib/parse-adrs.mjs so reindex.mjs
+# doesn't duplicate it — check the lib, and that import.mjs imports from it).
+step "12. lib/parse-adrs.mjs supports v3 + plugin formats and strips issue numbers"
+F="$ROOT/scripts/lib/parse-adrs.mjs"
 miss=""
 grep -q "extractAdrRefs" "$F" || miss="$miss no-extractAdrRefs"
 grep -q "frontmatter\|YAML\|^---" "$F" || miss="$miss no-frontmatter-handling"
 grep -q "#\\\\d+\|issue\|PR\\\\s*\\\\d" "$F" || miss="$miss no-issue-strip"
 grep -q '\*\*Status\*\*' "$F" || miss="$miss no-v3-status-pattern"
+grep -q "extractAdrRefs\|parseAdr" "$ROOT/scripts/import.mjs" || miss="$miss import.mjs-not-importing-lib"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 # 13. verify.mjs reports cycles + dangling refs and exits 1 on cycles
@@ -125,6 +128,54 @@ step "15. adr-verify skill calls scripts/verify.mjs"
 F="$ROOT/skills/adr-verify/SKILL.md"
 grep -q "scripts/verify\.mjs\|verify\.mjs" "$F" \
   && ok || bad "skill does not invoke verify.mjs"
+
+# 16. reindex.mjs present, executable, syntax-clean (#2666)
+step "16. scripts/reindex.mjs executable + syntax-clean"
+F="$ROOT/scripts/reindex.mjs"
+miss=""
+[[ -x "$F" ]] || miss="$miss not-executable"
+node --check "$F" 2>/dev/null || miss="$miss syntax-error"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+# 17. reindex.mjs purges via `memory purge`, rebuilds, and asserts a post-condition
+step "17. reindex.mjs purges + rebuilds + checks a post-condition"
+F="$ROOT/scripts/reindex.mjs"
+miss=""
+grep -q "memory', 'purge'" "$F" || miss="$miss no-purge-call"
+grep -q "postCondition" "$F" || miss="$miss no-post-condition"
+grep -q "process.exit(result.postCondition" "$F" || miss="$miss no-fail-exit"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+# 18. adr-reindex skill references reindex.mjs
+step "18. adr-reindex skill calls scripts/reindex.mjs"
+F="$ROOT/skills/adr-reindex/SKILL.md"
+grep -q "scripts/reindex\.mjs\|reindex\.mjs" "$F" \
+  && ok || bad "skill does not invoke reindex.mjs"
+
+# 19. shared parser lib exists and both import.mjs + reindex.mjs use it (no duplicated parsing)
+step "19. import.mjs and reindex.mjs share scripts/lib/parse-adrs.mjs"
+miss=""
+[[ -s "$ROOT/scripts/lib/parse-adrs.mjs" ]] || miss="$miss lib-missing"
+grep -q "from './lib/parse-adrs.mjs'" "$ROOT/scripts/import.mjs" || miss="$miss import.mjs-not-using-lib"
+grep -q "from './lib/parse-adrs.mjs'" "$ROOT/scripts/reindex.mjs" || miss="$miss reindex.mjs-not-using-lib"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+# 20. import.mjs and verify.mjs pass cwd to every memory subprocess call (#2666 point 2)
+step "20. import.mjs + verify.mjs pass cwd: ROOT to every npx memory subprocess"
+miss=""
+imp_calls=$(grep -c "spawnSync('npx'" "$ROOT/scripts/import.mjs")
+imp_cwd=$(grep -c "cwd: ROOT" "$ROOT/scripts/import.mjs")
+[[ "$imp_calls" -gt 0 && "$imp_cwd" -ge "$imp_calls" ]] || miss="$miss import.mjs($imp_cwd/$imp_calls)"
+ver_calls=$(grep -c "spawnSync('npx'" "$ROOT/scripts/verify.mjs")
+ver_cwd=$(grep -c "cwd: ROOT" "$ROOT/scripts/verify.mjs")
+[[ "$ver_calls" -gt 0 && "$ver_cwd" -ge "$ver_calls" ]] || miss="$miss verify.mjs($ver_cwd/$ver_calls)"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+# 21. ADR-0002 exists with status Accepted
+step "21. ADR-0002 (reconcile deleted ADRs) exists with status Accepted"
+ADR="$ROOT/docs/adrs/0002-reconcile-deleted-adrs.md"
+[[ -f "$ADR" ]] && grep -qE "^status:[[:space:]]*Accepted" "$ADR" \
+  && ok || bad "ADR-0002 missing or status != Accepted"
 
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1
