@@ -225,6 +225,26 @@ export async function autoRefreshHelpersIfStale(
   try {
     const helpersDir = path.join(cwd, '.claude', 'helpers');
     if (!fs.existsSync(path.join(helpersDir, 'hook-handler.cjs'))) return { refreshed: false };
+
+    // .LOCKED marker: users developing ruflo itself (or any project with
+    // hand-maintained helpers) can place a `.LOCKED` file at
+    // `.claude/helpers/.LOCKED` to opt this project out of auto-refresh
+    // entirely. Fixes the observed-live concurrent-session clobber where a
+    // sibling Claude Code session running a stale cached CLI would overwrite
+    // hand-edited helpers on this repo (CLAUDE.md "Concurrent-session helper
+    // corruption"). Existing semver.gte guard below still fires for normal
+    // installs — this is the escape hatch for the small set of users editing
+    // helpers directly. Delete the file to re-enable refresh.
+    if (fs.existsSync(path.join(helpersDir, '.LOCKED'))) {
+      return { refreshed: false, blocked: '.LOCKED marker present — refresh skipped (delete to re-enable)' };
+    }
+
+    // Also honor an env-level opt-out for CI / release-time scripting that
+    // knows it doesn't want any writes to helpers this run.
+    if (/^(1|true|on|yes)$/i.test(String(process.env.RUFLO_HELPERS_LOCKED || ''))) {
+      return { refreshed: false, blocked: 'RUFLO_HELPERS_LOCKED env — refresh skipped' };
+    }
+
     const version = opts.versionOverride ?? getInstalledCliVersion();
     let stamped = '';
     try { stamped = fs.readFileSync(path.join(helpersDir, HELPERS_STAMP_FILE), 'utf-8').trim(); } catch { /* pre-feature: unstamped */ }
