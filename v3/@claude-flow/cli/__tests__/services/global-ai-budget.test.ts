@@ -184,6 +184,90 @@ describe('#2661 — GlobalAiBudget', () => {
     });
   });
 
+  describe('#2661 root-fix — recordUsage', () => {
+    it('appends a receipted usage event keyed by permitId', async () => {
+      const budget = makeBudget();
+      const permit = await budget.reserve(REQ);
+      budget.recordUsage(permit.permitId, {
+        workerType: 'audit',
+        model: 'haiku',
+        inputTokens: 1200,
+        outputTokens: 340,
+        durationMs: 4521,
+        costUsd: 0.0031,
+      });
+
+      const receiptsFile = join(dir, 'ai-budget-receipts.jsonl');
+      const lines = readFileSync(receiptsFile, 'utf-8').trim().split('\n').map((l) => JSON.parse(l));
+      const usage = lines.find((r) => r.event === 'usage');
+      expect(usage).toBeTruthy();
+      expect(usage.permitId).toBe(permit.permitId);
+      expect(usage.inputTokens).toBe(1200);
+      expect(usage.outputTokens).toBe(340);
+      expect(usage.costUsd).toBe(0.0031);
+    });
+
+    it('is a silent no-op for a bypass permit (RUFLO_AI_BUDGET_DISABLE=1)', () => {
+      const budget = makeBudget();
+      expect(() => budget.recordUsage('bypass_123_456', { workerType: 'audit', model: 'haiku' })).not.toThrow();
+      const receiptsFile = join(dir, 'ai-budget-receipts.jsonl');
+      expect(existsSync(receiptsFile)).toBe(false);
+    });
+
+    it('is a silent no-op when permitId is undefined (denied launch)', () => {
+      const budget = makeBudget();
+      expect(() => budget.recordUsage(undefined, { workerType: 'audit', model: 'haiku' })).not.toThrow();
+    });
+  });
+
+  describe('#2661 root-fix — manual pause / resume', () => {
+    it('pause() blocks new reservations with a manual-pause reason', async () => {
+      const budget = makeBudget();
+      await budget.pause('taking a break');
+      const permit = await budget.reserve(REQ);
+      expect(permit.allowed).toBe(false);
+      expect(permit.reason).toMatch(/circuit-open/);
+
+      const usage = budget.getUsage();
+      expect(usage.pauseReason).toBe('taking a break');
+    });
+
+    it('resume() clears a manual pause and reservations succeed again', async () => {
+      const budget = makeBudget();
+      await budget.pause();
+      await budget.resume();
+      const permit = await budget.reserve(REQ);
+      expect(permit.allowed).toBe(true);
+    });
+
+    it('resume() also clears an automatic quota-triggered pause', async () => {
+      const budget = makeBudget();
+      await budget.recordQuotaError('429 rate limited');
+      expect((await budget.reserve(REQ)).allowed).toBe(false);
+
+      await budget.resume();
+      expect((await budget.reserve(REQ)).allowed).toBe(true);
+    });
+
+    it('pause()/resume() are receipted', async () => {
+      const budget = makeBudget();
+      await budget.pause('manual test');
+      await budget.resume();
+
+      const receiptsFile = join(dir, 'ai-budget-receipts.jsonl');
+      const lines = readFileSync(receiptsFile, 'utf-8').trim().split('\n').map((l) => JSON.parse(l));
+      expect(lines.some((r) => r.event === 'manual-pause')).toBe(true);
+      expect(lines.some((r) => r.event === 'manual-resume')).toBe(true);
+    });
+
+    it('resume() on an already-unpaused budget does not emit a spurious receipt', async () => {
+      const budget = makeBudget();
+      await budget.resume();
+      const receiptsFile = join(dir, 'ai-budget-receipts.jsonl');
+      expect(existsSync(receiptsFile)).toBe(false);
+    });
+  });
+
   describe('isQuotaErrorText', () => {
     it('matches quota / rate-limit failure signatures', () => {
       expect(isQuotaErrorText('HTTP 429 Too Many Requests')).toBe(true);

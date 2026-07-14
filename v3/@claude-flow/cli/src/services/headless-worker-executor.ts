@@ -172,6 +172,11 @@ export interface HeadlessExecutionResult {
   /** Estimated tokens used (if available) */
   tokensUsed?: number;
 
+  /** #2661 root-fix — structured usage, when `claude --print --output-format json` exposed it. */
+  inputTokens?: number;
+  outputTokens?: number;
+  costUsd?: number;
+
   /** Model used for execution */
   model: string;
 
@@ -577,6 +582,50 @@ export function isLocalWorker(type: WorkerType): type is LocalWorkerType {
  */
 export function getModelId(model: ModelType): string {
   return MODEL_IDS[model];
+}
+
+export interface ClaudePrintEnvelope {
+  result: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  costUsd?: number;
+  durationMs?: number;
+}
+
+/**
+ * #2661 root-fix — best-effort parse of `claude --print --output-format
+ * json`'s response envelope. Deliberately lenient: probes a couple of
+ * plausible field-name shapes (the CLI's JSON schema is not a versioned
+ * public contract) and returns null on anything unexpected rather than
+ * throwing, so a schema mismatch degrades to "no usage captured" — the
+ * caller then falls back to the raw stdout text, exactly today's behavior.
+ * Exported for direct unit testing without spawning a real process.
+ */
+export function parseClaudePrintJsonEnvelope(raw: string): ClaudePrintEnvelope | null {
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed[0] !== '{') return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const obj = parsed as Record<string, unknown>;
+
+  const result = typeof obj.result === 'string' ? obj.result : undefined;
+  if (result === undefined) return null; // not the envelope shape we expect
+
+  const usage = (obj.usage && typeof obj.usage === 'object') ? obj.usage as Record<string, unknown> : undefined;
+  const numOrUndef = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+
+  return {
+    result,
+    inputTokens: numOrUndef(usage?.input_tokens ?? usage?.inputTokens),
+    outputTokens: numOrUndef(usage?.output_tokens ?? usage?.outputTokens),
+    costUsd: numOrUndef(obj.total_cost_usd ?? obj.cost_usd ?? obj.totalCostUsd),
+    durationMs: numOrUndef(obj.duration_ms ?? obj.durationMs),
+  };
 }
 
 /**
@@ -1008,6 +1057,9 @@ export class HeadlessWorkerExecutor extends EventEmitter {
         parsedOutput,
         durationMs: Date.now() - startTime,
         tokensUsed: result.tokensUsed,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        costUsd: result.costUsd,
         model: headless.model || 'sonnet',
         sandboxMode: headless.sandbox,
         workerType,
@@ -1018,6 +1070,18 @@ export class HeadlessWorkerExecutor extends EventEmitter {
 
       // Log result
       this.logExecution(executionId, 'result', JSON.stringify(executionResult, null, 2));
+
+      // #2661 root-fix — structured per-launch telemetry, receipted
+      // regardless of success/failure (a failed launch still spent
+      // whatever tokens it spent before erroring).
+      budget.recordUsage(permit.permitId, {
+        workerType,
+        model,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        durationMs: result.apiDurationMs ?? executionResult.durationMs,
+        costUsd: result.costUsd,
+      });
 
       // #2661 invariant 5 — record the success so sibling worktrees at the
       // same HEAD skip this job for the rest of the freshness window.
@@ -1272,7 +1336,16 @@ Analyze the above codebase context and provide your response following the forma
       executionId: string;
       workerType: HeadlessWorkerType;
     }
-  ): Promise<{ success: boolean; output: string; tokensUsed?: number; error?: string }> {
+  ): Promise<{
+    success: boolean;
+    output: string;
+    tokensUsed?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    costUsd?: number;
+    apiDurationMs?: number;
+    error?: string;
+  }> {
     return new Promise((resolve) => {
       const env: Record<string, string> = {
         ...(process.env as Record<string, string>),
@@ -1313,7 +1386,15 @@ Analyze the above codebase context and provide your response following the forma
       // diagnosed as a 5-second redispatch + subprocess-table growth.
       // `detached: true` puts the child in its own process group so we
       // can signal the whole tree with `process.kill(-pid, sig)`.
-      const child = spawn('claude', ['--print'], {
+      // #2661 root-fix — structured usage telemetry. `--output-format json`
+      // wraps the response in an envelope carrying `result` (the actual
+      // text — what `output` must still contain, unchanged for every
+      // existing downstream parser) alongside `usage`/cost/duration
+      // metadata. Parsing is lenient (parseClaudePrintJsonEnvelope below)
+      // and ALWAYS falls back to the raw text on any mismatch — a schema
+      // surprise from an older/newer `claude` CLI must degrade to exactly
+      // today's behavior (no usage captured), never break analysis output.
+      const child = spawn('claude', ['--print', '--output-format', 'json'], {
         cwd: this.projectRoot,
         env,
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -1393,9 +1474,17 @@ Analyze the above codebase context and provide your response following the forma
         resolved = true;
         cleanup();
 
+        const envelope = parseClaudePrintJsonEnvelope(stdout);
         resolve({
           success: code === 0,
-          output: stdout || stderr,
+          output: envelope?.result ?? stdout ?? stderr,
+          inputTokens: envelope?.inputTokens,
+          outputTokens: envelope?.outputTokens,
+          tokensUsed: envelope
+            ? (envelope.inputTokens ?? 0) + (envelope.outputTokens ?? 0)
+            : undefined,
+          costUsd: envelope?.costUsd,
+          apiDurationMs: envelope?.durationMs,
           error: code !== 0 ? stderr || `Process exited with code ${code}` : undefined,
         });
       });

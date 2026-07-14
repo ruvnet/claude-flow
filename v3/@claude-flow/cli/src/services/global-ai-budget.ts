@@ -268,6 +268,69 @@ export class GlobalAiBudget {
     }
   }
 
+  /**
+   * #2661 root-fix — manual pause, via `ruflo daemon budget pause`. Distinct
+   * from the automatic quota-error circuit breaker only in duration (open-
+   * ended, until explicitly resumed, instead of a fixed cooldown) and
+   * reason text — the enforcement path in reserve() is identical, so a
+   * manual pause is just as hard a stop as a quota-triggered one.
+   */
+  async pause(reason?: string): Promise<void> {
+    let unlock: (() => void) | null = null;
+    try {
+      unlock = await this.acquireLock();
+      const now = Date.now();
+      const ledger = this.readLedger(now);
+      // Sentinel far-future timestamp rather than a real duration — resume()
+      // is the only thing that clears it. year ~2255, safely beyond any
+      // realistic process lifetime, and still a valid finite JS timestamp.
+      ledger.pausedUntil = 9_000_000_000_000;
+      ledger.pauseReason = (reason ?? 'manual pause (ruflo daemon budget pause)').slice(0, 200);
+      this.writeLedger(ledger);
+      this.appendReceipt({ event: 'manual-pause', at: now, reason: ledger.pauseReason });
+    } finally {
+      unlock?.();
+    }
+  }
+
+  /** #2661 root-fix — `ruflo daemon budget resume`. Clears ANY pause (manual or quota-triggered). */
+  async resume(): Promise<void> {
+    let unlock: (() => void) | null = null;
+    try {
+      unlock = await this.acquireLock();
+      const now = Date.now();
+      const ledger = this.readLedger(now);
+      const wasPaused = ledger.pausedUntil !== undefined && ledger.pausedUntil > now;
+      ledger.pausedUntil = undefined;
+      ledger.pauseReason = undefined;
+      this.writeLedger(ledger);
+      if (wasPaused) {
+        this.appendReceipt({ event: 'manual-resume', at: now });
+      }
+    } finally {
+      unlock?.();
+    }
+  }
+
+  /**
+   * #2661 root-fix — structured per-launch token telemetry. Best-effort,
+   * receipt-only: usage is recorded as a distinct receipt keyed by permitId
+   * rather than mutated into the launch ledger, so a usage-recording failure
+   * can never corrupt the budget-enforcement ledger. Only operational
+   * metadata — never prompts or source content.
+   */
+  recordUsage(permitId: string | undefined, usage: {
+    workerType: string;
+    model: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    durationMs?: number;
+    costUsd?: number;
+  }): void {
+    if (!permitId || permitId.startsWith('bypass_')) return;
+    this.appendReceipt({ event: 'usage', at: Date.now(), permitId, ...usage });
+  }
+
   /** Snapshot for `daemon status` / diagnostics. */
   getUsage(): {
     lastHour: number;
