@@ -11,6 +11,8 @@
  *   post-edit      - Record edit outcome for learning
  *   session-restore - Restore previous session state
  *   session-end    - End session and persist state
+ *   compact-manual - PreCompact (manual): trims + ends session in one spawn
+ *   compact-auto   - PreCompact (auto): trims + ends session in one spawn
  */
 
 const path = require('path');
@@ -102,6 +104,105 @@ function spawnDetachedFunnelRefresh() {
   spawnDetachedHookRefresh('refresh-funnel');
 }
 
+// ADR-318/319: first-run auto-enable of spinner verbs (default ON) +
+// announcements (default OFF, explicit opt-in). Fires ONCE per install
+// (marker at ~/.ruflo/first-run-enabled.json), then never again —
+// subsequent sessions see the marker and skip.
+//
+// Split posture rationale:
+//   - Spinner verbs = low-intrusion (per-spin flash, append-mode mix
+//     with Claude Code defaults, moderate visibility over time). Default ON.
+//     Disclosure notification + one-command disable satisfies the ethical bar.
+//   - Announcements = higher-intrusion (prominent line at every Claude Code
+//     startup, more attention per view). Default OFF; opt-in via
+//     RUFLO_AUTO_ENABLE_ANNOUNCEMENTS=1 or explicit `ruflo announcements enable`.
+//
+// Gates (spinner is default-on unless any is TRUE):
+//   - RUFLO_NO_AUTO_ENABLE truthy (master opt-out — kills both)
+//   - RUFLO_NO_AUTO_ENABLE_SPINNER truthy (spinner-only opt-out)
+//   - CI / GITHUB_ACTIONS truthy
+//   - stdout is not a TTY (piped, non-interactive)
+//   - Marker file already exists
+//
+// Announcements needs the same gates PLUS RUFLO_AUTO_ENABLE_ANNOUNCEMENTS=1.
+//
+// Marker is written even if the spawns fail — auto-enable is a "we tried once"
+// contract, not "keep trying until success." Users can run enable manually.
+function firstRunAutoEnableIfEligible() {
+  try {
+    const path = require('path');
+    const fs = require('fs');
+    const os = require('os');
+    const truthy = (v) => v && !/^(0|false|off|no)$/i.test(String(v));
+    if (truthy(process.env.RUFLO_NO_AUTO_ENABLE)) return;
+    if (process.env.CI || process.env.GITHUB_ACTIONS) return;
+    if (process.stdout && process.stdout.isTTY === false) return;
+    const markerPath = path.join(os.homedir(), '.ruflo', 'first-run-enabled.json');
+    if (fs.existsSync(markerPath)) return;
+
+    const enableSpinner = !truthy(process.env.RUFLO_NO_AUTO_ENABLE_SPINNER);
+    const enableAnnouncements = truthy(process.env.RUFLO_AUTO_ENABLE_ANNOUNCEMENTS);
+
+    // Nothing to do — user opted out of both. Skip marker write so if they
+    // change their mind and re-enable env vars later, first-run still fires.
+    if (!enableSpinner && !enableAnnouncements) return;
+
+    // Spawn the enable commands detached + non-blocking. Any failure
+    // (missing CLI, refused state, etc.) is silent — auto-enable is
+    // best-effort and MUST NOT block session-restore. Uses execPath +
+    // resolved cli.js directly rather than spawnDetachedHookRefresh
+    // because that helper hardcodes 'hooks' as the top-level command.
+    const { spawn } = require('child_process');
+    const cliBin = resolveCliBinForHook();
+    const runDetached = (args) => {
+      try {
+        const spawnArgs = cliBin
+          ? [process.execPath, [cliBin, ...args]]
+          : [process.platform === 'win32' ? 'npx.cmd' : 'npx',
+             ['--prefer-offline', '@claude-flow/cli', ...args]];
+        const child = spawn(spawnArgs[0], spawnArgs[1], {
+          detached: true, stdio: 'ignore', env: process.env, windowsHide: true,
+        });
+        child.unref();
+      } catch { /* best-effort */ }
+    };
+    if (enableSpinner) runDetached(['spinner', 'enable', '--yes']);
+    if (enableAnnouncements) runDetached(['announcements', 'enable', '--yes']);
+
+    try {
+      fs.mkdirSync(path.dirname(markerPath), { recursive: true, mode: 0o700 });
+      fs.writeFileSync(
+        markerPath,
+        JSON.stringify({
+          _ts: Date.now(),
+          source: 'session-restore-hook',
+          enabled: { spinner: enableSpinner, announcements: enableAnnouncements },
+        }, null, 2),
+        { encoding: 'utf-8', mode: 0o600 }
+      );
+    } catch { /* ignore — best effort */ }
+
+    // Notification tells user exactly what happened. stderr so it doesn't
+    // corrupt any downstream JSON stdout consumer.
+    try {
+      const parts = [];
+      if (enableSpinner) parts.push('spinner verbs');
+      if (enableAnnouncements) parts.push('startup announcements');
+      const disableCmds = [];
+      if (enableSpinner) disableCmds.push('`ruflo spinner disable`');
+      if (enableAnnouncements) disableCmds.push('`ruflo announcements disable`');
+      process.stderr.write(
+        '[ruflo] First-run: enabled ' + parts.join(' + ') + '. ' +
+        'Disable anytime with ' + disableCmds.join(' / ') + '. ' +
+        (enableSpinner && !enableAnnouncements
+          ? 'Announcements stay opt-in — set RUFLO_AUTO_ENABLE_ANNOUNCEMENTS=1 to enable those too. '
+          : '') +
+        'Restart Claude Code once to see the changes take effect.\n'
+      );
+    } catch { /* ignore */ }
+  } catch { /* auto-enable must never break session-restore */ }
+}
+
 // Same fallback-aware pattern as spawnDetachedFunnelRefresh() above, for
 // ADR-316's co-pilot advisor tip. Safe to call on EVERY session-restore:
 // refresh-advisor's own action checks consent + a 24h TTL BEFORE spending
@@ -140,6 +241,54 @@ const router = safeRequire(path.join(helpersDir, 'router.js'));
 const session = safeRequire(path.join(helpersDir, 'session.js'));
 const memory = safeRequire(path.join(helpersDir, 'memory.js'));
 const intelligence = safeRequire(path.join(helpersDir, 'intelligence.cjs'));
+const fgSnapshot = safeRequire(path.join(helpersDir, 'foreground-snapshot.cjs'));
+
+// ADR-321: project root the snapshot cache is scoped under — CLAUDE_PROJECT_DIR
+// is set by Claude Code on every hook invocation; process.cwd() is the fallback.
+function getProjectRoot() {
+  return process.env.CLAUDE_PROJECT_DIR || process.cwd();
+}
+
+// ADR-321 consumer side: PreToolUse/PostToolUse/SubagentStop handlers become
+// cache-only, zero-spawn reads. Purely additive — a miss/stale cache means
+// "no foreground signal this fire," never a spawn-and-wait or a thrown error.
+function attachForegroundContext(sessionId) {
+  if (!fgSnapshot || !sessionId) return;
+  try {
+    const snap = fgSnapshot.readSnapshot(sessionId, getProjectRoot());
+    if (snap && !fgSnapshot.isStale(snap)) {
+      const title = snap.foregroundWindowTitle ? ` - ${snap.foregroundWindowTitle}` : '';
+      console.log(`[CONTEXT] foreground: ${snap.foregroundProcessName || 'unknown'}${title}`);
+    }
+  } catch (e) { /* additive only — never affects the hook's real work */ }
+}
+
+// ADR-322: not part of ADR-321's snapshot schema — a small sibling marker
+// the daemon's session-discovery scan reads to know which `.claude-flow/
+// session/<id>/` dirs are live, the same way session-restore/session-end
+// already own the snapshot's own lifecycle (rules 1/2). Written on restore,
+// deleted on end — a stale marker (crash, no session-end fired) is caught by
+// worker-daemon.ts's own `isPidAlive(marker.pid)` check before it samples.
+function sessionMarkerPath(sessionId, projectRoot) {
+  return path.join(projectRoot, '.claude-flow', 'session', sessionId, 'session.json');
+}
+
+function writeSessionMarker(sessionId, projectRoot) {
+  try {
+    fs.mkdirSync(path.join(projectRoot, '.claude-flow', 'session', sessionId), { recursive: true });
+    // process.ppid, not process.pid: this hook is itself a short-lived
+    // subprocess that exits within milliseconds of writing this file — its
+    // own pid would already look "dead" the moment the daemon checks
+    // liveness. process.ppid is whatever spawned this hook (claude.exe /
+    // the `claude` binary), which stays alive for the session's duration —
+    // the actual thing "is this session live" needs to check.
+    fs.writeFileSync(sessionMarkerPath(sessionId, projectRoot), JSON.stringify({ pid: process.ppid, startedAt: Date.now() }));
+  } catch (e) { /* non-fatal — daemon sampler just won't discover this session */ }
+}
+
+function deleteSessionMarker(sessionId, projectRoot) {
+  try { fs.unlinkSync(sessionMarkerPath(sessionId, projectRoot)); } catch (e) { /* already absent */ }
+}
 
 // ── Intelligence timeout protection (fixes #1530, #1531) ───────────────────
 const INTELLIGENCE_TIMEOUT_MS = 3000;
@@ -190,6 +339,32 @@ async function readStdin() {
   });
 }
 
+// ADR-320: shared by 'session-end' and the PreCompact 'compact-manual'/
+// 'compact-auto' handlers below — all three are wired to this exact function,
+// so PreCompact no longer needs a separately-chained session-end hook.
+// Module-scoped (not nested in main()) so it's directly requireable for tests.
+// `sessionId` is optional (callable with zero args, as tests/ADR-320 expect) —
+// when provided, ADR-321 invalidation rule 2 deletes that session's snapshot.
+async function runSessionEnd(sessionId) {
+  if (intelligence && intelligence.consolidate) {
+    const consResult = await runWithTimeout(() => intelligence.consolidate(), 'intelligence.consolidate()');
+    if (consResult && consResult.entries > 0) {
+      console.log(`[INTELLIGENCE] Consolidated: ${consResult.entries} entries, ${consResult.edges} edges${consResult.newEntries > 0 ? `, ${consResult.newEntries} new` : ''}, PageRank recomputed`);
+    }
+  }
+  if (session && session.end) {
+    session.end();
+  } else {
+    console.log('[OK] Session ended');
+  }
+  if (fgSnapshot && sessionId) {
+    try { fgSnapshot.deleteSnapshot(sessionId, getProjectRoot()); } catch (e) { /* non-fatal */ }
+  }
+  if (sessionId) {
+    deleteSessionMarker(sessionId, getProjectRoot());
+  }
+}
+
 async function main() {
   // Global safety timeout: hooks must NEVER hang (#1530, #1531)
   const safetyTimer = setTimeout(() => {
@@ -209,6 +384,12 @@ async function main() {
   // Normalize snake_case/camelCase: Claude Code sends tool_input/tool_name (snake_case)
   const toolInput = hookInput.toolInput || hookInput.tool_input || {};
   const toolName = hookInput.toolName || hookInput.tool_name || '';
+
+  // ADR-321: Claude Code's own hooks payload field — independent of ruflo's
+  // session module (there is no session.js on disk; session-restore below
+  // just generates a throwaway id). Used only to scope the foreground
+  // snapshot cache path; null is a valid "no cache for this fire" outcome.
+  const sessionId = hookInput.session_id || hookInput.sessionId || null;
 
   // Merge stdin data into prompt resolution: prefer stdin fields, then env, then argv.
   // `toolInput` is an object (e.g. {command:"ls"}) — it's truthy but not a string,
@@ -330,6 +511,8 @@ const handlers = {
       }
     }
     console.log('[OK] Command validated');
+    // ADR-321: cache-only, zero-spawn read — PreToolUse consumer.
+    attachForegroundContext(sessionId);
   },
 
   'post-edit': () => {
@@ -346,9 +529,26 @@ const handlers = {
       } catch (e) { /* non-fatal */ }
     }
     console.log(toolFailed ? '[LEARN] Edit FAILURE recorded' : '[OK] Edit recorded');
+    // ADR-321: cache-only, zero-spawn read — PostToolUse consumer.
+    attachForegroundContext(sessionId);
   },
 
   'session-restore': async () => {
+    // ADR-318/319 first-run auto-enable — fire once per install, never
+    // re-fires after user disables. Respects RUFLO_NO_AUTO_ENABLE + CI.
+    // Fully non-blocking (detached spawn) so session-restore latency
+    // is unchanged.
+    firstRunAutoEnableIfEligible();
+    // ADR-321 invalidation rule 1: a snapshot surviving from a previous
+    // session under the same id must never be read as current.
+    if (fgSnapshot && sessionId) {
+      try { fgSnapshot.deleteSnapshot(sessionId, getProjectRoot()); } catch (e) { /* non-fatal */ }
+    }
+    // ADR-322: stamp the liveness marker the daemon's session-discovery scan
+    // reads (deleted by runSessionEnd on a clean exit).
+    if (sessionId) {
+      writeSessionMarker(sessionId, getProjectRoot());
+    }
     if (session) {
       // Try restore first, fall back to start
       const existing = session.restore && session.restore();
@@ -389,20 +589,14 @@ const handlers = {
     spawnDetachedAdvisorRefresh();
   },
 
-  'session-end': async () => {
-    // Consolidate intelligence before ending session (with timeout — #1530)
-    if (intelligence && intelligence.consolidate) {
-      const consResult = await runWithTimeout(() => intelligence.consolidate(), 'intelligence.consolidate()');
-      if (consResult && consResult.entries > 0) {
-        console.log(`[INTELLIGENCE] Consolidated: ${consResult.entries} entries, ${consResult.edges} edges${consResult.newEntries > 0 ? `, ${consResult.newEntries} new` : ''}, PageRank recomputed`);
-      }
-    }
-    if (session && session.end) {
-      session.end();
-    } else {
-      console.log('[OK] Session ended');
-    }
-  },
+  'session-end': () => runSessionEnd(sessionId),
+  // ADR-320: compact-manual/compact-auto previously fell through to the
+  // generic no-op branch (no real behavior), with a separately-chained
+  // session-end hook doing the actual persistence right after — 2 spawns
+  // per PreCompact fire. Wiring both directly to runSessionEnd removes that
+  // second spawn; behavior is unchanged (there was nothing to preserve).
+  'compact-manual': () => runSessionEnd(sessionId),
+  'compact-auto': () => runSessionEnd(sessionId),
 
   'pre-task': () => {
     if (session && session.metric) {
@@ -427,6 +621,8 @@ const handlers = {
       } catch (e) { /* non-fatal */ }
     }
     console.log(toolFailed ? '[LEARN] Task FAILURE recorded' : '[OK] Task completed');
+    // ADR-321: cache-only, zero-spawn read — SubagentStop consumer.
+    attachForegroundContext(sessionId);
   },
 
   'stats': () => {
@@ -450,15 +646,21 @@ const handlers = {
     // Unknown command - pass through without error
     console.log(`[OK] Hook: ${command}`);
   } else {
-    console.log('Usage: hook-handler.cjs <route|pre-bash|post-edit|session-restore|session-end|pre-task|post-task|stats>');
+    console.log('Usage: hook-handler.cjs <route|pre-bash|post-edit|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|stats>');
   }
 }
 
-// Hooks must ALWAYS exit 0 — Claude Code treats non-zero as "hook error"
-// and skips all subsequent hooks for the event.
-process.exitCode = 0;
-main().catch((e) => {
-  try { console.log(`[WARN] Hook handler error: ${e.message}`); } catch (_) {}
-}).finally(() => {
-  process.exit(0);
-});
+module.exports = { runSessionEnd, writeSessionMarker, deleteSessionMarker, sessionMarkerPath };
+
+// Guarded so tests can `require()` this file for runSessionEnd without
+// triggering a live hook run (stdin read + process.exit(0) below).
+if (require.main === module) {
+  // Hooks must ALWAYS exit 0 — Claude Code treats non-zero as "hook error"
+  // and skips all subsequent hooks for the event.
+  process.exitCode = 0;
+  main().catch((e) => {
+    try { console.log(`[WARN] Hook handler error: ${e.message}`); } catch (_) {}
+  }).finally(() => {
+    process.exit(0);
+  });
+}

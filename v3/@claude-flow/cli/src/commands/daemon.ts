@@ -33,6 +33,11 @@ const startCommand: Command = {
     // `claude --print` merely because the Claude CLI is on PATH.
     { name: 'headless', type: 'boolean', description: 'Enable AI workers (scheduled `claude --print` execution, governed by the user-global AI budget). Default: off — workers run local-only' },
     { name: 'sandbox', type: 'string', description: 'Default sandbox mode for headless workers', choices: ['strict', 'permissive', 'disabled'] },
+    // ADR-322: explicit consent gate for the foreground/git-status snapshot
+    // sampler (ADR-321's cache writer). Same opt-in precedent as --headless.
+    // Not named `--foreground` — that flag (above) already means "run daemon
+    // in foreground terminal".
+    { name: 'state-probe', type: 'boolean', description: 'Enable the foreground-window/git-status snapshot sampler (ADR-321/319). Default: off — hooks fall back to their own interim behavior' },
     { name: 'max-cpu-load', type: 'string', description: 'Override maxCpuLoad resource threshold (e.g. 4.0)' },
     { name: 'min-free-memory', type: 'string', description: 'Override minFreeMemoryPercent resource threshold (e.g. 15)' },
     // #2356: self-terminating lifecycle. Caps how long a forgotten daemon can
@@ -77,6 +82,11 @@ const startCommand: Command = {
     // still opt in when the flag is absent.
     if (ctx.flags.headless === true) {
       config.aiWorkersEnabled = true;
+    }
+    // ADR-322: same "only set when true" precedence as --headless, so
+    // config.json/env can still opt in when the flag is absent.
+    if (ctx.flags['state-probe'] === true) {
+      config.foregroundProbeEnabled = true;
     }
     const rawMaxCpu = ctx.flags['max-cpu-load'] as string | undefined;
     const rawMinMem = ctx.flags['min-free-memory'] as string | undefined;
@@ -223,6 +233,7 @@ const startCommand: Command = {
           sandbox: ctx.flags.sandbox as string | undefined,
           ttl: rawTtl,
           noDistill,
+          stateProbe: ctx.flags['state-probe'] as boolean | undefined,
         });
       } finally {
         // Release the lock NOW — startBackgroundDaemon has either written
@@ -292,6 +303,7 @@ const startCommand: Command = {
               ? `TTL: ${Math.round(status.config.ttlMs / 3600000)}h (self-shutdown)`
               : `TTL: off (runs until stopped)`,
             `AI Workers: ${status.config.aiWorkersEnabled ? 'enabled (budget-capped)' : 'off (local-only, default)'}`,
+            `State Probe: ${status.config.foregroundProbeEnabled ? 'enabled (ADR-321/319 sampler)' : 'off (default)'}`,
             `Workers: ${status.config.workers.filter(w => w.enabled).length} enabled`,
             `Max Concurrent: ${status.config.maxConcurrent}`,
             `Max CPU Load: ${status.config.resourceThresholds.maxCpuLoad}`,
@@ -438,10 +450,12 @@ interface ForwardedDaemonFlags {
   ttl?: string;
   /** ADR-174 M3: disable the consolidate worker's memory-distillation pass. */
   noDistill?: boolean;
+  /** ADR-322: enable the foreground/git-status snapshot sampler. */
+  stateProbe?: boolean;
 }
 
 async function startBackgroundDaemon(projectRoot: string, quiet: boolean, forwarded: ForwardedDaemonFlags = {}): Promise<CommandResult> {
-  const { maxCpuLoad, minFreeMemory, workers, headless, sandbox, ttl, noDistill } = forwarded;
+  const { maxCpuLoad, minFreeMemory, workers, headless, sandbox, ttl, noDistill, stateProbe } = forwarded;
   // Validate and resolve project root
   const resolvedRoot = resolve(projectRoot);
   validatePath(resolvedRoot, 'Project root');
@@ -533,6 +547,12 @@ async function startBackgroundDaemon(projectRoot: string, quiet: boolean, forwar
   }
   if (headless === true) {
     forkArgs.push('--headless');
+  }
+  // ADR-322: forward the state-probe opt-in the same way --headless is —
+  // dropped on the floor here would mean `daemon start --state-probe`
+  // silently ran without the sampler once forked to the background child.
+  if (stateProbe === true) {
+    forkArgs.push('--state-probe');
   }
   if (typeof sandbox === 'string' && (sandbox === 'strict' || sandbox === 'permissive' || sandbox === 'disabled')) {
     forkArgs.push('--sandbox', sandbox);
@@ -1249,6 +1269,8 @@ const statusCommand: Command = {
           // #2661: surface the AI-consent gate so "why is audit local-only?"
           // is answerable from `daemon status` alone.
           `AI Workers: ${aiWorkersEnabled ? output.warning('enabled (budget-capped)') : output.dim('off (local-only, default)')}`,
+          // ADR-322: surface the state-probe gate the same way, for the same reason.
+          `State Probe: ${status.config.foregroundProbeEnabled ? output.warning('enabled (ADR-321/319 sampler)') : output.dim('off (default)')}`,
           `Workers Enabled: ${status.config.workers.filter(w => w.enabled).length}`,
           `Max Concurrent: ${status.config.maxConcurrent}`,
           `Max CPU Load: ${status.config.resourceThresholds.maxCpuLoad}`,

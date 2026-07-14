@@ -404,7 +404,11 @@ function generateHooksConfig(config: HooksConfig): object {
     ];
   }
 
-  // PreCompact — preserve context before compaction
+  // PreCompact — preserve context before compaction. ADR-320: compact-manual
+  // and compact-auto now call the session-end persistence logic internally
+  // (see hook-handler.cjs), so the separate chained session-end hook that
+  // used to follow each of these is no longer needed — one spawn per
+  // PreCompact fire instead of two, same persisted state.
   if (config.preCompact) {
     hooks.PreCompact = [
       {
@@ -413,10 +417,6 @@ function generateHooksConfig(config: HooksConfig): object {
           {
             type: 'command',
             command: hookHandlerCmd('compact-manual'),
-          },
-          {
-            type: 'command',
-            command: hookHandlerCmd('session-end'),
             timeout: 5000,
           },
         ],
@@ -427,10 +427,6 @@ function generateHooksConfig(config: HooksConfig): object {
           {
             type: 'command',
             command: hookHandlerCmd('compact-auto'),
-          },
-          {
-            type: 'command',
-            command: hookHandlerCmd('session-end'),
             timeout: 6000,
           },
         ],

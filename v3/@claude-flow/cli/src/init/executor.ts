@@ -417,8 +417,19 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
   // / jetsam / kernel panic. Preserving the user's existing command (the
   // old behavior here) means anyone who installed pre-#2337 and upgraded
   // never gets the fix. Now we detect the broken form and overwrite.
+  //
+  // ADR-320 — the previous form re-derived the project root via
+  // `execSync('git rev-parse --show-toplevel')` on EVERY statusline fire
+  // (every few hundred ms), an extra subprocess spawn on every platform
+  // independent of the Windows flash issue. `CLAUDE_PROJECT_DIR` is set by
+  // Claude Code on every hook/statusline invocation — the same env-first
+  // pattern `generateStatusLineConfig()`'s win32 branch already uses — so
+  // preferring it over a git spawn removes the runtime dependency on `git`
+  // entirely. `process.cwd()` is the fallback (matches the old catch-branch
+  // behavior when the env var is absent); no migration-time-baked path is
+  // needed, so there's no staleness risk for a relocated/moved repo either.
   const NEW_STATUSLINE_CMD =
-    `node -e "var c=require('child_process'),p=require('path'),r;try{r=c.execSync('git rev-parse --show-toplevel',{encoding:'utf8'}).trim()}catch(e){r=process.cwd()}var s=p.join(r,'.claude/helpers/statusline.cjs');process.argv.splice(1,0,s);require(s)"`;
+    `node -e "var d=process.env.CLAUDE_PROJECT_DIR||process.cwd();var s=require('path').join(d,'.claude/helpers/statusline.cjs');process.argv.splice(1,0,s);require(s)"`;
   // Matches any invocation of `claude-flow hooks statusline` — either via npx
   // (`npx [--prefer-offline] [@]claude-flow[/cli][@<tag>] hooks statusline …`)
   // or as a bare command (`claude-flow hooks statusline …`). Both forms cold-

@@ -12,7 +12,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, unlinkSync, renameSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, unlinkSync, renameSync, readdirSync } from 'fs';
 import { cpus } from 'os';
 import { join } from 'path';
 import {
@@ -33,6 +33,10 @@ import { backupMemoryDb } from './memory-backup.js';
 import { resolveGitWorkspaceIdentity, type GitWorkspaceIdentity } from './git-workspace-identity.js';
 import { getWorkspaceLeaseRegistry } from './workspace-lease.js';
 import { getRepoSupervisorRegistry, type SupervisorRecord } from './repo-supervisor.js';
+// ADR-322 — daemon becomes ADR-321's snapshot writer, reusing its exact
+// schema/locking/lifecycle rather than inventing a second persistence path.
+import { writeSnapshot as writeForegroundSnapshot, isSessionMarkerLive, type SessionMarker } from '../session/foreground-snapshot.js';
+import { execSync } from 'child_process';
 
 // Worker types matching hooks-tools.ts
 export type WorkerType =
@@ -127,6 +131,14 @@ export interface DaemonConfig {
   // .claude-flow/config.json, or RUFLO_DAEMON_AI_WORKERS=1.
   aiWorkersEnabled: boolean;
   workers: WorkerConfig[];
+  // ADR-322 — opt-in gate for the daemon's foreground/git-status snapshot
+  // sampler (ADR-321's cache writer). Modeled 1:1 on aiWorkersEnabled's
+  // opt-in precedent: false by default, no continuous cost or filesystem
+  // writes unless explicitly enabled via `daemon start --state-probe`,
+  // `daemon.stateProbe.enabled: true` in .claude-flow/config.json, or
+  // RUFLO_DAEMON_STATE_PROBE=1. NOT named `--foreground` — that flag already
+  // means "run daemon in foreground terminal" (commands/daemon.ts).
+  foregroundProbeEnabled: boolean;
 }
 
 // Worker configuration with staggered offsets to prevent overlap
@@ -208,6 +220,12 @@ export class WorkerDaemon extends EventEmitter {
   // #1845: separate timer for the MCP-dispatch queue poller. Kept off
   // the per-worker map so stop() clears both kinds without confusion.
   private queuePollTimer?: NodeJS.Timeout;
+  // ADR-322 — dedicated 2s sampler for ADR-321's snapshot cache, mirroring
+  // queuePollTimer's shape exactly. Deliberately NOT routed through
+  // scheduleWorker()/DEFAULT_WORKERS: that machinery is built for
+  // minute-to-hour cadence (per-tick logging, concurrency/resource-check
+  // bookkeeping) — wrong overhead class for a 2000ms sampler.
+  private foregroundProbeTimer?: NodeJS.Timeout;
   // #2356: separate timer that enforces the daemon's max-age TTL + idle
   // shutdown. Cleared in stop() alongside the worker/queue timers.
   private lifecycleTimer?: NodeJS.Timeout;
@@ -293,6 +311,10 @@ export class WorkerDaemon extends EventEmitter {
         ?? fileConfig.aiWorkersEnabled
         ?? (process.env.RUFLO_DAEMON_AI_WORKERS === '1'),
       workers: config?.workers ?? DEFAULT_WORKERS,
+      // ADR-322 — same precedence chain as aiWorkersEnabled: flag > config.json > env > OFF.
+      foregroundProbeEnabled: config?.foregroundProbeEnabled
+        ?? fileConfig.foregroundProbeEnabled
+        ?? (process.env.RUFLO_DAEMON_STATE_PROBE === '1'),
     };
 
     // Setup graceful shutdown handlers
@@ -458,6 +480,7 @@ export class WorkerDaemon extends EventEmitter {
     ttlMs?: number;
     idleShutdownMs?: number;
     aiWorkersEnabled?: boolean;
+    foregroundProbeEnabled?: boolean;
   } {
     const jsonPath = join(claudeFlowDir, 'config.json');
     const yamlPath = join(claudeFlowDir, 'config.yaml');
@@ -515,6 +538,8 @@ export class WorkerDaemon extends EventEmitter {
       const rawIdle = cfg['daemon.idleSecs'] ?? raw['daemon.idleSecs'];
       // #2661 — explicit opt-in for scheduled AI workers.
       const rawAiEnabled = cfg['daemon.aiWorkers.enabled'] ?? raw['daemon.aiWorkers.enabled'];
+      // ADR-322 — explicit opt-in for the foreground/git-status snapshot sampler.
+      const rawStateProbeEnabled = cfg['daemon.stateProbe.enabled'] ?? raw['daemon.stateProbe.enabled'];
       return {
         autoStart: typeof raw['daemon.autoStart'] === 'boolean' ? raw['daemon.autoStart'] : undefined,
         maxConcurrent: (typeof rawMaxConcurrent === 'number' && rawMaxConcurrent > 0) ? rawMaxConcurrent : undefined,
@@ -524,6 +549,7 @@ export class WorkerDaemon extends EventEmitter {
         ttlMs: (typeof rawTtl === 'number' && rawTtl >= 0) ? rawTtl * 1000 : undefined,
         idleShutdownMs: (typeof rawIdle === 'number' && rawIdle >= 0) ? rawIdle * 1000 : undefined,
         aiWorkersEnabled: typeof rawAiEnabled === 'boolean' ? rawAiEnabled : undefined,
+        foregroundProbeEnabled: typeof rawStateProbeEnabled === 'boolean' ? rawStateProbeEnabled : undefined,
       };
     } catch {
       return {};
@@ -926,6 +952,18 @@ export class WorkerDaemon extends EventEmitter {
       this.queuePollTimer.unref();
     }
 
+    // ADR-322 — opt-in foreground/git-status snapshot sampler feeding
+    // ADR-321's cache. Same interval as ADR-321's TTL (2000ms) so a hook
+    // reading the cache almost never observes a stale-by-daemon read.
+    if (this.config.foregroundProbeEnabled) {
+      this.foregroundProbeTimer = setInterval(() => {
+        this.sampleForegroundSnapshot();
+      }, 2_000);
+      if (typeof this.foregroundProbeTimer.unref === 'function') {
+        this.foregroundProbeTimer.unref();
+      }
+    }
+
     // #2356: self-terminating lifecycle. Without an upper bound on lifetime a
     // forgotten daemon keeps dispatching headless worker sweeps for days.
     this.startLifecycleMonitor();
@@ -992,6 +1030,63 @@ export class WorkerDaemon extends EventEmitter {
   }
 
   /**
+   * ADR-322 — the daemon becomes ADR-321's snapshot writer. Discovers which
+   * sessions are currently live by scanning `.claude-flow/session/<id>` dirs for the
+   * `session.json` marker `hook-handler.cjs`'s session-restore writes (and
+   * session-end deletes) — a different discovery shape than killStaleDaemons'
+   * PID-file/process-list scan (this is per-session directories, not daemon
+   * PIDs), reusing only the "scan + liveness-check" pattern, not the code.
+   *
+   * Writes ADR-321's exact schema/file for each live session with
+   * `sampledBy: 'daemon'`, `_pid` defaulting to this daemon's own (long-lived)
+   * PID — making ADR-321's PID-mismatch staleness rule meaningful (a crashed
+   * daemon's snapshots go stale immediately, not just after the TTL).
+   *
+   * Foreground-window-title/process-tree sampling is real per-OS API surface
+   * (Win32 GetForegroundWindow, X11/Cocoa equivalents) this method does not
+   * implement — left absent rather than fabricated. `gitStatusSummary` is
+   * populated for real: a spawn here costs nothing correctness-wise, since
+   * the daemon runs this on its own 2s interval regardless of hook-fire
+   * frequency (the thing ADR-322 actually optimizes away is the *hook-side*
+   * spawn, not spawning ever).
+   */
+  private sampleForegroundSnapshot(): void {
+    const sessionRoot = join(this.projectRoot, '.claude-flow', 'session');
+    let sessionIds: string[];
+    try {
+      sessionIds = readdirSync(sessionRoot);
+    } catch {
+      return; // no sessions yet — nothing to sample
+    }
+
+    let gitStatusSummary: { uncommittedCount: number; branch: string } | undefined;
+    try {
+      const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: this.projectRoot, encoding: 'utf-8' }).trim();
+      const porcelain = execSync('git status --porcelain', { cwd: this.projectRoot, encoding: 'utf-8' });
+      const uncommittedCount = porcelain.split('\n').filter((line) => line.trim().length > 0).length;
+      gitStatusSummary = { uncommittedCount, branch };
+    } catch {
+      // not a git repo, or git unavailable — omit; never blocks the sample.
+    }
+
+    for (const sessionId of sessionIds) {
+      let marker: SessionMarker | null = null;
+      try {
+        marker = JSON.parse(readFileSync(join(sessionRoot, sessionId, 'session.json'), 'utf-8'));
+      } catch {
+        continue; // no marker (not a session dir, or session already ended)
+      }
+      if (!isSessionMarkerLive(marker)) {
+        continue; // marker's session process is gone — stale, don't sample for it
+      }
+      writeForegroundSnapshot(sessionId, this.projectRoot, {
+        sampledBy: 'daemon',
+        gitStatusSummary,
+      });
+    }
+  }
+
+  /**
    * Stop the daemon and all workers
    */
   async stop(): Promise<void> {
@@ -1012,6 +1107,12 @@ export class WorkerDaemon extends EventEmitter {
     if (this.queuePollTimer) {
       clearInterval(this.queuePollTimer);
       this.queuePollTimer = undefined;
+    }
+
+    // ADR-322: stop the foreground/git-status snapshot sampler too.
+    if (this.foregroundProbeTimer) {
+      clearInterval(this.foregroundProbeTimer);
+      this.foregroundProbeTimer = undefined;
     }
 
     // #2356: stop the TTL/idle lifecycle monitor.
