@@ -134,6 +134,9 @@ importers:
       semver:
         specifier: 7.7.3
         version: 7.7.3
+      sql.js:
+        specifier: ^1.13.0
+        version: 1.14.1
       yaml:
         specifier: ^2.8.0
         version: 2.8.2
