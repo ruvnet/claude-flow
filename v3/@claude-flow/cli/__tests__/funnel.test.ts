@@ -641,7 +641,13 @@ describe('generated statusline promo row', () => {
 
   it('re-sanitizes promo text at render time (control chars stripped, capped)', () => {
     expect(script).toContain('\\u0000-\\u001f');
-    expect(script).toContain('.slice(0, 100)');
+    // v3.29.0 replaced the silent `.slice(0, 100)` truncation with a
+    // MAX_LEN + ellipsis path that shows the row was truncated instead
+    // of chopping a word mid-character. Assert both the cap constant AND
+    // the ellipsis suffix are present.
+    expect(script).toContain('MAX_LEN');
+    expect(script).toMatch(/MAX_LEN\s*=\s*100/);
+    expect(script).toContain('…');
   });
 
   it('never renders promo styling from payload — colors come from a fixed kind map', () => {
@@ -736,14 +742,19 @@ describe('getFunnelPromo — API-down fallback discipline', () => {
       statusline: { enabled: true, style: 'compact' as const },
       runtime: { maxAgents: 15 },
     });
-    // Underline on/off must sandwich the OSC 8 wrap on the label only.
-    expect(script).toMatch(/UL_ON \+ safeTerminalLink\(label, promo\.url\) \+ UL_OFF/);
+    // v3.29.0: label gets underline styling (still). But the whole row
+    // is now wrapped in ONE OSC 8 hyperlink via wrapWholeRowInHyperlink,
+    // not just the label — every part of the row is a click target.
+    // Label still carries UL_ON/UL_OFF for the underline cue.
+    expect(script).toMatch(/UL_ON \+ label \+ UL_OFF/);
+    expect(script).toContain('wrapWholeRowInHyperlink');
     // "manage: " connector stays dim.
     expect(script).toMatch(/DIM_ON \+ manageWord \+ DIM_OFF/);
-    // The command itself is bold, never underlined / OSC-8-wrapped.
-    expect(script).toMatch(/BOLD_ON \+ command \+ BOLD_OFF/);
+    // The command itself is bold + bright-white, never underlined.
+    // v3.29.0 added FG_BRIGHT_WHITE so it visually stands out from the
+    // row's kind-color instead of getting lost in it.
+    expect(script).toMatch(/BOLD_ON \+ FG_BRIGHT_WHITE \+ command \+ FG_DEFAULT \+ BOLD_OFF/);
     expect(script).not.toMatch(/UL_ON \+ command/);
-    expect(script).not.toMatch(/safeTerminalLink\(command/);
     // The split must be on the exact manage-instruction anchor.
     expect(script).toMatch(/text\.indexOf\(' · manage: '\)/);
   });

@@ -42,12 +42,18 @@ const CONFIG = {
 const CWD = process.cwd();
 
 // ─── Delegation cache ───────────────────────────────────────────
-// Cache the CLI JSON result for 60s so rapid prompt re-renders
-// (Claude Code refreshes the statusline several times a second while
-// streaming) don't re-invoke the CLI each time. #2337: bumped 10s→60s
-// because 10s was far too short for how often Claude Code re-renders.
+// Cache the CLI JSON result so rapid prompt re-renders (Claude Code
+// refreshes the statusline several times a second while streaming) don't
+// re-invoke the CLI each time.
+// #2337 bumped 10s → 60s.
+// Followup for anthropics/claude-code#70200 (Windows console-flash bug —
+// claude.exe spawns hook/statusline subprocesses without CREATE_NO_WINDOW,
+// producing a visible cmd flash on every render): bumped 60s → 300s to
+// reduce the flash rate 5x on Windows until the upstream fix ships.
+// Tradeoff: stat/git counters update every 5min instead of every 1min;
+// promo/insight row still rotates on its own tighter 20s promoFresh clock.
 const CACHE_FILE = path.join(os.tmpdir(), 'ruflo-statusline-cache-' + require('crypto').createHash('md5').update(CWD).digest('hex').slice(0, 8) + '.json');
-const CACHE_TTL_MS = 60000;
+const CACHE_TTL_MS = 300000;
 
 // The promo/insight row is designed to rotate on a 20s cadence (funnel/
 // rotation.ts's ROTATION_SLOT_MS / funnel/promo.ts's insight-slot check —
@@ -229,7 +235,7 @@ function getStatuslineData() {
     try {
       const raw = execSync(
         cmd,
-        { encoding: 'utf-8', timeout: 8000, stdio: ['pipe', 'pipe', 'pipe'], cwd: CWD }
+        { encoding: 'utf-8', timeout: 8000, stdio: ['pipe', 'pipe', 'pipe'], cwd: CWD, windowsHide: true }
       ).trim();
       // The CLI may emit preamble lines before the JSON — find the first '{'.
       const jsonStart = raw.indexOf('{');
@@ -445,6 +451,11 @@ function safeExec(cmd, timeoutMs) {
       encoding: 'utf-8',
       timeout: timeoutMs || 2000,
       stdio: ['pipe', 'pipe', 'pipe'],
+      // Windows: without this, every execSync spawns cmd.exe /d /s /c which
+      // flashes a visible console window every render (~1/min via the 60s
+      // cache TTL). windowsHide runs the child in a hidden window instead.
+      // No-op on POSIX. Fix for #2XXX (user report: "cmd prompt keeps opening").
+      windowsHide: true,
     }).trim();
   } catch {
     return '';
@@ -868,12 +879,16 @@ function getPromoRow(d) {
     if (/^(0|false|off|no)$/i.test(String(process.env.RUFLO_FUNNEL || ''))) return null;
     const promo = d && d.promo;
     if (!promo || typeof promo.text !== 'string') return null;
-    // Strip control chars / ANSI / bidi overrides and hard-cap length —
-    // promo copy is data and must never emit its own terminal sequences.
-    const text = promo.text
+    // Strip control chars / ANSI / bidi overrides — promo copy is data and
+    // must never emit its own terminal sequences. Hard-cap length AFTER the
+    // strip; append an ellipsis when the cap fires so the row visibly reads
+    // as truncated instead of chopping a word mid-character (was: silent
+    // slice(0,100) that could produce output that looked like corrupt data).
+    const MAX_LEN = 100;
+    const sanitized = promo.text
       .replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, '')
-      .slice(0, 100)
-      .trim();
+      ;
+    const text = (sanitized.length > MAX_LEN ? sanitized.slice(0, MAX_LEN - 1).trimEnd() + '…' : sanitized).trim();
     if (text.length === 0) return null;
     // Split the label from the trailing "· manage: ruflo settings" instruction
     // so each part gets styling that matches what it actually IS:
@@ -896,9 +911,68 @@ function getPromoRow(d) {
     const DIM_OFF = '\u001b[22m';
     const BOLD_ON = '\u001b[1m';
     const BOLD_OFF = '\u001b[22m';
-    const linked = promo.url ? UL_ON + safeTerminalLink(label, promo.url) + UL_OFF : label;
-    if (!command) return linked;
-    return linked + DIM_ON + manageWord + DIM_OFF + BOLD_ON + command + BOLD_OFF;
+    const FG_BRIGHT_WHITE = '[97m';
+    // Reset FG to default so the caller's row-color code resumes coloring the
+    // rest of the row after the command portion. Without this the row-color
+    // escape wouldn't visibly re-apply because we already emitted an explicit FG.
+    const FG_DEFAULT = '[39m';
+    // Some hosts (Claude Code's Windows UI, cmd.exe, older mintty) don't
+    // render OSC 8 hyperlinks as clickable — the label just underlines and
+    // clicks do nothing. Append a "(domain)" suffix so the destination is
+    // visible/copyable everywhere. Wrap the suffix in OSC 8 too so terminals
+    // that DO support hyperlinks give users TWO click targets (label AND
+    // domain hint) instead of one — some Windows hosts render one but not
+    // the other depending on how the statusline row is parsed.
+    // Only for URLs (not educational tips), and only when the label doesn't
+    // already end in the domain to avoid duplication.
+    let visibleUrlHint = '';
+    if (promo.url) {
+      try {
+        const host = new URL(promo.url).hostname.replace(/^www\./, '');
+        // Strip the click-redirect wrapper so users see the FINAL destination,
+        // not funnel.ruv.io. If the URL is /v1/click/<id>?to=<encoded>, pull the target.
+        let displayHost = host;
+        try {
+          const to = new URL(promo.url).searchParams.get('to');
+          if (to) displayHost = new URL(to).hostname.replace(/^www\./, '');
+        } catch { /* not a click-redirect, keep the raw host */ }
+        if (displayHost && !label.toLowerCase().endsWith(displayHost.toLowerCase())) {
+          // safeTerminalLink returns the plain string if URL isn't allowlisted
+          // or the terminal can't do OSC 8 — either way the domain stays visible.
+          const clickableDomain = safeTerminalLink(displayHost, promo.url);
+          visibleUrlHint = DIM_ON + ' (' + clickableDomain + ')' + DIM_OFF;
+        }
+      } catch { /* malformed URL — omit hint, never break the row */ }
+    }
+    // "Entire row clickable" (user request) — wrap the whole assembled
+    // string in ONE OSC 8 hyperlink instead of just the label. The command
+    // portion keeps its bold + bright-white treatment (no underline) so it
+    // still VISUALLY reads as a shell command the user should type, not a
+    // link — but if the user clicks anywhere on the row (label, domain
+    // hint, connector, even the command text), the terminal opens the URL.
+    // Clicking DOES NOT execute the command; it just opens the target URL,
+    // which is safe. Terminals that ignore OSC 8 render the whole row as
+    // styled text and no click behavior — the previous fallback (visible
+    // domain suffix) still keeps the destination readable.
+    const wrapWholeRowInHyperlink = (assembled) => {
+      if (!promo.url) return assembled;
+      if (!terminalSupportsHyperlinks()) return assembled;
+      let parsed;
+      try { parsed = new URL(promo.url); } catch { return assembled; }
+      if (parsed.protocol !== 'https:') return assembled;
+      if (!PROMO_LINK_HOSTS.has(parsed.hostname)) return assembled;
+      const ESC = '';
+      return ESC + ']8;;' + parsed.href + ESC + '\\' + assembled + ESC + ']8;;' + ESC + '\\';
+    };
+    // Visual styling stays per-part. We only add the OSC 8 wrap around the
+    // combined string, so the whole row is one click target.
+    const labelStyled = promo.url ? UL_ON + label + UL_OFF : label;
+    if (!command) return wrapWholeRowInHyperlink(labelStyled + visibleUrlHint);
+    return wrapWholeRowInHyperlink(
+      labelStyled + visibleUrlHint
+      + DIM_ON + manageWord + DIM_OFF
+      + BOLD_ON + FG_BRIGHT_WHITE + command + FG_DEFAULT + BOLD_OFF
+    );
   } catch (e) {
     return null; // the promo row must never break the statusline
   }

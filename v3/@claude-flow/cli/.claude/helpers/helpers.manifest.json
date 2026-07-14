@@ -1,12 +1,13 @@
 {
   "manifest": {
-    "version": "3.23.0",
+    "version": "3.30.0",
     "files": {
-      "auto-memory-hook.mjs": "68be7e9a9eba7bf9c4e8a230db7bf61a243b965639f8504842799d6c6ca28762",
-      "hook-handler.cjs": "bc4d2d26823d49b3ab1dded2946b66369f1f67bd76b4c30dca9f3b6df3cca8f0",
-      "intelligence.cjs": "760cb82ed2000031abc1ac1fa90a014e7d91d93966e3aa4741b07ab7aff8d066"
+      "auto-memory-hook.mjs": "e3e1033b24704992ddef6b31c7fa9dd7fcd9e1af7935dd77ef73402b916b31e6",
+      "hook-handler.cjs": "dc926a1a585abac85941347894632a800a9c4394e99166726017643e5b3c5950",
+      "intelligence.cjs": "5a55d979cb7ba5c8c4f27f3b2e6d686fbb1045d180023b803da672a37e05b915",
+      "statusline.cjs": "7d7bdee732e1c75b863e409afb86ce0d712f4919245e990d806da6752015bffa"
     }
   },
-  "signature": "of5l9RP68iPcmcC5dckDv+KIOiENJKifWxYKwQTwAiXiyRNNZuMwQ8y8Bd8+wGviTRxIzBfSuxL1nuJ/rX3xDQ==",
+  "signature": "qO6+PIo9cihYWK86U9waSWMTjEM5G/leQ17+BxysCKz4szKLiFfLM/oDK+mTArWiJ4QPkLMIbtSfw3X736/yBg==",
   "algorithm": "ed25519"
 }

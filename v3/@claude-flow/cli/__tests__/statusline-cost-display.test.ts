@@ -111,21 +111,24 @@ describe('statusline cost display — committed artifact drift guard', () => {
       '../../../../.claude/helpers/statusline.cjs',
     );
     if (!existsSync(artifact)) return; // package tested in isolation; nothing to guard
-    const committed = readFileSync(artifact, 'utf-8');
-    // TECH DEBT (tracked separately): the committed root helper is the
-    // #2195 "delegation build" — it delegates to `hooks statusline --json`
-    // and carries the v3.29.0 UX improvements (whole-row-clickable OSC 8,
-    // (domain) suffix, ellipsis on truncation, bright-white command, 300s
-    // cache TTL, windowsHide on all subprocess spawns). The generator in
-    // src/init/statusline-generator.ts still emits the pre-#2195 non-
-    // delegation shape and hasn't been updated to match. Rather than
-    // regress the deployed helper (which would strip real user-facing
-    // improvements) or block every unrelated PR on a 1858-line generator
-    // rewrite, this guard skips when the committed helper carries the
-    // #2195 delegation-build header — that signals "intentionally
-    // hand-managed, generator sync is a separate task."
-    if (committed.includes('delegation build (#2195)')) return;
-    expect(committed).toBe(SCRIPT);
+    // #2679 fix: generator now reads .claude/helpers/statusline.cjs as its
+    // single source of truth (via generateStatuslineScript() walk-up), so
+    // this byte-comparison is meaningful again. If a future edit changes
+    // ONLY one of (generator output, committed helper), this test fails —
+    // that's the intended catch. (Prior tech-debt skip removed now that
+    // the underlying drift is fixed.)
+    //
+    // ONE LEGITIMATE diff normalized: the baked `let ver = "…";` line
+    // resolves to the running CLI's version at generation time. In
+    // vitest that lands in an older pnpm-installed @claude-flow/cli
+    // (whichever workspace-linked or store-hoisted resolution wins),
+    // in production it lands in the actual installed CLI. The generator
+    // has a non-downgrade guard on the substitution but the drift-test
+    // environment can still see the two versions differ — that's not
+    // real drift, just resolution locale. Normalize before compare.
+    const normalizeVer = (s: string): string =>
+      s.replace(/let ver = "[^"]+";/, 'let ver = "X.Y.Z";');
+    expect(normalizeVer(readFileSync(artifact, 'utf-8'))).toBe(normalizeVer(SCRIPT));
   });
 });
 
