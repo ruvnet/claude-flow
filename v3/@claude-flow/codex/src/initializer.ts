@@ -330,14 +330,35 @@ export class CodexInitializer {
         };
       }
 
-      // Check if already registered
+      // Check if already registered. Prefer the structured `--json` output
+      // (each entry has a `name` field — confirmed current as of the 2026
+      // `codex mcp` CLI) over a plain substring match against the human
+      // -readable table, which false-positives on any server whose name or
+      // command merely contains "ruflo" and breaks silently if the table
+      // formatting changes.
       try {
-        const list = execSync('codex mcp list 2>&1', { encoding: 'utf-8' });
-        if (list.includes('ruflo')) {
+        const listJson = execSync('codex mcp list --json 2>&1', { encoding: 'utf-8' });
+        const parsed = JSON.parse(listJson);
+        // Confirmed shape (2026 `codex mcp` CLI) is a bare array; tolerate a
+        // future `{ servers: [...] }` wrapper but otherwise treat an
+        // unrecognized shape as "unknown" rather than silently concluding
+        // not-registered — falls through to the safe text-based fallback.
+        const servers = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.servers) ? parsed.servers : null;
+        if (!servers) throw new Error('unrecognized `codex mcp list --json` shape');
+        if (servers.some((s: unknown) => s && typeof s === 'object' && (s as { name?: unknown }).name === 'ruflo')) {
           return { registered: true }; // Already registered
         }
       } catch {
-        // Ignore list errors
+        // --json unsupported (older codex CLI) or unparsable — fall back to
+        // the plain-text listing so registration still no-ops idempotently.
+        try {
+          const list = execSync('codex mcp list 2>&1', { encoding: 'utf-8' });
+          if (list.includes('ruflo')) {
+            return { registered: true };
+          }
+        } catch {
+          // Ignore list errors — fall through to (re-)register below.
+        }
       }
 
       // Register the MCP server

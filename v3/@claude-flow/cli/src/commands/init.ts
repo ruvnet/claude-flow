@@ -22,6 +22,7 @@ import {
   recordEnrollmentOutcome,
   shouldOfferEnrollment,
 } from '../funnel/enrollment.js';
+import { commandExists } from '../services/harness-hosts.js';
 
 /**
  * ADR-302 post-init capability enrollment. One-time, interactive-TTY-only,
@@ -54,6 +55,106 @@ async function offerCapabilityEnrollment(ctx: CommandContext): Promise<void> {
   }
 }
 
+// Dynamic import of the optional @claude-flow/codex package. Returns
+// undefined (never throws) when the package isn't resolvable anywhere —
+// callers decide whether that's a hard error (explicit --codex/--dual) or a
+// silent skip (auto-detect during a plain `ruflo init`).
+interface CodexInitResult {
+  success: boolean;
+  errors?: string[];
+  filesCreated: string[];
+  skillsGenerated: string[];
+  warnings?: string[];
+}
+type CodexInitializerCtor = new () => { initialize: (options: Record<string, unknown>) => Promise<CodexInitResult> };
+
+async function resolveCodexInitializer(cwd: string): Promise<CodexInitializerCtor | undefined> {
+  // Use a variable to prevent TypeScript from statically resolving the optional module
+  const codexModuleId = '@claude-flow/codex';
+  const resolutionStrategies = [
+    // Strategy 1: Direct import (works if installed as CLI dependency)
+    async () => (await import(codexModuleId)).CodexInitializer,
+    // Strategy 2: Project node_modules (works if installed in user's project)
+    async () => {
+      const projectPath = path.join(cwd, 'node_modules', '@claude-flow', 'codex', 'dist', 'index.js');
+      if (fs.existsSync(projectPath)) {
+        const mod = await import(`file://${projectPath}`);
+        return mod.CodexInitializer;
+      }
+      throw new Error('Not found in project');
+    },
+    // Strategy 3: Global node_modules
+    async () => {
+      const { execSync } = await import('child_process');
+      const globalPath = execSync('npm root -g', { encoding: 'utf-8' }).trim();
+      const codexPath = path.join(globalPath, '@claude-flow', 'codex', 'dist', 'index.js');
+      if (fs.existsSync(codexPath)) {
+        const mod = await import(`file://${codexPath}`);
+        return mod.CodexInitializer;
+      }
+      throw new Error('Not found globally');
+    },
+  ];
+
+  for (const strategy of resolutionStrategies) {
+    try {
+      const ctor = await strategy();
+      if (ctor) return ctor;
+    } catch {
+      // Try next strategy
+    }
+  }
+  return undefined;
+}
+
+// #2666-adjacent — quietly wire up Codex too when a plain `ruflo init` (no
+// --codex/--dual) runs on a machine that also has the OpenAI Codex CLI on
+// PATH: registers its MCP server and installs skills alongside the Claude
+// Code setup that just happened. Best-effort and silent-by-default — must
+// never fail or noisily interrupt a normal init. Opt out with
+// --no-codex-detect. Skipped entirely under --skip-claude (runtime-only
+// init) and scripted `--format json` output.
+async function maybeAutoDetectCodex(
+  ctx: CommandContext,
+  options: { force: boolean; minimal: boolean; full: boolean },
+): Promise<void> {
+  try {
+    if (ctx.flags['no-codex-detect'] === true) return;
+    if (ctx.flags.format === 'json') return; // scripted output stays pure
+    if (!commandExists('codex')) return;
+
+    const CodexInitializer = await resolveCodexInitializer(ctx.cwd);
+    if (!CodexInitializer) {
+      output.writeln();
+      output.printInfo('Detected the OpenAI Codex CLI — install @claude-flow/codex to auto-configure its MCP server and skills:');
+      output.writeln(output.dim('  npm install @claude-flow/codex && ruflo init --codex'));
+      return;
+    }
+
+    const initializer = new CodexInitializer();
+    const result = await initializer.initialize({
+      projectPath: ctx.cwd,
+      template: (options.minimal ? 'minimal' : options.full ? 'full' : 'default') as 'minimal' | 'default' | 'full' | 'enterprise',
+      force: options.force,
+      dual: false, // Claude Code files were already written by the main init flow above
+    });
+
+    if (!result.success) return; // best-effort — never fail the primary init over this
+
+    output.writeln();
+    output.printBox(
+      [
+        `AGENTS.md:            Codex project instructions`,
+        `.agents/config.toml:  MCP server + skills config`,
+        `.agents/skills/:      ${result.skillsGenerated.length} skills`,
+      ].join('\n'),
+      'OpenAI Codex detected — configured'
+    );
+  } catch {
+    // Codex auto-detect is a bonus, never a requirement — swallow everything.
+  }
+}
+
 // Codex initialization action
 async function initCodexAction(
   ctx: CommandContext,
@@ -72,52 +173,7 @@ async function initCodexAction(
   spinner.start();
 
   try {
-    // Dynamic import of the Codex initializer with lazy loading fallback
-    interface CodexInitResult {
-      success: boolean;
-      errors?: string[];
-      filesCreated: string[];
-      skillsGenerated: string[];
-      warnings?: string[];
-    }
-    let CodexInitializer: (new () => { initialize: (options: Record<string, unknown>) => Promise<CodexInitResult> }) | undefined;
-
-    // Try multiple resolution strategies for the @claude-flow/codex package
-    // Use a variable to prevent TypeScript from statically resolving the optional module
-    const codexModuleId = '@claude-flow/codex';
-    const resolutionStrategies = [
-      // Strategy 1: Direct import (works if installed as CLI dependency)
-      async () => (await import(codexModuleId)).CodexInitializer,
-      // Strategy 2: Project node_modules (works if installed in user's project)
-      async () => {
-        const projectPath = path.join(ctx.cwd, 'node_modules', '@claude-flow', 'codex', 'dist', 'index.js');
-        if (fs.existsSync(projectPath)) {
-          const mod = await import(`file://${projectPath}`);
-          return mod.CodexInitializer;
-        }
-        throw new Error('Not found in project');
-      },
-      // Strategy 3: Global node_modules
-      async () => {
-        const { execSync } = await import('child_process');
-        const globalPath = execSync('npm root -g', { encoding: 'utf-8' }).trim();
-        const codexPath = path.join(globalPath, '@claude-flow', 'codex', 'dist', 'index.js');
-        if (fs.existsSync(codexPath)) {
-          const mod = await import(`file://${codexPath}`);
-          return mod.CodexInitializer;
-        }
-        throw new Error('Not found globally');
-      },
-    ];
-
-    for (const strategy of resolutionStrategies) {
-      try {
-        CodexInitializer = await strategy();
-        if (CodexInitializer) break;
-      } catch {
-        // Try next strategy
-      }
-    }
+    const CodexInitializer = await resolveCodexInitializer(ctx.cwd);
 
     if (!CodexInitializer) {
       throw new Error('Cannot find module @claude-flow/codex');
@@ -426,6 +482,11 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     if (result.summary.hooksEnabled > 0) {
       output.printInfo(`Hooks: ${result.summary.hooksEnabled} hook types enabled in settings.json`);
       output.writeln();
+    }
+
+    // #2666-adjacent — auto-detect + configure OpenAI Codex CLI if present
+    if (!skipClaude) {
+      await maybeAutoDetectCodex(ctx, { force, minimal, full });
     }
 
     // Handle --start-all or --start-daemon
@@ -1264,6 +1325,12 @@ export const initCommand: Command = {
       default: false,
     },
     {
+      name: 'no-codex-detect',
+      description: 'Skip auto-detecting the OpenAI Codex CLI and configuring its MCP server + skills',
+      type: 'boolean',
+      default: false,
+    },
+    {
       name: 'all-agents',
       description: 'Install all agent categories (ADR-128: default is ~24 substrate agents; this restores the full set of ~89)',
       type: 'boolean',
@@ -1290,6 +1357,7 @@ export const initCommand: Command = {
     { command: 'claude-flow init --codex', description: 'Initialize for OpenAI Codex (AGENTS.md)' },
     { command: 'claude-flow init --codex --full', description: 'Codex init with all 137+ skills' },
     { command: 'claude-flow init --dual', description: 'Initialize for both Claude Code and Codex' },
+    { command: 'claude-flow init --no-codex-detect', description: 'Skip auto-configuring OpenAI Codex even if it is installed' },
     { command: 'claude-flow init --all-agents', description: 'Install all agent categories (~89 agents; ADR-128 opt-in)' },
   ],
   action: initAction,
