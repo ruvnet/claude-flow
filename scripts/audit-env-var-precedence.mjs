@@ -64,6 +64,9 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'RUFLO_FUNNEL_EVENTS_ENDPOINT',   // Staging/self-hosted override for the funnel events endpoint — same deployment-config pattern as CLICK_ENDPOINT above
   'RUFLO_FUNNEL_MESSAGES_ENDPOINT', // Staging/self-hosted override for the funnel messages endpoint — same deployment-config pattern as CLICK_ENDPOINT above
   'RUFLO_STATE_DIR',                // Test/CI isolation seam for the funnel state directory (defaults to ~/.ruflo) — background hook state, no CLI command reads it
+  'RUFLO_AI_DEDUP_DISABLE',         // #2661 — background daemon tuning knob (cross-worktree AI job dedup), no CLI command reads a running daemon's config
+  'RUFLO_AI_DEDUP_WINDOW_SECS',     // #2661 — same background daemon tuning context as RUFLO_AI_DEDUP_DISABLE above
+  'RUFLO_DAEMON_AI_WORKERS',        // #2661 — DOES have CLI-flag precedence (`daemon start --headless`), but it's wired via constructor-injected config in commands/daemon.ts, not a local check the audit's same-file heuristic can see from worker-daemon.ts where this read lives
 
   // ── Embedding substrate toggles (3.25.x — opt-in tier + fail-closed ops flag) ─
   'RUFLO_REQUIRE_REAL_EMBEDDINGS', // Fail-closed "no stubs" strict mode — deploy/CI ops toggle, not a per-invocation CLI flag (ADR-176)
