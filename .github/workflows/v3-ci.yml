@@ -2517,25 +2517,42 @@ jobs:
       - name: Guard 1 — static delegation contract
         shell: bash
         run: |
-          echo "Checking that statusline-generator.ts delegates to 'hooks statusline --json'..."
-          grep -q "hooks statusline --json" v3/@claude-flow/cli/src/init/statusline-generator.ts \
-            || { echo "::error::statusline-generator.ts no longer delegates to 'hooks statusline --json' — regression of #2195"; exit 1; }
-          echo "ok: delegation pattern found"
+          # #2679: generator now READS .claude/helpers/statusline.cjs as its
+          # single source of truth rather than duplicating the content in an
+          # inline template. The delegation contract lives in the HELPER
+          # file now — grep that instead. Also verify the generator still
+          # reads it (i.e. the read-and-substitute pattern is intact) so a
+          # future refactor can't silently break the delegation contract
+          # by dropping the file read.
+          HELPER=v3/@claude-flow/cli/.claude/helpers/statusline.cjs
+          GEN=v3/@claude-flow/cli/src/init/statusline-generator.ts
 
-          echo "Checking that the old fragile heuristics are NOT present..."
+          echo "Checking that the helper delegates to 'hooks statusline --json'..."
+          grep -q "hooks statusline --json" "$HELPER" \
+            || { echo "::error::$HELPER no longer delegates to 'hooks statusline --json' — regression of #2195"; exit 1; }
+          echo "ok: delegation pattern found in helper"
+
+          echo "Checking that the generator reads the helper (#2679 sync pattern)..."
+          grep -q "statusline.cjs" "$GEN" \
+            || { echo "::error::$GEN no longer references statusline.cjs — regression of #2679 read-and-substitute pattern"; exit 1; }
+          grep -qE "readFileSync.*helperContent|helperContent.*readFileSync" "$GEN" \
+            || { echo "::error::$GEN no longer reads helper via readFileSync — regression of #2679"; exit 1; }
+          echo "ok: read-and-substitute pattern intact"
+
+          echo "Checking that the old fragile heuristics are NOT present (in helper)..."
           # The buggy fallback computed domains from file-based pattern counts —
           # this produced domainsCompleted=0 when AgentDB had 26k+ patterns.
-          ! grep -q "getLearningStats\b" v3/@claude-flow/cli/src/init/statusline-generator.ts \
-            || { echo "::error::statusline-generator.ts still has getLearningStats (old local reader) — regression of #2195"; exit 1; }
-          ! grep -q "getV3Progress\b" v3/@claude-flow/cli/src/init/statusline-generator.ts \
-            || { echo "::error::statusline-generator.ts still has getV3Progress (old local reader) — regression of #2195"; exit 1; }
+          ! grep -q "getLearningStats\b" "$HELPER" \
+            || { echo "::error::$HELPER still has getLearningStats (old local reader) — regression of #2195"; exit 1; }
+          ! grep -q "getV3Progress\b" "$HELPER" \
+            || { echo "::error::$HELPER still has getV3Progress (old local reader) — regression of #2195"; exit 1; }
           echo "ok: old local-reader heuristics removed"
 
           echo "Checking that both ADR directories are counted..."
-          grep -q "v3/docs/adr" v3/@claude-flow/cli/src/init/statusline-generator.ts \
-            || { echo "::error::statusline-generator.ts missing v3/docs/adr ADR directory — regression of #2195 ADR-count bug"; exit 1; }
-          grep -q "v3/implementation/adrs" v3/@claude-flow/cli/src/init/statusline-generator.ts \
-            || { echo "::error::statusline-generator.ts missing v3/implementation/adrs ADR directory"; exit 1; }
+          grep -q "v3/docs/adr" "$HELPER" \
+            || { echo "::error::$HELPER missing v3/docs/adr ADR directory — regression of #2195 ADR-count bug"; exit 1; }
+          grep -q "v3/implementation/adrs" "$HELPER" \
+            || { echo "::error::$HELPER missing v3/implementation/adrs ADR directory"; exit 1; }
           echo "ok: both ADR directories present"
 
       - name: Setup pnpm
