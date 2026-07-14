@@ -1,13 +1,16 @@
 /**
  * `ruflo funnel` — user control surface for the Cognitum lifecycle funnel
- * (ADR-301/305/309).
+ * (ADR-301/305/309/317).
  *
- *   funnel status    effective state and which precedence source decided it
- *   funnel disable   user-level opt-out (all surfaces) + delete funnel data
- *   funnel enable    re-enable at the user tier (cannot override env/enterprise)
- *   funnel accept    acknowledge the disclosure so rotation starts immediately
- *   funnel open      open the currently-shown promo URL in the default browser
- *   funnel id        print the pseudonymous funnel ID, if one exists
+ *   funnel status     effective state and which precedence source decided it
+ *   funnel disable    user-level opt-out (all surfaces) + delete funnel data
+ *   funnel enable     re-enable at the user tier (cannot override env/enterprise)
+ *   funnel accept     acknowledge the disclosure so rotation starts immediately
+ *   funnel open       open the currently-shown promo URL in the default browser
+ *   funnel enroll     opt in to the 50/50 revenue share on Cognitum sponsor spend (ADR-317)
+ *   funnel earnings   show accrued and paid revenue-share balance
+ *   funnel unenroll   revoke local enrollment (funnel itself stays enabled)
+ *   funnel id         print the pseudonymous funnel ID, if one exists
  */
 
 import { execFile } from 'node:child_process';
@@ -17,10 +20,13 @@ import * as path from 'node:path';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import {
+  deleteEnrollment,
   deleteFunnelData,
   funnelStateDir,
   getDisclosure,
+  getEnrollment,
   getFunnelId,
+  isEarningEligible,
   promoEligible,
   readConsents,
   recordDisclosureAccepted,
@@ -28,6 +34,7 @@ import {
   recordDisclosureReenabled,
   resolveFunnelEnabled,
 } from '../funnel/index.js';
+import { hasConsent, recordConsent } from '../funnel/consent.js';
 import { readStateJson, writeStateJson } from '../funnel/state.js';
 
 function setUserConfigEnabled(enabled: boolean): void {
@@ -212,6 +219,98 @@ const openSub: Command = {
   },
 };
 
+// ─── ADR-317: developer revenue-share subcommands ─────────────────────────
+
+const ENROLL_URL = 'https://funnel.ruv.io/enroll';
+
+const enrollSub: Command = {
+  name: 'enroll',
+  description: 'Opt in to the 50/50 revenue share on Cognitum sponsor spend (ADR-317, Phase 0)',
+  action: async (): Promise<CommandResult> => {
+    const decision = resolveFunnelEnabled();
+    if (!decision.enabled) {
+      output.printWarning(
+        `Funnel is currently disabled by: ${decision.decidedBy}. Enable it (ruflo funnel enable) before enrolling — there's nothing to earn from until the funnel is on.`
+      );
+      return { success: false, data: decision };
+    }
+    const disclosure = getDisclosure();
+    if (disclosure.state !== 'disclosed_enabled') {
+      output.printWarning(
+        "The Cognitum disclosure hasn't been shown/accepted yet. Run 'ruflo funnel accept' first, then re-run enroll."
+      );
+      return { success: false, data: disclosure };
+    }
+    // Phase 0: record local consent so downstream attribution knows the user
+    // WANTS to enroll, but the backend endpoint that returns a real token is
+    // not live yet — this ADR ships in a version before the payout backend.
+    recordConsent('rev-share-payout', true, 'cli-funnel-enroll');
+    output.writeln('Consent recorded for rev-share-payout.');
+    output.writeln('');
+    output.writeln('The backend enrollment endpoint (Stripe Connect + KYC) is not yet live.');
+    output.writeln('When it ships, this command will open your browser to:');
+    output.writeln('');
+    output.writeln(`  ${ENROLL_URL}`);
+    output.writeln('');
+    output.writeln("Meanwhile, your consent is on file. Track the rollout at ADR-317 (v3/docs/adr/).");
+    return { success: true, data: { consent: 'granted', enrollment: 'pending-backend' } };
+  },
+};
+
+const earningsSub: Command = {
+  name: 'earnings',
+  description: 'Show accrued and paid revenue-share balance (ADR-317)',
+  options: [
+    { name: 'json', description: 'Output as JSON', type: 'boolean', default: false },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const consented = hasConsent('rev-share-payout');
+    const rec = getEnrollment();
+    const eligible = isEarningEligible();
+    const summary = {
+      consent: consented ? 'granted' : 'not-granted',
+      enrollment: rec ? { kyc_status: rec.kyc_status, enrolled_at: rec.enrolled_at, payout_account_last4: rec.payout_account_last4 } : null,
+      earning_eligible: eligible,
+      note: rec
+        ? 'Earnings endpoint (funnel.ruv.io/v1/earnings) is not yet live — see ADR-317 Phase 1.'
+        : 'Not enrolled. Run `ruflo funnel enroll` to opt in.',
+    };
+    if (ctx.flags.json) {
+      output.printJson(summary);
+    } else {
+      output.writeln(`Consent: ${summary.consent}`);
+      output.writeln(`Enrolled: ${rec ? 'yes' : 'no'}`);
+      if (rec) {
+        output.writeln(`  KYC: ${rec.kyc_status}`);
+        output.writeln(`  Payout account: ****${rec.payout_account_last4}`);
+        output.writeln(`  Since: ${rec.enrolled_at}`);
+      }
+      output.writeln(`Earning: ${eligible ? 'yes' : 'no'}`);
+      output.writeln('');
+      output.writeln(summary.note);
+    }
+    return { success: true, data: summary };
+  },
+};
+
+const unenrollSub: Command = {
+  name: 'unenroll',
+  description: 'Revoke rev-share enrollment locally (funnel itself stays enabled)',
+  action: async (): Promise<CommandResult> => {
+    const hadEnrollment = !!getEnrollment();
+    const hadConsent = hasConsent('rev-share-payout');
+    recordConsent('rev-share-payout', false, 'cli-funnel-unenroll');
+    deleteEnrollment();
+    if (hadEnrollment || hadConsent) {
+      output.printSuccess('Unenrolled locally. Funnel messages still render; your install just no longer earns.');
+      output.writeln('Note: server-side revocation happens on next contact with funnel.ruv.io — the backend endpoint is not yet live (ADR-317 Phase 1).');
+    } else {
+      output.writeln('Nothing to unenroll — no local enrollment record and no rev-share consent was set.');
+    }
+    return { success: true, data: { previouslyEnrolled: hadEnrollment, previouslyConsented: hadConsent } };
+  },
+};
+
 const idSub: Command = {
   name: 'id',
   description: 'Print the pseudonymous funnel ID (exists only with telemetry consent)',
@@ -229,11 +328,13 @@ const idSub: Command = {
 export const funnelCommand: Command = {
   name: 'funnel',
   description: 'Control the Cognitum lifecycle funnel surfaces (tips, enrollment, notices)',
-  subcommands: [statusSub, disableSub, enableSub, acceptSub, openSub, idSub],
+  subcommands: [statusSub, disableSub, enableSub, acceptSub, openSub, enrollSub, earningsSub, unenrollSub, idSub],
   examples: [
     { command: 'ruflo funnel status', description: 'Effective state + deciding source' },
     { command: 'ruflo funnel accept', description: 'Skip the 24h grace so rotation starts now' },
     { command: 'ruflo funnel open', description: 'Open the current promo URL in the browser' },
+    { command: 'ruflo funnel enroll', description: 'Opt in to 50/50 rev share (ADR-317)' },
+    { command: 'ruflo funnel earnings', description: 'Show accrued and paid balance' },
     { command: 'ruflo funnel disable', description: 'Turn off every funnel surface' },
   ],
   action: statusSub.action,

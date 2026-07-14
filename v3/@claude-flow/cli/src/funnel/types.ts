@@ -85,7 +85,15 @@ export type ConsentDomain =
   // the concern training-data-sharing gates), but it's still a real, opt-in
   // network call with a real cost, and gets its own never-bundled decision
   // like every other domain in this family.
-  | 'advisor-tips';
+  | 'advisor-tips'
+  // ADR-317: separate again — enrollment in the developer revenue-share
+  // program, sharing 50% of Cognitum sponsor revenue attributed to this
+  // user's install. Never bundled with the funnel-on/off decision itself
+  // (a user can see rotating messages without earning; that's the default).
+  // Consent alone is a precondition — actual enrollment requires KYC +
+  // Stripe Connect via the browser flow started by `ruflo funnel enroll`,
+  // which can fail after consent for reasons outside the user's control.
+  | 'rev-share-payout';
 
 export interface ConsentReceipt {
   granted: boolean;
@@ -99,6 +107,22 @@ export type ConsentFile = Partial<Record<ConsentDomain, ConsentReceipt>>;
 
 /** Bump when the meaning of a consent domain changes materially (ADR-302). */
 export const CONSENT_POLICY_VERSION = 1;
+
+// ─── ADR-317: developer revenue-share payout enrollment ────────────────────
+
+export type PayoutEnrollmentPolicyVersion = 1;
+
+/**
+ * Local mirror of enrollment state issued by the funnel.ruv.io backend.
+ * The `enrollment_token` is opaque — the client never introspects it.
+ */
+export interface PayoutEnrollment {
+  enrollment_token: string;
+  enrolled_at: string;               // ISO
+  payout_account_last4: string;      // display-only, never used for auth
+  kyc_status: 'verified' | 'pending' | 'failed';
+  policy_version: PayoutEnrollmentPolicyVersion;
+}
 
 // ─── ADR-305: control precedence ────────────────────────────────────────────
 

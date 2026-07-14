@@ -58,6 +58,14 @@ export {
 export { deleteFunnelData, getFunnelId, lastRecordedEvent, recordFunnelEvent } from './events.js';
 export { getFunnelPromo, type PromoContext } from './promo.js';
 export {
+  PAYOUT_POLICY_VERSION,
+  deleteEnrollment,
+  getAttributionToken,
+  getEnrollment,
+  isEarningEligible,
+  recordEnrollment,
+} from './payout.js';
+export {
   RATE_LIMIT_TTL_MS,
   clearRateLimitStatus,
   markRateLimited,
