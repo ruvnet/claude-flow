@@ -11,7 +11,48 @@
  */
 
 import type { InitOptions } from './types.js';
-import { getInstalledCliVersion } from './helper-refresh.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+
+const __dirname_sg = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Resolves the running CLI's own version — same createRequire/walk-up
+ * approach as helper-refresh.ts's getInstalledCliVersion(), duplicated
+ * here rather than imported. helper-refresh.ts pulls in the `semver`
+ * package at module scope (for autoRefreshHelpersIfStale()'s version
+ * comparison, unrelated to this) — ES module imports load a module's
+ * ENTIRE top-level regardless of which export is used, so importing just
+ * getInstalledCliVersion from there still requires `semver` to be resolvable.
+ * Confirmed live: the CI smoke job that loads this generator via a minimal
+ * "smoke deps" install (no full `npm install`) failed with
+ * ERR_MODULE_NOT_FOUND('semver') the moment this file gained that import,
+ * even though this function itself never touches semver. Keeping this
+ * generator's own dependency footprint to bare Node builtins avoids
+ * dragging every future helper-refresh.ts dependency into every context
+ * that merely wants to render a statusline script.
+ */
+function getInstalledCliVersionLocal(): string {
+  try {
+    const esmRequire = createRequire(import.meta.url);
+    const pkg = JSON.parse(fs.readFileSync(esmRequire.resolve('@claude-flow/cli/package.json'), 'utf-8'));
+    return String(pkg.version || '0.0.0');
+  } catch {
+    let dir = __dirname_sg;
+    for (let i = 0; i < 6; i++) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf-8'));
+        if (pkg && pkg.name === '@claude-flow/cli') return String(pkg.version || '0.0.0');
+      } catch { /* no package.json here, or unreadable — keep climbing */ }
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    return '0.0.0';
+  }
+}
 
 /**
  * Generate optimized statusline script
@@ -36,7 +77,7 @@ export function generateStatuslineScript(options: InitOptions): string {
   // previous hardcoded "3.6" placeholder. getPkgVersion()'s own runtime
   // candidate scan still wins over this baked-in value when it finds
   // something newer (e.g. a later `npm update` in the same project).
-  const bakedVersion = getInstalledCliVersion();
+  const bakedVersion = getInstalledCliVersionLocal();
 
   return `#!/usr/bin/env node
 /**
