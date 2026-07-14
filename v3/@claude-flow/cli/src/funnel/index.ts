@@ -20,6 +20,7 @@ export {
   DISCLOSURE_ROTATION_SLOT_MS,
   getDisclosure,
   promoEligible,
+  recordDisclosureAccepted,
   recordDisclosureDeclined,
   recordDisclosureReenabled,
   recordDisclosureShown,

@@ -89,6 +89,10 @@ function spawnDetachedHookRefresh(subcommand) {
       detached: true,
       stdio: 'ignore',
       env: process.env,
+      // Windows: without this, npx.cmd's cmd.exe wrapper flashes a visible
+      // console window every time a hook fires a background refresh. Runs
+      // hidden instead. No-op on POSIX.
+      windowsHide: true,
     });
     child.unref();
   } catch (e) { /* best-effort only */ }

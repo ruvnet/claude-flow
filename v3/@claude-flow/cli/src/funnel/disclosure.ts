@@ -90,6 +90,19 @@ export function recordDisclosureReenabled(now: Date = new Date()): DisclosureRec
   return rec;
 }
 
+// Explicit user acknowledgement — bypasses the 24h grace so rotation starts
+// on the next render. The grace window's purpose is anti-flash (a single
+// glance can't count as "the user was told"); an explicit CLI action IS the
+// user saying they were told, so backdating firstShownAt past the window is
+// the correct semantics — not a policy hole. Stamps 1s past grace to avoid
+// clock-skew edge cases where now-grace lands exactly on the boundary.
+export function recordDisclosureAccepted(now: Date = new Date()): DisclosureRecord {
+  const backdated = new Date(now.getTime() - DISCLOSURE_GRACE_MS - 1000);
+  const rec: DisclosureRecord = { state: 'disclosed_enabled', firstShownAt: backdated.toISOString() };
+  writeStateJson(DISCLOSURE_FILE, rec);
+  return rec;
+}
+
 /**
  * Whether promotional/educational messages may render. True only after the
  * disclosure was shown AND its grace window has elapsed. While the window is
