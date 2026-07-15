@@ -13,6 +13,7 @@
   "references": [
     { "path": "../shared" },
     { "path": "../neural" },
-    { "path": "../memory" }
+    { "path": "../memory" },
+    { "path": "../security" }
   ]
 }

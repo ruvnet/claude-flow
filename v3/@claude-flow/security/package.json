@@ -11,11 +11,13 @@
   },
   "scripts": {
     "test": "vitest run",
+    "bench": "vitest bench --config vitest.bench.config.ts",
     "build": "tsc"
   },
   "dependencies": {
     "@noble/ed25519": "^2.1.0",
     "bcryptjs": "^3.0.3",
+    "typescript": "^5.9.3",
     "zod": "^3.22.0"
   },
   "devDependencies": {

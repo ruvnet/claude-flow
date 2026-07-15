@@ -103,6 +103,63 @@ export interface MemoryEntry {
 
   /** Last access timestamp */
   lastAccessedAt: number;
+
+  /**
+   * ADR-178 Primitive 1 — Verifiable Memory Governance (VMG) metadata,
+   * attached by `AgentDBAdapter.store()` at write time. Optional/additive:
+   * entries created before this field existed, or by backends that don't
+   * wire VMG, simply omit it.
+   *
+   * Nested under its own object deliberately — `MemoryEntry.version` above
+   * is an UNRELATED optimistic-locking update-counter (bumped by
+   * `AgentDBAdapter.update()`); `vmg.version` is VMG's own monotonic
+   * per-namespace:key write counter and must never be confused with it.
+   */
+  vmg?: VmgMetadata;
+}
+
+/**
+ * ADR-178 VMG metadata shape. See `./namespaces/vmg.ts` for the derivation
+ * logic (`computeVmgMetadata`, `deriveVmgPolicyTag`, `computeWriteHash`).
+ */
+export interface VmgMetadata {
+  /**
+   * Audit-trail identity for this write: `${ownerId ?? 'unknown'}:${timestamp}`.
+   * ADR-178 specs "agent-id + session-id + timestamp", but `MemoryEntry` has
+   * no `sessionId` field today — documented minor gap; provenance is
+   * agent-id + timestamp only for this phase. Adding a `sessionId` field
+   * cleanly is a separate, larger change (touches every entry constructor
+   * and caller) and is left for a follow-up.
+   */
+  provenance: string;
+
+  /**
+   * VMG's own monotonic version counter for this `namespace:key` chain —
+   * starts at 1 on first write, increments on each subsequent write to the
+   * same key. Distinct from the sibling `MemoryEntry.version` field.
+   */
+  version: number;
+
+  /**
+   * Retention/lifecycle tag. `'ephemeral'` entries are intended to be swept
+   * on session end (ADR-178 "policy-aware retention runs on `session-end`
+   * hook") — that hook wiring is out of scope here; a future
+   * `@claude-flow/hooks` `sessionEnd()` handler should sweep `'ephemeral'`
+   * entries via `clearNamespace`/`delete`. `'immutable'` is not derivable
+   * from anything in this phase (no caller marks entries immutable yet) —
+   * it exists on the type for forward-compatibility only.
+   */
+  policyTag: 'ephemeral' | 'session' | 'persistent' | 'immutable';
+
+  /** Hex SHA-256 of the entry's content at write time (tamper detection). */
+  writeHash: string;
+
+  /**
+   * Hex SHA-256 `writeHash` of the immediately-prior entry stored at the
+   * same `namespace:key`, forming a hash chain. `undefined` for the first
+   * write to a given `namespace:key`.
+   */
+  parentHash?: string;
 }
 
 /**

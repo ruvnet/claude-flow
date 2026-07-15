@@ -30,6 +30,15 @@ import {
 } from './types.js';
 import { HNSWIndex } from './hnsw-index.js';
 import { CacheManager } from './cache-manager.js';
+import { SealedMemoryWriter, type SealedEnvelope } from './namespaces/sealed-writer.js';
+import {
+  checkWrite,
+  MemoryWriteDenied,
+  InProcessNamespaceRegistry,
+  type NamespaceGrant,
+  type NamespaceRegistry,
+} from './namespaces/authorization.js';
+import { computeVmgMetadata } from './namespaces/vmg.js';
 
 /**
  * Configuration for AgentDB Adapter
@@ -67,6 +76,20 @@ export interface AgentDBAdapterConfig {
 
   /** Persistence path */
   persistencePath?: string;
+
+  /**
+   * Default namespaces requiring ADR-321 HMAC sealing on write/read (P1
+   * scope default: `collaboration` only), seeded into the adapter's
+   * `NamespaceRegistry` (`./namespaces/authorization.ts`) at construction.
+   *
+   * ADR-321 P3: `sealed` is looked up per-namespace via
+   * `NamespaceRegistry.getNamespaceConfig(namespace).sealed`, decoupled from
+   * the per-agent `NamespaceGrant` (task #10) — sealing is a property of
+   * the namespace, not of any one agent's grant, so two agents writing to
+   * the same namespace must see the same answer. `markNamespaceSealed`
+   * extends this at runtime via `NamespaceRegistry.setNamespaceConfig`.
+   */
+  sealedNamespaces: string[];
 }
 
 /**
@@ -82,7 +105,16 @@ const DEFAULT_CONFIG: AgentDBAdapterConfig = {
   hnswEfConstruction: 200,
   defaultNamespace: 'default',
   persistenceEnabled: false,
+  sealedNamespaces: ['collaboration'],
 };
+
+/** Shape persisted at `entry.metadata.sealed` for an ADR-321-sealed entry. */
+interface SealedMetadataFields {
+  seal: string;
+  writerId: string;
+  sealedAt: number;
+  keyEpoch: number;
+}
 
 /**
  * AgentDB Memory Backend Adapter
@@ -104,6 +136,30 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
   private tagIndex: Map<string, Set<string>> = new Map();
   private initialized: boolean = false;
 
+  /** ADR-321 P1 — HMAC sealing for `config.sealedNamespaces` writes/reads. */
+  private sealedMemoryWriter: SealedMemoryWriter = new SealedMemoryWriter();
+
+  /**
+   * ADR-321 P3 — the real per-namespace `sealed` registry (see
+   * `./namespaces/authorization.ts`'s `NamespaceRegistry` doc), seeded from
+   * `config.sealedNamespaces` at construction. `markNamespaceSealed` extends
+   * it at runtime so callers can opt a namespace into sealing without
+   * reconstructing the adapter, without folding `sealed` onto the per-agent
+   * `NamespaceGrant` (task #10) — sealing is namespace-scoped, not agent-scoped.
+   */
+  private readonly namespaceRegistry: NamespaceRegistry;
+
+  /**
+   * ADR-178 Primitive 1 — minimal VMG rollback history, keyed by entry
+   * `id` (not `namespace:key`): `rollback(id)` takes an id, and `update()`
+   * mutates a single entry object in place under a stable id, so keying by
+   * id makes both push (`update()`) and pop (`rollback()`) O(1) without an
+   * extra namespace:key -> id indirection. This is intentionally NOT a
+   * full audit log (per ADR-178's "audit trail" framing, scoped down) —
+   * just enough pre-update snapshots to support `rollback()`.
+   */
+  private versionHistory: Map<string, MemoryEntry[]> = new Map();
+
   // Performance tracking
   private stats = {
     queryCount: 0,
@@ -117,6 +173,7 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
   constructor(config: Partial<AgentDBAdapterConfig> = {}) {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.namespaceRegistry = new InProcessNamespaceRegistry(this.config.sealedNamespaces);
 
     // Initialize HNSW index
     this.index = new HNSWIndex({
@@ -174,8 +231,52 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
   /**
    * Store a memory entry
    */
-  async store(entry: MemoryEntry): Promise<void> {
+  async store(entry: MemoryEntry, grant?: NamespaceGrant): Promise<void> {
     const startTime = performance.now();
+
+    // ADR-145 Part B: check the (optional) write grant before any other
+    // storage logic runs. Pure decision via `checkWrite`; the strict/warn
+    // gate lives here. `grant === undefined` is always legacy-permissive —
+    // grants are opt-in in P1 (see authorization.ts doc header).
+    const writeNamespace = entry.namespace || this.config.defaultNamespace;
+    const writeDecision = checkWrite(grant, writeNamespace);
+    if (!writeDecision.allowed) {
+      if (process.env.CLAUDE_FLOW_STRICT_MEMORY === 'true') {
+        throw new MemoryWriteDenied(writeNamespace, grant?.agentId, writeDecision.reason);
+      }
+      console.warn(
+        `[AgentDBAdapter] Write to namespace "${writeNamespace}" would be denied` +
+          `${grant?.agentId ? ` for agent "${grant.agentId}"` : ''} (${writeDecision.reason})` +
+          ' — persisting anyway (CLAUDE_FLOW_STRICT_MEMORY is not "true").',
+      );
+    }
+
+    // ADR-178 Primitive 1 (VMG): compute and attach write-time governance
+    // metadata BEFORE the ADR-321 sealing block below. Ordering choice:
+    // `entry.vmg.writeHash` is a plain SHA-256 of the unsealed content, so
+    // computing it before `sealEntry` (which only touches
+    // `entry.metadata.sealed`, not `entry.content`) vs. after makes no
+    // difference to the hash itself — but computing it first means VMG
+    // metadata reflects the actual persisted content even if a future
+    // change makes sealing mutate `entry.content` in place. The prior
+    // entry is looked up via the raw `entries`/`keyIndex` maps (NOT the
+    // public `get`/`getByKey` methods) specifically to avoid re-triggering
+    // ADR-321 seal/verify side effects (tamper-detection emits, access-count
+    // bumps, cache churn) purely as a byproduct of computing a hash chain.
+    const priorEntryId = this.keyIndex.get(`${writeNamespace}:${entry.key}`);
+    const priorEntry = priorEntryId ? this.entries.get(priorEntryId) ?? null : null;
+    entry.vmg = computeVmgMetadata({
+      content: entry.content,
+      ownerId: entry.ownerId,
+      type: entry.type,
+      priorEntry,
+    });
+
+    // ADR-321 P1: seal writes into namespaces marked sealed (collaboration
+    // only, P1 scope) before any other storage logic runs.
+    if (this.isNamespaceSealed(writeNamespace)) {
+      this.sealEntry(entry, writeNamespace);
+    }
 
     // Generate embedding if content provided but no embedding
     if (entry.content && !entry.embedding && this.config.embeddingGenerator) {
@@ -230,7 +331,7 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
       const cached = this.cache.get(id);
       if (cached) {
         this.updateAccessStats(cached);
-        return cached;
+        return this.verifySealedEntry(cached);
       }
     }
 
@@ -242,7 +343,7 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
       }
     }
 
-    return entry || null;
+    return entry ? this.verifySealedEntry(entry) : null;
   }
 
   /**
@@ -262,6 +363,17 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
     const entry = this.entries.get(id);
     if (!entry) return null;
 
+    // ADR-178 Primitive 1 (VMG): snapshot the PRE-update entry onto the
+    // rollback history before mutating `entry` in place below. A shallow
+    // clone is sufficient — `update()` never mutates `entry.metadata` or
+    // `entry.vmg` object identity in place, it always reassigns them (see
+    // `metadata` handling a few lines down), so the snapshot's nested
+    // objects can't be silently changed out from under it afterward.
+    const preUpdateSnapshot: MemoryEntry = { ...entry };
+    const history = this.versionHistory.get(id) ?? [];
+    history.push(preUpdateSnapshot);
+    this.versionHistory.set(id, history);
+
     // Apply updates
     if (update.content !== undefined) {
       entry.content = update.content;
@@ -272,6 +384,21 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
         await this.index.removePoint(id);
         await this.index.addPoint(id, entry.embedding);
       }
+
+      // ADR-178 Primitive 1 (VMG): `entry.vmg.writeHash` is a hash of
+      // `entry.content` — if content changes without recomputing it, the
+      // hash chain silently goes stale (writeHash no longer matches the
+      // actual content, defeating tamper detection). Recompute here,
+      // chaining off `preUpdateSnapshot` so `version`/`parentHash` extend
+      // the same chain `store()` maintains. Deliberately scoped to
+      // content-only changes — tag/metadata/accessLevel-only updates don't
+      // touch hashed content, so they don't need a new chain link.
+      entry.vmg = computeVmgMetadata({
+        content: entry.content,
+        ownerId: entry.ownerId,
+        type: entry.type,
+        priorEntry: preUpdateSnapshot,
+      });
     }
 
     if (update.tags !== undefined) {
@@ -317,6 +444,39 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
   }
 
   /**
+   * ADR-178 Primitive 1 (VMG) — rolls `id` back to its most recent
+   * pre-update snapshot.
+   *
+   * Pops the last snapshot `update()` pushed onto `versionHistory` for
+   * `id` and re-persists it via `store()`. Re-using `store()` (rather than
+   * writing `entries.set(id, snapshot)` directly) is deliberate: it means
+   * the restored entry goes back through the exact same VMG/ACL/sealing/
+   * embedding/index/cache machinery as any other write, so `entry.vmg`
+   * comes out correctly chained — `computeVmgMetadata` looks up the
+   * CURRENT (about-to-be-replaced) entry as `priorEntry`, so the restored
+   * entry's `vmg.version` is `current.vmg.version + 1` and its
+   * `vmg.parentHash` is the current (pre-rollback) entry's `writeHash`.
+   * Rollback is therefore a forward-moving, auditable write in the hash
+   * chain, not a silent history rewrite.
+   *
+   * Returns `null` when there is no history to roll back to (unknown id,
+   * or an id that was only ever `store()`-d and never `update()`-d).
+   */
+  async rollback(id: string): Promise<MemoryEntry | null> {
+    const history = this.versionHistory.get(id);
+    if (!history || history.length === 0) return null;
+
+    const snapshot = history.pop()!;
+    const restored: MemoryEntry = { ...snapshot, id, updatedAt: Date.now() };
+
+    await this.store(restored);
+
+    const stored = this.entries.get(id) ?? restored;
+    this.emit('entry:rolled-back', { id, version: stored.vmg?.version });
+    return stored;
+  }
+
+  /**
    * Delete a memory entry
    */
   async delete(id: string): Promise<boolean> {
@@ -337,6 +497,11 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
     for (const tag of entry.tags) {
       this.tagIndex.get(tag)?.delete(id);
     }
+
+    // ADR-178: drop rollback history for a deleted id — nothing left to
+    // roll back to, and retaining it would leak memory for every
+    // create/update/delete cycle over an id's lifetime.
+    this.versionHistory.delete(id);
 
     // Remove from vector index
     if (entry.embedding) {
@@ -443,9 +608,40 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
    * - Deferred cache population
    * - Single event emission
    */
-  async bulkInsert(entries: MemoryEntry[], options?: { batchSize?: number }): Promise<void> {
+  async bulkInsert(
+    entries: MemoryEntry[],
+    options?: { batchSize?: number },
+    grant?: NamespaceGrant,
+  ): Promise<void> {
     const startTime = performance.now();
     const batchSize = options?.batchSize || 100;
+
+    // ADR-145 Part B: the same grant applies to every entry in the batch
+    // (one caller/agent per bulkInsert call, same as store()). Under strict
+    // mode, reject the WHOLE call if any entry is denied — matching store()'s
+    // "reject and don't persist" behavior rather than partial-batch semantics,
+    // which would be confusing (some entries silently missing).
+    if (process.env.CLAUDE_FLOW_STRICT_MEMORY === 'true') {
+      for (const entry of entries) {
+        const ns = entry.namespace || this.config.defaultNamespace;
+        const decision = checkWrite(grant, ns);
+        if (!decision.allowed) {
+          throw new MemoryWriteDenied(ns, grant?.agentId, decision.reason);
+        }
+      }
+    } else {
+      for (const entry of entries) {
+        const ns = entry.namespace || this.config.defaultNamespace;
+        const decision = checkWrite(grant, ns);
+        if (!decision.allowed) {
+          console.warn(
+            `[AgentDBAdapter] Write to namespace "${ns}" would be denied` +
+              `${grant?.agentId ? ` for agent "${grant.agentId}"` : ''} (${decision.reason})` +
+              ' — persisting anyway (CLAUDE_FLOW_STRICT_MEMORY is not "true").',
+          );
+        }
+      }
+    }
 
     // Phase 1: Generate embeddings in parallel batches
     if (this.config.embeddingGenerator) {
@@ -980,6 +1176,137 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
   private updateAccessStats(entry: MemoryEntry): void {
     entry.accessCount++;
     entry.lastAccessedAt = Date.now();
+  }
+
+  /**
+   * ADR-321 P1/P3: is `namespace` one of the namespaces requiring sealing?
+   * Public so callers (and `post-edit`-style hook integrations) can check
+   * opt-in status without reaching into adapter internals. Backed by the
+   * real per-namespace `NamespaceRegistry` (`./namespaces/authorization.ts`),
+   * decoupled from the per-agent `NamespaceGrant`.
+   */
+  isNamespaceSealed(namespace: string): boolean {
+    return this.namespaceRegistry.getNamespaceConfig(namespace).sealed;
+  }
+
+  /**
+   * ADR-321 P3 — opts `namespace` into HMAC sealing at runtime, without
+   * reconstructing the adapter or editing this file's `DEFAULT_CONFIG`.
+   *
+   * This is the extensibility point the ADR describes as "extend
+   * `sealed: true` opt-in to any namespace" — implemented via the real
+   * `NamespaceRegistry.setNamespaceConfig`, a namespace-scoped registry
+   * decoupled from the per-agent `NamespaceGrant` (task #10) so two agents
+   * writing to the same namespace always agree on whether it's sealed.
+   * Idempotent: marking an already-sealed namespace is a no-op.
+   */
+  markNamespaceSealed(namespace: string): void {
+    this.namespaceRegistry.setNamespaceConfig(namespace, { sealed: true });
+  }
+
+  /**
+   * ADR-321 P4 — manual `keyEpoch` bump tooling. Delegates to
+   * `SealedMemoryWriter.rotateKey`, which discards `namespace`'s current
+   * HMAC key and bumps its epoch; any envelope sealed under the retired
+   * epoch fails `verify()` from this point on (deliberate — see the ADR's
+   * "not per-write" rotation rationale). Emits `seal:key-rotated` so
+   * callers/observability can log the (infrequent, deliberate) event.
+   *
+   * This is the programmatic entry point the ADR's P4 row calls "bump
+   * tooling"; see `./namespaces/key-rotation.ts` for the policy layer
+   * (`isRotationDue`/`rotateIfDue`/`rotateNow`) that decides WHEN to call
+   * this. No CLI subcommand wraps this yet — the CLI's `memory` command
+   * (`@claude-flow/cli/src/commands/memory.ts`) is built on a separate
+   * sql.js-backed store, not this adapter, so exposing this via the CLI is
+   * a larger, separate wiring task left as a follow-up.
+   */
+  rotateSealKey(namespace: string): void {
+    this.sealedMemoryWriter.rotateKey(namespace);
+    this.emit('seal:key-rotated', { namespace });
+  }
+
+  /**
+   * Seals `entry.content` under `namespace` and stores the envelope's
+   * non-content fields at `entry.metadata.sealed` (content itself is not
+   * duplicated — it already lives at `entry.content`).
+   */
+  private sealEntry(entry: MemoryEntry, namespace: string): void {
+    // Pass the real ADR-178 VMG writeHash (task #11) as the precomputed
+    // content hash so the HMAC input matches ADR-321's literal composition
+    // instead of SealedMemoryWriter recomputing its own hash independently.
+    // `entry.vmg` is always set by this point — `store()` computes it
+    // before calling `sealEntry` (see the ordering comment there).
+    const envelope = this.sealedMemoryWriter.seal(
+      entry.content,
+      entry.ownerId ?? 'unknown',
+      namespace,
+      entry.vmg?.writeHash
+    );
+    entry.metadata = {
+      ...entry.metadata,
+      sealed: {
+        seal: envelope.seal,
+        writerId: envelope.writerId,
+        sealedAt: envelope.sealedAt,
+        keyEpoch: envelope.keyEpoch,
+      } satisfies SealedMetadataFields,
+    };
+  }
+
+  /**
+   * ADR-321 P1/P2 read-side check. Reconstructs the `SealedEnvelope` from
+   * `entry.metadata.sealed` (when present) and verifies it. On tamper
+   * detection, always emits `seal:tamper-detected` (never silently
+   * dropped); when `CLAUDE_FLOW_STRICT_SEALING === 'true'` the entry is
+   * withheld (returns `null`), otherwise it is still returned with a
+   * warning — the same warn-then-block rollout shape as ADR-144/145.
+   *
+   * ADR-321 P2: when the seal is valid but `propagationDetected` comes
+   * back true (same content re-sealed under a different writerId within
+   * `CLAUDE_FLOW_SEAL_REPLAY_WINDOW_MS` — the ClawWorm propagation shape),
+   * emits `seal:propagation-detected`. This is purely additive: it never
+   * changes the existing tamper-detection blocking behavior above. No
+   * escalation routing is built here — ADR-178's `CLAUDE_FLOW_IPI_MODE` /
+   * RepE hook, which the ADR text names as the intended consumer, is
+   * unimplemented in this repo (out of scope, different ADR); this event
+   * just gives a future implementation something to subscribe to.
+   */
+  private verifySealedEntry(entry: MemoryEntry): MemoryEntry | null {
+    const sealed = entry.metadata?.sealed as SealedMetadataFields | undefined;
+    if (!sealed) return entry;
+
+    const envelope: SealedEnvelope = {
+      content: entry.content,
+      seal: sealed.seal,
+      writerId: sealed.writerId,
+      sealedAt: sealed.sealedAt,
+      keyEpoch: sealed.keyEpoch,
+    };
+
+    // Deliberately does NOT pass `entry.vmg?.writeHash` here (unlike
+    // `sealEntry` above) — `verify()` always recomputes the content hash
+    // from `envelope.content` itself, which is the load-bearing
+    // tamper-detection property. See `SealedMemoryWriter.verify`'s doc for
+    // why a cached/stored hash must never be trusted at verify time.
+    const result = this.sealedMemoryWriter.verify(envelope, entry.namespace);
+
+    if (result.valid && result.propagationDetected) {
+      this.emit('seal:propagation-detected', {
+        id: entry.id,
+        namespace: entry.namespace,
+        writerId: sealed.writerId,
+      });
+    }
+
+    if (result.valid) return entry;
+
+    this.emit('seal:tamper-detected', { id: entry.id, namespace: entry.namespace });
+
+    if (process.env.CLAUDE_FLOW_STRICT_SEALING === 'true') {
+      return null;
+    }
+
+    return entry;
   }
 
   private estimateMemoryUsage(): number {

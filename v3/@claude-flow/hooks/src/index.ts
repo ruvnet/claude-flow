@@ -94,6 +94,28 @@ export {
   type OfficialHookOutput,
 } from './bridge/official-hooks-bridge.js';
 
+// IPI Detection Hook (ADR-178 Primitive 2 — ruvnet/ruflo#2630)
+// Registers `@claude-flow/security`'s IpiDetector as a PreToolUse handler
+// at HookPriority.Critical. CLAUDE_FLOW_IPI_MODE selects warn|block|hil.
+export {
+  getIpiMode,
+  decideIpiOutcome,
+  createIpiDetectionHandler,
+  registerIpiDetectionHook,
+  ipiDetectionHookId,
+  type IpiMode,
+} from './builtin/ipi-detection-hook.js';
+
+// Seal-Propagation Listener (ADR-321 P2 escalation wiring — ruvnet/ruflo#2630)
+// Routes AgentDBAdapter's `seal:propagation-detected` event through the
+// same decideIpiOutcome/getIpiMode logic above. Callers register this
+// against their own AgentDBAdapter instance — no default singleton exists.
+export {
+  registerSealPropagationListener,
+  type SealPropagationEvent,
+  type SealPropagationEmitter,
+} from './builtin/seal-propagation-listener.js';
+
 // Swarm Communication
 export {
   SwarmCommunication,

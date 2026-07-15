@@ -181,3 +181,11 @@ v3/@claude-flow/cli/plugins/
 # Runtime proven-config adoption state (per-install, not source)
 .claude/proven-config.json
 .claude/.proven-config-version
+
+# Same runtime artifacts as above, but generated inside a package subdirectory
+# (e.g. v3/@claude-flow/cli/.claude/) rather than repo root — the un-prefixed
+# patterns above only anchor at the repo root and miss these.
+**/.claude/helpers/.helpers-version
+**/.claude/helpers/helpers.manifest.json
+**/.claude/proven-config.json
+**/.claude/.proven-config-version
