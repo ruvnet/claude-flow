@@ -16,6 +16,12 @@
 // Types
 export * from './types.js';
 
+// ADR-179: Dynamic Harness Cost Governor (opt-in). Namespaced under
+// costGovernor to keep the module's flat re-exports (types, TurnCounter,
+// registerContextTrim, etc.) from colliding with the parent package's
+// existing exports below.
+export * as costGovernor from './cost-governor/index.js';
+
 // ReasoningBank - Vector-based pattern learning
 export {
   ReasoningBank,
