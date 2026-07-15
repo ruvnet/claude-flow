@@ -152,6 +152,34 @@ export {
   type VerifierConfig,
 } from './plugins/integrity-verifier.js';
 
+// Plugin Publish Scanner (ADR-320 P1 — ruvnet/ruflo#2630)
+// Publish-layer: AST symbolic rule pass (Stage 1) run on `plugins publish`.
+// Dependency-graph traversal (Stage 2) lands in P2.
+export {
+  PluginPublishScanner,
+  type ScanFinding,
+  type ScanFindingCategory,
+  type DependencyGraphReport,
+  type DependencyFinding,
+  type DependencyFindingIssue,
+  type PublishScanVerdict,
+  type PublishScanResult,
+  type PublishScannerConfig,
+} from './plugins/publish-scanner.js';
+
+// IPI Detector (ADR-178 Primitive 2 — ruvnet/ruflo#2630)
+// Tool-call-layer: pattern-classifier scan of serialized tool-input
+// parameters for indirect prompt injection. Registered as a `PreToolUse`
+// hook handler in `@claude-flow/hooks` (see `registerIpiDetectionHook`).
+export {
+  IpiDetector,
+  createIpiDetector,
+  type IpiRiskLevel,
+  type IpiRisk,
+  type DetectableToolCall,
+  type IpiDetectorConfig,
+} from './detection/ipi-detector.js';
+
 // ============================================================================
 // Convenience Factory Functions
 // ============================================================================

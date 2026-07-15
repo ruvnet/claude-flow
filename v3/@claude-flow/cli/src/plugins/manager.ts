@@ -8,6 +8,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { checkEnableAgainstCeiling } from './permission-gate.js';
+import { parsePluginMetadata } from './plugin-metadata.js';
+import { readLocalPluginPackage } from './local-install.js';
+import { ensurePluginDirectory, loadPluginManifest, savePluginManifest } from './manifest-store.js';
+import type { InstalledPlugin, InstalledPluginsManifest, PluginManagerConfig } from './types.js';
+
+export type { InstalledPlugin, InstalledPluginsManifest, PluginManagerConfig } from './types.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -37,35 +44,11 @@ function validatePackageName(spec: string): void {
 }
 
 // ============================================================================
-// Types
-// ============================================================================
-
-export interface InstalledPlugin {
-  name: string;
-  version: string;
-  installedAt: string;
-  enabled: boolean;
-  source: 'npm' | 'local' | 'ipfs';
-  path?: string;
-  commands?: string[];
-  hooks?: string[];
-  config?: Record<string, unknown>;
-}
-
-export interface InstalledPluginsManifest {
-  version: '1.0.0';
-  lastUpdated: string;
-  plugins: Record<string, InstalledPlugin>;
-}
-
-export interface PluginManagerConfig {
-  pluginsDir: string;
-  manifestPath: string;
-}
-
-// ============================================================================
 // Plugin Manager
 // ============================================================================
+// Types (InstalledPlugin, InstalledPluginsManifest, PluginManagerConfig) now
+// live in ./types.ts and are re-exported above — moved out to keep this file
+// under the repo's 500-line-per-file limit (v3/CLAUDE.md).
 
 /**
  * Manages plugin installation, persistence, and lifecycle.
@@ -103,40 +86,20 @@ export class PluginManager {
     this.manifest = await this.loadManifest();
   }
 
+  // Manifest I/O delegates to manifest-store.ts (kept this file under the
+  // 500-line limit); these thin wrappers preserve the original private-method
+  // call sites used throughout this class.
   private async ensureDirectory(dir: string): Promise<void> {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    return ensurePluginDirectory(dir);
   }
 
   private async loadManifest(): Promise<InstalledPluginsManifest> {
-    try {
-      if (fs.existsSync(this.config.manifestPath)) {
-        const content = fs.readFileSync(this.config.manifestPath, 'utf-8');
-        return JSON.parse(content) as InstalledPluginsManifest;
-      }
-    } catch (error) {
-      console.warn('[PluginManager] Failed to load manifest, creating new one');
-    }
-
-    return {
-      version: '1.0.0',
-      lastUpdated: new Date().toISOString(),
-      plugins: {},
-    };
+    return loadPluginManifest(this.config.manifestPath);
   }
 
   private async saveManifest(): Promise<void> {
     if (!this.manifest) return;
-
-    this.manifest.lastUpdated = new Date().toISOString();
-
-    await this.ensureDirectory(path.dirname(this.config.manifestPath));
-    fs.writeFileSync(
-      this.config.manifestPath,
-      JSON.stringify(this.manifest, null, 2),
-      'utf-8'
-    );
+    await savePluginManifest(this.config.manifestPath, this.manifest);
   }
 
   // =========================================================================
@@ -177,21 +140,16 @@ export class PluginManager {
 
       await runNpm(['install', '--prefix', this.config.pluginsDir, versionSpec], 120000);
 
-      // Get installed version
+      // Get installed version + claude-flow metadata (commands/hooks/
+      // permissionManifest — ADR-320 Part B P3, parsed via plugin-metadata.ts)
       const packageJsonPath = path.join(installDir, packageName, 'package.json');
       let installedVersion = version || 'latest';
-      let commands: string[] = [];
-      let hooks: string[] = [];
+      let { commands, hooks, permissionManifest } = parsePluginMetadata({});
 
       if (fs.existsSync(packageJsonPath)) {
         const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
         installedVersion = pkg.version;
-
-        // Check for claude-flow plugin metadata
-        if (pkg['claude-flow']) {
-          commands = pkg['claude-flow'].commands || [];
-          hooks = pkg['claude-flow'].hooks || [];
-        }
+        ({ commands, hooks, permissionManifest } = parsePluginMetadata(pkg));
       }
 
       // Create plugin entry
@@ -204,6 +162,7 @@ export class PluginManager {
         path: path.join(installDir, packageName),
         commands,
         hooks,
+        permissionManifest,
       };
 
       // Save to manifest
@@ -231,46 +190,25 @@ export class PluginManager {
     }
 
     try {
-      const absolutePath = path.resolve(sourcePath);
-
-      if (!fs.existsSync(absolutePath)) {
-        return { success: false, error: `Path does not exist: ${absolutePath}` };
+      // Read + validate package.json, build the InstalledPlugin entry
+      // (link to local path, don't copy) — see local-install.ts.
+      const read = readLocalPluginPackage(sourcePath);
+      if (!read.success || !read.plugin) {
+        return { success: false, error: read.error };
       }
 
-      // Read package.json
-      const packageJsonPath = path.join(absolutePath, 'package.json');
-      if (!fs.existsSync(packageJsonPath)) {
-        return { success: false, error: 'No package.json found at path' };
-      }
-
-      const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-      const packageName = pkg.name;
-
-      // Check if already installed
-      if (this.manifest!.plugins[packageName]) {
+      const plugin = read.plugin;
+      if (this.manifest!.plugins[plugin.name]) {
         return {
           success: false,
-          error: `Plugin ${packageName} is already installed`,
+          error: `Plugin ${plugin.name} is already installed`,
         };
       }
 
-      // Create plugin entry (link to local path, don't copy)
-      const plugin: InstalledPlugin = {
-        name: packageName,
-        version: pkg.version,
-        installedAt: new Date().toISOString(),
-        enabled: true,
-        source: 'local',
-        path: absolutePath,
-        commands: pkg['claude-flow']?.commands || [],
-        hooks: pkg['claude-flow']?.hooks || [],
-      };
-
-      // Save to manifest
-      this.manifest!.plugins[packageName] = plugin;
+      this.manifest!.plugins[plugin.name] = plugin;
       await this.saveManifest();
 
-      console.log(`[PluginManager] Installed local plugin ${packageName}@${pkg.version}`);
+      console.log(`[PluginManager] Installed local plugin ${plugin.name}@${plugin.version}`);
 
       return { success: true, plugin };
     } catch (error) {
@@ -335,6 +273,20 @@ export class PluginManager {
     const plugin = this.manifest!.plugins[packageName];
     if (!plugin) {
       return { success: false, error: `Plugin ${packageName} is not installed` };
+    }
+
+    // ADR-320 Part B (P4): load-time permission-ceiling gate. No-op when
+    // CLAUDE_FLOW_PLUGIN_MAX_PERMISSIONS is unset (see permission-gate.ts).
+    // NOTE — scope: this is the LOAD-TIME check only. The ADR also describes
+    // per-capability invocation-time enforcement (wrapping every filesystem/
+    // network/hook/subprocess call), which this repo cannot implement yet:
+    // there is no plugin-code-loader anywhere that actually executes a
+    // plugin's code, so there is no call site to wrap. Deferred to a
+    // follow-up once a loader exists — see permission-gate.ts file header.
+    const gate = checkEnableAgainstCeiling(plugin.permissionManifest);
+    if (!gate.allowed) {
+      console.error(`[SECURITY] Refusing to enable ${packageName}: ${gate.reason}`);
+      return { success: false, error: gate.reason };
     }
 
     // HIGH-04: Warn about unsandboxed plugin execution

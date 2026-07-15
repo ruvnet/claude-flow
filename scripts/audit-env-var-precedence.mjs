@@ -78,6 +78,13 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'RUFLO_LATTICE_WASM_PKG',        // Back-compat alias of RUFLO_EMBED_WASM_PKG
   'RUFLO_EMBED_MODEL',             // Model name for the optional WASM embedder — substrate config, env-only
 
+  // ── ADR-321 HMAC-Sealed Collaboration Memory Namespace (P1, #2630) ──────────
+  'CLAUDE_FLOW_STRICT_SEALING',    // Fail-closed toggle for ADR-321 tamper-detected reads on sealed namespaces (AgentDBAdapter.get/getByKey) — defaults false (warn + surface, not blocked); deploy/CI ops toggle, not a per-invocation CLI flag, same warn-then-block rollout shape as ADR-144/145. Becomes default in v4.0 (P5).
+  'CLAUDE_FLOW_SEAL_REPLAY_WINDOW_MS', // ADR-321 P2 — replay/propagation-chain detection window (ms, default 300000) read fresh on every SealedMemoryWriter.checkPropagation() call (v3/@claude-flow/memory/src/namespaces/sealed-writer.ts) — deploy/ops tuning knob for the ClawWorm-detection heuristic, not a per-invocation CLI flag.
+
+  // ── ADR-178 RepE IPI Detection Hook (Primitive 2, #2630) ────────────────────
+  'CLAUDE_FLOW_IPI_MODE', // warn|block|hil mode for the PreToolUse IPI-detection handler (v3/@claude-flow/hooks/src/builtin/ipi-detection-hook.ts, `getIpiMode`) — read fresh on every tool call; defaults to 'warn'. Deploy/CI ops posture toggle, not a per-invocation CLI flag, same warn-then-block rollout shape as CLAUDE_FLOW_STRICT_SEALING / ADR-144/145 above.
+
   // ── Feature flags (set by init into settings.json, not user-typed CLI) ──────
   'CLAUDE_FLOW_V3_ENABLED',
   'CLAUDE_FLOW_HOOKS_ENABLED',
@@ -153,6 +160,25 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'NODE_ENV',
   'PROMPT',
   'TOOL_INPUT_command',
+
+  // ── Plugin publish/install strictness flags (ADR-145/320) ───────────────────
+  // Warn-only-by-default posture flags for the plugin supply-chain pipeline.
+  // Read inside @claude-flow/security/src/plugins/*-scanner.ts (outside this
+  // audit's SCAN_ROOTS today), registered per the requirement in ADR-320
+  // §Backwards compatibility ("Both env vars are documented escape hatches
+  // and MUST be registered in audit-env-var-precedence.mjs with rationale",
+  // the same requirement ADR-144/145 impose on their flags). No CLI flag:
+  // this is a deploy/CI-wide strictness posture toggle for `plugins publish`,
+  // not a per-invocation override — same shape as CLAUDE_FLOW_V3_ENABLED above.
+  'CLAUDE_FLOW_STRICT_PUBLISH',
+  // ADR-320 Part B, P4 — permission-ceiling gate read in
+  // @claude-flow/cli/src/plugins/permission-gate.ts (`parsePermissionCeiling`,
+  // called from manager.ts's `enable()`). JSON-encoded PluginPermissionManifest
+  // ceiling; unset means "no ceiling configured" (gate disabled), matching the
+  // same warn-only/opt-in rollout shape as CLAUDE_FLOW_STRICT_PUBLISH above —
+  // deploy/CI-wide posture toggle, not a per-invocation CLI flag. Becomes
+  // default-on (strict ceiling) in v4.0 per ADR-320 §Integration plan (P5).
+  'CLAUDE_FLOW_PLUGIN_MAX_PERMISSIONS',
 
   // ── Router (ADR-130/148/149) operator knobs ─────────────────────────────────
   // These configure ruflo's neural-router/bandit/trajectory subsystems and

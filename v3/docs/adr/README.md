@@ -39,6 +39,8 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-308](ADR-308-cognitum-public-api-contract.md) | Cognitum Public API and Server Contract | Proposed |
 | [ADR-309](ADR-309-funnel-governance-privacy-ecosystem.md) | Funnel Governance, Privacy, and Ecosystem Policy | Proposed |
 | [ADR-310](ADR-310-funnel-rollout-measurement-emergency-controls.md) | Funnel Rollout, Measurement, and Emergency Controls | Proposed |
+| [ADR-320](ADR-320-plugin-publish-scanner-and-runtime-manifest-enforcement.md) | Pre-Publish Plugin Scanner and Runtime Permission Manifest Enforcement | Proposed |
+| [ADR-321](ADR-321-hmac-sealed-collaboration-memory-namespace.md) | HMAC-Sealed Collaboration Memory Namespace | Proposed |
 
 ## Summary Documents
 

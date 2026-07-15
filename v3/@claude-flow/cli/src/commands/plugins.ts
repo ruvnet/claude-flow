@@ -21,6 +21,7 @@ import {
 } from '../plugins/store/index.js';
 import { getPluginManager, type InstalledPlugin } from '../plugins/manager.js';
 import { getBulkRatings } from '../services/registry-api.js';
+import { PluginPublishScanner, type PublishScanResult } from '@claude-flow/security';
 
 // List subcommand - Now uses IPFS-based registry
 const listCommand: Command = {
@@ -886,16 +887,84 @@ const rateCommand: Command = {
   },
 };
 
+// Publish subcommand - ADR-320 P1: pre-publish static scan (AST rule pass)
+const publishCommand: Command = {
+  name: 'publish',
+  description: 'Scan a plugin for publish-time security findings (ADR-320)',
+  options: [
+    { name: 'path', short: 'p', type: 'string', description: 'Plugin directory to scan', default: '.' },
+  ],
+  examples: [
+    { command: 'claude-flow plugins publish', description: 'Scan the current directory before publishing' },
+    { command: 'claude-flow plugins publish -p ./my-plugin', description: 'Scan a specific plugin directory' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const pluginPath = (ctx.flags.path as string) || '.';
+
+    output.writeln();
+    output.writeln(output.bold('Plugin Publish Scan'));
+    output.writeln(output.dim('─'.repeat(50)));
+
+    const spinner = output.createSpinner({ text: `Scanning ${pluginPath}...`, spinner: 'dots' });
+    spinner.start();
+
+    try {
+      const scanner = new PluginPublishScanner();
+      const result: PublishScanResult = await scanner.scan(pluginPath);
+
+      if (result.verdict === 'block') {
+        spinner.fail(`Scan blocked publish: ${result.findings.length} finding(s)`);
+      } else if (result.verdict === 'warn') {
+        spinner.stop(output.warning(`Scan completed with warnings: ${result.findings.length} finding(s)`));
+      } else {
+        spinner.succeed('Scan passed: no findings');
+      }
+
+      if (ctx.flags.format === 'json') {
+        output.printJson(result);
+        return { success: result.verdict !== 'block', exitCode: result.verdict === 'block' ? 1 : 0, data: result };
+      }
+
+      if (result.findings.length > 0) {
+        output.writeln();
+        output.printTable({
+          columns: [
+            { key: 'category', header: 'Category', width: 26 },
+            { key: 'file', header: 'File', width: 30 },
+            { key: 'confidence', header: 'Confidence', width: 10, align: 'right' },
+          ],
+          data: result.findings.map(f => ({
+            category: f.category,
+            file: f.file,
+            confidence: f.confidence.toFixed(2),
+          })),
+        });
+      }
+
+      output.writeln();
+      output.writeln(`Verdict: ${result.verdict === 'block' ? output.error(result.verdict) : result.verdict === 'warn' ? output.warning(result.verdict) : output.success(result.verdict)}`);
+      output.writeln(output.dim('Dependency-graph risk (P2, not yet implemented): scanned=' + result.dependencyRisk.scanned));
+
+      return { success: result.verdict !== 'block', exitCode: result.verdict === 'block' ? 1 : 0, data: result };
+    } catch (error) {
+      spinner.fail('Scan failed');
+      output.printError(`Error: ${String(error)}`);
+      return { success: false, exitCode: 1 };
+    }
+  },
+};
+
 // Main plugins command - Now with IPFS-based registry
 export const pluginsCommand: Command = {
   name: 'plugins',
   description: 'Plugin management with IPFS-based decentralized registry',
-  subcommands: [listCommand, searchCommand, installCommand, uninstallCommand, upgradeCommand, toggleCommand, infoCommand, createCommand, rateCommand],
+  subcommands: [listCommand, searchCommand, installCommand, uninstallCommand, upgradeCommand, toggleCommand, infoCommand, createCommand, rateCommand, publishCommand],
   examples: [
     { command: 'claude-flow plugins list', description: 'List plugins from IPFS registry' },
     { command: 'claude-flow plugins search -q neural', description: 'Search for plugins' },
     { command: 'claude-flow plugins install -n community-analytics', description: 'Install from IPFS' },
     { command: 'claude-flow plugins create -n my-plugin', description: 'Create new plugin' },
+    { command: 'claude-flow plugins publish -p ./my-plugin', description: 'Scan a plugin before publishing' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
