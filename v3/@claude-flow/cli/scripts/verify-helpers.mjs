@@ -17,15 +17,14 @@ import { readFileSync, existsSync } from 'node:fs';
 import { createHash, verify as edVerify } from 'node:crypto';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// ponytail: import the pubkey from the compiled source of truth (issue #2675).
+// verify-helpers.mjs runs in prepublishOnly AFTER the tsc build, so dist always exists.
+import { RUFLO_HELPERS_PUBKEY } from '../dist/src/init/helper-signing.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = join(__dirname, '..');
 const HELPERS_DIR = resolve(process.argv[2] || join(PKG_ROOT, '.claude', 'helpers'));
 const CRITICAL = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs'];
-
-const RUFLO_HELPERS_PUBKEY = `-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAhnFv74/CRcGWd0hL8zjyZ+52bIJ9SfcSgOutuKgo0Vg=
------END PUBLIC KEY-----`;
 
 function die(msg) { console.error(`[verify-helpers] ${msg}`); process.exit(1); }
 
