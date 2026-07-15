@@ -112,6 +112,7 @@
   "optionalDependencies": {
     "@claude-flow/memory": "^3.0.0-alpha.21",
     "@claude-flow/security": "^3.0.0-alpha.10",
+    "agentbbs": "~0.1.0",
     "agentdb": "^3.0.0-alpha.17",
     "agentic-flow": "^3.0.0-alpha.1",
     "ruvector": "^0.2.27"
