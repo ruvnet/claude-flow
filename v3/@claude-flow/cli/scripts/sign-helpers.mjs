@@ -108,15 +108,6 @@ if (privateKeyPem.includes('BEGIN PRIVATE KEY') && process.stdout.isTTY && !ALLO
   );
 }
 
-// Defense-in-depth: warn if the loaded key looks like raw PEM and we're in a TTY
-// without an explicit override (the key is needed, so only warn).
-if (privateKeyPem.includes('BEGIN PRIVATE KEY') && process.stdout.isTTY && !ALLOW_TTY) {
-  console.error(
-    '[sign-helpers] warning: a PEM private key is loaded in an interactive session. ' +
-    'Prefer --stdin-key or a file in CI to avoid history/transcript exposure.',
-  );
-}
-
 const version = JSON.parse(readFileSync(join(PKG_ROOT, 'package.json'), 'utf-8')).version;
 const files = {};
 for (const name of CRITICAL) {
