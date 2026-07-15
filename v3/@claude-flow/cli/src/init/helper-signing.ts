@@ -7,29 +7,20 @@
  * postinstall (or disk tampering) could overwrite them, and the refresh would
  * faithfully propagate the tampered code. This gate closes that: every helper
  * is verified against a ruflo-signed manifest before install, and a mismatch is
- * REFUSED (fail-closed). The public key is baked in below; the private key is
- * never in the repo (see scripts/sign-helpers.mjs).
+ * REFUSED (fail-closed). The public key lives in ./helpers-pubkey.js (ADR-323,
+ * single source of truth shared with scripts/verify-helpers.mjs) and is
+ * re-exported below; the private key is never in the repo (see
+ * scripts/sign-helpers.mjs).
  *
  * Native Node crypto (RFC 8032 Ed25519), zero external deps — same primitive as
  * src/appliance/rvfa-signing.ts.
  */
 import { createHash, verify as edVerify } from 'crypto';
+import { RUFLO_HELPERS_PUBKEY } from './helpers-pubkey.js';
 
-/**
- * Ruflo helper-signing PUBLIC key (safe to commit). The matching private key is
- * held out-of-repo and provided to scripts/sign-helpers.mjs at publish time via
- * $RUFLO_HELPERS_SIGNING_KEY. Rotating the key = replace this constant + re-sign.
- *
- * ROTATED 2026-07-14 (v3.29.0): the previous key was accidentally exposed in a
- * Claude Code session transcript. Old GCP secret version 1 was destroyed (not
- * disabled) so it cannot be re-enabled; new v2 generated here. Users on old
- * ruflo versions keep the old pubkey and verify old manifests successfully;
- * upgrading to v3.29.0+ atomically picks up this new pubkey along with the
- * new-key-signed manifest.
- */
-export const RUFLO_HELPERS_PUBKEY = `-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAyLl9cG+V/C+ffKWaSwvOsHdXSWmB5e3x1z9NUNvq6Ys=
------END PUBLIC KEY-----`;
+// Re-exported so existing consumers of `RUFLO_HELPERS_PUBKEY` from this module
+// keep working unchanged (ADR-323) — the key itself now lives in helpers-pubkey.js.
+export { RUFLO_HELPERS_PUBKEY };
 
 export const HELPERS_MANIFEST_FILE = 'helpers.manifest.json';
 
