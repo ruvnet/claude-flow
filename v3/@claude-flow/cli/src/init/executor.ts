@@ -680,7 +680,7 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
         initialized: new Date().toISOString(),
         status: 'PENDING',
         cvesFixed: 0,
-        totalCves: 3,
+        totalCves: 0,
         lastScan: null,
         _note: 'Run: npx @claude-flow/cli@latest security scan'
       };
@@ -1685,7 +1685,7 @@ async function writeInitialMetrics(
       initialized: new Date().toISOString(),
       status: 'PENDING',
       cvesFixed: 0,
-      totalCves: 3,
+      totalCves: 0,
       lastScan: null,
       _note: 'Run: npx @claude-flow/cli@latest security scan'
     };

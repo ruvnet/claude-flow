@@ -63,15 +63,19 @@ describe('security scan — result persistence (statusline CVE counter wiring)',
     });
   });
 
-  it('getSecurityStatus reflects the real scan afterward — no longer stuck at PENDING/0', () => {
+  it('getSecurityStatus reflects the real scan afterward — CLEAN when 0 findings', () => {
+    // The scan target is an empty fixture (no deps, no source) so it has 0
+    // findings. Pre-#2694 this returned cvesFixed>=1 because the old code
+    // counted scan *files* as fixed CVEs; now it reads the scan's findings.
     execFileSync(
       process.execPath,
       [CLI_BIN, 'security', 'scan', '--target', scanTarget, '--depth', 'quick', '--type', 'deps'],
       { encoding: 'utf-8', timeout: 30_000 },
     );
     const after = getSecurityStatus(scanTarget);
-    expect(after.cvesFixed).toBeGreaterThanOrEqual(1);
-    expect(after.status).not.toBe('PENDING');
+    expect(after.cvesFixed).toBe(0);
+    expect(after.totalCves).toBe(0);
+    expect(after.status).toBe('CLEAN');
   });
 
   it('repeated scans overwrite the deterministic filename rather than accumulate', () => {

@@ -428,15 +428,17 @@ export class StatuslineGenerator {
       return this.dataSources.getSecurityStatus();
     }
 
-    // Try to read from audit file
+    // ponytail: read .claude-flow/security/audit-status.json if present.
+    // Defaults are 0 (not the old fabricated 3) so a fresh project no longer
+    // shows "⚠ 3 CVEs" out of nowhere.
     const auditPath = join(this.projectRoot, '.claude-flow', 'security', 'audit-status.json');
     try {
       if (existsSync(auditPath)) {
         const data = JSON.parse(readFileSync(auditPath, 'utf-8'));
         return {
-          status: data.status ?? 'CLEAN',
-          cvesFixed: data.cvesFixed ?? 3,
-          totalCves: data.totalCves ?? 3,
+          status: data.status ?? 'PENDING',
+          cvesFixed: data.cvesFixed ?? 0,
+          totalCves: data.totalCves ?? 0,
         };
       }
     } catch {
@@ -444,9 +446,9 @@ export class StatuslineGenerator {
     }
 
     return {
-      status: 'CLEAN',
-      cvesFixed: 3,
-      totalCves: 3,
+      status: 'PENDING',
+      cvesFixed: 0,
+      totalCves: 0,
     };
   }
 
@@ -682,7 +684,7 @@ export function parseStatuslineData(json: string): StatuslineData | null {
     const data = JSON.parse(json);
     return {
       v3Progress: data.v3Progress ?? { domainsCompleted: 0, totalDomains: 5, dddProgress: 0, modulesCount: 0, filesCount: 0, linesCount: 0 },
-      security: data.security ?? { status: 'PENDING', cvesFixed: 0, totalCves: 3 },
+      security: data.security ?? { status: 'PENDING', cvesFixed: 0, totalCves: 0 },
       swarm: data.swarm ?? { activeAgents: 0, maxAgents: 15, coordinationActive: false },
       hooks: data.hooks ?? { status: 'INACTIVE', patternsLearned: 0, routingAccuracy: 0, totalOperations: 0 },
       performance: data.performance ?? { flashAttentionTarget: '2.49x-7.47x', searchImprovement: '150x', memoryReduction: '50%' },
