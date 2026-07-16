@@ -897,7 +897,7 @@ const defendCommand: Command = {
       const aidefence = await import('@claude-flow/aidefence');
       createAIDefence = aidefence.createAIDefence;
     } catch {
-      output.error('AIDefence package not installed. Run: npm install @claude-flow/aidefence');
+      output.printError('AIDefence package not installed', 'Run: npm install @claude-flow/aidefence');
       return { success: false, message: 'AIDefence not available' };
     }
 
@@ -925,7 +925,7 @@ const defendCommand: Command = {
         textToScan = await fs.readFile(filePath, 'utf-8');
         output.writeln(output.dim(`Reading file: ${filePath}`));
       } catch (err) {
-        output.error(`Failed to read file: ${filePath}`);
+        output.printError(`Failed to read file: ${filePath}`);
         return { success: false, message: 'File not found' };
       }
     }

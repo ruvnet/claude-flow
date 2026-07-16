@@ -110,6 +110,7 @@
     "yaml": "^2.8.0"
   },
   "optionalDependencies": {
+    "@claude-flow/aidefence": "~3.0.2",
     "@claude-flow/memory": "^3.0.0-alpha.21",
     "@claude-flow/security": "^3.0.0-alpha.10",
     "agentdb": "^3.0.0-alpha.17",
