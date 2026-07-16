@@ -83,3 +83,4 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 
 **Last Updated:** 2026-01-14
 **CLI Version:** @claude-flow/cli@3.0.0-alpha.104
+| ADR-320 | Runtime Authority Control for Multi-Agent Tool Calls | Proposed | 2026-07-16 |
