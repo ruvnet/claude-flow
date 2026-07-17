@@ -2006,6 +2006,7 @@ jobs:
           pnpm --filter @claude-flow/security run build
           test -f @claude-flow/security/dist/index.js \
             || (echo "::error::@claude-flow/security/dist/index.js missing after build"; exit 1)
+          node @claude-flow/security/scripts/verify-oauth-exports.mjs
 
       - name: Run guardrail smoke
         shell: bash
