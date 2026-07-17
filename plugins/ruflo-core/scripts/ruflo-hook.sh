@@ -24,7 +24,19 @@
 # so redirecting it is a pure cleanup with no functional cost.
 exec 1>/dev/null 2>/dev/null
 
-run() { "$@" || true; }
+# run <cmd> [args…]
+# Executes the command with stdin passed through. Only forwards stdout to
+# Claude Code if it contains a valid hookSpecificOutput JSON object.
+# Plain text (help messages, warnings, unimplemented-subcommand output) is
+# suppressed so third-party PreToolUse hooks in the same chain are not
+# disrupted by noise that Claude Code may interpret as hook protocol output.
+run() {
+  local out
+  out=$("$@") || true
+  if [ -n "$out" ] && printf '%s' "$out" | jq -e '.hookSpecificOutput' >/dev/null 2>&1; then
+    printf '%s\n' "$out"
+  fi
+}
 
 if command -v ruflo >/dev/null 2>&1; then
   run ruflo hooks "$@"
