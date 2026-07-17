@@ -15,6 +15,7 @@ import {
   startBackground,
   stopProxy,
   getProxyStatus,
+  type ProxyStatus,
   readProxyLogTail,
   watchProxyLog,
   ProxyNotInstalledError,
@@ -25,6 +26,57 @@ import { removeInjectedToken, startTokenRefreshPump } from '../proxy/token-bridg
 
 /** Pinned and reviewed; later upgrades remain explicit commands. */
 export const DEFAULT_PROXY_RELEASE = '0.4.0';
+
+const PROXY_COMMAND = 'npx ruflo@latest proxy';
+const AUTH_COMMAND = 'npx ruflo@latest auth';
+
+/**
+ * Human-oriented next steps for `ruflo proxy` and `ruflo proxy status`.
+ * Keep this independent of the command framework so the state-specific
+ * guidance has a small, direct regression-test surface.
+ */
+export function proxyConsoleGuidance(status: ProxyStatus): string[] {
+  if (!status.installed) {
+    return [
+      '',
+      'Next step',
+      `  ${PROXY_COMMAND} install --yes    Install signed Meta-Proxy v${DEFAULT_PROXY_RELEASE}`,
+      '',
+      'After installation, start it in the background:',
+      `  ${PROXY_COMMAND} start --service`,
+    ];
+  }
+
+  if (!status.running) {
+    return [
+      '',
+      'Next step',
+      `  ${PROXY_COMMAND} start --service    Start the proxy in the background`,
+      '',
+      'Foreground mode (shows live logs; Ctrl+C stops it):',
+      `  ${PROXY_COMMAND} start`,
+      '',
+      'Optional: enable Cognitum cloud routing (local-only is the default):',
+      `  ${AUTH_COMMAND} login`,
+      `  ${PROXY_COMMAND} config --cloud --yes`,
+    ];
+  }
+
+  return [
+    '',
+    'Meta Proxy is ready.',
+    `  Logs:    ${PROXY_COMMAND} logs`,
+    `  Stop:    ${PROXY_COMMAND} stop`,
+    '',
+    'Optional: enable Cognitum cloud routing (local-only is the default):',
+    `  ${AUTH_COMMAND} login`,
+    `  ${PROXY_COMMAND} config --cloud --yes`,
+  ];
+}
+
+export function printProxyConsoleGuidance(status: ProxyStatus): void {
+  for (const line of proxyConsoleGuidance(status)) output.writeln(line);
+}
 
 const INSTALL_DISCLOSURE = [
   'Installing the Meta LLM Proxy (ADR-304/307).',
@@ -183,11 +235,11 @@ const statusSub: Command = {
       output.printJson(status);
       return { success: true, data: status };
     }
-    output.writeln(`Installed: ${status.installed ? 'yes' : 'no'}`);
-    output.writeln(`Running: ${status.running ? `yes (pid ${status.pid})` : 'no'}`);
+    output.writeln('Meta Proxy');
+    output.writeln(`  Installation: ${status.installed ? 'ready' : 'not installed'}`);
+    output.writeln(`  Process: ${status.running ? `running (pid ${status.pid})` : 'not running'}`);
     if (status.stalePidFile) output.writeln('  (a stale PID file was found and will be cleared on next start)');
-    if (!status.installed) output.writeln(`Run: ruflo proxy install --yes (installs ${DEFAULT_PROXY_RELEASE})`);
-    else if (!status.running) output.writeln('Run: ruflo proxy start');
+    printProxyConsoleGuidance(status);
     return { success: true, data: status };
   },
 };

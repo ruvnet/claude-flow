@@ -25,7 +25,8 @@ import { clearRateLimitStatus, readRateLimitStatus } from '../funnel/rate-limit-
 import { clearQuotaLowStatus, readQuotaLowStatus } from '../funnel/power-saver-notifier.js';
 import { getInstalledCliVersion } from '../init/helper-refresh.js';
 import * as path from 'path';
-import { proxyLifecycleSubcommands } from './proxy-lifecycle.js';
+import { proxyLifecycleSubcommands, printProxyConsoleGuidance } from './proxy-lifecycle.js';
+import { getProxyStatus } from '../proxy/lifecycle.js';
 
 const PROXY_CONFIG_FILE = 'proxy-config.toml';
 
@@ -419,11 +420,14 @@ export const proxyCommand: Command = {
     { command: 'ruflo proxy power-saver-enable --yes', description: 'Opt into power saver mode' },
     { command: 'ruflo proxy training-share-enable --yes', description: 'Opt into training-data sharing (ADR-315)' },
   ],
-  action: async (ctx) => {
-    const { getProxyStatus } = await import('../proxy/lifecycle.js');
+  action: async () => {
     const status = getProxyStatus();
-    output.writeln(`Installed: ${status.installed ? 'yes' : 'no'}; Running: ${status.running ? `yes (pid ${status.pid})` : 'no'}`);
-    return sponsorStatusSub.action!(ctx);
+    output.writeln('Meta Proxy');
+    output.writeln(`  Installation: ${status.installed ? 'ready' : 'not installed'}`);
+    output.writeln(`  Process: ${status.running ? `running (pid ${status.pid})` : 'not running'}`);
+    if (status.stalePidFile) output.writeln('  (a stale PID file was found and will be cleared on next start)');
+    printProxyConsoleGuidance(status);
+    return { success: true, data: status };
   },
 };
 
