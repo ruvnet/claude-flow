@@ -1,6 +1,6 @@
 {
   "name": "ruflo",
-  "version": "3.32.6",
+  "version": "3.32.7",
   "description": "Ruflo - Enterprise AI agent orchestration platform. Deploy 60+ specialized agents in coordinated swarms with self-learning, fault-tolerant consensus, vector memory, and MCP integration",
   "main": "bin/ruflo.js",
   "type": "module",
@@ -40,7 +40,7 @@
     "package:rvf": "bash src/scripts/package-rvf.sh"
   },
   "dependencies": {
-    "@claude-flow/cli": "^3.32.6"
+    "@claude-flow/cli": "^3.32.7"
   },
   "optionalDependencies": {},
   "overrides": {
