@@ -145,7 +145,7 @@ importers:
         specifier: ^3.0.0-alpha.21
         version: link:../memory
       '@claude-flow/security':
-        specifier: ^3.0.0-alpha.10
+        specifier: ^3.0.0-alpha.12
         version: link:../security
       agentdb:
         specifier: ^3.0.0-alpha.17
