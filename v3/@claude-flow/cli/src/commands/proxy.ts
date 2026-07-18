@@ -97,6 +97,47 @@ function writeDataPlane(plane: 'local' | 'cloud'): void {
   writeConfigLine('default_data_plane', `"${plane}"`);
 }
 
+/**
+ * Best-effort: ask an already-running meta-proxy daemon to reload its
+ * in-memory config from disk. The Rust binary loads config once at boot
+ * (`AppState.config`, see cognitum-one/meta-proxy `src/main.rs`) and never
+ * re-reads the file afterward — so a consent flag or data-plane toggle this
+ * command just wrote would otherwise sit inert until the daemon is
+ * restarted. Mirrors the same fix meta-proxy's own `login`/`logout` CLI
+ * gained in v0.4.1 (cognitum-one/meta-proxy#28): `POST /internal/reload-config`,
+ * gated on the exact proxy token. Swallows every error — "no daemon running
+ * right now" is the common, expected case (e.g. granting consent before the
+ * proxy has ever been started), never a reason to fail the calling command.
+ */
+async function notifyRunningDaemon(): Promise<void> {
+  try {
+    const dir = funnelStateDir();
+    const token = fs.readFileSync(path.join(dir, 'proxy-token'), 'utf-8').trim();
+    if (!token) return;
+    let bind = '127.0.0.1:11435';
+    try {
+      const raw = readProxyConfigRaw();
+      const match = raw.match(/^bind\s*=\s*"([^"]+)"\s*$/m);
+      if (match?.[1]) bind = match[1];
+    } catch {
+      /* use the documented default */
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1500);
+    try {
+      await fetch(`http://${bind}/internal/reload-config`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch {
+    /* no daemon running, or it's unreachable — not an error for this command */
+  }
+}
+
 const CLOUD_ROUTING_DISCLOSURE = [
   'Enabling cloud routing.',
   '',
@@ -109,7 +150,7 @@ const CLOUD_ROUTING_DISCLOSURE = [
   'Disable anytime: ruflo proxy config --local-only',
 ].join('\n');
 
-const configSub: Command = {
+export const configSub: Command = {
   name: 'config',
   description: 'Toggle cloud routing (ADR-304) — local backends only by default',
   options: [
@@ -139,6 +180,7 @@ const configSub: Command = {
 
     if (wantLocalOnly) {
       writeDataPlane('local');
+      await notifyRunningDaemon();
       revokeConsent('cloud-routing', 'proxy-config-local-only');
       output.printSuccess('Cloud routing disabled — reverted to local-only routing.');
       return { success: true, data: { plane: 'local' } };
@@ -155,6 +197,7 @@ const configSub: Command = {
       recordConsent('cloud-routing', true, 'proxy-config-cloud');
     }
     writeDataPlane('cloud');
+    await notifyRunningDaemon();
     output.printSuccess('Cloud routing enabled.');
     output.writeln('  Requests routed to local backends still never leave this machine.');
     output.writeln('  Disable anytime: ruflo proxy config --local-only');
@@ -176,7 +219,7 @@ const SPONSOR_DISCLOSURE = [
   '  ruflo proxy sponsor-disable',
 ].join('\n');
 
-const sponsorEnableSub: Command = {
+export const sponsorEnableSub: Command = {
   name: 'sponsor-enable',
   description: "Opt into Cognitum-sponsored downtime capacity (ADR-313)",
   options: [
@@ -195,6 +238,7 @@ const sponsorEnableSub: Command = {
     }
     recordConsent('sponsored-downtime', true, 'proxy-sponsor-enable');
     writeSponsoredConsentMirror(true);
+    await notifyRunningDaemon();
     recordFunnelEvent('sponsor_mode_enabled', 'statusline', getInstalledCliVersion());
     output.printSuccess('Sponsored downtime mode enabled.');
     output.writeln('The proxy will use it automatically while ruflo settings notices');
@@ -203,19 +247,20 @@ const sponsorEnableSub: Command = {
   },
 };
 
-const sponsorDisableSub: Command = {
+export const sponsorDisableSub: Command = {
   name: 'sponsor-disable',
   description: 'Revoke sponsored-downtime consent and stop using sponsored capacity',
   action: async (): Promise<CommandResult> => {
     revokeConsent('sponsored-downtime', 'proxy-sponsor-disable');
     writeSponsoredConsentMirror(false);
+    await notifyRunningDaemon();
     recordFunnelEvent('sponsor_mode_disabled', 'statusline', getInstalledCliVersion());
     output.printSuccess('Sponsored downtime mode disabled.');
     return { success: true };
   },
 };
 
-const sponsorStatusSub: Command = {
+export const sponsorStatusSub: Command = {
   name: 'sponsor-status',
   description: 'Show sponsored-downtime consent + rate-limit flag state',
   action: async (): Promise<CommandResult> => {
@@ -233,7 +278,7 @@ const sponsorStatusSub: Command = {
 };
 
 /** Convenience: clear the rate-limited flag once you're back to normal. */
-const sponsorClearSub: Command = {
+export const sponsorClearSub: Command = {
   name: 'sponsor-clear',
   description: 'Clear the rate-limited flag (your Claude limit has reset)',
   action: async (): Promise<CommandResult> => {
@@ -260,7 +305,7 @@ const POWER_SAVER_DISCLOSURE = [
   'Disable anytime: ruflo proxy power-saver-disable',
 ].join('\n');
 
-const powerSaverEnableSub: Command = {
+export const powerSaverEnableSub: Command = {
   name: 'power-saver-enable',
   description: 'Opt into power saver mode — route everyday requests through your own Cognitum account (ADR-314)',
   options: [
@@ -279,6 +324,7 @@ const powerSaverEnableSub: Command = {
     }
     recordConsent('power-saver', true, 'proxy-power-saver-enable');
     writePowerSaverConsentMirror(true);
+    await notifyRunningDaemon();
     recordFunnelEvent('power_saver_enabled', 'statusline', getInstalledCliVersion());
     output.printSuccess('Power saver mode enabled.');
     output.writeln('Flag it active with: ruflo settings notices quota-low');
@@ -287,19 +333,20 @@ const powerSaverEnableSub: Command = {
   },
 };
 
-const powerSaverDisableSub: Command = {
+export const powerSaverDisableSub: Command = {
   name: 'power-saver-disable',
   description: 'Revoke power-saver consent and stop routing through Cognitum for cost savings',
   action: async (): Promise<CommandResult> => {
     revokeConsent('power-saver', 'proxy-power-saver-disable');
     writePowerSaverConsentMirror(false);
+    await notifyRunningDaemon();
     recordFunnelEvent('power_saver_disabled', 'statusline', getInstalledCliVersion());
     output.printSuccess('Power saver mode disabled.');
     return { success: true };
   },
 };
 
-const powerSaverStatusSub: Command = {
+export const powerSaverStatusSub: Command = {
   name: 'power-saver-status',
   description: 'Show power-saver consent + quota-low flag state',
   action: async (): Promise<CommandResult> => {
@@ -317,7 +364,7 @@ const powerSaverStatusSub: Command = {
 };
 
 /** Convenience: clear the quota-low flag once you're back to normal. */
-const powerSaverClearSub: Command = {
+export const powerSaverClearSub: Command = {
   name: 'power-saver-clear',
   description: 'Clear the quota-low flag',
   action: async (): Promise<CommandResult> => {
@@ -347,7 +394,7 @@ const TRAINING_SHARE_DISCLOSURE = [
   'Disable anytime: ruflo proxy training-share-disable',
 ].join('\n');
 
-const trainingShareEnableSub: Command = {
+export const trainingShareEnableSub: Command = {
   name: 'training-share-enable',
   description: 'Opt into sharing sponsored-plane interaction content for meta-llm training (ADR-315)',
   options: [
@@ -366,6 +413,7 @@ const trainingShareEnableSub: Command = {
     }
     recordConsent('training-data-sharing', true, 'proxy-training-share-enable');
     writeTrainingShareConsentMirror(true);
+    await notifyRunningDaemon();
     recordFunnelEvent('training_share_enabled', 'statusline', getInstalledCliVersion());
     output.printSuccess('Training-data sharing enabled.');
     output.writeln('Only sponsored-plane requests carry the consent header. Disable anytime:');
@@ -374,19 +422,20 @@ const trainingShareEnableSub: Command = {
   },
 };
 
-const trainingShareDisableSub: Command = {
+export const trainingShareDisableSub: Command = {
   name: 'training-share-disable',
   description: 'Revoke training-data-sharing consent — stop sending the training consent header',
   action: async (): Promise<CommandResult> => {
     revokeConsent('training-data-sharing', 'proxy-training-share-disable');
     writeTrainingShareConsentMirror(false);
+    await notifyRunningDaemon();
     recordFunnelEvent('training_share_disabled', 'statusline', getInstalledCliVersion());
     output.printSuccess('Training-data sharing disabled.');
     return { success: true };
   },
 };
 
-const trainingShareStatusSub: Command = {
+export const trainingShareStatusSub: Command = {
   name: 'training-share-status',
   description: 'Show training-data-sharing consent state',
   action: async (): Promise<CommandResult> => {
