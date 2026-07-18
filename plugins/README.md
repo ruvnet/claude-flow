@@ -66,6 +66,12 @@ claude $(ls -d plugins/ruflo-*/ | sed 's|^|--plugin-dir |' | tr '\n' ' ')
 | [ruflo-observability](ruflo-observability/) | Structured logging, tracing, metrics correlation |
 | [ruflo-cost-tracker](ruflo-cost-tracker/) | Token usage tracking, budget alerts, cost optimization |
 
+### Payments & Monetization
+
+| Plugin | Description |
+|--------|-------------|
+| [ruflo-gadgethumans-x402](ruflo-gadgethumans-x402/) | x402 micropayments ($0.001 USDC/call) + 58 MCP tools for agent-to-agent payments. No signup, no API keys |
+
 ### Domain-Specific
 
 | Plugin | Description |

@@ -1,0 +1,22 @@
+{
+  "name": "ruflo-gadgethumans-x402",
+  "description": "x402 micropayments and 58 MCP tools for agent-to-agent payments. Wrap any MCP call with $0.001 USDC on Base. No signup, no API keys.",
+  "version": "0.1.0",
+  "author": {
+    "name": "GadgetHumans",
+    "url": "https://github.com/scotia1973-bot"
+  },
+  "homepage": "https://github.com/scotia1973-bot/ruflo",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "x402",
+    "micropayments",
+    "usdc",
+    "base",
+    "mcp",
+    "payments",
+    "agent-economy",
+    "gadgethumans"
+  ]
+}
