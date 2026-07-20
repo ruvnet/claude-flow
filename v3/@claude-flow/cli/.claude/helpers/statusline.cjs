@@ -647,6 +647,33 @@ function getPkgVersion() {
       path.join(CWD, 'node_modules', 'ruflo', 'package.json'),
       path.join(CWD, 'v3', '@claude-flow', 'cli', 'package.json'),
     ];
+    // #2742: git worktrees have no node_modules — the CWD-based probes above
+    // all miss and the version falls back to the baked-in default. A worktree's
+    // .git is a FILE pointing at the main repo's .git/worktrees/<name>; parse
+    // it with pure fs (no spawn — the statusline render path avoids spawns)
+    // and add the main repo's node_modules candidates to the probe list.
+    try {
+      let dir = CWD;
+      while (dir !== path.dirname(dir)) {
+        const dotGit = path.join(dir, '.git');
+        if (fs.existsSync(dotGit)) {
+          if (fs.statSync(dotGit).isFile()) {
+            const m = fs.readFileSync(dotGit, 'utf-8').match(/^gitdir:\s*(.+)$/m);
+            const wtGitDir = m && m[1].trim();
+            const idx = wtGitDir ? wtGitDir.lastIndexOf(path.sep + '.git' + path.sep + 'worktrees' + path.sep) : -1;
+            if (idx > 0) {
+              const mainRoot = wtGitDir.slice(0, idx);
+              pkgPaths.push(
+                path.join(mainRoot, 'node_modules', 'ruflo', 'package.json'),
+                path.join(mainRoot, 'node_modules', '@claude-flow', 'cli', 'package.json'),
+              );
+            }
+          }
+          break;
+        }
+        dir = path.dirname(dir);
+      }
+    } catch { /* ignore */ }
     // #2221: global installs (npm i -g ruflo) live outside CWD/node_modules, so the
     // probes above all miss and the version falls back to the hard-coded default.
     // Derive the global node_modules dir from the running node binary (no npm spawn —
