@@ -3,20 +3,34 @@
  * Properly initializes the memory database with sql.js (WASM SQLite)
  * Includes pattern tables, vector embeddings, migration state tracking
  *
- * ADR-053: Routes through ControllerRegistry → AgentDB v3 when available,
- * falls back to raw sql.js for backwards compatibility.
+ * ADR-053: Routes through ControllerRegistry → AgentDB v3 when available.
+ * Read-only compatibility queries may use sql.js; every live mutation uses
+ * native SQLite/WAL on the canonical database inode.
  *
  * @module v3/cli/memory-initializer
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { readFileMaybeEncrypted, writeFileAtomic, writeFileRestricted } from '../fs-secure.js';
+import { isEncryptedBlob, isEncryptionEnabled } from '../encryption/vault.js';
 import { restoreMemoryDbFromBackup } from '../services/memory-backup.js';
+import {
+  scanForeignDbHandles,
+  describeForeignHandles,
+  postRecoveryMarker,
+  clearRecoveryMarker,
+  drainForeignHandles,
+  waitForRecoveryClear,
+  isRecoveryPending,
+  type ForeignDbHandle,
+} from './db-handle-guard.js';
+import { openSqljsWriteAdapter } from './sqljs-write-fallback.js';
 
 /**
- * #2356 — cached, synchronous capability probe for @ruvector/core. `getHNSWStatus`
+ * #2356 — cached, synchronous capability probe for ruvector. `getHNSWStatus`
  * is sync and is called by `neural status` in a fresh process that never warms
  * the lazy HNSW singleton, so reporting availability off the warm singleton
  * alone produced a false "Not loaded — @ruvector/core not available" even when
@@ -28,7 +42,7 @@ function isRuvectorCoreResolvable(): boolean {
   if (_ruvectorCoreResolvable !== undefined) return _ruvectorCoreResolvable;
   try {
     const req = createRequire(import.meta.url);
-    req.resolve('@ruvector/core');
+    req.resolve('ruvector');
     _ruvectorCoreResolvable = true;
   } catch {
     _ruvectorCoreResolvable = false;
@@ -467,6 +481,7 @@ interface HNSWEntry {
   key: string;
   namespace: string;
   content: string;
+  embeddingHash: string;
 }
 
 interface HNSWIndex {
@@ -474,10 +489,83 @@ interface HNSWIndex {
   entries: Map<string, HNSWEntry>;
   dimensions: number;
   initialized: boolean;
+  dbPath: string;
+  storagePath: string;
+  metadataPath: string;
 }
 
 let hnswIndex: HNSWIndex | null = null;
 let hnswInitializing = false;
+
+function resolveHNSWStoragePaths(dbPath: string): { storagePath: string; metadataPath: string } {
+  const resolvedDbPath = path.resolve(dbPath);
+  const root = path.dirname(resolvedDbPath);
+  const isDefaultDb = resolvedDbPath === path.resolve(getMemoryRoot(), 'memory.db');
+  const dbFile = path.basename(resolvedDbPath);
+  return {
+    storagePath: path.join(root, isDefaultDb ? 'hnsw.index' : `${dbFile}.hnsw.index`),
+    metadataPath: path.join(root, isDefaultDb ? 'hnsw.metadata.json' : `${dbFile}.hnsw.metadata.json`),
+  };
+}
+
+function hashEmbeddingJson(embeddingJson: string): string {
+  return createHash('sha256').update(embeddingJson).digest('hex');
+}
+
+interface HNSWSourceRow extends HNSWEntry {
+  embedding: number[];
+}
+
+async function readHNSWSourceRows(dbPath: string): Promise<HNSWSourceRow[] | null> {
+  let db: any;
+  try {
+    const BetterSqlite3 = (await import('better-sqlite3')).default;
+    db = new BetterSqlite3(dbPath, { readonly: true, fileMustExist: true });
+    db.pragma('busy_timeout = 5000');
+    const rows = db.prepare(`
+      SELECT id, key, namespace, content, embedding
+      FROM memory_entries
+      WHERE status = 'active' AND embedding IS NOT NULL
+    `).all() as Array<{
+      id: string;
+      key: string;
+      namespace: string;
+      content: string;
+      embedding: string;
+    }>;
+    const source: HNSWSourceRow[] = [];
+    for (const row of rows) {
+      try {
+        const embedding = JSON.parse(row.embedding) as number[];
+        if (!Array.isArray(embedding) || embedding.length === 0) continue;
+        source.push({
+          id: String(row.id),
+          key: row.key || String(row.id),
+          namespace: row.namespace || 'default',
+          content: row.content || '',
+          embeddingHash: hashEmbeddingJson(JSON.stringify(embedding)),
+          embedding,
+        });
+      } catch { /* malformed embeddings are not indexable */ }
+    }
+    return source;
+  } catch {
+    return null;
+  } finally {
+    try { db?.close(); } catch { /* already closed */ }
+  }
+}
+
+function metadataMatchesSource(entries: Map<string, HNSWEntry>, source: HNSWSourceRow[]): boolean {
+  if (entries.size !== source.length) return false;
+  return source.every(row => {
+    const indexed = entries.get(row.id);
+    return indexed?.key === row.key
+      && indexed.namespace === row.namespace
+      && indexed.content === row.content
+      && indexed.embeddingHash === row.embeddingHash;
+  });
+}
 
 /**
  * Get or create the HNSW index singleton
@@ -487,11 +575,13 @@ export async function getHNSWIndex(options?: {
   dbPath?: string;
   dimensions?: number;
   forceRebuild?: boolean;
+  skipSourceValidation?: boolean;
 }): Promise<HNSWIndex | null> {
   const dimensions = options?.dimensions ?? 384;
 
   // Return existing index if already initialized
-  if (hnswIndex?.initialized && !options?.forceRebuild) {
+  const requestedDbPath = path.resolve(options?.dbPath ?? resolveDbPath());
+  if (hnswIndex?.initialized && hnswIndex.dbPath === requestedDbPath && !options?.forceRebuild) {
     return hnswIndex;
   }
 
@@ -501,15 +591,15 @@ export async function getHNSWIndex(options?: {
     while (hnswInitializing) {
       await new Promise(resolve => setTimeout(resolve, 10));
     }
-    return hnswIndex;
+    return getHNSWIndex(options);
   }
 
   hnswInitializing = true;
 
   try {
-    // Import @ruvector/core dynamically
+    // Import ruvector dynamically
     // Handle both ESM (default export) and CJS patterns
-    const ruvectorModule = await import('@ruvector/core').catch(() => null);
+    const ruvectorModule = await import('ruvector').catch(() => null);
     if (!ruvectorModule) {
       hnswInitializing = false;
       return null; // HNSW not available
@@ -525,16 +615,23 @@ export async function getHNSWIndex(options?: {
     const { VectorDb } = ruvectorCore;
 
     // Persistent storage paths — resolve to absolute to survive CWD changes
-    const swarmDir = getMemoryRoot();
+    const dbPath = requestedDbPath;
+    const swarmDir = path.dirname(dbPath);
     if (!fs.existsSync(swarmDir)) {
       fs.mkdirSync(swarmDir, { recursive: true });
     }
-    const hnswPath = path.join(swarmDir, 'hnsw.index');
-    const metadataPath = path.join(swarmDir, 'hnsw.metadata.json');
-    const dbPath = options?.dbPath ? path.resolve(options.dbPath) : path.join(swarmDir, 'memory.db');
+    const { storagePath: hnswPath, metadataPath } = resolveHNSWStoragePaths(dbPath);
+
+    if (options?.forceRebuild) {
+      // A forced rebuild means the persisted graph is not authoritative. Drop
+      // both halves before opening VectorDb so removed SQLite rows cannot
+      // survive as ghost vectors in a supposedly fresh index.
+      fs.rmSync(hnswPath, { force: true });
+      fs.rmSync(metadataPath, { force: true });
+    }
 
     // Create HNSW index with persistent storage
-    // @ruvector/core uses string enum for distanceMetric: 'Cosine', 'Euclidean', 'DotProduct', 'Manhattan'
+    // ruvector uses string enum for distanceMetric: 'Cosine', 'Euclidean', 'DotProduct', 'Manhattan'
     const db = new VectorDb({
       dimensions,
       distanceMetric: 'Cosine',
@@ -559,64 +656,58 @@ export async function getHNSWIndex(options?: {
       db,
       entries,
       dimensions,
-      initialized: false
+      initialized: false,
+      dbPath,
+      storagePath: hnswPath,
+      metadataPath,
     };
 
-    // Check if index already has data (from persistent storage)
+    const sourceRows = await readHNSWSourceRows(dbPath);
+    if (!sourceRows) {
+      hnswIndex = null;
+      hnswInitializing = false;
+      return null;
+    }
+
+    // Check whether both persisted halves describe the current authoritative
+    // SQLite rows. Targeted store/delete maintenance can skip this O(n) audit;
+    // every search and explicit build performs it before trusting HNSW.
     const existingLen = await db.len();
-    if (existingLen > 0 && entries.size > 0) {
-      // Index loaded from disk, skip SQLite sync
+    const sourceMatches = metadataMatchesSource(entries, sourceRows);
+    if (
+      !options?.forceRebuild
+      && existingLen === entries.size
+      && (options?.skipSourceValidation ? entries.size > 0 : sourceMatches)
+    ) {
       hnswIndex.initialized = true;
       hnswInitializing = false;
       return hnswIndex;
     }
 
-    if (fs.existsSync(dbPath)) {
-      try {
-        const initSqlJs = (await import('sql.js')).default;
-        const SQL = await initSqlJs();
-        const fileBuffer = readFileMaybeEncrypted(dbPath, null);
-        const sqlDb = new SQL.Database(fileBuffer);
-
-        // Load all entries with embeddings
-        const result = sqlDb.exec(`
-          SELECT id, key, namespace, content, embedding
-          FROM memory_entries
-          WHERE status = 'active' AND embedding IS NOT NULL
-          LIMIT 10000
-        `);
-
-        if (result[0]?.values) {
-          for (const row of result[0].values) {
-            const [id, key, ns, content, embeddingJson] = row as [string, string, string, string, string];
-            if (embeddingJson) {
-              try {
-                const embedding = JSON.parse(embeddingJson) as number[];
-                const vector = new Float32Array(embedding);
-
-                await db.insert({
-                  id: String(id),
-                  vector
-                });
-
-                hnswIndex.entries.set(String(id), {
-                  id: String(id),
-                  key: key || String(id),
-                  namespace: ns || 'default',
-                  content: content || ''
-                });
-              } catch {
-                // Skip invalid embeddings
-              }
-            }
-          }
-        }
-
-        sqlDb.close();
-      } catch {
-        // SQLite load failed, start with empty index
-      }
+    // Reconcile a stale graph in place. If it contains IDs absent from its
+    // metadata, it cannot be exhaustively cleared; discard both files and let
+    // this call fall back rather than claim a trustworthy acceleration index.
+    for (const id of entries.keys()) await db.delete(id);
+    if (await db.len() !== 0) {
+      hnswIndex = null;
+      try { fs.rmSync(hnswPath, { force: true }); } catch { /* best effort */ }
+      try { fs.rmSync(metadataPath, { force: true }); } catch { /* best effort */ }
+      hnswInitializing = false;
+      return null;
     }
+    entries.clear();
+
+    for (const row of sourceRows) {
+      await db.insert({ id: row.id, vector: new Float32Array(row.embedding) });
+      entries.set(row.id, {
+        id: row.id,
+        key: row.key,
+        namespace: row.namespace,
+        content: row.content,
+        embeddingHash: row.embeddingHash,
+      });
+    }
+    saveHNSWMetadata();
 
     hnswIndex.initialized = true;
     hnswInitializing = false;
@@ -634,10 +725,8 @@ function saveHNSWMetadata(): void {
   if (!hnswIndex?.entries) return;
 
   try {
-    const swarmDir = getMemoryRoot();
-    const metadataPath = path.join(swarmDir, 'hnsw.metadata.json');
     const metadata = Array.from(hnswIndex.entries.entries());
-    fs.writeFileSync(metadataPath, JSON.stringify(metadata));
+    writeFileAtomic(hnswIndex.metadataPath, Buffer.from(JSON.stringify(metadata)));
   } catch {
     // Silently fail - metadata save is best-effort
   }
@@ -649,30 +738,81 @@ function saveHNSWMetadata(): void {
 export async function addToHNSWIndex(
   id: string,
   embedding: number[],
-  entry: HNSWEntry
+  entry: Omit<HNSWEntry, 'embeddingHash'>,
+  dbPath?: string,
 ): Promise<boolean> {
-  // ADR-053: Try AgentDB v3 bridge first
-  const bridge = await getBridge();
-  if (bridge) {
-    const bridgeResult = await bridge.bridgeAddToHNSW(id, embedding, entry);
-    if (bridgeResult === true) return true;
-  }
-
-  const index = await getHNSWIndex({ dimensions: embedding.length });
+  const index = await getHNSWIndex({
+    dimensions: embedding.length,
+    dbPath,
+    skipSourceValidation: true,
+  });
   if (!index) return false;
 
   try {
+    const embeddingHash = hashEmbeddingJson(JSON.stringify(embedding));
+    const current = index.entries.get(id);
+    if (
+      current?.embeddingHash === embeddingHash
+      && current.key === entry.key
+      && current.namespace === entry.namespace
+      && current.content === entry.content
+    ) {
+      return true;
+    }
     const vector = new Float32Array(embedding);
     await index.db.insert({
       id,
       vector
     });
-    index.entries.set(id, entry);
+    index.entries.set(id, {
+      ...entry,
+      embeddingHash,
+    });
 
     // Save metadata for persistence (debounced would be better for high-volume)
     saveHNSWMetadata();
     return true;
   } catch {
+    // The SQLite row is still authoritative. Remove the metadata half so a
+    // later search cannot accept a partially updated persisted graph as fresh;
+    // the next open will reconcile every embedded SQLite row.
+    try { fs.rmSync(index.metadataPath, { force: true }); } catch { /* best effort */ }
+    hnswIndex = null;
+    return false;
+  }
+}
+
+/**
+ * Remove canonical row IDs from both halves of the derived HNSW index.
+ * SQLite has already committed the delete when this runs. If the derived
+ * update cannot be completed, discard the persisted index so the next search
+ * rebuilds from authoritative active SQLite rows instead of serving ghosts.
+ */
+async function removeFromHNSWIndex(ids: string[], dbPath: string): Promise<boolean> {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (uniqueIds.length === 0) return true;
+
+  const resolvedDbPath = path.resolve(dbPath);
+  const paths = resolveHNSWStoragePaths(resolvedDbPath);
+  const currentMatches = hnswIndex?.dbPath === resolvedDbPath;
+  if (!currentMatches && !fs.existsSync(paths.storagePath) && !fs.existsSync(paths.metadataPath)) {
+    return true;
+  }
+
+  try {
+    const index = await getHNSWIndex({ dbPath: resolvedDbPath, skipSourceValidation: true });
+    if (!index) return false;
+    for (const id of uniqueIds) {
+      await index.db.delete(id);
+      index.entries.delete(id);
+    }
+    saveHNSWMetadata();
+    return true;
+  } catch {
+    if (hnswIndex?.dbPath === resolvedDbPath) hnswIndex = null;
+    hnswInitializing = false;
+    try { fs.rmSync(paths.storagePath, { force: true }); } catch { /* best effort */ }
+    try { fs.rmSync(paths.metadataPath, { force: true }); } catch { /* best effort */ }
     return false;
   }
 }
@@ -686,16 +826,10 @@ export async function searchHNSWIndex(
   options?: {
     k?: number;
     namespace?: string;
+    dbPath?: string;
   }
 ): Promise<Array<{ id: string; key: string; content: string; score: number; namespace: string }> | null> {
-  // ADR-053: Try AgentDB v3 bridge first
-  const bridge = await getBridge();
-  if (bridge) {
-    const bridgeResult = await bridge.bridgeSearchHNSW(queryEmbedding, options);
-    if (bridgeResult) return bridgeResult;
-  }
-
-  const index = await getHNSWIndex({ dimensions: queryEmbedding.length });
+  const index = await getHNSWIndex({ dimensions: queryEmbedding.length, dbPath: options?.dbPath });
   if (!index) return null;
 
   try {
@@ -1109,6 +1243,57 @@ export interface MemoryInitResult {
   error?: string;
 }
 
+function memoryDbHasEncryptedHeader(dbPath: string): boolean {
+  const fd = fs.openSync(dbPath, 'r');
+  try {
+    const header = Buffer.alloc(64);
+    const bytesRead = fs.readSync(fd, header, 0, header.length, 0);
+    return isEncryptedBlob(header.subarray(0, bytesRead));
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+async function openLiveMemoryDatabase(dbPath: string): Promise<any> {
+  // Cooperative recovery: while a live recovery holds the marker, new
+  // connections wait for the swap to finish instead of attaching to the
+  // about-to-be-replaced generation. Bounded — a crashed recovery's stale
+  // marker self-clears inside isRecoveryPending.
+  if (isRecoveryPending(dbPath)) {
+    await waitForRecoveryClear(dbPath);
+  }
+
+  if (isEncryptionEnabled() || memoryDbHasEncryptedHeader(dbPath)) {
+    throw new Error(
+      'Encrypted memory mutation requires offline single-owner mode; refusing to replace a live SQLite database',
+    );
+  }
+
+  let BetterSqlite3: any = null;
+  if (process.env.CLAUDE_FLOW_FORCE_WASM_WRITES !== '1') {
+    try {
+      BetterSqlite3 = (await import('better-sqlite3')).default;
+    } catch { /* native engine unavailable — considered below */ }
+  }
+
+  if (!BetterSqlite3) {
+    // WASM-only host (or forced for tests): full write capability is retained
+    // through the gated sql.js adapter. The gate refuses ONLY when a native
+    // WAL engine provably owns this database (WAL header, -wal/-shm sidecars,
+    // or live foreign holders) — the exact topology of the 2026-07 corruption.
+    // On a genuinely WASM-only host none of those conditions occur and writes
+    // proceed, serialized by the advisory db lock.
+    return await openSqljsWriteAdapter(dbPath);
+  }
+
+  const db = new BetterSqlite3(dbPath);
+  db.pragma('busy_timeout = 5000');
+  db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
+  db.pragma('foreign_keys = ON');
+  return db;
+}
+
 /**
  * Ensure memory_entries table has all required columns
  * Adds missing columns for older databases (e.g., 'content' column)
@@ -1119,22 +1304,22 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
   error?: string;
 }> {
   const columnsAdded: string[] = [];
+  let db: any;
 
   try {
     if (!fs.existsSync(dbPath)) {
       return { success: true, columnsAdded: [] };
     }
 
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
-
-    const fileBuffer = readFileMaybeEncrypted(dbPath, null);
-    const db = new SQL.Database(fileBuffer);
+    // Schema repair is a normal live-database operation. Mutate the existing
+    // SQLite inode transactionally so every already-open WAL connection stays
+    // attached to the same database generation.
+    db = await openLiveMemoryDatabase(dbPath);
 
     // Get current columns in memory_entries
-    const tableInfo = db.exec("PRAGMA table_info(memory_entries)");
+    const tableInfo = db.prepare('PRAGMA table_info(memory_entries)').all() as Array<{ name: string }>;
     const existingColumns = new Set(
-      tableInfo[0]?.values?.map(row => row[1] as string) || []
+      tableInfo.map(row => row.name)
     );
 
     // Required columns that may be missing in older schemas
@@ -1154,43 +1339,25 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
       { name: 'status', definition: "status TEXT DEFAULT 'active'" }
     ];
 
-    let modified = false;
-    for (const col of requiredColumns) {
-      if (!existingColumns.has(col.name)) {
-        try {
-          db.run(`ALTER TABLE memory_entries ADD COLUMN ${col.definition}`);
+    const migrate = db.transaction(() => {
+      for (const col of requiredColumns) {
+        if (!existingColumns.has(col.name)) {
+          db.exec(`ALTER TABLE memory_entries ADD COLUMN ${col.definition}`);
           columnsAdded.push(col.name);
-          modified = true;
-        } catch (e) {
-          // Column might already exist or other error - continue
         }
       }
-    }
 
-    // #2120 — Belt-and-suspenders backfill. `ALTER TABLE ADD COLUMN
-    // status TEXT DEFAULT 'active'` should populate existing rows with
-    // 'active' in modern SQLite, but: (a) some auto-memory bridge writes
-    // happen via INSERT paths that pass an explicit NULL, (b) some
-    // historical sql.js builds skipped the DEFAULT backfill, (c)
-    // entries can be migrated in from older snapshots. After ensuring
-    // the column exists, force-backfill any remaining NULL → 'active'.
-    // Safe on already-correct DBs (0 rows updated).
-    if (columnsAdded.includes('status') || existingColumns.has('status')) {
-      try {
-        db.run(`UPDATE memory_entries SET status = 'active' WHERE status IS NULL`);
-        modified = true;
-      } catch {
-        /* table is read-only or doesn't exist — skip */
+      // Historical snapshots can contain explicit NULL status values. The
+      // update is harmless when none exist and, unlike exporting a sql.js
+      // image, never replaces the database under live readers and writers.
+      if (columnsAdded.includes('status') || existingColumns.has('status')) {
+        db.prepare("UPDATE memory_entries SET status = 'active' WHERE status IS NULL").run();
       }
-    }
-
-    if (modified) {
-      // Save updated database
-      const data = db.export();
-      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
-    }
+    });
+    migrate();
 
     db.close();
+    db = undefined;
     return { success: true, columnsAdded };
   } catch (error) {
     return {
@@ -1198,6 +1365,8 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
       columnsAdded,
       error: error instanceof Error ? error.message : String(error)
     };
+  } finally {
+    try { db?.close(); } catch { /* already closed */ }
   }
 }
 
@@ -1368,8 +1537,8 @@ async function activateControllerRegistry(
  */
 export async function recoverMemoryDatabase(
   dbPath: string,
-  opts: { verbose?: boolean } = {},
-): Promise<{ recovered: boolean; backupPath?: string; rows?: number; reason?: string; restoredFromBackup?: boolean; from?: string; restoreReason?: string }> {
+  opts: { verbose?: boolean; force?: boolean; drainTimeoutMs?: number } = {},
+): Promise<{ recovered: boolean; backupPath?: string; rows?: number; reason?: string; restoredFromBackup?: boolean; from?: string; restoreReason?: string; liveHandles?: ForeignDbHandle[] }> {
   if (!dbPath || !fs.existsSync(dbPath)) return { recovered: false, reason: 'no-db' };
 
   // Fallback for when the in-place rebuild can't produce a verified DB (issue
@@ -1474,10 +1643,49 @@ export async function recoverMemoryDatabase(
       return await restoreFromBackup('verify-failed');
     }
 
-    // Back up the corrupt DB, then atomically swap in the verified rebuild.
-    fs.copyFileSync(dbPath, bakPath);
-    fs.renameSync(tmpPath, dbPath);
-    for (const s of ['-wal', '-shm']) { try { fs.rmSync(`${dbPath}${s}`, { force: true }); } catch { /* */ } }
+    // A verified rebuild exists — but installing it is a whole-file swap, which
+    // is only safe with NO other process attached: rename strands existing fds
+    // on the dead inode while the -wal/-shm stay filename-paired with the new
+    // image (howtocorrupt.html §2.5 — the exact live-corruption mechanism this
+    // rebuild is trying to escape). BEGIN IMMEDIATE above only proved no writer
+    // was mid-transaction; idle open handles hold no lock, so ask the OS —
+    // and instead of refusing outright, ASK holders to detach: post the
+    // recovery marker (cooperating connections close on sight and hold new
+    // opens), drain with a bounded wait, and refuse only for holders that
+    // won't drain. Hands-off self-healing is preserved; the corruption
+    // topology is still impossible.
+    if (!opts.force && process.env.RUFLO_MEMORY_RECOVERY_FORCE !== '1') {
+      postRecoveryMarker(dbPath, 'auto-recovery rebuild swap');
+      try {
+        const scan = await drainForeignHandles(dbPath, opts.drainTimeoutMs ?? 30_000);
+        if (scan.supported && scan.handles.length > 0) {
+          try { fs.rmSync(tmpPath, { force: true }); } catch { /* */ }
+          if (opts.verbose) {
+            console.log(
+              `memory DB recovery blocked: holders did not detach — ${describeForeignHandles(scan.handles)}. ` +
+              `Stop those processes (or pass force) and re-run recovery.`,
+            );
+          }
+          return { recovered: false, reason: 'live-handles', liveHandles: scan.handles };
+        }
+        if (!scan.supported && opts.verbose) {
+          console.log('memory DB recovery: cannot enumerate open handles on this platform — proceeding unverified');
+        }
+
+        // Back up the corrupt DB, then atomically swap in the verified rebuild
+        // while the marker still holds cooperating openers at bay.
+        fs.copyFileSync(dbPath, bakPath);
+        fs.renameSync(tmpPath, dbPath);
+        for (const s of ['-wal', '-shm']) { try { fs.rmSync(`${dbPath}${s}`, { force: true }); } catch { /* */ } }
+      } finally {
+        clearRecoveryMarker(dbPath);
+      }
+    } else {
+      // Back up the corrupt DB, then atomically swap in the verified rebuild.
+      fs.copyFileSync(dbPath, bakPath);
+      fs.renameSync(tmpPath, dbPath);
+      for (const s of ['-wal', '-shm']) { try { fs.rmSync(`${dbPath}${s}`, { force: true }); } catch { /* */ } }
+    }
 
     if (opts.verbose) {
       console.log(`memory DB auto-recovered: ${dstRows} rows, integrity ok. Corrupt original saved to ${bakPath}`);
@@ -1679,10 +1887,11 @@ export async function initializeMemoryDatabase(options: {
     // the existing DB was perfectly healthy.
     if (fs.existsSync(dbPath) && !force) {
       // #2568-followup: an existing DB may predate `vector_indexes` (or was
-      // written by agentdb directly). Self-heal it here — this branch is hit on
-      // every MCP-server start and `memory init`, so any ruflo repairs itself.
-      // Idempotent + best-effort; never turns a healthy re-init into a failure.
-      const heal = await repairVectorIndexes(dbPath, { verbose, autoRecover: true });
+      // written by agentdb directly). Online schema repair is safe because it
+      // stays on the current SQLite inode. Whole-file corruption recovery is
+      // deliberately not automatic here: an MCP start cannot prove that every
+      // other process has closed its WAL handle before a replacement.
+      const heal = await repairVectorIndexes(dbPath, { verbose, autoRecover: false });
       return {
         success: true,
         alreadyExists: true,
@@ -1933,13 +2142,10 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
 }> {
   const swarmDir = getMemoryRoot();
   const path_ = dbPath || path.join(swarmDir, 'memory.db');
+  let db: any;
 
   try {
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
-
-    const fileBuffer = fs.readFileSync(path_);
-    const db = new SQL.Database(fileBuffer);
+    db = await openLiveMemoryDatabase(path_);
 
     // Apply decay: confidence *= exp(-decay_rate * days_since_last_use)
     const now = Date.now();
@@ -1953,18 +2159,13 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
         AND (? - COALESCE(last_matched_at, created_at)) > 86400000
     `;
 
-    db.run(decayQuery, [now, now, now]);
-
-    const changes = db.getRowsModified();
-
-    // Save (atomic — issue #2584: a torn full-image flush corrupts the store)
-    const data = db.export();
-    writeFileAtomic(path_, Buffer.from(data));
+    const result = db.prepare(decayQuery).run(now, now, now) as { changes: number };
     db.close();
+    db = undefined;
 
     return {
       success: true,
-      patternsDecayed: changes
+      patternsDecayed: result.changes
     };
   } catch (error) {
     return {
@@ -1972,6 +2173,8 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
       patternsDecayed: 0,
       error: error instanceof Error ? error.message : String(error)
     };
+  } finally {
+    try { db?.close(); } catch { /* already closed */ }
   }
 }
 
@@ -2627,6 +2830,7 @@ export async function storeEntry(options: {
   success: boolean;
   id: string;
   embedding?: { dimensions: number; model: string };
+  indexUpdated?: boolean;
   error?: string;
 }> {
   // ADR-053: Try AgentDB v3 bridge first
@@ -2637,18 +2841,19 @@ export async function storeEntry(options: {
       // Keep HNSW index in sync with bridge-stored entries
       if (bridgeResult.rawEmbedding && bridgeResult.success) {
         const ns = options.namespace || 'default';
-        await addToHNSWIndex(bridgeResult.id, bridgeResult.rawEmbedding, {
+        const indexUpdated = await addToHNSWIndex(bridgeResult.id, bridgeResult.rawEmbedding, {
           id: bridgeResult.id,
           key: options.key,
           namespace: ns,
           content: options.value,
-        }).catch(() => {});
+        }, options.dbPath);
+        return { ...bridgeResult, indexUpdated };
       }
       return bridgeResult;
     }
   }
 
-  // Fallback: raw sql.js
+  // Fallback: direct SQLite/WAL mutation on the canonical inode.
   const {
     key,
     value,
@@ -2657,11 +2862,12 @@ export async function storeEntry(options: {
     tags = [],
     ttl,
     dbPath: customPath,
-    upsert = false
+    upsert = true
   } = options;
 
   const swarmDir = getMemoryRoot();
   const dbPath = customPath ? path.resolve(customPath) : path.join(swarmDir, 'memory.db');
+  let db: any;
 
   try {
     if (!fs.existsSync(dbPath)) {
@@ -2669,15 +2875,11 @@ export async function storeEntry(options: {
     }
 
     // Ensure schema has all required columns (migration for older DBs)
-    await ensureSchemaColumns(dbPath);
+    const schema = await ensureSchemaColumns(dbPath);
+    if (!schema.success) throw new Error(schema.error || 'Memory schema repair failed');
+    db = await openLiveMemoryDatabase(dbPath);
 
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
-
-    const fileBuffer = readFileMaybeEncrypted(dbPath, null);
-    const db = new SQL.Database(fileBuffer);
-
-    const id = `entry_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const proposedId = `entry_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     const now = Date.now();
 
     // Generate embedding if requested
@@ -2697,61 +2899,88 @@ export async function storeEntry(options: {
     // are indexed — without a row, `memory_search({namespace:"X"})` returns
     // 0 even when memory_entries holds matching rows. INSERT OR IGNORE
     // preserves the existing `default` / `patterns` rows.
-    try {
-      db.run(
-        `INSERT OR IGNORE INTO vector_indexes (id, name, dimensions) VALUES (?, ?, ?)`,
-        [namespace, namespace, embeddingDimensions ?? 384]
-      );
-    } catch { /* vector_indexes may not exist on legacy DBs — fall through */ }
-
-    // Insert or update entry (upsert mode uses REPLACE)
+    // Preserve row identity on update so access/ownership history and every
+    // derived vector reference continue to address the same canonical row.
     const insertSql = upsert
-      ? `INSERT OR REPLACE INTO memory_entries (
+      ? `INSERT INTO memory_entries (
           id, key, namespace, content, type,
           embedding, embedding_dimensions, embedding_model,
           tags, metadata, created_at, updated_at, expires_at, status
-        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')`
+        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+        ON CONFLICT(namespace, key) DO UPDATE SET
+          content = excluded.content,
+          type = excluded.type,
+          embedding = excluded.embedding,
+          embedding_dimensions = excluded.embedding_dimensions,
+          embedding_model = excluded.embedding_model,
+          tags = excluded.tags,
+          metadata = excluded.metadata,
+          updated_at = excluded.updated_at,
+          expires_at = excluded.expires_at,
+          status = 'active'
+        RETURNING id`
       : `INSERT INTO memory_entries (
           id, key, namespace, content, type,
           embedding, embedding_dimensions, embedding_model,
           tags, metadata, created_at, updated_at, expires_at, status
-        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')`;
+        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+        RETURNING id`;
 
-    db.run(insertSql, [
-      id,
-      key,
-      namespace,
-      value,
-      embeddingJson,
-      embeddingDimensions,
-      embeddingModel,
-      tags.length > 0 ? JSON.stringify(tags) : null,
-      '{}',
-      now,
-      now,
-      ttl ? now + (ttl * 1000) : null
-    ]);
+    const write = db.transaction((): string => {
+      try {
+        db.prepare(
+          `INSERT OR IGNORE INTO vector_indexes (id, name, dimensions) VALUES (?, ?, ?)`,
+        ).run(namespace, namespace, embeddingDimensions ?? 384);
+      } catch { /* vector_indexes may not exist on legacy DBs */ }
 
-    // Save
-    const data = db.export();
-    writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+      const row = db.prepare(insertSql).get(
+        proposedId,
+        key,
+        namespace,
+        value,
+        embeddingJson,
+        embeddingDimensions,
+        embeddingModel,
+        tags.length > 0 ? JSON.stringify(tags) : null,
+        '{}',
+        now,
+        now,
+        ttl ? now + (ttl * 1000) : null,
+      ) as { id: string } | undefined;
+      if (!row?.id) throw new Error('Memory write committed without returning an entry ID');
+
+      try {
+        db.prepare(
+          `UPDATE vector_indexes SET
+             total_vectors = (SELECT COUNT(*) FROM memory_entries
+                              WHERE namespace = ? AND status = 'active' AND embedding IS NOT NULL),
+             updated_at = ?
+           WHERE name = ?`,
+        ).run(namespace, now, namespace);
+      } catch { /* vector_indexes may not exist on legacy DBs */ }
+      return String(row.id);
+    });
+    const id = write();
     db.close();
+    db = undefined;
 
     // Add to HNSW index for faster future searches
+    let indexUpdated: boolean | undefined;
     if (embeddingJson) {
       const embResult = JSON.parse(embeddingJson) as number[];
-      await addToHNSWIndex(id, embResult, {
+      indexUpdated = await addToHNSWIndex(id, embResult, {
         id,
         key,
         namespace,
         content: value
-      });
+      }, dbPath);
     }
 
     return {
       success: true,
       id,
-      embedding: embeddingJson ? { dimensions: embeddingDimensions!, model: embeddingModel! } : undefined
+      embedding: embeddingJson ? { dimensions: embeddingDimensions!, model: embeddingModel! } : undefined,
+      indexUpdated,
     };
   } catch (error) {
     return {
@@ -2759,6 +2988,8 @@ export async function storeEntry(options: {
       id: '',
       error: error instanceof Error ? error.message : String(error)
     };
+  } finally {
+    try { db?.close(); } catch { /* already closed */ }
   }
 }
 
@@ -2791,7 +3022,7 @@ export async function searchEntries(options: {
     if (bridgeResult) return bridgeResult;
   }
 
-  // Fallback: raw sql.js
+  // Fallback: read-only sql.js full-corpus search.
   const {
     query,
     namespace,
@@ -2863,7 +3094,11 @@ export async function searchEntries(options: {
     } catch { /* RaBitQ unavailable, fall through */ }
 
     // Try HNSW search (150x faster than brute-force)
-    const hnswResults = await searchHNSWIndex(queryEmbedding, { k: limit, namespace: effectiveNamespace });
+    const hnswResults = await searchHNSWIndex(queryEmbedding, {
+      k: limit,
+      namespace: effectiveNamespace,
+      dbPath,
+    });
     if (hnswResults && hnswResults.length > 0) {
       // Filter by threshold
       const filtered = hnswResults.filter(r => r.score >= threshold);
@@ -2884,8 +3119,8 @@ export async function searchEntries(options: {
     // Get entries with embeddings
     const searchStmt = db.prepare(
       effectiveNamespace !== 'all'
-        ? `SELECT id, key, namespace, content, embedding FROM memory_entries WHERE status = 'active' AND namespace = ? LIMIT 1000`
-        : `SELECT id, key, namespace, content, embedding FROM memory_entries WHERE status = 'active' LIMIT 1000`
+        ? `SELECT id, key, namespace, content, embedding FROM memory_entries WHERE status = 'active' AND namespace = ?`
+        : `SELECT id, key, namespace, content, embedding FROM memory_entries WHERE status = 'active'`
     );
     if (effectiveNamespace !== 'all') {
       searchStmt.bind([effectiveNamespace]);
@@ -3014,7 +3249,7 @@ export async function listEntries(options: {
     if (bridgeResult) return bridgeResult;
   }
 
-  // Fallback: raw sql.js
+  // Fallback: read-only sql.js listing.
   const {
     namespace,
     limit = 20,
@@ -3164,7 +3399,7 @@ export async function getEntry(options: {
     if (bridgeResult) return bridgeResult;
   }
 
-  // Fallback: raw sql.js
+  // Fallback: direct SQLite/WAL mutation on the canonical inode.
   const {
     key,
     namespace = 'default',
@@ -3173,6 +3408,7 @@ export async function getEntry(options: {
 
   const swarmDir = getMemoryRoot();
   const dbPath = customPath || path.join(swarmDir, 'memory.db');
+  let db: any;
 
   try {
     if (!fs.existsSync(dbPath)) {
@@ -3180,57 +3416,57 @@ export async function getEntry(options: {
     }
 
     // Ensure schema has all required columns (migration for older DBs)
-    await ensureSchemaColumns(dbPath);
+    const schema = await ensureSchemaColumns(dbPath);
+    if (!schema.success) throw new Error(schema.error || 'Memory schema repair failed');
+    db = await openLiveMemoryDatabase(dbPath);
 
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
-
-    const fileBuffer = readFileMaybeEncrypted(dbPath, null);
-    const db = new SQL.Database(fileBuffer);
-
-    // Find entry by key
-    const getStmt = db.prepare(`
-      SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, tags
+    const readAndTouch = db.transaction(() => {
+      const row = db.prepare(`
+      SELECT id, key, namespace, content, embedding,
+             access_count AS accessCount, created_at AS createdAt,
+             updated_at AS updatedAt, tags
       FROM memory_entries
       WHERE status = 'active'
         AND key = ?
         AND namespace = ?
       LIMIT 1
-    `);
-    getStmt.bind([key, namespace]);
-    const getRows: unknown[][] = [];
-    while (getStmt.step()) {
-      getRows.push(getStmt.get());
-    }
-    getStmt.free();
-    const result = getRows.length > 0 ? [{ values: getRows }] : [];
+      `).get(key, namespace) as {
+        id: string;
+        key: string;
+        namespace: string;
+        content: string;
+        embedding: string | null;
+        accessCount: number;
+        createdAt: string;
+        updatedAt: string;
+        tags: string | null;
+      } | undefined;
 
-    if (!result[0]?.values?.[0]) {
+      if (row) {
+        db.prepare(`
+          UPDATE memory_entries
+          SET access_count = access_count + 1,
+              last_accessed_at = strftime('%s', 'now') * 1000
+          WHERE id = ?
+        `).run(row.id);
+      }
+      return row;
+    });
+    const row = readAndTouch();
+
+    if (!row) {
       db.close();
+      db = undefined;
       return { success: true, found: false };
     }
 
-    const [id, entryKey, ns, content, embedding, accessCount, createdAt, updatedAt, tagsJson] = result[0].values[0] as [
-      string, string, string, string, string | null, number, string, string, string | null
-    ];
-
-    // Update access count
-    db.run(`
-      UPDATE memory_entries
-      SET access_count = access_count + 1, last_accessed_at = strftime('%s', 'now') * 1000
-      WHERE id = ?
-    `, [String(id)]);
-
-    // Save updated database
-    const data = db.export();
-    writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
-
     db.close();
+    db = undefined;
 
     let tags: string[] = [];
-    if (tagsJson) {
+    if (row.tags) {
       try {
-        tags = JSON.parse(tagsJson);
+        tags = JSON.parse(row.tags);
       } catch {
         // Invalid JSON
       }
@@ -3240,14 +3476,14 @@ export async function getEntry(options: {
       success: true,
       found: true,
       entry: {
-        id: String(id),
-        key: entryKey || String(id),
-        namespace: ns || 'default',
-        content: content || '',
-        accessCount: (accessCount || 0) + 1,
-        createdAt: createdAt || new Date().toISOString(),
-        updatedAt: updatedAt || new Date().toISOString(),
-        hasEmbedding: !!embedding && embedding.length > 10,
+        id: String(row.id),
+        key: row.key || String(row.id),
+        namespace: row.namespace || 'default',
+        content: row.content || '',
+        accessCount: (row.accessCount || 0) + 1,
+        createdAt: row.createdAt || new Date().toISOString(),
+        updatedAt: row.updatedAt || new Date().toISOString(),
+        hasEmbedding: !!row.embedding && row.embedding.length > 10,
         tags
       }
     };
@@ -3257,6 +3493,8 @@ export async function getEntry(options: {
       found: false,
       error: error instanceof Error ? error.message : String(error)
     };
+  } finally {
+    try { db?.close(); } catch { /* already closed */ }
   }
 }
 
@@ -3281,24 +3519,17 @@ export async function deleteEntry(options: {
   if (bridge) {
     const bridgeResult = await bridge.bridgeDeleteEntry(options);
     if (bridgeResult) {
-      // #1122: Bridge path must also invalidate the in-memory HNSW index.
-      // Without this, deleted vectors remain as ghost entries in search results.
-      if (bridgeResult.deleted && hnswIndex?.entries) {
-        // Remove the entry from the HNSW entries map by key+namespace composite
-        for (const [id, entry] of hnswIndex.entries) {
-          if ((entry as any)?.key === options.key && ((entry as any)?.namespace ?? 'default') === (options.namespace ?? 'default')) {
-            hnswIndex.entries.delete(id);
-            break;
-          }
-        }
-        saveHNSWMetadata();
-        rebuildSearchIndex();
+      if (bridgeResult.deleted && bridgeResult.entryId) {
+        await removeFromHNSWIndex(
+          [bridgeResult.entryId],
+          path.resolve(options.dbPath ?? resolveDbPath()),
+        );
       }
       return bridgeResult;
     }
   }
 
-  // Fallback: raw sql.js
+  // Fallback: direct SQLite/WAL mutation on the canonical inode.
   const {
     key,
     namespace = 'default',
@@ -3307,6 +3538,7 @@ export async function deleteEntry(options: {
 
   const swarmDir = getMemoryRoot();
   const dbPath = customPath || path.join(swarmDir, 'memory.db');
+  let db: any;
 
   try {
     if (!fs.existsSync(dbPath)) {
@@ -3320,89 +3552,67 @@ export async function deleteEntry(options: {
       };
     }
 
-    // Ensure schema has all required columns (migration for older DBs)
-    await ensureSchemaColumns(dbPath);
+    const schema = await ensureSchemaColumns(dbPath);
+    if (!schema.success) throw new Error(schema.error || 'Memory schema repair failed');
+    db = await openLiveMemoryDatabase(dbPath);
 
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
+    const mutate = db.transaction(() => {
+      const row = db.prepare(`
+        SELECT id FROM memory_entries
+        WHERE status = 'active' AND key = ? AND namespace = ?
+        LIMIT 1
+      `).get(key, namespace) as { id: string } | undefined;
 
-    const fileBuffer = readFileMaybeEncrypted(dbPath, null);
-    const db = new SQL.Database(fileBuffer);
+      if (row) {
+        db.prepare(`
+          UPDATE memory_entries
+          SET status = 'deleted',
+              embedding = NULL,
+              updated_at = strftime('%s', 'now') * 1000
+          WHERE key = ? AND namespace = ? AND status = 'active'
+        `).run(key, namespace);
 
-    // Check if entry exists first
-    const checkStmt = db.prepare(`
-      SELECT id FROM memory_entries
-      WHERE status = 'active'
-        AND key = ?
-        AND namespace = ?
-      LIMIT 1
-    `);
-    checkStmt.bind([key, namespace]);
-    const checkRows: unknown[][] = [];
-    while (checkStmt.step()) {
-      checkRows.push(checkStmt.get());
-    }
-    checkStmt.free();
-    const checkResult = checkRows.length > 0 ? [{ values: checkRows }] : [];
+        try {
+          db.prepare(`
+            UPDATE vector_indexes SET
+              total_vectors = (SELECT COUNT(*) FROM memory_entries
+                               WHERE namespace = ? AND status = 'active' AND embedding IS NOT NULL),
+              updated_at = ?
+            WHERE name = ?
+          `).run(namespace, Date.now(), namespace);
+        } catch { /* vector_indexes may not exist on legacy DBs */ }
+      }
 
-    if (!checkResult[0]?.values?.[0]) {
-      // Get remaining count before closing
-      const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE status = 'active'`);
-      const remainingEntries = countResult[0]?.values?.[0]?.[0] as number || 0;
+      const remaining = db.prepare(
+        `SELECT COUNT(*) AS count FROM memory_entries WHERE status = 'active'`,
+      ).get() as { count: number };
+      return { entryId: row?.id, remainingEntries: remaining.count || 0 };
+    });
+    const result = mutate();
+
+    if (!result.entryId) {
       db.close();
+      db = undefined;
       return {
         success: true,
         deleted: false,
         key,
         namespace,
-        remainingEntries,
+        remainingEntries: result.remainingEntries,
         error: `Key '${key}' not found in namespace '${namespace}'`
       };
     }
-
-    // Capture the entry ID for HNSW cleanup
-    const entryId = String(checkResult[0].values[0][0]);
-
-    // Delete the entry (soft delete by setting status to 'deleted')
-    // Also null out the embedding to clean up vector data from SQLite
-    db.run(`
-      UPDATE memory_entries
-      SET status = 'deleted',
-          embedding = NULL,
-          updated_at = strftime('%s', 'now') * 1000
-      WHERE key = ?
-        AND namespace = ?
-        AND status = 'active'
-    `, [key, namespace]);
-
-    // Get remaining count
-    const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE status = 'active'`);
-    const remainingEntries = countResult[0]?.values?.[0]?.[0] as number || 0;
-
-    // Save updated database
-    const data = db.export();
-    writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
-
     db.close();
+    db = undefined;
 
-    // Clean up in-memory HNSW index so ghost vectors don't appear in searches.
-    // Remove the entry from the HNSW entries map and invalidate the index.
-    // The next search will rebuild the HNSW index from the remaining DB rows.
-    if (hnswIndex?.entries) {
-      hnswIndex.entries.delete(entryId);
-      saveHNSWMetadata();
-      // Invalidate the HNSW index so it rebuilds from DB on next search.
-      // We can't surgically remove a vector from the HNSW graph, so we
-      // clear the entire index; it will be lazily rebuilt from SQLite.
-      rebuildSearchIndex();
-    }
+    await removeFromHNSWIndex([result.entryId], path.resolve(dbPath));
 
     return {
       success: true,
       deleted: true,
       key,
       namespace,
-      remainingEntries
+      remainingEntries: result.remainingEntries
     };
   } catch (error) {
     return {
@@ -3413,6 +3623,8 @@ export async function deleteEntry(options: {
       remainingEntries: 0,
       error: error instanceof Error ? error.message : String(error)
     };
+  } finally {
+    try { db?.close(); } catch { /* already closed */ }
   }
 }
 
@@ -3424,16 +3636,10 @@ export async function deleteEntry(options: {
 // row would otherwise survive forever with no dangling-ref/cycle signal to
 // ever catch it) has no way to get there through the public CLI/MCP surface.
 // `purgeNamespace` is a real `DELETE FROM memory_entries WHERE namespace = ?`
-// — irreversible, namespace-scoped, and lock-protected against a second
-// concurrent purge/delete on the same db file (see withMemoryDbLock below).
-//
-// This does NOT fully close #2621 (a concurrent daemon/MCP server already
-// mid read-modify-write on the sql.js fallback path can still flush an
-// older in-memory image after this purge commits, resurrecting rows) — that
-// requires every memory.db writer to respect the same lock, which is a
-// larger change than this namespace-reconcile primitive. The lock here
-// bounds the race to "another purge/delete running at the same instant",
-// which is the concrete case this feature needs to be safe against.
+// — irreversible and namespace-scoped. All normal mutation paths now use
+// native SQLite/WAL on the canonical inode; the advisory lock remains only to
+// serialize two explicit namespace reconciliations and their derived-index
+// cleanup, not to compensate for unsafe whole-file database replacement.
 
 const MEMORY_DB_LOCK_STALE_MS = 10_000;
 
@@ -3505,51 +3711,48 @@ export async function purgeNamespace(options: {
     if (bridge) {
       const bridgeResult = await bridge.bridgePurgeNamespace({ namespace, dbPath });
       if (bridgeResult) {
-        if (bridgeResult.deletedCount > 0 && hnswIndex?.entries) {
-          for (const [id, entry] of hnswIndex.entries) {
-            if (((entry as any)?.namespace ?? 'default') === namespace) hnswIndex.entries.delete(id);
-          }
-          saveHNSWMetadata();
-          rebuildSearchIndex();
+        if (bridgeResult.deletedCount > 0 && bridgeResult.entryIds?.length) {
+          await removeFromHNSWIndex(bridgeResult.entryIds, dbPath);
         }
         return bridgeResult;
       }
     }
 
-    // Fallback: raw sql.js, same whole-file read/mutate/rewrite shape as
-    // deleteEntry's fallback path above (and the same encryption handling).
+    // The bridge can be disabled for diagnostics, but mutation still stays on
+    // the canonical SQLite inode. A snapshot rewrite here can miss WAL rows
+    // and resurrect entries held by another process.
+    let db: any;
     try {
       if (!fs.existsSync(dbPath)) {
         return { success: false, deletedCount: 0, remainingEntries: 0, error: 'Database not found' };
       }
 
-      await ensureSchemaColumns(dbPath);
+      const schema = await ensureSchemaColumns(dbPath);
+      if (!schema.success) throw new Error(schema.error || 'Memory schema repair failed');
+      db = await openLiveMemoryDatabase(dbPath);
 
-      const initSqlJs = (await import('sql.js')).default;
-      const SQL = await initSqlJs();
-
-      const fileBuffer = readFileMaybeEncrypted(dbPath, null);
-      const db = new SQL.Database(fileBuffer);
-
-      const beforeResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE namespace = ?`, [namespace]);
-      const deletedCount = (beforeResult[0]?.values?.[0]?.[0] as number) || 0;
-
-      db.run(`DELETE FROM memory_entries WHERE namespace = ?`, [namespace]);
-
-      const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE status = 'active'`);
-      const remainingEntries = (countResult[0]?.values?.[0]?.[0] as number) || 0;
-
-      const data = db.export();
-      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+      const purge = db.transaction(() => {
+        const entryIds = (db.prepare(
+          `SELECT id FROM memory_entries WHERE namespace = ?`,
+        ).all(namespace) as Array<{ id: string }>).map(row => String(row.id));
+        db.prepare(`DELETE FROM memory_entries WHERE namespace = ?`).run(namespace);
+        try {
+          db.prepare(`DELETE FROM vector_indexes WHERE name = ? OR id = ?`).run(namespace, namespace);
+        } catch { /* vector_indexes may not exist on legacy DBs */ }
+        const remaining = db.prepare(
+          `SELECT COUNT(*) AS count FROM memory_entries WHERE status = 'active'`,
+        ).get() as { count: number };
+        return {
+          entryIds,
+          deletedCount: entryIds.length,
+          remainingEntries: remaining.count || 0,
+        };
+      });
+      const { entryIds, deletedCount, remainingEntries } = purge();
       db.close();
+      db = undefined;
 
-      if (deletedCount > 0 && hnswIndex?.entries) {
-        for (const [id, entry] of hnswIndex.entries) {
-          if (((entry as any)?.namespace ?? 'default') === namespace) hnswIndex.entries.delete(id);
-        }
-        saveHNSWMetadata();
-        rebuildSearchIndex();
-      }
+      if (entryIds.length > 0) await removeFromHNSWIndex(entryIds, dbPath);
 
       return { success: true, deletedCount, remainingEntries };
     } catch (error) {
@@ -3559,6 +3762,8 @@ export async function purgeNamespace(options: {
         remainingEntries: 0,
         error: error instanceof Error ? error.message : String(error),
       };
+    } finally {
+      try { db?.close(); } catch { /* already closed */ }
     }
   });
 }

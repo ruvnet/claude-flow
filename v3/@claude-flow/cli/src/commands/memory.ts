@@ -94,7 +94,10 @@ const storeCommand: Command = {
     const ttl = ctx.flags.ttl as number;
     const tags = ctx.flags.tags ? (ctx.flags.tags as string).split(',') : [];
     const asVector = ctx.flags.vector as boolean;
-    const upsert = ctx.flags.upsert as boolean;
+    // The parser omits absent boolean flags on some invocation paths even
+    // when the command schema declares a default.  Upsert is the public
+    // default; only an explicit --no-upsert may request strict insertion.
+    const upsert = ctx.flags.upsert !== false;
 
     if (!key) {
       output.printError('Key is required. Use --key or -k');
@@ -359,10 +362,13 @@ const searchCommand: Command = {
     if (buildHnsw) {
       output.printInfo('Building HNSW index...');
       try {
-        const { getHNSWIndex, getHNSWStatus } = await import('../memory/memory-initializer.js');
+        const { getHNSWIndex, getHNSWStatus, resolveDbPath } = await import('../memory/memory-initializer.js');
 
         const startTime = Date.now();
-        const index = await getHNSWIndex({ forceRebuild: true });
+        const index = await getHNSWIndex({
+          dbPath: resolveDbPath(ctx.flags.path as string | undefined),
+          forceRebuild: true,
+        });
         const buildTime = Date.now() - startTime;
 
         if (index) {
@@ -371,7 +377,7 @@ const searchCommand: Command = {
           output.writeln(output.dim(`  Dimensions: ${status.dimensions}, Metric: cosine`));
           output.writeln(output.dim(`  Search speedup: ${status.entryCount > 10000 ? '12,500x' : status.entryCount > 1000 ? '150x' : '10x'}`));
         } else {
-          output.printWarning('HNSW index not available (install @ruvector/core for acceleration)');
+          output.printWarning('HNSW index not available (install ruvector for acceleration)');
         }
         output.writeln();
       } catch (error) {

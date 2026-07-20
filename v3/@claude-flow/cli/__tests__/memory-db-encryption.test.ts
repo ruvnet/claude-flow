@@ -20,7 +20,7 @@
  *     rather than producing a corrupted Buffer
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -31,6 +31,14 @@ import {
   writeFileRestricted,
 } from '../src/fs-secure.js';
 import { MAGIC, isEncryptedBlob } from '../src/encryption/vault.js';
+
+const registryInitialize = vi.fn();
+vi.mock('@claude-flow/memory', () => ({
+  ControllerRegistry: class {
+    initialize = registryInitialize;
+    async shutdown(): Promise<void> {}
+  },
+}));
 
 const SAVED_ENV: Record<string, string | undefined> = {};
 function saveEnv(...names: string[]) {
@@ -138,6 +146,21 @@ describe('memory-initializer DB encryption (ADR-096 Phase 4)', () => {
       writeFileRestricted(dbPath, db, { encrypt: true });
       const onDisk = readFileSync(dbPath);
       expect(onDisk.includes(signature)).toBe(false);
+    });
+
+    it('never hands an RFE1 snapshot to native AgentDB', async () => {
+      const db = makeSyntheticDbBuffer();
+      writeFileRestricted(dbPath, db, { encrypt: true });
+      const before = readFileSync(dbPath);
+      registryInitialize.mockClear();
+
+      const { getControllerRegistry } = await import('../src/memory/memory-bridge.js');
+      const registry = await getControllerRegistry(dbPath);
+
+      expect(registry).toBeNull();
+      expect(registryInitialize).not.toHaveBeenCalled();
+      expect(readFileSync(dbPath)).toEqual(before);
+      expect(isEncryptedBlob(readFileSync(dbPath))).toBe(true);
     });
   });
 
