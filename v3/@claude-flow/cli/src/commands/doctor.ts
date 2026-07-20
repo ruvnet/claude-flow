@@ -238,7 +238,7 @@ async function checkDaemonStatus(): Promise<HealthCheck> {
 }
 
 // Check memory database
-async function checkMemoryDatabase(): Promise<HealthCheck> {
+export async function checkMemoryDatabase(): Promise<HealthCheck> {
   // Authoritative path comes from `getMemoryRoot()` (honors
   // `CLAUDE_FLOW_MEMORY_PATH`, claude-flow.config.json's `memory.persistPath`,
   // then defaults to `.swarm/`). #1946: the previous hard-coded list missed
@@ -282,7 +282,8 @@ async function checkMemoryDatabase(): Promise<HealthCheck> {
 // SQLite-malformed one. Stuinfla reported both cases live (81-store fleet).
 // The three checks below layer functional assertions on top, ordered so
 // the earliest chain-break is always the first red the user sees:
-//   1. Integrity          — can sql.js open it AND does PRAGMA integrity_check pass?
+//   1. Integrity          — native, WAL-aware PRAGMA quick_check (sql.js
+//                           integrity_check fallback only when better-sqlite3 absent)
 //   2. Content            — do most memory_entries rows carry non-empty content?
 //   3. Embedding coverage — do most rows have a vector? (unembedded rows are
 //                           both unrecallable AND undistillable per ADR-174)
@@ -329,20 +330,100 @@ async function tryOpenSqlJs(dbPath: string): Promise<any | null> {
   } catch { return null; }
 }
 
-// Check 1 — sql.js can open it AND PRAGMA integrity_check returns 'ok'.
-// Two fail modes handled distinctly per "UNKNOWN is never PASS":
-//   - Open fails: warn ("cannot open; encrypted DB or corrupt — doctor
-//     can't distinguish from this side")
-//   - Open succeeds but pragma != 'ok': fail (definite corruption)
-async function checkMemoryIntegrity(): Promise<HealthCheck> {
+// Check 1 — is the memory DB structurally sound?
+//
+// Native-first + WAL-aware — and that WAL-awareness is the whole point. The
+// sql.js fallback below reads ONLY the main database image (readFileSync of the
+// `.db` file); it cannot attach the `-wal` sidecar, so it is BLIND to
+// corruption that lives solely in an un-checkpointed WAL — precisely the case
+// that let a torn store slip past a bare `doctor`. better-sqlite3 opens the real
+// database together with its WAL, so `PRAGMA quick_check` sees the
+// committed-plus-WAL state a reader would actually get.
+//
+// quick_check(10), not the full integrity_check: quick_check skips the
+// (expensive) index-vs-content cross-verification but still walks every page
+// and detects a malformed disk image. That is the right tradeoff for a check
+// that now runs on EVERY default `doctor` invocation (see DEFAULT_CHECKS); the
+// `10` caps how many problems it reports. The `--component memory` deep dive
+// runs this same function (componentMap['memory']), so it inherits the same
+// fast probe rather than paying for a full integrity_check.
+//
+// Status contract (preserves "UNKNOWN is never PASS" from the block above):
+//   native quick_check == ['ok']        → pass
+//   native quick_check != ['ok']        → fail  (corruption is definite)
+//   "…disk image is malformed" thrown   → fail  (a malformed DB MUST fail
+//     at open or query                           doctor — never softened to warn)
+//   native "not a database"/encrypted   → warn  (encrypted is the one benign
+//                                                 unreadable case)
+//   better-sqlite3 unavailable          → sql.js fallback: MAIN IMAGE ONLY,
+//                                          never a bare pass. The single pass it
+//                                          may emit is a clean main-image
+//                                          integrity_check, and even that carries
+//                                          the "WAL not checked" caveat so no
+//                                          green here reads as "WAL verified".
+export async function checkMemoryIntegrity(): Promise<HealthCheck> {
+  const name = 'Memory Integrity';
   const dbPath = await resolveMemoryDbPath();
-  if (!dbPath) return { name: 'Memory Integrity', status: 'warn', message: 'no memory.db found (see Memory Database check above)' };
+  if (!dbPath) return { name, status: 'warn', message: 'no memory.db found (see Memory Database check above)' };
+  const fixCorrupt = 'back up .swarm/memory.db then `claude-flow memory init --force`';
+
+  // ── Preferred path: native better-sqlite3 opens the DB *with* its WAL. ──
+  // Module name behind a variable so TS does not statically resolve the
+  // optional native dep at build time (CI may not install it).
+  let Database: any = null;
+  try {
+    const mod: string = 'better-sqlite3';
+    Database = (await import(mod)).default;
+  } catch { /* native engine absent — fall through to the sql.js fallback */ }
+
+  if (Database) {
+    let db: any = null;
+    try {
+      db = new Database(dbPath, { readonly: true, fileMustExist: true });
+      db.pragma('busy_timeout = 5000');
+      const rows: string[] = (db.prepare('PRAGMA quick_check(10)').all() as Array<Record<string, unknown>>)
+        .map((row) => String(Object.values(row)[0] ?? ''));
+      if (rows.length === 1 && rows[0] === 'ok') {
+        return { name, status: 'pass', message: `${dbPath} — PRAGMA quick_check: ok (native, WAL-aware)` };
+      }
+      return {
+        name,
+        status: 'fail',
+        message: `${dbPath} — PRAGMA quick_check: ${rows.slice(0, 3).join('; ')}${rows.length > 3 ? ` (+${rows.length - 3} more)` : ''}`,
+        fix: fixCorrupt,
+      };
+    } catch (e) {
+      const msg = (e as Error).message || String(e);
+      // A malformed disk image at open OR query is DEFINITE corruption → fail,
+      // never warn. SQLite phrases it "database disk image is malformed".
+      if (msg.includes('malformed')) {
+        return { name, status: 'fail', message: `${dbPath} — database disk image is malformed (native quick_check: ${msg})`, fix: fixCorrupt };
+      }
+      // Header unreadable as SQLite — most often an encrypted store, which is
+      // benign and indistinguishable from "not a database" from out here.
+      if (msg.includes('not a database') || msg.includes('file is encrypted')) {
+        return {
+          name,
+          status: 'warn',
+          message: `${dbPath} — native engine can't read as SQLite (encrypted DB or not-a-database): ${msg}`,
+          fix: 'if encrypted: expected. if not: back up + `claude-flow memory init --force` to rebuild',
+        };
+      }
+      return { name, status: 'warn', message: `${dbPath} — native quick_check threw: ${msg}` };
+    } finally { try { db?.close(); } catch { /* best-effort */ } }
+  }
+
+  // ── Fallback path: better-sqlite3 not installed. sql.js reads ONLY the main
+  //    image, so it is blind to WAL-only corruption — hence the caveat on every
+  //    message and the no-bare-pass rule. The one pass it may emit is a clean
+  //    main-image integrity_check, still caveated.
+  const caveat = '(main image only — WAL not checked, native engine unavailable)';
   const db = await tryOpenSqlJs(dbPath);
   if (!db) {
     return {
-      name: 'Memory Integrity',
+      name,
       status: 'warn',
-      message: `${dbPath} — sql.js can't open (encrypted DB or corrupt; doctor can't tell which from outside)`,
+      message: `${dbPath} — sql.js can't open ${caveat}; encrypted DB or corrupt, doctor can't tell which from outside`,
       fix: 'if encrypted: expected. if not: back up + `claude-flow memory init --force` to rebuild',
     };
   }
@@ -350,23 +431,29 @@ async function checkMemoryIntegrity(): Promise<HealthCheck> {
     const res = db.exec('PRAGMA integrity_check');
     const rows: string[] = res[0]?.values?.map((v: any[]) => String(v[0])) ?? [];
     if (rows.length === 1 && rows[0] === 'ok') {
-      return { name: 'Memory Integrity', status: 'pass', message: `${dbPath} — PRAGMA integrity_check: ok` };
+      return { name, status: 'pass', message: `${dbPath} — PRAGMA integrity_check: ok ${caveat}` };
     }
     return {
-      name: 'Memory Integrity',
+      name,
       status: 'fail',
-      message: `${dbPath} — PRAGMA integrity_check: ${rows.slice(0, 3).join('; ')}${rows.length > 3 ? ` (+${rows.length - 3} more)` : ''}`,
-      fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+      message: `${dbPath} — PRAGMA integrity_check: ${rows.slice(0, 3).join('; ')}${rows.length > 3 ? ` (+${rows.length - 3} more)` : ''} ${caveat}`,
+      fix: fixCorrupt,
     };
   } catch (e) {
     const msg = (e as Error).message || String(e);
-    const encryptedOrCorrupt = msg.includes('file is not a database') || msg.includes('malformed');
+    // Even from the main-image-only path, an explicit malformed error is
+    // definite corruption → fail. "file is not a database" stays warn (it may
+    // be an encrypted store).
+    if (msg.includes('malformed')) {
+      return { name, status: 'fail', message: `${dbPath} — database disk image is malformed ${caveat}: ${msg}`, fix: fixCorrupt };
+    }
+    const encrypted = msg.includes('file is not a database');
     return {
-      name: 'Memory Integrity',
+      name,
       status: 'warn',
-      message: encryptedOrCorrupt
-        ? `${dbPath} — DB refused query: ${msg} (encrypted DB or corruption; see Memory Integrity above)`
-        : `${dbPath} — probe threw: ${msg}`,
+      message: encrypted
+        ? `${dbPath} — DB refused query: ${msg} (encrypted DB) ${caveat}`
+        : `${dbPath} — probe threw: ${msg} ${caveat}`,
     };
   } finally { try { db.close(); } catch { /* best-effort */ } }
 }
@@ -1611,6 +1698,42 @@ async function checkEncryptionAtRest(): Promise<HealthCheck> {
   };
 }
 
+// The checks run by a bare `ruflo doctor` (no `--component`). Exported so the
+// memory-health wiring is testable as a unit: a check that ships only behind
+// `--component memory` protects nobody — corruption has to surface in the
+// DEFAULT run. #2677: the three functional memory probes (integrity, content,
+// embedding coverage) now sit immediately after the existence probe, ordered
+// so the earliest chain-break is the first red the operator sees.
+export const DEFAULT_CHECKS: (() => Promise<HealthCheck>)[] = [
+  checkVersionFreshness,
+  checkNodeVersion,
+  checkNpmVersion,
+  checkClaudeCode,
+  checkGit,
+  checkGitRepo,
+  checkConfigFile,
+  checkStaleSettingsNpx, // #2448 — runaway `npx @latest` in statusLine/hooks
+  checkDaemonStatus,
+  checkMemoryDatabase,          // exists + statable (unchanged)
+  checkMemoryIntegrity,         // #2677 check 1: native quick_check (WAL-aware), sql.js fallback
+  checkMemoryContent,          // #2677 check 2: memory_entries content coverage
+  checkMemoryEmbeddingCoverage, // #2677 check 3: vector coverage on populated rows
+  checkLearningBridge, // #2545 — can the auto-memory hook actually load @claude-flow/memory?
+  checkApiKeys,
+  checkMcpServers,
+  checkAIDefence, // #1807
+  checkDiskSpace,
+  checkBuildTools,
+  checkAgenticFlow,
+  checkEncryptionAtRest, // ADR-096 Phase 5
+  checkFederationBreaker, // ADR-097 Phase 4
+  checkMetaharness, // ADR-150 — MetaHarness upstream package
+  checkMetaharnessIntegration, // iter 45 — ruflo-side integration layer
+  checkFunnel, // ADR-305 — effective funnel state + deciding precedence source
+  checkProxySponsoredConsent, // ADR-313 — Meta LLM Proxy sponsored-downtime health
+  checkAuth, // ADR-306 — Cognitum identity (warn-only; never fails bare `ruflo doctor`)
+];
+
 // Format health check result
 function formatCheck(check: HealthCheck): string {
   const icon = check.status === 'pass' ? output.success('✓') :
@@ -1759,32 +1882,8 @@ export const doctorCommand: Command = {
     output.writeln(output.dim('─'.repeat(50)));
     output.writeln();
 
-    const allChecks: (() => Promise<HealthCheck>)[] = [
-      checkVersionFreshness,
-      checkNodeVersion,
-      checkNpmVersion,
-      checkClaudeCode,
-      checkGit,
-      checkGitRepo,
-      checkConfigFile,
-      checkStaleSettingsNpx, // #2448 — runaway `npx @latest` in statusLine/hooks
-      checkDaemonStatus,
-      checkMemoryDatabase,
-      checkLearningBridge, // #2545 — can the auto-memory hook actually load @claude-flow/memory?
-      checkApiKeys,
-      checkMcpServers,
-      checkAIDefence, // #1807
-      checkDiskSpace,
-      checkBuildTools,
-      checkAgenticFlow,
-      checkEncryptionAtRest, // ADR-096 Phase 5
-      checkFederationBreaker, // ADR-097 Phase 4
-      checkMetaharness, // ADR-150 — MetaHarness upstream package
-      checkMetaharnessIntegration, // iter 45 — ruflo-side integration layer
-      checkFunnel, // ADR-305 — effective funnel state + deciding precedence source
-      checkProxySponsoredConsent, // ADR-313 — Meta LLM Proxy sponsored-downtime health
-      checkAuth, // ADR-306 — Cognitum identity (warn-only; never fails bare `ruflo doctor`)
-    ];
+    // The default `ruflo doctor` run is DEFAULT_CHECKS (defined at module
+    // scope + exported so the memory-health wiring is unit-testable).
 
     // #2677: `--component memory` now runs the whole memory-health suite,
     // not just the existence check. Values can be a single check or an
@@ -1804,7 +1903,7 @@ export const doctorCommand: Command = {
       'daemon': checkDaemonStatus,
       'memory': [
         checkMemoryDatabase,         // existing: exists + statable (unchanged)
-        checkMemoryIntegrity,        // #2677 check 1: sql.js open + PRAGMA integrity_check
+        checkMemoryIntegrity,        // #2677 check 1: native quick_check (WAL-aware), sql.js fallback
         checkMemoryContent,          // #2677 check 2: memory_entries content coverage
         checkMemoryEmbeddingCoverage, // #2677 check 3: vector coverage on populated rows
       ],
@@ -1829,7 +1928,7 @@ export const doctorCommand: Command = {
       'auth': checkAuth, // ADR-306
     };
 
-    let checksToRun = allChecks;
+    let checksToRun: (() => Promise<HealthCheck>)[] = DEFAULT_CHECKS;
     if (component && componentMap[component]) {
       const entry = componentMap[component];
       checksToRun = Array.isArray(entry) ? entry : [entry];
