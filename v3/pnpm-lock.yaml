@@ -153,6 +153,9 @@ importers:
       agentic-flow:
         specifier: ^3.0.0-alpha.1
         version: 3.0.0-alpha.2
+      better-sqlite3:
+        specifier: ^12.9.0
+        version: 12.9.0
       ruvector:
         specifier: ^0.2.27
         version: 0.2.27(zod@3.25.76)
