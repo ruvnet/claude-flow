@@ -115,6 +115,7 @@
     "@claude-flow/security": "^3.0.0-alpha.12",
     "agentdb": "^3.0.0-alpha.17",
     "agentic-flow": "^3.0.0-alpha.1",
+    "better-sqlite3": "^12.9.0",
     "ruvector": "^0.2.27"
   },
   "publishConfig": {
