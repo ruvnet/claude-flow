@@ -23,8 +23,46 @@ The MCP server starts automatically when this plugin is active. Override environ
 
 ## Compatibility
 
-- **CLI:** pinned to `@claude-flow/cli` v3.6 major+minor. The `.mcp.json` invocation uses `@latest` for dynamic resolution; the smoke contract verifies the resolved CLI matches the v3.6 line.
+- **CLI:** pinned to `@claude-flow/cli` v3.6 major+minor. The `.mcp.json` invocation runs `scripts/mcp-start.cjs`, which resolves a pinned local build if one is configured (see below) and otherwise falls back to `npx @claude-flow/cli@latest` for dynamic resolution; the smoke contract verifies the resolved CLI matches the v3.6 line.
 - **Verification:** `bash plugins/ruflo-core/scripts/smoke.sh` is the contract.
+
+## Pinning the CLI build
+
+
+The MCP server is a long-lived writer against the shared `.swarm/memory.db`.
+By default `.mcp.json` starts the **registry** build (`npx @claude-flow/cli@latest`).
+On a host running a locally patched CLI, that registry build becomes a *second,
+unmanaged writer* against the same DB — the whole-image rename-over it performs
+can corrupt it. To keep the daemon on your intended build, `.mcp.json` launches
+the server through `scripts/mcp-start.cjs`, invoked via the same cross-platform
+`node -e` + `CLAUDE_PLUGIN_ROOT` bootstrap this plugin's `hooks.json` uses (#2721
+— no shell, no `${VAR}`-in-JSON, works unchanged on Windows/macOS/Linux). The
+wrapper resolves the CLI in this order (matching `ruflo-cost-tracker/scripts/_npx.mjs`):
+
+1. **`RUFLO_CLI_BIN`** — absolute path to a `cli.js` (run via `node`) or an
+   executable (run directly). Used if the path exists.
+2. **`$PWD/.claude-flow/cli-pin.json`** — parsed with `JSON.parse` (no `jq`
+   dependency). Shape:
+   ```json
+   { "bin": "/abs/path/to/@claude-flow/cli/bin/cli.js", "reason": "why", "pinnedAt": "2026-07-18T00:00:00Z" }
+   ```
+   Used if it parses and `bin` exists; a malformed pin file is ignored (the
+   server still starts).
+3. **Registry fallback** — `npx -y @claude-flow/cli@latest`, with a one-line
+   stderr `[ruflo] MCP server using unpinned registry CLI …` notice.
+
+The wrapper writes **nothing** to stdout (the JSON-RPC channel) and spawns the
+resolved CLI with `stdio: 'inherit'`, so the CLI owns fds 0/1/2 directly with no
+interposition on the protocol stream. The bare CLI invocation and the
+`CLAUDE_FLOW_MCP_TRANSPORT=stdio` env are preserved exactly (no subcommand is
+injected).
+
+
+The pin file also accepts an optional `"expiresWhenRegistryHas": "<semver>"`
+floor: once the registry's `@claude-flow/cli` version reaches it, the pin
+self-expires and resolution returns to the registry automatically. The
+decision uses a locally cached registry version (`.claude-flow/registry-version.json`)
+refreshed in the background — never a network call on the hook's hot path.
 
 ## MCP server contract
 

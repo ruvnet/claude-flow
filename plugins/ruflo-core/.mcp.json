@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "ruflo": {
-      "command": "npx",
-      "args": ["-y", "@claude-flow/cli@latest"],
+      "command": "node",
+      "args": ["-e", "require(require('path').join(process.env.CLAUDE_PLUGIN_ROOT,'scripts','mcp-start.cjs'))"],
       "env": {
         "CLAUDE_FLOW_MCP_TRANSPORT": "stdio"
       }

@@ -21,18 +21,17 @@
 // and avoids shell-quoting pitfalls in the ADR titles.
 
 import { basename } from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { findAdrs, parseAdr } from './lib/parse-adrs.mjs';
+import { spawnCliSync } from './lib/cli-resolve.mjs';
 
-// ADR-100 / #1748 Issue 3 — CLI_CORE=1 routes to lite cli-core (~2s cold-cache).
-// Note: cli-core's JsonMemoryBackend overwrites by default, so the
-// "exists" / UNIQUE-constraint detection below collapses to "ok" under CLI_CORE.
-// Re-running import in CLI_CORE mode is therefore idempotent (records refreshed)
-// rather than incremental (records skipped). For incremental imports across
-// many runs, leave CLI_CORE unset.
-const CLI_PKG = process.env.CLI_CORE === '1'
-  ? '@claude-flow/cli-core@alpha'
-  : '@claude-flow/cli@latest';
+// Writer-ownership pinning: a pinned local CLI build (RUFLO_CLI_BIN /
+// .claude-flow/cli-pin.json under ADR_ROOT) always wins; only the registry
+// fallback still honours CLI_CORE=1 (ADR-100 / #1748 Issue 3 — lite cli-core,
+// ~2s cold-cache). Note: cli-core's JsonMemoryBackend overwrites by default, so
+// the "exists" / UNIQUE-constraint detection below collapses to "ok" under
+// CLI_CORE, making a CLI_CORE import idempotent (records refreshed) rather than
+// incremental (records skipped). For incremental imports, leave CLI_CORE unset.
+// See lib/cli-resolve.mjs.
 
 const ROOT = process.env.ADR_ROOT || process.cwd();
 
@@ -55,8 +54,8 @@ function memoryStore(namespace, key, value) {
   // `.swarm/memory.db` (the CLI resolves the db path relative to the
   // subprocess's cwd, not ADR_ROOT). Every memory subprocess call in this
   // plugin must pass `cwd: ROOT` so the scan root and the db root agree.
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'store',
+  const r = spawnCliSync([
+    'memory', 'store',
     `--namespace=${namespace}`,
     `--key=${key}`,
     `--value=${valueStr}`,

@@ -161,12 +161,15 @@ grep -q "from './lib/parse-adrs.mjs'" "$ROOT/scripts/reindex.mjs" || miss="$miss
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 # 20. import.mjs and verify.mjs pass cwd to every memory subprocess call (#2666 point 2)
-step "20. import.mjs + verify.mjs pass cwd: ROOT to every npx memory subprocess"
+# import.mjs now routes memory ops through spawnCliSync (writer-ownership pinning,
+# lib/cli-resolve.mjs); verify.mjs still uses spawnSync('npx'). Both primitives
+# count as a memory subprocess call, and each must carry `cwd: ROOT`.
+step "20. import.mjs + verify.mjs pass cwd: ROOT to every memory subprocess"
 miss=""
-imp_calls=$(grep -c "spawnSync('npx'" "$ROOT/scripts/import.mjs")
+imp_calls=$(grep -cE "spawnSync\('npx'|spawnCliSync\(" "$ROOT/scripts/import.mjs")
 imp_cwd=$(grep -c "cwd: ROOT" "$ROOT/scripts/import.mjs")
 [[ "$imp_calls" -gt 0 && "$imp_cwd" -ge "$imp_calls" ]] || miss="$miss import.mjs($imp_cwd/$imp_calls)"
-ver_calls=$(grep -c "spawnSync('npx'" "$ROOT/scripts/verify.mjs")
+ver_calls=$(grep -cE "spawnSync\('npx'|spawnCliSync\(" "$ROOT/scripts/verify.mjs")
 ver_cwd=$(grep -c "cwd: ROOT" "$ROOT/scripts/verify.mjs")
 [[ "$ver_calls" -gt 0 && "$ver_cwd" -ge "$ver_calls" ]] || miss="$miss verify.mjs($ver_cwd/$ver_calls)"
 [[ -z "$miss" ]] && ok || bad "$miss"

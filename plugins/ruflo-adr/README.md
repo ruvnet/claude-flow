@@ -63,6 +63,41 @@ This plugin owns the `adr-patterns` AgentDB namespace. It defers to [ruflo-agent
 
 `adr-patterns` follows kebab-case `<plugin-stem>-<intent>` per the convention. The plugin uses it for semantic ADR search and for cross-project pattern transfer (via `hooks_transfer` in `ruflo-intelligence`).
 
+## Pinning the CLI build
+
+
+`adr-import` (`scripts/import.mjs`) and `adr-reindex` (`scripts/reindex.mjs`)
+write to the `adr-patterns` / `adr-edges` namespaces by shelling out to the
+`@claude-flow/cli` (`memory store` / `purge`). By default they run the
+**registry** build (`npx @claude-flow/cli@latest`). On a host running a locally
+patched CLI, that registry build is a *second, unmanaged writer* against the same
+`.swarm/memory.db` — the whole-image rename-over it performs can corrupt it. Pin
+the writer to your local build so purge, store, and list share one owner.
+
+Resolution order (`scripts/lib/cli-resolve.mjs` → `resolveCli`, the same
+convention as `ruflo-cost-tracker/scripts/_npx.mjs`); a pinned bin always wins,
+and only the registry fallback still honours `CLI_CORE=1`:
+
+1. **`RUFLO_CLI_BIN`** — absolute path to a `cli.js` (run via `node`) or an
+   executable (exec'd directly). Used if the path exists.
+2. **`<ADR_ROOT>/.claude-flow/cli-pin.json`** — checked next. For these scripts
+   the resolution cwd is `ADR_ROOT`, which is also the DB root (#2666), so the pin
+   and the DB stay in agreement. Shape:
+   ```json
+   { "bin": "/abs/path/to/@claude-flow/cli/bin/cli.js", "reason": "why", "pinnedAt": "2026-07-18T00:00:00Z" }
+   ```
+   Used if it parses and `bin` exists; a malformed pin file is ignored.
+3. **Registry fallback** — `npx -y @claude-flow/cli@latest` (or
+   `@claude-flow/cli-core@alpha` when `CLI_CORE=1`), with a one-line stderr
+   `[ruflo] memory write using unpinned registry CLI …` notice.
+
+
+The pin file also accepts an optional `"expiresWhenRegistryHas": "<semver>"`
+floor: once the registry's `@claude-flow/cli` version reaches it, the pin
+self-expires and resolution returns to the registry automatically. The
+decision uses a locally cached registry version (`.claude-flow/registry-version.json`)
+refreshed in the background — never a network call on the hook's hot path.
+
 ## Verification
 
 ```bash

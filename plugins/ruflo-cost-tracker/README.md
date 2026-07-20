@@ -137,6 +137,40 @@ Until Phase 3 ships, federated spend is **not** counted in the host's cost-track
 - **CLI:** pinned to `@claude-flow/cli` v3.6 major+minor.
 - **Verification:** `bash plugins/ruflo-cost-tracker/scripts/smoke.sh` is the contract.
 
+## Pinning the CLI build
+
+
+The Stop-hook capture (`scripts/track.mjs`) and `cost-budget` (`scripts/budget.mjs`)
+persist to memory by shelling out to the `@claude-flow/cli`. By default they run
+the **registry** build (`npx @claude-flow/cli@latest`). On a host running a
+locally patched CLI, that registry build is a *second, unmanaged writer* against
+the same `.swarm/memory.db` — the whole-image rename-over it performs can corrupt
+the DB. Pin the writer to your local build so store and retrieve share one owner.
+
+Resolution order (`scripts/_npx.mjs` → `resolveCli`); a pinned bin always wins,
+and only the registry fallback still honours `CLI_CORE=1` (the ADR-100 lite path):
+
+1. **`RUFLO_CLI_BIN`** — absolute path to a `cli.js` (run via `node`) or an
+   executable (exec'd directly). Used if the path exists.
+2. **`<workspace>/.claude-flow/cli-pin.json`** — checked next; `<workspace>` is
+   the process cwd (hooks run in the project dir). Shape:
+   ```json
+   { "bin": "/abs/path/to/@claude-flow/cli/bin/cli.js", "reason": "why", "pinnedAt": "2026-07-18T00:00:00Z" }
+   ```
+   Used if it parses and `bin` exists. A malformed pin file is ignored (falls
+   through — a best-effort hook must never fail closed).
+3. **Registry fallback** — `npx -y @claude-flow/cli@latest` (or
+   `@claude-flow/cli-core@alpha` when `CLI_CORE=1`), with a one-line stderr
+   `[ruflo] memory write using unpinned registry CLI …` notice telling you how to
+   pin. The Stop hook redirects output, so this never breaks the turn.
+
+
+The pin file also accepts an optional `"expiresWhenRegistryHas": "<semver>"`
+floor: once the registry's `@claude-flow/cli` version reaches it, the pin
+self-expires and resolution returns to the registry automatically. The
+decision uses a locally cached registry version (`.claude-flow/registry-version.json`)
+refreshed in the background — never a network call on the hook's hot path.
+
 ## Namespace coordination
 
 This plugin owns two AgentDB namespaces:

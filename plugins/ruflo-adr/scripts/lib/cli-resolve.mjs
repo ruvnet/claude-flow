@@ -1,11 +1,33 @@
+// cli-resolve.mjs — writer-ownership pinning for ruflo-adr's memory operations.
+//
+// import.mjs and reindex.mjs shell out to the @claude-flow/cli for memory
+// store/purge/list against the shared SQLite DB. On a host running a locally
+// patched CLI build, spawning the registry build (`npx @claude-flow/cli@latest`)
+// reintroduces an unsafe whole-image writer against that same DB. This module
+// resolves which build a memory op should use, using the SAME convention as
+// ruflo-cost-tracker/scripts/_npx.mjs (the modules are duplicated because
+// plugins ship as independent packages and cannot import across each other).
+//
+// Resolution order (a pinned bin ALWAYS wins over the CLI_CORE lite path):
+//   a. env RUFLO_CLI_BIN — abs path to a cli.js / executable; used if it exists.
+//   b. <cwd>/.claude-flow/cli-pin.json — { "bin", "reason", "pinnedAt",
+//      "expiresWhenRegistryHas" }; used if it parses and `bin` exists. For these
+//      scripts cwd is ADR_ROOT, which is also the DB root (#2666), so the pin
+//      and the DB stay in agreement. A pin is NOT a permanent fork: when
+//      `expiresWhenRegistryHas` (a semver floor, e.g. "3.33.0") is set and the
+//      registry is known to have reached it, the pin self-expires and resolution
+//      returns to the registry — upstream tracking resumes automatically the
+//      release the fixes ship. The registry version is read from a local cache
+//      refreshed OPPORTUNISTICALLY in the background (never blocks a hook, no
+//      network on the hot path).
+//   c. registry fallback — npx -y <pkg> (@claude-flow/cli-core@alpha when
+//      CLI_CORE=1 else @claude-flow/cli@latest) + a single stderr WARN.
+
 import { spawn, spawnSync } from 'node:child_process';
 import { accessSync, constants, existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-// Windows npm exposes npx through a .cmd shim, which cannot be spawned
-// directly by Node without a shell. Invoking npm's JS entry point preserves
-// argv exactly (especially JSON values) and avoids shell injection/quoting.
-export function spawnNpxSync(args, options = {}) {
+function spawnNpxSync(args, options = {}) {
   const npxArgs = args[0] === '-y' ? args : ['-y', ...args];
   const { shell: _ignoredShell, ...safeOptions } = options;
   if (process.platform === 'win32') {
@@ -14,33 +36,6 @@ export function spawnNpxSync(args, options = {}) {
   }
   return spawnSync('npx', npxArgs, { ...safeOptions, shell: false });
 }
-
-// ---------------------------------------------------------------------------
-// CLI build resolution (writer-ownership pinning)
-//
-// A plugin memory *write* (`memory store`/`purge`) shells out to the
-// @claude-flow/cli. On a host running a locally patched CLI build, spawning the
-// registry build (`npx @claude-flow/cli@latest`) reintroduces an unsafe
-// whole-image writer against the same SQLite DB — the corruption vector this
-// module exists to close. `resolveCli` picks the build a memory op should use,
-// in this order (a pinned bin ALWAYS wins over the CLI_CORE lite path):
-//
-//   a. env RUFLO_CLI_BIN — absolute path to a cli.js / executable; used if the
-//      path exists.
-//   b. <cwd>/.claude-flow/cli-pin.json — { "bin", "reason", "pinnedAt",
-//      "expiresWhenRegistryHas" }; used if it parses and `bin` exists. Hooks
-//      run in the project dir, so the resolution cwd is the workspace root.
-//      A pin is NOT a permanent fork: when `expiresWhenRegistryHas` (a semver
-//      floor, e.g. "3.33.0") is set and the registry is known to have reached
-//      it, the pin self-expires and resolution returns to the registry —
-//      upstream tracking resumes automatically the release the fixes ship.
-//      The registry version is read from a local cache refreshed OPPORTUNISTICALLY
-//      in the background (never blocks a hook, no network on the hot path).
-//   c. registry fallback — npx -y <pkg> where <pkg> is @claude-flow/cli-core@alpha
-//      when CLI_CORE=1 (the ADR-100 lite path) else @claude-flow/cli@latest.
-//      This path emits a single stderr WARN so an operator on the unpinned
-//      build is told how to pin one.
-// ---------------------------------------------------------------------------
 
 const REGISTRY_VERSION_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -127,8 +122,7 @@ export function resolveCli({ cwd = process.cwd(), cliCore = process.env.CLI_CORE
         return { mode: 'bin', bin: pin.bin, source: 'pin', reason: pin.reason };
       }
     } catch {
-      // A malformed pin file must never break a best-effort hook — fall through
-      // to the registry path so the store still runs (and warns).
+      // A malformed pin file must not abort a reindex — fall through to registry.
     }
   }
 
@@ -136,8 +130,6 @@ export function resolveCli({ cwd = process.cwd(), cliCore = process.env.CLI_CORE
   return { mode: 'registry', pkg, source: 'registry' };
 }
 
-// A .js/.cjs/.mjs entrypoint is run through node (portable — a shebang is not
-// honoured on win32); a non-.js executable is exec'd directly.
 function binInvocation(bin) {
   if (/\.[cm]?js$/i.test(bin)) return { cmd: process.execPath, prefix: [bin] };
   try {
@@ -148,15 +140,12 @@ function binInvocation(bin) {
   }
 }
 
-// Emitted at most once per process so a batch of stores yields one notice, not
-// one per row.
 let warnedUnpinned = false;
 
 // Spawn a @claude-flow/cli subcommand against the resolved build. `cliArgs` is
-// the subcommand + flags only (e.g. ['memory','store','--key',k,...]); the
-// package/binary is chosen by resolveCli. `cwd` governs BOTH pin-file lookup
-// and the subprocess working dir (the CLI resolves its .swarm/memory.db
-// relative to its own cwd), so reads and writes hit the same DB.
+// the subcommand + flags only; the package/binary is chosen by resolveCli.
+// `cwd` governs pin-file lookup AND the subprocess cwd (the CLI resolves its
+// .swarm/memory.db relative to its own cwd — #2666).
 export function spawnCliSync(cliArgs, options = {}) {
   const {
     cwd = process.cwd(),
