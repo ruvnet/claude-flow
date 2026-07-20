@@ -97,17 +97,48 @@ async function getEmbQuant() {
 
 export const agentdbHealth: MCPTool = {
   name: 'agentdb_health',
-  description: 'Get AgentDB v3 controller health status including cache stats and attestation count Use when generic memory_* tools are wrong because you need AgentDB-specific controllers (HNSW vector search, hierarchical tiers, causal-graph links, pattern store/recall, RaBitQ quantization). For simple key-value persistence, memory_store/memory_retrieve are simpler. For unrelated file work, native Read/Write are fine.',
+  description: 'Get AgentDB v3 controller health status including cache stats, attestation count, and on-disk storage truth (native integrity + write readiness — `available: true` alone only proves controllers constructed, NOT a healthy database). Pass probe:"rw" for a full store/retrieve/delete roundtrip readiness proof. Use when generic memory_* tools are wrong because you need AgentDB-specific controllers (HNSW vector search, hierarchical tiers, causal-graph links, pattern store/recall, RaBitQ quantization). For simple key-value persistence, memory_store/memory_retrieve are simpler. For unrelated file work, native Read/Write are fine.',
   inputSchema: {
     type: 'object',
-    properties: {},
+    properties: {
+      probe: {
+        type: 'string',
+        enum: ['none', 'rw'],
+        description: "'rw' additionally performs a real store→retrieve→delete roundtrip of a sentinel key in the _health namespace (mutating, self-cleaning). Default 'none'.",
+      },
+    },
   },
-  handler: async () => {
+  handler: async (args: { probe?: string } = {}) => {
     try {
       const bridge = await getBridge();
       const health = await bridge.bridgeHealthCheck();
-      if (!health) return { available: false, error: 'AgentDB bridge not available' };
-      return health;
+      // The registry being down must not hide the storage truth: probe the
+      // database directly either way, so read availability and write
+      // readiness are always reported separately (2026-07 incident: health
+      // said available while the DB was malformed for days).
+      const base = health ?? {
+        available: false,
+        error: 'AgentDB bridge not available',
+        storage: await bridge.probeStorageHealth(),
+      };
+      if (args.probe !== 'rw') return base;
+      const rw: { stored: boolean; retrieved: boolean; deleted: boolean; error?: string } = {
+        stored: false, retrieved: false, deleted: false,
+      };
+      const key = `probe-${process.pid}-${Date.now().toString(36)}`;
+      try {
+        const s = await bridge.bridgeStoreEntry({ key, value: 'health-probe', namespace: '_health', generateEmbeddingFlag: false });
+        rw.stored = s?.success === true;
+        if (rw.stored) {
+          const g = await bridge.bridgeGetEntry({ key, namespace: '_health' });
+          rw.retrieved = g?.found === true && g.entry?.content === 'health-probe';
+          const d = await bridge.bridgeDeleteEntry({ key, namespace: '_health' });
+          rw.deleted = d?.success === true;
+        }
+      } catch (error) {
+        rw.error = sanitizeError(error);
+      }
+      return { ...base, rwProbe: rw };
     } catch (error) {
       return { available: false, error: sanitizeError(error) };
     }
