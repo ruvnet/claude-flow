@@ -37,6 +37,33 @@ function isRuvectorCoreResolvable(): boolean {
 }
 
 /**
+ * #2735 — before a whole-image sql.js read-modify-persist (export() +
+ * rename over the live database path), refuse if there is evidence of a
+ * live native (better-sqlite3) WAL connection: `-wal`/`-shm` sidecar files
+ * on disk. A native connection in WAL mode keeps its sidecars present for
+ * its entire lifetime (removed only on the last connection's clean close),
+ * so their presence is strong evidence of a live native holder — and their
+ * absence means the image is a clean, checkpointed, standalone file that
+ * sql.js can safely read-modify-write.
+ *
+ * This is a scoped-down version of the fuller "scan live process holders"
+ * design discussed in #2735: it does not close the narrow assess-then-write
+ * race (a native opener could still attach in the gap between this check
+ * and the write), but it directly closes the demonstrated corruption
+ * mechanism — a whole-image write proceeding while an ALREADY-OPEN native
+ * connection's sidecars are on disk — with no platform-specific process
+ * scanning. Fails closed (treats a stat error as "unsafe") because this is
+ * a safety gate, not a best-effort probe.
+ */
+function hasNativeWalSidecars(dbPath: string): boolean {
+  try {
+    return fs.existsSync(`${dbPath}-wal`) || fs.existsSync(`${dbPath}-shm`);
+  } catch {
+    return true;
+  }
+}
+
+/**
  * #1854: previously every site that needed the memory directory hardcoded
  * `getMemoryRoot()`, so the documented config entry
  * points (`memory.persistPath` config field, `memory configure --path`,
@@ -2668,6 +2695,23 @@ export async function storeEntry(options: {
       return { success: false, id: '', error: 'Database not initialized. Run: claude-flow memory init' };
     }
 
+    // #2735 — refuse an unsafe whole-image write while a native WAL
+    // connection appears to be attached (sidecars on disk). See
+    // hasNativeWalSidecars()'s doc comment for the corruption mechanism
+    // this closes and its known residual (the narrow assess-then-write
+    // race). This check gates ensureSchemaColumns()'s own whole-image
+    // write below too, not just this function's.
+    if (hasNativeWalSidecars(dbPath)) {
+      return {
+        success: false,
+        id: '',
+        error: 'memory database has an active native WAL connection ' +
+          '(found -wal/-shm sidecar files) — refusing an unsafe sql.js ' +
+          'whole-image write. Retry once the native writer completes, or ' +
+          'restore the native better-sqlite3 bridge.',
+      };
+    }
+
     // Ensure schema has all required columns (migration for older DBs)
     await ensureSchemaColumns(dbPath);
 
@@ -3179,6 +3223,21 @@ export async function getEntry(options: {
       return { success: false, found: false, error: 'Database not found' };
     }
 
+    // #2735 — see storeEntry's identical gate for the corruption mechanism
+    // this closes. Applies here too because the fallback's access_count
+    // bump is itself a whole-image write, not a lightweight read, even
+    // though this function's contract reads as a "get".
+    if (hasNativeWalSidecars(dbPath)) {
+      return {
+        success: false,
+        found: false,
+        error: 'memory database has an active native WAL connection ' +
+          '(found -wal/-shm sidecar files) — refusing an unsafe sql.js ' +
+          'whole-image read/write. Retry once the native writer completes, ' +
+          'or restore the native better-sqlite3 bridge.',
+      };
+    }
+
     // Ensure schema has all required columns (migration for older DBs)
     await ensureSchemaColumns(dbPath);
 
@@ -3317,6 +3376,22 @@ export async function deleteEntry(options: {
         namespace,
         remainingEntries: 0,
         error: 'Database not found'
+      };
+    }
+
+    // #2735 — see storeEntry's identical gate for the corruption mechanism
+    // this closes.
+    if (hasNativeWalSidecars(dbPath)) {
+      return {
+        success: false,
+        deleted: false,
+        key,
+        namespace,
+        remainingEntries: 0,
+        error: 'memory database has an active native WAL connection ' +
+          '(found -wal/-shm sidecar files) — refusing an unsafe sql.js ' +
+          'whole-image write. Retry once the native writer completes, or ' +
+          'restore the native better-sqlite3 bridge.',
       };
     }
 

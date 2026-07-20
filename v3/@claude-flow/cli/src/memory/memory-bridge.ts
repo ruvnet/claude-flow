@@ -27,6 +27,29 @@ let registryPromise: Promise<any> | null = null;
 let registryInstance: any = null;
 let bridgeAvailable: boolean | null = null;
 
+// #2735 — the native-bridge -> sql.js whole-image fallback used to be
+// completely silent: a registry init failure cached `bridgeAvailable =
+// false` for the rest of the process, and a per-operation bridge exception
+// swallowed itself with a bare `catch { return null; }` — in both cases the
+// caller fell back to memory-initializer.ts's unsafe whole-image sql.js
+// path with zero diagnostic trail. When that path corrupted a database, the
+// demotion that caused it was structurally unknowable after the fact. Log
+// once per distinct reason (not once per call — a hot per-op catch could
+// otherwise spam stderr on every single memory operation) so the first
+// occurrence is attributable. Stderr only — never stdout, which callers may
+// be parsing as JSON.
+const loggedDemotions = new Set<string>();
+function logDemotionOnce(where: string, reason: string): void {
+  const dedupeKey = `${where}:${reason}`;
+  if (loggedDemotions.has(dedupeKey)) return;
+  loggedDemotions.add(dedupeKey);
+  try {
+    process.stderr.write(
+      `[memory-bridge] demoted to sql.js fallback in ${where}: ${reason}\n`,
+    );
+  } catch { /* stderr unavailable — nothing more we can do */ }
+}
+
 /**
  * Resolve database path with path traversal protection.
  * Only allows paths within or below the project's working directory,
@@ -325,9 +348,13 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
         registryInstance = registry;
         bridgeAvailable = true;
         return registry;
-      } catch {
+      } catch (err) {
         bridgeAvailable = false;
         registryPromise = null;
+        logDemotionOnce(
+          'getRegistry (process-wide, cached for the rest of this process)',
+          err instanceof Error ? err.message : String(err),
+        );
         return null;
       }
     })();
@@ -795,7 +822,8 @@ export async function bridgeStoreEntry(options: {
       cached: true,
       attested: true,
     };
-  } catch {
+  } catch (err) {
+    logDemotionOnce('bridgeStoreEntry', err instanceof Error ? err.message : String(err));
     return null;
   }
 }
@@ -1158,7 +1186,8 @@ export async function bridgeGetEntry(options: {
     await cacheSet(registry, cacheKey, entry);
 
     return { success: true, found: true, cacheHit: false, entry };
-  } catch {
+  } catch (err) {
+    logDemotionOnce('bridgeGetEntry', err instanceof Error ? err.message : String(err));
     return null;
   }
 }
@@ -1234,7 +1263,8 @@ export async function bridgeDeleteEntry(options: {
       remainingEntries: remaining,
       guarded: true,
     };
-  } catch {
+  } catch (err) {
+    logDemotionOnce('bridgeDeleteEntry', err instanceof Error ? err.message : String(err));
     return null;
   }
 }
@@ -1298,7 +1328,8 @@ export async function bridgePurgeNamespace(options: {
       remainingEntries: remaining,
       guarded: true,
     };
-  } catch {
+  } catch (err) {
+    logDemotionOnce('bridgePurgeNamespace', err instanceof Error ? err.message : String(err));
     return null;
   }
 }
