@@ -5,16 +5,23 @@
  *
  * Design discipline:
  *   1. **Never blocks the render.** The statusline reads only the local
- *      cache. This module refreshes the cache in the background; a fresh
- *      install shows the in-code fallback pool until the first refresh
- *      lands (usually seconds after CLI startup).
+ *      cache. This module refreshes the cache in the background; per
+ *      ADR-311 "zero local promo content" there is NO in-code fallback
+ *      pool — a genuinely fresh install (empty cache) shows nothing on
+ *      the promo/disclosure row until the first background refresh lands
+ *      (see hook-handler.cjs's SessionStart-triggered detached
+ *      `hooks refresh-funnel`, usually within seconds of CLI startup, but
+ *      contingent on network reachability to the messages endpoint). This
+ *      comment previously (incorrectly) described an in-code fallback
+ *      pool; there has never been one since ADR-311 — see disclosure.ts's
+ *      own "fail-closed" doc comment for the authoritative statement.
  *   2. **Content pipeline stays authoritative.** Every message the server
  *      returns is validated by `isValidMessage()` from `messages.ts` —
  *      same schema, same host allowlist, same control-char strip, same
  *      80-column cap. A tampered or accidentally-broken remote feed can
  *      pollute nothing.
  *   3. **Fail silent.** Any network/parse/validation failure leaves the
- *      previously-cached (or in-code) pool intact.
+ *      previously-cached pool intact (empty, if nothing has landed yet).
  *   4. **Bounded cache size.** ≤ 128 KiB and ≤ 200 messages — matches
  *      ADR-309's bounded-local-queue discipline.
  *   5. **Kill switch.** `RUFLO_FUNNEL_MESSAGES=0` (or `RUFLO_FUNNEL=0`)

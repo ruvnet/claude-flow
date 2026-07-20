@@ -4205,12 +4205,49 @@ const statuslineCommand: Command = {
       return { memoryMB, contextPct, intelligencePct, subAgents };
     }
 
+    // #2733: Claude Code pipes session JSON (incl. the real active model) on
+    // stdin to statusline commands. Read it synchronously the same way
+    // .claude/helpers/statusline.cjs's getModelFromStdin() does, so this CLI
+    // subcommand is correct standalone — not just when the generated helper
+    // happens to override its output. Read once, memoized per invocation
+    // (mirrors statusline.cjs's _stdinData cache).
+    let _stdinData: unknown;
+    let _stdinRead = false;
+    function getStdinData(): { model?: { display_name?: string } } | null {
+      if (_stdinRead) return _stdinData as { model?: { display_name?: string } } | null;
+      _stdinRead = true;
+      try {
+        if (process.stdin.isTTY) { _stdinData = null; return null; }
+        const chunks: Buffer[] = [];
+        const buf = Buffer.alloc(4096);
+        let bytesRead: number;
+        try {
+          while ((bytesRead = fs.readSync(0, buf, 0, buf.length, null)) > 0) {
+            chunks.push(Buffer.from(buf.subarray(0, bytesRead)));
+          }
+        } catch { /* EOF or read error */ }
+        const raw = Buffer.concat(chunks).toString('utf-8').trim();
+        _stdinData = (raw && raw.startsWith('{')) ? JSON.parse(raw) : null;
+      } catch {
+        _stdinData = null;
+      }
+      return _stdinData as { model?: { display_name?: string } } | null;
+    }
+    function getModelFromStdin(): string | null {
+      const data = getStdinData();
+      return (data && data.model && typeof data.model.display_name === 'string') ? data.model.display_name : null;
+    }
+
     // Get user info
     function getUserInfo() {
       const identityMode = (process.env.RUFLO_STATUSLINE_IDENTITY || 'project').toLowerCase();
       let name = path.basename(process.cwd()) || 'project';
       let gitBranch = '';
-      const modelName = 'Opus 4.6 (1M context)';
+      // Real active model from Claude Code's stdin payload when available;
+      // this string is only a last-resort label for direct/manual CLI
+      // invocation with no stdin (e.g. a bare terminal run) — never shown
+      // when Claude Code itself is the caller.
+      const modelName = getModelFromStdin() || 'Claude Code';
       const isWindows = process.platform === 'win32';
 
       try {

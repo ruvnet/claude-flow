@@ -633,12 +633,55 @@ function compareVersions(a, b) {
   return 0;
 }
 
+// #2742: when CWD is a linked git worktree, it has no node_modules of its
+// own (worktrees don't get their own `npm install`), so every CWD-relative
+// probe in getPkgVersion() misses and the version silently falls back to
+// the baked-in default — even though the main repo's install a few
+// directories away is perfectly resolvable. A linked worktree's `.git` is
+// a plain FILE (not a directory) containing `gitdir: <main>/.git/worktrees/
+// <name>`; walk up from CWD to find it, parse the pointer, and strip the
+// trailing `.git/worktrees/<name>` segment to recover the main repo root.
+// Pure fs — no `git rev-parse` spawn (statusline renders are latency-
+// sensitive; this doc comment's neighbors are explicit about avoiding
+// spawns in the render path).
+function resolveWorktreeMainRoot() {
+  try {
+    let dir = CWD;
+    for (;;) {
+      const dotGit = path.join(dir, '.git');
+      if (fs.existsSync(dotGit)) {
+        if (fs.statSync(dotGit).isFile()) {
+          const contents = fs.readFileSync(dotGit, 'utf-8');
+          const m = contents.match(/^gitdir:\s*(.+)$/m);
+          const wtGitDir = m && m[1].trim();
+          if (wtGitDir) {
+            // Git writes this pointer with forward slashes even on Windows
+            // (a git-for-windows convention for its own internal files) —
+            // path.sep (backslash on win32) never matches, so normalize
+            // before searching rather than building an OS-specific marker.
+            const normalized = wtGitDir.replace(/\\/g, '/');
+            const marker = '/.git/worktrees/';
+            const idx = normalized.lastIndexOf(marker);
+            if (idx > 0) return normalized.slice(0, idx);
+          }
+        }
+        return null; // a real (non-worktree) .git dir — nothing to resolve
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) return null; // reached filesystem root
+      dir = parent;
+    }
+  } catch {
+    return null;
+  }
+}
+
 function getPkgVersion() {
   // Baked in at generation time from the real running CLI's own resolved
   // version (see generateStatuslineScript()'s doc comment) — correct even
   // when this renders via a pure npx invocation with no local install for
   // the candidate scan below to find.
-  let ver = "3.28.0";
+  let ver = "3.32.8";
   try {
     const home = os.homedir();
     const pkgPaths = [
@@ -647,6 +690,17 @@ function getPkgVersion() {
       path.join(CWD, 'node_modules', 'ruflo', 'package.json'),
       path.join(CWD, 'v3', '@claude-flow', 'cli', 'package.json'),
     ];
+    // #2742: CWD is a linked git worktree with no node_modules of its own —
+    // probe the main repo's install too, so a worktree session shows the
+    // same version a main-repo session would.
+    const worktreeMainRoot = resolveWorktreeMainRoot();
+    if (worktreeMainRoot) {
+      pkgPaths.push(
+        path.join(worktreeMainRoot, 'node_modules', '@claude-flow', 'cli', 'package.json'),
+        path.join(worktreeMainRoot, 'node_modules', 'ruflo', 'package.json'),
+        path.join(worktreeMainRoot, 'v3', '@claude-flow', 'cli', 'package.json'),
+      );
+    }
     // #2221: global installs (npm i -g ruflo) live outside CWD/node_modules, so the
     // probes above all miss and the version falls back to the hard-coded default.
     // Derive the global node_modules dir from the running node binary (no npm spawn —

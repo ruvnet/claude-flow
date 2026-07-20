@@ -7,7 +7,7 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { existsSync, readFileSync, statSync } from 'fs';
+import { existsSync, readFileSync, statSync, openSync, readSync, closeSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createHash } from 'crypto';
@@ -238,6 +238,16 @@ async function checkDaemonStatus(): Promise<HealthCheck> {
 }
 
 // Check memory database
+//
+// #2737: renamed the reported row from "Memory Database" to "Memory Database
+// Presence" — this check is existsSync()+statSync() ONLY, it never opens the
+// file or queries it, so it PASSES for any file that exists and can be
+// stat'd, corrupt or not. It was the ONLY memory probe in the default
+// `allChecks` run (the real integrity checks were --component memory only),
+// so a corrupt .swarm/memory.db could sail through a bare `doctor` run as
+// "healthy". The name change makes the check's actual scope honest; the
+// behavior below is unchanged. See checkMemoryStructuralIntegrity below for
+// the new default-run check that actually opens the file.
 async function checkMemoryDatabase(): Promise<HealthCheck> {
   // Authoritative path comes from `getMemoryRoot()` (honors
   // `CLAUDE_FLOW_MEMORY_PATH`, claude-flow.config.json's `memory.persistPath`,
@@ -264,14 +274,14 @@ async function checkMemoryDatabase(): Promise<HealthCheck> {
       try {
         const stats = statSync(dbPath);
         const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
-        return { name: 'Memory Database', status: 'pass', message: `${dbPath} (${sizeMB} MB)` };
+        return { name: 'Memory Database Presence', status: 'pass', message: `${dbPath} (${sizeMB} MB) — existence/size only, not a health check (see Memory Structural Integrity)` };
       } catch {
-        return { name: 'Memory Database', status: 'warn', message: `${dbPath} (unable to stat)` };
+        return { name: 'Memory Database Presence', status: 'warn', message: `${dbPath} (unable to stat)` };
       }
     }
   }
 
-  return { name: 'Memory Database', status: 'warn', message: 'Not initialized', fix: 'claude-flow memory configure --backend hybrid' };
+  return { name: 'Memory Database Presence', status: 'warn', message: 'Not initialized', fix: 'claude-flow memory configure --backend hybrid' };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -329,44 +339,277 @@ async function tryOpenSqlJs(dbPath: string): Promise<any | null> {
   } catch { return null; }
 }
 
-// Check 1 — sql.js can open it AND PRAGMA integrity_check returns 'ok'.
-// Two fail modes handled distinctly per "UNKNOWN is never PASS":
-//   - Open fails: warn ("cannot open; encrypted DB or corrupt — doctor
-//     can't distinguish from this side")
-//   - Open succeeds but pragma != 'ok': fail (definite corruption)
+// ── #2737 shared helpers: encryption-at-rest carve-out ─────────────────────
+//
+// "file is not a database" / "malformed" from sql.js or better-sqlite3 is
+// EXACTLY the signal a legitimately RFE1-encrypted-at-rest memory.db also
+// produces when opened without decrypting (ADR-096). Before either the new
+// default-run check or the strengthened checkMemoryIntegrity below concludes
+// "malformed = fail", they sniff for the RFE1 magic using the SAME detector
+// checkEncryptionAtRest uses (isEncryptedBlob), so the two checks can never
+// disagree about what counts as "encrypted".
+
+/** Read just the first `len` bytes of a file without loading the whole file
+ * into memory — a multi-GB memory.db shouldn't get fully buffered just to
+ * check a 4-byte magic. Returns fewer bytes (or empty) when the file is
+ * shorter than `len`; isEncryptedBlob() correctly treats a too-short blob
+ * as "not encrypted", so callers don't need to special-case that. */
+function readHeaderBytes(path: string, len: number): Buffer {
+  const fd = openSync(path, 'r');
+  try {
+    const buf = Buffer.alloc(len);
+    const bytesRead = readSync(fd, buf, 0, len, 0);
+    return buf.subarray(0, bytesRead);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+// RFE1 wire format is magic(4) + iv(12) + ciphertext(N) + tag(16); the
+// shortest possible blob is 32 bytes. 64 gives headroom without importing
+// vault.ts's private MIN_BLOB_LEN constant.
+const ENCRYPTION_SNIFF_LEN = 64;
+
+/** True iff `dbPath` is a legitimately RFE1-encrypted-at-rest file. A read
+ * failure (permissions, races) is treated as "not encrypted" — callers
+ * still hit their own open/query error handling right after, so nothing
+ * gets silently swallowed. */
+function isMemoryDbEncryptedAtRest(dbPath: string): boolean {
+  try {
+    return isEncryptedBlob(readHeaderBytes(dbPath, ENCRYPTION_SNIFF_LEN));
+  } catch {
+    return false;
+  }
+}
+
+// #2737 part 1 — bare `doctor` (no --component flag) never actually opened
+// memory.db: checkMemoryDatabase above is existsSync()+statSync() only, so
+// it PASSES on any file that exists and can be stat'd, corrupt or not, and
+// it was the ONLY memory probe `allChecks` ran. The real integrity checks
+// (checkMemoryIntegrity/Content/EmbeddingCoverage below) were, and remain,
+// --component memory only.
+//
+// This is a NEW, cheaper, native check added to the default `allChecks` run
+// (not a replacement for the deep trio):
+//   - better-sqlite3 (native) instead of sql.js: it's WAL-aware because
+//     SQLite itself resolves any sibling -wal file next to the main image;
+//     sql.js is WAL-blind — tryOpenSqlJs() above only readFileSync()s the
+//     main file and hands the raw bytes to the WASM build, so any
+//     committed-but-not-checkpointed rows sitting in a -wal file are
+//     invisible to it.
+//   - PRAGMA quick_check, not integrity_check: per sqlite.org, quick_check
+//     "is like integrity_check except that it does not verify UNIQUE
+//     constraints and does not verify that index content matches table
+//     content" — bounded enough to run unconditionally on every bare
+//     `doctor` call. The full integrity_check (with those extra
+//     cross-checks) is what the strengthened checkMemoryIntegrity below
+//     runs when better-sqlite3 is available.
+// Explicitly labeled "structural-only" in both the row name and every
+// message so nobody mistakes this cheap default-run probe for the deeper
+// --component memory one.
+async function checkMemoryStructuralIntegrity(): Promise<HealthCheck> {
+  const NAME = 'Memory Structural Integrity (quick_check)';
+  const dbPath = await resolveMemoryDbPath();
+  if (!dbPath) {
+    // Not-yet-initialized project — Memory Database Presence above already
+    // surfaces this; "UNKNOWN is never PASS" still applies, so this stays a
+    // warn rather than a silent skip, but doesn't pile on a second red for
+    // the same root cause.
+    return {
+      name: NAME,
+      status: 'warn',
+      message: 'no memory.db found (see Memory Database Presence above) — structural-only check skipped',
+    };
+  }
+
+  // Encryption-at-rest carve-out (#2737 part 3) — see helpers above.
+  if (isMemoryDbEncryptedAtRest(dbPath)) {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: `${dbPath} — RFE1-encrypted at rest; structural-only check can't run without decrypting (expected, not corruption — see Encryption at Rest)`,
+    };
+  }
+
+  let Database: any;
+  try {
+    Database = ((await import('better-sqlite3')) as any).default;
+  } catch {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: `${dbPath} — better-sqlite3 not installed; structural-only check skipped (optional native module)`,
+      fix: 'npm install better-sqlite3  (enables WAL-aware structural checks on every `doctor` run)',
+    };
+  }
+
+  let db: any;
+  try {
+    db = new Database(dbPath, { readonly: true, fileMustExist: true });
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    // Encryption already ruled out above — an unencrypted file
+    // better-sqlite3 can't even open is definitive corruption.
+    // #2737 part 3: fail, not warn.
+    return {
+      name: NAME,
+      status: 'fail',
+      message: `${dbPath} — better-sqlite3 failed to open: ${msg} (unencrypted; definitively malformed) [structural-only]`,
+      fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+    };
+  }
+
+  try {
+    const rows = db.pragma('quick_check') as Array<Record<string, unknown>>;
+    const values = rows.map((r) => String(Object.values(r)[0]));
+    if (values.length === 1 && values[0] === 'ok') {
+      return {
+        name: NAME,
+        status: 'pass',
+        message: `${dbPath} — PRAGMA quick_check: ok [structural-only, native + WAL-aware]`,
+      };
+    }
+    return {
+      name: NAME,
+      status: 'fail',
+      message: `${dbPath} — PRAGMA quick_check: ${values.slice(0, 3).join('; ')}${values.length > 3 ? ` (+${values.length - 3} more)` : ''} [structural-only]`,
+      fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+    };
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    // Encryption ruled out above; DB opened but the pragma itself threw —
+    // still definitive, unencrypted breakage. Fail, not warn.
+    return {
+      name: NAME,
+      status: 'fail',
+      message: `${dbPath} — quick_check probe threw: ${msg} (unencrypted) [structural-only]`,
+      fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+    };
+  } finally {
+    try { db.close(); } catch { /* best-effort */ }
+  }
+}
+
+// Check 1 (--component memory, deep path) — #2737 part 2 strengthens this:
+// prefer native better-sqlite3 PRAGMA integrity_check (adds index↔table
+// cross-checking + UNIQUE verification that quick_check above deliberately
+// skips, and is WAL-aware — see checkMemoryStructuralIntegrity's comment)
+// when better-sqlite3 is available, falling back to the original sql.js
+// probe when it's not. The sql.js fallback is main-image-only (WAL-blind);
+// its message says so explicitly so operators know its limits.
+//
+// #2737 part 3: with the encryption carve-out applied up front on BOTH
+// paths, a "file is not a database" / "malformed" result is now definitive,
+// unencrypted corruption in every branch below — fail, not warn (the
+// previous version treated this as an ambiguous warn because it couldn't
+// tell corruption from encryption; that ambiguity is what the carve-out
+// resolves).
 async function checkMemoryIntegrity(): Promise<HealthCheck> {
   const dbPath = await resolveMemoryDbPath();
-  if (!dbPath) return { name: 'Memory Integrity', status: 'warn', message: 'no memory.db found (see Memory Database check above)' };
-  const db = await tryOpenSqlJs(dbPath);
-  if (!db) {
+  if (!dbPath) return { name: 'Memory Integrity', status: 'warn', message: 'no memory.db found (see Memory Database Presence check above)' };
+
+  if (isMemoryDbEncryptedAtRest(dbPath)) {
     return {
       name: 'Memory Integrity',
       status: 'warn',
-      message: `${dbPath} — sql.js can't open (encrypted DB or corrupt; doctor can't tell which from outside)`,
-      fix: 'if encrypted: expected. if not: back up + `claude-flow memory init --force` to rebuild',
+      message: `${dbPath} — RFE1-encrypted at rest; integrity check can't run without decrypting (expected, not corruption — see Encryption at Rest)`,
+    };
+  }
+
+  // Prefer native better-sqlite3 (WAL-aware, full integrity_check). Module
+  // load is isolated in its own try/catch so ONLY "not installed" falls
+  // through to the sql.js fallback below — once the module loaded, any
+  // open/query failure is resolved (fail) right here, not silently
+  // reclassified as "sql.js fallback, main-image-only" by an outer catch.
+  let Database: any;
+  try {
+    Database = ((await import('better-sqlite3')) as any).default;
+  } catch {
+    Database = null; // not installed — fall through to the sql.js fallback below.
+  }
+
+  if (Database) {
+    let db: any;
+    try {
+      db = new Database(dbPath, { readonly: true, fileMustExist: true });
+    } catch (e) {
+      const msg = (e as Error).message || String(e);
+      return {
+        name: 'Memory Integrity',
+        status: 'fail',
+        message: `${dbPath} — better-sqlite3 failed to open: ${msg} (unencrypted; definitively malformed) [native, WAL-aware]`,
+        fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+      };
+    }
+    try {
+      const rows = db.pragma('integrity_check') as Array<Record<string, unknown>>;
+      const values = rows.map((r) => String(Object.values(r)[0]));
+      if (values.length === 1 && values[0] === 'ok') {
+        return { name: 'Memory Integrity', status: 'pass', message: `${dbPath} — PRAGMA integrity_check: ok [native, WAL-aware]` };
+      }
+      return {
+        name: 'Memory Integrity',
+        status: 'fail',
+        message: `${dbPath} — PRAGMA integrity_check: ${values.slice(0, 3).join('; ')}${values.length > 3 ? ` (+${values.length - 3} more)` : ''} [native, WAL-aware]`,
+        fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+      };
+    } catch (e) {
+      // DB opened but the pragma itself threw — still definitive,
+      // unencrypted breakage (encryption ruled out above). Fail, not warn,
+      // and NOT a fall-through to the sql.js fallback: better-sqlite3 IS
+      // installed and just gave us the answer.
+      const msg = (e as Error).message || String(e);
+      return {
+        name: 'Memory Integrity',
+        status: 'fail',
+        message: `${dbPath} — integrity_check probe threw: ${msg} (unencrypted; definitively malformed) [native, WAL-aware]`,
+        fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+      };
+    } finally {
+      try { db.close(); } catch { /* best-effort */ }
+    }
+  }
+
+  // Fallback: sql.js — main-image-only (WAL-blind). tryOpenSqlJs()
+  // readFileSync()s the base file directly, so any committed-but-not-
+  // checkpointed rows sitting in a sibling -wal file are invisible here.
+  // Install better-sqlite3 for the WAL-aware path above.
+  const db = await tryOpenSqlJs(dbPath);
+  if (!db) {
+    // Encryption already ruled out above — an unencrypted file sql.js can't
+    // even open is definitive corruption too.
+    return {
+      name: 'Memory Integrity',
+      status: 'fail',
+      message: `${dbPath} — sql.js can't open (unencrypted; definitively malformed) [main-image-only fallback — install better-sqlite3 for WAL-aware checking]`,
+      fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
     };
   }
   try {
     const res = db.exec('PRAGMA integrity_check');
     const rows: string[] = res[0]?.values?.map((v: any[]) => String(v[0])) ?? [];
     if (rows.length === 1 && rows[0] === 'ok') {
-      return { name: 'Memory Integrity', status: 'pass', message: `${dbPath} — PRAGMA integrity_check: ok` };
+      return { name: 'Memory Integrity', status: 'pass', message: `${dbPath} — PRAGMA integrity_check: ok [main-image-only fallback — sql.js can't see WAL-only data; install better-sqlite3 for full coverage]` };
     }
     return {
       name: 'Memory Integrity',
       status: 'fail',
-      message: `${dbPath} — PRAGMA integrity_check: ${rows.slice(0, 3).join('; ')}${rows.length > 3 ? ` (+${rows.length - 3} more)` : ''}`,
+      message: `${dbPath} — PRAGMA integrity_check: ${rows.slice(0, 3).join('; ')}${rows.length > 3 ? ` (+${rows.length - 3} more)` : ''} [main-image-only fallback]`,
       fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
     };
   } catch (e) {
     const msg = (e as Error).message || String(e);
-    const encryptedOrCorrupt = msg.includes('file is not a database') || msg.includes('malformed');
+    const definitivelyMalformed = msg.includes('file is not a database') || msg.includes('malformed');
+    // Encryption already ruled out above, so — matched pattern or not —
+    // this is a query refusal on a file we KNOW isn't RFE1-encrypted.
+    // #2737 part 3: fail, not warn.
     return {
       name: 'Memory Integrity',
-      status: 'warn',
-      message: encryptedOrCorrupt
-        ? `${dbPath} — DB refused query: ${msg} (encrypted DB or corruption; see Memory Integrity above)`
-        : `${dbPath} — probe threw: ${msg}`,
+      status: 'fail',
+      message: definitivelyMalformed
+        ? `${dbPath} — DB refused query: ${msg} (unencrypted; definitively malformed) [main-image-only fallback]`
+        : `${dbPath} — probe threw: ${msg} (unencrypted — encryption ruled out above) [main-image-only fallback]`,
+      fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
     };
   } finally { try { db.close(); } catch { /* best-effort */ } }
 }
@@ -1770,6 +2013,7 @@ export const doctorCommand: Command = {
       checkStaleSettingsNpx, // #2448 — runaway `npx @latest` in statusLine/hooks
       checkDaemonStatus,
       checkMemoryDatabase,
+      checkMemoryStructuralIntegrity, // #2737 — bounded, native quick_check on every default run
       checkLearningBridge, // #2545 — can the auto-memory hook actually load @claude-flow/memory?
       checkApiKeys,
       checkMcpServers,

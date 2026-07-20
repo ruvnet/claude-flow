@@ -7,13 +7,16 @@
  * that these stay in lockstep.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 const generatorPath = resolve(repoRoot, 'v3/@claude-flow/cli/dist/src/init/statusline-generator.js');
-const { generateStatuslineScript } = await import(generatorPath);
+// A raw absolute path (e.g. Windows `C:\...`) isn't a valid ESM specifier —
+// dynamic import() requires a real URL scheme. pathToFileURL() is the
+// documented cross-platform fix (works unchanged on POSIX too).
+const { generateStatuslineScript } = await import(pathToFileURL(generatorPath).href);
 
 const script = generateStatuslineScript({
   statusline: { enabled: true, style: 'compact' },
