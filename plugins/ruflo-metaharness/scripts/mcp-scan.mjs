@@ -40,13 +40,21 @@ function main() {
   }
   const r = runHarness(['mcp-scan', ARGS.path]);
   if (r.degraded) { emitDegradedJsonAndExit(r.reason); return; }
+  // ponytail: upstream `harness mcp-scan` may exit non-zero for findings
+  // present (same convention as threat-model). Only treat codes outside
+  // {0,1} as real failures — a findings-bearing run still emits valid JSON
+  // on stdout, which we consume via r.json below. Pre-fix this guard
+  // bailed on exit ≥2 and discarded the JSON → oia-audit saw json:null.
+  // (#2750)
   if (r.exitCode !== 0 && r.exitCode !== 1) {
-    // exit 1 from harness can be "findings present"; only treat other
-    // non-zero as a real failure.
     console.error(`mcp-scan: harness exited ${r.exitCode}`);
     if (r.stderr) console.error(r.stderr.slice(0, 400));
     process.exit(2);
   }
+  // ponytail: r.json (structured, from --json) is authoritative when present;
+  // parseMcpScanText(r.stdout) is the fallback for the legacy text-only path
+  // (--format table or upstream JSON parse failure). Already preferred at
+  // line 61 via `Array.isArray(r.json?.findings) ? r.json.findings : parsed.findings`.
   // The JSON output shape from `harness mcp-scan` historically didn't
   // include structured findings — it emits text even with --json. Parse
   // the text into findings (iter 50) so audit-trend's introduced/cleared
