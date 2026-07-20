@@ -78,7 +78,8 @@
     "@ruvector/router-linux-x64-gnu": "^0.1.30",
     "@ruvector/sona": "^0.1.5",
     "agentdb": "^3.0.0-alpha.17",
-    "agentic-flow": "^2.0.14"
+    "agentic-flow": "^2.0.14",
+    "better-sqlite3": "12.9.0"
   },
   "overrides": {
     "ruvector": "^0.2.27",
