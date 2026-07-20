@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-agentdb plugin v0.3.0.
+# Structural smoke test for ruflo-agentdb plugin v0.3.1.
 # Per ADR-0001 §6 Verification: 13 numbered checks against the documented
 # CLI MCP surface plus three documentation invariants.
 #
@@ -48,10 +48,10 @@ grep -q "## Namespace convention" "$ROOT/README.md" \
   && ok || bad "Namespace convention section missing"
 
 # 1. Plugin version + new keywords
-step "1. plugin.json declares version 0.3.0 with rabitq + namespace-convention keywords"
+step "1. plugin.json declares version 0.3.1 with rabitq + namespace-convention keywords"
 v=$(grep -E '"version"[[:space:]]*:' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.3.0" ]]; then
-  bad "expected 0.3.0, got '$v'"
+if [[ "$v" != "0.3.1" ]]; then
+  bad "expected 0.3.1, got '$v'"
 else
   miss=""
   for k in rabitq quantization namespace-convention controller-bridge; do

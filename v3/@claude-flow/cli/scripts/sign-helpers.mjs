@@ -27,7 +27,8 @@ import { homedir } from 'node:os';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = join(__dirname, '..');
 const HELPERS_DIR = join(PKG_ROOT, '.claude', 'helpers');
-const CRITICAL = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs'];
+// Keep in sync with src/init/helper-refresh.ts:CRITICAL_HELPERS.
+const CRITICAL = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs'];
 
 function loadPrivateKey() {
   const secret = process.env.RUFLO_HELPERS_SIGNING_SECRET;
@@ -36,8 +37,12 @@ function loadPrivateKey() {
     const project = process.env.RUFLO_HELPERS_SIGNING_PROJECT;
     if (project) args.push('--project', project);
     try {
-      // stdio: key on stdout (captured), stderr inherited for auth prompts/errors.
-      return execFileSync('gcloud', args, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'inherit'] });
+      // stdio: key on stdout (captured), stderr captured too — NOT inherited.
+      // Inheriting would forward gcloud's stderr verbatim into whatever log
+      // is capturing this process's output (CI, terminal); this key material
+      // is sensitive enough that we never want an uncontrolled passthrough,
+      // even though gcloud's normal error paths don't echo secret payloads.
+      return execFileSync('gcloud', args, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
     } catch (e) {
       console.error(`[sign-helpers] failed to read GCP secret '${secret}'. Is gcloud authed? (gcloud auth login)`);
       process.exit(1);

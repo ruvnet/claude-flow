@@ -41,7 +41,7 @@ result also includes an `agentdb` payload — use it to store a searchable summa
 runs are queryable later (the local stand-in for the RuVector data layer, ADR-196/197):
 
 ```
-mcp__claude-flow__memory_store({
+mcp__plugin_ruflo-core_ruflo__memory_store({
   namespace: result.agentdb.namespace,   // "arena"
   key:       result.agentdb.key,         // the runId
   value:     result.agentdb.value,       // JSON summary (kind, game, seed, ranking/fitness …)
@@ -49,7 +49,7 @@ mcp__claude-flow__memory_store({
 })
 ```
 
-Later: `mcp__claude-flow__memory_search({ namespace: "arena", query: "tournaments where grim dominated" })`.
+Later: `mcp__plugin_ruflo-core_ruflo__memory_search({ namespace: "arena", query: "tournaments where grim dominated" })`.
 
 ### Notes
 

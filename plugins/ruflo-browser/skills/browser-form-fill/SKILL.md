@@ -2,7 +2,7 @@
 name: browser-form-fill
 description: Fill a web form by mapping field-name → value, with optional template lookup from browser-templates for known forms
 argument-hint: "<url> <field-map.json> [--template <name>] [--submit]"
-allowed-tools: mcp__claude-flow__browser_open mcp__claude-flow__browser_close mcp__claude-flow__browser_fill mcp__claude-flow__browser_type mcp__claude-flow__browser_select mcp__claude-flow__browser_check mcp__claude-flow__browser_uncheck mcp__claude-flow__browser_click mcp__claude-flow__browser_wait mcp__claude-flow__browser_snapshot mcp__claude-flow__aidefence_has_pii Bash Read Write
+allowed-tools: mcp__plugin_ruflo-core_ruflo__browser_open mcp__plugin_ruflo-core_ruflo__browser_close mcp__plugin_ruflo-core_ruflo__browser_fill mcp__plugin_ruflo-core_ruflo__browser_type mcp__plugin_ruflo-core_ruflo__browser_select mcp__plugin_ruflo-core_ruflo__browser_check mcp__plugin_ruflo-core_ruflo__browser_uncheck mcp__plugin_ruflo-core_ruflo__browser_click mcp__plugin_ruflo-core_ruflo__browser_wait mcp__plugin_ruflo-core_ruflo__browser_snapshot mcp__plugin_ruflo-core_ruflo__aidefence_has_pii Bash Read Write
 ---
 
 # Browser Form Fill

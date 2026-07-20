@@ -142,13 +142,27 @@ export class CLI {
       if (commandPath[0] !== 'init' && commandPath[0] !== 'update') {
         try {
           const { autoRefreshHelpersIfStale } = await import('./init/helper-refresh.js');
-          const r = await autoRefreshHelpersIfStale(process.cwd());
+          // alsoRefreshGlobal:true — refresh ~/.claude/helpers too, not just
+          // <cwd>/.claude/helpers. Fixes the "promo row missing on remote
+          // installs" bug where Claude Code's global settings.json falls back
+          // to ~/.claude/helpers/statusline.cjs (executor.ts:460-462) and that
+          // file was frozen at whatever version was current when the user
+          // last ran `ruflo init` — pre-3.31.3 nothing refreshed it, so any
+          // helpers change (e.g. the 2026-07-13 Line-3 funnel row addition)
+          // never reached existing installs. Same forward-only semver.gte
+          // guard applies to the global pass.
+          const r = await autoRefreshHelpersIfStale(process.cwd(), { alsoRefreshGlobal: true });
           if (r.blocked) {
             // Integrity failure = potential on-disk tampering of hook code. Warn
             // loudly (not silent) — the existing project helpers were left intact.
             this.output.printWarning(`Skipped helper auto-refresh — ${r.blocked}. Reinstall @claude-flow/cli from a trusted source.`);
           } else if (r.refreshed && this.output.isVerbose()) {
             this.output.printDebug(`Refreshed .claude/helpers (${r.from} → ${r.to})`);
+          }
+          if (r.global?.refreshed && this.output.isVerbose()) {
+            this.output.printDebug(`Refreshed ~/.claude/helpers (${r.global.from} → ${r.global.to})`);
+          } else if (r.global?.blocked && r.global.blocked !== r.blocked) {
+            this.output.printWarning(`Skipped ~/.claude/helpers auto-refresh — ${r.global.blocked}.`);
           }
         } catch { /* silent */ }
 

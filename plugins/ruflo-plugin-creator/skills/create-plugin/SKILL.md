@@ -2,7 +2,7 @@
 name: create-plugin
 description: Scaffold a new Claude Code plugin with proper directory structure, plugin.json, skills, commands, and agents
 argument-hint: "<plugin-name>"
-allowed-tools: mcp__claude-flow__transfer_plugin-info mcp__claude-flow__transfer_plugin-search mcp__claude-flow__transfer_store-search Bash Read Write Edit
+allowed-tools: mcp__plugin_ruflo-core_ruflo__transfer_plugin-info mcp__plugin_ruflo-core_ruflo__transfer_plugin-search mcp__plugin_ruflo-core_ruflo__transfer_store-search Bash Read Write Edit
 ---
 
 # Create Plugin
@@ -16,7 +16,7 @@ When you want to create a new plugin that extends Claude Code with skills, comma
 ## Steps
 
 1. **Get plugin name and description** from the user
-2. **Check for conflicts** — call `mcp__claude-flow__transfer_plugin-search` to ensure the name isn't taken
+2. **Check for conflicts** — call `mcp__plugin_ruflo-core_ruflo__transfer_plugin-search` to ensure the name isn't taken
 3. **Create directory structure** (follows the canonical plugin contract from sibling plugins' ADR-0001s):
    ```
    plugins/<name>/
@@ -42,7 +42,7 @@ When you want to create a new plugin that extends Claude Code with skills, comma
    ---
    name: skill-name
    description: What this skill does
-   allowed-tools: mcp__claude-flow__tool1 mcp__claude-flow__tool2 Bash
+   allowed-tools: mcp__plugin_ruflo-core_ruflo__tool1 mcp__plugin_ruflo-core_ruflo__tool2 Bash
    ---
    ```
 6. **Generate command files** with name and description frontmatter
@@ -92,7 +92,7 @@ Optional fields:
 
 ## Available MCP tools to wire
 
-Browse available tools: `mcp__claude-flow__transfer_plugin-info`
+Browse available tools: `mcp__plugin_ruflo-core_ruflo__transfer_plugin-info`
 
 Common tool categories:
 - `memory_*` — storage, search, retrieval

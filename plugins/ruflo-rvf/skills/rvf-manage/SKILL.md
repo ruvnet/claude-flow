@@ -2,7 +2,7 @@
 name: rvf-manage
 description: Manage RVF (Ruflo Vector Format) files for portable agent memory and cross-platform transfer
 argument-hint: "<import|export|list|migrate|stats|delete> [options]"
-allowed-tools: mcp__claude-flow__memory_store mcp__claude-flow__memory_retrieve mcp__claude-flow__memory_list mcp__claude-flow__memory_delete mcp__claude-flow__memory_stats mcp__claude-flow__memory_import_claude mcp__claude-flow__memory_migrate mcp__claude-flow__hooks_transfer Bash
+allowed-tools: mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_retrieve mcp__plugin_ruflo-core_ruflo__memory_list mcp__plugin_ruflo-core_ruflo__memory_delete mcp__plugin_ruflo-core_ruflo__memory_stats mcp__plugin_ruflo-core_ruflo__memory_import_claude mcp__plugin_ruflo-core_ruflo__memory_migrate mcp__plugin_ruflo-core_ruflo__hooks_transfer Bash
 ---
 
 # RVF Management
@@ -15,11 +15,11 @@ When you need to export agent memory to RVF format for backup, transfer between 
 
 ## Steps
 
-1. **List memories** — call `mcp__claude-flow__memory_list` to see all stored memories
-2. **Export** — use the `mcp__claude-flow__hooks_transfer` tool with `store` action to export patterns
-3. **Import** — call `mcp__claude-flow__memory_import_claude` to import from Claude Code memories
-4. **Migrate** — call `mcp__claude-flow__memory_migrate` for format upgrades
-5. **Stats** — call `mcp__claude-flow__memory_stats` for storage metrics
+1. **List memories** — call `mcp__plugin_ruflo-core_ruflo__memory_list` to see all stored memories
+2. **Export** — use the `mcp__plugin_ruflo-core_ruflo__hooks_transfer` tool with `store` action to export patterns
+3. **Import** — call `mcp__plugin_ruflo-core_ruflo__memory_import_claude` to import from Claude Code memories
+4. **Migrate** — call `mcp__plugin_ruflo-core_ruflo__memory_migrate` for format upgrades
+5. **Stats** — call `mcp__plugin_ruflo-core_ruflo__memory_stats` for storage metrics
 
 ## RVF format
 

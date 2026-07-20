@@ -2,7 +2,7 @@
 name: vector-embed
 description: Generate embeddings via npx ruvector@0.2.25 embed text (ONNX all-MiniLM-L6-v2, 384-dim), normalize, and store in HNSW index
 argument-hint: "<text-or-file>"
-allowed-tools: Bash Read mcp__claude-flow__memory_store mcp__claude-flow__memory_search
+allowed-tools: Bash Read mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search
 ---
 
 # Vector Embed
@@ -31,7 +31,7 @@ Use this skill to embed text, code, or documents into 384-dimensional vectors fo
 3. **Adaptive (LoRA) variant**: `npx -y ruvector@0.2.25 embed text "..." --adaptive --domain code`
 4. **Confirm** — report vector dimension (384), norm, and any output path written.
 5. **Store metadata** in AgentDB if needed:
-   `mcp__claude-flow__memory_store({ key: "embed-SOURCE", value: "VECTOR_METADATA", namespace: "vector-patterns" })`
+   `mcp__plugin_ruflo-core_ruflo__memory_store({ key: "embed-SOURCE", value: "VECTOR_METADATA", namespace: "vector-patterns" })`
 
 ## MCP alternative
 

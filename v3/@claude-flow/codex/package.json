@@ -1,12 +1,12 @@
 {
   "name": "@claude-flow/codex",
-  "version": "3.0.0-alpha.9",
+  "version": "3.0.1",
   "description": "Codex CLI integration for Ruflo (claude-flow) - OpenAI Codex platform adapter",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "claude-flow-codex": "./dist/cli.js"
+    "claude-flow-codex": "dist/cli.js"
   },
   "exports": {
     ".": {
@@ -42,7 +42,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    ".agents/skills"
   ],
   "scripts": {
     "build": "tsc",
@@ -65,7 +66,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruflo.git",
+    "url": "git+https://github.com/ruvnet/ruflo.git",
     "directory": "v3/@claude-flow/codex"
   },
   "homepage": "https://github.com/ruvnet/ruflo#readme",
@@ -76,7 +77,7 @@
     "node": ">=18"
   },
   "peerDependencies": {
-    "@claude-flow/cli": "^3.0.0-alpha.1"
+    "@claude-flow/cli": "^3.0.0"
   },
   "peerDependenciesMeta": {
     "@claude-flow/cli": {
@@ -98,5 +99,9 @@
     "typescript": "^5.4.0",
     "vitest": "^4.1.0",
     "eslint": "^8.57.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
   }
 }

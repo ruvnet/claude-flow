@@ -2,7 +2,7 @@
 name: browser-screenshot-diff
 description: Visual + DOM diff between two recorded sessions at matching trajectory step ids; used for visual regression and replay verification
 argument-hint: "<session-id-a> <session-id-b> [--threshold <0..1>] [--mode pixel|dom|both]"
-allowed-tools: mcp__claude-flow__browser_eval Bash Read Write
+allowed-tools: mcp__plugin_ruflo-core_ruflo__browser_eval Bash Read Write
 ---
 
 # Browser Screenshot Diff

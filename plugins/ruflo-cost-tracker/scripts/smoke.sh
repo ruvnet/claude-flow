@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-cost-tracker v0.3.0 (ADR-0001 + ADR-0002).
+# Structural smoke test for ruflo-cost-tracker v0.26.2.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0
@@ -8,10 +8,10 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.26.0 with new keywords"
+step "1. plugin.json declares 0.26.2 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.26.0" ]]; then
-  bad "expected 0.26.0, got '$v'"
+if [[ "$v" != "0.26.2" ]]; then
+  bad "expected 0.26.2, got '$v'"
 else
   miss=""
   for k in namespace-routing mcp agentic-flow agent-booster tier1-routing model-routing benchmarking verified telemetry budget projection forecast counterfactual drift-detection trend-alert anomaly-detection outlier-detection health-check composite-gate auto-track stop-hook snapshot-diff pr-regression git-context traceability drill-down per-message; do
@@ -237,24 +237,32 @@ grep -q 'cost-tracking' "$F" || miss="$miss namespace"
 grep -q '^allowed-tools:[[:space:]]*\*' "$F" && miss="$miss wildcard"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
-step "28b. hooks/hooks.json auto-runs cost-track on Stop (iter 78)"
+step "28b. hooks/hooks.json auto-runs cost-track on Stop (iter 78, rewired #2721)"
 F="$ROOT/hooks/hooks.json"
+SHIM="$ROOT/scripts/ruflo-hook.cjs"
 miss=""
 [[ -f "$F" ]] || miss="$miss missing-file"
 node -e "JSON.parse(require('fs').readFileSync('$F'))" 2>/dev/null || miss="$miss invalid-json"
 grep -q '"Stop"' "$F" || miss="$miss no-Stop-hook"
-grep -q "track\.mjs" "$F" || miss="$miss not-invoking-track"
-grep -q "TRACK_QUIET=1" "$F" || miss="$miss no-quiet-flag"
-grep -q "|| true" "$F" || miss="$miss not-resilient"
 grep -q "CLAUDE_PLUGIN_ROOT" "$F" || miss="$miss no-plugin-root-var"
+# #2721 — hooks.json no longer invokes track.mjs / TRACK_QUIET=1 / `|| true`
+# directly: it's a `node -e` bootstrap (no shell, cross-platform) that
+# requires scripts/ruflo-hook.cjs, which does the track.mjs spawn + resilient
+# always-exit-0 itself. Verify the indirection is actually wired, not just
+# present on disk unreferenced (that exact gap is what shipped as #2721).
+grep -q "ruflo-hook\.cjs" "$F" || miss="$miss hooks-json-not-wired-to-shim"
+[[ -f "$SHIM" ]] || miss="$miss missing-shim-file"
+grep -q "track\.mjs" "$SHIM" || miss="$miss shim-not-invoking-track"
+grep -q "TRACK_QUIET" "$SHIM" || miss="$miss shim-no-quiet-flag"
+grep -q "function done" "$SHIM" || miss="$miss shim-not-resilient"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
-step "29. track.mjs harness present + parses + uses spawnSync (no shell-escape risks)"
+step "29. track.mjs harness present + parses + uses safe argv spawning"
 F="$ROOT/scripts/track.mjs"
 miss=""
 [[ -x "$F" ]] || miss="$miss not-executable"
 node --check "$F" 2>/dev/null || miss="$miss syntax-error"
-grep -q "spawnSync" "$F" || miss="$miss no-spawnSync"
+grep -qE "spawnNpxSync|spawnSync" "$F" || miss="$miss no-safe-spawn"
 grep -q "PRICING" "$F" || miss="$miss no-pricing-table"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
@@ -285,12 +293,12 @@ grep -qE "budget\.mjs|cost-tracking:budget-config" "$F" || miss="$miss budget-sc
 grep -q '^allowed-tools:[[:space:]]*\*' "$F" && miss="$miss wildcard"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
-step "32. budget.mjs harness present + parses + uses spawnSync"
+step "32. budget.mjs harness present + parses + uses safe argv spawning"
 F="$ROOT/scripts/budget.mjs"
 miss=""
 [[ -x "$F" ]] || miss="$miss not-executable"
 node --check "$F" 2>/dev/null || miss="$miss syntax-error"
-grep -qE "spawnSync|_sessions\.mjs" "$F" || miss="$miss no-safe-exec"
+grep -qE "spawnNpxSync|spawnSync|_sessions\.mjs" "$F" || miss="$miss no-safe-exec"
 grep -qE "HARD_STOP|alertLevel" "$F" || miss="$miss no-alert-impl"
 grep -q "process.exit(1)" "$F" || miss="$miss no-fail-closed"
 # iter 75 regression guard: in the WITH-BUDGET branch (after `const alert =
@@ -325,7 +333,7 @@ F="$ROOT/scripts/outcome.mjs"
 miss=""
 [[ -x "$F" ]] || miss="$miss not-executable"
 node --check "$F" 2>/dev/null || miss="$miss syntax-error"
-grep -q "spawnSync" "$F" || miss="$miss no-spawnSync"
+grep -qE "spawnNpxSync|spawnSync" "$F" || miss="$miss no-safe-spawn"
 grep -q "hooks.*model-outcome" "$F" || miss="$miss no-hooks-call"
 grep -qE "success.*escalated.*failure|ALLOWED" "$F" || miss="$miss no-validation"
 [[ -z "$miss" ]] && ok || bad "$miss"
@@ -621,7 +629,7 @@ F="$ROOT/scripts/_sessions.mjs"
 miss=""
 [[ -f "$F" ]] || miss="$miss missing"
 node --check "$F" 2>/dev/null || miss="$miss syntax-error"
-grep -q "spawnSync" "$F" || miss="$miss no-spawnSync"
+grep -qE "spawnNpxSync|spawnSync" "$F" || miss="$miss no-safe-spawn"
 grep -q "memoryListAllKeys" "$F" || miss="$miss no-list-all-export"
 grep -q "memoryListSessionKeys" "$F" || miss="$miss no-list-session-export"
 grep -q "memoryRetrieve" "$F" || miss="$miss no-retrieve-export"

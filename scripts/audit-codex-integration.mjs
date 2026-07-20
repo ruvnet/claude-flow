@@ -104,9 +104,14 @@ check(/version: "\$\{version\}"/.test(skillGen) && /author: \$\{author\}/.test(s
 // ── 8. config.toml generator emits a working `ruflo` MCP server ────────────
 section('config.toml generator MCP default:');
 const cfgGen = read('v3/@claude-flow/codex/src/generators/config-toml.ts');
-check(/name:\s*'ruflo'/.test(cfgGen) && /args:\s*\['-y',\s*'ruflo@latest',\s*'mcp',\s*'start'\]/.test(cfgGen),
-  `default MCP server is \`ruflo\` with \`mcp start\` subcommand`,
-  `default MCP server must be \`{ name: 'ruflo', args: ['-y','ruflo@latest','mcp','start'] }\` (was \`claude-flow\` w/o \`mcp start\`)`);
+const mcpConfig = read('v3/@claude-flow/codex/src/mcp-config.ts');
+check(/getRufloMcpServerConfig/.test(cfgGen)
+    && /RUFLO_MCP_SERVER_NAME\s*=\s*'ruflo'/.test(mcpConfig)
+    && /RUFLO_MCP_PACKAGE\s*=\s*'ruflo@latest'/.test(mcpConfig)
+    && /args:\s*\['\/c',\s*'npx',\s*\.\.\.args\]/.test(mcpConfig)
+    && /RUFLO_MCP_STARTUP_TIMEOUT_SEC\s*=\s*120/.test(mcpConfig),
+  `default MCP server is Windows-safe \`ruflo@latest mcp start\` with 120s startup timeout`,
+  `default MCP server must use the shared platform-aware Ruflo definition (cmd /c npx on Windows)`);
 
 console.log('\n' + '─'.repeat(48));
 if (failures > 0) {

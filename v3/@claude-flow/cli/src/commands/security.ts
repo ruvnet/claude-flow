@@ -8,6 +8,7 @@
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { execSync } from 'node:child_process';
+import { createBuiltinAIDefence, type DefenceEngine } from '../security/builtin-aidefence.js';
 
 // Scan subcommand
 const scanCommand: Command = {
@@ -218,6 +219,35 @@ const scanCommand: Command = {
         `Critical: ${criticalCount}  High: ${highCount}  Medium: ${mediumCount}  Low: ${lowCount}`,
         `Total Issues: ${findings.length}`,
       ].join('\n'), 'Scan Summary');
+
+      // Persist the scan result so downstream consumers (the statusline's
+      // getSecurityStatus in funnel/local-signals.ts, which reads
+      // `.claude/security-scans/*.json`) reflect real scan state. Best-effort:
+      // a failed write must never fail the scan itself.
+      try {
+        const scanDirOut = path.join(path.resolve(target), '.claude', 'security-scans');
+        fs.mkdirSync(scanDirOut, { recursive: true });
+        const record = {
+          timestamp: new Date().toISOString(),
+          target,
+          depth,
+          type: scanType,
+          summary: {
+            critical: criticalCount,
+            high: highCount,
+            medium: mediumCount,
+            low: lowCount,
+            total: findings.length,
+          },
+          findings,
+        };
+        // Deterministic name keyed on scan config so repeated runs overwrite
+        // rather than accumulate stale reports.
+        const outFile = path.join(scanDirOut, `scan-${scanType}-${depth}.json`);
+        fs.writeFileSync(outFile, JSON.stringify(record, null, 2));
+      } catch {
+        // Persistence is advisory only — ignore write failures.
+      }
 
       // Auto-fix if requested
       if (fix && criticalCount + highCount > 0) {
@@ -863,16 +893,16 @@ const defendCommand: Command = {
     output.writeln(output.dim('─'.repeat(55)));
 
     // Dynamic import of aidefence (allows package to be optional)
-    let createAIDefence: typeof import('@claude-flow/aidefence').createAIDefence;
+    let defender: DefenceEngine;
     try {
       const aidefence = await import('@claude-flow/aidefence');
-      createAIDefence = aidefence.createAIDefence;
+      defender = aidefence.createAIDefence({ enableLearning }) as DefenceEngine;
     } catch {
-      output.error('AIDefence package not installed. Run: npm install @claude-flow/aidefence');
-      return { success: false, message: 'AIDefence not available' };
+      // Keep cold npx startup lean (#2561): the full learning engine remains
+      // user-installable, while the CLI always ships a deterministic scanner.
+      defender = createBuiltinAIDefence();
+      output.writeln(output.dim('Using built-in defense engine (install @claude-flow/aidefence for adaptive learning)'));
     }
-
-    const defender = createAIDefence({ enableLearning });
 
     // Show stats mode
     if (showStats) {
@@ -896,8 +926,8 @@ const defendCommand: Command = {
         textToScan = await fs.readFile(filePath, 'utf-8');
         output.writeln(output.dim(`Reading file: ${filePath}`));
       } catch (err) {
-        output.error(`Failed to read file: ${filePath}`);
-        return { success: false, message: 'File not found' };
+        output.printError(`Failed to read file: ${filePath}`);
+        return { success: false, exitCode: 2, message: 'File not found' };
       }
     }
 
@@ -920,8 +950,9 @@ const defendCommand: Command = {
 
     // Perform scan
     const startTime = performance.now();
-    const result = quickMode
-      ? { ...defender.quickScan(textToScan), threats: [], piiFound: false, detectionTimeMs: 0, inputHash: '', safe: !defender.quickScan(textToScan).threat }
+    const quickResult = quickMode ? defender.quickScan(textToScan) : undefined;
+    const result = quickResult
+      ? { ...quickResult, threats: [], piiFound: false, detectionTimeMs: 0, inputHash: '', safe: !quickResult.threat }
       : await defender.detect(textToScan);
     const scanTime = performance.now() - startTime;
 
@@ -935,7 +966,8 @@ const defendCommand: Command = {
         piiFound: result.piiFound,
         detectionTimeMs: scanTime,
       }, null, 2));
-      return { success: true };
+      const safe = result.safe && !result.piiFound;
+      return { success: safe, exitCode: safe ? 0 : 1 };
     }
 
     // Text output
@@ -967,7 +999,7 @@ const defendCommand: Command = {
         if (criticalThreats.length > 0 && enableLearning) {
           output.writeln(output.bold('Recommended Mitigations:'));
           for (const threat of criticalThreats) {
-            const mitigation = await defender.getBestMitigation(threat.type as Parameters<typeof defender.getBestMitigation>[0]);
+            const mitigation = await defender.getBestMitigation(threat.type);
             if (mitigation) {
               output.writeln(`  ${threat.type}: ${output.bold(mitigation.strategy)} (${(mitigation.effectiveness * 100).toFixed(0)}% effective)`);
             }
@@ -984,7 +1016,8 @@ const defendCommand: Command = {
 
     output.writeln(output.dim(`Detection time: ${scanTime.toFixed(3)}ms`));
 
-    return { success: result.safe };
+    const safe = result.safe && !result.piiFound;
+    return { success: safe, exitCode: safe ? 0 : 1 };
   },
 };
 

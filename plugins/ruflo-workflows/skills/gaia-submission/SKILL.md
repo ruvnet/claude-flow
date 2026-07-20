@@ -2,7 +2,7 @@
 name: gaia-submission
 description: Walk through a complete GAIA benchmark→submit flow — from key resolution through HAL-compatible package generation
 argument-hint: "[level] [limit] [models]"
-allowed-tools: Bash mcp__claude-flow__memory_store mcp__claude-flow__memory_search mcp__claude-flow__memory_list mcp__claude-flow__hooks_post_task mcp__claude-flow__hooks_pre_task
+allowed-tools: Bash mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__memory_list mcp__plugin_ruflo-core_ruflo__hooks_post_task mcp__plugin_ruflo-core_ruflo__hooks_pre_task
 ---
 
 # GAIA Submission Skill

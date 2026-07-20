@@ -2,7 +2,7 @@
 name: sparc-implement
 description: Run the SPARC Pseudocode and Architecture phases (2 and 3) — write algorithm pseudocode, design module boundaries and API contracts, then implement
 argument-hint: ""
-allowed-tools: mcp__claude-flow__memory_store mcp__claude-flow__memory_search mcp__claude-flow__memory_retrieve mcp__claude-flow__task_create mcp__claude-flow__task_update mcp__claude-flow__task_complete mcp__claude-flow__hooks_intelligence_trajectory-step mcp__claude-flow__neural_predict mcp__claude-flow__workflow_create Bash Read Write Edit
+allowed-tools: mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__memory_retrieve mcp__plugin_ruflo-core_ruflo__task_create mcp__plugin_ruflo-core_ruflo__task_update mcp__plugin_ruflo-core_ruflo__task_complete mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step mcp__plugin_ruflo-core_ruflo__neural_predict mcp__plugin_ruflo-core_ruflo__workflow_create Bash Read Write Edit
 ---
 
 # SPARC Architecture + Implementation
@@ -15,11 +15,11 @@ After the Specification phase is complete and its gate has been passed. This ski
 
 ## Steps
 
-1. **Retrieve specification** — call `mcp__claude-flow__memory_search` with namespace `sparc-phases` and query for the feature's spec. Extract requirements, acceptance criteria, constraints, and edge cases.
+1. **Retrieve specification** — call `mcp__plugin_ruflo-core_ruflo__memory_search` with namespace `sparc-phases` and query for the feature's spec. Extract requirements, acceptance criteria, constraints, and edge cases.
 
-2. **Retrieve phase state** — call `mcp__claude-flow__memory_search` with namespace `sparc-state` and query for the feature to confirm we are in Phase 2 or 3.
+2. **Retrieve phase state** — call `mcp__plugin_ruflo-core_ruflo__memory_search` with namespace `sparc-state` and query for the feature to confirm we are in Phase 2 or 3.
 
-3. **Search for architectural patterns** — call `mcp__claude-flow__neural_predict` with the feature description to find relevant architectural decisions from past projects
+3. **Search for architectural patterns** — call `mcp__plugin_ruflo-core_ruflo__neural_predict` with the feature description to find relevant architectural decisions from past projects
 
 4. **Phase 2 — Pseudocode Design**:
    a. For each acceptance criterion, write language-agnostic pseudocode that satisfies it
@@ -30,7 +30,7 @@ After the Specification phase is complete and its gate has been passed. This ski
       - Concurrent access handling if applicable
    d. Annotate algorithmic complexity (time and space) for critical paths
    e. Store pseudocode artifact:
-      - Call `mcp__claude-flow__memory_store` with namespace `sparc-phases`, key `pseudo-{feature-slug}`
+      - Call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-phases`, key `pseudo-{feature-slug}`
       - Value: `{ status: "complete", algorithms: [...], dataStructures: [...], controlFlow: [...], complexity: {...} }`
 
 5. **Phase 3 — Architecture Design**:
@@ -51,12 +51,12 @@ After the Specification phase is complete and its gate has been passed. This ski
       - Messaging patterns (sync, async, event-driven)
       - Configuration and environment requirements
    e. Store architecture artifact:
-      - Call `mcp__claude-flow__memory_store` with namespace `sparc-phases`, key `arch-{feature-slug}`
+      - Call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-phases`, key `arch-{feature-slug}`
       - Value: `{ status: "complete", boundedContexts: [...], apiContracts: [...], moduleBoundaries: {...}, infrastructure: {...} }`
 
-6. **Update phase state** — call `mcp__claude-flow__memory_store` with namespace `sparc-state`, updating current phase to 3 (Architecture) with both artifacts recorded
+6. **Update phase state** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-state`, updating current phase to 3 (Architecture) with both artifacts recorded
 
-7. **Record trajectory step** — call `mcp__claude-flow__hooks_intelligence_trajectory-step` with architecture summary
+7. **Record trajectory step** — call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step` with architecture summary
 
 8. **Begin implementation** — if the user confirms, proceed to write production code:
    a. Create files following the defined module boundaries

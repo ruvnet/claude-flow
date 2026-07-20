@@ -50,15 +50,15 @@ Each candlestick pattern is encoded as a fixed-length vector:
 
 ### Tools
 
-- `mcp__claude-flow__agentdb_hierarchical-store` -- store normalized OHLCV data and pattern metadata
-- `mcp__claude-flow__agentdb_hierarchical-recall` -- recall historical market data by symbol/period
-- `mcp__claude-flow__agentdb_pattern-store` -- store detected candlestick patterns with vectors
-- `mcp__claude-flow__agentdb_pattern-search` -- search for similar patterns via HNSW
-- `mcp__claude-flow__agentdb_semantic-route` -- route queries to relevant market data sources
-- `mcp__claude-flow__embeddings_generate` -- generate embeddings for pattern descriptions
-- `mcp__claude-flow__ruvllm_hnsw_create` -- create HNSW index for pattern vectors
-- `mcp__claude-flow__ruvllm_hnsw_add` -- add pattern vectors to HNSW index
-- `mcp__claude-flow__ruvllm_hnsw_route` -- nearest-neighbor search in pattern index
+- `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store` -- store normalized OHLCV data and pattern metadata
+- `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-recall` -- recall historical market data by symbol/period
+- `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-store` -- store detected candlestick patterns with vectors
+- `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search` -- search for similar patterns via HNSW
+- `mcp__plugin_ruflo-core_ruflo__agentdb_semantic-route` -- route queries to relevant market data sources
+- `mcp__plugin_ruflo-core_ruflo__embeddings_generate` -- generate embeddings for pattern descriptions
+- `mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_create` -- create HNSW index for pattern vectors
+- `mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_add` -- add pattern vectors to HNSW index
+- `mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_route` -- nearest-neighbor search in pattern index
 
 ### Neural Learning
 

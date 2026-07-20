@@ -3416,6 +3416,153 @@ export async function deleteEntry(options: {
   }
 }
 
+// #2666 — Namespace reconciliation ("reaping"). `deleteEntry` above only ever
+// soft-deletes (UPDATE ... SET status='deleted'), and the row's (namespace,
+// key) stays occupied against the UNIQUE(namespace, key) constraint — a
+// caller that needs a namespace to be genuinely empty (e.g. a plugin
+// rebuilding its whole index after a source file was deleted, so a stale
+// row would otherwise survive forever with no dangling-ref/cycle signal to
+// ever catch it) has no way to get there through the public CLI/MCP surface.
+// `purgeNamespace` is a real `DELETE FROM memory_entries WHERE namespace = ?`
+// — irreversible, namespace-scoped, and lock-protected against a second
+// concurrent purge/delete on the same db file (see withMemoryDbLock below).
+//
+// This does NOT fully close #2621 (a concurrent daemon/MCP server already
+// mid read-modify-write on the sql.js fallback path can still flush an
+// older in-memory image after this purge commits, resurrecting rows) — that
+// requires every memory.db writer to respect the same lock, which is a
+// larger change than this namespace-reconcile primitive. The lock here
+// bounds the race to "another purge/delete running at the same instant",
+// which is the concrete case this feature needs to be safe against.
+
+const MEMORY_DB_LOCK_STALE_MS = 10_000;
+
+function delayMs(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Advisory O_EXCL lock scoped to a single memory.db file (`<dbPath>.lock`),
+ * same stale-takeover pattern as services/global-ai-budget.ts. Only
+ * meaningful between callers that opt into it (purgeNamespace does); it
+ * cannot coordinate against writers that don't call this helper.
+ */
+export async function withMemoryDbLock<T>(dbPath: string, fn: () => Promise<T> | T): Promise<T> {
+  const lockFile = `${dbPath}.lock`;
+  const deadline = Date.now() + 5000;
+  for (;;) {
+    try {
+      const fd = fs.openSync(lockFile, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY, 0o600);
+      fs.writeSync(fd, String(process.pid));
+      fs.closeSync(fd);
+      try {
+        return await fn();
+      } finally {
+        try { fs.unlinkSync(lockFile); } catch { /* already gone */ }
+      }
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+      try {
+        const st = fs.lstatSync(lockFile);
+        if (Date.now() - st.mtimeMs > MEMORY_DB_LOCK_STALE_MS) {
+          fs.unlinkSync(lockFile);
+          continue;
+        }
+      } catch { /* raced — retry */ }
+      if (Date.now() > deadline) {
+        throw new Error(`timed out acquiring memory.db lock: ${lockFile}`);
+      }
+      await delayMs(25);
+    }
+  }
+}
+
+const NAMESPACE_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
+
+export async function purgeNamespace(options: {
+  namespace: string;
+  dbPath?: string;
+}): Promise<{
+  success: boolean;
+  deletedCount: number;
+  remainingEntries: number;
+  error?: string;
+}> {
+  const { namespace, dbPath: customPath } = options;
+
+  if (!NAMESPACE_PATTERN.test(namespace)) {
+    return { success: false, deletedCount: 0, remainingEntries: 0, error: `Invalid namespace: ${namespace}` };
+  }
+
+  const swarmDir = getMemoryRoot();
+  const dbPath = customPath ? path.resolve(customPath) : path.join(swarmDir, 'memory.db');
+
+  return withMemoryDbLock(dbPath, async () => {
+    // ADR-053: try the AgentDB v3 bridge first — a real SQLite handle, so
+    // the DELETE is a genuine transactional statement, not a whole-file
+    // read/mutate/rewrite.
+    const bridge = await getBridge();
+    if (bridge) {
+      const bridgeResult = await bridge.bridgePurgeNamespace({ namespace, dbPath });
+      if (bridgeResult) {
+        if (bridgeResult.deletedCount > 0 && hnswIndex?.entries) {
+          for (const [id, entry] of hnswIndex.entries) {
+            if (((entry as any)?.namespace ?? 'default') === namespace) hnswIndex.entries.delete(id);
+          }
+          saveHNSWMetadata();
+          rebuildSearchIndex();
+        }
+        return bridgeResult;
+      }
+    }
+
+    // Fallback: raw sql.js, same whole-file read/mutate/rewrite shape as
+    // deleteEntry's fallback path above (and the same encryption handling).
+    try {
+      if (!fs.existsSync(dbPath)) {
+        return { success: false, deletedCount: 0, remainingEntries: 0, error: 'Database not found' };
+      }
+
+      await ensureSchemaColumns(dbPath);
+
+      const initSqlJs = (await import('sql.js')).default;
+      const SQL = await initSqlJs();
+
+      const fileBuffer = readFileMaybeEncrypted(dbPath, null);
+      const db = new SQL.Database(fileBuffer);
+
+      const beforeResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE namespace = ?`, [namespace]);
+      const deletedCount = (beforeResult[0]?.values?.[0]?.[0] as number) || 0;
+
+      db.run(`DELETE FROM memory_entries WHERE namespace = ?`, [namespace]);
+
+      const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE status = 'active'`);
+      const remainingEntries = (countResult[0]?.values?.[0]?.[0] as number) || 0;
+
+      const data = db.export();
+      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+      db.close();
+
+      if (deletedCount > 0 && hnswIndex?.entries) {
+        for (const [id, entry] of hnswIndex.entries) {
+          if (((entry as any)?.namespace ?? 'default') === namespace) hnswIndex.entries.delete(id);
+        }
+        saveHNSWMetadata();
+        rebuildSearchIndex();
+      }
+
+      return { success: true, deletedCount, remainingEntries };
+    } catch (error) {
+      return {
+        success: false,
+        deletedCount: 0,
+        remainingEntries: 0,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+}
+
 export default {
   initializeMemoryDatabase,
   checkMemoryInitialization,
@@ -3430,6 +3577,8 @@ export default {
   listEntries,
   getEntry,
   deleteEntry,
+  purgeNamespace,
+  withMemoryDbLock,
   rebuildSearchIndex,
   MEMORY_SCHEMA_V3,
   getInitialMetadata

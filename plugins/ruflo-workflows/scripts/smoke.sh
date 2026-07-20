@@ -7,9 +7,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.5.0 with lifecycle keywords"
+step "1. plugin.json declares 0.5.1 with lifecycle keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.5.0" ]]; then bad "expected 0.5.0, got '$v'"; else
+if [[ "$v" != "0.5.1" ]]; then bad "expected 0.5.1, got '$v'"; else
   miss=""
   for k in mcp workflow-templates pause-resume lifecycle; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"

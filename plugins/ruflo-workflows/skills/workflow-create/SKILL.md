@@ -2,7 +2,7 @@
 name: workflow-create
 description: Author a workflow — either an MCP workflow template (persisted, lifecycle) or a native .claude/workflows/*.js orchestration script (agent/parallel/pipeline fan-out)
 argument-hint: "<name> [--native] [--steps N]"
-allowed-tools: mcp__claude-flow__workflow_create mcp__claude-flow__workflow_template mcp__claude-flow__workflow_list mcp__claude-flow__workflow_status mcp__claude-flow__workflow_delete Write Read Edit Bash
+allowed-tools: mcp__plugin_ruflo-core_ruflo__workflow_create mcp__plugin_ruflo-core_ruflo__workflow_template mcp__plugin_ruflo-core_ruflo__workflow_list mcp__plugin_ruflo-core_ruflo__workflow_status mcp__plugin_ruflo-core_ruflo__workflow_delete Write Read Edit Bash
 ---
 
 # Workflow Create
@@ -16,11 +16,11 @@ Author a workflow on whichever surface fits the job.
 
 ## A — MCP workflow template
 
-1. **List templates** — call `mcp__claude-flow__workflow_template` to see available templates
-2. **Create workflow** — call `mcp__claude-flow__workflow_create` with steps, conditions, and execution order
-3. **List workflows** — call `mcp__claude-flow__workflow_list` to see all defined workflows
-4. **Check status** — call `mcp__claude-flow__workflow_status` to monitor a workflow
-5. **Clean up** — call `mcp__claude-flow__workflow_delete` to remove unused workflows
+1. **List templates** — call `mcp__plugin_ruflo-core_ruflo__workflow_template` to see available templates
+2. **Create workflow** — call `mcp__plugin_ruflo-core_ruflo__workflow_create` with steps, conditions, and execution order
+3. **List workflows** — call `mcp__plugin_ruflo-core_ruflo__workflow_list` to see all defined workflows
+4. **Check status** — call `mcp__plugin_ruflo-core_ruflo__workflow_status` to monitor a workflow
+5. **Clean up** — call `mcp__plugin_ruflo-core_ruflo__workflow_delete` to remove unused workflows
 
 Features: sequential/parallel steps, conditional branching, template inheritance, pause/resume approval gates.
 

@@ -456,8 +456,39 @@ export function generateHookHandler(): string {
     '',
     "const path = require('path');",
     "const fs = require('fs');",
+    "const os = require('os');",
+    "const { spawn } = require('child_process');",
     '',
     'const helpersDir = __dirname;',
+    '',
+    // #2661-adjacent fix: `refreshRemoteMessages()` (the funnel promo/disclosure
+    // pool) is fire-and-forget by design so the statusline's own short-lived
+    // per-render subprocess never blocks on a network call — but that also
+    // means it NEVER gets a chance to finish there (confirmed live: two
+    // consecutive cold-cache statusline renders returned promo:null and no
+    // cache file was ever written). `refresh-funnel` exists specifically to
+    // be spawned from a longer-lived context; wire that spawn here, once per
+    // session, detached so it survives this hook process exiting and isn't
+    // awaited so it never adds to the hook's own timeout budget.
+    //
+    // Deliberately always via npx (--prefer-offline avoids a registry round
+    // trip when already cached), never a locally-resolved bin/cli.js path:
+    // a fire-and-forget detached spawn has no way to recover if the first
+    // candidate is a broken/unbuilt local install (confirmed live — a stale
+    // marketplace checkout with a bin/cli.js that exists but throws
+    // MODULE_NOT_FOUND on its own dist/ silently ate the spawn with no
+    // fallback and no visible error, since stdio is intentionally ignored).
+    // npx resolves a real, structurally-valid published package every time.
+    'function spawnFunnelRefresh() {',
+    '  try {',
+    "    var cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';",
+    "    var args = ['--prefer-offline', '@claude-flow/cli', 'hooks', 'refresh-funnel', '--quiet'];",
+    '    var child = spawn(cmd, args, {',
+    "      detached: true, stdio: 'ignore', env: Object.assign({}, process.env),",
+    '    });',
+    '    child.unref();',
+    '  } catch (e) { /* best-effort — the statusline\'s own fallback still renders */ }',
+    '}',
     '',
     'function safeRequire(modulePath) {',
     '  try {',
@@ -545,6 +576,57 @@ export function generateHookHandler(): string {
     '    } else {',
     "      console.log('[INFO] Router not available, using default routing');",
     '    }',
+    '',
+    '    // Rate-limit -> sponsored-capacity nudge (ADR-312/313). Fires here,',
+    '    // client-side, BEFORE the API call this prompt would make - so it',
+    '    // still reaches the transcript even if that call then fails from the',
+    '    // rate limit. Cheap local file reads only; never a network call or a',
+    '    // child process, so it cannot add latency to prompt submission.',
+    '    try {',
+    "      var rlFunnelEnv = process.env.RUFLO_FUNNEL;",
+    '      var rlDisabledByEnv = rlFunnelEnv !== undefined && /^(0|false|off|no)$/i.test(String(rlFunnelEnv).trim());',
+    "      var rlCiVars = ['CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CIRCLECI', 'TRAVIS', 'BUILDKITE', 'JENKINS_URL', 'TEAMCITY_VERSION', 'TF_BUILD'];",
+    '      var rlIsCi = rlCiVars.some(function (v) {',
+    '        var val = process.env[v];',
+    "        return val !== undefined && val !== '' && val !== '0' && String(val).toLowerCase() !== 'false';",
+    '      });',
+    "      var rlHome = path.join(os.homedir(), '.ruflo');",
+    '      var rlUserDisabled = false;',
+    '      try {',
+    "        var rlUserCfg = JSON.parse(fs.readFileSync(path.join(rlHome, 'funnel.json'), 'utf8'));",
+    '        rlUserDisabled = !!(rlUserCfg && rlUserCfg.enabled === false);',
+    '      } catch (e) { /* absent/malformed = not disabled */ }',
+    '      var rlProjectDisabled = false;',
+    '      try {',
+    "        var rlProjCfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'claude-flow.config.json'), 'utf8'));",
+    '        rlProjectDisabled = !!(rlProjCfg && rlProjCfg.funnel && rlProjCfg.funnel.enabled === false);',
+    '      } catch (e) { /* absent/malformed = not disabled */ }',
+    '',
+    '      if (!rlDisabledByEnv && !rlIsCi && !rlUserDisabled && !rlProjectDisabled) {',
+    '        var rlStatus = null;',
+    "        try { rlStatus = JSON.parse(fs.readFileSync(path.join(rlHome, 'rate-limit-status.json'), 'utf8')); } catch (e) { /* not flagged */ }",
+    '        var rlIsLimited = false;',
+    '        if (rlStatus && rlStatus.limited) {',
+    '          if (rlStatus.since) {',
+    '            var rlSinceMs = Date.parse(rlStatus.since);',
+    '            rlIsLimited = isNaN(rlSinceMs) ? true : (Date.now() - rlSinceMs) < 6 * 60 * 60 * 1000;',
+    '          } else {',
+    '            rlIsLimited = true;',
+    '          }',
+    '        }',
+    '        if (rlIsLimited) {',
+    '          var rlConsented = false;',
+    '          try {',
+    "            var rlConsentFile = JSON.parse(fs.readFileSync(path.join(rlHome, 'consent.json'), 'utf8'));",
+    "            var rlReceipt = rlConsentFile && rlConsentFile['sponsored-downtime'];",
+    '            rlConsented = !!(rlReceipt && rlReceipt.granted === true && rlReceipt.at !== null && rlReceipt.policyVersion === 1);',
+    '          } catch (e) { /* not consented */ }',
+    '          if (!rlConsented) {',
+    "            console.log('[COGNITUM] Hit your Claude usage limit? Free sponsored capacity is available at cognitum.one/meta-llm -- run: ruflo proxy sponsor-enable --yes');",
+    '          }',
+    '        }',
+    '      }',
+    '    } catch (e) { /* nudge must never break the hook */ }',
     '  },',
     '',
     "  'pre-bash': () => {",
@@ -573,6 +655,7 @@ export function generateHookHandler(): string {
     '  },',
     '',
     "  'session-restore': () => {",
+    '    spawnFunnelRefresh();',
     '    if (session) {',
     '      var existing = session.restore && session.restore();',
     '      if (!existing) {',

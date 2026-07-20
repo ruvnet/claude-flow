@@ -2,7 +2,7 @@
 name: vector-cluster
 description: Cluster code by graph community detection via npx ruvector@0.2.25 hooks graph-cluster (spectral / Louvain)
 argument-hint: "<namespace> [--k N]"
-allowed-tools: Bash Read mcp__claude-flow__memory_search mcp__claude-flow__memory_store mcp__claude-flow__memory_list
+allowed-tools: Bash Read mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_list
 ---
 
 # Vector Cluster
@@ -26,7 +26,7 @@ Use this skill when you have a collection of embeddings and want to discover nat
    ```
 3. **Review output** — JSON with cluster assignments, community labels, and edges. If you see `"graph.nodes is not iterable"`, run `hooks init` first to seed the graph state.
 4. **Store results**:
-   `mcp__claude-flow__memory_store({ key: "clusters-PROJECT-TIMESTAMP", value: "CLUSTER_ASSIGNMENTS", namespace: "vector-clusters" })`
+   `mcp__plugin_ruflo-core_ruflo__memory_store({ key: "clusters-PROJECT-TIMESTAMP", value: "CLUSTER_ASSIGNMENTS", namespace: "vector-clusters" })`
 
 ## Interpreting results
 

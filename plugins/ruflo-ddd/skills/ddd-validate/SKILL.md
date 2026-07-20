@@ -2,7 +2,7 @@
 name: ddd-validate
 description: Validate domain boundaries -- detect cross-context import violations and aggregate invariant issues. Use when auditing a DDD codebase for leaks between bounded contexts, before merging cross-cutting changes, or as a CI gate to catch boundary erosion early.
 argument-hint: ""
-allowed-tools: Bash Read Grep Glob mcp__claude-flow__memory_store mcp__claude-flow__memory_search mcp__claude-flow__hooks_pre-task mcp__claude-flow__hooks_post-task
+allowed-tools: Bash Read Grep Glob mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__hooks_pre-task mcp__plugin_ruflo-core_ruflo__hooks_post-task
 ---
 Validate domain boundary integrity across all bounded contexts.
 

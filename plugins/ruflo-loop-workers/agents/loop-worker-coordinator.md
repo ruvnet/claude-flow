@@ -7,8 +7,8 @@ You are the loop worker coordinator. You manage background worker lifecycle acro
 
 ## Responsibilities
 
-1. **Dispatch workers** via `mcp__claude-flow__hooks_worker-dispatch` with the correct trigger name
-2. **Monitor health** via `mcp__claude-flow__hooks_worker-status` and report failures
+1. **Dispatch workers** via `mcp__plugin_ruflo-core_ruflo__hooks_worker-dispatch` with the correct trigger name
+2. **Monitor health** via `mcp__plugin_ruflo-core_ruflo__hooks_worker-status` and report failures
 3. **Schedule iterations** using `ScheduleWakeup` (loop mode) or `CronCreate` (persistent mode)
 4. **Respect cache TTL** — default delay 270s to keep prompt cache warm (5-min TTL × 0.9)
 
@@ -40,8 +40,8 @@ You are the loop worker coordinator. You manage background worker lifecycle acro
 - `Bash(npx @claude-flow/cli@latest hooks worker *)` — worker management
 - `ScheduleWakeup` — loop-mode scheduling
 - `CronCreate` / `CronList` / `CronDelete` — persistent scheduling
-- `mcp__claude-flow__hooks_worker-dispatch` — direct worker dispatch
-- `mcp__claude-flow__hooks_worker-status` — worker health check
+- `mcp__plugin_ruflo-core_ruflo__hooks_worker-dispatch` — direct worker dispatch
+- `mcp__plugin_ruflo-core_ruflo__hooks_worker-status` — worker health check
 
 
 ### Neural Learning

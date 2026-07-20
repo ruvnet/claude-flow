@@ -78,7 +78,7 @@ function existsSync(p) {
 function parseFrontmatter(src) {
   // First non-empty content must be `---`. Everything until the next `---`
   // is YAML-ish key:value pairs (we only need flat keys).
-  const lines = src.split('\n');
+  const lines = src.split(/\r?\n/);
   if (lines[0].trim() !== '---') return null;
   const fields = {};
   for (let i = 1; i < lines.length; i++) {

@@ -17,7 +17,7 @@
 //   FED_FORMAT=json node scripts/federation.mjs       # JSON
 //   FED_NAMESPACE=federation-spend (default)
 
-import { spawnSync } from 'node:child_process';
+import { spawnNpxSync } from './_npx.mjs';
 
 // ADR-100 / #1748 Issue 3 — CLI_CORE=1 routes to lite cli-core (~2s cold-cache).
 // Federation aggregation is list+retrieve only on the federation-spend namespace.
@@ -28,7 +28,7 @@ const CLI_PKG = process.env.CLI_CORE === '1'
 const NS = process.env.FED_NAMESPACE || 'federation-spend';
 
 function memoryList() {
-  const r = spawnSync('npx', [
+  const r = spawnNpxSync([
     CLI_PKG, 'memory', 'list',
     '--namespace', NS, '--format', 'json',
   ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
@@ -38,14 +38,12 @@ function memoryList() {
   try { return JSON.parse(m[0]).map((e) => e.key).filter(Boolean); } catch { return []; }
 }
 function memoryRetrieve(key) {
-  const r = spawnSync('npx', [
+  const r = spawnNpxSync([
     CLI_PKG, 'memory', 'retrieve',
-    '--namespace', NS, '--key', key,
+    '--namespace', NS, '--key', key, '--value-only',
   ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
   if (r.status !== 0) return null;
-  const m = /\{[\s\S]*\}/.exec(r.stdout || '');
-  if (!m) return null;
-  try { return JSON.parse(m[0]); } catch { return null; }
+  try { return JSON.parse((r.stdout || '').trim()); } catch { return null; }
 }
 
 function gather() {

@@ -70,7 +70,14 @@
       "@vitest/coverage-v8": ">=4.1.0",
       "handlebars": ">=4.7.9",
       "protobufjs": ">=8.6.0",
-      "@ruvector/ruvllm": ">=2.6.0"
+      "@ruvector/ruvllm": ">=2.6.0",
+      "js-yaml": ">=4.3.0",
+      "express": ">=4.22.2",
+      "qs": ">=6.15.2",
+      "@opentelemetry/core": ">=2.8.0",
+      "@opentelemetry/resources": ">=2.8.0",
+      "@opentelemetry/sdk-trace-base": ">=2.8.0",
+      "@opentelemetry/sdk-node": ">=0.220.0"
     }
   }
 }

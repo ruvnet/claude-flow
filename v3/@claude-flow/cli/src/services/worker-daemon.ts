@@ -30,6 +30,9 @@ import {
 // quick_check-gated, so it's safe to call unconditionally on every tick.
 import { runDistillation, defaultMemoryDbPath, type DistillReport } from './memory-distillation.js';
 import { backupMemoryDb } from './memory-backup.js';
+import { resolveGitWorkspaceIdentity, type GitWorkspaceIdentity } from './git-workspace-identity.js';
+import { getWorkspaceLeaseRegistry } from './workspace-lease.js';
+import { getRepoSupervisorRegistry, type SupervisorRecord } from './repo-supervisor.js';
 
 // Worker types matching hooks-tools.ts
 export type WorkerType =
@@ -88,6 +91,14 @@ interface DaemonStatus {
   startedAt?: Date;
   workers: Map<WorkerType, WorkerState>;
   config: DaemonConfig;
+  // #2661 root-fix — repository-supervisor state, null when AI workers are
+  // disabled or the git identity couldn't be resolved (non-git directory).
+  supervisor?: {
+    repositoryId: string;
+    isSupervisor: boolean;
+    record: SupervisorRecord | null;
+    activeLeases: number;
+  } | null;
 }
 
 export interface DaemonConfig {
@@ -107,6 +118,14 @@ export interface DaemonConfig {
   // shutdown if no worker has run within this window (0 disables).
   ttlMs: number;
   idleShutdownMs: number;
+  // #2661 — explicit consent gate for scheduled AI workers. When false
+  // (the default), NO worker is ever promoted to headless `claude --print`
+  // execution, regardless of whether the Claude CLI is on PATH. Merely
+  // finding `claude` must not authorize recurring model calls: a default
+  // install produces zero autonomous Claude launches. Enable via
+  // `daemon start --headless`, `daemon.aiWorkers.enabled: true` in
+  // .claude-flow/config.json, or RUFLO_DAEMON_AI_WORKERS=1.
+  aiWorkersEnabled: boolean;
   workers: WorkerConfig[];
 }
 
@@ -212,6 +231,12 @@ export class WorkerDaemon extends EventEmitter {
   // during state restoration (R1: constructor config takes priority over stale state)
   private originalConfig?: Partial<DaemonConfig>;
 
+  // #2661 root-fix — resolved once (git identity doesn't change at runtime)
+  // and reused for lease heartbeats + supervisor election, both gated on
+  // aiWorkersEnabled since they only matter for the recurring AI schedule.
+  private gitIdentity: GitWorkspaceIdentity | null = null;
+  private lastSupervisorRenewalMs = 0;
+
   constructor(projectRoot: string, config?: Partial<DaemonConfig>) {
     super();
     this.projectRoot = projectRoot;
@@ -261,6 +286,12 @@ export class WorkerDaemon extends EventEmitter {
       // env-or-default and honors an explicit 0 (disable).
       ttlMs: config?.ttlMs ?? fileConfig.ttlMs ?? readEnvSecsAsMs('RUFLO_DAEMON_TTL_SECS', DEFAULT_DAEMON_TTL_MS),
       idleShutdownMs: config?.idleShutdownMs ?? fileConfig.idleShutdownMs ?? readEnvSecsAsMs('RUFLO_DAEMON_IDLE_SECS', DEFAULT_DAEMON_IDLE_SHUTDOWN_MS),
+      // #2661 — AI workers are opt-in: flag > config.json > env > OFF.
+      // Deliberately NOT restored from daemon-state.json (initializeWorkerStates
+      // whitelist) so a stale state file can never resurrect consent.
+      aiWorkersEnabled: config?.aiWorkersEnabled
+        ?? fileConfig.aiWorkersEnabled
+        ?? (process.env.RUFLO_DAEMON_AI_WORKERS === '1'),
       workers: config?.workers ?? DEFAULT_WORKERS,
     };
 
@@ -295,6 +326,17 @@ export class WorkerDaemon extends EventEmitter {
    * Initialize headless executor if Claude Code is available
    */
   private async initHeadlessExecutor(): Promise<void> {
+    // #2661 — scheduled AI workers require explicit consent. Without it,
+    // don't even probe `claude --version`: headlessAvailable stays false,
+    // every worker runs its $0 local path, and a default install produces
+    // zero autonomous Claude launches regardless of worktree count.
+    if (!this.config.aiWorkersEnabled) {
+      this.log(
+        'info',
+        'AI workers disabled (default) - all workers run local-only. Enable with `daemon start --headless`, daemon.aiWorkers.enabled=true, or RUFLO_DAEMON_AI_WORKERS=1 (#2661)'
+      );
+      return;
+    }
     try {
       this.headlessExecutor = new HeadlessWorkerExecutor(this.projectRoot, {
         maxConcurrent: this.config.maxConcurrent,
@@ -415,6 +457,7 @@ export class WorkerDaemon extends EventEmitter {
     minFreeMemoryPercent?: number;
     ttlMs?: number;
     idleShutdownMs?: number;
+    aiWorkersEnabled?: boolean;
   } {
     const jsonPath = join(claudeFlowDir, 'config.json');
     const yamlPath = join(claudeFlowDir, 'config.yaml');
@@ -470,6 +513,8 @@ export class WorkerDaemon extends EventEmitter {
       // and env var; stored internally as ms. An explicit 0 disables.
       const rawTtl = cfg['daemon.ttlSecs'] ?? raw['daemon.ttlSecs'];
       const rawIdle = cfg['daemon.idleSecs'] ?? raw['daemon.idleSecs'];
+      // #2661 — explicit opt-in for scheduled AI workers.
+      const rawAiEnabled = cfg['daemon.aiWorkers.enabled'] ?? raw['daemon.aiWorkers.enabled'];
       return {
         autoStart: typeof raw['daemon.autoStart'] === 'boolean' ? raw['daemon.autoStart'] : undefined,
         maxConcurrent: (typeof rawMaxConcurrent === 'number' && rawMaxConcurrent > 0) ? rawMaxConcurrent : undefined,
@@ -478,6 +523,7 @@ export class WorkerDaemon extends EventEmitter {
         minFreeMemoryPercent: (typeof rawMinMem === 'number' && rawMinMem >= 0 && rawMinMem <= 100) ? rawMinMem : undefined,
         ttlMs: (typeof rawTtl === 'number' && rawTtl >= 0) ? rawTtl * 1000 : undefined,
         idleShutdownMs: (typeof rawIdle === 'number' && rawIdle >= 0) ? rawIdle * 1000 : undefined,
+        aiWorkersEnabled: typeof rawAiEnabled === 'boolean' ? rawAiEnabled : undefined,
       };
     } catch {
       return {};
@@ -853,6 +899,15 @@ export class WorkerDaemon extends EventEmitter {
     this.writePidFile();
     this.emit('started', { pid: process.pid, startedAt: this.startedAt });
 
+    // #2661 root-fix — resolve repository identity and register/attempt
+    // election immediately at start, not just on the first 60s lifecycle
+    // tick, so `daemon status` reflects supervisor state right away. Only
+    // meaningful when AI workers are enabled (see field doc comment).
+    if (this.config.aiWorkersEnabled) {
+      this.gitIdentity = resolveGitWorkspaceIdentity(this.projectRoot);
+      void this.renewLeaseAndSupervisor();
+    }
+
     // Schedule all enabled workers
     for (const workerConfig of this.config.workers) {
       if (workerConfig.enabled) {
@@ -965,6 +1020,27 @@ export class WorkerDaemon extends EventEmitter {
       this.lifecycleTimer = undefined;
     }
 
+    // #2661 — reap in-flight headless `claude --print` children. They run
+    // detached (own process group on POSIX) and would otherwise outlive the
+    // daemon; `daemon stop --all` relies on SIGTERM → this path to cancel
+    // active Claude process groups.
+    if (this.headlessExecutor) {
+      try { this.headlessExecutor.cancelAll(); } catch { /* best-effort */ }
+    }
+
+    // #2661 root-fix — release this worktree's lease and, if held,
+    // supervisor status, so a sibling worktree's daemon can take over the
+    // schedule within its next tick instead of waiting out the 3-minute
+    // supervisor staleness window. Best-effort — a graceful release is an
+    // optimization; the staleness timeout is what actually bounds a crash.
+    if (this.config.aiWorkersEnabled && this.gitIdentity) {
+      const { repositoryId, worktreeRoot } = this.gitIdentity;
+      try {
+        await getRepoSupervisorRegistry().release(repositoryId, worktreeRoot);
+        await getWorkspaceLeaseRegistry().release(repositoryId, worktreeRoot);
+      } catch { /* best-effort */ }
+    }
+
     this.running = false;
     this.removePidFile();
     this.saveState();
@@ -985,35 +1061,66 @@ export class WorkerDaemon extends EventEmitter {
   private startLifecycleMonitor(): void {
     const ttlMs = this.config.ttlMs;
     const idleMs = this.config.idleShutdownMs;
-    if ((!ttlMs || ttlMs <= 0) && (!idleMs || idleMs <= 0)) {
-      return; // both limits disabled — preserve legacy run-until-stopped behavior
-    }
+    // #2661 — unlike ttl/idle (both optional), the workspace-removal check
+    // always runs, so the monitor is no longer skipped when both limits are
+    // disabled. A daemon whose worktree was deleted must not keep running.
 
     const CHECK_INTERVAL_MS = 60_000;
     this.lifecycleTimer = setInterval(() => {
       if (!this.running) return;
-      const now = Date.now();
-      const startedMs = this.startedAt?.getTime() ?? now;
-
-      if (ttlMs > 0 && now - startedMs >= ttlMs) {
-        void this.selfShutdown(`max age ${Math.round(ttlMs / 1000)}s reached`);
+      const reason = this.lifecycleShutdownReason(Date.now());
+      if (reason) {
+        void this.selfShutdown(reason);
         return;
       }
-      if (idleMs > 0) {
-        const lastActivity = this.lastWorkerActivityMs() ?? startedMs;
-        if (now - lastActivity >= idleMs) {
-          void this.selfShutdown(`idle for ${Math.round(idleMs / 1000)}s (no worker activity)`);
-        }
+      // #2661 root-fix — renew this worktree's lease + supervisor status on
+      // the same cadence. Both windows (15min lease TTL, 3min supervisor
+      // staleness) comfortably outlive a single missed 60s tick.
+      if (this.config.aiWorkersEnabled) {
+        void this.renewLeaseAndSupervisor();
       }
     }, CHECK_INTERVAL_MS);
     if (typeof this.lifecycleTimer.unref === 'function') {
       this.lifecycleTimer.unref();
     }
 
-    const parts: string[] = [];
+    const parts: string[] = ['workspace-removal'];
     if (ttlMs > 0) parts.push(`ttl=${Math.round(ttlMs / 1000)}s`);
     if (idleMs > 0) parts.push(`idle=${Math.round(idleMs / 1000)}s`);
     this.log('info', `Lifecycle monitor active (${parts.join(', ')})`);
+  }
+
+  /**
+   * Decide whether the daemon should self-shutdown, and why. Extracted from
+   * the lifecycle timer so it is testable without racing a 60s interval or
+   * calling process.exit().
+   *
+   * #2661 (invariant 6, containment form): a removed worktree makes its
+   * daemon ineligible within one check interval — the daemon detects that
+   * its workspace directory is gone and shuts down instead of continuing to
+   * schedule jobs against a deleted tree. The full lease architecture
+   * (supervisor-dispatched jobs, heartbeats) is follow-up work; this stops
+   * the leak where recreated/removed worktrees leave schedulers behind.
+   */
+  private lifecycleShutdownReason(now: number): string | null {
+    if (!existsSync(this.projectRoot)) {
+      return 'workspace directory removed (#2661)';
+    }
+
+    const ttlMs = this.config.ttlMs;
+    const idleMs = this.config.idleShutdownMs;
+    const startedMs = this.startedAt?.getTime() ?? now;
+
+    if (ttlMs > 0 && now - startedMs >= ttlMs) {
+      return `max age ${Math.round(ttlMs / 1000)}s reached`;
+    }
+    if (idleMs > 0) {
+      const lastActivity = this.lastWorkerActivityMs() ?? startedMs;
+      if (now - lastActivity >= idleMs) {
+        return `idle for ${Math.round(idleMs / 1000)}s (no worker activity)`;
+      }
+    }
+    return null;
   }
 
   /**
@@ -1050,15 +1157,56 @@ export class WorkerDaemon extends EventEmitter {
   }
 
   /**
+   * #2661 root-fix — heartbeat this worktree's lease and attempt/renew
+   * repository-supervisor election. Best-effort: any failure here must
+   * never affect worker scheduling correctness (the budget ledger remains
+   * the hard invariant regardless of supervisor state) — a daemon that
+   * can't safely coordinate simply falls back to "not supervisor" and runs
+   * its cheap local-only workers, same as any other lease-only worktree.
+   */
+  private async renewLeaseAndSupervisor(): Promise<void> {
+    if (!this.gitIdentity) return;
+    const { repositoryId, worktreeRoot } = this.gitIdentity;
+    try {
+      await getWorkspaceLeaseRegistry().heartbeat(repositoryId, worktreeRoot);
+      await getRepoSupervisorRegistry().electOrRenew(repositoryId, worktreeRoot);
+      this.lastSupervisorRenewalMs = Date.now();
+    } catch { /* best-effort — see docstring */ }
+  }
+
+  /**
+   * Cheap read-only check: does THIS daemon currently hold repository
+   * supervisor status? Used to gate recurring headless (`claude --print`)
+   * execution — see repo-supervisor.ts's module doc comment for the full
+   * rationale. Never true when AI workers are disabled or the git identity
+   * couldn't be resolved (e.g. a non-git directory).
+   */
+  private isRepositorySupervisor(): boolean {
+    if (!this.config.aiWorkersEnabled || !this.gitIdentity) return false;
+    return getRepoSupervisorRegistry().isSupervisor(this.gitIdentity.repositoryId, this.gitIdentity.worktreeRoot);
+  }
+
+  /**
    * Get daemon status
    */
   getStatus(): DaemonStatus {
+    let supervisor: DaemonStatus['supervisor'] = null;
+    if (this.config.aiWorkersEnabled && this.gitIdentity) {
+      const { repositoryId, worktreeRoot } = this.gitIdentity;
+      supervisor = {
+        repositoryId,
+        isSupervisor: getRepoSupervisorRegistry().isSupervisor(repositoryId, worktreeRoot),
+        record: getRepoSupervisorRegistry().getRecord(repositoryId),
+        activeLeases: getWorkspaceLeaseRegistry().listActive(repositoryId).length,
+      };
+    }
     return {
       running: this.running,
       pid: process.pid,
       startedAt: this.startedAt,
       workers: new Map(this.workers),
       config: this.config,
+      supervisor,
     };
   }
 
@@ -1127,7 +1275,7 @@ export class WorkerDaemon extends EventEmitter {
   /**
    * Execute a worker with timeout protection
    */
-  private async executeWorker(workerConfig: WorkerConfig): Promise<WorkerResult> {
+  private async executeWorker(workerConfig: WorkerConfig, opts?: { manualTrigger?: boolean }): Promise<WorkerResult> {
     const state = this.workers.get(workerConfig.type)!;
     const workerId = `${workerConfig.type}_${Date.now()}`;
     const startTime = Date.now();
@@ -1144,7 +1292,7 @@ export class WorkerDaemon extends EventEmitter {
       // Execute worker logic with timeout (P1 fix)
       // Pass cleanup callback to kill orphan child processes on timeout (#1117)
       const output = await this.runWithTimeout(
-        () => this.runWorkerLogic(workerConfig),
+        () => this.runWorkerLogic(workerConfig, opts),
         this.config.workerTimeoutMs,
         `Worker ${workerConfig.type} timed out after ${this.config.workerTimeoutMs / 1000}s`,
         () => {
@@ -1255,9 +1403,21 @@ export class WorkerDaemon extends EventEmitter {
   /**
    * Run the actual worker logic
    */
-  private async runWorkerLogic(workerConfig: WorkerConfig): Promise<unknown> {
-    // Check if this is a headless worker type and headless execution is available
-    if (isHeadlessWorker(workerConfig.type) && this.headlessAvailable && this.headlessExecutor) {
+  private async runWorkerLogic(workerConfig: WorkerConfig, opts?: { manualTrigger?: boolean }): Promise<unknown> {
+    // Check if this is a headless worker type and headless execution is available.
+    // #2661 — aiWorkersEnabled is re-checked here (not just at init) as
+    // defence in depth: no code path may promote a worker to `claude --print`
+    // without explicit consent.
+    //
+    // #2661 root-fix — the RECURRING schedule additionally requires this
+    // daemon to be the elected repository supervisor (see repo-supervisor.ts):
+    // ten worktree daemons of one repository must not each independently
+    // decide "is it time to run audit" every tick. An explicit
+    // `daemon trigger --headless` (opts.manualTrigger) is still honored
+    // regardless of supervisor status — it's a one-off, user-initiated
+    // action, still budget/dedup-gated the same as any other launch.
+    const supervisorGateOk = opts?.manualTrigger === true || this.isRepositorySupervisor();
+    if (this.config.aiWorkersEnabled && supervisorGateOk && isHeadlessWorker(workerConfig.type) && this.headlessAvailable && this.headlessExecutor) {
       try {
         this.log('info', `Running ${workerConfig.type} in headless mode (Claude Code AI)`);
         const result = await this.headlessExecutor.execute(workerConfig.type as HeadlessWorkerType);
@@ -1281,6 +1441,17 @@ export class WorkerDaemon extends EventEmitter {
             error: String(reason).slice(0, 500),
           });
           // Fall through to local switch.
+        } else if (result.dedupSkipped) {
+          // #2661 invariant 5 — the same job (repositoryId + HEAD + worker +
+          // config) already succeeded within the freshness window, e.g. in a
+          // sibling worktree. No model call happened; do NOT overwrite the
+          // persisted metrics (which hold the real prior result) and do NOT
+          // fall back to local — the work is already done.
+          this.log('info', `Worker ${workerConfig.type} dedup-skipped (same repo+HEAD job ran recently in another worktree)`);
+          return {
+            mode: 'headless-dedup-skip',
+            ...result,
+          };
         } else {
           // #1793: persist the headless result to the same metrics files the
           // local workers write to. Without this, AI-mode runs produced rich
@@ -1802,7 +1973,10 @@ export class WorkerDaemon extends EventEmitter {
     // use headless correctly. Scheduled fires already wait long enough
     // (timer + offset) that this is a no-op for them.
     await this.headlessInitPromise;
-    return this.executeWorker(workerConfig);
+    // #2661 root-fix — an explicit manual trigger bypasses the repository-
+    // supervisor gate (still budget/dedup-gated) — see runWorkerLogic()'s
+    // doc comment.
+    return this.executeWorker(workerConfig, { manualTrigger: true });
   }
 
   /**

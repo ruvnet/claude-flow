@@ -15,8 +15,102 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 const helpersDir = __dirname;
+
+// Resolve an installed @claude-flow/cli (or ruflo) bin — mirrors
+// statusline-generator.ts's resolveCliBin() candidate list. Used only to
+// spawn the detached funnel-refresh helper below; failures are silent (no
+// candidate found just means the refresh never fires this session).
+//
+// Verifies dist/src/index.js exists alongside bin/cli.js, not just the bin
+// itself — Claude Code's own plugin marketplace mechanism installs by
+// `git clone`/`git pull` with no build step, so `~/.claude/plugins/
+// marketplaces/ruflo` is a SOURCE-ONLY checkout by construction: bin/cli.js
+// is present on disk but importing dist/src/index.js throws
+// ERR_MODULE_NOT_FOUND on every real command (confirmed live — only
+// `--version` happens to survive it, since it reads package.json directly).
+// Without this check, resolveCliBinForHook() picked that doomed candidate
+// first every time and spawnDetachedFunnelRefresh() below had no fallback,
+// so the promo/disclosure row could never populate for any marketplace
+// install, on any OS.
+function resolveCliBinForHook() {
+  try {
+    const home = os.homedir();
+    const cwd = process.cwd();
+    const candidates = [
+      path.join(home, '.claude', 'plugins', 'marketplaces', 'ruflo', 'bin', 'cli.js'),
+      path.join(cwd, 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
+      path.join(cwd, 'node_modules', 'ruflo', 'bin', 'cli.js'),
+      path.join(cwd, 'v3', '@claude-flow', 'cli', 'bin', 'cli.js'),
+      // helpersDir is .claude/helpers/ inside the package itself when this
+      // file is running from a real @claude-flow/cli install (not a project
+      // that merely copied the helper) — its bin/ is two levels up.
+      path.join(helpersDir, '..', '..', 'bin', 'cli.js'),
+    ];
+    for (const p of candidates) {
+      try {
+        if (fs.existsSync(p) && fs.existsSync(path.join(path.dirname(p), '..', 'dist', 'src', 'index.js'))) {
+          return p;
+        }
+      } catch (e) { /* try next candidate */ }
+    }
+  } catch (e) { /* ignore */ }
+  return null;
+}
+
+// Fire-and-forget doesn't work when the CALLER is itself a short-lived
+// subprocess (confirmed live: two consecutive statusline renders 5s apart
+// both saw an empty funnel-messages-cache, because the async HTTPS fetch
+// inside a `void refreshRemoteMessages()` call gets killed when the spawning
+// process exits before the request completes). Spawning fully DETACHED +
+// unref'd decouples the refresh's lifetime from this hook's — it keeps
+// running (up to message-transport.ts's own 4s fetch timeout) even after
+// session-restore's own process has already exited, so it actually gets a
+// chance to write the cache. Never awaited here — must not add to
+// SessionStart's own timeout budget.
+//
+// No usable local candidate (resolveCliBinForHook() returned null) falls
+// back to npx: this call is detached/unref'd, so a slower npx cold-start
+// costs nothing perceptible — unlike the statusline's own synchronous
+// render path, where local-first exists purely for per-render latency.
+// `--prefer-offline` avoids a registry round trip for the tarball when
+// already cached while still resolving the current `@latest` version.
+function spawnDetachedHookRefresh(subcommand) {
+  try {
+    const { spawn } = require('child_process');
+    const cliBin = resolveCliBinForHook();
+    const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+    const spawnArgs = cliBin
+      ? [process.execPath, [cliBin, 'hooks', subcommand, '--quiet']]
+      : [cmd, ['--prefer-offline', '@claude-flow/cli', 'hooks', subcommand, '--quiet']];
+    const child = spawn(spawnArgs[0], spawnArgs[1], {
+      detached: true,
+      stdio: 'ignore',
+      env: process.env,
+      // Windows: without this, npx.cmd's cmd.exe wrapper flashes a visible
+      // console window every time a hook fires a background refresh. Runs
+      // hidden instead. No-op on POSIX.
+      windowsHide: true,
+    });
+    child.unref();
+  } catch (e) { /* best-effort only */ }
+}
+
+function spawnDetachedFunnelRefresh() {
+  spawnDetachedHookRefresh('refresh-funnel');
+}
+
+// Same fallback-aware pattern as spawnDetachedFunnelRefresh() above, for
+// ADR-316's co-pilot advisor tip. Safe to call on EVERY session-restore:
+// refresh-advisor's own action checks consent + a 24h TTL BEFORE spending
+// anything, so an unconsented or already-fresh install is a fast no-op file
+// read, never a network call. Never awaited here — must not add to
+// SessionStart's own timeout budget.
+function spawnDetachedAdvisorRefresh() {
+  spawnDetachedHookRefresh('refresh-advisor');
+}
 
 // Safe require with stdout suppression - the helper modules have CLI
 // sections that run unconditionally on require(), so we mute console
@@ -168,6 +262,57 @@ const handlers = {
     } else {
       console.log('[INFO] Router not available, using default routing');
     }
+
+    // Rate-limit -> sponsored-capacity nudge (ADR-312/313). Fires here,
+    // client-side, BEFORE the API call this prompt would make — so it still
+    // reaches the transcript even if that call then fails from the rate
+    // limit. Cheap local file reads only; never a network call or a child
+    // process, so it cannot add latency to prompt submission.
+    try {
+      const rlFunnelEnv = process.env.RUFLO_FUNNEL;
+      const rlDisabledByEnv = rlFunnelEnv !== undefined && /^(0|false|off|no)$/i.test(String(rlFunnelEnv).trim());
+      const rlCiVars = ['CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CIRCLECI', 'TRAVIS', 'BUILDKITE', 'JENKINS_URL', 'TEAMCITY_VERSION', 'TF_BUILD'];
+      const rlIsCi = rlCiVars.some((v) => {
+        const val = process.env[v];
+        return val !== undefined && val !== '' && val !== '0' && String(val).toLowerCase() !== 'false';
+      });
+      const rlHome = path.join(os.homedir(), '.ruflo');
+      let rlUserDisabled = false;
+      try {
+        const rlUserCfg = JSON.parse(fs.readFileSync(path.join(rlHome, 'funnel.json'), 'utf8'));
+        rlUserDisabled = !!(rlUserCfg && rlUserCfg.enabled === false);
+      } catch (e) { /* absent/malformed = not disabled */ }
+      let rlProjectDisabled = false;
+      try {
+        const rlProjCfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'claude-flow.config.json'), 'utf8'));
+        rlProjectDisabled = !!(rlProjCfg && rlProjCfg.funnel && rlProjCfg.funnel.enabled === false);
+      } catch (e) { /* absent/malformed = not disabled */ }
+
+      if (!rlDisabledByEnv && !rlIsCi && !rlUserDisabled && !rlProjectDisabled) {
+        let rlStatus = null;
+        try { rlStatus = JSON.parse(fs.readFileSync(path.join(rlHome, 'rate-limit-status.json'), 'utf8')); } catch (e) { /* not flagged */ }
+        let rlIsLimited = false;
+        if (rlStatus && rlStatus.limited) {
+          if (rlStatus.since) {
+            const rlSinceMs = Date.parse(rlStatus.since);
+            rlIsLimited = isNaN(rlSinceMs) ? true : (Date.now() - rlSinceMs) < 6 * 60 * 60 * 1000;
+          } else {
+            rlIsLimited = true;
+          }
+        }
+        if (rlIsLimited) {
+          let rlConsented = false;
+          try {
+            const rlConsentFile = JSON.parse(fs.readFileSync(path.join(rlHome, 'consent.json'), 'utf8'));
+            const rlReceipt = rlConsentFile && rlConsentFile['sponsored-downtime'];
+            rlConsented = !!(rlReceipt && rlReceipt.granted === true && rlReceipt.at !== null && rlReceipt.policyVersion === 1);
+          } catch (e) { /* not consented */ }
+          if (!rlConsented) {
+            console.log('[COGNITUM] Hit your Claude usage limit? Free sponsored capacity is available at cognitum.one/meta-llm — run: ruflo proxy sponsor-enable --yes');
+          }
+        }
+      }
+    } catch (e) { /* nudge must never break the hook */ }
   },
 
   'pre-bash': () => {
@@ -234,6 +379,14 @@ const handlers = {
         console.log(`[INTELLIGENCE] Loaded ${initResult.nodes} patterns, ${initResult.edges} edges`);
       }
     }
+    // Warm the funnel message cache once per session (see
+    // spawnDetachedFunnelRefresh's doc comment for why this must happen
+    // here, detached, rather than as the statusline's own fire-and-forget).
+    spawnDetachedFunnelRefresh();
+    // ADR-316 co-pilot advisor tip — same detached pattern; cheap no-op
+    // when not consented or still within the 24h TTL (see refresh-advisor's
+    // own doc comment).
+    spawnDetachedAdvisorRefresh();
   },
 
   'session-end': async () => {

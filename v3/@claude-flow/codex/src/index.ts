@@ -75,7 +75,7 @@ export {
 /**
  * Package version
  */
-export const VERSION = '3.0.0-alpha.9';
+export const VERSION = '3.0.1';
 
 /**
  * Package metadata

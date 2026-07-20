@@ -21,15 +21,15 @@ Inspired by the maigret pattern (parallel fan-out + recursive expansion + struct
 
 | Source | Tool | Best for |
 |---|---|---|
-| Hybrid memory | `mcp__claude-flow__memory_search_unified` | Any concept |
-| Pattern store | `mcp__claude-flow__agentdb_pattern-search` | Repeated patterns |
-| Hierarchical recall | `mcp__claude-flow__agentdb_hierarchical-recall` | Layered context |
-| Vector (HNSW) | `mcp__claude-flow__embeddings_search` | Semantic neighbors |
-| Knowledge graph | `mcp__claude-flow__hooks_intelligence_pattern-search` + `kg-traverse` | Entity edges |
+| Hybrid memory | `mcp__plugin_ruflo-core_ruflo__memory_search_unified` | Any concept |
+| Pattern store | `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search` | Repeated patterns |
+| Hierarchical recall | `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-recall` | Layered context |
+| Vector (HNSW) | `mcp__plugin_ruflo-core_ruflo__embeddings_search` | Semantic neighbors |
+| Knowledge graph | `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_pattern-search` + `kg-traverse` | Entity edges |
 | Web search | `WebSearch` | Usernames, URLs, current state |
 | Web fetch | `WebFetch` | Profile pages, READMEs |
 | Codebase | `Grep`, `Glob`, `Read` | Symbols, file paths |
-| ADR index | `mcp__claude-flow__memory_search` namespace `adr` | ADR-ids, design decisions |
+| ADR index | `mcp__plugin_ruflo-core_ruflo__memory_search` namespace `adr` | ADR-ids, design decisions |
 | Git intel | `Bash` (`git log`, `git blame`) | Authors, file history |
 
 ## Loop
@@ -59,7 +59,7 @@ Three artifacts, all written under `v3/docs/examples/dossiers/<seed-slug>/` unle
 - **Provenance per claim**: every node and edge carries which source produced it. No claims without sources.
 - **De-dup, don't merge**: when two sources name the same entity, link both as separate sources on one node; don't fabricate a synthesis claim.
 - **Recursive expansion is breadth-first**: complete round *k* before scheduling round *k+1*. Avoids cost blowup from depth-first runaway.
-- **Trajectory recording**: call `mcp__claude-flow__hooks_intelligence_trajectory-start` at begin, `_step` per round, `_end` at completion.
+- **Trajectory recording**: call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-start` at begin, `_step` per round, `_end` at completion.
 
 ## When to NOT use this agent
 

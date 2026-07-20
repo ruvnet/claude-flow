@@ -4,7 +4,7 @@
 # Verifies:
 #   1. Source files exist where mcp-client expects them
 #   2. dist artifact exists (build ran)
-#   3. Optional dependency is declared in v3/@claude-flow/cli/package.json
+#   3. agentbbs is not a hard dependency (it may be lazy or optional)
 #   4. Tool registration lines are present in mcp-tools/index.ts
 #   5. mcp-client.ts imports + registers agentbbsTools
 #   6. all 4 tool names present in the source file
@@ -29,8 +29,12 @@ step "1. agentbbs-tools.ts exists in cli/src/mcp-tools/"
 step "2. dist/.../agentbbs-tools.js exists (build ran)"
 [[ -f "$CLI/dist/src/mcp-tools/agentbbs-tools.js" ]] && ok || bad "missing dist file (run 'npm run build' in $CLI)"
 
-step "3. optionalDependencies declares agentbbs"
-if grep -q '"agentbbs"' "$CLI/package.json"; then ok ; else bad "agentbbs not in package.json"; fi
+step "3. agentbbs is not a hard dependency"
+if node -e "const p=require(process.argv[1]);process.exit(p.dependencies?.agentbbs ? 1 : 0)" "$CLI/package.json"; then
+  ok
+else
+  bad "agentbbs must be lazy or optional, never a hard dependency"
+fi
 
 step "4. mcp-tools/index.ts re-exports agentbbsTools"
 if grep -q "agentbbsTools" "$CLI/src/mcp-tools/index.ts"; then ok ; else bad "not re-exported"; fi

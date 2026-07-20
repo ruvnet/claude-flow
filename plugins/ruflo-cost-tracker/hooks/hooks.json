@@ -1,14 +1,13 @@
 {
-  "_note": "Stop hook auto-runs cost-track at session end so the cost-tracking namespace stays populated without users remembering to run `/cost-track` manually. TRACK_QUIET=1 suppresses the markdown summary (avoid spamming on every Stop). `|| true` ensures a track failure NEVER blocks session end — analytics data is best-effort, not load-bearing.",
-  "_platform": "posix",
-  "_platform_note": "POSIX hooks (bash + node). Windows users continue to invoke `cost-track` manually via the slash command (the Stop hook silently no-ops on a non-bash shell).",
+  "_note": "Stop hook auto-runs cost-track at session end so the cost-tracking namespace stays populated without users remembering to run `/cost-track` manually. TRACK_QUIET=1 suppresses the markdown summary (avoid spamming on every Stop). A track failure NEVER blocks session end — analytics data is best-effort, not load-bearing (see scripts/ruflo-hook.cjs).",
+  "_platform_note": "#2721 — the command below is a `node -e` bootstrap: it resolves scripts/ruflo-hook.cjs from process.env.CLAUDE_PLUGIN_ROOT INSIDE Node (no shell `${VAR}`/`%VAR%` expansion), so the exact same command string runs unchanged on Windows, macOS, and Linux. No bash or /dev/null redirection involved.",
   "hooks": {
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'TRACK_QUIET=1 node \"${CLAUDE_PLUGIN_ROOT}/scripts/track.mjs\" >/dev/null 2>&1 || true'"
+            "command": "node -e \"require(require('path').join(process.env.CLAUDE_PLUGIN_ROOT,'scripts','ruflo-hook.cjs'))\""
           }
         ]
       }

@@ -1,7 +1,7 @@
 {
   "name": "ruflo-docs",
   "description": "Documentation generation, API docs (JSDoc/TSDoc/OpenAPI), and drift detection — drives the `document` background worker via hooks_worker-dispatch; uses Haiku model for cost-efficient docs work",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

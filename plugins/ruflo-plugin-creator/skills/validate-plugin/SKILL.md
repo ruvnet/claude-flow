@@ -2,7 +2,7 @@
 name: validate-plugin
 description: Validate a Claude Code plugin structure, frontmatter, and MCP tool references
 argument-hint: "[plugin-path]"
-allowed-tools: mcp__claude-flow__transfer_plugin-info Bash Read Glob Grep
+allowed-tools: mcp__plugin_ruflo-core_ruflo__transfer_plugin-info Bash Read Glob Grep
 ---
 
 # Validate Plugin
@@ -24,7 +24,7 @@ After creating or modifying a plugin, run validation to catch structural issues 
 7. **SKILL.md frontmatter** — each skill has `name`, `description`, and `allowed-tools` (no wildcards)
 8. **Agent frontmatter** — each agent has `name`, `description`, and `model`
 9. **No files in wrong locations** — skills/commands/agents not inside `.claude-plugin/`
-10. **MCP tool references** — tools in `allowed-tools` are valid `mcp__claude-flow__*` identifiers
+10. **MCP tool references** — tools in `allowed-tools` are valid `mcp__plugin_ruflo-core_ruflo__*` identifiers
 
 ## Steps
 

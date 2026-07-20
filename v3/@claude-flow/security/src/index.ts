@@ -134,6 +134,32 @@ export {
   type ToolCallDecision,
 } from './authorization/propagator.js';
 
+// OAuth 2.0 + PKCE + OS Keychain (ADR-306)
+// A TypeScript port of meta-proxy's proven oauth/{client,pkce,browser,
+// callback_server}.rs — see src/oauth/client.ts for why this targets the
+// live auth.cognitum.one surface rather than ADR-308's unconfirmed spec.
+export {
+  CLIENT_ID as OAUTH_CLIENT_ID,
+  SCOPE as OAUTH_SCOPE,
+  OOB_REDIRECT_URI,
+  OAuthError,
+  authorizeUrl,
+  exchangeCode,
+  refreshToken,
+  exchangeManualCode,
+  type TokenResponse as OAuthTokenResponse,
+} from './oauth/client.js';
+export { generate as generatePkce, challengeFromVerifier, type PkceRequest } from './oauth/pkce.js';
+export { CallbackServer, CallbackTimeoutError, type CallbackResult } from './oauth/callback-server.js';
+export { openBrowser } from './oauth/browser.js';
+
+// OS Keychain Adapter (ADR-306)
+export {
+  createKeychainAdapter,
+  SessionOnlyKeychainAdapter,
+  type KeychainAdapter,
+} from './keychain-adapter.js';
+
 // Plugin Integrity Verifier (ADR-145 P1 — ruvnet/ruflo#2254)
 // Install-layer: Ed25519 signature verification + trust-anchor allowlist.
 // Stage-2 semantic-intent scan (SCH defence) lands in P2.

@@ -241,14 +241,37 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       // the `vector_indexes` table (older CLI / agentdb-written), self-heal it
       // so the statusline vector count + namespace routing work. Best-effort,
       // dynamically imported so a WASM-only host without better-sqlite3 just
-      // skips it. Fresh projects have no DB yet — this is a no-op there.
+      // skips it.
+      //
+      // Persistent memory ON BY DEFAULT: `runtime.memoryBackend` already
+      // defaults to 'hybrid' in DEFAULT_INIT_OPTIONS, but that only ever
+      // configured the DECLARED backend — the actual .swarm/memory.db file
+      // was never created until something eventually called `memory store`
+      // or the user ran `memory init --force` by hand (both the generated
+      // CLAUDE.md and the quickstart docs told users to do this as a
+      // separate step). A fresh project could sit for days looking
+      // "configured for AgentDB" while genuinely capturing nothing, with no
+      // signal that the config and the on-disk reality had diverged. Fresh
+      // projects now get the DB eagerly created here, matching what
+      // `memoryBackend` already promised; MINIMAL_INIT_OPTIONS
+      // (memoryBackend: 'memory') opts out, matching its non-persistent intent.
       try {
         const memDbPath = path.join(targetDir, '.swarm', 'memory.db');
         if (fs.existsSync(memDbPath)) {
           const { repairVectorIndexes } = await import('../memory/memory-initializer.js');
           await repairVectorIndexes(memDbPath, { autoRecover: true });
+        } else if (options.runtime.memoryBackend !== 'memory') {
+          const { initializeMemoryDatabase } = await import('../memory/memory-initializer.js');
+          const initResult = await initializeMemoryDatabase({
+            backend: options.runtime.memoryBackend,
+            dbPath: memDbPath,
+            verbose: false,
+          });
+          if (initResult.success) {
+            result.created.files.push('.swarm/memory.db');
+          }
         }
-      } catch { /* best-effort — never block init on memory repair */ }
+      } catch { /* best-effort — never block init on memory setup */ }
     }
 
     // Generate statusline
@@ -402,7 +425,11 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
   // load the ONNX model on every fire (~1s); Claude Code times out and hides
   // the status bar (#2450). The migration replaces the whole command with
   // NEW_STATUSLINE_CMD which invokes the local helper directly via `node -e`.
-  const BROKEN_STATUSLINE_RE = /(?:npx\s+(?:--?\S+\s+)*)?@?claude-flow(?:\/cli)?(?:@\S+)?\s+hooks\s+statusline/;
+  // Flag-list repetition bounded at 10 (real invocations never carry more) —
+  // an unbounded `*` here is exponential-backtracking-prone (CodeQL
+  // js/redos): a crafted settings.json command string with dozens of
+  // dash-token repetitions can hang this check for minutes.
+  const BROKEN_STATUSLINE_RE = /(?:npx\s+(?:--?\S+\s+){0,10})?@?claude-flow(?:\/cli)?(?:@\S+)?\s+hooks\s+statusline/;
   const existingStatusLine = existing.statusLine as Record<string, unknown> | undefined;
   if (existingStatusLine) {
     const existingCmd = typeof existingStatusLine.command === 'string' ? existingStatusLine.command : '';
@@ -423,7 +450,8 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
   // We walk each hook event's `hooks[]` and swap any command matching the
   // broken pattern for the local-helper form. Idempotent: re-running this
   // migration on already-correct settings is a no-op.
-  const BROKEN_HOOK_RE = /npx\s+(?:--?\S+\s+)*@?claude-flow\/cli@latest\s+hooks\s+(\S+)/;
+  // Bounded for the same reason as BROKEN_STATUSLINE_RE above (CodeQL js/redos).
+  const BROKEN_HOOK_RE = /npx\s+(?:--?\S+\s+){0,10}@?claude-flow\/cli@latest\s+hooks\s+(\S+)/;
   const localHookCmd = (sub: string): string => {
     // POSIX form mirrors settings-generator.ts::hookCmd() exactly.
     // Windows users hit a separate code path (cmd /c …) — Claude Code on
@@ -520,7 +548,8 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
     // 0. ALWAYS update critical helpers (force overwrite)
     const sourceHelpersForUpgrade = findSourceHelpersDir();
     if (sourceHelpersForUpgrade) {
-      const criticalHelpers = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs'];
+      // Keep in sync with helper-refresh.ts:CRITICAL_HELPERS.
+      const criticalHelpers = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs'];
       for (const helperName of criticalHelpers) {
         const targetPath = path.join(targetDir, '.claude', 'helpers', helperName);
         const sourcePath = path.join(sourceHelpersForUpgrade, helperName);
@@ -651,7 +680,7 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
         initialized: new Date().toISOString(),
         status: 'PENDING',
         cvesFixed: 0,
-        totalCves: 3,
+        totalCves: 0,
         lastScan: null,
         _note: 'Run: npx @claude-flow/cli@latest security scan'
       };
@@ -1656,7 +1685,7 @@ async function writeInitialMetrics(
       initialized: new Date().toISOString(),
       status: 'PENDING',
       cvesFixed: 0,
-      totalCves: 3,
+      totalCves: 0,
       lastScan: null,
       _note: 'Run: npx @claude-flow/cli@latest security scan'
     };

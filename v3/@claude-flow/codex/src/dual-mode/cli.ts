@@ -187,7 +187,7 @@ function createStatusCommand(): Command {
       const { spawn } = await import('child_process');
 
       const proc = spawn('npx', [
-        'ruflo@alpha', 'memory', 'list',
+        'ruflo@latest', 'memory', 'list',
         '--namespace', options.namespace
       ], { stdio: 'inherit' });
 
@@ -288,5 +288,5 @@ function printResults(result: CollaborationResult): void {
   }
 
   console.log();
-  console.log(chalk.gray('View shared memory: npx ruflo@alpha memory list --namespace collaboration'));
+  console.log(chalk.gray('View shared memory: npx ruflo@latest memory list --namespace collaboration'));
 }

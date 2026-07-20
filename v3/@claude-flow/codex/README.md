@@ -65,13 +65,13 @@ Transform OpenAI Codex CLI into a **self-improving AI development system**. Whil
 
 ```bash
 # Initialize for Codex (recommended)
-npx claude-flow@alpha init --codex
+npx ruflo@latest init --codex
 
 # Full setup with all 137+ skills
-npx claude-flow@alpha init --codex --full
+npx ruflo@latest init --codex --full
 
 # Dual mode (both Claude Code and Codex)
-npx claude-flow@alpha init --dual
+npx ruflo@latest init --dual
 ```
 
 **That's it!** The MCP server is auto-registered, skills are installed, and your project is ready for self-learning development.
@@ -276,13 +276,13 @@ project/
 
 ```bash
 # Minimal (fastest init)
-npx claude-flow@alpha init --codex --minimal
+npx ruflo@latest init --codex --minimal
 
 # Default
-npx claude-flow@alpha init --codex
+npx ruflo@latest init --codex
 
 # Full (all skills)
-npx claude-flow@alpha init --codex --full
+npx ruflo@latest init --codex --full
 ```
 
 ### Template Contents
@@ -326,7 +326,7 @@ npx claude-flow@alpha init --codex --full
 Run `init --dual` to set up both platforms:
 
 ```bash
-npx claude-flow@alpha init --dual
+npx ruflo@latest init --dual
 ```
 
 This creates:
@@ -365,7 +365,7 @@ $performance-optimization
 |-------|--------|-------------|
 | V3 Security Overhaul | `$v3-security-overhaul` | Complete security architecture with CVE remediation |
 | V3 Memory Unification | `$v3-memory-unification` | Unify 6+ memory systems into AgentDB with HNSW |
-| V3 Integration Deep | `$v3-integration-deep` | Deep agentic-flow@alpha integration (ADR-001) |
+| V3 Integration Deep | `$v3-integration-deep` | Deep agentic-flow integration (ADR-001) |
 | V3 Performance Optimization | `$v3-performance-optimization` | Achieve 2.49x-7.47x speedup targets |
 | V3 Swarm Coordination | `$v3-swarm-coordination` | 15-agent hierarchical mesh coordination |
 | V3 DDD Architecture | `$v3-ddd-architecture` | Domain-Driven Design architecture |
@@ -550,7 +550,7 @@ Run Claude Code for interactive development and spawn headless Codex workers for
 
 ```bash
 # Initialize dual-mode
-npx claude-flow@alpha init --dual
+npx ruflo@latest init --dual
 
 # Creates both:
 # - CLAUDE.md (Claude Code configuration)
@@ -959,7 +959,7 @@ console.log(`Skills generated: ${result.skillsGenerated.length}`);
 Instead of migrating, use dual mode to support both:
 
 ```bash
-npx claude-flow@alpha init --dual
+npx ruflo@latest init --dual
 ```
 
 This keeps both `CLAUDE.md` and `AGENTS.md` in sync.
@@ -1008,7 +1008,7 @@ ls -la .agents/skills/
 cat .agents/config.toml | grep skills
 
 # Rebuild skills
-npx claude-flow@alpha init --codex --force
+npx ruflo@latest init --codex --force
 ```
 
 ### Vector Search Slow

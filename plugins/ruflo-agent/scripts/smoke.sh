@@ -7,11 +7,11 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json is ruflo-agent 0.2.0 with both-runtime keywords"
+step "1. plugin.json is ruflo-agent 0.2.1 with both-runtime keywords"
 P="$ROOT/.claude-plugin/plugin.json"
 v=$(grep -E '"version"' "$P" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 n=$(grep -E '"name"' "$P" | grep -oE 'ruflo-agent' | head -1)
-if [[ "$v" != "0.2.0" ]]; then bad "expected version 0.2.0, got '$v'";
+if [[ "$v" != "0.2.1" ]]; then bad "expected version 0.2.1, got '$v'";
 elif [[ "$n" != "ruflo-agent" ]]; then bad "expected name ruflo-agent";
 else
   miss=""

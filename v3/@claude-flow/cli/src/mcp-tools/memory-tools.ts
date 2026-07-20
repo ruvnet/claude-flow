@@ -443,7 +443,7 @@ export const memoryTools: MCPTool[] = [
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Search query (semantic similarity)' },
-        namespace: { type: 'string', description: 'Namespace to search (default: "default")' },
+        namespace: { type: 'string', description: 'Namespace to search (default: all namespaces — omit to search across every namespace)' },
         limit: { type: 'number', description: 'Maximum results (default: 10)' },
         threshold: { type: 'number', description: 'Minimum similarity threshold 0-1 (default: 0.3)' },
         smart: { type: 'boolean', description: 'Enable SmartRetrieval pipeline — query expansion, RRF fusion, recency boost, MMR diversity (default: false)' },
@@ -455,11 +455,19 @@ export const memoryTools: MCPTool[] = [
       const { searchEntries } = await getMemoryFunctions();
 
       const query = input.query as string;
-      const namespace = (input.namespace as string) || 'default';
+      // #2646 (3rd occurrence of #1123/#1131 shape): do NOT coerce an omitted
+      // namespace to the literal string 'default' here. Both searchEntries()
+      // and bridgeSearchEntries() already resolve an omitted/undefined
+      // namespace to 'all' (fan out across every namespace) — but 'default'
+      // is truthy, so passing it defeats that fallback and silently scopes
+      // the search to a namespace that is usually empty. Leave namespace
+      // undefined when not provided so the underlying `|| 'all'` fallback
+      // in the search layer actually fires.
+      const namespace = input.namespace as string | undefined;
       const limit = (input.limit as number) ?? 10;
       const threshold = (input.threshold as number) ?? 0.3;
 
-      validateMemoryInput(undefined, undefined, query);
+      validateMemoryInput(undefined, undefined, query, namespace);
 
       const startTime = performance.now();
 

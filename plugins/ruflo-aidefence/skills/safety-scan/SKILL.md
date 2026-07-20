@@ -2,7 +2,7 @@
 name: safety-scan
 description: Scan inputs for prompt injection, unsafe content, and adversarial attacks using AIDefence. Use when processing untrusted input (user submissions, API payloads, webhook data, tool outputs) before passing it to a model or executing it.
 argument-hint: "<input-text>"
-allowed-tools: mcp__claude-flow__aidefence_scan mcp__claude-flow__aidefence_analyze mcp__claude-flow__aidefence_is_safe mcp__claude-flow__aidefence_learn mcp__claude-flow__aidefence_stats Bash
+allowed-tools: mcp__plugin_ruflo-core_ruflo__aidefence_scan mcp__plugin_ruflo-core_ruflo__aidefence_analyze mcp__plugin_ruflo-core_ruflo__aidefence_is_safe mcp__plugin_ruflo-core_ruflo__aidefence_learn mcp__plugin_ruflo-core_ruflo__aidefence_stats Bash
 ---
 
 # Safety Scan
@@ -15,11 +15,11 @@ Before processing untrusted input (user submissions, API payloads, webhook data)
 
 ## Steps
 
-1. **Quick safety check** — call `mcp__claude-flow__aidefence_is_safe` with the input text for a boolean safe/unsafe result
-2. **Deep analysis** — call `mcp__claude-flow__aidefence_analyze` for detailed threat classification and confidence scores
-3. **Full scan** — call `mcp__claude-flow__aidefence_scan` for comprehensive multi-layer scanning
-4. **Train defenses** — call `mcp__claude-flow__aidefence_learn` with confirmed threats to improve detection
-5. **View stats** — call `mcp__claude-flow__aidefence_stats` for detection rates and false positive metrics
+1. **Quick safety check** — call `mcp__plugin_ruflo-core_ruflo__aidefence_is_safe` with the input text for a boolean safe/unsafe result
+2. **Deep analysis** — call `mcp__plugin_ruflo-core_ruflo__aidefence_analyze` for detailed threat classification and confidence scores
+3. **Full scan** — call `mcp__plugin_ruflo-core_ruflo__aidefence_scan` for comprehensive multi-layer scanning
+4. **Train defenses** — call `mcp__plugin_ruflo-core_ruflo__aidefence_learn` with confirmed threats to improve detection
+5. **View stats** — call `mcp__plugin_ruflo-core_ruflo__aidefence_stats` for detection rates and false positive metrics
 
 ## Threat categories
 

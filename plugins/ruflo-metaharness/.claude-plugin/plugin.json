@@ -1,7 +1,7 @@
 {
   "name": "ruflo-metaharness",
   "description": "MetaHarness integration for ruflo — surfaces score/genome/mint/mcp-scan/threat-model via skills; pairs with @metaharness/router (ADR-148/149) for cost-optimal model routing; honors ADR-150's architectural constraint that MetaHarness remains an optional augmentation, never a required runtime dependency",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

@@ -948,6 +948,66 @@ memory_search_unified({ query: "authentication security", limit: 5 })
 - Publish order: `@claude-flow/cli` first, then `claude-flow` (umbrella), then `ruflo` (alias umbrella)
 - MUST run verification for ALL THREE before telling user publishing is complete
 
+**Helpers signing key (required for `@claude-flow/cli` publish):** `npm publish`'s
+`prepublishOnly` runs `scripts/sign-helpers.mjs`, which needs a private key to sign
+`.claude/helpers/helpers.manifest.json`. The secret lives in GCP Secret Manager in the
+**`ruv-dev`** project (not `cognitum-20260110` or `claude-flow` — checked both, not there),
+secret name `ruflo-helpers-signing-key`:
+
+```bash
+cd v3/@claude-flow/cli
+RUFLO_HELPERS_SIGNING_SECRET=ruflo-helpers-signing-key RUFLO_HELPERS_SIGNING_PROJECT=ruv-dev \
+  npm publish
+```
+
+(`ruv-dev` also holds `ruflo-config-signing-key` and `NPM_TOKEN` — likely the right project
+for other ruflo release-time secrets too.)
+
+**Handling the signing key without leaking it (learned 2026-07-14, hard way):** when
+sign-helpers.mjs runs via `execFileSync('gcloud', ...)` on Windows, Node fails to find
+`gcloud` (needs the `.cmd` suffix), so the script bails and users reach for
+`gcloud secrets versions access latest --secret=ruflo-helpers-signing-key` in the shell —
+which by default prints the PEM to stdout, which becomes tool-call output in Claude
+Code and lands in the session transcript. That happened, the key was leaked, GCP secret
+v1 was destroyed and a fresh v2 was rotated in (commit 0052b1b06 / PR #2673). **Rules:**
+- NEVER invoke `gcloud secrets versions access` in a way that lets the payload reach
+  tool output. Always redirect to a file in the same command: `gcloud … > ~/.ruflo/helpers-signing.key 2>&1 | grep -v BEGIN`.
+- On Windows, prefer `RUFLO_HELPERS_SIGNING_KEY=~/.ruflo/helpers-signing.key` over the
+  GCP env var, because the fallback file path doesn't go through the broken
+  `execFileSync('gcloud')` path.
+- If a rotation IS needed, keep the private half in `~/.ruflo/helpers-signing.key`
+  only, print ONLY the public half (via `Ed25519 pub export` from Node crypto), upload
+  new private via `gcloud secrets versions add … --data-file=`, then
+  `gcloud secrets versions destroy <old>` to make the old irrecoverable.
+
+**Windows `prepublishOnly` failure (learned 2026-07-14):** the CLI's `prepublishOnly`
+chain (`cp ../../../README.md ./README.md && rm -rf plugins && mkdir -p plugins && cp -r ...`)
+is POSIX-shell-only. On Windows, npm runs it via `cmd.exe /d /s /c` which chokes on
+`mkdir -p` (interprets `-p` as a directory name) and `cp -r` (no such command). Two
+workarounds until the script is rewritten in cross-platform Node:
+1. Run the prep steps manually in Git Bash, then `npm publish --ignore-scripts`.
+2. Or use a POSIX shell for the whole publish: `SHELL=bash npm publish` — but this
+   doesn't always take effect on Windows depending on npm version.
+Option 1 is what worked for v3.29.0. Track proper fix in ruvnet/ruflo issue for
+cross-platform prepublish.
+
+**Concurrent-session helper corruption (real, observed, be paranoid):** multiple Claude Code
+sessions can have their own `npm exec @claude-flow/cli@latest mcp start` MCP server running
+concurrently with `cwd` inside this repo (check with `readlink /proc/<pid>/cwd` on
+`pgrep -f "npm exec @claude-flow/cli@latest mcp start"`). If one of those resolved an older
+cached `@latest` (predating the `semver.gte` downgrade-guard in
+`helper-refresh.ts:autoRefreshHelpersIfStale`), it will silently overwrite this repo's
+hand-maintained `.claude/helpers/hook-handler.cjs` / `intelligence.cjs` (root AND package
+copies) — and `helpers.manifest.json` + `.helpers-version` — with its own older bundled
+content, mid-session, with no warning. Observed live 2026-07-13: this happened *twice* in
+one publish flow, once right after a manual revert and once right after signing (silently
+invalidating a freshly-signed manifest). **Mitigation:** never trust the on-disk state of
+those files between tool calls — `git diff --stat` them immediately before any `git add`/
+`sign-helpers.mjs`/`npm publish` step, `git checkout HEAD --` revert if dirty, and chain
+revert → sign → verify → add → commit as ONE bash invocation (`&&`-joined) to minimize the
+race window. `npm publish`'s own `prepublishOnly` re-signs fresh at pack time regardless, so
+what matters is the on-disk state at the *exact moment* `npm publish` runs, not before.
+
 ```bash
 # Replace 3.7.1 below with your chosen stable version (patch/minor/major per the rules above)
 

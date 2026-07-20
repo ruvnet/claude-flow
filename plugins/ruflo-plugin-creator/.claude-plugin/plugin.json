@@ -1,7 +1,7 @@
 {
   "name": "ruflo-plugin-creator",
   "description": "Scaffold, validate, and publish new Claude Code plugins with the canonical plugin contract — ADR + smoke + Compatibility + namespace coordination + MCP-tool drift warnings",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

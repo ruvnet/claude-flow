@@ -1,7 +1,6 @@
 {
-  "_note": "#1921/#2613 — hook commands invoke scripts/ruflo-hook.sh (resilient shim): prefers a locally-installed `ruflo`/`claude-flow` binary, falls back to `npx --prefer-offline`, and always exits 0 so a CLI/install failure (e.g. arborist `Invalid Version` on npm 10.8.x) never surfaces an error in Claude Code or blocks a turn. The trailing `|| true` guards the case where $CLAUDE_PLUGIN_ROOT is unset — the hook then no-ops silently. PreToolUse commands additionally echo a valid `{\"permission\":\"allow\"}` verdict on stdout: Claude Code ignores it (JSON-shaped stdout is still valid), while Cursor (which imports third-party hooks under its stricter preToolUse contract and requires JSON-verdict stdout) receives a well-formed permission response and does not fail-closed. DO NOT revert to a bare `npx <pkg>@alpha hooks …` per fire.",
-  "_platform": "posix",
-  "_platform_note": "#2132 — This hooks.json uses /bin/bash, POSIX pipelines (jq, xargs, tr), and .sh scripts. It is intentionally POSIX-only (Mac/Linux). On Windows, ruflo init writes a .claude/settings.json that overrides these entries with node-based equivalents via plugins/ruflo-core/scripts/ruflo-hook.cjs. The audit exempts files with _platform:posix from the cross-platform check.",
+  "_note": "#1921/#2613/#2721 — hook commands invoke scripts/ruflo-hook.cjs (resilient shim): prefers a locally-installed `ruflo`/`claude-flow` binary, falls back to `npx --prefer-offline`, and always exits 0 so a CLI/install failure (e.g. arborist `Invalid Version` on npm 10.8.x) never surfaces an error in Claude Code or blocks a turn. PreToolUse commands additionally echo a valid `{\"permission\":\"allow\"}` verdict on stdout: Claude Code ignores it (JSON-shaped stdout is still valid), while Cursor (which imports third-party hooks under its stricter preToolUse contract and requires JSON-verdict stdout) receives a well-formed permission response and does not fail-closed. DO NOT revert to a bare `npx <pkg>@alpha hooks …` per fire.",
+  "_platform_note": "#2721 — every command below is a `node -e` bootstrap: it resolves this plugin's scripts/ruflo-hook.cjs from process.env.CLAUDE_PLUGIN_ROOT INSIDE Node (no shell `${VAR}`/`%VAR%` expansion, so the exact same command string runs unchanged on Windows, macOS, and Linux), then requires it with process.argv pre-seeded for the target subcommand. No bash, sh, cmd.exe, jq, or .sh scripts are involved.",
   "hooks": {
     "PreToolUse": [
       {
@@ -9,7 +8,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c '\"${CLAUDE_PLUGIN_ROOT:-}/scripts/ruflo-hook.sh\" modify-bash >/dev/null 2>&1 || true; printf %s \"{\\\"permission\\\":\\\"allow\\\"}\"'"
+            "command": "node -e \"process.argv=[process.argv[0],'x','modify-bash'];require(require('path').join(process.env.CLAUDE_PLUGIN_ROOT,'scripts','ruflo-hook.cjs'))\""
           }
         ]
       },
@@ -18,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c '\"${CLAUDE_PLUGIN_ROOT:-}/scripts/ruflo-hook.sh\" modify-file >/dev/null 2>&1 || true; printf %s \"{\\\"permission\\\":\\\"allow\\\"}\"'"
+            "command": "node -e \"process.argv=[process.argv[0],'x','modify-file'];require(require('path').join(process.env.CLAUDE_PLUGIN_ROOT,'scripts','ruflo-hook.cjs'))\""
           }
         ]
       }
@@ -29,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'INPUT=$(cat); CMD=$(printf %s \"$INPUT\" | jq -r \".tool_input.command // empty\"); [ -z \"$CMD\" ] && exit 0; EXIT=$(printf %s \"$INPUT\" | jq -r \".tool_response.exit_code // 0\"); SUCCESS=$([ \"$EXIT\" = \"0\" ] && echo true || echo false); \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" post-command -c \"$CMD\" -s \"$SUCCESS\" -e \"$EXIT\" || true'"
+            "command": "node -e \"process.argv=[process.argv[0],'x','post-command'];require(require('path').join(process.env.CLAUDE_PLUGIN_ROOT,'scripts','ruflo-hook.cjs'))\""
           }
         ]
       },
@@ -38,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'INPUT=$(cat); FILE=$(printf %s \"$INPUT\" | jq -r \".tool_input.file_path // .tool_input.path // empty\"); [ -z \"$FILE\" ] && exit 0; \"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" post-edit -f \"$FILE\" -s true || true'"
+            "command": "node -e \"process.argv=[process.argv[0],'x','post-edit'];require(require('path').join(process.env.CLAUDE_PLUGIN_ROOT,'scripts','ruflo-hook.cjs'))\""
           }
         ]
       }
@@ -49,7 +48,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'INPUT=$(cat); CUSTOM=$(echo \"$INPUT\" | jq -r \".custom_instructions // \\\"\\\"\"); echo \"🔄 PreCompact Guidance:\"; echo \"📋 IMPORTANT: Review CLAUDE.md in project root for:\"; echo \"   • 54 available agents and concurrent usage patterns\"; echo \"   • Swarm coordination strategies (hierarchical, mesh, adaptive)\"; echo \"   • SPARC methodology workflows with batchtools optimization\"; echo \"   • Critical concurrent execution rules (GOLDEN RULE: 1 MESSAGE = ALL OPERATIONS)\"; if [ -n \"$CUSTOM\" ]; then echo \"🎯 Custom compact instructions: $CUSTOM\"; fi; echo \"✅ Ready for compact operation\"'"
+            "command": "node -e \"process.argv=[process.argv[0],'x','precompact-manual'];require(require('path').join(process.env.CLAUDE_PLUGIN_ROOT,'scripts','ruflo-hook.cjs'))\""
           }
         ]
       },
@@ -58,7 +57,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'echo \"🔄 Auto-Compact Guidance (Context Window Full):\"; echo \"📋 CRITICAL: Before compacting, ensure you understand:\"; echo \"   • All 54 agents available in .claude/agents/ directory\"; echo \"   • Concurrent execution patterns from CLAUDE.md\"; echo \"   • Batchtools optimization for 300% performance gains\"; echo \"   • Swarm coordination strategies for complex tasks\"; echo \"⚡ Apply GOLDEN RULE: Always batch operations in single messages\"; echo \"✅ Auto-compact proceeding with full agent context\"'"
+            "command": "node -e \"process.argv=[process.argv[0],'x','precompact-auto'];require(require('path').join(process.env.CLAUDE_PLUGIN_ROOT,'scripts','ruflo-hook.cjs'))\""
           }
         ]
       }
@@ -68,7 +67,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c '\"${CLAUDE_PLUGIN_ROOT}/scripts/ruflo-hook.sh\" session-end --generate-summary true --persist-state true --export-metrics true || true'"
+            "command": "node -e \"process.argv=[process.argv[0],'x','session-end','--generate-summary','true','--persist-state','true','--export-metrics','true'];require(require('path').join(process.env.CLAUDE_PLUGIN_ROOT,'scripts','ruflo-hook.cjs'))\""
           }
         ]
       }

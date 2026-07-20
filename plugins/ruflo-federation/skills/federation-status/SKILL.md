@@ -1,7 +1,7 @@
 ---
 name: federation-status
 description: Show federation health — peers, sessions, trust levels, and message metrics. Use when the user asks "is federation healthy?", "show peers", "federation status", or wants to inspect cross-installation agent connectivity.
-allowed-tools: Bash(npx *) mcp__claude-flow__memory_search Read
+allowed-tools: Bash(npx *) mcp__plugin_ruflo-core_ruflo__memory_search Read
 argument-hint: ""
 ---
 Show the current state of the federation.
@@ -12,4 +12,4 @@ Steps:
 3. Summarize: active sessions, messages exchanged, PII redactions, threat detections
 
 Search memory for federation history:
-`mcp__claude-flow__memory_search({ query: "federation peer trust", namespace: "federation" })`
+`mcp__plugin_ruflo-core_ruflo__memory_search({ query: "federation peer trust", namespace: "federation" })`

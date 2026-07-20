@@ -26,6 +26,12 @@ import { tmpdir, homedir } from 'node:os';
 const REPO_ROOT = resolve(process.cwd());
 const GENERATOR_SRC = join(REPO_ROOT, 'v3/@claude-flow/cli/src/init/statusline-generator.ts');
 const GENERATOR_DIST = join(REPO_ROOT, 'v3/@claude-flow/cli/dist/src/init/statusline-generator.js');
+// #2679: generator now reads .claude/helpers/statusline.cjs as its single
+// source of truth (read-and-substitute pattern) instead of inlining a
+// 1000-line template. Static-content contract lives in the HELPER now;
+// the generator just needs to still be reading it. This constant is the
+// source-of-truth helper used by the static-source contract below.
+const HELPER_SRC = join(REPO_ROOT, 'v3/@claude-flow/cli/.claude/helpers/statusline.cjs');
 const CJS_PATH = join(tmpdir(), 'ruflo-smoke-statusline.cjs');
 
 let passed = 0;
@@ -37,39 +43,61 @@ function fail(msg) { console.error(`  FAIL: ${msg}`); failed++; }
 // ─── Layer 1: static source contract ────────────────────────────
 console.log('\n[1/3] STATIC SOURCE CONTRACT');
 
+// #2679: two paired checks — the HELPER carries the delegation content
+// (since the generator now reads it verbatim), and the GENERATOR still
+// reads the helper (so drift on either side is caught). Splitting the
+// invariant across the two files means neither can silently regress.
 if (!existsSync(GENERATOR_SRC)) {
   fail(`generator source not found: ${GENERATOR_SRC}`);
 } else {
-  const src = readFileSync(GENERATOR_SRC, 'utf-8');
+  const genSrc = readFileSync(GENERATOR_SRC, 'utf-8');
+
+  if (genSrc.includes('statusline.cjs')) {
+    pass('generator references statusline.cjs (#2679 read-and-substitute pattern)');
+  } else {
+    fail('generator does NOT reference statusline.cjs — #2679 sync pattern regressed; init would emit stale template');
+  }
+
+  if (/readFileSync[\s\S]{0,200}helperContent|helperContent[\s\S]{0,200}readFileSync/.test(genSrc)) {
+    pass('generator reads helper via readFileSync (#2679)');
+  } else {
+    fail('generator no longer reads helper via readFileSync — #2679 sync mechanism broken');
+  }
+}
+
+if (!existsSync(HELPER_SRC)) {
+  fail(`helper source not found: ${HELPER_SRC}`);
+} else {
+  const src = readFileSync(HELPER_SRC, 'utf-8');
 
   if (src.includes('hooks statusline --json')) {
-    pass('generator delegates to hooks statusline --json');
+    pass('helper delegates to hooks statusline --json');
   } else {
-    fail('generator does NOT contain delegation to hooks statusline --json (regression of #2195)');
+    fail('helper does NOT contain delegation to hooks statusline --json (regression of #2195)');
   }
 
   if (!src.includes('getLearningStats')) {
-    pass('getLearningStats (old local reader) removed from generator');
+    pass('getLearningStats (old local reader) removed from helper');
   } else {
-    fail('getLearningStats still present in generator — old fragile local reader NOT removed (#2195)');
+    fail('getLearningStats still present in helper — old fragile local reader NOT removed (#2195)');
   }
 
   if (!src.includes('getV3Progress')) {
-    pass('getV3Progress (old local reader) removed from generator');
+    pass('getV3Progress (old local reader) removed from helper');
   } else {
-    fail('getV3Progress still present in generator — old fragile local reader NOT removed (#2195)');
+    fail('getV3Progress still present in helper — old fragile local reader NOT removed (#2195)');
   }
 
   if (src.includes("'v3', 'docs', 'adr'") || src.includes("v3/docs/adr")) {
-    pass('generator counts v3/docs/adr ADR directory');
+    pass('helper counts v3/docs/adr ADR directory');
   } else {
-    fail('generator missing v3/docs/adr in ADR count — will undercount ADRs (#2195)');
+    fail('helper missing v3/docs/adr in ADR count — will undercount ADRs (#2195)');
   }
 
   if (src.includes("'v3', 'implementation', 'adrs'") || src.includes("v3/implementation/adrs")) {
-    pass('generator counts v3/implementation/adrs ADR directory');
+    pass('helper counts v3/implementation/adrs ADR directory');
   } else {
-    fail('generator missing v3/implementation/adrs in ADR count');
+    fail('helper missing v3/implementation/adrs in ADR count');
   }
 }
 

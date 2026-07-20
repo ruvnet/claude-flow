@@ -32,10 +32,10 @@ The two attack-relevant surfaces are:
 
 | Gate | Where                             | Tool                                | Action on hit |
 |------|-----------------------------------|-------------------------------------|---------------|
-| 1    | `--symbol $TICKER` input          | `mcp__claude-flow__aidefence_is_safe` | Reject — refuse to invoke neural-trader; alert team lead |
-| 2    | `fetchLiveBars` response body     | `mcp__claude-flow__aidefence_has_pii` | Redact PII placeholders; record in session manifest |
-| 3    | LLM prompt body (pre-`neural_predict`) | `mcp__claude-flow__aidefence_is_safe` | Quarantine to `findings.md`; don't reach model |
-| 4    | AgentDB store value               | `mcp__claude-flow__aidefence_scan`    | Block high-entropy tokens that look like leaked credentials |
+| 1    | `--symbol $TICKER` input          | `mcp__plugin_ruflo-core_ruflo__aidefence_is_safe` | Reject — refuse to invoke neural-trader; alert team lead |
+| 2    | `fetchLiveBars` response body     | `mcp__plugin_ruflo-core_ruflo__aidefence_has_pii` | Redact PII placeholders; record in session manifest |
+| 3    | LLM prompt body (pre-`neural_predict`) | `mcp__plugin_ruflo-core_ruflo__aidefence_is_safe` | Quarantine to `findings.md`; don't reach model |
+| 4    | AgentDB store value               | `mcp__plugin_ruflo-core_ruflo__aidefence_scan`    | Block high-entropy tokens that look like leaked credentials |
 
 These are exactly the four gates `ruflo-browser` and `ruflo-federation`
 already use — same pattern, different ingest source.
@@ -104,9 +104,9 @@ When ADR-127 picks this up, the changes would be:
    mirroring `plugins/ruflo-browser/agents/browser-agent.md:79-81`. Include
    the four-gate workflow above.
 2. **`agents/market-analyst.md` allowed-tools** — add
-   `mcp__claude-flow__aidefence_is_safe`,
-   `mcp__claude-flow__aidefence_has_pii`,
-   `mcp__claude-flow__aidefence_scan` to the frontmatter so the agent
+   `mcp__plugin_ruflo-core_ruflo__aidefence_is_safe`,
+   `mcp__plugin_ruflo-core_ruflo__aidefence_has_pii`,
+   `mcp__plugin_ruflo-core_ruflo__aidefence_scan` to the frontmatter so the agent
    has the capability.
 3. **`README.md`** — add a "Safety" section like
    `plugins/ruflo-browser/README.md:74-78`.

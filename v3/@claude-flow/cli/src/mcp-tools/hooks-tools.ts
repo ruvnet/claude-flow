@@ -2143,8 +2143,9 @@ export const hooksSessionEnd: MCPTool = {
 
     // Phase 5: Wire ReflexionMemory session end + NightlyLearner consolidation via bridge
     let sessionPersistence: { controller: string; persisted: boolean } | null = null;
+    let bridge: typeof import('../memory/memory-bridge.js') | null = null;
     try {
-      const bridge = await import('../memory/memory-bridge.js');
+      bridge = await import('../memory/memory-bridge.js');
       const result = await bridge.bridgeSessionEnd({
         sessionId,
         summary: saveState ? 'Session ended with state saved' : 'Session ended',
@@ -2159,6 +2160,15 @@ export const hooksSessionEnd: MCPTool = {
       }
     } catch {
       // Bridge not available
+    } finally {
+      // Release AgentDB/ONNX resources after one-shot session persistence.
+      // A partially initialized native pool can otherwise keep Node alive
+      // after the command has completed all logical work (#2691).
+      try {
+        await bridge?.shutdownBridge();
+      } catch {
+        // Cleanup is best-effort and must not fail session-end.
+      }
     }
 
     return {

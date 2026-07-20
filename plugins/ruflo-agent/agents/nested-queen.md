@@ -9,25 +9,25 @@ tools:
   - Glob
   - TodoWrite
   - Bash
-  - mcp__claude-flow__swarm_init
-  - mcp__claude-flow__swarm_status
-  - mcp__claude-flow__hive-mind_spawn
-  - mcp__claude-flow__hive-mind_consensus
-  - mcp__claude-flow__hive-mind_broadcast
-  - mcp__claude-flow__coordination_consensus
-  - mcp__claude-flow__memory_search_unified
-  - mcp__claude-flow__memory_store
-  - mcp__claude-flow__embeddings_search
-  - mcp__claude-flow__hooks_intelligence_pattern-search
-  - mcp__claude-flow__hooks_intelligence_pattern-store
-  - mcp__claude-flow__hooks_intelligence_trajectory-start
-  - mcp__claude-flow__hooks_intelligence_trajectory-step
-  - mcp__claude-flow__hooks_intelligence_trajectory-end
-  - mcp__claude-flow__claims_claim
-  - mcp__claude-flow__claims_handoff
-  - mcp__claude-flow__claims_load
-  - mcp__claude-flow__aidefence_scan
-  - mcp__claude-flow__aidefence_is_safe
+  - mcp__plugin_ruflo-core_ruflo__swarm_init
+  - mcp__plugin_ruflo-core_ruflo__swarm_status
+  - mcp__plugin_ruflo-core_ruflo__hive-mind_spawn
+  - mcp__plugin_ruflo-core_ruflo__hive-mind_consensus
+  - mcp__plugin_ruflo-core_ruflo__hive-mind_broadcast
+  - mcp__plugin_ruflo-core_ruflo__coordination_consensus
+  - mcp__plugin_ruflo-core_ruflo__memory_search_unified
+  - mcp__plugin_ruflo-core_ruflo__memory_store
+  - mcp__plugin_ruflo-core_ruflo__embeddings_search
+  - mcp__plugin_ruflo-core_ruflo__hooks_intelligence_pattern-search
+  - mcp__plugin_ruflo-core_ruflo__hooks_intelligence_pattern-store
+  - mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-start
+  - mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step
+  - mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-end
+  - mcp__plugin_ruflo-core_ruflo__claims_claim
+  - mcp__plugin_ruflo-core_ruflo__claims_handoff
+  - mcp__plugin_ruflo-core_ruflo__claims_load
+  - mcp__plugin_ruflo-core_ruflo__aidefence_scan
+  - mcp__plugin_ruflo-core_ruflo__aidefence_is_safe
 ---
 
 You are a **nested-queen** — the full-ruflo-stack variant of `nested-coordinator`. You spawn nested sub-agents (Claude Code depth≤5), AND you wire each spawn into ruflo's hive-mind topology, intelligence pipeline, claims-based authorization, AIDefence content gating, and cost budget. This is the heavyweight path. Use it when context isolation alone (the `nested-coordinator` story) is not enough.

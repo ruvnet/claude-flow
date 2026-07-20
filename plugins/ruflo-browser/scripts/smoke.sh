@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-browser plugin v0.2.0.
+# Structural smoke test for ruflo-browser plugin v0.2.1.
 # Verifies the file inventory, frontmatter, ADR cross-references, and
 # AgentDB-namespace coverage that ADR-0001 contracts. Does NOT exercise
 # the live MCP browser tools — the full Verification §1-§7 contract
@@ -15,10 +15,10 @@ ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
 # 1. plugin.json version + keywords
-step "plugin.json declares version 0.2.0 with new keywords"
+step "plugin.json declares version 0.2.1 with new keywords"
 v=$(grep -E '"version"[[:space:]]*:' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.2.0" ]]; then
-  bad "expected 0.2.0, got '$v'"
+if [[ "$v" != "0.2.1" ]]; then
+  bad "expected 0.2.1, got '$v'"
 else
   missing=""
   for kw in rvf replay trajectory agentdb aidefence; do

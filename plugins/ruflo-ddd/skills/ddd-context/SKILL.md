@@ -2,7 +2,7 @@
 name: ddd-context
 description: Create and manage a DDD bounded context with standard directory structure. Use when starting a new subdomain, splitting a monolith into bounded contexts, or scaffolding the domain/application/infrastructure layout for a fresh module.
 argument-hint: "<context-name>"
-allowed-tools: Bash Read Write Edit Grep Glob mcp__claude-flow__memory_store mcp__claude-flow__memory_search mcp__claude-flow__agentdb_hierarchical-store
+allowed-tools: Bash Read Write Edit Grep Glob mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store
 ---
 Create a bounded context directory structure for the given context name.
 
@@ -38,8 +38,8 @@ Parse `$ARGUMENTS` as the context name (kebab-case). If empty, list existing con
 
 4. **Store in domain model graph**:
    ```
-   mcp__claude-flow__agentdb_hierarchical-store --parent "domain" --child "context:<context-name>" --relation "contains"
-   mcp__claude-flow__memory_store --key "ddd-context-<context-name>" --value "Created bounded context" --namespace tasks
+   mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store --parent "domain" --child "context:<context-name>" --relation "contains"
+   mcp__plugin_ruflo-core_ruflo__memory_store --key "ddd-context-<context-name>" --value "Created bounded context" --namespace tasks
    ```
 
 5. **Report**: Confirm the context was created and list the generated files.

@@ -1,7 +1,7 @@
 ---
 name: trader-explain
 description: Regulator-grade feature attribution for any LSTM/Transformer signal — single-entry PageRank ranks the top-K features that drove the prediction (ADR-126 Phase 6, ADR-123 single-entry PR)
-allowed-tools: Bash Read mcp__claude-flow__memory_retrieve mcp__claude-flow__memory_store mcp__ruflo-sublinear__page-rank-entry
+allowed-tools: Bash Read mcp__plugin_ruflo-core_ruflo__memory_retrieve mcp__plugin_ruflo-core_ruflo__memory_store mcp__ruflo-sublinear__page-rank-entry
 argument-hint: "<signalId> [--top-k 10] [--seed 42]"
 ---
 Explain a trading signal by building a feature-contribution graph and running single-entry forward-push PageRank from the signal output node. Top-K ranked features are returned as a markdown table AND persisted to `trading-analysis` as a `SignedAttributionArtifact` (ADR-126 Phase 6).
@@ -14,7 +14,7 @@ Steps:
 
 1. **Retrieve the signal** from the canonical `trading-signals` namespace (ADR-126 Phase 1 + Phase 2 lifecycle):
    ```text
-   mcp__claude-flow__memory_retrieve({
+   mcp__plugin_ruflo-core_ruflo__memory_retrieve({
      key: "SIGNAL_ID",
      namespace: "trading-signals"
    })
@@ -81,7 +81,7 @@ Steps:
 
 7. **Store the (possibly signed) artifact** to the canonical `trading-analysis` namespace (ADR-126 Phase 1):
    ```text
-   mcp__claude-flow__memory_store({
+   mcp__plugin_ruflo-core_ruflo__memory_store({
      key: "attribution-SIGNAL_ID-TIMESTAMP",
      namespace: "trading-analysis",
      value: JSON.stringify(signedArtifact)

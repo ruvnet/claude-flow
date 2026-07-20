@@ -51,7 +51,7 @@ All return `{ success, result | error }` and validate inputs with Zod. See
 
 Full run artifacts are written to `.ruflo/arena/<runId>.json` (exact replay). Each tool result
 also carries an `agentdb` payload so the command layer can store a searchable summary via
-`mcp__claude-flow__memory_store` (namespace `arena`) — the local stand-in for the RuVector data
+`mcp__plugin_ruflo-core_ruflo__memory_store` (namespace `arena`) — the local stand-in for the RuVector data
 layer (ADR-196/197), enabling queries like *"tournaments where grim dominated"*.
 
 ## Scope

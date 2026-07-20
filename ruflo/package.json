@@ -1,11 +1,11 @@
 {
   "name": "ruflo",
-  "version": "3.25.6",
+  "version": "3.32.8",
   "description": "Ruflo - Enterprise AI agent orchestration platform. Deploy 60+ specialized agents in coordinated swarms with self-learning, fault-tolerant consensus, vector memory, and MCP integration",
   "main": "bin/ruflo.js",
   "type": "module",
   "bin": {
-    "ruflo": "./bin/ruflo.js"
+    "ruflo": "bin/ruflo.js"
   },
   "homepage": "https://github.com/ruvnet/claude-flow#readme",
   "bugs": {
@@ -24,7 +24,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "prepublishOnly": "cp ../README.md ./README.md",
+    "prepublishOnly": "node scripts/prepare-publish.mjs",
     "dev": "node src/mcp-bridge/index.js",
     "dev:bridge": "node --watch src/mcp-bridge/index.js",
     "dev:test": "node src/mcp-bridge/test-harness.js",
@@ -40,7 +40,7 @@
     "package:rvf": "bash src/scripts/package-rvf.sh"
   },
   "dependencies": {
-    "@claude-flow/cli": "^3.23.0"
+    "@claude-flow/cli": "^3.32.7"
   },
   "optionalDependencies": {},
   "overrides": {

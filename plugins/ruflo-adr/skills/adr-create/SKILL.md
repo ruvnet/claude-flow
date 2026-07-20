@@ -2,7 +2,7 @@
 name: adr-create
 description: Create a new Architecture Decision Record with sequential numbering and AgentDB registration
 argument-hint: "<title>"
-allowed-tools: mcp__claude-flow__agentdb_hierarchical-store mcp__claude-flow__agentdb_hierarchical-query mcp__claude-flow__agentdb_causal-edge mcp__claude-flow__memory_store mcp__claude-flow__memory_search Bash Read Write Edit Grep Glob
+allowed-tools: mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-query mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search Bash Read Write Edit Grep Glob
 ---
 
 # Create ADR
@@ -50,12 +50,12 @@ When a significant architectural decision needs to be recorded -- new technology
    ## Links
    ```
 
-4. **Store in AgentDB** -- Call `mcp__claude-flow__agentdb_hierarchical-store` with:
+4. **Store in AgentDB** -- Call `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store` with:
    - path: `adr/ADR-NNN`
    - value: `{ "id": "ADR-NNN", "title": "<title>", "status": "proposed", "date": "<today>", "file": "docs/adr/ADR-NNN-<slug>.md" }`
 
-5. **Find related ADRs** -- Call `mcp__claude-flow__memory_search` with the title as query in namespace `adr-patterns` to find related decisions. If matches found, add them to the Links section and create causal edges with relation `depends-on`.
+5. **Find related ADRs** -- Call `mcp__plugin_ruflo-core_ruflo__memory_search` with the title as query in namespace `adr-patterns` to find related decisions. If matches found, add them to the Links section and create causal edges with relation `depends-on`.
 
-6. **Store pattern** -- Call `mcp__claude-flow__memory_store` in namespace `adr-patterns` with key `ADR-NNN` and the title + context as value for future semantic search.
+6. **Store pattern** -- Call `mcp__plugin_ruflo-core_ruflo__memory_store` in namespace `adr-patterns` with key `ADR-NNN` and the title + context as value for future semantic search.
 
 7. **Report** -- Output the created file path, ADR number, and any related ADRs found.

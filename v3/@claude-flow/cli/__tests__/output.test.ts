@@ -199,42 +199,49 @@ describe('OutputFormatter', () => {
       expect(captured.join('')).not.toContain('warning');
     });
 
-    it('printWarning should output in normal mode', () => {
+    // printWarning/printInfo/printDebug/printTrace all write to STDERR, like
+    // printError — stdout is reserved for command results (e.g. --format
+    // json) and must never be interleaved with incidental warnings/info.
+    it('printWarning should output to stderr in normal mode', () => {
       out.setVerbosity('normal');
       out.printWarning('warning');
-      expect(captured.join('')).toContain('warning');
+      expect(errorCaptured.join('')).toContain('warning');
+      expect(captured.join('')).not.toContain('warning');
     });
 
     it('printInfo should be suppressed in quiet mode', () => {
       out.setVerbosity('quiet');
       out.printInfo('information');
+      expect(errorCaptured.join('')).not.toContain('information');
+    });
+
+    it('printInfo should output to stderr in normal mode', () => {
+      out.setVerbosity('normal');
+      out.printInfo('information');
+      expect(errorCaptured.join('')).toContain('information');
       expect(captured.join('')).not.toContain('information');
     });
 
-    it('printInfo should output in normal mode', () => {
-      out.setVerbosity('normal');
-      out.printInfo('information');
-      expect(captured.join('')).toContain('information');
-    });
-
-    it('printDebug should only output in verbose/debug mode', () => {
+    it('printDebug should only output in verbose/debug mode, to stderr', () => {
       out.setVerbosity('normal');
       out.printDebug('debug msg');
-      expect(captured.join('')).not.toContain('debug msg');
+      expect(errorCaptured.join('')).not.toContain('debug msg');
 
       out.setVerbosity('verbose');
       out.printDebug('debug msg');
-      expect(captured.join('')).toContain('debug msg');
+      expect(errorCaptured.join('')).toContain('debug msg');
+      expect(captured.join('')).not.toContain('debug msg');
     });
 
-    it('printTrace should only output in debug mode', () => {
+    it('printTrace should only output in debug mode, to stderr', () => {
       out.setVerbosity('verbose');
       out.printTrace('trace msg');
-      expect(captured.join('')).not.toContain('trace msg');
+      expect(errorCaptured.join('')).not.toContain('trace msg');
 
       out.setVerbosity('debug');
       out.printTrace('trace msg');
-      expect(captured.join('')).toContain('trace msg');
+      expect(errorCaptured.join('')).toContain('trace msg');
+      expect(captured.join('')).not.toContain('trace msg');
     });
   });
 

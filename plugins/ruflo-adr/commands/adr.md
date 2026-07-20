@@ -11,7 +11,7 @@ Manage Architecture Decision Records. Parse $ARGUMENTS to determine the subcomma
 **`adr create <title>`** -- Create a new ADR with the next sequential number.
 1. Scan `docs/adr/` for existing ADRs to determine the next number
 2. Create `docs/adr/ADR-NNN-<slug>.md` from the standard template
-3. Store in AgentDB: `mcp__claude-flow__agentdb_hierarchical-store` at path `adr/ADR-NNN`
+3. Store in AgentDB: `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store` at path `adr/ADR-NNN`
 4. Report the created file path and ADR number
 
 **`adr list`** -- List all ADRs with their status.
@@ -27,7 +27,7 @@ Manage Architecture Decision Records. Parse $ARGUMENTS to determine the subcomma
 **`adr supersede <old-id> <new-id>`** -- Mark an ADR as superseded by another.
 1. Update `<old-id>` status to "superseded by [ADR-<new-id>]"
 2. Add "Supersedes: ADR-<old-id>" link in `<new-id>`
-3. Create causal edge: `mcp__claude-flow__agentdb_causal-edge` from old to new with relation "supersedes"
+3. Create causal edge: `mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge` from old to new with relation "supersedes"
 
 **`adr check`** -- Scan recent git changes for ADR violations.
 1. Run `git log --oneline -20` to get recent commits
@@ -37,10 +37,10 @@ Manage Architecture Decision Records. Parse $ARGUMENTS to determine the subcomma
 5. Flag violations: code referencing deprecated/superseded ADRs, or code that contradicts accepted ADRs
 
 **`adr graph`** -- Show ADR dependency graph.
-1. Query `mcp__claude-flow__agentdb_causal-query` for all ADR relationships
+1. Query `mcp__plugin_ruflo-core_ruflo__agentdb_causal-query` for all ADR relationships
 2. Present the graph as an ASCII tree or indented list showing supersedes/amends/depends-on chains
 
 **`adr search <query>`** -- Semantic search across ADRs.
-1. Call `mcp__claude-flow__memory_search` with the query in namespace `adr-patterns`
+1. Call `mcp__plugin_ruflo-core_ruflo__memory_search` with the query in namespace `adr-patterns`
 2. Also `Grep` ADR files for keyword matches
 3. Present ranked results with ADR number, title, relevance, and excerpt

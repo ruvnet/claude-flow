@@ -5,7 +5,7 @@
 //   - FileRunStore     — writes full artifacts to `.ruflo/arena/<runId>.json` (exact replay).
 //   - InMemoryRunStore — for tests / ephemeral use.
 // AgentDB persistence is handled at the COMMAND layer (Ruflo convention: plugin TS persists
-// artifacts; commands call `mcp__claude-flow__memory_store` with `agentdbRecord(run)`).
+// artifacts; commands call `mcp__plugin_ruflo-core_ruflo__memory_store` with `agentdbRecord(run)`).
 
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -98,7 +98,7 @@ export class FileRunStore implements RunStore {
 }
 
 /**
- * Shape a run for AgentDB persistence via `mcp__claude-flow__memory_store`.
+ * Shape a run for AgentDB persistence via `mcp__plugin_ruflo-core_ruflo__memory_store`.
  * The command layer calls the MCP tool with this payload so runs become semantically
  * searchable ("tournaments where grim dominated") and feed the RuVector data layer later.
  *

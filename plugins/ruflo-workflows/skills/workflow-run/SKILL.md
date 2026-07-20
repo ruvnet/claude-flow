@@ -2,7 +2,7 @@
 name: workflow-run
 description: Run a workflow — drive an MCP workflow lifecycle (execute/pause/resume/cancel) or invoke + resume a native .claude/workflows/*.js orchestration via the Workflow tool
 argument-hint: "<workflow-id-or-name>"
-allowed-tools: mcp__claude-flow__workflow_execute mcp__claude-flow__workflow_run mcp__claude-flow__workflow_pause mcp__claude-flow__workflow_resume mcp__claude-flow__workflow_cancel mcp__claude-flow__workflow_status Workflow Read Bash
+allowed-tools: mcp__plugin_ruflo-core_ruflo__workflow_execute mcp__plugin_ruflo-core_ruflo__workflow_run mcp__plugin_ruflo-core_ruflo__workflow_pause mcp__plugin_ruflo-core_ruflo__workflow_resume mcp__plugin_ruflo-core_ruflo__workflow_cancel mcp__plugin_ruflo-core_ruflo__workflow_status Workflow Read Bash
 ---
 
 # Workflow Run
@@ -13,11 +13,11 @@ Run and manage a workflow on either surface.
 
 When you need to run a persisted definition and control its lifecycle (pause/resume/cancel):
 
-1. **Execute** — call `mcp__claude-flow__workflow_execute` or `mcp__claude-flow__workflow_run` with the workflow ID
-2. **Monitor** — call `mcp__claude-flow__workflow_status` to check progress and step outcomes
-3. **Pause** — call `mcp__claude-flow__workflow_pause` to halt at the current step
-4. **Resume** — call `mcp__claude-flow__workflow_resume` to continue from where paused
-5. **Cancel** — call `mcp__claude-flow__workflow_cancel` to abort the workflow
+1. **Execute** — call `mcp__plugin_ruflo-core_ruflo__workflow_execute` or `mcp__plugin_ruflo-core_ruflo__workflow_run` with the workflow ID
+2. **Monitor** — call `mcp__plugin_ruflo-core_ruflo__workflow_status` to check progress and step outcomes
+3. **Pause** — call `mcp__plugin_ruflo-core_ruflo__workflow_pause` to halt at the current step
+4. **Resume** — call `mcp__plugin_ruflo-core_ruflo__workflow_resume` to continue from where paused
+5. **Cancel** — call `mcp__plugin_ruflo-core_ruflo__workflow_cancel` to abort the workflow
 
 Execution modes: **sequential**, **parallel** (independent steps), **conditional** (branch on outcome), **manual gate** (pause for human approval).
 

@@ -23,8 +23,12 @@ describe('model resolution (#2232)', () => {
   });
 
   it('maps `sonnet` and `haiku` aliases to current ids', () => {
-    expect(resolveAnthropicModel('sonnet')).toBe('claude-sonnet-4-6');
+    expect(resolveAnthropicModel('sonnet')).toBe('claude-sonnet-5');
     expect(resolveAnthropicModel('haiku')).toBe('claude-haiku-4-5-20251001');
+  });
+
+  it('keeps the prior Sonnet pin reachable via `sonnet-4.6`', () => {
+    expect(resolveAnthropicModel('sonnet-4.6')).toBe('claude-sonnet-4-6');
   });
 
   it('passes a literal Anthropic model id through unchanged (no silent Sonnet fallback)', () => {

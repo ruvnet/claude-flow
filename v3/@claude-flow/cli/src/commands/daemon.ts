@@ -9,6 +9,7 @@ import { WorkerDaemon, getDaemon, startDaemon, stopDaemon, type WorkerType, type
 import { spawn, execFile, fork } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve, isAbsolute } from 'path';
+import { homedir } from 'os';
 import * as fs from 'fs';
 
 // Start daemon subcommand
@@ -26,7 +27,11 @@ const startCommand: Command = {
     { name: 'quiet', short: 'Q', type: 'boolean', description: 'Suppress output' },
     { name: 'background', short: 'b', type: 'boolean', description: 'Run daemon in background (detached process)', default: true },
     { name: 'foreground', short: 'f', type: 'boolean', description: 'Run daemon in foreground (blocks terminal)' },
-    { name: 'headless', type: 'boolean', description: 'Enable headless worker execution (E2B sandbox)' },
+    // #2661: --headless is the explicit consent gate for scheduled AI workers.
+    // Without it (or daemon.aiWorkers.enabled / RUFLO_DAEMON_AI_WORKERS=1),
+    // every worker runs its $0 local path — the daemon never spawns
+    // `claude --print` merely because the Claude CLI is on PATH.
+    { name: 'headless', type: 'boolean', description: 'Enable AI workers (scheduled `claude --print` execution, governed by the user-global AI budget). Default: off — workers run local-only' },
     { name: 'sandbox', type: 'string', description: 'Default sandbox mode for headless workers', choices: ['strict', 'permissive', 'disabled'] },
     { name: 'max-cpu-load', type: 'string', description: 'Override maxCpuLoad resource threshold (e.g. 4.0)' },
     { name: 'min-free-memory', type: 'string', description: 'Override minFreeMemoryPercent resource threshold (e.g. 15)' },
@@ -64,6 +69,15 @@ const startCommand: Command = {
 
     // Parse resource threshold overrides from CLI flags
     const config: Partial<DaemonConfig> = {};
+
+    // #2661: thread --headless into DaemonConfig so it actually gates the
+    // headless executor. Previously the flag was forwarded to the forked
+    // child but never consumed — AI workers auto-enabled whenever the
+    // Claude CLI was detected. Only set when true so config.json/env can
+    // still opt in when the flag is absent.
+    if (ctx.flags.headless === true) {
+      config.aiWorkersEnabled = true;
+    }
     const rawMaxCpu = ctx.flags['max-cpu-load'] as string | undefined;
     const rawMinMem = ctx.flags['min-free-memory'] as string | undefined;
 
@@ -277,6 +291,7 @@ const startCommand: Command = {
             status.config.ttlMs > 0
               ? `TTL: ${Math.round(status.config.ttlMs / 3600000)}h (self-shutdown)`
               : `TTL: off (runs until stopped)`,
+            `AI Workers: ${status.config.aiWorkersEnabled ? 'enabled (budget-capped)' : 'off (local-only, default)'}`,
             `Workers: ${status.config.workers.filter(w => w.enabled).length} enabled`,
             `Max Concurrent: ${status.config.maxConcurrent}`,
             `Max CPU Load: ${status.config.resourceThresholds.maxCpuLoad}`,
@@ -568,6 +583,29 @@ async function startBackgroundDaemon(projectRoot: string, quiet: boolean, forwar
     output.printSuccess(`Daemon started in background (PID: ${pid})`);
     output.printInfo(`Logs: ${logFile}`);
     output.printInfo(`Stop with: claude-flow daemon stop`);
+
+    // #2661: worktree-fanout warning. Each Git worktree gets its own daemon
+    // (per-workspace scope, #1914), so `init --start-daemon` across N
+    // worktrees quietly accumulates N daemons. Surface the fleet size at
+    // start time so the accumulation is visible where it happens.
+    try {
+      const fleet = await scanRunningDaemons();
+      if (fleet.length > 1) {
+        output.writeln();
+        output.printWarning(
+          `Found ${fleet.length} ruflo daemons running across workspaces/worktrees.`
+        );
+        output.printInfo('Scheduled AI workers are off by default and every AI launch is capped by the user-global budget.');
+        output.printInfo('Inspect:  ruflo daemon status --all');
+        output.printInfo('Stop all: ruflo daemon stop --all');
+      }
+    } catch { /* best-effort visibility — never fail the start */ }
+
+    // #2661 root-fix — one-time migration warning for a pre-existing
+    // multi-daemon fleet that already had AI workers enabled before this
+    // fix landed. Separate from the always-shown notice above: this one
+    // fires at most once ever, and only for the genuinely risky shape.
+    await maybeShowMultiDaemonMigrationWarning();
   }
 
   return { success: true };
@@ -579,13 +617,25 @@ const stopCommand: Command = {
   description: 'Stop the worker daemon and all background workers',
   options: [
     { name: 'quiet', short: 'Q', type: 'boolean', description: 'Suppress output' },
+    // #2661: emergency stop for worktree-daemon fleets. Stops every ruflo
+    // daemon owned by the current user across ALL workspaces/worktrees.
+    { name: 'all', short: 'a', type: 'boolean', description: 'Stop ruflo daemons in ALL workspaces/worktrees (not just the current one)' },
   ],
   examples: [
-    { command: 'claude-flow daemon stop', description: 'Stop the daemon' },
+    { command: 'claude-flow daemon stop', description: 'Stop the daemon in this workspace' },
+    { command: 'claude-flow daemon stop --all', description: 'Stop ruflo daemons in every workspace/worktree' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const quiet = ctx.flags.quiet as boolean;
     const projectRoot = process.cwd();
+
+    // #2661: `stop --all` — the containment lever for daemon fanout across
+    // Git worktrees. Only processes positively identified as ruflo daemons
+    // (via their self-identifying argv) are touched; each receives SIGTERM
+    // so its own shutdown path reaps in-flight Claude process groups.
+    if (ctx.flags.all as boolean) {
+      return stopAllDaemons(quiet);
+    }
 
     try {
       if (!quiet) {
@@ -615,6 +665,77 @@ const stopCommand: Command = {
     }
   },
 };
+
+/**
+ * #2661: stop every running ruflo daemon across all workspaces/worktrees.
+ *
+ * Reuses the same positive identification as `daemon status --all`
+ * (scanRunningDaemons): a process is only touched when its command line is
+ * self-identifying as a ruflo daemon (`daemon start --foreground` +
+ * claude-flow markers). Interactive Claude sessions and non-ruflo processes
+ * are never candidates. Each daemon gets SIGTERM first — its own shutdown
+ * handler cancels in-flight headless Claude process groups and removes its
+ * PID file — with a SIGKILL fallback for daemons that don't exit within 2s.
+ * Only ruflo-owned registry entries (each workspace's daemon.pid) are removed.
+ */
+async function stopAllDaemons(quiet: boolean): Promise<CommandResult> {
+  // Stop any in-process daemon plus this workspace's tracked daemon first,
+  // matching plain `daemon stop` semantics for the current directory.
+  try { await stopDaemon(); } catch { /* not running in-process */ }
+  await killBackgroundDaemon(process.cwd());
+
+  const daemons = await scanRunningDaemons();
+  if (daemons.length === 0) {
+    if (!quiet) {
+      output.printInfo('No ruflo daemons are running in any workspace.');
+    }
+    return { success: true, data: { stopped: 0 } };
+  }
+
+  const isWin = process.platform === 'win32';
+  let stopped = 0;
+
+  for (const d of daemons) {
+    try {
+      if (isWin) {
+        const { execFileSync } = await import('child_process');
+        // /t terminates the daemon's child tree too (no /f: graceful first).
+        execFileSync('taskkill', ['/pid', String(d.pid), '/t'], { encoding: 'utf-8', timeout: 5000 });
+      } else {
+        process.kill(d.pid, 'SIGTERM');
+      }
+      stopped++;
+      if (!quiet) {
+        output.printInfo(`Stopping daemon PID ${d.pid}${d.workspace ? ` (${d.workspace})` : ''}`);
+      }
+    } catch { /* exited between scan and kill */ }
+  }
+
+  // Give SIGTERM handlers time to reap children and clean up, then
+  // force-kill anything still alive (POSIX; taskkill /t already recursed).
+  await new Promise((r) => setTimeout(r, 2000));
+  for (const d of daemons) {
+    if (!isWin && isProcessRunning(d.pid)) {
+      try { process.kill(d.pid, 'SIGKILL'); } catch { /* already dead */ }
+    }
+    // Remove the ruflo-owned PID file for that workspace — but only when it
+    // still points at the daemon we just stopped (never clobber a newer one).
+    if (d.workspace) {
+      try {
+        const pidFile = join(d.workspace, '.claude-flow', 'daemon.pid');
+        if (fs.existsSync(pidFile)) {
+          const filePid = parseInt(fs.readFileSync(pidFile, 'utf-8').trim(), 10);
+          if (filePid === d.pid) fs.unlinkSync(pidFile);
+        }
+      } catch { /* workspace removed or unreadable — nothing to clean */ }
+    }
+  }
+
+  if (!quiet) {
+    output.printSuccess(`Stopped ${stopped} ruflo daemon(s) across all workspaces.`);
+  }
+  return { success: true, data: { stopped } };
+}
 
 /**
  * Kill background daemon process using PID file
@@ -852,6 +973,70 @@ async function scanRunningDaemons(): Promise<Array<{ pid: number; workspace: str
   }
 }
 
+function defaultMultiDaemonWarningMarker(): string {
+  return join(homedir(), '.claude-flow', 'multi-daemon-warning-shown.json');
+}
+
+/**
+ * #2661 root-fix — one-time upgrade migration warning. A user who had
+ * `aiWorkersEnabled: true` configured BEFORE this fix landed (old config
+ * file or RUFLO_DAEMON_AI_WORKERS=1) and already has multiple worktree
+ * daemons running is exactly the P0 scenario the issue describes — surface
+ * it plainly, ONCE ever (not on every `daemon start`, which would just be
+ * noise once the user has seen and acted on it). The supervisor/lease
+ * mechanism (task #9) already makes only one of those daemons actually
+ * schedule AI workers going forward; this warning's job is purely to make
+ * a pre-existing fleet VISIBLE the first time this code runs, not to take
+ * any destructive action — nothing here stops or kills another daemon.
+ *
+ * `opts` exists for tests ONLY, mirroring the injectable-dependency pattern
+ * used elsewhere in this codebase (e.g. helper-refresh.ts's
+ * sourceDirOverride) — real callers always use the defaults.
+ */
+export async function maybeShowMultiDaemonMigrationWarning(opts?: {
+  markerFile?: string;
+  fleetScanner?: () => Promise<Array<{ pid: number; workspace: string | null }>>;
+}): Promise<void> {
+  const markerFile = opts?.markerFile ?? defaultMultiDaemonWarningMarker();
+  try {
+    if (fs.existsSync(markerFile)) return;
+
+    const fleet = await (opts?.fleetScanner ?? scanRunningDaemons)();
+    if (fleet.length <= 1) return;
+
+    let anyAiEnabled = false;
+    for (const d of fleet) {
+      if (!d.workspace) continue;
+      try {
+        const statePath = join(d.workspace, '.claude-flow', 'daemon-state.json');
+        if (!fs.existsSync(statePath)) continue;
+        const st = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
+        if (st?.config?.aiWorkersEnabled === true) {
+          anyAiEnabled = true;
+          break;
+        }
+      } catch { /* unreadable state — skip this daemon */ }
+    }
+
+    // Only the genuinely risky shape (pre-existing fleet + AI workers
+    // enabled somewhere in it) warrants the migration warning. A harmless
+    // multi-daemon fleet with AI workers off everywhere already gets the
+    // lighter, always-shown fleet-size notice at daemon start.
+    if (anyAiEnabled) {
+      output.writeln();
+      output.printWarning(`Ruflo found ${fleet.length} worktree daemons. Scheduled AI workers are now supervisor-gated.`);
+      output.printInfo('Inspect:                      ruflo daemon status --all');
+      output.printInfo('Stop all:                      ruflo daemon stop --all');
+      output.printInfo('Pause autonomous launches:     ruflo daemon budget pause');
+      output.writeln();
+    }
+
+    const dir = dirname(markerFile);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(markerFile, JSON.stringify({ shownAt: new Date().toISOString(), fleetSize: fleet.length, anyAiEnabled }), { mode: 0o600 });
+  } catch { /* best-effort visibility — never fail the command */ }
+}
+
 /**
  * #2356: render the global `daemon status --all` view. For each running daemon
  * it reads that workspace's daemon-state.json to show age + configured TTL,
@@ -925,6 +1110,70 @@ async function renderAllDaemonsStatus(): Promise<CommandResult> {
   } else {
     output.printInfo(`${daemons.length} daemon(s) running, all within their TTL.`);
   }
+  if (daemons.length > 1) {
+    output.printInfo('Stop all daemons across workspaces with: ruflo daemon stop --all');
+  }
+
+  // #2661 root-fix — repository supervisor state, one row per distinct
+  // repository among the scanned daemons' workspaces. Resolving identity
+  // per workspace is cheap (a couple of `git rev-parse` calls, cached).
+  try {
+    const { resolveGitWorkspaceIdentity } = await import('../services/git-workspace-identity.js');
+    const { getRepoSupervisorRegistry } = await import('../services/repo-supervisor.js');
+    const { getWorkspaceLeaseRegistry } = await import('../services/workspace-lease.js');
+    const seenRepos = new Map<string, string>(); // repositoryId -> a representative workspace path
+    for (const d of daemons) {
+      if (!d.workspace) continue;
+      const identity = resolveGitWorkspaceIdentity(d.workspace);
+      if (identity.isGit && !seenRepos.has(identity.repositoryId)) {
+        seenRepos.set(identity.repositoryId, d.workspace);
+      }
+    }
+    if (seenRepos.size > 0) {
+      const supervisorReg = getRepoSupervisorRegistry();
+      const leaseReg = getWorkspaceLeaseRegistry();
+      const lines: string[] = [];
+      for (const [repositoryId, sampleWorkspace] of seenRepos) {
+        const record = supervisorReg.getRecord(repositoryId);
+        const activeLeases = leaseReg.listActive(repositoryId).length;
+        const label = repositoryId.slice(0, 12);
+        lines.push(
+          record
+            ? `  ${label}…  supervisor: ${record.worktreeRoot} (pid ${record.pid})  |  active leases: ${activeLeases}`
+            : `  ${label}…  supervisor: ${output.dim('none elected')}  |  active leases: ${activeLeases}`
+        );
+      }
+      output.writeln();
+      output.printBox(lines.join('\n'), 'Repository Supervisors (#2661 root-fix)');
+    }
+  } catch { /* supervisor registry unavailable — skip the panel */ }
+
+  // #2661: user-global AI launch usage — the shared budget every daemon
+  // draws from, independent of worktree count.
+  try {
+    const { getGlobalAiBudget } = await import('../services/global-ai-budget.js');
+    const budget = getGlobalAiBudget();
+    const usage = budget.getUsage();
+    const limits = budget.getLimits();
+    output.writeln();
+    // #2661: per-workspace 24h launch attribution — which worktree is
+    // actually spending the shared budget.
+    const byWs = usage.byWorkspace.slice(0, 5).map(
+      (w) => `  ${w.launches}× ${w.workspace}`
+    );
+    output.printBox(
+      [
+        `Launches (last hour): ${usage.lastHour}/${limits.maxLaunchesPerHour}`,
+        `Launches (last 24h):  ${usage.lastDay}/${limits.maxLaunchesPerDay}`,
+        `Active Claude children: ${usage.active}/${limits.maxConcurrentGlobal}`,
+        usage.pausedUntil
+          ? output.warning(`PAUSED until ${new Date(usage.pausedUntil).toISOString()} (${usage.pauseReason ?? 'quota error'})`)
+          : `Circuit breaker: ${output.dim('closed (normal)')}`,
+        ...(byWs.length > 0 ? ['Launches by workspace (24h):', ...byWs] : []),
+      ].join('\n'),
+      'Global AI Budget (all workspaces)'
+    );
+  } catch { /* budget ledger unavailable — skip the panel */ }
 
   return { success: true, data: { daemons: rows.length } };
 }
@@ -967,6 +1216,21 @@ const statusCommand: Command = {
       const isRunning = status.running || bgRunning;
       const displayPid = bgPid || status.pid;
 
+      // #2661: this CLI process constructs its own (default-config) daemon
+      // instance, so status.config.aiWorkersEnabled reflects THIS process,
+      // not the running background daemon. The background daemon persists
+      // its real consent state into daemon-state.json — prefer that when it
+      // is the one running.
+      let aiWorkersEnabled = status.config.aiWorkersEnabled;
+      if (bgRunning) {
+        try {
+          const st = JSON.parse(fs.readFileSync(join(projectRoot, '.claude-flow', 'daemon-state.json'), 'utf-8'));
+          if (typeof st?.config?.aiWorkersEnabled === 'boolean') {
+            aiWorkersEnabled = st.config.aiWorkersEnabled;
+          }
+        } catch { /* no/partial state — fall back to in-process config */ }
+      }
+
       output.writeln();
 
       // Daemon status box
@@ -982,6 +1246,9 @@ const statusCommand: Command = {
           status.config.ttlMs > 0
             ? `TTL: ${Math.round(status.config.ttlMs / 3600000)}h (self-shutdown)`
             : `TTL: ${output.dim('off (runs until stopped)')}`,
+          // #2661: surface the AI-consent gate so "why is audit local-only?"
+          // is answerable from `daemon status` alone.
+          `AI Workers: ${aiWorkersEnabled ? output.warning('enabled (budget-capped)') : output.dim('off (local-only, default)')}`,
           `Workers Enabled: ${status.config.workers.filter(w => w.enabled).length}`,
           `Max Concurrent: ${status.config.maxConcurrent}`,
           `Max CPU Load: ${status.config.resourceThresholds.maxCpuLoad}`,
@@ -1099,7 +1366,13 @@ const triggerCommand: Command = {
     }
 
     try {
-      const daemon = getDaemon(process.cwd());
+      // #2661: an explicit `trigger --headless` is user consent for AI
+      // execution of THIS run (still governed by the global AI budget).
+      // Without the flag, config.json / env opt-in still applies.
+      const daemon = getDaemon(
+        process.cwd(),
+        ctx.flags.headless === true ? { aiWorkersEnabled: true } : undefined
+      );
 
       const spinner = output.createSpinner({ text: `Running ${workerType} worker...`, spinner: 'dots' });
       spinner.start();
@@ -1388,6 +1661,83 @@ const uninstallSupervisorCommand: Command = {
   },
 };
 
+// #2661 root-fix — `daemon budget show|pause|resume`. The budget state was
+// previously visible only inline in `daemon status --all`; these give it an
+// independently scriptable surface (e.g. `ruflo daemon budget pause` before
+// a long interactive session, `... resume` after).
+const budgetShowCommand: Command = {
+  name: 'show',
+  description: 'Show the user-global AI launch budget (launches, active children, circuit-breaker state)',
+  options: [],
+  examples: [{ command: 'claude-flow daemon budget show', description: 'Show current budget usage and limits' }],
+  action: async (): Promise<CommandResult> => {
+    const { getGlobalAiBudget } = await import('../services/global-ai-budget.js');
+    const budget = getGlobalAiBudget();
+    const usage = budget.getUsage();
+    const limits = budget.getLimits();
+    output.writeln();
+    const byWs = usage.byWorkspace.slice(0, 10).map((w) => `  ${w.launches}× ${w.workspace}`);
+    output.printBox(
+      [
+        `Launches (last hour): ${usage.lastHour}/${limits.maxLaunchesPerHour}`,
+        `Launches (last 24h):  ${usage.lastDay}/${limits.maxLaunchesPerDay}`,
+        `Active Claude children: ${usage.active}/${limits.maxConcurrentGlobal}`,
+        usage.pausedUntil
+          ? output.warning(`PAUSED until ${new Date(usage.pausedUntil).toISOString()} (${usage.pauseReason ?? 'quota error'})`)
+          : `Circuit breaker: ${output.dim('closed (normal)')}`,
+        ...(byWs.length > 0 ? ['Launches by workspace (24h):', ...byWs] : []),
+      ].join('\n'),
+      'Global AI Budget'
+    );
+    return { success: true, data: { usage, limits } };
+  },
+};
+
+const budgetPauseCommand: Command = {
+  name: 'pause',
+  description: 'Pause ALL autonomous Claude launches across every daemon until resumed',
+  options: [
+    { name: 'reason', short: 'r', type: 'string', description: 'Optional reason recorded in the pause receipt' },
+  ],
+  examples: [{ command: 'claude-flow daemon budget pause --reason "conserving quota for a demo"', description: 'Pause autonomous launches' }],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const { getGlobalAiBudget } = await import('../services/global-ai-budget.js');
+    await getGlobalAiBudget().pause(ctx.flags.reason as string | undefined);
+    output.printSuccess('Autonomous AI worker launches paused across all daemons. Resume with: ruflo daemon budget resume');
+    return { success: true };
+  },
+};
+
+const budgetResumeCommand: Command = {
+  name: 'resume',
+  description: 'Resume autonomous Claude launches (clears a manual pause or a quota-triggered circuit-breaker pause)',
+  options: [],
+  examples: [{ command: 'claude-flow daemon budget resume', description: 'Resume autonomous launches' }],
+  action: async (): Promise<CommandResult> => {
+    const { getGlobalAiBudget } = await import('../services/global-ai-budget.js');
+    await getGlobalAiBudget().resume();
+    output.printSuccess('Autonomous AI worker launches resumed.');
+    return { success: true };
+  },
+};
+
+const budgetCommand: Command = {
+  name: 'budget',
+  description: 'Inspect and control the user-global AI launch budget (#2661)',
+  subcommands: [budgetShowCommand, budgetPauseCommand, budgetResumeCommand],
+  options: [],
+  examples: [
+    { command: 'claude-flow daemon budget show', description: 'Show current usage/limits' },
+    { command: 'claude-flow daemon budget pause', description: 'Pause all autonomous launches' },
+    { command: 'claude-flow daemon budget resume', description: 'Resume autonomous launches' },
+  ],
+  // Bare `daemon budget` (no subcommand) shows usage — same as `show`.
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const result = await budgetShowCommand.action!(ctx);
+    return result ?? { success: true };
+  },
+};
+
 // Main daemon command
 export const daemonCommand: Command = {
   name: 'daemon',
@@ -1398,6 +1748,7 @@ export const daemonCommand: Command = {
     statusCommand,
     triggerCommand,
     enableCommand,
+    budgetCommand,
     installSupervisorCommand,
     uninstallSupervisorCommand,
   ],

@@ -16,7 +16,7 @@
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { spawnSync } from 'node:child_process';
+import { spawnNpxSync } from './_npx.mjs';
 // iter 68 — shared PRICING table (was duplicated in counterfactual.mjs too).
 import { modelTier, costForUsage } from './_prices.mjs';
 
@@ -104,7 +104,7 @@ function persistToMemory(summary) {
     ? '@claude-flow/cli-core@alpha'
     : '@claude-flow/cli@latest';
   // spawnSync with explicit args avoids shell-escape pitfalls for the JSON value.
-  const r = spawnSync('npx', [
+  const r = spawnNpxSync([
     cliPkg, 'memory', 'store',
     '--namespace', ns,
     '--key', key,

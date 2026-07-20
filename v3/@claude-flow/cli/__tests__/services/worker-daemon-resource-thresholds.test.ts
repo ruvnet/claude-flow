@@ -832,11 +832,18 @@ describe('WorkerDaemon resource thresholds', () => {
       expect(config.ttlMs).toBe(1800 * 1000);
     });
 
-    it('does not arm the lifecycle monitor when both limits are disabled', () => {
+    it('arms the lifecycle monitor even when ttl/idle are disabled (#2661 workspace-removal check)', () => {
       const daemon = new WorkerDaemon(tempDir, { ttlMs: 0, idleShutdownMs: 0 });
-      // startLifecycleMonitor is a no-op when both are 0 — no timer is stored.
+      // Pre-#2661 this was a no-op with both limits at 0. The monitor now
+      // always runs so a daemon whose worktree is deleted shuts itself
+      // down; ttl/idle remain opt-in inside the shared predicate.
       (daemon as any).startLifecycleMonitor();
-      expect((daemon as any).lifecycleTimer).toBeUndefined();
+      expect((daemon as any).lifecycleTimer).toBeDefined();
+      // But with the workspace present and both limits off, the predicate
+      // must not request a shutdown.
+      expect((daemon as any).lifecycleShutdownReason(Date.now())).toBeNull();
+      clearInterval((daemon as any).lifecycleTimer);
+      (daemon as any).lifecycleTimer = undefined;
     });
 
     it('arms (and can clear) the lifecycle monitor when a TTL is set', () => {

@@ -1,7 +1,7 @@
 {
   "name": "ruflo-intelligence",
   "description": "User-facing surface for Ruflo's self-learning system: 6 neural_* + 10 hooks_intelligence_* + 6 routing/meta hooks + 3 hooks_model-* + 4 SONA/MicroLoRA tools (29 total). Implements the 4-step pipeline (RETRIEVE → JUDGE → DISTILL → CONSOLIDATE) and IPFS-based cross-project pattern transfer.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
