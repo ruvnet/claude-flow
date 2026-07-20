@@ -23,6 +23,7 @@ overrides:
   '@opentelemetry/resources': '>=2.8.0'
   '@opentelemetry/sdk-trace-base': '>=2.8.0'
   '@opentelemetry/sdk-node': '>=0.220.0'
+  better-sqlite3: 12.9.0
 
 importers:
 
@@ -288,8 +289,8 @@ importers:
         version: 3.25.76
     optionalDependencies:
       better-sqlite3:
-        specifier: ^11.0.0
-        version: 11.10.0
+        specifier: 12.9.0
+        version: 12.9.0
     devDependencies:
       '@types/better-sqlite3':
         specifier: ^7.6.11
@@ -359,7 +360,7 @@ importers:
         version: 1.13.0
     optionalDependencies:
       better-sqlite3:
-        specifier: ^12.9.0
+        specifier: 12.9.0
         version: 12.9.0
     devDependencies:
       '@types/better-sqlite3':
@@ -6727,7 +6728,7 @@ packages:
       sql.js: 1.14.1
       zod: 3.25.76
     optionalDependencies:
-      better-sqlite3: 11.10.0
+      better-sqlite3: 12.9.0
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - bare-abort-controller
@@ -6777,7 +6778,7 @@ packages:
       '@xenova/transformers': 2.17.2
       argon2: 0.44.0
       bcrypt: 6.0.0
-      better-sqlite3: 11.10.0
+      better-sqlite3: 12.9.0
       express-rate-limit: 8.3.2(express@5.2.1)
       helmet: 8.1.0
       hnswlib-node: 3.0.0
@@ -6838,7 +6839,7 @@ packages:
       '@xenova/transformers': 2.17.2
       argon2: 0.44.0
       bcrypt: 6.0.0
-      better-sqlite3: 11.10.0
+      better-sqlite3: 12.9.0
       express-rate-limit: 8.3.2(express@5.2.1)
       helmet: 8.1.0
       hnswlib-node: 3.0.0
@@ -6883,7 +6884,7 @@ packages:
       '@ruvector/sona': 0.1.8
       '@xenova/transformers': 2.17.2
       argon2: 0.44.0
-      better-sqlite3: 11.10.0
+      better-sqlite3: 12.9.0
       chalk: 5.6.2
       commander: 12.1.0
       hnswlib-node: 3.0.0
@@ -6913,7 +6914,7 @@ packages:
       '@xenova/transformers': 2.17.2
       agentdb: 1.6.1
       axios: 1.13.2
-      better-sqlite3: 11.10.0
+      better-sqlite3: 12.9.0
       dotenv: 16.6.1
       express: 5.2.1
       fastmcp: 3.26.7
@@ -6970,7 +6971,7 @@ packages:
       agentic-payments: 0.1.13(typescript@5.9.3)
       autoprefixer: 10.4.23(postcss@8.5.6)
       axios: 1.13.2
-      better-sqlite3: 11.10.0
+      better-sqlite3: 12.9.0
       dotenv: 16.6.1
       express: 5.2.1
       fastmcp: 3.26.7
@@ -7054,7 +7055,7 @@ packages:
       '@ruvector/attention': 0.1.32
       '@ruvector/sona': 0.1.8
       agentdb: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
-      better-sqlite3: 11.10.0
+      better-sqlite3: 12.9.0
       onnxruntime-node: 1.24.3
       sharp: 0.32.6
       sql.js: 1.14.1
@@ -7110,7 +7111,7 @@ packages:
       '@ruvector/sona': 0.1.8
       '@xenova/transformers': 2.17.2
       agentdb: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
-      better-sqlite3: 11.10.0
+      better-sqlite3: 12.9.0
       onnxruntime-node: 1.24.3
       sharp: 0.32.6
       sql.js: 1.14.1
@@ -7166,7 +7167,7 @@ packages:
       '@ruvector/attention': 0.1.32
       '@ruvector/sona': 0.1.8
       agentdb: 2.0.0-alpha.3.7(@types/node@20.19.27)(express@5.2.1)(marked@11.2.0)
-      better-sqlite3: 11.10.0
+      better-sqlite3: 12.9.0
       onnxruntime-node: 1.24.3
       sharp: 0.32.6
       sql.js: 1.14.1
@@ -7263,7 +7264,7 @@ packages:
       zod: 4.3.5
     optionalDependencies:
       agentic-flow: 1.10.2(@modelcontextprotocol/sdk@1.27.1)
-      better-sqlite3: 11.10.0
+      better-sqlite3: 12.9.0
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - '@valibot/to-json-schema'
@@ -7589,13 +7590,6 @@ packages:
   /before-after-hook@4.0.0:
     resolution: {integrity: sha512-q6tR3RPqIB1pMiTRMFcZwuG5T8vwp+vUvEG0vuI6B+Rikh5BfPp2fQ82c925FOs+b0lcFQ8CFrL+KbilfZFhOQ==}
 
-  /better-sqlite3@11.10.0:
-    resolution: {integrity: sha512-EwhOpyXiOEL/lKzHz9AW1msWFNzGc/z+LzeB3/jnFJpxu+th2yqvzsSWas1v9jgs9+xiXJcD5A8CJxAG2TaghQ==}
-    requiresBuild: true
-    dependencies:
-      bindings: 1.5.0
-      prebuild-install: 7.1.3
-
   /better-sqlite3@12.9.0:
     resolution: {integrity: sha512-wqUv4Gm3toFpHDQmaKD4QhZm3g1DjUBI0yzS4UBl6lElUmXFYdTQmmEDpAFa5o8FiFiymURypEnfVHzILKaxqQ==}
     engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x}
@@ -7603,8 +7597,6 @@ packages:
     dependencies:
       bindings: 1.5.0
       prebuild-install: 7.1.3
-    dev: false
-    optional: true
 
   /bignumber.js@9.3.1:
     resolution: {integrity: sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ==}
@@ -11088,6 +11080,7 @@ packages:
   /prebuild-install@7.1.3:
     resolution: {integrity: sha512-8Mf2cbV7x1cXPUILADGI3wuhfqWvtiLA1iclTDbFRZkgRQS0NqsPZphna9V+HyTEadheuPmjaJMsbzKQFOzLug==}
     engines: {node: '>=10'}
+    deprecated: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
     hasBin: true
     dependencies:
       detect-libc: 2.1.2

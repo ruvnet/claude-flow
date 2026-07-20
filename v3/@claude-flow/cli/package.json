@@ -130,6 +130,7 @@
     "@opentelemetry/resources": ">=2.8.0",
     "@opentelemetry/sdk-trace-base": ">=2.8.0",
     "@opentelemetry/sdk-node": ">=0.220.0",
-    "agentdb": "$agentdb"
+    "agentdb": "$agentdb",
+    "better-sqlite3": "12.9.0"
   }
 }

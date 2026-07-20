@@ -82,7 +82,7 @@
   },
   "overrides": {
     "ruvector": "^0.2.27",
-    "better-sqlite3": ">=12.8.0",
+    "better-sqlite3": "12.9.0",
     "js-yaml": ">=4.3.0",
     "hono": ">=4.12.25",
     "@ruvector/rvf-wasm": "0.1.5",
@@ -130,6 +130,11 @@
     "tsx": "^4.21.0",
     "typescript": "^5.0.0",
     "vitest": "^3.2.6"
+  },
+  "pnpm": {
+    "overrides": {
+      "better-sqlite3": "12.9.0"
+    }
   },
   "engines": {
     "node": ">=20.0.0"
