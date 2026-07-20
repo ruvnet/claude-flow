@@ -8,7 +8,7 @@ import { output } from '../output.js';
 import { select, confirm, input } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { storeCommand } from './transfer-store.js';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   getSecurityStatus as sharedGetSecurityStatus,
@@ -25,6 +25,38 @@ import {
 function safeNum(value: unknown, fallback = 0): number {
   const n = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+/**
+ * #2733: Read the active model's display name from the JSON payload Claude
+ * Code pipes to statusline commands via stdin. Returns null when stdin is a
+ * TTY (manual terminal use) or the payload has no model.display_name. Matches
+ * the pattern in init/statusline-generator.ts getModelFromStdin(). Exported
+ * for unit testing.
+ */
+let _stdinModelCache: string | null | undefined;
+export function readStatuslineModelFromStdin(): string | null {
+  if (_stdinModelCache !== undefined) return _stdinModelCache;
+  try {
+    if (process.stdin.isTTY) { _stdinModelCache = null; return null; }
+    const chunks: Buffer[] = [];
+    const buf = Buffer.alloc(4096);
+    let bytesRead: number;
+    while ((bytesRead = readSync(0, buf, 0, buf.length, null)) > 0) {
+      chunks.push(buf.subarray(0, bytesRead));
+    }
+    const raw = Buffer.concat(chunks).toString('utf-8').trim();
+    const data = raw && raw.startsWith('{') ? JSON.parse(raw) : null;
+    _stdinModelCache = (data && data.model && data.model.display_name) || null;
+  } catch {
+    _stdinModelCache = null;
+  }
+  return _stdinModelCache;
+}
+
+/** Reset the stdin model cache (test-only — never call in production). */
+export function _resetStdinModelCache(): void {
+  _stdinModelCache = undefined;
 }
 
 // ============================================================================
@@ -4210,7 +4242,7 @@ const statuslineCommand: Command = {
       const identityMode = (process.env.RUFLO_STATUSLINE_IDENTITY || 'project').toLowerCase();
       let name = path.basename(process.cwd()) || 'project';
       let gitBranch = '';
-      const modelName = 'Opus 4.6 (1M context)';
+      const modelName = readStatuslineModelFromStdin() || 'Claude Code';
       const isWindows = process.platform === 'win32';
 
       try {
