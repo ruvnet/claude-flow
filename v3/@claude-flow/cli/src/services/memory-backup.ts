@@ -14,6 +14,14 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+  scanForeignDbHandles,
+  describeForeignHandles,
+  postRecoveryMarker,
+  clearRecoveryMarker,
+  drainForeignHandles,
+  type ForeignDbHandle,
+} from '../memory/db-handle-guard.js';
 
 export interface BackupOptions {
   /** Source DB (default: <cwd>/.swarm/memory.db). */
@@ -118,6 +126,8 @@ export interface RestoreResult {
   /** Where the corrupt live DB was parked before the swap. */
   corruptBackupPath?: string;
   skipped?: string;
+  /** Set when skipped === 'live-handles': who holds the DB open. */
+  liveHandles?: ForeignDbHandle[];
 }
 
 /**
@@ -136,7 +146,7 @@ export interface RestoreResult {
  */
 export async function restoreMemoryDbFromBackup(
   dbPath: string,
-  opts: { destDir?: string; timestamp?: number; verbose?: boolean } = {},
+  opts: { destDir?: string; timestamp?: number; verbose?: boolean; force?: boolean; drainTimeoutMs?: number } = {},
 ): Promise<RestoreResult> {
   if (!dbPath) return { restored: false, skipped: 'no-db-path' };
   const destDir = opts.destDir ?? path.join(path.dirname(dbPath), 'backups');
@@ -184,6 +194,34 @@ export async function restoreMemoryDbFromBackup(
   }
   if (!chosen) return { restored: false, skipped: 'no-integrity-ok-backup' };
 
+  // Installing a backup is a whole-file swap of the live path. With any other
+  // process attached, rename strands their fds on the dead inode while the
+  // -wal/-shm stay filename-paired with the new image — the corruption we are
+  // recovering FROM (howtocorrupt.html §2.5). Cooperative drain first: post
+  // the recovery marker (same-build connections close on sight and hold new
+  // opens), bounded-wait for zero holders, and refuse only for holders that
+  // won't detach — idle connections hold no SQLite lock, so only the OS-level
+  // scan can prove the drain completed.
+  let markerPosted = false;
+  if (!opts.force && process.env.RUFLO_MEMORY_RECOVERY_FORCE !== '1') {
+    postRecoveryMarker(dbPath, 'backup restore swap');
+    markerPosted = true;
+    const scan = await drainForeignHandles(dbPath, opts.drainTimeoutMs ?? 30_000);
+    if (scan.supported && scan.handles.length > 0) {
+      clearRecoveryMarker(dbPath);
+      if (opts.verbose) {
+        console.log(
+          `restore blocked: holders did not detach — ${describeForeignHandles(scan.handles)}. ` +
+          `Stop those processes (or pass force) and re-run the restore.`,
+        );
+      }
+      return { restored: false, skipped: 'live-handles', liveHandles: scan.handles };
+    }
+    if (!scan.supported && opts.verbose) {
+      console.log('restore: cannot enumerate open handles on this platform — proceeding unverified');
+    }
+  }
+
   const ts = opts.timestamp ?? Date.now();
   const corruptBackupPath = `${dbPath}.corrupt-${ts}.bak`;
   const tmp = `${dbPath}.restoring-${ts}`;
@@ -196,7 +234,10 @@ export async function restoreMemoryDbFromBackup(
     for (const s of ['-wal', '-shm']) { try { fs.rmSync(`${dbPath}${s}`, { force: true }); } catch { /* */ } }
   } catch (e) {
     try { fs.rmSync(tmp, { force: true }); } catch { /* */ }
+    if (markerPosted) clearRecoveryMarker(dbPath);
     return { restored: false, skipped: `install failed: ${(e as Error)?.message ?? e}` };
+  } finally {
+    if (markerPosted) clearRecoveryMarker(dbPath);
   }
 
   if (opts.verbose) {

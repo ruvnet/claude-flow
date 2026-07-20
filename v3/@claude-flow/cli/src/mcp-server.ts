@@ -32,6 +32,22 @@ import { trackRequest } from './mcp-tools/request-tracker.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+export async function closeMemoryBridgeBeforeExit(
+  exit: (code: number) => void = code => process.exit(code),
+): Promise<void> {
+  try {
+    const { shutdownBridge } = await import('./memory/memory-bridge.js');
+    await shutdownBridge();
+  } catch (error) {
+    console.error(
+      `[${new Date().toISOString()}] WARN [claude-flow-mcp] Memory shutdown failed:`,
+      error instanceof Error ? error.message : String(error),
+    );
+  } finally {
+    exit(0);
+  }
+}
+
 /**
  * MCP Server configuration
  */
@@ -480,27 +496,19 @@ export class MCPServerManager extends EventEmitter {
       }
     });
 
-    process.stdin.on('end', () => {
+    let shutdownPromise: Promise<void> | undefined;
+    const shutdown = (message: string): void => {
       console.error(
-        `[${new Date().toISOString()}] INFO [claude-flow-mcp] (${sessionId}) stdin closed, shutting down...`
+        `[${new Date().toISOString()}] INFO [claude-flow-mcp] (${sessionId}) ${message}`
       );
-      process.exit(0);
-    });
+      shutdownPromise ??= closeMemoryBridgeBeforeExit();
+    };
+
+    process.stdin.on('end', () => shutdown('stdin closed, shutting down...'));
 
     // Handle process termination
-    process.on('SIGINT', () => {
-      console.error(
-        `[${new Date().toISOString()}] INFO [claude-flow-mcp] (${sessionId}) Received SIGINT, shutting down...`
-      );
-      process.exit(0);
-    });
-
-    process.on('SIGTERM', () => {
-      console.error(
-        `[${new Date().toISOString()}] INFO [claude-flow-mcp] (${sessionId}) Received SIGTERM, shutting down...`
-      );
-      process.exit(0);
-    });
+    process.on('SIGINT', () => shutdown('Received SIGINT, shutting down...'));
+    process.on('SIGTERM', () => shutdown('Received SIGTERM, shutting down...'));
 
     // Mark as ready immediately for stdio
     this.emit('ready');

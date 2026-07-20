@@ -16,7 +16,7 @@
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { spawnNpxSync } from './_npx.mjs';
+import { spawnCliSync } from './_npx.mjs';
 // iter 68 — shared PRICING table (was duplicated in counterfactual.mjs too).
 import { modelTier, costForUsage } from './_prices.mjs';
 
@@ -95,21 +95,18 @@ function summarizeSession(jsonlPath) {
 function persistToMemory(summary) {
   const ns = process.env.TRACK_NAMESPACE || 'cost-tracking';
   const key = `session-${summary.sessionId || 'unknown'}`;
-  // ADR-100 / #1748 Issue 3 — opt into cli-core's lite path with CLI_CORE=1.
-  // Cold-cache wall-time drops from ~25s to ~2s. JSON backend instead of
-  // SQLite/HNSW; semantic search degrades to substring (fine for cost-track
-  // which never invokes search — only store/list/retrieve). See
-  // v3/@claude-flow/cli-core/MIGRATION.md.
-  const cliPkg = process.env.CLI_CORE === '1'
-    ? '@claude-flow/cli-core@alpha'
-    : '@claude-flow/cli@latest';
-  // spawnSync with explicit args avoids shell-escape pitfalls for the JSON value.
-  const r = spawnNpxSync([
-    cliPkg, 'memory', 'store',
+  // Writer-ownership pinning: a pinned local CLI build (RUFLO_CLI_BIN or
+  // .claude-flow/cli-pin.json) always wins; only the registry fallback still
+  // honours CLI_CORE=1 (ADR-100 / #1748 Issue 3 — cli-core's lite JSON path,
+  // ~25s→~2s cold-cache; fine for cost-track, which only store/list/retrieves).
+  // See _npx.mjs resolveCli and v3/@claude-flow/cli-core/MIGRATION.md.
+  // Explicit-argv spawn avoids shell-escape pitfalls for the JSON value.
+  const r = spawnCliSync([
+    'memory', 'store',
     '--namespace', ns,
     '--key', key,
     '--value', JSON.stringify(summary),
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
+  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
   if (r.status !== 0) {
     return { ok: false, reason: r.stderr?.slice(0, 300) || `exit ${r.status}` };
   }

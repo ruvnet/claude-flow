@@ -12,19 +12,17 @@
 //   BUDGET_PERIOD=today|week|month|all   filter session totals by capturedAt
 //   BUDGET_QUIET=1            machine-readable JSON only
 
-import { spawnNpxSync } from './_npx.mjs';
+import { spawnCliSync } from './_npx.mjs';
 // iter 73 — shared session-loader (was duplicated across 6 scripts).
 // Only the session-list path consolidates; budget-config reads stay local
 // because they have their own "latest stamp" upsert resolution logic.
 import { loadSessions } from './_sessions.mjs';
 
-// ADR-100 / #1748 Issue 3 — opt into cli-core's lite path with CLI_CORE=1.
-// Cold-cache wall-time drops from ~25s to ~2s. JSON backend instead of
-// SQLite/HNSW; semantic search degrades to substring (fine here — budget
-// only does list/store/retrieve, no search). See cli-core/MIGRATION.md.
-const CLI_PKG = process.env.CLI_CORE === '1'
-  ? '@claude-flow/cli-core@alpha'
-  : '@claude-flow/cli@latest';
+// Writer-ownership pinning: every memory op (store AND the reads) routes
+// through spawnCliSync so store and retrieve resolve to the *same* CLI build —
+// a pinned local build (RUFLO_CLI_BIN / .claude-flow/cli-pin.json) always wins,
+// and only the registry fallback still honours CLI_CORE=1 (ADR-100 / #1748
+// Issue 3 lite path). See _npx.mjs resolveCli.
 
 const NS = process.env.BUDGET_NAMESPACE || 'cost-tracking';
 const KEY = 'budget-config';
@@ -37,28 +35,28 @@ function memoryStore(key, value) {
   //   This avoids the conflict entirely. Retrieve resolves via the index.
   if (key === KEY) {
     const stamped = `${KEY}-${Date.now()}`;
-    const r = spawnNpxSync([
-      CLI_PKG, 'memory', 'store',
+    const r = spawnCliSync([
+      'memory', 'store',
       '--namespace', NS, '--key', stamped, '--value', JSON.stringify(value),
-    ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
+    ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
     if (r.status !== 0) throw new Error(`memory store failed: ${r.stderr?.slice(0, 200) || r.status}`);
     // The "current pointer" is found at retrieval time by listing all
     // budget-config-* keys and picking the lexicographically-largest
     // (timestamp suffixes sort correctly because they are equal-width).
     return;
   }
-  const r = spawnNpxSync([
-    CLI_PKG, 'memory', 'store',
+  const r = spawnCliSync([
+    'memory', 'store',
     '--namespace', NS, '--key', key, '--value', JSON.stringify(value),
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
+  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
   if (r.status !== 0) throw new Error(`memory store failed: ${r.stderr?.slice(0, 200) || r.status}`);
 }
 
 function memoryRetrieveOne(key) {
-  const r = spawnNpxSync([
-    CLI_PKG, 'memory', 'retrieve',
+  const r = spawnCliSync([
+    'memory', 'retrieve',
     '--namespace', NS, '--key', key, '--value-only',
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
+  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
   if (r.status !== 0) return null;
   try { return JSON.parse((r.stdout || '').trim()); } catch { return null; }
 }
@@ -66,10 +64,10 @@ function memoryRetrieveOne(key) {
 function memoryRetrieve(key) {
   // For budget-config: pick the latest budget-config-<timestamp> entry.
   if (key === KEY) {
-    const list = spawnNpxSync([
-      CLI_PKG, 'memory', 'list',
+    const list = spawnCliSync([
+      'memory', 'list',
       '--namespace', NS, '--format', 'json',
-    ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
+    ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
     if (list.status !== 0) return null;
     const m = /\[[\s\S]*\]/.exec(list.stdout || '');
     if (!m) return null;

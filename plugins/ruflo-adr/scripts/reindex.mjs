@@ -42,12 +42,13 @@
 // check below will tell you.
 
 import { basename } from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { findAdrs, parseAdr } from './lib/parse-adrs.mjs';
+import { spawnCliSync } from './lib/cli-resolve.mjs';
 
-const CLI_PKG = process.env.CLI_CORE === '1'
-  ? '@claude-flow/cli-core@alpha'
-  : '@claude-flow/cli@latest';
+// Writer-ownership pinning: purge/store/list all route through spawnCliSync so
+// they resolve to the SAME CLI build — a pinned local build (RUFLO_CLI_BIN /
+// .claude-flow/cli-pin.json under ADR_ROOT) always wins; only the registry
+// fallback still honours CLI_CORE=1. See lib/cli-resolve.mjs.
 
 const ROOT = process.env.ADR_ROOT || process.cwd();
 const dryRun = process.env.REINDEX_DRY_RUN === '1';
@@ -56,8 +57,8 @@ const fmt = process.env.REINDEX_FORMAT || 'markdown';
 const NAMESPACES = ['adr-patterns', 'adr-edges'];
 
 function purgeNamespace(namespace) {
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'purge',
+  const r = spawnCliSync([
+    'memory', 'purge',
     `--namespace=${namespace}`,
     '--force',
   ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: ROOT });
@@ -71,8 +72,8 @@ function memoryStore(namespace, key, value) {
   const valueStr = typeof value === 'string' ? value : JSON.stringify(value);
   // Same argv-encoding note as import.mjs: `--flag=value` avoids npm's
   // non-ASCII-leading-dash argv rejection on em-dash titles (#2474 Bug 1).
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'store',
+  const r = spawnCliSync([
+    'memory', 'store',
     `--namespace=${namespace}`,
     `--key=${key}`,
     `--value=${valueStr}`,
@@ -82,8 +83,8 @@ function memoryStore(namespace, key, value) {
 }
 
 function memoryListCount(namespace) {
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'list',
+  const r = spawnCliSync([
+    'memory', 'list',
     '--namespace', namespace, '--format', 'json',
   ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: ROOT });
   if (r.status !== 0) return null;
