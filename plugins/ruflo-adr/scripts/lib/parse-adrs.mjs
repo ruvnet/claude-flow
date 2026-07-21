@@ -90,10 +90,13 @@ function parseStatus(text) {
   // `**Status**:` (colon outside) and dropped every Nygard-style ADR
   // to status=Unknown. Now the colon can sit on either side of the `**`.
   // Strip parenthetical qualifiers like "Proposed (v3.6.x)" -> "Proposed".
-  let m = /^\*\*Status:?\*\*:?\s*([A-Za-z][A-Za-z\- ]*?)(?:\s*\(.*?\))?\s*$/m.exec(text);
+  // #2659: adr-create's template writes `- **Status**: proposed` (bullet-prefixed).
+  // Add `(?:[-*]\s*)?` after `^` so the bullet/dash prefix doesn't silently
+  // drop all metadata to Unknown. Also accept plain `**Status**: proposed`.
+  let m = /^(?:[-*]\s*)?\*\*Status:?\*\*:?\s*([A-Za-z][A-Za-z\- ]*?)(?:\s*\(.*?\))?\s*$/m.exec(text);
   if (m) return m[1].trim();
   // Also handle full-bold MADR style: **Status: Value** (entire phrase bolded)
-  m = /^\*\*Status:\s*([A-Za-z][A-Za-z\- ]*?)(?:\s*\([^)]*\))?\*\*\s*$/m.exec(text);
+  m = /^(?:[-*]\s*)?\*\*Status:\s*([A-Za-z][A-Za-z\- ]*?)(?:\s*\([^)]*\))?\*\*\s*$/m.exec(text);
   return m ? m[1].trim() : 'Unknown';
 }
 
@@ -103,7 +106,8 @@ function parseDate(text) {
     const m = /^date:\s*(\S+)/m.exec(fm[1]);
     if (m) return m[1];
   }
-  const m = /^\*\*Date\*\*:\s*(\S+)/m.exec(text);
+  // #2659: accept bullet-prefixed `- **Date**: ...` from adr-create template.
+  const m = /^(?:[-*]\s*)?\*\*Date\*\*:\s*(\S+)/m.exec(text);
   return m ? m[1] : '';
 }
 
@@ -113,7 +117,8 @@ function parseTags(text) {
     const m = /^tags:\s*\[([^\]]+)\]/m.exec(fm[1]);
     if (m) return m[1].split(',').map((s) => s.trim()).filter(Boolean);
   }
-  const m = /^\*\*Tags\*\*:\s*(.+)$/m.exec(text);
+  // #2659: accept bullet-prefixed `- **Tags**: ...` from adr-create template.
+  const m = /^(?:[-*]\s*)?\*\*Tags\*\*:\s*(.+)$/m.exec(text);
   return m ? m[1].split(',').map((s) => s.trim()).filter(Boolean) : [];
 }
 
@@ -152,7 +157,8 @@ function parseLinks(text, selfId) {
   // placements (`**Supersedes:**` and `**Supersedes**:`) and an optional
   // parenthetical qualifier like `**Supersedes (partial):**` — same
   // tolerance as parseStatus.
-  const REL = (label) => new RegExp(`^\\*\\*${label}(?:\\s*\\([^)]*\\))?:?\\*\\*:?\\s*(.+)$`, 'mi');
+  // #2659: accept bullet-prefixed `- **Supersedes**: ADR-001` from adr-create template.
+  const REL = (label) => new RegExp(`^(?:[-*]\\s*)?\\*\\*${label}(?:\\s*\\([^)]*\\))?:?\\*\\*:?\\s*(.+)$`, 'mi');
   const supersedes = REL('Supersedes').exec(text);
   if (supersedes) for (const ref of extractAdrRefs(supersedes[1])) out.push({ from: ref, to: selfId, relation: 'supersedes' });
   const amended = REL('(?:Amended[ -]by|Amends)').exec(text);
