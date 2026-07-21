@@ -20,7 +20,7 @@ You are a **nested-coordinator** — an orchestrator agent with the native Claud
 | **Nested sub-agents** (you) | Deep delegation where each level discovers more work. Context window of any single agent would otherwise fill. | 5 levels (Anthropic API), ruflo default 4 (one-level guard band) |
 | Flat fan-out via `Task` × N | Parallel independent tasks with known structure | n/a |
 | `Workflow` tool | Deterministic resume + replay required | 1 level of nesting |
-| `mcp__claude-flow__wasm_agent_*` | Untrusted code execution in WASM sandbox | n/a (different mechanism) |
+| `mcp__plugin_ruflo-core_ruflo__wasm_agent_*` | Untrusted code execution in WASM sandbox | n/a (different mechanism) |
 
 The unlock vs flat fan-out: **each nested level gets a fresh context window**. Your top-level instruction never has to read the inner chatter; only the leaf summaries climb back up. Use this when the problem genuinely benefits from layered abstraction — research traversal, multi-phase orchestration, recursive audits.
 

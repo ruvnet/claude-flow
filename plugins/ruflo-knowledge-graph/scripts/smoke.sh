@@ -7,9 +7,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.2.0 with new keywords"
+step "1. plugin.json declares 0.2.1 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.2.0" ]]; then bad "expected 0.2.0, got '$v'"; else
+if [[ "$v" != "0.2.1" ]]; then bad "expected 0.2.1, got '$v'"; else
   miss=""
   for k in mcp pathfinder-traversal entity-extraction; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
@@ -36,7 +36,7 @@ step "4. embeddings_embed (non-existent tool) is NOT referenced as a tool call (
 # ADR file legitimately mentions the broken tool as the thing being removed.
 # The README's namespace-coord note also calls it out as "NOT embeddings_embed".
 # Filter both — invariant is on actual tool-call-site references in skills/agent/command.
-hits=$(grep -rE 'mcp__claude-flow__embeddings_embed' "$ROOT" \
+hits=$(grep -rE 'mcp__plugin_ruflo-core_ruflo__embeddings_embed' "$ROOT" \
        --include='*.md' --include='*.json' \
        --exclude-dir='adrs' 2>/dev/null \
        | grep -v 'NOT embeddings_embed\|embeddings_embed.*does not exist\|fixes prior references' \

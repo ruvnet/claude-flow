@@ -41,7 +41,7 @@ and validates input with Zod at the boundary. Numeric inputs are coerced (MCP/CL
   `InMemoryRunStore` for tests). This is the local stand-in for RuVector ADR-197.
 - AgentDB persistence is performed at the **command/agent layer** (Ruflo convention): each tool
   result carries an `agentdb` payload `{ namespace:"arena", key, value, tags }` for
-  `mcp__claude-flow__memory_store`, making runs semantically searchable.
+  `mcp__plugin_ruflo-core_ruflo__memory_store`, making runs semantically searchable.
 
 ### Determinism
 

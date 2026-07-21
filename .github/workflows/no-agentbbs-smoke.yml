@@ -3,7 +3,7 @@
 #   "Ruflo remains operational if the agentbbs package is removed."
 #
 # This workflow asserts three architectural rules from ADR-164 §5.1.1:
-#   1. agentbbs lives in `optionalDependencies`, NEVER `dependencies`
+#   1. agentbbs is lazy/optional and NEVER lives in `dependencies`
 #   2. Every code path that touches agentbbs in v3/@claude-flow/cli/src/
 #      is preceded by `loadAgentbbs()` (or a dynamic `import('agentbbs')`)
 #   3. Runtime drill: with `--no-optional` / unreachable registry, the smoke
@@ -48,9 +48,9 @@ jobs:
           node-version: '20'
 
       - name: Rule 1 — agentbbs must NOT appear in non-optional dependencies anywhere
-        # Static check: every package.json that could carry the dep must list
-        # agentbbs only under optionalDependencies. If it appears in
-        # `dependencies` anywhere, we've broken the architectural constraint.
+        # Static check: agentbbs may be omitted entirely for cold-start
+        # performance or listed under optionalDependencies, but never under
+        # dependencies.
         run: |
           node -e "
             const { readFileSync, readdirSync, statSync } = require('fs');

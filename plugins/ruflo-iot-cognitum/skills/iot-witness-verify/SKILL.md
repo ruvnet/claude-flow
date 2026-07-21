@@ -1,7 +1,7 @@
 ---
 name: iot-witness-verify
 description: Verify witness chain integrity and detect provenance gaps
-allowed-tools: Bash(npx *) mcp__claude-flow__memory_store Read
+allowed-tools: Bash(npx *) mcp__plugin_ruflo-core_ruflo__memory_store Read
 argument-hint: "<device-id>"
 ---
 Verify the witness chain integrity for a Cognitum Seed device.
@@ -11,4 +11,4 @@ Steps:
 2. Check for epoch gaps and hash chain breaks
 3. Report integrity score (0.0–1.0)
 4. If gaps found, store for audit trail:
-   `mcp__claude-flow__memory_store({ key: "iot-witness-gap-DEVICEID", value: "Gap from EPOCH to EPOCH", namespace: "iot-audit" })`
+   `mcp__plugin_ruflo-core_ruflo__memory_store({ key: "iot-witness-gap-DEVICEID", value: "Gap from EPOCH to EPOCH", namespace: "iot-audit" })`

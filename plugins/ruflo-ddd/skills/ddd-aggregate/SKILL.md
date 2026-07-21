@@ -2,7 +2,7 @@
 name: ddd-aggregate
 description: Scaffold an aggregate root with entity, value objects, repository interface, domain events, and test stubs. Use when adding a new aggregate to an existing bounded context, modeling a new business concept that owns invariants, or generating the boilerplate for an entity + repo + events triplet.
 argument-hint: "<context> <aggregate-name>"
-allowed-tools: Bash Read Write Edit Grep Glob mcp__claude-flow__memory_store mcp__claude-flow__memory_search mcp__claude-flow__agentdb_hierarchical-store mcp__claude-flow__hooks_pre-task mcp__claude-flow__hooks_post-task
+allowed-tools: Bash Read Write Edit Grep Glob mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store mcp__plugin_ruflo-core_ruflo__hooks_pre-task mcp__plugin_ruflo-core_ruflo__hooks_post-task
 ---
 Scaffold a complete aggregate root inside a bounded context.
 
@@ -44,8 +44,8 @@ Parse `$ARGUMENTS` as `<context-name> <aggregate-name>` (both kebab-case). The c
 
 9. **Store in domain model graph**:
    ```
-   mcp__claude-flow__agentdb_hierarchical-store --parent "context:<context>" --child "aggregate:<aggregate-name>" --relation "contains"
-   mcp__claude-flow__memory_store --key "ddd-aggregate-<context>-<aggregate-name>" --value "AGGREGATE_SUMMARY" --namespace tasks
+   mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store --parent "context:<context>" --child "aggregate:<aggregate-name>" --relation "contains"
+   mcp__plugin_ruflo-core_ruflo__memory_store --key "ddd-aggregate-<context>-<aggregate-name>" --value "AGGREGATE_SUMMARY" --namespace tasks
    ```
 
 10. **Post-task hook**: `npx @claude-flow/cli@latest hooks post-task --task-id "ddd-aggregate-<aggregate-name>" --success true --train-neural true`

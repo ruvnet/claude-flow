@@ -1,6 +1,6 @@
 # ruflo-browser
 
-Session-as-skill browser automation. Playwright-backed via 23 `mcp__claude-flow__browser_*` tools, with each session captured as a first-class **RVF cognitive container** holding manifest + trajectory + screenshots + sanitized cookies + findings, indexed in AgentDB and gated by AIDefence.
+Session-as-skill browser automation. Playwright-backed via 23 `mcp__plugin_ruflo-core_ruflo__browser_*` tools, with each session captured as a first-class **RVF cognitive container** holding manifest + trajectory + screenshots + sanitized cookies + findings, indexed in AgentDB and gated by AIDefence.
 
 > **v0.2.0 architecture** — every browser session is now an addressable, replayable, federatable artifact. Status is **Proposed** per [ADR-0001](./docs/adrs/0001-browser-skills-architecture.md); the load-bearing replay assumption requires a pre-Accept spike (see ADR Verification §4).
 >
@@ -78,7 +78,7 @@ Raw cookies and tokens never enter AgentDB unwrapped — see ADR §3.
 
 ## MCP surface
 
-18 existing `mcp__claude-flow__browser_*` interaction primitives (in [`browser-tools.ts`](../../v3/@claude-flow/cli/src/mcp-tools/browser-tools.ts): open/close/click/type/fill/select/check/uncheck/hover/press/scroll/screenshot/snapshot/eval/wait/reload/back/forward) **+ 5 new `browser_session_*` lifecycle tools (implemented in v0.2.0)** for a total of 23:
+18 existing `mcp__plugin_ruflo-core_ruflo__browser_*` interaction primitives (in [`browser-tools.ts`](../../v3/@claude-flow/cli/src/mcp-tools/browser-tools.ts): open/close/click/type/fill/select/check/uncheck/hover/press/scroll/screenshot/snapshot/eval/wait/reload/back/forward) **+ 5 new `browser_session_*` lifecycle tools (implemented in v0.2.0)** for a total of 23:
 
 | Tool | Purpose |
 |------|---------|

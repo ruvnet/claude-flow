@@ -1,0 +1,344 @@
+{
+  "$schema": "https://www.skills.sh/schema/skills.sh.json",
+  "notGrouped": false,
+  "groupings": [
+    {
+      "title": "ADR",
+      "description": "Architecture Decision Records with lifecycle and dependency tracking",
+      "skills": [
+        "adr-create",
+        "adr-index",
+        "adr-reindex",
+        "adr-review",
+        "adr-verify"
+      ]
+    },
+    {
+      "title": "Agents",
+      "description": "Managed cloud agents, WASM sandboxed agents, and nested subagent trees",
+      "skills": [
+        "managed-agent",
+        "nested-subagents",
+        "wasm-agent",
+        "wasm-gallery"
+      ]
+    },
+    {
+      "title": "AgentDB",
+      "description": "Semantic routing, HNSW vector search, and hierarchical recall",
+      "skills": [
+        "agentdb-query",
+        "vector-search"
+      ]
+    },
+    {
+      "title": "AI Defense",
+      "description": "PII detection and prompt-injection scanning",
+      "skills": [
+        "pii-detect",
+        "safety-scan"
+      ]
+    },
+    {
+      "title": "Autopilot",
+      "description": "Autonomous task loops with learned-pattern prediction",
+      "skills": [
+        "autopilot-loop",
+        "autopilot-predict"
+      ]
+    },
+    {
+      "title": "Browser",
+      "description": "Session-recorded browser automation with RVF-backed replay",
+      "skills": [
+        "browser-auth-flow",
+        "browser-extract",
+        "browser-form-fill",
+        "browser-intent",
+        "browser-login",
+        "browser-record",
+        "browser-replay",
+        "browser-scrape",
+        "browser-screenshot-diff",
+        "browser-test"
+      ]
+    },
+    {
+      "title": "Business Pods",
+      "description": "Composable business-domain agent bundles",
+      "skills": [
+        "pod-sales"
+      ]
+    },
+    {
+      "title": "Core",
+      "description": "Project init, plugin discovery, doctor health checks, and witness signing",
+      "skills": [
+        "discover-plugins",
+        "init-project",
+        "ruflo-doctor",
+        "witness"
+      ]
+    },
+    {
+      "title": "Cost Tracker",
+      "description": "Session cost telemetry, budgets, anomaly detection, and burn tracking",
+      "skills": [
+        "cost-anomaly",
+        "cost-benchmark",
+        "cost-booster-edit",
+        "cost-booster-route",
+        "cost-budget-check",
+        "cost-burn",
+        "cost-compact-context",
+        "cost-conversation",
+        "cost-counterfactual",
+        "cost-diff",
+        "cost-export",
+        "cost-federation",
+        "cost-health",
+        "cost-optimize",
+        "cost-projection",
+        "cost-report",
+        "cost-session",
+        "cost-summary",
+        "cost-track",
+        "cost-trend"
+      ]
+    },
+    {
+      "title": "Dynamic Agent Architecture",
+      "description": "Cognitive-pattern agents that adapt across tasks",
+      "skills": [
+        "cognitive-pattern",
+        "daa-agent"
+      ]
+    },
+    {
+      "title": "Domain-Driven Design",
+      "description": "Bounded-context scaffolding and aggregate validation",
+      "skills": [
+        "ddd-aggregate",
+        "ddd-context",
+        "ddd-validate"
+      ]
+    },
+    {
+      "title": "Documentation",
+      "description": "API doc generation with drift detection",
+      "skills": [
+        "api-docs",
+        "doc-gen"
+      ]
+    },
+    {
+      "title": "Federation",
+      "description": "Cross-installation zero-trust agent federation",
+      "skills": [
+        "federation-audit",
+        "federation-init",
+        "federation-status"
+      ]
+    },
+    {
+      "title": "Goals",
+      "description": "Deep research, dossier collection, and goal-oriented action planning",
+      "skills": [
+        "deep-research",
+        "dossier-collect",
+        "goal-plan",
+        "horizon-track",
+        "research-synthesize"
+      ]
+    },
+    {
+      "title": "Intelligence",
+      "description": "Learned model routing, IPFS pattern transfer, neural training",
+      "skills": [
+        "intelligence-route",
+        "intelligence-transfer",
+        "neural-train"
+      ]
+    },
+    {
+      "title": "IoT (Cognitum)",
+      "description": "ESP32 device fleet management with anomaly detection",
+      "skills": [
+        "iot-anomalies",
+        "iot-firmware",
+        "iot-fleet",
+        "iot-register",
+        "iot-witness-verify"
+      ]
+    },
+    {
+      "title": "Git Analysis",
+      "description": "Diff risk analysis and PR-lifecycle git workflows",
+      "skills": [
+        "diff-analyze",
+        "git-workflow"
+      ]
+    },
+    {
+      "title": "Knowledge Graph",
+      "description": "Entity/relation extraction with pathfinder traversal",
+      "skills": [
+        "kg-extract",
+        "kg-traverse"
+      ]
+    },
+    {
+      "title": "Loop Workers",
+      "description": "Recurring background workers via cron and interval scheduling",
+      "skills": [
+        "cron-schedule",
+        "loop-worker"
+      ]
+    },
+    {
+      "title": "Market Data",
+      "description": "OHLCV ingest with HNSW-indexed candlestick pattern matching",
+      "skills": [
+        "market-ingest",
+        "market-pattern"
+      ]
+    },
+    {
+      "title": "MetaHarness",
+      "description": "Harness scoring, MCP security scanning, drift detection, and adversarial red/blue testing",
+      "skills": [
+        "harness-bench",
+        "harness-drift-from-history",
+        "harness-evolve",
+        "harness-genome",
+        "harness-gepa",
+        "harness-learn",
+        "harness-mcp-scan",
+        "harness-mint",
+        "harness-oia-audit",
+        "harness-score",
+        "harness-security-bench",
+        "harness-similarity",
+        "harness-threat-model"
+      ]
+    },
+    {
+      "title": "Database Migrations",
+      "description": "Sequential migration generation with validation",
+      "skills": [
+        "migrate-create",
+        "migrate-validate"
+      ]
+    },
+    {
+      "title": "Neural Trader",
+      "description": "LSTM/Transformer strategy backtesting and portfolio optimization",
+      "skills": [
+        "trader-backtest",
+        "trader-cloud-backtest",
+        "trader-explain",
+        "trader-portfolio",
+        "trader-portfolio-cg",
+        "trader-regime",
+        "trader-risk",
+        "trader-signal",
+        "trader-train"
+      ]
+    },
+    {
+      "title": "Observability",
+      "description": "Distributed tracing and metrics aggregation with anomaly detection",
+      "skills": [
+        "observe-metrics",
+        "observe-trace"
+      ]
+    },
+    {
+      "title": "Plugin Creator",
+      "description": "Scaffold and validate new Claude Code plugins",
+      "skills": [
+        "create-plugin",
+        "validate-plugin"
+      ]
+    },
+    {
+      "title": "RAG Memory",
+      "description": "Hybrid search, Graph RAG, MMR reranking, memory bridging",
+      "skills": [
+        "memory-bridge",
+        "memory-search"
+      ]
+    },
+    {
+      "title": "RuVector",
+      "description": "HNSW embeddings, RVF cognitive containers, GNN clustering",
+      "skills": [
+        "vector-cluster",
+        "vector-embed",
+        "vector-hyperbolic",
+        "vector-setup"
+      ]
+    },
+    {
+      "title": "RuVLLM",
+      "description": "Local inference with MicroLoRA fine-tuning and multi-provider routing",
+      "skills": [
+        "chat-format",
+        "llm-config"
+      ]
+    },
+    {
+      "title": "RVF",
+      "description": "Portable session persistence across conversations",
+      "skills": [
+        "rvf-manage",
+        "session-persist"
+      ]
+    },
+    {
+      "title": "Security Audit",
+      "description": "Codebase security scanning and CVE dependency checks",
+      "skills": [
+        "dependency-check",
+        "security-scan"
+      ]
+    },
+    {
+      "title": "SPARC",
+      "description": "Specification-Pseudocode-Architecture-Refinement-Completion methodology",
+      "skills": [
+        "sparc-implement",
+        "sparc-refine",
+        "sparc-spec"
+      ]
+    },
+    {
+      "title": "Swarm",
+      "description": "Multi-agent swarm initialization and live event monitoring",
+      "skills": [
+        "monitor-stream",
+        "swarm-init"
+      ]
+    },
+    {
+      "title": "Test Generation",
+      "description": "TDD London School test generation with coverage gap detection",
+      "skills": [
+        "tdd-repair",
+        "tdd-workflow",
+        "test-gaps"
+      ]
+    },
+    {
+      "title": "Workflows",
+      "description": "GAIA benchmark runs and native workflow orchestration",
+      "skills": [
+        "gaia-architecture-comparison",
+        "gaia-debugging",
+        "gaia-submission",
+        "workflow-create",
+        "workflow-run"
+      ]
+    }
+  ]
+}

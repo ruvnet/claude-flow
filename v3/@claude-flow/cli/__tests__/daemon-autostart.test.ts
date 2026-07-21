@@ -52,6 +52,42 @@ describe('ensureDaemonRunning', () => {
     expect(r.started).toBe(false);
     expect(spawned).toBe(0);
   });
+
+  it('respects a project-local claude-flow.config.json opt-out (survives env vars not propagating)', () => {
+    // The real-world gap this closes: a non-interactive shell never sources
+    // ~/.bashrc (its own top-of-file `case $- in *i*) ;; *) return;; esac`
+    // guard skips it outright), so `export RUFLO_DAEMON_AUTOSTART=0` in one
+    // such shell does not carry to the next command's shell. A file on disk
+    // has no such gap.
+    delete process.env.RUFLO_DAEMON_AUTOSTART;
+    const cwd = project();
+    writeFileSync(join(cwd, 'claude-flow.config.json'), JSON.stringify({ daemon: { autostart: false } }));
+    let spawned = 0;
+    const r = ensureDaemonRunning(cwd, { isAlive: () => false, spawnFn: () => { spawned++; } });
+    expect(r.started).toBe(false);
+    expect(r.reason).toMatch(/disabled/);
+    expect(spawned).toBe(0);
+  });
+
+  it('a malformed claude-flow.config.json is treated as not-disabled (fails open on parse errors, not silently blocking)', () => {
+    delete process.env.RUFLO_DAEMON_AUTOSTART;
+    const cwd = project();
+    writeFileSync(join(cwd, 'claude-flow.config.json'), 'this is not valid json {{{');
+    let spawned = 0;
+    const r = ensureDaemonRunning(cwd, { isAlive: () => false, spawnFn: () => { spawned++; } });
+    expect(r.started).toBe(true);
+    expect(spawned).toBe(1);
+  });
+
+  it('a config file present but without daemon.autostart:false does not disable it', () => {
+    delete process.env.RUFLO_DAEMON_AUTOSTART;
+    const cwd = project();
+    writeFileSync(join(cwd, 'claude-flow.config.json'), JSON.stringify({ funnel: { enabled: false } }));
+    let spawned = 0;
+    const r = ensureDaemonRunning(cwd, { isAlive: () => false, spawnFn: () => { spawned++; } });
+    expect(r.started).toBe(true);
+    expect(spawned).toBe(1);
+  });
 });
 
 describe('isDaemonAlive', () => {

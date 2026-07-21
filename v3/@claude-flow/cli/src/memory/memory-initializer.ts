@@ -37,6 +37,33 @@ function isRuvectorCoreResolvable(): boolean {
 }
 
 /**
+ * #2735 — before a whole-image sql.js read-modify-persist (export() +
+ * rename over the live database path), refuse if there is evidence of a
+ * live native (better-sqlite3) WAL connection: `-wal`/`-shm` sidecar files
+ * on disk. A native connection in WAL mode keeps its sidecars present for
+ * its entire lifetime (removed only on the last connection's clean close),
+ * so their presence is strong evidence of a live native holder — and their
+ * absence means the image is a clean, checkpointed, standalone file that
+ * sql.js can safely read-modify-write.
+ *
+ * This is a scoped-down version of the fuller "scan live process holders"
+ * design discussed in #2735: it does not close the narrow assess-then-write
+ * race (a native opener could still attach in the gap between this check
+ * and the write), but it directly closes the demonstrated corruption
+ * mechanism — a whole-image write proceeding while an ALREADY-OPEN native
+ * connection's sidecars are on disk — with no platform-specific process
+ * scanning. Fails closed (treats a stat error as "unsafe") because this is
+ * a safety gate, not a best-effort probe.
+ */
+function hasNativeWalSidecars(dbPath: string): boolean {
+  try {
+    return fs.existsSync(`${dbPath}-wal`) || fs.existsSync(`${dbPath}-shm`);
+  } catch {
+    return true;
+  }
+}
+
+/**
  * #1854: previously every site that needed the memory directory hardcoded
  * `getMemoryRoot()`, so the documented config entry
  * points (`memory.persistPath` config field, `memory configure --path`,
@@ -2668,6 +2695,23 @@ export async function storeEntry(options: {
       return { success: false, id: '', error: 'Database not initialized. Run: claude-flow memory init' };
     }
 
+    // #2735 — refuse an unsafe whole-image write while a native WAL
+    // connection appears to be attached (sidecars on disk). See
+    // hasNativeWalSidecars()'s doc comment for the corruption mechanism
+    // this closes and its known residual (the narrow assess-then-write
+    // race). This check gates ensureSchemaColumns()'s own whole-image
+    // write below too, not just this function's.
+    if (hasNativeWalSidecars(dbPath)) {
+      return {
+        success: false,
+        id: '',
+        error: 'memory database has an active native WAL connection ' +
+          '(found -wal/-shm sidecar files) — refusing an unsafe sql.js ' +
+          'whole-image write. Retry once the native writer completes, or ' +
+          'restore the native better-sqlite3 bridge.',
+      };
+    }
+
     // Ensure schema has all required columns (migration for older DBs)
     await ensureSchemaColumns(dbPath);
 
@@ -3179,6 +3223,21 @@ export async function getEntry(options: {
       return { success: false, found: false, error: 'Database not found' };
     }
 
+    // #2735 — see storeEntry's identical gate for the corruption mechanism
+    // this closes. Applies here too because the fallback's access_count
+    // bump is itself a whole-image write, not a lightweight read, even
+    // though this function's contract reads as a "get".
+    if (hasNativeWalSidecars(dbPath)) {
+      return {
+        success: false,
+        found: false,
+        error: 'memory database has an active native WAL connection ' +
+          '(found -wal/-shm sidecar files) — refusing an unsafe sql.js ' +
+          'whole-image read/write. Retry once the native writer completes, ' +
+          'or restore the native better-sqlite3 bridge.',
+      };
+    }
+
     // Ensure schema has all required columns (migration for older DBs)
     await ensureSchemaColumns(dbPath);
 
@@ -3320,6 +3379,22 @@ export async function deleteEntry(options: {
       };
     }
 
+    // #2735 — see storeEntry's identical gate for the corruption mechanism
+    // this closes.
+    if (hasNativeWalSidecars(dbPath)) {
+      return {
+        success: false,
+        deleted: false,
+        key,
+        namespace,
+        remainingEntries: 0,
+        error: 'memory database has an active native WAL connection ' +
+          '(found -wal/-shm sidecar files) — refusing an unsafe sql.js ' +
+          'whole-image write. Retry once the native writer completes, or ' +
+          'restore the native better-sqlite3 bridge.',
+      };
+    }
+
     // Ensure schema has all required columns (migration for older DBs)
     await ensureSchemaColumns(dbPath);
 
@@ -3416,6 +3491,153 @@ export async function deleteEntry(options: {
   }
 }
 
+// #2666 — Namespace reconciliation ("reaping"). `deleteEntry` above only ever
+// soft-deletes (UPDATE ... SET status='deleted'), and the row's (namespace,
+// key) stays occupied against the UNIQUE(namespace, key) constraint — a
+// caller that needs a namespace to be genuinely empty (e.g. a plugin
+// rebuilding its whole index after a source file was deleted, so a stale
+// row would otherwise survive forever with no dangling-ref/cycle signal to
+// ever catch it) has no way to get there through the public CLI/MCP surface.
+// `purgeNamespace` is a real `DELETE FROM memory_entries WHERE namespace = ?`
+// — irreversible, namespace-scoped, and lock-protected against a second
+// concurrent purge/delete on the same db file (see withMemoryDbLock below).
+//
+// This does NOT fully close #2621 (a concurrent daemon/MCP server already
+// mid read-modify-write on the sql.js fallback path can still flush an
+// older in-memory image after this purge commits, resurrecting rows) — that
+// requires every memory.db writer to respect the same lock, which is a
+// larger change than this namespace-reconcile primitive. The lock here
+// bounds the race to "another purge/delete running at the same instant",
+// which is the concrete case this feature needs to be safe against.
+
+const MEMORY_DB_LOCK_STALE_MS = 10_000;
+
+function delayMs(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Advisory O_EXCL lock scoped to a single memory.db file (`<dbPath>.lock`),
+ * same stale-takeover pattern as services/global-ai-budget.ts. Only
+ * meaningful between callers that opt into it (purgeNamespace does); it
+ * cannot coordinate against writers that don't call this helper.
+ */
+export async function withMemoryDbLock<T>(dbPath: string, fn: () => Promise<T> | T): Promise<T> {
+  const lockFile = `${dbPath}.lock`;
+  const deadline = Date.now() + 5000;
+  for (;;) {
+    try {
+      const fd = fs.openSync(lockFile, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY, 0o600);
+      fs.writeSync(fd, String(process.pid));
+      fs.closeSync(fd);
+      try {
+        return await fn();
+      } finally {
+        try { fs.unlinkSync(lockFile); } catch { /* already gone */ }
+      }
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+      try {
+        const st = fs.lstatSync(lockFile);
+        if (Date.now() - st.mtimeMs > MEMORY_DB_LOCK_STALE_MS) {
+          fs.unlinkSync(lockFile);
+          continue;
+        }
+      } catch { /* raced — retry */ }
+      if (Date.now() > deadline) {
+        throw new Error(`timed out acquiring memory.db lock: ${lockFile}`);
+      }
+      await delayMs(25);
+    }
+  }
+}
+
+const NAMESPACE_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
+
+export async function purgeNamespace(options: {
+  namespace: string;
+  dbPath?: string;
+}): Promise<{
+  success: boolean;
+  deletedCount: number;
+  remainingEntries: number;
+  error?: string;
+}> {
+  const { namespace, dbPath: customPath } = options;
+
+  if (!NAMESPACE_PATTERN.test(namespace)) {
+    return { success: false, deletedCount: 0, remainingEntries: 0, error: `Invalid namespace: ${namespace}` };
+  }
+
+  const swarmDir = getMemoryRoot();
+  const dbPath = customPath ? path.resolve(customPath) : path.join(swarmDir, 'memory.db');
+
+  return withMemoryDbLock(dbPath, async () => {
+    // ADR-053: try the AgentDB v3 bridge first — a real SQLite handle, so
+    // the DELETE is a genuine transactional statement, not a whole-file
+    // read/mutate/rewrite.
+    const bridge = await getBridge();
+    if (bridge) {
+      const bridgeResult = await bridge.bridgePurgeNamespace({ namespace, dbPath });
+      if (bridgeResult) {
+        if (bridgeResult.deletedCount > 0 && hnswIndex?.entries) {
+          for (const [id, entry] of hnswIndex.entries) {
+            if (((entry as any)?.namespace ?? 'default') === namespace) hnswIndex.entries.delete(id);
+          }
+          saveHNSWMetadata();
+          rebuildSearchIndex();
+        }
+        return bridgeResult;
+      }
+    }
+
+    // Fallback: raw sql.js, same whole-file read/mutate/rewrite shape as
+    // deleteEntry's fallback path above (and the same encryption handling).
+    try {
+      if (!fs.existsSync(dbPath)) {
+        return { success: false, deletedCount: 0, remainingEntries: 0, error: 'Database not found' };
+      }
+
+      await ensureSchemaColumns(dbPath);
+
+      const initSqlJs = (await import('sql.js')).default;
+      const SQL = await initSqlJs();
+
+      const fileBuffer = readFileMaybeEncrypted(dbPath, null);
+      const db = new SQL.Database(fileBuffer);
+
+      const beforeResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE namespace = ?`, [namespace]);
+      const deletedCount = (beforeResult[0]?.values?.[0]?.[0] as number) || 0;
+
+      db.run(`DELETE FROM memory_entries WHERE namespace = ?`, [namespace]);
+
+      const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE status = 'active'`);
+      const remainingEntries = (countResult[0]?.values?.[0]?.[0] as number) || 0;
+
+      const data = db.export();
+      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+      db.close();
+
+      if (deletedCount > 0 && hnswIndex?.entries) {
+        for (const [id, entry] of hnswIndex.entries) {
+          if (((entry as any)?.namespace ?? 'default') === namespace) hnswIndex.entries.delete(id);
+        }
+        saveHNSWMetadata();
+        rebuildSearchIndex();
+      }
+
+      return { success: true, deletedCount, remainingEntries };
+    } catch (error) {
+      return {
+        success: false,
+        deletedCount: 0,
+        remainingEntries: 0,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+}
+
 export default {
   initializeMemoryDatabase,
   checkMemoryInitialization,
@@ -3430,6 +3652,8 @@ export default {
   listEntries,
   getEntry,
   deleteEntry,
+  purgeNamespace,
+  withMemoryDbLock,
   rebuildSearchIndex,
   MEMORY_SCHEMA_V3,
   getInitialMetadata

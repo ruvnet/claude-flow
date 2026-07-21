@@ -2,7 +2,7 @@
 name: browser-intent
 description: Execute a natural-language browser intent via page-agent (browser_act) when the target is easier to describe than to select — degrades gracefully when page-agent or an OpenAI-compatible LLM provider isn't configured
 argument-hint: "<task-description> [--url <url>] [--session <id>]"
-allowed-tools: mcp__claude-flow__browser_act mcp__claude-flow__browser_open mcp__claude-flow__browser_snapshot mcp__claude-flow__browser_close mcp__claude-flow__aidefence_has_pii mcp__claude-flow__aidefence_is_safe Bash Read
+allowed-tools: mcp__plugin_ruflo-core_ruflo__browser_act mcp__plugin_ruflo-core_ruflo__browser_open mcp__plugin_ruflo-core_ruflo__browser_snapshot mcp__plugin_ruflo-core_ruflo__browser_close mcp__plugin_ruflo-core_ruflo__aidefence_has_pii mcp__plugin_ruflo-core_ruflo__aidefence_is_safe Bash Read
 ---
 
 # Browser Intent
@@ -19,7 +19,7 @@ Natural-language layer on top of the low-level `browser_*` selector tools. Where
 
 1. **Call `browser_act`** with a `task` string, and optionally `url` (navigates first) and `session` (default `"default"`):
    ```
-   mcp__claude-flow__browser_act({
+   mcp__plugin_ruflo-core_ruflo__browser_act({
      task: "Click the login button",
      url: "https://example.com/account",
      session: "my-session"

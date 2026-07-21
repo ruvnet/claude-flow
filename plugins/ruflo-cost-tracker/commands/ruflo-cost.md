@@ -150,8 +150,8 @@ Cost tracking commands:
 6. Smoke step 23 fails the build if `winRate < 0.80`. See `cost-benchmark` skill for env-var overrides.
 
 **`cost workers`** -- Inspect the `optimize` and `benchmark` background workers consumed from ruflo-loop-workers.
-1. Call `mcp__claude-flow__hooks_worker-status --worker optimize` -- report last-run timestamp, outcome, and any pending recommendations
-2. Call `mcp__claude-flow__hooks_worker-status --worker benchmark` -- report last-run timestamp, outcome, and any pending benchmark deltas
+1. Call `mcp__plugin_ruflo-core_ruflo__hooks_worker-status --worker optimize` -- report last-run timestamp, outcome, and any pending recommendations
+2. Call `mcp__plugin_ruflo-core_ruflo__hooks_worker-status --worker benchmark` -- report last-run timestamp, outcome, and any pending benchmark deltas
 3. Cross-link [ruflo-loop-workers ADR-0001 §"12-worker trigger map"](../../ruflo-loop-workers/docs/adrs/0001-loop-workers-contract.md) — the contract this command honors
 4. Display: worker name, status, last-run timestamp, outcome, last-summary
 

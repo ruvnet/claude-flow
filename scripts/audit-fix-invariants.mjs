@@ -117,12 +117,14 @@ const INVARIANTS = [
     regex: /['"]marketplaces['"]\s*,\s*['"]ruflo['"]/,
     why: 'Same plugin-install candidate in the root statusline copy.',
   },
-  {
-    issue: '#1951',
-    file: 'v3/@claude-flow/cli/src/init/statusline-generator.ts',
-    regex: /['"]marketplaces['"]\s*,\s*['"]ruflo['"]/,
-    why: 'Same plugin-install candidate in the init template that generates project-local statuslines.',
-  },
+  // #2679 sync: the init template no longer inlines the statusline —
+  // it reads .claude/helpers/statusline.cjs and substitutes. The
+  // marketplaces/ruflo candidate path therefore lives in the helper
+  // file (already covered by the two invariants above). Dropping this
+  // entry since the invariant is now enforced by the paired
+  // .claude/helpers/statusline.cjs + v3/@claude-flow/cli/.claude/helpers/
+  // statusline.cjs invariants; the generator can't ship a copy without
+  // that candidate because it doesn't ship a copy at all — it reads one.
 
   // #1953 — hooks_pretrain code-file budget + code-dir-first traversal
   {
@@ -157,11 +159,26 @@ const INVARIANTS = [
   // (presence of the delegation pattern) catches it before the SQLite
   // magic-check would ever be relevant. See ruvnet/ruflo#2216 for the
   // user-deployed (pre-#2196) statusline still having the bug.
+  // #2679 sync: statusline-generator no longer inlines the delegation
+  // template as a big string — it now READS
+  // .claude/helpers/statusline.cjs at generation time and interpolates
+  // maxAgents + bakedVersion. The delegation contract therefore lives
+  // in the HELPER file, not the generator. Two paired invariants:
+  //   1. the helper must contain the delegation pattern (unchanged intent)
+  //   2. the generator must still be reading the helper (so the pattern
+  //      actually reaches init output)
+  // Splitting the check catches drift on either side of the sync.
   {
     issue: '#2196',
-    file: 'v3/@claude-flow/cli/src/init/statusline-generator.ts',
+    file: 'v3/@claude-flow/cli/.claude/helpers/statusline.cjs',
     regex: /hooks[- ]statusline|hooksStatusline/,
-    why: 'Statusline-generator must delegate to hooks-statusline rather than re-implementing memory.db readers (#2195/#1989 supersession). Without delegation, the regenerated statusline.cjs goes back to raw-bytes reading which broke for encrypted RFE1 DBs.',
+    why: 'Statusline helper must delegate to hooks-statusline rather than re-implementing memory.db readers (#2195/#1989 supersession). Without delegation, the shipped statusline.cjs goes back to raw-bytes reading which broke for encrypted RFE1 DBs. (Was previously checked in statusline-generator.ts; moved here per #2679 read-and-substitute refactor.)',
+  },
+  {
+    issue: '#2679',
+    file: 'v3/@claude-flow/cli/src/init/statusline-generator.ts',
+    regex: /statusline\.cjs/,
+    why: 'Generator must READ .claude/helpers/statusline.cjs as its single source of truth (see #2679). Removing this reference would silently regress the generator to whatever inline template shape existed at the time — the pre-#2195 non-delegation build in the prior history.',
   },
 
   // #1987 — memory stats uses persistent HNSW count from MCP tool, not

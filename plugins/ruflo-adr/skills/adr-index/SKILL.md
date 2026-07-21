@@ -2,7 +2,7 @@
 name: adr-index
 description: Build or rebuild the ADR index + dependency graph by running scripts/import.mjs (handles v3-style and plugin-style ADR formats; one Bash call vs hundreds of MCP round-trips)
 argument-hint: ""
-allowed-tools: Bash mcp__claude-flow__memory_list mcp__claude-flow__memory_search
+allowed-tools: Bash mcp__plugin_ruflo-core_ruflo__memory_list mcp__plugin_ruflo-core_ruflo__memory_search
 ---
 
 # ADR Index
@@ -37,7 +37,7 @@ Implementation is in `scripts/import.mjs` (one Bash call) rather than dozens of 
 
 3. **Verify graph integrity** (optional but recommended) via the sibling `adr-verify` skill, which runs `scripts/verify.mjs` and exits 1 on cycles.
 
-4. **Search semantically** via `mcp__claude-flow__memory_search` against the populated namespace:
+4. **Search semantically** via `mcp__plugin_ruflo-core_ruflo__memory_search` against the populated namespace:
 
    ```
    memory_search --query "federation budget" --namespace adr-patterns
@@ -66,8 +66,13 @@ tags: <comma-separated>
 
 `#1697` / `commit abc123` / `PR 1234` references inside ADR bodies are stripped before regex extraction so they don't get misread as `ADR-1697` etc. See `extractAdrRefs()` in `scripts/import.mjs`.
 
+## What this skill cannot do
+
+`adr-index` only ever adds/upserts. If an ADR file was deleted (or a relation line removed from a surviving file), the row it wrote stays forever — `adr-verify` won't catch it either, since an orphan has no dangling ref and forms no cycle. Use the sibling `adr-reindex` skill to reconcile a deletion (issue #2666).
+
 ## Cross-references
 
 - `adr-create` — produces the ADR files this skill consumes
 - `adr-review` — runs over `adr-patterns` for compliance checks
 - `adr-verify` (sibling skill) — runs `scripts/verify.mjs` for graph-integrity gating
+- `adr-reindex` (sibling skill) — drop-and-rebuild reconcile for a deleted ADR file (this skill can only add, never remove)

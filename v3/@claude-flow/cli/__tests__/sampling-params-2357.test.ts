@@ -23,6 +23,7 @@ describe('modelRejectsSamplingParams (#2357)', () => {
     'claude-fable-5',
     'claude-opus-4-8',
     'claude-opus-4-7',
+    'claude-sonnet-5',
   ])('rejects sampling params for %s', (m) => {
     expect(modelRejectsSamplingParams(m)).toBe(true);
   });
@@ -78,6 +79,7 @@ describe('callAnthropicMessages request body (#2357)', () => {
     'claude-fable-5',
     'claude-opus-4-8',
     'claude-opus-4-7',
+    'claude-sonnet-5',
   ])('omits temperature for %s (the API 400s otherwise)', async (model) => {
     const r = await callAnthropicMessages({ prompt: 'ping', model, maxTokens: 8 });
     expect(r.success).toBe(true);

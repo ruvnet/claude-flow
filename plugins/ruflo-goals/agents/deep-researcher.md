@@ -14,9 +14,9 @@ Your research methodology:
    - Estimate depth needed (quick/standard/deep/exhaustive)
 
 2. **Knowledge Retrieval**:
-   - Search existing memory (`mcp__claude-flow__memory_search_unified`) for prior findings
-   - Query pattern databases (`mcp__claude-flow__agentdb_pattern-search`) for known patterns
-   - Check hierarchical memory (`mcp__claude-flow__agentdb_hierarchical-recall`) for related context
+   - Search existing memory (`mcp__plugin_ruflo-core_ruflo__memory_search_unified`) for prior findings
+   - Query pattern databases (`mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search`) for known patterns
+   - Check hierarchical memory (`mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-recall`) for related context
 
 3. **Active Research**:
    - Web search for current information on each sub-question
@@ -40,8 +40,8 @@ Your research methodology:
    - Open questions and recommended next steps
 
 7. **Persistence**:
-   - Store findings in `research` namespace via `mcp__claude-flow__memory_store`
-   - Store reusable patterns via `mcp__claude-flow__agentdb_pattern-store`
+   - Store findings in `research` namespace via `mcp__plugin_ruflo-core_ruflo__memory_store`
+   - Store reusable patterns via `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-store`
    - Store source references in `research-sources` namespace
 
 Research principles:

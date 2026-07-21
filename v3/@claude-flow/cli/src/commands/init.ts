@@ -8,6 +8,7 @@ import { output } from '../output.js';
 import { confirm, select, multiSelect, input } from '../prompt.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { spawnSync } from 'node:child_process';
 import {
   executeInit,
   executeUpgrade,
@@ -17,6 +18,234 @@ import {
   FULL_INIT_OPTIONS,
   type InitOptions,
 } from '../init/index.js';
+import {
+  ENROLLMENT_SCREEN,
+  recordEnrollmentOutcome,
+  shouldOfferEnrollment,
+} from '../funnel/enrollment.js';
+import { commandExists } from '../services/harness-hosts.js';
+
+/**
+ * ADR-302 post-init capability enrollment. One-time, interactive-TTY-only,
+ * skippable with --no-signup, auto-skipped in CI/automation. Never throws
+ * and never affects init's exit code. Accepting records the `account`
+ * consent receipt only — no other capability is enabled by this prompt.
+ */
+async function offerCapabilityEnrollment(ctx: CommandContext): Promise<void> {
+  try {
+    const noSignup = Boolean(ctx.flags['no-signup'] || ctx.flags.noSignup);
+    if (ctx.flags.format === 'json') return; // scripted output stays pure
+    if (!shouldOfferEnrollment({ noSignup, cwd: ctx.cwd })) return;
+    output.writeln();
+    output.writeln(ENROLLMENT_SCREEN);
+    output.writeln();
+    const accepted = await confirm({
+      message: 'Create a free Cognitum account now?',
+      default: false,
+    });
+    recordEnrollmentOutcome(Boolean(accepted));
+    output.writeln();
+    if (accepted) {
+      output.printInfo('Create your free account at https://cognitum.one');
+      output.writeln(output.dim('  CLI sign-in (`ruflo auth login`) ships with the ADR-306 auth release.'));
+    } else {
+      output.writeln(output.dim('You can enable later at https://cognitum.one — this prompt will not repeat.'));
+    }
+  } catch {
+    // Enrollment is optional; init success is never affected.
+  }
+}
+
+// Dynamic import of the optional @claude-flow/codex package. Returns
+// undefined (never throws) when the package isn't resolvable anywhere —
+// callers decide whether that's a hard error (explicit --codex/--dual) or a
+// silent skip (auto-detect during a plain `ruflo init`).
+interface CodexInitResult {
+  success: boolean;
+  errors?: string[];
+  filesCreated: string[];
+  skillsGenerated: string[];
+  warnings?: string[];
+}
+type CodexInitializerCtor = new () => { initialize: (options: Record<string, unknown>) => Promise<CodexInitResult> };
+
+async function resolveCodexInitializer(cwd: string): Promise<CodexInitializerCtor | undefined> {
+  // Use a variable to prevent TypeScript from statically resolving the optional module
+  const codexModuleId = '@claude-flow/codex';
+  const resolutionStrategies = [
+    // Strategy 1: Direct import (works if installed as CLI dependency)
+    async () => (await import(codexModuleId)).CodexInitializer,
+    // Strategy 2: Project node_modules (works if installed in user's project)
+    async () => {
+      const projectPath = path.join(cwd, 'node_modules', '@claude-flow', 'codex', 'dist', 'index.js');
+      if (fs.existsSync(projectPath)) {
+        const mod = await import(`file://${projectPath}`);
+        return mod.CodexInitializer;
+      }
+      throw new Error('Not found in project');
+    },
+    // Strategy 3: Global node_modules
+    async () => {
+      const { execSync } = await import('child_process');
+      const globalPath = execSync('npm root -g', { encoding: 'utf-8' }).trim();
+      const codexPath = path.join(globalPath, '@claude-flow', 'codex', 'dist', 'index.js');
+      if (fs.existsSync(codexPath)) {
+        const mod = await import(`file://${codexPath}`);
+        return mod.CodexInitializer;
+      }
+      throw new Error('Not found globally');
+    },
+  ];
+
+  for (const strategy of resolutionStrategies) {
+    try {
+      const ctor = await strategy();
+      if (ctor) return ctor;
+    } catch {
+      // Try next strategy
+    }
+  }
+  return undefined;
+}
+
+// Keep Codex out of the CLI dependency graph so cold `npx ruflo --version`
+// remains fast (#2561). An explicit `init --codex` may fetch the small,
+// stable adapter on demand when it is not already installed by an umbrella
+// package, the current project, or the global npm prefix.
+export function runCodexInitializerCli(
+  cwd: string,
+  options: { template: string; force: boolean; dual: boolean },
+): boolean {
+  const npxArgs = [
+    '-y',
+    '@claude-flow/codex@latest',
+    'init',
+    '--template',
+    options.template,
+    ...(options.force ? ['--force'] : []),
+    ...(options.dual ? ['--dual'] : []),
+  ];
+
+  const result = process.platform === 'win32'
+    ? spawnSync(
+        process.env.ComSpec || 'cmd.exe',
+        ['/d', '/s', '/c', ['npx', ...npxArgs].join(' ')],
+        { cwd, stdio: 'inherit', windowsHide: true },
+      )
+    : spawnSync('npx', npxArgs, { cwd, stdio: 'inherit' });
+
+  if (result.error) throw result.error;
+  return result.status === 0;
+}
+
+// #2666-adjacent — quietly wire up Codex too when a plain `ruflo init` (no
+// --codex/--dual) runs on a machine that also has the OpenAI Codex CLI on
+// PATH: registers its MCP server and installs skills alongside the Claude
+// Code setup that just happened. Best-effort and silent-by-default — must
+// never fail or noisily interrupt a normal init. Opt out with
+// --no-codex-detect. Skipped entirely under --skip-claude (runtime-only
+// init) and scripted `--format json` output.
+async function maybeAutoDetectCodex(
+  ctx: CommandContext,
+  options: { force: boolean; minimal: boolean; full: boolean },
+): Promise<void> {
+  try {
+    if (ctx.flags['no-codex-detect'] === true) return;
+    if (ctx.flags.format === 'json') return; // scripted output stays pure
+    if (!commandExists('codex')) return;
+
+    const CodexInitializer = await resolveCodexInitializer(ctx.cwd);
+    if (!CodexInitializer) {
+      output.writeln();
+      output.printInfo('Detected the OpenAI Codex CLI — install @claude-flow/codex to auto-configure its MCP server and skills:');
+      output.writeln(output.dim('  npm install @claude-flow/codex && ruflo init --codex'));
+      return;
+    }
+
+    const initializer = new CodexInitializer();
+    const result = await initializer.initialize({
+      projectPath: ctx.cwd,
+      template: (options.minimal ? 'minimal' : options.full ? 'full' : 'default') as 'minimal' | 'default' | 'full' | 'enterprise',
+      force: options.force,
+      dual: false, // Claude Code files were already written by the main init flow above
+    });
+
+    if (!result.success) return; // best-effort — never fail the primary init over this
+
+    output.writeln();
+    output.printBox(
+      [
+        `AGENTS.md:            Codex project instructions`,
+        `.agents/config.toml:  MCP server + skills config`,
+        `.agents/skills/:      ${result.skillsGenerated.length} skills`,
+      ].join('\n'),
+      'OpenAI Codex detected — configured'
+    );
+  } catch {
+    // Codex auto-detect is a bonus, never a requirement — swallow everything.
+  }
+}
+
+// Cross-agent skill registration via skills.sh. Runs `npx --yes skills add
+// ruvnet/ruflo --skill ruflo --yes` so the *single* canonical ruflo skill
+// (SKILL.md at the ruvnet/ruflo repo root — describes the platform + entry
+// points) reaches whatever agent the project uses (Claude Code, Cursor,
+// Copilot, Gemini, Cline, …). Users who want ALL 267 plugin-specific skills
+// can run `npx skills add ruvnet/ruflo --all` themselves. Best-effort — never
+// fails init. Opt-out: --no-skills-sh flag OR RUFLO_NO_SKILLS_SH=1. Skipped
+// under --skip-claude and scripted `--format json` output.
+//
+// windowsHide silences the console flash the npx child would otherwise produce
+// (anthropics/claude-code#14828 spawn hazard applies to hook-fired spawns,
+// but our own subprocess spawns should always set this).
+async function maybeInstallSkillsSh(ctx: CommandContext): Promise<void> {
+  try {
+    if (ctx.flags['no-skills-sh'] === true) return;
+    if (ctx.flags.format === 'json') return;
+    if (/^(1|true|on|yes)$/i.test(String(process.env.RUFLO_NO_SKILLS_SH || ''))) return;
+
+    // Idempotency gate: if this project has already registered ruflo with
+    // skills.sh, don't re-clone the repo + re-fire a fresh install telemetry
+    // event on every `ruflo init --force` / `init upgrade` / etc. Each install
+    // pings skills.sh's leaderboard AND clones the whole ruvnet/ruflo repo
+    // (~50MB) — re-running per-init would silently inflate our own metrics
+    // (GitHub unique-cloners, skills.sh rank) and waste user bandwidth. This
+    // check makes the registration once-per-project, matching the intent.
+    const nodePath = await import('path');
+    const nodeFs = await import('fs');
+    const marker = nodePath.join(ctx.cwd, '.agents', 'skills', 'ruflo');
+    if (nodeFs.existsSync(marker)) {
+      output.writeln();
+      output.writeln(output.dim('  skills.sh registration already present at .agents/skills/ruflo — skipping'));
+      return;
+    }
+
+    const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+    if (!commandExists('npx')) return;
+
+    output.writeln();
+    output.printInfo('Registering the core `ruflo` skill with skills.sh (cross-agent catalog)…');
+
+    const { spawnSync } = await import('child_process');
+    const result = spawnSync(
+      npxCmd,
+      ['--yes', 'skills', 'add', 'ruvnet/ruflo', '--skill', 'ruflo', '--yes'],
+      { cwd: ctx.cwd, stdio: 'pipe', timeout: 60_000, windowsHide: true, encoding: 'utf-8' },
+    );
+
+    if (result.status === 0) {
+      output.writeln(output.success('  ✓ ruflo registered via skills.sh — the platform skill is available to any agent in this project'));
+      output.writeln(output.dim('    Want all 267 plugin skills? npx skills add ruvnet/ruflo --all'));
+      output.writeln(output.dim('    Opt out next time: --no-skills-sh or RUFLO_NO_SKILLS_SH=1'));
+    } else {
+      // Common non-fatal reasons: offline, npx cache miss, skills CLI version
+      // mismatch, unknown package. Log a soft note; users can retry manually.
+      output.writeln(output.dim('  skills.sh registration skipped (network or npx cache) — retry with: npx skills add ruvnet/ruflo --skill ruflo --yes'));
+    }
+  } catch {
+    // Skills.sh registration is a bonus, never a requirement — swallow everything.
+  }
+}
 
 // Codex initialization action
 async function initCodexAction(
@@ -36,55 +265,17 @@ async function initCodexAction(
   spinner.start();
 
   try {
-    // Dynamic import of the Codex initializer with lazy loading fallback
-    interface CodexInitResult {
-      success: boolean;
-      errors?: string[];
-      filesCreated: string[];
-      skillsGenerated: string[];
-      warnings?: string[];
-    }
-    let CodexInitializer: (new () => { initialize: (options: Record<string, unknown>) => Promise<CodexInitResult> }) | undefined;
-
-    // Try multiple resolution strategies for the @claude-flow/codex package
-    // Use a variable to prevent TypeScript from statically resolving the optional module
-    const codexModuleId = '@claude-flow/codex';
-    const resolutionStrategies = [
-      // Strategy 1: Direct import (works if installed as CLI dependency)
-      async () => (await import(codexModuleId)).CodexInitializer,
-      // Strategy 2: Project node_modules (works if installed in user's project)
-      async () => {
-        const projectPath = path.join(ctx.cwd, 'node_modules', '@claude-flow', 'codex', 'dist', 'index.js');
-        if (fs.existsSync(projectPath)) {
-          const mod = await import(`file://${projectPath}`);
-          return mod.CodexInitializer;
-        }
-        throw new Error('Not found in project');
-      },
-      // Strategy 3: Global node_modules
-      async () => {
-        const { execSync } = await import('child_process');
-        const globalPath = execSync('npm root -g', { encoding: 'utf-8' }).trim();
-        const codexPath = path.join(globalPath, '@claude-flow', 'codex', 'dist', 'index.js');
-        if (fs.existsSync(codexPath)) {
-          const mod = await import(`file://${codexPath}`);
-          return mod.CodexInitializer;
-        }
-        throw new Error('Not found globally');
-      },
-    ];
-
-    for (const strategy of resolutionStrategies) {
-      try {
-        CodexInitializer = await strategy();
-        if (CodexInitializer) break;
-      } catch {
-        // Try next strategy
-      }
-    }
+    const CodexInitializer = await resolveCodexInitializer(ctx.cwd);
 
     if (!CodexInitializer) {
-      throw new Error('Cannot find module @claude-flow/codex');
+      spinner.stop();
+      output.printInfo('Fetching the stable Codex adapter for this initialization...');
+      const success = runCodexInitializerCli(ctx.cwd, { template, force, dual: dualMode });
+      if (!success) {
+        output.printError('Codex initialization failed while running @claude-flow/codex@latest.');
+        return { success: false, exitCode: 1 };
+      }
+      return { success: true, data: { adapter: '@claude-flow/codex@latest' } };
     }
 
     const initializer = new CodexInitializer();
@@ -392,6 +583,12 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       output.writeln();
     }
 
+    // #2666-adjacent — auto-detect + configure OpenAI Codex CLI if present
+    if (!skipClaude) {
+      await maybeAutoDetectCodex(ctx, { force, minimal, full });
+      await maybeInstallSkillsSh(ctx);
+    }
+
     // Handle --start-all or --start-daemon
     const startAll = ctx.flags['start-all'] || ctx.flags.startAll;
     const startDaemon = ctx.flags['start-daemon'] || ctx.flags.startDaemon || startAll;
@@ -511,7 +708,9 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       output.writeln(output.bold('Next steps:'));
       output.printList([
         `Run ${output.highlight(`${bin} daemon start`)} to start background workers`,
-        `Run ${output.highlight(`${bin} memory init`)} to initialize memory database`,
+        // Memory is initialized automatically during init (persistent by
+        // default — see executor.ts) — no separate `memory init` step needed
+        // unless the DB was skipped (MINIMAL_INIT_OPTIONS) or needs --force.
         `Run ${output.highlight(`${bin} swarm init`)} to initialize a swarm`,
         `Or use ${output.highlight(`${bin} init --start-all`)} to do all of the above`,
         options.components.settings ? `Review ${output.highlight('.claude/settings.json')} for hook configurations` : '',
@@ -524,6 +723,8 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     if (ctx.flags.format === 'json') {
       output.printJson(result);
     }
+
+    await offerCapabilityEnrollment(ctx);
 
     return { success: true, data: result };
   } catch (error) {
@@ -787,6 +988,8 @@ const wizardCommand: Command = {
           { setting: 'Hooks', value: `${result.summary.hooksEnabled} enabled` },
         ],
       });
+
+      await offerCapabilityEnrollment(ctx);
 
       return { success: true, data: result };
     } catch (error) {
@@ -1166,6 +1369,13 @@ export const initCommand: Command = {
       default: false,
     },
     {
+      // ADR-302 — skip the one-time post-init capability enrollment prompt.
+      name: 'no-signup',
+      description: 'Skip the post-init Cognitum capability enrollment prompt',
+      type: 'boolean',
+      default: false,
+    },
+    {
       name: 'only-claude',
       description: 'Only create .claude/ directory (skip runtime)',
       type: 'boolean',
@@ -1215,6 +1425,18 @@ export const initCommand: Command = {
       default: false,
     },
     {
+      name: 'no-codex-detect',
+      description: 'Skip auto-detecting the OpenAI Codex CLI and configuring its MCP server + skills',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'no-skills-sh',
+      description: 'Skip the post-init `npx skills add ruvnet/ruflo` registration (also honored via RUFLO_NO_SKILLS_SH=1)',
+      type: 'boolean',
+      default: false,
+    },
+    {
       name: 'all-agents',
       description: 'Install all agent categories (ADR-128: default is ~24 substrate agents; this restores the full set of ~89)',
       type: 'boolean',
@@ -1241,6 +1463,8 @@ export const initCommand: Command = {
     { command: 'claude-flow init --codex', description: 'Initialize for OpenAI Codex (AGENTS.md)' },
     { command: 'claude-flow init --codex --full', description: 'Codex init with all 137+ skills' },
     { command: 'claude-flow init --dual', description: 'Initialize for both Claude Code and Codex' },
+    { command: 'claude-flow init --no-codex-detect', description: 'Skip auto-configuring OpenAI Codex even if it is installed' },
+    { command: 'claude-flow init --no-skills-sh', description: 'Skip the post-init skills.sh registration' },
     { command: 'claude-flow init --all-agents', description: 'Install all agent categories (~89 agents; ADR-128 opt-in)' },
   ],
   action: initAction,

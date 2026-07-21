@@ -1,77 +1,433 @@
 #!/usr/bin/env node
 /**
- * RuFlo V3.5 Statusline Generator
- * Displays real-time V3 implementation progress and system status
+ * RuFlo V3 Statusline — delegation build (#2195)
  *
- * Usage: node statusline.cjs [options]
+ * Fix for ruvnet/ruflo#2195: the previous version re-implemented all data
+ * readers locally using fragile file probes that missed AgentDB patterns,
+ * the v3/docs/adr/ ADR directory, and the real vector count.
  *
- * Options:
- *   (default)   Safe multi-line output with collision zone avoidance
- *   --single    Single-line output (completely avoids collision)
- *   --unsafe    Legacy multi-line without collision avoidance
- *   --legacy    Alias for --unsafe
- *   --json      JSON output with pretty printing
- *   --compact   JSON output without formatting
+ * This version delegates to 'npx @claude-flow/cli hooks statusline --json'
+ * as the single source of truth. That command queries AgentDB directly,
+ * counts ADRs in both directories, and reports the real intelligence pct.
  *
- * Collision Zone Fix (Issue #985):
- * Claude Code writes its internal status (e.g., "7s • 1p") at absolute
- * terminal coordinates (columns 15-25 on second-to-last line). The safe
- * mode pads the collision line with spaces to push content past column 25.
+ * ADR counting falls back to local file reads so the display still works
+ * without network access (counts both v3/docs/adr/ and v3/implementation/adrs/).
  *
- * IMPORTANT: This file uses .cjs extension to work in ES module projects.
- * The require() syntax is intentional for CommonJS compatibility.
+ * Cache: JSON result is cached in /tmp for 10s so rapid prompt triggers
+ * (every keystroke in some shells) don't hammer the CLI on every call.
+ *
+ * Usage: node statusline.cjs [--json] [--compact] [--dashboard]
  */
 
 /* eslint-disable @typescript-eslint/no-var-requires */
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 const os = require('os');
-const { execSync, execFileSync } = require('child_process');
-
-// Read the installed plugin version once at startup. Probe the plugin's own
-// install location first (`~/.claude/plugins/marketplaces/ruflo/package.json`),
-// then npm-style installs, then the source-checkout location. The previous
-// code hardcoded `RuFlo V3.5` in the header — so users on alpha.27+ still
-// saw V3.5 in the statusline even though `ruflo doctor` reported the real
-// version (#1951).
-let RUFLO_VERSION = '3.6';
-try {
-  const home = os.homedir();
-  const cwd = process.cwd();
-  const pkgPaths = [
-    path.join(home, '.claude', 'plugins', 'marketplaces', 'ruflo', 'package.json'),
-    path.join(cwd, 'node_modules', '@claude-flow', 'cli', 'package.json'),
-    path.join(cwd, 'node_modules', 'ruflo', 'package.json'),
-    path.join(cwd, 'v3', '@claude-flow', 'cli', 'package.json'),
-  ];
-  for (const p of pkgPaths) {
-    if (!fs.existsSync(p)) continue;
-    try {
-      const pkg = JSON.parse(fs.readFileSync(p, 'utf-8'));
-      if (pkg && typeof pkg.version === 'string' && pkg.version.length > 0) {
-        RUFLO_VERSION = pkg.version;
-        break;
-      }
-    } catch { /* malformed package.json — try next */ }
-  }
-} catch { /* fall through to the hardcoded default */ }
 
 // Configuration
 const CONFIG = {
-  enabled: true,
-  showProgress: true,
-  showSecurity: true,
-  showSwarm: true,
-  showHooks: true,
-  showPerformance: true,
-  refreshInterval: 5000,
   maxAgents: 15,
-  topology: 'hierarchical-mesh',
+  // Header identity defaults to project/repository name. Set `author` to
+  // retain the previous `git config user.name` display (#2682).
+  identityMode: (process.env.RUFLO_STATUSLINE_IDENTITY || 'project').toLowerCase(),
+  // Session-cost display. Claude Code's cost.total_cost_usd is a client-side
+  // estimate that "may differ from your actual bill" and reads as misleading on
+  // subscription plans, where token usage is not billed per dollar. These let
+  // each user pick what the segment means to them without changing the default.
+  //   RUFLO_STATUSLINE_COST_SYMBOL  override the leading '$' (e.g. ⚡, €, 🌱);
+  //                                 set to an empty string for the number alone.
+  //   RUFLO_STATUSLINE_HIDE_COST    1/true/yes/on removes the segment entirely.
+  costSymbol: process.env.RUFLO_STATUSLINE_COST_SYMBOL ?? '$',
+  hideCost: /^(1|true|yes|on)$/i.test(process.env.RUFLO_STATUSLINE_HIDE_COST || ''),
 };
 
-// Cross-platform helpers
-const isWindows = process.platform === 'win32';
-const nullDevice = isWindows ? 'NUL' : '/dev/null';
+const CWD = process.cwd();
+
+// ─── Delegation cache ───────────────────────────────────────────
+// Cache the CLI JSON result so rapid prompt re-renders (Claude Code
+// refreshes the statusline several times a second while streaming) don't
+// re-invoke the CLI each time.
+// #2337 bumped 10s → 60s.
+// Followup for anthropics/claude-code#70200 (Windows console-flash bug —
+// claude.exe spawns hook/statusline subprocesses without CREATE_NO_WINDOW,
+// producing a visible cmd flash on every render): bumped 60s → 300s to
+// reduce the flash rate 5x on Windows until the upstream fix ships.
+// Tradeoff: stat/git counters update every 5min instead of every 1min;
+// promo/insight row still rotates on its own tighter 20s promoFresh clock.
+const CACHE_FILE = path.join(os.tmpdir(), 'ruflo-statusline-cache-' + require('crypto').createHash('md5').update(CWD).digest('hex').slice(0, 8) + '.json');
+const CACHE_TTL_MS = 300000;
+
+// The promo/insight row is designed to rotate on a 20s cadence (funnel/
+// rotation.ts's ROTATION_SLOT_MS / funnel/promo.ts's insight-slot check —
+// duplicated here as a bare number since this generated script has no
+// runtime import of the funnel module; keep in sync if that constant ever
+// changes). The rotation slot is only ever (re)computed SERVER-SIDE inside
+// the CLI subprocess this file shells out to — so a general 60s data cache
+// (correct and necessary for #2337) silently made that 20s design
+// unreachable: cache.fresh stayed true across 2-3 whole rotation slots,
+// so the row visibly "didn't rotate" (user report). Fix: track promo
+// freshness on its OWN, tighter clock — when it lags behind the current
+// slot, fall through to a real CLI call even though the REST of the
+// cached data (security/swarm/system) is still within CACHE_TTL_MS. This
+// does not touch or regress #2337's fix; it only adds a narrower check.
+const PROMO_ROTATION_SLOT_MS = 20000;
+
+// Persistent last-known-good promo record. Lives outside the /tmp cache so it
+// survives a full cache wipe / cache write race / CLI failure combo. Written
+// every time we successfully render a promo; read as a last resort so the row
+// never blinks out mid-session (was: 'promo shows then hides' bug report).
+const PROMO_MEMO_FILE = path.join(os.homedir(), '.ruflo', 'statusline-promo.json');
+const PROMO_MEMO_TTL_MS = 6 * 60 * 60 * 1000; // 6h — long enough to bridge any hiccup, short enough that a real disable takes effect fast.
+
+// #2337: resolve an already-installed @claude-flow/cli (or ruflo) bin so we
+// can invoke it directly via `node`. The previous version called
+// `npx --yes @claude-flow/cli@latest` on every uncached render, which forces
+// a registry resolution + cold-start of the entire CLI per render. With
+// multiple concurrent Claude Code sessions this storms the host (reporter
+// saw load average 40-65 on a 12-core box).
+//
+// Returns EVERY existing bin/cli.js candidate, in preference order (project,
+// monorepo, plugin marketplace, global node_modules including custom-prefix
+// layouts like ~/.npm-global) — mirrors getPkgVersion()'s own path probing.
+//
+// Returns a list, not a single winner: `fs.existsSync` only proves a file is
+// present, not that it actually runs. A marketplace/npx-cached install can
+// exist on disk but be broken (observed in practice: a stale marketplace
+// checkout whose dist/ imports a workspace package, '@claude-flow/cli-core',
+// that isn't bundled there — every invocation throws ERR_MODULE_NOT_FOUND).
+// Picking the first EXISTING path and never falling through meant a single
+// broken install silently killed the promo row for the entire session (the
+// CLI call always failed, so the memo could never refresh and eventually
+// expired). getStatuslineData() now walks this whole list and tries the next
+// candidate on failure, so one broken install can't permanently wedge it.
+function resolveCliBinCandidates() {
+  const candidates = [];
+  try {
+    const home = os.homedir();
+    candidates.push(
+      path.join(home, '.claude', 'plugins', 'marketplaces', 'ruflo', 'bin', 'cli.js'),
+      path.join(CWD, 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
+      path.join(CWD, 'node_modules', 'ruflo', 'bin', 'cli.js'),
+      path.join(CWD, 'v3', '@claude-flow', 'cli', 'bin', 'cli.js'),
+    );
+    try {
+      const binDir = path.dirname(process.execPath);
+      const globalModuleDirs = [path.join(binDir, '..', 'lib', 'node_modules'), path.join(binDir, 'node_modules')];
+      for (const prefix of [process.env.npm_config_prefix, process.env.PREFIX, path.join(home, '.npm-global')]) {
+        if (prefix) globalModuleDirs.push(path.join(prefix, 'lib', 'node_modules'));
+      }
+      for (const gm of globalModuleDirs) {
+        candidates.push(
+          path.join(gm, 'ruflo', 'bin', 'cli.js'),
+          path.join(gm, '@claude-flow', 'cli', 'bin', 'cli.js'),
+        );
+      }
+    } catch { /* ignore */ }
+  } catch { /* ignore */ }
+  return candidates.filter((p) => {
+    try {
+      if (!fs.existsSync(p)) return false;
+      // A candidate's bin/cli.js can exist on disk while its compiled
+      // dist/ never got built (Claude Code's own plugin marketplace just
+      // git-clones the repo — no install/build step — so every marketplace
+      // install is a source-only checkout by construction). Importing
+      // dist/src/index.js from bin/cli.js then throws MODULE_NOT_FOUND on
+      // every real command; only --version happens to survive it. Check
+      // for the compiled entrypoint too so a doomed candidate is skipped
+      // up front instead of wasting a spawn-and-fail on every render.
+      return fs.existsSync(path.join(path.dirname(p), '..', 'dist', 'src', 'index.js'));
+    } catch { return false; }
+  });
+}
+
+// Return { fresh, promoFresh, data }. 'fresh' is true only if within the TTL
+// — but data is returned regardless (stale-while-revalidate). This lets us
+// serve last known state (specifically the promo row) when the CLI is
+// slow/unavailable, so users don't see the funnel row flicker in and out on
+// cache expiry. 'promoFresh' is a SEPARATE, tighter check on the same clock
+// as PROMO_ROTATION_SLOT_MS — see that constant's comment for why the promo
+// row needs its own freshness bound distinct from the general 60s TTL.
+function readCache() {
+  try {
+    if (fs.existsSync(CACHE_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf-8'));
+      if (raw && raw._ts && raw.data) {
+        const age = Date.now() - raw._ts;
+        return { fresh: age < CACHE_TTL_MS, promoFresh: age < PROMO_ROTATION_SLOT_MS, data: raw.data };
+      }
+    }
+  } catch { /* ignore */ }
+  return { fresh: false, promoFresh: false, data: null };
+}
+
+function writeCache(data) {
+  try { fs.writeFileSync(CACHE_FILE, JSON.stringify({ _ts: Date.now(), data }), 'utf-8'); } catch { /* ignore */ }
+  // Also memoize any promo we saw so the row can survive future CLI hiccups.
+  try {
+    if (data && data.promo && typeof data.promo === 'object') {
+      fs.mkdirSync(path.dirname(PROMO_MEMO_FILE), { recursive: true, mode: 0o700 });
+      fs.writeFileSync(PROMO_MEMO_FILE, JSON.stringify({ _ts: Date.now(), promo: data.promo }), { encoding: 'utf-8', mode: 0o600 });
+    }
+  } catch { /* ignore */ }
+}
+
+// Last resort: read a memoized promo (up to 6h old). Used when no cache and
+// no CLI response is available — the row still renders, so users don't see
+// the disclosure blink out. Returns null when the memo is absent, expired,
+// or malformed. Never throws.
+function readPromoMemo() {
+  try {
+    if (!fs.existsSync(PROMO_MEMO_FILE)) return null;
+    const raw = JSON.parse(fs.readFileSync(PROMO_MEMO_FILE, 'utf-8'));
+    if (raw && raw._ts && (Date.now() - raw._ts) < PROMO_MEMO_TTL_MS && raw.promo) {
+      return raw.promo;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+/**
+ * Single source of truth: delegate to the CLI hooks statusline --json command.
+ * Falls back to a minimal static object on failure so the statusline still renders.
+ *
+ * Fix for ruflo#2195: the previous local readers returned 0 for AgentDB patterns
+ * (missed the .swarm/memory.db → AgentDB path), computed dddProgress wrong,
+ * and only counted ADRs in v3/implementation/adrs/ (missed v3/docs/adr/).
+ */
+// Overlay the memoized promo onto any data object that's missing one. This is
+// the safety net that keeps the funnel row rendered when an OLDER cached CLI
+// version is picked up by npx — that older CLI succeeds but omits promo, so
+// the JSON round-trips clean but without our row. We patch it back here.
+function overlayMemoPromo(data) {
+  if (data && !data.promo) {
+    const memoPromo = readPromoMemo();
+    if (memoPromo) data.promo = memoPromo;
+  }
+  return data;
+}
+
+function getStatuslineData() {
+  const cache = readCache();
+  // Both clocks must be satisfied to skip the CLI call entirely: the general
+  // 60s TTL (#2337 — don't re-spawn the CLI on every rapid re-render) AND the
+  // tighter promo-rotation clock (this fix — don't let a still-fresh 60s
+  // cache silently freeze the promo/insight row across multiple 20s slots).
+  if (cache.fresh && cache.promoFresh) {
+    return applyLocalOverlays(overlayMemoPromo(cache.data));
+  }
+
+  // #2337: prefer an already-installed CLI bin via direct `node` invocation —
+  // no npx, no registry round-trip, no @latest re-resolve per render. Try
+  // every candidate that actually EXISTS (not just the first) before falling
+  // back to `npx --prefer-offline @claude-flow/cli` (no @latest); an existing
+  // but broken install (e.g. a stale marketplace checkout missing a bundled
+  // workspace dep) must not block trying the next one.
+  //
+  // No `2>/dev/null` here (deliberately) — the execSync call below already
+  // sets stdio: ['pipe','pipe','pipe'], which captures/discards stderr at the
+  // Node level regardless of shell. The redirect was redundant on POSIX and
+  // actively broke every candidate on Windows: cmd.exe (execSync's default
+  // shell there) doesn't understand /dev/null, so the CLI delegation always
+  // failed, silently degrading every render to buildLocalFallback() — 0%
+  // intelligence and an empty promo row (the memo cache that keeps the row
+  // populated across CLI hiccups is only ever written from a SUCCESSFUL
+  // delegation, so it could never get seeded on Windows either).
+  const cmds = resolveCliBinCandidates()
+    .map((bin) => '"' + process.execPath + '" "' + bin + '" hooks statusline --json')
+    .concat(['npx --prefer-offline @claude-flow/cli hooks statusline --json']);
+  for (const cmd of cmds) {
+    try {
+      const raw = execSync(
+        cmd,
+        { encoding: 'utf-8', timeout: 8000, stdio: ['pipe', 'pipe', 'pipe'], cwd: CWD, windowsHide: true }
+      ).trim();
+      // The CLI may emit preamble lines before the JSON — find the first '{'.
+      const jsonStart = raw.indexOf('{');
+      if (jsonStart === -1) throw new Error('no JSON in CLI output');
+      const data = JSON.parse(raw.slice(jsonStart));
+      // Overlay every block the CLI JSON omits (adrs/agentdb/tests/hooks/integration)
+      // with real local reads, so those segments reflect actual state instead of 0.
+      applyLocalOverlays(data);
+      overlayMemoPromo(data);
+      writeCache(data);
+      return data;
+    } catch { /* this candidate unavailable, broken, or timed out — try the next */ }
+  }
+
+  // Stale-while-revalidate: if we have any cached data, keep serving it so the
+  // funnel row doesn't flicker on CLI hiccups. Overlay fresh local reads for
+  // the segments the CLI JSON doesn't populate; the promo row survives.
+  if (cache.data) {
+    applyLocalOverlays(cache.data);
+    overlayMemoPromo(cache.data);
+    return cache.data;
+  }
+
+  // Last resort: local probes + memo. Users still see the funnel row.
+  return overlayMemoPromo(buildLocalFallback());
+}
+
+// Count ADRs from BOTH known directories (fix for ruflo#2195: old code missed
+// v3/docs/adr/ which holds ADR-088..ADR-137, i.e. 41 of the 128 total ADRs).
+function getLocalADRCount() {
+  const adrDirs = [
+    path.join(CWD, 'v3', 'implementation', 'adrs'),
+    path.join(CWD, 'v3', 'docs', 'adr'),
+    path.join(CWD, 'docs', 'adrs'),
+    path.join(CWD, '.claude-flow', 'adrs'),
+  ];
+  let total = 0;
+  for (const dir of adrDirs) {
+    try {
+      if (fs.existsSync(dir)) {
+        const files = fs.readdirSync(dir).filter(function(f) {
+          return f.endsWith('.md') && (f.startsWith('ADR-') || f.startsWith('adr-') || /^\d{4}-/.test(f));
+        });
+        total += files.length;
+      }
+    } catch { /* ignore */ }
+  }
+  return { count: total, implemented: total, compliance: 0 };
+}
+
+// ─── Local overlays for segments the CLI JSON omits ──────────────
+// 'hooks statusline --json' only returns user/v3Progress/security/swarm/system.
+// agentdb/tests/hooks/integration are never populated, so without these overlays
+// they render as a permanent 0. Each reader is cheap and degrades to zeros.
+
+// Real AgentDB stats from the local memory DB. Vectors live in .swarm/memory.db
+// (sql.js + HNSW); ruvector.db is an opaque redb store counted only toward size.
+// One read-only sqlite3 query (mode=ro never takes a write lock the daemon owns).
+function getLocalAgentDB() {
+  const result = { vectorCount: 0, dbSizeKB: 0, hasHnsw: false };
+  try {
+    let bytes = 0;
+    for (const f of ['.swarm/memory.db', 'ruvector.db']) {
+      try { bytes += fs.statSync(path.join(CWD, f)).size; } catch { /* missing */ }
+    }
+    result.dbSizeKB = Math.round(bytes / 1024);
+
+    const memDb = path.join(CWD, '.swarm', 'memory.db');
+    if (fs.existsSync(memDb)) {
+      const Q = String.fromCharCode(34);
+      // Two INDEPENDENT statements -- do NOT combine into one. Coupling the
+      // vector count with the vector_indexes row count in a single statement
+      // meant that on a DB missing the vector_indexes table (older/agentdb-
+      // written DBs), the whole statement failed at PREPARE time (SQLite
+      // compiles the full SQL before running), so the valid memory_entries
+      // count was discarded too and the statusline showed Vectors 0 despite
+      // thousands of real vectors. Split so a missing table can only zero the
+      // HNSW flag, never the count. The init self-heal provisions the table so
+      // the flag recovers on the next ruflo init / MCP start.
+      const countSql = Q + 'SELECT COUNT(*) FROM memory_entries WHERE embedding IS NOT NULL;' + Q;
+      const vc = safeExec("sqlite3 'file:" + memDb + "?mode=ro' " + countSql, 1500);
+      if (vc) result.vectorCount = parseInt(vc, 10) || 0;
+      // HNSW flag: separate statement. If vector_indexes is absent, sqlite3
+      // exits non-zero and safeExec returns empty -- hasHnsw stays false (exact
+      // original semantics: at least one index-config row present).
+      const hnswSql = Q + 'SELECT COUNT(*) FROM vector_indexes;' + Q;
+      const hn = safeExec("sqlite3 'file:" + memDb + "?mode=ro' " + hnswSql, 1500);
+      if (hn) result.hasHnsw = (parseInt(hn, 10) || 0) > 0;
+    }
+  } catch { /* ignore */ }
+  return result;
+}
+
+// Count test files via a bounded directory walk (no file reads).
+function getLocalTests() {
+  let testFiles = 0;
+  function countTests(dir, depth) {
+    if ((depth || 0) > 4) return;
+    try {
+      if (!fs.existsSync(dir)) return;
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.isDirectory() && !e.name.startsWith('.') && e.name !== 'node_modules') {
+          countTests(path.join(dir, e.name), (depth || 0) + 1);
+        } else if (e.isFile() && (e.name.includes('.test.') || e.name.includes('.spec.') || e.name.startsWith('test_') || e.name.startsWith('spec_'))) {
+          testFiles++;
+        }
+      }
+    } catch { /* ignore */ }
+  }
+  for (const d of ['tests', 'test', '__tests__', 'src', 'v3']) countTests(path.join(CWD, d));
+  return { testFiles, testCases: testFiles * 4 };
+}
+
+// Count configured hooks from project .claude/settings.json. Claude Code hooks
+// have no enabled/disabled flag, so every configured hook counts as enabled.
+function getLocalHooks() {
+  const result = { enabled: 0, total: 0 };
+  try {
+    const settings = readJSON(path.join(CWD, '.claude', 'settings.json'));
+    const hooks = settings && settings.hooks;
+    if (hooks && typeof hooks === 'object') {
+      let n = 0;
+      for (const ev of Object.keys(hooks)) {
+        const groups = hooks[ev];
+        if (Array.isArray(groups)) {
+          for (const g of groups) {
+            if (g && Array.isArray(g.hooks)) n += g.hooks.length;
+          }
+        }
+      }
+      result.total = n;
+      result.enabled = n;
+    }
+  } catch { /* ignore */ }
+  return result;
+}
+
+// Best-effort integration block: DB presence + locally-configured stdio MCP
+// servers (project .mcp.json + global ~/.claude.json). Remote connectors are
+// account-managed and not present in local config, so they are not counted.
+function getLocalIntegration() {
+  const integration = { mcpServers: { enabled: 0, total: 0 }, hasDatabase: false };
+  try {
+    for (const f of ['.swarm/memory.db', 'ruvector.db']) {
+      if (fs.existsSync(path.join(CWD, f))) { integration.hasDatabase = true; break; }
+    }
+    const names = new Set();
+    const projMcp = readJSON(path.join(CWD, '.mcp.json'));
+    if (projMcp && projMcp.mcpServers) for (const k of Object.keys(projMcp.mcpServers)) names.add(k);
+    const claudeJson = readJSON(path.join(os.homedir(), '.claude.json'));
+    if (claudeJson) {
+      if (claudeJson.mcpServers) for (const k of Object.keys(claudeJson.mcpServers)) names.add(k);
+      const proj = claudeJson.projects && claudeJson.projects[CWD];
+      if (proj && proj.mcpServers && !Array.isArray(proj.mcpServers)) {
+        for (const k of Object.keys(proj.mcpServers)) names.add(k);
+      }
+    }
+    integration.mcpServers.total = names.size;
+    integration.mcpServers.enabled = names.size;
+  } catch { /* ignore */ }
+  return integration;
+}
+
+// Overlay every locally-derived block onto the CLI data (mutates in place).
+function applyLocalOverlays(data) {
+  data.adrs = getLocalADRCount();
+  data.agentdb = getLocalAgentDB();
+  data.tests = getLocalTests();
+  data.hooks = getLocalHooks();
+  data.integration = getLocalIntegration();
+  return data;
+}
+
+// Minimal local fallback when the CLI is not installed or times out.
+// Returns a structure that matches the CLI JSON schema so the renderer works.
+function buildLocalFallback() {
+  const memMB = Math.floor(process.memoryUsage().heapUsed / 1024 / 1024);
+
+  return applyLocalOverlays({
+    user: { name: 'user', gitBranch: '', modelName: 'Claude Code' },
+    v3Progress: { domainsCompleted: 0, totalDomains: 5, dddProgress: 0, patternsLearned: 0, sessionsCompleted: 0 },
+    security: { status: 'NONE', findings: 0, cvesFixed: 0, totalCves: 0 },
+    swarm: { activeAgents: 0, maxAgents: CONFIG.maxAgents, coordinationActive: false },
+    system: { memoryMB: memMB, contextPct: 0, intelligencePct: 0, subAgents: 0 },
+    lastUpdated: new Date().toISOString(),
+  });
+}
 
 // ANSI colors
 const c = {
@@ -93,512 +449,612 @@ const c = {
   brightWhite: '\x1b[1;37m',
 };
 
-// Get user info
-function getUserInfo() {
-  let name = 'user';
-  let gitBranch = '';
-  let modelName = 'Unknown';
+// Safe execSync with strict timeout (returns empty string on failure)
+function safeExec(cmd, timeoutMs) {
+  try {
+    return execSync(cmd, {
+      encoding: 'utf-8',
+      timeout: timeoutMs || 2000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      // Windows: without this, every execSync spawns cmd.exe /d /s /c which
+      // flashes a visible console window every render (~1/min via the 60s
+      // cache TTL). windowsHide runs the child in a hidden window instead.
+      // No-op on POSIX. Fix for #2XXX (user report: "cmd prompt keeps opening").
+      windowsHide: true,
+    }).trim();
+  } catch {
+    return '';
+  }
+}
 
-  // audit_1776853149979: previously used execSync with a shell string. Switched
-  // to execFileSync('git', argv) on both platforms so there is no shell
-  // interpretation. Cross-platform behavior is preserved by relying on git's
-  // own exit code instead of `|| echo` fallbacks: missing repo / no user.name
-  // throws, caught below, defaults retained.
+// Safe JSON file reader (returns null on failure)
+function readJSON(filePath) {
   try {
-    name = execFileSync('git', ['config', 'user.name'], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || 'user';
-  } catch { /* keep default */ }
-  try {
-    gitBranch = execFileSync('git', ['branch', '--show-current'], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-  } catch { /* keep empty */ }
+    if (fs.existsSync(filePath)) {
+      return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    }
+  } catch { /* ignore */ }
+  return null;
+}
 
-  // Auto-detect model from Claude Code's config
-  try {
-    const homedir = require('os').homedir();
-    const claudeConfigPath = path.join(homedir, '.claude.json');
-    if (fs.existsSync(claudeConfigPath)) {
-      const claudeConfig = JSON.parse(fs.readFileSync(claudeConfigPath, 'utf-8'));
-      // Try to find lastModelUsage - check current dir and parent dirs
-      let lastModelUsage = null;
-      const cwd = process.cwd();
-      if (claudeConfig.projects) {
-        // Try exact match first, then check if cwd starts with any project path
-        for (const [projectPath, projectConfig] of Object.entries(claudeConfig.projects)) {
-          if (cwd === projectPath || cwd.startsWith(projectPath + '/')) {
-            lastModelUsage = projectConfig.lastModelUsage;
-            break;
-          }
-        }
+// ─── Git info (pure-Node / single exec — needed for branch display) ──────────
+
+function getGitInfo() {
+  const result = {
+    name: path.basename(CWD) || 'project', gitBranch: '', modified: 0, untracked: 0,
+    staged: 0, ahead: 0, behind: 0,
+  };
+
+  const script = [
+    'git rev-parse --show-toplevel 2>/dev/null || pwd',
+    'echo "---SEP---"',
+    'git config user.name 2>/dev/null || echo user',
+    'echo "---SEP---"',
+    'git branch --show-current 2>/dev/null',
+    'echo "---SEP---"',
+    'git status --porcelain 2>/dev/null',
+    'echo "---SEP---"',
+    'git rev-list --left-right --count HEAD...@{upstream} 2>/dev/null || echo "0 0"',
+  ].join('; ');
+
+  const raw = safeExec("sh -c '" + script + "'", 3000);
+  if (!raw) return result;
+
+  const parts = raw.split('---SEP---').map(function(s) { return s.trim(); });
+  if (parts.length >= 5) {
+    const projectName = path.basename(parts[0] || CWD) || path.basename(CWD) || 'project';
+    const authorName = parts[1] || 'user';
+    result.name = CONFIG.identityMode === 'author' ? authorName : projectName;
+    result.gitBranch = parts[2] || '';
+
+    if (parts[3]) {
+      for (const line of parts[3].split('\n')) {
+        if (!line || line.length < 2) continue;
+        const x = line[0], y = line[1];
+        if (x === '?' && y === '?') { result.untracked++; continue; }
+        if (x !== ' ' && x !== '?') result.staged++;
+        if (y !== ' ' && y !== '?') result.modified++;
       }
-      if (lastModelUsage) {
-        const modelIds = Object.keys(lastModelUsage);
-        if (modelIds.length > 0) {
-          // Take the last model (most recently added to the object)
-          // Or find the one with most tokens (most actively used this session)
-          let modelId = modelIds[modelIds.length - 1];
-          if (modelIds.length > 1) {
-            // If multiple models, pick the one with most total tokens
-            let maxTokens = 0;
-            for (const id of modelIds) {
-              const usage = lastModelUsage[id];
-              const total = (usage.inputTokens || 0) + (usage.outputTokens || 0);
-              if (total > maxTokens) {
-                maxTokens = total;
-                modelId = id;
+    }
+
+    const ab = (parts[4] || '0 0').split(/\s+/);
+    result.ahead = parseInt(ab[0]) || 0;
+    result.behind = parseInt(ab[1]) || 0;
+  }
+
+  return result;
+}
+
+// Detect model name from Claude config (pure file reads, no exec)
+function getModelName() {
+  try {
+    const claudeConfig = readJSON(path.join(os.homedir(), '.claude.json'));
+    if (claudeConfig && claudeConfig.projects) {
+      for (const [projectPath, projectConfig] of Object.entries(claudeConfig.projects)) {
+        if (CWD === projectPath || CWD.startsWith(projectPath + '/')) {
+          const usage = projectConfig.lastModelUsage;
+          if (usage) {
+            const ids = Object.keys(usage);
+            if (ids.length > 0) {
+              let modelId = ids[ids.length - 1];
+              let latest = 0;
+              for (const id of ids) {
+                const ts = usage[id] && usage[id].lastUsedAt ? new Date(usage[id].lastUsedAt).getTime() : 0;
+                if (ts > latest) { latest = ts; modelId = id; }
               }
+              if (modelId.includes('opus')) return 'Opus 4.8';
+              if (modelId.includes('sonnet')) return 'Sonnet 4.6';
+              if (modelId.includes('haiku')) return 'Haiku 4.5';
+              return modelId.split('-').slice(1, 3).join(' ');
             }
           }
-          // Parse model ID to human-readable name
-          if (modelId.includes('opus')) modelName = 'Opus 4.6 (1M context)';
-          else if (modelId.includes('sonnet')) modelName = 'Sonnet 4.6';
-          else if (modelId.includes('haiku')) modelName = 'Haiku 4.5';
-          else modelName = modelId.split('-').slice(1, 3).join(' ');
-        }
-      }
-    }
-  } catch (e) {
-    // Fallback to Unknown if can't read config
-  }
-
-  return { name, gitBranch, modelName };
-}
-
-// Get learning stats from intelligence loop data (ADR-050)
-function getLearningStats() {
-  let patterns = 0;
-  let sessions = 0;
-  let trajectories = 0;
-  let edges = 0;
-  let confidenceMean = 0;
-  let accessedCount = 0;
-  let trend = 'STABLE';
-
-  // PRIMARY: Read from intelligence loop data files
-  const dataDir = path.join(process.cwd(), '.claude-flow', 'data');
-
-  // 1. graph-state.json — authoritative node/edge counts
-  const graphPath = path.join(dataDir, 'graph-state.json');
-  if (fs.existsSync(graphPath)) {
-    try {
-      const graph = JSON.parse(fs.readFileSync(graphPath, 'utf-8'));
-      patterns = graph.nodes ? Object.keys(graph.nodes).length : 0;
-      edges = Array.isArray(graph.edges) ? graph.edges.length : 0;
-    } catch (e) { /* ignore */ }
-  }
-
-  // 2. ranked-context.json — confidence and access data
-  const rankedPath = path.join(dataDir, 'ranked-context.json');
-  if (fs.existsSync(rankedPath)) {
-    try {
-      const ranked = JSON.parse(fs.readFileSync(rankedPath, 'utf-8'));
-      if (ranked.entries && ranked.entries.length > 0) {
-        patterns = Math.max(patterns, ranked.entries.length);
-        let confSum = 0;
-        let accCount = 0;
-        for (let i = 0; i < ranked.entries.length; i++) {
-          confSum += (ranked.entries[i].confidence || 0);
-          if ((ranked.entries[i].accessCount || 0) > 0) accCount++;
-        }
-        confidenceMean = confSum / ranked.entries.length;
-        accessedCount = accCount;
-      }
-    } catch (e) { /* ignore */ }
-  }
-
-  // 3. intelligence-snapshot.json — trend history
-  const snapshotPath = path.join(dataDir, 'intelligence-snapshot.json');
-  if (fs.existsSync(snapshotPath)) {
-    try {
-      const snapshot = JSON.parse(fs.readFileSync(snapshotPath, 'utf-8'));
-      if (snapshot.history && snapshot.history.length >= 2) {
-        const first = snapshot.history[0];
-        const last = snapshot.history[snapshot.history.length - 1];
-        const confDrift = (last.confidenceMean || 0) - (first.confidenceMean || 0);
-        trend = confDrift > 0.01 ? 'IMPROVING' : confDrift < -0.01 ? 'DECLINING' : 'STABLE';
-        sessions = Math.max(sessions, snapshot.history.length);
-      }
-    } catch (e) { /* ignore */ }
-  }
-
-  // 4. auto-memory-store.json — fallback entry count
-  if (patterns === 0) {
-    const autoMemPath = path.join(dataDir, 'auto-memory-store.json');
-    if (fs.existsSync(autoMemPath)) {
-      try {
-        const data = JSON.parse(fs.readFileSync(autoMemPath, 'utf-8'));
-        patterns = Array.isArray(data) ? data.length : (data.entries ? data.entries.length : 0);
-      } catch (e) { /* ignore */ }
-    }
-  }
-
-  // FALLBACK: Legacy memory.db file-size estimation
-  if (patterns === 0) {
-    const memoryPaths = [
-      path.join(process.cwd(), '.swarm', 'memory.db'),
-      path.join(process.cwd(), '.claude', 'memory.db'),
-      path.join(process.cwd(), 'data', 'memory.db'),
-    ];
-    for (let j = 0; j < memoryPaths.length; j++) {
-      if (fs.existsSync(memoryPaths[j])) {
-        try {
-          const dbStats = fs.statSync(memoryPaths[j]);
-          patterns = Math.floor(dbStats.size / 1024 / 2);
           break;
-        } catch (e) { /* ignore */ }
+        }
       }
     }
+  } catch { /* ignore */ }
+
+  // Fallback: settings.json model field
+  const settings = getSettings();
+  if (settings && settings.model) {
+    const m = settings.model;
+    if (m.includes('opus')) return 'Opus 4.8';
+    if (m.includes('sonnet')) return 'Sonnet 4.6';
+    if (m.includes('haiku')) return 'Haiku 4.5';
   }
-
-  // Session count from session files
-  const sessionsPath = path.join(process.cwd(), '.claude', 'sessions');
-  if (fs.existsSync(sessionsPath)) {
-    try {
-      const sessionFiles = fs.readdirSync(sessionsPath).filter(f => f.endsWith('.json'));
-      sessions = Math.max(sessions, sessionFiles.length);
-    } catch (e) { /* ignore */ }
-  }
-
-  trajectories = Math.floor(patterns / 5);
-
-  return { patterns, sessions, trajectories, edges, confidenceMean, accessedCount, trend };
+  return 'Claude Code';
 }
 
-// Get V3 progress from learning state (grows as system learns)
-function getV3Progress() {
-  const learning = getLearningStats();
-
-  // DDD progress based on actual learned patterns
-  // New install: 0 patterns = 0/5 domains, 0% DDD
-  // As patterns grow: 10+ patterns = 1 domain, 50+ = 2, 100+ = 3, 200+ = 4, 500+ = 5
-  let domainsCompleted = 0;
-  if (learning.patterns >= 500) domainsCompleted = 5;
-  else if (learning.patterns >= 200) domainsCompleted = 4;
-  else if (learning.patterns >= 100) domainsCompleted = 3;
-  else if (learning.patterns >= 50) domainsCompleted = 2;
-  else if (learning.patterns >= 10) domainsCompleted = 1;
-
-  const totalDomains = 5;
-  const dddProgress = Math.min(100, Math.floor((domainsCompleted / totalDomains) * 100));
-
-  return {
-    domainsCompleted,
-    totalDomains,
-    dddProgress,
-    patternsLearned: learning.patterns,
-    sessionsCompleted: learning.sessions
-  };
-}
-
-// Get security status based on actual scans
-function getSecurityStatus() {
-  // Check for security scan results in memory
-  const scanResultsPath = path.join(process.cwd(), '.claude', 'security-scans');
-  let cvesFixed = 0;
-  const totalCves = 3;
-
-  if (fs.existsSync(scanResultsPath)) {
-    try {
-      const scans = fs.readdirSync(scanResultsPath).filter(f => f.endsWith('.json'));
-      // Each successful scan file = 1 CVE addressed
-      cvesFixed = Math.min(totalCves, scans.length);
-    } catch (e) {
-      // Ignore
-    }
-  }
-
-  // Also check .swarm/security for audit results
-  const auditPath = path.join(process.cwd(), '.swarm', 'security');
-  if (fs.existsSync(auditPath)) {
-    try {
-      const audits = fs.readdirSync(auditPath).filter(f => f.includes('audit'));
-      cvesFixed = Math.min(totalCves, Math.max(cvesFixed, audits.length));
-    } catch (e) {
-      // Ignore
-    }
-  }
-
-  const status = cvesFixed >= totalCves ? 'CLEAN' : cvesFixed > 0 ? 'IN_PROGRESS' : 'PENDING';
-
-  return {
-    status,
-    cvesFixed,
-    totalCves,
-  };
-}
-
-// Get swarm status
-function getSwarmStatus() {
-  let activeAgents = 0;
-  let coordinationActive = false;
-
+// ─── Stdin reader (Claude Code pipes session JSON) ──────────────
+// Claude Code sends session JSON via stdin. Read synchronously so the
+// script works both when invoked by Claude Code (stdin has JSON) and
+// when run manually from terminal (stdin is empty/tty).
+let _stdinData = null;
+function getStdinData() {
+  if (_stdinData !== undefined && _stdinData !== null) return _stdinData;
   try {
-    if (isWindows) {
-      // Windows: use tasklist and findstr
-      const ps = execSync('tasklist 2>NUL | findstr /I "agentic-flow" 2>NUL | find /C /V "" 2>NUL || echo 0', { encoding: 'utf-8' });
-      activeAgents = Math.max(0, parseInt(ps.trim()) || 0);
-    } else {
-      const ps = execSync('ps aux 2>/dev/null | grep -c agentic-flow || echo "0"', { encoding: 'utf-8' });
-      activeAgents = Math.max(0, parseInt(ps.trim()) - 1);
-    }
-    coordinationActive = activeAgents > 0;
-  } catch (e) {
-    // Ignore errors - default to 0 agents
+    if (process.stdin.isTTY) { _stdinData = null; return null; }
+    const chunks = [];
+    const buf = Buffer.alloc(4096);
+    let bytesRead;
+    try {
+      while ((bytesRead = fs.readSync(0, buf, 0, buf.length, null)) > 0) {
+        chunks.push(buf.slice(0, bytesRead));
+      }
+    } catch { /* EOF or read error */ }
+    const raw = Buffer.concat(chunks).toString('utf-8').trim();
+    _stdinData = (raw && raw.startsWith('{')) ? JSON.parse(raw) : null;
+  } catch {
+    _stdinData = null;
   }
-
-  return {
-    activeAgents,
-    maxAgents: CONFIG.maxAgents,
-    coordinationActive,
-  };
+  return _stdinData;
 }
 
-// Get system metrics (dynamic based on actual state)
-function getSystemMetrics() {
-  let memoryMB = 0;
-  let subAgents = 0;
-
-  try {
-    if (isWindows) {
-      // Windows: use tasklist for memory info, fallback to process.memoryUsage
-      // tasklist memory column is complex to parse, use Node.js API instead
-      memoryMB = Math.floor(process.memoryUsage().heapUsed / 1024 / 1024);
-    } else {
-      const mem = execSync('ps aux | grep -E "(node|agentic|claude)" | grep -v grep | awk \'{sum += $6} END {print int(sum/1024)}\'', { encoding: 'utf-8' });
-      memoryMB = parseInt(mem.trim()) || 0;
-    }
-  } catch (e) {
-    // Fallback
-    memoryMB = Math.floor(process.memoryUsage().heapUsed / 1024 / 1024);
-  }
-
-  // Get learning stats for intelligence %
-  const learning = getLearningStats();
-
-  // Intelligence % from REAL intelligence loop data (ADR-050)
-  // Composite: 40% confidence mean + 30% access ratio + 30% pattern density
-  let intelligencePct = 0;
-  if (learning.confidenceMean > 0 || (learning.patterns > 0 && learning.accessedCount > 0)) {
-    const confScore = Math.min(100, Math.floor(learning.confidenceMean * 100));
-    const accessRatio = learning.patterns > 0 ? (learning.accessedCount / learning.patterns) : 0;
-    const accessScore = Math.min(100, Math.floor(accessRatio * 100));
-    const densityScore = Math.min(100, Math.floor(learning.patterns / 5));
-    intelligencePct = Math.floor(confScore * 0.4 + accessScore * 0.3 + densityScore * 0.3);
-  }
-  // Fallback: legacy pattern count
-  if (intelligencePct === 0 && learning.patterns > 0) {
-    intelligencePct = Math.min(100, Math.floor(learning.patterns / 10));
-  }
-
-  // Context % based on session history
-  const contextPct = Math.min(100, Math.floor(learning.sessions * 5));
-
-  // Count active sub-agents from process list
-  try {
-    if (isWindows) {
-      // Windows: use tasklist and findstr for agent counting
-      const agents = execSync('tasklist 2>NUL | findstr /I "claude-flow" 2>NUL | find /C /V "" 2>NUL || echo 0', { encoding: 'utf-8' });
-      subAgents = Math.max(0, parseInt(agents.trim()) || 0);
-    } else {
-      const agents = execSync('ps aux 2>/dev/null | grep -c "claude-flow.*agent" || echo "0"', { encoding: 'utf-8' });
-      subAgents = Math.max(0, parseInt(agents.trim()) - 1);
-    }
-  } catch (e) {
-    // Ignore - default to 0
-  }
-
-  return {
-    memoryMB,
-    contextPct,
-    intelligencePct,
-    subAgents,
-  };
+function getModelFromStdin() {
+  const data = getStdinData();
+  return (data && data.model && data.model.display_name) ? data.model.display_name : null;
 }
 
-// Generate progress bar
+function getContextFromStdin() {
+  const data = getStdinData();
+  if (data && data.context_window) {
+    return { usedPct: Math.floor(data.context_window.used_percentage || 0) };
+  }
+  return null;
+}
+
+function getCostFromStdin() {
+  const data = getStdinData();
+  if (data && data.cost) {
+    const durationMs = data.cost.total_duration_ms || 0;
+    const mins = Math.floor(durationMs / 60000);
+    const secs = Math.floor((durationMs % 60000) / 1000);
+    return {
+      costUsd: data.cost.total_cost_usd || 0,
+      duration: mins > 0 ? mins + 'm' + secs + 's' : secs + 's',
+    };
+  }
+  return null;
+}
+
+// Compares dotted-numeric version strings (e.g. "3.27.1" vs "3.27.10").
+// Returns >0 if a>b, <0 if a<b, 0 if equal-as-far-as-parseable. Deliberately
+// simple (no prerelease/build-metadata handling) — this only orders local
+// package.json versions against each other, never anything untrusted from
+// a payload, so a full semver implementation would be dead weight here.
+function compareVersions(a, b) {
+  const pa = String(a).split('.').map((n) => parseInt(n, 10));
+  const pb = String(b).split('.').map((n) => parseInt(n, 10));
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = Number.isFinite(pa[i]) ? pa[i] : 0;
+    const nb = Number.isFinite(pb[i]) ? pb[i] : 0;
+    if (na !== nb) return na - nb;
+  }
+  return 0;
+}
+
+// #2742: when CWD is a linked git worktree, it has no node_modules of its
+// own (worktrees don't get their own `npm install`), so every CWD-relative
+// probe in getPkgVersion() misses and the version silently falls back to
+// the baked-in default — even though the main repo's install a few
+// directories away is perfectly resolvable. A linked worktree's `.git` is
+// a plain FILE (not a directory) containing `gitdir: <main>/.git/worktrees/
+// <name>`; walk up from CWD to find it, parse the pointer, and strip the
+// trailing `.git/worktrees/<name>` segment to recover the main repo root.
+// Pure fs — no `git rev-parse` spawn (statusline renders are latency-
+// sensitive; this doc comment's neighbors are explicit about avoiding
+// spawns in the render path).
+function resolveWorktreeMainRoot() {
+  try {
+    let dir = CWD;
+    for (;;) {
+      const dotGit = path.join(dir, '.git');
+      if (fs.existsSync(dotGit)) {
+        if (fs.statSync(dotGit).isFile()) {
+          const contents = fs.readFileSync(dotGit, 'utf-8');
+          const m = contents.match(/^gitdir:\s*(.+)$/m);
+          const wtGitDir = m && m[1].trim();
+          if (wtGitDir) {
+            // Git writes this pointer with forward slashes even on Windows
+            // (a git-for-windows convention for its own internal files) —
+            // path.sep (backslash on win32) never matches, so normalize
+            // before searching rather than building an OS-specific marker.
+            const normalized = wtGitDir.replace(/\\/g, '/');
+            const marker = '/.git/worktrees/';
+            const idx = normalized.lastIndexOf(marker);
+            if (idx > 0) return normalized.slice(0, idx);
+          }
+        }
+        return null; // a real (non-worktree) .git dir — nothing to resolve
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) return null; // reached filesystem root
+      dir = parent;
+    }
+  } catch {
+    return null;
+  }
+}
+
+function getPkgVersion() {
+  // Baked in at generation time from the real running CLI's own resolved
+  // version (see generateStatuslineScript()'s doc comment) — correct even
+  // when this renders via a pure npx invocation with no local install for
+  // the candidate scan below to find.
+  let ver = "3.32.8";
+  try {
+    const home = os.homedir();
+    const pkgPaths = [
+      path.join(home, '.claude', 'plugins', 'marketplaces', 'ruflo', 'package.json'),
+      path.join(CWD, 'node_modules', '@claude-flow', 'cli', 'package.json'),
+      path.join(CWD, 'node_modules', 'ruflo', 'package.json'),
+      path.join(CWD, 'v3', '@claude-flow', 'cli', 'package.json'),
+    ];
+    // #2742: CWD is a linked git worktree with no node_modules of its own —
+    // probe the main repo's install too, so a worktree session shows the
+    // same version a main-repo session would.
+    const worktreeMainRoot = resolveWorktreeMainRoot();
+    if (worktreeMainRoot) {
+      pkgPaths.push(
+        path.join(worktreeMainRoot, 'node_modules', '@claude-flow', 'cli', 'package.json'),
+        path.join(worktreeMainRoot, 'node_modules', 'ruflo', 'package.json'),
+        path.join(worktreeMainRoot, 'v3', '@claude-flow', 'cli', 'package.json'),
+      );
+    }
+    // #2221: global installs (npm i -g ruflo) live outside CWD/node_modules, so the
+    // probes above all miss and the version falls back to the hard-coded default.
+    // Derive the global node_modules dir from the running node binary (no npm spawn —
+    // statusline renders often). Covers nvm/mise (bin/../lib/node_modules) and Windows
+    // (bin/node_modules) layouts.
+    try {
+      const binDir = path.dirname(process.execPath);
+      const globalModuleDirs = [path.join(binDir, '..', 'lib', 'node_modules'), path.join(binDir, 'node_modules')];
+      // #2221 follow-up: a custom npm prefix (e.g. ~/.npm-global) is decoupled from
+      // the node binary location, so the binDir-derived probes above all miss. Also
+      // probe the npm prefix from the environment and the common ~/.npm-global default.
+      for (const prefix of [process.env.npm_config_prefix, process.env.PREFIX, path.join(home, '.npm-global')]) {
+        if (prefix) globalModuleDirs.push(path.join(prefix, 'lib', 'node_modules'));
+      }
+      for (const gm of globalModuleDirs) {
+        pkgPaths.push(
+          path.join(gm, 'ruflo', 'package.json'),
+          path.join(gm, '@claude-flow', 'cli', 'package.json'),
+        );
+      }
+    } catch { /* ignore */ }
+    // Pick the HIGHEST version among every candidate that exists, not the
+    // first one found. The marketplace plugin path is probed first (list
+    // order above), but Claude Code's own plugin marketplace mechanism
+    // syncs on its own git-pull cadence, independent of npm publishes — a
+    // freshly-published npm version can sit alongside a stale marketplace
+    // checkout for a while (observed live: marketplace one release behind
+    // right after a publish). Taking the first EXISTING candidate meant the
+    // header could show a stale version even when a newer install (e.g.
+    // node_modules/@claude-flow/cli from a plain npm install) was sitting right there.
+    let found = false;
+    for (const p of pkgPaths) {
+      if (!fs.existsSync(p)) continue;
+      try {
+        const pkg = JSON.parse(fs.readFileSync(p, 'utf-8'));
+        if (pkg && typeof pkg.version === 'string' && pkg.version.length > 0) {
+          if (!found || compareVersions(pkg.version, ver) > 0) ver = pkg.version;
+          found = true;
+        }
+      } catch { /* ignore */ }
+    }
+  } catch { /* ignore */ }
+  return ver;
+}
+
+// ─── Rendering ──────────────────────────────────────────────────
+
 function progressBar(current, total) {
   const width = 5;
   const filled = Math.round((current / total) * width);
-  const empty = width - filled;
-  return '[' + '\u25CF'.repeat(filled) + '\u25CB'.repeat(empty) + ']';
+  return '[' + '●'.repeat(filled) + '○'.repeat(width - filled) + ']';
 }
 
-// Generate full statusline
 function generateStatusline() {
-  const user = getUserInfo();
-  const progress = getV3Progress();
-  const security = getSecurityStatus();
-  const swarm = getSwarmStatus();
-  const system = getSystemMetrics();
+  const d = getStatuslineData();
+  const git = getGitInfo();
+  const modelName = getModelFromStdin() || (d.user && d.user.modelName) || 'Claude Code';
+  const ctxInfo = getContextFromStdin();
+  const costInfo = getCostFromStdin();
+  // Named RUFLO_VERSION (not pkgVersion) so the #1951 regression guard
+  // (scripts/audit-fix-invariants.mjs) can pin its presence in the emitted
+  // .cjs artifact — without it the header silently reverts to a hard-coded
+  // "RuFlo V3.5" for anyone whose install doesn't match the first probe path.
+  const RUFLO_VERSION = getPkgVersion();
+
+  const progress = d.v3Progress || {};
+  const security = d.security || {};
+  const swarm = d.swarm || {};
+  const system = d.system || {};
+  const adrs = d.adrs || {};
+  const hooks = d.hooks || {};
+  const agentdb = d.agentdb || {};
+  const tests = d.tests || {};
+
+  const domainsCompleted = progress.domainsCompleted || 0;
+  const totalDomains = progress.totalDomains || 5;
+  const dddProgress = progress.dddProgress || 0;
+  const patternsLearned = progress.patternsLearned || 0;
+  const activeAgents = swarm.activeAgents || 0;
+  const maxAgents = swarm.maxAgents || CONFIG.maxAgents;
+  const coordinationActive = swarm.coordinationActive || false;
+  const intelligencePct = system.intelligencePct || 0;
+  const memoryMB = system.memoryMB || 0;
+  const subAgents = system.subAgents || 0;
+  const findings = Math.max(0, security.findings || 0);
+  const secStatus = security.status || 'NONE';
+  const adrCount = adrs.count || 0;
+  const adrImpl = adrs.implemented || 0;
+  const hooksEnabled = hooks.enabled || 0;
+  const hooksTotal = hooks.total || 0;
+  const vectorCount = agentdb.vectorCount || 0;
+  const hasHnsw = agentdb.hasHnsw || false;
+  const dbSizeKB = agentdb.dbSizeKB || 0;
+  const testFiles = tests.testFiles || 0;
+  const testCases = tests.testCases || testFiles * 4;
+
   const lines = [];
 
-  // Header Line
-  let header = `${c.bold}${c.brightPurple}▊ RuFlo V${RUFLO_VERSION} ${c.reset}`;
-  header += `${swarm.coordinationActive ? c.brightCyan : c.dim}● ${c.brightCyan}${user.name}${c.reset}`;
-  if (user.gitBranch) {
-    header += `  ${c.dim}│${c.reset}  ${c.brightBlue}⎇ ${user.gitBranch}${c.reset}`;
+  // 3-line design (fits Claude Code's visible statusline area — line 4+ gets
+  // replaced by the system guidance / input prompt line):
+  //   Line 1 — Header (RuFlo version · git · model · timing · context · cost)
+  //   Line 2 — Compressed ops (Swarm · Hooks · 🧠 · 💾 · Health)
+  //   Line 3 — Promo / disclosure row (funnel surface, ADR-301)
+
+  // ─── Line 1: header ────────────────────────────────────────────
+  let header = c.bold + c.brightPurple + '▊ RuFlo V' + RUFLO_VERSION + ' ' + c.reset;
+  header += (coordinationActive ? c.brightCyan : c.dim) + '● ' + c.brightCyan + git.name + c.reset;
+  if (git.gitBranch) {
+    header += '  ' + c.dim + '│' + c.reset + '  ' + c.brightBlue + '⏇ ' + git.gitBranch + c.reset;
+    const changes = git.modified + git.staged + git.untracked;
+    if (changes > 0) {
+      let ind = '';
+      if (git.staged > 0) ind += c.brightGreen + '+' + git.staged + c.reset;
+      if (git.modified > 0) ind += c.brightYellow + '~' + git.modified + c.reset;
+      if (git.untracked > 0) ind += c.dim + '?' + git.untracked + c.reset;
+      header += ' ' + ind;
+    }
+    if (git.ahead > 0) header += ' ' + c.brightGreen + '↑' + git.ahead + c.reset;
+    if (git.behind > 0) header += ' ' + c.brightRed + '↓' + git.behind + c.reset;
   }
-  header += `  ${c.dim}│${c.reset}  ${c.purple}${user.modelName}${c.reset}`;
+  header += '  ' + c.dim + '│' + c.reset + '  ' + c.purple + modelName + c.reset;
+  const duration = costInfo ? costInfo.duration : '';
+  if (duration) header += '  ' + c.dim + '│' + c.reset + '  ' + c.cyan + '⏱ ' + duration + c.reset;
+  if (ctxInfo && ctxInfo.usedPct > 0) {
+    const ctxColor = ctxInfo.usedPct >= 90 ? c.brightRed : ctxInfo.usedPct >= 70 ? c.brightYellow : c.brightGreen;
+    header += '  ' + c.dim + '│' + c.reset + '  ' + ctxColor + '● ' + ctxInfo.usedPct + '% ctx' + c.reset;
+  }
+  if (!CONFIG.hideCost && costInfo && costInfo.costUsd > 0) {
+    header += '  ' + c.dim + '│' + c.reset + '  ' + c.brightYellow + CONFIG.costSymbol + costInfo.costUsd.toFixed(2) + c.reset;
+  }
   lines.push(header);
 
-  // Separator
-  lines.push(`${c.dim}─────────────────────────────────────────────────────${c.reset}`);
+  // ─── Line 2: compressed ops ────────────────────────────────────
+  // Everything actionable in one dense row. Show only what changes what you
+  // do next; diagnostic detail moves to `ruflo status --verbose`.
+  const agentsColor = activeAgents > 0 ? c.brightGreen : c.dim;
+  const hooksColor = hooksEnabled > 0 ? c.brightGreen : c.dim;
+  const intellColor = intelligencePct >= 80 ? c.brightGreen : intelligencePct >= 40 ? c.brightYellow : c.dim;
+  const swarmInd = coordinationActive ? c.brightGreen + '◉' + c.reset + ' ' : c.dim + '○' + c.reset + ' ';
+  const healthAllGreen = (secStatus === 'CLEAN' || secStatus === 'NONE') && findings === 0;
+  const opsParts = [];
+  opsParts.push(c.cyan + 'Swarm ' + swarmInd + agentsColor + activeAgents + c.reset + '/' + c.brightWhite + maxAgents + c.reset);
+  if (subAgents > 0) opsParts.push(c.brightPurple + '👥 ' + subAgents + c.reset);
+  opsParts.push(c.cyan + 'Hooks ' + hooksColor + hooksEnabled + c.reset + '/' + c.brightWhite + hooksTotal + c.reset);
+  opsParts.push(intellColor + '🧠 ' + intelligencePct + '%' + c.reset);
+  opsParts.push(c.brightCyan + '💾 ' + memoryMB + 'MB' + c.reset);
+  // Health: one glyph when green, terse copy when there's something to act on.
+  if (healthAllGreen) {
+    opsParts.push(c.brightGreen + '🛡 ✓' + c.reset);
+  } else {
+    if (secStatus === 'PENDING') opsParts.push(c.brightYellow + '🛡 scan pending' + c.reset);
+    else if (secStatus === 'IN_PROGRESS') opsParts.push(c.brightYellow + '🛡 scanning…' + c.reset);
+    else if (secStatus === 'ISSUES') opsParts.push(c.brightRed + '🛡 findings' + c.reset);
+    else if (secStatus === 'STALE') opsParts.push(c.brightYellow + '🛡 scan stale' + c.reset);
+    else if (secStatus !== 'NONE' && secStatus !== 'CLEAN') opsParts.push(c.brightRed + '🛡 ' + secStatus.toLowerCase() + c.reset);
+    if (findings > 0) {
+      opsParts.push(c.brightRed + '⚠ ' + findings + ' finding' + (findings === 1 ? '' : 's') + c.reset);
+    }
+  }
+  lines.push(opsParts.join('  ' + c.dim + '·' + c.reset + '  '));
 
-  // Line 1: DDD Domain Progress
-  const domainsColor = progress.domainsCompleted >= 3 ? c.brightGreen : progress.domainsCompleted > 0 ? c.yellow : c.red;
-  lines.push(
-    `${c.brightCyan}🏗️  DDD Domains${c.reset}    ${progressBar(progress.domainsCompleted, progress.totalDomains)}  ` +
-    `${domainsColor}${progress.domainsCompleted}${c.reset}/${c.brightWhite}${progress.totalDomains}${c.reset}    ` +
-    `${c.brightYellow}⚡ 1.0x${c.reset} ${c.dim}→${c.reset} ${c.brightYellow}2.49x-7.47x${c.reset}`
-  );
+  // ─── Line 3: promo / disclosure / insight ───────────────────────
+  // Colored by content kind so it reads as *what it is*, not as noise:
+  //   disclosure  → brightCyan   (announcement / capability link)
+  //   promotional → brightPurple (Cognitum sponsor spot)
+  //   educational → yellow       (a tip)
+  //   insight     → brightRed    (environment/task-aware, local, actionable —
+  //                               distinct from remote content on purpose)
+  const promoRow = getPromoRow(d);
+  if (promoRow) {
+    const kind = (d && d.promo && d.promo.kind) || 'disclosure';
+    const promoColor = kind === 'promotional' ? c.brightPurple
+                     : kind === 'educational' ? c.yellow
+                     : kind === 'insight' ? c.brightRed
+                     : c.brightCyan;
+    lines.push(promoColor + promoRow + c.reset);
+  }
 
-  // Line 2: Swarm + CVE + Memory + Context + Intelligence
-  const swarmIndicator = swarm.coordinationActive ? `${c.brightGreen}◉${c.reset}` : `${c.dim}○${c.reset}`;
-  const agentsColor = swarm.activeAgents > 0 ? c.brightGreen : c.red;
-  let securityIcon = security.status === 'CLEAN' ? '🟢' : security.status === 'IN_PROGRESS' ? '🟡' : '🔴';
-  let securityColor = security.status === 'CLEAN' ? c.brightGreen : security.status === 'IN_PROGRESS' ? c.brightYellow : c.brightRed;
-
-  lines.push(
-    `${c.brightYellow}🤖 Swarm${c.reset}  ${swarmIndicator} [${agentsColor}${String(swarm.activeAgents).padStart(2)}${c.reset}/${c.brightWhite}${swarm.maxAgents}${c.reset}]  ` +
-    `${c.brightPurple}👥 ${system.subAgents}${c.reset}    ` +
-    `${securityIcon} ${securityColor}CVE ${security.cvesFixed}${c.reset}/${c.brightWhite}${security.totalCves}${c.reset}    ` +
-    `${c.brightCyan}💾 ${system.memoryMB}MB${c.reset}    ` +
-    `${c.brightGreen}📂 ${String(system.contextPct).padStart(3)}%${c.reset}    ` +
-    `${c.dim}🧠 ${String(system.intelligencePct).padStart(3)}%${c.reset}`
-  );
-
-  // Line 3: Architecture status
-  const dddColor = progress.dddProgress >= 50 ? c.brightGreen : progress.dddProgress > 0 ? c.yellow : c.red;
-  lines.push(
-    `${c.brightPurple}🔧 Architecture${c.reset}    ` +
-    `${c.cyan}DDD${c.reset} ${dddColor}●${String(progress.dddProgress).padStart(3)}%${c.reset}  ${c.dim}│${c.reset}  ` +
-    `${c.cyan}Security${c.reset} ${securityColor}●${security.status}${c.reset}  ${c.dim}│${c.reset}  ` +
-    `${c.cyan}Memory${c.reset} ${c.brightGreen}●AgentDB${c.reset}  ${c.dim}│${c.reset}  ` +
-    `${c.cyan}Integration${c.reset} ${swarm.coordinationActive ? c.brightCyan : c.dim}●${c.reset}`
-  );
-
-  return lines.join('\n');
+  // Trailing blank line so Claude Code's input prompt gets breathing room
+  // instead of butting directly against the last statusline row.
+  return lines.join('\n') + '\n';
 }
 
-// Generate JSON data
+// ─── Funnel promo row (ADR-301) ─────────────────────────────────
+// Allowlist for OSC 8 hyperlink targets. Ships in code (not in payload) so
+// no message can smuggle a link to an unapproved host.
+//
+// The final destination hosts (cognitum.one / agentics.org) AND the
+// click-redirect host are both allowlisted here: promo.ts routes every
+// clickable message through the server-side click-redirect (ADR-311 §7)
+// so promo_open + geo are captured before the 302 to the real target —
+// so the OSC 8 link the renderer emits points at the redirect host, not
+// the final destination directly.
+const PROMO_LINK_HOSTS = new Set([
+  'cognitum.one', 'www.cognitum.one', 'docs.cognitum.one',
+  // agentics.org — OSS foundation, distinct sponsor domain. Kept in sync
+  // with messages.ts ALLOWED_URL_HOSTS.
+  'agentics.org', 'www.agentics.org',
+  // Click-redirect host (funnel.ruv.io once its TLS cert is live; the raw
+  // Cloud Run hostname is allowlisted too since event-transport.ts /
+  // message-transport.ts / attribution.ts currently point at it as a TEMP
+  // fallback while the domain mapping's cert provisions).
+  'funnel.ruv.io',
+  'cognitum-analytics-63rzcdswba-uc.a.run.app',
+]);
+
+// Emit OSC 8 hyperlinks unless the environment is known-broken. tmux mangles
+// raw OSC 8 (see anthropics/claude-code#27047) — opt in via env if wrapped.
+function terminalSupportsHyperlinks() {
+  if (process.env.CI || process.env.GITHUB_ACTIONS) return false;
+  if (process.env.TERM === 'dumb') return false;
+  if (/^(0|false|off|no)$/i.test(String(process.env.RUFLO_STATUSLINE_HYPERLINKS || ''))) return false;
+  if (process.env.TMUX && !process.env.RUFLO_STATUSLINE_HYPERLINKS_TMUX) return false;
+  return true;
+}
+
+// Wrap a label in an OSC 8 hyperlink escape sequence. Falls back to the raw
+// label whenever the URL is not an allowlisted https target, when the terminal
+// can't render hyperlinks, or when parsing fails — a broken link must never
+// leave a raw URL or stray escape in the statusline output.
+function safeTerminalLink(label, url) {
+  if (!terminalSupportsHyperlinks()) return label;
+  if (typeof url !== 'string' || url.length === 0) return label;
+  let parsed;
+  try { parsed = new URL(url); } catch { return label; }
+  if (parsed.protocol !== 'https:') return label;
+  if (!PROMO_LINK_HOSTS.has(parsed.hostname)) return label;
+  const cleanLabel = String(label).replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, '');
+  if (cleanLabel.length === 0) return label;
+  const ESC = '\u001b';
+  return ESC + ']8;;' + parsed.href + ESC + '\\' + cleanLabel + ESC + ']8;;' + ESC + '\\';
+}
+
+function getPromoRow(d) {
+  try {
+    if (process.env.CI || process.env.GITHUB_ACTIONS) return null;
+    if (/^(0|false|off|no)$/i.test(String(process.env.RUFLO_FUNNEL || ''))) return null;
+    const promo = d && d.promo;
+    if (!promo || typeof promo.text !== 'string') return null;
+    // Strip control chars / ANSI / bidi overrides — promo copy is data and
+    // must never emit its own terminal sequences. Hard-cap length AFTER the
+    // strip; append an ellipsis when the cap fires so the row visibly reads
+    // as truncated instead of chopping a word mid-character (was: silent
+    // slice(0,100) that could produce output that looked like corrupt data).
+    const MAX_LEN = 100;
+    const sanitized = promo.text
+      .replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, '')
+      ;
+    const text = (sanitized.length > MAX_LEN ? sanitized.slice(0, MAX_LEN - 1).trimEnd() + '…' : sanitized).trim();
+    if (text.length === 0) return null;
+    // Split the label from the trailing "· manage: ruflo settings" instruction
+    // so each part gets styling that matches what it actually IS:
+    //   1. label   — OSC 8 hyperlink + underline. A real clickable link.
+    //   2. "manage:" — dim. Just a connector word, no action implied.
+    //   3. "ruflo settings" — bold/bright, NOT underlined. This is a shell
+    //      command the user TYPES, not a link they CLICK — a terminal can
+    //      never safely execute a command from a click (that would let any
+    //      server-served message run arbitrary commands), so we deliberately
+    //      avoid the underline/OSC8 cues that imply "clickable". Bold+bright
+    //      instead signals "this is the important bit — copy/type it".
+    // Educational tips have no manage tail and no URL — plain text through.
+    const manageIdx = text.indexOf(' · manage: ');
+    const label = manageIdx > 0 ? text.slice(0, manageIdx) : text;
+    const manageWord = manageIdx > 0 ? ' · manage: ' : '';
+    const command = manageIdx > 0 ? text.slice(manageIdx + manageWord.length) : '';
+    const UL_ON = '\u001b[4m';
+    const UL_OFF = '\u001b[24m';
+    const DIM_ON = '\u001b[2m';
+    const DIM_OFF = '\u001b[22m';
+    const BOLD_ON = '\u001b[1m';
+    const BOLD_OFF = '\u001b[22m';
+    const FG_BRIGHT_WHITE = '[97m';
+    // Reset FG to default so the caller's row-color code resumes coloring the
+    // rest of the row after the command portion. Without this the row-color
+    // escape wouldn't visibly re-apply because we already emitted an explicit FG.
+    const FG_DEFAULT = '[39m';
+    // Some hosts (Claude Code's Windows UI, cmd.exe, older mintty) don't
+    // render OSC 8 hyperlinks as clickable — the label just underlines and
+    // clicks do nothing. Append a "(domain)" suffix so the destination is
+    // visible/copyable everywhere. Wrap the suffix in OSC 8 too so terminals
+    // that DO support hyperlinks give users TWO click targets (label AND
+    // domain hint) instead of one — some Windows hosts render one but not
+    // the other depending on how the statusline row is parsed.
+    // Only for URLs (not educational tips), and only when the label doesn't
+    // already end in the domain to avoid duplication.
+    let visibleUrlHint = '';
+    if (promo.url) {
+      try {
+        const host = new URL(promo.url).hostname.replace(/^www\./, '');
+        // Strip the click-redirect wrapper so users see the FINAL destination,
+        // not funnel.ruv.io. If the URL is /v1/click/<id>?to=<encoded>, pull the target.
+        let displayHost = host;
+        try {
+          const to = new URL(promo.url).searchParams.get('to');
+          if (to) displayHost = new URL(to).hostname.replace(/^www\./, '');
+        } catch { /* not a click-redirect, keep the raw host */ }
+        if (displayHost && !label.toLowerCase().endsWith(displayHost.toLowerCase())) {
+          // safeTerminalLink returns the plain string if URL isn't allowlisted
+          // or the terminal can't do OSC 8 — either way the domain stays visible.
+          const clickableDomain = safeTerminalLink(displayHost, promo.url);
+          visibleUrlHint = DIM_ON + ' (' + clickableDomain + ')' + DIM_OFF;
+        }
+      } catch { /* malformed URL — omit hint, never break the row */ }
+    }
+    // "Entire row clickable" (user request) — wrap the whole assembled
+    // string in ONE OSC 8 hyperlink instead of just the label. The command
+    // portion keeps its bold + bright-white treatment (no underline) so it
+    // still VISUALLY reads as a shell command the user should type, not a
+    // link — but if the user clicks anywhere on the row (label, domain
+    // hint, connector, even the command text), the terminal opens the URL.
+    // Clicking DOES NOT execute the command; it just opens the target URL,
+    // which is safe. Terminals that ignore OSC 8 render the whole row as
+    // styled text and no click behavior — the previous fallback (visible
+    // domain suffix) still keeps the destination readable.
+    const wrapWholeRowInHyperlink = (assembled) => {
+      if (!promo.url) return assembled;
+      if (!terminalSupportsHyperlinks()) return assembled;
+      let parsed;
+      try { parsed = new URL(promo.url); } catch { return assembled; }
+      if (parsed.protocol !== 'https:') return assembled;
+      if (!PROMO_LINK_HOSTS.has(parsed.hostname)) return assembled;
+      const ESC = '';
+      return ESC + ']8;;' + parsed.href + ESC + '\\' + assembled + ESC + ']8;;' + ESC + '\\';
+    };
+    // Visual styling stays per-part. We only add the OSC 8 wrap around the
+    // combined string, so the whole row is one click target.
+    const labelStyled = promo.url ? UL_ON + label + UL_OFF : label;
+    if (!command) return wrapWholeRowInHyperlink(labelStyled + visibleUrlHint);
+    return wrapWholeRowInHyperlink(
+      labelStyled + visibleUrlHint
+      + DIM_ON + manageWord + DIM_OFF
+      + BOLD_ON + FG_BRIGHT_WHITE + command + FG_DEFAULT + BOLD_OFF
+    );
+  } catch (e) {
+    return null; // the promo row must never break the statusline
+  }
+}
+
+// JSON output — delegates to CLI for accuracy; caller can use --json flag
 function generateJSON() {
-  return {
-    user: getUserInfo(),
-    v3Progress: getV3Progress(),
-    security: getSecurityStatus(),
-    swarm: getSwarmStatus(),
-    system: getSystemMetrics(),
-    performance: {
-      flashAttentionTarget: '2.49x-7.47x',
-      searchImprovement: '150x-12,500x',
-      memoryReduction: '50-75%',
-    },
+  const d = getStatuslineData();
+  const git = getGitInfo();
+  return Object.assign({}, d, {
+    user: Object.assign({ name: git.name, gitBranch: git.gitBranch }, d.user || {}),
+    git: { modified: git.modified, untracked: git.untracked, staged: git.staged, ahead: git.ahead, behind: git.behind },
     lastUpdated: new Date().toISOString(),
-  };
+  });
 }
 
-/**
- * Generate single-line output for Claude Code compatibility
- * This avoids the collision zone issue entirely by using one line
- * @see https://github.com/ruvnet/claude-flow/issues/985
- */
-function generateSingleLine() {
-  if (!CONFIG.enabled) return '';
-
-  const user = getUserInfo();
-  const progress = getV3Progress();
-  const security = getSecurityStatus();
-  const swarm = getSwarmStatus();
-  const system = getSystemMetrics();
-
-  const swarmIndicator = swarm.coordinationActive ? '●' : '○';
-  const securityStatus = security.status === 'CLEAN' ? '✓' :
-                         security.cvesFixed > 0 ? '~' : '✗';
-
-  return `${c.brightPurple}RuFlo${c.reset} ${c.dim}|${c.reset} ` +
-    `${c.cyan}D:${progress.domainsCompleted}/${progress.totalDomains}${c.reset} ${c.dim}|${c.reset} ` +
-    `${c.yellow}S:${swarmIndicator}${swarm.activeAgents}/${swarm.maxAgents}${c.reset} ${c.dim}|${c.reset} ` +
-    `${security.status === 'CLEAN' ? c.green : c.red}CVE:${securityStatus}${security.cvesFixed}/${security.totalCves}${c.reset} ${c.dim}|${c.reset} ` +
-    `${c.dim}🧠${system.intelligencePct}%${c.reset}`;
-}
-
-/**
- * Generate safe multi-line statusline that avoids Claude Code collision zone
- * The collision zone is columns 15-25 on the second-to-last line.
- * We pad that line with spaces to push content past column 25.
- * @see https://github.com/ruvnet/claude-flow/issues/985
- */
-function generateSafeStatusline() {
-  if (!CONFIG.enabled) return '';
-
-  const user = getUserInfo();
-  const progress = getV3Progress();
-  const security = getSecurityStatus();
-  const swarm = getSwarmStatus();
-  const system = getSystemMetrics();
-  const lines = [];
-
-  // Header Line
-  let header = `${c.bold}${c.brightPurple}▊ RuFlo V${RUFLO_VERSION} ${c.reset}`;
-  header += `${swarm.coordinationActive ? c.brightCyan : c.dim}● ${c.brightCyan}${user.name}${c.reset}`;
-  if (user.gitBranch) {
-    header += `  ${c.dim}│${c.reset}  ${c.brightBlue}⎇ ${user.gitBranch}${c.reset}`;
-  }
-  header += `  ${c.dim}│${c.reset}  ${c.purple}${user.modelName}${c.reset}`;
-  lines.push(header);
-
-  // Separator
-  lines.push(`${c.dim}─────────────────────────────────────────────────────${c.reset}`);
-
-  // Line 1: DDD Domain Progress
-  const domainsColor = progress.domainsCompleted >= 3 ? c.brightGreen : progress.domainsCompleted > 0 ? c.yellow : c.red;
-  lines.push(
-    `${c.brightCyan}🏗️  DDD Domains${c.reset}    ${progressBar(progress.domainsCompleted, progress.totalDomains)}  ` +
-    `${domainsColor}${progress.domainsCompleted}${c.reset}/${c.brightWhite}${progress.totalDomains}${c.reset}    ` +
-    `${c.brightYellow}⚡ 1.0x${c.reset} ${c.dim}→${c.reset} ${c.brightYellow}2.49x-7.47x${c.reset}`
-  );
-
-  // Line 2 (COLLISION LINE): Swarm status with padding after label
-  // The emoji+label is ~10 columns. Padding pushes content past collision zone (cols 15-25)
-  const swarmIndicator = swarm.coordinationActive ? `${c.brightGreen}◉${c.reset}` : `${c.dim}○${c.reset}`;
-  const agentsColor = swarm.activeAgents > 0 ? c.brightGreen : c.red;
-  let securityIcon = security.status === 'CLEAN' ? '🟢' : security.status === 'IN_PROGRESS' ? '🟡' : '🔴';
-  let securityColor = security.status === 'CLEAN' ? c.brightGreen : security.status === 'IN_PROGRESS' ? c.brightYellow : c.brightRed;
-
-  // Padding after "🤖 Swarm" (emoji 2 cols + " Swarm" 6 cols = 8, pad 18 to reach col 26)
-  lines.push(
-    `${c.brightYellow}🤖 Swarm${c.reset}                  ` +  // 18 spaces padding
-    `${swarmIndicator} [${agentsColor}${String(swarm.activeAgents).padStart(2)}${c.reset}/${c.brightWhite}${swarm.maxAgents}${c.reset}]  ` +
-    `${c.brightPurple}👥 ${system.subAgents}${c.reset}  ` +
-    `${securityIcon} ${securityColor}CVE ${security.cvesFixed}${c.reset}/${c.brightWhite}${security.totalCves}${c.reset}  ` +
-    `${c.brightCyan}💾 ${system.memoryMB}MB${c.reset}  ` +
-    `${c.dim}🧠 ${system.intelligencePct}%${c.reset}`
-  );
-
-  // Line 3: Architecture status (this is the last line, not in collision zone)
-  const dddColor = progress.dddProgress >= 50 ? c.brightGreen : progress.dddProgress > 0 ? c.yellow : c.red;
-  lines.push(
-    `${c.brightPurple}🔧 Architecture${c.reset}    ` +
-    `${c.cyan}DDD${c.reset} ${dddColor}●${String(progress.dddProgress).padStart(3)}%${c.reset}  ${c.dim}│${c.reset}  ` +
-    `${c.cyan}Security${c.reset} ${securityColor}●${security.status}${c.reset}  ${c.dim}│${c.reset}  ` +
-    `${c.cyan}Memory${c.reset} ${c.brightGreen}●AgentDB${c.reset}  ${c.dim}│${c.reset}  ` +
-    `${c.cyan}Integration${c.reset} ${swarm.coordinationActive ? c.brightCyan : c.dim}●${c.reset}`
-  );
-
-  return lines.join('\n');
-}
-
-// Main
+// ─── Main ───────────────────────────────────────────────────────
 if (process.argv.includes('--json')) {
   console.log(JSON.stringify(generateJSON(), null, 2));
 } else if (process.argv.includes('--compact')) {
   console.log(JSON.stringify(generateJSON()));
-} else if (process.argv.includes('--single')) {
-  // Single-line mode - completely avoids collision zone
-  console.log(generateSingleLine());
-} else if (process.argv.includes('--unsafe') || process.argv.includes('--legacy')) {
-  // Legacy mode - original multi-line without collision avoidance
-  console.log(generateStatusline());
 } else {
-  // Default: Safe multi-line mode with collision zone avoidance
-  // Use --unsafe or --legacy to get the original behavior
-  console.log(generateSafeStatusline());
+  console.log(generateStatusline());
 }

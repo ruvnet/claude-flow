@@ -1,6 +1,6 @@
 {
   "name": "ruflo-arena",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0",
   "description": "Competitive ruliology for Ruflo swarms — arenas, tournaments, and adaptive co-evolution of program strategies (ADR-147/148).",
   "type": "module",
   "main": "dist/index.js",

@@ -31,7 +31,7 @@ ADR-126 Phase 3 / #2080 work and is referenced read-only here.
 
 ### 2. Memory recall linear scan grows ~O(N) (TRACKED, not fixed here)
 
-- **Where**: the production path uses `mcp__claude-flow__memory_search`
+- **Where**: the production path uses `mcp__plugin_ruflo-core_ruflo__memory_search`
   via AgentDB + HNSW. The bench `memory-recall.bench.mjs` models the
   linear-scan baseline (cosine over Float32Array) to track the
   approximate-vs-exact recall gap an ANN index would create.

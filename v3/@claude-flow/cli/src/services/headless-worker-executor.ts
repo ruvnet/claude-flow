@@ -24,6 +24,9 @@ import { EventEmitter } from 'events';
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'fs';
 import { join, relative } from 'path';
 import type { WorkerType } from './worker-daemon.js';
+import { getGlobalAiBudget, isQuotaErrorText } from './global-ai-budget.js';
+import { resolveGitWorkspaceIdentity } from './git-workspace-identity.js';
+import { getAiJobDedupRegistry, computeAiJobKey, hashWorkerConfig } from './ai-job-dedup.js';
 
 // ============================================
 // Type Definitions
@@ -169,6 +172,11 @@ export interface HeadlessExecutionResult {
   /** Estimated tokens used (if available) */
   tokensUsed?: number;
 
+  /** #2661 root-fix — structured usage, when `claude --print --output-format json` exposed it. */
+  inputTokens?: number;
+  outputTokens?: number;
+  costUsd?: number;
+
   /** Model used for execution */
   model: string;
 
@@ -186,6 +194,14 @@ export interface HeadlessExecutionResult {
 
   /** Execution ID for tracking */
   executionId: string;
+
+  /**
+   * #2661 — true when the launch was skipped because the same job
+   * (repositoryId + HEAD + worker + config) succeeded within the freshness
+   * window, e.g. in a sibling worktree. No model call happened; consumers
+   * must not overwrite persisted metrics with this result.
+   */
+  dedupSkipped?: boolean;
 }
 
 /**
@@ -568,6 +584,50 @@ export function getModelId(model: ModelType): string {
   return MODEL_IDS[model];
 }
 
+export interface ClaudePrintEnvelope {
+  result: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  costUsd?: number;
+  durationMs?: number;
+}
+
+/**
+ * #2661 root-fix — best-effort parse of `claude --print --output-format
+ * json`'s response envelope. Deliberately lenient: probes a couple of
+ * plausible field-name shapes (the CLI's JSON schema is not a versioned
+ * public contract) and returns null on anything unexpected rather than
+ * throwing, so a schema mismatch degrades to "no usage captured" — the
+ * caller then falls back to the raw stdout text, exactly today's behavior.
+ * Exported for direct unit testing without spawning a real process.
+ */
+export function parseClaudePrintJsonEnvelope(raw: string): ClaudePrintEnvelope | null {
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed[0] !== '{') return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const obj = parsed as Record<string, unknown>;
+
+  const result = typeof obj.result === 'string' ? obj.result : undefined;
+  if (result === undefined) return null; // not the envelope shape we expect
+
+  const usage = (obj.usage && typeof obj.usage === 'object') ? obj.usage as Record<string, unknown> : undefined;
+  const numOrUndef = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+
+  return {
+    result,
+    inputTokens: numOrUndef(usage?.input_tokens ?? usage?.inputTokens),
+    outputTokens: numOrUndef(usage?.output_tokens ?? usage?.outputTokens),
+    costUsd: numOrUndef(obj.total_cost_usd ?? obj.cost_usd ?? obj.totalCostUsd),
+    durationMs: numOrUndef(obj.duration_ms ?? obj.durationMs),
+  };
+}
+
 /**
  * Get worker configuration by type
  */
@@ -775,6 +835,19 @@ export class HeadlessWorkerExecutor extends EventEmitter {
   }
 
   /**
+   * #2661 — signal a pool entry's whole process group, not just the head.
+   * Children are spawned `detached: true` on POSIX precisely so their MCP
+   * bridge grandchildren can be reaped with `kill(-pid)`; a head-only kill
+   * orphans them (#2098B).
+   */
+  private killEntryTree(proc: ChildProcess, signal: NodeJS.Signals): void {
+    if (process.platform !== 'win32' && typeof proc.pid === 'number') {
+      try { process.kill(-proc.pid, signal); return; } catch { /* fall through */ }
+    }
+    try { proc.kill(signal); } catch { /* already dead */ }
+  }
+
+  /**
    * Cancel a running execution
    */
   cancel(executionId: string): boolean {
@@ -784,7 +857,7 @@ export class HeadlessWorkerExecutor extends EventEmitter {
     }
 
     clearTimeout(entry.timeout);
-    entry.process.kill('SIGTERM');
+    this.killEntryTree(entry.process, 'SIGTERM');
     this.processPool.delete(executionId);
     this.emit('cancelled', { executionId });
 
@@ -804,10 +877,10 @@ export class HeadlessWorkerExecutor extends EventEmitter {
     const entries = Array.from(this.processPool.entries());
     for (const [executionId, entry] of entries) {
       clearTimeout(entry.timeout);
-      entry.process.kill('SIGTERM');
+      this.killEntryTree(entry.process, 'SIGTERM');
       // SIGKILL fallback after 5s to prevent orphan processes (#1395 Bug 6)
       setTimeout(() => {
-        try { if (!entry.process.killed) entry.process.kill('SIGKILL'); } catch { /* already dead */ }
+        try { if (!entry.process.killed) this.killEntryTree(entry.process, 'SIGKILL'); } catch { /* already dead */ }
       }, 5000).unref();
       this.emit('cancelled', { executionId });
       cancelled++;
@@ -883,6 +956,72 @@ export class HeadlessWorkerExecutor extends EventEmitter {
     const startTime = Date.now();
     const executionId = `${workerType}_${startTime}_${Math.random().toString(36).slice(2, 8)}`;
 
+    // #2661 invariant 5 — cross-worktree job dedup. Worktrees of one
+    // repository at the same HEAD would otherwise run identical analyses
+    // once per worktree. jobKey = sha256(repositoryId, HEAD, worker,
+    // configHash); a success within the freshness window (the worker's own
+    // interval, floor 10 min) skips the launch entirely — no budget spend,
+    // no process. HEAD moves → new key → the job runs again.
+    const identity = resolveGitWorkspaceIdentity(this.projectRoot);
+    const jobKey = computeAiJobKey({
+      repositoryId: identity.repositoryId,
+      head: identity.head,
+      workerType,
+      configHash: hashWorkerConfig(headless),
+    });
+    const dedup = getAiJobDedupRegistry();
+    const envWindowSecs = Number.parseInt(process.env.RUFLO_AI_DEDUP_WINDOW_SECS || '', 10);
+    const freshnessMs = Number.isFinite(envWindowSecs) && envWindowSecs >= 0
+      ? envWindowSecs * 1000
+      : Math.max(baseConfig.intervalMs || 0, 10 * 60 * 1000);
+    const freshness = dedup.isFresh(jobKey, freshnessMs);
+    if (freshness.fresh) {
+      const skipped: HeadlessExecutionResult = {
+        success: true,
+        dedupSkipped: true,
+        output: '',
+        parsedOutput: undefined,
+        durationMs: 0,
+        model: 'none',
+        sandboxMode: headless.sandbox,
+        workerType,
+        timestamp: new Date(),
+        executionId,
+      };
+      this.logExecution(
+        executionId,
+        'result',
+        `dedup-skip: job ${jobKey.slice(0, 12)} succeeded ${Math.round((Date.now() - (freshness.lastRunAt ?? Date.now())) / 1000)}s ago (repo ${identity.repositoryId.slice(0, 12)}, head ${identity.head.slice(0, 12) || 'n/a'})`
+      );
+      this.emit('dedup:skipped', { executionId, workerType, jobKey, lastRunAt: freshness.lastRunAt });
+      this.processQueue();
+      return skipped;
+    }
+
+    // #2661 — every autonomous launch must reserve a slot in the USER-GLOBAL
+    // AI budget before any process is created. This is the hard invariant
+    // that bounds aggregate launches across all worktree daemons: per-daemon
+    // maxConcurrent limits multiply with worktree count, the global budget
+    // does not. Denials return an error result (with a receipted reason)
+    // instead of queueing, so denied work never piles up into a retry storm.
+    const budget = getGlobalAiBudget();
+    const model = headless.model || 'sonnet';
+    const permit = await budget.reserve({ workerType, model, workspace: this.projectRoot });
+    if (!permit.allowed) {
+      const denied = this.createErrorResult(
+        workerType,
+        `Denied by global AI budget: ${permit.reason}`
+      );
+      denied.executionId = executionId;
+      this.logExecution(executionId, 'error', `budget-denied: ${permit.reason}`);
+      // NOTE: deliberately no `emit('error', ...)` here — Node treats
+      // unlistened 'error' events as throws, and callers consume the
+      // returned error result; `budget:denied` is the observable signal.
+      this.emit('budget:denied', { executionId, workerType, reason: permit.reason });
+      this.processQueue();
+      return denied;
+    }
+
     this.emit('start', { executionId, workerType, config: headless });
 
     try {
@@ -918,6 +1057,9 @@ export class HeadlessWorkerExecutor extends EventEmitter {
         parsedOutput,
         durationMs: Date.now() - startTime,
         tokensUsed: result.tokensUsed,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        costUsd: result.costUsd,
         model: headless.model || 'sonnet',
         sandboxMode: headless.sandbox,
         workerType,
@@ -929,6 +1071,37 @@ export class HeadlessWorkerExecutor extends EventEmitter {
       // Log result
       this.logExecution(executionId, 'result', JSON.stringify(executionResult, null, 2));
 
+      // #2661 root-fix — structured per-launch telemetry, receipted
+      // regardless of success/failure (a failed launch still spent
+      // whatever tokens it spent before erroring).
+      budget.recordUsage(permit.permitId, {
+        workerType,
+        model,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        durationMs: result.apiDurationMs ?? executionResult.durationMs,
+        costUsd: result.costUsd,
+      });
+
+      // #2661 invariant 5 — record the success so sibling worktrees at the
+      // same HEAD skip this job for the rest of the freshness window.
+      if (result.success) {
+        dedup.recordSuccess(jobKey, {
+          workerType,
+          repositoryId: identity.repositoryId,
+          workspace: this.projectRoot,
+        });
+      }
+
+      // #2661 — a quota/429/usage-limit failure opens the user-global
+      // circuit breaker so EVERY daemon stops launching for the cooldown
+      // window instead of retrying into an exhausted quota. Only inspected
+      // on failure: successful analysis output may legitimately discuss
+      // rate limiting in the user's own code.
+      if (!result.success && isQuotaErrorText(result.error)) {
+        await budget.recordQuotaError(`${workerType}: ${(result.error ?? '').slice(0, 200)}`);
+      }
+
       this.emit('complete', executionResult);
       return executionResult;
     } catch (error) {
@@ -938,10 +1111,15 @@ export class HeadlessWorkerExecutor extends EventEmitter {
       executionResult.durationMs = Date.now() - startTime;
 
       this.logExecution(executionId, 'error', errorMessage);
+      if (isQuotaErrorText(errorMessage)) {
+        await budget.recordQuotaError(`${workerType}: ${errorMessage.slice(0, 200)}`);
+      }
       this.emit('error', executionResult);
 
       return executionResult;
     } finally {
+      // #2661 — free the global concurrency slot (launch counts persist).
+      await budget.release(permit.permitId);
       // Process next in queue
       this.processQueue();
     }
@@ -1158,7 +1336,16 @@ Analyze the above codebase context and provide your response following the forma
       executionId: string;
       workerType: HeadlessWorkerType;
     }
-  ): Promise<{ success: boolean; output: string; tokensUsed?: number; error?: string }> {
+  ): Promise<{
+    success: boolean;
+    output: string;
+    tokensUsed?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    costUsd?: number;
+    apiDurationMs?: number;
+    error?: string;
+  }> {
     return new Promise((resolve) => {
       const env: Record<string, string> = {
         ...(process.env as Record<string, string>),
@@ -1199,7 +1386,15 @@ Analyze the above codebase context and provide your response following the forma
       // diagnosed as a 5-second redispatch + subprocess-table growth.
       // `detached: true` puts the child in its own process group so we
       // can signal the whole tree with `process.kill(-pid, sig)`.
-      const child = spawn('claude', ['--print'], {
+      // #2661 root-fix — structured usage telemetry. `--output-format json`
+      // wraps the response in an envelope carrying `result` (the actual
+      // text — what `output` must still contain, unchanged for every
+      // existing downstream parser) alongside `usage`/cost/duration
+      // metadata. Parsing is lenient (parseClaudePrintJsonEnvelope below)
+      // and ALWAYS falls back to the raw text on any mismatch — a schema
+      // surprise from an older/newer `claude` CLI must degrade to exactly
+      // today's behavior (no usage captured), never break analysis output.
+      const child = spawn('claude', ['--print', '--output-format', 'json'], {
         cwd: this.projectRoot,
         env,
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -1279,9 +1474,17 @@ Analyze the above codebase context and provide your response following the forma
         resolved = true;
         cleanup();
 
+        const envelope = parseClaudePrintJsonEnvelope(stdout);
         resolve({
           success: code === 0,
-          output: stdout || stderr,
+          output: envelope?.result ?? stdout ?? stderr,
+          inputTokens: envelope?.inputTokens,
+          outputTokens: envelope?.outputTokens,
+          tokensUsed: envelope
+            ? (envelope.inputTokens ?? 0) + (envelope.outputTokens ?? 0)
+            : undefined,
+          costUsd: envelope?.costUsd,
+          apiDurationMs: envelope?.durationMs,
           error: code !== 0 ? stderr || `Process exited with code ${code}` : undefined,
         });
       });

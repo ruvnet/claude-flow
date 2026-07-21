@@ -354,3 +354,80 @@ describe('#2208 — CLAUDE.md backup before overwrite', () => {
     expect(existsSync(path.join(tmp, 'CLAUDE.md.pre-ruflo'))).toBe(false);
   });
 });
+
+describe('persistent memory ON BY DEFAULT — .swarm/memory.db created during init', () => {
+  let tmp: string;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(path.join(tmpdir(), 'wizard-memdefault-'));
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('eagerly creates .swarm/memory.db when runtime.memoryBackend is persistent (hybrid)', async () => {
+    // DEFAULT_INIT_OPTIONS already declares memoryBackend: 'hybrid' — this
+    // pins that the DB file itself gets created at init time, not left for
+    // a separate `memory init --force` the user has to remember to run.
+    const { executeInit } = await import('../src/init/executor.js');
+    const opts: InitOptions = {
+      ...makeMCPOptions(),
+      targetDir: tmp,
+      force: true,
+      interactive: false,
+      components: {
+        settings: false,
+        skills: false,
+        commands: false,
+        agents: false,
+        helpers: true,
+        statusline: false,
+        mcp: false,
+        runtime: false,
+        claudeMd: false,
+      },
+      skipGlobalClaudeMd: true,
+    };
+
+    const result = await executeInit(opts);
+
+    expect(existsSync(path.join(tmp, '.swarm', 'memory.db'))).toBe(true);
+    expect(result.created.files).toContain('.swarm/memory.db');
+  }, 20000);
+
+  it('does NOT create .swarm/memory.db when runtime.memoryBackend is "memory" (non-persistent opt-out)', async () => {
+    // MINIMAL_INIT_OPTIONS uses memoryBackend: 'memory' deliberately — this
+    // pins that the opt-out is respected, not overridden by the new eager path.
+    const { executeInit } = await import('../src/init/executor.js');
+    const opts: InitOptions = {
+      ...makeMCPOptions(),
+      targetDir: tmp,
+      force: true,
+      interactive: false,
+      components: {
+        settings: false,
+        skills: false,
+        commands: false,
+        agents: false,
+        helpers: true,
+        statusline: false,
+        mcp: false,
+        runtime: false,
+        claudeMd: false,
+      },
+      runtime: {
+        topology: 'mesh',
+        maxAgents: 5,
+        memoryBackend: 'memory',
+        enableHNSW: false,
+        enableNeural: false,
+      },
+      skipGlobalClaudeMd: true,
+    };
+
+    await executeInit(opts);
+
+    expect(existsSync(path.join(tmp, '.swarm', 'memory.db'))).toBe(false);
+  }, 20000);
+});

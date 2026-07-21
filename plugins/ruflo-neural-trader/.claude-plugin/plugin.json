@@ -1,7 +1,7 @@
 {
   "name": "ruflo-neural-trader",
   "description": "Neural trading via npx neural-trader — self-learning strategies, Rust/NAPI backtesting, 112+ MCP tools, swarm coordination, and portfolio optimization",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

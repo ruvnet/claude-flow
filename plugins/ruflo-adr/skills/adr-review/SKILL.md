@@ -2,7 +2,7 @@
 name: adr-review
 description: Review code changes against accepted ADRs for compliance violations
 argument-hint: "[--branch BRANCH]"
-allowed-tools: mcp__claude-flow__agentdb_hierarchical-query mcp__claude-flow__agentdb_causal-query mcp__claude-flow__memory_search Bash Read Grep Glob
+allowed-tools: mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-query mcp__plugin_ruflo-core_ruflo__agentdb_causal-query mcp__plugin_ruflo-core_ruflo__memory_search Bash Read Grep Glob
 ---
 
 # ADR Review
@@ -20,7 +20,7 @@ Before merging a PR, after significant code changes, or as part of a periodic co
 2. **Find relevant ADRs** -- For each changed file:
    - `Grep` the file for ADR references (`ADR-\d+`)
    - `Grep` `docs/adr/` for ADRs that mention the changed file paths or modules
-   - Call `mcp__claude-flow__memory_search` with the file path and change summary to find semantically related ADRs
+   - Call `mcp__plugin_ruflo-core_ruflo__memory_search` with the file path and change summary to find semantically related ADRs
 
 3. **Load ADR content** -- `Read` each relevant ADR file. Focus on:
    - The **Decision** section (what was decided)
@@ -33,7 +33,7 @@ Before merging a PR, after significant code changes, or as part of a periodic co
    - Does it modify a module in a way the ADR's consequences warned against?
    - Is the code referencing a deprecated or superseded ADR?
 
-5. **Query relationship graph** -- Call `mcp__claude-flow__agentdb_causal-query` to check if any referenced ADRs have been superseded. If so, flag that the code references an outdated decision.
+5. **Query relationship graph** -- Call `mcp__plugin_ruflo-core_ruflo__agentdb_causal-query` to check if any referenced ADRs have been superseded. If so, flag that the code references an outdated decision.
 
 6. **Report** -- Present findings as a compliance report:
    ```

@@ -12,7 +12,7 @@ tags: [plugin, browser, playwright, rvf, ruvector, agentdb, aidefence, mcp, skil
 
 ### Today's `ruflo-browser`
 
-The current plugin (v0.1.0) is a thin wrapper around 23 Playwright-backed MCP tools (`mcp__claude-flow__browser_*`). Surface inventory:
+The current plugin (v0.1.0) is a thin wrapper around 23 Playwright-backed MCP tools (`mcp__plugin_ruflo-core_ruflo__browser_*`). Surface inventory:
 
 - `.claude-plugin/plugin.json` — name, description, keywords (`browser`, `playwright`, `testing`, `automation`, `scraping`)
 - `agents/browser-agent.md` — single Sonnet agent that wires the 23 MCP tools together; suggests storing selectors in a `browser-patterns` AgentDB namespace; calls `hooks post-task --train-neural`

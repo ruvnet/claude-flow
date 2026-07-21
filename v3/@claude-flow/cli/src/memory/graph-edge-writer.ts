@@ -256,9 +256,19 @@ export async function countGraphEdges(dbPath?: string): Promise<number> {
  * #2431 fix: also explicitly closes the prior handle so file locks
  * release immediately — better-sqlite3 holds an OS-level file handle
  * which the prior sql.js implementation did not.
+ *
+ * #2736-followup fix: `close()` alone only checkpoints the WAL back into
+ * the main file as a best-effort PASSIVE checkpoint when SQLite considers
+ * this the last connection — which is not guaranteed to fully flush under
+ * contention, and was observed leaving writes invisible to a same-process
+ * sql.js reader that re-reads the raw file immediately after close() on
+ * Linux CI runners (not reproduced on Windows). Force a blocking TRUNCATE
+ * checkpoint before close so cross-engine readers always see committed
+ * writes deterministically, regardless of platform/timing.
  */
 export function _resetBridgeDb(): void {
   if (_db) {
+    try { _db.pragma('wal_checkpoint(TRUNCATE)'); } catch { /* best-effort */ }
     try { _db.close(); } catch { /* best-effort */ }
   }
   _db = null;

@@ -2,7 +2,7 @@
 name: neural-train
 description: Train SONA + MicroLoRA neural patterns from successful task completions; runs the DISTILL + CONSOLIDATE phases of the 4-step pipeline
 argument-hint: "[--pattern-type coordination|edit|task] [--epochs N] [--microlora]"
-allowed-tools: mcp__claude-flow__neural_train mcp__claude-flow__neural_status mcp__claude-flow__neural_patterns mcp__claude-flow__neural_predict mcp__claude-flow__neural_optimize mcp__claude-flow__neural_compress mcp__claude-flow__hooks_pretrain mcp__claude-flow__hooks_build-agents mcp__claude-flow__hooks_intelligence_trajectory-start mcp__claude-flow__hooks_intelligence_trajectory-step mcp__claude-flow__hooks_intelligence_trajectory-end mcp__claude-flow__hooks_intelligence_pattern-store mcp__claude-flow__hooks_intelligence_learn mcp__claude-flow__hooks_intelligence-reset mcp__claude-flow__ruvllm_sona_create mcp__claude-flow__ruvllm_sona_adapt mcp__claude-flow__ruvllm_microlora_create mcp__claude-flow__ruvllm_microlora_adapt mcp__claude-flow__agentdb_consolidate Bash
+allowed-tools: mcp__plugin_ruflo-core_ruflo__neural_train mcp__plugin_ruflo-core_ruflo__neural_status mcp__plugin_ruflo-core_ruflo__neural_patterns mcp__plugin_ruflo-core_ruflo__neural_predict mcp__plugin_ruflo-core_ruflo__neural_optimize mcp__plugin_ruflo-core_ruflo__neural_compress mcp__plugin_ruflo-core_ruflo__hooks_pretrain mcp__plugin_ruflo-core_ruflo__hooks_build-agents mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-start mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-end mcp__plugin_ruflo-core_ruflo__hooks_intelligence_pattern-store mcp__plugin_ruflo-core_ruflo__hooks_intelligence_learn mcp__plugin_ruflo-core_ruflo__hooks_intelligence-reset mcp__plugin_ruflo-core_ruflo__ruvllm_sona_create mcp__plugin_ruflo-core_ruflo__ruvllm_sona_adapt mcp__plugin_ruflo-core_ruflo__ruvllm_microlora_create mcp__plugin_ruflo-core_ruflo__ruvllm_microlora_adapt mcp__plugin_ruflo-core_ruflo__agentdb_consolidate Bash
 ---
 
 # Neural Training
@@ -17,14 +17,14 @@ Train and consolidate neural patterns. Implements the **DISTILL** and **CONSOLID
 
 ## Standard flow (DISTILL)
 
-1. **Check current neural status** — `mcp__claude-flow__neural_status`.
-2. **Start a trajectory** — `mcp__claude-flow__hooks_intelligence_trajectory-start` with the task context.
-3. **Record steps** — for each significant action, `mcp__claude-flow__hooks_intelligence_trajectory-step`.
-4. **End trajectory** — `mcp__claude-flow__hooks_intelligence_trajectory-end` with `verdict: pass|fail|partial`.
-5. **Learn from the trajectory** — `mcp__claude-flow__hooks_intelligence_learn`.
-6. **Train patterns** — `mcp__claude-flow__neural_train` with `--pattern-type coordination --epochs 10`.
-7. **Store patterns** — `mcp__claude-flow__hooks_intelligence_pattern-store`.
-8. **Verify** — `mcp__claude-flow__neural_patterns` to confirm.
+1. **Check current neural status** — `mcp__plugin_ruflo-core_ruflo__neural_status`.
+2. **Start a trajectory** — `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-start` with the task context.
+3. **Record steps** — for each significant action, `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step`.
+4. **End trajectory** — `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-end` with `verdict: pass|fail|partial`.
+5. **Learn from the trajectory** — `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_learn`.
+6. **Train patterns** — `mcp__plugin_ruflo-core_ruflo__neural_train` with `--pattern-type coordination --epochs 10`.
+7. **Store patterns** — `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_pattern-store`.
+8. **Verify** — `mcp__plugin_ruflo-core_ruflo__neural_patterns` to confirm.
 
 ## SONA adaptation (single-domain, <0.05ms)
 

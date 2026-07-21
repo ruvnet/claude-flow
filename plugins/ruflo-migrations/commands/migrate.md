@@ -10,7 +10,7 @@ Migration commands:
 2. Compute the next number (zero-padded to 3 digits)
 3. Generate `NNN_<name>.up.sql` and `NNN_<name>.down.sql` files
 4. Populate with SQL template appropriate for the name (create table, add column, add index)
-5. Store migration metadata via `mcp__claude-flow__memory_store --namespace migrations` (the `memory_*` family routes by namespace; `agentdb_hierarchical-*` routes by tier, not namespace)
+5. Store migration metadata via `mcp__plugin_ruflo-core_ruflo__memory_store --namespace migrations` (the `memory_*` family routes by namespace; `agentdb_hierarchical-*` routes by tier, not namespace)
 6. Report: file paths created, migration number, template used
 
 **`migrate up [--dry-run]`** -- Apply pending migrations.

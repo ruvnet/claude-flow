@@ -1,7 +1,7 @@
 {
   "name": "ruflo-daa",
   "description": "Dynamic Agentic Architecture — 8 daa_* MCP tools for adaptive agents (create/adapt), cognitive patterns, workflows (create/execute), knowledge sharing, and learning/performance metrics. Feeds the JUDGE phase of the 4-step intelligence pipeline.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

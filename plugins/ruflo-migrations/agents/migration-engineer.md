@@ -67,11 +67,11 @@ DROP INDEX CONCURRENTLY IF EXISTS idx_table_column;
 
 ### Tools
 
-- `mcp__claude-flow__agentdb_hierarchical-store` -- store migration metadata and history
-- `mcp__claude-flow__agentdb_hierarchical-recall` -- recall migration status and history
-- `mcp__claude-flow__agentdb_pattern-store` -- store successful migration patterns
-- `mcp__claude-flow__agentdb_pattern-search` -- search for similar migration patterns
-- `mcp__claude-flow__agentdb_semantic-route` -- route queries to relevant schema documentation
+- `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store` -- store migration metadata and history
+- `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-recall` -- recall migration status and history
+- `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-store` -- store successful migration patterns
+- `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search` -- search for similar migration patterns
+- `mcp__plugin_ruflo-core_ruflo__agentdb_semantic-route` -- route queries to relevant schema documentation
 
 ### Neural Learning
 

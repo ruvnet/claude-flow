@@ -19,6 +19,26 @@ declare module 'sql.js' {
   export default initSqlJs;
 }
 
+// #2737 — native, WAL-aware SQLite bindings. Optional: doctor's default-run
+// structural check and the strengthened `--component memory` integrity
+// check both prefer this over sql.js when it's installed, falling back to
+// sql.js (main-image-only / WAL-blind) when it's not.
+declare module 'better-sqlite3' {
+  interface DatabaseOptions {
+    readonly?: boolean;
+    fileMustExist?: boolean;
+    timeout?: number;
+    verbose?: (message?: unknown, ...additionalArgs: unknown[]) => void;
+  }
+  class Database {
+    constructor(filename: string, options?: DatabaseOptions);
+    pragma(source: string, options?: { simple?: boolean }): any;
+    close(): void;
+    readonly open: boolean;
+  }
+  export default Database;
+}
+
 declare module 'agentic-flow' {
   export const reasoningbank: any;
 }

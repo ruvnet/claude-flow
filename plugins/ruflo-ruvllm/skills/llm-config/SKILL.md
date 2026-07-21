@@ -2,7 +2,7 @@
 name: llm-config
 description: Configure RuVLLM local inference with model selection, MicroLoRA fine-tuning, and SONA adaptation
 argument-hint: "[--model MODEL] [--adapter microlora|sona]"
-allowed-tools: mcp__claude-flow__ruvllm_generate_config mcp__claude-flow__ruvllm_status mcp__claude-flow__ruvllm_microlora_create mcp__claude-flow__ruvllm_microlora_adapt mcp__claude-flow__ruvllm_sona_create mcp__claude-flow__ruvllm_sona_adapt Bash
+allowed-tools: mcp__plugin_ruflo-core_ruflo__ruvllm_generate_config mcp__plugin_ruflo-core_ruflo__ruvllm_status mcp__plugin_ruflo-core_ruflo__ruvllm_microlora_create mcp__plugin_ruflo-core_ruflo__ruvllm_microlora_adapt mcp__plugin_ruflo-core_ruflo__ruvllm_sona_create mcp__plugin_ruflo-core_ruflo__ruvllm_sona_adapt Bash
 ---
 
 # LLM Configuration
@@ -15,12 +15,12 @@ When you need to configure local LLM inference, create MicroLoRA adapters for ta
 
 ## Steps
 
-1. **Check status** — call `mcp__claude-flow__ruvllm_status` to see current model and adapter state
-2. **Generate config** — call `mcp__claude-flow__ruvllm_generate_config` with model parameters
-3. **Create MicroLoRA** — call `mcp__claude-flow__ruvllm_microlora_create` for task-specific adapters
-4. **Adapt MicroLoRA** — call `mcp__claude-flow__ruvllm_microlora_adapt` with training data
-5. **Create SONA** — call `mcp__claude-flow__ruvllm_sona_create` for real-time neural adaptation
-6. **Adapt SONA** — call `mcp__claude-flow__ruvllm_sona_adapt` with feedback signals
+1. **Check status** — call `mcp__plugin_ruflo-core_ruflo__ruvllm_status` to see current model and adapter state
+2. **Generate config** — call `mcp__plugin_ruflo-core_ruflo__ruvllm_generate_config` with model parameters
+3. **Create MicroLoRA** — call `mcp__plugin_ruflo-core_ruflo__ruvllm_microlora_create` for task-specific adapters
+4. **Adapt MicroLoRA** — call `mcp__plugin_ruflo-core_ruflo__ruvllm_microlora_adapt` with training data
+5. **Create SONA** — call `mcp__plugin_ruflo-core_ruflo__ruvllm_sona_create` for real-time neural adaptation
+6. **Adapt SONA** — call `mcp__plugin_ruflo-core_ruflo__ruvllm_sona_adapt` with feedback signals
 
 ## MicroLoRA vs SONA
 

@@ -153,8 +153,8 @@ if (!existsSync(SKILL_MD)) {
     'the MCP tool that powers Phase 3 must be allow-listed',
   );
   check(
-    'skill declares `mcp__claude-flow__memory_store` for artifact persistence',
-    /^allowed-tools:[^\n]*mcp__claude-flow__memory_store/m.test(skill),
+    'skill declares plugin-qualified `memory_store` for artifact persistence',
+    /^allowed-tools:[^\n]*mcp__plugin_ruflo-core_ruflo__memory_store/m.test(skill),
     'persistence to trading-risk namespace requires memory_store',
   );
   check(

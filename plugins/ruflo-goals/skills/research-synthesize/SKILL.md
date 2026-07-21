@@ -2,7 +2,7 @@
 name: research-synthesize
 description: Synthesize research findings from memory into structured reports with evidence grading, contradiction resolution, and actionable recommendations
 argument-hint: "<topic> [--format report|brief|table]"
-allowed-tools: mcp__claude-flow__memory_search mcp__claude-flow__memory_search_unified mcp__claude-flow__memory_list mcp__claude-flow__memory_retrieve mcp__claude-flow__memory_store mcp__claude-flow__agentdb_context-synthesize mcp__claude-flow__agentdb_pattern-search mcp__claude-flow__neural_predict Bash Read Write
+allowed-tools: mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__memory_search_unified mcp__plugin_ruflo-core_ruflo__memory_list mcp__plugin_ruflo-core_ruflo__memory_retrieve mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__agentdb_context-synthesize mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search mcp__plugin_ruflo-core_ruflo__neural_predict Bash Read Write
 ---
 
 # Research Synthesize
@@ -16,10 +16,10 @@ After running deep-research (one or multiple times), when you need to pull toget
 ## Steps
 
 1. **Gather findings** — search across research namespaces:
-   - `mcp__claude-flow__memory_search` namespace `research` for raw findings
-   - `mcp__claude-flow__memory_search` namespace `research-sources` for references
-   - `mcp__claude-flow__agentdb_pattern-search` for discovered patterns
-   - `mcp__claude-flow__agentdb_context-synthesize` for AI-assisted context building
+   - `mcp__plugin_ruflo-core_ruflo__memory_search` namespace `research` for raw findings
+   - `mcp__plugin_ruflo-core_ruflo__memory_search` namespace `research-sources` for references
+   - `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search` for discovered patterns
+   - `mcp__plugin_ruflo-core_ruflo__agentdb_context-synthesize` for AI-assisted context building
 2. **Grade evidence** — for each finding, assess:
    - **High**: Multiple independent sources agree, directly observed, reproducible
    - **Medium**: Single credible source, indirectly supported, plausible
@@ -29,7 +29,7 @@ After running deep-research (one or multiple times), when you need to pull toget
    - Compare evidence quality
    - Check recency (newer data may supersede)
    - Note unresolved contradictions explicitly
-4. **Predict relevance** — call `mcp__claude-flow__neural_predict` to score which findings are most relevant to the original goal
+4. **Predict relevance** — call `mcp__plugin_ruflo-core_ruflo__neural_predict` to score which findings are most relevant to the original goal
 5. **Structure report**:
    - Executive summary (2-3 sentences answering the original question)
    - Key findings (ranked by evidence quality)
@@ -37,7 +37,7 @@ After running deep-research (one or multiple times), when you need to pull toget
    - Limitations (what wasn't checked, what remains uncertain)
    - Recommendations (concrete next actions)
    - References (source links and memory keys)
-6. **Store synthesis** — call `mcp__claude-flow__memory_store` namespace `research-synthesis` with the full report
+6. **Store synthesis** — call `mcp__plugin_ruflo-core_ruflo__memory_store` namespace `research-synthesis` with the full report
 
 ## Output format
 

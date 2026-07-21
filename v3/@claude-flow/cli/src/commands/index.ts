@@ -40,6 +40,7 @@ const commandLoaders: Record<string, CommandLoader> = {
   'hive-mind': () => import('./hive-mind.js'),
   process: () => import('./process.js'),
   daemon: () => import('./daemon.js'),
+  version: () => import('./version.js'),
   // V3 Advanced Commands (less frequently used - lazy load)
   neural: () => import('./neural.js'),
   security: () => import('./security.js'),
@@ -82,6 +83,21 @@ const commandLoaders: Record<string, CommandLoader> = {
   metaharness: () => import('./metaharness.js'),
   // Eject (ADR-150 Phase 2) — lift ruflo project into a renamed standalone harness
   eject: () => import('./eject.js'),
+  // Cognitum lifecycle funnel controls (ADR-301/305/309)
+  funnel: () => import('./funnel.js'),
+  // User-facing preferences wrapper (ADR-311 copy discipline — no "funnel" in
+  // the user surface). Forwards to the funnel primitives internally.
+  settings: () => import('./settings.js'),
+  // Cognitum identity — login/logout/status (ADR-306)
+  auth: () => import('./auth.js'),
+  // Meta LLM Proxy — sponsored downtime capacity (ADR-304/307/313)
+  proxy: () => import('./proxy.js'),
+  // Fable co-pilot advisor tip in the statusline insight ticker (ADR-316)
+  advisor: () => import('./advisor.js'),
+  // Ruflo verbs in Claude Code's spinnerVerbs rotation (ADR-318)
+  spinner: () => import('./spinner.js'),
+  // Ruflo entries in Claude Code's companyAnnouncements startup rotation (ADR-319)
+  announcements: () => import('./announcements.js'),
 };
 
 // Cache for loaded commands

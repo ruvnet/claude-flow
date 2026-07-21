@@ -10,8 +10,11 @@ describe('#1906 — agent_execute model aliases resolve to current Claude 4.x id
   it('haiku → claude-haiku-4-5-20251001', () => {
     expect(resolveAnthropicModel('haiku')).toBe('claude-haiku-4-5-20251001');
   });
-  it('sonnet → claude-sonnet-4-6', () => {
-    expect(resolveAnthropicModel('sonnet')).toBe('claude-sonnet-4-6');
+  it('sonnet → claude-sonnet-5 (bumped from 4-6)', () => {
+    expect(resolveAnthropicModel('sonnet')).toBe('claude-sonnet-5');
+  });
+  it('sonnet-4.6 reaches the prior pin', () => {
+    expect(resolveAnthropicModel('sonnet-4.6')).toBe('claude-sonnet-4-6');
   });
   it('opus → claude-opus-4-8 (#2232 alias bump)', () => {
     expect(resolveAnthropicModel('opus')).toBe('claude-opus-4-8');
@@ -19,9 +22,9 @@ describe('#1906 — agent_execute model aliases resolve to current Claude 4.x id
   it('opus-4.7 reaches the prior pin', () => {
     expect(resolveAnthropicModel('opus-4.7')).toBe('claude-opus-4-7');
   });
-  it('inherit → the default (sonnet 4.6)', () => {
-    expect(resolveAnthropicModel('inherit')).toBe('claude-sonnet-4-6');
-    expect(DEFAULT_ANTHROPIC_MODEL).toBe('claude-sonnet-4-6');
+  it('inherit → the default (sonnet 5)', () => {
+    expect(resolveAnthropicModel('inherit')).toBe('claude-sonnet-5');
+    expect(DEFAULT_ANTHROPIC_MODEL).toBe('claude-sonnet-5');
   });
   it('undefined → the default', () => {
     expect(resolveAnthropicModel(undefined)).toBe(DEFAULT_ANTHROPIC_MODEL);

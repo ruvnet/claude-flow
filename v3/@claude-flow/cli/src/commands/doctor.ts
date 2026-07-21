@@ -7,7 +7,7 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { existsSync, readFileSync, statSync } from 'fs';
+import { existsSync, readFileSync, statSync, openSync, readSync, closeSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createHash } from 'crypto';
@@ -154,8 +154,10 @@ async function checkConfigFile(): Promise<HealthCheck> {
  * the broken commands).
  */
 async function checkStaleSettingsNpx(): Promise<HealthCheck> {
-  // Same regex pattern the executor migration uses — kept in sync.
-  const BROKEN_RE = /npx\s+(?:--?\S+\s+)*@?claude-flow\/cli@latest\s+hooks\s+(?:statusline|\S+)/;
+  // Same regex pattern the executor migration uses — kept in sync. Flag-list
+  // repetition bounded at 10 (CodeQL js/redos — unbounded `*` here is
+  // exponential-backtracking-prone on a crafted settings.json).
+  const BROKEN_RE = /npx\s+(?:--?\S+\s+){0,10}@?claude-flow\/cli@latest\s+hooks\s+(?:statusline|\S+)/;
 
   // Look in both project-local and home-dir settings.
   const candidates = [
@@ -236,6 +238,16 @@ async function checkDaemonStatus(): Promise<HealthCheck> {
 }
 
 // Check memory database
+//
+// #2737: renamed the reported row from "Memory Database" to "Memory Database
+// Presence" — this check is existsSync()+statSync() ONLY, it never opens the
+// file or queries it, so it PASSES for any file that exists and can be
+// stat'd, corrupt or not. It was the ONLY memory probe in the default
+// `allChecks` run (the real integrity checks were --component memory only),
+// so a corrupt .swarm/memory.db could sail through a bare `doctor` run as
+// "healthy". The name change makes the check's actual scope honest; the
+// behavior below is unchanged. See checkMemoryStructuralIntegrity below for
+// the new default-run check that actually opens the file.
 async function checkMemoryDatabase(): Promise<HealthCheck> {
   // Authoritative path comes from `getMemoryRoot()` (honors
   // `CLAUDE_FLOW_MEMORY_PATH`, claude-flow.config.json's `memory.persistPath`,
@@ -262,14 +274,452 @@ async function checkMemoryDatabase(): Promise<HealthCheck> {
       try {
         const stats = statSync(dbPath);
         const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
-        return { name: 'Memory Database', status: 'pass', message: `${dbPath} (${sizeMB} MB)` };
+        return { name: 'Memory Database Presence', status: 'pass', message: `${dbPath} (${sizeMB} MB) — existence/size only, not a health check (see Memory Structural Integrity)` };
       } catch {
-        return { name: 'Memory Database', status: 'warn', message: `${dbPath} (unable to stat)` };
+        return { name: 'Memory Database Presence', status: 'warn', message: `${dbPath} (unable to stat)` };
       }
     }
   }
 
-  return { name: 'Memory Database', status: 'warn', message: 'Not initialized', fix: 'claude-flow memory configure --backend hybrid' };
+  return { name: 'Memory Database Presence', status: 'warn', message: 'Not initialized', fix: 'claude-flow memory configure --backend hybrid' };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// #2677 — memory doctor: functional checks (stuinfla)
+//
+// The existing `checkMemoryDatabase` above asserts existence + statability
+// only, so it CANNOT distinguish a healthy DB from a 99.97%-empty or
+// SQLite-malformed one. Stuinfla reported both cases live (81-store fleet).
+// The three checks below layer functional assertions on top, ordered so
+// the earliest chain-break is always the first red the user sees:
+//   1. Integrity          — can sql.js open it AND does PRAGMA integrity_check pass?
+//   2. Content            — do most memory_entries rows carry non-empty content?
+//   3. Embedding coverage — do most rows have a vector? (unembedded rows are
+//                           both unrecallable AND undistillable per ADR-174)
+// Ordering matters: content ratio is meaningless on a DB that can't open;
+// embedding coverage is meaningless on rows with no content. First red wins.
+//
+// Recall probe (stuinfla check 4) requires actual write+search+delete round
+// trips through the CLI's own memory pipeline — deferred to a follow-up PR
+// to keep this one purely additive and safe.
+//
+// Design rules (also from stuinfla's report):
+//   - "A check that cannot fail protects nothing" — every check has a
+//     demonstrable red state.
+//   - "UNKNOWN is never PASS" — if the check can't RUN, report warn/fail,
+//     never a reassuring pass. Encrypted-DB case gets warn with the caveat
+//     spelled out; corruption gets fail.
+//   - "Print the measurement, not a checkmark" — messages include the
+//     ratios so operators see the shape of the problem.
+
+/** Resolve the same DB path checkMemoryDatabase above uses. Returns null
+ * if no candidate exists (in which case none of these checks should
+ * fire — checkMemoryDatabase will already have surfaced the missing DB). */
+async function resolveMemoryDbPath(): Promise<string | null> {
+  const candidates: string[] = [];
+  try {
+    const { getMemoryRoot } = await import('../memory/memory-initializer.js');
+    candidates.push(join(getMemoryRoot(), 'memory.db'));
+  } catch { /* fall through to legacy candidates */ }
+  candidates.push('.swarm/memory.db', '.claude-flow/memory.db', 'data/memory/memory.db', 'data/memory.db');
+  for (const p of candidates) if (existsSync(p)) return p;
+  return null;
+}
+
+/** Open a sql.js Database over an on-disk file, returning null when the
+ * file can't be opened as a SQLite database (encrypted / corrupted / not
+ * a database). Callers decide whether that's warn or fail. */
+async function tryOpenSqlJs(dbPath: string): Promise<any | null> {
+  try {
+    const initSqlJs: any = (await import('sql.js')).default ?? (await import('sql.js'));
+    const SQL = await (typeof initSqlJs === 'function' ? initSqlJs() : initSqlJs.default());
+    const { readFileSync } = await import('fs');
+    const buf = readFileSync(dbPath);
+    return new SQL.Database(new Uint8Array(buf));
+  } catch { return null; }
+}
+
+// ── #2737 shared helpers: encryption-at-rest carve-out ─────────────────────
+//
+// "file is not a database" / "malformed" from sql.js or better-sqlite3 is
+// EXACTLY the signal a legitimately RFE1-encrypted-at-rest memory.db also
+// produces when opened without decrypting (ADR-096). Before either the new
+// default-run check or the strengthened checkMemoryIntegrity below concludes
+// "malformed = fail", they sniff for the RFE1 magic using the SAME detector
+// checkEncryptionAtRest uses (isEncryptedBlob), so the two checks can never
+// disagree about what counts as "encrypted".
+
+/** Read just the first `len` bytes of a file without loading the whole file
+ * into memory — a multi-GB memory.db shouldn't get fully buffered just to
+ * check a 4-byte magic. Returns fewer bytes (or empty) when the file is
+ * shorter than `len`; isEncryptedBlob() correctly treats a too-short blob
+ * as "not encrypted", so callers don't need to special-case that. */
+function readHeaderBytes(path: string, len: number): Buffer {
+  const fd = openSync(path, 'r');
+  try {
+    const buf = Buffer.alloc(len);
+    const bytesRead = readSync(fd, buf, 0, len, 0);
+    return buf.subarray(0, bytesRead);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+// RFE1 wire format is magic(4) + iv(12) + ciphertext(N) + tag(16); the
+// shortest possible blob is 32 bytes. 64 gives headroom without importing
+// vault.ts's private MIN_BLOB_LEN constant.
+const ENCRYPTION_SNIFF_LEN = 64;
+
+/** True iff `dbPath` is a legitimately RFE1-encrypted-at-rest file. A read
+ * failure (permissions, races) is treated as "not encrypted" — callers
+ * still hit their own open/query error handling right after, so nothing
+ * gets silently swallowed. */
+function isMemoryDbEncryptedAtRest(dbPath: string): boolean {
+  try {
+    return isEncryptedBlob(readHeaderBytes(dbPath, ENCRYPTION_SNIFF_LEN));
+  } catch {
+    return false;
+  }
+}
+
+// #2737 part 1 — bare `doctor` (no --component flag) never actually opened
+// memory.db: checkMemoryDatabase above is existsSync()+statSync() only, so
+// it PASSES on any file that exists and can be stat'd, corrupt or not, and
+// it was the ONLY memory probe `allChecks` ran. The real integrity checks
+// (checkMemoryIntegrity/Content/EmbeddingCoverage below) were, and remain,
+// --component memory only.
+//
+// This is a NEW, cheaper, native check added to the default `allChecks` run
+// (not a replacement for the deep trio):
+//   - better-sqlite3 (native) instead of sql.js: it's WAL-aware because
+//     SQLite itself resolves any sibling -wal file next to the main image;
+//     sql.js is WAL-blind — tryOpenSqlJs() above only readFileSync()s the
+//     main file and hands the raw bytes to the WASM build, so any
+//     committed-but-not-checkpointed rows sitting in a -wal file are
+//     invisible to it.
+//   - PRAGMA quick_check, not integrity_check: per sqlite.org, quick_check
+//     "is like integrity_check except that it does not verify UNIQUE
+//     constraints and does not verify that index content matches table
+//     content" — bounded enough to run unconditionally on every bare
+//     `doctor` call. The full integrity_check (with those extra
+//     cross-checks) is what the strengthened checkMemoryIntegrity below
+//     runs when better-sqlite3 is available.
+// Explicitly labeled "structural-only" in both the row name and every
+// message so nobody mistakes this cheap default-run probe for the deeper
+// --component memory one.
+async function checkMemoryStructuralIntegrity(): Promise<HealthCheck> {
+  const NAME = 'Memory Structural Integrity (quick_check)';
+  const dbPath = await resolveMemoryDbPath();
+  if (!dbPath) {
+    // Not-yet-initialized project — Memory Database Presence above already
+    // surfaces this; "UNKNOWN is never PASS" still applies, so this stays a
+    // warn rather than a silent skip, but doesn't pile on a second red for
+    // the same root cause.
+    return {
+      name: NAME,
+      status: 'warn',
+      message: 'no memory.db found (see Memory Database Presence above) — structural-only check skipped',
+    };
+  }
+
+  // Encryption-at-rest carve-out (#2737 part 3) — see helpers above.
+  if (isMemoryDbEncryptedAtRest(dbPath)) {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: `${dbPath} — RFE1-encrypted at rest; structural-only check can't run without decrypting (expected, not corruption — see Encryption at Rest)`,
+    };
+  }
+
+  let Database: any;
+  try {
+    Database = ((await import('better-sqlite3')) as any).default;
+  } catch {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: `${dbPath} — better-sqlite3 not installed; structural-only check skipped (optional native module)`,
+      fix: 'npm install better-sqlite3  (enables WAL-aware structural checks on every `doctor` run)',
+    };
+  }
+
+  let db: any;
+  try {
+    db = new Database(dbPath, { readonly: true, fileMustExist: true });
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    // Encryption already ruled out above — an unencrypted file
+    // better-sqlite3 can't even open is definitive corruption.
+    // #2737 part 3: fail, not warn.
+    return {
+      name: NAME,
+      status: 'fail',
+      message: `${dbPath} — better-sqlite3 failed to open: ${msg} (unencrypted; definitively malformed) [structural-only]`,
+      fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+    };
+  }
+
+  try {
+    const rows = db.pragma('quick_check') as Array<Record<string, unknown>>;
+    const values = rows.map((r) => String(Object.values(r)[0]));
+    if (values.length === 1 && values[0] === 'ok') {
+      return {
+        name: NAME,
+        status: 'pass',
+        message: `${dbPath} — PRAGMA quick_check: ok [structural-only, native + WAL-aware]`,
+      };
+    }
+    return {
+      name: NAME,
+      status: 'fail',
+      message: `${dbPath} — PRAGMA quick_check: ${values.slice(0, 3).join('; ')}${values.length > 3 ? ` (+${values.length - 3} more)` : ''} [structural-only]`,
+      fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+    };
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    // Encryption ruled out above; DB opened but the pragma itself threw —
+    // still definitive, unencrypted breakage. Fail, not warn.
+    return {
+      name: NAME,
+      status: 'fail',
+      message: `${dbPath} — quick_check probe threw: ${msg} (unencrypted) [structural-only]`,
+      fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+    };
+  } finally {
+    try { db.close(); } catch { /* best-effort */ }
+  }
+}
+
+// Check 1 (--component memory, deep path) — #2737 part 2 strengthens this:
+// prefer native better-sqlite3 PRAGMA integrity_check (adds index↔table
+// cross-checking + UNIQUE verification that quick_check above deliberately
+// skips, and is WAL-aware — see checkMemoryStructuralIntegrity's comment)
+// when better-sqlite3 is available, falling back to the original sql.js
+// probe when it's not. The sql.js fallback is main-image-only (WAL-blind);
+// its message says so explicitly so operators know its limits.
+//
+// #2737 part 3: with the encryption carve-out applied up front on BOTH
+// paths, a "file is not a database" / "malformed" result is now definitive,
+// unencrypted corruption in every branch below — fail, not warn (the
+// previous version treated this as an ambiguous warn because it couldn't
+// tell corruption from encryption; that ambiguity is what the carve-out
+// resolves).
+async function checkMemoryIntegrity(): Promise<HealthCheck> {
+  const dbPath = await resolveMemoryDbPath();
+  if (!dbPath) return { name: 'Memory Integrity', status: 'warn', message: 'no memory.db found (see Memory Database Presence check above)' };
+
+  if (isMemoryDbEncryptedAtRest(dbPath)) {
+    return {
+      name: 'Memory Integrity',
+      status: 'warn',
+      message: `${dbPath} — RFE1-encrypted at rest; integrity check can't run without decrypting (expected, not corruption — see Encryption at Rest)`,
+    };
+  }
+
+  // Prefer native better-sqlite3 (WAL-aware, full integrity_check). Module
+  // load is isolated in its own try/catch so ONLY "not installed" falls
+  // through to the sql.js fallback below — once the module loaded, any
+  // open/query failure is resolved (fail) right here, not silently
+  // reclassified as "sql.js fallback, main-image-only" by an outer catch.
+  let Database: any;
+  try {
+    Database = ((await import('better-sqlite3')) as any).default;
+  } catch {
+    Database = null; // not installed — fall through to the sql.js fallback below.
+  }
+
+  if (Database) {
+    let db: any;
+    try {
+      db = new Database(dbPath, { readonly: true, fileMustExist: true });
+    } catch (e) {
+      const msg = (e as Error).message || String(e);
+      return {
+        name: 'Memory Integrity',
+        status: 'fail',
+        message: `${dbPath} — better-sqlite3 failed to open: ${msg} (unencrypted; definitively malformed) [native, WAL-aware]`,
+        fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+      };
+    }
+    try {
+      const rows = db.pragma('integrity_check') as Array<Record<string, unknown>>;
+      const values = rows.map((r) => String(Object.values(r)[0]));
+      if (values.length === 1 && values[0] === 'ok') {
+        return { name: 'Memory Integrity', status: 'pass', message: `${dbPath} — PRAGMA integrity_check: ok [native, WAL-aware]` };
+      }
+      return {
+        name: 'Memory Integrity',
+        status: 'fail',
+        message: `${dbPath} — PRAGMA integrity_check: ${values.slice(0, 3).join('; ')}${values.length > 3 ? ` (+${values.length - 3} more)` : ''} [native, WAL-aware]`,
+        fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+      };
+    } catch (e) {
+      // DB opened but the pragma itself threw — still definitive,
+      // unencrypted breakage (encryption ruled out above). Fail, not warn,
+      // and NOT a fall-through to the sql.js fallback: better-sqlite3 IS
+      // installed and just gave us the answer.
+      const msg = (e as Error).message || String(e);
+      return {
+        name: 'Memory Integrity',
+        status: 'fail',
+        message: `${dbPath} — integrity_check probe threw: ${msg} (unencrypted; definitively malformed) [native, WAL-aware]`,
+        fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+      };
+    } finally {
+      try { db.close(); } catch { /* best-effort */ }
+    }
+  }
+
+  // Fallback: sql.js — main-image-only (WAL-blind). tryOpenSqlJs()
+  // readFileSync()s the base file directly, so any committed-but-not-
+  // checkpointed rows sitting in a sibling -wal file are invisible here.
+  // Install better-sqlite3 for the WAL-aware path above.
+  const db = await tryOpenSqlJs(dbPath);
+  if (!db) {
+    // Encryption already ruled out above — an unencrypted file sql.js can't
+    // even open is definitive corruption too.
+    return {
+      name: 'Memory Integrity',
+      status: 'fail',
+      message: `${dbPath} — sql.js can't open (unencrypted; definitively malformed) [main-image-only fallback — install better-sqlite3 for WAL-aware checking]`,
+      fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+    };
+  }
+  try {
+    const res = db.exec('PRAGMA integrity_check');
+    const rows: string[] = res[0]?.values?.map((v: any[]) => String(v[0])) ?? [];
+    if (rows.length === 1 && rows[0] === 'ok') {
+      return { name: 'Memory Integrity', status: 'pass', message: `${dbPath} — PRAGMA integrity_check: ok [main-image-only fallback — sql.js can't see WAL-only data; install better-sqlite3 for full coverage]` };
+    }
+    return {
+      name: 'Memory Integrity',
+      status: 'fail',
+      message: `${dbPath} — PRAGMA integrity_check: ${rows.slice(0, 3).join('; ')}${rows.length > 3 ? ` (+${rows.length - 3} more)` : ''} [main-image-only fallback]`,
+      fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+    };
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    const definitivelyMalformed = msg.includes('file is not a database') || msg.includes('malformed');
+    // Encryption already ruled out above, so — matched pattern or not —
+    // this is a query refusal on a file we KNOW isn't RFE1-encrypted.
+    // #2737 part 3: fail, not warn.
+    return {
+      name: 'Memory Integrity',
+      status: 'fail',
+      message: definitivelyMalformed
+        ? `${dbPath} — DB refused query: ${msg} (unencrypted; definitively malformed) [main-image-only fallback]`
+        : `${dbPath} — probe threw: ${msg} (unencrypted — encryption ruled out above) [main-image-only fallback]`,
+      fix: 'back up .swarm/memory.db then `claude-flow memory init --force`',
+    };
+  } finally { try { db.close(); } catch { /* best-effort */ } }
+}
+
+// Check 2 — memory_entries rows should mostly carry non-empty content.
+// Stuinfla's live case: 11,133 rows, 3 with content (0.03%). Threshold 95%
+// is the number he proposed. Values below → fail with the exact ratio in
+// the message ("Print the measurement, not a checkmark").
+async function checkMemoryContent(): Promise<HealthCheck> {
+  const dbPath = await resolveMemoryDbPath();
+  if (!dbPath) return { name: 'Memory Content', status: 'warn', message: 'no memory.db found' };
+  const db = await tryOpenSqlJs(dbPath);
+  if (!db) return { name: 'Memory Content', status: 'warn', message: 'DB unreadable (see Memory Integrity)' };
+  try {
+    const tables: string[] = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='memory_entries'")[0]?.values?.map((v: any[]) => String(v[0])) ?? [];
+    if (tables.length === 0) return { name: 'Memory Content', status: 'warn', message: 'no memory_entries table in DB — schema mismatch or empty init' };
+    const r = db.exec("SELECT count(*), sum(CASE WHEN length(trim(coalesce(content,'')))>0 THEN 1 ELSE 0 END) FROM memory_entries");
+    const total = Number(r[0]?.values?.[0]?.[0] ?? 0);
+    const populated = Number(r[0]?.values?.[0]?.[1] ?? 0);
+    if (total === 0) return { name: 'Memory Content', status: 'pass', message: `${dbPath} — 0 rows (fresh DB, expected)` };
+    const ratio = populated / total;
+    const pct = (ratio * 100).toFixed(2);
+    const detail = `content ${populated}/${total} (${pct}%)`;
+    if (ratio < 0.95) {
+      return {
+        name: 'Memory Content',
+        status: 'fail',
+        message: `${dbPath} — ${detail} below 95% floor`,
+        fix: 'schema drift likely (rename of value→content or similar). check migration state via `claude-flow migrate status`',
+      };
+    }
+    return { name: 'Memory Content', status: 'pass', message: `${dbPath} — ${detail}` };
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    const encryptedOrCorrupt = msg.includes('file is not a database') || msg.includes('malformed');
+    return {
+      name: 'Memory Content',
+      status: 'warn',
+      message: encryptedOrCorrupt
+        ? `${dbPath} — DB refused query: ${msg} (encrypted DB or corruption; see Memory Integrity above)`
+        : `${dbPath} — probe threw: ${msg}`,
+    };
+  } finally { try { db.close(); } catch { /* best-effort */ } }
+}
+
+// Check 3 — most memory_entries with content should also carry an embedding
+// vector. Rows without a vector are BOTH unrecallable (no similarity search
+// can find them) AND undistillable (ADR-174's distill skips rows with no
+// parseable vector). Same 95% threshold + fail-with-ratio pattern as check 2.
+//
+// Embedding storage varies across ruflo installs (agentdb migrations, HNSW
+// index vs inline vector column). Discovers the shape via schema probes,
+// falls back to warn if the schema is unrecognized (better than a false
+// pass, per "UNKNOWN is never PASS").
+async function checkMemoryEmbeddingCoverage(): Promise<HealthCheck> {
+  const dbPath = await resolveMemoryDbPath();
+  if (!dbPath) return { name: 'Memory Embedding Coverage', status: 'warn', message: 'no memory.db found' };
+  const db = await tryOpenSqlJs(dbPath);
+  if (!db) return { name: 'Memory Embedding Coverage', status: 'warn', message: 'DB unreadable (see Memory Integrity)' };
+  try {
+    // Schema-shape discovery. Three candidate columns / tables we've seen
+    // across the agentdb / ruvector history — first match wins.
+    const cols = db.exec("PRAGMA table_info(memory_entries)");
+    const colNames = new Set<string>((cols[0]?.values ?? []).map((v: any[]) => String(v[1])));
+    let vectorPredicate: string | null = null;
+    if (colNames.has('embedding')) vectorPredicate = "embedding IS NOT NULL AND length(embedding) > 0";
+    else if (colNames.has('vector')) vectorPredicate = "vector IS NOT NULL AND length(vector) > 0";
+    if (!vectorPredicate) {
+      const otherTables = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('vector_indexes','embeddings','memory_embeddings')")[0]?.values?.map((v: any[]) => String(v[0])) ?? [];
+      if (otherTables.length === 0) {
+        return {
+          name: 'Memory Embedding Coverage',
+          status: 'warn',
+          message: 'no embedding column/table recognized (agentdb schema mismatch or older format) — doctor cannot measure',
+        };
+      }
+      const tbl = otherTables[0];
+      const r = db.exec(`SELECT count(*) FROM memory_entries m WHERE EXISTS (SELECT 1 FROM ${tbl} e WHERE e.memory_id = m.id OR e.entry_id = m.id OR e.id = m.id)`);
+      const withEmbedding = Number(r[0]?.values?.[0]?.[0] ?? 0);
+      const total = Number(db.exec("SELECT count(*) FROM memory_entries WHERE length(trim(coalesce(content,'')))>0")[0]?.values?.[0]?.[0] ?? 0);
+      if (total === 0) return { name: 'Memory Embedding Coverage', status: 'pass', message: `${dbPath} — 0 content rows (nothing to embed)` };
+      const ratio = withEmbedding / total;
+      const pct = (ratio * 100).toFixed(2);
+      const detail = `embedded ${withEmbedding}/${total} (${pct}%) via ${tbl}`;
+      if (ratio < 0.95) return { name: 'Memory Embedding Coverage', status: 'fail', message: `${dbPath} — ${detail} below 95% floor`, fix: 'unembedded rows are unrecallable + undistillable — re-run `claude-flow memory embed --namespace <name>` for populated namespaces' };
+      return { name: 'Memory Embedding Coverage', status: 'pass', message: `${dbPath} — ${detail}` };
+    }
+    // Inline embedding column
+    const r = db.exec(`SELECT count(*), sum(CASE WHEN ${vectorPredicate} THEN 1 ELSE 0 END) FROM memory_entries WHERE length(trim(coalesce(content,'')))>0`);
+    const total = Number(r[0]?.values?.[0]?.[0] ?? 0);
+    const withEmb = Number(r[0]?.values?.[0]?.[1] ?? 0);
+    if (total === 0) return { name: 'Memory Embedding Coverage', status: 'pass', message: `${dbPath} — 0 content rows (nothing to embed)` };
+    const ratio = withEmb / total;
+    const pct = (ratio * 100).toFixed(2);
+    const detail = `embedded ${withEmb}/${total} (${pct}%)`;
+    if (ratio < 0.95) {
+      return { name: 'Memory Embedding Coverage', status: 'fail', message: `${dbPath} — ${detail} below 95% floor`, fix: 'unembedded rows are unrecallable + undistillable — re-run `claude-flow memory embed --namespace <name>` for populated namespaces' };
+    }
+    return { name: 'Memory Embedding Coverage', status: 'pass', message: `${dbPath} — ${detail}` };
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    const encryptedOrCorrupt = msg.includes('file is not a database') || msg.includes('malformed');
+    return {
+      name: 'Memory Embedding Coverage',
+      status: 'warn',
+      message: encryptedOrCorrupt
+        ? `${dbPath} — DB refused query: ${msg} (encrypted DB or corruption; see Memory Integrity above)`
+        : `${dbPath} — probe threw: ${msg}`,
+    };
+  } finally { try { db.close(); } catch { /* best-effort */ } }
 }
 
 // #2545: Check that the self-learning bridge can actually load @claude-flow/memory
@@ -765,6 +1215,294 @@ async function checkVersionFreshness(): Promise<HealthCheck> {
  *   - plugins/ruflo-metaharness/skills/harness-similarity/SKILL.md
  *   - plugins/ruflo-metaharness/skills/harness-drift-from-history/SKILL.md  (iter 53)
  */
+/**
+ * ADR-305 — funnel state audit. Reports the effective enabled/disabled
+ * state and, critically for enterprise audit verification, WHICH
+ * precedence source decided it (env > enterprise > user > default).
+ * Informational: both states are `pass`; only a resolver failure warns.
+ */
+async function checkFunnel(): Promise<HealthCheck> {
+  try {
+    const { resolveFunnelEnabled, getDisclosure } = await import('../funnel/index.js');
+    const decision = resolveFunnelEnabled();
+    const disclosure = getDisclosure();
+    return {
+      name: 'Funnel (ADR-305)',
+      status: 'pass',
+      message: `${decision.enabled ? 'enabled' : 'disabled'} (decided by: ${decision.decidedBy}; disclosure: ${disclosure.state})`,
+    };
+  } catch (err) {
+    return {
+      name: 'Funnel (ADR-305)',
+      status: 'warn',
+      message: `state unreadable: ${err instanceof Error ? err.message : String(err)}`,
+      fix: 'ruflo funnel status',
+    };
+  }
+}
+
+/** Meta LLM Proxy — sponsored-downtime health (ADR-313). */
+async function checkProxySponsoredConsent(): Promise<HealthCheck> {
+  try {
+    const { funnelStateDir, hasConsent, readRateLimitStatus, lastRecordedEvent } = await import('../funnel/index.js');
+    const dir = funnelStateDir();
+    const installed = existsSync(join(dir, 'proxy-token'));
+    const consented = hasConsent('sponsored-downtime');
+    const rateLimited = readRateLimitStatus();
+    const lastExhausted = lastRecordedEvent('sponsor_capacity_exhausted');
+
+    if (!installed) {
+      return {
+        name: 'Meta LLM Proxy (ADR-313)',
+        status: 'warn',
+        message: 'not installed — no proxy-token found; sponsored-downtime capacity is unavailable',
+        fix: 'See cognitum-one/meta-proxy (private) for install instructions',
+      };
+    }
+
+    const parts = [
+      `sponsored consent: ${consented ? 'granted' : 'not granted'}`,
+      `rate-limit flag: ${rateLimited.limited ? `set (since ${rateLimited.since})` : 'not set'}`,
+    ];
+    if (lastExhausted) parts.push(`last capacity-exhausted: ${lastExhausted}`);
+
+    if (rateLimited.limited && !consented) {
+      return {
+        name: 'Meta LLM Proxy (ADR-313)',
+        status: 'warn',
+        message: `${parts.join('; ')} — flagged rate-limited but sponsored capacity isn't enabled`,
+        fix: 'ruflo proxy sponsor-enable --yes',
+      };
+    }
+
+    return { name: 'Meta LLM Proxy (ADR-313)', status: 'pass', message: parts.join('; ') };
+  } catch (err) {
+    return {
+      name: 'Meta LLM Proxy (ADR-313)',
+      status: 'warn',
+      message: `state unreadable: ${err instanceof Error ? err.message : String(err)}`,
+      fix: 'ruflo proxy sponsor-status',
+    };
+  }
+}
+
+/**
+ * Binary presence + tamper check (ADR-307). Deliberately NEVER spawns the
+ * binary to probe a version — confirmed empirically (2026-07-16) that
+ * `meta-proxy` has no `--version`/`--help` flag and starts the live server
+ * as a side effect of ANY invocation, which a doctor health check must never
+ * do. Version info instead comes from install-manifest.json (written at
+ * install time) and, once running, the proxy's own `/status` endpoint via
+ * checkProxyProcess below.
+ */
+async function checkProxyBinary(): Promise<HealthCheck> {
+  const NAME = 'Meta LLM Proxy binary (ADR-307)';
+  try {
+    const { proxyBinaryPath, proxyInstallManifestPath } = await import('../proxy/paths.js');
+    const binPath = proxyBinaryPath();
+    if (!existsSync(binPath)) {
+      return { name: NAME, status: 'warn', message: 'not installed', fix: 'ruflo proxy install' };
+    }
+
+    const manifestPath = proxyInstallManifestPath();
+    if (!existsSync(manifestPath)) {
+      return {
+        name: NAME,
+        status: 'warn',
+        message: 'binary present but no install-manifest.json — provenance unknown (installed outside `ruflo proxy install`?)',
+        fix: 'ruflo proxy update --release <x.y.z>',
+      };
+    }
+
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as {
+      version: string;
+      sha256: string;
+      verifiedAt: string;
+    };
+    const liveSha = createHash('sha256').update(readFileSync(binPath)).digest('hex');
+    if (liveSha !== manifest.sha256) {
+      return {
+        name: NAME,
+        status: 'fail',
+        message: `binary sha256 does not match the recorded install manifest — possible tampering or a manual overwrite (expected ${manifest.sha256.slice(0, 12)}…, got ${liveSha.slice(0, 12)}…)`,
+        fix: 'ruflo proxy update --release <x.y.z>',
+      };
+    }
+
+    return { name: NAME, status: 'pass', message: `v${manifest.version}, signature-verified at install (${manifest.verifiedAt})` };
+  } catch (err) {
+    return { name: NAME, status: 'warn', message: `check failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+/** PID-file liveness (ADR-307) — mirrors daemon.ts's signal-0 probe pattern. */
+async function checkProxyProcess(): Promise<HealthCheck> {
+  const NAME = 'Meta LLM Proxy process (ADR-307)';
+  try {
+    const { proxyPidFilePath } = await import('../proxy/paths.js');
+    const pidPath = proxyPidFilePath();
+    if (!existsSync(pidPath)) {
+      return { name: NAME, status: 'warn', message: 'not running (no PID file)', fix: 'ruflo proxy start' };
+    }
+
+    const pidRaw = readFileSync(pidPath, 'utf-8').trim();
+    const pid = parseInt(pidRaw, 10);
+    if (!Number.isFinite(pid)) {
+      return { name: NAME, status: 'warn', message: `PID file is malformed: ${JSON.stringify(pidRaw)}`, fix: 'ruflo proxy stop && ruflo proxy start' };
+    }
+
+    try {
+      process.kill(pid, 0); // signal-0 liveness probe — throws if the process is dead
+    } catch {
+      return { name: NAME, status: 'warn', message: `PID file points at ${pid}, which is not running — stale PID file`, fix: 'ruflo proxy start' };
+    }
+
+    // Live version-compat + data-plane info, ONLY once PID liveness already
+    // confirmed a process is running (never spawns anything — see
+    // checkProxyBinary's comment on why probing via process launch is unsafe).
+    // GET /status shape confirmed against the real v0.1.0 binary:
+    // {"version","data_plane","bind","sponsored_available","proxy_token_valid"}.
+    const { proxyConfigPath, proxyTokenPath, proxyInstallManifestPath } = await import('../proxy/paths.js');
+    const bindMatch = existsSync(proxyConfigPath())
+      ? readFileSync(proxyConfigPath(), 'utf-8').match(/^bind\s*=\s*"([^"]*)"/m)
+      : null;
+    const bind = bindMatch ? bindMatch[1] : '127.0.0.1:11435';
+
+    let token: string;
+    try {
+      token = readFileSync(proxyTokenPath(), 'utf-8').trim();
+    } catch {
+      return { name: NAME, status: 'pass', message: `running (pid ${pid}); no proxy-token to query /status` };
+    }
+
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2000);
+      const resp = await fetch(`http://${bind}/status`, {
+        headers: { authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!resp.ok) {
+        return { name: NAME, status: 'warn', message: `running (pid ${pid}); /status returned HTTP ${resp.status}` };
+      }
+      const body = (await resp.json()) as { version?: string; data_plane?: string };
+
+      let versionNote = '';
+      if (existsSync(proxyInstallManifestPath())) {
+        const manifest = JSON.parse(readFileSync(proxyInstallManifestPath(), 'utf-8')) as { version?: string };
+        if (manifest.version && body.version && manifest.version !== body.version) {
+          return {
+            name: NAME,
+            status: 'warn',
+            message: `running (pid ${pid}) reports v${body.version}, but the installed binary is v${manifest.version} — a stale process from a previous version?`,
+            fix: 'ruflo proxy stop && ruflo proxy start',
+          };
+        }
+        versionNote = body.version ? ` v${body.version}` : '';
+      }
+
+      return {
+        name: NAME,
+        status: 'pass',
+        message: `running (pid ${pid})${versionNote}; data plane: ${body.data_plane ?? 'unknown'}`,
+      };
+    } catch (err) {
+      // Live process but /status unreachable (still starting up, or a
+      // network hiccup) — not a failure, PID liveness already passed.
+      return {
+        name: NAME,
+        status: 'pass',
+        message: `running (pid ${pid}); /status unreachable (${err instanceof Error ? err.message : String(err)})`,
+      };
+    }
+  } catch (err) {
+    return { name: NAME, status: 'warn', message: `check failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+/** Non-loopback bind exposure warning (ADR-307's mandated startup warning, surfaced in doctor too). */
+async function checkProxyBindAddress(): Promise<HealthCheck> {
+  const NAME = 'Meta LLM Proxy bind address (ADR-307)';
+  try {
+    const { proxyConfigPath, isLoopbackBind } = await import('../proxy/paths.js');
+    const cfgPath = proxyConfigPath();
+    if (!existsSync(cfgPath)) {
+      return { name: NAME, status: 'pass', message: 'no config file yet — defaults to loopback-only (127.0.0.1:11435)' };
+    }
+
+    const raw = readFileSync(cfgPath, 'utf-8');
+    const match = raw.match(/^bind\s*=\s*"([^"]*)"/m);
+    const bind = match ? match[1] : '127.0.0.1:11435';
+
+    if (!isLoopbackBind(bind)) {
+      return {
+        name: NAME,
+        status: 'warn',
+        message: `bound to non-loopback address ${bind} — this exposes the proxy to your network`,
+        fix: 'Set bind back to 127.0.0.1:<port> in proxy-config.toml unless external exposure is intended',
+      };
+    }
+
+    return { name: NAME, status: 'pass', message: `loopback-only (${bind})` };
+  } catch (err) {
+    return { name: NAME, status: 'warn', message: `check failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+/** `ruflo auth` health (ADR-306). Warn (never fail) on absence — auth is never required for core functionality. */
+async function checkAuth(): Promise<HealthCheck> {
+  const NAME = 'Cognitum identity (ADR-306)';
+  try {
+    const { listProfiles } = await import('../auth/state.js');
+    const { domainForScope } = await import('../auth/scopes.js');
+    const { hasConsent } = await import('../funnel/index.js');
+    const { profiles } = listProfiles();
+
+    if (profiles.length === 0) {
+      return { name: NAME, status: 'warn', message: 'not logged in', fix: 'ruflo auth login' };
+    }
+
+    let keychainAvailable: boolean | 'unknown' = 'unknown';
+    try {
+      const sec = await import('@claude-flow/security');
+      keychainAvailable = await (await sec.createKeychainAdapter()).isAvailable();
+    } catch {
+      keychainAvailable = 'unknown'; // security package unavailable — surfaced by checkProxyBinary's sibling concerns, not duplicated here
+    }
+
+    // Scope-vs-receipt consistency check (ADR-306: "fail-closed... reports").
+    // Unlike every other check in this file, a violation here is a FAIL, not
+    // a warn — a scope present without a matching consent receipt is exactly
+    // the condition ADR-306 says must never silently pass.
+    const violations: string[] = [];
+    for (const p of profiles) {
+      for (const scope of p.scopes) {
+        const domain = domainForScope(scope);
+        if (domain && !hasConsent(domain)) violations.push(`${p.profile}: ${scope}`);
+      }
+    }
+    if (violations.length > 0) {
+      return {
+        name: NAME,
+        status: 'fail',
+        message: `scope granted without a matching consent receipt: ${violations.join(', ')}`,
+        fix: 'ruflo auth logout && ruflo auth login',
+      };
+    }
+
+    const names = profiles.map((p) => p.profile).join(', ');
+    const sessionOnly = profiles.filter((p) => !p.keychainRef).map((p) => p.profile);
+    const parts = [`profiles: ${names}`];
+    if (keychainAvailable === false) parts.push('keychain backend unreachable — falling back to session-only tokens');
+    if (sessionOnly.length > 0) parts.push(`session-only (no persisted refresh token): ${sessionOnly.join(', ')}`);
+
+    return { name: NAME, status: 'pass', message: parts.join('; ') };
+  } catch (err) {
+    return { name: NAME, status: 'warn', message: `check failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
 async function checkMetaharnessIntegration(): Promise<HealthCheck> {
   // Locate plugins dir.
   //
@@ -1149,13 +1887,27 @@ export const doctorCommand: Command = {
     {
       name: 'component',
       short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, agentic-flow, encryption, federation, metaharness)',
+      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, agentic-flow, encryption, federation, funnel, proxy, auth, metaharness)',
       type: 'string'
     },
     {
       name: 'verbose',
       short: 'v',
       description: 'Verbose output',
+      type: 'boolean',
+      default: false
+    },
+    {
+      name: 'fix-handles',
+      // Windows-only mitigation for anthropics/claude-code#67888 — Claude Code's
+      // Bash tool spawns cmd.exe/bash.exe without cleaning up child conhost.exe
+      // handles, so a long session accumulates dozens (observed live: 26+
+      // orphaned conhost.exe after a ~4h session). Each holds a kernel object
+      // + ~1MB, and combined with memory pressure this measurably slows the
+      // machine. This flag kills orphan conhost.exe (safe — Windows respawns
+      // on demand). Deliberately does NOT touch cmd.exe/bash.exe — those can
+      // be the invoking shell, and killing them 255's the caller.
+      description: 'Windows only: kill orphaned conhost.exe processes leaked by Claude Code (mitigation for anthropics/claude-code#67888)',
       type: 'boolean',
       default: false
     }
@@ -1165,13 +1917,84 @@ export const doctorCommand: Command = {
     { command: 'claude-flow doctor --fix', description: 'Print suggested fix commands (does not auto-apply)' },
     { command: 'claude-flow doctor --install', description: 'Auto-install missing dependencies' },
     { command: 'claude-flow doctor -c version', description: 'Check for stale npx cache' },
-    { command: 'claude-flow doctor -c claude', description: 'Check Claude Code CLI only' }
+    { command: 'claude-flow doctor -c claude', description: 'Check Claude Code CLI only' },
+    { command: 'claude-flow doctor --fix-handles', description: 'Windows: kill leaked conhost.exe from Claude Code sessions' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const showFix = ctx.flags.fix as boolean;
     const autoInstall = ctx.flags.install as boolean;
     const component = ctx.flags.component as string;
     const verbose = ctx.flags.verbose as boolean;
+    // Parser camelCases kebab-case flag names — read via `fixHandles`, not `['fix-handles']`.
+    const fixHandles = ctx.flags.fixHandles as boolean;
+
+    // Early-return short-circuit: `--fix-handles` is a targeted mitigation, not
+    // part of the health-check flow. Runs, reports, exits.
+    if (fixHandles) {
+      output.writeln();
+      output.writeln(output.bold('RuFlo Doctor — fix-handles'));
+      output.writeln(output.dim('─'.repeat(50)));
+      output.writeln();
+
+      if (process.platform !== 'win32') {
+        output.printInfo('--fix-handles is a Windows-only mitigation. On this platform (' + process.platform + '), no action taken.');
+        return { success: true };
+      }
+
+      const { spawnSync } = await import('child_process');
+      // PowerShell one-liner: read before-count, kill conhost, read after-count, report delta.
+      const psScript = [
+        "$before = (Get-Process conhost -EA SilentlyContinue).Count",
+        "$mem_before = [math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB, 2)",
+        "$killed = 0",
+        "Get-Process conhost -EA SilentlyContinue | ForEach-Object {",
+        "  try { Stop-Process -Id $_.Id -Force -EA Stop; $killed++ } catch {}",
+        "}",
+        "Start-Sleep -Seconds 1",
+        "$after = (Get-Process conhost -EA SilentlyContinue).Count",
+        "$mem_after = [math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB, 2)",
+        "Write-Output ('BEFORE_COUNT=' + $before)",
+        "Write-Output ('KILLED=' + $killed)",
+        "Write-Output ('AFTER_COUNT=' + $after)",
+        "Write-Output ('MEM_BEFORE_GB=' + $mem_before)",
+        "Write-Output ('MEM_AFTER_GB=' + $mem_after)",
+      ].join('; ');
+
+      const res = spawnSync('powershell', ['-NoProfile', '-Command', psScript], {
+        encoding: 'utf-8', timeout: 30000, windowsHide: true,
+      });
+
+      if (res.status !== 0) {
+        output.printError('PowerShell exited with code ' + res.status);
+        if (res.stderr) output.writeln(output.dim(res.stderr));
+        return { success: false, exitCode: 1 };
+      }
+
+      const parse = (key: string): string => {
+        const line = (res.stdout || '').split('\n').find((l) => l.startsWith(key + '='));
+        return line ? line.slice(key.length + 1).trim() : '?';
+      };
+      const before = parse('BEFORE_COUNT');
+      const killed = parse('KILLED');
+      const after = parse('AFTER_COUNT');
+      const memBefore = parse('MEM_BEFORE_GB');
+      const memAfter = parse('MEM_AFTER_GB');
+
+      output.writeln('conhost.exe processes:');
+      output.writeln('  before:  ' + before);
+      output.writeln('  killed:  ' + output.success(killed));
+      output.writeln('  after:   ' + after);
+      output.writeln('');
+      output.writeln('Free RAM:');
+      output.writeln('  before:  ' + memBefore + ' GB');
+      output.writeln('  after:   ' + memAfter + ' GB');
+      output.writeln('');
+      output.writeln(output.dim('Note: does NOT touch cmd.exe/bash.exe/node.exe — those may be the invoking shell'));
+      output.writeln(output.dim('      or an active MCP server. Kill them manually if you need to.'));
+      output.writeln('');
+      output.writeln(output.dim('Upstream tracking: https://github.com/anthropics/claude-code/issues/67888'));
+      return { success: true };
+    }
 
     output.writeln();
     output.writeln(output.bold('RuFlo Doctor'));
@@ -1190,6 +2013,7 @@ export const doctorCommand: Command = {
       checkStaleSettingsNpx, // #2448 — runaway `npx @latest` in statusLine/hooks
       checkDaemonStatus,
       checkMemoryDatabase,
+      checkMemoryStructuralIntegrity, // #2737 — bounded, native quick_check on every default run
       checkLearningBridge, // #2545 — can the auto-memory hook actually load @claude-flow/memory?
       checkApiKeys,
       checkMcpServers,
@@ -1201,9 +2025,19 @@ export const doctorCommand: Command = {
       checkFederationBreaker, // ADR-097 Phase 4
       checkMetaharness, // ADR-150 — MetaHarness upstream package
       checkMetaharnessIntegration, // iter 45 — ruflo-side integration layer
+      checkFunnel, // ADR-305 — effective funnel state + deciding precedence source
+      checkProxySponsoredConsent, // ADR-313 — Meta LLM Proxy sponsored-downtime health
+      checkAuth, // ADR-306 — Cognitum identity (warn-only; never fails bare `ruflo doctor`)
     ];
 
-    const componentMap: Record<string, () => Promise<HealthCheck>> = {
+    // #2677: `--component memory` now runs the whole memory-health suite,
+    // not just the existence check. Values can be a single check or an
+    // array — expanded at execution time. Stuinfla's report showed the
+    // existence-only check reporting PASS on a 99.97%-empty and even a
+    // SQLite-malformed DB; the array here layers integrity → content →
+    // embedding coverage over the existing existence probe, ordered so
+    // the earliest chain-break is always the first red the user sees.
+    const componentMap: Record<string, (() => Promise<HealthCheck>) | Array<() => Promise<HealthCheck>>> = {
       'version': checkVersionFreshness,
       'freshness': checkVersionFreshness,
       'node': checkNodeVersion,
@@ -1212,7 +2046,12 @@ export const doctorCommand: Command = {
       'config': checkConfigFile,
       'stale-settings': checkStaleSettingsNpx, // #2448
       'daemon': checkDaemonStatus,
-      'memory': checkMemoryDatabase,
+      'memory': [
+        checkMemoryDatabase,         // existing: exists + statable (unchanged)
+        checkMemoryIntegrity,        // #2677 check 1: sql.js open + PRAGMA integrity_check
+        checkMemoryContent,          // #2677 check 2: memory_entries content coverage
+        checkMemoryEmbeddingCoverage, // #2677 check 3: vector coverage on populated rows
+      ],
       'learning': checkLearningBridge, // #2545
       'learning-bridge': checkLearningBridge, // #2545
       'api': checkApiKeys,
@@ -1226,11 +2065,18 @@ export const doctorCommand: Command = {
       'federation': checkFederationBreaker, // ADR-097 Phase 4
       'metaharness': checkMetaharness, // ADR-150 — upstream package
       'metaharness-integration': checkMetaharnessIntegration, // iter 45 — ruflo-side
+      'funnel': checkFunnel, // ADR-305
+      // ADR-307 — deep-dive array, same pattern as 'memory' above: the cheap
+      // sponsored-consent check first, then binary/process/bind in the order
+      // a user would actually debug them (is it installed? running? exposed?).
+      'proxy': [checkProxySponsoredConsent, checkProxyBinary, checkProxyProcess, checkProxyBindAddress],
+      'auth': checkAuth, // ADR-306
     };
 
     let checksToRun = allChecks;
     if (component && componentMap[component]) {
-      checksToRun = [componentMap[component]];
+      const entry = componentMap[component];
+      checksToRun = Array.isArray(entry) ? entry : [entry];
     }
 
     const results: HealthCheck[] = [];

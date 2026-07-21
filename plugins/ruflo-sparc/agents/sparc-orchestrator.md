@@ -83,11 +83,11 @@ Value: { phase, passed, criteria: [{name, passed, detail}], blockers: [] }
 ## Phase State Management
 
 Track current phase in memory:
-- `mcp__claude-flow__memory_store` with namespace `sparc-state`, key `current-phase-{feature-slug}`
+- `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-state`, key `current-phase-{feature-slug}`
 - Value: `{ phase: 1-5, phaseName, feature, startedAt, gateAttempts, artifacts: [] }`
 
 Before any phase operation, retrieve current state to prevent drift:
-- `mcp__claude-flow__memory_search` with namespace `sparc-state` and query for the feature slug
+- `mcp__plugin_ruflo-core_ruflo__memory_search` with namespace `sparc-state` and query for the feature slug
 
 ## Agent Spawning
 
@@ -106,19 +106,19 @@ Each agent receives the artifacts from all previous phases via memory retrieval.
 ## Cross-References
 
 - **ruflo-goals**: Use horizon tracking to place SPARC features within long-term planning horizons. Query `horizons` namespace to align phase timelines with goal milestones.
-- **ruflo-workflows**: SPARC phases can be codified as workflow templates. Use `mcp__claude-flow__workflow_create` to create reusable phase workflows.
+- **ruflo-workflows**: SPARC phases can be codified as workflow templates. Use `mcp__plugin_ruflo-core_ruflo__workflow_create` to create reusable phase workflows.
 - **ruflo-ddd**: Architecture phase (Phase 3) directly leverages DDD bounded context patterns. Query `ddd-contexts` namespace for existing domain models.
 
 ## Neural Learning
 
 After completing a full SPARC cycle:
-1. Record the trajectory: `mcp__claude-flow__hooks_intelligence_trajectory-start` through `trajectory-end`
-2. Train patterns: `mcp__claude-flow__neural_train` with the successful phase sequence
-3. Store the pattern: `mcp__claude-flow__memory_store` with namespace `patterns`, key `sparc-{feature-slug}`
+1. Record the trajectory: `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-start` through `trajectory-end`
+2. Train patterns: `mcp__plugin_ruflo-core_ruflo__neural_train` with the successful phase sequence
+3. Store the pattern: `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `patterns`, key `sparc-{feature-slug}`
 
 Use learned patterns to predict phase durations and common blockers:
-- `mcp__claude-flow__neural_predict` with the feature description to estimate phase effort
-- `mcp__claude-flow__memory_search` with namespace `patterns` and query for similar features
+- `mcp__plugin_ruflo-core_ruflo__neural_predict` with the feature description to estimate phase effort
+- `mcp__plugin_ruflo-core_ruflo__memory_search` with namespace `patterns` and query for similar features
 
 ## Memory Namespaces
 
@@ -131,11 +131,11 @@ Use learned patterns to predict phase durations and common blockers:
 
 ## MCP Tools
 
-- `mcp__claude-flow__memory_store` / `memory_search` / `memory_retrieve` — phase state and artifacts
-- `mcp__claude-flow__task_create` / `task_update` / `task_complete` — track phase tasks
-- `mcp__claude-flow__hooks_intelligence_trajectory-start` / `trajectory-step` / `trajectory-end` — record execution trajectories
-- `mcp__claude-flow__neural_predict` / `neural_train` — predict and learn from SPARC cycles
-- `mcp__claude-flow__workflow_create` / `workflow_execute` — automate repeatable phase workflows
+- `mcp__plugin_ruflo-core_ruflo__memory_store` / `memory_search` / `memory_retrieve` — phase state and artifacts
+- `mcp__plugin_ruflo-core_ruflo__task_create` / `task_update` / `task_complete` — track phase tasks
+- `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-start` / `trajectory-step` / `trajectory-end` — record execution trajectories
+- `mcp__plugin_ruflo-core_ruflo__neural_predict` / `neural_train` — predict and learn from SPARC cycles
+- `mcp__plugin_ruflo-core_ruflo__workflow_create` / `workflow_execute` — automate repeatable phase workflows
 
 ### Neural Learning
 

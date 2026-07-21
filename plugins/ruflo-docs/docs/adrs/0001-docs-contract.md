@@ -14,8 +14,8 @@ tags: [plugin, docs, drift-detection, document-worker, namespace, smoke-test]
 `ruflo-docs` (v0.1.0): docs-writer agent (Haiku model — cost-efficient for docs work), 2 skills (`api-docs`, `doc-gen`), 1 command (`/ruflo-docs`). Drives the `document` background worker via `hooks_worker-dispatch`.
 
 Real surface used:
-- `mcp__claude-flow__hooks_worker-dispatch` with `trigger: "document"` (works; the `document` worker is one of the 12 background workers per CLAUDE.md)
-- `mcp__claude-flow__memory_store` for drift detection state
+- `mcp__plugin_ruflo-core_ruflo__hooks_worker-dispatch` with `trigger: "document"` (works; the `document` worker is one of the 12 background workers per CLAUDE.md)
+- `mcp__plugin_ruflo-core_ruflo__memory_store` for drift detection state
 - `Bash`, `Read`, `Write`, `Grep`, `Glob` for source/doc analysis
 
 Standard gaps: no plugin-level ADR, no smoke test, no Compatibility section, no namespace coordination.

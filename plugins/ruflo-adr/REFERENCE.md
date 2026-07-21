@@ -65,16 +65,16 @@ Persist the ADR tree + relationships so traversal queries (e.g. "all ADRs depend
 
 ```bash
 # Hierarchical tree — store each ADR under adr/<id>
-mcp__claude-flow__agentdb_hierarchical-store \
+mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store \
   --path "adr/ADR-097" \
   --value '{"status":"accepted","title":"Federation Budget Circuit Breaker","date":"2026-05-04"}'
 
 # Causal edges for relationships
-mcp__claude-flow__agentdb_causal-edge \
+mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge \
   --from "ADR-097" --to "ADR-086" --relation "depends-on"
-mcp__claude-flow__agentdb_causal-edge \
+mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge \
   --from "ADR-098" --to "ADR-095" --relation "depends-on"
-mcp__claude-flow__agentdb_causal-edge \
+mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge \
   --from "ADR-094" --to "ADR-093" --relation "amends"
 ```
 

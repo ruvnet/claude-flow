@@ -17,11 +17,13 @@ on:
     paths:
       - 'plugins/**'
       - 'scripts/smoke-all-plugins.mjs'
+      - 'scripts/audit-plugin-mcp-prefix.mjs'
       - '.github/workflows/all-plugins-smoke.yml'
   pull_request:
     paths:
       - 'plugins/**'
       - 'scripts/smoke-all-plugins.mjs'
+      - 'scripts/audit-plugin-mcp-prefix.mjs'
       - '.github/workflows/all-plugins-smoke.yml'
   workflow_dispatch:
 
@@ -73,6 +75,12 @@ jobs:
         # expected version literal; this catches structural violations
         # (non-semver, name drift, missing fields) that the per-plugin
         # grep can't see.
+
+      - name: Fleet-wide plugin MCP namespace audit
+        run: node scripts/audit-plugin-mcp-prefix.mjs
+        # Claude marketplace plugins expose the ruflo MCP server under the
+        # plugin-qualified namespace. Reject standalone namespace references
+        # that silently disable tools in plugin skills and agents.
 
       - name: Upload machine-readable report
         if: always()

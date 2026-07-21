@@ -2,7 +2,7 @@
 name: vector-hyperbolic
 description: Embed hierarchical data via npx ruvector@0.2.25 embed text and project into the Poincare ball in user code (no --model poincare flag in 0.2.25)
 argument-hint: "<text> [--model poincare]"
-allowed-tools: Bash Read mcp__claude-flow__memory_store mcp__claude-flow__memory_search
+allowed-tools: Bash Read mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search
 ---
 
 # Vector Hyperbolic
@@ -31,7 +31,7 @@ Use this skill when your data has inherent hierarchy — dependency trees, modul
 4. **Geodesic distance**: `d(u, v) = arcosh(1 + 2 * ||u-v||^2 / ((1-||u||^2)(1-||v||^2)))`
    Distance grows logarithmically with tree depth, preserving hierarchy.
 5. **Store results**:
-   `mcp__claude-flow__memory_store({ key: "hyperbolic-CONCEPT", value: "COORDINATES_AND_NEIGHBORS", namespace: "hyperbolic-embeddings" })`
+   `mcp__plugin_ruflo-core_ruflo__memory_store({ key: "hyperbolic-CONCEPT", value: "COORDINATES_AND_NEIGHBORS", namespace: "hyperbolic-embeddings" })`
 
 ## Caveats
 

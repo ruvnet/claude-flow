@@ -20,6 +20,7 @@ on:
       - 'v3/@claude-flow/cli/.claude/helpers/helpers.manifest.json'
       - 'v3/@claude-flow/cli/scripts/sign-helpers.mjs'
       - 'v3/@claude-flow/cli/scripts/verify-helpers.mjs'
+      - 'v3/@claude-flow/cli/scripts/prepare-publish.mjs'
       - 'v3/@claude-flow/cli/package.json'
       - '.github/workflows/helpers-manifest-guard.yml'
   push:
@@ -28,6 +29,7 @@ on:
       - 'v3/@claude-flow/cli/.claude/helpers/**'
       - 'v3/@claude-flow/cli/scripts/sign-helpers.mjs'
       - 'v3/@claude-flow/cli/scripts/verify-helpers.mjs'
+      - 'v3/@claude-flow/cli/scripts/prepare-publish.mjs'
       - 'v3/@claude-flow/cli/package.json'
 
 jobs:
@@ -48,7 +50,8 @@ jobs:
           test -f v3/@claude-flow/cli/scripts/sign-helpers.mjs   || { echo '::error::scripts/sign-helpers.mjs missing (#2593)';   exit 1; }
           test -f v3/@claude-flow/cli/scripts/verify-helpers.mjs || { echo '::error::scripts/verify-helpers.mjs missing (#2593)'; exit 1; }
 
-      # 2. prepublishOnly MUST invoke BOTH sign-helpers and verify-helpers.
+      # 2. prepublishOnly MUST invoke a preparation script that invokes BOTH
+      #    sign-helpers and verify-helpers.
       #    This is the exact regression from #2593 — sign existed but was
       #    never called by publish. Reading scripts.prepublishOnly directly
       #    from the parsed JSON avoids false positives from comments/strings.
@@ -57,17 +60,18 @@ jobs:
           set -euo pipefail
           pp=$(node -e "process.stdout.write(require('./v3/@claude-flow/cli/package.json').scripts.prepublishOnly || '')")
           echo "prepublishOnly: $pp"
-          echo "$pp" | grep -q 'sign-helpers.mjs'   || { echo '::error::prepublishOnly must call scripts/sign-helpers.mjs (#2593)';   exit 1; }
-          echo "$pp" | grep -q 'verify-helpers.mjs' || { echo '::error::prepublishOnly must call scripts/verify-helpers.mjs (#2593)'; exit 1; }
+          echo "$pp" | grep -q 'prepare-publish.mjs' || { echo '::error::prepublishOnly must call scripts/prepare-publish.mjs (#2593)'; exit 1; }
+          grep -q 'sign-helpers.mjs' v3/@claude-flow/cli/scripts/prepare-publish.mjs   || { echo '::error::prepare-publish.mjs must call scripts/sign-helpers.mjs (#2593)';   exit 1; }
+          grep -q 'verify-helpers.mjs' v3/@claude-flow/cli/scripts/prepare-publish.mjs || { echo '::error::prepare-publish.mjs must call scripts/verify-helpers.mjs (#2593)'; exit 1; }
 
       # 3. verify-helpers must run sign FIRST then verify — verify has to
       #    run AFTER sign or a stale manifest would fail-close the release.
       - name: sign runs before verify in prepublishOnly
         run: |
           set -euo pipefail
-          pp=$(node -e "process.stdout.write(require('./v3/@claude-flow/cli/package.json').scripts.prepublishOnly || '')")
-          sign_pos=$(echo "$pp" | grep -bo 'sign-helpers.mjs'   | head -1 | cut -d: -f1)
-          ver_pos=$(echo  "$pp" | grep -bo 'verify-helpers.mjs' | head -1 | cut -d: -f1)
+          pp=v3/@claude-flow/cli/scripts/prepare-publish.mjs
+          sign_pos=$(grep -bo 'sign-helpers.mjs' "$pp"   | head -1 | cut -d: -f1)
+          ver_pos=$(grep -bo 'verify-helpers.mjs' "$pp" | head -1 | cut -d: -f1)
           if [ "$sign_pos" -ge "$ver_pos" ]; then
             echo "::error::sign-helpers.mjs must run BEFORE verify-helpers.mjs in prepublishOnly (#2593)"
             exit 1

@@ -150,7 +150,7 @@ Results include source attribution: `claude-code`, `auto-memory`, or `agentdb`.
 npx @claude-flow/cli@latest memory search --query "auth patterns" --smart --limit 10
 
 # MCP
-mcp__claude-flow__memory_search({ query: "auth patterns", smart: true, limit: 10 })
+mcp__plugin_ruflo-core_ruflo__memory_search({ query: "auth patterns", smart: true, limit: 10 })
 ```
 
 Best for multi-session recall, temporal queries ("what did we decide last week?"), and diverse result sets.

@@ -12,10 +12,10 @@ Your tracking methodology:
    - Define the objective with concrete success criteria
    - Set target date and identify 3-7 milestones
    - Establish baseline state and known risks
-   - Store in `horizons` namespace via `mcp__claude-flow__memory_store`
+   - Store in `horizons` namespace via `mcp__plugin_ruflo-core_ruflo__memory_store`
 
 2. **Session Check-In** (start of every session):
-   - Recall current horizon state via `mcp__claude-flow__memory_retrieve`
+   - Recall current horizon state via `mcp__plugin_ruflo-core_ruflo__memory_retrieve`
    - Review which milestone is active and its completion criteria
    - Assess drift indicators (timeline, scope, approach)
    - Plan this session's contribution to the current milestone
@@ -24,7 +24,7 @@ Your tracking methodology:
    - Update milestone status as work completes
    - Record blockers, discoveries, and scope changes
    - Store intermediate findings in `horizon-sessions` namespace
-   - Track learned patterns via `mcp__claude-flow__hooks_intelligence_pattern-store`
+   - Track learned patterns via `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_pattern-store`
 
 4. **Session Check-Out** (end of every session):
    - Update horizon state in memory with current status

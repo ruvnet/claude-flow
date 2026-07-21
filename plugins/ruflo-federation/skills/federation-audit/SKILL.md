@@ -1,7 +1,7 @@
 ---
 name: federation-audit
 description: Query federation audit logs with compliance filtering
-allowed-tools: Bash(npx *) mcp__claude-flow__memory_search Read Grep
+allowed-tools: Bash(npx *) mcp__plugin_ruflo-core_ruflo__memory_search Read Grep
 argument-hint: "[--compliance hipaa|soc2|gdpr] [--since DATE] [--severity critical|error|warn|info]"
 ---
 Query structured federation audit logs. Supports compliance mode filtering (HIPAA, SOC2, GDPR) and severity filtering.

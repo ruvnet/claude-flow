@@ -210,7 +210,9 @@ export class StatuslineGenerator {
     lines.push(
       `${c.brightYellow}🤖 Swarm${c.reset}  ${swarmIndicator} [${agentsColor}${agentDisplay}${c.reset}/${c.brightWhite}${data.swarm.maxAgents}${c.reset}]  ` +
       `${subAgentColor}👥 ${data.system.subAgents}${c.reset}    ` +
-      `${securityIcon} ${securityColor}CVE ${data.security.cvesFixed}${c.reset}/${c.brightWhite}${data.security.totalCves}${c.reset}    ` +
+      (data.security.findings !== undefined
+        ? `${securityIcon} ${securityColor}Findings ${data.security.findings}${c.reset}    `
+        : `${securityIcon} ${securityColor}CVE ${data.security.cvesFixed}${c.reset}/${c.brightWhite}${data.security.totalCves}${c.reset}    `) +
       `${memoryColor}💾 ${memoryDisplay}${c.reset}    ` +
       `${contextColor}📂 ${contextDisplay}%${c.reset}    ` +
       `${intelColor}🧠 ${intelDisplay}%${c.reset}`
@@ -272,7 +274,11 @@ export class StatuslineGenerator {
     return `${c.brightPurple}CF-V3${c.reset} ${c.dim}|${c.reset} ` +
       `${c.cyan}D:${data.v3Progress.domainsCompleted}/${data.v3Progress.totalDomains}${c.reset} ${c.dim}|${c.reset} ` +
       `${c.yellow}S:${swarmIndicator}${data.swarm.activeAgents}/${data.swarm.maxAgents}${c.reset} ${c.dim}|${c.reset} ` +
-      `${data.security.status === 'CLEAN' ? c.green : c.red}CVE:${securityStatus}${data.security.cvesFixed}/${data.security.totalCves}${c.reset} ${c.dim}|${c.reset} ` +
+      `${data.security.status === 'CLEAN' ? c.green : c.red}` +
+      (data.security.findings !== undefined
+        ? `Findings:${data.security.findings}`
+        : `CVE:${securityStatus}${data.security.cvesFixed}/${data.security.totalCves}`) +
+      `${c.reset} ${c.dim}|${c.reset} ` +
       `${c.dim}🧠${data.system.intelligencePct}%${c.reset}`;
   }
 
@@ -346,7 +352,9 @@ export class StatuslineGenerator {
       `${c.brightYellow}🤖${c.reset}                        ` +  // 24 spaces after emoji (2+24=26)
       `${swarmIndicator} [${agentsColor}${agentDisplay}${c.reset}/${c.brightWhite}${data.swarm.maxAgents}${c.reset}]  ` +
       `${subAgentColor}👥 ${data.system.subAgents}${c.reset}    ` +
-      `${securityIcon} ${securityColor}CVE ${data.security.cvesFixed}${c.reset}/${c.brightWhite}${data.security.totalCves}${c.reset}    ` +
+      (data.security.findings !== undefined
+        ? `${securityIcon} ${securityColor}Findings ${data.security.findings}${c.reset}    `
+        : `${securityIcon} ${securityColor}CVE ${data.security.cvesFixed}${c.reset}/${c.brightWhite}${data.security.totalCves}${c.reset}    `) +
       `${memoryColor}💾 ${memoryDisplay}${c.reset}    ` +
       `${c.dim}🧠 ${intelDisplay}%${c.reset}`
     );
@@ -428,15 +436,17 @@ export class StatuslineGenerator {
       return this.dataSources.getSecurityStatus();
     }
 
-    // Try to read from audit file
+    // ponytail: read .claude-flow/security/audit-status.json if present.
+    // Defaults are 0 (not the old fabricated 3) so a fresh project no longer
+    // shows "⚠ 3 CVEs" out of nowhere.
     const auditPath = join(this.projectRoot, '.claude-flow', 'security', 'audit-status.json');
     try {
       if (existsSync(auditPath)) {
         const data = JSON.parse(readFileSync(auditPath, 'utf-8'));
         return {
-          status: data.status ?? 'CLEAN',
-          cvesFixed: data.cvesFixed ?? 3,
-          totalCves: data.totalCves ?? 3,
+          status: data.status ?? 'PENDING',
+          cvesFixed: data.cvesFixed ?? 0,
+          totalCves: data.totalCves ?? 0,
         };
       }
     } catch {
@@ -444,9 +454,9 @@ export class StatuslineGenerator {
     }
 
     return {
-      status: 'CLEAN',
-      cvesFixed: 3,
-      totalCves: 3,
+      status: 'PENDING',
+      cvesFixed: 0,
+      totalCves: 0,
     };
   }
 
@@ -682,7 +692,7 @@ export function parseStatuslineData(json: string): StatuslineData | null {
     const data = JSON.parse(json);
     return {
       v3Progress: data.v3Progress ?? { domainsCompleted: 0, totalDomains: 5, dddProgress: 0, modulesCount: 0, filesCount: 0, linesCount: 0 },
-      security: data.security ?? { status: 'PENDING', cvesFixed: 0, totalCves: 3 },
+      security: data.security ?? { status: 'PENDING', cvesFixed: 0, totalCves: 0 },
       swarm: data.swarm ?? { activeAgents: 0, maxAgents: 15, coordinationActive: false },
       hooks: data.hooks ?? { status: 'INACTIVE', patternsLearned: 0, routingAccuracy: 0, totalOperations: 0 },
       performance: data.performance ?? { flashAttentionTarget: '2.49x-7.47x', searchImprovement: '150x', memoryReduction: '50%' },

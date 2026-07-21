@@ -2,7 +2,7 @@
 name: vector-search
 description: Vector search via embeddings_* (large-scale HNSW) and ruvllm_hnsw_* (WASM router for ≤11 hot patterns), with RaBitQ 1-bit quantization for 32× memory reduction
 argument-hint: "<query> [--limit N] [--quantized]"
-allowed-tools: mcp__claude-flow__embeddings_generate mcp__claude-flow__embeddings_search mcp__claude-flow__embeddings_compare mcp__claude-flow__embeddings_init mcp__claude-flow__embeddings_status mcp__claude-flow__embeddings_hyperbolic mcp__claude-flow__embeddings_neural mcp__claude-flow__embeddings_rabitq_build mcp__claude-flow__embeddings_rabitq_search mcp__claude-flow__embeddings_rabitq_status mcp__claude-flow__ruvllm_hnsw_create mcp__claude-flow__ruvllm_hnsw_add mcp__claude-flow__ruvllm_hnsw_route mcp__claude-flow__memory_search_unified Bash
+allowed-tools: mcp__plugin_ruflo-core_ruflo__embeddings_generate mcp__plugin_ruflo-core_ruflo__embeddings_search mcp__plugin_ruflo-core_ruflo__embeddings_compare mcp__plugin_ruflo-core_ruflo__embeddings_init mcp__plugin_ruflo-core_ruflo__embeddings_status mcp__plugin_ruflo-core_ruflo__embeddings_hyperbolic mcp__plugin_ruflo-core_ruflo__embeddings_neural mcp__plugin_ruflo-core_ruflo__embeddings_rabitq_build mcp__plugin_ruflo-core_ruflo__embeddings_rabitq_search mcp__plugin_ruflo-core_ruflo__embeddings_rabitq_status mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_create mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_add mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_route mcp__plugin_ruflo-core_ruflo__memory_search_unified Bash
 ---
 
 # Vector Search
@@ -29,12 +29,12 @@ The "12,500×" headline applies to the large-scale `embeddings_search` path. The
 
 ## Standard search
 
-1. **Check status** — `mcp__claude-flow__embeddings_status` to verify the embedding engine.
-2. **Initialize** — `mcp__claude-flow__embeddings_init` if not active.
-3. **Generate** — `mcp__claude-flow__embeddings_generate` for text input.
-4. **Search** — `mcp__claude-flow__embeddings_search` with the query.
-5. **Compare** — `mcp__claude-flow__embeddings_compare` to measure similarity.
-6. **Unified search** — `mcp__claude-flow__memory_search_unified` for cross-namespace.
+1. **Check status** — `mcp__plugin_ruflo-core_ruflo__embeddings_status` to verify the embedding engine.
+2. **Initialize** — `mcp__plugin_ruflo-core_ruflo__embeddings_init` if not active.
+3. **Generate** — `mcp__plugin_ruflo-core_ruflo__embeddings_generate` for text input.
+4. **Search** — `mcp__plugin_ruflo-core_ruflo__embeddings_search` with the query.
+5. **Compare** — `mcp__plugin_ruflo-core_ruflo__embeddings_compare` to measure similarity.
+6. **Unified search** — `mcp__plugin_ruflo-core_ruflo__memory_search_unified` for cross-namespace.
 
 ## Quantized search (32× memory reduction)
 
@@ -65,15 +65,15 @@ HNSW exposes three knobs that trade recall against latency. The "12,500×" headl
 ## HNSW pattern router (WASM, ≤11 patterns)
 
 For routing a small number of high-priority patterns:
-- `mcp__claude-flow__ruvllm_hnsw_create` — create the WASM index (cap ~11)
-- `mcp__claude-flow__ruvllm_hnsw_add` — add a pattern
-- `mcp__claude-flow__ruvllm_hnsw_route` — route an incoming query
+- `mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_create` — create the WASM index (cap ~11)
+- `mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_add` — add a pattern
+- `mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_route` — route an incoming query
 
 This is **not** a corpus index. Treat it as a fast classifier over a curated set of patterns.
 
 ## Hyperbolic embeddings
 
-For hierarchical data (code trees, org charts), use `mcp__claude-flow__embeddings_hyperbolic` which maps to Poincare ball space. Distance is geodesic, not cosine.
+For hierarchical data (code trees, org charts), use `mcp__plugin_ruflo-core_ruflo__embeddings_hyperbolic` which maps to Poincare ball space. Distance is geodesic, not cosine.
 
 ## CLI alternative
 

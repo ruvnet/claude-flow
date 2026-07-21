@@ -29,6 +29,16 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-046](../../implementation/adrs/ADR-046-ruflo-rebrand.md) | Dual Umbrella: claude-flow + ruflo | Accepted |
 | [ADR-047](../../implementation/adrs/ADR-047-fast-mode-integration.md) | Fast Mode Integration | Proposed |
 | [ADR-178](ADR-178-dream-cycle-security-vmg-repe-ipi.md) | Verifiable Memory Governance and RepE IPI Detection | Proposed |
+| [ADR-301](ADR-301-promotional-status-surface.md) | Promotional Status Surface for CLI Runtime | Proposed |
+| [ADR-302](ADR-302-post-init-capability-enrollment.md) | Post-Initialization Capability Enrollment | Proposed |
+| [ADR-303](ADR-303-credit-exhaustion-experience.md) | Intelligent Credit Exhaustion Experience | Proposed |
+| [ADR-304](ADR-304-local-meta-llm-proxy.md) | Local Meta LLM Proxy Product | Proposed |
+| [ADR-305](ADR-305-customer-lifecycle-funnel.md) | Customer Lifecycle Funnel (RuFlo → Cognitum) | Proposed |
+| [ADR-306](ADR-306-cognitum-authentication-account-linking.md) | Cognitum Authentication and Account Linking | Proposed |
+| [ADR-307](ADR-307-proxy-runtime-packaging-lifecycle.md) | Proxy Runtime, Packaging, and Service Lifecycle | Proposed |
+| [ADR-308](ADR-308-cognitum-public-api-contract.md) | Cognitum Public API and Server Contract | Proposed |
+| [ADR-309](ADR-309-funnel-governance-privacy-ecosystem.md) | Funnel Governance, Privacy, and Ecosystem Policy | Proposed |
+| [ADR-310](ADR-310-funnel-rollout-measurement-emergency-controls.md) | Funnel Rollout, Measurement, and Emergency Controls | Proposed |
 
 ## Summary Documents
 

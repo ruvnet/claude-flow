@@ -2,7 +2,7 @@
 /**
  * Memory recall bench — ADR-126 follow-up #48.
  *
- * Measures `mcp__claude-flow__memory_search`-style latency over the
+ * Measures `mcp__plugin_ruflo-core_ruflo__memory_search`-style latency over the
  * `trading-backtests` namespace at three sizes: N ∈ {100, 1000, 5000}
  * entries.
  *

@@ -1,11 +1,11 @@
 {
   "name": "claude-flow",
-  "version": "3.25.6",
+  "version": "3.32.9",
   "description": "Ruflo - Enterprise AI agent orchestration for Claude Code. Deploy 60+ specialized agents in coordinated swarms with self-learning, fault-tolerant consensus, vector memory, and MCP integration",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "claude-flow": "./bin/cli.js"
+    "claude-flow": "bin/cli.js"
   },
   "homepage": "https://github.com/ruvnet/claude-flow#readme",
   "bugs": {
@@ -23,6 +23,7 @@
     "v3/@claude-flow/cli/dist/**/*.d.ts",
     "!v3/@claude-flow/cli/dist/**/*.map",
     "v3/@claude-flow/cli/package.json",
+    "v3/@claude-flow/cli/catalog-manifest.json",
     "v3/@claude-flow/shared/dist/**/*.js",
     "v3/@claude-flow/shared/dist/**/*.d.ts",
     "!v3/@claude-flow/shared/dist/**/*.map",
@@ -46,6 +47,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "build:ts": "cd v3/@claude-flow/cli && npm run build || true",
+    "prepublishOnly": "node scripts/prepare-root-publish.mjs",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:security": "vitest run v3/__tests__/security/",
@@ -68,7 +70,7 @@
     "zod": "3.25.76"
   },
   "optionalDependencies": {
-    "@claude-flow/codex": "^3.0.0-alpha.8",
+    "@claude-flow/codex": "^3.0.1",
     "@claude-flow/plugin-gastown-bridge": "^0.1.3",
     "@ruvector/attention": "^0.1.3",
     "@ruvector/core": "^0.1.30",
@@ -76,11 +78,13 @@
     "@ruvector/router-linux-x64-gnu": "^0.1.30",
     "@ruvector/sona": "^0.1.5",
     "agentdb": "^3.0.0-alpha.17",
-    "agentic-flow": "^2.0.14"
+    "agentic-flow": "^2.0.14",
+    "better-sqlite3": "12.9.0"
   },
   "overrides": {
     "ruvector": "^0.2.27",
-    "better-sqlite3": ">=12.8.0",
+    "better-sqlite3": "12.9.0",
+    "js-yaml": ">=4.3.0",
     "hono": ">=4.12.25",
     "@ruvector/rvf-wasm": "0.1.5",
     "@hono/node-server": ">=1.19.14",
@@ -127,6 +131,11 @@
     "tsx": "^4.21.0",
     "typescript": "^5.0.0",
     "vitest": "^3.2.6"
+  },
+  "pnpm": {
+    "overrides": {
+      "better-sqlite3": "12.9.0"
+    }
   },
   "engines": {
     "node": ">=20.0.0"

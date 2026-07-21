@@ -95,6 +95,7 @@ export interface McpServerConfig {
   command: string;
   args?: string[];
   enabled?: boolean;
+  startupTimeout?: number;
   toolTimeout?: number;
   env?: Record<string, string>;
 }
@@ -111,6 +112,7 @@ export interface SkillConfig {
  * Configuration options for config.toml generation
  */
 export interface ConfigTomlOptions {
+  platform?: NodeJS.Platform;
   model?: string;
   approvalPolicy?: ApprovalPolicy;
   sandboxMode?: SandboxMode;

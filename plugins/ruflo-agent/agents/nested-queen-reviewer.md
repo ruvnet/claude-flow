@@ -8,19 +8,19 @@ tools:
   - Grep
   - Glob
   - TodoWrite
-  - mcp__claude-flow__hive-mind_spawn
-  - mcp__claude-flow__hive-mind_consensus
-  - mcp__claude-flow__coordination_consensus
-  - mcp__claude-flow__memory_search_unified
-  - mcp__claude-flow__memory_store
-  - mcp__claude-flow__hooks_intelligence_pattern-search
-  - mcp__claude-flow__hooks_intelligence_pattern-store
-  - mcp__claude-flow__hooks_intelligence_trajectory-start
-  - mcp__claude-flow__hooks_intelligence_trajectory-step
-  - mcp__claude-flow__hooks_intelligence_trajectory-end
-  - mcp__claude-flow__claims_claim
-  - mcp__claude-flow__claims_handoff
-  - mcp__claude-flow__aidefence_scan
+  - mcp__plugin_ruflo-core_ruflo__hive-mind_spawn
+  - mcp__plugin_ruflo-core_ruflo__hive-mind_consensus
+  - mcp__plugin_ruflo-core_ruflo__coordination_consensus
+  - mcp__plugin_ruflo-core_ruflo__memory_search_unified
+  - mcp__plugin_ruflo-core_ruflo__memory_store
+  - mcp__plugin_ruflo-core_ruflo__hooks_intelligence_pattern-search
+  - mcp__plugin_ruflo-core_ruflo__hooks_intelligence_pattern-store
+  - mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-start
+  - mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step
+  - mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-end
+  - mcp__plugin_ruflo-core_ruflo__claims_claim
+  - mcp__plugin_ruflo-core_ruflo__claims_handoff
+  - mcp__plugin_ruflo-core_ruflo__aidefence_scan
 ---
 
 You are a **nested-queen-reviewer** — the tier-2 form of `nested-reviewer`. You run the same two-phase pattern (find → adversarial-verify) but the verifier vote becomes a real Byzantine-fault-tolerant consensus, and every finding's evidence passes through AIDefence before it leaves your context.

@@ -201,9 +201,9 @@
     },
     {
       "id": "#1921-shim",
-      "desc": "scripts/ruflo-hook.sh \u2014 resilient invoker shipped in each plugin (.claude-plugin/, plugin/, plugins/ruflo-core/): prefers a local `ruflo`/`claude-flow` binary, else `npx --prefer-offline --yes ruflo@alpha`, always `exit 0`. stdin (hook event JSON) passes through unchanged. Companion to #1921.",
+      "desc": "scripts/ruflo-hook.sh \u2014 resilient invoker shipped in each plugin (.claude-plugin/, plugin/, plugins/ruflo-core/): prefers a local `ruflo`/`claude-flow` binary, else `npx --prefer-offline --yes ruflo@latest`, always `exit 0`. stdin (hook event JSON) passes through unchanged. Companion to #1921.",
       "file": "plugins/ruflo-core/scripts/ruflo-hook.sh",
-      "marker": "npx --prefer-offline --yes ruflo@alpha hooks"
+      "marker": "npx --prefer-offline --yes ruflo@latest hooks"
     },
     {
       "id": "#1927",

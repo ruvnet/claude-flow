@@ -10,6 +10,7 @@
 //   node scripts/verify.mjs                     # markdown report
 //   VERIFY_FORMAT=json node scripts/verify.mjs  # JSON for chaining
 //   VERIFY_STRICT=1 node scripts/verify.mjs     # exit 1 on ANY issue (default: only on cycles)
+//   ADR_ROOT=/path/to/repo node scripts/verify.mjs   # same root import.mjs was run with
 
 import { spawnSync } from 'node:child_process';
 
@@ -20,11 +21,16 @@ const CLI_PKG = process.env.CLI_CORE === '1'
   ? '@claude-flow/cli-core@alpha'
   : '@claude-flow/cli@latest';
 
+// #2666 point 2: must match whatever ADR_ROOT import.mjs/reindex.mjs were
+// run with — the CLI resolves `.swarm/memory.db` relative to this
+// subprocess's cwd, so a mismatched root silently reads the wrong db.
+const ROOT = process.env.ADR_ROOT || process.cwd();
+
 function memoryListJson(namespace) {
   const r = spawnSync('npx', [
     CLI_PKG, 'memory', 'list',
     '--namespace', namespace, '--format', 'json',
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
+  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: ROOT });
   if (r.status !== 0) return [];
   const m = /\[[\s\S]*\]/.exec(r.stdout || '');
   if (!m) return [];
@@ -34,7 +40,7 @@ function memoryRetrieve(namespace, key) {
   const r = spawnSync('npx', [
     CLI_PKG, 'memory', 'retrieve',
     '--namespace', namespace, '--key', key,
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
+  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: ROOT });
   if (r.status !== 0) return null;
   // Strip ANSI / box-drawing
   const txt = (r.stdout || '').replace(/\x1b\[[0-9;]*m/g, '');

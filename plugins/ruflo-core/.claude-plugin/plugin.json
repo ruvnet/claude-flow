@@ -1,7 +1,7 @@
 {
   "name": "ruflo-core",
   "description": "Foundation plugin — registers the ruflo MCP server (300+ tools across memory/agentdb/embeddings/hooks/aidefence/neural/autopilot/browser/agent/swarm), provides 4 generalist agents (coder/researcher/reviewer/witness-curator), 4 first-run skills (discover-plugins/init-project/ruflo-doctor/witness), and a curated plugin-discovery catalog",
-  "version": "0.2.2",
+  "version": "0.2.4",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

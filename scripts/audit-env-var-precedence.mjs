@@ -54,8 +54,26 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   // ── CI / test escape hatches ────────────────────────────────────────────────
   'CLAUDE_FLOW_DISABLE_BRIDGE',   // CI/test: force raw sql.js path — intentionally no CLI flag
   'RUFLO_HOOK_SKIP_NPX',          // CI: suppress cold-install latency in smoke tests
+  'RUFLO_HOOK_CLI_OVERRIDE',      // #2721 test-only: point plugins/ruflo-core/scripts/ruflo-hook.cjs at a local CLI build instead of the ruflo/claude-flow/npx PATH probe. Hook scripts have no CLI-flag surface (invoked by hooks.json, never a user-typed command)
+  'RUFLO_HOOK_DEBUG_STDOUT',      // #2721 test-only: surface the invoked CLI's stdout/stderr from ruflo-hook.cjs instead of swallowing it, so test-hooks.mjs can assert on recorded values. Same no-CLI-surface reasoning as RUFLO_HOOK_CLI_OVERRIDE above — production never sets this
   'RUFLO_SUBLINEAR_NATIVE',       // Manual override for native vs WASM sublinear — CI/perf knob
   'RUFLO_METAHARNESS_CACHE_BASE', // CI/test seam: relocates the ~/.ruflo pinned-cache root in metaharness smoke tests — intentionally env-only, plugin scripts have no CLI-flag surface
+  'RUFLO_FUNNEL',                 // Read inside the generated hook-handler.cjs (ADR-312/313 rate-limit nudge), not a typed CLI invocation — no command surface to attach a flag to
+  'RUFLO_STATUSLINE_HYPERLINKS',  // Terminal-capability opt-out for OSC 8 hyperlinks in the statusline hook, same pattern as NO_COLOR — the statusline runs as a hook script, never a user-typed CLI command
+  'RUFLO_STATUSLINE_HYPERLINKS_TMUX', // Opt-in override of the tmux OSC 8 mangling workaround above — same hook-script context, no CLI surface
+  'RUFLO_STATUSLINE_IDENTITY',    // Hook-only display mode (`project` default, `author` compatibility); statusline has no interactive CLI surface
+  'RUFLO_ADVISOR_MAX_BUDGET_USD', // Advisor-tip spend cap read from generated hook code (funnel/advisor-tip.ts) — background nudge, no CLI invocation to attach a flag to
+  'RUFLO_FUNNEL_CLICK_ENDPOINT',    // Staging/self-hosted override for the funnel click-redirect endpoint — deployment config, not a per-invocation CLI flag
+  'RUFLO_FUNNEL_EVENTS_ENDPOINT',   // Staging/self-hosted override for the funnel events endpoint — same deployment-config pattern as CLICK_ENDPOINT above
+  'RUFLO_FUNNEL_MESSAGES_ENDPOINT', // Staging/self-hosted override for the funnel messages endpoint — same deployment-config pattern as CLICK_ENDPOINT above
+  'RUFLO_STATE_DIR',                // Test/CI isolation seam for the funnel state directory (defaults to ~/.ruflo) — background hook state, no CLI command reads it
+  'RUFLO_AI_DEDUP_DISABLE',         // #2661 — background daemon tuning knob (cross-worktree AI job dedup), no CLI command reads a running daemon's config
+  'RUFLO_AI_DEDUP_WINDOW_SECS',     // #2661 — same background daemon tuning context as RUFLO_AI_DEDUP_DISABLE above
+  'RUFLO_DAEMON_AI_WORKERS',        // #2661 — DOES have CLI-flag precedence (`daemon start --headless`), but it's wired via constructor-injected config in commands/daemon.ts, not a local check the audit's same-file heuristic can see from worker-daemon.ts where this read lives
+  'RUFLO_AI_BUDGET_DIR',            // #2663 — repo-supervisor state directory relocation (services/global-ai-budget.ts, services/repo-supervisor.ts, services/workspace-lease.ts). Test/CI isolation seam analogous to RUFLO_STATE_DIR above; the supervisor is a background service, not a user-invoked CLI command with a `--budget-dir` flag surface
+  'RUFLO_AI_BUDGET_DISABLE',        // #2663 — hard kill switch for the repository-supervisor AI-cost fuse (services/global-ai-budget.ts). Ops-level "disable this whole subsystem" toggle, same pattern as RUFLO_AI_DEDUP_DISABLE above
+  'RUFLO_METAHARNESS_SKIP_LOCAL',   // plugins/ruflo-metaharness/scripts/_invoke.mjs — CI seam that forces the invoke shim off the local vendored metaharness and onto the pinned-cache resolver. Plugin script has no CLI-flag surface (invoked internally by MCP tools)
+  'RUFLO_HELPERS_LOCKED',           // v3.30.0 — env-level opt-out for the .claude/helpers/ auto-refresh (init/helper-refresh.ts). Sibling to the `.LOCKED` marker file; helper-refresh runs from a hook, not a user-typed CLI command — no per-invocation flag surface. See CLAUDE.md "Concurrent-session helper corruption" for rationale
 
   // ── Embedding substrate toggles (3.25.x — opt-in tier + fail-closed ops flag) ─
   'RUFLO_REQUIRE_REAL_EMBEDDINGS', // Fail-closed "no stubs" strict mode — deploy/CI ops toggle, not a per-invocation CLI flag (ADR-176)

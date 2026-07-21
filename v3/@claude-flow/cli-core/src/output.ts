@@ -182,31 +182,33 @@ export class OutputFormatter {
   }
 
   printWarning(message: string): void {
-    // Warnings suppressed in quiet mode
+    // Warnings suppressed in quiet mode. Like printError, this goes to
+    // stderr — stdout is reserved for command results (e.g. --format json)
+    // and must never be interleaved with incidental warnings.
     if (this.verbosity === 'quiet') return;
     const icon = this.color('[WARN]', 'yellow', 'bold');
-    this.writeln(`${icon} ${message}`);
+    this.writeErrorln(`${icon} ${message}`);
   }
 
   printInfo(message: string): void {
-    // Info suppressed in quiet mode
+    // Info suppressed in quiet mode. stderr, same reasoning as printWarning.
     if (this.verbosity === 'quiet') return;
     const icon = this.color('[INFO]', 'blue', 'bold');
-    this.writeln(`${icon} ${message}`);
+    this.writeErrorln(`${icon} ${message}`);
   }
 
   printDebug(message: string): void {
-    // Debug only shows in verbose/debug mode
+    // Debug only shows in verbose/debug mode. stderr, same reasoning as printWarning.
     if (this.verbosity !== 'verbose' && this.verbosity !== 'debug') return;
     const icon = this.color('[DEBUG]', 'gray');
-    this.writeln(`${icon} ${this.dim(message)}`);
+    this.writeErrorln(`${icon} ${this.dim(message)}`);
   }
 
   printTrace(message: string): void {
-    // Trace only shows in debug mode
+    // Trace only shows in debug mode. stderr, same reasoning as printWarning.
     if (this.verbosity !== 'debug') return;
     const icon = this.color('[TRACE]', 'gray', 'dim');
-    this.writeln(`${icon} ${this.dim(message)}`);
+    this.writeErrorln(`${icon} ${this.dim(message)}`);
   }
 
   // ============================================

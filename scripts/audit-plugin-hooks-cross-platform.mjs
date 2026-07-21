@@ -94,13 +94,23 @@ let posixWindowsPathMissing = false;
 
 for (const file of walkForHooksJson(REPO_ROOT)) {
   const text = readFileSync(file, 'utf8');
+  if (text.charCodeAt(0) === 0xFEFF) {
+    violations.push({
+      file: relative(REPO_ROOT, file),
+      line: 1,
+      label: 'UTF-8 BOM forbidden (Codex reports line 1 column 1)',
+      cmd: 'hooks.json starts with bytes EF BB BF',
+      hint: 'Save hooks.json as UTF-8 without BOM before publishing the plugin.',
+    });
+    continue;
+  }
   let json;
   try { json = JSON.parse(text); } catch (err) {
     violations.push({ file: relative(REPO_ROOT, file), line: 0, label: 'invalid JSON', cmd: err.message, hint: '' });
     continue;
   }
 
-  // --- POSIX-only exemption check (#2132) ---
+  // --- POSIX-only exemption check (#2132, hardened #2721) ---
   if (json._platform === 'posix') {
     const relFile = relative(REPO_ROOT, file);
     posixExempt.push(relFile);
@@ -119,6 +129,36 @@ for (const file of walkForHooksJson(REPO_ROOT)) {
         hint: 'Create plugins/<name>/scripts/ruflo-hook.cjs (cross-platform Node port of ruflo-hook.sh). See #2132.',
       });
       posixWindowsPathMissing = true;
+    } else if (json._legacy_unaudited_shim !== true) {
+      // #2721 — a sibling .cjs existing proves nothing on its own: #2721
+      // shipped with plugins/ruflo-cost-tracker/scripts/ruflo-hook.cjs
+      // present on disk but referenced NOWHERE, while hooks.json still
+      // hard-coded `/bin/bash -c '...'`. Require at least one command in
+      // this hooks.json to actually name the shim file.
+      //
+      // `_legacy_unaudited_shim: true` is an explicit, reviewed escape
+      // valve — NOT a way to quietly bypass this check. It exists only for
+      // .claude-plugin/hooks/hooks.json and plugin/hooks/hooks.json (the
+      // older, separately-published "claude-flow" plugin, distinct from
+      // the ruflo-core/ruflo-cost-tracker plugins this file's #2721 fix
+      // covers): those use a much larger jq/xargs-based hook set that was
+      // NOT audited or fixed as part of #2721 and needs its own pass. Any
+      // NEW posix-exempt file must not set this flag — it must actually
+      // wire its shim.
+      const referencesShim = Object.values(json?.hooks ?? {})
+        .flat()
+        .flatMap((entry) => (Array.isArray(entry?.hooks) ? entry.hooks : []))
+        .some((h) => typeof h?.command === 'string' && h.command.includes('ruflo-hook.cjs'));
+      if (!referencesShim) {
+        violations.push({
+          file: relFile,
+          line: 0,
+          label: 'POSIX-exempt but Windows shim exists unreferenced (#2721 shape)',
+          cmd: `${relative(REPO_ROOT, shimPath)} is present but no command in this file names it`,
+          hint: 'Point at least one hooks.json command at the .cjs shim (e.g. via a `node -e` bootstrap resolving CLAUDE_PLUGIN_ROOT), or drop the unused shim file.',
+        });
+        posixWindowsPathMissing = true;
+      }
     }
     // Skip further pattern scanning for POSIX-exempt files
     continue;

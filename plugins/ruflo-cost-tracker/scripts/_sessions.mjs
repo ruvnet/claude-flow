@@ -14,14 +14,14 @@
 //   - `sessionTs(rec)`                 → ms-since-epoch from capturedAt|endedAt|startedAt
 //   - `parseDurationMs(spec)`          → ms for "Nh"/"Nd"/"Nw"/"Nm"; null on parse fail
 
-import { spawnSync } from 'node:child_process';
+import { spawnNpxSync } from './_npx.mjs';
 
 const CLI_PKG = process.env.CLI_CORE === '1'
   ? '@claude-flow/cli-core@alpha'
   : '@claude-flow/cli@latest';
 
 export function memoryListAllKeys(namespace) {
-  const r = spawnSync('npx', [
+  const r = spawnNpxSync([
     CLI_PKG, 'memory', 'list',
     '--namespace', namespace, '--format', 'json',
   ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
@@ -40,14 +40,12 @@ export function memoryListSessionKeys(namespace) {
 }
 
 export function memoryRetrieve(namespace, key) {
-  const r = spawnSync('npx', [
+  const r = spawnNpxSync([
     CLI_PKG, 'memory', 'retrieve',
-    '--namespace', namespace, '--key', key,
+    '--namespace', namespace, '--key', key, '--value-only',
   ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
   if (r.status !== 0) return null;
-  const m = /\{[\s\S]*\}/.exec(r.stdout || '');
-  if (!m) return null;
-  try { return JSON.parse(m[0]); } catch { return null; }
+  try { return JSON.parse((r.stdout || '').trim()); } catch { return null; }
 }
 
 export function loadSessions(namespace) {

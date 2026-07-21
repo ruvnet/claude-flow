@@ -1,7 +1,7 @@
 ---
 name: trader-portfolio-cg
 description: Mean-variance portfolio optimization via Conjugate Gradient — 40-60× faster than the legacy Neumann path (ADR-126 Phase 3, ADR-123 Wedge 8)
-allowed-tools: Bash Read mcp__ruflo-sublinear__solve mcp__claude-flow__memory_store mcp__claude-flow__memory_retrieve mcp__claude-flow__memory_search mcp__claude-flow__agentdb_pattern-search
+allowed-tools: Bash Read mcp__ruflo-sublinear__solve mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_retrieve mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search
 argument-hint: "[--portfolio-id ID] [--tolerance 1e-6]"
 ---
 Solve the mean-variance optimization `Σ · x = μ` via Conjugate Gradient instead of the legacy Neumann series.
@@ -33,7 +33,7 @@ Steps:
    # OR pull from AgentDB if a prior run stored the matrix there:
    ```
    ```text
-   mcp__claude-flow__memory_search({ query: "covariance matrix current", namespace: "trading-risk", limit: 1 })
+   mcp__plugin_ruflo-core_ruflo__memory_search({ query: "covariance matrix current", namespace: "trading-risk", limit: 1 })
    ```
    The skill expects the response to include `covariance: number[][]` (n × n) and `expectedReturns: number[]` (length n).
 
@@ -77,7 +77,7 @@ Steps:
 
 5. **Store the optimal weights** to `trading-risk` namespace with full provenance metadata. **Take `method` and `solver` straight from the adapter's result so the operator can verify which backend ran**:
    ```text
-   mcp__claude-flow__memory_store({
+   mcp__plugin_ruflo-core_ruflo__memory_store({
      key: "portfolio-weights-PORTFOLIO_ID-TIMESTAMP",
      namespace: "trading-risk",
      value: JSON.stringify({
@@ -96,7 +96,7 @@ Steps:
 
 6. **Cross-check against historical patterns** (optional but recommended):
    ```text
-   mcp__claude-flow__agentdb_pattern-search({
+   mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search({
      query: "portfolio weights Sharpe regime:CURRENT_REGIME",
      namespace: "trading-risk"
    })

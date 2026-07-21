@@ -63,5 +63,5 @@ npx ruflo metaharness similarity --a a.json --b b.json --alert-below 0.5
 
 Production module: [`scripts/_similarity.mjs`](../../scripts/_similarity.mjs)
 CLI skill: [`scripts/similarity.mjs`](../../scripts/similarity.mjs)
-MCP tool: `mcp__claude-flow__metaharness_similarity` (registered in `v3/@claude-flow/cli/src/mcp-tools/metaharness-tools.ts`)
+MCP tool: `mcp__plugin_ruflo-core_ruflo__metaharness_similarity` (registered in `v3/@claude-flow/cli/src/mcp-tools/metaharness-tools.ts`)
 Spike anchor: [`scripts/_spike-similarity.mjs`](../../scripts/_spike-similarity.mjs) (regression suite — invariants locked here)

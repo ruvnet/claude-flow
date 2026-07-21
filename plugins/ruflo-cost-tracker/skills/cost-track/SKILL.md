@@ -2,7 +2,7 @@
 name: cost-track
 description: Auto-capture per-session token usage from the Claude Code session jsonl and persist to the cost-tracking namespace
 argument-hint: ""
-allowed-tools: Bash mcp__claude-flow__memory_store
+allowed-tools: Bash mcp__plugin_ruflo-core_ruflo__memory_store
 ---
 
 # Cost Track
@@ -27,7 +27,7 @@ Reads the active Claude Code session jsonl (`~/.claude/projects/<encoded-cwd>/<s
 
 2. **Inspect the markdown summary** — total cost, per-model and per-tier breakdowns, and the persisted memory key.
 
-3. **Verify persistence** — `mcp__claude-flow__memory_search --query "session-" --namespace cost-tracking` should list the new record. `cost-report` step 1 reads from this namespace.
+3. **Verify persistence** — `mcp__plugin_ruflo-core_ruflo__memory_search --query "session-" --namespace cost-tracking` should list the new record. `cost-report` step 1 reads from this namespace.
 
 ## Record shape (in `cost-tracking` namespace)
 

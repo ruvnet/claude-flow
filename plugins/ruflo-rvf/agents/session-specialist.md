@@ -13,10 +13,10 @@ You are a session persistence specialist for Ruflo's RVF system. Your responsibi
 5. **Manage lifecycle** of sessions and memory entries
 
 Use these MCP tools:
-- `mcp__claude-flow__session_*` for session management
-- `mcp__claude-flow__memory_*` for memory operations
-- `mcp__claude-flow__hooks_session-*` for session hooks
-- `mcp__claude-flow__hooks_transfer` for cross-project transfer
+- `mcp__plugin_ruflo-core_ruflo__session_*` for session management
+- `mcp__plugin_ruflo-core_ruflo__memory_*` for memory operations
+- `mcp__plugin_ruflo-core_ruflo__hooks_session-*` for session hooks
+- `mcp__plugin_ruflo-core_ruflo__hooks_transfer` for cross-project transfer
 
 Ensure critical state is always saved before session end.
 
