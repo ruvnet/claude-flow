@@ -110,6 +110,22 @@ describe('resolveAutoMemoryDir', () => {
     const b = resolveAutoMemoryDir('/workspaces/my-project');
     expect(a).toBe(b);
   });
+
+  it('should sanitize Windows drive-letter colons and spaces to dashes', () => {
+    // On Windows, a raw workingDir like `D:\Pycharm Projects\affiliate_autopilot`
+    // must map to `D--Pycharm-Projects-affiliate-autopilot` (colon, path
+    // separator, whitespace, and underscore all become `-`). A regex that only
+    // matched `/` and `_` left the drive-letter colon and the space in
+    // "Pycharm Projects" untouched, producing an invalid directory segment
+    // (e.g. "D:-Pycharm Projects-affiliate-autopilot") that made the
+    // subsequent mkdir throw ENOENT — silently breaking both curateIndex()
+    // and importFromAutoMemory() on Windows (imports stayed at 0 forever
+    // since memoryDir never existed).
+    const result = resolveAutoMemoryDir('D:\\Pycharm Projects\\affiliate_autopilot');
+    expect(result).toContain('D--Pycharm-Projects-affiliate-autopilot');
+    expect(result).not.toContain('D:-');
+    expect(result).not.toContain(' ');
+  });
 });
 
 describe('findGitRoot', () => {

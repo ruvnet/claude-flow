@@ -762,11 +762,17 @@ export function resolveAutoMemoryDir(workingDir: string): string {
   const gitRoot = findGitRoot(workingDir);
   const basePath = gitRoot || workingDir;
 
-  // Claude Code normalizes to forward slashes then replaces both `/` and `_`
-  // with dashes (e.g. /workspaces/RX_ERP -> -workspaces-RX-ERP). The leading
-  // dash IS preserved.
+  // Claude Code normalizes to forward slashes then replaces `/`, `:`,
+  // whitespace, and `_` with dashes (e.g. /workspaces/RX_ERP -> -workspaces-RX-ERP;
+  // on Windows, D:\Pycharm Projects\foo -> D--Pycharm-Projects-foo). The leading
+  // dash IS preserved. The previous regex only matched `/` and `_`, leaving the
+  // drive-letter colon and spaces in a Windows path untouched, which produced an
+  // invalid directory segment (e.g. "D:-Pycharm Projects-foo") and made
+  // ensureMemoryDir()'s mkdir fail with ENOENT — silently breaking both
+  // curateIndex() (caught, non-fatal) and importFromAutoMemory() (memoryDir
+  // never existed, so imports silently stayed at 0 forever).
   const normalized = basePath.split(path.sep).join('/');
-  const projectKey = normalized.replace(/[\/_]/g, '-');
+  const projectKey = normalized.replace(/[:\/\s_]/g, '-');
 
   return path.join(
     process.env.HOME || process.env.USERPROFILE || '~',
