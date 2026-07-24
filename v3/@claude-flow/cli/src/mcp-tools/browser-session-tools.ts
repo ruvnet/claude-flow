@@ -109,7 +109,53 @@ function resolveLocalRuvectorCli(): Promise<string | null> {
 async function ruvector(args: string[], opts: { timeout?: number } = {}): Promise<ShellResult> {
   const cli = await resolveLocalRuvectorCli();
   if (cli) return shell(process.execPath, [cli, ...args], opts);
-  return shell('npx', ['-y', RUVECTOR_PIN, ...args], opts);
+  return npxShell(['-y', RUVECTOR_PIN, ...args], opts);
+}
+
+/**
+ * Resolve Node's bundled npx-cli.js (memoized). On Windows the bare `npx`
+ * command is an `npx.cmd` shim that execFile cannot launch without a shell
+ * (ENOENT — #2770), and explicit `npx.cmd` is EINVAL under Node's
+ * CVE-2024-27980 hardening. `shell: true` is not an option either: execFile
+ * space-joins array args under a shell, and browser_session_record forwards
+ * a caller-controlled URL — a command-injection surface. Spawning
+ * `node <npx-cli.js>` is a real executable on every platform: no shell, no
+ * PATHEXT/.cmd resolution, args stay literal argv.
+ */
+let npxCliJsPromise: Promise<string | null> | null = null;
+
+function resolveNpxCliJs(): Promise<string | null> {
+  if (npxCliJsPromise) return npxCliJsPromise;
+  npxCliJsPromise = (async () => {
+    try {
+      const path = await import('node:path');
+      const { existsSync } = await import('node:fs');
+      const execDir = path.dirname(process.execPath);
+      // Windows layout: <node dir>\node_modules\npm; POSIX: <prefix>/lib/node_modules/npm.
+      const candidates = [
+        path.join(execDir, 'node_modules', 'npm', 'bin', 'npx-cli.js'),
+        path.join(execDir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npx-cli.js'),
+      ];
+      for (const candidate of candidates) {
+        if (existsSync(candidate)) return candidate;
+      }
+    } catch {
+      // fall through to the bare-npx fallback
+    }
+    return null;
+  })();
+  return npxCliJsPromise;
+}
+
+/**
+ * Run an npx command without ever involving a shell: `node <npx-cli.js>`
+ * when Node's bundled npm ships one (required on Windows — #2770), bare
+ * `npx` otherwise (working POSIX default / exotic install layouts).
+ */
+async function npxShell(args: string[], opts: { timeout?: number } = {}): Promise<ShellResult> {
+  const cliJs = await resolveNpxCliJs();
+  if (cliJs) return shell(process.execPath, [cliJs, ...args], opts);
+  return shell('npx', args, opts);
 }
 
 async function ensureSessionsDir(): Promise<string> {
@@ -207,7 +253,7 @@ export const browserSessionTools: MCPTool[] = [
       // 3. browser_open via agent-browser
       const bo = await shell('agent-browser', ['--session', sessionId, '--json', 'open', input.url as string], { timeout: 30000 });
       if (!bo.success) {
-        const npxBo = await shell('npx', ['--yes', 'agent-browser', '--session', sessionId, '--json', 'open', input.url as string], { timeout: 60000 });
+        const npxBo = await npxShell(['--yes', 'agent-browser', '--session', sessionId, '--json', 'open', input.url as string], { timeout: 60000 });
         if (!npxBo.success) {
           return fail('browser open failed', { detail: npxBo.error, stderr: npxBo.stderr, sessionId, rvfPath });
         }
@@ -280,7 +326,7 @@ export const browserSessionTools: MCPTool[] = [
         tags: input.tags ?? [],
         ended_at: new Date().toISOString(),
       });
-      const idx = await shell('npx', ['-y', '@claude-flow/cli@latest', 'memory', 'store',
+      const idx = await npxShell(['-y', '@claude-flow/cli@latest', 'memory', 'store',
         '--namespace', 'browser-sessions',
         '--key', input.session as string,
         '--value', indexValue], { timeout: 60000 });
@@ -370,7 +416,7 @@ export const browserSessionTools: MCPTool[] = [
     handler: async (input) => {
       const vN = validateText(input.name as string, 'name');
       if (!vN.valid) return fail(vN.error || 'invalid name');
-      const r = await shell('npx', ['-y', '@claude-flow/cli@latest', 'memory', 'retrieve',
+      const r = await npxShell(['-y', '@claude-flow/cli@latest', 'memory', 'retrieve',
         '--namespace', 'browser-templates',
         '--key', input.name as string], { timeout: 60000 });
       if (!r.success) return fail('template fetch failed', { detail: r.error, stderr: r.stderr });
@@ -400,7 +446,7 @@ export const browserSessionTools: MCPTool[] = [
     handler: async (input) => {
       const vH = validateText(input.host as string, 'host');
       if (!vH.valid) return fail(vH.error || 'invalid host');
-      const r = await shell('npx', ['-y', '@claude-flow/cli@latest', 'memory', 'retrieve',
+      const r = await npxShell(['-y', '@claude-flow/cli@latest', 'memory', 'retrieve',
         '--namespace', 'browser-cookies',
         '--key', input.host as string], { timeout: 60000 });
       if (!r.success) return fail('cookie lookup failed', { detail: r.error, stderr: r.stderr });
