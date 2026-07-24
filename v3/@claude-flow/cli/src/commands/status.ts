@@ -370,7 +370,7 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
   // Health check mode
   if (healthCheck) {
-    return performHealthCheck(status);
+    return performHealthCheck(status, ctx.flags.format === 'json');
   }
 
   // JSON output
@@ -392,12 +392,9 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
 // Perform health checks
 async function performHealthCheck(
-  status: Awaited<ReturnType<typeof getSystemStatus>>
+  status: Awaited<ReturnType<typeof getSystemStatus>>,
+  asJson = false
 ): Promise<CommandResult> {
-  output.writeln();
-  output.writeln(output.bold('Health Check'));
-  output.writeln();
-
   const checks: Array<{ name: string; status: 'pass' | 'fail' | 'warn'; message: string }> = [];
 
   // Check if system is running
@@ -451,6 +448,28 @@ async function performHealthCheck(
     });
   }
 
+  const passed = checks.filter(c => c.status === 'pass').length;
+  const warned = checks.filter(c => c.status === 'warn').length;
+  const failed = checks.filter(c => c.status === 'fail').length;
+  const result: CommandResult = {
+    success: failed === 0,
+    exitCode: failed > 0 ? 1 : 0,
+    data: { checks, summary: { passed, warned, failed } }
+  };
+
+  // Machine-readable mode (`--health-check --format json`): emit the same
+  // { checks, summary } object the command already returns in data, with no
+  // decorated text around it, so CI can parse the result — including red
+  // ones (exit-code semantics are unchanged).
+  if (asJson) {
+    output.printJson(result.data as Record<string, unknown>);
+    return result;
+  }
+
+  output.writeln();
+  output.writeln(output.bold('Health Check'));
+  output.writeln();
+
   // Display results
   for (const check of checks) {
     const icon = check.status === 'pass' ? output.success('[PASS]') :
@@ -461,21 +480,13 @@ async function performHealthCheck(
 
   output.writeln();
 
-  const passed = checks.filter(c => c.status === 'pass').length;
-  const warned = checks.filter(c => c.status === 'warn').length;
-  const failed = checks.filter(c => c.status === 'fail').length;
-
   if (failed === 0) {
     output.printSuccess(`All checks passed (${passed} passed, ${warned} warnings)`);
   } else {
     output.printError(`Health check failed (${passed} passed, ${warned} warnings, ${failed} failed)`);
   }
 
-  return {
-    success: failed === 0,
-    exitCode: failed > 0 ? 1 : 0,
-    data: { checks, summary: { passed, warned, failed } }
-  };
+  return result;
 }
 
 // Watch mode - continuous status updates
@@ -748,6 +759,7 @@ export const statusCommand: Command = {
     { command: 'claude-flow status --watch', description: 'Watch mode with live updates' },
     { command: 'claude-flow status --watch -i 5', description: 'Watch mode updating every 5 seconds' },
     { command: 'claude-flow status --health-check', description: 'Run health checks' },
+    { command: 'claude-flow status --health-check --format json', description: 'Machine-readable health checks (CI)' },
     { command: 'claude-flow status --json', description: 'Output status as JSON' },
     { command: 'claude-flow status agents', description: 'Show detailed agent status' },
     { command: 'claude-flow status tasks', description: 'Show detailed task status' },
