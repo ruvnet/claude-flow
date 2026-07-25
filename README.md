@@ -1,3 +1,5 @@
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.ruvnet%2Fclaude-flow.svg)](https://mcptoplist.com/server/io.github.ruvnet%2Fclaude-flow)
+
 <div align="center">
 
 [![Ruflo Banner](ruflo/assets/ruflo-small.jpeg)](https://cognitum.one/agentic-engineering)
