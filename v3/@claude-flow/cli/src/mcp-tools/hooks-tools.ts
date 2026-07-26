@@ -1497,6 +1497,26 @@ export const hooksPostTask: MCPTool = {
           });
         }
       } catch { /* non-critical */ }
+
+      // #2786 fix-2 — also mirror into the JSON memory store so
+      // `getIntelligenceStatsFromMemory()` (which reads .claude-flow/memory/store.json
+      // synchronously) counts this routing decision in the hooks_metrics dashboard.
+      // The AgentDB write above is authoritative for cross-session retrieval; this
+      // is just the counter surface the sync reader depends on.
+      try {
+        const key = `routing-decision:${taskId}`;
+        const store = loadMemoryStore();
+        store.entries[key] = {
+          key,
+          value: JSON.stringify({ task: taskText, agent, success, quality, keywords: outcomeKeywords }),
+          namespace: 'patterns',
+          createdAt: new Date().toISOString(),
+          metadata: { type: 'routing-decision', confidence: typeof quality === 'number' ? quality : undefined, agent, success },
+        } as any;
+        const memDir = resolve(MEMORY_DIR);
+        if (!existsSync(memDir)) mkdirSync(memDir, { recursive: true });
+        writeFileSync(getMemoryPath(), JSON.stringify(store, null, 2), 'utf-8');
+      } catch { /* non-critical */ }
     }
 
     const duration = Date.now() - startTime;
