@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `RUFLO_STATUSLINE_COST_SYMBOL` — override the leading `$` (e.g. `⚡`, `€`, `🌱`); empty string shows the number alone.
   - `RUFLO_STATUSLINE_HIDE_COST` — `1`/`true`/`yes`/`on` hides the segment. `cost.total_cost_usd` is a client-side estimate that may differ from the actual bill and is misleading on subscription plans.
 
-## [3.28.1] - 2026-07-26
+## [3.32.10] - 2026-07-26
 
 Bug-fix release closing the tracker-fire sweep from 2026-07-24 → 2026-07-26. All fixes are surgical and additive; no API surface change, no schema change, patch semver.
 
@@ -27,8 +27,11 @@ Bug-fix release closing the tracker-fire sweep from 2026-07-24 → 2026-07-26. A
 - **#2785** — `ruflo hooks post-task` now accepts `--task` (short `-t`) and `--store-results` flags, matching the CLAUDE.md-documented usage. Routing outcomes finally persist to the namespace `hooks_metrics` reads, so the "Pattern Learning" / "Agent Routing" numbers become non-zero. (`v3/@claude-flow/cli/src/commands/hooks.ts`)
 - **#2786** — AgentDB no longer silently fails to initialize when `CLAUDE_FLOW_ENCRYPT_AT_REST=1` is set. Added `getAgentDbPath()` which returns the same directory as `getDbPath()` but with basename `agentdb-memory.db`, so the ControllerRegistry (native better-sqlite3) opens a distinct file from the sql.js CRUD writer's `memory.db` (which stays encrypted). `learningSystem`/`reasoningBank` populate correctly with encryption enabled. (`v3/@claude-flow/cli/src/memory/memory-bridge.ts`)
 - **#2776** — Statusline security segment: `STALE` and `IN_PROGRESS` states are now reachable via a local overlay (`getLocalSecurity`) that recomputes freshness on every render from `.claude/security-scans/scan-*.json`. Configurable via `RUFLO_SCAN_STALE_HOURS` (default 24) and `RUFLO_SCAN_PENDING_CAP_MIN` (default 30); STALE renders dim gray so it stops shouting for attention once escalated. (`.claude/helpers/statusline.cjs`)
-- **#2774** — Codex MCP generator now registers the dedicated stdio server binary (`claude-flow-mcp` exported by `@claude-flow/cli`) instead of the management CLI (`ruflo mcp start`) that never answers `initialize`. All seven wrong-command sites are fixed: `initializer.ts` (registration + three warning strings + CLAUDE.md doc block), `generators/config-toml.ts` (6 template sites: default, Minimal, CI, Enterprise, Dev, Secure), `migrations/index.ts` (2 sites), and the `generators.test.ts:653` pin. (`v3/@claude-flow/codex/src/initializer.ts`, `generators/config-toml.ts`, `migrations/index.ts`, `tests/generators.test.ts`)
-- Stale ruflo-rebrand test assertion in `codex/tests/generators.test.ts:192` — updated `Co-Authored-By: claude-flow` → `Co-Authored-By: ruflo-bot` to match the current generator emit.
+- **#2775** — Memory store to an existing key no longer dead-ends: `bridgeStoreEntry` uses `INSERT ... ON CONFLICT` with tombstone auto-resurrect; UNIQUE returns a typed error instead of `null` (no more misleading demotion into the #2735 guard); `bridgeDeleteEntry` runs `wal_checkpoint(PASSIVE)`; CLI `memory store --upsert` default now applies at the parser layer (root cause: `parser.ts:applyDefaults` only walked `globalOptions`); the `memory_store` MCP tool schema defaults `upsert: true` for CLI parity. (`v3/@claude-flow/cli/src/memory/memory-bridge.ts`, `commands/memory.ts`, `parser.ts`, `mcp-tools/memory-tools.ts`)
+
+### Investigated
+
+- **#2774** — Reporter's diagnosis "Codex MCP generator registers management CLI instead of stdio server" appears incorrect: `ruflo mcp start` IS a working stdio server per `v3/@claude-flow/cli/src/commands/mcp.ts` (`MCP Server started on stdio`), and upstream `d20f1323b fix(codex): ship stable Windows-safe Ruflo integration` cleanly centralized the Codex MCP config in `mcp-config.ts` using the same command shape. A proposed swap to `claude-flow-mcp` was reverted during rebase. Recommend closing the issue unless the reporter can produce a fresh repro against 3.32.9+.
 
 ## [3.5.0] - 2026-02-27
 
