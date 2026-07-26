@@ -1945,6 +1945,19 @@ const postTaskCommand: Command = {
       type: 'string'
     },
     {
+      name: 'task',
+      short: 't',
+      description: 'Task description text (used for routing-outcome persistence and keyword extraction so hooks_metrics can surface Pattern Learning / Agent Routing counts). Without this + --agent, no routing outcome is recorded (#2785).',
+      type: 'string',
+      required: false
+    },
+    {
+      name: 'store-results',
+      description: 'Also persist the routing decision to the memory DB (maps to hooks_post-task storeDecisions) so hooks_metrics can cross-reference it. Requires --task and --agent.',
+      type: 'boolean',
+      required: false
+    },
+    {
       // ADR-147 P2: nested-subagent spawn-tree capture
       name: 'parent-agent-id',
       description: 'ID of the parent agent (from Claude Code\'s parent_agent_id OTel span tag). Omit for top-level work.',
@@ -1960,7 +1973,8 @@ const postTaskCommand: Command = {
   ],
   examples: [
     { command: 'claude-flow hooks post-task -i task-123 --success true', description: 'Record successful completion' },
-    { command: 'claude-flow hooks post-task -i task-456 --success false -q 0.3', description: 'Record failed task' }
+    { command: 'claude-flow hooks post-task -i task-456 --success false -q 0.3', description: 'Record failed task' },
+    { command: 'claude-flow hooks post-task -i task-789 --success true --task "add JWT auth" --agent coder --store-results', description: 'Record with routing-outcome persistence for hooks_metrics' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Auto-generate task ID if not provided
@@ -1985,6 +1999,13 @@ const postTaskCommand: Command = {
         success,
         quality: ctx.flags.quality,
         agent: ctx.flags.agent,
+        // #2785: forward the task description so routing outcomes actually persist
+        // (hooks_post-task requires taskText + agent to write the outcome row that
+        // hooks_metrics reads via getIntelligenceStatsFromMemory)
+        task: ctx.flags.task,
+        // Maps to storeDecisions on the MCP tool — persist routing decision in
+        // memory DB for cross-session vector retrieval + metrics attribution
+        storeDecisions: ctx.flags.storeResults,
         timestamp: Date.now(),
         // ADR-147 P2: forward spawn-tree lineage if caller supplied it
         parentAgentId: ctx.flags.parentAgentId,

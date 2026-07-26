@@ -23,6 +23,7 @@
 import type { DisclosureRecord, FunnelDisclosureState, FunnelMessage } from './types.js';
 import { readStateJson, writeStateJson } from './state.js';
 import { getRemoteMessages } from './message-transport.js';
+import { MESSAGES, eligibleMessagesFromPools } from './messages.js';
 
 const DISCLOSURE_FILE = 'funnel-disclosure.json';
 
@@ -35,9 +36,19 @@ export const DISCLOSURE_GRACE_MS = 24 * 60 * 60 * 1000; // 24h
 // session gets a different one than the previous one did.
 export const DISCLOSURE_ROTATION_SLOT_MS = 5 * 60 * 1000;
 
-/** Remote-cached messages tagged class==='disclosure' — the only source. */
+/**
+ * Disclosure pool: remote-cached messages tagged class==='disclosure',
+ * MERGED with the local seed pool by id (remote wins on collision).
+ *
+ * The remote pool is authoritative when populated. The local seed exists
+ * so cold-start renders (before the first remote fetch lands) can still
+ * unlock the disclosure gate — otherwise every new install sees a blank
+ * promo row until the first fetch succeeds. Same merge semantics as
+ * rotation.ts's `eligibleMessagesFromPools` (issue #2787 / 2026-07-26 sweep).
+ */
 function getDisclosureMessagePool(): FunnelMessage[] {
-  return getRemoteMessages().filter((m) => m.class === 'disclosure');
+  return eligibleMessagesFromPools(MESSAGES, getRemoteMessages())
+    .filter((m) => m.class === 'disclosure');
 }
 
 /**

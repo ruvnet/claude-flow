@@ -106,20 +106,92 @@ export function isValidMessage(msg: unknown, now: Date = new Date()): msg is Fun
 }
 
 /**
- * Local promo/message content: INTENTIONALLY EMPTY (ADR-311 amendment).
+ * Local promo/message content: cold-start seed (ADR-311 amendment
+ * revisited, issue #2787).
  *
- * All rotation content (educational tips, promotional messages, and the
- * disclosure notice) is served exclusively from the remote message feed
- * (GET /v1/messages -> message-transport.ts -> Firestore). Zero message
- * text or URLs ship in the CLI package.
+ * The remote pool is authoritative — `eligibleMessagesFromPools` in
+ * `rotation.ts` merges by id with remote winning — but on new installs
+ * the remote fetch races the very first render and the promo row shows
+ * NOTHING until the pool has been fetched at least once. The disclosure
+ * gate can't unlock either, so several 20-second slots go by blank.
  *
- * Fail-closed by design: if the remote feed is unreachable (network down,
- * cert issue, server outage) and no prior successful fetch has populated
- * the local cache, the rotation has nothing to show and the promo row
- * simply does not render that cycle. There is no local content to fall
- * back to -- this is a deliberate choice, not an oversight.
+ * The fix is a small local seed of educational tips, one bootstrap
+ * disclosure, and a single sponsor promo, all validating cleanly through
+ * `isValidMessage` and using only URLs on the exact-host allowlist. Each
+ * carries a stable id so the remote pool can override or retire any of
+ * them without a CLI release.
  */
-export const MESSAGES: FunnelMessage[] = [];
+export const MESSAGES: FunnelMessage[] = [
+  {
+    schemaVersion: 1,
+    id: 'local.disclosure.v1',
+    class: 'disclosure',
+    text: 'Ruflo shows occasional tips and sponsor notes here · manage: ruflo settings',
+  },
+  {
+    schemaVersion: 1,
+    id: 'local.edu.status-watch',
+    class: 'educational',
+    text: '📊 ruflo status watch — real-time system + swarm health dashboard',
+    url: 'https://cognitum.one/docs/statusline',
+  },
+  {
+    schemaVersion: 1,
+    id: 'local.edu.memory-search',
+    class: 'educational',
+    text: '🧠 ruflo memory search — semantic search over your project decisions',
+    url: 'https://cognitum.one/docs/memory',
+  },
+  {
+    schemaVersion: 1,
+    id: 'local.edu.swarm-init',
+    class: 'educational',
+    text: '🐝 ruflo swarm init — hierarchical anti-drift multi-agent coordination',
+    url: 'https://cognitum.one/docs/swarm',
+  },
+  {
+    schemaVersion: 1,
+    id: 'local.edu.security-scan',
+    class: 'educational',
+    text: '🔒 ruflo security scan --depth full — audits dependencies and config',
+    url: 'https://cognitum.one/docs/security',
+  },
+  {
+    schemaVersion: 1,
+    id: 'local.edu.doctor',
+    class: 'educational',
+    text: '🩺 ruflo doctor --fix — diagnose and auto-repair install issues',
+    url: 'https://cognitum.one/docs/doctor',
+  },
+  {
+    schemaVersion: 1,
+    id: 'local.edu.hooks-route',
+    class: 'educational',
+    text: '🪝 ruflo hooks route — 3-tier model routing cuts token cost 30–75%',
+    url: 'https://cognitum.one/docs/hooks',
+  },
+  {
+    schemaVersion: 1,
+    id: 'local.edu.adr-index',
+    class: 'educational',
+    text: '📚 ruflo adr index — every architecture decision indexed and searchable',
+    url: 'https://github.com/ruvnet/ruflo/tree/main/docs/adr',
+  },
+  {
+    schemaVersion: 1,
+    id: 'local.edu.agent-spawn',
+    class: 'educational',
+    text: '⚡ ruflo agent spawn -t coder — background agents with anti-drift topology',
+    url: 'https://cognitum.one/docs/agents',
+  },
+  {
+    schemaVersion: 1,
+    id: 'local.promo.cognitum',
+    class: 'promotional',
+    text: '✨ Cognitum • sponsored capacity for community jobs · manage: ruflo settings',
+    url: 'https://cognitum.one',
+  },
+];
 
 /** Messages that survive every content boundary right now. */
 export function eligibleMessages(now: Date = new Date()): FunnelMessage[] {

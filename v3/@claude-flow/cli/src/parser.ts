@@ -263,8 +263,12 @@ export class CommandParser {
       i++;
     }
 
-    // Apply defaults
-    this.applyDefaults(result.flags);
+    // Apply defaults (globals + resolved command/subcommand — #2775 follow-up).
+    // Previously only globals were walked, so any subcommand-declared
+    // `default: true` silently dropped and reached the action handler as
+    // `undefined`. That trapped `memory store --upsert` and every other
+    // subcommand that leaned on a per-flag default.
+    this.applyDefaults(result.flags, resolvedCmd, resolvedSub);
 
     return result;
   }
@@ -511,16 +515,27 @@ export class CommandParser {
     return flags;
   }
 
-  private applyDefaults(flags: ParsedFlags): void {
-    // Apply global option defaults
-    for (const opt of this.globalOptions) {
-      const key = this.normalizeKey(opt.name);
-      if (flags[key] === undefined && opt.default !== undefined) {
-        flags[key] = opt.default as string | boolean | number | string[];
+  private applyDefaults(flags: ParsedFlags, command?: Command, subcommand?: Command): void {
+    // #2775: apply defaults from globals AND the resolved command/subcommand.
+    // Subcommand > command > global (later writes lose to earlier — because
+    // we only set when `undefined`, so the FIRST option definition that
+    // supplies a default wins; walk narrow-to-broad so subcommand options
+    // apply before broader ones do).
+    const layers: CommandOption[][] = [];
+    if (subcommand?.options) layers.push(subcommand.options);
+    if (command?.options) layers.push(command.options);
+    layers.push(this.globalOptions);
+
+    for (const layer of layers) {
+      for (const opt of layer) {
+        const key = this.normalizeKey(opt.name);
+        if (flags[key] === undefined && opt.default !== undefined) {
+          flags[key] = opt.default as string | boolean | number | string[];
+        }
       }
     }
 
-    // Apply custom defaults
+    // Apply custom defaults (lowest precedence)
     if (this.options.defaults) {
       for (const [key, value] of Object.entries(this.options.defaults)) {
         const normalizedKey = this.normalizeKey(key);

@@ -404,6 +404,154 @@ function getLocalIntegration() {
   return integration;
 }
 
+// ─── Security freshness overlay (ruvnet/ruflo#2776) ──────────────
+// The shipped CLI producer (dist/src/funnel/local-signals.js getSecurityStatus)
+// only ever emits PENDING / CLEAN / ISSUES — it captures `scannedAt` but never
+// inspects it, so a year-old scan renders 🛡 ✓ forever and the renderer's
+// STALE / IN_PROGRESS branches are unreachable. Worse, when CLI delegation
+// fails, the stale-while-revalidate cache (readCache() below) keeps serving
+// the pre-scan PENDING pill indefinitely, so a user who runs the advertised
+// `ruflo security scan` sees no change — the pill freezes at "scan pending".
+//
+// This overlay recomputes the security block from disk on EVERY render (same
+// pattern as adrs/agentdb/tests/hooks above), which:
+//   1) Makes STALE reachable — when the newest scan is older than
+//      RUFLO_SCAN_STALE_HOURS (default 24h — matches the CVE feed refresh
+//      cadence), report STALE regardless of what the cached CLI JSON says.
+//   2) Makes IN_PROGRESS reachable — when a `scan-in-progress` marker file
+//      exists and is younger than SECURITY_IN_PROGRESS_MAX_MIN (guards against
+//      a crashed scan leaving the marker behind).
+//   3) Caps the "scan pending" display window — if PENDING has been shown for
+//      >RUFLO_SCAN_PENDING_CAP_MIN (default 30) without a completion write,
+//      switch to STALE and stop rendering the yellow indicator. The tracker
+//      lives in ~/.ruflo/statusline-scan-pending-since.json, keyed by CWD
+//      hash so multiple project checkouts don't collide.
+//   4) Since this runs AFTER readCache() serves stale data, it bypasses the
+//      "pill freezes at PENDING" freeze in defect 2 — the overlay reads
+//      fresh disk state even when the CLI delegation is broken.
+const SECURITY_STALE_HOURS = Math.max(1, parseInt(process.env.RUFLO_SCAN_STALE_HOURS || '24', 10) || 24);
+const SECURITY_PENDING_CAP_MIN = Math.max(1, parseInt(process.env.RUFLO_SCAN_PENDING_CAP_MIN || '30', 10) || 30);
+const SECURITY_IN_PROGRESS_MAX_MIN = 30; // marker older than this = crashed scan; treat as absent
+const PENDING_TRACK_FILE = path.join(os.homedir(), '.ruflo', 'statusline-scan-pending-since.json');
+const CWD_KEY = require('crypto').createHash('md5').update(CWD).digest('hex').slice(0, 12);
+
+function readPendingSince() {
+  try {
+    if (!fs.existsSync(PENDING_TRACK_FILE)) return null;
+    const raw = JSON.parse(fs.readFileSync(PENDING_TRACK_FILE, 'utf-8'));
+    if (raw && typeof raw === 'object' && typeof raw[CWD_KEY] === 'number') return raw[CWD_KEY];
+  } catch { /* ignore */ }
+  return null;
+}
+
+function writePendingSince(ts) {
+  try {
+    let obj = {};
+    if (fs.existsSync(PENDING_TRACK_FILE)) {
+      try { obj = JSON.parse(fs.readFileSync(PENDING_TRACK_FILE, 'utf-8')) || {}; } catch { obj = {}; }
+    }
+    if (ts === null) { delete obj[CWD_KEY]; } else { obj[CWD_KEY] = ts; }
+    fs.mkdirSync(path.dirname(PENDING_TRACK_FILE), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(PENDING_TRACK_FILE, JSON.stringify(obj), { encoding: 'utf-8', mode: 0o600 });
+  } catch { /* ignore */ }
+}
+
+function getLocalSecurity(cliSecurity) {
+  const base = (cliSecurity && typeof cliSecurity === 'object')
+    ? Object.assign({}, cliSecurity)
+    : { status: 'NONE', findings: 0, cvesFixed: 0, totalCves: 0 };
+  base.findings = Math.max(0, base.findings || 0);
+
+  const scanDir = path.join(CWD, '.claude', 'security-scans');
+
+  // Detect a live in-progress marker (writer opts-in by writing this file).
+  let inProgress = false;
+  try {
+    const marker = path.join(scanDir, 'scan-in-progress');
+    if (fs.existsSync(marker)) {
+      const ageMin = (Date.now() - fs.statSync(marker).mtimeMs) / 60000;
+      if (ageMin < SECURITY_IN_PROGRESS_MAX_MIN) inProgress = true;
+    }
+  } catch { /* ignore */ }
+
+  // Find newest scan-*.json by mtime and read its findings/timestamp.
+  let newestPath = null;
+  let newestMtime = 0;
+  try {
+    if (fs.existsSync(scanDir)) {
+      for (const name of fs.readdirSync(scanDir)) {
+        if (!name.startsWith('scan-') || !name.endsWith('.json')) continue;
+        try {
+          const st = fs.statSync(path.join(scanDir, name));
+          if (st.mtimeMs > newestMtime) { newestMtime = st.mtimeMs; newestPath = path.join(scanDir, name); }
+        } catch { /* ignore */ }
+      }
+    }
+  } catch { /* ignore */ }
+
+  if (newestPath) {
+    // We have a scan on disk — the never-scanned pending tracker is no longer
+    // relevant. Clear it so a re-created directory can start a fresh window.
+    writePendingSince(null);
+
+    let scannedAtMs = newestMtime;
+    let findings = base.findings;
+    try {
+      const j = JSON.parse(fs.readFileSync(newestPath, 'utf-8'));
+      // scannedAt (CLI producer's field name) OR timestamp (writer's field name).
+      const isoStr = (j && (j.scannedAt || j.timestamp)) || null;
+      if (isoStr) {
+        const t = Date.parse(isoStr);
+        if (!isNaN(t)) scannedAtMs = t;
+      }
+      // findings may be a number, an array, or nested in summary.total.
+      if (j) {
+        if (typeof j.findings === 'number') findings = j.findings;
+        else if (Array.isArray(j.findings)) findings = j.findings.length;
+        else if (j.summary && typeof j.summary.total === 'number') findings = j.summary.total;
+      }
+    } catch { /* ignore parse — fall back to mtime + cached findings */ }
+
+    base.findings = Math.max(0, findings || 0);
+    base.scannedAt = new Date(scannedAtMs).toISOString();
+
+    const ageHours = (Date.now() - scannedAtMs) / 3600000;
+    if (ageHours >= SECURITY_STALE_HOURS) {
+      // Stale but findings still render red (a year-old ISSUES scan is still bad).
+      base.status = 'STALE';
+    } else if (inProgress) {
+      base.status = 'IN_PROGRESS';
+    } else if (base.findings > 0) {
+      base.status = 'ISSUES';
+    } else {
+      base.status = 'CLEAN';
+    }
+    return base;
+  }
+
+  // No scan file. If a live marker exists, we're mid-scan.
+  if (inProgress) {
+    base.status = 'IN_PROGRESS';
+    // Reset the pending tracker so, if the scan crashes mid-flight, the next
+    // render starts a fresh N-minute pending window instead of an already-expired one.
+    writePendingSince(null);
+    return base;
+  }
+
+  // Truly never-scanned: track how long we've shown PENDING. After the cap,
+  // escalate to STALE with the dim/gray glyph so the pill visibly stops
+  // shouting for attention — the user has either ignored it for 30 min or
+  // the scan is silently failing to write.
+  let pendingSince = readPendingSince();
+  if (pendingSince === null || typeof pendingSince !== 'number') {
+    pendingSince = Date.now();
+    writePendingSince(pendingSince);
+  }
+  const pendingAgeMin = (Date.now() - pendingSince) / 60000;
+  base.status = (pendingAgeMin >= SECURITY_PENDING_CAP_MIN) ? 'STALE' : 'PENDING';
+  return base;
+}
+
 // Overlay every locally-derived block onto the CLI data (mutates in place).
 function applyLocalOverlays(data) {
   data.adrs = getLocalADRCount();
@@ -411,6 +559,9 @@ function applyLocalOverlays(data) {
   data.tests = getLocalTests();
   data.hooks = getLocalHooks();
   data.integration = getLocalIntegration();
+  // Security overlay: recompute freshness from disk on every render so cached
+  // CLI JSON can never freeze the pill at PENDING. See getLocalSecurity() above.
+  data.security = getLocalSecurity(data.security);
   return data;
 }
 
@@ -851,10 +1002,14 @@ function generateStatusline() {
   if (healthAllGreen) {
     opsParts.push(c.brightGreen + '🛡 ✓' + c.reset);
   } else {
+    // #2776: STALE gets dim/gray (distinct from the actionable yellow of
+    // PENDING/IN_PROGRESS) so a stale pill visibly stops shouting for
+    // attention — the user can act on the "run ruflo security scan" prompt or
+    // ignore it without a permanently-yellow indicator.
     if (secStatus === 'PENDING') opsParts.push(c.brightYellow + '🛡 scan pending' + c.reset);
     else if (secStatus === 'IN_PROGRESS') opsParts.push(c.brightYellow + '🛡 scanning…' + c.reset);
     else if (secStatus === 'ISSUES') opsParts.push(c.brightRed + '🛡 findings' + c.reset);
-    else if (secStatus === 'STALE') opsParts.push(c.brightYellow + '🛡 scan stale' + c.reset);
+    else if (secStatus === 'STALE') opsParts.push(c.dim + '🛡 scan stale' + c.reset);
     else if (secStatus !== 'NONE' && secStatus !== 'CLEAN') opsParts.push(c.brightRed + '🛡 ' + secStatus.toLowerCase() + c.reset);
     if (findings > 0) {
       opsParts.push(c.brightRed + '⚠ ' + findings + ' finding' + (findings === 1 ? '' : 's') + c.reset);

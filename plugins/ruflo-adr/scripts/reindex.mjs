@@ -45,9 +45,16 @@ import { basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { findAdrs, parseAdr } from './lib/parse-adrs.mjs';
 
-const CLI_PKG = process.env.CLI_CORE === '1'
-  ? '@claude-flow/cli-core@alpha'
-  : '@claude-flow/cli@latest';
+// #2781: unify on the default CLI so the reindex writer and the default
+// `ruflo memory search` reader hit the same store. See import.mjs for the
+// full rationale.
+const CLI_PKG = '@claude-flow/cli@latest';
+if (process.env.CLI_CORE === '1') {
+  console.warn(
+    '[ruflo-adr] warning: CLI_CORE=1 is ignored — writing to the default ' +
+    "`@claude-flow/cli@latest` store so `ruflo memory search` can find the records (#2781).",
+  );
+}
 
 const ROOT = process.env.ADR_ROOT || process.cwd();
 const dryRun = process.env.REINDEX_DRY_RUN === '1';

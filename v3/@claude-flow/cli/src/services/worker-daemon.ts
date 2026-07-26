@@ -15,6 +15,7 @@ import { EventEmitter } from 'events';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, unlinkSync, renameSync } from 'fs';
 import { cpus } from 'os';
 import { join } from 'path';
+import { writeFileAtomic } from '../fs-secure.js';
 import {
   HeadlessWorkerExecutor,
   HEADLESS_WORKER_TYPES,
@@ -2027,9 +2028,11 @@ export class WorkerDaemon extends EventEmitter {
     };
 
     try {
-      const tmpFile = this.config.stateFile + '.tmp';
-      writeFileSync(tmpFile, JSON.stringify(state, null, 2));
-      renameSync(tmpFile, this.config.stateFile);
+      // ruvnet/ruflo#2782: use writeFileAtomic — its temp file is uniquified with
+      // pid + timestamp + random suffix, so two concurrent in-process saveState()
+      // calls can no longer collide on a shared `.tmp` basename and race one
+      // another's renameSync into ENOENT. Related to but distinct from #1637.
+      writeFileAtomic(this.config.stateFile, Buffer.from(JSON.stringify(state, null, 2)));
     } catch (error) {
       this.log('error', `Failed to save state: ${error}`);
     }

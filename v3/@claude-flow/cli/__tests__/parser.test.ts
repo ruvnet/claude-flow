@@ -225,6 +225,66 @@ describe('CommandParser', () => {
       const result = p.parse([]);
       expect(result.flags.myFlag).toBe('default-value');
     });
+
+    // #2775 regression: applyDefaults previously only walked globalOptions,
+    // so command-level and subcommand-level `default:` values silently
+    // dropped and the action handler saw them as `undefined`. The immediate
+    // victim was `memory store --upsert` — every subcommand with a per-flag
+    // default was affected.
+    it('applies command-level option defaults (#2775 regression)', () => {
+      const cmd: Command = {
+        name: 'cmd',
+        description: 'Test',
+        options: [
+          { name: 'upsert', type: 'boolean', description: 'Upsert', default: true },
+        ],
+      };
+      const p = new CommandParser({ allowUnknownFlags: true });
+      p.registerCommand(cmd);
+      const result = p.parse(['cmd']);
+      expect(result.flags.upsert).toBe(true);
+    });
+
+    it('applies subcommand-level option defaults (#2775 regression)', () => {
+      const cmd: Command = {
+        name: 'memory',
+        description: 'Memory command',
+        subcommands: [
+          {
+            name: 'store',
+            description: 'Store',
+            options: [
+              { name: 'upsert', type: 'boolean', description: 'Upsert', default: true },
+            ],
+          },
+        ],
+      };
+      const p = new CommandParser({ allowUnknownFlags: true });
+      p.registerCommand(cmd);
+      const result = p.parse(['memory', 'store']);
+      expect(result.flags.upsert).toBe(true);
+    });
+
+    it('does not overwrite explicit subcommand flags with the default', () => {
+      const cmd: Command = {
+        name: 'memory',
+        description: 'Memory command',
+        subcommands: [
+          {
+            name: 'store',
+            description: 'Store',
+            options: [
+              { name: 'upsert', type: 'boolean', description: 'Upsert', default: true },
+            ],
+          },
+        ],
+      };
+      const p = new CommandParser({ allowUnknownFlags: true });
+      p.registerCommand(cmd);
+      // --no-upsert should defeat the default:true
+      const result = p.parse(['memory', 'store', '--no-upsert']);
+      expect(result.flags.upsert).toBe(false);
+    });
   });
 
   // -------------------------------------------------------------------------

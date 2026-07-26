@@ -5,7 +5,6 @@
  */
 
 import type { ConfigTomlOptions, McpServerConfig, SkillConfig, ConfigProfile } from '../types.js';
-import { getRufloMcpServerConfig, renderMcpServerToml } from '../mcp-config.js';
 
 /**
  * Security configuration options
@@ -71,7 +70,6 @@ export async function generateConfigToml(options: ExtendedConfigTomlOptions = {}
     security = {},
     performance = {},
     logging = {},
-    platform = process.platform,
   } = options;
 
   const lines: string[] = [];
@@ -160,12 +158,18 @@ export async function generateConfigToml(options: ExtendedConfigTomlOptions = {}
     // Default claude-flow server
     const hasRuflo = mcpServers.some(s => s.name === 'ruflo' || s.name === 'claude-flow');
     if (!hasRuflo) {
-      lines.push(...renderMcpServerToml(getRufloMcpServerConfig(platform)));
+      lines.push(...generateMcpServer({
+        name: 'ruflo',
+        command: 'npx',
+        args: ['-y', '--package=@claude-flow/cli@latest', 'claude-flow-mcp'],
+        enabled: true,
+        toolTimeout: 120,
+      }));
       lines.push('');
     }
 
     for (const server of mcpServers) {
-      lines.push(...renderMcpServerToml(server));
+      lines.push(...generateMcpServer(server));
       lines.push('');
     }
   }
@@ -448,6 +452,33 @@ function escapeTomlString(str: string): string {
 /**
  * Generate MCP server configuration lines
  */
+function generateMcpServer(server: McpServerConfig): string[] {
+  const lines: string[] = [];
+  lines.push(`[mcp_servers.${server.name}]`);
+  lines.push(`command = "${server.command}"`);
+
+  if (server.args && server.args.length > 0) {
+    const argsStr = server.args.map(a => `"${a}"`).join(', ');
+    lines.push(`args = [${argsStr}]`);
+  }
+
+  lines.push(`enabled = ${server.enabled ?? true}`);
+
+  if (server.toolTimeout) {
+    lines.push(`tool_timeout_sec = ${server.toolTimeout}`);
+  }
+
+  if (server.env && Object.keys(server.env).length > 0) {
+    lines.push('');
+    lines.push(`[mcp_servers.${server.name}.env]`);
+    for (const [key, value] of Object.entries(server.env)) {
+      lines.push(`${key} = "${value}"`);
+    }
+  }
+
+  return lines;
+}
+
 /**
  * Generate skill configuration lines
  */
@@ -493,7 +524,6 @@ export async function generateMinimalConfigToml(options: ConfigTomlOptions = {})
     model = 'gpt-5.3-codex',
     approvalPolicy = 'on-request',
     sandboxMode = 'workspace-write',
-    platform = process.platform,
   } = options;
 
   return `# Claude Flow V3 - Minimal Codex Configuration
@@ -502,14 +532,17 @@ model = "${model}"
 approval_policy = "${approvalPolicy}"
 sandbox_mode = "${sandboxMode}"
 
-${renderMcpServerToml(getRufloMcpServerConfig(platform)).join('\n')}
+[mcp_servers.ruflo]
+command = "npx"
+args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
+enabled = true
 `;
 }
 
 /**
  * Generate CI/CD config.toml
  */
-export async function generateCIConfigToml(platform: NodeJS.Platform = process.platform): Promise<string> {
+export async function generateCIConfigToml(): Promise<string> {
   return `# =============================================================================
 # Claude Flow V3 - CI/CD Pipeline Configuration
 # =============================================================================
@@ -532,7 +565,11 @@ remote_compaction = false
 child_agents_md = true
 request_rule = false
 
-${renderMcpServerToml(getRufloMcpServerConfig(platform, 300)).join('\n')}
+[mcp_servers.ruflo]
+command = "npx"
+args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
+enabled = true
+tool_timeout_sec = 300
 
 [history]
 persistence = "none"
@@ -574,7 +611,7 @@ train_on_edit = false
 /**
  * Generate enterprise config.toml with full governance
  */
-export async function generateEnterpriseConfigToml(platform: NodeJS.Platform = process.platform): Promise<string> {
+export async function generateEnterpriseConfigToml(): Promise<string> {
   return `# =============================================================================
 # Claude Flow V3 - Enterprise Configuration
 # =============================================================================
@@ -606,10 +643,14 @@ remote_compaction = true
 # MCP Servers
 # =============================================================================
 
-${renderMcpServerToml({
-    ...getRufloMcpServerConfig(platform),
-    env: { CLAUDE_FLOW_LOG_LEVEL: 'info' },
-  }).join('\n')}
+[mcp_servers.ruflo]
+command = "npx"
+args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
+enabled = true
+tool_timeout_sec = 120
+
+[mcp_servers.ruflo.env]
+CLAUDE_FLOW_LOG_LEVEL = "info"
 
 # =============================================================================
 # Profiles
@@ -785,7 +826,7 @@ hipaa = false
 /**
  * Generate development config.toml with permissive settings
  */
-export async function generateDevConfigToml(platform: NodeJS.Platform = process.platform): Promise<string> {
+export async function generateDevConfigToml(): Promise<string> {
   return `# =============================================================================
 # Claude Flow V3 - Development Configuration
 # =============================================================================
@@ -807,7 +848,11 @@ shell_snapshot = true
 request_rule = false
 remote_compaction = true
 
-${renderMcpServerToml(getRufloMcpServerConfig(platform)).join('\n')}
+[mcp_servers.ruflo]
+command = "npx"
+args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
+enabled = true
+tool_timeout_sec = 120
 
 [history]
 persistence = "save-all"
@@ -862,7 +907,7 @@ enabled = true
 /**
  * Generate security-focused config.toml
  */
-export async function generateSecureConfigToml(platform: NodeJS.Platform = process.platform): Promise<string> {
+export async function generateSecureConfigToml(): Promise<string> {
   return `# =============================================================================
 # Claude Flow V3 - Security-Focused Configuration
 # =============================================================================
@@ -884,7 +929,11 @@ shell_snapshot = false
 request_rule = true
 remote_compaction = false
 
-${renderMcpServerToml(getRufloMcpServerConfig(platform, 60)).join('\n')}
+[mcp_servers.ruflo]
+command = "npx"
+args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
+enabled = true
+tool_timeout_sec = 60
 
 [history]
 persistence = "save-all"
