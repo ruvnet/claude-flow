@@ -1905,44 +1905,68 @@ export async function bridgeRecordFeedback(options: {
     let controller = 'none';
     let updated = 0;
 
-    // Try LearningSystem first (Phase 4)
-    const learningSystem = registry.get('learningSystem');
-    if (learningSystem) {
-      try {
-        if (typeof learningSystem.recordFeedback === 'function') {
-          await learningSystem.recordFeedback({
-            taskId: options.taskId, success: options.success, quality: options.quality,
-            agent: options.agent, duration: options.duration, timestamp: Date.now(),
+    // Real intelligence-pipeline write (#2786 fix-3, 2026-07-26 sweep follow-up).
+    // The prior code called `learningSystem.recordFeedback/.record` and
+    // `reasoningBank.recordOutcome/.record` — none of those methods exist on
+    // the LocalSonaCoordinator / LocalReasoningBank instances the bridge
+    // actually wires into the registry (see initializeIntelligence in
+    // memory/intelligence.ts). The silent catch made it look successful.
+    //
+    // The REAL public API is `intelligence.recordTrajectory(steps, verdict)`
+    // — same call `hooks_post-command` already uses (hooks-tools.ts).
+    // It initializes lazily, embeds the step, and drives both the SONA
+    // coordinator and pattern distillation.
+    try {
+      const intelligence = await import('./intelligence.js');
+      const verdict = options.success ? 'success' : 'failure';
+      const recorded = await intelligence.recordTrajectory(
+        [{
+          type: 'action',
+          content: `Task ${options.taskId} completed by ${options.agent || 'unknown'} — success=${options.success}, quality=${options.quality.toFixed(3)}`,
+          metadata: {
+            taskId: options.taskId,
+            agent: options.agent,
+            quality: options.quality,
+            duration: options.duration,
             // ADR-147 P2: forward spawn-tree lineage if present
-            parentAgentId: options.parentAgentId, depth: options.depth,
-          });
-          controller = 'learningSystem';
-          updated++;
-        } else if (typeof learningSystem.record === 'function') {
-          await learningSystem.record(options.taskId, options.quality, options.success ? 'success' : 'failure');
-          controller = 'learningSystem';
-          updated++;
-        }
-      } catch { /* API mismatch — skip */ }
+            parentAgentId: options.parentAgentId,
+            depth: options.depth,
+          },
+          timestamp: Date.now(),
+        }],
+        verdict,
+      );
+      if (recorded) {
+        controller = 'intelligence';
+        updated++;
+      }
+    } catch {
+      // Intelligence init failed (missing embeddings backend etc.). Fall
+      // through to the memory-store write below — that always succeeds via
+      // sql.js fallback so feedback is never fully lost.
     }
 
-    // Also record in ReasoningBank for pattern reinforcement
+    // Optional pattern store: if the caller supplied learned patterns,
+    // add them to LocalReasoningBank via its real `.store()` method (the
+    // one method that DOES exist on the class).
     const reasoningBank = registry.get('reasoningBank');
-    if (reasoningBank) {
-      try {
-        if (typeof reasoningBank.recordOutcome === 'function') {
-          await reasoningBank.recordOutcome({
-            taskId: options.taskId, verdict: options.success ? 'success' : 'failure',
-            score: options.quality, timestamp: Date.now(),
-          });
-          controller = controller === 'none' ? 'reasoningBank' : `${controller}+reasoningBank`;
-          updated++;
-        } else if (typeof reasoningBank.record === 'function') {
-          await reasoningBank.record(options.taskId, options.quality);
-          controller = controller === 'none' ? 'reasoningBank' : `${controller}+reasoningBank`;
-          updated++;
-        }
-      } catch { /* API mismatch — skip */ }
+    if (reasoningBank && Array.isArray(options.patterns) && options.patterns.length) {
+      for (const pattern of options.patterns) {
+        try {
+          if (typeof reasoningBank.store === 'function') {
+            reasoningBank.store({
+              id: `feedback-pattern-${options.taskId}-${updated}`,
+              content: pattern,
+              category: options.agent || 'general',
+              confidence: options.quality,
+              source: 'bridge-feedback',
+            });
+            updated++;
+          }
+        } catch { /* pattern rejected — non-critical */ }
+      }
+      if (updated > 0 && controller === 'intelligence') controller = 'intelligence+reasoningBank';
+      else if (updated > 0 && controller === 'none') controller = 'reasoningBank';
     }
 
     // Phase 4: SkillLibrary promotion for high-quality patterns
