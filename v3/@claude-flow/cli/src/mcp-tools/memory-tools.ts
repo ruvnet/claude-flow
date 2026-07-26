@@ -293,7 +293,7 @@ async function ensureInitialized(): Promise<void> {
 export const memoryTools: MCPTool[] = [
   {
     name: 'memory_store',
-    description: 'Persistent key-value store with vector embedding — survives across sessions and is searchable by meaning, not just by file path. Use when native Write is wrong because the data is not a file (e.g. a learned pattern, a decision, a budget config) AND you need to recall it later by semantic query, not by path. Defaults to namespace="default"; pass --upsert=true to update an existing key.',
+    description: 'Persistent key-value store with vector embedding — survives across sessions and is searchable by meaning, not just by file path. Use when native Write is wrong because the data is not a file (e.g. a learned pattern, a decision, a budget config) AND you need to recall it later by semantic query, not by path. Defaults to namespace="default". Upsert semantics: writing an existing key updates it (matching the CLI `memory store` default); pass `upsert: false` to force strict-insert instead.',
     category: 'memory',
     inputSchema: {
       type: 'object',
@@ -307,7 +307,7 @@ export const memoryTools: MCPTool[] = [
           description: 'Optional tags for filtering',
         },
         ttl: { type: 'number', description: 'Time-to-live in seconds (optional)' },
-        upsert: { type: 'boolean', description: 'If true, update existing key instead of failing (default: false)' },
+        upsert: { type: 'boolean', description: 'Update existing key instead of failing (default: true, matching CLI `memory store`; set false for strict-insert). #2775 parity.' },
       },
       required: ['key', 'value'],
     },
@@ -321,7 +321,8 @@ export const memoryTools: MCPTool[] = [
       const value = typeof rawValue === 'string' ? rawValue : (rawValue !== undefined ? JSON.stringify(rawValue) : '');
       const tags = (input.tags as string[]) || [];
       const ttl = input.ttl as number | undefined;
-      const upsert = (input.upsert as boolean) || false;
+      // #2775 parity with CLI: default true; only explicit `upsert: false` opts out.
+      const upsert = input.upsert !== false;
 
       if (!value) {
         return {
