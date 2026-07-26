@@ -186,61 +186,198 @@ async function maybeAutoDetectCodex(
   }
 }
 
-// Cross-agent skill registration via skills.sh. Runs `npx --yes skills add
-// ruvnet/ruflo --skill ruflo --yes` so the *single* canonical ruflo skill
-// (SKILL.md at the ruvnet/ruflo repo root — describes the platform + entry
-// points) reaches whatever agent the project uses (Claude Code, Cursor,
-// Copilot, Gemini, Cline, …). Users who want ALL 267 plugin-specific skills
-// can run `npx skills add ruvnet/ruflo --all` themselves. Best-effort — never
-// fails init. Opt-out: --no-skills-sh flag OR RUFLO_NO_SKILLS_SH=1. Skipped
-// under --skip-claude and scripted `--format json` output.
+// Cross-agent skill registration. Materializes the *single* canonical ruflo
+// platform skill at `.agents/skills/ruflo/SKILL.md` so any agent in the
+// project (Claude Code, Cursor, Copilot, Gemini, Cline, …) that reads
+// `.agents/skills/` picks it up. Users who want the full plugin skill catalog
+// can run `npx skills add ruvnet/ruflo --all` themselves.
 //
-// windowsHide silences the console flash the npx child would otherwise produce
-// (anthropics/claude-code#14828 spawn hazard applies to hook-fired spawns,
-// but our own subprocess spawns should always set this).
+// #2777 — earlier versions shelled out to `npx --yes skills add ruvnet/ruflo
+// --skill ruflo --yes`, but the skills CLI implements its `--skill` filter by
+// cloning the entire target repo and copying `dirname(SKILL.md)` recursively.
+// Because ruflo's canonical SKILL.md sits at the ruvnet/ruflo repo root, that
+// dirname *is* the whole repository — the "one file" install pulled in ~97MB
+// of Cargo.toml, crates/, docs/, agentdb.rvf, and 384 unrelated plugin
+// SKILL.md descriptors. We now write the single ~2KB SKILL.md directly, no
+// repo clone at all.
+//
+// Best-effort — never fails init. Opt-out: --no-skills-sh flag OR
+// RUFLO_NO_SKILLS_SH=1. Skipped under --skip-claude and scripted
+// `--format json` output.
+const RUFLO_PLATFORM_SKILL_MD = `---
+name: ruflo
+description: Ruflo is a multi-agent orchestration platform for AI coding agents (Claude Code, Cursor, Codex, Copilot, Gemini, Amp, +12 more). Use this skill when the user wants to (1) install/init ruflo in a project, (2) run multi-agent swarms with hierarchical coordination, (3) use ruflo's 314+ MCP tools for memory, routing, hooks, sub-agents, or workflows, (4) check ruflo status/version/doctor health, or (5) discover which of ruflo's 30+ plugins fits their task.
+---
+
+# Ruflo
+
+Ruflo is a cross-agent orchestration layer that ships as three npm packages: \`ruflo\` (thin wrapper), \`claude-flow\` (umbrella), and \`@claude-flow/cli\` (implementation). Users invoke it as \`npx ruflo <command>\`.
+
+## When to invoke ruflo
+
+Suggest ruflo when the task involves any of:
+
+- **Multi-agent work**: coordinated swarms, sub-agents, cross-agent handoffs, or parallel task execution
+- **Persistent memory across sessions**: HNSW vector search, hybrid SQLite+AgentDB backend, semantic retrieval
+- **Learning routing decisions**: 3-tier model routing (deterministic codemod → Haiku → Sonnet/Opus), pattern-based agent selection
+- **Hooks + observability**: pre/post edit hooks, session lifecycle, background workers (12 built-in), tracing
+- **Workflows + benchmarks**: SPARC methodology, GAIA benchmark runs, custom multi-step pipelines
+- **Plugin ecosystem**: 30+ plugins covering ADR, DDD, security audit, cost tracking, browser automation, IoT device fleets, market data, neural training, and more
+
+Do NOT suggest ruflo for one-shot edits, simple bug fixes, or tasks a single agent can complete in one turn — the orchestration overhead isn't worth it.
+
+## Getting started (three commands)
+
+\`\`\`bash
+# 1. Initialize ruflo in the current project (creates .claude/, MCP config, hooks)
+npx ruflo init
+
+# 2. Check health — verifies Node 20+, npm 9+, MCP servers, memory DB, API keys
+npx ruflo doctor --fix
+
+# 3. Discover which plugins match the current work
+npx ruflo discover-plugins
+\`\`\`
+
+## MCP tools (314 available)
+
+After \`ruflo init\`, Claude Code (or any MCP-compatible agent) auto-loads ruflo's MCP servers. Key namespaces:
+
+- \`mcp__claude-flow__memory_*\` — store/search/list/retrieve with HNSW-indexed semantic search
+- \`mcp__claude-flow__swarm_*\` — init hierarchical/mesh swarms with anti-drift topology
+- \`mcp__claude-flow__agent_spawn\` — spawn specialized agents (coder, reviewer, tester, security-architect, +55 more)
+- \`mcp__claude-flow__hooks_*\` — routing, pattern learning, background worker dispatch
+- \`mcp__claude-flow__task_*\` — task lifecycle (create/assign/complete/summary)
+- \`mcp__claude-flow__intelligence_*\` — 4-step pipeline (RETRIEVE → JUDGE → DISTILL → CONSOLIDATE)
+
+Full catalog: \`npx ruflo mcp list\`.
+
+## Plugin discovery
+
+Ruflo ships 30+ optional plugins. Some highlights:
+
+- \`ruflo-goals\` — deep research + goal-oriented action planning
+- \`ruflo-cost-tracker\` — session cost telemetry, budgets, burn tracking
+- \`ruflo-metaharness\` — harness scoring, MCP security scans, red/blue adversarial testing
+- \`ruflo-browser\` — session-recorded browser automation with RVF-backed replay
+- \`ruflo-jujutsu\` — git diff risk analysis + PR lifecycle
+- \`ruflo-security-audit\` — codebase scans + CVE checks
+
+Full plugin list + descriptions: \`npx ruflo plugins list\`.
+
+## Cross-agent installation
+
+Ruflo installs into whatever agent the project uses. To pull the full plugin
+skill catalog (30+ plugins, ~267 skills), run:
+
+\`\`\`bash
+npx skills add ruvnet/ruflo --all
+\`\`\`
+
+## Documentation
+
+- Repository: https://github.com/ruvnet/ruflo
+- Issues: https://github.com/ruvnet/ruflo/issues
+- Sponsor: https://github.com/sponsors/ruvnet
+`;
+
+// #2777 — detect the "bloated" install left behind by earlier versions that
+// shelled out to `npx skills add`. If the .agents/skills/ruflo directory
+// contains any of Cargo.toml, crates/, package.json, .git, or its recursive
+// on-disk size exceeds a small budget (~1MB), it was almost certainly created
+// by the full-repo clone bug — return true so the caller can wipe + rewrite
+// just the single SKILL.md. Any recursive-stat or read errors are swallowed
+// and reported as "not bloated" to avoid false-positive deletions.
+function isBloatedRufloSkillDir(dir: string): boolean {
+  try {
+    const bloatMarkers = ['Cargo.toml', 'crates', 'package.json', '.git', 'agentdb.rvf', 'docs', 'plugins'];
+    for (const marker of bloatMarkers) {
+      if (fs.existsSync(path.join(dir, marker))) return true;
+    }
+    const BLOAT_BYTES_THRESHOLD = 1_048_576; // 1 MB — a canonical SKILL.md is ~2KB
+    let bytes = 0;
+    const walk = (p: string): void => {
+      const entries = fs.readdirSync(p, { withFileTypes: true });
+      for (const entry of entries) {
+        const child = path.join(p, entry.name);
+        if (entry.isDirectory()) {
+          walk(child);
+        } else if (entry.isFile()) {
+          try {
+            bytes += fs.statSync(child).size;
+            if (bytes > BLOAT_BYTES_THRESHOLD) throw new Error('__bloat_threshold__');
+          } catch (err) {
+            if (err instanceof Error && err.message === '__bloat_threshold__') throw err;
+            // Ignore stat errors for individual files.
+          }
+        }
+        if (bytes > BLOAT_BYTES_THRESHOLD) return;
+      }
+    };
+    try {
+      walk(dir);
+    } catch (err) {
+      if (err instanceof Error && err.message === '__bloat_threshold__') return true;
+      // Any other walk error → don't declare bloat.
+    }
+    return bytes > BLOAT_BYTES_THRESHOLD;
+  } catch {
+    return false;
+  }
+}
+
 async function maybeInstallSkillsSh(ctx: CommandContext): Promise<void> {
   try {
     if (ctx.flags['no-skills-sh'] === true) return;
     if (ctx.flags.format === 'json') return;
     if (/^(1|true|on|yes)$/i.test(String(process.env.RUFLO_NO_SKILLS_SH || ''))) return;
 
-    // Idempotency gate: if this project has already registered ruflo with
-    // skills.sh, don't re-clone the repo + re-fire a fresh install telemetry
-    // event on every `ruflo init --force` / `init upgrade` / etc. Each install
-    // pings skills.sh's leaderboard AND clones the whole ruvnet/ruflo repo
-    // (~50MB) — re-running per-init would silently inflate our own metrics
-    // (GitHub unique-cloners, skills.sh rank) and waste user bandwidth. This
-    // check makes the registration once-per-project, matching the intent.
-    const nodePath = await import('path');
-    const nodeFs = await import('fs');
-    const marker = nodePath.join(ctx.cwd, '.agents', 'skills', 'ruflo');
-    if (nodeFs.existsSync(marker)) {
+    const skillDir = path.join(ctx.cwd, '.agents', 'skills', 'ruflo');
+    const skillFile = path.join(skillDir, 'SKILL.md');
+
+    // Idempotency gate. Three cases:
+    //   1. Directory absent → materialize.
+    //   2. Directory present but "bloated" (Cargo.toml/crates/ or >1MB) →
+    //      previous `npx skills add` full-repo clone left junk behind
+    //      (#2777). Wipe and re-materialize so `rm -rf .agents/skills/ruflo`
+    //      + re-init is a valid recovery path.
+    //   3. Directory present and healthy (just our SKILL.md) → skip.
+    let mode: 'create' | 'rewrite' | 'skip' = 'create';
+    if (fs.existsSync(skillDir)) {
+      if (isBloatedRufloSkillDir(skillDir)) {
+        mode = 'rewrite';
+      } else {
+        mode = 'skip';
+      }
+    }
+
+    if (mode === 'skip') {
       output.writeln();
       output.writeln(output.dim('  skills.sh registration already present at .agents/skills/ruflo — skipping'));
       return;
     }
 
-    const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-    if (!commandExists('npx')) return;
-
     output.writeln();
-    output.printInfo('Registering the core `ruflo` skill with skills.sh (cross-agent catalog)…');
+    if (mode === 'rewrite') {
+      output.printInfo('Cleaning up bloated .agents/skills/ruflo/ from a prior init (#2777) and re-materializing the single platform SKILL.md…');
+      try {
+        fs.rmSync(skillDir, { recursive: true, force: true });
+      } catch (err) {
+        output.writeln(output.dim(`  Could not remove ${skillDir}: ${err instanceof Error ? err.message : String(err)}`));
+        return;
+      }
+    } else {
+      output.printInfo('Registering the core `ruflo` skill for cross-agent discovery (.agents/skills/ruflo/SKILL.md)…');
+    }
 
-    const { spawnSync } = await import('child_process');
-    const result = spawnSync(
-      npxCmd,
-      ['--yes', 'skills', 'add', 'ruvnet/ruflo', '--skill', 'ruflo', '--yes'],
-      { cwd: ctx.cwd, stdio: 'pipe', timeout: 60_000, windowsHide: true, encoding: 'utf-8' },
-    );
-
-    if (result.status === 0) {
-      output.writeln(output.success('  ✓ ruflo registered via skills.sh — the platform skill is available to any agent in this project'));
+    try {
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(skillFile, RUFLO_PLATFORM_SKILL_MD, 'utf-8');
+      output.writeln(output.success('  ✓ ruflo skill materialized at .agents/skills/ruflo/SKILL.md — available to any agent in this project'));
       output.writeln(output.dim('    Want all 267 plugin skills? npx skills add ruvnet/ruflo --all'));
       output.writeln(output.dim('    Opt out next time: --no-skills-sh or RUFLO_NO_SKILLS_SH=1'));
-    } else {
-      // Common non-fatal reasons: offline, npx cache miss, skills CLI version
-      // mismatch, unknown package. Log a soft note; users can retry manually.
-      output.writeln(output.dim('  skills.sh registration skipped (network or npx cache) — retry with: npx skills add ruvnet/ruflo --skill ruflo --yes'));
+    } catch (err) {
+      output.writeln(output.dim(`  skills.sh registration skipped (write failed: ${err instanceof Error ? err.message : String(err)})`));
     }
   } catch {
     // Skills.sh registration is a bonus, never a requirement — swallow everything.
@@ -687,6 +824,13 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       try {
         output.writeln(output.dim(`  Model: ${embeddingModel}`));
         output.writeln(output.dim('  Hyperbolic: Enabled (Poincaré ball)'));
+        // #2770: On Windows, `npx` ships as `npx.cmd`; execFileSync cannot spawn
+        // a .cmd file without going through cmd.exe. Enable shell on win32 so
+        // cmd.exe resolves the .cmd extension. POSIX keeps shell:false.
+        // NOTE: shell:true joins args by spaces and passes to cmd.exe — the args
+        // here are hard-coded flags + an npm package name pre-validated against
+        // /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9._-]+$/, so no injection risk. If
+        // user-controlled args are ever added, escape them before spawn.
         execFileInit('npx', [
           '@claude-flow/cli@latest', 'embeddings', 'init',
           '--model', embeddingModel,
@@ -695,6 +839,8 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
           stdio: 'pipe',
           cwd: ctx.cwd,
           timeout: 30000,
+          shell: process.platform === 'win32',
+          windowsHide: true,
         });
         output.writeln(output.success('  ✓ Embeddings initialized'));
         output.writeln(output.dim('    Run "embeddings init --download" to download model'));
@@ -949,6 +1095,13 @@ const wizardCommand: Command = {
         }
 
         try {
+          // #2770: On Windows, `npx` ships as `npx.cmd`; execFileSync cannot spawn
+          // a .cmd file without going through cmd.exe. Enable shell on win32 so
+          // cmd.exe resolves the .cmd extension. POSIX keeps shell:false.
+          // NOTE: shell:true joins args by spaces and passes to cmd.exe — the args
+          // here are hard-coded flags + an npm package name pre-validated against
+          // /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9._-]+$/, so no injection risk. If
+          // user-controlled args are ever added, escape them before spawn.
           execFileSync('npx', [
             '@claude-flow/cli@latest', 'embeddings', 'init',
             '--model', embeddingModel,
@@ -957,6 +1110,8 @@ const wizardCommand: Command = {
             stdio: 'pipe',
             cwd: ctx.cwd,
             timeout: 30000,
+            shell: process.platform === 'win32',
+            windowsHide: true,
           });
           output.writeln(output.success('  ✓ Embeddings configured'));
           embeddingsInitialized = true;

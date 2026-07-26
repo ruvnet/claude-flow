@@ -27,29 +27,6 @@ let registryPromise: Promise<any> | null = null;
 let registryInstance: any = null;
 let bridgeAvailable: boolean | null = null;
 
-// #2735 — the native-bridge -> sql.js whole-image fallback used to be
-// completely silent: a registry init failure cached `bridgeAvailable =
-// false` for the rest of the process, and a per-operation bridge exception
-// swallowed itself with a bare `catch { return null; }` — in both cases the
-// caller fell back to memory-initializer.ts's unsafe whole-image sql.js
-// path with zero diagnostic trail. When that path corrupted a database, the
-// demotion that caused it was structurally unknowable after the fact. Log
-// once per distinct reason (not once per call — a hot per-op catch could
-// otherwise spam stderr on every single memory operation) so the first
-// occurrence is attributable. Stderr only — never stdout, which callers may
-// be parsing as JSON.
-const loggedDemotions = new Set<string>();
-function logDemotionOnce(where: string, reason: string): void {
-  const dedupeKey = `${where}:${reason}`;
-  if (loggedDemotions.has(dedupeKey)) return;
-  loggedDemotions.add(dedupeKey);
-  try {
-    process.stderr.write(
-      `[memory-bridge] demoted to sql.js fallback in ${where}: ${reason}\n`,
-    );
-  } catch { /* stderr unavailable — nothing more we can do */ }
-}
-
 /**
  * Resolve database path with path traversal protection.
  * Only allows paths within or below the project's working directory,
@@ -91,6 +68,27 @@ function getDbPath(customPath?: string): string {
 }
 
 /**
+ * Resolve AgentDB's native better-sqlite3 database path (#2786).
+ *
+ * AgentDB is opened by ControllerRegistry via native better-sqlite3, which
+ * requires a plaintext SQLite file. The sibling `memory.db` file written by
+ * `memory-initializer.ts` (`writeFileRestricted(..., {encrypt: true})`) is
+ * encrypted-at-rest when `CLAUDE_FLOW_ENCRYPT_AT_REST=1` — pointing native
+ * better-sqlite3 at it fails with "file is not a database" and silently
+ * disables `learningSystem`/`reasoningBank`.
+ *
+ * Give AgentDB a distinct filename in the same directory so both writers
+ * coexist: sql.js keeps `memory.db` (possibly encrypted); AgentDB owns
+ * `agentdb-memory.db`. Preserves the traversal protection in `getDbPath()`
+ * because we derive from its already-validated return value.
+ */
+function getAgentDbPath(): string {
+  const dbPath = getDbPath();
+  if (dbPath === ':memory:') return ':memory:';
+  return path.join(path.dirname(dbPath), 'agentdb-memory.db');
+}
+
+/**
  * Generate a secure random ID for memory entries.
  */
 function generateId(prefix: string): string {
@@ -126,7 +124,8 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
 
         try {
           await (registry as any).initialize({
-            dbPath: dbPath || getDbPath(),
+            // #2786: use agentdb-memory.db (plaintext) so native better-sqlite3 doesn't hit the encrypted memory.db.
+            dbPath: dbPath || getAgentDbPath(),
             embeddingModel: 'Xenova/all-MiniLM-L6-v2',
             dimension: 384,
             vectorBackend: 'auto',
@@ -348,13 +347,9 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
         registryInstance = registry;
         bridgeAvailable = true;
         return registry;
-      } catch (err) {
+      } catch {
         bridgeAvailable = false;
         registryPromise = null;
-        logDemotionOnce(
-          'getRegistry (process-wide, cached for the rest of this process)',
-          err instanceof Error ? err.message : String(err),
-        );
         return null;
       }
     })();
@@ -743,7 +738,23 @@ export async function bridgeStoreEntry(options: {
       }
     }
 
-    // better-sqlite3 uses synchronous .run() with positional params
+    // #2775: strict-insert path now auto-resurrects soft-deleted tombstones
+    // via ON CONFLICT DO UPDATE ... WHERE status='deleted'. Rationale:
+    // `bridgeDeleteEntry` performs a soft delete (status='deleted'), so the
+    // `UNIQUE(namespace, key)` slot stays occupied — before this fix, a
+    // natural `delete → store` sequence hit UNIQUE, the catch below returned
+    // `null`, `storeEntry` fell back to the sql.js whole-image path, and the
+    // #2735 -wal/-shm sidecar guard refused with a message about a "native
+    // WAL connection" that had nothing to do with the actual failure.
+    //
+    // Semantics under the new strict-insert SQL:
+    //   • no existing row               → INSERT succeeds, changes = 1
+    //   • existing row, status='deleted' → resurrected in-place, changes = 1
+    //   • existing row, status='active'  → ON CONFLICT WHERE=false suppresses
+    //                                       the update, changes = 0 (checked
+    //                                       below → typed "already exists"
+    //                                       error, NEVER a null demotion).
+    // Upsert path (INSERT OR REPLACE) is unchanged.
     const insertSql = options.upsert
       ? `INSERT OR REPLACE INTO memory_entries (
           id, key, namespace, content, type,
@@ -754,7 +765,20 @@ export async function bridgeStoreEntry(options: {
           id, key, namespace, content, type,
           embedding, embedding_dimensions, embedding_model,
           tags, metadata, created_at, updated_at, expires_at, status
-        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')`;
+        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+        ON CONFLICT(namespace, key) DO UPDATE SET
+          id                    = excluded.id,
+          content               = excluded.content,
+          embedding             = excluded.embedding,
+          embedding_dimensions  = excluded.embedding_dimensions,
+          embedding_model       = excluded.embedding_model,
+          tags                  = excluded.tags,
+          metadata              = excluded.metadata,
+          created_at            = excluded.created_at,
+          updated_at            = excluded.updated_at,
+          expires_at            = excluded.expires_at,
+          status                = 'active'
+        WHERE memory_entries.status = 'deleted'`;
 
     // #1941: provision a `vector_indexes` row for this namespace before the
     // entry insert. AgentDB's HNSW/router keys lookups by namespace via this
@@ -768,7 +792,7 @@ export async function bridgeStoreEntry(options: {
     } catch { /* vector_indexes may not exist on legacy DBs — fall through */ }
 
     const stmt = ctx.db.prepare(insertSql);
-    stmt.run(
+    const runResult = stmt.run(
       id, key, namespace, value,
       embeddingJson, dimensions || null, model,
       tags.length > 0 ? JSON.stringify(tags) : null,
@@ -776,6 +800,19 @@ export async function bridgeStoreEntry(options: {
       now, now,
       ttl ? now + (ttl * 1000) : null
     );
+
+    // #2775: strict insert against an ACTIVE existing row → changes === 0
+    // (the ON CONFLICT WHERE clause above suppressed the update). Surface
+    // this as a typed data-level error rather than a bridge failure —
+    // returning non-null so the caller does NOT demote to sql.js and does
+    // NOT trip the #2735 whole-image guard with a misleading message.
+    if (!options.upsert && (runResult?.changes ?? 0) === 0) {
+      return {
+        success: false,
+        id,
+        error: `key "${key}" already exists in namespace "${namespace}" — pass upsert=true (--upsert on the CLI) to update it`,
+      };
+    }
 
     // #2558: keep `vector_indexes.total_vectors` accurate so status/tooling
     // stop reporting "HNSW index: 0 vectors" while embedded entries exist.
@@ -823,7 +860,24 @@ export async function bridgeStoreEntry(options: {
       attested: true,
     };
   } catch (err) {
-    logDemotionOnce('bridgeStoreEntry', err instanceof Error ? err.message : String(err));
+    // #2775: distinguish a data-level UNIQUE constraint violation (key
+    // already exists — expected outcome of a strict insert) from a real
+    // bridge failure (registry gone, DB locked, disk full, etc.). The
+    // ON CONFLICT clause on the strict-insert SQL above should normally
+    // convert UNIQUE hits into a `changes === 0` result, so reaching here
+    // with a UNIQUE error means the schema pre-dates the (namespace, key)
+    // unique index or the conflict target didn't match — treat it as a
+    // clean "already exists" so the caller never demotes to sql.js and
+    // never triggers the #2735 whole-image guard with a misleading
+    // "active native WAL connection" error.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/UNIQUE constraint failed/i.test(msg)) {
+      return {
+        success: false,
+        id: '',
+        error: `key "${options.key}" already exists in namespace "${options.namespace ?? 'default'}" — pass upsert=true (--upsert on the CLI) to update it`,
+      };
+    }
     return null;
   }
 }
@@ -1186,8 +1240,7 @@ export async function bridgeGetEntry(options: {
     await cacheSet(registry, cacheKey, entry);
 
     return { success: true, found: true, cacheHit: false, entry };
-  } catch (err) {
-    logDemotionOnce('bridgeGetEntry', err instanceof Error ? err.message : String(err));
+  } catch {
     return null;
   }
 }
@@ -1237,6 +1290,21 @@ export async function bridgeDeleteEntry(options: {
       return null;
     }
 
+    // #2775: mirror the #2558 PASSIVE checkpoint after the delete. Without
+    // this, the tombstone stays WAL-only until some unrelated store
+    // eventually checkpoints — meaning WAL-blind readers (sql.js fallback,
+    // statusline's read-only sqlite3 counter) keep serving the deleted row.
+    // If the process exits before another checkpoint, on live multi-worktree
+    // installations we've observed rows `active` in the main image but
+    // `deleted` in the -wal, or rows existing only in an orphaned -wal
+    // invisible to every image reader. PASSIVE flushes committed pages
+    // without blocking writers. Best-effort, never fatal.
+    try {
+      if (typeof ctx.db.pragma === 'function') {
+        ctx.db.pragma('wal_checkpoint(PASSIVE)');
+      }
+    } catch { /* non-WAL, busy, or unsupported — non-fatal */ }
+
     // Phase 2: Invalidate cache
     const safeNs = String(namespace).replace(/:/g, '_');
     const safeKey = String(key).replace(/:/g, '_');
@@ -1263,8 +1331,7 @@ export async function bridgeDeleteEntry(options: {
       remainingEntries: remaining,
       guarded: true,
     };
-  } catch (err) {
-    logDemotionOnce('bridgeDeleteEntry', err instanceof Error ? err.message : String(err));
+  } catch {
     return null;
   }
 }
@@ -1328,8 +1395,7 @@ export async function bridgePurgeNamespace(options: {
       remainingEntries: remaining,
       guarded: true,
     };
-  } catch (err) {
-    logDemotionOnce('bridgePurgeNamespace', err instanceof Error ? err.message : String(err));
+  } catch {
     return null;
   }
 }

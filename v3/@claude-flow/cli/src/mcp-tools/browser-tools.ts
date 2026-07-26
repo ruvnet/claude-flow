@@ -37,9 +37,17 @@ export async function execBrowserCommand(args: string[], session = 'default'): P
     const err = error as NodeJS.ErrnoException;
     if (err.code === 'ENOENT') {
       try {
+        // #2770: On Windows, `npx` ships as `npx.cmd`; execFileSync cannot spawn
+        // a .cmd file without going through cmd.exe. Enable shell on win32 so
+        // cmd.exe resolves the .cmd extension. POSIX keeps shell:false.
+        // NOTE: shell:true joins args by spaces and passes to cmd.exe — the args
+        // here are hard-coded flags + a package name, so no injection risk. If
+        // user-controlled args are ever added, escape them before spawn.
         result = execFileSync('npx', ['--yes', 'agent-browser', ...fullArgs], {
           encoding: 'utf-8',
           timeout: 60000,
+          shell: process.platform === 'win32',
+          windowsHide: true,
         });
       } catch (npxError) {
         const npxErr = npxError as NodeJS.ErrnoException;

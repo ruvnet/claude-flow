@@ -94,7 +94,18 @@ const storeCommand: Command = {
     const ttl = ctx.flags.ttl as number;
     const tags = ctx.flags.tags ? (ctx.flags.tags as string).split(',') : [];
     const asVector = ctx.flags.vector as boolean;
-    const upsert = ctx.flags.upsert as boolean;
+    // #2775: the parser's `applyDefaults` only materializes global-option
+    // defaults, not per-subcommand ones — so despite the `default: true`
+    // above, `ctx.flags.upsert` arrives as `undefined` unless the user
+    // passes `--upsert` explicitly. That is exactly the trap #2594 tried
+    // to close: `store → delete → store` and even plain `store → store`
+    // (against an active row) both fall through to the bridge's strict
+    // insert, and before #2775's ON-CONFLICT-DO-UPDATE-WHERE-status-
+    // 'deleted' fix, both dead-ended with the misleading #2735 guard.
+    // Materialize the declared default locally so it takes effect
+    // regardless of the parser gap: only an explicit `--no-upsert` (which
+    // arrives as `false`) turns it off.
+    const upsert = ctx.flags.upsert !== false;
 
     if (!key) {
       output.printError('Key is required. Use --key or -k');

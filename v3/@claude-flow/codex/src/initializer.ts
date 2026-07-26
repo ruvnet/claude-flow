@@ -5,9 +5,7 @@
  */
 
 import fs from 'fs-extra';
-import os from 'os';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import type {
   CodexInitOptions,
   CodexInitResult,
@@ -18,20 +16,11 @@ import { generateAgentsMd } from './generators/agents-md.js';
 import { generateSkillMd, generateBuiltInSkill } from './generators/skill-md.js';
 import { generateConfigToml } from './generators/config-toml.js';
 import { DEFAULT_SKILLS_BY_TEMPLATE, AGENTS_OVERRIDE_TEMPLATE, GITIGNORE_ENTRIES, ALL_AVAILABLE_SKILLS } from './templates/index.js';
-import {
-  getRufloMcpAddCommand,
-  getCodexCliInvocation,
-  getRufloMcpServerConfig,
-  hasExpectedRufloMcpTransport,
-  hasExpectedRufloMcpTimeout,
-  upsertMcpServerStartupTimeout,
-  type CodexMcpRegistration,
-} from './mcp-config.js';
 
 /**
  * Bundled skills source directory (relative to package)
  */
-const MONOREPO_SKILLS_DIR = '../../../../.agents/skills';
+const BUNDLED_SKILLS_DIR = '../../../../.agents/skills';
 
 /**
  * Main initializer for Codex projects
@@ -54,14 +43,11 @@ export class CodexInitializer {
     this.force = options.force ?? false;
     this.dual = options.dual ?? false;
 
-    // Published packages carry their built-in skills beside dist/. The
-    // monorepo fallback keeps source checkouts compatible.
-    const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-    const packagedSkillsPath = path.resolve(moduleDir, '..', '.agents', 'skills');
-    const monorepoSkillsPath = path.resolve(moduleDir, MONOREPO_SKILLS_DIR);
-    this.bundledSkillsPath = await fs.pathExists(packagedSkillsPath)
-      ? packagedSkillsPath
-      : monorepoSkillsPath;
+    // Resolve bundled skills path (relative to this file's location)
+    this.bundledSkillsPath = path.resolve(
+      path.dirname(new URL(import.meta.url).pathname),
+      BUNDLED_SKILLS_DIR
+    );
 
     const filesCreated: string[] = [];
     const skillsGenerated: string[] = [];
@@ -75,7 +61,13 @@ export class CodexInitializer {
       // Check if already initialized
       const alreadyInitialized = await this.isAlreadyInitialized();
       if (alreadyInitialized && !this.force) {
-        warnings.push('Project already initialized - preserving existing project files and repairing Codex MCP registration');
+        return {
+          success: false,
+          filesCreated,
+          skillsGenerated,
+          warnings: ['Project already initialized. Use --force to overwrite.'],
+          errors: ['Project already initialized'],
+        };
       }
 
       if (alreadyInitialized && this.force) {
@@ -325,97 +317,82 @@ export class CodexInitializer {
    * Register claude-flow as MCP server with Codex
    */
   private async registerMCPServer(): Promise<{ registered: boolean; warning?: string }> {
-    const manualCommand = getRufloMcpAddCommand(process.platform);
     try {
-      const { execFileSync } = await import('child_process');
+      const { execSync } = await import('child_process');
 
       // Check if codex CLI is available
-      let codex: ReturnType<typeof getCodexCliInvocation>;
       try {
-        const output = process.platform === 'win32'
-          ? execFileSync('where.exe', ['codex'], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] })
-          : execFileSync('which', ['codex'], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
-        codex = getCodexCliInvocation(output, process.platform);
+        execSync('which codex', { stdio: 'pipe' });
       } catch {
         return {
           registered: false,
-          warning: `Codex CLI not found. Run: ${manualCommand}`,
+          warning: 'Codex CLI not found. Run: codex mcp add ruflo -- npx -y --package=@claude-flow/cli@latest claude-flow-mcp',
         };
       }
 
-      let existing: CodexMcpRegistration | undefined;
+      // Check if already registered. Prefer the structured `--json` output
+      // (each entry has a `name` field — confirmed current as of the 2026
+      // `codex mcp` CLI) over a plain substring match against the human
+      // -readable table, which false-positives on any server whose name or
+      // command merely contains "ruflo" and breaks silently if the table
+      // formatting changes.
       try {
-        const listJson = execFileSync(codex.command, [...codex.prefixArgs, 'mcp', 'list', '--json'], {
-          encoding: 'utf-8',
-          stdio: ['ignore', 'pipe', 'pipe'],
-        });
+        const listJson = execSync('codex mcp list --json 2>&1', { encoding: 'utf-8' });
         const parsed = JSON.parse(listJson);
+        // Confirmed shape (2026 `codex mcp` CLI) is a bare array; tolerate a
+        // future `{ servers: [...] }` wrapper but otherwise treat an
+        // unrecognized shape as "unknown" rather than silently concluding
+        // not-registered — falls through to the safe text-based fallback.
         const servers = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.servers) ? parsed.servers : null;
         if (!servers) throw new Error('unrecognized `codex mcp list --json` shape');
-        existing = servers.find((server: unknown): server is CodexMcpRegistration =>
-          Boolean(server && typeof server === 'object' && (server as CodexMcpRegistration).name === 'ruflo'));
+        if (servers.some((s: unknown) => s && typeof s === 'object' && (s as { name?: unknown }).name === 'ruflo')) {
+          return { registered: true }; // Already registered
+        }
       } catch {
-        // Treat a plain-text match as stale because its transport cannot be validated.
+        // --json unsupported (older codex CLI) or unparsable — fall back to
+        // the plain-text listing so registration still no-ops idempotently.
         try {
-          const list = execFileSync(codex.command, [...codex.prefixArgs, 'mcp', 'list'], {
-            encoding: 'utf-8',
-            stdio: ['ignore', 'pipe', 'pipe'],
-          });
+          const list = execSync('codex mcp list 2>&1', { encoding: 'utf-8' });
           if (list.includes('ruflo')) {
-            existing = { name: 'ruflo' };
+            return { registered: true };
           }
         } catch {
-          // Ignore list errors and attempt registration below.
+          // Ignore list errors — fall through to (re-)register below.
         }
       }
 
-      if (existing && hasExpectedRufloMcpTransport(existing, process.platform)) {
-        await this.ensureGlobalMcpStartupTimeout();
-        return {
-          registered: true,
-          ...(!hasExpectedRufloMcpTimeout(existing)
-            ? { warning: 'Updated Ruflo MCP startup timeout to 120 seconds' }
-            : {}),
-        };
-      }
-
+      // Register the MCP server.
+      //
+      // #2774: MUST target the dedicated stdio server binary
+      // (`claude-flow-mcp`, exported by `@claude-flow/cli`) — NOT the
+      // `ruflo mcp start` management CLI. The management CLI stays alive
+      // but never answers `initialize` on stdio, so Codex silently sees
+      // the server as configured but exposes zero Ruflo tools. The
+      // dedicated binary streams JSON-RPC over stdio directly, with all
+      // progress noise routed to stderr (also fixes the #2253 regression
+      // where an embedder progress line leaks onto stdout before the
+      // handshake).
       try {
-        if (existing) {
-          execFileSync(codex.command, [...codex.prefixArgs, 'mcp', 'remove', 'ruflo'], {
-            stdio: ['ignore', 'pipe', 'pipe'],
+        execSync(
+          'codex mcp add ruflo -- npx -y --package=@claude-flow/cli@latest claude-flow-mcp',
+          {
+            stdio: 'pipe',
             timeout: 10000,
-          });
-        }
-
-        const server = getRufloMcpServerConfig(process.platform);
-        execFileSync(codex.command, [...codex.prefixArgs, 'mcp', 'add', 'ruflo', '--', server.command, ...(server.args ?? [])], {
-          stdio: ['ignore', 'pipe', 'pipe'],
-          timeout: 10000,
-        });
-        await this.ensureGlobalMcpStartupTimeout();
+          }
+        );
         return { registered: true };
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         return {
           registered: false,
-          warning: `Failed to register MCP server: ${errorMessage}. Run manually: ${manualCommand}`,
+          warning: `Failed to register MCP server: ${errorMessage}. Run manually: codex mcp add ruflo -- npx -y --package=@claude-flow/cli@latest claude-flow-mcp`,
         };
       }
     } catch {
       return {
         registered: false,
-        warning: `Could not register MCP server. Run manually: ${manualCommand}`,
+        warning: 'Could not register MCP server. Run manually: codex mcp add ruflo -- npx -y --package=@claude-flow/cli@latest claude-flow-mcp',
       };
-    }
-  }
-
-  private async ensureGlobalMcpStartupTimeout(): Promise<void> {
-    const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
-    const configPath = path.join(codexHome, 'config.toml');
-    const config = await fs.readFile(configPath, 'utf-8');
-    const updated = upsertMcpServerStartupTimeout(config);
-    if (updated !== config) {
-      await fs.writeFile(configPath, updated, 'utf-8');
     }
   }
 
@@ -670,8 +647,9 @@ ${this.skills.map(s => `- \`$${s}\` (Codex) / \`/${s}\` (Claude Code)`).join('\n
 ## MCP Integration
 
 \`\`\`bash
-# Start MCP server
-npx ruflo mcp start
+# Start Ruflo's MCP server over stdio (dedicated entry point — the
+# management \`ruflo mcp start\` CLI does NOT answer JSON-RPC on stdio).
+npx -y --package=@claude-flow/cli@latest claude-flow-mcp
 \`\`\`
 
 ## Swarm Orchestration
