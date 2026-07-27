@@ -1852,6 +1852,74 @@ const initMemoryCommand: Command = {
   }
 };
 
+// #2763 dream-cycle — OAS memory-operator selector. Standalone
+// subcommand that returns the highest-value consolidation operator
+// that fits the given budget for the given entry count. Advisory —
+// the caller decides whether to invoke that operator.
+const selectOperatorCommand: Command = {
+  name: 'select-operator',
+  description: 'Pick the highest-value consolidation operator that fits a budget (OAS, dream-cycle #2763)',
+  options: [
+    { name: 'budget', short: 'b', type: 'number', required: true, description: 'Budget in abstract operator points (1 point ≈ 1 Haiku call)' },
+    { name: 'entries', short: 'e', type: 'number', required: true, description: 'Number of entries to consolidate' },
+    { name: 'hint', type: 'string', choices: ['duplicates', 'verbose', 'patterns', 'general'], default: 'general', description: 'Entry-shape hint' },
+  ],
+  examples: [
+    { command: 'claude-flow memory select-operator -b 50 -e 200', description: 'Pick operator for 200 entries within 50 points' },
+    { command: 'claude-flow memory select-operator -b 5 -e 100 --hint duplicates --format json', description: 'JSON for pipelines' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const budget = ctx.flags.budget as number;
+    const entries = ctx.flags.entries as number;
+    const hint = (ctx.flags.hint as string) || 'general';
+
+    if (budget === undefined || entries === undefined) {
+      output.printError('Both --budget and --entries are required.');
+      return { success: false, exitCode: 1 };
+    }
+    if (budget < 0 || entries < 0) {
+      output.printError('Budget and entries must be non-negative.');
+      return { success: false, exitCode: 1 };
+    }
+
+    const { selectOperator, OPERATORS } = await import('../memory/oas-operator-selector.js');
+    const selection = selectOperator({ budget, entries, hint: hint as 'duplicates' | 'verbose' | 'patterns' | 'general' });
+
+    if (ctx.flags.format === 'json') {
+      output.printJson(selection);
+      return { success: true, data: selection };
+    }
+
+    const chosen = OPERATORS[selection.operator];
+    output.writeln();
+    output.printBox(
+      `Budget: ${budget} points · Entries: ${entries}\n` +
+      `Operator: ${selection.operator}\n` +
+      `Description: ${chosen.description}\n` +
+      `Estimated cost: ${selection.estimatedCost.toFixed(2)} points\n` +
+      `Needs split: ${selection.needsSplit ? `YES — batch size ${selection.suggestedBatchSize}` : 'no'}`,
+      'OAS Operator Selection (#2763)'
+    );
+    output.writeln();
+    output.writeln(output.dim(selection.reason));
+
+    if (selection.considered.length > 0) {
+      output.writeln();
+      output.writeln(output.bold('All operators considered'));
+      output.printTable({
+        columns: [
+          { key: 'id', header: 'Operator', width: 15 },
+          { key: 'cost', header: 'Est. Cost', width: 12, align: 'right', format: (v) => Number(v).toFixed(2) },
+          { key: 'fits', header: 'Fits Budget', width: 12, align: 'center', format: (v) => v ? '✓' : '—' },
+        ],
+        data: selection.considered,
+      });
+    }
+
+    return { success: true, data: selection };
+  },
+};
+
 // #2760 dream-cycle — SCM query classifier. Standalone subcommand so
 // users can inspect what intent a query maps to and pipe the mapped
 // namespaces into other tools (e.g. `memory search --namespace ...`).
@@ -1901,7 +1969,7 @@ const classifyCommand: Command = {
 export const memoryCommand: Command = {
   name: 'memory',
   description: 'Memory management commands',
-  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, purgeCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand, distillCommand, backupCommand, classifyCommand],
+  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, purgeCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand, distillCommand, backupCommand, classifyCommand, selectOperatorCommand],
   options: [],
   examples: [
     { command: 'claude-flow memory store -k "key" -v "value"', description: 'Store data' },
