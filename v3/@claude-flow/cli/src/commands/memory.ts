@@ -78,6 +78,16 @@ const storeCommand: Command = {
       type: 'boolean',
       default: true
     },
+    {
+      // #2752 dream-cycle — MemPoison gate. Run ChannelGuard's scanner
+      // on the value BEFORE persistence and refuse the write if a
+      // finding is present. Opt-in per-call; RUFLO_MEMORY_SCAN_ON_WRITE=1
+      // enables it globally.
+      name: 'scan-content',
+      description: 'Scan the value for injection payloads before persisting (dream-cycle #2752 MemPoison gate)',
+      type: 'boolean',
+      default: false
+    },
     DB_PATH_OPTION
   ],
   examples: [
@@ -122,6 +132,26 @@ const storeCommand: Command = {
     if (!value) {
       output.printError('Value is required. Use --value');
       return { success: false, exitCode: 1 };
+    }
+
+    // #2752 MemPoison gate — scan before persist when opted in.
+    const scanContentFlag = ctx.flags.scanContent as boolean | undefined;
+    const scanContentEnv = /^(1|true|yes|on)$/i.test(String(process.env.RUFLO_MEMORY_SCAN_ON_WRITE ?? ''));
+    if (scanContentFlag || scanContentEnv) {
+      try {
+        const { scanChannelMessage } = await import('../security/channel-guard.js');
+        const scan = scanChannelMessage(value);
+        if (!scan.safe) {
+          output.printError(
+            `MemPoison gate refused write (#2752): ${scan.findings.length} injection signature(s) in value. ` +
+            `Top: ${scan.findings[0].kind}/${scan.findings[0].severity} — ${scan.findings[0].reason}.`
+          );
+          output.writeln(output.dim('Bypass: drop --scan-content or unset RUFLO_MEMORY_SCAN_ON_WRITE to persist anyway (not recommended).'));
+          return { success: false, exitCode: 2, data: scan };
+        }
+      } catch (err) {
+        output.writeln(output.dim(`MemPoison scan skipped: ${err instanceof Error ? err.message : String(err)}`));
+      }
     }
 
     const storeData = {
