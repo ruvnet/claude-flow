@@ -41,4 +41,4 @@ npm install && npm run build && npm test
 | SONA Adaptation | 0.0043ms/adapt (target <0.05ms met) | **Measured** |
 | MCP Response | <100ms | target |
 | CLI Startup | <500ms | target |
-| Flash Attention | 2.49x-7.47x | **Unverified** (no benchmark) |
+| Flash Attention | integration available; measured speedup pending benchmark | **Not measured** — prior "2.49x–7.47x" figure was inherited from upstream marketing, never reproduced in-tree; dropped to avoid a credibility claim we can't verify |

@@ -486,7 +486,7 @@ V3 includes the RuVector Intelligence System (measured numbers: see [audit](../.
 - **MoE**: Mixture of Experts for specialized routing (gate converges — confidence 0.13→0.88 after rewards)
 - **HNSW**: measured ~1.9x at N=20k, ~3.2x–4.7x at N=5k vs brute force (recall@10 ~0.99); ANN wins above the crossover, ruvector NAPI backend (WASM not active on test host)
 - **EWC++**: Elastic Weight Consolidation (prevents forgetting)
-- **Flash Attention**: unverified — no benchmark exists for this claim
+- **Flash Attention**: integration available; speedup dropped from docs pending an in-tree benchmark (was: 2.49x–7.47x, inherited unverified from upstream — removed to avoid a credibility claim we can't reproduce)
 
 The 4-step intelligence pipeline:
 1. **RETRIEVE** - Fetch relevant patterns via HNSW
@@ -530,7 +530,7 @@ Features:
 | RaBitQ Quantization | 32x compression, 0.60ms/query | **Measured** |
 | SONA Adaptation | 0.0043ms/adapt (target <0.05ms met) | **Measured** |
 | MoE Gate | converges (confidence 0.13→0.88) | **Measured** |
-| Flash Attention | 2.49x-7.47x | **Unverified** (no benchmark) |
+| Flash Attention | integration available; measured speedup pending benchmark | **Not measured** — prior "2.49x–7.47x" figure was inherited from upstream marketing, never reproduced in-tree; dropped to avoid a credibility claim we can't verify |
 | MCP Response | <100ms | target |
 | CLI Startup | <500ms | target |
 
