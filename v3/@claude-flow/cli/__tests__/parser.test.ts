@@ -285,6 +285,52 @@ describe('CommandParser', () => {
       const result = p.parse(['memory', 'store', '--no-upsert']);
       expect(result.flags.upsert).toBe(false);
     });
+
+    // #2778 follow-up: getScopedBooleanFlags previously walked EVERY
+    // registered command's options and marked any boolean-typed flag as
+    // boolean everywhere. That broke a numeric --parallel on `hooks route`
+    // because `swarm start --parallel` (boolean) polluted the global set.
+    // Narrowest-scope wins: subcommand's non-boolean declaration overrides.
+    it('subcommand non-boolean flag overrides a boolean declaration on another command', () => {
+      const swarmCmd: Command = {
+        name: 'swarm',
+        description: 'Swarm',
+        subcommands: [
+          {
+            name: 'start',
+            description: 'Start swarm',
+            options: [
+              { name: 'parallel', type: 'boolean', description: 'Enable parallel execution' },
+            ],
+          },
+        ],
+      };
+      const hooksCmd: Command = {
+        name: 'hooks',
+        description: 'Hooks',
+        subcommands: [
+          {
+            name: 'route',
+            description: 'Route',
+            options: [
+              { name: 'parallel', type: 'number', description: 'Fanout width' },
+            ],
+          },
+        ],
+      };
+      const p = new CommandParser({ allowUnknownFlags: true });
+      p.registerCommand(swarmCmd);
+      p.registerCommand(hooksCmd);
+
+      // On hooks route, `--parallel 7` must reach as the NUMBER 7 — not the
+      // boolean `true` that the polluted global set would have produced.
+      const result = p.parse(['hooks', 'route', '--parallel', '7']);
+      expect(result.flags.parallel).toBe(7);
+
+      // And on swarm start, `--parallel` still parses as boolean.
+      const swarmResult = p.parse(['swarm', 'start', '--parallel']);
+      expect(swarmResult.flags.parallel).toBe(true);
+    });
   });
 
   // -------------------------------------------------------------------------

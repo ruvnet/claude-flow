@@ -768,17 +768,26 @@ const routeCommand: Command = {
       default: 'single',
     },
     {
-      // #2778 — deliberately NOT `parallel` (short 'p'). Both swarm.ts and
-      // workflow.ts declare `--parallel` as a BOOLEAN, and the parser's
-      // global boolean-flag registry pollutes subcommand-scoped numeric
-      // flags with the same name (parseFlag then treats `--parallel 7` as
-      // `parallel:true` and drops the value). Using a distinct name avoids
-      // the collision without touching parser semantics that other
-      // subcommands rely on.
-      name: 'moa-parallel',
+      // #2778 canonical fanout-width flag. Restored to `--parallel` in
+      // v3.32.14 after the parser scoping fix landed (subcommand's
+      // non-boolean declaration now overrides the global boolean set,
+      // so `--parallel 7` on `hooks route` no longer collides with the
+      // boolean `--parallel` on `swarm start` / `workflow run`).
+      // NOTE: no `default:` here — default is resolved in the action so
+      // we can distinguish "user explicitly passed --parallel" from
+      // "user passed --moa-parallel (the v3.32.13 compat alias)". Without
+      // this, the parser's applied default would shadow the alias.
+      name: 'parallel',
+      short: 'p',
       description: 'MoA fanout width (N parallel calls at Haiku tier; only meaningful when --mode=moa)',
       type: 'number',
-      default: 3,
+    },
+    {
+      // v3.32.13 compat alias — kept so any users who upgraded to that
+      // release keep working. Prefer `--parallel` going forward.
+      name: 'moa-parallel',
+      description: 'DEPRECATED alias for --parallel (kept for v3.32.13 backward compat)',
+      type: 'number',
     },
     {
       name: 'consensus',
@@ -791,15 +800,20 @@ const routeCommand: Command = {
   examples: [
     { command: 'claude-flow hooks route -t "Fix authentication bug"', description: 'Route task to optimal agent (single mode)' },
     { command: 'claude-flow hooks route -t "Optimize database queries" -K 5', description: 'Get top 5 suggestions' },
-    { command: 'claude-flow hooks route -t "Design payment webhook" --mode moa --moa-parallel 3', description: 'MoA fanout: 3× Haiku + consensus (dream-cycle #2778)' },
+    { command: 'claude-flow hooks route -t "Design payment webhook" --mode moa --parallel 3', description: 'MoA fanout: 3× Haiku + consensus (dream-cycle #2778)' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const task = (ctx.flags.task as string) || ctx.args[0];
     const topK = ctx.flags.topK as number || 3;
     const mode = (ctx.flags.mode as string) || 'single';
-    // #2778 — flag is --moa-parallel (parser normalizes to camelCase moaParallel)
-    // to avoid collision with the boolean --parallel from swarm/workflow.
-    const parallel = Math.max(2, (ctx.flags.moaParallel as number) || 3);
+    // #2778: prefer canonical --parallel; fall back to --moa-parallel
+    // (v3.32.13 compat alias). Nullish coalescing so an explicit 0 still
+    // falls through to the alias / default, and neither flag being set
+    // resolves to 3 (the ACL 2026 SRW paper's baseline fanout width).
+    const parallelRaw = (ctx.flags.parallel as number | undefined)
+      ?? (ctx.flags.moaParallel as number | undefined)
+      ?? 3;
+    const parallel = Math.max(2, parallelRaw);
     const consensus = (ctx.flags.consensus as string) || 'majority-vote';
 
     if (!task) {

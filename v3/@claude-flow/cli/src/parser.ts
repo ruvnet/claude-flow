@@ -459,14 +459,34 @@ export class CommandParser {
 
   /**
    * Get boolean flags scoped to a specific command/subcommand.
+   *
+   * `getBooleanFlags()` walks EVERY command + subcommand in the registry
+   * and adds their boolean options into one flat set. That's convenient
+   * for the common case but causes cross-subcommand pollution: if `swarm
+   * start --parallel` is boolean AND `hooks route --parallel` is numeric,
+   * the flat set marks `parallel` as boolean, and `hooks route --parallel 7`
+   * drops the `7` as a positional (parseFlag treats booleanFlags-hit as
+   * "consume no value"). This is the exact bug that forced the
+   * --moa-parallel rename in the 2026-07-26 dream-cycle #2778 fix.
+   *
+   * Fix: if the resolved subcommand declares the flag as a non-boolean
+   * type, REMOVE it from the boolean set. Narrowest scope wins.
+   * (Documented via in-tree comment in commands/hooks.ts and the #2778
+   * commit message.)
    */
   private getScopedBooleanFlags(resolvedCmd?: Command): Set<string> {
     const flags = this.getBooleanFlags();
 
     if (resolvedCmd?.options) {
       for (const opt of resolvedCmd.options) {
+        const key = this.normalizeKey(opt.name);
         if (opt.type === 'boolean') {
-          flags.add(this.normalizeKey(opt.name));
+          flags.add(key);
+        } else if (opt.type) {
+          // Subcommand explicitly re-declares this flag as a non-boolean
+          // type (string/number/array) — narrowest scope wins, so drop
+          // it from the boolean set to override any global pollution.
+          flags.delete(key);
         }
       }
     }
