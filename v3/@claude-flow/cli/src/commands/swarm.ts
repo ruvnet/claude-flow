@@ -896,10 +896,76 @@ const coordinateCommand: Command = {
 };
 
 // Main swarm command
+// #2727 dream-cycle — inter-agent message compressor (IB+VQ-inspired
+// MVP). Advisory tool: takes a message + token budget, returns a
+// compressed variant that preserves must-see spans (code, URLs, paths)
+// and keeps the top-scored sentences by TF-IDF-ish keyword density.
+// v2 wires a real VQ codec once a training pipeline exists.
+const compressMessageCommand: Command = {
+  name: 'compress-message',
+  description: 'Compress an inter-agent message to a token budget (IB+VQ-inspired, dream-cycle #2727)',
+  options: [
+    { name: 'message', short: 'm', type: 'string', description: 'Message text (or use --message-file)' },
+    { name: 'message-file', type: 'string', description: 'Path to a file whose contents will be compressed' },
+    { name: 'budget-tokens', short: 'b', type: 'number', default: 200, description: 'Target token budget (approximate, ~4 chars per token)' },
+    { name: 'mode', type: 'string', choices: ['keyword', 'sentence', 'hybrid'], default: 'hybrid', description: 'Scoring mode' },
+  ],
+  examples: [
+    { command: 'claude-flow swarm compress-message -m "…" --budget-tokens 100', description: 'Compress inline message to 100 tokens' },
+    { command: 'claude-flow swarm compress-message --message-file ./msg.md -b 300 --format json', description: 'JSON for pipelines' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const inlineMsg = ctx.flags.message as string | undefined;
+    const msgFile = ctx.flags.messageFile as string | undefined;
+    const budgetTokens = (ctx.flags.budgetTokens as number) || 200;
+    const mode = (ctx.flags.mode as string) || 'hybrid';
+
+    let message = inlineMsg ?? '';
+    if (msgFile) {
+      try {
+        const fsMod = await import('node:fs');
+        const pathMod = await import('node:path');
+        message = fsMod.readFileSync(pathMod.resolve(msgFile), 'utf-8');
+      } catch (err) {
+        output.printError(`Failed to read ${msgFile}: ${err instanceof Error ? err.message : String(err)}`);
+        return { success: false, exitCode: 1 };
+      }
+    }
+
+    if (!message) {
+      output.printError('No message provided. Use --message "..." or --message-file <path>.');
+      return { success: false, exitCode: 1 };
+    }
+
+    const { compressMessage } = await import('../swarm/message-compressor.js');
+    const result = compressMessage(message, { budgetTokens, mode: mode as 'keyword' | 'sentence' | 'hybrid' });
+
+    if (ctx.flags.format === 'json') {
+      output.printJson(result);
+      return { success: true, data: result };
+    }
+
+    output.writeln();
+    output.printBox(
+      `Original: ${result.stats.originalTokens} tokens · Compressed: ${result.stats.compressedTokens} tokens\n` +
+      `Ratio: ${(result.stats.compressionRatio * 100).toFixed(1)}%\n` +
+      `Sentences kept: ${result.stats.sentencesKept}/${result.stats.sentencesTotal} · Preserved spans: ${result.stats.preservedSpans}\n` +
+      `Info retained (top-quartile): ${(result.stats.infoRetainedEstimate * 100).toFixed(1)}%`,
+      'Message Compressor (#2727 IB+VQ MVP)'
+    );
+    output.writeln();
+    output.writeln(output.bold('Compressed message'));
+    output.writeln(output.dim('─'.repeat(60)));
+    output.writeln(result.compressed);
+    output.writeln(output.dim('─'.repeat(60)));
+    return { success: true, data: result };
+  },
+};
+
 export const swarmCommand: Command = {
   name: 'swarm',
   description: 'Swarm coordination commands',
-  subcommands: [initCommand, startCommand, statusCommand, stopCommand, scaleCommand, coordinateCommand],
+  subcommands: [initCommand, startCommand, statusCommand, stopCommand, scaleCommand, coordinateCommand, compressMessageCommand],
   options: [],
   examples: [
     { command: 'claude-flow swarm init --v3-mode', description: 'Initialize V3 swarm' },
