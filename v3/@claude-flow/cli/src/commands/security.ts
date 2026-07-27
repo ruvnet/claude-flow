@@ -1021,15 +1021,110 @@ const defendCommand: Command = {
   },
 };
 
+// #2783 dream-cycle — MCP Composition Inspector subcommand.
+// Standalone scanner (no LLM) that reads the registered MCP tool
+// descriptors and flags cross-tool signals of Shamir-split prompt
+// injection (arXiv 2606.27027 ShareLock) + typo-squat lookalikes
+// against trusted ruflo prefixes.
+const compositionScanCommand: Command = {
+  name: 'composition-scan',
+  description: 'Scan registered MCP tool descriptions for cross-tool prompt-injection signatures (dream-cycle #2783)',
+  options: [
+    { name: 'min-fragment', type: 'number', default: 20, description: 'Minimum shared-substring length to flag (default: 20 chars)' },
+    { name: 'top', type: 'number', default: 20, description: 'Show top N suspects (default: 20)' },
+    { name: 'tools-json', type: 'string', description: 'Path to a JSON file of {name, description}[] to scan (default: scan the CLI\'s own registered MCP tools)' },
+  ],
+  examples: [
+    { command: 'claude-flow security composition-scan', description: 'Scan the CLI\'s own registered MCP tool descriptions' },
+    { command: 'claude-flow security composition-scan --tools-json ./external-mcp-registry.json --top 50', description: 'Scan a third-party MCP registry' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const minFragment = (ctx.flags.minFragment as number) || 20;
+    const top = (ctx.flags.top as number) || 20;
+    const toolsJson = ctx.flags.toolsJson as string | undefined;
+
+    let tools: Array<{ name: string; description: string }> = [];
+    try {
+      if (toolsJson) {
+        const fs = await import('node:fs');
+        const path = await import('node:path');
+        const raw = fs.readFileSync(path.resolve(toolsJson), 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) throw new Error(`${toolsJson} must contain a JSON array of {name, description}`);
+        tools = parsed
+          .filter((t: unknown): t is { name: string; description: string } =>
+            typeof t === 'object' && t !== null &&
+            typeof (t as { name?: unknown }).name === 'string' &&
+            typeof (t as { description?: unknown }).description === 'string')
+          .map((t) => ({ name: t.name, description: t.description }));
+      } else {
+        // Scan the CLI's own registered MCP tools via the client registry.
+        const { listMCPTools } = await import('../mcp-client.js');
+        tools = listMCPTools().map((t) => ({ name: t.name, description: t.description }));
+      }
+    } catch (err) {
+      output.printError(`Failed to load tools: ${err instanceof Error ? err.message : String(err)}`);
+      return { success: false, exitCode: 1 };
+    }
+
+    const { scanToolDescriptions } = await import('../security/mcp-composition-inspector.js');
+    const result = scanToolDescriptions(tools, { minFragment });
+
+    output.writeln();
+    output.printBox(
+      `Scanned ${result.stats.toolsScanned} MCP tools; compared ${result.stats.pairsCompared} pairs.\n` +
+      `Suspects: ${result.suspects.length}`,
+      'MCP Composition Inspector (#2783)'
+    );
+
+    if (ctx.flags.format === 'json') {
+      output.printJson(result);
+      return { success: true, data: result };
+    }
+
+    if (result.suspects.length === 0) {
+      output.writeln();
+      output.printSuccess('No cross-tool prompt-injection signatures detected.');
+      output.writeln(output.dim('Note: heuristic scanner. Absence of hits does not prove safety — MCP tools you didn\'t audit yourself should still be treated as untrusted.'));
+      return { success: true, data: result };
+    }
+
+    const sorted = [...result.suspects].sort((a, b) => b.score - a.score).slice(0, top);
+    output.writeln();
+    output.writeln(output.bold(`Top ${sorted.length} suspects (sorted by score)`));
+    output.printTable({
+      columns: [
+        { key: 'kind', header: 'Kind', width: 18 },
+        { key: 'tool', header: 'Tool', width: 30 },
+        { key: 'peer', header: 'Peer', width: 30 },
+        { key: 'score', header: 'Score', width: 8, align: 'right', format: (v) => (Number(v)).toFixed(2) },
+        { key: 'fragment', header: 'Fragment', width: 40 },
+      ],
+      data: sorted.map((s) => ({
+        kind: s.kind,
+        tool: s.tool,
+        peer: s.peer ?? '',
+        score: s.score,
+        fragment: s.fragment.length > 40 ? s.fragment.slice(0, 37) + '…' : s.fragment,
+      })),
+    });
+
+    output.writeln();
+    output.writeln(output.dim('Score ≥ 0.9 = high (likely real). 0.5–0.9 = investigate. < 0.5 = probably benign coincidence.'));
+    return { success: true, data: result };
+  },
+};
+
 // Main security command
 export const securityCommand: Command = {
   name: 'security',
   description: 'Security scanning, CVE detection, threat modeling, AI defense',
-  subcommands: [scanCommand, cveCommand, threatsCommand, auditCommand, secretsCommand, defendCommand],
+  subcommands: [scanCommand, cveCommand, threatsCommand, auditCommand, secretsCommand, defendCommand, compositionScanCommand],
   examples: [
     { command: 'claude-flow security scan', description: 'Run security scan' },
     { command: 'claude-flow security cve --list', description: 'List known CVEs' },
     { command: 'claude-flow security threats', description: 'Run threat analysis' },
+    { command: 'claude-flow security composition-scan', description: 'Scan MCP tool descriptions for cross-tool injection (dream-cycle #2783)' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
@@ -1038,12 +1133,13 @@ export const securityCommand: Command = {
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
-      'scan     - Run security scans on code, deps, containers',
-      'cve      - Check and manage CVE vulnerabilities',
-      'threats  - Threat modeling (STRIDE, DREAD, PASTA)',
-      'audit    - Security audit logging and compliance',
-      'secrets  - Detect and manage secrets in codebase',
-      'defend   - AI manipulation defense (prompt injection, jailbreaks, PII)',
+      'scan              - Run security scans on code, deps, containers',
+      'cve               - Check and manage CVE vulnerabilities',
+      'threats           - Threat modeling (STRIDE, DREAD, PASTA)',
+      'audit             - Security audit logging and compliance',
+      'secrets           - Detect and manage secrets in codebase',
+      'defend            - AI manipulation defense (prompt injection, jailbreaks, PII)',
+      'composition-scan  - Cross-tool prompt-injection scan on MCP registry (dream-cycle #2783)',
     ]);
     output.writeln();
     output.writeln('Use --help with subcommands for more info');
