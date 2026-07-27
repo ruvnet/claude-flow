@@ -83,10 +83,13 @@ const storeCommand: Command = {
       // on the value BEFORE persistence and refuse the write if a
       // finding is present. Opt-in per-call; RUFLO_MEMORY_SCAN_ON_WRITE=1
       // enables it globally.
+      // NOTE: no `default:` here — needed so the ADR-125 CLI-flag-wins
+      // precedence (`ctx.flags.scanContent ?? envVar`) can distinguish
+      // "user didn't pass the flag" (undefined) from "user explicitly
+      // said --no-scan-content" (false). Fixes #2794.
       name: 'scan-content',
       description: 'Scan the value for injection payloads before persisting (dream-cycle #2752 MemPoison gate)',
       type: 'boolean',
-      default: false
     },
     DB_PATH_OPTION
   ],
@@ -135,9 +138,11 @@ const storeCommand: Command = {
     }
 
     // #2752 MemPoison gate — scan before persist when opted in.
-    const scanContentFlag = ctx.flags.scanContent as boolean | undefined;
-    const scanContentEnv = /^(1|true|yes|on)$/i.test(String(process.env.RUFLO_MEMORY_SCAN_ON_WRITE ?? ''));
-    if (scanContentFlag || scanContentEnv) {
+    // CLI flag ctx.flags.scanContent takes precedence over RUFLO_MEMORY_SCAN_ON_WRITE env var
+    // (ADR-125 §"CLI flag wins" / ADR-130 §env-var-config-precedence — fix for #2794).
+    const scanContent = (ctx.flags.scanContent as boolean | undefined)
+      ?? /^(1|true|yes|on)$/i.test(String(process.env.RUFLO_MEMORY_SCAN_ON_WRITE ?? ''));
+    if (scanContent) {
       try {
         const { scanChannelMessage } = await import('../security/channel-guard.js');
         const scan = scanChannelMessage(value);
