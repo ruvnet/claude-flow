@@ -284,12 +284,23 @@ const initCommand: Command = {
       description: 'Enable V3 15-agent hierarchical mesh mode',
       type: 'boolean',
       default: false
-    }
+    },
+    {
+      // #2768 — dream-cycle SubagentPermissionDelegate. Ships a per-role
+      // capability manifest to `.swarm/permissions.jsonl` + an append-only
+      // audit trail. Task-tool prompts can consult the manifest; ruflo
+      // does NOT enforce at the syscall boundary (Claude Code owns that).
+      name: 'with-permissions',
+      description: 'Ship workspace-scoped permission manifest (preset: strict|standard|permissive) — dream-cycle #2768',
+      type: 'string',
+      choices: ['strict', 'standard', 'permissive'],
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let topology = ctx.flags.topology as string;
     const maxAgents = ctx.flags.maxAgents as number || 15;
     const v3Mode = ctx.flags.v3Mode as boolean;
+    const withPermissions = ctx.flags.withPermissions as string | undefined;
 
     // V3 mode enables hierarchical-mesh hybrid
     if (v3Mode) {
@@ -381,11 +392,41 @@ const initCommand: Command = {
           maxAgents: result.config.maxAgents,
           strategy: ctx.flags.strategy || 'development',
           v3Mode,
+          permissions: withPermissions ?? null,
           initializedAt: result.initializedAt,
           status: 'ready'
         }, null, 2));
       } catch {
         // Ignore errors writing state file
+      }
+
+      // #2768 — write the permission manifest + seed the audit trail.
+      // Optional: only fires when --with-permissions was passed. Missing
+      // module or failed I/O is non-critical; we log a dim warning and
+      // continue so a broken permission layer never blocks swarm init.
+      if (withPermissions) {
+        try {
+          const [{ resolvePreset }, { writeGrants, appendAuditEvent }] = await Promise.all([
+            import('../permission/permission-set.js'),
+            import('../permission/permission-audit.js'),
+          ]);
+          const sets = resolvePreset(withPermissions);
+          writeGrants(sets, swarmDir);
+          for (const set of sets) {
+            appendAuditEvent({
+              agentId: 'swarm-init',
+              role: set.role,
+              event: 'granted',
+              capability: `preset:${withPermissions}`,
+              swarmId: result.swarmId,
+              reason: `Initial grant from swarm init --with-permissions ${withPermissions}`,
+            }, swarmDir);
+          }
+          output.writeln(output.dim(`  Wrote permission manifest (preset: ${withPermissions}, ${sets.length} roles) → .swarm/permissions.jsonl`));
+          output.writeln(output.dim(`  Audit trail seeded → .swarm/permission-audit.jsonl`));
+        } catch (err) {
+          output.writeln(output.dim(`  ⚠ permission manifest skipped: ${err instanceof Error ? err.message : String(err)}`));
+        }
       }
 
       if (ctx.flags.format === 'json') {
