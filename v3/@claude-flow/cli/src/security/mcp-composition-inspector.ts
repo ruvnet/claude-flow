@@ -59,25 +59,9 @@ export interface CompositionScanResult {
   };
 }
 
-/** Known prompt-injection phrases (case-insensitive substring match). */
-const INJECTION_PHRASES = [
-  'ignore previous instructions',
-  'ignore all prior',
-  'disregard the above',
-  'you are now',
-  'act as',
-  'system prompt',
-  'system:',
-  'assistant:',
-  'delete all',
-  'rm -rf',
-  'exfiltrate',
-  'send me the',
-  'reveal your',
-  'reveal the',
-  'override',
-  'jailbreak',
-] as const;
+// Injection-phrase catalog is now shared with channel-guard (#2783
+// runtime companion). Adding a phrase there strengthens both surfaces.
+import { INJECTION_PHRASES } from './injection-catalog.js';
 
 /** Known-trusted ruflo tool-name prefixes for typosquatting comparison. */
 const TRUSTED_PREFIXES = [
