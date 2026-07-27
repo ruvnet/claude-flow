@@ -125,8 +125,16 @@ const searchCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const query = ctx.flags.query as string;
     const namespace = ctx.flags.collection as string || 'default';
-    const limit = parseInt(ctx.flags.limit as string || '10', 10);
-    const threshold = parseFloat(ctx.flags.threshold as string || '0.5');
+    // #2790 fix — `||` on a numeric-0 argument returns the fallback,
+    // so `--threshold 0` was unreachable. `??` preserves an explicit zero.
+    // The flag arrives as a string here (parser produces string for typed
+    // options passed via CLI without type coercion in some paths), so we
+    // check for undefined explicitly rather than falsy.
+    const limit = parseInt((ctx.flags.limit as string) ?? '10', 10);
+    const rawThreshold = ctx.flags.threshold;
+    const threshold = rawThreshold === undefined || rawThreshold === null
+      ? 0.5
+      : parseFloat(String(rawThreshold));
     const dbPath = ctx.flags['db-path'] as string || '.swarm/memory.db';
 
     if (!query) {
@@ -1134,7 +1142,12 @@ const neuralCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const feature = ctx.flags.feature as string || 'all';
     const init = ctx.flags.init as boolean;
-    const driftThreshold = parseFloat((ctx.flags['drift-threshold'] || ctx.flags.driftThreshold || '0.3') as string);
+    // #2790 fix — same `0 || fallback` bug: `--drift-threshold 0` was
+    // silently replaced by 0.3. Use nullish coalescing.
+    const rawDriftThreshold = ctx.flags['drift-threshold'] ?? ctx.flags.driftThreshold;
+    const driftThreshold = rawDriftThreshold === undefined || rawDriftThreshold === null
+      ? 0.3
+      : parseFloat(String(rawDriftThreshold));
     const decayRate = parseFloat((ctx.flags['decay-rate'] || ctx.flags.decayRate || '0.01') as string);
     const consolidationInterval = parseInt((ctx.flags['consolidation-interval'] || ctx.flags.consolidationInterval || '60000') as string, 10);
 

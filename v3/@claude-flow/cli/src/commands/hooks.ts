@@ -1653,7 +1653,7 @@ const transferFromProjectCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const sourcePath = (ctx.flags.source as string) || ctx.args[0];
-    const minConfidence = ctx.flags.minConfidence as number || 0.7;
+    const minConfidence = ctx.flags.minConfidence as number ?? 0.7;
 
     if (!sourcePath) {
       output.printError('Source project path is required. Use --source or -s flag.');
@@ -3235,7 +3235,7 @@ const coverageRouteCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const task = (ctx.flags.task as string) || ctx.args[0];
-    const threshold = ctx.flags.threshold as number || 80;
+    const threshold = ctx.flags.threshold as number ?? 80;
     const useRuvector = !ctx.flags['no-ruvector'];
 
     if (!task) {
@@ -3507,7 +3507,7 @@ const coverageSuggestCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const targetPath = (ctx.flags.path as string) || ctx.args[0];
-    const threshold = ctx.flags.threshold as number || 80;
+    const threshold = ctx.flags.threshold as number ?? 80;
     const limit = ctx.flags.limit as number || 20;
 
     if (!targetPath) {
@@ -3740,7 +3740,7 @@ const coverageGapsCommand: Command = {
     { command: 'claude-flow hooks coverage-gaps --threshold 90', description: 'Stricter threshold' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const threshold = ctx.flags.threshold as number || 80;
+    const threshold = ctx.flags.threshold as number ?? 80;
     const groupByAgent = ctx.flags['group-by-agent'] !== false;
     const criticalOnly = ctx.flags['critical-only'] as boolean || false;
 

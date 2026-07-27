@@ -78,6 +78,19 @@ const storeCommand: Command = {
       type: 'boolean',
       default: true
     },
+    {
+      // #2752 dream-cycle — MemPoison gate. Run ChannelGuard's scanner
+      // on the value BEFORE persistence and refuse the write if a
+      // finding is present. Opt-in per-call; RUFLO_MEMORY_SCAN_ON_WRITE=1
+      // enables it globally.
+      // NOTE: no `default:` here — needed so the ADR-125 CLI-flag-wins
+      // precedence (`ctx.flags.scanContent ?? envVar`) can distinguish
+      // "user didn't pass the flag" (undefined) from "user explicitly
+      // said --no-scan-content" (false). Fixes #2794.
+      name: 'scan-content',
+      description: 'Scan the value for injection payloads before persisting (dream-cycle #2752 MemPoison gate)',
+      type: 'boolean',
+    },
     DB_PATH_OPTION
   ],
   examples: [
@@ -122,6 +135,28 @@ const storeCommand: Command = {
     if (!value) {
       output.printError('Value is required. Use --value');
       return { success: false, exitCode: 1 };
+    }
+
+    // #2752 MemPoison gate — scan before persist when opted in.
+    // CLI flag ctx.flags.scanContent takes precedence over RUFLO_MEMORY_SCAN_ON_WRITE env var
+    // (ADR-125 §"CLI flag wins" / ADR-130 §env-var-config-precedence — fix for #2794).
+    const scanContent = (ctx.flags.scanContent as boolean | undefined)
+      ?? /^(1|true|yes|on)$/i.test(String(process.env.RUFLO_MEMORY_SCAN_ON_WRITE ?? ''));
+    if (scanContent) {
+      try {
+        const { scanChannelMessage } = await import('../security/channel-guard.js');
+        const scan = scanChannelMessage(value);
+        if (!scan.safe) {
+          output.printError(
+            `MemPoison gate refused write (#2752): ${scan.findings.length} injection signature(s) in value. ` +
+            `Top: ${scan.findings[0].kind}/${scan.findings[0].severity} — ${scan.findings[0].reason}.`
+          );
+          output.writeln(output.dim('Bypass: drop --scan-content or unset RUFLO_MEMORY_SCAN_ON_WRITE to persist anyway (not recommended).'));
+          return { success: false, exitCode: 2, data: scan };
+        }
+      } catch (err) {
+        output.writeln(output.dim(`MemPoison scan skipped: ${err instanceof Error ? err.message : String(err)}`));
+      }
     }
 
     const storeData = {
@@ -345,25 +380,67 @@ const searchCommand: Command = {
       type: 'boolean',
       default: false
     },
+    {
+      // #2760 dream-cycle — SCM routed memory. Classify the query intent
+      // and route search to the mapped namespaces (episodic → session
+      // writes, semantic → patterns, procedural → skills). Default
+      // "mixed" preserves the pre-#2760 behavior (search everything).
+      name: 'intent',
+      description: 'Route query to intent-mapped namespaces (auto | mixed | episodic | semantic | procedural) — dream-cycle #2760',
+      type: 'string',
+      choices: ['auto', 'mixed', 'episodic', 'semantic', 'procedural'],
+      default: 'mixed',
+    },
     DB_PATH_OPTION
   ],
   examples: [
     { command: 'claude-flow memory search -q "authentication patterns"', description: 'Semantic search' },
     { command: 'claude-flow memory search -q "JWT" -t keyword', description: 'Keyword search' },
     { command: 'claude-flow memory search -q "test" --build-hnsw', description: 'Build HNSW index and search' },
-    { command: 'claude-flow memory search -q "auth patterns" --smart', description: 'SmartRetrieval with RRF + MMR' }
+    { command: 'claude-flow memory search -q "auth patterns" --smart', description: 'SmartRetrieval with RRF + MMR' },
+    { command: 'claude-flow memory search -q "when did we last touch auth" --intent auto', description: 'SCM-routed retrieval (dream-cycle #2760)' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const query = ctx.flags.query as string || ctx.args[0];
-    const namespace = ctx.flags.namespace as string || 'all';
+    let namespace = ctx.flags.namespace as string || 'all';
     const limit = ctx.flags.limit as number || 10;
-    const threshold = ctx.flags.threshold as number || 0.3;
+    // #2790 fix — `||` discards an explicit `--threshold 0` (falsy) and
+    // silently uses the fallback; that made `--threshold 0` return
+    // FEWER results than `--threshold 0.01` (non-monotonic). Nullish
+    // coalescing preserves an explicit zero. Fallback aligned with the
+    // option's declared `default: 0.7` (was `0.3` — the two disagreed
+    // and --help advertised a default the code did not honor).
+    const threshold = ctx.flags.threshold as number ?? 0.7;
     const searchType = ctx.flags.type as string || 'semantic';
     const buildHnsw = (ctx.flags['build-hnsw'] || ctx.flags.buildHnsw) as boolean;
+    const requestedIntent = (ctx.flags.intent as string) || 'mixed';
 
     if (!query) {
       output.printError('Query is required. Use --query or -q');
       return { success: false, exitCode: 1 };
+    }
+
+    // #2760 SCM routed memory (v1 MVP) — classify query intent and
+    // print a routing hint. Only fires when --intent is NOT the default
+    // "mixed" AND --namespace was NOT explicitly passed. Intentionally
+    // does NOT mutate the search path — the routing is advisory in v1
+    // so the search backend's exact behavior is preserved. v2 will
+    // apply the routing when the search-backend interface adds a
+    // multi-namespace OR filter.
+    if (requestedIntent !== 'mixed' && (namespace === 'all' || !ctx.flags.namespace)) {
+      try {
+        const { resolveIntent } = await import('../memory/scm-classifier.js');
+        const resolved = resolveIntent(query, requestedIntent as 'auto' | 'episodic' | 'semantic' | 'procedural' | 'mixed');
+        if (resolved.intent !== 'mixed' && resolved.namespaces.length > 0) {
+          output.printInfo(`SCM router → ${resolved.intent} (confidence ${(resolved.confidence * 100).toFixed(1)}%)`);
+          output.writeln(output.dim(`  ${resolved.reason}`));
+          output.writeln(output.dim(`  Suggested: rerun with --namespace ${resolved.namespaces[0]} to filter (or one of: ${resolved.namespaces.slice(1, 4).join(', ')}...)`));
+        } else {
+          output.writeln(output.dim(`SCM router → mixed (${resolved.reason})`));
+        }
+      } catch (err) {
+        output.writeln(output.dim(`SCM routing skipped: ${err instanceof Error ? err.message : String(err)}`));
+      }
     }
 
     // Build/rebuild HNSW index if requested
@@ -397,9 +474,59 @@ const searchCommand: Command = {
 
     // Use direct sql.js search with vector similarity
     try {
-      const { searchEntries, resolveDbPath: _rdbSearch } = await import('../memory/memory-initializer.js');
+      const { searchEntries, listEntries, resolveDbPath: _rdbSearch } = await import('../memory/memory-initializer.js');
       const dbPathSearch = _rdbSearch(ctx.flags.path as string | undefined);
       const useSmart = (ctx.flags.smart || ctx.flags.s) as boolean;
+
+      // #2790 fix — keyword mode was declared, echoed, and IGNORED (every
+      // search ran semantic regardless). Wire it here: list entries in
+      // the requested namespace (or all) and substring-match against key
+      // + content. Hybrid unions the keyword hits with the semantic hits
+      // and dedups by key + namespace.
+      let keywordResults: { key: string; score: number; namespace: string; preview: string }[] = [];
+      if (searchType === 'keyword' || searchType === 'hybrid') {
+        const list = await listEntries({
+          namespace: namespace === 'all' ? undefined : namespace,
+          limit: 5000,
+          includeContent: true,
+          dbPath: dbPathSearch,
+        });
+        if (list.success) {
+          const q = (query as string).toLowerCase();
+          keywordResults = list.entries
+            .filter((e) => {
+              const c = (e as { content?: string }).content ?? '';
+              return e.key.toLowerCase().includes(q) || c.toLowerCase().includes(q);
+            })
+            .map((e) => {
+              const c = (e as { content?: string }).content ?? '';
+              const inKey = e.key.toLowerCase().includes(q);
+              // Keyword scoring: 1.0 for key hit, 0.7 for content hit
+              return {
+                key: e.key,
+                score: inKey ? 1.0 : 0.7,
+                namespace: e.namespace,
+                preview: c.slice(0, 200),
+              };
+            })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, limit);
+        }
+        if (searchType === 'keyword') {
+          // Pure-keyword mode returns directly; skip the semantic path entirely.
+          if (ctx.flags.format === 'json') {
+            output.printJson({ query, searchType, results: keywordResults, searchTime: '0ms' });
+            return { success: true, data: keywordResults };
+          }
+          output.writeln();
+          output.printSuccess(`Found ${keywordResults.length} result(s) via keyword substring match`);
+          for (const r of keywordResults) {
+            output.writeln(`  ${r.key} (${r.namespace}, score=${r.score.toFixed(2)}) — ${r.preview.slice(0, 80)}${r.preview.length > 80 ? '…' : ''}`);
+          }
+          return { success: true, data: keywordResults };
+        }
+        // Hybrid mode: keyword hits will be MERGED after semantic runs below.
+      }
 
       let results: { key: string; score: number; namespace: string; preview: string }[];
       let searchTimeMs: number;
@@ -486,6 +613,23 @@ const searchCommand: Command = {
           preview: r.content
         }));
         searchTimeMs = searchResult.searchTime;
+      }
+
+      // #2790 fix (hybrid mode): union keyword results with semantic
+      // results, dedup by (key, namespace), then take top `limit`.
+      if (searchType === 'hybrid' && keywordResults.length > 0) {
+        const seen = new Set(results.map((r) => `${r.namespace}::${r.key}`));
+        for (const k of keywordResults) {
+          const id = `${k.namespace}::${k.key}`;
+          if (!seen.has(id)) {
+            results.push(k);
+            seen.add(id);
+          }
+        }
+        // Rerank by score
+        results.sort((a, b) => b.score - a.score);
+        results = results.slice(0, limit);
+        backendLabel = `${backendLabel} + keyword union (#2790)`;
       }
 
       if (ctx.flags.format === 'json') {
@@ -1786,11 +1930,124 @@ const initMemoryCommand: Command = {
   }
 };
 
+// #2763 dream-cycle — OAS memory-operator selector. Standalone
+// subcommand that returns the highest-value consolidation operator
+// that fits the given budget for the given entry count. Advisory —
+// the caller decides whether to invoke that operator.
+const selectOperatorCommand: Command = {
+  name: 'select-operator',
+  description: 'Pick the highest-value consolidation operator that fits a budget (OAS, dream-cycle #2763)',
+  options: [
+    { name: 'budget', short: 'b', type: 'number', required: true, description: 'Budget in abstract operator points (1 point ≈ 1 Haiku call)' },
+    { name: 'entries', short: 'e', type: 'number', required: true, description: 'Number of entries to consolidate' },
+    { name: 'hint', type: 'string', choices: ['duplicates', 'verbose', 'patterns', 'general'], default: 'general', description: 'Entry-shape hint' },
+  ],
+  examples: [
+    { command: 'claude-flow memory select-operator -b 50 -e 200', description: 'Pick operator for 200 entries within 50 points' },
+    { command: 'claude-flow memory select-operator -b 5 -e 100 --hint duplicates --format json', description: 'JSON for pipelines' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const budget = ctx.flags.budget as number;
+    const entries = ctx.flags.entries as number;
+    const hint = (ctx.flags.hint as string) || 'general';
+
+    if (budget === undefined || entries === undefined) {
+      output.printError('Both --budget and --entries are required.');
+      return { success: false, exitCode: 1 };
+    }
+    if (budget < 0 || entries < 0) {
+      output.printError('Budget and entries must be non-negative.');
+      return { success: false, exitCode: 1 };
+    }
+
+    const { selectOperator, OPERATORS } = await import('../memory/oas-operator-selector.js');
+    const selection = selectOperator({ budget, entries, hint: hint as 'duplicates' | 'verbose' | 'patterns' | 'general' });
+
+    if (ctx.flags.format === 'json') {
+      output.printJson(selection);
+      return { success: true, data: selection };
+    }
+
+    const chosen = OPERATORS[selection.operator];
+    output.writeln();
+    output.printBox(
+      `Budget: ${budget} points · Entries: ${entries}\n` +
+      `Operator: ${selection.operator}\n` +
+      `Description: ${chosen.description}\n` +
+      `Estimated cost: ${selection.estimatedCost.toFixed(2)} points\n` +
+      `Needs split: ${selection.needsSplit ? `YES — batch size ${selection.suggestedBatchSize}` : 'no'}`,
+      'OAS Operator Selection (#2763)'
+    );
+    output.writeln();
+    output.writeln(output.dim(selection.reason));
+
+    if (selection.considered.length > 0) {
+      output.writeln();
+      output.writeln(output.bold('All operators considered'));
+      output.printTable({
+        columns: [
+          { key: 'id', header: 'Operator', width: 15 },
+          { key: 'cost', header: 'Est. Cost', width: 12, align: 'right', format: (v) => Number(v).toFixed(2) },
+          { key: 'fits', header: 'Fits Budget', width: 12, align: 'center', format: (v) => v ? '✓' : '—' },
+        ],
+        data: selection.considered,
+      });
+    }
+
+    return { success: true, data: selection };
+  },
+};
+
+// #2760 dream-cycle — SCM query classifier. Standalone subcommand so
+// users can inspect what intent a query maps to and pipe the mapped
+// namespaces into other tools (e.g. `memory search --namespace ...`).
+const classifyCommand: Command = {
+  name: 'classify',
+  description: 'Classify a query into episodic/semantic/procedural intent (SCM router, dream-cycle #2760)',
+  options: [
+    { name: 'query', short: 'q', type: 'string', description: 'Query text to classify', required: true },
+    { name: 'intent', type: 'string', choices: ['auto', 'mixed', 'episodic', 'semantic', 'procedural'], default: 'auto', description: 'Force a specific intent (default: auto)' },
+  ],
+  examples: [
+    { command: 'claude-flow memory classify -q "when did we last touch auth"', description: 'Auto-classify (should return episodic)' },
+    { command: 'claude-flow memory classify -q "how does JWT work" --format json', description: 'JSON output for pipelines' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const query = ctx.flags.query as string;
+    const requested = (ctx.flags.intent as string) || 'auto';
+
+    if (!query) {
+      output.printError('Query is required. Use --query or -q');
+      return { success: false, exitCode: 1 };
+    }
+
+    const { resolveIntent } = await import('../memory/scm-classifier.js');
+    const resolved = resolveIntent(query, requested as 'auto' | 'mixed' | 'episodic' | 'semantic' | 'procedural');
+
+    if (ctx.flags.format === 'json') {
+      output.printJson(resolved);
+      return { success: true, data: resolved };
+    }
+
+    output.writeln();
+    output.printBox(
+      `Query: "${query}"\n` +
+      `Intent: ${resolved.intent}\n` +
+      `Confidence: ${(resolved.confidence * 100).toFixed(1)}%\n` +
+      `Namespaces: ${resolved.namespaces.length > 0 ? resolved.namespaces.slice(0, 4).join(', ') + (resolved.namespaces.length > 4 ? '…' : '') : '(all — mixed retrieval)'}`,
+      'SCM Classifier (#2760)'
+    );
+    output.writeln();
+    output.writeln(output.dim(resolved.reason));
+    return { success: true, data: resolved };
+  },
+};
+
 // Main memory command
 export const memoryCommand: Command = {
   name: 'memory',
   description: 'Memory management commands',
-  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, purgeCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand, distillCommand, backupCommand],
+  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, purgeCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand, distillCommand, backupCommand, classifyCommand, selectOperatorCommand],
   options: [],
   examples: [
     { command: 'claude-flow memory store -k "key" -v "value"', description: 'Store data' },
