@@ -963,18 +963,30 @@ RUFLO_HELPERS_SIGNING_SECRET=ruflo-helpers-signing-key RUFLO_HELPERS_SIGNING_PRO
 (`ruv-dev` also holds `ruflo-config-signing-key` and `NPM_TOKEN` — likely the right project
 for other ruflo release-time secrets too.)
 
-**Handling the signing key without leaking it (learned 2026-07-14, hard way):** when
-sign-helpers.mjs runs via `execFileSync('gcloud', ...)` on Windows, Node fails to find
-`gcloud` (needs the `.cmd` suffix), so the script bails and users reach for
-`gcloud secrets versions access latest --secret=ruflo-helpers-signing-key` in the shell —
-which by default prints the PEM to stdout, which becomes tool-call output in Claude
-Code and lands in the session transcript. That happened, the key was leaked, GCP secret
-v1 was destroyed and a fresh v2 was rotated in (commit 0052b1b06 / PR #2673). **Rules:**
-- NEVER invoke `gcloud secrets versions access` in a way that lets the payload reach
-  tool output. Always redirect to a file in the same command: `gcloud … > ~/.ruflo/helpers-signing.key 2>&1 | grep -v BEGIN`.
-- On Windows, prefer `RUFLO_HELPERS_SIGNING_KEY=~/.ruflo/helpers-signing.key` over the
-  GCP env var, because the fallback file path doesn't go through the broken
-  `execFileSync('gcloud')` path.
+**Handling the signing key without leaking it (ADR-322, supersedes the 2026-07-14
+postmortem):** `sign-helpers.mjs` now resolves `gcloud.cmd` on Windows, so the GCP
+Secret Manager path (`RUFLO_HELPERS_SIGNING_SECRET`) works cross-platform and the
+raw-`gcloud`-in-the-shell workaround that caused the original leak (commit 0052b1b06 /
+PR #2673 — GCP secret v1 destroyed, v2 rotated in) should never be needed again. If the
+GCP path still fails for some other reason (expired token, `gcloud` missing, wrong
+project), use the sanctioned stdin fallback — safe by construction, since the PEM
+travels through an in-kernel pipe and never touches a captured tool-output stream:
+
+```bash
+gcloud secrets versions access latest --secret=ruflo-helpers-signing-key \
+  | node scripts/sign-helpers.mjs --stdin-key
+```
+
+**Rules:**
+- NEVER run `gcloud secrets versions access ...` on its own and redirect/paste the
+  output by hand — that is exactly the shape that leaked the key. Always pipe directly
+  into `--stdin-key` as shown above.
+- `sign-helpers.mjs` refuses to fetch from GCP Secret Manager at all when stdout is an
+  interactive TTY (no `RUFLO_HELPERS_ALLOW_TTY=1` set); it prints the `--stdin-key`
+  alternative and exits 1 rather than let anyone improvise a workaround.
+- `RUFLO_HELPERS_SIGNING_KEY=<pem-file-path>` (e.g.
+  `RUFLO_HELPERS_SIGNING_KEY=~/.ruflo/helpers-signing.key`) remains supported unchanged
+  for local/air-gapped signing.
 - If a rotation IS needed, keep the private half in `~/.ruflo/helpers-signing.key`
   only, print ONLY the public half (via `Ed25519 pub export` from Node crypto), upload
   new private via `gcloud secrets versions add … --data-file=`, then
