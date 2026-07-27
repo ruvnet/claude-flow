@@ -753,15 +753,54 @@ const routeCommand: Command = {
       description: 'Number of top agent suggestions',
       type: 'number',
       default: 3
-    }
+    },
+    {
+      // #2778 dream-cycle — Mixture-of-Agents test-time scaling.
+      // When `--mode moa` is set AND the router would have chosen a
+      // Tier-3 model (Sonnet/Opus), swap to N parallel Tier-2 (Haiku)
+      // calls + majority-vote consensus. Grade-A ACL 2026 SRW evidence
+      // (arXiv 2605.01566): +2.7pp accuracy at equal-cost when parallel
+      // generations exceed sequential aggregations.
+      name: 'mode',
+      description: 'Routing mode: single (default) or moa (mixture-of-agents fanout, #2778)',
+      type: 'string',
+      choices: ['single', 'moa'],
+      default: 'single',
+    },
+    {
+      // #2778 — deliberately NOT `parallel` (short 'p'). Both swarm.ts and
+      // workflow.ts declare `--parallel` as a BOOLEAN, and the parser's
+      // global boolean-flag registry pollutes subcommand-scoped numeric
+      // flags with the same name (parseFlag then treats `--parallel 7` as
+      // `parallel:true` and drops the value). Using a distinct name avoids
+      // the collision without touching parser semantics that other
+      // subcommands rely on.
+      name: 'moa-parallel',
+      description: 'MoA fanout width (N parallel calls at Haiku tier; only meaningful when --mode=moa)',
+      type: 'number',
+      default: 3,
+    },
+    {
+      name: 'consensus',
+      description: 'MoA consensus strategy: majority-vote (default) or best-confidence',
+      type: 'string',
+      choices: ['majority-vote', 'best-confidence'],
+      default: 'majority-vote',
+    },
   ],
   examples: [
-    { command: 'claude-flow hooks route -t "Fix authentication bug"', description: 'Route task to optimal agent' },
-    { command: 'claude-flow hooks route -t "Optimize database queries" -K 5', description: 'Get top 5 suggestions' }
+    { command: 'claude-flow hooks route -t "Fix authentication bug"', description: 'Route task to optimal agent (single mode)' },
+    { command: 'claude-flow hooks route -t "Optimize database queries" -K 5', description: 'Get top 5 suggestions' },
+    { command: 'claude-flow hooks route -t "Design payment webhook" --mode moa --moa-parallel 3', description: 'MoA fanout: 3× Haiku + consensus (dream-cycle #2778)' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const task = (ctx.flags.task as string) || ctx.args[0];
     const topK = ctx.flags.topK as number || 3;
+    const mode = (ctx.flags.mode as string) || 'single';
+    // #2778 — flag is --moa-parallel (parser normalizes to camelCase moaParallel)
+    // to avoid collision with the boolean --parallel from swarm/workflow.
+    const parallel = Math.max(2, (ctx.flags.moaParallel as number) || 3);
+    const consensus = (ctx.flags.consensus as string) || 'majority-vote';
 
     if (!task) {
       output.printError('Task description is required. Use --task or -t flag.');
@@ -806,6 +845,44 @@ const routeCommand: Command = {
         topK,
         includeEstimates: true,
       });
+
+      // #2778 — compute the MoA plan BEFORE the JSON output branch so
+      // programmatic callers see `moaPlan` in the JSON result too.
+      let moaPlan: {
+        mode: 'moa';
+        parallel: number;
+        tier: 'tier2-haiku';
+        consensus: string;
+        rationale: string;
+        agents: Array<{ name: string; model: 'haiku'; role: string }>;
+        synthesizer: { name: string; model: 'haiku'; role: string };
+      } | null = null;
+      if (mode === 'moa') {
+        const complexity = result.estimatedMetrics?.complexity ?? 'medium';
+        const wouldTier3 = complexity === 'high';
+        const primaryAgent = result.primaryAgent.type;
+        const agents = Array.from({ length: parallel }, (_, i) => ({
+          name: `moa-${primaryAgent}-${i + 1}`,
+          model: 'haiku' as const,
+          role: primaryAgent,
+        }));
+        moaPlan = {
+          mode: 'moa',
+          parallel,
+          tier: 'tier2-haiku',
+          consensus,
+          rationale: wouldTier3
+            ? `Complexity=${complexity} would tier-3 (Sonnet/Opus). MoA fanout — ${parallel}× Haiku is typically <1× Sonnet cost (arXiv 2605.01566: +2.7pp at equal cost).`
+            : `Complexity=${complexity} — MoA still available as a diversity mechanism, but the single-agent path is usually the cost-optimal choice below Tier-3.`,
+          agents,
+          synthesizer: {
+            name: `moa-synth-${primaryAgent}`,
+            model: 'haiku',
+            role: 'synthesizer',
+          },
+        };
+        (result as unknown as Record<string, unknown>).moaPlan = moaPlan;
+      }
 
       if (ctx.flags.format === 'json') {
         output.printJson(result);
@@ -867,6 +944,27 @@ const routeCommand: Command = {
           `Estimated Duration: ${result.estimatedMetrics.estimatedDuration}`,
           `Complexity: ${result.estimatedMetrics.complexity.toUpperCase()}`
         ]);
+      }
+
+      // #2778 dream-cycle — render the MoA plan to text output. moaPlan
+      // was already spliced into the result above so JSON consumers see it.
+      if (mode === 'moa' && moaPlan) {
+        const primaryAgent = result.primaryAgent.type;
+        output.writeln();
+        output.writeln(output.bold('Mixture-of-Agents Plan (#2778)'));
+        output.printList([
+          `Mode: moa`,
+          `Fanout: ${parallel} parallel ${primaryAgent} × Haiku`,
+          `Consensus: ${consensus}`,
+          `Synthesizer: 1 Haiku agent (${consensus} over ${parallel} verdicts)`,
+        ]);
+        output.writeln();
+        output.printBox(
+          `Spawn ${parallel} background Task calls with model="haiku" and subagent_type="${primaryAgent}"\n` +
+          `then a synthesizer Task ("moa-synth-${primaryAgent}") that reads all ${parallel} results and picks the ${consensus === 'majority-vote' ? 'majority answer' : 'highest-confidence answer'}.\n\n` +
+          `Cost note: ${parallel}× Haiku is typically <1× Sonnet on comparable complexity — see arXiv 2605.01566 for the ACL 2026 evidence.`,
+          'MoA Execution Directive'
+        );
       }
 
       return { success: true, data: result };
