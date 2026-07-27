@@ -399,7 +399,13 @@ const searchCommand: Command = {
     const query = ctx.flags.query as string || ctx.args[0];
     let namespace = ctx.flags.namespace as string || 'all';
     const limit = ctx.flags.limit as number || 10;
-    const threshold = ctx.flags.threshold as number || 0.3;
+    // #2790 fix — `||` discards an explicit `--threshold 0` (falsy) and
+    // silently uses the fallback; that made `--threshold 0` return
+    // FEWER results than `--threshold 0.01` (non-monotonic). Nullish
+    // coalescing preserves an explicit zero. Fallback aligned with the
+    // option's declared `default: 0.7` (was `0.3` — the two disagreed
+    // and --help advertised a default the code did not honor).
+    const threshold = ctx.flags.threshold as number ?? 0.7;
     const searchType = ctx.flags.type as string || 'semantic';
     const buildHnsw = (ctx.flags['build-hnsw'] || ctx.flags.buildHnsw) as boolean;
     const requestedIntent = (ctx.flags.intent as string) || 'mixed';
@@ -463,9 +469,59 @@ const searchCommand: Command = {
 
     // Use direct sql.js search with vector similarity
     try {
-      const { searchEntries, resolveDbPath: _rdbSearch } = await import('../memory/memory-initializer.js');
+      const { searchEntries, listEntries, resolveDbPath: _rdbSearch } = await import('../memory/memory-initializer.js');
       const dbPathSearch = _rdbSearch(ctx.flags.path as string | undefined);
       const useSmart = (ctx.flags.smart || ctx.flags.s) as boolean;
+
+      // #2790 fix — keyword mode was declared, echoed, and IGNORED (every
+      // search ran semantic regardless). Wire it here: list entries in
+      // the requested namespace (or all) and substring-match against key
+      // + content. Hybrid unions the keyword hits with the semantic hits
+      // and dedups by key + namespace.
+      let keywordResults: { key: string; score: number; namespace: string; preview: string }[] = [];
+      if (searchType === 'keyword' || searchType === 'hybrid') {
+        const list = await listEntries({
+          namespace: namespace === 'all' ? undefined : namespace,
+          limit: 5000,
+          includeContent: true,
+          dbPath: dbPathSearch,
+        });
+        if (list.success) {
+          const q = (query as string).toLowerCase();
+          keywordResults = list.entries
+            .filter((e) => {
+              const c = (e as { content?: string }).content ?? '';
+              return e.key.toLowerCase().includes(q) || c.toLowerCase().includes(q);
+            })
+            .map((e) => {
+              const c = (e as { content?: string }).content ?? '';
+              const inKey = e.key.toLowerCase().includes(q);
+              // Keyword scoring: 1.0 for key hit, 0.7 for content hit
+              return {
+                key: e.key,
+                score: inKey ? 1.0 : 0.7,
+                namespace: e.namespace,
+                preview: c.slice(0, 200),
+              };
+            })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, limit);
+        }
+        if (searchType === 'keyword') {
+          // Pure-keyword mode returns directly; skip the semantic path entirely.
+          if (ctx.flags.format === 'json') {
+            output.printJson({ query, searchType, results: keywordResults, searchTime: '0ms' });
+            return { success: true, data: keywordResults };
+          }
+          output.writeln();
+          output.printSuccess(`Found ${keywordResults.length} result(s) via keyword substring match`);
+          for (const r of keywordResults) {
+            output.writeln(`  ${r.key} (${r.namespace}, score=${r.score.toFixed(2)}) — ${r.preview.slice(0, 80)}${r.preview.length > 80 ? '…' : ''}`);
+          }
+          return { success: true, data: keywordResults };
+        }
+        // Hybrid mode: keyword hits will be MERGED after semantic runs below.
+      }
 
       let results: { key: string; score: number; namespace: string; preview: string }[];
       let searchTimeMs: number;
@@ -552,6 +608,23 @@ const searchCommand: Command = {
           preview: r.content
         }));
         searchTimeMs = searchResult.searchTime;
+      }
+
+      // #2790 fix (hybrid mode): union keyword results with semantic
+      // results, dedup by (key, namespace), then take top `limit`.
+      if (searchType === 'hybrid' && keywordResults.length > 0) {
+        const seen = new Set(results.map((r) => `${r.namespace}::${r.key}`));
+        for (const k of keywordResults) {
+          const id = `${k.namespace}::${k.key}`;
+          if (!seen.has(id)) {
+            results.push(k);
+            seen.add(id);
+          }
+        }
+        // Rerank by score
+        results.sort((a, b) => b.score - a.score);
+        results = results.slice(0, limit);
+        backendLabel = `${backendLabel} + keyword union (#2790)`;
       }
 
       if (ctx.flags.format === 'json') {
