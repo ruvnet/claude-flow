@@ -375,25 +375,61 @@ const searchCommand: Command = {
       type: 'boolean',
       default: false
     },
+    {
+      // #2760 dream-cycle — SCM routed memory. Classify the query intent
+      // and route search to the mapped namespaces (episodic → session
+      // writes, semantic → patterns, procedural → skills). Default
+      // "mixed" preserves the pre-#2760 behavior (search everything).
+      name: 'intent',
+      description: 'Route query to intent-mapped namespaces (auto | mixed | episodic | semantic | procedural) — dream-cycle #2760',
+      type: 'string',
+      choices: ['auto', 'mixed', 'episodic', 'semantic', 'procedural'],
+      default: 'mixed',
+    },
     DB_PATH_OPTION
   ],
   examples: [
     { command: 'claude-flow memory search -q "authentication patterns"', description: 'Semantic search' },
     { command: 'claude-flow memory search -q "JWT" -t keyword', description: 'Keyword search' },
     { command: 'claude-flow memory search -q "test" --build-hnsw', description: 'Build HNSW index and search' },
-    { command: 'claude-flow memory search -q "auth patterns" --smart', description: 'SmartRetrieval with RRF + MMR' }
+    { command: 'claude-flow memory search -q "auth patterns" --smart', description: 'SmartRetrieval with RRF + MMR' },
+    { command: 'claude-flow memory search -q "when did we last touch auth" --intent auto', description: 'SCM-routed retrieval (dream-cycle #2760)' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const query = ctx.flags.query as string || ctx.args[0];
-    const namespace = ctx.flags.namespace as string || 'all';
+    let namespace = ctx.flags.namespace as string || 'all';
     const limit = ctx.flags.limit as number || 10;
     const threshold = ctx.flags.threshold as number || 0.3;
     const searchType = ctx.flags.type as string || 'semantic';
     const buildHnsw = (ctx.flags['build-hnsw'] || ctx.flags.buildHnsw) as boolean;
+    const requestedIntent = (ctx.flags.intent as string) || 'mixed';
 
     if (!query) {
       output.printError('Query is required. Use --query or -q');
       return { success: false, exitCode: 1 };
+    }
+
+    // #2760 SCM routed memory (v1 MVP) — classify query intent and
+    // print a routing hint. Only fires when --intent is NOT the default
+    // "mixed" AND --namespace was NOT explicitly passed. Intentionally
+    // does NOT mutate the search path — the routing is advisory in v1
+    // so the search backend's exact behavior is preserved. v2 will
+    // apply the routing when the search-backend interface adds a
+    // multi-namespace OR filter.
+    if (requestedIntent !== 'mixed' && (namespace === 'all' || !ctx.flags.namespace)) {
+      try {
+        const { resolveIntent } = await import('../memory/scm-classifier.js');
+        const resolved = resolveIntent(query, requestedIntent as 'auto' | 'episodic' | 'semantic' | 'procedural' | 'mixed');
+        if (resolved.intent !== 'mixed' && resolved.namespaces.length > 0) {
+          output.printInfo(`SCM router → ${resolved.intent} (confidence ${(resolved.confidence * 100).toFixed(1)}%)`);
+          output.writeln(output.dim(`  ${resolved.reason}`));
+          output.writeln(output.dim(`  Suggested: rerun with --namespace ${resolved.namespaces[0]} to filter (or one of: ${resolved.namespaces.slice(1, 4).join(', ')}...)`));
+        } else {
+          output.writeln(output.dim(`SCM router → mixed (${resolved.reason})`));
+        }
+      } catch (err) {
+        output.writeln(output.dim(`SCM routing skipped: ${err instanceof Error ? err.message : String(err)}`));
+      }
     }
 
     // Build/rebuild HNSW index if requested
@@ -1816,11 +1852,56 @@ const initMemoryCommand: Command = {
   }
 };
 
+// #2760 dream-cycle — SCM query classifier. Standalone subcommand so
+// users can inspect what intent a query maps to and pipe the mapped
+// namespaces into other tools (e.g. `memory search --namespace ...`).
+const classifyCommand: Command = {
+  name: 'classify',
+  description: 'Classify a query into episodic/semantic/procedural intent (SCM router, dream-cycle #2760)',
+  options: [
+    { name: 'query', short: 'q', type: 'string', description: 'Query text to classify', required: true },
+    { name: 'intent', type: 'string', choices: ['auto', 'mixed', 'episodic', 'semantic', 'procedural'], default: 'auto', description: 'Force a specific intent (default: auto)' },
+  ],
+  examples: [
+    { command: 'claude-flow memory classify -q "when did we last touch auth"', description: 'Auto-classify (should return episodic)' },
+    { command: 'claude-flow memory classify -q "how does JWT work" --format json', description: 'JSON output for pipelines' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const query = ctx.flags.query as string;
+    const requested = (ctx.flags.intent as string) || 'auto';
+
+    if (!query) {
+      output.printError('Query is required. Use --query or -q');
+      return { success: false, exitCode: 1 };
+    }
+
+    const { resolveIntent } = await import('../memory/scm-classifier.js');
+    const resolved = resolveIntent(query, requested as 'auto' | 'mixed' | 'episodic' | 'semantic' | 'procedural');
+
+    if (ctx.flags.format === 'json') {
+      output.printJson(resolved);
+      return { success: true, data: resolved };
+    }
+
+    output.writeln();
+    output.printBox(
+      `Query: "${query}"\n` +
+      `Intent: ${resolved.intent}\n` +
+      `Confidence: ${(resolved.confidence * 100).toFixed(1)}%\n` +
+      `Namespaces: ${resolved.namespaces.length > 0 ? resolved.namespaces.slice(0, 4).join(', ') + (resolved.namespaces.length > 4 ? '…' : '') : '(all — mixed retrieval)'}`,
+      'SCM Classifier (#2760)'
+    );
+    output.writeln();
+    output.writeln(output.dim(resolved.reason));
+    return { success: true, data: resolved };
+  },
+};
+
 // Main memory command
 export const memoryCommand: Command = {
   name: 'memory',
   description: 'Memory management commands',
-  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, purgeCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand, distillCommand, backupCommand],
+  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, purgeCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand, distillCommand, backupCommand, classifyCommand],
   options: [],
   examples: [
     { command: 'claude-flow memory store -k "key" -v "value"', description: 'Store data' },
