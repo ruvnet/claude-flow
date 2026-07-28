@@ -44,7 +44,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/aidefence':
     dependencies:
@@ -66,7 +66,7 @@ importers:
     dependencies:
       '@claude-flow/cli':
         specifier: '>=3.5.0'
-        version: 3.32.17(@types/node@20.19.27)(zod@3.25.76)
+        version: link:../cli
       agent-browser:
         specifier: ^0.27.0
         version: 0.27.0
@@ -110,7 +110,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/cli':
     dependencies:
@@ -126,12 +126,18 @@ importers:
       '@claude-flow/shared':
         specifier: 3.0.0-alpha.7
         version: 3.0.0-alpha.7
+      '@metaharness/router':
+        specifier: ^0.3.2
+        version: 0.3.2
       '@noble/ed25519':
         specifier: 2.3.0
         version: 2.3.0
       '@ruvector/rabitq-wasm':
         specifier: 0.1.0
         version: 0.1.0
+      metaharness:
+        specifier: ^0.4.1
+        version: 0.4.1
       semver:
         specifier: 7.7.3
         version: 7.7.3
@@ -148,6 +154,9 @@ importers:
       '@claude-flow/security':
         specifier: ^3.0.0-alpha.12
         version: link:../security
+      '@metaharness/darwin':
+        specifier: ^0.8.0
+        version: 0.8.0
       agentdb:
         specifier: ^3.0.0-alpha.17
         version: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
@@ -174,7 +183,7 @@ importers:
     dependencies:
       '@claude-flow/cli':
         specifier: ^3.0.0
-        version: 3.32.17(@types/node@20.19.27)(zod@3.25.76)
+        version: link:../cli
       '@iarna/toml':
         specifier: ^2.2.5
         version: 2.2.5
@@ -211,7 +220,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/deployment':
     dependencies:
@@ -224,7 +233,7 @@ importers:
         version: 25.0.2(typescript@5.9.3)
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/embeddings':
     dependencies:
@@ -274,7 +283,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/hooks':
     dependencies:
@@ -309,7 +318,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/integration':
     dependencies:
@@ -354,7 +363,7 @@ importers:
         version: 8.18.1
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/memory':
     dependencies:
@@ -403,7 +412,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/plugin-agent-federation':
     dependencies:
@@ -453,7 +462,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/plugins':
     dependencies:
@@ -481,7 +490,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/providers':
     dependencies:
@@ -506,7 +515,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/security':
     dependencies:
@@ -526,7 +535,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/shared':
     dependencies:
@@ -560,7 +569,7 @@ importers:
         version: 7.2.0
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
       ws:
         specifier: ^8.16.0
         version: 8.19.0
@@ -572,7 +581,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/testing':
     devDependencies:
@@ -590,7 +599,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
 packages:
 
@@ -745,55 +754,6 @@ packages:
     resolution: {integrity: sha512-k7vvKPbf7J2fZ5klGRD9AeKfUvojuZIQ3BT5u7Jfv+puwXkUBUT5PVyMDfJZpy30CBDXGMgw7fguK/lpOMBvgw==}
     requiresBuild: true
 
-  /@claude-flow/cli-core@3.7.0-alpha.5:
-    resolution: {integrity: sha512-WbhpxGpxhRoVmjtizIdt2IGlcX0nPmGktXe3JDtII4MeVTgifHuBYpx4cX4EQiBqGCt4cxxM4nDOFQUUqAK9Aw==}
-    hasBin: true
-    dev: false
-
-  /@claude-flow/cli@3.32.17(@types/node@20.19.27)(zod@3.25.76):
-    resolution: {integrity: sha512-9ZUoXsJbrPifGz3Zk7ZL8g93s0Alnny2jagCiXtOvjKS3eM6mqro02W2072sVuuIJAc4yZKJB9AZosErmn/VIg==}
-    hasBin: true
-    requiresBuild: true
-    dependencies:
-      '@claude-flow/cli-core': 3.7.0-alpha.5
-      '@claude-flow/mcp': 3.0.0-alpha.8
-      '@claude-flow/neural': 3.0.0-alpha.9(@types/node@20.19.27)(zod@3.25.76)
-      '@claude-flow/shared': 3.0.0-alpha.7
-      '@noble/ed25519': 2.3.0
-      '@ruvector/rabitq-wasm': 0.1.0
-      semver: 7.7.3
-      sql.js: 1.14.1
-      yaml: 2.9.0
-    optionalDependencies:
-      '@claude-flow/memory': 3.0.0-alpha.21(@types/node@20.19.27)(zod@3.25.76)
-      '@claude-flow/security': 3.0.0-alpha.12
-      agentdb: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
-      agentic-flow: 3.0.0-alpha.2
-      better-sqlite3: 12.9.0
-      ruvector: 0.2.27(zod@3.25.76)
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - '@modelcontextprotocol/sdk'
-      - '@ruvector/diskann'
-      - '@ruvector/pi-brain'
-      - '@ruvector/router'
-      - '@ruvector/ruvllm'
-      - '@types/node'
-      - '@valibot/to-json-schema'
-      - arktype
-      - bare-abort-controller
-      - bare-buffer
-      - bufferutil
-      - debug
-      - effect
-      - jose
-      - react-native-b4a
-      - supports-color
-      - sury
-      - utf-8-validate
-      - zod
-    dev: false
-
   /@claude-flow/mcp@3.0.0-alpha.8:
     resolution: {integrity: sha512-lP1t8GMWDl9RxnwMZrjMukZkyglhge7Znhj1PbUiUQ94kHcN+dAxUkA75HM1n7BONbIDcE/CS8qN2ril5KgzNg==}
     dependencies:
@@ -807,54 +767,6 @@ packages:
       - supports-color
       - utf-8-validate
     dev: false
-
-  /@claude-flow/memory@3.0.0-alpha.21(@types/node@20.19.27)(zod@3.25.76):
-    resolution: {integrity: sha512-5H5rJOh7nGuzmFazTvJWZIbeZvf+HJjonM98vWijzbL4kQvBDWj6zwhsxQ3wrwJSrs5ALgQQmhxQ7Mr+gagAFw==}
-    cpu: [x64, arm64]
-    os: [darwin, linux, win32]
-    dependencies:
-      agentdb: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
-      sql.js: 1.14.1
-    optionalDependencies:
-      better-sqlite3: 12.9.0
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - '@types/node'
-      - bare-abort-controller
-      - bare-buffer
-      - react-native-b4a
-      - supports-color
-      - zod
-    dev: false
-
-  /@claude-flow/neural@3.0.0-alpha.9(@types/node@20.19.27)(zod@3.25.76):
-    resolution: {integrity: sha512-u7mx6rQxHrpCyKVtP600QorSJrEhoqYEyGZgYVU1kGWwYitScJH3rzWzss95Dn+RazcCAk7yElEG/iSbhtxU6g==}
-    dependencies:
-      '@claude-flow/memory': 3.0.0-alpha.21(@types/node@20.19.27)(zod@3.25.76)
-      '@ruvector/sona': 0.1.5
-    optionalDependencies:
-      agentdb: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - '@types/node'
-      - bare-abort-controller
-      - bare-buffer
-      - react-native-b4a
-      - supports-color
-      - zod
-    dev: false
-
-  /@claude-flow/security@3.0.0-alpha.12:
-    resolution: {integrity: sha512-/b1V6zXOhFSs+Y8UztyPFHqkNjDKslwpAn9+KJFWHqZMwnnPnBnW0WQHoZAGx+5+rewI619pVT9gIANkyt3luQ==}
-    requiresBuild: true
-    dependencies:
-      '@noble/ed25519': 2.3.0
-      bcryptjs: 3.0.3
-      zod: 3.25.76
-    optionalDependencies:
-      '@napi-rs/keyring': 1.3.0
-    dev: false
-    optional: true
 
   /@claude-flow/shared@3.0.0-alpha.7:
     resolution: {integrity: sha512-5iehTHguBFjlyZqy+fRoKfZVL/nFeE93A94nUUKJvu8y7AmhfpVqtQAZbmKztwQGJ5rv7iBb3Kwl1MUo3K5QkA==}
@@ -1710,6 +1622,46 @@ packages:
 
   /@leichtgewicht/ip-codec@2.0.5:
     resolution: {integrity: sha512-Vo+PSpZG2/fmgmiNzYK9qWRh8h/CHrwD0mo1h1DzL4yzHNSfWYujGTYsWGreD000gcgmZ7K4Ys6Tx9TxtsKdDw==}
+    dev: false
+
+  /@metaharness/darwin@0.2.8:
+    resolution: {integrity: sha512-B8tF7IrrSxwKS6fEPEL6N2Juth9WWn+hppLUtUYPTJ2vcHzzZPIg2cS5T9qTyNNuANlTSWnQHnvzlfvYdGNfeQ==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
+    dev: false
+
+  /@metaharness/darwin@0.8.0:
+    resolution: {integrity: sha512-Pgefr/es0Btofh7GxQrOAg/i43ZKcLUfeD9rndOAkpA8s3ZYohSmfLerJLNsGOOKc2eTvmmauljl8QEVmKC2dw==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@metaharness/flywheel@0.1.7:
+    resolution: {integrity: sha512-am7dROkjyS1Zkms3TOcn2LVHjwMLQXPJ6Pu1aP55q40vWJLRONGdGvnrcBL/VhMFqjQrVB57lmSn2E+s5CSZwA==}
+    dev: false
+
+  /@metaharness/redblue@0.1.4:
+    resolution: {integrity: sha512-JaAk6bs3xA7Ks5RnAcZoxI3WfzpYL+Bk262SCI07w82BDOA7C6VxwGM63F7b86lRTKUVjTEnSqf7QZ3uyElT/g==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
+    dev: false
+
+  /@metaharness/router@0.3.2:
+    resolution: {integrity: sha512-LQElU6mUrWd3ffJ5bwoonEIgw7oFQZpwZaehffyl/Pg+iozpRjIBPEXdb4uTOBnKH+yPiTEWKc+h9AiZr9Os9w==}
+    engines: {node: '>=20.0.0'}
+    peerDependencies:
+      '@ruvector/tiny-dancer': ^0.1.21
+    peerDependenciesMeta:
+      '@ruvector/tiny-dancer':
+        optional: true
+    dev: false
+
+  /@metaharness/weight-eft@0.1.1:
+    resolution: {integrity: sha512-GSg0APPAbRK93OzrzlE+R8hfEK+I5+Zhmh0Z28RC9Mk5/MjhPo3shqINO7ye8VPGYHIO4rars9FwCWbe/V4cEQ==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
     dev: false
 
   /@modelcontextprotocol/sdk@1.25.1(hono@4.12.11)(zod@3.25.76):
@@ -6637,7 +6589,7 @@ packages:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+      vitest: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
     dev: true
 
   /@vitest/expect@4.1.8:
@@ -6665,7 +6617,7 @@ packages:
       '@vitest/spy': 4.1.8
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)
+      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
     dev: true
 
   /@vitest/pretty-format@4.1.8:
@@ -9946,6 +9898,15 @@ packages:
       json-buffer: 3.0.1
     dev: true
 
+  /kleur@3.0.3:
+    resolution: {integrity: sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==}
+    engines: {node: '>=6'}
+    dev: false
+
+  /kolorist@1.8.0:
+    resolution: {integrity: sha512-Y+60/zizpJ3HRH8DCss+q95yr6145JXZo46OTpFvDZWLfRCE4qChOyk1b26nMaNpfHHgxagk9dXT5OP0Tfe+dQ==}
+    dev: false
+
   /levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
     engines: {node: '>= 0.8.0'}
@@ -10219,6 +10180,26 @@ packages:
 
   /merge-stream@2.0.0:
     resolution: {integrity: sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w==}
+
+  /metaharness@0.4.1:
+    resolution: {integrity: sha512-Kd+cd2VJcTHZwh5YTIIj/Qe/dmhRVpvT9Q1iSn+bbFkFWPcvArAIqJ114kpBLQi2Om3jxXX+oGA2QaAn9NUeaA==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
+    peerDependencies:
+      '@metaharness/kernel': ^0.1.0
+    peerDependenciesMeta:
+      '@metaharness/kernel':
+        optional: true
+    dependencies:
+      '@metaharness/darwin': 0.2.8
+      '@metaharness/flywheel': 0.1.7
+      '@metaharness/redblue': 0.1.4
+      '@metaharness/weight-eft': 0.1.1
+      kolorist: 1.8.0
+      prompts: 2.4.2
+    optionalDependencies:
+      '@ruvector/ruvllm': 2.6.0
+    dev: false
 
   /micromatch@4.0.8:
     resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
@@ -11234,6 +11215,14 @@ packages:
     dev: false
     optional: true
 
+  /prompts@2.4.2:
+    resolution: {integrity: sha512-NxNv/kLguCA7p3jE8oL2aEBsrJWgAakBpgmgK6lpPWV+WuOmY6r2/zbAVnP+T8bQlA0nzHXSJSJW0Hq7ylaD2Q==}
+    engines: {node: '>= 6'}
+    dependencies:
+      kleur: 3.0.3
+      sisteransi: 1.0.5
+    dev: false
+
   /proto-list@1.2.4:
     resolution: {integrity: sha512-vtK/94akxsTMhe0/cbfpR+syPuszcuwhqVjJq26CuNDgFGj682oRBXOP5MJpv2r7JtE8MsiepGIqvvOTBwn2vA==}
     requiresBuild: true
@@ -12000,6 +11989,10 @@ packages:
     requiresBuild: true
     dependencies:
       is-arrayish: 0.3.4
+
+  /sisteransi@1.0.5:
+    resolution: {integrity: sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==}
+    dev: false
 
   /skin-tone@2.0.0:
     resolution: {integrity: sha512-kUMbT1oBJCpgrnKoSr0o6wPtvRWT9W9UKvGLwfJYO2WuahZRHOpEyL1ckyMGgMWh0UdpmaoFqKKD29WTomNEGA==}
@@ -12867,7 +12860,6 @@ packages:
       yaml: 2.8.2
     optionalDependencies:
       fsevents: 2.3.3
-    dev: false
 
   /vitest@4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0):
     resolution: {integrity: sha512-flY6ScbCIt9HThs+C5HS7jvGOB560DJtk/Z15IQROTA6zEy49Nh8T/dofWTQL+n3vswqn87sbJNiuqw1SDp5Ig==}
@@ -12999,7 +12991,7 @@ packages:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.1.0
-      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)
+      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - msw
@@ -13210,6 +13202,7 @@ packages:
     engines: {node: '>= 14.6'}
     hasBin: true
     requiresBuild: true
+    optional: true
 
   /yargs-parser@20.2.9:
     resolution: {integrity: sha512-y11nGElTIV+CT3Zv9t7VKl+Q3hTQoT9a1Qzezhhl6Rp21gJ/IVTW7Z3y9EWXhuUBC2Shnf+DX0antecpAwSP8w==}

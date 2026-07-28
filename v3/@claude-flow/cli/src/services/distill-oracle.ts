@@ -45,6 +45,15 @@ import {
   type ReflectResult,
 } from './fable-harness.js';
 
+// Pinned @metaharness/darwin version for the Tier-1 mechanical oracle's `npx`
+// invocations. Bare `npx --yes @metaharness/darwin` floats to whatever npm
+// `latest` is, so a breaking darwin release could silently change eval
+// behavior mid-run (the #142 pin-drift failure mode). Pin it, and let
+// scripts/check-metaharness-pins.mjs watch this constant for drift. Kept in
+// lock-step with the optionalDependencies pin in package.json and the plugin
+// darwin cache (darwin-cache-0.8.0).
+export const MH_DARWIN_PIN = '0.8.0';
+
 // ── Provenance ─────────────────────────────────────────────────────────────
 
 export type ResolvedProvenance = 'oracle:test-exec' | 'judge:fable' | 'proxy:structural';
@@ -359,7 +368,7 @@ export function buildOraclePlan(spec: TestSpec, remote: string | null): OraclePl
   const probeCommands = [
     `ssh -o BatchMode=yes -o ConnectTimeout=8 ${r} 'echo ok'`,
     `${sshLocal}'command -v docker >/dev/null 2>&1 && echo docker-present || echo docker-missing'`,
-    `${sshLocal}'command -v darwin >/dev/null 2>&1 || npx --yes @metaharness/darwin --version'`,
+    `${sshLocal}'command -v darwin >/dev/null 2>&1 || npx --yes @metaharness/darwin@${MH_DARWIN_PIN} --version'`,
   ];
 
   let kind: OracleKind;
@@ -371,7 +380,7 @@ export function buildOraclePlan(spec: TestSpec, remote: string | null): OraclePl
     const suite = spec.benchSuite ? `--suite ${shq(spec.benchSuite)}` : '';
     const kase = spec.benchCase ? `--case ${shq(spec.benchCase)}` : '';
     evalCommands.push(
-      `${sshLocal}'cd ${workdir} && npx --yes @metaharness/darwin bench run ${suite} ${kase} --json'`.replace(/\s+/g, ' ').trim(),
+      `${sshLocal}'cd ${workdir} && npx --yes @metaharness/darwin@${MH_DARWIN_PIN} bench run ${suite} ${kase} --json'`.replace(/\s+/g, ' ').trim(),
     );
     parseHint = 'resolved = darwin bench run reports the case scored PASS (exit 0, json.passed=true)';
   } else if (spec.evalCommand) {
@@ -386,7 +395,7 @@ export function buildOraclePlan(spec: TestSpec, remote: string | null): OraclePl
     const f2p = (spec.failToPass ?? []).map(shq).join(' ');
     const p2p = (spec.passToPass ?? []).map(shq).join(' ');
     evalCommands.push(
-      `${sshLocal}'cd ${workdir} && npx --yes @metaharness/darwin swebench-eval` +
+      `${sshLocal}'cd ${workdir} && npx --yes @metaharness/darwin@${MH_DARWIN_PIN} swebench-eval` +
         `${spec.repo ? ` --repo ${shq(spec.repo)}` : ''}` +
         `${spec.baseCommit ? ` --base ${shq(spec.baseCommit)}` : ''}` +
         `${f2p ? ` --fail-to-pass ${f2p}` : ''}` +
