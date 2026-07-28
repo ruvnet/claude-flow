@@ -5,9 +5,24 @@
  * pays the ONNX cost only when actually running a tick. Never throws.
  */
 import { harnessLoopOptedIn } from './harness-worker.js';
-import { runFlywheelTick, type FlywheelDeps, type FlywheelResult, type RetrievalConfig, type AnchorTask } from './harness-flywheel.js';
+import {
+  DEFAULT_CONFIG,
+  retrievalPolicyNeighbors,
+  runFlywheelTick,
+  type FlywheelDeps,
+  type FlywheelResult,
+  type RetrievalConfig,
+  type AnchorTask,
+} from './harness-flywheel.js';
 import { runFlywheelGeneration, checkServedChampionDrift, type GenerationResult, type GenerationDeps } from './harness-flywheel-generations.js';
 import { loadFrozenHumanEval } from './harness-frozen-eval.js';
+import {
+  proposeFlywheelCandidates,
+  type DarwinInvoker,
+  type ProposerMode,
+  type SafetyEnvelope,
+} from './flywheel-proposer.js';
+import { sha256Ref } from './flywheel-receipt.js';
 
 /** The human-labeled ADR-081 anchor — the never-regress relevance set. */
 const ANCHOR: AnchorTask[] = [
@@ -29,7 +44,19 @@ const ANCHOR: AnchorTask[] = [
  */
 export async function runFlywheelWorker(
   projectRoot: string,
-  opts: { sample?: number; optInOverride?: boolean; now?: number } = {},
+  opts: {
+    sample?: number;
+    optInOverride?: boolean;
+    now?: number;
+    receiptPrivateKeyPem?: string;
+    receiptPublicKeyPem?: string;
+    lineageId?: string;
+    evaluationRunId?: string;
+    safetyEnvelopeRef?: string;
+    proposer?: ProposerMode;
+    darwinInvoker?: DarwinInvoker;
+    allowSubstitutionPromotion?: boolean;
+  } = {},
 ): Promise<FlywheelResult> {
   try {
     if (!(opts.optInOverride ?? harnessLoopOptedIn())) return { ran: false, reason: 'opt-in required (RUFLO_HARNESS_LOOP=1)' };
@@ -38,6 +65,60 @@ export async function runFlywheelWorker(
     const tool = neural.neuralTools.find((t) => t.name === 'neural_patterns');
     if (!tool) return { ran: false, reason: 'neural_patterns tool unavailable' };
 
+    const baseline: RetrievalConfig = {
+      ...DEFAULT_CONFIG,
+      ...((applier.activeChampion(projectRoot)?.params as Partial<RetrievalConfig>) ?? {}),
+    };
+    const safetyEnvelope: SafetyEnvelope = {
+      ref: opts.safetyEnvelopeRef ?? sha256Ref(JSON.stringify({
+        schema: 'ruflo.retrieval-safety-envelope/v1',
+        allowedPolicyKeys: ['alpha', 'topK', 'rerank', 'mmrLambda'],
+        numericBounds: {
+          alpha: { min: 0.1, max: 0.9 },
+          topK: { min: 5, max: 20 },
+          mmrLambda: { min: 0.3, max: 0.9 },
+        },
+      })),
+      allowedPolicyKeys: ['alpha', 'topK', 'rerank', 'mmrLambda'],
+      numericBounds: {
+        alpha: { min: 0.1, max: 0.9 },
+        topK: { min: 5, max: 20 },
+        mmrLambda: { min: 0.3, max: 0.9 },
+      },
+      // Retrieval evaluations are local and report zero provider spend today;
+      // finite ceilings make any future resource evidence fail closed.
+      maxP95LatencyMicros: 5_000_000,
+      maxCostMicrosPerTask: 10_000,
+      maxTokensPerTask: 100_000,
+      maxFailureRate: 0.01,
+      maxEvaluationCostMicros: 1_000_000,
+    };
+    const proposerMode = opts.proposer
+      ?? ((process.env.RUFLO_FLYWHEEL_PROPOSER as ProposerMode | undefined) ?? 'auto');
+    if (!['auto', 'local', 'darwin'].includes(proposerMode)) {
+      return { ran: false, reason: `invalid proposer mode: ${proposerMode}` };
+    }
+    const archive = await proposeFlywheelCandidates({
+      mode: proposerMode,
+      baselinePolicy: baseline as unknown as Record<string, unknown>,
+      safetyEnvelope,
+      seed: opts.now ?? Date.now(),
+      localProposer: () => retrievalPolicyNeighbors(baseline).map((policy) => ({
+        policy: policy as unknown as Record<string, unknown>,
+        resources: {
+          p95LatencyMicros: 0,
+          costMicrosPerTask: 0,
+          tokensPerTask: 0,
+          failureRate: 0,
+          evaluationCostMicros: 0,
+        },
+      })),
+      darwinInvoker: opts.darwinInvoker,
+      allowSubstitutionPromotion: opts.allowSubstitutionPromotion,
+    });
+    const candidatePolicies = archive.paretoCandidates.map((candidate) => candidate.policy as unknown as RetrievalConfig);
+    if (!candidatePolicies.length) return { ran: false, reason: 'proposer archive contained no admissible candidates' };
+
     const deps: FlywheelDeps = {
       getPatterns: () => neural.getStorePatterns(),
       search: async (query, cfg: RetrievalConfig) => {
@@ -45,9 +126,18 @@ export async function runFlywheelWorker(
         return (r.results || []).slice(0, 5).map((m) => ({ id: m?.id ?? '', name: m?.name ?? '' }));
       },
       anchorTasks: ANCHOR,
-      activeParams: () => (applier.activeChampion(projectRoot)?.params as Partial<RetrievalConfig>) ?? null,
+      activeParams: () => baseline,
       sample: opts.sample ?? 40,
       now: opts.now,
+      receiptPrivateKeyPem: opts.receiptPrivateKeyPem,
+      receiptPublicKeyPem: opts.receiptPublicKeyPem,
+      lineageId: opts.lineageId,
+      evaluationRunId: opts.evaluationRunId,
+      safetyEnvelopeRef: safetyEnvelope.ref,
+      requestedProposer: archive.requestedProposer,
+      effectiveProposer: archive.effectiveProposer,
+      proposerSubstitution: archive.proposerSubstitution,
+      candidatePolicies,
     };
     return await runFlywheelTick(projectRoot, deps);
   } catch (e) {

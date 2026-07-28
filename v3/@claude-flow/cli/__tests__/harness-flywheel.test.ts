@@ -132,21 +132,38 @@ function makeDeps(now: number, activeParams: () => Partial<{ alpha: number }> | 
 }
 
 describe('runFlywheelTick', () => {
-  it('LEARNS: a lower-alpha neighbor improves the anchor without regressing the guard → applied + proven', async () => {
+  it('LEARNS: evaluation emits proof without mutating the active champion', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'fw-'));
     const r = await runFlywheelTick(cwd, makeDeps(1000));
     expect(r.ran).toBe(true);
     expect(r.accepted).toBe(true);
-    expect(r.applied).toBe(true);
+    expect(r.applied).toBe(false);
     expect(r.anchorRegressed).toBe(false);                 // guard held
     expect(r.candidateScore!).toBeGreaterThan(r.baselineScore!); // real improvement
-    // the champion is live AND the proof ledger recorded a significant, accepted entry.
-    expect((activeChampion(cwd)?.params as { alpha: number }).alpha).toBeLessThanOrEqual(0.4);
+    expect(activeChampion(cwd)).toBeNull();
+    expect(r.receiptId).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(r.receipt?.payload.decision).toBe('accepted');
+    expect(r.promotable).toBe(false); // unsigned local evaluation cannot promote
     const led = readLedger(join(cwd, '.claude-flow', 'metrics'));
     expect(led.length).toBe(1);
     expect(led[0].accepted).toBe(true);
     expect(led[0].significant).toBe(true);                 // survived the bootstrap CI
     expect(led[0].deltaCILow!).toBeGreaterThan(0);
+  });
+
+  it('retains implicit mutation for one compatibility cycle only behind an explicit flag', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'fw-'));
+    const prior = process.env.RUFLO_FLYWHEEL_LEGACY_APPLY;
+    process.env.RUFLO_FLYWHEEL_LEGACY_APPLY = '1';
+    try {
+      const r = await runFlywheelTick(cwd, makeDeps(1000));
+      expect(r.applied).toBe(true);
+      expect(r.legacyDeprecation).toBe(true);
+      expect((activeChampion(cwd)?.params as { alpha: number }).alpha).toBeLessThanOrEqual(0.4);
+    } finally {
+      if (prior === undefined) delete process.env.RUFLO_FLYWHEEL_LEGACY_APPLY;
+      else process.env.RUFLO_FLYWHEEL_LEGACY_APPLY = prior;
+    }
   });
 
   it('records the attempt even on a no-op (proof surface is always written)', async () => {

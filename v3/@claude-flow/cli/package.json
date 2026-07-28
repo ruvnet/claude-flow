@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/cli",
-  "version": "3.32.25",
+  "version": "3.32.26",
   "type": "module",
   "description": "Ruflo CLI - Enterprise AI agent orchestration with 60+ specialized agents, swarm coordination, MCP server, self-learning hooks, and vector memory for Claude Code",
   "main": "dist/src/index.js",
@@ -86,6 +86,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "check:metaharness-pins": "node ../../../scripts/check-metaharness-pins.mjs",
     "test": "vitest run",
     "test:plugin-store": "npx tsx src/plugins/tests/standalone-test.ts",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
@@ -116,6 +117,7 @@
     "@claude-flow/memory": "^3.0.0-alpha.21",
     "@claude-flow/security": "^3.0.0-alpha.12",
     "@metaharness/darwin": "^0.8.0",
+    "@metaharness/flywheel": "^0.1.7",
     "agentdb": "^3.0.0-alpha.17",
     "agentic-flow": "^3.0.0-alpha.1",
     "better-sqlite3": "^12.9.0",
