@@ -74,7 +74,7 @@ async function main() {
   // ──────────────────────────────────────────────────────────────────
   console.log('Phase 1 — module shape');
   assert(Array.isArray(tools), 'metaharnessTools is an array');
-  assert(tools.length === 15, `15 tools registered (got ${tools.length})`);
+  assert(tools.length === 16, `16 tools registered (got ${tools.length})`);
 
   const expectedNames = new Set([
     'metaharness_score',
@@ -98,6 +98,8 @@ async function main() {
     'metaharness_learn',
     // @metaharness/darwin@0.8.0 — GEPA library surface (genome ops)
     'metaharness_gepa',
+    // ADR-322 — in-process governed evaluation and atomic promotion
+    'metaharness_flywheel',
   ]);
   const actualNames = new Set(tools.map((t) => t.name));
   for (const name of expectedNames) {

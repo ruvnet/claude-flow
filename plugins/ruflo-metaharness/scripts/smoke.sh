@@ -21,6 +21,7 @@ TOOLS_SRC="$ROOT/../../v3/@claude-flow/cli/src/mcp-tools/metaharness-tools.ts"
 SUBS_SRC="$ROOT/../../v3/@claude-flow/cli/src/commands/metaharness.ts"
 EXPECTED_TOOLS=$(grep -cE "name: 'metaharness_" "$TOOLS_SRC" 2>/dev/null; true)
 EXPECTED_SUBS=$(grep -cE "^[[:space:]]+'?[a-z-]+'?:[[:space:]]*'[a-z-]+\.mjs'" "$SUBS_SRC" 2>/dev/null; true)
+EXPECTED_IN_PROCESS_TOOLS=1 # ADR-322 metaharness_flywheel
 : "${EXPECTED_TOOLS:=0}"
 : "${EXPECTED_SUBS:=0}"
 
@@ -883,11 +884,17 @@ for f in $REFS; do
   COUNT=$((COUNT + 1))
   [[ -f "$SCRIPTS_DIR/$f" ]] || miss="$miss mcp-script-${f}-missing"
 done
-# One unique runScript() ref per MCP tool (mint deliberately excluded).
+# One unique runScript() ref per subprocess-backed MCP tool (mint deliberately
+# excluded). ADR-322's metaharness_flywheel is intentionally in-process so
+# evaluation cancellation and atomic promotion share the CLI transaction code.
 # Cross-aspect check: runScript('*.mjs') call sites vs the derived
-# `name: 'metaharness_*'` declaration count in the same file — a handler
-# added without a script ref (or vice-versa) diverges these.
-[[ "$COUNT" == "$EXPECTED_TOOLS" ]] || miss="$miss mcp-script-count-stale:$COUNT-expected-$EXPECTED_TOOLS"
+# `name: 'metaharness_*'` declaration count minus the explicitly governed
+# in-process surface.
+EXPECTED_SCRIPT_TOOLS=$((EXPECTED_TOOLS - EXPECTED_IN_PROCESS_TOOLS))
+[[ "$COUNT" == "$EXPECTED_SCRIPT_TOOLS" ]] || miss="$miss mcp-script-count-stale:$COUNT-expected-$EXPECTED_SCRIPT_TOOLS"
+grep -q "name: 'metaharness_flywheel'" "$WRAPPER" 2>/dev/null || miss="$miss no-in-process-flywheel"
+grep -q "runFlywheelWorker" "$WRAPPER" 2>/dev/null || miss="$miss no-flywheel-evaluator"
+grep -q "promoteFlywheelCandidate" "$WRAPPER" 2>/dev/null || miss="$miss no-flywheel-promoter"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "17z52. SUBCOMMANDS map entries point at existing script files (iter 89)"
@@ -1696,11 +1703,11 @@ CODE=$?
 step "17z9. MCP success-semantic footnote + audit_trend file inputs (iter 46)"
 miss=""
 WRAPPER="$ROOT/../../v3/@claude-flow/cli/src/mcp-tools/metaharness-tools.ts"
-# Success-semantic constant declared + appended to N tool descriptions =
-# N+1 occurrences. N is the derived tool count — cross-aspect check within
-# the wrapper: footnote appends vs `name:` declarations.
+# Success-semantic constant declared + appended to every subprocess-backed
+# tool description. The in-process flywheel has its own transaction semantics,
+# so total occurrences equal the total tool count (1 constant + N-1 tools).
 COUNT=$(grep -c "MCP_SUCCESS_SEMANTIC" "$WRAPPER" 2>/dev/null; true)
-[[ "$COUNT" == "$((EXPECTED_TOOLS + 1))" ]] || miss="$miss footnote-count:$COUNT-expected-$((EXPECTED_TOOLS + 1))"
+[[ "$COUNT" == "$EXPECTED_TOOLS" ]] || miss="$miss footnote-count:$COUNT-expected-$EXPECTED_TOOLS"
 # audit_trend now exposes baselineFile / currentFile
 grep -q "baselineFile" "$WRAPPER" 2>/dev/null || miss="$miss no-baseline-file"
 grep -q "currentFile" "$WRAPPER" 2>/dev/null || miss="$miss no-current-file"
@@ -1738,9 +1745,10 @@ grep -q "success = exitCode === 0" "$WRAPPER" 2>/dev/null || miss="$miss no-exit
 COUNT_OLD=$(grep -c "success: !r.degraded" "$WRAPPER" 2>/dev/null; true)
 [[ "$COUNT_OLD" == "0" ]] || miss="$miss old-pattern-still-present:$COUNT_OLD"
 COUNT_NEW=$(grep -c "success: r.success" "$WRAPPER" 2>/dev/null; true)
-# One `success: r.success` per handler = the derived tool count. Cross-aspect
-# check within the wrapper: handler success-wiring vs `name:` declarations.
-[[ "$COUNT_NEW" == "$EXPECTED_TOOLS" ]] || miss="$miss new-pattern-count:$COUNT_NEW-expected-$EXPECTED_TOOLS"
+# One `success: r.success` per subprocess-backed handler. The in-process
+# flywheel derives success from evaluation/promotion transaction results.
+EXPECTED_SCRIPT_TOOLS=$((EXPECTED_TOOLS - EXPECTED_IN_PROCESS_TOOLS))
+[[ "$COUNT_NEW" == "$EXPECTED_SCRIPT_TOOLS" ]] || miss="$miss new-pattern-count:$COUNT_NEW-expected-$EXPECTED_SCRIPT_TOOLS"
 # Runtime anchors: iter 44 success assertions present
 T="$ROOT/scripts/test-mcp-tools.mjs"
 grep -q "iter 44 fix" "$T" 2>/dev/null || miss="$miss no-iter44-anchors"
@@ -2099,10 +2107,10 @@ grep -q "result has 'success'" "$F" || miss="$miss no-success-assertion"
 grep -q "result has 'data'" "$F" || miss="$miss no-data-assertion"
 grep -q "result has 'degraded'" "$F" || miss="$miss no-degraded-assertion"
 grep -q "result has 'exitCode'" "$F" || miss="$miss no-exitcode-assertion"
-# All 15 tool names enumerated (similarity iter 36, drift_from_history iter 54,
+# All tool names enumerated (similarity iter 36, drift_from_history iter 54,
 # ADR-153 added bench/evolve/security_bench, @metaharness/redblue added redblue,
-# metaharness@0.3.0/darwin@0.8.0 added learn + gepa)
-for tool in metaharness_score metaharness_genome metaharness_mcp_scan metaharness_threat_model metaharness_oia_audit metaharness_audit_list metaharness_audit_trend metaharness_similarity metaharness_drift_from_history metaharness_bench metaharness_evolve metaharness_security_bench metaharness_redblue metaharness_learn metaharness_gepa; do
+# metaharness@0.3.0/darwin@0.8.0 added learn + gepa, ADR-322 added flywheel)
+for tool in metaharness_score metaharness_genome metaharness_mcp_scan metaharness_threat_model metaharness_oia_audit metaharness_audit_list metaharness_audit_trend metaharness_similarity metaharness_drift_from_history metaharness_bench metaharness_evolve metaharness_security_bench metaharness_redblue metaharness_learn metaharness_gepa metaharness_flywheel; do
   grep -q "${tool}" "$F" || miss="$miss missing-${tool}"
 done
 # test-mcp-tools.mjs keeps its own hardcoded `tools.length === N` literal —
