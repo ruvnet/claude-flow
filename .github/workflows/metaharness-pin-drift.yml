@@ -1,0 +1,79 @@
+# metaharness-pin-drift — watch ruflo's metaharness dependency pins for drift.
+#
+# A pin correct at publish time silently rots when upstream ships a release the
+# pin's range excludes (agent-harness-generator#142 / #149). This workflow diffs
+# each declared range against npm `latest` on a schedule, opens/updates a
+# tracking issue when a pin falls behind, and fails PRs that introduce drift.
+name: metaharness-pin-drift
+
+on:
+  schedule:
+    - cron: '17 5 * * 1'   # Mondays 05:17 UTC (off-peak minute)
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'v3/@claude-flow/cli/package.json'
+      - 'v3/@claude-flow/cli/src/services/distill-oracle.ts'
+      - 'scripts/check-metaharness-pins.mjs'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  pin-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check metaharness pin drift
+        id: check
+        run: |
+          node scripts/check-metaharness-pins.mjs --format json > /tmp/pins.json
+          echo "drift=0" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      # The script exits 1 on drift; surface that as an output flag without
+      # failing the whole job (so the scheduled path can still file the issue).
+      - name: Record drift flag
+        if: steps.check.outcome == 'failure'
+        run: echo "drift=1" >> "$GITHUB_OUTPUT"
+        id: flag
+
+      - name: Human-readable summary
+        if: always()
+        run: node scripts/check-metaharness-pins.mjs || true
+
+      # On a PR, drift is a hard failure — a PR must not merge a stale pin.
+      - name: Fail PR on drift
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-metaharness-pins.mjs
+
+      # On the schedule/dispatch path, open or update a tracking issue.
+      - name: Open or update tracking issue on drift
+        if: steps.flag.outputs.drift == '1' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="metaharness pin drift — a pinned dependency is behind npm latest"
+          BODY_FILE=/tmp/issue-body.md
+          {
+            echo "The metaharness pin-drift watcher found a pin whose range no longer"
+            echo "admits the current npm release. Bump the range in"
+            echo "\`v3/@claude-flow/cli/package.json\` (and \`MH_DARWIN_PIN\` in"
+            echo "\`distill-oracle.ts\` if darwin moved), then re-run the guard."
+            echo ""
+            echo '```json'
+            cat /tmp/pins.json
+            echo '```'
+          } > "$BODY_FILE"
+          EXISTING=$(gh issue list --search "$TITLE in:title" --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file "$BODY_FILE"
+          else
+            gh issue create --title "$TITLE" --label bug --body-file "$BODY_FILE"
+          fi
