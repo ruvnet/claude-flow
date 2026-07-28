@@ -37,9 +37,16 @@
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { spawnSync } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { runFlywheelWorker } from '../services/harness-flywheel-runtime.js';
+import {
+  listFlywheelReceipts,
+  promoteFlywheelCandidate,
+  readFlywheelTransactionState,
+  verifyFlywheelLedger,
+} from '../services/flywheel-transaction.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -69,7 +76,76 @@ const SUBCOMMANDS: Record<string, string> = {
   // @metaharness/darwin@0.8.0 — GEPA library surface (genome ops; the
   // gepaOptimize loop itself stays library-only / behind evolve)
   gepa: 'gepa.mjs',
+  // ADR-153 Darwin evolution and stable benchmark-corpus operations.
+  evolve: 'evolve.mjs',
+  bench: 'bench.mjs',
+  // ADR-322 evaluation receipt + atomic promotion loop; handled in-process.
+  flywheel: '__internal__',
 };
+
+function flywheelFlag<T>(flags: Record<string, unknown>, name: string, fallback?: T): T | undefined {
+  const value = flags[name];
+  return (value === undefined ? fallback : value) as T | undefined;
+}
+
+async function dispatchFlywheel(
+  operation: string | undefined,
+  positional: string[],
+  flags: Record<string, unknown>,
+): Promise<CommandResult> {
+  const projectRoot = resolve(String(flywheelFlag(flags, 'projectRoot', process.cwd())));
+  let data: unknown;
+  if (!operation || operation === 'status') {
+    data = {
+      state: readFlywheelTransactionState(projectRoot),
+      ledger: verifyFlywheelLedger(projectRoot),
+    };
+  } else if (operation === 'run') {
+    const privateKeyPath = flywheelFlag<string>(flags, 'privateKey');
+    const publicKeyPath = flywheelFlag<string>(flags, 'publicKey');
+    if (!!privateKeyPath !== !!publicKeyPath) {
+      data = { success: false, reason: '--private-key and --public-key must be supplied together' };
+    } else {
+      data = await runFlywheelWorker(projectRoot, {
+        optInOverride: true,
+        sample: Number(flywheelFlag(flags, 'sample', 40)),
+        proposer: String(flywheelFlag(flags, 'proposer', 'auto')) as 'auto' | 'local' | 'darwin',
+        receiptPrivateKeyPem: privateKeyPath ? readFileSync(resolve(privateKeyPath), 'utf8') : undefined,
+        receiptPublicKeyPem: publicKeyPath ? readFileSync(resolve(publicKeyPath), 'utf8') : undefined,
+      });
+    }
+  } else if (operation === 'receipts') {
+    data = listFlywheelReceipts(projectRoot).map(({ receipt, state }) => ({
+      receiptId: receipt.payload.receiptId,
+      candidateId: receipt.payload.candidateId,
+      baselineRef: receipt.payload.baselineRef,
+      decision: receipt.payload.decision,
+      signed: !!receipt.signature,
+      issuedAt: receipt.payload.issuedAt,
+      state,
+    }));
+  } else if (operation === 'history') {
+    const state = readFlywheelTransactionState(projectRoot);
+    data = { ledgerHead: state.ledgerHead, commits: state.commits };
+  } else if (operation === 'promote') {
+    const receiptId = positional[0];
+    const publicKeyPath = flywheelFlag<string>(flags, 'publicKey');
+    if (!receiptId || !publicKeyPath) {
+      data = { success: false, reason: 'promote requires <receipt-id> and --public-key <PEM path>' };
+    } else {
+      const publicKey = readFileSync(resolve(publicKeyPath), 'utf8');
+      data = await promoteFlywheelCandidate(projectRoot, receiptId, {
+        confirm: flywheelFlag<boolean>(flags, 'confirm', false) === true,
+        trustedPublicKeys: new Set([publicKey]),
+      });
+    }
+  } else {
+    data = { success: false, reason: `unknown flywheel operation: ${operation}` };
+  }
+  output.writeln(JSON.stringify(data, null, 2));
+  const success = !(data && typeof data === 'object' && (data as { success?: boolean }).success === false);
+  return { success, exitCode: success ? 0 : 1, data };
+}
 
 /**
  * Walk up from the current dirname to find the ruflo repo root that
@@ -134,7 +210,7 @@ export const metaharnessCommand: Command = {
       // iter 73 — list reflects all dispatchable subcommands (was
       // stale at the iter-3 list of 5). Keep this synced with the
       // SUBCOMMANDS map above.
-      description: 'One of: score | genome | mcp-scan | threat-model | oia-audit | audit-list | audit-trend | similarity | drift-from-history | mint | redblue | learn | gepa',
+      description: 'One of: score | genome | mcp-scan | threat-model | oia-audit | audit-list | audit-trend | similarity | drift-from-history | mint | redblue | learn | gepa | evolve | bench | flywheel',
       type: 'string' as const,
     },
   ],
@@ -194,6 +270,9 @@ export const metaharnessCommand: Command = {
       output.writeln('  drift-from-history  iter 53 — diff current state against most recent audit (1-command drift)');
       output.writeln('  mint          scaffold a custom harness (dry-run by default)');
       output.writeln('  redblue       adversarial red/blue LLM testing (init|run|patch|attack|report)');
+      output.writeln('  evolve        Darwin candidate evolution');
+      output.writeln('  bench         create or verify a stable benchmark suite');
+      output.writeln('  flywheel      receipt loop: run | status | receipts | history | promote');
       output.writeln('');
       output.writeln('Each subcommand accepts --format json|table and --help.');
       output.writeln('');
@@ -205,6 +284,10 @@ export const metaharnessCommand: Command = {
       output.writeln(output.error(`Unknown subcommand: ${subcommand}`));
       output.writeln(`Valid: ${Object.keys(SUBCOMMANDS).join(', ')}`);
       return { success: false, exitCode: 2, data: { subcommand } };
+    }
+
+    if (subcommand === 'flywheel') {
+      return dispatchFlywheel(positionalRest[0], positionalRest.slice(1), ctxFlags);
     }
 
     const scriptDir = locatePluginScripts(SUBCOMMANDS[subcommand]);

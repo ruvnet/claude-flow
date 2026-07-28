@@ -157,6 +157,9 @@ importers:
       '@metaharness/darwin':
         specifier: ^0.8.0
         version: 0.8.0
+      '@metaharness/flywheel':
+        specifier: ^0.1.7
+        version: 0.1.7
       agentdb:
         specifier: ^3.0.0-alpha.17
         version: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)

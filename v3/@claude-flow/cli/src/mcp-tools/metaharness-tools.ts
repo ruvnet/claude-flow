@@ -50,9 +50,16 @@
 import type { MCPTool, getProjectCwd as _ } from './types.js';
 import { getProjectCwd } from './types.js';
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runFlywheelWorker } from '../services/harness-flywheel-runtime.js';
+import {
+  listFlywheelReceipts,
+  promoteFlywheelCandidate,
+  readFlywheelTransactionState,
+  verifyFlywheelLedger,
+} from '../services/flywheel-transaction.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -607,6 +614,83 @@ export const metaharnessTools: MCPTool[] = [
       if (input.alertOnInvalid === true) args.push('--alert-on-invalid');
       const r = await runScript('gepa.mjs', args);
       return { success: r.success, data: r.json, degraded: r.degraded, exitCode: r.exitCode };
+    },
+  },
+  {
+    name: 'metaharness_flywheel',
+    description: 'ADR-322 — evaluate candidates into immutable receipts, inspect the append-only promotion ledger, and explicitly promote one signed receipt with atomic compare-and-swap semantics. Evaluation never mutates the active champion. Promotion requires confirm=true and a local approved Ed25519 public-key PEM path; explicit trust is mandatory.',
+    category: 'metaharness',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        operation: { type: 'string', enum: ['run', 'status', 'receipts', 'history', 'promote'], description: 'Flywheel operation', default: 'status' },
+        projectRoot: { type: 'string', description: 'Target project root (default: active project cwd)' },
+        receiptId: { type: 'string', description: 'Receipt content ID for promote' },
+        sample: { type: 'number', description: 'Maximum harvested evaluation sample', default: 40 },
+        proposer: { type: 'string', enum: ['local', 'auto', 'darwin'], description: 'Candidate proposer. Auto fallback is evaluation-only; explicit darwin fails closed when no compatible adapter is installed.', default: 'auto' },
+        privateKeyPath: { type: 'string', description: 'Local Ed25519 private-key PEM path for signing run receipts; must be paired with publicKeyPath' },
+        publicKeyPath: { type: 'string', description: 'Local Ed25519 public-key PEM path used to sign a run or approve a promotion' },
+        confirm: { type: 'boolean', description: 'Required for promote; never inferred', default: false },
+      },
+      required: ['operation'],
+    },
+    handler: async (input) => {
+      const operation = String(input.operation ?? 'status');
+      const projectRoot = resolve(String(input.projectRoot ?? getProjectCwd()));
+      if (operation === 'status') {
+        return {
+          success: true,
+          data: {
+            state: readFlywheelTransactionState(projectRoot),
+            ledger: verifyFlywheelLedger(projectRoot),
+          },
+          degraded: false,
+          exitCode: 0,
+        };
+      }
+      if (operation === 'receipts') {
+        const data = listFlywheelReceipts(projectRoot).map(({ receipt, state }) => ({
+          receiptId: receipt.payload.receiptId,
+          candidateId: receipt.payload.candidateId,
+          baselineRef: receipt.payload.baselineRef,
+          decision: receipt.payload.decision,
+          signed: !!receipt.signature,
+          issuedAt: receipt.payload.issuedAt,
+          state,
+        }));
+        return { success: true, data, degraded: false, exitCode: 0 };
+      }
+      if (operation === 'history') {
+        const state = readFlywheelTransactionState(projectRoot);
+        return { success: true, data: { ledgerHead: state.ledgerHead, commits: state.commits }, degraded: false, exitCode: 0 };
+      }
+      if (operation === 'run') {
+        const privateKeyPath = input.privateKeyPath ? resolve(String(input.privateKeyPath)) : undefined;
+        const publicKeyPath = input.publicKeyPath ? resolve(String(input.publicKeyPath)) : undefined;
+        if (!!privateKeyPath !== !!publicKeyPath) {
+          return { success: false, data: { reason: 'privateKeyPath and publicKeyPath must be supplied together' }, degraded: false, exitCode: 2 };
+        }
+        const data = await runFlywheelWorker(projectRoot, {
+          optInOverride: true,
+          sample: Number(input.sample ?? 40),
+          proposer: String(input.proposer ?? 'auto') as 'local' | 'auto' | 'darwin',
+          receiptPrivateKeyPem: privateKeyPath ? readFileSync(privateKeyPath, 'utf8') : undefined,
+          receiptPublicKeyPem: publicKeyPath ? readFileSync(publicKeyPath, 'utf8') : undefined,
+        });
+        return { success: data.ran, data, degraded: false, exitCode: data.ran ? 0 : 1 };
+      }
+      if (operation === 'promote') {
+        if (!input.receiptId || !input.publicKeyPath) {
+          return { success: false, data: { reason: 'receiptId and publicKeyPath are required' }, degraded: false, exitCode: 2 };
+        }
+        const publicKey = readFileSync(resolve(String(input.publicKeyPath)), 'utf8');
+        const data = await promoteFlywheelCandidate(projectRoot, String(input.receiptId), {
+          confirm: input.confirm === true,
+          trustedPublicKeys: new Set([publicKey]),
+        });
+        return { success: data.success, data, degraded: false, exitCode: data.success ? 0 : 1 };
+      }
+      return { success: false, data: { reason: `unsupported operation: ${operation}` }, degraded: false, exitCode: 2 };
     },
   },
 ];

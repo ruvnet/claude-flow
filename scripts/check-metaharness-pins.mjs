@@ -29,7 +29,7 @@
 
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -37,10 +37,11 @@ const REPO = join(HERE, '..');
 const CLI_PKG = join(REPO, 'v3', '@claude-flow', 'cli', 'package.json');
 const DISTILL = join(REPO, 'v3', '@claude-flow', 'cli', 'src', 'services', 'distill-oracle.ts');
 
-const ARGS = { format: 'table', offline: false };
+const ARGS = { format: 'table', offline: false, requireInstalled: false };
 for (let i = 2; i < process.argv.length; i++) {
   if (process.argv[i] === '--format') ARGS.format = process.argv[++i];
   else if (process.argv[i] === '--offline') ARGS.offline = true;
+  else if (process.argv[i] === '--require-installed') ARGS.requireInstalled = true;
 }
 
 /** Parse "1.2.3" → [1,2,3]; tolerant of pre-release/build suffixes. */
@@ -78,6 +79,7 @@ async function main() {
     { name: 'metaharness', range: pkg.dependencies?.metaharness, where: 'dependencies' },
     { name: '@metaharness/router', range: pkg.dependencies?.['@metaharness/router'], where: 'dependencies' },
     { name: '@metaharness/darwin', range: pkg.optionalDependencies?.['@metaharness/darwin'], where: 'optionalDependencies' },
+    { name: '@metaharness/flywheel', range: pkg.optionalDependencies?.['@metaharness/flywheel'], where: 'optionalDependencies' },
   ];
 
   const rows = [];
@@ -104,8 +106,33 @@ async function main() {
 
   const stale = rows.filter((r) => r.status === 'STALE');
   const constBad = constRow && constRow.status === 'OUT-OF-RANGE';
-  const drift = stale.length > 0 || constBad;
-  const payload = { generatedAt: new Date().toISOString(), drift, pins: rows, constCheck: constRow };
+  const apiErrors = [];
+  if (ARGS.requireInstalled) {
+    const cliDir = dirname(CLI_PKG);
+    try {
+      const darwin = await import(pathToFileURL(join(cliDir, 'node_modules/@metaharness/darwin/dist/index.js')).href);
+      if (typeof darwin.evolve !== 'function') apiErrors.push('@metaharness/darwin must export evolve');
+    } catch (error) {
+      apiErrors.push(`@metaharness/darwin import failed: ${error.message}`);
+    }
+    try {
+      const flywheel = await import(pathToFileURL(join(cliDir, 'node_modules/@metaharness/flywheel/dist/index.js')).href);
+      for (const symbol of ['runFlywheelGenerations', 'meetsPromotionRule', 'makeSigner', 'verifyReplayBundle']) {
+        if (typeof flywheel[symbol] !== 'function') apiErrors.push(`@metaharness/flywheel must export ${symbol}`);
+      }
+    } catch (error) {
+      apiErrors.push(`@metaharness/flywheel import failed: ${error.message}`);
+    }
+  }
+  const drift = stale.length > 0 || constBad || apiErrors.length > 0;
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    drift,
+    pins: rows,
+    constCheck: constRow,
+    installedApiChecked: ARGS.requireInstalled,
+    apiErrors,
+  };
 
   if (ARGS.format === 'json') {
     console.log(JSON.stringify(payload, null, 2));
@@ -115,6 +142,7 @@ async function main() {
     console.log('|---|---|---|---|');
     for (const r of rows) console.log(`| ${r.name} | ${r.range ?? '—'} | ${r.latest ?? '—'} | ${r.status} |`);
     if (constRow) console.log(`| ${constRow.name} | =${constRow.pin} (vs ${constRow.declared}) | — | ${constRow.status} |`);
+    if (ARGS.requireInstalled) console.log(`\nInstalled API check: ${apiErrors.length ? `FAIL — ${apiErrors.join('; ')}` : 'PASS'}`);
     console.log('');
     if (drift) {
       console.log('⚠ **Pin drift detected.** One or more metaharness pins no longer admit the current npm release.');
