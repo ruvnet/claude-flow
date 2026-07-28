@@ -683,7 +683,7 @@ describe('generateConfigToml', () => {
 
       expect(result).toContain('[mcp_servers.ruflo]');
       expect(result).toContain('command = "npx"');
-      expect(result).toContain(`args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]`);
+      expect(result).toContain(`args = ["-y", "ruflo@latest", "mcp", "start"]`);
       expect(result).toContain('enabled = true');
     });
 
@@ -963,7 +963,7 @@ describe('generateCIConfigToml', () => {
     const result = await generateCIConfigToml('win32');
 
     expect(result).toContain('command = "cmd"');
-    expect(result).toContain('args = ["/c", "npx", "-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]');
+    expect(result).toContain('args = ["/c", "npx", "-y", "ruflo@latest", "mcp", "start"]');
     expect(result).toContain('startup_timeout_sec = 120');
     expect(result).toContain('tool_timeout_sec = 300');
   });

@@ -5,6 +5,7 @@
  */
 
 import type { ConfigTomlOptions, McpServerConfig, SkillConfig, ConfigProfile } from '../types.js';
+import { getRufloMcpServerConfig, renderMcpServerToml } from '../mcp-config.js';
 
 /**
  * Security configuration options
@@ -182,13 +183,7 @@ export async function generateConfigToml(options: ExtendedConfigTomlOptions = {}
     // Default claude-flow server
     const hasRuflo = mcpServers.some(s => s.name === 'ruflo' || s.name === 'claude-flow');
     if (!hasRuflo) {
-      lines.push(...generateMcpServer({
-        name: 'ruflo',
-        command: 'npx',
-        args: ['-y', '--package=@claude-flow/cli@latest', 'claude-flow-mcp'],
-        enabled: true,
-        toolTimeout: 120,
-      }));
+      lines.push(...generateMcpServer(getRufloMcpServerConfig()));
       lines.push('');
     }
 
@@ -558,8 +553,9 @@ sandbox_mode = "${sandboxMode}"
 
 [mcp_servers.ruflo]
 command = "npx"
-args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
+args = ["-y", "ruflo@latest", "mcp", "start"]
 enabled = true
+startup_timeout_sec = 120
 `;
 }
 
@@ -567,9 +563,7 @@ enabled = true
  * Generate CI/CD config.toml
  */
 export async function generateCIConfigToml(platform: NodeJS.Platform = process.platform): Promise<string> {
-  const mcpCommand = platform === 'win32'
-    ? 'command = "cmd"\nargs = ["/c", "npx", "-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]'
-    : 'command = "npx"\nargs = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]';
+  const mcpCommand = renderMcpServerToml(getRufloMcpServerConfig(platform, 300)).join('\n');
   return `# =============================================================================
 # Claude Flow V3 - CI/CD Pipeline Configuration
 # =============================================================================
@@ -592,11 +586,7 @@ remote_compaction = false
 child_agents_md = true
 request_rule = false
 
-[mcp_servers.ruflo]
 ${mcpCommand}
-enabled = true
-startup_timeout_sec = 120
-tool_timeout_sec = 300
 
 [history]
 persistence = "none"
@@ -672,7 +662,7 @@ remote_compaction = true
 
 [mcp_servers.ruflo]
 command = "npx"
-args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
+args = ["-y", "ruflo@latest", "mcp", "start"]
 enabled = true
 tool_timeout_sec = 120
 
@@ -877,7 +867,7 @@ remote_compaction = true
 
 [mcp_servers.ruflo]
 command = "npx"
-args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
+args = ["-y", "ruflo@latest", "mcp", "start"]
 enabled = true
 tool_timeout_sec = 120
 
@@ -958,7 +948,7 @@ remote_compaction = false
 
 [mcp_servers.ruflo]
 command = "npx"
-args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
+args = ["-y", "ruflo@latest", "mcp", "start"]
 enabled = true
 tool_timeout_sec = 60
 

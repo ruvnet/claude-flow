@@ -203,9 +203,7 @@ export class DualModeOrchestrator extends EventEmitter {
         args.push('--model', config.model);
       }
     } else {
-      args = [
-        'exec',
-        '--sandbox',
+      args = ['exec', '--sandbox',
         config.readOnly ? 'read-only' : 'workspace-write',
         '--skip-git-repo-check',
       ];

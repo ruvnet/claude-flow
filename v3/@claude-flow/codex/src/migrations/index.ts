@@ -16,6 +16,7 @@ import type {
   ApprovalPolicy,
   SandboxMode,
 } from '../types.js';
+import { getRufloMcpServerConfig, renderMcpServerToml } from '../mcp-config.js';
 
 /**
  * Parsed CLAUDE.md structure
@@ -786,16 +787,7 @@ export function convertSettingsToToml(
 
   // Ruflo is additive for every migrated installation. Unknown/custom MCP
   // entries above are preserved.
-  lines.push('[mcp_servers.ruflo]');
-  if (platform === 'win32') {
-    lines.push('command = "cmd"');
-    lines.push('args = ["/c", "npx", "-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]');
-  } else {
-    lines.push('command = "npx"');
-    lines.push('args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]');
-  }
-  lines.push('enabled = true');
-  lines.push('startup_timeout_sec = 120');
+  lines.push(...renderMcpServerToml(getRufloMcpServerConfig(platform)));
   lines.push('');
 
   // Additive compatibility defaults. Enforcement and unattended fanout are
@@ -883,16 +875,7 @@ export function generateConfigTomlFromParsed(parsed: ParsedClaudeMd): string {
       lines.push('');
     }
   }
-  lines.push('[mcp_servers.ruflo]');
-  if (process.platform === 'win32') {
-    lines.push('command = "cmd"');
-    lines.push('args = ["/c", "npx", "-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]');
-  } else {
-    lines.push('command = "npx"');
-    lines.push('args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]');
-  }
-  lines.push('enabled = true');
-  lines.push('startup_timeout_sec = 120');
+  lines.push(...renderMcpServerToml(getRufloMcpServerConfig()));
   lines.push('');
 
   lines.push('[policy]');
