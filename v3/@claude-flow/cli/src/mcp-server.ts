@@ -27,6 +27,7 @@ import * as os from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { trackRequest } from './mcp-tools/request-tracker.js';
+import { getProjectCwd } from './mcp-tools/types.js';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -749,7 +750,7 @@ export class MCPServerManager extends EventEmitter {
     }
     // Also clean up legacy PID file location from older versions
     try {
-      const legacyPath = path.join(process.env.CLAUDE_FLOW_CWD || process.cwd(), '.claude-flow', 'mcp-server.pid');
+      const legacyPath = path.join(getProjectCwd(), '.claude-flow', 'mcp-server.pid');
       if (legacyPath !== this.options.pidFile) {
         await fs.promises.unlink(legacyPath);
       }

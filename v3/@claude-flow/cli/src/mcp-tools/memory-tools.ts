@@ -14,7 +14,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFile
 import { homedir } from 'os';
 import { join, resolve } from 'path';
 import { createHash } from 'crypto';
-import type { MCPTool } from './types.js';
+import { type MCPTool, getProjectCwd } from './types.js';
 import { validateIdentifier } from './validate-input.js';
 
 // Legacy JSON store interface (for migration)
@@ -39,15 +39,15 @@ const LEGACY_MEMORY_DIR = '.claude-flow/memory';
 const MIGRATION_MARKER = '.migrated-to-sqlite';
 
 function getMemoryDir(): string {
-  return resolve(MEMORY_DIR);
+  return join(getProjectCwd(), MEMORY_DIR);
 }
 
 function getLegacyPath(): string {
-  return resolve(join(MEMORY_DIR, LEGACY_MEMORY_FILE));
+  return join(getProjectCwd(), MEMORY_DIR, LEGACY_MEMORY_FILE);
 }
 
 function getMigrationMarkerPath(): string {
-  return resolve(join(MEMORY_DIR, MIGRATION_MARKER));
+  return join(getProjectCwd(), MEMORY_DIR, MIGRATION_MARKER);
 }
 
 function ensureMemoryDir(): void {
@@ -141,7 +141,9 @@ function resolveProjectMemoryDir(claudeProjectsDir: string, projectPathOverride?
   if (projectPathOverride && projectPathOverride.length > 0) {
     sources.push(projectPathOverride);
   } else {
-    sources.push(process.cwd());
+    // #1577 — use getProjectCwd() so the hash is stable even when process.cwd()
+    // points at System32 (Windows MCP launches) or '/' (global installs).
+    sources.push(getProjectCwd());
   }
 
   for (const source of sources) {
