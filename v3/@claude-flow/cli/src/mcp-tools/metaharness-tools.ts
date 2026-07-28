@@ -619,7 +619,7 @@ export const metaharnessTools: MCPTool[] = [
   },
   {
     name: 'metaharness_flywheel',
-    description: 'ADR-322 — evaluate candidates into immutable receipts, inspect the append-only promotion ledger, and explicitly promote one signed receipt with atomic compare-and-swap semantics. Evaluation never mutates the active champion. Promotion requires confirm=true and a local approved Ed25519 public-key PEM path; explicit trust is mandatory.',
+    description: 'ADR-322 — evaluate candidates into immutable receipts, inspect the append-only promotion ledger, and explicitly promote one signed receipt with atomic compare-and-swap semantics. Use when running governed flywheel evaluation or promotion; evaluation never mutates the active champion, and promotion requires confirm=true plus a locally approved Ed25519 public-key PEM path.',
     category: 'metaharness',
     inputSchema: {
       type: 'object',

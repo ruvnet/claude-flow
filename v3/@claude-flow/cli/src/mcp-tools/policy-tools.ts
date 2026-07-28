@@ -28,7 +28,7 @@ function requireAuthenticatedAdministrator(
 export const policyTools: MCPTool[] = [
   {
     name: 'policy_evaluate',
-    description: 'Evaluate an agent action against ADR-324 policy and persist a tamper-evident decision receipt. Use this before consequential tool, deployment, network, spend, or promotion actions.',
+    description: 'Evaluate an agent action against ADR-324 policy and persist a tamper-evident decision receipt. Use when a consequential tool, deployment, network, spend, or promotion action needs authorization.',
     category: 'security',
     inputSchema: {
       type: 'object',
@@ -44,7 +44,7 @@ export const policyTools: MCPTool[] = [
   },
   {
     name: 'policy_status',
-    description: 'Inspect policy mode, migration state, rules, budgets, approvals, and ledger integrity. Use this to diagnose whether an installation is in compatibility, observation, or enforcement mode.',
+    description: 'Inspect policy mode, migration state, rules, budgets, approvals, and ledger integrity. Use when diagnosing whether an installation is in compatibility, observation, or enforcement mode.',
     category: 'security',
     inputSchema: {
       type: 'object',
@@ -69,7 +69,7 @@ export const policyTools: MCPTool[] = [
   },
   {
     name: 'policy_rule_upsert',
-    description: 'Create or update a versioned agentic policy rule. Use this for explicit allow, deny, or human-approval requirements; existing installations remain unchanged until rules and enforcement mode are configured.',
+    description: 'Create or update a versioned agentic policy rule. Use when defining explicit allow, deny, or human-approval requirements; existing installations remain unchanged until rules and enforcement mode are configured.',
     category: 'security',
     inputSchema: {
       type: 'object',
@@ -89,7 +89,7 @@ export const policyTools: MCPTool[] = [
   },
   {
     name: 'policy_budget_set',
-    description: 'Create or update an atomic USD/token ceiling for a principal, action, and resource window. Budget checks and decision receipts commit under the same policy-state lock.',
+    description: 'Create or update an atomic USD/token ceiling for a principal, action, and resource window. Use when constraining agent spend; budget checks and decision receipts commit under the same policy-state lock.',
     category: 'security',
     inputSchema: {
       type: 'object',
@@ -110,7 +110,7 @@ export const policyTools: MCPTool[] = [
   },
   {
     name: 'policy_approve',
-    description: 'Issue a scoped, expiring, limited-use human approval. Use this after policy_evaluate returns approval_required; self-approval is rejected.',
+    description: 'Issue a scoped, expiring, limited-use human approval. Use when policy_evaluate returns approval_required; self-approval is rejected.',
     category: 'security',
     inputSchema: {
       type: 'object',
@@ -132,7 +132,7 @@ export const policyTools: MCPTool[] = [
   },
   {
     name: 'policy_revoke',
-    description: 'Revoke an outstanding policy approval immediately. Use this for incident response or when a previously approved action is no longer authorized.',
+    description: 'Revoke an outstanding policy approval immediately. Use when responding to an incident or when a previously approved action is no longer authorized.',
     category: 'security',
     inputSchema: {
       type: 'object',
