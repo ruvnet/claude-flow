@@ -130,12 +130,22 @@ import {
 
 // ── Tests ────────────────────────────────────────────────────
 
-// Skip in CI — the WASM init crashes during module load even with the
-// vi.mock above, because the mock replaces *some* of the loading path but
-// the real @ruvector/rvagent-wasm import still happens. Local runs where
-// the WASM binary is built work fine; CI without postinstall doesn't.
-// See ruvllm-wasm.test.ts for the same pattern.
-const __SKIP_WASM_TESTS = process.env.CI === 'true';
+// Skip in CI, AND skip locally whenever the native package isn't installed.
+// The WASM init crashes during module load even with the vi.mock above, because
+// the mock replaces *some* of the loading path but the real
+// @ruvector/rvagent-wasm import still happens — and under pnpm's
+// no-prebuilt-natives policy that package is often absent. `import.meta.resolve`
+// is a host API the vi.mock('node:module') doesn't intercept, so it reflects the
+// true install state; when it can't confirm the package is present we skip.
+function __wasmInstalled(spec: string): boolean {
+  try {
+    return typeof (import.meta as { resolve?: (s: string) => string }).resolve === 'function'
+      && !!(import.meta as { resolve: (s: string) => string }).resolve(spec);
+  } catch {
+    return false;
+  }
+}
+const __SKIP_WASM_TESTS = process.env.CI === 'true' || !__wasmInstalled('@ruvector/rvagent-wasm');
 
 describe.skipIf(__SKIP_WASM_TESTS)('agent-wasm integration', () => {
   describe('detection and init', () => {

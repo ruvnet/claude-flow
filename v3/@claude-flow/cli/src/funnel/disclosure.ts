@@ -11,9 +11,12 @@
  *   - The manage instruction appears in the disclosure text itself.
  *   - Shown once per user (user-level receipt), not once per project.
  *   - Declining disables all funnel surfaces (enforced in precedence.ts).
- *   - Fail-closed: if the remote feed has never successfully populated a
- *     disclosure-class message, there is nothing to show — no local
- *     fallback text exists (ADR-311 "zero local promo content").
+ *   - Cold-start fallback (issue #2787, amending ADR-311's original "zero
+ *     local content"): a single bootstrap disclosure ships in-code so the
+ *     gate can unlock on a fresh install before the first remote fetch
+ *     lands. The remote feed still wins by id whenever it has populated a
+ *     disclosure-class message. The pool is empty (→ show nothing) only if
+ *     both the remote cache AND the in-code seed are empty.
  *
  * The disclosure text stays on the promo row for a grace window after its
  * first render so a single flash can't count as "the user was told"; only
@@ -52,10 +55,12 @@ function getDisclosureMessagePool(): FunnelMessage[] {
 }
 
 /**
- * Deterministic slot-based selection over the remote disclosure pool — no
- * RNG so the choice is reproducible for a given wall-clock instant. Returns
- * null when the pool is empty (cold start before first fetch, or the remote
- * feed is unreachable) — the caller must treat null as "show nothing".
+ * Deterministic slot-based selection over the merged disclosure pool (remote
+ * cache + in-code seed) — no RNG so the choice is reproducible for a given
+ * wall-clock instant. On a fresh install the in-code seed keeps the pool
+ * non-empty; null is returned only if both the remote cache and the seed are
+ * empty (e.g. the seed disclosure was removed) — the caller treats null as
+ * "show nothing".
  */
 export function selectDisclosureMessage(now: Date = new Date()): FunnelMessage | null {
   const pool = getDisclosureMessagePool();

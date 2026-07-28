@@ -219,8 +219,22 @@ vi.mock('node:module', () => ({
 // initial module evaluation — once vi.mock can replace the package itself
 // cleanly, this skip can come off.
 //
-// Skip in CI; run locally where WASM is built.
-const __SKIP_WASM_TESTS = process.env.CI === 'true';
+// Skip in CI, AND skip locally whenever the native package isn't actually
+// installed — pnpm's no-prebuilt-natives policy means `@ruvector/ruvllm-wasm`
+// is frequently absent, and the incomplete mock lets the real import crash the
+// suite rather than the intended clean skip. `import.meta.resolve` is a host
+// API that the vi.mock('node:module') above does NOT intercept, so it reflects
+// the true install state; if it can't confirm the package is present we skip.
+function __wasmInstalled(spec: string): boolean {
+  try {
+    // import.meta.resolve is synchronous in Node 20.6+ (this repo targets 20+).
+    return typeof (import.meta as { resolve?: (s: string) => string }).resolve === 'function'
+      && !!(import.meta as { resolve: (s: string) => string }).resolve(spec);
+  } catch {
+    return false;
+  }
+}
+const __SKIP_WASM_TESTS = process.env.CI === 'true' || !__wasmInstalled('@ruvector/ruvllm-wasm');
 
 describe.skipIf(__SKIP_WASM_TESTS)('ruvllm-wasm integration', () => {
   beforeEach(() => {

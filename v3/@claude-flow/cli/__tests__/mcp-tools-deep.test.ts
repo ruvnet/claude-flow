@@ -17,32 +17,44 @@ import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 // Mock setup - must be before imports
 // ============================================================================
 
-// Mock fs to prevent actual file I/O during tests
-vi.mock('node:fs', () => {
+// Mock fs to prevent actual file I/O during tests. Spread the real module
+// (importOriginal) so every method the loaded tool handlers touch — openSync,
+// closeSync, appendFileSync, promises, constants, … — still exists, then
+// override only the handful of calls these tests assert on with an in-memory
+// store. A bare replacement broke as soon as a handler reached for an
+// un-stubbed method (e.g. agentbbs-tools.ts's openSync-based file lock).
+function fsMockFactory(actual: typeof import('node:fs')) {
   const memStore = new Map<string, string>();
-  return {
+  // Back the fd-based atomic-write path (fs-secure.ts writeFileAtomic:
+  // openSync 'wx' → writeSync → fsyncSync → closeSync → renameSync) fully
+  // in-memory. Overriding writeFileSync alone left the atomic writers reaching
+  // for a real (missing) directory → ENOENT; stubbing the fd layer keeps the
+  // "no real I/O" intent while letting handlers that persist a store succeed.
+  const fdTable = new Map<number, { path: string; buf: string }>();
+  let nextFd = 100;
+  const toStr = (d: unknown) =>
+    typeof d === 'string' ? d : Buffer.isBuffer(d) ? d.toString('utf8') : String(d);
+  const overrides = {
     existsSync: vi.fn((p: string) => memStore.has(p)),
     readFileSync: vi.fn((p: string) => memStore.get(p) || '{}'),
-    writeFileSync: vi.fn((p: string, d: string) => memStore.set(p, d)),
+    writeFileSync: vi.fn((p: string, d: unknown) => memStore.set(p, toStr(d))),
     mkdirSync: vi.fn(),
     readdirSync: vi.fn(() => []),
-    unlinkSync: vi.fn(),
+    unlinkSync: vi.fn((p: string) => memStore.delete(p)),
+    rmSync: vi.fn((p: string) => memStore.delete(p)),
+    chmodSync: vi.fn(),
     statSync: vi.fn(() => ({ size: 100, isFile: () => true, isDirectory: () => false })),
+    openSync: vi.fn((p: string) => { const fd = nextFd++; fdTable.set(fd, { path: p, buf: '' }); return fd; }),
+    writeSync: vi.fn((fd: number, data: unknown) => { const e = fdTable.get(fd); const s = toStr(data); if (e) e.buf += s; return Buffer.byteLength(s); }),
+    fsyncSync: vi.fn(),
+    closeSync: vi.fn((fd: number) => { const e = fdTable.get(fd); if (e) { memStore.set(e.path, e.buf); fdTable.delete(fd); } }),
+    renameSync: vi.fn((from: string, to: string) => { if (memStore.has(from)) { memStore.set(to, memStore.get(from)!); memStore.delete(from); } }),
   };
-});
+  return { ...actual, default: { ...actual, ...overrides }, ...overrides };
+}
 
-vi.mock('fs', () => {
-  const memStore = new Map<string, string>();
-  return {
-    existsSync: vi.fn((p: string) => memStore.has(p)),
-    readFileSync: vi.fn((p: string) => memStore.get(p) || '{}'),
-    writeFileSync: vi.fn((p: string, d: string) => memStore.set(p, d)),
-    mkdirSync: vi.fn(),
-    readdirSync: vi.fn(() => []),
-    unlinkSync: vi.fn(),
-    statSync: vi.fn(() => ({ size: 100, isFile: () => true, isDirectory: () => false })),
-  };
-});
+vi.mock('node:fs', async (importOriginal) => fsMockFactory(await importOriginal<typeof import('node:fs')>()));
+vi.mock('fs', async (importOriginal) => fsMockFactory(await importOriginal<typeof import('fs')>()));
 
 // Mock child_process for browser/security tools
 vi.mock('child_process', () => ({
