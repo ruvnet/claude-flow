@@ -114,14 +114,30 @@
   "optionalDependencies": {
     "@claude-flow/memory": "^3.0.0-alpha.21",
     "@claude-flow/security": "^3.0.0-alpha.12",
-    "@metaharness/darwin": "^0.8.0",
-    "@metaharness/flywheel": "^0.1.7",
-    "@metaharness/router": "^0.3.2",
     "agentdb": "^3.0.0-alpha.17",
     "agentic-flow": "^3.0.0-alpha.1",
     "better-sqlite3": "^12.9.0",
-    "metaharness": "^0.4.1",
     "ruvector": "^0.2.27"
+  },
+  "peerDependencies": {
+    "@metaharness/darwin": "^0.8.0",
+    "@metaharness/flywheel": "^0.1.7",
+    "@metaharness/router": "^0.3.2",
+    "metaharness": "^0.4.1"
+  },
+  "peerDependenciesMeta": {
+    "@metaharness/darwin": {
+      "optional": true
+    },
+    "@metaharness/flywheel": {
+      "optional": true
+    },
+    "@metaharness/router": {
+      "optional": true
+    },
+    "metaharness": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public",
