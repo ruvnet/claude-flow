@@ -81,6 +81,16 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'RUFLO_LATTICE_WASM_PKG',        // Back-compat alias of RUFLO_EMBED_WASM_PKG
   'RUFLO_EMBED_MODEL',             // Model name for the optional WASM embedder — substrate config, env-only
 
+  // ── ADR-320 MCP Composition Inspector + ChannelGuard (this ADR) ─────────────
+  // Read inside @claude-flow/security/src/mcp-composition-inspector.ts and
+  // @claude-flow/hooks/src/workers/channel-guard-worker.ts respectively
+  // (outside this audit's SCAN_ROOTS today — registered anyway per the same
+  // "MUST be registered in audit-env-var-precedence.mjs with rationale"
+  // requirement ADR-144/145/320-plugin-scanner already impose on their flags,
+  // see CLAUDE_FLOW_STRICT_PUBLISH below for the precedent).
+  'CLAUDE_FLOW_MCP_COMPOSITION_BLOCK', // Opt-in strict mode for the Composition Inspector (evaluateToolComposition) — default warn+log, '1'/'true' switches a flagged tool chain to blocked. Deploy/CI ops posture toggle read fresh per scan, not a per-invocation CLI flag; no interactive CLI command owns a single MCP tool-composition scan's lifetime.
+  'CLAUDE_FLOW_SECURITY_CHANNEL_GATE', // Kill switch for the ChannelGuard inter-agent message sanitization gate (guardChannelMessage, wired into SwarmCommunication.sendMessage) — default enabled, '0' disables for trusted internal environments. Same escape-hatch shape as CLAUDE_FLOW_DISABLE_BRIDGE above; the gate runs inside the swarm-communication hot path, not behind a user-typed command.
+
   // ── Feature flags (set by init into settings.json, not user-typed CLI) ──────
   'CLAUDE_FLOW_V3_ENABLED',
   'CLAUDE_FLOW_HOOKS_ENABLED',

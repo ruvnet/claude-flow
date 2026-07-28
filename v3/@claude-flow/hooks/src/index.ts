@@ -94,6 +94,24 @@ export {
   type OfficialHookOutput,
 } from './bridge/official-hooks-bridge.js';
 
+// ChannelGuard Worker (ADR-320 — arXiv:2607.19430 "ChannelGuard").
+// Inter-agent message sanitization gate reusing @claude-flow/security's
+// InputValidator (sanitizeString). Wired into SwarmCommunication.sendMessage
+// below; CLAUDE_FLOW_SECURITY_CHANNEL_GATE=0 disables it.
+export {
+  scanChannelMessage,
+  sanitizeChannelMessage,
+  guardChannelMessage,
+  isChannelGateEnabled,
+  createChannelGuardHandler,
+  registerChannelGuardHook,
+  type ChannelFindingKind,
+  type ChannelFinding,
+  type ChannelGuardOptions,
+  type ChannelScanResult,
+  type ChannelGuardOutcome,
+} from './workers/channel-guard-worker.js';
+
 // Swarm Communication
 export {
   SwarmCommunication,

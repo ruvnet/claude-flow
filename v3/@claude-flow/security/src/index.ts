@@ -178,6 +178,26 @@ export {
   type VerifierConfig,
 } from './plugins/integrity-verifier.js';
 
+// MCP Tool Composition Inspector (ADR-320 — ruvnet/ruflo dream-cycle,
+// arXiv:2606.27027 "ShareLock"). SimHash-based cross-tool instruction
+// fragment detector — the v2 successor to the CLI-only v1 in
+// @claude-flow/cli/src/security/mcp-composition-inspector.ts (#2783),
+// whose own header deferred exactly this ("Future v2: SimHash + LSH").
+export {
+  inspectToolComposition,
+  evaluateToolComposition,
+  isCompositionBlockEnabled,
+  fnv1a64,
+  simhash64,
+  hammingDistance64,
+  type McpToolDescriptor,
+  type CompositionInspectorOptions,
+  type CompositionFinding,
+  type CompositionInspectionStats,
+  type CompositionInspectionResult,
+  type CompositionGuardResult,
+} from './mcp-composition-inspector.js';
+
 // ============================================================================
 // Convenience Factory Functions
 // ============================================================================

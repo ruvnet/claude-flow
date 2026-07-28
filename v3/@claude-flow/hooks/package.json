@@ -62,6 +62,7 @@
   "dependencies": {
     "@claude-flow/memory": "^3.0.0-alpha.2",
     "@claude-flow/neural": "^3.0.0-alpha.2",
+    "@claude-flow/security": "^3.0.0-alpha.12",
     "@claude-flow/shared": "^3.0.0-alpha.1",
     "zod": "^3.23.0"
   },

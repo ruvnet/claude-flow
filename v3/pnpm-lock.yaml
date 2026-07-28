@@ -66,7 +66,7 @@ importers:
     dependencies:
       '@claude-flow/cli':
         specifier: '>=3.5.0'
-        version: link:../cli
+        version: 3.32.17(@types/node@20.19.27)(zod@3.25.76)
       agent-browser:
         specifier: ^0.27.0
         version: 0.27.0
@@ -174,7 +174,7 @@ importers:
     dependencies:
       '@claude-flow/cli':
         specifier: ^3.0.0
-        version: link:../cli
+        version: 3.32.17(@types/node@20.19.27)(zod@3.25.76)
       '@iarna/toml':
         specifier: ^2.2.5
         version: 2.2.5
@@ -284,6 +284,9 @@ importers:
       '@claude-flow/neural':
         specifier: ^3.0.0-alpha.2
         version: link:../neural
+      '@claude-flow/security':
+        specifier: ^3.0.0-alpha.12
+        version: link:../security
       '@claude-flow/shared':
         specifier: ^3.0.0-alpha.1
         version: link:../shared
@@ -742,6 +745,55 @@ packages:
     resolution: {integrity: sha512-k7vvKPbf7J2fZ5klGRD9AeKfUvojuZIQ3BT5u7Jfv+puwXkUBUT5PVyMDfJZpy30CBDXGMgw7fguK/lpOMBvgw==}
     requiresBuild: true
 
+  /@claude-flow/cli-core@3.7.0-alpha.5:
+    resolution: {integrity: sha512-WbhpxGpxhRoVmjtizIdt2IGlcX0nPmGktXe3JDtII4MeVTgifHuBYpx4cX4EQiBqGCt4cxxM4nDOFQUUqAK9Aw==}
+    hasBin: true
+    dev: false
+
+  /@claude-flow/cli@3.32.17(@types/node@20.19.27)(zod@3.25.76):
+    resolution: {integrity: sha512-9ZUoXsJbrPifGz3Zk7ZL8g93s0Alnny2jagCiXtOvjKS3eM6mqro02W2072sVuuIJAc4yZKJB9AZosErmn/VIg==}
+    hasBin: true
+    requiresBuild: true
+    dependencies:
+      '@claude-flow/cli-core': 3.7.0-alpha.5
+      '@claude-flow/mcp': 3.0.0-alpha.8
+      '@claude-flow/neural': 3.0.0-alpha.9(@types/node@20.19.27)(zod@3.25.76)
+      '@claude-flow/shared': 3.0.0-alpha.7
+      '@noble/ed25519': 2.3.0
+      '@ruvector/rabitq-wasm': 0.1.0
+      semver: 7.7.3
+      sql.js: 1.14.1
+      yaml: 2.9.0
+    optionalDependencies:
+      '@claude-flow/memory': 3.0.0-alpha.21(@types/node@20.19.27)(zod@3.25.76)
+      '@claude-flow/security': 3.0.0-alpha.12
+      agentdb: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
+      agentic-flow: 3.0.0-alpha.2
+      better-sqlite3: 12.9.0
+      ruvector: 0.2.27(zod@3.25.76)
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - '@modelcontextprotocol/sdk'
+      - '@ruvector/diskann'
+      - '@ruvector/pi-brain'
+      - '@ruvector/router'
+      - '@ruvector/ruvllm'
+      - '@types/node'
+      - '@valibot/to-json-schema'
+      - arktype
+      - bare-abort-controller
+      - bare-buffer
+      - bufferutil
+      - debug
+      - effect
+      - jose
+      - react-native-b4a
+      - supports-color
+      - sury
+      - utf-8-validate
+      - zod
+    dev: false
+
   /@claude-flow/mcp@3.0.0-alpha.8:
     resolution: {integrity: sha512-lP1t8GMWDl9RxnwMZrjMukZkyglhge7Znhj1PbUiUQ94kHcN+dAxUkA75HM1n7BONbIDcE/CS8qN2ril5KgzNg==}
     dependencies:
@@ -755,6 +807,54 @@ packages:
       - supports-color
       - utf-8-validate
     dev: false
+
+  /@claude-flow/memory@3.0.0-alpha.21(@types/node@20.19.27)(zod@3.25.76):
+    resolution: {integrity: sha512-5H5rJOh7nGuzmFazTvJWZIbeZvf+HJjonM98vWijzbL4kQvBDWj6zwhsxQ3wrwJSrs5ALgQQmhxQ7Mr+gagAFw==}
+    cpu: [x64, arm64]
+    os: [darwin, linux, win32]
+    dependencies:
+      agentdb: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
+      sql.js: 1.14.1
+    optionalDependencies:
+      better-sqlite3: 12.9.0
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - '@types/node'
+      - bare-abort-controller
+      - bare-buffer
+      - react-native-b4a
+      - supports-color
+      - zod
+    dev: false
+
+  /@claude-flow/neural@3.0.0-alpha.9(@types/node@20.19.27)(zod@3.25.76):
+    resolution: {integrity: sha512-u7mx6rQxHrpCyKVtP600QorSJrEhoqYEyGZgYVU1kGWwYitScJH3rzWzss95Dn+RazcCAk7yElEG/iSbhtxU6g==}
+    dependencies:
+      '@claude-flow/memory': 3.0.0-alpha.21(@types/node@20.19.27)(zod@3.25.76)
+      '@ruvector/sona': 0.1.5
+    optionalDependencies:
+      agentdb: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - '@types/node'
+      - bare-abort-controller
+      - bare-buffer
+      - react-native-b4a
+      - supports-color
+      - zod
+    dev: false
+
+  /@claude-flow/security@3.0.0-alpha.12:
+    resolution: {integrity: sha512-/b1V6zXOhFSs+Y8UztyPFHqkNjDKslwpAn9+KJFWHqZMwnnPnBnW0WQHoZAGx+5+rewI619pVT9gIANkyt3luQ==}
+    requiresBuild: true
+    dependencies:
+      '@noble/ed25519': 2.3.0
+      bcryptjs: 3.0.3
+      zod: 3.25.76
+    optionalDependencies:
+      '@napi-rs/keyring': 1.3.0
+    dev: false
+    optional: true
 
   /@claude-flow/shared@3.0.0-alpha.7:
     resolution: {integrity: sha512-5iehTHguBFjlyZqy+fRoKfZVL/nFeE93A94nUUKJvu8y7AmhfpVqtQAZbmKztwQGJ5rv7iBb3Kwl1MUo3K5QkA==}
@@ -6925,7 +7025,7 @@ packages:
       tiktoken: 1.0.22
       ulid: 3.0.2
       ws: 8.20.0
-      yaml: 2.8.2
+      yaml: 2.9.0
       zod: 3.25.76
     transitivePeerDependencies:
       - '@cfworker/json-schema'
@@ -13110,7 +13210,6 @@ packages:
     engines: {node: '>= 14.6'}
     hasBin: true
     requiresBuild: true
-    optional: true
 
   /yargs-parser@20.2.9:
     resolution: {integrity: sha512-y11nGElTIV+CT3Zv9t7VKl+Q3hTQoT9a1Qzezhhl6Rp21gJ/IVTW7Z3y9EWXhuUBC2Shnf+DX0antecpAwSP8w==}
