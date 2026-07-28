@@ -70,6 +70,8 @@ export async function generateConfigToml(options: ExtendedConfigTomlOptions = {}
     security = {},
     performance = {},
     logging = {},
+    policy = {},
+    swarmAutomation = {},
   } = options;
 
   const lines: string[] = [];
@@ -85,6 +87,7 @@ export async function generateConfigToml(options: ExtendedConfigTomlOptions = {}
   lines.push('# Place in .agents/config.toml (project) or .codex/config.toml (user).');
   lines.push('# =============================================================================');
   lines.push('');
+
   lines.push('# =============================================================================');
   lines.push('# Core Settings');
   lines.push('# =============================================================================');
@@ -127,6 +130,27 @@ export async function generateConfigToml(options: ExtendedConfigTomlOptions = {}
   lines.push('  "TEAM_GUIDE.md",');
   lines.push('  ".agents.md"');
   lines.push(']');
+  lines.push('');
+
+  // All Codex root keys above must appear before the first TOML table.
+  lines.push('# =============================================================================');
+  lines.push('# Ruflo Agentic Policy Engine (ADR-324)');
+  lines.push('# =============================================================================');
+  lines.push('');
+  lines.push('[policy]');
+  lines.push('# legacy preserves existing installs; observe records would-deny decisions; enforce blocks');
+  lines.push(`mode = "${policy.mode ?? 'legacy'}"`);
+  lines.push('');
+
+  lines.push('[swarm.automation]');
+  lines.push('# Unattended fanout is opt-in. Interactive Codex may still delegate explicitly.');
+  lines.push(`enabled = ${swarmAutomation.enabled ?? false}`);
+  lines.push(`max_concurrent = ${swarmAutomation.maxConcurrent ?? 4}`);
+  lines.push(`max_writers = ${swarmAutomation.maxWriters ?? 2}`);
+  lines.push(`worktree_isolation = ${swarmAutomation.worktreeIsolation ?? true}`);
+  lines.push(`dependency_failure = "${swarmAutomation.dependencyFailure ?? 'cancel'}"`);
+  lines.push(`agent_timeout_seconds = ${swarmAutomation.agentTimeoutSeconds ?? 1800}`);
+  lines.push(`max_output_bytes = ${swarmAutomation.maxOutputBytes ?? 1048576}`);
   lines.push('');
 
   // Features
@@ -196,8 +220,8 @@ export async function generateConfigToml(options: ExtendedConfigTomlOptions = {}
   // Default profiles
   const defaultProfiles: Record<string, ConfigProfile> = {
     dev: {
-      approvalPolicy: 'never',
-      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'on-request',
+      sandboxMode: 'workspace-write',
       webSearch: 'live',
     },
     safe: {
@@ -542,7 +566,10 @@ enabled = true
 /**
  * Generate CI/CD config.toml
  */
-export async function generateCIConfigToml(): Promise<string> {
+export async function generateCIConfigToml(platform: NodeJS.Platform = process.platform): Promise<string> {
+  const mcpCommand = platform === 'win32'
+    ? 'command = "cmd"\nargs = ["/c", "npx", "-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]'
+    : 'command = "npx"\nargs = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]';
   return `# =============================================================================
 # Claude Flow V3 - CI/CD Pipeline Configuration
 # =============================================================================
@@ -566,9 +593,9 @@ child_agents_md = true
 request_rule = false
 
 [mcp_servers.ruflo]
-command = "npx"
-args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
+${mcpCommand}
 enabled = true
+startup_timeout_sec = 120
 tool_timeout_sec = 300
 
 [history]

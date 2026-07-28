@@ -11,7 +11,9 @@ import {
   WorkerConfig,
   CollaborationTemplates,
   CollaborationResult,
+  loadSwarmAutomationConfig,
 } from './orchestrator.js';
+import { CodexWorktreeCoordinator } from '../worktrees/coordinator.js';
 
 /**
  * Create the dual-mode command
@@ -43,8 +45,8 @@ function createRunCommand(): Command {
     .option('--parallel-workers', 'Run --worker specs in parallel instead of chaining them sequentially', false)
     .option('-c, --config <path>', 'Path to collaboration config JSON')
     .option('--task <description>', 'Task description for the swarm')
-    .option('--max-concurrent <n>', 'Maximum concurrent workers', '4')
-    .option('--timeout <ms>', 'Worker timeout in milliseconds', '300000')
+    .option('--max-concurrent <n>', 'Maximum concurrent workers (bounded by .agents/config.toml)')
+    .option('--timeout <ms>', 'Worker timeout in milliseconds (bounded by .agents/config.toml)')
     .option('--namespace <name>', 'Shared memory namespace', 'collaboration')
     .action(async (templateArg: string | undefined, options) => {
       console.log(chalk.cyan('═══════════════════════════════════════════════════════════════'));
@@ -53,10 +55,25 @@ function createRunCommand(): Command {
       console.log(chalk.cyan('═══════════════════════════════════════════════════════════════'));
       console.log();
 
+      const automation = loadSwarmAutomationConfig(process.cwd());
+      if (!automation.enabled) {
+        throw new Error('unattended swarm automation is disabled; set [swarm.automation] enabled = true');
+      }
+      const requestedConcurrency = options.maxConcurrent
+        ? parseInt(options.maxConcurrent, 10)
+        : automation.maxConcurrent;
+      const requestedTimeout = options.timeout
+        ? parseInt(options.timeout, 10)
+        : automation.agentTimeoutSeconds * 1000;
       const config: DualModeConfig = {
         projectPath: process.cwd(),
-        maxConcurrent: parseInt(options.maxConcurrent, 10),
-        timeout: parseInt(options.timeout, 10),
+        maxConcurrent: Math.min(requestedConcurrency, automation.maxConcurrent),
+        maxWriters: automation.maxWriters,
+        worktreeIsolation: automation.worktreeIsolation,
+        dependencyFailure: automation.dependencyFailure,
+        timeout: Math.min(requestedTimeout, automation.agentTimeoutSeconds * 1000),
+        maxOutputBytes: automation.maxOutputBytes,
+        policyPreflight: true,
         sharedNamespace: options.namespace,
       };
 
@@ -108,6 +125,24 @@ function createRunCommand(): Command {
         console.log('Custom workers:');
         console.log('  --worker "claude:architect:Design the API" --worker "codex:coder:Implement it"');
         return;
+      }
+
+      if (automation.worktreeIsolation) {
+        const runId = `dual-${Date.now().toString(36)}`;
+        const coordinator = new CodexWorktreeCoordinator(process.cwd());
+        const record = coordinator.prepare(
+          runId,
+          workers.map((worker) => ({
+            id: worker.id,
+            ...(worker.readOnly === undefined ? {} : { readOnly: worker.readOnly }),
+          })),
+        );
+        const assignments = new Map(record.assignments.map((item) => [item.agentId, item.path]));
+        workers = workers.map((worker) => {
+          const worktreePath = assignments.get(worker.id);
+          return { ...worker, ...(worktreePath ? { worktreePath } : {}) };
+        });
+        console.log(chalk.gray(`  Worktree run: ${runId} (retained for explicit integrate/cleanup)`));
       }
 
       console.log();

@@ -47,6 +47,7 @@ import {
   readFlywheelTransactionState,
   verifyFlywheelLedger,
 } from '../services/flywheel-transaction.js';
+import { evaluatePolicyRequest } from '../services/policy-runtime.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -112,6 +113,8 @@ async function dispatchFlywheel(
         proposer: String(flywheelFlag(flags, 'proposer', 'auto')) as 'auto' | 'local' | 'darwin',
         receiptPrivateKeyPem: privateKeyPath ? readFileSync(resolve(privateKeyPath), 'utf8') : undefined,
         receiptPublicKeyPem: publicKeyPath ? readFileSync(resolve(publicKeyPath), 'utf8') : undefined,
+        maxConcurrency: Number(flywheelFlag(flags, 'maxConcurrency', 2)),
+        evaluationTimeoutMs: Number(flywheelFlag(flags, 'timeoutMs', 120_000)),
       });
     }
   } else if (operation === 'receipts') {
@@ -133,11 +136,27 @@ async function dispatchFlywheel(
     if (!receiptId || !publicKeyPath) {
       data = { success: false, reason: 'promote requires <receipt-id> and --public-key <PEM path>' };
     } else {
-      const publicKey = readFileSync(resolve(publicKeyPath), 'utf8');
-      data = await promoteFlywheelCandidate(projectRoot, receiptId, {
-        confirm: flywheelFlag<boolean>(flags, 'confirm', false) === true,
-        trustedPublicKeys: new Set([publicKey]),
-      });
+      const policy = await evaluatePolicyRequest({
+        identity: { id: process.env.CLAUDE_FLOW_PRINCIPAL_ID ?? 'metaharness-local', type: 'agent', roles: ['optimizer'] },
+        action: {
+          type: 'metaharness.candidate.promote',
+          resource: receiptId,
+          environment: 'production',
+          destructive: true,
+        },
+        context: {
+          approvalIds: String(flywheelFlag(flags, 'approvalId', '')).split(',').filter(Boolean),
+        },
+      }, projectRoot);
+      if (policy.enforcedOutcome !== 'allowed') {
+        data = { success: false, reason: `policy-${policy.enforcedOutcome}:${policy.reason}`, policyReceiptId: policy.receiptId };
+      } else {
+        const publicKey = readFileSync(resolve(publicKeyPath), 'utf8');
+        data = await promoteFlywheelCandidate(projectRoot, receiptId, {
+          confirm: flywheelFlag<boolean>(flags, 'confirm', false) === true,
+          trustedPublicKeys: new Set([publicKey]),
+        });
+      }
     }
   } else {
     data = { success: false, reason: `unknown flywheel operation: ${operation}` };

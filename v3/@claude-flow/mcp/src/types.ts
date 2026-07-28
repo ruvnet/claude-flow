@@ -115,6 +115,8 @@ export interface MCPServerConfig {
   enableCaching?: boolean;
   cacheTTL?: number;
   logLevel?: 'debug' | 'info' | 'warn' | 'error';
+  /** Fail construction unless a ToolAuthorizer is installed. */
+  requireToolAuthorization?: boolean;
 }
 
 // ============================================================================

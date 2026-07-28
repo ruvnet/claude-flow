@@ -23,6 +23,7 @@ import {
   type SafetyEnvelope,
 } from './flywheel-proposer.js';
 import { sha256Ref } from './flywheel-receipt.js';
+import { evaluatePolicyRequest } from './policy-runtime.js';
 
 /** The human-labeled ADR-081 anchor — the never-regress relevance set. */
 const ANCHOR: AnchorTask[] = [
@@ -56,10 +57,24 @@ export async function runFlywheelWorker(
     proposer?: ProposerMode;
     darwinInvoker?: DarwinInvoker;
     allowSubstitutionPromotion?: boolean;
+    maxConcurrency?: number;
+    evaluationTimeoutMs?: number;
   } = {},
 ): Promise<FlywheelResult> {
   try {
     if (!(opts.optInOverride ?? harnessLoopOptedIn())) return { ran: false, reason: 'opt-in required (RUFLO_HARNESS_LOOP=1)' };
+    const policy = await evaluatePolicyRequest({
+      identity: { id: process.env.CLAUDE_FLOW_PRINCIPAL_ID ?? 'metaharness-local', type: 'agent', roles: ['optimizer'] },
+      action: {
+        type: 'metaharness.flywheel.run',
+        resource: projectRoot,
+        environment: 'development',
+        concurrency: opts.maxConcurrency ?? 2,
+      },
+    }, projectRoot);
+    if (policy.enforcedOutcome !== 'allowed') {
+      return { ran: false, reason: `policy-${policy.enforcedOutcome}:${policy.reason}; receipt=${policy.receiptId}` };
+    }
     const neural = await import('../mcp-tools/neural-tools.js');
     const applier = await import('../config/harness-feedback-applier.js');
     const tool = neural.neuralTools.find((t) => t.name === 'neural_patterns');
@@ -115,6 +130,8 @@ export async function runFlywheelWorker(
       })),
       darwinInvoker: opts.darwinInvoker,
       allowSubstitutionPromotion: opts.allowSubstitutionPromotion,
+      maxConcurrency: Math.max(1, Math.min(opts.maxConcurrency ?? 2, 8)),
+      maxWallTimeMs: opts.evaluationTimeoutMs ?? 120_000,
     });
     const candidatePolicies = archive.paretoCandidates.map((candidate) => candidate.policy as unknown as RetrievalConfig);
     if (!candidatePolicies.length) return { ran: false, reason: 'proposer archive contained no admissible candidates' };
@@ -138,6 +155,8 @@ export async function runFlywheelWorker(
       effectiveProposer: archive.effectiveProposer,
       proposerSubstitution: archive.proposerSubstitution,
       candidatePolicies,
+      maxConcurrency: Math.max(1, Math.min(opts.maxConcurrency ?? 2, 8)),
+      evaluationTimeoutMs: opts.evaluationTimeoutMs,
     };
     return await runFlywheelTick(projectRoot, deps);
   } catch (e) {

@@ -26,6 +26,43 @@
 
 ---
 
+## Ruflo Policy-Governed Concurrent Codex Workflow
+
+Ruflo is the coordination ledger and policy decision point. Codex agents are
+the executors. Coordination records do not write code or run tests.
+
+1. Search AgentDB memory before planning.
+2. Initialize one bounded hierarchical swarm.
+3. Fan out only independent tasks.
+4. Give every writing agent a separate git worktree and a reduced capability
+   envelope; read-only agents may share a checkout.
+5. Assign one owner for shared manifests and lockfiles.
+6. Integrate committed handoffs in dependency order, then run scoped and full
+   verification.
+7. Store the successful pattern and retain the policy/MetaHarness receipts.
+
+Hard invariants:
+
+- Never run two writers in one worktree.
+- Delegation may only reduce tools, servers, namespaces, network, spend,
+  concurrency, expiry, and depth.
+- Policy denial cancels dependent work before side effects.
+- MetaHarness may evaluate candidates concurrently, but only ADR-322A may
+  promote them and MetaHarness may never expand its own SafetyEnvelope.
+- Do not commit, push, merge, release, or remove worktrees unless authorized.
+- Existing installations migrate in `legacy` policy mode; use `observe` before
+  switching to `enforce`.
+
+Useful checks:
+
+```bash
+npx ruflo policy status
+npx ruflo policy verify
+npx ruflo metaharness flywheel status
+```
+
+---
+
 ## 🚨 CRITICAL: CODEX DOES THE WORK, CLAUDE-FLOW ORCHESTRATES
 
 ```

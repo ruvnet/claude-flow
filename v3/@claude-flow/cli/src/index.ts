@@ -140,6 +140,24 @@ export class CLI {
       // stamp read + string compare (sub-ms), and the copy runs at most once per
       // version bump. Best-effort + silent — never blocks or fails a command.
       if (commandPath[0] !== 'init' && commandPath[0] !== 'update') {
+        // ADR-324: existing installations acquire a versioned policy state on
+        // first use. Migration is additive and starts in legacy mode, so older
+        // AgentDB, MCP, hooks, and swarm workflows keep their exact behavior.
+        try {
+          const { autoMigratePolicyStateIfNeeded } = await import('./services/policy-runtime.js');
+          const migration = await autoMigratePolicyStateIfNeeded(process.cwd());
+          if (migration.migrated && this.output.isVerbose()) {
+            this.output.printDebug(`Initialized agentic policy compatibility state (${migration.mode})`);
+          }
+        } catch (error) {
+          // Legacy compatibility requires startup to remain available if the
+          // policy state cannot be initialized. Enforce-mode actions still
+          // fail at their authoritative dispatcher when state is unreadable.
+          if (this.output.isVerbose()) {
+            this.output.printDebug(`Policy compatibility migration skipped: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+
         try {
           const { autoRefreshHelpersIfStale } = await import('./init/helper-refresh.js');
           // alsoRefreshGlobal:true — refresh ~/.claude/helpers too, not just

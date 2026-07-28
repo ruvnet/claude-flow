@@ -10,6 +10,7 @@ import {
   migrateFromClaudeCode,
   convertSkillSyntax,
   convertSettingsToToml,
+  generateConfigTomlFromParsed,
   generateMigrationReport,
   FEATURE_MAPPINGS,
 } from '../src/migrations/index.js';
@@ -481,7 +482,7 @@ describe('convertSettingsToToml', () => {
     const result = convertSettingsToToml(settings, 'linux');
 
     expect(result).toContain('[mcp_servers.ruflo]');
-    expect(result).toContain('args = ["-y", "ruflo@latest", "mcp", "start"]');
+    expect(result).toContain('args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]');
     expect(result).toContain('startup_timeout_sec = 120');
     expect(result).toContain('[mcp_servers.custom-server]');
     expect(result).toContain('command = "node"');
@@ -495,7 +496,7 @@ describe('convertSettingsToToml', () => {
     expect(result).toContain('[mcp_servers.custom]');
     expect(result).toContain('[mcp_servers.ruflo]');
     expect(result).toContain('command = "cmd"');
-    expect(result).toContain('args = ["/c", "npx", "-y", "ruflo@latest", "mcp", "start"]');
+    expect(result).toContain('args = ["/c", "npx", "-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]');
   });
 
   it('should add default ruflo server when no mcpServers', () => {
@@ -515,6 +516,49 @@ describe('convertSettingsToToml', () => {
 
     expect(result).toContain('# Migrated from settings.json');
     expect(result.split('\n').length).toBeGreaterThan(1);
+  });
+
+  it('adds compatibility-safe policy and bounded swarm defaults', () => {
+    const result = convertSettingsToToml({});
+
+    expect(result).toContain('[policy]');
+    expect(result).toContain('mode = "legacy"');
+    expect(result).toContain('[swarm.automation]');
+    expect(result).toContain('enabled = false');
+    expect(result).toContain('max_concurrent = 4');
+    expect(result).toContain('worktree_isolation = true');
+    expect(result).toContain('[profiles.dev]');
+    expect(result).toContain('sandbox_mode = "workspace-write"');
+  });
+});
+
+describe('generateConfigTomlFromParsed', () => {
+  it('preserves custom MCP servers and adds compatibility-safe Ruflo policy defaults', () => {
+    const result = generateConfigTomlFromParsed({
+      title: 'Migrated',
+      sections: [],
+      skills: [],
+      hooks: [],
+      customInstructions: [],
+      codeBlocks: [],
+      mcpServers: [{
+        name: 'custom',
+        command: 'node',
+        args: ['server.js'],
+        enabled: true,
+      }],
+      settings: {},
+      warnings: [],
+    });
+
+    expect(result).toContain('[mcp_servers.custom]');
+    expect(result).toContain('[mcp_servers.ruflo]');
+    expect(result).toContain('[policy]');
+    expect(result).toContain('mode = "legacy"');
+    expect(result).toContain('[swarm.automation]');
+    expect(result).toContain('enabled = false');
+    expect(result).toContain('[profiles.dev]');
+    expect(result).toContain('sandbox_mode = "workspace-write"');
   });
 });
 

@@ -24,7 +24,11 @@ import type {
   ToolContext,
 } from './types.js';
 import { MCPServerError, ErrorCodes } from './types.js';
-import { ToolRegistry, createToolRegistry } from './tool-registry.js';
+import {
+  ToolRegistry,
+  createToolRegistry,
+  type ToolAuthorizer,
+} from './tool-registry.js';
 import { SessionManager, createSessionManager } from './session-manager.js';
 import { ConnectionPool, createConnectionPool } from './connection-pool.js';
 import { ResourceRegistry, createResourceRegistry } from './resource-registry.js';
@@ -53,6 +57,7 @@ export interface IMCPServer {
   stop(): Promise<void>;
   registerTool(tool: MCPTool): boolean;
   registerTools(tools: MCPTool[]): { registered: number; failed: string[] };
+  setToolAuthorizer(authorizer?: ToolAuthorizer): void;
   getHealthStatus(): Promise<{
     healthy: boolean;
     error?: string;
@@ -111,12 +116,17 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     config: Partial<MCPServerConfig>,
     private readonly logger: ILogger,
     private readonly orchestrator?: unknown,
-    private readonly swarmCoordinator?: unknown
+    private readonly swarmCoordinator?: unknown,
+    toolAuthorizer?: ToolAuthorizer,
   ) {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config } as MCPServerConfig;
 
     this.toolRegistry = createToolRegistry(logger);
+    if (this.config.requireToolAuthorization && !toolAuthorizer) {
+      throw new Error('tool authorization is required but no authorizer was provided');
+    }
+    this.toolRegistry.setAuthorizer(toolAuthorizer);
     this.sessionManager = createSessionManager(logger, {
       maxSessions: 100,
       sessionTimeout: 30 * 60 * 1000,
@@ -288,6 +298,13 @@ export class MCPServer extends EventEmitter implements IMCPServer {
 
   registerTools(tools: MCPTool[]): { registered: number; failed: string[] } {
     return this.toolRegistry.registerBatch(tools);
+  }
+
+  setToolAuthorizer(authorizer?: ToolAuthorizer): void {
+    if (this.config.requireToolAuthorization && !authorizer) {
+      throw new Error('tool authorization is required and cannot be disabled');
+    }
+    this.toolRegistry.setAuthorizer(authorizer);
   }
 
   unregisterTool(name: string): boolean {
@@ -1125,7 +1142,8 @@ export function createMCPServer(
   config: Partial<MCPServerConfig>,
   logger: ILogger,
   orchestrator?: unknown,
-  swarmCoordinator?: unknown
+  swarmCoordinator?: unknown,
+  toolAuthorizer?: ToolAuthorizer,
 ): MCPServer {
-  return new MCPServer(config, logger, orchestrator, swarmCoordinator);
+  return new MCPServer(config, logger, orchestrator, swarmCoordinator, toolAuthorizer);
 }

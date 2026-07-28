@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import * as TOML from '@iarna/toml';
 import {
   generateAgentsMd,
   generateSkillMd,
@@ -111,6 +112,9 @@ describe('generateAgentsMd', () => {
       expect(result).toContain('## Code Standards');
       expect(result).toContain('## Security');
       expect(result).toContain('## Memory System');
+      expect(result).toContain('## Ruflo + Codex Automated Workflow');
+      expect(result).toContain('Never allow two writers in one worktree');
+      expect(result).toContain('MetaHarness may benchmark candidates concurrently');
     });
 
     it('should include tech stack', async () => {
@@ -192,6 +196,22 @@ describe('generateAgentsMd', () => {
       expect(result).toContain('Co-Authored-By: ruflo-bot');
       expect(result).toContain('feat');
       expect(result).toContain('fix');
+    });
+  });
+
+  describe('policy and swarm automation config', () => {
+    it('generates safe backward-compatible policy and bounded concurrency defaults', async () => {
+      const result = await generateConfigToml({});
+      expect(result).toContain('[policy]');
+      expect(result).toContain('mode = "legacy"');
+      expect(result).toContain('[swarm.automation]');
+      expect(result).toContain('enabled = false');
+      expect(result).toContain('max_concurrent = 4');
+      expect(result).toContain('max_writers = 2');
+      expect(result).toContain('worktree_isolation = true');
+      expect(result).toContain('[profiles.dev]');
+      expect(result).toContain('approval_policy = "on-request"');
+      expect(result).toContain('sandbox_mode = "workspace-write"');
     });
   });
 
@@ -607,6 +627,19 @@ describe('generateBuiltInSkill', () => {
 // =============================================================================
 
 describe('generateConfigToml', () => {
+  it('keeps Codex settings at the TOML root', async () => {
+    const parsed = TOML.parse(await generateConfigToml({
+      model: 'gpt-test',
+      approvalPolicy: 'on-request',
+      sandboxMode: 'workspace-write',
+    })) as Record<string, unknown>;
+    expect(parsed.model).toBe('gpt-test');
+    expect(parsed.approval_policy).toBe('on-request');
+    expect(parsed.sandbox_mode).toBe('workspace-write');
+    expect((parsed.policy as Record<string, unknown>).mode).toBe('legacy');
+    expect(((parsed.swarm as Record<string, unknown>).automation as Record<string, unknown>).enabled).toBe(false);
+  });
+
   describe('default configuration', () => {
     it('should generate valid TOML with header', async () => {
       const result = await generateConfigToml({ platform: 'linux' });
@@ -658,8 +691,8 @@ describe('generateConfigToml', () => {
       const result = await generateConfigToml();
 
       expect(result).toContain('[profiles.dev]');
-      expect(result).toContain('approval_policy = "never"');
-      expect(result).toContain('sandbox_mode = "danger-full-access"');
+      expect(result).toContain('approval_policy = "on-request"');
+      expect(result).toContain('sandbox_mode = "workspace-write"');
 
       expect(result).toContain('[profiles.safe]');
       expect(result).toContain('sandbox_mode = "read-only"');
@@ -930,7 +963,7 @@ describe('generateCIConfigToml', () => {
     const result = await generateCIConfigToml('win32');
 
     expect(result).toContain('command = "cmd"');
-    expect(result).toContain('args = ["/c", "npx", "-y", "ruflo@latest", "mcp", "start"]');
+    expect(result).toContain('args = ["/c", "npx", "-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]');
     expect(result).toContain('startup_timeout_sec = 120');
     expect(result).toContain('tool_timeout_sec = 300');
   });

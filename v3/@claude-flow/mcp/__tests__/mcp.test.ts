@@ -152,6 +152,62 @@ describe('@claude-flow/mcp', () => {
       expect(result.content[0].type).toBe('text');
     });
 
+    it('should deny a tool before its handler runs', async () => {
+      let handlerCalls = 0;
+      registry.register({
+        name: 'protected-tool',
+        description: 'A protected tool',
+        inputSchema: { type: 'object', properties: {} },
+        handler: async () => {
+          handlerCalls++;
+          return { result: 'should not run' };
+        },
+      });
+      registry.setAuthorizer(async (name, input, context) => {
+        expect(name).toBe('protected-tool');
+        expect(input).toEqual({ destructive: true });
+        expect(context.sessionId).toBe('policy-test');
+        return {
+          allowed: false,
+          reason: 'approval required',
+          receiptId: 'receipt-1',
+        };
+      });
+
+      const result = await registry.execute(
+        'protected-tool',
+        { destructive: true },
+        { sessionId: 'policy-test' },
+      );
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('approval required');
+      expect(handlerCalls).toBe(0);
+      expect(registry.getStats().totalExecutions).toBe(0);
+    });
+
+    it('should fail closed when the authorizer is unavailable', async () => {
+      let handlerCalls = 0;
+      registry.register({
+        name: 'protected-tool',
+        description: 'A protected tool',
+        inputSchema: { type: 'object', properties: {} },
+        handler: async () => {
+          handlerCalls++;
+          return { result: 'should not run' };
+        },
+      });
+      registry.setAuthorizer(async () => {
+        throw new Error('policy store unavailable');
+      });
+
+      const result = await registry.execute('protected-tool', {});
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Authorization unavailable');
+      expect(handlerCalls).toBe(0);
+    });
+
     it('should return error for unknown tool', async () => {
       const result = await registry.execute('unknown-tool', {});
       expect(result.isError).toBe(true);
@@ -349,6 +405,25 @@ describe('@claude-flow/mcp', () => {
 
     it('should create server with config', () => {
       expect(server).toBeDefined();
+    });
+
+    it('fails construction when authorization is required but absent', () => {
+      expect(() => createMCPServer({
+        name: 'Protected Server',
+        transport: 'in-process',
+        requireToolAuthorization: true,
+      }, logger)).toThrow('no authorizer was provided');
+    });
+
+    it('accepts an authorizer in required mode', () => {
+      const protectedServer = createMCPServer({
+        name: 'Protected Server',
+        transport: 'in-process',
+        requireToolAuthorization: true,
+      }, logger, undefined, undefined, async () => ({ allowed: true }));
+      expect(protectedServer).toBeDefined();
+      expect(() => protectedServer.setToolAuthorizer(undefined))
+        .toThrow('tool authorization is required and cannot be disabled');
     });
 
     it('should register a tool', () => {

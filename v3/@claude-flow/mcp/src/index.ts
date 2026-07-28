@@ -107,7 +107,13 @@ export { MCPServer, createMCPServer };
 export type { IMCPServer } from './server.js';
 
 // Tool Registry
-export { ToolRegistry, createToolRegistry, defineTool } from './tool-registry.js';
+export {
+  ToolRegistry,
+  createToolRegistry,
+  defineTool,
+  type ToolAuthorizationDecision,
+  type ToolAuthorizer,
+} from './tool-registry.js';
 
 // Session Manager
 import { SessionManager, createSessionManager } from './session-manager.js';
