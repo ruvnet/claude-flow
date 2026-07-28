@@ -96,10 +96,11 @@ jobs:
         # assert exit code 0 + degraded:true JSON.
         run: |
           set -e
-          # Use an unresolvable npm registry so `npx metaharness@latest`
-          # cannot fetch the package. The skills should detect this and
-          # emit the degraded payload.
-          export npm_config_registry=https://no-such-registry-9c8c43.example.invalid/
+          # Use a closed local port so `npx metaharness@latest` fails
+          # deterministically without waiting on DNS or network retries.
+          # The skills should detect this and emit the degraded payload.
+          export npm_config_registry=http://127.0.0.1:9/
+          export npm_config_fetch_retries=0
           # Disable network-cache to ensure the npx miss is fresh
           export NPX_NO_LOCAL=1
           # Since the pinned-cache resolution (_invoke.mjs), skills no longer
@@ -129,8 +130,10 @@ jobs:
           for skill in score genome mcp-scan threat-model oia-audit mint drift-from-history; do
             echo "--- exercising ${skill}.mjs with unreachable registry ---"
             ARGS="${SKILL_ARGS[$skill]}"
-            OUT=$(node plugins/ruflo-metaharness/scripts/$skill.mjs $ARGS 2>&1 || echo '__NON_ZERO_EXIT__')
-            EXIT=$(node plugins/ruflo-metaharness/scripts/$skill.mjs $ARGS > /dev/null 2>&1; echo $?)
+            set +e
+            OUT=$(node plugins/ruflo-metaharness/scripts/$skill.mjs $ARGS 2>&1)
+            EXIT=$?
+            set -e
             echo "$OUT" | head -10
             echo "exit: $EXIT"
             # Assert: graceful path means exit 0 (or 3 for drift-from-history
