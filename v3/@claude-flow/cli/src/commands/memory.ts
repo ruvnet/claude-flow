@@ -411,10 +411,8 @@ const searchCommand: Command = {
     {
       // ADR-323 — restrict results to entries with a matching provenance
       // type (e.g. exclude user_claim when retrieving for fact-checking,
-      // per MemSyco-Bench's memory-induced sycophancy finding). Only
-      // applies to the semantic path (bypasses RaBitQ/HNSW fast paths,
-      // which don't carry provenance on their candidates — correctness
-      // over speed for a trust-filtering feature).
+      // per MemSyco-Bench's memory-induced sycophancy finding). Enforced
+      // across semantic, keyword, hybrid, and SmartRetrieval paths.
       name: 'provenance-filter',
       description: 'Comma-separated provenance types to restrict results to: user_claim,agent_output,system_observation,tool_result,unknown — ADR-323',
       type: 'string',
@@ -518,15 +516,19 @@ const searchCommand: Command = {
       // the requested namespace (or all) and substring-match against key
       // + content. Hybrid unions the keyword hits with the semantic hits
       // and dedups by key + namespace.
-      let keywordResults: { key: string; score: number; namespace: string; preview: string }[] = [];
+      let keywordResults: { key: string; score: number; namespace: string; preview: string; provenanceType?: string }[] = [];
       if (searchType === 'keyword' || searchType === 'hybrid') {
         const list = await listEntries({
           namespace: namespace === 'all' ? undefined : namespace,
           limit: 5000,
           includeContent: true,
           dbPath: dbPathSearch,
+          provenanceFilter,
         });
-        if (list.success) {
+        if (!list.success) {
+          output.printError(list.error || 'Keyword search failed');
+          return { success: false, exitCode: 1 };
+        } else {
           const q = (query as string).toLowerCase();
           keywordResults = list.entries
             .filter((e) => {
@@ -542,6 +544,7 @@ const searchCommand: Command = {
                 score: inKey ? 1.0 : 0.7,
                 namespace: e.namespace,
                 preview: c.slice(0, 200),
+                provenanceType: e.provenanceType,
               };
             })
             .sort((a, b) => b.score - a.score)
@@ -599,6 +602,7 @@ const searchCommand: Command = {
             limit: req.limit || limit * 3,
             threshold: req.threshold ?? threshold,
             dbPath: dbPathSearch,
+            provenanceFilter,
           });
           return {
             results: r.results.map(e => ({
@@ -607,6 +611,7 @@ const searchCommand: Command = {
               content: e.content,
               score: e.score,
               namespace: e.namespace,
+              provenanceType: e.provenanceType,
             })),
           };
         };
@@ -618,11 +623,12 @@ const searchCommand: Command = {
           threshold,
         });
 
-        results = smartResult.results.map((r: { content: string; key: string; namespace: string; score: number }) => ({
+        results = smartResult.results.map((r: { content: string; key: string; namespace: string; score: number; provenanceType?: string }) => ({
           key: r.key,
           score: r.score,
           namespace: r.namespace,
           preview: r.content,
+          provenanceType: r.provenanceType,
         }));
         searchTimeMs = smartResult.stats.durationMs;
         smartStats = smartResult.stats as unknown as Record<string, unknown>;

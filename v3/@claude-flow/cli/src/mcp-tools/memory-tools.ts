@@ -461,7 +461,7 @@ export const memoryTools: MCPTool[] = [
         provenance_filter: {
           type: 'array',
           items: { type: 'string', enum: ['user_claim', 'agent_output', 'system_observation', 'tool_result', 'unknown'] },
-          description: 'ADR-323: restrict results to these provenance types (e.g. exclude user_claim when fact-checking). Omit for no filtering. Bypasses the RaBitQ/HNSW fast paths, which don\'t carry provenance on their candidates.',
+          description: 'ADR-323: restrict results to these provenance types (e.g. exclude user_claim when fact-checking). Omit for no filtering. Enforced for standard and SmartRetrieval searches.',
         },
       },
       required: ['query'],
@@ -516,6 +516,7 @@ export const memoryTools: MCPTool[] = [
                 namespace: req.namespace || namespace,
                 limit: req.limit || limit * 3,
                 threshold: req.threshold ?? threshold,
+                provenanceFilter,
               });
               return {
                 results: r.results.map(e => ({
@@ -524,6 +525,7 @@ export const memoryTools: MCPTool[] = [
                   content: e.content,
                   score: e.score,
                   namespace: e.namespace,
+                  provenanceType: e.provenanceType,
                 })),
               };
             };
@@ -537,7 +539,7 @@ export const memoryTools: MCPTool[] = [
 
             const duration = performance.now() - startTime;
 
-            const results = smartResult.results.map((r: { content: string; key: string; namespace: string; score: number }) => {
+            const results = smartResult.results.map((r: { content: string; key: string; namespace: string; score: number; provenanceType?: string }) => {
               let value: unknown = r.content;
               try { value = JSON.parse(r.content); } catch { /* keep as string */ }
               return {
@@ -545,6 +547,7 @@ export const memoryTools: MCPTool[] = [
                 namespace: r.namespace,
                 value,
                 similarity: r.score,
+                provenanceType: r.provenanceType,
               };
             });
 
@@ -567,10 +570,8 @@ export const memoryTools: MCPTool[] = [
         // Original non-smart path (unchanged) — also reached when smart was
         // requested but unavailable. We attach `smartFallback` to the
         // response so callers can see the degradation explicitly.
-        // ADR-323: provenance_filter only applies here, not to the
-        // SmartRetrieval branch above — that pipeline's query-expansion/MMR
-        // reshaping lives in the external @claude-flow/memory package and
-        // doesn't accept a provenance filter today.
+        // ADR-323: the same filter is also passed into every raw search used
+        // by SmartRetrieval above, so query expansion cannot widen trust scope.
         const result = await searchEntries({
           query,
           namespace,

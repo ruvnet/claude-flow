@@ -51,7 +51,7 @@ Application-level validation (`isValidProvenanceType()`, exported from `memory-i
 - CLI: `memory search --provenance-filter <comma-separated types>`.
 - MCP tool: `memory_search`'s `provenance_filter` array parameter.
 - Applies across all three internal search strategies (RaBitQ pre-filter, in-memory HNSW, and the brute-force/BM25-hybrid SQL path) — see "Implementation note" below for why this needed a specific design after an initial approach crashed the CLI.
-- Does **not** apply to the SmartRetrieval (RRF/MMR) pipeline — that query-expansion/reranking logic lives in the external `@claude-flow/memory` package and does not accept a provenance filter today. Documented as an open gap, not silently ignored.
+- Applies to SmartRetrieval (RRF/MMR) by binding the provenance filter into every raw search used for query expansion. The external package does not need to understand the field and cannot widen the caller's trust scope.
 
 ## Implementation note: why RaBitQ/HNSW aren't skipped for a filtered search
 
@@ -73,7 +73,7 @@ Net effect: correctness is now handled per-path rather than by bypassing acceler
 - No acceleration path (RaBitQ/HNSW) is sacrificed for provenance-filtered queries.
 
 **Negative / open gaps (stated plainly, not glossed over):**
-- SmartRetrieval (`smart: true` / `--smart`) does not support `--provenance-filter` — the external package's interface doesn't accept one yet.
+- Filtering an ANN candidate window can underfill the requested page. Filtered RaBitQ/HNSW searches therefore fall through to the authoritative filtered SQL scan whenever the accelerated window does not fill the requested limit.
 - Plugin SDK enforcement (requiring official plugins to pass `provenance_type` on writes, with a `pre-edit` lint gate) — proposed in the original dream-cycle research — is **not implemented** in this ADR. Scoped out as a separate, larger change touching the plugin SDK contract.
 - The `audit` worker webhook-trigger idea from the same dream-cycle report is unrelated to provenance typing and is not part of this ADR.
 - No governance/rollback layer (the dream-cycle report's AOEP-v0 reference) — this ADR is the typing primitive only, not a full governance system.

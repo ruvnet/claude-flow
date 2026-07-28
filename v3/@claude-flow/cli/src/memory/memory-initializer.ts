@@ -2732,7 +2732,7 @@ export async function storeEntry(options: {
     ttl,
     dbPath: customPath,
     upsert = false,
-    provenanceType = 'unknown'
+    provenanceType
   } = options;
 
   const swarmDir = getMemoryRoot();
@@ -2768,6 +2768,20 @@ export async function storeEntry(options: {
 
     const fileBuffer = readFileMaybeEncrypted(dbPath, null);
     const db = new SQL.Database(fileBuffer);
+    let persistedProvenance = provenanceType ?? 'unknown';
+    if (upsert && provenanceType === undefined) {
+      try {
+        const stmt = db.prepare(
+          'SELECT provenance_type FROM memory_entries WHERE namespace = ? AND key = ? LIMIT 1'
+        );
+        stmt.bind([namespace, key]);
+        if (stmt.step()) {
+          const existingType = stmt.get()[0];
+          persistedProvenance = isValidProvenanceType(existingType) ? existingType : 'unknown';
+        }
+        stmt.free();
+      } catch { /* legacy schema or new row — keep unknown */ }
+    }
 
     const id = `entry_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     const now = Date.now();
@@ -2819,7 +2833,7 @@ export async function storeEntry(options: {
       embeddingModel,
       tags.length > 0 ? JSON.stringify(tags) : null,
       '{}',
-      provenanceType,
+      persistedProvenance,
       now,
       now,
       ttl ? now + (ttl * 1000) : null
@@ -2975,7 +2989,10 @@ export async function searchEntries(options: {
         }
         db.close();
 
-        if (reranked.length > 0) {
+        // A filtered ANN candidate window can underfill even when qualifying
+        // rows exist outside that window. Fall through to the authoritative
+        // filtered SQL scan unless ANN filled the requested page.
+        if (reranked.length > 0 && (!provenanceFilter?.length || reranked.length >= limit)) {
           reranked.sort((a, b) => b.score - a.score);
           return { success: true, results: reranked.slice(0, limit), searchTime: Date.now() - startTime };
         }
@@ -2983,17 +3000,19 @@ export async function searchEntries(options: {
     } catch { /* RaBitQ unavailable, fall through */ }
 
     // Try HNSW search (150x faster than brute-force)
-    const hnswResults = await searchHNSWIndex(queryEmbedding, { k: limit, namespace: effectiveNamespace });
+    const hnswResults = await searchHNSWIndex(queryEmbedding, {
+      k: provenanceFilter?.length ? Math.max(limit * 4, limit + 32) : limit,
+      namespace: effectiveNamespace,
+    });
     if (hnswResults && hnswResults.length > 0) {
       // Filter by threshold
       let filtered: Array<{ id: string; key: string; content: string; score: number; namespace: string; provenanceType?: string }> =
         hnswResults.filter(r => r.score >= threshold);
 
       // ADR-323: the in-memory HNSW index doesn't carry provenance_type on
-      // its entries, so a provenance-filtered search does one batched
-      // lookup by (namespace, key) — the schema's natural unique pair —
-      // rather than skipping HNSW's acceleration entirely.
-      if (provenanceFilter?.length && filtered.length > 0) {
+      // its entries, so resolve it from SQLite for a consistent result shape
+      // and apply any trust filter before returning.
+      if (filtered.length > 0) {
         try {
           const initSqlJs = (await import('sql.js')).default;
           const SQL = await initSqlJs();
@@ -3010,18 +3029,29 @@ export async function searchEntries(options: {
           }
           db.close();
           filtered = filtered
-            .map(r => ({ ...r, provenanceType: provenanceByKey.get(`${r.namespace}::${r.key}`) || 'unknown' }))
-            .filter(r => provenanceFilter.includes(r.provenanceType!));
-        } catch { /* provenance lookup failed — fail closed to no results rather than unfiltered */
-          filtered = [];
+            .map(r => ({ ...r, provenanceType: provenanceByKey.get(`${r.namespace}::${r.key}`) || 'unknown' }));
+          if (provenanceFilter?.length) {
+            filtered = filtered.filter(r => provenanceFilter.includes(r.provenanceType!));
+          }
+        } catch {
+          // A requested trust filter fails closed. Unfiltered callers retain
+          // backward-compatible results with an explicit unknown label.
+          filtered = provenanceFilter?.length
+            ? []
+            : filtered.map(r => ({ ...r, provenanceType: 'unknown' }));
         }
       }
 
-      return {
-        success: true,
-        results: filtered,
-        searchTime: Date.now() - startTime
-      };
+      if (!provenanceFilter?.length || filtered.length >= limit) {
+        return {
+          success: true,
+          results: filtered.slice(0, limit),
+          searchTime: Date.now() - startTime
+        };
+      }
+      // The ANN window did not contain enough matching provenance rows.
+      // Continue into the filtered SQL path to avoid false-empty/underfilled
+      // results caused by post-filtering only the unfiltered top-k.
     }
 
     // Fall back to brute-force SQLite search
@@ -3151,6 +3181,8 @@ export async function listEntries(options: {
   dbPath?: string;
   /** #2073: When true, include the entry's full `content` string in each result. */
   includeContent?: boolean;
+  /** ADR-323: restrict rows to these provenance types. */
+  provenanceFilter?: string[];
 }): Promise<{
   success: boolean;
   entries: {
@@ -3164,10 +3196,23 @@ export async function listEntries(options: {
     hasEmbedding: boolean;
     /** #2073: Present when `includeContent: true` was requested. */
     content?: string;
+    provenanceType?: string;
   }[];
   total: number;
   error?: string;
 }> {
+  if (options.provenanceFilter?.length) {
+    const invalid = options.provenanceFilter.filter(p => !isValidProvenanceType(p));
+    if (invalid.length > 0) {
+      return {
+        success: false,
+        entries: [],
+        total: 0,
+        error: `Invalid provenance filter value(s): ${invalid.join(', ')} — must be one of: ${PROVENANCE_TYPES.join(', ')}`,
+      };
+    }
+  }
+
   // ADR-053: Try AgentDB v3 bridge first
   const bridge = await getBridge();
   if (bridge) {
@@ -3180,7 +3225,8 @@ export async function listEntries(options: {
     namespace,
     limit = 20,
     offset = 0,
-    dbPath: customPath
+    dbPath: customPath,
+    provenanceFilter
   } = options;
 
   const swarmDir = getMemoryRoot();
@@ -3204,12 +3250,19 @@ export async function listEntries(options: {
     // that predate the status column may have NULL after migration.
     // See memory-bridge.ts:bridgeListEntries for full context.
     // Get total count
-    const countStmt = namespace
-      ? db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE (status = 'active' OR status IS NULL) AND namespace = ?`)
-      : db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE (status = 'active' OR status IS NULL)`);
+    const whereClauses = [`(status = 'active' OR status IS NULL)`];
+    const whereParams: string[] = [];
     if (namespace) {
-      countStmt.bind([namespace]);
+      whereClauses.push('namespace = ?');
+      whereParams.push(namespace);
     }
+    if (provenanceFilter?.length) {
+      whereClauses.push(`provenance_type IN (${provenanceFilter.map(() => '?').join(',')})`);
+      whereParams.push(...provenanceFilter);
+    }
+    const whereSql = whereClauses.join(' AND ');
+    const countStmt = db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE ${whereSql}`);
+    if (whereParams.length > 0) countStmt.bind(whereParams);
     const countRows: unknown[][] = [];
     while (countStmt.step()) {
       countRows.push(countStmt.get());
@@ -3222,14 +3275,12 @@ export async function listEntries(options: {
     const safeLimit = parseInt(String(limit), 10) || 100;
     const safeOffset = parseInt(String(offset), 10) || 0;
     // #2120 — same NULL-as-active acceptance as the count above.
-    const listStmt = namespace
-      ? db.prepare(`SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at FROM memory_entries WHERE (status = 'active' OR status IS NULL) AND namespace = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?`)
-      : db.prepare(`SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at FROM memory_entries WHERE (status = 'active' OR status IS NULL) ORDER BY updated_at DESC LIMIT ? OFFSET ?`);
-    if (namespace) {
-      listStmt.bind([namespace, safeLimit, safeOffset]);
-    } else {
-      listStmt.bind([safeLimit, safeOffset]);
-    }
+    const listStmt = db.prepare(
+      `SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type
+       FROM memory_entries WHERE ${whereSql}
+       ORDER BY updated_at DESC LIMIT ? OFFSET ?`
+    );
+    listStmt.bind([...whereParams, safeLimit, safeOffset]);
     const listRows: unknown[][] = [];
     while (listStmt.step()) {
       listRows.push(listStmt.get());
@@ -3246,12 +3297,13 @@ export async function listEntries(options: {
       updatedAt: string;
       hasEmbedding: boolean;
       content?: string;
+      provenanceType?: string;
     }[] = [];
 
     if (result[0]?.values) {
       for (const row of result[0].values) {
-        const [id, key, ns, content, embedding, accessCount, createdAt, updatedAt] = row as [
-          string, string, string, string, string | null, number, string, string
+        const [id, key, ns, content, embedding, accessCount, createdAt, updatedAt, provenanceTypeVal] = row as [
+          string, string, string, string, string | null, number, string, string, string | null
         ];
         const entry: {
           id: string;
@@ -3263,6 +3315,7 @@ export async function listEntries(options: {
           updatedAt: string;
           hasEmbedding: boolean;
           content?: string;
+          provenanceType?: string;
         } = {
           // #2073: don't truncate id when content is requested — callers
           // (notably memory_export) need the full id to round-trip via import.
@@ -3273,7 +3326,8 @@ export async function listEntries(options: {
           accessCount: accessCount || 0,
           createdAt: createdAt || new Date().toISOString(),
           updatedAt: updatedAt || new Date().toISOString(),
-          hasEmbedding: !!embedding && embedding.length > 10
+          hasEmbedding: !!embedding && embedding.length > 10,
+          provenanceType: provenanceTypeVal || 'unknown'
         };
         if (options.includeContent) {
           entry.content = content || '';
