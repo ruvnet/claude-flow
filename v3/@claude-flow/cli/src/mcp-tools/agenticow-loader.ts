@@ -103,11 +103,26 @@ export async function openWithLineage(api: AgenticowApi, file: string, dimension
   if (existsSync(manifest)) {
     return (api.AgenticMemory as any).load(manifest);
   }
+  assertOpenable(file, dimension);
   const opts: any = {};
   if (typeof dimension === 'number' && Number.isInteger(dimension) && dimension > 0) {
     opts.dimension = dimension;
-  } else if (!existsSync(file)) {
-    throw new Error('dimension is required when creating a new memory file');
   }
   return api.open(file, opts);
+}
+
+/**
+ * Fail-closed pre-check shared by openWithLineage and the MCP handlers:
+ * creating a brand-new base (no `.rvf` file AND no lineage manifest) requires a
+ * positive-integer dimension. Split out so the MCP tools can enforce it BEFORE
+ * their optional-package degraded return — a malformed request (missing
+ * dimension, later path traversal, etc.) must be rejected regardless of whether
+ * agenticow is installed, never silently accepted as `{degraded:true}`.
+ */
+export function assertOpenable(file: string, dimension?: number): void {
+  if (existsSync(manifestFor(file))) return;
+  if (typeof dimension === 'number' && Number.isInteger(dimension) && dimension > 0) return;
+  if (!existsSync(file)) {
+    throw new Error('dimension is required when creating a new memory file');
+  }
 }

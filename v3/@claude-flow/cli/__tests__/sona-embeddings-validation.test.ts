@@ -99,8 +99,10 @@ describe('Neural Tools (neural-tools)', () => {
     // Must be a non-empty string indicating which embedding backend is active
     expect(typeof provider).toBe('string');
     expect(provider.length).toBeGreaterThan(0);
-    // Must match one of the known provider tiers or fallback
-    const knownProviders = /agentic-flow|onnx|mock|hash|fallback|reasoningbank|none/i;
+    // Must match one of the known provider tiers or fallback. ruvector (the
+    // bundled all-MiniLM-L6-v2 embedder) is the current real backend and reports
+    // e.g. "@claude-flow/embeddings (ruvector@0.2.27 (bundled all-MiniLM-L6-v2))".
+    const knownProviders = /agentic-flow|onnx|mock|hash|fallback|reasoningbank|none|ruvector|minilm|embeddings/i;
     expect(provider).toMatch(knownProviders);
   });
 });

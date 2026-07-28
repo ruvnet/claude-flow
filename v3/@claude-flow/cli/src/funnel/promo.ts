@@ -108,10 +108,11 @@ export function getFunnelPromo(ctx: PromoContext): PromoRow | null {
   const release = getInstalledCliVersion();
 
   // Disclosure gate: never a message before the disclosure has been shown
-  // and its grace window has passed. The disclosure MESSAGE itself is now
-  // remote-sourced (ADR-311) — selectDisclosureMessage() returns null when
-  // the remote pool hasn't populated yet (cold start / outage), and per the
-  // "zero local promo content" design, null means show nothing this cycle.
+  // and its grace window has passed. The disclosure MESSAGE is remote-sourced
+  // (ADR-311) with an in-code cold-start seed (issue #2787), so on a fresh
+  // install selectDisclosureMessage() returns the seed disclosure rather than
+  // null. The `!msg` branches below stay as defensive insurance: if both the
+  // remote cache and the seed are ever empty, null still means show nothing.
   const disclosure = getDisclosure();
   if (disclosure.state === 'never_seen') {
     const msg = selectDisclosureMessage(now);

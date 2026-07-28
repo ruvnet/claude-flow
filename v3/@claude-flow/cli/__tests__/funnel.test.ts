@@ -99,9 +99,10 @@ beforeEach(() => {
 
 /**
  * Seed the local remote-message cache exactly the way message-transport.ts's
- * writeCache() would after a successful GET /v1/messages — ADR-311 makes
- * this the ONLY content source (MESSAGES ships empty), so every test that
- * exercises rotation/disclosure must seed this cache first.
+ * writeCache() would after a successful GET /v1/messages. The remote pool is
+ * authoritative and overrides the in-code seed pool by id (issue #2787), so
+ * tests that need to exercise remote-specific rotation/disclosure content seed
+ * this cache first; tests exercising cold-start behavior deliberately do not.
  */
 function seedRemoteMessages(messages: unknown[]): void {
   fs.writeFileSync(
@@ -191,12 +192,21 @@ describe('message content boundaries (ADR-301)', () => {
     expect(isAllowedUrl('not a url')).toBe(false);
   });
 
-  it('ships ZERO local messages (ADR-311 "zero local promo content" guarantee)', () => {
-    // The in-code MESSAGES pool is intentionally empty — all rotation
-    // content (tips, promos, disclosure) is remote-sourced. This test
-    // pins that guarantee; a future PR that adds a local message back
-    // in must consciously fail this test to do so.
-    expect(MESSAGES).toEqual([]);
+  it('ships a bounded, self-validating local seed pool (cold-start fallback, #2787)', () => {
+    // ADR-311 originally shipped ZERO local content (remote-only, fail-closed).
+    // Issue #2787 revisited that: on a fresh install the remote fetch races the
+    // very first render, so the promo row (and the disclosure gate) stayed blank
+    // for several 20s slots. The fix is a small in-code seed pool — one bootstrap
+    // disclosure, one sponsor promo, the rest educational tips — that the remote
+    // pool overrides by id. This test pins that the seed stays bounded and every
+    // entry clears the ADR-301 content gate; a PR growing it unsafely fails here.
+    expect(MESSAGES.length).toBeGreaterThan(0);
+    for (const m of MESSAGES) expect(isValidMessage(m)).toBe(true);
+    // Exactly one bootstrap disclosure and one sponsor promo; the rest are tips.
+    expect(MESSAGES.filter((m) => m.class === 'disclosure')).toHaveLength(1);
+    expect(MESSAGES.filter((m) => m.class === 'promotional')).toHaveLength(1);
+    // Every seed id is namespaced so the remote pool can override/retire it.
+    expect(MESSAGES.every((m) => m.id.startsWith('local.'))).toBe(true);
   });
 
   it('a disclosure-class message without the manage tail is rejected, never repaired', () => {
@@ -205,10 +215,15 @@ describe('message content boundaries (ADR-301)', () => {
     expect(isValidMessage({ ...base, text: '✨ Has it · manage: ruflo settings' })).toBe(true);
   });
 
-  it('selectDisclosureMessage returns null when no remote disclosure pool is cached (fail-closed)', () => {
-    // No seedRemoteMessages() call — cache is empty, matching a cold start
-    // or an unreachable remote feed. Per ADR-311, this means "show nothing".
-    expect(selectDisclosureMessage(new Date())).toBeNull();
+  it('selectDisclosureMessage falls back to the local seed disclosure when no remote pool is cached (cold-start)', () => {
+    // No seedRemoteMessages() call — cold start or an unreachable remote feed.
+    // Per the #2787 amendment the in-code seed disclosure covers this so the
+    // gate can still unlock on a fresh install; a real remote disclosure
+    // overrides it by id once the first fetch lands.
+    const msg = selectDisclosureMessage(new Date());
+    expect(msg).not.toBeNull();
+    expect(msg!.id).toBe('local.disclosure.v1');
+    expect(msg!.class).toBe('disclosure');
   });
 
   it('selectDisclosureMessage is deterministic per 5-minute slot once seeded', () => {
@@ -216,22 +231,31 @@ describe('message content boundaries (ADR-301)', () => {
     const t0 = new Date('2026-07-10T12:00:00.000Z');
     const t0plus1s = new Date(t0.getTime() + 1000);
     expect(selectDisclosureMessage(t0)?.id).toBe(selectDisclosureMessage(t0plus1s)?.id);
+    // The disclosure pool is the seeded remote variants MERGED with the in-code
+    // seed disclosure (distinct ids, remote wins on collision), so rotation must
+    // cover all of them.
+    const localDisclosures = MESSAGES.filter((m) => m.class === 'disclosure').length;
+    const poolSize = TEST_DISCLOSURE_POOL.length + localDisclosures;
     const seen = new Set<string>();
-    for (let i = 0; i < TEST_DISCLOSURE_POOL.length * 2; i++) {
+    for (let i = 0; i < poolSize * 2; i++) {
       seen.add(selectDisclosureMessage(new Date(t0.getTime() + i * DISCLOSURE_ROTATION_SLOT_MS))?.id ?? '');
     }
-    // Rotation must cover every variant.
-    expect(seen.size).toBe(TEST_DISCLOSURE_POOL.length);
+    expect(seen.size).toBe(poolSize);
   });
 });
 
 // ─── ADR-301: rotation ratio ────────────────────────────────────────────────
 
 describe('rotation scheduler (ADR-301 content ratio)', () => {
-  it('returns null when no remote pool is cached (fail-closed, ADR-311)', () => {
-    // No seedRemoteMessages() call — MESSAGES ships empty, so an unseeded
-    // cache means nothing to rotate through. This is deliberate, not a bug.
-    expect(selectMessage(new Date())).toBeNull();
+  it('falls back to local seed content when no remote pool is cached (cold-start, #2787)', () => {
+    // No seedRemoteMessages() call — the in-code seed pool covers cold starts so
+    // the rotation still has something to show on a fresh install. Remote content
+    // overrides by id once the first fetch lands.
+    const msg = selectMessage(new Date());
+    expect(msg).not.toBeNull();
+    expect(msg!.id.startsWith('local.')).toBe(true);
+    // Cold-start rotation surfaces educational tips first (promo is slot-gated).
+    expect(['educational', 'promotional']).toContain(msg!.class);
   });
 
   it('promotional content appears only in 1-of-5 slots and honors the 30-min cap', () => {
@@ -359,15 +383,25 @@ describe('promo orchestrator (getFunnelPromo)', () => {
     expect(getFunnelPromo({ interactive: true, env: { ...process.env, RUFLO_FUNNEL: '0' } })).toBeNull();
   });
 
-  it('renders nothing on first render when no remote pool is cached (fail-closed, ADR-311)', () => {
-    // No seedRemoteMessages() — this is a cold start or an unreachable API.
-    // Zero local content means zero row, not a fallback to hardcoded text.
-    expect(getFunnelPromo({ interactive: true, cwd: stateDir })).toBeNull();
+  it('first render shows the local seed disclosure when no remote pool is cached (cold-start, #2787)', () => {
+    // No seedRemoteMessages() — cold start or unreachable API. The in-code seed
+    // disclosure lets the gate unlock on a fresh install instead of leaving the
+    // row blank; the first render is still the disclosure, never a promotion.
+    const row = getFunnelPromo({ interactive: true, cwd: stateDir });
+    expect(row).not.toBeNull();
+    expect(row!.kind).toBe('disclosure');
+    expect(row!.text).toBe('Ruflo shows occasional tips and sponsor notes here · manage: ruflo settings');
   });
 
   it('first interactive render is the disclosure, never a promotion', () => {
     seedRemoteMessages(TEST_DISCLOSURE_POOL);
-    const row = getFunnelPromo({ interactive: true, cwd: stateDir });
+    // Pin `now` to a 5-min slot that lands on a REMOTE seeded disclosure. The
+    // disclosure pool merges the 3 seeded remote variants with the in-code seed
+    // disclosure (remote-first ordering), so an unpinned clock could select the
+    // local seed (which has no click-tracked URL) and fail the URL assertions
+    // below. slot = floor(t/300_000) % 4 === 0 → the first remote variant.
+    const now = new Date(Date.UTC(2026, 6, 10, 12, 0, 0));
+    const row = getFunnelPromo({ interactive: true, cwd: stateDir, now });
     expect(row).not.toBeNull();
     expect(row!.kind).toBe('disclosure');
     // Row text is one of the seeded disclosure variants.
@@ -1069,12 +1103,17 @@ describe('power-saver notifier (ADR-314 §A — manual, self-reported, mirrors r
 describe('sponsored-downtime priority override (ADR-313)', () => {
   it('does not override when the rate-limit flag is unset', () => {
     seedRemoteMessages([...TEST_DISCLOSURE_POOL, ...TEST_ROTATION_POOL]);
-    const t0 = new Date();
+    // Fixed t0 so the post-grace slot is deterministic (avoids landing on a
+    // promo slot by wall-clock chance).
+    const t0 = new Date(Date.UTC(2026, 6, 10, 12, 0, 0));
     recordDisclosureShown(t0);
     const after = new Date(t0.getTime() + DISCLOSURE_GRACE_MS + 60_000);
     const row = getFunnelPromo({ interactive: true, cwd: stateDir, now: after });
     expect(row).not.toBeNull();
-    expect(row!.text).not.toMatch(/sponsor/i);
+    // The sponsored-downtime override is identified by its exact CTA anchor
+    // (`ruflo proxy sponsor-…`), not by the word "sponsor" — the local seed
+    // promo legitimately says "sponsored capacity" and must not trip this.
+    expect(row!.text).not.toContain('ruflo proxy sponsor');
   });
 
   it('shows the enable-CTA when rate-limited without sponsored consent', () => {

@@ -178,12 +178,23 @@ export const agentdbPatternStore: MCPTool = {
         const { storeEntry } = await import('../memory/memory-initializer.js');
         const patternId = `pattern-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const value = JSON.stringify({ pattern, type, confidence, _fallback: 'reasoningBank-unavailable' });
-        await storeEntry({
+        const stored = await storeEntry({
           key: patternId,
           value,
           namespace: 'pattern',
           tags: [type, 'reasoning-pattern', 'fallback'],
         });
+        // #2226: honor the store result. storeEntry can fail WITHOUT throwing
+        // (e.g. an unreadable/corrupt/encrypted .swarm/memory.db → "file is not
+        // a database"); reporting success:true anyway made the pattern silently
+        // unrecallable and defeated callers' "store failed → skip/retry" guards.
+        if (!stored?.success) {
+          return {
+            success: false,
+            error: `Pattern store failed: memory_store fallback did not persist${stored?.error ? ` (${stored.error})` : ''}`,
+            recommendation: 'Run agentdb_health and confirm .swarm/memory.db is a valid, writable SQLite database (a stale encrypted/corrupt file triggers "file is not a database").',
+          };
+        }
         return {
           success: true,
           patternId,

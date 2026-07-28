@@ -602,17 +602,24 @@ const searchCommand: Command = {
         });
 
         if (!searchResult.success) {
-          output.printError(searchResult.error || 'Search failed');
-          return { success: false, exitCode: 1 };
+          // Semantic search failed — most often because the embedding model
+          // isn't available (offline cold ONNX cache, missing native binary),
+          // not because the store is broken. That must NOT hard-fail `search`:
+          // degrade to the keyword recall pass below so stored content is
+          // still findable (#2558). A genuinely empty/broken store simply
+          // yields zero results with a warning, never a non-zero exit.
+          output.printWarning(searchResult.error || 'Semantic search unavailable — falling back to keyword recall');
+          results = [];
+          searchTimeMs = 0;
+        } else {
+          results = searchResult.results.map(r => ({
+            key: r.key,
+            score: r.score,
+            namespace: r.namespace,
+            preview: r.content
+          }));
+          searchTimeMs = searchResult.searchTime;
         }
-
-        results = searchResult.results.map(r => ({
-          key: r.key,
-          score: r.score,
-          namespace: r.namespace,
-          preview: r.content
-        }));
-        searchTimeMs = searchResult.searchTime;
       }
 
       // #2790 fix (hybrid mode): union keyword results with semantic
@@ -630,6 +637,39 @@ const searchCommand: Command = {
         results.sort((a, b) => b.score - a.score);
         results = results.slice(0, limit);
         backendLabel = `${backendLabel} + keyword union (#2790)`;
+      }
+
+      // #2558 recall safety net: semantic search returns nothing when the
+      // embedder produced no vectors for the corpus (e.g. the bundled ONNX
+      // model isn't available in the environment, so every entry stores with
+      // a NULL embedding). A stored entry must still be recallable by an
+      // exact keyword it contains — otherwise `search` silently loses content
+      // that `list`/`retrieve` prove is present. Degrade to a keyword
+      // substring pass in that case. Guarded on an EMPTY semantic result set,
+      // so it never alters behavior when vector search actually works.
+      if (searchType === 'semantic' && results.length === 0) {
+        const list = await listEntries({
+          namespace: namespace === 'all' ? undefined : namespace,
+          limit: 5000,
+          includeContent: true,
+          dbPath: dbPathSearch,
+        });
+        if (list.success) {
+          const q = (query as string).toLowerCase();
+          results = list.entries
+            .filter((e) => {
+              const c = (e as { content?: string }).content ?? '';
+              return e.key.toLowerCase().includes(q) || c.toLowerCase().includes(q);
+            })
+            .map((e) => {
+              const c = (e as { content?: string }).content ?? '';
+              const inKey = e.key.toLowerCase().includes(q);
+              return { key: e.key, score: inKey ? 1.0 : 0.7, namespace: e.namespace, preview: c.slice(0, 200) };
+            })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, limit);
+          if (results.length > 0) backendLabel = `${backendLabel} + keyword recall fallback (#2558)`;
+        }
       }
 
       if (ctx.flags.format === 'json') {
@@ -710,8 +750,12 @@ const listCommand: Command = {
       const listResult = await listEntries({ namespace, limit, offset: 0, dbPath: dbPathList });
 
       if (!listResult.success) {
-        output.printError(`Failed to list: ${listResult.error}`);
-        return { success: false, exitCode: 1 };
+        // An uninitialized/absent store is an empty list, not a hard error —
+        // `list` should degrade gracefully the same way `search` does rather
+        // than exiting non-zero when there is simply nothing to show yet.
+        output.printWarning(`No memory store found${listResult.error ? ` (${listResult.error})` : ''} — nothing to list yet.`);
+        if (ctx.flags.format === 'json') output.printJson([]);
+        return { success: true, data: [] };
       }
 
       // Format entries for display

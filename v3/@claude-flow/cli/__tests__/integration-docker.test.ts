@@ -90,7 +90,9 @@ describe('Docker Compose Configuration', () => {
   });
 
   it('mongodb exposes port 27017', () => {
-    expect(composeContent).toMatch(/"27017:27017"/);
+    // Hardened to bind the published port to loopback only ("127.0.0.1:27017:…")
+    // — accept the optional host-bind prefix rather than the bare mapping.
+    expect(composeContent).toMatch(/"(?:127\.0\.0\.1:)?27017:27017"/);
   });
 
   it('mongodb has a named volume for data persistence', () => {
@@ -103,7 +105,8 @@ describe('Docker Compose Configuration', () => {
   });
 
   it('mcp-bridge publishes port 3001', () => {
-    expect(composeContent).toMatch(/"3001:3001"/);
+    // Loopback-bound like mongodb ("127.0.0.1:3001:3001") — accept the prefix.
+    expect(composeContent).toMatch(/"(?:127\.0\.0\.1:)?3001:3001"/);
   });
 
   it('mcp-bridge has a healthcheck', () => {
@@ -145,7 +148,10 @@ describe('Docker Compose Configuration', () => {
 
   it('chat-ui injects DOTENV_LOCAL with required env vars', () => {
     expect(composeContent).toContain('DOTENV_LOCAL');
-    expect(composeContent).toContain('MONGODB_URL=mongodb://mongodb:27017');
+    // MONGODB_URL now carries auth credentials (ADR-166 §6 auth-on-by-default):
+    // mongodb://<user>:<pass>@mongodb:27017/… — assert it still targets the
+    // mongodb service on 27017 rather than the old credential-less literal.
+    expect(composeContent).toMatch(/MONGODB_URL=mongodb:\/\/[^\n]*mongodb:27017/);
     expect(composeContent).toContain('PUBLIC_APP_NAME');
     expect(composeContent).toContain('OPENAI_BASE_URL=http://mcp-bridge:3001');
   });
@@ -612,7 +618,8 @@ describe('Cross-Service Port Consistency', () => {
     const dockerfile = readFile(MCP_BRIDGE_DOCKERFILE);
     const compose = readFile(COMPOSE_PATH);
     expect(dockerfile).toContain('EXPOSE 3001');
-    expect(compose).toContain('"3001:3001"');
+    // Loopback-bound published port (see "mcp-bridge publishes port 3001").
+    expect(compose).toMatch(/"(?:127\.0\.0\.1:)?3001:3001"/);
   });
 
   it('nginx Dockerfile EXPOSE matches compose published port', () => {

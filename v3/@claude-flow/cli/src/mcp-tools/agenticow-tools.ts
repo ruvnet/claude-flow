@@ -43,6 +43,7 @@ import {
   manifestFor,
   validateLabel,
   openWithLineage,
+  assertOpenable,
 } from './agenticow-loader.js';
 
 export const agenticowTools: MCPTool[] = [
@@ -63,14 +64,18 @@ export const agenticowTools: MCPTool[] = [
       required: ['basePath', 'branchPath', 'label'],
     },
     handler: async (input) => {
-      const api = await loadAgenticow();
-      if (!api) return degradedResult('agenticow-not-found');
-
+      // Validate BEFORE the degraded return: a malformed request (bad label,
+      // path traversal, missing dimension for a new base) is rejected whether
+      // or not the optional agenticow package is installed.
       const label = validateLabel(String(input.label));
       const basePath = resolveMemoryPath(String(input.basePath));
       const branchPath = resolveMemoryPath(String(input.branchPath));
       const dim = input.dimension as number | undefined;
+      assertOpenable(basePath, dim);
       const nativeAnn = input.nativeAnn === true;
+
+      const api = await loadAgenticow();
+      if (!api) return degradedResult('agenticow-not-found');
 
       const base = await openWithLineage(api, basePath, dim);
       try {
@@ -119,9 +124,6 @@ export const agenticowTools: MCPTool[] = [
       required: ['path', 'records'],
     },
     handler: async (input) => {
-      const api = await loadAgenticow();
-      if (!api) return degradedResult('agenticow-not-found');
-
       const path = resolveMemoryPath(String(input.path));
       const records = input.records as Array<{ id?: number; vector: number[]; text?: string }>;
       if (!Array.isArray(records) || records.length === 0) {
@@ -133,6 +135,10 @@ export const agenticowTools: MCPTool[] = [
         }
       }
       const dim = (input.dimension as number | undefined) ?? records[0].vector.length;
+
+      const api = await loadAgenticow();
+      if (!api) return degradedResult('agenticow-not-found');
+
       const mem = await openWithLineage(api, path, dim);
       try {
         const result = await mem.ingest(records.map((r) => ({
@@ -163,9 +169,6 @@ export const agenticowTools: MCPTool[] = [
       required: ['path', 'vector'],
     },
     handler: async (input) => {
-      const api = await loadAgenticow();
-      if (!api) return degradedResult('agenticow-not-found');
-
       const path = resolveMemoryPath(String(input.path));
       const vector = input.vector as number[];
       if (!Array.isArray(vector) || vector.length === 0) {
@@ -174,6 +177,10 @@ export const agenticowTools: MCPTool[] = [
       const k = typeof input.k === 'number' ? input.k : 10;
       const opts: Record<string, unknown> = {};
       if (typeof input.efSearch === 'number') opts.efSearch = input.efSearch;
+
+      const api = await loadAgenticow();
+      if (!api) return degradedResult('agenticow-not-found');
+
       const mem = await openWithLineage(api, path);
       try {
         const hits = await mem.query(vector, k, opts);
@@ -196,10 +203,11 @@ export const agenticowTools: MCPTool[] = [
       required: ['path'],
     },
     handler: async (input) => {
+      const path = resolveMemoryPath(String(input.path));
+
       const api = await loadAgenticow();
       if (!api) return degradedResult('agenticow-not-found');
 
-      const path = resolveMemoryPath(String(input.path));
       const mem = await openWithLineage(api, path);
       try {
         const diff = await mem.diff();
@@ -222,10 +230,11 @@ export const agenticowTools: MCPTool[] = [
       required: ['path'],
     },
     handler: async (input) => {
+      const path = resolveMemoryPath(String(input.path));
+
       const api = await loadAgenticow();
       if (!api) return degradedResult('agenticow-not-found');
 
-      const path = resolveMemoryPath(String(input.path));
       const mem = await openWithLineage(api, path);
       try {
         const lineage = await mem.lineage();
@@ -248,10 +257,11 @@ export const agenticowTools: MCPTool[] = [
       required: ['path'],
     },
     handler: async (input) => {
+      const path = resolveMemoryPath(String(input.path));
+
       const api = await loadAgenticow();
       if (!api) return degradedResult('agenticow-not-found');
 
-      const path = resolveMemoryPath(String(input.path));
       const mem = await openWithLineage(api, path);
       try {
         const status = await mem.status();
@@ -275,11 +285,12 @@ export const agenticowTools: MCPTool[] = [
       required: ['path', 'label'],
     },
     handler: async (input) => {
+      const label = validateLabel(String(input.label));
+      const path = resolveMemoryPath(String(input.path));
+
       const api = await loadAgenticow();
       if (!api) return degradedResult('agenticow-not-found');
 
-      const label = validateLabel(String(input.label));
-      const path = resolveMemoryPath(String(input.path));
       const mem = await openWithLineage(api, path);
       try {
         const cp = await mem.checkpoint(label);
@@ -304,11 +315,12 @@ export const agenticowTools: MCPTool[] = [
       required: ['path'],
     },
     handler: async (input) => {
+      const path = resolveMemoryPath(String(input.path));
+      const checkpointId = input.checkpointId ? String(input.checkpointId) : undefined;
+
       const api = await loadAgenticow();
       if (!api) return degradedResult('agenticow-not-found');
 
-      const path = resolveMemoryPath(String(input.path));
-      const checkpointId = input.checkpointId ? String(input.checkpointId) : undefined;
       const mem = await openWithLineage(api, path);
       try {
         const r = checkpointId ? await mem.rollback(checkpointId) : await mem.rollback();
@@ -337,11 +349,12 @@ export const agenticowTools: MCPTool[] = [
       required: ['branchPath'],
     },
     handler: async (input) => {
+      const branchPath = resolveMemoryPath(String(input.branchPath));
+      const basePath = input.basePath ? resolveMemoryPath(String(input.basePath)) : undefined;
+
       const api = await loadAgenticow();
       if (!api) return degradedResult('agenticow-not-found');
 
-      const branchPath = resolveMemoryPath(String(input.branchPath));
-      const basePath = input.basePath ? resolveMemoryPath(String(input.basePath)) : undefined;
       const branch = await openWithLineage(api, branchPath);
       const base = basePath ? await openWithLineage(api, basePath) : undefined;
       try {
