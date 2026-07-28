@@ -158,6 +158,24 @@ export class CodexInitializer {
         warnings.push(mcpResult.warning);
       }
 
+      // #2801 — install the canonical ruflo-core@ruflo plugin so Codex
+      // gets Ruflo's lifecycle hooks (PreToolUse/PostToolUse/PreCompact/
+      // Stop). Before this, --codex/--dual set up skills + MCP but no
+      // lifecycle hooks. We install the UPSTREAM plugin (not a second
+      // project-local bundle) to avoid the #2640 double-firing class.
+      const pluginResult = await this.installRufloCorePlugin();
+      if (pluginResult.installed) {
+        filesCreated.push('Codex plugin (ruflo-core@ruflo) installed');
+      }
+      if (pluginResult.warning) {
+        warnings.push(pluginResult.warning);
+      }
+      if (pluginResult.activationMessage) {
+        // Surfaced as a warning so it prints prominently. Codex deliberately
+        // does NOT auto-trust new command hooks — the user must review them.
+        warnings.push(pluginResult.activationMessage);
+      }
+
       // If dual mode, also generate Claude Code files
       if (this.dual) {
         const dualResult = await this.generateDualPlatformFiles();
@@ -393,6 +411,82 @@ export class CodexInitializer {
         registered: false,
         warning: 'Could not register MCP server. Run manually: codex mcp add ruflo -- npx -y --package=@claude-flow/cli@latest claude-flow-mcp',
       };
+    }
+  }
+
+  /**
+   * #2801 — Install the canonical `ruflo-core@ruflo` plugin so Codex
+   * discovers Ruflo's lifecycle hooks. Idempotent: adds the marketplace
+   * and installs the plugin at user scope, mirroring registerMCPServer's
+   * detect-then-add pattern. Codex does NOT auto-trust command hooks, so
+   * we always return an activation message instructing the user to review
+   * and trust them in a new session. Installation state is NOT reported as
+   * "hook-active" — only "installed, pending trust review".
+   */
+  private async installRufloCorePlugin(): Promise<{ installed: boolean; warning?: string; activationMessage?: string }> {
+    const ACTIVATION = [
+      '',
+      'ACTION REQUIRED (Ruflo lifecycle hooks): start a new Codex session, open /hooks,',
+      'review the ruflo-core@ruflo hook definitions, and trust them. Use "trust all" only',
+      'when every pending definition is from Ruflo; otherwise trust the Ruflo definitions',
+      'individually. Hooks are installed but remain INACTIVE until you complete this review.',
+    ].join('\n');
+    const MANUAL = 'Install manually: codex plugin marketplace add ruvnet/ruflo --ref main && codex plugin add ruflo-core@ruflo';
+
+    try {
+      const { execSync } = await import('child_process');
+
+      // Codex CLI present?
+      try {
+        execSync('which codex', { stdio: 'pipe' });
+      } catch {
+        return { installed: false, warning: `Codex CLI not found. ${MANUAL}` };
+      }
+
+      // Already installed? (structured --json first, plain-text fallback —
+      // same resilience approach as registerMCPServer).
+      try {
+        const listJson = execSync('codex plugin list --json 2>&1', { encoding: 'utf-8' });
+        const parsed = JSON.parse(listJson);
+        const plugins = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.plugins) ? parsed.plugins : null;
+        if (plugins && plugins.some((p: unknown) => {
+          if (!p || typeof p !== 'object') return false;
+          const name = String((p as { name?: unknown }).name ?? '');
+          return name === 'ruflo-core' || name === 'ruflo-core@ruflo' || name.startsWith('ruflo-core@');
+        })) {
+          // Installed already — still surface the trust reminder (idempotent).
+          return { installed: true, activationMessage: ACTIVATION };
+        }
+      } catch {
+        try {
+          const list = execSync('codex plugin list 2>&1', { encoding: 'utf-8' });
+          if (list.includes('ruflo-core')) {
+            return { installed: true, activationMessage: ACTIVATION };
+          }
+        } catch {
+          // Ignore — fall through to install.
+        }
+      }
+
+      // Add the marketplace (idempotent — codex no-ops if already added; any
+      // error here is non-fatal, the plugin-add below reports the real failure).
+      try {
+        execSync('codex plugin marketplace add ruvnet/ruflo --ref main', { stdio: 'pipe', timeout: 20000 });
+      } catch {
+        // Marketplace may already exist, or the CLI may not support this exact
+        // verb — let the plugin-add attempt surface the actionable error.
+      }
+
+      // Install the plugin at user scope.
+      try {
+        execSync('codex plugin add ruflo-core@ruflo', { stdio: 'pipe', timeout: 20000 });
+        return { installed: true, activationMessage: ACTIVATION };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { installed: false, warning: `Failed to install ruflo-core@ruflo plugin: ${msg}. ${MANUAL}` };
+      }
+    } catch {
+      return { installed: false, warning: `Could not install Ruflo plugin. ${MANUAL}` };
     }
   }
 
