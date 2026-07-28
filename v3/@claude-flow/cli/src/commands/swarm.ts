@@ -54,6 +54,29 @@ function getSwarmStatus(swarmId?: string) {
     }
   }
 
+  // #2799 — `agent spawn` never writes `.swarm/agents/*.json`; it records
+  // the count in `.claude-flow/metrics/swarm-activity.json` (via
+  // updateSwarmActivityMetrics in commands/agent.ts). So when the agents
+  // dir is empty, reconcile against that authoritative activity file
+  // instead of reporting Total 0 while `agent list` shows N agents.
+  if (totalAgents === 0) {
+    try {
+      const activityPath = path.join(process.cwd(), '.claude-flow', 'metrics', 'swarm-activity.json');
+      if (fs.existsSync(activityPath)) {
+        const activity = JSON.parse(fs.readFileSync(activityPath, 'utf-8'));
+        const count = Math.max(0, Number((activity?.swarm?.agent_count)) || 0);
+        if (count > 0) {
+          totalAgents = count;
+          // swarm-activity.json tracks a count, not per-agent status; treat
+          // a coordination-active swarm's agents as active, else idle.
+          activeAgents = activity?.swarm?.coordination_active ? count : 0;
+        }
+      }
+    } catch {
+      // Ignore — fall back to 0
+    }
+  }
+
   // Get session count
   let sessionCount = 0;
   if (fs.existsSync(sessionDir)) {

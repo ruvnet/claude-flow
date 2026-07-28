@@ -470,6 +470,9 @@ interface MemoryEntry {
   key: string;
   value: unknown;
   metadata?: Record<string, unknown>;
+  // #2797 — the post-task dual-write persists `namespace: 'patterns'`
+  // on routing-decision entries; the pattern counter reads it.
+  namespace?: string;
   storedAt: string;
   accessCount: number;
   lastAccessed: string;
@@ -522,11 +525,22 @@ function getIntelligenceStatsFromMemory(): {
     (typeof e.value === 'object' && e.value !== null && (e.value as Record<string, unknown>).success === true)
   );
 
-  // Count patterns
+  // Count patterns (#2797). The original filter matched only
+  // `key.includes('pattern')` / `metadata.type==='pattern'` /
+  // `learned-*`, but NO writer in the codebase ever produces that
+  // shape — so Pattern Learning was permanently 0. The post-task
+  // dual-write (#2786 fix-2) persists learned patterns as
+  // `routing-decision:*` entries in the `patterns` namespace with
+  // `metadata.type: 'routing-decision'`. Those ARE the learned
+  // patterns the metric is meant to count, so include them: any entry
+  // whose namespace is `patterns`, plus the original shapes for
+  // forward-compatibility with a future explicit `pattern` writer.
   const patternEntries = entries.filter(e =>
     e.key.includes('pattern') ||
     e.metadata?.type === 'pattern' ||
-    e.key.startsWith('learned-')
+    e.key.startsWith('learned-') ||
+    e.namespace === 'patterns' ||
+    e.metadata?.type === 'routing-decision'
   );
 
   // Categorize patterns
