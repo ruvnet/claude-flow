@@ -7,39 +7,15 @@
  * ControllerRegistry only — all SQL executes against a real better-sqlite3
  * fixture, so this pins the production bridge path deterministically.
  */
-import { afterAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-const state = vi.hoisted(() => ({
-  db: null as Database.Database | null,
-}));
-
-vi.mock('@claude-flow/memory', () => ({
-  ControllerRegistry: class {
-    async initialize(options: { dbPath: string }): Promise<void> {
-      state.db = new Database(options.dbPath);
-    }
-
-    getAgentDB(): { database: Database.Database; embedder: null } {
-      if (!state.db) throw new Error('registry not initialized');
-      return { database: state.db, embedder: null };
-    }
-
-    get(): null {
-      return null;
-    }
-
-    set(): void {
-      // Optional controllers are irrelevant to CRUD visibility.
-    }
-  },
-}));
-
 const root = mkdtempSync(join(tmpdir(), 'ruflo-2652-native-'));
 const dbPath = join(root, 'memory.db');
+let db: Database.Database | null = null;
 
 function seedLegacyActiveRow(): void {
   const db = new Database(dbPath);
@@ -78,13 +54,23 @@ function seedLegacyActiveRow(): void {
 seedLegacyActiveRow();
 
 afterAll(() => {
-  state.db?.close();
+  db?.close();
   rmSync(root, { recursive: true, force: true });
 });
 
 describe('#2652 active-row visibility', () => {
   it('retrieves and deletes the same legacy-active row through the native bridge', async () => {
-    const { bridgeGetEntry, bridgeDeleteEntry } = await import('../src/memory/memory-bridge.js');
+    const {
+      __setMemoryBridgeRegistryForTests,
+      bridgeGetEntry,
+      bridgeDeleteEntry,
+    } = await import('../src/memory/memory-bridge.js');
+
+    db = new Database(dbPath);
+    __setMemoryBridgeRegistryForTests({
+      getAgentDB: () => ({ database: db, embedder: null }),
+      get: () => null,
+    });
 
     const retrieved = await bridgeGetEntry({
       key: 'project-state-current',
@@ -113,7 +99,7 @@ describe('#2652 active-row visibility', () => {
       remainingEntries: 0,
     });
 
-    const row = state.db!
+    const row = db
       .prepare('SELECT status FROM memory_entries WHERE id = ?')
       .get('legacy-live-id') as { status: string };
     expect(row.status).toBe('deleted');

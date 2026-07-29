@@ -36,7 +36,9 @@ afterEach(() => {
 describe('memory init database path precedence (#2629)', () => {
   it('initializes at CLAUDE_FLOW_DB_PATH when --path is absent', async () => {
     const customPath = join(testDir, 'isolated', 'custom.db');
+    const unusedDefaultRoot = join(testDir, 'default-root');
     process.env.CLAUDE_FLOW_DB_PATH = customPath;
+    process.env.CLAUDE_FLOW_MEMORY_PATH = unusedDefaultRoot;
 
     const result = await initializeMemoryDatabase({
       backend: 'sqlite',
@@ -47,7 +49,7 @@ describe('memory init database path precedence (#2629)', () => {
     expect(result.success).toBe(true);
     expect(result.dbPath).toBe(resolve(customPath));
     expect(existsSync(customPath)).toBe(true);
-    expect(existsSync(join(process.cwd(), '.swarm', 'memory.db'))).toBe(false);
+    expect(existsSync(join(unusedDefaultRoot, 'memory.db'))).toBe(false);
   });
 
   it('keeps the explicit --path equivalent above CLAUDE_FLOW_DB_PATH', async () => {

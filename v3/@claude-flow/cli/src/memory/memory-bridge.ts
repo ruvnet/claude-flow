@@ -1907,6 +1907,22 @@ export function getBridgeFailureReason(): string | null {
 }
 
 /**
+ * Install a pre-initialized registry for deterministic bridge tests.
+ *
+ * The CLI test runner intentionally externalizes the optional
+ * `@claude-flow/memory` package so an unbuilt workspace can still exercise
+ * fallback paths. That also makes module-level mocking of ControllerRegistry
+ * environment-dependent. This narrow seam keeps native SQL regression tests
+ * independent of package build order without changing production startup.
+ */
+export function __setMemoryBridgeRegistryForTests(registry: any | null): void {
+  registryInstance = registry;
+  registryPromise = registry ? Promise.resolve(registry) : null;
+  bridgeAvailable = registry ? true : null;
+  bridgeFailureReason = null;
+}
+
+/**
  * Shutdown the bridge and release resources.
  *
  * The cached state is cleared unconditionally. Previously the reset lived
