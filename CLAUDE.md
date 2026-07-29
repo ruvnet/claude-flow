@@ -1,8 +1,8 @@
-# Claude Code Configuration - Ruflo v3.5
+# Claude Code Configuration - Ruflo V3
 
-> **Ruflo v3.6** (2026-04-29) — Stable release with agent federation and comms-first coordination.
-> 6,000+ commits, 314 MCP tools, 16 agent roles + custom types, 19 AgentDB controllers, 21 native plugins.
-> Packages: `@claude-flow/cli@3.6.10`, `claude-flow@3.6.10`, `ruflo@3.6.10`
+> Public release train: `@claude-flow/cli`, `claude-flow`, and `ruflo`.
+> Use package manifests and the registry as version truth; do not copy stale
+> version or capability counts into agent guidance.
 
 ## Behavioral Rules (Always Enforced)
 
@@ -14,6 +14,22 @@
 - Never continuously check status after spawning a swarm — wait for results
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files
+
+## Capability Brain and Governed Implementation
+
+Ruflo is the coordination ledger and policy decision point. Claude Code
+executes code, tests, commands, and file changes. A Ruflo coordination call
+records work; it does not perform the implementation.
+
+When registered, call
+`guidance_brain({ mode: "recommend", task: "..." })` before complex Ruflo
+work. Use its live registry rather than guessing tool names. Treat
+`registered`, `configured`, `reachable`, `healthy`, and `authorized` as
+separate facts. If unavailable, continue with compatible guidance tools, CLI
+discovery, and these repository instructions.
+
+Use this loop: recall → inspect → route → plan → execute → test → validate →
+benchmark → optimize → receipt → handoff → separately authorized publish.
 
 ## File Organization
 
@@ -45,17 +61,23 @@
 | `@claude-flow/memory` | `v3/@claude-flow/memory/` | AgentDB + HNSW search |
 | `@claude-flow/security` | `v3/@claude-flow/security/` | Input validation, CVE remediation |
 
-## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
+## Concurrent Automated Development
 
-- All operations MUST be concurrent/parallel in a single message
-- Use Claude Code's Task tool for spawning agents, not just MCP
-
-**Mandatory patterns:**
-- ALWAYS batch ALL todos in ONE TodoWrite call (5-10+ minimum)
-- ALWAYS spawn ALL agents in ONE message with full instructions via Task tool
-- ALWAYS batch ALL file reads/writes/edits in ONE message
-- ALWAYS batch ALL terminal operations in ONE Bash message
-- ALWAYS batch ALL memory store/retrieve operations in ONE message
+- Parallelize independent research, tests, reviews, and non-overlapping
+  implementation.
+- Never allow two writers in one worktree. Give every writing agent an isolated
+  worktree and explicit file ownership.
+- Read-only agents may share a checkout; writing agents may not.
+- Only the integration owner edits shared manifests and lockfiles or reconciles
+  overlapping changes.
+- Continue independent local work after spawning agents; wait only when a real
+  dependency blocks progress. Do not repeatedly poll.
+- A lease or work claim coordinates ownership; it never grants authority.
+- Bind tests, benchmarks, policy decisions, and handoffs to an exact clean
+  commit or immutable dirty-worktree snapshot.
+- Darwin, Flywheel, MetaHarness, memory, and neural systems may propose and
+  evaluate candidates, but cannot self-promote or expand tools, network,
+  secrets, spend, concurrency, or release authority.
 
 ---
 
@@ -943,10 +965,19 @@ memory_search_unified({ query: "authentication security", limit: 5 })
 
 ### Publishing Rules
 
-- MUST publish ALL THREE packages when publishing CLI changes: `@claude-flow/cli`, `claude-flow`, AND `ruflo`
+- The normal public release train is exactly THREE packages:
+  `@claude-flow/cli`, `claude-flow`, and `ruflo`.
+- Internal `@claude-flow/*` components are bundled into the public artifacts;
+  do not publish them standalone as part of the normal release.
 - MUST update ALL dist-tags for ALL THREE packages after publishing (latest + alpha + v3alpha all point to the same version)
 - Publish order: `@claude-flow/cli` first, then `claude-flow` (umbrella), then `ruflo` (alias umbrella)
 - MUST run verification for ALL THREE before telling user publishing is complete
+- Run `node scripts/audit-umbrella-version-lockstep.mjs` before packing or
+  publishing.
+- Publish from a clean reviewed commit/tag-equivalent worktree. Do not ship
+  unrelated uncommitted changes.
+- Use the existing authenticated `ruvnet` npm session. Do not replace it with a
+  token from another GCP project.
 
 **Helpers signing key (required for `@claude-flow/cli` publish):** `npm publish`'s
 `prepublishOnly` runs `scripts/sign-helpers.mjs`, which needs a private key to sign
@@ -960,8 +991,8 @@ RUFLO_HELPERS_SIGNING_SECRET=ruflo-helpers-signing-key RUFLO_HELPERS_SIGNING_PRO
   npm publish
 ```
 
-(`ruv-dev` also holds `ruflo-config-signing-key` and `NPM_TOKEN` — likely the right project
-for other ruflo release-time secrets too.)
+(`ruv-dev` also holds `ruflo-config-signing-key`; do not replace the existing
+authenticated npm session with a token from another project.)
 
 **Handling the signing key without leaking it (learned 2026-07-14, hard way):** when
 sign-helpers.mjs runs via `execFileSync('gcloud', ...)` on Windows, Node fails to find

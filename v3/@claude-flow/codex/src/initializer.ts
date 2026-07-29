@@ -6,6 +6,7 @@
 
 import fs from 'fs-extra';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 import type {
   CodexInitOptions,
   CodexInitResult,
@@ -21,7 +22,11 @@ import { getRufloMcpAddCommand } from './mcp-config.js';
 /**
  * Bundled skills source directory (relative to package)
  */
-const BUNDLED_SKILLS_DIR = '../../../../.agents/skills';
+const BUNDLED_SKILLS_DIR = '../.agents/skills';
+
+export function resolveBundledSkillsPath(moduleUrl = import.meta.url): string {
+  return path.resolve(path.dirname(fileURLToPath(moduleUrl)), BUNDLED_SKILLS_DIR);
+}
 
 /**
  * Main initializer for Codex projects
@@ -45,10 +50,7 @@ export class CodexInitializer {
     this.dual = options.dual ?? false;
 
     // Resolve bundled skills path (relative to this file's location)
-    this.bundledSkillsPath = path.resolve(
-      path.dirname(new URL(import.meta.url).pathname),
-      BUNDLED_SKILLS_DIR
-    );
+    this.bundledSkillsPath = resolveBundledSkillsPath();
 
     const filesCreated: string[] = [];
     const skillsGenerated: string[] = [];
@@ -700,6 +702,9 @@ Skills are invoked using \`$skill-name\` syntax. Each skill has:
 ## Instructions
 
 **Primary instructions are in \`AGENTS.md\`** (Agentic AI Foundation standard).
+Read and follow that file before starting work; it contains the live
+\`guidance_brain\` routing workflow, concurrency ownership rules, and authority
+boundaries.
 
 This file provides compatibility for Claude Code users.
 

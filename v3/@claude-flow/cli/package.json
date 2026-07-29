@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/cli",
-  "version": "3.32.29",
+  "version": "3.32.30",
   "type": "module",
   "description": "Ruflo CLI - Enterprise AI agent orchestration with 60+ specialized agents, swarm coordination, MCP server, self-learning hooks, and vector memory for Claude Code",
   "main": "dist/src/index.js",
@@ -40,11 +40,7 @@
     "self-learning",
     "enterprise"
   ],
-  "author": {
-    "name": "RuvNet",
-    "email": "ruv@ruv.io",
-    "url": "https://ruv.io"
-  },
+  "author": "RuvNet <ruv@ruv.io> (https://ruv.io)",
   "license": "MIT",
   "exports": {
     ".": {
@@ -102,18 +98,30 @@
   },
   "dependencies": {
     "@claude-flow/cli-core": "3.7.0-alpha.5",
+    "@claude-flow/codex": "3.0.3",
     "@claude-flow/mcp": "3.0.0-alpha.8",
     "@claude-flow/neural": "3.0.0-alpha.9",
+    "@claude-flow/plugin-agent-federation": "1.0.0-alpha.18",
+    "@claude-flow/security": "3.0.0-alpha.14",
     "@claude-flow/shared": "3.0.0-alpha.7",
+    "@iarna/toml": "^2.2.5",
     "@noble/ed25519": "2.3.0",
     "@ruvector/rabitq-wasm": "0.1.0",
+    "bcryptjs": "^3.0.3",
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "fs-extra": "^11.2.0",
+    "inquirer": "^9.2.0",
     "semver": "7.7.3",
     "sql.js": "^1.13.0",
-    "yaml": "^2.8.0"
+    "toml": "^3.0.0",
+    "ws": "^8.21.0",
+    "yaml": "^2.8.0",
+    "zod": "^3.22.0"
   },
   "optionalDependencies": {
+    "@napi-rs/keyring": "1.3.0",
     "@claude-flow/memory": "^3.0.0-alpha.21",
-    "@claude-flow/security": "^3.0.0-alpha.14",
     "agentdb": "^3.0.0-alpha.17",
     "agentic-flow": "^3.0.0-alpha.1",
     "better-sqlite3": "^12.9.0",
@@ -154,5 +162,13 @@
     "@opentelemetry/sdk-node": ">=0.220.0",
     "agentdb": "$agentdb",
     "better-sqlite3": "^12.9.0"
+  },
+  "bundleDependencies": [
+    "@claude-flow/codex",
+    "@claude-flow/plugin-agent-federation",
+    "@claude-flow/security"
+  ],
+  "directories": {
+    "doc": "docs"
   }
 }

@@ -16,6 +16,8 @@ import {
   generateMinimalConfigToml,
   generateCIConfigToml,
 } from '../src/generators/config-toml.js';
+import { resolveBundledSkillsPath } from '../src/initializer.js';
+import { existsSync } from 'node:fs';
 import type {
   AgentsMdOptions,
   SkillMdOptions,
@@ -27,6 +29,12 @@ import type {
 // =============================================================================
 
 describe('generateAgentsMd', () => {
+  it('resolves built-in skills inside the Codex package', () => {
+    const skillsPath = resolveBundledSkillsPath();
+    expect(skillsPath).toMatch(/[\\/]@claude-flow[\\/]codex[\\/]\.agents[\\/]skills$/);
+    expect(existsSync(skillsPath)).toBe(true);
+  });
+
   describe('minimal template', () => {
     it('should generate a minimal AGENTS.md with required sections', async () => {
       const options: AgentsMdOptions = {
@@ -113,6 +121,7 @@ describe('generateAgentsMd', () => {
       expect(result).toContain('## Security');
       expect(result).toContain('## Memory System');
       expect(result).toContain('## Ruflo + Codex Automated Workflow');
+      expect(result).toContain('If it is not registered, use compatible');
       expect(result).toContain('Never allow two writers in one worktree');
       expect(result).toContain('MetaHarness may benchmark candidates concurrently');
       expect(result).toContain('### Repository harness adapter');
@@ -122,6 +131,7 @@ describe('generateAgentsMd', () => {
       expect(result).toContain(
         'HEAD alone is not an exact source-state',
       );
+      expect(result).not.toContain('Co-Authored-By: ruflo-bot');
     });
 
     it('should include tech stack', async () => {
@@ -200,7 +210,8 @@ describe('generateAgentsMd', () => {
 
       const result = await generateAgentsMd(options);
 
-      expect(result).toContain('Co-Authored-By: ruflo-bot');
+      expect(result).not.toContain('Co-Authored-By: ruflo-bot');
+      expect(result).toContain('unless the repository explicitly');
       expect(result).toContain('feat');
       expect(result).toContain('fix');
     });
