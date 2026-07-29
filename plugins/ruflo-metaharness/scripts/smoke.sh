@@ -253,6 +253,47 @@ grep -q "bin.harness" "$F" 2>/dev/null || miss="$miss no-harness-bin"
 grep -q "cwd: opts" "$F" || miss="$miss no-cwd-passthrough"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
+step "17z80. HIGH security findings survive wrapper + composite boundaries (#2750)"
+miss=""
+SEC_FIXTURE=$(mktemp -d)
+mkdir -p "$SEC_FIXTURE/.harness" "$SEC_FIXTURE/.claude"
+printf '%s\n' '{"defaultDeny":false,"allowShell":true,"allowNetwork":true}' \
+  > "$SEC_FIXTURE/.harness/mcp-policy.json"
+printf '%s\n' '{"permissions":{"allow":["mcp__*"],"deny":[]},"mcpServers":{"x":{"command":"bash"}}}' \
+  > "$SEC_FIXTURE/.claude/settings.json"
+
+THREAT_OUT=$(node "$ROOT/scripts/threat-model.mjs" --path "$SEC_FIXTURE" --fail-on high --format json 2>/dev/null)
+THREAT_EXIT=$?
+SCAN_OUT=$(node "$ROOT/scripts/mcp-scan.mjs" --path "$SEC_FIXTURE" --fail-on high --format json 2>/dev/null)
+SCAN_EXIT=$?
+OIA_OUT=$(node "$ROOT/scripts/oia-audit.mjs" --path "$SEC_FIXTURE" --dry-run --format json 2>/dev/null)
+OIA_EXIT=$?
+
+[[ "$THREAT_EXIT" -eq 1 ]] || miss="$miss threat-exit-${THREAT_EXIT}"
+[[ "$SCAN_EXIT" -eq 1 ]] || miss="$miss scan-exit-${SCAN_EXIT}"
+[[ "$OIA_EXIT" -eq 0 ]] || miss="$miss oia-exit-${OIA_EXIT}"
+printf '%s' "$THREAT_OUT" | node -e '
+  let s=""; process.stdin.on("data",d=>s+=d); process.stdin.on("end",()=>{
+    try { const x=JSON.parse(s); if(x.worst!=="high" || !x.alert?.triggered || x.findings?.length<1) process.exitCode=1; }
+    catch { process.exitCode=1; }
+  });
+' || miss="$miss threat-lost-high"
+printf '%s' "$SCAN_OUT" | node -e '
+  let s=""; process.stdin.on("data",d=>s+=d); process.stdin.on("end",()=>{
+    try { const x=JSON.parse(s); if(x.worst!=="high" || !x.alert?.triggered || x.findings?.length<1) process.exitCode=1; }
+    catch { process.exitCode=1; }
+  });
+' || miss="$miss scan-lost-high"
+printf '%s' "$OIA_OUT" | node -e '
+  let s=""; process.stdin.on("data",d=>s+=d); process.stdin.on("end",()=>{
+    try { const x=JSON.parse(s); if(x.composite?.worst!=="high" || x.components?.mcpScan?.json?.findings?.length<1) process.exitCode=1; }
+    catch { process.exitCode=1; }
+  });
+' || miss="$miss oia-lost-high"
+rm -f "$SEC_FIXTURE/.harness/mcp-policy.json" "$SEC_FIXTURE/.claude/settings.json"
+rmdir "$SEC_FIXTURE/.harness" "$SEC_FIXTURE/.claude" "$SEC_FIXTURE"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
 step "17z79. oia-audit-weekly.yml retains iter-108 hard-fail + iter-109 dispatch inputs (iter 116)"
 miss=""
 # Two load-bearing invariants accumulated in the weekly cron:

@@ -26,7 +26,10 @@ function main() {
   }
   const r = runHarness(['threat-model', ARGS.path]);
   if (r.degraded) { emitDegradedJsonAndExit(r.reason); return; }
-  if (r.exitCode !== 0 && r.exitCode !== 1) {
+  // Upstream uses exit 2 for a valid HIGH verdict. A parsed JSON payload is
+  // authoritative regardless of that domain exit code; only reject a
+  // non-zero invocation when it produced no structured result.
+  if (!r.json && r.exitCode !== 0 && r.exitCode !== 1) {
     console.error(`threat-model: harness exited ${r.exitCode}`);
     if (r.stderr) console.error(r.stderr.slice(0, 400));
     process.exit(2);

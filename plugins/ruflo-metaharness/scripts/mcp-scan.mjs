@@ -40,18 +40,17 @@ function main() {
   }
   const r = runHarness(['mcp-scan', ARGS.path]);
   if (r.degraded) { emitDegradedJsonAndExit(r.reason); return; }
-  if (r.exitCode !== 0 && r.exitCode !== 1) {
-    // exit 1 from harness can be "findings present"; only treat other
-    // non-zero as a real failure.
+  if (!r.json && r.exitCode !== 0 && r.exitCode !== 1) {
+    // Non-zero verdict exits are valid when accompanied by structured JSON.
+    // Without a payload, exit codes other than the historical findings=1
+    // remain invocation failures.
     console.error(`mcp-scan: harness exited ${r.exitCode}`);
     if (r.stderr) console.error(r.stderr.slice(0, 400));
     process.exit(2);
   }
-  // The JSON output shape from `harness mcp-scan` historically didn't
-  // include structured findings — it emits text even with --json. Parse
-  // the text into findings (iter 50) so audit-trend's introduced/cleared
-  // diff actually works. If a future upstream version DOES emit
-  // findings[], the parsed-text findings are overridden.
+  // Older `harness mcp-scan` releases emitted text even with --json. Keep
+  // the text parser as a backwards-compatible fallback, but prefer current
+  // structured findings when the upstream command supplies them.
   const parsed = parseMcpScanText(r.stdout);
   // iter 124 — normalize finding shape so consumers see a stable contract.
   // Upstream metaharness@0.1.x JSON path emits {id, severity, title, detail};

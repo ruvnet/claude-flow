@@ -26,6 +26,7 @@ import {
 } from './_similarity.mjs';
 // iter 64 — also test the iter-63 shared severity primitives
 import { SEVERITY_RANK, rankSeverity, parseMcpScanText } from './_harness.mjs';
+import { parseTrailingJson } from './_invoke.mjs';
 
 const ARGS = (() => {
   const a = { format: 'table' };
@@ -329,6 +330,27 @@ assert(mixed.findings.length === 1,
   'strict regex skips mixed-case [Warn], captures [HIGH] only');
 assert(mixed.findings[0].severity === 'high',
   'strict regex captured the uppercase entry');
+
+console.log('\nPhase 11 — complete trailing JSON extraction');
+
+const nestedJson = parseTrailingJson(`progress: scanning {not-json}
+{
+  "dir": "/repo",
+  "findings": [
+    { "id": "allow-shell", "severity": "high" },
+    { "id": "no-audit-log", "severity": "medium" }
+  ],
+  "worst": "high"
+}
+`);
+assert(nestedJson?.dir === '/repo', 'mixed stdout returns root JSON object');
+assert(nestedJson?.findings?.length === 2,
+  'nested findings remain attached to root payload');
+assert(nestedJson?.findings?.[1]?.id === 'no-audit-log',
+  'extractor does not return the last nested object');
+assert(nestedJson?.worst === 'high', 'root-level severity is preserved');
+assert(parseTrailingJson('progress only {not-json}') === null,
+  'non-JSON progress braces return null');
 
 // ──────────────────────────────────────────────────────────────────
 const summary = {
