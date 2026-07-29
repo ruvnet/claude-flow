@@ -6,8 +6,9 @@
 // structured findings from its plain-text output. That parser depends
 // on TWO format invariants:
 //
-//   1. Finding lines: `  [SEV] <message>` (2-space indent, uppercase
-//      severity inside brackets, message on same line)
+//   1. Finding lines: `  [SEV] <message>` or `  [SEV ] <message>`
+//      (uppercase severity inside brackets, optional alignment padding,
+//      message on same line)
 //
 //   2. Summary line:  `Result: <SEV> (N finding, M high)`
 //
@@ -81,14 +82,14 @@ async function main() {
   const stdout = r.stdout || '';
   const results = [];
 
-  // 3. INVARIANT 1: at least one finding line in the expected shape
-  //    `  [SEV] <message>` where SEV is uppercase letters in brackets.
+  // 3. INVARIANT 1: at least one finding line in a supported shape:
+  //    legacy `[SEV] <message>` or fixed-width `[SEV ] <message>`.
   //    Pre-iter-50 we never asserted this — upstream changing to
   //    `* SEV: message` would have been undetectable.
-  const findingLineRegex = /^\s*\[([A-Z]+)\]\s+\S/m;
+  const findingLineRegex = /^\s*\[([A-Z]+)\s*\]\s+\S/m;
   const findingMatch = findingLineRegex.exec(stdout);
   results.push({
-    check: 'finding line matches `[SEV] message` regex',
+    check: 'finding line matches `[SEV]` or padded `[SEV ]` message regex',
     ok: findingMatch !== null,
     detail: findingMatch ? `first match: [${findingMatch[1]}]` : 'no match — parser will return empty findings',
   });

@@ -273,6 +273,22 @@ assert(single.summary?.overallSeverity === 'info',
 assert(single.summary?.totalCount === 1,
   'summary.totalCount === 1 from "(1 finding,"');
 
+// Newer metaharness releases align severity labels to a fixed-width column.
+// Keep parsing the legacy compact form above while accepting `[LOW ]`.
+const padded = parseMcpScanText(`harness mcp-scan — /repo
+
+  [LOW ] 8 unpinned dependency range(s)
+         Floating ranges weaken supply-chain reproducibility.
+
+Result: LOW (1 finding, 0 high)
+`);
+assert(padded.findings.length === 1, 'padded [LOW ] block → 1 finding');
+assert(padded.findings[0].severity === 'low',
+  'padded severity lowercased without trailing whitespace');
+assert(padded.findings[0].message.includes('8 unpinned dependency range(s)') &&
+       padded.findings[0].message.includes('supply-chain reproducibility'),
+  'padded finding message and continuation extracted');
+
 // Continuation line — indented text appends to previous finding
 const cont = parseMcpScanText(`
   [HIGH] Exposed credential path

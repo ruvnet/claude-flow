@@ -279,6 +279,7 @@ export function rankSeverity(s) {
  *     harness mcp-scan — <path>
  *
  *       [INFO] No MCP security issues found
+ *       [LOW ] Padded severity labels are also emitted by newer releases
  *              Policy is default-deny with safe capability grants and an audit log.
  *
  *     Result: INFO (1 finding, 0 high)
@@ -293,7 +294,10 @@ export function parseMcpScanText(stdout) {
   const lines = (stdout || '').split('\n');
   let current = null;
   for (const line of lines) {
-    const m = /^\s*\[([A-Z]+)\]\s+(.+?)\s*$/.exec(line);
+    // metaharness <=0.3.0 emitted `[LOW]`; newer releases pad labels to a
+    // fixed-width column (`[LOW ]`). Accept optional whitespace before the
+    // closing bracket so both installed versions remain compatible.
+    const m = /^\s*\[([A-Z]+)\s*\]\s+(.+?)\s*$/.exec(line);
     if (m) {
       if (current) findings.push(current);
       current = { severity: m[1].toLowerCase(), message: m[2] };

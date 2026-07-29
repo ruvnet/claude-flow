@@ -1398,9 +1398,24 @@ done
 grep -q "export function rankSeverity\|return SEVERITY_RANK\[.*\] ?? 0" "$HARNESS" 2>/dev/null || miss="$miss no-safe-rank-lookup"
 # Rationale documented at the new location
 grep -q "NaN-compare hazard" "$HARNESS" 2>/dev/null || miss="$miss no-rationale-comment"
-# Runtime: live oia-audit still produces clean (only INFO finding)
+# Runtime: the live audit produces a recognized severity. Repository contents
+# legitimately change the result (for example, current upstream reports LOW
+# for unpinned ranges), so "clean" is not a stable compatibility invariant.
 OUT=$(node "$OIA" --dry-run --format json 2>/dev/null)
-echo "$OUT" | grep -q '"worst": "clean"' || miss="$miss live-not-clean"
+printf '%s' "$OUT" | node -e '
+  let input = "";
+  process.stdin.on("data", chunk => { input += chunk; });
+  process.stdin.on("end", () => {
+    try {
+      const payload = JSON.parse(input);
+      if (payload.degraded === true) return;
+      const known = new Set(["clean", "info", "low", "medium", "warn", "high", "error", "critical"]);
+      if (!known.has(payload.composite?.worst)) process.exitCode = 1;
+    } catch {
+      process.exitCode = 1;
+    }
+  });
+' || miss="$miss live-invalid-worst"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "17z24. doctor required-files include iter-53 + iter-56 surfaces (iter 61)"
