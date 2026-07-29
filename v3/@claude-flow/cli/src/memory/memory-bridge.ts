@@ -26,6 +26,17 @@ import { createRequire } from 'node:module';
 let registryPromise: Promise<any> | null = null;
 let registryInstance: any = null;
 let bridgeAvailable: boolean | null = null;
+/**
+ * Why the bridge is unavailable, when it is.
+ *
+ * `bridgeAvailable = false` latches for the life of the process, so a single
+ * transient init failure (a slow Xenova/ONNX fetch, a locked db) routes every
+ * later write to the sql.js whole-image fallback — which then refuses whenever
+ * -wal/-shm sidecars are present. Without this, that refusal is the only
+ * symptom the caller ever sees, and it names a cause ("restore the native
+ * better-sqlite3 bridge") the caller has no way to check.
+ */
+let bridgeFailureReason: string | null = null;
 
 /**
  * ADR-323: reuse memory-initializer's provenance-type allowlist rather than
@@ -112,6 +123,32 @@ function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
 }
 
+/** Noisy init banners that carry no operational signal. */
+const INIT_LOG_NOISE = [
+  'Transformers.js',
+  'better-sqlite3',
+  '[AgentDB]',
+  '[HNSWLibBackend]',
+  'RuVector graph',
+];
+
+/**
+ * Should this init-time log line be swallowed?
+ *
+ * A DEGRADATION notice never is. AgentDB logs "[AgentDB] better-sqlite3 not
+ * available, using sql.js WASM" when it falls back to WASM, and both the
+ * '[AgentDB]' and 'better-sqlite3' entries above match it — so the one line
+ * explaining why the native driver was not in use was being discarded as
+ * noise. Suppress the banners, keep the bad news.
+ */
+export function shouldSuppressInitLog(msg: string): boolean {
+  const degradation = msg.includes('not available')
+    || msg.includes('falling back')
+    || msg.includes('fallback');
+  if (degradation) return false;
+  return INIT_LOG_NOISE.some((needle) => msg.includes(needle));
+}
+
 /**
  * Lazily initialize the ControllerRegistry singleton.
  * Returns null if @claude-flow/memory is not available.
@@ -127,15 +164,12 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
         const { ControllerRegistry } = await import('@claude-flow/memory');
         const registry = new ControllerRegistry();
 
-        // Suppress noisy console.log during init
+        // Suppress noisy console.log during init — but never suppress a
+        // DEGRADATION notice (see shouldSuppressInitLog).
         const origLog = console.log;
         console.log = (...args: unknown[]) => {
           const msg = String(args[0] ?? '');
-          if (msg.includes('Transformers.js') ||
-              msg.includes('better-sqlite3') ||
-              msg.includes('[AgentDB]') ||
-              msg.includes('[HNSWLibBackend]') ||
-              msg.includes('RuVector graph')) return;
+          if (shouldSuppressInitLog(msg)) return;
           origLog.apply(console, args);
         };
 
@@ -363,8 +397,13 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
 
         registryInstance = registry;
         bridgeAvailable = true;
+        bridgeFailureReason = null;
         return registry;
-      } catch {
+      } catch (err) {
+        // Record WHY. This latches for the process lifetime (see the
+        // bridgeFailureReason doc comment), so discarding the error here
+        // makes the resulting sql.js-fallback refusal undiagnosable.
+        bridgeFailureReason = err instanceof Error ? err.message : String(err);
         bridgeAvailable = false;
         registryPromise = null;
         return null;
@@ -544,6 +583,64 @@ async function logAttestation(
 const _schemaEnsuredDbs = new WeakSet<object>();
 
 /**
+ * Create/migrate the bridge's `memory_entries` table on `db`.
+ *
+ * Returns true when the schema is known-good, false when the database was not
+ * writable (caller then leaves it un-ensured so a later writable call retries).
+ *
+ * Exported so the ADR-323 column migration can be tested directly: the bug it
+ * fixes was invisible end-to-end, because the resulting error was swallowed and
+ * reported as an unrelated WAL-sidecar refusal.
+ */
+export function ensureBridgeSchema(db: { exec: (sql: string) => unknown }): boolean {
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS memory_entries (
+      id TEXT PRIMARY KEY,
+      key TEXT NOT NULL,
+      namespace TEXT DEFAULT 'default',
+      content TEXT NOT NULL,
+      type TEXT DEFAULT 'semantic',
+      embedding TEXT,
+      embedding_model TEXT DEFAULT 'local',
+      embedding_dimensions INTEGER,
+      tags TEXT,
+      metadata TEXT,
+      owner_id TEXT,
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+      updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+      expires_at INTEGER,
+      last_accessed_at INTEGER,
+      access_count INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'active',
+      provenance_type TEXT DEFAULT 'unknown',
+      UNIQUE(namespace, key)
+    )`);
+    // ADR-323 added provenance_type to bridgeStoreEntry's INSERT, and
+    // ensureSchemaColumns() backfills it on the sql.js path — the bridge path
+    // had no equivalent. `CREATE TABLE IF NOT EXISTS` is a no-op on a table
+    // created before ADR-323, so on any pre-existing database every bridge
+    // write threw "table memory_entries has no column named provenance_type",
+    // was swallowed by the catch at the end of bridgeStoreEntry(), and demoted
+    // the caller to the sql.js whole-image path — which then refused with a
+    // WAL-sidecar error naming an unrelated cause. Silent, total write loss.
+    try {
+      db.exec(`ALTER TABLE memory_entries ADD COLUMN provenance_type TEXT DEFAULT 'unknown'`);
+    } catch {
+      // Already present (the common case). SQLite has no ADD COLUMN IF NOT
+      // EXISTS, so attempt-and-ignore is the idiom.
+    }
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_ns ON memory_entries(namespace)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_key ON memory_entries(key)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_status ON memory_entries(status)`);
+    return true;
+  } catch {
+    // Read-only database — leave it un-ensured so a writable call can retry.
+    return false;
+  }
+}
+
+
+/**
  * Get the AgentDB database handle and ensure memory_entries table exists.
  * Returns null if not available.
  */
@@ -558,36 +655,7 @@ function getDb(registry: any): any | null {
   // call (store/search/get) was pure per-op overhead. Keyed by handle via a
   // WeakSet so a new db instance re-ensures without a stale global flag.
   if (!_schemaEnsuredDbs.has(db)) {
-    try {
-      db.exec(`CREATE TABLE IF NOT EXISTS memory_entries (
-        id TEXT PRIMARY KEY,
-        key TEXT NOT NULL,
-        namespace TEXT DEFAULT 'default',
-        content TEXT NOT NULL,
-        type TEXT DEFAULT 'semantic',
-        embedding TEXT,
-        embedding_model TEXT DEFAULT 'local',
-        embedding_dimensions INTEGER,
-        tags TEXT,
-        metadata TEXT,
-        owner_id TEXT,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-        expires_at INTEGER,
-        last_accessed_at INTEGER,
-        access_count INTEGER DEFAULT 0,
-        status TEXT DEFAULT 'active',
-        UNIQUE(namespace, key)
-      )`);
-      // Ensure indexes
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_ns ON memory_entries(namespace)`);
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_key ON memory_entries(key)`);
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_status ON memory_entries(status)`);
-      _schemaEnsuredDbs.add(db);
-    } catch {
-      // Table already exists or db is read-only — that's fine. Don't mark
-      // ensured on failure so a later writable call can retry.
-    }
+    if (ensureBridgeSchema(db)) _schemaEnsuredDbs.add(db);
   }
 
   // ─── #2256-followup: rescue agentdb.embedder when its transformers.js
@@ -915,6 +983,11 @@ export async function bridgeStoreEntry(options: {
     // never triggers the #2735 whole-image guard with a misleading
     // "active native WAL connection" error.
     const msg = err instanceof Error ? err.message : String(err);
+    // Returning null below demotes the caller to the sql.js whole-image path,
+    // whose WAL-sidecar guard then reports a cause that has nothing to do with
+    // what actually went wrong here. Record the real error so it can be
+    // surfaced alongside that guard's message.
+    bridgeFailureReason = msg;
     if (/UNIQUE constraint failed/i.test(msg)) {
       return {
         success: false,
@@ -1803,7 +1876,29 @@ export async function getControllerRegistry(dbPath?: string): Promise<any | null
 }
 
 /**
+ * Why the bridge last declined a write, or null when it has not.
+ *
+ * Deliberately NOT gated on `bridgeAvailable === false`. A bridge that
+ * initialised fine can still fail every write — a schema mismatch throws
+ * per-operation while the registry stays healthy — and that case is exactly
+ * the one worth reporting, since the caller then demotes to a fallback whose
+ * error message describes something else entirely.
+ *
+ * Callers that surface a degraded-path error should include this so the
+ * operator learns the cause instead of only the symptom.
+ */
+export function getBridgeFailureReason(): string | null {
+  return bridgeFailureReason;
+}
+
+/**
  * Shutdown the bridge and release resources.
+ *
+ * The cached state is cleared unconditionally. Previously the reset lived
+ * inside `if (registryInstance)`, so it could not clear a FAILED init — the
+ * one state that actually needs clearing, since `registryInstance` is null
+ * precisely when init failed. A process that latched `bridgeAvailable = false`
+ * therefore had no recovery path short of a restart.
  */
 export async function shutdownBridge(): Promise<void> {
   if (registryInstance) {
@@ -1812,10 +1907,11 @@ export async function shutdownBridge(): Promise<void> {
     } catch {
       // Best-effort
     }
-    registryInstance = null;
-    registryPromise = null;
-    bridgeAvailable = null;
   }
+  registryInstance = null;
+  registryPromise = null;
+  bridgeAvailable = null;
+  bridgeFailureReason = null;
 }
 
 // ===== Phase 3: ReasoningBank pattern operations =====

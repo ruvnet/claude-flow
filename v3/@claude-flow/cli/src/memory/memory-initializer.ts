@@ -181,6 +181,31 @@ async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> 
 }
 
 /**
+ * Build the WAL-sidecar refusal message, naming the bridge failure when one
+ * was recorded.
+ *
+ * The refusal tells the operator to "restore the native better-sqlite3
+ * bridge" but, on its own, gives them no way to discover why it is down —
+ * and the usual cause is a latched init failure inside the bridge, not a
+ * missing better-sqlite3. Appending the recorded reason turns an unactionable
+ * message into a diagnosis.
+ */
+async function walRefusalError(operation: 'write' | 'read/write'): Promise<string> {
+  const base = 'memory database has an active native WAL connection '
+    + '(found -wal/-shm sidecar files) — refusing an unsafe sql.js '
+    + `whole-image ${operation}. Retry once the native writer completes, or `
+    + 'restore the native better-sqlite3 bridge.';
+  try {
+    const bridge = await getBridge();
+    const reason = bridge?.getBridgeFailureReason?.();
+    if (reason) return `${base} Bridge unavailable: ${reason}`;
+  } catch {
+    // Diagnostics must never mask the refusal they annotate.
+  }
+  return base;
+}
+
+/**
  * Enhanced schema with pattern confidence, temporal decay, versioning
  * Vector embeddings enabled for semantic search
  */
@@ -2753,10 +2778,7 @@ export async function storeEntry(options: {
       return {
         success: false,
         id: '',
-        error: 'memory database has an active native WAL connection ' +
-          '(found -wal/-shm sidecar files) — refusing an unsafe sql.js ' +
-          'whole-image write. Retry once the native writer completes, or ' +
-          'restore the native better-sqlite3 bridge.',
+        error: await walRefusalError('write'),
       };
     }
 
@@ -3402,10 +3424,7 @@ export async function getEntry(options: {
       return {
         success: false,
         found: false,
-        error: 'memory database has an active native WAL connection ' +
-          '(found -wal/-shm sidecar files) — refusing an unsafe sql.js ' +
-          'whole-image read/write. Retry once the native writer completes, ' +
-          'or restore the native better-sqlite3 bridge.',
+        error: await walRefusalError('read/write'),
       };
     }
 
@@ -3559,10 +3578,7 @@ export async function deleteEntry(options: {
         key,
         namespace,
         remainingEntries: 0,
-        error: 'memory database has an active native WAL connection ' +
-          '(found -wal/-shm sidecar files) — refusing an unsafe sql.js ' +
-          'whole-image write. Retry once the native writer completes, or ' +
-          'restore the native better-sqlite3 bridge.',
+        error: await walRefusalError('write'),
       };
     }
 
