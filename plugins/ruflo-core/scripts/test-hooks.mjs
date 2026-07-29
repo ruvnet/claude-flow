@@ -91,7 +91,10 @@ const run = (name, cmd, stdin, assertions) => {
       RUFLO_HOOK_SKIP_NPX: '1',
       RUFLO_HOOK_DEBUG_STDOUT: '1',
     },
-    timeout: 15_000,
+    // A clean CI runner may spend more than 15 seconds starting the CLI and
+    // policy/memory backends for its first Edit hook. Keep a finite timeout,
+    // but allow that measured cold-start path to complete.
+    timeout: 30_000,
   });
   const combined = (r.stdout ?? '') + (r.stderr ?? '');
   const errors = [];
