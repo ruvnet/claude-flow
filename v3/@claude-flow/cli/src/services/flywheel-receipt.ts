@@ -78,6 +78,8 @@ export interface FlywheelReceiptPayload {
   gateVersion: string;
   policySchemaVersion: string;
   safetyEnvelopeRef: string;
+  /** Hash-pinned human relevance anchor used for this evaluation (#2840). */
+  anchorRef?: string;
   requestedProposer: 'auto' | ProposerName;
   effectiveProposer: ProposerName;
   proposerSubstitution?: string;
@@ -110,6 +112,7 @@ export interface CreateReceiptInput {
   gateVersion?: string;
   policySchemaVersion?: string;
   safetyEnvelopeRef: string;
+  anchorRef?: string;
   requestedProposer?: 'auto' | ProposerName;
   effectiveProposer?: ProposerName;
   proposerSubstitution?: string;
@@ -332,6 +335,7 @@ export function createFlywheelReceipt(input: CreateReceiptInput): FlywheelEvalua
     gateVersion: input.gateVersion ?? statistics.ruleVersion,
     policySchemaVersion: input.policySchemaVersion ?? 'ruflo.retrieval-policy/v1',
     safetyEnvelopeRef: input.safetyEnvelopeRef,
+    ...(input.anchorRef ? { anchorRef: input.anchorRef } : {}),
     requestedProposer: input.requestedProposer ?? 'local',
     effectiveProposer: input.effectiveProposer ?? 'local',
     ...(input.proposerSubstitution ? { proposerSubstitution: input.proposerSubstitution } : {}),

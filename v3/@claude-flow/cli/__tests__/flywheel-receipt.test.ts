@@ -26,6 +26,7 @@ function acceptedReceipt(key = keys(), now = 1_700_000_000_000) {
       safetyEnvelopeRef: 'sha256:safety',
       corpusVersion: 'corpus-v1',
       corpusHash: 'sha256:corpus',
+      anchorRef: 'sha256:project-anchor',
       baselineScore: 0.5,
       candidateScore: 0.65,
       heldOutDeltas: [0.1, 0.12, 0.2, 0.08, 0.15, 0.11],
@@ -61,6 +62,10 @@ describe('flywheel receipt protocol', () => {
     const tampered = structuredClone(receipt);
     tampered.payload.candidatePolicy.alpha = 0.31;
     expect(verifyFlywheelReceipt(tampered, new Set([key.publicKeyPem])).valid).toBe(false);
+
+    const anchorTampered = structuredClone(receipt);
+    anchorTampered.payload.anchorRef = 'sha256:different-project-anchor';
+    expect(verifyFlywheelReceipt(anchorTampered, new Set([key.publicKeyPem])).valid).toBe(false);
 
     const second = acceptedReceipt(key, 1_700_000_000_001).receipt;
     expect(second.payload.candidateId).toBe(receipt.payload.candidateId);

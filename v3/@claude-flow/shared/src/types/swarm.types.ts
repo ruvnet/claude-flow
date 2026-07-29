@@ -244,6 +244,24 @@ export const TopologyPresets: Record<SwarmTopology, Partial<ISwarmConfig>> = {
       retryPolicy: { maxRetries: 5, backoffMs: 500 }
     }
   },
+  'pheromone-adaptive': {
+    topology: 'pheromone-adaptive',
+    autoScale: {
+      enabled: true,
+      minAgents: 3,
+      maxAgents: 20,
+      scaleUpThreshold: 0.8,
+      scaleDownThreshold: 0.3
+    },
+    coordination: {
+      consensusRequired: true,
+      timeoutMs: 10000,
+      retryPolicy: { maxRetries: 5, backoffMs: 500 }
+    },
+    metadata: {
+      apsc: { dryRun: true, minActiveAgents: 3, minSamples: 3 }
+    }
+  },
   'hierarchical-mesh': {
     topology: 'hierarchical-mesh',
     coordination: {

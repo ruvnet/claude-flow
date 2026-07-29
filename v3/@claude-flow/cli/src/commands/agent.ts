@@ -560,6 +560,71 @@ const metricsCommand: Command = {
       ? `${Math.round(Object.values(typeCounts).reduce((a, d) => a + d.success, 0) / tasksCompleted * 100)}%`
       : 'N/A';
 
+    // ADR-330: expose the learned scheduling signal where operators already
+    // inspect agent metrics. Old/non-APSC installs simply omit this section.
+    let pheromone: {
+      active: boolean;
+      dryRun: boolean;
+      threshold: number;
+      agents: Array<{
+        agentId: string;
+        role: string;
+        pheromoneScore: number;
+        rawScore: number;
+        samples: number;
+        eligibility: string;
+      }>;
+    } | undefined;
+    const swarmStatePath = join(process.cwd(), '.claude-flow', 'swarm', 'swarm-state.json');
+    if (existsSync(swarmStatePath)) {
+      try {
+        const store = JSON.parse(readFileSync(swarmStatePath, 'utf-8')) as {
+          swarms?: Record<string, {
+            topology?: string;
+            status?: string;
+            updatedAt?: string;
+            config?: {
+              apscState?: {
+                threshold?: number;
+                config?: { dryRun?: boolean };
+                agents?: Record<string, {
+                  agentId: string;
+                  role: string;
+                  emaScore: number;
+                  rawScore: number;
+                  samples: number;
+                  status: string;
+                }>;
+              };
+            };
+          }>;
+        };
+        const current = Object.values(store.swarms ?? {})
+          .filter((swarm) => swarm.status === 'running' && swarm.topology === 'pheromone-adaptive')
+          .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0];
+        const apsc = current?.config?.apscState;
+        if (apsc) {
+          const agents = Object.values(apsc.agents ?? {})
+            .filter((agent) => !agentId || agent.agentId === agentId)
+            .sort((a, b) => a.agentId.localeCompare(b.agentId))
+            .map((agent) => ({
+              agentId: agent.agentId,
+              role: agent.role,
+              pheromoneScore: agent.emaScore,
+              rawScore: agent.rawScore,
+              samples: agent.samples,
+              eligibility: agent.status === 'suspended' ? 'suspended' : 'eligible',
+            }));
+          pheromone = {
+            active: true,
+            dryRun: apsc.config?.dryRun !== false,
+            threshold: apsc.threshold ?? 0.5,
+            agents,
+          };
+        }
+      } catch { /* malformed/legacy swarm state — preserve existing metrics */ }
+    }
+
     const metrics = {
       period,
       summary: {
@@ -574,7 +639,8 @@ const metricsCommand: Command = {
       performance: {
         memoryVectors: `${vectorCount} vectors`,
         searchBackend: vectorCount > 0 ? 'HNSW-indexed' : 'none'
-      }
+      },
+      pheromone,
     };
 
     if (ctx.flags.format === 'json') {
@@ -623,6 +689,21 @@ const metricsCommand: Command = {
       `Vectors: ${output.success(metrics.performance.memoryVectors)}`,
       `Backend: ${output.success(metrics.performance.searchBackend)}`
     ]);
+
+    if (metrics.pheromone) {
+      output.writeln();
+      output.writeln(output.bold(`Pheromone Scheduling (${metrics.pheromone.dryRun ? 'dry run' : 'live'})`));
+      output.printTable({
+        columns: [
+          { key: 'agentId', header: 'Agent', width: 20 },
+          { key: 'role', header: 'Role', width: 18 },
+          { key: 'pheromoneScore', header: 'EMA Score', width: 12, align: 'right' },
+          { key: 'samples', header: 'Samples', width: 9, align: 'right' },
+          { key: 'eligibility', header: 'Eligibility', width: 12 },
+        ],
+        data: metrics.pheromone.agents,
+      });
+    }
 
     return { success: true, data: metrics };
   }

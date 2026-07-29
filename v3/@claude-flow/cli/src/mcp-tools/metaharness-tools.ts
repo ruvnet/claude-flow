@@ -634,6 +634,9 @@ export const metaharnessTools: MCPTool[] = [
         confirm: { type: 'boolean', description: 'Required for promote; never inferred', default: false },
         maxConcurrency: { type: 'number', description: 'ADR-324 hard local candidate-evaluation concurrency cap (1-8)', default: 2 },
         timeoutMs: { type: 'number', description: 'Abort concurrent evaluation after this wall-clock limit', default: 120000 },
+        anchorPath: { type: 'string', description: 'Project-contained human-labelled anchor JSON; requires anchorHash' },
+        anchorHash: { type: 'string', description: 'Pinned sha256 of canonical anchor tasks; requires anchorPath' },
+        anchorManifestPath: { type: 'string', description: 'Project-contained anchor manifest path (default .claude/eval/flywheel-anchor.manifest.json)' },
         approvalIds: { type: 'array', items: { type: 'string' }, description: 'Scoped ADR-324 approval IDs for privileged promotion' },
       },
       required: ['operation'],
@@ -655,6 +658,7 @@ export const metaharnessTools: MCPTool[] = [
       if (operation === 'receipts') {
         const data = listFlywheelReceipts(projectRoot).map(({ receipt, state }) => ({
           receiptId: receipt.payload.receiptId,
+          anchorRef: receipt.payload.anchorRef,
           candidateId: receipt.payload.candidateId,
           baselineRef: receipt.payload.baselineRef,
           decision: receipt.payload.decision,
@@ -682,6 +686,9 @@ export const metaharnessTools: MCPTool[] = [
           receiptPublicKeyPem: publicKeyPath ? readFileSync(publicKeyPath, 'utf8') : undefined,
           maxConcurrency: Number(input.maxConcurrency ?? 2),
           evaluationTimeoutMs: Number(input.timeoutMs ?? 120_000),
+          anchorPath: input.anchorPath ? String(input.anchorPath) : undefined,
+          anchorHash: input.anchorHash ? String(input.anchorHash) : undefined,
+          anchorManifestPath: input.anchorManifestPath ? String(input.anchorManifestPath) : undefined,
         });
         return { success: data.ran, data, degraded: false, exitCode: data.ran ? 0 : 1 };
       }

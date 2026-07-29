@@ -214,7 +214,9 @@ export class CLI {
           try {
             const { ensureDaemonRunning } = await import('./services/daemon-autostart.js');
             const d = ensureDaemonRunning(process.cwd());
-            if (d.started && this.output.isVerbose()) this.output.printDebug('Started background daemon (auto)');
+            if (d.started) {
+              this.output.printInfo(`Started Ruflo background daemon for ${process.cwd()} (stop: ruflo daemon stop)`);
+            }
           } catch { /* silent */ }
         }
       }

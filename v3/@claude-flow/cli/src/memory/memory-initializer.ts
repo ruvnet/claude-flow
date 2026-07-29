@@ -542,7 +542,7 @@ CREATE TABLE IF NOT EXISTS metadata (
 // Uses @ruvector/core from agentic-flow for WASM-accelerated HNSW
 // ============================================================================
 
-interface HNSWEntry {
+export interface HNSWEntry {
   id: string;
   key: string;
   namespace: string;
@@ -720,6 +720,69 @@ function saveHNSWMetadata(): void {
     fs.writeFileSync(metadataPath, JSON.stringify(metadata));
   } catch {
     // Silently fail - metadata save is best-effort
+  }
+}
+
+export function removeHNSWEntriesByLogicalKey(
+  entries: Map<string, HNSWEntry>,
+  key: string,
+  namespace: string,
+): number {
+  let removed = 0;
+  for (const [id, entry] of entries) {
+    if (entry.key === key && (entry.namespace ?? 'default') === namespace) {
+      entries.delete(id);
+      removed++;
+    }
+  }
+  return removed;
+}
+
+function removeHNSWEntriesByKey(key: string, namespace: string): number {
+  if (!hnswIndex?.entries) return 0;
+  const removed = removeHNSWEntriesByLogicalKey(hnswIndex.entries, key, namespace);
+  if (removed > 0) {
+    saveHNSWMetadata();
+    rebuildSearchIndex();
+  }
+  return removed;
+}
+
+/**
+ * Remove HNSW metadata whose authoritative SQLite row is no longer active.
+ * Persistent graph nodes may remain physically allocated, but without metadata
+ * they cannot resolve into search results; the next rebuild repopulates only
+ * active rows. Returns the number of searchable vectors invalidated.
+ */
+export async function reconcileHNSWIndex(dbPath?: string): Promise<number> {
+  if (!hnswIndex?.entries) return 0;
+  const effectivePath = dbPath
+    ? path.resolve(dbPath)
+    : path.join(getMemoryRoot(), 'memory.db');
+  if (!fs.existsSync(effectivePath)) return 0;
+  try {
+    const initSqlJs = (await import('sql.js')).default;
+    const SQL = await initSqlJs();
+    const db = new SQL.Database(readFileMaybeEncrypted(effectivePath, null));
+    const rows = db.exec(`SELECT id FROM memory_entries WHERE status = 'active'`);
+    const active = new Set(
+      (rows[0]?.values ?? []).map((row) => String(row[0])),
+    );
+    db.close();
+    let removed = 0;
+    for (const id of hnswIndex.entries.keys()) {
+      if (!active.has(id)) {
+        hnswIndex.entries.delete(id);
+        removed++;
+      }
+    }
+    if (removed > 0) {
+      saveHNSWMetadata();
+      rebuildSearchIndex();
+    }
+    return removed;
+  } catch {
+    return 0;
   }
 }
 
@@ -2736,6 +2799,9 @@ export async function storeEntry(options: {
       // Keep HNSW index in sync with bridge-stored entries
       if (bridgeResult.rawEmbedding && bridgeResult.success) {
         const ns = options.namespace || 'default';
+        // Upsert/resurrection may allocate a new row id. Remove every older
+        // vector for the logical (namespace,key), not merely the newest id.
+        removeHNSWEntriesByKey(options.key, ns);
         await addToHNSWIndex(bridgeResult.id, bridgeResult.rawEmbedding, {
           id: bridgeResult.id,
           key: options.key,
@@ -2869,6 +2935,7 @@ export async function storeEntry(options: {
     // Add to HNSW index for faster future searches
     if (embeddingJson) {
       const embResult = JSON.parse(embeddingJson) as number[];
+      if (upsert) removeHNSWEntriesByKey(key, namespace);
       await addToHNSWIndex(id, embResult, {
         id,
         key,
@@ -3533,15 +3600,7 @@ export async function deleteEntry(options: {
       // #1122: Bridge path must also invalidate the in-memory HNSW index.
       // Without this, deleted vectors remain as ghost entries in search results.
       if (bridgeResult.deleted && hnswIndex?.entries) {
-        // Remove the entry from the HNSW entries map by key+namespace composite
-        for (const [id, entry] of hnswIndex.entries) {
-          if ((entry as any)?.key === options.key && ((entry as any)?.namespace ?? 'default') === (options.namespace ?? 'default')) {
-            hnswIndex.entries.delete(id);
-            break;
-          }
-        }
-        saveHNSWMetadata();
-        rebuildSearchIndex();
+        removeHNSWEntriesByKey(options.key, options.namespace ?? 'default');
       }
       return bridgeResult;
     }
@@ -3622,9 +3681,6 @@ export async function deleteEntry(options: {
       };
     }
 
-    // Capture the entry ID for HNSW cleanup
-    const entryId = String(checkResult[0].values[0][0]);
-
     // Delete the entry (soft delete by setting status to 'deleted')
     // Also null out the embedding to clean up vector data from SQLite
     db.run(`
@@ -3650,14 +3706,7 @@ export async function deleteEntry(options: {
     // Clean up in-memory HNSW index so ghost vectors don't appear in searches.
     // Remove the entry from the HNSW entries map and invalidate the index.
     // The next search will rebuild the HNSW index from the remaining DB rows.
-    if (hnswIndex?.entries) {
-      hnswIndex.entries.delete(entryId);
-      saveHNSWMetadata();
-      // Invalidate the HNSW index so it rebuilds from DB on next search.
-      // We can't surgically remove a vector from the HNSW graph, so we
-      // clear the entire index; it will be lazily rebuilt from SQLite.
-      rebuildSearchIndex();
-    }
+    if (hnswIndex?.entries) removeHNSWEntriesByKey(key, namespace);
 
     return {
       success: true,

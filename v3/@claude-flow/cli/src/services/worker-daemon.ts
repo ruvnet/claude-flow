@@ -183,7 +183,10 @@ const NO_DISTILL_ENV = 'RUFLO_DAEMON_NO_DISTILL';
 // half a day; set RUFLO_DAEMON_TTL_SECS=0 (or `--ttl 0`) to opt out. Idle
 // shutdown is opt-in (0 = disabled) since a legitimately quiet daemon is not a leak.
 const DEFAULT_DAEMON_TTL_MS = 12 * 60 * 60 * 1000;
-const DEFAULT_DAEMON_IDLE_SHUTDOWN_MS = 0;
+// #2834 — an auto-started daemon must not remain alive for the full 12h TTL
+// after its workspace goes idle. Explicit 0 via config/env still disables the
+// idle cap for operators who intentionally want a resident daemon.
+const DEFAULT_DAEMON_IDLE_SHUTDOWN_MS = 30 * 60 * 1000;
 
 /**
  * Read a non-negative seconds value from an env var and return it as ms.

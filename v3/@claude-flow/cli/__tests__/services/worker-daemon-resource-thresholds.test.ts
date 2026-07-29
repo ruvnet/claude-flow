@@ -768,10 +768,10 @@ describe('WorkerDaemon resource thresholds', () => {
       if (savedIdle === undefined) delete process.env[IDLE_ENV]; else process.env[IDLE_ENV] = savedIdle;
     });
 
-    it('defaults ttlMs to 12h and idleShutdownMs to 0 (opt-in)', () => {
+    it('defaults ttlMs to 12h and idleShutdownMs to 30m (#2834)', () => {
       const config = new WorkerDaemon(tempDir).getStatus().config;
       expect(config.ttlMs).toBe(12 * 60 * 60 * 1000);
-      expect(config.idleShutdownMs).toBe(0);
+      expect(config.idleShutdownMs).toBe(30 * 60 * 1000);
     });
 
     it('honors RUFLO_DAEMON_TTL_SECS env override (seconds → ms)', () => {

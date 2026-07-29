@@ -2057,6 +2057,26 @@ const postTaskCommand: Command = {
       type: 'string'
     },
     {
+      name: 'agent-role',
+      description: 'Stable agent role used for role-aware pheromone comparison (for example coder, tester, coordinator)',
+      type: 'string'
+    },
+    {
+      name: 'duration',
+      description: 'Observed task duration in milliseconds for latency fitness',
+      type: 'number'
+    },
+    {
+      name: 'latency-budget-ms',
+      description: 'Expected task duration in milliseconds; paired with --duration to normalize latency fitness',
+      type: 'number'
+    },
+    {
+      name: 'consensus-alignment',
+      description: 'Consensus alignment score from 0 to 1',
+      type: 'number'
+    },
+    {
       name: 'task',
       short: 't',
       description: 'Task description text (used for routing-outcome persistence and keyword extraction so hooks_metrics can surface Pattern Learning / Agent Routing counts). Without this + --agent, no routing outcome is recorded (#2785).',
@@ -2111,6 +2131,10 @@ const postTaskCommand: Command = {
         success,
         quality: ctx.flags.quality,
         agent: ctx.flags.agent,
+        agentRole: ctx.flags.agentRole,
+        duration: ctx.flags.duration,
+        latencyBudgetMs: ctx.flags.latencyBudgetMs,
+        consensusAlignment: ctx.flags.consensusAlignment,
         // #2785: forward the task description so routing outcomes actually persist
         // (hooks_post-task requires taskText + agent to write the outcome row that
         // hooks_metrics reads via getIntelligenceStatsFromMemory)

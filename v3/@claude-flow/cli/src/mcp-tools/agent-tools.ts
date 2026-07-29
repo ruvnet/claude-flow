@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateIdentifier, validateText, validateAgentSpawn } from './validate-input.js';
 import { executeAgentTask } from './agent-execute-core.js';
+import { pheromoneAgentEligibility } from './swarm-tools.js';
 
 // Storage paths
 const STORAGE_DIR = '.claude-flow';
@@ -465,6 +466,15 @@ export const agentTools: MCPTool[] = [
       if (!vId.valid) return { success: false, error: `Input validation failed: ${vId.error}` };
       const vP = validateText(input.prompt as string, 'prompt');
       if (!vP.valid) return { success: false, error: `Input validation failed: ${vP.error}` };
+      const pheromone = pheromoneAgentEligibility(input.agentId as string);
+      if (!pheromone.eligible) {
+        return {
+          success: false,
+          agentId: input.agentId,
+          suspended: true,
+          error: pheromone.reason,
+        };
+      }
 
       // Delegate to the shared core (also used by the workflow runtime).
       return executeAgentTask({

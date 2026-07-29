@@ -57,6 +57,8 @@ export interface FlywheelDeps {
   lineageId?: string;
   evaluationRunId?: string;
   safetyEnvelopeRef?: string;
+  /** Hash of the project-specific human-labelled objective. */
+  anchorRef?: string;
   requestedProposer?: 'auto' | 'local' | 'darwin';
   effectiveProposer?: 'local' | 'darwin';
   proposerSubstitution?: string;
@@ -266,6 +268,7 @@ export async function evaluateFlywheelCandidate(projectRoot: string, deps: Flywh
       expectedLedgerHead: txState.ledgerHead,
       candidatePolicy: candidate as unknown as Record<string, unknown>,
       safetyEnvelopeRef,
+      anchorRef: deps.anchorRef,
       requestedProposer: deps.requestedProposer ?? 'local',
       effectiveProposer: deps.effectiveProposer ?? 'local',
       proposerSubstitution: deps.proposerSubstitution,
