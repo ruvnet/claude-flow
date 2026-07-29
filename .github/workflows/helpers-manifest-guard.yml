@@ -20,6 +20,7 @@ on:
       - 'v3/@claude-flow/cli/.claude/helpers/helpers.manifest.json'
       - 'v3/@claude-flow/cli/scripts/sign-helpers.mjs'
       - 'v3/@claude-flow/cli/scripts/verify-helpers.mjs'
+      - 'scripts/smoke-helper-signing-security.mjs'
       - 'v3/@claude-flow/cli/scripts/prepare-publish.mjs'
       - 'v3/@claude-flow/cli/package.json'
       - '.github/workflows/helpers-manifest-guard.yml'
@@ -29,6 +30,7 @@ on:
       - 'v3/@claude-flow/cli/.claude/helpers/**'
       - 'v3/@claude-flow/cli/scripts/sign-helpers.mjs'
       - 'v3/@claude-flow/cli/scripts/verify-helpers.mjs'
+      - 'scripts/smoke-helper-signing-security.mjs'
       - 'v3/@claude-flow/cli/scripts/prepare-publish.mjs'
       - 'v3/@claude-flow/cli/package.json'
 
@@ -49,6 +51,9 @@ jobs:
           set -euo pipefail
           test -f v3/@claude-flow/cli/scripts/sign-helpers.mjs   || { echo '::error::scripts/sign-helpers.mjs missing (#2593)';   exit 1; }
           test -f v3/@claude-flow/cli/scripts/verify-helpers.mjs || { echo '::error::scripts/verify-helpers.mjs missing (#2593)'; exit 1; }
+
+      - name: Helper signing key transport + single-source guard
+        run: node scripts/smoke-helper-signing-security.mjs
 
       # 2. prepublishOnly MUST invoke a preparation script that invokes BOTH
       #    sign-helpers and verify-helpers.

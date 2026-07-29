@@ -217,6 +217,7 @@ const runCommand: Command = {
       data: [
         { metric: 'Processed', value: String(report.processed) },
         { metric: 'Episodes', value: String(report.episodes) },
+        { metric: 'Episode Embeddings', value: String(report.episodeEmbeddings) },
         { metric: 'Patterns', value: String(report.patterns) },
         { metric: 'Pattern Embeddings', value: String(report.patternEmbeddings) },
         { metric: 'Causal Edges', value: String(report.causalEdges) },

@@ -3,7 +3,8 @@
  *
  * Turns raw `memory_entries` (what ruflo has been RECORDING for thousands of
  * commits) into the structured intelligence substrate it has never populated:
- * `episodes` → `reasoning_patterns` (+ `pattern_embeddings`) → `causal_edges`.
+ * `episodes` (+ `episode_embeddings`) → `reasoning_patterns`
+ * (+ `pattern_embeddings`) → `causal_edges`.
  * This is the DISTILL/CONSOLIDATE half of the RETRIEVE→JUDGE→DISTILL→CONSOLIDATE
  * pipeline; RETRIEVE (embeddings) was already populated, the rest was empty
  * because the daemon's `consolidate` worker was a stub (see ADR-174 root cause).
@@ -52,6 +53,7 @@ export interface DistillOptions {
 export interface DistillReport {
   processed: number;
   episodes: number;
+  episodeEmbeddings: number;
   patterns: number;
   patternEmbeddings: number;
   causalEdges: number;
@@ -81,7 +83,8 @@ interface Cluster {
 
 function emptyReport(dryRun: boolean, extra: Partial<DistillReport> = {}): DistillReport {
   return {
-    processed: 0, episodes: 0, patterns: 0, patternEmbeddings: 0, causalEdges: 0,
+    processed: 0, episodes: 0, episodeEmbeddings: 0,
+    patterns: 0, patternEmbeddings: 0, causalEdges: 0,
     promoted: 0, byProvenance: {}, namespaces: [], dryRun, spendUsd: 0, ...extra,
   };
 }
@@ -112,6 +115,20 @@ function judgeFeedback(content: string): { success: boolean; reward: number } {
     if (typeof o.error === 'string' && o.error) return { success: false, reward: 0 };
   } catch { /* not JSON — treat as neutral */ }
   return { success: true, reward: 0.5 };
+}
+
+/** Preserve an execution-observed lesson for Reflexion without presenting
+ * proxy/structural summaries as genuine self-critique. */
+function feedbackCritique(content: string): string {
+  try {
+    const value = JSON.parse(content) as Record<string, unknown>;
+    for (const key of ['critique', 'error', 'message', 'summary', 'stderr']) {
+      if (typeof value[key] === 'string' && value[key].trim()) {
+        return value[key].trim().slice(0, 2000);
+      }
+    }
+  } catch { /* retain the original execution feedback below */ }
+  return `Observed execution feedback: ${content}`.slice(0, 2000);
 }
 
 /**
@@ -150,12 +167,23 @@ export async function runDistillation(options: DistillOptions): Promise<DistillR
     for (const t of ['episodes', 'reasoning_patterns', 'pattern_embeddings', 'causal_edges']) {
       if (!tableExists(t)) { db.close(); return { ...report, skipped: `target table ${t} missing (agentdb schema not initialised)` }; }
     }
-
     // Safety gate: never distill into a structurally-corrupt DB.
     const qc = db.prepare('PRAGMA quick_check(1)').get() as Record<string, string> | undefined;
     if (qc && String(Object.values(qc)[0] ?? '').toLowerCase() !== 'ok') {
       db.close();
       return { ...report, corrupt: true, skipped: 'memory DB reports corruption — run recoverMemoryDatabase first' };
+    }
+
+    // #2677 — older AgentDB stores may have episodes but no embedding table.
+    // Create the stable AgentDB v1 table only after the corruption gate, and
+    // never create it during a dry-run.
+    if (!dryRun && !tableExists('episode_embeddings')) {
+      db.exec(`CREATE TABLE episode_embeddings (
+        episode_id INTEGER PRIMARY KEY,
+        embedding BLOB NOT NULL,
+        embedding_model TEXT DEFAULT 'all-MiniLM-L6-v2',
+        FOREIGN KEY(episode_id) REFERENCES episodes(id) ON DELETE CASCADE
+      )`);
     }
 
     // M0: incremental cursor table (per namespace, by monotonic rowid).
@@ -179,7 +207,10 @@ export async function runDistillation(options: DistillOptions): Promise<DistillR
     );
 
     const insEpisode = db.prepare(
-      'INSERT INTO episodes (session_id, task, input, output, reward, success, tags, metadata) VALUES (?,?,?,?,?,?,?,?)',
+      'INSERT INTO episodes (session_id, task, input, output, critique, reward, success, tags, metadata) VALUES (?,?,?,?,?,?,?,?,?)',
+    );
+    const insEpisodeEmbedding = dryRun ? null : db.prepare(
+      'INSERT OR REPLACE INTO episode_embeddings (episode_id, embedding) VALUES (?, ?)',
     );
     const insPattern = db.prepare(
       'INSERT INTO reasoning_patterns (task_type, approach, success_rate, uses, avg_reward, tags, metadata) VALUES (?,?,?,?,?,?,?)',
@@ -188,6 +219,49 @@ export async function runDistillation(options: DistillOptions): Promise<DistillR
     const insEdge = db.prepare(
       'INSERT INTO causal_edges (from_memory_id, from_memory_type, to_memory_id, to_memory_type, similarity, confidence, mechanism, metadata) VALUES (?,?,?,?,?,?,?,?)',
     );
+
+    // Repair episodes produced by older distillation releases. Their metadata
+    // records sourceIds; if that provenance is absent, exact input matching is
+    // a conservative fallback. Never invent a vector or call a model.
+    if (!dryRun) {
+      const missingEpisodes = db.prepare(`
+        SELECT e.id, e.input, e.metadata
+        FROM episodes e
+        LEFT JOIN episode_embeddings ee ON ee.episode_id = e.id
+        WHERE ee.episode_id IS NULL AND e.session_id LIKE 'distill:%'
+      `).all() as Array<{ id: number; input: string | null; metadata: string | null }>;
+      const embeddingById = db.prepare('SELECT embedding FROM memory_entries WHERE id = ? AND embedding IS NOT NULL');
+      const embeddingByContent = db.prepare(
+        'SELECT embedding FROM memory_entries WHERE content = ? AND embedding IS NOT NULL LIMIT 1',
+      );
+      const missingCritiques = db.prepare(`
+        SELECT id, input FROM episodes
+        WHERE session_id LIKE 'distill:feedback%'
+          AND length(trim(coalesce(critique,''))) = 0
+      `).all() as Array<{ id: number; input: string | null }>;
+      const updateCritique = db.prepare('UPDATE episodes SET critique = ? WHERE id = ?');
+      const backfill = db.transaction(() => {
+        for (const episode of missingEpisodes) {
+          let sourceId: string | undefined;
+          try {
+            const metadata = JSON.parse(episode.metadata ?? '{}') as { sourceIds?: unknown };
+            if (Array.isArray(metadata.sourceIds) && typeof metadata.sourceIds[0] === 'string') {
+              sourceId = metadata.sourceIds[0];
+            }
+          } catch { /* use exact-content fallback */ }
+          let raw = sourceId ? embeddingById.get(sourceId)?.embedding : undefined;
+          if (!raw) raw = embeddingByContent.get(episode.input ?? '')?.embedding;
+          const vector = parseEmbedding(raw);
+          if (!vector) continue;
+          insEpisodeEmbedding!.run(episode.id, Buffer.from(Float32Array.from(vector).buffer));
+          report.episodeEmbeddings++;
+        }
+        for (const episode of missingCritiques) {
+          updateCritique.run(feedbackCritique(episode.input ?? ''), episode.id);
+        }
+      });
+      backfill();
+    }
 
     let remaining = typeof maxEntries === 'number' ? maxEntries : Infinity;
 
@@ -265,10 +339,18 @@ export async function runDistillation(options: DistillOptions): Promise<DistillR
 
               const epInfo = insEpisode.run(
                 `distill:${ns}`, approach, cl.rep.content.slice(0, 2000), '',
+                cl.provenance === 'oracle:test-exec' ? feedbackCritique(cl.rep.content) : null,
                 avgReward, promoted && cl.successCount > 0 ? 1 : 0,
                 JSON.stringify(distilled.labels), JSON.stringify(provMeta),
               );
               report.episodes++;
+              const epId = Number(epInfo.lastInsertRowid);
+
+              // ReflexionMemory.retrieveRelevant() INNER JOINs this table.
+              // Reuse the source embedding so every distilled episode is
+              // immediately retrievable without an embedding-model call.
+              insEpisodeEmbedding!.run(epId, Buffer.from(Float32Array.from(embVec).buffer));
+              report.episodeEmbeddings++;
 
               const patInfo = insPattern.run(
                 taskType, approach, successRate, uses, avgReward,
@@ -289,7 +371,6 @@ export async function runDistillation(options: DistillOptions): Promise<DistillR
               // rowids). Explicitly typed co-occurrence / proxy-tier / non-
               // promoted: may rank retrieval, must NOT justify autonomous action
               // (ADR-174 edge contract).
-              const epId = Number(epInfo.lastInsertRowid);
               if (prevEpId !== null) {
                 insEdge.run(
                   prevEpId, 'episode', epId, 'episode',

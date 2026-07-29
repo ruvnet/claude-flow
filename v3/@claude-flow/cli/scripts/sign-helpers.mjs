@@ -15,10 +15,13 @@
  *   2. RUFLO_HELPERS_SIGNING_KEY=<pem-file-path>       (local / air-gapped)
  *   3. ~/.ruflo/helpers-signing.key                    (dev default)
  *
+ * Stdin fallback (the PEM never appears in shell output or argv):
+ *   gcloud secrets versions access latest --secret=... | node scripts/sign-helpers.mjs --stdin-key
+ *
  * Usage:  RUFLO_HELPERS_SIGNING_SECRET=ruflo-helpers-signing-key node scripts/sign-helpers.mjs
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { createHash, sign as edSign } from 'node:crypto';
+import { createHash, createPrivateKey, sign as edSign } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,19 +34,36 @@ const HELPERS_DIR = join(PKG_ROOT, '.claude', 'helpers');
 const CRITICAL = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs'];
 
 function loadPrivateKey() {
+  if (process.argv.includes('--stdin-key')) {
+    if (process.stdin.isTTY) {
+      console.error(
+        '[sign-helpers] --stdin-key requires piped stdin; refusing interactive key entry. ' +
+        'Pipe Secret Manager output directly or use RUFLO_HELPERS_SIGNING_KEY=<pem-file-path>.',
+      );
+      process.exit(1);
+    }
+    const key = readFileSync(0, 'utf-8');
+    if (!key.trim()) {
+      console.error('[sign-helpers] --stdin-key received empty input');
+      process.exit(1);
+    }
+    return key;
+  }
+
   const secret = process.env.RUFLO_HELPERS_SIGNING_SECRET;
   if (secret) {
     const args = ['secrets', 'versions', 'access', 'latest', '--secret', secret];
     const project = process.env.RUFLO_HELPERS_SIGNING_PROJECT;
     if (project) args.push('--project', project);
     try {
+      const gcloudBin = process.platform === 'win32' ? 'gcloud.cmd' : 'gcloud';
       // stdio: key on stdout (captured), stderr captured too — NOT inherited.
       // Inheriting would forward gcloud's stderr verbatim into whatever log
       // is capturing this process's output (CI, terminal); this key material
       // is sensitive enough that we never want an uncontrolled passthrough,
       // even though gcloud's normal error paths don't echo secret payloads.
-      return execFileSync('gcloud', args, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
-    } catch (e) {
+      return execFileSync(gcloudBin, args, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch {
       console.error(`[sign-helpers] failed to read GCP secret '${secret}'. Is gcloud authed? (gcloud auth login)`);
       process.exit(1);
     }
@@ -60,6 +80,14 @@ function loadPrivateKey() {
 }
 
 const privateKeyPem = loadPrivateKey();
+try {
+  const key = createPrivateKey(privateKeyPem);
+  if (key.asymmetricKeyType !== 'ed25519') throw new Error('wrong-key-type');
+} catch {
+  // Never include the PEM or the crypto parser's input in diagnostics.
+  console.error('[sign-helpers] signing key is not a valid Ed25519 private key');
+  process.exit(1);
+}
 
 const version = JSON.parse(readFileSync(join(PKG_ROOT, 'package.json'), 'utf-8')).version;
 const files = {};
