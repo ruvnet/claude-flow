@@ -1,10 +1,12 @@
 # ruflo-market-data
 
-Market data ingestion -- feed normalization, OHLCV vectorization, and HNSW-indexed pattern matching.
+Market data ingestion, public X signal context, OHLCV vectorization, and HNSW-indexed pattern matching.
 
 ## Overview
 
 Ingests market data from REST APIs and WebSocket feeds, normalizes to OHLCV vectors with consistent scaling, and vectorizes candlestick patterns for HNSW similarity search. Detects single-candle (doji, hammer) and multi-candle (engulfing, morning star, head & shoulders) formations with reliability scoring.
+
+The Xquik skill adds bounded public X observations for contextual analysis. It stores them separately from OHLCV records.
 
 ## Installation
 
@@ -24,6 +26,7 @@ claude --plugin-dir plugins/ruflo-market-data
 |-------|-------|-------------|
 | `market-ingest` | `/market-ingest <symbol> [--source api]` | Ingest and normalize market data into OHLCV vectors with HNSW indexing |
 | `market-pattern` | `/market-pattern <symbol> [--period 1D]` | Detect and classify candlestick patterns from ingested data |
+| `xquik-social-signals` | `/xquik-social-signals <query-or-symbol> [limit]` | Add bounded public X context through Xquik |
 
 ## Commands (5 subcommands)
 
@@ -66,12 +69,13 @@ Each pattern is encoded as a 64-dimension padded vector for HNSW indexing.
 
 ## Namespace coordination
 
-This plugin owns two AgentDB namespaces (kebab-case, follows the convention from [ruflo-agentdb ADR-0001 §"Namespace convention"](../ruflo-agentdb/docs/adrs/0001-agentdb-optimization.md)):
+This plugin owns three AgentDB namespaces (kebab-case, follows the convention from [ruflo-agentdb ADR-0001 §"Namespace convention"](../ruflo-agentdb/docs/adrs/0001-agentdb-optimization.md)):
 
 - `market-data` — normalized OHLCV vectors per symbol+date
 - `market-patterns` — detected candlestick patterns with reliability scores
+- `market-social-signals` — normalized public X observations from Xquik
 
-Both accessed via `memory_*` (namespace-routed). Reserved namespaces (`pattern`, `claude-memories`, `default`) MUST NOT be shadowed.
+All three use `memory_*` (namespace-routed). Reserved namespaces (`pattern`, `claude-memories`, `default`) MUST NOT be shadowed.
 
 > **Routing note:** Earlier versions of these skills used `agentdb_hierarchical-*` and `agentdb_pattern-*` with namespace arguments — those tool families route by tier/ReasoningBank and ignore namespace strings. ADR-0001 fixed the skills to use `memory_*` for namespaced reads/writes.
 
@@ -79,7 +83,7 @@ Both accessed via `memory_*` (namespace-routed). Reserved namespaces (`pattern`,
 
 ```bash
 bash plugins/ruflo-market-data/scripts/smoke.sh
-# Expected: "11 passed, 0 failed"
+# Expected: "13 passed, 0 failed"
 ```
 
 ## Architecture Decisions
@@ -92,6 +96,10 @@ bash plugins/ruflo-market-data/scripts/smoke.sh
 - `ruflo-neural-trader` -- Consumes market patterns as strategy signals
 - `ruflo-ruvector` -- HNSW indexing engine for pattern similarity search
 - `ruflo-observability` -- Data feed health and ingestion latency dashboards
+
+## Xquik Notice
+
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.
 
 ## License
 

@@ -144,7 +144,7 @@
     {
       "name": "ruflo-market-data",
       "source": "./plugins/ruflo-market-data",
-      "description": "Market data ingestion — feed normalization, OHLCV vectorization, and HNSW-indexed pattern matching"
+      "description": "Market data ingestion, public X signal context, OHLCV vectorization, and HNSW-indexed pattern matching"
     },
     {
       "name": "ruflo-migrations",

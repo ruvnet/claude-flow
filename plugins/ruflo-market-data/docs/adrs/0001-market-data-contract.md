@@ -3,10 +3,10 @@ id: ADR-0001
 title: ruflo-market-data plugin contract — pinning, namespace coordination, namespace-routing fix, embeddings_generate fix, smoke as contract
 status: Accepted
 date: 2026-05-04
-updated: 2026-05-09
+updated: 2026-08-20
 authors:
   - reviewer (Claude Code)
-tags: [plugin, market-data, ohlcv, candlestick, namespace, hnsw, smoke-test]
+tags: [plugin, market-data, ohlcv, candlestick, namespace, hnsw, smoke-test, social-signals, xquik]
 ---
 
 ## Context
@@ -43,11 +43,19 @@ All three fixed in this ADR pass by switching to `memory_*` (namespace-routed) f
 
 **Negative:** anyone scripting against the broken tool calls was already silently failing. Net zero on real impact.
 
+## 2026-08-20 Amendment
+
+The plugin now includes `xquik-social-signals`. It reads bounded public X data through Xquik.
+
+The skill stores normalized observations in `market-social-signals`. This keeps OHLCV records isolated.
+
+The smoke contract now verifies the Xquik routes, memory tools, safety guard, and namespace.
+
 ## Verification
 
 ```bash
 bash plugins/ruflo-market-data/scripts/smoke.sh
-# Expected: "11 passed, 0 failed"
+# Expected: "13 passed, 0 failed"
 ```
 
 ## Related
@@ -58,4 +66,4 @@ bash plugins/ruflo-market-data/scripts/smoke.sh
 
 ## Implementation status
 
-Plugin version v0.2.0 shipped and listed in marketplace.json. Source exists at `plugins/ruflo-market-data/`. Contract elements implemented: `embeddings_embed` → `embeddings_generate` tool-name drift fixed; `agentdb_hierarchical-*` namespace arg bug fixed (switched to `memory_*`); `agentdb_pattern-store` namespace arg bug fixed; smoke-as-contract gate defined in `scripts/smoke.sh` (11 checks).
+Plugin version v0.3.0 ships from `plugins/ruflo-market-data/`. The marketplace lists that source. Contract elements implemented: `embeddings_embed` → `embeddings_generate` tool-name drift fixed; `agentdb_hierarchical-*` namespace arg bug fixed (switched to `memory_*`); `agentdb_pattern-store` namespace arg bug fixed; bounded Xquik observations use the isolated `market-social-signals` namespace; smoke-as-contract gate defined in `scripts/smoke.sh` (13 checks).

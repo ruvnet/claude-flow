@@ -74,7 +74,7 @@ claude $(ls -d plugins/ruflo-*/ | sed 's|^|--plugin-dir |' | tr '\n' ' ')
 | [ruflo-federation](ruflo-federation/) | Zero-trust cross-installation agent federation |
 | [ruflo-iot-cognitum](ruflo-iot-cognitum/) | Cognitum Seed IoT — trust scoring, anomaly detection, fleet management |
 | [ruflo-neural-trader](ruflo-neural-trader/) | [`neural-trader`](https://npmjs.com/package/neural-trader) — 4 agents, LSTM/Transformer, Rust/NAPI backtesting, 112+ MCP tools |
-| [ruflo-market-data](ruflo-market-data/) | Market data ingestion, OHLCV vectorization, pattern matching |
+| [ruflo-market-data](ruflo-market-data/) | Market data ingestion, public X context, OHLCV vectorization, pattern matching |
 
 ## Recommended Stacks
 
