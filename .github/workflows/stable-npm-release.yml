@@ -254,6 +254,27 @@ jobs:
             timeout 30s node ../node_modules/@claude-flow/cli/bin/cli.js daemon start
             timeout 30s node ../node_modules/@claude-flow/cli/bin/cli.js daemon status
             timeout 30s node ../node_modules/@claude-flow/cli/bin/cli.js daemon stop
+            cd ..
+            mkdir autopilot-scope
+            cd autopilot-scope
+            if node ../node_modules/@claude-flow/cli/bin/cli.js \
+              autopilot config --task-sources issues; then
+              echo "::error::invalid explicit Autopilot source was accepted"
+              exit 1
+            fi
+            test ! -f .claude-flow/data/autopilot-state.json
+            node ../node_modules/@claude-flow/cli/bin/cli.js autopilot config \
+              --task-sources swarm-tasks,file-checklist \
+              --max-iterations 77
+            node - <<'NODE'
+          const state = require('./.claude-flow/data/autopilot-state.json');
+          if (JSON.stringify(state.taskSources) !== JSON.stringify(['swarm-tasks', 'file-checklist'])) {
+            throw new Error(`unexpected Autopilot task sources: ${JSON.stringify(state.taskSources)}`);
+          }
+          if (state.maxIterations !== 77) {
+            throw new Error(`unexpected Autopilot maxIterations: ${state.maxIterations}`);
+          }
+          NODE
           )
 
           root_install="$(mktemp -d)"

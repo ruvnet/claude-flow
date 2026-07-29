@@ -213,9 +213,11 @@ const configCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const state = loadState();
-    const maxIter = ctx.flags?.['max-iterations'] as string | undefined;
+    // CommandParser canonicalizes kebab-case flags to camelCase.
+    // Retain kebab-case reads for direct/legacy action callers.
+    const maxIter = (ctx.flags?.maxIterations ?? ctx.flags?.['max-iterations']) as string | number | undefined;
     const timeout = ctx.flags?.timeout as string | undefined;
-    const sources = ctx.flags?.['task-sources'] as string | undefined;
+    const sources = (ctx.flags?.taskSources ?? ctx.flags?.['task-sources']) as string | undefined;
 
     if (maxIter) state.maxIterations = validateNumber(maxIter, 1, 1000, state.maxIterations);
     if (timeout) state.timeoutMinutes = validateNumber(timeout, 1, 1440, state.timeoutMinutes);
