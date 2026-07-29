@@ -1806,8 +1806,7 @@ export async function initializeMemoryDatabase(options: {
     migrate = true
   } = options;
 
-  const swarmDir = getMemoryRoot();
-  const dbPath = customPath || path.join(swarmDir, 'memory.db');
+  const dbPath = resolveDbPath(customPath);
   const dbDir = path.dirname(dbPath);
 
   try {
