@@ -156,6 +156,14 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   // env is the documented operator fallback.
   'CLAUDE_FLOW_MEMORY_SEARCH_NAMESPACES',
 
+  // ── Orchestrator-injected worker identity label (not an auth credential) ───
+  // ADR-324 propagates this value to policy receipts so concurrent workers can
+  // be distinguished. It is intentionally env-only: exposing a CLI flag would
+  // imply that an agent may select its security principal. Human approval
+  // issuance still requires an authenticated identity adapter and never trusts
+  // this label as issuer proof.
+  'CLAUDE_FLOW_PRINCIPAL_ID',
+
   // ── OS / runtime standard env ────────────────────────────────────────────────
   'HOME',
   'USERPROFILE',
