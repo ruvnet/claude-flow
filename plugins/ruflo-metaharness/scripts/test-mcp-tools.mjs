@@ -233,10 +233,34 @@ async function main() {
   // ──────────────────────────────────────────────────────────────────
   console.log('\nPhase 4 — positive-case data shape (iter 43)');
 
-  const { writeFileSync, mkdtempSync } = await import('node:fs');
+  const { writeFileSync, mkdtempSync, mkdirSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join: pjoin } = await import('node:path');
   const tmp = mkdtempSync(pjoin(tmpdir(), 'mcp-positive-'));
+
+  // #2626 — upstream deliberately exits 2 for a valid `blocked` genome.
+  // The wrapper must preserve that report as data instead of converting it
+  // into an input/system error at the MCP boundary.
+  const genomeTool = tools.find((t) => t.name === 'metaharness_genome');
+  if (genomeTool) {
+    const blockedRepo = pjoin(tmp, 'blocked-repo');
+    mkdirSync(blockedRepo);
+    const r = await genomeTool.handler({ path: blockedRepo });
+    if (!r.degraded) {
+      assert(r.success === true,
+        'genome blocked verdict: wrapper succeeds with a valid report (#2626)');
+      assert(r.exitCode === 0,
+        'genome blocked verdict: wrapper exitCode === 0 (#2626)');
+      assert(r.data?.verdict === 'blocked',
+        `genome blocked verdict: data.verdict === blocked (got ${r.data?.verdict})`);
+      assert(r.data?.verdictExitCode === 2,
+        `genome blocked verdict: preserves upstream exit 2 (got ${r.data?.verdictExitCode})`);
+      assert(typeof r.data?.risk_score === 'number' && r.data.risk_score >= 0.7,
+        `genome blocked verdict: risk_score >= 0.7 (got ${r.data?.risk_score})`);
+    } else {
+      console.log(`    ⊘ genome: metaharness absent — graceful skip`);
+    }
+  }
 
   // metaharness_similarity — full positive case (no @metaharness/* needed)
   const simTool = tools.find((t) => t.name === 'metaharness_similarity');
