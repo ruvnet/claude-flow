@@ -14,7 +14,11 @@ import type {
   BuiltInSkill,
 } from './types.js';
 import { generateAgentsMd } from './generators/agents-md.js';
-import { generateSkillMd, generateBuiltInSkill } from './generators/skill-md.js';
+import {
+  BUILT_IN_SKILL_NAMES,
+  generateSkillMd,
+  generateBuiltInSkill,
+} from './generators/skill-md.js';
 import { generateConfigToml } from './generators/config-toml.js';
 import { DEFAULT_SKILLS_BY_TEMPLATE, AGENTS_OVERRIDE_TEMPLATE, GITIGNORE_ENTRIES, ALL_AVAILABLE_SKILLS } from './templates/index.js';
 import { getRufloMcpAddCommand } from './mcp-config.js';
@@ -555,18 +559,9 @@ web_search = "live"
     await fs.ensureDir(skillDir);
 
     // Check if it's a built-in skill
-    const builtInSkills: BuiltInSkill[] = [
-      'swarm-orchestration',
-      'memory-management',
-      'sparc-methodology',
-      'security-audit',
-      'performance-analysis',
-      'github-automation',
-    ];
-
     let skillMd: string;
 
-    if (builtInSkills.includes(skillName as BuiltInSkill)) {
+    if (BUILT_IN_SKILL_NAMES.includes(skillName as BuiltInSkill)) {
       const result = await generateBuiltInSkill(skillName);
       skillMd = result.skillMd;
 
@@ -575,15 +570,19 @@ web_search = "live"
         const scriptsDir = path.join(skillDir, 'scripts');
         await fs.ensureDir(scriptsDir);
         for (const [scriptName, scriptContent] of Object.entries(result.scripts)) {
-          await fs.writeFile(path.join(scriptsDir, scriptName), scriptContent, 'utf-8');
+          const scriptPath = path.join(scriptsDir, scriptName);
+          await fs.ensureDir(path.dirname(scriptPath));
+          await fs.writeFile(scriptPath, scriptContent, 'utf-8');
         }
       }
 
       if (Object.keys(result.references).length > 0) {
-        const refsDir = path.join(skillDir, 'docs');
+        const refsDir = path.join(skillDir, 'references');
         await fs.ensureDir(refsDir);
         for (const [refName, refContent] of Object.entries(result.references)) {
-          await fs.writeFile(path.join(refsDir, refName), refContent, 'utf-8');
+          const referencePath = path.join(refsDir, refName);
+          await fs.ensureDir(path.dirname(referencePath));
+          await fs.writeFile(referencePath, refContent, 'utf-8');
         }
       }
     } else {

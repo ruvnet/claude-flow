@@ -40,9 +40,18 @@ describe('#2797 hooks metrics Pattern Learning counts real writes', () => {
     try {
       run(['memory', 'init'], wd);
       run(['hooks', 'post-task', '-i', 't1', '--success', 'true', '-q', '0.95', '--task', 'some task', '--agent', 'coder', '--store-results'], wd);
+      run(['hooks', 'post-task', '-i', 't2', '--success', 'false', '-q', '0.2', '--task', 'failed task', '--agent', 'coder', '--store-results'], wd);
       const { stdout } = run(['hooks', 'metrics', '--format', 'json'], wd);
       const data = JSON.parse(stdout.slice(stdout.indexOf('{')));
-      expect(data.patterns.total).toBeGreaterThan(0);
+      expect(data.patterns.total).toBe(2);
+      expect(data.patterns.successful).toBe(1);
+      expect(data.patterns.failed).toBe(1);
+      expect(data.patterns.successful + data.patterns.failed).toBeLessThanOrEqual(data.patterns.total);
+      expect(data.patterns.described).toBe(2);
+      expect(data.patterns.descriptionCoverage).toBe(1);
+      expect(data.agents.routingAccuracy).toBeNull();
+      expect(data.agents.averageConfidence).toBeGreaterThan(0);
+      expect(data.agents.outcomeSuccessRate).toBe(0.5);
     } finally {
       try { rmSync(wd, { recursive: true, force: true }); } catch { /* */ }
     }
@@ -84,6 +93,10 @@ describe('#2799 swarm status reflects spawned agents', () => {
       // The Agents section's Total must now be 4, not 0. Match the "Total | 4"
       // row in the agents table (allow ANSI/box chars around it).
       expect(status).toMatch(/Total\D+4/);
+      expect(status).toMatch(/Active\D+0/);
+      expect(status).toMatch(/Idle\D+4/);
+      const list = run(['agent', 'list'], wd).stdout;
+      expect(list).toMatch(/\| agent-\d+/);
       // Sanity: the activity file the fix reads was actually written.
       const activityPath = join(wd, '.claude-flow', 'metrics', 'swarm-activity.json');
       if (existsSync(activityPath)) {

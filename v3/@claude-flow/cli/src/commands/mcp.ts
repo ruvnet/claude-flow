@@ -77,7 +77,7 @@ const startCommand: Command = {
     },
     {
       name: 'tools',
-      description: 'Tools to enable (comma-separated or "all")',
+      description: 'Tools to advertise (comma-separated categories, prefixes, exact names, or "all")',
       type: 'string',
       default: 'all'
     },

@@ -17,12 +17,30 @@
 const fs = require('fs');
 const path = require('path');
 
-const DATA_DIR = path.join(process.cwd(), '.claude-flow', 'data');
+function resolveProjectRoot(startDir) {
+  if (process.env.CLAUDE_PROJECT_DIR) {
+    return path.resolve(process.env.CLAUDE_PROJECT_DIR);
+  }
+  let dir = path.resolve(startDir || process.cwd());
+  while (true) {
+    if (fs.existsSync(path.join(dir, '.git')) ||
+        fs.existsSync(path.join(dir, '.claude-flow'))) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) return path.resolve(startDir || process.cwd());
+    dir = parent;
+  }
+}
+
+const PROJECT_ROOT = resolveProjectRoot(process.cwd());
+const DATA_DIR = path.join(PROJECT_ROOT, '.claude-flow', 'data');
 const STORE_PATH = path.join(DATA_DIR, 'auto-memory-store.json');
 const GRAPH_PATH = path.join(DATA_DIR, 'graph-state.json');
 const RANKED_PATH = path.join(DATA_DIR, 'ranked-context.json');
 const PENDING_PATH = path.join(DATA_DIR, 'pending-insights.jsonl');
-const SESSION_DIR = path.join(process.cwd(), '.claude-flow', 'sessions');
+const LEGACY_PENDING_PATH = path.join(process.cwd(), '.claude-flow', 'data', 'pending-insights.jsonl');
+const SESSION_DIR = path.join(PROJECT_ROOT, '.claude-flow', 'sessions');
 const SESSION_FILE = path.join(SESSION_DIR, 'current.json');
 
 // ── Safety limits (fixes #1530, #1531) ─────────────────────────────────────
@@ -47,6 +65,22 @@ const STOP_WORDS = new Set([
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  // Recover signal written by older helpers under a subdirectory cwd. Keep
+  // the legacy file intact and append only lines not already present.
+  if (path.resolve(LEGACY_PENDING_PATH) !== path.resolve(PENDING_PATH) &&
+      fs.existsSync(LEGACY_PENDING_PATH)) {
+    try {
+      const existing = fs.existsSync(PENDING_PATH)
+        ? new Set(fs.readFileSync(PENDING_PATH, 'utf-8').split('\n').filter(Boolean))
+        : new Set();
+      const recovered = fs.readFileSync(LEGACY_PENDING_PATH, 'utf-8')
+        .split('\n')
+        .filter(line => line && !existing.has(line));
+      if (recovered.length > 0) {
+        fs.appendFileSync(PENDING_PATH, recovered.join('\n') + '\n', 'utf-8');
+      }
+    } catch { /* migration is best-effort; never block hook execution */ }
+  }
 }
 
 function readJSON(filePath) {
@@ -300,7 +334,7 @@ function buildEdges(entries) {
  */
 function bootstrapFromMemoryFiles() {
   const entries = [];
-  const cwd = process.cwd();
+  const cwd = PROJECT_ROOT;
 
   // Search for auto-memory directories
   const candidates = [
@@ -1032,7 +1066,16 @@ function stats(outputJson) {
   return report;
 }
 
-module.exports = { init, getContext, recordEdit, feedback, consolidate, stats };
+module.exports = {
+  init,
+  getContext,
+  recordEdit,
+  feedback,
+  consolidate,
+  stats,
+  resolveProjectRoot,
+  projectRoot: PROJECT_ROOT,
+};
 
 // ── CLI entrypoint ──────────────────────────────────────────────────────────
 if (require.main === module) {

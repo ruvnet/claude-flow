@@ -31,6 +31,11 @@ function seedDb(dbPath: string): void {
     success BOOLEAN DEFAULT 0, latency_ms INTEGER, tokens_used INTEGER, tags TEXT,
     metadata JSON, created_at INTEGER DEFAULT 0
   )`);
+  db.exec(`CREATE TABLE episode_embeddings (
+    episode_id INTEGER PRIMARY KEY, embedding BLOB NOT NULL,
+    embedding_model TEXT DEFAULT 'all-MiniLM-L6-v2',
+    FOREIGN KEY(episode_id) REFERENCES episodes(id) ON DELETE CASCADE
+  )`);
   db.exec(`CREATE TABLE reasoning_patterns (
     id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER DEFAULT 0, task_type TEXT NOT NULL,
     approach TEXT NOT NULL, success_rate REAL NOT NULL DEFAULT 0, uses INTEGER DEFAULT 0,
@@ -62,6 +67,7 @@ function counts(dbPath: string): Record<string, number> {
   const q = (t: string) => (db.prepare(`SELECT COUNT(*) AS c FROM ${t}`).get() as { c: number }).c;
   const r = {
     memory_entries: q('memory_entries'), episodes: q('episodes'),
+    episode_embeddings: q('episode_embeddings'),
     reasoning_patterns: q('reasoning_patterns'), pattern_embeddings: q('pattern_embeddings'),
     causal_edges: q('causal_edges'),
   };
@@ -89,8 +95,18 @@ describe.skipIf(!haveNative)('runDistillation — memory → structured intellig
     expect(after.memory_entries).toBe(before.memory_entries); // source untouched
     expect(after.reasoning_patterns).toBeGreaterThan(0);
     expect(after.episodes).toBeGreaterThan(0);
+    // ReflexionMemory uses an INNER JOIN, so episode coverage must be 1:1.
+    expect(after.episode_embeddings).toBe(after.episodes);
+    expect(r.episodeEmbeddings).toBe(r.episodes);
     // Every pattern with a source embedding gets a pattern_embedding.
     expect(after.pattern_embeddings).toBe(after.reasoning_patterns);
+
+    const check = new Database(dbPath, { readonly: true });
+    const feedbackWithCritique = (check.prepare(
+      "SELECT COUNT(*) AS c FROM episodes WHERE session_id='distill:feedback' AND length(trim(coalesce(critique,''))) > 0",
+    ).get() as { c: number }).c;
+    expect(feedbackWithCritique).toBeGreaterThan(0);
+    check.close();
   });
 
   it('enforces ADR-171 provenance: feedback promotes, proxy never does', async () => {
@@ -132,6 +148,42 @@ describe.skipIf(!haveNative)('runDistillation — memory → structured intellig
     const r = await runDistillation({ dbPath, namespaces: ['feedback'] });
     expect(r.processed).toBe(2); // only the 2 feedback rows
     expect(r.byProvenance['proxy:structural']).toBeUndefined();
+  });
+
+  it('migrates an older episodes-only store and makes distilled episodes retrievable', async () => {
+    const dbPath = join(workdir, 'legacy-reflexion.db');
+    seedDb(dbPath);
+    const before = new Database(dbPath);
+    before.prepare(
+      'INSERT INTO episodes (session_id, task, input, metadata) VALUES (?,?,?,?)',
+    ).run(
+      'distill:feedback',
+      'legacy unembedded episode',
+      JSON.stringify({ taskId: 'legacy', success: false, error: 'old failure' }),
+      JSON.stringify({ sourceIds: ['f2'], provenance: 'oracle:test-exec' }),
+    );
+    before.exec('DROP TABLE episode_embeddings');
+    before.close();
+
+    const r = await runDistillation({ dbPath });
+    // Five new episodes plus the pre-existing legacy row are embedded.
+    expect(r.episodeEmbeddings).toBeGreaterThan(r.episodes);
+
+    const after = new Database(dbPath, { readonly: true });
+    const coverage = after.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM episodes) AS episodes,
+        (SELECT COUNT(*) FROM episode_embeddings) AS embeddings,
+        (SELECT COUNT(*) FROM episodes e
+          JOIN episode_embeddings ee ON ee.episode_id = e.id) AS retrievable
+    `).get() as { episodes: number; embeddings: number; retrievable: number };
+    expect(coverage.embeddings).toBe(coverage.episodes);
+    expect(coverage.retrievable).toBe(coverage.episodes);
+    const missingCritique = (after.prepare(
+      "SELECT COUNT(*) AS c FROM episodes WHERE session_id LIKE 'distill:feedback%' AND length(trim(coalesce(critique,'')))=0",
+    ).get() as { c: number }).c;
+    expect(missingCritique).toBe(0);
+    after.close();
   });
 
   it('skips (does not throw) when target tables are absent', async () => {

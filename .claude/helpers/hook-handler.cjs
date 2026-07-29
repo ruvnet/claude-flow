@@ -89,9 +89,6 @@ function spawnDetachedHookRefresh(subcommand) {
       detached: true,
       stdio: 'ignore',
       env: process.env,
-      // Windows: without this, npx.cmd's cmd.exe wrapper flashes a visible
-      // console window every time a hook fires a background refresh. Runs
-      // hidden instead. No-op on POSIX.
       windowsHide: true,
     });
     child.unref();
@@ -100,6 +97,105 @@ function spawnDetachedHookRefresh(subcommand) {
 
 function spawnDetachedFunnelRefresh() {
   spawnDetachedHookRefresh('refresh-funnel');
+}
+
+// ADR-318/319: first-run auto-enable of spinner verbs (default ON) +
+// announcements (default OFF, explicit opt-in). Fires ONCE per install
+// (marker at ~/.ruflo/first-run-enabled.json), then never again —
+// subsequent sessions see the marker and skip.
+//
+// Split posture rationale:
+//   - Spinner verbs = low-intrusion (per-spin flash, append-mode mix
+//     with Claude Code defaults, moderate visibility over time). Default ON.
+//     Disclosure notification + one-command disable satisfies the ethical bar.
+//   - Announcements = higher-intrusion (prominent line at every Claude Code
+//     startup, more attention per view). Default OFF; opt-in via
+//     RUFLO_AUTO_ENABLE_ANNOUNCEMENTS=1 or explicit `ruflo announcements enable`.
+//
+// Gates (spinner is default-on unless any is TRUE):
+//   - RUFLO_NO_AUTO_ENABLE truthy (master opt-out — kills both)
+//   - RUFLO_NO_AUTO_ENABLE_SPINNER truthy (spinner-only opt-out)
+//   - CI / GITHUB_ACTIONS truthy
+//   - stdout is not a TTY (piped, non-interactive)
+//   - Marker file already exists
+//
+// Announcements needs the same gates PLUS RUFLO_AUTO_ENABLE_ANNOUNCEMENTS=1.
+//
+// Marker is written even if the spawns fail — auto-enable is a "we tried once"
+// contract, not "keep trying until success." Users can run enable manually.
+function firstRunAutoEnableIfEligible() {
+  try {
+    const path = require('path');
+    const fs = require('fs');
+    const os = require('os');
+    const truthy = (v) => v && !/^(0|false|off|no)$/i.test(String(v));
+    if (truthy(process.env.RUFLO_NO_AUTO_ENABLE)) return;
+    if (process.env.CI || process.env.GITHUB_ACTIONS) return;
+    if (process.stdout && process.stdout.isTTY === false) return;
+    const markerPath = path.join(os.homedir(), '.ruflo', 'first-run-enabled.json');
+    if (fs.existsSync(markerPath)) return;
+
+    const enableSpinner = !truthy(process.env.RUFLO_NO_AUTO_ENABLE_SPINNER);
+    const enableAnnouncements = truthy(process.env.RUFLO_AUTO_ENABLE_ANNOUNCEMENTS);
+
+    // Nothing to do — user opted out of both. Skip marker write so if they
+    // change their mind and re-enable env vars later, first-run still fires.
+    if (!enableSpinner && !enableAnnouncements) return;
+
+    // Spawn the enable commands detached + non-blocking. Any failure
+    // (missing CLI, refused state, etc.) is silent — auto-enable is
+    // best-effort and MUST NOT block session-restore. Uses execPath +
+    // resolved cli.js directly rather than spawnDetachedHookRefresh
+    // because that helper hardcodes 'hooks' as the top-level command.
+    const { spawn } = require('child_process');
+    const cliBin = resolveCliBinForHook();
+    const runDetached = (args) => {
+      try {
+        const spawnArgs = cliBin
+          ? [process.execPath, [cliBin, ...args]]
+          : [process.platform === 'win32' ? 'npx.cmd' : 'npx',
+             ['--prefer-offline', '@claude-flow/cli', ...args]];
+        const child = spawn(spawnArgs[0], spawnArgs[1], {
+          detached: true, stdio: 'ignore', env: process.env, windowsHide: true,
+        });
+        child.unref();
+      } catch { /* best-effort */ }
+    };
+    if (enableSpinner) runDetached(['spinner', 'enable', '--yes']);
+    if (enableAnnouncements) runDetached(['announcements', 'enable', '--yes']);
+
+    try {
+      fs.mkdirSync(path.dirname(markerPath), { recursive: true, mode: 0o700 });
+      fs.writeFileSync(
+        markerPath,
+        JSON.stringify({
+          _ts: Date.now(),
+          source: 'session-restore-hook',
+          enabled: { spinner: enableSpinner, announcements: enableAnnouncements },
+        }, null, 2),
+        { encoding: 'utf-8', mode: 0o600 }
+      );
+    } catch { /* ignore — best effort */ }
+
+    // Notification tells user exactly what happened. stderr so it doesn't
+    // corrupt any downstream JSON stdout consumer.
+    try {
+      const parts = [];
+      if (enableSpinner) parts.push('spinner verbs');
+      if (enableAnnouncements) parts.push('startup announcements');
+      const disableCmds = [];
+      if (enableSpinner) disableCmds.push('`ruflo spinner disable`');
+      if (enableAnnouncements) disableCmds.push('`ruflo announcements disable`');
+      process.stderr.write(
+        '[ruflo] First-run: enabled ' + parts.join(' + ') + '. ' +
+        'Disable anytime with ' + disableCmds.join(' / ') + '. ' +
+        (enableSpinner && !enableAnnouncements
+          ? 'Announcements stay opt-in — set RUFLO_AUTO_ENABLE_ANNOUNCEMENTS=1 to enable those too. '
+          : '') +
+        'Restart Claude Code once to see the changes take effect.\n'
+      );
+    } catch { /* ignore */ }
+  } catch { /* auto-enable must never break session-restore */ }
 }
 
 // Same fallback-aware pattern as spawnDetachedFunnelRefresh() above, for
@@ -190,6 +286,31 @@ async function readStdin() {
   });
 }
 
+function claimSideEffectEvent(family, stdinData, event) {
+  if (/^(1|true|yes|on)$/i.test(process.env.RUFLO_DISABLE_HOOK_DEDUP || '')) return true;
+  try {
+    const crypto = require('crypto');
+    const eventId = event?.tool_use_id || event?.toolUseId ||
+      event?.session_id || event?.sessionId || event?.hook_event_id;
+    const payloadIdentity = eventId
+      ? `event:${eventId}`
+      : `payload:${(stdinData || '').trim()}|bucket:${Math.floor(Date.now() / 2000)}`;
+    const projectRoot = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+    const digest = crypto.createHash('sha256')
+      .update(`ruflo-hook-dedup-v1\0${path.resolve(projectRoot)}\0${family}\0${payloadIdentity}`)
+      .digest('hex');
+    const dir = process.env.RUFLO_HOOK_DEDUP_DIR ||
+      path.join(os.tmpdir(), 'ruflo-hook-dedup-v1');
+    fs.mkdirSync(dir, { recursive: true });
+    const fd = fs.openSync(path.join(dir, digest), 'wx', 0o600);
+    fs.writeFileSync(fd, String(Date.now()));
+    fs.closeSync(fd);
+    return true;
+  } catch (error) {
+    return error?.code === 'EEXIST' ? false : true;
+  }
+}
+
 async function main() {
   // Global safety timeout: hooks must NEVER hang (#1530, #1531)
   const safetyTimer = setTimeout(() => {
@@ -204,6 +325,11 @@ async function main() {
   let hookInput = {};
   if (stdinData.trim()) {
     try { hookInput = JSON.parse(stdinData); } catch (e) { /* ignore parse errors */ }
+  }
+
+  if ((command === 'post-edit' || command === 'session-end') &&
+      !claimSideEffectEvent(command, stdinData, hookInput)) {
+    return;
   }
 
   // Normalize snake_case/camelCase: Claude Code sends tool_input/tool_name (snake_case)
@@ -349,6 +475,11 @@ const handlers = {
   },
 
   'session-restore': async () => {
+    // ADR-318/319 first-run auto-enable — fire once per install, never
+    // re-fires after user disables. Respects RUFLO_NO_AUTO_ENABLE + CI.
+    // Fully non-blocking (detached spawn) so session-restore latency
+    // is unchanged.
+    firstRunAutoEnableIfEligible();
     if (session) {
       // Try restore first, fall back to start
       const existing = session.restore && session.restore();

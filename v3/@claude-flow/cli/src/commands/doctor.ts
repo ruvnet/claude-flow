@@ -139,8 +139,8 @@ async function checkConfigFile(): Promise<HealthCheck> {
 
 // Check daemon status
 /**
- * #2448 — Detect the runaway `npx @claude-flow/cli@latest` statusLine / hook
- * commands left over in `.claude/settings.json` from pre-#2337 installs.
+ * #2448 / #2677 — Detect runaway `npx @claude-flow/cli@latest` commands
+ * left over in `.claude/settings.json` from pre-#2337 installs.
  *
  * These fire on every Claude Code event (statusLine refires every few hundred
  * ms, hooks fire per tool-use), each spawning a cold Node process + npm
@@ -157,7 +157,9 @@ async function checkStaleSettingsNpx(): Promise<HealthCheck> {
   // Same regex pattern the executor migration uses — kept in sync. Flag-list
   // repetition bounded at 10 (CodeQL js/redos — unbounded `*` here is
   // exponential-backtracking-prone on a crafted settings.json).
-  const BROKEN_RE = /npx\s+(?:--?\S+\s+){0,10}@?claude-flow\/cli@latest\s+hooks\s+(?:statusline|\S+)/;
+  // Every subcommand incurs the same cold npm process/registry cost. The
+  // previous `hooks` literal missed `memory`, `daemon`, `swarm`, etc.
+  const BROKEN_RE = /npx\s+(?:--?\S+\s+){0,10}@?claude-flow\/cli@latest\s+\S+/;
 
   // Look in both project-local and home-dir settings.
   const candidates = [
@@ -290,18 +292,21 @@ async function checkMemoryDatabase(): Promise<HealthCheck> {
 // The existing `checkMemoryDatabase` above asserts existence + statability
 // only, so it CANNOT distinguish a healthy DB from a 99.97%-empty or
 // SQLite-malformed one. Stuinfla reported both cases live (81-store fleet).
-// The three checks below layer functional assertions on top, ordered so
+// The checks below layer functional assertions on top, ordered so
 // the earliest chain-break is always the first red the user sees:
 //   1. Integrity          — can sql.js open it AND does PRAGMA integrity_check pass?
 //   2. Content            — do most memory_entries rows carry non-empty content?
 //   3. Embedding coverage — do most rows have a vector? (unembedded rows are
 //                           both unrecallable AND undistillable per ADR-174)
+//   6. Reflexion coverage — can episodes participate in retrieveRelevant's
+//                           required episode_embeddings INNER JOIN?
+//      Feedback critiques — do execution-tier episodes carry a real lesson?
 // Ordering matters: content ratio is meaningless on a DB that can't open;
 // embedding coverage is meaningless on rows with no content. First red wins.
 //
-// Recall probe (stuinfla check 4) requires actual write+search+delete round
-// trips through the CLI's own memory pipeline — deferred to a follow-up PR
-// to keep this one purely additive and safe.
+// Recall probe (stuinfla check 4) still requires an isolated write+search+
+// delete round trip through the CLI's own memory pipeline. It remains separate
+// because doctor otherwise stays read-only.
 //
 // Design rules (also from stuinfla's report):
 //   - "A check that cannot fail protects nothing" — every check has a
@@ -722,6 +727,92 @@ async function checkMemoryEmbeddingCoverage(): Promise<HealthCheck> {
   } finally { try { db.close(); } catch { /* best-effort */ } }
 }
 
+// #2677 check 6 — ReflexionMemory.retrieveRelevant() INNER JOINs episodes to
+// episode_embeddings. A populated episodes table with an empty/missing partner
+// table is therefore not degraded recall; it is structurally zero recall.
+async function checkMemoryReflexionCoverage(): Promise<HealthCheck> {
+  const dbPath = await resolveMemoryDbPath();
+  if (!dbPath) return { name: 'Memory Reflexion Coverage', status: 'warn', message: 'no memory.db found' };
+  const db = await tryOpenSqlJs(dbPath);
+  if (!db) return { name: 'Memory Reflexion Coverage', status: 'warn', message: 'DB unreadable (see Memory Integrity)' };
+  try {
+    const tables = new Set<string>(
+      db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('episodes','episode_embeddings')")
+        [0]?.values?.map((v: any[]) => String(v[0])) ?? [],
+    );
+    if (!tables.has('episodes')) {
+      return { name: 'Memory Reflexion Coverage', status: 'warn', message: 'episodes table absent — AgentDB Reflexion schema not initialized' };
+    }
+    const episodes = Number(db.exec('SELECT count(*) FROM episodes')[0]?.values?.[0]?.[0] ?? 0);
+    if (episodes === 0) {
+      return { name: 'Memory Reflexion Coverage', status: 'warn', message: `${dbPath} — 0 episodes (Reflexion has not been exercised)` };
+    }
+    if (!tables.has('episode_embeddings')) {
+      return {
+        name: 'Memory Reflexion Coverage',
+        status: 'fail',
+        message: `${dbPath} — episode embeddings 0/${episodes} (0.00%); retrieveRelevant() cannot return rows`,
+        fix: 'run `claude-flow memory distill run`; current distillation creates/backfills episode_embeddings',
+      };
+    }
+    const embedded = Number(db.exec(
+      'SELECT count(*) FROM episodes e JOIN episode_embeddings ee ON ee.episode_id=e.id',
+    )[0]?.values?.[0]?.[0] ?? 0);
+    const ratio = embedded / episodes;
+    const detail = `episode embeddings ${embedded}/${episodes} (${(ratio * 100).toFixed(2)}%)`;
+    if (ratio < 0.95) {
+      return {
+        name: 'Memory Reflexion Coverage',
+        status: 'fail',
+        message: `${dbPath} — ${detail} below 95% floor; retrieveRelevant() cannot see uncovered episodes`,
+        fix: 'run `claude-flow memory distill run` to populate retrievable episodes',
+      };
+    }
+    return { name: 'Memory Reflexion Coverage', status: 'pass', message: `${dbPath} — ${detail}` };
+  } catch (e) {
+    return { name: 'Memory Reflexion Coverage', status: 'warn', message: `${dbPath} — probe threw: ${(e as Error).message || String(e)}` };
+  } finally { try { db.close(); } catch { /* best-effort */ } }
+}
+
+// Execution-tier feedback should carry a lesson, not just reward/success bits.
+// Proxy episodes intentionally remain critique-free to avoid laundering a
+// structural summary into an observed failure explanation.
+async function checkMemoryCritiqueCoverage(): Promise<HealthCheck> {
+  const dbPath = await resolveMemoryDbPath();
+  if (!dbPath) return { name: 'Memory Feedback Critiques', status: 'warn', message: 'no memory.db found' };
+  const db = await tryOpenSqlJs(dbPath);
+  if (!db) return { name: 'Memory Feedback Critiques', status: 'warn', message: 'DB unreadable (see Memory Integrity)' };
+  try {
+    const hasEpisodes = (db.exec(
+      "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='episodes'",
+    )[0]?.values?.[0]?.[0] ?? 0) > 0;
+    if (!hasEpisodes) return { name: 'Memory Feedback Critiques', status: 'warn', message: 'episodes table absent' };
+    const row = db.exec(`
+      SELECT count(*),
+        sum(CASE WHEN length(trim(coalesce(critique,''))) > 0 THEN 1 ELSE 0 END)
+      FROM episodes WHERE session_id LIKE 'distill:feedback%'
+    `)[0]?.values?.[0] ?? [0, 0];
+    const feedback = Number(row[0] ?? 0);
+    const withCritique = Number(row[1] ?? 0);
+    if (feedback === 0) {
+      return { name: 'Memory Feedback Critiques', status: 'warn', message: `${dbPath} — 0 execution-feedback episodes to assess` };
+    }
+    const ratio = withCritique / feedback;
+    const detail = `feedback critiques ${withCritique}/${feedback} (${(ratio * 100).toFixed(2)}%)`;
+    if (ratio < 0.95) {
+      return {
+        name: 'Memory Feedback Critiques',
+        status: 'fail',
+        message: `${dbPath} — ${detail} below 95% floor`,
+        fix: 'run current `claude-flow memory distill run`; execution-tier episodes preserve observed critique/error text',
+      };
+    }
+    return { name: 'Memory Feedback Critiques', status: 'pass', message: `${dbPath} — ${detail}` };
+  } catch (e) {
+    return { name: 'Memory Feedback Critiques', status: 'warn', message: `${dbPath} — probe threw: ${(e as Error).message || String(e)}` };
+  } finally { try { db.close(); } catch { /* best-effort */ } }
+}
+
 // #2545: Check that the self-learning bridge can actually load @claude-flow/memory
 // the SAME way the SessionStart auto-memory hook does. On the documented `npx ruflo`
 // path the package lands in the npx cache — unreachable from the project — so the
@@ -1035,6 +1126,53 @@ async function checkMcpServers(): Promise<HealthCheck> {
     message: 'No MCP config found',
     fix: 'claude mcp add ruflo -- npx -y ruflo@latest mcp start',
   };
+}
+
+// #2726 — tools/list is fixed prompt overhead on clients/backends that do not
+// defer MCP schemas. Measure the actual live registry and warn before a small
+// context window becomes unrecoverable even after compaction.
+async function checkMcpSchemaOverhead(): Promise<HealthCheck> {
+  try {
+    const [{ listMCPTools }, {
+      assessMcpSchemaOverhead,
+      filterAdvertisedMcpTools,
+      parseMcpToolSelection,
+    }] = await Promise.all([
+      import('../mcp-client.js'),
+      import('../mcp-server.js'),
+    ]);
+    // The `mcp start --tools` CLI flag takes precedence when the server is
+    // constructed. Doctor intentionally inspects the environment fallback so
+    // its estimate describes the configuration inherited by MCP clients.
+    const selection = parseMcpToolSelection(process.env.CLAUDE_FLOW_MCP_TOOLS);
+    const tools = filterAdvertisedMcpTools(listMCPTools(), selection);
+    // This is diagnostic metadata about the external client's context window,
+    // not Ruflo command configuration, so there is no corresponding CLI flag.
+    const rawWindow = process.env.CLAUDE_FLOW_CONTEXT_WINDOW_TOKENS;
+    const contextWindow = rawWindow ? Number.parseInt(rawWindow, 10) : undefined;
+    const assessment = assessMcpSchemaOverhead(tools, contextWindow);
+    const ratio = assessment.ratio === undefined
+      ? ''
+      : `, ${(assessment.ratio * 100).toFixed(1)}% of ${assessment.contextWindowTokens}-token window`;
+    const selectionLabel = selection === 'all' ? 'all tools' : `filtered: ${selection.join(',')}`;
+    const message = `${assessment.toolCount} advertised tools ≈ ${assessment.estimatedTokens} schema tokens (${selectionLabel}${ratio})`;
+
+    if (assessment.risk === 'high') {
+      return {
+        name: 'MCP Schema Overhead',
+        status: 'warn',
+        message,
+        fix: 'Set CLAUDE_FLOW_MCP_TOOLS to required categories/tool names (for example: memory,swarm,agent,hooks) and optionally CLAUDE_FLOW_CONTEXT_WINDOW_TOKENS to your backend limit.',
+      };
+    }
+    return { name: 'MCP Schema Overhead', status: 'pass', message };
+  } catch (error) {
+    return {
+      name: 'MCP Schema Overhead',
+      status: 'warn',
+      message: `Unable to measure: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
 }
 
 // Check disk space (async with proper env inheritance)
@@ -1887,7 +2025,7 @@ export const doctorCommand: Command = {
     {
       name: 'component',
       short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, agentic-flow, encryption, federation, funnel, proxy, auth, metaharness)',
+      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, mcp-overhead, claude, disk, typescript, agentic-flow, encryption, federation, funnel, proxy, auth, metaharness)',
       type: 'string'
     },
     {
@@ -2010,13 +2148,14 @@ export const doctorCommand: Command = {
       checkGit,
       checkGitRepo,
       checkConfigFile,
-      checkStaleSettingsNpx, // #2448 — runaway `npx @latest` in statusLine/hooks
+      checkStaleSettingsNpx, // #2448/#2677 — runaway `npx @latest` in settings
       checkDaemonStatus,
       checkMemoryDatabase,
       checkMemoryStructuralIntegrity, // #2737 — bounded, native quick_check on every default run
       checkLearningBridge, // #2545 — can the auto-memory hook actually load @claude-flow/memory?
       checkApiKeys,
       checkMcpServers,
+      checkMcpSchemaOverhead, // #2726 — fixed tools/list prompt cost
       checkAIDefence, // #1807
       checkDiskSpace,
       checkBuildTools,
@@ -2035,8 +2174,9 @@ export const doctorCommand: Command = {
     // array — expanded at execution time. Stuinfla's report showed the
     // existence-only check reporting PASS on a 99.97%-empty and even a
     // SQLite-malformed DB; the array here layers integrity → content →
-    // embedding coverage over the existing existence probe, ordered so
-    // the earliest chain-break is always the first red the user sees.
+    // embedding coverage over the existing existence probe; check 6 then
+    // verifies that distilled episodes are actually Reflexion-retrievable and
+    // execution feedback carries a lesson.
     const componentMap: Record<string, (() => Promise<HealthCheck>) | Array<() => Promise<HealthCheck>>> = {
       'version': checkVersionFreshness,
       'freshness': checkVersionFreshness,
@@ -2051,12 +2191,15 @@ export const doctorCommand: Command = {
         checkMemoryIntegrity,        // #2677 check 1: sql.js open + PRAGMA integrity_check
         checkMemoryContent,          // #2677 check 2: memory_entries content coverage
         checkMemoryEmbeddingCoverage, // #2677 check 3: vector coverage on populated rows
+        checkMemoryReflexionCoverage, // #2677 check 6: episodes are retrievable
+        checkMemoryCritiqueCoverage,  // #2677 check 6: feedback carries lessons
       ],
       'learning': checkLearningBridge, // #2545
       'learning-bridge': checkLearningBridge, // #2545
       'api': checkApiKeys,
       'git': checkGit,
       'mcp': checkMcpServers,
+      'mcp-overhead': checkMcpSchemaOverhead,
       'aidefence': checkAIDefence, // #1807
       'disk': checkDiskSpace,
       'typescript': checkBuildTools,

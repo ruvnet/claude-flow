@@ -1744,6 +1744,7 @@ export class WorkerDaemon extends EventEmitter {
       // instead of becoming their own distinct pattern.
       duplicatesRemoved: Math.max(0, report.processed - report.patterns),
       episodes: report.episodes,
+      episodeEmbeddings: report.episodeEmbeddings,
       patternEmbeddings: report.patternEmbeddings,
       causalEdges: report.causalEdges,
       promoted: report.promoted,

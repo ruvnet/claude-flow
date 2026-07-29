@@ -193,6 +193,20 @@ npm install -g ruflo@latest
 claude mcp add ruflo -- npx ruflo@latest mcp start
 ```
 
+Small-context backends can advertise only the tool categories they need:
+
+```bash
+CLAUDE_FLOW_MCP_TOOLS=memory,swarm,agent,hooks \
+  npx ruflo@latest mcp start
+
+# Optional: lets `ruflo doctor -c mcp-overhead` compare the live schema
+# estimate with the backend's real context limit.
+CLAUDE_FLOW_CONTEXT_WINDOW_TOKENS=32000 ruflo doctor -c mcp-overhead
+```
+
+The default remains `all` for backwards compatibility. Selectors accept
+categories, namespace prefixes, or exact tool names.
+
 ---
 
 ## What You Get

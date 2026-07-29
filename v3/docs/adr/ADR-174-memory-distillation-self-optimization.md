@@ -26,7 +26,12 @@ Named `memory distill …` — deliberately **not** `neural distill …`, which 
 - **RETRIEVE** — reuse the embeddings already on every row (no re-embedding, $0).
 - **JUDGE** — `feedback` entries are recorded post-edit outcomes = execution-observed ground truth → `oracle:test-exec` tier. Everything else → `proxy:structural`. (`judge:fable` is reserved for the explicitly opt-in, cost-bounded LLM path per ADR-172 — not enabled in the $0 default.)
 - **DISTILL** — reuse the deterministic sub-millisecond extractor `structured-distill.ts` (`distillTrajectoryContent` → `{summary, detail, labels, paths}`); greedily cluster near-duplicate entries by cosine distance so N near-identical logs collapse into one pattern with `uses` = cluster size.
-- **CONSOLIDATE** — write `episodes`, `reasoning_patterns`, `pattern_embeddings` (reusing the representative's existing vector as a Float32 BLOB; guaranteed **1:1** — a cluster with no parseable vector is skipped, never producing an embedding-less pattern), and **weak relational edges** (see below).
+- **CONSOLIDATE** — write `episodes`, `episode_embeddings`,
+  `reasoning_patterns`, and `pattern_embeddings` (reusing the representative's
+  existing vector as a Float32 BLOB; both episode and pattern coverage are
+  guaranteed **1:1** — a cluster with no parseable vector is skipped), plus
+  **weak relational edges** (see below). Execution-feedback episodes preserve
+  critique/error text; proxy episodes do not invent critiques.
 - **Promote gate (ADR-171)** — a pattern is `promoted` only if its tier is `oracle:test-exec` (or `judge:fable`). `proxy:structural` patterns are written but **never** promoted — visible for audit, excluded from promoted recall. Enforced in code, not just prose.
 
 ### Relational edges are NOT causal proof (high-risk naming)
@@ -45,7 +50,9 @@ promoted        = false
 ### Safety (the DB was just recovered from corruption)
 
 - **Incremental** via a `distill_state` cursor (per namespace, by monotonic `rowid`) — never rescans processed rows.
-- **Non-destructive** — never mutates or deletes `memory_entries`; only inserts into the previously-empty target tables.
+- **Non-destructive source** — never mutates or deletes `memory_entries`.
+  Target-table repair may backfill missing `episode_embeddings` and feedback
+  critiques created by older distillation releases.
 - **Transactional** per batch — a failure rolls back the batch and advances no cursor.
 - **quick_check gate** before any write — skips (does not throw) on a corrupt DB, deferring to `recoverMemoryDatabase`.
 - **better-sqlite3 optional** — silent no-op if the native module is absent (WASM-only hosts).
@@ -152,7 +159,12 @@ Governed memory consolidation with provenance, rollback, and no surprise model s
 
 ## Acceptance test
 
-Run distill **twice** on a copy of a production DB and require: `memory_entries` unchanged (count + content hash); the second run processes **0** rows; `proxy_promoted == 0`; `patterns_without_embeddings == 0`; and held-out MRR@10 no worse than baseline by more than 0.002. (Covered by `__tests__/memory-distillation.test.ts` + `distill-tuning.test.ts`.)
+Run distill **twice** on a copy of a production DB and require:
+`memory_entries` unchanged (count + content hash); the second run processes
+**0** rows; `proxy_promoted == 0`; `patterns_without_embeddings == 0`;
+`episodes_without_embeddings == 0`; execution-feedback critiques are non-empty;
+and held-out MRR@10 is no worse than baseline by more than 0.002. (Covered by
+`__tests__/memory-distillation.test.ts` + `distill-tuning.test.ts`.)
 
 ## Security — signed provenance for the helper auto-refresh
 
@@ -168,7 +180,12 @@ those helpers **auto-execute on every tool use**, the refresh is gated by
   **GCP Secret Manager** (`RUFLO_HELPERS_SIGNING_SECRET=ruflo-helpers-signing-key`,
   fetched via `gcloud secrets versions access`), with a local-PEM fallback
   (`RUFLO_HELPERS_SIGNING_KEY`) for air-gapped signing. It is **never committed**.
+- Windows selects `gcloud.cmd`; a safe fallback accepts the key only through
+  piped stdin (`--stdin-key`), refuses interactive key entry, validates the
+  Ed25519 key type, and never echoes parser input.
 - The public key is baked into `src/init/helper-signing.ts` (`RUFLO_HELPERS_PUBKEY`).
+  The prepublish verifier imports that compiled constant rather than carrying a
+  second rotation-sensitive copy.
 - Before the refresh installs any helper, it verifies the manifest signature
   against the baked key AND each source helper's SHA-256 against the manifest. A
   tampered helper or manifest — e.g. a sibling package's `postinstall` overwriting
@@ -182,7 +199,10 @@ those helpers **auto-execute on every tool use**, the refresh is gated by
 
 ## Rollback
 
-Disable via `-w` omission or `--no-distill`. All writes are additive to the previously-empty target tables and never touch `memory_entries`, so full revert = stop the worker and optionally `DELETE FROM reasoning_patterns/pattern_embeddings/episodes/causal_edges` — zero data loss on the source.
+Disable via `-w` omission or `--no-distill`. Distillation never touches
+`memory_entries`, so full revert = stop the worker and optionally delete the
+derived `reasoning_patterns`, `pattern_embeddings`, `episodes`,
+`episode_embeddings`, and `causal_edges` rows — zero data loss on the source.
 
 ## Status of milestones
 

@@ -286,6 +286,31 @@ async function readStdin() {
   });
 }
 
+function claimSideEffectEvent(family, stdinData, event) {
+  if (/^(1|true|yes|on)$/i.test(process.env.RUFLO_DISABLE_HOOK_DEDUP || '')) return true;
+  try {
+    const crypto = require('crypto');
+    const eventId = event?.tool_use_id || event?.toolUseId ||
+      event?.session_id || event?.sessionId || event?.hook_event_id;
+    const payloadIdentity = eventId
+      ? `event:${eventId}`
+      : `payload:${(stdinData || '').trim()}|bucket:${Math.floor(Date.now() / 2000)}`;
+    const projectRoot = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+    const digest = crypto.createHash('sha256')
+      .update(`ruflo-hook-dedup-v1\0${path.resolve(projectRoot)}\0${family}\0${payloadIdentity}`)
+      .digest('hex');
+    const dir = process.env.RUFLO_HOOK_DEDUP_DIR ||
+      path.join(os.tmpdir(), 'ruflo-hook-dedup-v1');
+    fs.mkdirSync(dir, { recursive: true });
+    const fd = fs.openSync(path.join(dir, digest), 'wx', 0o600);
+    fs.writeFileSync(fd, String(Date.now()));
+    fs.closeSync(fd);
+    return true;
+  } catch (error) {
+    return error?.code === 'EEXIST' ? false : true;
+  }
+}
+
 async function main() {
   // Global safety timeout: hooks must NEVER hang (#1530, #1531)
   const safetyTimer = setTimeout(() => {
@@ -300,6 +325,11 @@ async function main() {
   let hookInput = {};
   if (stdinData.trim()) {
     try { hookInput = JSON.parse(stdinData); } catch (e) { /* ignore parse errors */ }
+  }
+
+  if ((command === 'post-edit' || command === 'session-end') &&
+      !claimSideEffectEvent(command, stdinData, hookInput)) {
+    return;
   }
 
   // Normalize snake_case/camelCase: Claude Code sends tool_input/tool_name (snake_case)

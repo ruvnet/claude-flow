@@ -12,10 +12,9 @@
 //   - classifyDegraded()      timeout vs not-available distinction, per-package
 //                             reason prefix
 //   - injectJson()            append --json unless caller opted out / present
-//   - parseTrailingJson()     LAST-{...}-block extraction (the _darwin variant;
-//                             the old _harness FIRST-block variant was a live
-//                             bug — a progress line containing `{...}` would
-//                             shadow the final structured result)
+//   - parseTrailingJson()     complete trailing-object extraction (progress
+//                             lines before the JSON are ignored, while nested
+//                             objects remain part of the root payload)
 //   - ensureCachedInstall()   one-time `npm install --prefix ~/.ruflo/<name>-cache-<pin>`
 //                             of a PINNED range — generalizes _redblue.mjs /
 //                             gepa.mjs; the versioned dir means pin bumps
@@ -69,18 +68,18 @@ export function injectJson(args, wantJson) {
 
 /**
  * Parse the trailing JSON object from mixed stdout. CLIs in this family emit
- * human-readable progress first and a structured JSON object LAST — so grab
- * the last parseable {...} block, falling back to a greedy whole-span match
- * for nested objects the lazy regex fragments.
+ * human-readable progress first and a structured JSON object LAST.
+ *
+ * Trying candidate opening braces against the complete trailing substring is
+ * intentional. A regex that selects the "last parseable {...} block" returns
+ * the final nested finding from pretty-printed payloads instead of the root
+ * object, silently discarding findings[], worst, and other security fields.
  */
 export function parseTrailingJson(stdout) {
-  const s = stdout || '';
-  const matches = [...s.matchAll(/\{[\s\S]*?\}/g)];
-  for (let i = matches.length - 1; i >= 0; i--) {
-    try { return JSON.parse(matches[i][0]); } catch { /* try previous */ }
+  const s = String(stdout || '').trimEnd();
+  for (let i = s.lastIndexOf('{'); i >= 0; i = s.lastIndexOf('{', i - 1)) {
+    try { return JSON.parse(s.slice(i)); } catch { /* try the enclosing object */ }
   }
-  const greedy = /\{[\s\S]*\}/.exec(s);
-  if (greedy) { try { return JSON.parse(greedy[0]); } catch { return null; } }
   return null;
 }
 

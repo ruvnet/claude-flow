@@ -26,6 +26,7 @@ import {
 } from './_similarity.mjs';
 // iter 64 — also test the iter-63 shared severity primitives
 import { SEVERITY_RANK, rankSeverity, parseMcpScanText } from './_harness.mjs';
+import { parseTrailingJson } from './_invoke.mjs';
 
 const ARGS = (() => {
   const a = { format: 'table' };
@@ -273,6 +274,22 @@ assert(single.summary?.overallSeverity === 'info',
 assert(single.summary?.totalCount === 1,
   'summary.totalCount === 1 from "(1 finding,"');
 
+// Newer metaharness releases align severity labels to a fixed-width column.
+// Keep parsing the legacy compact form above while accepting `[LOW ]`.
+const padded = parseMcpScanText(`harness mcp-scan — /repo
+
+  [LOW ] 8 unpinned dependency range(s)
+         Floating ranges weaken supply-chain reproducibility.
+
+Result: LOW (1 finding, 0 high)
+`);
+assert(padded.findings.length === 1, 'padded [LOW ] block → 1 finding');
+assert(padded.findings[0].severity === 'low',
+  'padded severity lowercased without trailing whitespace');
+assert(padded.findings[0].message.includes('8 unpinned dependency range(s)') &&
+       padded.findings[0].message.includes('supply-chain reproducibility'),
+  'padded finding message and continuation extracted');
+
 // Continuation line — indented text appends to previous finding
 const cont = parseMcpScanText(`
   [HIGH] Exposed credential path
@@ -313,6 +330,27 @@ assert(mixed.findings.length === 1,
   'strict regex skips mixed-case [Warn], captures [HIGH] only');
 assert(mixed.findings[0].severity === 'high',
   'strict regex captured the uppercase entry');
+
+console.log('\nPhase 11 — complete trailing JSON extraction');
+
+const nestedJson = parseTrailingJson(`progress: scanning {not-json}
+{
+  "dir": "/repo",
+  "findings": [
+    { "id": "allow-shell", "severity": "high" },
+    { "id": "no-audit-log", "severity": "medium" }
+  ],
+  "worst": "high"
+}
+`);
+assert(nestedJson?.dir === '/repo', 'mixed stdout returns root JSON object');
+assert(nestedJson?.findings?.length === 2,
+  'nested findings remain attached to root payload');
+assert(nestedJson?.findings?.[1]?.id === 'no-audit-log',
+  'extractor does not return the last nested object');
+assert(nestedJson?.worst === 'high', 'root-level severity is preserved');
+assert(parseTrailingJson('progress only {not-json}') === null,
+  'non-JSON progress braces return null');
 
 // ──────────────────────────────────────────────────────────────────
 const summary = {

@@ -54,6 +54,35 @@ function getSwarmStatus(swarmId?: string) {
     }
   }
 
+  // The canonical agent registry is the same source used by `agent list`.
+  // Prefer it over the swarm-level coordination boolean so idle agents are
+  // not reported as active (#2808). Hive agents are merged additively.
+  if (totalAgents === 0) {
+    try {
+      const canonicalPath = path.join(process.cwd(), '.claude-flow', 'agents', 'store.json');
+      const hivePath = path.join(process.cwd(), '.claude-flow', 'agents.json');
+      const merged: Record<string, { status?: string }> = {};
+      for (const storePath of [hivePath, canonicalPath]) {
+        if (!fs.existsSync(storePath)) continue;
+        const parsed = JSON.parse(fs.readFileSync(storePath, 'utf-8'));
+        if (parsed?.agents && typeof parsed.agents === 'object') {
+          Object.assign(merged, parsed.agents);
+        }
+      }
+      const agents = Object.values(merged).filter(agent => agent.status !== 'terminated');
+      if (agents.length > 0) {
+        totalAgents = agents.length;
+        activeAgents = agents.filter(agent =>
+          agent.status === 'active' ||
+          agent.status === 'running' ||
+          agent.status === 'busy'
+        ).length;
+      }
+    } catch {
+      // Ignore — the count-only activity file remains the final fallback.
+    }
+  }
+
   // #2799 — `agent spawn` never writes `.swarm/agents/*.json`; it records
   // the count in `.claude-flow/metrics/swarm-activity.json` (via
   // updateSwarmActivityMetrics in commands/agent.ts). So when the agents

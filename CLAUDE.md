@@ -994,18 +994,19 @@ RUFLO_HELPERS_SIGNING_SECRET=ruflo-helpers-signing-key RUFLO_HELPERS_SIGNING_PRO
 (`ruv-dev` also holds `ruflo-config-signing-key`; do not replace the existing
 authenticated npm session with a token from another project.)
 
-**Handling the signing key without leaking it (learned 2026-07-14, hard way):** when
-sign-helpers.mjs runs via `execFileSync('gcloud', ...)` on Windows, Node fails to find
-`gcloud` (needs the `.cmd` suffix), so the script bails and users reach for
-`gcloud secrets versions access latest --secret=ruflo-helpers-signing-key` in the shell —
-which by default prints the PEM to stdout, which becomes tool-call output in Claude
-Code and lands in the session transcript. That happened, the key was leaked, GCP secret
-v1 was destroyed and a fresh v2 was rotated in (commit 0052b1b06 / PR #2673). **Rules:**
+**Handling the signing key without leaking it (learned 2026-07-14, hard way):**
+an earlier Windows path invoked `gcloud` without its required `.cmd` suffix. The
+fallback command printed the PEM into captured tool output and a session transcript.
+GCP secret v1 was destroyed and a fresh v2 was rotated in (commit 0052b1b06 /
+PR #2673). `sign-helpers.mjs` now selects `gcloud.cmd` on Windows and supports a
+stdin-only fallback. **Rules:**
 - NEVER invoke `gcloud secrets versions access` in a way that lets the payload reach
-  tool output. Always redirect to a file in the same command: `gcloud … > ~/.ruflo/helpers-signing.key 2>&1 | grep -v BEGIN`.
-- On Windows, prefer `RUFLO_HELPERS_SIGNING_KEY=~/.ruflo/helpers-signing.key` over the
-  GCP env var, because the fallback file path doesn't go through the broken
-  `execFileSync('gcloud')` path.
+  tool output. Use the built-in `RUFLO_HELPERS_SIGNING_SECRET` path above, or pipe
+  directly into the signer:
+  `gcloud secrets versions access latest --secret=ruflo-helpers-signing-key --project=ruv-dev | node scripts/sign-helpers.mjs --stdin-key`.
+- `--stdin-key` refuses interactive entry, validates Ed25519 key type, and never
+  echoes parser input. A local file via `RUFLO_HELPERS_SIGNING_KEY` remains the
+  air-gapped fallback.
 - If a rotation IS needed, keep the private half in `~/.ruflo/helpers-signing.key`
   only, print ONLY the public half (via `Ed25519 pub export` from Node crypto), upload
   new private via `gcloud secrets versions add … --data-file=`, then

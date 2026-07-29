@@ -430,10 +430,11 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
   // js/redos): a crafted settings.json command string with dozens of
   // dash-token repetitions can hang this check for minutes.
   const BROKEN_STATUSLINE_RE = /(?:npx\s+(?:--?\S+\s+){0,10})?@?claude-flow(?:\/cli)?(?:@\S+)?\s+hooks\s+statusline/;
+  const BROKEN_NPX_LATEST_RE = /npx\s+(?:--?\S+\s+){0,10}@?claude-flow\/cli@latest\s+\S+/;
   const existingStatusLine = existing.statusLine as Record<string, unknown> | undefined;
   if (existingStatusLine) {
     const existingCmd = typeof existingStatusLine.command === 'string' ? existingStatusLine.command : '';
-    const isBroken = BROKEN_STATUSLINE_RE.test(existingCmd);
+    const isBroken = BROKEN_STATUSLINE_RE.test(existingCmd) || BROKEN_NPX_LATEST_RE.test(existingCmd);
     merged.statusLine = {
       type: 'command',
       command: isBroken || !existingCmd ? NEW_STATUSLINE_CMD : existingCmd,
@@ -441,8 +442,8 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
     };
   }
 
-  // #2448 — Detect and REGENERATE per-action hook commands that still use
-  // the runaway `npx @claude-flow/cli@latest hooks <sub>` form. These fire
+  // #2448 / #2677 — Detect and REGENERATE per-action hook commands that still
+  // use the runaway `npx @claude-flow/cli@latest hooks <sub>` form. These fire
   // on every PreToolUse/PostToolUse/UserPromptSubmit, each spawning ~130 MB
   // of cold Node + npm registry resolution; the storm is what kernel-paniced
   // the reporter's machine in #2448.
@@ -468,13 +469,19 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
       if (!Array.isArray(groups)) continue;
       for (const group of groups) {
         if (!Array.isArray(group.hooks)) continue;
-        for (const h of group.hooks) {
-          if (typeof h?.command !== 'string') continue;
+        group.hooks = group.hooks.filter((h) => {
+          if (typeof h?.command !== 'string') return true;
           const m = BROKEN_HOOK_RE.exec(h.command);
-          if (!m) continue;
-          // Subcommand captured (e.g. "pre-bash", "post-edit", "route") — keep it.
-          h.command = localHookCmd(m[1]);
-        }
+          if (m) {
+            // Subcommand captured (e.g. "pre-bash", "post-edit", "route") — keep it.
+            h.command = localHookCmd(m[1]);
+            return true;
+          }
+          // Sibling CLI invocations (memory/daemon/swarm/...) have no
+          // hook-handler equivalent. Drop the stale extra; the merge above
+          // has already installed current local-helper hooks for this event.
+          return !BROKEN_NPX_LATEST_RE.test(h.command);
+        });
       }
     }
   }

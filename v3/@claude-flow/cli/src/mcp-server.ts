@@ -79,6 +79,70 @@ const DEFAULT_OPTIONS: Required<MCPServerOptions> = {
   timeout: 30000,
 };
 
+export function parseMcpToolSelection(value: string | undefined): string[] | 'all' {
+  if (!value || value.trim().toLowerCase() === 'all') return 'all';
+  const selectors = value.split(',').map((item) => item.trim()).filter(Boolean);
+  return selectors.length > 0 ? selectors : 'all';
+}
+
+/**
+ * Apply the existing `--tools` contract to advertised schemas. A selector can
+ * be an exact tool name, a category, or a namespace prefix (`memory` matches
+ * `memory_store`). Execution remains registered internally; only the fixed
+ * per-request schema catalogue is reduced.
+ */
+export function filterAdvertisedMcpTools<T extends { name: string; category?: string }>(
+  tools: T[],
+  selection: string[] | 'all',
+): T[] {
+  if (selection === 'all') return tools;
+  const selectors = new Set(selection.map((item) => item.toLowerCase()));
+  return tools.filter((tool) => {
+    const name = tool.name.toLowerCase();
+    const category = tool.category?.toLowerCase();
+    return selectors.has(name)
+      || (category !== undefined && selectors.has(category))
+      || Array.from(selectors).some((selector) => name.startsWith(`${selector}_`));
+  });
+}
+
+export interface McpSchemaOverhead {
+  toolCount: number;
+  bytes: number;
+  estimatedTokens: number;
+  contextWindowTokens?: number;
+  ratio?: number;
+  risk: 'normal' | 'high';
+}
+
+/** Conservative JSON-size estimate for the fixed tools/list catalogue. */
+export function assessMcpSchemaOverhead(
+  tools: Array<{ name: string; description?: string; inputSchema?: unknown }>,
+  contextWindowTokens?: number,
+): McpSchemaOverhead {
+  const catalogue = tools.map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    inputSchema: tool.inputSchema,
+  }));
+  const bytes = Buffer.byteLength(JSON.stringify(catalogue), 'utf8');
+  const estimatedTokens = Math.ceil(bytes / 4);
+  const validWindow = Number.isFinite(contextWindowTokens) && Number(contextWindowTokens) > 0
+    ? Number(contextWindowTokens)
+    : undefined;
+  const ratio = validWindow ? estimatedTokens / validWindow : undefined;
+  return {
+    toolCount: tools.length,
+    bytes,
+    estimatedTokens,
+    ...(validWindow === undefined ? {} : { contextWindowTokens: validWindow }),
+    ...(ratio === undefined ? {} : { ratio }),
+    risk: (ratio !== undefined ? ratio >= 0.2 : estimatedTokens >= 8_000)
+      ? 'high'
+      : 'normal',
+  };
+}
+
 /**
  * MCP Server Manager
  *
@@ -93,7 +157,14 @@ export class MCPServerManager extends EventEmitter {
 
   constructor(options: MCPServerOptions = {}) {
     super();
-    this.options = { ...DEFAULT_OPTIONS, ...options };
+    // `options.tools`, populated by the `mcp start --tools` CLI flag, is
+    // spread last below and therefore takes precedence over this env fallback.
+    const environmentTools = parseMcpToolSelection(process.env.CLAUDE_FLOW_MCP_TOOLS);
+    this.options = {
+      ...DEFAULT_OPTIONS,
+      ...(environmentTools === 'all' ? {} : { tools: environmentTools }),
+      ...options,
+    };
   }
 
   /**
@@ -542,7 +613,7 @@ export class MCPServerManager extends EventEmitter {
           };
 
         case 'tools/list':
-          const tools = listMCPTools();
+          const tools = filterAdvertisedMcpTools(listMCPTools(), this.options.tools);
           return {
             jsonrpc: '2.0',
             id: message.id,
