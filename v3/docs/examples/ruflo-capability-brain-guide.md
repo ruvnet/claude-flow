@@ -4,7 +4,7 @@ Most agent frameworks make you learn the framework before the agent can use
 it well. You memorize tool names, remember which plugin owns what, and discover
 too late that “installed” did not mean “configured” or “authorized.”
 
-Ruflo v3.32.28 changes that. Its new MCP Capability Brain lets an agent inspect
+Ruflo v3.32.29 changes that. Its new MCP Capability Brain lets an agent inspect
 the running Ruflo system, see every registered capability, understand the
 authority and risk boundary, and choose a safe implementation workflow for the
 task in front of it.
@@ -147,14 +147,14 @@ learning.
 ## Install
 
 ```bash
-npm install --global ruflo@3.32.28
+npm install --global ruflo@3.32.29
 ruflo doctor
 ```
 
 Or:
 
 ```bash
-npx ruflo@3.32.28 --help
+npx ruflo@3.32.29 --help
 ```
 
 ## Compatibility

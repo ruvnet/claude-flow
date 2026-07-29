@@ -59,8 +59,8 @@ describe('AgentFederationPlugin', () => {
       expect(plugin.name).toBe('@claude-flow/plugin-agent-federation');
     });
 
-    it('should have version set to 1.0.0-alpha.17', () => {
-      expect(plugin.version).toBe('1.0.0-alpha.17');
+    it('should have version set to 1.0.0-alpha.18', () => {
+      expect(plugin.version).toBe('1.0.0-alpha.18');
     });
 
     it('should have a non-empty description', () => {
