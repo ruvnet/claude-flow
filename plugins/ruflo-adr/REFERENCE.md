@@ -64,18 +64,19 @@ Every ADR follows this structure:
 Persist the ADR tree + relationships so traversal queries (e.g. "all ADRs depended on by ADR-097") work without reparsing markdown:
 
 ```bash
-# Hierarchical tree — store each ADR under adr/<id>
+# Hierarchical tree — store each ADR under its typed memory key
 mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store \
-  --path "adr/ADR-097" \
+  --key "mem:ADR-097" \
+  --tier "semantic" \
   --value '{"status":"accepted","title":"Federation Budget Circuit Breaker","date":"2026-05-04"}'
 
 # Causal edges for relationships
 mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge \
-  --from "ADR-097" --to "ADR-086" --relation "depends-on"
+  --sourceId "mem:ADR-097" --targetId "mem:ADR-086" --relation "depends-on"
 mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge \
-  --from "ADR-098" --to "ADR-095" --relation "depends-on"
+  --sourceId "mem:ADR-098" --targetId "mem:ADR-095" --relation "depends-on"
 mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge \
-  --from "ADR-094" --to "ADR-093" --relation "amends"
+  --sourceId "mem:ADR-094" --targetId "mem:ADR-093" --relation "amends"
 ```
 
 Standard relationship vocabulary:
