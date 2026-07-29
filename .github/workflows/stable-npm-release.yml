@@ -207,11 +207,11 @@ jobs:
           root_catalog="$(tar -xOf "$root_archive" package/v3/@claude-flow/cli/catalog-manifest.json)"
           for catalog in "$cli_catalog" "$root_catalog"; do
             CATALOG="$catalog" EXPECTED_SHA="$expected_sha" node - <<'NODE'
-            const catalog = JSON.parse(process.env.CATALOG);
-            if (catalog.gitSha !== process.env.EXPECTED_SHA) {
-              throw new Error(`packed catalog gitSha ${catalog.gitSha} does not match ${process.env.EXPECTED_SHA}`);
-            }
-            NODE
+          const catalog = JSON.parse(process.env.CATALOG);
+          if (catalog.gitSha !== process.env.EXPECTED_SHA) {
+            throw new Error(`packed catalog gitSha ${catalog.gitSha} does not match ${process.env.EXPECTED_SHA}`);
+          }
+          NODE
           done
 
           for archive in "$cli_archive" "$root_archive"; do
@@ -234,16 +234,16 @@ jobs:
             node node_modules/@claude-flow/cli/bin/cli.js --version
             node node_modules/@claude-flow/cli/bin/cli.js policy status
             node --input-type=module - <<'NODE'
-            const base = './node_modules/@claude-flow/cli/node_modules/@claude-flow';
-            const security = await import(base + '/security/dist/index.js');
-            const codex = await import(base + '/codex/dist/index.js');
-            const federation = await import(base + '/plugin-agent-federation/dist/index.js');
-            if (!security.AgenticPolicyEngine) throw new Error('AgenticPolicyEngine missing');
-            if (!codex.CodexInitializer) throw new Error('CodexInitializer missing');
-            if (!federation.AgentFederationPlugin || !federation.FederationNodeState) {
-              throw new Error('Federation exports missing');
-            }
-            NODE
+          const base = './node_modules/@claude-flow/cli/node_modules/@claude-flow';
+          const security = await import(base + '/security/dist/index.js');
+          const codex = await import(base + '/codex/dist/index.js');
+          const federation = await import(base + '/plugin-agent-federation/dist/index.js');
+          if (!security.AgenticPolicyEngine) throw new Error('AgenticPolicyEngine missing');
+          if (!codex.CodexInitializer) throw new Error('CodexInitializer missing');
+          if (!federation.AgentFederationPlugin || !federation.FederationNodeState) {
+            throw new Error('Federation exports missing');
+          }
+          NODE
             mkdir project
             cd project
             node ../node_modules/@claude-flow/cli/bin/cli.js init --codex --force \
@@ -283,29 +283,29 @@ jobs:
             npm install "$cli_archive" agentic-flow@3.0.0-alpha.2 \
               --omit=optional --no-audit --no-fund
             node --input-type=module - <<'NODE'
-            const modulePath = './node_modules/@claude-flow/cli/node_modules/@claude-flow/plugin-agent-federation/dist/transport/midstream-aware-loader.js';
-            const { loadFederationTransport } = await import(modulePath);
-            const loaded = await loadFederationTransport({ host: '127.0.0.1', port: 0 });
-            if (loaded.source !== 'websocket-fallback') {
-              throw new Error(`agentic-flow v3 must use validated fallback, got ${loaded.source}`);
-            }
-            const received = new Promise((resolve, reject) => {
-              const timer = setTimeout(() => reject(new Error('federation fallback timed out')), 5000);
-              loaded.transport.onMessage((_address, message) => {
-                clearTimeout(timer);
-                resolve(message);
-              });
+          const modulePath = './node_modules/@claude-flow/cli/node_modules/@claude-flow/plugin-agent-federation/dist/transport/midstream-aware-loader.js';
+          const { loadFederationTransport } = await import(modulePath);
+          const loaded = await loadFederationTransport({ host: '127.0.0.1', port: 0 });
+          if (loaded.source !== 'websocket-fallback') {
+            throw new Error(`agentic-flow v3 must use validated fallback, got ${loaded.source}`);
+          }
+          const received = new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('federation fallback timed out')), 5000);
+            loaded.transport.onMessage((_address, message) => {
+              clearTimeout(timer);
+              resolve(message);
             });
-            await loaded.transport.listen(0, '127.0.0.1');
-            const address = loaded.transport.server.address();
-            const sent = { id: 'v3-smoke', type: 'heartbeat', payload: { nested: true } };
-            await loaded.transport.send(`ws://127.0.0.1:${address.port}`, sent);
-            const message = await received;
-            if (JSON.stringify(message) !== JSON.stringify(sent)) {
-              throw new Error('federation fallback changed the message');
-            }
-            await loaded.transport.close();
-            NODE
+          });
+          await loaded.transport.listen(0, '127.0.0.1');
+          const address = loaded.transport.server.address();
+          const sent = { id: 'v3-smoke', type: 'heartbeat', payload: { nested: true } };
+          await loaded.transport.send(`ws://127.0.0.1:${address.port}`, sent);
+          const message = await received;
+          if (JSON.stringify(message) !== JSON.stringify(sent)) {
+            throw new Error('federation fallback changed the message');
+          }
+          await loaded.transport.close();
+          NODE
           )
 
           {
@@ -380,9 +380,9 @@ jobs:
             for attempt in {1..10}; do
               tags="$(npm view "$package" dist-tags --json 2>/dev/null || true)"
               if TAGS="$tags" VERSION="$version" node - <<'NODE'
-              const tags = JSON.parse(process.env.TAGS || '{}');
-              process.exit(['latest', 'alpha', 'v3alpha'].every((tag) => tags[tag] === process.env.VERSION) ? 0 : 1);
-              NODE
+          const tags = JSON.parse(process.env.TAGS || '{}');
+          process.exit(['latest', 'alpha', 'v3alpha'].every((tag) => tags[tag] === process.env.VERSION) ? 0 : 1);
+          NODE
               then
                 tags_ready=true
                 break
@@ -391,13 +391,13 @@ jobs:
             done
             test "$tags_ready" = true
             TAGS="$tags" VERSION="$version" PACKAGE="$package" node - <<'NODE'
-            const tags = JSON.parse(process.env.TAGS);
-            for (const tag of ['latest', 'alpha', 'v3alpha']) {
-              if (tags[tag] !== process.env.VERSION) {
-                throw new Error(`${process.env.PACKAGE}:${tag}=${tags[tag]}, expected ${process.env.VERSION}`);
-              }
+          const tags = JSON.parse(process.env.TAGS);
+          for (const tag of ['latest', 'alpha', 'v3alpha']) {
+            if (tags[tag] !== process.env.VERSION) {
+              throw new Error(`${process.env.PACKAGE}:${tag}=${tags[tag]}, expected ${process.env.VERSION}`);
             }
-            NODE
+          }
+          NODE
           done
 
           cli_install="$(mktemp -d)"
@@ -409,14 +409,14 @@ jobs:
             node node_modules/@claude-flow/cli/bin/cli.js --version
             node node_modules/@claude-flow/cli/bin/cli.js policy status
             node --input-type=module - <<'NODE'
-            const base = './node_modules/@claude-flow/cli/node_modules/@claude-flow';
-            const security = await import(base + '/security/dist/index.js');
-            const codex = await import(base + '/codex/dist/index.js');
-            const federation = await import(base + '/plugin-agent-federation/dist/index.js');
-            if (!security.AgenticPolicyEngine || !codex.CodexInitializer || !federation.AgentFederationPlugin) {
-              throw new Error('registry artifact is missing a bundled runtime');
-            }
-            NODE
+          const base = './node_modules/@claude-flow/cli/node_modules/@claude-flow';
+          const security = await import(base + '/security/dist/index.js');
+          const codex = await import(base + '/codex/dist/index.js');
+          const federation = await import(base + '/plugin-agent-federation/dist/index.js');
+          if (!security.AgenticPolicyEngine || !codex.CodexInitializer || !federation.AgentFederationPlugin) {
+            throw new Error('registry artifact is missing a bundled runtime');
+          }
+          NODE
           )
 
           root_install="$(mktemp -d)"
