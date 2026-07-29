@@ -5,11 +5,17 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { ensureDaemonRunning, isDaemonAlive } from '../src/services/daemon-autostart.js';
+import {
+  ensureDaemonRunning,
+  isDaemonAlive,
+  isRufloProject,
+} from '../src/services/daemon-autostart.js';
+import { applyChampion } from '../src/config/harness-feedback-applier.js';
 
 function project(): string {
   const cwd = mkdtempSync(join(tmpdir(), 'daemon-as-'));
   mkdirSync(join(cwd, '.claude-flow'), { recursive: true });
+  writeFileSync(join(cwd, '.claude-flow', 'config.yaml'), 'version: 3\n');
   return cwd;
 }
 
@@ -63,6 +69,39 @@ describe('ensureDaemonRunning', () => {
     expect(r).toEqual({ started: false, reason: 'not a ruflo project' });
     expect(spawned).toBe(0);
     expect(existsSync(join(cwd, '.claude-flow'))).toBe(false);
+  });
+
+  it('does not let startup-created policy state authorize daemon auto-start (#2852)', () => {
+    delete process.env.RUFLO_DAEMON_AUTOSTART;
+    const cwd = mkdtempSync(join(tmpdir(), 'claude-policy-only-'));
+    mkdirSync(join(cwd, '.claude'), { recursive: true });
+    writeFileSync(
+      join(cwd, '.claude', 'proven-config.json'),
+      JSON.stringify({ championId: `sha256:${'a'.repeat(64)}` }),
+    );
+
+    // This mirrors the startup ordering in CLI.run(): applying a shipped
+    // champion creates .claude-flow before daemon auto-start is evaluated.
+    expect(applyChampion(cwd).applied).toBe(true);
+    expect(existsSync(join(cwd, '.claude-flow'))).toBe(true);
+    expect(isRufloProject(cwd)).toBe(false);
+
+    let spawned = 0;
+    const result = ensureDaemonRunning(cwd, {
+      isAlive: () => false,
+      spawnFn: () => { spawned++; },
+    });
+    expect(result).toEqual({ started: false, reason: 'not a ruflo project' });
+    expect(spawned).toBe(0);
+  });
+
+  it('recognizes only explicit Ruflo markers, not generic state directories', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'ruflo-markers-'));
+    mkdirSync(join(cwd, '.claude-flow'), { recursive: true });
+    expect(isRufloProject(cwd)).toBe(false);
+
+    writeFileSync(join(cwd, '.claude-flow', 'config.json'), '{}');
+    expect(isRufloProject(cwd)).toBe(true);
   });
 
   it('respects a project-local claude-flow.config.json opt-out (survives env vars not propagating)', () => {
