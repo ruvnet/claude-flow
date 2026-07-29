@@ -91,12 +91,23 @@ const storeCommand: Command = {
       description: 'Scan the value for injection payloads before persisting (dream-cycle #2752 MemPoison gate)',
       type: 'boolean',
     },
+    {
+      // ADR-323 — typed memory provenance. Distinguishes who/what produced
+      // this entry so shared-namespace retrieval can filter by trust level
+      // instead of conflating a user's stated claim with an agent's own
+      // output or a raw tool/system observation.
+      name: 'provenance',
+      description: 'Who/what produced this value: user_claim | agent_output | system_observation | tool_result | unknown (default: unknown) — ADR-323',
+      type: 'string',
+      choices: ['user_claim', 'agent_output', 'system_observation', 'tool_result', 'unknown'],
+    },
     DB_PATH_OPTION
   ],
   examples: [
     { command: 'claude-flow memory store -k "api/auth" -v "JWT implementation"', description: 'Store text' },
     { command: 'claude-flow memory store -k "pattern/singleton" --vector', description: 'Store vector' },
-    { command: 'claude-flow memory store -k "pattern" -v "new" --no-upsert', description: 'Strict insert (fail if key exists)' }
+    { command: 'claude-flow memory store -k "pattern" -v "new" --no-upsert', description: 'Strict insert (fail if key exists)' },
+    { command: 'claude-flow memory store -k "user/goal" -v "ship by Friday" --provenance user_claim', description: 'Store with typed provenance (ADR-323)' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const key = ctx.flags.key as string;
@@ -119,6 +130,10 @@ const storeCommand: Command = {
     // regardless of the parser gap: only an explicit `--no-upsert` (which
     // arrives as `false`) turns it off.
     const upsert = ctx.flags.upsert !== false;
+    // ADR-323: leave undefined (not 'unknown') when omitted so storeEntry's
+    // own default applies uniformly across the CLI, MCP tool, and direct
+    // callers — one place decides the default, not three.
+    const provenance = ctx.flags.provenance as string | undefined;
 
     if (!key) {
       output.printError('Key is required. Use --key or -k');
@@ -189,6 +204,7 @@ const storeCommand: Command = {
         tags,
         ttl,
         upsert,
+        provenanceType: provenance,
         dbPath
       });
 
@@ -210,6 +226,7 @@ const storeCommand: Command = {
           { property: 'TTL', val: ttl ? `${ttl}s` : 'None' },
           { property: 'Tags', val: tags.length > 0 ? tags.join(', ') : 'None' },
           { property: 'Vector', val: result.embedding ? `Yes (${result.embedding.dimensions}-dim)` : 'No' },
+          { property: 'Provenance', val: provenance || 'unknown' },
           { property: 'ID', val: result.id.substring(0, 20) }
         ]
       });
@@ -217,7 +234,7 @@ const storeCommand: Command = {
       output.writeln();
       output.printSuccess('Data stored successfully');
 
-      return { success: true, data: { ...storeData, id: result.id, embedding: result.embedding } };
+      return { success: true, data: { ...storeData, id: result.id, embedding: result.embedding, provenanceType: provenance || 'unknown' } };
     } catch (error) {
       output.printError(`Failed to store: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return { success: false, exitCode: 1 };
@@ -391,6 +408,15 @@ const searchCommand: Command = {
       choices: ['auto', 'mixed', 'episodic', 'semantic', 'procedural'],
       default: 'mixed',
     },
+    {
+      // ADR-323 — restrict results to entries with a matching provenance
+      // type (e.g. exclude user_claim when retrieving for fact-checking,
+      // per MemSyco-Bench's memory-induced sycophancy finding). Enforced
+      // across semantic, keyword, hybrid, and SmartRetrieval paths.
+      name: 'provenance-filter',
+      description: 'Comma-separated provenance types to restrict results to: user_claim,agent_output,system_observation,tool_result,unknown — ADR-323',
+      type: 'string',
+    },
     DB_PATH_OPTION
   ],
   examples: [
@@ -399,11 +425,18 @@ const searchCommand: Command = {
     { command: 'claude-flow memory search -q "test" --build-hnsw', description: 'Build HNSW index and search' },
     { command: 'claude-flow memory search -q "auth patterns" --smart', description: 'SmartRetrieval with RRF + MMR' },
     { command: 'claude-flow memory search -q "when did we last touch auth" --intent auto', description: 'SCM-routed retrieval (dream-cycle #2760)' },
+    { command: 'claude-flow memory search -q "deploy plan" --provenance-filter agent_output,tool_result', description: 'Only trust agent/tool-sourced entries (ADR-323)' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const query = ctx.flags.query as string || ctx.args[0];
     let namespace = ctx.flags.namespace as string || 'all';
     const limit = ctx.flags.limit as number || 10;
+    // Matches the --build-hnsw / buildHnsw dual-check convention already used
+    // below: the parser doesn't consistently camelCase every hyphenated flag.
+    const provenanceFilterRaw = (ctx.flags['provenance-filter'] || ctx.flags.provenanceFilter) as string | undefined;
+    const provenanceFilter = provenanceFilterRaw
+      ? provenanceFilterRaw.split(',').map(s => s.trim()).filter(Boolean)
+      : undefined;
     // #2790 fix — `||` discards an explicit `--threshold 0` (falsy) and
     // silently uses the fallback; that made `--threshold 0` return
     // FEWER results than `--threshold 0.01` (non-monotonic). Nullish
@@ -483,15 +516,19 @@ const searchCommand: Command = {
       // the requested namespace (or all) and substring-match against key
       // + content. Hybrid unions the keyword hits with the semantic hits
       // and dedups by key + namespace.
-      let keywordResults: { key: string; score: number; namespace: string; preview: string }[] = [];
+      let keywordResults: { key: string; score: number; namespace: string; preview: string; provenanceType?: string }[] = [];
       if (searchType === 'keyword' || searchType === 'hybrid') {
         const list = await listEntries({
           namespace: namespace === 'all' ? undefined : namespace,
           limit: 5000,
           includeContent: true,
           dbPath: dbPathSearch,
+          provenanceFilter,
         });
-        if (list.success) {
+        if (!list.success) {
+          output.printError(list.error || 'Keyword search failed');
+          return { success: false, exitCode: 1 };
+        } else {
           const q = (query as string).toLowerCase();
           keywordResults = list.entries
             .filter((e) => {
@@ -507,6 +544,7 @@ const searchCommand: Command = {
                 score: inKey ? 1.0 : 0.7,
                 namespace: e.namespace,
                 preview: c.slice(0, 200),
+                provenanceType: e.provenanceType,
               };
             })
             .sort((a, b) => b.score - a.score)
@@ -528,7 +566,7 @@ const searchCommand: Command = {
         // Hybrid mode: keyword hits will be MERGED after semantic runs below.
       }
 
-      let results: { key: string; score: number; namespace: string; preview: string }[];
+      let results: { key: string; score: number; namespace: string; preview: string; provenanceType?: string }[];
       let searchTimeMs: number;
       let smartStats: Record<string, unknown> | undefined;
       let backendLabel = 'HNSW + sql.js';
@@ -564,6 +602,7 @@ const searchCommand: Command = {
             limit: req.limit || limit * 3,
             threshold: req.threshold ?? threshold,
             dbPath: dbPathSearch,
+            provenanceFilter,
           });
           return {
             results: r.results.map(e => ({
@@ -572,6 +611,7 @@ const searchCommand: Command = {
               content: e.content,
               score: e.score,
               namespace: e.namespace,
+              provenanceType: e.provenanceType,
             })),
           };
         };
@@ -583,11 +623,12 @@ const searchCommand: Command = {
           threshold,
         });
 
-        results = smartResult.results.map((r: { content: string; key: string; namespace: string; score: number }) => ({
+        results = smartResult.results.map((r: { content: string; key: string; namespace: string; score: number; provenanceType?: string }) => ({
           key: r.key,
           score: r.score,
           namespace: r.namespace,
           preview: r.content,
+          provenanceType: r.provenanceType,
         }));
         searchTimeMs = smartResult.stats.durationMs;
         smartStats = smartResult.stats as unknown as Record<string, unknown>;
@@ -598,7 +639,8 @@ const searchCommand: Command = {
           namespace,
           limit,
           threshold,
-          dbPath: dbPathSearch
+          dbPath: dbPathSearch,
+          provenanceFilter
         });
 
         if (!searchResult.success) {
@@ -610,7 +652,8 @@ const searchCommand: Command = {
           key: r.key,
           score: r.score,
           namespace: r.namespace,
-          preview: r.content
+          preview: r.content,
+          provenanceType: r.provenanceType,
         }));
         searchTimeMs = searchResult.searchTime;
       }

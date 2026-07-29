@@ -308,6 +308,11 @@ export const memoryTools: MCPTool[] = [
         },
         ttl: { type: 'number', description: 'Time-to-live in seconds (optional)' },
         upsert: { type: 'boolean', description: 'Update existing key instead of failing (default: true, matching CLI `memory store`; set false for strict-insert). #2775 parity.' },
+        provenance_type: {
+          type: 'string',
+          enum: ['user_claim', 'agent_output', 'system_observation', 'tool_result', 'unknown'],
+          description: 'ADR-323: who/what produced this value, so shared-namespace retrieval can filter by trust level instead of conflating a user\'s stated claim with an agent\'s own output. Default: "unknown".',
+        },
       },
       required: ['key', 'value'],
     },
@@ -323,6 +328,9 @@ export const memoryTools: MCPTool[] = [
       const ttl = input.ttl as number | undefined;
       // #2775 parity with CLI: default true; only explicit `upsert: false` opts out.
       const upsert = input.upsert !== false;
+      // ADR-323: leave undefined when omitted so storeEntry's own default
+      // ('unknown') applies uniformly across the CLI, MCP tool, and other callers.
+      const provenanceType = input.provenance_type as string | undefined;
 
       if (!value) {
         return {
@@ -347,6 +355,7 @@ export const memoryTools: MCPTool[] = [
           tags,
           ttl,
           upsert,
+          provenanceType,
         });
 
         const duration = performance.now() - startTime;
@@ -359,6 +368,7 @@ export const memoryTools: MCPTool[] = [
           storedAt: new Date().toISOString(),
           hasEmbedding: !!result.embedding,
           embeddingDimensions: result.embedding?.dimensions || null,
+          provenanceType: provenanceType || 'unknown',
           backend: 'sql.js + HNSW',
           storeTime: `${duration.toFixed(2)}ms`,
           error: result.error,
@@ -448,6 +458,11 @@ export const memoryTools: MCPTool[] = [
         limit: { type: 'number', description: 'Maximum results (default: 10)' },
         threshold: { type: 'number', description: 'Minimum similarity threshold 0-1 (default: 0.3)' },
         smart: { type: 'boolean', description: 'Enable SmartRetrieval pipeline — query expansion, RRF fusion, recency boost, MMR diversity (default: false)' },
+        provenance_filter: {
+          type: 'array',
+          items: { type: 'string', enum: ['user_claim', 'agent_output', 'system_observation', 'tool_result', 'unknown'] },
+          description: 'ADR-323: restrict results to these provenance types (e.g. exclude user_claim when fact-checking). Omit for no filtering. Enforced for standard and SmartRetrieval searches.',
+        },
       },
       required: ['query'],
     },
@@ -456,6 +471,7 @@ export const memoryTools: MCPTool[] = [
       const { searchEntries } = await getMemoryFunctions();
 
       const query = input.query as string;
+      const provenanceFilter = input.provenance_filter as string[] | undefined;
       // #2646 (3rd occurrence of #1123/#1131 shape): do NOT coerce an omitted
       // namespace to the literal string 'default' here. Both searchEntries()
       // and bridgeSearchEntries() already resolve an omitted/undefined
@@ -500,6 +516,7 @@ export const memoryTools: MCPTool[] = [
                 namespace: req.namespace || namespace,
                 limit: req.limit || limit * 3,
                 threshold: req.threshold ?? threshold,
+                provenanceFilter,
               });
               return {
                 results: r.results.map(e => ({
@@ -508,6 +525,7 @@ export const memoryTools: MCPTool[] = [
                   content: e.content,
                   score: e.score,
                   namespace: e.namespace,
+                  provenanceType: e.provenanceType,
                 })),
               };
             };
@@ -521,7 +539,7 @@ export const memoryTools: MCPTool[] = [
 
             const duration = performance.now() - startTime;
 
-            const results = smartResult.results.map((r: { content: string; key: string; namespace: string; score: number }) => {
+            const results = smartResult.results.map((r: { content: string; key: string; namespace: string; score: number; provenanceType?: string }) => {
               let value: unknown = r.content;
               try { value = JSON.parse(r.content); } catch { /* keep as string */ }
               return {
@@ -529,6 +547,7 @@ export const memoryTools: MCPTool[] = [
                 namespace: r.namespace,
                 value,
                 similarity: r.score,
+                provenanceType: r.provenanceType,
               };
             });
 
@@ -551,12 +570,19 @@ export const memoryTools: MCPTool[] = [
         // Original non-smart path (unchanged) — also reached when smart was
         // requested but unavailable. We attach `smartFallback` to the
         // response so callers can see the degradation explicitly.
+        // ADR-323: the same filter is also passed into every raw search used
+        // by SmartRetrieval above, so query expansion cannot widen trust scope.
         const result = await searchEntries({
           query,
           namespace,
           limit,
           threshold,
+          provenanceFilter,
         });
+
+        if (!result.success) {
+          return { query, results: [], total: 0, error: result.error };
+        }
 
         const duration = performance.now() - startTime;
 
@@ -574,6 +600,7 @@ export const memoryTools: MCPTool[] = [
             namespace: r.namespace,
             value,
             similarity: r.score,
+            provenanceType: r.provenanceType,
           };
         });
 

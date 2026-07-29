@@ -39,6 +39,11 @@ export const memoryToolDefs: MCPToolDef[] = [
         tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags for filtering' },
         ttl: { type: 'number', description: 'Time-to-live in seconds (optional)' },
         upsert: { type: 'boolean', description: 'If true, update existing key instead of failing (default: false)' },
+        provenance_type: {
+          type: 'string',
+          enum: ['user_claim', 'agent_output', 'system_observation', 'tool_result', 'unknown'],
+          description: 'ADR-323: who/what produced this value, so shared-namespace retrieval can filter by trust level. Default: "unknown".',
+        },
       },
       required: ['key', 'value'],
     },
@@ -70,6 +75,11 @@ export const memoryToolDefs: MCPToolDef[] = [
         limit: { type: 'number', description: 'Maximum results (default: 10)' },
         threshold: { type: 'number', description: 'Minimum similarity threshold 0-1 (default: 0.3)' },
         smart: { type: 'boolean', description: 'Enable SmartRetrieval pipeline — query expansion, RRF fusion, recency boost, MMR diversity (default: false). No-op in cli-core lite backend.' },
+        provenance_filter: {
+          type: 'array',
+          items: { type: 'string', enum: ['user_claim', 'agent_output', 'system_observation', 'tool_result', 'unknown'] },
+          description: 'ADR-323: restrict results to these provenance types. Omit for no filtering.',
+        },
       },
       required: ['query'],
     },

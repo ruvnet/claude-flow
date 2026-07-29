@@ -28,6 +28,23 @@ let registryInstance: any = null;
 let bridgeAvailable: boolean | null = null;
 
 /**
+ * ADR-323: reuse memory-initializer's provenance-type allowlist rather than
+ * duplicating it (drift risk). Lazy CJS require for the same circular-ESM-
+ * dependency reason as getDbPath() below.
+ */
+function isValidProvenanceType(value: unknown): boolean {
+  try {
+    const cjsRequire = createRequire(import.meta.url);
+    const mod = cjsRequire('./memory-initializer.js') as { isValidProvenanceType?: (v: unknown) => boolean };
+    if (typeof mod.isValidProvenanceType === 'function') {
+      return mod.isValidProvenanceType(value);
+    }
+  } catch { /* memory-initializer not resolvable in this build */ }
+  // Fallback allowlist — keep in sync with memory-initializer.ts's PROVENANCE_TYPES.
+  return typeof value === 'string' && ['user_claim', 'agent_output', 'system_observation', 'tool_result', 'unknown'].includes(value);
+}
+
+/**
  * Resolve database path with path traversal protection.
  * Only allows paths within or below the project's working directory,
  * or the special ':memory:' path.
@@ -681,6 +698,8 @@ export async function bridgeStoreEntry(options: {
   ttl?: number;
   dbPath?: string;
   upsert?: boolean;
+  /** ADR-323: defaults to 'unknown' when omitted. */
+  provenanceType?: string;
 }): Promise<{
   success: boolean;
   id: string;
@@ -691,6 +710,17 @@ export async function bridgeStoreEntry(options: {
   attested?: boolean;
   error?: string;
 } | null> {
+  // ADR-323 — validated once in storeEntry() before this is reached on that
+  // path, but bridgeStoreEntry() also has direct internal callers, so check
+  // again here rather than trust every call site.
+  if (options.provenanceType !== undefined && !isValidProvenanceType(options.provenanceType)) {
+    return {
+      success: false,
+      id: '',
+      error: `Invalid provenance type "${options.provenanceType}"`,
+    };
+  }
+
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -699,6 +729,18 @@ export async function bridgeStoreEntry(options: {
 
   try {
     const { key, value, namespace = 'default', tags = [], ttl } = options;
+    let provenanceType = options.provenanceType ?? 'unknown';
+    // An omitted type on an upsert means "update the value", not "erase the
+    // existing trust label". New rows still receive the backward-compatible
+    // unknown default.
+    if (options.upsert && options.provenanceType === undefined) {
+      try {
+        const existing = ctx.db.prepare(
+          'SELECT provenance_type FROM memory_entries WHERE namespace = ? AND key = ? LIMIT 1'
+        ).get(namespace, key);
+        provenanceType = existing?.provenance_type || 'unknown';
+      } catch { /* legacy schema or new row — keep unknown */ }
+    }
     const id = generateId('entry');
     const now = Date.now();
 
@@ -759,13 +801,13 @@ export async function bridgeStoreEntry(options: {
       ? `INSERT OR REPLACE INTO memory_entries (
           id, key, namespace, content, type,
           embedding, embedding_dimensions, embedding_model,
-          tags, metadata, created_at, updated_at, expires_at, status
-        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')`
+          tags, metadata, provenance_type, created_at, updated_at, expires_at, status
+        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`
       : `INSERT INTO memory_entries (
           id, key, namespace, content, type,
           embedding, embedding_dimensions, embedding_model,
-          tags, metadata, created_at, updated_at, expires_at, status
-        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+          tags, metadata, provenance_type, created_at, updated_at, expires_at, status
+        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
         ON CONFLICT(namespace, key) DO UPDATE SET
           id                    = excluded.id,
           content               = excluded.content,
@@ -774,6 +816,7 @@ export async function bridgeStoreEntry(options: {
           embedding_model       = excluded.embedding_model,
           tags                  = excluded.tags,
           metadata              = excluded.metadata,
+          provenance_type       = excluded.provenance_type,
           created_at            = excluded.created_at,
           updated_at            = excluded.updated_at,
           expires_at            = excluded.expires_at,
@@ -797,6 +840,7 @@ export async function bridgeStoreEntry(options: {
       embeddingJson, dimensions || null, model,
       tags.length > 0 ? JSON.stringify(tags) : null,
       '{}',
+      provenanceType,
       now, now,
       ttl ? now + (ttl * 1000) : null
     );
@@ -893,6 +937,8 @@ export async function bridgeSearchEntries(options: {
   limit?: number;
   threshold?: number;
   dbPath?: string;
+  /** ADR-323: restrict results to these provenance types. */
+  provenanceFilter?: string[];
 }): Promise<{
   success: boolean;
   results: {
@@ -902,11 +948,20 @@ export async function bridgeSearchEntries(options: {
     score: number;
     namespace: string;
     provenance?: string;
+    /** ADR-323 — NOT the same as `provenance` above (that's the
+     *  ExplainableRecall score breakdown). This is the entry's
+     *  user_claim/agent_output/... provenance type. */
+    provenanceType?: string;
   }[];
   searchTime: number;
   searchMethod?: string;
   error?: string;
 } | null> {
+  if (options.provenanceFilter?.length) {
+    const invalid = options.provenanceFilter.filter(p => !isValidProvenanceType(p));
+    if (invalid.length > 0) return null; // caller (searchEntries) demotes to sql.js, which returns a typed error
+  }
+
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -914,7 +969,7 @@ export async function bridgeSearchEntries(options: {
   if (!ctx) return null;
 
   try {
-    const { query: queryStr, namespace, limit = 10, threshold = 0.3 } = options;
+    const { query: queryStr, namespace, limit = 10, threshold = 0.3, provenanceFilter } = options;
     const effectiveNamespace = namespace || 'all';
     const startTime = Date.now();
 
@@ -931,19 +986,28 @@ export async function bridgeSearchEntries(options: {
     }
 
     // better-sqlite3: .prepare().all() returns array of objects
-    const nsFilter = effectiveNamespace !== 'all'
-      ? `AND namespace = ?`
-      : '';
+    // ADR-323: compose namespace + provenance filters into one WHERE clause.
+    const filters: string[] = [];
+    const filterParams: string[] = [];
+    if (effectiveNamespace !== 'all') {
+      filters.push('namespace = ?');
+      filterParams.push(effectiveNamespace);
+    }
+    if (provenanceFilter?.length) {
+      filters.push(`provenance_type IN (${provenanceFilter.map(() => '?').join(',')})`);
+      filterParams.push(...provenanceFilter);
+    }
+    const whereExtra = filters.length > 0 ? `AND ${filters.join(' AND ')}` : '';
 
     let rows: any[];
     try {
       const stmt = ctx.db.prepare(`
-        SELECT id, key, namespace, content, embedding
+        SELECT id, key, namespace, content, embedding, provenance_type
         FROM memory_entries
-        WHERE status = 'active' ${nsFilter}
+        WHERE status = 'active' ${whereExtra}
         LIMIT 1000
       `);
-      rows = effectiveNamespace !== 'all' ? stmt.all(effectiveNamespace) : stmt.all();
+      rows = filterParams.length > 0 ? stmt.all(...filterParams) : stmt.all();
     } catch {
       return null;
     }
@@ -956,7 +1020,7 @@ export async function bridgeSearchEntries(options: {
     const { termDocFreqs, avgDocLength } = computeTermDocFreqs(queryTerms, docs);
     const docCount = rows.length;
 
-    const results: { id: string; key: string; content: string; score: number; namespace: string; provenance?: string }[] = [];
+    const results: { id: string; key: string; content: string; score: number; namespace: string; provenance?: string; provenanceType?: string }[] = [];
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -1018,6 +1082,7 @@ export async function bridgeSearchEntries(options: {
           score,
           namespace: row.namespace || 'default',
           provenance,
+          provenanceType: row.provenance_type || 'unknown',
         });
       }
     }
@@ -1045,6 +1110,8 @@ export async function bridgeListEntries(options: {
   dbPath?: string;
   /** #2073: When true, include the entry's full `content` string in each result. */
   includeContent?: boolean;
+  /** ADR-323: restrict rows to these provenance types. */
+  provenanceFilter?: string[];
 }): Promise<{
   success: boolean;
   entries: {
@@ -1058,6 +1125,7 @@ export async function bridgeListEntries(options: {
     hasEmbedding: boolean;
     /** #2073: Present when `includeContent: true` was requested. */
     content?: string;
+    provenanceType?: string;
   }[];
   total: number;
   error?: string;
@@ -1069,10 +1137,20 @@ export async function bridgeListEntries(options: {
   if (!ctx) return null;
 
   try {
-    const { namespace, limit = 20, offset = 0 } = options;
+    const { namespace, limit = 20, offset = 0, provenanceFilter } = options;
+    if (provenanceFilter?.some(p => !isValidProvenanceType(p))) return null;
 
-    const nsFilter = namespace ? `AND namespace = ?` : '';
-    const nsParams = namespace ? [namespace] : [];
+    const filters: string[] = [];
+    const filterParams: string[] = [];
+    if (namespace) {
+      filters.push('namespace = ?');
+      filterParams.push(namespace);
+    }
+    if (provenanceFilter?.length) {
+      filters.push(`provenance_type IN (${provenanceFilter.map(() => '?').join(',')})`);
+      filterParams.push(...provenanceFilter);
+    }
+    const extraFilter = filters.length > 0 ? `AND ${filters.join(' AND ')}` : '';
 
     // #2120 — `status IS NULL` accepted alongside `'active'`. Old
     // databases imported by the auto-memory bridge (before the status
@@ -1088,9 +1166,9 @@ export async function bridgeListEntries(options: {
     let total = 0;
     try {
       const countStmt = ctx.db.prepare(
-        `SELECT COUNT(*) as cnt FROM memory_entries WHERE ${statusFilter} ${nsFilter}`
+        `SELECT COUNT(*) as cnt FROM memory_entries WHERE ${statusFilter} ${extraFilter}`
       );
-      const countRow = countStmt.get(...nsParams);
+      const countRow = countStmt.get(...filterParams);
       total = countRow?.cnt ?? 0;
     } catch {
       return null;
@@ -1100,13 +1178,13 @@ export async function bridgeListEntries(options: {
     const entries: any[] = [];
     try {
       const stmt = ctx.db.prepare(`
-        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at
+        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type
         FROM memory_entries
-        WHERE ${statusFilter} ${nsFilter}
+        WHERE ${statusFilter} ${extraFilter}
         ORDER BY updated_at DESC
         LIMIT ? OFFSET ?
       `);
-      const rows = stmt.all(...nsParams, limit, offset);
+      const rows = stmt.all(...filterParams, limit, offset);
       for (const row of rows) {
         const entry: Record<string, unknown> = {
           // #2073: don't truncate id when content is requested — callers
@@ -1119,6 +1197,7 @@ export async function bridgeListEntries(options: {
           createdAt: row.created_at || new Date().toISOString(),
           updatedAt: row.updated_at || new Date().toISOString(),
           hasEmbedding: !!(row.embedding && String(row.embedding).length > 10),
+          provenanceType: row.provenance_type || 'unknown',
         };
         if (options.includeContent) {
           entry.content = row.content || '';
@@ -1623,12 +1702,25 @@ export async function bridgeAddToHNSW(
   try {
     const now = Date.now();
     const embeddingJson = JSON.stringify(embedding);
+    // Do not use INSERT OR REPLACE here. storeEntry() has already written the
+    // authoritative row, including provenance/tags/metadata; REPLACE deleted
+    // that row and recreated it without provenance_type, silently resetting
+    // every typed CLI/MCP write to "unknown".
     ctx.db.prepare(`
-      INSERT OR REPLACE INTO memory_entries (
+      INSERT INTO memory_entries (
         id, key, namespace, content, type,
         embedding, embedding_dimensions, embedding_model,
         created_at, updated_at, status
       ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, 'Xenova/all-MiniLM-L6-v2', ?, ?, 'active')
+      ON CONFLICT(namespace, key) DO UPDATE SET
+        id                   = excluded.id,
+        content              = excluded.content,
+        type                 = excluded.type,
+        embedding            = excluded.embedding,
+        embedding_dimensions = excluded.embedding_dimensions,
+        embedding_model      = excluded.embedding_model,
+        updated_at           = excluded.updated_at,
+        status               = 'active'
     `).run(
       id, entry.key, entry.namespace, entry.content,
       embeddingJson, embedding.length,
