@@ -116,6 +116,29 @@ export function validateTaskSources(sources: unknown): string[] {
   return valid.length > 0 ? valid : defaults;
 }
 
+export type TaskSourceValidation =
+  | { valid: true; sources: string[] }
+  | { valid: false; invalidSources: string[]; reason: string };
+
+/** Strictly validate user-supplied task sources without enabling defaults. */
+export function validateConfiguredTaskSources(sources: unknown): TaskSourceValidation {
+  if (!Array.isArray(sources) || sources.length === 0) {
+    return { valid: false, invalidSources: [], reason: 'At least one task source is required' };
+  }
+
+  const normalized = sources.map(source => typeof source === 'string' ? source.trim() : String(source));
+  const invalidSources = normalized.filter(source => !VALID_TASK_SOURCES.has(source));
+  if (invalidSources.length > 0) {
+    return {
+      valid: false,
+      invalidSources,
+      reason: `Unsupported task source(s): ${invalidSources.join(', ')}`,
+    };
+  }
+
+  return { valid: true, sources: [...new Set(normalized)] };
+}
+
 // ── State Management ──────────────────────────────────────────
 
 export function getDefaultState(): AutopilotState {

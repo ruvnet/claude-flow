@@ -10,7 +10,7 @@ import { output } from '../output.js';
 import {
   loadState, saveState, appendLog, loadLog, discoverTasks,
   getProgress, calculateReward, tryLoadLearning, validateNumber,
-  validateTaskSources, LOG_FILE,
+  validateConfiguredTaskSources, VALID_TASK_SOURCES, LOG_FILE,
 } from '../autopilot-state.js';
 import { getCheckpointGate, CheckpointGate } from '../services/checkpoint-gate.js';
 
@@ -209,7 +209,7 @@ const configCommand: Command = {
   options: [
     { name: 'max-iterations', type: 'string', description: 'Max re-engagement iterations (1-1000)' },
     { name: 'timeout', type: 'string', description: 'Timeout in minutes (1-1440)' },
-    { name: 'task-sources', type: 'string', description: 'Comma-separated task sources' },
+    { name: 'task-sources', type: 'string', description: `Comma-separated task sources: ${[...VALID_TASK_SOURCES].join(', ')}` },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const state = loadState();
@@ -219,7 +219,14 @@ const configCommand: Command = {
 
     if (maxIter) state.maxIterations = validateNumber(maxIter, 1, 1000, state.maxIterations);
     if (timeout) state.timeoutMinutes = validateNumber(timeout, 1, 1440, state.timeoutMinutes);
-    if (sources) state.taskSources = validateTaskSources(sources.split(',').map(s => s.trim()).filter(Boolean));
+    if (sources !== undefined) {
+      const validation = validateConfiguredTaskSources(sources.split(',').map(s => s.trim()).filter(Boolean));
+      if (!validation.valid) {
+        output.printError(`${validation.reason}. Valid sources: ${[...VALID_TASK_SOURCES].join(', ')}`);
+        return { success: false, exitCode: 1 };
+      }
+      state.taskSources = validation.sources;
+    }
 
     saveState(state);
     appendLog({ ts: Date.now(), event: 'config-updated', maxIterations: state.maxIterations, timeoutMinutes: state.timeoutMinutes, taskSources: state.taskSources });

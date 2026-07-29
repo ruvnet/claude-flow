@@ -13,7 +13,7 @@ import { validateText } from './validate-input.js';
 import {
   loadState, saveState, appendLog, loadLog, discoverTasks,
   isTerminal, tryLoadLearning,
-  validateNumber, validateTaskSources,
+  validateNumber, validateConfiguredTaskSources,
   VALID_TASK_SOURCES,
 } from '../autopilot-state.js';
 
@@ -84,7 +84,12 @@ const autopilotConfig: MCPTool = {
     properties: {
       maxIterations: { type: 'number', description: 'Max re-engagement iterations (1-1000)' },
       timeoutMinutes: { type: 'number', description: 'Timeout in minutes (1-1440)' },
-      taskSources: { type: 'array', items: { type: 'string' }, description: `Task sources: ${[...VALID_TASK_SOURCES].join(', ')}` },
+      taskSources: {
+        type: 'array',
+        minItems: 1,
+        items: { type: 'string', enum: [...VALID_TASK_SOURCES] },
+        description: `Task sources: ${[...VALID_TASK_SOURCES].join(', ')}`,
+      },
     },
   },
   handler: async (params: Record<string, unknown>) => {
@@ -96,7 +101,17 @@ const autopilotConfig: MCPTool = {
       state.timeoutMinutes = validateNumber(params.timeoutMinutes, 1, 1440, state.timeoutMinutes);
     }
     if (params.taskSources !== undefined) {
-      state.taskSources = validateTaskSources(params.taskSources);
+      const validation = validateConfiguredTaskSources(params.taskSources);
+      if (!validation.valid) {
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify({
+            error: validation.reason,
+            validSources: [...VALID_TASK_SOURCES],
+          }) }],
+          isError: true,
+        };
+      }
+      state.taskSources = validation.sources;
     }
     saveState(state);
     return ok({ maxIterations: state.maxIterations, timeoutMinutes: state.timeoutMinutes, taskSources: state.taskSources });
