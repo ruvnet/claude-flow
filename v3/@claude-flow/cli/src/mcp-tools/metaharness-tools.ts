@@ -206,7 +206,7 @@ export const metaharnessTools: MCPTool[] = [
   },
   {
     name: 'metaharness_genome',
-    description: 'ADR-150 — 7-section categorical readiness report from `metaharness genome <path>` (repo_type / agent_topology / risk_score / mcp_surface / test_confidence / publish_readiness). Use when you need the categorical view (vs numeric score). Pair with metaharness_score for the full readiness picture — score-alone is wrong because two harnesses with the same harnessFit can have very different agent_topology and mcp_surface. ' + MCP_SUCCESS_SEMANTIC,
+    description: 'ADR-150 — 7-section categorical readiness report from `metaharness genome <path>` (repo_type / agent_topology / risk_score / mcp_surface / test_confidence / publish_readiness). Upstream needs-work/blocked exit statuses are valid verdicts and return successfully as data.verdict + data.verdictExitCode; only a missing or malformed report is an error. Use when you need the categorical view (vs numeric score). Pair with metaharness_score for the full readiness picture — score-alone is wrong because two harnesses with the same harnessFit can have very different agent_topology and mcp_surface. ' + MCP_SUCCESS_SEMANTIC,
     category: 'metaharness',
     inputSchema: {
       type: 'object',

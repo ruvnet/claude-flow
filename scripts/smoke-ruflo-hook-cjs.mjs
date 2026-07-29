@@ -19,12 +19,15 @@ import { dirname, resolve } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
 const SHIM_PATH = resolve(REPO_ROOT, 'plugins', 'ruflo-core', 'scripts', 'ruflo-hook.cjs');
-const SH_SHIM_PATH = resolve(REPO_ROOT, 'plugins', 'ruflo-core', 'scripts', 'ruflo-hook.sh');
-// Sibling copies must stay in sync — #2132 shipped three .cjs mirrors
-const SIBLING_CJS_PATHS = [
-  resolve(REPO_ROOT, 'plugin', 'scripts', 'ruflo-hook.cjs'),
-  resolve(REPO_ROOT, '.claude-plugin', 'scripts', 'ruflo-hook.cjs'),
-];
+// Every distributable mirror must keep its platform pair on one dist-tag.
+const SHIM_PAIRS = [
+  resolve(REPO_ROOT, 'plugins', 'ruflo-core', 'scripts'),
+  resolve(REPO_ROOT, 'plugin', 'scripts'),
+  resolve(REPO_ROOT, '.claude-plugin', 'scripts'),
+].map((directory) => [
+  resolve(directory, 'ruflo-hook.sh'),
+  resolve(directory, 'ruflo-hook.cjs'),
+]);
 
 let passed = 0;
 let failed = 0;
@@ -131,11 +134,16 @@ console.log(`Shim path: ${SHIM_PATH}\n`);
     const m = readFileSync(p, 'utf8').match(tagRe);
     return m ? m[1] : null;
   };
-  const shTag = extractTag(SH_SHIM_PATH);
-  const cjsPaths = [SHIM_PATH, ...SIBLING_CJS_PATHS];
-  const cjsTags = cjsPaths.map(extractTag);
-  const allMatch = shTag && cjsTags.every((t) => t === shTag);
-  assert(allMatch, `dist-tag parity: .sh=${shTag}, .cjs=${JSON.stringify(cjsTags)}`);
+  const tags = SHIM_PAIRS.map(([shellPath, nodePath]) => ({
+    directory: dirname(shellPath),
+    shell: extractTag(shellPath),
+    node: extractTag(nodePath),
+  }));
+  const expectedTag = tags[0]?.shell;
+  const allMatch = Boolean(expectedTag) && tags.every(
+    ({ shell, node }) => shell === expectedTag && node === expectedTag,
+  );
+  assert(allMatch, `dist-tag parity across all shim pairs: ${JSON.stringify(tags)}`);
 }
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

@@ -21,10 +21,9 @@
 //      concurrent writer resurrecting old rows (#2621), step 2's upserts
 //      still report "ok", and only a fresh re-count catches the drift.
 //
-// This also incidentally fixes the separate staleness problem where
-// `memory store` (no --upsert) leaves a changed-but-still-present ADR's
-// content stale forever (#2660) — after a full purge there's nothing to
-// conflict with, so every store is a clean insert of current content.
+// Normal adr-index runs explicitly upsert changed records and deterministic
+// relationship keys (#2660). Reindex remains necessary for deletion/reaping:
+// an upsert cannot remove a record whose source file or relationship vanished.
 //
 // Usage:
 //   node scripts/reindex.mjs                         # purge + rebuild, markdown summary
@@ -41,14 +40,21 @@
 // primitive. Re-run this script if that ever happens; the post-condition
 // check below will tell you.
 
-import { basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { findAdrs, parseAdr } from './lib/parse-adrs.mjs';
+import {
+  CLI_PKG,
+  adrRecordKey,
+  adrRecordValue,
+  edgeKey,
+  edgeValue,
+  memoryStoreArgs,
+  uniqueEdges,
+} from './lib/index-records.mjs';
 
 // #2781: unify on the default CLI so the reindex writer and the default
 // `ruflo memory search` reader hit the same store. See import.mjs for the
 // full rationale.
-const CLI_PKG = '@claude-flow/cli@latest';
 if (process.env.CLI_CORE === '1') {
   console.warn(
     '[ruflo-adr] warning: CLI_CORE=1 is ignored — writing to the default ' +
@@ -75,15 +81,13 @@ function purgeNamespace(namespace) {
 }
 
 function memoryStore(namespace, key, value) {
-  const valueStr = typeof value === 'string' ? value : JSON.stringify(value);
   // Same argv-encoding note as import.mjs: `--flag=value` avoids npm's
   // non-ASCII-leading-dash argv rejection on em-dash titles (#2474 Bug 1).
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'store',
-    `--namespace=${namespace}`,
-    `--key=${key}`,
-    `--value=${valueStr}`,
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: ROOT });
+  const r = spawnSync(
+    'npx',
+    memoryStoreArgs(namespace, key, value),
+    { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: ROOT },
+  );
   if (r.status !== 0) return 'error: ' + (r.stderr || r.stdout || '').slice(0, 100);
   return 'ok';
 }
@@ -102,11 +106,12 @@ function memoryListCount(namespace) {
 const files = findAdrs(ROOT);
 const adrs = files.map((f) => parseAdr(f, ROOT));
 const byId = new Map();
-const allEdges = [];
+const parsedEdges = [];
 for (const a of adrs) {
   byId.set(a.id, a);
-  allEdges.push(...a.links);
+  parsedEdges.push(...a.links);
 }
+const allEdges = uniqueEdges(parsedEdges);
 
 const result = {
   scannedRoot: ROOT,
@@ -141,15 +146,14 @@ for (const ns of NAMESPACES) {
 
 // Step 2: rebuild from the current on-disk scan.
 for (const a of adrs) {
-  const r = memoryStore('adr-patterns', `${a.id}::${basename(a.file, '.md')}`,
-    `${a.title} — ${a.context || '(no context)'}\n\nfile: ${a.file}\nstatus: ${a.status}\ndate: ${a.date}\ntags: ${a.tags.join(',')}`);
+  const r = memoryStore('adr-patterns', adrRecordKey(a), adrRecordValue(a));
   if (r === 'ok') result.storedRecords++;
   else result.errors.push(`${a.id} ${a.file}: ${r}`);
 }
 for (const e of allEdges) {
-  const key = `${e.relation}:${e.from}->${e.to}:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const r = memoryStore('adr-edges', key, JSON.stringify({ ...e, capturedAt: new Date().toISOString() }));
+  const r = memoryStore('adr-edges', edgeKey(e), edgeValue(e));
   if (r === 'ok') result.storedEdges++;
+  else result.errors.push(`${edgeKey(e)}: ${r}`);
 }
 
 // Step 3: post-condition — re-count from a fresh `memory list`, not the

@@ -10,9 +10,9 @@
 //   node scripts/genome.mjs --path <dir> --alert-on-risk-above 0.5 --format json
 //
 // EXIT CODES
-//   0  OK
+//   0  Valid readiness report (including needs-work / blocked verdicts)
 //   1  --alert-on-risk-above threshold breached
-//   2  config error or genome failure
+//   2  config error or genome failure (no valid readiness report)
 
 import { runMetaharness, emitDegradedJsonAndExit } from './_harness.mjs';
 
@@ -30,14 +30,21 @@ const ARGS = (() => {
 function main() {
   const r = runMetaharness(['genome', ARGS.path]);
   if (r.degraded) { emitDegradedJsonAndExit(r.reason); return; }
-  if (r.exitCode !== 0 || !r.json) {
+  // Upstream uses 0/1/2 as a verdict channel:
+  // ready / needs-work / blocked. A non-zero status with a complete genome
+  // is therefore data, not a subprocess failure. Normalize valid reports to
+  // wrapper exit 0 so CLI and MCP callers can consume them; preserve the
+  // upstream verdict explicitly in the payload.
+  if (![0, 1, 2].includes(r.exitCode) || !isGenomePayload(r.json)) {
     console.error(`genome: metaharness exited ${r.exitCode}`);
     if (r.stderr) console.error(r.stderr.slice(0, 400));
     process.exit(2);
   }
   // iter 112 — generatedAt for consistency with other --format json outputs
   const payload = { ...r.json, path: ARGS.path, durationMs: r.durationMs,
-    generatedAt: new Date().toISOString() };
+    generatedAt: new Date().toISOString(),
+    verdict: verdictFromExitCode(r.exitCode),
+    verdictExitCode: r.exitCode };
 
   if (ARGS.alertRiskAbove !== null) {
     if (!isFinite(ARGS.alertRiskAbove)) {
@@ -66,6 +73,7 @@ function main() {
     console.log(`| mcp_surface | ${payload.mcp_surface ?? '—'} |`);
     console.log(`| test_confidence | ${payload.test_confidence ?? '—'} |`);
     console.log(`| publish_readiness | ${payload.publish_readiness ?? '—'} |`);
+    console.log(`| verdict | ${payload.verdict} (upstream exit ${payload.verdictExitCode}) |`);
     console.log(`| **duration** | ${payload.durationMs}ms |`);
     console.log('');
     if (payload.alert) {
@@ -75,6 +83,23 @@ function main() {
   }
 
   if (payload.alert?.triggered) process.exit(1);
+}
+
+function isGenomePayload(value) {
+  return !!value
+    && typeof value === 'object'
+    && typeof value.repo_type === 'string'
+    && Array.isArray(value.agent_topology)
+    && typeof value.risk_score === 'number'
+    && typeof value.mcp_surface === 'string'
+    && typeof value.test_confidence === 'number'
+    && typeof value.publish_readiness === 'number';
+}
+
+function verdictFromExitCode(exitCode) {
+  if (exitCode === 0) return 'ready';
+  if (exitCode === 1) return 'needs-work';
+  return 'blocked';
 }
 
 main();

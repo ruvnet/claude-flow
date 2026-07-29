@@ -10,7 +10,7 @@ tags: [plugin, adr, agentdb, reconcile, memory, hard-delete]
 
 ## Context
 
-Issue #2666: `adr-index` can add and (once #2660 is fixed) update an ADR in the `adr-patterns`/`adr-edges` namespaces, but has no way to **remove** one. Delete an ADR file, or delete a single relation line from a surviving one, and the row `adr-index` wrote for it survives every future import. `adr-verify` then certifies the resulting graph as healthy — an orphan row has no dangling ref and forms no cycle, so it's invisible to both of `adr-verify`'s checks.
+Issue #2666: `adr-index` can add and update an ADR in the `adr-patterns`/`adr-edges` namespaces, but has no way to **remove** one. Delete an ADR file, or delete a single relation line from a surviving one, and the row `adr-index` wrote for it survives every future import. `adr-verify` then certifies the resulting graph as healthy — an orphan row has no dangling ref and forms no cycle, so it's invisible to both of `adr-verify`'s checks.
 
 Root cause traced to the underlying `@claude-flow/cli` `memory` command surface, not this plugin's own logic:
 
@@ -41,7 +41,7 @@ New script, paired with the new `/adr-reindex` skill:
 2. Re-scan every ADR currently on disk (same dual-format parser `import.mjs` uses) and store fresh.
 3. Re-list `adr-patterns` and assert the count equals the number of files just scanned — a `storedRecords != 0` tally cannot see the failure this exists to prevent (issue's point 3): if the purge got clobbered by a concurrent writer (#2621) between step 1 and step 2, every store in step 2 still reports "ok", landing on top of resurrected rows. Only a fresh recount catches it. Exits non-zero on failure.
 
-Full-namespace wipe rather than a selective orphan diff, deliberately: `adr-edges` keys always carry a fresh `timestamp-rand` suffix (`import.mjs`), so edges are never deduplicated across repeated imports — a selective "only remove orphans" pass would still leave duplicate edge rows accumulating for ADRs that *do* still exist. A full rebuild is simpler, avoids that accumulation as a side effect, and — as a bonus, not the goal — incidentally fixes the separate staleness problem (#2660) where a changed-but-still-present ADR's stored content never refreshes, since a fresh insert after a full purge has nothing to conflict with.
+Full-namespace wipe rather than a selective orphan diff, deliberately. ADR records and edges now use explicit upserts with deterministic semantic identities (#2660), which makes repeated imports converge for sources that still exist. Upsert cannot express absence, however: only a rebuild from the on-disk source of truth can remove ADRs or relation lines that no longer exist.
 
 ### 3. `import.mjs`/`verify.mjs` cwd fix
 

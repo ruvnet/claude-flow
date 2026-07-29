@@ -11,7 +11,7 @@ Manage Architecture Decision Records. Parse $ARGUMENTS to determine the subcomma
 **`adr create <title>`** -- Create a new ADR with the next sequential number.
 1. Scan `docs/adr/` for existing ADRs to determine the next number
 2. Create `docs/adr/ADR-NNN-<slug>.md` from the standard template
-3. Store in AgentDB: `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store` at path `adr/ADR-NNN`
+3. Store in AgentDB with `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store`: key `mem:ADR-NNN`, tier `semantic`, and a JSON-encoded string value
 4. Report the created file path and ADR number
 
 **`adr list`** -- List all ADRs with their status.

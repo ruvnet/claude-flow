@@ -108,7 +108,9 @@ function parseDate(text) {
     const m = /^date:\s*(\S+)/m.exec(fm[1]);
     if (m) return m[1];
   }
-  const m = /^\*\*Date\*\*:\s*(\S+)/m.exec(text);
+  // #2659: adr-create emits metadata as Markdown list items. Accept the
+  // optional list marker and both common colon placements, matching Status.
+  const m = /^[-*+]?\s*\*\*Date:?\*\*:?\s*(\S+)/m.exec(text);
   return m ? m[1] : '';
 }
 
@@ -118,7 +120,7 @@ function parseTags(text) {
     const m = /^tags:\s*\[([^\]]+)\]/m.exec(fm[1]);
     if (m) return m[1].split(',').map((s) => s.trim()).filter(Boolean);
   }
-  const m = /^\*\*Tags\*\*:\s*(.+)$/m.exec(text);
+  const m = /^[-*+]?\s*\*\*Tags:?\*\*:?\s*(.+)$/m.exec(text);
   return m ? m[1].split(',').map((s) => s.trim()).filter(Boolean) : [];
 }
 
@@ -168,7 +170,7 @@ function parseLinks(text, selfId) {
   // Safe because extractAdrRefs strips anything that isn't an ADR-NNN
   // token, so over-capture into a plain-text continuation is harmless.
   const REL = (label) => new RegExp(
-    `^\\*\\*${label}(?:\\s*\\([^)]*\\))?:?\\*\\*:?\\s*(.+(?:\\n(?!\\s*(?:\\*\\*[A-Za-z]|##|---|[-*+]\\s|\\d+\\.\\s))[^\\n]+)*)`,
+    `^[-*+]?\\s*\\*\\*${label}(?:\\s*\\([^)]*\\))?:?\\*\\*:?\\s*(.+(?:\\n(?!\\s*(?:\\*\\*[A-Za-z]|##|---|[-*+]\\s|\\d+\\.\\s))[^\\n]+)*)`,
     'mi',
   );
   const supersedes = REL('Supersedes').exec(text);

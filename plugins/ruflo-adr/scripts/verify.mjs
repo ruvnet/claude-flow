@@ -13,6 +13,7 @@
 //   ADR_ROOT=/path/to/repo node scripts/verify.mjs   # same root import.mjs was run with
 
 import { spawnSync } from 'node:child_process';
+import { parseEdgeKey } from './lib/index-records.mjs';
 
 // ADR-100 / #1748 Issue 3 — CLI_CORE=1 routes to lite cli-core (~2s cold-cache).
 // verify only does list+retrieve across adr-patterns and adr-edges namespaces;
@@ -58,9 +59,10 @@ const adrIds = new Set(
 const edges = [];
 for (const e of edgeEntries) {
   const k = e.key || '';
-  // key format: relation:FROM->TO:timestamp-rand
-  const m = /^(\w[\w-]*?):(\S+?)->(\S+?):/.exec(k);
-  if (m) edges.push({ relation: m[1], from: m[2], to: m[3], key: k });
+  // Current deterministic key: relation:FROM->TO. Keep reading the legacy
+  // relation:FROM->TO:timestamp-rand shape for seamless upgrades (#2660).
+  const parsed = parseEdgeKey(k);
+  if (parsed) edges.push(parsed);
 }
 
 const danglingRefs = edges.filter((e) => !adrIds.has(e.to));

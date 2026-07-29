@@ -548,7 +548,7 @@ function isInitialized(cwd: string): { claude: boolean; claudeFlow: boolean } {
 }
 
 // Init subcommand (default)
-const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
+const initClaudeAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const force = ctx.flags.force as boolean;
   const minimal = ctx.flags.minimal as boolean;
   const full = ctx.flags.full as boolean;
@@ -563,14 +563,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const noGlobal = ctx.flags['no-global'] === true || ctx.flags['global'] === false;
   const allAgents = ctx.flags['all-agents'] as boolean;
   const cloudMcp = ctx.flags['cloud-mcp'] as boolean;
-  const codexMode = ctx.flags.codex as boolean;
-  const dualMode = ctx.flags.dual as boolean;
   const cwd = ctx.cwd;
-
-  // If codex mode, use the Codex initializer
-  if (codexMode || dualMode) {
-    return initCodexAction(ctx, { codexMode, dualMode, force, minimal, full });
-  }
 
   // Check if already initialized
   const initialized = isInitialized(cwd);
@@ -878,6 +871,60 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     output.printError(`Failed to initialize: ${error instanceof Error ? error.message : String(error)}`);
     return { success: false, exitCode: 1 };
   }
+};
+
+/**
+ * Route platform initialization. Dual mode deliberately runs both native
+ * initializers: Claude Code first, then Codex without its compatibility
+ * CLAUDE.md stub so the full native Claude scaffold remains authoritative.
+ */
+const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
+  const force = ctx.flags.force as boolean;
+  const minimal = ctx.flags.minimal as boolean;
+  const full = ctx.flags.full as boolean;
+  const codexMode = ctx.flags.codex as boolean;
+  const dualMode = ctx.flags.dual as boolean;
+
+  if (codexMode && !dualMode) {
+    return initCodexAction(ctx, { codexMode, dualMode: false, force, minimal, full });
+  }
+  if (!dualMode) {
+    return initClaudeAction(ctx);
+  }
+
+  const claudeContext: CommandContext = {
+    ...ctx,
+    flags: {
+      ...ctx.flags,
+      codex: false,
+      dual: false,
+      // The explicit Codex pass below owns Codex setup.
+      'no-codex-detect': true,
+    },
+  };
+  const claudeResult = await initClaudeAction(claudeContext);
+  if (!claudeResult.success) return claudeResult;
+
+  const codexResult = await initCodexAction(ctx, {
+    codexMode: true,
+    // Preserve the full CLAUDE.md and .claude/ scaffold just generated.
+    dualMode: false,
+    force,
+    minimal,
+    full,
+  });
+  if (!codexResult.success) {
+    return {
+      ...codexResult,
+      message: 'Claude Code initialized, but Codex initialization failed',
+      data: { claude: claudeResult.data, codex: codexResult.data },
+    };
+  }
+
+  return {
+    success: true,
+    data: { claude: claudeResult.data, codex: codexResult.data },
+  };
 };
 
 // Wizard subcommand for interactive setup
@@ -1616,7 +1663,7 @@ export const initCommand: Command = {
     { command: 'claude-flow init upgrade --settings', description: 'Update helpers and merge new settings (Agent Teams)' },
     { command: 'claude-flow init upgrade --verbose', description: 'Show detailed upgrade info' },
     { command: 'claude-flow init --codex', description: 'Initialize for OpenAI Codex (AGENTS.md)' },
-    { command: 'claude-flow init --codex --full', description: 'Codex init with all 137+ skills' },
+    { command: 'claude-flow init --codex --full', description: 'Codex init with all canonical packaged skills' },
     { command: 'claude-flow init --dual', description: 'Initialize for both Claude Code and Codex' },
     { command: 'claude-flow init --no-codex-detect', description: 'Skip auto-configuring OpenAI Codex even if it is installed' },
     { command: 'claude-flow init --no-skills-sh', description: 'Skip the post-init skills.sh registration' },
