@@ -26,6 +26,17 @@ import { createRequire } from 'node:module';
 let registryPromise: Promise<any> | null = null;
 let registryInstance: any = null;
 let bridgeAvailable: boolean | null = null;
+/**
+ * Why the bridge is unavailable, when it is.
+ *
+ * `bridgeAvailable = false` latches for the life of the process, so a single
+ * transient init failure (a slow Xenova/ONNX fetch, a locked db) routes every
+ * later write to the sql.js whole-image fallback — which then refuses whenever
+ * -wal/-shm sidecars are present. Without this, that refusal is the only
+ * symptom the caller ever sees, and it names a cause ("restore the native
+ * better-sqlite3 bridge") the caller has no way to check.
+ */
+let bridgeFailureReason: string | null = null;
 
 /**
  * ADR-323: reuse memory-initializer's provenance-type allowlist rather than
@@ -112,6 +123,32 @@ function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
 }
 
+/** Noisy init banners that carry no operational signal. */
+const INIT_LOG_NOISE = [
+  'Transformers.js',
+  'better-sqlite3',
+  '[AgentDB]',
+  '[HNSWLibBackend]',
+  'RuVector graph',
+];
+
+/**
+ * Should this init-time log line be swallowed?
+ *
+ * A DEGRADATION notice never is. AgentDB logs "[AgentDB] better-sqlite3 not
+ * available, using sql.js WASM" when it falls back to WASM, and both the
+ * '[AgentDB]' and 'better-sqlite3' entries above match it — so the one line
+ * explaining why the native driver was not in use was being discarded as
+ * noise. Suppress the banners, keep the bad news.
+ */
+export function shouldSuppressInitLog(msg: string): boolean {
+  const degradation = msg.includes('not available')
+    || msg.includes('falling back')
+    || msg.includes('fallback');
+  if (degradation) return false;
+  return INIT_LOG_NOISE.some((needle) => msg.includes(needle));
+}
+
 /**
  * Lazily initialize the ControllerRegistry singleton.
  * Returns null if @claude-flow/memory is not available.
@@ -127,15 +164,12 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
         const { ControllerRegistry } = await import('@claude-flow/memory');
         const registry = new ControllerRegistry();
 
-        // Suppress noisy console.log during init
+        // Suppress noisy console.log during init — but never suppress a
+        // DEGRADATION notice (see shouldSuppressInitLog).
         const origLog = console.log;
         console.log = (...args: unknown[]) => {
           const msg = String(args[0] ?? '');
-          if (msg.includes('Transformers.js') ||
-              msg.includes('better-sqlite3') ||
-              msg.includes('[AgentDB]') ||
-              msg.includes('[HNSWLibBackend]') ||
-              msg.includes('RuVector graph')) return;
+          if (shouldSuppressInitLog(msg)) return;
           origLog.apply(console, args);
         };
 
@@ -363,8 +397,13 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
 
         registryInstance = registry;
         bridgeAvailable = true;
+        bridgeFailureReason = null;
         return registry;
-      } catch {
+      } catch (err) {
+        // Record WHY. This latches for the process lifetime (see the
+        // bridgeFailureReason doc comment), so discarding the error here
+        // makes the resulting sql.js-fallback refusal undiagnosable.
+        bridgeFailureReason = err instanceof Error ? err.message : String(err);
         bridgeAvailable = false;
         registryPromise = null;
         return null;
@@ -1803,7 +1842,23 @@ export async function getControllerRegistry(dbPath?: string): Promise<any | null
 }
 
 /**
+ * Why the bridge is unavailable, or null when it is healthy or untried.
+ *
+ * Callers that surface a degraded-path error should include this so the
+ * operator learns the cause instead of only the symptom.
+ */
+export function getBridgeFailureReason(): string | null {
+  return bridgeAvailable === false ? bridgeFailureReason : null;
+}
+
+/**
  * Shutdown the bridge and release resources.
+ *
+ * The cached state is cleared unconditionally. Previously the reset lived
+ * inside `if (registryInstance)`, so it could not clear a FAILED init — the
+ * one state that actually needs clearing, since `registryInstance` is null
+ * precisely when init failed. A process that latched `bridgeAvailable = false`
+ * therefore had no recovery path short of a restart.
  */
 export async function shutdownBridge(): Promise<void> {
   if (registryInstance) {
@@ -1812,10 +1867,11 @@ export async function shutdownBridge(): Promise<void> {
     } catch {
       // Best-effort
     }
-    registryInstance = null;
-    registryPromise = null;
-    bridgeAvailable = null;
   }
+  registryInstance = null;
+  registryPromise = null;
+  bridgeAvailable = null;
+  bridgeFailureReason = null;
 }
 
 // ===== Phase 3: ReasoningBank pattern operations =====
