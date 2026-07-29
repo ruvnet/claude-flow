@@ -177,5 +177,12 @@ ADR="$ROOT/docs/adrs/0002-reconcile-deleted-adrs.md"
 [[ -f "$ADR" ]] && grep -qE "^status:[[:space:]]*Accepted" "$ADR" \
   && ok || bad "ADR-0002 missing or status != Accepted"
 
+# 22. Behavioral contracts for #2660/#2659/#2651
+step "22. ADR indexing + adr-create regression contracts"
+TEST_DIR="$ROOT/scripts/__tests__"
+test_count=$(find "$TEST_DIR" -maxdepth 1 -name '*.test.mjs' 2>/dev/null | wc -l | tr -d ' ')
+[[ "$test_count" -eq 3 ]] && node --test "$TEST_DIR"/*.test.mjs >/dev/null 2>&1 \
+  && ok || bad "contract tests failed (run: node --test $TEST_DIR/*.test.mjs)"
+
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1

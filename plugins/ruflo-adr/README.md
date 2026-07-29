@@ -67,7 +67,7 @@ This plugin owns the `adr-patterns` AgentDB namespace. It defers to [ruflo-agent
 
 ```bash
 bash plugins/ruflo-adr/scripts/smoke.sh
-# Expected: "21 passed, 0 failed"
+# Expected: "22 passed, 0 failed"
 ```
 
 ## Architecture Decisions

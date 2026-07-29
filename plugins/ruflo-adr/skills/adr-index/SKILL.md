@@ -56,11 +56,15 @@ date: <ISO date>
 tags: <comma-separated>
 ```
 
-`adr-edges` namespace, key `<relation>:<FROM>-><TO>:<timestamp-rand>`, value:
+`adr-edges` namespace, deterministic key `<relation>:<FROM>-><TO>`, value:
 
 ```json
 { "from": "ADR-097", "to": "ADR-086", "relation": "related", "capturedAt": "<ISO>" }
 ```
+
+Both ADR records and relationship edges are stored with explicit upsert
+semantics. Re-running `adr-index` refreshes changed metadata in place and does
+not create duplicate copies of an unchanged semantic edge.
 
 ## False-positive guard
 
