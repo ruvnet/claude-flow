@@ -583,6 +583,64 @@ async function logAttestation(
 const _schemaEnsuredDbs = new WeakSet<object>();
 
 /**
+ * Create/migrate the bridge's `memory_entries` table on `db`.
+ *
+ * Returns true when the schema is known-good, false when the database was not
+ * writable (caller then leaves it un-ensured so a later writable call retries).
+ *
+ * Exported so the ADR-323 column migration can be tested directly: the bug it
+ * fixes was invisible end-to-end, because the resulting error was swallowed and
+ * reported as an unrelated WAL-sidecar refusal.
+ */
+export function ensureBridgeSchema(db: { exec: (sql: string) => unknown }): boolean {
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS memory_entries (
+      id TEXT PRIMARY KEY,
+      key TEXT NOT NULL,
+      namespace TEXT DEFAULT 'default',
+      content TEXT NOT NULL,
+      type TEXT DEFAULT 'semantic',
+      embedding TEXT,
+      embedding_model TEXT DEFAULT 'local',
+      embedding_dimensions INTEGER,
+      tags TEXT,
+      metadata TEXT,
+      owner_id TEXT,
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+      updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+      expires_at INTEGER,
+      last_accessed_at INTEGER,
+      access_count INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'active',
+      provenance_type TEXT DEFAULT 'unknown',
+      UNIQUE(namespace, key)
+    )`);
+    // ADR-323 added provenance_type to bridgeStoreEntry's INSERT, and
+    // ensureSchemaColumns() backfills it on the sql.js path — the bridge path
+    // had no equivalent. `CREATE TABLE IF NOT EXISTS` is a no-op on a table
+    // created before ADR-323, so on any pre-existing database every bridge
+    // write threw "table memory_entries has no column named provenance_type",
+    // was swallowed by the catch at the end of bridgeStoreEntry(), and demoted
+    // the caller to the sql.js whole-image path — which then refused with a
+    // WAL-sidecar error naming an unrelated cause. Silent, total write loss.
+    try {
+      db.exec(`ALTER TABLE memory_entries ADD COLUMN provenance_type TEXT DEFAULT 'unknown'`);
+    } catch {
+      // Already present (the common case). SQLite has no ADD COLUMN IF NOT
+      // EXISTS, so attempt-and-ignore is the idiom.
+    }
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_ns ON memory_entries(namespace)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_key ON memory_entries(key)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_status ON memory_entries(status)`);
+    return true;
+  } catch {
+    // Read-only database — leave it un-ensured so a writable call can retry.
+    return false;
+  }
+}
+
+
+/**
  * Get the AgentDB database handle and ensure memory_entries table exists.
  * Returns null if not available.
  */
@@ -597,36 +655,7 @@ function getDb(registry: any): any | null {
   // call (store/search/get) was pure per-op overhead. Keyed by handle via a
   // WeakSet so a new db instance re-ensures without a stale global flag.
   if (!_schemaEnsuredDbs.has(db)) {
-    try {
-      db.exec(`CREATE TABLE IF NOT EXISTS memory_entries (
-        id TEXT PRIMARY KEY,
-        key TEXT NOT NULL,
-        namespace TEXT DEFAULT 'default',
-        content TEXT NOT NULL,
-        type TEXT DEFAULT 'semantic',
-        embedding TEXT,
-        embedding_model TEXT DEFAULT 'local',
-        embedding_dimensions INTEGER,
-        tags TEXT,
-        metadata TEXT,
-        owner_id TEXT,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-        expires_at INTEGER,
-        last_accessed_at INTEGER,
-        access_count INTEGER DEFAULT 0,
-        status TEXT DEFAULT 'active',
-        UNIQUE(namespace, key)
-      )`);
-      // Ensure indexes
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_ns ON memory_entries(namespace)`);
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_key ON memory_entries(key)`);
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_status ON memory_entries(status)`);
-      _schemaEnsuredDbs.add(db);
-    } catch {
-      // Table already exists or db is read-only — that's fine. Don't mark
-      // ensured on failure so a later writable call can retry.
-    }
+    if (ensureBridgeSchema(db)) _schemaEnsuredDbs.add(db);
   }
 
   // ─── #2256-followup: rescue agentdb.embedder when its transformers.js
@@ -954,6 +983,11 @@ export async function bridgeStoreEntry(options: {
     // never triggers the #2735 whole-image guard with a misleading
     // "active native WAL connection" error.
     const msg = err instanceof Error ? err.message : String(err);
+    // Returning null below demotes the caller to the sql.js whole-image path,
+    // whose WAL-sidecar guard then reports a cause that has nothing to do with
+    // what actually went wrong here. Record the real error so it can be
+    // surfaced alongside that guard's message.
+    bridgeFailureReason = msg;
     if (/UNIQUE constraint failed/i.test(msg)) {
       return {
         success: false,
@@ -1842,13 +1876,19 @@ export async function getControllerRegistry(dbPath?: string): Promise<any | null
 }
 
 /**
- * Why the bridge is unavailable, or null when it is healthy or untried.
+ * Why the bridge last declined a write, or null when it has not.
+ *
+ * Deliberately NOT gated on `bridgeAvailable === false`. A bridge that
+ * initialised fine can still fail every write — a schema mismatch throws
+ * per-operation while the registry stays healthy — and that case is exactly
+ * the one worth reporting, since the caller then demotes to a fallback whose
+ * error message describes something else entirely.
  *
  * Callers that surface a degraded-path error should include this so the
  * operator learns the cause instead of only the symptom.
  */
 export function getBridgeFailureReason(): string | null {
-  return bridgeAvailable === false ? bridgeFailureReason : null;
+  return bridgeFailureReason;
 }
 
 /**
