@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs';
 import type { CLICommandDefinition, PluginContext } from '@claude-flow/shared/src/plugin-interface.js';
 import type { FederationCoordinator } from './application/federation-coordinator.js';
+import { JCS_SIGNATURE_PROTOCOL } from './application/inbound-dispatcher.js';
 import { getTrustLevelLabel, TrustLevel } from './domain/entities/trust-level.js';
+import type { FederationManifest } from './domain/services/discovery-service.js';
+import { FEDERATION_PLUGIN_VERSION } from './version.js';
 
 type CoordinatorGetter = () => FederationCoordinator | null;
 type ContextGetter = () => PluginContext | null;
@@ -9,6 +13,20 @@ function requireCoordinator(get: CoordinatorGetter): FederationCoordinator {
   const c = get();
   if (!c) throw new Error('Federation not initialized. Run "federation init" first.');
   return c;
+}
+
+function readPeerManifest(value: unknown): FederationManifest | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new TypeError('Peer manifest must be a JSON string or file path');
+  }
+  const input = value.trim();
+  const json = input.startsWith('{') ? input : readFileSync(input, 'utf8');
+  const parsed = JSON.parse(json) as unknown;
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new TypeError('Peer manifest must be a JSON object');
+  }
+  return parsed as FederationManifest;
 }
 
 export function createCliCommands(
@@ -34,10 +52,10 @@ export function createCliCommands(
           capabilities: {
             agentTypes: ['coder', 'reviewer', 'tester'],
             maxConcurrentSessions: 10,
-            supportedProtocols: ['websocket', 'http'],
+            supportedProtocols: ['websocket', 'http', JCS_SIGNATURE_PROTOCOL],
             complianceModes: [args['compliance'] as string],
           },
-          version: '1.0.0-alpha.1',
+          version: FEDERATION_PLUGIN_VERSION,
           timestamp: new Date().toISOString(),
         });
         console.log(`Federation initialized: ${nodeId} at ${args['endpoint']}`);
@@ -45,11 +63,17 @@ export function createCliCommands(
     },
     {
       name: 'federation join',
-      description: 'Join a federation by connecting to a peer endpoint',
+      description: 'Join a federation endpoint; supply a signed peer manifest to negotiate consequential protocols',
       arguments: [{ name: 'endpoint', description: 'Remote peer endpoint', required: true }],
+      options: [
+        { name: 'manifest', short: 'm', description: 'Signed peer manifest as JSON or a file path', type: 'string' },
+      ],
       handler: async (args) => {
         const coordinator = requireCoordinator(getCoordinator);
-        const session = await coordinator.joinPeer(args._[0]!);
+        const session = await coordinator.joinPeer(
+          args._[0]!,
+          readPeerManifest(args['manifest']),
+        );
         console.log(`Joined peer. Session: ${session.sessionId}`);
         console.log(`Trust level: ${getTrustLevelLabel(session.trustLevel)}`);
         console.log(`Capabilities: ${session.negotiatedCapabilities.join(', ')}`);
@@ -90,9 +114,15 @@ export function createCliCommands(
       name: 'federation peers add',
       description: 'Add a static peer to the federation',
       arguments: [{ name: 'endpoint', description: 'Peer endpoint to add', required: true }],
+      options: [
+        { name: 'manifest', short: 'm', description: 'Signed peer manifest as JSON or a file path', type: 'string' },
+      ],
       handler: async (args) => {
         const coordinator = requireCoordinator(getCoordinator);
-        const session = await coordinator.joinPeer(args._[0]!);
+        const session = await coordinator.joinPeer(
+          args._[0]!,
+          readPeerManifest(args['manifest']),
+        );
         console.log(`Peer added and connected. Session: ${session.sessionId}`);
       },
     },

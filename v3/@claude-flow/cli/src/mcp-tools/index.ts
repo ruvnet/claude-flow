@@ -24,7 +24,31 @@ export { claimsTools } from './claims-tools.js';
 export { policyTools } from './policy-tools.js';
 export { wasmAgentTools } from './wasm-agent-tools.js';
 export { ruvllmWasmTools } from './ruvllm-tools.js';
-export { guidanceTools } from './guidance-tools.js';
+export {
+  configureGuidanceToolProvider,
+  guidanceTools,
+} from './guidance-tools.js';
+export {
+  buildCapabilityBrain,
+  CAPABILITY_DOMAINS,
+  classifyCapabilityTool,
+  IMPLEMENTATION_LOOP,
+  recommendCapabilities,
+  RUFLO_CLI_COMMANDS,
+} from './capability-brain.js';
+export type {
+  AvailabilityState,
+  CapabilityAuthority,
+  CapabilityBrain,
+  CapabilityDomain,
+  CapabilityDomainDefinition,
+  CapabilityHealth,
+  CapabilityMaturity,
+  CapabilityRecommendation,
+  CapabilityRisk,
+  CapabilityToolMetadata,
+  ImplementationLoopStep,
+} from './capability-brain.js';
 export { autopilotTools } from './autopilot-tools.js';
 // ADR-150 — MetaHarness MCP tools (score / genome / mcp-scan / threat-model / oia-audit)
 export { metaharnessTools } from './metaharness-tools.js';

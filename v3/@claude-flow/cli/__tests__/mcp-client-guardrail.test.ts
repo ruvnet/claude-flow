@@ -45,7 +45,10 @@ vi.mock('../src/mcp-tools/agentdb-tools.js', () => ({ agentdbTools: [] }));
 vi.mock('../src/mcp-tools/ruvllm-tools.js', () => ({ ruvllmWasmTools: [] }));
 vi.mock('../src/mcp-tools/wasm-agent-tools.js', () => ({ wasmAgentTools: [] }));
 vi.mock('../src/mcp-tools/managed-agent-tools.js', () => ({ managedAgentTools: [] }));
-vi.mock('../src/mcp-tools/guidance-tools.js', () => ({ guidanceTools: [] }));
+vi.mock('../src/mcp-tools/guidance-tools.js', () => ({
+  guidanceTools: [],
+  configureGuidanceToolProvider: vi.fn(),
+}));
 vi.mock('../src/mcp-tools/autopilot-tools.js', () => ({ autopilotTools: [] }));
 vi.mock('../src/ruvector/coverage-tools.js', () => ({ coverageRouterTools: [] }));
 

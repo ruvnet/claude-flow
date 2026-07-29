@@ -7,9 +7,18 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { AgentFederationPlugin } from '../../src/plugin.js';
+import {
+  AgentFederationPlugin,
+} from '../../src/plugin.js';
+import {
+  JCS_SIGNATURE_PROTOCOL,
+} from '../../src/application/inbound-dispatcher.js';
+import {
+  FEDERATION_PLUGIN_VERSION,
+} from '../../src/version.js';
+import { TrustLevel } from '../../src/domain/entities/trust-level.js';
 
-function createMockContext() {
+function createMockContext(configOverrides: Record<string, unknown> = {}) {
   return {
     config: {
       nodeId: 'test-node',
@@ -17,6 +26,7 @@ function createMockContext() {
       complianceMode: 'none',
       staticPeers: [] as string[],
       hashSalt: 'test-salt',
+      ...configOverrides,
     } as Record<string, unknown>,
     logger: {
       info: vi.fn(),
@@ -49,8 +59,8 @@ describe('AgentFederationPlugin', () => {
       expect(plugin.name).toBe('@claude-flow/plugin-agent-federation');
     });
 
-    it('should have version set to 1.0.0-alpha.1', () => {
-      expect(plugin.version).toBe('1.0.0-alpha.1');
+    it('should have version set to 1.0.0-alpha.17', () => {
+      expect(plugin.version).toBe('1.0.0-alpha.17');
     });
 
     it('should have a non-empty description', () => {
@@ -163,6 +173,88 @@ describe('AgentFederationPlugin', () => {
       expect(context.logger.info).toHaveBeenCalledWith(
         expect.stringContaining('initialized'),
       );
+    });
+
+    it('trusts JCS only from a verified peer manifest, never endpoint self-negotiation', async () => {
+      await plugin.initialize(context as any);
+      const registered = (name: string) =>
+        context.services.register.mock.calls.find(([serviceName]) => serviceName === name)?.[1] as any;
+      const coordinator = registered('federation:coordinator');
+      const discovery = registered('federation:discovery');
+      const peerPlugin = new AgentFederationPlugin();
+      const peerContext = createMockContext({
+        nodeId: 'peer-node',
+        endpoint: 'ws://peer.example:9100',
+        hashSalt: 'peer-salt',
+      });
+
+      try {
+        await coordinator.initialize({
+          nodeId: 'stale-cli-node',
+          publicKey: '',
+          endpoint: 'ws://stale.invalid:1',
+          capabilities: {
+            agentTypes: ['coder'],
+            maxConcurrentSessions: 1,
+            supportedProtocols: ['websocket', 'http'],
+            complianceModes: [],
+          },
+          version: '1.0.0-alpha.1',
+          timestamp: new Date().toISOString(),
+        });
+
+        const localManifest = discovery.getLocalManifest();
+        expect(localManifest.nodeId).toBe('test-node');
+        expect(localManifest.endpoint).toBe('ws://localhost:9100');
+        expect(localManifest.publicKey).toMatch(/^[0-9a-f]{64}$/);
+        expect(localManifest.version).toBe(FEDERATION_PLUGIN_VERSION);
+        expect(localManifest.capabilities.supportedProtocols).toContain(
+          JCS_SIGNATURE_PROTOCOL,
+        );
+
+        const endpointOnly = await coordinator.joinPeer('ws://legacy.example:9100');
+        const unknownPeer = discovery.getPeer(endpointOnly.remoteNodeId);
+        expect(endpointOnly.trustLevel).toBe(TrustLevel.UNTRUSTED);
+        expect(endpointOnly.negotiatedCapabilities).not.toContain(JCS_SIGNATURE_PROTOCOL);
+        expect(unknownPeer.capabilities.supportedProtocols).not.toContain(
+          JCS_SIGNATURE_PROTOCOL,
+        );
+
+        await peerPlugin.initialize(peerContext as any);
+        const peerRegistered = (name: string) =>
+          peerContext.services.register.mock.calls
+            .find(([serviceName]) => serviceName === name)?.[1] as any;
+        const peerCoordinator = peerRegistered('federation:coordinator');
+        const peerDiscovery = peerRegistered('federation:discovery');
+        await peerCoordinator.initialize({
+          nodeId: 'ignored',
+          publicKey: '',
+          endpoint: 'ws://ignored.invalid:1',
+          capabilities: {
+            agentTypes: ['reviewer'],
+            maxConcurrentSessions: 1,
+            supportedProtocols: ['websocket', 'http'],
+            complianceModes: [],
+          },
+          version: 'stale',
+          timestamp: new Date().toISOString(),
+        });
+        const signedPeerManifest = peerDiscovery.getLocalManifest();
+
+        const verified = await coordinator.joinPeer(
+          signedPeerManifest.endpoint,
+          signedPeerManifest,
+        );
+        const verifiedPeer = discovery.getPeer(verified.remoteNodeId);
+        expect(verified.trustLevel).toBe(TrustLevel.VERIFIED);
+        expect(verified.negotiatedCapabilities).toContain(JCS_SIGNATURE_PROTOCOL);
+        expect(verifiedPeer.capabilities.supportedProtocols).toContain(
+          JCS_SIGNATURE_PROTOCOL,
+        );
+      } finally {
+        await peerPlugin.shutdown();
+        await plugin.shutdown();
+      }
     });
   });
 

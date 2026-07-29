@@ -50,6 +50,9 @@ export interface FederationCoordinatorConfig {
   readonly publicKey: string;
   readonly endpoint: string;
   readonly capabilities: readonly string[];
+  /** Wire protocols this runtime is prepared to advertise and negotiate. */
+  readonly supportedProtocols?: readonly string[];
+  readonly version?: string;
 }
 
 export interface FederationStatus {
@@ -163,7 +166,21 @@ export class FederationCoordinator {
   }
 
   async initialize(manifest: Omit<FederationManifest, 'signature'>): Promise<void> {
-    await this.discovery.publishManifest(manifest);
+    // The coordinator's keypair and runtime protocol configuration are
+    // authoritative. CLI/MCP callers may describe agent/compliance capacity,
+    // but cannot replace the identity created by the plugin.
+    await this.discovery.publishManifest({
+      ...manifest,
+      nodeId: this.config.nodeId,
+      publicKey: this.config.publicKey,
+      endpoint: this.config.endpoint,
+      capabilities: {
+        ...manifest.capabilities,
+        supportedProtocols:
+          this.config.supportedProtocols ?? manifest.capabilities.supportedProtocols,
+      },
+      version: this.config.version ?? manifest.version,
+    });
     this.discovery.startPeriodicDiscovery();
     this.initialized = true;
 
@@ -188,17 +205,20 @@ export class FederationCoordinator {
     this.initialized = false;
   }
 
-  async joinPeer(endpoint: string): Promise<FederationSession> {
+  async joinPeer(
+    endpoint: string,
+    manifest?: FederationManifest,
+  ): Promise<FederationSession> {
     this.ensureInitialized();
 
-    const node = await this.discovery.addStaticPeer(endpoint);
+    const node = await this.discovery.addStaticPeer(endpoint, manifest);
 
     await this.audit.log('peer_discovered', {
       targetNodeId: node.nodeId,
       metadata: { endpoint },
     });
 
-    return this.establishSession(node);
+    return this.establishSession(node, manifest !== undefined);
   }
 
   async leavePeer(nodeId: string): Promise<void> {
@@ -626,36 +646,30 @@ export class FederationCoordinator {
     return Array.from(this.sessions.values()).filter(s => s.active && !s.isExpired());
   }
 
-  private async establishSession(node: FederationNode): Promise<FederationSession> {
-    await this.audit.log('handshake_initiated', { targetNodeId: node.nodeId });
-
-    const challenge = await this.handshake.initiateHandshake(node);
-    const response = await this.handshake.respondToHandshake(challenge);
-    const result = await this.handshake.verifyChallenge(response, node);
-
-    if (!result.success || !result.session) {
-      await this.audit.log('handshake_failed', {
-        targetNodeId: node.nodeId,
-        metadata: { error: result.error },
-      });
-      throw new Error(`Handshake failed: ${result.error}`);
-    }
-
-    this.sessions.set(result.session.sessionId, result.session);
+  private async establishSession(
+    node: FederationNode,
+    verifiedManifest: boolean,
+  ): Promise<FederationSession> {
+    const session = this.handshake.establishDiscoverySession(node, verifiedManifest);
+    this.sessions.set(session.sessionId, session);
 
     await this.audit.log('handshake_completed', {
       targetNodeId: node.nodeId,
-      sessionId: result.session.sessionId,
-      trustLevel: result.session.trustLevel,
+      sessionId: session.sessionId,
+      trustLevel: session.trustLevel,
+      metadata: {
+        mode: verifiedManifest ? 'verified-manifest' : 'endpoint-only',
+        liveChallengeAuthenticated: false,
+      },
     });
 
     await this.audit.log('session_created', {
-      sessionId: result.session.sessionId,
+      sessionId: session.sessionId,
       targetNodeId: node.nodeId,
-      trustLevel: result.session.trustLevel,
+      trustLevel: session.trustLevel,
     });
 
-    return result.session;
+    return session;
   }
 
   private findSessionByNodeId(nodeId: string): FederationSession | undefined {

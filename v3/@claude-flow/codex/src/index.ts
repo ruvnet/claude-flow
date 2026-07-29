@@ -62,6 +62,9 @@ export type {
 export { CodexWorktreeCoordinator } from './worktrees/index.js';
 export type { WorktreeAssignment, WorktreeRunRecord } from './worktrees/index.js';
 
+// Repository harness contracts and in-memory reference implementations.
+export * from './harness/index.js';
+
 // Codex /loop-compatible runner
 export {
   buildCodexLoopPrompt,
@@ -90,7 +93,7 @@ export {
 /**
  * Package version
  */
-export const VERSION = '3.0.2';
+export const VERSION = '3.0.3';
 
 /**
  * Package metadata
