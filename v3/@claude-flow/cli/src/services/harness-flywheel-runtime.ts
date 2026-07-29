@@ -40,6 +40,52 @@ const ANCHOR: AnchorTask[] = [
 ].map(([q, labels], i) => ({ id: `q${String(i).padStart(2, '0')}`, input: { id: `q${String(i).padStart(2, '0')}`, q: q as string }, expected: labels as string[] }));
 
 /**
+ * The ADR-322 retrieval safety envelope.
+ *
+ * It MUST describe the policy surface the proposer actually emits —
+ * `RetrievalConfig`. The v1 envelope allowed `topK`/`rerank`, which are
+ * `neural_patterns` search-call arguments not representable in
+ * `RetrievalConfig`, while omitting the three weight axes that
+ * `retrievalPolicyNeighbors` does mutate. Because `validateCandidate` checks
+ * EVERY key of a candidate policy (candidates are full snapshots, not deltas),
+ * that drift made every locally-proposed candidate inadmissible and the local
+ * evaluation path unreachable — no receipt, therefore no promotion, ever.
+ *
+ * Every axis carries a finite bound: an allowed key WITHOUT bounds is an
+ * unbounded key, because `validateCandidate` applies bounds only when present.
+ * A Darwin proposer could otherwise submit arbitrary weights on the three axes.
+ *
+ * Exported so tests can bind the REAL envelope to the REAL proposer; the drift
+ * survived review precisely because no test wired those two together.
+ */
+export function retrievalSafetyEnvelope(ref?: string): SafetyEnvelope {
+  const allowedPolicyKeys = ['alpha', 'subjectWeight', 'mmrLambda', 'bodyWeight', 'typePenaltyFactor'];
+  const numericBounds = {
+    alpha: { min: 0.1, max: 0.9 },
+    subjectWeight: { min: 0.1, max: 10 },
+    mmrLambda: { min: 0.3, max: 0.9 },
+    bodyWeight: { min: 0.1, max: 10 },
+    typePenaltyFactor: { min: 0.1, max: 10 },
+  };
+  return {
+    ref: ref ?? sha256Ref(JSON.stringify({
+      schema: 'ruflo.retrieval-safety-envelope/v2',
+      allowedPolicyKeys,
+      numericBounds,
+    })),
+    allowedPolicyKeys,
+    numericBounds,
+    // Retrieval evaluations are local and report zero provider spend today;
+    // finite ceilings make any future resource evidence fail closed.
+    maxP95LatencyMicros: 5_000_000,
+    maxCostMicrosPerTask: 10_000,
+    maxTokensPerTask: 100_000,
+    maxFailureRate: 0.01,
+    maxEvaluationCostMicros: 1_000_000,
+  };
+}
+
+/**
  * Run one live flywheel tick against `projectRoot`. Opt-in + $0 default: with
  * RUFLO_HARNESS_LOOP unset it is a no-op. Best-effort; never throws.
  */
@@ -84,30 +130,7 @@ export async function runFlywheelWorker(
       ...DEFAULT_CONFIG,
       ...((applier.activeChampion(projectRoot)?.params as Partial<RetrievalConfig>) ?? {}),
     };
-    const safetyEnvelope: SafetyEnvelope = {
-      ref: opts.safetyEnvelopeRef ?? sha256Ref(JSON.stringify({
-        schema: 'ruflo.retrieval-safety-envelope/v1',
-        allowedPolicyKeys: ['alpha', 'topK', 'rerank', 'mmrLambda'],
-        numericBounds: {
-          alpha: { min: 0.1, max: 0.9 },
-          topK: { min: 5, max: 20 },
-          mmrLambda: { min: 0.3, max: 0.9 },
-        },
-      })),
-      allowedPolicyKeys: ['alpha', 'topK', 'rerank', 'mmrLambda'],
-      numericBounds: {
-        alpha: { min: 0.1, max: 0.9 },
-        topK: { min: 5, max: 20 },
-        mmrLambda: { min: 0.3, max: 0.9 },
-      },
-      // Retrieval evaluations are local and report zero provider spend today;
-      // finite ceilings make any future resource evidence fail closed.
-      maxP95LatencyMicros: 5_000_000,
-      maxCostMicrosPerTask: 10_000,
-      maxTokensPerTask: 100_000,
-      maxFailureRate: 0.01,
-      maxEvaluationCostMicros: 1_000_000,
-    };
+    const safetyEnvelope = retrievalSafetyEnvelope(opts.safetyEnvelopeRef);
     // CLI flag opts.proposer takes precedence over RUFLO_FLYWHEEL_PROPOSER.
     const proposerMode = opts.proposer
       ?? ((process.env.RUFLO_FLYWHEEL_PROPOSER as ProposerMode | undefined) ?? 'auto');
