@@ -108,6 +108,7 @@ export async function runFlywheelWorker(
       maxFailureRate: 0.01,
       maxEvaluationCostMicros: 1_000_000,
     };
+    // CLI flag opts.proposer takes precedence over RUFLO_FLYWHEEL_PROPOSER.
     const proposerMode = opts.proposer
       ?? ((process.env.RUFLO_FLYWHEEL_PROPOSER as ProposerMode | undefined) ?? 'auto');
     if (!['auto', 'local', 'darwin'].includes(proposerMode)) {
