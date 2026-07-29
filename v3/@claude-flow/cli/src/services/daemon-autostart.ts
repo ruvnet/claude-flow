@@ -64,6 +64,46 @@ function autostartDisabled(projectRoot: string): boolean {
   return autostartDisabledByProjectConfig(projectRoot);
 }
 
+/**
+ * Return true only when the directory contains a durable Ruflo project marker.
+ *
+ * A bare `.claude/` is owned by Claude Code, and a bare `.claude-flow/` is not
+ * sufficient either: startup-time policy/champion migration can create it
+ * before this function runs. Treating that mutation as authorization caused a
+ * read-only command in any Claude project to spawn a detached daemon (#2852).
+ */
+export function isRufloProject(projectRoot: string): boolean {
+  const root = path.resolve(projectRoot);
+  const directMarkers = [
+    path.join(root, '.claude-flow', 'config.yaml'),
+    path.join(root, '.claude-flow', 'config.yml'),
+    path.join(root, '.claude-flow', 'config.json'),
+    path.join(root, 'claude-flow.config.json'),
+    path.join(root, '.swarm', 'memory.db'),
+  ];
+  if (directMarkers.some((marker) => fs.existsSync(marker))) return true;
+
+  try {
+    const settings = JSON.parse(
+      fs.readFileSync(path.join(root, '.claude', 'settings.json'), 'utf-8'),
+    );
+    if (settings && typeof settings === 'object' && 'claudeFlow' in settings) {
+      return true;
+    }
+  } catch { /* absent/malformed/non-Ruflo settings */ }
+
+  try {
+    const mcp = JSON.parse(fs.readFileSync(path.join(root, '.mcp.json'), 'utf-8'));
+    const servers = mcp?.mcpServers;
+    if (servers && typeof servers === 'object'
+      && ('ruflo' in servers || 'claude-flow' in servers)) {
+      return true;
+    }
+  } catch { /* absent/malformed/non-Ruflo MCP config */ }
+
+  return false;
+}
+
 export interface EnsureResult { started: boolean; reason?: string }
 
 /** Spawn `daemon start` detached, reusing all its lock/TTL machinery. Injectable for tests. */
@@ -90,10 +130,7 @@ export function ensureDaemonRunning(
 ): EnsureResult {
   try {
     if (autostartDisabled(projectRoot)) return { started: false, reason: 'disabled (RUFLO_DAEMON_AUTOSTART=0 or project config)' };
-    // `.claude/` belongs to Claude Code and is present in many repositories
-    // that have never initialized Ruflo. Only Ruflo's own state directory is
-    // an authorization signal for spawning a detached background process.
-    if (!fs.existsSync(path.join(projectRoot, '.claude-flow'))) {
+    if (!isRufloProject(projectRoot)) {
       return { started: false, reason: 'not a ruflo project' };
     }
     const alive = (opts.isAlive ?? isDaemonAlive)(projectRoot);
