@@ -18,8 +18,10 @@ ruflo's boot path.
 **`harness genome [--path .] [--alert-on-risk-above 0.5] [--format table|json]`** -- 7-section repo readiness report (repo_type / agent_topology / risk_score / mcp_surface / test_confidence / publish_readiness).
 1. Run `node plugins/ruflo-metaharness/scripts/genome.mjs --path <dir>`
 2. Pairs with harness-score for full readiness view — score is numeric, genome is categorical
-3. `--alert-on-risk-above N` exits 1 when risk_score > N
-4. Useful for drift detection: snapshot genome over time, diff to spot agent_topology drift
+3. `needs-work` and `blocked` are valid reports. JSON includes the upstream
+   `verdict` and `verdictExitCode`; only an invalid/missing report is fatal.
+4. `--alert-on-risk-above N` exits 1 when risk_score > N
+5. Useful for drift detection: snapshot genome over time, diff to spot agent_topology drift
 
 **`harness mcp-scan [--path .] [--fail-on low|medium|high] [--format table|json]`** -- Static security scan of `.mcp/servers.json` + `.harness/claims.json`. Reads only; no dispatch.
 1. Run `node plugins/ruflo-metaharness/scripts/mcp-scan.mjs --path <dir>`

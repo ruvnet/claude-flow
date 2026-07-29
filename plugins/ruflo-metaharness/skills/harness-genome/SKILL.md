@@ -17,8 +17,11 @@ Implementation: [`scripts/genome.mjs`](../../scripts/genome.mjs).
 1. Shell out to `npx metaharness genome <path> --json` (60s hard timeout).
 2. Parse the shape: `{ repo_type, agent_topology[], risk_score,
    mcp_surface, test_confidence, publish_readiness }`.
-3. If `--alert-on-risk-above N`: exit 1 when `risk_score > N`.
-4. Output JSON (default) or markdown.
+3. Preserve upstream's readiness verdict as `verdict` and
+   `verdictExitCode`. Upstream exits 1 for `needs-work` and 2 for `blocked`;
+   these are valid reports, so the wrapper returns them successfully.
+4. If `--alert-on-risk-above N`: exit 1 when `risk_score > N`.
+5. Output JSON (default) or markdown.
 
 ## Phase-0 baseline (ruflo, measured 2026-06-16)
 

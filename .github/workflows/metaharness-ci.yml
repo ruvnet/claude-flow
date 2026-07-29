@@ -46,6 +46,24 @@ jobs:
       - name: Plugin structural smoke
         run: bash plugins/ruflo-metaharness/scripts/smoke.sh
 
+      - name: Genome preserves blocked verdict payloads (#2626)
+        shell: bash
+        run: |
+          fixture="$(mktemp -d)"
+          output="$RUNNER_TEMP/metaharness-genome-blocked.json"
+          node plugins/ruflo-metaharness/scripts/genome.mjs \
+            --path "$fixture" \
+            --format json > "$output"
+          GENOME_OUTPUT="$output" node - <<'NODE'
+          const payload = JSON.parse(require('node:fs').readFileSync(process.env.GENOME_OUTPUT, 'utf8'));
+          if (payload.verdict !== 'blocked' || payload.verdictExitCode !== 2) {
+            throw new Error(`expected blocked/2 verdict, got ${payload.verdict}/${payload.verdictExitCode}`);
+          }
+          if (typeof payload.risk_score !== 'number' || payload.risk_score < 0.7) {
+            throw new Error(`expected blocked risk score, got ${payload.risk_score}`);
+          }
+          NODE
+
       - name: harness-score against ruflo (alert on harnessFit < 70)
         run: |
           node plugins/ruflo-metaharness/scripts/score.mjs \
@@ -637,4 +655,3 @@ jobs:
             exit 1
           fi
           echo "✓ drift-from-history dispatcher round-trip green (fast-path via CLI; wall ${WALL}ms)"
-
