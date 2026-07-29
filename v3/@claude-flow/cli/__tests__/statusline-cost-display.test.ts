@@ -108,7 +108,7 @@ describe('statusline cost display — committed artifact drift guard', () => {
   it('matches the generator output for default options', () => {
     const artifact = path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),
-      '../../../../.claude/helpers/statusline.cjs',
+      '../.claude/helpers/statusline.cjs',
     );
     if (!existsSync(artifact)) return; // package tested in isolation; nothing to guard
     // #2679 fix: generator now reads .claude/helpers/statusline.cjs as its
@@ -127,7 +127,9 @@ describe('statusline cost display — committed artifact drift guard', () => {
     // environment can still see the two versions differ — that's not
     // real drift, just resolution locale. Normalize before compare.
     const normalizeVer = (s: string): string =>
-      s.replace(/let ver = "[^"]+";/, 'let ver = "X.Y.Z";');
+      s
+        .replace(/let ver = "[^"]+";/, 'let ver = "X.Y.Z";')
+        .replace(/const BAKED_INSTALL_ROOT = "[^"]*";/, 'const BAKED_INSTALL_ROOT = "PACKAGE_ROOT";');
     expect(normalizeVer(readFileSync(artifact, 'utf-8'))).toBe(normalizeVer(SCRIPT));
   });
 });
@@ -201,6 +203,11 @@ describe('getPkgVersion() — highest candidate wins, not first-found', () => {
   it('source pins the max-version-wins comparison, not break-on-first-match', () => {
     expect(SCRIPT).toContain('function compareVersions(');
     expect(SCRIPT).toContain('compareVersions(pkg.version, ver) > 0');
+  });
+
+  it('includes the baked install root and common ~/.local npm prefix', () => {
+    expect(SCRIPT).toContain('const BAKED_INSTALL_ROOT = ');
+    expect(SCRIPT).toContain("path.join(home, '.local')");
   });
 
   it('renders the HIGHER of two real candidate package.json versions', () => {

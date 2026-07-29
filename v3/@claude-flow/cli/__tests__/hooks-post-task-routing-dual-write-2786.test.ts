@@ -83,6 +83,9 @@ describe('#2786 fix-2 — hooks_post-task JSON dual-write for metrics reader', (
     expect(entry.metadata?.confidence).toBe(0.9);
     // Namespace matches the AgentDB write (patterns) for parity.
     expect(entry.namespace).toBe('patterns');
+    expect(bridgeRecordFeedback).toHaveBeenCalledWith(expect.objectContaining({
+      task: 'implement auth token refresh',
+    }));
   });
 
   it('does NOT write to store.json when storeDecisions is omitted (backwards compatible)', async () => {

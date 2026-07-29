@@ -162,6 +162,11 @@ export class OutputFormatter {
     this.errorStream.write(text + '\n');
   }
 
+  /** Whether transient terminal UI (spinners/progress redraws) is safe. */
+  supportsInteractiveOutput(): boolean {
+    return this.outputStream.isTTY === true;
+  }
+
   // ============================================
   // Formatted Output Methods
   // ============================================
@@ -596,6 +601,10 @@ export class Spinner {
 
   start(): void {
     if (this.interval) return;
+    // Piped/redirected output has no cursor to redraw. Emitting frames there
+    // leaves literal carriage-return fragments before the first real result
+    // (#2814), so keep non-interactive output deterministic and silent.
+    if (!this.formatter.supportsInteractiveOutput()) return;
 
     this.interval = setInterval(() => {
       this.render();
@@ -612,8 +621,10 @@ export class Spinner {
       this.interval = null;
     }
 
-    // Clear the line
-    process.stdout.write('\r' + ' '.repeat(this.text.length + 10) + '\r');
+    if (this.formatter.supportsInteractiveOutput()) {
+      // Erase the entire terminal row, including ANSI-colored frame bytes.
+      this.formatter.write('\r\x1b[2K');
+    }
 
     if (message) {
       this.formatter.writeln(message);
@@ -630,7 +641,7 @@ export class Spinner {
 
   private render(): void {
     const frame = this.formatter.info(this.frames[this.frameIndex]);
-    process.stdout.write(`\r${frame} ${this.text}`);
+    this.formatter.write(`\r${frame} ${this.text}`);
   }
 
   setText(text: string): void {

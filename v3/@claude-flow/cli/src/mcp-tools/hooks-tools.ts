@@ -515,7 +515,13 @@ function loadMemoryStore(): MemoryStore {
  */
 function getIntelligenceStatsFromMemory(): {
   trajectories: { total: number; successful: number };
-  patterns: { learned: number; categories: Record<string, number> };
+  patterns: {
+    learned: number;
+    successful: number;
+    failed: number;
+    unknown: number;
+    categories: Record<string, number>;
+  };
   memory: { indexSize: number; totalAccessCount: number; memorySizeBytes: number };
   routing: { decisions: number; avgConfidence: number };
 } {
@@ -556,6 +562,8 @@ function getIntelligenceStatsFromMemory(): {
     const category = (e.metadata?.category as string) || 'general';
     categories[category] = (categories[category] || 0) + 1;
   });
+  const successfulPatterns = patternEntries.filter(e => e.metadata?.success === true).length;
+  const failedPatterns = patternEntries.filter(e => e.metadata?.success === false).length;
 
   // Count routing decisions
   const routingEntries = entries.filter(e =>
@@ -595,6 +603,9 @@ function getIntelligenceStatsFromMemory(): {
     },
     patterns: {
       learned: patternEntries.length,
+      successful: successfulPatterns,
+      failed: failedPatterns,
+      unknown: Math.max(0, patternEntries.length - successfulPatterns - failedPatterns),
       categories,
     },
     memory: {
@@ -1215,22 +1226,23 @@ export const hooksMetrics: MCPTool = {
     }
     const topAgent = Object.entries(agentCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
-    const successful = stats.trajectories.successful;
-    const total = stats.trajectories.total;
-    const failed = Math.max(0, total - successful);
-
     return {
       _real: true,
       _dataSource: 'intelligence-stats + routing-outcomes',
       period,
       patterns: {
         total: stats.patterns.learned,
-        successful,
-        failed,
+        successful: stats.patterns.successful,
+        failed: stats.patterns.failed,
+        unknown: stats.patterns.unknown,
         avgConfidence: stats.routing.avgConfidence || null,
       },
       agents: {
-        routingAccuracy: stats.routing.avgConfidence || null,
+        // Confidence is a model self-score, not observed routing accuracy
+        // (#2809). Keep the old key as an explicit null for compatibility
+        // while exposing the truthful additive field.
+        routingAccuracy: null,
+        averageConfidence: stats.routing.avgConfidence || null,
         totalRoutes: stats.routing.decisions,
         topAgent,
       },
@@ -1239,7 +1251,7 @@ export const hooksMetrics: MCPTool = {
         successRate,
         avgRiskScore: null,
       },
-      _note: total === 0 && totalCommands === 0
+      _note: stats.patterns.learned === 0 && totalCommands === 0
         ? 'No metrics data collected yet. Run hooks_post-task / hooks_intelligence_trajectory-end / hooks_route to populate.'
         : undefined,
       lastUpdated: new Date().toISOString(),
@@ -1442,6 +1454,7 @@ export const hooksPostTask: MCPTool = {
       const bridge = await import('../memory/memory-bridge.js');
       feedbackResult = await bridge.bridgeRecordFeedback({
         taskId,
+        task: (params.task as string) || undefined,
         success,
         quality,
         agent,
@@ -3261,7 +3274,7 @@ export const hooksIntelligenceStats: MCPTool = {
     } catch {
       memoryStats = {
         trajectories: { total: 0, successful: 0 },
-        patterns: { learned: 0, categories: {} },
+        patterns: { learned: 0, successful: 0, failed: 0, unknown: 0, categories: {} },
         memory: { indexSize: 0, totalAccessCount: 0, memorySizeBytes: 0 },
         routing: { decisions: 0, avgConfidence: 0 },
       };

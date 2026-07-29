@@ -91,13 +91,23 @@ async function getRealEmbeddingFunction() {
 }
 
 // Generate real ONNX embedding (falls back to deterministic hash if ONNX unavailable)
-async function generateRealEmbedding(text: string, dimension: number): Promise<number[]> {
+type EmbeddingResult = {
+  embedding: number[];
+  backend: 'onnx' | 'mock';
+  model: string;
+};
+
+async function generateRealEmbedding(text: string, dimension: number): Promise<EmbeddingResult> {
   const realFn = await getRealEmbeddingFunction();
 
   if (realFn) {
     try {
       const result = await realFn(text);
-      return result.embedding;
+      return {
+        embedding: result.embedding,
+        backend: (result as { backend?: 'onnx' | 'mock' }).backend ?? 'onnx',
+        model: result.model,
+      };
     } catch {
       // Fall through to fallback
     }
@@ -118,7 +128,11 @@ async function generateRealEmbedding(text: string, dimension: number): Promise<n
 
   // L2 normalize
   const norm = Math.sqrt(embedding.reduce((sum, x) => sum + x * x, 0));
-  return embedding.map(x => x / norm);
+  return {
+    embedding: embedding.map(x => x / norm),
+    backend: 'mock',
+    model: 'hash-fallback',
+  };
 }
 
 // Convert Euclidean embedding to Poincaré ball
@@ -296,7 +310,8 @@ export const embeddingsTools: MCPTool[] = [
       const useHyperbolic = input.hyperbolic === true && config.hyperbolic.enabled;
 
       // Generate real ONNX embedding
-      const embedding = await generateRealEmbedding(text, config.dimension);
+      const generated = await generateRealEmbedding(text, config.dimension);
+      const embedding = generated.embedding;
 
       let result: number[];
       let geometry: string;
@@ -314,6 +329,8 @@ export const embeddingsTools: MCPTool[] = [
         embedding: result,
         metadata: {
           model: config.model,
+          embeddingBackend: generated.backend,
+          semanticGrounded: generated.backend === 'onnx',
           dimension: config.dimension,
           geometry,
           curvature: useHyperbolic ? config.hyperbolic.curvature : null,
@@ -365,10 +382,14 @@ export const embeddingsTools: MCPTool[] = [
       { const v = validateText(text2, 'text2'); if (!v.valid) return { success: false, error: v.error }; }
 
       // Generate real ONNX embeddings for both texts
-      const [emb1, emb2] = await Promise.all([
+      const [generated1, generated2] = await Promise.all([
         generateRealEmbedding(text1, config.dimension),
         generateRealEmbedding(text2, config.dimension)
       ]);
+      const emb1 = generated1.embedding;
+      const emb2 = generated2.embedding;
+      const embeddingBackend =
+        generated1.backend === 'onnx' && generated2.backend === 'onnx' ? 'onnx' : 'mock';
 
       let similarity: number;
       let distance: number;
@@ -402,14 +423,21 @@ export const embeddingsTools: MCPTool[] = [
         similarity,
         distance,
         metric,
+        embeddingBackend,
+        semanticGrounded: embeddingBackend === 'onnx',
         texts: {
           text1: { length: text1.length, preview: text1.slice(0, 50) },
           text2: { length: text2.length, preview: text2.slice(0, 50) },
         },
-        interpretation: similarity > 0.8 ? 'very similar' :
-                        similarity > 0.6 ? 'similar' :
-                        similarity > 0.4 ? 'somewhat similar' :
-                        similarity > 0.2 ? 'different' : 'very different',
+        interpretation: embeddingBackend === 'onnx'
+          ? similarity > 0.8 ? 'very similar'
+            : similarity > 0.6 ? 'similar'
+            : similarity > 0.4 ? 'somewhat similar'
+            : similarity > 0.2 ? 'different' : 'very different'
+          : null,
+        warning: embeddingBackend === 'mock'
+          ? 'Hash fallback scores are deterministic but not semantically meaningful.'
+          : undefined,
       };
     },
   },
@@ -487,6 +515,8 @@ export const embeddingsTools: MCPTool[] = [
           })),
           metadata: {
             model: config.model,
+            embeddingBackend: queryEmbedding.backend,
+            semanticGrounded: queryEmbedding.backend === 'onnx',
             topK,
             threshold,
             namespace: namespace || 'all',
@@ -494,6 +524,9 @@ export const embeddingsTools: MCPTool[] = [
             indexType: config.hyperbolic.enabled ? 'HNSW (hyperbolic)' : 'HNSW (euclidean)',
             resultCount: searchResult.results.length
           },
+          warning: queryEmbedding.backend === 'mock'
+            ? 'Results use a hash fallback and are not semantically ranked.'
+            : undefined,
         };
       } catch {
         // Database not available - return empty but truthful
@@ -504,12 +537,17 @@ export const embeddingsTools: MCPTool[] = [
           results: [],
           metadata: {
             model: config.model,
+            embeddingBackend: queryEmbedding.backend,
+            semanticGrounded: queryEmbedding.backend === 'onnx',
             topK,
             threshold,
             namespace: namespace || 'all',
             searchTime: `${searchTime}ms`,
             indexType: config.hyperbolic.enabled ? 'HNSW (hyperbolic)' : 'HNSW (euclidean)',
           },
+          warning: queryEmbedding.backend === 'mock'
+            ? 'Hash fallback is active; semantic search is unavailable.'
+            : undefined,
           message: 'No embeddings indexed yet. Use memory store to add documents.',
         };
       }
@@ -866,6 +904,8 @@ export const embeddingsTools: MCPTool[] = [
       } catch { /* not installed */ }
 
       const ruvectorEnabled = config.neural.ruvector?.enabled ?? false;
+      const backendProbe = await generateRealEmbedding('ruflo embedding backend probe', config.dimension);
+      const semanticGrounded = backendProbe.backend === 'onnx';
 
       return {
         success: true,
@@ -894,11 +934,20 @@ export const embeddingsTools: MCPTool[] = [
           models: config.modelPath,
         },
         initializedAt: config.initialized,
+        embeddingBackend: backendProbe.backend,
+        semanticGrounded,
+        warning: semanticGrounded
+          ? undefined
+          : 'Hash fallback is active. Similarity scores are deterministic but not semantically meaningful.',
         capabilities: {
           onnxModels: ['Xenova/all-MiniLM-L6-v2', 'Xenova/all-mpnet-base-v2'],
           geometries: ['euclidean', 'poincare'],
           normalizations: ['L2', 'L1', 'minmax', 'zscore'],
-          features: ['semantic search', 'hyperbolic projection', 'neural substrate'],
+          features: [
+            ...(semanticGrounded ? ['semantic search'] : []),
+            'hyperbolic projection',
+            'neural substrate',
+          ],
         },
       };
     },

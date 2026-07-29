@@ -2084,6 +2084,8 @@ export async function bridgeSearchPatterns(options: {
  */
 export async function bridgeRecordFeedback(options: {
   taskId: string;
+  /** Human-readable task text used as the semantic learning signal. */
+  task?: string;
   success: boolean;
   quality: number;
   agent?: string;
@@ -2118,12 +2120,16 @@ export async function bridgeRecordFeedback(options: {
     try {
       const intelligence = await import('./intelligence.js');
       const verdict = options.success ? 'success' : 'failure';
+      const taskContext = options.task?.trim();
       const recorded = await intelligence.recordTrajectory(
         [{
           type: 'action',
-          content: `Task ${options.taskId} completed by ${options.agent || 'unknown'} — success=${options.success}, quality=${options.quality.toFixed(3)}`,
+          // Put the task description first so the embedding represents the
+          // work, not just the bookkeeping suffix (#2812).
+          content: `${taskContext ? `${taskContext} — ` : ''}Task ${options.taskId} completed by ${options.agent || 'unknown'} — success=${options.success}, quality=${options.quality.toFixed(3)}`,
           metadata: {
             taskId: options.taskId,
+            task: taskContext,
             agent: options.agent,
             quality: options.quality,
             duration: options.duration,

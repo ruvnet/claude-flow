@@ -54,6 +54,16 @@ function getInstalledCliVersionLocal(): string {
   }
 }
 
+function compareVersionsLocal(a: string, b: string): number {
+  const pa = a.split(/[.-]/).map(part => Number.parseInt(part, 10) || 0);
+  const pb = b.split(/[.-]/).map(part => Number.parseInt(part, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const delta = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (delta !== 0) return delta;
+  }
+  return 0;
+}
+
 /**
  * Generate optimized statusline script
  * Output format:
@@ -93,10 +103,12 @@ export function generateStatuslineScript(options: InitOptions): string {
   // getInstalledCliVersionLocal() above — reuse the pattern for the
   // same reason it exists there.
   let helperContent: string | null = null;
+  let helperPackageRoot = '';
   try {
     const esmRequire = createRequire(import.meta.url);
     const pkgJsonPath = esmRequire.resolve('@claude-flow/cli/package.json');
-    const helperPath = path.join(path.dirname(pkgJsonPath), '.claude', 'helpers', 'statusline.cjs');
+    helperPackageRoot = path.dirname(pkgJsonPath);
+    const helperPath = path.join(helperPackageRoot, '.claude', 'helpers', 'statusline.cjs');
     helperContent = fs.readFileSync(helperPath, 'utf-8');
   } catch {
     let dir = __dirname_sg;
@@ -105,7 +117,11 @@ export function generateStatuslineScript(options: InitOptions): string {
         const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf-8'));
         if (pkg && pkg.name === '@claude-flow/cli') {
           const candidate = path.join(dir, '.claude', 'helpers', 'statusline.cjs');
-          if (fs.existsSync(candidate)) { helperContent = fs.readFileSync(candidate, 'utf-8'); break; }
+          if (fs.existsSync(candidate)) {
+            helperPackageRoot = dir;
+            helperContent = fs.readFileSync(candidate, 'utf-8');
+            break;
+          }
         }
       } catch { /* keep climbing */ }
       const parent = path.dirname(dir);
@@ -127,15 +143,18 @@ export function generateStatuslineScript(options: InitOptions): string {
   // whatever the helper hard-codes) ships. Add a paired test in
   // statusline-cost-display.test.ts before changing either token.
   helperContent = helperContent.replace(/maxAgents: \d+,/, `maxAgents: ${maxAgents},`);
+  helperContent = helperContent.replace(
+    /const BAKED_INSTALL_ROOT = "[^"]*";/,
+    `const BAKED_INSTALL_ROOT = ${JSON.stringify(helperPackageRoot)};`,
+  );
   // Only overwrite the helper's baked version if OURS resolves higher.
   // Otherwise the substitution could DOWNGRADE (test environments where
   // esmRequire.resolve happens to hit an older node_modules install would
-  // clobber a fresh committed helper). Naive lexicographic compare — works
-  // for canonical semver strings with same-width digit parts, which is
-  // reliable at this stage of the version space.
+  // clobber a fresh committed helper). Compare numeric components:
+  // lexicographic comparison freezes 3.32.24 below 3.32.8 (#2811).
   const helperVerMatch = helperContent.match(/let ver = "([^"]+)";/);
   const helperVer = helperVerMatch ? helperVerMatch[1] : '';
-  if (!helperVer || bakedVersion > helperVer) {
+  if (!helperVer || compareVersionsLocal(bakedVersion, helperVer) > 0) {
     helperContent = helperContent.replace(/let ver = "[^"]+";/, `let ver = ${JSON.stringify(bakedVersion)};`);
   }
 
