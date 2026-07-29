@@ -5,6 +5,7 @@
  */
 
 import type { ConfigTomlOptions, McpServerConfig, SkillConfig, ConfigProfile } from '../types.js';
+import { getRufloMcpServerConfig, renderMcpServerToml } from '../mcp-config.js';
 
 /**
  * Security configuration options
@@ -70,6 +71,8 @@ export async function generateConfigToml(options: ExtendedConfigTomlOptions = {}
     security = {},
     performance = {},
     logging = {},
+    policy = {},
+    swarmAutomation = {},
   } = options;
 
   const lines: string[] = [];
@@ -85,6 +88,7 @@ export async function generateConfigToml(options: ExtendedConfigTomlOptions = {}
   lines.push('# Place in .agents/config.toml (project) or .codex/config.toml (user).');
   lines.push('# =============================================================================');
   lines.push('');
+
   lines.push('# =============================================================================');
   lines.push('# Core Settings');
   lines.push('# =============================================================================');
@@ -129,6 +133,27 @@ export async function generateConfigToml(options: ExtendedConfigTomlOptions = {}
   lines.push(']');
   lines.push('');
 
+  // All Codex root keys above must appear before the first TOML table.
+  lines.push('# =============================================================================');
+  lines.push('# Ruflo Agentic Policy Engine (ADR-324)');
+  lines.push('# =============================================================================');
+  lines.push('');
+  lines.push('[policy]');
+  lines.push('# legacy preserves existing installs; observe records would-deny decisions; enforce blocks');
+  lines.push(`mode = "${policy.mode ?? 'legacy'}"`);
+  lines.push('');
+
+  lines.push('[swarm.automation]');
+  lines.push('# Unattended fanout is opt-in. Interactive Codex may still delegate explicitly.');
+  lines.push(`enabled = ${swarmAutomation.enabled ?? false}`);
+  lines.push(`max_concurrent = ${swarmAutomation.maxConcurrent ?? 4}`);
+  lines.push(`max_writers = ${swarmAutomation.maxWriters ?? 2}`);
+  lines.push(`worktree_isolation = ${swarmAutomation.worktreeIsolation ?? true}`);
+  lines.push(`dependency_failure = "${swarmAutomation.dependencyFailure ?? 'cancel'}"`);
+  lines.push(`agent_timeout_seconds = ${swarmAutomation.agentTimeoutSeconds ?? 1800}`);
+  lines.push(`max_output_bytes = ${swarmAutomation.maxOutputBytes ?? 1048576}`);
+  lines.push('');
+
   // Features
   lines.push('# =============================================================================');
   lines.push('# Features');
@@ -158,13 +183,7 @@ export async function generateConfigToml(options: ExtendedConfigTomlOptions = {}
     // Default claude-flow server
     const hasRuflo = mcpServers.some(s => s.name === 'ruflo' || s.name === 'claude-flow');
     if (!hasRuflo) {
-      lines.push(...generateMcpServer({
-        name: 'ruflo',
-        command: 'npx',
-        args: ['-y', '--package=@claude-flow/cli@latest', 'claude-flow-mcp'],
-        enabled: true,
-        toolTimeout: 120,
-      }));
+      lines.push(...generateMcpServer(getRufloMcpServerConfig()));
       lines.push('');
     }
 
@@ -196,8 +215,8 @@ export async function generateConfigToml(options: ExtendedConfigTomlOptions = {}
   // Default profiles
   const defaultProfiles: Record<string, ConfigProfile> = {
     dev: {
-      approvalPolicy: 'never',
-      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'on-request',
+      sandboxMode: 'workspace-write',
       webSearch: 'live',
     },
     safe: {
@@ -534,15 +553,17 @@ sandbox_mode = "${sandboxMode}"
 
 [mcp_servers.ruflo]
 command = "npx"
-args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
+args = ["-y", "ruflo@latest", "mcp", "start"]
 enabled = true
+startup_timeout_sec = 120
 `;
 }
 
 /**
  * Generate CI/CD config.toml
  */
-export async function generateCIConfigToml(): Promise<string> {
+export async function generateCIConfigToml(platform: NodeJS.Platform = process.platform): Promise<string> {
+  const mcpCommand = renderMcpServerToml(getRufloMcpServerConfig(platform, 300)).join('\n');
   return `# =============================================================================
 # Claude Flow V3 - CI/CD Pipeline Configuration
 # =============================================================================
@@ -565,11 +586,7 @@ remote_compaction = false
 child_agents_md = true
 request_rule = false
 
-[mcp_servers.ruflo]
-command = "npx"
-args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
-enabled = true
-tool_timeout_sec = 300
+${mcpCommand}
 
 [history]
 persistence = "none"
@@ -645,7 +662,7 @@ remote_compaction = true
 
 [mcp_servers.ruflo]
 command = "npx"
-args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
+args = ["-y", "ruflo@latest", "mcp", "start"]
 enabled = true
 tool_timeout_sec = 120
 
@@ -850,7 +867,7 @@ remote_compaction = true
 
 [mcp_servers.ruflo]
 command = "npx"
-args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
+args = ["-y", "ruflo@latest", "mcp", "start"]
 enabled = true
 tool_timeout_sec = 120
 
@@ -931,7 +948,7 @@ remote_compaction = false
 
 [mcp_servers.ruflo]
 command = "npx"
-args = ["-y", "--package=@claude-flow/cli@latest", "claude-flow-mcp"]
+args = ["-y", "ruflo@latest", "mcp", "start"]
 enabled = true
 tool_timeout_sec = 60
 

@@ -60,6 +60,25 @@ This project uses hierarchical swarm coordination for complex tasks:
 - Documentation updates
 - Configuration changes
 
+### Policy-Governed Concurrent Execution
+
+- Ruflo coordinates and records policy decisions; Codex workers execute.
+- Search AgentDB before planning and store validated patterns after success.
+- Use bounded fanout only for independent tasks.
+- Every writing worker gets a unique git worktree and a reduced capability
+  envelope. Never place two writers in one worktree.
+- Read-only researchers may share a checkout.
+- One integration agent owns shared manifests/lockfiles, consumes committed
+  handoffs in dependency order, and runs scoped then full tests.
+- Cancel dependent and not-yet-started sibling work on policy denial or dependency failure.
+- MetaHarness can benchmark candidates concurrently but cannot authorize its
+  own promotion or expand network, provider, spend, secret, or concurrency
+  scope.
+- Do not auto-commit, push, merge, release, or delete worktrees without user
+  authorization.
+- Existing projects start in ADR-324 `legacy` mode, may rehearse in `observe`,
+  and opt into `enforce` after reviewing receipts.
+
 ### Available Skills
 
 Use `$skill-name` syntax to invoke:

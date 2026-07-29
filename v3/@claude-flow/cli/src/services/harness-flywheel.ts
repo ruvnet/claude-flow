@@ -35,6 +35,7 @@ import {
   readFlywheelTransactionState,
   registerFlywheelReceipt,
 } from './flywheel-transaction.js';
+import { runBoundedPool } from './bounded-worker-pool.js';
 
 export interface RetrievalConfig { alpha: number; subjectWeight: number; mmrLambda: number; bodyWeight: number; typePenaltyFactor: number; }
 export const DEFAULT_CONFIG: RetrievalConfig = { alpha: 0.5, subjectWeight: 2.0, mmrLambda: 0.7, bodyWeight: 1.0, typePenaltyFactor: 1.0 };
@@ -44,7 +45,11 @@ export interface AnchorTask { id: string; input: { id: string; q: string }; expe
 
 export interface FlywheelDeps {
   getPatterns: () => HarvestPattern[] | Promise<HarvestPattern[]>;
-  search: (query: string, config: RetrievalConfig) => Promise<RankedItem[]> | RankedItem[];
+  search: (
+    query: string,
+    config: RetrievalConfig,
+    signal?: AbortSignal,
+  ) => Promise<RankedItem[]> | RankedItem[];
   anchorTasks: AnchorTask[];
   activeParams?: () => Partial<RetrievalConfig> | null;
   sample?: number;
@@ -60,6 +65,9 @@ export interface FlywheelDeps {
   bootstrapIterations?: number;
   /** Candidate policies supplied by an external proposer archive (ADR-322B). */
   candidatePolicies?: RetrievalConfig[];
+  /** ADR-324: hard local cap for concurrent candidate/task evaluation. */
+  maxConcurrency?: number;
+  evaluationTimeoutMs?: number;
 }
 
 export interface FlywheelResult {
@@ -163,12 +171,32 @@ export async function evaluateFlywheelCandidate(projectRoot: string, deps: Flywh
     // Precompute retrieval for baseline + all candidates over every task (async
     // I/O up front → the harness scoring stays pure/sync).
     const cache = new Map<string, RankedItem[]>();
-    const configs = [baseline, ...candidates];
-    for (const cfg of configs) {
-      for (const t of blended.tasks) {
-        const q = (t.input as { q: string }).q;
-        cache.set(`${t.id}::${cfgKey(cfg)}`, (await deps.search(q, cfg)) || []);
-      }
+    const configs = [...new Map(
+      [baseline, ...candidates].map((config) => [cfgKey(config), config]),
+    ).values()];
+    const evalTasks = configs.flatMap((cfg) => blended.tasks.map((t) => {
+      const cacheKey = `${t.id}::${cfgKey(cfg)}`;
+      return {
+        id: cacheKey,
+        run: async (signal: AbortSignal) => {
+          if (signal.aborted) throw signal.reason;
+          return (await deps.search((t.input as { q: string }).q, cfg, signal)) || [];
+        },
+      };
+    }));
+    const batch = await runBoundedPool(evalTasks, {
+      maxConcurrency: deps.maxConcurrency ?? 2,
+      timeoutMs: deps.evaluationTimeoutMs ?? 120_000,
+    });
+    for (const item of batch.results) {
+      if (item.status === 'fulfilled') cache.set(item.id, item.value ?? []);
+    }
+    const failedEvaluations = batch.results.filter((item) => item.status !== 'fulfilled');
+    if (failedEvaluations.length > 0) {
+      return {
+        ran: false,
+        reason: `candidate evaluation incomplete (${failedEvaluations.length}/${batch.results.length}); peak concurrency ${batch.peakConcurrency}`,
+      };
     }
     const evalFn = (input: unknown, cfg: RetrievalConfig) => cache.get(`${(input as { id: string }).id}::${cfgKey(cfg)}`) ?? [];
     const gradeFn = (output: unknown, expected: unknown) => grade(output as RankedItem[], expected);

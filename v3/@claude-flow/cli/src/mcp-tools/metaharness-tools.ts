@@ -54,6 +54,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runFlywheelWorker } from '../services/harness-flywheel-runtime.js';
+import { evaluatePolicyRequest } from '../services/policy-runtime.js';
 import {
   listFlywheelReceipts,
   promoteFlywheelCandidate,
@@ -631,6 +632,9 @@ export const metaharnessTools: MCPTool[] = [
         privateKeyPath: { type: 'string', description: 'Local Ed25519 private-key PEM path for signing run receipts; must be paired with publicKeyPath' },
         publicKeyPath: { type: 'string', description: 'Local Ed25519 public-key PEM path used to sign a run or approve a promotion' },
         confirm: { type: 'boolean', description: 'Required for promote; never inferred', default: false },
+        maxConcurrency: { type: 'number', description: 'ADR-324 hard local candidate-evaluation concurrency cap (1-8)', default: 2 },
+        timeoutMs: { type: 'number', description: 'Abort concurrent evaluation after this wall-clock limit', default: 120000 },
+        approvalIds: { type: 'array', items: { type: 'string' }, description: 'Scoped ADR-324 approval IDs for privileged promotion' },
       },
       required: ['operation'],
     },
@@ -676,12 +680,34 @@ export const metaharnessTools: MCPTool[] = [
           proposer: String(input.proposer ?? 'auto') as 'local' | 'auto' | 'darwin',
           receiptPrivateKeyPem: privateKeyPath ? readFileSync(privateKeyPath, 'utf8') : undefined,
           receiptPublicKeyPem: publicKeyPath ? readFileSync(publicKeyPath, 'utf8') : undefined,
+          maxConcurrency: Number(input.maxConcurrency ?? 2),
+          evaluationTimeoutMs: Number(input.timeoutMs ?? 120_000),
         });
         return { success: data.ran, data, degraded: false, exitCode: data.ran ? 0 : 1 };
       }
       if (operation === 'promote') {
         if (!input.receiptId || !input.publicKeyPath) {
           return { success: false, data: { reason: 'receiptId and publicKeyPath are required' }, degraded: false, exitCode: 2 };
+        }
+        const policy = await evaluatePolicyRequest({
+          identity: { id: 'metaharness-mcp', type: 'agent', roles: ['optimizer'] },
+          action: {
+            type: 'metaharness.candidate.promote',
+            resource: String(input.receiptId),
+            environment: 'production',
+            destructive: true,
+          },
+          context: {
+            approvalIds: Array.isArray(input.approvalIds) ? input.approvalIds.map(String) : undefined,
+          },
+        }, projectRoot);
+        if (policy.enforcedOutcome !== 'allowed') {
+          return {
+            success: false,
+            data: { reason: `policy-${policy.enforcedOutcome}:${policy.reason}`, policyReceiptId: policy.receiptId },
+            degraded: false,
+            exitCode: 1,
+          };
         }
         const publicKey = readFileSync(resolve(String(input.publicKeyPath)), 'utf8');
         const data = await promoteFlywheelCandidate(projectRoot, String(input.receiptId), {

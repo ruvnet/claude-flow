@@ -24,6 +24,8 @@ import { analyzeTools } from './mcp-tools/analyze-tools.js';
 import { progressTools } from './mcp-tools/progress-tools.js';
 import { embeddingsTools } from './mcp-tools/embeddings-tools.js';
 import { claimsTools } from './mcp-tools/claims-tools.js';
+import { policyTools } from './mcp-tools/policy-tools.js';
+import { authorizeMcpTool, classifyMcpTool } from './services/policy-runtime.js';
 import { securityTools } from './mcp-tools/security-tools.js';
 import { transferTools } from './mcp-tools/transfer-tools.js';
 // V2 Compatibility tools
@@ -135,6 +137,10 @@ registerTools([
   ...progressTools,
   ...embeddingsTools,
   ...claimsTools,
+  // Remote MCP exposes evaluation/status only. Administrative mutation is a
+  // local CLI bootstrap/recovery operation until the server has authenticated
+  // human identity propagation.
+  ...policyTools.filter((tool) => ['policy_evaluate', 'policy_status'].includes(tool.name)),
   ...securityTools,
   ...transferTools,
   // V2 Compatibility tools
@@ -230,6 +236,15 @@ export async function callMCPTool<T = unknown>(
   }
 
   try {
+    // ADR-324: one policy chokepoint for every local CLI/MCP invocation.
+    // Policy administration is not exempt: authorization calls the engine
+    // directly, so there is no recursive MCP dispatch. In enforce mode an
+    // administrator must explicitly allow policy.* actions or use the local
+    // CLI bootstrap path.
+    const decision = await authorizeMcpTool(toolName, input, context, classifyMcpTool(toolName));
+    if (decision.enforcedOutcome !== 'allowed') {
+      throw new Error(`policy-${decision.enforcedOutcome}:${decision.reason}; receipt=${decision.receiptId}`);
+    }
     // Call the tool handler
     const result = await tool.handler(input, context);
     // ADR-146 P2: scan every tool result for indirect-injection before it

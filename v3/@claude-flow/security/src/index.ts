@@ -134,6 +134,12 @@ export {
   type ToolCallDecision,
 } from './authorization/propagator.js';
 
+// Agentic Policy Engine (ADR-324)
+// Deterministic policy evaluation, monotonic capability envelopes, approvals,
+// budgets, and tamper-evident decision receipts. Legacy mode preserves the
+// behavior of pre-ADR-324 installations until enforcement is explicitly enabled.
+export * from './policy/index.js';
+
 // OAuth 2.0 + PKCE + OS Keychain (ADR-306)
 // A TypeScript port of meta-proxy's proven oauth/{client,pkce,browser,
 // callback_server}.rs — see src/oauth/client.ts for why this targets the

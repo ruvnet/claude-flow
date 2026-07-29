@@ -1167,13 +1167,13 @@ curl -s "https://gateway.pinata.cloud/ipfs/{NEW_CID}" | jq '.totalPlugins'
 
 ## MetaHarness Integration (ADR-150)
 
-Ruflo integrates with the upstream `metaharness` / `@metaharness/*` ecosystem as a sibling agent-harness scaffolding system (same author, designed around ruflo's primitives). Both `metaharness` and `@metaharness/router` are in `optionalDependencies` — never required at runtime.
+Ruflo integrates with the upstream `metaharness` / `@metaharness/*` ecosystem as a sibling agent-harness scaffolding system (same author, designed around ruflo's primitives). MetaHarness packages are optional peer dependencies and are never required at runtime.
 
 ### Architectural constraint (load-bearing)
 
 **Ruflo remains operational if every MetaHarness package is removed.** Four rules:
 1. **Removable**: `npm ls --without @metaharness/*` must still produce a working CLI
-2. **Optional in package.json**: `@metaharness/*` packages MUST be in `optionalDependencies`, never in `dependencies`
+2. **Optional in package.json**: `@metaharness/*` packages MUST be optional peers, never normal dependencies
 3. **Graceful degradation**: every code path that touches MetaHarness catches `MODULE_NOT_FOUND` and falls back
 4. **CI gate**: `.github/workflows/no-metaharness-smoke.yml` enforces all three by static grep + runtime drill on every PR
 
@@ -1221,6 +1221,16 @@ npx ruflo metaharness gepa --op genome           # darwin@0.8.0 GEPA library —
 npx ruflo metaharness gepa --op render           # genome → the system prompt it compiles to
 npx ruflo metaharness gepa --op analyze --transcript run.json
                                                  # classify failure modes in a transcript
+npx ruflo metaharness evolve --bench .harness/bench.json
+                                                 # Darwin proposes candidates; governed gates decide
+npx ruflo metaharness bench verify --path .harness/bench.json
+                                                 # create or verify stable benchmark corpora
+npx ruflo metaharness flywheel run --proposer auto --max-concurrency 2
+                                                 # bounded concurrent evaluation; does not promote
+npx ruflo metaharness flywheel receipts          # inspect immutable evaluation receipts
+npx ruflo metaharness flywheel promote <receipt-id> \
+  --public-key ./approved-ed25519-public.pem --confirm
+                                                 # explicit policy-authorized atomic promotion
 
 # Dedicated command
 npx ruflo eject --name my-harness                # lift ruflo project → standalone harness
@@ -1245,6 +1255,7 @@ mcp__claude-flow__metaharness_security_bench      # security-focused benchmark s
 mcp__claude-flow__metaharness_redblue             # @metaharness/redblue — adversarial red/blue LLM testing (init|run|patch|attack|report)
 mcp__claude-flow__metaharness_learn               # metaharness@0.3.0 — GEPA learning run ($0 dry-run default; run=true to spend)
 mcp__claude-flow__metaharness_gepa                # darwin@0.8.0 — GEPA genome ops (genome|validate|render|analyze); gepaOptimize stays library-only
+mcp__claude-flow__metaharness_flywheel            # ADR-322 — evaluate concurrently, inspect receipts/ledger, or explicitly promote
 ```
 
 ### Routing integration (ADR-148/149)

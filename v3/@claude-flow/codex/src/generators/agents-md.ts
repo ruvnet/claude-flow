@@ -8,6 +8,32 @@
 import type { AgentsMdOptions, AgentsMdTemplate } from '../types.js';
 import { BUILT_IN_SKILLS } from '../templates/index.js';
 
+function concurrentRufloWorkflow(): string {
+  return `## Ruflo + Codex Automated Workflow
+
+Ruflo is the coordination ledger and policy decision point; Codex workers execute code, tests, and commands. A Ruflo coordination call records work but never replaces implementation.
+
+1. Search AgentDB memory for relevant patterns and constraints.
+2. Initialize one bounded hierarchical Ruflo swarm and register the task.
+3. Split only independent work into concurrent Codex workers.
+4. Give every writing worker a distinct git worktree and a reduced capability envelope.
+5. Keep dependency/lockfiles under one designated owner.
+6. Have the parent integrate committed handoffs in dependency order and run scoped, then full verification.
+7. Store the successful pattern and policy receipt after validation.
+
+### Concurrency and authority invariants
+
+- Never allow two writers in one worktree.
+- Read-only research agents may share a checkout; writing agents may not.
+- A child may drop capabilities but can never add tools, servers, namespaces, network access, spend, concurrency, or delegation depth.
+- Cancel dependent and not-yet-started sibling work when policy denies an action or a required dependency fails.
+- MetaHarness may benchmark candidates concurrently, but it cannot promote, serve, or expand its own SafetyEnvelope.
+- Only the integration agent changes shared manifests or lockfiles.
+- Do not auto-commit, push, merge, release, or delete worktrees unless the user authorized that operation.
+- Every consequential action must produce a policy decision receipt; production, destructive, spend, and promotion actions may require human approval.
+`;
+}
+
 /**
  * Generate an AGENTS.md file based on the provided options
  */
@@ -82,6 +108,8 @@ ${testCommand}
 - Prevent directory traversal attacks
 - Use parameterized queries for databases
 - Sanitize output to prevent XSS
+
+${concurrentRufloWorkflow()}
 
 ## Links
 
@@ -198,6 +226,8 @@ ${skillsTable}
 - **Codex** = EXECUTOR (writes code, runs tests, creates files)
 
 **Critical rule:** DON'T STOP after calling claude-flow commands. Coordination commands return instantly — continue immediately with the next implementation step.
+
+${concurrentRufloWorkflow()}
 
 ## MCP Integration
 

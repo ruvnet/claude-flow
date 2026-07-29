@@ -21,6 +21,7 @@ export { transferTools } from './transfer-tools.js';
 export { securityTools } from './security-tools.js';
 export { embeddingsTools } from './embeddings-tools.js';
 export { claimsTools } from './claims-tools.js';
+export { policyTools } from './policy-tools.js';
 export { wasmAgentTools } from './wasm-agent-tools.js';
 export { ruvllmWasmTools } from './ruvllm-tools.js';
 export { guidanceTools } from './guidance-tools.js';

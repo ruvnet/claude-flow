@@ -696,6 +696,38 @@ program.addCommand(createDualModeCommand());
 import { createLoopCommand } from './loop/cli.js';
 program.addCommand(createLoopCommand());
 
+// Policy-governed worktree isolation for concurrent Codex writers (ADR-324)
+import { CodexWorktreeCoordinator } from './worktrees/index.js';
+const worktree = program.command('worktree').description('Prepare, inspect, integrate, or clean registry-owned Codex swarm worktrees');
+worktree.command('prepare <run-id>')
+  .requiredOption('--agents <ids>', 'Comma-separated writing-agent IDs')
+  .option('--read-only <ids>', 'Comma-separated read-only agent IDs')
+  .option('--base <ref>', 'Git base ref', 'HEAD')
+  .option('--allow-dirty', 'Allow creating worktrees from a dirty coordinator checkout', false)
+  .option('-p, --path <path>', 'Repository root', process.cwd())
+  .action((runId, options) => {
+    const writers = String(options.agents).split(',').map((id) => id.trim()).filter(Boolean).map((id) => ({ id }));
+    const readers = String(options.readOnly ?? '').split(',').map((id) => id.trim()).filter(Boolean).map((id) => ({ id, readOnly: true }));
+    const result = new CodexWorktreeCoordinator(options.path).prepare(runId, [...writers, ...readers], {
+      allowDirty: options.allowDirty,
+      baseRef: options.base,
+    });
+    console.log(JSON.stringify(result, null, 2));
+  });
+worktree.command('status <run-id>')
+  .option('-p, --path <path>', 'Repository root', process.cwd())
+  .action((runId, options) => console.log(JSON.stringify(new CodexWorktreeCoordinator(options.path).status(runId), null, 2)));
+worktree.command('integrate <run-id>')
+  .option('--agents <ids>', 'Comma-separated agent IDs; defaults to all writers')
+  .option('-p, --path <path>', 'Repository root', process.cwd())
+  .action((runId, options) => {
+    const ids = options.agents ? String(options.agents).split(',').map((id) => id.trim()).filter(Boolean) : undefined;
+    console.log(JSON.stringify(new CodexWorktreeCoordinator(options.path).integrate(runId, ids), null, 2));
+  });
+worktree.command('cleanup <run-id>')
+  .option('-p, --path <path>', 'Repository root', process.cwd())
+  .action((runId, options) => console.log(JSON.stringify(new CodexWorktreeCoordinator(options.path).cleanup(runId), null, 2)));
+
 // Error handling for unknown commands
 program.on('command:*', () => {
   console.error(chalk.red(`Invalid command: ${program.args.join(' ')}`));

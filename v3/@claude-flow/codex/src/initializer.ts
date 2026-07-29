@@ -16,6 +16,7 @@ import { generateAgentsMd } from './generators/agents-md.js';
 import { generateSkillMd, generateBuiltInSkill } from './generators/skill-md.js';
 import { generateConfigToml } from './generators/config-toml.js';
 import { DEFAULT_SKILLS_BY_TEMPLATE, AGENTS_OVERRIDE_TEMPLATE, GITIGNORE_ENTRIES, ALL_AVAILABLE_SKILLS } from './templates/index.js';
+import { getRufloMcpAddCommand } from './mcp-config.js';
 
 /**
  * Bundled skills source directory (relative to package)
@@ -344,7 +345,7 @@ export class CodexInitializer {
       } catch {
         return {
           registered: false,
-          warning: 'Codex CLI not found. Run: codex mcp add ruflo -- npx -y --package=@claude-flow/cli@latest claude-flow-mcp',
+          warning: `Codex CLI not found. Run: ${getRufloMcpAddCommand()}`,
         };
       }
 
@@ -381,18 +382,11 @@ export class CodexInitializer {
 
       // Register the MCP server.
       //
-      // #2774: MUST target the dedicated stdio server binary
-      // (`claude-flow-mcp`, exported by `@claude-flow/cli`) — NOT the
-      // `ruflo mcp start` management CLI. The management CLI stays alive
-      // but never answers `initialize` on stdio, so Codex silently sees
-      // the server as configured but exposes zero Ruflo tools. The
-      // dedicated binary streams JSON-RPC over stdio directly, with all
-      // progress noise routed to stderr (also fixes the #2253 regression
-      // where an embedder progress line leaks onto stdout before the
-      // handshake).
+      // Use the shared platform-aware Ruflo MCP definition so generators,
+      // migrations, and live registration cannot drift.
       try {
         execSync(
-          'codex mcp add ruflo -- npx -y --package=@claude-flow/cli@latest claude-flow-mcp',
+          getRufloMcpAddCommand(),
           {
             stdio: 'pipe',
             timeout: 10000,
@@ -403,13 +397,13 @@ export class CodexInitializer {
         const errorMessage = err instanceof Error ? err.message : String(err);
         return {
           registered: false,
-          warning: `Failed to register MCP server: ${errorMessage}. Run manually: codex mcp add ruflo -- npx -y --package=@claude-flow/cli@latest claude-flow-mcp`,
+          warning: `Failed to register MCP server: ${errorMessage}. Run manually: ${getRufloMcpAddCommand()}`,
         };
       }
     } catch {
       return {
         registered: false,
-        warning: 'Could not register MCP server. Run manually: codex mcp add ruflo -- npx -y --package=@claude-flow/cli@latest claude-flow-mcp',
+        warning: `Could not register MCP server. Run manually: ${getRufloMcpAddCommand()}`,
       };
     }
   }
@@ -743,7 +737,7 @@ ${this.skills.map(s => `- \`$${s}\` (Codex) / \`/${s}\` (Claude Code)`).join('\n
 \`\`\`bash
 # Start Ruflo's MCP server over stdio (dedicated entry point — the
 # management \`ruflo mcp start\` CLI does NOT answer JSON-RPC on stdio).
-npx -y --package=@claude-flow/cli@latest claude-flow-mcp
+npx -y ruflo@latest mcp start
 \`\`\`
 
 ## Swarm Orchestration

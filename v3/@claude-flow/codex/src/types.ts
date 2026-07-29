@@ -123,6 +123,22 @@ export interface ConfigTomlOptions {
   skills?: SkillConfig[];
   profiles?: Record<string, ConfigProfile>;
   historyPersistence?: 'none' | 'save-all';
+  policy?: PolicyConfig;
+  swarmAutomation?: SwarmAutomationConfig;
+}
+
+export interface PolicyConfig {
+  mode?: 'legacy' | 'observe' | 'enforce';
+}
+
+export interface SwarmAutomationConfig {
+  enabled?: boolean;
+  maxConcurrent?: number;
+  maxWriters?: number;
+  worktreeIsolation?: boolean;
+  dependencyFailure?: 'cancel' | 'skip';
+  agentTimeoutSeconds?: number;
+  maxOutputBytes?: number;
 }
 
 /**

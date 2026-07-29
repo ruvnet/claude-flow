@@ -6,8 +6,15 @@
  * No real workers are spawned — only pure logic is exercised.
  */
 import { describe, it, expect } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { parseWorkerSpecs, createDualModeCommand } from '../src/dual-mode/cli.js';
-import { DualModeOrchestrator, CollaborationTemplates } from '../src/dual-mode/index.js';
+import {
+  DualModeOrchestrator,
+  CollaborationTemplates,
+  loadSwarmAutomationConfig,
+} from '../src/dual-mode/index.js';
 import type { WorkerConfig } from '../src/dual-mode/index.js';
 
 describe('parseWorkerSpecs', () => {
@@ -108,6 +115,58 @@ describe('dual command wiring', () => {
 });
 
 describe('DualModeOrchestrator', () => {
+  it('loads enforceable swarm automation ceilings from config.toml', () => {
+    const root = mkdtempSync(join(tmpdir(), 'ruflo-codex-config-'));
+    mkdirSync(join(root, '.agents'));
+    writeFileSync(join(root, '.agents', 'config.toml'), [
+      '[swarm.automation]',
+      'enabled = true',
+      'max_concurrent = 3',
+      'max_writers = 1',
+      'worktree_isolation = true',
+      'agent_timeout_seconds = 60',
+      'max_output_bytes = 4096',
+    ].join('\n'));
+    expect(loadSwarmAutomationConfig(root)).toEqual({
+      enabled: true,
+      maxConcurrent: 3,
+      maxWriters: 1,
+      worktreeIsolation: true,
+      agentTimeoutSeconds: 60,
+      maxOutputBytes: 4096,
+      dependencyFailure: 'cancel',
+    });
+  });
+
+  it('loads existing Codex project configuration from .codex', () => {
+    const root = mkdtempSync(join(tmpdir(), 'ruflo-codex-config-'));
+    mkdirSync(join(root, '.codex'));
+    writeFileSync(join(root, '.codex', 'config.toml'), [
+      '[swarm.automation]',
+      'enabled = true',
+      'max_concurrent = 2',
+    ].join('\n'));
+    expect(loadSwarmAutomationConfig(root)).toMatchObject({
+      enabled: true,
+      maxConcurrent: 2,
+    });
+  });
+
+  it('rejects invalid concurrency and output ceilings', () => {
+    expect(() => new DualModeOrchestrator({
+      projectPath: '/tmp',
+      maxConcurrent: 0,
+    })).toThrow('maxConcurrent must be a positive integer');
+    expect(() => new DualModeOrchestrator({
+      projectPath: '/tmp',
+      maxOutputBytes: 0,
+    })).toThrow('maxOutputBytes must be positive');
+    expect(() => new DualModeOrchestrator({
+      projectPath: '/tmp',
+      maxWriters: 0,
+    })).toThrow('maxWriters must be a positive integer');
+  });
+
   const orch = () => new DualModeOrchestrator({ projectPath: '/tmp' });
 
   it('uses safe defaults (codex command, not claude)', () => {
@@ -116,6 +175,53 @@ describe('DualModeOrchestrator', () => {
     expect(o.config.claudeCommand).toBe('claude');
     expect(o.config.maxConcurrent).toBe(4);
     expect(o.config.sharedNamespace).toBe('collaboration');
+  });
+
+  it('does not pass policy or provider secrets to workers', () => {
+    process.env.CLAUDE_FLOW_POLICY_SIGNING_KEY = 'do-not-leak';
+    process.env.OPENROUTER_API_KEY = 'do-not-leak';
+    try {
+      const environment = (orch() as unknown as {
+        workerEnvironment(worker: WorkerConfig): NodeJS.ProcessEnv;
+      }).workerEnvironment({
+        id: 'safe-worker',
+        platform: 'codex',
+        role: 'reviewer',
+        prompt: 'review',
+        readOnly: true,
+      });
+      expect(environment.CLAUDE_FLOW_POLICY_SIGNING_KEY).toBeUndefined();
+      expect(environment.OPENROUTER_API_KEY).toBeUndefined();
+      expect(environment.CLAUDE_FLOW_PRINCIPAL_ID).toBe('agent:safe-worker');
+      expect(environment.CLAUDE_FLOW_CAPABILITY_ENVELOPE).toContain('"network":false');
+    } finally {
+      delete process.env.CLAUDE_FLOW_POLICY_SIGNING_KEY;
+      delete process.env.OPENROUTER_API_KEY;
+    }
+  });
+
+  it('enforces worker capability envelopes as reductions', () => {
+    const orchestrator = orch() as unknown as {
+      resolveWorkerEnvelope(worker: WorkerConfig): Record<string, unknown>;
+    };
+    const base: WorkerConfig = {
+      id: 'bounded',
+      platform: 'codex',
+      role: 'coder',
+      prompt: 'work',
+    };
+    expect(orchestrator.resolveWorkerEnvelope({
+      ...base,
+      capabilityEnvelope: { actions: ['memory.read'], maxConcurrency: 1 },
+    })).toMatchObject({
+      actions: ['memory.read'],
+      network: false,
+      destructive: false,
+    });
+    expect(() => orchestrator.resolveWorkerEnvelope({
+      ...base,
+      capabilityEnvelope: { network: true },
+    })).toThrow('capability envelope cannot expand');
   });
 
   it('buildDependencyLevels groups a linear pipeline one-per-level', () => {
@@ -128,10 +234,10 @@ describe('DualModeOrchestrator', () => {
     expect(levels.map(l => l.map(w => w.id))).toEqual([['a'], ['b'], ['c']]);
   });
 
-  it('buildDependencyLevels puts independent workers in the same level', () => {
+  it('buildDependencyLevels puts independent read-only workers in the same level', () => {
     const ws: WorkerConfig[] = [
-      { id: 'a', platform: 'claude', role: 'a', prompt: 'x' },
-      { id: 'b', platform: 'codex', role: 'b', prompt: 'y' },
+      { id: 'a', platform: 'claude', role: 'a', prompt: 'x', readOnly: true },
+      { id: 'b', platform: 'codex', role: 'b', prompt: 'y', readOnly: true },
       { id: 'c', platform: 'codex', role: 'c', prompt: 'z', dependsOn: ['a', 'b'] },
     ];
     const levels = (orch() as unknown as { buildDependencyLevels(w: WorkerConfig[]): WorkerConfig[][] }).buildDependencyLevels(ws);
@@ -140,12 +246,54 @@ describe('DualModeOrchestrator', () => {
     expect(levels[1].map(w => w.id)).toEqual(['c']);
   });
 
-  it('buildDependencyLevels breaks a circular dependency instead of looping forever', () => {
+  it('buildDependencyLevels rejects circular dependencies', () => {
     const ws: WorkerConfig[] = [
       { id: 'a', platform: 'claude', role: 'a', prompt: 'x', dependsOn: ['b'] },
       { id: 'b', platform: 'codex', role: 'b', prompt: 'y', dependsOn: ['a'] },
     ];
-    const levels = (orch() as unknown as { buildDependencyLevels(w: WorkerConfig[]): WorkerConfig[][] }).buildDependencyLevels(ws);
-    expect(levels.flat().map(w => w.id).sort()).toEqual(['a', 'b']);
+    expect(() => (orch() as unknown as { buildDependencyLevels(w: WorkerConfig[]): WorkerConfig[][] }).buildDependencyLevels(ws))
+      .toThrow(/dependency cycle/);
+  });
+
+  it('rejects concurrent writers sharing a worktree', () => {
+    const ws: WorkerConfig[] = [
+      { id: 'a', platform: 'codex', role: 'coder', prompt: 'x', worktreePath: '/tmp/shared' },
+      { id: 'b', platform: 'codex', role: 'tester', prompt: 'y', worktreePath: '/tmp/shared' },
+    ];
+    const isolated = new DualModeOrchestrator({ projectPath: '/tmp', worktreeIsolation: true });
+    expect(() => (isolated as unknown as { buildDependencyLevels(w: WorkerConfig[]): WorkerConfig[][] }).buildDependencyLevels(ws))
+      .toThrow(/distinct worktrees/);
+  });
+
+  it('accepts a wider dependency level and schedules it in bounded batches', () => {
+    const orchestrator = new DualModeOrchestrator({ projectPath: '/tmp', maxWriters: 1 });
+    const ws: WorkerConfig[] = [
+      { id: 'a', platform: 'codex', role: 'coder', prompt: 'x', worktreePath: '/tmp/a' },
+      { id: 'b', platform: 'codex', role: 'tester', prompt: 'y', worktreePath: '/tmp/b' },
+    ];
+    expect((orchestrator as unknown as {
+      buildDependencyLevels(w: WorkerConfig[]): WorkerConfig[][];
+    }).buildDependencyLevels(ws)[0]).toHaveLength(2);
+  });
+
+  it('bounds writers independently without serializing read-only workers', () => {
+    const orchestrator = new DualModeOrchestrator({
+      projectPath: '/tmp',
+      maxConcurrent: 3,
+      maxWriters: 1,
+    });
+    const level: WorkerConfig[] = [
+      { id: 'writer-a', platform: 'codex', role: 'coder', prompt: 'x' },
+      { id: 'reader-a', platform: 'claude', role: 'reviewer', prompt: 'y', readOnly: true },
+      { id: 'writer-b', platform: 'codex', role: 'tester', prompt: 'z' },
+      { id: 'reader-b', platform: 'claude', role: 'analyst', prompt: 'q', readOnly: true },
+    ];
+    const batches = (orchestrator as unknown as {
+      partitionLevel(items: WorkerConfig[]): WorkerConfig[][];
+    }).partitionLevel(level);
+    expect(batches.map((batch) => batch.map((item) => item.id))).toEqual([
+      ['writer-a', 'reader-a', 'reader-b'],
+      ['writer-b'],
+    ]);
   });
 });

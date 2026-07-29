@@ -1,8 +1,14 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   resolve: {
     conditions: ['node'],
+    // Exercise the workspace security source rather than a stale installed
+    // package during cross-package policy integration tests (ADR-324).
+    alias: {
+      '@claude-flow/security': fileURLToPath(new URL('../security/src/index.ts', import.meta.url)),
+    },
   },
   plugins: [
     {

@@ -7,6 +7,18 @@ import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as TOML from '@iarna/toml';
+
+export interface WorkerCapabilityEnvelope {
+  actions?: string[];
+  resources?: string[];
+  tools?: string[];
+  maxConcurrency?: number;
+  network?: boolean;
+  destructive?: boolean;
+  delegationDepth?: number;
+  expiresAt?: number;
+}
 
 export interface WorkerConfig {
   id: string;
@@ -17,13 +29,17 @@ export interface WorkerConfig {
   maxTurns?: number;
   timeout?: number;
   dependsOn?: string[];
+  /** Required for concurrent writing roles; each writer must own one cwd. */
+  worktreePath?: string;
+  readOnly?: boolean;
+  capabilityEnvelope?: WorkerCapabilityEnvelope;
 }
 
 export interface WorkerResult {
   id: string;
   platform: 'claude' | 'codex';
   role: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
   output?: string;
   error?: string;
   startedAt?: Date;
@@ -38,6 +54,11 @@ export interface DualModeConfig {
   timeout?: number;
   claudeCommand?: string;
   codexCommand?: string;
+  maxOutputBytes?: number;
+  maxWriters?: number;
+  worktreeIsolation?: boolean;
+  dependencyFailure?: 'cancel' | 'skip';
+  policyPreflight?: boolean;
 }
 
 export interface CollaborationResult {
@@ -58,6 +79,15 @@ export class DualModeOrchestrator extends EventEmitter {
 
   constructor(config: DualModeConfig) {
     super();
+    if (!Number.isInteger(config.maxConcurrent ?? 4) || (config.maxConcurrent ?? 4) < 1) {
+      throw new Error('maxConcurrent must be a positive integer');
+    }
+    if (!Number.isFinite(config.maxOutputBytes ?? 1_048_576) || (config.maxOutputBytes ?? 1_048_576) < 1) {
+      throw new Error('maxOutputBytes must be positive');
+    }
+    if (!Number.isInteger(config.maxWriters ?? 2) || (config.maxWriters ?? 2) < 1) {
+      throw new Error('maxWriters must be a positive integer');
+    }
     this.config = {
       projectPath: config.projectPath,
       maxConcurrent: config.maxConcurrent ?? 4,
@@ -65,6 +95,11 @@ export class DualModeOrchestrator extends EventEmitter {
       timeout: config.timeout ?? 300000, // 5 minutes
       claudeCommand: config.claudeCommand ?? 'claude',
       codexCommand: config.codexCommand ?? 'codex',
+      maxOutputBytes: config.maxOutputBytes ?? 1_048_576,
+      maxWriters: config.maxWriters ?? 2,
+      worktreeIsolation: config.worktreeIsolation ?? false,
+      dependencyFailure: config.dependencyFailure ?? 'cancel',
+      policyPreflight: config.policyPreflight ?? false,
     };
   }
 
@@ -77,7 +112,7 @@ export class DualModeOrchestrator extends EventEmitter {
     // Initialize memory database
     await this.runCommand(
       'npx',
-      ['ruflo@latest', 'memory', 'init', '--force'],
+      ['ruflo@latest', 'memory', 'init'],
       projectPath
     );
 
@@ -114,6 +149,18 @@ export class DualModeOrchestrator extends EventEmitter {
       await this.waitForDependencies(config.dependsOn);
     }
 
+    if (this.config.policyPreflight) {
+      try {
+        await this.authorizeWorker(config);
+      } catch (error) {
+        result.status = 'failed';
+        result.error = error instanceof Error ? error.message : String(error);
+        result.completedAt = new Date();
+        this.emit('worker:failed', { id: config.id, error: result.error });
+        throw error;
+      }
+    }
+
     result.status = 'running';
     result.startedAt = new Date();
     this.emit('worker:started', { id: config.id, role: config.role, platform: config.platform });
@@ -136,7 +183,7 @@ export class DualModeOrchestrator extends EventEmitter {
    * Execute a headless Claude/Codex instance
    */
   private async executeHeadless(config: WorkerConfig): Promise<string> {
-    const { projectPath, timeout } = this.config;
+    const { projectPath, timeout, maxOutputBytes } = this.config;
     const command = config.platform === 'claude' ? this.config.claudeCommand : this.config.codexCommand;
 
     // Build the prompt with memory integration
@@ -156,7 +203,10 @@ export class DualModeOrchestrator extends EventEmitter {
         args.push('--model', config.model);
       }
     } else {
-      args = ['exec', '--sandbox', 'workspace-write', '--skip-git-repo-check'];
+      args = ['exec', '--sandbox',
+        config.readOnly ? 'read-only' : 'workspace-write',
+        '--skip-git-repo-check',
+      ];
       if (config.model) {
         args.push('-m', config.model);
       }
@@ -168,19 +218,19 @@ export class DualModeOrchestrator extends EventEmitter {
       let errorOutput = '';
 
       const proc = spawn(command, args, {
-        cwd: projectPath,
-        env: { ...process.env, FORCE_COLOR: '0' },
+        cwd: config.worktreePath ? path.resolve(config.worktreePath) : projectPath,
+        env: this.workerEnvironment(config),
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
       this.processes.set(config.id, proc);
 
       proc.stdout?.on('data', (data) => {
-        output += data.toString();
+        if (output.length < maxOutputBytes) output += data.toString().slice(0, maxOutputBytes - output.length);
       });
 
       proc.stderr?.on('data', (data) => {
-        errorOutput += data.toString();
+        if (errorOutput.length < maxOutputBytes) errorOutput += data.toString().slice(0, maxOutputBytes - errorOutput.length);
       });
 
       const timer = setTimeout(() => {
@@ -192,7 +242,7 @@ export class DualModeOrchestrator extends EventEmitter {
         clearTimeout(timer);
         this.processes.delete(config.id);
 
-        if (code === 0 || output.length > 0) {
+        if (code === 0) {
           resolve(output || errorOutput);
         } else {
           reject(new Error(`Worker ${config.id} exited with code ${code}: ${errorOutput}`));
@@ -215,7 +265,7 @@ export class DualModeOrchestrator extends EventEmitter {
 
     return `You are a ${config.role.toUpperCase()} agent in a collaborative dual-mode swarm.
 Platform: ${config.platform === 'claude' ? 'Claude Code' : 'OpenAI Codex'}
-Working Directory: ${projectPath}
+Working Directory: ${config.worktreePath ? path.resolve(config.worktreePath) : projectPath}
 Shared Memory Namespace: ${sharedNamespace}
 
 COLLABORATION PROTOCOL:
@@ -265,14 +315,47 @@ Remember: Other agents depend on your results in shared memory. Be concise and s
     // Group workers by dependency level
     const levels = this.buildDependencyLevels(workers);
 
-    // Execute each level in parallel
-    for (const level of levels) {
-      const promises = level.map(worker =>
-        this.spawnWorker(worker).catch(err => {
-          errors.push(`${worker.id}: ${err.message}`);
-        })
-      );
-      await Promise.all(promises);
+    // Execute each level with a hard concurrency cap.
+    let cancelled = false;
+    collaboration: for (const level of levels) {
+      for (const batch of this.partitionLevel(level)) {
+        await Promise.all(batch.map(async (worker) => {
+          const failedDependency = worker.dependsOn?.find((id) => this.workers.get(id)?.status !== 'completed');
+          if (failedDependency) {
+            this.workers.set(worker.id, {
+              id: worker.id,
+              platform: worker.platform,
+              role: worker.role,
+              status: 'skipped',
+              error: `dependency failed: ${failedDependency}`,
+            });
+            errors.push(`${worker.id}: dependency failed: ${failedDependency}`);
+            return;
+          }
+          await this.spawnWorker(worker).catch(err => {
+            errors.push(`${worker.id}: ${err.message}`);
+          });
+          const result = this.workers.get(worker.id);
+          if (result?.status === 'failed') errors.push(`${worker.id}: ${result.error}`);
+        }));
+        if (this.config.dependencyFailure === 'cancel'
+          && batch.some((worker) => this.workers.get(worker.id)?.status === 'failed')) {
+          cancelled = true;
+          break collaboration;
+        }
+      }
+    }
+    if (cancelled) {
+      for (const worker of workers) {
+        if (this.workers.has(worker.id)) continue;
+        this.workers.set(worker.id, {
+          id: worker.id,
+          platform: worker.platform,
+          role: worker.role,
+          status: 'skipped',
+          error: 'collaboration cancelled after worker failure',
+        });
+      }
     }
 
     // Collect shared memory results
@@ -291,6 +374,16 @@ Remember: Other agents depend on your results in shared memory. Be concise and s
    * Build dependency levels for parallel execution
    */
   private buildDependencyLevels(workers: WorkerConfig[]): WorkerConfig[][] {
+    const ids = new Set<string>();
+    for (const worker of workers) {
+      if (!worker.id || ids.has(worker.id)) throw new Error(`duplicate worker id: ${worker.id}`);
+      ids.add(worker.id);
+    }
+    for (const worker of workers) {
+      for (const dependency of worker.dependsOn ?? []) {
+        if (!ids.has(dependency)) throw new Error(`worker ${worker.id} depends on missing worker ${dependency}`);
+      }
+    }
     const levels: WorkerConfig[][] = [];
     const placed = new Set<string>();
 
@@ -309,12 +402,8 @@ Remember: Other agents depend on your results in shared memory. Be concise and s
       }
 
       if (level.length === 0 && placed.size < workers.length) {
-        // Circular dependency detected, add remaining
-        for (const worker of workers) {
-          if (!placed.has(worker.id)) {
-            level.push(worker);
-          }
-        }
+        const remaining = workers.filter((worker) => !placed.has(worker.id)).map((worker) => worker.id);
+        throw new Error(`worker dependency cycle: ${remaining.join(', ')}`);
       }
 
       for (const worker of level) {
@@ -326,7 +415,44 @@ Remember: Other agents depend on your results in shared memory. Be concise and s
       }
     }
 
+    for (const level of levels) {
+      const writerPaths = new Set<string>();
+      const writers = level.filter((item) => !item.readOnly);
+      for (const worker of writers) {
+        if (this.config.worktreeIsolation && !worker.worktreePath) {
+          throw new Error(`writer ${worker.id} requires an isolated worktree`);
+        }
+        const writerPath = path.resolve(worker.worktreePath ?? this.config.projectPath);
+        if (this.config.worktreeIsolation && writerPaths.has(writerPath)) {
+          throw new Error(`concurrent writers must use distinct worktrees: ${writerPath}`);
+        }
+        writerPaths.add(writerPath);
+      }
+    }
     return levels;
+  }
+
+  /** Preserve read-only parallelism while independently bounding writers. */
+  private partitionLevel(level: WorkerConfig[]): WorkerConfig[][] {
+    const remaining = [...level];
+    const batches: WorkerConfig[][] = [];
+    while (remaining.length > 0) {
+      const batch: WorkerConfig[] = [];
+      let writers = 0;
+      for (let index = 0; index < remaining.length && batch.length < this.config.maxConcurrent;) {
+        const candidate = remaining[index]!;
+        if (!candidate.readOnly && writers >= this.config.maxWriters) {
+          index += 1;
+          continue;
+        }
+        batch.push(candidate);
+        if (!candidate.readOnly) writers += 1;
+        remaining.splice(index, 1);
+      }
+      // maxWriters is validated as positive, so at least one item is schedulable.
+      batches.push(batch);
+    }
+    return batches;
   }
 
   /**
@@ -371,6 +497,92 @@ Remember: Other agents depend on your results in shared memory. Be concise and s
     });
   }
 
+  private async authorizeWorker(worker: WorkerConfig): Promise<void> {
+    const envelope = this.resolveWorkerEnvelope(worker);
+    const request = {
+      identity: { id: `agent:${worker.id}`, type: 'agent', roles: [worker.role] },
+      action: {
+        type: 'swarm.worker.spawn',
+        resource: worker.worktreePath ?? this.config.projectPath,
+        tool: worker.platform,
+        concurrency: 1,
+        network: false,
+        destructive: false,
+      },
+      context: {
+        metadata: { childCapabilityEnvelope: envelope },
+      },
+    };
+    const raw = await this.runCommand(
+      'npx',
+      ['ruflo@latest', 'policy', 'evaluate', JSON.stringify(request)],
+      this.config.projectPath,
+    );
+    const decision = JSON.parse(raw) as { enforcedOutcome?: string; reason?: string };
+    if (decision.enforcedOutcome !== 'allowed') {
+      throw new Error(`worker policy denied: ${decision.reason ?? 'unknown reason'}`);
+    }
+    worker.capabilityEnvelope = envelope;
+  }
+
+  private defaultWorkerEnvelope(worker: WorkerConfig): WorkerCapabilityEnvelope {
+    return {
+      actions: ['*'],
+      resources: ['*'],
+      tools: ['*'],
+      maxConcurrency: 1,
+      network: false,
+      destructive: false,
+      delegationDepth: 0,
+      expiresAt: Date.now() + this.config.timeout,
+    };
+  }
+
+  private resolveWorkerEnvelope(worker: WorkerConfig): WorkerCapabilityEnvelope {
+    const parent = this.defaultWorkerEnvelope(worker);
+    const requested = worker.capabilityEnvelope;
+    if (!requested) return parent;
+    const child = { ...parent, ...requested };
+    const matches = (patterns: string[] | undefined, value: string): boolean => (
+      !patterns?.length
+      || patterns.some((pattern) => pattern === '*' || pattern === value
+        || (pattern.endsWith('*') && value.startsWith(pattern.slice(0, -1))))
+    );
+    const subset = (values: string[] | undefined, patterns: string[] | undefined): boolean => (
+      !patterns?.length || (!!values?.length && values.every((value) => matches(patterns, value)))
+    );
+    const valid = subset(child.actions, parent.actions)
+      && subset(child.resources, parent.resources)
+      && subset(child.tools, parent.tools)
+      && (parent.maxConcurrency === undefined
+        || (child.maxConcurrency !== undefined && child.maxConcurrency <= parent.maxConcurrency))
+      && (parent.expiresAt === undefined
+        || (child.expiresAt !== undefined && child.expiresAt <= parent.expiresAt))
+      && (parent.delegationDepth === undefined
+        || (child.delegationDepth !== undefined && child.delegationDepth <= parent.delegationDepth))
+      && !(child.network === true && parent.network !== true)
+      && !(child.destructive === true && parent.destructive !== true);
+    if (!valid) throw new Error(`worker ${worker.id} capability envelope cannot expand`);
+    return child;
+  }
+
+  private workerEnvironment(worker: WorkerConfig): NodeJS.ProcessEnv {
+    const env: NodeJS.ProcessEnv = {};
+    const sensitive = /(?:^|_)(?:API_?KEY|KEY|SECRET|TOKEN|PASSWORD|CREDENTIALS?)$/i;
+    for (const [name, value] of Object.entries(process.env)) {
+      if (sensitive.test(name)
+        || name.startsWith('CLAUDE_FLOW_POLICY_')
+        || name === 'CLAUDE_FLOW_PRINCIPAL_ID') continue;
+      env[name] = value;
+    }
+    env.FORCE_COLOR = '0';
+    env.CLAUDE_FLOW_PRINCIPAL_ID = `agent:${worker.id}`;
+    env.CLAUDE_FLOW_CAPABILITY_ENVELOPE = JSON.stringify(
+      this.resolveWorkerEnvelope(worker),
+    );
+    return env;
+  }
+
   /**
    * Stop all running workers
    */
@@ -381,6 +593,51 @@ Remember: Other agents depend on your results in shared memory. Be concise and s
     }
     this.processes.clear();
   }
+}
+
+export interface LoadedSwarmAutomationConfig {
+  enabled: boolean;
+  maxConcurrent: number;
+  maxWriters: number;
+  worktreeIsolation: boolean;
+  agentTimeoutSeconds: number;
+  maxOutputBytes: number;
+  dependencyFailure: 'cancel' | 'skip';
+}
+
+export function loadSwarmAutomationConfig(projectPath: string): LoadedSwarmAutomationConfig {
+  const defaults: LoadedSwarmAutomationConfig = {
+    enabled: false,
+    maxConcurrent: 4,
+    maxWriters: 2,
+    worktreeIsolation: true,
+    agentTimeoutSeconds: 1800,
+    maxOutputBytes: 1_048_576,
+    dependencyFailure: 'cancel',
+  };
+  const file = [
+    path.join(projectPath, '.agents', 'config.toml'),
+    path.join(projectPath, '.codex', 'config.toml'),
+  ].find((candidate) => fs.existsSync(candidate));
+  if (!file) return defaults;
+  const parsed = TOML.parse(fs.readFileSync(file, 'utf8')) as {
+    swarm?: { automation?: Record<string, unknown> };
+  };
+  const automation = parsed.swarm?.automation;
+  if (!automation) return defaults;
+  const integer = (name: string, fallback: number): number => {
+    const value = automation[name];
+    return Number.isInteger(value) && Number(value) > 0 ? Number(value) : fallback;
+  };
+  return {
+    enabled: automation.enabled === true,
+    maxConcurrent: integer('max_concurrent', defaults.maxConcurrent),
+    maxWriters: integer('max_writers', defaults.maxWriters),
+    worktreeIsolation: automation.worktree_isolation !== false,
+    agentTimeoutSeconds: integer('agent_timeout_seconds', defaults.agentTimeoutSeconds),
+    maxOutputBytes: integer('max_output_bytes', defaults.maxOutputBytes),
+    dependencyFailure: automation.dependency_failure === 'skip' ? 'skip' : 'cancel',
+  };
 }
 
 /**
@@ -395,6 +652,7 @@ export const CollaborationTemplates = {
       id: 'architect',
       platform: 'claude',
       role: 'architect',
+      readOnly: true,
       prompt: `Design the architecture for: ${feature}. Define components, interfaces, and data flow.`,
       maxTurns: 10,
     },
@@ -418,6 +676,7 @@ export const CollaborationTemplates = {
       id: 'reviewer',
       platform: 'claude',
       role: 'reviewer',
+      readOnly: true,
       prompt: `Review the code and tests for quality, security, and best practices.`,
       dependsOn: ['coder', 'tester'],
       maxTurns: 8,
@@ -432,6 +691,7 @@ export const CollaborationTemplates = {
       id: 'scanner',
       platform: 'codex',
       role: 'security-scanner',
+      readOnly: true,
       prompt: `Scan ${target} for security vulnerabilities. Check OWASP Top 10.`,
       maxTurns: 10,
     },
@@ -439,6 +699,7 @@ export const CollaborationTemplates = {
       id: 'analyzer',
       platform: 'claude',
       role: 'security-analyst',
+      readOnly: true,
       prompt: `Analyze scan results and identify critical vulnerabilities.`,
       dependsOn: ['scanner'],
       maxTurns: 8,
@@ -461,6 +722,7 @@ export const CollaborationTemplates = {
       id: 'analyzer',
       platform: 'claude',
       role: 'code-analyzer',
+      readOnly: true,
       prompt: `Analyze ${target} for refactoring opportunities. Identify code smells.`,
       maxTurns: 8,
     },
@@ -468,6 +730,7 @@ export const CollaborationTemplates = {
       id: 'planner',
       platform: 'claude',
       role: 'refactor-planner',
+      readOnly: true,
       prompt: `Create a refactoring plan based on the analysis.`,
       dependsOn: ['analyzer'],
       maxTurns: 6,
@@ -484,6 +747,7 @@ export const CollaborationTemplates = {
       id: 'validator',
       platform: 'codex',
       role: 'validator',
+      readOnly: true,
       prompt: `Run tests and validate the refactoring didn't break anything.`,
       dependsOn: ['refactorer'],
       maxTurns: 5,

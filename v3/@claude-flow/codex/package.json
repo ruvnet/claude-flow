@@ -39,6 +39,11 @@
       "types": "./dist/loop/index.d.ts",
       "import": "./dist/loop/index.js",
       "require": "./dist/loop/index.js"
+    },
+    "./worktrees": {
+      "types": "./dist/worktrees/index.d.ts",
+      "import": "./dist/worktrees/index.js",
+      "require": "./dist/worktrees/index.js"
     }
   },
   "files": [

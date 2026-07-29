@@ -105,10 +105,8 @@
     "@claude-flow/mcp": "3.0.0-alpha.8",
     "@claude-flow/neural": "3.0.0-alpha.9",
     "@claude-flow/shared": "3.0.0-alpha.7",
-    "@metaharness/router": "^0.3.2",
     "@noble/ed25519": "2.3.0",
     "@ruvector/rabitq-wasm": "0.1.0",
-    "metaharness": "^0.4.1",
     "semver": "7.7.3",
     "sql.js": "^1.13.0",
     "yaml": "^2.8.0"
@@ -116,12 +114,30 @@
   "optionalDependencies": {
     "@claude-flow/memory": "^3.0.0-alpha.21",
     "@claude-flow/security": "^3.0.0-alpha.12",
-    "@metaharness/darwin": "^0.8.0",
-    "@metaharness/flywheel": "^0.1.7",
     "agentdb": "^3.0.0-alpha.17",
     "agentic-flow": "^3.0.0-alpha.1",
     "better-sqlite3": "^12.9.0",
     "ruvector": "^0.2.27"
+  },
+  "peerDependencies": {
+    "@metaharness/darwin": "^0.8.0",
+    "@metaharness/flywheel": "^0.1.7",
+    "@metaharness/router": "^0.3.2",
+    "metaharness": "^0.4.1"
+  },
+  "peerDependenciesMeta": {
+    "@metaharness/darwin": {
+      "optional": true
+    },
+    "@metaharness/flywheel": {
+      "optional": true
+    },
+    "@metaharness/router": {
+      "optional": true
+    },
+    "metaharness": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public",
