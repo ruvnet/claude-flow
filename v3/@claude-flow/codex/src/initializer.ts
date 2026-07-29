@@ -648,14 +648,18 @@ web_search = "live"
       content = await fs.readFile(gitignorePath, 'utf-8');
     }
 
-    // Check if Codex entries already exist
-    if (content.includes('.codex/')) {
-      return false; // Already has entries
-    }
+    const existingLines = new Set(content.split(/\r?\n/));
+    const missing = GITIGNORE_ENTRIES.filter(
+      (entry) => entry.length > 0 && !existingLines.has(entry),
+    );
+    if (missing.length === 0) return false;
 
-    // Add entries with proper spacing
-    const separator = content.length > 0 && !content.endsWith('\n') ? '\n\n' : '\n';
-    const newContent = content + separator + GITIGNORE_ENTRIES.join('\n') + '\n';
+    // Add only missing entries so a preceding Claude-native init does not
+    // duplicate shared .env and runtime rules.
+    const separator = content.length === 0
+      ? ''
+      : content.endsWith('\n') ? '\n' : '\n\n';
+    const newContent = content + separator + missing.join('\n') + '\n';
     await fs.writeFile(gitignorePath, newContent, 'utf-8');
     return true;
   }

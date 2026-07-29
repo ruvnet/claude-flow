@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CodexInitializer } from '../src/initializer.js';
@@ -65,5 +65,25 @@ describe('Codex full template canonical skills (#2634)', () => {
       'utf8',
     );
     expect(content).toContain('Custom skill: my-project-skill');
+  });
+
+  it('adds Codex ignores without duplicating shared Claude init entries', async () => {
+    const gitignorePath = join(projectPath, '.gitignore');
+    writeFileSync(
+      gitignorePath,
+      '# Ruflo local secrets and runtime data\n.env\n.claude-flow/data/\n',
+      'utf8',
+    );
+
+    const result = await new CodexInitializer().initialize({
+      projectPath,
+      template: 'minimal',
+    });
+
+    expect(result.success).toBe(true);
+    const gitignore = readFileSync(gitignorePath, 'utf8');
+    expect(gitignore.match(/^\.env$/gm)).toHaveLength(1);
+    expect(gitignore.match(/^\.claude-flow\/data\/$/gm)).toHaveLength(1);
+    expect(gitignore).toContain('.codex/');
   });
 });

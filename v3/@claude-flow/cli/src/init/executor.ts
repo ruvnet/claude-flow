@@ -1508,6 +1508,8 @@ async function writeRuntimeConfig(
   options: InitOptions,
   result: InitResult
 ): Promise<void> {
+  updateRootGitignore(targetDir, result);
+
   const configPath = path.join(targetDir, '.claude-flow', 'config.yaml');
 
   if (fs.existsSync(configPath) && !options.force) {
@@ -1581,6 +1583,35 @@ neural/
 
   // Write CAPABILITIES.md with full system overview
   await writeCapabilitiesDoc(targetDir, options, result);
+}
+
+/**
+ * Protect project-local secrets and runtime state for Claude-only installs.
+ * Append missing entries without replacing the project's existing rules.
+ */
+function updateRootGitignore(targetDir: string, result: InitResult): void {
+  const gitignorePath = path.join(targetDir, '.gitignore');
+  const entries = [
+    '# Ruflo local secrets and runtime data',
+    '.env',
+    '.env.local',
+    '.env.*.local',
+    '.claude-flow/data/',
+    '.claude-flow/logs/',
+    '.claude-flow/sessions/',
+  ];
+  const existing = fs.existsSync(gitignorePath)
+    ? fs.readFileSync(gitignorePath, 'utf8')
+    : '';
+  const existingLines = new Set(existing.split(/\r?\n/));
+  const missing = entries.filter((entry) => !existingLines.has(entry));
+  if (missing.length === 0) return;
+
+  const separator = existing.length === 0
+    ? ''
+    : existing.endsWith('\n') ? '\n' : '\n\n';
+  fs.writeFileSync(gitignorePath, `${existing}${separator}${missing.join('\n')}\n`, 'utf8');
+  result.created.files.push('.gitignore (updated)');
 }
 
 /**
