@@ -20,7 +20,7 @@ import {
   generateBuiltInSkill,
 } from './generators/skill-md.js';
 import { generateConfigToml } from './generators/config-toml.js';
-import { DEFAULT_SKILLS_BY_TEMPLATE, AGENTS_OVERRIDE_TEMPLATE, GITIGNORE_ENTRIES, ALL_AVAILABLE_SKILLS } from './templates/index.js';
+import { DEFAULT_SKILLS_BY_TEMPLATE, AGENTS_OVERRIDE_TEMPLATE, GITIGNORE_ENTRIES } from './templates/index.js';
 import { getRufloMcpAddCommand } from './mcp-config.js';
 
 /**
@@ -79,6 +79,21 @@ export class CodexInitializer {
 
       if (alreadyInitialized && this.force) {
         warnings.push('Overwriting existing configuration files');
+      }
+
+      // Template catalog entries are capability names, not proof that a
+      // complete SKILL.md payload ships in this package. For default template
+      // selections, install only canonical packaged assets. Explicit
+      // `options.skills` remain an intentional custom-skill request and keep
+      // the existing scaffold behavior.
+      if (options.skills === undefined) {
+        const omitted = await this.retainCanonicalPackagedSkills();
+        if (omitted.length > 0) {
+          warnings.push(
+            `Omitted ${omitted.length} catalog skills without canonical packaged assets. ` +
+            'Install additional capabilities from the Ruflo plugin catalog.',
+          );
+        }
       }
 
       // Create directory structure
@@ -276,6 +291,28 @@ export class CodexInitializer {
       const fullPath = path.join(this.projectPath, dir);
       await fs.ensureDir(fullPath);
     }
+  }
+
+  /**
+   * Keep generated configuration truthful: a template-selected skill is
+   * enabled only when its canonical SKILL.md is present in the package.
+   */
+  private async retainCanonicalPackagedSkills(): Promise<string[]> {
+    const canonical = new Set<string>();
+    try {
+      const entries = await fs.readdir(this.bundledSkillsPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const skillMd = path.join(this.bundledSkillsPath, entry.name, 'SKILL.md');
+        if (await fs.pathExists(skillMd)) canonical.add(entry.name);
+      }
+    } catch {
+      // Missing/unreadable package assets must fail safe to omission.
+    }
+
+    const omitted = this.skills.filter((skillName) => !canonical.has(skillName));
+    this.skills = this.skills.filter((skillName) => canonical.has(skillName));
+    return omitted;
   }
 
   /**
