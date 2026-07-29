@@ -1,6 +1,6 @@
 {
   "name": "claude-flow",
-  "version": "3.32.29",
+  "version": "3.32.30",
   "description": "Ruflo - Enterprise AI agent orchestration for Claude Code. Deploy 60+ specialized agents in coordinated swarms with self-learning, fault-tolerant consensus, vector memory, and MCP integration",
   "main": "dist/index.js",
   "type": "module",
@@ -61,8 +61,11 @@
   },
   "dependencies": {
     "@claude-flow/cli-core": "3.7.0-alpha.5",
+    "@claude-flow/codex": "file:./v3/@claude-flow/codex",
     "@claude-flow/mcp": "3.0.0-alpha.9",
     "@claude-flow/neural": "3.0.0-alpha.9",
+    "@claude-flow/plugin-agent-federation": "file:./v3/@claude-flow/plugin-agent-federation",
+    "@claude-flow/security": "file:./v3/@claude-flow/security",
     "@claude-flow/shared": "3.0.0-alpha.8",
     "@noble/ed25519": "2.3.0",
     "@ruvector/rabitq-wasm": "0.1.0",
@@ -70,7 +73,7 @@
     "zod": "3.25.76"
   },
   "optionalDependencies": {
-    "@claude-flow/codex": "^3.0.1",
+    "@napi-rs/keyring": "1.3.0",
     "@claude-flow/plugin-gastown-bridge": "^0.1.3",
     "@ruvector/attention": "^0.1.3",
     "@ruvector/core": "^0.1.30",
@@ -142,7 +145,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/claude-flow.git"
+    "url": "git+https://github.com/ruvnet/claude-flow.git"
   },
   "keywords": [
     "ruvflow",
@@ -179,14 +182,19 @@
     "consensus",
     "self-learning"
   ],
-  "author": {
-    "name": "RuvNet",
-    "email": "ruv@ruv.io",
-    "url": "https://ruv.io"
-  },
+  "author": "RuvNet <ruv@ruv.io> (https://ruv.io)",
   "license": "MIT",
   "publishConfig": {
     "access": "public",
     "tag": "latest"
+  },
+  "bundleDependencies": [
+    "@claude-flow/codex",
+    "@claude-flow/plugin-agent-federation",
+    "@claude-flow/security"
+  ],
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
   }
 }

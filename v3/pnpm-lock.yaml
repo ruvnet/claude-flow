@@ -44,7 +44,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/aidefence':
     dependencies:
@@ -110,19 +110,28 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/cli':
     dependencies:
       '@claude-flow/cli-core':
         specifier: 3.7.0-alpha.5
         version: link:../cli-core
+      '@claude-flow/codex':
+        specifier: file:../codex
+        version: file:@claude-flow/codex(@types/node@20.19.27)
       '@claude-flow/mcp':
         specifier: 3.0.0-alpha.8
         version: 3.0.0-alpha.8
       '@claude-flow/neural':
         specifier: 3.0.0-alpha.9
         version: link:../neural
+      '@claude-flow/plugin-agent-federation':
+        specifier: file:../plugin-agent-federation
+        version: file:@claude-flow/plugin-agent-federation(agentic-flow@3.0.0-alpha.2)
+      '@claude-flow/security':
+        specifier: file:../security
+        version: file:@claude-flow/security
       '@claude-flow/shared':
         specifier: 3.0.0-alpha.7
         version: 3.0.0-alpha.7
@@ -157,9 +166,9 @@ importers:
       '@claude-flow/memory':
         specifier: ^3.0.0-alpha.21
         version: link:../memory
-      '@claude-flow/security':
-        specifier: ^3.0.0-alpha.14
-        version: link:../security
+      '@napi-rs/keyring':
+        specifier: 1.3.0
+        version: 1.3.0
       agentdb:
         specifier: ^3.0.0-alpha.17
         version: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
@@ -223,7 +232,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/deployment':
     dependencies:
@@ -236,7 +245,7 @@ importers:
         version: 25.0.2(typescript@5.9.3)
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/embeddings':
     dependencies:
@@ -286,7 +295,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/hooks':
     dependencies:
@@ -321,7 +330,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/integration':
     dependencies:
@@ -366,7 +375,7 @@ importers:
         version: 8.18.1
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/memory':
     dependencies:
@@ -415,7 +424,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/plugin-agent-federation':
     dependencies:
@@ -430,10 +439,10 @@ importers:
         version: 8.20.0
     devDependencies:
       '@claude-flow/security':
-        specifier: workspace:*
-        version: link:../security
+        specifier: file:../security
+        version: file:@claude-flow/security
       '@claude-flow/shared':
-        specifier: workspace:*
+        specifier: 3.0.0-alpha.8
         version: link:../shared
       '@types/ws':
         specifier: ^8.18.1
@@ -465,7 +474,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/plugins':
     dependencies:
@@ -493,7 +502,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/providers':
     dependencies:
@@ -518,7 +527,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/security':
     dependencies:
@@ -538,7 +547,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/shared':
     dependencies:
@@ -572,7 +581,7 @@ importers:
         version: 7.2.0
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
       ws:
         specifier: ^8.16.0
         version: 8.19.0
@@ -584,7 +593,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/testing':
     devDependencies:
@@ -602,7 +611,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
 packages:
 
@@ -637,7 +646,6 @@ packages:
       '@ai-sdk/provider-utils': 4.0.19(zod@3.25.76)
       zod: 3.25.76
     dev: false
-    optional: true
 
   /@ai-sdk/provider-utils@4.0.19(zod@3.25.76):
     resolution: {integrity: sha512-3eG55CrSWCu2SXlqq2QCsFjo3+E7+Gmg7i/oRVoSZzIodTuDSfLb3MRje67xE9RFea73Zao7Lm4mADIfUETKGg==}
@@ -651,7 +659,6 @@ packages:
       eventsource-parser: 3.0.6
       zod: 3.25.76
     dev: false
-    optional: true
 
   /@ai-sdk/provider@3.0.8:
     resolution: {integrity: sha512-oGMAgGoQdBXbZqNG0Ze56CHjDZ1IDYOwGYxYjO5KLSlz5HiNQ9udIXsPZ61VWaHGZ5XW/jyjmr6t2xz2jGVwbQ==}
@@ -660,7 +667,6 @@ packages:
     dependencies:
       json-schema: 0.4.0
     dev: false
-    optional: true
 
   /@anthropic-ai/claude-agent-sdk@0.1.76(zod@3.25.76):
     resolution: {integrity: sha512-s7RvpXoFaLXLG7A1cJBAPD8ilwOhhc/12fb5mJXRuD561o4FmPtQ+WRfuy9akMmrFRfLsKv8Ornw3ClGAPL2fw==}
@@ -1639,7 +1645,6 @@ packages:
     hasBin: true
     requiresBuild: true
     dev: false
-    optional: true
 
   /@metaharness/flywheel@0.1.7:
     resolution: {integrity: sha512-am7dROkjyS1Zkms3TOcn2LVHjwMLQXPJ6Pu1aP55q40vWJLRONGdGvnrcBL/VhMFqjQrVB57lmSn2E+s5CSZwA==}
@@ -1764,7 +1769,6 @@ packages:
     cpu: [arm64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@napi-rs/keyring-darwin-x64@1.3.0:
@@ -1773,7 +1777,6 @@ packages:
     cpu: [x64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@napi-rs/keyring-freebsd-x64@1.3.0:
@@ -1782,7 +1785,6 @@ packages:
     cpu: [x64]
     os: [freebsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@napi-rs/keyring-linux-arm-gnueabihf@1.3.0:
@@ -1791,7 +1793,6 @@ packages:
     cpu: [arm]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@napi-rs/keyring-linux-arm64-gnu@1.3.0:
@@ -1800,7 +1801,6 @@ packages:
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@napi-rs/keyring-linux-arm64-musl@1.3.0:
@@ -1809,7 +1809,6 @@ packages:
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@napi-rs/keyring-linux-riscv64-gnu@1.3.0:
@@ -1818,7 +1817,6 @@ packages:
     cpu: [riscv64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@napi-rs/keyring-linux-x64-gnu@1.3.0:
@@ -1827,7 +1825,6 @@ packages:
     cpu: [x64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@napi-rs/keyring-linux-x64-musl@1.3.0:
@@ -1836,7 +1833,6 @@ packages:
     cpu: [x64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@napi-rs/keyring-win32-arm64-msvc@1.3.0:
@@ -1845,7 +1841,6 @@ packages:
     cpu: [arm64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@napi-rs/keyring-win32-ia32-msvc@1.3.0:
@@ -1854,7 +1849,6 @@ packages:
     cpu: [ia32]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@napi-rs/keyring-win32-x64-msvc@1.3.0:
@@ -1863,7 +1857,6 @@ packages:
     cpu: [x64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@napi-rs/keyring@1.3.0:
@@ -1883,12 +1876,10 @@ packages:
       '@napi-rs/keyring-win32-arm64-msvc': 1.3.0
       '@napi-rs/keyring-win32-ia32-msvc': 1.3.0
       '@napi-rs/keyring-win32-x64-msvc': 1.3.0
-    dev: false
     optional: true
 
   /@noble/ed25519@2.3.0:
     resolution: {integrity: sha512-M7dvXL2B92/M7dw9+gzuydL8qn/jiqNHaoR3Q+cb1q1GHV7uwE17WCyFMG+Y+TZb5izcaXk5TdJRrDUxHXL78A==}
-    dev: false
 
   /@noble/hashes@1.8.0:
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
@@ -1941,7 +1932,6 @@ packages:
     engines: {node: '>= 18'}
     requiresBuild: true
     dev: false
-    optional: true
 
   /@octokit/auth-token@6.0.0:
     resolution: {integrity: sha512-P4YJBPdPSpWTQ1NU4XYdvHvXJJDxM6YwpS0FZHRgP7YFkdVxsWcpWGy/NVqlAA7PcPCnMacXlRm1y2PFZRWL/w==}
@@ -1960,7 +1950,6 @@ packages:
       before-after-hook: 3.0.2
       universal-user-agent: 7.0.3
     dev: false
-    optional: true
 
   /@octokit/core@7.0.6:
     resolution: {integrity: sha512-DhGl4xMVFGVIyMwswXeyzdL4uXD5OGILGX5N8Y+f6W7LhC1Ze2poSNrkF/fedpVDHEEZ+PHFW0vL14I+mm8K3Q==}
@@ -1982,7 +1971,6 @@ packages:
       '@octokit/types': 14.1.0
       universal-user-agent: 7.0.3
     dev: false
-    optional: true
 
   /@octokit/endpoint@11.0.2:
     resolution: {integrity: sha512-4zCpzP1fWc7QlqunZ5bSEjxc6yLAlRTnDwKtgXfcI/FxxGoqedDG8V2+xJ60bV2kODqcGB+nATdtap/XYq2NZQ==}
@@ -2000,7 +1988,6 @@ packages:
       '@octokit/types': 14.1.0
       universal-user-agent: 7.0.3
     dev: false
-    optional: true
 
   /@octokit/graphql@9.0.3:
     resolution: {integrity: sha512-grAEuupr/C1rALFnXTv6ZQhFuL1D8G5y8CN04RgrO4FIPMrtm+mcZzFG7dcBm+nq+1ppNixu+Jd78aeJOYxlGA==}
@@ -2014,13 +2001,11 @@ packages:
     resolution: {integrity: sha512-9sIH3nSUttelJSXUrmGzl7QUBFul0/mB8HRYl3fOlgHbIWG+WnYDXU3v/2zMtAvuzZ/ed00Ei6on975FhBfzrg==}
     requiresBuild: true
     dev: false
-    optional: true
 
   /@octokit/openapi-types@25.1.0:
     resolution: {integrity: sha512-idsIggNXUKkk0+BExUn1dQ92sfysJrje03Q0bv0e+KPLrvyqZF8MnBpFz8UNfYDwB3Ie7Z0TByjWfzxt7vseaA==}
     requiresBuild: true
     dev: false
-    optional: true
 
   /@octokit/openapi-types@27.0.0:
     resolution: {integrity: sha512-whrdktVs1h6gtR+09+QsNk2+FO+49j6ga1c55YZudfEG+oKJVvJLQi3zkOm5JjiUXAagWK2tI2kTGKJ2Ys7MGA==}
@@ -2035,7 +2020,6 @@ packages:
       '@octokit/core': 6.1.6
       '@octokit/types': 13.10.0
     dev: false
-    optional: true
 
   /@octokit/plugin-paginate-rest@14.0.0(@octokit/core@7.0.6):
     resolution: {integrity: sha512-fNVRE7ufJiAA3XUrha2omTA39M6IXIc6GIZLvlbsm8QOQCYvpq/LkMNGyFlB1d8hTDzsAXa3OKtybdMAYsV/fw==}
@@ -2055,7 +2039,6 @@ packages:
     dependencies:
       '@octokit/core': 6.1.6
     dev: false
-    optional: true
 
   /@octokit/plugin-rest-endpoint-methods@13.5.0(@octokit/core@6.1.6):
     resolution: {integrity: sha512-9Pas60Iv9ejO3WlAX3maE1+38c5nqbJXV5GrncEfkndIpZrJ/WPMRd2xYDcPPEt5yzpxcjw9fWNoPhsSGzqKqw==}
@@ -2067,7 +2050,6 @@ packages:
       '@octokit/core': 6.1.6
       '@octokit/types': 13.10.0
     dev: false
-    optional: true
 
   /@octokit/plugin-retry@8.0.3(@octokit/core@7.0.6):
     resolution: {integrity: sha512-vKGx1i3MC0za53IzYBSBXcrhmd+daQDzuZfYDd52X5S0M2otf3kVZTVP8bLA3EkU0lTvd1WEC2OlNNa4G+dohA==}
@@ -2097,7 +2079,6 @@ packages:
     dependencies:
       '@octokit/types': 14.1.0
     dev: false
-    optional: true
 
   /@octokit/request-error@7.1.0:
     resolution: {integrity: sha512-KMQIfq5sOPpkQYajXHwnhjCC0slzCNScLHs9JafXc4RAJI+9f+jNDlBNaIMTvazOPLgb4BnlhGJOTbnN0wIjPw==}
@@ -2126,7 +2107,6 @@ packages:
       fast-content-type-parse: 2.0.1
       universal-user-agent: 7.0.3
     dev: false
-    optional: true
 
   /@octokit/rest@21.1.1:
     resolution: {integrity: sha512-sTQV7va0IUVZcntzy1q3QqPm/r8rWtDCqpRAmb8eXXnKkjoQEtFe3Nt5GTVsHft+R6jJoHeSiVLcgcvhtue/rg==}
@@ -2138,7 +2118,6 @@ packages:
       '@octokit/plugin-request-log': 5.3.1(@octokit/core@6.1.6)
       '@octokit/plugin-rest-endpoint-methods': 13.5.0(@octokit/core@6.1.6)
     dev: false
-    optional: true
 
   /@octokit/types@13.10.0:
     resolution: {integrity: sha512-ifLaO34EbbPj0Xgro4G5lP5asESjwHracYJvVaPIyXMuiuXLlhic3S47cBdTb+jfODkTE5YtGCLt3Ay3+J97sA==}
@@ -2146,7 +2125,6 @@ packages:
     dependencies:
       '@octokit/openapi-types': 24.2.0
     dev: false
-    optional: true
 
   /@octokit/types@14.1.0:
     resolution: {integrity: sha512-1y6DgTy8Jomcpu33N+p5w58l6xyt55Ar2I91RPiIA0xCJBXyUAhXCcmZaDWSANiha7R9a6qJJ2CRomGPZ6f46g==}
@@ -2154,7 +2132,6 @@ packages:
     dependencies:
       '@octokit/openapi-types': 25.1.0
     dev: false
-    optional: true
 
   /@octokit/types@16.0.0:
     resolution: {integrity: sha512-sKq+9r1Mm4efXW1FCk7hFSeJo4QKreL/tTbR0rz/qx/r1Oa2VV83LTA/H/MuCOX7uCIJmQVRKBcbmWoySjAnSg==}
@@ -5310,7 +5287,6 @@ packages:
       '@ruvector/graph-node-linux-x64-gnu': 2.0.2
       '@ruvector/graph-node-win32-x64-msvc': 2.0.2
     dev: false
-    optional: true
 
   /@ruvector/graph-node@2.0.3:
     resolution: {integrity: sha512-BE8LiP3pRP/9A3fhnAn3X+p7GvqeLclCe8OXwb4HmiIsbrxp3zIf931q0u5CvsaB3ajDwO2IxCMG4GQABAzmhw==}
@@ -6549,7 +6525,6 @@ packages:
     resolution: {integrity: sha512-T8L6i7wCuyoK8A/ZeLYt1+q0ty3Zb9+qbSSvrIVitzT3YjZqkTZ40IbRsPanlB4h1QB3JVL1SYCdR6ngtFYcuA==}
     requiresBuild: true
     dev: false
-    optional: true
 
   /@types/ws@8.18.1:
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
@@ -6592,7 +6567,7 @@ packages:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+      vitest: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
     dev: true
 
   /@vitest/expect@4.1.8:
@@ -6620,7 +6595,7 @@ packages:
       '@vitest/spy': 4.1.8
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
+      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)
     dev: true
 
   /@vitest/pretty-format@4.1.8:
@@ -6794,7 +6769,6 @@ packages:
       - react-native-b4a
       - supports-color
     dev: false
-    optional: true
 
   /agentdb@2.0.0-alpha.3.4(@types/node@20.19.27)(express@5.2.1)(hono@4.12.11)(marked@11.2.0):
     resolution: {integrity: sha512-bUqO5o2VpWomh2xGOHdQoX00CGrPcIAH6zDCt5oa0SeJWAO+bbB7SiElb1TxwcrJQKe96HkiSh2T8z4vFypsxg==}
@@ -7293,7 +7267,6 @@ packages:
       - sury
       - utf-8-validate
     dev: false
-    optional: true
 
   /agentic-payments@0.1.13(typescript@5.9.3):
     resolution: {integrity: sha512-XMwOIjodoqg+Q5usjcuZUYiu54O1Jn1PeLm7VYEpWG6GIANb6LM8ZbihlshhjhDetqfSBLT4hmrKZfKxuySzxg==}
@@ -7637,13 +7610,11 @@ packages:
   /bcryptjs@3.0.3:
     resolution: {integrity: sha512-GlF5wPWnSa/X5LKM1o0wz0suXIINz1iHRLvTS+sLyi7XPbe5ycmYI3DlZqVGZZtDgl4DmasFg7gOB3JYbphV5g==}
     hasBin: true
-    dev: false
 
   /before-after-hook@3.0.2:
     resolution: {integrity: sha512-Nik3Sc0ncrMK4UUdXQmAnRtzmNQTAAXmXIopizwZ1W1t8QmfJj+zL4OA2I7XPTPW5z5TDqv4hRo/JzouDJnX3A==}
     requiresBuild: true
     dev: false
-    optional: true
 
   /before-after-hook@4.0.0:
     resolution: {integrity: sha512-q6tR3RPqIB1pMiTRMFcZwuG5T8vwp+vUvEG0vuI6B+Rikh5BfPp2fQ82c925FOs+b0lcFQ8CFrL+KbilfZFhOQ==}
@@ -8734,7 +8705,6 @@ packages:
     resolution: {integrity: sha512-nGqtvLrj5w0naR6tDPfB4cUmYCqouzyQiz6C5y/LtcDllJdrcc6WaWW6iXyIIOErTa/XRybj28aasdn4LkVk6Q==}
     requiresBuild: true
     dev: false
-    optional: true
 
   /fast-content-type-parse@3.0.0:
     resolution: {integrity: sha512-ZvLdcY8P+N8mGQJahJV5G4U88CSvT1rP8ApL6uETe88MBXrBHAkZlSEySdUlyztF7ccb+Znos3TFqaepHxdhBg==}
@@ -9350,7 +9320,6 @@ packages:
     dependencies:
       bindings: 1.5.0
       node-addon-api: 8.7.0
-    optional: true
 
   /hono@4.12.11:
     resolution: {integrity: sha512-r4xbIa3mGGGoH9nN4A14DOg2wx7y2oQyJEb5O57C/xzETG/qx4c7CVDQ5WMeKHZ7ORk2W0hZ/sQKXTav3cmYBA==}
@@ -9848,7 +9817,6 @@ packages:
     resolution: {integrity: sha512-es94M3nTIfsEPisRafak+HDLfHXnKBhV3vU5eqPcS3flIWqcxJWgXHXiey3YrpaNsanY5ei1VoYEbOzijuq9BA==}
     requiresBuild: true
     dev: false
-    optional: true
 
   /json-stable-stringify-without-jsonify@1.0.1:
     resolution: {integrity: sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw==}
@@ -10483,7 +10451,6 @@ packages:
     resolution: {integrity: sha512-9MdFxmkKaOYVTV+XVRG8ArDwwQ77XIgIPyKASB1k3JPq3M8fGQQQE3YpMOrKm6g//Ktx8ivZr8xo1Qmtqub+GA==}
     engines: {node: ^18 || ^20 || >= 21}
     requiresBuild: true
-    optional: true
 
   /node-domexception@1.0.0:
     resolution: {integrity: sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==}
@@ -12755,7 +12722,6 @@ packages:
     engines: {node: '>= 0.10'}
     requiresBuild: true
     dev: false
-    optional: true
 
   /vary@1.1.2:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
@@ -12863,6 +12829,7 @@ packages:
       yaml: 2.8.2
     optionalDependencies:
       fsevents: 2.3.3
+    dev: false
 
   /vitest@4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0):
     resolution: {integrity: sha512-flY6ScbCIt9HThs+C5HS7jvGOB560DJtk/Z15IQROTA6zEy49Nh8T/dofWTQL+n3vswqn87sbJNiuqw1SDp5Ig==}
@@ -12994,7 +12961,7 @@ packages:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.1.0
-      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
+      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - msw
@@ -13205,7 +13172,6 @@ packages:
     engines: {node: '>= 14.6'}
     hasBin: true
     requiresBuild: true
-    optional: true
 
   /yargs-parser@20.2.9:
     resolution: {integrity: sha512-y11nGElTIV+CT3Zv9t7VKl+Q3hTQoT9a1Qzezhhl6Rp21gJ/IVTW7Z3y9EWXhuUBC2Shnf+DX0antecpAwSP8w==}
@@ -13290,3 +13256,58 @@ packages:
 
   /zod@4.3.5:
     resolution: {integrity: sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g==}
+
+  file:@claude-flow/codex(@types/node@20.19.27):
+    resolution: {directory: '@claude-flow/codex', type: directory}
+    id: file:@claude-flow/codex
+    name: '@claude-flow/codex'
+    engines: {node: '>=18'}
+    hasBin: true
+    peerDependencies:
+      '@claude-flow/cli': ^3.0.0
+    peerDependenciesMeta:
+      '@claude-flow/cli':
+        optional: true
+    dependencies:
+      '@iarna/toml': 2.2.5
+      chalk: 5.6.2
+      commander: 12.1.0
+      fs-extra: 11.3.3
+      inquirer: 9.3.8(@types/node@20.19.27)
+      toml: 3.0.0
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - '@types/node'
+    dev: false
+
+  file:@claude-flow/plugin-agent-federation(agentic-flow@3.0.0-alpha.2):
+    resolution: {directory: '@claude-flow/plugin-agent-federation', type: directory}
+    id: file:@claude-flow/plugin-agent-federation
+    name: '@claude-flow/plugin-agent-federation'
+    hasBin: true
+    peerDependencies:
+      agentic-flow: '>=2.0.12-fix.8 <4.0.0'
+      midstreamer: '>=0.3.1'
+    peerDependenciesMeta:
+      agentic-flow:
+        optional: true
+      midstreamer:
+        optional: true
+    dependencies:
+      '@noble/ed25519': 2.3.0
+      agentic-flow: 3.0.0-alpha.2
+      ws: 8.20.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+    dev: false
+
+  file:@claude-flow/security:
+    resolution: {directory: '@claude-flow/security', type: directory}
+    name: '@claude-flow/security'
+    dependencies:
+      '@noble/ed25519': 2.3.0
+      bcryptjs: 3.0.3
+      zod: 3.25.76
+    optionalDependencies:
+      '@napi-rs/keyring': 1.3.0

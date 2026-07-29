@@ -4,6 +4,7 @@ import { cp, mkdir, rm } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stageInternalRuntimeBundles } from '../../../../scripts/stage-internal-runtime-bundles.mjs';
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(packageDir, '..', '..', '..');
@@ -26,6 +27,8 @@ for (const buildDir of [resolve(packageDir, '..', 'swarm'), packageDir]) {
     throw new Error(`TypeScript release build failed for ${buildDir} with exit code ${build.status ?? 'unknown'}`);
   }
 }
+
+await stageInternalRuntimeBundles(packageDir);
 
 await cp(join(repoRoot, 'README.md'), join(packageDir, 'README.md'));
 await rm(pluginsDir, { recursive: true, force: true });

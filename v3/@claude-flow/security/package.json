@@ -5,6 +5,10 @@
   "description": "Security module - CVE fixes, input validation, path security",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "exports": {
     ".": "./dist/index.js",
     "./*": "./dist/*.js"

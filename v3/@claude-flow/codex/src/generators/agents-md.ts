@@ -16,7 +16,8 @@ Ruflo is the coordination ledger and policy decision point; Codex workers execut
 Use \`guidance_brain({ mode: "recommend", task: "..." })\` when the task can
 benefit from Ruflo-specific capabilities. Its live registry is authoritative
 for tool presence; registration alone does not prove configuration,
-reachability, health, or authorization.
+reachability, health, or authorization. If it is not registered, use compatible
+\`guidance_recommend\`, CLI discovery, and repository instructions.
 
 1. **Recall** — search AgentDB memory and relevant ADRs for patterns and constraints.
 2. **Inspect** — read source, runtime, dependency, policy, and health state.
@@ -292,11 +293,12 @@ Use MCP tools for coordination, then keep coding:
 <type>(<scope>): <description>
 
 [optional body]
-
-Co-Authored-By: ruflo-bot <ruflo-bot@users.noreply.github.com>
 \`\`\`
 
 Types: \`feat\`, \`fix\`, \`docs\`, \`style\`, \`refactor\`, \`perf\`, \`test\`, \`chore\`
+
+Do not add a \`Co-Authored-By\` trailer unless the repository explicitly
+configures and authorizes that attribution.
 
 ## Security
 

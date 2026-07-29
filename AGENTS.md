@@ -33,7 +33,8 @@ the executors. Coordination records do not write code or run tests.
 
 Use `guidance_brain({ mode: "recommend", task: "..." })` to select Ruflo
 capabilities from the live MCP registry. A registered tool is not necessarily
-configured, reachable, healthy, or authorized.
+configured, reachable, healthy, or authorized. If it is unavailable, continue
+with compatible guidance tools, CLI discovery, and repository instructions.
 
 1. Recall relevant AgentDB memory and ADRs.
 2. Inspect source, runtime, dependencies, policy, and health.
@@ -84,6 +85,17 @@ npx ruflo policy status
 npx ruflo policy verify
 npx ruflo metaharness flywheel status
 ```
+
+Repository release contract:
+
+- The stable public train is exactly `@claude-flow/cli`, `claude-flow`, and
+  `ruflo`; internal `@claude-flow/*` components are bundled and are not part of
+  a normal standalone publish.
+- Publish from a clean, reviewed source state in that order.
+- Only the CLI publish receives the helper-signing configuration from
+  `ruv-dev`; use the existing authenticated npm session for publication.
+- Run `node scripts/audit-umbrella-version-lockstep.mjs`, verify all three
+  registry versions, and align `latest`, `alpha`, and `v3alpha`.
 
 ---
 
