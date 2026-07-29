@@ -103,6 +103,9 @@ export class DiscoveryService {
 
   async addStaticPeer(endpoint: string, manifest?: FederationManifest): Promise<FederationNode> {
     if (manifest) {
+      if (manifest.endpoint !== endpoint) {
+        throw new Error(`Manifest endpoint mismatch: expected ${endpoint}`);
+      }
       const valid = await this.deps.verifyManifest(manifest);
       if (!valid) {
         throw new Error(`Invalid manifest signature for endpoint: ${endpoint}`);

@@ -4,7 +4,8 @@
 **Date**: 2026-07-28  
 **Decision owners**: Ruflo security, claims, federation, and policy maintainers  
 **Supersedes**: ADR-101's production-readiness conclusion, but not its component design  
-**Related**: ADR-086, ADR-101, ADR-109, ADR-144, ADR-320, ADR-324
+**Related**: ADR-086, ADR-101, ADR-109, ADR-144, ADR-320, ADR-324,
+ADR-326, ADR-327
 
 ## Executive decision
 
@@ -44,6 +45,18 @@ Ruflo does **not** require SPIRE, OAuth, or an external identity provider for
 local use. Provider interfaces retain the current local Ed25519 identity as the
 default compatibility profile.
 
+Two companion profiles make this umbrella decision implementable without
+turning it into one unbounded programme:
+
+- ADR-326 defines the Cognitum dashboard, Meta-LLM, Comms, Cog Studio, and
+  RuView authority, identity, event, privacy, and migration contract.
+- ADR-327 defines repository harness, worktree, lease, fencing, message, and
+  exact-source receipt semantics for concurrent Codex and Claude development.
+
+Neither companion changes this ADR's trust model. Product actions and
+development leases are both evaluated by ADR-324 policy, but they remain
+different resource and capability domains.
+
 ## Why this ADR exists
 
 ADR-101 correctly identified the components needed to move work claims across
@@ -74,7 +87,11 @@ This ADR uses the following normative vocabulary:
 Legacy command and API names remain as compatibility aliases, but new code MUST
 use these terms.
 
-## Current-state audit
+## Pre-remediation current-state audit
+
+The findings below describe the baseline that motivated this ADR. They are
+retained for traceability; the implementation-progress section immediately
+after the table records the opt-in remediations now present on this branch.
 
 ### What is already strong
 
@@ -106,6 +123,51 @@ use these terms.
 | Medium | Replay fields are not enforced | Envelope metadata carries time/session data, but ingress has no nonce cache or freshness/audience check | A valid old ownership message can be replayed |
 | Medium | A2A discovery is descriptive rather than trusted | Cards expose optional security fields, but local conversion does not populate them by default | A peer's advertised capability is not an authorization grant |
 | Medium | Legacy local capability loading can fail open | A malformed/missing local claims file defaults non-admin checks to permissive behavior | Corruption can expand effective privilege |
+
+### Implementation progress after the audit
+
+The federation plugin now provides these opt-in foundations:
+
+- recursively canonical JCS/Ed25519 envelope signing under negotiated
+  `jcs-v1`, advertised by default by upgraded peers and trusted only from a
+  signature-verified peer manifest, while retaining byte-for-byte
+  `legacy-v1` verification;
+- explicit `legacy`, `observe`, and `enforce` authorization modes backed by a
+  concrete claim checker instead of an anonymous always-true callback;
+- an inbound evaluator that runs after signature verification and before
+  replay marking, acceptance audit, or event emission;
+- fail-closed enforcement for denial, missing evaluators, evaluator errors, or
+  malformed decisions;
+- a legacy allowlist limited to `heartbeat` and `status-broadcast`.
+
+Consequential and unknown legacy message types—including work claims,
+handoffs, task assignments, context/memory transfer, trust, topology, and spawn
+operations—are rejected before authorization or emission and cannot be sent
+from an upgraded peer to an endpoint-only or legacy-only peer. Endpoint-only
+joins remain untrusted and negotiate no optional protocol; providing the
+peer's signed manifest enables JCS without treating the current process as the
+remote handshake responder. This preserves low-risk health/status
+interoperability with previous installations without silently downgrading
+consequential traffic. Nested JCS tampering and
+verify-before-authorize-before-emit ordering are covered by tests.
+
+This closes the first three baseline findings for the implemented plugin path,
+but it does not make the overall federation production-ready. Runtime
+composition with the claims repository, durable ingress/outbox storage,
+federated fencing authority, grant exchange, identity federation, revocation,
+and the production Cognitum enforcement points remain pending.
+
+The concurrent Cognitum audit also found that its current website harness has
+valuable path/resource leases, heartbeats, messages, ports, and run receipts,
+but several writers share one dirty worktree and receipts bind only `HEAD`.
+That coordination state cannot prove the exact source snapshot or fence a stale
+writer. ADR-327 adopts the useful harness contract while retaining one
+worktree per writer and adding source-state identity and fencing epochs.
+
+The product audit found no production Ruflo verifier in Cognitum Functions.
+Firebase tenancy, Meta-LLM account identity, AgentBBS identity, and RuView edge
+authority must therefore remain separate until ADR-326's verified principal
+links, audience-bound grants, and local enforcement points are implemented.
 
 ADR-101 remains useful as a component-level design record. Its assertion that
 federated claims are production-wired is superseded by this audit until the

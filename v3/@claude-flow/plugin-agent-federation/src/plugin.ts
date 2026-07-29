@@ -25,7 +25,11 @@ import { RoutingService } from './domain/services/routing-service.js';
 import { AuditService, type ComplianceMode } from './domain/services/audit-service.js';
 import { PIIPipelineService } from './domain/services/pii-pipeline-service.js';
 import { TrustEvaluator } from './application/trust-evaluator.js';
-import { PolicyEngine, type FederationClaimType } from './application/policy-engine.js';
+import { PolicyEngine } from './application/policy-engine.js';
+import {
+  createFederationClaimChecker,
+  type FederationAuthorizationMode,
+} from './application/claim-checker.js';
 import { TrustLevel, getTrustLevelLabel } from './domain/entities/trust-level.js';
 import { type FederationMessageType } from './domain/entities/federation-envelope.js';
 
@@ -48,9 +52,17 @@ type LoadedTransport = AgentTransport & {
    * doesn't include it, so we cast at the call site. */
   listen?: (port: number, host?: string) => Promise<void>;
 };
-import { dispatchInbound, canonicalizeEnvelopeForVerify } from './application/inbound-dispatcher.js';
+import {
+  DEFAULT_ENVELOPE_SIGNATURE_MODE,
+  JCS_SIGNATURE_PROTOCOL,
+  canonicalizeEnvelopeForVerify,
+  dispatchInbound,
+  selectEnvelopeSignatureVersion,
+  type EnvelopeSignatureMode,
+} from './application/inbound-dispatcher.js';
 import { createMcpTools } from './mcp-tools.js';
 import { createCliCommands } from './cli-commands.js';
+import { FEDERATION_PLUGIN_VERSION } from './version.js';
 // A2A (Agent2Agent, Linux Foundation) Agent Card adapter — cards only.
 // Opt-in via config.a2aCard; serves /.well-known/agent-card.json on a
 // 127.0.0.1-default bind (ADR-166 posture preserved).
@@ -59,7 +71,7 @@ import { startAgentCardServer, type AgentCardServerHandle } from './a2a/well-kno
 
 export class AgentFederationPlugin implements ClaudeFlowPlugin {
   readonly name = '@claude-flow/plugin-agent-federation';
-  readonly version = '1.0.0-alpha.1';
+  readonly version = FEDERATION_PLUGIN_VERSION;
   readonly description = 'Cross-installation agent federation with PII protection and AI defence';
   readonly author = 'Claude Flow Team';
   readonly dependencies = ['@claude-flow/security', '@claude-flow/aidefence'];
@@ -84,6 +96,12 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
     const complianceMode = (config['complianceMode'] as ComplianceMode) ?? 'none';
     const staticPeers = (config['staticPeers'] as string[]) ?? [];
     const hashSalt = (config['hashSalt'] as string) ?? `salt-${nodeId}`;
+    const signatureMode =
+      (config['signatureMode'] as EnvelopeSignatureMode | undefined)
+      ?? DEFAULT_ENVELOPE_SIGNATURE_MODE;
+    if (!['legacy', 'prefer-jcs', 'require-jcs'].includes(signatureMode)) {
+      throw new TypeError(`Unsupported federation signature mode: ${String(signatureMode)}`);
+    }
 
     // ADR-095 G2: real Ed25519 keypair instead of empty publicKey + stub
     // signatures. Persist to .claude-flow/federation/key-<nodeId>.json so
@@ -123,7 +141,21 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
       nodeId,
       publicKey: publicKeyHex,
       endpoint,
-      capabilities: ['send', 'receive', 'query-redacted', 'status', 'ping', 'discovery'],
+      capabilities: [
+        'send',
+        'receive',
+        'query-redacted',
+        'status',
+        'ping',
+        'discovery',
+        ...(signatureMode === 'legacy' ? [] : [JCS_SIGNATURE_PROTOCOL]),
+      ],
+      supportedProtocols: [
+        'websocket',
+        'http',
+        ...(signatureMode === 'legacy' ? [] : [JCS_SIGNATURE_PROTOCOL]),
+      ],
+      version: FEDERATION_PLUGIN_VERSION,
     };
 
     const generateId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -224,9 +256,29 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
       },
     });
 
-    const policyEngine = new PolicyEngine(
-      { checkClaim: () => true },
-    );
+    const authorizationMode =
+      (config['authorizationMode'] as FederationAuthorizationMode | undefined) ?? 'legacy';
+    const grantedClaims = Array.isArray(config['federationClaims'])
+      ? config['federationClaims'].filter((claim): claim is string => typeof claim === 'string')
+      : [];
+    const claimChecker = createFederationClaimChecker({
+      mode: authorizationMode,
+      grantedClaims,
+      onObservation: (claim, granted) => {
+        context.eventBus.emit('federation:policy-observation', {
+          claim,
+          granted,
+          mode: authorizationMode,
+        });
+      },
+    });
+    if (claimChecker.mode === 'legacy') {
+      context.logger.warn(
+        'Federation authorization is in ADR-325 legacy compatibility mode; ' +
+          'use observe before enabling enforce',
+      );
+    }
+    const policyEngine = new PolicyEngine({ checkClaim: claimChecker.checkClaim });
 
     const sessions: Map<string, import('./domain/entities/federation-session.js').FederationSession> = new Map();
 
@@ -313,12 +365,18 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
           return;
         }
         const address = resolveAddress(targetNodeId);
-        if (!address) {
+        const peer = discovery.getPeer(targetNodeId);
+        if (!address || !peer) {
           context.logger.warn(
             `Federation send aborted: peer ${targetNodeId} not in discovery registry`,
           );
           throw new Error(`PEER_UNKNOWN: ${targetNodeId}`);
         }
+        const signatureVersion = selectEnvelopeSignatureVersion(
+          signatureMode,
+          peer.capabilities.supportedProtocols,
+          envelope.messageType,
+        );
         // Build the AgentMessage WITHOUT signature first, canonicalize
         // the bytes, sign them, then attach the signature to metadata.
         // The receiver runs the same canonicalization and verifies
@@ -331,9 +389,10 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
             sourceNodeId: envelope.sourceNodeId,
             targetNodeId: envelope.targetNodeId,
             sessionId: envelope.sessionId,
+            ...(signatureVersion === 'jcs-v1' ? { signatureVersion } : {}),
           },
         };
-        const canon = canonicalizeEnvelopeForVerify(baseMessage);
+        const canon = canonicalizeEnvelopeForVerify(baseMessage, signatureVersion);
         const signature = signBytes(canon);
         const signed: AgentMessage = {
           ...baseMessage,
@@ -405,6 +464,16 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
           eventBus: context.eventBus,
           logger: context.logger,
           verifyEnvelope,
+          acceptedSignatureVersions:
+            signatureMode === 'require-jcs' ? ['jcs-v1'] : ['legacy-v1', 'jcs-v1'],
+          authorizationMode,
+          authorizeInbound: ({ messageType, peer, messageSizeBytes, sourceNodeId }) =>
+            policyEngine.evaluateMessage(
+              messageType as FederationMessageType,
+              peer.trustLevel,
+              messageSizeBytes,
+              sourceNodeId,
+            ),
         });
       });
       context.logger.debug('Federation inbound dispatcher subscribed (with Ed25519 sig verify)');
@@ -435,7 +504,11 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
               capabilities: {
                 agentTypes: coordConfig.capabilities,
                 maxConcurrentSessions: 10,
-                supportedProtocols: ['websocket', 'http'],
+                supportedProtocols: [
+                  'websocket',
+                  'http',
+                  ...(signatureMode === 'legacy' ? [] : [JCS_SIGNATURE_PROTOCOL]),
+                ],
                 complianceModes: complianceMode === 'none' ? [] : [complianceMode],
               },
               version: this.version,

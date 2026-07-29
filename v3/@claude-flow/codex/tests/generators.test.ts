@@ -115,6 +115,13 @@ describe('generateAgentsMd', () => {
       expect(result).toContain('## Ruflo + Codex Automated Workflow');
       expect(result).toContain('Never allow two writers in one worktree');
       expect(result).toContain('MetaHarness may benchmark candidates concurrently');
+      expect(result).toContain('### Repository harness adapter');
+      expect(result).toContain(
+        'A repository lease coordinates ownership; it does not grant authorization',
+      );
+      expect(result).toContain(
+        'HEAD alone is not an exact source-state',
+      );
     });
 
     it('should include tech stack', async () => {

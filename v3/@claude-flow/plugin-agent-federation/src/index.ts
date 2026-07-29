@@ -114,6 +114,22 @@ export {
   type PolicyEvaluationResult,
   type PolicyEngineDeps,
 } from './application/policy-engine.js';
+export {
+  createFederationClaimChecker,
+  type FederationAuthorizationMode,
+  type FederationClaimChecker,
+  type FederationClaimCheckerConfig,
+} from './application/claim-checker.js';
+export {
+  DEFAULT_ENVELOPE_SIGNATURE_MODE,
+  JCS_SIGNATURE_PROTOCOL,
+  canonicalizeEnvelopeForVerify,
+  isLegacyEnvelopeTypeAllowed,
+  selectEnvelopeSignatureVersion,
+  type EnvelopeSignatureMode,
+  type EnvelopeSignatureVersion,
+} from './application/inbound-dispatcher.js';
+export { FEDERATION_PLUGIN_VERSION } from './version.js';
 
 // A2A (Agent2Agent, Linux Foundation) Agent Card adapter — cards only.
 export {

@@ -11,6 +11,14 @@ on:
         description: Policy runtime version bundled by this release
         required: true
         type: string
+      codex_version:
+        description: Codex adapter version bundled by this release
+        required: true
+        type: string
+      federation_version:
+        description: Agent federation plugin version bundled by this release
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -36,6 +44,14 @@ jobs:
           fi
           if [[ ! "${{ inputs.security_version }}" =~ ^3\.0\.0-alpha\.[0-9]+$ ]]; then
             echo "::error::security_version must be a 3.0.0 alpha"
+            exit 1
+          fi
+          if [[ ! "${{ inputs.codex_version }}" =~ ^3\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::codex_version must be a stable 3.x version"
+            exit 1
+          fi
+          if [[ ! "${{ inputs.federation_version }}" =~ ^1\.0\.0-alpha\.[0-9]+$ ]]; then
+            echo "::error::federation_version must be a 1.0.0 alpha"
             exit 1
           fi
 
@@ -84,16 +100,38 @@ jobs:
               !== `^${process.env.SECURITY_VERSION}`) {
             throw new Error('CLI security dependency is not in release lockstep');
           }
+          const codex = require('./v3/@claude-flow/codex/package.json');
+          if (codex.version !== process.env.CODEX_VERSION) {
+            throw new Error(`${codex.name}: expected ${process.env.CODEX_VERSION}, got ${codex.version}`);
+          }
+          const federation = require('./v3/@claude-flow/plugin-agent-federation/package.json');
+          if (federation.version !== process.env.FEDERATION_VERSION) {
+            throw new Error(
+              `${federation.name}: expected ${process.env.FEDERATION_VERSION}, got ${federation.version}`,
+            );
+          }
           NODE
         env:
           RELEASE_TAG: ${{ inputs.tag }}
           SECURITY_VERSION: ${{ inputs.security_version }}
+          CODEX_VERSION: ${{ inputs.codex_version }}
+          FEDERATION_VERSION: ${{ inputs.federation_version }}
 
       - name: Install and build publishable packages
         working-directory: v3
         run: |
           pnpm install --frozen-lockfile
           pnpm build
+
+      - name: Run release test gates
+        working-directory: v3
+        run: |
+          pnpm --dir @claude-flow/cli exec vitest run \
+            __tests__/guidance-brain.test.ts \
+            __tests__/mcp-client-guardrail.test.ts
+          pnpm --dir @claude-flow/codex exec vitest run
+          pnpm --dir @claude-flow/security exec vitest run
+          pnpm --dir @claude-flow/plugin-agent-federation exec vitest run
 
       - name: Verify signed helper manifest
         working-directory: v3/@claude-flow/cli
@@ -103,8 +141,12 @@ jobs:
         shell: bash
         run: |
           test -f v3/@claude-flow/security/dist/policy/engine.js
+          test -f v3/@claude-flow/security/dist/policy/product-plane.js
           test -f v3/@claude-flow/cli/dist/src/services/policy-runtime.js
           test -f v3/@claude-flow/cli/dist/src/commands/policy.js
+          test -f v3/@claude-flow/cli/dist/src/mcp-tools/capability-brain.js
+          test -f v3/@claude-flow/codex/dist/harness/index.js
+          test -f v3/@claude-flow/plugin-agent-federation/dist/application/inbound-dispatcher.js
 
       - name: Stage CLI publish assets
         shell: bash
@@ -119,6 +161,29 @@ jobs:
           fs.copyFileSync('README.md', 'ruflo/README.md');
           NODE
 
+      - name: Smoke-test public exports and package archives
+        shell: bash
+        run: |
+          node --input-type=module - <<'NODE'
+          await import('./v3/@claude-flow/cli/dist/src/mcp-tools/capability-brain.js');
+          await import('./v3/@claude-flow/codex/dist/harness/index.js');
+          await import('./v3/@claude-flow/security/dist/policy/product-plane.js');
+          await import('./v3/@claude-flow/plugin-agent-federation/dist/application/inbound-dispatcher.js');
+          NODE
+
+          pack_dir="$(mktemp -d)"
+          trap 'rm -rf "$pack_dir"' EXIT
+          npm pack --ignore-scripts --pack-destination "$pack_dir" ./v3/@claude-flow/security
+          npm pack --ignore-scripts --pack-destination "$pack_dir" ./v3/@claude-flow/codex
+          npm pack --ignore-scripts --pack-destination "$pack_dir" ./v3/@claude-flow/plugin-agent-federation
+          npm pack --ignore-scripts --pack-destination "$pack_dir" ./v3/@claude-flow/cli
+          npm pack --ignore-scripts --pack-destination "$pack_dir" .
+          npm pack --ignore-scripts --pack-destination "$pack_dir" ./ruflo
+          test "$(find "$pack_dir" -maxdepth 1 -name '*.tgz' | wc -l)" -eq 6
+          while IFS= read -r archive; do
+            tar -tzf "$archive" >/dev/null
+          done < <(find "$pack_dir" -maxdepth 1 -name '*.tgz' -print)
+
       - name: Publish policy runtime
         working-directory: v3/@claude-flow/security
         shell: bash
@@ -131,6 +196,32 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           SECURITY_VERSION: ${{ inputs.security_version }}
+
+      - name: Publish Codex adapter
+        working-directory: v3/@claude-flow/codex
+        shell: bash
+        run: |
+          if npm view "@claude-flow/codex@${CODEX_VERSION}" version >/dev/null 2>&1; then
+            echo "@claude-flow/codex@${CODEX_VERSION} already published"
+          else
+            npm publish --ignore-scripts --access public --tag latest
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CODEX_VERSION: ${{ inputs.codex_version }}
+
+      - name: Publish agent federation plugin
+        working-directory: v3/@claude-flow/plugin-agent-federation
+        shell: bash
+        run: |
+          if npm view "@claude-flow/plugin-agent-federation@${FEDERATION_VERSION}" version >/dev/null 2>&1; then
+            echo "@claude-flow/plugin-agent-federation@${FEDERATION_VERSION} already published"
+          else
+            npm publish --ignore-scripts --access public --tag v3alpha
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          FEDERATION_VERSION: ${{ inputs.federation_version }}
 
       - name: Publish CLI
         working-directory: v3/@claude-flow/cli
@@ -178,9 +269,13 @@ jobs:
         run: |
           version="${RELEASE_TAG#v}"
           test "$(npm view "@claude-flow/security@${SECURITY_VERSION}" version)" = "${SECURITY_VERSION}"
+          test "$(npm view "@claude-flow/codex@${CODEX_VERSION}" version)" = "${CODEX_VERSION}"
+          test "$(npm view "@claude-flow/plugin-agent-federation@${FEDERATION_VERSION}" version)" = "${FEDERATION_VERSION}"
           test "$(npm view "@claude-flow/cli@${version}" version)" = "${version}"
           test "$(npm view "claude-flow@${version}" version)" = "${version}"
           test "$(npm view "ruflo@${version}" version)" = "${version}"
         env:
           RELEASE_TAG: ${{ inputs.tag }}
           SECURITY_VERSION: ${{ inputs.security_version }}
+          CODEX_VERSION: ${{ inputs.codex_version }}
+          FEDERATION_VERSION: ${{ inputs.federation_version }}

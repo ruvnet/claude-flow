@@ -141,6 +141,40 @@ export class HandshakeService {
     return { success: true, session };
   }
 
+  /**
+   * Establish a capability-limited session from discovery evidence.
+   *
+   * A signed manifest proves that the advertised key bound the protocol list;
+   * it does not prove live challenge response, so this path never elevates
+   * beyond VERIFIED. Endpoint-only peers remain UNTRUSTED with no negotiated
+   * optional capabilities. A future wire handshake may elevate either session
+   * after authenticating a response received from the remote process.
+   */
+  establishDiscoverySession(
+    remoteNode: FederationNode,
+    verifiedManifest: boolean,
+  ): FederationSession {
+    const remoteCapabilities = verifiedManifest
+      ? remoteNode.capabilities.supportedProtocols
+      : [];
+    const negotiatedCapabilities = this.deps.getLocalCapabilities().filter(
+      (capability) => remoteCapabilities.includes(capability),
+    );
+    const now = new Date();
+    return new FederationSession({
+      sessionId: this.deps.generateSessionId(),
+      localNodeId: this.deps.getLocalNodeId(),
+      remoteNodeId: remoteNode.nodeId,
+      trustLevel: verifiedManifest ? TrustLevel.VERIFIED : TrustLevel.UNTRUSTED,
+      negotiatedCapabilities,
+      createdAt: now,
+      expiresAt: new Date(now.getTime() + this.config.sessionTtlMs),
+      heartbeatInterval: this.config.heartbeatIntervalMs,
+      sessionToken: this.deps.generateSessionToken(),
+      metrics: FederationSession.createMetrics(),
+    });
+  }
+
   renewSession(session: FederationSession): FederationSession {
     const remainingTtl = this.config.maxSessionTtlMs - (Date.now() - session.createdAt.getTime());
     const renewalTtl = Math.min(this.config.sessionTtlMs, remainingTtl);

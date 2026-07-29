@@ -66,7 +66,18 @@ function mkDeps(peers: FederationNode[] = []): {
   };
 }
 
-const baseMsg = (sourceNodeId: string | undefined, type = 'task'): AgentMessage => ({
+function withVerifier(
+  peers: FederationNode[],
+  verify: (canon: string, sig: string | null, pk: string) => boolean,
+) {
+  const base = mkDeps(peers);
+  return {
+    ...base,
+    deps: { ...base.deps, verifyEnvelope: verify },
+  };
+}
+
+const baseMsg = (sourceNodeId: string | undefined, type = 'heartbeat'): AgentMessage => ({
   id: 'msg-1',
   type,
   payload: { test: true },
@@ -113,11 +124,11 @@ describe('dispatchInbound — happy path', () => {
   it('accepts ACTIVE peer, audits message_received, emits typed event', async () => {
     const peer = mkPeer('alpha');
     const { deps, audits, events } = mkDeps([peer]);
-    const r = await dispatchInbound('1.2.3.4:55555', baseMsg('alpha', 'task'), deps);
-    expect(r).toEqual({ accepted: true, sourceNodeId: 'alpha', messageType: 'task' });
+    const r = await dispatchInbound('1.2.3.4:55555', baseMsg('alpha'), deps);
+    expect(r).toEqual({ accepted: true, sourceNodeId: 'alpha', messageType: 'heartbeat' });
     expect(audits[0].eventType).toBe('message_received');
     expect(events).toHaveLength(1);
-    expect(events[0].event).toBe(`${FEDERATION_INBOUND_EVENT_PREFIX}:task`);
+    expect(events[0].event).toBe(`${FEDERATION_INBOUND_EVENT_PREFIX}:heartbeat`);
   });
 
   it('event payload includes address, sourceNodeId, message, peer', async () => {
@@ -133,12 +144,20 @@ describe('dispatchInbound — happy path', () => {
 
   it('different messageTypes produce different event names', async () => {
     const peer = mkPeer('alpha');
-    const { deps, events } = mkDeps([peer]);
-    await dispatchInbound('a', baseMsg('alpha', 'task'), deps);
-    await dispatchInbound('a', baseMsg('alpha', 'memory-query'), deps);
-    await dispatchInbound('a', baseMsg('alpha', 'context-share'), deps);
+    const { deps, events } = withVerifier([peer], () => true);
+    const jcs = (type: string): AgentMessage => ({
+      ...baseMsg('alpha', type),
+      metadata: {
+        sourceNodeId: 'alpha',
+        signature: 'valid',
+        signatureVersion: 'jcs-v1',
+      },
+    });
+    await dispatchInbound('a', jcs('task-assignment'), deps);
+    await dispatchInbound('a', jcs('memory-query'), deps);
+    await dispatchInbound('a', jcs('context-share'), deps);
     expect(events.map((e) => e.event)).toEqual([
-      'federation:inbound:task',
+      'federation:inbound:task-assignment',
       'federation:inbound:memory-query',
       'federation:inbound:context-share',
     ]);
@@ -170,17 +189,6 @@ describe('dispatchInbound — robustness', () => {
 });
 
 describe('dispatchInbound — signature verification', () => {
-  function withVerifier(
-    peers: FederationNode[],
-    verify: (canon: string, sig: string | null, pk: string) => boolean,
-  ) {
-    const base = mkDeps(peers);
-    return {
-      ...base,
-      deps: { ...base.deps, verifyEnvelope: verify },
-    };
-  }
-
   it('rejects INVALID_SIGNATURE when verifier returns false', async () => {
     const peer = mkPeer('alpha');
     const { deps, audits, events } = withVerifier([peer], () => false);
@@ -219,7 +227,7 @@ describe('dispatchInbound — signature verification', () => {
       metadata: { sourceNodeId: 'alpha', signature: 'valid-sig' },
     };
     const r = await dispatchInbound('a', msg, deps);
-    expect(r).toEqual({ accepted: true, sourceNodeId: 'alpha', messageType: 'task' });
+    expect(r).toEqual({ accepted: true, sourceNodeId: 'alpha', messageType: 'heartbeat' });
     expect(audits[0].eventType).toBe('message_received');
     expect(events).toHaveLength(1);
   });
@@ -250,12 +258,209 @@ describe('dispatchInbound — signature verification', () => {
     expect(verifyCalled).toBe(false);
   });
 
+  it('rejects non-canonical payloads without invoking the verifier', async () => {
+    const peer = mkPeer('alpha');
+    let verifyCalled = false;
+    const { deps } = withVerifier([peer], () => {
+      verifyCalled = true;
+      return true;
+    });
+    const r = await dispatchInbound(
+      'a',
+      {
+        ...baseMsg('alpha'),
+        payload: { unsafe: Number.NaN },
+        metadata: { sourceNodeId: 'alpha', signature: 's', signatureVersion: 'jcs-v1' },
+      },
+      deps,
+    );
+    expect(r).toEqual({ accepted: false, reason: 'INVALID_PAYLOAD' });
+    expect(verifyCalled).toBe(false);
+  });
+
   it('legacy mode (no verifier injected) accepts without sig check — backward compat', async () => {
     const peer = mkPeer('alpha');
     const { deps, events } = mkDeps([peer]); // no verifyEnvelope
     const r = await dispatchInbound('a', baseMsg('alpha'), deps);
     expect(r.accepted).toBe(true);
     expect(events).toHaveLength(1);
+  });
+});
+
+describe('dispatchInbound — legacy-v1 containment', () => {
+  it.each([
+    'claim-event',
+    'agent-handoff',
+    'task-assignment',
+    'task_assignment',
+    'context-share',
+    'memory-response',
+    'memory_response',
+    'trust-change',
+    'topology-change',
+    'agent-spawn',
+    'spawn-agent',
+    'unknown-extension',
+  ])('rejects consequential or unknown legacy-v1 type %s', async (type) => {
+    const peer = mkPeer('alpha');
+    const { deps, events } = withVerifier([peer], () => true);
+    const authorizeInbound = vi.fn(() => ({ allowed: true }));
+    const result = await dispatchInbound(
+      'a',
+      {
+        ...baseMsg('alpha', type),
+        metadata: { sourceNodeId: 'alpha', signature: 'valid' },
+      },
+      { ...deps, authorizeInbound },
+    );
+
+    expect(result).toEqual({ accepted: false, reason: 'LEGACY_SIGNATURE_TYPE_REJECTED' });
+    expect(authorizeInbound).not.toHaveBeenCalled();
+    expect(events).toEqual([]);
+  });
+
+  it.each(['heartbeat', 'status-broadcast'])(
+    'retains legacy connectivity for explicit low-risk type %s',
+    async (type) => {
+      const peer = mkPeer('alpha');
+      const { deps, events } = withVerifier([peer], () => true);
+      const result = await dispatchInbound(
+        'a',
+        {
+          ...baseMsg('alpha', type),
+          metadata: { sourceNodeId: 'alpha', signature: 'valid' },
+        },
+        deps,
+      );
+      expect(result.accepted).toBe(true);
+      expect(events).toHaveLength(1);
+    },
+  );
+});
+
+describe('dispatchInbound — inbound authorization', () => {
+  const jcsMessage = (type = 'task-assignment'): AgentMessage => ({
+    ...baseMsg('alpha', type),
+    metadata: {
+      sourceNodeId: 'alpha',
+      signature: 'valid',
+      signatureVersion: 'jcs-v1',
+    },
+  });
+
+  it('enforce denies before markSeen, audit acceptance, and emit', async () => {
+    const peer = mkPeer('alpha');
+    const lastSeen = peer.lastSeen;
+    const { deps, audits, events } = withVerifier([peer], () => true);
+    const result = await dispatchInbound('a', jcsMessage(), {
+      ...deps,
+      authorizationMode: 'enforce',
+      authorizeInbound: () => ({ allowed: false, reason: 'missing federation:write' }),
+    });
+
+    expect(result).toEqual({ accepted: false, reason: 'AUTHORIZATION_DENIED' });
+    expect(peer.lastSeen).toBe(lastSeen);
+    expect(audits).toHaveLength(1);
+    expect(audits[0].eventType).toBe('message_rejected');
+    expect(events).toEqual([]);
+  });
+
+  it('enforce fails closed when no evaluator is injected', async () => {
+    const peer = mkPeer('alpha');
+    const { deps, events } = withVerifier([peer], () => true);
+    const result = await dispatchInbound('a', jcsMessage(), {
+      ...deps,
+      authorizationMode: 'enforce',
+    });
+    expect(result).toEqual({ accepted: false, reason: 'AUTHORIZATION_ERROR' });
+    expect(events).toEqual([]);
+  });
+
+  it('enforce fails closed when the evaluator throws', async () => {
+    const peer = mkPeer('alpha');
+    const { deps, events } = withVerifier([peer], () => true);
+    const result = await dispatchInbound('a', jcsMessage(), {
+      ...deps,
+      authorizationMode: 'enforce',
+      authorizeInbound: () => {
+        throw new Error('policy backend unavailable');
+      },
+    });
+    expect(result).toEqual({ accepted: false, reason: 'AUTHORIZATION_ERROR' });
+    expect(events).toEqual([]);
+  });
+
+  it('enforce fails closed on a malformed evaluator decision', async () => {
+    const peer = mkPeer('alpha');
+    const { deps, events } = withVerifier([peer], () => true);
+    const result = await dispatchInbound('a', jcsMessage(), {
+      ...deps,
+      authorizationMode: 'enforce',
+      authorizeInbound: (() => ({ reason: 'missing allowed boolean' })) as InboundDispatchDeps['authorizeInbound'],
+    });
+    expect(result).toEqual({ accepted: false, reason: 'AUTHORIZATION_ERROR' });
+    expect(events).toEqual([]);
+  });
+
+  it('observe evaluates and reports denial without blocking', async () => {
+    const peer = mkPeer('alpha');
+    const { deps, events } = withVerifier([peer], () => true);
+    const authorizeInbound = vi.fn(() => ({ allowed: false, reason: 'would deny' }));
+    const result = await dispatchInbound('a', jcsMessage(), {
+      ...deps,
+      authorizationMode: 'observe',
+      authorizeInbound,
+    });
+
+    expect(result.accepted).toBe(true);
+    expect(authorizeInbound).toHaveBeenCalledOnce();
+    expect(events).toHaveLength(1);
+    expect(deps.logger.warn).toHaveBeenCalledWith(expect.stringContaining('mode=observe'));
+  });
+
+  it('legacy evaluates but preserves compatible low-risk delivery', async () => {
+    const peer = mkPeer('alpha');
+    const { deps, events } = withVerifier([peer], () => true);
+    const authorizeInbound = vi.fn(() => ({ allowed: false, reason: 'would deny' }));
+    const result = await dispatchInbound(
+      'a',
+      {
+        ...baseMsg('alpha'),
+        metadata: { sourceNodeId: 'alpha', signature: 'valid' },
+      },
+      {
+        ...deps,
+        authorizationMode: 'legacy',
+        authorizeInbound,
+      },
+    );
+
+    expect(result.accepted).toBe(true);
+    expect(authorizeInbound).toHaveBeenCalledOnce();
+    expect(events).toHaveLength(1);
+  });
+
+  it('runs signature, authorization, and emit in that order', async () => {
+    const peer = mkPeer('alpha');
+    const calls: string[] = [];
+    const { deps } = withVerifier([peer], () => {
+      calls.push('verify');
+      return true;
+    });
+    deps.eventBus.emit = () => {
+      calls.push('emit');
+    };
+
+    const result = await dispatchInbound('a', jcsMessage(), {
+      ...deps,
+      authorizationMode: 'enforce',
+      authorizeInbound: () => {
+        calls.push('authorize');
+        return { allowed: true };
+      },
+    });
+    expect(result.accepted).toBe(true);
+    expect(calls).toEqual(['verify', 'authorize', 'emit']);
   });
 });
 
@@ -297,5 +502,168 @@ describe('canonicalizeEnvelopeForVerify', () => {
       id: 'm',
     });
     expect(a).toBe(b);
+  });
+
+  it('recursively covers nested payload and metadata values', async () => {
+    const { canonicalizeEnvelopeForVerify } = await import(
+      '../../src/application/inbound-dispatcher.js'
+    );
+    const original = canonicalizeEnvelopeForVerify({
+      id: 'm',
+      type: 'claim-event',
+      payload: { claim: { owner: 'agent-a', epoch: 7 }, steps: ['read', 'write'] },
+      metadata: {
+        sourceNodeId: 'a',
+        signatureVersion: 'jcs-v1',
+        grant: { actions: ['work.handoff'] },
+      },
+    });
+    const reordered = canonicalizeEnvelopeForVerify({
+      metadata: {
+        grant: { actions: ['work.handoff'] },
+        signatureVersion: 'jcs-v1',
+        sourceNodeId: 'a',
+      },
+      payload: { steps: ['read', 'write'], claim: { epoch: 7, owner: 'agent-a' } },
+      type: 'claim-event',
+      id: 'm',
+    });
+    const mutated = canonicalizeEnvelopeForVerify({
+      id: 'm',
+      type: 'claim-event',
+      payload: { claim: { owner: 'agent-b', epoch: 7 }, steps: ['read', 'write'] },
+      metadata: {
+        sourceNodeId: 'a',
+        signatureVersion: 'jcs-v1',
+        grant: { actions: ['work.handoff'] },
+      },
+    });
+
+    expect(reordered).toBe(original);
+    expect(mutated).not.toBe(original);
+    expect(original).toContain('"claim":{"epoch":7,"owner":"agent-a"}');
+  });
+
+  it.each([
+    { value: Number.NaN, label: 'non-finite number' },
+    { value: -0, label: 'negative zero' },
+    { value: Number.MAX_SAFE_INTEGER + 1, label: 'unsafe integer' },
+    { value: undefined, label: 'undefined' },
+  ])('rejects $label instead of signing ambiguous JSON', async ({ value }) => {
+    const { canonicalizeEnvelopeForVerify } = await import(
+      '../../src/application/inbound-dispatcher.js'
+    );
+    expect(() =>
+      canonicalizeEnvelopeForVerify({
+        id: 'm',
+        type: 't',
+        payload: { value },
+        metadata: { sourceNodeId: 'a', signatureVersion: 'jcs-v1' },
+      }),
+    ).toThrow(/Federation canonicalization rejects/);
+  });
+
+  it('keeps historical bytes for a message without a version marker', async () => {
+    const { canonicalizeEnvelopeForVerify } = await import(
+      '../../src/application/inbound-dispatcher.js'
+    );
+    const message = {
+      id: 'm',
+      type: 'claim-event',
+      payload: { claim: { owner: 'agent-a' } },
+      metadata: { sourceNodeId: 'a' },
+    };
+    const historical = JSON.stringify(
+      {
+        id: message.id,
+        type: message.type,
+        payload: message.payload,
+        metadata: message.metadata,
+      },
+      ['id', 'metadata', 'payload', 'type'],
+    );
+    const legacy = canonicalizeEnvelopeForVerify(message);
+    expect(legacy).toBe(historical);
+    expect(legacy).not.toContain('owner');
+  });
+
+  it('selects JCS only for an advertised peer and fails closed when required', async () => {
+    const {
+      DEFAULT_ENVELOPE_SIGNATURE_MODE,
+      JCS_SIGNATURE_PROTOCOL,
+      selectEnvelopeSignatureVersion,
+    } = await import('../../src/application/inbound-dispatcher.js');
+    expect(DEFAULT_ENVELOPE_SIGNATURE_MODE).toBe('prefer-jcs');
+    expect(selectEnvelopeSignatureVersion('legacy', [JCS_SIGNATURE_PROTOCOL])).toBe('legacy-v1');
+    expect(selectEnvelopeSignatureVersion('prefer-jcs', [])).toBe('legacy-v1');
+    expect(selectEnvelopeSignatureVersion('prefer-jcs', [JCS_SIGNATURE_PROTOCOL])).toBe('jcs-v1');
+    expect(selectEnvelopeSignatureVersion('prefer-jcs', [], 'heartbeat')).toBe('legacy-v1');
+    expect(() => selectEnvelopeSignatureVersion('prefer-jcs', [], 'task-assignment')).toThrow(
+      'PEER_SIGNATURE_PROTOCOL_UNSUPPORTED_FOR_MESSAGE',
+    );
+    expect(() => selectEnvelopeSignatureVersion('require-jcs', [])).toThrow(
+      'PEER_SIGNATURE_PROTOCOL_UNSUPPORTED',
+    );
+  });
+
+  it('does not downgrade a failed JCS signature to legacy bytes', async () => {
+    const peer = mkPeer('alpha');
+    const seen: string[] = [];
+    const { deps } = withVerifier([peer], (canonical) => {
+      seen.push(canonical);
+      return false;
+    });
+    const result = await dispatchInbound(
+      'a',
+      {
+        ...baseMsg('alpha'),
+        metadata: {
+          sourceNodeId: 'alpha',
+          signature: 'bad',
+          signatureVersion: 'jcs-v1',
+        },
+      },
+      deps,
+    );
+    expect(result).toEqual({ accepted: false, reason: 'INVALID_SIGNATURE' });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toContain('"test":true');
+  });
+
+  it('rejects a nested payload mutation against the signed JCS bytes', async () => {
+    const peer = mkPeer('alpha');
+    const original: AgentMessage = {
+      id: 'claim-1',
+      type: 'claim-event',
+      payload: { claim: { owner: 'agent-a', epoch: 3 } },
+      metadata: {
+        sourceNodeId: 'alpha',
+        signature: 'valid',
+        signatureVersion: 'jcs-v1',
+      },
+    };
+    const { canonicalizeEnvelopeForVerify } = await import(
+      '../../src/application/inbound-dispatcher.js'
+    );
+    const signedBytes = canonicalizeEnvelopeForVerify(original);
+    const { deps, events } = withVerifier([peer], (canonical) => canonical === signedBytes);
+    const tampered: AgentMessage = {
+      ...original,
+      payload: { claim: { owner: 'agent-b', epoch: 3 } },
+    };
+
+    const result = await dispatchInbound('a', tampered, deps);
+    expect(result).toEqual({ accepted: false, reason: 'INVALID_SIGNATURE' });
+    expect(events).toEqual([]);
+  });
+
+  it('can disable legacy verification after enforcement migration', async () => {
+    const peer = mkPeer('alpha');
+    const base = withVerifier([peer], () => true);
+    const result = await dispatchInbound('a', baseMsg('alpha'), {
+      ...base.deps,
+      acceptedSignatureVersions: ['jcs-v1'],
+    });
+    expect(result).toEqual({ accepted: false, reason: 'INVALID_PAYLOAD' });
   });
 });

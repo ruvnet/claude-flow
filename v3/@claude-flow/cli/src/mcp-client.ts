@@ -52,7 +52,10 @@ import { wasmAgentTools } from './mcp-tools/wasm-agent-tools.js';
 // the local WASM-sandboxed `wasm_agent_*` (rvagent) tools. Lives in the
 // `ruflo-agent` plugin.
 import { managedAgentTools } from './mcp-tools/managed-agent-tools.js';
-import { guidanceTools } from './mcp-tools/guidance-tools.js';
+import {
+  configureGuidanceToolProvider,
+  guidanceTools,
+} from './mcp-tools/guidance-tools.js';
 import { autopilotTools } from './mcp-tools/autopilot-tools.js';
 // ADR-150 — MetaHarness MCP tools (score / genome / mcp-scan / threat-model / oia-audit)
 import { metaharnessTools } from './mcp-tools/metaharness-tools.js';
@@ -181,6 +184,16 @@ registerTools([
   // ADR-164 Phase 4 §5.1.8 — http_fetch (1 tool, secure-by-default HTTP probe)
   ...httpFetchTools,
 ]);
+
+// The capability brain consumes the completed live registry. This is injected
+// after registration to keep guidance honest and avoid a registry import cycle.
+configureGuidanceToolProvider(() => Array.from(TOOL_REGISTRY.values()).map((tool) => ({
+  name: tool.name,
+  description: tool.description,
+  category: tool.category,
+  tags: tool.tags,
+  version: tool.version,
+})));
 
 /**
  * MCP Client Error
