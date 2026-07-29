@@ -26,7 +26,14 @@ function main() {
   }
   const r = runHarness(['threat-model', ARGS.path]);
   if (r.degraded) { emitDegradedJsonAndExit(r.reason); return; }
-  if (r.exitCode !== 0 && r.exitCode !== 1) {
+  // ponytail: upstream `harness threat-model` exits 2 for a HIGH verdict
+  // (shellAccess || policyDefaultDeny===false || secretsReachable) — that is
+  // a valid finding, NOT a crash. Only treat exit codes outside {0,1,2} as
+  // real failures. Deriving the alert from payload.worst (below) means the
+  // exit code never carried severity anyway. Pre-fix this guard bailed on
+  // exit 2 and discarded the JSON stdout upstream DID emit → oia-audit saw
+  // json:null → no findings. (#2750)
+  if (r.exitCode !== 0 && r.exitCode !== 1 && r.exitCode !== 2) {
     console.error(`threat-model: harness exited ${r.exitCode}`);
     if (r.stderr) console.error(r.stderr.slice(0, 400));
     process.exit(2);
