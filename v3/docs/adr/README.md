@@ -41,6 +41,8 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-310](ADR-310-funnel-rollout-measurement-emergency-controls.md) | Funnel Rollout, Measurement, and Emergency Controls | Proposed |
 | [ADR-320](ADR-320-mcp-composition-inspector-channel-guardrails.md) | MCP Tool Composition Inspector + Inter-Agent Channel Guardrails | Accepted |
 | [ADR-323](ADR-323-typed-memory-provenance.md) | Typed Memory Provenance in AgentDB (MemIR-style claim typing, corrects #2804's dream-cycle proposal) | Accepted |
+| [ADR-324](ADR-324-agentic-policy-engine-codex-swarm.md) | Agentic Policy Engine and Policy-Governed Codex Swarms | Accepted |
+| [ADR-325](ADR-325-claim-federation-zero-trust-capability-plane.md) | Claim Federation as a Zero-Trust Capability and Work-Ownership Plane | Proposed |
 
 ## Summary Documents
 
