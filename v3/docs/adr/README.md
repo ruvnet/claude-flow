@@ -47,6 +47,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-327](ADR-327-federated-concurrent-development-harness.md) | Federated Concurrent Development Harness | Proposed |
 | [ADR-328](ADR-328-cognitum-assisted-agent-learning.md) | Cognitum-Assisted Agent Learning Capability Plane | Proposed |
 | [ADR-329](ADR-329-ruflo-capability-brain-mcp-guidance.md) | Ruflo Capability Brain for MCP Guidance | Accepted |
+| [ADR-330](ADR-330-dream-cycle-swarm-pheromone-consensus.md) | Adaptive Pheromone Swarm Consensus (APSC) for Dynamic Agent Pruning | Proposed |
 
 ## Summary Documents
 
