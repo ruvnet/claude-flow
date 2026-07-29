@@ -549,6 +549,7 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
     id: 'business-collaboration',
     name: 'AgentBBS & Business Pods',
     description: 'Federated business rooms, domain-affinity routing, and business-pod validation.',
+    // Metadata classification only; execution remains behind the existing loadAgentbbs guard.
     prefixes: ['agentbbs_', 'business_pod_', 'federation_bbs_'],
     taskSignals: ['business pod', 'bbs', 'room', 'domain affinity'],
     commands: [],
