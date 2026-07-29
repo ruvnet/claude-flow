@@ -39,6 +39,9 @@
 
 const { spawnSync, execSync } = require('child_process');
 const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const crypto = require('crypto');
 
 /** Exit 0 unconditionally — hooks must never block a turn */
 function done() {
@@ -168,6 +171,35 @@ function parseEventJson(stdinData) {
 }
 
 /**
+ * Project-installed hooks and marketplace-plugin hooks can receive the same
+ * event. Claim side-effecting events atomically so post-edit learning and
+ * session-end consolidation execute exactly once (#2640).
+ */
+function claimSideEffectEvent(family, stdinData, event) {
+  if (/^(1|true|yes|on)$/i.test(process.env.RUFLO_DISABLE_HOOK_DEDUP || '')) return true;
+  try {
+    const eventId = event?.tool_use_id || event?.toolUseId ||
+      event?.session_id || event?.sessionId || event?.hook_event_id;
+    const payloadIdentity = eventId
+      ? `event:${eventId}`
+      : `payload:${(stdinData || '').trim()}|bucket:${Math.floor(Date.now() / 2000)}`;
+    const projectRoot = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+    const digest = crypto.createHash('sha256')
+      .update(`ruflo-hook-dedup-v1\0${path.resolve(projectRoot)}\0${family}\0${payloadIdentity}`)
+      .digest('hex');
+    const dir = process.env.RUFLO_HOOK_DEDUP_DIR ||
+      path.join(os.tmpdir(), 'ruflo-hook-dedup-v1');
+    fs.mkdirSync(dir, { recursive: true });
+    const fd = fs.openSync(path.join(dir, digest), 'wx', 0o600);
+    fs.writeFileSync(fd, String(Date.now()));
+    fs.closeSync(fd);
+    return true;
+  } catch (error) {
+    return error?.code === 'EEXIST' ? false : true;
+  }
+}
+
+/**
  * Codex sets PLUGIN_ROOT and PLUGIN_DATA for plugin-bundled hooks, in
  * addition to the cross-host CLAUDE_PLUGIN_* compatibility variables.
  * Cursor and Claude Code use CLAUDE_PLUGIN_ROOT without these Codex-specific
@@ -227,10 +259,15 @@ function main() {
   }
 
   const stdinData = readStdinRaw();
+  const event = parseEventJson(stdinData);
+
+  if ((subcommand === 'post-edit' || subcommand === 'session-end') &&
+      !claimSideEffectEvent(subcommand, stdinData, event)) {
+    done();
+  }
 
   // PostToolUse: derive CLI flags from the hook event JSON (replaces jq).
   if (subcommand === 'post-command') {
-    const event = parseEventJson(stdinData);
     const cmd = event?.tool_input?.command;
     if (!cmd) done(); // bash version: `[ -z "$CMD" ] && exit 0`
     const exitCode = event?.tool_response?.exit_code ?? 0;
@@ -238,7 +275,6 @@ function main() {
     done();
   }
   if (subcommand === 'post-edit') {
-    const event = parseEventJson(stdinData);
     const file = event?.tool_input?.file_path ?? event?.tool_input?.path;
     if (!file) done(); // bash version: `[ -z "$FILE" ] && exit 0`
     invokeCli('post-edit', ['-f', String(file), '-s', 'true'], stdinData);

@@ -38,10 +38,11 @@
  * (windows-latest, macos-latest, ubuntu-latest).
  */
 
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = join(__dirname, '..');
@@ -254,6 +255,38 @@ run('Stop hook runs session-end without error',
   cmdStop,
   '{}',
   [{ absent: 'Required option missing' }, { absent: 'Invalid value' }]);
+
+// #2640 — project settings + marketplace plugin can dispatch the same event.
+// The shared atomic claim makes the second side-effecting invocation a no-op.
+{
+  const dedupDir = mkdtempSync(join(tmpdir(), 'ruflo-hook-dedup-test-'));
+  const payload = '{"tool_use_id":"toolu_dedup_2640","tool_input":{"file_path":"/tmp/dedup.ts"}}';
+  const env = {
+    ...process.env,
+    CLAUDE_PLUGIN_ROOT: PLUGIN_ROOT,
+    CLAUDE_PROJECT_DIR: PLUGIN_ROOT,
+    RUFLO_HOOK_CLI_OVERRIDE: `${process.execPath} ${HOOK_RECORDER}`,
+    RUFLO_HOOK_DEBUG_STDOUT: '1',
+    RUFLO_HOOK_SKIP_NPX: '1',
+    RUFLO_HOOK_DEDUP_DIR: dedupDir,
+  };
+  try {
+    const first = spawnSync(cmdPostEdit, { shell: true, input: payload, encoding: 'utf8', env });
+    const second = spawnSync(cmdPostEdit, { shell: true, input: payload, encoding: 'utf8', env });
+    const ok = first.status === 0 && second.status === 0 &&
+      (first.stdout || '').includes('hook-telemetry:post-edit') &&
+      !(second.stdout || '').includes('hook-telemetry:post-edit');
+    if (ok) {
+      console.log('ok: duplicate post-edit event executes side effects exactly once');
+    } else {
+      console.error('FAIL: duplicate post-edit event was not deduplicated');
+      failed++;
+    }
+    cases.push('duplicate post-edit event executes side effects exactly once');
+  } finally {
+    rmSync(dedupDir, { recursive: true, force: true });
+  }
+}
 
 console.log(`\n${cases.length - failed}/${cases.length} passed`);
 process.exit(failed === 0 ? 0 : 1);
