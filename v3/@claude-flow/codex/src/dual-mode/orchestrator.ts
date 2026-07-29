@@ -49,6 +49,8 @@ export interface WorkerResult {
 
 export interface DualModeConfig {
   projectPath: string;
+  /** One database shared by bootstrap, collection, policy, and worker CLIs. */
+  memoryDbPath?: string;
   maxConcurrent?: number;
   sharedNamespace?: string;
   timeout?: number;
@@ -90,6 +92,11 @@ export class DualModeOrchestrator extends EventEmitter {
     }
     this.config = {
       projectPath: config.projectPath,
+      memoryDbPath: path.resolve(
+        config.memoryDbPath
+          ?? process.env.CLAUDE_FLOW_DB_PATH
+          ?? path.join(config.projectPath, '.claude-flow', 'dual-mode-memory.db'),
+      ),
       maxConcurrent: config.maxConcurrent ?? 4,
       sharedNamespace: config.sharedNamespace ?? 'collaboration',
       timeout: config.timeout ?? 300000, // 5 minutes
@@ -107,7 +114,8 @@ export class DualModeOrchestrator extends EventEmitter {
    * Initialize shared memory for collaboration
    */
   async initializeSharedMemory(taskContext: string): Promise<void> {
-    const { projectPath, sharedNamespace } = this.config;
+    const { projectPath, sharedNamespace, memoryDbPath } = this.config;
+    fs.mkdirSync(path.dirname(memoryDbPath), { recursive: true });
 
     // Initialize memory database
     await this.runCommand(
@@ -478,7 +486,11 @@ Remember: Other agents depend on your results in shared memory. Be concise and s
    */
   private runCommand(command: string, args: string[], cwd: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const proc = spawn(command, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
+      const proc = spawn(command, args, {
+        cwd,
+        env: this.sharedEnvironment(),
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
       let output = '';
       let error = '';
 
@@ -576,11 +588,20 @@ Remember: Other agents depend on your results in shared memory. Be concise and s
       env[name] = value;
     }
     env.FORCE_COLOR = '0';
+    env.CLAUDE_FLOW_DB_PATH = this.config.memoryDbPath;
     env.CLAUDE_FLOW_PRINCIPAL_ID = `agent:${worker.id}`;
     env.CLAUDE_FLOW_CAPABILITY_ENVELOPE = JSON.stringify(
       this.resolveWorkerEnvelope(worker),
     );
     return env;
+  }
+
+  /** Keep every Ruflo subprocess on the same collaboration database. */
+  private sharedEnvironment(): NodeJS.ProcessEnv {
+    return {
+      ...process.env,
+      CLAUDE_FLOW_DB_PATH: this.config.memoryDbPath,
+    };
   }
 
   /**

@@ -11,13 +11,18 @@ import {
   generateSkillMd,
   generateConfigToml,
 } from '../src/generators/index.js';
-import { generateBuiltInSkill } from '../src/generators/skill-md.js';
+import {
+  BUILT_IN_SKILL_NAMES,
+  generateBuiltInSkill,
+  validateBuiltInSkillPayload,
+} from '../src/generators/skill-md.js';
 import {
   generateMinimalConfigToml,
   generateCIConfigToml,
 } from '../src/generators/config-toml.js';
 import { resolveBundledSkillsPath } from '../src/initializer.js';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type {
   AgentsMdOptions,
   SkillMdOptions,
@@ -567,7 +572,7 @@ describe('generateBuiltInSkill', () => {
     expect(result.skillMd).toContain('name: swarm-orchestration');
     expect(result.skillMd).toContain('Multi-agent swarm coordination');
     expect(result.skillMd).toContain('Initialize Swarm');
-    expect(result.skillMd).toContain('npx ruflo swarm init');
+    expect(result.skillMd).toContain('npx @claude-flow/cli swarm init');
   });
 
   it('should generate memory-management skill', async () => {
@@ -575,8 +580,8 @@ describe('generateBuiltInSkill', () => {
 
     expect(result.skillMd).toContain('name: memory-management');
     expect(result.skillMd).toContain('AgentDB memory system');
-    expect(result.skillMd).toContain('Store Pattern');
-    expect(result.skillMd).toContain('Semantic Search');
+    expect(result.skillMd).toContain('Store Data');
+    expect(result.skillMd).toContain('Search Data');
   });
 
   it('should generate sparc-methodology skill', async () => {
@@ -592,7 +597,7 @@ describe('generateBuiltInSkill', () => {
     const result = await generateBuiltInSkill('security-audit');
 
     expect(result.skillMd).toContain('name: security-audit');
-    expect(result.skillMd).toContain('security scanning');
+    expect(result.skillMd).toContain('Security scanning');
     expect(result.skillMd).toContain('Full Security Scan');
     expect(result.skillMd).toContain('--depth full');
   });
@@ -621,21 +626,48 @@ describe('generateBuiltInSkill', () => {
     );
   });
 
-  it('should return generated scripts for skills with scripts', async () => {
-    const result = await generateBuiltInSkill('swarm-orchestration');
-
-    // Scripts are now generated for skills that have them
-    expect(Object.keys(result.scripts).length).toBeGreaterThan(0);
-    expect(result.references).toEqual({});
+  it('uses packaged skill trees as the canonical generator source (#2765)', async () => {
+    const bundledRoot = resolveBundledSkillsPath();
+    for (const skillName of BUILT_IN_SKILL_NAMES) {
+      const result = await generateBuiltInSkill(skillName);
+      const packaged = readFileSync(join(bundledRoot, skillName, 'SKILL.md'), 'utf8');
+      expect(result.skillMd).toBe(packaged);
+    }
   });
 
-  it('should generate valid bash scripts', async () => {
-    const result = await generateBuiltInSkill('memory-management');
+  it('ships every local path and prevents paths escaping the skill root', async () => {
+    for (const skillName of BUILT_IN_SKILL_NAMES) {
+      const result = await generateBuiltInSkill(skillName);
+      expect(() => validateBuiltInSkillPayload(
+        skillName,
+        result.skillMd,
+        result.scripts,
+        result.references,
+      )).not.toThrow();
+    }
+    expect(() => validateBuiltInSkillPayload(
+      'broken-skill',
+      'Use `scripts/missing.sh`.',
+      {},
+      {},
+    )).toThrow('broken-skill/scripts/missing.sh');
+    expect(() => validateBuiltInSkillPayload(
+      'escaping-skill',
+      'Use `scripts/../../outside.sh`.',
+      {},
+      {},
+    )).toThrow('escapes escaping-skill');
+  });
 
-    // Check that scripts are generated and contain bash shebang
-    for (const script of Object.values(result.scripts)) {
-      expect(script).toContain('#!/bin/bash');
-      expect(script).toContain('set -e');
+  it('packages all canonical built-in skill trees in npm artifacts', () => {
+    const bundledRoot = resolveBundledSkillsPath();
+    const packageJson = JSON.parse(readFileSync(
+      join(bundledRoot, '..', '..', 'package.json'),
+      'utf8',
+    )) as { files: string[] };
+    expect(packageJson.files).toContain('.agents/skills');
+    for (const skillName of BUILT_IN_SKILL_NAMES) {
+      expect(existsSync(join(bundledRoot, skillName, 'SKILL.md'))).toBe(true);
     }
   });
 });

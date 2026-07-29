@@ -5,6 +5,9 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   DualModeOrchestrator,
   DualModeConfig,
@@ -111,7 +114,7 @@ function createRunCommand(): Command {
         workers = getTemplateWorkers(templateName, task);
         taskContext = `Template: ${templateName}, Task: ${task}`;
       } else if (options.config) {
-        const configData = await import(options.config);
+        const configData = await loadWorkerConfig(options.config, process.cwd());
         workers = configData.workers;
         taskContext = configData.taskContext || options.task || 'Collaborative task';
       } else {
@@ -175,6 +178,26 @@ function createRunCommand(): Command {
 
       printResults(result);
     });
+}
+
+export async function loadWorkerConfig(
+  configPath: string,
+  cwd = process.cwd(),
+): Promise<{ workers: WorkerConfig[]; taskContext?: string }> {
+  const absolute = path.resolve(cwd, configPath);
+  const loaded = path.extname(absolute).toLowerCase() === '.json'
+    ? JSON.parse(await readFile(absolute, 'utf8'))
+    : await import(pathToFileURL(absolute).href);
+  const config = loaded.default && typeof loaded.default === 'object'
+    ? loaded.default
+    : loaded;
+  if (!Array.isArray(config.workers)) {
+    throw new Error(`Dual-mode config must export a workers array: ${absolute}`);
+  }
+  return {
+    workers: config.workers,
+    ...(typeof config.taskContext === 'string' ? { taskContext: config.taskContext } : {}),
+  };
 }
 
 /**

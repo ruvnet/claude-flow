@@ -34,6 +34,30 @@ import { dirname, join } from 'path';
 const _origWarn = console.warn;
 const _origLog = console.log;
 const _origError = console.error;
+
+// #2726 — Some MCP clients place every advertised schema in every model
+// request. Keep "all" as the backwards-compatible default, but honor the
+// same category/namespace/exact-name selector as `mcp start --tools`.
+function _filterAdvertisedMcpTools(tools) {
+  const argv = process.argv.slice(2);
+  const toolsIndex = argv.findIndex((arg) => arg === '--tools');
+  const inlineTools = argv.find((arg) => arg.startsWith('--tools='));
+  const configured = process.env.CLAUDE_FLOW_MCP_TOOLS
+    || (toolsIndex >= 0 ? argv[toolsIndex + 1] : undefined)
+    || (inlineTools ? inlineTools.slice('--tools='.length) : undefined);
+  if (!configured || configured.trim().toLowerCase() === 'all') return tools;
+  const selectors = new Set(
+    configured.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean),
+  );
+  if (selectors.size === 0) return tools;
+  return tools.filter((tool) => {
+    const name = tool.name.toLowerCase();
+    const category = typeof tool.category === 'string' ? tool.category.toLowerCase() : '';
+    return selectors.has(name)
+      || selectors.has(category)
+      || Array.from(selectors).some((selector) => name.startsWith(`${selector}_`));
+  });
+}
 const _isCosmeticAgentdbPatchNoise = (msg) =>
   msg.includes('[AgentDB Patch]') && msg.includes('Controller index not found');
 const _STDERR_REDIRECT_PREFIXES = [
@@ -237,7 +261,7 @@ if (isMCPMode) {
         };
 
       case 'tools/list': {
-        const tools = listMCPTools();
+        const tools = _filterAdvertisedMcpTools(listMCPTools());
         return {
           jsonrpc: '2.0',
           id: message.id,

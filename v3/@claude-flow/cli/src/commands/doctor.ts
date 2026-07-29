@@ -1037,6 +1037,48 @@ async function checkMcpServers(): Promise<HealthCheck> {
   };
 }
 
+// #2726 — tools/list is fixed prompt overhead on clients/backends that do not
+// defer MCP schemas. Measure the actual live registry and warn before a small
+// context window becomes unrecoverable even after compaction.
+async function checkMcpSchemaOverhead(): Promise<HealthCheck> {
+  try {
+    const [{ listMCPTools }, {
+      assessMcpSchemaOverhead,
+      filterAdvertisedMcpTools,
+      parseMcpToolSelection,
+    }] = await Promise.all([
+      import('../mcp-client.js'),
+      import('../mcp-server.js'),
+    ]);
+    const selection = parseMcpToolSelection(process.env.CLAUDE_FLOW_MCP_TOOLS);
+    const tools = filterAdvertisedMcpTools(listMCPTools(), selection);
+    const rawWindow = process.env.CLAUDE_FLOW_CONTEXT_WINDOW_TOKENS;
+    const contextWindow = rawWindow ? Number.parseInt(rawWindow, 10) : undefined;
+    const assessment = assessMcpSchemaOverhead(tools, contextWindow);
+    const ratio = assessment.ratio === undefined
+      ? ''
+      : `, ${(assessment.ratio * 100).toFixed(1)}% of ${assessment.contextWindowTokens}-token window`;
+    const selectionLabel = selection === 'all' ? 'all tools' : `filtered: ${selection.join(',')}`;
+    const message = `${assessment.toolCount} advertised tools ≈ ${assessment.estimatedTokens} schema tokens (${selectionLabel}${ratio})`;
+
+    if (assessment.risk === 'high') {
+      return {
+        name: 'MCP Schema Overhead',
+        status: 'warn',
+        message,
+        fix: 'Set CLAUDE_FLOW_MCP_TOOLS to required categories/tool names (for example: memory,swarm,agent,hooks) and optionally CLAUDE_FLOW_CONTEXT_WINDOW_TOKENS to your backend limit.',
+      };
+    }
+    return { name: 'MCP Schema Overhead', status: 'pass', message };
+  } catch (error) {
+    return {
+      name: 'MCP Schema Overhead',
+      status: 'warn',
+      message: `Unable to measure: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
 // Check disk space (async with proper env inheritance)
 async function checkDiskSpace(): Promise<HealthCheck> {
   try {
@@ -1887,7 +1929,7 @@ export const doctorCommand: Command = {
     {
       name: 'component',
       short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, agentic-flow, encryption, federation, funnel, proxy, auth, metaharness)',
+      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, mcp-overhead, claude, disk, typescript, agentic-flow, encryption, federation, funnel, proxy, auth, metaharness)',
       type: 'string'
     },
     {
@@ -2017,6 +2059,7 @@ export const doctorCommand: Command = {
       checkLearningBridge, // #2545 — can the auto-memory hook actually load @claude-flow/memory?
       checkApiKeys,
       checkMcpServers,
+      checkMcpSchemaOverhead, // #2726 — fixed tools/list prompt cost
       checkAIDefence, // #1807
       checkDiskSpace,
       checkBuildTools,
@@ -2057,6 +2100,7 @@ export const doctorCommand: Command = {
       'api': checkApiKeys,
       'git': checkGit,
       'mcp': checkMcpServers,
+      'mcp-overhead': checkMcpSchemaOverhead,
       'aidefence': checkAIDefence, // #1807
       'disk': checkDiskSpace,
       'typescript': checkBuildTools,

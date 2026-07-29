@@ -9,7 +9,11 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseWorkerSpecs, createDualModeCommand } from '../src/dual-mode/cli.js';
+import {
+  parseWorkerSpecs,
+  createDualModeCommand,
+  loadWorkerConfig,
+} from '../src/dual-mode/cli.js';
 import {
   DualModeOrchestrator,
   CollaborationTemplates,
@@ -65,6 +69,26 @@ describe('parseWorkerSpecs', () => {
 
   it('throws on an unknown platform', () => {
     expect(() => parseWorkerSpecs(['gemini:coder:do it'], false)).toThrow(/claude.*codex/);
+  });
+});
+
+describe('loadWorkerConfig', () => {
+  it('loads a relative JSON config without import assertions (#2766)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'ruflo-dual-config-'));
+    writeFileSync(join(root, 'workers.json'), JSON.stringify({
+      taskContext: 'JSON collaboration',
+      workers: [{ id: 'reader', platform: 'codex', role: 'reader', prompt: 'inspect' }],
+    }));
+    await expect(loadWorkerConfig('workers.json', root)).resolves.toMatchObject({
+      taskContext: 'JSON collaboration',
+      workers: [{ id: 'reader', platform: 'codex' }],
+    });
+  });
+
+  it('rejects configs without a workers array', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'ruflo-dual-config-invalid-'));
+    writeFileSync(join(root, 'workers.json'), '{}');
+    await expect(loadWorkerConfig('workers.json', root)).rejects.toThrow('workers array');
   });
 });
 
@@ -175,6 +199,45 @@ describe('DualModeOrchestrator', () => {
     expect(o.config.claudeCommand).toBe('claude');
     expect(o.config.maxConcurrent).toBe(4);
     expect(o.config.sharedNamespace).toBe('collaboration');
+    expect(o.config.memoryDbPath).toBe('/tmp/.claude-flow/dual-mode-memory.db');
+  });
+
+  it('pins bootstrap and workers to one shared memory database (#2766)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'ruflo-dual-memory-'));
+    const memoryDbPath = join(root, 'state', 'shared.db');
+    const orchestrator = new DualModeOrchestrator({
+      projectPath: root,
+      memoryDbPath,
+    }) as unknown as {
+      sharedEnvironment(): NodeJS.ProcessEnv;
+      workerEnvironment(worker: WorkerConfig): NodeJS.ProcessEnv;
+    };
+    const worker: WorkerConfig = {
+      id: 'memory-worker',
+      platform: 'codex',
+      role: 'researcher',
+      prompt: 'search memory',
+      readOnly: true,
+    };
+
+    expect(orchestrator.sharedEnvironment().CLAUDE_FLOW_DB_PATH).toBe(memoryDbPath);
+    expect(orchestrator.workerEnvironment(worker).CLAUDE_FLOW_DB_PATH).toBe(memoryDbPath);
+  });
+
+  it('preserves an existing CLAUDE_FLOW_DB_PATH by default', () => {
+    const previous = process.env.CLAUDE_FLOW_DB_PATH;
+    const root = mkdtempSync(join(tmpdir(), 'ruflo-dual-memory-env-'));
+    const configured = join(root, 'existing.db');
+    process.env.CLAUDE_FLOW_DB_PATH = configured;
+    try {
+      const orchestrator = new DualModeOrchestrator({ projectPath: root }) as unknown as {
+        config: { memoryDbPath: string };
+      };
+      expect(orchestrator.config.memoryDbPath).toBe(configured);
+    } finally {
+      if (previous === undefined) delete process.env.CLAUDE_FLOW_DB_PATH;
+      else process.env.CLAUDE_FLOW_DB_PATH = previous;
+    }
   });
 
   it('does not pass policy or provider secrets to workers', () => {
