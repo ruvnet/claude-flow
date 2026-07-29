@@ -49,6 +49,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-329](ADR-329-ruflo-capability-brain-mcp-guidance.md) | Ruflo Capability Brain for MCP Guidance | Accepted |
 | [ADR-330](ADR-330-adaptive-pheromone-swarm-consensus.md) | Adaptive Pheromone Swarm Consensus | Accepted |
 | [ADR-331](ADR-331-project-local-flywheel-anchors.md) | Project-Local Flywheel Evaluation Anchors | Accepted |
+| [ADR-332](ADR-332-hermetic-release-verification-runtime-baseline.md) | Hermetic Release Verification and Supported Runtime Baseline | Accepted |
 
 ## Summary Documents
 

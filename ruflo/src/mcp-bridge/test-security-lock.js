@@ -11,6 +11,7 @@
  *   4. `requireAuth` uses `timingSafeEqual` (constant-time compare)
  *   5. `executeTool` denies terminal_execute unless `MCP_ENABLE_TERMINAL === "true"` (Phase 1d + 2a)
  *   6. CORS respects `MCP_CORS_ORIGIN` allowlist (Phase 3b)
+ *   9. Both production images use the supported Node 24 LTS line (#2847)
  *
  * Runs offline (no server, no deps). CI-safe.
  *
@@ -25,6 +26,10 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const BRIDGES = [
   path.join(HERE, "index.js"),                           // ruflo/src/mcp-bridge/index.js
   path.join(HERE, "..", "ruvocal", "mcp-bridge", "index.js"), // ruvocal variant (deployed)
+];
+const DOCKERFILES = [
+  path.join(HERE, "Dockerfile"),
+  path.join(HERE, "..", "ruvocal", "mcp-bridge", "Dockerfile"),
 ];
 
 const CHECKS = [
@@ -88,6 +93,24 @@ for (const bridge of BRIDGES) {
       console.log(`    hint: ${check.hint}`);
       hardFail = true;
     }
+  }
+}
+
+for (const dockerfile of DOCKERFILES) {
+  if (!fs.existsSync(dockerfile)) {
+    console.error(`FAIL: Dockerfile missing: ${dockerfile}`);
+    hardFail = true;
+    continue;
+  }
+  const source = fs.readFileSync(dockerfile, "utf-8");
+  const rel = path.relative(path.join(HERE, "..", ".."), dockerfile);
+  console.log(`\n# ${rel}`);
+  if (/^FROM\s+node:24(?:[.-][^\s]+)?\s*$/m.test(source)) {
+    console.log("  ✓ 9. supported-node-lts-runtime (#2847)");
+  } else {
+    console.log("  ✗ 9. supported-node-lts-runtime (#2847)");
+    console.log("    hint: production images must use the supported node:24 LTS line");
+    hardFail = true;
   }
 }
 
