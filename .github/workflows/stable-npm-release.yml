@@ -1,0 +1,186 @@
+name: Stable npm Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing v-prefixed Git tag to publish
+        required: true
+        type: string
+      security_version:
+        description: Policy runtime version bundled by this release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stable-npm-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish stable package train
+    if: github.actor == 'ruvnet'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Validate release inputs
+        shell: bash
+        run: |
+          if [[ "${{ inputs.tag }}" != v* ]]; then
+            echo "::error::tag must start with v"
+            exit 1
+          fi
+          if [[ ! "${{ inputs.security_version }}" =~ ^3\.0\.0-alpha\.[0-9]+$ ]]; then
+            echo "::error::security_version must be a 3.0.0 alpha"
+            exit 1
+          fi
+
+      - name: Checkout immutable release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 8
+
+      - name: Setup Node.js and npm authentication
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+          cache-dependency-path: v3/pnpm-lock.yaml
+
+      - name: Validate version train
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const expected = process.env.RELEASE_TAG.slice(1);
+          const packages = [
+            require('./package.json'),
+            require('./ruflo/package.json'),
+            require('./v3/@claude-flow/cli/package.json'),
+          ];
+          for (const pkg of packages) {
+            if (pkg.version !== expected) {
+              throw new Error(`${pkg.name}: expected ${expected}, got ${pkg.version}`);
+            }
+          }
+          const security = require('./v3/@claude-flow/security/package.json');
+          if (security.version !== process.env.SECURITY_VERSION) {
+            throw new Error(
+              `${security.name}: expected ${process.env.SECURITY_VERSION}, got ${security.version}`,
+            );
+          }
+          const cli = packages[2];
+          if (cli.optionalDependencies['@claude-flow/security']
+              !== `^${process.env.SECURITY_VERSION}`) {
+            throw new Error('CLI security dependency is not in release lockstep');
+          }
+          NODE
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SECURITY_VERSION: ${{ inputs.security_version }}
+
+      - name: Install and build publishable packages
+        working-directory: v3
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Verify signed helper manifest
+        working-directory: v3/@claude-flow/cli
+        run: node scripts/verify-helpers.mjs
+
+      - name: Verify policy release artifacts
+        shell: bash
+        run: |
+          test -f v3/@claude-flow/security/dist/policy/engine.js
+          test -f v3/@claude-flow/cli/dist/src/services/policy-runtime.js
+          test -f v3/@claude-flow/cli/dist/src/commands/policy.js
+
+      - name: Stage CLI publish assets
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          fs.copyFileSync('README.md', 'v3/@claude-flow/cli/README.md');
+          const target = 'v3/@claude-flow/cli/plugins/ruflo-metaharness';
+          fs.rmSync(target, { recursive: true, force: true });
+          fs.mkdirSync('v3/@claude-flow/cli/plugins', { recursive: true });
+          fs.cpSync('plugins/ruflo-metaharness', target, { recursive: true });
+          fs.copyFileSync('README.md', 'ruflo/README.md');
+          NODE
+
+      - name: Publish policy runtime
+        working-directory: v3/@claude-flow/security
+        shell: bash
+        run: |
+          if npm view "@claude-flow/security@${SECURITY_VERSION}" version >/dev/null 2>&1; then
+            echo "@claude-flow/security@${SECURITY_VERSION} already published"
+          else
+            npm publish --ignore-scripts --access public --tag v3alpha
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          SECURITY_VERSION: ${{ inputs.security_version }}
+
+      - name: Publish CLI
+        working-directory: v3/@claude-flow/cli
+        shell: bash
+        run: |
+          version="${RELEASE_TAG#v}"
+          if npm view "@claude-flow/cli@${version}" version >/dev/null 2>&1; then
+            echo "@claude-flow/cli@${version} already published"
+          else
+            npm publish --ignore-scripts --access public --tag latest
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+
+      - name: Publish claude-flow
+        shell: bash
+        run: |
+          version="${RELEASE_TAG#v}"
+          if npm view "claude-flow@${version}" version >/dev/null 2>&1; then
+            echo "claude-flow@${version} already published"
+          else
+            npm publish --ignore-scripts --access public --tag latest
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+
+      - name: Publish ruflo
+        working-directory: ruflo
+        shell: bash
+        run: |
+          version="${RELEASE_TAG#v}"
+          if npm view "ruflo@${version}" version >/dev/null 2>&1; then
+            echo "ruflo@${version} already published"
+          else
+            npm publish --ignore-scripts --access public --tag latest
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+
+      - name: Verify registry versions
+        shell: bash
+        run: |
+          version="${RELEASE_TAG#v}"
+          test "$(npm view "@claude-flow/security@${SECURITY_VERSION}" version)" = "${SECURITY_VERSION}"
+          test "$(npm view "@claude-flow/cli@${version}" version)" = "${version}"
+          test "$(npm view "claude-flow@${version}" version)" = "${version}"
+          test "$(npm view "ruflo@${version}" version)" = "${version}"
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SECURITY_VERSION: ${{ inputs.security_version }}
