@@ -860,7 +860,7 @@ const guidanceQuickRef: MCPTool = {
 
 const guidanceBrain: MCPTool = {
   name: 'guidance_brain',
-  description: 'Query Ruflo’s live capability brain. Covers every registered MCP tool, separates registration from configuration/reachability/health/authorization, recommends capabilities for a task, and returns the validated implementation loop.',
+  description: 'Use when choosing how to execute a task with Ruflo. Queries the live capability brain, covers every registered MCP tool, separates registration from configuration/reachability/health/authorization, recommends capabilities, and returns the validated implementation loop.',
   inputSchema: {
     type: 'object',
     properties: {

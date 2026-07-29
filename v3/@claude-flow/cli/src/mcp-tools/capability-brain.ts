@@ -244,8 +244,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'guidance',
     name: 'Capability Guidance',
-    description: 'Live capability inventory, task routing, workflow guidance, and system discovery.',
     prefixes: ['guidance_'],
+    description: 'Live capability inventory, task routing, workflow guidance, and system discovery.',
     taskSignals: ['guidance', 'discover', 'capability', 'what can ruflo do'],
     commands: ['guidance compile', 'guidance retrieve', 'guidance gates', 'guidance optimize'],
     skills: [],
@@ -259,8 +259,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'identity-auth',
     name: 'Cognitum Identity & OAuth',
-    description: 'Profile-aware PKCE/OOB authentication, credential status, consent-bound scopes, refresh, and local logout.',
     prefixes: ['auth_', 'oauth_'],
+    description: 'Profile-aware PKCE/OOB authentication, credential status, consent-bound scopes, refresh, and local logout.',
     taskSignals: ['auth', 'oauth', 'login', 'logout', 'credential', 'profile', 'scope', 'consent'],
     commands: ['auth login', 'auth login --no-browser', 'auth status', 'auth status --check', 'auth logout'],
     skills: ['security-audit'],
@@ -282,8 +282,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'policy-authorization',
     name: 'Policy Authorization',
-    description: 'Policy-decision evaluation and status for exact subject/action/resource requests.',
     prefixes: ['policy_'],
+    description: 'Policy-decision evaluation and status for exact subject/action/resource requests.',
     taskSignals: ['policy', 'authorization', 'permission', 'capability', 'access control'],
     commands: ['policy evaluate', 'policy status', 'guidance gates'],
     skills: ['claims', 'security-audit', 'v3-security-overhaul'],
@@ -300,8 +300,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'work-claims',
     name: 'Exclusive Work Claims',
-    description: 'Repository/task ownership claims, handoffs, contention, stealing, and rebalance.',
     prefixes: ['claims_'],
+    description: 'Repository/task ownership claims, handoffs, contention, stealing, and rebalance.',
     taskSignals: ['work claim', 'claim task', 'handoff', 'ownership', 'concurrent work', 'rebalance'],
     commands: ['claims claim', 'claims handoff', 'claims status'],
     skills: ['claims'],
@@ -317,8 +317,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'content-safety',
     name: 'AIDefence Content Safety',
-    description: 'Prompt/content safety, PII detection, learning, and security evidence.',
     prefixes: ['aidefence_', 'security_'],
+    description: 'Prompt/content safety, PII detection, learning, and security evidence.',
     taskSignals: ['security', 'content safety', 'pii', 'prompt injection', 'threat', 'audit'],
     commands: ['security scan'],
     skills: ['security-audit', 'v3-security-overhaul'],
@@ -334,8 +334,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'metaharness-flywheel',
     name: 'MetaHarness, Darwin & Flywheel',
-    description: 'Candidate scoring, static analysis, threat modeling, genome exploration, and controlled improvement loops.',
     prefixes: ['metaharness_', 'autopilot_'],
+    description: 'Candidate scoring, static analysis, threat modeling, genome exploration, and controlled improvement loops.',
     taskSignals: ['metaharness', 'darwin', 'flywheel', 'genome', 'optimize', 'autopilot'],
     commands: ['metaharness score', 'metaharness genome', 'autopilot run'],
     skills: ['metaharness-brain', 'performance-analysis'],
@@ -352,8 +352,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'memory-knowledge',
     name: 'Memory, AgentDB & Embeddings',
-    description: 'Persistent memory, semantic/vector retrieval, namespaces, embeddings, and AgentDB controllers.',
     prefixes: ['memory_', 'agentdb_', 'embeddings_'],
+    description: 'Persistent memory, semantic/vector retrieval, namespaces, embeddings, and AgentDB controllers.',
     taskSignals: ['memory', 'agentdb', 'vector', 'embedding', 'semantic', 'recall'],
     commands: ['memory search', 'memory store', 'memory retrieve'],
     skills: ['memory-management', 'agentdb-advanced', 'agentdb-vector-search'],
@@ -369,8 +369,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'memory-branching',
     name: 'Copy-on-Write & Speculative Memory',
-    description: 'Low-cost memory branching, checkpoint, rollback, comparison, and validated promotion.',
     prefixes: ['agenticow_'],
+    description: 'Low-cost memory branching, checkpoint, rollback, comparison, and validated promotion.',
     taskSignals: ['branch memory', 'checkpoint', 'rollback', 'speculative'],
     commands: [],
     skills: ['agentdb-learning'],
@@ -386,8 +386,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'agents-runtimes',
     name: 'Agent Lifecycle & Runtimes',
-    description: 'Local agents, managed cloud agents, WASM sandboxes, and inference runtimes.',
     prefixes: ['agent_', 'managed_agent_', 'wasm_agent_', 'wasm_gallery_', 'ruvllm_'],
+    description: 'Local agents, managed cloud agents, WASM sandboxes, and inference runtimes.',
     taskSignals: ['agent', 'worker', 'wasm', 'sandbox', 'inference', 'managed agent'],
     commands: ['agent spawn', 'agent status', 'agent stop'],
     skills: ['agent-coder', 'agent-tester', 'agent-reviewer'],
@@ -403,8 +403,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'swarm-coordination',
     name: 'Swarm & Coordination',
-    description: 'Topology-aware multi-agent coordination, task ownership, and collective scheduling.',
     prefixes: ['swarm_', 'coordination_', 'daa_'],
+    description: 'Topology-aware multi-agent coordination, task ownership, and collective scheduling.',
     taskSignals: ['swarm', 'concurrent', 'parallel', 'coordinate', 'multi-agent'],
     commands: ['swarm init', 'swarm status', 'swarm coordinate'],
     skills: ['swarm-orchestration', 'swarm-advanced'],
@@ -418,8 +418,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'consensus-federation',
     name: 'Hive Mind & Consensus',
-    description: 'Hive, quorum, voting, gossip, and distributed agreement primitives.',
     prefixes: ['hive_', 'hive-mind_', 'consensus_', 'quorum_'],
+    description: 'Hive, quorum, voting, gossip, and distributed agreement primitives.',
     taskSignals: ['hive', 'consensus', 'quorum', 'byzantine', 'federation'],
     commands: ['hive-mind init', 'hive-mind status'],
     skills: ['hive-mind', 'hive-mind-advanced'],
@@ -433,8 +433,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'tasks-workflows-sessions',
     name: 'Tasks, Workflows, Sessions & Progress',
-    description: 'Task orchestration, reusable workflows, session state, progress, and handoff.',
     prefixes: ['task_', 'workflow_', 'session_', 'progress_'],
+    description: 'Task orchestration, reusable workflows, session state, progress, and handoff.',
     taskSignals: ['task', 'workflow', 'session', 'handoff', 'progress'],
     commands: ['task create', 'task status', 'workflow run'],
     skills: ['workflow-automation'],
@@ -448,8 +448,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'hooks-learning-routing',
     name: 'Hooks, Coverage & Learning Routing',
-    description: 'Lifecycle hooks, coverage-aware routing, background workers, and validated pattern capture.',
     prefixes: ['hooks_', 'coverage_'],
+    description: 'Lifecycle hooks, coverage-aware routing, background workers, and validated pattern capture.',
     taskSignals: ['hook', 'coverage', 'route', 'worker', 'learning'],
     commands: ['hooks pre-task', 'hooks post-task', 'hooks route', 'hooks coverage-gaps'],
     skills: ['hooks-automation'],
@@ -464,8 +464,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'analysis-quality',
     name: 'Analysis & Quality',
-    description: 'Code/project analysis, quality assessment, and change inspection.',
     prefixes: ['analyze_', 'analysis_'],
+    description: 'Code/project analysis, quality assessment, and change inspection.',
     taskSignals: ['analyze', 'review', 'quality', 'dependency'],
     commands: ['analyze code', 'analyze project'],
     skills: ['verification-quality'],
@@ -479,8 +479,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'test-generation',
     name: 'TDD Test Generation',
-    description: 'TDD repair and test-generation capability exported by Ruflo but intentionally reported as unregistered until the MCP registry enables it.',
     prefixes: ['testgen_'],
+    description: 'TDD repair and test-generation capability exported by Ruflo but intentionally reported as unregistered until the MCP registry enables it.',
     exactTools: ['testgen_tdd_repair'],
     taskSignals: ['generate tests', 'tdd repair', 'test generation'],
     commands: [],
@@ -498,8 +498,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'performance-neural',
     name: 'Performance & Neural Optimization',
-    description: 'Profiling, benchmarks, learned routing, pattern training, and optimization.',
     prefixes: ['performance_', 'neural_'],
+    description: 'Profiling, benchmarks, learned routing, pattern training, and optimization.',
     taskSignals: ['performance', 'benchmark', 'profile', 'latency', 'neural', 'train'],
     commands: ['performance benchmark', 'performance profile', 'neural train'],
     skills: ['performance-analysis', 'neural-training'],
@@ -515,8 +515,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'browser-web',
     name: 'Browser & Web Actions',
-    description: 'Browser sessions, page actions, intent routing, and guarded HTTP probes.',
     prefixes: ['browser_', 'http_fetch'],
+    description: 'Browser sessions, page actions, intent routing, and guarded HTTP probes.',
     taskSignals: ['browser', 'web page', 'navigate', 'click', 'http', 'fetch'],
     commands: ['browser open', 'browser act'],
     skills: [],
@@ -532,8 +532,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'github-delivery',
     name: 'GitHub & Delivery',
-    description: 'Issues, pull requests, workflows, releases, repository automation, and handoff.',
     prefixes: ['github_', 'pr_', 'release_'],
+    description: 'Issues, pull requests, workflows, releases, repository automation, and handoff.',
     taskSignals: ['github', 'issue', 'pull request', 'merge', 'release', 'publish'],
     commands: ['github pr', 'github release'],
     skills: ['github-automation', 'github-release-management'],
@@ -548,9 +548,9 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'business-collaboration',
     name: 'AgentBBS & Business Pods',
-    description: 'Federated business rooms, domain-affinity routing, and business-pod validation.',
     // Metadata classification only; execution remains behind the existing loadAgentbbs guard.
     prefixes: ['agentbbs_', 'business_pod_', 'federation_bbs_'],
+    description: 'Federated business rooms, domain-affinity routing, and business-pod validation.',
     taskSignals: ['business pod', 'bbs', 'room', 'domain affinity'],
     commands: [],
     skills: [],
@@ -566,8 +566,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'configuration-transfer',
     name: 'Configuration & Transfer',
-    description: 'Configuration state plus portable import, export, backup, and migration.',
     prefixes: ['config_', 'transfer_'],
+    description: 'Configuration state plus portable import, export, backup, and migration.',
     taskSignals: ['config', 'setup', 'import', 'export', 'backup', 'migrate'],
     commands: ['config show', 'memory export'],
     skills: [],
@@ -582,8 +582,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'system-terminal',
     name: 'System & Terminal Compatibility',
-    description: 'System diagnostics and legacy-compatible terminal execution surfaces.',
     prefixes: ['system_', 'terminal_', 'mcp_'],
+    description: 'System diagnostics and legacy-compatible terminal execution surfaces.',
     taskSignals: ['terminal', 'shell', 'doctor', 'system status'],
     commands: ['doctor', 'status'],
     skills: [],
@@ -598,8 +598,8 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'runtime-services',
     name: 'Other Registered Runtime Services',
-    description: 'Live MCP tools not yet assigned to a specialized domain; included so coverage is never silently incomplete.',
     prefixes: [],
+    description: 'Live MCP tools not yet assigned to a specialized domain; included so coverage is never silently incomplete.',
     taskSignals: [],
     commands: [],
     skills: [],
