@@ -113,7 +113,7 @@
   },
   "optionalDependencies": {
     "@claude-flow/memory": "^3.0.0-alpha.21",
-    "@claude-flow/security": "^3.0.0-alpha.12",
+    "@claude-flow/security": "^3.0.0-alpha.13",
     "agentdb": "^3.0.0-alpha.17",
     "agentic-flow": "^3.0.0-alpha.1",
     "better-sqlite3": "^12.9.0",
