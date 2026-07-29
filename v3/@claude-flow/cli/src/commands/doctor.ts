@@ -1141,8 +1141,13 @@ async function checkMcpSchemaOverhead(): Promise<HealthCheck> {
       import('../mcp-client.js'),
       import('../mcp-server.js'),
     ]);
+    // The `mcp start --tools` CLI flag takes precedence when the server is
+    // constructed. Doctor intentionally inspects the environment fallback so
+    // its estimate describes the configuration inherited by MCP clients.
     const selection = parseMcpToolSelection(process.env.CLAUDE_FLOW_MCP_TOOLS);
     const tools = filterAdvertisedMcpTools(listMCPTools(), selection);
+    // This is diagnostic metadata about the external client's context window,
+    // not Ruflo command configuration, so there is no corresponding CLI flag.
     const rawWindow = process.env.CLAUDE_FLOW_CONTEXT_WINDOW_TOKENS;
     const contextWindow = rawWindow ? Number.parseInt(rawWindow, 10) : undefined;
     const assessment = assessMcpSchemaOverhead(tools, contextWindow);

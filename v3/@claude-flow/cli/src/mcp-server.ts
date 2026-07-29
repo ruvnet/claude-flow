@@ -157,6 +157,8 @@ export class MCPServerManager extends EventEmitter {
 
   constructor(options: MCPServerOptions = {}) {
     super();
+    // `options.tools`, populated by the `mcp start --tools` CLI flag, is
+    // spread last below and therefore takes precedence over this env fallback.
     const environmentTools = parseMcpToolSelection(process.env.CLAUDE_FLOW_MCP_TOOLS);
     this.options = {
       ...DEFAULT_OPTIONS,
