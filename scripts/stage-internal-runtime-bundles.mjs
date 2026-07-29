@@ -1,6 +1,15 @@
 #!/usr/bin/env node
 
-import { access, cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import {
+  access,
+  cp,
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,6 +37,8 @@ const INTERNAL_RUNTIME_PACKAGES = [
     optionalAssets: ['README.md', 'LICENSE'],
   },
 ];
+
+const BUILD_PREREQUISITES = ['shared'];
 
 function runBuild(packageDirectory) {
   const command = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -77,8 +88,52 @@ async function validateEntrypoints(packageRoot, packageJson) {
   collectEntrypoints(packageJson.bin, entrypoints);
   collectEntrypoints(packageJson.exports, entrypoints);
   for (const entrypoint of entrypoints) {
+    if (entrypoint.includes('*')) {
+      const entrypointDirectory = dirname(entrypoint);
+      const expression = new RegExp(
+        `^${entrypoint
+          .slice(entrypointDirectory.length + 1)
+          .split('*')
+          .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+          .join('.*')}$`,
+      );
+      const matches = (await readdir(join(packageRoot, entrypointDirectory))).filter(
+        (name) => expression.test(name),
+      );
+      if (matches.length === 0) {
+        throw new Error(`No staged entrypoints match ${entrypoint}`);
+      }
+      continue;
+    }
     await access(join(packageRoot, entrypoint));
   }
+}
+
+export function createBundledRuntimeManifest(packageJson) {
+  const dependencyMetadata = {};
+  for (const field of [
+    'dependencies',
+    'optionalDependencies',
+    'peerDependencies',
+    'peerDependenciesMeta',
+  ]) {
+    if (packageJson[field] && Object.keys(packageJson[field]).length > 0) {
+      dependencyMetadata[field] = packageJson[field];
+    }
+  }
+
+  const bundledManifest = {
+    ...packageJson,
+    rufloBundledRuntime: {
+      format: 1,
+      sourceDependencies: dependencyMetadata,
+    },
+  };
+  delete bundledManifest.dependencies;
+  delete bundledManifest.optionalDependencies;
+  delete bundledManifest.peerDependencies;
+  delete bundledManifest.peerDependenciesMeta;
+  return bundledManifest;
 }
 
 /**
@@ -96,7 +151,14 @@ export async function stageInternalRuntimeBundles(
   const targetPackageJson = JSON.parse(
     await readFile(join(targetRoot, 'package.json'), 'utf8'),
   );
-  const declaredBundles = new Set(targetPackageJson.bundledDependencies ?? []);
+  // npm normalizes `bundledDependencies` to `bundleDependencies` when it
+  // rewrites a manifest. Accept both documented spellings so staging remains
+  // stable after lockfile/version maintenance.
+  const declaredBundles = new Set(
+    targetPackageJson.bundleDependencies ??
+      targetPackageJson.bundledDependencies ??
+      [],
+  );
   for (const runtimePackage of INTERNAL_RUNTIME_PACKAGES) {
     if (targetPackageJson.dependencies?.[runtimePackage.name] === undefined) {
       throw new Error(`${runtimePackage.name} must be a dependency of ${targetPackageJson.name}`);
@@ -106,6 +168,12 @@ export async function stageInternalRuntimeBundles(
     }
   }
   await mkdir(scopeRoot, { recursive: true });
+
+  if (build) {
+    for (const packageDirectory of BUILD_PREREQUISITES) {
+      runBuild(join(repoRoot, 'v3', '@claude-flow', packageDirectory));
+    }
+  }
 
   for (const runtimePackage of INTERNAL_RUNTIME_PACKAGES) {
     const sourceRoot = join(repoRoot, 'v3', '@claude-flow', runtimePackage.directory);
@@ -122,20 +190,24 @@ export async function stageInternalRuntimeBundles(
     const target = join(scopeRoot, packageLeaf);
     const temporary = `${target}.${process.pid}.tmp`;
     await rm(temporary, { recursive: true, force: true });
-    await mkdir(temporary, { recursive: true });
-    await writeFile(
-      join(temporary, 'package.json'),
-      `${JSON.stringify(packageJson, null, 2)}\n`,
-    );
-    for (const asset of runtimePackage.requiredAssets) {
-      await copyRequired(join(sourceRoot, asset), join(temporary, asset));
+    try {
+      await mkdir(temporary, { recursive: true });
+      await writeFile(
+        join(temporary, 'package.json'),
+        `${JSON.stringify(createBundledRuntimeManifest(packageJson), null, 2)}\n`,
+      );
+      for (const asset of runtimePackage.requiredAssets) {
+        await copyRequired(join(sourceRoot, asset), join(temporary, asset));
+      }
+      for (const asset of runtimePackage.optionalAssets) {
+        await copyIfPresent(join(sourceRoot, asset), join(temporary, asset));
+      }
+      await validateEntrypoints(temporary, packageJson);
+      await rm(target, { recursive: true, force: true });
+      await rename(temporary, target);
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
     }
-    for (const asset of runtimePackage.optionalAssets) {
-      await copyIfPresent(join(sourceRoot, asset), join(temporary, asset));
-    }
-    await validateEntrypoints(temporary, packageJson);
-    await rm(target, { recursive: true, force: true });
-    await rename(temporary, target);
   }
 }
 
@@ -144,5 +216,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   if (targetIndex === -1 || !process.argv[targetIndex + 1]) {
     throw new Error('Usage: stage-internal-runtime-bundles.mjs --target <package-directory>');
   }
-  await stageInternalRuntimeBundles(process.argv[targetIndex + 1]);
+  await stageInternalRuntimeBundles(process.argv[targetIndex + 1], {
+    build: !process.argv.includes('--no-build'),
+  });
 }

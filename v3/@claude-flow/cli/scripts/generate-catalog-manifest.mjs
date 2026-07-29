@@ -62,6 +62,21 @@ function gitShortSha() {
   }
 }
 
+function generationTimestamp() {
+  const sourceDateEpoch = process.env.SOURCE_DATE_EPOCH;
+  if (sourceDateEpoch !== undefined) {
+    if (!/^\d+$/.test(sourceDateEpoch)) {
+      throw new Error('SOURCE_DATE_EPOCH must be an integer Unix timestamp');
+    }
+    const date = new Date(Number(sourceDateEpoch) * 1000);
+    if (Number.isNaN(date.getTime())) {
+      throw new Error('SOURCE_DATE_EPOCH is outside the supported date range');
+    }
+    return date.toISOString();
+  }
+  return new Date().toISOString();
+}
+
 const counts = {
   agents: gitTrackedCount(['.claude/agents/*.md', 'plugins/*/agents/*.md']),
   tools: countTools(),
@@ -83,7 +98,7 @@ if (previous?.catalog) {
 const manifest = {
   schemaVersion: 1,
   generation,
-  generatedAt: new Date().toISOString(),
+  generatedAt: generationTimestamp(),
   gitSha: gitShortSha(),
   catalog: counts,
   // No fabricated benchmark tier — filled in only by a real, signed GAIA/HAL

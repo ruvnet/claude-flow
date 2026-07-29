@@ -46,6 +46,7 @@ export interface AgentMessage {
 export interface AgentTransport {
   send: (address: string, message: AgentMessage) => Promise<void>;
   onMessage: (handler: (address: string, message: AgentMessage) => void) => void;
+  listen?: (port: number, host?: string) => Promise<void>;
   close?: () => Promise<void> | void;
   [key: string]: unknown;
 }
@@ -54,6 +55,19 @@ export interface QuicTransportConfig {
   host?: string;
   serverName?: string;
   [key: string]: unknown;
+}
+
+function isCompatibleTransport(
+  value: unknown,
+  requireListen = false,
+): value is AgentTransport {
+  if (!value || typeof value !== 'object') return false;
+  const transport = value as Partial<AgentTransport>;
+  return (
+    typeof transport.send === 'function' &&
+    typeof transport.onMessage === 'function' &&
+    (!requireListen || typeof transport.listen === 'function')
+  );
 }
 
 /**
@@ -100,7 +114,10 @@ async function loadAgenticFlowQuicTransport(
     return null;
   }
   try {
-    return await fn(config);
+    const transport = await fn(config);
+    return isCompatibleTransport(transport, typeof config?.port === 'number')
+      ? transport
+      : null;
   } catch {
     return null;
   }
@@ -293,7 +310,12 @@ async function probeMidstreamerTransport(
 
   try {
     const transport = await surface.loadQuicTransport(config);
-    return { transport };
+    return isCompatibleTransport(transport, typeof config?.port === 'number')
+      ? { transport }
+      : {
+          transport: null as unknown as AgentTransport,
+          reason: 'midstreamer transport does not implement the federation send/onMessage/listen contract',
+        };
   } catch (err) {
     return {
       transport: null as unknown as AgentTransport,

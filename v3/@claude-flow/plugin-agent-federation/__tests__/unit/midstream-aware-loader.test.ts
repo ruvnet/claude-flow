@@ -23,6 +23,8 @@ vi.mock('agentic-flow/transport/loader', async () => {
   return {
     loadQuicTransport: vi.fn(async () => ({
       send: vi.fn(),
+      onMessage: vi.fn(),
+      listen: vi.fn(),
       receive: vi.fn(),
       request: vi.fn(),
       sendBatch: vi.fn(),
@@ -114,6 +116,34 @@ describe('loadFederationTransport — ADR-120 Step 2', () => {
         enable0Rtt: false,
       }),
     );
+  });
+
+  it('rejects an upstream transport that does not implement inbound delivery', async () => {
+    const mod = await import('agentic-flow/transport/loader');
+    const loaderFn = (mod as unknown as { loadQuicTransport: ReturnType<typeof vi.fn> })
+      .loadQuicTransport;
+    loaderFn.mockResolvedValueOnce({ send: vi.fn() });
+
+    const loaded = await loadFederationTransport();
+
+    expect(loaded.source).toBe('websocket-fallback');
+    expect(typeof loaded.transport.send).toBe('function');
+    expect(typeof loaded.transport.onMessage).toBe('function');
+  });
+
+  it('requires listen support when an inbound port is configured', async () => {
+    const mod = await import('agentic-flow/transport/loader');
+    const loaderFn = (mod as unknown as { loadQuicTransport: ReturnType<typeof vi.fn> })
+      .loadQuicTransport;
+    loaderFn.mockResolvedValueOnce({
+      send: vi.fn(),
+      onMessage: vi.fn(),
+    });
+
+    const loaded = await loadFederationTransport({ port: 0 });
+
+    expect(loaded.source).toBe('websocket-fallback');
+    expect(typeof loaded.transport.listen).toBe('function');
   });
 
   it('returned envelope has the documented LoadedFederationTransport shape', async () => {
