@@ -67,6 +67,7 @@ function memoryStore(namespace, key, value) {
     `--namespace=${namespace}`,
     `--key=${key}`,
     `--value=${valueStr}`,
+    '--upsert',  // ponytail: #2594 — CLI default is declared true but not honored; must pass explicitly
   ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: ROOT });
   if (r.status !== 0) {
     if (/UNIQUE constraint/i.test(r.stderr || r.stdout || '')) return 'exists';
@@ -93,13 +94,14 @@ if (!dryRun) {
   for (const a of adrs) {
     const r = memoryStore('adr-patterns', `${a.id}::${basename(a.file, '.md')}`,
       `${a.title} — ${a.context || '(no context)'}\n\nfile: ${a.file}\nstatus: ${a.status}\ndate: ${a.date}\ntags: ${a.tags.join(',')}`);
-    if (r === 'ok' || r === 'exists') storedRecords++;
+    if (r === 'ok') storedRecords++;
     else errors.push(`${a.id} ${a.file}: ${r}`);
   }
   for (const e of allEdges) {
-    const key = `${e.relation}:${e.from}->${e.to}:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const key = `${e.relation}:${e.from}->${e.to}`;
     const r = memoryStore('adr-edges', key, JSON.stringify({ ...e, capturedAt: new Date().toISOString() }));
-    if (r === 'ok' || r === 'exists') storedEdges++;
+    if (r === 'ok') storedEdges++;
+    else errors.push(`edge ${e.relation}:${e.from}->${e.to}: ${r}`);
   }
 }
 
