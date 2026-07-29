@@ -253,7 +253,8 @@ const TOPOLOGIES = [
   { value: 'ring', label: 'Ring', hint: 'Circular communication pattern' },
   { value: 'star', label: 'Star', hint: 'Central coordinator with spoke agents' },
   { value: 'hybrid', label: 'Hybrid', hint: 'Hierarchical mesh for maximum flexibility' },
-  { value: 'hierarchical-mesh', label: 'Hierarchical Mesh', hint: 'V3 15-agent queen + peer communication (recommended)' }
+  { value: 'hierarchical-mesh', label: 'Hierarchical Mesh', hint: 'V3 15-agent queen + peer communication (recommended)' },
+  { value: 'pheromone-adaptive', label: 'Pheromone Adaptive', hint: 'Role-aware dynamic eligibility with quorum safety (ADR-330)' }
 ];
 
 // Swarm strategies
@@ -309,6 +310,19 @@ const initCommand: Command = {
       default: false
     },
     {
+      name: 'apsc-live',
+      description: 'Apply APSC suspension decisions (default is calibration-only dry run)',
+      type: 'boolean',
+      default: false
+    },
+    { name: 'apsc-alpha', description: 'Task-success score weight', type: 'number', default: 0.5 },
+    { name: 'apsc-beta', description: 'Latency score weight', type: 'number', default: 0.2 },
+    { name: 'apsc-gamma', description: 'Consensus-alignment score weight', type: 'number', default: 0.3 },
+    { name: 'apsc-pruning-factor', description: 'Fraction of adaptive threshold below which agents are eligible for suspension', type: 'number', default: 0.6 },
+    { name: 'apsc-reactivation-threshold', description: 'Fraction of adaptive threshold required for recovery', type: 'number', default: 0.75 },
+    { name: 'apsc-min-active-agents', description: 'Hard quorum floor', type: 'number', default: 3 },
+    { name: 'apsc-min-samples', description: 'Warm-up observations before pruning', type: 'number', default: 3 },
+    {
       // #2768 — dream-cycle SubagentPermissionDelegate. Ships a per-role
       // capability manifest to `.swarm/permissions.jsonl` + an append-only
       // audit trail. Task-tool prompts can consult the manifest; ruflo
@@ -357,7 +371,7 @@ const initCommand: Command = {
           autoScaling?: boolean;
         };
       }>('swarm_init', {
-        topology: topology as 'hierarchical' | 'mesh' | 'adaptive' | 'collective' | 'hierarchical-mesh',
+        topology: topology as 'hierarchical' | 'mesh' | 'adaptive' | 'collective' | 'hierarchical-mesh' | 'pheromone-adaptive',
         maxAgents,
         config: {
           communicationProtocol: 'message-bus',
@@ -365,6 +379,18 @@ const initCommand: Command = {
           failureHandling: 'retry',
           loadBalancing: true,
           autoScaling: ctx.flags.autoScale ?? true,
+          ...(topology === 'pheromone-adaptive' ? {
+            apsc: {
+              alpha: Number(ctx.flags.apscAlpha ?? 0.5),
+              beta: Number(ctx.flags.apscBeta ?? 0.2),
+              gamma: Number(ctx.flags.apscGamma ?? 0.3),
+              pruningFactor: Number(ctx.flags.apscPruningFactor ?? 0.6),
+              reactivationThreshold: Number(ctx.flags.apscReactivationThreshold ?? 0.75),
+              minActiveAgents: Number(ctx.flags.apscMinActiveAgents ?? 3),
+              minSamples: Number(ctx.flags.apscMinSamples ?? 3),
+              dryRun: ctx.flags.apscLive !== true,
+            },
+          } : {}),
         },
         metadata: {
           v3Mode,
@@ -395,7 +421,10 @@ const initCommand: Command = {
           { property: 'Max Agents', value: result.config.maxAgents },
           { property: 'Auto Scale', value: result.config.autoScaling ? 'Enabled' : 'Disabled' },
           { property: 'Protocol', value: result.config.communicationProtocol || 'N/A' },
-          { property: 'V3 Mode', value: v3Mode ? 'Enabled' : 'Disabled' }
+          { property: 'V3 Mode', value: v3Mode ? 'Enabled' : 'Disabled' },
+          ...(topology === 'pheromone-adaptive'
+            ? [{ property: 'APSC Mode', value: ctx.flags.apscLive === true ? 'Live' : 'Dry run' }]
+            : [])
         ]
       });
 
@@ -985,15 +1014,42 @@ const compressMessageCommand: Command = {
   },
 };
 
+const pheromoneCommand: Command = {
+  name: 'pheromone',
+  description: 'Inspect or update ADR-330 pheromone-adaptive scheduling state',
+  options: [
+    { name: 'agent-id', description: 'Agent identifier; omit to show status', type: 'string' },
+    { name: 'role', description: 'Agent role for role-local normalization', type: 'string' },
+    { name: 'task-success', description: 'Task success in [0,1]', type: 'number' },
+    { name: 'normalized-latency', description: 'Latency divided by budget in [0,1]', type: 'number' },
+    { name: 'consensus-alignment', description: 'Consensus alignment in [0,1]', type: 'number' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const agentId = ctx.flags.agentId as string | undefined;
+    const data = agentId
+      ? await callMCPTool<Record<string, unknown>>('swarm_pheromone_update', {
+        agentId,
+        role: String(ctx.flags.role ?? 'worker'),
+        taskSuccess: Number(ctx.flags.taskSuccess ?? 1),
+        normalizedLatency: Number(ctx.flags.normalizedLatency ?? 0),
+        consensusAlignment: Number(ctx.flags.consensusAlignment ?? 1),
+      })
+      : await callMCPTool<Record<string, unknown>>('swarm_pheromone_status', {});
+    output.writeln(JSON.stringify(data, null, 2));
+    return { success: data.active !== false, data };
+  },
+};
+
 export const swarmCommand: Command = {
   name: 'swarm',
   description: 'Swarm coordination commands',
-  subcommands: [initCommand, startCommand, statusCommand, stopCommand, scaleCommand, coordinateCommand, compressMessageCommand],
+  subcommands: [initCommand, startCommand, statusCommand, stopCommand, scaleCommand, coordinateCommand, compressMessageCommand, pheromoneCommand],
   options: [],
   examples: [
     { command: 'claude-flow swarm init --v3-mode', description: 'Initialize V3 swarm' },
     { command: 'claude-flow swarm start -o "Build API" -s development', description: 'Start development swarm' },
-    { command: 'claude-flow swarm coordinate --agents 15', description: 'V3 coordination' }
+    { command: 'claude-flow swarm coordinate --agents 15', description: 'V3 coordination' },
+    { command: 'claude-flow swarm pheromone', description: 'Inspect pheromone-adaptive scheduling state' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
@@ -1008,7 +1064,8 @@ export const swarmCommand: Command = {
       `${output.highlight('status')}      - Show swarm status`,
       `${output.highlight('stop')}        - Stop swarm execution`,
       `${output.highlight('scale')}       - Scale swarm agent count`,
-      `${output.highlight('coordinate')}  - V3 15-agent coordination`
+      `${output.highlight('coordinate')}  - V3 15-agent coordination`,
+      `${output.highlight('pheromone')}   - Inspect/update adaptive pheromone state`
     ]);
 
     return { success: true };

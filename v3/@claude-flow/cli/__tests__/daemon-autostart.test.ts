@@ -53,6 +53,18 @@ describe('ensureDaemonRunning', () => {
     expect(spawned).toBe(0);
   });
 
+  it('does not treat a Claude Code-only .claude directory as Ruflo initialization (#2834)', () => {
+    delete process.env.RUFLO_DAEMON_AUTOSTART;
+    const cwd = mkdtempSync(join(tmpdir(), 'claude-only-'));
+    mkdirSync(join(cwd, '.claude'), { recursive: true });
+    writeFileSync(join(cwd, '.claude', 'settings.json'), '{}');
+    let spawned = 0;
+    const r = ensureDaemonRunning(cwd, { isAlive: () => false, spawnFn: () => { spawned++; } });
+    expect(r).toEqual({ started: false, reason: 'not a ruflo project' });
+    expect(spawned).toBe(0);
+    expect(existsSync(join(cwd, '.claude-flow'))).toBe(false);
+  });
+
   it('respects a project-local claude-flow.config.json opt-out (survives env vars not propagating)', () => {
     // The real-world gap this closes: a non-interactive shell never sources
     // ~/.bashrc (its own top-of-file `case $- in *i*) ;; *) return;; esac`

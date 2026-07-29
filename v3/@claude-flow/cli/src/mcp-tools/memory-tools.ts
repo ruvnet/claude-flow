@@ -1228,6 +1228,7 @@ export const memoryTools: MCPTool[] = [
     handler: async (input) => {
       await ensureInitialized();
       const { listEntries, deleteEntry } = await getMemoryFunctions();
+      const startedAt = Date.now();
       const dryRun = input.dryRun !== false; // default true
       const namespace = input.namespace ? String(input.namespace) : undefined;
       if (namespace) { const v = validateIdentifier(namespace, 'namespace'); if (!v.valid) throw new Error(v.error); }
@@ -1241,6 +1242,7 @@ export const memoryTools: MCPTool[] = [
       });
       let freedBytes = 0;
       let deleted = 0;
+      let vectorsRemoved = 0;
       if (!dryRun) {
         for (const e of expired) {
           try { await deleteEntry({ key: e.key, namespace: e.namespace }); freedBytes += (e.size as number) || 0; deleted++; }
@@ -1249,11 +1251,21 @@ export const memoryTools: MCPTool[] = [
       } else {
         freedBytes = expired.reduce((s, e) => s + ((e.size as number) || 0), 0);
       }
+      if (!dryRun) {
+        const { reconcileHNSWIndex } = await import('../memory/memory-initializer.js');
+        vectorsRemoved = await reconcileHNSWIndex();
+      }
+      const formatted = freedBytes < 1024
+        ? `${freedBytes} B`
+        : freedBytes < 1024 * 1024
+          ? `${(freedBytes / 1024).toFixed(1)} KiB`
+          : `${(freedBytes / (1024 * 1024)).toFixed(1)} MiB`;
       return {
         dryRun,
         candidates: { expired: expired.length, stale: 0, lowQuality: 0, total: expired.length },
-        deleted: { entries: dryRun ? 0 : deleted, vectors: 0, patterns: 0 },
-        freed: { bytes: freedBytes },
+        deleted: { entries: dryRun ? 0 : deleted, vectors: vectorsRemoved, patterns: 0 },
+        freed: { bytes: freedBytes, formatted },
+        duration: Date.now() - startedAt,
         note: dryRun ? 'dry run — re-run with dryRun:false to delete' : undefined,
       };
     },

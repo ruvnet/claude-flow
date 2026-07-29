@@ -164,6 +164,7 @@ function normalizeTopology(
     case 'hierarchical-mesh':
       return topology;
     case 'adaptive':
+    case 'pheromone-adaptive':
       return 'hybrid';
     default:
       return 'hierarchical';

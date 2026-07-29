@@ -53,7 +53,7 @@ export const TaskConfigSchema = z.object({
  * Swarm configuration schema
  */
 export const SwarmConfigSchema = z.object({
-  topology: z.enum(['hierarchical', 'mesh', 'ring', 'star', 'adaptive', 'hierarchical-mesh']),
+  topology: z.enum(['hierarchical', 'mesh', 'ring', 'star', 'adaptive', 'pheromone-adaptive', 'hierarchical-mesh']),
   maxAgents: z.number().int().positive().default(20),
   autoScale: z.object({
     enabled: z.boolean().default(false),

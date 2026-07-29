@@ -9,6 +9,11 @@ import { dirname, join, resolve } from 'path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateIdentifier, validateText, validatePath } from './validate-input.js';
 import { checkCommandLoop, recordCommandOutcome } from './tool-loop-guardrail.js';
+import {
+  buildLearnedRoutingPatterns,
+  type LearnedRoutingOutcome,
+  type LearnedRoutingPattern,
+} from '../services/learned-routing.js';
 
 // Real vector search functions - lazy loaded to avoid circular imports
 let searchEntriesFn: ((options: {
@@ -198,13 +203,14 @@ const ROUTING_STOPWORDS = new Set([
   'some','such','same','new','now','here','there','where','how','what','which','who',
 ]);
 
-interface RoutingOutcome {
-  task: string;
-  agent: string;
-  success: boolean;
-  quality: number;
+type RoutingOutcome = LearnedRoutingOutcome;
+
+interface RoutingPattern {
   keywords: string[];
-  timestamp: string;
+  agents: string[];
+  source?: 'static' | 'learned';
+  support?: number;
+  reliability?: number;
 }
 
 function extractKeywords(text: string): string[] {
@@ -232,6 +238,13 @@ function saveRoutingOutcomes(outcomes: RoutingOutcome[]): void {
     // Cap at 500 entries to bound file size
     const capped = outcomes.slice(-500);
     writeFileSync(ROUTING_OUTCOMES_PATH, JSON.stringify({ outcomes: capped }, null, 2));
+    // A long-lived MCP process must observe the new label on the next route.
+    // The prior singleton cache made the learned store inert until restart.
+    semanticRouter = null;
+    nativeVectorDb = null;
+    semanticRouterInitialized = false;
+    routerBackend = 'none';
+    TASK_PATTERN_EMBEDDINGS.clear();
   } catch { /* non-critical */ }
 }
 
@@ -240,29 +253,15 @@ function saveRoutingOutcomes(outcomes: RoutingOutcome[]): void {
  * Returns patterns in the same shape as TASK_PATTERNS so they can be
  * merged into both the native HNSW and pure-JS semantic routers.
  */
-function loadLearnedPatterns(): Record<string, { keywords: string[]; agents: string[] }> {
-  const outcomes = loadRoutingOutcomes();
-  const byAgent: Record<string, Set<string>> = {};
-  for (const o of outcomes) {
-    if (!o.success || !o.agent || !o.keywords?.length) continue;
-    if (!byAgent[o.agent]) byAgent[o.agent] = new Set();
-    for (const kw of o.keywords) byAgent[o.agent].add(kw);
-  }
-  const patterns: Record<string, { keywords: string[]; agents: string[] }> = {};
-  for (const [agent, kwSet] of Object.entries(byAgent)) {
-    patterns[`learned-${agent}`] = {
-      keywords: [...kwSet].slice(0, 50),
-      agents: [agent],
-    };
-  }
-  return patterns;
+function loadLearnedPatterns(): Record<string, LearnedRoutingPattern> {
+  return buildLearnedRoutingPatterns(loadRoutingOutcomes());
 }
 
 /**
  * Merge static TASK_PATTERNS with runtime-learned patterns.
  * Static patterns take precedence (learned patterns won't overwrite them).
  */
-function getMergedTaskPatterns(): Record<string, { keywords: string[]; agents: string[] }> {
+function getMergedTaskPatterns(): Record<string, RoutingPattern> {
   const merged = { ...TASK_PATTERNS };
   const learned = loadLearnedPatterns();
   for (const [key, pattern] of Object.entries(learned)) {
@@ -275,7 +274,7 @@ function getMergedTaskPatterns(): Record<string, { keywords: string[]; agents: s
 
 // ── Static task patterns (used by both native and pure-JS routers) ───
 
-const TASK_PATTERNS: Record<string, { keywords: string[]; agents: string[] }> = {
+const TASK_PATTERNS: Record<string, RoutingPattern> = {
   'security-task': {
     keywords: ['authentication', 'security', 'auth', 'password', 'encryption', 'vulnerability', 'cve', 'audit'],
     agents: ['security-architect', 'security-auditor', 'reviewer'],
@@ -339,7 +338,9 @@ async function getSemanticRouter() {
   // STEP 1: Try native VectorDb from @ruvector/router (HNSW-backed)
   // Note: Native VectorDb uses a persistent database file which can have lock issues
   // in concurrent environments. We try it first but fall back gracefully to pure JS.
-  try {
+  // Deterministic/test and lock-constrained environments may force the
+  // pure-JS router; production continues to prefer the native backend.
+  if (process.env.CLAUDE_FLOW_DISABLE_NATIVE_ROUTER !== '1') try {
     // Use createRequire for ESM compatibility with native modules
     const { createRequire } = await import('module');
     const require = createRequire(import.meta.url);
@@ -380,9 +381,15 @@ async function getSemanticRouter() {
     const { SemanticRouter } = await import('../ruvector/semantic-router.js');
     semanticRouter = new SemanticRouter({ dimension: 384 });
 
-    for (const [patternName, { keywords, agents }] of Object.entries(getMergedTaskPatterns())) {
+    for (const [patternName, { keywords, agents, source, support, reliability }] of Object.entries(getMergedTaskPatterns())) {
       const embeddings = keywords.map(kw => generateSimpleEmbedding(kw));
-      semanticRouter.addIntentWithEmbeddings(patternName, embeddings, { agents, keywords });
+      semanticRouter.addIntentWithEmbeddings(patternName, embeddings, {
+        agents,
+        keywords,
+        source: source ?? 'static',
+        support,
+        reliability,
+      });
 
       // Cache embeddings for keywords
       keywords.forEach((kw, i) => {
@@ -1075,6 +1082,9 @@ export const hooksRoute: MCPTool = {
             score: 1 - r.score, // Native uses distance (lower is better), convert to similarity
             metadata: {
               agents: pattern?.agents || (patternName.startsWith('learned-') ? [patternName.slice(8)] : ['coder']),
+              source: pattern?.source ?? (patternName.startsWith('learned-') ? 'learned' : 'static'),
+              support: pattern?.support,
+              reliability: pattern?.reliability,
             },
           };
         });
@@ -1097,8 +1107,16 @@ export const hooksRoute: MCPTool = {
     let confidence: number;
     let matchedPattern = '';
 
-    if (semanticResult.length > 0 && semanticResult[0].score > 0.4) {
-      const topMatch = semanticResult[0];
+    const eligibleSemantic = semanticResult.find((match) => {
+      if (match.score <= 0.4) return false;
+      const learned = match.intent.startsWith('learned-') || match.metadata.source === 'learned';
+      if (!learned) return true;
+      return match.score >= 0.65
+        && Number(match.metadata.support ?? 0) >= 2
+        && Number(match.metadata.reliability ?? 0) >= 0.75;
+    });
+    if (eligibleSemantic) {
+      const topMatch = eligibleSemantic;
       agents = (topMatch.metadata.agents as string[]) || ['coder', 'researcher'];
       confidence = topMatch.score;
       matchedPattern = topMatch.intent;
@@ -1381,6 +1399,10 @@ export const hooksPostTask: MCPTool = {
       agent: { type: 'string', description: 'Agent that completed the task' },
       quality: { type: 'number', description: 'Quality score (0-1)' },
       task: { type: 'string', description: 'Task description text (used for learning keyword extraction)' },
+      duration: { type: 'number', description: 'Observed task duration in milliseconds (used by pheromone-adaptive topology)' },
+      latencyBudgetMs: { type: 'number', description: 'Latency budget used to normalize duration (default 60000ms)' },
+      consensusAlignment: { type: 'number', description: 'Agreement with accepted swarm consensus in [0,1] (default quality)' },
+      agentRole: { type: 'string', description: 'Role for role-local pheromone normalization (default agent)' },
       storeDecisions: { type: 'boolean', description: 'Also store routing decision in memory DB' },
       // ADR-147 P2: nested-subagent spawn-tree capture
       parentAgentId: { type: 'string', description: 'ID of the parent agent (from Claude Code\'s parent_agent_id OTel span tag / x-claude-code-parent-agent-id header). Omit for top-level work.' },
@@ -1533,6 +1555,22 @@ export const hooksPostTask: MCPTool = {
       } catch { /* non-critical */ }
     }
 
+    let pheromone: unknown;
+    if (agent) {
+      try {
+        const { recordSwarmPheromoneSignal } = await import('./swarm-tools.js');
+        const observedDuration = Math.max(0, Number(params.duration ?? (Date.now() - startTime)));
+        const latencyBudgetMs = Math.max(1, Number(params.latencyBudgetMs ?? 60_000));
+        pheromone = recordSwarmPheromoneSignal({
+          agentId: agent,
+          role: String(params.agentRole ?? agent),
+          taskSuccess: success ? 1 : 0,
+          normalizedLatency: Math.max(0, Math.min(1, observedDuration / latencyBudgetMs)),
+          consensusAlignment: Math.max(0, Math.min(1, Number(params.consensusAlignment ?? quality))),
+        });
+      } catch { /* no active APSC swarm or optional path unavailable */ }
+    }
+
     const duration = Date.now() - startTime;
 
     // Persist to auto-memory-store for statusline visibility
@@ -1571,6 +1609,7 @@ export const hooksPostTask: MCPTool = {
         outcomePersisted,
       },
       quality,
+      pheromone,
       feedback: feedbackResult ? {
         recorded: feedbackResult.success,
         controller: feedbackResult.controller,

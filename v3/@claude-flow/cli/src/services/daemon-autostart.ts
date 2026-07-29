@@ -8,8 +8,9 @@
  *   - single-instance: only starts when no live daemon holds the pidfile, and
  *     the spawned `daemon start` independently enforces single-instance via its
  *     own lock + checkExistingDaemon() — so a race spawns at most one survivor,
- *   - bounded lifetime: the daemon self-terminates on TTL/idle (12h default,
- *     RUFLO_DAEMON_TTL_SECS) — auto-start never means "runs forever",
+ *   - bounded lifetime: the daemon self-terminates on TTL/idle (12h hard TTL,
+ *     30m idle default; RUFLO_DAEMON_TTL_SECS / RUFLO_DAEMON_IDLE_SECS) —
+ *     auto-start never means "runs forever",
  *   - opt-out: RUFLO_DAEMON_AUTOSTART=0|false|no disables it entirely, OR a
  *     project-local `daemon.autostart: false` in claude-flow.config.json —
  *     the file-based opt-out exists because the env var only reaches a
@@ -89,8 +90,10 @@ export function ensureDaemonRunning(
 ): EnsureResult {
   try {
     if (autostartDisabled(projectRoot)) return { started: false, reason: 'disabled (RUFLO_DAEMON_AUTOSTART=0 or project config)' };
-    // Only in an initialized project (avoid scaffolding a daemon in a random dir).
-    if (!fs.existsSync(path.join(projectRoot, '.claude-flow')) && !fs.existsSync(path.join(projectRoot, '.claude'))) {
+    // `.claude/` belongs to Claude Code and is present in many repositories
+    // that have never initialized Ruflo. Only Ruflo's own state directory is
+    // an authorization signal for spawning a detached background process.
+    if (!fs.existsSync(path.join(projectRoot, '.claude-flow'))) {
       return { started: false, reason: 'not a ruflo project' };
     }
     const alive = (opts.isAlive ?? isDaemonAlive)(projectRoot);

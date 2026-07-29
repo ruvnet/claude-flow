@@ -12,10 +12,9 @@ import {
   type FlywheelDeps,
   type FlywheelResult,
   type RetrievalConfig,
-  type AnchorTask,
 } from './harness-flywheel.js';
 import { runFlywheelGeneration, checkServedChampionDrift, type GenerationResult, type GenerationDeps } from './harness-flywheel-generations.js';
-import { loadFrozenHumanEval } from './harness-frozen-eval.js';
+import { loadEffectiveFlywheelAnchor } from './harness-project-anchor.js';
 import {
   proposeFlywheelCandidates,
   type DarwinInvoker,
@@ -24,20 +23,6 @@ import {
 } from './flywheel-proposer.js';
 import { sha256Ref } from './flywheel-receipt.js';
 import { evaluatePolicyRequest } from './policy-runtime.js';
-
-/** The human-labeled ADR-081 anchor — the never-regress relevance set. */
-const ANCHOR: AnchorTask[] = [
-  ['how was the Opus model alias fixed', ['opus 4.8', 'opus alias', 'opus model alias', '#2232']],
-  ['self-learning wiring task-completed pretrain', ['self-learning', 'adr-074', 'self learning', '#2245', 'task-completed']],
-  ['deterministic codemod engine var-to-const', ['deterministic tier-1 codemod', 'adr-143', 'codemod', 'var-to-const']],
-  ['MCP server orphan leak parent-death', ['mcp orphan', 'mcp servers orphan', 'parent-death', '#2234', 'orphan on every claude']],
-  ['unified learning stats aggregator', ['unified learning-stats', 'adr-075', 'unified learning stats']],
-  ['structured distillation 4-field schema', ['structured distillation', 'adr-076', '4-field schema']],
-  ['SQL injection migrate.ts table identifier', ['sql injection', 'shell injection', 'migrate.ts', 'agentdb', 'cve']],
-  ['recall@k HNSW benchmark harness', ['hnsw', 'memory-recall', 'benchmark suite', 'recall@k', 'benchmark intelligence']],
-  ['Q-learning encoder keyword block', ['q-state encoder', 'route q-state', 'keyword block', '#2239', 'q-encoder']],
-  ['security hardening crypto random IDs', ['cwe-347', 'crypto.randomuuid', 'security fix', 'random id', 'crypto random']],
-].map(([q, labels], i) => ({ id: `q${String(i).padStart(2, '0')}`, input: { id: `q${String(i).padStart(2, '0')}`, q: q as string }, expected: labels as string[] }));
 
 /**
  * The ADR-322 retrieval safety envelope.
@@ -105,6 +90,9 @@ export async function runFlywheelWorker(
     allowSubstitutionPromotion?: boolean;
     maxConcurrency?: number;
     evaluationTimeoutMs?: number;
+    anchorPath?: string;
+    anchorHash?: string;
+    anchorManifestPath?: string;
   } = {},
 ): Promise<FlywheelResult> {
   try {
@@ -131,6 +119,11 @@ export async function runFlywheelWorker(
       ...((applier.activeChampion(projectRoot)?.params as Partial<RetrievalConfig>) ?? {}),
     };
     const safetyEnvelope = retrievalSafetyEnvelope(opts.safetyEnvelopeRef);
+    const anchor = loadEffectiveFlywheelAnchor(projectRoot, {
+      anchorPath: opts.anchorPath ?? process.env.RUFLO_FLYWHEEL_ANCHOR_PATH,
+      anchorHash: opts.anchorHash ?? process.env.RUFLO_FLYWHEEL_ANCHOR_HASH,
+      manifestPath: opts.anchorManifestPath ?? process.env.RUFLO_FLYWHEEL_ANCHOR_MANIFEST,
+    });
     // CLI flag opts.proposer takes precedence over RUFLO_FLYWHEEL_PROPOSER.
     const proposerMode = opts.proposer
       ?? ((process.env.RUFLO_FLYWHEEL_PROPOSER as ProposerMode | undefined) ?? 'auto');
@@ -166,7 +159,8 @@ export async function runFlywheelWorker(
         const r = await tool.handler({ action: 'search', query, mode: 'hybrid', limit: 5, rerank: false, ...cfg }) as { results?: Array<{ id?: string; name?: string }> };
         return (r.results || []).slice(0, 5).map((m) => ({ id: m?.id ?? '', name: m?.name ?? '' }));
       },
-      anchorTasks: ANCHOR,
+      anchorTasks: anchor.tasks,
+      anchorRef: anchor.anchorRef,
       activeParams: () => baseline,
       sample: opts.sample ?? 40,
       now: opts.now,
@@ -198,23 +192,37 @@ export async function runFlywheelWorker(
  */
 export async function runFlywheelGenerationWorker(
   projectRoot: string,
-  opts: { sample?: number; optInOverride?: boolean; now?: number } = {},
+  opts: {
+    sample?: number;
+    optInOverride?: boolean;
+    now?: number;
+    anchorPath?: string;
+    anchorHash?: string;
+    anchorManifestPath?: string;
+  } = {},
 ): Promise<GenerationResult> {
   try {
     if (!(opts.optInOverride ?? harnessLoopOptedIn())) return { ran: false, reason: 'opt-in required (RUFLO_HARNESS_LOOP=1)', generation: 0 };
     const neural = await import('../mcp-tools/neural-tools.js');
     const tool = neural.neuralTools.find((t) => t.name === 'neural_patterns');
     if (!tool) return { ran: false, reason: 'neural_patterns tool unavailable', generation: 0 };
-    // Load the FROZEN, hashed, public human eval set (throws if it has drifted).
-    const frozen = loadFrozenHumanEval();
+    const anchor = loadEffectiveFlywheelAnchor(projectRoot, {
+      anchorPath: opts.anchorPath ?? process.env.RUFLO_FLYWHEEL_ANCHOR_PATH,
+      anchorHash: opts.anchorHash ?? process.env.RUFLO_FLYWHEEL_ANCHOR_HASH,
+      manifestPath: opts.anchorManifestPath ?? process.env.RUFLO_FLYWHEEL_ANCHOR_MANIFEST,
+    });
     const deps: GenerationDeps = {
       getPatterns: () => neural.getStorePatterns(),
       search: async (query, cfg: RetrievalConfig) => {
         const r = await tool.handler({ action: 'search', query, mode: 'hybrid', limit: 5, rerank: false, ...cfg }) as { results?: Array<{ id?: string; name?: string }> };
         return (r.results || []).slice(0, 5).map((m) => ({ id: m?.id ?? '', name: m?.name ?? '' }));
       },
-      anchorTasks: frozen.tasks,
-      humanEvalHash: frozen.corpusHash,
+      anchorTasks: anchor.tasks.map((task) => ({
+        id: task.id,
+        q: task.input.q,
+        labels: task.expected,
+      })),
+      humanEvalHash: anchor.anchorRef,
       sample: opts.sample ?? 120,
       now: opts.now ?? Date.now(),
     };

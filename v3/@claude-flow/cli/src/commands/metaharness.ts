@@ -115,11 +115,15 @@ async function dispatchFlywheel(
         receiptPublicKeyPem: publicKeyPath ? readFileSync(resolve(publicKeyPath), 'utf8') : undefined,
         maxConcurrency: Number(flywheelFlag(flags, 'maxConcurrency', 2)),
         evaluationTimeoutMs: Number(flywheelFlag(flags, 'timeoutMs', 120_000)),
+        anchorPath: flywheelFlag<string>(flags, 'anchorPath'),
+        anchorHash: flywheelFlag<string>(flags, 'anchorHash'),
+        anchorManifestPath: flywheelFlag<string>(flags, 'anchorManifest'),
       });
     }
   } else if (operation === 'receipts') {
     data = listFlywheelReceipts(projectRoot).map(({ receipt, state }) => ({
       receiptId: receipt.payload.receiptId,
+      anchorRef: receipt.payload.anchorRef,
       candidateId: receipt.payload.candidateId,
       baselineRef: receipt.payload.baselineRef,
       decision: receipt.payload.decision,

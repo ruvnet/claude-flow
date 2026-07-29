@@ -16,6 +16,7 @@ export type SwarmTopology =
   | 'ring'
   | 'star'
   | 'adaptive'
+  | 'pheromone-adaptive'
   | 'hierarchical-mesh';
 
 /**
