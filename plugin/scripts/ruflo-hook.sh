@@ -2,7 +2,7 @@
 # ruflo-hook.sh — resilient invoker for ruflo CLI hook subcommands (#1921).
 #
 # Hooks fire on EVERY PreToolUse / PostToolUse / Stop. A bare
-# `npx <pkg>@alpha hooks …` re-resolves the @alpha dist-tag and re-installs
+# `npx <pkg>@latest hooks …` re-resolves the @latest dist-tag and re-installs
 # from cold cache on every fire, and when the install crashes (e.g. an
 # arborist `Invalid Version` on npm 10.8.x) the user sees a hook error in
 # Claude Code after every turn. This shim:
@@ -31,7 +31,7 @@ if command -v ruflo >/dev/null 2>&1; then
 elif command -v claude-flow >/dev/null 2>&1; then
   run claude-flow hooks "$@"
 else
-  run npx --prefer-offline --yes ruflo@alpha hooks "$@"
+  run npx --prefer-offline --yes ruflo@latest hooks "$@"
 fi
 
 exit 0
