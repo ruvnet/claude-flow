@@ -17,7 +17,7 @@
  * the real failure. Observed live: an MCP server dropped every memory_store
  * for hours while better-sqlite3 was healthy the whole time.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import initSqlJs from 'sql.js';
 import { ensureBridgeSchema } from '../src/memory/memory-bridge.js';
 
@@ -90,5 +90,16 @@ describe('bridge schema migration (ADR-323 provenance_type)', () => {
     db.run(LEGACY_TABLE);
 
     expect(ensureBridgeSchema(db)).toBe(true);
+  });
+
+  it('should fail closed when ALTER fails for a reason other than an existing column', () => {
+    const exec = vi.fn((sql: string) => {
+      if (sql.startsWith('ALTER TABLE')) {
+        throw new Error('SQLITE_READONLY: attempt to write a readonly database');
+      }
+    });
+
+    expect(ensureBridgeSchema({ exec })).toBe(false);
+    expect(exec).toHaveBeenCalledTimes(2);
   });
 });

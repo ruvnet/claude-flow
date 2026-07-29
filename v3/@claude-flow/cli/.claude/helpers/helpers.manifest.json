@@ -1,6 +1,6 @@
 {
   "manifest": {
-    "version": "3.32.33",
+    "version": "3.32.34",
     "files": {
       "auto-memory-hook.mjs": "68be7e9a9eba7bf9c4e8a230db7bf61a243b965639f8504842799d6c6ca28762",
       "hook-handler.cjs": "50ea92a72651bdc95634f7588d56a5870963168eef5226f66ed14af3b47c8d9a",
@@ -8,6 +8,6 @@
       "statusline.cjs": "d2a0eac56d1267d8dbed2d70b09feb592299469196ec4b215909f2b052144882"
     }
   },
-  "signature": "cdCqQZfkjY3y+45Yuk0kKw2yV3CApVm21lmQcxZhYrxgAhhh2o6nAWbFnmNUJIMD/LBPmDjiy4zT9kjoRMMOCA==",
+  "signature": "i0qilACTabRlI6VORA0QyP0r4EuvJsrvtkucxia3TStgq/la250iesyKjlcHbLV/6fshZiGtPMLq1nmXLf+ZAw==",
   "algorithm": "ed25519"
 }

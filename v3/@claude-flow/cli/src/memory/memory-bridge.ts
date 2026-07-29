@@ -625,9 +625,15 @@ export function ensureBridgeSchema(db: { exec: (sql: string) => unknown }): bool
     // WAL-sidecar error naming an unrelated cause. Silent, total write loss.
     try {
       db.exec(`ALTER TABLE memory_entries ADD COLUMN provenance_type TEXT DEFAULT 'unknown'`);
-    } catch {
-      // Already present (the common case). SQLite has no ADD COLUMN IF NOT
-      // EXISTS, so attempt-and-ignore is the idiom.
+    } catch (err) {
+      // Already present is the common case. SQLite has no ADD COLUMN IF NOT
+      // EXISTS, so attempt-and-ignore only that exact condition. Treating a
+      // read-only, locked, or corrupt database as migrated would cache a
+      // schema that bridgeStoreEntry() still cannot use.
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!/duplicate column name:\s*provenance_type/i.test(msg)) {
+        throw err;
+      }
     }
     db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_ns ON memory_entries(namespace)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_key ON memory_entries(key)`);
@@ -913,6 +919,11 @@ export async function bridgeStoreEntry(options: {
       ttl ? now + (ttl * 1000) : null
     );
 
+    // A completed native write proves the bridge is currently healthy. Do not
+    // retain a diagnostic from an earlier transient failure and append it to a
+    // later, unrelated sql.js fallback refusal.
+    bridgeFailureReason = null;
+
     // #2775: strict insert against an ACTIVE existing row → changes === 0
     // (the ON CONFLICT WHERE clause above suppressed the update). Surface
     // this as a typed data-level error rather than a bridge failure —
@@ -983,11 +994,6 @@ export async function bridgeStoreEntry(options: {
     // never triggers the #2735 whole-image guard with a misleading
     // "active native WAL connection" error.
     const msg = err instanceof Error ? err.message : String(err);
-    // Returning null below demotes the caller to the sql.js whole-image path,
-    // whose WAL-sidecar guard then reports a cause that has nothing to do with
-    // what actually went wrong here. Record the real error so it can be
-    // surfaced alongside that guard's message.
-    bridgeFailureReason = msg;
     if (/UNIQUE constraint failed/i.test(msg)) {
       return {
         success: false,
@@ -995,6 +1001,11 @@ export async function bridgeStoreEntry(options: {
         error: `key "${options.key}" already exists in namespace "${options.namespace ?? 'default'}" — pass upsert=true (--upsert on the CLI) to update it`,
       };
     }
+    // Returning null below demotes the caller to the sql.js whole-image path,
+    // whose WAL-sidecar guard then reports a cause that has nothing to do with
+    // what actually went wrong here. Record the real error so it can be
+    // surfaced alongside that guard's message.
+    bridgeFailureReason = msg;
     return null;
   }
 }
