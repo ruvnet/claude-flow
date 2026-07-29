@@ -51,10 +51,12 @@ When a significant architectural decision needs to be recorded -- new technology
    ```
 
 4. **Store in AgentDB** -- Call `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store` with:
-   - path: `adr/ADR-NNN`
+   - key: `ADR-NNN`  <!-- no slash; AgentDB key charset is alphanumeric, _, -, ., : -->
    - value: `{ "id": "ADR-NNN", "title": "<title>", "status": "proposed", "date": "<today>", "file": "docs/adr/ADR-NNN-<slug>.md" }`
+   - tier: `semantic`
 
-5. **Find related ADRs** -- Call `mcp__plugin_ruflo-core_ruflo__memory_search` with the title as query in namespace `adr-patterns` to find related decisions. If matches found, add them to the Links section and create causal edges with relation `depends-on`.
+5. **Find related ADRs** -- Call `mcp__plugin_ruflo-core_ruflo__memory_search` with the title as query in namespace `adr-patterns` to find related decisions. If matches found, add them to the Links section and create causal edges with relation `depends-on`:
+   - `mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge` with `sourceId: "ADR-NNN"` (no slash), `targetId: "ADR-MMM"` (no slash), `relation: "depends-on"`
 
 6. **Store pattern** -- Call `mcp__plugin_ruflo-core_ruflo__memory_store` in namespace `adr-patterns` with key `ADR-NNN` and the title + context as value for future semantic search.
 
