@@ -26,6 +26,10 @@ import { createRequire } from 'node:module';
 let registryPromise: Promise<any> | null = null;
 let registryInstance: any = null;
 let bridgeAvailable: boolean | null = null;
+// #2652/#2120: rows created before the status column existed receive NULL
+// during migration. They are live rows, not tombstones. Every user-facing
+// read/delete path must agree with list() about their visibility.
+const ACTIVE_MEMORY_ROW_SQL = `(status = 'active' OR status IS NULL)`;
 /**
  * Why the bridge is unavailable, when it is.
  *
@@ -1088,7 +1092,7 @@ export async function bridgeSearchEntries(options: {
       const stmt = ctx.db.prepare(`
         SELECT id, key, namespace, content, embedding, provenance_type
         FROM memory_entries
-        WHERE status = 'active' ${whereExtra}
+        WHERE ${ACTIVE_MEMORY_ROW_SQL} ${whereExtra}
         LIMIT 1000
       `);
       rows = filterParams.length > 0 ? stmt.all(...filterParams) : stmt.all();
@@ -1244,7 +1248,7 @@ export async function bridgeListEntries(options: {
     // the `status = 'active'` filter matched zero. Treat NULL as
     // "legacy-active" — the safe default for any entry that predates the
     // status column.
-    const statusFilter = `(status = 'active' OR status IS NULL)`;
+    const statusFilter = ACTIVE_MEMORY_ROW_SQL;
 
     // Count
     let total = 0;
@@ -1361,7 +1365,7 @@ export async function bridgeGetEntry(options: {
       const stmt = ctx.db.prepare(`
         SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, tags
         FROM memory_entries
-        WHERE status = 'active' AND key = ? AND namespace = ?
+        WHERE ${ACTIVE_MEMORY_ROW_SQL} AND key = ? AND namespace = ?
         LIMIT 1
       `);
       row = stmt.get(key, namespace);
@@ -1446,7 +1450,7 @@ export async function bridgeDeleteEntry(options: {
       const result = ctx.db.prepare(`
         UPDATE memory_entries
         SET status = 'deleted', updated_at = ?
-        WHERE key = ? AND namespace = ? AND status = 'active'
+        WHERE key = ? AND namespace = ? AND ${ACTIVE_MEMORY_ROW_SQL}
       `).run(Date.now(), key, namespace);
       changes = result?.changes ?? 0;
     } catch {
@@ -1480,7 +1484,7 @@ export async function bridgeDeleteEntry(options: {
 
     let remaining = 0;
     try {
-      const row = ctx.db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE status = 'active'`).get();
+      const row = ctx.db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE ${ACTIVE_MEMORY_ROW_SQL}`).get();
       remaining = row?.cnt ?? 0;
     } catch {
       // Non-fatal

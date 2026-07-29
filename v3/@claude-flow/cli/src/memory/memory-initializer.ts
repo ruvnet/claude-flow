@@ -160,6 +160,11 @@ export function resolveDbPath(cliFlag?: string): string {
   return path.join(getMemoryRoot(), 'memory.db');
 }
 
+// #2652/#2120: legacy rows with NULL status predate soft-delete semantics and
+// are active. Keep fallback retrieve/delete aligned with list and the native
+// bridge instead of making a row visible to one command but not another.
+const ACTIVE_MEMORY_ROW_SQL = `(status = 'active' OR status IS NULL)`;
+
 // ADR-053: Lazy import of AgentDB v3 bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
 async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
@@ -3339,7 +3344,7 @@ export async function listEntries(options: {
     // that predate the status column may have NULL after migration.
     // See memory-bridge.ts:bridgeListEntries for full context.
     // Get total count
-    const whereClauses = [`(status = 'active' OR status IS NULL)`];
+    const whereClauses = [ACTIVE_MEMORY_ROW_SQL];
     const whereParams: string[] = [];
     if (namespace) {
       whereClauses.push('namespace = ?');
@@ -3508,7 +3513,7 @@ export async function getEntry(options: {
     const getStmt = db.prepare(`
       SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, tags
       FROM memory_entries
-      WHERE status = 'active'
+      WHERE ${ACTIVE_MEMORY_ROW_SQL}
         AND key = ?
         AND namespace = ?
       LIMIT 1
@@ -3653,7 +3658,7 @@ export async function deleteEntry(options: {
     // Check if entry exists first
     const checkStmt = db.prepare(`
       SELECT id FROM memory_entries
-      WHERE status = 'active'
+      WHERE ${ACTIVE_MEMORY_ROW_SQL}
         AND key = ?
         AND namespace = ?
       LIMIT 1
@@ -3668,7 +3673,7 @@ export async function deleteEntry(options: {
 
     if (!checkResult[0]?.values?.[0]) {
       // Get remaining count before closing
-      const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE status = 'active'`);
+      const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE ${ACTIVE_MEMORY_ROW_SQL}`);
       const remainingEntries = countResult[0]?.values?.[0]?.[0] as number || 0;
       db.close();
       return {
@@ -3690,11 +3695,11 @@ export async function deleteEntry(options: {
           updated_at = strftime('%s', 'now') * 1000
       WHERE key = ?
         AND namespace = ?
-        AND status = 'active'
+        AND ${ACTIVE_MEMORY_ROW_SQL}
     `, [key, namespace]);
 
     // Get remaining count
-    const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE status = 'active'`);
+    const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE ${ACTIVE_MEMORY_ROW_SQL}`);
     const remainingEntries = countResult[0]?.values?.[0]?.[0] as number || 0;
 
     // Save updated database
