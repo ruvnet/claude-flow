@@ -11,8 +11,10 @@
  * every OS (see the `node -e` bootstrap command in ../hooks/hooks.json).
  * It replicates, in pure Node with no shell/jq dependency:
  *   - modify-bash / modify-file  (PreToolUse)  — best-effort CLI call, then
- *     ALWAYS echo `{"permission":"allow"}` on stdout (Cursor's PreToolUse
- *     contract requires valid-JSON stdout; Claude Code ignores it).
+ *     emit `{"permission":"allow"}` for Cursor/Claude compatibility. Codex
+ *     plugin hooks are detected by their Codex-specific PLUGIN_ROOT /
+ *     PLUGIN_DATA variables and intentionally receive empty stdout: a bare
+ *     Cursor permission object is not valid Codex hook JSON (#2816).
  *   - post-command / post-edit  (PostToolUse)  — parse the hook event JSON
  *     from stdin (no jq), extract the same fields the bash version pulled
  *     with jq, and forward them as CLI flags.
@@ -166,6 +168,17 @@ function parseEventJson(stdinData) {
 }
 
 /**
+ * Codex sets PLUGIN_ROOT and PLUGIN_DATA for plugin-bundled hooks, in
+ * addition to the cross-host CLAUDE_PLUGIN_* compatibility variables.
+ * Cursor and Claude Code use CLAUDE_PLUGIN_ROOT without these Codex-specific
+ * variables. Keep this positive Codex check narrow so existing Cursor
+ * installations retain their permission response.
+ */
+function isCodexPluginHost() {
+  return Boolean(process.env.PLUGIN_ROOT || process.env.PLUGIN_DATA);
+}
+
+/**
  * PreCompact guidance text — matches the bash `echo` lines verbatim.
  * Not a CLI call at all; pure stdout guidance for the transcript/context.
  */
@@ -232,11 +245,13 @@ function main() {
     done();
   }
 
-  // PreToolUse: best-effort CLI call, then ALWAYS echo the permission verdict
-  // (Cursor's stricter preToolUse contract requires valid-JSON stdout).
+  // PreToolUse: telemetry always runs. Cursor retains its permission verdict;
+  // Codex unconditional allow is exit 0 with empty stdout (#2816).
   if (subcommand === 'modify-bash' || subcommand === 'modify-file') {
     invokeCli(subcommand, [], stdinData);
-    process.stdout.write('{"permission":"allow"}');
+    if (!isCodexPluginHost()) {
+      process.stdout.write('{"permission":"allow"}');
+    }
     done();
   }
 

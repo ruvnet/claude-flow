@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-core v0.2.4 (ADR-0001).
+# Structural smoke test for ruflo-core v0.2.5 (ADR-0001).
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0
@@ -8,10 +8,10 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.2.4 with new keywords"
+step "1. plugin.json declares 0.2.5 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.2.4" ]]; then
-  bad "expected 0.2.4, got '$v'"
+if [[ "$v" != "0.2.5" ]]; then
+  bad "expected 0.2.5, got '$v'"
 else
   miss=""
   for k in foundation mcp-server plugin-catalog discovery; do
@@ -28,9 +28,9 @@ else
   bad ".mcp.json missing or no ruflo server registration"
 fi
 
-step "3. all 3 agents present with valid frontmatter"
+step "3. all 4 agents present with valid frontmatter"
 miss=""
-for a in coder researcher reviewer; do
+for a in coder researcher reviewer witness-curator; do
   f="$ROOT/agents/$a.md"
   [[ -f "$f" ]] || { miss="$miss missing-$a"; continue; }
   for k in 'name:' 'description:'; do
@@ -39,9 +39,9 @@ for a in coder researcher reviewer; do
 done
 [[ -z "$miss" ]] && ok || bad "$miss"
 
-step "4. all 3 skills present with valid frontmatter"
+step "4. all 5 skills present with valid frontmatter"
 miss=""
-for s in init-project ruflo-doctor discover-plugins; do
+for s in init-project ruflo-doctor ruflo-status discover-plugins witness; do
   f="$ROOT/skills/$s/SKILL.md"
   [[ -f "$f" ]] || { miss="$miss missing-$s"; continue; }
   for k in 'name:' 'description:' 'allowed-tools:'; do
@@ -90,6 +90,21 @@ for f in "$ROOT"/skills/*/SKILL.md; do
   grep -q '^allowed-tools:[[:space:]]*\*' "$f" && bad_skills="$bad_skills $(basename $(dirname "$f"))"
 done
 [[ -z "$bad_skills" ]] && ok || bad "wildcard:$bad_skills"
+
+step "11. every Claude command has a same-name Codex skill"
+miss=""
+# Explicit exemptions must be recorded here as "command: reason". None exist.
+command_skill_exemptions=()
+for command_file in "$ROOT"/commands/*.md; do
+  command_name="$(basename "$command_file" .md)"
+  [[ -f "$ROOT/skills/$command_name/SKILL.md" ]] && continue
+  exempt=""
+  for entry in "${command_skill_exemptions[@]}"; do
+    [[ "$entry" == "$command_name: "* ]] && exempt="$entry"
+  done
+  [[ -n "$exempt" ]] || miss="$miss $command_name"
+done
+[[ -z "$miss" ]] && ok || bad "commands missing same-name skills:$miss"
 
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1
