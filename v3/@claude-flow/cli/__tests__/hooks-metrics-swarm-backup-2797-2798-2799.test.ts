@@ -47,8 +47,11 @@ describe('#2797 hooks metrics Pattern Learning counts real writes', () => {
       expect(data.patterns.successful).toBe(1);
       expect(data.patterns.failed).toBe(1);
       expect(data.patterns.successful + data.patterns.failed).toBeLessThanOrEqual(data.patterns.total);
+      expect(data.patterns.described).toBe(2);
+      expect(data.patterns.descriptionCoverage).toBe(1);
       expect(data.agents.routingAccuracy).toBeNull();
       expect(data.agents.averageConfidence).toBeGreaterThan(0);
+      expect(data.agents.outcomeSuccessRate).toBe(0.5);
     } finally {
       try { rmSync(wd, { recursive: true, force: true }); } catch { /* */ }
     }

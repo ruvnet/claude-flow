@@ -520,6 +520,7 @@ function getIntelligenceStatsFromMemory(): {
     successful: number;
     failed: number;
     unknown: number;
+    described: number;
     categories: Record<string, number>;
   };
   memory: { indexSize: number; totalAccessCount: number; memorySizeBytes: number };
@@ -564,6 +565,16 @@ function getIntelligenceStatsFromMemory(): {
   });
   const successfulPatterns = patternEntries.filter(e => e.metadata?.success === true).length;
   const failedPatterns = patternEntries.filter(e => e.metadata?.success === false).length;
+  const describedPatterns = patternEntries.filter(e => {
+    if (typeof e.metadata?.task === 'string' && e.metadata.task.trim()) return true;
+    try {
+      const value = typeof e.value === 'string' ? JSON.parse(e.value) : e.value;
+      return typeof (value as Record<string, unknown> | null)?.task === 'string' &&
+        Boolean(String((value as Record<string, unknown>).task).trim());
+    } catch {
+      return false;
+    }
+  }).length;
 
   // Count routing decisions
   const routingEntries = entries.filter(e =>
@@ -606,6 +617,7 @@ function getIntelligenceStatsFromMemory(): {
       successful: successfulPatterns,
       failed: failedPatterns,
       unknown: Math.max(0, patternEntries.length - successfulPatterns - failedPatterns),
+      described: describedPatterns,
       categories,
     },
     memory: {
@@ -1235,6 +1247,10 @@ export const hooksMetrics: MCPTool = {
         successful: stats.patterns.successful,
         failed: stats.patterns.failed,
         unknown: stats.patterns.unknown,
+        described: stats.patterns.described,
+        descriptionCoverage: stats.patterns.learned > 0
+          ? stats.patterns.described / stats.patterns.learned
+          : null,
         avgConfidence: stats.routing.avgConfidence || null,
       },
       agents: {
@@ -1243,6 +1259,7 @@ export const hooksMetrics: MCPTool = {
         // while exposing the truthful additive field.
         routingAccuracy: null,
         averageConfidence: stats.routing.avgConfidence || null,
+        outcomeSuccessRate: successRate,
         totalRoutes: stats.routing.decisions,
         topAgent,
       },
@@ -3274,7 +3291,7 @@ export const hooksIntelligenceStats: MCPTool = {
     } catch {
       memoryStats = {
         trajectories: { total: 0, successful: 0 },
-        patterns: { learned: 0, successful: 0, failed: 0, unknown: 0, categories: {} },
+        patterns: { learned: 0, successful: 0, failed: 0, unknown: 0, described: 0, categories: {} },
         memory: { indexSize: 0, totalAccessCount: 0, memorySizeBytes: 0 },
         routing: { decisions: 0, avgConfidence: 0 },
       };

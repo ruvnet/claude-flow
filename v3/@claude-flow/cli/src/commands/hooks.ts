@@ -1487,6 +1487,8 @@ const metricsCommand: Command = {
           successful?: number;
           failed?: number;
           unknown?: number;
+          described?: number;
+          descriptionCoverage?: number;
           avgConfidence?: number;
         };
         routing?: {
@@ -1497,6 +1499,7 @@ const metricsCommand: Command = {
         agents?: {
           routingAccuracy?: number;
           averageConfidence?: number;
+          outcomeSuccessRate?: number;
           totalRoutes?: number;
           topAgent?: string;
         };
@@ -1527,6 +1530,11 @@ const metricsCommand: Command = {
       const successfulPatterns = safeNum(rawMetrics.patterns?.successful ?? Math.round(safeNum(rawMetrics.summary?.successRate) * totalPatterns));
       const failedPatterns = Math.max(0, safeNum(rawMetrics.patterns?.failed ?? totalPatterns - successfulPatterns));
       const unknownPatterns = Math.max(0, safeNum(rawMetrics.patterns?.unknown));
+      const describedPatterns = Math.max(0, safeNum(rawMetrics.patterns?.described));
+      const descriptionCoverage = safeNum(
+        rawMetrics.patterns?.descriptionCoverage ??
+        (totalPatterns > 0 ? describedPatterns / totalPatterns : 0),
+      );
       const avgConfidence = safeNum(rawMetrics.patterns?.avgConfidence ?? rawMetrics.summary?.avgQuality);
 
       const routingAccuracy = rawMetrics.agents?.routingAccuracy == null
@@ -1537,6 +1545,9 @@ const metricsCommand: Command = {
         rawMetrics.routing?.avgConfidence ??
         rawMetrics.patterns?.avgConfidence,
       );
+      const routingOutcomeSuccessRate = rawMetrics.agents?.outcomeSuccessRate == null
+        ? null
+        : safeNum(rawMetrics.agents.outcomeSuccessRate);
       const totalRoutes = safeNum(rawMetrics.agents?.totalRoutes ?? rawMetrics.routing?.totalRoutes);
       const topAgent = rawMetrics.agents?.topAgent ?? rawMetrics.routing?.topAgents?.[0]?.agent ?? 'n/a';
 
@@ -1546,8 +1557,22 @@ const metricsCommand: Command = {
 
       const result = {
         ...rawMetrics,
-        patterns: { total: totalPatterns, successful: successfulPatterns, failed: failedPatterns, unknown: unknownPatterns, avgConfidence },
-        agents: { routingAccuracy, averageConfidence: averageRoutingConfidence, totalRoutes, topAgent },
+        patterns: {
+          total: totalPatterns,
+          successful: successfulPatterns,
+          failed: failedPatterns,
+          unknown: unknownPatterns,
+          described: describedPatterns,
+          descriptionCoverage,
+          avgConfidence,
+        },
+        agents: {
+          routingAccuracy,
+          averageConfidence: averageRoutingConfidence,
+          outcomeSuccessRate: routingOutcomeSuccessRate,
+          totalRoutes,
+          topAgent,
+        },
         commands: { totalExecuted: totalCommands, successRate: commandSuccessRate, avgRiskScore },
       };
 
@@ -1568,6 +1593,7 @@ const metricsCommand: Command = {
           { metric: 'Successful', value: output.success(String(successfulPatterns)) },
           { metric: 'Failed', value: output.error(String(failedPatterns)) },
           ...(unknownPatterns > 0 ? [{ metric: 'Unclassified', value: String(unknownPatterns) }] : []),
+          { metric: 'With Task Context', value: `${(descriptionCoverage * 100).toFixed(1)}%` },
           { metric: 'Avg Confidence', value: `${(avgConfidence * 100).toFixed(1)}%` }
         ]
       });
@@ -1586,6 +1612,10 @@ const metricsCommand: Command = {
             metric: routingAccuracy === null ? 'Avg Confidence' : 'Routing Accuracy',
             value: `${((routingAccuracy ?? averageRoutingConfidence) * 100).toFixed(1)}%`,
           },
+          ...(routingOutcomeSuccessRate === null ? [] : [{
+            metric: 'Outcome Success Rate',
+            value: `${(routingOutcomeSuccessRate * 100).toFixed(1)}%`,
+          }]),
           { metric: 'Total Routes', value: totalRoutes },
           { metric: 'Top Agent', value: output.highlight(topAgent) }
         ]
