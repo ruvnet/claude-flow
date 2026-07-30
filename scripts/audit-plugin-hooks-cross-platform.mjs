@@ -42,6 +42,18 @@
  * False-positive avoidance: only the `command` field of `hooks[].hooks[]`
  * entries is scanned. Comments, descriptions, and the top-level `_note`
  * field are ignored.
+ *
+ * ## Codex strict top-level-key guard (ruvnet/ruflo#2855)
+ *
+ * Codex's plugin hook-manifest loader accepts only `description` and
+ * `hooks` at the top level and hard-fails ("unknown field `_note`,
+ * expected `description` or `hooks`") on anything else — it never loads
+ * the plugin at all, so every hook in it silently stops firing. Every
+ * marketplace-listed, Codex-facing `hooks.json` (see CODEX_FACING_PATHS
+ * below) is checked for unknown top-level keys. Legacy, non-marketplace
+ * manifests (`.claude-plugin/hooks/hooks.json`, `plugin/hooks/hooks.json`)
+ * are intentionally out of scope — they are not fetched via the ruflo
+ * marketplace path Codex installs from.
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
@@ -50,6 +62,14 @@ import { dirname, join, relative, resolve, basename } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
+
+// Marketplace-listed hooks.json files Codex actually fetches and parses
+// with its strict `description`+`hooks`-only top-level schema (#2855).
+const CODEX_FACING_PATHS = new Set([
+  'plugins/ruflo-core/hooks/hooks.json',
+  'plugins/ruflo-cost-tracker/hooks/hooks.json',
+]);
+const CODEX_ALLOWED_TOP_LEVEL_KEYS = new Set(['description', 'hooks']);
 
 // Directories to skip when walking
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage']);
@@ -108,6 +128,39 @@ for (const file of walkForHooksJson(REPO_ROOT)) {
   try { json = JSON.parse(text); } catch (err) {
     violations.push({ file: relative(REPO_ROOT, file), line: 0, label: 'invalid JSON', cmd: err.message, hint: '' });
     continue;
+  }
+
+  // --- Codex strict top-level-key guard (#2855) ---
+  const relForCodexCheck = relative(REPO_ROOT, file);
+  if (CODEX_FACING_PATHS.has(relForCodexCheck)) {
+    const unknownKeys = Object.keys(json).filter((key) => !CODEX_ALLOWED_TOP_LEVEL_KEYS.has(key));
+    if (unknownKeys.length > 0) {
+      violations.push({
+        file: relForCodexCheck,
+        line: 1,
+        label: 'Codex-incompatible top-level hook-manifest key(s)',
+        cmd: unknownKeys.join(', '),
+        hint: 'Codex only accepts `description` and `hooks` at the top level and refuses to load the whole plugin otherwise (#2855) — fold any maintenance notes into `description` or move them to docs/comments elsewhere.',
+      });
+    }
+    if (Object.hasOwn(json, 'description') && typeof json.description !== 'string') {
+      violations.push({
+        file: relForCodexCheck,
+        line: 1,
+        label: 'Codex hook-manifest `description` must be a string',
+        cmd: `description is ${typeof json.description}`,
+        hint: 'Use a user-facing string description or omit the optional field.',
+      });
+    }
+    if (typeof json.hooks !== 'object' || json.hooks === null || Array.isArray(json.hooks)) {
+      violations.push({
+        file: relForCodexCheck,
+        line: 1,
+        label: 'Codex hook-manifest `hooks` must be a non-null object',
+        cmd: `hooks is ${Array.isArray(json.hooks) ? 'an array' : typeof json.hooks}`,
+        hint: 'hooks.json must declare `"hooks": { "PreToolUse": [...], ... }`.',
+      });
+    }
   }
 
   // --- POSIX-only exemption check (#2132, hardened #2721) ---
