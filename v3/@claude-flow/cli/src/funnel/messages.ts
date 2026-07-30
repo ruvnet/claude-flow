@@ -153,7 +153,7 @@ export const MESSAGES: FunnelMessage[] = [
     schemaVersion: 1,
     id: 'local.edu.security-scan',
     class: 'educational',
-    text: '🔒 ruflo security scan --depth full — audits dependencies and config',
+    text: '🔒 ruflo security scan --depth deep — audits dependencies and config',
     url: 'https://cognitum.one/docs/security',
   },
   {
