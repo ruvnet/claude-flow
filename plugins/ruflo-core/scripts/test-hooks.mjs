@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Regression guard for ruvnet/ruflo#1859, #1862, #2721, #2816.
+ * Regression guard for ruvnet/ruflo#1859, #1862, #2721, #2816, #2856.
  *
  * Drives every hook command from `hooks/hooks.json` — PreToolUse,
  * PostToolUse, PreCompact, Stop — with synthetic Claude-Code-style stdin,
@@ -186,6 +186,24 @@ run('Codex PreToolUse (Edit) still invokes telemetry',
   '{"hook_event_name":"PreToolUse","tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch"}}',
   [{ contains: 'hook-telemetry:modify-file' }, { absent: '{"permission":"allow"}' }],
   codexEnv);
+
+// #2856 — Codex's PLUGIN_ROOT/PLUGIN_DATA env vars may not be present on
+// every install/config path; the `turn_id` field Codex always includes in
+// the hook event JSON is a documented Codex-only extension and must be
+// enough on its own to suppress the Cursor-shaped permission object.
+const codexTurnIdOnlyEnv = { unsetEnv: ['PLUGIN_ROOT', 'PLUGIN_DATA'] };
+
+run('Codex PreToolUse (Bash) detected via turn_id alone (no PLUGIN_ROOT/PLUGIN_DATA) exits 0 with empty stdout',
+  cmdModifyBash,
+  '{"hook_event_name":"PreToolUse","turn_id":"turn_2856","model":"gpt-5.6-sol","tool_name":"Bash","tool_input":{"command":"echo hi"}}',
+  [{ stdoutEquals: '' }],
+  { ...codexTurnIdOnlyEnv, debug: false });
+
+run('Cursor PreToolUse (Bash) without turn_id still emits permission-allow JSON',
+  cmdModifyBash,
+  '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo hi"}}',
+  [{ contains: '{"permission":"allow"}' }],
+  codexTurnIdOnlyEnv);
 
 // --- PostToolUse: post-edit ---
 run('Edit hook records file_path (regression #1859: was "true")',

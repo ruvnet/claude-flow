@@ -13,8 +13,11 @@
  *   - modify-bash / modify-file  (PreToolUse)  — best-effort CLI call, then
  *     emit `{"permission":"allow"}` for Cursor/Claude compatibility. Codex
  *     plugin hooks are detected by their Codex-specific PLUGIN_ROOT /
- *     PLUGIN_DATA variables and intentionally receive empty stdout: a bare
- *     Cursor permission object is not valid Codex hook JSON (#2816).
+ *     PLUGIN_DATA variables, falling back to the `turn_id` field Codex
+ *     always includes in the hook event JSON, and intentionally receive
+ *     empty stdout: a bare Cursor permission object is not valid Codex
+ *     hook JSON and is rejected with "hook returned invalid pre-tool-use
+ *     JSON output" (#2816, #2856).
  *   - post-command / post-edit  (PostToolUse)  — parse the hook event JSON
  *     from stdin (no jq), extract the same fields the bash version pulled
  *     with jq, and forward them as CLI flags.
@@ -205,9 +208,21 @@ function claimSideEffectEvent(family, stdinData, event) {
  * Cursor and Claude Code use CLAUDE_PLUGIN_ROOT without these Codex-specific
  * variables. Keep this positive Codex check narrow so existing Cursor
  * installations retain their permission response.
+ *
+ * Fallback: Codex's PreToolUse input JSON always carries a `turn_id` string
+ * field (verified against codex-rs' pre-tool-use.command.input schema —
+ * it is Codex's own documented extension, not present in Claude Code's or
+ * Cursor's hook payloads). This catches any install/config path where the
+ * PLUGIN_ROOT/PLUGIN_DATA env vars aren't injected, so a stray Cursor-shaped
+ * `{"permission":"allow"}` object never reaches Codex's stricter parser
+ * (#2856): Codex's output_parser rejects unknown top-level keys outright
+ * and reports "hook returned invalid pre-tool-use JSON output" for any
+ * JSON-shaped stdout it can't fit into its schema, whereas empty stdout is
+ * treated as no-opinion/implicit-allow with no error.
  */
-function isCodexPluginHost() {
-  return Boolean(process.env.PLUGIN_ROOT || process.env.PLUGIN_DATA);
+function isCodexPluginHost(event) {
+  if (process.env.PLUGIN_ROOT || process.env.PLUGIN_DATA) return true;
+  return typeof event?.turn_id === 'string' && event.turn_id.length > 0;
 }
 
 /**
@@ -285,7 +300,7 @@ function main() {
   // Codex unconditional allow is exit 0 with empty stdout (#2816).
   if (subcommand === 'modify-bash' || subcommand === 'modify-file') {
     invokeCli(subcommand, [], stdinData);
-    if (!isCodexPluginHost()) {
+    if (!isCodexPluginHost(event)) {
       process.stdout.write('{"permission":"allow"}');
     }
     done();

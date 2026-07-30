@@ -13,9 +13,9 @@ tags: [plugin, core, mcp, foundation, smoke-test]
 
 `ruflo-core` is the **foundation plugin**. Every other plugin (`ruflo-ruvector`, `ruflo-agentdb`, `ruflo-browser`, `ruflo-intelligence`, `ruflo-adr`, `ruflo-aidefence`, `ruflo-autopilot`, plus 25 others) depends on the MCP server it registers via `.mcp.json` and the orchestration patterns it documents.
 
-The current plugin contract (v0.2.5):
+The current plugin contract (v0.2.6):
 
-- `.claude-plugin/plugin.json` — `version: "0.2.5"`, foundation and discovery metadata
+- `.claude-plugin/plugin.json` — `version: "0.2.6"`, foundation and discovery metadata
 - `.mcp.json` — registers `ruflo` MCP server via `npx -y @claude-flow/cli@latest`
 - `agents/` — 4 generalists (`coder`, `researcher`, `reviewer`, `witness-curator`)
 - `skills/` — 5 native skills (`init-project`, `ruflo-doctor`, `ruflo-status`, `discover-plugins`, `witness`)
@@ -56,7 +56,7 @@ Append:
 
 11 checks:
 
-1. plugin.json declares `0.2.5` with the foundation keywords.
+1. plugin.json declares `0.2.6` with the foundation keywords.
 2. `.mcp.json` exists and registers a `ruflo` MCP server.
 3. All 4 agents are present with valid frontmatter.
 4. All 5 skills are present with valid frontmatter.
@@ -113,4 +113,4 @@ bash plugins/ruflo-core/scripts/smoke.sh
 
 ## Implementation status
 
-Plugin source version v0.2.5 is listed by path in `.claude-plugin/marketplace.json`, so the marketplace artifact includes the five native skills and host-aware hook shim. Contract elements implemented: `.mcp.json` registers the `ruflo` server via `npx -y @claude-flow/cli@latest`; plugin-catalog discovery and Codex-native status skills are present; four generalist agents ship; command/skill parity and the remaining inventory are enforced by `scripts/smoke.sh`.
+Plugin source version v0.2.6 is listed by path in `.claude-plugin/marketplace.json`, so the marketplace artifact includes the five native skills and host-aware hook shim. Contract elements implemented: `.mcp.json` registers the `ruflo` server via `npx -y @claude-flow/cli@latest`; plugin-catalog discovery and Codex-native status skills are present; four generalist agents ship; command/skill parity and the remaining inventory are enforced by `scripts/smoke.sh`.
