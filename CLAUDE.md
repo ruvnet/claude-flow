@@ -984,14 +984,17 @@ memory_search_unified({ query: "authentication security", limit: 5 })
 - Use the existing authenticated `ruvnet` npm session. Do not replace it with a
   token from another GCP project.
 
-**`npm publish` auth — FIXED (2026-07-30):** use the `NPM_TOKEN` secret in GCP
-Secret Manager (`ruv-dev` project, version 3+) directly, via a throwaway
-`.npmrc` with `NPM_CONFIG_USERCONFIG` — same pattern as the helpers-signing-key
-handling. This is a granular access token ("ruflo publishjing", expires
-2026-10-28) with `package: write` + `bypass_2fa: true`, scoped broadly enough
-to cover `@claude-flow/cli`, `claude-flow`, and `ruflo`. Confirmed end-to-end
-against the real registry (not just a permissions probe): `npm publish` for
-`@claude-flow/cli` succeeded via this token with zero OTP/WebAuthn prompt, and
+**`npm publish` auth — FIXED (2026-07-30):** use the `NPM_TOKEN` secret directly,
+via a throwaway `.npmrc` with `NPM_CONFIG_USERCONFIG` — same pattern as the
+helpers-signing-key handling. It is mirrored in two GCP projects — `ruv-dev`
+(version 3+) and `cognitum-20260110` (version 7+) — so either project's copy
+is current; use whichever `gcloud` session is already authenticated. This is a
+granular access token ("ruflo publishjing", expires 2026-10-28) with
+`package: write` + `bypass_2fa: true`, scoped broadly enough to cover
+`@claude-flow/cli`, `claude-flow`, and `ruflo` (plus the `cognitum`/
+`cognitum-one` orgs). Confirmed end-to-end against the real registry (not just
+a permissions probe): `npm publish` for `@claude-flow/cli` succeeded via this
+token with zero OTP/WebAuthn prompt, and
 `npm dist-tag add` against both a scoped (`@claude-flow/cli`) and unscoped
 (`claude-flow`) package also went through with no prompt.
 
