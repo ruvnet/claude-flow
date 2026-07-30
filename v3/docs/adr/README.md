@@ -94,6 +94,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-374](ADR-374-dream-cycle-swarm-subagent-permission-delegate.md) | SubagentPermissionDelegate: Workspace-Scoped Privilege Delegation for Swarm Agents | Proposed |
 | [ADR-375](ADR-375-dream-cycle-performance-agentperf-benchmark-mixture-of-agents.md) | Agentic Inference Benchmarking Standard + Mixture-of-Agents Test-Time Scaling | Proposed |
 | [ADR-376](ADR-376-dream-cycle-intelligence-heterogeneous-ensemble-api.md) | Heterogeneous Agent Ensemble Composition API | Proposed |
+| [ADR-377](ADR-377-agentdb-retrieval-security.md) | AgentDB Retrieval Security Layer | Proposed |
 
 ## Summary Documents
 
