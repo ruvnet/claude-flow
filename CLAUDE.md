@@ -976,35 +976,47 @@ memory_search_unified({ query: "authentication security", limit: 5 })
   publishing.
 - Publish from a clean reviewed commit/tag-equivalent worktree. Do not ship
   unrelated uncommitted changes.
+- A fresh worktree has two separate dependency trees to install before anything
+  builds: `npm install` at repo root (npm workspaces), AND `pnpm install` inside
+  `v3/` (a separate pnpm workspace — root `prepare-root-publish.mjs` shells out to
+  `pnpm --filter` to build `v3/@claude-flow/{shared,hooks,guidance}`, which fails
+  with `spawn ENOENT` on `tsc` if `v3/node_modules` was never populated).
 - Use the existing authenticated `ruvnet` npm session. Do not replace it with a
   token from another GCP project.
 
-**`npm publish` auth (learned 2026-07-30, hard way — verify before assuming either path works):**
-This account has 2FA set to `auth-and-writes`, so an interactive `npm login` session
-requires a fresh OTP on **every single `npm publish`** call — an agent has no way to
-supply that unless a human is present with their authenticator. There is also an
-`NPM_TOKEN` secret in GCP Secret Manager (**`ruv-dev`** project) that earlier sessions
-used successfully to bypass OTP (automation tokens skip 2FA-on-write by design), but
-it is **not guaranteed to still be valid** — one attempt on 2026-07-30 got a `404 Not
-Found` on the publish `PUT` (npm returns 404, not 403, for scope/permission problems
-on scoped packages, so this reads as "token lacks publish rights to `@claude-flow`"
-or "token expired/revoked", not "package doesn't exist"). Do not assume either path
-is live without testing it this session:
-1. Try the `NPM_TOKEN` secret first (lower friction): fetch it straight to a file
-   (never let it reach captured tool output, same discipline as the signing key
-   below), point `NPM_CONFIG_USERCONFIG` at a throwaway `.npmrc` containing
-   `//registry.npmjs.org/:_authToken=<token>`, run the real `npm publish`, then
-   delete the throwaway file immediately regardless of outcome. `npm whoami` is
-   NOT a reliable pre-check for this token (it 401'd even when the token might
-   otherwise be publish-scoped) — the only real test is the publish attempt itself.
-2. If that 404s or 401s, the token needs rotating/re-scoping — that's a decision
-   for the human account owner, not something to route around. Ask them directly:
-   either they supply a fresh OTP for the interactive session, or they refresh the
-   `NPM_TOKEN` secret. Don't keep retrying blindly or guessing at other credentials.
-- Whichever path works, confirm the version actually landed
-  (`npm view <pkg>@<version> version`) before telling the user publishing succeeded —
-  a mid-publish OTP prompt that never gets answered fails silently from an agent's
-  point of view (no stdout, no exit-code signal reaches a non-interactive shell).
+**`npm publish` auth — CONFIRMED procedure (2026-07-30, v3.32.39 release):**
+The `ruvnet` account's 2FA method is a **WebAuthn security key**, not a TOTP
+authenticator app — there is no numeric code to pass via `--otp=<code>`. The
+`NPM_TOKEN` automation-token secret in GCP Secret Manager (`ruv-dev` project) does
+**NOT** have publish rights to `@claude-flow/cli` — confirmed twice with a real
+publish attempt: authenticates fine for reads (200 on `whoami`/`GET`) but gets a
+real `404 Not Found` on the publish `PUT` (npm returns 404, not 403, for scope/
+permission problems on scoped packages). Don't waste time on that path again unless
+the human explicitly says they've re-scoped it.
+
+What actually works, and must be driven by the human (an agent cannot approve a
+WebAuthn prompt):
+1. Human goes to npmjs.com → account 2FA settings → turns OFF "Require two-factor
+   authentication for write actions" (this narrows the setting to auth-only, not a
+   full 2FA disable).
+2. Human runs `npm login` in their own real terminal — this opens a browser tab to
+   re-authenticate and refreshes the session under the new setting.
+3. Agent can then run `npm publish` (with the signing-key env vars below) directly
+   via Bash — this worked with NO further prompt for the `@claude-flow/cli`,
+   `claude-flow`, and `ruflo` publishes in the 3.32.39 release.
+4. **`npm dist-tag add` still requires a fresh WebAuthn approval PER CALL**,
+   regardless of the write-2FA setting above — each of the 6 calls (alpha +
+   v3alpha × 3 packages) printed its own `https://www.npmjs.com/auth/cli/<uuid>`
+   URL and blocked until the human approved it in a browser. This cannot be
+   scripted or batched — tell the human up front it's 6 individual approvals, not
+   1, so "it keeps asking me" doesn't read as broken.
+- After every dist-tag call (or if unsure), verify with
+  `npm view <pkg> dist-tags --json` — don't trust the CLI's own stdout alone, since
+  a WebAuthn prompt that's still pending in the browser produces no terminal
+  output an agent can see.
+- Confirm the version actually landed (`npm view <pkg>@<version> version`) before
+  telling the user publishing succeeded, same reasoning: a mid-publish approval
+  that never gets answered fails silently from an agent's point of view.
 
 **Helpers signing key (required for `@claude-flow/cli` publish):** `npm publish`'s
 `prepublishOnly` runs `scripts/sign-helpers.mjs`, which needs a private key to sign
