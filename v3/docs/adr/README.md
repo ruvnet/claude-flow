@@ -50,6 +50,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-330](ADR-330-adaptive-pheromone-swarm-consensus.md) | Adaptive Pheromone Swarm Consensus | Accepted |
 | [ADR-331](ADR-331-project-local-flywheel-anchors.md) | Project-Local Flywheel Evaluation Anchors | Accepted |
 | [ADR-332](ADR-332-hermetic-release-verification-runtime-baseline.md) | Hermetic Release Verification and Supported Runtime Baseline | Accepted |
+| [ADR-333](ADR-333-efficiency-first-orchestration-prehoc-failure-inference.md) | Efficiency-First Orchestration — Pre-hoc Failure Inference and Adaptive Agent Count Routing | Proposed |
 
 ## Summary Documents
 
