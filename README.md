@@ -1,8 +1,6 @@
 <div align="center">
 
 [![Ruflo Banner](ruflo/assets/ruflo-small.jpeg)](https://cognitum.one/agentic-engineering)
-[![Agentics Foundation Banner](docs/assets/sv-summit.png)](https://agentics.org/siliconvalley/?UTM=GH-RuFlo-SV)
-
 
 <!-- Try Ruflo — the 4 badges first-time visitors actually act on -->
 [![Try the UI Beta — flo.ruv.io](https://img.shields.io/badge/_Try_the_UI_Beta-flo.ruv.io-6366f1?style=for-the-badge&logoColor=white&logo=svelte)](https://flo.ruv.io/)
