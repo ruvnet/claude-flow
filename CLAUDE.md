@@ -979,6 +979,33 @@ memory_search_unified({ query: "authentication security", limit: 5 })
 - Use the existing authenticated `ruvnet` npm session. Do not replace it with a
   token from another GCP project.
 
+**`npm publish` auth (learned 2026-07-30, hard way — verify before assuming either path works):**
+This account has 2FA set to `auth-and-writes`, so an interactive `npm login` session
+requires a fresh OTP on **every single `npm publish`** call — an agent has no way to
+supply that unless a human is present with their authenticator. There is also an
+`NPM_TOKEN` secret in GCP Secret Manager (**`ruv-dev`** project) that earlier sessions
+used successfully to bypass OTP (automation tokens skip 2FA-on-write by design), but
+it is **not guaranteed to still be valid** — one attempt on 2026-07-30 got a `404 Not
+Found` on the publish `PUT` (npm returns 404, not 403, for scope/permission problems
+on scoped packages, so this reads as "token lacks publish rights to `@claude-flow`"
+or "token expired/revoked", not "package doesn't exist"). Do not assume either path
+is live without testing it this session:
+1. Try the `NPM_TOKEN` secret first (lower friction): fetch it straight to a file
+   (never let it reach captured tool output, same discipline as the signing key
+   below), point `NPM_CONFIG_USERCONFIG` at a throwaway `.npmrc` containing
+   `//registry.npmjs.org/:_authToken=<token>`, run the real `npm publish`, then
+   delete the throwaway file immediately regardless of outcome. `npm whoami` is
+   NOT a reliable pre-check for this token (it 401'd even when the token might
+   otherwise be publish-scoped) — the only real test is the publish attempt itself.
+2. If that 404s or 401s, the token needs rotating/re-scoping — that's a decision
+   for the human account owner, not something to route around. Ask them directly:
+   either they supply a fresh OTP for the interactive session, or they refresh the
+   `NPM_TOKEN` secret. Don't keep retrying blindly or guessing at other credentials.
+- Whichever path works, confirm the version actually landed
+  (`npm view <pkg>@<version> version`) before telling the user publishing succeeded —
+  a mid-publish OTP prompt that never gets answered fails silently from an agent's
+  point of view (no stdout, no exit-code signal reaches a non-interactive shell).
+
 **Helpers signing key (required for `@claude-flow/cli` publish):** `npm publish`'s
 `prepublishOnly` runs `scripts/sign-helpers.mjs`, which needs a private key to sign
 `.claude/helpers/helpers.manifest.json`. The secret lives in GCP Secret Manager in the
