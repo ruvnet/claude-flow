@@ -1,6 +1,6 @@
 {
   "name": "claude-flow",
-  "version": "3.32.38",
+  "version": "3.33.0",
   "workspaces": [
     "v3/@claude-flow/codex",
     "v3/@claude-flow/plugin-agent-federation",
