@@ -51,6 +51,49 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-331](ADR-331-project-local-flywheel-anchors.md) | Project-Local Flywheel Evaluation Anchors | Accepted |
 | [ADR-332](ADR-332-hermetic-release-verification-runtime-baseline.md) | Hermetic Release Verification and Supported Runtime Baseline | Accepted |
 | [ADR-333](ADR-333-efficiency-first-orchestration-prehoc-failure-inference.md) | Efficiency-First Orchestration — Pre-hoc Failure Inference and Adaptive Agent Count Routing | Proposed |
+| [ADR-334](ADR-334-hierarchical-consensus-topology.md) | Hierarchical Consensus Topology for Large-Scale Swarm Coordination | Proposed |
+| [ADR-335](ADR-335-mv-hnsw-agent-memory-upgrade.md) | Upgrade to Multi-Vector HNSW (MV-HNSW) for Agent Memory Retrieval | Proposed |
+| [ADR-336](ADR-336-agent-authorization-propagation.md) | Agent Authorization Propagation and MCP Authentication Enforcement | Proposed |
+| [ADR-337](ADR-337-plugin-supply-chain-integrity-memory-governance.md) | Plugin Supply Chain Integrity and Memory Namespace Governance | Proposed |
+| [ADR-338](ADR-338-sona-behavioral-trajectory-auditing.md) | SONA Behavioral Trajectory Auditing via Embedding-Space Trait Vectors | Proposed |
+| [ADR-339](ADR-339-memory-integrity-mcp-verification.md) | Memory Write Integrity Validation & MCP Tool Verification | Proposed |
+| [ADR-340](ADR-340-retrospective-harness-optimization.md) | Retrospective Harness Optimization (RHO) for SONA Intelligence Loop | Proposed |
+| [ADR-341](ADR-341-multi-signal-memory-retrieval.md) | Multi-Signal Memory Retrieval | Proposed |
+| [ADR-342](ADR-342-dream-cycle-ruvector-production-scale-backend.md) | RuVector Production-Scale Backend Adoption | Proposed |
+| [ADR-343](ADR-343-shared-context-parallel-dispatch.md) | Shared-Context Parallel Dispatch for Multi-Agent Performance | Proposed |
+| [ADR-344](ADR-344-knowledge-graph-index-for-reasoningbank.md) | Knowledge Graph Index for ReasoningBank | Proposed |
+| [ADR-345](ADR-345-swarm-credit-routing-shapley.md) | Swarm Credit Routing via Shapley-Value Attribution | Proposed |
+| [ADR-346](ADR-346-multi-layer-agent-security.md) | Multi-Layer Agent Security Stack | Proposed |
+| [ADR-347](ADR-347-trajectory-quality-judge-scoring.md) | Trajectory-Quality JUDGE Scoring for ReasoningBank | Proposed |
+| [ADR-348](ADR-348-dream-cycle-swarm-adaptive-topology-selector.md) | Task-Adaptive Swarm Topology Selector | Proposed |
+| [ADR-349](ADR-349-dream-cycle-intelligence-flare-lookahead.md) | FLARE-Style Lookahead Planning Buffer for SONA Intelligence Layer | Proposed |
+| [ADR-350](ADR-350-dream-cycle-swarm-trust-weighted-consensus.md) | Trust-Weighted Consensus for Swarm Coordination | Proposed |
+| [ADR-351](ADR-351-dream-cycle-performance-stateful-execution-loop.md) | Stateful Execution Loop with KV-Cache Discipline and Agent Execution Graphs | Proposed |
+| [ADR-352](ADR-352-mcp-tool-permission-attestation.md) | MCP Tool Permission Attestation (Min-Privilege Contract) | Proposed |
+| [ADR-353](ADR-353-dream-cycle-intelligence-skill-distillation.md) | Trace-to-Skill Distillation for Intelligence Pipeline | Proposed |
+| [ADR-354](ADR-354-agentdb-write-verification-temporal-supersession.md) | AgentDB Memory Write Verification and Temporal Supersession Layer | Proposed |
+| [ADR-355](ADR-355-swarm-rl-stopping-policy.md) | Reinforcement-Learned Stopping Policy for Ruflo Swarm Orchestration | Proposed |
+| [ADR-356](ADR-356-dream-cycle-performance-cross-agent-kvcache.md) | Cross-Agent KV-Cache Sharing for Swarm Performance | Proposed |
+| [ADR-357](ADR-357-dream-cycle-intelligence-dimension-aware-routing.md) | Dimension-Aware Intelligence Routing for Heterogeneous Agent Pools | Proposed |
+| [ADR-358](ADR-358-automem-memory-rl-training-loop.md) | AutoMem-Style RL Training Loop for AgentDB Memory Operations | Proposed |
+| [ADR-359](ADR-359-swarm-inverse-wisdom-dissent-mechanism.md) | Swarm Dissent Mechanism: Inverse-Wisdom Law Compliance | Proposed |
+| [ADR-360](ADR-360-dream-cycle-performance-polykv-shared-kv-pool.md) | Cross-Agent Shared KV Pool (PolyKV Architecture) | Proposed |
+| [ADR-361](ADR-361-dream-cycle-intelligence-skill-evolution-worker.md) | Skill Evolution Worker (SEW) — Runtime RL-Based Skill Acquisition for SONA | Proposed |
+| [ADR-362](ADR-362-dream-cycle-swarm-hnsw-comms-fabric.md) | HNSW-as-Communication-Fabric (HCF) for RuVector Swarm Knowledge Gossip | Proposed |
+| [ADR-363](ADR-363-dream-cycle-performance-workflow-atomic-inference-scheduling.md) | Workflow-Atomic Inference Scheduling (WAIS) for Multi-Agent Execution | Proposed |
+| [ADR-364](ADR-364-dream-cycle-security-plugin-supply-chain-scanner.md) | Plugin Supply-Chain Scanner and Behavioral Manifest | Proposed |
+| [ADR-365](ADR-365-recurrence-gated-memory-consolidation.md) | Recurrence-Gated Memory Consolidation for AgentDB | Proposed |
+| [ADR-366](ADR-366-dream-cycle-swarm-self-evolving-skill-distillation.md) | Self-Evolving Swarm Skill Distillation via Trajectory Feedback | Proposed |
+| [ADR-367](ADR-367-epistemic-working-memory-intelligence-pipeline.md) | Epistemic Working Memory in the Intelligence Pipeline | Proposed |
+| [ADR-368](ADR-368-dream-cycle-memory-selective-persistence.md) | Selective Persistent Memory Categories for AgentDB | Proposed |
+| [ADR-369](ADR-369-dream-cycle-swarm-ib-vq-inter-agent-messaging.md) | Information-Bottleneck Vector-Quantized Inter-Agent Messaging | Proposed |
+| [ADR-370](ADR-370-dream-cycle-performance-world-model-agent-planning.md) | World-Model Agent Planning for Cost-Aware Task Pre-Simulation | Proposed |
+| [ADR-371](ADR-371-dream-cycle-security-neural-cryptographic-authorization.md) | Neural Cryptographic Authorization Gate for Agentic Action Execution | Proposed |
+| [ADR-372](ADR-372-dream-cycle-intelligence-cognitive-mode-router.md) | Cognitive Mode Router for Agent Memory Query Dispatch | Proposed |
+| [ADR-373](ADR-373-dream-cycle-memory-budget-operator-selection.md) | Budget-Dependent Memory Operator Selection (OAS) | Proposed |
+| [ADR-374](ADR-374-dream-cycle-swarm-subagent-permission-delegate.md) | SubagentPermissionDelegate: Workspace-Scoped Privilege Delegation for Swarm Agents | Proposed |
+| [ADR-375](ADR-375-dream-cycle-performance-agentperf-benchmark-mixture-of-agents.md) | Agentic Inference Benchmarking Standard + Mixture-of-Agents Test-Time Scaling | Proposed |
+| [ADR-376](ADR-376-dream-cycle-intelligence-heterogeneous-ensemble-api.md) | Heterogeneous Agent Ensemble Composition API | Proposed |
 
 ## Summary Documents
 
