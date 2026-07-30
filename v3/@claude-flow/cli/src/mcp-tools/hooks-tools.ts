@@ -1130,12 +1130,18 @@ export const hooksRoute: MCPTool = {
     let confidence: number;
     let matchedPattern = '';
 
+    // Both static and learned patterns are gated on the same similarity
+    // score. Learned patterns additionally require support/reliability as a
+    // quality guard, but do NOT need a higher score bar — a learned pattern
+    // that outscores every static candidate must not lose to one anyway
+    // (#2864: a 25pp higher threshold made a top-scoring learned-researcher
+    // match at 0.57 lose to a static match at 0.52, discarding the learned
+    // store's output on the majority of routes).
     const eligibleSemantic = semanticResult.find((match) => {
       if (match.score <= 0.4) return false;
       const learned = match.intent.startsWith('learned-') || match.metadata.source === 'learned';
       if (!learned) return true;
-      return match.score >= 0.65
-        && Number(match.metadata.support ?? 0) >= 2
+      return Number(match.metadata.support ?? 0) >= 2
         && Number(match.metadata.reliability ?? 0) >= 0.75;
     });
     if (eligibleSemantic) {
@@ -2008,18 +2014,21 @@ export const hooksTransfer: MCPTool = {
       // Fall back to empty store
     }
 
-    const sourceEntries = Object.values(sourceStore.entries);
-
-    // Count patterns by type from source
-    const byType: Record<string, number> = {
-      'file-patterns': sourceEntries.filter(e => e.key.includes('file') || e.metadata?.type === 'file-pattern').length,
-      'task-routing': sourceEntries.filter(e => e.key.includes('routing') || e.metadata?.type === 'routing').length,
-      'command-risk': sourceEntries.filter(e => e.key.includes('command') || e.metadata?.type === 'command-risk').length,
-      'agent-success': sourceEntries.filter(e => e.key.includes('agent') || e.metadata?.type === 'agent-success').length,
+    const classifyType = (key: string, metadata?: Record<string, unknown>): string | null => {
+      if (key.includes('file') || metadata?.type === 'file-pattern') return 'file-patterns';
+      if (key.includes('routing') || metadata?.type === 'routing') return 'task-routing';
+      if (key.includes('command') || metadata?.type === 'command-risk') return 'command-risk';
+      if (key.includes('agent') || metadata?.type === 'agent-success') return 'agent-success';
+      return null;
     };
 
+    const candidates = Object.entries(sourceStore.entries)
+      .map(([key, entry]) => ({ key, entry, type: classifyType(key, entry.metadata) }))
+      .filter((c): c is { key: string; entry: MemoryEntry; type: string } => c.type !== null)
+      .filter(c => !filter || c.type.includes(filter));
+
     // If source has no patterns, report honestly instead of substituting demo data
-    if (Object.values(byType).every(v => v === 0)) {
+    if (candidates.length === 0) {
       return {
         success: false,
         message: 'No patterns found in source project',
@@ -2028,29 +2037,71 @@ export const hooksTransfer: MCPTool = {
       };
     }
 
-    if (filter) {
-      Object.keys(byType).forEach(key => {
-        if (!key.includes(filter)) delete byType[key];
-      });
+    // #2859 — this used to count source patterns, then invent skip counts
+    // as fixed percentages of that count and a fixed avgConfidence/avgAge,
+    // without ever reading or writing the destination store. An operator
+    // could believe state moved between projects when nothing changed.
+    // Perform a real merge: skip entries below the confidence threshold,
+    // skip exact duplicates, skip real conflicts (destination already has
+    // a different value for that key — never silently overwritten), and
+    // actually write whatever remains into this project's own memory store.
+    const destStore = loadMemoryStore();
+    const byType: Record<string, number> = {};
+    let lowConfidence = 0;
+    let duplicates = 0;
+    let conflicts = 0;
+    let transferredCount = 0;
+    let confidenceSum = 0;
+    let confidenceCount = 0;
+    let ageSumMs = 0;
+    let ageCount = 0;
+    const now = Date.now();
+
+    for (const { key, entry, type } of candidates) {
+      const confidenceRaw = entry.metadata?.confidence ?? entry.metadata?.reliability;
+      const confidence = typeof confidenceRaw === 'number' ? confidenceRaw : undefined;
+      if (confidence !== undefined && confidence < minConfidence) {
+        lowConfidence++;
+        continue;
+      }
+
+      const existing = destStore.entries[key];
+      if (existing) {
+        const same = JSON.stringify(existing.value) === JSON.stringify(entry.value);
+        if (same) { duplicates++; continue; }
+        conflicts++;
+        continue;
+      }
+
+      destStore.entries[key] = entry;
+      transferredCount++;
+      byType[type] = (byType[type] ?? 0) + 1;
+      if (confidence !== undefined) { confidenceSum += confidence; confidenceCount++; }
+      const storedAtMs = Date.parse(entry.storedAt ?? '');
+      if (!Number.isNaN(storedAtMs)) { ageSumMs += now - storedAtMs; ageCount++; }
     }
 
-    const total = Object.values(byType).reduce((a, b) => a + b, 0);
+    if (transferredCount > 0) {
+      const memDir = resolve(MEMORY_DIR);
+      if (!existsSync(memDir)) mkdirSync(memDir, { recursive: true });
+      writeFileSync(getMemoryPath(), JSON.stringify(destStore, null, 2), 'utf-8');
+    }
 
     return {
       success: true,
       sourcePath,
       transferred: {
-        total,
+        total: transferredCount,
         byType,
       },
       skipped: {
-        lowConfidence: Math.floor(total * 0.15),
-        duplicates: Math.floor(total * 0.08),
-        conflicts: Math.floor(total * 0.03),
+        lowConfidence,
+        duplicates,
+        conflicts,
       },
       stats: {
-        avgConfidence: 0.82 + (minConfidence > 0.8 ? 0.1 : 0),
-        avgAge: '3 days',
+        avgConfidence: confidenceCount > 0 ? Number((confidenceSum / confidenceCount).toFixed(3)) : null,
+        avgAgeDays: ageCount > 0 ? Number((ageSumMs / ageCount / 86_400_000).toFixed(1)) : null,
       },
       dataSource: 'source-project',
     };

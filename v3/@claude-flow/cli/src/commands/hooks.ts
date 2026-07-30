@@ -1713,19 +1713,21 @@ const transferFromProjectCommand: Command = {
 
       // Call MCP tool for transfer
       const result = await callMCPTool<{
+        success: boolean;
+        message?: string;
         sourcePath: string;
         transferred: {
           total: number;
           byType: Record<string, number>;
-        };
-        skipped: {
+        } | number;
+        skipped?: {
           lowConfidence: number;
           duplicates: number;
           conflicts: number;
         };
-        stats: {
-          avgConfidence: number;
-          avgAge: string;
+        stats?: {
+          avgConfidence: number | null;
+          avgAgeDays: number | null;
         };
       }>('hooks_transfer', {
         sourcePath,
@@ -1733,6 +1735,17 @@ const transferFromProjectCommand: Command = {
         minConfidence,
         mergeStrategy: 'keep-highest-confidence',
       });
+
+      // #2859 — the handler reports success:false (no destination write
+      // happened) when the source has no matching patterns at all. Surface
+      // that honestly instead of claiming a transfer occurred.
+      if (!result.success || typeof result.transferred === 'number') {
+        spinner.fail(result.message ?? 'No patterns transferred');
+        if (ctx.flags.format === 'json') {
+          output.printJson(result);
+        }
+        return { success: false, exitCode: 1, data: result };
+      }
 
       spinner.succeed(`Transferred ${result.transferred.total} patterns`);
 
@@ -1750,9 +1763,9 @@ const transferFromProjectCommand: Command = {
         ],
         data: [
           { category: 'Total Transferred', count: output.success(String(result.transferred.total)) },
-          { category: 'Skipped (Low Confidence)', count: result.skipped.lowConfidence },
-          { category: 'Skipped (Duplicates)', count: result.skipped.duplicates },
-          { category: 'Skipped (Conflicts)', count: result.skipped.conflicts }
+          { category: 'Skipped (Low Confidence)', count: result.skipped?.lowConfidence ?? 0 },
+          { category: 'Skipped (Duplicates)', count: result.skipped?.duplicates ?? 0 },
+          { category: 'Skipped (Conflicts)', count: result.skipped?.conflicts ?? 0 }
         ]
       });
 
@@ -1768,11 +1781,19 @@ const transferFromProjectCommand: Command = {
         });
       }
 
-      output.writeln();
-      output.printList([
-        `Avg Confidence: ${(result.stats.avgConfidence * 100).toFixed(1)}%`,
-        `Avg Age: ${result.stats.avgAge}`
-      ]);
+      // #2865-style honesty: omit stats that have no real measured value
+      // rather than showing a fabricated number.
+      const statLines: string[] = [];
+      if (result.stats?.avgConfidence != null) {
+        statLines.push(`Avg Confidence: ${(result.stats.avgConfidence * 100).toFixed(1)}%`);
+      }
+      if (result.stats?.avgAgeDays != null) {
+        statLines.push(`Avg Age: ${result.stats.avgAgeDays.toFixed(1)} days`);
+      }
+      if (statLines.length > 0) {
+        output.writeln();
+        output.printList(statLines);
+      }
 
       return { success: true, data: result };
     } catch (error) {
@@ -2585,9 +2606,17 @@ const intelligenceCommand: Command = {
           moe: {
             enabled: enableMoe,
             status: String(mcpMoe?.status ?? (hasLocalData ? 'active' : 'idle')),
-            expertsActive: Number(mcpMoe?.expertsActive ?? (hasLocalData ? 8 : 0)),
-            routingAccuracy: Number(mcpMoe?.routingAccuracy ?? (hasLocalData ? 0.82 : 0)),
-            loadBalance: Number(mcpMoe?.loadBalance ?? (hasLocalData ? 0.9 : 0)),
+            // #2865 — these three previously fell back to hardcoded
+            // hasLocalData ? <constant> : 0 whenever the MCP tool didn't
+            // report a real value, so "Routing Accuracy: 82.0%" displayed
+            // on every project with local neural data regardless of actual
+            // routing quality (measured 49% on a real store). None of these
+            // three has a cheap, honest local substitute the way
+            // `hooks metrics`' routingAccuracy falls back to averageConfidence,
+            // so they are null (unmeasured) rather than a fabricated number.
+            expertsActive: mcpMoe?.expertsActive == null ? null : Number(mcpMoe.expertsActive),
+            routingAccuracy: mcpMoe?.routingAccuracy == null ? null : Number(mcpMoe.routingAccuracy),
+            loadBalance: mcpMoe?.loadBalance == null ? null : Number(mcpMoe.loadBalance),
           },
           hnsw: {
             enabled: enableHnsw,
@@ -2689,9 +2718,11 @@ const intelligenceCommand: Command = {
           ],
           data: [
             { metric: 'Status', value: formatIntelligenceStatus(moe.status) },
-            { metric: 'Active Experts', value: moe.expertsActive ?? 0 },
-            { metric: 'Routing Accuracy', value: `${((moe.routingAccuracy ?? 0) * 100).toFixed(1)}%` },
-            { metric: 'Load Balance', value: `${((moe.loadBalance ?? 0) * 100).toFixed(1)}%` }
+            // #2865 — omit rather than show a fabricated 0/0.0% when the
+            // MCP tool hasn't reported a real value for these.
+            ...(moe.expertsActive == null ? [] : [{ metric: 'Active Experts', value: moe.expertsActive }]),
+            ...(moe.routingAccuracy == null ? [] : [{ metric: 'Routing Accuracy', value: `${(moe.routingAccuracy * 100).toFixed(1)}%` }]),
+            ...(moe.loadBalance == null ? [] : [{ metric: 'Load Balance', value: `${(moe.loadBalance * 100).toFixed(1)}%` }]),
           ]
         });
       } else {
