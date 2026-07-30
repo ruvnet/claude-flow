@@ -30,6 +30,11 @@ import {
   CacheStats,
   HNSWStats,
 } from './types.js';
+import {
+  AgentDbRetrievalGuard,
+  isRetrievalGuardEnabled,
+  type RetrievalGuardConfig,
+} from './agentdb-retrieval-guard.js';
 
 // ===== AgentDB Optional Import =====
 
@@ -94,13 +99,21 @@ export interface AgentDBBackendConfig {
 
   /** Maximum entries */
   maxEntries?: number;
+
+  /**
+   * ADR-377 Phase 1 — retrieval-layer injection guard. When omitted, a guard
+   * is constructed automatically but only actively filters results if
+   * `CLAUDE_FLOW_RETRIEVAL_GUARD=true` (see `isRetrievalGuardEnabled`).
+   * Pass `false` to disable entirely regardless of the env flag.
+   */
+  retrievalGuard?: RetrievalGuardConfig | false;
 }
 
 /**
  * Default configuration
  */
 const DEFAULT_CONFIG: Required<
-  Omit<AgentDBBackendConfig, 'dbPath' | 'embeddingGenerator'>
+  Omit<AgentDBBackendConfig, 'dbPath' | 'embeddingGenerator' | 'retrievalGuard'>
 > = {
   namespace: 'default',
   forceWasm: false,
@@ -130,7 +143,7 @@ const DEFAULT_CONFIG: Required<
  */
 export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
   private config: Required<
-    Omit<AgentDBBackendConfig, 'dbPath' | 'embeddingGenerator'>
+    Omit<AgentDBBackendConfig, 'dbPath' | 'embeddingGenerator' | 'retrievalGuard'>
   > & {
     dbPath?: string;
     embeddingGenerator?: EmbeddingGenerator;
@@ -138,6 +151,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
   private agentdb: any;
   private initialized: boolean = false;
   private available: boolean = false;
+  private readonly retrievalGuard: AgentDbRetrievalGuard | null;
 
   // In-memory storage for compatibility
   private entries: Map<string, MemoryEntry> = new Map();
@@ -160,6 +174,10 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.available = false; // Will be set during initialization
+    this.retrievalGuard =
+      config.retrievalGuard === false
+        ? null
+        : new AgentDbRetrievalGuard(config.retrievalGuard || {});
   }
 
   /**
@@ -393,7 +411,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
 
     if (!this.agentdb) {
       // Fallback to brute-force search
-      return this.bruteForceSearch(embedding, options);
+      return this.applyRetrievalGuard(await this.bruteForceSearch(embedding, options));
     }
 
     try {
@@ -404,11 +422,27 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
       this.stats.searchCount++;
       this.stats.totalSearchTime += duration;
 
-      return results;
+      return this.applyRetrievalGuard(results);
     } catch (error) {
       console.error('AgentDB search failed, falling back to brute-force:', error);
-      return this.bruteForceSearch(embedding, options);
+      return this.applyRetrievalGuard(await this.bruteForceSearch(embedding, options));
     }
+  }
+
+  /**
+   * ADR-377 Phase 1 — filter HNSW/brute-force results through the retrieval
+   * guard before they reach `query()`'s callers (and, through it, agent
+   * context assembly). No-op unless `CLAUDE_FLOW_RETRIEVAL_GUARD=true` or
+   * the guard was constructed with an explicit config (see
+   * `AgentDbRetrievalGuard`'s constructor — an explicit config always scans;
+   * only the *drop* behavior is additionally gated on
+   * `CLAUDE_FLOW_RETRIEVAL_GUARD_STRICT`).
+   */
+  private applyRetrievalGuard(results: SearchResult[]): SearchResult[] {
+    if (!this.retrievalGuard || !isRetrievalGuardEnabled() || results.length === 0) {
+      return results;
+    }
+    return this.retrievalGuard.filter(results).results;
   }
 
   /**

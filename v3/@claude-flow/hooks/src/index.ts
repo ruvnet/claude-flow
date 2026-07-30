@@ -112,6 +112,21 @@ export {
   type ChannelGuardOutcome,
 } from './workers/channel-guard-worker.js';
 
+// MemoryPoisonForensics (ADR-377 Phase 2 — ruvnet/ruflo#2516, #2873).
+// Behavioral-anomaly detection on AgentDB write sequences. Opt-in
+// PostToolUse handler; CLAUDE_FLOW_POISON_FORENSICS=0 disables recording.
+export {
+  MemoryPoisonForensics,
+  getSharedMemoryPoisonForensics,
+  isPoisonForensicsEnabled,
+  createMemoryPoisonForensicsHandler,
+  registerMemoryPoisonForensicsHook,
+  type WriteEvent,
+  type AnomalyFinding,
+  type PoisonForensicsResult,
+  type PoisonForensicsConfig,
+} from './workers/memory-poison-forensics.js';
+
 // Swarm Communication
 export {
   SwarmCommunication,

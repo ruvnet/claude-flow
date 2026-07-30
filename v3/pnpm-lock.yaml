@@ -406,6 +406,9 @@ importers:
 
   '@claude-flow/memory':
     dependencies:
+      '@claude-flow/security':
+        specifier: ^3.0.0-alpha.12
+        version: link:../security
       agentdb:
         specifier: ^3.0.0-alpha.17
         version: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
