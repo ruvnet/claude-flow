@@ -134,6 +134,21 @@ export {
   type ToolCallDecision,
 } from './authorization/propagator.js';
 
+// MCP Caller-Identity Binding (ADR-377 Phase 3 — ruvnet/ruflo#2516, #2873)
+// Per-invocation Ed25519-signed capability tokens. Off by default
+// (CLAUDE_FLOW_MCP_CALLER_AUTH) pending a follow-on ADR for key
+// distribution; see mcp-caller-identity.ts's file header for scope notes.
+export {
+  generateCallerIdentityKey,
+  loadCallerIdentityKey,
+  issueInvocationToken,
+  verifyInvocationToken,
+  isMcpCallerAuthEnabled,
+  type CallerIdentityKey,
+  type InvocationToken,
+  type TokenVerificationResult,
+} from './mcp-caller-identity.js';
+
 // Agentic Policy Engine (ADR-324)
 // Deterministic policy evaluation, monotonic capability envelopes, approvals,
 // budgets, and tamper-evident decision receipts. Legacy mode preserves the

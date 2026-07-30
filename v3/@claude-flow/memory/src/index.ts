@@ -192,6 +192,17 @@ export { AgentDBAdapter } from './agentdb-adapter.js';
 export type { AgentDBAdapterConfig } from './agentdb-adapter.js';
 export { AgentDBBackend } from './agentdb-backend.js';
 export type { AgentDBBackendConfig } from './agentdb-backend.js';
+export {
+  AgentDbRetrievalGuard,
+  createAgentDbRetrievalGuard,
+  isRetrievalGuardEnabled,
+  isRetrievalGuardStrict,
+} from './agentdb-retrieval-guard.js';
+export type {
+  RetrievalGuardConfig,
+  GuardedSearchResult,
+  FilteredSearchResults,
+} from './agentdb-retrieval-guard.js';
 export { SQLiteBackend } from './sqlite-backend.js';
 export type { SQLiteBackendConfig } from './sqlite-backend.js';
 export { SqlJsBackend } from './sqljs-backend.js';
