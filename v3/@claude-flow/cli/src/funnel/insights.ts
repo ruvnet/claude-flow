@@ -85,7 +85,7 @@ function securityInsight(ctx: LocalInsightContext): LocalInsight | null {
     };
   }
   if (s.status === 'PENDING') {
-    return { id: 'insight-scan-pending', text: '🛡 Security scan pending — Run ruflo security scan --depth full', priority: 70 };
+    return { id: 'insight-scan-pending', text: '🛡 Security scan pending — Run ruflo security scan --depth deep', priority: 70 };
   }
   return null;
 }

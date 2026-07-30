@@ -8,16 +8,59 @@
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { execSync } from 'node:child_process';
+import { existsSync, statSync } from 'node:fs';
+import { resolve as resolvePath } from 'node:path';
 import { createBuiltinAIDefence, type DefenceEngine } from '../security/builtin-aidefence.js';
+
+// Accepted values for `security scan`'s enum flags — the single source of truth
+// for both validation and the traversal-depth maps below.
+const SCAN_DEPTHS = ['quick', 'standard', 'deep'] as const;
+const SCAN_TYPES = ['code', 'deps', 'all'] as const;
+type ScanDepth = (typeof SCAN_DEPTHS)[number];
+type ScanType = (typeof SCAN_TYPES)[number];
+
+// Real type predicates, not `as` casts. Array.includes() does not narrow a
+// string to a literal union on its own, so without these the depth-map lookups
+// below need an unchecked assertion — and an unchecked assertion would let a
+// future refactor index the maps with an invalid key, yielding `undefined`.
+// That matters: `undefined <= 0` is false and `undefined - 1` is NaN, so the
+// recursion guard in scanDir would never fire. An unsafe cast here would
+// silently disable the depth limiter — the exact class of failure this command
+// is being fixed for.
+const isScanDepth = (v: string): v is ScanDepth => (SCAN_DEPTHS as readonly string[]).includes(v);
+const isScanType = (v: string): v is ScanType => (SCAN_TYPES as readonly string[]).includes(v);
+
+// `full` was never a supported depth, but the CLI itself printed it — the
+// statusline insight, the announcement, the release-notes blurb, the CLAUDE.md
+// that `init` generates, and two shipped agent definitions all tell people to
+// run `security scan --depth full`. Pre-fix it silently fell through to the
+// SHALLOWEST traversal, which is the bug. Hard-rejecting it would break every
+// caller we ourselves told to use it, so it is normalised to the depth the word
+// promised, with a warning. Remove once those emitters have aged out.
+const DEPRECATED_SCAN_DEPTHS: Record<string, ScanDepth> = { full: 'deep' };
+
+// `container` has been advertised in --type's help since this command was
+// written, but no phase below implements it. Accepting it would reproduce the
+// exact bug this validation exists to fix: a documented flag value that scans
+// nothing and still prints a clean bill of health. Rejected explicitly, with
+// its own message, until a container phase exists.
+const UNIMPLEMENTED_SCAN_TYPES = ['container'] as const;
+
+// Directory-recursion limits per depth. Exhaustive records rather than chained
+// ternaries, so adding a depth is a compile error here instead of a silently
+// shallower scan. CODE_SCAN_DEPTH.quick is unreachable — phase 3 is gated on
+// depth !== 'quick' — but is present so the record stays total.
+const SECRET_SCAN_DEPTH: Record<ScanDepth, number> = { quick: 3, standard: 5, deep: 10 };
+const CODE_SCAN_DEPTH: Record<ScanDepth, number> = { quick: 0, standard: 5, deep: 10 };
 
 // Scan subcommand
 const scanCommand: Command = {
   name: 'scan',
-  description: 'Run security scan on target (code, dependencies, containers)',
+  description: 'Run security scan on target (code, dependencies)',
   options: [
     { name: 'target', short: 't', type: 'string', description: 'Target path or URL to scan', default: '.' },
     { name: 'depth', short: 'd', type: 'string', description: 'Scan depth: quick, standard, deep', default: 'standard' },
-    { name: 'type', type: 'string', description: 'Scan type: code, deps, container, all', default: 'all' },
+    { name: 'type', type: 'string', description: 'Scan type: code, deps, all', default: 'all' },
     { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json, sarif', default: 'text' },
     { name: 'fix', short: 'f', type: 'boolean', description: 'Auto-fix vulnerabilities where possible' },
   ],
@@ -27,9 +70,63 @@ const scanCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const target = ctx.flags.target as string || '.';
-    const depth = ctx.flags.depth as string || 'standard';
+    const requestedDepth = ctx.flags.depth as string || 'standard';
     const scanType = ctx.flags.type as string || 'all';
     const fix = ctx.flags.fix as boolean;
+
+    // A security scanner must never silently degrade on an unrecognised enum
+    // value. An unknown --depth used to fall through to the shallowest
+    // traversal (so `--depth full` scanned *less* than the default), and an
+    // unknown --type skipped every phase while still reporting "No security
+    // issues found!" with exit 0 — a typo was indistinguishable from a clean
+    // result, and it silently disabled the critical/high exit-code gate.
+    // Fail closed instead, before anything is printed or scanned.
+    const aliasedDepth = DEPRECATED_SCAN_DEPTHS[requestedDepth];
+    if (aliasedDepth) {
+      output.printWarning(
+        `--depth '${requestedDepth}' is deprecated and has been treated as '${aliasedDepth}'. ` +
+        `Use one of: ${SCAN_DEPTHS.join(', ')}.`,
+      );
+    }
+    const candidateDepth = aliasedDepth ?? requestedDepth;
+    if (!isScanDepth(candidateDepth)) {
+      output.printError(
+        `Invalid --depth '${requestedDepth}'. Expected one of: ${SCAN_DEPTHS.join(', ')}.`,
+      );
+      return { success: false, exitCode: 1 };
+    }
+    const depth: ScanDepth = candidateDepth;
+
+    // Case-insensitive so `--type Container` gets the accurate "not implemented"
+    // message rather than being reported as a misspelling.
+    if ((UNIMPLEMENTED_SCAN_TYPES as readonly string[]).includes(scanType.toLowerCase())) {
+      output.printError(
+        `--type '${scanType}' is not implemented yet. Expected one of: ${SCAN_TYPES.join(', ')}.`,
+      );
+      return { success: false, exitCode: 1 };
+    }
+    if (!isScanType(scanType)) {
+      output.printError(
+        `Invalid --type '${scanType}'. Expected one of: ${SCAN_TYPES.join(', ')}.`,
+      );
+      return { success: false, exitCode: 1 };
+    }
+
+    // --target names WHAT gets scanned, and was never validated. A path that
+    // does not exist (or is a file, not a directory) made every phase read
+    // nothing, and the swallowed dir-read catches turned that into zero
+    // findings, the clean banner, exit 0 — and a PERSISTED clean report that
+    // getSecurityStatus then reports as CLEAN. Same fail-open class as the enum
+    // flags, and the likelier typo of the two, so it fails closed too.
+    const resolvedTarget = resolvePath(target);
+    if (!existsSync(resolvedTarget)) {
+      output.printError(`Target does not exist: ${resolvedTarget}`);
+      return { success: false, exitCode: 1 };
+    }
+    if (!statSync(resolvedTarget).isDirectory()) {
+      output.printError(`Target is not a directory: ${resolvedTarget}`);
+      return { success: false, exitCode: 1 };
+    }
 
     output.writeln();
     output.writeln(output.bold('Security Scan'));
@@ -103,7 +200,9 @@ const scanCommand: Command = {
         ];
 
         const scanDir = (dir: string, depthLimit: number) => {
-          if (depthLimit <= 0) return;
+          // Positive-test rather than `<= 0`: undefined and NaN both fail this,
+          // so a bad budget stops the recursion instead of disabling the limiter.
+          if (!(depthLimit > 0)) return;
           try {
             const entries = fs.readdirSync(dir, { withFileTypes: true });
             for (const entry of entries) {
@@ -135,7 +234,7 @@ const scanCommand: Command = {
           } catch { /* dir read error */ }
         };
 
-        const scanDepth = depth === 'deep' ? 10 : depth === 'standard' ? 5 : 3;
+        const scanDepth = SECRET_SCAN_DEPTH[depth];
         scanDir(path.resolve(target), scanDepth);
       }
 
@@ -151,7 +250,9 @@ const scanCommand: Command = {
         ];
 
         const scanCodeDir = (dir: string, depthLimit: number) => {
-          if (depthLimit <= 0) return;
+          // Positive-test rather than `<= 0`: undefined and NaN both fail this,
+          // so a bad budget stops the recursion instead of disabling the limiter.
+          if (!(depthLimit > 0)) return;
           try {
             const entries = fs.readdirSync(dir, { withFileTypes: true });
             for (const entry of entries) {
@@ -184,7 +285,7 @@ const scanCommand: Command = {
           } catch { /* dir read error */ }
         };
 
-        const scanDepth = depth === 'deep' ? 10 : 5;
+        const scanDepth = CODE_SCAN_DEPTH[depth];
         scanCodeDir(path.resolve(target), scanDepth);
       }
 
@@ -1297,7 +1398,7 @@ export const securityCommand: Command = {
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
-      'scan              - Run security scans on code, deps, containers',
+      'scan              - Run security scans on code, deps',
       'cve               - Check and manage CVE vulnerabilities',
       'threats           - Threat modeling (STRIDE, DREAD, PASTA)',
       'audit             - Security audit logging and compliance',

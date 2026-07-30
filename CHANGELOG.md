@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `RUFLO_STATUSLINE_COST_SYMBOL` — override the leading `$` (e.g. `⚡`, `€`, `🌱`); empty string shows the number alone.
   - `RUFLO_STATUSLINE_HIDE_COST` — `1`/`true`/`yes`/`on` hides the segment. `cost.total_cost_usd` is a client-side estimate that may differ from the actual bill and is misleading on subscription plans.
 
+### Fixed
+
+- **`security scan` failed open on unvalidated `--depth` / `--type` / `--target`** — an unrecognised `--type` matched none of the three phase guards, so no phase ran at all and the command still printed "No security issues found!" and exited 0; an unrecognised `--depth` fell through chained ternaries to the *shallowest* traversal (so `--depth full` scanned less than the default `standard`), which on a tree whose only HIGH finding sat below that budget also flipped the critical/high exit-code gate from 1 to 0; and a non-existent or non-directory `--target` read nothing, which the swallowed dir-read catches turned into a clean banner, exit 0, and a **persisted CLEAN report** that `getSecurityStatus` then surfaced as CLEAN. All three now fail closed before anything is scanned or written. Chained ternaries replaced with exhaustive `Record<ScanDepth, number>` maps behind real type predicates, and the recursion guard now positive-tests its budget so a bad value stops traversal instead of disabling the limiter. (`v3/@claude-flow/cli/src/commands/security.ts`)
+
+### Changed
+
+- **`security scan --depth full` is deprecated, not removed** — `full` was never a supported depth, but the CLI itself emitted it (statusline insight, announcement, the CLAUDE.md `init` generates, two shipped agent definitions). It is now normalised to `deep` with a warning rather than rejected, and those emitters have been updated to `--depth deep`. (`v3/@claude-flow/cli/src/funnel/insights.ts`, `funnel/messages.ts`, `commands/announcements.ts`, `init/claudemd-generator.ts`, `.claude/agents/v3/security-architect*.md`)
+
+### Removed
+
+- **`security scan --type container` is rejected instead of silently reporting clean** — it had been advertised in `--type`'s help since the command was written, but no phase ever implemented it, so it scanned nothing and printed a clean bill of health. It now exits 1 with an explicit "not implemented" message, and the help text no longer offers it. **Breaking** for any pipeline passing `--type container`, which previously exited 0. (`v3/@claude-flow/cli/src/commands/security.ts`)
+
 ## [3.32.10] - 2026-07-26
 
 Bug-fix release closing the tracker-fire sweep from 2026-07-24 → 2026-07-26. All fixes are surgical and additive; no API surface change, no schema change, patch semver.

@@ -260,7 +260,7 @@ function securitySection(): string {
 - Always use parameterized queries (prevent injection)
 
 \`\`\`bash
-npx @claude-flow/cli@latest security scan --depth full
+npx @claude-flow/cli@latest security scan --depth deep
 npx @claude-flow/cli@latest security audit --report
 \`\`\`
 
