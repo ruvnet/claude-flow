@@ -115,6 +115,50 @@ Shared with companion ADR-240: generate a MetaHarness agent, publish its signed 
 - Does the existing `claims_*` AuthScope machinery get subsumed by CASA envelopes over time, or do they stay parallel (claims = internal agent-to-agent authorization, CASA = user-intent-to-network authorization)? Worth its own follow-up ADR once §3 ships and the overlap (or lack of one) is concretely observable.
 - Where does the Rust `ruflo agntcy` crate live — a new top-level package, or folded into the existing federation-peer-rust surface given the CI plumbing already exists there?
 
+## Update (2026-07-31) — corrected: real AGNTCY packages exist
+
+This ADR's original text (and the code it shipped with, PR #2879) stated
+that no AGNTCY/SLIM/Outshift npm package existed anywhere under any
+plausible name. **That was wrong**, and is corrected here rather than
+silently edited out of the history above, per this repo's own norms around
+honest documentation.
+
+The original check only tried *guessed, scoped* names (`@agntcy/slim`,
+`@agntcy/dir`) and got 404s. The real packages are unscoped or differently
+suffixed:
+
+- **`@agntcy/slim-bindings`** (npm, v1.4.1 stable / v2.0.0-alpha.4) — real
+  SLIM Node.js bindings, documented for exactly the plain-Node use case §2
+  needs. Now correctly named in `runtime.ts`'s `AGNTCY_PACKAGE_NAME` and
+  declared in `optionalDependencies`.
+- **`agntcy-dir`** (npm, v1.5.0) — real Directory JS/TS SDK, used by the
+  companion ADR-240 §2.2 for real, live-tested push/publish/lookup against
+  a real Directory server (Go apiserver + zot + postgres, run locally from
+  `agntcy/dir`'s own `install/docker/docker-compose.yml`).
+
+**SLIM specifically is still not live-connectable today** — not because no
+package exists, but because of a real, verified, upstream packaging bug: a
+transitive dependency (`uniffi-bindgen-react-native`) ships raw,
+uncompiled TypeScript as its package.json `main` with no build output,
+which only works inside a bundler (Metro) and fails to load under plain
+Node `require`/`import`
+(`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`, reproduced directly).
+Filed upstream: [agntcy/slim#1916](https://github.com/agntcy/slim/issues/1916)
+(downstream impact — their own README's plain-Node example is currently
+broken by this) and
+[jhugman/uniffi-bindgen-react-native#422](https://github.com/jhugman/uniffi-bindgen-react-native/issues/422)
+(root cause). `detectAgntcyRuntime()`'s existing graceful-degradation
+design (§1) already handles this correctly with zero code changes needed —
+its catch-all branch surfaces the real error and falls back to local
+transport, verified against the exact real failure mode.
+
+Root cause investigated (in `agntcy/oasf-sdk`, hoping to find something
+patchable) before concluding a PR wasn't possible for the Directory-side
+class-name validation bug either — that validation logic turned out to be
+a remote hosted service (`schema.oasf.outshift.com`), not local source in
+any AGNTCY repo. Filed as
+[agntcy/dir#1943](https://github.com/agntcy/dir/issues/1943) instead.
+
 ## References
 
 - Cisco AGNTCY overview — https://outshift.cisco.com/the-internet-of-agents/agntcy

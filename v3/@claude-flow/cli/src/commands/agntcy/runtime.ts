@@ -5,21 +5,31 @@
  * `agent publish`, `swarm join <namespace>`) that talk to Cisco Outshift's
  * AGNTCY ecosystem (SLIM transport, Directory publish, group membership).
  *
- * As of this scaffold (2026-07-30), NO `@claude-flow/agntcy` package (or
- * any SLIM SDK under any other guessed npm/crates.io name) exists — a
- * repo-wide check and a registry check both came back clean/404. This
- * module therefore NEVER performs a real network call to AGNTCY
- * infrastructure. It only answers one question, deterministically and
- * without throwing: "has the operator pointed ruflo at a SLIM endpoint,
- * and if so, is the optional runtime package actually installed?"
+ * CORRECTED (2026-07-31): the original scaffold guessed at a package name
+ * (`@claude-flow/agntcy`) and concluded no real SLIM SDK existed anywhere.
+ * That check only tried guessed names — the real package is
+ * `@agntcy/slim-bindings` (npm, real, published, documented for plain
+ * Node.js use). It currently **fails to load** in plain Node, but for a
+ * different, more specific reason: a transitive dependency
+ * (`uniffi-bindgen-react-native`) ships raw, uncompiled TypeScript as its
+ * package.json `main`, which only works inside a bundler (Metro, for its
+ * React Native use case) — not plain `require`/`import`. Filed upstream:
+ * agntcy/slim#1916 and jhugman/uniffi-bindgen-react-native#422 (root cause).
+ *
+ * This module's existing graceful-degradation design already handles this
+ * correctly without any change to its logic: `detectAgntcyRuntime()`'s
+ * catch-all branch (anything other than MODULE_NOT_FOUND) reports the real
+ * underlying error and falls back to local transport — which is exactly
+ * what happens today when the dynamic import hits the packaging bug above.
+ * Once that upstream issue is fixed, this same code path starts succeeding
+ * with zero changes needed here.
  *
  * Per ADR-150's precedent (which ADR-380 §1 explicitly follows, not
  * ADR-321's hard-dependency exception):
  *   - removable:            deleting this whole directory changes nothing
  *                            about the rest of the CLI working.
- *   - optional-only:        `@claude-flow/agntcy` MUST live in
- *                            optionalDependencies once it is published,
- *                            never `dependencies`.
+ *   - optional-only:        `@agntcy/slim-bindings` MUST live in
+ *                            optionalDependencies, never `dependencies`.
  *   - graceful degradation: every caller of `detectAgntcyRuntime()` falls
  *                            back to the local transport / existing
  *                            authorization model on `configured: false`.
@@ -31,13 +41,14 @@
 export const AGNTCY_ENDPOINT_ENV = 'RUFLO_AGNTCY_SLIM_ENDPOINT';
 
 /**
- * Guessed package name for the future optional runtime. Verified 404 on
- * npm as of this scaffold — see the ADR-380 companion research. Kept as a
+ * The real SLIM Node.js bindings package (npm, published, real). Kept as a
  * named constant (not a string literal scattered through the module) so a
- * single edit repoints every dynamic-import call site once the real
- * package ships.
+ * single edit repoints every dynamic-import call site if that ever changes.
+ * Currently fails to load due to an upstream packaging bug — see this
+ * file's header comment — which `detectAgntcyRuntime()`'s catch-all branch
+ * already handles gracefully.
  */
-export const AGNTCY_PACKAGE_NAME = '@claude-flow/agntcy';
+export const AGNTCY_PACKAGE_NAME = '@agntcy/slim-bindings';
 
 /** Pointer to the ADR every "not configured" message should send users to. */
 export const AGNTCY_ADR_PATH = 'v3/docs/adr/ADR-380-agntcy-outshift-runtime-integration.md';
@@ -63,9 +74,11 @@ export interface AgntcyRuntimeStatus {
  *   1. An env var presence check for {@link AGNTCY_ENDPOINT_ENV}. Absent →
  *      not configured, no further work.
  *   2. A dynamic `import()` of {@link AGNTCY_PACKAGE_NAME}, wrapped in
- *      try/catch. Today this import always fails with a module-resolution
- *      error (the package doesn't exist yet) — that failure is treated as
- *      the expected "not installed" signal, not a bug.
+ *      try/catch. The package is real and installable, but today the
+ *      import fails at load time due to an upstream packaging bug in one
+ *      of its transitive dependencies (see this file's header comment) —
+ *      that failure surfaces through the generic catch branch below with
+ *      the real error message, not the MODULE_NOT_FOUND branch.
  *
  * @param env Injectable for tests; defaults to `process.env`.
  */
