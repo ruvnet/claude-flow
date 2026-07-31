@@ -4,10 +4,10 @@
  *
  * AGNTCY (Cisco Outshift) defines ten OTel span-attribute extensions for
  * agent observability across the identity/execution/coordination lifecycle.
- * Per ADR-380 §5, RuFlo and the companion metaharness ADR-237 split
+ * Per ADR-380 §5, RuFlo and the companion metaharness ADR-240 split
  * ownership of those ten attributes by *when* the value is knowable:
  *
- *   - MetaHarness (build/manifest time, companion ADR-237 §2.3) owns the
+ *   - MetaHarness (build/manifest time, companion ADR-240 §2.3) owns the
  *     eight attributes that exist once an agent is compiled/described:
  *       `agent.identity`      — AGNTCY-issued agent identity
  *       `agent.capability`    — declared tool/capability surface
@@ -27,7 +27,7 @@
  *
  * Deliberately NOT re-exported here: the eight metaharness-owned names
  * above. Defining them in both places would let the two ADRs drift out of
- * sync; the companion ADR-237 package is the single source of truth for
+ * sync; the companion ADR-240 package is the single source of truth for
  * those constants. This module only defines the two RuFlo owns.
  *
  * Wire these attribute names through the existing `ruflo-observability`

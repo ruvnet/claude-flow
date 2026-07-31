@@ -1,5 +1,5 @@
 /**
- * CASA authority envelope schema (ADR-380 §3 / ADR-237 §4).
+ * CASA authority envelope schema (ADR-380 §3 / ADR-240 §4).
  *
  * The envelope is the bounded, serializable authorization contract that
  * gates every tool/agent dispatch under CASA (Continuous Agentic Semantic

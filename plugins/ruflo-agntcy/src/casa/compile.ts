@@ -1,5 +1,5 @@
 /**
- * Deterministic, rule-based CASA intent compiler (ADR-380 §3 / ADR-237 §4).
+ * Deterministic, rule-based CASA intent compiler (ADR-380 §3 / ADR-240 §4).
  *
  * Translates a free-text `objective` into a bounded {@link CasaEnvelope}
  * using a small, static keyword/pattern table — no network calls, no LLM,

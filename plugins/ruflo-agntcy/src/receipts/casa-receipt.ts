@@ -1,7 +1,7 @@
 /**
  * CASA decision receipt logger (ADR-380 §3).
  *
- * MetaHarness (companion ADR-237 §4) compiles a user's objective into a
+ * MetaHarness (companion ADR-240 §4) compiles a user's objective into a
  * bounded authority envelope (`allow`/`deny` resource lists, a budget, an
  * expiry timestamp). RuFlo is where that envelope is *enforced* — a
  * deterministic, non-LLM gate in front of every MCP tool call and every

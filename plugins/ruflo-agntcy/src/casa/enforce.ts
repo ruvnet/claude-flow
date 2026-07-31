@@ -1,5 +1,5 @@
 /**
- * CASA envelope enforcement (ADR-380 §3 / ADR-237 §4).
+ * CASA envelope enforcement (ADR-380 §3 / ADR-240 §4).
  *
  * LOAD-BEARING INVARIANT (stated in both ADRs, restated here verbatim in
  * spirit): translation of free-text intent into a {@link CasaEnvelope}

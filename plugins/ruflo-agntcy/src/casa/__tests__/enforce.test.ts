@@ -1,5 +1,5 @@
 /**
- * Bypass-attempt tests for CASA enforcement (ADR-380 §3 / ADR-237 §4).
+ * Bypass-attempt tests for CASA enforcement (ADR-380 §3 / ADR-240 §4).
  *
  * These specifically probe the load-bearing invariant: enforcement is a
  * pure, deterministic function over the bounded envelope schema, and

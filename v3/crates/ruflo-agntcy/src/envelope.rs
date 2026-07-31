@@ -1,7 +1,7 @@
 //! CASA (Continuous Agentic Semantic Authorization) intent-scoped
 //! authorization envelope + enforcement gate — ADR-380 §3.
 //!
-//! MetaHarness (companion ADR-237 §4) compiles a user's objective into a
+//! MetaHarness (companion ADR-240 §4) compiles a user's objective into a
 //! bounded authority envelope. This module is where RuFlo *enforces* that
 //! envelope, matching the TypeScript `CasaEnvelope` schema field-for-field
 //! and the same deny-by-default enforcement algorithm as the TypeScript
@@ -18,7 +18,7 @@
 use serde::{Deserialize, Serialize};
 
 /// A CASA authority envelope, as compiled by MetaHarness from a user's
-/// objective (ADR-237 §4) and enforced by RuFlo at every tool invocation
+/// objective (ADR-240 §4) and enforced by RuFlo at every tool invocation
 /// (ADR-380 §3).
 ///
 /// Mirrors the TypeScript `CasaEnvelope` schema exactly:

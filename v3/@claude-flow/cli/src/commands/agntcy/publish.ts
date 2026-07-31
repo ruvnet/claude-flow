@@ -2,14 +2,14 @@
  * V3 CLI `ruflo agent publish` — ADR-380 §2.
  *
  * Emits the AGNTCY-identified, OASF-described agent record (produced
- * build-time by the companion metaharness ADR-237 §2.1/2.2) to the
+ * build-time by the companion metaharness ADR-240 §2.1/2.2) to the
  * configured AGNTCY Directory (https://github.com/agntcy/dir).
  *
  * This scaffold does NOT implement the Directory publish protocol — no
  * SLIM/Directory SDK is installable yet (verified 404 on every plausible
  * npm/crates.io name). It implements the one thing that IS real without
  * an external SDK: reading a local OASF-shaped manifest off disk (the
- * artifact metaharness ADR-237 is responsible for producing) and
+ * artifact metaharness ADR-240 is responsible for producing) and
  * validating its shape before attempting a publish, so the eventual
  * network call has a real payload to send rather than being invented at
  * publish time.
@@ -28,7 +28,7 @@ import {
   detectAgntcyRuntime,
 } from './runtime.js';
 
-/** Minimal shape check for the OASF agent record metaharness ADR-237 §2.1/2.2 produces. */
+/** Minimal shape check for the OASF agent record metaharness ADR-240 §2.1/2.2 produces. */
 export interface OasfAgentRecordShape {
   name: unknown;
   version: unknown;
@@ -79,7 +79,7 @@ const publishCommand: Command = {
     {
       name: 'manifest',
       short: 'm',
-      description: 'Path to the OASF agent record produced by metaharness (ADR-237)',
+      description: 'Path to the OASF agent record produced by metaharness (ADR-240)',
       type: 'string',
       default: DEFAULT_MANIFEST_PATH,
     },
@@ -97,7 +97,7 @@ const publishCommand: Command = {
       raw = await readFile(manifestPath, 'utf-8');
     } catch {
       output.printError(
-        `No OASF agent record found at "${manifestPath}". Run the metaharness ADR-237 build step first, ` +
+        `No OASF agent record found at "${manifestPath}". Run the metaharness ADR-240 build step first, ` +
           'or pass --manifest <path>.',
       );
       return { success: false, exitCode: 1 };

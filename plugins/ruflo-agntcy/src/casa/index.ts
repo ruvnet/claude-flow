@@ -1,5 +1,5 @@
 /**
- * CASA authority envelope module (ADR-380 §3 / ADR-237 §4).
+ * CASA authority envelope module (ADR-380 §3 / ADR-240 §4).
  *
  * Re-exports:
  *  - `schema.ts`  — the envelope's Zod schema + inferred type.

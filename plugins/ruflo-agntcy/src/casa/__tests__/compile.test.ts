@@ -1,5 +1,5 @@
 /**
- * Tests for the deterministic CASA intent compiler (ADR-380 §3 / ADR-237 §4).
+ * Tests for the deterministic CASA intent compiler (ADR-380 §3 / ADR-240 §4).
  */
 
 import { describe, it, expect } from 'vitest';

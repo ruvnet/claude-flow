@@ -3,7 +3,7 @@
 - **Status**: Proposed
 - **Date**: 2026-07-30
 - **Related**: ADR-150 (MetaHarness integration surfaces — the optional/removable-augmentation precedent this ADR follows), ADR-321 (metaharness hard-dependency exception — explicitly **not** followed here, see Decision §1), Cognitum funnel/tenancy ADRs (ADR-301/305/306 — tenant field alignment)
-- **Companion**: metaharness repo ADR-237 (`agent/adr-237-agntcy-outshift-integration` branch) — AGNTCY identity, OASF export, semantic observability. That ADR covers what MetaHarness produces at build/manifest time; this ADR covers what RuFlo does with it at runtime. Neither is complete without the other; they are numbered and shipped as a pair.
+- **Companion**: metaharness repo ADR-240 (`agent/adr-237-agntcy-outshift-integration` branch) — AGNTCY identity, OASF export, semantic observability. That ADR covers what MetaHarness produces at build/manifest time; this ADR covers what RuFlo does with it at runtime. Neither is complete without the other; they are numbered and shipped as a pair.
 - **Prompted by**: a strategic brief evaluating Cisco Outshift's AGNTCY / Internet of Cognition ecosystem (Mycelium is one coordination implementation inside that broader IoC program) as complementary, not competitive, infrastructure:
 
   > AGNTCY and Outshift define the agent network. MetaHarness builds and evolves the agents. RuFlo executes and coordinates them. Meta LLM governs inference, cost, tenancy, and safety. RuVector supplies local memory and semantic state.
@@ -39,13 +39,13 @@ ruflo swarm join cognitum/research/security
 
 **Keep the current local transport as the default for single-host swarms.** The originating brief is explicit that SLIM infrastructure adds unnecessary operational cost there, and this repo already has a working local coordination path (`swarm_init`/`hive-mind_*` MCP tools, the hierarchical-mesh anti-drift topology) that must not regress in the common case.
 
-`ruflo agent publish` emits the AGNTCY-identified, OASF-described agent record (produced build-time by metaharness ADR-237 §2.1/2.2) to the configured Directory. `ruflo swarm join <namespace>` joins a SLIM group-membership channel scoped to a Cognitum tenant/project namespace.
+`ruflo agent publish` emits the AGNTCY-identified, OASF-described agent record (produced build-time by metaharness ADR-240 §2.1/2.2) to the configured Directory. `ruflo swarm join <namespace>` joins a SLIM group-membership channel scoped to a Cognitum tenant/project namespace.
 
 Estimated effort: 15–25 days.
 
 ### 3. CASA intent-scoped authorization enforcement
 
-MetaHarness (companion ADR-237 §4) compiles a user's objective into a bounded authority envelope. RuFlo is where that envelope is **enforced** at every tool invocation:
+MetaHarness (companion ADR-240 §4) compiles a user's objective into a bounded authority envelope. RuFlo is where that envelope is **enforced** at every tool invocation:
 
 ```json
 {
@@ -61,9 +61,9 @@ MetaHarness (companion ADR-237 §4) compiles a user's objective into a bounded a
 - **CASA** enforces `allow`/`deny`/`expires_at` at the network/tool-authority layer — this is new: a deterministic gate in front of every MCP tool call and every `Agent`/`Task` dispatch, checked against the envelope *before* dispatch, never after.
 - **RuFlo logs every decision into signed receipts** — extends this repo's own signed-manifest precedent (`ruflo-core:witness-curator`, the ADR-103-style fix-attestation model) to per-invocation authorization decisions, not just release-time fix state.
 
-**The single non-negotiable design constraint in this entire integration**, restated plainly because it is also the brief's explicitly named biggest failure mode: the *translation* of intent into the envelope may use an LLM (that's MetaHarness's job, companion ADR-237 §4). *Enforcement* must never ask a model whether an action is permitted at invocation time — it checks a bounded schema (explicit resource strings, explicit deny list, numeric budget, expiry timestamp) with deterministic code, deny-by-default. No code path in this ADR's implementation may let an LLM's runtime judgment substitute for the compiled envelope's `allow`/`deny` lists. This must be verified with explicit bypass-attempt tests, not just translation-quality tests, before enabling CASA enforcement by default for any tenant.
+**The single non-negotiable design constraint in this entire integration**, restated plainly because it is also the brief's explicitly named biggest failure mode: the *translation* of intent into the envelope may use an LLM (that's MetaHarness's job, companion ADR-240 §4). *Enforcement* must never ask a model whether an action is permitted at invocation time — it checks a bounded schema (explicit resource strings, explicit deny list, numeric budget, expiry timestamp) with deterministic code, deny-by-default. No code path in this ADR's implementation may let an LLM's runtime judgment substitute for the compiled envelope's `allow`/`deny` lists. This must be verified with explicit bypass-attempt tests, not just translation-quality tests, before enabling CASA enforcement by default for any tenant.
 
-Estimated effort: 15–25 days (shared with companion ADR-237's compiler half: schema + translation-quality tests there; wiring + enforcement + bypass-attempt tests + receipts here).
+Estimated effort: 15–25 days (shared with companion ADR-240's compiler half: schema + translation-quality tests there; wiring + enforcement + bypass-attempt tests + receipts here).
 
 ### 4. IOC Layer 9 cognition envelopes — optional coordination events, not a replacement
 
@@ -75,9 +75,9 @@ Estimated effort: 10–15 days.
 
 ### 5. AGNTCY semantic observability — the runtime-only spans
 
-Map RuFlo spans and Flywheel-style receipts onto AGNTCY's OTel extensions (`agent.identity`, `agent.capability`, `agent.intent`, `agent.parent`, `coordination.episode`, `authorization.decision`, `model.route`, `memory.provenance`, `evaluation.score`, `receipt.hash`). RuFlo owns `coordination.episode` and `authorization.decision` specifically — the two attributes companion ADR-237 §2.3 explicitly defers here, since both only exist once SLIM/CASA are active at runtime. Wire this through the existing `ruflo-observability` plugin (`observe-trace`/`observe-metrics` skills) rather than inventing a second tracing pipeline.
+Map RuFlo spans and Flywheel-style receipts onto AGNTCY's OTel extensions (`agent.identity`, `agent.capability`, `agent.intent`, `agent.parent`, `coordination.episode`, `authorization.decision`, `model.route`, `memory.provenance`, `evaluation.score`, `receipt.hash`). RuFlo owns `coordination.episode` and `authorization.decision` specifically — the two attributes companion ADR-240 §2.3 explicitly defers here, since both only exist once SLIM/CASA are active at runtime. Wire this through the existing `ruflo-observability` plugin (`observe-trace`/`observe-metrics` skills) rather than inventing a second tracing pipeline.
 
-Estimated effort: 5–8 days (shared line item with ADR-237 §2.3 — RuFlo emits the two runtime-only attributes; MetaHarness emits the rest).
+Estimated effort: 5–8 days (shared line item with ADR-240 §2.3 — RuFlo emits the two runtime-only attributes; MetaHarness emits the rest).
 
 ### 6. `@claude-flow/agntcy` package and Rust `ruflo agntcy` crate
 
@@ -97,7 +97,7 @@ The Rust crate specifically targets SLIM (already Rust) and the native IOC Layer
 
 - CASA enforcement is a new mandatory gate in front of every tool dispatch once enabled — a bug here is a security regression, not a feature bug. It needs the "no LLM-in-the-enforcement-loop" test discipline from §3 verified by explicit bypass-attempt tests before shipping enabled-by-default for any tenant.
 - SLIM introduces a new Rust dependency surface and a new network topology (group membership, MLS encryption) this repo doesn't operate today — a real operational learning curve, mitigated by keeping it strictly opt-in per §1/§2.
-- AGNTCY/Outshift ecosystem immaturity risk, same caveat as companion ADR-237: treat every new package here as optional and versioned, never load-bearing, until the upstream specs stabilize past 1.0.
+- AGNTCY/Outshift ecosystem immaturity risk, same caveat as companion ADR-240: treat every new package here as optional and versioned, never load-bearing, until the upstream specs stabilize past 1.0.
 
 ## Alternatives Considered
 
@@ -107,7 +107,7 @@ The Rust crate specifically targets SLIM (already Rust) and the native IOC Layer
 
 ## Acceptance Test
 
-Shared with companion ADR-237: generate a MetaHarness agent, publish its signed OASF record (ADR-237), discover it from a second network (ADR-237, via Directory), verify its AGNTCY identity (ADR-237 §2.1), invoke it through SLIM (this ADR §2), reject one out-of-scope tool call through CASA (this ADR §3, using ADR-237 §4's compiled envelope), and reconstruct the complete run from OpenTelemetry spans and Flywheel receipts (this ADR §5 + ADR-237 §2.3).
+Shared with companion ADR-240: generate a MetaHarness agent, publish its signed OASF record (ADR-240), discover it from a second network (ADR-240, via Directory), verify its AGNTCY identity (ADR-240 §2.1), invoke it through SLIM (this ADR §2), reject one out-of-scope tool call through CASA (this ADR §3, using ADR-240 §4's compiled envelope), and reconstruct the complete run from OpenTelemetry spans and Flywheel receipts (this ADR §5 + ADR-240 §2.3).
 
 ## Open Questions
 
@@ -124,5 +124,5 @@ Shared with companion ADR-237: generate a MetaHarness agent, publish its signed 
 - SLIM architecture — https://github.com/agntcy/slim
 - Cisco CASA overview — https://outshift.cisco.com/blog/ai-ml/continuous-agentic-semantic-authorization-for-mas
 - IOC protocol repository — https://github.com/outshift-open/ioc-protocols-models
-- Companion: metaharness repo ADR-237 (`agent/adr-237-agntcy-outshift-integration` branch) — build-time half of this integration
+- Companion: metaharness repo ADR-240 (`agent/adr-237-agntcy-outshift-integration` branch) — build-time half of this integration
 - ADR-150 (`v3/docs/adr/ADR-150-metaharness-integration-surfaces.md`) — the optional/removable-augmentation precedent this ADR follows

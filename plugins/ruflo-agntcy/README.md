@@ -15,7 +15,7 @@ This plugin follows the **ADR-150 precedent**, not the ADR-321 hard-dependency e
 
 ## No upstream packages exist yet
 
-As of this plugin's scaffolding date, **no AGNTCY/SLIM/Outshift npm or crates.io package exists under any plausible name** — verified 404 across every guessed identifier. Nothing in this plugin `require`s or `import`s such a package. Any network-touching piece (Directory publish, SLIM connect, CASA policy fetch) is implemented as a **clearly-logged, clearly-erroring stub** behind a feature flag / config check, never faked as if it succeeded. The stub's error message points back at this plugin's governing ADRs (ADR-380, and companion metaharness ADR-237) so a caller understands *why* it failed, not just *that* it failed.
+As of this plugin's scaffolding date, **no AGNTCY/SLIM/Outshift npm or crates.io package exists under any plausible name** — verified 404 across every guessed identifier. Nothing in this plugin `require`s or `import`s such a package. Any network-touching piece (Directory publish, SLIM connect, CASA policy fetch) is implemented as a **clearly-logged, clearly-erroring stub** behind a feature flag / config check, never faked as if it succeeded. The stub's error message points back at this plugin's governing ADRs (ADR-380, and companion metaharness ADR-240) so a caller understands *why* it failed, not just *that* it failed.
 
 ## What's Included (per ADR-380)
 
@@ -24,11 +24,11 @@ As of this plugin's scaffolding date, **no AGNTCY/SLIM/Outshift npm or crates.io
 | **SLIM transport** | §2 | Opt-in transport switch (`ruflo transport use slim`) for cross-host/cross-tenant swarm and hive-mind coordination. Local in-process transport stays the default for single-host swarms — zero behavior change, zero new operational cost in the common case. |
 | **CASA authorization** | §3 | Deterministic, deny-by-default enforcement of a compiled intent envelope (`allow`/`deny`/`budget_usd`/`expires_at`) in front of every MCP tool call and `Agent`/`Task` dispatch. Enforcement never asks an LLM whether an action is permitted — that would defeat the entire point of the gate. |
 | **IOC Layer 9 coordination events** | §4 | Optional semantic coordination events (Semantic Information Exchange, Cognition and Interoperability, Semantic Alignment Broadcast, Team Formation via Polling) layered on top of — never replacing — Ruflo's own `hive-mind_broadcast` / `hive-mind_consensus` / `coordination_consensus` orchestration. |
-| **AGNTCY identity/observability** | §5 | OTel span attributes (`agent.identity`, `agent.capability`, `agent.intent`, `agent.parent`, `coordination.episode`, `authorization.decision`, `model.route`, `memory.provenance`, `evaluation.score`, `receipt.hash`) wired through the existing `ruflo-observability` plugin rather than a second tracing pipeline. Ruflo owns the two runtime-only attributes (`coordination.episode`, `authorization.decision`); the rest are emitted build-time by companion metaharness ADR-237. |
+| **AGNTCY identity/observability** | §5 | OTel span attributes (`agent.identity`, `agent.capability`, `agent.intent`, `agent.parent`, `coordination.episode`, `authorization.decision`, `model.route`, `memory.provenance`, `evaluation.score`, `receipt.hash`) wired through the existing `ruflo-observability` plugin rather than a second tracing pipeline. Ruflo owns the two runtime-only attributes (`coordination.episode`, `authorization.decision`); the rest are emitted build-time by companion metaharness ADR-240. |
 
 ## Companion ADR
 
-This plugin's runtime half is paired with metaharness repo ADR-237 (build-time half — AGNTCY identity generation, OASF export, semantic observability at manifest time). Neither ADR is complete without the other; see [ADR-380's "Companion" note](docs/adrs/ADR-380-agntcy-outshift-runtime-integration.md).
+This plugin's runtime half is paired with metaharness repo ADR-240 (build-time half — AGNTCY identity generation, OASF export, semantic observability at manifest time). Neither ADR is complete without the other; see [ADR-380's "Companion" note](docs/adrs/ADR-380-agntcy-outshift-runtime-integration.md).
 
 ## Requires
 
