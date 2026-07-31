@@ -99,6 +99,10 @@ const commandLoaders: Record<string, CommandLoader> = {
   spinner: () => import('./spinner.js'),
   // Ruflo entries in Claude Code's companyAnnouncements startup rotation (ADR-319)
   announcements: () => import('./announcements.js'),
+  // AGNTCY/Outshift runtime transport selection (ADR-324 §2) — optional,
+  // removable augmentation; no-ops to local transport when AGNTCY/SLIM is
+  // not configured (RUFLO_AGNTCY_SLIM_ENDPOINT unset).
+  transport: () => import('./agntcy/transport.js'),
 };
 
 // Cache for loaded commands
@@ -208,6 +212,7 @@ export async function getGuidanceCommand() { return loadCommand('guidance'); }
 export async function getApplianceCommand() { return loadCommand('appliance'); }
 export async function getCleanupCommand() { return loadCommand('cleanup'); }
 export async function getAutopilotCommand() { return loadCommand('autopilot'); }
+export async function getTransportCommand() { return loadCommand('transport'); }
 
 /**
  * Core commands loaded synchronously (available immediately)

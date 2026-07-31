@@ -1,0 +1,37 @@
+[package]
+name = "ruflo-agntcy"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "AGNTCY/Outshift runtime integration for ruflo: CASA intent-scoped authorization enforcement + SLIM transport surface (ADR-380)"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/ruflo"
+keywords = ["ruflo", "agntcy", "casa", "slim", "authorization"]
+categories = ["network-programming", "authentication"]
+
+[lib]
+crate-type = ["lib"]
+
+# The "slim" feature currently compiles a STUB ONLY.
+#
+# No `agntcy`/`slim` Rust crate is published on crates.io as of this
+# writing — every plausible package name (`agntcy-slim`, `slim-transport`,
+# `agntcy`, `outshift-slim`, etc.) 404s; verified during ADR-380
+# scaffolding, not assumed. Enabling this feature exposes `SlimTransport`
+# (see `src/transport.rs`), whose methods return an explicit
+# `Err(TransportError::Unavailable(...))` describing the missing
+# dependency rather than doing anything fake. It is NOT wired into
+# `default-features` so a plain `cargo build`/`cargo check` on this crate
+# never requires SLIM to exist.
+#
+# Swap in the real upstream dependency (as an optional Cargo dep gated
+# behind this same feature) once agntcy/slim publishes a Rust crate — see
+# ADR-380 §2 ("SLIM transport for distributed coordination") and §6
+# ("`@claude-flow/agntcy` package and Rust `ruflo agntcy` crate").
+[features]
+default = []
+slim = []
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
