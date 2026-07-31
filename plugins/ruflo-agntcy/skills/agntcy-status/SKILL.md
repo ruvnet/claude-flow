@@ -1,6 +1,7 @@
 ---
 name: agntcy-status
 description: Show AGNTCY/SLIM/CASA integration status — whether upstream AGNTCY packages are installed, which transport (local vs SLIM) is active, and whether CASA enforcement is enabled. Use when the user asks "is AGNTCY configured?", "show SLIM/CASA status", or "is AGNTCY/IOC integration active?".
+allowed-tools: Read
 argument-hint: ""
 ---
 
