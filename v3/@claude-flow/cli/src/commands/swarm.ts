@@ -7,6 +7,7 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { select, confirm, multiSelect } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
+import { swarmJoinCommand } from './agntcy/swarm-join.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -1072,7 +1073,7 @@ const pheromoneCommand: Command = {
 export const swarmCommand: Command = {
   name: 'swarm',
   description: 'Swarm coordination commands',
-  subcommands: [initCommand, startCommand, statusCommand, stopCommand, scaleCommand, coordinateCommand, compressMessageCommand, pheromoneCommand],
+  subcommands: [initCommand, startCommand, statusCommand, stopCommand, scaleCommand, coordinateCommand, compressMessageCommand, pheromoneCommand, swarmJoinCommand],
   options: [],
   examples: [
     { command: 'claude-flow swarm init --v3-mode', description: 'Initialize V3 swarm' },

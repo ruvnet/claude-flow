@@ -8,6 +8,7 @@ import { output } from '../output.js';
 import { select, confirm, input } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { wasmSubcommands } from './agent-wasm.js';
+import { agentPublishCommand } from './agntcy/publish.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -1076,7 +1077,7 @@ function formatLogLevel(level: string): string {
 export const agentCommand: Command = {
   name: 'agent',
   description: 'Agent management commands',
-  subcommands: [spawnCommand, listCommand, statusCommand, stopCommand, metricsCommand, poolCommand, healthCommand, logsCommand, ...wasmSubcommands],
+  subcommands: [spawnCommand, listCommand, statusCommand, stopCommand, metricsCommand, poolCommand, healthCommand, logsCommand, ...wasmSubcommands, agentPublishCommand],
   options: [],
   examples: [
     { command: 'claude-flow agent spawn -t coder', description: 'Spawn a coder agent' },
