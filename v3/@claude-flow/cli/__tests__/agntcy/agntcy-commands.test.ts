@@ -74,8 +74,27 @@ describe('agntcy command scaffold (ADR-380) — not-configured fallback', () => 
       expect(status.endpoint).toBeUndefined();
     });
 
-    it('reports not configured (package unpublished) when the endpoint is set', async () => {
+    it('reports configured when the endpoint is set and the optional package resolves', async () => {
+      // @agntcy/slim-bindings is pinned to the confirmed-working alpha
+      // (2.0.0-alpha.5, see package.json + runtime.ts's header comment for
+      // why — agntcy/slim#1916) and is a real optionalDependency here, so
+      // this genuinely exercises the "package installed and importable"
+      // path rather than asserting the old "not installed" fallback.
       const status = await detectAgntcyRuntime({ [AGNTCY_ENDPOINT_ENV]: 'https://slim.example.com' });
+      expect(status.configured).toBe(true);
+      expect(status.endpoint).toBe('https://slim.example.com');
+      expect(status.reason).toMatch(/resolved/);
+    });
+
+    it('still degrades gracefully if the optional package genuinely is not installed', async () => {
+      // Regression guard for the "works without AGNTCY installed" contract
+      // this file's header describes — simulate a MODULE_NOT_FOUND by
+      // probing a package name guaranteed not to exist, exercising the
+      // same catch branch a real "not installed" environment would hit.
+      const status = await detectAgntcyRuntime(
+        { [AGNTCY_ENDPOINT_ENV]: 'https://slim.example.com' },
+        '@agntcy/this-package-does-not-exist-in-any-registry',
+      );
       expect(status.configured).toBe(false);
       expect(status.endpoint).toBe('https://slim.example.com');
       expect(status.reason).toMatch(/not installed|error probing/);

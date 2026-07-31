@@ -159,6 +159,35 @@ a remote hosted service (`schema.oasf.outshift.com`), not local source in
 any AGNTCY repo. Filed as
 [agntcy/dir#1943](https://github.com/agntcy/dir/issues/1943) instead.
 
+## Update (2026-07-31, part 2) — both filed bugs resolved; SLIM is now live
+
+**agntcy/dir#1943 was our bug, not upstream's.** Maintainer @akijakya
+identified the real cause: the record pushed to the Directory declared
+`schema_version: '0.8.0'` while the skill ids/names being sent were derived
+from OASF **1.1.0**'s taxonomy — the server validates a skill against the
+taxonomy for the record's *own declared* version, so every 1.1.0-derived
+id/name was checked against 0.8.0 and correctly rejected. `id=60101`
+"worked" only by coincidence (0.8.0 has an unrelated skill, "indexing", at
+that same numeric slot). Fixing `schema_version` to `'1.1.0'` in the
+companion metaharness package resolved it completely — verified live, all
+9 previously-"broken" ids now push, and `id`+`name` sent together also
+works. Closed the issue with the resolution.
+
+**agntcy/slim#1916 is now live-connectable.** The SLIM maintainers
+confirmed they've moved off `uniffi-bindgen-react-native` onto
+`@ubjs/core`/`@ubjs/node` (compiled output) in the `alpha` dist-tag
+(`2.0.0-alpha.4+`), not yet promoted to `latest`. Verified live: a real
+server bring-up + client connect + graceful shutdown against
+`@agntcy/slim-bindings@2.0.0-alpha.5` succeeds under plain Node with zero
+errors. `package.json` now pins that exact version (deliberately, not a
+caret range — this is a pre-release channel) until the fix is promoted to
+`latest`. `detectAgntcyRuntime()` needed **zero code changes** — its
+existing graceful-degradation design already handled both directions
+correctly; only the pinned dependency version and its own doc comments
+changed. Real, end-to-end verified: `detectAgntcyRuntime()` now returns
+`configured: true` when `RUFLO_AGNTCY_SLIM_ENDPOINT` is set, not just in
+theory.
+
 ## References
 
 - Cisco AGNTCY overview — https://outshift.cisco.com/the-internet-of-agents/agntcy

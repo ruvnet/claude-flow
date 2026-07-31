@@ -191,8 +191,8 @@ importers:
         version: 3.25.76
     optionalDependencies:
       '@agntcy/slim-bindings':
-        specifier: ^1.4.1
-        version: 1.4.1
+        specifier: 2.0.0-alpha.5
+        version: 2.0.0-alpha.5
       '@claude-flow/memory':
         specifier: ^3.0.0-alpha.21
         version: link:../memory
@@ -668,97 +668,80 @@ packages:
   /@actions/io@2.0.0:
     resolution: {integrity: sha512-Jv33IN09XLO+0HS79aaODsvIRyduiF7NY/F6LYeK5oeUmrsz7aFdRphQjFoESF4jS7lMauDOttKALcpapVDIAg==}
 
-  /@agntcy/slim-bindings-darwin-arm64@1.4.1:
-    resolution: {integrity: sha512-K9IbX/nnsfJFXEQICukO0XfCFj/0UqY2DhL9nnjFbfO9Zq+hKzreWMzLLzHvffFrONwPFgijg6cM4L7ImAvssw==}
+  /@agntcy/slim-bindings-darwin-arm64@2.0.0-alpha.5:
+    resolution: {integrity: sha512-M5DP+SPVn+ReAAK6GxHosxciNMCWZv1vxZziPcxWMt+HIOt4/9w7vlbJPe1dfmdEHegE9iNGQ+AOSKOfQS5rhQ==}
     engines: {node: '>=18.0.0'}
     requiresBuild: true
     dependencies:
-      ffi-rs: 1.3.4
-      ref-napi: 3.0.3
-      uniffi-bindgen-react-native: 0.29.3-1
-    transitivePeerDependencies:
-      - supports-color
+      '@ubjs/core': 0.31.0-3
+      '@ubjs/node': 0.31.0-3
     dev: false
     optional: true
 
-  /@agntcy/slim-bindings-darwin-x64@1.4.1:
-    resolution: {integrity: sha512-pOPKDmfUfXpKH04nnCh+cPfDu4Hyp4wgH0L1NxZkrArswPgqUzRVeawz80NUCkEgv3o88QCcVOpHr+APU1xFzg==}
+  /@agntcy/slim-bindings-darwin-x64@2.0.0-alpha.5:
+    resolution: {integrity: sha512-xWbywk8ZNABApjKiUe8E6umkGXYTNQBKAO1ZFPQfOP1OrSf3oupJTv/pkzsRifh+/dOFaojpZFvcZJfeM1L/jA==}
     engines: {node: '>=18.0.0'}
     requiresBuild: true
     dependencies:
-      ffi-rs: 1.3.4
-      ref-napi: 3.0.3
-      uniffi-bindgen-react-native: 0.29.3-1
-    transitivePeerDependencies:
-      - supports-color
+      '@ubjs/core': 0.31.0-3
+      '@ubjs/node': 0.31.0-3
     dev: false
     optional: true
 
-  /@agntcy/slim-bindings-linux-arm64-gnu@1.4.1:
-    resolution: {integrity: sha512-5EcZogyHtY+w5gART3jYutYEdSwDca1iSgdI5F5fmrLWaojhGltgJtM3CHmctDeigSVH+IUY0d6ZjqabuK2UlQ==}
+  /@agntcy/slim-bindings-linux-arm64-gnu@2.0.0-alpha.5:
+    resolution: {integrity: sha512-+3YZRrVNYpY4eD4Wn9aza6rsiGwB/hz/ojxyCPgeK9/4QFYVvUMnVq4H4sN+k5ckJP7lrR6ncfEqp7BJyOwKQA==}
     engines: {node: '>=18.0.0'}
     requiresBuild: true
     dependencies:
-      ffi-rs: 1.3.4
-      ref-napi: 3.0.3
-      uniffi-bindgen-react-native: 0.29.3-1
-    transitivePeerDependencies:
-      - supports-color
+      '@ubjs/core': 0.31.0-3
+      '@ubjs/node': 0.31.0-3
     dev: false
     optional: true
 
-  /@agntcy/slim-bindings-linux-x64-gnu@1.4.1:
-    resolution: {integrity: sha512-XFQLlbK32mt5hH5EMM0DqlWBuKv6o+OMbVbD8u1/qE07YEEvgRiDkunHlGoKn2HdggQdMSEEZjH/QsitBBuCqA==}
+  /@agntcy/slim-bindings-linux-x64-gnu@2.0.0-alpha.5:
+    resolution: {integrity: sha512-BYGtMWtJJTd+z6eioFvbGbg/oq0DwjhHRJtTYvNpHQ6CFhja3PhuxcUPrW53xKVLTD3saeZq8MVOGq2tuF+PRQ==}
     engines: {node: '>=18.0.0'}
     requiresBuild: true
     dependencies:
-      ffi-rs: 1.3.4
-      ref-napi: 3.0.3
-      uniffi-bindgen-react-native: 0.29.3-1
-    transitivePeerDependencies:
-      - supports-color
+      '@ubjs/core': 0.31.0-3
+      '@ubjs/node': 0.31.0-3
     dev: false
     optional: true
 
-  /@agntcy/slim-bindings-win32-arm64-msvc@1.4.1:
-    resolution: {integrity: sha512-adDCdLpX/OkJV3zQbDraKaPCedOCgO6ZLZjDZ9bLPh6DUlDmz6PcqA8HkbGc5TEFfo4XFEExyGPo0SgtUn/+/A==}
+  /@agntcy/slim-bindings-win32-arm64-msvc@2.0.0-alpha.5:
+    resolution: {integrity: sha512-dO6/JdvE2ANVujXMTSxSMqb94YN9+ox7HbNaSzQt8shERB/5XFgWKYDCrwEJC26ux8FzQcvaq8mnlePGueDq7g==}
     engines: {node: '>=18.0.0'}
     requiresBuild: true
     dependencies:
-      ffi-rs: 1.3.4
-      ref-napi: 3.0.3
-      uniffi-bindgen-react-native: 0.29.3-1
-    transitivePeerDependencies:
-      - supports-color
+      '@ubjs/core': 0.31.0-3
+      '@ubjs/node': 0.31.0-3
     dev: false
     optional: true
 
-  /@agntcy/slim-bindings-win32-x64-msvc@1.4.1:
-    resolution: {integrity: sha512-Pkj4BhVyfXh13uDkGF9iU3aBJ2XB/T3RAk9EW9fHUk5uvkpd14VD7oYKQBQtb7SIEKGohC2UX3/jZ8yj+ujlpA==}
+  /@agntcy/slim-bindings-win32-x64-msvc@2.0.0-alpha.5:
+    resolution: {integrity: sha512-w0mKFPKKkhwfQzaC/p1Ke3ogNL4AyxC9jt0LY0LsBHNIJaPPBvAbLMLVslZBgn2ghrMRS/nxdacdQrAcFQQzXg==}
     engines: {node: '>=18.0.0'}
     requiresBuild: true
     dependencies:
-      ffi-rs: 1.3.4
-      ref-napi: 3.0.3
-      uniffi-bindgen-react-native: 0.29.3-1
-    transitivePeerDependencies:
-      - supports-color
+      '@ubjs/core': 0.31.0-3
+      '@ubjs/node': 0.31.0-3
     dev: false
     optional: true
 
-  /@agntcy/slim-bindings@1.4.1:
-    resolution: {integrity: sha512-xyBp0/I2Qb0/G0Xe7GaexjdTvLBpbN9qCWNutoYH66BEF5+dlZ+aZgspjuVJxjkC1iOnDvQag8yaax8betr8Lg==}
+  /@agntcy/slim-bindings@2.0.0-alpha.5:
+    resolution: {integrity: sha512-QBpln5ubYbJ7nMY2SUWJJfUsl5qmezqWNwcatdjuaZaK2dDIj2RHAvgNKNmuf8Exg+kuI/88SFrAZMNxLJolNQ==}
     engines: {node: '>=18.0.0'}
     requiresBuild: true
+    dependencies:
+      '@ubjs/core': 0.31.0-3
+      '@ubjs/node': 0.31.0-3
     optionalDependencies:
-      '@agntcy/slim-bindings-darwin-arm64': 1.4.1
-      '@agntcy/slim-bindings-darwin-x64': 1.4.1
-      '@agntcy/slim-bindings-linux-arm64-gnu': 1.4.1
-      '@agntcy/slim-bindings-linux-x64-gnu': 1.4.1
-      '@agntcy/slim-bindings-win32-arm64-msvc': 1.4.1
-      '@agntcy/slim-bindings-win32-x64-msvc': 1.4.1
-    transitivePeerDependencies:
-      - supports-color
+      '@agntcy/slim-bindings-darwin-arm64': 2.0.0-alpha.5
+      '@agntcy/slim-bindings-darwin-x64': 2.0.0-alpha.5
+      '@agntcy/slim-bindings-linux-arm64-gnu': 2.0.0-alpha.5
+      '@agntcy/slim-bindings-linux-x64-gnu': 2.0.0-alpha.5
+      '@agntcy/slim-bindings-win32-arm64-msvc': 2.0.0-alpha.5
+      '@agntcy/slim-bindings-win32-x64-msvc': 2.0.0-alpha.5
     dev: false
     optional: true
 
@@ -6677,6 +6660,91 @@ packages:
     dependencies:
       '@types/node': 20.19.27
 
+  /@ubjs/core@0.31.0-3:
+    resolution: {integrity: sha512-39XrJgUZ2VVb561sSnkXPhczNoeBsNiSRArecsV0JE7CJq69ajFkcn9/tBAUS2NpgHkLIDU+z6Ks2+1wXnboxg==}
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@ubjs/node-darwin-arm64@0.31.0-3:
+    resolution: {integrity: sha512-GGQVPLkVo4Gc8qVLW4IGvS8bjl8eHXyeP4a97ntGmsAdXwE5gsS29o8xUEFROjhwHKD+9sgVeblCSWVG3CpHsw==}
+    cpu: [arm64]
+    os: [darwin]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@ubjs/node-darwin-x64@0.31.0-3:
+    resolution: {integrity: sha512-2sc47u4XFYOsbmP5EW+Gx8m/yGrYnfFDFQm6+kz7goSWTNg84eEiz3COs9HKJDVuNJ5Khv5XipTO8CFadMLXCw==}
+    cpu: [x64]
+    os: [darwin]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@ubjs/node-linux-arm64-gnu@0.31.0-3:
+    resolution: {integrity: sha512-YStVXhYz/5jvlWf/p4fhiVT72unYAbGugifFC9QmO/+hnroQDAQ5t8SARbsc15G4olMcamdIB+GETiUB7gmaYg==}
+    cpu: [arm64]
+    os: [linux]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@ubjs/node-linux-arm64-musl@0.31.0-3:
+    resolution: {integrity: sha512-Izp4nvfy/LmibzFowAztkoDOksCR2fb2zl6fh1ojR1HEsg0rAGruxtI8d3fn8DI0lBXwqmn6SF///oD4mFNJPQ==}
+    cpu: [arm64]
+    os: [linux]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@ubjs/node-linux-x64-gnu@0.31.0-3:
+    resolution: {integrity: sha512-Xdm21blyg5U/kW6s7OMvgrr8coGTkUlt26DVR9x8gKISif+E3YwdEskbFScWqystAiJnfjw7xHEc8UMu0Qlz7Q==}
+    cpu: [x64]
+    os: [linux]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@ubjs/node-linux-x64-musl@0.31.0-3:
+    resolution: {integrity: sha512-fFQ9BWS6i2LUH9SJgD9oEiKXXo/say59vHy7usFe1t7C2xvwvP34f5SuxXmWP9R8fHyA0aC4kIZ+TTwyHSv1Kw==}
+    cpu: [x64]
+    os: [linux]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@ubjs/node-win32-arm64-msvc@0.31.0-3:
+    resolution: {integrity: sha512-ID6rSz1NmPsWTNBBNAw4OnJ5Dj8pcbtNJtdPB3OxcGigLBd/e0x7buhSI7os6Mo5iYtEdCynBRQHFJwub5XSPg==}
+    cpu: [arm64]
+    os: [win32]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@ubjs/node-win32-x64-msvc@0.31.0-3:
+    resolution: {integrity: sha512-wevs+Y+szwcCUT8IJFbB4/1nfxyRv/51l8oG7FGUPWD1xLPyuHfJBG27C+PDeC7KRzes/2n6aLo4DGZbr/LYTw==}
+    cpu: [x64]
+    os: [win32]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@ubjs/node@0.31.0-3:
+    resolution: {integrity: sha512-qNMpi2LICNwxGXZyRF8fSDBSpbezyZbEsydrbiMPJOmtOWr4tmZIEl7jkWGHVGShoBvHfFo4eHp5B4UVP928Cg==}
+    requiresBuild: true
+    optionalDependencies:
+      '@ubjs/node-darwin-arm64': 0.31.0-3
+      '@ubjs/node-darwin-x64': 0.31.0-3
+      '@ubjs/node-linux-arm64-gnu': 0.31.0-3
+      '@ubjs/node-linux-arm64-musl': 0.31.0-3
+      '@ubjs/node-linux-x64-gnu': 0.31.0-3
+      '@ubjs/node-linux-x64-musl': 0.31.0-3
+      '@ubjs/node-win32-arm64-msvc': 0.31.0-3
+      '@ubjs/node-win32-x64-msvc': 0.31.0-3
+    dev: false
+    optional: true
+
   /@ungap/structured-clone@1.3.0:
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
     dev: true
@@ -6804,105 +6872,6 @@ packages:
       - bare-abort-controller
       - bare-buffer
       - react-native-b4a
-
-  /@yuuang/ffi-rs-android-arm64@1.3.4:
-    resolution: {integrity: sha512-2ywkkOk1j1lbcYyaH9KeyR7i2Qtq4gDfnkmhF5vlRGnwve1j5RWH2ZlF3990raEx6OLophke/JXfUGQL9Dy0ig==}
-    engines: {node: '>= 12'}
-    cpu: [arm64]
-    os: [android]
-    requiresBuild: true
-    dev: false
-    optional: true
-
-  /@yuuang/ffi-rs-darwin-arm64@1.3.4:
-    resolution: {integrity: sha512-FEogaqNfk9yI9szLebGW9JR/OAwMZ+vkeHVhpcZBvRWTce5IA7mfZorY2KhzP+SEjz4F5q5+fFr6GzHzm/gxvQ==}
-    engines: {node: '>= 12'}
-    cpu: [arm64]
-    os: [darwin]
-    requiresBuild: true
-    dev: false
-    optional: true
-
-  /@yuuang/ffi-rs-darwin-x64@1.3.4:
-    resolution: {integrity: sha512-JuEPUOsE7qz6o4kSKgX+KymzSFUvyafpGykVbvm9+11Gx/fQy1lzrYkg2VdI70ctM3mjWARGpcaVZlCyPZVRvg==}
-    engines: {node: '>= 12'}
-    cpu: [x64]
-    os: [darwin]
-    requiresBuild: true
-    dev: false
-    optional: true
-
-  /@yuuang/ffi-rs-linux-arm-gnueabihf@1.3.4:
-    resolution: {integrity: sha512-9Alv4r8uZ/kZN6PKqIUoqrtWcpOD/iq3R/w31dEM2aQ8XaftZVD5oANO8IP9lFROb8QmJwDpyW1mfG1GQ0WJjA==}
-    engines: {node: '>= 12'}
-    cpu: [arm]
-    os: [linux]
-    requiresBuild: true
-    dev: false
-    optional: true
-
-  /@yuuang/ffi-rs-linux-arm64-gnu@1.3.4:
-    resolution: {integrity: sha512-iconeq2sjAgPn9RyLhfnjawaepeaj8o9EdSI4fg3y92dr0Tbjkr2KjNREgloLN1Jw5BGPt89/sJsDqBWLZP8Rg==}
-    engines: {node: '>= 12'}
-    cpu: [arm64]
-    os: [linux]
-    requiresBuild: true
-    dev: false
-    optional: true
-
-  /@yuuang/ffi-rs-linux-arm64-musl@1.3.4:
-    resolution: {integrity: sha512-ptjhnk2M0QTWaKq59wCR4mZ6LeRFOEXmsybp/SOHn5OZ8XYZLnv5FqSGHLPeJp2WvwzhS8SNjn/A2XmHfF3vow==}
-    engines: {node: '>= 12'}
-    cpu: [arm64]
-    os: [linux]
-    requiresBuild: true
-    dev: false
-    optional: true
-
-  /@yuuang/ffi-rs-linux-x64-gnu@1.3.4:
-    resolution: {integrity: sha512-TM0nfjruTuipNbksyV3iKvMKFeIHNI15tpPuqOzndcVi1Ms1I4tEAyi0gYTFjXUtcjSwBdjhztmIYphStRLVug==}
-    engines: {node: '>= 12'}
-    cpu: [x64]
-    os: [linux]
-    requiresBuild: true
-    dev: false
-    optional: true
-
-  /@yuuang/ffi-rs-linux-x64-musl@1.3.4:
-    resolution: {integrity: sha512-aKPSWXoEutWw8et4dhp4tq3x7FOg3C2mBT4gJr/cJxE/vcGxFKCsg3HjKNi3D1BwSZqh0bGuniZCFrde2DpkkA==}
-    engines: {node: '>= 12'}
-    cpu: [x64]
-    os: [linux]
-    requiresBuild: true
-    dev: false
-    optional: true
-
-  /@yuuang/ffi-rs-win32-arm64-msvc@1.3.4:
-    resolution: {integrity: sha512-hJndCj9xEosRw9Xn02IwzfXy8tgXvspJT5Qhpld9xXDFZyY0wYKxxO2VZhJNiIuX9vuEUgqeVvfCp5EeTpom1Q==}
-    engines: {node: '>= 12'}
-    cpu: [arm64]
-    os: [win32]
-    requiresBuild: true
-    dev: false
-    optional: true
-
-  /@yuuang/ffi-rs-win32-ia32-msvc@1.3.4:
-    resolution: {integrity: sha512-tXowkiiq3mdnK8CtgSWKQ1dRLJvF0d1pd4qomIl8Pv1To1SWATZ20lag3sXv19+utdrwInWvCi4NjHDmN92Y1A==}
-    engines: {node: '>= 12'}
-    cpu: [x64, ia32]
-    os: [win32]
-    requiresBuild: true
-    dev: false
-    optional: true
-
-  /@yuuang/ffi-rs-win32-x64-msvc@1.3.4:
-    resolution: {integrity: sha512-Kxr2Z2EU2Lutl7hBYrs90/s0lQ6OWavscVu62Bx4gckg+DdxZaQuxHRktdL5ITH7tdUewj3OqkcUNZXCvGCe0Q==}
-    engines: {node: '>= 12'}
-    cpu: [x64]
-    os: [win32]
-    requiresBuild: true
-    dev: false
-    optional: true
 
   /abbrev@1.1.1:
     resolution: {integrity: sha512-nne9/IiQ/hzIhY6pdDnbBtz7DjPTKrY00P/zvPSm5pOFkl6xuGrGnXn/VtTNNfNtAfZ9/1RtehkszU9qcTii0Q==}
@@ -9030,24 +8999,6 @@ packages:
       node-domexception: 1.0.0
       web-streams-polyfill: 3.3.3
 
-  /ffi-rs@1.3.4:
-    resolution: {integrity: sha512-rUX011WXszmHHmu/HO5CZQCscU+poR4tPrrTO+M1ePbq2QIptpklpr/Fujc8GBuILNXBdxVRsn+Kfp3uihsHFw==}
-    requiresBuild: true
-    optionalDependencies:
-      '@yuuang/ffi-rs-android-arm64': 1.3.4
-      '@yuuang/ffi-rs-darwin-arm64': 1.3.4
-      '@yuuang/ffi-rs-darwin-x64': 1.3.4
-      '@yuuang/ffi-rs-linux-arm-gnueabihf': 1.3.4
-      '@yuuang/ffi-rs-linux-arm64-gnu': 1.3.4
-      '@yuuang/ffi-rs-linux-arm64-musl': 1.3.4
-      '@yuuang/ffi-rs-linux-x64-gnu': 1.3.4
-      '@yuuang/ffi-rs-linux-x64-musl': 1.3.4
-      '@yuuang/ffi-rs-win32-arm64-msvc': 1.3.4
-      '@yuuang/ffi-rs-win32-ia32-msvc': 1.3.4
-      '@yuuang/ffi-rs-win32-x64-msvc': 1.3.4
-    dev: false
-    optional: true
-
   /figures@2.0.0:
     resolution: {integrity: sha512-Oa2M9atig69ZkfwiApY8F2Yy+tzMbazyvqv21R0NsSC8floSOC09BbT1ITWAdoMGQvJ/aZnR1KMwdx9tvHnTNA==}
     engines: {node: '>=4'}
@@ -9371,12 +9322,6 @@ packages:
     dependencies:
       '@sec-ant/readable-stream': 0.4.1
       is-stream: 4.0.1
-
-  /get-symbol-from-current-process-h@1.0.2:
-    resolution: {integrity: sha512-syloC6fsCt62ELLrr1VKBM1ggOpMdetX9hTrdW77UQdcApPHLmf7CI7OKcN1c9kYuNxKcDe4iJ4FY9sX3aw2xw==}
-    requiresBuild: true
-    dev: false
-    optional: true
 
   /get-tsconfig@4.13.0:
     resolution: {integrity: sha512-1VKTZJCwBrvbd+Wn3AOgQP/2Av+TfTCOlE4AcRJE72W1ksZXbAx8PPBR9RzgTeSPzlPMHrbANMH3LbltH73wxQ==}
@@ -10706,12 +10651,6 @@ packages:
     dependencies:
       semver: 7.7.3
 
-  /node-addon-api@3.2.1:
-    resolution: {integrity: sha512-mmcei9JghVNDYydghQmeDX8KoAm0FAiYyIcUt/N4nhyAipB17pllZQDOJD2fotxABnt4Mdz+dKTO7eftLg4d0A==}
-    requiresBuild: true
-    dev: false
-    optional: true
-
   /node-addon-api@6.1.0:
     resolution: {integrity: sha512-+eawOlIgy680F0kBzPUNFhMZGtJ1YmqM6l4+Crf4IkImjYrO/mqPwRMh352g23uIaQKFItcQ64I7KMaJxHgAVA==}
 
@@ -11658,20 +11597,6 @@ packages:
     dependencies:
       esprima: 4.0.1
     dev: false
-
-  /ref-napi@3.0.3:
-    resolution: {integrity: sha512-LiMq/XDGcgodTYOMppikEtJelWsKQERbLQsYm0IOOnzhwE9xYZC7x8txNnFC9wJNOkPferQI4vD4ZkC0mDyrOA==}
-    engines: {node: '>= 10.0'}
-    requiresBuild: true
-    dependencies:
-      debug: 4.4.3
-      get-symbol-from-current-process-h: 1.0.2
-      node-addon-api: 3.2.1
-      node-gyp-build: 4.8.4
-    transitivePeerDependencies:
-      - supports-color
-    dev: false
-    optional: true
 
   /registry-auth-token@5.1.0:
     resolution: {integrity: sha512-GdekYuwLXLxMuFTwAPg5UKGLW/UXzQrZvH/Zj791BQif5T05T0RsaLfHc9q3ZOKi7n+BoprPD9mJ0O0k4xzUlw==}
@@ -12933,13 +12858,6 @@ packages:
   /unicorn-magic@0.3.0:
     resolution: {integrity: sha512-+QBBXBCvifc56fsbuxZQ6Sic3wqqc3WWaqxs58gvJrcOuN83HGTCwz3oS5phzU9LthRNE9VrJCFCLUgHeeFnfA==}
     engines: {node: '>=18'}
-
-  /uniffi-bindgen-react-native@0.29.3-1:
-    resolution: {integrity: sha512-o6gXZsAh55yuvhwF2WSFdIHV4phyfWcCmg4DuyfJWJ7CvUz1UcIz2S4u9SmXAz1jsuqvu6Xc9hexrRBB0a5osg==}
-    hasBin: true
-    requiresBuild: true
-    dev: false
-    optional: true
 
   /unique-filename@1.1.1:
     resolution: {integrity: sha512-Vmp0jIp2ln35UTXuryvjzkjGdRyf9b2lTXuSYUiPmzRcl3FDtYqAwOnTJkAngD9SWhnoJzDbTKwaOrZ+STtxNQ==}

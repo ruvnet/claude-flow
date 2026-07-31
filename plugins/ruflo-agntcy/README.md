@@ -13,9 +13,11 @@ This plugin follows the **ADR-150 precedent**, not the ADR-321 hard-dependency e
 - Every code path that touches AGNTCY infrastructure MUST catch `MODULE_NOT_FOUND` / connection-refused and fall back to today's local transport and existing tool-authorization model.
 - This MUST pass a "works without AGNTCY installed" smoke test, mirrored on ADR-150's CI-gated architectural-constraint pattern.
 
-## No upstream packages exist yet
+## Upstream package status — corrected, and now live
 
-As of this plugin's scaffolding date, **no AGNTCY/SLIM/Outshift npm or crates.io package exists under any plausible name** — verified 404 across every guessed identifier. Nothing in this plugin `require`s or `import`s such a package. Any network-touching piece (Directory publish, SLIM connect, CASA policy fetch) is implemented as a **clearly-logged, clearly-erroring stub** behind a feature flag / config check, never faked as if it succeeded. The stub's error message points back at this plugin's governing ADRs (ADR-380, and companion metaharness ADR-240) so a caller understands *why* it failed, not just *that* it failed.
+**This section originally claimed no AGNTCY/SLIM/Outshift npm package existed under any plausible name.** That was wrong — the original check only tried guessed, scoped names and got 404s. The real SLIM package is `@agntcy/slim-bindings`, and as of 2026-07-31 it is genuinely live-connectable (pinned to the confirmed-working `2.0.0-alpha.5`; see [ADR-380's own "Update" sections](docs/adrs/ADR-380-agntcy-outshift-runtime-integration.md#update-2026-07-31--corrected-real-agntcy-packages-exist) for the full history, including two real upstream bugs found, filed, and resolved along the way). `detectAgntcyRuntime()` needed zero code changes for this — its existing graceful-degradation design already handled both "package resolves" and "package missing" correctly; only the pinned dependency version changed.
+
+The remaining honest gaps: AGNTCY Identity has no JS/TS SDK (genuinely Go-only, verified), and this plugin's CASA policy compiler is a real, tested implementation but enforcement still lives in the runtime layer per ADR-380 §3, never in this compiler. Nothing here fakes a success it hasn't earned.
 
 ## What's Included (per ADR-380)
 
