@@ -686,13 +686,27 @@ function suggestAgentsForFile(filePath: string): string[] {
   return AGENT_PATTERNS[ext] || ['coder', 'architect'];
 }
 
-function suggestAgentsForTask(task: string): { agents: string[]; confidence: number } {
+type AgentSuggestion = {
+  agents: string[];
+  confidence: number;
+  /**
+   * How the suggestion was reached. Callers need this to tell a substring hit
+   * on the hardcoded KEYWORD_PATTERNS table apart from a nearest-neighbour
+   * match against real recorded outcomes — the latter is evidence, the former
+   * is a guess (#2886).
+   */
+  source: 'keyword' | 'outcome-overlap' | 'default';
+  /** Number of overlapping keywords, when source === 'outcome-overlap'. */
+  overlap?: number;
+};
+
+function suggestAgentsForTask(task: string): AgentSuggestion {
   const taskLower = task.toLowerCase();
 
   // Check static keyword patterns first
   for (const [pattern, result] of Object.entries(KEYWORD_PATTERNS)) {
     if (taskLower.includes(pattern)) {
-      return result;
+      return { ...result, source: 'keyword' };
     }
   }
 
@@ -714,12 +728,17 @@ function suggestAgentsForTask(task: string): { agents: string[]; confidence: num
 
     // Require at least 2 keyword overlap to prevent false positives
     if (bestAgent && bestOverlap >= 2) {
-      return { agents: [bestAgent], confidence: Math.min(0.6 + bestOverlap * 0.05, 0.85) };
+      return {
+        agents: [bestAgent],
+        confidence: Math.min(0.6 + bestOverlap * 0.05, 0.85),
+        source: 'outcome-overlap',
+        overlap: bestOverlap,
+      };
     }
   }
 
   // Default fallback
-  return { agents: ['coder', 'researcher', 'tester'], confidence: 0.7 };
+  return { agents: ['coder', 'researcher', 'tester'], confidence: 0.7, source: 'default' };
 }
 
 function assessCommandRisk(command: string): { risk: string; level: number; warnings: string[] } {
@@ -1144,7 +1163,36 @@ export const hooksRoute: MCPTool = {
       return Number(match.metadata.support ?? 0) >= 2
         && Number(match.metadata.reliability ?? 0) >= 0.75;
     });
-    if (eligibleSemantic) {
+    // #2886: a STATIC pattern clears only the score bar — it carries no
+    // support/reliability evidence — yet winning `.find()` order lets it
+    // short-circuit suggestAgentsForTask() entirely. That function holds a
+    // second learned stage: nearest-neighbour over routing-outcomes.json,
+    // gated at >= 2 overlapping keywords. So a static pattern matching on a
+    // char-hash similarity score beats an outcome match with 14 shared
+    // keywords. Measured on a 76-outcome replay: static is the least accurate
+    // decision path (38%) while keyword-fallback reaches 52% and learned 70%.
+    //
+    // Fix: when the best eligible match is static, consult the outcome store
+    // first and prefer it when it has real support. Learned matches are
+    // untouched — they already carry support/reliability, so they keep
+    // precedence exactly as #2864 intended.
+    const semanticIsLearned = eligibleSemantic
+      ? (eligibleSemantic.intent.startsWith('learned-')
+         || eligibleSemantic.metadata.source === 'learned')
+      : false;
+    const overlapSuggestion = (eligibleSemantic && !semanticIsLearned)
+      ? suggestAgentsForTask(task)
+      : null;
+
+    if (overlapSuggestion && overlapSuggestion.source === 'outcome-overlap') {
+      agents = overlapSuggestion.agents;
+      confidence = overlapSuggestion.confidence;
+      matchedPattern = 'outcome-overlap';
+      routingMethod = 'keyword';
+      // Surface WHICH static pattern was outranked, so the decision is
+      // auditable instead of silently different.
+      backendInfo = `outcome overlap (${overlapSuggestion.overlap} keywords) preferred over static ${eligibleSemantic!.intent}`;
+    } else if (eligibleSemantic) {
       const topMatch = eligibleSemantic;
       agents = (topMatch.metadata.agents as string[]) || ['coder', 'researcher'];
       confidence = topMatch.score;
