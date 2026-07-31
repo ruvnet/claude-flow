@@ -9,20 +9,31 @@
  * (`@claude-flow/agntcy`) and concluded no real SLIM SDK existed anywhere.
  * That check only tried guessed names — the real package is
  * `@agntcy/slim-bindings` (npm, real, published, documented for plain
- * Node.js use). It currently **fails to load** in plain Node, but for a
- * different, more specific reason: a transitive dependency
- * (`uniffi-bindgen-react-native`) ships raw, uncompiled TypeScript as its
- * package.json `main`, which only works inside a bundler (Metro, for its
- * React Native use case) — not plain `require`/`import`. Filed upstream:
+ * Node.js use).
+ *
+ * `@agntcy/slim-bindings@1.4.1` (npm `latest`) fails to load in plain Node —
+ * a transitive dependency (`uniffi-bindgen-react-native`) ships raw,
+ * uncompiled TypeScript as its package.json `main`, which only works inside
+ * a bundler (Metro, for its React Native use case). Filed upstream:
  * agntcy/slim#1916 and jhugman/uniffi-bindgen-react-native#422 (root cause).
  *
- * This module's existing graceful-degradation design already handles this
+ * UPDATE (2026-07-31, later): the SLIM maintainers confirmed they've moved
+ * off `uniffi-bindgen-react-native` onto `@ubjs/core`/`@ubjs/node` (compiled
+ * output, not raw TS) in the `alpha` dist-tag (`2.0.0-alpha.4+`), not yet
+ * promoted to `latest`. Verified live: a real server-bring-up + client-
+ * connect + graceful-shutdown smoke test against `@agntcy/slim-bindings@
+ * 2.0.0-alpha.5` succeeds under plain Node with zero errors. `package.json`
+ * now pins that exact alpha version (not a caret range — this is a
+ * pre-release channel, pin deliberately rather than floating) until the fix
+ * is promoted to `latest`, tracked by the same issue.
+ *
+ * This module's existing graceful-degradation design already handled this
  * correctly without any change to its logic: `detectAgntcyRuntime()`'s
  * catch-all branch (anything other than MODULE_NOT_FOUND) reports the real
- * underlying error and falls back to local transport — which is exactly
- * what happens today when the dynamic import hits the packaging bug above.
- * Once that upstream issue is fixed, this same code path starts succeeding
- * with zero changes needed here.
+ * underlying error and falls back to local transport when the import fails.
+ * Now that the pinned version actually loads, the happy path
+ * (`configured: true`) is real and verified, not aspirational — no change
+ * to this function was needed either way.
  *
  * Per ADR-150's precedent (which ADR-380 §1 explicitly follows, not
  * ADR-321's hard-dependency exception):
@@ -73,17 +84,19 @@ export interface AgntcyRuntimeStatus {
  * in order:
  *   1. An env var presence check for {@link AGNTCY_ENDPOINT_ENV}. Absent →
  *      not configured, no further work.
- *   2. A dynamic `import()` of {@link AGNTCY_PACKAGE_NAME}, wrapped in
- *      try/catch. The package is real and installable, but today the
- *      import fails at load time due to an upstream packaging bug in one
- *      of its transitive dependencies (see this file's header comment) —
- *      that failure surfaces through the generic catch branch below with
- *      the real error message, not the MODULE_NOT_FOUND branch.
+ *   2. A dynamic `import()` of {@link AGNTCY_PACKAGE_NAME} (or `packageName`
+ *      if overridden), wrapped in try/catch. Verified live: the pinned
+ *      `2.0.0-alpha.5` resolves cleanly — `configured: true` is a real,
+ *      exercised path today, not just a theoretical one.
  *
  * @param env Injectable for tests; defaults to `process.env`.
+ * @param packageName Injectable for tests (to simulate "package not
+ *   installed" without needing to actually uninstall the real optional
+ *   dependency); defaults to {@link AGNTCY_PACKAGE_NAME}.
  */
 export async function detectAgntcyRuntime(
   env: NodeJS.ProcessEnv = process.env,
+  packageName: string = AGNTCY_PACKAGE_NAME,
 ): Promise<AgntcyRuntimeStatus> {
   const endpoint = env[AGNTCY_ENDPOINT_ENV];
   if (!endpoint) {
@@ -96,14 +109,14 @@ export async function detectAgntcyRuntime(
     // `await import('pg')`). Never a static `import` — a static import
     // would make @claude-flow/cli fail to build/run when the package is
     // absent, which is the one thing ADR-150/ADR-380 forbid.
-    await import(AGNTCY_PACKAGE_NAME);
-    return { configured: true, reason: `${AGNTCY_PACKAGE_NAME} resolved`, endpoint };
+    await import(packageName);
+    return { configured: true, reason: `${packageName} resolved`, endpoint };
   } catch (error) {
     const code = (error as NodeJS.ErrnoException | undefined)?.code;
     if (code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND') {
       return {
         configured: false,
-        reason: `${AGNTCY_ENDPOINT_ENV} is set but the optional "${AGNTCY_PACKAGE_NAME}" runtime package is not installed`,
+        reason: `${AGNTCY_ENDPOINT_ENV} is set but the optional "${packageName}" runtime package is not installed`,
         endpoint,
       };
     }
@@ -112,7 +125,7 @@ export async function detectAgntcyRuntime(
     // than propagate, but keep the real reason for diagnostics.
     return {
       configured: false,
-      reason: `error probing "${AGNTCY_PACKAGE_NAME}": ${error instanceof Error ? error.message : String(error)}`,
+      reason: `error probing "${packageName}": ${error instanceof Error ? error.message : String(error)}`,
       endpoint,
     };
   }

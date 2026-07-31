@@ -120,7 +120,7 @@
     "zod": "^3.22.0"
   },
   "optionalDependencies": {
-    "@agntcy/slim-bindings": "^1.4.1",
+    "@agntcy/slim-bindings": "2.0.0-alpha.5",
     "@napi-rs/keyring": "1.3.0",
     "@claude-flow/memory": "^3.0.0-alpha.21",
     "agentdb": "^3.0.0-alpha.17",
