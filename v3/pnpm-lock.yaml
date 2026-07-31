@@ -44,7 +44,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/aidefence':
     dependencies:
@@ -110,7 +110,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/cli':
     dependencies:
@@ -190,6 +190,9 @@ importers:
         specifier: ^3.22.0
         version: 3.25.76
     optionalDependencies:
+      '@agntcy/slim-bindings':
+        specifier: ^1.4.1
+        version: 1.4.1
       '@claude-flow/memory':
         specifier: ^3.0.0-alpha.21
         version: link:../memory
@@ -259,7 +262,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/deployment':
     dependencies:
@@ -272,7 +275,7 @@ importers:
         version: 25.0.2(typescript@5.9.3)
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/embeddings':
     dependencies:
@@ -322,7 +325,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/hooks':
     dependencies:
@@ -357,7 +360,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/integration':
     dependencies:
@@ -402,7 +405,7 @@ importers:
         version: 8.18.1
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/memory':
     dependencies:
@@ -454,7 +457,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/plugin-agent-federation':
     dependencies:
@@ -504,7 +507,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/plugins':
     dependencies:
@@ -532,7 +535,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/providers':
     dependencies:
@@ -557,7 +560,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/security':
     dependencies:
@@ -577,7 +580,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/shared':
     dependencies:
@@ -611,7 +614,7 @@ importers:
         version: 7.2.0
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
       ws:
         specifier: ^8.16.0
         version: 8.19.0
@@ -623,7 +626,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/testing':
     devDependencies:
@@ -641,7 +644,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
 packages:
 
@@ -664,6 +667,100 @@ packages:
 
   /@actions/io@2.0.0:
     resolution: {integrity: sha512-Jv33IN09XLO+0HS79aaODsvIRyduiF7NY/F6LYeK5oeUmrsz7aFdRphQjFoESF4jS7lMauDOttKALcpapVDIAg==}
+
+  /@agntcy/slim-bindings-darwin-arm64@1.4.1:
+    resolution: {integrity: sha512-K9IbX/nnsfJFXEQICukO0XfCFj/0UqY2DhL9nnjFbfO9Zq+hKzreWMzLLzHvffFrONwPFgijg6cM4L7ImAvssw==}
+    engines: {node: '>=18.0.0'}
+    requiresBuild: true
+    dependencies:
+      ffi-rs: 1.3.4
+      ref-napi: 3.0.3
+      uniffi-bindgen-react-native: 0.29.3-1
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
+    optional: true
+
+  /@agntcy/slim-bindings-darwin-x64@1.4.1:
+    resolution: {integrity: sha512-pOPKDmfUfXpKH04nnCh+cPfDu4Hyp4wgH0L1NxZkrArswPgqUzRVeawz80NUCkEgv3o88QCcVOpHr+APU1xFzg==}
+    engines: {node: '>=18.0.0'}
+    requiresBuild: true
+    dependencies:
+      ffi-rs: 1.3.4
+      ref-napi: 3.0.3
+      uniffi-bindgen-react-native: 0.29.3-1
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
+    optional: true
+
+  /@agntcy/slim-bindings-linux-arm64-gnu@1.4.1:
+    resolution: {integrity: sha512-5EcZogyHtY+w5gART3jYutYEdSwDca1iSgdI5F5fmrLWaojhGltgJtM3CHmctDeigSVH+IUY0d6ZjqabuK2UlQ==}
+    engines: {node: '>=18.0.0'}
+    requiresBuild: true
+    dependencies:
+      ffi-rs: 1.3.4
+      ref-napi: 3.0.3
+      uniffi-bindgen-react-native: 0.29.3-1
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
+    optional: true
+
+  /@agntcy/slim-bindings-linux-x64-gnu@1.4.1:
+    resolution: {integrity: sha512-XFQLlbK32mt5hH5EMM0DqlWBuKv6o+OMbVbD8u1/qE07YEEvgRiDkunHlGoKn2HdggQdMSEEZjH/QsitBBuCqA==}
+    engines: {node: '>=18.0.0'}
+    requiresBuild: true
+    dependencies:
+      ffi-rs: 1.3.4
+      ref-napi: 3.0.3
+      uniffi-bindgen-react-native: 0.29.3-1
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
+    optional: true
+
+  /@agntcy/slim-bindings-win32-arm64-msvc@1.4.1:
+    resolution: {integrity: sha512-adDCdLpX/OkJV3zQbDraKaPCedOCgO6ZLZjDZ9bLPh6DUlDmz6PcqA8HkbGc5TEFfo4XFEExyGPo0SgtUn/+/A==}
+    engines: {node: '>=18.0.0'}
+    requiresBuild: true
+    dependencies:
+      ffi-rs: 1.3.4
+      ref-napi: 3.0.3
+      uniffi-bindgen-react-native: 0.29.3-1
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
+    optional: true
+
+  /@agntcy/slim-bindings-win32-x64-msvc@1.4.1:
+    resolution: {integrity: sha512-Pkj4BhVyfXh13uDkGF9iU3aBJ2XB/T3RAk9EW9fHUk5uvkpd14VD7oYKQBQtb7SIEKGohC2UX3/jZ8yj+ujlpA==}
+    engines: {node: '>=18.0.0'}
+    requiresBuild: true
+    dependencies:
+      ffi-rs: 1.3.4
+      ref-napi: 3.0.3
+      uniffi-bindgen-react-native: 0.29.3-1
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
+    optional: true
+
+  /@agntcy/slim-bindings@1.4.1:
+    resolution: {integrity: sha512-xyBp0/I2Qb0/G0Xe7GaexjdTvLBpbN9qCWNutoYH66BEF5+dlZ+aZgspjuVJxjkC1iOnDvQag8yaax8betr8Lg==}
+    engines: {node: '>=18.0.0'}
+    requiresBuild: true
+    optionalDependencies:
+      '@agntcy/slim-bindings-darwin-arm64': 1.4.1
+      '@agntcy/slim-bindings-darwin-x64': 1.4.1
+      '@agntcy/slim-bindings-linux-arm64-gnu': 1.4.1
+      '@agntcy/slim-bindings-linux-x64-gnu': 1.4.1
+      '@agntcy/slim-bindings-win32-arm64-msvc': 1.4.1
+      '@agntcy/slim-bindings-win32-x64-msvc': 1.4.1
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
+    optional: true
 
   /@ai-sdk/google@3.0.43(zod@3.25.76):
     resolution: {integrity: sha512-NGCgP5g8HBxrNdxvF8Dhww+UKfqAkZAmyYBvbu9YLoBkzAmGKDBGhVptN/oXPB5Vm0jggMdoLycZ8JReQM8Zqg==}
@@ -6616,7 +6713,7 @@ packages:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+      vitest: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
     dev: true
 
   /@vitest/expect@4.1.8:
@@ -6644,7 +6741,7 @@ packages:
       '@vitest/spy': 4.1.8
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)
+      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
     dev: true
 
   /@vitest/pretty-format@4.1.8:
@@ -6707,6 +6804,105 @@ packages:
       - bare-abort-controller
       - bare-buffer
       - react-native-b4a
+
+  /@yuuang/ffi-rs-android-arm64@1.3.4:
+    resolution: {integrity: sha512-2ywkkOk1j1lbcYyaH9KeyR7i2Qtq4gDfnkmhF5vlRGnwve1j5RWH2ZlF3990raEx6OLophke/JXfUGQL9Dy0ig==}
+    engines: {node: '>= 12'}
+    cpu: [arm64]
+    os: [android]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@yuuang/ffi-rs-darwin-arm64@1.3.4:
+    resolution: {integrity: sha512-FEogaqNfk9yI9szLebGW9JR/OAwMZ+vkeHVhpcZBvRWTce5IA7mfZorY2KhzP+SEjz4F5q5+fFr6GzHzm/gxvQ==}
+    engines: {node: '>= 12'}
+    cpu: [arm64]
+    os: [darwin]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@yuuang/ffi-rs-darwin-x64@1.3.4:
+    resolution: {integrity: sha512-JuEPUOsE7qz6o4kSKgX+KymzSFUvyafpGykVbvm9+11Gx/fQy1lzrYkg2VdI70ctM3mjWARGpcaVZlCyPZVRvg==}
+    engines: {node: '>= 12'}
+    cpu: [x64]
+    os: [darwin]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@yuuang/ffi-rs-linux-arm-gnueabihf@1.3.4:
+    resolution: {integrity: sha512-9Alv4r8uZ/kZN6PKqIUoqrtWcpOD/iq3R/w31dEM2aQ8XaftZVD5oANO8IP9lFROb8QmJwDpyW1mfG1GQ0WJjA==}
+    engines: {node: '>= 12'}
+    cpu: [arm]
+    os: [linux]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@yuuang/ffi-rs-linux-arm64-gnu@1.3.4:
+    resolution: {integrity: sha512-iconeq2sjAgPn9RyLhfnjawaepeaj8o9EdSI4fg3y92dr0Tbjkr2KjNREgloLN1Jw5BGPt89/sJsDqBWLZP8Rg==}
+    engines: {node: '>= 12'}
+    cpu: [arm64]
+    os: [linux]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@yuuang/ffi-rs-linux-arm64-musl@1.3.4:
+    resolution: {integrity: sha512-ptjhnk2M0QTWaKq59wCR4mZ6LeRFOEXmsybp/SOHn5OZ8XYZLnv5FqSGHLPeJp2WvwzhS8SNjn/A2XmHfF3vow==}
+    engines: {node: '>= 12'}
+    cpu: [arm64]
+    os: [linux]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@yuuang/ffi-rs-linux-x64-gnu@1.3.4:
+    resolution: {integrity: sha512-TM0nfjruTuipNbksyV3iKvMKFeIHNI15tpPuqOzndcVi1Ms1I4tEAyi0gYTFjXUtcjSwBdjhztmIYphStRLVug==}
+    engines: {node: '>= 12'}
+    cpu: [x64]
+    os: [linux]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@yuuang/ffi-rs-linux-x64-musl@1.3.4:
+    resolution: {integrity: sha512-aKPSWXoEutWw8et4dhp4tq3x7FOg3C2mBT4gJr/cJxE/vcGxFKCsg3HjKNi3D1BwSZqh0bGuniZCFrde2DpkkA==}
+    engines: {node: '>= 12'}
+    cpu: [x64]
+    os: [linux]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@yuuang/ffi-rs-win32-arm64-msvc@1.3.4:
+    resolution: {integrity: sha512-hJndCj9xEosRw9Xn02IwzfXy8tgXvspJT5Qhpld9xXDFZyY0wYKxxO2VZhJNiIuX9vuEUgqeVvfCp5EeTpom1Q==}
+    engines: {node: '>= 12'}
+    cpu: [arm64]
+    os: [win32]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@yuuang/ffi-rs-win32-ia32-msvc@1.3.4:
+    resolution: {integrity: sha512-tXowkiiq3mdnK8CtgSWKQ1dRLJvF0d1pd4qomIl8Pv1To1SWATZ20lag3sXv19+utdrwInWvCi4NjHDmN92Y1A==}
+    engines: {node: '>= 12'}
+    cpu: [x64, ia32]
+    os: [win32]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@yuuang/ffi-rs-win32-x64-msvc@1.3.4:
+    resolution: {integrity: sha512-Kxr2Z2EU2Lutl7hBYrs90/s0lQ6OWavscVu62Bx4gckg+DdxZaQuxHRktdL5ITH7tdUewj3OqkcUNZXCvGCe0Q==}
+    engines: {node: '>= 12'}
+    cpu: [x64]
+    os: [win32]
+    requiresBuild: true
+    dev: false
+    optional: true
 
   /abbrev@1.1.1:
     resolution: {integrity: sha512-nne9/IiQ/hzIhY6pdDnbBtz7DjPTKrY00P/zvPSm5pOFkl6xuGrGnXn/VtTNNfNtAfZ9/1RtehkszU9qcTii0Q==}
@@ -8834,6 +9030,24 @@ packages:
       node-domexception: 1.0.0
       web-streams-polyfill: 3.3.3
 
+  /ffi-rs@1.3.4:
+    resolution: {integrity: sha512-rUX011WXszmHHmu/HO5CZQCscU+poR4tPrrTO+M1ePbq2QIptpklpr/Fujc8GBuILNXBdxVRsn+Kfp3uihsHFw==}
+    requiresBuild: true
+    optionalDependencies:
+      '@yuuang/ffi-rs-android-arm64': 1.3.4
+      '@yuuang/ffi-rs-darwin-arm64': 1.3.4
+      '@yuuang/ffi-rs-darwin-x64': 1.3.4
+      '@yuuang/ffi-rs-linux-arm-gnueabihf': 1.3.4
+      '@yuuang/ffi-rs-linux-arm64-gnu': 1.3.4
+      '@yuuang/ffi-rs-linux-arm64-musl': 1.3.4
+      '@yuuang/ffi-rs-linux-x64-gnu': 1.3.4
+      '@yuuang/ffi-rs-linux-x64-musl': 1.3.4
+      '@yuuang/ffi-rs-win32-arm64-msvc': 1.3.4
+      '@yuuang/ffi-rs-win32-ia32-msvc': 1.3.4
+      '@yuuang/ffi-rs-win32-x64-msvc': 1.3.4
+    dev: false
+    optional: true
+
   /figures@2.0.0:
     resolution: {integrity: sha512-Oa2M9atig69ZkfwiApY8F2Yy+tzMbazyvqv21R0NsSC8floSOC09BbT1ITWAdoMGQvJ/aZnR1KMwdx9tvHnTNA==}
     engines: {node: '>=4'}
@@ -9157,6 +9371,12 @@ packages:
     dependencies:
       '@sec-ant/readable-stream': 0.4.1
       is-stream: 4.0.1
+
+  /get-symbol-from-current-process-h@1.0.2:
+    resolution: {integrity: sha512-syloC6fsCt62ELLrr1VKBM1ggOpMdetX9hTrdW77UQdcApPHLmf7CI7OKcN1c9kYuNxKcDe4iJ4FY9sX3aw2xw==}
+    requiresBuild: true
+    dev: false
+    optional: true
 
   /get-tsconfig@4.13.0:
     resolution: {integrity: sha512-1VKTZJCwBrvbd+Wn3AOgQP/2Av+TfTCOlE4AcRJE72W1ksZXbAx8PPBR9RzgTeSPzlPMHrbANMH3LbltH73wxQ==}
@@ -10486,6 +10706,12 @@ packages:
     dependencies:
       semver: 7.7.3
 
+  /node-addon-api@3.2.1:
+    resolution: {integrity: sha512-mmcei9JghVNDYydghQmeDX8KoAm0FAiYyIcUt/N4nhyAipB17pllZQDOJD2fotxABnt4Mdz+dKTO7eftLg4d0A==}
+    requiresBuild: true
+    dev: false
+    optional: true
+
   /node-addon-api@6.1.0:
     resolution: {integrity: sha512-+eawOlIgy680F0kBzPUNFhMZGtJ1YmqM6l4+Crf4IkImjYrO/mqPwRMh352g23uIaQKFItcQ64I7KMaJxHgAVA==}
 
@@ -11432,6 +11658,20 @@ packages:
     dependencies:
       esprima: 4.0.1
     dev: false
+
+  /ref-napi@3.0.3:
+    resolution: {integrity: sha512-LiMq/XDGcgodTYOMppikEtJelWsKQERbLQsYm0IOOnzhwE9xYZC7x8txNnFC9wJNOkPferQI4vD4ZkC0mDyrOA==}
+    engines: {node: '>= 10.0'}
+    requiresBuild: true
+    dependencies:
+      debug: 4.4.3
+      get-symbol-from-current-process-h: 1.0.2
+      node-addon-api: 3.2.1
+      node-gyp-build: 4.8.4
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
+    optional: true
 
   /registry-auth-token@5.1.0:
     resolution: {integrity: sha512-GdekYuwLXLxMuFTwAPg5UKGLW/UXzQrZvH/Zj791BQif5T05T0RsaLfHc9q3ZOKi7n+BoprPD9mJ0O0k4xzUlw==}
@@ -12694,6 +12934,13 @@ packages:
     resolution: {integrity: sha512-+QBBXBCvifc56fsbuxZQ6Sic3wqqc3WWaqxs58gvJrcOuN83HGTCwz3oS5phzU9LthRNE9VrJCFCLUgHeeFnfA==}
     engines: {node: '>=18'}
 
+  /uniffi-bindgen-react-native@0.29.3-1:
+    resolution: {integrity: sha512-o6gXZsAh55yuvhwF2WSFdIHV4phyfWcCmg4DuyfJWJ7CvUz1UcIz2S4u9SmXAz1jsuqvu6Xc9hexrRBB0a5osg==}
+    hasBin: true
+    requiresBuild: true
+    dev: false
+    optional: true
+
   /unique-filename@1.1.1:
     resolution: {integrity: sha512-Vmp0jIp2ln35UTXuryvjzkjGdRyf9b2lTXuSYUiPmzRcl3FDtYqAwOnTJkAngD9SWhnoJzDbTKwaOrZ+STtxNQ==}
     requiresBuild: true
@@ -12879,7 +13126,6 @@ packages:
       yaml: 2.8.2
     optionalDependencies:
       fsevents: 2.3.3
-    dev: false
 
   /vitest@4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0):
     resolution: {integrity: sha512-flY6ScbCIt9HThs+C5HS7jvGOB560DJtk/Z15IQROTA6zEy49Nh8T/dofWTQL+n3vswqn87sbJNiuqw1SDp5Ig==}
@@ -13011,7 +13257,7 @@ packages:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.1.0
-      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)
+      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - msw
