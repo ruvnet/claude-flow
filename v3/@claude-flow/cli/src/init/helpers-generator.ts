@@ -641,6 +641,26 @@ export function generateHookHandler(): string {
     "    console.log('[OK] Command validated');",
     '  },',
     '',
+    // Was previously unhandled: settings-generator.ts wires PreToolUse
+    // (Write|Edit|MultiEdit) to `hook-handler.cjs pre-edit`, but no 'pre-edit'
+    // case existed here. handlers['pre-edit'] was undefined, so main() fell into
+    // the unrecognized-but-present-command branch (`console.log('[OK] Hook: ' +
+    // command)`) and exited 0 -- every file edit passed a hook that reported
+    // success and validated nothing. This is a minimal, same-tier counterpart to
+    // pre-bash (path-based, not content-based); real edit-content validation is
+    // deliberately left to a follow-up.
+    "  'pre-edit': () => {",
+    "    var file = String(hookInput.file_path || toolInputObj.file_path || process.env.TOOL_INPUT_file_path || args[0] || '').toLowerCase();",
+    "    var protectedPaths = ['/etc/passwd', '/etc/shadow', '.ssh/authorized_keys', '.ssh/id_rsa', '.git/config', 'c:\\\\windows\\\\system32'];",
+    '    for (var j = 0; j < protectedPaths.length; j++) {',
+    '      if (file.indexOf(protectedPaths[j]) !== -1) {',
+    "        console.error('[BLOCKED] Edit to protected path detected: ' + protectedPaths[j]);",
+    '        process.exit(1);',
+    '      }',
+    '    }',
+    "    console.log('[OK] Edit validated');",
+    '  },',
+    '',
     "  'post-edit': () => {",
     '    if (session && session.metric) {',
     "      try { session.metric('edits'); } catch (e) { /* no active session */ }",
@@ -652,6 +672,16 @@ export function generateHookHandler(): string {
     '      } catch (e) { /* non-fatal */ }',
     '    }',
     "    console.log(toolFailed ? '[LEARN] Edit FAILURE recorded' : '[OK] Edit recorded');",
+    '  },',
+    '',
+    // Same class of bug as 'pre-edit' above: settings-generator.ts wires PostToolUse
+    // (matcher 'Bash') to `hook-handler.cjs post-bash`, but no 'post-bash' case existed.
+    // Mirrors 'post-edit' -- record-only, no blocking (the tool already ran by PostToolUse).
+    "  'post-bash': () => {",
+    '    if (session && session.metric) {',
+    "      try { session.metric('commands'); } catch (e) { /* no active session */ }",
+    '    }',
+    "    console.log(toolFailed ? '[LEARN] Command FAILURE recorded' : '[OK] Command recorded');",
     '  },',
     '',
     "  'session-restore': () => {",
@@ -737,6 +767,12 @@ export function generateHookHandler(): string {
     "    console.log('[OK] Status check');",
     '  },',
     '',
+    // Same class of bug: settings-generator.ts wires the Notification event to
+    // `hook-handler.cjs notify`, but no 'notify' case existed.
+    "  'notify': () => {",
+    "    console.log('[OK] Notification received');",
+    '  },',
+    '',
     "  'stats': () => {",
     '    if (intelligence && intelligence.stats) {',
     "      intelligence.stats(args.includes('--json'));",
@@ -755,7 +791,7 @@ export function generateHookHandler(): string {
     '} else if (command) {',
     "  console.log('[OK] Hook: ' + command);",
     '} else {',
-    "  console.log('Usage: hook-handler.cjs <route|pre-bash|post-edit|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|status|stats>');",
+    "  console.log('Usage: hook-handler.cjs <route|pre-bash|pre-edit|post-edit|post-bash|notify|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|status|stats>');",
     '}',
     '} // end main',
     '',
