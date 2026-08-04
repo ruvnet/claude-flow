@@ -443,6 +443,72 @@ function parseMemoryDir(dir, entries) {
   } catch { /* skip unreadable dirs */ }
 }
 
+function canonicalJSON(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJSON).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) =>
+      `${JSON.stringify(key)}:${canonicalJSON(value[key])}`
+    ).join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'undefined';
+}
+
+function memoryEntryFingerprint(entry) {
+  const comparable = { ...entry };
+  delete comparable.createdAt;
+  return canonicalJSON(comparable);
+}
+
+/**
+ * Rebuild memory-derived entries from the current memory files while retaining
+ * non-memory entries. Existing creation timestamps are stable metadata, not an
+ * edit signal, so carry them forward by ID. Return changed=true for content or
+ * metadata edits even when the generated IDs and total entry count are stable.
+ */
+function reconcileStore(store) {
+  try {
+    const fresh = deduplicateById(bootstrapFromMemoryFiles());
+    // An empty scan is ambiguous (no memory vs. unreadable memory). Fail safe by
+    // retaining the current store instead of deleting every memory-derived row.
+    if (fresh.length === 0) return { store, newEntries: 0, changed: false };
+
+    const oldMemory = store.filter((entry) => String(entry.id).startsWith('mem-'));
+    const oldById = new Map(oldMemory.map((entry) => [entry.id, entry]));
+    let newEntries = 0;
+    const refreshed = fresh.map((entry) => {
+      const previous = oldById.get(entry.id);
+      if (!previous) {
+        newEntries++;
+        return entry;
+      }
+
+      const next = { ...entry };
+      if (Object.prototype.hasOwnProperty.call(previous, 'createdAt')) {
+        next.createdAt = previous.createdAt;
+      } else {
+        delete next.createdAt;
+      }
+      return next;
+    });
+
+    const changed = oldMemory.length !== refreshed.length || refreshed.some((entry) => {
+      const previous = oldById.get(entry.id);
+      return !previous || memoryEntryFingerprint(previous) !== memoryEntryFingerprint(entry);
+    });
+    const preserved = store.filter((entry) => !String(entry.id).startsWith('mem-'));
+
+    return {
+      store: deduplicateById(refreshed.concat(preserved)),
+      newEntries,
+      changed,
+    };
+  } catch {
+    return { store, newEntries: 0, changed: false };
+  }
+}
+
 // ── Exported functions ───────────────────────────────────────────────────────
 
 /**
@@ -456,6 +522,7 @@ function init() {
   // Check if graph-state.json is fresh (within 60s of store)
   const graphState = readJSON(GRAPH_PATH);
   let store = readJSON(STORE_PATH);
+  let storeChanged = false;
 
   // Bootstrap from MEMORY.md files if store is empty
   if (!store || !Array.isArray(store) || store.length === 0) {
@@ -463,8 +530,16 @@ function init() {
     if (bootstrapped.length > 0) {
       store = bootstrapped;
       writeJSON(STORE_PATH, store);
+      storeChanged = true;
     } else {
       return { nodes: 0, edges: 0, message: 'No memory entries to index' };
+    }
+  } else {
+    const reconciled = reconcileStore(store);
+    store = reconciled.store;
+    if (reconciled.changed) {
+      writeJSON(STORE_PATH, store);
+      storeChanged = true;
     }
   }
 
@@ -485,10 +560,11 @@ function init() {
       `(by-id: ${store.length - beforeContentDedup} dropped, by-content: ${beforeContentDedup - deduped.length} dropped)\n`
     );
     writeJSON(STORE_PATH, deduped);
+    storeChanged = true;
   }
 
   // Skip rebuild if graph is fresh and store hasn't changed
-  if (graphState && graphState.nodeCount === deduped.length) {
+  if (!storeChanged && graphState && graphState.nodeCount === deduped.length) {
     const age = Date.now() - (graphState.updatedAt || 0);
     if (age < 60000) {
       return {
@@ -717,15 +793,25 @@ function consolidate() {
 
   // Deduplicate store entries by ID before processing (fixes #1518)
   const preDedupCount = store.length;
+  let newEntries = 0;
+  let storeChanged = false;
   store = deduplicateById(store);
+  if (store.length < preDedupCount) storeChanged = true;
+
+  const reconciled = reconcileStore(store);
+  store = reconciled.store;
+  newEntries += reconciled.newEntries;
+  if (reconciled.changed) storeChanged = true;
+
   // #2628: imports assign fresh IDs to repeated MEMORY.md content, so ID
   // dedup alone never shrinks the store. Consolidate is the session-end path:
   // content-dedup here before edge construction and persist the compacted
   // store so subsequent sessions stay bounded.
+  const beforeContentDedup = store.length;
   store = deduplicateByContent(store);
+  if (store.length < beforeContentDedup) storeChanged = true;
 
   // 1. Process pending insights
-  let newEntries = 0;
   if (fs.existsSync(PENDING_PATH)) {
     const lines = fs.readFileSync(PENDING_PATH, 'utf-8').trim().split('\n').filter(Boolean);
     const editCounts = {};
@@ -848,7 +934,7 @@ function consolidate() {
   });
 
   // 8. Persist updated store (deduped or with new insight entries)
-  if (newEntries > 0 || store.length < preDedupCount) writeJSON(STORE_PATH, store);
+  if (storeChanged || newEntries > 0 || store.length < preDedupCount) writeJSON(STORE_PATH, store);
 
   // 9. Save snapshot for delta tracking
   const updatedGraph = readJSON(GRAPH_PATH);
