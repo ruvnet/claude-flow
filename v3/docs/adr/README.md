@@ -98,6 +98,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 | [ADR-378](ADR-378-npm-trusted-publishing-cicd.md) | npm Trusted Publishing for CI/CD Release Automation | Proposed |
 | [ADR-379](ADR-379-statusline-optional-usage-segments.md) | Optional Context/Session/Week Usage Segments and Extra Statusline Lines | Proposed |
 | [ADR-380](ADR-380-agntcy-outshift-runtime-integration.md) | AGNTCY/Outshift Runtime Integration: SLIM Transport, CASA Enforcement, IOC Coordination Events | Proposed |
+| [ADR-381](ADR-381-dream-cycle-swarm-stigmergic-pheromone-bus.md) | Stigmergic Memory Bus for Swarm Coordination (PheromoneBus) | Proposed |
 
 ## Summary Documents
 
@@ -130,7 +131,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 ## Security Status
 
 | CVE | Severity | Status |
-|-----|----------|--------|
+|-----|----------|---------|
 | CVE-2 | Critical | ✅ Fixed |
 | CVE-3 | Critical | ✅ Fixed |
 | HIGH-1 | High | ✅ Fixed |
@@ -140,5 +141,5 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 
 ---
 
-**Last Updated:** 2026-01-14
+**Last Updated:** 2026-08-04
 **CLI Version:** @claude-flow/cli@3.0.0-alpha.104
