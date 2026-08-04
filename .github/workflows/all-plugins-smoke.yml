@@ -18,12 +18,18 @@ on:
       - 'plugins/**'
       - 'scripts/smoke-all-plugins.mjs'
       - 'scripts/audit-plugin-mcp-prefix.mjs'
+      - 'scripts/audit-plugin-manifest.mjs'
+      - 'scripts/lib/parse-untrusted-json.mjs'
+      - 'scripts/__tests__/parse-untrusted-json.test.mjs'
       - '.github/workflows/all-plugins-smoke.yml'
   pull_request:
     paths:
       - 'plugins/**'
       - 'scripts/smoke-all-plugins.mjs'
       - 'scripts/audit-plugin-mcp-prefix.mjs'
+      - 'scripts/audit-plugin-manifest.mjs'
+      - 'scripts/lib/parse-untrusted-json.mjs'
+      - 'scripts/__tests__/parse-untrusted-json.test.mjs'
       - '.github/workflows/all-plugins-smoke.yml'
   workflow_dispatch:
 
@@ -66,15 +72,14 @@ jobs:
         # violations that escape per-plugin coverage (new plugin without
         # smoke, new skill without smoke-list update, etc.).
 
+      - name: Test bounded plugin manifest parser
+        run: node --test scripts/__tests__/parse-untrusted-json.test.mjs
+
       - name: Fleet-wide plugin.json manifest audit (iter 88)
         run: node scripts/audit-plugin-manifest.mjs
-        # Scans every plugins/*/.claude-plugin/plugin.json for: valid JSON,
-        # required fields (name/version/description/keywords[]) present
-        # and non-empty, version matches semver X.Y.Z, name matches
-        # enclosing directory. Each plugin's smoke step 1 pins its own
-        # expected version literal; this catches structural violations
-        # (non-semver, name drift, missing fields) that the per-plugin
-        # grep can't see.
+        # Scans every plugins/*/.claude-plugin/plugin.json for bounded,
+        # structurally safe JSON plus the existing semantic manifest checks:
+        # required fields, semver, directory-name agreement, and keywords[].
 
       - name: Fleet-wide plugin MCP namespace audit
         run: node scripts/audit-plugin-mcp-prefix.mjs
