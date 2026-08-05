@@ -59,21 +59,9 @@ obtains credentials for proxy operation.
 
 - **Default state after `ruflo proxy install` is local-only.** The proxy routes exclusively to local backends (Ollama, vLLM, SGLang). No prompt leaves the machine, and no request is made to api.cognitum.one for inference.
 - **Cloud routing requires a separate explicit step** — `ruflo proxy config --cloud` — gated on the `cloud-routing` consent domain (ADR-302). Neither enrollment acceptance, `auth login`, nor proxy installation enables it.
-- **Pre-activation disclosure is mandatory.** Before cloud routing turns on, the UI states in plain terms what changes:
+- **Pre-activation disclosure is mandatory.** Before cloud routing turns on, the UI states in plain terms what changes. Activating Cloud decides three separate things, each with a different answer than the plane the user is leaving, so the disclosure answers all three: **who processes** the prompt (Cognitum, server-side, at api.cognitum.one), **who pays** (the user's Cognitum account — not their own Claude subscription, which is what the Passthrough plane uses), and **which model runs** (the plane selects a tier per prompt rather than honoring the client's requested model — see the routing-mode addendum below).
 
-  ```
-  Enabling cloud routing.
-
-  With cloud routing ON, prompts for cloud-tier requests are sent to
-  api.cognitum.one and forwarded to the selected provider
-  (Claude / GPT / Gemini / DeepSeek / OpenRouter).
-
-  Requests routed to local backends never leave this machine.
-
-  Enable cloud routing? [y/N]
-  ```
-
-  The default answer is No.
+  The default answer is No. The exact wording lives in `CLOUD_ROUTING_DISCLOSURE` (`src/commands/proxy.ts`) and is asserted by `proxy-config-command.test.ts`; it is deliberately not transcribed here, because the previous copy in this ADR fell behind the shipped text and a reader could not tell which one was real.
 - **Visible at runtime.** `ruflo proxy status` and every request receipt state the data plane used (`local` vs `cloud:<provider>`), so the user can verify where any given prompt went.
 - Cloud routing can be disabled at any time (`ruflo proxy config --local-only`), reverting to a purely local multi-backend router and revoking the `cloud-routing` consent receipt.
 
@@ -129,3 +117,48 @@ is never written (the proxy's own untouched default).
 
 `ruflo proxy config` (no flags) reports the current plane by reading the same file, defaulting to
 `"passthrough"` (matching the Rust struct's own default) when no config file exists yet.
+
+## Addendum (2026-08-05) — Cloud tier selection is a user-visible setting, and the disclosure now says so
+
+Two gaps closed together, both traceable to meta-proxy#43.
+
+**1. The Cloud plane does not use the client's requested model, and we never said so.** meta-proxy
+ADR-321 rev-2 (shipped v0.6.0, work item M2 of cognitum-one/meta-proxy#43) applies tier selection to
+*all* Cloud traffic. Previously it applied only on the quota-failover reasons, so a deliberately
+configured Cloud plane forwarded the client's own model name — and since Claude Code names a
+frontier model by default, every request was served at the top tier with no ceiling and no proxy
+daily cap. That was the defect; difficulty-routing all Cloud traffic is the fix, not a regression.
+
+The boundary that matters for this ADR's local-first posture is unchanged and explicit in rev-2:
+**Passthrough and Local are untouched.** Those are the user's own subscription and their own
+backend; the proxy never rewrites a model there. A ruflo user reaches the Cloud plane only by
+running `proxy config --cloud`, and automatic movement off Passthrough still requires the ADR-313 /
+ADR-314 consent gates.
+
+Our disclosure never mentioned any of this — a user could enable Cloud believing their model choice
+still held. #43 M5a added processor/billing confirmation to the Developer Console selector; **M5b
+("equivalent disclosure to any terminal flow that explicitly activates Cloud") is this command**,
+and it is what the rewritten `CLOUD_ROUTING_DISCLOSURE` closes.
+
+**2. `ruflo proxy config --routing-mode <auto|low|mid|high>`.** rev-2's escape hatch is the
+`routing_mode` config field; the Developer Console gained a control for it (meta-proxy#52) and ruflo
+had none, so a ruflo user was stuck with `auto` with no way to disagree. The scorer reads prompt
+*shape* (length bands, code/reasoning markers, `max_tokens` bands), not task difficulty, so a
+short-but-hard prompt can under-escalate — pinning a tier is how a user overrides that judgement.
+
+Wire values were confirmed against meta-proxy's `RoutingMode` enum (`src/config.rs`, same
+`#[serde(rename_all = "snake_case")]` treatment as `DataPlane`): `routing_mode = "auto" | "low" |
+"mid" | "high"`, `#[serde(default)]` so an existing config file that omits it keeps working and
+means `auto`. An unrecognized value already in the file is reported as `auto` rather than echoed
+back, matching the proxy's own degrade-to-safe-default behavior.
+
+**Setting a tier must never activate Cloud.** meta-proxy ADR-321 Revision 3 keeps the plane choice
+and this Cloud-only secondary setting as separate controls, so `--routing-mode` alone writes only
+`routing_mode`, asks for no consent it does not need, and tells the user the setting is inert until
+Cloud is on. `--routing-mode` with `--local-only` is refused rather than silently resolved, and an
+unconfirmed `--cloud` still writes nothing at all.
+
+**Still open upstream, deliberately not implemented here:** #43 M3 — a Cloud tier ceiling and daily
+cap. Sponsored has `sponsored_daily_cap_usd`; Cloud has no proxy-side equivalent. #43 records the
+cap amount and reset semantics as a product decision that must not be guessed, so the disclosure
+makes no claim about caps in either direction.
