@@ -58,11 +58,14 @@ describe('bare proxy console guidance', () => {
   });
 
   it('gives installation guidance before the proxy exists', async () => {
-    const { proxyConsoleGuidance } = await import('../src/commands/proxy-lifecycle.js');
+    const { proxyConsoleGuidance, DEFAULT_PROXY_RELEASE } = await import('../src/commands/proxy-lifecycle.js');
     const lines = proxyConsoleGuidance({ installed: false, running: false, pid: null, stalePidFile: false }).join('\n');
 
     expect(lines).toContain('npx ruflo@latest proxy install --yes');
-    expect(lines).toContain('Meta-Proxy v0.4.0');
+    // Assert against the constant, not a literal — a hardcoded version here
+    // would have to be edited on every pin bump, which is how the advertised
+    // version drifted from the installed one in the first place.
+    expect(lines).toContain(`Meta-Proxy v${DEFAULT_PROXY_RELEASE}`);
     expect(lines).not.toContain('auth login');
   });
 });

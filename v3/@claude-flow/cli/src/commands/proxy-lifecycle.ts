@@ -24,8 +24,14 @@ import {
 import { proxyTokenPath } from '../proxy/paths.js';
 import { removeInjectedToken, startTokenRefreshPump } from '../proxy/token-bridge.js';
 
-/** Pinned and reviewed; later upgrades remain explicit commands. */
-export const DEFAULT_PROXY_RELEASE = '0.4.0';
+/**
+ * Pinned and reviewed; later upgrades remain explicit commands.
+ *
+ * Keep this the single source of truth — interpolate it rather than writing
+ * the version into user-facing strings, or the pin silently drifts out of
+ * sync with the text that advertises it.
+ */
+export const DEFAULT_PROXY_RELEASE = '0.7.3';
 
 const PROXY_COMMAND = 'npx ruflo@latest proxy';
 const AUTH_COMMAND = 'npx ruflo@latest auth';
