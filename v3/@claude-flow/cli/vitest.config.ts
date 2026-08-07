@@ -36,6 +36,9 @@ export default defineConfig({
         // memory-bridge dynamic-imports this inside try/catch and degrades to
         // the sql.js path; its dist is absent unless the workspace was built.
         if (source === '@claude-flow/memory') return { id: source, external: true };
+        // neural-tools dynamic-imports this inside try/catch (flashAttention)
+        // and degrades to the no-SONA path; its dist is absent unless built.
+        if (source === '@claude-flow/neural') return { id: source, external: true };
         if (source.startsWith('@ruvector/')) return { id: source, external: true };
         if (source.startsWith('@huggingface/transformers')) return { id: source, external: true };
         if (source.startsWith('@xenova/transformers')) return { id: source, external: true };

@@ -78,7 +78,7 @@ function saveAgentStore(store: AgentStore): void {
 //   Haiku 4.5   → claude-haiku-4-5-20251001
 // `inherit` and the various defaults below all map to Sonnet 5.
 export const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-5';
-const MODEL_MAP: Record<string, string> = {
+export const MODEL_MAP: Record<string, string> = {
   haiku: 'claude-haiku-4-5-20251001',
   sonnet: 'claude-sonnet-5',
   'sonnet-4.6': 'claude-sonnet-4-6',
@@ -183,7 +183,7 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
   if (vessel.shape === 'anthropic' || vessel.shape === 'openai') {
     try {
       const { dispatchViaVessel } = await import('./vessel-dispatch.js');
-      return await dispatchViaVessel(vessels, {
+      const vesselResult = await dispatchViaVessel(vessels, {
         prompt: input.prompt,
         systemPrompt: input.systemPrompt,
         model: input.model,
@@ -192,6 +192,10 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
         timeoutMs: input.timeoutMs,
         vesselName: name,
       });
+      // Only treat a successful vessel result as final. A non-success result
+      // (e.g. vessel unavailable) must fall through to the legacy dispatch
+      // below so the documented env-var fallback still runs (#1725/#2042).
+      if (vesselResult.success) return vesselResult;
     } catch {
       // Vessel path failed — falling back to legacy dispatch (#1725/#2042).
     }

@@ -63,11 +63,15 @@ describe('callAnthropicMessages — vessel path (agent-execute-core)', () => {
     // Empty user vessels → merge falls back to BUILTIN_VESSELS.
     mockedGetConfig.mockReturnValue({ providers: { vessels: {} } });
     // Happy vessel: `complete()` resolves with the shaped response.
+    // `destroy()` is a no-op — dispatchViaVessel always calls it in a
+    // finally-block, so the mock must expose it or that call throws and
+    // the happy path turns into a failure result.
     mockedCreate.mockImplementation(() => ({
       complete: async (req: { model?: string }) => ({
         ...VESSEL_RESPONSE,
         model: req.model ?? 'm',
       }),
+      destroy: async () => {},
     }));
   });
 

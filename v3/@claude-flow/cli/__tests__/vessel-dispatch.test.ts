@@ -19,7 +19,7 @@ const complete = vi.fn(async (req: { model?: string; temperature?: number }) => 
 }));
 
 vi.mock('@claude-flow/providers', () => ({
-  createProviderManager: vi.fn(async () => ({ complete })),
+  createProviderManager: vi.fn(async () => ({ complete, destroy: vi.fn() })),
 }));
 
 import { dispatchViaVessel } from '../src/mcp-tools/vessel-dispatch.js';
