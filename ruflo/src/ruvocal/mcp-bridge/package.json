@@ -6,7 +6,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js"
+    "dev": "node --watch index.js",
+    "test:native-child": "node --test test-native-ruflo-child.js"
   },
   "dependencies": {
     "express": "^4.21.0"
