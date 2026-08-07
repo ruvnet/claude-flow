@@ -26,6 +26,7 @@ import {
   UsageStats,
   UsagePeriod,
   LLMProviderError,
+  AuthenticationError,
   isLLMProviderError,
 } from './types.js';
 import { BaseProviderOptions, ILogger, consoleLogger } from './base-provider.js';
@@ -94,7 +95,18 @@ export class ProviderManager extends EventEmitter {
         });
         this.logger.info(`Provider ${providerConfig.provider} initialized`);
       } catch (error) {
-        this.logger.error(`Failed to initialize ${providerConfig.provider}`, error);
+        // A provider missing required auth (e.g. an empty apiKey) fails its own
+        // doInitialize with AuthenticationError. That is an expected, routine
+        // case for unconfigured vessels — warn and skip rather than spam the
+        // error log. Any other failure is a real problem and stays an error.
+        // Either way the failing provider is skipped; the manager keeps going.
+        if (error instanceof AuthenticationError) {
+          this.logger.warn(
+            `Skipping ${providerConfig.provider}: no API key configured`
+          );
+        } else {
+          this.logger.error(`Failed to initialize ${providerConfig.provider}`, error);
+        }
       }
     });
 
@@ -127,8 +139,13 @@ export class ProviderManager extends EventEmitter {
         return new OllamaProvider(options);
       case 'ruvector':
         return new RuVectorProvider(options);
+      case 'openrouter':
+      case 'litellm':
+        return new OpenAIProvider(options);
       default:
-        throw new Error(`Unknown provider: ${config.provider}`);
+        throw new Error(
+          `Unknown provider '${config.provider}': no built-in adapter. Use shape 'openai' or 'anthropic' for custom endpoints, or extend createProvider.`,
+        );
     }
   }
 

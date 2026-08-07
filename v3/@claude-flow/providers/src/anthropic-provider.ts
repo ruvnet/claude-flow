@@ -134,11 +134,25 @@ export class AnthropicProvider extends BaseProvider {
     }
 
     this.baseUrl = this.config.apiUrl || 'https://api.anthropic.com/v1';
+
+    // Default auth for the Messages API is Anthropic's `x-api-key` header.
+    // A caller-supplied `Authorization` header (e.g. LongCat's Bearer scheme)
+    // replaces it entirely — when present we omit x-api-key so the two schemes
+    // never collide. Any other config-supplied headers are merged on top of the
+    // anthropic-version / Content-Type defaults (and may override them).
+    const suppliedAuth = this.config.headers?.['Authorization'];
     this.headers = {
-      'x-api-key': this.config.apiKey,
       'anthropic-version': '2023-06-01',
       'Content-Type': 'application/json',
+      ...this.config.headers,
     };
+    if (suppliedAuth) {
+      // Bearer-style auth: drop x-api-key, the Authorization header is already
+      // in the map above.
+      delete this.headers['x-api-key'];
+    } else {
+      this.headers['x-api-key'] = this.config.apiKey;
+    }
   }
 
   protected async doComplete(request: LLMRequest): Promise<LLMResponse> {

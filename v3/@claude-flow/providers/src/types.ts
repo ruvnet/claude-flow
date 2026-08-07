@@ -121,6 +121,15 @@ export interface LLMProviderConfig {
   providerOptions?: Record<string, unknown>;
 
   /**
+   * Extra request headers merged over the provider's defaults. For the
+   * Anthropic provider, supplying an `Authorization` header switches auth
+   * off the default `x-api-key` scheme (e.g. LongCat's
+   * `Authorization: Bearer <key>`). All other headers are merged on top of
+   * the provider defaults and can override them.
+   */
+  headers?: Record<string, string>;
+
+  /**
    * Anthropic prompt caching (default: enabled). When true/undefined, the
    * provider marks the system prompt + trailing message as ephemeral cache
    * breakpoints so repeated-prefix multi-turn calls hit the prompt cache

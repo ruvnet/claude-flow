@@ -11,6 +11,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getProjectCwd } from './types.js';
+import { configManager } from '../services/config-file-manager.js';
+import type { VesselConfig } from './vessels.js';
+import { BUILTIN_VESSELS, mergeVessels } from './vessels.js';
+import { resolveActiveVessel } from './vessel-env.js';
 
 const STORAGE_DIR = '.claude-flow';
 const AGENT_DIR = 'agents';
@@ -114,17 +118,86 @@ export interface AnthropicCallResult {
 }
 
 /**
+ * Input shape for the vessel dispatch path. Extends {@link AnthropicCallInput}
+ * with an optional `vesselName` override so callers can pin a specific vessel
+ * in the registry. {@link dispatchViaVessel} applies its own precedence when
+ * `vesselName` is omitted, so every field here is optional except `prompt`.
+ */
+export interface VesselCallInput extends AnthropicCallInput {
+  /**
+   * Vessel to target by name. When omitted, `dispatchViaVessel` prefers the
+   * `anthropic` vessel, then the first registered vessel (#1725/#2042).
+   */
+  vesselName?: string;
+}
+
+/**
+ * Result shape for the vessel dispatch path. Intentionally identical to
+ * {@link AnthropicCallResult} — the vessel runtime returns the same fields so
+ * callers never need to know whether the vessel path or the legacy hand-rolled
+ * fetch answered. Kept as a distinct (but structurally equal) interface so the
+ * two paths can evolve independently without silent coupling.
+ */
+export type VesselCallResult = AnthropicCallResult;
+
+/**
  * Generic Anthropic Messages API call. No agent registry coupling — used
  * by agent_execute (with the agent's configured model) and by the WASM
  * agent runtime (G4) when the bundled WASM only echoes input.
  *
- * #1725 — falls back to Ollama Cloud (Tier-2, OpenAI-compat) when
- * ANTHROPIC_API_KEY is unset and OLLAMA_API_KEY is present, or when
- * RUFLO_PROVIDER=ollama is explicitly set. Response shape is normalized
- * to the Anthropic-flavored AnthropicCallResult so existing callers
- * don't need to know which provider answered.
+ * PRIMARY PATH — dispatch via the active vessel (built-in vessels merged
+ * with any user vessels configured under `providers.vessels`). The vessel
+ * system fronts the real provider runtime in @claude-flow/providers and
+ * speaks both 'anthropic' and 'openai' wire shapes, so a single call
+ * covers every configured provider (#1725/#2042/#2357/#8).
+ *
+ * FALLBACK — the vessel dispatch is best-effort and dynamically imported,
+ * so ANY failure (missing/unbuilt @claude-flow/providers dist, bad config,
+ * runtime error) falls through to the original hand-rolled env-var
+ * precedence below: Ollama Cloud (Tier-2, OpenAI-compat), OpenRouter
+ * (#2042), then direct Anthropic. Response shape is normalized to the
+ * Anthropic-flavored AnthropicCallResult so existing callers never need to
+ * know which provider answered.
  */
 export async function callAnthropicMessages(input: AnthropicCallInput): Promise<AnthropicCallResult> {
+  // Build the merged vessel registry: built-ins overridden by any user vessels
+  // configured under `providers.vessels.<name>` in the project config. The
+  // merge is order-independent and non-mutating.
+  let vessels: Record<string, VesselConfig>;
+  try {
+    const userVessels = configManager.get(getProjectCwd(), 'providers.vessels') as
+      | Record<string, VesselConfig>
+      | undefined;
+    vessels = mergeVessels(BUILTIN_VESSELS, userVessels ?? {});
+  } catch {
+    // Config read failed — fall back to built-ins only so the vessel path can
+    // still attempt a dispatch before reverting to the legacy logic below.
+    vessels = { ...BUILTIN_VESSELS };
+  }
+  const { vessel, name } = resolveActiveVessel(vessels);
+
+  // PRIMARY PATH — dispatch via the active vessel for any supported wire shape.
+  // Dynamically imported so a missing/unbuilt @claude-flow/providers dist, a
+  // not-yet-created vessel-dispatch module, or any runtime error here CANNOT
+  // break module load nor the legacy fallback below (#1725/#2042).
+  if (vessel.shape === 'anthropic' || vessel.shape === 'openai') {
+    try {
+      const { dispatchViaVessel } = await import('./vessel-dispatch.js');
+      return await dispatchViaVessel(vessels, {
+        prompt: input.prompt,
+        systemPrompt: input.systemPrompt,
+        model: input.model,
+        maxTokens: input.maxTokens,
+        temperature: input.temperature,
+        timeoutMs: input.timeoutMs,
+        vesselName: name,
+      });
+    } catch {
+      // Vessel path failed — falling back to legacy dispatch (#1725/#2042).
+    }
+  }
+
+  // --- legacy fallback (env-var precedence, unchanged) ---
   const explicitProvider = (process.env.RUFLO_PROVIDER || '').toLowerCase();
   const ollamaKey = process.env.OLLAMA_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;

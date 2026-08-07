@@ -44,7 +44,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/aidefence':
     dependencies:
@@ -110,7 +110,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/cli':
     dependencies:
@@ -262,7 +262,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/deployment':
     dependencies:
@@ -275,7 +275,7 @@ importers:
         version: 25.0.2(typescript@5.9.3)
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/embeddings':
     dependencies:
@@ -325,7 +325,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/hooks':
     dependencies:
@@ -360,7 +360,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/integration':
     dependencies:
@@ -405,7 +405,7 @@ importers:
         version: 8.18.1
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/memory':
     dependencies:
@@ -457,7 +457,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/plugin-agent-federation':
     dependencies:
@@ -507,7 +507,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/plugins':
     dependencies:
@@ -535,7 +535,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/providers':
     dependencies:
@@ -560,7 +560,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/security':
     dependencies:
@@ -580,7 +580,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/shared':
     dependencies:
@@ -614,7 +614,7 @@ importers:
         version: 7.2.0
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
       ws:
         specifier: ^8.16.0
         version: 8.19.0
@@ -626,7 +626,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/testing':
     devDependencies:
@@ -644,7 +644,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
 packages:
 
@@ -6781,7 +6781,7 @@ packages:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+      vitest: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
     dev: true
 
   /@vitest/expect@4.1.8:
@@ -6809,7 +6809,7 @@ packages:
       '@vitest/spy': 4.1.8
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
+      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)
     dev: true
 
   /@vitest/pretty-format@4.1.8:
@@ -8418,6 +8418,7 @@ packages:
   /deep-extend@0.6.0:
     resolution: {integrity: sha512-LOHxIOaPYdHlJRtCQfDIVZtfw/ufM8+rVj649RIHzcm/vGwQRXFt6OPqIFWsm2XEMrNIEtWR64sY1LEKD2vAOA==}
     engines: {node: '>=4.0.0'}
+    requiresBuild: true
 
   /deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
@@ -12430,6 +12431,7 @@ packages:
   /strip-json-comments@2.0.1:
     resolution: {integrity: sha512-4gB8na07fecVVkOI6Rs4e7T6NOTki5EmL7TUduTs6bu3EdnSycntVJ4re8kgZA+wx9IueI2Y11bfbgwtzuE0KQ==}
     engines: {node: '>=0.10.0'}
+    requiresBuild: true
 
   /strip-json-comments@3.1.1:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
@@ -13044,6 +13046,7 @@ packages:
       yaml: 2.8.2
     optionalDependencies:
       fsevents: 2.3.3
+    dev: false
 
   /vitest@4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0):
     resolution: {integrity: sha512-flY6ScbCIt9HThs+C5HS7jvGOB560DJtk/Z15IQROTA6zEy49Nh8T/dofWTQL+n3vswqn87sbJNiuqw1SDp5Ig==}
@@ -13175,7 +13178,7 @@ packages:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.1.0
-      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
+      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - msw

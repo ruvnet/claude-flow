@@ -8,6 +8,17 @@ export default defineConfig({
     // package during cross-package policy integration tests (ADR-324).
     alias: {
       '@claude-flow/security': fileURLToPath(new URL('../security/src/index.ts', import.meta.url)),
+      '@claude-flow/providers': fileURLToPath(new URL('../providers/src/index.ts', import.meta.url)),
+      // cli-core's export map points at dist/, which is not built in this
+      // workspace. Resolve the subpath imports the tests actually use from
+      // source instead so they work without a build — same pattern as the
+      // providers/security aliases. No root alias: a bare
+      // '@claude-flow/cli-core' alias matches as a prefix and Vite appends the
+      // subpath onto the replacement file (src/index.ts/mcp-tools/types).
+      '@claude-flow/cli-core/mcp-tools/types': fileURLToPath(new URL('../cli-core/src/mcp-tools/types.ts', import.meta.url)),
+      '@claude-flow/cli-core/mcp-tools/validate-input': fileURLToPath(new URL('../cli-core/src/mcp-tools/validate-input.ts', import.meta.url)),
+      '@claude-flow/cli-core/output': fileURLToPath(new URL('../cli-core/src/output.ts', import.meta.url)),
+      '@claude-flow/cli-core/types': fileURLToPath(new URL('../cli-core/src/types.ts', import.meta.url)),
     },
   },
   plugins: [

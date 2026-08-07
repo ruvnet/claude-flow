@@ -8,6 +8,12 @@
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { configManager } from '../services/config-file-manager.js';
+import {
+  BUILTIN_VESSELS,
+  inferShape,
+  mergeVessels,
+} from '../mcp-tools/vessels.js';
+import type { VesselConfig } from '../mcp-tools/vessels.js';
 
 /** Static provider catalog used as a reference/fallback */
 interface ProviderCatalogEntry {
@@ -531,11 +537,352 @@ const usageCommand: Command = {
   },
 };
 
+// Vessel list subcommand — show built-in and user vessels
+const vesselListCommand: Command = {
+  name: 'vessel-list',
+  description: 'List built-in and user vessels',
+  options: [
+    { name: 'verbose', short: 'v', type: 'boolean', description: 'Show full vessel config' },
+  ],
+  examples: [
+    { command: 'claude-flow providers vessel-list', description: 'List all vessels' },
+    { command: 'claude-flow providers vessel-list -v', description: 'Show full config for each vessel' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const verbose = ctx.flags.verbose as boolean;
+
+    const cwd = process.cwd();
+    const cfg = configManager.getConfig(cwd);
+    const userVessels = ((cfg.providers?.vessels ?? {}) as Record<string, unknown>) as Record<string, VesselConfig>;
+    const all = mergeVessels(BUILTIN_VESSELS, userVessels);
+
+    output.writeln();
+    output.writeln(output.bold('Vessels'));
+    output.writeln(output.dim('─'.repeat(70)));
+
+    const rows: Array<Record<string, string>> = [];
+    for (const [key, v] of Object.entries(all)) {
+      const source = key in BUILTIN_VESSELS ? 'builtin' : 'user';
+      const models = Object.entries(v.models)
+        .filter(([, id]) => id)
+        .map(([tier, id]) => `${tier}:${id}`)
+        .join(', ');
+      if (verbose) {
+        rows.push({
+          name: key,
+          shape: v.shape,
+          baseUrl: v.baseUrl,
+          models: models || output.dim('(none)'),
+          source,
+          key: v.apiKey ? `${v.apiKey.slice(0, 6)}...` : output.dim('(env)'),
+        });
+      } else {
+        rows.push({
+          name: key,
+          shape: v.shape,
+          baseUrl: v.baseUrl,
+          models: models || output.dim('(none)'),
+          source,
+        });
+      }
+    }
+
+    if (rows.length === 0) {
+      output.writeln(output.dim('  No vessels configured.'));
+    } else {
+      const columns: Array<{ key: string; header: string; width: number }> = verbose
+        ? [
+            { key: 'name', header: 'Vessel', width: 14 },
+            { key: 'shape', header: 'Shape', width: 10 },
+            { key: 'baseUrl', header: 'Base URL', width: 28 },
+            { key: 'models', header: 'Models', width: 28 },
+            { key: 'key', header: 'Key', width: 14 },
+            { key: 'source', header: 'Source', width: 8 },
+          ]
+        : [
+            { key: 'name', header: 'Vessel', width: 14 },
+            { key: 'shape', header: 'Shape', width: 10 },
+            { key: 'baseUrl', header: 'Base URL', width: 30 },
+            { key: 'models', header: 'Models', width: 22 },
+            { key: 'source', header: 'Source', width: 8 },
+          ];
+      output.printTable({ columns, data: rows });
+    }
+
+    output.writeln();
+    output.writeln(output.dim('Tip: Use "providers vessel-add" to add a custom vessel.'));
+    return { success: true };
+  },
+};
+
+// Vessel add subcommand — add or update a custom vessel
+const vesselAddCommand: Command = {
+  name: 'vessel-add',
+  description: 'Add or update a custom vessel',
+  options: [
+    { name: 'name', short: 'n', type: 'string', required: true, description: 'Vessel name (unique key)' },
+    { name: 'url', short: 'u', type: 'string', required: true, description: 'Provider base URL' },
+    { name: 'key', short: 'k', type: 'string', description: 'API key (omit to use env)' },
+    { name: 'shape', short: 's', type: 'string', description: 'anthropic or openai (auto-detected from url if omitted)' },
+    { name: 'model', short: 'm', type: 'string', description: 'Concrete model id (overrides all tiers)' },
+  ],
+  examples: [
+    { command: 'claude-flow providers vessel-add -n myllm -u https://llm.example.com/v1', description: 'Add an OpenAI-shaped vessel' },
+    { command: 'claude-flow providers vessel-add -n acme -u https://acme.io/anthropic -s anthropic -k sk-...', description: 'Add an Anthropic-shaped vessel' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    try {
+      const name = ((ctx.flags.name as string) || '').trim();
+      const url = ((ctx.flags.url as string) || '').trim();
+      const key = (ctx.flags.key as string) || '';
+      const shapeFlag = ctx.flags.shape as string | undefined;
+      const model = (ctx.flags.model as string) || '';
+
+      if (!name) {
+        output.printError('Vessel name is required. Use -n <name>.');
+        return { success: false, exitCode: 1 };
+      }
+      if (!url) {
+        output.printError('Provider base URL is required. Use -u <url>.');
+        return { success: false, exitCode: 1 };
+      }
+      try {
+        // Validate URL parses — throws on malformed input
+        new URL(url);
+      } catch {
+        output.printError(`Invalid URL: ${url}`);
+        return { success: false, exitCode: 1 };
+      }
+
+      const shape = shapeFlag ? shapeFlag.toLowerCase() : inferShape(url);
+      if (shape !== 'anthropic' && shape !== 'openai') {
+        output.printError(`Invalid shape "${shapeFlag}". Must be "anthropic" or "openai".`);
+        return { success: false, exitCode: 1 };
+      }
+
+      const cwd = process.cwd();
+      const cfg = configManager.getConfig(cwd);
+      const vessels = ((cfg.providers?.vessels ?? {}) as Record<string, unknown>) as Record<string, VesselConfig>;
+
+      const vessel: VesselConfig = {
+        name,
+        shape: shape as VesselConfig['shape'],
+        baseUrl: url,
+        apiKey: key,
+        models: model ? { haiku: model, sonnet: model, opus: model } : {},
+        headers: {},
+      };
+
+      const updated: Record<string, VesselConfig> = { ...vessels, [name]: vessel };
+      configManager.set(cwd, 'providers.vessels', updated);
+
+      output.writeln();
+      output.writeln(output.bold(`Added vessel: ${name}`));
+      output.writeln(output.dim('─'.repeat(40)));
+      output.writeln(`  Shape  : ${shape}`);
+      output.writeln(`  URL    : ${url}`);
+      if (key) output.writeln(`  Key    : ${key.slice(0, 6)}...${key.slice(-4)}`);
+      if (model) output.writeln(`  Model  : ${model}`);
+      output.writeln();
+      output.writeln(output.success(`Vessel "${name}" saved to config.`));
+      return { success: true };
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      output.printError(`Failed to add vessel: ${msg}`);
+      return { success: false, exitCode: 1 };
+    }
+  },
+};
+
+// Vessel remove subcommand — remove a user vessel
+const vesselRemoveCommand: Command = {
+  name: 'vessel-remove',
+  description: 'Remove a user vessel',
+  options: [
+    { name: 'name', short: 'n', type: 'string', required: true, description: 'Vessel name to remove' },
+  ],
+  examples: [
+    { command: 'claude-flow providers vessel-remove -n myllm', description: 'Remove a custom vessel' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    try {
+      const name = ((ctx.flags.name as string) || '').trim();
+      if (!name) {
+        output.printError('Vessel name is required. Use -n <name>.');
+        return { success: false, exitCode: 1 };
+      }
+
+      // Refuse to remove built-in vessels — they are the baseline and are
+      // always resolvable via BUILTIN_VESSELS.
+      const builtinKeys = new Set(Object.keys(BUILTIN_VESSELS));
+      if (builtinKeys.has(name)) {
+        output.printError(
+          `Cannot remove built-in vessel "${name}". Built-ins (${Array.from(builtinKeys).join(', ')}) are always available.`,
+        );
+        return { success: false, exitCode: 1 };
+      }
+
+      const cwd = process.cwd();
+      const cfg = configManager.getConfig(cwd);
+      const vessels = ((cfg.providers?.vessels ?? {}) as Record<string, unknown>) as Record<string, VesselConfig>;
+
+      if (!(name in vessels)) {
+        output.printError(`Vessel "${name}" not found in user config.`);
+        return { success: false, exitCode: 1 };
+      }
+
+      const { [name]: _removed, ...rest } = vessels;
+      const updated: Record<string, VesselConfig> = { ...rest };
+      configManager.set(cwd, 'providers.vessels', updated);
+
+      output.writeln();
+      output.writeln(output.success(`Removed vessel "${name}".`));
+      return { success: true };
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      output.printError(`Failed to remove vessel: ${msg}`);
+      return { success: false, exitCode: 1 };
+    }
+  },
+};
+
+// Vessel test subcommand — test a vessel's connectivity
+const vesselTestCommand: Command = {
+  name: 'vessel-test',
+  description: "Test a vessel's connectivity",
+  options: [
+    { name: 'name', short: 'n', type: 'string', required: true, description: 'Vessel name to test' },
+  ],
+  examples: [
+    { command: 'claude-flow providers vessel-test -n anthropic', description: 'Test Anthropic connectivity' },
+    { command: 'claude-flow providers vessel-test -n myllm', description: 'Test a custom vessel' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    try {
+      const name = ((ctx.flags.name as string) || '').trim();
+      if (!name) {
+        output.printError('Vessel name is required. Use -n <name>.');
+        return { success: false, exitCode: 1 };
+      }
+
+      const cwd = process.cwd();
+      const cfg = configManager.getConfig(cwd);
+      const userVessels = ((cfg.providers?.vessels ?? {}) as Record<string, unknown>) as Record<string, VesselConfig>;
+      const all = mergeVessels(BUILTIN_VESSELS, userVessels);
+      const vessel = all[name];
+      if (!vessel) {
+        output.printError(`Vessel "${name}" not found. Use "providers vessel-list" to see available vessels.`);
+        return { success: false, exitCode: 1 };
+      }
+
+      output.writeln();
+      output.writeln(output.bold(`Testing vessel: ${name}`));
+      output.writeln(output.dim('─'.repeat(50)));
+      output.writeln(`  Shape: ${vessel.shape}`);
+      output.writeln(`  URL  : ${vessel.baseUrl}`);
+
+      const base = vessel.baseUrl.replace(/\/+$/, '');
+      const isAnthropic = vessel.shape === 'anthropic';
+      const url = isAnthropic ? `${base}/models` : `${base}/v1/models`;
+      const headers: Record<string, string> = isAnthropic
+        ? { 'x-api-key': vessel.apiKey, 'anthropic-version': '2023-06-01' }
+        : { Authorization: `Bearer ${vessel.apiKey}` };
+
+      output.writeln(output.dim(`  Probing ${url}...`));
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(url, { method: 'GET', headers, signal: controller.signal });
+        clearTimeout(timeout);
+
+        if (res.ok) {
+          output.writeln();
+          output.writeln(output.success(`PASS  ${name}: connected (HTTP ${res.status}).`));
+          return { success: true };
+        }
+        if (res.status === 401 || res.status === 403) {
+          output.writeln();
+          output.writeln(output.error(`FAIL  ${name}: authentication failed (HTTP ${res.status}).`));
+          return { success: false, exitCode: 1 };
+        }
+        output.writeln();
+        output.writeln(output.error(`FAIL  ${name}: unexpected response (HTTP ${res.status}).`));
+        return { success: false, exitCode: 1 };
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          output.writeln();
+          output.writeln(output.error(`FAIL  ${name}: connection timed out (5s).`));
+          return { success: false, exitCode: 1 };
+        }
+        const msg = err instanceof Error ? err.message : String(err);
+        output.writeln();
+        output.writeln(output.error(`FAIL  ${name}: ${msg}`));
+        return { success: false, exitCode: 1 };
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      output.printError(`Vessel test failed: ${msg}`);
+      return { success: false, exitCode: 1 };
+    }
+  },
+};
+
+// Vessel set-default subcommand — set the default vessel
+const vesselSetDefaultCommand: Command = {
+  name: 'vessel-set-default',
+  description: 'Set the default vessel (stored as providers.defaultVessel)',
+  options: [
+    { name: 'name', short: 'n', type: 'string', required: true, description: 'Vessel name to set as default' },
+  ],
+  examples: [
+    { command: 'claude-flow providers vessel-set-default -n openrouter', description: 'Set OpenRouter as default' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    try {
+      const name = ((ctx.flags.name as string) || '').trim();
+      if (!name) {
+        output.printError('Vessel name is required. Use -n <name>.');
+        return { success: false, exitCode: 1 };
+      }
+
+      const cwd = process.cwd();
+      const cfg = configManager.getConfig(cwd);
+      const userVessels = ((cfg.providers?.vessels ?? {}) as Record<string, unknown>) as Record<string, VesselConfig>;
+      const all = mergeVessels(BUILTIN_VESSELS, userVessels);
+      if (!(name in all)) {
+        output.printError(`Vessel "${name}" not found. Use "providers vessel-list" to see available vessels.`);
+        return { success: false, exitCode: 1 };
+      }
+
+      configManager.set(cwd, 'providers.defaultVessel', name);
+
+      output.writeln();
+      output.writeln(output.success(`Default vessel set to "${name}".`));
+      return { success: true };
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      output.printError(`Failed to set default vessel: ${msg}`);
+      return { success: false, exitCode: 1 };
+    }
+  },
+};
+
 // Main providers command
 export const providersCommand: Command = {
   name: 'providers',
   description: 'Manage AI providers, models, and configurations',
-  subcommands: [listCommand, configureCommand, testCommand, modelsCommand, usageCommand],
+  subcommands: [
+    listCommand,
+    configureCommand,
+    testCommand,
+    modelsCommand,
+    usageCommand,
+    vesselListCommand,
+    vesselAddCommand,
+    vesselRemoveCommand,
+    vesselTestCommand,
+    vesselSetDefaultCommand,
+  ],
   examples: [
     { command: 'claude-flow providers list', description: 'List all providers' },
     { command: 'claude-flow providers configure -p openai', description: 'Configure OpenAI' },

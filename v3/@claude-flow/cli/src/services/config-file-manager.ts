@@ -6,6 +6,38 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { BUILTIN_VESSELS } from '../mcp-tools/vessels.js';
+import type { VesselConfig } from '../mcp-tools/vessels.js';
+
+/** Vessel record persisted at `providers.vessels`. Keyed by vessel name. */
+export type VesselsConfig = Record<string, VesselConfig>;
+
+/**
+ * Structural shape of the CLI config object. Only the parts that callers
+ * reach into directly (today: `providers.vessels` / `providers.defaultVessel`)
+ * are modeled; the rest stays loosely typed. Keeping this minimal avoids
+ * forcing every config section into a strict interface while still letting
+ * `getConfig` return a type where `providers.vessels` is reachable.
+ */
+export interface CliConfig {
+  providers: {
+    vessels: VesselsConfig;
+    defaultVessel?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+/**
+ * Default provider section. The built-in vessels are the baseline; user
+ * config (at `providers.vessels`) and env vars layer on top at read time
+ * (see mcp-tools/vessel-config.ts). Inlined here so `create`/`reset` ship a
+ * populated default and `getDefaults` reflects the real built-in shape.
+ */
+const DEFAULT_PROVIDERS: { vessels: VesselsConfig } = {
+  vessels: BUILTIN_VESSELS,
+};
+
 /** Config file search paths in priority order */
 const CONFIG_FILENAMES = [
   'claude-flow.config.json',
@@ -13,7 +45,7 @@ const CONFIG_FILENAMES = [
 ];
 
 /** Default config values */
-const DEFAULT_CONFIG: Record<string, unknown> = {
+const DEFAULT_CONFIG: CliConfig = {
   version: '3.5',
   agents: {
     defaultType: 'coder',
@@ -22,6 +54,7 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
     timeout: 300000,
     providers: [],
   },
+  providers: DEFAULT_PROVIDERS,
   swarm: {
     topology: 'hierarchical',
     maxAgents: 8,
@@ -59,7 +92,7 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
 
 export class ConfigFileManager {
   private configPath: string | null = null;
-  private config: Record<string, unknown> | null = null;
+  private config: CliConfig | null = null;
 
   /** Find config file in search paths starting from cwd */
   findConfig(cwd: string): string | null {
@@ -78,7 +111,7 @@ export class ConfigFileManager {
   }
 
   /** Load config from file, returns null if not found */
-  load(cwd: string): Record<string, unknown> | null {
+  load(cwd: string): CliConfig | null {
     this.configPath = this.findConfig(cwd);
     if (!this.configPath) {
       this.config = null;
@@ -86,7 +119,8 @@ export class ConfigFileManager {
     }
     try {
       const content = fs.readFileSync(this.configPath, 'utf-8');
-      this.config = JSON.parse(content);
+      // On-disk JSON is free-form; trust the persisted shape as CliConfig.
+      this.config = JSON.parse(content) as CliConfig;
       return this.config;
     } catch {
       this.config = null;
@@ -95,7 +129,7 @@ export class ConfigFileManager {
   }
 
   /** Get the current config, loading if needed */
-  getConfig(cwd: string): Record<string, unknown> {
+  getConfig(cwd: string): CliConfig {
     if (this.config === null) {
       this.load(cwd);
     }
@@ -165,7 +199,8 @@ export class ConfigFileManager {
     }
     const targetPath = this.configPath ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
     this.writeAtomic(targetPath, imported);
-    this.config = imported;
+    // Imported config is free-form JSON; trust its shape as CliConfig.
+    this.config = imported as CliConfig;
     this.configPath = targetPath;
   }
 
