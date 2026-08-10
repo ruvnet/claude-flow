@@ -19,6 +19,7 @@ import {
   hasMechanicalSpec,
   resolveRemote,
   createSshOracleRunner,
+  MH_DARWIN_PIN,
   type Trajectory,
   type OracleRunner,
   type CommandExec,

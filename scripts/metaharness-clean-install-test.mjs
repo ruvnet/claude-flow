@@ -31,12 +31,13 @@ const CLI_PKG = join(HERE, '..', 'v3', '@claude-flow', 'cli', 'package.json');
 const FORMAT = process.argv.includes('--format') && process.argv[process.argv.indexOf('--format') + 1] === 'json' ? 'json' : 'table';
 
 // Advertised symbol contract per package — verified against the real published
-// artifacts (darwin 0.8.3 / flywheel 0.1.10 / radio 0.1.0). Keep in sync with
-// the --require-installed check in check-metaharness-pins.mjs.
+// artifacts (darwin 0.9.0 / flywheel 0.1.10 / radio 0.1.0 / turn-credit 0.1.0).
+// Keep in sync with the --require-installed check in check-metaharness-pins.mjs.
 const API_CONTRACT = {
   '@metaharness/darwin': ['evolve', 'RefineMutator', 'summarizeFailedTraces'],
   '@metaharness/flywheel': ['runFlywheelGenerations', 'meetsPromotionRule', 'makeSigner', 'verifyReplayBundle', 'sequentialEvidence', 'withSequentialEvidence'],
   '@metaharness/radio': ['RadioBus', 'runProtocol', 'runSim'],
+  '@metaharness/turn-credit': ['processTrajectory', 'creditByLabel', 'evidenceFromLogProbs', 'buildCreditReceiptPayload'],
 };
 
 async function main() {

@@ -55,7 +55,16 @@ jobs:
             // no lifecycle scripts, zero transitive deps — measured 753ms to
             // cold-install all three into an empty dir on 2026-08-10). That
             // profile is the opposite of the #2561 native/wasm trees.
-            const CLI_MAX = 10;
+            // Raised 10 → 13 for @metaharness/turn-credit (ADR-248, added
+            // 2026-08-10): 64.9K unpacked, zero transitive deps, no lifecycle
+            // scripts, measured ~110ms cold-install — same profile as
+            // darwin/flywheel/radio. The prior bump left the budget exactly
+            // at the post-PR count (10 == 10, zero slack), which meant the
+            // very next unrelated optional-dep addition would trip this
+            // guard for no reason connected to #2561; this bump leaves 2
+            // slots of real headroom (11 declared today, budget 13) rather
+            // than repeating that mistake.
+            const CLI_MAX = 13;
             const RUFLO_MAX = 0;
 
             // Specific packages proven to trigger the cold-npx timeout in
