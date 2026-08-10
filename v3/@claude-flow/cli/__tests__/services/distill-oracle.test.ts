@@ -196,7 +196,9 @@ describe('buildOraclePlan — command construction & remote parameterization', (
   it('builds a darwin bench-suite plan when benchSuite/benchCase present', () => {
     const plan = buildOraclePlan({ benchSuite: 'shield', benchCase: 'cve-42' }, 'h');
     expect(plan.kind).toBe('ssh-darwin-bench');
-    expect(plan.evalCommands.join(' ')).toContain('darwin bench run');
+    // Version-pinned per the #2561 cold-npx guard (MH_DARWIN_PIN) — the command
+    // is `@metaharness/darwin@<pin> bench run`, not the bare `darwin bench run`.
+    expect(plan.evalCommands.join(' ')).toContain(`darwin@${MH_DARWIN_PIN} bench run`);
     expect(plan.evalCommands.join(' ')).toContain("--suite 'shield'");
   });
 
