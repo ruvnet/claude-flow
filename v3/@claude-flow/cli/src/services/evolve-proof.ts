@@ -21,6 +21,12 @@
 import { createHash } from 'node:crypto';
 import { accept, type PromotionVerdict, type AcceptResult } from './harness-benchmark.js';
 import { bootstrapDeltaCILow } from './harness-improvement-ledger.js';
+import {
+  DEFAULT_ALPHA_TOTAL,
+  DEFAULT_LAMBDA,
+  SEQUENTIAL_EVIDENCE_VERSION,
+  sequentialEvidenceVerdict,
+} from './flywheel-sequential-evidence.js';
 import { canonicalManifestBytes, type ProvenConfigManifest } from '../config/proven-config.js';
 
 /**
@@ -29,8 +35,16 @@ import { canonicalManifestBytes, type ProvenConfigManifest } from '../config/pro
  * term: the per-held-out-task deltas must have a positive one-sided 95% bootstrap
  * lower bound, so a small-N mean gain can't ride on noise. The canary term is a
  * SEPARATE deployment-safety signal (a distinct slice), not held-out dominance.
+ *
+ * v2+seq (ADR-381 §3) adds a third conjunct: an anytime-valid sequential-
+ * evidence e-process over the holdout's paired per-task scores, judged at the
+ * alpha allocated to this bundle's position in the lineage's adaptive test
+ * stream (alpha_k = alphaTotal · 6/(π²k²)). The rule version is pinned PER
+ * BUNDLE, so a lineage may contain both v1 and v2 bundles and each replays
+ * under its own recorded semantics.
  */
 export const PROMOTION_RULE_VERSION = 'accept/v1+sig';
+export const PROMOTION_RULE_VERSION_V2 = 'accept/v2+seq';
 export const PROOF_LABEL = 'single-round proof-of-mechanism';
 export const NOT_CLAIMS = ['not flywheel proof', 'not compounding learning', 'not production learning'] as const;
 
@@ -92,8 +106,26 @@ export interface RegressionRecord {
   candidateManifestHash: string;
   ancestor: string | null;           // the policy this mutated from
   mutationClass: string;
-  failureCause: 'holdout' | 'security' | 'drift' | 'replay' | 'governance' | 'canary' | 'significance';
+  failureCause: 'holdout' | 'security' | 'drift' | 'replay' | 'governance' | 'canary' | 'significance' | 'sequential';
   failedTerms: string[];             // the accept() terms that failed
+}
+
+/**
+ * The v2 sequential-evidence term, embedded so `verifyReceiptBundle` can
+ * replay it from the bundle's own holdout: the recorded testIndex/alphaTotal/
+ * lambda fully determine the threshold, and the e-value recomputes from the
+ * embedded per-task scores.
+ */
+export interface SequentialEvidenceRecord {
+  version: typeof SEQUENTIAL_EVIDENCE_VERSION;
+  testIndex: number;
+  alphaTotal: number;
+  lambda: number;
+  alphaAllocated: number;
+  eValue: number;
+  threshold: number;
+  informativePairs: number;
+  significant: boolean;
 }
 
 export interface EvolveReceiptBundle {
@@ -109,6 +141,8 @@ export interface EvolveReceiptBundle {
   baselineManifestHash: string;
   candidateManifestHash: string;
   meetsPromotionRule: { version: string; result: boolean };
+  /** Present iff the bundle was decided under accept/v2+seq (ADR-381 §3). */
+  sequentialEvidence?: SequentialEvidenceRecord;
   decisionReceipt: DecisionReceipt;
   shadow: ShadowRegistration | null; // null when the candidate did NOT pass
   costReceipt: CostReceipt;
@@ -155,6 +189,12 @@ export interface AssembleOpts {
   humanRelevanceDelta?: number;      // per-gen Δ on the frozen human eval set
   humanEvalHash?: string;            // which frozen human eval set the delta is against
   layer?: string; corpus?: string;
+  /**
+   * ADR-381 §3 — supply to decide the bundle under accept/v2+seq: the bundle's
+   * 1-based position in the lineage's adaptive test stream, plus optional
+   * alpha/lambda overrides. Omit for legacy v1+sig semantics.
+   */
+  sequential?: { testIndex: number; alphaTotal?: number; lambda?: number };
 }
 
 /**
@@ -174,13 +214,38 @@ export function assembleBundle(baseline: Record<string, number>, candidate: Reco
   const deltaCILow = bootstrapDeltaCILow(holdout.map((h) => h.candidateScore - h.baselineScore));
   const significant = deltaCILow > 0;
 
+  // v2 sequential term (ADR-381 §3): anytime-valid e-process over the paired
+  // per-task scores, at this bundle's allocated share of the family-wise alpha.
+  let sequentialEvidence: SequentialEvidenceRecord | undefined;
+  if (o.sequential) {
+    const alphaTotal = o.sequential.alphaTotal ?? DEFAULT_ALPHA_TOTAL;
+    const lambda = o.sequential.lambda ?? DEFAULT_LAMBDA;
+    const verdict = sequentialEvidenceVerdict(
+      holdout.map((h) => ({ taskId: h.taskId, baselineScore: h.baselineScore, candidateScore: h.candidateScore })),
+      o.sequential.testIndex,
+      { alphaTotal, lambda },
+    );
+    sequentialEvidence = {
+      version: SEQUENTIAL_EVIDENCE_VERSION,
+      testIndex: verdict.testIndex,
+      alphaTotal,
+      lambda,
+      alphaAllocated: verdict.alphaAllocated,
+      eValue: verdict.eValue,
+      threshold: verdict.threshold,
+      informativePairs: verdict.informativePairs,
+      significant: verdict.significant,
+    };
+  }
+  const ruleVersion = sequentialEvidence ? PROMOTION_RULE_VERSION_V2 : PROMOTION_RULE_VERSION;
+
   const verdictInputs: PromotionVerdict = {
     heldOutScore: candidateHeldOut, baselineHeldOutScore: baselineHeldOut,
     redblue: o.redblue ?? 'PASS', drift: o.drift ?? 0, driftThreshold: 0.05,
     replayDeterministic: true, receiptCoverage: 1, canaryRollbackRate, baselineRollbackRate: 0,
   };
   const result = accept(verdictInputs);
-  const promoted = result.accept && significant;
+  const promoted = result.accept && significant && (sequentialEvidence?.significant ?? true);
 
   const baselineManifest = mkManifest(baseline, o.layer, o.corpus);
   const candidateManifest = mkManifest(candidate, o.layer, o.corpus);
@@ -188,10 +253,14 @@ export function assembleBundle(baseline: Record<string, number>, candidate: Reco
   const candidateManifestHash = manifestHash(candidateManifest);
   const inputHoldoutHash = sha256(canon(holdout));
 
-  const failed = [...result.failed, ...(!significant ? ['significant'] : [])];
+  const failed = [
+    ...result.failed,
+    ...(!significant ? ['significant'] : []),
+    ...(sequentialEvidence && !sequentialEvidence.significant ? ['sequential_evidence'] : []),
+  ];
   const decisionReceipt: DecisionReceipt = {
-    promotionRuleVersion: PROMOTION_RULE_VERSION, verdictInputs, result, significant, deltaCILow, promoted,
-    reason: promoted ? `promoted (all ${PROMOTION_RULE_VERSION} terms held)` : `rejected — ${failed.join(', ')}`,
+    promotionRuleVersion: ruleVersion, verdictInputs, result, significant, deltaCILow, promoted,
+    reason: promoted ? `promoted (all ${ruleVersion} terms held)` : `rejected — ${failed.join(', ')}`,
   };
   const shadow: ShadowRegistration | null = promoted ? {
     registrationId: sha256(`${candidateManifestHash}|gen${o.generation}|shadow`).replace('sha256:', 'shadow:'),
@@ -203,13 +272,17 @@ export function assembleBundle(baseline: Record<string, number>, candidate: Reco
   const promotion: PromotionRecord | null = promoted ? { parentManifestHash: o.parent, candidateManifestHash, mutationClass, mutationSummary, deltas, decisionReceipt } : null;
   const regression: RegressionRecord | null = promoted ? null : {
     candidateManifestHash, ancestor: o.parent ?? baselineManifestHash, mutationClass,
-    failureCause: !significant && result.accept ? 'significance' : (FAILURE_CAUSE[result.failed[0]] ?? 'holdout'), failedTerms: failed,
+    failureCause: result.accept
+      ? (!significant ? 'significance' : 'sequential')
+      : (FAILURE_CAUSE[result.failed[0]] ?? 'holdout'),
+    failedTerms: failed,
   };
 
   return {
     label: PROOF_LABEL, disclaimers: NOT_CLAIMS, generation: o.generation, parent: o.parent, branch: o.branch, kind: o.kind, createdAt: o.now,
     inputHoldoutHash, baselineManifestHash, candidateManifestHash,
-    meetsPromotionRule: { version: PROMOTION_RULE_VERSION, result: promoted },
+    meetsPromotionRule: { version: ruleVersion, result: promoted },
+    ...(sequentialEvidence ? { sequentialEvidence } : {}),
     decisionReceipt, shadow,
     costReceipt: { usd: 0, llmCalls: 0, tier: o.cost.tier, notes: o.cost.notes },
     mutationClass, mutationSummary, deltas, humanEvalHash: o.humanEvalHash, promotion, regression,
@@ -229,6 +302,7 @@ export function runRealEvolveRound(opts: {
   generation: number; parent: string | null; branch?: string; now: number;
   redblue?: 'PASS' | 'FAIL' | 'SKIPPED'; drift?: number; canaryRollbackRate?: number;
   humanRelevanceDelta?: number; humanEvalHash?: string; corpus: string;
+  sequential?: AssembleOpts['sequential'];
 }): EvolveReceiptBundle {
   return assembleBundle(opts.baseline, opts.candidate, opts.holdout, {
     generation: opts.generation, parent: opts.parent, branch: opts.branch ?? 'main', now: opts.now, kind: 'real',
@@ -236,6 +310,7 @@ export function runRealEvolveRound(opts: {
     redblue: opts.redblue, drift: opts.drift, canaryRollbackRate: opts.canaryRollbackRate,
     humanRelevanceDelta: opts.humanRelevanceDelta, humanEvalHash: opts.humanEvalHash,
     layer: 'real/retrieval', corpus: opts.corpus,
+    sequential: opts.sequential,
   });
 }
 
@@ -308,16 +383,39 @@ export function verifyReceiptBundle(bundle: EvolveReceiptBundle): VerifyReport {
   const deltaCILow = bootstrapDeltaCILow(bundle.holdout.map((h) => h.candidateScore - h.baselineScore));
   const significant = deltaCILow > 0;
 
-  // Re-run the SAME versioned rule on independently-recomputed inputs.
-  const ruleVersionMatches = bundle.decisionReceipt.promotionRuleVersion === PROMOTION_RULE_VERSION
-    && bundle.meetsPromotionRule.version === PROMOTION_RULE_VERSION;
-  if (!ruleVersionMatches) mismatches.push(`promotion rule version != ${PROMOTION_RULE_VERSION}`);
+  // Re-run the SAME versioned rule the bundle was decided under (pinned per
+  // bundle — a lineage may legitimately mix v1 and v2, ADR-381 §3). The rule
+  // version and the presence of the sequential record must agree.
+  const expectedVersion = bundle.sequentialEvidence ? PROMOTION_RULE_VERSION_V2 : PROMOTION_RULE_VERSION;
+  const ruleVersionMatches = bundle.decisionReceipt.promotionRuleVersion === expectedVersion
+    && bundle.meetsPromotionRule.version === expectedVersion;
+  if (!ruleVersionMatches) mismatches.push(`promotion rule version != ${expectedVersion} (or sequential record inconsistent with version)`);
+
+  // v2: replay the sequential e-process from the embedded holdout using the
+  // recorded testIndex/alphaTotal/lambda — the recorded verdict must recompute.
+  let sequentialOk = true;
+  if (bundle.sequentialEvidence) {
+    const s = bundle.sequentialEvidence;
+    try {
+      const replayed = sequentialEvidenceVerdict(
+        bundle.holdout.map((h) => ({ taskId: h.taskId, baselineScore: h.baselineScore, candidateScore: h.candidateScore })),
+        s.testIndex,
+        { alphaTotal: s.alphaTotal, lambda: s.lambda },
+      );
+      sequentialOk = Math.abs(replayed.eValue - s.eValue) < 1e-9
+        && replayed.significant === s.significant
+        && replayed.informativePairs === s.informativePairs;
+    } catch {
+      sequentialOk = false;
+    }
+    if (!sequentialOk) mismatches.push('recorded sequential-evidence verdict does not recompute from the embedded holdout');
+  }
 
   const decision = accept({
     ...bundle.decisionReceipt.verdictInputs,
     heldOutScore: candidateHeldOut, baselineHeldOutScore: baselineHeldOut,
   });
-  const promotedRecomputed = decision.accept && significant;
+  const promotedRecomputed = decision.accept && significant && (bundle.sequentialEvidence ? bundle.sequentialEvidence.significant && sequentialOk : true);
   const decisionMatches = promotedRecomputed === bundle.decisionReceipt.promoted && promotedRecomputed === bundle.meetsPromotionRule.result;
   if (!decisionMatches) mismatches.push('recomputed decision != recorded decision');
 
@@ -334,11 +432,15 @@ export function verifyReceiptBundle(bundle: EvolveReceiptBundle): VerifyReport {
   if (!causalConsistent) mismatches.push('causal record inconsistent with the decision (promotion/regression/delta)');
 
   const valid = hashChecks.inputHoldout && hashChecks.baselineManifest && hashChecks.candidateManifest
-    && ruleVersionMatches && decisionMatches && noAutoServe && causalConsistent;
+    && ruleVersionMatches && decisionMatches && noAutoServe && causalConsistent && sequentialOk;
 
   const why = promotedRecomputed
-    ? `PASS under ${PROMOTION_RULE_VERSION}: held_out ${candidateHeldOut.toFixed(4)} > ${baselineHeldOut.toFixed(4)} (Δ CI-low ${deltaCILow.toFixed(4)} > 0, significant), canary rollback ${canaryRollbackRate} ≤ 0, all terms held`
-    : `FAIL under ${PROMOTION_RULE_VERSION}: ${[...decision.failed, ...(!significant ? ['significant'] : [])].join(', ')}`;
+    ? `PASS under ${expectedVersion}: held_out ${candidateHeldOut.toFixed(4)} > ${baselineHeldOut.toFixed(4)} (Δ CI-low ${deltaCILow.toFixed(4)} > 0, significant), canary rollback ${canaryRollbackRate} ≤ 0, all terms held`
+    : `FAIL under ${expectedVersion}: ${[
+      ...decision.failed,
+      ...(!significant ? ['significant'] : []),
+      ...(bundle.sequentialEvidence && !(bundle.sequentialEvidence.significant && sequentialOk) ? ['sequential_evidence'] : []),
+    ].join(', ')}`;
 
   return {
     valid, hashChecks,

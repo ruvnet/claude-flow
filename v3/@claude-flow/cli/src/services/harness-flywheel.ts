@@ -35,6 +35,7 @@ import {
   readFlywheelTransactionState,
   registerFlywheelReceipt,
 } from './flywheel-transaction.js';
+import { minInformativePairsToClear } from './flywheel-sequential-evidence.js';
 import { runBoundedPool } from './bounded-worker-pool.js';
 
 export interface RetrievalConfig { alpha: number; subjectWeight: number; mmrLambda: number; bodyWeight: number; typePenaltyFactor: number; }
@@ -88,6 +89,14 @@ export interface FlywheelResult {
   receipt?: FlywheelEvaluationReceipt;
   promotable?: boolean;
   legacyDeprecation?: boolean;
+  /**
+   * ADR-381 §4 soft pre-flight: whether this evaluation's promotion holdout
+   * can clear the sequential-evidence threshold at the ledger's next test
+   * index even on a perfect all-win sweep. viable:false does NOT block the
+   * evaluation (learn value stands; the gate refuses size-inviable receipts
+   * without alpha spend) — it tells the operator promotion is out of reach.
+   */
+  sequentialPreflight?: { viable: boolean; heldSize: number; minPairsRequired: number; nextTestIndex: number };
 }
 
 const EPS = 1e-3;
@@ -169,6 +178,17 @@ export async function evaluateFlywheelCandidate(projectRoot: string, deps: Flywh
     const objective = blended.tasks.filter((t) => anchorIdSet.has(t.id));
     const guard = blended.tasks.filter((t) => !anchorIdSet.has(t.id));
     if (objective.length < 4) return { ran: false, reason: 'objective (anchor) too small to gate' };
+
+    // Soft pre-flight (ADR-381 §4): can the held half of the objective clear
+    // the sequential-evidence threshold at the ledger's NEXT test index even
+    // on a perfect all-win sweep? Annotate — never block: evaluation has
+    // learn value regardless, anchors may legitimately be small (≥4), and
+    // the promote gate refuses size-inviable receipts without spending alpha.
+    const preState = readFlywheelTransactionState(projectRoot);
+    const nextTestIndex = Object.keys(preState.sequentialTests ?? {}).length + 1;
+    const heldSize = Math.max(1, Math.round(objective.length * 0.5)); // held half per split(objective, 0.5)
+    const minPairsRequired = minInformativePairsToClear(nextTestIndex);
+    const sequentialPreflight = { viable: heldSize >= minPairsRequired, heldSize, minPairsRequired, nextTestIndex };
 
     // Precompute retrieval for baseline + all candidates over every task (async
     // I/O up front → the harness scoring stays pure/sync).
@@ -352,7 +372,9 @@ export async function evaluateFlywheelCandidate(projectRoot: string, deps: Flywh
       baselineScore, candidateScore, delta: candidateScore - baselineScore,
       anchorRegressed, championRef: finalAccept ? refOf(candidate) : undefined,
       corpusVersion: blended.version, candidateConfig: candidate,
-      receiptId: receipt.payload.receiptId, receipt, promotable: finalAccept && !!receipt.signature,
+      receiptId: receipt.payload.receiptId, receipt,
+      promotable: finalAccept && !!receipt.signature && sequentialPreflight.viable,
+      sequentialPreflight,
     };
   } catch (e) {
     return { ran: false, reason: `error: ${(e as Error)?.message ?? e}` };

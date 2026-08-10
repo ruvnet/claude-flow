@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_ALPHA_TOTAL,
+  DEFAULT_LAMBDA,
   alphaForTest,
   checkPairedOutcomesConsistency,
+  minInformativePairsToClear,
+  remainingAlphaBudget,
   sequentialEvidenceVerdict,
   type PairedTaskOutcome,
 } from '../src/services/flywheel-sequential-evidence.js';
@@ -24,6 +27,28 @@ describe('alpha allocation across the candidate stream', () => {
     expect(() => alphaForTest(0)).toThrow(RangeError);
     expect(() => alphaForTest(1.5)).toThrow(RangeError);
     expect(() => alphaForTest(1, 1)).toThrow(RangeError);
+  });
+
+  it('minInformativePairsToClear is exactly the all-win count that clears the threshold', () => {
+    for (const k of [1, 2, 5, 10]) {
+      const n = minInformativePairsToClear(k);
+      // n all-win pairs clear; n-1 do not.
+      expect(Math.pow(1 + DEFAULT_LAMBDA, n)).toBeGreaterThanOrEqual(1 / alphaForTest(k));
+      expect(Math.pow(1 + DEFAULT_LAMBDA, n - 1)).toBeLessThan(1 / alphaForTest(k));
+    }
+    // Concrete anchor: test 1 needs 9 net wins at lambda 0.5.
+    expect(minInformativePairsToClear(1)).toBe(9);
+  });
+
+  it('remainingAlphaBudget decreases monotonically and never goes negative', () => {
+    let prev = DEFAULT_ALPHA_TOTAL;
+    for (let k = 0; k <= 50; k += 5) {
+      const left = remainingAlphaBudget(k);
+      expect(left).toBeLessThanOrEqual(prev + 1e-12);
+      expect(left).toBeGreaterThanOrEqual(0);
+      prev = left;
+    }
+    expect(remainingAlphaBudget(0)).toBe(DEFAULT_ALPHA_TOTAL);
   });
 });
 

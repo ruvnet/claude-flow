@@ -59,6 +59,7 @@ import {
   listFlywheelReceipts,
   promoteFlywheelCandidate,
   readFlywheelTransactionState,
+  resetSequentialEvidence,
   verifyFlywheelLedger,
 } from '../services/flywheel-transaction.js';
 
@@ -624,7 +625,7 @@ export const metaharnessTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        operation: { type: 'string', enum: ['run', 'status', 'receipts', 'history', 'promote'], description: 'Flywheel operation', default: 'status' },
+        operation: { type: 'string', enum: ['run', 'status', 'receipts', 'history', 'promote', 'evidence-reset'], description: 'Flywheel operation', default: 'status' },
         projectRoot: { type: 'string', description: 'Target project root (default: active project cwd)' },
         receiptId: { type: 'string', description: 'Receipt content ID for promote' },
         sample: { type: 'number', description: 'Maximum harvested evaluation sample', default: 40 },
@@ -639,6 +640,7 @@ export const metaharnessTools: MCPTool[] = [
         anchorManifestPath: { type: 'string', description: 'Project-contained anchor manifest path (default .claude/eval/flywheel-anchor.manifest.json)' },
         approvalIds: { type: 'array', items: { type: 'string' }, description: 'Scoped ADR-324 approval IDs for privileged promotion' },
         allowAggregateEvidence: { type: 'boolean', description: 'Migration escape hatch: accept a pre-upgrade receipt without task-level pairedOutcomes. Default false — aggregate-only evidence is refused by the strict sequential-evidence gate.', default: false },
+        reason: { type: 'string', description: 'Required for evidence-reset (ADR-381): the human intent recorded in the append-only reset audit trail.' },
       },
       required: ['operation'],
     },
@@ -692,6 +694,36 @@ export const metaharnessTools: MCPTool[] = [
           anchorManifestPath: input.anchorManifestPath ? String(input.anchorManifestPath) : undefined,
         });
         return { success: data.ran, data, degraded: false, exitCode: data.ran ? 0 : 1 };
+      }
+      if (operation === 'evidence-reset') {
+        // ADR-381 §2 — reopens the family-wise alpha budget; same policy
+        // gate as promote, plus a mandatory recorded reason.
+        const reason = String(input.reason ?? '').trim();
+        if (!reason) {
+          return { success: false, data: { reason: 'evidence-reset requires a non-empty reason — the reset audit trail records intent' }, degraded: false, exitCode: 2 };
+        }
+        const policy = await evaluatePolicyRequest({
+          identity: { id: 'metaharness-mcp', type: 'agent', roles: ['optimizer'] },
+          action: {
+            type: 'metaharness.evidence.reset',
+            resource: projectRoot,
+            environment: 'production',
+            destructive: true,
+          },
+          context: {
+            approvalIds: Array.isArray(input.approvalIds) ? input.approvalIds.map(String) : undefined,
+          },
+        }, projectRoot);
+        if (policy.enforcedOutcome !== 'allowed') {
+          return {
+            success: false,
+            data: { reason: `policy-${policy.enforcedOutcome}:${policy.reason}`, policyReceiptId: policy.receiptId },
+            degraded: false,
+            exitCode: 1,
+          };
+        }
+        const data = await resetSequentialEvidence(projectRoot, { confirm: input.confirm === true, reason });
+        return { success: data.success, data, degraded: false, exitCode: data.success ? 0 : 1 };
       }
       if (operation === 'promote') {
         if (!input.receiptId || !input.publicKeyPath) {

@@ -45,6 +45,7 @@ import {
   listFlywheelReceipts,
   promoteFlywheelCandidate,
   readFlywheelTransactionState,
+  resetSequentialEvidence,
   verifyFlywheelLedger,
 } from '../services/flywheel-transaction.js';
 import { evaluatePolicyRequest } from '../services/policy-runtime.js';
@@ -134,6 +135,34 @@ async function dispatchFlywheel(
   } else if (operation === 'history') {
     const state = readFlywheelTransactionState(projectRoot);
     data = { ledgerHead: state.ledgerHead, commits: state.commits };
+  } else if (operation === 'evidence-reset') {
+    // ADR-381 §2 — start a new evidence epoch. Same policy gate as promote:
+    // this reopens the family-wise alpha budget, so it is a governance action.
+    const reason = String(flywheelFlag(flags, 'reason', '')).trim();
+    if (!reason) {
+      data = { success: false, reason: 'evidence-reset requires --reason "<why>" — the reset audit trail records intent' };
+    } else {
+      const policy = await evaluatePolicyRequest({
+        identity: { id: process.env.CLAUDE_FLOW_PRINCIPAL_ID ?? 'metaharness-local', type: 'agent', roles: ['optimizer'] },
+        action: {
+          type: 'metaharness.evidence.reset',
+          resource: projectRoot,
+          environment: 'production',
+          destructive: true,
+        },
+        context: {
+          approvalIds: String(flywheelFlag(flags, 'approvalId', '')).split(',').filter(Boolean),
+        },
+      }, projectRoot);
+      if (policy.enforcedOutcome !== 'allowed') {
+        data = { success: false, reason: `policy-${policy.enforcedOutcome}:${policy.reason}`, policyReceiptId: policy.receiptId };
+      } else {
+        data = await resetSequentialEvidence(projectRoot, {
+          confirm: flywheelFlag<boolean>(flags, 'confirm', false) === true,
+          reason,
+        });
+      }
+    }
   } else if (operation === 'promote') {
     const receiptId = positional[0];
     const publicKeyPath = flywheelFlag<string>(flags, 'publicKey');
@@ -299,7 +328,7 @@ export const metaharnessCommand: Command = {
       output.writeln('  redblue       adversarial red/blue LLM testing (init|run|patch|attack|report)');
       output.writeln('  evolve        Darwin candidate evolution');
       output.writeln('  bench         create or verify a stable benchmark suite');
-      output.writeln('  flywheel      receipt loop: run | status | receipts | history | promote');
+      output.writeln('  flywheel      receipt loop: run | status | receipts | history | promote | evidence-reset');
       output.writeln('');
       output.writeln('Each subcommand accepts --format json|table and --help.');
       output.writeln('');

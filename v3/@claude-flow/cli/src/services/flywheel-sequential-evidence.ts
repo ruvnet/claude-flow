@@ -121,6 +121,30 @@ export function sequentialEvidenceVerdict(
   };
 }
 
+/**
+ * Minimum number of INFORMATIVE (discordant) pairs a candidate must win —
+ * with zero losses — to clear the k-th test's threshold: the smallest n with
+ * (1+lambda)^n >= 1/alpha_k. The pre-flight power check (ADR-381 §4): an
+ * evaluation whose promotion holdout is smaller than this cannot promote even
+ * on a perfect sweep, so it should be refused BEFORE compute is spent and
+ * before a doomed receipt can be presented to the gate (spending alpha).
+ */
+export function minInformativePairsToClear(testIndex: number, config: SequentialEvidenceConfig = {}): number {
+  const alphaTotal = config.alphaTotal ?? DEFAULT_ALPHA_TOTAL;
+  const lambda = config.lambda ?? DEFAULT_LAMBDA;
+  if (!(lambda > 0 && lambda < 1)) throw new RangeError('lambda must be in (0, 1)');
+  const threshold = 1 / alphaForTest(testIndex, alphaTotal);
+  return Math.ceil(Math.log(threshold) / Math.log(1 + lambda));
+}
+
+/** Family-wise budget left after `testsRun` allocated tests: alphaTotal - Σ alpha_k. */
+export function remainingAlphaBudget(testsRun: number, alphaTotal = DEFAULT_ALPHA_TOTAL): number {
+  if (!Number.isInteger(testsRun) || testsRun < 0) throw new RangeError('testsRun must be a non-negative integer');
+  let spent = 0;
+  for (let k = 1; k <= testsRun; k++) spent += alphaForTest(k, alphaTotal);
+  return Math.max(0, alphaTotal - spent);
+}
+
 export interface PairedEvidenceCheck {
   ok: boolean;
   reasons: string[];

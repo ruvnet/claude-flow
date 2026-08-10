@@ -12,6 +12,7 @@ import {
   readFlywheelTransactionState,
   recoverFlywheelMaterialization,
   registerFlywheelReceipt,
+  resetSequentialEvidence,
   verifyFlywheelLedger,
 } from '../src/services/flywheel-transaction.js';
 
@@ -161,14 +162,36 @@ describe('flywheel promotion transaction', () => {
     expect(allowed.success).toBe(true);
   });
 
+  it('refuses a size-inviable receipt WITHOUT spending alpha (ancillary refusal)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'flywheel-size-inviable-'));
+    const key = keyPair();
+    // 5 pairs < 9 required at test 1: refused on sample size alone — no
+    // evidence looked at, no alpha index allocated.
+    const tinyDeltas = [0.1, 0.12, 0.2, 0.08, 0.15];
+    const receipt = makeReceipt(key, {
+      heldOutDeltas: tinyDeltas,
+      pairedOutcomes: tinyDeltas.map((delta, i) => ({ taskId: `t${i}`, baselineScore: 0.5, candidateScore: 0.5 + delta })),
+    });
+    await registerFlywheelReceipt(root, receipt);
+    const refused = await promoteFlywheelCandidate(root, receipt.payload.receiptId, {
+      confirm: true,
+      now: 1_700_000_000_100,
+      trustedPublicKeys: new Set([key.publicKeyPem]),
+      applyFn: apply,
+    });
+    expect(refused.success).toBe(false);
+    expect(refused.reason).toMatch(/cannot clear sequential evidence at test 1.*no alpha spent/);
+    expect(readFlywheelTransactionState(root).sequentialTests ?? {}).toEqual({});
+  });
+
   it('refuses weak paired evidence at the allocated alpha and records the spend once', async () => {
     const root = mkdtempSync(join(tmpdir(), 'flywheel-weak-evidence-'));
     const key = keyPair();
-    // 5 all-win pairs: the receipt's own gate accepts (bootstrap over 5
-    // positive deltas is significant) but e = 1.5^5 ≈ 7.6 < 32.9 = 1/alpha_1,
-    // so the sequential gate must refuse — the exact divergence between
-    // per-candidate significance and stream-level evidence.
-    const weakDeltas = [0.1, 0.12, 0.2, 0.08, 0.15];
+    // 10 pairs (size-viable at test 1) but 9 wins + 1 loss: the receipt's own
+    // gate accepts (bootstrap still significant) while e = 1.5^9 · 0.5 ≈ 19.2
+    // < 32.9 = 1/alpha_1 — the sequential gate must refuse AND record the
+    // spend: this evidence was genuinely looked at.
+    const weakDeltas = [0.1, 0.12, 0.2, 0.08, 0.15, 0.11, 0.09, 0.14, 0.13, -0.1];
     const receipt = makeReceipt(key, {
       heldOutDeltas: weakDeltas,
       pairedOutcomes: weakDeltas.map((delta, i) => ({
@@ -215,14 +238,19 @@ describe('flywheel promotion transaction', () => {
     const promoted = await promoteFlywheelCandidate(root, first.payload.receiptId, common);
     expect(promoted.success).toBe(true);
 
-    // Second candidate in the stream: evidence that cleared test 1 is judged
-    // at test 2's stricter threshold (1/alpha_2 ≈ 131.6 > 57.7 = 1.5^10).
+    // Second candidate in the stream: judged at test 2's stricter threshold
+    // (1/alpha_2 ≈ 131.6). 14 pairs keeps it size-viable (min 13 at test 2)
+    // but 12 wins + 2 losses give e = 1.5^12 · 0.5^2 ≈ 32.4 < 131.6 — an
+    // e-process refusal that spends index 2.
     const state = readFlywheelTransactionState(root);
+    const secondDeltas = [0.1, 0.12, 0.2, 0.08, 0.15, 0.11, 0.09, 0.14, 0.13, 0.1, 0.12, 0.11, -0.05, -0.06];
     const second = makeReceipt(key, {
       evaluationRunId: '01900000-0000-7000-8000-000000000003',
       baselineRef: state.activeChampionRef!,
       expectedLedgerHead: state.ledgerHead,
       candidatePolicy: { alpha: 0.25 },
+      heldOutDeltas: secondDeltas,
+      pairedOutcomes: secondDeltas.map((delta, i) => ({ taskId: `s${i}`, baselineScore: 0.5, candidateScore: 0.5 + delta })),
     });
     await registerFlywheelReceipt(root, second);
     const refused = await promoteFlywheelCandidate(root, second.payload.receiptId, common);
@@ -231,6 +259,55 @@ describe('flywheel promotion transaction', () => {
     const after = readFlywheelTransactionState(root);
     expect(after.sequentialTests?.[first.payload.receiptId]).toBe(1);
     expect(after.sequentialTests?.[second.payload.receiptId]).toBe(2);
+  });
+
+  it('evidence reset starts a new epoch: archives spend, expires outstanding receipts, and re-opens the budget (ADR-381)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'flywheel-evidence-reset-'));
+    const key = keyPair();
+    const common = {
+      confirm: true,
+      now: 1_700_000_000_100,
+      trustedPublicKeys: new Set([key.publicKeyPem]),
+      applyFn: apply,
+    };
+
+    // Spend alpha with a weak receipt (size-viable, e-process refused at
+    // test 1), leaving it 'evaluated'.
+    const weakDeltas = [0.1, 0.12, 0.2, 0.08, 0.15, 0.11, 0.09, 0.14, 0.13, -0.1];
+    const weak = makeReceipt(key, {
+      heldOutDeltas: weakDeltas,
+      pairedOutcomes: weakDeltas.map((delta, i) => ({ taskId: `w${i}`, baselineScore: 0.5, candidateScore: 0.5 + delta })),
+    });
+    await registerFlywheelReceipt(root, weak);
+    expect((await promoteFlywheelCandidate(root, weak.payload.receiptId, common)).reason).toMatch(/insufficient sequential evidence/);
+
+    // Governance requirements: confirm + non-empty reason.
+    expect((await resetSequentialEvidence(root, { confirm: false, reason: 'x' })).success).toBe(false);
+    expect((await resetSequentialEvidence(root, { confirm: true, reason: '  ' })).success).toBe(false);
+
+    const reset = await resetSequentialEvidence(root, { confirm: true, reason: 'baseline rollback — fresh campaign', now: 1_700_000_000_200 });
+    expect(reset).toMatchObject({ success: true, closedEpoch: 0, newEpoch: 1, testsArchived: 1, receiptsExpired: 1 });
+
+    const state = readFlywheelTransactionState(root);
+    expect(state.evidenceEpoch).toBe(1);
+    expect(state.sequentialTests).toEqual({});
+    expect(state.sequentialResets).toHaveLength(1);
+    expect(state.sequentialResets![0]).toMatchObject({
+      epoch: 0,
+      reason: 'baseline rollback — fresh campaign',
+      testsSpent: { [weak.payload.receiptId]: 1 },
+      expiredReceipts: [weak.payload.receiptId],
+    });
+
+    // The expired receipt cannot be promoted in the new epoch — fresh data only.
+    expect((await promoteFlywheelCandidate(root, weak.payload.receiptId, common)).reason).toMatch(/receipt state is expired/);
+
+    // A receipt evaluated AFTER the reset promotes from test 1 of the new epoch.
+    const fresh = makeReceipt(key, { evaluationRunId: '01900000-0000-7000-8000-000000000009' });
+    await registerFlywheelReceipt(root, fresh, 1_700_000_000_300);
+    const promoted = await promoteFlywheelCandidate(root, fresh.payload.receiptId, common);
+    expect(promoted.success).toBe(true);
+    expect(readFlywheelTransactionState(root).sequentialTests?.[fresh.payload.receiptId]).toBe(1);
   });
 
   it('recovers consistently from faults before and after the atomic commit', async () => {

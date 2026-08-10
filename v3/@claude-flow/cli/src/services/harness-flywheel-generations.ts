@@ -24,6 +24,12 @@ import {
   runRealEvolveRound, reconstructLineage, detectPlateau, mutationEffectiveness,
   type EvolveReceiptBundle, type LineageTelemetry, type PlateauReport, type MutationStat,
 } from './evolve-proof.js';
+import {
+  DEFAULT_ALPHA_TOTAL,
+  alphaForTest,
+  minInformativePairsToClear,
+  remainingAlphaBudget,
+} from './flywheel-sequential-evidence.js';
 import { harvestSelfSupervisedTasks, type HarvestPattern } from './harness-corpus-harvester.js';
 import { applyChampionParams, rollbackActivePolicy } from '../config/harness-feedback-applier.js';
 import { DEFAULT_CONFIG, type RetrievalConfig, type RankedItem } from './harness-flywheel.js';
@@ -241,7 +247,12 @@ export async function runFlywheelGeneration(root: string, deps: GenerationDeps):
     // visibility): if this stays ~0 while benchmark Δ > 0, the loop is overfitting.
     const humanRelevanceDelta = candAnchor - baseAnchor;
 
-    const bundle = runRealEvolveRound({ baseline: baseline as unknown as Record<string, number>, candidate: cand as unknown as Record<string, number>, holdout, generation, parent, branch: 'main', now: deps.now, redblue, canaryRollbackRate, humanRelevanceDelta, humanEvalHash: deps.humanEvalHash, corpus: FROZEN_CORPUS });
+    // ADR-381 §3 — every generation is one look at the same adaptive stream;
+    // attempts.jsonl IS the stream record, so this attempt's 1-based position
+    // is its sequential test index. Promoted or not, the next tick's index
+    // moves on (this bundle is appended below).
+    const testIndex = loadAttempts(root).length + 1;
+    const bundle = runRealEvolveRound({ baseline: baseline as unknown as Record<string, number>, candidate: cand as unknown as Record<string, number>, holdout, generation, parent, branch: 'main', now: deps.now, redblue, canaryRollbackRate, humanRelevanceDelta, humanEvalHash: deps.humanEvalHash, corpus: FROZEN_CORPUS, sequential: { testIndex } });
     appendAttempt(root, bundle);
     if (bundle.decisionReceipt.promoted) appendPromotion(root, bundle);
 
@@ -318,6 +329,20 @@ export interface FlywheelStatus {
   humanEvalHash: string | null;       // frozen human eval set the deltas are against
   served: ServedState;
   champion: { config: Record<string, number>; hash: string | null };
+  /**
+   * ADR-381 §3 — visibility into the sequential alpha stream so budget
+   * exhaustion reads as a plateau signal, not a mystery: the next test's
+   * index, its allocated alpha and e-value threshold, the minimum all-win
+   * informative pairs needed to clear it, and the family-wise budget left.
+   */
+  sequential: {
+    nextTestIndex: number;
+    alphaAllocatedNext: number;
+    thresholdNext: number;
+    minInformativePairsNext: number;
+    remainingAlphaBudget: number;
+    alphaTotal: number;
+  };
 }
 
 /** Reconstruct the persisted lineage + telemetry for a status endpoint / CLI. */
@@ -337,5 +362,17 @@ export function flywheelStatus(root: string): FlywheelStatus {
     humanEvalHash: promotions.length ? (promotions[promotions.length - 1].humanEvalHash ?? null) : null,
     served: servedChampion(root),
     champion: { config: champ.config, hash: champ.hash },
+    sequential: (() => {
+      const nextTestIndex = attempts.length + 1;
+      const alphaAllocatedNext = alphaForTest(nextTestIndex);
+      return {
+        nextTestIndex,
+        alphaAllocatedNext,
+        thresholdNext: 1 / alphaAllocatedNext,
+        minInformativePairsNext: minInformativePairsToClear(nextTestIndex),
+        remainingAlphaBudget: remainingAlphaBudget(attempts.length),
+        alphaTotal: DEFAULT_ALPHA_TOTAL,
+      };
+    })(),
   };
 }

@@ -20,6 +20,7 @@ import {
 import {
   DEFAULT_ALPHA_TOTAL,
   DEFAULT_LAMBDA,
+  minInformativePairsToClear,
   sequentialEvidenceVerdict,
 } from './flywheel-sequential-evidence.js';
 
@@ -68,14 +69,42 @@ export interface FlywheelTransactionState {
   receiptStates: Record<string, ReceiptState>;
   commits: PromotionCommit[];
   /**
-   * Sequential-evidence alpha ledger: receiptId → 1-based test index in this
-   * lineage's promotion-test stream. An index is allocated the first time a
-   * receipt is presented to the promotion gate and persists whether or not
-   * the candidate promoted — looking spends alpha, and retrying the same
-   * receipt reuses its index (no double spend, no index shopping). Absent in
-   * pre-upgrade state files; readers treat missing as empty.
+   * Sequential-evidence alpha ledger (ADR-381): receiptId → 1-based test
+   * index in this ledger's promotion-test stream for the CURRENT evidence
+   * epoch. The stream is scoped to the transaction state itself (one ledger,
+   * one champion chain, one stream) — NOT to receipt lineageIds, which
+   * default to a fresh UUID per run and would void the control. An index is
+   * allocated the first time a receipt is presented to the promotion gate
+   * and persists whether or not the candidate promoted — looking spends
+   * alpha, and retrying the same receipt reuses its index (no double spend,
+   * no index shopping). Absent in pre-upgrade state files; readers treat
+   * missing as empty.
    */
   sequentialTests?: Record<string, number>;
+  /** Current evidence epoch (ADR-381 §2). Incremented only by an explicit governed reset. */
+  evidenceEpoch?: number;
+  /** Append-only audit trail of evidence resets. Nothing is ever deleted from it. */
+  sequentialResets?: SequentialResetRecord[];
+}
+
+export interface SequentialResetRecord {
+  /** The epoch that was CLOSED by this reset. */
+  epoch: number;
+  at: number;
+  reason: string;
+  /** Alpha spend archived from the closed epoch (receiptId → test index). */
+  testsSpent: Record<string, number>;
+  /** Outstanding 'evaluated' receipts expired by the reset (fresh-data enforcement). */
+  expiredReceipts: string[];
+}
+
+export interface EvidenceResetResult {
+  success: boolean;
+  reason: string;
+  closedEpoch?: number;
+  newEpoch?: number;
+  testsArchived?: number;
+  receiptsExpired?: number;
 }
 
 export interface PromotionResult {
@@ -239,6 +268,51 @@ export function readFlywheelReceipt(root: string, receiptId: string): FlywheelEv
   } catch {
     return null;
   }
+}
+
+/**
+ * Start a new evidence epoch (ADR-381 §2): archive the current alpha spend
+ * into the append-only reset audit trail, EXPIRE every outstanding
+ * 'evaluated' receipt (the new epoch may only promote evidence produced
+ * after the reset — structurally enforcing fresh data), clear the spend
+ * ledger, and increment the epoch. Requires explicit confirmation and a
+ * non-empty human reason; the CLI/MCP surfaces additionally gate this
+ * through the same policy engine as promotion.
+ */
+export async function resetSequentialEvidence(
+  root: string,
+  options: { confirm: boolean; reason: string; now?: number },
+): Promise<EvidenceResetResult> {
+  if (!options.confirm) return { success: false, reason: 'explicit confirmation required' };
+  const reason = (options.reason ?? '').trim();
+  if (!reason) return { success: false, reason: 'a non-empty reason is required — the reset audit trail records intent' };
+  const now = options.now ?? Date.now();
+  return withStateLock(root, () => {
+    const state = readFlywheelTransactionState(root);
+    const closedEpoch = state.evidenceEpoch ?? 0;
+    const testsSpent = { ...(state.sequentialTests ?? {}) };
+    const expiredReceipts: string[] = [];
+    for (const record of Object.values(state.receiptStates)) {
+      if (record.status === 'evaluated') {
+        record.status = 'expired';
+        expiredReceipts.push(record.receiptId);
+      }
+    }
+    const resets = state.sequentialResets ?? [];
+    resets.push({ epoch: closedEpoch, at: now, reason, testsSpent, expiredReceipts: [...expiredReceipts].sort() });
+    state.sequentialResets = resets;
+    state.sequentialTests = {};
+    state.evidenceEpoch = closedEpoch + 1;
+    atomicWriteJson(statePath(root), state);
+    return {
+      success: true,
+      reason: `evidence epoch ${closedEpoch} closed — ${Object.keys(testsSpent).length} test(s) archived, ${expiredReceipts.length} outstanding receipt(s) expired`,
+      closedEpoch,
+      newEpoch: state.evidenceEpoch,
+      testsArchived: Object.keys(testsSpent).length,
+      receiptsExpired: expiredReceipts.length,
+    };
+  });
 }
 
 export async function registerFlywheelReceipt(
@@ -415,6 +489,23 @@ export async function promoteFlywheelCandidate(
       if (!state.sequentialTests) state.sequentialTests = {};
       const priorIndex = state.sequentialTests[receiptId];
       const testIndex = priorIndex ?? (Object.keys(state.sequentialTests).length + 1);
+      // Size pre-flight (ADR-381 §4): refuse BEFORE allocating an alpha index
+      // when the receipt cannot clear this test's threshold even on a perfect
+      // all-win sweep. Sample size is ancillary — independent of the outcomes
+      // — so this refusal looks at no evidence and spends no alpha.
+      if (priorIndex === undefined) {
+        const minPairs = minInformativePairsToClear(testIndex, {
+          alphaTotal: options.sequentialAlphaTotal ?? DEFAULT_ALPHA_TOTAL,
+          lambda: options.sequentialLambda ?? DEFAULT_LAMBDA,
+        });
+        if (outcomes.length < minPairs) {
+          return {
+            success: false,
+            idempotent: false,
+            reason: `receipt cannot clear sequential evidence at test ${testIndex}: ${outcomes.length} paired task(s) < ${minPairs} required even on a perfect sweep — no alpha spent; re-evaluate with a larger promotion holdout (ADR-381)`,
+          } satisfies PromotionResult;
+        }
+      }
       const verdict = sequentialEvidenceVerdict(outcomes, testIndex, {
         alphaTotal: options.sequentialAlphaTotal ?? DEFAULT_ALPHA_TOTAL,
         lambda: options.sequentialLambda ?? DEFAULT_LAMBDA,
