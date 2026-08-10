@@ -1844,7 +1844,7 @@ async function checkMetaharnessDeclaredPackages(): Promise<HealthCheck> {
         name: NAME,
         status: 'fail',
         message: 'no @metaharness/* packages declared in optionalDependencies — the dependency contract regressed (peer-only declarations are never installed)',
-        fix: 'Restore @metaharness/darwin, @metaharness/flywheel, @metaharness/radio to optionalDependencies in @claude-flow/cli',
+        fix: 'Restore @metaharness/darwin, @metaharness/flywheel, @metaharness/radio, @metaharness/turn-credit to optionalDependencies in @claude-flow/cli',
       };
     }
 

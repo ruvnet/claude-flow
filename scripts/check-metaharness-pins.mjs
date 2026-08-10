@@ -20,11 +20,12 @@
 //     a clean `npm install` actually materializes them; an optional PEER
 //     dependency is never auto-installed, which is how a fresh ruflo install
 //     shipped with zero MetaHarness packages on disk.
-//   - metaharness            — the umbrella / MCP subprocess CLI (npx path; peer ok)
-//   - @metaharness/router    — neural-router.ts dynamic import (peer ok — triple-gated)
-//   - @metaharness/darwin    — Darwin evolve / GEPA subprocess (must be installable)
-//   - @metaharness/flywheel  — receipt/gate interop (must be installable)
-//   - @metaharness/radio     — coordination-policy optimizer (must be installable)
+//   - metaharness              — the umbrella / MCP subprocess CLI (npx path; peer ok)
+//   - @metaharness/router      — neural-router.ts dynamic import (peer ok — triple-gated)
+//   - @metaharness/darwin      — Darwin evolve / GEPA subprocess (must be installable)
+//   - @metaharness/flywheel    — receipt/gate interop (must be installable)
+//   - @metaharness/radio       — coordination-policy optimizer (must be installable)
+//   - @metaharness/turn-credit — recursive turn-level credit assignment, ADR-248 (must be installable)
 // Plus a lock-step check: the MH_DARWIN_PIN constant in distill-oracle.ts (used
 // for the Tier-1 oracle's `npx @metaharness/darwin@<pin>` calls) must satisfy
 // the declared @metaharness/darwin range, so the two can't drift apart.
@@ -106,6 +107,7 @@ async function main() {
     { name: '@metaharness/darwin', installable: true },
     { name: '@metaharness/flywheel', installable: true },
     { name: '@metaharness/radio', installable: true },
+    { name: '@metaharness/turn-credit', installable: true },
   ];
   const pins = WATCHED.map((w) => ({ ...w, ...declaredRange(pkg, w.name) }));
 
@@ -141,11 +143,14 @@ async function main() {
   if (ARGS.requireInstalled) {
     const cliDir = dirname(CLI_PKG);
     // Advertised symbol contract per package — verified against the real
-    // published artifacts (darwin 0.8.3 / flywheel 0.1.10 / radio 0.1.0).
+    // published artifacts (darwin 0.9.0 / flywheel 0.1.10 / radio 0.1.0 / turn-credit 0.1.0).
     const API_CONTRACT = {
       '@metaharness/darwin': ['evolve', 'RefineMutator', 'summarizeFailedTraces'],
       '@metaharness/flywheel': ['runFlywheelGenerations', 'meetsPromotionRule', 'makeSigner', 'verifyReplayBundle', 'sequentialEvidence', 'withSequentialEvidence'],
       '@metaharness/radio': ['RadioBus', 'runProtocol', 'runSim'],
+      // PAPER_DEFAULTS/GOVERNED_DEFAULTS are exported consts, not functions —
+      // excluded here since this contract only asserts `typeof === 'function'`.
+      '@metaharness/turn-credit': ['processTrajectory', 'creditByLabel', 'evidenceFromLogProbs', 'buildCreditReceiptPayload'],
     };
     for (const [pkgName, symbols] of Object.entries(API_CONTRACT)) {
       try {
