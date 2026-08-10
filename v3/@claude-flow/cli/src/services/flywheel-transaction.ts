@@ -17,6 +17,12 @@ import {
   verifyFlywheelReceipt,
   type FlywheelEvaluationReceipt,
 } from './flywheel-receipt.js';
+import {
+  DEFAULT_ALPHA_TOTAL,
+  DEFAULT_LAMBDA,
+  minInformativePairsToClear,
+  sequentialEvidenceVerdict,
+} from './flywheel-sequential-evidence.js';
 
 const STATE_VERSION = 1 as const;
 const STATE_DIR = ['.claude-flow', 'flywheel-v1'] as const;
@@ -62,6 +68,53 @@ export interface FlywheelTransactionState {
   servedChampionRef: string | null;
   receiptStates: Record<string, ReceiptState>;
   commits: PromotionCommit[];
+  /**
+   * Sequential-evidence alpha ledger (ADR-381): receiptId → 1-based test
+   * index in this ledger's promotion-test stream for the CURRENT evidence
+   * epoch. The stream is scoped to the transaction state itself (one ledger,
+   * one champion chain, one stream) — NOT to receipt lineageIds, which
+   * default to a fresh UUID per run and would void the control. An index is
+   * allocated the first time a receipt is presented to the promotion gate
+   * and persists whether or not the candidate promoted — looking spends
+   * alpha, and retrying the same receipt reuses its index (no double spend,
+   * no index shopping). Absent in pre-upgrade state files; readers treat
+   * missing as empty.
+   */
+  sequentialTests?: Record<string, number>;
+  /** Current evidence epoch (ADR-381 §2). Incremented only by an explicit governed reset. */
+  evidenceEpoch?: number;
+  /**
+   * Wall-clock boundary (ms) of the current evidence epoch — the `now` an
+   * explicit reset ran at. A receipt whose OWN evidence (payload.issuedAt)
+   * predates this boundary belongs to a prior epoch even if it happens to be
+   * registered/promoted after the reset — the exact "index shopping" ADR-381
+   * §2 requires the epoch mechanism to prevent. Undefined for the genesis
+   * epoch (no lower bound) and for state files written before this field
+   * existed.
+   */
+  evidenceEpochStartedAt?: number;
+  /** Append-only audit trail of evidence resets. Nothing is ever deleted from it. */
+  sequentialResets?: SequentialResetRecord[];
+}
+
+export interface SequentialResetRecord {
+  /** The epoch that was CLOSED by this reset. */
+  epoch: number;
+  at: number;
+  reason: string;
+  /** Alpha spend archived from the closed epoch (receiptId → test index). */
+  testsSpent: Record<string, number>;
+  /** Outstanding 'evaluated' receipts expired by the reset (fresh-data enforcement). */
+  expiredReceipts: string[];
+}
+
+export interface EvidenceResetResult {
+  success: boolean;
+  reason: string;
+  closedEpoch?: number;
+  newEpoch?: number;
+  testsArchived?: number;
+  receiptsExpired?: number;
 }
 
 export interface PromotionResult {
@@ -84,6 +137,18 @@ export interface PromoteOptions {
   approvedAttestors?: Set<string>;
   allowedProposerSubstitutions?: Set<string>;
   applyFn?: (root: string, policy: Record<string, unknown>, championRef: string, previous: string | null, now: number) => ApplyResult;
+  /**
+   * Strict promotion evidence (default true): the receipt must carry
+   * task-level pairedOutcomes AND clear the sequential-evidence e-process at
+   * this test's allocated share of the family-wise alpha budget. Set false
+   * ONLY as an explicit migration escape hatch for pre-upgrade receipts —
+   * aggregate-only evidence is otherwise refused, never silently accepted.
+   */
+  requirePairedEvidence?: boolean;
+  /** Family-wise type-I budget across the whole candidate stream (default 0.05). */
+  sequentialAlphaTotal?: number;
+  /** e-process betting fraction in (0,1) (default 0.5). */
+  sequentialLambda?: number;
   /** Test-only crash hook; production callers leave unset. */
   faultAt?: 'before-commit' | 'after-commit-before-materialize';
 }
@@ -213,6 +278,52 @@ export function readFlywheelReceipt(root: string, receiptId: string): FlywheelEv
   } catch {
     return null;
   }
+}
+
+/**
+ * Start a new evidence epoch (ADR-381 §2): archive the current alpha spend
+ * into the append-only reset audit trail, EXPIRE every outstanding
+ * 'evaluated' receipt (the new epoch may only promote evidence produced
+ * after the reset — structurally enforcing fresh data), clear the spend
+ * ledger, and increment the epoch. Requires explicit confirmation and a
+ * non-empty human reason; the CLI/MCP surfaces additionally gate this
+ * through the same policy engine as promotion.
+ */
+export async function resetSequentialEvidence(
+  root: string,
+  options: { confirm: boolean; reason: string; now?: number },
+): Promise<EvidenceResetResult> {
+  if (!options.confirm) return { success: false, reason: 'explicit confirmation required' };
+  const reason = (options.reason ?? '').trim();
+  if (!reason) return { success: false, reason: 'a non-empty reason is required — the reset audit trail records intent' };
+  const now = options.now ?? Date.now();
+  return withStateLock(root, () => {
+    const state = readFlywheelTransactionState(root);
+    const closedEpoch = state.evidenceEpoch ?? 0;
+    const testsSpent = { ...(state.sequentialTests ?? {}) };
+    const expiredReceipts: string[] = [];
+    for (const record of Object.values(state.receiptStates)) {
+      if (record.status === 'evaluated') {
+        record.status = 'expired';
+        expiredReceipts.push(record.receiptId);
+      }
+    }
+    const resets = state.sequentialResets ?? [];
+    resets.push({ epoch: closedEpoch, at: now, reason, testsSpent, expiredReceipts: [...expiredReceipts].sort() });
+    state.sequentialResets = resets;
+    state.sequentialTests = {};
+    state.evidenceEpoch = closedEpoch + 1;
+    state.evidenceEpochStartedAt = now;
+    atomicWriteJson(statePath(root), state);
+    return {
+      success: true,
+      reason: `evidence epoch ${closedEpoch} closed — ${Object.keys(testsSpent).length} test(s) archived, ${expiredReceipts.length} outstanding receipt(s) expired`,
+      closedEpoch,
+      newEpoch: state.evidenceEpoch,
+      testsArchived: Object.keys(testsSpent).length,
+      receiptsExpired: expiredReceipts.length,
+    };
+  });
 }
 
 export async function registerFlywheelReceipt(
@@ -362,6 +473,80 @@ export async function promoteFlywheelCandidate(
         evidence.verification === 'trusted-assertion'
         && (!evidence.attestor || !options.approvedAttestors?.has(evidence.attestor))
       ) return { success: false, idempotent: false, reason: `unapproved evidence attestor for gate: ${term}` } satisfies PromotionResult;
+    }
+
+    // Strict sequential evidence (default ON). Two refusals, both explicit:
+    //   1. aggregate-only receipts (no pairedOutcomes) — the upstream-style
+    //      "degrade to the base gate" fallback is exactly the hole this closes;
+    //   2. paired evidence that cannot clear the e-process at this test's
+    //      allocated share of the family-wise alpha budget.
+    // Alpha is spent by LOOKING: the allocation is persisted even when the
+    // verdict refuses, and a retried receipt reuses its index.
+    if (options.requirePairedEvidence !== false) {
+      const rawOutcomes = receipt.payload.pairedOutcomes;
+      if (!rawOutcomes || rawOutcomes.length === 0) {
+        return {
+          success: false,
+          idempotent: false,
+          reason: 'receipt carries aggregate-only evidence (no task-level pairedOutcomes) — re-evaluate the candidate with a current ruflo, or pass the explicit aggregate-evidence override',
+        } satisfies PromotionResult;
+      }
+      // Epoch-boundary enforcement (ADR-381 §2): a receipt whose OWN evidence
+      // predates the current epoch's start must be refused even if it was
+      // registered after the reset — registration time is not evidence time.
+      // Without this check a receipt built from a stale/cached evaluation (or
+      // any future path that decouples evaluation from immediate
+      // registration) could be presented into the fresh, low-alpha epoch —
+      // exactly the index-shopping the reset mechanism exists to prevent.
+      if (state.evidenceEpochStartedAt !== undefined) {
+        const issuedAtMs = Date.parse(receipt.payload.issuedAt);
+        if (!Number.isNaN(issuedAtMs) && issuedAtMs < state.evidenceEpochStartedAt) {
+          return {
+            success: false,
+            idempotent: false,
+            reason: `receipt evidence (issued ${receipt.payload.issuedAt}) predates the current evidence epoch ${state.evidenceEpoch ?? 0} (started ${new Date(state.evidenceEpochStartedAt).toISOString()}) — re-evaluate the candidate to produce fresh evidence`,
+          } satisfies PromotionResult;
+        }
+      }
+      // Consistency with heldOutDeltas was already enforced by verifyFlywheelReceipt.
+      const outcomes = rawOutcomes.map((o) => ({
+        taskId: o.taskId,
+        baselineScore: Number(o.baselineScore),
+        candidateScore: Number(o.candidateScore),
+      }));
+      if (!state.sequentialTests) state.sequentialTests = {};
+      const priorIndex = state.sequentialTests[receiptId];
+      const testIndex = priorIndex ?? (Object.keys(state.sequentialTests).length + 1);
+      // Size pre-flight (ADR-381 §4): refuse BEFORE allocating an alpha index
+      // when the receipt cannot clear this test's threshold even on a perfect
+      // all-win sweep. Sample size is ancillary — independent of the outcomes
+      // — so this refusal looks at no evidence and spends no alpha.
+      if (priorIndex === undefined) {
+        const minPairs = minInformativePairsToClear(testIndex, {
+          alphaTotal: options.sequentialAlphaTotal ?? DEFAULT_ALPHA_TOTAL,
+          lambda: options.sequentialLambda ?? DEFAULT_LAMBDA,
+        });
+        if (outcomes.length < minPairs) {
+          return {
+            success: false,
+            idempotent: false,
+            reason: `receipt cannot clear sequential evidence at test ${testIndex}: ${outcomes.length} paired task(s) < ${minPairs} required even on a perfect sweep — no alpha spent; re-evaluate with a larger promotion holdout (ADR-381)`,
+          } satisfies PromotionResult;
+        }
+      }
+      const verdict = sequentialEvidenceVerdict(outcomes, testIndex, {
+        alphaTotal: options.sequentialAlphaTotal ?? DEFAULT_ALPHA_TOTAL,
+        lambda: options.sequentialLambda ?? DEFAULT_LAMBDA,
+      });
+      if (priorIndex === undefined) state.sequentialTests[receiptId] = testIndex;
+      if (!verdict.significant) {
+        if (priorIndex === undefined) atomicWriteJson(statePath(root), state); // record the alpha spend
+        return {
+          success: false,
+          idempotent: false,
+          reason: `insufficient sequential evidence: e-value ${verdict.eValue.toFixed(3)} < ${verdict.threshold.toFixed(1)} at test ${verdict.testIndex} (alpha ${verdict.alphaAllocated.toFixed(5)} of family-wise ${(options.sequentialAlphaTotal ?? DEFAULT_ALPHA_TOTAL).toFixed(2)}; ${verdict.informativePairs}/${verdict.totalPairs} informative pairs)`,
+        } satisfies PromotionResult;
+      }
     }
     if (options.faultAt === 'before-commit') throw new Error('fault injection: before-commit');
 

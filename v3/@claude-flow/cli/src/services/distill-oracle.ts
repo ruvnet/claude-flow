@@ -51,8 +51,8 @@ import {
 // behavior mid-run (the #142 pin-drift failure mode). Pin it, and let
 // scripts/check-metaharness-pins.mjs watch this constant for drift. Kept in
 // lock-step with the optionalDependencies pin in package.json and the plugin
-// darwin cache (darwin-cache-0.8.0).
-export const MH_DARWIN_PIN = '0.8.0';
+// darwin cache (versioned by the plugin's own `~0.8.0` pin in _darwin.mjs).
+export const MH_DARWIN_PIN = '0.8.3';
 
 // ── Provenance ─────────────────────────────────────────────────────────────
 

@@ -181,3 +181,7 @@ v3/@claude-flow/cli/plugins/
 # Runtime proven-config adoption state (per-install, not source)
 .claude/proven-config.json
 .claude/.proven-config-version
+
+# Node V8 compile cache emitted by workspace builds (NODE_COMPILE_CACHE) —
+# machine-local artifact keyed by node version, never source
+node-compile-cache/

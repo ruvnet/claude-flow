@@ -2282,9 +2282,11 @@ miss=""
 # The check function exists, with ADR-150 anchor
 grep -q "async function checkMetaharness" "$F" || miss="$miss no-check-function"
 grep -q "ADR-150" "$F" || miss="$miss no-adr-anchor"
-# Registered in BOTH the allChecks array AND the componentMap
+# Registered in BOTH the allChecks array AND the componentMap. The
+# componentMap entry is now an ARRAY (upstream + declared-deps + integration
+# checks, PR #2956) — accept either the legacy bare form or the array form.
 grep -q "checkMetaharness, // ADR-150" "$F" || miss="$miss not-in-allChecks"
-grep -q "'metaharness': checkMetaharness" "$F" || miss="$miss not-in-componentMap"
+grep -Eq "'metaharness': (checkMetaharness|\[checkMetaharness)" "$F" || miss="$miss not-in-componentMap"
 # Help text mentions it
 grep -q "metaharness)" "$F" || miss="$miss not-in-help-text"
 # Graceful: never throws; returns warn (not fail) on missing

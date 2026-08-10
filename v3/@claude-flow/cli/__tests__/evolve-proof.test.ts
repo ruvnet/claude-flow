@@ -217,6 +217,65 @@ describe('mutationEffectiveness — evidence-grounded meta-learning', () => {
   });
 });
 
+describe('accept/v2+seq — sequential-evidence conjunct (ADR-381 §3)', () => {
+  const baseline = { alpha: 0.5, subjectWeight: 2, mmrLambda: 0.7, bodyWeight: 1, typePenaltyFactor: 1 };
+  const candidate = { alpha: 0.3, subjectWeight: 1, mmrLambda: 0.5, bodyWeight: 1.5, typePenaltyFactor: 0.5 };
+  // 10 all-win pairs: clears test 1 (1.5^10 ≈ 57.7 ≥ 32.9) but not test 2 (≈131.6).
+  const strongHoldout = Array.from({ length: 10 }, (_, i) => ({ taskId: `s${i}`, baselineScore: 0.5, candidateScore: 0.6 + i / 100 }));
+  // 5 all-win pairs: bootstrap-significant but sequentially insufficient at test 1.
+  const weakHoldout = Array.from({ length: 5 }, (_, i) => ({ taskId: `w${i}`, baselineScore: 0.5, candidateScore: 0.62 + i / 100 }));
+
+  it('promotes under v2 only when the sequential term also holds, and pins the v2 version', () => {
+    const b = runRealEvolveRound({ baseline, candidate, holdout: strongHoldout, generation: 0, parent: null, now: 1, corpus: 'x', sequential: { testIndex: 1 } });
+    expect(b.meetsPromotionRule.version).toBe('accept/v2+seq');
+    expect(b.sequentialEvidence).toMatchObject({ testIndex: 1, significant: true, informativePairs: 10 });
+    expect(b.decisionReceipt.promoted).toBe(true);
+  });
+
+  it('rejects a bootstrap-significant candidate whose sequential evidence is insufficient — cause "sequential"', () => {
+    const b = runRealEvolveRound({ baseline, candidate, holdout: weakHoldout, generation: 0, parent: null, now: 1, corpus: 'x', sequential: { testIndex: 1 } });
+    expect(b.decisionReceipt.significant).toBe(true);          // v1 term holds
+    expect(b.sequentialEvidence?.significant).toBe(false);     // v2 term refuses
+    expect(b.decisionReceipt.promoted).toBe(false);
+    expect(b.regression?.failureCause).toBe('sequential');
+    expect(b.decisionReceipt.reason).toMatch(/sequential_evidence/);
+  });
+
+  it('the same evidence fails at a later stream position (alpha allocation bites)', () => {
+    const early = runRealEvolveRound({ baseline, candidate, holdout: strongHoldout, generation: 0, parent: null, now: 1, corpus: 'x', sequential: { testIndex: 1 } });
+    const late = runRealEvolveRound({ baseline, candidate, holdout: strongHoldout, generation: 5, parent: null, now: 1, corpus: 'x', sequential: { testIndex: 2 } });
+    expect(early.decisionReceipt.promoted).toBe(true);
+    expect(late.decisionReceipt.promoted).toBe(false);
+  });
+
+  it('v2 bundles replay independently, and a tampered sequential record is detected', () => {
+    const b = runRealEvolveRound({ baseline, candidate, holdout: strongHoldout, generation: 0, parent: null, now: 1, corpus: 'x', sequential: { testIndex: 1 } });
+    expect(verifyReceiptBundle(b).valid).toBe(true);
+    expect(verifyReceiptBundle(b).explanation).toMatch(/accept\/v2\+seq/);
+
+    const tampered = structuredClone(b);
+    tampered.sequentialEvidence!.eValue = 999;
+    const v = verifyReceiptBundle(tampered);
+    expect(v.valid).toBe(false);
+    expect(v.mismatches.join(' ')).toMatch(/sequential-evidence verdict does not recompute/);
+
+    // Claiming an easier stream position than recorded is also caught: the
+    // verdict was recorded at index 2; rewriting it to index 1 changes the
+    // threshold, so significance no longer recomputes.
+    const rejected = runRealEvolveRound({ baseline, candidate, holdout: strongHoldout, generation: 5, parent: null, now: 1, corpus: 'x', sequential: { testIndex: 2 } });
+    const indexShopped = structuredClone(rejected);
+    indexShopped.sequentialEvidence!.testIndex = 1;
+    expect(verifyReceiptBundle(indexShopped).valid).toBe(false);
+  });
+
+  it('v1 bundles (no sequential input) keep v1 semantics and still verify', () => {
+    const b = runRealEvolveRound({ baseline, candidate, holdout: strongHoldout, generation: 0, parent: null, now: 1, corpus: 'x' });
+    expect(b.meetsPromotionRule.version).toBe(PROMOTION_RULE_VERSION);
+    expect(b.sequentialEvidence).toBeUndefined();
+    expect(verifyReceiptBundle(b).valid).toBe(true);
+  });
+});
+
 describe('detectPlateau — rigorous, not intuitive', () => {
   it('insufficient-data below the window', () => {
     expect(detectPlateau(chainOf(3), { window: 20 }).status).toBe('insufficient-data');
