@@ -179,17 +179,6 @@ export async function evaluateFlywheelCandidate(projectRoot: string, deps: Flywh
     const guard = blended.tasks.filter((t) => !anchorIdSet.has(t.id));
     if (objective.length < 4) return { ran: false, reason: 'objective (anchor) too small to gate' };
 
-    // Soft pre-flight (ADR-381 §4): can the held half of the objective clear
-    // the sequential-evidence threshold at the ledger's NEXT test index even
-    // on a perfect all-win sweep? Annotate — never block: evaluation has
-    // learn value regardless, anchors may legitimately be small (≥4), and
-    // the promote gate refuses size-inviable receipts without spending alpha.
-    const preState = readFlywheelTransactionState(projectRoot);
-    const nextTestIndex = Object.keys(preState.sequentialTests ?? {}).length + 1;
-    const heldSize = Math.max(1, Math.round(objective.length * 0.5)); // held half per split(objective, 0.5)
-    const minPairsRequired = minInformativePairsToClear(nextTestIndex);
-    const sequentialPreflight = { viable: heldSize >= minPairsRequired, heldSize, minPairsRequired, nextTestIndex };
-
     // Precompute retrieval for baseline + all candidates over every task (async
     // I/O up front → the harness scoring stays pure/sync).
     const cache = new Map<string, RankedItem[]>();
@@ -352,6 +341,26 @@ export async function evaluateFlywheelCandidate(projectRoot: string, deps: Flywh
     });
     await registerFlywheelReceipt(projectRoot, receipt, deps.now ?? Date.now());
     const finalAccept = result.accepted && significant && receipt.payload.decision === 'accepted';
+
+    // Soft pre-flight (ADR-381 §4): can the held half of the objective clear
+    // the sequential-evidence threshold at the ledger's NEXT test index even
+    // on a perfect all-win sweep? Annotate — never block: evaluation has
+    // learn value regardless, anchors may legitimately be small (≥4), and
+    // the promote gate refuses size-inviable receipts without spending alpha.
+    // Read as LATE as possible (after registration, right before returning)
+    // to minimize — but not eliminate — the window in which a concurrent
+    // promoteFlywheelCandidate call can move the ledger's next test index.
+    // This is inherently ADVISORY, not authoritative: promoteFlywheelCandidate
+    // (under its own lock) is the sole authority for index allocation, so a
+    // promotion racing between this read and an operator's subsequent
+    // `flywheel promote` call can still flip the outcome. Callers must not
+    // treat `promotable: true` as a guarantee — only as "was viable as of
+    // this evaluation".
+    const postState = readFlywheelTransactionState(projectRoot);
+    const nextTestIndex = Object.keys(postState.sequentialTests ?? {}).length + 1;
+    const heldSize = Math.max(1, Math.round(objective.length * 0.5)); // held half per split(objective, 0.5)
+    const minPairsRequired = minInformativePairsToClear(nextTestIndex);
+    const sequentialPreflight = { viable: heldSize >= minPairsRequired, heldSize, minPairsRequired, nextTestIndex };
 
     const entry: LedgerEntry = {
       ts: deps.now ?? Date.now(),

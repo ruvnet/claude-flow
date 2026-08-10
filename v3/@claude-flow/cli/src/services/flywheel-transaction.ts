@@ -83,6 +83,16 @@ export interface FlywheelTransactionState {
   sequentialTests?: Record<string, number>;
   /** Current evidence epoch (ADR-381 §2). Incremented only by an explicit governed reset. */
   evidenceEpoch?: number;
+  /**
+   * Wall-clock boundary (ms) of the current evidence epoch — the `now` an
+   * explicit reset ran at. A receipt whose OWN evidence (payload.issuedAt)
+   * predates this boundary belongs to a prior epoch even if it happens to be
+   * registered/promoted after the reset — the exact "index shopping" ADR-381
+   * §2 requires the epoch mechanism to prevent. Undefined for the genesis
+   * epoch (no lower bound) and for state files written before this field
+   * existed.
+   */
+  evidenceEpochStartedAt?: number;
   /** Append-only audit trail of evidence resets. Nothing is ever deleted from it. */
   sequentialResets?: SequentialResetRecord[];
 }
@@ -303,6 +313,7 @@ export async function resetSequentialEvidence(
     state.sequentialResets = resets;
     state.sequentialTests = {};
     state.evidenceEpoch = closedEpoch + 1;
+    state.evidenceEpochStartedAt = now;
     atomicWriteJson(statePath(root), state);
     return {
       success: true,
@@ -479,6 +490,23 @@ export async function promoteFlywheelCandidate(
           idempotent: false,
           reason: 'receipt carries aggregate-only evidence (no task-level pairedOutcomes) — re-evaluate the candidate with a current ruflo, or pass the explicit aggregate-evidence override',
         } satisfies PromotionResult;
+      }
+      // Epoch-boundary enforcement (ADR-381 §2): a receipt whose OWN evidence
+      // predates the current epoch's start must be refused even if it was
+      // registered after the reset — registration time is not evidence time.
+      // Without this check a receipt built from a stale/cached evaluation (or
+      // any future path that decouples evaluation from immediate
+      // registration) could be presented into the fresh, low-alpha epoch —
+      // exactly the index-shopping the reset mechanism exists to prevent.
+      if (state.evidenceEpochStartedAt !== undefined) {
+        const issuedAtMs = Date.parse(receipt.payload.issuedAt);
+        if (!Number.isNaN(issuedAtMs) && issuedAtMs < state.evidenceEpochStartedAt) {
+          return {
+            success: false,
+            idempotent: false,
+            reason: `receipt evidence (issued ${receipt.payload.issuedAt}) predates the current evidence epoch ${state.evidenceEpoch ?? 0} (started ${new Date(state.evidenceEpochStartedAt).toISOString()}) — re-evaluate the candidate to produce fresh evidence`,
+          } satisfies PromotionResult;
+        }
       }
       // Consistency with heldOutDeltas was already enforced by verifyFlywheelReceipt.
       const outcomes = rawOutcomes.map((o) => ({

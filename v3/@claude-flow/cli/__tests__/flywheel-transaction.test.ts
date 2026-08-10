@@ -303,11 +303,39 @@ describe('flywheel promotion transaction', () => {
     expect((await promoteFlywheelCandidate(root, weak.payload.receiptId, common)).reason).toMatch(/receipt state is expired/);
 
     // A receipt evaluated AFTER the reset promotes from test 1 of the new epoch.
-    const fresh = makeReceipt(key, { evaluationRunId: '01900000-0000-7000-8000-000000000009' });
+    // `now` here is the receipt's own evidence timestamp (payload.issuedAt),
+    // not just its registration time — it must postdate the reset's
+    // evidenceEpochStartedAt (1_700_000_000_200) for the epoch boundary check
+    // to accept it as belonging to the new epoch.
+    const fresh = makeReceipt(key, { evaluationRunId: '01900000-0000-7000-8000-000000000009', now: 1_700_000_000_250 });
     await registerFlywheelReceipt(root, fresh, 1_700_000_000_300);
     const promoted = await promoteFlywheelCandidate(root, fresh.payload.receiptId, common);
     expect(promoted.success).toBe(true);
     expect(readFlywheelTransactionState(root).sequentialTests?.[fresh.payload.receiptId]).toBe(1);
+  });
+
+  it('refuses to promote a receipt whose evidence predates the current evidence epoch, even if registered after the reset (ADR-381 §2 index-shopping guard)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'flywheel-epoch-boundary-'));
+    const key = keyPair();
+    const common = {
+      confirm: true,
+      now: 1_700_000_000_400,
+      trustedPublicKeys: new Set([key.publicKeyPem]),
+      applyFn: apply,
+    };
+    await resetSequentialEvidence(root, { confirm: true, reason: 'fresh campaign', now: 1_700_000_000_200 });
+    expect(readFlywheelTransactionState(root).evidenceEpochStartedAt).toBe(1_700_000_000_200);
+
+    // Evidence issued BEFORE the reset, but registered AFTER it — simulates a
+    // stale/cached evaluation or any path that decouples evaluation from
+    // immediate registration. Registration order alone must not be enough to
+    // admit it into the new, cheaper epoch.
+    const stale = makeReceipt(key, { evaluationRunId: '01900000-0000-7000-8000-00000000000a', now: 1_700_000_000_100 });
+    await registerFlywheelReceipt(root, stale, 1_700_000_000_350);
+    const result = await promoteFlywheelCandidate(root, stale.payload.receiptId, common);
+    expect(result.success).toBe(false);
+    expect(result.reason).toMatch(/predates the current evidence epoch/);
+    expect(readFlywheelTransactionState(root).sequentialTests?.[stale.payload.receiptId]).toBeUndefined();
   });
 
   it('recovers consistently from faults before and after the atomic commit', async () => {
