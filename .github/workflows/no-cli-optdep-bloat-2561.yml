@@ -49,19 +49,30 @@ jobs:
             // Budgets set by #2561 (610575ea5). Tightened intentionally so the
             // in-process --version fast-path at bin/cli.js:101-117 is not
             // starved by a cold npm install of dozens of native/wasm deps.
-            const CLI_MAX = 8;
+            // Raised 8 → 10 for the metaharness dependency-contract repair
+            // (PR #2956): @metaharness/{darwin,flywheel,radio} are each
+            // dependency-FREE pure-JS packages (1.8M + 348K + 180K unpacked,
+            // no lifecycle scripts, zero transitive deps — measured 753ms to
+            // cold-install all three into an empty dir on 2026-08-10). That
+            // profile is the opposite of the #2561 native/wasm trees.
+            const CLI_MAX = 10;
             const RUFLO_MAX = 0;
 
             // Specific packages proven to trigger the cold-npx timeout in
             // #2561. Re-adding any of these to optionalDependencies re-opens
             // the regression regardless of the count budget.
+            // NOTE: "@metaharness/darwin" was on this list from the pre-0.8
+            // era when it dragged a heavy dependency tree; darwin@0.8.3 has
+            // ZERO dependencies and no install scripts (evidence above and in
+            // scripts/metaharness-clean-install-test.mjs, which CI runs on
+            // every PR touching these pins). Removed per this guard's own
+            // escape clause; the rest of the list stands.
             const FORBIDDEN = [
               "@claude-flow/aidefence",
               "@claude-flow/codex",
               "@claude-flow/embeddings",
               "@claude-flow/guidance",
               "@claude-flow/plugin-gastown-bridge",
-              "@metaharness/darwin",
               "@metaharness/kernel",
               "@metaharness/redblue",
               "@metaharness/router",

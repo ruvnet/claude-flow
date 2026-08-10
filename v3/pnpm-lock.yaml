@@ -191,13 +191,13 @@ importers:
         specifier: ^3.0.0-alpha.21
         version: link:../memory
       '@metaharness/darwin':
-        specifier: ^0.8.3
+        specifier: ~0.8.3
         version: 0.8.3
       '@metaharness/flywheel':
-        specifier: ^0.1.10
+        specifier: ~0.1.10
         version: 0.1.10
       '@metaharness/radio':
-        specifier: ^0.1.0
+        specifier: ~0.1.0
         version: 0.1.0
       '@napi-rs/keyring':
         specifier: 1.3.0
