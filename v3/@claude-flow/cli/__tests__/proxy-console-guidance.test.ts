@@ -51,6 +51,7 @@ describe('bare proxy console guidance', () => {
 
     expect(result).toMatchObject({ success: true, data: { installed: true, running: false } });
     expect(lines).toContain('Meta Proxy');
+    expect(lines).toContain('npx ruflo@latest proxy run --policy standard -- claude');
     expect(lines).toContain('npx ruflo@latest proxy start --service');
     expect(lines).toContain('npx ruflo@latest auth login');
     expect(lines).not.toContain('Sponsored downtime consent');
@@ -63,6 +64,7 @@ describe('bare proxy console guidance', () => {
 
     expect(lines).toContain('npx ruflo@latest proxy install --yes');
     expect(lines).toContain('Meta-Proxy v0.4.0');
+    expect(lines).toContain('npx ruflo@latest proxy run --policy standard -- claude');
     expect(lines).not.toContain('auth login');
   });
 });

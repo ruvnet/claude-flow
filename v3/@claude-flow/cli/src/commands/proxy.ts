@@ -413,6 +413,8 @@ export const proxyCommand: Command = {
     { command: 'ruflo proxy install --yes', description: 'Install the signed Meta-Proxy v0.4.0 binary' },
     { command: 'ruflo proxy start', description: 'Start meta-proxy in the foreground' },
     { command: 'ruflo proxy status', description: 'Show install + process status' },
+    { command: 'ruflo proxy login', description: 'Sign in to Cognitum (alias for ruflo auth login)' },
+    { command: 'ruflo proxy run --policy critical -- claude', description: 'Launch Claude through Meta-Proxy with a critical-worktree policy' },
     { command: 'ruflo proxy config --cloud --yes', description: 'Enable cloud routing (ADR-304)' },
     { command: 'ruflo proxy config --local-only', description: 'Revert to local-only routing' },
     { command: 'ruflo proxy sponsor-status', description: 'Show current sponsored-mode state' },

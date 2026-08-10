@@ -23,6 +23,8 @@ import {
 } from '../proxy/lifecycle.js';
 import { proxyTokenPath } from '../proxy/paths.js';
 import { removeInjectedToken, startTokenRefreshPump } from '../proxy/token-bridge.js';
+import { runProxyClient, type ProxyWorktreePolicy } from '../proxy/client-run.js';
+import { authCommand } from './auth.js';
 
 /** Pinned and reviewed; later upgrades remain explicit commands. */
 export const DEFAULT_PROXY_RELEASE = '0.4.0';
@@ -42,8 +44,8 @@ export function proxyConsoleGuidance(status: ProxyStatus): string[] {
       'Next step',
       `  ${PROXY_COMMAND} install --yes    Install signed Meta-Proxy v${DEFAULT_PROXY_RELEASE}`,
       '',
-      'After installation, start it in the background:',
-      `  ${PROXY_COMMAND} start --service`,
+      'After installation, launch Claude through it:',
+      `  ${PROXY_COMMAND} run --policy standard -- claude`,
     ];
   }
 
@@ -51,10 +53,10 @@ export function proxyConsoleGuidance(status: ProxyStatus): string[] {
     return [
       '',
       'Next step',
-      `  ${PROXY_COMMAND} start --service    Start the proxy in the background`,
+      `  ${PROXY_COMMAND} run --policy standard -- claude    Start the proxy and launch Claude`,
       '',
-      'Foreground mode (shows live logs; Ctrl+C stops it):',
-      `  ${PROXY_COMMAND} start`,
+      'Or start only the background sidecar:',
+      `  ${PROXY_COMMAND} start --service`,
       '',
       'Optional: enable Cognitum cloud routing (local-only is the default):',
       `  ${AUTH_COMMAND} login`,
@@ -65,6 +67,7 @@ export function proxyConsoleGuidance(status: ProxyStatus): string[] {
   return [
     '',
     'Meta Proxy is ready.',
+    `  Claude:  ${PROXY_COMMAND} run --policy standard -- claude`,
     `  Logs:    ${PROXY_COMMAND} logs`,
     `  Stop:    ${PROXY_COMMAND} stop`,
     '',
@@ -278,6 +281,53 @@ const logsSub: Command = {
   },
 };
 
+const pathSub: Command = {
+  name: 'path',
+  description: 'Print the managed Meta-Proxy binary path',
+  action: async (): Promise<CommandResult> => {
+    const { proxyBinaryPath } = await import('../proxy/paths.js');
+    const binaryPath = proxyBinaryPath();
+    output.writeln(binaryPath);
+    return { success: true, data: { binaryPath } };
+  },
+};
+
+function authAlias(name: 'login' | 'logout'): Command {
+  return {
+    name,
+    description: name === 'login'
+      ? 'Sign in to Cognitum for Meta-Proxy cloud routing'
+      : 'Sign out of Cognitum and remove the local proxy bridge token',
+    action: async (ctx): Promise<CommandResult> => {
+      const action = authCommand.subcommands?.find((command) => command.name === name)?.action;
+      if (!action) {
+        const message = `ruflo auth ${name} is unavailable in this installation.`;
+        output.printError(message);
+        return { success: false, message, exitCode: 1 };
+      }
+      return (await action(ctx)) ?? { success: true };
+    },
+  };
+}
+
+const runSub: Command = {
+  name: 'run',
+  description: 'Launch a Claude-compatible client through Meta-Proxy with a scoped worktree policy',
+  options: [{
+    name: 'policy',
+    description: 'Routing policy for this worktree: critical, standard, or economy',
+    type: 'string',
+    default: 'standard',
+    choices: ['critical', 'standard', 'economy'],
+  }],
+  action: async (ctx): Promise<CommandResult> => {
+    const policy = (typeof ctx.flags.policy === 'string' ? ctx.flags.policy : 'standard') as ProxyWorktreePolicy;
+    const result = await runProxyClient(ctx.args, policy, ctx.cwd);
+    if (result.message) output.printError(result.message);
+    return { success: result.success, message: result.message, exitCode: result.exitCode, data: result };
+  },
+};
+
 const uninstallSub: Command = {
   name: 'uninstall',
   description: 'Stop the proxy (if running), remove the binary, token, and consent receipt',
@@ -298,4 +348,7 @@ const uninstallSub: Command = {
   },
 };
 
-export const proxyLifecycleSubcommands: Command[] = [installSub, updateSub, startSub, superviseSub, stopSub, statusSub, logsSub, uninstallSub];
+export const proxyLifecycleSubcommands: Command[] = [
+  installSub, updateSub, startSub, superviseSub, stopSub, statusSub, logsSub, pathSub,
+  authAlias('login'), authAlias('logout'), runSub, uninstallSub,
+];
