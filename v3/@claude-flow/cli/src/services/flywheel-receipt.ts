@@ -12,6 +12,7 @@ import {
   sign as edSign,
   verify as edVerify,
 } from 'node:crypto';
+import { checkPairedOutcomesConsistency, type PairedTaskOutcome } from './flywheel-sequential-evidence.js';
 
 export const RECEIPT_SCHEMA = 'ruflo.flywheel-receipt/v1';
 export const RECEIPT_DOMAIN = 'ruflo/flywheel-receipt/v1';
@@ -88,6 +89,14 @@ export interface FlywheelReceiptPayload {
   baselineScore: string;
   candidateScore: string;
   heldOutDeltas: string[];
+  /**
+   * Task-level paired outcomes behind heldOutDeltas — same order, same length,
+   * per-task delta reproducible from the two scores. Optional in the payload
+   * so pre-existing receipts still verify byte-identically, but the promotion
+   * authority (flywheel-transaction.ts) REQUIRES it by default: aggregate-only
+   * evidence is refused rather than silently falling back to the weaker gate.
+   */
+  pairedOutcomes?: Array<{ taskId: string; baselineScore: string; candidateScore: string }>;
   statistics: PromotionStatistics;
   gates: Record<string, boolean>;
   resourceEvidence: ResourceEvidence;
@@ -121,6 +130,8 @@ export interface CreateReceiptInput {
   baselineScore: number;
   candidateScore: number;
   heldOutDeltas: number[];
+  /** Task-level paired outcomes behind heldOutDeltas (same order). */
+  pairedOutcomes?: PairedTaskOutcome[];
   frozenAnchorRegression: number;
   gates: Record<string, boolean>;
   resourceEvidence?: Partial<ResourceEvidence>;
@@ -344,6 +355,15 @@ export function createFlywheelReceipt(input: CreateReceiptInput): FlywheelEvalua
     baselineScore: decimal(input.baselineScore),
     candidateScore: decimal(input.candidateScore),
     heldOutDeltas: input.heldOutDeltas.map((v) => decimal(v)),
+    ...(input.pairedOutcomes
+      ? {
+        pairedOutcomes: input.pairedOutcomes.map((o) => ({
+          taskId: o.taskId,
+          baselineScore: decimal(o.baselineScore),
+          candidateScore: decimal(o.candidateScore),
+        })),
+      }
+      : {}),
     statistics,
     gates: input.gates,
     resourceEvidence: {
@@ -418,6 +438,17 @@ export function verifyFlywheelReceipt(receipt: FlywheelEvaluationReceipt, truste
       ? 'accepted'
       : 'rejected';
     if (receipt.payload.decision !== recomputedDecision) errors.push('receipt decision does not recompute');
+    if (receipt.payload.pairedOutcomes) {
+      // Paired outcomes must reproduce the aggregate they claim to back.
+      // Tolerance covers the decimal(scale 12) round-trip of both scores.
+      const paired = receipt.payload.pairedOutcomes.map((o) => ({
+        taskId: o.taskId,
+        baselineScore: Number(o.baselineScore),
+        candidateScore: Number(o.candidateScore),
+      }));
+      const check = checkPairedOutcomesConsistency(paired, receipt.payload.heldOutDeltas.map(Number), 1e-9);
+      if (!check.ok) errors.push(`paired outcomes inconsistent: ${check.reasons.join('; ')}`);
+    }
     if (!receipt.signature) {
       errors.push('receipt is unsigned');
     } else {

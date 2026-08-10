@@ -1809,6 +1809,71 @@ async function checkMetaharnessIntegration(): Promise<HealthCheck> {
   }
 }
 
+/**
+ * Dependency-contract check: every `@metaharness/*` package this CLI DECLARES
+ * in its own optionalDependencies must actually resolve at runtime. Declared
+ * packages are advertised integration surfaces (`ruflo metaharness evolve`,
+ * flywheel receipt interop, radio coordination) — a declared-but-absent
+ * package means the install dropped an optional dep (or the declaration
+ * regressed to peer-only), so the advertised integration silently degrades.
+ * That is a FAIL, not a warn: warn is reserved for surfaces that were never
+ * advertised as installed (the `npx metaharness` umbrella path above).
+ */
+async function checkMetaharnessDeclaredPackages(): Promise<HealthCheck> {
+  const NAME = 'MetaHarness declared packages (ADR-150)';
+  try {
+    // Walk up from this module to the CLI package root (works for npx cache,
+    // global install, project-local install, and monorepo dev alike).
+    let root: string | null = null;
+    let q = dirname(fileURLToPath(import.meta.url));
+    for (let i = 0; i < 8; i++) {
+      const pj = join(q, 'package.json');
+      if (existsSync(pj)) {
+        try {
+          if ((JSON.parse(readFileSync(pj, 'utf-8')) as { name?: string }).name === '@claude-flow/cli') { root = q; break; }
+        } catch { /* keep walking */ }
+      }
+      q = dirname(q);
+    }
+    if (!root) return { name: NAME, status: 'warn', message: 'could not locate the @claude-flow/cli package root' };
+
+    const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf-8')) as { optionalDependencies?: Record<string, string> };
+    const declared = Object.keys(pkg.optionalDependencies ?? {}).filter((n) => n === 'metaharness' || n.startsWith('@metaharness/'));
+    if (declared.length === 0) {
+      return {
+        name: NAME,
+        status: 'fail',
+        message: 'no @metaharness/* packages declared in optionalDependencies — the dependency contract regressed (peer-only declarations are never installed)',
+        fix: 'Restore @metaharness/darwin, @metaharness/flywheel, @metaharness/radio to optionalDependencies in @claude-flow/cli',
+      };
+    }
+
+    // Node resolution: nearest node_modules wins, walking upward from the CLI root.
+    const resolves = (name: string): boolean => {
+      let d = root as string;
+      for (let i = 0; i < 10; i++) {
+        if (existsSync(join(d, 'node_modules', name, 'package.json'))) return true;
+        const parent = dirname(d);
+        if (parent === d) break;
+        d = parent;
+      }
+      return false;
+    };
+    const missing = declared.filter((n) => !resolves(n));
+    if (missing.length > 0) {
+      return {
+        name: NAME,
+        status: 'fail',
+        message: `declared but not installed: ${missing.join(', ')} — advertised MetaHarness surfaces are degraded`,
+        fix: 'npm install --include=optional  # optional deps were skipped or pruned',
+      };
+    }
+    return { name: NAME, status: 'pass', message: `${declared.length} declared package(s) resolve: ${declared.join(', ')}` };
+  } catch (err) {
+    return { name: NAME, status: 'warn', message: `check failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
 async function checkMetaharness(): Promise<HealthCheck> {
   try {
     const version = await runCommand('npx -y metaharness@latest --version 2>&1', 15000);
@@ -2163,6 +2228,7 @@ export const doctorCommand: Command = {
       checkEncryptionAtRest, // ADR-096 Phase 5
       checkFederationBreaker, // ADR-097 Phase 4
       checkMetaharness, // ADR-150 — MetaHarness upstream package
+      checkMetaharnessDeclaredPackages, // dependency contract — declared optional deps must resolve
       checkMetaharnessIntegration, // iter 45 — ruflo-side integration layer
       checkFunnel, // ADR-305 — effective funnel state + deciding precedence source
       checkProxySponsoredConsent, // ADR-313 — Meta LLM Proxy sponsored-downtime health
@@ -2206,7 +2272,7 @@ export const doctorCommand: Command = {
       'agentic-flow': checkAgenticFlow,
       'encryption': checkEncryptionAtRest, // ADR-096 Phase 5
       'federation': checkFederationBreaker, // ADR-097 Phase 4
-      'metaharness': checkMetaharness, // ADR-150 — upstream package
+      'metaharness': [checkMetaharness, checkMetaharnessDeclaredPackages, checkMetaharnessIntegration], // ADR-150 — upstream + declared deps + ruflo-side
       'metaharness-integration': checkMetaharnessIntegration, // iter 45 — ruflo-side
       'funnel': checkFunnel, // ADR-305
       // ADR-307 — deep-dive array, same pattern as 'memory' above: the cheap

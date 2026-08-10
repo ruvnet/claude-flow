@@ -251,6 +251,13 @@ export async function evaluateFlywheelCandidate(projectRoot: string, deps: Flywh
     // resampling, not ride on one lucky task. FINAL accept = loop-accept AND
     // significant, so the ledger's accepted subsequence stays monotonic + real.
     const heldDeltas = held.map((t) => heldScoreFor(candidate, t) - heldScoreFor(baseline, t));
+    // Task-level paired outcomes — the evidence the promotion authority now
+    // requires; must stay in the exact order of heldDeltas.
+    const pairedOutcomes = held.map((t) => ({
+      taskId: t.id,
+      baselineScore: heldScoreFor(baseline, t),
+      candidateScore: heldScoreFor(candidate, t),
+    }));
     const deltaCILow = bootstrapDeltaCILow(heldDeltas);
     const significant = deltaCILow > 0;
     const provisionalGates = Object.fromEntries(Object.entries(result.verdict?.terms ?? {}).map(([k, v]) => [k, v.pass]));
@@ -277,6 +284,7 @@ export async function evaluateFlywheelCandidate(projectRoot: string, deps: Flywh
       baselineScore,
       candidateScore,
       heldOutDeltas: heldDeltas,
+      pairedOutcomes,
       frozenAnchorRegression: guardRegressed ? 1 : 0,
       gates: provisionalGates,
       resourceEvidence: {

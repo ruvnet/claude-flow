@@ -17,6 +17,11 @@ import {
   verifyFlywheelReceipt,
   type FlywheelEvaluationReceipt,
 } from './flywheel-receipt.js';
+import {
+  DEFAULT_ALPHA_TOTAL,
+  DEFAULT_LAMBDA,
+  sequentialEvidenceVerdict,
+} from './flywheel-sequential-evidence.js';
 
 const STATE_VERSION = 1 as const;
 const STATE_DIR = ['.claude-flow', 'flywheel-v1'] as const;
@@ -62,6 +67,15 @@ export interface FlywheelTransactionState {
   servedChampionRef: string | null;
   receiptStates: Record<string, ReceiptState>;
   commits: PromotionCommit[];
+  /**
+   * Sequential-evidence alpha ledger: receiptId → 1-based test index in this
+   * lineage's promotion-test stream. An index is allocated the first time a
+   * receipt is presented to the promotion gate and persists whether or not
+   * the candidate promoted — looking spends alpha, and retrying the same
+   * receipt reuses its index (no double spend, no index shopping). Absent in
+   * pre-upgrade state files; readers treat missing as empty.
+   */
+  sequentialTests?: Record<string, number>;
 }
 
 export interface PromotionResult {
@@ -84,6 +98,18 @@ export interface PromoteOptions {
   approvedAttestors?: Set<string>;
   allowedProposerSubstitutions?: Set<string>;
   applyFn?: (root: string, policy: Record<string, unknown>, championRef: string, previous: string | null, now: number) => ApplyResult;
+  /**
+   * Strict promotion evidence (default true): the receipt must carry
+   * task-level pairedOutcomes AND clear the sequential-evidence e-process at
+   * this test's allocated share of the family-wise alpha budget. Set false
+   * ONLY as an explicit migration escape hatch for pre-upgrade receipts —
+   * aggregate-only evidence is otherwise refused, never silently accepted.
+   */
+  requirePairedEvidence?: boolean;
+  /** Family-wise type-I budget across the whole candidate stream (default 0.05). */
+  sequentialAlphaTotal?: number;
+  /** e-process betting fraction in (0,1) (default 0.5). */
+  sequentialLambda?: number;
   /** Test-only crash hook; production callers leave unset. */
   faultAt?: 'before-commit' | 'after-commit-before-materialize';
 }
@@ -362,6 +388,46 @@ export async function promoteFlywheelCandidate(
         evidence.verification === 'trusted-assertion'
         && (!evidence.attestor || !options.approvedAttestors?.has(evidence.attestor))
       ) return { success: false, idempotent: false, reason: `unapproved evidence attestor for gate: ${term}` } satisfies PromotionResult;
+    }
+
+    // Strict sequential evidence (default ON). Two refusals, both explicit:
+    //   1. aggregate-only receipts (no pairedOutcomes) — the upstream-style
+    //      "degrade to the base gate" fallback is exactly the hole this closes;
+    //   2. paired evidence that cannot clear the e-process at this test's
+    //      allocated share of the family-wise alpha budget.
+    // Alpha is spent by LOOKING: the allocation is persisted even when the
+    // verdict refuses, and a retried receipt reuses its index.
+    if (options.requirePairedEvidence !== false) {
+      const rawOutcomes = receipt.payload.pairedOutcomes;
+      if (!rawOutcomes || rawOutcomes.length === 0) {
+        return {
+          success: false,
+          idempotent: false,
+          reason: 'receipt carries aggregate-only evidence (no task-level pairedOutcomes) — re-evaluate the candidate with a current ruflo, or pass the explicit aggregate-evidence override',
+        } satisfies PromotionResult;
+      }
+      // Consistency with heldOutDeltas was already enforced by verifyFlywheelReceipt.
+      const outcomes = rawOutcomes.map((o) => ({
+        taskId: o.taskId,
+        baselineScore: Number(o.baselineScore),
+        candidateScore: Number(o.candidateScore),
+      }));
+      if (!state.sequentialTests) state.sequentialTests = {};
+      const priorIndex = state.sequentialTests[receiptId];
+      const testIndex = priorIndex ?? (Object.keys(state.sequentialTests).length + 1);
+      const verdict = sequentialEvidenceVerdict(outcomes, testIndex, {
+        alphaTotal: options.sequentialAlphaTotal ?? DEFAULT_ALPHA_TOTAL,
+        lambda: options.sequentialLambda ?? DEFAULT_LAMBDA,
+      });
+      if (priorIndex === undefined) state.sequentialTests[receiptId] = testIndex;
+      if (!verdict.significant) {
+        if (priorIndex === undefined) atomicWriteJson(statePath(root), state); // record the alpha spend
+        return {
+          success: false,
+          idempotent: false,
+          reason: `insufficient sequential evidence: e-value ${verdict.eValue.toFixed(3)} < ${verdict.threshold.toFixed(1)} at test ${verdict.testIndex} (alpha ${verdict.alphaAllocated.toFixed(5)} of family-wise ${(options.sequentialAlphaTotal ?? DEFAULT_ALPHA_TOTAL).toFixed(2)}; ${verdict.informativePairs}/${verdict.totalPairs} informative pairs)`,
+        } satisfies PromotionResult;
+      }
     }
     if (options.faultAt === 'before-commit') throw new Error('fault injection: before-commit');
 

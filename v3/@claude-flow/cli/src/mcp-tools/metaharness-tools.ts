@@ -638,6 +638,7 @@ export const metaharnessTools: MCPTool[] = [
         anchorHash: { type: 'string', description: 'Pinned sha256 of canonical anchor tasks; requires anchorPath' },
         anchorManifestPath: { type: 'string', description: 'Project-contained anchor manifest path (default .claude/eval/flywheel-anchor.manifest.json)' },
         approvalIds: { type: 'array', items: { type: 'string' }, description: 'Scoped ADR-324 approval IDs for privileged promotion' },
+        allowAggregateEvidence: { type: 'boolean', description: 'Migration escape hatch: accept a pre-upgrade receipt without task-level pairedOutcomes. Default false — aggregate-only evidence is refused by the strict sequential-evidence gate.', default: false },
       },
       required: ['operation'],
     },
@@ -720,6 +721,7 @@ export const metaharnessTools: MCPTool[] = [
         const data = await promoteFlywheelCandidate(projectRoot, String(input.receiptId), {
           confirm: input.confirm === true,
           trustedPublicKeys: new Set([publicKey]),
+          requirePairedEvidence: input.allowAggregateEvidence !== true,
         });
         return { success: data.success, data, degraded: false, exitCode: data.success ? 0 : 1 };
       }

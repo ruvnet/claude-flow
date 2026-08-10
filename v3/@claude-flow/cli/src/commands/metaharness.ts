@@ -159,6 +159,10 @@ async function dispatchFlywheel(
         data = await promoteFlywheelCandidate(projectRoot, receiptId, {
           confirm: flywheelFlag<boolean>(flags, 'confirm', false) === true,
           trustedPublicKeys: new Set([publicKey]),
+          // --allow-aggregate-evidence: explicit migration escape hatch for
+          // pre-upgrade receipts without task-level pairedOutcomes. Default
+          // is strict — aggregate-only evidence is refused.
+          requirePairedEvidence: flywheelFlag<boolean>(flags, 'allowAggregateEvidence', false) !== true,
         });
       }
     }
