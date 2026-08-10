@@ -73,6 +73,7 @@ All model requests from Chat UI go through the MCP Bridge, which:
 | `GOOGLE_API_KEY` | Google Gemini API key |
 | `OPENAI_API_KEY` | OpenAI API key |
 | `OPENROUTER_API_KEY` | OpenRouter API key |
+| `ORCAROUTER_API_KEY` | [OrcaRouter](https://www.orcarouter.ai) gateway API key (for `orcarouter/*` models) |
 
 ### Optional — Branding
 

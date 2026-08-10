@@ -35,6 +35,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ORCAROUTER_API_KEY: ${ORCAROUTER_API_KEY:-}
       # Backend service URLs (add your own)
       SEARCH_API_URL: ${SEARCH_API_URL:-}
       RESEARCH_API_URL: ${RESEARCH_API_URL:-}
