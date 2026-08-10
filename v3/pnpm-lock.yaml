@@ -139,8 +139,8 @@ importers:
         specifier: ^2.2.5
         version: 2.2.5
       '@metaharness/router':
-        specifier: ^0.3.2
-        version: 0.3.2
+        specifier: ^0.4.0
+        version: 0.4.0
       '@noble/ed25519':
         specifier: 2.3.0
         version: 2.3.0
@@ -191,12 +191,15 @@ importers:
         specifier: ^3.0.0-alpha.21
         version: link:../memory
       '@metaharness/darwin':
-        specifier: ~0.8.3
-        version: 0.8.3
+        specifier: ~0.9.0
+        version: 0.9.0
       '@metaharness/flywheel':
         specifier: ~0.1.10
         version: 0.1.10
       '@metaharness/radio':
+        specifier: ~0.1.0
+        version: 0.1.0
+      '@metaharness/turn-credit':
         specifier: ~0.1.0
         version: 0.1.0
       '@napi-rs/keyring':
@@ -1755,8 +1758,8 @@ packages:
     hasBin: true
     dev: false
 
-  /@metaharness/darwin@0.8.3:
-    resolution: {integrity: sha512-v5Ph7y9U6nqfvWajOjJiSuQDjPwvCKwOui793cSGUxIYUcfMoVoMzDfEDxOczFU61z0UUd7lD0I1b2zl+eYnag==}
+  /@metaharness/darwin@0.9.0:
+    resolution: {integrity: sha512-X/u0sI4QNFi/YUhcQwZ2hcmthgc3H3n4PdPoKMbAE/y+rUWOQCS9oc1wqCcUysBN5K0jHV7U+3QApdMFvwKvRQ==}
     engines: {node: '>=20.0.0'}
     hasBin: true
     requiresBuild: true
@@ -1779,8 +1782,8 @@ packages:
     hasBin: true
     dev: false
 
-  /@metaharness/router@0.3.2:
-    resolution: {integrity: sha512-LQElU6mUrWd3ffJ5bwoonEIgw7oFQZpwZaehffyl/Pg+iozpRjIBPEXdb4uTOBnKH+yPiTEWKc+h9AiZr9Os9w==}
+  /@metaharness/router@0.4.0:
+    resolution: {integrity: sha512-VOfjHM7AMWwDH41AAMHOHFbH1r898xJqhqyE3G/r8OAxxrMgujX2SZsYkj/eXfBEmoPMhDVRkuO2abxvzCgEUA==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@ruvector/tiny-dancer': ^0.1.21
@@ -1788,6 +1791,13 @@ packages:
       '@ruvector/tiny-dancer':
         optional: true
     dev: false
+
+  /@metaharness/turn-credit@0.1.0:
+    resolution: {integrity: sha512-A752c0eEYEVodBB8HLOaSvcUMA65TX6/Cru2apZ7EE7aL2FSO74GFbgFWPo85bgqgNuMjhHkl/kG+lkC0TunNA==}
+    engines: {node: '>=20.0.0'}
+    requiresBuild: true
+    dev: false
+    optional: true
 
   /@metaharness/weight-eft@0.1.1:
     resolution: {integrity: sha512-GSg0APPAbRK93OzrzlE+R8hfEK+I5+Zhmh0Z28RC9Mk5/MjhPo3shqINO7ye8VPGYHIO4rars9FwCWbe/V4cEQ==}
@@ -7501,8 +7511,6 @@ packages:
     peerDependencies:
       typescript: '>=5.0.0'
     peerDependenciesMeta:
-      agentic-flow:
-        optional: true
       typescript:
         optional: true
     dependencies:
@@ -12285,9 +12293,6 @@ packages:
   /sqlite3@5.1.7:
     resolution: {integrity: sha512-GGIyOiFaG+TUra3JIfkI/zGP8yZYLPQ0pl1bH+ODjiX57sPhrLU5sQJn1y9bDKZUFYkX1crlrPfSYt0BKKdkog==}
     requiresBuild: true
-    peerDependenciesMeta:
-      node-gyp:
-        optional: true
     dependencies:
       bindings: 1.5.0
       node-addon-api: 7.1.1
