@@ -27,36 +27,79 @@ function binaryNameInArchive(): string {
   return process.platform === 'win32' ? 'meta-proxy.exe' : 'meta-proxy';
 }
 
-/**
- * Extracts the archive via the OS's own tools — `tar` for `.tar.gz`
- * (present on macOS/Linux/Windows 10+), PowerShell `Expand-Archive`
- * specifically for `.zip` on Windows (not tar's bsdtar zip support — not
- * reliable enough to lean on). Zero new archive-parsing dependency, matching
- * this repo's existing taste for shelling out over adding a parser dep.
- */
-async function extractArchive(archivePath: string, extractDir: string, ext: 'zip' | 'tar.gz'): Promise<void> {
+/** `tar` handles `.tar.gz` everywhere, and `.zip` via bsdtar on Windows 10+. */
+async function extractWithTar(archivePath: string, extractDir: string, flags: 'xzf' | 'xf'): Promise<void> {
   const { SafeExecutor } = await import('@claude-flow/security');
-  fs.mkdirSync(extractDir, { recursive: true });
-
-  if (ext === 'tar.gz') {
-    const exec = new SafeExecutor({ allowedCommands: ['tar'], timeout: 60_000 });
-    const result = await exec.execute('tar', ['xzf', archivePath, '-C', extractDir]);
-    if (result.exitCode !== 0) {
-      throw new ExtractionError(`tar extraction failed (exit ${result.exitCode}): ${result.stderr || result.stdout}`);
-    }
-    return;
+  const exec = new SafeExecutor({ allowedCommands: ['tar'], timeout: 60_000 });
+  const result = await exec.execute('tar', [flags, archivePath, '-C', extractDir]);
+  if (result.exitCode !== 0) {
+    throw new ExtractionError(`tar extraction failed (exit ${result.exitCode}): ${result.stderr || result.stdout}`);
   }
+}
 
-  // .zip — PowerShell Expand-Archive, single-quoted literal paths (doubling
-  // any embedded single quote per PowerShell string-literal escaping) passed
-  // as ONE argv element to -Command. shell:false means no OS shell ever
-  // tokenizes this string — only powershell.exe's own parser does.
+/**
+ * Single-quoted literal paths (doubling any embedded single quote per
+ * PowerShell string-literal escaping) passed as ONE argv element to
+ * `-Command`. shell:false means no OS shell ever tokenizes this string —
+ * only powershell.exe's own parser does.
+ */
+async function extractWithPowerShell(archivePath: string, extractDir: string): Promise<void> {
+  const { SafeExecutor } = await import('@claude-flow/security');
   const escape = (p: string) => p.replace(/'/g, "''");
   const command = `Expand-Archive -LiteralPath '${escape(archivePath)}' -DestinationPath '${escape(extractDir)}' -Force`;
   const exec = new SafeExecutor({ allowedCommands: ['powershell', 'powershell.exe'], timeout: 60_000 });
   const result = await exec.execute('powershell', ['-NoProfile', '-NonInteractive', '-Command', command]);
   if (result.exitCode !== 0) {
     throw new ExtractionError(`Expand-Archive failed (exit ${result.exitCode}): ${result.stderr || result.stdout}`);
+  }
+}
+
+/**
+ * Extracts the archive via the OS's own tools — `tar` for `.tar.gz`
+ * (present on macOS/Linux/Windows 10+), PowerShell `Expand-Archive`
+ * specifically for `.zip` on Windows. Zero new archive-parsing dependency,
+ * matching this repo's existing taste for shelling out over adding a parser dep.
+ *
+ * `Expand-Archive` stays the PRIMARY `.zip` path — bsdtar's zip support is
+ * still not something to lean on by default. But `Microsoft.PowerShell.Archive`
+ * is a *script* module resolved through PowerShell's module autoloading, so it
+ * can fail for environment reasons entirely unrelated to the archive. Observed
+ * in the wild on a healthy Windows 11 box, from ruflo's own `-NonInteractive`
+ * child process:
+ *
+ *   Expand-Archive : The 'Expand-Archive' command was found in the module
+ *   'Microsoft.PowerShell.Archive', but the module could not be loaded.
+ *
+ * The same command succeeded on the same machine minutes later, so this is
+ * intermittent rather than a hard platform break. Previously that aborted the
+ * install outright with nothing to fall back on, stranding an already
+ * downloaded-and-verified archive. Retrying through bsdtar costs one extra
+ * process on a path that was going to fail anyway.
+ *
+ * Exported for tests — extraction is the only platform-divergent step in the
+ * install pipeline and had no direct coverage.
+ */
+export async function extractArchive(archivePath: string, extractDir: string, ext: 'zip' | 'tar.gz'): Promise<void> {
+  fs.mkdirSync(extractDir, { recursive: true });
+
+  if (ext === 'tar.gz') {
+    await extractWithTar(archivePath, extractDir, 'xzf');
+    return;
+  }
+
+  try {
+    await extractWithPowerShell(archivePath, extractDir);
+  } catch (primary) {
+    const primaryMessage = primary instanceof Error ? primary.message : String(primary);
+    try {
+      // 'xf', not 'xzf' — a zip is not gzip-compressed; bsdtar sniffs the format.
+      await extractWithTar(archivePath, extractDir, 'xf');
+    } catch (fallback) {
+      const fallbackMessage = fallback instanceof Error ? fallback.message : String(fallback);
+      throw new ExtractionError(
+        `zip extraction failed via both available extractors. Expand-Archive: ${primaryMessage} — tar fallback: ${fallbackMessage}`,
+      );
+    }
   }
 }
 
