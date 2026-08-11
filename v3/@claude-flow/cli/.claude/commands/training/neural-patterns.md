@@ -23,13 +23,13 @@ Every successful operation trains the neural networks:
 ### 2. Manual Training
 ```bash
 # Train coordination patterns (50 epochs)
-npx claude-flow neural train -p coordination -e 50
+npx @claude-flow/cli@latest neural train -p coordination -e 50
 
 # Train optimization patterns with custom learning rate
-npx claude-flow neural train -p optimization -l 0.005
+npx @claude-flow/cli@latest neural train -p optimization -l 0.005
 
 # Quick training (10 epochs)
-npx claude-flow neural train -e 10
+npx @claude-flow/cli@latest neural train -e 10
 ```
 
 ### 3. Pattern Types
@@ -50,20 +50,20 @@ npx claude-flow neural train -e 10
 ### 4. Improvement Tracking
 ```bash
 # Check neural system status
-npx claude-flow neural status
+npx @claude-flow/cli@latest neural status
 ```
 
 ## Pattern Management
 
 ```bash
 # List all persisted patterns
-npx claude-flow neural patterns --action list
+npx @claude-flow/cli@latest neural patterns --action list
 
 # Search patterns by query
-npx claude-flow neural patterns --action list -q "error handling"
+npx @claude-flow/cli@latest neural patterns --action list -q "error handling"
 
 # Analyze patterns
-npx claude-flow neural patterns --action analyze -q "coordination"
+npx @claude-flow/cli@latest neural patterns --action analyze -q "coordination"
 ```
 
 ## Performance Targets
@@ -85,19 +85,19 @@ npx claude-flow neural patterns --action analyze -q "coordination"
 
 ```bash
 # Train neural patterns
-npx claude-flow neural train -p coordination -e 50
+npx @claude-flow/cli@latest neural train -p coordination -e 50
 
 # Check neural status
-npx claude-flow neural status
+npx @claude-flow/cli@latest neural status
 
 # List patterns
-npx claude-flow neural patterns --action list
+npx @claude-flow/cli@latest neural patterns --action list
 
 # Search patterns
-npx claude-flow neural patterns --action list -q "query"
+npx @claude-flow/cli@latest neural patterns --action list -q "query"
 
 # Analyze patterns
-npx claude-flow neural patterns --action analyze -q "coordination"
+npx @claude-flow/cli@latest neural patterns --action analyze -q "coordination"
 ```
 
 ## Related Commands

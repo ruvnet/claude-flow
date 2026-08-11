@@ -123,6 +123,11 @@ on:
       - 'plugins/*/skills/**'
       - 'plugins/*/commands/**'
       - 'scripts/smoke-init-bundle-invariants.mjs'
+      # Init-scaffold content-drift guard (ADR-382 Part C, #2971) — dead
+      # CLI/tool refs, plugin MCP-launch pinning, marketplace completeness.
+      - 'plugins/*/.mcp.json'
+      - '.claude-plugin/marketplace.json'
+      - 'scripts/smoke-init-scaffold-references.mjs'
       # ADR-129 — rvagent full integration (P1-P4)
       - 'v3/@claude-flow/cli/src/ruvector/agent-wasm.ts'
       - 'v3/@claude-flow/cli/src/mcp-tools/wasm-agent-tools.ts'
@@ -241,6 +246,11 @@ on:
       - 'plugins/*/skills/**'
       - 'plugins/*/commands/**'
       - 'scripts/smoke-init-bundle-invariants.mjs'
+      # Init-scaffold content-drift guard (ADR-382 Part C, #2971) — dead
+      # CLI/tool refs, plugin MCP-launch pinning, marketplace completeness.
+      - 'plugins/*/.mcp.json'
+      - '.claude-plugin/marketplace.json'
+      - 'scripts/smoke-init-scaffold-references.mjs'
       # ADR-129 — rvagent full integration (P1-P4)
       - 'v3/@claude-flow/cli/src/ruvector/agent-wasm.ts'
       - 'v3/@claude-flow/cli/src/mcp-tools/wasm-agent-tools.ts'
@@ -2234,6 +2244,39 @@ jobs:
 
       - name: Run init-bundle invariants smoke
         run: node scripts/smoke-init-bundle-invariants.mjs
+
+  init-scaffold-references-smoke:
+    # Regression guard for ruvnet/ruflo#2971 — ADR-382 Part C.
+    #
+    # Statically scans the @claude-flow/cli init scaffold and the
+    # plugin/marketplace surface for four content-drift classes:
+    #
+    #   1. Dead `npx claude-flow` (bare) CLI invocations.
+    #   2. Dead `mcp__claude-flow__<tool>` references not in the live
+    #      tool registry (derived from mcp-client.ts's own imports).
+    #   3. Plugin .mcp.json launches that regress to a bare unpinned
+    #      `@latest` npx call with no local-bin-first resolver.
+    #   4. plugins/* directories missing from .claude-plugin/marketplace.json.
+    #
+    # Ships warn-only (no --strict) until the deterministic remap (ADR-382
+    # Part C step 2) clears the dead-reference backlog and ADR-382 Part A
+    # lands the .mcp.json resolver + marketplace entries.
+    #
+    # Zero runtime deps; pure Node.js readFileSync + readdirSync.
+    name: init-scaffold references smoke (#2971, ADR-382 Part C)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run init-scaffold references smoke
+        run: node scripts/smoke-init-scaffold-references.mjs
 
   wasm-provider-bridge-smoke:
     # ADR-129 Phase 1 — JsModelProvider routes WasmAgent through the v3

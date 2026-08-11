@@ -12,8 +12,8 @@ Stop a running agent with graceful or forced shutdown options.
 ## Usage
 
 ```bash
-npx claude-flow agent stop <agent-id> [options]
-npx claude-flow agent kill <agent-id> [options]  # Alias
+npx @claude-flow/cli@latest agent stop <agent-id> [options]
+npx @claude-flow/cli@latest agent kill <agent-id> [options]  # Alias
 ```
 
 ## Options
@@ -27,16 +27,16 @@ npx claude-flow agent kill <agent-id> [options]  # Alias
 
 ```bash
 # Graceful stop (completes current task)
-npx claude-flow agent stop coder-lx7m9k2
+npx @claude-flow/cli@latest agent stop coder-lx7m9k2
 
 # Force stop (immediate termination)
-npx claude-flow agent stop coder-lx7m9k2 --force
+npx @claude-flow/cli@latest agent stop coder-lx7m9k2 --force
 
 # Custom shutdown timeout
-npx claude-flow agent stop coder-lx7m9k2 --timeout 60
+npx @claude-flow/cli@latest agent stop coder-lx7m9k2 --timeout 60
 
 # Using kill alias
-npx claude-flow agent kill researcher-abc123 -f
+npx @claude-flow/cli@latest agent kill researcher-abc123 -f
 ```
 
 ## Graceful vs Force Stop
@@ -48,7 +48,7 @@ npx claude-flow agent kill researcher-abc123 -f
 4. Notifies swarm coordinator
 
 ```bash
-npx claude-flow agent stop coder-lx7m9k2
+npx @claude-flow/cli@latest agent stop coder-lx7m9k2
 
 # Output:
 # Stopping agent coder-lx7m9k2...
@@ -64,7 +64,7 @@ npx claude-flow agent stop coder-lx7m9k2
 3. May leave tasks incomplete
 
 ```bash
-npx claude-flow agent stop coder-lx7m9k2 --force
+npx @claude-flow/cli@latest agent stop coder-lx7m9k2 --force
 
 # Output:
 # Stopping agent coder-lx7m9k2...
@@ -85,18 +85,18 @@ To stop multiple agents:
 
 ```bash
 # Stop all agents of a type
-npx claude-flow agent list -t coder --format json | \
+npx @claude-flow/cli@latest agent list -t coder --format json | \
   jq -r '.agents[].id' | \
-  xargs -I {} npx claude-flow agent stop {} -f
+  xargs -I {} npx @claude-flow/cli@latest agent stop {} -f
 
 # Stop all idle agents
-npx claude-flow agent list -s idle --format json | \
+npx @claude-flow/cli@latest agent list -s idle --format json | \
   jq -r '.agents[].id' | \
-  xargs -I {} npx claude-flow agent stop {}
+  xargs -I {} npx @claude-flow/cli@latest agent stop {}
 ```
 
 ## Related Commands
 
-- `npx claude-flow agent list` - Find agent IDs
-- `npx claude-flow agent status` - Check status before stopping
-- `npx claude-flow swarm destroy` - Stop all agents in swarm
+- `npx @claude-flow/cli@latest agent list` - Find agent IDs
+- `npx @claude-flow/cli@latest agent status` - Check status before stopping
+- `npx @claude-flow/cli@latest swarm destroy` - Stop all agents in swarm

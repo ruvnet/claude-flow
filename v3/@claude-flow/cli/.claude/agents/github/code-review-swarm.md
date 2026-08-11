@@ -75,7 +75,7 @@ hooks:
     # 4. Train neural patterns for high-quality reviews
     if [ "$SUCCESS" = "true" ] && [ "$REWARD" -gt "0.9" ]; then
       echo "🧠 Training neural pattern from successful code review"
-      npx claude-flow neural train \
+      npx @claude-flow/cli@latest neural train \
         --pattern-type "coordination" \
         --training-data "$REVIEW_OUTPUT" \
         --epochs 50

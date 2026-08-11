@@ -19,7 +19,7 @@ gh release create v2.0.0 \
   --title "Release v2.0.0"
 
 # Orchestrate with swarm
-npx claude-flow github release-create \
+npx @claude-flow/cli@latest github release-create \
   --version "2.0.0" \
   --build-artifacts \
   --deploy-targets "npm,docker,github"
@@ -28,10 +28,10 @@ npx claude-flow github release-create \
 ### Full Automated Release
 ```bash
 # Initialize release swarm
-npx claude-flow swarm init --topology hierarchical
+npx @claude-flow/cli@latest swarm init --topology hierarchical
 
 # Execute complete release pipeline
-npx claude-flow sparc pipeline "Release v2.0.0 with full validation"
+npx @claude-flow/cli@latest sparc pipeline "Release v2.0.0 with full validation"
 ```
 
 ---
@@ -212,7 +212,7 @@ COMMITS=$(gh api repos/:owner/:repo/compare/v1.0.0...HEAD \
   --jq '.commits[].commit.message')
 
 # Generate categorized changelog
-npx claude-flow github changelog \
+npx @claude-flow/cli@latest github changelog \
   --prs "$PRS" \
   --commits "$COMMITS" \
   --from v1.0.0 \
@@ -231,7 +231,7 @@ npx claude-flow github changelog \
 #### Version Agent
 ```bash
 # Intelligent version suggestion
-npx claude-flow github version-suggest \
+npx @claude-flow/cli@latest github version-suggest \
   --current v1.2.3 \
   --analyze-commits \
   --check-compatibility \
@@ -248,7 +248,7 @@ npx claude-flow github version-suggest \
 #### Build Agent
 ```bash
 # Multi-platform build coordination
-npx claude-flow github release-build \
+npx @claude-flow/cli@latest github release-build \
   --platforms "linux,macos,windows" \
   --architectures "x64,arm64" \
   --parallel \
@@ -265,7 +265,7 @@ npx claude-flow github release-build \
 #### Test Agent
 ```bash
 # Comprehensive pre-release testing
-npx claude-flow github release-test \
+npx @claude-flow/cli@latest github release-test \
   --suites "unit,integration,e2e,performance" \
   --environments "node:16,node:18,node:20" \
   --fail-fast false \
@@ -275,7 +275,7 @@ npx claude-flow github release-test \
 #### Deploy Agent
 ```bash
 # Multi-target deployment orchestration
-npx claude-flow github release-deploy \
+npx @claude-flow/cli@latest github release-deploy \
   --targets "npm,docker,github,s3" \
   --staged-rollout \
   --monitor-metrics \
@@ -352,7 +352,7 @@ deployment:
 #### Execute Staged Deployment
 ```bash
 # Deploy with progressive rollout
-npx claude-flow github release-deploy \
+npx @claude-flow/cli@latest github release-deploy \
   --version v2.0.0 \
   --strategy progressive \
   --config .github/release-deployment.yml \
@@ -365,7 +365,7 @@ npx claude-flow github release-deploy \
 #### Coordinated Multi-Repo Release
 ```bash
 # Synchronize releases across repositories
-npx claude-flow github multi-release \
+npx @claude-flow/cli@latest github multi-release \
   --repos "frontend:v2.0.0,backend:v2.1.0,cli:v1.5.0" \
   --ensure-compatibility \
   --atomic-release \
@@ -399,7 +399,7 @@ npx claude-flow github multi-release \
 #### Emergency Hotfix Workflow
 ```bash
 # Fast-track critical bug fix
-npx claude-flow github emergency-release \
+npx @claude-flow/cli@latest github emergency-release \
   --issue 789 \
   --severity critical \
   --target-version v1.2.4 \
@@ -561,7 +561,7 @@ release:
 #### Comprehensive Validation Suite
 ```bash
 # Pre-release validation with all checks
-npx claude-flow github release-validate \
+npx @claude-flow/cli@latest github release-validate \
   --checks "
     version-conflicts,
     dependency-compatibility,
@@ -580,7 +580,7 @@ npx claude-flow github release-validate \
 #### Backward Compatibility Testing
 ```bash
 # Test against previous versions
-npx claude-flow github compat-test \
+npx @claude-flow/cli@latest github compat-test \
   --previous-versions "v1.0,v1.1,v1.2" \
   --api-contracts \
   --data-migrations \
@@ -591,7 +591,7 @@ npx claude-flow github compat-test \
 #### Performance Regression Detection
 ```bash
 # Benchmark against baseline
-npx claude-flow github performance-test \
+npx @claude-flow/cli@latest github performance-test \
   --baseline v1.9.0 \
   --candidate v2.0.0 \
   --metrics "throughput,latency,memory,cpu" \
@@ -604,7 +604,7 @@ npx claude-flow github performance-test \
 #### Real-Time Release Monitoring
 ```bash
 # Monitor release health post-deployment
-npx claude-flow github release-monitor \
+npx @claude-flow/cli@latest github release-monitor \
   --version v2.0.0 \
   --metrics "error-rate,latency,throughput,adoption" \
   --alert-thresholds \
@@ -615,7 +615,7 @@ npx claude-flow github release-monitor \
 #### Release Analytics & Insights
 ```bash
 # Analyze release performance and adoption
-npx claude-flow github release-analytics \
+npx @claude-flow/cli@latest github release-analytics \
   --version v2.0.0 \
   --compare-with v1.9.0 \
   --metrics "adoption,performance,stability,feedback" \
@@ -626,7 +626,7 @@ npx claude-flow github release-analytics \
 #### Automated Rollback Configuration
 ```bash
 # Configure intelligent auto-rollback
-npx claude-flow github rollback-config \
+npx @claude-flow/cli@latest github rollback-config \
   --triggers '{
     "error-rate": ">5%",
     "latency-p99": ">1000ms",
@@ -643,7 +643,7 @@ npx claude-flow github rollback-config \
 #### Security Scanning
 ```bash
 # Comprehensive security validation
-npx claude-flow github release-security \
+npx @claude-flow/cli@latest github release-security \
   --scan-dependencies \
   --check-secrets \
   --audit-permissions \
@@ -655,7 +655,7 @@ npx claude-flow github release-security \
 #### Compliance Validation
 ```bash
 # Ensure regulatory compliance
-npx claude-flow github release-compliance \
+npx @claude-flow/cli@latest github release-compliance \
   --standards "SOC2,GDPR,HIPAA" \
   --license-audit \
   --data-governance \

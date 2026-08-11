@@ -45,7 +45,7 @@ Result: Automatically uses hierarchical topology with architect, coder, and test
 The pre-task hook automatically handles topology selection:
 ```json
 {
-  "command": "npx claude-flow hook pre-task --optimize-topology"
+  "command": "npx @claude-flow/cli@latest hook pre-task --optimize-topology"
 }
 ```
 
@@ -58,5 +58,5 @@ Parameters: {"swarmId": "current"}
 ## CLI Usage
 ```bash
 # Auto-optimize topology via CLI
-npx claude-flow optimize topology
+npx @claude-flow/cli@latest optimize topology
 ```

@@ -51,7 +51,7 @@ Spawn multiple headless Codex workers to run tasks in parallel while you continu
 
 ```bash
 # Initialize coordination
-npx claude-flow swarm init --topology hierarchical --max-agents {{workers}}
+npx @claude-flow/cli@latest swarm init --topology hierarchical --max-agents {{workers}}
 
 # Spawn workers
 {{#each workers}}
@@ -77,5 +77,5 @@ Use `/dual-collect` to gather results:
 
 Or check manually:
 ```bash
-npx claude-flow memory list --namespace results
+npx @claude-flow/cli@latest memory list --namespace results
 ```

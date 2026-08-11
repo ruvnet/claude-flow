@@ -300,16 +300,16 @@ mcp__claude-flow__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx claude-flow sparc run supabase-admin "create user authentication schema"
+npx @claude-flow/cli@latest sparc run supabase-admin "create user authentication schema"
 
 # For alpha features
 npx claude-flow@alpha sparc run supabase-admin "create user authentication schema"
 
 # With namespace
-npx claude-flow sparc run supabase-admin "your task" --namespace supabase-admin
+npx @claude-flow/cli@latest sparc run supabase-admin "your task" --namespace supabase-admin
 
 # Non-interactive mode
-npx claude-flow sparc run supabase-admin "your task" --non-interactive
+npx @claude-flow/cli@latest sparc run supabase-admin "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
@@ -341,8 +341,8 @@ mcp__claude-flow__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx claude-flow memory store "supabase-admin_context" "important decisions" --namespace supabase-admin
+npx @claude-flow/cli@latest memory store "supabase-admin_context" "important decisions" --namespace supabase-admin
 
 # Query previous work
-npx claude-flow memory query "supabase-admin" --limit 5
+npx @claude-flow/cli@latest memory query "supabase-admin" --limit 5
 ```

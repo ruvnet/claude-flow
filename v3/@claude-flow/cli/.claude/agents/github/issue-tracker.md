@@ -79,7 +79,7 @@ hooks:
     # 4. Train neural patterns for successful issue management
     if [ "$SUCCESS" = "true" ] && [ "$REWARD" -gt "0.9" ]; then
       echo "🧠 Training neural pattern from successful issue management"
-      npx claude-flow neural train \
+      npx @claude-flow/cli@latest neural train \
         --pattern-type "coordination" \
         --training-data "$ISSUE_OUTPUT" \
         --epochs 50

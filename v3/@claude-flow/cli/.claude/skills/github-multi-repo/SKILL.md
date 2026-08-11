@@ -29,12 +29,12 @@ Cross-package integration testing and deployment coordination.
 ### Initialize Multi-Repo Coordination
 ```bash
 # Basic swarm initialization
-npx claude-flow skill run github-multi-repo init \
+npx @claude-flow/cli@latest skill run github-multi-repo init \
   --repos "org/frontend,org/backend,org/shared" \
   --topology hierarchical
 
 # Advanced initialization with synchronization
-npx claude-flow skill run github-multi-repo init \
+npx @claude-flow/cli@latest skill run github-multi-repo init \
   --repos "org/frontend,org/backend,org/shared" \
   --topology mesh \
   --shared-memory \
@@ -44,7 +44,7 @@ npx claude-flow skill run github-multi-repo init \
 ### Synchronize Packages
 ```bash
 # Synchronize package versions and dependencies
-npx claude-flow skill run github-multi-repo sync \
+npx @claude-flow/cli@latest skill run github-multi-repo sync \
   --packages "claude-code-flow,ruv-swarm" \
   --align-versions \
   --update-docs
@@ -53,7 +53,7 @@ npx claude-flow skill run github-multi-repo sync \
 ### Optimize Architecture
 ```bash
 # Analyze and optimize repository structure
-npx claude-flow skill run github-multi-repo optimize \
+npx @claude-flow/cli@latest skill run github-multi-repo optimize \
   --analyze-structure \
   --suggest-improvements \
   --create-templates
@@ -577,7 +577,7 @@ kafka:
 
 ### 1. Microservices Coordination
 ```bash
-npx claude-flow skill run github-multi-repo microservices \
+npx @claude-flow/cli@latest skill run github-multi-repo microservices \
   --services "auth,users,orders,payments" \
   --ensure-compatibility \
   --sync-contracts \
@@ -586,7 +586,7 @@ npx claude-flow skill run github-multi-repo microservices \
 
 ### 2. Library Updates
 ```bash
-npx claude-flow skill run github-multi-repo lib-update \
+npx @claude-flow/cli@latest skill run github-multi-repo lib-update \
   --library "org/shared-lib" \
   --version "2.0.0" \
   --find-consumers \
@@ -596,7 +596,7 @@ npx claude-flow skill run github-multi-repo lib-update \
 
 ### 3. Organization-Wide Changes
 ```bash
-npx claude-flow skill run github-multi-repo org-policy \
+npx @claude-flow/cli@latest skill run github-multi-repo org-policy \
   --policy "add-security-headers" \
   --repos "org/*" \
   --validate-compliance \
@@ -662,7 +662,7 @@ ruv-FANN/
 
 ### Multi-Repo Dashboard
 ```bash
-npx claude-flow skill run github-multi-repo dashboard \
+npx @claude-flow/cli@latest skill run github-multi-repo dashboard \
   --port 3000 \
   --metrics "agent-activity,task-progress,memory-usage" \
   --real-time
@@ -670,7 +670,7 @@ npx claude-flow skill run github-multi-repo dashboard \
 
 ### Dependency Graph
 ```bash
-npx claude-flow skill run github-multi-repo dep-graph \
+npx @claude-flow/cli@latest skill run github-multi-repo dep-graph \
   --format mermaid \
   --include-agents \
   --show-data-flow
@@ -678,7 +678,7 @@ npx claude-flow skill run github-multi-repo dep-graph \
 
 ### Health Monitoring
 ```bash
-npx claude-flow skill run github-multi-repo health-check \
+npx @claude-flow/cli@latest skill run github-multi-repo health-check \
   --repos "org/*" \
   --check "connectivity,memory,agents" \
   --alert-on-issues
@@ -718,7 +718,7 @@ npx claude-flow skill run github-multi-repo health-check \
 
 ### Caching Strategy
 ```bash
-npx claude-flow skill run github-multi-repo cache-strategy \
+npx @claude-flow/cli@latest skill run github-multi-repo cache-strategy \
   --analyze-patterns \
   --suggest-cache-layers \
   --implement-invalidation
@@ -726,7 +726,7 @@ npx claude-flow skill run github-multi-repo cache-strategy \
 
 ### Parallel Execution
 ```bash
-npx claude-flow skill run github-multi-repo parallel-optimize \
+npx @claude-flow/cli@latest skill run github-multi-repo parallel-optimize \
   --analyze-dependencies \
   --identify-parallelizable \
   --execute-optimal
@@ -734,7 +734,7 @@ npx claude-flow skill run github-multi-repo parallel-optimize \
 
 ### Resource Pooling
 ```bash
-npx claude-flow skill run github-multi-repo resource-pool \
+npx @claude-flow/cli@latest skill run github-multi-repo resource-pool \
   --share-agents \
   --distribute-load \
   --monitor-usage
@@ -744,7 +744,7 @@ npx claude-flow skill run github-multi-repo resource-pool \
 
 ### Connectivity Issues
 ```bash
-npx claude-flow skill run github-multi-repo diagnose-connectivity \
+npx @claude-flow/cli@latest skill run github-multi-repo diagnose-connectivity \
   --test-all-repos \
   --check-permissions \
   --verify-webhooks
@@ -752,7 +752,7 @@ npx claude-flow skill run github-multi-repo diagnose-connectivity \
 
 ### Memory Synchronization
 ```bash
-npx claude-flow skill run github-multi-repo debug-memory \
+npx @claude-flow/cli@latest skill run github-multi-repo debug-memory \
   --check-consistency \
   --identify-conflicts \
   --repair-state
@@ -760,7 +760,7 @@ npx claude-flow skill run github-multi-repo debug-memory \
 
 ### Performance Bottlenecks
 ```bash
-npx claude-flow skill run github-multi-repo perf-analysis \
+npx @claude-flow/cli@latest skill run github-multi-repo perf-analysis \
   --profile-operations \
   --identify-bottlenecks \
   --suggest-optimizations
@@ -770,7 +770,7 @@ npx claude-flow skill run github-multi-repo perf-analysis \
 
 ### 1. Distributed Task Queue
 ```bash
-npx claude-flow skill run github-multi-repo queue \
+npx @claude-flow/cli@latest skill run github-multi-repo queue \
   --backend redis \
   --workers 10 \
   --priority-routing \
@@ -779,7 +779,7 @@ npx claude-flow skill run github-multi-repo queue \
 
 ### 2. Cross-Repo Testing
 ```bash
-npx claude-flow skill run github-multi-repo test \
+npx @claude-flow/cli@latest skill run github-multi-repo test \
   --setup-test-env \
   --link-services \
   --run-e2e \
@@ -788,7 +788,7 @@ npx claude-flow skill run github-multi-repo test \
 
 ### 3. Monorepo Migration
 ```bash
-npx claude-flow skill run github-multi-repo to-monorepo \
+npx @claude-flow/cli@latest skill run github-multi-repo to-monorepo \
   --analyze-repos \
   --suggest-structure \
   --preserve-history \
@@ -799,7 +799,7 @@ npx claude-flow skill run github-multi-repo to-monorepo \
 
 ### Full-Stack Application Update
 ```bash
-npx claude-flow skill run github-multi-repo fullstack-update \
+npx @claude-flow/cli@latest skill run github-multi-repo fullstack-update \
   --frontend "org/web-app" \
   --backend "org/api-server" \
   --database "org/db-migrations" \
@@ -808,7 +808,7 @@ npx claude-flow skill run github-multi-repo fullstack-update \
 
 ### Cross-Team Collaboration
 ```bash
-npx claude-flow skill run github-multi-repo cross-team \
+npx @claude-flow/cli@latest skill run github-multi-repo cross-team \
   --teams "frontend,backend,devops" \
   --task "implement-feature-x" \
   --assign-by-expertise \

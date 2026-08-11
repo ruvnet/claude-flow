@@ -31,16 +31,16 @@ mcp__claude-flow__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx claude-flow sparc run tutorial "guide me through SPARC methodology"
+npx @claude-flow/cli@latest sparc run tutorial "guide me through SPARC methodology"
 
 # For alpha features
 npx claude-flow@alpha sparc run tutorial "guide me through SPARC methodology"
 
 # With namespace
-npx claude-flow sparc run tutorial "your task" --namespace tutorial
+npx @claude-flow/cli@latest sparc run tutorial "your task" --namespace tutorial
 
 # Non-interactive mode
-npx claude-flow sparc run tutorial "your task" --non-interactive
+npx @claude-flow/cli@latest sparc run tutorial "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
@@ -72,8 +72,8 @@ mcp__claude-flow__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx claude-flow memory store "tutorial_context" "important decisions" --namespace tutorial
+npx @claude-flow/cli@latest memory store "tutorial_context" "important decisions" --namespace tutorial
 
 # Query previous work
-npx claude-flow memory query "tutorial" --limit 5
+npx @claude-flow/cli@latest memory query "tutorial" --limit 5
 ```
