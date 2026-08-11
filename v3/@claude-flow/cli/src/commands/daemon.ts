@@ -6,6 +6,7 @@
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { WorkerDaemon, getDaemon, startDaemon, stopDaemon, type WorkerType, type DaemonConfig } from '../services/worker-daemon.js';
+import { resolveDaemonProjectRoot } from '../services/daemon-autostart.js';
 import { spawn, execFile, fork } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve, isAbsolute } from 'path';
@@ -64,7 +65,11 @@ const startCommand: Command = {
     }
     // #1914: a forked daemon child receives --workspace <root>; the launcher
     // and interactive invocations have no flag and fall back to cwd.
-    const projectRoot = resolveWorkspaceFlag(ctx.flags.workspace) ?? process.cwd();
+    // #2877: that cwd fallback is normalized to the owning project root, so
+    // `daemon start` from a subdirectory contends for the SAME lock/PID file
+    // as one from the root instead of silently keying its own pair.
+    const projectRoot = resolveWorkspaceFlag(ctx.flags.workspace)
+      ?? resolveDaemonProjectRoot(process.cwd());
     const isDaemonProcess = process.env.CLAUDE_FLOW_DAEMON === '1';
 
     // Parse resource threshold overrides from CLI flags
@@ -627,7 +632,7 @@ const stopCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const quiet = ctx.flags.quiet as boolean;
-    const projectRoot = process.cwd();
+    const projectRoot = resolveDaemonProjectRoot(process.cwd());
 
     // #2661: `stop --all` — the containment lever for daemon fanout across
     // Git worktrees. Only processes positively identified as ruflo daemons
@@ -682,7 +687,7 @@ async function stopAllDaemons(quiet: boolean): Promise<CommandResult> {
   // Stop any in-process daemon plus this workspace's tracked daemon first,
   // matching plain `daemon stop` semantics for the current directory.
   try { await stopDaemon(); } catch { /* not running in-process */ }
-  await killBackgroundDaemon(process.cwd());
+  await killBackgroundDaemon(resolveDaemonProjectRoot(process.cwd()));
 
   const daemons = await scanRunningDaemons();
   if (daemons.length === 0) {
@@ -1203,7 +1208,7 @@ const statusCommand: Command = {
     if (ctx.flags.all as boolean) {
       return renderAllDaemonsStatus();
     }
-    const projectRoot = process.cwd();
+    const projectRoot = resolveDaemonProjectRoot(process.cwd());
 
     try {
       const daemon = getDaemon(projectRoot);
@@ -1370,7 +1375,7 @@ const triggerCommand: Command = {
       // execution of THIS run (still governed by the global AI budget).
       // Without the flag, config.json / env opt-in still applies.
       const daemon = getDaemon(
-        process.cwd(),
+        resolveDaemonProjectRoot(process.cwd()),
         ctx.flags.headless === true ? { aiWorkersEnabled: true } : undefined
       );
 
@@ -1421,7 +1426,7 @@ const enableCommand: Command = {
     }
 
     try {
-      const daemon = getDaemon(process.cwd());
+      const daemon = getDaemon(resolveDaemonProjectRoot(process.cwd()));
       daemon.setWorkerEnabled(workerType, !disable);
 
       output.printSuccess(`Worker ${workerType} ${disable ? 'disabled' : 'enabled'}`);
@@ -1475,7 +1480,7 @@ const installSupervisorCommand: Command = {
     const force = ctx.flags.force === true;
     const load = ctx.flags.load !== false;
     const dryRun = ctx.flags['dry-run'] === true || ctx.flags.dryRun === true;
-    const projectRoot = process.cwd();
+    const projectRoot = resolveDaemonProjectRoot(process.cwd());
     const platform = process.platform;
 
     if (platform === 'win32') {

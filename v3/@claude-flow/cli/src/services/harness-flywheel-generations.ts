@@ -24,6 +24,12 @@ import {
   runRealEvolveRound, reconstructLineage, detectPlateau, mutationEffectiveness,
   type EvolveReceiptBundle, type LineageTelemetry, type PlateauReport, type MutationStat,
 } from './evolve-proof.js';
+import {
+  DEFAULT_ALPHA_TOTAL,
+  alphaForTest,
+  minInformativePairsToClear,
+  remainingAlphaBudget,
+} from './flywheel-sequential-evidence.js';
 import { harvestSelfSupervisedTasks, type HarvestPattern } from './harness-corpus-harvester.js';
 import { applyChampionParams, rollbackActivePolicy } from '../config/harness-feedback-applier.js';
 import { DEFAULT_CONFIG, type RetrievalConfig, type RankedItem } from './harness-flywheel.js';
@@ -32,8 +38,12 @@ export const FLYWHEEL_DIR = ['.claude-flow', 'flywheel'];
 export const FROZEN_CORPUS = 'harvested-selfsup-frozen-v1';
 const SERVED_FILE = 'served.json';
 const ATTEMPTS_FILE = 'attempts.jsonl';
+const ATTEMPTS_LOCK_FILE = 'attempts.lock';
 const ANCHOR_TOL = 0.02;
 const CANARY_CATASTROPHE = 0.5;
+const ATTEMPTS_LOCK_TIMEOUT_MS = 10_000;
+const ATTEMPTS_LOCK_STALE_MS = 60_000;
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export interface AnchorTask { id: string; q: string; labels: string[]; }
 export interface GenerationDeps {
@@ -83,6 +93,44 @@ function appendAttempt(root: string, b: EvolveReceiptBundle): void {
 }
 function appendPromotion(root: string, b: EvolveReceiptBundle): void {
   try { fs.mkdirSync(dir(root), { recursive: true }); fs.writeFileSync(path.join(dir(root), `generation-${b.generation}.json`), JSON.stringify(b, null, 2) + '\n', 'utf-8'); } catch { /* */ }
+}
+
+/**
+ * Serialize the read-testIndex → build-bundle → append critical section
+ * (ADR-381 §3): attempts.jsonl's length IS the sequential-evidence test
+ * stream position, so two concurrent runFlywheelGeneration calls reading it
+ * before either appends would be assigned the SAME test index and spend the
+ * SAME alpha_k twice — silently doubling the true false-promotion rate the
+ * e-process math is meant to bound. Mirrors flywheel-transaction.ts's
+ * withStateLock (O_EXCL lock file, stale-lock takeover, bounded retry).
+ */
+async function withAttemptsLock<T>(root: string, fn: () => T): Promise<T> {
+  fs.mkdirSync(dir(root), { recursive: true });
+  const lock = path.join(dir(root), ATTEMPTS_LOCK_FILE);
+  const deadline = Date.now() + ATTEMPTS_LOCK_TIMEOUT_MS;
+  for (;;) {
+    try {
+      const fd = fs.openSync(lock, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY, 0o600);
+      fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, at: Date.now() }), 'utf-8');
+      fs.closeSync(fd);
+      try {
+        return fn();
+      } finally {
+        try { fs.unlinkSync(lock); } catch { /* lock already gone */ }
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      try {
+        const stat = fs.lstatSync(lock);
+        if (Date.now() - stat.mtimeMs > ATTEMPTS_LOCK_STALE_MS) {
+          fs.unlinkSync(lock);
+          continue;
+        }
+      } catch { /* raced with owner */ }
+      if (Date.now() >= deadline) throw new Error('timed out acquiring flywheel attempts lock');
+      await delay(5);
+    }
+  }
 }
 
 /** The current operating champion (last promotion's config), or defaults. */
@@ -241,9 +289,19 @@ export async function runFlywheelGeneration(root: string, deps: GenerationDeps):
     // visibility): if this stays ~0 while benchmark Δ > 0, the loop is overfitting.
     const humanRelevanceDelta = candAnchor - baseAnchor;
 
-    const bundle = runRealEvolveRound({ baseline: baseline as unknown as Record<string, number>, candidate: cand as unknown as Record<string, number>, holdout, generation, parent, branch: 'main', now: deps.now, redblue, canaryRollbackRate, humanRelevanceDelta, humanEvalHash: deps.humanEvalHash, corpus: FROZEN_CORPUS });
-    appendAttempt(root, bundle);
-    if (bundle.decisionReceipt.promoted) appendPromotion(root, bundle);
+    // ADR-381 §3 — every generation is one look at the same adaptive stream;
+    // attempts.jsonl IS the stream record, so this attempt's 1-based position
+    // is its sequential test index. Promoted or not, the next tick's index
+    // moves on (this bundle is appended below). Read-index, build, and append
+    // happen inside withAttemptsLock so two concurrent generations can never
+    // be assigned — and spend alpha on — the same test index.
+    const bundle = await withAttemptsLock(root, () => {
+      const testIndex = loadAttempts(root).length + 1;
+      const b = runRealEvolveRound({ baseline: baseline as unknown as Record<string, number>, candidate: cand as unknown as Record<string, number>, holdout, generation, parent, branch: 'main', now: deps.now, redblue, canaryRollbackRate, humanRelevanceDelta, humanEvalHash: deps.humanEvalHash, corpus: FROZEN_CORPUS, sequential: { testIndex } });
+      appendAttempt(root, b);
+      if (b.decisionReceipt.promoted) appendPromotion(root, b);
+      return b;
+    });
 
     return {
       ran: true, reason: bundle.decisionReceipt.reason, generation, promoted: bundle.decisionReceipt.promoted,
@@ -318,6 +376,20 @@ export interface FlywheelStatus {
   humanEvalHash: string | null;       // frozen human eval set the deltas are against
   served: ServedState;
   champion: { config: Record<string, number>; hash: string | null };
+  /**
+   * ADR-381 §3 — visibility into the sequential alpha stream so budget
+   * exhaustion reads as a plateau signal, not a mystery: the next test's
+   * index, its allocated alpha and e-value threshold, the minimum all-win
+   * informative pairs needed to clear it, and the family-wise budget left.
+   */
+  sequential: {
+    nextTestIndex: number;
+    alphaAllocatedNext: number;
+    thresholdNext: number;
+    minInformativePairsNext: number;
+    remainingAlphaBudget: number;
+    alphaTotal: number;
+  };
 }
 
 /** Reconstruct the persisted lineage + telemetry for a status endpoint / CLI. */
@@ -337,5 +409,17 @@ export function flywheelStatus(root: string): FlywheelStatus {
     humanEvalHash: promotions.length ? (promotions[promotions.length - 1].humanEvalHash ?? null) : null,
     served: servedChampion(root),
     champion: { config: champ.config, hash: champ.hash },
+    sequential: (() => {
+      const nextTestIndex = attempts.length + 1;
+      const alphaAllocatedNext = alphaForTest(nextTestIndex);
+      return {
+        nextTestIndex,
+        alphaAllocatedNext,
+        thresholdNext: 1 / alphaAllocatedNext,
+        minInformativePairsNext: minInformativePairsToClear(nextTestIndex),
+        remainingAlphaBudget: remainingAlphaBudget(attempts.length),
+        alphaTotal: DEFAULT_ALPHA_TOTAL,
+      };
+    })(),
   };
 }
