@@ -7,6 +7,7 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { detectRemovedAgentGaps, type RemovedAgentMapping } from './migrate-agent-detection.js';
 
 // Migration targets
 const MIGRATION_TARGETS = [
@@ -17,6 +18,22 @@ const MIGRATION_TARGETS = [
   { value: 'workflows', label: 'Workflows', hint: 'Migrate workflow definitions' },
   { value: 'embeddings', label: 'Embeddings', hint: 'Migrate to ONNX with hyperbolic support' },
   { value: 'all', label: 'All', hint: 'Full migration' }
+];
+
+// ADR-128 Phase 2 deleted these 9 forked agents from the init template,
+// making each plugin canonical — but ADR-128's own Consequences section
+// promised "`ruflo migrate` should detect removed agents and print install
+// suggestions," which never shipped until ADR-382 Part B (issue #2971).
+const REMOVED_AGENTS: RemovedAgentMapping[] = [
+  { basename: 'coder.md', plugin: 'ruflo-core' },
+  { basename: 'researcher.md', plugin: 'ruflo-core' },
+  { basename: 'reviewer.md', plugin: 'ruflo-core' },
+  { basename: 'tester.md', plugin: 'ruflo-testgen' },
+  { basename: 'memory-specialist.md', plugin: 'ruflo-rag-memory' },
+  { basename: 'security-auditor.md', plugin: 'ruflo-security-audit' },
+  { basename: 'sparc-orchestrator.md', plugin: 'ruflo-sparc' },
+  { basename: 'goal-planner.md', plugin: 'ruflo-goals' },
+  { basename: 'adr-architect.md', plugin: 'ruflo-adr' },
 ];
 
 // Status command
@@ -115,10 +132,14 @@ const statusCommand: Command = {
       components.push({ component: 'Migration State', status: migrationState, migrationNeeded: 'no' });
     }
 
+    // ADR-382 Part B: agents ADR-128 removed from the init template that are
+    // both missing from this project and not covered by an installed plugin.
+    const removedAgentGaps = detectRemovedAgentGaps(cwd, REMOVED_AGENTS);
+
     // Display results
     if (ctx.flags.format === 'json') {
-      output.printJson({ components, migrationState });
-      return { success: true, data: { components, migrationState } };
+      output.printJson({ components, migrationState, removedAgentGaps });
+      return { success: true, data: { components, migrationState, removedAgentGaps } };
     }
 
     output.writeln();
@@ -147,7 +168,29 @@ const statusCommand: Command = {
       output.printSuccess('No migration needed.');
     }
 
-    return { success: true, data: { components, needsMigration } };
+    if (removedAgentGaps.length > 0) {
+      output.writeln();
+      output.writeln(output.bold('Removed Agents (ADR-128)'));
+      output.printTable({
+        columns: [
+          { key: 'agent', header: 'Agent', width: 24 },
+          { key: 'plugin', header: 'Owning Plugin', width: 20 },
+          { key: 'installCommand', header: 'Install', width: 34 }
+        ],
+        data: removedAgentGaps.map(g => ({
+          agent: output.warning(g.agent),
+          plugin: g.plugin,
+          installCommand: output.dim(g.installCommand)
+        })),
+        border: false
+      });
+      output.writeln();
+      output.printInfo(
+        `${removedAgentGaps.length} agent(s) removed by ADR-128 are missing from .claude/agents/ and not covered by an installed plugin.`
+      );
+    }
+
+    return { success: true, data: { components, needsMigration, removedAgentGaps } };
   }
 };
 
