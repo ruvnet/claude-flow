@@ -6,7 +6,11 @@
  * entries without temporal fields.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import Database from 'better-sqlite3';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { TieredMemoryStore, isTemporallyValid } from './tiered-memory.js';
 
 describe('TieredMemoryStore — legacy behavior (backward compatibility)', () => {
@@ -184,5 +188,81 @@ describe('isTemporallyValid', () => {
     expect(isTemporallyValid({ validUntil: '2026-07-03T13:00:00Z' }, now)).toBe(true);
     // validUntil exactly now → expired (window is half-open)
     expect(isTemporallyValid({ validUntil: '2026-07-03T12:00:00Z' }, now)).toBe(false);
+  });
+});
+
+describe('TieredMemoryStore — durability (#2887)', () => {
+  const dbs: Database.Database[] = [];
+  const dirs: string[] = [];
+
+  function freshDbPath(): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiered-durability-'));
+    dirs.push(dir);
+    return path.join(dir, 'agentdb-memory.db');
+  }
+
+  function open(dbPath: string): Database.Database {
+    const db = new Database(dbPath);
+    dbs.push(db);
+    return db;
+  }
+
+  afterEach(() => {
+    for (const db of dbs.splice(0)) { try { db.close(); } catch { /* already closed */ } }
+    for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('a successful store is queryable on disk, not just in the maps', () => {
+    const dbPath = freshDbPath();
+    const store = new TieredMemoryStore({ db: open(dbPath) });
+
+    const result = store.store('durable-key', 'DURABLE_VALUE', 'semantic');
+
+    expect(result.durable).toBe(true);
+    expect(result.persistence).toBe('sqlite');
+
+    // Read through an INDEPENDENT connection — proves the row is committed,
+    // not merely sitting in the writer's in-memory maps.
+    const rows = open(dbPath)
+      .prepare('SELECT key, value, tier FROM tiered_memory WHERE key = ?')
+      .all('durable-key');
+    expect(rows).toEqual([{ key: 'durable-key', value: 'DURABLE_VALUE', tier: 'semantic' }]);
+  });
+
+  it('rehydrates persisted entries into a brand-new store instance', () => {
+    const dbPath = freshDbPath();
+    new TieredMemoryStore({ db: open(dbPath) }).store('survives', 'ACROSS_INSTANCES', 'working');
+
+    const reopened = new TieredMemoryStore({ db: open(dbPath) });
+
+    expect(reopened.recall('ACROSS_INSTANCES')).toHaveLength(1);
+    expect(reopened.countPersisted()).toBe(1);
+  });
+
+  it('reports durable:false — never a bare success — when there is no backing db', () => {
+    const store = new TieredMemoryStore();
+
+    const result = store.store('volatile-key', 'LOST_ON_EXIT');
+
+    expect(store.isDurable()).toBe(false);
+    expect(result.durable).toBe(false);
+    expect(result.persistence).toBe('volatile');
+    // No table exists to count, so health checks can't be told a row landed.
+    expect(store.countPersisted()).toBeNull();
+  });
+
+  it('superseded entries stay auditable on disk, and removal deletes the row', () => {
+    const dbPath = freshDbPath();
+    const store = new TieredMemoryStore({ db: open(dbPath) });
+    const first = store.store('fact', 'v1', 'semantic');
+    store.store('fact', 'v2', 'semantic', { supersedes: first.id });
+
+    expect(store.countPersisted()).toBe(2);
+    expect(store.recall('fact', 5, { includeExpired: true })).toHaveLength(2);
+
+    expect(store.remove('fact')).toBe(true);
+    expect(
+      open(dbPath).prepare('SELECT COUNT(*) AS n FROM tiered_memory WHERE archived = 0').get(),
+    ).toEqual({ n: 0 });
   });
 });
