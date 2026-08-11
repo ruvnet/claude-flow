@@ -472,28 +472,28 @@ mcp__claude-flow__swarm_monitor {
 
 ```bash
 # Execute specific mode
-npx claude-flow sparc run <mode> "task description"
+npx @claude-flow/cli@latest sparc run <mode> "task description"
 
 # Use alpha features
 npx claude-flow@alpha sparc run <mode> "task description"
 
 # List all available modes
-npx claude-flow sparc modes
+npx @claude-flow/cli@latest sparc modes
 
 # Get help for specific mode
-npx claude-flow sparc help <mode>
+npx @claude-flow/cli@latest sparc help <mode>
 
 # Run with options
-npx claude-flow sparc run <mode> "task" --parallel --monitor
+npx @claude-flow/cli@latest sparc run <mode> "task" --parallel --monitor
 
 # Execute TDD workflow
-npx claude-flow sparc tdd "feature description"
+npx @claude-flow/cli@latest sparc tdd "feature description"
 
 # Batch execution
-npx claude-flow sparc batch <mode1,mode2,mode3> "task"
+npx @claude-flow/cli@latest sparc batch <mode1,mode2,mode3> "task"
 
 # Pipeline execution
-npx claude-flow sparc pipeline "task description"
+npx @claude-flow/cli@latest sparc pipeline "task description"
 ```
 
 ### Method 3: Local Installation
@@ -911,58 +911,58 @@ mcp__claude-flow__sparc_mode {
 
 ```bash
 # Step 1: Research and planning
-npx claude-flow sparc run researcher "authentication patterns"
+npx @claude-flow/cli@latest sparc run researcher "authentication patterns"
 
 # Step 2: Architecture design
-npx claude-flow sparc run architect "design auth system"
+npx @claude-flow/cli@latest sparc run architect "design auth system"
 
 # Step 3: TDD implementation
-npx claude-flow sparc tdd "user authentication feature"
+npx @claude-flow/cli@latest sparc tdd "user authentication feature"
 
 # Step 4: Code review
-npx claude-flow sparc run reviewer "review auth implementation"
+npx @claude-flow/cli@latest sparc run reviewer "review auth implementation"
 
 # Step 5: Documentation
-npx claude-flow sparc run documenter "document auth API"
+npx @claude-flow/cli@latest sparc run documenter "document auth API"
 ```
 
 ### Workflow 2: Bug Investigation
 
 ```bash
 # Step 1: Analyze issue
-npx claude-flow sparc run analyzer "investigate bug #456"
+npx @claude-flow/cli@latest sparc run analyzer "investigate bug #456"
 
 # Step 2: Debug systematically
-npx claude-flow sparc run debugger "fix memory leak in service X"
+npx @claude-flow/cli@latest sparc run debugger "fix memory leak in service X"
 
 # Step 3: Create tests
-npx claude-flow sparc run tester "regression tests for bug #456"
+npx @claude-flow/cli@latest sparc run tester "regression tests for bug #456"
 
 # Step 4: Review fix
-npx claude-flow sparc run reviewer "validate bug fix"
+npx @claude-flow/cli@latest sparc run reviewer "validate bug fix"
 ```
 
 ### Workflow 3: Performance Optimization
 
 ```bash
 # Step 1: Profile performance
-npx claude-flow sparc run analyzer "profile API response times"
+npx @claude-flow/cli@latest sparc run analyzer "profile API response times"
 
 # Step 2: Identify bottlenecks
-npx claude-flow sparc run optimizer "optimize database queries"
+npx @claude-flow/cli@latest sparc run optimizer "optimize database queries"
 
 # Step 3: Implement improvements
-npx claude-flow sparc run coder "implement caching layer"
+npx @claude-flow/cli@latest sparc run coder "implement caching layer"
 
 # Step 4: Benchmark results
-npx claude-flow sparc run tester "performance benchmarks"
+npx @claude-flow/cli@latest sparc run tester "performance benchmarks"
 ```
 
 ### Workflow 4: Complete Pipeline
 
 ```bash
 # Execute full development pipeline
-npx claude-flow sparc pipeline "e-commerce checkout feature"
+npx @claude-flow/cli@latest sparc pipeline "e-commerce checkout feature"
 
 # This automatically runs:
 # 1. researcher - Gather requirements
@@ -1070,19 +1070,19 @@ mcp__claude-flow__token_usage {
 
 ```bash
 # List modes
-npx claude-flow sparc modes
+npx @claude-flow/cli@latest sparc modes
 
 # Run specific mode
-npx claude-flow sparc run <mode> "task"
+npx @claude-flow/cli@latest sparc run <mode> "task"
 
 # TDD workflow
-npx claude-flow sparc tdd "feature"
+npx @claude-flow/cli@latest sparc tdd "feature"
 
 # Full pipeline
-npx claude-flow sparc pipeline "task"
+npx @claude-flow/cli@latest sparc pipeline "task"
 
 # Batch execution
-npx claude-flow sparc batch <modes> "task"
+npx @claude-flow/cli@latest sparc batch <modes> "task"
 ```
 
 ### Most Common MCP Calls

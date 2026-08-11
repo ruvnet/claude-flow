@@ -20,7 +20,7 @@ mcp__claude-flow__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx claude-flow sparc run reviewer "review pull request #123"
+npx @claude-flow/cli@latest sparc run reviewer "review pull request #123"
 
 # For alpha features
 npx claude-flow@alpha sparc run reviewer "review pull request #123"

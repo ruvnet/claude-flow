@@ -4,7 +4,7 @@
 
 ### 1. Initialize with Hooks
 ```bash
-npx claude-flow init --hooks
+npx @claude-flow/cli@latest init --hooks
 ```
 
 This automatically creates:
@@ -15,10 +15,10 @@ This automatically creates:
 ### 2. Test Hook Functionality
 ```bash
 # Test pre-edit hook
-npx claude-flow hook pre-edit --file test.js
+npx @claude-flow/cli@latest hook pre-edit --file test.js
 
 # Test session summary
-npx claude-flow hook session-end --summary
+npx @claude-flow/cli@latest hook session-end --summary
 ```
 
 ### 3. Customize Hooks
@@ -33,7 +33,7 @@ Edit `.claude/settings.json` to customize:
         "matcher": "^Write$",
         "hooks": [{
           "type": "command",
-          "command": "npx claude-flow hook pre-write --file '${tool.params.file_path}'"
+          "command": "npx @claude-flow/cli@latest hook pre-write --file '${tool.params.file_path}'"
         }]
       }
     ]
@@ -72,7 +72,7 @@ Example blocking response:
 export CLAUDE_FLOW_DEBUG=true
 
 # Test specific hook
-npx claude-flow hook pre-edit --file app.js --debug
+npx @claude-flow/cli@latest hook pre-edit --file app.js --debug
 ```
 
 ## Common Patterns
@@ -86,7 +86,7 @@ Already configured by default for common file types.
   "matcher": "^(Write|Edit)$",
   "hooks": [{
     "type": "command",
-    "command": "npx claude-flow hook check-protected --file '${tool.params.file_path}'"
+    "command": "npx @claude-flow/cli@latest hook check-protected --file '${tool.params.file_path}'"
   }]
 }
 ```

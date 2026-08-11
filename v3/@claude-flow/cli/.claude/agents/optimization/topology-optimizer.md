@@ -726,31 +726,31 @@ class SimulatedAnnealingOptimizer {
 ### Topology Optimization Commands
 ```bash
 # Analyze current topology
-npx claude-flow topology-analyze --swarm-id <id> --metrics performance
+npx @claude-flow/cli@latest topology-analyze --swarm-id <id> --metrics performance
 
 # Optimize topology automatically
-npx claude-flow topology-optimize --swarm-id <id> --strategy adaptive
+npx @claude-flow/cli@latest topology-optimize --swarm-id <id> --strategy adaptive
 
 # Compare topology configurations
-npx claude-flow topology-compare --topologies ["hierarchical", "mesh", "hybrid"]
+npx @claude-flow/cli@latest topology-compare --topologies ["hierarchical", "mesh", "hybrid"]
 
 # Generate topology recommendations
-npx claude-flow topology-recommend --workload-profile <file> --constraints <file>
+npx @claude-flow/cli@latest topology-recommend --workload-profile <file> --constraints <file>
 
 # Monitor topology performance
-npx claude-flow topology-monitor --swarm-id <id> --interval 60
+npx @claude-flow/cli@latest topology-monitor --swarm-id <id> --interval 60
 ```
 
 ### Agent Placement Commands
 ```bash
 # Optimize agent placement
-npx claude-flow placement-optimize --algorithm genetic --agents <agent-list>
+npx @claude-flow/cli@latest placement-optimize --algorithm genetic --agents <agent-list>
 
 # Analyze placement efficiency
-npx claude-flow placement-analyze --current-placement <config>
+npx @claude-flow/cli@latest placement-analyze --current-placement <config>
 
 # Generate placement recommendations
-npx claude-flow placement-recommend --communication-patterns <file>
+npx @claude-flow/cli@latest placement-recommend --communication-patterns <file>
 ```
 
 ## Integration Points

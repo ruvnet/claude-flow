@@ -28,16 +28,16 @@ Complete agent management commands for Claude Flow V3.
 
 ```bash
 # Spawn a coder agent
-npx claude-flow agent spawn -t coder --name my-coder
+npx @claude-flow/cli@latest agent spawn -t coder --name my-coder
 
 # List all active agents
-npx claude-flow agent list
+npx @claude-flow/cli@latest agent list
 
 # Check agent health
-npx claude-flow agent health
+npx @claude-flow/cli@latest agent health
 
 # View metrics
-npx claude-flow agent metrics --period 24h
+npx @claude-flow/cli@latest agent metrics --period 24h
 ```
 
 ## V3 Agent Categories

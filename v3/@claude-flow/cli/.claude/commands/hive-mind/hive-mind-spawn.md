@@ -4,7 +4,7 @@ Spawn a Hive Mind swarm with queen-led coordination.
 
 ## Usage
 ```bash
-npx claude-flow hive-mind spawn <objective> [options]
+npx @claude-flow/cli@latest hive-mind spawn <objective> [options]
 ```
 
 ## Options
@@ -15,7 +15,7 @@ npx claude-flow hive-mind spawn <objective> [options]
 
 ## Examples
 ```bash
-npx claude-flow hive-mind spawn "Build API"
-npx claude-flow hive-mind spawn "Research patterns" --queen-type adaptive
-npx claude-flow hive-mind spawn "Build service" --claude
+npx @claude-flow/cli@latest hive-mind spawn "Build API"
+npx @claude-flow/cli@latest hive-mind spawn "Research patterns" --queen-type adaptive
+npx @claude-flow/cli@latest hive-mind spawn "Build service" --claude
 ```

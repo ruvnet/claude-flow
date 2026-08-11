@@ -23,7 +23,7 @@ mcp__claude-flow__task_orchestrate({
 ```
 
 ### Using CLI (Fallback)
-`npx claude-flow swarm "build feature X" --strategy development`
+`npx @claude-flow/cli@latest swarm "build feature X" --strategy development`
 
 ## Agent Roles
 
