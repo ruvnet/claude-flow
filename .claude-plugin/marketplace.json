@@ -180,6 +180,21 @@
       "name": "ruflo-arena",
       "source": "./plugins/ruflo-arena",
       "description": "Competitive ruliology for ruflo swarms — arenas, tournaments, and adaptive co-evolution of program strategies (ADR-147/148); strategies-as-programs compete under payoff games"
+    },
+    {
+      "name": "ruflo-agntcy",
+      "source": "./plugins/ruflo-agntcy",
+      "description": "AGNTCY/Outshift Internet-of-Cognition runtime integration — SLIM secure transport, CASA intent-scoped tool authorization, and AGNTCY identity/observability spans (ADR-380); optional, removable augmentation per ADR-150"
+    },
+    {
+      "name": "ruflo-bbs-federation",
+      "source": "./plugins/ruflo-bbs-federation",
+      "description": "AgentBBS federated business-domain BBS room integration (ADR-164 Phase 1) — register/publish/watch/human-join MCP tools wrapping the agentbbs Rust workspace as a federation peer; degrades gracefully when agentbbs is absent"
+    },
+    {
+      "name": "ruflo-business-pods",
+      "source": "./plugins/ruflo-business-pods",
+      "description": "Business-domain pod templates for the federated business autopilot (ADR-164 Phase 2) — pod templates plus a dry-run-by-default single-tick runner that validates, reserves budget, and resolves agent roles before posting to the BBS room"
     }
   ]
 }
