@@ -3,10 +3,20 @@
  *
  * Adapts daemon.ts's proven pattern (PID file, O_EXCL lockfile for atomic
  * check-then-start, signal-0 liveness, SIGTERM->1000ms->SIGKILL) to a
- * native binary instead of a forked Node process. The binary itself takes
- * no CLI flags — confirmed empirically (2026-07-16): `meta-proxy.exe` has
- * no `--version`/`--help`, and any invocation just starts the server reading
- * its own config file — so `spawn()` here passes zero arguments, always.
+ * native binary instead of a forked Node process. `spawn()` here passes zero
+ * arguments, always — starting the server is the argument-free behavior and
+ * the only one this module wants.
+ *
+ * That is now a choice rather than a constraint. The 2026-07-16 note here
+ * ("the binary takes no CLI flags — no `--version`/`--help`, any invocation
+ * just starts the server") was true of the release pinned at the time, and
+ * stopped being true: meta-proxy v0.7.2 handles `--help` before binding, and
+ * v0.7.3 makes `--help`/`--version` win from any argv position. Do not read
+ * the old note as "the binary cannot be asked what it is" — it can. The
+ * installed version is still read from the install manifest rather than by
+ * executing the binary, because a filesystem read cannot start a listener
+ * and an exec of an old build can (a `--version` probe against 0.4.0 leaves
+ * a daemon bound to 127.0.0.1:11435).
  *
  * Foreground `start` (the ADR-307 default) uses `stdio: 'inherit'` and
  * blocks directly — simplest and safest, no log-file redirection needed.
@@ -21,7 +31,14 @@
 
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
-import { proxyBinaryPath, proxyPidFilePath, proxyLockFilePath, proxyLogFilePath } from './paths.js';
+import {
+  proxyBinaryPath,
+  proxyPidFilePath,
+  proxyLockFilePath,
+  proxyLogFilePath,
+  proxyInstallManifestPath,
+  type InstallManifest,
+} from './paths.js';
 
 export class ProxyNotInstalledError extends Error {
   constructor() {
@@ -58,21 +75,48 @@ export interface ProxyStatus {
   running: boolean;
   pid: number | null;
   stalePidFile: boolean;
+  /**
+   * The release recorded by the install that produced the binary on disk, or
+   * null when unknown — either nothing is installed, or the binary predates
+   * the manifest / the manifest was hand-removed. Callers must treat null as
+   * "cannot tell", never as "up to date".
+   */
+  version: string | null;
+}
+
+/**
+ * The installed release, from `install.ts`'s manifest. Deliberately a
+ * filesystem read and not `meta-proxy --version`: exec'ing the binary to ask
+ * its version is exactly the probe that starts a listener on the older
+ * builds this is most needed to detect.
+ *
+ * Never throws — a missing, unreadable, or malformed manifest is a normal
+ * "unknown", not a reason to fail `proxy status`.
+ */
+function readInstalledVersion(): string | null {
+  try {
+    const raw = fs.readFileSync(proxyInstallManifestPath(), 'utf-8');
+    const manifest = JSON.parse(raw) as Partial<InstallManifest>;
+    return typeof manifest.version === 'string' && manifest.version ? manifest.version : null;
+  } catch {
+    return null;
+  }
 }
 
 export function getProxyStatus(): ProxyStatus {
   const installed = fs.existsSync(proxyBinaryPath());
+  const version = installed ? readInstalledVersion() : null;
   const pidPath = proxyPidFilePath();
   if (!fs.existsSync(pidPath)) {
-    return { installed, running: false, pid: null, stalePidFile: false };
+    return { installed, running: false, pid: null, stalePidFile: false, version };
   }
   const raw = fs.readFileSync(pidPath, 'utf-8').trim();
   const pid = parseInt(raw, 10);
   if (!Number.isFinite(pid)) {
-    return { installed, running: false, pid: null, stalePidFile: true };
+    return { installed, running: false, pid: null, stalePidFile: true, version };
   }
   const running = isProcessRunning(pid);
-  return { installed, running, pid: running ? pid : null, stalePidFile: !running };
+  return { installed, running, pid: running ? pid : null, stalePidFile: !running, version };
 }
 
 function writePidFile(pid: number): void {

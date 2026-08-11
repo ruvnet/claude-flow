@@ -58,11 +58,105 @@ describe('bare proxy console guidance', () => {
   });
 
   it('gives installation guidance before the proxy exists', async () => {
-    const { proxyConsoleGuidance } = await import('../src/commands/proxy-lifecycle.js');
-    const lines = proxyConsoleGuidance({ installed: false, running: false, pid: null, stalePidFile: false }).join('\n');
+    const { proxyConsoleGuidance, DEFAULT_PROXY_RELEASE } = await import('../src/commands/proxy-lifecycle.js');
+    const lines = proxyConsoleGuidance({
+      installed: false,
+      running: false,
+      pid: null,
+      stalePidFile: false,
+      version: null,
+    }).join('\n');
 
     expect(lines).toContain('npx ruflo@latest proxy install --yes');
-    expect(lines).toContain('Meta-Proxy v0.4.0');
+    // Assert against the constant, not a literal — a hardcoded version here
+    // would have to be edited on every pin bump, which is how the advertised
+    // version drifted from the installed one in the first place.
+    expect(lines).toContain(`Meta-Proxy v${DEFAULT_PROXY_RELEASE}`);
     expect(lines).not.toContain('auth login');
+  });
+});
+
+/**
+ * A pin bump is only worth making if it reaches people who already installed
+ * the old one. Their entry point is this guidance, so the drift signal is
+ * asserted here rather than left to manual inspection.
+ */
+describe('pin-drift guidance for an existing install', () => {
+  const installedAt = (version: string | null) => ({
+    installed: true,
+    running: false,
+    pid: null,
+    stalePidFile: false,
+    version,
+  });
+
+  it('names the installed release, the pin, and the command that closes the gap', async () => {
+    const { proxyUpdateGuidance, DEFAULT_PROXY_RELEASE } = await import('../src/commands/proxy-lifecycle.js');
+
+    const lines = proxyUpdateGuidance(installedAt('0.4.0')).join('\n');
+
+    expect(lines).toContain('installed v0.4.0');
+    expect(lines).toContain(`current pin v${DEFAULT_PROXY_RELEASE}`);
+    expect(lines).toContain('npx ruflo@latest proxy update');
+  });
+
+  it('stays silent when the installed release already matches the pin', async () => {
+    const { proxyUpdateGuidance, DEFAULT_PROXY_RELEASE } = await import('../src/commands/proxy-lifecycle.js');
+
+    expect(proxyUpdateGuidance(installedAt(DEFAULT_PROXY_RELEASE))).toEqual([]);
+  });
+
+  /** Unknown is not "current" — claiming either way from no evidence is the bug. */
+  it('stays silent when the installed release is unknown', async () => {
+    const { proxyUpdateGuidance } = await import('../src/commands/proxy-lifecycle.js');
+
+    expect(proxyUpdateGuidance(installedAt(null))).toEqual([]);
+  });
+
+  it('stays silent when nothing is installed', async () => {
+    const { proxyUpdateGuidance } = await import('../src/commands/proxy-lifecycle.js');
+
+    expect(proxyUpdateGuidance({ ...installedAt('0.4.0'), installed: false })).toEqual([]);
+  });
+
+  it('surfaces the drift through the console guidance a running proxy shows', async () => {
+    const { proxyConsoleGuidance } = await import('../src/commands/proxy-lifecycle.js');
+
+    const lines = proxyConsoleGuidance({ ...installedAt('0.4.0'), running: true, pid: 4242 }).join('\n');
+
+    expect(lines).toContain('Meta Proxy is ready.');
+    expect(lines).toContain('An update is available');
+  });
+});
+
+describe('getProxyStatus version reporting', () => {
+  it('reads the installed release from the install manifest', async () => {
+    const { proxyBinaryPath, proxyInstallManifestPath } = await import('../src/proxy/paths.js');
+    fs.mkdirSync(path.dirname(proxyBinaryPath()), { recursive: true });
+    fs.writeFileSync(proxyBinaryPath(), 'test binary marker');
+    fs.mkdirSync(path.dirname(proxyInstallManifestPath()), { recursive: true });
+    fs.writeFileSync(proxyInstallManifestPath(), JSON.stringify({ version: '0.4.0', sha256: 'abc' }));
+
+    const { getProxyStatus } = await import('../src/proxy/lifecycle.js');
+
+    expect(getProxyStatus()).toMatchObject({ installed: true, version: '0.4.0' });
+  });
+
+  it('reports an unreadable manifest as unknown rather than throwing', async () => {
+    const { proxyBinaryPath, proxyInstallManifestPath } = await import('../src/proxy/paths.js');
+    fs.mkdirSync(path.dirname(proxyBinaryPath()), { recursive: true });
+    fs.writeFileSync(proxyBinaryPath(), 'test binary marker');
+    fs.mkdirSync(path.dirname(proxyInstallManifestPath()), { recursive: true });
+    fs.writeFileSync(proxyInstallManifestPath(), 'not json{');
+
+    const { getProxyStatus } = await import('../src/proxy/lifecycle.js');
+
+    expect(getProxyStatus()).toMatchObject({ installed: true, version: null });
+  });
+
+  it('reports no version when nothing is installed', async () => {
+    const { getProxyStatus } = await import('../src/proxy/lifecycle.js');
+
+    expect(getProxyStatus()).toMatchObject({ installed: false, version: null });
   });
 });

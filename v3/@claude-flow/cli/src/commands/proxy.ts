@@ -25,7 +25,7 @@ import { clearRateLimitStatus, readRateLimitStatus } from '../funnel/rate-limit-
 import { clearQuotaLowStatus, readQuotaLowStatus } from '../funnel/power-saver-notifier.js';
 import { getInstalledCliVersion } from '../init/helper-refresh.js';
 import * as path from 'path';
-import { proxyLifecycleSubcommands, printProxyConsoleGuidance } from './proxy-lifecycle.js';
+import { proxyLifecycleSubcommands, printProxyConsoleGuidance, DEFAULT_PROXY_RELEASE } from './proxy-lifecycle.js';
 import { getProxyStatus } from '../proxy/lifecycle.js';
 
 const PROXY_CONFIG_FILE = 'proxy-config.toml';
@@ -410,7 +410,7 @@ export const proxyCommand: Command = {
     trainingShareEnableSub, trainingShareDisableSub, trainingShareStatusSub,
   ],
   examples: [
-    { command: 'ruflo proxy install --yes', description: 'Install the signed Meta-Proxy v0.4.0 binary' },
+    { command: 'ruflo proxy install --yes', description: `Install the signed Meta-Proxy v${DEFAULT_PROXY_RELEASE} binary` },
     { command: 'ruflo proxy start', description: 'Start meta-proxy in the foreground' },
     { command: 'ruflo proxy status', description: 'Show install + process status' },
     { command: 'ruflo proxy config --cloud --yes', description: 'Enable cloud routing (ADR-304)' },

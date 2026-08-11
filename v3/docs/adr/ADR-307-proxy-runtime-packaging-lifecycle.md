@@ -152,12 +152,41 @@ The bridge is implemented by meta-proxy v0.2.0 and ruflo's resident supervisor: 
 access token crosses the process boundary, while ruflo retains the rotating refresh token in the OS
 keychain. Production installation is implemented through the signed public distribution channel.
 
-### v0.4.0 pinned install default (2026-07-17)
+### Pinned install default (2026-07-17; pin updated 2026-08-05)
 
-`ruflo proxy install --yes` now selects the reviewed Meta-Proxy v0.4.0 release
+`ruflo proxy install --yes` selects a single reviewed Meta-Proxy release
 without requiring a user to discover and type a version. This is a pinned,
 reproducible default, not an unauthenticated "latest" lookup: the installer
 continues to verify the public distribution's Ed25519-signed `SHA256SUMS` and
 the selected platform archive before extraction. An operator keeps control of
-later changes through explicit `ruflo proxy update --release <x.y.z>` or an
-explicit `install --release <x.y.z>` override.
+later changes through explicit `ruflo proxy update` (which defaults to the same
+pin) or an explicit `install --release <x.y.z>` override.
+
+The pin itself lives in exactly one place — `DEFAULT_PROXY_RELEASE` in
+`src/commands/proxy-lifecycle.ts` — and this ADR deliberately no longer names
+a version. The original text pinned **v0.4.0** and stayed there through six
+upstream releases; the value was additionally copied as a literal into
+`proxy.ts`'s example text and into two test files, so nothing in the tree
+disagreed with itself while all four fell behind together. Interpolate the
+constant; do not restate it.
+
+### Surfacing pin drift to already-installed users (2026-08-05)
+
+Bumping the pin only ever changed what a *new* install receives. A user who
+installed a previous pin had no signal that anything had moved: `proxy status`
+reported installation as a boolean, and `proxy update` required an explicit
+`--release`, so reaching a newer binary meant already knowing its version
+number. A fix significant enough to motivate a bump therefore reached only the
+users who did not yet have the problem.
+
+`ProxyStatus` now carries `version`, read from the install manifest that
+`install.ts` already writes. `proxy status` prints it, and the console guidance
+names the gap and the command to close it when the installed release differs
+from the pin. The version is read from the manifest and never by executing the
+binary: releases before v0.7.2 start the server and bind a port on *any*
+invocation, so a `--version` probe against an old build leaves a listener
+running — the precise state this check exists to detect. An unreadable or
+absent manifest reports `unknown`, never "up to date".
+
+Updating remains explicit and user-initiated; nothing here installs anything on
+its own.
