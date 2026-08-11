@@ -2755,6 +2755,14 @@ export async function bridgeHealthCheck(
   controllers: Array<{ name: string; enabled: boolean; level: number }>;
   attestationCount?: number;
   cacheStats?: { size: number; hits: number; misses: number };
+  hierarchicalMemory?: {
+    controller: string;
+    durable: boolean;
+    persistence: string;
+    /** Real row count in the backing table — null when nothing is on disk. */
+    persistedRows: number | null;
+    fallbackFrom?: string;
+  };
 } | null> {
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
@@ -2777,7 +2785,19 @@ export async function bridgeHealthCheck(
       cacheStats = { size: s.size ?? 0, hits: s.hits ?? 0, misses: s.misses ?? 0 };
     }
 
-    return { available: true, controllers, attestationCount, cacheStats };
+    // #2887: cacheStats alone let a "successful" hierarchical-store coexist
+    // with an empty store. Report the backing table's real row count so the
+    // inconsistency is visible instead of inferred.
+    let hierarchicalMemory;
+    const hm = registry.get('hierarchicalMemory');
+    if (hm) {
+      hierarchicalMemory = {
+        ...describeHierarchicalStore(hm, getHierarchicalFallback(registry)),
+        persistedRows: typeof hm.countPersisted === 'function' ? hm.countPersisted() : null,
+      };
+    }
+
+    return { available: true, controllers, attestationCount, cacheStats, hierarchicalMemory };
   } catch {
     return null;
   }
@@ -2803,6 +2823,39 @@ export async function bridgeHealthCheck(
  *   temporal fields are stored in metadata, and supersede is reported as
  *   unsupported (no public update API) rather than silently dropped.
  */
+/**
+ * Describe which store `agentdb_hierarchical-*` actually landed on and
+ * whether its writes survive the process (#2887).
+ *
+ * agentdb removed its `HierarchicalMemory` export at 3.0.0-alpha.17, so the
+ * @claude-flow/memory TieredMemoryStore fallback is the live path. It is only
+ * durable when it was handed a SQLite connection — callers must not report a
+ * volatile write as a success.
+ */
+export function describeHierarchicalStore(
+  hm: any,
+  fallback: { reason: string } | null,
+): { controller: string; fallbackFrom?: string; durable: boolean; persistence: string } {
+  // Only the tiered fallback exposes isDurable(); the native controller
+  // (should agentdb reintroduce it) writes to agentdb's own tables.
+  if (typeof hm?.isDurable !== 'function') {
+    return { controller: 'hierarchicalMemory', durable: true, persistence: 'agentdb' };
+  }
+  return {
+    controller: 'tieredMemoryStore',
+    fallbackFrom: fallback?.reason ?? 'hierarchicalMemory',
+    durable: hm.isDurable() === true,
+    persistence: typeof hm.getPersistence === 'function' ? hm.getPersistence() : 'unknown',
+  };
+}
+
+/** Read `getHierarchicalFallback()` off a registry that may predate it. */
+function getHierarchicalFallback(registry: any): { reason: string } | null {
+  return typeof registry?.getHierarchicalFallback === 'function'
+    ? registry.getHierarchicalFallback()
+    : null;
+}
+
 export async function bridgeHierarchicalStore(params: {
   key: string; value: string; tier?: string; importance?: number;
   validFrom?: string; validUntil?: string; supersedes?: string;
@@ -2825,7 +2878,10 @@ export async function bridgeHierarchicalStore(params: {
         metadata,
         tags: [params.key],
       });
-      const result: any = { success: true, id, key: params.key, tier };
+      const result: any = {
+        success: true, id, key: params.key, tier,
+        controller: 'hierarchicalMemory', durable: true, persistence: 'agentdb',
+      };
       if (params.supersedes) {
         // No public update/invalidate API on agentdb HierarchicalMemory —
         // surface the limitation honestly instead of silently dropping it.
@@ -2834,17 +2890,28 @@ export async function bridgeHierarchicalStore(params: {
       }
       return result;
     }
-    // TieredMemoryStore fallback (temporal-aware) / legacy stub
+    // TieredMemoryStore fallback (temporal-aware) / legacy stub.
+    // agentdb dropped its HierarchicalMemory export at 3.0.0-alpha.17, so
+    // this is the live path — and it is only trustworthy when the store is
+    // backed by SQLite. A volatile write must NOT report success (#2887).
     const storeResult = hm.store(params.key, params.value, tier, {
       validFrom: params.validFrom,
       validUntil: params.validUntil,
       supersedes: params.supersedes,
     });
-    if (storeResult && typeof storeResult === 'object') {
-      return { success: true, ...storeResult };
+    const info = describeHierarchicalStore(hm, getHierarchicalFallback(registry));
+    const base = {
+      ...info,
+      ...(storeResult && typeof storeResult === 'object' ? storeResult : { key: params.key, tier }),
+    };
+    if (!info.durable) {
+      return {
+        ...base,
+        success: false,
+        error: `hierarchical-store is running on the ${info.persistence} tiered fallback (${info.fallbackFrom}); the entry is NOT persisted to disk and will be lost when this process exits. Use memory_store for durable key-value persistence.`,
+      };
     }
-    // Legacy stub (returns void) — temporal options were ignored
-    return { success: true, key: params.key, tier };
+    return { success: true, ...base };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
@@ -2905,7 +2972,7 @@ export async function bridgeHierarchicalRecall(params: { query: string; tier?: s
     const filtered = params.tier
       ? results.filter((r: any) => r.tier === params.tier)
       : results;
-    return { results: filtered, controller: 'hierarchicalMemory' };
+    return { results: filtered, ...describeHierarchicalStore(hm, getHierarchicalFallback(registry)) };
   } catch (e: any) { return { results: [], error: e.message }; }
 }
 

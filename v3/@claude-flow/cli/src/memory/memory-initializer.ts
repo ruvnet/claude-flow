@@ -11,6 +11,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createRequire } from 'node:module';
 import { readFileMaybeEncrypted, writeFileAtomic, writeFileRestricted } from '../fs-secure.js';
 import { restoreMemoryDbFromBackup } from '../services/memory-backup.js';
@@ -1273,79 +1274,84 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
       return { success: true, columnsAdded: [] };
     }
 
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
+    // #2878: the ALTER/backfill below is a whole-image read-modify-write like
+    // every other mutator here. Reentrant, so the callers that run this from
+    // inside their own critical section don't self-deadlock.
+    return await withMemoryDbLock(dbPath, async () => {
+      const initSqlJs = (await import('sql.js')).default;
+      const SQL = await initSqlJs();
 
-    const fileBuffer = readFileMaybeEncrypted(dbPath, null);
-    const db = new SQL.Database(fileBuffer);
+      const fileBuffer = readFileMaybeEncrypted(dbPath, null);
+      const db = new SQL.Database(fileBuffer);
 
-    // Get current columns in memory_entries
-    const tableInfo = db.exec("PRAGMA table_info(memory_entries)");
-    const existingColumns = new Set(
-      tableInfo[0]?.values?.map(row => row[1] as string) || []
-    );
+      // Get current columns in memory_entries
+      const tableInfo = db.exec("PRAGMA table_info(memory_entries)");
+      const existingColumns = new Set(
+        tableInfo[0]?.values?.map(row => row[1] as string) || []
+      );
 
-    // Required columns that may be missing in older schemas
-    // Issue #977: 'type' column was missing from this list, causing store failures on older DBs
-    const requiredColumns: Array<{ name: string; definition: string }> = [
-      { name: 'content', definition: "content TEXT DEFAULT ''" },
-      { name: 'type', definition: "type TEXT DEFAULT 'semantic'" },
-      { name: 'embedding', definition: 'embedding TEXT' },
-      { name: 'embedding_model', definition: "embedding_model TEXT DEFAULT 'local'" },
-      { name: 'embedding_dimensions', definition: 'embedding_dimensions INTEGER' },
-      { name: 'tags', definition: 'tags TEXT' },
-      { name: 'metadata', definition: 'metadata TEXT' },
-      { name: 'owner_id', definition: 'owner_id TEXT' },
-      { name: 'expires_at', definition: 'expires_at INTEGER' },
-      { name: 'last_accessed_at', definition: 'last_accessed_at INTEGER' },
-      { name: 'access_count', definition: 'access_count INTEGER DEFAULT 0' },
-      { name: 'status', definition: "status TEXT DEFAULT 'active'" },
-      // ADR-323: older DBs predate provenance typing entirely — backfilled
-      // as 'unknown' via the DEFAULT, same convention as 'type'/'status'
-      // above (no CHECK on the ALTER; enforcement happens in storeEntry()/
-      // bridgeStoreEntry() so an invalid value gets a CLI-friendly error
-      // instead of a raw SQLite constraint failure).
-      { name: 'provenance_type', definition: "provenance_type TEXT DEFAULT 'unknown'" }
-    ];
+      // Required columns that may be missing in older schemas
+      // Issue #977: 'type' column was missing from this list, causing store failures on older DBs
+      const requiredColumns: Array<{ name: string; definition: string }> = [
+        { name: 'content', definition: "content TEXT DEFAULT ''" },
+        { name: 'type', definition: "type TEXT DEFAULT 'semantic'" },
+        { name: 'embedding', definition: 'embedding TEXT' },
+        { name: 'embedding_model', definition: "embedding_model TEXT DEFAULT 'local'" },
+        { name: 'embedding_dimensions', definition: 'embedding_dimensions INTEGER' },
+        { name: 'tags', definition: 'tags TEXT' },
+        { name: 'metadata', definition: 'metadata TEXT' },
+        { name: 'owner_id', definition: 'owner_id TEXT' },
+        { name: 'expires_at', definition: 'expires_at INTEGER' },
+        { name: 'last_accessed_at', definition: 'last_accessed_at INTEGER' },
+        { name: 'access_count', definition: 'access_count INTEGER DEFAULT 0' },
+        { name: 'status', definition: "status TEXT DEFAULT 'active'" },
+        // ADR-323: older DBs predate provenance typing entirely — backfilled
+        // as 'unknown' via the DEFAULT, same convention as 'type'/'status'
+        // above (no CHECK on the ALTER; enforcement happens in storeEntry()/
+        // bridgeStoreEntry() so an invalid value gets a CLI-friendly error
+        // instead of a raw SQLite constraint failure).
+        { name: 'provenance_type', definition: "provenance_type TEXT DEFAULT 'unknown'" }
+      ];
 
-    let modified = false;
-    for (const col of requiredColumns) {
-      if (!existingColumns.has(col.name)) {
-        try {
-          db.run(`ALTER TABLE memory_entries ADD COLUMN ${col.definition}`);
-          columnsAdded.push(col.name);
-          modified = true;
-        } catch (e) {
-          // Column might already exist or other error - continue
+      let modified = false;
+      for (const col of requiredColumns) {
+        if (!existingColumns.has(col.name)) {
+          try {
+            db.run(`ALTER TABLE memory_entries ADD COLUMN ${col.definition}`);
+            columnsAdded.push(col.name);
+            modified = true;
+          } catch (e) {
+            // Column might already exist or other error - continue
+          }
         }
       }
-    }
 
-    // #2120 — Belt-and-suspenders backfill. `ALTER TABLE ADD COLUMN
-    // status TEXT DEFAULT 'active'` should populate existing rows with
-    // 'active' in modern SQLite, but: (a) some auto-memory bridge writes
-    // happen via INSERT paths that pass an explicit NULL, (b) some
-    // historical sql.js builds skipped the DEFAULT backfill, (c)
-    // entries can be migrated in from older snapshots. After ensuring
-    // the column exists, force-backfill any remaining NULL → 'active'.
-    // Safe on already-correct DBs (0 rows updated).
-    if (columnsAdded.includes('status') || existingColumns.has('status')) {
-      try {
-        db.run(`UPDATE memory_entries SET status = 'active' WHERE status IS NULL`);
-        modified = true;
-      } catch {
-        /* table is read-only or doesn't exist — skip */
+      // #2120 — Belt-and-suspenders backfill. `ALTER TABLE ADD COLUMN
+      // status TEXT DEFAULT 'active'` should populate existing rows with
+      // 'active' in modern SQLite, but: (a) some auto-memory bridge writes
+      // happen via INSERT paths that pass an explicit NULL, (b) some
+      // historical sql.js builds skipped the DEFAULT backfill, (c)
+      // entries can be migrated in from older snapshots. After ensuring
+      // the column exists, force-backfill any remaining NULL → 'active'.
+      // Safe on already-correct DBs (0 rows updated).
+      if (columnsAdded.includes('status') || existingColumns.has('status')) {
+        try {
+          db.run(`UPDATE memory_entries SET status = 'active' WHERE status IS NULL`);
+          modified = true;
+        } catch {
+          /* table is read-only or doesn't exist — skip */
+        }
       }
-    }
 
-    if (modified) {
-      // Save updated database
-      const data = db.export();
-      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
-    }
+      if (modified) {
+        // Save updated database
+        const data = db.export();
+        writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+      }
 
-    db.close();
-    return { success: true, columnsAdded };
+      db.close();
+      return { success: true, columnsAdded };
+    });
   } catch (error) {
     return {
       success: false,
@@ -2088,37 +2094,41 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
   const path_ = dbPath || path.join(swarmDir, 'memory.db');
 
   try {
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
+    // #2878: decays `patterns` but rewrites the whole memory.db image, so it
+    // races the memory_entries writers over the same file.
+    return await withMemoryDbLock(path_, async () => {
+      const initSqlJs = (await import('sql.js')).default;
+      const SQL = await initSqlJs();
 
-    const fileBuffer = fs.readFileSync(path_);
-    const db = new SQL.Database(fileBuffer);
+      const fileBuffer = fs.readFileSync(path_);
+      const db = new SQL.Database(fileBuffer);
 
-    // Apply decay: confidence *= exp(-decay_rate * days_since_last_use)
-    const now = Date.now();
-    const decayQuery = `
-      UPDATE patterns
-      SET
-        confidence = confidence * (1.0 - decay_rate * ((? - COALESCE(last_matched_at, created_at)) / 86400000.0)),
-        updated_at = ?
-      WHERE status = 'active'
-        AND confidence > 0.1
-        AND (? - COALESCE(last_matched_at, created_at)) > 86400000
-    `;
+      // Apply decay: confidence *= exp(-decay_rate * days_since_last_use)
+      const now = Date.now();
+      const decayQuery = `
+        UPDATE patterns
+        SET
+          confidence = confidence * (1.0 - decay_rate * ((? - COALESCE(last_matched_at, created_at)) / 86400000.0)),
+          updated_at = ?
+        WHERE status = 'active'
+          AND confidence > 0.1
+          AND (? - COALESCE(last_matched_at, created_at)) > 86400000
+      `;
 
-    db.run(decayQuery, [now, now, now]);
+      db.run(decayQuery, [now, now, now]);
 
-    const changes = db.getRowsModified();
+      const changes = db.getRowsModified();
 
-    // Save (atomic — issue #2584: a torn full-image flush corrupts the store)
-    const data = db.export();
-    writeFileAtomic(path_, Buffer.from(data));
-    db.close();
+      // Save (atomic — issue #2584: a torn full-image flush corrupts the store)
+      const data = db.export();
+      writeFileAtomic(path_, Buffer.from(data));
+      db.close();
 
-    return {
-      success: true,
-      patternsDecayed: changes
-    };
+      return {
+        success: true,
+        patternsDecayed: changes
+      };
+    });
   } catch (error) {
     return {
       success: false,
@@ -2852,33 +2862,14 @@ export async function storeEntry(options: {
       };
     }
 
-    // Ensure schema has all required columns (migration for older DBs)
-    await ensureSchemaColumns(dbPath);
-
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
-
-    const fileBuffer = readFileMaybeEncrypted(dbPath, null);
-    const db = new SQL.Database(fileBuffer);
-    let persistedProvenance = provenanceType ?? 'unknown';
-    if (upsert && provenanceType === undefined) {
-      try {
-        const stmt = db.prepare(
-          'SELECT provenance_type FROM memory_entries WHERE namespace = ? AND key = ? LIMIT 1'
-        );
-        stmt.bind([namespace, key]);
-        if (stmt.step()) {
-          const existingType = stmt.get()[0];
-          persistedProvenance = isValidProvenanceType(existingType) ? existingType : 'unknown';
-        }
-        stmt.free();
-      } catch { /* legacy schema or new row — keep unknown */ }
-    }
-
     const id = `entry_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     const now = Date.now();
 
-    // Generate embedding if requested
+    // Generate embedding if requested.
+    // #2878: deliberately BEFORE the lock. Embedding generation can take
+    // hundreds of ms (ONNX), and it needs nothing from the database — running
+    // it inside the critical section would hold every other writer off for
+    // its whole duration and push them toward the acquire timeout.
     let embeddingJson: string | null = null;
     let embeddingDimensions: number | null = null;
     let embeddingModel: string | null = null;
@@ -2890,51 +2881,87 @@ export async function storeEntry(options: {
       embeddingModel = embResult.model;
     }
 
-    // #1941: provision a `vector_indexes` row for this namespace before the
-    // entry insert. The HNSW lookup uses this table to find which namespaces
-    // are indexed — without a row, `memory_search({namespace:"X"})` returns
-    // 0 even when memory_entries holds matching rows. INSERT OR IGNORE
-    // preserves the existing `default` / `patterns` rows.
-    try {
-      db.run(
-        `INSERT OR IGNORE INTO vector_indexes (id, name, dimensions) VALUES (?, ?, ?)`,
-        [namespace, namespace, embeddingDimensions ?? 384]
-      );
-    } catch { /* vector_indexes may not exist on legacy DBs — fall through */ }
+    // #2878: load → mutate → persist must be atomic against other writers.
+    // Without this, two concurrent stores both read the same predecessor
+    // image and the last flush silently drops the other's row while still
+    // reporting success.
+    await withMemoryDbLock(dbPath, async () => {
+      // Ensure schema has all required columns (migration for older DBs)
+      await ensureSchemaColumns(dbPath);
 
-    // Insert or update entry (upsert mode uses REPLACE)
-    const insertSql = upsert
-      ? `INSERT OR REPLACE INTO memory_entries (
-          id, key, namespace, content, type,
-          embedding, embedding_dimensions, embedding_model,
-          tags, metadata, provenance_type, created_at, updated_at, expires_at, status
-        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`
-      : `INSERT INTO memory_entries (
-          id, key, namespace, content, type,
-          embedding, embedding_dimensions, embedding_model,
-          tags, metadata, provenance_type, created_at, updated_at, expires_at, status
-        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`;
+      const initSqlJs = (await import('sql.js')).default;
+      const SQL = await initSqlJs();
 
-    db.run(insertSql, [
-      id,
-      key,
-      namespace,
-      value,
-      embeddingJson,
-      embeddingDimensions,
-      embeddingModel,
-      tags.length > 0 ? JSON.stringify(tags) : null,
-      '{}',
-      persistedProvenance,
-      now,
-      now,
-      ttl ? now + (ttl * 1000) : null
-    ]);
+      const fileBuffer = readFileMaybeEncrypted(dbPath, null);
+      const db = new SQL.Database(fileBuffer);
+      let persistedProvenance = provenanceType ?? 'unknown';
+      if (upsert && provenanceType === undefined) {
+        try {
+          const stmt = db.prepare(
+            'SELECT provenance_type FROM memory_entries WHERE namespace = ? AND key = ? LIMIT 1'
+          );
+          stmt.bind([namespace, key]);
+          if (stmt.step()) {
+            const existingType = stmt.get()[0];
+            persistedProvenance = isValidProvenanceType(existingType) ? existingType : 'unknown';
+          }
+          stmt.free();
+        } catch { /* legacy schema or new row — keep unknown */ }
+      }
 
-    // Save
-    const data = db.export();
-    writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
-    db.close();
+      // #1941: provision a `vector_indexes` row for this namespace before the
+      // entry insert. The HNSW lookup uses this table to find which namespaces
+      // are indexed — without a row, `memory_search({namespace:"X"})` returns
+      // 0 even when memory_entries holds matching rows. INSERT OR IGNORE
+      // preserves the existing `default` / `patterns` rows.
+      try {
+        db.run(
+          `INSERT OR IGNORE INTO vector_indexes (id, name, dimensions) VALUES (?, ?, ?)`,
+          [namespace, namespace, embeddingDimensions ?? 384]
+        );
+      } catch { /* vector_indexes may not exist on legacy DBs — fall through */ }
+
+      // Insert or update entry (upsert mode uses REPLACE)
+      const insertSql = upsert
+        ? `INSERT OR REPLACE INTO memory_entries (
+            id, key, namespace, content, type,
+            embedding, embedding_dimensions, embedding_model,
+            tags, metadata, provenance_type, created_at, updated_at, expires_at, status
+          ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`
+        : `INSERT INTO memory_entries (
+            id, key, namespace, content, type,
+            embedding, embedding_dimensions, embedding_model,
+            tags, metadata, provenance_type, created_at, updated_at, expires_at, status
+          ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`;
+
+      try {
+        db.run(insertSql, [
+          id,
+          key,
+          namespace,
+          value,
+          embeddingJson,
+          embeddingDimensions,
+          embeddingModel,
+          tags.length > 0 ? JSON.stringify(tags) : null,
+          '{}',
+          persistedProvenance,
+          now,
+          now,
+          ttl ? now + (ttl * 1000) : null
+        ]);
+      } catch (e) {
+        // Don't leave the handle open (and the lock held) on a constraint
+        // failure — the outer catch turns this into the caller's error.
+        db.close();
+        throw e;
+      }
+
+      // Save
+      const data = db.export();
+      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+      db.close();
+    });
 
     // Add to HNSW index for faster future searches
     if (embeddingJson) {
@@ -3499,78 +3526,85 @@ export async function getEntry(options: {
       };
     }
 
-    // Ensure schema has all required columns (migration for older DBs)
-    await ensureSchemaColumns(dbPath);
+    // #2878: this is a mutator, not a reader — the access_count bump below
+    // rewrites the whole image, so an unlocked "get" concurrent with a store
+    // flushes a predecessor image over it and silently drops the new row.
+    // There is no cheaper granularity available: the read and the bump share
+    // one image, so the lock has to span both.
+    return await withMemoryDbLock(dbPath, async () => {
+      // Ensure schema has all required columns (migration for older DBs)
+      await ensureSchemaColumns(dbPath);
 
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
+      const initSqlJs = (await import('sql.js')).default;
+      const SQL = await initSqlJs();
 
-    const fileBuffer = readFileMaybeEncrypted(dbPath, null);
-    const db = new SQL.Database(fileBuffer);
+      const fileBuffer = readFileMaybeEncrypted(dbPath, null);
+      const db = new SQL.Database(fileBuffer);
 
-    // Find entry by key
-    const getStmt = db.prepare(`
-      SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, tags
-      FROM memory_entries
-      WHERE ${ACTIVE_MEMORY_ROW_SQL}
-        AND key = ?
-        AND namespace = ?
-      LIMIT 1
-    `);
-    getStmt.bind([key, namespace]);
-    const getRows: unknown[][] = [];
-    while (getStmt.step()) {
-      getRows.push(getStmt.get());
-    }
-    getStmt.free();
-    const result = getRows.length > 0 ? [{ values: getRows }] : [];
+      // Find entry by key
+      const getStmt = db.prepare(`
+        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, tags
+        FROM memory_entries
+        WHERE ${ACTIVE_MEMORY_ROW_SQL}
+          AND key = ?
+          AND namespace = ?
+        LIMIT 1
+      `);
+      getStmt.bind([key, namespace]);
+      const getRows: unknown[][] = [];
+      while (getStmt.step()) {
+        getRows.push(getStmt.get());
+      }
+      getStmt.free();
+      const result = getRows.length > 0 ? [{ values: getRows }] : [];
 
-    if (!result[0]?.values?.[0]) {
+      if (!result[0]?.values?.[0]) {
+        db.close();
+        return { success: true, found: false };
+      }
+
+      const [id, entryKey, ns, content, embedding, accessCount, createdAt, updatedAt, tagsJson] = result[0].values[0] as [
+        string, string, string, string, string | null, number, string, string, string | null
+      ];
+
+      // Update access count
+      db.run(`
+        UPDATE memory_entries
+        SET access_count = access_count + 1, last_accessed_at = strftime('%s', 'now') * 1000
+        WHERE id = ?
+      `, [String(id)]);
+
+      // Save updated database
+      const data = db.export();
+      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+
       db.close();
-      return { success: true, found: false };
-    }
 
-    const [id, entryKey, ns, content, embedding, accessCount, createdAt, updatedAt, tagsJson] = result[0].values[0] as [
-      string, string, string, string, string | null, number, string, string, string | null
-    ];
-
-    // Update access count
-    db.run(`
-      UPDATE memory_entries
-      SET access_count = access_count + 1, last_accessed_at = strftime('%s', 'now') * 1000
-      WHERE id = ?
-    `, [String(id)]);
-
-    // Save updated database
-    const data = db.export();
-    writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
-
-    db.close();
-
-    let tags: string[] = [];
-    if (tagsJson) {
-      try {
-        tags = JSON.parse(tagsJson);
-      } catch {
-        // Invalid JSON
+      let tags: string[] = [];
+      if (tagsJson) {
+        try {
+          tags = JSON.parse(tagsJson);
+        } catch {
+          // Invalid JSON
+        }
       }
-    }
 
-    return {
-      success: true,
-      found: true,
-      entry: {
-        id: String(id),
-        key: entryKey || String(id),
-        namespace: ns || 'default',
-        content: content || '',
-        accessCount: (accessCount || 0) + 1,
-        createdAt: createdAt || new Date().toISOString(),
-        updatedAt: updatedAt || new Date().toISOString(),
-        hasEmbedding: !!embedding && embedding.length > 10,
-        tags
-      }
-    };
+      return {
+        success: true,
+        found: true,
+        entry: {
+          id: String(id),
+          key: entryKey || String(id),
+          namespace: ns || 'default',
+          content: content || '',
+          accessCount: (accessCount || 0) + 1,
+          createdAt: createdAt || new Date().toISOString(),
+          updatedAt: updatedAt || new Date().toISOString(),
+          hasEmbedding: !!embedding && embedding.length > 10,
+          tags
+        }
+      };
+    });
   } catch (error) {
     return {
       success: false,
@@ -3645,80 +3679,84 @@ export async function deleteEntry(options: {
       };
     }
 
-    // Ensure schema has all required columns (migration for older DBs)
-    await ensureSchemaColumns(dbPath);
+    // #2878: whole-image read-modify-write — without the lock a concurrent
+    // writer's flush resurrects the row this call just tombstoned.
+    return await withMemoryDbLock(dbPath, async () => {
+      // Ensure schema has all required columns (migration for older DBs)
+      await ensureSchemaColumns(dbPath);
 
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
+      const initSqlJs = (await import('sql.js')).default;
+      const SQL = await initSqlJs();
 
-    const fileBuffer = readFileMaybeEncrypted(dbPath, null);
-    const db = new SQL.Database(fileBuffer);
+      const fileBuffer = readFileMaybeEncrypted(dbPath, null);
+      const db = new SQL.Database(fileBuffer);
 
-    // Check if entry exists first
-    const checkStmt = db.prepare(`
-      SELECT id FROM memory_entries
-      WHERE ${ACTIVE_MEMORY_ROW_SQL}
-        AND key = ?
-        AND namespace = ?
-      LIMIT 1
-    `);
-    checkStmt.bind([key, namespace]);
-    const checkRows: unknown[][] = [];
-    while (checkStmt.step()) {
-      checkRows.push(checkStmt.get());
-    }
-    checkStmt.free();
-    const checkResult = checkRows.length > 0 ? [{ values: checkRows }] : [];
+      // Check if entry exists first
+      const checkStmt = db.prepare(`
+        SELECT id FROM memory_entries
+        WHERE ${ACTIVE_MEMORY_ROW_SQL}
+          AND key = ?
+          AND namespace = ?
+        LIMIT 1
+      `);
+      checkStmt.bind([key, namespace]);
+      const checkRows: unknown[][] = [];
+      while (checkStmt.step()) {
+        checkRows.push(checkStmt.get());
+      }
+      checkStmt.free();
+      const checkResult = checkRows.length > 0 ? [{ values: checkRows }] : [];
 
-    if (!checkResult[0]?.values?.[0]) {
-      // Get remaining count before closing
+      if (!checkResult[0]?.values?.[0]) {
+        // Get remaining count before closing
+        const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE ${ACTIVE_MEMORY_ROW_SQL}`);
+        const remainingEntries = countResult[0]?.values?.[0]?.[0] as number || 0;
+        db.close();
+        return {
+          success: true,
+          deleted: false,
+          key,
+          namespace,
+          remainingEntries,
+          error: `Key '${key}' not found in namespace '${namespace}'`
+        };
+      }
+
+      // Delete the entry (soft delete by setting status to 'deleted')
+      // Also null out the embedding to clean up vector data from SQLite
+      db.run(`
+        UPDATE memory_entries
+        SET status = 'deleted',
+            embedding = NULL,
+            updated_at = strftime('%s', 'now') * 1000
+        WHERE key = ?
+          AND namespace = ?
+          AND ${ACTIVE_MEMORY_ROW_SQL}
+      `, [key, namespace]);
+
+      // Get remaining count
       const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE ${ACTIVE_MEMORY_ROW_SQL}`);
       const remainingEntries = countResult[0]?.values?.[0]?.[0] as number || 0;
+
+      // Save updated database
+      const data = db.export();
+      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+
       db.close();
+
+      // Clean up in-memory HNSW index so ghost vectors don't appear in searches.
+      // Remove the entry from the HNSW entries map and invalidate the index.
+      // The next search will rebuild the HNSW index from the remaining DB rows.
+      if (hnswIndex?.entries) removeHNSWEntriesByKey(key, namespace);
+
       return {
         success: true,
-        deleted: false,
+        deleted: true,
         key,
         namespace,
-        remainingEntries,
-        error: `Key '${key}' not found in namespace '${namespace}'`
+        remainingEntries
       };
-    }
-
-    // Delete the entry (soft delete by setting status to 'deleted')
-    // Also null out the embedding to clean up vector data from SQLite
-    db.run(`
-      UPDATE memory_entries
-      SET status = 'deleted',
-          embedding = NULL,
-          updated_at = strftime('%s', 'now') * 1000
-      WHERE key = ?
-        AND namespace = ?
-        AND ${ACTIVE_MEMORY_ROW_SQL}
-    `, [key, namespace]);
-
-    // Get remaining count
-    const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE ${ACTIVE_MEMORY_ROW_SQL}`);
-    const remainingEntries = countResult[0]?.values?.[0]?.[0] as number || 0;
-
-    // Save updated database
-    const data = db.export();
-    writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
-
-    db.close();
-
-    // Clean up in-memory HNSW index so ghost vectors don't appear in searches.
-    // Remove the entry from the HNSW entries map and invalidate the index.
-    // The next search will rebuild the HNSW index from the remaining DB rows.
-    if (hnswIndex?.entries) removeHNSWEntriesByKey(key, namespace);
-
-    return {
-      success: true,
-      deleted: true,
-      key,
-      namespace,
-      remainingEntries
-    };
+    });
   } catch (error) {
     return {
       success: false,
@@ -3751,30 +3789,52 @@ export async function deleteEntry(options: {
 // which is the concrete case this feature needs to be safe against.
 
 const MEMORY_DB_LOCK_STALE_MS = 10_000;
+const MEMORY_DB_LOCK_ACQUIRE_TIMEOUT_MS = 15_000;
 
 function delayMs(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
 /**
+ * Locks this call stack already holds, keyed by resolved db path. #2878: the
+ * mutators below call each other (every one runs `ensureSchemaColumns`, which
+ * takes the same lock), and an O_EXCL lock is not reentrant — a nested
+ * acquire would spin against our own lock file until the acquire timeout and
+ * then throw. AsyncLocalStorage lets a nested acquire recognise the lock as
+ * already held and run inline, while genuinely independent callers (separate
+ * `Promise.all` branches, separate processes) still contend normally.
+ */
+const heldMemoryDbLocks = new AsyncLocalStorage<ReadonlySet<string>>();
+
+/**
  * Advisory O_EXCL lock scoped to a single memory.db file (`<dbPath>.lock`),
- * same stale-takeover pattern as services/global-ai-budget.ts. Only
- * meaningful between callers that opt into it (purgeNamespace does); it
- * cannot coordinate against writers that don't call this helper.
+ * same stale-takeover pattern as services/global-ai-budget.ts.
+ *
+ * #2878: sql.js persists by rewriting the whole database image, so every
+ * `load → mutate → export → write` sequence is a read-modify-write that a
+ * concurrent writer can clobber — both callers report success and the loser's
+ * rows vanish, with `PRAGMA integrity_check` still clean. Every such sequence
+ * in this module now runs inside this lock. It is advisory, so it still
+ * cannot coordinate against a writer that bypasses this module entirely
+ * (a native WAL connection — see hasNativeWalSidecars).
  */
 export async function withMemoryDbLock<T>(dbPath: string, fn: () => Promise<T> | T): Promise<T> {
-  const lockFile = `${dbPath}.lock`;
-  const deadline = Date.now() + 5000;
+  // Callers spell the same file both ways (`storeEntry` resolves, `getEntry`
+  // does not). Normalise, or two spellings would take two different locks and
+  // serialize against nothing.
+  const resolved = path.resolve(dbPath);
+  const held = heldMemoryDbLocks.getStore();
+  if (held?.has(resolved)) return await fn();
+
+  const nested = new Set(held ?? []);
+  nested.add(resolved);
+
+  const lockFile = `${resolved}.lock`;
+  const deadline = Date.now() + MEMORY_DB_LOCK_ACQUIRE_TIMEOUT_MS;
   for (;;) {
+    let fd: number;
     try {
-      const fd = fs.openSync(lockFile, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY, 0o600);
-      fs.writeSync(fd, String(process.pid));
-      fs.closeSync(fd);
-      try {
-        return await fn();
-      } finally {
-        try { fs.unlinkSync(lockFile); } catch { /* already gone */ }
-      }
+      fd = fs.openSync(lockFile, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY, 0o600);
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
       try {
@@ -3788,6 +3848,15 @@ export async function withMemoryDbLock<T>(dbPath: string, fn: () => Promise<T> |
         throw new Error(`timed out acquiring memory.db lock: ${lockFile}`);
       }
       await delayMs(25);
+      continue;
+    }
+
+    fs.writeSync(fd, String(process.pid));
+    fs.closeSync(fd);
+    try {
+      return await heldMemoryDbLocks.run(nested, fn);
+    } finally {
+      try { fs.unlinkSync(lockFile); } catch { /* already gone */ }
     }
   }
 }

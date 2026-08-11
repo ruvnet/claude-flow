@@ -723,6 +723,23 @@ describe('ControllerRegistry', () => {
       // Just verify the listener doesn't break anything
     });
 
+    it('should emit controller:degraded with the reason hierarchicalMemory fell back (#2887)', async () => {
+      const degraded: Array<{ name: string; reason: string; persistence: string }> = [];
+      registry.on('controller:degraded', (e: any) => degraded.push(e));
+
+      await registry.initialize({
+        backend: mockBackend,
+        controllers: { hierarchicalMemory: true },
+      });
+
+      // agentdb dropped its HierarchicalMemory export at 3.0.0-alpha.17, so the
+      // tiered fallback is the live path. Taking it must be announced, not silent.
+      const hmDegraded = degraded.find((e) => e.name === 'hierarchicalMemory');
+      expect(hmDegraded).toBeDefined();
+      expect(hmDegraded!.reason).toBeTruthy();
+      expect(registry.getHierarchicalFallback()).toMatchObject({ reason: hmDegraded!.reason });
+    });
+
     it('should emit all lifecycle events', async () => {
       const events: string[] = [];
       registry.on('initialized', () => events.push('initialized'));

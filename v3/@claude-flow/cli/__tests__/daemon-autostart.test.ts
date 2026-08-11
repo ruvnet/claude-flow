@@ -9,6 +9,7 @@ import {
   ensureDaemonRunning,
   isDaemonAlive,
   isRufloProject,
+  resolveDaemonProjectRoot,
 } from '../src/services/daemon-autostart.js';
 import { applyChampion } from '../src/config/harness-feedback-applier.js';
 
@@ -138,6 +139,95 @@ describe('ensureDaemonRunning', () => {
     const r = ensureDaemonRunning(cwd, { isAlive: () => false, spawnFn: () => { spawned++; } });
     expect(r.started).toBe(true);
     expect(spawned).toBe(1);
+  });
+});
+
+describe('resolveDaemonProjectRoot (#2877)', () => {
+  const saved = process.env.RUFLO_DAEMON_AUTOSTART;
+  beforeEach(() => { delete process.env.RUFLO_DAEMON_AUTOSTART; });
+  afterEach(() => { if (saved === undefined) delete process.env.RUFLO_DAEMON_AUTOSTART; else process.env.RUFLO_DAEMON_AUTOSTART = saved; });
+
+  it('resolves the project root to itself', () => {
+    const root = project();
+    expect(resolveDaemonProjectRoot(root)).toBe(root);
+  });
+
+  it('resolves a nested subdirectory to the owning project root', () => {
+    const root = project();
+    const sub = join(root, 'packages', 'foo');
+    mkdirSync(sub, { recursive: true });
+    expect(resolveDaemonProjectRoot(sub)).toBe(root);
+  });
+
+  it('keeps an independently-initialized sub-project on its own root (nearest marker wins)', () => {
+    const root = project();
+    const sub = join(root, 'packages', 'independent');
+    mkdirSync(join(sub, '.claude-flow'), { recursive: true });
+    writeFileSync(join(sub, '.claude-flow', 'config.yaml'), 'version: 3\n');
+    expect(resolveDaemonProjectRoot(sub)).toBe(sub);
+  });
+
+  it('stops at the repository boundary instead of escaping into an ancestor project', () => {
+    const outer = project();
+    const repo = join(outer, 'vendor', 'unrelated-repo');
+    mkdirSync(join(repo, '.git'), { recursive: true });
+    const inside = join(repo, 'src');
+    mkdirSync(inside, { recursive: true });
+    expect(resolveDaemonProjectRoot(inside)).toBe(inside);
+  });
+
+  it('returns the start directory unchanged when no marker is found', () => {
+    const plain = mkdtempSync(join(tmpdir(), 'no-marker-'));
+    expect(resolveDaemonProjectRoot(plain)).toBe(plain);
+  });
+
+  it('autostart from the root spawns a daemon keyed to the root', () => {
+    const root = project();
+    const spawnedFor: string[] = [];
+    const r = ensureDaemonRunning(root, { isAlive: () => false, spawnFn: (p) => { spawnedFor.push(p); } });
+    expect(r.started).toBe(true);
+    expect(spawnedFor).toEqual([root]);
+  });
+
+  it('autostart from a subdirectory does NOT spawn a duplicate for the same project', () => {
+    const root = project();
+    const sub = join(root, 'packages', 'foo');
+    mkdirSync(sub, { recursive: true });
+
+    // A live daemon already holds the ROOT's pidfile. Before #2877 the
+    // subdirectory read `<sub>/.claude-flow/daemon.pid` — a different key —
+    // saw nothing, and spawned a second daemon for the same project.
+    writeFileSync(join(root, '.claude-flow', 'daemon.pid'), String(process.ppid));
+
+    let spawned = 0;
+    const r = ensureDaemonRunning(sub, { spawnFn: () => { spawned++; } });
+    expect(r).toEqual({ started: false, reason: 'already running' });
+    expect(spawned).toBe(0);
+    expect(existsSync(join(sub, '.claude-flow'))).toBe(false);
+  });
+
+  it('a genuinely separate project still gets its own daemon', () => {
+    const projectA = project();
+    const projectB = project();
+    writeFileSync(join(projectA, '.claude-flow', 'daemon.pid'), String(process.ppid));
+
+    const spawnedFor: string[] = [];
+    const r = ensureDaemonRunning(projectB, { spawnFn: (p) => { spawnedFor.push(p); } });
+    expect(r.started).toBe(true);
+    expect(spawnedFor).toEqual([projectB]);
+  });
+
+  it('reads the project-local opt-out from the root when invoked from a subdirectory', () => {
+    const root = project();
+    writeFileSync(join(root, 'claude-flow.config.json'), JSON.stringify({ daemon: { autostart: false } }));
+    const sub = join(root, 'packages', 'foo');
+    mkdirSync(sub, { recursive: true });
+
+    let spawned = 0;
+    const r = ensureDaemonRunning(sub, { isAlive: () => false, spawnFn: () => { spawned++; } });
+    expect(r.started).toBe(false);
+    expect(r.reason).toMatch(/disabled/);
+    expect(spawned).toBe(0);
   });
 });
 
