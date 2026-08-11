@@ -24,8 +24,14 @@ import {
 import { proxyTokenPath } from '../proxy/paths.js';
 import { removeInjectedToken, startTokenRefreshPump } from '../proxy/token-bridge.js';
 
-/** Pinned and reviewed; later upgrades remain explicit commands. */
-export const DEFAULT_PROXY_RELEASE = '0.4.0';
+/**
+ * Pinned and reviewed; later upgrades remain explicit commands.
+ *
+ * Keep this the single source of truth — interpolate it rather than writing
+ * the version into user-facing strings, or the pin silently drifts out of
+ * sync with the text that advertises it.
+ */
+export const DEFAULT_PROXY_RELEASE = '0.7.3';
 
 const PROXY_COMMAND = 'npx ruflo@latest proxy';
 const AUTH_COMMAND = 'npx ruflo@latest auth';
@@ -35,6 +41,25 @@ const AUTH_COMMAND = 'npx ruflo@latest auth';
  * Keep this independent of the command framework so the state-specific
  * guidance has a small, direct regression-test surface.
  */
+/**
+ * Lines shown when the binary on disk is an older release than the current
+ * pin — empty otherwise, including when the version is unknown (`null`),
+ * where the honest move is to say nothing rather than guess.
+ *
+ * Bumping `DEFAULT_PROXY_RELEASE` only ever changed what a *new* install
+ * gets. Someone who installed the previous pin has no reason to run
+ * `install` again and no signal that anything moved, so a fix that motivated
+ * a bump reaches exactly the people who never needed it. This is the signal.
+ */
+export function proxyUpdateGuidance(status: ProxyStatus): string[] {
+  if (!status.installed || !status.version || status.version === DEFAULT_PROXY_RELEASE) return [];
+  return [
+    '',
+    `An update is available — installed v${status.version}, current pin v${DEFAULT_PROXY_RELEASE}.`,
+    `  ${PROXY_COMMAND} update              Re-verify and replace with v${DEFAULT_PROXY_RELEASE}`,
+  ];
+}
+
 export function proxyConsoleGuidance(status: ProxyStatus): string[] {
   if (!status.installed) {
     return [
@@ -47,6 +72,8 @@ export function proxyConsoleGuidance(status: ProxyStatus): string[] {
     ];
   }
 
+  const update = proxyUpdateGuidance(status);
+
   if (!status.running) {
     return [
       '',
@@ -55,6 +82,7 @@ export function proxyConsoleGuidance(status: ProxyStatus): string[] {
       '',
       'Foreground mode (shows live logs; Ctrl+C stops it):',
       `  ${PROXY_COMMAND} start`,
+      ...update,
       '',
       'Optional: enable Cognitum cloud routing (local-only is the default):',
       `  ${AUTH_COMMAND} login`,
@@ -67,6 +95,7 @@ export function proxyConsoleGuidance(status: ProxyStatus): string[] {
     'Meta Proxy is ready.',
     `  Logs:    ${PROXY_COMMAND} logs`,
     `  Stop:    ${PROXY_COMMAND} stop`,
+    ...update,
     '',
     'Optional: enable Cognitum cloud routing (local-only is the default):',
     `  ${AUTH_COMMAND} login`,
@@ -145,10 +174,21 @@ const installSub: Command = {
 
 const updateSub: Command = {
   name: 'update',
-  description: 'Re-verify and replace the installed binary with a specific version (never automatic)',
-  options: [{ name: 'release', description: 'Release version to install', type: 'string', required: true }],
+  description: 'Re-verify and replace the installed binary with the pinned release (never automatic)',
+  options: [
+    // Defaults to the pin, matching `install`. `--release` was previously
+    // required, which meant the only in-product way to reach a newer binary
+    // was to already know its version number — so bumping the pin moved
+    // nothing for anyone who had already installed. Still never automatic:
+    // this runs only when a user types it.
+    {
+      name: 'release',
+      description: `Release version to install (default: ${DEFAULT_PROXY_RELEASE})`,
+      type: 'string',
+    },
+  ],
   action: async (ctx): Promise<CommandResult> => {
-    const version = typeof ctx.flags.release === 'string' ? ctx.flags.release : undefined;
+    const version = typeof ctx.flags.release === 'string' ? ctx.flags.release : DEFAULT_PROXY_RELEASE;
     if (!version) {
       output.printError('ruflo proxy update requires --release <x.y.z>');
       return { success: false, exitCode: 1 };
@@ -237,6 +277,11 @@ const statusSub: Command = {
     }
     output.writeln('Meta Proxy');
     output.writeln(`  Installation: ${status.installed ? 'ready' : 'not installed'}`);
+    if (status.installed) {
+      // "unknown" rather than an assumed version: the manifest is the only
+      // record of what was installed, and asking the binary would start it.
+      output.writeln(`  Version: ${status.version ?? 'unknown (no install manifest)'}`);
+    }
     output.writeln(`  Process: ${status.running ? `running (pid ${status.pid})` : 'not running'}`);
     if (status.stalePidFile) output.writeln('  (a stale PID file was found and will be cleared on next start)');
     printProxyConsoleGuidance(status);

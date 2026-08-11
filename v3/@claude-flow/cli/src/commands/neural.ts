@@ -1990,7 +1990,7 @@ const routerTrainCommand: Command = {
     try {
       mh = await import(metaharnessRouterPkg);
     } catch {
-      output.printError('@metaharness/router is not installed. `npm install @metaharness/router@^0.3.2` then re-run.');
+      output.printError('@metaharness/router is not installed. `npm install @metaharness/router@^0.4.0` then re-run.');
       return { success: false, exitCode: 1 };
     }
     const { neuralRouterStatus } = await import('../ruvector/neural-router.js');

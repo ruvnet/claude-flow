@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   runFlywheelGeneration, checkServedChampionDrift, flywheelStatus, loadPromotions, currentChampion, servedChampion,
-  axisEffectiveness, biasedGrid,
+  axisEffectiveness, biasedGrid, loadAttempts,
   type GenerationDeps, type AnchorTask,
 } from '../src/services/harness-flywheel-generations.js';
 import type { RankedItem } from '../src/services/harness-flywheel.js';
@@ -87,6 +87,25 @@ describe('runFlywheelGeneration — compounding autonomy loop', () => {
     expect(s.attempts).toBeGreaterThanOrEqual(s.generations); // refusals recorded too
     expect(s.mutation[0].mutationClass).toMatch(/retrieval/);
     expect(s.champion.hash).toBe(currentChampion(root).hash);
+  });
+
+  it('concurrent generations against the same root never collide on a sequential-evidence test index (ADR-381 §3)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'fwg-race-'));
+    // Two overlapping ticks racing on the same root (e.g. a manual run while
+    // the daemon is also mid-cycle). Both read attempts.jsonl's length before
+    // either appends unless the read-index→append critical section is locked
+    // — without the lock this reliably reproduces a duplicate index.
+    const [a, b] = await Promise.all([
+      runFlywheelGeneration(root, makeDeps(1000)),
+      runFlywheelGeneration(root, makeDeps(1000)),
+    ]);
+    expect(a.ran).toBe(true);
+    expect(b.ran).toBe(true);
+
+    const attempts = loadAttempts(root);
+    expect(attempts.length).toBe(2);
+    const indices = attempts.map((att) => att.sequentialEvidence?.testIndex).sort((x, y) => (x ?? 0) - (y ?? 0));
+    expect(indices).toEqual([1, 2]); // distinct — never [1, 1]
   });
 
   it('meta-learning: attributes payoff to the axis that moved and biases the search toward it', async () => {

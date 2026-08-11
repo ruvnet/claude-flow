@@ -35,6 +35,7 @@ import {
   readFlywheelTransactionState,
   registerFlywheelReceipt,
 } from './flywheel-transaction.js';
+import { minInformativePairsToClear } from './flywheel-sequential-evidence.js';
 import { runBoundedPool } from './bounded-worker-pool.js';
 
 export interface RetrievalConfig { alpha: number; subjectWeight: number; mmrLambda: number; bodyWeight: number; typePenaltyFactor: number; }
@@ -88,6 +89,14 @@ export interface FlywheelResult {
   receipt?: FlywheelEvaluationReceipt;
   promotable?: boolean;
   legacyDeprecation?: boolean;
+  /**
+   * ADR-381 §4 soft pre-flight: whether this evaluation's promotion holdout
+   * can clear the sequential-evidence threshold at the ledger's next test
+   * index even on a perfect all-win sweep. viable:false does NOT block the
+   * evaluation (learn value stands; the gate refuses size-inviable receipts
+   * without alpha spend) — it tells the operator promotion is out of reach.
+   */
+  sequentialPreflight?: { viable: boolean; heldSize: number; minPairsRequired: number; nextTestIndex: number };
 }
 
 const EPS = 1e-3;
@@ -251,6 +260,13 @@ export async function evaluateFlywheelCandidate(projectRoot: string, deps: Flywh
     // resampling, not ride on one lucky task. FINAL accept = loop-accept AND
     // significant, so the ledger's accepted subsequence stays monotonic + real.
     const heldDeltas = held.map((t) => heldScoreFor(candidate, t) - heldScoreFor(baseline, t));
+    // Task-level paired outcomes — the evidence the promotion authority now
+    // requires; must stay in the exact order of heldDeltas.
+    const pairedOutcomes = held.map((t) => ({
+      taskId: t.id,
+      baselineScore: heldScoreFor(baseline, t),
+      candidateScore: heldScoreFor(candidate, t),
+    }));
     const deltaCILow = bootstrapDeltaCILow(heldDeltas);
     const significant = deltaCILow > 0;
     const provisionalGates = Object.fromEntries(Object.entries(result.verdict?.terms ?? {}).map(([k, v]) => [k, v.pass]));
@@ -277,6 +293,7 @@ export async function evaluateFlywheelCandidate(projectRoot: string, deps: Flywh
       baselineScore,
       candidateScore,
       heldOutDeltas: heldDeltas,
+      pairedOutcomes,
       frozenAnchorRegression: guardRegressed ? 1 : 0,
       gates: provisionalGates,
       resourceEvidence: {
@@ -325,6 +342,26 @@ export async function evaluateFlywheelCandidate(projectRoot: string, deps: Flywh
     await registerFlywheelReceipt(projectRoot, receipt, deps.now ?? Date.now());
     const finalAccept = result.accepted && significant && receipt.payload.decision === 'accepted';
 
+    // Soft pre-flight (ADR-381 §4): can the held half of the objective clear
+    // the sequential-evidence threshold at the ledger's NEXT test index even
+    // on a perfect all-win sweep? Annotate — never block: evaluation has
+    // learn value regardless, anchors may legitimately be small (≥4), and
+    // the promote gate refuses size-inviable receipts without spending alpha.
+    // Read as LATE as possible (after registration, right before returning)
+    // to minimize — but not eliminate — the window in which a concurrent
+    // promoteFlywheelCandidate call can move the ledger's next test index.
+    // This is inherently ADVISORY, not authoritative: promoteFlywheelCandidate
+    // (under its own lock) is the sole authority for index allocation, so a
+    // promotion racing between this read and an operator's subsequent
+    // `flywheel promote` call can still flip the outcome. Callers must not
+    // treat `promotable: true` as a guarantee — only as "was viable as of
+    // this evaluation".
+    const postState = readFlywheelTransactionState(projectRoot);
+    const nextTestIndex = Object.keys(postState.sequentialTests ?? {}).length + 1;
+    const heldSize = Math.max(1, Math.round(objective.length * 0.5)); // held half per split(objective, 0.5)
+    const minPairsRequired = minInformativePairsToClear(nextTestIndex);
+    const sequentialPreflight = { viable: heldSize >= minPairsRequired, heldSize, minPairsRequired, nextTestIndex };
+
     const entry: LedgerEntry = {
       ts: deps.now ?? Date.now(),
       corpusVersion: blended.version, corpusHash: blended.corpusHash,
@@ -344,7 +381,9 @@ export async function evaluateFlywheelCandidate(projectRoot: string, deps: Flywh
       baselineScore, candidateScore, delta: candidateScore - baselineScore,
       anchorRegressed, championRef: finalAccept ? refOf(candidate) : undefined,
       corpusVersion: blended.version, candidateConfig: candidate,
-      receiptId: receipt.payload.receiptId, receipt, promotable: finalAccept && !!receipt.signature,
+      receiptId: receipt.payload.receiptId, receipt,
+      promotable: finalAccept && !!receipt.signature && sequentialPreflight.viable,
+      sequentialPreflight,
     };
   } catch (e) {
     return { ran: false, reason: `error: ${(e as Error)?.message ?? e}` };

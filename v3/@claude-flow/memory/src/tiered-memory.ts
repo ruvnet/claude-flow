@@ -1,5 +1,6 @@
 /**
- * Tier-aware in-memory store with Zep/Graphiti-style temporal validity.
+ * Tier-aware store with Zep/Graphiti-style temporal validity, durable when
+ * given a SQLite handle.
  *
  * This is the store backing `agentdb_hierarchical-store` / `-recall` when
  * agentdb's native HierarchicalMemory is unavailable (previously an inline
@@ -13,6 +14,14 @@
  * - `recall()` filters invalid entries by default; `includeExpired: true`
  *   is the audit escape hatch.
  * - Entries without temporal fields behave exactly as before (always valid).
+ *
+ * Durability (#2887): agentdb dropped its `HierarchicalMemory` export at
+ * 3.0.0-alpha.17, so this store — not the native controller — is what every
+ * `agentdb_hierarchical-store` call actually lands in. Purely in-memory, that
+ * made every such write a silent no-op that still reported success. Pass a
+ * better-sqlite3-compatible handle and the store writes through to a
+ * `tiered_memory` table and rehydrates from it on construction; without a
+ * handle it stays volatile and says so via {@link TieredMemoryStore.isDurable}.
  *
  * API shape is kept duck-type compatible with the previous stub so the CLI
  * memory-bridge keeps working unchanged:
@@ -67,6 +76,68 @@ export interface TieredStoreResult {
   tier: string;
   /** Set when `supersedes` matched an existing entry. */
   superseded?: { id: string; key: string; validUntil: string } | null;
+  /** True when the entry was written through to the backing SQLite table. */
+  durable: boolean;
+  /** Where the entry lives: a real table, or process memory only. */
+  persistence: TieredPersistence;
+}
+
+/** Durability mode of a {@link TieredMemoryStore}. */
+export type TieredPersistence = 'sqlite' | 'volatile';
+
+/**
+ * Minimal better-sqlite3-shaped handle. Only the calls this store makes are
+ * required, so any driver exposing the same synchronous surface works.
+ */
+export interface TieredMemoryDb {
+  exec(sql: string): unknown;
+  prepare(sql: string): {
+    run(...params: unknown[]): unknown;
+    all(...params: unknown[]): unknown[];
+    get(...params: unknown[]): unknown;
+  };
+}
+
+const TABLE_DDL = `
+CREATE TABLE IF NOT EXISTS tiered_memory (
+  id TEXT PRIMARY KEY,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  tier TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  valid_from TEXT,
+  valid_until TEXT,
+  superseded_by TEXT,
+  archived INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_tiered_memory_key ON tiered_memory(key);
+CREATE INDEX IF NOT EXISTS idx_tiered_memory_tier ON tiered_memory(tier, archived);
+`;
+
+interface TieredMemoryRow {
+  id: string;
+  key: string;
+  value: string;
+  tier: string;
+  ts: number;
+  valid_from: string | null;
+  valid_until: string | null;
+  superseded_by: string | null;
+  archived: number;
+}
+
+function rowToEntry(row: TieredMemoryRow): TieredMemoryEntry {
+  const entry: TieredMemoryEntry = {
+    id: row.id,
+    key: row.key,
+    value: row.value,
+    tier: row.tier,
+    ts: Number(row.ts),
+  };
+  if (row.valid_from) entry.validFrom = row.valid_from;
+  if (row.valid_until) entry.validUntil = row.valid_until;
+  if (row.superseded_by) entry.supersededBy = row.superseded_by;
+  return entry;
 }
 
 const VALID_TIERS = ['working', 'episodic', 'semantic'] as const;
@@ -119,6 +190,105 @@ export class TieredMemoryStore {
    */
   private archived: TieredMemoryEntry[] = [];
 
+  private db: TieredMemoryDb | null = null;
+
+  /**
+   * @param options.db better-sqlite3-compatible handle. When supplied the
+   *   store writes through to `tiered_memory` and rehydrates from it, so
+   *   entries survive the process. Without it the store is volatile and
+   *   {@link isDurable} returns false — callers must treat a write as lost
+   *   on exit rather than reporting success (#2887).
+   */
+  constructor(options?: { db?: TieredMemoryDb | null }) {
+    const db = options?.db ?? null;
+    if (!db) return;
+    try {
+      db.exec(TABLE_DDL);
+      this.db = db;
+      this.hydrate();
+    } catch {
+      // Schema creation failed — stay volatile and report it honestly via
+      // isDurable() rather than pretending the handle works.
+      this.db = null;
+    }
+  }
+
+  /** True when writes are persisted to the backing table. */
+  isDurable(): boolean {
+    return this.db !== null;
+  }
+
+  /** Durability mode, for surfacing to MCP callers. */
+  getPersistence(): TieredPersistence {
+    return this.db ? 'sqlite' : 'volatile';
+  }
+
+  /**
+   * Actual row count in the backing table (not the in-memory maps), so
+   * health checks can detect a claimed-write / empty-table mismatch.
+   * Returns null when volatile — there is no table to count.
+   */
+  countPersisted(): number | null {
+    if (!this.db) return null;
+    try {
+      const row = this.db.prepare('SELECT COUNT(*) AS n FROM tiered_memory').get() as { n?: number } | undefined;
+      return Number(row?.n ?? 0);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Load persisted rows back into the tier maps and the archive. */
+  private hydrate(): void {
+    if (!this.db) return;
+    const rows = this.db
+      .prepare('SELECT * FROM tiered_memory ORDER BY ts ASC')
+      .all() as TieredMemoryRow[];
+    for (const row of rows) {
+      const entry = rowToEntry(row);
+      if (row.archived) {
+        this.archived.push(entry);
+        if (this.archived.length > MAX_ARCHIVED) this.archived.shift();
+        continue;
+      }
+      const map = this.tiers[entry.tier] ?? this.tiers.working;
+      if (map.size >= MAX_PER_TIER) continue;
+      map.set(entry.key, entry);
+    }
+  }
+
+  /**
+   * Write-through. Throws on failure so a store that cannot be persisted
+   * fails loudly instead of reporting success for a lost write.
+   */
+  private persist(entry: TieredMemoryEntry, archived: boolean): void {
+    if (!this.db) return;
+    this.db
+      .prepare(
+        `INSERT INTO tiered_memory (id, key, value, tier, ts, valid_from, valid_until, superseded_by, archived)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           key = excluded.key, value = excluded.value, tier = excluded.tier, ts = excluded.ts,
+           valid_from = excluded.valid_from, valid_until = excluded.valid_until,
+           superseded_by = excluded.superseded_by, archived = excluded.archived`,
+      )
+      .run(
+        entry.id, entry.key, entry.value, entry.tier, entry.ts,
+        entry.validFrom ?? null, entry.validUntil ?? null,
+        entry.supersededBy ?? null, archived ? 1 : 0,
+      );
+  }
+
+  /** Drop a persisted row (used by eviction and remove()). */
+  private unpersist(id: string): void {
+    if (!this.db) return;
+    try {
+      this.db.prepare('DELETE FROM tiered_memory WHERE id = ?').run(id);
+    } catch {
+      // A failed eviction leaves a stale row; harmless next to losing a write.
+    }
+  }
+
   /**
    * Store an entry. Same-key stores within a tier overwrite (legacy
    * behavior); use `options.supersedes` to invalidate-and-keep instead.
@@ -141,8 +311,12 @@ export class TieredMemoryStore {
 
     // Evict oldest if at capacity
     if (t.size >= MAX_PER_TIER) {
-      const oldest = t.keys().next().value;
-      if (oldest !== undefined) t.delete(oldest);
+      const oldestKey = t.keys().next().value;
+      if (oldestKey !== undefined) {
+        const evicted = t.get(oldestKey);
+        t.delete(oldestKey);
+        if (evicted) this.unpersist(evicted.id);
+      }
     }
 
     const entry: TieredMemoryEntry = {
@@ -155,8 +329,17 @@ export class TieredMemoryStore {
     if (options?.validFrom) entry.validFrom = options.validFrom;
     if (options?.validUntil) entry.validUntil = options.validUntil;
 
+    // Persist BEFORE publishing to the in-memory map: a throw here must not
+    // leave a value visible in-process that never reached disk (#2887).
+    const replaced = t.get(key);
+    this.persist(entry, false);
+    if (replaced && replaced.id !== entry.id) this.unpersist(replaced.id);
     t.set(key, entry);
-    return { id, key, tier: tierName, superseded };
+    return {
+      id, key, tier: tierName, superseded,
+      durable: this.db !== null,
+      persistence: this.getPersistence(),
+    };
   }
 
   /**
@@ -175,8 +358,12 @@ export class TieredMemoryStore {
     entry.supersededBy = newId;
 
     map.delete(entry.key);
+    this.persist(entry, true);
     this.archived.push(entry);
-    if (this.archived.length > MAX_ARCHIVED) this.archived.shift();
+    if (this.archived.length > MAX_ARCHIVED) {
+      const dropped = this.archived.shift();
+      if (dropped) this.unpersist(dropped.id);
+    }
 
     return { id: entry.id, key: entry.key, validUntil: now };
   }
@@ -222,7 +409,11 @@ export class TieredMemoryStore {
   /** Hard-delete an active entry by key (used by hierarchical-delete). */
   remove(key: string): boolean {
     for (const map of Object.values(this.tiers)) {
-      if (map.delete(key)) return true;
+      const entry = map.get(key);
+      if (!entry) continue;
+      map.delete(key);
+      this.unpersist(entry.id);
+      return true;
     }
     return false;
   }

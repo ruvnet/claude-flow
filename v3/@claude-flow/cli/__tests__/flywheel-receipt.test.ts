@@ -82,6 +82,46 @@ describe('flywheel receipt protocol', () => {
     );
   });
 
+  it('carries task-level paired outcomes and refuses ones that cannot reproduce their aggregate', () => {
+    const key = keys();
+    const heldOutDeltas = [0.1, 0.12, 0.2, 0.08];
+    const receipt = createFlywheelReceipt({
+      baselineRef: policyCandidateId({ alpha: 0.5 }),
+      candidatePolicy: { alpha: 0.3 },
+      safetyEnvelopeRef: 'sha256:safety',
+      corpusVersion: 'corpus-v1',
+      corpusHash: 'sha256:corpus',
+      baselineScore: 0.5,
+      candidateScore: 0.65,
+      heldOutDeltas,
+      pairedOutcomes: heldOutDeltas.map((delta, i) => ({
+        taskId: `t${i}`,
+        baselineScore: 0.5,
+        candidateScore: 0.5 + delta,
+      })),
+      frozenAnchorRegression: 0,
+      gates: { heldOut: true },
+      bootstrapIterations: 500,
+      ...key,
+    });
+    expect(receipt.payload.pairedOutcomes).toHaveLength(4);
+    expect(verifyFlywheelReceipt(receipt, new Set([key.publicKeyPem])).valid).toBe(true);
+
+    // Tampering with a per-task score breaks BOTH the content ID and the
+    // delta-reproducibility check — the paired rows are evidence, not decoration.
+    const tampered = structuredClone(receipt);
+    tampered.payload.pairedOutcomes![0].candidateScore = '0.9';
+    const verification = verifyFlywheelReceipt(tampered, new Set([key.publicKeyPem]));
+    expect(verification.valid).toBe(false);
+    expect(verification.errors.join(' ')).toMatch(/paired outcomes inconsistent/);
+  });
+
+  it('keeps receipts without paired outcomes verifiable (backward compatibility)', () => {
+    const { key, receipt } = acceptedReceipt();
+    expect(receipt.payload.pairedOutcomes).toBeUndefined();
+    expect(verifyFlywheelReceipt(receipt, new Set([key.publicKeyPem])).valid).toBe(true);
+  });
+
   it('rejects small relative lifts even when every held-out delta is positive', () => {
     const { privateKeyPem, publicKeyPem } = keys();
     const receipt = createFlywheelReceipt({

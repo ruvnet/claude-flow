@@ -44,7 +44,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/aidefence':
     dependencies:
@@ -110,7 +110,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/cli':
     dependencies:
@@ -138,15 +138,9 @@ importers:
       '@iarna/toml':
         specifier: ^2.2.5
         version: 2.2.5
-      '@metaharness/darwin':
-        specifier: ^0.8.0
-        version: 0.8.0
-      '@metaharness/flywheel':
-        specifier: ^0.1.7
-        version: 0.1.7
       '@metaharness/router':
-        specifier: ^0.3.2
-        version: 0.3.2
+        specifier: ^0.4.0
+        version: 0.4.0
       '@noble/ed25519':
         specifier: 2.3.0
         version: 2.3.0
@@ -194,8 +188,20 @@ importers:
         specifier: 2.0.0-alpha.5
         version: 2.0.0-alpha.5
       '@claude-flow/memory':
-        specifier: ^3.0.0-alpha.21
+        specifier: ^3.0.0-alpha.22
         version: link:../memory
+      '@metaharness/darwin':
+        specifier: ~0.9.0
+        version: 0.9.0
+      '@metaharness/flywheel':
+        specifier: ~0.1.10
+        version: 0.1.10
+      '@metaharness/radio':
+        specifier: ~0.1.0
+        version: 0.1.0
+      '@metaharness/turn-credit':
+        specifier: ~0.1.0
+        version: 0.1.0
       '@napi-rs/keyring':
         specifier: 1.3.0
         version: 1.3.0
@@ -262,7 +268,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/deployment':
     dependencies:
@@ -275,7 +281,7 @@ importers:
         version: 25.0.2(typescript@5.9.3)
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/embeddings':
     dependencies:
@@ -325,7 +331,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/hooks':
     dependencies:
@@ -360,7 +366,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/integration':
     dependencies:
@@ -405,7 +411,7 @@ importers:
         version: 8.18.1
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/memory':
     dependencies:
@@ -457,7 +463,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/plugin-agent-federation':
     dependencies:
@@ -507,7 +513,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/plugins':
     dependencies:
@@ -535,7 +541,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/providers':
     dependencies:
@@ -560,7 +566,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/security':
     dependencies:
@@ -580,7 +586,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/shared':
     dependencies:
@@ -614,7 +620,7 @@ importers:
         version: 7.2.0
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
       ws:
         specifier: ^8.16.0
         version: 8.19.0
@@ -626,7 +632,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/testing':
     devDependencies:
@@ -644,7 +650,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
 packages:
 
@@ -1752,16 +1758,23 @@ packages:
     hasBin: true
     dev: false
 
-  /@metaharness/darwin@0.8.0:
-    resolution: {integrity: sha512-Pgefr/es0Btofh7GxQrOAg/i43ZKcLUfeD9rndOAkpA8s3ZYohSmfLerJLNsGOOKc2eTvmmauljl8QEVmKC2dw==}
+  /@metaharness/darwin@0.9.0:
+    resolution: {integrity: sha512-X/u0sI4QNFi/YUhcQwZ2hcmthgc3H3n4PdPoKMbAE/y+rUWOQCS9oc1wqCcUysBN5K0jHV7U+3QApdMFvwKvRQ==}
     engines: {node: '>=20.0.0'}
     hasBin: true
     requiresBuild: true
     dev: false
+    optional: true
 
-  /@metaharness/flywheel@0.1.7:
-    resolution: {integrity: sha512-am7dROkjyS1Zkms3TOcn2LVHjwMLQXPJ6Pu1aP55q40vWJLRONGdGvnrcBL/VhMFqjQrVB57lmSn2E+s5CSZwA==}
+  /@metaharness/flywheel@0.1.10:
+    resolution: {integrity: sha512-yrLXDXNdf4jKqHlW6QZw3Cy5T0eMMjjaPqn1XB717/Xx/y0Iv9R03W0OhMEiR/kfqMNebRBW1fi6D7inStEyqA==}
     dev: false
+
+  /@metaharness/radio@0.1.0:
+    resolution: {integrity: sha512-m1GCeGCbjo7h5OLMCgb2VZFbhY6aHP5x28q0j/AFqXRWwStt5/Z+sWMuGNaNKVtnB7PGueNbtVoxLzMQ53rrFg==}
+    requiresBuild: true
+    dev: false
+    optional: true
 
   /@metaharness/redblue@0.1.4:
     resolution: {integrity: sha512-JaAk6bs3xA7Ks5RnAcZoxI3WfzpYL+Bk262SCI07w82BDOA7C6VxwGM63F7b86lRTKUVjTEnSqf7QZ3uyElT/g==}
@@ -1769,8 +1782,8 @@ packages:
     hasBin: true
     dev: false
 
-  /@metaharness/router@0.3.2:
-    resolution: {integrity: sha512-LQElU6mUrWd3ffJ5bwoonEIgw7oFQZpwZaehffyl/Pg+iozpRjIBPEXdb4uTOBnKH+yPiTEWKc+h9AiZr9Os9w==}
+  /@metaharness/router@0.4.0:
+    resolution: {integrity: sha512-VOfjHM7AMWwDH41AAMHOHFbH1r898xJqhqyE3G/r8OAxxrMgujX2SZsYkj/eXfBEmoPMhDVRkuO2abxvzCgEUA==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@ruvector/tiny-dancer': ^0.1.21
@@ -1778,6 +1791,13 @@ packages:
       '@ruvector/tiny-dancer':
         optional: true
     dev: false
+
+  /@metaharness/turn-credit@0.1.0:
+    resolution: {integrity: sha512-A752c0eEYEVodBB8HLOaSvcUMA65TX6/Cru2apZ7EE7aL2FSO74GFbgFWPo85bgqgNuMjhHkl/kG+lkC0TunNA==}
+    engines: {node: '>=20.0.0'}
+    requiresBuild: true
+    dev: false
+    optional: true
 
   /@metaharness/weight-eft@0.1.1:
     resolution: {integrity: sha512-GSg0APPAbRK93OzrzlE+R8hfEK+I5+Zhmh0Z28RC9Mk5/MjhPo3shqINO7ye8VPGYHIO4rars9FwCWbe/V4cEQ==}
@@ -6781,7 +6801,7 @@ packages:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+      vitest: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
     dev: true
 
   /@vitest/expect@4.1.8:
@@ -6809,7 +6829,7 @@ packages:
       '@vitest/spy': 4.1.8
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
+      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)
     dev: true
 
   /@vitest/pretty-format@4.1.8:
@@ -10383,7 +10403,7 @@ packages:
         optional: true
     dependencies:
       '@metaharness/darwin': 0.2.8
-      '@metaharness/flywheel': 0.1.7
+      '@metaharness/flywheel': 0.1.10
       '@metaharness/redblue': 0.1.4
       '@metaharness/weight-eft': 0.1.1
       kolorist: 1.8.0
@@ -13044,6 +13064,7 @@ packages:
       yaml: 2.8.2
     optionalDependencies:
       fsevents: 2.3.3
+    dev: false
 
   /vitest@4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0):
     resolution: {integrity: sha512-flY6ScbCIt9HThs+C5HS7jvGOB560DJtk/Z15IQROTA6zEy49Nh8T/dofWTQL+n3vswqn87sbJNiuqw1SDp5Ig==}
@@ -13175,7 +13196,7 @@ packages:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.1.0
-      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
+      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - msw
