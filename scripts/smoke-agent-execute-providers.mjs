@@ -76,7 +76,13 @@ if (!callAnthropicBody) {
   fail('callAnthropicMessages body not found');
 } else {
   const body = callAnthropicBody[0];
-  const openrouterIdx = body.search(/useOpenRouter\s*&&\s*openrouterKey/);
+  // #2962 — the OpenRouter branch condition widened from
+  // `useOpenRouter && openrouterKey` to `if (useOpenRouter) { const apiKey =
+  // openrouterKey || persistedOpenRouter?.apiKey; if (apiKey) {...} }` so a
+  // persisted `agents.providers` config can supply the key when no env var
+  // is set. Match on the branch entry point rather than the literal old
+  // condition — the ordering guarantee this smoke checks is unchanged.
+  const openrouterIdx = body.search(/if\s*\(\s*useOpenRouter\s*\)/);
   const noKeyIdx = body.search(/if\s*\(\s*!anthropicKey\s*\)/);
   if (openrouterIdx < 0) {
     fail('useOpenRouter dispatch not found in callAnthropicMessages');
