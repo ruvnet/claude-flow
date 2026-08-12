@@ -787,6 +787,13 @@ export async function bridgeStoreEntry(options: {
   cached?: boolean;
   attested?: boolean;
   error?: string;
+  /** #2968: set when the post-write checkpoint failed in a way that
+   *  indicates this connection may not durably persist writes at all
+   *  (the sql.js fallback driver, engaged when better-sqlite3's native
+   *  binding is missing). The write above still ran and `success` is
+   *  still true — this is advisory, not a failure — but callers should
+   *  surface it instead of only printing an unconditional success message. */
+  persistWarning?: string;
 } | null> {
   // ADR-323 — validated once in storeEntry() before this is reached on that
   // path, but bridgeStoreEntry() also has direct internal callers, so check
@@ -962,11 +969,26 @@ export async function bridgeStoreEntry(options: {
     // `sqlite3` vector count) then see a stale/empty main DB file and report
     // "0 vectors" / empty search. A PASSIVE checkpoint flushes committed pages
     // into the main file without blocking writers. Best-effort, never fatal.
+    let persistWarning: string | undefined;
     try {
       if (typeof ctx.db.pragma === 'function') {
         ctx.db.pragma('wal_checkpoint(PASSIVE)');
       }
-    } catch { /* non-WAL, busy, or unsupported — non-fatal */ }
+    } catch (checkpointErr) {
+      // #2968: on the sql.js fallback driver (engaged when better-sqlite3's
+      // native binding never got built — e.g. a skipped optionalDependency
+      // postinstall), this PRAGMA isn't implemented and throws "Invalid
+      // PRAGMA command". sql.js has no WAL journal to checkpoint at all, so
+      // this specific failure is the strongest signal available here that
+      // the insert above may exist only in this process's in-memory image
+      // and never reach disk — not the ordinary "non-WAL, busy, or
+      // unsupported" case the old blanket catch assumed. Surface it rather
+      // than swallow it silently; other pragma failures stay non-fatal.
+      const msg = checkpointErr instanceof Error ? checkpointErr.message : String(checkpointErr);
+      if (/Invalid PRAGMA/i.test(msg)) {
+        persistWarning = `sql.js fallback driver in use — this write may not be durably persisted to disk (${msg}). Install better-sqlite3's native binding to restore durable writes (see issue #2968: npm rebuild better-sqlite3, or reinstall with install scripts enabled).`;
+      }
+    }
 
     // Phase 2: Write-through to TieredCache
     const safeNs = String(namespace).replace(/:/g, '_');
@@ -985,6 +1007,7 @@ export async function bridgeStoreEntry(options: {
       guarded: true,
       cached: true,
       attested: true,
+      ...(persistWarning ? { persistWarning } : {}),
     };
   } catch (err) {
     // #2775: distinguish a data-level UNIQUE constraint violation (key
@@ -1089,10 +1112,17 @@ export async function bridgeSearchEntries(options: {
 
     let rows: any[];
     try {
+      // #2982/#2976: this pre-rank SELECT truncates the corpus to 1000 rows
+      // before BM25/embedding scoring runs. Without ORDER BY, SQLite returns
+      // rows in arbitrary storage order (effectively oldest-inserted-first at
+      // scale), so on any corpus over 1000 entries the newest — and often
+      // most relevant — rows never reach scoring at all. bridgeListEntries()
+      // already orders by updated_at DESC for the same reason; mirror it here.
       const stmt = ctx.db.prepare(`
         SELECT id, key, namespace, content, embedding, provenance_type
         FROM memory_entries
         WHERE ${ACTIVE_MEMORY_ROW_SQL} ${whereExtra}
+        ORDER BY updated_at DESC
         LIMIT 1000
       `);
       rows = filterParams.length > 0 ? stmt.all(...filterParams) : stmt.all();
@@ -1727,10 +1757,14 @@ export async function bridgeSearchHNSW(
 
     let rows: any[];
     try {
+      // #2982/#2976: same unordered pre-rank truncation as bridgeSearchEntries
+      // above — without ORDER BY, a corpus over 10000 rows silently drops
+      // its newest entries before cosine scoring ever runs.
       const stmt = ctx.db.prepare(`
         SELECT id, key, namespace, content, embedding
         FROM memory_entries
         WHERE status = 'active' AND embedding IS NOT NULL ${nsFilter}
+        ORDER BY updated_at DESC
         LIMIT 10000
       `);
       rows = nsFilter
