@@ -235,6 +235,15 @@ export class WorkerDaemon extends EventEmitter {
   // during state restoration (R1: constructor config takes priority over stale state)
   private originalConfig?: Partial<DaemonConfig>;
 
+  // #2935 — same purpose as originalConfig, but for values that came from
+  // .claude-flow/config.{json,yaml,yml} (Layer B) rather than a constructor
+  // arg. A file-supplied resourceThresholds value is just as much an
+  // explicit, deliberate override as a constructor arg, but
+  // initializeWorkerStates()'s stale-state guard only ever checked
+  // originalConfig — so a config.json override kept losing to whatever
+  // .claude-flow/daemon-state.json had persisted from a previous run.
+  private fileConfigResourceThresholds?: { maxCpuLoad?: number; minFreeMemoryPercent?: number };
+
   // #2661 root-fix — resolved once (git identity doesn't change at runtime)
   // and reused for lease heartbeats + supervisor election, both gated on
   // aiWorkersEnabled since they only matter for the recurring AI schedule.
@@ -250,6 +259,12 @@ export class WorkerDaemon extends EventEmitter {
 
     // Read daemon config from .claude-flow/config.json (Layer B)
     const fileConfig = this.readDaemonConfigFromFile(claudeFlowDir);
+    // #2935 — remember which resourceThresholds fields came from the file so
+    // initializeWorkerStates() can treat them as explicit too (see field doc).
+    this.fileConfigResourceThresholds = {
+      maxCpuLoad: fileConfig.maxCpuLoad,
+      minFreeMemoryPercent: fileConfig.minFreeMemoryPercent,
+    };
 
     // CPU-proportional smart default instead of hardcoded 2.0
     const cpuCount = WorkerDaemon.getEffectiveCpuCount();
@@ -298,6 +313,17 @@ export class WorkerDaemon extends EventEmitter {
         ?? (process.env.RUFLO_DAEMON_AI_WORKERS === '1'),
       workers: config?.workers ?? DEFAULT_WORKERS,
     };
+
+    // #2935 — deferred from readDaemonConfigFromFile(): this.config (and
+    // therefore this.config.logDir) doesn't exist until the assignment
+    // above, so logging from inside that method was silently swallowed by
+    // log()'s own try/catch and never reached daemon.log.
+    if (fileConfig.configSourcePath) {
+      this.log('info', `Daemon config loaded from ${fileConfig.configSourcePath}`);
+    }
+    if (fileConfig.yamlParseWarning) {
+      this.log('warn', fileConfig.yamlParseWarning);
+    }
 
     // Setup graceful shutdown handlers
     this.setupShutdownHandlers();
@@ -451,7 +477,13 @@ export class WorkerDaemon extends EventEmitter {
    * Supports dot-notation keys like 'daemon.resourceThresholds.maxCpuLoad'.
    * #1844: prefer JSON when both exist (existing behavior) but fall back
    * to YAML so operators using the v3 canonical YAML format aren't silently
-   * ignored. The chosen path is logged at info level.
+   * ignored. The chosen path (or a parse warning) is returned rather than
+   * logged directly — #2935: this method runs from the constructor before
+   * `this.config` (and therefore `this.config.logDir`) is assigned, so a
+   * `this.log()` call made here throws inside log()'s own try/catch and is
+   * silently swallowed. It never reached daemon.log, which made "is the
+   * config file even being read?" impossible to answer from the log alone.
+   * The caller logs these once `this.config` exists.
    */
   private readDaemonConfigFromFile(claudeFlowDir: string): {
     autoStart?: boolean;
@@ -462,6 +494,8 @@ export class WorkerDaemon extends EventEmitter {
     ttlMs?: number;
     idleShutdownMs?: number;
     aiWorkersEnabled?: boolean;
+    configSourcePath?: string;
+    yamlParseWarning?: string;
   } {
     const jsonPath = join(claudeFlowDir, 'config.json');
     const yamlPath = join(claudeFlowDir, 'config.yaml');
@@ -492,18 +526,15 @@ export class WorkerDaemon extends EventEmitter {
           chosenPath = yPath;
         }
       } catch {
-        this.log(
-          'warn',
-          `Found ${yPath} but yaml parser unavailable. Install \`yaml\` or convert to JSON. Falling back to defaults.`,
-        );
-        return {};
+        return {
+          yamlParseWarning: `Found ${yPath} but yaml parser unavailable. Install \`yaml\` or convert to JSON. Falling back to defaults.`,
+        };
       }
     }
 
     if (!raw || !chosenPath) {
       return {};
     }
-    this.log('info', `Daemon config loaded from ${chosenPath}`);
 
     try {
       // Support both flat keys at root and nested under scopes.project
@@ -528,6 +559,7 @@ export class WorkerDaemon extends EventEmitter {
         ttlMs: (typeof rawTtl === 'number' && rawTtl >= 0) ? rawTtl * 1000 : undefined,
         idleShutdownMs: (typeof rawIdle === 'number' && rawIdle >= 0) ? rawIdle * 1000 : undefined,
         aiWorkersEnabled: typeof rawAiEnabled === 'boolean' ? rawAiEnabled : undefined,
+        configSourcePath: chosenPath,
       };
     } catch {
       return {};
@@ -759,13 +791,24 @@ export class WorkerDaemon extends EventEmitter {
         }
 
         // Restore resourceThresholds, maxConcurrent, workerTimeoutMs from saved state
-        // Only restore if valid numeric values within sane ranges
-        if (saved.config?.resourceThresholds && !this.originalConfig?.resourceThresholds) {
+        // Only restore if valid numeric values within sane ranges.
+        // #2935 — a field is restored from stale state only if NEITHER the
+        // constructor arg NOR .claude-flow/config.{json,yaml,yml} explicitly
+        // set it. The old gate checked only `originalConfig`, so a
+        // config.json override (e.g. minFreeMemoryPercent: 0 to work around
+        // the Darwin os.freemem() skew) silently lost to whatever a stale
+        // daemon-state.json had persisted from before the override existed —
+        // same class of bug #2661 already fixed for aiWorkersEnabled.
+        if (saved.config?.resourceThresholds) {
           const rt = saved.config.resourceThresholds;
-          if (typeof rt.maxCpuLoad === 'number' && rt.maxCpuLoad > 0 && rt.maxCpuLoad < 1000) {
+          const maxCpuLoadExplicit = this.originalConfig?.resourceThresholds?.maxCpuLoad !== undefined
+            || this.fileConfigResourceThresholds?.maxCpuLoad !== undefined;
+          const minFreeMemExplicit = this.originalConfig?.resourceThresholds?.minFreeMemoryPercent !== undefined
+            || this.fileConfigResourceThresholds?.minFreeMemoryPercent !== undefined;
+          if (!maxCpuLoadExplicit && typeof rt.maxCpuLoad === 'number' && rt.maxCpuLoad > 0 && rt.maxCpuLoad < 1000) {
             this.config.resourceThresholds.maxCpuLoad = rt.maxCpuLoad;
           }
-          if (typeof rt.minFreeMemoryPercent === 'number' && rt.minFreeMemoryPercent >= 0 && rt.minFreeMemoryPercent <= 100) {
+          if (!minFreeMemExplicit && typeof rt.minFreeMemoryPercent === 'number' && rt.minFreeMemoryPercent >= 0 && rt.minFreeMemoryPercent <= 100) {
             this.config.resourceThresholds.minFreeMemoryPercent = rt.minFreeMemoryPercent;
           }
         }
