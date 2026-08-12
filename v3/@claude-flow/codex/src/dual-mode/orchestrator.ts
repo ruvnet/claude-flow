@@ -231,6 +231,14 @@ export class DualModeOrchestrator extends EventEmitter {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
+      // #2947: both platforms receive their prompt positionally/via flag
+      // (never over stdin), but the pipe is left open. `claude -p` ignores
+      // an open stdin, so this was invisible in practice — `codex exec`
+      // instead blocks in resolve_root_prompt waiting for stdin EOF that
+      // never comes, hanging every real Codex worker until the orchestrator's
+      // own timeout kills it.
+      proc.stdin?.end();
+
       this.processes.set(config.id, proc);
 
       proc.stdout?.on('data', (data) => {
