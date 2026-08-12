@@ -552,8 +552,16 @@ const initClaudeAction = async (ctx: CommandContext): Promise<CommandResult> => 
   const force = ctx.flags.force as boolean;
   const minimal = ctx.flags.minimal as boolean;
   const full = ctx.flags.full as boolean;
-  const skipClaude = ctx.flags['skip-claude'] as boolean;
-  const onlyClaude = ctx.flags['only-claude'] as boolean;
+  // #2952 — every long-flag write path in the parser goes through
+  // normalizeKey() (parser.ts:399-402), which converts kebab-case to
+  // camelCase before storing. `--skip-claude`/`--only-claude`/
+  // `--all-agents`/`--cloud-mcp` land as `flags.skipClaude`/`flags.onlyClaude`/
+  // `flags.allAgents`/`flags.cloudMcp` — there is no code path that ever
+  // stores the literal kebab-case key. Reading `ctx.flags['skip-claude']`
+  // etc. was always undefined, so all four flags were silent no-ops. Same
+  // bug class as #2098A below, just never applied to these siblings.
+  const skipClaude = ctx.flags.skipClaude as boolean;
+  const onlyClaude = ctx.flags.onlyClaude as boolean;
   // #2098A — the parser handles `--no-foo` by stripping the prefix and
   // storing `flags.foo = false` (parser.ts:291-294), not by storing
   // `flags['no-foo'] = true`. So `--no-global` lands as
@@ -561,8 +569,8 @@ const initClaudeAction = async (ctx: CommandContext): Promise<CommandResult> => 
   // was always undefined and silently no-op'd — every user with the flag
   // set still got `~/.claude/CLAUDE.md` modified. Read the real key.
   const noGlobal = ctx.flags['no-global'] === true || ctx.flags['global'] === false;
-  const allAgents = ctx.flags['all-agents'] as boolean;
-  const cloudMcp = ctx.flags['cloud-mcp'] as boolean;
+  const allAgents = ctx.flags.allAgents as boolean;
+  const cloudMcp = ctx.flags.cloudMcp as boolean;
   const cwd = ctx.cwd;
 
   // Check if already initialized
