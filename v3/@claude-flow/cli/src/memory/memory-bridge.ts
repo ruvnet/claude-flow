@@ -1686,16 +1686,24 @@ export async function bridgeLoadEmbeddingModel(
 // ===== Phase 3: HNSW bridge =====
 
 /**
- * Get HNSW status from AgentDB v3's vector backend or HNSW index.
+ * Get vector search status from AgentDB v3's SQLite-backed store.
  * Returns null if unavailable.
+ *
+ * #2922: previously named `bridgeGetHNSWStatus` and unconditionally returned
+ * `available: true` whenever a DB connection succeeded — but the search this
+ * status describes (`bridgeSearchBruteForceCosine`, below) is a full-table
+ * SELECT + brute-force cosine scan, not an HNSW index lookup. Renamed and
+ * given an explicit `algorithm` field so callers can't mistake "vector
+ * search works" for "vector search is HNSW-accelerated".
  */
-export async function bridgeGetHNSWStatus(
+export async function bridgeGetVectorSearchStatus(
   dbPath?: string,
 ): Promise<{
   available: boolean;
   initialized: boolean;
   entryCount: number;
   dimensions: number;
+  algorithm: 'brute-force-cosine';
 } | null> {
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
@@ -1720,6 +1728,7 @@ export async function bridgeGetHNSWStatus(
       initialized: true,
       entryCount,
       dimensions: 384,
+      algorithm: 'brute-force-cosine',
     };
   } catch {
     return null;
@@ -1727,11 +1736,11 @@ export async function bridgeGetHNSWStatus(
 }
 
 /**
- * Search using AgentDB v3's embedder + SQLite entries.
- * This is the HNSW-equivalent search through the bridge.
- * Returns null if unavailable.
+ * Search AgentDB v3's embedder + SQLite entries via a full-table scan and
+ * brute-force cosine similarity. NOT HNSW-accelerated — see #2922. Returns
+ * null if unavailable.
  */
-export async function bridgeSearchHNSW(
+export async function bridgeSearchBruteForceCosine(
   queryEmbedding: number[],
   options?: { k?: number; namespace?: string; threshold?: number },
   dbPath?: string,
@@ -1806,10 +1815,11 @@ export async function bridgeSearchHNSW(
 }
 
 /**
- * Add entry to the bridge's database with embedding.
- * Returns null if unavailable.
+ * Add entry to the bridge's database with embedding. No HNSW index is built
+ * or updated here — see #2922; the embedding is only stored for a later
+ * brute-force scan. Returns null if unavailable.
  */
-export async function bridgeAddToHNSW(
+export async function bridgeAddEmbedding(
   id: string,
   embedding: number[],
   entry: { id: string; key: string; namespace: string; content: string },
