@@ -2645,7 +2645,12 @@ const intelligenceCommand: Command = {
           tokenReduction: 'N/A',
           sweBenchScore: 'N/A',
         },
-        lastTrainingMs: lastAdaptation ? Date.now() - lastAdaptation : undefined,
+        // #2940: a training cycle that actually ran this invocation is "now"
+        // — reading the pre-call `lastAdaptation` here would still show the
+        // stale age (the exact "aged instead of reset" symptom reported).
+        lastTrainingMs: (mcpResult as { training?: { trained?: boolean } } | null)?.training?.trained
+          ? 0
+          : (lastAdaptation ? Date.now() - lastAdaptation : undefined),
         persistence: {
           dataDir: persistence.dataDir,
           patternsFile: persistence.patternsFile,
@@ -2658,10 +2663,33 @@ const intelligenceCommand: Command = {
         },
       };
 
+      // #2940: this block used to be a cosmetic 500ms sleep followed by an
+      // unconditional "Training cycle completed" — no training ever ran and
+      // `lastAdaptation` never moved, so `--status` could never report a
+      // training cycle as recent no matter how many times `--train` was
+      // invoked. `hooks_intelligence` now actually distills when asked
+      // (see mcp-tools/hooks-tools.ts); report what it actually did instead
+      // of a canned success message.
+      const trainingResult = (mcpResult as { training?: { attempted: boolean; trained: boolean; patternsDistilled?: number; reason?: string } } | null)?.training;
       if (forceTraining) {
-        spinner.setText('Running training cycle...');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        spinner.succeed('Training cycle completed');
+        if (trainingResult?.trained && trainingResult.patternsDistilled) {
+          spinner.succeed(
+            `Training cycle completed — distilled ${trainingResult.patternsDistilled} pattern${trainingResult.patternsDistilled === 1 ? '' : 's'}`
+          );
+        } else if (trainingResult?.trained) {
+          // Ran (SONA/EWC++ distillation pass executed, lastAdaptation
+          // moved) but found zero new patterns — deliberately NOT the same
+          // message as a real distillation, or this is exactly the "success
+          // report with no state change behind it" the issue describes.
+          spinner.stop();
+          output.printWarning(`Training cycle ran — 0 new patterns to distill (${trainingResult.reason || 'nothing new since the last cycle'})`);
+        } else if (trainingResult?.attempted) {
+          spinner.stop();
+          output.printWarning(`Training cycle ran with nothing to do — ${trainingResult.reason || 'no new trajectories to distill'}`);
+        } else {
+          spinner.stop();
+          output.printWarning('Training cycle could not run — intelligence MCP tool unavailable');
+        }
       } else {
         spinner.succeed(hasLocalData ? 'Intelligence system active (local data loaded)' : 'Intelligence system active');
       }

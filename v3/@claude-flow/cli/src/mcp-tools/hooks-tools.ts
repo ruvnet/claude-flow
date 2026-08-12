@@ -2496,7 +2496,39 @@ export const hooksIntelligence: MCPTool = {
     const ewcAvailable = (await getEWCConsolidator()) !== null;
     const loraAvailable = (await getLoRAAdapter()) !== null;
 
+    // #2940: `forceTraining` (CLI `hooks intelligence --train`) was declared
+    // on this tool's input schema but never read — the handler always
+    // returned the same read-only status dashboard, so `lastAdaptation`
+    // (what `--status` reports as "Last Training") could never move no
+    // matter how many times `--train` ran. Actually distill when asked,
+    // and report honestly rather than always implying success:
+    // `attempted: false` (flag not passed), `trained: true` (real work
+    // happened, lastAdaptation now current), or `trained: false` with a
+    // reason (nothing new to distill, or distillation unavailable).
+    const training: { attempted: boolean; trained: boolean; patternsDistilled?: number; ewcPenalty?: number; reason?: string } =
+      { attempted: false, trained: false };
+    if (params.forceTraining) {
+      training.attempted = true;
+      try {
+        const { distillLearning } = await import('../memory/intelligence.js');
+        const result = await distillLearning();
+        if (result) {
+          training.trained = true;
+          training.patternsDistilled = result.patternsDistilled;
+          training.ewcPenalty = result.ewcPenalty;
+          if (result.patternsDistilled === 0) {
+            training.reason = 'no new trajectories to distill since the last training cycle';
+          }
+        } else {
+          training.reason = 'intelligence system unavailable — could not initialize SONA/ReasoningBank';
+        }
+      } catch (error) {
+        training.reason = `distillation failed: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    }
+
     return {
+      training,
       mode,
       status: 'active',
       components: {
