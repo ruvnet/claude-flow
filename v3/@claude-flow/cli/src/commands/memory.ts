@@ -232,7 +232,14 @@ const storeCommand: Command = {
       });
 
       output.writeln();
-      output.printSuccess('Data stored successfully');
+      if (result.persistWarning) {
+        // #2968: the write ran, but the checkpoint signal indicates it may
+        // not have reached disk (sql.js fallback driver) — do not print an
+        // unconditional green success for a write that might vanish.
+        output.printWarning(`Data stored, but persistence is not guaranteed: ${result.persistWarning}`);
+      } else {
+        output.printSuccess('Data stored successfully');
+      }
 
       return { success: true, data: { ...storeData, id: result.id, embedding: result.embedding, provenanceType: provenance || 'unknown' } };
     } catch (error) {

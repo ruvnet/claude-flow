@@ -2793,6 +2793,9 @@ export async function storeEntry(options: {
   id: string;
   embedding?: { dimensions: number; model: string };
   error?: string;
+  /** #2968: set when the bridge's checkpoint failed in a way indicating
+   *  this write may not be durably persisted (sql.js fallback driver). */
+  persistWarning?: string;
 }> {
   // ADR-323: validate before touching either backend so an invalid value
   // gets one clear error instead of a raw SQLite CHECK-constraint failure
