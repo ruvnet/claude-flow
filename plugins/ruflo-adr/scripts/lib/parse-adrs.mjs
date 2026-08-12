@@ -12,7 +12,15 @@ import { join, basename } from 'node:path';
 // #2474 bonus: `.claude/worktrees/*` mirrors the repo so every ADR was
 // indexed 2-3x. Skip the whole `.claude` tree — it's all ruflo runtime
 // state (worktrees, scheduled tasks, etc.), never authored content.
-export const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'v2', '.next', '.turbo', 'build', '.claude']);
+//
+// #2911: `.brain` is ruvnet-brain's own tree, holding shallow clones of
+// ~50 external repos under `.brain/repo/clones/` — many carrying their
+// own `docs/adr/`. Left unskipped, a walk from the project root picks up
+// every foreign ADR (measured: 1,415 foreign vs 19 belonging to the
+// project) and, because `.brain` sorts before `docs`, the project's own
+// ADRs land dead last in the walk order — an interrupted run can index
+// hundreds of foreign ADRs and zero of the project's.
+export const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'v2', '.next', '.turbo', 'build', '.claude', '.brain']);
 
 // #2474 Bug 4: parseId padded ADR numbers, but extractAdrRefs's
 // padStart-then-strip pipeline produced different results for the same
