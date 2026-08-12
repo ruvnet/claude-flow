@@ -803,7 +803,7 @@ export async function addToHNSWIndex(
   // ADR-053: Try AgentDB v3 bridge first
   const bridge = await getBridge();
   if (bridge) {
-    const bridgeResult = await bridge.bridgeAddToHNSW(id, embedding, entry);
+    const bridgeResult = await bridge.bridgeAddEmbedding(id, embedding, entry);
     if (bridgeResult === true) return true;
   }
 
@@ -840,7 +840,7 @@ export async function searchHNSWIndex(
   // ADR-053: Try AgentDB v3 bridge first
   const bridge = await getBridge();
   if (bridge) {
-    const bridgeResult = await bridge.bridgeSearchHNSW(queryEmbedding, options);
+    const bridgeResult = await bridge.bridgeSearchBruteForceCosine(queryEmbedding, options);
     if (bridgeResult) return bridgeResult;
   }
 
@@ -897,15 +897,25 @@ export function getHNSWStatus(): {
   initialized: boolean;
   entryCount: number;
   dimensions: number;
+  algorithm: 'hnsw' | 'brute-force-cosine';
 } {
-  // ADR-053: If bridge was previously loaded, report availability
+  // #2922: this branch previously reported `available: true` whenever the
+  // bridge was loaded, on the theory that "AgentDB v3 is HNSW-equivalent" —
+  // but the bridge's actual search path (bridgeSearchBruteForceCosine, see
+  // memory-bridge.ts) does a full-table SELECT + brute-force cosine loop and
+  // never touches @ruvector/core or an HNSW index, regardless of whether
+  // ruvector-core itself is installed. `available` here means "an HNSW
+  // index is the one actually searched", matching what this function's own
+  // name promises — that's false while the bridge is the active path, so
+  // this no longer claims otherwise. Vector search itself still works via
+  // the bridge; `algorithm` tells callers it's brute-force, not HNSW.
   if (_bridge && _bridge !== null) {
-    // Bridge is loaded — HNSW-equivalent is available via AgentDB v3
     return {
-      available: true,
-      initialized: true,
+      available: false,
+      initialized: false,
       entryCount: hnswIndex?.entries.size ?? 0,
-      dimensions: hnswIndex?.dimensions ?? 384
+      dimensions: hnswIndex?.dimensions ?? 384,
+      algorithm: 'brute-force-cosine',
     };
   }
 
@@ -918,7 +928,8 @@ export function getHNSWStatus(): {
     available: hnswIndex !== null || isRuvectorCoreResolvable(),
     initialized: hnswIndex?.initialized ?? false,
     entryCount: hnswIndex?.entries.size ?? 0,
-    dimensions: hnswIndex?.dimensions ?? 384
+    dimensions: hnswIndex?.dimensions ?? 384,
+    algorithm: 'hnsw',
   };
 }
 

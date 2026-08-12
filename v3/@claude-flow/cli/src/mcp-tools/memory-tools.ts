@@ -245,6 +245,23 @@ async function getMemoryFunctions() {
 }
 
 /**
+ * #2922: every `backend:` field in this file's tool responses used to be the
+ * hardcoded literal `'sql.js + HNSW'` regardless of which search path was
+ * actually active — most of the time that's the bridge doing a brute-force
+ * cosine scan, not HNSW. This reports the real algorithm via the same
+ * capability probe `getHNSWStatus()` already exposes.
+ */
+async function describeBackend(): Promise<string> {
+  try {
+    const { getHNSWStatus } = await import('../memory/memory-initializer.js');
+    const status = getHNSWStatus();
+    return status.algorithm === 'hnsw' ? 'sql.js + HNSW' : 'sqlite (bridge, brute-force cosine)';
+  } catch {
+    return 'sqlite';
+  }
+}
+
+/**
  * Ensure memory database is initialized and migrate legacy data if needed.
  * #1606: Wrapped in try/catch to prevent process-level crashes that kill
  * the stdio MCP transport on Windows/Codex.
@@ -369,7 +386,7 @@ export const memoryTools: MCPTool[] = [
           hasEmbedding: !!result.embedding,
           embeddingDimensions: result.embedding?.dimensions || null,
           provenanceType: provenanceType || 'unknown',
-          backend: 'sql.js + HNSW',
+          backend: await describeBackend(),
           storeTime: `${duration.toFixed(2)}ms`,
           error: result.error,
         };
@@ -425,7 +442,7 @@ export const memoryTools: MCPTool[] = [
             accessCount: result.entry.accessCount,
             hasEmbedding: result.entry.hasEmbedding,
             found: true,
-            backend: 'sql.js + HNSW',
+            backend: await describeBackend(),
           };
         }
 
@@ -652,7 +669,7 @@ export const memoryTools: MCPTool[] = [
           namespace,
           deleted: result.deleted,
           hnswIndexInvalidated: result.deleted,
-          backend: 'sql.js + HNSW',
+          backend: await describeBackend(),
         };
       } catch (error) {
         return {
@@ -709,7 +726,7 @@ export const memoryTools: MCPTool[] = [
           total: result.total,
           limit,
           offset,
-          backend: 'sql.js + HNSW',
+          backend: await describeBackend(),
         };
       } catch (error) {
         return {
@@ -755,7 +772,7 @@ export const memoryTools: MCPTool[] = [
             ? `${((withEmbeddings / allEntries.total) * 100).toFixed(1)}%`
             : '0%',
           namespaces,
-          backend: 'sql.js + HNSW',
+          backend: await describeBackend(),
           version: status.version || '3.0.0',
           features: status.features || {
             vectorEmbeddings: true,
@@ -809,7 +826,7 @@ export const memoryTools: MCPTool[] = [
         success: true,
         message: 'Migration completed',
         migrated: Object.keys(legacyStore.entries).length,
-        backend: 'sql.js + HNSW',
+        backend: await describeBackend(),
       };
     },
   },
@@ -1202,7 +1219,7 @@ export const memoryTools: MCPTool[] = [
         bytes += (e.size as number) || 0;
       }
       return {
-        backend: 'sql.js + HNSW',
+        backend: await describeBackend(),
         entries: all.total ?? all.entries.length,
         size: bytes,
         namespaces: Object.entries(nsCounts).map(([name, entries]) => ({ name, entries })),
