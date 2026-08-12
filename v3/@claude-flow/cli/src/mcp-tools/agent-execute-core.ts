@@ -11,6 +11,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getProjectCwd } from './types.js';
+import { configManager } from '../services/config-file-manager.js';
 
 const STORAGE_DIR = '.claude-flow';
 const AGENT_DIR = 'agents';
@@ -37,8 +38,8 @@ export interface AgentRecord {
    * falling back to MODEL_MAP[tier].
    */
   modelId?: string;
-  /** ADR-148 phase 2 — execution provider hint. */
-  provider?: 'anthropic' | 'openrouter';
+  /** ADR-148 phase 2 — execution provider hint. #2962 widened to include 'ollama'. */
+  provider?: 'anthropic' | 'openrouter' | 'ollama';
   /** ADR-148 phase 2 — concrete OpenRouter slug when provider='openrouter'. */
   openrouterModel?: string;
   lastResult?: Record<string, unknown>;
@@ -100,6 +101,47 @@ export interface AnthropicCallInput {
   maxTokens?: number;
   temperature?: number;
   timeoutMs?: number;
+  /**
+   * #2962 — explicit provider carried from the agent record (agent.provider,
+   * itself populated from a user's `--provider` flag or persisted
+   * `providers configure`). When set, this outranks the env-var-only
+   * inference callAnthropicMessages otherwise does — see the precedence
+   * comment on that function.
+   */
+  provider?: 'anthropic' | 'openrouter' | 'ollama';
+}
+
+/** A single entry from the persisted `agents.providers` config array. */
+interface PersistedProviderEntry {
+  name: string;
+  enabled?: boolean;
+  apiKey?: string;
+  baseUrl?: string;
+  model?: string;
+}
+
+/**
+ * #2962 — read the enabled `agents.providers` entry matching `name` from
+ * cwd-scoped `claude-flow.config.json` (written by `providers configure`,
+ * `commands/providers.ts`). Best-effort: any failure (no config file, wrong
+ * shape, etc.) returns undefined rather than throwing — this must never
+ * break execution, and env vars remain a fully-supported override that
+ * doesn't require this file to exist.
+ */
+function getPersistedProviderConfig(name: string): PersistedProviderEntry | undefined {
+  try {
+    const providers = configManager.get(getProjectCwd(), 'agents.providers');
+    if (!Array.isArray(providers)) return undefined;
+    const entry = providers.find(
+      (p): p is PersistedProviderEntry =>
+        !!p && typeof p === 'object' && typeof (p as PersistedProviderEntry).name === 'string' &&
+        (p as PersistedProviderEntry).name.toLowerCase() === name.toLowerCase(),
+    );
+    if (!entry || entry.enabled === false) return undefined;
+    return entry;
+  } catch {
+    return undefined;
+  }
 }
 
 export interface AnthropicCallResult {
@@ -125,7 +167,13 @@ export interface AnthropicCallResult {
  * don't need to know which provider answered.
  */
 export async function callAnthropicMessages(input: AnthropicCallInput): Promise<AnthropicCallResult> {
-  const explicitProvider = (process.env.RUFLO_PROVIDER || '').toLowerCase();
+  // #2962 — precedence: explicit per-agent flag (input.provider, forwarded
+  // from agent.provider by executeAgentTask, itself populated from a
+  // user's `agent spawn --provider` flag) → env vars (RUFLO_PROVIDER + the
+  // *_API_KEY family — unchanged back-compat surface) → persisted
+  // `agents.providers` config (`providers configure`) → the original
+  // key-presence inference, kept below as the last-resort fallback.
+  const explicitProvider = (input.provider || process.env.RUFLO_PROVIDER || '').toLowerCase();
   const ollamaKey = process.env.OLLAMA_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   // #2042 — OpenRouter is an OpenAI-compat endpoint that fronts dozens of
@@ -137,24 +185,51 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
   const openrouterKey = process.env.OPENROUTER_API_KEY;
   const useOpenRouter =
     explicitProvider === 'openrouter' || (!anthropicKey && !!openrouterKey);
+  // #2962 — only consult the persisted config when a candidate is actually
+  // relevant (explicit choice, or no env key found anywhere), so a normal
+  // ANTHROPIC_API_KEY-only setup never pays a config-file read.
+  const persistedOllama =
+    explicitProvider === 'ollama' || (!anthropicKey && !openrouterKey && !ollamaKey)
+      ? getPersistedProviderConfig('ollama')
+      : undefined;
+  const persistedOpenRouter =
+    explicitProvider === 'openrouter' && !openrouterKey ? getPersistedProviderConfig('openrouter') : undefined;
   const useOllama =
-    explicitProvider === 'ollama' || (!anthropicKey && !!ollamaKey && !openrouterKey);
+    explicitProvider === 'ollama' || (!anthropicKey && !openrouterKey && (!!ollamaKey || !!persistedOllama));
 
-  if (useOpenRouter && openrouterKey) {
-    return callOpenAICompat({
-      ...input,
-      apiKey: openrouterKey,
-      baseUrl: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api',
-      providerLabel: 'openrouter',
-      // #2357 Finding C: anthropic/claude-3.5-sonnet was retired Oct 2025.
-      // Default to the same canonical family the rest of the resolver uses
-      // (MODEL_MAP). `OPENROUTER_DEFAULT_MODEL` still wins for callers who
-      // want to pin a specific OpenRouter slug.
-      defaultModel: process.env.OPENROUTER_DEFAULT_MODEL || 'anthropic/claude-sonnet-4-6',
-    });
+  if (useOpenRouter) {
+    const apiKey = openrouterKey || persistedOpenRouter?.apiKey;
+    if (apiKey) {
+      return callOpenAICompat({
+        ...input,
+        apiKey,
+        baseUrl: process.env.OPENROUTER_BASE_URL || persistedOpenRouter?.baseUrl || 'https://openrouter.ai/api',
+        providerLabel: 'openrouter',
+        // #2357 Finding C: anthropic/claude-3.5-sonnet was retired Oct 2025.
+        // Default to the same canonical family the rest of the resolver uses
+        // (MODEL_MAP). `OPENROUTER_DEFAULT_MODEL` still wins for callers who
+        // want to pin a specific OpenRouter slug.
+        defaultModel: process.env.OPENROUTER_DEFAULT_MODEL || persistedOpenRouter?.model || 'anthropic/claude-sonnet-4-6',
+      });
+    }
   }
-  if (useOllama && ollamaKey) {
-    return callOllamaCompat({ ...input, apiKey: ollamaKey });
+  if (useOllama) {
+    // #2962 — retire the undocumented OLLAMA_API_KEY=local sentinel
+    // requirement. A self-hosted, unauthenticated Ollama daemon shouldn't
+    // need a fake credential to become reachable; "self-hosted" is any
+    // resolved base URL that isn't the public Ollama Cloud endpoint
+    // (persisted `providers configure -e` baseUrl, or OLLAMA_BASE_URL,
+    // checked in that order — matching callOllamaCompat's own precedence).
+    const resolvedBaseUrl = process.env.OLLAMA_BASE_URL || persistedOllama?.baseUrl;
+    const isSelfHosted = !!resolvedBaseUrl && !/^https:\/\/ollama\.com\/?$/i.test(resolvedBaseUrl);
+    if (ollamaKey || persistedOllama?.apiKey || isSelfHosted) {
+      return callOllamaCompat({
+        ...input,
+        apiKey: ollamaKey || persistedOllama?.apiKey || 'local',
+        baseUrl: resolvedBaseUrl,
+        model: input.model || persistedOllama?.model,
+      });
+    }
   }
   if (!anthropicKey) {
     return {
@@ -249,19 +324,22 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
  *   - explicit 'ollama:<model>' or bare provider-native name → passed through
  */
 async function callOllamaCompat(
-  input: AnthropicCallInput & { apiKey: string },
+  input: AnthropicCallInput & { apiKey: string; baseUrl?: string },
 ): Promise<AnthropicCallResult> {
   const model = resolveOllamaModel(input.model);
   const startedAt = Date.now();
-  // OLLAMA_BASE_URL lets users point at local/self-hosted endpoints
-  // (e.g. http://ruvultra:11434, http://localhost:11434) instead of
-  // Ollama Cloud. Default is the public cloud endpoint.
-  const base = (process.env.OLLAMA_BASE_URL || 'https://ollama.com').replace(/\/+$/, '');
+  // #2962 — input.baseUrl (resolved by the caller from persisted
+  // `providers configure` config, then OLLAMA_BASE_URL) takes precedence
+  // over re-reading OLLAMA_BASE_URL here, so a persisted-config-only setup
+  // (no env vars) still reaches a self-hosted endpoint instead of Ollama
+  // Cloud. Falls back to the original OLLAMA_BASE_URL-or-cloud behavior
+  // for any direct caller that doesn't pass baseUrl.
+  const base = (input.baseUrl || process.env.OLLAMA_BASE_URL || 'https://ollama.com').replace(/\/+$/, '');
   const url = `${base}/v1/chat/completions`;
   // Self-hosted endpoints typically don't need an Authorization header
   // (the daemon binds to 11434 with no auth by default), but Ollama Cloud
   // does. Send the bearer when the key is non-empty AND looks cloud-shaped.
-  const sendAuth = input.apiKey && input.apiKey !== 'local';
+  const sendAuth = !!input.apiKey && input.apiKey !== 'local';
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), input.timeoutMs || 60000);
@@ -521,6 +599,11 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
 
   // #2042 — delegate to callAnthropicMessages so the v3 provider router
   // (Anthropic / Ollama / OpenRouter) governs which backend is hit.
+  // #2962 — forward the agent's own explicit provider (set at spawn time
+  // from --provider / persisted config) so it outranks env-var inference.
+  // Only the first-attempt call; the ADR-149 fallback-retry call below is
+  // driven by the cost-optimal neural router picking model-id alternatives,
+  // an orthogonal mechanism left as-is to avoid unintended interaction.
   let result = await callAnthropicMessages({
     model: anthropicModel,
     prompt: input.prompt,
@@ -528,6 +611,7 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
     maxTokens: input.maxTokens,
     temperature: input.temperature,
     timeoutMs: input.timeoutMs,
+    provider: agent.provider,
   });
 
   // ADR-149 iter 7 — fallback chain on retryable failures (429, 5xx,
