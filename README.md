@@ -56,7 +56,7 @@ There are **two different install paths** with very different surface areas. Pic
 |---|---|---|
 | What it gives you | Slash commands + a few skills + agent definitions per-plugin | Full Ruflo loop — 98 agents, 60+ commands, 30 skills, MCP server, hooks, daemon |
 | Files in your workspace | **Zero** | `.claude/`, `.claude-flow/`, `CLAUDE.md`, helpers, settings |
-| MCP server registered | **No** (`memory_store`, `swarm_init`, etc. unavailable to Claude) | Yes |
+| MCP server registered | Only if `ruflo-core` is installed (it ships its own `.mcp.json`) — most other plugins don't | Yes |
 | Hooks installed | No | Yes |
 | Best for | Try a single plugin's commands without committing to the full install | Production use — everything works as documented |
 
@@ -73,7 +73,7 @@ There are **two different install paths** with very different surface areas. Pic
 /plugin install ruflo-neural-trader@ruflo
 ```
 
-This adds slash commands and agent definitions only. The Ruflo MCP server is NOT registered, so `memory_store`, `swarm_init`, `agent_spawn`, etc. won't be callable from Claude. For the full loop, use Path B below.
+This adds slash commands and agent definitions. `ruflo-core` (installed above) does register its own MCP server on install — its tools are callable as `mcp__plugin_ruflo-core_ruflo__*` (e.g. `mcp__plugin_ruflo-core_ruflo__memory_store`), not the bare `memory_store`/`swarm_init`/`agent_spawn` names the CLI-track scaffold uses. Other plugins generally don't ship their own MCP server. For the full loop with the CLI-track tool names, use Path B below.
 
 <details>
 <summary><strong>🔌 All 35 plugins</strong></summary>
@@ -187,8 +187,8 @@ npm install -g ruflo@latest
 ### MCP Server
 
 ```bash
-# Add Ruflo as an MCP server in Claude Code (canonical form, matches USERGUIDE.md)
-claude mcp add ruflo -- npx ruflo@latest mcp start
+# Add Ruflo as an MCP server in Claude Code
+claude mcp add claude-flow -- npx ruflo@latest mcp start
 ```
 
 ---

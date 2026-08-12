@@ -227,7 +227,42 @@ const startCommand: Command = {
         output.writeln(output.dim('  Running in background mode'));
       }
 
-      return { success: true, data: status };
+      // #2984: this command is only reached via the "normal CLI mode" branch
+      // of bin/cli.js — i.e. every invocation NOT auto-detected as Claude
+      // Code's implicit piped-stdin MCP handshake (that path bypasses this
+      // action entirely and blocks on stdin forever, which is why it was
+      // unaffected). bin/cli.js unconditionally exits the process once this
+      // action's promise resolves (`cli.run().then(() => process.exit(0))`,
+      // #1552) — a design that assumed "mcp start never resolves" but this
+      // action DID resolve immediately after printing the table above, so
+      // the freshly-bound http/websocket listener (or the interactive-TTY
+      // stdio server) was torn down within milliseconds of the printed
+      // "Status: Running" claim. `daemonize` is not currently wired to
+      // actually fork/detach a background process (no branch reads it in
+      // MCPServerManager), so there is no real backgrounding path yet —
+      // every successful start here is a foreground server and must block
+      // until told to stop, matching `daemon start --foreground`'s
+      // established pattern in daemon.ts.
+      output.writeln();
+      output.writeln(output.dim('Press Ctrl+C to stop the server'));
+
+      let stopping = false;
+      const shutdown = async () => {
+        if (stopping) return;
+        stopping = true;
+        try { await manager.stop(); } catch { /* best-effort */ }
+        process.exit(0);
+      };
+      process.on('SIGINT', () => { void shutdown(); });
+      process.on('SIGTERM', () => { void shutdown(); });
+
+      // Ref'd handle so Node's event loop can't drain to empty even if some
+      // transport internals unref their own timers — same belt-and-suspenders
+      // as daemon.ts's foreground path (#1478).
+      setInterval(() => {}, 60_000);
+      await new Promise(() => {}); // Never resolves — server runs until killed.
+
+      return { success: true, data: status }; // unreachable, keeps the return type honest
     } catch (error) {
       output.printError(`Failed to start MCP server: ${(error as Error).message}`);
       return { success: false, exitCode: 1 };
