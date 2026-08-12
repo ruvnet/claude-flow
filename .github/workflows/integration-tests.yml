@@ -55,7 +55,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Install SQLite3
         run: |
@@ -160,7 +160,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Download integration setup
         uses: actions/download-artifact@v4
@@ -309,7 +309,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Download integration setup
         uses: actions/download-artifact@v4
@@ -431,7 +431,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Test agent failure recovery
         run: |
@@ -559,7 +559,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Test multi-agent performance
         run: |

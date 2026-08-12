@@ -710,8 +710,10 @@ jobs:
           node-version: '22'
 
       - name: Install plugin dependencies (npm — plugin is outside v3 workspace)
-        working-directory: plugins/ruflo-graph-intelligence
-        run: npm ci --no-audit --no-fund --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
+        with:
+          working-directory: plugins/ruflo-graph-intelligence
+          args: --no-audit --no-fund --legacy-peer-deps
 
       - name: Type-check
         working-directory: plugins/ruflo-graph-intelligence
@@ -758,8 +760,10 @@ jobs:
           node-version: '22'
 
       - name: Install ruflo-graph-intelligence deps (for npm audit)
-        working-directory: plugins/ruflo-graph-intelligence
-        run: npm ci --no-audit --no-fund --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
+        with:
+          working-directory: plugins/ruflo-graph-intelligence
+          args: --no-audit --no-fund --legacy-peer-deps
 
       - name: Install @claude-flow/browser deps (for npm audit)
         working-directory: v3/@claude-flow/browser
@@ -876,7 +880,7 @@ jobs:
           node-version: '22'
 
       - name: Install root dependencies (provides @noble/ed25519 for Case 3)
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Drive precondition + built-tree shapes through verify.mjs
         shell: bash
