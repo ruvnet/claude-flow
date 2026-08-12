@@ -38,8 +38,8 @@ interface AgentRecord {
   modelRoutedBy?: 'explicit' | 'router' | 'codemod' | 'default' | 'hybrid';  // ADR-026/143/149
   /** ADR-149 — concrete picked model id (e.g. inclusionai/ling-2.6-flash). */
   modelId?: string;
-  /** ADR-148 — execution provider hint. */
-  provider?: 'anthropic' | 'openrouter';
+  /** ADR-148 — execution provider hint. #2962 widened to include 'ollama'. */
+  provider?: 'anthropic' | 'openrouter' | 'ollama';
   /** ADR-148 — concrete OpenRouter slug when provider='openrouter'. */
   openrouterModel?: string;
   lastResult?: Record<string, unknown>;
@@ -184,14 +184,25 @@ async function determineAgentModel(
   tier?: 1 | 2 | 3;
   /** ADR-149 — concrete picked model id when the neural backend fired. */
   modelId?: string;
-  /** ADR-148 — execution provider hint. */
-  provider?: 'anthropic' | 'openrouter';
+  /** ADR-148 — execution provider hint. #2962 widened to include 'ollama'. */
+  provider?: 'anthropic' | 'openrouter' | 'ollama';
   /** ADR-148 — concrete OpenRouter slug when provider='openrouter'. */
   openrouterModel?: string;
 }> {
   // 1. Explicit model in config
-  if (config.model && ['haiku', 'sonnet', 'opus', 'opus-4.7', 'inherit'].includes(config.model as string)) {
-    return { model: config.model as ClaudeModel, routedBy: 'explicit' };
+  if (config.model) {
+    const explicitModel = config.model as string;
+    if (['haiku', 'sonnet', 'opus', 'opus-4.7', 'inherit'].includes(explicitModel)) {
+      return { model: explicitModel as ClaudeModel, routedBy: 'explicit' };
+    }
+    // #2962 — a non-alias model string (e.g. an Ollama tag like
+    // 'qwen3.6:27b', or any other provider-native model id) is still an
+    // explicit user selection. Route it through the modelId fast-path
+    // (executeAgentTask already prefers agent.modelId over
+    // MODEL_MAP[agent.model] — ADR-149 iter 13) instead of falling through
+    // to task-based routing / agent-type defaults, which silently
+    // substituted 'sonnet' and discarded the user's request.
+    return { model: 'sonnet', routedBy: 'explicit', modelId: explicitModel };
   }
 
   // 2. Enhanced task-based routing with deterministic Tier-1 codemods
@@ -327,6 +338,17 @@ export const agentTools: MCPTool[] = [
         task
       );
 
+      // #2962 — an explicit, unambiguous provider choice in config wins over
+      // the router's own pick. 'anthropic' is deliberately excluded: the CLI's
+      // `agent spawn` action always sets config.provider (defaulting to
+      // 'anthropic' when --provider isn't passed — commands/agent.ts), so
+      // 'anthropic' here is indistinguishable from that silent default.
+      // 'ollama'/'openrouter' are never silently defaulted and are unambiguous.
+      const explicitConfigProvider =
+        config.provider === 'ollama' || config.provider === 'openrouter'
+          ? (config.provider as 'ollama' | 'openrouter')
+          : undefined;
+
       const agent: AgentRecord = {
         agentId,
         agentType,
@@ -339,7 +361,9 @@ export const agentTools: MCPTool[] = [
         model: routingResult.model,
         modelRoutedBy: routingResult.routedBy,
         ...(routingResult.modelId ? { modelId: routingResult.modelId } : {}),
-        ...(routingResult.provider ? { provider: routingResult.provider } : {}),
+        ...(explicitConfigProvider
+          ? { provider: explicitConfigProvider }
+          : routingResult.provider ? { provider: routingResult.provider } : {}),
         ...(routingResult.openrouterModel ? { openrouterModel: routingResult.openrouterModel } : {}),
       };
 
@@ -414,7 +438,11 @@ export const agentTools: MCPTool[] = [
         model: agent.model,
         modelRoutedBy: routingResult.routedBy,
         ...(routingResult.modelId ? { modelId: routingResult.modelId } : {}),
-        ...(routingResult.provider ? { provider: routingResult.provider } : {}),
+        // #2962 — mirror the same precedence used for the stored agent
+        // record, so the response a caller sees matches what was actually
+        // persisted (previously this always reported the router's own
+        // pick, silently dropping an explicit config.provider override).
+        ...(agent.provider ? { provider: agent.provider } : {}),
         ...(routingResult.openrouterModel ? { openrouterModel: routingResult.openrouterModel } : {}),
         status: 'registered',
         createdAt: agent.createdAt,
