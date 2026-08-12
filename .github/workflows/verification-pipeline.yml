@@ -51,7 +51,7 @@ jobs:
           echo "cache-key=${{ env.CACHE_VERSION }}-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Cache dependencies
         uses: actions/cache@v4
@@ -87,7 +87,7 @@ jobs:
           key: ${{ needs.setup-verification.outputs.cache-key }}
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Security audit
         run: |
@@ -140,7 +140,7 @@ jobs:
           key: ${{ needs.setup-verification.outputs.cache-key }}
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: ESLint code analysis
         run: |
@@ -255,7 +255,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Build CLI package
         run: |
@@ -330,7 +330,7 @@ jobs:
       # while `download-artifact@v3` returned a warning; @v4 makes it a
       # hard error and surfaces this as a failure. Build locally instead.
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Build CLI for benchmarks
         run: |

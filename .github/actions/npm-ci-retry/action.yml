@@ -1,0 +1,40 @@
+name: 'npm ci with retry'
+description: >-
+  Runs `npm ci` with retries to absorb transient prebuilt-binary download
+  failures (observed repeatedly as sharp/libvips "socket hang up" / 503
+  errors from GitHub Releases during postinstall — unrelated to the PR's
+  own changes, and not fixed by npm's own package cache since the failing
+  request is a separate direct download, not an npm registry fetch).
+inputs:
+  args:
+    description: 'Extra flags to pass to npm ci'
+    required: false
+    default: '--legacy-peer-deps'
+  attempts:
+    description: 'Number of attempts before failing the step'
+    required: false
+    default: '3'
+  working-directory:
+    description: >-
+      Directory to run npm ci in. NOTE: working-directory on the calling
+      (uses:) step itself has no effect on a composite action's internal
+      run steps — GitHub rejects "working-directory cannot be used with
+      uses" at parse time — so it must be threaded through as an input.
+    required: false
+    default: '.'
+runs:
+  using: 'composite'
+  steps:
+    - shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        n=0
+        max=${{ inputs.attempts }}
+        until [ "$n" -ge "$max" ]; do
+          npm ci ${{ inputs.args }} && exit 0
+          n=$((n + 1))
+          echo "npm ci failed (attempt $n/$max) — retrying in 15s (known transient prebuilt-binary download flake, e.g. sharp/libvips)"
+          [ "$n" -lt "$max" ] && sleep 15
+        done
+        echo "npm ci failed after $max attempts"
+        exit 1
