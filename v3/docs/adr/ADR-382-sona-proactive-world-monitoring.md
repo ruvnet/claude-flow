@@ -3,7 +3,7 @@
 **Status:** Proposed  
 **Authors:** claude (dream-cycle agent, 2026-08-12)  
 **Date:** 2026-08-12  
-**References:** Dream Cycle issue #TBD, VibeLifeBench (Xiaohongshu Inc., arXiv Aug 2026)
+**References:** Dream Cycle issue #2979, VibeLifeBench (Xiaohongshu Inc., arXiv Aug 2026)
 
 ---
 
