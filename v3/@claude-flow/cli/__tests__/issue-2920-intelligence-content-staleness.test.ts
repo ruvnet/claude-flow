@@ -94,4 +94,21 @@ describe('#2920 intelligence: same-ID content edits must not stay cached/unpersi
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it('init() cache-hits right after consolidate() when content is unchanged (consolidate must stamp contentFingerprint too)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'ruflo-2920-consolidate-cache-'));
+    writeStore(root, [{ id: 'sec-1', content: 'STABLE BODY', namespace: 'auto-memory' }]);
+
+    try {
+      // consolidate() is the session-end path and writes graph-state.json
+      // itself (step 6) — it must stamp the same contentFingerprint init()
+      // computes, or every init() immediately after a consolidate misses
+      // the cache and does a full rebuild even though nothing changed.
+      callConsolidate(root);
+      const afterConsolidate = callInit(root);
+      expect(afterConsolidate.message).toBe('Graph cache hit');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });

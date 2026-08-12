@@ -830,11 +830,16 @@ function consolidate() {
     pageRanks = computePageRank(nodes, edges, 0.85, 30);
   }
 
-  // 6. Write updated graph
+  // 6. Write updated graph. #2920 follow-up: include contentFingerprint so
+  // init()'s cache-hit gate (line ~511) doesn't unconditionally miss on the
+  // very next init after a consolidate — without this, nodeCount alone
+  // matched but contentFingerprint was undefined here vs a real hash in
+  // init()'s own write, forcing a full rebuild every time.
   writeJSON(GRAPH_PATH, {
     version: 1,
     updatedAt: Date.now(),
     nodeCount: Object.keys(nodes).length,
+    contentFingerprint: storeFingerprint(store),
     nodes,
     edges,
     pageRanks,
