@@ -1061,7 +1061,9 @@ async function writeMCPConfig(
   // #1779/#2612 — Skip writing if the user already has this MCP server
   // registered elsewhere (parent .mcp.json, ~/.claude.json, etc). The
   // canonical key is `claude-flow` (per #2206 — matches mcp__claude-flow__*
-  // plugin tool refs); a stray `ruflo`-keyed entry pointing at the same
+  // tool refs used throughout the CLI-track scaffold; NOT the marketplace
+  // plugin binding, which is mcp__plugin_<plugin>_<server>__* per plugin —
+  // see #2985); a stray `ruflo`-keyed entry pointing at the same
   // binary is the legacy-duplicate form that #2612 healed. Writing our
   // fresh `claude-flow` entry on top of either variant starts the same
   // binary twice under two tool namespaces. Force-mode (`--force`)

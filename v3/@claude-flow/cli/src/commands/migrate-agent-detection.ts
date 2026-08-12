@@ -133,7 +133,13 @@ export function detectRemovedAgentGaps(
     gaps.push({
       agent: basename,
       plugin,
-      installCommand: `ruflo plugins install ${plugin}`,
+      // #2985: `ruflo plugins install` targets the npm-package plugin system
+      // (PluginManager, IPFS registry) and requires -n/--name, not a
+      // positional — the printed command errored on both counts. The gap
+      // check above reads Claude Code's marketplace registry
+      // (installed_plugins.json), so the fix belongs to that same system:
+      // the Claude Code slash-command plugin install flow.
+      installCommand: `/plugin install ${plugin}@ruflo`,
     });
   }
 
