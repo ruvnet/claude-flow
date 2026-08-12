@@ -800,15 +800,17 @@ export async function addToHNSWIndex(
   embedding: number[],
   entry: HNSWEntry
 ): Promise<boolean> {
-  // ADR-053: Try AgentDB v3 bridge first
+  // ADR-053: Keep the AgentDB bridge and the persistent local HNSW
+  // index in sync. They are separate retrieval surfaces: a successful
+  // bridge insert must not suppress `.swarm/hnsw.index` metadata.
   const bridge = await getBridge();
+  let bridgeIndexed = false;
   if (bridge) {
-    const bridgeResult = await bridge.bridgeAddToHNSW(id, embedding, entry);
-    if (bridgeResult === true) return true;
+    bridgeIndexed = await bridge.bridgeAddToHNSW(id, embedding, entry) === true;
   }
 
   const index = await getHNSWIndex({ dimensions: embedding.length });
-  if (!index) return false;
+  if (!index) return bridgeIndexed;
 
   try {
     const vector = new Float32Array(embedding);
@@ -822,7 +824,7 @@ export async function addToHNSWIndex(
     saveHNSWMetadata();
     return true;
   } catch {
-    return false;
+    return bridgeIndexed;
   }
 }
 
