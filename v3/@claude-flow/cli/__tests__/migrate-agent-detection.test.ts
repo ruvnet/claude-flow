@@ -57,7 +57,10 @@ describe('detectRemovedAgentGaps', () => {
       [...REMOVED_AGENTS.map(a => a.basename)].sort()
     );
     for (const gap of gaps) {
-      expect(gap.installCommand).toBe(`ruflo plugins install ${gap.plugin}`);
+      // #2985: must be the Claude Code marketplace command — `ruflo plugins
+      // install` targets the npm-package plugin system and cannot install
+      // these marketplace plugins.
+      expect(gap.installCommand).toBe(`/plugin install ${gap.plugin}@ruflo`);
     }
   });
 

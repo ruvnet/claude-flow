@@ -133,7 +133,11 @@ export function detectRemovedAgentGaps(
     gaps.push({
       agent: basename,
       plugin,
-      installCommand: `ruflo plugins install ${plugin}`,
+      // #2985: these are Claude Code *marketplace* plugins. `ruflo plugins
+      // install` targets a different system (the npm-package PluginManager —
+      // see the module header) and cannot install them; the marketplace
+      // command below is the one that satisfies the registry check above.
+      installCommand: `/plugin install ${plugin}@ruflo`,
     });
   }
 
