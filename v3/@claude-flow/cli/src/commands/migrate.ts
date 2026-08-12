@@ -188,9 +188,6 @@ const statusCommand: Command = {
       output.printInfo(
         `${removedAgentGaps.length} agent(s) removed by ADR-128 are missing from .claude/agents/ and not covered by an installed plugin.`
       );
-      output.writeln(
-        output.dim('  First time installing a marketplace plugin? Run "/plugin marketplace add ruvnet/ruflo" once, then the install command(s) above.')
-      );
     }
 
     return { success: true, data: { components, needsMigration, removedAgentGaps } };

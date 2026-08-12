@@ -57,12 +57,7 @@ describe('detectRemovedAgentGaps', () => {
       [...REMOVED_AGENTS.map(a => a.basename)].sort()
     );
     for (const gap of gaps) {
-      // #2985: the old `ruflo plugins install <plugin>` suggestion targeted
-      // the npm-package plugin system and required -n/--name, not a
-      // positional — it errored on both counts. The correct fix is the
-      // Claude Code marketplace slash-command flow this detector's own
-      // registry check (installed_plugins.json) actually belongs to.
-      expect(gap.installCommand).toBe(`/plugin install ${gap.plugin}@ruflo`);
+      expect(gap.installCommand).toBe(`ruflo plugins install ${gap.plugin}`);
     }
   });
 
