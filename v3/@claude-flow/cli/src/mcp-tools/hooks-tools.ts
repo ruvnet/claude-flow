@@ -1515,25 +1515,35 @@ export const hooksPostTask: MCPTool = {
       // Intelligence module not available — non-fatal
     }
 
-    // ADR-130 Phase 3: fire-and-forget "reinforced-by" edge on task success
+    // ADR-130 Phase 3: "reinforced-by" edge on task success.
     // Writes: context node → task pattern node (relation: "reinforced-by")
+    //
+    // #2961 — this used to be fire-and-forget (no `await` on the IIFE). That
+    // was invisible from the long-running MCP server, where the process
+    // stays alive long enough for the detached write to finish in the
+    // background. But `hooks post-task` (CLI) is the exact same handler
+    // invoked from a one-shot process that calls `process.exit(0)`
+    // immediately after this action resolves (bin/cli.js, #1552) — the
+    // still-pending dynamic `import(...)` + `insertGraphEdge()` call was
+    // killed before its first tick, so the CLI form dropped this edge on
+    // every single success, not intermittently. Await it — this is a
+    // single fast DB write, not worth losing correctness on one call site
+    // to save latency on the other.
     if (success) {
-      (async () => {
-        try {
-          const { insertGraphEdge } = await import('../memory/graph-edge-writer.js');
-          const sessionCtxId = `task:${taskId}`;
-          const patternId = `pattern:${taskId}`;
-          await insertGraphEdge({
-            sourceId: sessionCtxId,
-            targetId: patternId,
-            relation: 'reinforced-by',
-            weight: quality,
-            confidence: quality,
-            lastReinforced: new Date().toISOString(),
-            metadata: { success, agent, taskId },
-          });
-        } catch { /* non-fatal */ }
-      })().catch(() => {});
+      try {
+        const { insertGraphEdge } = await import('../memory/graph-edge-writer.js');
+        const sessionCtxId = `task:${taskId}`;
+        const patternId = `pattern:${taskId}`;
+        await insertGraphEdge({
+          sourceId: sessionCtxId,
+          targetId: patternId,
+          relation: 'reinforced-by',
+          weight: quality,
+          confidence: quality,
+          lastReinforced: new Date().toISOString(),
+          metadata: { success, agent, taskId },
+        });
+      } catch { /* non-fatal */ }
     }
 
     // Persist routing outcome for runtime learning (file-based, always reliable)
