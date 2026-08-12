@@ -192,7 +192,14 @@ const scanCommand: Command = {
       if (scanType === 'all' || scanType === 'code') {
         spinner.setText('Scanning for hardcoded secrets...');
         const secretPatterns = [
-          { pattern: /['"](?:sk-|sk_live_|sk_test_)[a-zA-Z0-9]{20,}['"]/g, type: 'API Key (Stripe/OpenAI)' },
+          // #2931: was `['"](?:sk-|...)...{20,}['"]` — the 20-char floor
+          // missed shorter-but-real keys like `sk-1234567890abcdef` (16
+          // chars), and the quote-adjacency anchor required a quote
+          // literally next to the prefix, missing the extremely common
+          // `Authorization: "Bearer sk_live_..."` shape where the quote
+          // sits next to "Bearer", not the key. Lookaround boundaries
+          // match the prefix wherever it appears as a standalone token.
+          { pattern: /(?<![a-zA-Z0-9_])(?:sk-|sk_live_|sk_test_)[a-zA-Z0-9]{10,}(?![a-zA-Z0-9_])/g, type: 'API Key (Stripe/OpenAI)' },
           { pattern: /['"]AKIA[A-Z0-9]{16}['"]/g, type: 'AWS Access Key' },
           { pattern: /['"]ghp_[a-zA-Z0-9]{36}['"]/g, type: 'GitHub Token' },
           { pattern: /['"]xox[baprs]-[a-zA-Z0-9-]+['"]/g, type: 'Slack Token' },
@@ -834,7 +841,7 @@ const secretsCommand: Command = {
       { pattern: /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, type: 'JWT Token', risk: 'High', action: 'Remove from source' },
       { pattern: /-----BEGIN (?:RSA|EC|DSA|OPENSSH) PRIVATE KEY-----/g, type: 'Private Key', risk: 'Critical', action: 'Remove and regenerate' },
       { pattern: /(?:mongodb|postgres|mysql|redis):\/\/[^\s'"]+/g, type: 'Connection String', risk: 'High', action: 'Use env variable' },
-      { pattern: /['"](?:sk-|sk_live_|sk_test_)[a-zA-Z0-9]{20,}['"]/g, type: 'API Key (Stripe/OpenAI)', risk: 'Critical', action: 'Rotate immediately' },
+      { pattern: /(?<![a-zA-Z0-9_])(?:sk-|sk_live_|sk_test_)[a-zA-Z0-9]{10,}(?![a-zA-Z0-9_])/g, type: 'API Key (Stripe/OpenAI)', risk: 'Critical', action: 'Rotate immediately' },
       { pattern: /['"]xox[baprs]-[a-zA-Z0-9-]+['"]/g, type: 'Slack Token', risk: 'High', action: 'Revoke and rotate' },
       { pattern: /[a-zA-Z0-9_-]*(?:api[_-]?key|secret[_-]?key|auth[_-]?token|access[_-]?token|private[_-]?key)\s*[:=]\s*['"][^'"]{8,}['"]/gi, type: 'Generic Secret/API Key', risk: 'High', action: 'Use env variable' },
       { pattern: /(?:password|passwd|pwd)\s*[:=]\s*['"][^'"]{8,}['"]/gi, type: 'Hardcoded Password', risk: 'High', action: 'Use secrets manager' },
