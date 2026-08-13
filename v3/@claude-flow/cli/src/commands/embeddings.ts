@@ -313,7 +313,7 @@ const searchCommand: Command = {
           output.printError(
             `Query embedded with the hash fallback, stored vectors with ${storedModels.join(', ') || 'a real model'} — the scores are meaningless, not empty.`
           );
-          output.printInfo('The embedding model failed to load. Check: claude-flow embeddings status');
+          output.printInfo('The query embedder degraded to the hash fallback for this run. Check: claude-flow embeddings status');
           return { success: false, exitCode: 1 };
         }
         output.printWarning('No matches found');
