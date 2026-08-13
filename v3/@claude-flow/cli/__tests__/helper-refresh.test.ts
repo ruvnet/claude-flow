@@ -19,13 +19,18 @@
  * when it does.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { generateKeyPairSync, sign as edSign } from 'node:crypto';
 import * as semver from 'semver';
 
-import { autoRefreshHelpersIfStale, getInstalledCliVersion, HELPERS_STAMP_FILE } from '../src/init/helper-refresh.js';
+import {
+  autoRefreshHelpersIfStale,
+  getInstalledCliVersion,
+  HELPERS_REFRESH_LOCK_FILE,
+  HELPERS_STAMP_FILE,
+} from '../src/init/helper-refresh.js';
 import { canonicalManifestBytes, sha256Hex } from '../src/init/helper-signing.js';
 
 function makeProject(): { cwd: string; helpersDir: string } {
@@ -41,9 +46,11 @@ function makeProject(): { cwd: string; helpersDir: string } {
  * manifest for it. Returns the source dir and the matching public key PEM
  * to inject via `pubkeyPemOverride`.
  */
-function makeSignedSource(version: string): { sourceDir: string; pubkeyPem: string } {
+function makeSignedSource(
+  version: string,
+  content = 'intelligence.feedback(!toolFailed); // NEW, real failure capture\n',
+): { sourceDir: string; pubkeyPem: string } {
   const sourceDir = mkdtempSync(join(tmpdir(), 'helper-refresh-source-'));
-  const content = 'intelligence.feedback(!toolFailed); // NEW, real failure capture\n';
   writeFileSync(join(sourceDir, 'hook-handler.cjs'), content);
 
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
@@ -55,6 +62,18 @@ function makeSignedSource(version: string): { sourceDir: string; pubkeyPem: stri
   );
 
   return { sourceDir, pubkeyPem: publicKey.export({ type: 'spki', format: 'pem' }).toString() };
+}
+
+function makeWriteGate(): {
+  reached: Promise<void>;
+  release: () => void;
+  beforeWrite: () => Promise<void>;
+} {
+  let signalReached!: () => void;
+  const reached = new Promise<void>((resolve) => { signalReached = resolve; });
+  let release!: () => void;
+  const mayWrite = new Promise<void>((resolve) => { release = resolve; });
+  return { reached, release, beforeWrite: async () => { signalReached(); await mayWrite; } };
 }
 
 describe('autoRefreshHelpersIfStale', () => {
@@ -228,5 +247,105 @@ describe('autoRefreshHelpersIfStale', () => {
     const r = await autoRefreshHelpersIfStale(cwd);
     expect(r.refreshed).toBe(false);
     expect(readFileSync(join(helpersDir, 'hook-handler.cjs'), 'utf-8')).toBe(marker);
+  });
+
+  it.each([
+    ['older checks first', '2.0.0', 'OLDER-HANDLER', '3.0.0', 'NEWER-HANDLER'],
+    ['newer checks first', '3.0.0', 'NEWER-HANDLER', '2.0.0', 'OLDER-HANDLER'],
+  ])('serializes competing refreshes when %s', async (_label, firstVersion, firstContent, secondVersion, secondContent) => {
+    const { cwd, helpersDir } = makeProject();
+    writeFileSync(join(helpersDir, 'hook-handler.cjs'), 'INITIAL-HANDLER');
+    writeFileSync(join(helpersDir, HELPERS_STAMP_FILE), '1.0.0');
+    const first = makeSignedSource(firstVersion, firstContent);
+    const second = makeSignedSource(secondVersion, secondContent);
+    const gate = makeWriteGate();
+
+    const firstRefresh = autoRefreshHelpersIfStale(cwd, {
+      sourceDirOverride: first.sourceDir,
+      pubkeyPemOverride: first.pubkeyPem,
+      versionOverride: firstVersion,
+      beforeWriteOverride: gate.beforeWrite,
+    });
+    await gate.reached;
+    const secondRefresh = autoRefreshHelpersIfStale(cwd, {
+      sourceDirOverride: second.sourceDir,
+      pubkeyPemOverride: second.pubkeyPem,
+      versionOverride: secondVersion,
+    });
+    gate.release();
+    await Promise.all([firstRefresh, secondRefresh]);
+
+    expect(readFileSync(join(helpersDir, HELPERS_STAMP_FILE), 'utf-8').trim()).toBe('3.0.0');
+    expect(readFileSync(join(helpersDir, 'hook-handler.cjs'), 'utf-8')).toBe('NEWER-HANDLER');
+    expect(readdirSync(helpersDir).filter((name) => name.includes('.tmp-'))).toEqual([]);
+  });
+
+  it('does not let a same-version waiter replace the completed helper set', async () => {
+    const { cwd, helpersDir } = makeProject();
+    writeFileSync(join(helpersDir, 'hook-handler.cjs'), 'INITIAL-HANDLER');
+    writeFileSync(join(helpersDir, HELPERS_STAMP_FILE), '1.0.0');
+    const first = makeSignedSource('2.0.0', 'FIRST-SAME-VERSION-HANDLER');
+    const second = makeSignedSource('2.0.0', 'SECOND-SAME-VERSION-HANDLER');
+
+    const gate = makeWriteGate();
+    const firstRefresh = autoRefreshHelpersIfStale(cwd, {
+      sourceDirOverride: first.sourceDir,
+      pubkeyPemOverride: first.pubkeyPem,
+      versionOverride: '2.0.0',
+      beforeWriteOverride: gate.beforeWrite,
+    });
+    await gate.reached;
+
+    const secondRefresh = autoRefreshHelpersIfStale(cwd, {
+      sourceDirOverride: second.sourceDir,
+      pubkeyPemOverride: second.pubkeyPem,
+      versionOverride: '2.0.0',
+    });
+    gate.release();
+    const [, secondResult] = await Promise.all([firstRefresh, secondRefresh]);
+
+    expect(secondResult.refreshed).toBe(false);
+    expect(readFileSync(join(helpersDir, 'hook-handler.cjs'), 'utf-8')).toBe('FIRST-SAME-VERSION-HANDLER');
+  });
+
+  it('fails closed while another live process owns the refresh lock', async () => {
+    const { cwd, helpersDir } = makeProject();
+    const marker = 'LIVE-LOCK-HANDLER';
+    writeFileSync(join(helpersDir, 'hook-handler.cjs'), marker);
+    writeFileSync(join(helpersDir, HELPERS_STAMP_FILE), '1.0.0');
+    const lockPath = join(helpersDir, HELPERS_REFRESH_LOCK_FILE);
+    writeFileSync(lockPath, JSON.stringify({ pid: process.pid, token: 'test-owner' }));
+
+    try {
+      const r = await autoRefreshHelpersIfStale(cwd, {
+        versionOverride: '2.0.0',
+        lockWaitMsOverride: 0,
+      });
+      expect(r.refreshed).toBe(false);
+      expect(r.blocked).toMatch(/already in progress/);
+      expect(readFileSync(join(helpersDir, 'hook-handler.cjs'), 'utf-8')).toBe(marker);
+    } finally {
+      unlinkSync(lockPath);
+    }
+  });
+
+  it('recovers an abandoned lock created before owner metadata was written', async () => {
+    const { cwd, helpersDir } = makeProject();
+    writeFileSync(join(helpersDir, 'hook-handler.cjs'), 'INITIAL-HANDLER');
+    writeFileSync(join(helpersDir, HELPERS_STAMP_FILE), '1.0.0');
+    const lockPath = join(helpersDir, HELPERS_REFRESH_LOCK_FILE);
+    writeFileSync(lockPath, '');
+    const source = makeSignedSource('2.0.0', 'RECOVERED-HANDLER');
+
+    const r = await autoRefreshHelpersIfStale(cwd, {
+      sourceDirOverride: source.sourceDir,
+      pubkeyPemOverride: source.pubkeyPem,
+      versionOverride: '2.0.0',
+      malformedLockStaleMsOverride: 0,
+    });
+
+    expect(r.refreshed).toBe(true);
+    expect(readFileSync(join(helpersDir, 'hook-handler.cjs'), 'utf-8')).toBe('RECOVERED-HANDLER');
+    expect(existsSync(lockPath)).toBe(false);
   });
 });

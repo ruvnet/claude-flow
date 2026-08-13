@@ -55,6 +55,22 @@ function findPackageRoot(startDir: string, maxUp = 6): string | null {
 }
 
 export const HELPERS_STAMP_FILE = '.helpers-version';
+export const HELPERS_REFRESH_LOCK_FILE = '.helpers-refresh.lock';
+const DEFAULT_LOCK_WAIT_MS = 2_000;
+const DEFAULT_LOCK_RETRY_MS = 10;
+const DEFAULT_MALFORMED_LOCK_STALE_MS = 5 * 60_000;
+let tempFileCounter = 0;
+interface RefreshOptions {
+  sourceDirOverride?: string;
+  pubkeyPemOverride?: string;
+  versionOverride?: string;
+  alsoRefreshGlobal?: boolean;
+  beforeWriteOverride?: () => void | Promise<void>;
+  lockWaitMsOverride?: number;
+  lockRetryMsOverride?: number;
+  malformedLockStaleMsOverride?: number;
+}
+
 /**
  * ruflo-owned helpers that carry hook logic (or the render surface for the
  * funnel disclosure row) and must track the package version. Adding to this
@@ -69,6 +85,119 @@ export const CRITICAL_HELPERS = [
   // existing installs on the next `ruflo` command, not only fresh `ruflo init`.
   'statusline.cjs',
 ];
+
+function errorCode(error: unknown): string | undefined {
+  return typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code?: unknown }).code)
+    : undefined;
+}
+
+function processIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return errorCode(error) !== 'ESRCH';
+  }
+}
+
+function removeAbandonedLock(lockPath: string, malformedStaleMs: number): boolean {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(lockPath, 'utf-8')) as { pid?: unknown };
+    if (Number.isSafeInteger(parsed.pid) && Number(parsed.pid) > 0) {
+      if (processIsAlive(Number(parsed.pid))) return false;
+      fs.unlinkSync(lockPath);
+      return true;
+    }
+  } catch (error) {
+    if (errorCode(error) === 'ENOENT') return true;
+  }
+
+  // A process can die after the exclusive create but before writing metadata.
+  // Only reclaim such malformed locks after a generous age; valid locks with a
+  // live PID are never age-evicted, so a slow refresh cannot lose ownership.
+  try {
+    if (Date.now() - fs.statSync(lockPath).mtimeMs >= malformedStaleMs) {
+      fs.unlinkSync(lockPath);
+      return true;
+    }
+  } catch (error) {
+    if (errorCode(error) === 'ENOENT') return true;
+  }
+  return false;
+}
+
+async function acquireRefreshLock(
+  helpersDir: string,
+  opts: RefreshOptions,
+): Promise<(() => void) | null> {
+  const lockPath = path.join(helpersDir, HELPERS_REFRESH_LOCK_FILE);
+  const waitMs = opts.lockWaitMsOverride ?? DEFAULT_LOCK_WAIT_MS;
+  const retryMs = opts.lockRetryMsOverride ?? DEFAULT_LOCK_RETRY_MS;
+  const malformedStaleMs = opts.malformedLockStaleMsOverride ?? DEFAULT_MALFORMED_LOCK_STALE_MS;
+  const deadline = Date.now() + Math.max(0, waitMs);
+
+  while (true) {
+    const token = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    let fd: number | undefined;
+    let created = false;
+    try {
+      fd = fs.openSync(lockPath, 'wx');
+      created = true;
+      fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, token }), 'utf-8');
+      fs.closeSync(fd);
+      fd = undefined;
+      return () => {
+        try {
+          const current = JSON.parse(fs.readFileSync(lockPath, 'utf-8')) as { token?: unknown };
+          if (current.token === token) fs.unlinkSync(lockPath);
+        } catch { /* best-effort release; a replaced lock is never removed */ }
+      };
+    } catch (error) {
+      if (fd !== undefined) {
+        try { fs.closeSync(fd); } catch { /* best-effort */ }
+      }
+      if (created) {
+        try { fs.unlinkSync(lockPath); } catch { /* best-effort */ }
+      }
+      if (errorCode(error) !== 'EEXIST') throw error;
+      if (removeAbandonedLock(lockPath, malformedStaleMs)) continue;
+      if (Date.now() >= deadline) return null;
+      await new Promise<void>((resolve) => setTimeout(resolve, Math.max(1, retryMs)));
+    }
+  }
+}
+
+function temporarySiblingPath(target: string): string {
+  tempFileCounter += 1;
+  return `${target}.tmp-${process.pid}-${Date.now()}-${tempFileCounter}`;
+}
+
+function atomicCopyFileSync(source: string, target: string, mode?: string): void {
+  const temporary = temporarySiblingPath(target);
+  try {
+    fs.copyFileSync(source, temporary, fs.constants.COPYFILE_EXCL);
+    if (mode) {
+      try { fs.chmodSync(temporary, mode); } catch { /* non-fatal */ }
+    }
+    fs.renameSync(temporary, target);
+  } finally {
+    try { fs.unlinkSync(temporary); } catch { /* already renamed or never created */ }
+  }
+}
+
+function atomicWriteFileSync(target: string, content: string, mode?: string): void {
+  const temporary = temporarySiblingPath(target);
+  try {
+    fs.writeFileSync(temporary, content, { encoding: 'utf-8', flag: 'wx' });
+    if (mode) {
+      try { fs.chmodSync(temporary, mode); } catch { /* non-fatal */ }
+    }
+    fs.renameSync(temporary, target);
+  } finally {
+    try { fs.unlinkSync(temporary); } catch { /* already renamed or never created */ }
+  }
+}
 
 /** Installed @claude-flow/cli version — the value the helpers are stamped with. */
 export function getInstalledCliVersion(): string {
@@ -149,13 +278,17 @@ async function writeCriticalHelpers(
     let wrote = false;
     for (const name of toCopy) {
       const tp = path.join(helpersDir, name);
-      fs.copyFileSync(path.join(source, name), tp);
-      try { fs.chmodSync(tp, '755'); } catch { /* non-fatal */ }
+      atomicCopyFileSync(path.join(source, name), tp, '755');
       wrote = true;
     }
-    try { fs.copyFileSync(path.join(source, HELPERS_MANIFEST_FILE), path.join(helpersDir, HELPERS_MANIFEST_FILE)); } catch { /* non-fatal */ }
+    try {
+      atomicCopyFileSync(
+        path.join(source, HELPERS_MANIFEST_FILE),
+        path.join(helpersDir, HELPERS_MANIFEST_FILE),
+      );
+    } catch { /* non-fatal */ }
     if (wrote) {
-      try { fs.writeFileSync(path.join(helpersDir, HELPERS_STAMP_FILE), version, 'utf-8'); } catch { /* non-fatal */ }
+      try { atomicWriteFileSync(path.join(helpersDir, HELPERS_STAMP_FILE), version); } catch { /* non-fatal */ }
     }
     return { wrote };
   }
@@ -180,12 +313,11 @@ async function writeCriticalHelpers(
   let wrote = false;
   for (const [name, content] of Object.entries(files)) {
     const tp = path.join(helpersDir, name);
-    fs.writeFileSync(tp, content, 'utf-8');
-    try { fs.chmodSync(tp, '755'); } catch { /* non-fatal */ }
+    atomicWriteFileSync(tp, content, '755');
     wrote = true;
   }
   if (wrote) {
-    try { fs.writeFileSync(path.join(helpersDir, HELPERS_STAMP_FILE), version, 'utf-8'); } catch { /* non-fatal */ }
+    try { atomicWriteFileSync(path.join(helpersDir, HELPERS_STAMP_FILE), version); } catch { /* non-fatal */ }
   }
   return { wrote };
 }
@@ -204,9 +336,9 @@ async function writeCriticalHelpers(
  * running `daemon start` (or any command) against THIS project directory
  * would see its own older version != the project's newer stamp and silently
  * overwrite hand-fixed `hook-handler.cjs`/`intelligence.cjs` with its own
- * older, already-superseded bundled copies. Comparing with `semver.gt`
- * instead of `!==` makes that impossible: an older or equal installed
- * version is always a no-op, regardless of how it got invoked.
+ * older, already-superseded bundled copies. The semver guard is therefore
+ * re-evaluated while holding a per-directory cross-process lock; otherwise
+ * an older process can pass the guard first but finish writing last.
  *
  * `opts` exists for tests ONLY (mirrors daemon-autostart.ts's injectable
  * `SpawnDaemonFn` pattern): the real signed-copy path is otherwise coupled to
@@ -219,10 +351,10 @@ async function writeCriticalHelpers(
  * signed fixture and get real, deterministic coverage of the verify → hash →
  * copy logic without depending on that.
  */
-async function refreshOneHelpersDir(
+async function refreshOneHelpersDirLocked(
   helpersDir: string,
   version: string,
-  opts: { sourceDirOverride?: string; pubkeyPemOverride?: string },
+  opts: RefreshOptions,
 ): Promise<{ refreshed: boolean; from?: string; to?: string; blocked?: string }> {
   if (!fs.existsSync(path.join(helpersDir, 'hook-handler.cjs'))) return { refreshed: false };
 
@@ -247,12 +379,34 @@ async function refreshOneHelpersDir(
     // would silently DOWNGRADE the helpers. Skip, untouched.
     return { refreshed: false };
   }
+  await opts.beforeWriteOverride?.();
   const res = await writeCriticalHelpers(helpersDir, version, {
     sourceDirOverride: opts.sourceDirOverride,
     pubkeyPemOverride: opts.pubkeyPemOverride,
   });
   if (res.blocked) return { refreshed: false, blocked: res.blocked };
   return res.wrote ? { refreshed: true, from: stamped || '(unstamped)', to: version } : { refreshed: false };
+}
+
+async function refreshOneHelpersDir(
+  helpersDir: string,
+  version: string,
+  opts: RefreshOptions,
+): Promise<{ refreshed: boolean; from?: string; to?: string; blocked?: string }> {
+  if (!fs.existsSync(path.join(helpersDir, 'hook-handler.cjs'))) return { refreshed: false };
+  try { if (fs.readFileSync(path.join(helpersDir, HELPERS_STAMP_FILE), 'utf-8').trim() === version) return { refreshed: false }; }
+  catch { /* unstamped: continue to the locked path */ }
+
+  const releaseLock = await acquireRefreshLock(helpersDir, opts);
+  if (!releaseLock) return { refreshed: false, blocked: 'helper refresh already in progress' };
+
+  try {
+    // Re-read the stamp and .LOCKED marker under the cross-process lock. A
+    // concurrent newer CLI may have completed while this caller waited.
+    return await refreshOneHelpersDirLocked(helpersDir, version, opts);
+  } finally {
+    releaseLock();
+  }
 }
 
 /**
@@ -287,9 +441,9 @@ async function refreshOneHelpersDir(
  * running `daemon start` (or any command) would see its own older version !=
  * the project's newer stamp and silently overwrite hand-fixed
  * `hook-handler.cjs`/`intelligence.cjs` with its own older, already-superseded
- * bundled copies. Comparing with `semver.gt` instead of `!==` makes that
- * impossible: an older or equal installed version is always a no-op,
- * regardless of how it got invoked.
+ * bundled copies. The semver guard is therefore re-evaluated while holding a
+ * per-directory cross-process lock; otherwise an older process can pass the
+ * guard first but finish writing last.
  *
  * `opts` exists for tests ONLY (mirrors daemon-autostart.ts's injectable
  * `SpawnDaemonFn` pattern): the real signed-copy path is otherwise coupled
@@ -308,12 +462,7 @@ async function refreshOneHelpersDir(
  */
 export async function autoRefreshHelpersIfStale(
   cwd: string,
-  opts: {
-    sourceDirOverride?: string;
-    pubkeyPemOverride?: string;
-    versionOverride?: string;
-    alsoRefreshGlobal?: boolean;
-  } = {},
+  opts: RefreshOptions = {},
 ): Promise<{
   refreshed: boolean;
   from?: string;
