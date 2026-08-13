@@ -120,6 +120,16 @@ function loadAllAgents(): Record<string, AgentRecord> {
   return { ...loadHiveAgents(), ...loadAgentStore().agents };
 }
 
+/**
+ * Every agent id `agent_list` would show — the canonical store plus
+ * hive-mind workers. Exported so other tools can check an id against the
+ * same view the user sees; `task_assign` used to see only the canonical
+ * store, which would have made hive-mind workers unassignable.
+ */
+export function knownAgentIds(): Set<string> {
+  return new Set(Object.keys(loadAllAgents()));
+}
+
 // Default model mappings for agent types (can be overridden)
 const AGENT_TYPE_MODEL_DEFAULTS: Record<string, ClaudeModel> = {
   // Complex agents → opus

@@ -8,6 +8,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateIdentifier, validateText } from './validate-input.js';
+import { knownAgentIds } from './agent-tools.js';
 
 // Storage paths
 const STORAGE_DIR = '.claude-flow';
@@ -371,10 +372,28 @@ export const taskTools: MCPTool[] = [
       const task = store.tasks[taskId];
 
       if (!task) {
-        return { taskId, error: 'Task not found' };
+        return { success: false, taskId, error: 'Task not found' };
       }
 
       const previouslyAssigned = [...task.assignedTo];
+
+      // An id that matches no agent used to be written to `assignedTo`
+      // verbatim: `task list` then showed the task as in_progress, owned by an
+      // agent that does not exist and will never report. Nothing downstream
+      // rechecks the id, so this is the only place the phantom can be caught.
+      if (!input.unassign) {
+        const requested = (input.agentIds as string[]) || [];
+        const known = knownAgentIds();
+        const unknown = requested.filter(id => !known.has(id));
+        if (unknown.length > 0) {
+          return {
+            success: false,
+            taskId,
+            error: `Unknown agent${unknown.length > 1 ? 's' : ''}: ${unknown.join(', ')}. Spawn the agent first (agent_spawn) or use agent_list to see available ids.`,
+            unknownAgents: unknown,
+          };
+        }
+      }
 
       // Load agent store to sync worker state
       const agentStorePath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');

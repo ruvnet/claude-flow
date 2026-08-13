@@ -135,7 +135,11 @@ const searchCommand: Command = {
     const threshold = rawThreshold === undefined || rawThreshold === null
       ? 0.5
       : parseFloat(String(rawThreshold));
-    const dbPath = ctx.flags['db-path'] as string || '.swarm/memory.db';
+    // The parser normalises `--db-path` to the camelCase key `dbPath`, so the
+    // kebab read alone always missed and every search silently fell back to
+    // `./.swarm/memory.db` — an empty project-local store for any caller that
+    // pointed the flag at the real database. Read both spellings.
+    const dbPath = (ctx.flags.dbPath ?? ctx.flags['db-path']) as string || '.swarm/memory.db';
 
     if (!query) {
       output.printError('Query is required');
@@ -176,14 +180,29 @@ const searchCommand: Command = {
       const queryResult = await generateEmbedding(query);
       const queryEmbedding = queryResult.embedding;
 
+      // sql.js reads the main database file and cannot see a WAL. On a
+      // WAL-mode store every recent write is invisible here, and the search
+      // reports "No matches found" for data that is demonstrably present.
+      // Say which it is instead of implying the store is empty.
+      const walPath = `${fullDbPath}-wal`;
+      const walBytes = fs.existsSync(walPath) ? fs.statSync(walPath).size : 0;
+      if (walBytes > 0) {
+        spinner.stop();
+        output.printWarning(
+          `${(walBytes / 1024).toFixed(0)} KB of uncheckpointed WAL next to this database is invisible to this reader — results below cover only checkpointed rows.`
+        );
+        output.printInfo(`Checkpoint first: sqlite3 "${fullDbPath}" "PRAGMA wal_checkpoint(TRUNCATE);"`);
+        spinner.start();
+      }
+
       // Get all entries with embeddings from database
       // Parameterized query to prevent SQL injection (CRIT-01)
       const embeddingSql = namespace !== 'all'
-        ? `SELECT id, key, namespace, content, embedding, embedding_dimensions
+        ? `SELECT id, key, namespace, content, embedding, embedding_dimensions, embedding_model
            FROM memory_entries
            WHERE status = 'active' AND embedding IS NOT NULL AND namespace = ?
            LIMIT 1000`
-        : `SELECT id, key, namespace, content, embedding, embedding_dimensions
+        : `SELECT id, key, namespace, content, embedding, embedding_dimensions, embedding_model
            FROM memory_entries
            WHERE status = 'active' AND embedding IS NOT NULL
            LIMIT 1000`;
@@ -283,6 +302,20 @@ const searchCommand: Command = {
 
       if (topResults.length === 0) {
         output.writeln();
+        // A hash-fallback query vector carries no semantics (backend 'mock'),
+        // so it scores ~0 against rows embedded with a real model no matter
+        // how well they match. Reporting that as "no matches" blames the data
+        // for a broken embedder — name the mismatch instead.
+        const storedModels = [...new Set(entryRows
+          .map(r => (r as unknown[])[6])
+          .filter((m): m is string => typeof m === 'string' && m.length > 0))];
+        if (queryResult.model === 'hash-fallback' && entryRows.length > 0) {
+          output.printError(
+            `Query embedded with the hash fallback, stored vectors with ${storedModels.join(', ') || 'a real model'} — the scores are meaningless, not empty.`
+          );
+          output.printInfo('The embedding model failed to load. Check: claude-flow embeddings status');
+          return { success: false, exitCode: 1 };
+        }
         output.printWarning('No matches found');
         output.printInfo(`Try: claude-flow memory store -k "key" --value "your data"`);
         return { success: true, data: [] };
@@ -449,7 +482,8 @@ const collectionsCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const action = ctx.flags.action as string || 'list';
-    const dbPath = ctx.flags['db-path'] as string || '.swarm/memory.db';
+    // Same normalisation as `embeddings search` — see the note there.
+    const dbPath = (ctx.flags.dbPath ?? ctx.flags['db-path']) as string || '.swarm/memory.db';
 
     output.writeln();
     output.writeln(output.bold('Embedding Collections (Namespaces)'));
@@ -1376,7 +1410,8 @@ const cacheCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const action = ctx.flags.action as string || 'stats';
-    const dbPath = ctx.flags['db-path'] as string || '.cache/embeddings.db';
+    // Same normalisation as `embeddings search` — see the note there.
+    const dbPath = (ctx.flags.dbPath ?? ctx.flags['db-path']) as string || '.cache/embeddings.db';
 
     output.writeln();
     output.writeln(output.bold('Embedding Cache'));

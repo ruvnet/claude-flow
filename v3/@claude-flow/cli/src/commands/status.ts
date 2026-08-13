@@ -644,20 +644,26 @@ const memoryCommand: Command = {
   description: 'Show detailed memory status',
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
+      // #2735-adjacent: `memory_detailed-stats` reports only what it measured.
+      // `v3Gains` is absent whenever the v3-vs-v2 comparison did not run, and
+      // `performance` is absent on a backend that tracks no timings — so both
+      // are optional here. Dereferencing them unconditionally turned a healthy
+      // store into `Unexpected error: TypeError … reading 'searchImprovement'`
+      // with exit 1, printed *after* half the report had already rendered.
       const result = await callMCPTool<{
         backend: string;
         entries: number;
         size: number;
         namespaces: Array<{ name: string; entries: number }>;
-        performance: {
-          avgSearchTime: number;
-          avgWriteTime: number;
-          cacheHitRate: number;
-          hnswEnabled: boolean;
+        performance?: {
+          avgSearchTime?: number;
+          avgWriteTime?: number;
+          cacheHitRate?: number;
+          hnswEnabled?: boolean;
         };
-        v3Gains: {
-          searchImprovement: string;
-          memoryReduction: string;
+        v3Gains?: {
+          searchImprovement?: string;
+          memoryReduction?: string;
         };
       }>('memory_detailed-stats', {});
 
@@ -679,9 +685,12 @@ const memoryCommand: Command = {
           { property: 'Backend', value: result.backend },
           { property: 'Total Entries', value: result.entries.toLocaleString() },
           { property: 'Storage Size', value: formatBytes(result.size) },
-          { property: 'HNSW Index', value: result.performance.hnswEnabled ? 'Enabled' : 'Disabled' }
+          { property: 'HNSW Index', value: result.performance?.hnswEnabled ? 'Enabled' : 'Disabled' }
         ]
       });
+
+      const ms = (v?: number): string => (typeof v === 'number' ? `${v.toFixed(2)}ms` : 'not measured');
+      const pct = (v?: number): string => (typeof v === 'number' ? `${(v * 100).toFixed(1)}%` : 'not measured');
 
       output.writeln();
       output.writeln(output.bold('Performance'));
@@ -691,18 +700,24 @@ const memoryCommand: Command = {
           { key: 'value', header: 'Value', width: 20, align: 'right' }
         ],
         data: [
-          { metric: 'Avg Search Time', value: `${result.performance.avgSearchTime.toFixed(2)}ms` },
-          { metric: 'Avg Write Time', value: `${result.performance.avgWriteTime.toFixed(2)}ms` },
-          { metric: 'Cache Hit Rate', value: `${(result.performance.cacheHitRate * 100).toFixed(1)}%` }
+          { metric: 'Avg Search Time', value: ms(result.performance?.avgSearchTime) },
+          { metric: 'Avg Write Time', value: ms(result.performance?.avgWriteTime) },
+          { metric: 'Cache Hit Rate', value: pct(result.performance?.cacheHitRate) }
         ]
       });
 
+      // Only claim gains that were actually measured — an absent comparison is
+      // reported as such, not as an error and not as a fabricated number.
       output.writeln();
       output.writeln(output.bold('V3 Performance Gains'));
-      output.printList([
-        `Search Speed: ${output.success(result.v3Gains.searchImprovement)}`,
-        `Memory Usage: ${output.success(result.v3Gains.memoryReduction)}`
-      ]);
+      if (result.v3Gains?.searchImprovement || result.v3Gains?.memoryReduction) {
+        output.printList([
+          `Search Speed: ${output.success(result.v3Gains.searchImprovement ?? 'not measured')}`,
+          `Memory Usage: ${output.success(result.v3Gains.memoryReduction ?? 'not measured')}`
+        ]);
+      } else {
+        output.printInfo('Not measured — run "claude-flow performance benchmark" to compare against the v2 baseline');
+      }
 
       return { success: true, data: result };
     } catch (error) {

@@ -371,18 +371,31 @@ const restoreCommand: Command = {
       const restoreAgents = !ctx.flags['memory-only'] && !ctx.flags['tasks-only'];
       const restoreTasks = !ctx.flags['memory-only'] && !ctx.flags['agents-only'];
 
+      // `session_restore` reports "not found" in its payload — it does not
+      // throw — and that payload carries no `stats`. Treating every returned
+      // object as a success printed "Session restored", then died on
+      // `stats.memoryEntriesRestored` with a TypeError that named nothing the
+      // operator could act on. A missing session is an ordinary failure: say
+      // which id was missing and exit non-zero.
       const result = await callMCPTool<{
         sessionId: string;
-        restoredAt: string;
-        restored: {
+        restoredAt?: string;
+        restored?: boolean | {
           memory: boolean;
           agents: boolean;
           tasks: boolean;
         };
-        stats: {
-          agentsRestored: number;
-          tasksRestored: number;
-          memoryEntriesRestored: number;
+        error?: string;
+        // The tool hands back the snapshot's own stats block
+        // ({agents, tasks, memoryEntries}); the *Restored aliases are what
+        // older callers expected. Read both, require neither.
+        stats?: {
+          agents?: number;
+          tasks?: number;
+          memoryEntries?: number;
+          agentsRestored?: number;
+          tasksRestored?: number;
+          memoryEntriesRestored?: number;
         };
       }>('session_restore', {
         sessionId,
@@ -391,8 +404,22 @@ const restoreCommand: Command = {
         restoreTasks
       });
 
+      if (result.error || result.restored === false) {
+        spinner.fail('Failed to restore session');
+        output.printError(`${result.error ?? 'Restore failed'}: ${sessionId}`);
+        return { success: false, exitCode: 1 };
+      }
+
       spinner.succeed('Session restored');
       output.writeln();
+
+      // The tool returns `restored: true` for a whole-session restore; the
+      // per-component shape is what the --memory-only/--agents-only paths
+      // produce. Accept both rather than assuming one.
+      const restoredParts = typeof result.restored === 'object' && result.restored !== null
+        ? result.restored
+        : { memory: restoreMemory, agents: restoreAgents, tasks: restoreTasks };
+      const count = (v?: number): string | number => (typeof v === 'number' ? v : '-');
 
       output.printTable({
         columns: [
@@ -403,18 +430,18 @@ const restoreCommand: Command = {
         data: [
           {
             component: 'Memory',
-            status: result.restored.memory ? output.success('Restored') : output.dim('Skipped'),
-            count: result.stats.memoryEntriesRestored
+            status: restoredParts.memory ? output.success('Restored') : output.dim('Skipped'),
+            count: count(result.stats?.memoryEntriesRestored ?? result.stats?.memoryEntries)
           },
           {
             component: 'Agents',
-            status: result.restored.agents ? output.success('Restored') : output.dim('Skipped'),
-            count: result.stats.agentsRestored
+            status: restoredParts.agents ? output.success('Restored') : output.dim('Skipped'),
+            count: count(result.stats?.agentsRestored ?? result.stats?.agents)
           },
           {
             component: 'Tasks',
-            status: result.restored.tasks ? output.success('Restored') : output.dim('Skipped'),
-            count: result.stats.tasksRestored
+            status: restoredParts.tasks ? output.success('Restored') : output.dim('Skipped'),
+            count: count(result.stats?.tasksRestored ?? result.stats?.tasks)
           }
         ]
       });
@@ -475,11 +502,23 @@ const deleteCommand: Command = {
     }
 
     try {
+      // `session_delete` answers "no such session" with `deleted: false` in
+      // the payload instead of throwing. Printing `[OK] deleted` regardless
+      // made a no-op indistinguishable from a deletion — an id one character
+      // short (session ids are truncated in `session list` output) reported
+      // success while the session stayed on disk.
       const result = await callMCPTool<{
         sessionId: string;
-        deleted: boolean;
-        deletedAt: string;
+        deleted?: boolean;
+        deletedAt?: string;
+        error?: string;
       }>('session_delete', { sessionId });
+
+      if (result.deleted === false || result.error) {
+        output.printError(`${result.error ?? 'Delete failed'}: ${sessionId}`);
+        output.printInfo('Session ids must be given in full — run "claude-flow session list --format json" for untruncated ids');
+        return { success: false, exitCode: 1 };
+      }
 
       output.writeln();
       output.printSuccess(`Session ${sessionId} deleted`);

@@ -325,18 +325,23 @@ const listCommand: Command = {
     const limit = ctx.flags.limit as number;
 
     try {
+      // `workflow_list` filters on an exact status match and knows nothing
+      // about the sentinel 'all' — sending it filtered every workflow out, so
+      // an unfiltered `workflow list` always answered "No workflows found"
+      // while `workflow_list` itself returned the rows. Omit the filter
+      // instead of naming a status no workflow can have.
       const result = await callMCPTool<{
         workflows: Array<{
-          id: string;
-          template: string;
+          workflowId: string;
+          name: string;
           status: string;
-          startedAt: string;
+          stepCount?: number;
+          createdAt: string;
           completedAt?: string;
-          progress: number;
         }>;
         total: number;
       }>('workflow_list', {
-        status: status || 'all',
+        ...(status && status !== 'all' ? { status } : {}),
         limit,
       });
 
@@ -354,13 +359,16 @@ const listCommand: Command = {
         return { success: true, data: result };
       }
 
+      // Column keys must be the ones the tool actually emits (workflowId /
+      // name / stepCount / createdAt) — the previous set (id / template /
+      // progress / startedAt) rendered a table of blanks.
       output.printTable({
         columns: [
-          { key: 'id', header: 'ID', width: 15 },
-          { key: 'template', header: 'Template', width: 15 },
+          { key: 'workflowId', header: 'ID', width: 34 },
+          { key: 'name', header: 'Name', width: 20 },
           { key: 'status', header: 'Status', width: 12, format: formatStageStatus },
-          { key: 'progress', header: 'Progress', width: 10, align: 'right', format: (v) => `${v}%` },
-          { key: 'startedAt', header: 'Started', width: 20, format: (v) => new Date(String(v)).toLocaleString() }
+          { key: 'stepCount', header: 'Steps', width: 7, align: 'right' },
+          { key: 'createdAt', header: 'Created', width: 20, format: (v) => v ? new Date(String(v)).toLocaleString() : '-' }
         ],
         data: result.workflows
       });
@@ -402,57 +410,76 @@ const statusCommand: Command = {
     }
 
     try {
+      // Mirror what `workflow_status` returns. The previous shape (id /
+      // template / metrics / stages) was never emitted by the tool, so every
+      // invocation died on `metrics.duration` — including for workflows that
+      // exist and are healthy. Step details need `verbose`.
       const result = await callMCPTool<{
-        id: string;
-        template: string;
+        workflowId: string;
+        name?: string;
         status: string;
-        progress: number;
-        stages: Array<{
+        progress?: number;
+        currentStep?: number;
+        totalSteps?: number;
+        completedSteps?: number;
+        createdAt?: string;
+        startedAt?: string | null;
+        completedAt?: string | null;
+        steps?: Array<{
+          stepId: string;
           name: string;
+          type?: string;
           status: string;
-          startedAt?: string;
-          completedAt?: string;
-          agents: string[];
-          output?: string;
+          startedAt?: string | null;
+          completedAt?: string | null;
         }>;
-        metrics: {
-          duration: number;
-          tokensUsed: number;
-          agentsSpawned: number;
-        };
+        error?: string;
       }>('workflow_status', {
         workflowId,
+        verbose: true,
       });
+
+      if (result.error) {
+        output.printError(`Failed to get status: ${result.error}: ${workflowId}`);
+        return { success: false, exitCode: 1 };
+      }
 
       if (ctx.flags.format === 'json') {
         output.printJson(result);
         return { success: true, data: result };
       }
 
+      const durationMs = result.startedAt
+        ? new Date(result.completedAt ?? new Date().toISOString()).getTime() - new Date(result.startedAt).getTime()
+        : null;
+
       output.writeln();
       output.printBox(
         [
-          `ID: ${result.id}`,
-          `Template: ${result.template}`,
+          `ID: ${result.workflowId}`,
+          `Name: ${result.name ?? '-'}`,
           `Status: ${formatStageStatus(result.status)}`,
-          `Progress: ${result.progress}%`,
-          `Duration: ${(result.metrics.duration / 1000).toFixed(1)}s`,
-          `Tokens: ${result.metrics.tokensUsed.toLocaleString()}`,
-          `Agents: ${result.metrics.agentsSpawned}`
+          `Progress: ${(result.progress ?? 0).toFixed(0)}% (${result.completedSteps ?? 0}/${result.totalSteps ?? 0} steps)`,
+          `Created: ${result.createdAt ? new Date(result.createdAt).toLocaleString() : '-'}`,
+          `Duration: ${durationMs === null ? 'not started' : `${(durationMs / 1000).toFixed(1)}s`}`
         ].join('\n'),
         'Workflow Status'
       );
 
       output.writeln();
-      output.writeln(output.bold('Stage Progress'));
-      output.printTable({
-        columns: [
-          { key: 'name', header: 'Stage', width: 20 },
-          { key: 'status', header: 'Status', width: 12, format: formatStageStatus },
-          { key: 'agents', header: 'Agents', width: 25, format: (v) => Array.isArray(v) ? v.length.toString() : '0' }
-        ],
-        data: result.stages
-      });
+      output.writeln(output.bold('Step Progress'));
+      if (!result.steps || result.steps.length === 0) {
+        output.printInfo('No steps recorded');
+      } else {
+        output.printTable({
+          columns: [
+            { key: 'name', header: 'Step', width: 24 },
+            { key: 'type', header: 'Type', width: 12 },
+            { key: 'status', header: 'Status', width: 12, format: formatStageStatus }
+          ],
+          data: result.steps
+        });
+      }
 
       return { success: true, data: result };
     } catch (error) {

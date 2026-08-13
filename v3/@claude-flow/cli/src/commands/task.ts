@@ -271,13 +271,19 @@ const listCommand: Command = {
     }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const status = ctx.flags.all ? 'all' : (ctx.flags.status as string) || 'pending,running';
+    // `task_list` filters on literal status values, so the sentinel 'all'
+    // matched nothing and `task list --all` — the one flag that means "hide
+    // nothing" — reported an empty store. No status filter is how you ask
+    // for everything.
+    const status = ctx.flags.all ? undefined : (ctx.flags.status as string) || 'pending,running';
     const limit = ctx.flags.limit as number;
 
     try {
+      // The tool's field is `taskId`; reading `id` left the ID column blank,
+      // so the table showed tasks nobody could then address by id.
       const result = await callMCPTool<{
         tasks: Array<{
-          id: string;
+          taskId: string;
           type: string;
           description: string;
           priority: string;
@@ -291,7 +297,9 @@ const listCommand: Command = {
         status,
         type: ctx.flags.type,
         priority: ctx.flags.priority,
-        agentId: ctx.flags.agent,
+        // The tool's parameter is `assignedTo`; sending `agentId` meant
+        // `--agent` was accepted and then silently ignored.
+        assignedTo: ctx.flags.agent,
         limit,
         offset: 0
       });
@@ -312,7 +320,7 @@ const listCommand: Command = {
 
       output.printTable({
         columns: [
-          { key: 'id', header: 'ID', width: 15 },
+          { key: 'id', header: 'ID', width: 28 },
           { key: 'type', header: 'Type', width: 15 },
           { key: 'description', header: 'Description', width: 30 },
           { key: 'priority', header: 'Priority', width: 10 },
@@ -320,7 +328,7 @@ const listCommand: Command = {
           { key: 'progress', header: 'Progress', width: 10 }
         ],
         data: result.tasks.map(t => ({
-          id: t.id,
+          id: t.taskId,
           type: t.type,
           description: t.description.length > 27
             ? t.description.slice(0, 27) + '...'
@@ -381,7 +389,7 @@ const statusCommand: Command = {
 
     try {
       const result = await callMCPTool<{
-        id: string;
+        taskId: string;
         type: string;
         description: string;
         priority: string;
@@ -424,7 +432,7 @@ const statusCommand: Command = {
           '',
           `Description: ${result.description}`
         ].join('\n'),
-        `Task: ${result.id}`
+        `Task: ${result.taskId}`
       );
 
       // Assignment info
@@ -643,15 +651,21 @@ const assignCommand: Command = {
           // Continue with assignment
           const result = await callMCPTool<{
             taskId: string;
-            assignedTo: string[];
-            previouslyAssigned: string[];
+            assignedTo?: string[];
+            previouslyAssigned?: string[];
+            error?: string;
           }>('task_assign', {
             taskId,
             agentIds: selectedAgents
           });
 
+          if (result.error) {
+            output.printError(`Failed to assign task: ${result.error}`);
+            return { success: false, exitCode: 1 };
+          }
+
           output.writeln();
-          output.printSuccess(`Task ${taskId} assigned to ${result.assignedTo.join(', ')}`);
+          output.printSuccess(`Task ${taskId} assigned to ${(result.assignedTo ?? []).join(', ')}`);
 
           return { success: true, data: result };
         } catch (error) {
@@ -670,19 +684,27 @@ const assignCommand: Command = {
     try {
       const result = await callMCPTool<{
         taskId: string;
-        assignedTo: string[];
-        previouslyAssigned: string[];
+        assignedTo?: string[];
+        previouslyAssigned?: string[];
+        error?: string;
       }>('task_assign', {
         taskId,
         agentIds: unassign ? [] : agentIds.split(',').map(id => id.trim()),
         unassign
       });
 
+      // A refused assignment (unknown task, unknown agent) comes back as a
+      // payload, not an exception — report it as the failure it is.
+      if (result.error) {
+        output.printError(`Failed to assign task: ${result.error}`);
+        return { success: false, exitCode: 1 };
+      }
+
       output.writeln();
       if (unassign) {
         output.printSuccess(`Task ${taskId} unassigned`);
       } else {
-        output.printSuccess(`Task ${taskId} assigned to ${result.assignedTo.join(', ')}`);
+        output.printSuccess(`Task ${taskId} assigned to ${(result.assignedTo ?? []).join(', ')}`);
       }
 
       if (ctx.flags.format === 'json') {

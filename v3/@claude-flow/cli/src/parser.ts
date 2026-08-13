@@ -568,11 +568,24 @@ export class CommandParser {
 
   validateFlags(flags: ParsedFlags, command?: Command): string[] {
     const errors: string[] = [];
-    const allOptions = [...this.globalOptions];
 
-    if (command?.options) {
-      allOptions.push(...command.options);
+    // A command may redefine a global option (`--format` is the common case:
+    // `process monitor` offers dashboard/compact/json, the global one
+    // text/json/table). Validating both definitions makes the narrower one
+    // unreachable — the global choices rejected the subcommand's own default,
+    // so `process monitor` could not run without `--format json`. `applyDefaults`
+    // already resolves narrow-over-broad; validation has to agree with it, so
+    // the command definition replaces the global one instead of adding to it.
+    const optionsByKey = new Map<string, CommandOption>();
+    for (const opt of this.globalOptions) {
+      optionsByKey.set(this.normalizeKey(opt.name), opt);
     }
+    if (command?.options) {
+      for (const opt of command.options) {
+        optionsByKey.set(this.normalizeKey(opt.name), opt);
+      }
+    }
+    const allOptions = [...optionsByKey.values()];
 
     // Check required flags
     for (const opt of allOptions) {
