@@ -347,4 +347,150 @@ describe('PathValidator', () => {
       expect(result.isValid).toBe(true);
     });
   });
+
+  /**
+   * Regression: a prefix reached through a symlink.
+   *
+   * `validate()` canonicalizes the candidate with `fs.realpath` but the
+   * prefixes were only ever `path.resolve()`d, so the two sides were compared
+   * in different forms and NOTHING under such a prefix could ever match.
+   *
+   * This is not a hypothetical: on macOS `os.tmpdir()` is `/var/folders/...`
+   * and `/var` is a symlink to `/private/var`, so every validator built over a
+   * temp directory rejected its own contents — while the same code passed on
+   * Linux, where `/tmp` is a real directory.
+   *
+   * These tests build the symlink explicitly instead of relying on that
+   * platform quirk, so they exercise the property on every platform.
+   */
+  describe('Symlinked prefixes', () => {
+    let root: string;
+    let realDir: string;
+    let linkDir: string;
+    let outsideDir: string;
+    let symlinksSupported = true;
+
+    beforeEach(async () => {
+      root = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'path-validator-'));
+      realDir = path.join(root, 'real');
+      linkDir = path.join(root, 'link');
+      outsideDir = path.join(root, 'outside');
+      await fsPromises.mkdir(realDir);
+      await fsPromises.mkdir(outsideDir);
+
+      try {
+        // 'junction' is ignored on POSIX and avoids needing Developer Mode or
+        // elevation for directory links on Windows.
+        await fsPromises.symlink(realDir, linkDir, 'junction');
+      } catch {
+        // Unprivileged Windows without Developer Mode cannot create links.
+        symlinksSupported = false;
+      }
+    });
+
+    afterEach(async () => {
+      await fsPromises.rm(root, { recursive: true, force: true });
+    });
+
+    it('accepts an existing file under a symlinked prefix', async () => {
+      if (!symlinksSupported) return;
+      const file = path.join(realDir, 'binary');
+      await fsPromises.writeFile(file, 'contents');
+
+      const linkValidator = new PathValidator({
+        allowedPrefixes: [linkDir],
+        allowHidden: true,
+      });
+
+      const result = await linkValidator.validate(path.join(linkDir, 'binary'));
+
+      expect(result.errors).toEqual([]);
+      expect(result.isValid).toBe(true);
+      expect(result.relativePath).toBe('binary');
+    });
+
+    it('accepts a not-yet-created file under a symlinked prefix', async () => {
+      if (!symlinksSupported) return;
+      const linkValidator = new PathValidator({
+        allowedPrefixes: [linkDir],
+        allowHidden: true,
+        allowNonExistent: true,
+      });
+
+      const result = await linkValidator.validate(path.join(linkDir, 'not-written-yet'));
+
+      expect(result.errors).toEqual([]);
+      expect(result.isValid).toBe(true);
+    });
+
+    it('still rejects a symlink that escapes the prefix', async () => {
+      if (!symlinksSupported) return;
+      const secret = path.join(outsideDir, 'secret');
+      await fsPromises.writeFile(secret, 'contents');
+      await fsPromises.symlink(outsideDir, path.join(realDir, 'escape'), 'junction');
+
+      const linkValidator = new PathValidator({
+        allowedPrefixes: [linkDir],
+        allowHidden: true,
+      });
+
+      const result = await linkValidator.validate(path.join(linkDir, 'escape', 'secret'));
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Path is outside allowed directories');
+    });
+
+    it('rejects a not-yet-created file under an escaping symlink', async () => {
+      if (!symlinksSupported) return;
+      await fsPromises.symlink(outsideDir, path.join(realDir, 'escape'), 'junction');
+
+      const linkValidator = new PathValidator({
+        allowedPrefixes: [linkDir],
+        allowHidden: true,
+        allowNonExistent: true,
+      });
+
+      const result = await linkValidator.validate(path.join(linkDir, 'escape', 'not-written-yet'));
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Path is outside allowed directories');
+    });
+
+    it('keeps validateSync lexical, so a symlinked prefix still matches', () => {
+      if (!symlinksSupported) return;
+      const linkValidator = new PathValidator({
+        allowedPrefixes: [linkDir],
+        allowHidden: true,
+      });
+
+      // validateSync is documented as resolving no symlinks; it must keep
+      // comparing lexical candidate against lexical prefix, or canonicalizing
+      // the prefixes would break it in the mirror image of the async bug.
+      const result = linkValidator.validateSync(path.join(linkDir, 'binary'));
+
+      expect(result.isValid).toBe(true);
+      expect(linkValidator.isWithinAllowed(path.join(linkDir, 'binary'))).toBe(true);
+    });
+
+    it('validates a temp-directory tree the way an installer does', async () => {
+      // The shape that broke `ruflo proxy install` on macOS: a validator built
+      // over a freshly-created temp dir, checking a file extracted into it,
+      // with the default options.
+      const workDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'installer-'));
+      try {
+        const extractDir = path.join(workDir, 'extracted');
+        await fsPromises.mkdir(extractDir);
+        const binary = path.join(extractDir, 'meta-proxy');
+        await fsPromises.writeFile(binary, 'contents');
+
+        const installValidator = new PathValidator({ allowedPrefixes: [extractDir] });
+        const result = await installValidator.validate(binary);
+
+        expect(result.errors).toEqual([]);
+        expect(result.isValid).toBe(true);
+      } finally {
+        await fsPromises.rm(workDir, { recursive: true, force: true });
+      }
+    });
+  });
 });
