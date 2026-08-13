@@ -107,8 +107,13 @@ rows — not a static snapshot.
 | 2026-08-10 | performance | cross-agent KV cache sharing 7.8× prefill gap (ADR-381) + se | #2953 | - | backfill | n/a | OPEN |
 | 2026-08-11 | security | ColluSkill 96% compositional evasion gap (ADR-382) + intelli | #2964 | - | backfill | n/a | OPEN |
 | 2026-08-12 | intelligence | VibeLifeBench proactivity gap — SONA lacks background world- | #2979 | - | backfill | n/a | OPEN |
-| 2026-08-13 | memory | TOKI bitemporal contradiction resolution gap in AgentDB + pl | #3008 | - | backfill | n/a | OPEN |
+| 2026-08-13 | memory | TOKI bitemporal gap (#3008, v1 06:12 UTC) + v2 eval-bridge: BM25+semantic fusion recall@1 +0.15, p=0.25 n=20 (not sig.) | #3008, #3019 | #3009, #3020 | yes | INCONCLUSIVE | OPEN |
 
 ## v2 live entries start below
 
-(STEP 9 of the v2 routine appends here nightly, starting 2026-08-14.)
+(STEP 9 of the v2 routine appends here nightly, starting 2026-08-14. Note:
+2026-08-13's row above was updated in place rather than appended a second
+time — same calendar day, v1 ran the research at 06:12 UTC before the v2
+prompt upgrade (#3018) merged at 14:20 UTC; this session's v2 firing later
+that day supplied the evaluation receipt v1 couldn't, rather than duplicating
+the research. See #3019 for full detail.)
