@@ -25,12 +25,15 @@
  *
  *     It is frozen at IMPORT time. A `process.chdir()` in `beforeEach` runs
  *     after the top-level `await import(...)`, so the seeded fixture is never
- *     read and the outcome stage can never fire. Note the sibling
- *     `hooks-post-task-...-2786.test.ts` uses exactly that top-level-import
- *     shape and is correct — because `hooks_post-task` resolves the SAME path
- *     again at CALL time (hooks-tools.ts, in the handler). Read and write
- *     disagree about when `.` is resolved; only the read side is import-frozen.
- *     So: chdir FIRST, then `vi.resetModules()`, then import.
+ *     read and the outcome stage can never fire. Both the read (:226) and the
+ *     write (:240) use that same frozen const, so they agree with each other —
+ *     the only consequence is that a test cannot redirect either after import.
+ *     Note the sibling `hooks-post-task-...-2786.test.ts` uses exactly that
+ *     top-level-import shape and IS correct, but for a reason that does not
+ *     transfer: it asserts on `.claude-flow/memory/store.json`, built from a
+ *     relative const and resolved inside the handler (`MEMORY_DIR` :493,
+ *     `resolve(MEMORY_DIR)` :1636), so chdir does redirect that one.
+ *     So here: chdir FIRST, then `vi.resetModules()`, then import.
  *
  *  2. `suggestAgentsForTask()` checks `KEYWORD_PATTERNS` substrings BEFORE the
  *     outcome stage and returns immediately on a hit. `refactor`, `test`,
