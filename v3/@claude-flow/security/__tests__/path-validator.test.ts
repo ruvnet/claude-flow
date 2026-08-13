@@ -8,8 +8,10 @@
  * - Blocked file detection
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
+import * as os from 'os';
+import * as fsPromises from 'fs/promises';
 import {
   PathValidator,
   PathValidatorError,
@@ -297,6 +299,52 @@ describe('PathValidator', () => {
       // Path starts with project root but escapes via traversal
       const result = await validator.validate('/workspaces/project/../../etc/passwd');
       expect(result.isValid).toBe(false);
+    });
+  });
+
+  // #3010 — validate() realpath's the candidate but the constructor only
+  // path.resolve()d the allowed prefixes, so a prefix reached through a
+  // real symlink (e.g. macOS os.tmpdir() under /var -> /private/var) could
+  // never match its own realpath'd contents. Uses actual fs.symlinkSync,
+  // not a path-traversal string, to reproduce the real-world failure mode.
+  describe('Symlinked prefix handling (#3010)', () => {
+    let tmpRoot: string;
+    let realDir: string;
+    let symlinkedPrefix: string;
+
+    beforeEach(async () => {
+      tmpRoot = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'path-validator-3010-'));
+      realDir = path.join(tmpRoot, 'real-target');
+      await fsPromises.mkdir(realDir, { recursive: true });
+      symlinkedPrefix = path.join(tmpRoot, 'symlinked-prefix');
+      await fsPromises.symlink(realDir, symlinkedPrefix, 'dir');
+    });
+
+    afterEach(async () => {
+      await fsPromises.rm(tmpRoot, { recursive: true, force: true });
+    });
+
+    it('accepts a file under an allowedPrefix that is itself a symlink', async () => {
+      const filePath = path.join(realDir, 'file.txt');
+      await fsPromises.writeFile(filePath, 'content');
+
+      const symlinkValidator = new PathValidator({
+        allowedPrefixes: [symlinkedPrefix],
+      });
+
+      // Validate via the symlinked path, exactly as a caller resolving
+      // through os.tmpdir() would.
+      const result = await symlinkValidator.validate(path.join(symlinkedPrefix, 'file.txt'));
+      expect(result.isValid).toBe(true);
+      expect(result.errors).not.toContain('Path is outside allowed directories');
+    });
+
+    it('accepts the prefix directory itself, reached via the symlink', async () => {
+      const symlinkValidator = new PathValidator({
+        allowedPrefixes: [symlinkedPrefix],
+      });
+      const result = await symlinkValidator.validate(symlinkedPrefix);
+      expect(result.isValid).toBe(true);
     });
   });
 });

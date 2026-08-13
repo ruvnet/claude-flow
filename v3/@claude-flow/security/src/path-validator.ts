@@ -18,6 +18,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { realpathSync } from 'fs';
 
 export interface PathValidatorConfig {
   /**
@@ -173,10 +174,27 @@ export class PathValidator {
       );
     }
 
-    // Pre-resolve all prefixes
-    this.resolvedPrefixes = this.config.allowedPrefixes.map(p =>
-      path.resolve(p)
-    );
+    // Pre-resolve all prefixes. #3010 — validate() canonicalizes the
+    // *candidate* through fs.realpath (when resolveSymlinks is on, the
+    // default) but prefixes were only ever path.resolve()d, never
+    // realpath'd. On any platform where the prefix itself is reached
+    // through a symlink (e.g. macOS os.tmpdir() -> /var/folders/... while
+    // /var is itself a symlink to /private/var), the realpath'd candidate
+    // can never match the non-realpath'd prefix, and every path under that
+    // prefix is rejected as "outside allowed directories" — including the
+    // prefix's own contents. Mirror validate()'s own ENOENT-tolerant
+    // fallback: a prefix that doesn't exist yet (or otherwise can't be
+    // realpath'd) still gets a resolved value via path.resolve, matching
+    // allowNonExistent's semantics for candidates.
+    this.resolvedPrefixes = this.config.allowedPrefixes.map(p => {
+      const resolved = path.resolve(p);
+      if (!this.config.resolveSymlinks) return resolved;
+      try {
+        return realpathSync(resolved);
+      } catch {
+        return resolved;
+      }
+    });
   }
 
   /**
