@@ -477,10 +477,6 @@ export class ToolRegistry extends EventEmitter {
   private validateSchema(schema: JSONSchema, path = ''): string[] {
     const errors: string[] = [];
 
-    if (!schema.type) {
-      errors.push(`${path || 'schema'}: type is required`);
-    }
-
     if (schema.type === 'object' && schema.properties) {
       for (const [key, propSchema] of Object.entries(schema.properties)) {
         const propPath = path ? `${path}.${key}` : key;

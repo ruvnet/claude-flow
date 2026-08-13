@@ -121,8 +121,8 @@ importers:
         specifier: 3.0.3
         version: link:../codex
       '@claude-flow/mcp':
-        specifier: 3.0.0-alpha.8
-        version: 3.0.0-alpha.8
+        specifier: 3.0.0-alpha.10
+        version: link:../mcp
       '@claude-flow/neural':
         specifier: 3.0.0-alpha.9
         version: link:../neural
@@ -881,20 +881,6 @@ packages:
   /@borewit/text-codec@0.2.1:
     resolution: {integrity: sha512-k7vvKPbf7J2fZ5klGRD9AeKfUvojuZIQ3BT5u7Jfv+puwXkUBUT5PVyMDfJZpy30CBDXGMgw7fguK/lpOMBvgw==}
     requiresBuild: true
-
-  /@claude-flow/mcp@3.0.0-alpha.8:
-    resolution: {integrity: sha512-lP1t8GMWDl9RxnwMZrjMukZkyglhge7Znhj1PbUiUQ94kHcN+dAxUkA75HM1n7BONbIDcE/CS8qN2ril5KgzNg==}
-    dependencies:
-      ajv: 8.18.0
-      cors: 2.8.6
-      express: 5.2.1
-      helmet: 7.2.0
-      ws: 8.21.1
-    transitivePeerDependencies:
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-    dev: false
 
   /@claude-flow/shared@3.0.0-alpha.7:
     resolution: {integrity: sha512-5iehTHguBFjlyZqy+fRoKfZVL/nFeE93A94nUUKJvu8y7AmhfpVqtQAZbmKztwQGJ5rv7iBb3Kwl1MUo3K5QkA==}
