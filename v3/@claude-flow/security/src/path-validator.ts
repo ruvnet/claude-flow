@@ -194,6 +194,22 @@ function canonicalizeSync(resolvedPath: string): string {
 }
 
 /**
+ * True if `resolvedPath` is the prefix itself or sits underneath it.
+ *
+ * The separator has to be appended to anchor the match at a path boundary, so
+ * `/srv/app-secrets` does not count as inside `/srv/app` — but a root prefix
+ * (`/`, `C:\`, a UNC share root) already ends in one, and appending a second
+ * looked for `//`, which rejected every descendant of a root prefix.
+ */
+function isWithinPrefix(resolvedPath: string, prefix: string): boolean {
+  if (resolvedPath === prefix) {
+    return true;
+  }
+  const boundary = prefix.endsWith(path.sep) ? prefix : prefix + path.sep;
+  return resolvedPath.startsWith(boundary);
+}
+
+/**
  * Path validator that prevents traversal attacks.
  *
  * This class validates file paths to ensure they stay within
@@ -223,6 +239,13 @@ export class PathValidator {
    * canonicalizes through the filesystem, `validateSync()`/`isWithinAllowed()`
    * are documented as lexical-only. Canonicalizing one side without the other
    * is exactly the bug this fixes, in whichever direction it is done.
+   *
+   * Resolved once, at construction — so an allowed prefix denotes the
+   * directory it named when the validator was configured, and retargeting a
+   * symlink afterwards cannot silently redirect the allowlist. Re-resolving on
+   * every call would hand that control to whoever can write the link, and cost
+   * a syscall per validation. Callers needing to follow a moved target should
+   * construct a new validator.
    */
   private readonly canonicalPrefixes: string[];
 
@@ -330,12 +353,17 @@ export class PathValidator {
               errors.push(`Failed to resolve path: ${error.message}`);
             }
           }
-          if (error.code === 'ENOENT') {
+          if (error.code === 'ENOENT' && this.config.allowNonExistent) {
             // The leaf does not exist, but its ancestors may still be
             // symlinks. Canonicalize what exists so the candidate is in the
             // same form as `canonicalPrefixes` — otherwise every not-yet-
             // created path under a symlinked prefix (macOS `/var` ->
             // `/private/var`, `/tmp` -> `/private/tmp`) fails to match.
+            //
+            // Only when non-existent paths are actually allowed: with
+            // `allowNonExistent: false` this call is already a failure, and
+            // canonicalizing anyway would change the `resolvedPath` and
+            // `matchedPrefix` reported to callers for no benefit.
             resolvedPath = await canonicalize(resolvedPath);
             symlinksResolved = true;
           }
@@ -361,7 +389,7 @@ export class PathValidator {
       : this.resolvedPrefixes;
 
     for (const prefix of prefixes) {
-      if (resolvedPath === prefix || resolvedPath.startsWith(prefix + path.sep)) {
+      if (isWithinPrefix(resolvedPath, prefix)) {
         prefixMatched = true;
         matchedPrefix = prefix;
         relativePath = resolvedPath.slice(prefix.length);
@@ -492,7 +520,7 @@ export class PathValidator {
     let prefixMatched = false;
 
     for (const prefix of this.resolvedPrefixes) {
-      if (resolvedPath === prefix || resolvedPath.startsWith(prefix + path.sep)) {
+      if (isWithinPrefix(resolvedPath, prefix)) {
         prefixMatched = true;
         matchedPrefix = prefix;
         relativePath = resolvedPath.slice(prefix.length);
@@ -587,7 +615,7 @@ export class PathValidator {
     try {
       const resolved = path.resolve(inputPath);
       return this.resolvedPrefixes.some(
-        prefix => resolved === prefix || resolved.startsWith(prefix + path.sep)
+        prefix => isWithinPrefix(resolved, prefix)
       );
     } catch {
       return false;
