@@ -154,6 +154,7 @@ export class MCPServerManager extends EventEmitter {
   private server?: Server;
   private startTime?: Date;
   private healthCheckInterval?: NodeJS.Timeout;
+  private mcpServers: Array<{ stop(): Promise<void> }> = [];
 
   constructor(options: MCPServerOptions = {}) {
     super();
@@ -254,6 +255,12 @@ export class MCPServerManager extends EventEmitter {
           this.server!.close(() => resolve());
         });
         this.server = undefined;
+      }
+
+      if (this.mcpServers.length > 0) {
+        const servers = this.mcpServers;
+        this.mcpServers = [];
+        await Promise.all(servers.map((server) => server.stop()));
       }
 
       // Remove PID file
@@ -710,23 +717,73 @@ export class MCPServerManager extends EventEmitter {
       error: (msg: string, data?: unknown) => this.emit('log', { level: 'error', msg, data }),
     };
 
-    const mcpServer = createMCPServer(
-      {
-        name: 'Claude-Flow MCP Server V3',
-        version: '3.0.0',
-        transport: this.options.transport as 'http' | 'websocket',
-        host: this.options.host,
-        port: this.options.port,
-        enableMetrics: true,
-        enableCaching: true,
+    const { listMCPTools, callMCPTool } = await import('./mcp-client.js');
+    const fallbackSessionId = `http-${randomUUID()}`;
+    const cliTools = filterAdvertisedMcpTools(listMCPTools(), this.options.tools).map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+      category: tool.category,
+      tags: tool.tags,
+      version: tool.version,
+      cacheable: tool.cacheable,
+      cacheTTL: tool.cacheTTL,
+      handler: async (input: unknown, context?: { sessionId?: string }) => {
+        try {
+          const result = await callMCPTool(
+            tool.name,
+            (input as Record<string, unknown>) || {},
+            { sessionId: context?.sessionId || fallbackSessionId }
+          );
+          trackRequest(tool.name, true);
+          return result;
+        } catch (error) {
+          trackRequest(tool.name, false);
+          throw error;
+        }
       },
-      logger
-    );
+    }));
 
-    await mcpServer.start();
+    // A hostname often resolves to only one address when passed to listen().
+    // Bind both loopback families for the default without exposing the server
+    // on external interfaces. Explicit --host values retain single-bind
+    // semantics.
+    const hosts = this.options.host === 'localhost'
+      ? ['127.0.0.1', '::1']
+      : [this.options.host];
+    const servers = hosts.map((host) => {
+      const server = createMCPServer(
+        {
+          name: 'Claude-Flow MCP Server V3',
+          version: '3.0.0',
+          transport: this.options.transport as 'http' | 'websocket',
+          host,
+          port: this.options.port,
+          enableMetrics: true,
+          enableCaching: true,
+        },
+        logger
+      );
+      const registration = server.registerTools(
+        cliTools as Parameters<typeof server.registerTools>[0]
+      );
+      if (registration.failed.length > 0) {
+        throw new Error(`Failed to register MCP tools: ${registration.failed.join(', ')}`);
+      }
+      return server;
+    });
 
-    // Store reference for stopping
-    (this as any)._mcpServer = mcpServer;
+    const startedServers: typeof servers = [];
+    try {
+      for (const server of servers) {
+        await server.start();
+        startedServers.push(server);
+      }
+    } catch (error) {
+      await Promise.all(startedServers.map((server) => server.stop()));
+      throw error;
+    }
+    this.mcpServers = startedServers;
   }
 
   /**

@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/mcp",
-  "version": "3.0.0-alpha.9",
+  "version": "3.0.0-alpha.10",
   "type": "module",
   "description": "Standalone MCP (Model Context Protocol) server - stdio/http/websocket transports, connection pooling, tool registry",
   "main": "dist/index.js",
