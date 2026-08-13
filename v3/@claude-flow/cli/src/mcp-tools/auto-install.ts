@@ -6,9 +6,13 @@
  */
 
 import { spawnSync } from 'child_process';
+import { createRequire } from 'module';
+import { resolve } from 'path';
+import { pathToFileURL } from 'url';
 
 // Track which packages we've attempted to install this session
 const installAttempts = new Set<string>();
+const validPackageName = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*(@[a-z0-9-._~]+)?$/i;
 
 export interface AutoInstallOptions {
   /**
@@ -42,7 +46,6 @@ export async function autoInstallPackage(
 
   // Validate package name to prevent command injection (CVE fix)
   // Valid npm package names: @scope/name or name, alphanumeric with - . _ ~
-  const validPackageName = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*(@[a-z0-9-._~]+)?$/i;
   if (!validPackageName.test(packageName)) {
     if (!silent) {
       console.error(`[claude-flow] Invalid package name: ${packageName}`);
@@ -86,6 +89,29 @@ export async function autoInstallPackage(
 }
 
 /**
+ * Import an optional package from the MCP process working directory.
+ *
+ * Bare imports inside an npx-launched Ruflo resolve from npx's isolated cache,
+ * not from the user's project. Anchoring createRequire at the project makes an
+ * explicit, persistent project-local install discoverable without mutating the
+ * disposable npx cache.
+ */
+export async function importProjectLocalPackage<T = unknown>(packageName: string): Promise<T | null> {
+  if (!validPackageName.test(packageName)) {
+    return null;
+  }
+
+  try {
+    const projectRequire = createRequire(resolve(process.cwd(), 'package.json'));
+    const modulePath = projectRequire.resolve(packageName);
+    const moduleUrl = `${pathToFileURL(modulePath).href}?t=${Date.now()}`;
+    return await import(moduleUrl) as T;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Try to import a package, auto-install if not found, and retry
  *
  * @param packageName - npm package name
@@ -100,9 +126,19 @@ export async function tryImportOrInstall<T = unknown>(
     // First try to import
     return await import(packageName) as T;
   } catch {
+    const projectLocal = await importProjectLocalPackage<T>(packageName);
+    if (projectLocal) {
+      return projectLocal;
+    }
+
     // Package not found, try to install
     const installed = await autoInstallPackage(packageName, options);
     if (installed) {
+      const installedProjectLocal = await importProjectLocalPackage<T>(packageName);
+      if (installedProjectLocal) {
+        return installedProjectLocal;
+      }
+
       try {
         // ESM caches failed imports, so we need to bust the cache
         // Add a timestamp query parameter to force a fresh import
@@ -156,6 +192,7 @@ export const OPTIONAL_PACKAGES = {
 
 export default {
   autoInstallPackage,
+  importProjectLocalPackage,
   tryImportOrInstall,
   isPackageAvailable,
   resetInstallAttempts,
