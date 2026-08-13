@@ -38,6 +38,7 @@ type SmoothStreamConfig = {
 		now?: () => number;
 		sleep?: (ms: number) => Promise<void>;
 		detectChunk?: ChunkDetector;
+		isPageHidden?: () => boolean;
 	};
 };
 
@@ -168,7 +169,12 @@ export async function* smoothStreamUpdates(
 		maxDelayMs = 80,
 		minRateCharsPerMs = 0.3,
 		maxBufferedMs = 400,
-		_internal: { now = () => performance.now(), sleep = defaultSleep, detectChunk } = {},
+		_internal: {
+			now = () => performance.now(),
+			sleep = defaultSleep,
+			detectChunk,
+			isPageHidden = defaultIsPageHidden,
+		} = {},
 	}: SmoothStreamConfig = {}
 ): AsyncGenerator<MessageUpdate> {
 	const chunkDetector = detectChunk ?? createWordChunkDetector();
@@ -251,7 +257,7 @@ export async function* smoothStreamUpdates(
 			const effectiveMinDelayMs = underBacklogPressure ? 0 : minDelayMs;
 			const delayMs = Math.round(Math.max(effectiveMinDelayMs, Math.min(maxDelayMs, rawDelay)));
 
-			if (delayMs > 0) {
+			if (delayMs > 0 && !isPageHidden()) {
 				await sleep(delayMs);
 			}
 		}
@@ -318,6 +324,8 @@ export const isMessageToolProgressUpdate = (
 
 const defaultSleep = (ms: number): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, ms));
+const defaultIsPageHidden = (): boolean =>
+	typeof document !== "undefined" && document.visibilityState === "hidden";
 const waitForEvent = (eventTarget: EventTarget, eventName: string) =>
 	new Promise<boolean>((resolve) =>
 		eventTarget.addEventListener(eventName, () => resolve(true), { once: true })
