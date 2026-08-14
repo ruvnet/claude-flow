@@ -142,6 +142,16 @@ export function createBundledRuntimeManifest(packageJson) {
   return bundledManifest;
 }
 
+export function alignBundledRuntimeVersion(targetPackageJson, runtimePackageJson) {
+  const current = targetPackageJson.dependencies?.[runtimePackageJson.name];
+  if (current === undefined) {
+    throw new Error(`${runtimePackageJson.name} must be a dependency of ${targetPackageJson.name}`);
+  }
+  if (current === runtimePackageJson.version) return false;
+  targetPackageJson.dependencies[runtimePackageJson.name] = runtimePackageJson.version;
+  return true;
+}
+
 /**
  * Build reviewed internal packages and stage only their runtime artifacts under
  * a public package's node_modules tree. npm's bundledDependencies mechanism
@@ -181,6 +191,8 @@ export async function stageInternalRuntimeBundles(
     }
   }
 
+  let targetManifestChanged = false;
+
   for (const runtimePackage of INTERNAL_RUNTIME_PACKAGES) {
     const sourceRoot = join(repoRoot, 'v3', '@claude-flow', runtimePackage.directory);
     if (build) runBuild(sourceRoot);
@@ -191,6 +203,8 @@ export async function stageInternalRuntimeBundles(
         `Internal bundle identity mismatch: expected ${runtimePackage.name}, got ${String(packageJson.name)}`,
       );
     }
+    targetManifestChanged =
+      alignBundledRuntimeVersion(targetPackageJson, packageJson) || targetManifestChanged;
 
     const packageLeaf = runtimePackage.name.slice('@claude-flow/'.length);
     const target = join(scopeRoot, packageLeaf);
@@ -214,6 +228,16 @@ export async function stageInternalRuntimeBundles(
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }
+  }
+
+  // The source-built runtime may be newer than the registry bootstrap used by
+  // `npm ci`. The packed manifest must name the bytes actually embedded in the
+  // archive or npm correctly reports the bundle as invalid during install.
+  if (targetManifestChanged) {
+    await writeFile(
+      join(targetRoot, 'package.json'),
+      `${JSON.stringify(targetPackageJson, null, 2)}\n`,
+    );
   }
 }
 
