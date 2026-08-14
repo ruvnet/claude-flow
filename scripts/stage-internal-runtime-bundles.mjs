@@ -31,6 +31,12 @@ const INTERNAL_RUNTIME_PACKAGES = [
     optionalAssets: ['README.md'],
   },
   {
+    directory: 'mcp',
+    name: '@claude-flow/mcp',
+    requiredAssets: ['dist'],
+    optionalAssets: ['README.md'],
+  },
+  {
     directory: 'plugin-agent-federation',
     name: '@claude-flow/plugin-agent-federation',
     requiredAssets: ['dist'],
