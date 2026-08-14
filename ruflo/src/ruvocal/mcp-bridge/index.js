@@ -13,6 +13,11 @@ const CLOUD_FUNCTIONS = {
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const BIND_HOST = process.env.MCP_BIND_HOST || "127.0.0.1";
+// Native Ruflo rollout is deliberately opt-in.  The default preserves the
+// existing npm child for current deployments; a bridge operator may point at a
+// reviewed native binary without introducing shell interpolation.
+const RUFLO_ENABLED = process.env.ENABLE_RUFLO !== "false";
+const RUFLO_MCP_COMMAND = process.env.RUFLO_MCP_COMMAND || null;
 
 // =============================================================================
 // TOOL GROUPS — Enable/disable categories of tools independently
@@ -38,7 +43,7 @@ const TOOL_GROUPS = {
 
   // --- Agents & Orchestration (ruflo) ---
   agents: {
-    enabled: process.env.MCP_GROUP_AGENTS !== "false",
+    enabled: RUFLO_ENABLED && process.env.MCP_GROUP_AGENTS !== "false",
     description: "Agent lifecycle, swarm coordination, task management, workflows (ruflo)",
     source: "ruflo",
     prefixes: ["agent_", "swarm_", "task_", "session_", "hive-mind_", "workflow_", "coordination_"],
@@ -46,7 +51,7 @@ const TOOL_GROUPS = {
 
   // --- Memory & Knowledge (ruflo) ---
   memory: {
-    enabled: process.env.MCP_GROUP_MEMORY !== "false",
+    enabled: RUFLO_ENABLED && process.env.MCP_GROUP_MEMORY !== "false",
     description: "Vector memory, AgentDB, embeddings, semantic search (ruflo)",
     source: "ruflo",
     prefixes: ["memory_", "agentdb_", "embeddings_"],
@@ -54,7 +59,7 @@ const TOOL_GROUPS = {
 
   // --- Dev Tools (ruflo) ---
   devtools: {
-    enabled: process.env.MCP_GROUP_DEVTOOLS !== "false",
+    enabled: RUFLO_ENABLED && process.env.MCP_GROUP_DEVTOOLS !== "false",
     description: "Hooks, code analysis, performance profiling, GitHub integration (ruflo)",
     source: "ruflo",
     prefixes: ["hooks_", "analyze_", "performance_", "github_", "terminal_", "config_", "system_", "progress_"],
@@ -62,7 +67,7 @@ const TOOL_GROUPS = {
 
   // --- Security & Safety (ruflo) ---
   security: {
-    enabled: process.env.MCP_GROUP_SECURITY === "true",
+    enabled: RUFLO_ENABLED && process.env.MCP_GROUP_SECURITY === "true",
     description: "AI defence, PII detection, claims management, pattern transfer (ruflo)",
     source: "ruflo",
     prefixes: ["aidefence_", "claims_", "transfer_"],
@@ -70,7 +75,7 @@ const TOOL_GROUPS = {
 
   // --- Browser Automation (ruflo) ---
   browser: {
-    enabled: process.env.MCP_GROUP_BROWSER === "true",
+    enabled: RUFLO_ENABLED && process.env.MCP_GROUP_BROWSER === "true",
     description: "Headless browser control — navigate, click, fill, screenshot (ruflo)",
     source: "ruflo",
     prefixes: ["browser_"],
@@ -78,7 +83,7 @@ const TOOL_GROUPS = {
 
   // --- Neural & DAA (ruflo) ---
   neural: {
-    enabled: process.env.MCP_GROUP_NEURAL === "true",
+    enabled: RUFLO_ENABLED && process.env.MCP_GROUP_NEURAL === "true",
     description: "Neural network training, DAA autonomous agents, cognitive patterns (ruflo)",
     source: "ruflo",
     prefixes: ["neural_", "daa_"],
@@ -258,7 +263,12 @@ class StdioMcpClient {
 
 const BACKEND_DEFS = [
   { name: "ruvector",       command: "npx", args: ["-y", "ruvector", "mcp", "start"],   groups: ["intelligence"] },
-  { name: "ruflo",          command: "npx", args: ["-y", "ruflo", "mcp", "start"],      groups: ["agents", "memory", "devtools", "security", "browser", "neural"] },
+  {
+    name: "ruflo",
+    command: RUFLO_MCP_COMMAND || "npx",
+    args: RUFLO_MCP_COMMAND ? ["mcp", "start"] : ["-y", "ruflo", "mcp", "start"],
+    groups: ["agents", "memory", "devtools", "security", "browser", "neural"],
+  },
   { name: "agentic-flow",   command: "npx", args: ["-y", "agentic-flow@alpha", "mcp", "start"], groups: ["agentic-flow"] },
   { name: "claude",         command: "claude", args: ["mcp", "serve"],                  groups: ["claude-code"] },
   { name: "gemini-mcp",     command: "npx", args: ["-y", "gemini-mcp-server"],          groups: ["gemini"] },
