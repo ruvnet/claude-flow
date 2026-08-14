@@ -744,46 +744,30 @@ export class MCPServerManager extends EventEmitter {
       },
     }));
 
-    // A hostname often resolves to only one address when passed to listen().
-    // Bind both loopback families for the default without exposing the server
-    // on external interfaces. Explicit --host values retain single-bind
-    // semantics.
-    const hosts = this.options.host === 'localhost'
-      ? ['127.0.0.1', '::1']
-      : [this.options.host];
-    const servers = hosts.map((host) => {
-      const server = createMCPServer(
-        {
-          name: 'Claude-Flow MCP Server V3',
-          version: '3.0.0',
-          transport: this.options.transport as 'http' | 'websocket',
-          host,
-          port: this.options.port,
-          enableMetrics: true,
-          enableCaching: true,
-        },
-        logger
-      );
-      const registration = server.registerTools(
-        cliTools as Parameters<typeof server.registerTools>[0]
-      );
-      if (registration.failed.length > 0) {
-        throw new Error(`Failed to register MCP tools: ${registration.failed.join(', ')}`);
-      }
-      return server;
-    });
-
-    const startedServers: typeof servers = [];
-    try {
-      for (const server of servers) {
-        await server.start();
-        startedServers.push(server);
-      }
-    } catch (error) {
-      await Promise.all(startedServers.map((server) => server.stop()));
-      throw error;
+    // Use one MCP server with two HTTP transports for the localhost default.
+    // Both loopback sockets therefore share sessions, tools, and notifications.
+    const dualLoopback = this.options.host === 'localhost';
+    const mcpServer = createMCPServer(
+      {
+        name: 'Claude-Flow MCP Server V3',
+        version: '3.0.0',
+        transport: this.options.transport as 'http' | 'websocket',
+        host: dualLoopback ? '127.0.0.1' : this.options.host,
+        additionalHosts: dualLoopback && this.options.transport === 'http' ? ['::1'] : undefined,
+        port: this.options.port,
+        enableMetrics: true,
+        enableCaching: true,
+      },
+      logger
+    );
+    const registration = mcpServer.registerTools(
+      cliTools as Parameters<typeof mcpServer.registerTools>[0]
+    );
+    if (registration.failed.length > 0) {
+      throw new Error(`Failed to register MCP tools: ${registration.failed.join(', ')}`);
     }
-    this.mcpServers = startedServers;
+    await mcpServer.start();
+    this.mcpServers = [mcpServer];
   }
 
   /**
