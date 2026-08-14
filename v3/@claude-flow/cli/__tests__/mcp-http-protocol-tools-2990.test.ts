@@ -4,7 +4,7 @@
 // dependency pinning, HTTP registration, dispatch, and the default bind are
 // covered together.
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -54,8 +54,8 @@ function waitForOutput(
   });
 }
 
-async function postJson(port: number, endpoint: string, body: unknown): Promise<any> {
-  const response = await fetch(`http://127.0.0.1:${port}${endpoint}`, {
+async function postJson(port: number, endpoint: string, body: unknown, host = '127.0.0.1'): Promise<any> {
+  const response = await fetch(`http://${host.includes(':') ? `[${host}]` : host}:${port}${endpoint}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
@@ -79,7 +79,13 @@ async function startHttpCli(port: number, tools: string): Promise<void> {
   await waitForOutput(child, 'MCP Server started', 20_000);
 }
 
-describe.skipIf(!CLI_BUILT)('MCP HTTP protocol and tool registry (#2990, end-to-end)', () => {
+describe('MCP HTTP protocol and tool registry (#2990, end-to-end)', () => {
+  beforeAll(() => {
+    if (!CLI_BUILT) {
+      throw new Error(`Built CLI required for end-to-end coverage: ${CLI}`);
+    }
+  });
+
   it('serves a spec-valid protocol string and the executable CLI tools on both RPC paths', async () => {
     const port = 34000 + Math.floor(Math.random() * 4000);
     await startHttpCli(port, 'all');
@@ -89,33 +95,33 @@ describe.skipIf(!CLI_BUILT)('MCP HTTP protocol and tool registry (#2990, end-to-
     const ipv6Health = await fetch(`http://[::1]:${port}/health`);
     expect(ipv6Health.status).toBe(200);
 
-    for (const endpoint of ['/mcp', '/rpc']) {
-      const initialized = await postJson(port, endpoint, {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: {
-          protocolVersion: '2024-11-05',
-          capabilities: {},
-          clientInfo: { name: 'ruflo-http-regression', version: '1.0.0' },
-        },
-      });
-      expect(initialized.result.protocolVersion).toBe('2025-11-25');
+    const initialized = await postJson(port, '/mcp', {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: { name: 'ruflo-http-regression', version: '1.0.0' },
+      },
+    });
+    expect(initialized.result.protocolVersion).toBe('2025-11-25');
 
-      const listed = await postJson(port, endpoint, {
-        jsonrpc: '2.0',
-        id: 2,
-        method: 'tools/list',
-      });
-      const names = listed.result.tools.map((tool: { name: string }) => tool.name);
-      expect(names.length).toBeGreaterThan(300);
-      expect(names).toEqual(expect.arrayContaining([
-        'agent_spawn',
-        'swarm_init',
-        'memory_store',
-        'system_info',
-      ]));
-    }
+    // Initialize through IPv4, then call the alternate RPC path through IPv6.
+    // Independent server instances would reject this as an uninitialized session.
+    const listed = await postJson(port, '/rpc', {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/list',
+    }, '::1');
+    const names = listed.result.tools.map((tool: { name: string }) => tool.name);
+    expect(names.length).toBeGreaterThan(300);
+    expect(names).toEqual(expect.arrayContaining([
+      'agent_spawn',
+      'swarm_init',
+      'memory_store',
+      'system_info',
+    ]));
 
     const called = await postJson(port, '/mcp', {
       jsonrpc: '2.0',
@@ -153,5 +159,49 @@ describe.skipIf(!CLI_BUILT)('MCP HTTP protocol and tool registry (#2990, end-to-
     const names = listed.result.tools.map((tool: { name: string }) => tool.name);
     expect(names).toContain('memory_store');
     expect(names).not.toContain('agent_spawn');
+  }, 30_000);
+
+  it('supports the legacy SSE fallback on GET /mcp', async () => {
+    const port = 32000 + Math.floor(Math.random() * 1500);
+    await startHttpCli(port, 'memory');
+
+    const controller = new AbortController();
+    const streamResponse = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      headers: { accept: 'text/event-stream' },
+      signal: controller.signal,
+    });
+    expect(streamResponse.status).toBe(200);
+    expect(streamResponse.headers.get('content-type')).toContain('text/event-stream');
+    const reader = streamResponse.body!.getReader();
+    const decoder = new TextDecoder();
+    let received = decoder.decode((await reader.read()).value, { stream: true });
+    expect(received).toContain('event: endpoint');
+    const endpoint = received.match(/data: (\/mcp\?sessionId=[^\r\n]+)/)?.[1];
+    expect(endpoint).toBeTruthy();
+
+    const accepted = await fetch(`http://127.0.0.1:${port}${endpoint}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2024-11-05',
+          capabilities: {},
+          clientInfo: { name: 'ruflo-sse-regression', version: '1.0.0' },
+        },
+      }),
+    });
+    expect(accepted.status).toBe(202);
+
+    while (!received.includes('event: message')) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      received += decoder.decode(chunk.value, { stream: true });
+    }
+    expect(received).toContain('event: message');
+    expect(received).toContain('"protocolVersion":"2025-11-25"');
+    controller.abort();
   }, 30_000);
 });
