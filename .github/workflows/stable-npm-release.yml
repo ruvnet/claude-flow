@@ -194,7 +194,7 @@ jobs:
           done
 
           for archive in "$cli_archive" "$root_archive"; do
-            for bundle in security codex plugin-agent-federation; do
+            for bundle in security codex mcp plugin-agent-federation; do
               tar -tzf "$archive" \
                 "package/node_modules/@claude-flow/$bundle/package.json" >/dev/null
               tar -tzf "$archive" \
@@ -221,6 +221,8 @@ jobs:
               "$extracted/package/node_modules/@claude-flow/security/dist"
             diff -qr v3/@claude-flow/codex/dist \
               "$extracted/package/node_modules/@claude-flow/codex/dist"
+            diff -qr v3/@claude-flow/mcp/dist \
+              "$extracted/package/node_modules/@claude-flow/mcp/dist"
             diff -qr v3/@claude-flow/plugin-agent-federation/dist \
               "$extracted/package/node_modules/@claude-flow/plugin-agent-federation/dist"
           done
@@ -237,9 +239,11 @@ jobs:
           const base = './node_modules/@claude-flow/cli/node_modules/@claude-flow';
           const security = await import(base + '/security/dist/index.js');
           const codex = await import(base + '/codex/dist/index.js');
+          const mcp = await import(base + '/mcp/dist/index.js');
           const federation = await import(base + '/plugin-agent-federation/dist/index.js');
           if (!security.AgenticPolicyEngine) throw new Error('AgenticPolicyEngine missing');
           if (!codex.CodexInitializer) throw new Error('CodexInitializer missing');
+          if (!mcp.ToolRegistry) throw new Error('ToolRegistry missing');
           if (!federation.AgentFederationPlugin || !federation.FederationNodeState) {
             throw new Error('Federation exports missing');
           }

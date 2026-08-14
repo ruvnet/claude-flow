@@ -78,8 +78,7 @@ const startCommand: Command = {
     {
       name: 'tools',
       description: 'Tools to advertise (comma-separated categories, prefixes, exact names, or "all")',
-      type: 'string',
-      default: 'all'
+      type: 'string'
     },
     {
       name: 'daemon',
@@ -106,7 +105,9 @@ const startCommand: Command = {
     const port = (ctx.flags.port as number) ?? 3000;
     const host = (ctx.flags.host as string) ?? 'localhost';
     const transport = (ctx.flags.transport as 'stdio' | 'http' | 'websocket') ?? 'stdio';
-    const tools = (ctx.flags.tools as string) || 'all';
+    const tools = (ctx.flags.tools as string | undefined)
+      || process.env.CLAUDE_FLOW_MCP_TOOLS
+      || 'all';
     const daemon = (ctx.flags.daemon as boolean) ?? false;
     const force = (ctx.flags.force as boolean) ?? false;
 

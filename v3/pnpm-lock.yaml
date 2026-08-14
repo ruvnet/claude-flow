@@ -121,8 +121,8 @@ importers:
         specifier: 3.0.3
         version: link:../codex
       '@claude-flow/mcp':
-        specifier: 3.0.0-alpha.8
-        version: 3.0.0-alpha.8
+        specifier: 3.0.0-alpha.10
+        version: link:../mcp
       '@claude-flow/neural':
         specifier: 3.0.0-alpha.9
         version: link:../neural
@@ -147,6 +147,9 @@ importers:
       '@ruvector/rabitq-wasm':
         specifier: 0.1.0
         version: 0.1.0
+      ajv:
+        specifier: ^8.20.0
+        version: 8.20.0
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -156,9 +159,24 @@ importers:
       commander:
         specifier: ^12.0.0
         version: 12.1.0
+      cors:
+        specifier: ^2.8.5
+        version: 2.8.6
+      express:
+        specifier: '>=4.22.2'
+        version: 5.2.1
+      express-rate-limit:
+        specifier: '>=8.4.1'
+        version: 8.6.2(express@5.2.1)
+      fast-uri:
+        specifier: 3.1.5
+        version: 3.1.5
       fs-extra:
         specifier: ^11.2.0
         version: 11.3.3
+      helmet:
+        specifier: ^7.2.0
+        version: 7.2.0
       inquirer:
         specifier: ^9.2.0
         version: 9.3.8(@types/node@20.19.27)
@@ -393,6 +411,9 @@ importers:
       express:
         specifier: '>=4.22.2'
         version: 5.2.1
+      express-rate-limit:
+        specifier: ^8.4.1
+        version: 8.6.2(express@5.2.1)
       helmet:
         specifier: ^7.1.0
         version: 7.2.0
@@ -881,20 +902,6 @@ packages:
   /@borewit/text-codec@0.2.1:
     resolution: {integrity: sha512-k7vvKPbf7J2fZ5klGRD9AeKfUvojuZIQ3BT5u7Jfv+puwXkUBUT5PVyMDfJZpy30CBDXGMgw7fguK/lpOMBvgw==}
     requiresBuild: true
-
-  /@claude-flow/mcp@3.0.0-alpha.8:
-    resolution: {integrity: sha512-lP1t8GMWDl9RxnwMZrjMukZkyglhge7Znhj1PbUiUQ94kHcN+dAxUkA75HM1n7BONbIDcE/CS8qN2ril5KgzNg==}
-    dependencies:
-      ajv: 8.18.0
-      cors: 2.8.6
-      express: 5.2.1
-      helmet: 7.2.0
-      ws: 8.21.1
-    transitivePeerDependencies:
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-    dev: false
 
   /@claude-flow/shared@3.0.0-alpha.7:
     resolution: {integrity: sha512-5iehTHguBFjlyZqy+fRoKfZVL/nFeE93A94nUUKJvu8y7AmhfpVqtQAZbmKztwQGJ5rv7iBb3Kwl1MUo3K5QkA==}
@@ -1816,8 +1823,8 @@ packages:
         optional: true
     dependencies:
       '@hono/node-server': 1.19.7(hono@4.12.11)
-      ajv: 8.18.0
-      ajv-formats: 3.0.1(ajv@8.18.0)
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
       cors: 2.8.6
       cross-spawn: 7.0.6
@@ -1847,15 +1854,15 @@ packages:
         optional: true
     dependencies:
       '@hono/node-server': 1.19.9(hono@4.12.11)
-      ajv: 8.18.0
-      ajv-formats: 3.0.1(ajv@8.18.0)
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
       cors: 2.8.6
       cross-spawn: 7.0.6
       eventsource: 3.0.7
       eventsource-parser: 3.0.6
       express: 5.2.1
-      express-rate-limit: 8.3.2(express@5.2.1)
+      express-rate-limit: 8.6.2(express@5.2.1)
       hono: 4.12.11
       jose: 6.1.3
       json-schema-typed: 8.0.2
@@ -1877,15 +1884,15 @@ packages:
         optional: true
     dependencies:
       '@hono/node-server': 1.19.9(hono@4.12.11)
-      ajv: 8.18.0
-      ajv-formats: 3.0.1(ajv@8.18.0)
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
       cors: 2.8.6
       cross-spawn: 7.0.6
       eventsource: 3.0.7
       eventsource-parser: 3.0.6
       express: 5.2.1
-      express-rate-limit: 8.3.2(express@5.2.1)
+      express-rate-limit: 8.6.2(express@5.2.1)
       hono: 4.12.11
       jose: 6.1.3
       json-schema-typed: 8.0.2
@@ -7046,7 +7053,7 @@ packages:
       argon2: 0.44.0
       bcrypt: 6.0.0
       better-sqlite3: 12.9.0
-      express-rate-limit: 8.3.2(express@5.2.1)
+      express-rate-limit: 8.6.2(express@5.2.1)
       helmet: 8.1.0
       hnswlib-node: 3.0.0
       sharp: 0.32.6
@@ -7080,7 +7087,7 @@ packages:
       '@ruvector/router': 0.1.30
       '@ruvector/ruvllm': 2.6.0
       '@ruvector/sona': 0.1.8
-      ajv: 8.18.0
+      ajv: 8.20.0
       chalk: 5.6.2
       cli-table3: 0.6.5
       commander: 12.1.0
@@ -7107,7 +7114,7 @@ packages:
       argon2: 0.44.0
       bcrypt: 6.0.0
       better-sqlite3: 12.9.0
-      express-rate-limit: 8.3.2(express@5.2.1)
+      express-rate-limit: 8.6.2(express@5.2.1)
       helmet: 8.1.0
       hnswlib-node: 3.0.0
       sharp: 0.32.6
@@ -7132,7 +7139,7 @@ packages:
       '@modelcontextprotocol/sdk': 1.27.1(zod@3.25.76)
       '@opentelemetry/api': 1.9.1
       '@ruvector/graph-transformer': 2.0.4
-      ajv: 8.18.0
+      ajv: 8.20.0
       jsonwebtoken: 9.0.3
       sql.js: 1.14.1
     optionalDependencies:
@@ -7574,7 +7581,7 @@ packages:
       clean-stack: 5.3.0
       indent-string: 5.0.0
 
-  /ajv-formats@3.0.1(ajv@8.18.0):
+  /ajv-formats@3.0.1(ajv@8.20.0):
     resolution: {integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==}
     peerDependencies:
       ajv: ^8.0.0
@@ -7582,7 +7589,7 @@ packages:
       ajv:
         optional: true
     dependencies:
-      ajv: 8.18.0
+      ajv: 8.20.0
 
   /ajv@6.12.6:
     resolution: {integrity: sha512-j3fVLgvTo527anyYyJOGTYJbG+vnnQYvE0m5mmkc1TK+nxAppkCLMIL0aZ4dblVCNoGShhm+kzE4ZUykBoMg4g==}
@@ -7597,16 +7604,16 @@ packages:
     resolution: {integrity: sha512-B/gBuNg5SiMTrPkC+A2+cW0RszwxYmn6VYxB/inlBStS5nx6xHIt/ehKRhIMhqusl7a8LjQoZnjCs5vhwxOQ1g==}
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.0
+      fast-uri: 3.1.5
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
     dev: false
 
-  /ajv@8.18.0:
-    resolution: {integrity: sha512-PlXPeEWMXMZ7sPYOHqmDyCJzcfNrUr3fGNKtezX14ykXOEIvyK81d+qydx89KY5O71FKMPaQ2vBfBFI5NHR63A==}
+  /ajv@8.20.0:
+    resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.0
+      fast-uri: 3.1.5
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
@@ -8890,15 +8897,17 @@ packages:
       express: 5.2.1
     dev: false
 
-  /express-rate-limit@8.3.2(express@5.2.1):
-    resolution: {integrity: sha512-77VmFeJkO0/rvimEDuUC5H30oqUC4EyOhyGccfqoLebB0oiEYfM7nwPrsDsBL1gsTpwfzX8SFy2MT3TDyRq+bg==}
+  /express-rate-limit@8.6.2(express@5.2.1):
+    resolution: {integrity: sha512-YH4ru+eOJxQABscKFfRCy9R7x9QFGdezclVMwwgFFndzS2Xnm0uo6B0ABZsLhcpeptGv2qvuJVWlQr9gQZoC3A==}
     engines: {node: '>= 16'}
-    requiresBuild: true
     peerDependencies:
       express: '>=4.22.2'
     dependencies:
+      debug: 4.4.3
       express: 5.2.1
-      ip-address: 10.1.0
+      ip-address: 10.5.0
+    transitivePeerDependencies:
+      - supports-color
 
   /express@5.2.1:
     resolution: {integrity: sha512-hIS4idWWai69NezIdRt2xFVofaF4j+6INOpJlVOLDO8zXGpUVEVzIYk12UUi2JzjEzWL3IOAxcTubgz9Po0yXw==}
@@ -8961,8 +8970,8 @@ packages:
     resolution: {integrity: sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==}
     dev: true
 
-  /fast-uri@3.1.0:
-    resolution: {integrity: sha512-iPeeDKJSWf4IEOasVVrknXpaBV0IApz/gp7S2bb7Z4Lljbl2MGJRqInZiUrQwV16cpzw/D3S5j5Julj/gT52AA==}
+  /fast-uri@3.1.5:
+    resolution: {integrity: sha512-gHwA1O9LDIcKunMKhObS/HimwtehO1nPUECKAu5TpKgaO19fcWEl4bliWe1jWxVFvIXztJjjQ4L8XQ1EU9f7Jw==}
 
   /fastmcp@3.26.7:
     resolution: {integrity: sha512-6bXv8+8TBBvNlPBvASkzx8VYBWJk3TlojZoa20/2Gv43+LBA32c35gz0DM6Kov1XuDOheo5IAHtfEfgI5MqTww==}
@@ -9825,6 +9834,12 @@ packages:
     resolution: {integrity: sha512-XXADHxXmvT9+CRxhXg56LJovE+bmWnEWB78LB83VZTprKTmaC5QfruXocxzTZ2Kl0DNwKuBdlIhjL8LeY8Sf8Q==}
     engines: {node: '>= 12'}
     requiresBuild: true
+    dev: false
+    optional: true
+
+  /ip-address@10.5.0:
+    resolution: {integrity: sha512-R5SnVLJmgYYvf2F2ZgwSBnelz5G4q5AxIC277GDfUaNbrZKNANcBC7RHqYYePlszf4kBolVkJauG0ZjHHFh55g==}
+    engines: {node: '>= 12'}
 
   /ipaddr.js@1.9.1:
     resolution: {integrity: sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g==}

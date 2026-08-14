@@ -43,6 +43,21 @@ const ACTIVE_MEMORY_ROW_SQL = `(status = 'active' OR status IS NULL)`;
 let bridgeFailureReason: string | null = null;
 
 /**
+ * #3024: AgentDB's optional native controller stack can abort the whole Node
+ * process on Windows during registry initialization (a Rust allocation panic),
+ * which cannot be caught by JavaScript. Keep the CLI/MCP server on the
+ * sql.js + local-embedding path there until the native dependency is proven
+ * safe. Advanced users and CI can opt back in explicitly for diagnosis.
+ */
+export function shouldDisableNativeBridge(
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (env.CLAUDE_FLOW_DISABLE_BRIDGE === '1') return true;
+  return platform === 'win32' && env.CLAUDE_FLOW_ENABLE_NATIVE_BRIDGE_ON_WINDOWS !== '1';
+}
+
+/**
  * ADR-323: reuse memory-initializer's provenance-type allowlist rather than
  * duplicating it (drift risk). Lazy CJS require for the same circular-ESM-
  * dependency reason as getDbPath() below.
@@ -158,6 +173,12 @@ export function shouldSuppressInitLog(msg: string): boolean {
  * Returns null if @claude-flow/memory is not available.
  */
 async function getRegistry(dbPath?: string): Promise<any | null> {
+  if (shouldDisableNativeBridge()) {
+    bridgeFailureReason = process.platform === 'win32'
+      ? 'AgentDB native bridge disabled on Windows after #3024; set CLAUDE_FLOW_ENABLE_NATIVE_BRIDGE_ON_WINDOWS=1 to opt in'
+      : 'AgentDB native bridge disabled by CLAUDE_FLOW_DISABLE_BRIDGE=1';
+    return null;
+  }
   if (bridgeAvailable === false) return null;
 
   if (registryInstance) return registryInstance;

@@ -78,6 +78,39 @@ describe('bridge failure diagnostics', () => {
   });
 });
 
+describe('#3024 Windows native-bridge safety gate', () => {
+  it('disables the native bridge on Windows by default', async () => {
+    const { shouldDisableNativeBridge } = await import('../src/memory/memory-bridge.js');
+
+    expect(shouldDisableNativeBridge('win32', {})).toBe(true);
+  });
+
+  it('allows an explicit Windows diagnostic opt-in', async () => {
+    const { shouldDisableNativeBridge } = await import('../src/memory/memory-bridge.js');
+
+    expect(shouldDisableNativeBridge('win32', {
+      CLAUDE_FLOW_ENABLE_NATIVE_BRIDGE_ON_WINDOWS: '1',
+    })).toBe(false);
+  });
+
+  it('keeps the explicit disable flag authoritative on every platform', async () => {
+    const { shouldDisableNativeBridge } = await import('../src/memory/memory-bridge.js');
+
+    expect(shouldDisableNativeBridge('linux', { CLAUDE_FLOW_DISABLE_BRIDGE: '1' })).toBe(true);
+    expect(shouldDisableNativeBridge('win32', {
+      CLAUDE_FLOW_DISABLE_BRIDGE: '1',
+      CLAUDE_FLOW_ENABLE_NATIVE_BRIDGE_ON_WINDOWS: '1',
+    })).toBe(true);
+  });
+
+  it('leaves the native bridge enabled by default off Windows', async () => {
+    const { shouldDisableNativeBridge } = await import('../src/memory/memory-bridge.js');
+
+    expect(shouldDisableNativeBridge('linux', {})).toBe(false);
+    expect(shouldDisableNativeBridge('darwin', {})).toBe(false);
+  });
+});
+
 describe('init log suppression', () => {
   it('should suppress a noisy init banner', async () => {
     const { shouldSuppressInitLog } = await import('../src/memory/memory-bridge.js');

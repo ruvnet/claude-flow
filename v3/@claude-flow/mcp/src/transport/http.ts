@@ -10,6 +10,8 @@ import { createServer, Server } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import cors from 'cors';
 import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
+import { randomUUID } from 'crypto';
 import type {
   ITransport,
   TransportType,
@@ -34,6 +36,10 @@ export interface HttpTransportConfig {
   auth?: AuthConfig;
   maxRequestSize?: string;
   requestTimeout?: number;
+  rateLimit?: {
+    windowMs?: number;
+    limit?: number;
+  };
 }
 
 export class HttpTransport extends EventEmitter implements ITransport {
@@ -46,6 +52,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
   private wss?: WebSocketServer;
   private running = false;
   private activeConnections = new Set<WebSocket>();
+  private sseClients = new Map<string, Response>();
 
   private messagesReceived = 0;
   private messagesSent = 0;
@@ -112,6 +119,11 @@ export class HttpTransport extends EventEmitter implements ITransport {
     }
     this.activeConnections.clear();
 
+    for (const response of this.sseClients.values()) {
+      response.end();
+    }
+    this.sseClients.clear();
+
     if (this.wss) {
       this.wss.close();
       this.wss = undefined;
@@ -163,6 +175,11 @@ export class HttpTransport extends EventEmitter implements ITransport {
         this.errors++;
       }
     }
+
+    for (const response of this.sseClients.values()) {
+      response.write(`event: message\ndata: ${message}\n\n`);
+      this.messagesSent++;
+    }
   }
 
   private setupMiddleware(): void {
@@ -205,6 +222,20 @@ export class HttpTransport extends EventEmitter implements ITransport {
       limit: this.config.maxRequestSize || '10mb',
     }));
 
+    // Bound authenticated and unauthenticated RPC traffic before route-level
+    // authorization or request dispatch can consume significant resources.
+    this.app.use(['/rpc', '/mcp'], rateLimit({
+      windowMs: this.config.rateLimit?.windowMs ?? 60_000,
+      limit: this.config.rateLimit?.limit ?? 120,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      message: {
+        jsonrpc: '2.0',
+        id: null,
+        error: { code: -32000, message: 'Rate limit exceeded' },
+      },
+    }));
+
     if (this.config.requestTimeout) {
       this.app.use((req, res, next) => {
         res.setTimeout(this.config.requestTimeout!, () => {
@@ -244,6 +275,34 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
     this.app.post('/rpc', async (req, res) => {
       await this.handleHttpRequest(req, res);
+    });
+
+    // Legacy MCP clients fall back to the HTTP+SSE transport when
+    // Streamable HTTP negotiation fails. Advertise this same POST endpoint
+    // and route its responses back over the established event stream.
+    this.app.get('/mcp', (req, res) => {
+      if (this.config.auth?.enabled) {
+        const authResult = this.validateAuth(req);
+        if (!authResult.valid) {
+          res.status(401).json({ error: authResult.error || 'Unauthorized' });
+          return;
+        }
+      }
+
+      const sessionId = randomUUID();
+      res.status(200);
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
+      this.sseClients.set(sessionId, res);
+      res.write(`event: endpoint\ndata: /mcp?sessionId=${encodeURIComponent(sessionId)}\n\n`);
+
+      res.on('close', () => {
+        if (this.sseClients.get(sessionId) === res) {
+          this.sseClients.delete(sessionId);
+        }
+      });
     });
 
     this.app.post('/mcp', async (req, res) => {
@@ -384,11 +443,14 @@ export class HttpTransport extends EventEmitter implements ITransport {
       return;
     }
 
+    const sseSessionId = typeof req.query.sessionId === 'string' ? req.query.sessionId : undefined;
+    const sseResponse = sseSessionId ? this.sseClients.get(sseSessionId) : undefined;
+
     if (message.id === undefined) {
       if (this.notificationHandler) {
         await this.notificationHandler(message as MCPNotification);
       }
-      res.status(204).end();
+      res.status(sseResponse ? 202 : 204).end();
     } else {
       if (!this.requestHandler) {
         res.status(500).json({
@@ -401,7 +463,12 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
       try {
         const response = await this.requestHandler(message as MCPRequest);
-        res.json(response);
+        if (sseResponse) {
+          sseResponse.write(`event: message\ndata: ${JSON.stringify(response)}\n\n`);
+          res.status(202).end();
+        } else {
+          res.json(response);
+        }
         this.messagesSent++;
       } catch (error) {
         this.errors++;
