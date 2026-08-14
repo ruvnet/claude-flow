@@ -1,0 +1,114 @@
+{
+  "totalPairedTrials": 240,
+  "maxLoad": {
+    "meanDelta": -1.4416666666666667,
+    "improvedTrials": 40,
+    "worsenedTrials": 0,
+    "tiedTrials": 200,
+    "improvedFraction": 0.16666666666666666,
+    "pooledTStatistic": -6.572694847159197,
+    "pooledSignificantAt95": true
+  },
+  "covLoad": {
+    "meanDelta": -0.027291900490225847
+  },
+  "meanLoad": {
+    "meanDelta": -0.18499999999999986
+  },
+  "reachability": {
+    "baselineFailures": 305,
+    "candidateFailures": 305,
+    "totalSamples": 5760
+  },
+  "performance": {
+    "baselineTotalMs": 315.7750250000002,
+    "candidateTotalMs": 267.0647559999999,
+    "regressionRatio": 0.8457437569674793
+  },
+  "perScenario": {
+    "mesh-small": {
+      "trials": 40,
+      "baselineMeanMaxLoad": 11,
+      "candidateMeanMaxLoad": 11,
+      "baselineMeanCov": 0.03440104580768909,
+      "candidateMeanCov": 0.03440104580768909,
+      "meanMaxLoadDelta": 0,
+      "meanCovDelta": 0,
+      "meanMeanLoadDelta": 0,
+      "relativeDensityChangePct": 0,
+      "maxLoadTStatistic": 0,
+      "baselineReachabilityFailures": 0,
+      "candidateReachabilityFailures": 0
+    },
+    "mesh-medium-churn": {
+      "trials": 40,
+      "baselineMeanMaxLoad": 29,
+      "candidateMeanMaxLoad": 29,
+      "baselineMeanCov": 0.8253334826088379,
+      "candidateMeanCov": 0.8351832479234776,
+      "meanMaxLoadDelta": 0,
+      "meanCovDelta": 0.009849765314639578,
+      "meanMeanLoadDelta": -0.11333333333333293,
+      "relativeDensityChangePct": -1.1913104414856526,
+      "maxLoadTStatistic": 0,
+      "baselineReachabilityFailures": 0,
+      "candidateReachabilityFailures": 0
+    },
+    "mesh-large-churn": {
+      "trials": 40,
+      "baselineMeanMaxLoad": 18.75,
+      "candidateMeanMaxLoad": 10.1,
+      "baselineMeanCov": 0.38926741306572554,
+      "candidateMeanCov": 0.21566624480973093,
+      "meanMaxLoadDelta": -8.65,
+      "meanCovDelta": -0.17360116825599464,
+      "meanMeanLoadDelta": -0.9966666666666665,
+      "relativeDensityChangePct": -13.737652193889266,
+      "maxLoadTStatistic": -20.785373643220165,
+      "baselineReachabilityFailures": 0,
+      "candidateReachabilityFailures": 0
+    },
+    "hybrid-small": {
+      "trials": 40,
+      "baselineMeanMaxLoad": 5,
+      "candidateMeanMaxLoad": 5,
+      "baselineMeanCov": 0.3975124496610451,
+      "candidateMeanCov": 0.3975124496610451,
+      "meanMaxLoadDelta": 0,
+      "meanCovDelta": 0,
+      "meanMeanLoadDelta": 0,
+      "relativeDensityChangePct": 0,
+      "maxLoadTStatistic": 0,
+      "baselineReachabilityFailures": 191,
+      "candidateReachabilityFailures": 191
+    },
+    "hybrid-medium-churn": {
+      "trials": 40,
+      "baselineMeanMaxLoad": 3,
+      "candidateMeanMaxLoad": 3,
+      "baselineMeanCov": 0,
+      "candidateMeanCov": 0,
+      "meanMaxLoadDelta": 0,
+      "meanCovDelta": 0,
+      "meanMeanLoadDelta": 0,
+      "relativeDensityChangePct": 0,
+      "maxLoadTStatistic": 0,
+      "baselineReachabilityFailures": 54,
+      "candidateReachabilityFailures": 54
+    },
+    "hybrid-large-churn": {
+      "trials": 40,
+      "baselineMeanMaxLoad": 3,
+      "candidateMeanMaxLoad": 3,
+      "baselineMeanCov": 0,
+      "candidateMeanCov": 0,
+      "meanMaxLoadDelta": 0,
+      "meanCovDelta": 0,
+      "meanMeanLoadDelta": 0,
+      "relativeDensityChangePct": 0,
+      "maxLoadTStatistic": 0,
+      "baselineReachabilityFailures": 60,
+      "candidateReachabilityFailures": 60
+    }
+  }
+}
