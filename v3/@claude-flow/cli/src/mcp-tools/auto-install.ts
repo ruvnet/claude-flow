@@ -101,14 +101,27 @@ export async function importProjectLocalPackage<T = unknown>(packageName: string
     return null;
   }
 
-  try {
-    const projectRequire = createRequire(resolve(process.cwd(), 'package.json'));
-    const modulePath = projectRequire.resolve(packageName);
-    const moduleUrl = `${pathToFileURL(modulePath).href}?t=${Date.now()}`;
-    return await import(moduleUrl) as T;
-  } catch {
-    return null;
+  // MCP clients do not all launch the server with the project as cwd. Prefer
+  // explicit project signals used by Claude Code/Ruflo, while retaining cwd
+  // (whose Node resolver also walks parent directories) as the final fallback.
+  const projectRoots = [...new Set([
+    process.env.CLAUDE_PROJECT_DIR,
+    process.env.CLAUDE_FLOW_CWD,
+    process.env.INIT_CWD,
+    process.cwd(),
+  ].filter((root): root is string => Boolean(root)))];
+
+  for (const projectRoot of projectRoots) {
+    try {
+      const projectRequire = createRequire(resolve(projectRoot, 'package.json'));
+      const modulePath = projectRequire.resolve(packageName);
+      const moduleUrl = `${pathToFileURL(modulePath).href}?t=${Date.now()}`;
+      return await import(moduleUrl) as T;
+    } catch {
+      // Try the next explicit project signal.
+    }
   }
+  return null;
 }
 
 /**

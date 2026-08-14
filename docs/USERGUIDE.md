@@ -791,8 +791,9 @@ npm install --save @claude-flow/aidefence
 claude mcp add claude-flow -- npx -y ruflo@latest mcp start
 ```
 
-Start Claude Code from that project so Ruflo's normal Node.js resolution can
-find the project-local package. This keeps the optional dependency persistent
+Start Claude Code from that project. Ruflo resolves optional packages from the
+explicit Claude/Ruflo project directory when available, then falls back to the
+MCP process working directory. This keeps the optional dependency persistent
 across MCP reconnects and Ruflo upgrades while retaining the generated npx
 launcher. If an optional package was installed into the npx cache already,
 remove that manual cache customization and reinstall it in the project.
