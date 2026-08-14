@@ -112,3 +112,16 @@ rows — not a static snapshot.
 ## v2 live entries start below
 
 (STEP 9 of the v2 routine appends here nightly, starting 2026-08-14.)
+
+**Note (2026-08-14):** this section was still empty when tonight's run started, despite
+7 nights (#2938–#3008, 2026-08-07 through 2026-08-13) having run under the v2/v3 prompt.
+Checked directly: all 7 pushed real commits to `origin/dream/2026-08-0{7,8,9}-*` and
+`origin/dream/2026-08-1{0,1,2,3}-*` branches, but `search_pull_requests(label:dream-cycle)`
+returns zero results ever, and this table was never appended to. STEP 24 (draft PR) and
+STEP 25 (this ledger append) were silently skipped every night since the rewrite. Tonight
+is the first row below — treat a run of consecutive nights with no new row here as the
+same kind of fire alarm as the empty-table state was.
+
+| Date | Deep | Finding | Issue | PR | Evaluated? | Verdict | Effect | Witness | Prior-night fates |
+|---|---|---|---|---|---|---|---|---|---|
+| 2026-08-14 | swarm | P2C mesh load-balancing: -46% max-load/-44% CoV (t=-20.79) but -13.7% density, breaches ±10% invariant + ruview-integration,ruvector-integration scan | #3026 | #3027 (draft) | yes | REJECT | max-load -46.1%, CoV -44.4%, density -13.7% (mesh-large-churn, n=40) | e77acc86 | #2938–#3008 (last 7): all OPEN, 0 merged, 0 PRs ever opened before tonight — pipeline gap identified and fixed this run |
