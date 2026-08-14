@@ -329,6 +329,27 @@ describe('autoRefreshHelpersIfStale', () => {
     }
   });
 
+  it('honors .LOCKED before attempting to acquire the refresh lock', async () => {
+    const { cwd, helpersDir } = makeProject();
+    writeFileSync(join(helpersDir, 'hook-handler.cjs'), 'HAND-MAINTAINED');
+    writeFileSync(join(helpersDir, HELPERS_STAMP_FILE), '1.0.0');
+    writeFileSync(join(helpersDir, '.LOCKED'), '');
+    const lockPath = join(helpersDir, HELPERS_REFRESH_LOCK_FILE);
+    writeFileSync(lockPath, JSON.stringify({ pid: process.pid, token: 'other-owner' }));
+
+    try {
+      const r = await autoRefreshHelpersIfStale(cwd, {
+        versionOverride: '2.0.0',
+        lockWaitMsOverride: 0,
+      });
+      expect(r.refreshed).toBe(false);
+      expect(r.blocked).toMatch(/\.LOCKED marker present/);
+      expect(readFileSync(lockPath, 'utf-8')).toContain('other-owner');
+    } finally {
+      unlinkSync(lockPath);
+    }
+  });
+
   it('recovers an abandoned lock created before owner metadata was written', async () => {
     const { cwd, helpersDir } = makeProject();
     writeFileSync(join(helpersDir, 'hook-handler.cjs'), 'INITIAL-HANDLER');
