@@ -394,6 +394,12 @@ async function refreshOneHelpersDir(
   opts: RefreshOptions,
 ): Promise<{ refreshed: boolean; from?: string; to?: string; blocked?: string }> {
   if (!fs.existsSync(path.join(helpersDir, 'hook-handler.cjs'))) return { refreshed: false };
+  // Respect the repository opt-out before creating even a transient lock file
+  // in a directory whose helpers are intentionally maintained by hand. Keep
+  // the check in the locked path too in case the marker appears while waiting.
+  if (fs.existsSync(path.join(helpersDir, '.LOCKED'))) {
+    return { refreshed: false, blocked: '.LOCKED marker present — refresh skipped (delete to re-enable)' };
+  }
   try { if (fs.readFileSync(path.join(helpersDir, HELPERS_STAMP_FILE), 'utf-8').trim() === version) return { refreshed: false }; }
   catch { /* unstamped: continue to the locked path */ }
 
