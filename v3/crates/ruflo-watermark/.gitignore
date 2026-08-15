@@ -10,3 +10,5 @@
 .swarm/
 .ruvnet-brain/
 .ruvector/
+/pkg
+/pkg-nodejs

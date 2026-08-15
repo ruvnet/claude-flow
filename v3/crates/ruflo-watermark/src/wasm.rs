@@ -5,11 +5,14 @@
 //! without a native addon. Token/probability slices marshal as typed arrays
 //! (`Uint32Array` / `Float32Array`); detection results are a small struct with
 //! getters.
+//!
+//! Schemes are selected by string: `"tournament"`, `"tournament_nd"`, or
+//! `"gumbel"`. Detectors exposed: the per-scheme detector, the indel-robust
+//! self-sync detector, and the exact-Gamma short-text detector (Gumbel).
 
 use wasm_bindgen::prelude::*;
 
 use crate::context::WatermarkConfig;
-use crate::detect::{detect_gumbel, detect_tournament};
 use crate::hash::WatermarkKey;
 use crate::{Scheme, Watermarker};
 
@@ -19,12 +22,11 @@ fn cfg_from(material: &[u8], context_width: usize, layers: u32) -> WatermarkConf
         .with_layers(layers)
 }
 
-#[inline]
-fn scheme_of(gumbel: bool) -> Scheme {
-    if gumbel {
-        Scheme::Gumbel
-    } else {
-        Scheme::Tournament
+fn scheme_of(scheme: &str) -> Scheme {
+    match scheme {
+        "tournament" => Scheme::Tournament,
+        "tournament_nd" => Scheme::TournamentNd,
+        _ => Scheme::Gumbel, // default: distortion-free
     }
 }
 
@@ -37,12 +39,12 @@ pub struct WasmWatermarker {
 #[wasm_bindgen]
 impl WasmWatermarker {
     /// `key_material`: arbitrary secret bytes (e.g. a hex string's bytes).
-    /// `gumbel`: `true` for the distortion-free scheme, `false` for tournament.
+    /// `scheme`: `"tournament"` | `"tournament_nd"` | `"gumbel"` (default gumbel).
     #[wasm_bindgen(constructor)]
-    pub fn new(key_material: &[u8], context_width: usize, layers: u32, gumbel: bool) -> WasmWatermarker {
+    pub fn new(key_material: &[u8], context_width: usize, layers: u32, scheme: &str) -> WasmWatermarker {
         let cfg = cfg_from(key_material, context_width, layers);
         WasmWatermarker {
-            inner: Watermarker::new(cfg, scheme_of(gumbel)),
+            inner: Watermarker::new(cfg, scheme_of(scheme)),
         }
     }
 
@@ -82,25 +84,47 @@ impl WasmDetection {
     }
 }
 
-/// Detect a watermark over an emitted token id sequence.
+impl From<crate::detect::DetectionResult> for WasmDetection {
+    fn from(r: crate::detect::DetectionResult) -> Self {
+        WasmDetection {
+            scored_positions: r.scored_positions,
+            z_score: r.z_score,
+            p_value: r.p_value,
+            log10_p: r.log10_p,
+        }
+    }
+}
+
+/// Detect a watermark over an emitted token id sequence, using the named scheme.
 #[wasm_bindgen]
 pub fn detect(
     tokens: &[u32],
     key_material: &[u8],
     context_width: usize,
     layers: u32,
-    gumbel: bool,
+    scheme: &str,
 ) -> WasmDetection {
     let cfg = cfg_from(key_material, context_width, layers);
-    let r = if gumbel {
-        detect_gumbel(tokens, cfg)
-    } else {
-        detect_tournament(tokens, cfg)
-    };
-    WasmDetection {
-        scored_positions: r.scored_positions,
-        z_score: r.z_score,
-        p_value: r.p_value,
-        log10_p: r.log10_p,
+    match scheme_of(scheme) {
+        Scheme::Tournament => crate::detect::detect_tournament(tokens, cfg),
+        Scheme::TournamentNd => crate::detect::detect_tournament_nd(tokens, cfg),
+        Scheme::Gumbel => crate::detect::detect_gumbel(tokens, cfg),
     }
+    .into()
+}
+
+/// Indel-robust detection (Gumbel self-sync): far stronger than the standard
+/// detector on edited / repetitive text. See `align.rs`.
+#[wasm_bindgen]
+pub fn detect_selfsync(tokens: &[u32], key_material: &[u8], context_width: usize) -> WasmDetection {
+    let cfg = cfg_from(key_material, context_width, 1);
+    crate::align::detect_gumbel_selfsync(tokens, cfg).into()
+}
+
+/// Exact-null short-text detection (Gumbel, exact Gamma tail): correct p-values
+/// at small token counts where the normal approximation misleads. See `bayes.rs`.
+#[wasm_bindgen]
+pub fn detect_exact(tokens: &[u32], key_material: &[u8], context_width: usize) -> WasmDetection {
+    let cfg = cfg_from(key_material, context_width, 1);
+    crate::bayes::detect_gumbel_exact(tokens, cfg).into()
 }
