@@ -30,6 +30,14 @@ export interface FlashAttentionConfig {
   useStableMode: boolean;
   /** Use optimized CPU path (default: true) */
   useCPUOptimizations: boolean;
+  /**
+   * Fraction of keys kept by the top-K sparse path in cpuOptimizedAttention()
+   * (only applies once numK > 32; clamped to [16, 96] absolute keys same as
+   * before). Default 0.12 preserves the exact pre-existing behavior — this
+   * was previously a hardcoded literal with no way to tune the speed/quality
+   * tradeoff it controls. See docs/dream-cycle/2026-08-15-performance-sota.md.
+   */
+  topKFraction: number;
 }
 
 export interface AttentionResult {
@@ -58,6 +66,13 @@ export interface BenchmarkResult {
   flashMemoryBytes: number;
   /** Memory reduction factor */
   memoryReduction: number;
+  /**
+   * Root-mean-square error of the flash (top-K sparse) output vs the exact
+   * naive-attention output on the same inputs — previously unmeasured by
+   * this method, so a "speedup" could be reported with zero visibility into
+   * how much accuracy the top-K approximation actually gave up to get it.
+   */
+  rmse: number;
 }
 
 // ============================================================================
@@ -81,6 +96,7 @@ export class FlashAttention {
       temperature: config.temperature ?? 1.0,
       useStableMode: config.useStableMode ?? true,
       useCPUOptimizations: config.useCPUOptimizations ?? true,
+      topKFraction: config.topKFraction ?? 0.12,
     };
   }
 
@@ -147,16 +163,27 @@ export class FlashAttention {
     const dim = Q[0]?.length ?? this.config.dimensions;
     const scale = 1.0 / (Math.sqrt(dim) * this.config.temperature);
 
-    // Sparse attention: Use only top 12% of keys (min 16, max 96)
-    const topK = Math.max(16, Math.min(96, Math.ceil(numK * 0.12)));
+    // Sparse attention: use only the configured top-key fraction (min 16, max 96)
+    const topK = Math.max(16, Math.min(96, Math.ceil(numK * this.config.topKFraction)));
     const useTopK = numK > 32;
+    // The two-stage top-K path below is only taken when `useTopK && numK > 128`
+    // (see branch below); for 32 < numK <= 128 the code falls through to the
+    // "simple path" and iterates `exps[ki]` for the FULL numK range instead of
+    // just `topK`. expBuffer sizing must mirror that exact branch predicate —
+    // sizing it off `useTopK` alone (as before) undersizes the buffer for
+    // 32 < numK <= 128: Float32Array reads past `.length` return `undefined`,
+    // and `weight = exps[ki] * invSum` then silently produces NaN, which
+    // propagates through every output element for that query. Found via
+    // tonight's RMSE addition to benchmark() (was previously unmeasured) —
+    // see docs/dream-cycle/2026-08-15-performance-sota.md.
+    const usesTwoStagePath = useTopK && numK > 128;
 
     // Ensure buffers are allocated
     if (!this.scoreBuffer || this.scoreBuffer.length < numK) {
       this.scoreBuffer = new Float32Array(numK);
     }
-    if (!this.expBuffer || this.expBuffer.length < (useTopK ? topK : numK)) {
-      this.expBuffer = new Float32Array(useTopK ? topK : numK);
+    if (!this.expBuffer || this.expBuffer.length < (usesTwoStagePath ? topK : numK)) {
+      this.expBuffer = new Float32Array(usesTwoStagePath ? topK : numK);
     }
     if (!this.accumBuffer || this.accumBuffer.length < dim) {
       this.accumBuffer = new Float64Array(dim);
@@ -501,6 +528,12 @@ export class FlashAttention {
     const flashMemoryBytes = this.config.blockSize * this.config.blockSize * 4;
     const memoryReduction = naiveMemoryBytes / flashMemoryBytes;
 
+    // Quality: RMSE of the top-K sparse output vs exact attention on the
+    // same inputs (one extra pass of each path — not part of the timed loop).
+    const exactOutput = this.naiveAttention(queries, keys, values);
+    const flashOutput = this.cpuOptimizedAttention(queries, keys, values);
+    const rmse = this.computeRMSE(exactOutput, flashOutput);
+
     const result: BenchmarkResult = {
       naiveTimeMs,
       flashTimeMs,
@@ -510,6 +543,7 @@ export class FlashAttention {
       naiveMemoryBytes,
       flashMemoryBytes,
       memoryReduction,
+      rmse,
     };
 
     this.benchmarkHistory.push(result);
@@ -674,6 +708,25 @@ export class FlashAttention {
       maxScores[globalQi] = newMax;
       sumExp[globalQi] = newSumExp;
     }
+  }
+
+  /**
+   * Root-mean-square error between two equal-shaped sets of output vectors.
+   */
+  private computeRMSE(exact: Float32Array[], approx: Float32Array[]): number {
+    let sumSq = 0;
+    let count = 0;
+    for (let i = 0; i < exact.length; i++) {
+      const e = exact[i];
+      const a = approx[i];
+      const dim = Math.min(e.length, a.length);
+      for (let d = 0; d < dim; d++) {
+        const diff = e[d] - a[d];
+        sumSq += diff * diff;
+        count++;
+      }
+    }
+    return count > 0 ? Math.sqrt(sumSq / count) : 0;
   }
 
   /**

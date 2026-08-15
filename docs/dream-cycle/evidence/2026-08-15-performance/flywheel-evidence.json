@@ -1,0 +1,67 @@
+{
+  "cycleDate": "2026-08-15",
+  "deepSurface": "performance",
+  "scanSurfaces": ["security", "hive-mind"],
+  "provenanceClassifiedEvidence": [
+    {
+      "type": "OBSERVATION",
+      "claim": "expBuffer sizing predicate in cpuOptimizedAttention() (`useTopK`) does not match the branch-selection predicate actually used (`useTopK && numK > 128`).",
+      "source": "manual code read of v3/@claude-flow/neural/src/flash-attention.ts:166-176 at git HEAD"
+    },
+    {
+      "type": "MEASUREMENT",
+      "claim": "Baseline (git HEAD) produces NaN in every output element for 33<=numK<=128; candidate (working tree, fixed) is finite across that entire range with RMSE ~1e-9 to ~1e-3 vs exact attention.",
+      "source": "docs/dream-cycle/evidence/2026-08-15-performance/receipt-2026-08-15.json, cross-checked by independent-repro.md"
+    },
+    {
+      "type": "MEASUREMENT",
+      "claim": "Candidate output is byte-identical to baseline (maxAbsOutputDelta=0) for numK<=32 and numK>128 across all swept scenarios.",
+      "source": "docs/dream-cycle/evidence/2026-08-15-performance/receipt-2026-08-15.json"
+    },
+    {
+      "type": "MEASUREMENT",
+      "claim": "Among 3 explored fix variants, the shipped branch-matched fix has the highest composite fitness (0.9006) once cost_efficiency is measured across the full scenario sweep rather than only the buggy range.",
+      "source": "docs/dream-cycle/evidence/2026-08-15-performance/darwin-lineage-2026-08-15.json"
+    },
+    {
+      "type": "INFERENCE",
+      "claim": "Any production caller passing 33-128 keys to FlashAttention.attention() with default config (useCPUOptimizations:true) would silently receive NaN attention output today (pre-fix).",
+      "basis": "the bug is a pure function of numK; confirmed workload-shape-general in adversarial-critique.md, not dependent on the specific benchmark's data"
+    },
+    {
+      "type": "HYPOTHESIS",
+      "claim": "Fixing the sizing predicate to mirror the branch predicate restores exactness/finiteness in 33<=numK<=128 with no behavior change outside it.",
+      "status": "confirmed by MEASUREMENT above"
+    },
+    {
+      "type": "DECISION",
+      "claim": "Ship the branch-matched fix (topKFraction config addition + rmse metric addition + expBuffer predicate fix), scoped to v3/@claude-flow/neural/src/flash-attention.ts only.",
+      "rationale": "smallest fix that satisfies the frozen hypothesis's invariants; Darwin-confirmed fitness-maximizing among constraint-passing, in-scope variants"
+    },
+    {
+      "type": "REJECTION",
+      "claim": "variant-widen-twostage-gate (widen numK>128 threshold to numK>32, eliminating the 'simple path' entirely)",
+      "rationale": "changes 33<=numK<=128 from exact to approximate (top-K sparse) — a behavior change beyond the frozen hypothesis, which only promised to restore exactness/finiteness, not introduce new approximation. Disqualified regardless of its raw fitness (0.7301, would have ranked above the shipped fix under the FIRST, uncorrected cost_efficiency measurement)."
+    },
+    {
+      "type": "REJECTION",
+      "claim": "variant-always-numK (always size expBuffer to numK, ignore topK sizing entirely)",
+      "rationale": "correct and in-scope, but strictly worse cost_efficiency once measured across the full scenario sweep (peak 2048*4=8192 bytes at numK=2048 vs shipped's 512 bytes) — the two-stage path (numK>128) never needed a numK-sized buffer and this variant silently regresses its memory footprint."
+    }
+  ],
+  "rewardHackCheck": {
+    "toolingAvailable": false,
+    "toolingNote": "npx ruvector harness --help and node bin/cli.js metaharness --help were probed at session start (STEP 0.5); no dedicated reward-hack-detection subcommand surfaced. @metaharness/weight-eft (LoRA training-data contamination filter, per prior nights) is not applicable to auditing a hand-written diff.",
+    "manualChecklist": "see adversarial-critique.md — full checklist executed, verdict CONFIRMED, no unresolved signal",
+    "signal": "none"
+  },
+  "securityReview": {
+    "sensitivity": "low",
+    "notes": "Pure computational fix inside a CPU-bound attention kernel. No filesystem, network, credential, or MCP-authority surface touched. The fixed function is reachable from 3 MCP tool call sites (neural-tools.ts, hooks-tools.ts, system-tools.ts) via getFlashAttention()/computeAttention(), all of which pass numeric embedding-derived vectors, not user-controlled strings or paths — the input surface is not attacker-influenced code paths in a way this fix changes. Net effect of the fix is a correctness improvement (was silently returning NaN, now returns a valid numeric result) for a previously-broken code range; this reduces exposure (NaN outputs propagating into downstream cosine-similarity / ranking logic previously) rather than adding any."
+  },
+  "commitIdentity": {
+    "sessionCommit": "2462cf7870bce359115ade64cf8b1a8256dc3257",
+    "branch": "claude/practical-gauss-wqc2ke"
+  },
+  "witnessIdentity": "see docs/dream-cycle/2026-08-15-performance-sota.md § SOTA Proof & Witness"
+}

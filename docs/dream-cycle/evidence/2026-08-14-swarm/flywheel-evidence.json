@@ -1,0 +1,87 @@
+{
+  "cycleDate": "2026-08-14",
+  "deepSurface": "swarm",
+  "scanSurfaces": ["ruview-integration", "ruvector-integration"],
+  "sessionCommit": "2462cf7870bce359115ade64cf8b1a8256dc3257",
+  "hypothesis": {
+    "type": "HYPOTHESIS",
+    "frozenAt": "before evaluation began; not modified afterward",
+    "statement": "Given a corpus of realistic task descriptions spanning low/medium/high complexity, when suggestAgentsForTask's agent-count recommendation is scaled by the already-computed `complexity` bucket instead of derived solely from KEYWORD_PATTERNS array length, then mean recommended-agent-count for low-complexity tasks should drop toward 1 while high-complexity tasks retain their current count, subject to: (1) no keyword-matched safety-relevant agent type (security-architect, security-auditor) is ever dropped by the discount; (2) the function remains pure/deterministic with no new side effects; (3) recommended count for any high-complexity task must not decrease vs baseline, and the discount only ever removes agents for complexity:'low', never medium/high."
+  },
+  "observations": [
+    {
+      "type": "OBSERVATION",
+      "statement": "hooks-tools.ts:1354-1362 (pre-patch) computes a `complexity` bucket in hooksPreTask but never passes it into suggestAgentsForTask; the recommendation text branches on suggestion.agents.length, itself derived only from KEYWORD_PATTERNS, making complexity dead for agent-count purposes.",
+      "source": "git show HEAD:v3/@claude-flow/cli/src/mcp-tools/hooks-tools.ts, read directly"
+    },
+    {
+      "type": "OBSERVATION",
+      "statement": "ADR-333 (docs/dream-cycles/2026-07-30-performance-sota.md, prior Dream Cycle, 2026-07-30) previously measured Ruflo's default 5-agent Auto-Start Swarm Protocol costs ~7.4x more tokens than a 2-call approach for comparable tasks, and named 'capability-proportionate agent count' as an absent capability. That finding was prose-only (no shipped code).",
+      "source": "docs/dream-cycles/2026-07-30-performance-sota.md"
+    },
+    {
+      "type": "OBSERVATION",
+      "statement": "This checkout has no installed dependencies anywhere (root, v3/, v3/@claude-flow/cli/ node_modules all absent); hooks-tools.ts transitively requires @claude-flow/cli-core (via validate-input.ts's re-export shim), confirmed unbuildable tonight via direct tsx import attempt.",
+      "source": "npx tsx -e \"import('./hooks-tools.ts')\" -> Cannot find package '@claude-flow/cli-core'"
+    }
+  ],
+  "measurements": [
+    {
+      "type": "MEASUREMENT",
+      "statement": "Standalone benchmark (bench-agent-count-complexity-gate.mjs) over a 44-row corpus: low-complexity mean agent count 2.90->1.48 (n=21), medium unchanged 3.0->3.0 (n=5), high unchanged 2.89->2.89 (n=18). 0 regressions, 0 safety-invariant violations. Reproduced byte-identical on 2 independent re-runs (including a fresh run by the independent adversarial critic).",
+      "source": "receipt-2026-08-14.json",
+      "reproducible": true
+    },
+    {
+      "type": "MEASUREMENT",
+      "statement": "Syntax-only transpile check (esbuild, no type-check, no bundling) of the patched hooks-tools.ts and the new test file both exit 0 -- confirms no syntax error was introduced. This is NOT a substitute for the real vitest suite, which could not run tonight (see OBSERVATION above).",
+      "source": "npx esbuild ... --bundle=false"
+    }
+  ],
+  "inferences": [
+    {
+      "type": "INFERENCE",
+      "statement": "Given the agent-count reduction measured on the low-complexity bucket and ADR-333's separately-measured ~7.4x token-cost gap for extra pipeline agents, the discount is directionally likely to reduce real token cost on low-complexity tasks in production -- but this composition (agent-count reduction x per-agent token cost) was NOT independently re-measured tonight with real model calls, and is explicitly flagged Grade C (plausible, unverified) in the receipt.",
+      "source": "receipt-2026-08-14.json tokenCostProxyNote"
+    }
+  ],
+  "decisions": [
+    {
+      "type": "DECISION",
+      "statement": "Ship the complexity-aware discount at the hooksPreTask call site only (1 of 3 suggestAgentsForTask call sites), with an explicit safety exemption for security-architect/security-auditor, and gate promotion eligibility on that exemption holding rather than trading it off inside the fitness score.",
+      "rationale": "Smallest reviewable diff matching the frozen hypothesis's scope; safety exemption verified both by direct hand-trace and by Darwin's hard-constraint-gated winner selection (see darwin-lineage-2026-08-14.json)."
+    }
+  ],
+  "rejections": [
+    {
+      "type": "REJECTION",
+      "statement": "variant-b-cap2 (discount to top-2 instead of top-1 for low-complexity) rejected: satisfies both hard invariants but scores lower cost_efficiency (0.9230 vs 0.9492 fitness) for no offsetting quality/safety gain.",
+      "source": "darwin-lineage-2026-08-14.json"
+    },
+    {
+      "type": "REJECTION",
+      "statement": "variant-c-medium-too (extend discount to the medium complexity bucket) rejected as structurally out-of-scope: violates the frozen hypothesis's regression invariant regardless of its fitness score.",
+      "source": "darwin-lineage-2026-08-14.json"
+    },
+    {
+      "type": "REJECTION",
+      "statement": "variant-d-no-exemption (drop the security-role safety exemption) rejected despite having the HIGHEST raw composite fitness (0.9542 vs shipped 0.9492) of all 4 explored variants: the frozen fitness function's 0.10 safety weight under-prices a protected-role removal relative to the cost_efficiency it buys, so safety-role-violation and out-of-scope-discount counts were treated as hard disqualifying constraints ahead of ranking by fitness, not as fitness components to trade off.",
+      "source": "darwin-lineage-2026-08-14.json hardConstraintFinding"
+    },
+    {
+      "type": "REJECTION",
+      "statement": "candidates #2 (swarm_init complexity-scaled maxAgents), #3 (hooks route --mode moa fanout width scaling), #4 (APSC minActiveAgents as a function of complexity), #5 (ADR-333's own --efficiency-mode 2-call self-refine flag) scored lower on the frozen candidate-selection formula (0.25 fit + 0.20 testability + 0.20 measurability + 0.15 production_value + 0.10 novelty + 0.10 reviewability) than the shipped candidate (4.65) and were deferred as named follow-ups, not implemented tonight.",
+      "source": "deep-swarm-researcher report, section (c)"
+    }
+  ],
+  "criticVerdict": "CONFIRMED",
+  "rewardHackCheck": {
+    "toolingApplicable": false,
+    "note": "@metaharness/weight-eft (LoRA training-data contamination filter) is not applicable to auditing a hand-written diff; `npx @metaharness/weight-eft --help` produced no output (library, not a CLI). Manual checklist executed via the independent adversarial critic instead (adversarial-critique.md) -- no unresolved signal.",
+    "unresolvedSignal": false
+  },
+  "securityReview": {
+    "sensitivity": "low",
+    "note": "Change is advisory-metadata-only (hooksPreTask returns a recommendation object; does not spawn agents, does not gate execution, does not touch filesystem/network/credentials beyond what the pre-existing handler already did). The one safety-relevant property (never silently drop security-architect/security-auditor from a recommendation) was explicitly designed for, hand-verified, and cross-checked by both the independent critic and the Darwin hard-constraint gate."
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "hypothesis": "Concurrent (Promise.all) variant fan-out in smartSearch reduces wall-clock latency vs sequential await-loop fan-out, with zero result-set change.",
+  "baselineCommit": "ee3a394",
+  "corpus": [
+    "multiQuery-default-fast-store",
+    "multiQuery-default-slow-store",
+    "multiQuery-off-single-variant",
+    "explicit-5-variants-slow-store"
+  ],
+  "repeatsPerScenario": 5,
+  "results": [
+    {
+      "scenario": "multiQuery-default-fast-store",
+      "perCallDelayMs": 15,
+      "variantCount": 3,
+      "baselineMeanMs": 46.19,
+      "candidateMeanMs": 15.75,
+      "speedup": 2.933,
+      "improvementPct": 65.9,
+      "qualityIdentical": true
+    },
+    {
+      "scenario": "multiQuery-default-slow-store",
+      "perCallDelayMs": 60,
+      "variantCount": 3,
+      "baselineMeanMs": 181.26,
+      "candidateMeanMs": 60.66,
+      "speedup": 2.988,
+      "improvementPct": 66.5,
+      "qualityIdentical": true
+    },
+    {
+      "scenario": "multiQuery-off-single-variant",
+      "perCallDelayMs": 60,
+      "variantCount": 1,
+      "baselineMeanMs": 60.37,
+      "candidateMeanMs": 60.4,
+      "speedup": 0.999,
+      "improvementPct": -0.1,
+      "qualityIdentical": true
+    },
+    {
+      "scenario": "explicit-5-variants-slow-store",
+      "perCallDelayMs": 60,
+      "variantCount": 5,
+      "baselineMeanMs": 303.05,
+      "candidateMeanMs": 60.39,
+      "speedup": 5.019,
+      "improvementPct": 80.1,
+      "qualityIdentical": true
+    }
+  ],
+  "verdict": {
+    "allQualityIdentical": true,
+    "minImprovementPctAmongMultiVariantScenarios": 65.9,
+    "meetsThirtyPercentThreshold": true,
+    "singleVariantPathRegressionPct": 0.1,
+    "singleVariantPathStable": true,
+    "ACCEPT": true
+  }
+}

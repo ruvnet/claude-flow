@@ -1,0 +1,150 @@
+{
+  "frozenFitnessFunction": "fitness = 0.35*quality + 0.20*success_rate + 0.15*latency + 0.10*cost_efficiency + 0.10*reproducibility + 0.10*safety",
+  "budget": {
+    "maxGenerations": 3,
+    "maxCandidatesPerGeneration": 4,
+    "maxPromotedLineageCandidate": 1,
+    "used": {
+      "generations": 1,
+      "candidates": 4
+    }
+  },
+  "generation1": [
+    {
+      "name": "variant-a-shipped",
+      "description": "cap=1, buckets=[low], protected-role exemption ON (this is what was actually shipped tonight)",
+      "capSize": 1,
+      "applyToBuckets": [
+        "low"
+      ],
+      "respectProtectedRoles": true,
+      "metrics": {
+        "regressions": 0,
+        "outOfScopeDiscounts": 0,
+        "safetyViolations": 0,
+        "agentsSaved": 30,
+        "lowBucketSize": 21,
+        "costEfficiency": 0.4918032786885246
+      },
+      "fitnessComponents": {
+        "quality": 1,
+        "successRate": 1,
+        "latency": 1,
+        "costEfficiency": 0.4918032786885246,
+        "reproducibility": 1,
+        "safety": 1
+      },
+      "fitness": 0.9492
+    },
+    {
+      "name": "variant-b-cap2",
+      "description": "cap=2 instead of 1, buckets=[low], exemption ON — less aggressive discount",
+      "capSize": 2,
+      "applyToBuckets": [
+        "low"
+      ],
+      "respectProtectedRoles": true,
+      "metrics": {
+        "regressions": 0,
+        "outOfScopeDiscounts": 0,
+        "safetyViolations": 0,
+        "agentsSaved": 14,
+        "lowBucketSize": 21,
+        "costEfficiency": 0.22950819672131148
+      },
+      "fitnessComponents": {
+        "quality": 1,
+        "successRate": 1,
+        "latency": 1,
+        "costEfficiency": 0.22950819672131148,
+        "reproducibility": 1,
+        "safety": 1
+      },
+      "fitness": 0.923
+    },
+    {
+      "name": "variant-c-medium-too",
+      "description": "cap=1, buckets=[low,medium], exemption ON — extends discount beyond the frozen hypothesis scope",
+      "capSize": 1,
+      "applyToBuckets": [
+        "low",
+        "medium"
+      ],
+      "respectProtectedRoles": true,
+      "metrics": {
+        "regressions": 0,
+        "outOfScopeDiscounts": 5,
+        "safetyViolations": 0,
+        "agentsSaved": 30,
+        "lowBucketSize": 21,
+        "costEfficiency": 0.4918032786885246
+      },
+      "fitnessComponents": {
+        "quality": 0.8863636363636364,
+        "successRate": 1,
+        "latency": 1,
+        "costEfficiency": 0.4918032786885246,
+        "reproducibility": 1,
+        "safety": 1
+      },
+      "fitness": 0.9094
+    },
+    {
+      "name": "variant-d-no-exemption",
+      "description": "cap=1, buckets=[low], exemption OFF — same discount but WITHOUT the safety carve-out for security roles",
+      "capSize": 1,
+      "applyToBuckets": [
+        "low"
+      ],
+      "respectProtectedRoles": false,
+      "metrics": {
+        "regressions": 0,
+        "outOfScopeDiscounts": 0,
+        "safetyViolations": 5,
+        "agentsSaved": 40,
+        "lowBucketSize": 21,
+        "costEfficiency": 0.6557377049180327
+      },
+      "fitnessComponents": {
+        "quality": 1,
+        "successRate": 1,
+        "latency": 1,
+        "costEfficiency": 0.6557377049180327,
+        "reproducibility": 1,
+        "safety": 0.8863636363636364
+      },
+      "fitness": 0.9542
+    }
+  ],
+  "rankedByRawFitness": [
+    {
+      "name": "variant-d-no-exemption",
+      "fitness": 0.9542,
+      "hardConstraintsOk": false
+    },
+    {
+      "name": "variant-a-shipped",
+      "fitness": 0.9492,
+      "hardConstraintsOk": true
+    },
+    {
+      "name": "variant-b-cap2",
+      "fitness": 0.923,
+      "hardConstraintsOk": true
+    },
+    {
+      "name": "variant-c-medium-too",
+      "fitness": 0.9094,
+      "hardConstraintsOk": false
+    }
+  ],
+  "rawFitnessWinner": "variant-d-no-exemption",
+  "hardConstraintFinding": "Notable finding: by RAW composite fitness alone, variant-d-no-exemption (0.9542) outranks the shipped variant-a-shipped (0.9492) — because the frozen fitness function's 0.10 safety weight under-prices the cost of dropping a protected role relative to the 0.10 cost_efficiency it buys. This is exactly why safety is treated as a hard disqualifying constraint here rather than a component to be traded off: variant-d-no-exemption is EXCLUDED from winner selection despite its higher raw score.",
+  "winner": "variant-a-shipped",
+  "decision": "variant-a-shipped selected as the sole promoted-eligible candidate: highest fitness (0.9492) among the 2/4 candidates that satisfy both hard invariants from the frozen hypothesis (zero regressions outside the low bucket, zero safety-role violations). This matches the candidate actually implemented tonight — no change to the shipped diff needed.",
+  "notes": [
+    "variant-b-cap2 (cap=2) is REJECTED despite zero safety violations and zero regressions: it scores lower cost_efficiency (smaller agent-count reduction on the low bucket) than variant-a for no offsetting quality/safety gain — negative evidence, persisted so a future cycle does not re-explore \"should the cap be 2 instead of 1\" from scratch.",
+    "variant-c-medium-too (extends discount to the medium bucket) is REJECTED and NOT eligible for promotion regardless of its raw fitness score: it violates the frozen hypothesis's regression invariant (\"the discount only ever removes agents for complexity: low, never medium/high\") from STEP 3.3. This is flagged structurally as out-of-scope, not just fitness-penalized — Darwin is bounded to the frozen hypothesis and may not silently expand its own scope even if the metric looks better.",
+    "variant-d-no-exemption (drops the security-role safety exemption) is REJECTED: it produces safety violations by design (discounts security-architect/security-auditor away on low-complexity auth/security tasks) — this is the quantitative confirmation that the shipped safety exemption is load-bearing, not just a qualitative nicety."
+  ]
+}

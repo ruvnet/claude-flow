@@ -1,0 +1,169 @@
+{
+  "hypothesis": "expBuffer sizing in cpuOptimizedAttention() is keyed off `useTopK` alone but the branch actually taken is keyed off `useTopK && numK > 128`; for 32<numK<=128 this undersizes expBuffer to topK, causing NaN outputs. Fixing the sizing predicate to match the branch predicate should (a) make all outputs finite for 32<numK<=128, with RMSE close to exact attention, and (b) leave numK<=32 and numK>128 paths byte-identical to baseline (no regression).",
+  "headSha": "2462cf7870bce359115ade64cf8b1a8256dc3257",
+  "baselineFileBlobSha": "d18aec0a583b0fa01f13fe1bab4ab9b38be0b510",
+  "runtime": "node v22.22.2, --experimental-strip-types (no npm deps)",
+  "scenarios": [
+    {
+      "scenario": "small (no top-K path, numK<=32)",
+      "numQueries": 20,
+      "numKeys": 24,
+      "dim": 384,
+      "naiveTimeMs": 2.0034,
+      "baseline": {
+        "flashTimeMs": 1.7392,
+        "speedup": 1.1519,
+        "rmse": 9.924806244157163e-10,
+        "hadNaN": false
+      },
+      "candidateAtDefault": {
+        "flashTimeMs": 1.835,
+        "speedup": 1.0917,
+        "rmse": 9.924806244157163e-10,
+        "isFinite": true
+      },
+      "maxAbsOutputDelta": 0,
+      "outputIdenticalAtDefault": true,
+      "scenarioPass": true
+    },
+    {
+      "scenario": "boundary-low (buggy range starts, numK=33)",
+      "numQueries": 20,
+      "numKeys": 33,
+      "dim": 384,
+      "naiveTimeMs": 1.6435,
+      "baseline": {
+        "flashTimeMs": 2.1796,
+        "speedup": 0.754,
+        "rmse": null,
+        "hadNaN": true
+      },
+      "candidateAtDefault": {
+        "flashTimeMs": 2.1168,
+        "speedup": 0.7764,
+        "rmse": 9.513547411382833e-10,
+        "isFinite": true
+      },
+      "maxAbsOutputDelta": null,
+      "outputIdenticalAtDefault": false,
+      "scenarioPass": true
+    },
+    {
+      "scenario": "medium (buggy range, numK=96)",
+      "numQueries": 40,
+      "numKeys": 96,
+      "dim": 384,
+      "naiveTimeMs": 9.5875,
+      "baseline": {
+        "flashTimeMs": 8.9694,
+        "speedup": 1.0689,
+        "rmse": null,
+        "hadNaN": true
+      },
+      "candidateAtDefault": {
+        "flashTimeMs": 8.9738,
+        "speedup": 1.0684,
+        "rmse": 9.86731902717082e-10,
+        "isFinite": true
+      },
+      "maxAbsOutputDelta": null,
+      "outputIdenticalAtDefault": false,
+      "scenarioPass": true
+    },
+    {
+      "scenario": "boundary-high (buggy range ends, numK=128)",
+      "numQueries": 40,
+      "numKeys": 128,
+      "dim": 384,
+      "naiveTimeMs": 12.9372,
+      "baseline": {
+        "flashTimeMs": 12.211,
+        "speedup": 1.0595,
+        "rmse": null,
+        "hadNaN": true
+      },
+      "candidateAtDefault": {
+        "flashTimeMs": 12.0449,
+        "speedup": 1.0741,
+        "rmse": 9.466141046975233e-10,
+        "isFinite": true
+      },
+      "maxAbsOutputDelta": null,
+      "outputIdenticalAtDefault": false,
+      "scenarioPass": true
+    },
+    {
+      "scenario": "just-above-buggy-range (numK=129, two-stage kicks in)",
+      "numQueries": 40,
+      "numKeys": 129,
+      "dim": 384,
+      "naiveTimeMs": 12.9209,
+      "baseline": {
+        "flashTimeMs": 5.7405,
+        "speedup": 2.2508,
+        "rmse": 0.011816496329032073,
+        "hadNaN": false
+      },
+      "candidateAtDefault": {
+        "flashTimeMs": 5.3798,
+        "speedup": 2.4018,
+        "rmse": 0.011816496329032073,
+        "isFinite": true
+      },
+      "maxAbsOutputDelta": 0,
+      "outputIdenticalAtDefault": true,
+      "scenarioPass": true
+    },
+    {
+      "scenario": "large (two-stage screening, numK>128)",
+      "numQueries": 100,
+      "numKeys": 512,
+      "dim": 384,
+      "naiveTimeMs": 129.1555,
+      "baseline": {
+        "flashTimeMs": 39.8326,
+        "speedup": 3.2425,
+        "rmse": 0.006025530882535194,
+        "hadNaN": false
+      },
+      "candidateAtDefault": {
+        "flashTimeMs": 39.2163,
+        "speedup": 3.2934,
+        "rmse": 0.006025530882535194,
+        "isFinite": true
+      },
+      "maxAbsOutputDelta": 0,
+      "outputIdenticalAtDefault": true,
+      "scenarioPass": true
+    },
+    {
+      "scenario": "xlarge (two-stage screening, numK>128)",
+      "numQueries": 200,
+      "numKeys": 2048,
+      "dim": 384,
+      "naiveTimeMs": 1028.6169,
+      "baseline": {
+        "flashTimeMs": 293.1432,
+        "speedup": 3.5089,
+        "rmse": 0.005103582587897286,
+        "hadNaN": false
+      },
+      "candidateAtDefault": {
+        "flashTimeMs": 279.0918,
+        "speedup": 3.6856,
+        "rmse": 0.005103582587897286,
+        "isFinite": true
+      },
+      "maxAbsOutputDelta": 0,
+      "outputIdenticalAtDefault": true,
+      "scenarioPass": true
+    }
+  ],
+  "bugConfirmedInScenarios": [
+    "boundary-low (buggy range starts, numK=33)",
+    "medium (buggy range, numK=96)",
+    "boundary-high (buggy range ends, numK=128)"
+  ],
+  "unaffectedScenariosByteIdentical": true,
+  "verdict": "ACCEPT: bug reproduced in baseline for 32<numK<=128, fixed (finite + low RMSE) in candidate, zero behavior change outside that range"
+}

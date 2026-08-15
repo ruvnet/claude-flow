@@ -1,0 +1,83 @@
+{
+  "generation": 1,
+  "candidateCount": 3,
+  "fitnessFunction": "0.35*quality + 0.20*success_rate + 0.15*latency + 0.10*cost_efficiency + 0.10*reproducibility + 0.10*safety",
+  "hardConstraints": [
+    "zero NaN in any output element",
+    "byte-identical to shipped fix for numK<=32 and numK>128 (no regression outside the buggy range)"
+  ],
+  "lineage": [
+    {
+      "id": "shipped-branch-matched",
+      "description": "expBuffer sized to (usesTwoStagePath ? topK : numK) — mirrors the exact branch predicate. This is what was actually shipped tonight.",
+      "inScope": true,
+      "metrics": {
+        "anyNaN": false,
+        "avgRmseInBuggyRange": 9.76942497466743e-10,
+        "avgSpeedup": 1.5551,
+        "byteIdenticalOutsideRange": true,
+        "peakExpBufferBytesAcrossAllScenariosSwept": 512
+      },
+      "fitnessComponents": {
+        "quality": 1,
+        "successRate": 1,
+        "latency": 0.3888,
+        "costEfficiency": 0.9231,
+        "reproducibility": 1,
+        "safety": 1
+      },
+      "fitness": 0.9006,
+      "hardConstraintsPass": true,
+      "disqualifiedReason": null
+    },
+    {
+      "id": "variant-always-numK",
+      "description": "expBuffer always sized to numK (simplest possible fix — ignore topK sizing entirely, always allocate for the worst case). Safe but wastes memory when the two-stage path (numK>128, buffer only needs topK<=96) runs.",
+      "inScope": true,
+      "metrics": {
+        "anyNaN": false,
+        "avgRmseInBuggyRange": 9.76942497466743e-10,
+        "avgSpeedup": 1.507,
+        "byteIdenticalOutsideRange": true,
+        "peakExpBufferBytesAcrossAllScenariosSwept": 2048
+      },
+      "fitnessComponents": {
+        "quality": 1,
+        "successRate": 1,
+        "latency": 0.3768,
+        "costEfficiency": 0,
+        "reproducibility": 1,
+        "safety": 1
+      },
+      "fitness": 0.8065,
+      "hardConstraintsPass": true,
+      "disqualifiedReason": null
+    },
+    {
+      "id": "variant-widen-twostage-gate",
+      "description": "Instead of fixing the buffer, widen the two-stage path's gate from `numK > 128` to `numK > 32` so the \"simple path\" (and its numK-sized exps read) is never reached when useTopK is true. OUT OF SCOPE: this changes 33<=numK<=128 from EXACT (full softmax) to APPROXIMATE (top-K sparse) — a behavior change beyond tonight's frozen hypothesis, which only promised to restore exactness/finiteness in that range, not to also start approximating it. Included to show Darwin considered it and why it is excluded.",
+      "inScope": false,
+      "metrics": {
+        "anyNaN": false,
+        "avgRmseInBuggyRange": 0.011578247675934307,
+        "avgSpeedup": 2.29,
+        "byteIdenticalOutsideRange": true,
+        "peakExpBufferBytesAcrossAllScenariosSwept": 248
+      },
+      "fitnessComponents": {
+        "quality": 0.4211,
+        "successRate": 1,
+        "latency": 0.5725,
+        "costEfficiency": 1.0817,
+        "reproducibility": 1,
+        "safety": 1
+      },
+      "fitness": 0.7414,
+      "hardConstraintsPass": true,
+      "disqualifiedReason": "out of scope: changes behavior (exact -> approximate) for 33<=numK<=128, beyond the frozen hypothesis"
+    }
+  ],
+  "winner": "shipped-branch-matched",
+  "winnerMatchesShipped": true,
+  "note": "Shipped fix is the fitness-maximizing choice among in-scope, constraint-passing variants explored tonight."
+}
