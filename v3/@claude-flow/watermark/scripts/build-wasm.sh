@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Regenerate the WASM bindings in ./wasm from the ruflo-watermark Rust crate.
+# Regenerate the WASM bindings from the ruflo-watermark Rust crate: the Node
+# (CommonJS) build in ./wasm and the browser/Deno (ESM) build in ./web.
 #
 # Requires: rustup + wasm32-unknown-unknown target + wasm-pack.
 #   rustup target add wasm32-unknown-unknown
@@ -12,15 +13,19 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 crate="$here/../../crates/ruflo-watermark"
 
-CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS="" RUSTFLAGS="" \
-  wasm-pack build --release --target nodejs \
-    --out-dir "$crate/pkg-nodejs" --out-name ruflo_watermark \
-    "$crate" -- --features wasm
+build() { # <target> <out-dir>
+  CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS="" RUSTFLAGS="" \
+    wasm-pack build --release --target "$1" \
+      --out-dir "$crate/$2" --out-name ruflo_watermark \
+      "$crate" -- --features wasm
+}
 
-cp "$crate/pkg-nodejs/ruflo_watermark.js" \
-   "$crate/pkg-nodejs/ruflo_watermark_bg.wasm" \
-   "$crate/pkg-nodejs/ruflo_watermark.d.ts" \
-   "$crate/pkg-nodejs/ruflo_watermark_bg.wasm.d.ts" \
-   "$here/wasm/"
+files=(ruflo_watermark.js ruflo_watermark_bg.wasm ruflo_watermark.d.ts ruflo_watermark_bg.wasm.d.ts)
 
-echo "Rebuilt wasm/ from $crate"
+build nodejs pkg-nodejs
+for f in "${files[@]}"; do cp "$crate/pkg-nodejs/$f" "$here/wasm/"; done
+
+build web pkg-web
+for f in "${files[@]}"; do cp "$crate/pkg-web/$f" "$here/web/"; done
+
+echo "Rebuilt wasm/ (nodejs) and web/ (browser) from $crate"

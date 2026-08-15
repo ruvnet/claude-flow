@@ -63,11 +63,35 @@ console.log(r.zScore, r.log10P, r.isWatermarked(1e-6)); // strong, true
 key sees nothing. Confidence grows with the number of low-stakes token choices,
 so short or low-entropy (factual/code) text carries little to no mark.
 
+## Browser / Deno / bundler
+
+The `@claude-flow/watermark/web` entry is an ESM build. Instantiate the WASM once
+with `await init()`, then use the same API. In a browser, `init()` with no
+argument fetches the sibling `.wasm`; pass a `URL` / `Response` / bytes to
+override.
+
+```js
+import { init, Watermarker, detect } from '@claude-flow/watermark/web';
+
+await init(); // browser: auto-fetches the wasm
+
+const wm = new Watermarker({ key: '8F3A91C7', scheme: 'gumbel' });
+const tokens = Uint32Array.from({ length: 128 }, (_, i) => i);
+const probs = new Float32Array(128).fill(1 / 128);
+const out = new Uint32Array(600);
+for (let i = 0; i < out.length; i++) out[i] = tokens[wm.step(tokens, probs)];
+wm.free();
+
+console.log(detect(out, { key: '8F3A91C7', scheme: 'gumbel' }).isWatermarked(1e-6));
+```
+
+The `.` entry is the Node (CommonJS) build shown earlier; the `/web` entry is for
+browser / Deno / bundlers.
+
 ## Scope
 
-This build targets Node (CommonJS). The bindings are generated from the Rust
-crate with `npm run build:wasm` (`wasm-pack --target nodejs`); browser/bundler
-targets can be produced the same way (`--target web`/`bundler`). The crate
-exposes more than this WASM surface — the Bayesian/Higher-Criticism detectors,
-the robustness-evaluation harness, the Darwin/flywheel detector tuner, and the
-authorized un-marked-generation governance path are Rust-only for now.
+Bindings are generated from the Rust crate with `npm run build:wasm`
+(`wasm-pack`, both `nodejs` and `web` targets). The crate exposes more than this
+WASM surface — the Bayesian/Higher-Criticism detectors, the robustness-evaluation
+harness, the Darwin/flywheel detector tuner, and the authorized un-marked-
+generation governance path are Rust-only for now.

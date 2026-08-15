@@ -12,3 +12,4 @@
 .ruvector/
 /pkg
 /pkg-nodejs
+/pkg-web
