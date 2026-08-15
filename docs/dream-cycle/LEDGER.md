@@ -112,3 +112,8 @@ rows — not a static snapshot.
 ## v2 live entries start below
 
 (STEP 9 of the v2 routine appends here nightly, starting 2026-08-14.)
+
+| Date | Deep | Finding | Issue | PR | Evaluated? | Verdict | Prior-night fates recorded this run |
+|---|---|---|---|---|---|---|---|
+| 2026-08-14 | swarm | P2C mesh peer-selection load balancing — REJECTED, density invariant breach (-13.7% vs ±10% bound) despite -46.1% max-load/-44.4% CoV win; witness `e77acc86…` | #3026 | #3027 | yes | REJECT | Backfilled 2026-08-15 — verified via `git ls-remote`/`gh pr list` that the pipeline ran completely that night (real commits + issue + draft PR); only this ledger row was missing, a cosmetic gap, not a STEP 24/25 skip |
+| 2026-08-15 | performance | HNSWIndex query-time `efSearch` decoupled from build-time `efConstruction` — REJECTED, recall@10 floor (0.90) breached at N=8000 (0.8767, -7.5pp) despite -55.9%/-57.5% latency win (paired t≈-31, n=60 both N); witness `d756e6d9…` | #3033 | #3034 | yes | REJECT | 2026-08-14 confirmed fully run (see row above). Zero of the trailing ~20 dream-cycle PRs (07-26→08-14) have merged — several `needs-merge`-labeled and stale >14 days — biased tonight toward a 2-file, 3-line candidate per STEP 1.1 |
