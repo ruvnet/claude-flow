@@ -1,0 +1,46 @@
+{
+  "name": "@claude-flow/watermark",
+  "version": "0.1.0",
+  "description": "SynthID-Text-style LLM text watermarking (generation + detection) as a WASM module — Tournament / non-distortionary / distortion-free schemes, indel-robust and short-text detectors. No watermark-removal tooling.",
+  "license": "MIT",
+  "author": "rUv <ruv@ruv.net>",
+  "homepage": "https://github.com/ruvnet/ruflo/tree/main/v3/crates/ruflo-watermark",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/ruflo.git",
+    "directory": "v3/@claude-flow/watermark"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruflo/issues"
+  },
+  "keywords": [
+    "watermark",
+    "synthid",
+    "llm",
+    "provenance",
+    "eu-ai-act",
+    "wasm"
+  ],
+  "type": "commonjs",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "wasm/ruflo_watermark.js",
+    "wasm/ruflo_watermark_bg.wasm",
+    "wasm/ruflo_watermark.d.ts",
+    "wasm/ruflo_watermark_bg.wasm.d.ts",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build:wasm": "bash scripts/build-wasm.sh",
+    "test": "node test/smoke.cjs"
+  }
+}
