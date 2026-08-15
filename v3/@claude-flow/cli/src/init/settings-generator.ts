@@ -94,7 +94,11 @@ export function generateSettings(options: InitOptions): object {
       taskListEnabled: true,
       mailboxEnabled: true,
       coordination: {
-        autoAssignOnIdle: true,       // Auto-assign pending tasks when teammate is idle
+        // #3031: Liveness alone is not authority. Keep idle assignment off
+        // until the scheduler can prove task ownership, agent scope, and a
+        // refusal/back-off state. Users may explicitly opt in after supplying
+        // those controls in their host configuration.
+        autoAssignOnIdle: false,
         trainPatternsOnComplete: true, // Train neural patterns when tasks complete
         notifyLeadOnComplete: true,   // Notify team lead when tasks complete
         sharedMemoryNamespace: 'agent-teams', // Memory namespace for team coordination
@@ -102,7 +106,7 @@ export function generateSettings(options: InitOptions): object {
       hooks: {
         teammateIdle: {
           enabled: true,
-          autoAssign: true,
+          autoAssign: false,
           checkTaskList: true,
         },
         taskCompleted: {

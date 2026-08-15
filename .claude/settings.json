@@ -174,7 +174,7 @@
       "taskListEnabled": true,
       "mailboxEnabled": true,
       "coordination": {
-        "autoAssignOnIdle": true,
+        "autoAssignOnIdle": false,
         "trainPatternsOnComplete": true,
         "notifyLeadOnComplete": true,
         "sharedMemoryNamespace": "agent-teams"
@@ -182,7 +182,7 @@
       "hooks": {
         "teammateIdle": {
           "enabled": true,
-          "autoAssign": true,
+          "autoAssign": false,
           "checkTaskList": true
         },
         "taskCompleted": {

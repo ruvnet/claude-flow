@@ -73,20 +73,18 @@ jobs:
         uses: ./.github/actions/npm-ci-retry
 
       - name: Run all tests
-        run: npm test || echo "⚠️ Some tests failed (Jest teardown issues - non-blocking)"
-        continue-on-error: true
-
-      - name: Generate coverage report
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run test:coverage || echo "⚠️ Coverage generation failed (non-blocking)"
-        continue-on-error: true
+        # #3030: the historical suite has known debt, but new failing files
+        # are release-blocking. The committed file-level baseline may only
+        # shrink; replacing an old failure with a new one still fails.
+        run: node scripts/ci-test-ratchet.mjs
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.os }}
-          path: coverage/
+          path: .test-results/vitest.json
+          if-no-files-found: error
 
   # Documentation generation
   docs:
