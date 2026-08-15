@@ -253,6 +253,18 @@ export interface HNSWConfig {
   /** Size of the dynamic candidate list during construction (default: 200) */
   efConstruction: number;
 
+  /**
+   * Size of the dynamic candidate list at query time when a caller doesn't
+   * pass an explicit `ef` to {@link HNSWIndex.search} (default: 50).
+   *
+   * Query-time and build-time candidate-pool sizing are different tradeoffs
+   * in standard HNSW practice — efConstruction controls graph quality at
+   * insert time, efSearch controls the latency/recall tradeoff per query —
+   * so they intentionally default to different values instead of one
+   * governing the other.
+   */
+  efSearch: number;
+
   /** Maximum elements the index can hold */
   maxElements: number;
 

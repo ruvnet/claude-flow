@@ -328,7 +328,7 @@ export class HNSWIndex extends EventEmitter {
       return [];
     }
 
-    const searchEf = ef || Math.max(k, this.config.efConstruction);
+    const searchEf = ef || Math.max(k, this.config.efSearch);
 
     // Quantize query if needed
     const queryVector = this.quantizer
@@ -743,6 +743,7 @@ export class HNSWIndex extends EventEmitter {
       dimensions: config.dimensions || 1536, // OpenAI embedding size
       M: config.M || 16,
       efConstruction: config.efConstruction || 200,
+      efSearch: config.efSearch || 50,
       maxElements: config.maxElements || 1000000,
       metric: config.metric || 'cosine',
       quantization: config.quantization,

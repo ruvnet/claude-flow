@@ -1,0 +1,34 @@
+{
+  "recallFloor": 0.9,
+  "byN": {
+    "3000": {
+      "baselineMsPerQuery": 2.00196,
+      "candidateMsPerQuery": 0.8821,
+      "latencyDeltaPct": -55.94,
+      "baselineRecallAt10": 0.995,
+      "candidateRecallAt10": 0.9633,
+      "recallDeltaPp": -3.17,
+      "recallFloorBreached": false,
+      "pairedT": {
+        "n": 60,
+        "meanDiffMs": -1.11986,
+        "tStatistic": -30.49
+      }
+    },
+    "8000": {
+      "baselineMsPerQuery": 3.32562,
+      "candidateMsPerQuery": 1.41213,
+      "latencyDeltaPct": -57.54,
+      "baselineRecallAt10": 0.9517,
+      "candidateRecallAt10": 0.8767,
+      "recallDeltaPp": -7.5,
+      "recallFloorBreached": true,
+      "pairedT": {
+        "n": 60,
+        "meanDiffMs": -1.91349,
+        "tStatistic": -32.7
+      }
+    }
+  },
+  "invariantHolds": false
+}
