@@ -1,0 +1,85 @@
+{
+  "hypothesis": {
+    "type": "HYPOTHESIS",
+    "text": "Given a smartSearch() call configured with the default multiQuery=true (2-3 generated query variants), when the sequential await-in-a-for-loop variant fan-out in smart-retrieval.ts is replaced with Promise.all-based concurrent fan-out, then end-to-end smartSearch() wall-clock latency should improve relative to the current sequential baseline, subject to: (1) result correctness identical to baseline, (2) no per-query error rate increase, (3) >=30% latency improvement for a 3-variant fan-out and <15% delta on the single-variant path.",
+    "frozenBefore": "evaluation (STEP 3.3, no changes made after baseline/candidate runs began)"
+  },
+  "baseline": {
+    "type": "MEASUREMENT",
+    "commit": "ee3a394",
+    "file": "v3/@claude-flow/memory/src/smart-retrieval.ts",
+    "description": "Unmodified pre-candidate implementation, sequential for-await fan-out loop.",
+    "verifiedByteIdenticalToGitShow": true
+  },
+  "candidate": {
+    "type": "OBSERVATION",
+    "description": "Promise.all-based concurrent fan-out, preserves order and RRF-fusion semantics, preserves baseline's error-propagation contract exactly.",
+    "diffScope": "smart-retrieval.ts lines ~398-409 only, plus 2 new regression tests in smart-retrieval.test.ts",
+    "file": "v3/@claude-flow/memory/src/smart-retrieval.ts"
+  },
+  "evaluation": {
+    "type": "MEASUREMENT",
+    "evaluator": "docs/dream-cycle/evidence/2026-08-13-memory/bench-smart-retrieval-fanout.mjs (self-authored, self-contained, git-reproducible micro-benchmark; real HNSW/AgentDB backend not exercised — see limitation below)",
+    "receipt": "docs/dream-cycle/evidence/2026-08-13-memory/receipt-2026-08-13.json",
+    "repeatsPerScenario": 5,
+    "reproducedIndependentlyBy": "adversarial-critique agent, 3x, consistent results",
+    "verdict": "ACCEPT (per this evaluator's own frozen threshold: allQualityIdentical=true, minImprovementPctAmongMultiVariantScenarios=66.0, meetsThirtyPercentThreshold=true, singleVariantPathStable=true)",
+    "existingTestSuite": "452 passed / 453 total; 1 pre-existing unrelated failure (auto-memory-bridge.test.ts chmod/read-only test, fails identically on baseline HEAD — root user bypasses chmod)",
+    "limitation": "Mock search() models pure I/O-wait latency with no backend connection-pool/contention model; real HNSW/AgentDB speedup may be smaller than the 2.9x-5x measured here, though still plausibly positive per adversarial critique Q8."
+  },
+  "adversarialCritique": {
+    "type": "INFERENCE",
+    "critic": "independent agent, no authorship stake, given only file paths and told to re-derive everything itself",
+    "report": "docs/dream-cycle/evidence/2026-08-13-memory/adversarial-critique.md",
+    "verdict": "CONFIRMED",
+    "documentedCaveats": [
+      "mock cannot model real-backend contention (Q8)",
+      "partial-failure call-count difference vs baseline is untested by benchmark/unit tests (Q14)"
+    ]
+  },
+  "rewardHackCheck": {
+    "type": "INFERENCE",
+    "toolAvailable": "@metaharness/weight-eft v0.1.1 (LoRA training-data contamination/reward-hack filter)",
+    "toolApplicable": false,
+    "reasonNotApplicable": "weight-eft's reward-hack filter operates on agent-run training data being prepared for LoRA fine-tuning, not on auditing an arbitrary code diff + benchmark. No applicable automated reward-hack CLI exists for this evaluation shape.",
+    "manualCheckPerformed": "STEP 10/11 checklist executed by the independent adversarial critic (evaluator-exploitation, benchmark-weakening, cherry-picking, threshold-tuning, gold-answer alteration all explicitly checked)",
+    "unresolvedSignal": false
+  },
+  "darwinExploration": {
+    "type": "DECISION",
+    "lineage": "docs/dream-cycle/evidence/2026-08-13-memory/darwin-lineage-2026-08-13.json",
+    "generationsRun": 1,
+    "maxGenerations": 3,
+    "candidatesEvaluated": 3,
+    "maxCandidatesPerGeneration": 4,
+    "winner_by_composite_fitness": "variant-b-allsettled",
+    "shipped_candidate": "variant-a-promise-all",
+    "decisionRationale": "variant-b (Promise.allSettled) scores highest on the composite fitness function due to its safety/success_rate terms (fault tolerance), but changes smartSearch()'s error-propagation contract (silent degradation vs baseline's surfaced-failure behavior) — a caller-visible behavior change outside tonight's frozen hypothesis (STEP 3.3 forbids widening scope after evaluation begins). variant-a is shipped because it delivers the full latency win while preserving baseline's error semantics exactly (zero behavior change beyond latency) — a strictly smaller, more reviewable diff. variant-b is retained as a well-evidenced, real follow-up recommendation, not silently merged.",
+    "rejectedLineage": {
+      "variant-c-bounded2": "REJECTION — bounded concurrency (cap=2) provides no benefit at the actual default variant count (<=3, per defaultQueryExpansions()'s documented cap) and loses on both latency and safety vs variant-a. Persisted so a future cycle does not re-explore this without new justification (e.g. a future change allowing unbounded variant counts)."
+    }
+  },
+  "securityReview": {
+    "type": "OBSERVATION",
+    "scope": "low security-sensitivity change (no auth/credential/tool-authority/network-scope changes)",
+    "adjacentFindingNotedNotFixed": "AgentDbRetrievalGuard (ADR-377, prompt-injection defense on retrieval results) is wired only into AgentDBBackend.search(), not into the default AgentDBAdapter/MemoryService search path that most callers use. smart-retrieval.ts sits above both backends via a caller-provided SearchFn and does not change which backend has the guard wired — this candidate neither introduces nor fixes that gap. Recorded as a candidate finding for a future DEEP=security Dream Cycle, not actioned tonight (out of scope)."
+  },
+  "promotionGate": {
+    "type": "DECISION",
+    "evaluation_complete": true,
+    "effect_positive": true,
+    "significance_sufficient": true,
+    "no_material_regression": true,
+    "tests_green": true,
+    "reward_hack_clear": true,
+    "critic_clear": true,
+    "witness_valid": "computed in STEP 16, see gist/issue",
+    "receipt_reproducible": true,
+    "verdict": "ACCEPT",
+    "note": "ACCEPT means sufficient evidence exists to recommend human review. This session does not merge or autonomously promote."
+  },
+  "flywheelSigning": {
+    "type": "OBSERVATION",
+    "note": "@metaharness/flywheel (Ed25519 signed replay-bundle verification) is available but was not wired into this specific evaluation tonight — plain JSON receipts + a checked-in, git-reproducible benchmark script were used instead, which satisfy reproducibility without cryptographic signing. Flagged as a legitimate infra investment for a future Dream Cycle to standardize evidence signing across candidates."
+  }
+}

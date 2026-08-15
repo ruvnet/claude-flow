@@ -1,0 +1,874 @@
+{
+  "hypothesis": "Given a corpus of task descriptions spanning low/medium/high complexity, when suggestAgentsForTask discounts the agent-count recommendation to 1 for low-complexity matches (excluding safety-relevant roles), then mean recommended-agent-count for low-complexity tasks drops while medium/high are unchanged.",
+  "corpusSize": 44,
+  "byBucket": {
+    "low": {
+      "n": 21,
+      "baselineMean": 2.9047619047619047,
+      "candidateMean": 1.4761904761904763
+    },
+    "medium": {
+      "n": 5,
+      "baselineMean": 3,
+      "candidateMean": 3
+    },
+    "high": {
+      "n": 18,
+      "baselineMean": 2.888888888888889,
+      "candidateMean": 2.888888888888889
+    }
+  },
+  "regressionCount": 0,
+  "regressions": [],
+  "safetyViolationCount": 0,
+  "safetyViolations": [],
+  "agentsSavedOnLowBucket": 30,
+  "lowBucketSize": 21,
+  "relativeAgentCountReductionOnLowBucket": "49.2%",
+  "tokenCostProxyNote": "This receipt measures agent-COUNT reduction directly, which is what the candidate actually changes. It does NOT re-measure end-to-end token cost per agent (that would require real model calls). ADR-333 (docs/dream-cycles/2026-07-30-performance-sota.md, arXiv 2607.26922, Grade A) separately measured a ~7.4x token-cost gap between a 5-agent pipeline and a 2-call baseline for comparable tasks; if each discounted agent carries a roughly similar per-agent token cost, the agent-count reduction above is directionally consistent with a real token saving on the low-complexity tail, but that composition is NOT independently verified tonight — flagged as Grade C (plausible, unverified) accordingly.",
+  "verdict": "ACCEPT",
+  "rows": [
+    {
+      "id": "low-authentication",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "authentication needs a quick update",
+      "baselineAgents": [
+        "security-architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "security-architect",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": true
+    },
+    {
+      "id": "low-auth",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "auth needs a quick update",
+      "baselineAgents": [
+        "security-architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "security-architect",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": true
+    },
+    {
+      "id": "low-api",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "api needs a quick update",
+      "baselineAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "architect"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 1,
+      "delta": -2,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-test",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "test needs a quick update",
+      "baselineAgents": [
+        "tester",
+        "reviewer"
+      ],
+      "candidateAgents": [
+        "tester"
+      ],
+      "baselineCount": 2,
+      "candidateCount": 1,
+      "delta": -1,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-refactor",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "refactor needs a quick update",
+      "baselineAgents": [
+        "architect",
+        "coder",
+        "reviewer"
+      ],
+      "candidateAgents": [
+        "architect"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 1,
+      "delta": -2,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-performance",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "performance needs a quick update",
+      "baselineAgents": [
+        "performance-engineer",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "performance-engineer"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 1,
+      "delta": -2,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-security",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "security needs a quick update",
+      "baselineAgents": [
+        "security-architect",
+        "security-auditor",
+        "reviewer"
+      ],
+      "candidateAgents": [
+        "security-architect",
+        "security-auditor",
+        "reviewer"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": true
+    },
+    {
+      "id": "low-database",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "database needs a quick update",
+      "baselineAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "architect"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 1,
+      "delta": -2,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-frontend",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "frontend needs a quick update",
+      "baselineAgents": [
+        "coder",
+        "designer",
+        "tester"
+      ],
+      "candidateAgents": [
+        "coder"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 1,
+      "delta": -2,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-backend",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "backend needs a quick update",
+      "baselineAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "architect"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 1,
+      "delta": -2,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-bug",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "bug needs a quick update",
+      "baselineAgents": [
+        "coder",
+        "tester",
+        "reviewer"
+      ],
+      "candidateAgents": [
+        "coder"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 1,
+      "delta": -2,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-fix",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "fix needs a quick update",
+      "baselineAgents": [
+        "coder",
+        "tester",
+        "reviewer"
+      ],
+      "candidateAgents": [
+        "coder"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 1,
+      "delta": -2,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-feature",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "feature needs a quick update",
+      "baselineAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "architect"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 1,
+      "delta": -2,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-swarm",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "swarm needs a quick update",
+      "baselineAgents": [
+        "swarm-specialist",
+        "coordinator",
+        "architect"
+      ],
+      "candidateAgents": [
+        "swarm-specialist"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 1,
+      "delta": -2,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-memory",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "memory needs a quick update",
+      "baselineAgents": [
+        "memory-specialist",
+        "architect",
+        "coder"
+      ],
+      "candidateAgents": [
+        "memory-specialist"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 1,
+      "delta": -2,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-deploy",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "deploy needs a quick update",
+      "baselineAgents": [
+        "devops",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "devops"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 1,
+      "delta": -2,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-ci/cd",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "ci/cd needs a quick update",
+      "baselineAgents": [
+        "devops",
+        "coder"
+      ],
+      "candidateAgents": [
+        "devops"
+      ],
+      "baselineCount": 2,
+      "candidateCount": 1,
+      "delta": -1,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-authentication",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the authentication subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for authentication.",
+      "baselineAgents": [
+        "security-architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "security-architect",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": true
+    },
+    {
+      "id": "high-auth",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the auth subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for auth.",
+      "baselineAgents": [
+        "security-architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "security-architect",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": true
+    },
+    {
+      "id": "high-api",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the api subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for api.",
+      "baselineAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-test",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the test subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for test.",
+      "baselineAgents": [
+        "tester",
+        "reviewer"
+      ],
+      "candidateAgents": [
+        "tester",
+        "reviewer"
+      ],
+      "baselineCount": 2,
+      "candidateCount": 2,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-refactor",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the refactor subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for refactor.",
+      "baselineAgents": [
+        "architect",
+        "coder",
+        "reviewer"
+      ],
+      "candidateAgents": [
+        "architect",
+        "coder",
+        "reviewer"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-performance",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the performance subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for performance.",
+      "baselineAgents": [
+        "performance-engineer",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "performance-engineer",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-security",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the security subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for security.",
+      "baselineAgents": [
+        "security-architect",
+        "security-auditor",
+        "reviewer"
+      ],
+      "candidateAgents": [
+        "security-architect",
+        "security-auditor",
+        "reviewer"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": true
+    },
+    {
+      "id": "high-database",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the database subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for database.",
+      "baselineAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-frontend",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the frontend subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for frontend.",
+      "baselineAgents": [
+        "coder",
+        "designer",
+        "tester"
+      ],
+      "candidateAgents": [
+        "coder",
+        "designer",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-backend",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the backend subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for backend.",
+      "baselineAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-bug",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the bug subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for bug.",
+      "baselineAgents": [
+        "coder",
+        "tester",
+        "reviewer"
+      ],
+      "candidateAgents": [
+        "coder",
+        "tester",
+        "reviewer"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-fix",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the fix subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for fix.",
+      "baselineAgents": [
+        "coder",
+        "tester",
+        "reviewer"
+      ],
+      "candidateAgents": [
+        "coder",
+        "tester",
+        "reviewer"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-feature",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the feature subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for feature.",
+      "baselineAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-swarm",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the swarm subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for swarm.",
+      "baselineAgents": [
+        "swarm-specialist",
+        "coordinator",
+        "architect"
+      ],
+      "candidateAgents": [
+        "swarm-specialist",
+        "coordinator",
+        "architect"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-memory",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the memory subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for memory.",
+      "baselineAgents": [
+        "memory-specialist",
+        "architect",
+        "coder"
+      ],
+      "candidateAgents": [
+        "memory-specialist",
+        "architect",
+        "coder"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-deploy",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the deploy subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for deploy.",
+      "baselineAgents": [
+        "devops",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "devops",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-ci/cd",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex architecture-level change touching the ci/cd subsystem across multiple modules and services, requiring careful design review, cross-team coordination, migration planning, and a phased rollout strategy with backward-compatibility guarantees for ci/cd.",
+      "baselineAgents": [
+        "devops",
+        "coder"
+      ],
+      "candidateAgents": [
+        "devops",
+        "coder"
+      ],
+      "baselineCount": 2,
+      "candidateCount": 2,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "medium-api",
+      "expectedBucket": "medium",
+      "computedComplexity": "medium",
+      "description": "Extend api coverage to include the newly added service endpoints.",
+      "baselineAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "medium-database",
+      "expectedBucket": "medium",
+      "computedComplexity": "medium",
+      "description": "Improve the database pipeline so it handles an additional edge case correctly.",
+      "baselineAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "medium-deploy",
+      "expectedBucket": "medium",
+      "computedComplexity": "medium",
+      "description": "Update the deploy module to support a new configuration option requested by the team.",
+      "baselineAgents": [
+        "devops",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "devops",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "medium-frontend",
+      "expectedBucket": "medium",
+      "computedComplexity": "medium",
+      "description": "Extend frontend coverage to include the newly added service endpoints.",
+      "baselineAgents": [
+        "coder",
+        "designer",
+        "tester"
+      ],
+      "candidateAgents": [
+        "coder",
+        "designer",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "medium-backend",
+      "expectedBucket": "medium",
+      "computedComplexity": "medium",
+      "description": "Update the backend module to support a new configuration option requested by the team.",
+      "baselineAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "architect",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-fallback-1",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "tidy up a helper function",
+      "baselineAgents": [
+        "coder",
+        "researcher",
+        "tester"
+      ],
+      "candidateAgents": [
+        "coder"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 1,
+      "delta": -2,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-fallback-2",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "small cleanup task",
+      "baselineAgents": [
+        "coder",
+        "researcher",
+        "tester"
+      ],
+      "candidateAgents": [
+        "coder"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 1,
+      "delta": -2,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "high-fallback-1",
+      "expectedBucket": "high",
+      "computedComplexity": "high",
+      "description": "This is a complex, multi-service effort to unify divergent configuration loading strategies across the entire platform, with extensive architecture review and phased migration across teams.",
+      "baselineAgents": [
+        "coder",
+        "researcher",
+        "tester"
+      ],
+      "candidateAgents": [
+        "coder",
+        "researcher",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": false
+    },
+    {
+      "id": "low-auth-explicit",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "fix auth token bug",
+      "baselineAgents": [
+        "security-architect",
+        "coder",
+        "tester"
+      ],
+      "candidateAgents": [
+        "security-architect",
+        "coder",
+        "tester"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": true
+    },
+    {
+      "id": "low-security-explicit",
+      "expectedBucket": "low",
+      "computedComplexity": "low",
+      "description": "fix security issue",
+      "baselineAgents": [
+        "security-architect",
+        "security-auditor",
+        "reviewer"
+      ],
+      "candidateAgents": [
+        "security-architect",
+        "security-auditor",
+        "reviewer"
+      ],
+      "baselineCount": 3,
+      "candidateCount": 3,
+      "delta": 0,
+      "hasProtectedRole": true
+    }
+  ]
+}

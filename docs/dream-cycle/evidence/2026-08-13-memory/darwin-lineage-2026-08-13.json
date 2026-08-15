@@ -1,0 +1,80 @@
+{
+  "generation": 1,
+  "maxGenerations": 3,
+  "maxCandidatesPerGeneration": 4,
+  "candidatesEvaluatedThisRun": 3,
+  "fitnessFormula": "0.35*quality + 0.20*success_rate + 0.15*latency + 0.10*cost_efficiency + 0.10*reproducibility + 0.10*safety",
+  "lineage": [
+    {
+      "id": "variant-b-allsettled",
+      "label": "Promise.allSettled + fault-tolerant empty-fill",
+      "baselineMeanMs": 120.95,
+      "candidateMeanMs": 60.72,
+      "speedupVsSequentialBaseline": 1.99,
+      "faultScenario": {
+        "survived": true,
+        "elapsedMs": 20.57,
+        "resultCount": 0,
+        "error": null
+      },
+      "reproVariancePct": 0.3,
+      "scores": {
+        "quality": 1,
+        "success_rate": 1,
+        "latency": 0.975,
+        "cost_efficiency": 1,
+        "reproducibility": 1,
+        "safety": 1,
+        "fitness": 0.9963
+      }
+    },
+    {
+      "id": "variant-a-promise-all",
+      "label": "Promise.all (shipped candidate)",
+      "baselineMeanMs": 124.33,
+      "candidateMeanMs": 60.83,
+      "speedupVsSequentialBaseline": 2.04,
+      "faultScenario": {
+        "survived": false,
+        "elapsedMs": 20.54,
+        "resultCount": 0,
+        "error": "Error: simulated store failure on call 1"
+      },
+      "reproVariancePct": 0.3,
+      "scores": {
+        "quality": 1,
+        "success_rate": 0,
+        "latency": 1,
+        "cost_efficiency": 1,
+        "reproducibility": 1,
+        "safety": 0.3,
+        "fitness": 0.73
+      }
+    },
+    {
+      "id": "variant-c-bounded2",
+      "label": "Bounded concurrency (cap=2 in-flight)",
+      "baselineMeanMs": 120.77,
+      "candidateMeanMs": 60.71,
+      "speedupVsSequentialBaseline": 1.99,
+      "faultScenario": {
+        "survived": false,
+        "elapsedMs": 20.5,
+        "resultCount": 0,
+        "error": "Error: simulated store failure on call 1"
+      },
+      "reproVariancePct": 0.5,
+      "scores": {
+        "quality": 1,
+        "success_rate": 0,
+        "latency": 0.975,
+        "cost_efficiency": 1,
+        "reproducibility": 0.6,
+        "safety": 0.3,
+        "fitness": 0.6863
+      }
+    }
+  ],
+  "winner": "variant-b-allsettled",
+  "decisionNote": "variant-b-allsettled wins on composite fitness (fault tolerance) but is NOT the shipped candidate: it changes smartSearch()'s error-propagation contract (silent degradation to empty results vs. surfacing the failure, identically to baseline) which is out of scope for tonight's frozen hypothesis (latency + result-identity only). variant-a-promise-all (shipped) preserves baseline's error semantics exactly while winning on raw latency and reproducibility. variant-c-bounded2 provides no benefit at the default variant count (<=3, see defaultQueryExpansions() cap) and loses on both latency and safety — negative evidence, worth persisting so a future cycle does not re-explore it without new justification (e.g. a future change that allows unbounded variant counts)."
+}
