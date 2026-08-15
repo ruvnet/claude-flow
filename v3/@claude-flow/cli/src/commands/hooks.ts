@@ -5271,7 +5271,8 @@ const teammateIdleCommand: Command = {
       short: 'a',
       description: 'Automatically assign pending tasks to idle teammate',
       type: 'boolean',
-      default: true
+      // #3031: explicit opt-in only. Idle/liveness is not assignment authority.
+      default: false
     },
     {
       name: 'check-task-list',
@@ -5297,7 +5298,7 @@ const teammateIdleCommand: Command = {
     { command: 'claude-flow hooks teammate-idle -t worker-1 --check-task-list', description: 'Check tasks for specific teammate' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const autoAssign = ctx.flags.autoAssign !== false;
+    const autoAssign = ctx.flags.autoAssign === true;
     const checkTaskList = ctx.flags.checkTaskList !== false;
     const teammateId = ctx.flags.teammateId as string;
     const teamName = ctx.flags.teamName as string;

@@ -327,7 +327,7 @@ export interface UpgradeResult {
  * Preserves user customizations while adding new features like Agent Teams
  * Uses platform-specific commands for Mac, Linux, and Windows
  */
-function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<string, unknown> {
+export function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<string, unknown> {
   const merged = { ...existing };
   const platform = detectPlatform();
   const isWindows = platform.os === 'windows';
@@ -499,13 +499,15 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
       taskListEnabled: true,
       mailboxEnabled: true,
       coordination: {
-        autoAssignOnIdle: true,
+        // #3031: an upgrade must remove the unsafe generated default. Idle
+        // status is not proof that a task is unowned or inside agent scope.
+        autoAssignOnIdle: false,
         trainPatternsOnComplete: true,
         notifyLeadOnComplete: true,
         sharedMemoryNamespace: 'agent-teams',
       },
       hooks: {
-        teammateIdle: { enabled: true, autoAssign: true, checkTaskList: true },
+        teammateIdle: { enabled: true, autoAssign: false, checkTaskList: true },
         taskCompleted: { enabled: true, trainPatterns: true, notifyLead: true },
       },
     },
