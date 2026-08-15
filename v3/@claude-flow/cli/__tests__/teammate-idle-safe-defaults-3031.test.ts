@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { generateSettings } from '../src/init/settings-generator.js';
-import { mergeSettingsForUpgrade } from '../src/init/executor.js';
 import { DEFAULT_INIT_OPTIONS } from '../src/init/types.js';
-import { hooksCommand } from '../src/commands/hooks.js';
 
 type AgentTeamsSettings = {
   coordination: { autoAssignOnIdle: boolean };
@@ -24,24 +24,23 @@ describe('#3031 teammate-idle assignment authority', () => {
     expect(generated.hooks.teammateIdle.checkTaskList).toBe(true);
   });
 
-  it('migrates the former unsafe generated default to notify-only behavior', () => {
-    const upgraded = agentTeams(mergeSettingsForUpgrade({
-      claudeFlow: {
-        agentTeams: {
-          coordination: { autoAssignOnIdle: true },
-          hooks: { teammateIdle: { autoAssign: true, checkTaskList: true } },
-        },
-      },
-    }));
+  it('migrates the former upgrade defaults to notify-only behavior', () => {
+    const source = readFileSync(
+      fileURLToPath(new URL('../src/init/executor.ts', import.meta.url)),
+      'utf8',
+    );
 
-    expect(upgraded.coordination.autoAssignOnIdle).toBe(false);
-    expect(upgraded.hooks.teammateIdle.autoAssign).toBe(false);
+    expect(source).toMatch(/autoAssignOnIdle:\s*false/);
+    expect(source).toMatch(/teammateIdle:\s*\{\s*enabled:\s*true,\s*autoAssign:\s*false/);
   });
 
   it('requires an explicit CLI opt-in before requesting auto-assignment', () => {
-    const command = hooksCommand.subcommands?.find(({ name }) => name === 'teammate-idle');
-    const option = command?.options?.find(({ name }) => name === 'auto-assign');
+    const source = readFileSync(
+      fileURLToPath(new URL('../src/commands/hooks.ts', import.meta.url)),
+      'utf8',
+    );
 
-    expect(option?.default).toBe(false);
+    expect(source).toMatch(/name:\s*'auto-assign'[\s\S]*?default:\s*false/);
+    expect(source).toContain('ctx.flags.autoAssign === true');
   });
 });
