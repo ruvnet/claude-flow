@@ -605,4 +605,11 @@ export interface InitResult {
     agentsCount: number;
     hooksEnabled: number;
   };
+  /**
+   * Advisory-only findings from settings-risk-scanner.ts: dangerous-looking
+   * hook commands or Bash allow-rules found in a *pre-existing*
+   * settings.json this init carried forward unexamined. Never blocks
+   * init — surfaced so a user can review before trusting it.
+   */
+  warnings?: string[];
 }
