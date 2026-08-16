@@ -14,6 +14,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::context::WatermarkConfig;
 use crate::hash::WatermarkKey;
+use crate::proxy::{ProxyConfig, StreamProxy};
 use crate::{Scheme, Watermarker};
 
 fn cfg_from(material: &[u8], context_width: usize, layers: u32) -> WatermarkConfig {
@@ -127,4 +128,58 @@ pub fn detect_selfsync(tokens: &[u32], key_material: &[u8], context_width: usize
 pub fn detect_exact(tokens: &[u32], key_material: &[u8], context_width: usize) -> WasmDetection {
     let cfg = cfg_from(key_material, context_width, 1);
     crate::bayes::detect_gumbel_exact(tokens, cfg).into()
+}
+
+/// Ultra-low-latency streaming watermark **proxy**, JS-facing.
+///
+/// Wraps [`StreamProxy`]: feed it a decode step's **logits** (or a truncated
+/// top-k `(ids, logprobs)` set from an OpenAI-compatible API) and it returns
+/// the watermarked **token id** to emit, applying temperature + top-k/top-p to
+/// match the host sampler. Scratch buffers are reused, so per-step cost is a
+/// fixed amount on top of the sampler you already run.
+#[wasm_bindgen]
+pub struct WasmStreamProxy {
+    inner: StreamProxy,
+}
+
+#[wasm_bindgen]
+impl WasmStreamProxy {
+    /// `key_material`: secret bytes. `scheme`: `"tournament"` | `"tournament_nd"`
+    /// | `"gumbel"`. `temperature` (>0), `top_k` (0 = all), `top_p` (>=1 = off)
+    /// shape the candidate set exactly as the host decoder would.
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        key_material: &[u8],
+        context_width: usize,
+        layers: u32,
+        scheme: &str,
+        temperature: f32,
+        top_k: usize,
+        top_p: f32,
+    ) -> WasmStreamProxy {
+        let cfg = cfg_from(key_material, context_width, layers);
+        let pcfg = ProxyConfig { temperature, top_k, top_p };
+        WasmStreamProxy {
+            inner: StreamProxy::new(cfg, scheme_of(scheme), pcfg),
+        }
+    }
+
+    /// Full-vocab path: `logits[i]` is the logit for token id `i`. Returns the
+    /// watermarked token id to emit and advances the rolling context.
+    pub fn push_logits(&mut self, logits: &[f32]) -> u32 {
+        self.inner.push_logits(logits)
+    }
+
+    /// Truncated path: watermark an already-small candidate set of
+    /// `(token_ids, logprobs)` (e.g. OpenAI `top_logprobs`). Returns the token
+    /// id to emit. `top_k` is ignored; the set is already truncated.
+    pub fn push_topk(&mut self, token_ids: &[u32], logprobs: &[f32]) -> u32 {
+        self.inner.push_topk(token_ids, logprobs)
+    }
+
+    /// Tokens emitted so far.
+    #[wasm_bindgen(getter)]
+    pub fn steps(&self) -> u32 {
+        self.inner.steps() as u32
+    }
 }

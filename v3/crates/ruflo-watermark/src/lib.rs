@@ -48,6 +48,7 @@ pub mod detect;
 pub mod evolve;
 pub mod gumbel;
 pub mod hash;
+pub mod proxy;
 pub mod rng;
 pub mod robustness;
 pub mod tournament;
@@ -59,6 +60,7 @@ pub mod wasm;
 pub use context::{ContextTracker, PositionSeed, WatermarkConfig};
 pub use detect::{detect_gumbel, detect_tournament, detect_tournament_nd, DetectionResult, Scheme};
 pub use hash::WatermarkKey;
+pub use proxy::{ProxyConfig, StreamProxy};
 
 /// A streaming watermarked sampler. Holds the rolling context so successive
 /// [`Watermarker::step`] calls form one coherent watermarked sequence.
