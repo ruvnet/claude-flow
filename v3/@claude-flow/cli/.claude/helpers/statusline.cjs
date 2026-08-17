@@ -43,6 +43,11 @@ const CONFIG = {
 };
 
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+// Git status changes less frequently than the statusline renders. Keep this
+// cache separate from the delegated CLI cache so branch/dirty state refreshes
+// independently without spawning the five-command Git probe on every render.
+const GIT_CACHE_FILE = path.join(os.tmpdir(), 'ruflo-statusline-git-cache-' + require('crypto').createHash('md5').update(CWD).digest('hex').slice(0, 8) + '.json');
+const GIT_CACHE_TTL_MS = 10000;
 // Replaced by statusline-generator with the package root of the CLI that
 // installed this helper. This survives custom npm prefixes and bundled Node
 // runtimes whose process.execPath belongs to a different tree (#2811).
@@ -634,7 +639,32 @@ function readJSON(filePath) {
 
 // ─── Git info (pure-Node / single exec — needed for branch display) ──────────
 
+function readGitCache() {
+  try {
+    if (!fs.existsSync(GIT_CACHE_FILE)) return null;
+    const raw = JSON.parse(fs.readFileSync(GIT_CACHE_FILE, 'utf-8'));
+    if (raw && typeof raw._ts === 'number' && raw.data && typeof raw.data === 'object' && Date.now() - raw._ts < GIT_CACHE_TTL_MS) {
+      return raw.data;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function writeGitCache(data) {
+  let tmpPath = '';
+  try {
+    tmpPath = GIT_CACHE_FILE + '.' + process.pid + '.' + Date.now() + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify({ _ts: Date.now(), data }), { encoding: 'utf-8', mode: 0o600 });
+    fs.renameSync(tmpPath, GIT_CACHE_FILE);
+  } catch {
+    try { if (tmpPath) fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+  }
+}
+
 function getGitInfo() {
+  const cached = readGitCache();
+  if (cached) return cached;
+
   const result = {
     name: path.basename(CWD) || 'project', gitBranch: '', modified: 0, untracked: 0,
     staged: 0, ahead: 0, behind: 0,
@@ -653,7 +683,10 @@ function getGitInfo() {
   ].join('; ');
 
   const raw = safeExec("sh -c '" + script + "'", 3000);
-  if (!raw) return result;
+  if (!raw) {
+    writeGitCache(result);
+    return result;
+  }
 
   const parts = raw.split('---SEP---').map(function(s) { return s.trim(); });
   if (parts.length >= 5) {
@@ -677,6 +710,7 @@ function getGitInfo() {
     result.behind = parseInt(ab[1]) || 0;
   }
 
+  writeGitCache(result);
   return result;
 }
 
