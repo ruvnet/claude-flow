@@ -1,0 +1,30 @@
+{
+  "config": {
+    "TRIALS": 30,
+    "SHIFT_AT": 1500,
+    "POST_ROUNDS": 300,
+    "TOTAL_ROUNDS": 1800,
+    "STATIONARY_ROUNDS": 400,
+    "CANDIDATE_DECAY": 0.995,
+    "RECOVERY_WINDOW": 20,
+    "RECOVERY_THRESHOLD": 14
+  },
+  "nonStationary": {
+    "baselineMeanRecoveryRound": 26.533333333333335,
+    "candidateMeanRecoveryRound": 21.866666666666667,
+    "recoveryRoundDeltaMean": 4.666666666666667,
+    "recoveryRoundDeltaT": 7.241379310344828,
+    "baselineMeanPostShiftCorrectRate": 0.9582222222222222,
+    "candidateMeanPostShiftCorrectRate": 0.9712222222222221,
+    "postShiftRateDeltaMean": 0.013000000000000012,
+    "postShiftRateDeltaT": 6.098963745377151
+  },
+  "stationary": {
+    "baselineMeanCorrectRate": 0.9976666666666668,
+    "candidateMeanCorrectRate": 0.9978333333333335,
+    "deltaMean": 0.00016666666666666682,
+    "deltaT": 0.7252642155445737,
+    "invariantHeld": true
+  },
+  "generatedAt": "2026-08-17T06:20:27.627Z"
+}
