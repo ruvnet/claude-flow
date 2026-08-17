@@ -573,6 +573,17 @@ export class ModelRouter {
 
   constructor(config: Partial<ModelRouterConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    // priorDecay multiplies directly into persisted α/β (recordOutcome). An
+    // out-of-range value (NaN, <=0, >1 — e.g. a bad env/config parse) would
+    // silently poison `.swarm/model-router-state.json` forever: Math.max's
+    // NaN-poisoning bypasses sampleBeta's own alpha<=0||beta<=0 fallback, and
+    // a negative value pins every prior at PRIOR_DECAY_FLOOR on the very
+    // first call. Fall through to the safe default (1 = disabled) instead of
+    // throwing, matching this file's existing malformed-config idiom (see
+    // envMaxUncertainty above).
+    if (!Number.isFinite(this.config.priorDecay) || this.config.priorDecay <= 0 || this.config.priorDecay > 1) {
+      this.config.priorDecay = 1;
+    }
     this.state = this.loadState();
   }
 

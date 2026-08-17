@@ -249,6 +249,24 @@ describe('ModelRouter — priorDecay (discounted Thompson sampling, arXiv 2305.1
     expect(sampleBeta(p.opus.alpha, p.opus.beta)).not.toBeNaN();
   });
 
+  it('rejects an out-of-range priorDecay (NaN/negative/>1) by falling back to disabled (1)', () => {
+    // Caught by an independent adversarial-critic pass: Math.max's NaN-
+    // poisoning bypasses sampleBeta's own alpha<=0||beta<=0 fallback, and a
+    // negative decay pins every prior at PRIOR_DECAY_FLOOR on the first
+    // call — either would silently corrupt persisted router state forever.
+    for (const [i, bad] of [NaN, -1, 0, 1.5, Infinity, -Infinity].entries()) {
+      const router = new ModelRouter({
+        priorDecay: bad,
+        statePath: join(tmpDir, `.swarm/state-${i}.json`),
+      });
+      router.recordOutcome('t', 'haiku', 'success');
+      const p = router.getBanditPriors(bucketOf(router, 't'));
+      // Falls through to priorDecay=1 (disabled): plain accumulation, no decay.
+      expect(p.haiku.alpha).toBeCloseTo(2.0, 5);
+      expect(p.haiku.beta).toBeCloseTo(1.0, 5);
+    }
+  });
+
   it('regression: candidate must not degrade routing under a stationary workload', async () => {
     // Pre-declared invariant (STEP 3.3 hypothesis, checked in the receipt at
     // benchmarks/results/prior-decay-receipt.json with n=30 paired trials):

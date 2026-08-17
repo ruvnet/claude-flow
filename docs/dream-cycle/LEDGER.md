@@ -112,3 +112,17 @@ rows — not a static snapshot.
 ## v2 live entries start below
 
 (STEP 9 of the v2 routine appends here nightly, starting 2026-08-14.)
+
+**Backfill note (added 2026-08-17):** the 3 rows below for 2026-08-14/15/16
+were missing from this table despite real branches, issues, and PRs existing
+for all three nights (verified directly via `git ls-remote --heads origin
+"dream/*"` and `pull_request_read`, not inferred from the gap) — a cosmetic
+ledger-write gap, not a pipeline failure. Backfilled here with real PR/issue
+numbers and verdicts read directly from each PR body.
+
+| Date | Deep | Finding (one line) | Issue | PR | Evaluated? | Verdict | Prior-night fates recorded this run |
+|---|---|---|---|---|---|---|---|
+| 2026-08-14 | swarm | power-of-two-choices mesh load-balancing — density invariant breached | #3026 | #3027 | yes | REJECT | OPEN (backfilled 2026-08-17) |
+| 2026-08-15 | performance | HNSWIndex efSearch query-time default — recall floor breached at N=8000 | #3033 | #3034 | yes | REJECT | OPEN (backfilled 2026-08-17) |
+| 2026-08-16 | security | settings.json init/upgrade merge trust-gap (CVE-2025-59536-adjacent) — advisory scanner | #3043 | #3044 | yes | ACCEPT | OPEN (backfilled 2026-08-17) |
+| 2026-08-17 | intelligence | model-router bandit has no temporal decay vs q-learning-router — opt-in discounted Thompson sampling, low-bucket win, med-bucket null | #3048 | #3049 | yes | ACCEPT (scoped) | 0/14 trailing nights merged (bias applied: single-file candidate); 3-night ledger gap found + backfilled above |

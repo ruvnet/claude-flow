@@ -2,9 +2,11 @@
 // prior-decay-benchmark.mjs — discounted Thompson sampling (ModelRouterConfig
 // .priorDecay) vs undecayed baseline.
 //
-// Two scenarios, same paired-seed methodology as prior dream-cycle nights'
-// benchmark scripts (identical random stream fed to baseline and candidate
-// so any difference is attributable to the decay math, not RNG noise):
+// Two scenario TYPES, run across two complexity buckets (low, med — see
+// SCENARIOS below), same paired-seed methodology as prior dream-cycle
+// nights' benchmark scripts (identical random stream fed to baseline and
+// candidate so any difference is attributable to the decay math, not RNG
+// noise):
 //
 //   1. STATIONARY  — the "correct" model never changes. Pre-declared
 //      invariant: candidate's cumulative reward must not regress vs baseline.
@@ -12,6 +14,13 @@
 //      a real-world model-quality shift). Measures how many post-shift
 //      rounds it takes the router to recover (trailing-20-window >=70% new
 //      correct model).
+//
+// The 'med' bucket coverage (in addition to the original 'low' bucket) was
+// added after an independent adversarial-critic pass flagged that the first
+// version of this benchmark only ever exercised the 'low' bucket, so the
+// recovery-speed claim wasn't empirically validated for buckets with a
+// different BANDIT_REWARDS table (opus success=0.4 vs haiku=1.0, which
+// changes how fast a decayed-then-refed posterior separates).
 //
 // Usage:
 //   cd v3/@claude-flow/cli
@@ -34,10 +43,26 @@ const SHIFT_AT = argNum('--shift-at', 1500); // pre-shift rounds — simulates a
 const POST_ROUNDS = argNum('--post-rounds', 300);
 const TOTAL_ROUNDS = SHIFT_AT + POST_ROUNDS;
 const STATIONARY_ROUNDS = argNum('--stationary-rounds', 400);
-const LOW_TASK = 'fix a typo in the readme file';
 const CANDIDATE_DECAY = argNum('--decay', 0.995);
 const RECOVERY_WINDOW = 20;
 const RECOVERY_THRESHOLD = 14; // >=70% of trailing window
+
+// Task strings pinned to a bucket by direct measurement (analyzeComplexity),
+// not by assumption — see the score probe referenced in the PR/issue.
+const SCENARIOS = [
+  {
+    bucket: 'low',
+    task: 'fix a typo in the readme file',
+    before: 'haiku',
+    after: 'sonnet',
+  },
+  {
+    bucket: 'med',
+    task: 'refactor the payment processing module to support multiple currencies and add integration tests',
+    before: 'sonnet',
+    after: 'opus',
+  },
+];
 
 function mulberry32(seed) {
   let s = seed >>> 0;
@@ -56,7 +81,7 @@ function freshRouter(priorDecay, tmpDir, tag) {
   });
 }
 
-async function runNonStationaryTrial(priorDecay, seed, tmpDir, tag) {
+async function runNonStationaryTrial(scenario, priorDecay, seed, tmpDir, tag) {
   Math.random = mulberry32(seed);
   const router = freshRouter(priorDecay, tmpDir, tag);
   let postShiftCorrectPicks = 0;
@@ -64,14 +89,14 @@ async function runNonStationaryTrial(priorDecay, seed, tmpDir, tag) {
   let recoveryRound = null;
   const window = [];
   for (let i = 0; i < TOTAL_ROUNDS; i++) {
-    const correctModel = i < SHIFT_AT ? 'haiku' : 'sonnet';
-    const result = await router.route(LOW_TASK);
+    const correctModel = i < SHIFT_AT ? scenario.before : scenario.after;
+    const result = await router.route(scenario.task);
     const picked = result.model;
     const outcome = picked === correctModel ? 'success' : 'failure';
-    router.recordOutcome(LOW_TASK, picked, outcome);
+    router.recordOutcome(scenario.task, picked, outcome);
     if (i >= SHIFT_AT) {
       postShiftRounds++;
-      const hit = picked === 'sonnet' ? 1 : 0;
+      const hit = picked === scenario.after ? 1 : 0;
       postShiftCorrectPicks += hit;
       window.push(hit);
       if (window.length > RECOVERY_WINDOW) window.shift();
@@ -90,16 +115,16 @@ async function runNonStationaryTrial(priorDecay, seed, tmpDir, tag) {
   };
 }
 
-async function runStationaryTrial(priorDecay, seed, tmpDir, tag) {
+async function runStationaryTrial(scenario, priorDecay, seed, tmpDir, tag) {
   Math.random = mulberry32(seed);
   const router = freshRouter(priorDecay, tmpDir, tag);
   let correctPicks = 0;
   for (let i = 0; i < STATIONARY_ROUNDS; i++) {
-    const result = await router.route(LOW_TASK);
+    const result = await router.route(scenario.task);
     const picked = result.model;
-    const outcome = picked === 'haiku' ? 'success' : 'failure';
-    router.recordOutcome(LOW_TASK, picked, outcome);
-    if (picked === 'haiku') correctPicks++;
+    const outcome = picked === scenario.before ? 'success' : 'failure';
+    router.recordOutcome(scenario.task, picked, outcome);
+    if (picked === scenario.before) correctPicks++;
   }
   return { correctRate: correctPicks / STATIONARY_ROUNDS };
 }
@@ -107,63 +132,84 @@ async function runStationaryTrial(priorDecay, seed, tmpDir, tag) {
 function mean(xs) {
   return xs.reduce((a, b) => a + b, 0) / xs.length;
 }
-function stddev(xs) {
+// SAMPLE stddev (Bessel's correction, ÷(n-1)) — required for a paired
+// t-statistic. An earlier version of this function used population stddev
+// (÷n) with an incorrectly-placed correction factor, inflating every
+// reported t-value by exactly n/(n-1) (~3.4% at n=30). Caught by an
+// independent adversarial-critic pass; fixed here, not just in the receipt.
+function sampleStddev(xs) {
   const m = mean(xs);
-  return Math.sqrt(mean(xs.map((x) => (x - m) ** 2)));
+  const n = xs.length;
+  return Math.sqrt(xs.reduce((a, x) => a + (x - m) ** 2, 0) / (n - 1));
 }
 // Paired t-statistic (candidate - baseline), one sample per seed.
 function pairedT(diffs) {
   const n = diffs.length;
   const m = mean(diffs);
-  const sd = stddev(diffs) || 1e-12;
-  return (m / (sd / Math.sqrt(n))) * Math.sqrt(n / (n - 1)); // small-sample correction
+  const sd = sampleStddev(diffs) || 1e-12;
+  return m / (sd / Math.sqrt(n));
+}
+
+async function runScenario(scenario, tmpDir) {
+  const nsBaseline = [];
+  const nsCandidate = [];
+  const stBaseline = [];
+  const stCandidate = [];
+
+  for (let seed = 0; seed < TRIALS; seed++) {
+    const tag = `${scenario.bucket}-${seed}`;
+    nsBaseline.push(await runNonStationaryTrial(scenario, 1, 1000 + seed, tmpDir, `ns-base-${tag}`));
+    nsCandidate.push(
+      await runNonStationaryTrial(scenario, CANDIDATE_DECAY, 1000 + seed, tmpDir, `ns-cand-${tag}`)
+    );
+    stBaseline.push(await runStationaryTrial(scenario, 1, 2000 + seed, tmpDir, `st-base-${tag}`));
+    stCandidate.push(
+      await runStationaryTrial(scenario, CANDIDATE_DECAY, 2000 + seed, tmpDir, `st-cand-${tag}`)
+    );
+  }
+
+  const recoveryDiffs = nsBaseline.map((b, i) => b.recoveryRound - nsCandidate[i].recoveryRound);
+  const postShiftRateDiffs = nsCandidate.map(
+    (c, i) => c.postShiftCorrectRate - nsBaseline[i].postShiftCorrectRate
+  );
+  const stationaryDiffs = stCandidate.map((c, i) => c.correctRate - stBaseline[i].correctRate);
+
+  return {
+    bucket: scenario.bucket,
+    task: scenario.task,
+    shift: `${scenario.before} -> ${scenario.after}`,
+    nonStationary: {
+      baselineMeanRecoveryRound: mean(nsBaseline.map((r) => r.recoveryRound)),
+      candidateMeanRecoveryRound: mean(nsCandidate.map((r) => r.recoveryRound)),
+      recoveryRoundDeltaMean: mean(recoveryDiffs),
+      recoveryRoundDeltaT: pairedT(recoveryDiffs),
+      baselineMeanPostShiftCorrectRate: mean(nsBaseline.map((r) => r.postShiftCorrectRate)),
+      candidateMeanPostShiftCorrectRate: mean(nsCandidate.map((r) => r.postShiftCorrectRate)),
+      postShiftRateDeltaMean: mean(postShiftRateDiffs),
+      postShiftRateDeltaT: pairedT(postShiftRateDiffs),
+    },
+    stationary: {
+      baselineMeanCorrectRate: mean(stBaseline.map((r) => r.correctRate)),
+      candidateMeanCorrectRate: mean(stCandidate.map((r) => r.correctRate)),
+      deltaMean: mean(stationaryDiffs),
+      deltaT: pairedT(stationaryDiffs),
+      invariantHeld: mean(stationaryDiffs) >= -0.01, // candidate must not regress (>1pp) vs baseline
+    },
+  };
 }
 
 async function main() {
   const tmpDir = mkdtempSync(join(tmpdir(), 'prior-decay-bench-'));
   const origRandom = Math.random;
   try {
-    const nsBaseline = [];
-    const nsCandidate = [];
-    const stBaseline = [];
-    const stCandidate = [];
-
-    for (let seed = 0; seed < TRIALS; seed++) {
-      nsBaseline.push(await runNonStationaryTrial(1, 1000 + seed, tmpDir, `ns-base-${seed}`));
-      nsCandidate.push(
-        await runNonStationaryTrial(CANDIDATE_DECAY, 1000 + seed, tmpDir, `ns-cand-${seed}`)
-      );
-      stBaseline.push(await runStationaryTrial(1, 2000 + seed, tmpDir, `st-base-${seed}`));
-      stCandidate.push(
-        await runStationaryTrial(CANDIDATE_DECAY, 2000 + seed, tmpDir, `st-cand-${seed}`)
-      );
+    const scenarioResults = [];
+    for (const scenario of SCENARIOS) {
+      scenarioResults.push(await runScenario(scenario, tmpDir));
     }
-
-    const recoveryDiffs = nsBaseline.map((b, i) => b.recoveryRound - nsCandidate[i].recoveryRound);
-    const postShiftRateDiffs = nsCandidate.map(
-      (c, i) => c.postShiftCorrectRate - nsBaseline[i].postShiftCorrectRate
-    );
-    const stationaryDiffs = stCandidate.map((c, i) => c.correctRate - stBaseline[i].correctRate);
 
     const result = {
       config: { TRIALS, SHIFT_AT, POST_ROUNDS, TOTAL_ROUNDS, STATIONARY_ROUNDS, CANDIDATE_DECAY, RECOVERY_WINDOW, RECOVERY_THRESHOLD },
-      nonStationary: {
-        baselineMeanRecoveryRound: mean(nsBaseline.map((r) => r.recoveryRound)),
-        candidateMeanRecoveryRound: mean(nsCandidate.map((r) => r.recoveryRound)),
-        recoveryRoundDeltaMean: mean(recoveryDiffs),
-        recoveryRoundDeltaT: pairedT(recoveryDiffs),
-        baselineMeanPostShiftCorrectRate: mean(nsBaseline.map((r) => r.postShiftCorrectRate)),
-        candidateMeanPostShiftCorrectRate: mean(nsCandidate.map((r) => r.postShiftCorrectRate)),
-        postShiftRateDeltaMean: mean(postShiftRateDiffs),
-        postShiftRateDeltaT: pairedT(postShiftRateDiffs),
-      },
-      stationary: {
-        baselineMeanCorrectRate: mean(stBaseline.map((r) => r.correctRate)),
-        candidateMeanCorrectRate: mean(stCandidate.map((r) => r.correctRate)),
-        deltaMean: mean(stationaryDiffs),
-        deltaT: pairedT(stationaryDiffs),
-        invariantHeld: mean(stationaryDiffs) >= -0.01, // candidate must not regress (>1pp) vs baseline
-      },
+      scenarios: scenarioResults,
       generatedAt: new Date().toISOString(),
     };
 
