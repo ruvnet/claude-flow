@@ -19,11 +19,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { execFileSync } from 'child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
+import { execFileSync, spawn } from 'child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, chmodSync, readdirSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createHash } from 'crypto';
 
 import { generateStatuslineScript } from '../src/init/statusline-generator.js';
 import { DEFAULT_INIT_OPTIONS } from '../src/init/types.js';
@@ -78,6 +79,173 @@ describe('statusline cost display — generator contract', () => {
 
   it('guards the cost segment with the hide toggle', () => {
     expect(SCRIPT).toContain('!CONFIG.hideCost && costInfo && costInfo.costUsd > 0');
+  });
+});
+
+function writeFakeGit(bin: string, log: string): void {
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(path.join(bin, 'git'), [
+    '#!/bin/sh',
+    'printf \'%s\\n\' "$*" >> "$GIT_PROBE_LOG"',
+    'if [ "${FAKE_GIT_MODE:-success}" = "fail" ]; then exit 1; fi',
+    'case "$1" in',
+    '  rev-parse) printf \'%s\\n\' "$FAKE_GIT_ROOT" ;;',
+    '  config) printf \'%s\\n\' "test-user" ;;',
+    '  branch) printf \'%s\\n\' "${FAKE_GIT_BRANCH:-main}" ;;',
+    '  status) : ;;',
+    '  rev-list) printf \'%s\\n\' "0 0" ;;',
+    'esac',
+  ].join('\n') + '\n', 'utf-8');
+  chmodSync(path.join(bin, 'git'), 0o755);
+}
+
+function cacheFileFor(cwd: string): string {
+  return path.join(
+    tmpdir(),
+    'ruflo-statusline-git-cache-' + createHash('md5').update(cwd).digest('hex').slice(0, 8) + '.json',
+  );
+}
+
+function runStatusline(scriptPath: string, cwd: string, env: Record<string, string>, args: string[] = []): string {
+  return execFileSync(process.execPath, [scriptPath, ...args], {
+    input: JSON.stringify({ model: { display_name: 'Opus 4.8' } }),
+    encoding: 'utf-8',
+    cwd,
+    env,
+    timeout: 15000,
+  });
+}
+
+function runStatuslineAsync(scriptPath: string, cwd: string, env: Record<string, string>): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [scriptPath], {
+      cwd,
+      env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
+    child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+    child.once('error', reject);
+    child.once('close', (code) => {
+      if (code !== 0) return reject(new Error(`statusline exited ${code}: ${stderr}`));
+      resolve(stdout);
+    });
+    child.stdin.end(JSON.stringify({ model: { display_name: 'Opus 4.8' } }));
+  });
+}
+
+describe('statusline Git probe cache', () => {
+  it('defines a short-lived cache and atomic writes for the Git probe', () => {
+    expect(SCRIPT).toContain('const GIT_CACHE_TTL_MS = 10000;');
+    expect(SCRIPT).toContain('function readGitCache()');
+    expect(SCRIPT).toContain('const cached = readGitCache();');
+    expect(SCRIPT).toContain('writeGitCache(result);');
+    expect(SCRIPT).toContain('fs.renameSync(tmpPath, GIT_CACHE_FILE);');
+  });
+
+  it('uses fresh cached Git info without spawning a Git probe', () => {
+    const home = mkdtempSync(path.join(tmpdir(), 'ruflo-statusline-git-home-'));
+    const cwd = mkdtempSync(path.join(tmpdir(), 'ruflo-statusline-git-cwd-'));
+    const cacheFile = cacheFileFor(cwd);
+    const scriptPath = path.join(cwd, 'statusline.cjs');
+    const cachedGit = {
+      name: 'cached-project', gitBranch: 'cached-branch', modified: 0, untracked: 0,
+      staged: 0, ahead: 0, behind: 0,
+    };
+    writeFileSync(cacheFile, JSON.stringify({ _ts: Date.now(), data: cachedGit }), 'utf-8');
+    writeFileSync(scriptPath, SCRIPT, 'utf-8');
+    try {
+      const out = runStatusline(scriptPath, cwd, { PATH: '/nonexistent', HOME: home, CLAUDE_PROJECT_DIR: cwd });
+      const header = stripAnsi(out).split('\n')[0];
+      expect(header).toContain('cached-project');
+      expect(header).toContain('cached-branch');
+    } finally {
+      rmSync(cacheFile, { force: true });
+      rmSync(home, { recursive: true, force: true });
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('probes once, reuses the cache, then probes again after TTL expiry', () => {
+    const home = mkdtempSync(path.join(tmpdir(), 'ruflo-statusline-ttl-home-'));
+    const cwd = mkdtempSync(path.join(tmpdir(), 'ruflo-statusline-ttl-cwd-'));
+    const bin = path.join(home, 'bin');
+    const log = path.join(home, 'git-probe.log');
+    const cacheFile = cacheFileFor(cwd);
+    const scriptPath = path.join(cwd, 'statusline.cjs');
+    writeFakeGit(bin, log);
+    writeFileSync(scriptPath, SCRIPT, 'utf-8');
+    const env = {
+      PATH: `${bin}:/usr/bin:/bin`, HOME: home, GIT_PROBE_LOG: log,
+      FAKE_GIT_ROOT: cwd, CLAUDE_PROJECT_DIR: cwd, FAKE_GIT_BRANCH: 'first-branch',
+    };
+    try {
+      const first = runStatusline(scriptPath, cwd, env);
+      expect(stripAnsi(first)).toContain('first-branch');
+      expect(readFileSync(log, 'utf-8').trim().split('\n')).toHaveLength(5);
+
+      const cached = JSON.parse(readFileSync(cacheFile, 'utf-8'));
+      cached._ts = Date.now() - 10001;
+      writeFileSync(cacheFile, JSON.stringify(cached), 'utf-8');
+      const second = runStatusline(scriptPath, cwd, { ...env, FAKE_GIT_BRANCH: 'refreshed-branch' });
+      expect(stripAnsi(second)).toContain('refreshed-branch');
+      expect(readFileSync(log, 'utf-8').trim().split('\n')).toHaveLength(10);
+    } finally {
+      rmSync(cacheFile, { force: true });
+      rmSync(home, { recursive: true, force: true });
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('returns a safe fallback and writes valid cache data when Git fails', () => {
+    const home = mkdtempSync(path.join(tmpdir(), 'ruflo-statusline-fail-home-'));
+    const cwd = mkdtempSync(path.join(tmpdir(), 'ruflo-statusline-fail-cwd-'));
+    const bin = path.join(home, 'bin');
+    const log = path.join(home, 'git-probe.log');
+    const cacheFile = cacheFileFor(cwd);
+    const scriptPath = path.join(cwd, 'statusline.cjs');
+    writeFakeGit(bin, log);
+    writeFileSync(scriptPath, SCRIPT, 'utf-8');
+    try {
+      runStatusline(scriptPath, cwd, {
+        PATH: `${bin}:/usr/bin:/bin`, HOME: home, GIT_PROBE_LOG: log,
+        FAKE_GIT_ROOT: cwd, CLAUDE_PROJECT_DIR: cwd, FAKE_GIT_MODE: 'fail',
+      });
+      expect(JSON.parse(readFileSync(cacheFile, 'utf-8')).data.gitBranch).toBe('');
+    } finally {
+      rmSync(cacheFile, { force: true });
+      rmSync(home, { recursive: true, force: true });
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps the cache file valid under concurrent statusline renders', async () => {
+    const home = mkdtempSync(path.join(tmpdir(), 'ruflo-statusline-concurrent-home-'));
+    const cwd = mkdtempSync(path.join(tmpdir(), 'ruflo-statusline-concurrent-cwd-'));
+    const bin = path.join(home, 'bin');
+    const log = path.join(home, 'git-probe.log');
+    const cacheFile = cacheFileFor(cwd);
+    const scriptPath = path.join(cwd, 'statusline.cjs');
+    writeFakeGit(bin, log);
+    writeFileSync(scriptPath, SCRIPT, 'utf-8');
+    const env = {
+      PATH: `${bin}:/usr/bin:/bin`, HOME: home, GIT_PROBE_LOG: log,
+      FAKE_GIT_ROOT: cwd, CLAUDE_PROJECT_DIR: cwd, FAKE_GIT_BRANCH: 'parallel-branch',
+    };
+    try {
+      const results = await Promise.all(Array.from({ length: 8 }, () => runStatuslineAsync(scriptPath, cwd, env)));
+      expect(results).toHaveLength(8);
+      expect(results.every((result) => stripAnsi(result).includes('parallel-branch'))).toBe(true);
+      expect(JSON.parse(readFileSync(cacheFile, 'utf-8')).data.gitBranch).toBe('parallel-branch');
+      const temporaryFiles = readdirSync(tmpdir()).filter((name) => name.startsWith(path.basename(cacheFile) + '.') && name.endsWith('.tmp'));
+      expect(temporaryFiles).toHaveLength(0);
+    } finally {
+      rmSync(cacheFile, { force: true });
+      rmSync(home, { recursive: true, force: true });
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 });
 
