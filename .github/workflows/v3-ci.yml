@@ -433,7 +433,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # #2992 — pin native-addon builds to VS2022 until node-gyp
+        # supports the VS2026 toolchain shipped by windows-latest.
+        os: [ubuntu-latest, macos-latest, windows-2022]
 
     steps:
       - name: Checkout code
