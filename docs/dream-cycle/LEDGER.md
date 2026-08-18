@@ -111,4 +111,19 @@ rows — not a static snapshot.
 
 ## v2 live entries start below
 
-(STEP 9 of the v2 routine appends here nightly, starting 2026-08-14.)
+(STEP 9 of the v2 routine appends here nightly, starting 2026-08-14. Each
+night pushes its own branch/PR with a real code diff — 2026-08-14 through
+2026-08-17 all did this, confirmed via `git ls-remote` + PR lookup on
+2026-08-18 — but since 0 dream-cycle PRs have merged, each night's LEDGER.md
+edit lives only on its own unmerged branch and never reaches `main`. This
+table is therefore reconstructed from PR/issue history each run rather than
+carried forward automatically; see each branch's own commit for its
+original append. Schema below matches the v3.1 prompt's 10-column spec.)
+
+| Date | Deep | Finding | Issue | PR | Evaluated? | Verdict | Effect | Witness | Prior-night fates |
+|---|---|---|---|---|---|---|---|---|---|
+| 2026-08-14 | swarm | power-of-two-choices mesh load-balancing (large-churn scenario) | #3026 | #3027 | yes | REJECT | -46% max load, -44% load CoV, but -13.7% density breached ±10% invariant | `e77acc86...` | (own branch only — see #3026) |
+| 2026-08-15 | performance | HNSWIndex efSearch query-time default (decoupled from efConstruction) | #3033 | #3034 | yes | REJECT | -56-58% latency but recall@10 breached 0.90 floor at N=8000 | `d756e6d9...` | (own branch only — see #3033) |
+| 2026-08-16 | security | advisory scanner for untrusted settings.json hooks/allow-rules | #3043 | #3044 | yes | ACCEPT | recall 0→1.0, precision 1.0, 0 false positives after adversarial hardening (6 bypasses fixed) | `ad11d483...` | (own branch only — see #3043) |
+| 2026-08-17 | intelligence | discounted Thompson sampling for model-router bandit prior decay | #3048 | #3049 | yes | ACCEPT (scoped) | low-bucket recovery -17.6% rounds (t=7.00); med-bucket null (not generalized) | `e0fb0242...` | (own branch only — see #3048) |
+| 2026-08-18 | memory | hybridSearch (ADR-125 Phase 5 dense+sparse+entity fusion) built but unreachable — explicit opt-in silently no-op'd without a hand-built memoryService; fixed + first-ever quality benchmark | #3056 | #3057 | yes | ACCEPT (scoped) | overall recall@10 +0.267; category A +0.867, category C +0.333, category B **-0.133 regression (disclosed)**, category D parity | `b28714fb...` | 08-14 REJECT / 08-15 REJECT / 08-16 ACCEPT / 08-17 ACCEPT(scoped) — 0 of last 4 merged; 0/N merge rate persists across entire trailing window |
