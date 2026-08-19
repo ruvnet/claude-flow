@@ -112,3 +112,21 @@ rows — not a static snapshot.
 ## v2 live entries start below
 
 (STEP 9 of the v2 routine appends here nightly, starting 2026-08-14.)
+
+**Recovery note (2026-08-19):** rows for 2026-08-14 through 2026-08-18 were
+never appended live despite all 5 nights running to completion (branch +
+draft PR + issue exist for each — verified via `git ls-remote` and
+`gh pr`/MCP search before concluding this, per STEP 1's anti-inference
+rule). Backfilled below from the PRs/issues directly. Root cause not
+diagnosed (out of scope for STEP 1 recovery); flagged as a candidate
+finding for a future `automation`/`meta` scan surface — the ledger-append
+step itself has now silently failed for 5 consecutive nights with no
+alerting.
+
+| Date | Deep | Finding | Issue | PR | Evaluated? | Verdict | Effect | Witness | Prior-night fates |
+|---|---|---|---|---|---|---|---|---|---|
+| 2026-08-14 | swarm | power-of-two-choices mesh peer selection: max-load -46.1%, CoV -44.4% but density -13.7% breaches ±10% invariant | #3026 | #3027 | yes | REJECT | max_load -46.1%, CoV -44.4%, density -13.7% (breach) | e77acc86... | recovered-live (5-night gap) |
+| 2026-08-15 | performance | HNSWIndex efSearch query-time default decouple: latency -55.9%/-57.5% but recall@10 breaches 0.90 floor at N=8000 (-7.5pp) | #3033 | #3034 | yes | REJECT | latency -55.9%(N=3k)/-57.5%(N=8k), recall -7.5pp (breach @8k) | d756e6d9... | recovered-live |
+| 2026-08-16 | security | settings.json hooks/allow-rules advisory risk scanner (CVE-2025-59536-class) wired into init/upgrade merge, advisory-only | #3043 | #3044 | yes | ACCEPT | recall 0→1.0, precision 1.0, FPR 0.0 (post-hardening, 6 critic-found bypasses fixed) | ad11d483... | recovered-live |
+| 2026-08-17 | intelligence | discounted Thompson-sampling prior decay for model-router bandit (opt-in), recovers faster after workload shift | #3048 | #3049 | yes | ACCEPT-scoped | low-bucket recovery -17.6% (t=7.00, held); med-bucket null (no generalization) | e0fb0242... | recovered-live |
+| 2026-08-18 | memory | hybridSearch controller reachable via explicit opt-in (was silently null-returning despite config flag) | #3056 | #3057 | yes | ACCEPT-scoped | overall recall@10 +0.267; category B (pure-paraphrase) regresses -0.133 | b28714fb... | recovered-live |
