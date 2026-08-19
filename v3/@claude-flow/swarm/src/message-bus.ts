@@ -340,7 +340,7 @@ export class MessageBus extends EventEmitter implements IMessageBus {
     return message.id;
   }
 
-  private addToQueue(agentId: string, message: Message): void {
+  private addToQueue(agentId: string, message: Message, existingAttempts: number = 0): void {
     if (!this.queues.has(agentId)) {
       this.queues.set(agentId, new PriorityMessageQueue());
     }
@@ -355,7 +355,7 @@ export class MessageBus extends EventEmitter implements IMessageBus {
     // O(1) priority-aware insertion
     const entry: MessageQueueEntry = {
       message,
-      attempts: 0,
+      attempts: existingAttempts,
       enqueuedAt: new Date(),
     };
 
@@ -493,8 +493,17 @@ export class MessageBus extends EventEmitter implements IMessageBus {
     entry.lastAttemptAt = new Date();
 
     if (entry.attempts < this.config.retryAttempts) {
-      // Re-queue for retry
-      this.addToQueue(message.to, message);
+      // Re-queue for retry, preserving the attempt count so it's bounded by
+      // retryAttempts instead of resetting to 0 on every re-queue.
+      //
+      // KNOWN LIMITATION (pre-existing, not fixed here): for a broadcast
+      // message, message.to stays the literal string 'broadcast' rather
+      // than the per-subscriber agentId enqueue() originally fanned out
+      // to, so this re-queues under a 'broadcast'-keyed queue nobody
+      // drains — a failing broadcast subscriber's retries (and eventual
+      // message.failed) are silently lost. Only the direct-message path
+      // is bounded by this fix.
+      this.addToQueue(message.to, message, entry.attempts);
       this.emit('message.retry', {
         messageId: message.id,
         attempt: entry.attempts
