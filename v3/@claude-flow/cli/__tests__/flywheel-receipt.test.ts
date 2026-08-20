@@ -122,6 +122,34 @@ describe('flywheel receipt protocol', () => {
     expect(verifyFlywheelReceipt(receipt, new Set([key.publicKeyPem])).valid).toBe(true);
   });
 
+  it('verifies receipts whose scores need more than twelve decimals (encoded round-trip)', () => {
+    const key = keys();
+    // Mean of a heterogeneous per-task corpus; not representable at scale 12.
+    // Stored as "0.768708333333", so a verifier recomputes from that value —
+    // the producer must have used it too, or relativeLift shifts by one ULP
+    // and an honest receipt reports "statistical decision does not recompute".
+    const candidateScore = 0.7687083333333332;
+    const heldOutDeltas = [0.2687083333333332, 0.26870833333333326, 0.2687083333333333, 0.2687083333333331];
+    const receipt = createFlywheelReceipt({
+      baselineRef: policyCandidateId({ alpha: 0.5 }),
+      candidatePolicy: { alpha: 0.3 },
+      safetyEnvelopeRef: 'sha256:safety',
+      corpusVersion: 'corpus-v1',
+      corpusHash: 'sha256:corpus',
+      baselineScore: 0.5,
+      candidateScore,
+      heldOutDeltas,
+      frozenAnchorRegression: 0,
+      gates: { heldOut: true },
+      bootstrapIterations: 500,
+      ...key,
+    });
+    expect(receipt.payload.candidateScore).toBe('0.768708333333');
+    const verification = verifyFlywheelReceipt(receipt, new Set([key.publicKeyPem]));
+    expect(verification.errors).toEqual([]);
+    expect(verification.valid).toBe(true);
+  });
+
   it('rejects small relative lifts even when every held-out delta is positive', () => {
     const { privateKeyPem, publicKeyPem } = keys();
     const receipt = createFlywheelReceipt({
