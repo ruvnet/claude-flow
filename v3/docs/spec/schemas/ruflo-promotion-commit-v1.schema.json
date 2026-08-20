@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ruvnet/ruflo/v3/docs/spec/schemas/ruflo-promotion-commit-v1.schema.json",
+  "title": "RufloPromotionCommitV1",
+  "description": "Promotion commit and resulting ledger head. ADR-322C section Ledger specifies content-addressed segments with a segmentMerkleRoot and a head signed under ruflo/flywheel-ledger-head/v1; this schema describes what is actually implemented on main (flywheel-transaction.ts:553-568) - a flat, sequence-numbered commit chain whose head is an UNSIGNED SHA-256 chain value. See witness-receipt-contract.md gap G2 before anchoring a head across a repo boundary.",
+  "type": "object",
+  "required": ["commit", "ledgerHead"],
+  "additionalProperties": false,
+  "properties": {
+    "commit": { "$ref": "#/$defs/commit" },
+    "ledgerHead": {
+      "$ref": "#/$defs/contentId",
+      "description": "SHA-256(JCS({ previous: <previousLedgerHead>, commitId: <commit.commitId> })). Genesis is sha256:<64 zeros>."
+    }
+  },
+  "$defs": {
+    "contentId": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "uuidV7": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "commit": {
+      "type": "object",
+      "required": [
+        "commitId",
+        "transactionId",
+        "receiptId",
+        "lineageId",
+        "sequence",
+        "previousLedgerHead",
+        "baselineRef",
+        "candidateId",
+        "servingEpoch",
+        "proposer",
+        "promotedAt"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "commitId": {
+          "$ref": "#/$defs/contentId",
+          "description": "SHA-256(JCS(commit with this member omitted))."
+        },
+        "transactionId": { "$ref": "#/$defs/uuidV7" },
+        "receiptId": {
+          "$ref": "#/$defs/contentId",
+          "description": "The evaluation receipt consumed by this promotion. Exactly one commit may consume a given receipt."
+        },
+        "lineageId": { "$ref": "#/$defs/uuidV7" },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based position in the chain. Verification walks the chain from genesis; a gap, reorder, or altered parent breaks it."
+        },
+        "previousLedgerHead": { "$ref": "#/$defs/contentId" },
+        "baselineRef": {
+          "$ref": "#/$defs/contentId",
+          "description": "Champion this promotion replaced. Must equal the active champion at commit time (compare-and-swap, ADR-322A)."
+        },
+        "candidateId": {
+          "$ref": "#/$defs/contentId",
+          "description": "New active champion."
+        },
+        "servingEpoch": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Monotonic per lineage; uniquely constrained (ADR-322A)."
+        },
+        "proposer": {
+          "enum": ["local", "darwin"],
+          "description": "Effective proposer. Recorded because the proposer holds no promotion authority (ADR-322 separation of powers)."
+        },
+        "proposerSubstitution": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Present only when a substitution occurred; its presence means the promotion authority explicitly allow-listed that exact substitution."
+        },
+        "promotedAt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Unix epoch milliseconds. Note this differs from the receipt's RFC 3339 string timestamps - it is transcribed from the implementation, not from ADR-322C."
+        }
+      }
+    }
+  }
+}
