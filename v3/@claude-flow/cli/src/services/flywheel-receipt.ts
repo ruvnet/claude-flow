@@ -397,11 +397,19 @@ export function createFlywheelReceipt(input: CreateReceiptInput): FlywheelEvalua
   const evaluationRunId = input.evaluationRunId ?? uuidV7(now);
   const lineageId = input.lineageId ?? uuidV7(now);
   const candidateId = policyCandidateId(input.candidatePolicy);
+  // Verifiers recompute the statistics from the payload's scale-12 decimal
+  // strings — the only values they ever have. The encoded values are therefore
+  // the statistical inputs of record: compute the decision from them, not from
+  // full-precision intermediates, or any input that does not terminate within
+  // twelve decimals produces an honest receipt that fails its own verification.
+  const encodedBaselineScore = decimal(input.baselineScore);
+  const encodedCandidateScore = decimal(input.candidateScore);
+  const encodedHeldOutDeltas = input.heldOutDeltas.map((v) => decimal(v));
   const statistics = computePromotionStatistics({
-    baselineScore: input.baselineScore,
-    candidateScore: input.candidateScore,
-    heldOutDeltas: input.heldOutDeltas,
-    frozenAnchorRegression: input.frozenAnchorRegression,
+    baselineScore: Number(encodedBaselineScore),
+    candidateScore: Number(encodedCandidateScore),
+    heldOutDeltas: encodedHeldOutDeltas.map(Number),
+    frozenAnchorRegression: Number(decimal(input.frozenAnchorRegression)),
     corpusHash: input.corpusHash,
     candidateId,
     baselineRef: input.baselineRef,
@@ -426,9 +434,9 @@ export function createFlywheelReceipt(input: CreateReceiptInput): FlywheelEvalua
     ...(input.proposerSubstitution ? { proposerSubstitution: input.proposerSubstitution } : {}),
     corpusVersion: input.corpusVersion,
     corpusHash: input.corpusHash,
-    baselineScore: decimal(input.baselineScore),
-    candidateScore: decimal(input.candidateScore),
-    heldOutDeltas: input.heldOutDeltas.map((v) => decimal(v)),
+    baselineScore: encodedBaselineScore,
+    candidateScore: encodedCandidateScore,
+    heldOutDeltas: encodedHeldOutDeltas,
     ...(input.pairedOutcomes
       ? {
         pairedOutcomes: input.pairedOutcomes.map((o) => ({
