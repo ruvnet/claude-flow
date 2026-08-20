@@ -150,19 +150,35 @@ Seed (ADR-322C): `SHA-256("ruflo/bootstrap/v1" || corpusHash || candidateId ||
 baselineRef || evaluationRunId)`, concatenated with no separator. The full digest
 hex is recorded as `seedHex`.
 
-**The ADR does not specify the PRNG driven by that seed, but recomputation is
-impossible without it.** Transcribed from `flywheel-receipt.ts:212-293` and
-normative for any independent verifier:
+The PRNG driven by that seed, the resampling procedure, and the decimal encoding
+of the results are now normative in **ADR-322C §Update (2026-08-19)** — added by
+ruflo#3069, which this spec's first draft raised. Consult that section as the
+authority; in summary:
 
 - PRNG state = first 4 bytes of the seed digest, big-endian uint32.
 - Step: `state = (1664525 * state + 1013904223) mod 2^32`; draw = `state / 2^32`.
-- 10,000 resamples by default; each draws `n` indices as `floor(draw * n)` and
-  averages the corresponding `heldOutDeltas`.
+- 10,000 resamples by default; each draws `n` indices as `floor(draw * n)`, in
+  sequence, and averages the corresponding `heldOutDeltas`.
 - `pairedBootstrapProbability` = fraction of resample means strictly `> 0`.
 - `pairedBootstrapDeltaCILow95` = the `floor(0.025 * iterations)`-th order
   statistic (0-based) of the resample means.
+- Results are encoded at scale 12 with trailing zeros stripped.
 
-Filed as gap G1 in §7: this belongs in ADR-322C, not only in source.
+**Test your implementation against
+[`examples/receipt-bootstrap-reference.example.json`](./examples/receipt-bootstrap-reference.example.json),
+not the accepted-receipt example.** Only the former has heterogeneous per-task
+deltas. The latter's deltas take two distinct values, which makes its 2.5th
+percentile identical under a wrong seed slice, a wrong byte order, or entirely
+different LCG constants — it would pass a non-conforming verifier.
+[`conformance/recompute_reference.py`](./conformance/recompute_reference.py) is a
+runnable oracle written from the ADR prose alone; it reproduces that fixture
+exactly and is the demonstration that the spec is sufficient to reimplement from.
+
+**Caveat consumers will hit:** a producer must compute the statistics from the
+*encoded* scores, since that is all a verifier has. `createFlywheelReceipt`
+currently computes from full-precision means while storing scale-12 strings, so a
+receipt whose mean needs more than twelve decimals fails ruflo's own verifier with
+`statistical decision does not recompute`. Gap G5 in §7.
 
 ### 6.2 Sequential evidence (ADR-381)
 
@@ -185,10 +201,11 @@ bound must quote the per-epoch qualifier and the `Proposed` status together.
 
 | # | Gap | Consumer impact |
 |---|---|---|
-| G1 | Bootstrap PRNG algorithm is in source only (§6.1) | Blocking for independent recomputation; consumers must transcribe §6.1 |
+| G1 | ~~Bootstrap PRNG algorithm is in source only~~ — **closed** by ADR-322C §Update (2026-08-19) (ruflo#3069) | Resolved; recompute from the ADR, verify against the reference fixture |
 | G2 | ADR-322C §Ledger specifies content-addressed segments with `segmentMerkleRoot` and a **signed** head under `ruflo/flywheel-ledger-head/v1`. `main` implements a flat `commits[]` array in one state file with an **unsigned** SHA-256 chain (`flywheel-transaction.ts:553-568,619-636`) | A ledger head cannot currently be signature-verified across a repo boundary; anchor the **receipt**, whose signature is implemented |
 | G3 | No unknown-field whitelist in `verifyFlywheelReceipt` (§2.4) | Consumers must enforce it via `schemas/` |
 | G4 | ADR-322C §Flywheel projection (external receipt export) is deliberately disabled (ADR-322 §Current inventory) | Do not assume an upstream `@metaharness/flywheel` round-trip is available |
+| G5 | `createFlywheelReceipt` computes statistics from full-precision means but stores scale-12 strings, so a receipt whose mean needs >12 decimals fails ruflo's own verifier (§6.1) | A legitimately produced receipt can be unverifiable. Compute from the encoded values; treat a `statistical decision does not recompute` error on a receipt you trust as this defect, not tampering |
 
 Per ADR-322 §"Phased rollout", phases 0–2 are implemented; phases 3–4 (signed
 `SafetyEnvelope`, `toolPolicy`/`modelPolicy` evolution, unattended promotion) are

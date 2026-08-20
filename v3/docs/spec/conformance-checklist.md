@@ -49,10 +49,22 @@ consequences of the same rules.
   promotion signature (contract §4).
 - [ ] **B5** The statistical decision is **recomputed**, not read. Your bootstrap
   reproduces `relativeLift`, `pairedBootstrapProbability`,
-  `pairedBootstrapDeltaCILow95`, and `accepted` **exactly** for the reference
-  fixture, using the seed and PRNG in contract §6.1. Expected values for that
-  fixture: `0.092857142857`, `1`, `0.0425`, `true`, with
-  `seedHex = be51f05643bce93feb04b7da659e290a203a1a62b5cb408b9c46554df528da84`.
+  `pairedBootstrapDeltaCILow95`, and `accepted` **exactly** for
+  [`examples/receipt-bootstrap-reference.example.json`](./examples/receipt-bootstrap-reference.example.json),
+  using the procedure now normative in ADR-322C §Update (2026-08-19). Expected:
+  `0.100428571429`, `1`, `0.0489`, `true`, with
+  `seedHex = 167c9185d76163dfa69ae57c11af813669a6353abcb49d7af673acf918f3a7c3`.
+  Use **that** fixture, not `receipt-accepted.example.json` — only its deltas are
+  heterogeneous enough to discriminate. Verified: a wrong seed slice, wrong byte
+  order, or different LCG constants all produce `0.0425` on the accepted-receipt
+  fixture (indistinguishable) but `0.04975` / `0.04965` / `0.04915` on this one.
+  [`conformance/recompute_reference.py`](./conformance/recompute_reference.py) is a
+  runnable oracle you can diff your implementation against.
+- [ ] **B5a** Your producer computes statistics from the **encoded** scores, not
+  from internal full-precision values — a verifier only ever sees the encoded form.
+  Note contract gap G5: ruflo's own producer does not yet do this, so a receipt
+  whose mean needs more than twelve decimals fails its own verifier. Distinguish
+  that failure from tampering when triaging.
 - [ ] **B6** Float and decimal fixtures produce identical hashes across every
   runtime you support (Rust and TypeScript both matter here). **[322C]**
 - [ ] **B7** Corpus-role disjointness is checked — a task ID appearing in both
