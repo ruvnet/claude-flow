@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  canonicalizeJcs,
   createFlywheelReceipt,
   policyCandidateId,
+  sha256Ref,
 } from '../src/services/flywheel-receipt.js';
 import {
   promoteFlywheelCandidate,
@@ -88,6 +90,39 @@ describe('flywheel promotion transaction', () => {
     expect(state.servingEpoch).toBe(1);
     expect(state.materializedServingEpoch).toBe(1);
     expect(verifyFlywheelLedger(root)).toMatchObject({ valid: true, commits: 1 });
+  });
+
+  it('rejects a commit carrying a field the contract does not define (#3068)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'flywheel-strict-commit-'));
+    const key = keyPair();
+    const receipt = makeReceipt(key);
+    await registerFlywheelReceipt(root, receipt, 1_700_000_000_001);
+    await promoteFlywheelCandidate(root, receipt.payload.receiptId, {
+      confirm: true,
+      now: 1_700_000_000_100,
+      trustedPublicKeys: new Set([key.publicKeyPem]),
+      applyFn: apply,
+    });
+    expect(verifyFlywheelLedger(root).valid).toBe(true);
+
+    // The commit hash covers whatever fields the commit carries, so an undefined
+    // field chains cleanly unless the field set itself is closed. Same class of
+    // permissiveness as the receipt path, hence the same check.
+    const statePath = join(root, '.claude-flow', 'flywheel-v1', 'transaction-state.json');
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    const { commitId: _drop, ...core } = state.commits[0];
+    const tampered = { ...core, smuggledField: 'not defined by ADR-322C' };
+    state.commits[0] = { ...tampered, commitId: sha256Ref(canonicalizeJcs(tampered)) };
+    state.ledgerHead = sha256Ref(canonicalizeJcs({
+      previous: core.previousLedgerHead,
+      commitId: state.commits[0].commitId,
+    }));
+    writeFileSync(statePath, JSON.stringify(state));
+
+    const verification = verifyFlywheelLedger(root);
+    expect(verification.valid).toBe(false);
+    expect(verification.errors).toContain('unknown field: commits[0].smuggledField');
+    expect(verification.errors.join(' ')).not.toMatch(/hash mismatch|parent mismatch/);
   });
 
   it('requires explicit signer trust and rejects stale baselines', async () => {
