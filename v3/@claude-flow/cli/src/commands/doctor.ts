@@ -387,6 +387,40 @@ function isMemoryDbEncryptedAtRest(dbPath: string): boolean {
   }
 }
 
+/**
+ * Distinguish an unavailable native addon from a database that the native
+ * driver opened and found malformed. Importing better-sqlite3 can succeed even
+ * when its postinstall script was skipped: the JavaScript wrapper loads, then
+ * the first Database construction throws because better_sqlite3.node is absent
+ * or incompatible with the active Node ABI.
+ */
+function isNativeSqliteBindingUnavailable(error: unknown): boolean {
+  const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  return [
+    /Could not locate the bindings file/i,
+    /better_sqlite3\.node/i,
+    /NODE_MODULE_VERSION/i,
+    /compiled against a different Node\.js version/i,
+    /ERR_DLOPEN_FAILED/i,
+    /invalid ELF header/i,
+    /wrong ELF class/i,
+    /not a valid Win32 application/i,
+    /Module did not self-register/i,
+    /no suitable image found/i,
+  ].some((pattern) => pattern.test(message));
+}
+
+function nativeBindingUnavailableCheck(name: string, dbPath: string, error: unknown, suffix: string): HealthCheck {
+  const details = error instanceof Error ? error.message : String(error);
+  const summary = details.split(/\r?\n/, 1)[0].replace(/\s+Tried:\s*$/i, '');
+  return {
+    name,
+    status: 'warn',
+    message: `${dbPath} — better-sqlite3 package found, but its native binding is unavailable: ${summary} ${suffix}`,
+    fix: 'reinstall with npm install scripts enabled or run `npm rebuild better-sqlite3`; then rerun this check',
+  };
+}
+
 // #2737 part 1 — bare `doctor` (no --component flag) never actually opened
 // memory.db: checkMemoryDatabase above is existsSync()+statSync() only, so
 // it PASSES on any file that exists and can be stat'd, corrupt or not, and
@@ -443,8 +477,8 @@ async function checkMemoryStructuralIntegrity(): Promise<HealthCheck> {
     return {
       name: NAME,
       status: 'warn',
-      message: `${dbPath} — better-sqlite3 not installed; structural-only check skipped (optional native module)`,
-      fix: 'npm install better-sqlite3  (enables WAL-aware structural checks on every `doctor` run)',
+      message: `${dbPath} — better-sqlite3 not installed; native WAL-backed persistence and the structural-only check are unavailable`,
+      fix: 'install better-sqlite3 with npm install scripts enabled, then rerun this check',
     };
   }
 
@@ -452,6 +486,14 @@ async function checkMemoryStructuralIntegrity(): Promise<HealthCheck> {
   try {
     db = new Database(dbPath, { readonly: true, fileMustExist: true });
   } catch (e) {
+    if (isNativeSqliteBindingUnavailable(e)) {
+      return nativeBindingUnavailableCheck(
+        NAME,
+        dbPath,
+        e,
+        '[structural-only; durable WAL-backed persistence unavailable]',
+      );
+    }
     const msg = (e as Error).message || String(e);
     // Encryption already ruled out above — an unencrypted file
     // better-sqlite3 can't even open is definitive corruption.
@@ -523,9 +565,9 @@ async function checkMemoryIntegrity(): Promise<HealthCheck> {
 
   // Prefer native better-sqlite3 (WAL-aware, full integrity_check). Module
   // load is isolated in its own try/catch so ONLY "not installed" falls
-  // through to the sql.js fallback below — once the module loaded, any
-  // open/query failure is resolved (fail) right here, not silently
-  // reclassified as "sql.js fallback, main-image-only" by an outer catch.
+  // through to the sql.js fallback below. A loaded JavaScript wrapper can
+  // still lack its native binding (#2968); that capability failure is a warn,
+  // while genuine open/query failures remain authoritative failures here.
   let Database: any;
   try {
     Database = ((await import('better-sqlite3')) as any).default;
@@ -538,6 +580,14 @@ async function checkMemoryIntegrity(): Promise<HealthCheck> {
     try {
       db = new Database(dbPath, { readonly: true, fileMustExist: true });
     } catch (e) {
+      if (isNativeSqliteBindingUnavailable(e)) {
+        return nativeBindingUnavailableCheck(
+          'Memory Integrity',
+          dbPath,
+          e,
+          '[native WAL-backed persistence unavailable]',
+        );
+      }
       const msg = (e as Error).message || String(e);
       return {
         name: 'Memory Integrity',
@@ -594,7 +644,12 @@ async function checkMemoryIntegrity(): Promise<HealthCheck> {
     const res = db.exec('PRAGMA integrity_check');
     const rows: string[] = res[0]?.values?.map((v: any[]) => String(v[0])) ?? [];
     if (rows.length === 1 && rows[0] === 'ok') {
-      return { name: 'Memory Integrity', status: 'pass', message: `${dbPath} — PRAGMA integrity_check: ok [main-image-only fallback — sql.js can't see WAL-only data; install better-sqlite3 for full coverage]` };
+      return {
+        name: 'Memory Integrity',
+        status: 'warn',
+        message: `${dbPath} — PRAGMA integrity_check: ok, but only for the main image [sql.js fallback; native WAL-backed persistence unavailable]`,
+        fix: 'install better-sqlite3 with npm install scripts enabled, then rerun this check',
+      };
     }
     return {
       name: 'Memory Integrity',
@@ -873,8 +928,10 @@ async function checkApiKeys(): Promise<HealthCheck> {
     }
   }
 
-  // Detect Claude Code environment — API keys are managed internally
-  const inClaudeCode = !!(process.env.CLAUDE_CODE || process.env.CLAUDE_PROJECT_DIR || process.env.MCP_SESSION_ID);
+  // Detect Claude Code environment — API keys are managed internally.
+  // Claude Code sets CLAUDECODE (no underscore); CLAUDE_CODE is kept for
+  // compatibility with anything else that might set it.
+  const inClaudeCode = !!(process.env.CLAUDECODE || process.env.CLAUDE_CODE || process.env.CLAUDE_PROJECT_DIR || process.env.MCP_SESSION_ID);
 
   if (found.includes('ANTHROPIC_API_KEY') || found.includes('CLAUDE_API_KEY')) {
     return { name: 'API Keys', status: 'pass', message: `Found: ${found.join(', ')}` };

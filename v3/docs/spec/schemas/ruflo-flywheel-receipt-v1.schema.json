@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ruvnet/ruflo/v3/docs/spec/schemas/ruflo-flywheel-receipt-v1.schema.json",
+  "title": "RufloFlywheelReceiptV1",
+  "description": "Evaluation receipt defined by ADR-322C. Structural validation only: schema conformance is necessary but NOT sufficient. A conforming record is valid only after the content-ID, signature, and statistical recomputation steps of witness-receipt-contract.md section 6.",
+  "type": "object",
+  "required": ["payload"],
+  "additionalProperties": false,
+  "properties": {
+    "payload": { "$ref": "#/$defs/payload" },
+    "signature": { "$ref": "#/$defs/signature" }
+  },
+  "$defs": {
+    "contentId": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "ADR-322C content ID: sha256:<lowercase-hex>."
+    },
+    "uuidV7": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$",
+      "description": "RFC 3339 UTC normalized to YYYY-MM-DDTHH:mm:ss.sssZ."
+    },
+    "decimalString": {
+      "type": "string",
+      "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+      "description": "Canonical decimal string. ADR-322C forbids binary floats for signed fractional values; -0 is not representable by this pattern."
+    },
+    "signature": {
+      "type": "object",
+      "required": ["algorithm", "domain", "publicKeyPem", "signatureBase64"],
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": { "const": "ed25519" },
+        "domain": {
+          "const": "ruflo/flywheel-receipt/v1",
+          "description": "Ed25519 domain-separation prefix. Signed bytes are UTF8(domain) || 0x00 || JCS(payload)."
+        },
+        "publicKeyPem": { "type": "string", "pattern": "^-----BEGIN PUBLIC KEY-----" },
+        "signatureBase64": { "type": "string", "pattern": "^[A-Za-z0-9+/]{86}==$" }
+      }
+    },
+    "pairedOutcome": {
+      "type": "object",
+      "required": ["taskId", "baselineScore", "candidateScore"],
+      "additionalProperties": false,
+      "properties": {
+        "taskId": { "type": "string", "minLength": 1 },
+        "baselineScore": { "$ref": "#/$defs/decimalString" },
+        "candidateScore": { "$ref": "#/$defs/decimalString" }
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "required": [
+        "ruleVersion",
+        "relativeLift",
+        "pairedBootstrapProbability",
+        "pairedBootstrapDeltaCILow95",
+        "frozenAnchorRegression",
+        "iterations",
+        "seedHex",
+        "significant",
+        "accepted"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "ruleVersion": { "type": "string", "minLength": 1 },
+        "relativeLift": { "$ref": "#/$defs/decimalString" },
+        "pairedBootstrapProbability": { "$ref": "#/$defs/decimalString" },
+        "pairedBootstrapDeltaCILow95": { "$ref": "#/$defs/decimalString" },
+        "frozenAnchorRegression": { "$ref": "#/$defs/decimalString" },
+        "iterations": { "type": "integer", "minimum": 100 },
+        "seedHex": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Full SHA-256 digest of \"ruflo/bootstrap/v1\" || corpusHash || candidateId || baselineRef || evaluationRunId."
+        },
+        "significant": { "type": "boolean" },
+        "accepted": { "type": "boolean" }
+      }
+    },
+    "resourceEvidence": {
+      "type": "object",
+      "required": [
+        "p95LatencyMicros",
+        "costMicrosPerTask",
+        "tokensPerTask",
+        "failureRate",
+        "evaluationCostMicros",
+        "currency"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "p95LatencyMicros": { "type": "integer", "minimum": 0 },
+        "costMicrosPerTask": { "type": "integer", "minimum": 0 },
+        "tokensPerTask": { "type": "integer", "minimum": 0 },
+        "failureRate": { "$ref": "#/$defs/decimalString" },
+        "evaluationCostMicros": { "type": "integer", "minimum": 0 },
+        "energyMicrojoules": { "type": "integer", "minimum": 0 },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "description": "ISO 4217." }
+      }
+    },
+    "termVerification": {
+      "type": "object",
+      "required": ["term", "verification", "evidenceRef"],
+      "additionalProperties": false,
+      "properties": {
+        "term": { "type": "string", "minLength": 1 },
+        "verification": {
+          "enum": ["recomputed", "signature-verified", "trusted-assertion"],
+          "description": "ADR-322C evidence grade."
+        },
+        "evidenceRef": { "type": "string", "minLength": 1 },
+        "attestor": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "verification": { "const": "trusted-assertion" } }, "required": ["verification"] },
+          "then": {
+            "required": ["attestor"],
+            "properties": { "attestor": { "type": "string", "minLength": 1 } },
+            "description": "A trusted-assertion authorizing an accepted gate must name an attestor, which the promotion authority checks against its approved set."
+          }
+        }
+      ]
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "receiptId",
+        "lineageId",
+        "candidateId",
+        "evaluationRunId",
+        "baselineRef",
+        "expectedLedgerHead",
+        "candidatePolicy",
+        "gateVersion",
+        "policySchemaVersion",
+        "safetyEnvelopeRef",
+        "requestedProposer",
+        "effectiveProposer",
+        "corpusVersion",
+        "corpusHash",
+        "baselineScore",
+        "candidateScore",
+        "heldOutDeltas",
+        "statistics",
+        "gates",
+        "resourceEvidence",
+        "evidence",
+        "termVerification",
+        "decision",
+        "issuedAt",
+        "expiresAt"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": { "const": "ruflo.flywheel-receipt/v1" },
+        "receiptId": {
+          "$ref": "#/$defs/contentId",
+          "description": "SHA-256(JCS(payload with this member omitted))."
+        },
+        "lineageId": { "$ref": "#/$defs/uuidV7" },
+        "candidateId": {
+          "$ref": "#/$defs/contentId",
+          "description": "SHA-256(JCS(candidatePolicy))."
+        },
+        "evaluationRunId": { "$ref": "#/$defs/uuidV7" },
+        "baselineRef": { "$ref": "#/$defs/contentId" },
+        "expectedLedgerHead": {
+          "$ref": "#/$defs/contentId",
+          "description": "Ledger head this receipt was evaluated against. Genesis is sha256:<64 zeros>."
+        },
+        "candidatePolicy": {
+          "type": "object",
+          "description": "Opaque to this contract; its shape is owned by policySchemaVersion. Must still satisfy the ADR-322C number rules."
+        },
+        "gateVersion": { "type": "string", "minLength": 1 },
+        "policySchemaVersion": { "type": "string", "minLength": 1 },
+        "safetyEnvelopeRef": { "$ref": "#/$defs/contentId" },
+        "anchorRef": { "$ref": "#/$defs/contentId" },
+        "requestedProposer": { "enum": ["auto", "local", "darwin"] },
+        "effectiveProposer": { "enum": ["local", "darwin"] },
+        "proposerSubstitution": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Present only when the effective proposer differs from the requested one. Promotion is refused unless this exact string is allow-listed by the promotion authority (separation of powers)."
+        },
+        "corpusVersion": { "type": "string", "minLength": 1 },
+        "corpusHash": { "$ref": "#/$defs/contentId" },
+        "baselineScore": { "$ref": "#/$defs/decimalString" },
+        "candidateScore": { "$ref": "#/$defs/decimalString" },
+        "heldOutDeltas": { "type": "array", "items": { "$ref": "#/$defs/decimalString" } },
+        "pairedOutcomes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pairedOutcome" },
+          "description": "Task-level evidence, same order and length as heldOutDeltas. Optional in the schema so pre-existing receipts still verify byte-identically, but the promotion authority REQUIRES it by default and refuses aggregate-only receipts (ADR-381)."
+        },
+        "statistics": { "$ref": "#/$defs/statistics" },
+        "gates": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "type": "boolean" },
+          "description": "Named gate terms. Every gate that passed must have a matching termVerification entry."
+        },
+        "resourceEvidence": { "$ref": "#/$defs/resourceEvidence" },
+        "evidence": {
+          "type": "object",
+          "required": ["corpusRoles", "verification", "canary"],
+          "additionalProperties": false,
+          "properties": {
+            "corpusRoles": {
+              "type": "object",
+              "required": ["selectionTaskIds", "promotionHoldoutTaskIds", "guardTaskIds"],
+              "additionalProperties": false,
+              "description": "Role assignment is disjoint: a task used for selection may not serve as promotion holdout for the same lineage (ADR-322 Track C).",
+              "properties": {
+                "selectionTaskIds": { "type": "array", "items": { "type": "string" } },
+                "promotionHoldoutTaskIds": { "type": "array", "items": { "type": "string" } },
+                "guardTaskIds": { "type": "array", "items": { "type": "string" } }
+              }
+            },
+            "verification": { "type": "object" },
+            "canary": { "type": "object" }
+          }
+        },
+        "termVerification": { "type": "array", "items": { "$ref": "#/$defs/termVerification" } },
+        "decision": { "enum": ["accepted", "rejected"] },
+        "issuedAt": { "$ref": "#/$defs/timestamp" },
+        "expiresAt": { "$ref": "#/$defs/timestamp" }
+      }
+    }
+  }
+}

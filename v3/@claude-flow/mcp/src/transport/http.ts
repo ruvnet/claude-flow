@@ -10,6 +10,7 @@ import { createServer, Server } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import cors from 'cors';
 import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
 import { randomUUID } from 'crypto';
 import type {
   ITransport,
@@ -35,6 +36,10 @@ export interface HttpTransportConfig {
   auth?: AuthConfig;
   maxRequestSize?: string;
   requestTimeout?: number;
+  rateLimit?: {
+    windowMs?: number;
+    limit?: number;
+  };
 }
 
 export class HttpTransport extends EventEmitter implements ITransport {
@@ -215,6 +220,20 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
     this.app.use(express.json({
       limit: this.config.maxRequestSize || '10mb',
+    }));
+
+    // Bound authenticated and unauthenticated RPC traffic before route-level
+    // authorization or request dispatch can consume significant resources.
+    this.app.use(['/rpc', '/mcp'], rateLimit({
+      windowMs: this.config.rateLimit?.windowMs ?? 60_000,
+      limit: this.config.rateLimit?.limit ?? 120,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      message: {
+        jsonrpc: '2.0',
+        id: null,
+        error: { code: -32000, message: 'Rate limit exceeded' },
+      },
     }));
 
     if (this.config.requestTimeout) {

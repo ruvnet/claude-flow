@@ -206,11 +206,12 @@ function ensureEmbeddings(): Promise<void> {
   return embeddingsPromise;
 }
 
-// Storage paths
+// Storage paths. Note: `.claude-flow/neural/patterns.json` is a SEPARATE
+// file owned by the ReasoningBank store in memory/intelligence.ts — this
+// module only ever reads/writes MODELS_FILE, never a patterns.json.
 const STORAGE_DIR = '.claude-flow';
 const NEURAL_DIR = 'neural';
 const MODELS_FILE = 'models.json';
-const PATTERNS_FILE = 'patterns.json';
 
 interface NeuralModel {
   id: string;
@@ -308,7 +309,7 @@ export function getNeuralStoreStats(): {
     patternCount: patterns.length,
     byType,
     modelCount: Object.values(store.models ?? {}).length,
-    source: '.claude-flow/neural/patterns.json (loadNeuralStore)',
+    source: '.claude-flow/neural/models.json (loadNeuralStore)',
   };
 }
 
