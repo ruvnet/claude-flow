@@ -39,15 +39,17 @@ vi.mock('../src/memory/graph-edge-writer.js', () => ({
   insertGraphEdge: vi.fn(async () => undefined),
 }));
 
-const { hooksPostTask } = await import('../src/mcp-tools/hooks-tools.js');
+let hooksPostTask: (typeof import('../src/mcp-tools/hooks-tools.js'))['hooksPostTask'];
 
 let origCwd: string;
 let workdir: string;
 
-beforeEach(() => {
+beforeEach(async () => {
   origCwd = process.cwd();
   workdir = mkdtempSync(join(tmpdir(), 'ruflo-2786-'));
   process.chdir(workdir);
+  vi.resetModules();
+  ({ hooksPostTask } = await import('../src/mcp-tools/hooks-tools.js'));
   bridgeRecordFeedback.mockClear();
   bridgeStoreEntry.mockClear();
 });
@@ -105,5 +107,28 @@ describe('#2786 fix-2 — hooks_post-task JSON dual-write for metrics reader', (
       const store = JSON.parse(readFileSync(storePath, 'utf-8')) as { entries: Record<string, any> };
       expect(store.entries['routing-decision:task-2786-no-store']).toBeUndefined();
     }
+  });
+
+  it('persists routing outcomes for valid namespaced plugin agent IDs', async () => {
+    const result = await hooksPostTask.handler({
+      taskId: 'task-3064-namespaced-agent',
+      task: 'review the plugin integration',
+      agent: 'ruflo-core:reviewer',
+      success: true,
+      quality: 0.95,
+    }) as { learningUpdates: { outcomePersisted: boolean } };
+
+    expect(result.learningUpdates.outcomePersisted).toBe(true);
+
+    const outcomesPath = join(workdir, '.claude-flow', 'routing-outcomes.json');
+    expect(existsSync(outcomesPath)).toBe(true);
+
+    const data = JSON.parse(readFileSync(outcomesPath, 'utf-8')) as {
+      outcomes: Array<{ agent: string; task: string }>;
+    };
+    expect(data.outcomes).toContainEqual(expect.objectContaining({
+      agent: 'ruflo-core:reviewer',
+      task: 'review the plugin integration',
+    }));
   });
 });

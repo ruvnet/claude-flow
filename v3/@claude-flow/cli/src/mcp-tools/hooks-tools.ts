@@ -1550,7 +1550,10 @@ export const hooksPostTask: MCPTool = {
     const taskText = (params.task as string) || '';
     const outcomeKeywords = extractKeywords(taskText);
     let outcomePersisted = false;
-    if (taskText && agent && agent.length <= 100 && /^[a-zA-Z0-9_-]+$/.test(agent)) {
+    // `agent` has already passed validateIdentifier above. Reuse that contract
+    // here so valid namespaced plugin IDs (for example `ruflo-core:reviewer`)
+    // are not silently excluded from routing outcomes.
+    if (taskText && agent && agent.length <= 100) {
       try {
         const outcomes = loadRoutingOutcomes();
         outcomes.push({
