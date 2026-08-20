@@ -30,6 +30,7 @@
 import { readdirSync, statSync, readFileSync } from 'node:fs';
 import { dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseDocument } from 'yaml';
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = dirname(SCRIPTS_DIR);
@@ -76,17 +77,23 @@ function existsSync(p) {
 }
 
 function parseFrontmatter(src) {
-  // First non-empty content must be `---`. Everything until the next `---`
-  // is YAML-ish key:value pairs (we only need flat keys).
   const lines = src.split(/\r?\n/);
   if (lines[0].trim() !== '---') return null;
-  const fields = {};
-  for (let i = 1; i < lines.length; i++) {
-    if (lines[i].trim() === '---') return fields;
-    const m = /^([\w-]+):\s*(.*)$/.exec(lines[i]);
-    if (m) fields[m[1]] = m[2].trim();
+  const closingIndex = lines.findIndex((line, index) => index > 0 && line.trim() === '---');
+  if (closingIndex === -1) return null;
+
+  const document = parseDocument(lines.slice(1, closingIndex).join('\n'), {
+    uniqueKeys: true,
+  });
+  if (document.errors.length > 0) {
+    return { fields: null, error: document.errors.map((error) => error.message).join('; ') };
   }
-  return null; // never closed
+
+  const fields = document.toJS();
+  if (!fields || typeof fields !== 'object' || Array.isArray(fields)) {
+    return { fields: null, error: 'frontmatter must be a YAML mapping' };
+  }
+  return { fields, error: null };
 }
 
 function auditSkill(skill) {
@@ -100,16 +107,21 @@ function auditSkill(skill) {
     violations.push({ check: 'readable', detail: e.message });
     return violations;
   }
-  const fm = parseFrontmatter(src);
-  if (!fm) {
+  const parsed = parseFrontmatter(src);
+  if (!parsed) {
     violations.push({ check: 'frontmatter block', detail: 'missing or unclosed `---` block' });
     return violations;
   }
+  if (parsed.error) {
+    violations.push({ check: 'frontmatter YAML', detail: parsed.error });
+    return violations;
+  }
+  const fm = parsed.fields;
   if (!fm.name) violations.push({ check: 'name field', detail: 'missing or empty' });
   if (!fm.description) violations.push({ check: 'description field', detail: 'missing or empty' });
   if (fm['allowed-tools'] === undefined) {
     violations.push({ check: 'allowed-tools field', detail: 'missing (security — no implicit "all tools")' });
-  } else if (fm['allowed-tools'].trim() === '*') {
+  } else if (String(fm['allowed-tools']).trim() === '*') {
     violations.push({ check: 'allowed-tools wildcard', detail: 'value is `*` — explicit list required' });
   }
   if (fm.name && fm.name !== skill.skillDir) {
