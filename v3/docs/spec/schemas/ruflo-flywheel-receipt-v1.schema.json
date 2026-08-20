@@ -41,7 +41,7 @@
           "description": "Ed25519 domain-separation prefix. Signed bytes are UTF8(domain) || 0x00 || JCS(payload)."
         },
         "publicKeyPem": { "type": "string", "pattern": "^-----BEGIN PUBLIC KEY-----" },
-        "signatureBase64": { "type": "string", "pattern": "^[A-Za-z0-9+/]+={0,2}$" }
+        "signatureBase64": { "type": "string", "pattern": "^[A-Za-z0-9+/]{86}==$" }
       }
     },
     "pairedOutcome": {

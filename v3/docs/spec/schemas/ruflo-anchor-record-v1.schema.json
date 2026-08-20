@@ -27,7 +27,7 @@
           "description": "PROPOSED-EXTENSION signing domain. Distinct from ruflo/flywheel-receipt/v1 so an anchor signature can never be replayed as a receipt signature, per ADR-322 section Persistence and key boundaries."
         },
         "publicKeyPem": { "type": "string", "pattern": "^-----BEGIN PUBLIC KEY-----" },
-        "signatureBase64": { "type": "string", "pattern": "^[A-Za-z0-9+/]+={0,2}$" }
+        "signatureBase64": { "type": "string", "pattern": "^[A-Za-z0-9+/]{86}==$" }
       }
     },
     "payload": {
