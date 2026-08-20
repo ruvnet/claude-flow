@@ -1,0 +1,16 @@
+{
+  "commit": {
+    "transactionId": "0198f2a0-0000-7000-8000-00000000e5f6",
+    "receiptId": "sha256:783fd640aadaf1092465a4f4c950a8ae7a99980856b166acd2451d0cccec2398",
+    "lineageId": "0198f2a0-0000-7000-8000-00000000a1b2",
+    "sequence": 1,
+    "previousLedgerHead": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "baselineRef": "sha256:3f786850e387550fdab836ed7e6dc881de23001b0b4b1b0f0a1a2b3c4d5e6f70",
+    "candidateId": "sha256:61c84d2769efc8fa1f5e76d2c3d645763cf013a38fa658edaccaede460a172a2",
+    "servingEpoch": 1,
+    "proposer": "local",
+    "promotedAt": 1787097660000,
+    "commitId": "sha256:ac5ced28e6f8885e0ea90299791971d30d965f715191c94e999ec1ad29327e4b"
+  },
+  "ledgerHead": "sha256:faa8ed99d82ce36636aa67f95a52dacc8af2a82f61c5d42fd943a979a83d48aa"
+}
