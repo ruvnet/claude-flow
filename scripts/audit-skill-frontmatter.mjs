@@ -30,7 +30,6 @@
 import { readdirSync, statSync, readFileSync } from 'node:fs';
 import { dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseDocument } from 'yaml';
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = dirname(SCRIPTS_DIR);
@@ -79,21 +78,30 @@ function existsSync(p) {
 function parseFrontmatter(src) {
   const lines = src.split(/\r?\n/);
   if (lines[0].trim() !== '---') return null;
-  const closingIndex = lines.findIndex((line, index) => index > 0 && line.trim() === '---');
-  if (closingIndex === -1) return null;
+  const fields = {};
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '---') return { fields, error: null };
+    const m = /^([\w-]+):\s*(.*)$/.exec(lines[i]);
+    if (!m) continue;
 
-  const document = parseDocument(lines.slice(1, closingIndex).join('\n'), {
-    uniqueKeys: true,
-  });
-  if (document.errors.length > 0) {
-    return { fields: null, error: document.errors.map((error) => error.message).join('; ') };
-  }
+    const [, key, rawValue] = m;
+    if (Object.hasOwn(fields, key)) {
+      return { fields: null, error: `duplicate key \`${key}\`` };
+    }
 
-  const fields = document.toJS();
-  if (!fields || typeof fields !== 'object' || Array.isArray(fields)) {
-    return { fields: null, error: 'frontmatter must be a YAML mapping' };
+    const value = rawValue.trim();
+    const quoted = (value.startsWith('"') && value.endsWith('"'))
+      || (value.startsWith("'") && value.endsWith("'"));
+    const blockScalar = /^[>|][+-]?$/.test(value);
+    if (value && !quoted && !blockScalar && /:\s/.test(value)) {
+      return {
+        fields: null,
+        error: `plain scalar for \`${key}\` contains \": \": quote the value or use a block scalar`,
+      };
+    }
+    fields[key] = quoted ? value.slice(1, -1) : value;
   }
-  return { fields, error: null };
+  return null;
 }
 
 function auditSkill(skill) {
