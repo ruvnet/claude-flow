@@ -144,6 +144,80 @@ export interface CreateReceiptInput {
   bootstrapIterations?: number;
 }
 
+/**
+ * Closed field sets for ADR-322C strict verification. Three objects stay open by
+ * contract: `candidatePolicy` is owned by `policySchemaVersion`, `gates` is a
+ * caller-named term map, and `evidence.verification` / `evidence.canary` carry
+ * evidence-specific payloads.
+ */
+const RECEIPT_FIELDS = {
+  root: ['payload', 'signature'],
+  payload: [
+    'schemaVersion', 'receiptId', 'lineageId', 'candidateId', 'evaluationRunId',
+    'baselineRef', 'expectedLedgerHead', 'candidatePolicy', 'gateVersion',
+    'policySchemaVersion', 'safetyEnvelopeRef', 'anchorRef', 'requestedProposer',
+    'effectiveProposer', 'proposerSubstitution', 'corpusVersion', 'corpusHash',
+    'baselineScore', 'candidateScore', 'heldOutDeltas', 'pairedOutcomes',
+    'statistics', 'gates', 'resourceEvidence', 'evidence', 'termVerification',
+    'decision', 'issuedAt', 'expiresAt',
+  ],
+  signature: ['algorithm', 'domain', 'publicKeyPem', 'signatureBase64'],
+  statistics: [
+    'ruleVersion', 'relativeLift', 'pairedBootstrapProbability',
+    'pairedBootstrapDeltaCILow95', 'frozenAnchorRegression', 'iterations',
+    'seedHex', 'significant', 'accepted',
+  ],
+  resourceEvidence: [
+    'p95LatencyMicros', 'costMicrosPerTask', 'tokensPerTask', 'failureRate',
+    'evaluationCostMicros', 'energyMicrojoules', 'currency',
+  ],
+  evidence: ['corpusRoles', 'verification', 'canary'],
+  corpusRoles: ['selectionTaskIds', 'promotionHoldoutTaskIds', 'guardTaskIds'],
+  pairedOutcome: ['taskId', 'baselineScore', 'candidateScore'],
+  termVerification: ['term', 'verification', 'evidenceRef', 'attestor'],
+} as const;
+
+/** Names present on `value` that the contract does not define, as `unknown field: <path>`. */
+export function collectUnknownFields(value: unknown, allowed: readonly string[], path: string): string[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  return Object.keys(value as Record<string, unknown>)
+    .filter((key) => !allowed.includes(key))
+    .map((key) => `unknown field: ${path}.${key}`);
+}
+
+/**
+ * ADR-322C: unknown fields fail verification for a given schema version.
+ * Enforced here rather than delegated to out-of-band schema validation, because
+ * a signature is valid over whatever the producer canonicalized — including
+ * fields the contract never defined — so a permissive verifier lets a producer
+ * attach arbitrary signed data that still verifies cleanly.
+ */
+export function collectUnknownReceiptFields(receipt: FlywheelEvaluationReceipt): string[] {
+  const errors = collectUnknownFields(receipt, RECEIPT_FIELDS.root, 'receipt');
+  const payload = receipt.payload;
+  if (!payload || typeof payload !== 'object') return errors;
+  const evidence = payload.evidence;
+  errors.push(
+    ...collectUnknownFields(payload, RECEIPT_FIELDS.payload, 'payload'),
+    ...collectUnknownFields(receipt.signature, RECEIPT_FIELDS.signature, 'signature'),
+    ...collectUnknownFields(payload.statistics, RECEIPT_FIELDS.statistics, 'payload.statistics'),
+    ...collectUnknownFields(payload.resourceEvidence, RECEIPT_FIELDS.resourceEvidence, 'payload.resourceEvidence'),
+    ...collectUnknownFields(evidence, RECEIPT_FIELDS.evidence, 'payload.evidence'),
+    ...collectUnknownFields(evidence?.corpusRoles, RECEIPT_FIELDS.corpusRoles, 'payload.evidence.corpusRoles'),
+  );
+  if (Array.isArray(payload.pairedOutcomes)) {
+    payload.pairedOutcomes.forEach((outcome, i) => {
+      errors.push(...collectUnknownFields(outcome, RECEIPT_FIELDS.pairedOutcome, `payload.pairedOutcomes[${i}]`));
+    });
+  }
+  if (Array.isArray(payload.termVerification)) {
+    payload.termVerification.forEach((term, i) => {
+      errors.push(...collectUnknownFields(term, RECEIPT_FIELDS.termVerification, `payload.termVerification[${i}]`));
+    });
+  }
+  return errors;
+}
+
 function assertJsonValue(value: unknown, path = '$'): void {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
   if (typeof value === 'number') {
@@ -416,6 +490,7 @@ export function verifyFlywheelReceipt(receipt: FlywheelEvaluationReceipt, truste
   const errors: string[] = [];
   try {
     if (receipt.payload.schemaVersion !== RECEIPT_SCHEMA) errors.push('unsupported receipt schema');
+    errors.push(...collectUnknownReceiptFields(receipt));
     const { receiptId: _receiptId, ...base } = receipt.payload;
     const expectedId = sha256Ref(canonicalizeJcs(receiptIdentityPayload(base)));
     if (expectedId !== receipt.payload.receiptId) errors.push('receipt content ID mismatch');
