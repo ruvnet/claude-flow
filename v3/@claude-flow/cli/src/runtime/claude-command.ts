@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { dirname, extname, join } from 'node:path';
+import { posix, win32 } from 'node:path';
 
 export interface ClaudeLaunchCommand {
   command: string;
@@ -26,6 +26,7 @@ export function resolveClaudeLaunchCommand(
   options: ClaudeCommandResolverOptions = {},
 ): ClaudeLaunchCommand | null {
   const platform = options.platform ?? process.platform;
+  const path = platform === 'win32' ? win32 : posix;
   const nodeExecutable = options.nodeExecutable ?? process.execPath;
   const lookup = options.lookup ?? ((command, args) =>
     execFileSync(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
@@ -47,18 +48,18 @@ export function resolveClaudeLaunchCommand(
   }
 
   const executable = matches.find((candidate) =>
-    extname(candidate).toLowerCase() === '.exe' && fileExists(candidate));
+    path.extname(candidate).toLowerCase() === '.exe' && fileExists(candidate));
   if (executable) return { command: executable, argsPrefix: [] };
 
   for (const shim of matches) {
-    const npmBin = dirname(shim);
-    const packageRoot = join(npmBin, 'node_modules', '@anthropic-ai', 'claude-code');
-    const nativeExecutable = join(packageRoot, 'bin', 'claude.exe');
+    const npmBin = path.dirname(shim);
+    const packageRoot = path.join(npmBin, 'node_modules', '@anthropic-ai', 'claude-code');
+    const nativeExecutable = path.join(packageRoot, 'bin', 'claude.exe');
     if (fileExists(nativeExecutable)) {
       return { command: nativeExecutable, argsPrefix: [] };
     }
 
-    const javascriptEntry = join(packageRoot, 'cli.js');
+    const javascriptEntry = path.join(packageRoot, 'cli.js');
     if (fileExists(javascriptEntry)) {
       return { command: nodeExecutable, argsPrefix: [javascriptEntry] };
     }
