@@ -12,6 +12,7 @@ import { applyChampionParams, type ApplyResult } from '../config/harness-feedbac
 import {
   GENESIS_LEDGER_HEAD,
   canonicalizeJcs,
+  collectUnknownFields,
   sha256Ref,
   uuidV7,
   verifyFlywheelReceipt,
@@ -54,6 +55,12 @@ export interface PromotionCommit {
   proposerSubstitution?: string;
   promotedAt: number;
 }
+
+const COMMIT_FIELDS = [
+  'commitId', 'transactionId', 'receiptId', 'lineageId', 'sequence',
+  'previousLedgerHead', 'baselineRef', 'candidateId', 'servingEpoch',
+  'proposer', 'proposerSubstitution', 'promotedAt',
+] as const;
 
 export interface FlywheelTransactionState {
   version: typeof STATE_VERSION;
@@ -623,6 +630,10 @@ export function verifyFlywheelLedger(root: string): { valid: boolean; errors: st
   for (let i = 0; i < state.commits.length; i++) {
     const commit = state.commits[i];
     const { commitId, ...core } = commit;
+    // Same ADR-322C strictness as the receipt path: a commit hashes consistently
+    // over whatever fields it carries, so an undefined field would otherwise
+    // chain cleanly (ruflo#3068).
+    errors.push(...collectUnknownFields(commit, COMMIT_FIELDS, `commits[${i}]`));
     if (commit.sequence !== i + 1) errors.push(`sequence mismatch at ${i + 1}`);
     if (commit.previousLedgerHead !== head) errors.push(`parent mismatch at ${i + 1}`);
     if (sha256Ref(canonicalizeJcs(core)) !== commitId) errors.push(`commit hash mismatch at ${i + 1}`);

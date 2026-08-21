@@ -113,16 +113,21 @@ rows — not a static snapshot.
 
 (STEP 9 of the v2 routine appends here nightly, starting 2026-08-14.)
 
-**Backfill note (added 2026-08-17):** the 3 rows below for 2026-08-14/15/16
-were missing from this table despite real branches, issues, and PRs existing
-for all three nights (verified directly via `git ls-remote --heads origin
-"dream/*"` and `pull_request_read`, not inferred from the gap) — a cosmetic
-ledger-write gap, not a pipeline failure. Backfilled here with real PR/issue
-numbers and verdicts read directly from each PR body.
+**Recovery note (2026-08-19):** rows for 2026-08-14 through 2026-08-18 were
+never appended live despite all 5 nights running to completion (branch +
+draft PR + issue exist for each — verified via `git ls-remote` and
+`gh pr`/MCP search before concluding this, per STEP 1's anti-inference
+rule). Backfilled below from the PRs/issues directly. Root cause not
+diagnosed (out of scope for STEP 1 recovery); flagged as a candidate
+finding for a future `automation`/`meta` scan surface — the ledger-append
+step itself has now silently failed for 5 consecutive nights with no
+alerting.
 
-| Date | Deep | Finding (one line) | Issue | PR | Evaluated? | Verdict | Prior-night fates recorded this run |
-|---|---|---|---|---|---|---|---|
-| 2026-08-14 | swarm | power-of-two-choices mesh load-balancing — density invariant breached | #3026 | #3027 | yes | REJECT | OPEN (backfilled 2026-08-17) |
-| 2026-08-15 | performance | HNSWIndex efSearch query-time default — recall floor breached at N=8000 | #3033 | #3034 | yes | REJECT | OPEN (backfilled 2026-08-17) |
-| 2026-08-16 | security | settings.json init/upgrade merge trust-gap (CVE-2025-59536-adjacent) — advisory scanner | #3043 | #3044 | yes | ACCEPT | OPEN (backfilled 2026-08-17) |
-| 2026-08-17 | intelligence | model-router bandit has no temporal decay vs q-learning-router — opt-in discounted Thompson sampling, low-bucket win, med-bucket null | #3048 | #3049 | yes | ACCEPT (scoped) | 0/14 trailing nights merged (bias applied: single-file candidate); 3-night ledger gap found + backfilled above |
+| Date | Deep | Finding | Issue | PR | Evaluated? | Verdict | Effect | Witness | Prior-night fates |
+|---|---|---|---|---|---|---|---|---|---|
+| 2026-08-14 | swarm | power-of-two-choices mesh peer selection: max-load -46.1%, CoV -44.4% but density -13.7% breaches ±10% invariant | #3026 | #3027 | yes | REJECT | max_load -46.1%, CoV -44.4%, density -13.7% (breach) | e77acc86... | recovered-live (5-night gap) |
+| 2026-08-15 | performance | HNSWIndex efSearch query-time default decouple: latency -55.9%/-57.5% but recall@10 breaches 0.90 floor at N=8000 (-7.5pp) | #3033 | #3034 | yes | REJECT | latency -55.9%(N=3k)/-57.5%(N=8k), recall -7.5pp (breach @8k) | d756e6d9... | recovered-live |
+| 2026-08-16 | security | settings.json hooks/allow-rules advisory risk scanner (CVE-2025-59536-class) wired into init/upgrade merge, advisory-only | #3043 | #3044 | yes | ACCEPT | recall 0→1.0, precision 1.0, FPR 0.0 (post-hardening, 6 critic-found bypasses fixed) | ad11d483... | recovered-live |
+| 2026-08-17 | intelligence | discounted Thompson-sampling prior decay for model-router bandit (opt-in), recovers faster after workload shift | #3048 | #3049 | yes | ACCEPT-scoped | low-bucket recovery -17.6% (t=7.00, held); med-bucket null (no generalization) | e0fb0242... | recovered-live |
+| 2026-08-18 | memory | hybridSearch controller reachable via explicit opt-in (was silently null-returning despite config flag) | #3056 | #3057 | yes | ACCEPT-scoped | overall recall@10 +0.267; category B (pure-paraphrase) regresses -0.133 | b28714fb... | recovered-live |
+| 2026-08-19 | swarm | MessageBus retry-attempts silently reset to 0 on every re-queue, unbounded redelivery, message.failed unreachable | #3061 | #3062 | yes | ACCEPT | invocations 96-98/0-failed (baseline) → 3/2/1 stable (candidate); 220/220 tests | 62c4fdf7... | 08-14..08-18 all OPEN, none merged yet |

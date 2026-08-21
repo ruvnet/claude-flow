@@ -69,6 +69,25 @@ export type CLIControllerName =
   | 'guardedVectorBackend';
 
 /**
+ * Minimal surface the `hybridSearch` controller needs from a backend when
+ * falling back to `this.backend` (no `memoryService` supplied) — the same
+ * two methods `AgentDBAdapter` exposes and the only two this factory calls.
+ * A named guard instead of ad-hoc `typeof` checks so a future backend that
+ * happens to define same-named-but-differently-shaped methods is easier to
+ * catch and reason about at one call site (Dream Cycle 2026-08-18).
+ */
+interface HybridCapableBackend {
+  semanticSearch(query: string, k?: number, threshold?: number): Promise<unknown[]>;
+  searchKeyword(query: string, options?: { k?: number }): Promise<unknown[]>;
+}
+
+function isHybridCapableBackend(backend: unknown): backend is HybridCapableBackend {
+  if (!backend || typeof backend !== 'object') return false;
+  const b = backend as Record<string, unknown>;
+  return typeof b.semanticSearch === 'function' && typeof b.searchKeyword === 'function';
+}
+
+/**
  * All controller names
  */
 export type ControllerName = AgentDBControllerName | CLIControllerName;
@@ -757,9 +776,27 @@ export class ControllerRegistry extends EventEmitter {
         // independently in parallel, fuses via RRF, diversifies via MMR.
         // Results carry a `signals` field naming which arms surfaced each
         // entry (provenance for debugging + downstream rerankers).
+        //
+        // Dream Cycle 2026-08-18: the auto-enable gate (`isControllerEnabled`)
+        // already honors an explicit `controllers: { hybridSearch: true }`
+        // override, but until now this factory unconditionally required
+        // `config.memoryService` regardless of that override — so explicitly
+        // opting in without also hand-building a `UnifiedMemoryService`
+        // silently produced a disabled controller (no error, no signal why).
+        // When no `memoryService` was supplied, fall back to `this.backend`
+        // if it duck-types as AgentDBAdapter-compatible (has `semanticSearch`
+        // + `searchKeyword`) — the same two methods this factory already
+        // calls below. Only reachable when a caller explicitly requests
+        // `hybridSearch`; the default (memoryService-only) auto-enable
+        // condition and its behavior are unchanged.
         const memSvc = this.config.memoryService;
-        if (!memSvc) return null;
-        const adapter = typeof memSvc.getAdapter === 'function' ? memSvc.getAdapter() : null;
+        const directBackend =
+          !memSvc && isHybridCapableBackend(this.backend) ? this.backend : null;
+        const adapter = memSvc
+          ? typeof memSvc.getAdapter === 'function'
+            ? memSvc.getAdapter()
+            : null
+          : directBackend;
         if (!adapter) return null;
 
         const { applyRRF, applyMMR } = await import('./smart-retrieval.js');
