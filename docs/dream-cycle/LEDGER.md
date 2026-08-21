@@ -111,15 +111,23 @@ rows — not a static snapshot.
 
 ## v2 live entries start below
 
-(STEP 9 of the v2 routine appends here nightly, starting 2026-08-14. Rows for
-2026-08-14 and 2026-08-15 were appended live on their own dream branches but
-never reached `main` — every dream-cycle PR to date is unmerged, so those
-branch-local ledger updates never merge forward. Backfilled here on
-2026-08-16 after direct verification via `git ls-remote`/`search_pull_requests`
-that both nights' pipelines fully ran — not assumed from the gap.)
+(STEP 9 of the v2 routine appends here nightly, starting 2026-08-14.)
+
+**Recovery note (2026-08-19):** rows for 2026-08-14 through 2026-08-18 were
+never appended live despite all 5 nights running to completion (branch +
+draft PR + issue exist for each — verified via `git ls-remote` and
+`gh pr`/MCP search before concluding this, per STEP 1's anti-inference
+rule). Backfilled below from the PRs/issues directly. Root cause not
+diagnosed (out of scope for STEP 1 recovery); flagged as a candidate
+finding for a future `automation`/`meta` scan surface — the ledger-append
+step itself has now silently failed for 5 consecutive nights with no
+alerting.
 
 | Date | Deep | Finding | Issue | PR | Evaluated? | Verdict | Effect | Witness | Prior-night fates |
 |---|---|---|---|---|---|---|---|---|---|
-| 2026-08-14 | swarm | Power-of-two-choices mesh peer selection (`TopologyManager.rebalanceMesh`) vs uniform-random | #3026 | #3027 | yes | REJECT | -46.1% max load, -44.4% load CoV, but -13.7% density (±10% invariant breached, dispositive) | `e77acc86…` | 7 consecutive nights (08-07→08-13) pushed real commits but never opened a PR or ledger row — first PR/ledger row since the v2 rewrite |
-| 2026-08-15 | performance | Decoupled `HNSWIndex` query-time `efSearch` default from build-time `efConstruction` | #3033 | #3034 | yes | REJECT | -55.9%/-57.5% latency (N=3000/8000), but recall@10 fell to 0.8767 at N=8000 (0.90 floor breached, dispositive) | `d756e6d9…` | 2026-08-14 confirmed fully run (issue #3026, PR #3027) |
-| 2026-08-16 | security | `ruflo init`/`--upgrade` settings-merge carries a pre-existing settings.json's hooks/Bash-allow-rules forward unexamined (CVE-2025-59536-class gap, distinct from the 2 CVEs checked and found N/A to Ruflo's own hook dispatch/OAuth client) — advisory-only static scanner added | #3043 | #3044 | yes | ACCEPT | Baseline recall 0.0 → candidate recall 1.0 on 24-sample corpus (self-referential caveat disclosed); 6 critic-found bypasses + 1 self-found ANSI-injection issue, all fixed, 11/11 held-out evasion set now caught | `ad11d483…` | 2026-08-14 (REJECT) and 2026-08-15 (REJECT) both confirmed fully run, still open/unmerged — 0 of last 14 dream-cycle PRs merged as of tonight |
+| 2026-08-14 | swarm | power-of-two-choices mesh peer selection: max-load -46.1%, CoV -44.4% but density -13.7% breaches ±10% invariant | #3026 | #3027 | yes | REJECT | max_load -46.1%, CoV -44.4%, density -13.7% (breach) | e77acc86... | recovered-live (5-night gap) |
+| 2026-08-15 | performance | HNSWIndex efSearch query-time default decouple: latency -55.9%/-57.5% but recall@10 breaches 0.90 floor at N=8000 (-7.5pp) | #3033 | #3034 | yes | REJECT | latency -55.9%(N=3k)/-57.5%(N=8k), recall -7.5pp (breach @8k) | d756e6d9... | recovered-live |
+| 2026-08-16 | security | settings.json hooks/allow-rules advisory risk scanner (CVE-2025-59536-class) wired into init/upgrade merge, advisory-only | #3043 | #3044 | yes | ACCEPT | recall 0→1.0, precision 1.0, FPR 0.0 (post-hardening, 6 critic-found bypasses fixed) | ad11d483... | recovered-live |
+| 2026-08-17 | intelligence | discounted Thompson-sampling prior decay for model-router bandit (opt-in), recovers faster after workload shift | #3048 | #3049 | yes | ACCEPT-scoped | low-bucket recovery -17.6% (t=7.00, held); med-bucket null (no generalization) | e0fb0242... | recovered-live |
+| 2026-08-18 | memory | hybridSearch controller reachable via explicit opt-in (was silently null-returning despite config flag) | #3056 | #3057 | yes | ACCEPT-scoped | overall recall@10 +0.267; category B (pure-paraphrase) regresses -0.133 | b28714fb... | recovered-live |
+| 2026-08-19 | swarm | MessageBus retry-attempts silently reset to 0 on every re-queue, unbounded redelivery, message.failed unreachable | #3061 | #3062 | yes | ACCEPT | invocations 96-98/0-failed (baseline) → 3/2/1 stable (candidate); 220/220 tests | 62c4fdf7... | 08-14..08-18 all OPEN, none merged yet |
