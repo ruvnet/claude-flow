@@ -1011,11 +1011,22 @@ export async function bridgeStoreEntry(options: {
       }
     }
 
-    // Phase 2: Write-through to TieredCache
+    // Phase 2: Invalidate cache so the next read fetches the fresh row.
+    //
+    // #3051 — this used to be a write-through with a partial payload
+    // (`{ id, key, namespace, content, embedding }` — missing `tags`,
+    // access_count, timestamps, metadata, provenance_type). Any read that
+    // hit the cache then returned `tags: cached.tags || []` = `[]` for the
+    // very entry that had just been written with real tags, so
+    // `memory_store({ tags })` → `memory_retrieve()` looked like it silently
+    // dropped tags. Invalidating instead of partial-cache-set forces the
+    // next `bridgeGetEntry` to load the authoritative row (which correctly
+    // parses tags/metadata from the JSON columns) and repopulate the cache
+    // from that full shape.
     const safeNs = String(namespace).replace(/:/g, '_');
     const safeKey = String(key).replace(/:/g, '_');
     const cacheKey = `entry:${safeNs}:${safeKey}`;
-    await cacheSet(registry, cacheKey, { id, key, namespace, content: value, embedding: embeddingJson });
+    await cacheInvalidate(registry, cacheKey);
 
     // Phase 4: AttestationLog write audit
     await logAttestation(registry, 'store', id, { key, namespace, hasEmbedding: !!embeddingJson });
