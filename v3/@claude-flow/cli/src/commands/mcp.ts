@@ -19,6 +19,8 @@ import {
   getMCPServerStatus,
   type MCPServerOptions,
   type MCPServerStatus,
+  filterAdvertisedMcpTools,
+  parseMcpToolSelection,
 } from '../mcp-server.js';
 import { listMCPTools, callMCPTool, hasTool, getToolMetadata } from '../mcp-client.js';
 
@@ -455,7 +457,8 @@ const toolsCommand: Command = {
     let tools: Array<{ name: string; category: string; description: string; enabled: boolean }>;
 
     // Get tools from local registry
-    const registeredTools = listMCPTools(category);
+    const selection = parseMcpToolSelection(process.env.CLAUDE_FLOW_MCP_TOOLS);
+    const registeredTools = filterAdvertisedMcpTools(listMCPTools(category), selection);
 
     if (registeredTools.length > 0) {
       tools = registeredTools.map(tool => ({
@@ -466,7 +469,7 @@ const toolsCommand: Command = {
       }));
     } else {
       // Fallback to static tool list
-      tools = [
+      tools = filterAdvertisedMcpTools([
         // Agent tools
         { name: 'agent_spawn', category: 'agent', description: 'Spawn a new agent', enabled: true },
         { name: 'agent_list', category: 'agent', description: 'List all agents', enabled: true },
@@ -503,7 +506,7 @@ const toolsCommand: Command = {
         { name: 'system_info', category: 'system', description: 'System information', enabled: true },
         { name: 'system_health', category: 'system', description: 'Health status', enabled: true },
         { name: 'system_metrics', category: 'system', description: 'Server metrics', enabled: true },
-      ].filter(t => !category || t.category === category);
+      ].filter(t => !category || t.category === category), selection);
     }
 
     if (ctx.flags.format === 'json') {

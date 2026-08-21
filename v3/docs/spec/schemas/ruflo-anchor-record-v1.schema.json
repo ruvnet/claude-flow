@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ruvnet/ruflo/v3/docs/spec/schemas/ruflo-anchor-record-v1.schema.json",
+  "title": "RufloAnchorRecordV1 (PROPOSED-EXTENSION)",
+  "description": "PROPOSED-EXTENSION - NOT part of ADR-322C. ADR-322C defines records and their verification but is silent on how a record is anchored into a foreign chain. ruvnet/rvm#35 and ruvnet/autogenous#10 both need a pointer format, so this is the minimal placeholder for that need. It requires its own ADR before any repo depends on it. Do not treat conformance to this file as conformance to ADR-322C.",
+  "type": "object",
+  "required": ["payload"],
+  "additionalProperties": false,
+  "properties": {
+    "payload": { "$ref": "#/$defs/payload" },
+    "signature": { "$ref": "#/$defs/signature" }
+  },
+  "$defs": {
+    "contentId": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "signature": {
+      "type": "object",
+      "required": ["algorithm", "domain", "publicKeyPem", "signatureBase64"],
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": { "const": "ed25519" },
+        "domain": {
+          "const": "ruflo/flywheel-anchor/v1",
+          "description": "PROPOSED-EXTENSION signing domain. Distinct from ruflo/flywheel-receipt/v1 so an anchor signature can never be replayed as a receipt signature, per ADR-322 section Persistence and key boundaries."
+        },
+        "publicKeyPem": { "type": "string", "pattern": "^-----BEGIN PUBLIC KEY-----" },
+        "signatureBase64": { "type": "string", "pattern": "^[A-Za-z0-9+/]{86}==$" }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "anchoredContentId",
+        "anchoredSchemaVersion",
+        "chain",
+        "assuranceLevel",
+        "anchoredAt"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": { "const": "ruflo.anchor-record/v1" },
+        "anchoredContentId": {
+          "$ref": "#/$defs/contentId",
+          "description": "Content ID of the ADR-322C record being anchored - normally a receiptId, since the receipt signature is implemented and the ledger head signature is not (gap G2)."
+        },
+        "anchoredSchemaVersion": {
+          "type": "string",
+          "minLength": 1,
+          "description": "schemaVersion of the anchored record, so a verifier knows which rules to apply without parsing it first."
+        },
+        "chain": {
+          "type": "object",
+          "required": ["chainId", "position"],
+          "additionalProperties": false,
+          "properties": {
+            "chainId": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Identifier of the foreign chain, e.g. an rvm-witness chain. Opaque to this contract."
+            },
+            "position": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Position of the anchoring event within the foreign chain."
+            }
+          }
+        },
+        "assuranceLevel": {
+          "enum": ["service-side", "hypervisor-side"],
+          "description": "Required by rvm#35 and autogenous#10: a service-side record anchored into a hypervisor-side chain does NOT thereby acquire hypervisor-side guarantees (rvm ADR-285 discipline). This field records what the anchored record actually carries, never what the chain it landed in carries."
+        },
+        "anchoredAt": { "$ref": "#/$defs/timestamp" }
+      }
+    }
+  }
+}

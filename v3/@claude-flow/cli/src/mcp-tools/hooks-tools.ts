@@ -494,7 +494,7 @@ const MEMORY_DIR = '.claude-flow/memory';
 const MEMORY_FILE = 'store.json';
 
 function getMemoryPath(): string {
-  return resolve(join(MEMORY_DIR, MEMORY_FILE));
+  return resolve(join(getProjectCwd(), MEMORY_DIR, MEMORY_FILE));
 }
 
 function loadMemoryStore(): MemoryStore {
@@ -508,6 +508,105 @@ function loadMemoryStore(): MemoryStore {
     // Return empty store on error
   }
   return { entries: {}, version: '3.0.0' };
+}
+
+interface ActiveSessionState {
+  id: string;
+  startedAt: string;
+  metrics?: {
+    edits?: number;
+    commands?: number;
+    tasks?: number;
+    errors?: number;
+  };
+}
+
+interface SessionActivity {
+  tasksCompleted: number;
+  patternsLearned: number;
+  editsRecorded: number;
+  commandsRecorded: number;
+  errorsRecorded: number;
+}
+
+function isLearnedPatternEntry(entry: MemoryEntry): boolean {
+  return entry.key.includes('pattern') ||
+    entry.metadata?.type === 'pattern' ||
+    entry.key.startsWith('learned-') ||
+    entry.namespace === 'patterns' ||
+    entry.metadata?.type === 'routing-decision';
+}
+
+function timestampInRange(value: unknown, start: number, end: number): boolean {
+  if (typeof value !== 'string' && typeof value !== 'number') return false;
+  const timestamp = typeof value === 'number' ? value : Date.parse(value);
+  return Number.isFinite(timestamp) && timestamp >= start && timestamp <= end;
+}
+
+function nonNegativeInteger(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.floor(value))
+    : 0;
+}
+
+function loadActiveSessionState(): ActiveSessionState | null {
+  try {
+    const sessionPath = join(getProjectCwd(), '.claude-flow', 'sessions', 'current.json');
+    if (!existsSync(sessionPath)) return null;
+    const session = JSON.parse(readFileSync(sessionPath, 'utf-8')) as Partial<ActiveSessionState>;
+    if (typeof session.id !== 'string' || session.id.trim().length === 0) return null;
+    if (typeof session.startedAt !== 'string' || !Number.isFinite(Date.parse(session.startedAt))) return null;
+    return session as ActiveSessionState;
+  } catch {
+    return null;
+  }
+}
+
+function loadSessionActivity(session: ActiveSessionState, endedAt: number): SessionActivity {
+  const startedAt = Date.parse(session.startedAt);
+  let tasksCompleted = 0;
+
+  try {
+    const taskPath = join(getProjectCwd(), '.claude-flow', 'tasks', 'store.json');
+    if (existsSync(taskPath)) {
+      const store = JSON.parse(readFileSync(taskPath, 'utf-8')) as {
+        tasks?: Record<string, { status?: string; completedAt?: string }>;
+      };
+      for (const task of Object.values(store.tasks ?? {})) {
+        if (task.status === 'completed' && timestampInRange(task.completedAt, startedAt, endedAt)) {
+          tasksCompleted++;
+        }
+      }
+    }
+  } catch {
+    // Missing or malformed task state contributes no completed tasks.
+  }
+
+  const patternsLearned = Object.values(loadMemoryStore().entries)
+    .filter(entry => isLearnedPatternEntry(entry) && timestampInRange(entry.storedAt, startedAt, endedAt))
+    .length;
+
+  return {
+    tasksCompleted,
+    patternsLearned,
+    editsRecorded: nonNegativeInteger(session.metrics?.edits),
+    commandsRecorded: nonNegativeInteger(session.metrics?.commands),
+    errorsRecorded: nonNegativeInteger(session.metrics?.errors),
+  };
+}
+
+function buildSessionSummary(activity: SessionActivity, duration: number): string {
+  const durationMinutes = Math.max(0, Math.round(duration / 60000));
+  const count = (value: number, singular: string, plural = `${singular}s`) =>
+    `${value} ${value === 1 ? singular : plural}`;
+  return [
+    `${count(activity.tasksCompleted, 'task')} completed`,
+    `${count(activity.patternsLearned, 'pattern')} learned`,
+    `${count(activity.editsRecorded, 'edit')} recorded`,
+    `${count(activity.commandsRecorded, 'command')} recorded`,
+    `${count(activity.errorsRecorded, 'error')} recorded`,
+    `duration ${count(durationMinutes, 'minute')}`,
+  ].join('; ');
 }
 
 /**
@@ -549,13 +648,7 @@ function getIntelligenceStatsFromMemory(): {
   // patterns the metric is meant to count, so include them: any entry
   // whose namespace is `patterns`, plus the original shapes for
   // forward-compatibility with a future explicit `pattern` writer.
-  const patternEntries = entries.filter(e =>
-    e.key.includes('pattern') ||
-    e.metadata?.type === 'pattern' ||
-    e.key.startsWith('learned-') ||
-    e.namespace === 'patterns' ||
-    e.metadata?.type === 'routing-decision'
-  );
+  const patternEntries = entries.filter(isLearnedPatternEntry);
 
   // Categorize patterns
   const categories: Record<string, number> = {};
@@ -1550,7 +1643,12 @@ export const hooksPostTask: MCPTool = {
     const taskText = (params.task as string) || '';
     const outcomeKeywords = extractKeywords(taskText);
     let outcomePersisted = false;
-    if (taskText && agent && agent.length <= 100 && /^[a-zA-Z0-9_-]+$/.test(agent)) {
+    // #3064 — the previous ad-hoc regex `/^[a-zA-Z0-9_-]+$/` silently dropped
+    // colon-namespaced plugin agents (`ruflo-core:reviewer`, etc.) — i.e. every
+    // Claude Code plugin agent. Colons are already allowed by the canonical
+    // validateIdentifier() check on line 1456 above (IDENTIFIER_RE includes ':'
+    // and '.'), so no additional charset gating is needed here.
+    if (taskText && agent) {
       try {
         const outcomes = loadRoutingOutcomes();
         outcomes.push({
@@ -2271,7 +2369,15 @@ export const hooksSessionEnd: MCPTool = {
   handler: async (params: Record<string, unknown>) => {
     const saveState = params.saveState !== false;
     const shouldStopDaemon = params.stopDaemon !== false;
-    const sessionId = `session-${Date.now() - 3600000}`; // Default session (1 hour ago)
+    const session = loadActiveSessionState();
+    if (!session) {
+      throw new Error('No active session state found at .claude-flow/sessions/current.json');
+    }
+    const sessionId = session.id;
+    const endedAt = Date.now();
+    const duration = Math.max(0, endedAt - Date.parse(session.startedAt));
+    const activity = loadSessionActivity(session, endedAt);
+    const summary = buildSessionSummary(activity, duration);
 
     // Stop daemon if enabled
     let daemonStopped = false;
@@ -2285,12 +2391,10 @@ export const hooksSessionEnd: MCPTool = {
       }
     }
 
-    // Read actual counts from stores
+    // Read aggregate store data for the remaining compatibility metrics.
     const store = loadMemoryStore();
     const allEntries = Object.values(store.entries);
-    const taskCount = allEntries.filter(e => e.key.includes('task')).length;
     const agentCount = allEntries.filter(e => e.key.includes('agent')).length;
-    const patternCount = allEntries.filter(e => e.key.includes('pattern')).length;
     const trajectoryCount = activeTrajectories.size;
 
     // Check for pending-insights.jsonl
@@ -2312,9 +2416,9 @@ export const hooksSessionEnd: MCPTool = {
       bridge = await import('../memory/memory-bridge.js');
       const result = await bridge.bridgeSessionEnd({
         sessionId,
-        summary: saveState ? 'Session ended with state saved' : 'Session ended',
-        tasksCompleted: taskCount,
-        patternsLearned: patternCount,
+        summary,
+        tasksCompleted: activity.tasksCompleted,
+        patternsLearned: activity.patternsLearned,
       });
       if (result) {
         sessionPersistence = {
@@ -2337,19 +2441,19 @@ export const hooksSessionEnd: MCPTool = {
 
     return {
       sessionId,
-      duration: 3600000, // 1 hour in ms
+      duration,
       statePath: saveState ? `.claude/sessions/${sessionId}.json` : undefined,
       daemon: { stopped: daemonStopped },
       sessionPersistence: sessionPersistence || { controller: 'none', persisted: false },
       summary: {
-        tasksExecuted: taskCount,
-        filesModified: 0,
+        tasksExecuted: activity.tasksCompleted,
+        filesModified: activity.editsRecorded,
         agentsSpawned: agentCount,
         pendingInsights: insightCount,
         memoryEntries: allEntries.length,
       },
       learningUpdates: {
-        patternsLearned: patternCount,
+        patternsLearned: activity.patternsLearned,
         trajectoriesRecorded: trajectoryCount,
       },
     };

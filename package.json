@@ -1,6 +1,6 @@
 {
   "name": "claude-flow",
-  "version": "3.38.12",
+  "version": "3.38.15",
   "workspaces": [
     "v3/@claude-flow/codex",
     "v3/@claude-flow/plugin-agent-federation",
@@ -67,7 +67,7 @@
   "dependencies": {
     "@claude-flow/cli-core": "3.7.0-alpha.5",
     "@claude-flow/codex": "3.0.3",
-    "@claude-flow/mcp": "3.0.0-alpha.9",
+    "@claude-flow/mcp": "3.0.0-alpha.10",
     "@claude-flow/neural": "3.0.0-alpha.9",
     "@claude-flow/plugin-agent-federation": "1.0.0-alpha.18",
     "@claude-flow/security": "3.0.0-alpha.14",
