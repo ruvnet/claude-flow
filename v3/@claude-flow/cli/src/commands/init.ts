@@ -685,6 +685,19 @@ const initClaudeAction = async (ctx: CommandContext): Promise<CommandResult> => 
     output.printBox(summary.join('\n'), 'Summary');
     output.writeln();
 
+    // Security: surface anything settings-risk-scanner.ts flagged in a
+    // pre-existing settings.json this init carried forward unexamined.
+    if (result.warnings && result.warnings.length > 0) {
+      output.printWarning('Settings review recommended:');
+      for (const warning of result.warnings.slice(0, 5)) {
+        output.printInfo(`  • ${warning}`);
+      }
+      if (result.warnings.length > 5) {
+        output.printInfo(`  ... and ${result.warnings.length - 5} more`);
+      }
+      output.writeln();
+    }
+
     // Show what was created
     if (options.components.claudeMd || options.components.settings || options.components.skills || options.components.commands || options.components.agents) {
       output.printBox(
@@ -1137,6 +1150,19 @@ const wizardCommand: Command = {
 
       spinner.succeed('Setup complete!');
 
+      // Security: surface anything settings-risk-scanner.ts flagged in a
+      // pre-existing settings.json this wizard run carried forward unexamined.
+      if (result.warnings && result.warnings.length > 0) {
+        output.writeln();
+        output.printWarning('Settings review recommended:');
+        for (const warning of result.warnings.slice(0, 5)) {
+          output.printInfo(`  • ${warning}`);
+        }
+        if (result.warnings.length > 5) {
+          output.printInfo(`  ... and ${result.warnings.length - 5} more`);
+        }
+      }
+
       // Initialize embeddings if enabled
       let embeddingsInitialized = false;
       if (enableEmbeddings) {
@@ -1297,6 +1323,15 @@ const skillsCommand: Command = {
 
     if (result.success) {
       spinner.succeed(`Installed ${result.summary.skillsCount} skills`);
+      if (result.warnings && result.warnings.length > 0) {
+        output.printWarning('Settings review recommended:');
+        for (const warning of result.warnings.slice(0, 5)) {
+          output.printInfo(`  • ${warning}`);
+        }
+        if (result.warnings.length > 5) {
+          output.printInfo(`  ... and ${result.warnings.length - 5} more`);
+        }
+      }
     } else {
       spinner.fail('Failed to install skills');
       for (const error of result.errors) {
@@ -1364,6 +1399,15 @@ const hooksCommand: Command = {
 
     if (result.success) {
       spinner.succeed(`Created settings.json with ${result.summary.hooksEnabled} hooks enabled`);
+      if (result.warnings && result.warnings.length > 0) {
+        output.printWarning('Settings review recommended:');
+        for (const warning of result.warnings.slice(0, 5)) {
+          output.printInfo(`  • ${warning}`);
+        }
+        if (result.warnings.length > 5) {
+          output.printInfo(`  ... and ${result.warnings.length - 5} more`);
+        }
+      }
     } else {
       spinner.fail('Failed to create hooks configuration');
       for (const error of result.errors) {
@@ -1502,6 +1546,19 @@ const upgradeCommand: Command = {
           result.settingsUpdated.map(s => `+ ${s}`).join('\n'),
           'Settings Updated'
         );
+        output.writeln();
+      }
+
+      // Security: surface anything settings-risk-scanner.ts flagged in the
+      // pre-existing settings.json this upgrade carried forward unexamined.
+      if (result.warnings && result.warnings.length > 0) {
+        output.printWarning('Settings review recommended:');
+        for (const warning of result.warnings.slice(0, 5)) {
+          output.printInfo(`  • ${warning}`);
+        }
+        if (result.warnings.length > 5) {
+          output.printInfo(`  ... and ${result.warnings.length - 5} more`);
+        }
         output.writeln();
       }
 
