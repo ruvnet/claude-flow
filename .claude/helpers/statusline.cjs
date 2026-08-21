@@ -630,7 +630,47 @@ function readJSON(filePath) {
 
 // ─── Git info (pure-Node / single exec — needed for branch display) ──────────
 
+// #3045 — getGitInfo() shells out to a 5-command chain per render. Uncached,
+// it queues subprocesses faster than they finish on large repos with multiple
+// concurrent Claude Code sessions, producing the pileup reported in that
+// issue (hundreds of orphan git children, load-avg in the hundreds). Cache
+// the parsed result in a per-cwd tmp file with a short TTL — dirty/branch
+// status doesn't need per-render freshness, and 5s is short enough to feel
+// live.
+const GIT_INFO_CACHE_FILE = path.join(
+  os.tmpdir(),
+  'ruflo-statusline-gitinfo-' +
+    require('crypto').createHash('md5').update(CWD).digest('hex').slice(0, 8) +
+    '.json'
+);
+const GIT_INFO_TTL_MS = 5000;
+
+function readGitInfoCache() {
+  try {
+    if (fs.existsSync(GIT_INFO_CACHE_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(GIT_INFO_CACHE_FILE, 'utf-8'));
+      if (raw && typeof raw._ts === 'number' && Date.now() - raw._ts < GIT_INFO_TTL_MS && raw.data) {
+        return raw.data;
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function writeGitInfoCache(data) {
+  try {
+    fs.writeFileSync(
+      GIT_INFO_CACHE_FILE,
+      JSON.stringify({ _ts: Date.now(), data }),
+      'utf-8'
+    );
+  } catch { /* ignore */ }
+}
+
 function getGitInfo() {
+  const cached = readGitInfoCache();
+  if (cached) return cached;
+
   const result = {
     name: path.basename(CWD) || 'project', gitBranch: '', modified: 0, untracked: 0,
     staged: 0, ahead: 0, behind: 0,
@@ -649,7 +689,12 @@ function getGitInfo() {
   ].join('; ');
 
   const raw = safeExec("sh -c '" + script + "'", 3000);
-  if (!raw) return result;
+  if (!raw) {
+    // Cache even the empty result — if git is slow/unavailable, we don't want
+    // to re-attempt on every render either.
+    writeGitInfoCache(result);
+    return result;
+  }
 
   const parts = raw.split('---SEP---').map(function(s) { return s.trim(); });
   if (parts.length >= 5) {
@@ -673,6 +718,7 @@ function getGitInfo() {
     result.behind = parseInt(ab[1]) || 0;
   }
 
+  writeGitInfoCache(result);
   return result;
 }
 

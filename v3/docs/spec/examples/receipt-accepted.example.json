@@ -1,0 +1,233 @@
+{
+  "payload": {
+    "schemaVersion": "ruflo.flywheel-receipt/v1",
+    "lineageId": "0198f2a0-0000-7000-8000-00000000a1b2",
+    "candidateId": "sha256:61c84d2769efc8fa1f5e76d2c3d645763cf013a38fa658edaccaede460a172a2",
+    "evaluationRunId": "0198f2a0-0000-7000-8000-00000000c3d4",
+    "baselineRef": "sha256:3f786850e387550fdab836ed7e6dc881de23001b0b4b1b0f0a1a2b3c4d5e6f70",
+    "expectedLedgerHead": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "candidatePolicy": {
+      "hnswEf": 128,
+      "hybridWeight": "0.65",
+      "rerankDepth": 24
+    },
+    "gateVersion": "ruflo.flywheel-gate/v1",
+    "policySchemaVersion": "ruflo.retrieval-policy/v1",
+    "safetyEnvelopeRef": "sha256:9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "anchorRef": "sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+    "requestedProposer": "auto",
+    "effectiveProposer": "local",
+    "corpusVersion": "pir-conformance-corpus/2026-08-19",
+    "corpusHash": "sha256:fcde2b2edba56bf408601fb721fe9b5c338d10ee429ea04fae5511b68fbf8fb9",
+    "baselineScore": "0.7",
+    "candidateScore": "0.765",
+    "heldOutDeltas": [
+      "0.08",
+      "0.08",
+      "0.08",
+      "0.08",
+      "0.08",
+      "0.08",
+      "0.08",
+      "0.08",
+      "0.08",
+      "0.08",
+      "0.08",
+      "0.08",
+      "0.08",
+      "0.08",
+      "-0.04",
+      "-0.04"
+    ],
+    "pairedOutcomes": [
+      {
+        "taskId": "task-01",
+        "baselineScore": "0.7",
+        "candidateScore": "0.78"
+      },
+      {
+        "taskId": "task-02",
+        "baselineScore": "0.7",
+        "candidateScore": "0.78"
+      },
+      {
+        "taskId": "task-03",
+        "baselineScore": "0.7",
+        "candidateScore": "0.78"
+      },
+      {
+        "taskId": "task-04",
+        "baselineScore": "0.7",
+        "candidateScore": "0.78"
+      },
+      {
+        "taskId": "task-05",
+        "baselineScore": "0.7",
+        "candidateScore": "0.78"
+      },
+      {
+        "taskId": "task-06",
+        "baselineScore": "0.7",
+        "candidateScore": "0.78"
+      },
+      {
+        "taskId": "task-07",
+        "baselineScore": "0.7",
+        "candidateScore": "0.78"
+      },
+      {
+        "taskId": "task-08",
+        "baselineScore": "0.7",
+        "candidateScore": "0.78"
+      },
+      {
+        "taskId": "task-09",
+        "baselineScore": "0.7",
+        "candidateScore": "0.78"
+      },
+      {
+        "taskId": "task-10",
+        "baselineScore": "0.7",
+        "candidateScore": "0.78"
+      },
+      {
+        "taskId": "task-11",
+        "baselineScore": "0.7",
+        "candidateScore": "0.78"
+      },
+      {
+        "taskId": "task-12",
+        "baselineScore": "0.7",
+        "candidateScore": "0.78"
+      },
+      {
+        "taskId": "task-13",
+        "baselineScore": "0.7",
+        "candidateScore": "0.78"
+      },
+      {
+        "taskId": "task-14",
+        "baselineScore": "0.7",
+        "candidateScore": "0.78"
+      },
+      {
+        "taskId": "task-15",
+        "baselineScore": "0.7",
+        "candidateScore": "0.66"
+      },
+      {
+        "taskId": "task-16",
+        "baselineScore": "0.7",
+        "candidateScore": "0.66"
+      }
+    ],
+    "statistics": {
+      "ruleVersion": "ruflo.flywheel-gate/v1",
+      "relativeLift": "0.092857142857",
+      "pairedBootstrapProbability": "1",
+      "pairedBootstrapDeltaCILow95": "0.0425",
+      "frozenAnchorRegression": "0",
+      "iterations": 10000,
+      "seedHex": "be51f05643bce93feb04b7da659e290a203a1a62b5cb408b9c46554df528da84",
+      "significant": true,
+      "accepted": true
+    },
+    "gates": {
+      "heldOutImproves": true,
+      "frozenAnchorNoRegression": true,
+      "driftWithinBound": true,
+      "replayDeterministic": true,
+      "receiptCoverage": true,
+      "canaryNoWorse": true
+    },
+    "resourceEvidence": {
+      "p95LatencyMicros": 412000,
+      "costMicrosPerTask": 1850,
+      "tokensPerTask": 3120,
+      "failureRate": "0",
+      "evaluationCostMicros": 29600,
+      "currency": "USD"
+    },
+    "evidence": {
+      "corpusRoles": {
+        "selectionTaskIds": [
+          "sel-01",
+          "sel-02",
+          "sel-03"
+        ],
+        "promotionHoldoutTaskIds": [
+          "task-01",
+          "task-02",
+          "task-03",
+          "task-04",
+          "task-05",
+          "task-06",
+          "task-07",
+          "task-08",
+          "task-09",
+          "task-10",
+          "task-11",
+          "task-12",
+          "task-13",
+          "task-14",
+          "task-15",
+          "task-16"
+        ],
+        "guardTaskIds": [
+          "anchor-01",
+          "anchor-02"
+        ]
+      },
+      "verification": {
+        "replayTranscriptRef": "sha256:1b16b1df538ba12dc3f97edbb85caa7050d46c148134290feba80f8236c83db9"
+      },
+      "canary": {
+        "rollbackRate": "0",
+        "sliceRef": "sha256:0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f"
+      }
+    },
+    "termVerification": [
+      {
+        "term": "heldOutImproves",
+        "verification": "recomputed",
+        "evidenceRef": "inline:pairedOutcomes"
+      },
+      {
+        "term": "frozenAnchorNoRegression",
+        "verification": "recomputed",
+        "evidenceRef": "inline:statistics.frozenAnchorRegression"
+      },
+      {
+        "term": "driftWithinBound",
+        "verification": "recomputed",
+        "evidenceRef": "inline:evidence.verification"
+      },
+      {
+        "term": "replayDeterministic",
+        "verification": "recomputed",
+        "evidenceRef": "sha256:1b16b1df538ba12dc3f97edbb85caa7050d46c148134290feba80f8236c83db9"
+      },
+      {
+        "term": "receiptCoverage",
+        "verification": "recomputed",
+        "evidenceRef": "inline:evidence.corpusRoles"
+      },
+      {
+        "term": "canaryNoWorse",
+        "verification": "signature-verified",
+        "evidenceRef": "sha256:0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f",
+        "attestor": "ruflo-canary-runner/v1"
+      }
+    ],
+    "decision": "accepted",
+    "issuedAt": "2026-08-19T00:00:00.000Z",
+    "expiresAt": "2026-08-20T00:00:00.000Z",
+    "receiptId": "sha256:783fd640aadaf1092465a4f4c950a8ae7a99980856b166acd2451d0cccec2398"
+  },
+  "signature": {
+    "algorithm": "ed25519",
+    "domain": "ruflo/flywheel-receipt/v1",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAqNSpk4jp2Y7WJ3jzCgOiXnVFKQKm5R7266xFiPWUU0s=\n-----END PUBLIC KEY-----\n",
+    "signatureBase64": "EoE4mrCbcTBitpgFdR66vpk9PnhBH2IVwvG933E+SAU1Q9xEgUAlOK9LnYJammnSI52TcPJiCmUoOQZBGEPoBA=="
+  }
+}

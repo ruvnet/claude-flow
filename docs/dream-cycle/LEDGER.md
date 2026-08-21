@@ -111,19 +111,23 @@ rows — not a static snapshot.
 
 ## v2 live entries start below
 
-(STEP 9 of the v2 routine appends here nightly, starting 2026-08-14. Each
-night pushes its own branch/PR with a real code diff — 2026-08-14 through
-2026-08-17 all did this, confirmed via `git ls-remote` + PR lookup on
-2026-08-18 — but since 0 dream-cycle PRs have merged, each night's LEDGER.md
-edit lives only on its own unmerged branch and never reaches `main`. This
-table is therefore reconstructed from PR/issue history each run rather than
-carried forward automatically; see each branch's own commit for its
-original append. Schema below matches the v3.1 prompt's 10-column spec.)
+(STEP 9 of the v2 routine appends here nightly, starting 2026-08-14.)
+
+**Recovery note (2026-08-19):** rows for 2026-08-14 through 2026-08-18 were
+never appended live despite all 5 nights running to completion (branch +
+draft PR + issue exist for each — verified via `git ls-remote` and
+`gh pr`/MCP search before concluding this, per STEP 1's anti-inference
+rule). Backfilled below from the PRs/issues directly. Root cause not
+diagnosed (out of scope for STEP 1 recovery); flagged as a candidate
+finding for a future `automation`/`meta` scan surface — the ledger-append
+step itself has now silently failed for 5 consecutive nights with no
+alerting.
 
 | Date | Deep | Finding | Issue | PR | Evaluated? | Verdict | Effect | Witness | Prior-night fates |
 |---|---|---|---|---|---|---|---|---|---|
-| 2026-08-14 | swarm | power-of-two-choices mesh load-balancing (large-churn scenario) | #3026 | #3027 | yes | REJECT | -46% max load, -44% load CoV, but -13.7% density breached ±10% invariant | `e77acc86...` | (own branch only — see #3026) |
-| 2026-08-15 | performance | HNSWIndex efSearch query-time default (decoupled from efConstruction) | #3033 | #3034 | yes | REJECT | -56-58% latency but recall@10 breached 0.90 floor at N=8000 | `d756e6d9...` | (own branch only — see #3033) |
-| 2026-08-16 | security | advisory scanner for untrusted settings.json hooks/allow-rules | #3043 | #3044 | yes | ACCEPT | recall 0→1.0, precision 1.0, 0 false positives after adversarial hardening (6 bypasses fixed) | `ad11d483...` | (own branch only — see #3043) |
-| 2026-08-17 | intelligence | discounted Thompson sampling for model-router bandit prior decay | #3048 | #3049 | yes | ACCEPT (scoped) | low-bucket recovery -17.6% rounds (t=7.00); med-bucket null (not generalized) | `e0fb0242...` | (own branch only — see #3048) |
-| 2026-08-18 | memory | hybridSearch (ADR-125 Phase 5 dense+sparse+entity fusion) built but unreachable — explicit opt-in silently no-op'd without a hand-built memoryService; fixed + first-ever quality benchmark | #3056 | #3057 | yes | ACCEPT (scoped) | overall recall@10 +0.267; category A +0.867, category C +0.333, category B **-0.133 regression (disclosed)**, category D parity | `b28714fb...` | 08-14 REJECT / 08-15 REJECT / 08-16 ACCEPT / 08-17 ACCEPT(scoped) — 0 of last 4 merged; 0/N merge rate persists across entire trailing window |
+| 2026-08-14 | swarm | power-of-two-choices mesh peer selection: max-load -46.1%, CoV -44.4% but density -13.7% breaches ±10% invariant | #3026 | #3027 | yes | REJECT | max_load -46.1%, CoV -44.4%, density -13.7% (breach) | e77acc86... | recovered-live (5-night gap) |
+| 2026-08-15 | performance | HNSWIndex efSearch query-time default decouple: latency -55.9%/-57.5% but recall@10 breaches 0.90 floor at N=8000 (-7.5pp) | #3033 | #3034 | yes | REJECT | latency -55.9%(N=3k)/-57.5%(N=8k), recall -7.5pp (breach @8k) | d756e6d9... | recovered-live |
+| 2026-08-16 | security | settings.json hooks/allow-rules advisory risk scanner (CVE-2025-59536-class) wired into init/upgrade merge, advisory-only | #3043 | #3044 | yes | ACCEPT | recall 0→1.0, precision 1.0, FPR 0.0 (post-hardening, 6 critic-found bypasses fixed) | ad11d483... | recovered-live |
+| 2026-08-17 | intelligence | discounted Thompson-sampling prior decay for model-router bandit (opt-in), recovers faster after workload shift | #3048 | #3049 | yes | ACCEPT-scoped | low-bucket recovery -17.6% (t=7.00, held); med-bucket null (no generalization) | e0fb0242... | recovered-live |
+| 2026-08-18 | memory | hybridSearch controller reachable via explicit opt-in (was silently null-returning despite config flag) | #3056 | #3057 | yes | ACCEPT-scoped | overall recall@10 +0.267; category B (pure-paraphrase) regresses -0.133 | b28714fb... | recovered-live |
+| 2026-08-19 | swarm | MessageBus retry-attempts silently reset to 0 on every re-queue, unbounded redelivery, message.failed unreachable | #3061 | #3062 | yes | ACCEPT | invocations 96-98/0-failed (baseline) → 3/2/1 stable (candidate); 220/220 tests | 62c4fdf7... | 08-14..08-18 all OPEN, none merged yet |

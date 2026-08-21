@@ -31,6 +31,7 @@ import {
 import { getInstalledCliVersion, HELPERS_STAMP_FILE } from './helper-refresh.js';
 import { generateClaudeMd } from './claudemd-generator.js';
 import { recordMemoryPackagePath } from './memory-package-resolver.js';
+import { scanSettingsForRisk, formatRiskFindingsAsWarnings } from './settings-risk-scanner.js';
 
 /**
  * Skills to copy based on configuration
@@ -320,6 +321,13 @@ export interface UpgradeResult {
   addedCommands?: string[];
   /** Added by --settings flag */
   settingsUpdated?: string[];
+  /**
+   * Advisory-only findings from settings-risk-scanner.ts: dangerous-looking
+   * hook commands or Bash allow-rules found in the *pre-existing*
+   * settings.json this upgrade carried forward unexamined. Never blocks
+   * the upgrade — surfaced so a user can review before trusting it.
+   */
+  warnings?: string[];
 }
 
 /**
@@ -327,7 +335,16 @@ export interface UpgradeResult {
  * Preserves user customizations while adding new features like Agent Teams
  * Uses platform-specific commands for Mac, Linux, and Windows
  */
-export function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<string, unknown> {
+export function mergeSettingsForUpgrade(
+  existing: Record<string, unknown>
+): { merged: Record<string, unknown>; warnings: string[] } {
+  // Scan the pre-existing hooks/permissions BEFORE they get spread into
+  // `merged` below — this is the untrusted, disk-sourced content a
+  // malicious settings.json would use to smuggle a hook payload through.
+  const warnings = formatRiskFindingsAsWarnings(
+    scanSettingsForRisk({ hooks: existing.hooks, permissions: existing.permissions } as Record<string, unknown>)
+  );
+
   const merged = { ...existing };
   const platform = detectPlatform();
   const isWindows = platform.os === 'windows';
@@ -519,7 +536,7 @@ export function mergeSettingsForUpgrade(existing: Record<string, unknown>): Reco
     },
   };
 
-  return merged;
+  return { merged, warnings };
 }
 
 /**
@@ -705,7 +722,7 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
       if (fs.existsSync(settingsPath)) {
         try {
           const existingSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-          const mergedSettings = mergeSettingsForUpgrade(existingSettings);
+          const { merged: mergedSettings, warnings: settingsRiskWarnings } = mergeSettingsForUpgrade(existingSettings);
           fs.writeFileSync(settingsPath, JSON.stringify(mergedSettings, null, 2), 'utf-8');
           result.updated.push('.claude/settings.json');
           result.settingsUpdated = [
@@ -717,6 +734,9 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
             'claudeFlow.agentTeams',
             'claudeFlow.memory (learningBridge, memoryGraph, agentScopes)',
           ];
+          if (settingsRiskWarnings.length > 0) {
+            result.warnings = [...(result.warnings ?? []), ...settingsRiskWarnings];
+          }
         } catch (settingsError) {
           result.errors.push(`Settings merge failed: ${settingsError instanceof Error ? settingsError.message : String(settingsError)}`);
         }
@@ -884,6 +904,17 @@ async function writeSettings(
     // Merge hooks/env/permissions into existing settings instead of skipping
     try {
       const existing = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+
+      // Scan the pre-existing hooks/permissions BEFORE any merge decision
+      // below — same untrusted, disk-sourced content mergeSettingsForUpgrade()
+      // scans; see settings-risk-scanner.ts for why.
+      const riskWarnings = formatRiskFindingsAsWarnings(
+        scanSettingsForRisk({ hooks: existing.hooks, permissions: existing.permissions } as Record<string, unknown>)
+      );
+      if (riskWarnings.length > 0) {
+        result.warnings = [...(result.warnings ?? []), ...riskWarnings];
+      }
+
       let merged = false;
 
       // Merge hooks (the critical missing piece — #1484)
