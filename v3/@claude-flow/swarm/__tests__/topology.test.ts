@@ -465,6 +465,46 @@ describe('TopologyManager', () => {
       // No error expected
       expect(true).toBe(true);
     });
+
+    it('should load-balance mesh peer selection under churn via power-of-two-choices', async () => {
+      // Mirrors the dream-cycle 2026-08-14 "mesh-large-churn" benchmark scenario,
+      // where the improvement actually manifests: initial construction alone
+      // (calculateInitialConnections) already satisfies the target for small/
+      // no-churn swarms, so the rebalance while-loop — the code this candidate
+      // touches — only does meaningful work once churn drops nodes below target.
+      topology = createTopologyManager({
+        type: 'mesh',
+        maxAgents: 100,
+        autoRebalance: true,
+      });
+      await topology.initialize();
+
+      for (let i = 0; i < 60; i++) {
+        await topology.addNode(`agent-${i}`, 'peer');
+      }
+      for (let i = 0; i < 12; i++) {
+        await topology.removeNode(`agent-${i}`);
+        await topology.addNode(`agent-r${i}`, 'peer');
+      }
+
+      // Bypass the 5s rebalance cooldown so this assertion doesn't depend on
+      // wall-clock timing (mirrors dream-cycle 2026-08-14 benchmark harness).
+      (topology as unknown as { lastRebalance: Date }).lastRebalance = new Date(0);
+      await topology.rebalance();
+
+      const counts = topology.getState().nodes.map(n => n.connections.length);
+      const max = Math.max(...counts);
+      const min = Math.min(...counts);
+
+      // Every node should reach the mesh target (min(5, n-1) = 5). Baseline
+      // uniform-random selection measured mean max-load ~18.75 (spread ~13.75)
+      // in this exact scenario across 40 seeded trials; power-of-two-choices
+      // measured mean max-load ~10.1 (spread ~5.1). This is a regression guard,
+      // not a tight bound — threshold set well above candidate's typical spread
+      // and below baseline's to catch a reversion without being flaky.
+      expect(min).toBeGreaterThanOrEqual(5);
+      expect(max - min).toBeLessThanOrEqual(11);
+    });
   });
 
   describe('Partitioning', () => {

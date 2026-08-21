@@ -441,25 +441,46 @@ export class TopologyManager extends EventEmitter implements ITopologyManager {
     for (const node of this.state.nodes) {
       // Ensure minimum connections
       while (node.connections.length < targetConnections) {
-        const candidates = this.state.nodes
-          .filter(n =>
-            n.agentId !== node.agentId &&
-            !node.connections.includes(n.agentId)
-          )
-          .sort(() => Math.random() - 0.5);
+        const candidates = this.state.nodes.filter(n =>
+          n.agentId !== node.agentId &&
+          !node.connections.includes(n.agentId)
+        );
 
         if (candidates.length > 0) {
-          node.connections.push(candidates[0].agentId);
-          this.adjacencyList.get(node.agentId)?.add(candidates[0].agentId);
+          const target = this.pickPowerOfTwoChoices(candidates);
+          node.connections.push(target.agentId);
+          this.adjacencyList.get(node.agentId)?.add(target.agentId);
 
           // Bidirectional
-          candidates[0].connections.push(node.agentId);
-          this.adjacencyList.get(candidates[0].agentId)?.add(node.agentId);
+          target.connections.push(node.agentId);
+          this.adjacencyList.get(target.agentId)?.add(node.agentId);
         } else {
           break;
         }
       }
     }
+  }
+
+  /**
+   * Power-of-two-choices candidate selection (Azar/Broder/Karlin/Upfal, "Balanced
+   * Allocations", SIAM J. Comput. 29(1):180-200, 1999; Mitzenmacher, IEEE TPDS
+   * 12(10):1094-1104, 2001): sampling 2 random candidates and connecting to whichever
+   * has fewer existing connections bounds max load exponentially lower than picking
+   * a single uniformly-random candidate. Replaces the prior `sort(() => Math.random())`
+   * shuffle-and-take-first policy, which had no load signal at all.
+   */
+  private pickPowerOfTwoChoices<T extends { connections: string[] }>(candidates: T[]): T {
+    if (candidates.length === 1) {
+      return candidates[0];
+    }
+    const i = Math.floor(Math.random() * candidates.length);
+    let j = Math.floor(Math.random() * candidates.length);
+    if (j === i) {
+      j = (i + 1) % candidates.length;
+    }
+    const a = candidates[i];
+    const b = candidates[j];
+    return a.connections.length <= b.connections.length ? a : b;
   }
 
   private async rebalanceHierarchical(): Promise<void> {
