@@ -1550,7 +1550,12 @@ export const hooksPostTask: MCPTool = {
     const taskText = (params.task as string) || '';
     const outcomeKeywords = extractKeywords(taskText);
     let outcomePersisted = false;
-    if (taskText && agent && agent.length <= 100 && /^[a-zA-Z0-9_-]+$/.test(agent)) {
+    // #3064 — the previous ad-hoc regex `/^[a-zA-Z0-9_-]+$/` silently dropped
+    // colon-namespaced plugin agents (`ruflo-core:reviewer`, etc.) — i.e. every
+    // Claude Code plugin agent. Colons are already allowed by the canonical
+    // validateIdentifier() check on line 1456 above (IDENTIFIER_RE includes ':'
+    // and '.'), so no additional charset gating is needed here.
+    if (taskText && agent) {
       try {
         const outcomes = loadRoutingOutcomes();
         outcomes.push({
