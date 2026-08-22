@@ -9,7 +9,7 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { existsSync, readFileSync, statSync, openSync, readSync, closeSync } from 'fs';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { createHash } from 'crypto';
 import { execSync, exec } from 'child_process';
 import { promisify } from 'util';
@@ -1793,7 +1793,7 @@ async function checkMetaharnessIntegration(): Promise<HealthCheck> {
   // Runtime smoke: import the similarity module and exercise it
   try {
     const modPath = join(pluginDir, 'scripts', '_similarity.mjs');
-    const mod = await import(modPath) as { similarity?: (a: unknown, b: unknown) => { overall?: number } };
+    const mod = await import(pathToFileURL(modPath).href) as { similarity?: (a: unknown, b: unknown) => { overall?: number } };
     if (typeof mod.similarity !== 'function') {
       return {
         name: 'MetaHarness integration (ADR-150)',
@@ -1821,7 +1821,7 @@ async function checkMetaharnessIntegration(): Promise<HealthCheck> {
     // parallelization primitives oia-audit depends on; if they're
     // missing, oia-audit's import fails and the whole pipeline breaks.
     const harnessPath = join(pluginDir, 'scripts', '_harness.mjs');
-    const harnessMod = await import(harnessPath) as {
+    const harnessMod = await import(pathToFileURL(harnessPath).href) as {
       parseMcpScanText?: (s: string) => unknown;
       runHarnessAsync?: (args: string[]) => Promise<unknown>;
       runMetaharnessAsync?: (args: string[]) => Promise<unknown>;
