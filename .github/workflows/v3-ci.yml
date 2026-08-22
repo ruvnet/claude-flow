@@ -433,7 +433,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # windows-latest pinned to windows-2022 (#2992): the windows-latest image
+        # moved to VS2026, which node-gyp's VS detector can't identify, breaking
+        # native builds for hnswlib-node and better-sqlite3. Unpin once node-gyp
+        # supports VS2026 detection.
+        os: [ubuntu-latest, macos-latest, windows-2022]
 
     steps:
       - name: Checkout code

@@ -537,6 +537,132 @@ async function checkMemoryStructuralIntegrity(): Promise<HealthCheck> {
   }
 }
 
+// #2968 option 1 — read-only doctor check for the active SQLite driver.
+//
+// Native better-sqlite3 (durable, WAL-capable) can silently degrade to the
+// sql.js WASM fallback (non-durable — `wal_checkpoint` calls are rejected
+// and the write is lost) when a postinstall script is skipped. `memory
+// store` still printed "Data stored successfully" before the persistWarning
+// fix in #2983/3.38.1 (see memory-store-persist-warning-2968.test.ts); this
+// check gives a standing, read-only signal so the driver split is visible
+// any time doctor runs, independent of any single store call.
+//
+// Table count in the on-disk memory.db is the cheap, reliable signal from
+// the issue report: the native driver's schema produces 47 tables, the
+// sql.js fallback's produces only 10. Deliberately does NOT change install
+// behavior (that's option 2 from #2968, explicitly out of scope here) —
+// this only reports, it never repairs.
+const MEMORY_DRIVER_NATIVE_TABLE_FLOOR = 20; // roughly midpoint of sql.js's ~10 and native's ~47
+
+async function checkMemoryPersistenceDriver(): Promise<HealthCheck> {
+  const NAME = 'Memory Persistence Driver';
+  const dbPath = await resolveMemoryDbPath();
+  if (!dbPath) {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: 'no memory.db found (see Memory Database Presence above) — driver check skipped',
+    };
+  }
+
+  if (isMemoryDbEncryptedAtRest(dbPath)) {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: `${dbPath} — RFE1-encrypted at rest; driver check can't run without decrypting (expected, not corruption)`,
+    };
+  }
+
+  let Database: any;
+  try {
+    Database = ((await import('better-sqlite3')) as any).default;
+  } catch {
+    Database = null;
+  }
+
+  let tableCount: number | null = null;
+  let nativeUnavailableReason: string | null = null;
+  let nativeOpenOtherError: string | null = null;
+
+  if (Database) {
+    let db: any;
+    try {
+      db = new Database(dbPath, { readonly: true, fileMustExist: true });
+    } catch (e) {
+      if (isNativeSqliteBindingUnavailable(e)) {
+        nativeUnavailableReason = ((e as Error).message || String(e)).split(/\r?\n/, 1)[0];
+      } else {
+        nativeOpenOtherError = (e as Error).message || String(e);
+      }
+      db = null;
+    }
+    if (db) {
+      try {
+        const row = db.prepare("SELECT count(*) AS c FROM sqlite_master WHERE type='table'").get() as { c: number };
+        tableCount = Number(row?.c ?? 0);
+      } catch {
+        // leave null — Memory Integrity above already reports open/query failures
+      } finally {
+        try { db.close(); } catch { /* best-effort */ }
+      }
+    }
+  } else {
+    nativeUnavailableReason = 'better-sqlite3 not installed';
+  }
+
+  // Fall back to sql.js purely to report table count when the native path
+  // couldn't — informational only, never used to claim durability.
+  if (tableCount === null && (nativeUnavailableReason || nativeOpenOtherError)) {
+    const sdb = await tryOpenSqlJs(dbPath);
+    if (sdb) {
+      try {
+        const res = sdb.exec("SELECT count(*) FROM sqlite_master WHERE type='table'");
+        tableCount = Number(res[0]?.values?.[0]?.[0] ?? 0);
+      } catch {
+        // leave null
+      } finally {
+        try { sdb.close(); } catch { /* best-effort */ }
+      }
+    }
+  }
+
+  const tableSummary = tableCount === null
+    ? 'table count unavailable'
+    : `${tableCount} tables (native schema ~47, sql.js-fallback schema ~10 — #2968)`;
+
+  if (nativeUnavailableReason) {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: `${dbPath} — active driver: sql.js (WASM fallback, non-durable) — native better-sqlite3 binding unavailable: ${nativeUnavailableReason} — wal_checkpoint calls silently no-op, writes may not persist across processes (#2968/#2867/#2219) [${tableSummary}]`,
+      fix: 'reinstall with npm install scripts enabled, or run `npm rebuild better-sqlite3`; then rerun this check',
+    };
+  }
+
+  if (nativeOpenOtherError) {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: `${dbPath} — native better-sqlite3 module loadable, but could not open this database (${nativeOpenOtherError}) — see Memory Integrity above for the corruption/encryption diagnosis [${tableSummary}]`,
+    };
+  }
+
+  if (tableCount !== null && tableCount < MEMORY_DRIVER_NATIVE_TABLE_FLOOR) {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: `${dbPath} — active driver: native better-sqlite3, but this database has only ${tableCount} tables — that matches the sql.js-fallback schema shape (~10), not the native schema (~47); it was likely created before the native binding became available, and durable writes made before then may be missing`,
+      fix: 'back up .swarm/memory.db then `claude-flow memory init --force` to rebuild under the native driver',
+    };
+  }
+
+  return {
+    name: NAME,
+    status: 'pass',
+    message: `${dbPath} — active driver: native better-sqlite3 (durable, WAL-capable) [${tableSummary}]`,
+  };
+}
+
 // Check 1 (--component memory, deep path) — #2737 part 2 strengthens this:
 // prefer native better-sqlite3 PRAGMA integrity_check (adds index↔table
 // cross-checking + UNIQUE verification that quick_check above deliberately
@@ -2274,6 +2400,7 @@ export const doctorCommand: Command = {
       checkDaemonStatus,
       checkMemoryDatabase,
       checkMemoryStructuralIntegrity, // #2737 — bounded, native quick_check on every default run
+      checkMemoryPersistenceDriver, // #2968 — native better-sqlite3 vs sql.js fallback, read-only
       checkLearningBridge, // #2545 — can the auto-memory hook actually load @claude-flow/memory?
       checkApiKeys,
       checkMcpServers,
@@ -2312,6 +2439,7 @@ export const doctorCommand: Command = {
       'memory': [
         checkMemoryDatabase,         // existing: exists + statable (unchanged)
         checkMemoryIntegrity,        // #2677 check 1: sql.js open + PRAGMA integrity_check
+        checkMemoryPersistenceDriver, // #2968: native better-sqlite3 vs sql.js fallback
         checkMemoryContent,          // #2677 check 2: memory_entries content coverage
         checkMemoryEmbeddingCoverage, // #2677 check 3: vector coverage on populated rows
         checkMemoryReflexionCoverage, // #2677 check 6: episodes are retrievable
