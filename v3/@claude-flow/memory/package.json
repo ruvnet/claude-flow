@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/memory",
-  "version": "3.0.0-alpha.22",
+  "version": "3.0.0-alpha.23",
   "type": "module",
   "description": "Memory module - AgentDB unification, HNSW indexing, vector search, hybrid SQLite+AgentDB backend (ADR-009)",
   "main": "dist/index.js",

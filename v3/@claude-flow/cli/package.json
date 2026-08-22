@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/cli",
-  "version": "3.38.17",
+  "version": "3.38.18",
   "type": "module",
   "description": "Ruflo CLI - Enterprise AI agent orchestration with 60+ specialized agents, swarm coordination, MCP server, self-learning hooks, and vector memory for Claude Code",
   "main": "dist/src/index.js",
@@ -100,7 +100,7 @@
   "dependencies": {
     "@claude-flow/cli-core": "3.7.0-alpha.5",
     "@claude-flow/codex": "3.0.3",
-    "@claude-flow/mcp": "^3.0.0-alpha.9",
+    "@claude-flow/mcp": "3.0.0-alpha.10",
     "@claude-flow/neural": "3.0.0-alpha.9",
     "@claude-flow/plugin-agent-federation": "1.0.0-alpha.18",
     "@claude-flow/security": "3.0.0-alpha.14",
@@ -128,7 +128,7 @@
   },
   "optionalDependencies": {
     "@agntcy/slim-bindings": "2.0.0-alpha.5",
-    "@claude-flow/memory": "^3.0.0-alpha.22",
+    "@claude-flow/memory": "^3.0.0-alpha.23",
     "@metaharness/darwin": "~0.9.0",
     "@metaharness/flywheel": "~0.1.10",
     "@metaharness/radio": "~0.1.0",

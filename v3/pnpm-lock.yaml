@@ -121,7 +121,7 @@ importers:
         specifier: 3.0.3
         version: link:../codex
       '@claude-flow/mcp':
-        specifier: ^3.0.0-alpha.9
+        specifier: 3.0.0-alpha.10
         version: link:../mcp
       '@claude-flow/neural':
         specifier: 3.0.0-alpha.9
@@ -206,7 +206,7 @@ importers:
         specifier: 2.0.0-alpha.5
         version: 2.0.0-alpha.5
       '@claude-flow/memory':
-        specifier: ^3.0.0-alpha.22
+        specifier: ^3.0.0-alpha.23
         version: link:../memory
       '@metaharness/darwin':
         specifier: ~0.9.0
