@@ -74,7 +74,8 @@ Append:
 - Hook telemetry resolves the canonical global Ruflo at
   `~/.npm-global/bin/ruflo` even when the host sanitizes `PATH`; if no
   installed CLI exists, telemetry fails open without invoking `npx` or
-  creating a private Ruflo cache.
+  creating a private Ruflo cache. Both the active cross-platform Node shim
+  and the retained POSIX compatibility shim enforce this boundary.
 - Cursor retains its `{"permission":"allow"}` response.
 - Codex plugin hooks are positively detected through Codex-specific
   `PLUGIN_ROOT` / `PLUGIN_DATA` variables and allow with exit 0 plus empty

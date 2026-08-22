@@ -20,12 +20,13 @@ else
   [[ -z "$miss" ]] && ok || bad "missing keywords:$miss"
 fi
 
-step "2. .mcp.json registers a 'ruflo' MCP server"
+step "2. .mcp.json registers ruflo and hook shims never spawn private Ruflo"
 F="$ROOT/.mcp.json"
-if [[ -f "$F" ]] && grep -q '"ruflo"' "$F" && grep -q '"command"' "$F"; then
+if [[ -f "$F" ]] && grep -q '"ruflo"' "$F" && grep -q '"command"' "$F" \
+  && ! grep -q 'ruflo@latest' "$ROOT/scripts/ruflo-hook.sh" "$ROOT/scripts/ruflo-hook.cjs"; then
   ok
 else
-  bad ".mcp.json missing or no ruflo server registration"
+  bad ".mcp.json missing, no ruflo server registration, or a hook shim can spawn private Ruflo"
 fi
 
 step "3. all 4 agents present with valid frontmatter"
