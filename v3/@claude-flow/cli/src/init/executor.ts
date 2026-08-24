@@ -1110,6 +1110,34 @@ async function writeMCPConfig(
   }
 
   const content = generateMCPJson(options);
+
+  // #420 — `--force` used to blindly overwrite the whole file, destroying
+  // any unrelated MCP servers the user had registered alongside ours. Merge
+  // our generated `claude-flow`/`ruv-swarm`/`flow-nexus` entries into the
+  // existing file instead, preserving every other key (both other server
+  // entries and any other top-level fields the file may carry).
+  if (options.force && fs.existsSync(mcpPath)) {
+    try {
+      const existing = JSON.parse(fs.readFileSync(mcpPath, 'utf-8')) as {
+        mcpServers?: Record<string, unknown>;
+        [key: string]: unknown;
+      };
+      const generated = JSON.parse(content) as { mcpServers: Record<string, unknown> };
+      const existingServers =
+        existing.mcpServers && typeof existing.mcpServers === 'object' ? existing.mcpServers : {};
+      const merged = {
+        ...existing,
+        mcpServers: { ...existingServers, ...generated.mcpServers },
+      };
+      fs.writeFileSync(mcpPath, JSON.stringify(merged, null, 2), 'utf-8');
+      result.created.files.push('.mcp.json');
+      return;
+    } catch {
+      // Existing file isn't valid JSON — nothing sensible to merge with,
+      // fall through to the original overwrite behavior.
+    }
+  }
+
   fs.writeFileSync(mcpPath, content, 'utf-8');
   result.created.files.push('.mcp.json');
 }
