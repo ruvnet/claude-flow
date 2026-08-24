@@ -556,6 +556,68 @@ function getLocalSecurity(cliSecurity) {
   return base;
 }
 
+// Cached pattern count. The store is routinely >10MB (14.5MB / 1277 patterns on
+// the machine this was diagnosed on, costing 53ms to read+parse), and the
+// statusline re-renders on every prompt, so the parse is keyed on the file's
+// mtime+size and reused until the store actually changes.
+const PATTERN_COUNT_CACHE = path.join(os.tmpdir(), 'ruflo-statusline-patterns-' + require('crypto').createHash('md5').update(CWD).digest('hex').slice(0, 8) + '.json');
+
+function countPatternsCached(file) {
+  let stat;
+  try { stat = fs.statSync(file); } catch { return 0; }
+  const key = stat.mtimeMs + ':' + stat.size;
+
+  try {
+    const memo = JSON.parse(fs.readFileSync(PATTERN_COUNT_CACHE, 'utf-8'));
+    if (memo && memo[file] && memo[file].key === key) return memo[file].count;
+  } catch { /* no memo yet, or unreadable — fall through and recount */ }
+
+  let count = 0;
+  try {
+    const raw = JSON.parse(fs.readFileSync(file, 'utf-8'));
+    if (Array.isArray(raw)) count = raw.length;
+    else if (raw && Array.isArray(raw.patterns)) count = raw.patterns.length;
+    else if (raw && typeof raw === 'object') count = Object.keys(raw).length;
+  } catch { return 0; }
+
+  try {
+    let memo = {};
+    try { memo = JSON.parse(fs.readFileSync(PATTERN_COUNT_CACHE, 'utf-8')) || {}; } catch { /* start fresh */ }
+    memo[file] = { key, count };
+    fs.writeFileSync(PATTERN_COUNT_CACHE, JSON.stringify(memo));
+  } catch { /* cache is an optimisation, never a requirement */ }
+
+  return count;
+}
+
+// `system` is nominally CLI-populated, but the pattern store is on disk, so a
+// dead CLI must not render as "no learning". Without this, every candidate in
+// resolveCliBinCandidates() failing (a source-only marketplace checkout, or an
+// npx fetch that dies in a workspace root) silently degraded the brain to a
+// hardcoded 0% while the overlaid segments beside it kept showing live data —
+// indistinguishable from a genuine zero. Same reasoning as getLocalAgentDB(),
+// which had to start reading locally after the statusline reported "Vectors 0"
+// on a database holding thousands.
+function getLocalIntelligence(current) {
+  const base = (current && typeof current === 'object') ? current : {};
+  if (typeof base.intelligencePct === 'number' && base.intelligencePct > 0) return base;
+
+  for (const file of [
+    path.join(CWD, '.claude-flow', 'neural', 'patterns.json'),
+    path.join(os.homedir(), '.claude-flow', 'neural', 'patterns.json'),
+  ]) {
+    const n = countPatternsCached(file);
+    if (n > 0) {
+      base.intelligencePct = Math.min(100, Math.floor(n / 10));
+      return base;
+    }
+  }
+
+  // No CLI value and no local store: unknown, which is not the same as zero.
+  base.intelligencePct = null;
+  return base;
+}
+
 // Overlay every locally-derived block onto the CLI data (mutates in place).
 function applyLocalOverlays(data) {
   data.adrs = getLocalADRCount();
@@ -566,6 +628,7 @@ function applyLocalOverlays(data) {
   // Security overlay: recompute freshness from disk on every render so cached
   // CLI JSON can never freeze the pill at PENDING. See getLocalSecurity() above.
   data.security = getLocalSecurity(data.security);
+  data.system = getLocalIntelligence(data.system);
   return data;
 }
 
@@ -579,7 +642,7 @@ function buildLocalFallback() {
     v3Progress: { domainsCompleted: 0, totalDomains: 5, dddProgress: 0, patternsLearned: 0, sessionsCompleted: 0 },
     security: { status: 'NONE', findings: 0, cvesFixed: 0, totalCves: 0 },
     swarm: { activeAgents: 0, maxAgents: CONFIG.maxAgents, coordinationActive: false },
-    system: { memoryMB: memMB, contextPct: 0, intelligencePct: 0, subAgents: 0 },
+    system: { memoryMB: memMB, contextPct: 0, intelligencePct: null, subAgents: 0 },
     lastUpdated: new Date().toISOString(),
   });
 }
@@ -941,7 +1004,11 @@ function generateStatusline() {
   const activeAgents = swarm.activeAgents || 0;
   const maxAgents = swarm.maxAgents || CONFIG.maxAgents;
   const coordinationActive = swarm.coordinationActive || false;
-  const intelligencePct = system.intelligencePct || 0;
+  // null/undefined means "no source answered", which must not collapse to 0 --
+  // that is exactly the ambiguity this segment used to present.
+  const intelligencePct = (typeof system.intelligencePct === 'number')
+    ? system.intelligencePct
+    : null;
   const memoryMB = system.memoryMB || 0;
   const subAgents = system.subAgents || 0;
   const findings = Math.max(0, security.findings || 0);
@@ -997,14 +1064,14 @@ function generateStatusline() {
   // do next; diagnostic detail moves to `ruflo status --verbose`.
   const agentsColor = activeAgents > 0 ? c.brightGreen : c.dim;
   const hooksColor = hooksEnabled > 0 ? c.brightGreen : c.dim;
-  const intellColor = intelligencePct >= 80 ? c.brightGreen : intelligencePct >= 40 ? c.brightYellow : c.dim;
+  const intellColor = intelligencePct === null ? c.dim : intelligencePct >= 80 ? c.brightGreen : intelligencePct >= 40 ? c.brightYellow : c.dim;
   const swarmInd = coordinationActive ? c.brightGreen + '◉' + c.reset + ' ' : c.dim + '○' + c.reset + ' ';
   const healthAllGreen = (secStatus === 'CLEAN' || secStatus === 'NONE') && findings === 0;
   const opsParts = [];
   opsParts.push(c.cyan + 'Swarm ' + swarmInd + agentsColor + activeAgents + c.reset + '/' + c.brightWhite + maxAgents + c.reset);
   if (subAgents > 0) opsParts.push(c.brightPurple + '👥 ' + subAgents + c.reset);
   opsParts.push(c.cyan + 'Hooks ' + hooksColor + hooksEnabled + c.reset + '/' + c.brightWhite + hooksTotal + c.reset);
-  opsParts.push(intellColor + '🧠 ' + intelligencePct + '%' + c.reset);
+  opsParts.push(intellColor + '🧠 ' + (intelligencePct === null ? '—' : intelligencePct + '%') + c.reset);
   opsParts.push(c.brightCyan + '💾 ' + memoryMB + 'MB' + c.reset);
   // Health: one glyph when green, terse copy when there's something to act on.
   if (healthAllGreen) {
