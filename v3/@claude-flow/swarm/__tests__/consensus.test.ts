@@ -575,3 +575,291 @@ describe('Consensus Algorithm Comparison', () => {
     ]);
   });
 });
+
+// Dream Cycle 2026-08-24 (swarm): weighted consensus tallying.
+//
+// Hypothesis: QueenCoordinator.weightedConsensus() has always computed real
+// per-agent trust weights (successRate * health), but until this patch they
+// rode along inertly inside the opaque proposal `value` and every tally
+// implementation (raft/byzantine/gossip) counted votes flatly (one voter =
+// one unit), regardless of `requiredConsensus: 'weighted'`. These tests
+// prove the tally logic now (a) actually applies supplied weights and can
+// flip an outcome a flat count would reach differently, and (b) is
+// byte-identical to today's flat-count behavior when no weights are
+// supplied — the frozen backward-compatibility invariant.
+describe('Weighted Consensus (Dream Cycle 2026-08-24)', () => {
+  describe('Gossip — ratio-based tally', () => {
+    it('flips a flat-majority rejection to acceptance when a high-trust minority outvotes a low-trust majority', async () => {
+      // 4 voters total (proposer + 3). Flat: 2/4 approve = 0.50 < 0.51 threshold -> rejected.
+      // Weighted: proposer(0.05) + voter-a(0.9) approve = 0.95 / 1.05 total ~= 0.905 >= 0.51 -> accepted.
+      const gossip = createGossipConsensus('proposer', {
+        threshold: 0.51,
+        convergenceThreshold: 1.0, // require all 4 nodes to have voted before deciding
+      });
+      await gossip.initialize();
+      gossip.addNode('voter-a');
+      gossip.addNode('voter-b');
+      gossip.addNode('voter-c');
+
+      const weights = new Map<string, number>([
+        ['proposer', 0.05],
+        ['voter-a', 0.9],
+        ['voter-b', 0.05],
+        ['voter-c', 0.05],
+      ]);
+
+      const proposal = await gossip.propose({ decision: 'weighted-flip-test' }, weights);
+      // proposer self-votes approve automatically inside propose()
+
+      await gossip.vote(proposal.id, {
+        voterId: 'voter-a',
+        approve: true,
+        confidence: 1.0,
+        timestamp: new Date(),
+      });
+      await gossip.vote(proposal.id, {
+        voterId: 'voter-b',
+        approve: false,
+        confidence: 1.0,
+        timestamp: new Date(),
+      });
+      await gossip.vote(proposal.id, {
+        voterId: 'voter-c',
+        approve: false,
+        confidence: 1.0,
+        timestamp: new Date(),
+      });
+
+      const result = await gossip.awaitConsensus(proposal.id);
+      expect(result.approved).toBe(true);
+      expect(result.approvalRate).toBeCloseTo(0.95 / 1.05, 5);
+
+      await gossip.shutdown();
+    });
+
+    it('reproduces today\'s flat-vote outcome exactly when no weights are supplied (regression guard)', async () => {
+      const gossip = createGossipConsensus('proposer', {
+        threshold: 0.51,
+        convergenceThreshold: 1.0,
+      });
+      await gossip.initialize();
+      gossip.addNode('voter-a');
+      gossip.addNode('voter-b');
+      gossip.addNode('voter-c');
+
+      // Same votes as above, no weights map passed.
+      const proposal = await gossip.propose({ decision: 'flat-vote-parity-test' });
+
+      await gossip.vote(proposal.id, {
+        voterId: 'voter-a',
+        approve: true,
+        confidence: 1.0,
+        timestamp: new Date(),
+      });
+      await gossip.vote(proposal.id, {
+        voterId: 'voter-b',
+        approve: false,
+        confidence: 1.0,
+        timestamp: new Date(),
+      });
+      await gossip.vote(proposal.id, {
+        voterId: 'voter-c',
+        approve: false,
+        confidence: 1.0,
+        timestamp: new Date(),
+      });
+
+      const result = await gossip.awaitConsensus(proposal.id);
+      // 2/4 = 0.50 < 0.51 threshold -> rejected, same as pre-patch flat counting.
+      expect(result.approved).toBe(false);
+      expect(result.approvalRate).toBeCloseTo(0.5, 5);
+
+      await gossip.shutdown();
+    });
+  });
+
+  describe('Byzantine — quorum-count tally with [0,1] weight clamp', () => {
+    it('clamps an out-of-range weight to 1 instead of letting it satisfy quorum alone (BFT safety invariant)', async () => {
+      // f=1 (config-capped) => requiredVotes = 2f+1 = 3. A single voter with
+      // an unclamped weight of, say, 5 could otherwise satisfy quorum alone
+      // and defeat the f-faulty-node guarantee entirely.
+      const byzantine = createByzantineConsensus('primary', {
+        maxFaultyNodes: 1,
+        timeoutMs: 150, // short: with only 1 (clamped) vote cast, this proposal
+                        // can never reach accept or reject and would otherwise
+                        // hang until awaitConsensus's own timeout/expiry path
+      });
+      await byzantine.initialize();
+      byzantine.addNode('primary', true);
+      byzantine.addNode('voter-a');
+      byzantine.addNode('voter-b');
+      byzantine.addNode('voter-c');
+
+      const weights = new Map<string, number>([['voter-a', 5]]); // out-of-range on purpose
+      const proposal = await byzantine.propose({ decision: 'clamp-test' }, weights);
+
+      await byzantine.vote(proposal.id, {
+        voterId: 'voter-a',
+        approve: true,
+        confidence: 1.0,
+        timestamp: new Date(),
+      });
+
+      const result = await byzantine.awaitConsensus(proposal.id);
+      // A single approving vote (even weight=5, clamped to 1) must never
+      // reach requiredVotes=3 alone -> proposal never accepts, expires instead.
+      expect(result.approved).toBe(false);
+
+      await byzantine.shutdown();
+    }, 15000);
+
+    it('reproduces today\'s flat 2f+1 quorum exactly when no weights are supplied (regression guard)', async () => {
+      const byzantine = createByzantineConsensus('primary', { maxFaultyNodes: 1 });
+      await byzantine.initialize();
+      byzantine.addNode('primary', true);
+      byzantine.addNode('voter-a');
+      byzantine.addNode('voter-b');
+      byzantine.addNode('voter-c');
+
+      const proposal = await byzantine.propose({ decision: 'flat-quorum-parity-test' });
+
+      for (const voterId of ['voter-a', 'voter-b', 'voter-c']) {
+        await byzantine.vote(proposal.id, {
+          voterId,
+          approve: true,
+          confidence: 1.0,
+          timestamp: new Date(),
+        });
+      }
+
+      const result = await byzantine.awaitConsensus(proposal.id);
+      // 3 approving votes >= requiredVotes (2*1+1=3) -> accepted, same as pre-patch flat counting.
+      expect(result.approved).toBe(true);
+      expect(result.approvalRate).toBeCloseTo(1.0, 5);
+
+      await byzantine.shutdown();
+    });
+  });
+
+  describe('Raft — count-based quorum tally', () => {
+    it('reproduces today\'s flat quorum exactly when no weights are supplied (regression guard)', async () => {
+      const raftLeader = createRaftConsensus('leader', {
+        threshold: 0.66,
+        electionTimeoutMinMs: 50,
+        electionTimeoutMaxMs: 100,
+      });
+      await raftLeader.initialize();
+      raftLeader.addPeer('voter-a');
+      raftLeader.addPeer('voter-b');
+
+      // Wait for self-election (no peers respond in this unit test, so the
+      // node self-elects after its randomized timeout — same pattern used
+      // by the existing "should vote on proposal" test above).
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      if (raftLeader.isLeader()) {
+        const proposal = await raftLeader.propose({ decision: 'raft-flat-parity-test' });
+
+        await raftLeader.vote(proposal.id, {
+          voterId: 'voter-a',
+          approve: true,
+          confidence: 1.0,
+          timestamp: new Date(),
+        });
+        await raftLeader.vote(proposal.id, {
+          voterId: 'voter-b',
+          approve: true,
+          confidence: 1.0,
+          timestamp: new Date(),
+        });
+
+        const result = await raftLeader.awaitConsensus(proposal.id);
+        expect(result.approvalRate).toBeCloseTo(1.0, 5);
+      }
+
+      await raftLeader.shutdown();
+    });
+
+    it('prevents a flat-count rejection when a low-trust majority is weighted down (adversarial-critic follow-up)', async () => {
+      // Raft's quorum is an absolute count derived from totalVoters
+      // (Math.floor(totalVoters * threshold)), not a ratio of votes cast, and
+      // per-voter weight is clamped to [0,1] (never > flat). That means
+      // weighting can never make an ACCEPT *easier* than flat counting (a
+      // weighted approving sum can never exceed the flat approving count) —
+      // but it CAN make a REJECT *harder*, by denying a low-trust disapproving
+      // majority enough weighted mass to cross the reject threshold. This
+      // test proves that distinct effect with 4 total voters (leader + 3
+      // peers, threshold 0.66 -> quorum=floor(4*0.66)=2): all 3 peers vote
+      // reject.
+      //
+      // Flat: after all 3 reject votes, disapproving count (3) exceeds
+      // totalVoters-quorum (4-2=2), so checkConsensus — which runs
+      // synchronously inside vote() — flips status to 'rejected' almost
+      // immediately (well under the configured timeout).
+      //
+      // Weighted (each peer weight 0.05, leader 0.05): disapproving WEIGHT
+      // (0.15) never exceeds totalVoters-quorum (2), so the reject condition
+      // never fires; the proposal stays 'pending' and only resolves via
+      // awaitConsensus's own timeout/expiry path. Both runs end with
+      // approved:false, but the weighted run's elapsed time proves it never
+      // reached an explicit reject — the weighting genuinely changed raft's
+      // real-time decision, not just a downstream approvalRate number.
+      async function runScenario(weights?: Map<string, number>) {
+        const raftLeader = createRaftConsensus('leader', {
+          threshold: 0.66,
+          timeoutMs: 300,
+          electionTimeoutMinMs: 50,
+          electionTimeoutMaxMs: 100,
+        });
+        await raftLeader.initialize();
+        raftLeader.addPeer('voter-a');
+        raftLeader.addPeer('voter-b');
+        raftLeader.addPeer('voter-c');
+
+        await new Promise(resolve => setTimeout(resolve, 150));
+        if (!raftLeader.isLeader()) {
+          await raftLeader.shutdown();
+          return null; // election didn't complete in time; skip (matches existing suite's tolerant pattern)
+        }
+
+        const proposal = await raftLeader.propose(
+          { decision: 'raft-reject-prevention-test' },
+          weights
+        );
+        // leader auto-votes approve for itself inside propose()
+        for (const voterId of ['voter-a', 'voter-b', 'voter-c']) {
+          await raftLeader.vote(proposal.id, {
+            voterId,
+            approve: false,
+            confidence: 1.0,
+            timestamp: new Date(),
+          });
+        }
+
+        const before = Date.now();
+        const result = await raftLeader.awaitConsensus(proposal.id);
+        const elapsedMs = Date.now() - before;
+
+        await raftLeader.shutdown();
+        return { result, elapsedMs };
+      }
+
+      const flat = await runScenario();
+      const weighted = await runScenario(
+        new Map<string, number>([
+          ['leader', 0.05],
+          ['voter-a', 0.05],
+          ['voter-b', 0.05],
+          ['voter-c', 0.05],
+        ])
+      );
+
+      if (flat && weighted) {
+        expect(flat.result.approved).toBe(false);
+        expect(flat.elapsedMs).toBeLessThan(200); // resolved via explicit reject, not timeout
+        expect(weighted.result.approved).toBe(false);
+        expect(weighted.elapsedMs).toBeGreaterThanOrEqual(280); // only resolved via timeout/expiry
+      }
+    }, 15000);
+  });
+});

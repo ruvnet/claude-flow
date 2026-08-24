@@ -479,10 +479,13 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
 
   // ===== COORDINATION =====
 
-  async proposeConsensus(value: unknown): Promise<ConsensusResult> {
+  async proposeConsensus(
+    value: unknown,
+    weights?: Map<string, number>
+  ): Promise<ConsensusResult> {
     const startTime = performance.now();
 
-    const proposal = await this.consensusEngine.propose(value, this.state.id.id);
+    const proposal = await this.consensusEngine.propose(value, this.state.id.id, weights);
     const result = await this.consensusEngine.awaitConsensus(proposal.id);
 
     const duration = performance.now() - startTime;

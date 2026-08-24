@@ -214,6 +214,12 @@ export interface ConsensusProposal {
   timestamp: Date;
   votes: Map<string, ConsensusVote>;
   status: 'pending' | 'accepted' | 'rejected' | 'expired';
+  // Dream Cycle 2026-08-24 (swarm): optional per-voter weight for weighted
+  // consensus tallying (raft/byzantine/gossip). undefined, or a voterId
+  // missing from the map, falls back to weight 1 — byte-identical to the
+  // pre-existing flat one-vote-one-weight behavior when no weights are
+  // supplied. See queen-coordinator.ts weightedConsensus().
+  weights?: Map<string, number>;
 }
 
 export interface ConsensusVote {
@@ -487,7 +493,11 @@ export interface ITopologyManager {
 
 export interface IConsensusEngine {
   initialize(config: ConsensusConfig): Promise<void>;
-  propose(value: unknown, proposerId: string): Promise<ConsensusProposal>;
+  propose(
+    value: unknown,
+    proposerId: string,
+    weights?: Map<string, number>
+  ): Promise<ConsensusProposal>;
   vote(proposalId: string, vote: ConsensusVote): Promise<void>;
   getProposal(proposalId: string): ConsensusProposal | undefined;
   awaitConsensus(proposalId: string): Promise<ConsensusResult>;
@@ -535,7 +545,12 @@ export interface IUnifiedSwarmCoordinator {
   getAllTasks(): TaskDefinition[];
 
   // Coordination
-  proposeConsensus(value: unknown): Promise<ConsensusResult>;
+  // SECURITY (adversarial review, dream-cycle 2026-08-24): `weights` is a
+  // live lever over consensus outcomes, not inert metadata — only pass
+  // weights derived from trusted, internally-computed agent metrics (as
+  // QueenCoordinator.weightedConsensus() does). Never thread untrusted or
+  // externally-supplied values into this parameter.
+  proposeConsensus(value: unknown, weights?: Map<string, number>): Promise<ConsensusResult>;
   broadcastMessage(payload: unknown, priority?: Message['priority']): Promise<void>;
 
   // Monitoring

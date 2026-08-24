@@ -410,7 +410,7 @@ export interface ISwarmCoordinator {
     metrics: CoordinatorMetrics;
   };
   assignTaskToDomain(taskId: string, domain: AgentDomain): Promise<string | undefined>;
-  proposeConsensus(value: unknown): Promise<ConsensusResult>;
+  proposeConsensus(value: unknown, weights?: Map<string, number>): Promise<ConsensusResult>;
   broadcastMessage(payload: unknown, priority?: 'urgent' | 'high' | 'normal' | 'low'): Promise<void>;
 }
 
@@ -1807,8 +1807,15 @@ export class QueenCoordinator extends EventEmitter {
   }
 
   private async weightedConsensus(decision: Decision): Promise<ConsensusResult> {
-    // Weighted consensus based on agent performance
-    // For now, delegate to the standard consensus with metadata
+    // Weighted consensus based on agent performance (successRate * health).
+    // Dream Cycle 2026-08-24 (swarm): weights are now threaded to the real
+    // consensus engine via proposeConsensus()'s dedicated `weights` param,
+    // so raft/byzantine/gossip vote tallying actually uses them (previously
+    // `weights` only rode along inertly inside the opaque proposal value and
+    // was never applied — every 'weighted' decision tallied as flat
+    // majority, identical to the 'majority' path). The value payload shape
+    // is unchanged for backward compatibility with anything inspecting
+    // result.finalValue.
     const agents = this.swarm.getAllAgents();
     const weights = new Map<string, number>();
 
@@ -1817,12 +1824,15 @@ export class QueenCoordinator extends EventEmitter {
       weights.set(agent.id.id, weight);
     }
 
-    const result = await this.swarm.proposeConsensus({
-      decision,
-      weights: Object.fromEntries(weights),
-      threshold: 0.51,
-      timeout: this.config.consensusTimeouts.majority,
-    });
+    const result = await this.swarm.proposeConsensus(
+      {
+        decision,
+        weights: Object.fromEntries(weights),
+        threshold: 0.51,
+        timeout: this.config.consensusTimeouts.majority,
+      },
+      weights
+    );
 
     return result;
   }
