@@ -270,8 +270,11 @@ export class HNSWIndex extends EventEmitter {
       ? this.quantizer.encode(vector)
       : vector;
 
-    // Pre-normalize vector for O(1) cosine similarity
-    const normalizedVector = this.config.metric === 'cosine'
+    // Pre-normalize vector for O(1) cosine similarity.
+    // Skipped for product quantization: storedVector holds PQ centroid
+    // indices, not embedding coordinates, so normalizing it is meaningless
+    // (and productQuantizeDistance() below never consults normalizedVector).
+    const normalizedVector = this.config.metric === 'cosine' && !this.isProductQuantized()
       ? this.normalizeVector(storedVector)
       : null;
 
@@ -335,8 +338,9 @@ export class HNSWIndex extends EventEmitter {
       ? this.quantizer.encode(query)
       : query;
 
-    // Pre-normalize query for O(1) cosine similarity
-    const normalizedQuery = this.config.metric === 'cosine'
+    // Pre-normalize query for O(1) cosine similarity (see addPoint() for why
+    // this is skipped under product quantization).
+    const normalizedQuery = this.config.metric === 'cosine' && !this.isProductQuantized()
       ? this.normalizeVector(queryVector)
       : null;
 
@@ -993,7 +997,49 @@ export class HNSWIndex extends EventEmitter {
     }
   }
 
+  /**
+   * True when this index uses product quantization with trained codebooks.
+   * Stored vectors are then PQ centroid indices, not embedding coordinates —
+   * generic metric distances (cosine/euclidean/dot/manhattan) computed
+   * directly on those indices are meaningless (index 5 vs index 200 has no
+   * relation to embedding-space proximity). Falls back to false during the
+   * pre-training bootstrap window (see Quantizer.productQuantize()), where
+   * stored vectors are still sub-vector-mean floats and generic distance,
+   * while imprecise, is not nonsensical — matching prior behavior exactly.
+   */
+  private isProductQuantized(): boolean {
+    return (
+      this.quantizer !== null &&
+      this.config.quantization?.type === 'product' &&
+      this.quantizer.isPQTrained
+    );
+  }
+
   private distance(a: Float32Array, b: Float32Array): number {
+    // Pre-existing, disclosed limitation (not introduced by this fix): any
+    // vector added before PQ codebook training completes is stored under a
+    // sub-vector-mean fallback encoding (see Quantizer.productQuantize())
+    // and is never re-encoded once training finishes — the original raw
+    // vector isn't retained. isValidPQEncoding() is a *plausibility*
+    // heuristic, not a proof of provenance: it structurally guards the
+    // crash/out-of-bounds case (fallback values outside codebook range, or
+    // non-integer), but a fallback encoding whose sub-vector means
+    // coincidentally land on small non-negative integers (most concretely,
+    // an all-zero or otherwise degenerate vector added pre-training) can
+    // still pass the check and be silently mis-dispatched to
+    // productQuantizeDistance() as if it were a real centroid assignment.
+    // Closing this fully would need per-node encoding-provenance tracking
+    // (e.g. a sentinel/flag threaded through HNSWNode and its persistence
+    // format), out of scope for this patch — flagged as a known residual
+    // risk, not treated as fully solved.
+    if (
+      this.isProductQuantized() &&
+      this.quantizer!.isValidPQEncoding(a) &&
+      this.quantizer!.isValidPQEncoding(b)
+    ) {
+      return this.quantizer!.productQuantizeDistance(a, b);
+    }
+
     switch (this.config.metric) {
       case 'cosine':
         return this.cosineDistance(a, b);
@@ -1312,14 +1358,17 @@ class Quantizer {
    * Compute approximate squared Euclidean distance between two PQ-encoded
    * vectors using their centroid indices and the shared codebooks.
    *
-   * @param encoded1 - Centroid indices for vector 1 (length = numSubquantizers)
+   * @param encoded1 - Centroid indices for vector 1 (length = numSubquantizers).
+   *   Typed Float32Array to match productQuantize()'s actual return type —
+   *   indices are small integers (0..codebookSize-1) exactly representable
+   *   in float32.
    * @param encoded2 - Centroid indices for vector 2 (length = numSubquantizers)
    * @param codebooks - Trained codebooks from trainProductQuantizer()
    * @returns Approximate squared Euclidean distance
    */
   productQuantizeDistance(
-    encoded1: Uint8Array,
-    encoded2: Uint8Array,
+    encoded1: Float32Array,
+    encoded2: Float32Array,
     codebooks?: number[][][],
   ): number {
     const cb = codebooks || this.codebooks;
@@ -1411,6 +1460,23 @@ class Quantizer {
    */
   getCodebooks(): number[][][] | null {
     return this.codebooks;
+  }
+
+  /**
+   * True when `encoded` looks like a real trained-codebook PQ encoding
+   * (length matches numSubquantizers, every value is a non-negative integer
+   * in range for its sub-quantizer's codebook). False for the pre-training
+   * sub-vector-mean fallback (see productQuantize()), which cannot be
+   * compared via productQuantizeDistance() without corrupting results or
+   * indexing out of bounds.
+   */
+  isValidPQEncoding(encoded: Float32Array): boolean {
+    if (!this.codebooks || encoded.length !== this.codebooks.length) return false;
+    for (let m = 0; m < encoded.length; m++) {
+      const idx = encoded[m];
+      if (!Number.isInteger(idx) || idx < 0 || idx >= this.codebooks[m].length) return false;
+    }
+    return true;
   }
 }
 
