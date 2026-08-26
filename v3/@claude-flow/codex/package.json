@@ -101,7 +101,8 @@
     "inquirer": "^9.2.0",
     "yaml": "^2.4.0",
     "toml": "^3.0.0",
-    "@iarna/toml": "^2.2.5"
+    "@iarna/toml": "^2.2.5",
+    "@claude-flow/security": "3.0.0-alpha.14"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",

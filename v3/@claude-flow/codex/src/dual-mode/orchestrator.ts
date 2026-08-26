@@ -8,6 +8,13 @@ import { EventEmitter } from 'events';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as TOML from '@iarna/toml';
+import {
+  generateCallerIdentityKey,
+  issueInvocationToken,
+  isMcpCallerAuthEnabled,
+  encodeTokenEnvelope,
+  type CallerIdentityKey,
+} from '@claude-flow/security';
 
 export interface WorkerCapabilityEnvelope {
   actions?: string[];
@@ -78,6 +85,10 @@ export class DualModeOrchestrator extends EventEmitter {
   private config: Required<DualModeConfig>;
   private workers: Map<string, WorkerResult> = new Map();
   private processes: Map<string, ChildProcess> = new Map();
+  /** Lazily generated, cached for the life of this orchestrator instance — one
+   * keypair signs every worker's token, never regenerated per spawn. Only
+   * touched when `isMcpCallerAuthEnabled()` is true. */
+  private callerIdentityKey?: CallerIdentityKey;
 
   constructor(config: DualModeConfig) {
     super();
@@ -592,7 +603,9 @@ Remember: Other agents depend on your results in shared memory. Be concise and s
     for (const [name, value] of Object.entries(process.env)) {
       if (sensitive.test(name)
         || name.startsWith('CLAUDE_FLOW_POLICY_')
-        || name === 'CLAUDE_FLOW_PRINCIPAL_ID') continue;
+        || name === 'CLAUDE_FLOW_PRINCIPAL_ID'
+        || name === 'CLAUDE_FLOW_MCP_INVOCATION_TOKEN'
+        || name === 'CLAUDE_FLOW_MCP_CALLER_PUBKEY') continue;
       env[name] = value;
     }
     env.FORCE_COLOR = '0';
@@ -601,6 +614,41 @@ Remember: Other agents depend on your results in shared memory. Be concise and s
     env.CLAUDE_FLOW_CAPABILITY_ENVELOPE = JSON.stringify(
       this.resolveWorkerEnvelope(worker),
     );
+    // ADR-377 Phase 3 (dream-cycle candidate, 2026-08-26) — off by default.
+    // When caller-auth is enabled, back the freshly-set CLAUDE_FLOW_PRINCIPAL_ID
+    // above with an Ed25519-signed InvocationToken only this orchestrator (the
+    // private-key holder) could have minted, so policy-runtime can verify the
+    // worker's identity instead of trusting the plain env var. Set *after* the
+    // strip loop, same pattern as CLAUDE_FLOW_PRINCIPAL_ID itself, so it is
+    // never accidentally stripped by the sensitive-name filter above.
+    //
+    // Scope trade-off (deliberate, see mcp-caller-identity.ts's file header
+    // and this file's docstring for the fuller rationale): InvocationToken
+    // was designed short-lived (30s) and single-tool-bound. A worker process
+    // has no live channel back to the orchestrator to re-request a token
+    // before every MCP call, so instead we mint ONE token per worker spawn,
+    // TTL'd to the orchestrator's own per-worker timeout (the same value
+    // already used for the capability envelope's expiresAt, above), and
+    // toolName '*' — a wildcard sentinel meaning "not bound to one tool"
+    // (verified below without an `opts.toolName`, so the tool-mismatch check
+    // is simply not exercised for this use case). Net effect: the token
+    // behaves as a worker-lifetime capability credential, not a strict
+    // per-call one. What IS retained: a process that never received this
+    // signed token cannot forge one, so it cannot impersonate
+    // `agent:<workerId>`. What is NOT retained: if a worker process is
+    // itself compromised mid-run, the token does not limit blast radius to
+    // one call — it remains valid for the rest of the worker's lifetime.
+    if (isMcpCallerAuthEnabled()) {
+      this.callerIdentityKey ??= generateCallerIdentityKey();
+      const token = issueInvocationToken(
+        `agent:${worker.id}`,
+        '*',
+        this.callerIdentityKey,
+        { ttlMs: this.config.timeout },
+      );
+      env.CLAUDE_FLOW_MCP_INVOCATION_TOKEN = encodeTokenEnvelope(token);
+      env.CLAUDE_FLOW_MCP_CALLER_PUBKEY = this.callerIdentityKey.publicKeyHex;
+    }
     return env;
   }
 

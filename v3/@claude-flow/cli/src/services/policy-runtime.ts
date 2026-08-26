@@ -1,6 +1,10 @@
 import {
   AgenticPolicyEngine,
   createLegacyCompatibleState,
+  isMcpCallerAuthEnabled,
+  decodeTokenEnvelope,
+  publicKeyFromHex,
+  verifyInvocationToken,
   type BudgetLimit,
   type CapabilityEnvelope,
   type PolicyApproval,
@@ -303,6 +307,72 @@ export async function verifyPolicyLedger(projectRoot = process.cwd()): Promise<R
   return withPolicyTransaction(projectRoot, (engine) => engine.verifyLedger());
 }
 
+/**
+ * Resolve the caller identity for `authorizeMcpTool`.
+ *
+ * ADR-377 Phase 3 (dream-cycle candidate, 2026-08-26) — off by default. By
+ * default (`isMcpCallerAuthEnabled()` false), this reproduces the exact
+ * pre-existing two-line behavior: the plain, unsigned `CLAUDE_FLOW_PRINCIPAL_ID`
+ * env var is trusted outright. That is the byte-identical-when-disabled
+ * requirement for this candidate — nothing about this branch's shape or
+ * output changes when the flag is off.
+ *
+ * When the flag is on, `CLAUDE_FLOW_PRINCIPAL_ID` alone is no longer
+ * sufficient — any process can set an arbitrary env var with zero proof.
+ * Instead this requires (and verifies) an Ed25519-signed `InvocationToken`
+ * that only a private-key holder (the DualModeOrchestrator that spawned this
+ * worker) could have minted, per `mcp-caller-identity.ts`. Missing, corrupt,
+ * forged, or expired tokens fail closed — this function throws rather than
+ * falling back to the unverified env var, matching the existing fail-closed
+ * pattern already used above in this function (`invalid-worker-capability-envelope`,
+ * `authoritative-worker-policy-root-unavailable`).
+ *
+ * Scope trade-off (deliberate — see mcp-caller-identity.ts's file header and
+ * orchestrator.ts's `workerEnvironment` for the fuller rationale): the token
+ * is minted once per worker spawn with a worker-lifetime TTL and a wildcard
+ * `toolName: '*'`, not the single-tool, 30s-TTL shape `InvocationToken` was
+ * originally designed for — so `opts.toolName` is deliberately not passed to
+ * `verifyInvocationToken` here, and the tool-mismatch check is not exercised
+ * for this use case. What this retains: a process that never received the
+ * signed token cannot forge one, so it cannot impersonate `agent:<workerId>`.
+ * What it does NOT retain: a compromised worker process can still use its
+ * own valid token for every MCP call for the rest of its lifetime — the
+ * token does not limit blast radius to a single call.
+ */
+function resolveMcpCallerIdentity(): { id: string; type: 'agent' | 'legacy' } {
+  if (!isMcpCallerAuthEnabled()) {
+    return {
+      id: process.env.CLAUDE_FLOW_PRINCIPAL_ID ?? 'legacy-cli',
+      type: process.env.CLAUDE_FLOW_PRINCIPAL_ID ? 'agent' : 'legacy',
+    };
+  }
+
+  const encodedToken = process.env.CLAUDE_FLOW_MCP_INVOCATION_TOKEN;
+  const publicKeyHex = process.env.CLAUDE_FLOW_MCP_CALLER_PUBKEY;
+  if (!encodedToken || !publicKeyHex) {
+    throw new Error('mcp-caller-auth-enabled-but-no-token');
+  }
+
+  const token = decodeTokenEnvelope(encodedToken);
+  if (!token) {
+    throw new Error('mcp-caller-auth-enabled-but-no-token');
+  }
+
+  let publicKey;
+  try {
+    publicKey = publicKeyFromHex(publicKeyHex);
+  } catch {
+    throw new Error('mcp-caller-auth-enabled-but-no-token');
+  }
+
+  const result = verifyInvocationToken(token, publicKey, {});
+  if (!result.valid) {
+    throw new Error(`mcp-caller-auth-verification-failed:${result.reason}`);
+  }
+
+  return { id: token.callerId, type: 'agent' };
+}
+
 export async function authorizeMcpTool(
   toolName: string,
   input: Record<string, unknown>,
@@ -346,10 +416,7 @@ export async function authorizeMcpTool(
     }
   }
   return evaluatePolicyRequest({
-    identity: {
-      id: process.env.CLAUDE_FLOW_PRINCIPAL_ID ?? 'legacy-cli',
-      type: process.env.CLAUDE_FLOW_PRINCIPAL_ID ? 'agent' : 'legacy',
-    },
+    identity: resolveMcpCallerIdentity(),
     action: {
       type: attributes.actionType ?? 'mcp.tool.call',
       resource: toolName,

@@ -20,6 +20,11 @@ import {
   loadSwarmAutomationConfig,
 } from '../src/dual-mode/index.js';
 import type { WorkerConfig } from '../src/dual-mode/index.js';
+import {
+  decodeTokenEnvelope,
+  publicKeyFromHex,
+  verifyInvocationToken,
+} from '@claude-flow/security';
 
 describe('parseWorkerSpecs', () => {
   it('parses a single spec into a WorkerConfig', () => {
@@ -260,6 +265,63 @@ describe('DualModeOrchestrator', () => {
     } finally {
       delete process.env.CLAUDE_FLOW_POLICY_SIGNING_KEY;
       delete process.env.OPENROUTER_API_KEY;
+    }
+  });
+
+  // ADR-377 Phase 3 (dream-cycle candidate, 2026-08-26) — worker-lifetime
+  // InvocationToken issuance, off by default. See workerEnvironment's inline
+  // comment for the deliberate single-tool-binding trade-off (toolName '*').
+  it('does not set MCP invocation-token env vars when caller-auth is disabled (default)', () => {
+    delete process.env.CLAUDE_FLOW_MCP_CALLER_AUTH;
+    const environment = (orch() as unknown as {
+      workerEnvironment(worker: WorkerConfig): NodeJS.ProcessEnv;
+    }).workerEnvironment({
+      id: 'plain-worker',
+      platform: 'codex',
+      role: 'reviewer',
+      prompt: 'review',
+      readOnly: true,
+    });
+    expect(environment.CLAUDE_FLOW_MCP_INVOCATION_TOKEN).toBeUndefined();
+    expect(environment.CLAUDE_FLOW_MCP_CALLER_PUBKEY).toBeUndefined();
+    expect(environment.CLAUDE_FLOW_PRINCIPAL_ID).toBe('agent:plain-worker');
+  });
+
+  it('mints a worker-lifetime InvocationToken when caller-auth is enabled, and it round-trips through verifyInvocationToken', () => {
+    process.env.CLAUDE_FLOW_MCP_CALLER_AUTH = 'true';
+    try {
+      const orchestrator = new DualModeOrchestrator({ projectPath: '/tmp', timeout: 45_000 }) as unknown as {
+        workerEnvironment(worker: WorkerConfig): NodeJS.ProcessEnv;
+      };
+      const worker: WorkerConfig = {
+        id: 'signed-worker',
+        platform: 'codex',
+        role: 'coder',
+        prompt: 'implement',
+      };
+      const environment = orchestrator.workerEnvironment(worker);
+      const encodedToken = environment.CLAUDE_FLOW_MCP_INVOCATION_TOKEN;
+      const publicKeyHex = environment.CLAUDE_FLOW_MCP_CALLER_PUBKEY;
+      expect(encodedToken).toBeDefined();
+      expect(publicKeyHex).toBeDefined();
+
+      const token = decodeTokenEnvelope(encodedToken!);
+      expect(token).toBeDefined();
+      expect(token!.callerId).toBe('agent:signed-worker');
+      // Wildcard sentinel — deliberately not tool-bound (see file header).
+      expect(token!.toolName).toBe('*');
+      // TTL reuses the orchestrator's own per-worker timeout, not a new default.
+      expect(token!.expiresAt - token!.issuedAt).toBe(45_000);
+
+      const publicKey = publicKeyFromHex(publicKeyHex!);
+      expect(verifyInvocationToken(token!, publicKey, {})).toEqual({ valid: true });
+
+      // A second worker spawned from the same orchestrator reuses the cached
+      // keypair (both tokens verify against the same emitted public key).
+      const secondEnvironment = orchestrator.workerEnvironment({ ...worker, id: 'signed-worker-2' });
+      expect(secondEnvironment.CLAUDE_FLOW_MCP_CALLER_PUBKEY).toBe(publicKeyHex);
+    } finally {
+      delete process.env.CLAUDE_FLOW_MCP_CALLER_AUTH;
     }
   });
 

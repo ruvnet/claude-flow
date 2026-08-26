@@ -5,6 +5,7 @@ import { tmpdir, userInfo } from 'node:os';
 import { createHash, createHmac } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import {
+  authorizeMcpTool,
   autoMigratePolicyStateIfNeeded,
   classifyMcpTool,
   evaluatePolicyRequest,
@@ -16,6 +17,11 @@ import {
   verifyPolicyLedger,
 } from '../src/services/policy-runtime.js';
 import { callMCPTool } from '../src/mcp-client.js';
+import {
+  encodeTokenEnvelope,
+  generateCallerIdentityKey,
+  issueInvocationToken,
+} from '@claude-flow/security';
 
 const roots: Array<{ root: string; trust: string }> = [];
 function project(): string {
@@ -36,6 +42,10 @@ afterEach(() => {
   }
   delete process.env.CLAUDE_FLOW_POLICY_APPROVERS;
   delete process.env.CLAUDE_FLOW_CAPABILITY_ENVELOPE;
+  delete process.env.CLAUDE_FLOW_MCP_CALLER_AUTH;
+  delete process.env.CLAUDE_FLOW_PRINCIPAL_ID;
+  delete process.env.CLAUDE_FLOW_MCP_INVOCATION_TOKEN;
+  delete process.env.CLAUDE_FLOW_MCP_CALLER_PUBKEY;
 });
 
 describe('policy runtime compatibility and transactions', () => {
@@ -288,5 +298,79 @@ describe('policy runtime compatibility and transactions', () => {
     expect(decisions.filter((decision) => decision.enforcedOutcome === 'denied')).toHaveLength(5);
     expect(loadPolicyState(root).usage[0]?.costUsd).toBeCloseTo(1);
     expect(await verifyPolicyLedger(root)).toEqual({ valid: true, length: 10 });
+  });
+});
+
+// ADR-377 Phase 3 (dream-cycle candidate, 2026-08-26) — MCP caller-identity
+// binding for `authorizeMcpTool`. `CLAUDE_FLOW_MCP_CALLER_AUTH` is off by
+// default; scenario 1 below is the "attack succeeds" baseline that exists
+// today (and continues to exist when the flag stays off, by design — see
+// resolveMcpCallerIdentity's docstring in policy-runtime.ts). Scenarios 2-5
+// are the candidate behavior once the flag is enabled.
+describe('authorizeMcpTool: caller identity spoofing (ADR-377 Phase 3)', () => {
+  it('[baseline] caller-auth disabled: an unverified CLAUDE_FLOW_PRINCIPAL_ID is trusted outright', async () => {
+    const root = project();
+    process.env.CLAUDE_FLOW_PRINCIPAL_ID = 'agent:victim-worker';
+    // CLAUDE_FLOW_MCP_CALLER_AUTH intentionally left unset.
+    await expect(authorizeMcpTool('memory_search', {}, { projectRoot: root })).resolves.toBeDefined();
+    const receipts = loadPolicyState(root).receipts;
+    expect(receipts.at(-1)?.payload.request.identity).toEqual({ id: 'agent:victim-worker', type: 'agent' });
+  });
+
+  it('[candidate] caller-auth enabled, no token presented: fails closed', async () => {
+    const root = project();
+    process.env.CLAUDE_FLOW_MCP_CALLER_AUTH = 'true';
+    process.env.CLAUDE_FLOW_PRINCIPAL_ID = 'agent:victim-worker';
+    // No CLAUDE_FLOW_MCP_INVOCATION_TOKEN / CLAUDE_FLOW_MCP_CALLER_PUBKEY set.
+    await expect(authorizeMcpTool('memory_search', {}, { projectRoot: root }))
+      .rejects.toThrow('mcp-caller-auth-enabled-but-no-token');
+  });
+
+  it('[candidate] caller-auth enabled, forged token (wrong signing key): rejected as bad-signature', async () => {
+    const root = project();
+    process.env.CLAUDE_FLOW_MCP_CALLER_AUTH = 'true';
+    process.env.CLAUDE_FLOW_PRINCIPAL_ID = 'agent:victim-worker';
+
+    const realKey = generateCallerIdentityKey();
+    const attackerKey = generateCallerIdentityKey();
+    // Token signed by attackerKey, but presented alongside realKey's public key
+    // — the signature will not verify against the presented key.
+    const token = issueInvocationToken('agent:worker-7', '*', attackerKey);
+    process.env.CLAUDE_FLOW_MCP_INVOCATION_TOKEN = encodeTokenEnvelope(token);
+    process.env.CLAUDE_FLOW_MCP_CALLER_PUBKEY = realKey.publicKeyHex;
+
+    await expect(authorizeMcpTool('memory_search', {}, { projectRoot: root }))
+      .rejects.toThrow('mcp-caller-auth-verification-failed:bad-signature');
+  });
+
+  it('[candidate] caller-auth enabled, expired token: rejected as expired', async () => {
+    const root = project();
+    process.env.CLAUDE_FLOW_MCP_CALLER_AUTH = 'true';
+    process.env.CLAUDE_FLOW_PRINCIPAL_ID = 'agent:victim-worker';
+
+    const key = generateCallerIdentityKey();
+    const token = issueInvocationToken('agent:worker-7', '*', key, { ttlMs: -1 });
+    process.env.CLAUDE_FLOW_MCP_INVOCATION_TOKEN = encodeTokenEnvelope(token);
+    process.env.CLAUDE_FLOW_MCP_CALLER_PUBKEY = key.publicKeyHex;
+
+    await expect(authorizeMcpTool('memory_search', {}, { projectRoot: root }))
+      .rejects.toThrow('mcp-caller-auth-verification-failed:expired');
+  });
+
+  it('[candidate] caller-auth enabled, legitimate token: succeeds and the verified token wins over a disagreeing env var', async () => {
+    const root = project();
+    process.env.CLAUDE_FLOW_MCP_CALLER_AUTH = 'true';
+    // Deliberately disagrees with the token's callerId, to prove the token
+    // — not the env var — decides the identity that reaches the policy engine.
+    process.env.CLAUDE_FLOW_PRINCIPAL_ID = 'agent:victim-worker';
+
+    const key = generateCallerIdentityKey();
+    const token = issueInvocationToken('agent:worker-7', '*', key, { ttlMs: 300_000 });
+    process.env.CLAUDE_FLOW_MCP_INVOCATION_TOKEN = encodeTokenEnvelope(token);
+    process.env.CLAUDE_FLOW_MCP_CALLER_PUBKEY = key.publicKeyHex;
+
+    await expect(authorizeMcpTool('memory_search', {}, { projectRoot: root })).resolves.toBeDefined();
+    const receipts = loadPolicyState(root).receipts;
+    expect(receipts.at(-1)?.payload.request.identity).toEqual({ id: 'agent:worker-7', type: 'agent' });
   });
 });
