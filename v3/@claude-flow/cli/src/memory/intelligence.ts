@@ -363,10 +363,16 @@ class LocalSonaCoordinator {
             const proposedConfidence = Math.min(1.0, oldConfidence + this.config.loraLearningRate * reward);
             // Use computeConfidencePenalty (averages the full Fisher diagonal),
             // not getPenalty([oldConf],[newConf]) — that call shape collapses
-            // to fisherDiag[0] only (Math.min(1,1,384) === 1), making every
-            // pattern's forgetting-penalty identical regardless of its own
-            // embedding. computeConfidencePenalty exists precisely for this
+            // to fisherDiag[0] only (Math.min(1,1,384) === 1), an arbitrary
+            // single dimension instead of the full accumulated Fisher signal.
+            // computeConfidencePenalty exists precisely for this
             // scalar-confidence case (see its docstring) but was unwired.
+            // Note: neither call shape differentiates between patterns — both
+            // take only a confidence delta, not a per-pattern embedding, so
+            // two patterns with the same delta under the same consolidator
+            // state get the same penalty either way. This fix corrects which
+            // shared Fisher signal informs that penalty; it does not add
+            // per-pattern discrimination (see ewc-distill-confidence-gate.test.ts).
             const penalty = ewcConsolidator.computeConfidencePenalty(oldConfidence, proposedConfidence);
             totalEwcPenalty += penalty;
 
