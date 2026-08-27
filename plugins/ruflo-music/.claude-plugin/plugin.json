@@ -1,0 +1,24 @@
+{
+  "name": "ruflo-music",
+  "description": "AI music generation via Cognitum Music (cogmusic MCP) — compose lyrics/prompts, generate tracks, separate stems, extract MIDI, and master through your own music.cognitum.one account",
+  "version": "0.1.0",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/cognitum-one/minimax-music",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "music",
+    "cogmusic",
+    "cognitum",
+    "mcp",
+    "audio",
+    "generation",
+    "minimax-music3",
+    "stems",
+    "midi",
+    "mastering"
+  ]
+}

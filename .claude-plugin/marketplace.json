@@ -195,6 +195,11 @@
       "name": "ruflo-business-pods",
       "source": "./plugins/ruflo-business-pods",
       "description": "Business-domain pod templates for the federated business autopilot (ADR-164 Phase 2) — pod templates plus a dry-run-by-default single-tick runner that validates, reserves budget, and resolves agent roles before posting to the BBS room"
+    },
+    {
+      "name": "ruflo-music",
+      "source": "./plugins/ruflo-music",
+      "description": "AI music generation via Cognitum Music (cogmusic MCP) — compose lyrics/prompts, generate tracks, separate stems, extract MIDI, and master through your own music.cognitum.one account"
     }
   ]
 }
