@@ -318,6 +318,42 @@ describe('HybridBackend - ADR-009', () => {
       const keys = results.map((r) => r.key).sort();
       expect(keys).toEqual(['fusion-sem-fav', 'fusion-struct-fav']);
     });
+
+    // Review (PR #3119): malformed weights previously had undefined ranking
+    // semantics (NaN poisons the sort comparator, negative/Infinity invert
+    // or swamp the intended ordering). Each malformed component now falls
+    // back to its own default (0.7 semantic / 0.3 structured) — same
+    // ranking as the semantic-heavy default, since 0.7 > 0.3.
+    it.each([
+      ['NaN semantic weight', { semantic: NaN, structured: 0.3 }],
+      ['negative semantic weight', { semantic: -5, structured: 0.3 }],
+      ['Infinity structured weight', { semantic: 0.7, structured: Infinity }],
+    ])('falls back to default weighting for a malformed weight (%s)', async (_label, weights) => {
+      expect(await fusedTopKey(weights)).toBe('fusion-sem-fav');
+    });
+
+    it('breaks exact rrf ties deterministically by entry id, not iteration order', async () => {
+      // weights of 0/0 make every entry's rrf contribution 0 — a genuine
+      // tie between both entries, not just a coincidentally-close score.
+      const results = await backend.queryHybrid({
+        semantic: {
+          content: QUERY_CONTENT,
+          k: 5,
+          threshold: 0.01,
+          filters: { namespace: 'fusion-test' },
+        },
+        structured: {
+          namespace: 'fusion-test',
+          keyPrefix: 'fusion-',
+          limit: 5,
+        },
+        combineStrategy: 'union',
+        weights: { semantic: 0, structured: 0 },
+      });
+      expect(results.map((r) => r.key)).toEqual(
+        ['fusion-sem-fav', 'fusion-struct-fav'].sort((a, b) => a.localeCompare(b))
+      );
+    });
   });
 
   describe('CRUD Operations', () => {

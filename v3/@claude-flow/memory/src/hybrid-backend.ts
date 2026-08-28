@@ -689,22 +689,41 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   ): MemoryEntry[] {
     const RRF_K = 60; // matches smart-retrieval.ts's applyRRF default
 
+    // Review (PR #3119): an unvalidated malformed weight (NaN, negative,
+    // Infinity) gives RRF undefined ranking semantics — NaN poisons every
+    // sum it touches (breaking the sort comparator below), a negative
+    // weight silently inverts that arm's intended preference, and
+    // Infinity swamps the other arm outright. Sanitize per-component: any
+    // non-finite or negative value falls back to that component's own
+    // documented default rather than failing the whole hybrid query (this
+    // mirrors `weights` itself already being optional with a default —
+    // a malformed field degrades the same way a missing one does).
+    const safeWeight = (value: number, fallback: number): number =>
+      Number.isFinite(value) && value >= 0 ? value : fallback;
+    const safeWeights = {
+      semantic: safeWeight(weights.semantic, 0.7),
+      structured: safeWeight(weights.structured, 0.3),
+    };
+
     const fused = new Map<string, { entry: MemoryEntry; rrf: number }>();
 
     semanticScored.forEach(({ entry }, rank) => {
-      const contribution = weights.semantic * (1 / (RRF_K + rank + 1));
+      const contribution = safeWeights.semantic * (1 / (RRF_K + rank + 1));
       const existing = fused.get(entry.id);
       fused.set(entry.id, { entry, rrf: (existing?.rrf ?? 0) + contribution });
     });
 
     structuredResults.forEach((entry, rank) => {
-      const contribution = weights.structured * (1 / (RRF_K + rank + 1));
+      const contribution = safeWeights.structured * (1 / (RRF_K + rank + 1));
       const existing = fused.get(entry.id);
       fused.set(entry.id, { entry, rrf: (existing?.rrf ?? 0) + contribution });
     });
 
+    // Review (PR #3119): break rrf ties deterministically by entry.id
+    // rather than relying on Array.sort's stability + Map insertion order
+    // (semantic-arm-first) as an undocumented accident of iteration order.
     return Array.from(fused.values())
-      .sort((a, b) => b.rrf - a.rrf)
+      .sort((a, b) => b.rrf - a.rrf || a.entry.id.localeCompare(b.entry.id))
       .map((r) => r.entry);
   }
 
