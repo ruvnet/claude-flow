@@ -361,6 +361,21 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
    * Routes to AgentDB for HNSW-based vector search
    */
   async querySemantic(query: SemanticQuery): Promise<MemoryEntry[]> {
+    const scored = await this.querySemanticScored(query);
+    return scored.map((r) => r.entry);
+  }
+
+  /**
+   * Semantic vector search, preserving each result's similarity score.
+   *
+   * `querySemantic()` above flattens to `MemoryEntry[]`, discarding score —
+   * fine for callers that only need entries, but `queryHybrid()`'s weighted
+   * fusion (`combineWeighted`) needs the score to survive, so it calls this
+   * variant directly instead.
+   */
+  private async querySemanticScored(
+    query: SemanticQuery
+  ): Promise<Array<{ entry: MemoryEntry; score: number }>> {
     this.stats.agentdbQueries++;
 
     let embedding = query.embedding;
@@ -380,26 +395,26 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
       filters: query.filters as MemoryQuery | undefined,
     });
 
-    let entries = searchResults.map((r) => r.entry);
+    let scored = searchResults.map((r) => ({ entry: r.entry, score: r.score }));
 
     // Apply tag/namespace/type filters that AgentDB may not enforce
     if (query.filters) {
       const f = query.filters as Record<string, unknown>;
       if (f.tags && Array.isArray(f.tags)) {
         const requiredTags = f.tags as string[];
-        entries = entries.filter((e) =>
-          requiredTags.every((t) => e.tags.includes(t))
+        scored = scored.filter((r) =>
+          requiredTags.every((t) => r.entry.tags.includes(t))
         );
       }
       if (f.namespace && typeof f.namespace === 'string') {
-        entries = entries.filter((e) => e.namespace === f.namespace);
+        scored = scored.filter((r) => r.entry.namespace === f.namespace);
       }
       if (f.type && typeof f.type === 'string' && f.type !== 'semantic') {
-        entries = entries.filter((e) => e.type === f.type);
+        scored = scored.filter((r) => r.entry.type === f.type);
       }
     }
 
-    return entries.slice(0, query.k || 10);
+    return scored.slice(0, query.k || 10);
   }
 
   /**
@@ -412,16 +427,20 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
     const strategy = query.combineStrategy || 'semantic-first';
     const weights = query.weights || { semantic: 0.7, structured: 0.3 };
 
-    // Execute both queries in parallel
-    const [semanticResults, structuredResults] = await Promise.all([
-      this.querySemantic(query.semantic),
+    // Execute both queries in parallel. The scored semantic variant is
+    // needed for weighted fusion (combineWeighted); other strategies only
+    // need plain entries, derived from the same result rather than
+    // querying AgentDB twice.
+    const [semanticScored, structuredResults] = await Promise.all([
+      this.querySemanticScored(query.semantic),
       query.structured ? this.queryStructured(query.structured) : Promise.resolve([]),
     ]);
+    const semanticResults = semanticScored.map((r) => r.entry);
 
     // Combine results based on strategy
     switch (strategy) {
       case 'union':
-        return this.combineUnion(semanticResults, structuredResults);
+        return this.combineWeighted(semanticScored, structuredResults, weights);
 
       case 'intersection':
         return this.combineIntersection(semanticResults, structuredResults);
@@ -433,7 +452,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
         return this.combineStructuredFirst(semanticResults, structuredResults);
 
       default:
-        return this.combineUnion(semanticResults, structuredResults);
+        return this.combineWeighted(semanticScored, structuredResults, weights);
     }
   }
 
@@ -654,23 +673,39 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   }
 
   /**
-   * Combine results using union (all unique results)
+   * Weighted union: fuses semantic + structured results via reciprocal-rank
+   * fusion (RRF), each arm scaled by its `weights` multiplier before
+   * summation — the same shape documented for Azure AI Search/Qdrant/
+   * Weaviate (a per-arm weight applied to that arm's RRF contribution,
+   * not a raw-score blend, since SQLite's structured results carry no
+   * similarity score comparable to AgentDB's). Dream Cycle 2026-08-28:
+   * `weights` used to be computed by the caller and discarded — this is
+   * the fusion that actually consumes it.
    */
-  private combineUnion(
-    semanticResults: MemoryEntry[],
-    structuredResults: MemoryEntry[]
+  private combineWeighted(
+    semanticScored: Array<{ entry: MemoryEntry; score: number }>,
+    structuredResults: MemoryEntry[],
+    weights: { semantic: number; structured: number }
   ): MemoryEntry[] {
-    const seen = new Set<string>();
-    const combined: MemoryEntry[] = [];
+    const RRF_K = 60; // matches smart-retrieval.ts's applyRRF default
 
-    for (const entry of [...semanticResults, ...structuredResults]) {
-      if (!seen.has(entry.id)) {
-        seen.add(entry.id);
-        combined.push(entry);
-      }
-    }
+    const fused = new Map<string, { entry: MemoryEntry; rrf: number }>();
 
-    return combined;
+    semanticScored.forEach(({ entry }, rank) => {
+      const contribution = weights.semantic * (1 / (RRF_K + rank + 1));
+      const existing = fused.get(entry.id);
+      fused.set(entry.id, { entry, rrf: (existing?.rrf ?? 0) + contribution });
+    });
+
+    structuredResults.forEach((entry, rank) => {
+      const contribution = weights.structured * (1 / (RRF_K + rank + 1));
+      const existing = fused.get(entry.id);
+      fused.set(entry.id, { entry, rrf: (existing?.rrf ?? 0) + contribution });
+    });
+
+    return Array.from(fused.values())
+      .sort((a, b) => b.rrf - a.rrf)
+      .map((r) => r.entry);
   }
 
   /**
