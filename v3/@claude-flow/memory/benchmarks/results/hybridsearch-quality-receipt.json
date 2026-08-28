@@ -1,0 +1,54 @@
+{
+  "generatedAt": "dream-cycle-2026-08-18",
+  "dim": 16,
+  "topK": 10,
+  "instancesPerCategory": 15,
+  "categories": {
+    "A-keyword-exact": {
+      "n": 15,
+      "baselineRecallAt10": 0,
+      "hybridRecallAt10": 0.8666666666666667,
+      "recallDelta": 0.8666666666666667,
+      "baselineMRR": 0,
+      "hybridMRR": 0.15746031746031747,
+      "mrrPairedT": 4.173979607959554,
+      "mrrMeanDiff": 0.15746031746031747
+    },
+    "B-paraphrase-semantic": {
+      "n": 15,
+      "baselineRecallAt10": 1,
+      "hybridRecallAt10": 0.8666666666666667,
+      "recallDelta": -0.1333333333333333,
+      "baselineMRR": 1,
+      "hybridMRR": 0.44888888888888895,
+      "mrrPairedT": -5.745014696183407,
+      "mrrMeanDiff": -0.5511111111111112
+    },
+    "C-entity": {
+      "n": 15,
+      "baselineRecallAt10": 0,
+      "hybridRecallAt10": 0.3333333333333333,
+      "recallDelta": 0.3333333333333333,
+      "baselineMRR": 0,
+      "hybridMRR": 0.3333333333333333,
+      "mrrPairedT": 2.64575131106459,
+      "mrrMeanDiff": 0.3333333333333333
+    },
+    "D-mixed-control": {
+      "n": 15,
+      "baselineRecallAt10": 1,
+      "hybridRecallAt10": 1,
+      "recallDelta": 0,
+      "baselineMRR": 1,
+      "hybridMRR": 1,
+      "mrrPairedT": 0,
+      "mrrMeanDiff": 0
+    }
+  },
+  "overall": {
+    "n": 60,
+    "baselineRecallAt10": 0.5,
+    "hybridRecallAt10": 0.7666666666666667,
+    "recallDelta": 0.2666666666666667
+  }
+}

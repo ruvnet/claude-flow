@@ -205,6 +205,18 @@ export interface ModelRouterConfig {
   enableCostOptimization: boolean;
   /** Prefer faster models when confidence is high (default: true) */
   preferSpeed: boolean;
+  /**
+   * Discounted Thompson sampling factor applied to every bucket/model's
+   * α/β on each recordOutcome call, BEFORE that call's own reward is added
+   * (Discounted TS — arXiv 2305.10718): `α ← γα`, `β ← γβ`. Range (0, 1];
+   * 1 = disabled (default — fully backward compatible with persisted
+   * `.swarm/model-router-state.json` state). γ<1 makes old routing history
+   * decay geometrically so the bandit recovers faster after a sustained
+   * shift in a model's real-world quality, instead of unbounded accumulated
+   * history permanently dominating the posterior. Mirrors the epsilon decay
+   * `q-learning-router.ts` already applies to its own exploration rate.
+   */
+  priorDecay: number;
 }
 
 /**
@@ -509,7 +521,14 @@ const DEFAULT_CONFIG: ModelRouterConfig = {
   autoSaveInterval: 1, // Save after every decision for CLI persistence
   enableCostOptimization: true,
   preferSpeed: true,
+  priorDecay: 1,
 };
+
+// Beta shape parameters must stay well clear of 0 for sampleGamma/sampleBeta
+// to remain numerically stable across a persisted, long-running state file —
+// see priorDecay's doc comment. Geometric decay alone (no reward added back)
+// would otherwise shrink an unused bucket/model's α,β toward 0 forever.
+const PRIOR_DECAY_FLOOR = 0.05;
 
 // Posterior mean of a Beta(α,β) prior — used by the #2250 escalation guard
 // to detect when the bandit has *learned* the escalation target is worse.
@@ -554,6 +573,17 @@ export class ModelRouter {
 
   constructor(config: Partial<ModelRouterConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    // priorDecay multiplies directly into persisted α/β (recordOutcome). An
+    // out-of-range value (NaN, <=0, >1 — e.g. a bad env/config parse) would
+    // silently poison `.swarm/model-router-state.json` forever: Math.max's
+    // NaN-poisoning bypasses sampleBeta's own alpha<=0||beta<=0 fallback, and
+    // a negative value pins every prior at PRIOR_DECAY_FLOOR on the very
+    // first call. Fall through to the safe default (1 = disabled) instead of
+    // throwing, matching this file's existing malformed-config idiom (see
+    // envMaxUncertainty above).
+    if (!Number.isFinite(this.config.priorDecay) || this.config.priorDecay <= 0 || this.config.priorDecay > 1) {
+      this.config.priorDecay = 1;
+    }
     this.state = this.loadState();
   }
 
@@ -1165,6 +1195,23 @@ export class ModelRouter {
     // Haiku-success > Sonnet-success > Opus-success (Opus on simple tasks
     // is wasteful even when correct). Failure/escalation always β++.
     if (!this.state.priors) this.state.priors = defaultBucketedPriors();
+
+    // Discounted Thompson sampling (priorDecay < 1): decay ALL bucket/model
+    // priors once per recordOutcome call, before this call's own reward is
+    // added — every routing decision is one discrete "time step" for every
+    // arm, not just the one that got pulled, matching the arXiv 2305.10718
+    // formulation. No-op when priorDecay is the default of 1.
+    if (this.config.priorDecay < 1) {
+      for (const bk of Object.keys(this.state.priors) as ComplexityBucket[]) {
+        const bucketPriors = this.state.priors[bk];
+        for (const m of Object.keys(bucketPriors) as ClaudeModel[]) {
+          const p = bucketPriors[m];
+          p.alpha = Math.max(PRIOR_DECAY_FLOOR, p.alpha * this.config.priorDecay);
+          p.beta = Math.max(PRIOR_DECAY_FLOOR, p.beta * this.config.priorDecay);
+        }
+      }
+    }
+
     const bp = this.state.priors[bucket] ?? (this.state.priors[bucket] = defaultBanditPriors());
     const reward = BANDIT_REWARDS[model]?.[outcome] ?? 0.5;
     bp[model].alpha += reward;

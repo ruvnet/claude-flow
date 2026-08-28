@@ -1,7 +1,11 @@
 /**
- * `proxy install` defaults to the reviewed, signed Meta-Proxy v0.4.0
- * release. `--release` remains an explicit override; the default must still
- * pass through the normal consent gate and signature-verifying installer.
+ * `proxy install` defaults to the reviewed, signed Meta-Proxy release pinned
+ * by `DEFAULT_PROXY_RELEASE`. `--release` remains an explicit override; the
+ * default must still pass through the normal consent gate and
+ * signature-verifying installer.
+ *
+ * These assertions read the pin from the module rather than hardcoding a
+ * version, so a bump cannot leave the tests asserting a stale release.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -48,15 +52,21 @@ describe('proxy install - pinned release default', () => {
     expect(hasConsent('proxy-install')).toBe(false);
   });
 
-  it('uses v0.4.0 when confirmed without a release override', async () => {
-    const installProxy = vi.fn().mockResolvedValue({ version: '0.4.0', binaryPath: '/tmp/meta-proxy', sha256: 'abc' });
+  it('uses the pinned release when confirmed without a release override', async () => {
+    const installProxy = vi.fn();
+    // Register the mock BEFORE importing proxy-lifecycle.js — that module
+    // imports the installer at load time, so importing it first binds the
+    // real one and the test performs an actual download.
     vi.doMock('../src/proxy/install.js', () => ({ installProxy, uninstallProxy: vi.fn() }));
+
+    const { DEFAULT_PROXY_RELEASE } = await import('../src/commands/proxy-lifecycle.js');
+    installProxy.mockResolvedValue({ version: DEFAULT_PROXY_RELEASE, binaryPath: '/tmp/meta-proxy', sha256: 'abc' });
 
     const installSub = await getInstallSub();
     const result = await installSub.action!(ctxWithFlags({ yes: true }));
 
     expect(result?.success).toBe(true);
-    expect(installProxy).toHaveBeenCalledWith(expect.objectContaining({ version: '0.4.0' }));
+    expect(installProxy).toHaveBeenCalledWith(expect.objectContaining({ version: DEFAULT_PROXY_RELEASE }));
   });
 
   it('honors an explicit release override', async () => {

@@ -69,16 +69,16 @@ mcp__claude-flow__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx claude-flow sparc run mcp "integrate with external API"
+npx @claude-flow/cli@latest sparc run mcp "integrate with external API"
 
 # For alpha features
 npx claude-flow@alpha sparc run mcp "integrate with external API"
 
 # With namespace
-npx claude-flow sparc run mcp "your task" --namespace mcp
+npx @claude-flow/cli@latest sparc run mcp "your task" --namespace mcp
 
 # Non-interactive mode
-npx claude-flow sparc run mcp "your task" --non-interactive
+npx @claude-flow/cli@latest sparc run mcp "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
@@ -110,8 +110,8 @@ mcp__claude-flow__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx claude-flow memory store "mcp_context" "important decisions" --namespace mcp
+npx @claude-flow/cli@latest memory store "mcp_context" "important decisions" --namespace mcp
 
 # Query previous work
-npx claude-flow memory query "mcp" --limit 5
+npx @claude-flow/cli@latest memory query "mcp" --limit 5
 ```

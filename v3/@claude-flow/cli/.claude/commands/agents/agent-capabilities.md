@@ -105,7 +105,7 @@ release-manager: mcp__github__*, mcp__claude-flow__workflow_*
 
 ```bash
 # List all capabilities for an agent type
-npx claude-flow agent spawn -t coder --help
+npx @claude-flow/cli@latest agent spawn -t coder --help
 
 # View agent definition
 cat .claude/agents/core/coder.md

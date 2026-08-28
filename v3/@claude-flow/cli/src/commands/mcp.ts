@@ -19,6 +19,8 @@ import {
   getMCPServerStatus,
   type MCPServerOptions,
   type MCPServerStatus,
+  filterAdvertisedMcpTools,
+  parseMcpToolSelection,
 } from '../mcp-server.js';
 import { listMCPTools, callMCPTool, hasTool, getToolMetadata } from '../mcp-client.js';
 
@@ -78,8 +80,7 @@ const startCommand: Command = {
     {
       name: 'tools',
       description: 'Tools to advertise (comma-separated categories, prefixes, exact names, or "all")',
-      type: 'string',
-      default: 'all'
+      type: 'string'
     },
     {
       name: 'daemon',
@@ -106,7 +107,9 @@ const startCommand: Command = {
     const port = (ctx.flags.port as number) ?? 3000;
     const host = (ctx.flags.host as string) ?? 'localhost';
     const transport = (ctx.flags.transport as 'stdio' | 'http' | 'websocket') ?? 'stdio';
-    const tools = (ctx.flags.tools as string) || 'all';
+    const tools = (ctx.flags.tools as string | undefined)
+      || process.env.CLAUDE_FLOW_MCP_TOOLS
+      || 'all';
     const daemon = (ctx.flags.daemon as boolean) ?? false;
     const force = (ctx.flags.force as boolean) ?? false;
 
@@ -227,7 +230,42 @@ const startCommand: Command = {
         output.writeln(output.dim('  Running in background mode'));
       }
 
-      return { success: true, data: status };
+      // #2984: this command is only reached via the "normal CLI mode" branch
+      // of bin/cli.js — i.e. every invocation NOT auto-detected as Claude
+      // Code's implicit piped-stdin MCP handshake (that path bypasses this
+      // action entirely and blocks on stdin forever, which is why it was
+      // unaffected). bin/cli.js unconditionally exits the process once this
+      // action's promise resolves (`cli.run().then(() => process.exit(0))`,
+      // #1552) — a design that assumed "mcp start never resolves" but this
+      // action DID resolve immediately after printing the table above, so
+      // the freshly-bound http/websocket listener (or the interactive-TTY
+      // stdio server) was torn down within milliseconds of the printed
+      // "Status: Running" claim. `daemonize` is not currently wired to
+      // actually fork/detach a background process (no branch reads it in
+      // MCPServerManager), so there is no real backgrounding path yet —
+      // every successful start here is a foreground server and must block
+      // until told to stop, matching `daemon start --foreground`'s
+      // established pattern in daemon.ts.
+      output.writeln();
+      output.writeln(output.dim('Press Ctrl+C to stop the server'));
+
+      let stopping = false;
+      const shutdown = async () => {
+        if (stopping) return;
+        stopping = true;
+        try { await manager.stop(); } catch { /* best-effort */ }
+        process.exit(0);
+      };
+      process.on('SIGINT', () => { void shutdown(); });
+      process.on('SIGTERM', () => { void shutdown(); });
+
+      // Ref'd handle so Node's event loop can't drain to empty even if some
+      // transport internals unref their own timers — same belt-and-suspenders
+      // as daemon.ts's foreground path (#1478).
+      setInterval(() => {}, 60_000);
+      await new Promise(() => {}); // Never resolves — server runs until killed.
+
+      return { success: true, data: status }; // unreachable, keeps the return type honest
     } catch (error) {
       output.printError(`Failed to start MCP server: ${(error as Error).message}`);
       return { success: false, exitCode: 1 };
@@ -419,7 +457,8 @@ const toolsCommand: Command = {
     let tools: Array<{ name: string; category: string; description: string; enabled: boolean }>;
 
     // Get tools from local registry
-    const registeredTools = listMCPTools(category);
+    const selection = parseMcpToolSelection(process.env.CLAUDE_FLOW_MCP_TOOLS);
+    const registeredTools = filterAdvertisedMcpTools(listMCPTools(category), selection);
 
     if (registeredTools.length > 0) {
       tools = registeredTools.map(tool => ({
@@ -430,7 +469,7 @@ const toolsCommand: Command = {
       }));
     } else {
       // Fallback to static tool list
-      tools = [
+      tools = filterAdvertisedMcpTools([
         // Agent tools
         { name: 'agent_spawn', category: 'agent', description: 'Spawn a new agent', enabled: true },
         { name: 'agent_list', category: 'agent', description: 'List all agents', enabled: true },
@@ -467,7 +506,7 @@ const toolsCommand: Command = {
         { name: 'system_info', category: 'system', description: 'System information', enabled: true },
         { name: 'system_health', category: 'system', description: 'Health status', enabled: true },
         { name: 'system_metrics', category: 'system', description: 'Server metrics', enabled: true },
-      ].filter(t => !category || t.category === category);
+      ].filter(t => !category || t.category === category), selection);
     }
 
     if (ctx.flags.format === 'json') {

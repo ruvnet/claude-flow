@@ -768,8 +768,8 @@ The `--add-missing` flag automatically detects and installs new skills, agents, 
 Add ruflo as an MCP server for seamless integration:
 
 ```bash
-# Add ruflo MCP server to Claude Code
-claude mcp add ruflo -- npx -y ruflo@latest mcp start
+# Add ruflo MCP server to Claude Code (canonical key is claude-flow — #2206)
+claude mcp add claude-flow -- npx -y ruflo@latest mcp start
 
 # Verify installation
 claude mcp list
@@ -1295,11 +1295,11 @@ Restart Claude Desktop after saving. Look for the MCP indicator (hammer icon) in
 <summary>⌨️ <strong>Claude Code (CLI)</strong></summary>
 
 ```bash
-# Add via CLI (recommended)
-claude mcp add ruflo -- npx ruflo@latest mcp start
+# Add via CLI (recommended; canonical key is claude-flow — #2206)
+claude mcp add claude-flow -- npx ruflo@latest mcp start
 
 # Or add with environment variables
-claude mcp add ruflo \
+claude mcp add claude-flow \
   --env ANTHROPIC_API_KEY=sk-ant-... \
   -- npx ruflo@latest mcp start
 

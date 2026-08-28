@@ -154,6 +154,7 @@ export class MCPServerManager extends EventEmitter {
   private server?: Server;
   private startTime?: Date;
   private healthCheckInterval?: NodeJS.Timeout;
+  private mcpServers: Array<{ stop(): Promise<void> }> = [];
 
   constructor(options: MCPServerOptions = {}) {
     super();
@@ -254,6 +255,12 @@ export class MCPServerManager extends EventEmitter {
           this.server!.close(() => resolve());
         });
         this.server = undefined;
+      }
+
+      if (this.mcpServers.length > 0) {
+        const servers = this.mcpServers;
+        this.mcpServers = [];
+        await Promise.all(servers.map((server) => server.stop()));
       }
 
       // Remove PID file
@@ -710,23 +717,57 @@ export class MCPServerManager extends EventEmitter {
       error: (msg: string, data?: unknown) => this.emit('log', { level: 'error', msg, data }),
     };
 
+    const { listMCPTools, callMCPTool } = await import('./mcp-client.js');
+    const fallbackSessionId = `http-${randomUUID()}`;
+    const cliTools = filterAdvertisedMcpTools(listMCPTools(), this.options.tools).map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+      category: tool.category,
+      tags: tool.tags,
+      version: tool.version,
+      cacheable: tool.cacheable,
+      cacheTTL: tool.cacheTTL,
+      handler: async (input: unknown, context?: { sessionId?: string }) => {
+        try {
+          const result = await callMCPTool(
+            tool.name,
+            (input as Record<string, unknown>) || {},
+            { sessionId: context?.sessionId || fallbackSessionId }
+          );
+          trackRequest(tool.name, true);
+          return result;
+        } catch (error) {
+          trackRequest(tool.name, false);
+          throw error;
+        }
+      },
+    }));
+
+    // Use one MCP server with two HTTP transports for the localhost default.
+    // Both loopback sockets therefore share sessions, tools, and notifications.
+    const dualLoopback = this.options.host === 'localhost';
     const mcpServer = createMCPServer(
       {
         name: 'Claude-Flow MCP Server V3',
         version: '3.0.0',
         transport: this.options.transport as 'http' | 'websocket',
-        host: this.options.host,
+        host: dualLoopback ? '127.0.0.1' : this.options.host,
+        additionalHosts: dualLoopback && this.options.transport === 'http' ? ['::1'] : undefined,
         port: this.options.port,
         enableMetrics: true,
         enableCaching: true,
       },
       logger
     );
-
+    const registration = mcpServer.registerTools(
+      cliTools as Parameters<typeof mcpServer.registerTools>[0]
+    );
+    if (registration.failed.length > 0) {
+      throw new Error(`Failed to register MCP tools: ${registration.failed.join(', ')}`);
+    }
     await mcpServer.start();
-
-    // Store reference for stopping
-    (this as any)._mcpServer = mcpServer;
+    this.mcpServers = [mcpServer];
   }
 
   /**

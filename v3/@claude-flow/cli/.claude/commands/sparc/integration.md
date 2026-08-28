@@ -35,16 +35,16 @@ mcp__claude-flow__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx claude-flow sparc run integration "connect payment service"
+npx @claude-flow/cli@latest sparc run integration "connect payment service"
 
 # For alpha features
 npx claude-flow@alpha sparc run integration "connect payment service"
 
 # With namespace
-npx claude-flow sparc run integration "your task" --namespace integration
+npx @claude-flow/cli@latest sparc run integration "your task" --namespace integration
 
 # Non-interactive mode
-npx claude-flow sparc run integration "your task" --non-interactive
+npx @claude-flow/cli@latest sparc run integration "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
@@ -76,8 +76,8 @@ mcp__claude-flow__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx claude-flow memory store "integration_context" "important decisions" --namespace integration
+npx @claude-flow/cli@latest memory store "integration_context" "important decisions" --namespace integration
 
 # Query previous work
-npx claude-flow memory query "integration" --limit 5
+npx @claude-flow/cli@latest memory query "integration" --limit 5
 ```

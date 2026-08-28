@@ -1,0 +1,15 @@
+/target
+# Session/agent tooling artifacts that land in the working dir — never source.
+*.rvf
+*.rvf.lock
+*.rvf.idmap.json
+*.db
+*.db-shm
+*.db-wal
+.claude-flow/
+.swarm/
+.ruvnet-brain/
+.ruvector/
+/pkg
+/pkg-nodejs
+/pkg-web

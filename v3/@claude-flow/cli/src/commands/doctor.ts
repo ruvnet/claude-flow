@@ -387,6 +387,40 @@ function isMemoryDbEncryptedAtRest(dbPath: string): boolean {
   }
 }
 
+/**
+ * Distinguish an unavailable native addon from a database that the native
+ * driver opened and found malformed. Importing better-sqlite3 can succeed even
+ * when its postinstall script was skipped: the JavaScript wrapper loads, then
+ * the first Database construction throws because better_sqlite3.node is absent
+ * or incompatible with the active Node ABI.
+ */
+function isNativeSqliteBindingUnavailable(error: unknown): boolean {
+  const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  return [
+    /Could not locate the bindings file/i,
+    /better_sqlite3\.node/i,
+    /NODE_MODULE_VERSION/i,
+    /compiled against a different Node\.js version/i,
+    /ERR_DLOPEN_FAILED/i,
+    /invalid ELF header/i,
+    /wrong ELF class/i,
+    /not a valid Win32 application/i,
+    /Module did not self-register/i,
+    /no suitable image found/i,
+  ].some((pattern) => pattern.test(message));
+}
+
+function nativeBindingUnavailableCheck(name: string, dbPath: string, error: unknown, suffix: string): HealthCheck {
+  const details = error instanceof Error ? error.message : String(error);
+  const summary = details.split(/\r?\n/, 1)[0].replace(/\s+Tried:\s*$/i, '');
+  return {
+    name,
+    status: 'warn',
+    message: `${dbPath} — better-sqlite3 package found, but its native binding is unavailable: ${summary} ${suffix}`,
+    fix: 'reinstall with npm install scripts enabled or run `npm rebuild better-sqlite3`; then rerun this check',
+  };
+}
+
 // #2737 part 1 — bare `doctor` (no --component flag) never actually opened
 // memory.db: checkMemoryDatabase above is existsSync()+statSync() only, so
 // it PASSES on any file that exists and can be stat'd, corrupt or not, and
@@ -443,8 +477,8 @@ async function checkMemoryStructuralIntegrity(): Promise<HealthCheck> {
     return {
       name: NAME,
       status: 'warn',
-      message: `${dbPath} — better-sqlite3 not installed; structural-only check skipped (optional native module)`,
-      fix: 'npm install better-sqlite3  (enables WAL-aware structural checks on every `doctor` run)',
+      message: `${dbPath} — better-sqlite3 not installed; native WAL-backed persistence and the structural-only check are unavailable`,
+      fix: 'install better-sqlite3 with npm install scripts enabled, then rerun this check',
     };
   }
 
@@ -452,6 +486,14 @@ async function checkMemoryStructuralIntegrity(): Promise<HealthCheck> {
   try {
     db = new Database(dbPath, { readonly: true, fileMustExist: true });
   } catch (e) {
+    if (isNativeSqliteBindingUnavailable(e)) {
+      return nativeBindingUnavailableCheck(
+        NAME,
+        dbPath,
+        e,
+        '[structural-only; durable WAL-backed persistence unavailable]',
+      );
+    }
     const msg = (e as Error).message || String(e);
     // Encryption already ruled out above — an unencrypted file
     // better-sqlite3 can't even open is definitive corruption.
@@ -495,6 +537,132 @@ async function checkMemoryStructuralIntegrity(): Promise<HealthCheck> {
   }
 }
 
+// #2968 option 1 — read-only doctor check for the active SQLite driver.
+//
+// Native better-sqlite3 (durable, WAL-capable) can silently degrade to the
+// sql.js WASM fallback (non-durable — `wal_checkpoint` calls are rejected
+// and the write is lost) when a postinstall script is skipped. `memory
+// store` still printed "Data stored successfully" before the persistWarning
+// fix in #2983/3.38.1 (see memory-store-persist-warning-2968.test.ts); this
+// check gives a standing, read-only signal so the driver split is visible
+// any time doctor runs, independent of any single store call.
+//
+// Table count in the on-disk memory.db is the cheap, reliable signal from
+// the issue report: the native driver's schema produces 47 tables, the
+// sql.js fallback's produces only 10. Deliberately does NOT change install
+// behavior (that's option 2 from #2968, explicitly out of scope here) —
+// this only reports, it never repairs.
+const MEMORY_DRIVER_NATIVE_TABLE_FLOOR = 20; // roughly midpoint of sql.js's ~10 and native's ~47
+
+async function checkMemoryPersistenceDriver(): Promise<HealthCheck> {
+  const NAME = 'Memory Persistence Driver';
+  const dbPath = await resolveMemoryDbPath();
+  if (!dbPath) {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: 'no memory.db found (see Memory Database Presence above) — driver check skipped',
+    };
+  }
+
+  if (isMemoryDbEncryptedAtRest(dbPath)) {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: `${dbPath} — RFE1-encrypted at rest; driver check can't run without decrypting (expected, not corruption)`,
+    };
+  }
+
+  let Database: any;
+  try {
+    Database = ((await import('better-sqlite3')) as any).default;
+  } catch {
+    Database = null;
+  }
+
+  let tableCount: number | null = null;
+  let nativeUnavailableReason: string | null = null;
+  let nativeOpenOtherError: string | null = null;
+
+  if (Database) {
+    let db: any;
+    try {
+      db = new Database(dbPath, { readonly: true, fileMustExist: true });
+    } catch (e) {
+      if (isNativeSqliteBindingUnavailable(e)) {
+        nativeUnavailableReason = ((e as Error).message || String(e)).split(/\r?\n/, 1)[0];
+      } else {
+        nativeOpenOtherError = (e as Error).message || String(e);
+      }
+      db = null;
+    }
+    if (db) {
+      try {
+        const row = db.prepare("SELECT count(*) AS c FROM sqlite_master WHERE type='table'").get() as { c: number };
+        tableCount = Number(row?.c ?? 0);
+      } catch {
+        // leave null — Memory Integrity above already reports open/query failures
+      } finally {
+        try { db.close(); } catch { /* best-effort */ }
+      }
+    }
+  } else {
+    nativeUnavailableReason = 'better-sqlite3 not installed';
+  }
+
+  // Fall back to sql.js purely to report table count when the native path
+  // couldn't — informational only, never used to claim durability.
+  if (tableCount === null && (nativeUnavailableReason || nativeOpenOtherError)) {
+    const sdb = await tryOpenSqlJs(dbPath);
+    if (sdb) {
+      try {
+        const res = sdb.exec("SELECT count(*) FROM sqlite_master WHERE type='table'");
+        tableCount = Number(res[0]?.values?.[0]?.[0] ?? 0);
+      } catch {
+        // leave null
+      } finally {
+        try { sdb.close(); } catch { /* best-effort */ }
+      }
+    }
+  }
+
+  const tableSummary = tableCount === null
+    ? 'table count unavailable'
+    : `${tableCount} tables (native schema ~47, sql.js-fallback schema ~10 — #2968)`;
+
+  if (nativeUnavailableReason) {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: `${dbPath} — active driver: sql.js (WASM fallback, non-durable) — native better-sqlite3 binding unavailable: ${nativeUnavailableReason} — wal_checkpoint calls silently no-op, writes may not persist across processes (#2968/#2867/#2219) [${tableSummary}]`,
+      fix: 'reinstall with npm install scripts enabled, or run `npm rebuild better-sqlite3`; then rerun this check',
+    };
+  }
+
+  if (nativeOpenOtherError) {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: `${dbPath} — native better-sqlite3 module loadable, but could not open this database (${nativeOpenOtherError}) — see Memory Integrity above for the corruption/encryption diagnosis [${tableSummary}]`,
+    };
+  }
+
+  if (tableCount !== null && tableCount < MEMORY_DRIVER_NATIVE_TABLE_FLOOR) {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: `${dbPath} — active driver: native better-sqlite3, but this database has only ${tableCount} tables — that matches the sql.js-fallback schema shape (~10), not the native schema (~47); it was likely created before the native binding became available, and durable writes made before then may be missing`,
+      fix: 'back up .swarm/memory.db then `claude-flow memory init --force` to rebuild under the native driver',
+    };
+  }
+
+  return {
+    name: NAME,
+    status: 'pass',
+    message: `${dbPath} — active driver: native better-sqlite3 (durable, WAL-capable) [${tableSummary}]`,
+  };
+}
+
 // Check 1 (--component memory, deep path) — #2737 part 2 strengthens this:
 // prefer native better-sqlite3 PRAGMA integrity_check (adds index↔table
 // cross-checking + UNIQUE verification that quick_check above deliberately
@@ -523,9 +691,9 @@ async function checkMemoryIntegrity(): Promise<HealthCheck> {
 
   // Prefer native better-sqlite3 (WAL-aware, full integrity_check). Module
   // load is isolated in its own try/catch so ONLY "not installed" falls
-  // through to the sql.js fallback below — once the module loaded, any
-  // open/query failure is resolved (fail) right here, not silently
-  // reclassified as "sql.js fallback, main-image-only" by an outer catch.
+  // through to the sql.js fallback below. A loaded JavaScript wrapper can
+  // still lack its native binding (#2968); that capability failure is a warn,
+  // while genuine open/query failures remain authoritative failures here.
   let Database: any;
   try {
     Database = ((await import('better-sqlite3')) as any).default;
@@ -538,6 +706,14 @@ async function checkMemoryIntegrity(): Promise<HealthCheck> {
     try {
       db = new Database(dbPath, { readonly: true, fileMustExist: true });
     } catch (e) {
+      if (isNativeSqliteBindingUnavailable(e)) {
+        return nativeBindingUnavailableCheck(
+          'Memory Integrity',
+          dbPath,
+          e,
+          '[native WAL-backed persistence unavailable]',
+        );
+      }
       const msg = (e as Error).message || String(e);
       return {
         name: 'Memory Integrity',
@@ -594,7 +770,12 @@ async function checkMemoryIntegrity(): Promise<HealthCheck> {
     const res = db.exec('PRAGMA integrity_check');
     const rows: string[] = res[0]?.values?.map((v: any[]) => String(v[0])) ?? [];
     if (rows.length === 1 && rows[0] === 'ok') {
-      return { name: 'Memory Integrity', status: 'pass', message: `${dbPath} — PRAGMA integrity_check: ok [main-image-only fallback — sql.js can't see WAL-only data; install better-sqlite3 for full coverage]` };
+      return {
+        name: 'Memory Integrity',
+        status: 'warn',
+        message: `${dbPath} — PRAGMA integrity_check: ok, but only for the main image [sql.js fallback; native WAL-backed persistence unavailable]`,
+        fix: 'install better-sqlite3 with npm install scripts enabled, then rerun this check',
+      };
     }
     return {
       name: 'Memory Integrity',
@@ -873,8 +1054,10 @@ async function checkApiKeys(): Promise<HealthCheck> {
     }
   }
 
-  // Detect Claude Code environment — API keys are managed internally
-  const inClaudeCode = !!(process.env.CLAUDE_CODE || process.env.CLAUDE_PROJECT_DIR || process.env.MCP_SESSION_ID);
+  // Detect Claude Code environment — API keys are managed internally.
+  // Claude Code sets CLAUDECODE (no underscore); CLAUDE_CODE is kept for
+  // compatibility with anything else that might set it.
+  const inClaudeCode = !!(process.env.CLAUDECODE || process.env.CLAUDE_CODE || process.env.CLAUDE_PROJECT_DIR || process.env.MCP_SESSION_ID);
 
   if (found.includes('ANTHROPIC_API_KEY') || found.includes('CLAUDE_API_KEY')) {
     return { name: 'API Keys', status: 'pass', message: `Found: ${found.join(', ')}` };
@@ -1809,6 +1992,71 @@ async function checkMetaharnessIntegration(): Promise<HealthCheck> {
   }
 }
 
+/**
+ * Dependency-contract check: every `@metaharness/*` package this CLI DECLARES
+ * in its own optionalDependencies must actually resolve at runtime. Declared
+ * packages are advertised integration surfaces (`ruflo metaharness evolve`,
+ * flywheel receipt interop, radio coordination) — a declared-but-absent
+ * package means the install dropped an optional dep (or the declaration
+ * regressed to peer-only), so the advertised integration silently degrades.
+ * That is a FAIL, not a warn: warn is reserved for surfaces that were never
+ * advertised as installed (the `npx metaharness` umbrella path above).
+ */
+async function checkMetaharnessDeclaredPackages(): Promise<HealthCheck> {
+  const NAME = 'MetaHarness declared packages (ADR-150)';
+  try {
+    // Walk up from this module to the CLI package root (works for npx cache,
+    // global install, project-local install, and monorepo dev alike).
+    let root: string | null = null;
+    let q = dirname(fileURLToPath(import.meta.url));
+    for (let i = 0; i < 8; i++) {
+      const pj = join(q, 'package.json');
+      if (existsSync(pj)) {
+        try {
+          if ((JSON.parse(readFileSync(pj, 'utf-8')) as { name?: string }).name === '@claude-flow/cli') { root = q; break; }
+        } catch { /* keep walking */ }
+      }
+      q = dirname(q);
+    }
+    if (!root) return { name: NAME, status: 'warn', message: 'could not locate the @claude-flow/cli package root' };
+
+    const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf-8')) as { optionalDependencies?: Record<string, string> };
+    const declared = Object.keys(pkg.optionalDependencies ?? {}).filter((n) => n === 'metaharness' || n.startsWith('@metaharness/'));
+    if (declared.length === 0) {
+      return {
+        name: NAME,
+        status: 'fail',
+        message: 'no @metaharness/* packages declared in optionalDependencies — the dependency contract regressed (peer-only declarations are never installed)',
+        fix: 'Restore @metaharness/darwin, @metaharness/flywheel, @metaharness/radio, @metaharness/turn-credit to optionalDependencies in @claude-flow/cli',
+      };
+    }
+
+    // Node resolution: nearest node_modules wins, walking upward from the CLI root.
+    const resolves = (name: string): boolean => {
+      let d = root as string;
+      for (let i = 0; i < 10; i++) {
+        if (existsSync(join(d, 'node_modules', name, 'package.json'))) return true;
+        const parent = dirname(d);
+        if (parent === d) break;
+        d = parent;
+      }
+      return false;
+    };
+    const missing = declared.filter((n) => !resolves(n));
+    if (missing.length > 0) {
+      return {
+        name: NAME,
+        status: 'fail',
+        message: `declared but not installed: ${missing.join(', ')} — advertised MetaHarness surfaces are degraded`,
+        fix: 'npm install --include=optional  # optional deps were skipped or pruned',
+      };
+    }
+    return { name: NAME, status: 'pass', message: `${declared.length} declared package(s) resolve: ${declared.join(', ')}` };
+  } catch (err) {
+    return { name: NAME, status: 'warn', message: `check failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
 async function checkMetaharness(): Promise<HealthCheck> {
   try {
     const version = await runCommand('npx -y metaharness@latest --version 2>&1', 15000);
@@ -2152,6 +2400,7 @@ export const doctorCommand: Command = {
       checkDaemonStatus,
       checkMemoryDatabase,
       checkMemoryStructuralIntegrity, // #2737 — bounded, native quick_check on every default run
+      checkMemoryPersistenceDriver, // #2968 — native better-sqlite3 vs sql.js fallback, read-only
       checkLearningBridge, // #2545 — can the auto-memory hook actually load @claude-flow/memory?
       checkApiKeys,
       checkMcpServers,
@@ -2163,6 +2412,7 @@ export const doctorCommand: Command = {
       checkEncryptionAtRest, // ADR-096 Phase 5
       checkFederationBreaker, // ADR-097 Phase 4
       checkMetaharness, // ADR-150 — MetaHarness upstream package
+      checkMetaharnessDeclaredPackages, // dependency contract — declared optional deps must resolve
       checkMetaharnessIntegration, // iter 45 — ruflo-side integration layer
       checkFunnel, // ADR-305 — effective funnel state + deciding precedence source
       checkProxySponsoredConsent, // ADR-313 — Meta LLM Proxy sponsored-downtime health
@@ -2189,6 +2439,7 @@ export const doctorCommand: Command = {
       'memory': [
         checkMemoryDatabase,         // existing: exists + statable (unchanged)
         checkMemoryIntegrity,        // #2677 check 1: sql.js open + PRAGMA integrity_check
+        checkMemoryPersistenceDriver, // #2968: native better-sqlite3 vs sql.js fallback
         checkMemoryContent,          // #2677 check 2: memory_entries content coverage
         checkMemoryEmbeddingCoverage, // #2677 check 3: vector coverage on populated rows
         checkMemoryReflexionCoverage, // #2677 check 6: episodes are retrievable
@@ -2206,7 +2457,7 @@ export const doctorCommand: Command = {
       'agentic-flow': checkAgenticFlow,
       'encryption': checkEncryptionAtRest, // ADR-096 Phase 5
       'federation': checkFederationBreaker, // ADR-097 Phase 4
-      'metaharness': checkMetaharness, // ADR-150 — upstream package
+      'metaharness': [checkMetaharness, checkMetaharnessDeclaredPackages, checkMetaharnessIntegration], // ADR-150 — upstream + declared deps + ruflo-side
       'metaharness-integration': checkMetaharnessIntegration, // iter 45 — ruflo-side
       'funnel': checkFunnel, // ADR-305
       // ADR-307 — deep-dive array, same pattern as 'memory' above: the cheap

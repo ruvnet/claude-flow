@@ -43,6 +43,21 @@ const ACTIVE_MEMORY_ROW_SQL = `(status = 'active' OR status IS NULL)`;
 let bridgeFailureReason: string | null = null;
 
 /**
+ * #3024: AgentDB's optional native controller stack can abort the whole Node
+ * process on Windows during registry initialization (a Rust allocation panic),
+ * which cannot be caught by JavaScript. Keep the CLI/MCP server on the
+ * sql.js + local-embedding path there until the native dependency is proven
+ * safe. Advanced users and CI can opt back in explicitly for diagnosis.
+ */
+export function shouldDisableNativeBridge(
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (env.CLAUDE_FLOW_DISABLE_BRIDGE === '1') return true;
+  return platform === 'win32' && env.CLAUDE_FLOW_ENABLE_NATIVE_BRIDGE_ON_WINDOWS !== '1';
+}
+
+/**
  * ADR-323: reuse memory-initializer's provenance-type allowlist rather than
  * duplicating it (drift risk). Lazy CJS require for the same circular-ESM-
  * dependency reason as getDbPath() below.
@@ -158,6 +173,12 @@ export function shouldSuppressInitLog(msg: string): boolean {
  * Returns null if @claude-flow/memory is not available.
  */
 async function getRegistry(dbPath?: string): Promise<any | null> {
+  if (shouldDisableNativeBridge()) {
+    bridgeFailureReason = process.platform === 'win32'
+      ? 'AgentDB native bridge disabled on Windows after #3024; set CLAUDE_FLOW_ENABLE_NATIVE_BRIDGE_ON_WINDOWS=1 to opt in'
+      : 'AgentDB native bridge disabled by CLAUDE_FLOW_DISABLE_BRIDGE=1';
+    return null;
+  }
   if (bridgeAvailable === false) return null;
 
   if (registryInstance) return registryInstance;
@@ -787,6 +808,13 @@ export async function bridgeStoreEntry(options: {
   cached?: boolean;
   attested?: boolean;
   error?: string;
+  /** #2968: set when the post-write checkpoint failed in a way that
+   *  indicates this connection may not durably persist writes at all
+   *  (the sql.js fallback driver, engaged when better-sqlite3's native
+   *  binding is missing). The write above still ran and `success` is
+   *  still true — this is advisory, not a failure — but callers should
+   *  surface it instead of only printing an unconditional success message. */
+  persistWarning?: string;
 } | null> {
   // ADR-323 — validated once in storeEntry() before this is reached on that
   // path, but bridgeStoreEntry() also has direct internal callers, so check
@@ -962,17 +990,43 @@ export async function bridgeStoreEntry(options: {
     // `sqlite3` vector count) then see a stale/empty main DB file and report
     // "0 vectors" / empty search. A PASSIVE checkpoint flushes committed pages
     // into the main file without blocking writers. Best-effort, never fatal.
+    let persistWarning: string | undefined;
     try {
       if (typeof ctx.db.pragma === 'function') {
         ctx.db.pragma('wal_checkpoint(PASSIVE)');
       }
-    } catch { /* non-WAL, busy, or unsupported — non-fatal */ }
+    } catch (checkpointErr) {
+      // #2968: on the sql.js fallback driver (engaged when better-sqlite3's
+      // native binding never got built — e.g. a skipped optionalDependency
+      // postinstall), this PRAGMA isn't implemented and throws "Invalid
+      // PRAGMA command". sql.js has no WAL journal to checkpoint at all, so
+      // this specific failure is the strongest signal available here that
+      // the insert above may exist only in this process's in-memory image
+      // and never reach disk — not the ordinary "non-WAL, busy, or
+      // unsupported" case the old blanket catch assumed. Surface it rather
+      // than swallow it silently; other pragma failures stay non-fatal.
+      const msg = checkpointErr instanceof Error ? checkpointErr.message : String(checkpointErr);
+      if (/Invalid PRAGMA/i.test(msg)) {
+        persistWarning = `sql.js fallback driver in use — this write may not be durably persisted to disk (${msg}). Install better-sqlite3's native binding to restore durable writes (see issue #2968: npm rebuild better-sqlite3, or reinstall with install scripts enabled).`;
+      }
+    }
 
-    // Phase 2: Write-through to TieredCache
+    // Phase 2: Invalidate cache so the next read fetches the fresh row.
+    //
+    // #3051 — this used to be a write-through with a partial payload
+    // (`{ id, key, namespace, content, embedding }` — missing `tags`,
+    // access_count, timestamps, metadata, provenance_type). Any read that
+    // hit the cache then returned `tags: cached.tags || []` = `[]` for the
+    // very entry that had just been written with real tags, so
+    // `memory_store({ tags })` → `memory_retrieve()` looked like it silently
+    // dropped tags. Invalidating instead of partial-cache-set forces the
+    // next `bridgeGetEntry` to load the authoritative row (which correctly
+    // parses tags/metadata from the JSON columns) and repopulate the cache
+    // from that full shape.
     const safeNs = String(namespace).replace(/:/g, '_');
     const safeKey = String(key).replace(/:/g, '_');
     const cacheKey = `entry:${safeNs}:${safeKey}`;
-    await cacheSet(registry, cacheKey, { id, key, namespace, content: value, embedding: embeddingJson });
+    await cacheInvalidate(registry, cacheKey);
 
     // Phase 4: AttestationLog write audit
     await logAttestation(registry, 'store', id, { key, namespace, hasEmbedding: !!embeddingJson });
@@ -985,6 +1039,7 @@ export async function bridgeStoreEntry(options: {
       guarded: true,
       cached: true,
       attested: true,
+      ...(persistWarning ? { persistWarning } : {}),
     };
   } catch (err) {
     // #2775: distinguish a data-level UNIQUE constraint violation (key
@@ -1089,10 +1144,17 @@ export async function bridgeSearchEntries(options: {
 
     let rows: any[];
     try {
+      // #2982/#2976: this pre-rank SELECT truncates the corpus to 1000 rows
+      // before BM25/embedding scoring runs. Without ORDER BY, SQLite returns
+      // rows in arbitrary storage order (effectively oldest-inserted-first at
+      // scale), so on any corpus over 1000 entries the newest — and often
+      // most relevant — rows never reach scoring at all. bridgeListEntries()
+      // already orders by updated_at DESC for the same reason; mirror it here.
       const stmt = ctx.db.prepare(`
         SELECT id, key, namespace, content, embedding, provenance_type
         FROM memory_entries
         WHERE ${ACTIVE_MEMORY_ROW_SQL} ${whereExtra}
+        ORDER BY updated_at DESC
         LIMIT 1000
       `);
       rows = filterParams.length > 0 ? stmt.all(...filterParams) : stmt.all();
@@ -1656,16 +1718,24 @@ export async function bridgeLoadEmbeddingModel(
 // ===== Phase 3: HNSW bridge =====
 
 /**
- * Get HNSW status from AgentDB v3's vector backend or HNSW index.
+ * Get vector search status from AgentDB v3's SQLite-backed store.
  * Returns null if unavailable.
+ *
+ * #2922: previously named `bridgeGetHNSWStatus` and unconditionally returned
+ * `available: true` whenever a DB connection succeeded — but the search this
+ * status describes (`bridgeSearchBruteForceCosine`, below) is a full-table
+ * SELECT + brute-force cosine scan, not an HNSW index lookup. Renamed and
+ * given an explicit `algorithm` field so callers can't mistake "vector
+ * search works" for "vector search is HNSW-accelerated".
  */
-export async function bridgeGetHNSWStatus(
+export async function bridgeGetVectorSearchStatus(
   dbPath?: string,
 ): Promise<{
   available: boolean;
   initialized: boolean;
   entryCount: number;
   dimensions: number;
+  algorithm: 'brute-force-cosine';
 } | null> {
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
@@ -1690,6 +1760,7 @@ export async function bridgeGetHNSWStatus(
       initialized: true,
       entryCount,
       dimensions: 384,
+      algorithm: 'brute-force-cosine',
     };
   } catch {
     return null;
@@ -1697,11 +1768,11 @@ export async function bridgeGetHNSWStatus(
 }
 
 /**
- * Search using AgentDB v3's embedder + SQLite entries.
- * This is the HNSW-equivalent search through the bridge.
- * Returns null if unavailable.
+ * Search AgentDB v3's embedder + SQLite entries via a full-table scan and
+ * brute-force cosine similarity. NOT HNSW-accelerated — see #2922. Returns
+ * null if unavailable.
  */
-export async function bridgeSearchHNSW(
+export async function bridgeSearchBruteForceCosine(
   queryEmbedding: number[],
   options?: { k?: number; namespace?: string; threshold?: number },
   dbPath?: string,
@@ -1727,10 +1798,14 @@ export async function bridgeSearchHNSW(
 
     let rows: any[];
     try {
+      // #2982/#2976: same unordered pre-rank truncation as bridgeSearchEntries
+      // above — without ORDER BY, a corpus over 10000 rows silently drops
+      // its newest entries before cosine scoring ever runs.
       const stmt = ctx.db.prepare(`
         SELECT id, key, namespace, content, embedding
         FROM memory_entries
         WHERE status = 'active' AND embedding IS NOT NULL ${nsFilter}
+        ORDER BY updated_at DESC
         LIMIT 10000
       `);
       rows = nsFilter
@@ -1772,10 +1847,11 @@ export async function bridgeSearchHNSW(
 }
 
 /**
- * Add entry to the bridge's database with embedding.
- * Returns null if unavailable.
+ * Add entry to the bridge's database with embedding. No HNSW index is built
+ * or updated here — see #2922; the embedding is only stored for a later
+ * brute-force scan. Returns null if unavailable.
  */
-export async function bridgeAddToHNSW(
+export async function bridgeAddEmbedding(
   id: string,
   embedding: number[],
   entry: { id: string; key: string; namespace: string; content: string },
@@ -2755,6 +2831,14 @@ export async function bridgeHealthCheck(
   controllers: Array<{ name: string; enabled: boolean; level: number }>;
   attestationCount?: number;
   cacheStats?: { size: number; hits: number; misses: number };
+  hierarchicalMemory?: {
+    controller: string;
+    durable: boolean;
+    persistence: string;
+    /** Real row count in the backing table — null when nothing is on disk. */
+    persistedRows: number | null;
+    fallbackFrom?: string;
+  };
 } | null> {
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
@@ -2777,7 +2861,19 @@ export async function bridgeHealthCheck(
       cacheStats = { size: s.size ?? 0, hits: s.hits ?? 0, misses: s.misses ?? 0 };
     }
 
-    return { available: true, controllers, attestationCount, cacheStats };
+    // #2887: cacheStats alone let a "successful" hierarchical-store coexist
+    // with an empty store. Report the backing table's real row count so the
+    // inconsistency is visible instead of inferred.
+    let hierarchicalMemory;
+    const hm = registry.get('hierarchicalMemory');
+    if (hm) {
+      hierarchicalMemory = {
+        ...describeHierarchicalStore(hm, getHierarchicalFallback(registry)),
+        persistedRows: typeof hm.countPersisted === 'function' ? hm.countPersisted() : null,
+      };
+    }
+
+    return { available: true, controllers, attestationCount, cacheStats, hierarchicalMemory };
   } catch {
     return null;
   }
@@ -2803,6 +2899,39 @@ export async function bridgeHealthCheck(
  *   temporal fields are stored in metadata, and supersede is reported as
  *   unsupported (no public update API) rather than silently dropped.
  */
+/**
+ * Describe which store `agentdb_hierarchical-*` actually landed on and
+ * whether its writes survive the process (#2887).
+ *
+ * agentdb removed its `HierarchicalMemory` export at 3.0.0-alpha.17, so the
+ * @claude-flow/memory TieredMemoryStore fallback is the live path. It is only
+ * durable when it was handed a SQLite connection — callers must not report a
+ * volatile write as a success.
+ */
+export function describeHierarchicalStore(
+  hm: any,
+  fallback: { reason: string } | null,
+): { controller: string; fallbackFrom?: string; durable: boolean; persistence: string } {
+  // Only the tiered fallback exposes isDurable(); the native controller
+  // (should agentdb reintroduce it) writes to agentdb's own tables.
+  if (typeof hm?.isDurable !== 'function') {
+    return { controller: 'hierarchicalMemory', durable: true, persistence: 'agentdb' };
+  }
+  return {
+    controller: 'tieredMemoryStore',
+    fallbackFrom: fallback?.reason ?? 'hierarchicalMemory',
+    durable: hm.isDurable() === true,
+    persistence: typeof hm.getPersistence === 'function' ? hm.getPersistence() : 'unknown',
+  };
+}
+
+/** Read `getHierarchicalFallback()` off a registry that may predate it. */
+function getHierarchicalFallback(registry: any): { reason: string } | null {
+  return typeof registry?.getHierarchicalFallback === 'function'
+    ? registry.getHierarchicalFallback()
+    : null;
+}
+
 export async function bridgeHierarchicalStore(params: {
   key: string; value: string; tier?: string; importance?: number;
   validFrom?: string; validUntil?: string; supersedes?: string;
@@ -2825,7 +2954,10 @@ export async function bridgeHierarchicalStore(params: {
         metadata,
         tags: [params.key],
       });
-      const result: any = { success: true, id, key: params.key, tier };
+      const result: any = {
+        success: true, id, key: params.key, tier,
+        controller: 'hierarchicalMemory', durable: true, persistence: 'agentdb',
+      };
       if (params.supersedes) {
         // No public update/invalidate API on agentdb HierarchicalMemory —
         // surface the limitation honestly instead of silently dropping it.
@@ -2834,17 +2966,28 @@ export async function bridgeHierarchicalStore(params: {
       }
       return result;
     }
-    // TieredMemoryStore fallback (temporal-aware) / legacy stub
+    // TieredMemoryStore fallback (temporal-aware) / legacy stub.
+    // agentdb dropped its HierarchicalMemory export at 3.0.0-alpha.17, so
+    // this is the live path — and it is only trustworthy when the store is
+    // backed by SQLite. A volatile write must NOT report success (#2887).
     const storeResult = hm.store(params.key, params.value, tier, {
       validFrom: params.validFrom,
       validUntil: params.validUntil,
       supersedes: params.supersedes,
     });
-    if (storeResult && typeof storeResult === 'object') {
-      return { success: true, ...storeResult };
+    const info = describeHierarchicalStore(hm, getHierarchicalFallback(registry));
+    const base = {
+      ...info,
+      ...(storeResult && typeof storeResult === 'object' ? storeResult : { key: params.key, tier }),
+    };
+    if (!info.durable) {
+      return {
+        ...base,
+        success: false,
+        error: `hierarchical-store is running on the ${info.persistence} tiered fallback (${info.fallbackFrom}); the entry is NOT persisted to disk and will be lost when this process exits. Use memory_store for durable key-value persistence.`,
+      };
     }
-    // Legacy stub (returns void) — temporal options were ignored
-    return { success: true, key: params.key, tier };
+    return { success: true, ...base };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
@@ -2905,7 +3048,7 @@ export async function bridgeHierarchicalRecall(params: { query: string; tier?: s
     const filtered = params.tier
       ? results.filter((r: any) => r.tier === params.tier)
       : results;
-    return { results: filtered, controller: 'hierarchicalMemory' };
+    return { results: filtered, ...describeHierarchicalStore(hm, getHierarchicalFallback(registry)) };
   } catch (e: any) { return { results: [], error: e.message }; }
 }
 

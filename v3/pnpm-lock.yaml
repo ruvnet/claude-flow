@@ -44,7 +44,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/aidefence':
     dependencies:
@@ -110,7 +110,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/cli':
     dependencies:
@@ -121,8 +121,8 @@ importers:
         specifier: 3.0.3
         version: link:../codex
       '@claude-flow/mcp':
-        specifier: 3.0.0-alpha.8
-        version: 3.0.0-alpha.8
+        specifier: ^3.0.0-alpha.9
+        version: link:../mcp
       '@claude-flow/neural':
         specifier: 3.0.0-alpha.9
         version: link:../neural
@@ -138,21 +138,18 @@ importers:
       '@iarna/toml':
         specifier: ^2.2.5
         version: 2.2.5
-      '@metaharness/darwin':
-        specifier: ^0.8.0
-        version: 0.8.0
-      '@metaharness/flywheel':
-        specifier: ^0.1.7
-        version: 0.1.7
       '@metaharness/router':
-        specifier: ^0.3.2
-        version: 0.3.2
+        specifier: ^0.4.0
+        version: 0.4.0
       '@noble/ed25519':
         specifier: 2.3.0
         version: 2.3.0
       '@ruvector/rabitq-wasm':
         specifier: 0.1.0
         version: 0.1.0
+      ajv:
+        specifier: ^8.20.0
+        version: 8.20.0
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -162,9 +159,24 @@ importers:
       commander:
         specifier: ^12.0.0
         version: 12.1.0
+      cors:
+        specifier: ^2.8.5
+        version: 2.8.6
+      express:
+        specifier: '>=4.22.2'
+        version: 5.2.1
+      express-rate-limit:
+        specifier: '>=8.4.1'
+        version: 8.6.2(express@5.2.1)
+      fast-uri:
+        specifier: 3.1.5
+        version: 3.1.5
       fs-extra:
         specifier: ^11.2.0
         version: 11.3.3
+      helmet:
+        specifier: ^7.2.0
+        version: 7.2.0
       inquirer:
         specifier: ^9.2.0
         version: 9.3.8(@types/node@20.19.27)
@@ -194,8 +206,20 @@ importers:
         specifier: 2.0.0-alpha.5
         version: 2.0.0-alpha.5
       '@claude-flow/memory':
-        specifier: ^3.0.0-alpha.21
+        specifier: ^3.0.0-alpha.23
         version: link:../memory
+      '@metaharness/darwin':
+        specifier: ~0.9.0
+        version: 0.9.0
+      '@metaharness/flywheel':
+        specifier: ~0.1.10
+        version: 0.1.10
+      '@metaharness/radio':
+        specifier: ~0.1.0
+        version: 0.1.0
+      '@metaharness/turn-credit':
+        specifier: ~0.1.0
+        version: 0.1.0
       '@napi-rs/keyring':
         specifier: 1.3.0
         version: 1.3.0
@@ -212,6 +236,9 @@ importers:
         specifier: ^0.2.27
         version: 0.2.27(zod@3.25.76)
     devDependencies:
+      tsx:
+        specifier: ^4.19.0
+        version: 4.21.0
       typescript:
         specifier: ^5.3.0
         version: 5.9.3
@@ -262,7 +289,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/deployment':
     dependencies:
@@ -275,7 +302,7 @@ importers:
         version: 25.0.2(typescript@5.9.3)
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/embeddings':
     dependencies:
@@ -325,7 +352,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/hooks':
     dependencies:
@@ -360,7 +387,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/integration':
     dependencies:
@@ -387,6 +414,9 @@ importers:
       express:
         specifier: '>=4.22.2'
         version: 5.2.1
+      express-rate-limit:
+        specifier: ^8.4.1
+        version: 8.6.2(express@5.2.1)
       helmet:
         specifier: ^7.1.0
         version: 7.2.0
@@ -405,7 +435,7 @@ importers:
         version: 8.18.1
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/memory':
     dependencies:
@@ -457,7 +487,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/plugin-agent-federation':
     dependencies:
@@ -507,7 +537,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/plugins':
     dependencies:
@@ -535,7 +565,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/providers':
     dependencies:
@@ -560,7 +590,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/security':
     dependencies:
@@ -580,7 +610,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/shared':
     dependencies:
@@ -614,7 +644,7 @@ importers:
         version: 7.2.0
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
       ws:
         specifier: ^8.16.0
         version: 8.19.0
@@ -626,7 +656,7 @@ importers:
     devDependencies:
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
 
   '@claude-flow/testing':
     devDependencies:
@@ -644,7 +674,9 @@ importers:
         version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+
+  '@claude-flow/watermark': {}
 
 packages:
 
@@ -875,20 +907,6 @@ packages:
   /@borewit/text-codec@0.2.1:
     resolution: {integrity: sha512-k7vvKPbf7J2fZ5klGRD9AeKfUvojuZIQ3BT5u7Jfv+puwXkUBUT5PVyMDfJZpy30CBDXGMgw7fguK/lpOMBvgw==}
     requiresBuild: true
-
-  /@claude-flow/mcp@3.0.0-alpha.8:
-    resolution: {integrity: sha512-lP1t8GMWDl9RxnwMZrjMukZkyglhge7Znhj1PbUiUQ94kHcN+dAxUkA75HM1n7BONbIDcE/CS8qN2ril5KgzNg==}
-    dependencies:
-      ajv: 8.18.0
-      cors: 2.8.6
-      express: 5.2.1
-      helmet: 7.2.0
-      ws: 8.21.1
-    transitivePeerDependencies:
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-    dev: false
 
   /@claude-flow/shared@3.0.0-alpha.7:
     resolution: {integrity: sha512-5iehTHguBFjlyZqy+fRoKfZVL/nFeE93A94nUUKJvu8y7AmhfpVqtQAZbmKztwQGJ5rv7iBb3Kwl1MUo3K5QkA==}
@@ -1752,16 +1770,24 @@ packages:
     hasBin: true
     dev: false
 
-  /@metaharness/darwin@0.8.0:
-    resolution: {integrity: sha512-Pgefr/es0Btofh7GxQrOAg/i43ZKcLUfeD9rndOAkpA8s3ZYohSmfLerJLNsGOOKc2eTvmmauljl8QEVmKC2dw==}
+  /@metaharness/darwin@0.9.0:
+    resolution: {integrity: sha512-X/u0sI4QNFi/YUhcQwZ2hcmthgc3H3n4PdPoKMbAE/y+rUWOQCS9oc1wqCcUysBN5K0jHV7U+3QApdMFvwKvRQ==}
     engines: {node: '>=20.0.0'}
     hasBin: true
     requiresBuild: true
     dev: false
+    optional: true
 
-  /@metaharness/flywheel@0.1.7:
-    resolution: {integrity: sha512-am7dROkjyS1Zkms3TOcn2LVHjwMLQXPJ6Pu1aP55q40vWJLRONGdGvnrcBL/VhMFqjQrVB57lmSn2E+s5CSZwA==}
+  /@metaharness/flywheel@0.1.10:
+    resolution: {integrity: sha512-yrLXDXNdf4jKqHlW6QZw3Cy5T0eMMjjaPqn1XB717/Xx/y0Iv9R03W0OhMEiR/kfqMNebRBW1fi6D7inStEyqA==}
+    requiresBuild: true
     dev: false
+
+  /@metaharness/radio@0.1.0:
+    resolution: {integrity: sha512-m1GCeGCbjo7h5OLMCgb2VZFbhY6aHP5x28q0j/AFqXRWwStt5/Z+sWMuGNaNKVtnB7PGueNbtVoxLzMQ53rrFg==}
+    requiresBuild: true
+    dev: false
+    optional: true
 
   /@metaharness/redblue@0.1.4:
     resolution: {integrity: sha512-JaAk6bs3xA7Ks5RnAcZoxI3WfzpYL+Bk262SCI07w82BDOA7C6VxwGM63F7b86lRTKUVjTEnSqf7QZ3uyElT/g==}
@@ -1769,8 +1795,8 @@ packages:
     hasBin: true
     dev: false
 
-  /@metaharness/router@0.3.2:
-    resolution: {integrity: sha512-LQElU6mUrWd3ffJ5bwoonEIgw7oFQZpwZaehffyl/Pg+iozpRjIBPEXdb4uTOBnKH+yPiTEWKc+h9AiZr9Os9w==}
+  /@metaharness/router@0.4.0:
+    resolution: {integrity: sha512-VOfjHM7AMWwDH41AAMHOHFbH1r898xJqhqyE3G/r8OAxxrMgujX2SZsYkj/eXfBEmoPMhDVRkuO2abxvzCgEUA==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@ruvector/tiny-dancer': ^0.1.21
@@ -1778,6 +1804,13 @@ packages:
       '@ruvector/tiny-dancer':
         optional: true
     dev: false
+
+  /@metaharness/turn-credit@0.1.0:
+    resolution: {integrity: sha512-A752c0eEYEVodBB8HLOaSvcUMA65TX6/Cru2apZ7EE7aL2FSO74GFbgFWPo85bgqgNuMjhHkl/kG+lkC0TunNA==}
+    engines: {node: '>=20.0.0'}
+    requiresBuild: true
+    dev: false
+    optional: true
 
   /@metaharness/weight-eft@0.1.1:
     resolution: {integrity: sha512-GSg0APPAbRK93OzrzlE+R8hfEK+I5+Zhmh0Z28RC9Mk5/MjhPo3shqINO7ye8VPGYHIO4rars9FwCWbe/V4cEQ==}
@@ -1796,8 +1829,8 @@ packages:
         optional: true
     dependencies:
       '@hono/node-server': 1.19.7(hono@4.12.11)
-      ajv: 8.18.0
-      ajv-formats: 3.0.1(ajv@8.18.0)
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
       cors: 2.8.6
       cross-spawn: 7.0.6
@@ -1827,15 +1860,15 @@ packages:
         optional: true
     dependencies:
       '@hono/node-server': 1.19.9(hono@4.12.11)
-      ajv: 8.18.0
-      ajv-formats: 3.0.1(ajv@8.18.0)
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
       cors: 2.8.6
       cross-spawn: 7.0.6
       eventsource: 3.0.7
       eventsource-parser: 3.0.6
       express: 5.2.1
-      express-rate-limit: 8.3.2(express@5.2.1)
+      express-rate-limit: 8.6.2(express@5.2.1)
       hono: 4.12.11
       jose: 6.1.3
       json-schema-typed: 8.0.2
@@ -1857,15 +1890,15 @@ packages:
         optional: true
     dependencies:
       '@hono/node-server': 1.19.9(hono@4.12.11)
-      ajv: 8.18.0
-      ajv-formats: 3.0.1(ajv@8.18.0)
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
       cors: 2.8.6
       cross-spawn: 7.0.6
       eventsource: 3.0.7
       eventsource-parser: 3.0.6
       express: 5.2.1
-      express-rate-limit: 8.3.2(express@5.2.1)
+      express-rate-limit: 8.6.2(express@5.2.1)
       hono: 4.12.11
       jose: 6.1.3
       json-schema-typed: 8.0.2
@@ -6757,7 +6790,7 @@ packages:
     dependencies:
       '@rolldown/pluginutils': 1.0.0-beta.47
       '@swc/core': 1.15.8
-      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
+      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)(yaml@2.8.2)
     transitivePeerDependencies:
       - '@swc/helpers'
     dev: false
@@ -6781,7 +6814,7 @@ packages:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
+      vitest: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
     dev: true
 
   /@vitest/expect@4.1.8:
@@ -6809,7 +6842,7 @@ packages:
       '@vitest/spy': 4.1.8
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
+      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)(yaml@2.8.2)
     dev: true
 
   /@vitest/pretty-format@4.1.8:
@@ -7026,7 +7059,7 @@ packages:
       argon2: 0.44.0
       bcrypt: 6.0.0
       better-sqlite3: 12.9.0
-      express-rate-limit: 8.3.2(express@5.2.1)
+      express-rate-limit: 8.6.2(express@5.2.1)
       helmet: 8.1.0
       hnswlib-node: 3.0.0
       sharp: 0.32.6
@@ -7060,7 +7093,7 @@ packages:
       '@ruvector/router': 0.1.30
       '@ruvector/ruvllm': 2.6.0
       '@ruvector/sona': 0.1.8
-      ajv: 8.18.0
+      ajv: 8.20.0
       chalk: 5.6.2
       cli-table3: 0.6.5
       commander: 12.1.0
@@ -7087,7 +7120,7 @@ packages:
       argon2: 0.44.0
       bcrypt: 6.0.0
       better-sqlite3: 12.9.0
-      express-rate-limit: 8.3.2(express@5.2.1)
+      express-rate-limit: 8.6.2(express@5.2.1)
       helmet: 8.1.0
       hnswlib-node: 3.0.0
       sharp: 0.32.6
@@ -7112,7 +7145,7 @@ packages:
       '@modelcontextprotocol/sdk': 1.27.1(zod@3.25.76)
       '@opentelemetry/api': 1.9.1
       '@ruvector/graph-transformer': 2.0.4
-      ajv: 8.18.0
+      ajv: 8.20.0
       jsonwebtoken: 9.0.3
       sql.js: 1.14.1
     optionalDependencies:
@@ -7232,7 +7265,7 @@ packages:
       tailwindcss-animate: 1.0.7(tailwindcss@4.1.18)
       tiktoken: 1.0.22
       ulid: 3.0.2
-      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
+      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)(yaml@2.8.2)
       ws: 8.21.1
       yaml: 2.8.2
       zod: 3.25.76
@@ -7554,7 +7587,7 @@ packages:
       clean-stack: 5.3.0
       indent-string: 5.0.0
 
-  /ajv-formats@3.0.1(ajv@8.18.0):
+  /ajv-formats@3.0.1(ajv@8.20.0):
     resolution: {integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==}
     peerDependencies:
       ajv: ^8.0.0
@@ -7562,7 +7595,7 @@ packages:
       ajv:
         optional: true
     dependencies:
-      ajv: 8.18.0
+      ajv: 8.20.0
 
   /ajv@6.12.6:
     resolution: {integrity: sha512-j3fVLgvTo527anyYyJOGTYJbG+vnnQYvE0m5mmkc1TK+nxAppkCLMIL0aZ4dblVCNoGShhm+kzE4ZUykBoMg4g==}
@@ -7577,16 +7610,16 @@ packages:
     resolution: {integrity: sha512-B/gBuNg5SiMTrPkC+A2+cW0RszwxYmn6VYxB/inlBStS5nx6xHIt/ehKRhIMhqusl7a8LjQoZnjCs5vhwxOQ1g==}
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.0
+      fast-uri: 3.1.5
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
     dev: false
 
-  /ajv@8.18.0:
-    resolution: {integrity: sha512-PlXPeEWMXMZ7sPYOHqmDyCJzcfNrUr3fGNKtezX14ykXOEIvyK81d+qydx89KY5O71FKMPaQ2vBfBFI5NHR63A==}
+  /ajv@8.20.0:
+    resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.0
+      fast-uri: 3.1.5
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
@@ -8870,15 +8903,17 @@ packages:
       express: 5.2.1
     dev: false
 
-  /express-rate-limit@8.3.2(express@5.2.1):
-    resolution: {integrity: sha512-77VmFeJkO0/rvimEDuUC5H30oqUC4EyOhyGccfqoLebB0oiEYfM7nwPrsDsBL1gsTpwfzX8SFy2MT3TDyRq+bg==}
+  /express-rate-limit@8.6.2(express@5.2.1):
+    resolution: {integrity: sha512-YH4ru+eOJxQABscKFfRCy9R7x9QFGdezclVMwwgFFndzS2Xnm0uo6B0ABZsLhcpeptGv2qvuJVWlQr9gQZoC3A==}
     engines: {node: '>= 16'}
-    requiresBuild: true
     peerDependencies:
       express: '>=4.22.2'
     dependencies:
+      debug: 4.4.3
       express: 5.2.1
-      ip-address: 10.1.0
+      ip-address: 10.5.0
+    transitivePeerDependencies:
+      - supports-color
 
   /express@5.2.1:
     resolution: {integrity: sha512-hIS4idWWai69NezIdRt2xFVofaF4j+6INOpJlVOLDO8zXGpUVEVzIYk12UUi2JzjEzWL3IOAxcTubgz9Po0yXw==}
@@ -8941,8 +8976,8 @@ packages:
     resolution: {integrity: sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==}
     dev: true
 
-  /fast-uri@3.1.0:
-    resolution: {integrity: sha512-iPeeDKJSWf4IEOasVVrknXpaBV0IApz/gp7S2bb7Z4Lljbl2MGJRqInZiUrQwV16cpzw/D3S5j5Julj/gT52AA==}
+  /fast-uri@3.1.5:
+    resolution: {integrity: sha512-gHwA1O9LDIcKunMKhObS/HimwtehO1nPUECKAu5TpKgaO19fcWEl4bliWe1jWxVFvIXztJjjQ4L8XQ1EU9f7Jw==}
 
   /fastmcp@3.26.7:
     resolution: {integrity: sha512-6bXv8+8TBBvNlPBvASkzx8VYBWJk3TlojZoa20/2Gv43+LBA32c35gz0DM6Kov1XuDOheo5IAHtfEfgI5MqTww==}
@@ -9327,7 +9362,6 @@ packages:
     resolution: {integrity: sha512-1VKTZJCwBrvbd+Wn3AOgQP/2Av+TfTCOlE4AcRJE72W1ksZXbAx8PPBR9RzgTeSPzlPMHrbANMH3LbltH73wxQ==}
     dependencies:
       resolve-pkg-maps: 1.0.0
-    dev: true
 
   /git-log-parser@1.2.1:
     resolution: {integrity: sha512-PI+sPDvHXNPl5WNOErAK05s3j0lgwUzMN6o8cyQrDaKfT3qd7TmNJKeXX+SknI5I0QhG5fVPAEwSY4tRGDtYoQ==}
@@ -9805,6 +9839,12 @@ packages:
     resolution: {integrity: sha512-XXADHxXmvT9+CRxhXg56LJovE+bmWnEWB78LB83VZTprKTmaC5QfruXocxzTZ2Kl0DNwKuBdlIhjL8LeY8Sf8Q==}
     engines: {node: '>= 12'}
     requiresBuild: true
+    dev: false
+    optional: true
+
+  /ip-address@10.5.0:
+    resolution: {integrity: sha512-R5SnVLJmgYYvf2F2ZgwSBnelz5G4q5AxIC277GDfUaNbrZKNANcBC7RHqYYePlszf4kBolVkJauG0ZjHHFh55g==}
+    engines: {node: '>= 12'}
 
   /ipaddr.js@1.9.1:
     resolution: {integrity: sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g==}
@@ -10383,7 +10423,7 @@ packages:
         optional: true
     dependencies:
       '@metaharness/darwin': 0.2.8
-      '@metaharness/flywheel': 0.1.7
+      '@metaharness/flywheel': 0.1.10
       '@metaharness/redblue': 0.1.4
       '@metaharness/weight-eft': 0.1.1
       kolorist: 1.8.0
@@ -11649,7 +11689,6 @@ packages:
 
   /resolve-pkg-maps@1.0.0:
     resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
-    dev: true
 
   /resolve@1.22.11:
     resolution: {integrity: sha512-RfqAvLnMl313r7c9oclB1HhUEAezcpLjz95wFH4LVuhk9JF/r22qmVP9AMmOU4vMX7Q8pN8jwNg/CSpdFnMjTQ==}
@@ -12743,7 +12782,6 @@ packages:
       get-tsconfig: 4.13.0
     optionalDependencies:
       fsevents: 2.3.3
-    dev: true
 
   /tunnel-agent@0.6.0:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
@@ -12942,7 +12980,7 @@ packages:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
     engines: {node: '>= 0.8'}
 
-  /vite@7.3.0(@types/node@20.19.27)(tsx@4.21.0):
+  /vite@7.3.0(@types/node@20.19.27)(tsx@4.21.0)(yaml@2.8.2):
     resolution: {integrity: sha512-dZwN5L1VlUBewiP6H9s2+B3e3Jg96D0vzN+Ry73sOefebhYr9f94wwkMNN/9ouoU8pV1BqA1d1zGk8928cx0rg==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
@@ -12990,57 +13028,6 @@ packages:
       rollup: 4.54.0
       tinyglobby: 0.2.15
       tsx: 4.21.0
-    optionalDependencies:
-      fsevents: 2.3.3
-    dev: true
-
-  /vite@7.3.0(@types/node@20.19.27)(yaml@2.8.2):
-    resolution: {integrity: sha512-dZwN5L1VlUBewiP6H9s2+B3e3Jg96D0vzN+Ry73sOefebhYr9f94wwkMNN/9ouoU8pV1BqA1d1zGk8928cx0rg==}
-    engines: {node: ^20.19.0 || >=22.12.0}
-    hasBin: true
-    peerDependencies:
-      '@types/node': ^20.19.0 || >=22.12.0
-      jiti: '>=1.21.0'
-      less: ^4.0.0
-      lightningcss: ^1.21.0
-      sass: ^1.70.0
-      sass-embedded: ^1.70.0
-      stylus: '>=0.54.8'
-      sugarss: ^5.0.0
-      terser: ^5.16.0
-      tsx: ^4.8.1
-      yaml: ^2.4.2
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-      jiti:
-        optional: true
-      less:
-        optional: true
-      lightningcss:
-        optional: true
-      sass:
-        optional: true
-      sass-embedded:
-        optional: true
-      stylus:
-        optional: true
-      sugarss:
-        optional: true
-      terser:
-        optional: true
-      tsx:
-        optional: true
-      yaml:
-        optional: true
-    dependencies:
-      '@types/node': 20.19.27
-      esbuild: 0.27.2
-      fdir: 6.5.0(picomatch@4.0.3)
-      picomatch: 4.0.3
-      postcss: 8.5.6
-      rollup: 4.54.0
-      tinyglobby: 0.2.15
       yaml: 2.8.2
     optionalDependencies:
       fsevents: 2.3.3
@@ -13107,7 +13094,7 @@ packages:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.1.0
-      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)
+      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)(yaml@2.8.2)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - msw
@@ -13175,7 +13162,7 @@ packages:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.1.0
-      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
+      vite: 7.3.0(@types/node@20.19.27)(tsx@4.21.0)(yaml@2.8.2)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - msw

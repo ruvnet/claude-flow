@@ -4,7 +4,7 @@ Train neural patterns with SONA (Self-Optimizing Neural Architecture) for adapti
 
 ## Usage
 ```bash
-npx claude-flow neural train [options]
+npx @claude-flow/cli@latest neural train [options]
 ```
 
 ## Options
@@ -27,16 +27,16 @@ Patterns survive process restarts and are loaded automatically on next session.
 
 ```bash
 # Train coordination patterns (50 epochs)
-npx claude-flow neural train -p coordination -e 50
+npx @claude-flow/cli@latest neural train -p coordination -e 50
 
 # Train with custom learning rate
-npx claude-flow neural train -p optimization -l 0.005
+npx @claude-flow/cli@latest neural train -p optimization -l 0.005
 
 # Train from file
-npx claude-flow neural train -d ./training-data.json
+npx @claude-flow/cli@latest neural train -d ./training-data.json
 
 # Quick training (10 epochs)
-npx claude-flow neural train -e 10
+npx @claude-flow/cli@latest neural train -e 10
 ```
 
 ## Output
@@ -51,13 +51,13 @@ Training produces:
 
 ```bash
 # List all persisted patterns
-npx claude-flow neural patterns --action list
+npx @claude-flow/cli@latest neural patterns --action list
 
 # Search patterns by query
-npx claude-flow neural patterns --action list -q "error handling"
+npx @claude-flow/cli@latest neural patterns --action list -q "error handling"
 
 # Analyze patterns
-npx claude-flow neural patterns --action analyze -q "coordination"
+npx @claude-flow/cli@latest neural patterns --action analyze -q "coordination"
 ```
 
 ## Performance Targets

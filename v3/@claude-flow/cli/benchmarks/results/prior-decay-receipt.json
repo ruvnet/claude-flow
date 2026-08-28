@@ -1,0 +1,59 @@
+{
+  "config": {
+    "TRIALS": 30,
+    "SHIFT_AT": 1500,
+    "POST_ROUNDS": 300,
+    "TOTAL_ROUNDS": 1800,
+    "STATIONARY_ROUNDS": 400,
+    "CANDIDATE_DECAY": 0.995,
+    "RECOVERY_WINDOW": 20,
+    "RECOVERY_THRESHOLD": 14
+  },
+  "scenarios": [
+    {
+      "bucket": "low",
+      "task": "fix a typo in the readme file",
+      "shift": "haiku -> sonnet",
+      "nonStationary": {
+        "baselineMeanRecoveryRound": 26.533333333333335,
+        "candidateMeanRecoveryRound": 21.866666666666667,
+        "recoveryRoundDeltaMean": 4.666666666666667,
+        "recoveryRoundDeltaT": 7,
+        "baselineMeanPostShiftCorrectRate": 0.9582222222222222,
+        "candidateMeanPostShiftCorrectRate": 0.9712222222222221,
+        "postShiftRateDeltaMean": 0.013000000000000012,
+        "postShiftRateDeltaT": 5.8956649538645785
+      },
+      "stationary": {
+        "baselineMeanCorrectRate": 0.9976666666666668,
+        "candidateMeanCorrectRate": 0.9978333333333335,
+        "deltaMean": 0.00016666666666666682,
+        "deltaT": 0.7010887416930878,
+        "invariantHeld": true
+      }
+    },
+    {
+      "bucket": "med",
+      "task": "refactor the payment processing module to support multiple currencies and add integration tests",
+      "shift": "sonnet -> opus",
+      "nonStationary": {
+        "baselineMeanRecoveryRound": 20.4,
+        "candidateMeanRecoveryRound": 20.566666666666666,
+        "recoveryRoundDeltaMean": -0.16666666666666666,
+        "recoveryRoundDeltaT": -0.7397092748646286,
+        "baselineMeanPostShiftCorrectRate": 0.9802222222222222,
+        "candidateMeanPostShiftCorrectRate": 0.9798888888888888,
+        "postShiftRateDeltaMean": -0.000333333333333341,
+        "postShiftRateDeltaT": -0.3324851555379874
+      },
+      "stationary": {
+        "baselineMeanCorrectRate": 0.9955,
+        "candidateMeanCorrectRate": 0.9946666666666669,
+        "deltaMean": -0.0008333333333333452,
+        "deltaT": -3.010398644698114,
+        "invariantHeld": true
+      }
+    }
+  ],
+  "generatedAt": "2026-08-17T06:29:03.189Z"
+}

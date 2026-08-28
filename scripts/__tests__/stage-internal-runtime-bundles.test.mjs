@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { createBundledRuntimeManifest } from '../stage-internal-runtime-bundles.mjs';
+import {
+  alignBundledRuntimeVersion,
+  createBundledRuntimeManifest,
+} from '../stage-internal-runtime-bundles.mjs';
 
 const source = {
   name: '@claude-flow/example',
@@ -32,5 +35,19 @@ assert.deepEqual(bundled.rufloBundledRuntime, {
   },
 });
 assert.deepEqual(source.dependencies, { runtime: '^1.0.0' });
+
+const target = {
+  name: 'public-wrapper',
+  dependencies: { '@claude-flow/mcp': '3.0.0-alpha.9' },
+};
+assert.equal(alignBundledRuntimeVersion(target, {
+  name: '@claude-flow/mcp',
+  version: '3.0.0-alpha.10',
+}), true);
+assert.equal(target.dependencies['@claude-flow/mcp'], '3.0.0-alpha.10');
+assert.equal(alignBundledRuntimeVersion(target, {
+  name: '@claude-flow/mcp',
+  version: '3.0.0-alpha.10',
+}), false);
 
 console.log('bundled runtime manifest is self-contained and preserves source metadata');

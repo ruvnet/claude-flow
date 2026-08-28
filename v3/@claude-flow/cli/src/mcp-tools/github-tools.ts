@@ -370,10 +370,17 @@ export const githubTools: MCPTool[] = [
       const store = loadGitHubStore();
       const action = (input.action as string) || 'list';
       const gh = hasGhCli();
+      // #2963 — owner/repo were validated but never passed to `gh`, so `gh`
+      // silently resolved the target repo from the cwd's git remote instead
+      // of the caller-specified one. `gh` accepts `--repo owner/repo` on
+      // every issue subcommand used here.
+      const owner = input.owner as string | undefined;
+      const repo = input.repo as string | undefined;
+      const repoArgs: string[] = owner && repo ? ['--repo', `${owner}/${repo}`] : [];
 
       if (action === 'list') {
         if (gh) {
-          const raw = run('gh issue list --state all --limit 20 --json number,title,state,labels,createdAt');
+          const raw = runArgv('gh', ['issue', 'list', '--state', 'all', '--limit', '20', '--json', 'number,title,state,labels,createdAt', ...repoArgs]);
           if (raw) {
             try {
               const issues = JSON.parse(raw);
@@ -393,7 +400,7 @@ export const githubTools: MCPTool[] = [
         // outside [A-Za-z0-9 _\-./] and caps each label at 64 chars.
         const labels = sanitizeLabels(input.labels) ?? [];
         if (gh) {
-          const argv = ['issue', 'create', '--title', title, '--body', body];
+          const argv = ['issue', 'create', '--title', title, '--body', body, ...repoArgs];
           if (labels.length > 0) {
             argv.push('--label', labels.join(','));
           }
@@ -420,7 +427,7 @@ export const githubTools: MCPTool[] = [
             if (labels.length > 0) argv.push('--add-label', labels.join(','));
           }
           if (argv.length > 3) {
-            const result = runArgv('gh', argv);
+            const result = runArgv('gh', [...argv, ...repoArgs]);
             if (result !== null) return { success: true, _real: true, action: 'updated', issueNumber };
           }
         }
@@ -439,7 +446,7 @@ export const githubTools: MCPTool[] = [
       if (action === 'close') {
         const issueNumber = toPositiveInt(input.issueNumber);
         if (gh && issueNumber) {
-          const result = runArgv('gh', ['issue', 'close', String(issueNumber)]);
+          const result = runArgv('gh', ['issue', 'close', String(issueNumber), ...repoArgs]);
           if (result !== null) return { success: true, _real: true, action: 'closed', issueNumber, closedAt: new Date().toISOString() };
         }
         const issueKey = issueNumber ? Object.keys(store.issues).find(k => k.includes(String(issueNumber))) : undefined;

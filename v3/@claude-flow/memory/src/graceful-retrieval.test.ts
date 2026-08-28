@@ -213,6 +213,76 @@ describe('Phase 5 — hybridSearch controller (RRF + MMR)', () => {
   });
 });
 
+describe('Dream Cycle 2026-08-18 — hybridSearch explicit opt-in without memoryService', () => {
+  it('default behavior is unchanged: backend-only + no explicit override → disabled', async () => {
+    const svc = await newSvc({
+      embeddingGenerator: async (text: string) => randomVec(8, hashStr(text)),
+    });
+    const registry = new ControllerRegistry();
+    await registry.initialize({ backend: svc.getAdapter() });
+
+    expect(registry.isEnabled('hybridSearch')).toBe(false);
+    expect(registry.get('hybridSearch')).toBeNull();
+
+    await registry.shutdown();
+    await svc.close();
+  });
+
+  it('explicit `controllers: { hybridSearch: true }` + backend (no memoryService) now constructs a working controller', async () => {
+    const svc = await newSvc({
+      embeddingGenerator: async (text: string) => randomVec(8, hashStr(text)),
+    });
+
+    for (let i = 0; i < 20; i++) {
+      const entry = createDefaultEntry({
+        key: `note-${i}`,
+        content: `release process and deployment checklist ${i}`,
+      });
+      entry.embedding = randomVec(8, hashStr(entry.content));
+      await svc.store(entry);
+    }
+
+    const registry = new ControllerRegistry();
+    // Only `backend` is supplied (the AgentDBAdapter directly) — no
+    // `memoryService`. Before the 2026-08-18 fix this silently returned
+    // null despite the explicit `true` override.
+    await registry.initialize({
+      backend: svc.getAdapter(),
+      controllers: { hybridSearch: true },
+    });
+
+    expect(registry.isEnabled('hybridSearch')).toBe(true);
+    const hybrid = registry.get<any>('hybridSearch');
+    expect(hybrid).toBeTruthy();
+    expect(hybrid.source).toBe('hybrid-rrf-mmr');
+
+    const results = await hybrid.search('deployment checklist', { limit: 5 });
+    expect(results.length).toBeGreaterThan(0);
+    for (const r of results) {
+      expect(Array.isArray(r.signals)).toBe(true);
+      expect(r.signals.length).toBeGreaterThan(0);
+    }
+
+    await registry.shutdown();
+    await svc.close();
+  });
+
+  it('explicit override with an incompatible backend (no semanticSearch/searchKeyword) still degrades to null, not a throw', async () => {
+    const registry = new ControllerRegistry();
+    const incompatibleBackend = {
+      initialize: async () => {},
+      shutdown: async () => {},
+    };
+    await registry.initialize({
+      backend: incompatibleBackend as any,
+      controllers: { hybridSearch: true },
+    });
+
+    expect(registry.get('hybridSearch')).toBeNull();
+    await registry.shutdown();
+  });
+});
+
 function hashStr(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;

@@ -1,0 +1,13 @@
+{
+  "payload": {
+    "schemaVersion": "ruflo.anchor-record/v1",
+    "anchoredContentId": "sha256:783fd640aadaf1092465a4f4c950a8ae7a99980856b166acd2451d0cccec2398",
+    "anchoredSchemaVersion": "ruflo.flywheel-receipt/v1",
+    "chain": {
+      "chainId": "rvm-witness/pir-acceptance",
+      "position": 4211
+    },
+    "assuranceLevel": "service-side",
+    "anchoredAt": "2026-08-19T00:02:00.000Z"
+  }
+}

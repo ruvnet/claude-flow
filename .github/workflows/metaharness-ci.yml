@@ -22,6 +22,8 @@ on:
       - 'v3/@claude-flow/cli/src/ruvector/neural-router.ts'
       - 'v3/@claude-flow/cli/src/ruvector/router-trajectory.ts'
       - 'scripts/check-metaharness-compat.mjs'
+      - 'scripts/check-metaharness-pins.mjs'
+      - 'scripts/metaharness-clean-install-test.mjs'
       - '.github/workflows/metaharness-ci.yml'
   pull_request:
     paths:
@@ -30,6 +32,8 @@ on:
       - 'v3/@claude-flow/cli/src/ruvector/neural-router.ts'
       - 'v3/@claude-flow/cli/src/ruvector/router-trajectory.ts'
       - 'scripts/check-metaharness-compat.mjs'
+      - 'scripts/check-metaharness-pins.mjs'
+      - 'scripts/metaharness-clean-install-test.mjs'
       - '.github/workflows/metaharness-ci.yml'
   workflow_dispatch:
 
@@ -95,6 +99,27 @@ jobs:
           name: metaharness-genome
           path: /tmp/metaharness-genome.json
           retention-days: 30
+
+  # MANDATORY dependency-contract gate: the declared installable pins must
+  # actually install from a pristine directory and export their advertised
+  # symbols. This is the failure the optional-peer era shipped: a clean ruflo
+  # install with zero MetaHarness packages on disk while every advertised
+  # surface assumed they might be present. No continue-on-error — a red run
+  # here means an advertised integration degrades on a fresh install.
+  clean-install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Pin declaration contract (fails on undeclared / peer-only / stale)
+        run: node scripts/check-metaharness-pins.mjs
+
+      - name: Clean-directory install + advertised-symbol contract
+        run: node scripts/metaharness-clean-install-test.mjs
 
   mcp-scan:
     runs-on: ubuntu-latest

@@ -577,31 +577,31 @@ const benchmarkIntegration = {
 ### Benchmarking Commands
 ```bash
 # Run comprehensive benchmark suite
-npx claude-flow benchmark-run --suite comprehensive --duration 300
+npx @claude-flow/cli@latest benchmark-run --suite comprehensive --duration 300
 
 # Execute specific benchmark
-npx claude-flow benchmark-run --suite throughput --iterations 10
+npx @claude-flow/cli@latest benchmark-run --suite throughput --iterations 10
 
 # Compare with baseline
-npx claude-flow benchmark-compare --current <results> --baseline <baseline>
+npx @claude-flow/cli@latest benchmark-compare --current <results> --baseline <baseline>
 
 # Quality assessment
-npx claude-flow quality-assess --target swarm-performance --criteria throughput,latency
+npx @claude-flow/cli@latest quality-assess --target swarm-performance --criteria throughput,latency
 
 # Performance validation
-npx claude-flow validate-performance --results <file> --criteria <file>
+npx @claude-flow/cli@latest validate-performance --results <file> --criteria <file>
 ```
 
 ### Regression Detection Commands
 ```bash
 # Detect performance regressions
-npx claude-flow detect-regression --current <results> --historical <data>
+npx @claude-flow/cli@latest detect-regression --current <results> --historical <data>
 
 # Set up automated regression monitoring
-npx claude-flow regression-monitor --enable --sensitivity 0.95
+npx @claude-flow/cli@latest regression-monitor --enable --sensitivity 0.95
 
 # Analyze error patterns
-npx claude-flow error-analysis --logs <log-files>
+npx @claude-flow/cli@latest error-analysis --logs <log-files>
 ```
 
 ## Integration Points

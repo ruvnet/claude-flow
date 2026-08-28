@@ -169,6 +169,20 @@ function fingerprintContent(text) {
   return `${h1.toString(16)}_${h2.toString(16)}_${norm.length}`;
 }
 
+// #2920 — aggregate content fingerprint for a whole store, used to detect
+// same-ID content edits (e.g. hand-editing a MEMORY.md section's body while
+// its heading/key, and therefore its generated ID, stays the same). Neither
+// entry count nor ID set changes on a same-ID edit, so any staleness check
+// based only on those two signals misses it; this folds each entry's own
+// content fingerprint into one combined value that does change.
+function storeFingerprint(entries) {
+  if (!entries || !entries.length) return '0';
+  const parts = entries
+    .map((e) => `${e.id || e.key || ''}:${fingerprintContent(e.content || e.summary || e.value || '')}`)
+    .sort();
+  return fingerprintContent(parts.join('|'));
+}
+
 function deduplicateByContent(entries) {
   if (!entries || !Array.isArray(entries)) return entries;
   const seen = new Map();
@@ -487,8 +501,14 @@ function init() {
     writeJSON(STORE_PATH, deduped);
   }
 
-  // Skip rebuild if graph is fresh and store hasn't changed
-  if (graphState && graphState.nodeCount === deduped.length) {
+  // Skip rebuild if graph is fresh and store hasn't changed. #2920: nodeCount
+  // alone doesn't detect a same-ID content edit (e.g. hand-editing a
+  // MEMORY.md section's body while its heading/key stays the same) — the
+  // count and ID set are unchanged, so a count-only check returns a stale
+  // cache hit and never refreshes ranked-context.json. Require the content
+  // fingerprint to match too.
+  const currentFingerprint = storeFingerprint(deduped);
+  if (graphState && graphState.nodeCount === deduped.length && graphState.contentFingerprint === currentFingerprint) {
     const age = Date.now() - (graphState.updatedAt || 0);
     if (age < 60000) {
       return {
@@ -532,6 +552,7 @@ function init() {
     version: 1,
     updatedAt: Date.now(),
     nodeCount: Object.keys(nodes).length,
+    contentFingerprint: currentFingerprint,
     nodes,
     edges,
     pageRanks,
@@ -809,11 +830,16 @@ function consolidate() {
     pageRanks = computePageRank(nodes, edges, 0.85, 30);
   }
 
-  // 6. Write updated graph
+  // 6. Write updated graph. #2920 follow-up: include contentFingerprint so
+  // init()'s cache-hit gate (line ~511) doesn't unconditionally miss on the
+  // very next init after a consolidate — without this, nodeCount alone
+  // matched but contentFingerprint was undefined here vs a real hash in
+  // init()'s own write, forcing a full rebuild every time.
   writeJSON(GRAPH_PATH, {
     version: 1,
     updatedAt: Date.now(),
     nodeCount: Object.keys(nodes).length,
+    contentFingerprint: storeFingerprint(store),
     nodes,
     edges,
     pageRanks,
@@ -847,8 +873,15 @@ function consolidate() {
     entries: rankedEntries,
   });
 
-  // 8. Persist updated store (deduped or with new insight entries)
-  if (newEntries > 0 || store.length < preDedupCount) writeJSON(STORE_PATH, store);
+  // 8. Persist updated store. #2920: this used to skip the write whenever
+  // dedup didn't shrink the array and no insight entries were added — but
+  // that's blind to a same-ID content edit (entry count and ID set both
+  // stay the same, only a field value changes), so an in-memory content
+  // update could be silently dropped instead of persisted. GRAPH_PATH and
+  // RANKED_PATH are rewritten unconditionally just above; writing the
+  // (already deduped, size-bounded per ADR-095 G6) store alongside them
+  // costs nothing near the <500ms budget and removes the whole bug class.
+  writeJSON(STORE_PATH, store);
 
   // 9. Save snapshot for delta tracking
   const updatedGraph = readJSON(GRAPH_PATH);

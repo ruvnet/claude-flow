@@ -552,8 +552,16 @@ const initClaudeAction = async (ctx: CommandContext): Promise<CommandResult> => 
   const force = ctx.flags.force as boolean;
   const minimal = ctx.flags.minimal as boolean;
   const full = ctx.flags.full as boolean;
-  const skipClaude = ctx.flags['skip-claude'] as boolean;
-  const onlyClaude = ctx.flags['only-claude'] as boolean;
+  // #2952 — every long-flag write path in the parser goes through
+  // normalizeKey() (parser.ts:399-402), which converts kebab-case to
+  // camelCase before storing. `--skip-claude`/`--only-claude`/
+  // `--all-agents`/`--cloud-mcp` land as `flags.skipClaude`/`flags.onlyClaude`/
+  // `flags.allAgents`/`flags.cloudMcp` — there is no code path that ever
+  // stores the literal kebab-case key. Reading `ctx.flags['skip-claude']`
+  // etc. was always undefined, so all four flags were silent no-ops. Same
+  // bug class as #2098A below, just never applied to these siblings.
+  const skipClaude = ctx.flags.skipClaude as boolean;
+  const onlyClaude = ctx.flags.onlyClaude as boolean;
   // #2098A — the parser handles `--no-foo` by stripping the prefix and
   // storing `flags.foo = false` (parser.ts:291-294), not by storing
   // `flags['no-foo'] = true`. So `--no-global` lands as
@@ -561,8 +569,8 @@ const initClaudeAction = async (ctx: CommandContext): Promise<CommandResult> => 
   // was always undefined and silently no-op'd — every user with the flag
   // set still got `~/.claude/CLAUDE.md` modified. Read the real key.
   const noGlobal = ctx.flags['no-global'] === true || ctx.flags['global'] === false;
-  const allAgents = ctx.flags['all-agents'] as boolean;
-  const cloudMcp = ctx.flags['cloud-mcp'] as boolean;
+  const allAgents = ctx.flags.allAgents as boolean;
+  const cloudMcp = ctx.flags.cloudMcp as boolean;
   const cwd = ctx.cwd;
 
   // Check if already initialized
@@ -676,6 +684,19 @@ const initClaudeAction = async (ctx: CommandContext): Promise<CommandResult> => 
 
     output.printBox(summary.join('\n'), 'Summary');
     output.writeln();
+
+    // Security: surface anything settings-risk-scanner.ts flagged in a
+    // pre-existing settings.json this init carried forward unexamined.
+    if (result.warnings && result.warnings.length > 0) {
+      output.printWarning('Settings review recommended:');
+      for (const warning of result.warnings.slice(0, 5)) {
+        output.printInfo(`  • ${warning}`);
+      }
+      if (result.warnings.length > 5) {
+        output.printInfo(`  ... and ${result.warnings.length - 5} more`);
+      }
+      output.writeln();
+    }
 
     // Show what was created
     if (options.components.claudeMd || options.components.settings || options.components.skills || options.components.commands || options.components.agents) {
@@ -1129,6 +1150,19 @@ const wizardCommand: Command = {
 
       spinner.succeed('Setup complete!');
 
+      // Security: surface anything settings-risk-scanner.ts flagged in a
+      // pre-existing settings.json this wizard run carried forward unexamined.
+      if (result.warnings && result.warnings.length > 0) {
+        output.writeln();
+        output.printWarning('Settings review recommended:');
+        for (const warning of result.warnings.slice(0, 5)) {
+          output.printInfo(`  • ${warning}`);
+        }
+        if (result.warnings.length > 5) {
+          output.printInfo(`  ... and ${result.warnings.length - 5} more`);
+        }
+      }
+
       // Initialize embeddings if enabled
       let embeddingsInitialized = false;
       if (enableEmbeddings) {
@@ -1289,6 +1323,15 @@ const skillsCommand: Command = {
 
     if (result.success) {
       spinner.succeed(`Installed ${result.summary.skillsCount} skills`);
+      if (result.warnings && result.warnings.length > 0) {
+        output.printWarning('Settings review recommended:');
+        for (const warning of result.warnings.slice(0, 5)) {
+          output.printInfo(`  • ${warning}`);
+        }
+        if (result.warnings.length > 5) {
+          output.printInfo(`  ... and ${result.warnings.length - 5} more`);
+        }
+      }
     } else {
       spinner.fail('Failed to install skills');
       for (const error of result.errors) {
@@ -1356,6 +1399,15 @@ const hooksCommand: Command = {
 
     if (result.success) {
       spinner.succeed(`Created settings.json with ${result.summary.hooksEnabled} hooks enabled`);
+      if (result.warnings && result.warnings.length > 0) {
+        output.printWarning('Settings review recommended:');
+        for (const warning of result.warnings.slice(0, 5)) {
+          output.printInfo(`  • ${warning}`);
+        }
+        if (result.warnings.length > 5) {
+          output.printInfo(`  ... and ${result.warnings.length - 5} more`);
+        }
+      }
     } else {
       spinner.fail('Failed to create hooks configuration');
       for (const error of result.errors) {
@@ -1494,6 +1546,19 @@ const upgradeCommand: Command = {
           result.settingsUpdated.map(s => `+ ${s}`).join('\n'),
           'Settings Updated'
         );
+        output.writeln();
+      }
+
+      // Security: surface anything settings-risk-scanner.ts flagged in the
+      // pre-existing settings.json this upgrade carried forward unexamined.
+      if (result.warnings && result.warnings.length > 0) {
+        output.printWarning('Settings review recommended:');
+        for (const warning of result.warnings.slice(0, 5)) {
+          output.printInfo(`  • ${warning}`);
+        }
+        if (result.warnings.length > 5) {
+          output.printInfo(`  ... and ${result.warnings.length - 5} more`);
+        }
         output.writeln();
       }
 

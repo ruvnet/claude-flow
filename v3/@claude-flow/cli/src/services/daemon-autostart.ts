@@ -104,6 +104,41 @@ export function isRufloProject(projectRoot: string): boolean {
   return false;
 }
 
+/**
+ * #2877: Normalize a working directory to the project root that owns the
+ * daemon lock/PID key.
+ *
+ * The lock (`<root>/.claude-flow/daemon.lock`) and PID file
+ * (`<root>/.claude-flow/daemon.pid`) were keyed to the raw cwd, so invoking
+ * the CLI from `/proj` and from `/proj/packages/foo` produced two different
+ * keys for one logical project — bypassing the atomic-lockfile dedup added
+ * for #2407/#2484 entirely (each cwd races against a different lock file)
+ * and leaving two daemons supervising the same tree.
+ *
+ * Resolution walks up from `startDir` and returns the NEAREST enclosing
+ * directory carrying a durable Ruflo marker (`isRufloProject`). Nearest-wins
+ * is what keeps a monorepo's independently-initialized sub-project on its own
+ * daemon: it matches its own marker before the walk ever reaches the parent.
+ *
+ * A `.git` directory is a hard stop — the repository boundary. Without it the
+ * walk could escape into an unrelated ancestor (a Ruflo project living at
+ * `$HOME`, say) and hand every repo below it the same daemon.
+ *
+ * Returns the resolved `startDir` unchanged when no marker is found, so a
+ * non-Ruflo directory still fails `isRufloProject` and declines autostart.
+ */
+export function resolveDaemonProjectRoot(startDir: string): string {
+  const start = path.resolve(startDir);
+  let dir = start;
+  for (;;) {
+    if (isRufloProject(dir)) return dir;
+    if (fs.existsSync(path.join(dir, '.git'))) return start;
+    const parent = path.dirname(dir);
+    if (parent === dir) return start;
+    dir = parent;
+  }
+}
+
 export interface EnsureResult { started: boolean; reason?: string }
 
 /** Spawn `daemon start` detached, reusing all its lock/TTL machinery. Injectable for tests. */
@@ -121,14 +156,19 @@ const defaultSpawn: SpawnDaemonFn = (projectRoot) => {
 };
 
 /**
- * Ensure a daemon is running for `projectRoot`. No-op when disabled or when one
- * is already alive. Best-effort; never throws.
+ * Ensure a daemon is running for the project enclosing `startDir`. No-op when
+ * disabled or when one is already alive. Best-effort; never throws.
+ *
+ * #2877: `startDir` is normalized to the owning project root first, so a call
+ * from a subdirectory reads the same config, pidfile, and lock as a call from
+ * the root and cannot spawn a second daemon for the same project.
  */
 export function ensureDaemonRunning(
-  projectRoot: string,
+  startDir: string,
   opts: { spawnFn?: SpawnDaemonFn; isAlive?: (root: string) => boolean } = {},
 ): EnsureResult {
   try {
+    const projectRoot = resolveDaemonProjectRoot(startDir);
     if (autostartDisabled(projectRoot)) return { started: false, reason: 'disabled (RUFLO_DAEMON_AUTOSTART=0 or project config)' };
     if (!isRufloProject(projectRoot)) {
       return { started: false, reason: 'not a ruflo project' };

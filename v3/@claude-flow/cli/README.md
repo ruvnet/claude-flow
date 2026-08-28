@@ -1,8 +1,6 @@
 <div align="center">
 
 [![Ruflo Banner](ruflo/assets/ruflo-small.jpeg)](https://cognitum.one/agentic-engineering)
-[![Agentics Foundation Banner](docs/assets/sv-summit.png)](https://agentics.org/siliconvalley/?UTM=GH-RuFlo-SV)
-
 
 <!-- Try Ruflo — the 4 badges first-time visitors actually act on -->
 [![Try the UI Beta — flo.ruv.io](https://img.shields.io/badge/_Try_the_UI_Beta-flo.ruv.io-6366f1?style=for-the-badge&logoColor=white&logo=svelte)](https://flo.ruv.io/)
@@ -58,7 +56,7 @@ There are **two different install paths** with very different surface areas. Pic
 |---|---|---|
 | What it gives you | Slash commands + a few skills + agent definitions per-plugin | Full Ruflo loop — 98 agents, 60+ commands, 30 skills, MCP server, hooks, daemon |
 | Files in your workspace | **Zero** | `.claude/`, `.claude-flow/`, `CLAUDE.md`, helpers, settings |
-| MCP server registered | **No** (`memory_store`, `swarm_init`, etc. unavailable to Claude) | Yes |
+| MCP server registered | Only if `ruflo-core` is installed (it ships its own `.mcp.json`) — most other plugins don't | Yes |
 | Hooks installed | No | Yes |
 | Best for | Try a single plugin's commands without committing to the full install | Production use — everything works as documented |
 
@@ -75,7 +73,7 @@ There are **two different install paths** with very different surface areas. Pic
 /plugin install ruflo-neural-trader@ruflo
 ```
 
-This adds slash commands and agent definitions only. The Ruflo MCP server is NOT registered, so `memory_store`, `swarm_init`, `agent_spawn`, etc. won't be callable from Claude. For the full loop, use Path B below.
+This adds slash commands and agent definitions. `ruflo-core` (installed above) does register its own MCP server on install — its tools are callable as `mcp__plugin_ruflo-core_ruflo__*` (e.g. `mcp__plugin_ruflo-core_ruflo__memory_store`), not the bare `memory_store`/`swarm_init`/`agent_spawn` names the CLI-track scaffold uses. Other plugins generally don't ship their own MCP server. For the full loop with the CLI-track tool names, use Path B below.
 
 <details>
 <summary><strong>🔌 All 35 plugins</strong></summary>
@@ -189,23 +187,9 @@ npm install -g ruflo@latest
 ### MCP Server
 
 ```bash
-# Add Ruflo as an MCP server in Claude Code (canonical form, matches USERGUIDE.md)
-claude mcp add ruflo -- npx ruflo@latest mcp start
+# Add Ruflo as an MCP server in Claude Code
+claude mcp add claude-flow -- npx ruflo@latest mcp start
 ```
-
-Small-context backends can advertise only the tool categories they need:
-
-```bash
-CLAUDE_FLOW_MCP_TOOLS=memory,swarm,agent,hooks \
-  npx ruflo@latest mcp start
-
-# Optional: lets `ruflo doctor -c mcp-overhead` compare the live schema
-# estimate with the backend's real context limit.
-CLAUDE_FLOW_CONTEXT_WINDOW_TOKENS=32000 ruflo doctor -c mcp-overhead
-```
-
-The default remains `all` for backwards compatibility. Selectors accept
-categories, namespace prefixes, or exact tool names.
 
 ---
 

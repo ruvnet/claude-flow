@@ -25,7 +25,7 @@ import { clearRateLimitStatus, readRateLimitStatus } from '../funnel/rate-limit-
 import { clearQuotaLowStatus, readQuotaLowStatus } from '../funnel/power-saver-notifier.js';
 import { getInstalledCliVersion } from '../init/helper-refresh.js';
 import * as path from 'path';
-import { proxyLifecycleSubcommands, printProxyConsoleGuidance } from './proxy-lifecycle.js';
+import { proxyLifecycleSubcommands, printProxyConsoleGuidance, DEFAULT_PROXY_RELEASE } from './proxy-lifecycle.js';
 import { getProxyStatus } from '../proxy/lifecycle.js';
 
 const PROXY_CONFIG_FILE = 'proxy-config.toml';
@@ -93,72 +93,245 @@ function readDataPlane(): string {
   return match ? match[1] : 'passthrough'; // matches the Rust struct's own default
 }
 
-function writeDataPlane(plane: 'local' | 'cloud'): void {
+function writeDataPlane(plane: 'local' | 'cloud' | 'passthrough'): void {
   writeConfigLine('default_data_plane', `"${plane}"`);
 }
 
+/**
+ * How to get back to a given plane, for "restore what you had" guidance.
+ * `sponsored` is ADR-313's own consent flow and is deliberately absent — this
+ * command must not offer a one-flag route into someone else's consent gate.
+ */
+const PLANE_RESTORE_COMMAND: Record<string, string> = {
+  passthrough: 'ruflo proxy config --passthrough',
+  local: 'ruflo proxy config --local-only',
+};
+
+/**
+ * One line describing a plane in the terms that matter — who serves the
+ * request. Kept together so the no-flag report and the restore hints cannot
+ * describe the same plane two different ways.
+ */
+function describePlane(plane: string): string {
+  switch (plane) {
+    case 'cloud':
+      return 'Cloud routing is ON — cloud-tier requests go to api.cognitum.one.';
+    case 'passthrough':
+      return 'Passthrough — requests go to your own Claude subscription. Prompts do not go to Cognitum.';
+    case 'local':
+      return 'Local-only — requests go to your own backend (Ollama/vLLM/SGLang) and never leave this machine.';
+    case 'sponsored':
+      return "Sponsored — requests go to Cognitum's sponsored capacity (ADR-313).";
+    default:
+      return `Unrecognized plane "${plane}" — meta-proxy will fall back to its own default (passthrough).`;
+  }
+}
+
+/**
+ * `routing_mode` — how the Cloud plane picks a tier (meta-proxy ADR-321
+ * rev-2). Values match the Rust `RoutingMode` enum (`src/config.rs`, also
+ * `#[serde(rename_all = "snake_case")]`); absent from the file means `auto`,
+ * so an existing config keeps working untouched.
+ */
+const ROUTING_MODES = ['auto', 'low', 'mid', 'high'] as const;
+type RoutingMode = (typeof ROUTING_MODES)[number];
+
+function readRoutingMode(): RoutingMode {
+  const match = readProxyConfigRaw().match(/^routing_mode\s*=\s*"([^"]*)"/m);
+  const value = match?.[1];
+  return (ROUTING_MODES as readonly string[]).includes(value ?? '') ? (value as RoutingMode) : 'auto';
+}
+
+function writeRoutingMode(mode: RoutingMode): void {
+  writeConfigLine('routing_mode', `"${mode}"`);
+}
+
+/**
+ * ADR-304/321. This is the terminal-side equivalent of the Developer
+ * Console's Cloud selector disclosure — meta-proxy#43 M5a covered the
+ * console, M5b covers "any terminal flow that explicitly activates Cloud",
+ * which is this command.
+ *
+ * It answers the three questions activating Cloud actually decides, because
+ * each has a different answer than the plane the user is leaving:
+ * who processes the prompt, who pays for it, and which model runs. The third
+ * is the one the previous text omitted entirely, and it is not a detail —
+ * on the Cloud plane the client's requested model is deliberately NOT used.
+ */
 const CLOUD_ROUTING_DISCLOSURE = [
   'Enabling cloud routing.',
   '',
-  'With cloud routing ON, prompts for cloud-tier requests are sent to',
-  'api.cognitum.one and forwarded to the selected provider',
-  '(Claude / GPT / Gemini / DeepSeek / OpenRouter).',
+  'Who processes your prompts:',
+  '  Prompts for cloud-tier requests are sent to api.cognitum.one and',
+  '  forwarded to the selected provider (Claude / GPT / Gemini / DeepSeek /',
+  '  OpenRouter). Cognitum handles them server-side.',
+  '',
+  'Who pays:',
+  '  Cloud-tier requests are metered against your Cognitum account, not',
+  '  against your own Claude subscription. Your subscription is used only',
+  '  by the Passthrough plane (the proxy\'s default), which is unaffected',
+  '  by everything below.',
+  '',
+  'Which model runs:',
+  '  The cloud plane picks the tier per prompt instead of using the model',
+  '  your client asked for (ADR-321). That is the point of the plane: a',
+  '  trivial question is not served at frontier rates because the client',
+  '  happened to name a frontier model. The scorer reads prompt shape, not',
+  '  task difficulty, so pin a tier if you disagree with its judgement:',
+  '    ruflo proxy config --routing-mode high',
   '',
   'Requests routed to local backends never leave this machine.',
   '',
-  'Disable anytime: ruflo proxy config --local-only',
+  'Turning it off is a choice of where to go back to, not one command:',
+  '  ruflo proxy config --passthrough    Your own Claude subscription',
+  '  ruflo proxy config --local-only     Your own local backend',
 ].join('\n');
 
 const configSub: Command = {
   name: 'config',
-  description: 'Toggle cloud routing (ADR-304) — local backends only by default',
+  description: 'Toggle cloud routing and its tier selection (ADR-304/321) — local backends only by default',
   options: [
     { name: 'cloud', description: 'Enable cloud routing (requires cloud-routing consent)', type: 'boolean', default: false },
-    { name: 'local-only', description: 'Disable cloud routing, revert to local-only routing', type: 'boolean', default: false },
+    { name: 'local-only', description: 'Disable cloud routing; route to your own local backend', type: 'boolean', default: false },
+    {
+      name: 'passthrough',
+      description: "Disable cloud routing; route to your own Claude subscription (meta-proxy's own default)",
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'routing-mode',
+      description: `How the cloud plane picks a tier: ${ROUTING_MODES.join(' | ')} (default: auto)`,
+      type: 'string',
+    },
     { name: 'yes', description: 'Skip the confirmation prompt', type: 'boolean', default: false },
   ],
   action: async (ctx): Promise<CommandResult> => {
     const wantCloud = Boolean(ctx.flags.cloud);
     const wantLocalOnly = Boolean(ctx.flags.localOnly ?? ctx.flags['local-only']);
+    const wantPassthrough = Boolean(ctx.flags.passthrough);
+    const rawRoutingMode = ctx.flags.routingMode ?? ctx.flags['routing-mode'];
+    const wantRoutingMode = typeof rawRoutingMode === 'string' ? rawRoutingMode : undefined;
 
-    if (wantCloud && wantLocalOnly) {
-      output.printError('Pass either --cloud or --local-only, not both.');
+    const planeFlags = [
+      wantCloud && '--cloud',
+      wantLocalOnly && '--local-only',
+      wantPassthrough && '--passthrough',
+    ].filter(Boolean) as string[];
+    if (planeFlags.length > 1) {
+      output.printError(`Pass one plane at a time — got ${planeFlags.join(' and ')}.`);
       return { success: false, exitCode: 1 };
     }
 
-    if (!wantCloud && !wantLocalOnly) {
+    if (wantRoutingMode !== undefined && !(ROUTING_MODES as readonly string[]).includes(wantRoutingMode)) {
+      output.printError(
+        `Unknown routing mode "${wantRoutingMode}". Valid values: ${ROUTING_MODES.join(', ')}.`,
+      );
+      return { success: false, exitCode: 1 };
+    }
+    const routingMode = wantRoutingMode as RoutingMode | undefined;
+
+    // A tier only means anything on the Cloud plane, and these flags leave
+    // it. Writing both would record a preference the same command just made
+    // unreachable, so say so instead of silently picking one.
+    const leavingCloud = wantLocalOnly || wantPassthrough;
+    if (routingMode && leavingCloud) {
+      output.printError(
+        `--routing-mode only governs the cloud plane, which ${planeFlags[0]} turns off. Pass one or the other.`,
+      );
+      return { success: false, exitCode: 1 };
+    }
+
+    if (!wantCloud && !leavingCloud && !routingMode) {
       const plane = readDataPlane();
       output.writeln(`Current data plane: ${plane}`);
+      output.writeln(`  ${describePlane(plane)}`);
+      const mode = readRoutingMode();
       output.writeln(
-        plane === 'cloud'
-          ? 'Cloud routing is ON — cloud-tier requests go to api.cognitum.one.'
-          : 'Cloud routing is OFF — requests never leave this machine (or use your own Claude subscription on Passthrough).',
+        mode === 'auto'
+          ? '  Tier selection: auto — Cognitum scores each prompt and picks low/mid/high.'
+          : `  Tier selection: pinned to ${mode}.`,
       );
+      if (plane !== 'cloud') output.writeln('  (Tier selection applies only while cloud routing is ON.)');
+      // meta-proxy routing.rs gates automatic quota failover on the plane
+      // being Passthrough — it is the only plane that sees Anthropic's own
+      // rate-limit headers. Worth saying, because nothing else reveals that
+      // sitting on `local` silently opts you out of ADR-321 entirely.
+      if (plane === 'local') {
+        output.writeln('  Note: automatic quota failover (ADR-321) applies only on passthrough.');
+        output.writeln('        Use your Claude subscription instead: ruflo proxy config --passthrough');
+      }
+      return { success: true, data: { plane, routingMode: mode } };
+    }
+
+    // Setting a tier must never activate Cloud — meta-proxy ADR-321
+    // Revision 3 keeps the plane choice and this Cloud-only secondary
+    // setting as separate controls, so `--routing-mode` alone writes only
+    // `routing_mode` and asks for no consent it does not need.
+    if (routingMode && !wantCloud) {
+      writeRoutingMode(routingMode);
+      output.printSuccess(
+        routingMode === 'auto'
+          ? 'Cloud tier selection set to auto — Cognitum scores each prompt.'
+          : `Cloud tier selection pinned to ${routingMode}.`,
+      );
+      if (readDataPlane() !== 'cloud') {
+        output.writeln('  Cloud routing is currently OFF, so this takes effect once you enable it:');
+        output.writeln('    ruflo proxy config --cloud --yes');
+      }
+      return { success: true, data: { routingMode } };
+    }
+
+    if (leavingCloud) {
+      const plane = wantPassthrough ? 'passthrough' : 'local';
+      writeDataPlane(plane);
+      revokeConsent('cloud-routing', wantPassthrough ? 'proxy-config-passthrough' : 'proxy-config-local-only');
+      output.printSuccess(`Cloud routing disabled — now on ${plane}.`);
+      output.writeln(`  ${describePlane(plane)}`);
+      // Naming the other option here is the point: "disable cloud" has two
+      // destinations, and the one you land on decides whether your own
+      // subscription is used at all.
+      if (plane === 'local') {
+        output.writeln('  Your own Claude subscription is NOT used on this plane. To use it instead:');
+        output.writeln('    ruflo proxy config --passthrough');
+      }
       return { success: true, data: { plane } };
     }
 
-    if (wantLocalOnly) {
-      writeDataPlane('local');
-      revokeConsent('cloud-routing', 'proxy-config-local-only');
-      output.printSuccess('Cloud routing disabled — reverted to local-only routing.');
-      return { success: true, data: { plane: 'local' } };
-    }
-
-    // wantCloud
+    // wantCloud. Read the plane being left BEFORE overwriting it — this is
+    // the only moment ruflo knows where the user was, and "how do I get back"
+    // is otherwise unanswerable from the config file afterwards.
+    const previousPlane = readDataPlane();
     if (!hasConsent('cloud-routing')) {
       output.writeln(CLOUD_ROUTING_DISCLOSURE);
       output.writeln('');
       if (!ctx.flags.yes) {
         output.writeln('Re-run with --yes to confirm: ruflo proxy config --cloud --yes');
+        // Nothing is written on the unconfirmed path — including any
+        // --routing-mode passed alongside, which would otherwise leave a
+        // trace of an activation the user never confirmed.
         return { success: true, data: { confirmed: false } };
       }
       recordConsent('cloud-routing', true, 'proxy-config-cloud');
     }
     writeDataPlane('cloud');
+    if (routingMode) writeRoutingMode(routingMode);
+    const effectiveMode = routingMode ?? readRoutingMode();
     output.printSuccess('Cloud routing enabled.');
+    output.writeln(
+      effectiveMode === 'auto'
+        ? '  Tier selection: auto — Cognitum scores each prompt and picks low/mid/high.'
+        : `  Tier selection: pinned to ${effectiveMode}.`,
+    );
     output.writeln('  Requests routed to local backends still never leave this machine.');
-    output.writeln('  Disable anytime: ruflo proxy config --local-only');
-    return { success: true, data: { plane: 'cloud' } };
+    const restore = previousPlane === 'cloud' ? undefined : PLANE_RESTORE_COMMAND[previousPlane];
+    if (restore) {
+      output.writeln(`  Previous plane: ${previousPlane}. Restore it with:`);
+      output.writeln(`    ${restore}`);
+    } else {
+      output.writeln('  Turn it off with: ruflo proxy config --passthrough (or --local-only)');
+    }
+    return { success: true, data: { plane: 'cloud', routingMode: effectiveMode, previousPlane } };
   },
 };
 
@@ -410,10 +583,12 @@ export const proxyCommand: Command = {
     trainingShareEnableSub, trainingShareDisableSub, trainingShareStatusSub,
   ],
   examples: [
-    { command: 'ruflo proxy install --yes', description: 'Install the signed Meta-Proxy v0.4.0 binary' },
+    { command: 'ruflo proxy install --yes', description: `Install the signed Meta-Proxy v${DEFAULT_PROXY_RELEASE} binary` },
     { command: 'ruflo proxy start', description: 'Start meta-proxy in the foreground' },
     { command: 'ruflo proxy status', description: 'Show install + process status' },
     { command: 'ruflo proxy config --cloud --yes', description: 'Enable cloud routing (ADR-304)' },
+    { command: 'ruflo proxy config --routing-mode high', description: 'Pin the cloud tier instead of auto (ADR-321)' },
+    { command: 'ruflo proxy config --passthrough', description: 'Turn cloud routing off, back to your Claude subscription' },
     { command: 'ruflo proxy config --local-only', description: 'Revert to local-only routing' },
     { command: 'ruflo proxy sponsor-status', description: 'Show current sponsored-mode state' },
     { command: 'ruflo proxy sponsor-enable --yes', description: 'Opt into sponsored downtime capacity' },

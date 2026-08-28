@@ -7,6 +7,8 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { detectRemovedAgentGaps, type RemovedAgentMapping } from './migrate-agent-detection.js';
+import { restoreRemovedAgents } from './migrate-agent-restore.js';
 
 // Migration targets
 const MIGRATION_TARGETS = [
@@ -17,6 +19,22 @@ const MIGRATION_TARGETS = [
   { value: 'workflows', label: 'Workflows', hint: 'Migrate workflow definitions' },
   { value: 'embeddings', label: 'Embeddings', hint: 'Migrate to ONNX with hyperbolic support' },
   { value: 'all', label: 'All', hint: 'Full migration' }
+];
+
+// ADR-128 Phase 2 deleted these 9 forked agents from the init template,
+// making each plugin canonical — but ADR-128's own Consequences section
+// promised "`ruflo migrate` should detect removed agents and print install
+// suggestions," which never shipped until ADR-382 Part B (issue #2971).
+const REMOVED_AGENTS: RemovedAgentMapping[] = [
+  { basename: 'coder.md', plugin: 'ruflo-core' },
+  { basename: 'researcher.md', plugin: 'ruflo-core' },
+  { basename: 'reviewer.md', plugin: 'ruflo-core' },
+  { basename: 'tester.md', plugin: 'ruflo-testgen' },
+  { basename: 'memory-specialist.md', plugin: 'ruflo-rag-memory' },
+  { basename: 'security-auditor.md', plugin: 'ruflo-security-audit' },
+  { basename: 'sparc-orchestrator.md', plugin: 'ruflo-sparc' },
+  { basename: 'goal-planner.md', plugin: 'ruflo-goals' },
+  { basename: 'adr-architect.md', plugin: 'ruflo-adr' },
 ];
 
 // Status command
@@ -115,10 +133,14 @@ const statusCommand: Command = {
       components.push({ component: 'Migration State', status: migrationState, migrationNeeded: 'no' });
     }
 
+    // ADR-382 Part B: agents ADR-128 removed from the init template that are
+    // both missing from this project and not covered by an installed plugin.
+    const removedAgentGaps = detectRemovedAgentGaps(cwd, REMOVED_AGENTS);
+
     // Display results
     if (ctx.flags.format === 'json') {
-      output.printJson({ components, migrationState });
-      return { success: true, data: { components, migrationState } };
+      output.printJson({ components, migrationState, removedAgentGaps });
+      return { success: true, data: { components, migrationState, removedAgentGaps } };
     }
 
     output.writeln();
@@ -147,7 +169,32 @@ const statusCommand: Command = {
       output.printSuccess('No migration needed.');
     }
 
-    return { success: true, data: { components, needsMigration } };
+    if (removedAgentGaps.length > 0) {
+      output.writeln();
+      output.writeln(output.bold('Removed Agents (ADR-128)'));
+      output.printTable({
+        columns: [
+          { key: 'agent', header: 'Agent', width: 24 },
+          { key: 'plugin', header: 'Owning Plugin', width: 20 },
+          { key: 'installCommand', header: 'Install', width: 34 }
+        ],
+        data: removedAgentGaps.map(g => ({
+          agent: output.warning(g.agent),
+          plugin: g.plugin,
+          installCommand: output.dim(g.installCommand)
+        })),
+        border: false
+      });
+      output.writeln();
+      output.printInfo(
+        `${removedAgentGaps.length} agent(s) removed by ADR-128 are missing from .claude/agents/ and not covered by an installed plugin.`
+      );
+      output.printInfo(
+        'Run "ruflo migrate fix --agents" to restore them from their canonical plugin content, or install the owning plugin.'
+      );
+    }
+
+    return { success: true, data: { components, needsMigration, removedAgentGaps } };
   }
 };
 
@@ -712,16 +759,88 @@ const breakingCommand: Command = {
   }
 };
 
+// Fix command — apply remediations that `status` can only point at (#2985).
+// Logic lives in migrate-agent-restore.ts (migrate.ts is over the 500-line
+// budget; same split as migrate-agent-detection.ts).
+const fixCommand: Command = {
+  name: 'fix',
+  description: 'Apply fixes for gaps detected by "migrate status"',
+  options: [
+    {
+      name: 'agents',
+      description: 'Restore agents removed by ADR-128 from their canonical plugin content',
+      type: 'boolean',
+      default: false
+    },
+    {
+      name: 'dry-run',
+      short: 'd',
+      description: 'Show what would be restored without writing',
+      type: 'boolean',
+      default: false
+    }
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const cwd = ctx.cwd || process.cwd();
+
+    if (!ctx.flags.agents) {
+      output.printInfo('Nothing selected. Pass --agents to restore ADR-128-removed agents.');
+      return { success: true };
+    }
+
+    const gaps = detectRemovedAgentGaps(cwd, REMOVED_AGENTS);
+    if (gaps.length === 0) {
+      output.printSuccess('No removed-agent gaps to fix — every agent is present or covered by an installed plugin.');
+      return { success: true, data: { results: [] } };
+    }
+
+    const dryRun = Boolean(ctx.flags['dry-run']);
+    const results = await restoreRemovedAgents(cwd, gaps, { dryRun });
+
+    if (ctx.flags.format === 'json') {
+      output.printJson({ dryRun, results });
+      return { success: results.every(r => r.status !== 'failed'), data: { dryRun, results } };
+    }
+
+    output.writeln();
+    output.writeln(output.bold(dryRun ? 'Restore Plan (dry run)' : 'Restored Agents'));
+    output.printTable({
+      columns: [
+        { key: 'agent', header: 'Agent', width: 24 },
+        { key: 'status', header: 'Status', width: 10 },
+        { key: 'detail', header: dryRun ? 'Would write' : 'Detail', width: 44 }
+      ],
+      data: results.map(r => ({
+        agent: r.agent,
+        status: r.status === 'failed' ? output.warning(r.status) : r.status,
+        detail: r.status === 'failed' ? output.dim(r.error ?? '') : output.dim(`${r.path ?? ''}${r.source ? ` (from ${r.source})` : ''}`)
+      })),
+      border: false
+    });
+
+    const failed = results.filter(r => r.status === 'failed');
+    output.writeln();
+    if (failed.length > 0) {
+      output.printWarning(`${failed.length} agent(s) could not be restored — install the owning plugin instead (see table).`);
+    } else if (!dryRun) {
+      output.printSuccess(`${results.filter(r => r.status === 'restored').length} agent(s) restored. Re-run "ruflo migrate status" to verify.`);
+    }
+
+    return { success: failed.length === 0, data: { dryRun, results } };
+  }
+};
+
 // Main migrate command
 export const migrateCommand: Command = {
   name: 'migrate',
   description: 'V2 to V3 migration tools',
-  subcommands: [statusCommand, runCommand, verifyCommand, rollbackCommand, breakingCommand],
+  subcommands: [statusCommand, runCommand, verifyCommand, rollbackCommand, breakingCommand, fixCommand],
   options: [],
   examples: [
     { command: 'claude-flow migrate status', description: 'Check migration status' },
     { command: 'claude-flow migrate run --dry-run', description: 'Preview migration' },
-    { command: 'claude-flow migrate run -t all', description: 'Run full migration' }
+    { command: 'claude-flow migrate run -t all', description: 'Run full migration' },
+    { command: 'claude-flow migrate fix --agents', description: 'Restore ADR-128-removed agents' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
@@ -735,7 +854,8 @@ export const migrateCommand: Command = {
       `${output.highlight('run')}       - Run migration`,
       `${output.highlight('verify')}    - Verify migration integrity`,
       `${output.highlight('rollback')}  - Rollback to previous version`,
-      `${output.highlight('breaking')}  - Show breaking changes`
+      `${output.highlight('breaking')}  - Show breaking changes`,
+      `${output.highlight('fix')}       - Apply fixes for detected gaps (--agents)`
     ]);
 
     return { success: true };

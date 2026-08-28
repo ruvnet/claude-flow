@@ -83,7 +83,7 @@ hooks:
     # 4. Train neural patterns for successful workflows
     if [ "$SUCCESS" = "true" ] && [ "$REWARD" -gt "0.9" ]; then
       echo "🧠 Training neural pattern from successful workflow"
-      npx claude-flow neural train \
+      npx @claude-flow/cli@latest neural train \
         --pattern-type "coordination" \
         --training-data "$WORKFLOW_OUTPUT" \
         --epochs 50

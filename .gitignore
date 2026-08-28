@@ -176,8 +176,14 @@ v3/@claude-flow/cli/plugins/
 # regenerated on demand, not source. The signed manifest source of truth lives
 # in v3/@claude-flow/cli/.claude/helpers/helpers.manifest.json.
 .claude/helpers/.helpers-version
+.claude/helpers/.helpers-refresh.lock
+.claude/helpers/*.tmp-*
 .claude/helpers/helpers.manifest.json
 
 # Runtime proven-config adoption state (per-install, not source)
 .claude/proven-config.json
 .claude/.proven-config-version
+
+# Node V8 compile cache emitted by workspace builds (NODE_COMPILE_CACHE) —
+# machine-local artifact keyed by node version, never source
+node-compile-cache/

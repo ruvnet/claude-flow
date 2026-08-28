@@ -35,16 +35,16 @@ mcp__claude-flow__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx claude-flow sparc run refinement-optimization-mode "optimize database queries"
+npx @claude-flow/cli@latest sparc run refinement-optimization-mode "optimize database queries"
 
 # For alpha features
 npx claude-flow@alpha sparc run refinement-optimization-mode "optimize database queries"
 
 # With namespace
-npx claude-flow sparc run refinement-optimization-mode "your task" --namespace refinement-optimization-mode
+npx @claude-flow/cli@latest sparc run refinement-optimization-mode "your task" --namespace refinement-optimization-mode
 
 # Non-interactive mode
-npx claude-flow sparc run refinement-optimization-mode "your task" --non-interactive
+npx @claude-flow/cli@latest sparc run refinement-optimization-mode "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
@@ -76,8 +76,8 @@ mcp__claude-flow__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx claude-flow memory store "refinement-optimization-mode_context" "important decisions" --namespace refinement-optimization-mode
+npx @claude-flow/cli@latest memory store "refinement-optimization-mode_context" "important decisions" --namespace refinement-optimization-mode
 
 # Query previous work
-npx claude-flow memory query "refinement-optimization-mode" --limit 5
+npx @claude-flow/cli@latest memory query "refinement-optimization-mode" --limit 5
 ```

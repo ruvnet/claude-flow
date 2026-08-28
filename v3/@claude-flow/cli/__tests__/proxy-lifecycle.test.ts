@@ -30,7 +30,13 @@ afterEach(() => {
 describe('getProxyStatus', () => {
   it('reports not-installed and not-running on a fresh state dir', async () => {
     const { getProxyStatus } = await import('../src/proxy/lifecycle.js');
-    expect(getProxyStatus()).toEqual({ installed: false, running: false, pid: null, stalePidFile: false });
+    expect(getProxyStatus()).toEqual({
+      installed: false,
+      running: false,
+      pid: null,
+      stalePidFile: false,
+      version: null,
+    });
   });
 
   it('reports installed once a binary file exists at the expected path', async () => {

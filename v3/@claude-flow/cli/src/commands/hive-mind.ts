@@ -10,10 +10,11 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { select, confirm, input } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
-import { spawn as childSpawn, execSync } from 'child_process';
+import { spawn as childSpawn } from 'child_process';
 import { mkdir, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { resolveClaudeLaunchCommand } from '../runtime/claude-command.js';
 
 // Worker type definitions for prompt generation
 interface HiveWorker {
@@ -232,12 +233,11 @@ async function spawnClaudeCodeInstance(
     output.writeln();
     output.printSuccess(`Hive Mind prompt saved to: ${promptFile}`);
 
-    // Check if claude command exists
-    let claudeAvailable = false;
-    try {
-      execSync('which claude', { stdio: 'ignore' });
-      claudeAvailable = true;
-    } catch {
+    // Resolve a directly spawnable command. On Windows, npm exposes shell
+    // shims that Node cannot launch with shell:false, so the resolver follows
+    // the shim to Claude Code's executable or JavaScript entry point.
+    const claudeLaunch = resolveClaudeLaunchCommand();
+    if (!claudeLaunch) {
       output.writeln();
       output.printWarning('Claude Code CLI not found in PATH');
       output.writeln(output.dim('Install it with: npm install -g @anthropic-ai/claude-code'));
@@ -246,7 +246,7 @@ async function spawnClaudeCodeInstance(
 
     const dryRun = flags.dryRun || flags['dry-run'];
 
-    if (claudeAvailable && !dryRun) {
+    if (claudeLaunch && !dryRun) {
       // Build arguments - flags first, then prompt
       const claudeArgs: string[] = [];
 
@@ -323,7 +323,10 @@ async function spawnClaudeCodeInstance(
       output.writeln(output.dim('Press Ctrl+C to pause the session'));
 
       // Spawn claude with properly ordered arguments
-      const claudeProcess = childSpawn('claude', claudeArgs, {
+      const claudeProcess = childSpawn(claudeLaunch.command, [
+        ...claudeLaunch.argsPrefix,
+        ...claudeArgs,
+      ], {
         stdio: 'inherit',
         shell: false,
       });

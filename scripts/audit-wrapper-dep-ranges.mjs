@@ -109,6 +109,14 @@ for (const { dep, workspace } of siblingsToCheck) {
   if (!range) continue;
   checks.push(`claude-flow umbrella → ${dep}: range "${range}" — workspace at ${wsPkg.version}`);
 
+  // Bundled internal runtimes are rebuilt from this exact source tree during
+  // prepublish. Their registry range only bootstraps the release workspace;
+  // the staged package replaces it in the public tarball.
+  if (rootPkg?.bundleDependencies?.includes(dep)) {
+    checks.push(`  ${dep} is source-bundled; registry/workspace version drift is expected`);
+    continue;
+  }
+
   if (!semver.satisfies(wsPkg.version, range, { includePrerelease: true })) {
     violations.push(
       `claude-flow's "${dep}": "${range}" does NOT include the workspace's actual ` +

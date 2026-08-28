@@ -12,6 +12,7 @@ import {
   sign as edSign,
   verify as edVerify,
 } from 'node:crypto';
+import { checkPairedOutcomesConsistency, type PairedTaskOutcome } from './flywheel-sequential-evidence.js';
 
 export const RECEIPT_SCHEMA = 'ruflo.flywheel-receipt/v1';
 export const RECEIPT_DOMAIN = 'ruflo/flywheel-receipt/v1';
@@ -88,6 +89,14 @@ export interface FlywheelReceiptPayload {
   baselineScore: string;
   candidateScore: string;
   heldOutDeltas: string[];
+  /**
+   * Task-level paired outcomes behind heldOutDeltas — same order, same length,
+   * per-task delta reproducible from the two scores. Optional in the payload
+   * so pre-existing receipts still verify byte-identically, but the promotion
+   * authority (flywheel-transaction.ts) REQUIRES it by default: aggregate-only
+   * evidence is refused rather than silently falling back to the weaker gate.
+   */
+  pairedOutcomes?: Array<{ taskId: string; baselineScore: string; candidateScore: string }>;
   statistics: PromotionStatistics;
   gates: Record<string, boolean>;
   resourceEvidence: ResourceEvidence;
@@ -121,6 +130,8 @@ export interface CreateReceiptInput {
   baselineScore: number;
   candidateScore: number;
   heldOutDeltas: number[];
+  /** Task-level paired outcomes behind heldOutDeltas (same order). */
+  pairedOutcomes?: PairedTaskOutcome[];
   frozenAnchorRegression: number;
   gates: Record<string, boolean>;
   resourceEvidence?: Partial<ResourceEvidence>;
@@ -131,6 +142,80 @@ export interface CreateReceiptInput {
   privateKeyPem?: string;
   publicKeyPem?: string;
   bootstrapIterations?: number;
+}
+
+/**
+ * Closed field sets for ADR-322C strict verification. Three objects stay open by
+ * contract: `candidatePolicy` is owned by `policySchemaVersion`, `gates` is a
+ * caller-named term map, and `evidence.verification` / `evidence.canary` carry
+ * evidence-specific payloads.
+ */
+const RECEIPT_FIELDS = {
+  root: ['payload', 'signature'],
+  payload: [
+    'schemaVersion', 'receiptId', 'lineageId', 'candidateId', 'evaluationRunId',
+    'baselineRef', 'expectedLedgerHead', 'candidatePolicy', 'gateVersion',
+    'policySchemaVersion', 'safetyEnvelopeRef', 'anchorRef', 'requestedProposer',
+    'effectiveProposer', 'proposerSubstitution', 'corpusVersion', 'corpusHash',
+    'baselineScore', 'candidateScore', 'heldOutDeltas', 'pairedOutcomes',
+    'statistics', 'gates', 'resourceEvidence', 'evidence', 'termVerification',
+    'decision', 'issuedAt', 'expiresAt',
+  ],
+  signature: ['algorithm', 'domain', 'publicKeyPem', 'signatureBase64'],
+  statistics: [
+    'ruleVersion', 'relativeLift', 'pairedBootstrapProbability',
+    'pairedBootstrapDeltaCILow95', 'frozenAnchorRegression', 'iterations',
+    'seedHex', 'significant', 'accepted',
+  ],
+  resourceEvidence: [
+    'p95LatencyMicros', 'costMicrosPerTask', 'tokensPerTask', 'failureRate',
+    'evaluationCostMicros', 'energyMicrojoules', 'currency',
+  ],
+  evidence: ['corpusRoles', 'verification', 'canary'],
+  corpusRoles: ['selectionTaskIds', 'promotionHoldoutTaskIds', 'guardTaskIds'],
+  pairedOutcome: ['taskId', 'baselineScore', 'candidateScore'],
+  termVerification: ['term', 'verification', 'evidenceRef', 'attestor'],
+} as const;
+
+/** Names present on `value` that the contract does not define, as `unknown field: <path>`. */
+export function collectUnknownFields(value: unknown, allowed: readonly string[], path: string): string[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  return Object.keys(value as Record<string, unknown>)
+    .filter((key) => !allowed.includes(key))
+    .map((key) => `unknown field: ${path}.${key}`);
+}
+
+/**
+ * ADR-322C: unknown fields fail verification for a given schema version.
+ * Enforced here rather than delegated to out-of-band schema validation, because
+ * a signature is valid over whatever the producer canonicalized — including
+ * fields the contract never defined — so a permissive verifier lets a producer
+ * attach arbitrary signed data that still verifies cleanly.
+ */
+export function collectUnknownReceiptFields(receipt: FlywheelEvaluationReceipt): string[] {
+  const errors = collectUnknownFields(receipt, RECEIPT_FIELDS.root, 'receipt');
+  const payload = receipt.payload;
+  if (!payload || typeof payload !== 'object') return errors;
+  const evidence = payload.evidence;
+  errors.push(
+    ...collectUnknownFields(payload, RECEIPT_FIELDS.payload, 'payload'),
+    ...collectUnknownFields(receipt.signature, RECEIPT_FIELDS.signature, 'signature'),
+    ...collectUnknownFields(payload.statistics, RECEIPT_FIELDS.statistics, 'payload.statistics'),
+    ...collectUnknownFields(payload.resourceEvidence, RECEIPT_FIELDS.resourceEvidence, 'payload.resourceEvidence'),
+    ...collectUnknownFields(evidence, RECEIPT_FIELDS.evidence, 'payload.evidence'),
+    ...collectUnknownFields(evidence?.corpusRoles, RECEIPT_FIELDS.corpusRoles, 'payload.evidence.corpusRoles'),
+  );
+  if (Array.isArray(payload.pairedOutcomes)) {
+    payload.pairedOutcomes.forEach((outcome, i) => {
+      errors.push(...collectUnknownFields(outcome, RECEIPT_FIELDS.pairedOutcome, `payload.pairedOutcomes[${i}]`));
+    });
+  }
+  if (Array.isArray(payload.termVerification)) {
+    payload.termVerification.forEach((term, i) => {
+      errors.push(...collectUnknownFields(term, RECEIPT_FIELDS.termVerification, `payload.termVerification[${i}]`));
+    });
+  }
+  return errors;
 }
 
 function assertJsonValue(value: unknown, path = '$'): void {
@@ -312,11 +397,19 @@ export function createFlywheelReceipt(input: CreateReceiptInput): FlywheelEvalua
   const evaluationRunId = input.evaluationRunId ?? uuidV7(now);
   const lineageId = input.lineageId ?? uuidV7(now);
   const candidateId = policyCandidateId(input.candidatePolicy);
+  // Verifiers recompute the statistics from the payload's scale-12 decimal
+  // strings — the only values they ever have. The encoded values are therefore
+  // the statistical inputs of record: compute the decision from them, not from
+  // full-precision intermediates, or any input that does not terminate within
+  // twelve decimals produces an honest receipt that fails its own verification.
+  const encodedBaselineScore = decimal(input.baselineScore);
+  const encodedCandidateScore = decimal(input.candidateScore);
+  const encodedHeldOutDeltas = input.heldOutDeltas.map((v) => decimal(v));
   const statistics = computePromotionStatistics({
-    baselineScore: input.baselineScore,
-    candidateScore: input.candidateScore,
-    heldOutDeltas: input.heldOutDeltas,
-    frozenAnchorRegression: input.frozenAnchorRegression,
+    baselineScore: Number(encodedBaselineScore),
+    candidateScore: Number(encodedCandidateScore),
+    heldOutDeltas: encodedHeldOutDeltas.map(Number),
+    frozenAnchorRegression: Number(decimal(input.frozenAnchorRegression)),
     corpusHash: input.corpusHash,
     candidateId,
     baselineRef: input.baselineRef,
@@ -341,9 +434,18 @@ export function createFlywheelReceipt(input: CreateReceiptInput): FlywheelEvalua
     ...(input.proposerSubstitution ? { proposerSubstitution: input.proposerSubstitution } : {}),
     corpusVersion: input.corpusVersion,
     corpusHash: input.corpusHash,
-    baselineScore: decimal(input.baselineScore),
-    candidateScore: decimal(input.candidateScore),
-    heldOutDeltas: input.heldOutDeltas.map((v) => decimal(v)),
+    baselineScore: encodedBaselineScore,
+    candidateScore: encodedCandidateScore,
+    heldOutDeltas: encodedHeldOutDeltas,
+    ...(input.pairedOutcomes
+      ? {
+        pairedOutcomes: input.pairedOutcomes.map((o) => ({
+          taskId: o.taskId,
+          baselineScore: decimal(o.baselineScore),
+          candidateScore: decimal(o.candidateScore),
+        })),
+      }
+      : {}),
     statistics,
     gates: input.gates,
     resourceEvidence: {
@@ -396,6 +498,7 @@ export function verifyFlywheelReceipt(receipt: FlywheelEvaluationReceipt, truste
   const errors: string[] = [];
   try {
     if (receipt.payload.schemaVersion !== RECEIPT_SCHEMA) errors.push('unsupported receipt schema');
+    errors.push(...collectUnknownReceiptFields(receipt));
     const { receiptId: _receiptId, ...base } = receipt.payload;
     const expectedId = sha256Ref(canonicalizeJcs(receiptIdentityPayload(base)));
     if (expectedId !== receipt.payload.receiptId) errors.push('receipt content ID mismatch');
@@ -418,6 +521,17 @@ export function verifyFlywheelReceipt(receipt: FlywheelEvaluationReceipt, truste
       ? 'accepted'
       : 'rejected';
     if (receipt.payload.decision !== recomputedDecision) errors.push('receipt decision does not recompute');
+    if (receipt.payload.pairedOutcomes) {
+      // Paired outcomes must reproduce the aggregate they claim to back.
+      // Tolerance covers the decimal(scale 12) round-trip of both scores.
+      const paired = receipt.payload.pairedOutcomes.map((o) => ({
+        taskId: o.taskId,
+        baselineScore: Number(o.baselineScore),
+        candidateScore: Number(o.candidateScore),
+      }));
+      const check = checkPairedOutcomesConsistency(paired, receipt.payload.heldOutDeltas.map(Number), 1e-9);
+      if (!check.ok) errors.push(`paired outcomes inconsistent: ${check.reasons.join('; ')}`);
+    }
     if (!receipt.signature) {
       errors.push('receipt is unsigned');
     } else {
