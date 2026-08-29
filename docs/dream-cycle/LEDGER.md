@@ -131,3 +131,29 @@ alerting.
 | 2026-08-17 | intelligence | discounted Thompson-sampling prior decay for model-router bandit (opt-in), recovers faster after workload shift | #3048 | #3049 | yes | ACCEPT-scoped | low-bucket recovery -17.6% (t=7.00, held); med-bucket null (no generalization) | e0fb0242... | recovered-live |
 | 2026-08-18 | memory | hybridSearch controller reachable via explicit opt-in (was silently null-returning despite config flag) | #3056 | #3057 | yes | ACCEPT-scoped | overall recall@10 +0.267; category B (pure-paraphrase) regresses -0.133 | b28714fb... | recovered-live |
 | 2026-08-19 | swarm | MessageBus retry-attempts silently reset to 0 on every re-queue, unbounded redelivery, message.failed unreachable | #3061 | #3062 | yes | ACCEPT | invocations 96-98/0-failed (baseline) → 3/2/1 stable (candidate); 220/220 tests | 62c4fdf7... | 08-14..08-18 all OPEN, none merged yet |
+
+**Recovery note (2026-08-28, re-verified 2026-08-29):** rows for 2026-08-24
+through 2026-08-27 were missing on `main` for the same reason as the
+2026-08-14..18 gap above: STEP 25 ran correctly every night (each `dream/*`
+branch's own commit includes its LEDGER.md row — confirmed via
+`pull_request_read(get_files)` on PRs #3086/#3094/#3103/#3110/#3119, not
+inferred), but those branches became draft PRs awaiting human review and
+were never merged, so `main`'s ledger stayed frozen. This is a
+**merge-cadence backlog**, not a repeated STEP-25 execution failure.
+Separately, 2026-08-20 through 2026-08-23 are a genuine 4-night **no-run**
+gap (no branch, no PR, no issue exists for any of those dates — confirmed
+tonight again via `git ls-remote`, `search_pull_requests`, `search_issues`),
+a different failure mode, root cause external to this repo (not diagnosed
+across 6 consecutive nights of re-confirmation, 08-24 through 08-29).
+Backfilled below from the PRs/issues directly.
+
+| 2026-08-20 | — | **no-run gap** — no branch/PR/issue exists for this date | — | — | no | — | — | — | no-run gap (external, not diagnosed) |
+| 2026-08-21 | — | **no-run gap** — no branch/PR/issue exists for this date | — | — | no | — | — | — | no-run gap (external, not diagnosed) |
+| 2026-08-22 | — | **no-run gap** — no branch/PR/issue exists for this date | — | — | no | — | — | — | no-run gap (external, not diagnosed) |
+| 2026-08-23 | — | **no-run gap** — no branch/PR/issue exists for this date | — | — | no | — | — | — | no-run gap (external, not diagnosed) |
+| 2026-08-24 | swarm | weightedConsensus() trust weights now reach the vote tally (previously computed, never read by tally) | #3085 | #3086 | yes | ACCEPT | see #3085/#3086 | (see PR) | backfilled (merge-cadence, not lost work) |
+| 2026-08-25 | performance | productQuantizeDistance() wired into HNSW search path (was implemented, never dispatched) | #3093 | #3094 | yes | ACCEPT | see #3093/#3094 | (see PR) | backfilled (merge-cadence, not lost work) |
+| 2026-08-26 | security | ADR-377 caller-identity (Ed25519) verification bound into live authorizeMcpTool() chokepoint | #3102 | #3103 | yes | ACCEPT-with-caveats | see #3102/#3103 | (see PR) | backfilled (merge-cadence, not lost work) |
+| 2026-08-27 | intelligence | distillLearning()'s EWC confidence gate read 1-of-384 Fisher dims (getPenalty length-collapse); wired the pre-existing computeConfidencePenalty/updateFisherFromConfidences instead | #3109 | #3110 | yes | ACCEPT-scoped | 152/152 memory-ruvector-deep tests (+4 new); regression-guard test fails on baseline, passes on candidate | 8994645... | backfilled (merge-cadence, not lost work) |
+| 2026-08-28 | memory | `HybridBackend.queryHybrid()`'s dead `weights` field (computed, never consumed by combineUnion) replaced with real weighted-RRF fusion (`combineWeighted`), matching Qdrant/Weaviate/Azure AI Search's weighted-RRF pattern | #3118 | #3119 | yes | ACCEPT | 461/462 suite green (1 pre-existing unrelated env failure, confirmed identical on baseline); weight-sensitivity test fails on baseline, passes on candidate (git-stash isolated) | 47e2f669... | 08-24..08-27 all OPEN drafts, none merged yet; 08-20..23 no-run gap still undiagnosed |
+| 2026-08-29 | swarm | `TopologyManager.rebalanceHybrid()`'s worker-mesh loop added edges one-directionally (worker→target only, never reciprocated) — same function's coordinator loop and all 3 sibling rebalance*() methods do this correctly; flagged live by 08-24's own night, fixed tonight | #3122 | TBD | yes | ACCEPT | deterministic (Math.random mocked) regression test: baseline missing reciprocal edge, candidate symmetric; full package 221/221 tests, 0 regressions; independent adversarial critic CONFIRMED | 9c1e9cd4... | 08-24..08-28 all OPEN drafts, none merged yet; 08-20..23 no-run gap still undiagnosed (7th consecutive re-confirmation) |

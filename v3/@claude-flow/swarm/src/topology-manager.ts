@@ -537,6 +537,16 @@ export class TopologyManager extends EventEmitter implements ITopologyManager {
         worker.connections.push(target.agentId);
         currentWorkerConnections.push(target.agentId);
         this.adjacencyList.get(worker.agentId)?.add(target.agentId);
+
+        // Dream Cycle 2026-08-29 (swarm): mirror the edge onto the target so
+        // the worker-mesh graph stays symmetric, matching every other
+        // rebalance*() method (and this same function's coordinator loop
+        // below) — without this, the mesh silently degrades into a random
+        // directed graph instead of the undirected mesh it's meant to be.
+        if (!target.connections.includes(worker.agentId)) {
+          target.connections.push(worker.agentId);
+        }
+        this.adjacencyList.get(target.agentId)?.add(worker.agentId);
       }
     }
 

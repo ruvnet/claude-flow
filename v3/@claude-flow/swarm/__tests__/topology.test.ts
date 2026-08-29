@@ -449,6 +449,58 @@ describe('TopologyManager', () => {
       expect(queen?.connections.length).toBeGreaterThanOrEqual(0);
     });
 
+    it('should create symmetric edges when rebalancing a hybrid worker mesh (regression: Dream Cycle 2026-08-29)', async () => {
+      topology = createTopologyManager({
+        type: 'hybrid',
+        maxAgents: 20,
+        autoRebalance: true,
+      });
+      await topology.initialize();
+
+      for (let i = 2; i <= 6; i++) {
+        await topology.addNode(`agent-${i}`, 'worker');
+      }
+
+      // Isolate rebalanceHybrid()'s worker-mesh loop from addNode()'s own,
+      // separate initial-connection wiring (a different, out-of-scope-tonight
+      // asymmetry in createEdgesForNode's hybrid case) by resetting every
+      // worker to a clean slate via the public updateNode() API first.
+      for (let i = 2; i <= 6; i++) {
+        await topology.updateNode(`agent-${i}`, { connections: [] });
+      }
+
+      // Math.random() mocked to always return 0 makes candidate selection
+      // (candidates[Math.floor(Math.random() * candidates.length)])
+      // deterministic: every worker always picks the lowest-index remaining
+      // candidate. With workers processed in insertion order agent-2..agent-6
+      // and targetConnections = min(3, 4) = 3, this reliably reproduces (hand
+      // -verified, not a probabilistic sample) the asymmetric edge
+      // agent-6 -> agent-2 with no reciprocal agent-2 -> agent-6 under the
+      // pre-fix one-directional bug.
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+
+      // Bypass the 5s rebalance throttle by actually waiting it out, same
+      // pattern as the 'should emit topology.rebalanced event' test above.
+      await new Promise(resolve => setTimeout(resolve, 5100));
+      await topology.rebalance();
+
+      randomSpy.mockRestore();
+
+      const agent2 = topology.getNode('agent-2')!;
+      const agent6 = topology.getNode('agent-6')!;
+
+      // agent-6 -> agent-2 edge exists (agent-6's own mesh pick).
+      expect(agent6.connections).toContain('agent-2');
+      expect(topology.isConnected('agent-6', 'agent-2')).toBe(true);
+
+      // The reciprocal agent-2 -> agent-6 edge must also exist -- this is
+      // exactly what the pre-fix one-directional bug omitted (agent-2's own
+      // 3 picks never reach agent-6, so only a fix that mirrors the edge
+      // onto the target produces it).
+      expect(agent2.connections).toContain('agent-6');
+      expect(topology.isConnected('agent-2', 'agent-6')).toBe(true);
+    }, 10000);
+
     it('should prevent too frequent rebalancing', async () => {
       topology = createTopologyManager({
         type: 'mesh',
