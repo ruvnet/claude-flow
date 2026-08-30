@@ -31,6 +31,11 @@ export function proxyInstallManifestPath(): string {
   return join(funnelStateDir(), 'proxy', 'install-manifest.json');
 }
 
+/** Shared by Ruflo and MetaHarness so two IDE windows cannot race an upgrade. */
+export function proxyInstallLockPath(): string {
+  return join(funnelStateDir(), 'meta-proxy-install.lock');
+}
+
 export function proxyConfigPath(): string {
   return join(funnelStateDir(), 'proxy-config.toml');
 }
