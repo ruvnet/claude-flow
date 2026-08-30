@@ -1590,6 +1590,26 @@ describe('Init System', () => {
       }
     });
 
+    it('should not assert the debunked 150x-12,500x HNSW figure or an unreachable DiskANN capability in any template (dream/2026-08-30)', () => {
+      // The 150x-12,500x number was measured to be unreproducible (see
+      // docs/reviews/intelligence-system-audit-2026-05-29.md, corrected to
+      // ~1.9x-4.7x) and diskann-backend.ts — the only DiskANN integration
+      // in this repo — had zero call sites anywhere in the monorepo before
+      // its removal tonight. Generated project docs should not out-claim
+      // what this repo can itself substantiate. Only the 'performance' and
+      // 'full' templates render performanceSection()/intelligenceSystem()
+      // at all, so check every template rather than just the default.
+      for (const template of CLAUDE_MD_TEMPLATES) {
+        const md = generateClaudeMd(DEFAULT_INIT_OPTIONS, template.name);
+        expect(md).not.toContain('150x-12,500x');
+        expect(md).not.toContain('DiskANN');
+      }
+      const perfMd = generateClaudeMd(DEFAULT_INIT_OPTIONS, 'performance');
+      expect(perfMd).toContain('1.9x-4.7x');
+      const fullMd = generateClaudeMd(DEFAULT_INIT_OPTIONS, 'full');
+      expect(fullMd).toContain('1.9x-4.7x');
+    });
+
     it('should describe anti-drift swarm topology', () => {
       const md = generateClaudeMd(DEFAULT_INIT_OPTIONS, 'standard');
       expect(md).toContain('anti-drift');

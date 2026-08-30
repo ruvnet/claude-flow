@@ -272,7 +272,7 @@ function performanceSection(): string {
 
 - Always benchmark before AND after optimization
 - Always profile before optimizing — never guess bottlenecks
-- Use HNSW/DiskANN for vector search, Int8 quantization for memory reduction
+- Use HNSW for vector search (~1.9x-4.7x vs brute force, recall@10 ~0.99 — measured, see docs/reviews/intelligence-system-audit-2026-05-29.md), Int8 quantization for memory reduction
 
 \`\`\`bash
 npx @claude-flow/cli@latest performance benchmark --suite all
@@ -309,7 +309,7 @@ function intelligenceSystem(): string {
 Pipeline: **RETRIEVE** (vector search) → **JUDGE** (success/failure) → **DISTILL** (extract patterns) → **CONSOLIDATE** (persist)
 
 - **ONNX Embeddings**: all-MiniLM-L6-v2, 384-dim
-- **HNSW/DiskANN**: 150x-12,500x faster search
+- **HNSW**: ~1.9x-4.7x faster search vs brute force (recall@10 ~0.99, measured)
 - **SONA**: Sub-millisecond pattern adaptation
 - **Claude Bridge**: Auto-imports \`~/.claude/projects/*/memory/*.md\` into AgentDB`;
 }
