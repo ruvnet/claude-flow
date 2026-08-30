@@ -7,24 +7,30 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.2.1 with new keywords"
+step "1. plugin.json and marketplace declare the 0.3.0 integration"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.2.1" ]]; then bad "expected 0.2.1, got '$v'"; else
+if [[ "$v" != "0.3.0" ]]; then bad "expected 0.3.0, got '$v'"; else
   miss=""
-  for k in mcp candlestick-patterns namespace-routing; do
+  for k in mcp candlestick-patterns namespace-routing social-signals xquik; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
   done
-  [[ -z "$miss" ]] && ok || bad "missing keywords:$miss"
+  MARKETPLACE="$ROOT/../../.claude-plugin/marketplace.json"
+  [[ -f "$MARKETPLACE" ]] || miss="$miss marketplace-missing"
+  grep -A2 '"name": "ruflo-market-data"' "$MARKETPLACE" 2>/dev/null \
+    | grep -q 'public X signal context' || miss="$miss marketplace-description-stale"
+  [[ -z "$miss" ]] && ok || bad "contract mismatch:$miss"
 fi
 
-step "2. both skills + agent + command present with valid frontmatter"
+step "2. all skills + agent + command present with valid frontmatter"
 miss=""
-for s in market-ingest market-pattern; do
+for s in market-ingest market-pattern xquik-social-signals; do
   f="$ROOT/skills/$s/SKILL.md"
   [[ -f "$f" ]] || { miss="$miss missing-$s"; continue; }
   for k in 'name:' 'description:' 'allowed-tools:'; do
     grep -q "^$k" "$f" || miss="$miss $s-no-$k"
   done
+  name=$(sed -n 's/^name:[[:space:]]*//p' "$f" | head -1)
+  [[ "$name" == "$s" ]] || miss="$miss $s-name-mismatch"
 done
 [[ -f "$ROOT/agents/data-engineer.md" ]] || miss="$miss missing-agent"
 [[ -f "$ROOT/commands/market.md" ]] || miss="$miss missing-command"
@@ -83,6 +89,26 @@ step "11. ADR-0001 exists with status Accepted"
 ADR="$ROOT/docs/adrs/0001-market-data-contract.md"
 [[ -f "$ADR" ]] && grep -qE "^status:[[:space:]]*Accepted" "$ADR" \
   && ok || bad "ADR missing or status != Accepted"
+
+step "12. Xquik skill uses the current read-only integration contract"
+F="$ROOT/skills/xquik-social-signals/SKILL.md"
+miss=""
+grep -q "https://xquik.com/api/v1/x/tweets/search" "$F" || miss="$miss no-search-route"
+grep -q "https://xquik.com/openapi.json" "$F" || miss="$miss no-openapi"
+grep -q "mcp__plugin_ruflo-core_ruflo__memory_store" "$F" || miss="$miss no-current-memory-store"
+# audit-allow: standalone-mcp-prefix — this assertion rejects the obsolete namespace
+grep -q "mcp__claude-flow__" "$F" && miss="$miss legacy-memory-tool"
+grep -q "untrusted" "$F" || miss="$miss no-untrusted-content-guard"
+grep -q '`409`' "$F" || miss="$miss no-coverage-busy-handling"
+grep -q '`410`' "$F" || miss="$miss no-expired-cursor-handling"
+grep -q '`503`' "$F" || miss="$miss no-coverage-retry-handling"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "13. Xquik observations use their claimed namespace"
+F="$ROOT/skills/xquik-social-signals/SKILL.md"
+grep -q "memory_store --namespace market-social-signals" "$F" \
+  && grep -q "market-social-signals" "$ROOT/README.md" \
+  && ok || bad "market-social-signals namespace contract incomplete"
 
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1

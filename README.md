@@ -156,7 +156,7 @@ This adds slash commands and agent definitions. `ruflo-core` (installed above) d
 |--------|-------------|
 | [**ruflo-iot-cognitum**](plugins/ruflo-iot-cognitum/README.md) | IoT device management — trust scoring, anomaly detection, fleets |
 | [**ruflo-neural-trader**](plugins/ruflo-neural-trader/README.md) | [`neural-trader`](https://npmjs.com/package/neural-trader) — AI trading with 4 agents, backtesting, 112+ tools |
-| [**ruflo-market-data**](plugins/ruflo-market-data/README.md) | Ingest market data, vectorize OHLCV, detect patterns |
+| [**ruflo-market-data**](plugins/ruflo-market-data/README.md) | Ingest market data, add public X context, vectorize OHLCV, detect patterns |
 
 </details>
 
