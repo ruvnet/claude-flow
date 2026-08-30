@@ -1590,14 +1590,18 @@ describe('Init System', () => {
       }
     });
 
-    it('should not assert the debunked 150x-12,500x HNSW figure or an unreachable DiskANN capability in any template (dream/2026-08-30)', () => {
+    it('should not assert the debunked 150x-12,500x HNSW figure or an unreachable DiskANN capability, and should point at the reproducible benchmark instead of a hardcoded multiplier (dream/2026-08-30)', () => {
       // The 150x-12,500x number was measured to be unreproducible (see
-      // docs/reviews/intelligence-system-audit-2026-05-29.md, corrected to
-      // ~1.9x-4.7x) and diskann-backend.ts — the only DiskANN integration
-      // in this repo — had zero call sites anywhere in the monorepo before
-      // its removal tonight. Generated project docs should not out-claim
-      // what this repo can itself substantiate. Only the 'performance' and
-      // 'full' templates render performanceSection()/intelligenceSystem()
+      // docs/reviews/intelligence-system-audit-2026-05-29.md) and
+      // diskann-backend.ts — the only DiskANN integration in this repo —
+      // had zero call sites anywhere in the monorepo before its removal
+      // tonight. A live re-run of scripts/benchmark-intelligence.mjs during
+      // this same dream-cycle night found recall@10 0.9867 at N=5000 but
+      // only 0.9233 at N=20000 — i.e. even the previously "corrected"
+      // ~1.9x-4.7x/recall~0.99 figure doesn't hold uniformly, so the fix
+      // points at the reproducible command instead of hardcoding a new
+      // multiplier that would just go stale again. Only the 'performance'
+      // and 'full' templates render performanceSection()/intelligenceSystem()
       // at all, so check every template rather than just the default.
       for (const template of CLAUDE_MD_TEMPLATES) {
         const md = generateClaudeMd(DEFAULT_INIT_OPTIONS, template.name);
@@ -1605,9 +1609,9 @@ describe('Init System', () => {
         expect(md).not.toContain('DiskANN');
       }
       const perfMd = generateClaudeMd(DEFAULT_INIT_OPTIONS, 'performance');
-      expect(perfMd).toContain('1.9x-4.7x');
+      expect(perfMd).toContain('benchmark-intelligence.mjs --only=hnsw');
       const fullMd = generateClaudeMd(DEFAULT_INIT_OPTIONS, 'full');
-      expect(fullMd).toContain('1.9x-4.7x');
+      expect(fullMd).toContain('benchmark-intelligence.mjs --only=hnsw');
     });
 
     it('should describe anti-drift swarm topology', () => {
