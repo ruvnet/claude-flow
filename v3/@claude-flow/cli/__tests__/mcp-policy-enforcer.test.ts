@@ -18,6 +18,7 @@ import {
   loadMcpPolicy,
   checkAndRecordCall,
   appendAuditLog,
+  evaluateToolCall,
   resetPolicyEnforcerState,
   setAuditLogPathForTesting,
   getAuditLogPath,
@@ -98,28 +99,93 @@ describe('appendAuditLog', () => {
     if (fs.existsSync(logFile)) fs.unlinkSync(logFile);
   });
 
-  it('does nothing when policy.auditLog is not true', () => {
-    appendAuditLog({ auditLog: false }, {
+  it('does nothing and reports success (nothing was required) when policy.auditLog is not true', () => {
+    expect(appendAuditLog({ auditLog: false }, {
       timestamp: new Date().toISOString(), sessionId: 's', toolName: 't', allowed: true,
-    });
+    })).toBe(true);
     expect(fs.existsSync(logFile)).toBe(false);
   });
 
-  it('appends one JSONL record per call when auditLog is true', () => {
+  it('appends one JSONL record per call when auditLog is true, and reports success', () => {
     const policy: McpPolicy = { auditLog: true };
-    appendAuditLog(policy, { timestamp: 't1', sessionId: 's1', toolName: 'memory_store', allowed: true });
-    appendAuditLog(policy, { timestamp: 't2', sessionId: 's1', toolName: 'memory_store', allowed: false, reason: 'denied' });
+    expect(appendAuditLog(policy, { timestamp: 't1', sessionId: 's1', toolName: 'memory_store', allowed: true })).toBe(true);
+    expect(appendAuditLog(policy, { timestamp: 't2', sessionId: 's1', toolName: 'memory_store', allowed: false, reason: 'denied' })).toBe(true);
     const lines = fs.readFileSync(logFile, 'utf-8').trim().split('\n');
     expect(lines).toHaveLength(2);
     expect(JSON.parse(lines[0])).toMatchObject({ toolName: 'memory_store', allowed: true });
     expect(JSON.parse(lines[1])).toMatchObject({ allowed: false, reason: 'denied' });
   });
 
-  it('never throws even if the log path is unwritable', () => {
+  it('never throws, and reports failure, when the log path is unwritable', () => {
     setAuditLogPathForTesting('/nonexistent-dir-xyz/audit.jsonl');
-    expect(() => appendAuditLog({ auditLog: true }, {
-      timestamp: 't', sessionId: 's', toolName: 'x', allowed: true,
-    })).not.toThrow();
+    let result: boolean | undefined;
+    expect(() => {
+      result = appendAuditLog({ auditLog: true }, {
+        timestamp: 't', sessionId: 's', toolName: 'x', allowed: true,
+      });
+    }).not.toThrow();
+    expect(result).toBe(false);
+  });
+});
+
+describe('evaluateToolCall — single enforcement entry point (fail-closed)', () => {
+  let logFile: string;
+  beforeEach(() => {
+    resetPolicyEnforcerState();
+    logFile = path.join(os.tmpdir(), `mcp-audit-eval-${Date.now()}-${Math.random()}.jsonl`);
+    setAuditLogPathForTesting(logFile);
+  });
+  afterEach(() => {
+    setAuditLogPathForTesting(null);
+    if (fs.existsSync(logFile)) fs.unlinkSync(logFile);
+  });
+
+  it('denies with a clear reason when policy is null (missing/malformed file) — fail-closed', () => {
+    const result = evaluateToolCall(null, 's1', 'memory_store');
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toMatch(/missing or invalid.*failing closed/i);
+  });
+
+  it('allows a call within budget with a working audit log', () => {
+    const result = evaluateToolCall({ auditLog: true, maxToolCallsPerTurn: 5 }, 's1', 'memory_store');
+    expect(result.allowed).toBe(true);
+    expect(fs.readFileSync(logFile, 'utf-8').trim().split('\n')).toHaveLength(1);
+  });
+
+  it('denies once the session budget is exhausted, and still logs the denial', () => {
+    const policy: McpPolicy = { auditLog: true, maxToolCallsPerTurn: 1 };
+    expect(evaluateToolCall(policy, 's1', 'memory_store').allowed).toBe(true);
+    const second = evaluateToolCall(policy, 's1', 'memory_store');
+    expect(second.allowed).toBe(false);
+    expect(second.reason).toMatch(/maxToolCallsPerTurn/);
+    const lines = fs.readFileSync(logFile, 'utf-8').trim().split('\n');
+    expect(lines).toHaveLength(2);
+    expect(JSON.parse(lines[1]).allowed).toBe(false);
+  });
+
+  it('denies — fail-closed — when auditLog is required but the write fails, even though budget allows the call', () => {
+    setAuditLogPathForTesting('/nonexistent-dir-xyz/audit.jsonl');
+    const result = evaluateToolCall({ auditLog: true, maxToolCallsPerTurn: 5 }, 's1', 'memory_store');
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toMatch(/audit log write failed.*failing closed/i);
+  });
+
+  it('does not require a working audit log when policy.auditLog is not set', () => {
+    setAuditLogPathForTesting('/nonexistent-dir-xyz/audit.jsonl');
+    const result = evaluateToolCall({ maxToolCallsPerTurn: 5 }, 's1', 'memory_store');
+    expect(result.allowed).toBe(true);
+  });
+
+  it('handles concurrent calls for the same session without double-allowing past the budget', async () => {
+    const policy: McpPolicy = { maxToolCallsPerTurn: 3 };
+    // evaluateToolCall is synchronous end-to-end (no await inside), so
+    // Promise.all over synchronous calls cannot interleave — this pins
+    // that invariant rather than exercising real concurrency.
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () => Promise.resolve(evaluateToolCall(policy, 'concurrent-session', 'memory_store'))),
+    );
+    expect(results.filter(r => r.allowed)).toHaveLength(3);
+    expect(results.filter(r => !r.allowed)).toHaveLength(2);
   });
 });
 
@@ -173,15 +239,50 @@ describe('MCPServerManager tools/call — policy wiring', () => {
     }
   });
 
-  it('enabled + no policy file found: falls through to normal dispatch (fail-open on missing config)', async () => {
+  it('enabled + no policy file found: denies — fail-closed on missing config (PR #3139 review round 1)', async () => {
     process.env.RUFLO_MCP_ENFORCE_POLICY = '1';
-    const { MCPServerManager, loadMcpPolicy: _unused } = await import('../src/mcp-server.js');
-    void _unused;
+    const mod = await import('../src/mcp-tools/policy-enforcer.js');
+    const spy = vi.spyOn(mod, 'loadMcpPolicy').mockReturnValue(null);
+    const { MCPServerManager } = await import('../src/mcp-server.js');
     const server = new (MCPServerManager as any)();
-    // loadMcpPolicy() with no override resolves against process.cwd(); a
-    // missing/absent .harness dir there yields null -> enforcement no-ops.
     const res = await dispatch(server, 'demo_tool', 'sess-nopolicy');
-    expect(res.error).toBeUndefined();
+    expect(res.error).toBeDefined();
+    expect(res.error.message).toMatch(/Policy denied.*missing or invalid.*failing closed/i);
+    spy.mockRestore();
+  });
+
+  it('enabled + malformed policy JSON on disk: denies — fail-closed', async () => {
+    process.env.RUFLO_MCP_ENFORCE_POLICY = '1';
+    fs.writeFileSync(policyPath, '{ not valid json', 'utf-8');
+    // Confirm the disk content really is malformed via the real loader
+    // (unit-tested separately above), then wire that same real behavior
+    // into the server-level dispatch by pointing loadMcpPolicy() at it.
+    // Capture the *real* implementation before spying — `mod.loadMcpPolicy`
+    // and the top-level imported `loadMcpPolicy` are the same live ESM
+    // binding, so calling it from inside its own mock would recurse forever.
+    const { loadMcpPolicy: realLoadMcpPolicy } = await vi.importActual<typeof import('../src/mcp-tools/policy-enforcer.js')>('../src/mcp-tools/policy-enforcer.js');
+    expect(realLoadMcpPolicy(policyPath)).toBeNull();
+    const mod = await import('../src/mcp-tools/policy-enforcer.js');
+    const spy = vi.spyOn(mod, 'loadMcpPolicy').mockImplementation(() => realLoadMcpPolicy(policyPath));
+    const { MCPServerManager } = await import('../src/mcp-server.js');
+    const server = new (MCPServerManager as any)();
+    const res = await dispatch(server, 'demo_tool', 'sess-malformed');
+    expect(res.error).toBeDefined();
+    expect(res.error.message).toMatch(/Policy denied.*failing closed/i);
+    spy.mockRestore();
+  });
+
+  it('enabled + auditLog required but log path unwritable: denies — fail-closed even though budget would allow', async () => {
+    process.env.RUFLO_MCP_ENFORCE_POLICY = '1';
+    setAuditLogPathForTesting('/nonexistent-dir-xyz/audit.jsonl');
+    const mod = await import('../src/mcp-tools/policy-enforcer.js');
+    const spy = vi.spyOn(mod, 'loadMcpPolicy').mockReturnValue({ auditLog: true, maxToolCallsPerTurn: 100 });
+    const { MCPServerManager } = await import('../src/mcp-server.js');
+    const server = new (MCPServerManager as any)();
+    const res = await dispatch(server, 'demo_tool', 'sess-unwritable-log');
+    expect(res.error).toBeDefined();
+    expect(res.error.message).toMatch(/Policy denied.*audit log write failed.*failing closed/i);
+    spy.mockRestore();
   });
 
   it('enabled + budget=1: 1st call allowed, 2nd call denied with a policy error', async () => {

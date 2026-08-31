@@ -22,6 +22,13 @@
  * means every function below is a no-op on the hot path — the pre-existing
  * `tools/call` behavior is unchanged.
  *
+ * FAIL-CLOSED once enforcement is enabled (PR #3139 review round 1):
+ * a missing/malformed policy file, or a failed mandatory audit-log write,
+ * denies the call rather than silently degrading to unrestricted execution.
+ * The whole point of opting in is a restriction that actually holds; an
+ * enforcement flag that quietly falls back to "no restriction" on its own
+ * misconfiguration defeats the feature. See `evaluateToolCall()`.
+ *
  * Known scope limits (disclosed, not fixed here):
  *   - Despite the policy field's name, this enforces a *session-lifetime
  *     cumulative* cap, not a per-conversational-turn cap that resets — a
@@ -130,12 +137,57 @@ export function getAuditLogPath(): string {
   return auditLogPathOverride ?? defaultAuditLogPath();
 }
 
-/** Best-effort append; an audit-log write failure must never break tool dispatch. */
-export function appendAuditLog(policy: McpPolicy, entry: AuditLogEntry): void {
-  if (!policy.auditLog) return;
+/**
+ * Appends one JSONL audit record. Returns `true` if `policy.auditLog` is not
+ * set (nothing was required) or the write succeeded; `false` only when
+ * `auditLog` is required and the write itself failed (disk full, unwritable
+ * path, etc). Never throws — the caller (`evaluateToolCall`) decides what a
+ * failed *mandatory* write means for the call (fail-closed: deny it).
+ */
+export function appendAuditLog(policy: McpPolicy, entry: AuditLogEntry): boolean {
+  if (!policy.auditLog) return true;
   try {
     fs.appendFileSync(getAuditLogPath(), `${JSON.stringify(entry)}\n`, 'utf-8');
+    return true;
   } catch {
-    // Swallow: audit logging is best-effort and must not affect dispatch.
+    return false;
   }
+}
+
+/**
+ * Single enforcement entry point for a `tools/call` dispatch. Combines, in
+ * order: fail-closed on a missing/malformed policy, the per-session call
+ * budget, and fail-closed on a failed mandatory audit-log write. `policy`
+ * is the result of `loadMcpPolicy()` — pass `null` straight through when it
+ * failed to load, rather than re-deciding that here.
+ */
+export function evaluateToolCall(
+  policy: McpPolicy | null,
+  sessionId: string,
+  toolName: string,
+): PolicyCheckResult {
+  if (policy === null) {
+    return {
+      allowed: false,
+      reason: 'RUFLO_MCP_ENFORCE_POLICY is set but .harness/mcp-policy.json is missing or invalid — failing closed',
+    };
+  }
+
+  const budget = checkAndRecordCall(policy, sessionId);
+  const auditOk = appendAuditLog(policy, {
+    timestamp: new Date().toISOString(),
+    sessionId,
+    toolName,
+    allowed: budget.allowed,
+    reason: budget.reason,
+  });
+
+  if (!budget.allowed) return budget;
+  if (!auditOk) {
+    return {
+      allowed: false,
+      reason: 'audit log write failed and policy.auditLog is required — failing closed',
+    };
+  }
+  return { allowed: true };
 }

@@ -30,8 +30,7 @@ import { trackRequest } from './mcp-tools/request-tracker.js';
 import {
   isPolicyEnforcementEnabled,
   loadMcpPolicy,
-  checkAndRecordCall,
-  appendAuditLog,
+  evaluateToolCall,
 } from './mcp-tools/policy-enforcer.js';
 
 // ESM-compatible __dirname
@@ -652,24 +651,14 @@ export class MCPServerManager extends EventEmitter {
           }
 
           if (isPolicyEnforcementEnabled()) {
-            const policy = loadMcpPolicy();
-            if (policy) {
-              const check = checkAndRecordCall(policy, sessionId);
-              appendAuditLog(policy, {
-                timestamp: new Date().toISOString(),
-                sessionId,
-                toolName,
-                allowed: check.allowed,
-                reason: check.reason,
-              });
-              if (!check.allowed) {
-                trackRequest(toolName, false);
-                return {
-                  jsonrpc: '2.0',
-                  id: message.id,
-                  error: { code: -32001, message: `Policy denied: ${check.reason}` },
-                };
-              }
+            const check = evaluateToolCall(loadMcpPolicy(), sessionId, toolName);
+            if (!check.allowed) {
+              trackRequest(toolName, false);
+              return {
+                jsonrpc: '2.0',
+                id: message.id,
+                error: { code: -32001, message: `Policy denied: ${check.reason}` },
+              };
             }
           }
 
