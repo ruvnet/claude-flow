@@ -378,4 +378,40 @@ describe('MCPServerManager tools/call — policy wiring', () => {
     expect(second.error.message).toMatch(/Policy denied/);
     spy.mockRestore();
   });
+
+  it('deny -> expiry -> allow through the real stdio dispatcher (MCPServerManager.handleMCPMessage), not just direct evaluateToolCall calls (requested in PR #3152 review)', async () => {
+    process.env.RUFLO_MCP_ENFORCE_POLICY = '1';
+    const policy = { auditLog: true, maxToolCallsPerTurn: 1, turnWindowMs: 1000 };
+    fs.writeFileSync(policyPath, JSON.stringify(policy), 'utf-8');
+    const mod = await import('../src/mcp-tools/policy-enforcer.js');
+    const spy = vi.spyOn(mod, 'loadMcpPolicy').mockReturnValue(policy);
+    const { MCPServerManager } = await import('../src/mcp-server.js');
+    const server = new (MCPServerManager as any)();
+
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(0);
+      const first = await dispatch(server, 'demo_tool', 'sess-window-e2e');
+      expect(first.error).toBeUndefined(); // allow
+
+      const second = await dispatch(server, 'demo_tool', 'sess-window-e2e');
+      expect(second.error).toBeDefined(); // deny — budget exhausted
+      expect(second.error.message).toMatch(/Policy denied/);
+
+      vi.setSystemTime(1001); // past turnWindowMs
+      const third = await dispatch(server, 'demo_tool', 'sess-window-e2e');
+      expect(third.error).toBeUndefined(); // allow — expiry restored the budget
+
+      // The opt-in flag and fail-closed audit logging were not bypassed to
+      // get there: every one of the three calls above, including the denial,
+      // is present in the audit log (this module's own real appendAuditLog,
+      // not a stub) written through the real dispatcher.
+      const lines = fs.readFileSync(getAuditLogPath(), 'utf-8').trim().split('\n');
+      expect(lines).toHaveLength(3);
+      expect(JSON.parse(lines[1]).allowed).toBe(false);
+    } finally {
+      vi.useRealTimers();
+      spy.mockRestore();
+    }
+  });
 });

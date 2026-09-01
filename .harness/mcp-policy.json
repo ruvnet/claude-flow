@@ -17,6 +17,7 @@
 
   "toolTimeoutMs": 600000,
   "maxToolCallsPerTurn": 200,
+  "$comment_maxToolCallsPerTurn": "Despite the field name, this is a wall-clock rate limit (at most this many calls per rolling turnWindowMs), not a literal per-conversational-turn counter -- MCP has no protocol-level 'turn' concept to count against. Treat and document this as rate limiting to policy consumers.",
   "turnWindowMs": 60000,
 
   "dangerousPatterns": [

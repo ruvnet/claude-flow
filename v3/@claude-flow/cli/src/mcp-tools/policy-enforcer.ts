@@ -69,6 +69,14 @@ export interface McpPolicy {
   auditLog?: boolean;
   requireApprovalForDangerous?: boolean;
   toolTimeoutMs?: number;
+  /**
+   * Despite the name, this is a WALL-CLOCK rate limit, not a literal
+   * conversational-turn counter — MCP has no protocol-level concept of a
+   * "turn" to count against (confirmed: the spec is silent on it, and its
+   * 2026-07-28 revision removes the session concept entirely). Enforced as
+   * "at most this many calls in any rolling `turnWindowMs` window" per
+   * session. Treat it, and document it to callers, as rate limiting.
+   */
   maxToolCallsPerTurn?: number;
   /** Rolling window (ms) over which `maxToolCallsPerTurn` is counted. Default 60000. */
   turnWindowMs?: number;
