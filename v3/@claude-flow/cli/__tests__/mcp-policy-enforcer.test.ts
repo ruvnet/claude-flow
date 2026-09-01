@@ -1,5 +1,6 @@
 /**
- * Opt-in MCP governance policy enforcement (dream-cycle 2026-08-31, security).
+ * Opt-in MCP governance policy enforcement (dream-cycle 2026-08-31, security;
+ * sliding turn-window reset added 2026-09-01, follow-up to review round 1).
  *
  * `.harness/mcp-policy.json` declared `auditLog` / `maxToolCallsPerTurn` but
  * nothing in the running MCP server (`mcp-server.ts`) ever read it before
@@ -85,6 +86,65 @@ describe('checkAndRecordCall — per-session budget', () => {
     expect(checkAndRecordCall(policy, 'a').allowed).toBe(true);
     expect(checkAndRecordCall(policy, 'a').allowed).toBe(false);
     expect(checkAndRecordCall(policy, 'b').allowed).toBe(true);
+  });
+});
+
+describe('checkAndRecordCall — sliding turn-window reset (dream-cycle 2026-09-01)', () => {
+  beforeEach(() => resetPolicyEnforcerState());
+
+  it('denies the (limit+1)th call within the window, then allows again once turnWindowMs has elapsed', () => {
+    const policy: McpPolicy = { maxToolCallsPerTurn: 2, turnWindowMs: 1000 };
+    expect(checkAndRecordCall(policy, 's1', 0).allowed).toBe(true);
+    expect(checkAndRecordCall(policy, 's1', 100).allowed).toBe(true);
+    const denied = checkAndRecordCall(policy, 's1', 200);
+    expect(denied.allowed).toBe(false);
+    expect(denied.reason).toMatch(/maxToolCallsPerTurn.*within the last 1000ms/);
+
+    // Still within the window relative to the oldest call (t=0): still denied.
+    expect(checkAndRecordCall(policy, 's1', 999).allowed).toBe(false);
+
+    // Past the window relative to the oldest call: budget is restored, no
+    // process restart required (this is the bug this candidate fixes — the
+    // 2026-08-31 implementation would stay denied forever here).
+    expect(checkAndRecordCall(policy, 's1', 1001).allowed).toBe(true);
+  });
+
+  it('pins the exact boundary: a call at now === oldest-call-time + windowMs is already outside the window (strict `>` cutoff, not `>=`)', () => {
+    // Flagged by adversarial review (2026-09-01): the boundary itself
+    // (now == cutoff) was previously untested, only now-1 (denied) and
+    // now+1 (allowed). Reopening exactly on the boundary — rather than one
+    // ms later — favors the caller, not an attacker, but pin it explicitly
+    // so a future refactor can't silently flip `>` to `>=` unnoticed.
+    const policy: McpPolicy = { maxToolCallsPerTurn: 1, turnWindowMs: 1000 };
+    expect(checkAndRecordCall(policy, 's1', 0).allowed).toBe(true);
+    expect(checkAndRecordCall(policy, 's1', 1000).allowed).toBe(true);
+  });
+
+  it('prunes only expired timestamps, not the whole window (a genuine sliding window, not a periodic full clear)', () => {
+    const policy: McpPolicy = { maxToolCallsPerTurn: 2, turnWindowMs: 1000 };
+    expect(checkAndRecordCall(policy, 's1', 0).allowed).toBe(true); // recorded at t=0
+    expect(checkAndRecordCall(policy, 's1', 600).allowed).toBe(true); // recorded at t=600
+    expect(checkAndRecordCall(policy, 's1', 600).allowed).toBe(false); // budget full: [0, 600]
+
+    // t=1100: cutoff is 100, so only the t=0 call has expired; the t=600
+    // call is still live. If this were a full periodic clear instead of a
+    // real sliding window, both calls made at t=0..600 would either both
+    // still count or both be wiped — this proves only the stale one drops.
+    expect(checkAndRecordCall(policy, 's1', 1100).allowed).toBe(true); // [600, 1100]
+    expect(checkAndRecordCall(policy, 's1', 1100).allowed).toBe(false); // full again
+  });
+
+  it('defaults turnWindowMs to 60000 when the policy omits it', () => {
+    const policy: McpPolicy = { maxToolCallsPerTurn: 1 };
+    expect(checkAndRecordCall(policy, 's1', 0).allowed).toBe(true);
+    expect(checkAndRecordCall(policy, 's1', 59_999).allowed).toBe(false);
+    expect(checkAndRecordCall(policy, 's1', 60_001).allowed).toBe(true);
+  });
+
+  it('ignores a non-positive/invalid turnWindowMs and falls back to the 60000ms default', () => {
+    const policy: McpPolicy = { maxToolCallsPerTurn: 1, turnWindowMs: -5 };
+    expect(checkAndRecordCall(policy, 's1', 0).allowed).toBe(true);
+    expect(checkAndRecordCall(policy, 's1', 60_001).allowed).toBe(true);
   });
 });
 
@@ -174,6 +234,25 @@ describe('evaluateToolCall — single enforcement entry point (fail-closed)', ()
     setAuditLogPathForTesting('/nonexistent-dir-xyz/audit.jsonl');
     const result = evaluateToolCall({ maxToolCallsPerTurn: 5 }, 's1', 'memory_store');
     expect(result.allowed).toBe(true);
+  });
+
+  it('restores budget after the turn window elapses, through the full evaluateToolCall pipeline (fake timers, matching this package\'s existing pattern)', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(0);
+      const policy: McpPolicy = { auditLog: true, maxToolCallsPerTurn: 1, turnWindowMs: 1000 };
+      expect(evaluateToolCall(policy, 's1', 'memory_store').allowed).toBe(true);
+      expect(evaluateToolCall(policy, 's1', 'memory_store').allowed).toBe(false);
+
+      vi.setSystemTime(1001);
+      const afterWindow = evaluateToolCall(policy, 's1', 'memory_store');
+      expect(afterWindow.allowed).toBe(true);
+
+      const lines = fs.readFileSync(logFile, 'utf-8').trim().split('\n');
+      expect(lines).toHaveLength(3);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('handles concurrent calls for the same session without double-allowing past the budget', async () => {

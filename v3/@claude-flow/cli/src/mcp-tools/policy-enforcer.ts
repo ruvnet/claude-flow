@@ -30,16 +30,31 @@
  * misconfiguration defeats the feature. See `evaluateToolCall()`.
  *
  * Known scope limits (disclosed, not fixed here):
- *   - Despite the policy field's name, this enforces a *session-lifetime
- *     cumulative* cap, not a per-conversational-turn cap that resets — a
- *     long-lived stdio session can exhaust `maxToolCallsPerTurn` (200 in
- *     the shipped `.harness/mcp-policy.json`) under entirely legitimate
- *     use and stay locked out until the MCP server process restarts.
- *     Do not raise this above default-off without a real per-turn reset.
  *   - Only wired into the stdio `tools/call` dispatch
  *     (`MCPServerManager.handleMCPMessage`). The separate HTTP/websocket
  *     path (`startHttpServer()`, via `@claude-flow/mcp`) does not call
  *     this module and is unaffected even when this flag is set.
+ *
+ * `maxToolCallsPerTurn` reset semantics (dream-cycle 2026-09-01, follow-up
+ * to 2026-08-31 review round 1): despite the field's name, the original
+ * implementation enforced a *session-lifetime cumulative* cap that never
+ * reset — a long-lived stdio session could exhaust the budget under
+ * entirely legitimate use and stay locked out until the MCP server process
+ * restarted. Research that night (see the dream-cycle gist) found: (1) the
+ * MCP spec only mandates "rate limit tool invocations" with zero mechanism
+ * guidance, and its 2026-07-28 revision (SEP-2567) is actively removing the
+ * session concept from the protocol entirely; (2) every framework/product
+ * that gets this right (FastMCP's rate-limiting middleware, the PolicyLayer
+ * MCP firewall, Cloudflare's public rate limiter) anchors the reset to
+ * wall-clock time, not to a turn or session counter that never decays —
+ * a turn-count reset is gameable by a chatty loop re-arming its own budget,
+ * which wall-clock time is not. This module now enforces a *sliding
+ * wall-clock window*: `maxToolCallsPerTurn` calls are allowed per rolling
+ * `turnWindowMs` (default 60000) per session, keyed by call timestamp so
+ * calls fall out of the window as time passes rather than accumulating
+ * forever. `now` is an injectable parameter (defaults to `Date.now`) so
+ * production callers need no change and tests stay fully deterministic via
+ * `vi.useFakeTimers()`.
  */
 
 import * as fs from 'fs';
@@ -55,6 +70,8 @@ export interface McpPolicy {
   requireApprovalForDangerous?: boolean;
   toolTimeoutMs?: number;
   maxToolCallsPerTurn?: number;
+  /** Rolling window (ms) over which `maxToolCallsPerTurn` is counted. Default 60000. */
+  turnWindowMs?: number;
   dangerousPatterns?: string[];
   approvedServers?: string[];
   [key: string]: unknown;
@@ -78,13 +95,16 @@ export function loadMcpPolicy(
   }
 }
 
+const DEFAULT_TURN_WINDOW_MS = 60_000;
+
 interface SessionState {
-  callCount: number;
+  /** Timestamps (ms) of calls still believed to be within the current sliding window. */
+  callTimes: number[];
 }
 
 const sessionState = new Map<string, SessionState>();
 
-/** Test-only: clear per-session call counters between test cases. */
+/** Test-only: clear per-session call state between test cases. */
 export function resetPolicyEnforcerState(): void {
   sessionState.clear();
 }
@@ -95,21 +115,41 @@ export interface PolicyCheckResult {
 }
 
 /**
- * Increments and checks the calling session's tool-call count against
- * `policy.maxToolCallsPerTurn`. Denies (without incrementing further) once
- * the session is already at or over the limit.
+ * Checks (and, if allowed, records) a tool call against
+ * `policy.maxToolCallsPerTurn`, counted over a sliding window of
+ * `policy.turnWindowMs` (default 60000ms) rather than the session's whole
+ * lifetime. Calls older than the window are pruned before comparing count
+ * to limit, so a session that pauses gets its budget back rather than
+ * staying denied until the process restarts. `now` defaults to `Date.now`
+ * for production callers; tests inject a controlled clock instead.
  */
-export function checkAndRecordCall(policy: McpPolicy, sessionId: string): PolicyCheckResult {
+export function checkAndRecordCall(
+  policy: McpPolicy,
+  sessionId: string,
+  now: number = Date.now(),
+): PolicyCheckResult {
   const limit = policy.maxToolCallsPerTurn;
   if (typeof limit !== 'number' || !Number.isFinite(limit) || limit <= 0) {
     return { allowed: true };
   }
-  const state = sessionState.get(sessionId) ?? { callCount: 0 };
-  if (state.callCount >= limit) {
+  const configuredWindow = policy.turnWindowMs;
+  const windowMs =
+    typeof configuredWindow === 'number' && Number.isFinite(configuredWindow) && configuredWindow > 0
+      ? configuredWindow
+      : DEFAULT_TURN_WINDOW_MS;
+
+  const state = sessionState.get(sessionId) ?? { callTimes: [] };
+  const cutoff = now - windowMs;
+  state.callTimes = state.callTimes.filter((t) => t > cutoff);
+
+  if (state.callTimes.length >= limit) {
     sessionState.set(sessionId, state);
-    return { allowed: false, reason: `maxToolCallsPerTurn (${limit}) exceeded for this session` };
+    return {
+      allowed: false,
+      reason: `maxToolCallsPerTurn (${limit}) exceeded within the last ${windowMs}ms for this session`,
+    };
   }
-  state.callCount += 1;
+  state.callTimes.push(now);
   sessionState.set(sessionId, state);
   return { allowed: true };
 }
@@ -165,6 +205,7 @@ export function evaluateToolCall(
   policy: McpPolicy | null,
   sessionId: string,
   toolName: string,
+  now: number = Date.now(),
 ): PolicyCheckResult {
   if (policy === null) {
     return {
@@ -173,9 +214,9 @@ export function evaluateToolCall(
     };
   }
 
-  const budget = checkAndRecordCall(policy, sessionId);
+  const budget = checkAndRecordCall(policy, sessionId, now);
   const auditOk = appendAuditLog(policy, {
-    timestamp: new Date().toISOString(),
+    timestamp: new Date(now).toISOString(),
     sessionId,
     toolName,
     allowed: budget.allowed,
