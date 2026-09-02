@@ -1,0 +1,189 @@
+{
+  "model": "SAFLA",
+  "version": "1.0.0",
+  "timestamp": "2025-10-15T02:50:24.310Z",
+  "checks": {
+    "schema": {
+      "valid": true,
+      "tables": 7,
+      "required": 4,
+      "found": [
+        "patterns",
+        "sqlite_sequence",
+        "pattern_embeddings",
+        "pattern_links",
+        "metadata",
+        "sqlite_stat1",
+        "sqlite_stat4"
+      ]
+    },
+    "patternCount": {
+      "count": 2000,
+      "expected": 2000,
+      "valid": true
+    },
+    "embeddings": {
+      "count": 2000,
+      "coverage": "100.00%",
+      "dimensions": 1024,
+      "expected": 1024,
+      "valid": true
+    },
+    "domains": {
+      "distribution": [
+        {
+          "domain": "confidence-adjustment",
+          "count": 400
+        },
+        {
+          "domain": "distillation",
+          "count": 400
+        },
+        {
+          "domain": "feedback-optimization",
+          "count": 400
+        },
+        {
+          "domain": "recursive-cycles",
+          "count": 400
+        },
+        {
+          "domain": "self-learning",
+          "count": 400
+        }
+      ],
+      "expected": {
+        "self-learning": 400,
+        "feedback-optimization": 400,
+        "confidence-adjustment": 400,
+        "distillation": 400,
+        "recursive-cycles": 400
+      },
+      "valid": true
+    },
+    "confidence": {
+      "average": "0.8382",
+      "min": "0.5500",
+      "max": "0.9500",
+      "ranges": [
+        {
+          "range": "low (0.5-0.6)",
+          "count": 28
+        },
+        {
+          "range": "medium (0.6-0.7)",
+          "count": 184
+        },
+        {
+          "range": "high (0.7-0.8)",
+          "count": 455
+        },
+        {
+          "range": "very-high (0.8-0.9)",
+          "count": 632
+        },
+        {
+          "range": "expert (0.9-0.95)",
+          "count": 701
+        }
+      ],
+      "valid": true
+    },
+    "successRate": {
+      "average": "0.9030",
+      "min": "0.7200",
+      "max": "0.9500",
+      "valid": true
+    },
+    "links": {
+      "total": 3999,
+      "minimum": 3000,
+      "avgPerPattern": "2.00",
+      "relationships": [
+        {
+          "relationship": "causes",
+          "count": 704
+        },
+        {
+          "relationship": "prevents",
+          "count": 690
+        },
+        {
+          "relationship": "complements",
+          "count": 659
+        },
+        {
+          "relationship": "enhances",
+          "count": 656
+        },
+        {
+          "relationship": "requires",
+          "count": 649
+        },
+        {
+          "relationship": "replaces",
+          "count": 641
+        }
+      ],
+      "valid": true
+    },
+    "performance": {
+      "tests": [
+        {
+          "name": "Pattern by ID",
+          "avgLatency": "0.020ms",
+          "iterations": 100,
+          "valid": true
+        },
+        {
+          "name": "Domain filter",
+          "avgLatency": "0.050ms",
+          "iterations": 100,
+          "valid": true
+        },
+        {
+          "name": "Confidence filter",
+          "avgLatency": "0.050ms",
+          "iterations": 100,
+          "valid": true
+        },
+        {
+          "name": "Success rate filter",
+          "avgLatency": "0.050ms",
+          "iterations": 100,
+          "valid": true
+        },
+        {
+          "name": "Knowledge graph",
+          "avgLatency": "0.020ms",
+          "iterations": 100,
+          "valid": true
+        }
+      ],
+      "valid": true
+    },
+    "storage": {
+      "totalSize": "10.35 MB",
+      "totalBytes": 10854400,
+      "patterns": 2000,
+      "bytesPerPattern": "5427",
+      "kbPerPattern": "5.30",
+      "maxSizeMB": 15,
+      "valid": true
+    },
+    "metadata": {
+      "entries": 7,
+      "required": 5,
+      "metadata": {
+        "model_name": "SAFLA",
+        "version": "1.0.0",
+        "pattern_count": "2000.0",
+        "embedding_dimensions": "1024",
+        "training_date": "2025-10-15T02:48:54.924Z",
+        "algorithm": "Self-Aware Feedback Loop Algorithm",
+        "description": "Pre-trained model for self-learning and feedback optimization patterns"
+      },
+      "valid": true
+    }
+  }
+}

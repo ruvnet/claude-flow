@@ -1,0 +1,61 @@
+{
+  "name": "@claude-flow/cli",
+  "version": "3.0.0-alpha.118",
+  "type": "module",
+  "description": "CLI module - command parsing, prompts, output formatting",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "sideEffects": false,
+  "bin": {
+    "cli": "./bin/cli.js",
+    "claude-flow": "./bin/cli.js",
+    "claude-flow-mcp": "./bin/mcp-server.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./ruvector": {
+      "types": "./dist/src/ruvector/index.d.ts",
+      "import": "./dist/src/ruvector/index.js"
+    },
+    "./ruvector/*": {
+      "types": "./dist/src/ruvector/*.d.ts",
+      "import": "./dist/src/ruvector/*.js"
+    },
+    "./mcp-tools": {
+      "types": "./dist/src/mcp-tools/index.d.ts",
+      "import": "./dist/src/mcp-tools/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "bin",
+    ".claude",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:plugin-store": "npx tsx src/plugins/tests/standalone-test.ts",
+    "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
+    "prepublishOnly": "cp ../../../README.md ./README.md",
+    "release": "npm version prerelease --preid=alpha && npm run publish:all",
+    "publish:all": "./scripts/publish.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.16"
+  },
+  "dependencies": {
+    "@claude-flow/shared": "^3.0.0-alpha.1",
+    "@claude-flow/aidefence": "^3.0.2",
+    "@claude-flow/embeddings": "^3.0.0-alpha.12",
+    "@claude-flow/mcp": "^3.0.0-alpha.8"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  }
+}

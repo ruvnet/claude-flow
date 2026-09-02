@@ -1,0 +1,38 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 90%
+        threshold: 2%
+    patch:
+      default:
+        target: 90%
+        threshold: 5%
+
+  ignore:
+    - "tests/**/*"
+    - "scripts/**/*"
+    - "examples/**/*"
+    - "docs/**/*"
+    - "*.md"
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true
+
+flags:
+  unit:
+    paths:
+      - src/
+    carryforward: true
+  integration:
+    paths:
+      - src/
+    carryforward: true
+  e2e:
+    paths:
+      - src/
+    carryforward: true

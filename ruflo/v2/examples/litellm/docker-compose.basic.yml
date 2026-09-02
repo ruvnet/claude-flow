@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: litellm-basic
+    ports:
+      - "4000:4000"
+    environment:
+      - LITELLM_MASTER_KEY=sk-1234567890
+      - LITELLM_SALT_KEY=sk-salt-key
+      - LITELLM_LOG_LEVEL=INFO
+      - LITELLM_TELEMETRY=false
+    volumes:
+      - ./config/basic-config.yaml:/app/config.yaml
+    command: --config /app/config.yaml --port 4000 --host 0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped

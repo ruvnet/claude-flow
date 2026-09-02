@@ -1,0 +1,324 @@
+{
+  "version": "1.0.0",
+  "description": "Optimized Claude Code template with SPARC methodology support and batch tools",
+  "created": "2025-06-16",
+  "directories": {
+    "commands": {
+      "description": "Claude Code slash commands for SPARC modes and Claude Flow integration",
+      "path": "commands/"
+    },
+    "commands/sparc": {
+      "description": "SPARC methodology mode-specific slash commands",
+      "path": "commands/sparc/"
+    },
+    "tests": {
+      "description": "Comprehensive test suite for batch tools and SPARC commands",
+      "path": "tests/"
+    },
+    "tests/unit": {
+      "description": "Unit tests for core batch tool functionality",
+      "path": "tests/unit/"
+    },
+    "tests/integration": {
+      "description": "Integration tests for SPARC mode batch operations",
+      "path": "tests/integration/"
+    },
+    "tests/performance": {
+      "description": "Performance benchmarks and resource usage tests",
+      "path": "tests/performance/"
+    },
+    "tests/error-handling": {
+      "description": "Error handling and rollback mechanism tests",
+      "path": "tests/error-handling/"
+    },
+    "tests/e2e": {
+      "description": "End-to-end workflow tests",
+      "path": "tests/e2e/"
+    },
+    "logs": {
+      "description": "Directory for Claude Code conversation logs",
+      "path": "logs/",
+      "createEmpty": true
+    }
+  },
+  "files": [
+    {
+      "source": "BATCHTOOLS_GUIDE.md",
+      "destination": "BATCHTOOLS_GUIDE.md",
+      "description": "Comprehensive guide for using batch tools in Claude Code",
+      "category": "documentation"
+    },
+    {
+      "source": "BATCHTOOLS_BEST_PRACTICES.md",
+      "destination": "BATCHTOOLS_BEST_PRACTICES.md",
+      "description": "Best practices and examples for efficient batch tool usage",
+      "category": "documentation"
+    },
+    {
+      "source": "MIGRATION_GUIDE.md",
+      "destination": "MIGRATION_GUIDE.md",
+      "description": "Guide for migrating existing projects to use optimized batch tools",
+      "category": "documentation"
+    },
+    {
+      "source": "PERFORMANCE_BENCHMARKS.md",
+      "destination": "PERFORMANCE_BENCHMARKS.md",
+      "description": "Performance benchmarks comparing single vs batch operations",
+      "category": "documentation"
+    },
+    {
+      "source": "commands/sparc.md",
+      "destination": "commands/sparc.md",
+      "description": "Main SPARC methodology command",
+      "category": "command"
+    },
+    {
+      "source": "commands/claude-flow-help.md",
+      "destination": "commands/claude-flow-help.md",
+      "description": "Claude Flow help and documentation command",
+      "category": "command"
+    },
+    {
+      "source": "commands/claude-flow-memory.md",
+      "destination": "commands/claude-flow-memory.md",
+      "description": "Claude Flow memory system interaction command",
+      "category": "command"
+    },
+    {
+      "source": "commands/claude-flow-swarm.md",
+      "destination": "commands/claude-flow-swarm.md",
+      "description": "Claude Flow swarm coordination command",
+      "category": "command"
+    },
+    {
+      "source": "commands/sparc/architect.md",
+      "destination": "commands/sparc/architect.md",
+      "description": "SPARC architecture design mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/code.md",
+      "destination": "commands/sparc/code.md",
+      "description": "SPARC clean code implementation mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/debug.md",
+      "destination": "commands/sparc/debug.md",
+      "description": "SPARC debugging and troubleshooting mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/devops.md",
+      "destination": "commands/sparc/devops.md",
+      "description": "SPARC DevOps and deployment mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/docs-writer.md",
+      "destination": "commands/sparc/docs-writer.md",
+      "description": "SPARC documentation creation mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/integration.md",
+      "destination": "commands/sparc/integration.md",
+      "description": "SPARC system integration mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/mcp.md",
+      "destination": "commands/sparc/mcp.md",
+      "description": "SPARC MCP integration mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/refinement-optimization-mode.md",
+      "destination": "commands/sparc/refinement-optimization-mode.md",
+      "description": "SPARC performance optimization mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/security-review.md",
+      "destination": "commands/sparc/security-review.md",
+      "description": "SPARC security analysis mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/spec-pseudocode.md",
+      "destination": "commands/sparc/spec-pseudocode.md",
+      "description": "SPARC specification and pseudocode mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/supabase-admin.md",
+      "destination": "commands/sparc/supabase-admin.md",
+      "description": "SPARC Supabase administration mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/tdd.md",
+      "destination": "commands/sparc/tdd.md",
+      "description": "SPARC test-driven development mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/tutorial.md",
+      "destination": "commands/sparc/tutorial.md",
+      "description": "SPARC tutorial creation mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/ask.md",
+      "destination": "commands/sparc/ask.md",
+      "description": "SPARC interactive query mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/post-deployment-monitoring-mode.md",
+      "destination": "commands/sparc/post-deployment-monitoring-mode.md",
+      "description": "SPARC post-deployment monitoring mode",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "commands/sparc/sparc.md",
+      "destination": "commands/sparc/sparc.md",
+      "description": "SPARC mode selector command",
+      "category": "sparc-mode"
+    },
+    {
+      "source": "tests/README.md",
+      "destination": "tests/README.md",
+      "description": "Test suite documentation and overview",
+      "category": "test"
+    },
+    {
+      "source": "tests/test-harness.js",
+      "destination": "tests/test-harness.js",
+      "description": "Main test harness for running all test suites",
+      "category": "test"
+    },
+    {
+      "source": "tests/unit/batch-operations.test.js",
+      "destination": "tests/unit/batch-operations.test.js",
+      "description": "Unit tests for batch operation utilities",
+      "category": "test"
+    },
+    {
+      "source": "tests/unit/parallel-utils.test.js",
+      "destination": "tests/unit/parallel-utils.test.js",
+      "description": "Unit tests for parallel execution utilities",
+      "category": "test"
+    },
+    {
+      "source": "tests/integration/architect-batch.test.js",
+      "destination": "tests/integration/architect-batch.test.js",
+      "description": "Integration tests for architect mode batch operations",
+      "category": "test"
+    },
+    {
+      "source": "tests/integration/code-batch.test.js",
+      "destination": "tests/integration/code-batch.test.js",
+      "description": "Integration tests for code mode batch operations",
+      "category": "test"
+    },
+    {
+      "source": "tests/integration/tdd-batch.test.js",
+      "destination": "tests/integration/tdd-batch.test.js",
+      "description": "Integration tests for TDD mode batch operations",
+      "category": "test"
+    },
+    {
+      "source": "tests/integration/debug-batch.test.js",
+      "destination": "tests/integration/debug-batch.test.js",
+      "description": "Integration tests for debug mode batch operations",
+      "category": "test"
+    },
+    {
+      "source": "tests/integration/security-batch.test.js",
+      "destination": "tests/integration/security-batch.test.js",
+      "description": "Integration tests for security review batch operations",
+      "category": "test"
+    },
+    {
+      "source": "tests/performance/benchmarks.test.js",
+      "destination": "tests/performance/benchmarks.test.js",
+      "description": "Performance benchmark tests",
+      "category": "test"
+    },
+    {
+      "source": "tests/performance/resource-usage.test.js",
+      "destination": "tests/performance/resource-usage.test.js",
+      "description": "Resource usage monitoring tests",
+      "category": "test"
+    },
+    {
+      "source": "tests/error-handling/batch-errors.test.js",
+      "destination": "tests/error-handling/batch-errors.test.js",
+      "description": "Error handling tests for batch operations",
+      "category": "test"
+    },
+    {
+      "source": "tests/error-handling/rollback.test.js",
+      "destination": "tests/error-handling/rollback.test.js",
+      "description": "Rollback mechanism tests",
+      "category": "test"
+    },
+    {
+      "source": "tests/e2e/workflows.test.js",
+      "destination": "tests/e2e/workflows.test.js",
+      "description": "End-to-end workflow tests",
+      "category": "test"
+    }
+  ],
+  "categories": {
+    "documentation": {
+      "description": "User guides and best practices documentation",
+      "count": 4
+    },
+    "command": {
+      "description": "Main Claude Code slash commands",
+      "count": 4
+    },
+    "sparc-mode": {
+      "description": "SPARC methodology mode-specific commands",
+      "count": 15
+    },
+    "test": {
+      "description": "Test suite files",
+      "count": 12
+    }
+  },
+  "installation": {
+    "steps": [
+      "Create .claude directory in target project",
+      "Copy all files according to manifest",
+      "Create empty logs directory",
+      "Verify file permissions (all files should be readable)",
+      "Optional: Run test harness to verify installation"
+    ],
+    "requirements": [
+      "Claude Code CLI installed",
+      "Node.js runtime for test execution",
+      "Read/write permissions in project directory"
+    ]
+  },
+  "maintenance": {
+    "version_tracking": {
+      "description": "Version is tracked in manifest.json",
+      "format": "MAJOR.MINOR.PATCH",
+      "changelog": "Update CHANGELOG.md for each version"
+    },
+    "updates": {
+      "description": "To update templates, modify source files and increment version",
+      "process": [
+        "Update source files in .claude directory",
+        "Run optimization process if needed",
+        "Update manifest.json with new files or changes",
+        "Increment version number",
+        "Update CHANGELOG.md",
+        "Test installation process"
+      ]
+    }
+  }
+}

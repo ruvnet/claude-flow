@@ -1,0 +1,45 @@
+{
+  "name": "claude-flow",
+  "description": "Multi-agent swarm coordination, memory management, SPARC methodology, and intelligent hooks for Claude Code. Provides 60+ skills, 100+ commands, and 80+ specialized agents.",
+  "version": "3.0.0",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/claude-flow",
+  "repository": "https://github.com/ruvnet/claude-flow",
+  "license": "MIT",
+  "keywords": [
+    "swarm",
+    "multi-agent",
+    "coordination",
+    "memory",
+    "hooks",
+    "sparc",
+    "mcp",
+    "ai-agents"
+  ],
+  "categories": [
+    "Development",
+    "Productivity",
+    "AI Agents",
+    "Workflow Automation"
+  ],
+  "engines": {
+    "claude-code": ">=1.0.0"
+  },
+  "capabilities": {
+    "skills": true,
+    "commands": true,
+    "agents": true,
+    "hooks": true,
+    "mcpServers": true
+  },
+  "main": {
+    "skills": "./skills",
+    "commands": "./commands",
+    "agents": "./agents",
+    "hooks": "./hooks/hooks.json",
+    "mcp": "./.mcp.json"
+  }
+}

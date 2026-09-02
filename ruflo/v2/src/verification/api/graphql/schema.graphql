@@ -1,0 +1,638 @@
+# Verification API GraphQL Schema
+# Complex queries for verification system
+
+scalar DateTime
+scalar JSON
+
+type Query {
+  # Verification queries
+  verification(id: ID!): Verification
+  verifications(
+    filter: VerificationFilter
+    pagination: PaginationInput
+    sort: [SortInput!]
+  ): VerificationConnection!
+  
+  # Batch queries
+  batch(id: ID!): VerificationBatch
+  batches(
+    filter: BatchFilter
+    pagination: PaginationInput
+  ): BatchConnection!
+  
+  # Metrics and analytics
+  verificationMetrics(
+    timeframe: Timeframe = TWENTY_FOUR_HOURS
+    groupBy: [MetricGroupBy!]
+  ): VerificationMetrics!
+  
+  # Truth monitoring
+  truthEvents(
+    filter: TruthEventFilter
+    pagination: PaginationInput
+  ): TruthEventConnection!
+  
+  # System status
+  systemHealth: HealthStatus!
+  systemMetrics: SystemMetrics!
+  
+  # Configuration
+  verificationRules: [VerificationRule!]!
+  agentConfigs: [AgentVerificationConfig!]!
+}
+
+type Mutation {
+  # Create verifications
+  createVerification(input: CreateVerificationInput!): CreateVerificationResult!
+  createBatchVerification(input: CreateBatchInput!): CreateBatchResult!
+  
+  # Update verifications
+  updateVerification(id: ID!, input: UpdateVerificationInput!): UpdateVerificationResult!
+  cancelVerification(id: ID!): CancelVerificationResult!
+  
+  # Configuration mutations
+  createVerificationRule(input: CreateRuleInput!): CreateRuleResult!
+  updateVerificationRule(id: ID!, input: UpdateRuleInput!): UpdateRuleResult!
+  deleteVerificationRule(id: ID!): DeleteRuleResult!
+  
+  updateAgentConfig(agentId: ID!, input: UpdateAgentConfigInput!): UpdateAgentConfigResult!
+}
+
+type Subscription {
+  # Real-time verification updates
+  verificationUpdates(filter: VerificationSubscriptionFilter): Verification!
+  
+  # Truth monitoring events
+  truthMonitoring(filter: TruthMonitoringFilter): TruthMonitoringEvent!
+  
+  # System alerts
+  systemAlerts(severity: [AlertSeverity!]): SystemAlert!
+  
+  # Metrics updates
+  metricsUpdates(interval: Int = 30): VerificationMetrics!
+}
+
+# Core Types
+
+type Verification {
+  id: ID!
+  timestamp: DateTime!
+  status: VerificationStatus!
+  confidence: Float!
+  source: String!
+  target: String!
+  metadata: JSON
+  priority: Priority!
+  timeout: Int
+  createdAt: DateTime!
+  updatedAt: DateTime
+  completedAt: DateTime
+  error: String
+  
+  # Relationships
+  batch: VerificationBatch
+  events: [TruthMonitoringEvent!]!
+  appliedRules: [VerificationRule!]!
+}
+
+type VerificationBatch {
+  id: ID!
+  status: BatchStatus!
+  createdAt: DateTime!
+  completedAt: DateTime
+  totalItems: Int!
+  completedItems: Int!
+  items: [Verification!]!
+  results: [Verification!]!
+  error: String
+  
+  # Computed fields
+  progress: Float!
+  successRate: Float
+  averageConfidence: Float
+}
+
+type TruthMonitoringEvent {
+  id: ID!
+  type: TruthEventType!
+  timestamp: DateTime!
+  data: JSON!
+  severity: AlertSeverity!
+  source: String
+  confidence: Float
+  metadata: JSON
+  
+  # Relationships
+  verification: Verification
+}
+
+type VerificationMetrics {
+  timeframe: Timeframe!
+  totalVerifications: Int!
+  successfulVerifications: Int!
+  failedVerifications: Int!
+  pendingVerifications: Int!
+  averageConfidence: Float!
+  successRate: Float!
+  verificationRate: Float!
+  
+  responseTime: ResponseTimeMetrics!
+  trends: [MetricTrend!]!
+  distribution: MetricDistribution!
+  
+  # Time-series data
+  timeSeries: [TimeSeriesPoint!]!
+}
+
+type ResponseTimeMetrics {
+  avg: Float!
+  p50: Float!
+  p95: Float!
+  p99: Float!
+  min: Float!
+  max: Float!
+}
+
+type MetricTrend {
+  metric: String!
+  direction: TrendDirection!
+  change: Float!
+  significance: Float!
+}
+
+type MetricDistribution {
+  byStatus: [StatusDistribution!]!
+  bySource: [SourceDistribution!]!
+  byConfidence: [ConfidenceDistribution!]!
+  byPriority: [PriorityDistribution!]!
+}
+
+type StatusDistribution {
+  status: VerificationStatus!
+  count: Int!
+  percentage: Float!
+}
+
+type SourceDistribution {
+  source: String!
+  count: Int!
+  percentage: Float!
+  averageConfidence: Float!
+}
+
+type ConfidenceDistribution {
+  range: String!
+  count: Int!
+  percentage: Float!
+}
+
+type PriorityDistribution {
+  priority: Priority!
+  count: Int!
+  percentage: Float!
+  averageResponseTime: Float!
+}
+
+type TimeSeriesPoint {
+  timestamp: DateTime!
+  value: Float!
+  metric: String!
+}
+
+type VerificationRule {
+  id: ID!
+  name: String!
+  description: String!
+  condition: String!
+  action: RuleAction!
+  priority: Int!
+  enabled: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # Statistics
+  executionCount: Int!
+  successCount: Int!
+  lastExecuted: DateTime
+}
+
+type AgentVerificationConfig {
+  agentId: ID!
+  verificationEnabled: Boolean!
+  confidenceThreshold: Float!
+  autoVerify: Boolean!
+  webhookUrl: String
+  rateLimit: RateLimit!
+  
+  # Statistics
+  totalRequests: Int!
+  successfulRequests: Int!
+  lastRequest: DateTime
+}
+
+type RateLimit {
+  requestsPerMinute: Int!
+  burstCapacity: Int!
+  currentUsage: Int!
+  resetTime: DateTime
+}
+
+type HealthStatus {
+  status: HealthStatusEnum!
+  timestamp: DateTime!
+  services: ServiceHealthMap!
+  metrics: SystemResourceMetrics!
+  
+  # Overall health indicators
+  uptime: Float!
+  responseTime: Float!
+  errorRate: Float!
+}
+
+type ServiceHealthMap {
+  api: ServiceHealth!
+  websocket: ServiceHealth!
+  graphql: ServiceHealth!
+  database: ServiceHealth!
+  cache: ServiceHealth!
+}
+
+type ServiceHealth {
+  status: ServiceStatus!
+  responseTime: Float
+  lastCheck: DateTime!
+  errorCount: Int!
+  uptime: Float!
+}
+
+type SystemResourceMetrics {
+  memoryUsage: Float!
+  cpuUsage: Float!
+  activeConnections: Int!
+  diskUsage: Float!
+  networkIO: NetworkIOMetrics!
+}
+
+type NetworkIOMetrics {
+  bytesIn: Float!
+  bytesOut: Float!
+  packetsIn: Float!
+  packetsOut: Float!
+}
+
+type SystemMetrics {
+  timestamp: DateTime!
+  performance: PerformanceMetrics!
+  resources: SystemResourceMetrics!
+  connections: ConnectionMetrics!
+}
+
+type PerformanceMetrics {
+  requestsPerSecond: Float!
+  averageResponseTime: Float!
+  throughput: Float!
+  errorRate: Float!
+}
+
+type ConnectionMetrics {
+  activeWebSockets: Int!
+  totalConnections: Int!
+  connectionRate: Float!
+  subscriptionCount: Int!
+}
+
+type SystemAlert {
+  id: ID!
+  type: AlertType!
+  severity: AlertSeverity!
+  message: String!
+  timestamp: DateTime!
+  data: JSON
+  acknowledged: Boolean!
+  resolvedAt: DateTime
+}
+
+# Connection Types (for pagination)
+
+type VerificationConnection {
+  edges: [VerificationEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type VerificationEdge {
+  node: Verification!
+  cursor: String!
+}
+
+type BatchConnection {
+  edges: [BatchEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type BatchEdge {
+  node: VerificationBatch!
+  cursor: String!
+}
+
+type TruthEventConnection {
+  edges: [TruthEventEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type TruthEventEdge {
+  node: TruthMonitoringEvent!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+# Input Types
+
+input VerificationFilter {
+  ids: [ID!]
+  sources: [String!]
+  targets: [String!]
+  statuses: [VerificationStatus!]
+  priorities: [Priority!]
+  confidenceRange: FloatRange
+  timestampRange: DateTimeRange
+  batchId: ID
+  hasError: Boolean
+}
+
+input BatchFilter {
+  ids: [ID!]
+  statuses: [BatchStatus!]
+  timestampRange: DateTimeRange
+  itemCountRange: IntRange
+}
+
+input TruthEventFilter {
+  types: [TruthEventType!]
+  severities: [AlertSeverity!]
+  sources: [String!]
+  timestampRange: DateTimeRange
+  confidenceRange: FloatRange
+  verificationId: ID
+}
+
+input VerificationSubscriptionFilter {
+  sources: [String!]
+  targets: [String!]
+  statuses: [VerificationStatus!]
+  priorities: [Priority!]
+  confidenceThreshold: Float
+}
+
+input TruthMonitoringFilter {
+  eventTypes: [TruthEventType!]
+  severityLevels: [AlertSeverity!]
+  sources: [String!]
+  targets: [String!]
+  confidenceMin: Float
+  confidenceMax: Float
+}
+
+input CreateVerificationInput {
+  source: String!
+  target: String!
+  metadata: JSON
+  priority: Priority = NORMAL
+  timeout: Int = 30000
+}
+
+input CreateBatchInput {
+  items: [CreateVerificationInput!]!
+  priority: Priority = NORMAL
+  metadata: JSON
+}
+
+input UpdateVerificationInput {
+  status: VerificationStatus
+  confidence: Float
+  metadata: JSON
+  error: String
+}
+
+input CreateRuleInput {
+  name: String!
+  description: String!
+  condition: String!
+  action: RuleAction!
+  priority: Int!
+  enabled: Boolean = true
+}
+
+input UpdateRuleInput {
+  name: String
+  description: String
+  condition: String
+  action: RuleAction
+  priority: Int
+  enabled: Boolean
+}
+
+input UpdateAgentConfigInput {
+  verificationEnabled: Boolean
+  confidenceThreshold: Float
+  autoVerify: Boolean
+  webhookUrl: String
+  rateLimit: RateLimitInput
+}
+
+input RateLimitInput {
+  requestsPerMinute: Int!
+  burstCapacity: Int!
+}
+
+input PaginationInput {
+  first: Int
+  after: String
+  last: Int
+  before: String
+}
+
+input SortInput {
+  field: SortField!
+  direction: SortDirection!
+}
+
+input FloatRange {
+  min: Float
+  max: Float
+}
+
+input IntRange {
+  min: Int
+  max: Int
+}
+
+input DateTimeRange {
+  start: DateTime
+  end: DateTime
+}
+
+# Result Types
+
+type CreateVerificationResult {
+  success: Boolean!
+  verification: Verification
+  error: String
+}
+
+type CreateBatchResult {
+  success: Boolean!
+  batch: VerificationBatch
+  error: String
+}
+
+type UpdateVerificationResult {
+  success: Boolean!
+  verification: Verification
+  error: String
+}
+
+type CancelVerificationResult {
+  success: Boolean!
+  verification: Verification
+  error: String
+}
+
+type CreateRuleResult {
+  success: Boolean!
+  rule: VerificationRule
+  error: String
+}
+
+type UpdateRuleResult {
+  success: Boolean!
+  rule: VerificationRule
+  error: String
+}
+
+type DeleteRuleResult {
+  success: Boolean!
+  deletedId: ID
+  error: String
+}
+
+type UpdateAgentConfigResult {
+  success: Boolean!
+  config: AgentVerificationConfig
+  error: String
+}
+
+# Enums
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  UNKNOWN
+  CANCELLED
+}
+
+enum BatchStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TruthEventType {
+  TRUTH_CHANGE
+  CONFIDENCE_UPDATE
+  VERIFICATION_COMPLETE
+  ERROR
+  BATCH_UPDATE
+  SYSTEM_ALERT
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertType {
+  PERFORMANCE
+  SECURITY
+  SYSTEM
+  VERIFICATION
+  TRUTH_MONITORING
+}
+
+enum RuleAction {
+  APPROVE
+  REJECT
+  FLAG
+  ESCALATE
+  NOTIFY
+}
+
+enum HealthStatusEnum {
+  HEALTHY
+  DEGRADED
+  UNHEALTHY
+}
+
+enum ServiceStatus {
+  UP
+  DOWN
+  DEGRADED
+}
+
+enum Timeframe {
+  ONE_HOUR
+  TWENTY_FOUR_HOURS
+  SEVEN_DAYS
+  THIRTY_DAYS
+}
+
+enum MetricGroupBy {
+  HOUR
+  DAY
+  WEEK
+  MONTH
+  SOURCE
+  STATUS
+  PRIORITY
+}
+
+enum TrendDirection {
+  UP
+  DOWN
+  STABLE
+  VOLATILE
+}
+
+enum SortField {
+  TIMESTAMP
+  CONFIDENCE
+  PRIORITY
+  STATUS
+  SOURCE
+  TARGET
+}
+
+enum SortDirection {
+  ASC
+  DESC
+}

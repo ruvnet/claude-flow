@@ -1,0 +1,24 @@
+{
+  "timestamp": "2025-09-30T13:46:42.307Z",
+  "performance": {
+    "startTime": 1759239995797,
+    "totalTasks": 1,
+    "successfulTasks": 1,
+    "failedTasks": 0,
+    "totalAgents": 0,
+    "activeAgents": 0,
+    "neuralEvents": 0
+  },
+  "tasks": [
+    {
+      "id": "cmd-analysis-1759239995897",
+      "type": "analysis",
+      "success": true,
+      "duration": 0.9790179999999964,
+      "timestamp": 1759239995898,
+      "metadata": {}
+    }
+  ],
+  "agents": {},
+  "system": []
+}

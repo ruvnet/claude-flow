@@ -1,0 +1,631 @@
+{
+  "name": "Full-Stack Development Workflow",
+  "version": "1.5.0",
+  "description": "Complete development workflow with TDD, CI/CD integration, and automated testing",
+  "metadata": {
+    "author": "Claude-Flow DevOps Team",
+    "category": "Development",
+    "tags": ["development", "testing", "deployment", "automation"]
+  },
+  "variables": {
+    "project_name": "modern-web-app",
+    "tech_stack": {
+      "frontend": "React",
+      "backend": "Node.js",
+      "database": "PostgreSQL",
+      "deployment": "Docker"
+    },
+    "test_coverage_target": 90,
+    "enable_integration_tests": true,
+    "enable_e2e_tests": true,
+    "enable_security_scan": true,
+    "deployment_environment": "staging"
+  },
+  "agents": [
+    {
+      "id": "architect",
+      "type": "architect",
+      "name": "System Architect",
+      "config": {
+        "model": "claude-3",
+        "specialization": "system-design",
+        "experience_level": "senior"
+      },
+      "resources": {
+        "memory": "2GB",
+        "cpu": "1 core"
+      }
+    },
+    {
+      "id": "frontend-dev",
+      "type": "coder",
+      "name": "Frontend Developer",
+      "config": {
+        "model": "claude-3",
+        "specialization": "frontend",
+        "frameworks": ["React", "Vue", "Angular"],
+        "tools": ["Webpack", "Vite", "ESLint"]
+      },
+      "resources": {
+        "memory": "3GB",
+        "cpu": "2 cores"
+      }
+    },
+    {
+      "id": "backend-dev",
+      "type": "coder", 
+      "name": "Backend Developer",
+      "config": {
+        "model": "claude-3",
+        "specialization": "backend",
+        "languages": ["Node.js", "Python", "Go"],
+        "databases": ["PostgreSQL", "MongoDB", "Redis"]
+      },
+      "resources": {
+        "memory": "3GB",
+        "cpu": "2 cores"
+      }
+    },
+    {
+      "id": "qa-engineer",
+      "type": "tester",
+      "name": "QA Engineer",
+      "config": {
+        "model": "claude-3",
+        "testing_types": ["unit", "integration", "e2e", "performance"],
+        "tools": ["Jest", "Cypress", "Playwright", "JMeter"]
+      }
+    },
+    {
+      "id": "devops-engineer",
+      "type": "devops",
+      "name": "DevOps Engineer", 
+      "config": {
+        "model": "claude-3",
+        "platforms": ["AWS", "GCP", "Azure"],
+        "tools": ["Docker", "Kubernetes", "Terraform", "GitLab CI"]
+      }
+    },
+    {
+      "id": "security-specialist",
+      "type": "security",
+      "name": "Security Specialist",
+      "config": {
+        "model": "claude-3",
+        "focus_areas": ["OWASP", "penetration-testing", "code-analysis"],
+        "tools": ["SonarQube", "OWASP ZAP", "Bandit"]
+      }
+    }
+  ],
+  "conditions": [
+    {
+      "id": "tests-passing",
+      "expression": "outputs['unit-tests.coverage'] >= variables.test_coverage_target",
+      "type": "javascript",
+      "description": "Ensure test coverage meets requirements"
+    },
+    {
+      "id": "security-approved",
+      "expression": "outputs['security-scan.vulnerabilities'] === 0",
+      "type": "javascript", 
+      "description": "No security vulnerabilities found"
+    },
+    {
+      "id": "integration-tests-enabled",
+      "expression": "variables.enable_integration_tests === true",
+      "type": "simple"
+    },
+    {
+      "id": "ready-for-deployment",
+      "expression": "outputs['unit-tests.passed'] && outputs['integration-tests.passed'] && outputs['security-scan.passed']",
+      "type": "javascript"
+    }
+  ],
+  "loops": [
+    {
+      "id": "test-retry-loop",
+      "type": "while",
+      "condition": "outputs['unit-tests.passed'] === false && iteration < 3",
+      "tasks": ["fix-failing-tests", "unit-tests"],
+      "maxIterations": 3,
+      "continueOnError": false
+    }
+  ],
+  "tasks": [
+    {
+      "id": "system-design",
+      "name": "System Architecture Design",
+      "type": "architecture",
+      "description": "Design system architecture and component interfaces",
+      "assignTo": "architect",
+      "input": {
+        "project_requirements": "${project_name}",
+        "tech_stack": "${tech_stack}",
+        "scalability_requirements": "high",
+        "design_patterns": ["microservices", "mvc", "repository"]
+      },
+      "output": [
+        "architecture_diagram",
+        "component_specs",
+        "api_design",
+        "database_schema",
+        "deployment_architecture"
+      ],
+      "timeout": 300000,
+      "priority": 1,
+      "tags": ["architecture", "design"]
+    },
+    {
+      "id": "setup-project",
+      "name": "Project Setup",
+      "type": "initialization",
+      "description": "Initialize project structure and dependencies",
+      "depends": ["system-design"],
+      "assignTo": "devops-engineer",
+      "input": {
+        "project_name": "${project_name}",
+        "architecture": "${system-design.component_specs}",
+        "tech_stack": "${tech_stack}"
+      },
+      "output": [
+        "project_structure",
+        "package_configs",
+        "ci_cd_setup",
+        "environment_configs"
+      ],
+      "timeout": 180000,
+      "priority": 1
+    },
+    {
+      "id": "frontend-development",
+      "name": "Frontend Development",
+      "type": "implementation",
+      "description": "Develop frontend components and user interface",
+      "depends": ["setup-project"],
+      "assignTo": "frontend-dev",
+      "input": {
+        "ui_requirements": "${system-design.component_specs.ui}",
+        "api_endpoints": "${system-design.api_design}",
+        "framework": "${tech_stack.frontend}",
+        "features": [
+          "user-authentication",
+          "dashboard",
+          "data-visualization",
+          "responsive-design"
+        ]
+      },
+      "output": [
+        "components",
+        "pages",
+        "styling",
+        "state_management",
+        "routing"
+      ],
+      "timeout": 600000,
+      "retries": 2,
+      "priority": 2,
+      "parallel": true
+    },
+    {
+      "id": "backend-development", 
+      "name": "Backend Development",
+      "type": "implementation",
+      "description": "Develop backend APIs and business logic",
+      "depends": ["setup-project"],
+      "assignTo": "backend-dev",
+      "input": {
+        "api_design": "${system-design.api_design}",
+        "database_schema": "${system-design.database_schema}",
+        "framework": "${tech_stack.backend}",
+        "features": [
+          "user-management",
+          "authentication",
+          "data-processing",
+          "api-endpoints",
+          "middleware"
+        ]
+      },
+      "output": [
+        "api_endpoints",
+        "business_logic",
+        "database_models",
+        "middleware",
+        "authentication"
+      ],
+      "timeout": 600000,
+      "retries": 2,
+      "priority": 2,
+      "parallel": true
+    },
+    {
+      "id": "database-setup",
+      "name": "Database Setup",
+      "type": "infrastructure",
+      "description": "Set up database and initial data",
+      "depends": ["system-design"],
+      "assignTo": "backend-dev",
+      "input": {
+        "schema": "${system-design.database_schema}",
+        "database_type": "${tech_stack.database}",
+        "migrations": true,
+        "seed_data": true
+      },
+      "output": [
+        "database_instance",
+        "migrations",
+        "seed_scripts",
+        "connection_config"
+      ],
+      "timeout": 240000,
+      "priority": 2,
+      "parallel": true
+    },
+    {
+      "id": "unit-tests",
+      "name": "Unit Testing",
+      "type": "testing",
+      "description": "Comprehensive unit testing with coverage analysis",
+      "depends": ["frontend-development", "backend-development"],
+      "assignTo": "qa-engineer",
+      "input": {
+        "frontend_code": "${frontend-development.components}",
+        "backend_code": "${backend-development.api_endpoints}",
+        "coverage_target": "${test_coverage_target}",
+        "test_frameworks": ["Jest", "React Testing Library", "Mocha"]
+      },
+      "output": [
+        "test_results",
+        "coverage",
+        "passed",
+        "failed_tests",
+        "performance_metrics"
+      ],
+      "timeout": 300000,
+      "retries": 1,
+      "priority": 3
+    },
+    {
+      "id": "fix-failing-tests",
+      "name": "Fix Failing Tests",
+      "type": "debugging",
+      "description": "Fix failing unit tests",
+      "assignTo": "frontend-dev",
+      "input": {
+        "failed_tests": "${unit-tests.failed_tests}",
+        "test_results": "${unit-tests.test_results}"
+      },
+      "output": [
+        "fixes_applied",
+        "updated_code"
+      ],
+      "timeout": 180000
+    },
+    {
+      "id": "integration-tests",
+      "name": "Integration Testing", 
+      "type": "testing",
+      "description": "End-to-end integration testing",
+      "depends": ["unit-tests", "database-setup"],
+      "assignTo": "qa-engineer",
+      "condition": "integration-tests-enabled",
+      "input": {
+        "api_endpoints": "${backend-development.api_endpoints}",
+        "frontend_app": "${frontend-development.components}",
+        "database": "${database-setup.database_instance}",
+        "test_scenarios": [
+          "user-registration-flow",
+          "authentication-flow",
+          "data-crud-operations",
+          "error-handling"
+        ]
+      },
+      "output": [
+        "integration_results",
+        "passed",
+        "api_response_times",
+        "error_logs"
+      ],
+      "timeout": 420000,
+      "priority": 3
+    },
+    {
+      "id": "e2e-tests",
+      "name": "End-to-End Testing",
+      "type": "testing", 
+      "description": "Full user journey testing",
+      "depends": ["integration-tests"],
+      "assignTo": "qa-engineer",
+      "condition": "tests-passing",
+      "input": {
+        "application_url": "${deployment.staging_url}",
+        "test_scenarios": [
+          "complete-user-workflow",
+          "cross-browser-compatibility",
+          "mobile-responsiveness",
+          "performance-benchmarks"
+        ],
+        "browsers": ["Chrome", "Firefox", "Safari"],
+        "devices": ["Desktop", "Tablet", "Mobile"]
+      },
+      "output": [
+        "e2e_results",
+        "performance_metrics",
+        "compatibility_report",
+        "screenshots"
+      ],
+      "timeout": 480000,
+      "priority": 4
+    },
+    {
+      "id": "security-scan",
+      "name": "Security Analysis",
+      "type": "security",
+      "description": "Comprehensive security analysis and vulnerability assessment", 
+      "depends": ["backend-development", "frontend-development"],
+      "assignTo": "security-specialist",
+      "condition": "enable_security_scan",
+      "input": {
+        "codebase": {
+          "frontend": "${frontend-development.components}",
+          "backend": "${backend-development.api_endpoints}"
+        },
+        "scan_types": [
+          "static-analysis",
+          "dependency-check",
+          "owasp-top-10",
+          "penetration-testing"
+        ],
+        "compliance_standards": ["OWASP", "NIST", "ISO27001"]
+      },
+      "output": [
+        "vulnerabilities",
+        "security_score",
+        "passed",
+        "recommendations",
+        "compliance_report"
+      ],
+      "timeout": 360000,
+      "priority": 4,
+      "parallel": true
+    },
+    {
+      "id": "performance-optimization",
+      "name": "Performance Optimization",
+      "type": "optimization",
+      "description": "Optimize application performance",
+      "depends": ["e2e-tests"],
+      "assignTo": "frontend-dev",
+      "input": {
+        "performance_metrics": "${e2e-tests.performance_metrics}",
+        "bottlenecks": "${e2e-tests.performance_bottlenecks}",
+        "optimization_targets": ["load-time", "bundle-size", "runtime-performance"]
+      },
+      "output": [
+        "optimizations_applied",
+        "performance_improvements",
+        "bundle_analysis"
+      ],
+      "timeout": 240000,
+      "priority": 4
+    },
+    {
+      "id": "documentation",
+      "name": "Documentation Generation",
+      "type": "documentation",
+      "description": "Generate comprehensive project documentation",
+      "depends": ["system-design", "frontend-development", "backend-development"],
+      "assignTo": "architect",
+      "input": {
+        "architecture": "${system-design.architecture_diagram}",
+        "api_docs": "${backend-development.api_endpoints}",
+        "frontend_components": "${frontend-development.components}",
+        "deployment_guide": "${devops-setup.deployment_guide}"
+      },
+      "output": [
+        "api_documentation",
+        "user_guide",
+        "developer_guide",
+        "deployment_guide",
+        "architecture_docs"
+      ],
+      "timeout": 180000,
+      "priority": 5
+    },
+    {
+      "id": "devops-setup",
+      "name": "DevOps Infrastructure",
+      "type": "infrastructure",
+      "description": "Set up CI/CD pipeline and deployment infrastructure",
+      "depends": ["setup-project"],
+      "assignTo": "devops-engineer",
+      "input": {
+        "deployment_architecture": "${system-design.deployment_architecture}",
+        "environment": "${deployment_environment}",
+        "containerization": "${tech_stack.deployment}",
+        "ci_cd_requirements": [
+          "automated-testing",
+          "security-scanning",
+          "deployment-automation",
+          "monitoring"
+        ]
+      },
+      "output": [
+        "ci_cd_pipeline",
+        "deployment_scripts",
+        "infrastructure_code",
+        "monitoring_setup",
+        "staging_url"
+      ],
+      "timeout": 300000,
+      "priority": 3,
+      "parallel": true
+    },
+    {
+      "id": "deployment",
+      "name": "Application Deployment",
+      "type": "deployment",
+      "description": "Deploy application to target environment",
+      "depends": ["performance-optimization", "security-scan", "devops-setup"],
+      "assignTo": "devops-engineer",
+      "condition": "ready-for-deployment",
+      "input": {
+        "application_bundle": {
+          "frontend": "${performance-optimization.optimized_frontend}",
+          "backend": "${backend-development.api_endpoints}"
+        },
+        "infrastructure": "${devops-setup.infrastructure_code}",
+        "environment": "${deployment_environment}",
+        "deployment_strategy": "blue-green"
+      },
+      "output": [
+        "deployment_status",
+        "application_url", 
+        "health_checks",
+        "monitoring_dashboards"
+      ],
+      "timeout": 240000,
+      "priority": 6
+    },
+    {
+      "id": "post-deployment-validation",
+      "name": "Post-Deployment Validation",
+      "type": "validation",
+      "description": "Validate deployment and run smoke tests",
+      "depends": ["deployment"],
+      "assignTo": "qa-engineer",
+      "input": {
+        "deployment_url": "${deployment.application_url}",
+        "health_endpoints": "${deployment.health_checks}",
+        "validation_tests": [
+          "health-check",
+          "smoke-tests",
+          "connectivity-tests",
+          "performance-baseline"
+        ]
+      },
+      "output": [
+        "validation_results",
+        "deployment_success",
+        "issues_found",
+        "rollback_needed"
+      ],
+      "timeout": 120000,
+      "priority": 6
+    }
+  ],
+  "integrations": [
+    {
+      "id": "github-webhook",
+      "type": "webhook",
+      "config": {
+        "url": "https://api.github.com/repos/${GITHUB_REPO}/statuses/${COMMIT_SHA}",
+        "method": "POST",
+        "headers": {
+          "Authorization": "token ${GITHUB_TOKEN}",
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "id": "slack-notifications",
+      "type": "webhook", 
+      "config": {
+        "url": "${SLACK_WEBHOOK_URL}",
+        "method": "POST"
+      }
+    },
+    {
+      "id": "jira-integration",
+      "type": "api",
+      "config": {
+        "baseUrl": "${JIRA_BASE_URL}",
+        "endpoints": {
+          "create_issue": "/rest/api/2/issue",
+          "update_issue": "/rest/api/2/issue/${issue_key}"
+        }
+      },
+      "auth": {
+        "type": "basic",
+        "credentials": {
+          "username": "${JIRA_USER}",
+          "password": "${JIRA_TOKEN}"
+        }
+      }
+    },
+    {
+      "id": "monitoring-system",
+      "type": "api",
+      "config": {
+        "baseUrl": "${MONITORING_API_URL}",
+        "endpoints": {
+          "metrics": "/api/v1/metrics",
+          "alerts": "/api/v1/alerts"
+        }
+      }
+    }
+  ],
+  "settings": {
+    "maxConcurrency": 4,
+    "timeout": 1800000,
+    "retryPolicy": "exponential",
+    "failurePolicy": "continue",
+    "errorHandler": "comprehensive-logging",
+    "monitoring": {
+      "enabled": true,
+      "interval": 10000,
+      "metrics": [
+        "progress",
+        "performance",
+        "errors",
+        "resource_usage",
+        "test_results",
+        "deployment_status"
+      ],
+      "alerts": [
+        {
+          "condition": "task.status === 'failed' && task.retryCount >= task.maxRetries",
+          "action": "slack-notifications",
+          "threshold": 1,
+          "cooldown": 600000
+        },
+        {
+          "condition": "workflow.duration > 1200000",
+          "action": "slack-notifications", 
+          "threshold": 1,
+          "message": "Development workflow taking longer than expected"
+        }
+      ]
+    },
+    "resources": {
+      "limits": {
+        "memory": "16GB",
+        "cpu": "8 cores",
+        "disk": "5GB"
+      },
+      "requests": {
+        "memory": "8GB", 
+        "cpu": "4 cores",
+        "disk": "2GB"
+      }
+    },
+    "notifications": {
+      "enabled": true,
+      "channels": ["slack", "email", "github"],
+      "events": [
+        "workflow.started",
+        "workflow.completed", 
+        "workflow.failed",
+        "task.failed",
+        "deployment.completed",
+        "security.vulnerability_found"
+      ],
+      "templates": {
+        "workflow.started": "🚀 Development workflow started for ${variables.project_name}",
+        "workflow.completed": "✅ Development workflow completed successfully for ${variables.project_name}. Deployed to: ${outputs.deployment.application_url}",
+        "workflow.failed": "❌ Development workflow failed for ${variables.project_name}: ${error.message}",
+        "deployment.completed": "🌐 Application deployed successfully: ${outputs.deployment.application_url}",
+        "security.vulnerability_found": "🔒 Security vulnerabilities found in ${variables.project_name}. Review required."
+      }
+    }
+  }
+}

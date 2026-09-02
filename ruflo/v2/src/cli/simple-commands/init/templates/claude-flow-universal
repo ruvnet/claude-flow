@@ -1,0 +1,81 @@
+#!/usr/bin/env node
+
+/**
+ * Claude Flow CLI - Universal Wrapper
+ * Works in both CommonJS and ES Module projects
+ */
+
+// Use dynamic import to work in both CommonJS and ES modules
+(async () => {
+  const { spawn } = await import('child_process');
+  const { resolve } = await import('path');
+  const { fileURLToPath } = await import('url');
+
+  // Detect if we're running in ES module context
+  let __dirname;
+  try {
+    // Check if import.meta is available (ES modules)
+    if (typeof import.meta !== 'undefined' && import.meta.url) {
+      const __filename = fileURLToPath(import.meta.url);
+      __dirname = resolve(__filename, '..');
+    } else {
+      // Fallback for CommonJS
+      __dirname = process.cwd();
+    }
+  } catch {
+    // Fallback for CommonJS
+    __dirname = process.cwd();
+  }
+
+  // Try multiple strategies to find claude-flow
+  const strategies = [
+    // 1. Local node_modules
+    async () => {
+      try {
+        const localPath = resolve(process.cwd(), 'node_modules/.bin/claude-flow');
+        const { existsSync } = await import('fs');
+        if (existsSync(localPath)) {
+          return spawn(localPath, process.argv.slice(2), { stdio: 'inherit' });
+        }
+      } catch {}
+    },
+
+    // 2. Parent node_modules (monorepo)
+    async () => {
+      try {
+        const parentPath = resolve(process.cwd(), '../node_modules/.bin/claude-flow');
+        const { existsSync } = await import('fs');
+        if (existsSync(parentPath)) {
+          return spawn(parentPath, process.argv.slice(2), { stdio: 'inherit' });
+        }
+      } catch {}
+    },
+
+    // 3. NPX with latest alpha version (prioritized over global)
+    async () => {
+      return spawn('npx', ['claude-flow@alpha', ...process.argv.slice(2)], {
+        stdio: 'inherit',
+      });
+    },
+  ];
+
+  // Try each strategy
+  for (const strategy of strategies) {
+    try {
+      const child = await strategy();
+      if (child) {
+        child.on('exit', (code) => process.exit(code || 0));
+        child.on('error', (err) => {
+          if (err.code !== 'ENOENT') {
+            console.error('Error:', err);
+            process.exit(1);
+          }
+        });
+        return;
+      }
+    } catch {}
+  }
+
+  console.error('Could not find claude-flow. Please install it with: npm install claude-flow');
+  process.exit(1);
+})();

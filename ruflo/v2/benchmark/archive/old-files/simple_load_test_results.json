@@ -1,0 +1,123 @@
+{
+  "test_start_time": "2025-07-06T14:08:44.540545",
+  "basic_commands": {
+    "Help command": {
+      "success": false,
+      "duration": 0.023431777954101562,
+      "stdout": "",
+      "stderr": "node:internal/modules/cjs/loader:1215\n  throw err;\n  ^\n\nError: Cannot find module '/workspaces/src/cli/simple-cli.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)\n    at Module._load (node:internal/modules/cjs/loader:1043:27)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)\n    at node:internal/main/run_main_module:28:49 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v20.19.0\n",
+      "returncode": 1
+    },
+    "Version command": {
+      "success": false,
+      "duration": 0.022416353225708008,
+      "stdout": "",
+      "stderr": "node:internal/modules/cjs/loader:1215\n  throw err;\n  ^\n\nError: Cannot find module '/workspaces/src/cli/simple-cli.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)\n    at Module._load (node:internal/modules/cjs/loader:1043:27)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)\n    at node:internal/main/run_main_module:28:49 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v20.19.0\n",
+      "returncode": 1
+    },
+    "Status command": {
+      "success": false,
+      "duration": 0.022094249725341797,
+      "stdout": "",
+      "stderr": "node:internal/modules/cjs/loader:1215\n  throw err;\n  ^\n\nError: Cannot find module '/workspaces/src/cli/simple-cli.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)\n    at Module._load (node:internal/modules/cjs/loader:1043:27)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)\n    at node:internal/main/run_main_module:28:49 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v20.19.0\n",
+      "returncode": 1
+    }
+  },
+  "swarm_initialization": {
+    "swarm_init": {
+      "success": false,
+      "duration": 0.021847248077392578,
+      "stdout": "",
+      "stderr": "node:internal/modules/cjs/loader:1215\n  throw err;\n  ^\n\nError: Cannot find module '/workspaces/src/cli/simple-cli.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)\n    at Module._load (node:internal/modules/cjs/loader:1043:27)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)\n    at node:internal/main/run_main_module:28:49 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v20.19.0\n",
+      "returncode": 1
+    }
+  },
+  "agent_spawning": {
+    "Spawn researcher": {
+      "success": false,
+      "duration": 0.022188663482666016,
+      "stdout": "",
+      "stderr": "node:internal/modules/cjs/loader:1215\n  throw err;\n  ^\n\nError: Cannot find module '/workspaces/src/cli/simple-cli.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)\n    at Module._load (node:internal/modules/cjs/loader:1043:27)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)\n    at node:internal/main/run_main_module:28:49 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v20.19.0\n",
+      "returncode": 1
+    },
+    "Spawn coder": {
+      "success": false,
+      "duration": 0.02223515510559082,
+      "stdout": "",
+      "stderr": "node:internal/modules/cjs/loader:1215\n  throw err;\n  ^\n\nError: Cannot find module '/workspaces/src/cli/simple-cli.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)\n    at Module._load (node:internal/modules/cjs/loader:1043:27)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)\n    at node:internal/main/run_main_module:28:49 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v20.19.0\n",
+      "returncode": 1
+    },
+    "List agents": {
+      "success": false,
+      "duration": 0.022385358810424805,
+      "stdout": "",
+      "stderr": "node:internal/modules/cjs/loader:1215\n  throw err;\n  ^\n\nError: Cannot find module '/workspaces/src/cli/simple-cli.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)\n    at Module._load (node:internal/modules/cjs/loader:1043:27)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)\n    at node:internal/main/run_main_module:28:49 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v20.19.0\n",
+      "returncode": 1
+    }
+  },
+  "memory_operations": {
+    "Store memory": {
+      "success": false,
+      "duration": 0.021971940994262695,
+      "stdout": "",
+      "stderr": "node:internal/modules/cjs/loader:1215\n  throw err;\n  ^\n\nError: Cannot find module '/workspaces/src/cli/simple-cli.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)\n    at Module._load (node:internal/modules/cjs/loader:1043:27)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)\n    at node:internal/main/run_main_module:28:49 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v20.19.0\n",
+      "returncode": 1
+    },
+    "Retrieve memory": {
+      "success": false,
+      "duration": 0.022206783294677734,
+      "stdout": "",
+      "stderr": "node:internal/modules/cjs/loader:1215\n  throw err;\n  ^\n\nError: Cannot find module '/workspaces/src/cli/simple-cli.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)\n    at Module._load (node:internal/modules/cjs/loader:1043:27)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)\n    at node:internal/main/run_main_module:28:49 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v20.19.0\n",
+      "returncode": 1
+    },
+    "List memory": {
+      "success": false,
+      "duration": 0.022072553634643555,
+      "stdout": "",
+      "stderr": "node:internal/modules/cjs/loader:1215\n  throw err;\n  ^\n\nError: Cannot find module '/workspaces/src/cli/simple-cli.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)\n    at Module._load (node:internal/modules/cjs/loader:1043:27)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)\n    at node:internal/main/run_main_module:28:49 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v20.19.0\n",
+      "returncode": 1
+    }
+  },
+  "load_simulation": {
+    "total_operations": 10,
+    "successful_operations": 0,
+    "failed_operations": 10,
+    "total_duration": 6.236327171325684,
+    "avg_response_time": 0.023464012145996093,
+    "throughput": 0.0,
+    "success_rate": 0.0,
+    "start_resources": {
+      "memory_percent": 15.5,
+      "memory_mb": 9148.62109375,
+      "available_memory_mb": 54361.86328125,
+      "cpu_percent": 5.0,
+      "process_count": 88
+    },
+    "end_resources": {
+      "memory_percent": 15.5,
+      "memory_mb": 9168.703125,
+      "available_memory_mb": 54341.5703125,
+      "cpu_percent": 3.4,
+      "process_count": 94
+    },
+    "response_times": [
+      0.023001909255981445,
+      0.024100780487060547,
+      0.023624420166015625,
+      0.02330780029296875,
+      0.023403644561767578,
+      0.02328324317932129,
+      0.023815393447875977,
+      0.023743152618408203,
+      0.023242473602294922,
+      0.0231173038482666
+    ]
+  },
+  "system_info": {
+    "cpu_count": 16,
+    "memory_gb": 62.79094314575195,
+    "platform": "linux"
+  },
+  "test_end_time": "2025-07-06T14:08:52.000734",
+  "total_test_duration": 7.460189
+}

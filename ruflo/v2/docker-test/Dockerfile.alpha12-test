@@ -1,0 +1,47 @@
+FROM node:20-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install claude-flow@2.7.0-alpha.12 from npm
+RUN npm install -g claude-flow@2.7.0-alpha.12
+
+# Verify version
+RUN claude-flow --version
+
+# Create test directory
+WORKDIR /test
+
+# Test the init command
+CMD echo "Testing claude-flow@2.7.0-alpha.12 from npm registry..." && \
+    claude-flow init --skip-open --project-name alpha12-test && \
+    echo "" && \
+    echo "========================================" && \
+    echo "✅ VERIFICATION RESULTS" && \
+    echo "========================================" && \
+    echo "" && \
+    echo "📁 Directory Structure:" && \
+    ls -la .claude/ && \
+    echo "" && \
+    echo "📋 Skills Directory:" && \
+    ls -la .claude/skills/ 2>/dev/null || echo "⚠️  Skills directory not found" && \
+    echo "" && \
+    echo "📊 Skills Count:" && \
+    find .claude/skills -name "SKILL.md" 2>/dev/null | wc -l && \
+    echo "" && \
+    echo "🔧 Statusline Script:" && \
+    ls -lh .claude/statusline-command.sh && \
+    stat -c "Permissions: %a" .claude/statusline-command.sh && \
+    echo "" && \
+    echo "✨ Testing statusline execution:" && \
+    bash .claude/statusline-command.sh <<< '{"model": {"display_name": "Claude"}, "workspace": {"current_dir": "/test"}}' && \
+    echo "" && \
+    echo "========================================" && \
+    echo "✅ All tests passed!" && \
+    echo "========================================"

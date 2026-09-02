@@ -1,0 +1,12 @@
+--- a/node_modules/agentdb/dist/controllers/index.js
++++ b/node_modules/agentdb/dist/controllers/index.js
+@@ -3,6 +3,6 @@
+  *
+  * Export all memory controllers for agent systems
+  */
+-export { ReflexionMemory } from './ReflexionMemory';
+-export { SkillLibrary } from './SkillLibrary';
+-export { EmbeddingService } from './EmbeddingService';
++export { ReflexionMemory } from './ReflexionMemory.js';
++export { SkillLibrary } from './SkillLibrary.js';
++export { EmbeddingService } from './EmbeddingService.js';

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"Hook test - File: $CLAUDE_EDITED_FILE\" >> .claude/hook-test.log"
+          }
+        ]
+      }
+    ]
+  }
+}

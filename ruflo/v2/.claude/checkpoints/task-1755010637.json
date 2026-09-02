@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250812-145716", "task": "the non-interactive args don't seem to insert the default prompt in the same way the interactive cla", "timestamp": "2025-08-12T14:57:17Z", "commit": "c7ec78db0d947c344decb1678976133988fbebf0", "github_release": "true"}

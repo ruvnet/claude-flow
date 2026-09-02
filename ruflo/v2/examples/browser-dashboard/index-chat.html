@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Flow - Browser Chat</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Emoji', sans-serif;
+            background: #ffffff;
+            color: #2c2c2c;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Left Sidebar - Swarm Control */
+        .sidebar {
+            width: 280px;
+            background: #f7f7f7;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .sidebar-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: #f0f0f0;
+            border-radius: 16px;
+            font-size: 12px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10a37f;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .sidebar-section {
+            padding: 16px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .agent-grid {
+            display: grid;
+            gap: 8px;
+        }
+
+        .agent-card {
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .agent-card:hover {
+            border-color: #10a37f;
+            box-shadow: 0 2px 8px rgba(16, 163, 127, 0.1);
+        }
+
+        .agent-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .agent-type {
+            color: #666;
+            font-size: 11px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 8px;
+        }
+
+        .btn-primary {
+            background: #10a37f;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0d8c6c;
+        }
+
+        .btn-secondary {
+            background: #f7f7f7;
+            color: #2c2c2c;
+            border: 1px solid #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #ececec;
+        }
+
+        /* Main Chat Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #ffffff;
+        }
+
+        .chat-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-title {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #10a37f, #0d8c6c);
+            border-radius: 6px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 100%;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .user-avatar {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .assistant-avatar {
+            background: linear-gradient(135deg, #10a37f, #0d8c6c);
+        }
+
+        .message-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .message-author {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .message-text {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #2c2c2c;
+        }
+
+        .code-block {
+            margin: 12px 0;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+        }
+
+        .code-header {
+            background: #f7f7f7;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .code-language {
+            font-size: 12px;
+            font-weight: 500;
+            color: #666;
+        }
+
+        .code-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .code-action-btn {
+            padding: 4px 10px;
+            border: none;
+            background: transparent;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .code-action-btn:hover {
+            background: #e0e0e0;
+            color: #2c2c2c;
+        }
+
+        .code-body {
+            background: #1e1e1e;
+            padding: 16px;
+            overflow-x: auto;
+        }
+
+        .code-body pre {
+            margin: 0;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #d4d4d4;
+        }
+
+        /* Chat Input */
+        .chat-input-container {
+            padding: 16px 24px;
+            border-top: 1px solid #e0e0e0;
+            background: #ffffff;
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .chat-input {
+            flex: 1;
+            min-height: 44px;
+            max-height: 200px;
+            padding: 12px 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: none;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .chat-input:focus {
+            border-color: #10a37f;
+            box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
+        }
+
+        .send-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            background: #10a37f;
+            color: white;
+            border-radius: 12px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover {
+            background: #0d8c6c;
+        }
+
+        .send-btn:disabled {
+            background: #e0e0e0;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        /* Right Panel - Code Editor */
+        .right-panel {
+            width: 500px;
+            background: #1e1e1e;
+            border-left: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            display: none;
+        }
+
+        .right-panel.active {
+            display: flex;
+        }
+
+        .editor-header {
+            padding: 12px 16px;
+            background: #2d2d30;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .editor-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #d4d4d4;
+        }
+
+        .close-editor-btn {
+            background: transparent;
+            border: none;
+            color: #999;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px;
+            line-height: 1;
+        }
+
+        .close-editor-btn:hover {
+            color: #fff;
+        }
+
+        #editor {
+            flex: 1;
+        }
+
+        .editor-toolbar {
+            padding: 12px 16px;
+            background: #2d2d30;
+            border-top: 1px solid #3e3e42;
+            display: flex;
+            gap: 8px;
+        }
+
+        .toolbar-btn {
+            padding: 8px 12px;
+            background: #3e3e42;
+            border: none;
+            color: #d4d4d4;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .toolbar-btn:hover {
+            background: #4e4e52;
+        }
+
+        .toolbar-btn.primary {
+            background: #10a37f;
+            color: white;
+        }
+
+        .toolbar-btn.primary:hover {
+            background: #0d8c6c;
+        }
+
+        /* Consensus Indicator */
+        .consensus-mini {
+            padding: 12px;
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            margin-top: 8px;
+        }
+
+        .consensus-bar {
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .consensus-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10a37f, #0d8c6c);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .consensus-text {
+            font-size: 11px;
+            color: #666;
+            text-align: center;
+        }
+
+        .toggle-editor-btn {
+            position: fixed;
+            right: 24px;
+            bottom: 80px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #10a37f;
+            color: white;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.2s;
+            z-index: 100;
+        }
+
+        .toggle-editor-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Claude Flow</div>
+                <div class="status-badge">
+                    <div class="status-dot"></div>
+                    <span>Connected</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Active Agents</div>
+                <div class="agent-grid" id="agentGrid">
+                    <!-- Agents populated by JS -->
+                </div>
+                <button class="btn btn-primary" onclick="spawnAgents()">
+                    🚀 Spawn Agents
+                </button>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Consensus</div>
+                <div class="consensus-mini">
+                    <div class="consensus-bar">
+                        <div class="consensus-fill" id="consensusFill" style="width: 0%">
+                            <span id="consensusText">0/0</span>
+                        </div>
+                    </div>
+                    <div class="consensus-text" id="consensusStatus">
+                        Awaiting votes...
+                    </div>
+                </div>
+                <button class="btn btn-secondary" onclick="testConsensus()">
+                    Test Byzantine
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="main-content">
+            <div class="chat-header">
+                <div class="chat-title">
+                    <div class="logo"></div>
+                    <span>Claude Flow Chat</span>
+                </div>
+                <button class="btn-secondary" style="padding: 8px 16px;" onclick="toggleEditor()">
+                    </> Code Editor
+                </button>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <!-- Messages populated by JS -->
+                <div class="message">
+                    <div class="message-avatar assistant-avatar">🤖</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-author">Claude Flow</span>
+                            <span class="message-time">Just now</span>
+                        </div>
+                        <div class="message-text">
+                            <p>Hello! I'm Claude Flow with integrated swarm orchestration. I can help you:</p>
+                            <ul style="margin: 12px 0 0 20px; line-height: 1.8;">
+                                <li>Spawn and manage AI agents</li>
+                                <li>Execute code with real MCP tools</li>
+                                <li>Run Byzantine consensus verification</li>
+                                <li>Orchestrate complex multi-agent tasks</li>
+                            </ul>
+                            <p style="margin-top: 12px;">Try asking me to spawn agents or run a consensus test!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <textarea
+                        id="chatInput"
+                        class="chat-input"
+                        placeholder="Message Claude Flow..."
+                        rows="1"
+                        onkeydown="handleInputKeydown(event)"
+                    ></textarea>
+                    <button class="send-btn" onclick="sendMessage()">
+                        ↑
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Code Editor -->
+        <div class="right-panel" id="rightPanel">
+            <div class="editor-header">
+                <div class="editor-title">Code Editor</div>
+                <button class="close-editor-btn" onclick="toggleEditor()">×</button>
+            </div>
+            <div id="editor"></div>
+            <div class="editor-toolbar">
+                <button class="toolbar-btn primary" onclick="executeCode()">▶️ Run</button>
+                <button class="toolbar-btn" onclick="insertCodeIntoChat()">💬 Send to Chat</button>
+                <button class="toolbar-btn" onclick="clearEditor()">🗑️ Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <button class="toggle-editor-btn" onclick="toggleEditor()" title="Toggle Code Editor">
+        </>
+    </button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <script src="dashboard-chat.js"></script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250806-133044", "task": "this still opens the interactive claude session, swarm and sparc works correctly, hive-mind doesnt. ", "timestamp": "2025-08-06T13:30:45Z", "commit": "9eab8bd854b27d8a98eac03a329c3ce84019c440", "github_release": "true"}

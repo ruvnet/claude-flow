@@ -1,0 +1,29 @@
+{
+  "summary": {
+    "total_tests": 3,
+    "successful_tests": 0,
+    "failed_tests": 3,
+    "success_rate": 0.0,
+    "avg_initialization_time": 0,
+    "avg_coordination_latency": 0,
+    "avg_memory_usage": 0
+  },
+  "topology_performance": {},
+  "coordination_performance": {},
+  "scaling_analysis": {},
+  "optimal_configurations": {
+    "small_scale": null,
+    "medium_scale": null,
+    "large_scale": null
+  },
+  "failed_configurations": [
+    "quick_hierarchical",
+    "quick_mesh",
+    "quick_star"
+  ],
+  "performance_targets": {
+    "initialization_time_met": 0,
+    "coordination_latency_met": 0,
+    "memory_usage_met": 0
+  }
+}

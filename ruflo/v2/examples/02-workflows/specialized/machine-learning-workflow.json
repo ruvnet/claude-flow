@@ -1,0 +1,135 @@
+{
+  "name": "Machine Learning Pipeline",
+  "description": "End-to-end ML workflow from data preparation to model deployment",
+  "agents": [
+    {
+      "id": "data-engineer",
+      "name": "Data Engineer",
+      "type": "analyzer",
+      "capabilities": ["data-cleaning", "feature-engineering", "etl"],
+      "tools": ["pandas", "numpy", "sklearn"]
+    },
+    {
+      "id": "ml-researcher",
+      "name": "ML Researcher",
+      "type": "researcher",
+      "capabilities": ["model-selection", "hyperparameter-tuning", "experimentation"],
+      "tools": ["sklearn", "tensorflow", "pytorch"]
+    },
+    {
+      "id": "ml-engineer",
+      "name": "ML Engineer",
+      "type": "developer",
+      "capabilities": ["model-training", "optimization", "pipeline-creation"],
+      "tools": ["mlflow", "kubeflow", "tensorflow"]
+    },
+    {
+      "id": "evaluator",
+      "name": "Model Evaluator",
+      "type": "tester",
+      "capabilities": ["model-evaluation", "metrics-analysis", "validation"],
+      "tools": ["sklearn", "matplotlib", "seaborn"]
+    },
+    {
+      "id": "deployer",
+      "name": "ML Ops Engineer",
+      "type": "devops",
+      "capabilities": ["model-deployment", "monitoring", "scaling"],
+      "tools": ["docker", "kubernetes", "prometheus"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "data-preparation",
+      "name": "Prepare and Clean Data",
+      "agentId": "data-engineer",
+      "type": "data-processing",
+      "input": {
+        "dataset": "customer_churn.csv",
+        "operations": ["missing-values", "outliers", "normalization", "encoding"]
+      },
+      "output": {
+        "artifacts": ["cleaned_data.csv", "data_report.html"]
+      }
+    },
+    {
+      "id": "feature-engineering",
+      "name": "Engineer Features",
+      "agentId": "data-engineer",
+      "type": "data-processing",
+      "dependencies": ["data-preparation"],
+      "input": {
+        "techniques": ["polynomial", "interaction", "aggregation", "time-based"]
+      }
+    },
+    {
+      "id": "model-research",
+      "name": "Research Best Models",
+      "agentId": "ml-researcher",
+      "type": "research",
+      "dependencies": ["feature-engineering"],
+      "parallel": true,
+      "input": {
+        "algorithms": ["random-forest", "xgboost", "neural-network", "svm"],
+        "crossValidation": 5
+      }
+    },
+    {
+      "id": "model-training",
+      "name": "Train Final Model",
+      "agentId": "ml-engineer",
+      "type": "training",
+      "dependencies": ["model-research"],
+      "input": {
+        "selectedModel": "xgboost",
+        "hyperparameters": "auto-tune",
+        "distributed": true
+      }
+    },
+    {
+      "id": "model-evaluation",
+      "name": "Evaluate Model Performance",
+      "agentId": "evaluator",
+      "type": "testing",
+      "dependencies": ["model-training"],
+      "input": {
+        "metrics": ["accuracy", "precision", "recall", "f1", "auc-roc"],
+        "visualizations": ["confusion-matrix", "roc-curve", "feature-importance"]
+      }
+    },
+    {
+      "id": "model-deployment",
+      "name": "Deploy Model to Production",
+      "agentId": "deployer",
+      "type": "deployment",
+      "dependencies": ["model-evaluation"],
+      "input": {
+        "platform": "kubernetes",
+        "serving": "tensorflow-serving",
+        "monitoring": ["latency", "throughput", "drift"]
+      }
+    }
+  ],
+  "execution": {
+    "mode": "pipeline",
+    "experiments": {
+      "tracking": true,
+      "comparison": true,
+      "versioning": true
+    },
+    "artifacts": {
+      "storage": "s3",
+      "retention": "30d"
+    }
+  },
+  "quality": {
+    "modelThresholds": {
+      "accuracy": 0.85,
+      "f1Score": 0.8
+    },
+    "dataQuality": {
+      "completeness": 0.95,
+      "validity": 0.98
+    }
+  }
+}

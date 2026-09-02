@@ -1,0 +1,58 @@
+{
+  "name": "Research Configuration",
+  "description": "Optimized for research and analysis tasks",
+  "orchestrator": {
+    "timeout": 300000,
+    "systemPrompt": "You are a research assistant focused on thorough analysis and accurate information gathering."
+  },
+  "agents": {
+    "defaultCapabilities": ["research", "analysis", "documentation"],
+    "specializations": {
+      "literature-review": {
+        "tools": ["search", "pdf-reader", "citation-manager"]
+      },
+      "data-analysis": {
+        "tools": ["python", "statistics", "visualization"]
+      },
+      "synthesis": {
+        "tools": ["markdown", "diagram-generator"]
+      }
+    }
+  },
+  "memory": {
+    "backend": "sqlite",
+    "location": "./research-memory.db",
+    "schemas": {
+      "papers": {
+        "title": "string",
+        "authors": "array",
+        "year": "number",
+        "doi": "string",
+        "summary": "text",
+        "relevance": "number"
+      },
+      "findings": {
+        "source": "string",
+        "claim": "text",
+        "evidence": "text",
+        "confidence": "number"
+      }
+    }
+  },
+  "tools": {
+    "search": {
+      "engines": ["google-scholar", "pubmed", "arxiv"],
+      "maxResults": 50
+    },
+    "citation": {
+      "style": "APA",
+      "autoFormat": true
+    }
+  },
+  "logging": {
+    "level": "debug",
+    "format": "pretty",
+    "destination": "both",
+    "filePath": "./logs/research.log"
+  }
+}

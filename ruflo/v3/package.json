@@ -1,0 +1,57 @@
+{
+  "name": "@claude-flow/v3-monorepo",
+  "version": "3.0.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "description": "Claude Flow V3 - Modular AI Agent Coordination System",
+  "workspaces": [
+    "@claude-flow/*",
+    "claude-flow"
+  ],
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "test:unit": "vitest run __tests__/unit",
+    "test:integration": "vitest run __tests__/integration",
+    "test:integration:watch": "vitest watch __tests__/integration",
+    "test:integration:memory": "vitest run __tests__/integration/memory-integration.test.ts",
+    "test:integration:swarm": "vitest run __tests__/integration/swarm-integration.test.ts",
+    "test:integration:mcp": "vitest run __tests__/integration/mcp-integration.test.ts",
+    "test:integration:plugin": "vitest run __tests__/integration/plugin-integration.test.ts",
+    "test:integration:workflow": "vitest run __tests__/integration/workflow-integration.test.ts",
+    "test:coverage": "vitest run --coverage",
+    "test:coverage:integration": "vitest run __tests__/integration --coverage",
+    "test:security": "pnpm --filter @claude-flow/security test",
+    "test:memory": "pnpm --filter @claude-flow/memory test",
+    "test:swarm": "pnpm --filter @claude-flow/swarm test",
+    "bench": "pnpm --filter @claude-flow/performance bench",
+    "bench:attention": "pnpm --filter @claude-flow/performance bench:attention",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "rm -rf node_modules @claude-flow/*/node_modules claude-flow/node_modules",
+    "publish:dry": "pnpm --filter claude-flow publish --dry-run --tag v3alpha --no-git-checks",
+    "publish:v3alpha": "pnpm --filter claude-flow publish --tag v3alpha --no-git-checks",
+    "version:patch": "pnpm -r exec npm version patch",
+    "version:minor": "pnpm -r exec npm version minor",
+    "version:major": "pnpm -r exec npm version major",
+    "bun:install": "bun install",
+    "bun:build": "bun run --filter '*' build",
+    "bun:test": "bun test",
+    "bun:dev": "bun run --watch src/index.ts",
+    "bun:publish:dry": "cd claude-flow && bun publish --dry-run --tag v3alpha",
+    "bun:publish:v3alpha": "cd claude-flow && bun publish --tag v3alpha"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^4.0.16",
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.16"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "dependencies": {
+    "semantic-release": "25.0.2"
+  }
+}

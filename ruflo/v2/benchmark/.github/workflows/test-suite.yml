@@ -1,0 +1,410 @@
+name: Benchmark Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'benchmark/**'
+      - '.github/workflows/test-suite.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'benchmark/**'
+      - '.github/workflows/test-suite.yml'
+  schedule:
+    # Run tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of tests to run'
+        required: true
+        default: 'fast'
+        type: choice
+        options:
+          - fast
+          - all
+          - performance
+          - regression
+          - stress
+
+env:
+  PYTHONUNBUFFERED: 1
+  PYTHONDONTWRITEBYTECODE: 1
+
+jobs:
+  # Fast tests for quick feedback
+  fast-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        cd benchmark
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r tests/requirements-test.txt
+    
+    - name: Run fast tests
+      run: |
+        cd benchmark
+        python tests/run_tests.py fast --coverage
+    
+    - name: Upload coverage to Codecov
+      if: matrix.python-version == '3.10'
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./benchmark/coverage.xml
+        flags: unittests
+        name: codecov-benchmark
+        fail_ci_if_error: false
+
+  # Unit tests with detailed reporting
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: fast-tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        cd benchmark
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r tests/requirements-test.txt
+    
+    - name: Run unit tests
+      run: |
+        cd benchmark
+        python tests/run_tests.py unit --coverage
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: unit-test-results
+        path: |
+          benchmark/test-results.xml
+          benchmark/htmlcov/
+        retention-days: 7
+
+  # Integration tests
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: fast-tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        cd benchmark
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r tests/requirements-test.txt
+    
+    - name: Run integration tests
+      run: |
+        cd benchmark
+        python tests/run_tests.py integration
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: integration-test-results
+        path: benchmark/test-results.xml
+        retention-days: 7
+
+  # Performance tests
+  performance-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event.inputs.test_type == 'performance' || github.event.inputs.test_type == 'all'
+    needs: fast-tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        cd benchmark
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r tests/requirements-test.txt
+    
+    - name: Run performance tests
+      env:
+        RUN_SLOW_TESTS: 1
+      run: |
+        cd benchmark
+        python tests/run_tests.py performance
+    
+    - name: Upload performance results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-test-results
+        path: benchmark/test-results.xml
+        retention-days: 30
+
+  # Regression tests
+  regression-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event.inputs.test_type == 'regression' || github.event.inputs.test_type == 'all'
+    needs: [unit-tests, integration-tests]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        cd benchmark
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r tests/requirements-test.txt
+    
+    - name: Run regression tests
+      run: |
+        cd benchmark
+        python tests/run_tests.py regression
+    
+    - name: Upload regression results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: regression-test-results
+        path: benchmark/test-results.xml
+        retention-days: 30
+
+  # Stress tests (only on schedule or manual trigger)
+  stress-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event.inputs.test_type == 'stress'
+    needs: [unit-tests, integration-tests]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        cd benchmark
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r tests/requirements-test.txt
+    
+    - name: Run stress tests
+      env:
+        RUN_SLOW_TESTS: 1
+      run: |
+        cd benchmark
+        python tests/run_tests.py stress
+    
+    - name: Upload stress test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: stress-test-results
+        path: benchmark/test-results.xml
+        retention-days: 7
+
+  # Code quality checks
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        cd benchmark
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r tests/requirements-test.txt
+        pip install flake8 black isort mypy
+    
+    - name: Run black
+      run: |
+        cd benchmark
+        black --check --diff tests/ src/
+    
+    - name: Run isort
+      run: |
+        cd benchmark
+        isort --check-only --diff tests/ src/
+    
+    - name: Run flake8
+      run: |
+        cd benchmark
+        flake8 tests/ src/ --max-line-length=100 --extend-ignore=E203,W503
+    
+    - name: Run mypy
+      run: |
+        cd benchmark
+        mypy tests/ src/ --ignore-missing-imports
+
+  # Security scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Bandit Security Scan
+      uses: securecodewarrior/github-action-bandit-scan@v1.0.1
+      with:
+        path: "benchmark/"
+        
+    - name: Run Safety Check
+      run: |
+        cd benchmark
+        pip install safety
+        safety check -r requirements.txt -r tests/requirements-test.txt
+
+  # Generate test report
+  test-report:
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Generate test report
+      run: |
+        echo "# Benchmark Test Suite Results" > test_report.md
+        echo "" >> test_report.md
+        echo "## Test Summary" >> test_report.md
+        echo "- **Date**: $(date)" >> test_report.md
+        echo "- **Branch**: ${GITHUB_REF##*/}" >> test_report.md
+        echo "- **Commit**: ${GITHUB_SHA:0:8}" >> test_report.md
+        echo "" >> test_report.md
+        
+        if [[ -d "unit-test-results" ]]; then
+          echo "✅ Unit tests completed" >> test_report.md
+        else
+          echo "❌ Unit tests failed" >> test_report.md
+        fi
+        
+        if [[ -d "integration-test-results" ]]; then
+          echo "✅ Integration tests completed" >> test_report.md
+        else
+          echo "❌ Integration tests failed" >> test_report.md
+        fi
+        
+        if [[ -d "performance-test-results" ]]; then
+          echo "✅ Performance tests completed" >> test_report.md
+        else
+          echo "⚠️ Performance tests skipped" >> test_report.md
+        fi
+        
+        echo "" >> test_report.md
+        echo "## Artifacts Generated" >> test_report.md
+        find . -name "*.xml" -o -name "*.html" | head -10 >> test_report.md
+    
+    - name: Upload test report
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-report
+        path: test_report.md
+        retention-days: 30
+
+  # Notify on failure
+  notify-failure:
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    if: failure() && (github.event_name == 'push' || github.event_name == 'schedule')
+    
+    steps:
+    - name: Create issue on failure
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const title = `Test suite failure on ${context.ref}`;
+          const body = `
+          # Test Suite Failure
+          
+          The benchmark test suite has failed on branch \`${context.ref}\`.
+          
+          **Details:**
+          - Commit: ${context.sha}
+          - Workflow: ${context.workflow}
+          - Run ID: ${context.runId}
+          
+          Please check the workflow logs for details.
+          
+          **Actions:**
+          - [ ] Review failed tests
+          - [ ] Fix issues
+          - [ ] Re-run tests
+          
+          ---
+          *This issue was automatically created by the test suite workflow.*
+          `;
+          
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: title,
+            body: body,
+            labels: ['bug', 'automated', 'test-failure']
+          });

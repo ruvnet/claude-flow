@@ -1,0 +1,39 @@
+{
+  "orchestrator": {
+    "maxConcurrentAgents": 5,
+    "taskQueueSize": 50,
+    "healthCheckInterval": 10000,
+    "shutdownTimeout": 15000
+  },
+  "terminal": {
+    "type": "auto",
+    "poolSize": 3,
+    "recycleAfter": 5,
+    "healthCheckInterval": 30000,
+    "commandTimeout": 180000
+  },
+  "memory": {
+    "backend": "hybrid",
+    "cacheSizeMB": 50,
+    "syncInterval": 5000,
+    "conflictResolution": "crdt",
+    "retentionDays": 7
+  },
+  "coordination": {
+    "maxRetries": 2,
+    "retryDelay": 1000,
+    "deadlockDetection": true,
+    "resourceTimeout": 30000,
+    "messageTimeout": 15000
+  },
+  "mcp": {
+    "transport": "stdio",
+    "port": 3000,
+    "tlsEnabled": false
+  },
+  "logging": {
+    "level": "debug",
+    "format": "text",
+    "destination": "console"
+  }
+}

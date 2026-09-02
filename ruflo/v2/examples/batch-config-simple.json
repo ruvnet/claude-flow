@@ -1,0 +1,10 @@
+{
+  "projects": ["api-service", "web-frontend", "admin-dashboard"],
+  "baseOptions": {
+    "sparc": true,
+    "parallel": true,
+    "maxConcurrency": 3,
+    "template": "web-api",
+    "environments": ["dev", "staging"]
+  }
+}

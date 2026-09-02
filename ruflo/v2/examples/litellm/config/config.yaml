@@ -1,0 +1,294 @@
+# LiteLLM Multi-Tenant Gateway Configuration
+# This config enables Claude Code to route to multiple LLM providers
+
+general_settings:
+  master_key: ${LITELLM_MASTER_KEY}
+  database_url: ${DATABASE_URL}
+  redis_url: ${REDIS_URL}
+  request_timeout: 600
+  max_retries: 3
+  fallback_enabled: true
+  cache_enabled: true
+  cache_ttl: 3600
+  telemetry: false
+  custom_auth: true
+  enable_jwt_auth: true
+  multi_tenant: true
+
+# Router settings for intelligent routing
+router_settings:
+  routing_strategy: simple-shuffle  # Avoid latency-based for Anthropic compatibility
+  enable_fallbacks: true
+  retry_policy:
+    max_retries: 3
+    retry_delay: 1
+    exponential_backoff: true
+  rate_limit:
+    enabled: true
+    requests_per_minute: 100
+    requests_per_day: 10000
+
+# Model list with aliases for Claude Code
+model_list:
+  # OpenAI Models
+  - model_name: "codex-mini"
+    litellm_params:
+      model: "openai/gpt-4o-mini"
+      api_key: ${OPENAI_API_KEY}
+      api_base: https://api.openai.com/v1
+      max_tokens: 4096
+      temperature: 0.2
+      timeout: 30
+      stream: true
+    model_info:
+      mode: code
+      cost_per_token: 0.00002
+      
+  - model_name: "o3-pro"
+    litellm_params:
+      model: "openai/o3-2025"
+      api_key: ${OPENAI_API_KEY}
+      api_base: https://api.openai.com/v1
+      max_tokens: 8192
+      temperature: 0.7
+      timeout: 60
+      stream: true
+    model_info:
+      mode: reasoning
+      cost_per_token: 0.00015
+
+  # OpenRouter Models (Qwen3-Coder)
+  - model_name: "claude-3-5-sonnet"
+    litellm_params:
+      model: "openrouter/qwen/qwen-3-coder:free"
+      api_key: ${OPENROUTER_API_KEY}
+      api_base: https://openrouter.ai/api/v1
+      max_tokens: 65536
+      temperature: 0.7
+      timeout: 120
+      stream: true
+      extra_headers:
+        HTTP-Referer: "https://github.com/ruvnet/claude-flow"
+        X-Title: "Claude Code Gateway"
+    model_info:
+      mode: code
+      cost_per_token: 0.00001
+
+  - model_name: "deepseek-coder"
+    litellm_params:
+      model: "openrouter/deepseek/deepseek-coder"
+      api_key: ${OPENROUTER_API_KEY}
+      api_base: https://openrouter.ai/api/v1
+      max_tokens: 32768
+      temperature: 0.5
+      timeout: 90
+      stream: true
+    model_info:
+      mode: code
+      cost_per_token: 0.000005
+
+  # Azure OpenAI
+  - model_name: "azure-gpt4"
+    litellm_params:
+      model: "azure/gpt-4-turbo-2024-08-01"
+      api_key: ${AZURE_API_KEY}
+      api_base: ${AZURE_API_BASE}
+      api_version: "2024-08-01-preview"
+      max_tokens: 8192
+      temperature: 0.7
+      timeout: 60
+      stream: true
+    model_info:
+      mode: general
+      cost_per_token: 0.00012
+
+  # Amazon Bedrock Claude
+  - model_name: "bedrock-claude"
+    litellm_params:
+      model: "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0"
+      aws_access_key_id: ${AWS_ACCESS_KEY_ID}
+      aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+      aws_region_name: ${AWS_REGION}
+      max_tokens: 4096
+      temperature: 0.7
+      timeout: 60
+      stream: true
+    model_info:
+      mode: general
+      cost_per_token: 0.00008
+
+  # Local Ollama Models
+  - model_name: "local-codellama"
+    litellm_params:
+      model: "ollama/codellama:34b"
+      api_base: http://ollama:11434
+      max_tokens: 8192
+      temperature: 0.3
+      timeout: 120
+      stream: true
+    model_info:
+      mode: code
+      cost_per_token: 0
+
+  - model_name: "local-mixtral"
+    litellm_params:
+      model: "ollama/mixtral:8x7b"
+      api_base: http://ollama:11434
+      max_tokens: 4096
+      temperature: 0.7
+      timeout: 90
+      stream: true
+    model_info:
+      mode: general
+      cost_per_token: 0
+
+  # Anthropic Models (Direct)
+  - model_name: "claude-3-opus"
+    litellm_params:
+      model: "anthropic/claude-3-opus-20240229"
+      api_key: ${ANTHROPIC_API_KEY}
+      max_tokens: 4096
+      temperature: 0.7
+      timeout: 60
+      stream: true
+    model_info:
+      mode: reasoning
+      cost_per_token: 0.00015
+
+  - model_name: "claude-3-haiku"
+    litellm_params:
+      model: "anthropic/claude-3-haiku-20240307"
+      api_key: ${ANTHROPIC_API_KEY}
+      max_tokens: 4096
+      temperature: 0.5
+      timeout: 30
+      stream: true
+    model_info:
+      mode: fast
+      cost_per_token: 0.000025
+
+# Fallback chains for reliability
+fallback_models:
+  code_chain:
+    - codex-mini
+    - deepseek-coder
+    - local-codellama
+    - claude-3-haiku
+    
+  reasoning_chain:
+    - o3-pro
+    - azure-gpt4
+    - bedrock-claude
+    - claude-3-opus
+    
+  fast_chain:
+    - claude-3-haiku
+    - codex-mini
+    - local-mixtral
+
+# Tenant-specific configurations
+tenant_configs:
+  engineering:
+    allowed_models:
+      - codex-mini
+      - deepseek-coder
+      - local-codellama
+    budget:
+      daily_limit: 100
+      monthly_limit: 2000
+    priority: high
+    
+  research:
+    allowed_models:
+      - o3-pro
+      - azure-gpt4
+      - claude-3-opus
+    budget:
+      daily_limit: 200
+      monthly_limit: 5000
+    priority: medium
+    
+  operations:
+    allowed_models:
+      - claude-3-haiku
+      - local-mixtral
+      - codex-mini
+    budget:
+      daily_limit: 50
+      monthly_limit: 1000
+    priority: low
+
+# Cost tracking and optimization
+cost_tracking:
+  enabled: true
+  currency: USD
+  alert_thresholds:
+    - threshold: 80
+      action: notify
+    - threshold: 95
+      action: throttle
+    - threshold: 100
+      action: block
+  
+# Logging configuration
+logging:
+  level: INFO
+  format: json
+  destinations:
+    - type: file
+      path: /app/logs/litellm.log
+      rotation: daily
+      retention: 30
+    - type: loki
+      url: http://loki:3100
+      labels:
+        app: litellm
+        env: production
+
+# Monitoring and metrics
+monitoring:
+  prometheus:
+    enabled: true
+    port: 9090
+    path: /metrics
+  custom_metrics:
+    - name: request_duration
+      type: histogram
+      buckets: [0.1, 0.5, 1, 2, 5, 10]
+    - name: model_usage
+      type: counter
+      labels: [model, tenant]
+    - name: cost_per_tenant
+      type: gauge
+      labels: [tenant, model]
+
+# Security settings
+security:
+  api_key_header: X-API-Key
+  jwt_secret: ${JWT_SECRET}
+  allowed_ips:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  rate_limiting:
+    enabled: true
+    strategy: sliding_window
+    default_limits:
+      - 100 per minute
+      - 1000 per hour
+      - 10000 per day
+
+# Health check configuration
+health_check:
+  enabled: true
+  path: /health
+  checks:
+    - type: database
+      critical: true
+    - type: redis
+      critical: false
+    - type: model_availability
+      critical: true
+      models:
+        - codex-mini
+        - claude-3-haiku

@@ -1,0 +1,140 @@
+{
+  "name": "REST API Development Workflow",
+  "description": "Complete API development from design to deployment",
+  "version": "1.0",
+  "variables": {
+    "project_name": "user-management-api",
+    "framework": "express",
+    "database": "postgresql",
+    "port": 3000
+  },
+  "agents": [
+    {
+      "id": "api-architect",
+      "type": "coordinator",
+      "name": "API Architect",
+      "capabilities": ["system-design", "api-design", "database-design"]
+    },
+    {
+      "id": "backend-dev",
+      "type": "implementer",
+      "name": "Backend Developer",
+      "capabilities": ["nodejs", "express", "database-integration"]
+    },
+    {
+      "id": "frontend-dev",
+      "type": "implementer",
+      "name": "Frontend Developer",
+      "capabilities": ["react", "api-integration", "ui-development"]
+    },
+    {
+      "id": "qa-tester",
+      "type": "tester",
+      "name": "QA Engineer",
+      "capabilities": ["api-testing", "integration-testing", "performance-testing"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "api-design",
+      "name": "Design API Architecture",
+      "type": "design",
+      "description": "Create comprehensive API design and documentation",
+      "assignTo": "api-architect",
+      "claudePrompt": "Design a comprehensive REST API for ${project_name} using ${framework}. Create: 1) API specification with endpoints, 2) Database schema for ${database}, 3) Authentication strategy, 4) Error handling patterns, 5) OpenAPI documentation. Follow REST best practices.",
+      "input": {
+        "project_name": "${project_name}",
+        "framework": "${framework}",
+        "database": "${database}"
+      },
+      "output": {
+        "api_spec": "object",
+        "database_schema": "object",
+        "documentation": "string"
+      }
+    },
+    {
+      "id": "backend-implementation",
+      "name": "Implement Backend API",
+      "type": "implementation", 
+      "description": "Build the REST API server and endpoints",
+      "assignTo": "backend-dev",
+      "depends": ["api-design"],
+      "claudePrompt": "Implement the ${framework} REST API server based on the design specification. Include: 1) Server setup with middleware, 2) All CRUD endpoints, 3) Database integration with ${database}, 4) Authentication and authorization, 5) Input validation and error handling, 6) Logging and monitoring.",
+      "input": {
+        "api_spec": "${api-design.output.api_spec}",
+        "database_schema": "${api-design.output.database_schema}",
+        "port": "${port}"
+      },
+      "output": {
+        "server_code": "string",
+        "endpoints": "array",
+        "database_migrations": "array"
+      }
+    },
+    {
+      "id": "frontend-client",
+      "name": "Build Frontend Client",
+      "type": "implementation",
+      "description": "Create frontend application to consume the API",
+      "assignTo": "frontend-dev",
+      "depends": ["api-design"],
+      "parallel": true,
+      "claudePrompt": "Build a React frontend client for the ${project_name} API. Create: 1) API client service with all endpoints, 2) Authentication components, 3) CRUD interfaces for all resources, 4) Error handling and loading states, 5) Responsive design, 6) Form validation.",
+      "input": {
+        "api_spec": "${api-design.output.api_spec}",
+        "endpoints": "${backend-implementation.output.endpoints}"
+      },
+      "output": {
+        "frontend_code": "string",
+        "components": "array",
+        "api_client": "string"
+      }
+    },
+    {
+      "id": "testing-suite",
+      "name": "Comprehensive Testing",
+      "type": "testing",
+      "description": "Create and run comprehensive test suite",
+      "assignTo": "qa-tester",
+      "depends": ["backend-implementation", "frontend-client"],
+      "claudePrompt": "Create comprehensive tests for the API and frontend: 1) Unit tests for all endpoints, 2) Integration tests for database operations, 3) End-to-end tests for user workflows, 4) Performance and load tests, 5) Security testing, 6) API contract tests. Use Jest and Supertest for backend, React Testing Library for frontend.",
+      "input": {
+        "server_code": "${backend-implementation.output.server_code}",
+        "frontend_code": "${frontend-client.output.frontend_code}",
+        "api_spec": "${api-design.output.api_spec}"
+      },
+      "output": {
+        "test_results": "object",
+        "coverage_report": "object",
+        "performance_metrics": "object"
+      }
+    },
+    {
+      "id": "deployment-setup",
+      "name": "Production Deployment",
+      "type": "deployment",
+      "description": "Set up production deployment pipeline",
+      "assignTo": "api-architect",
+      "depends": ["testing-suite"],
+      "claudePrompt": "Set up production deployment for the ${project_name} API: 1) Docker containerization, 2) CI/CD pipeline configuration, 3) Database setup and migrations, 4) Environment configuration, 5) Monitoring and logging setup, 6) Security hardening, 7) Load balancing and scaling configuration.",
+      "input": {
+        "server_code": "${backend-implementation.output.server_code}",
+        "frontend_code": "${frontend-client.output.frontend_code}",
+        "test_results": "${testing-suite.output.test_results}"
+      },
+      "output": {
+        "docker_config": "string",
+        "ci_cd_pipeline": "string",
+        "deployment_url": "string"
+      }
+    }
+  ],
+  "settings": {
+    "maxConcurrency": 3,
+    "timeout": 1800000,
+    "retryPolicy": "immediate",
+    "failurePolicy": "fail-fast",
+    "outputFormat": "stream-json"
+  }
+}

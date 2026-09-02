@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250906-202500", "task": "fixed, make sure the claude flow init that generates these files also includes these fixes ", "timestamp": "2025-09-06T20:25:01Z", "commit": "b682191a13dd86c195794cc2518f079a28aeb9ca", "github_release": "true"}

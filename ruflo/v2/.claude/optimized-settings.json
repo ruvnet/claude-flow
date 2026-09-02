@@ -1,0 +1,270 @@
+{
+  "env": {
+    "CLAUDE_FLOW_AUTO_COMMIT": "true",
+    "CLAUDE_FLOW_AUTO_PUSH": "false",
+    "CLAUDE_FLOW_HOOKS_ENABLED": "true",
+    "CLAUDE_FLOW_TELEMETRY_ENABLED": "true",
+    "CLAUDE_FLOW_REMOTE_EXECUTION": "true",
+    "CLAUDE_FLOW_GITHUB_INTEGRATION": "true",
+    "CLAUDE_FLOW_CHECKPOINT_ENABLED": "true",
+    "CLAUDE_FLOW_MEMORY_PERSISTENCE": "true",
+    "CLAUDE_FLOW_NEURAL_OPTIMIZATION": "true",
+    "CLAUDE_FLOW_AUTO_LEARNING": "true",
+    "CLAUDE_FLOW_PERFORMANCE_MODE": "optimized",
+    "CLAUDE_FLOW_CACHE_ENABLED": "true",
+    "CLAUDE_FLOW_PARALLEL_PROCESSING": "true",
+    "CLAUDE_FLOW_AGENT_POOL": "true"
+  },
+  "performance": {
+    "caching": {
+      "hooks": {
+        "enabled": true,
+        "ttl": 300000,
+        "maxSize": 1000
+      },
+      "neural": {
+        "enabled": true,
+        "ttl": 300000,
+        "maxSize": 10000
+      },
+      "memory": {
+        "enabled": true,
+        "ttl": 60000,
+        "maxSize": 1000
+      }
+    },
+    "parallelization": {
+      "enabled": true,
+      "maxConcurrent": 10,
+      "workerThreads": 4,
+      "taskQueue": {
+        "size": 100,
+        "priorityLevels": 4
+      }
+    },
+    "batching": {
+      "hooks": {
+        "enabled": true,
+        "size": 10,
+        "flushInterval": 100
+      },
+      "memory": {
+        "enabled": true,
+        "size": 50,
+        "flushInterval": 1000
+      },
+      "neural": {
+        "enabled": true,
+        "size": 100,
+        "maxWaitTime": 50
+      }
+    },
+    "pooling": {
+      "agents": {
+        "enabled": true,
+        "sizes": {
+          "coordinator": { "min": 1, "max": 3 },
+          "coder": { "min": 2, "max": 5 },
+          "researcher": { "min": 1, "max": 3 },
+          "analyst": { "min": 1, "max": 2 },
+          "tester": { "min": 1, "max": 2 }
+        },
+        "idleTimeout": 300000,
+        "recycleAfter": 100
+      },
+      "connections": {
+        "database": { "min": 2, "max": 10 },
+        "mcp": { "min": 1, "max": 5 }
+      }
+    }
+  },
+  "checkpoints": {
+    "enabled": true,
+    "interval": 300,
+    "auto_commit": true,
+    "commit_message_prefix": "🔄 Checkpoint:",
+    "include_metrics": true,
+    "branch_strategy": "checkpoint/{timestamp}",
+    "max_checkpoints": 20
+  },
+  "memory": {
+    "auto_persist": true,
+    "compression": true,
+    "sync_interval": 60,
+    "namespaces": ["swarm", "tasks", "patterns", "errors", "optimizations"],
+    "retention_days": 30,
+    "backup_to_github": true,
+    "optimization": {
+      "writeBatch": true,
+      "readCache": true,
+      "compressionThreshold": 1024
+    }
+  },
+  "neural": {
+    "auto_optimize": true,
+    "optimization_triggers": ["error", "success", "pattern", "performance"],
+    "models": {
+      "task_predictor": {
+        "enabled": true,
+        "learning_rate": 0.001,
+        "update_frequency": 100,
+        "preload": true,
+        "cache": true
+      },
+      "error_preventer": {
+        "enabled": true,
+        "threshold": 0.85,
+        "block_risky_operations": true,
+        "preload": true,
+        "cache": true
+      },
+      "performance_optimizer": {
+        "enabled": true,
+        "target_metrics": ["speed", "accuracy", "efficiency"],
+        "auto_tune": true,
+        "preload": true,
+        "cache": true
+      }
+    },
+    "wasm": {
+      "enabled": true,
+      "simd": true,
+      "threads": 4,
+      "memoryPages": 256
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npx claude-flow *)",
+      "Bash(npm run lint)",
+      "Bash(npm run test:*)",
+      "Bash(npm test *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push)",
+      "Bash(git config *)",
+      "Bash(gh *)",
+      "Bash(node *)",
+      "Bash(which *)",
+      "Bash(pwd)",
+      "Bash(ls *)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(curl * | bash)",
+      "Bash(wget * | sh)",
+      "Bash(eval *)"
+    ]
+  },
+  "hooks": {
+    "_optimization": {
+      "batch": true,
+      "parallel": true,
+      "cache": true,
+      "deduplicate": true
+    },
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "batch": true,
+        "parallel": true,
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks pre-command --command \"$CLAUDE_COMMAND\" --validate-safety true --prepare-resources true --predict-outcome true --check-patterns true --batch true --cache true"
+          },
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha memory store --key \"command/pre/$CLAUDE_TIMESTAMP\" --value \"$CLAUDE_COMMAND\" --namespace \"commands\" --batch true"
+          },
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha neural predict --model \"error_preventer\" --input \"$CLAUDE_COMMAND\" --block-if-risky true --cache true"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "batch": true,
+        "parallel": true,
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks pre-edit --file \"$CLAUDE_EDITED_FILE\" --auto-assign-agents true --load-context true --analyze-impact true --batch true --cache true"
+          },
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha memory store --key \"edit/pre/$CLAUDE_EDITED_FILE\" --value \"$CLAUDE_OPERATION_CONTEXT\" --namespace \"edits\" --batch true"
+          },
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha neural optimize --operation \"file-edit\" --target \"$CLAUDE_EDITED_FILE\" --suggest-improvements true --cache true"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "batch": true,
+        "parallel": true,
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks post-command --command \"$CLAUDE_COMMAND\" --track-metrics true --store-results true --analyze-performance true --batch true"
+          },
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha memory store --key \"command/post/$CLAUDE_TIMESTAMP\" --value \"{\\\"command\\\": \\\"$CLAUDE_COMMAND\\\", \\\"result\\\": \\\"$CLAUDE_RESULT\\\", \\\"duration\\\": $CLAUDE_DURATION}\" --namespace \"commands\" --batch true"
+          },
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha neural train --model \"performance_optimizer\" --data \"{\\\"operation\\\": \\\"bash\\\", \\\"duration\\\": $CLAUDE_DURATION, \\\"success\\\": $CLAUDE_SUCCESS}\" --batch true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks session-end --generate-summary true --persist-state true --export-metrics true --backup-memory true --optimize-models true"
+          }
+        ]
+      }
+    ]
+  },
+  "github": {
+    "checkpoint_branch": "checkpoints",
+    "memory_backup_gists": true,
+    "auto_issue_on_error": true,
+    "pr_on_major_improvement": true,
+    "sync_learnings": true
+  },
+  "optimization": {
+    "continuous_improvement": true,
+    "performance_targets": {
+      "command_execution": "< 100ms overhead",
+      "memory_operations": "< 20ms",
+      "neural_predictions": "< 10ms",
+      "hook_execution": "< 50ms",
+      "agent_spawn": "< 100ms"
+    },
+    "auto_tune_parameters": true,
+    "share_anonymized_patterns": true,
+    "monitoring": {
+      "enabled": true,
+      "metrics": ["latency", "throughput", "errors", "cache_hits"],
+      "alert_thresholds": {
+        "latency": 200,
+        "error_rate": 0.05
+      }
+    }
+  },
+  "includeCoAuthoredBy": true,
+  "enabledMcpjsonServers": ["claude-flow", "ruv-swarm"]
+}

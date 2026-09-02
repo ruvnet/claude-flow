@@ -1,0 +1,33 @@
+{
+  "name": "claude-optimized-template",
+  "version": "1.0.0",
+  "description": "Optimized Claude Code template with SPARC methodology and batch tools",
+  "private": true,
+  "scripts": {
+    "install-template": "node install-template.js",
+    "validate": "node validate-template.js",
+    "test": "cd .claude && node tests/test-harness.js",
+    "version": "cat VERSION",
+    "info": "echo 'Claude Optimized Template v1.0.0' && echo 'Files:' && node -e \"console.log(JSON.parse(require('fs').readFileSync('manifest.json')).files.length)\" && echo 'Run: npm run validate'"
+  },
+  "keywords": [
+    "claude",
+    "sparc",
+    "batch-tools",
+    "template",
+    "ai-development"
+  ],
+  "author": "Claude Flow Team",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "files": [
+    ".claude/**/*",
+    "manifest.json",
+    "VERSION",
+    "CHANGELOG.md",
+    "README.md",
+    "install-template.js",
+    "validate-template.js"
+  ]
+}

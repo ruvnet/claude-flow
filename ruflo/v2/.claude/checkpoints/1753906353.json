@@ -1,0 +1,8 @@
+{
+  "tag": "checkpoint-20250730-201233",
+  "file": "example-file.js",
+  "timestamp": "2025-07-30T20:12:33Z",
+  "type": "post-edit",
+  "branch": "alpha-80",
+  "diff_summary": " .gitignore       |  1 +  README.md        | 20 ++++++++++++++++++++  claude-flow-wiki |  0  example-file.js  |  6 ++++++  4 files changed, 27 insertions(+) "
+}

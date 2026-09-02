@@ -1,0 +1,10 @@
+# reviewer agent configuration
+type: reviewer
+version: "3.0.0"
+capabilities:
+  - code-review
+  - quality-analysis
+  - best-practices
+optimizations:
+  - incremental-analysis
+createdAt: "2026-01-07T04:44:22.062Z"

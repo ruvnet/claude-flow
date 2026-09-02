@@ -1,0 +1,20 @@
+{
+  "name": "claude-flow-parallel-test",
+  "version": "1.0.0",
+  "description": "Parallel agent testing for Claude-Flow SPARC methodology",
+  "main": "parallel-test.ts",
+  "scripts": {
+    "test": "tsx parallel-test.ts",
+    "analyze": "tsx analyze-results.ts",
+    "clean": "rm -f results.json detailed-report.md",
+    "test:full": "npm run clean && npm run test && npm run analyze"
+  },
+  "dependencies": {
+    "claude-flow": "latest",
+    "tsx": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

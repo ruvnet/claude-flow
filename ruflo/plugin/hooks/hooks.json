@@ -1,0 +1,223 @@
+{
+  "$schema": "https://code.claude.com/schemas/hooks.json",
+  "description": "Claude Flow hooks configuration - Maps to official Claude Code hook events",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Write|Edit|MultiEdit)$",
+        "description": "Pre-edit hook for file modifications",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks pre-edit --file \"$TOOL_INPUT_file_path\"",
+            "timeout": 5000,
+            "continueOnError": true
+          }
+        ]
+      },
+      {
+        "matcher": "^Bash$",
+        "description": "Pre-command hook for bash execution",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks pre-command --command \"$TOOL_INPUT_command\"",
+            "timeout": 3000,
+            "continueOnError": true
+          }
+        ]
+      },
+      {
+        "matcher": "^Task$",
+        "description": "Pre-task hook for agent spawning",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks pre-task --description \"$TOOL_INPUT_prompt\"",
+            "timeout": 5000,
+            "continueOnError": true
+          }
+        ]
+      },
+      {
+        "matcher": "^(Grep|Glob|Read)$",
+        "description": "Pre-search hook for caching",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks pre-search --query \"$TOOL_INPUT_pattern\"",
+            "timeout": 2000,
+            "continueOnError": true
+          }
+        ]
+      },
+      {
+        "matcher": "^mcp__claude-flow__.*$",
+        "description": "Pre-MCP hook for swarm coordination",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks mcp-pre --tool \"$TOOL_NAME\"",
+            "timeout": 3000,
+            "continueOnError": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(Write|Edit|MultiEdit)$",
+        "description": "Post-edit hook for formatting and learning",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks post-edit --file \"$TOOL_INPUT_file_path\" --success \"$TOOL_SUCCESS\" --train-patterns",
+            "timeout": 5000,
+            "continueOnError": true
+          }
+        ]
+      },
+      {
+        "matcher": "^Bash$",
+        "description": "Post-command hook for metrics",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks post-command --command \"$TOOL_INPUT_command\" --success \"$TOOL_SUCCESS\" --exit-code \"$TOOL_EXIT_CODE\"",
+            "timeout": 3000,
+            "continueOnError": true
+          }
+        ]
+      },
+      {
+        "matcher": "^Task$",
+        "description": "Post-task hook for performance analysis",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks post-task --task-id \"$TOOL_RESULT_agent_id\" --success \"$TOOL_SUCCESS\" --analyze-performance",
+            "timeout": 5000,
+            "continueOnError": true
+          }
+        ]
+      },
+      {
+        "matcher": "^(Grep|Glob|Read)$",
+        "description": "Post-search hook for caching results",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks post-search --query \"$TOOL_INPUT_pattern\" --cache-results",
+            "timeout": 2000,
+            "continueOnError": true
+          }
+        ]
+      },
+      {
+        "matcher": "^mcp__claude-flow__.*$",
+        "description": "Post-MCP hook for coordination state",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks mcp-post --tool \"$TOOL_NAME\" --success \"$TOOL_SUCCESS\"",
+            "timeout": 3000,
+            "continueOnError": true
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "description": "Route tasks to optimal agents",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks route --task \"$PROMPT\" --include-explanation",
+            "timeout": 5000,
+            "continueOnError": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "description": "Initialize session and restore context",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks session-start --session-id \"$SESSION_ID\" --load-context",
+            "timeout": 10000,
+            "continueOnError": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "description": "Evaluate if task is complete",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Evaluate if the current task has been completed successfully. Consider: 1) Were all requested changes made? 2) Did tests pass? 3) Is there follow-up work needed? Respond with {\"decision\": \"stop\"} if complete, or {\"decision\": \"continue\", \"reason\": \"...\"} if more work is needed."
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "description": "Evaluate if subagent task is complete",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Evaluate if the subagent has completed its assigned task. Check if the work output meets the requirements. Respond with {\"decision\": \"stop\"} if complete, or {\"decision\": \"continue\", \"reason\": \"...\"} if more work is needed."
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "description": "Handle notifications with swarm status",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx claude-flow@alpha hooks notify --message \"$NOTIFICATION_MESSAGE\" --swarm-status",
+            "timeout": 3000,
+            "continueOnError": true
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "^mcp__claude-flow__.*$",
+        "description": "Auto-allow claude-flow MCP tools",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"decision\": \"allow\", \"reason\": \"claude-flow MCP tool auto-approved\"}'",
+            "timeout": 1000
+          }
+        ]
+      }
+    ]
+  },
+  "v3HookMapping": {
+    "_comment": "Maps V3 internal hook events to official Claude Code hooks",
+    "PreToolUse": "PreToolUse",
+    "PostToolUse": "PostToolUse",
+    "PreEdit": "PreToolUse (matcher: Edit|Write)",
+    "PostEdit": "PostToolUse (matcher: Edit|Write)",
+    "PreCommand": "PreToolUse (matcher: Bash)",
+    "PostCommand": "PostToolUse (matcher: Bash)",
+    "PreTask": "UserPromptSubmit",
+    "PostTask": "PostToolUse (matcher: Task)",
+    "SessionStart": "SessionStart",
+    "SessionEnd": "Stop",
+    "AgentSpawn": "PostToolUse (matcher: Task)",
+    "AgentTerminate": "SubagentStop",
+    "PreRoute": "UserPromptSubmit",
+    "PostRoute": "PostToolUse",
+    "PatternLearned": "PostToolUse (internal)",
+    "PatternConsolidated": "Stop (internal)"
+  }
+}

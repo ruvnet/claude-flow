@@ -1,0 +1,40 @@
+{
+  "comment": "MINIMAL ReasoningBank Integration - Lightweight version for testing",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "comment": "Quick pattern query before editing (2-6ms overhead)",
+            "command": "cat | jq -r '.tool_input.file_path // .tool_input.path // empty' | xargs -I {} bash -c 'npx claude-flow@alpha memory query \"{}\" --reasoningbank --limit 2 2>&1 | grep -q \"Found\" && echo \"📚 ReasoningBank: Found patterns\" >&2 || true'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "comment": "Store successful edits (1-2ms overhead)",
+            "command": "cat | jq -r '.tool_input.file_path // .tool_input.path // empty' | xargs -I {} bash -c 'FILE=\"{}\"; [ -f \"$FILE\" ] && npx claude-flow@alpha memory store \"edit_$(basename $FILE)_$(date +%s)\" \"Edited: $FILE\" --namespace code --reasoningbank --confidence 0.5 2>/dev/null && echo \"💾 Pattern stored\" >&2 || true'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "comment": "Consolidate at session end",
+            "command": "bash -c 'echo \"🧠 Consolidating ReasoningBank...\"; npx claude-flow@alpha memory consolidate --reasoningbank 2>/dev/null && echo \"✅ Memory consolidated\" || echo \"⚠️ Consolidation skipped\"'"
+          }
+        ]
+      }
+    ]
+  }
+}

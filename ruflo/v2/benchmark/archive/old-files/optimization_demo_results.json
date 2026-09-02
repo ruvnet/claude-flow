@@ -1,0 +1,357 @@
+[
+  {
+    "use_case": "api_development",
+    "priority": "speed",
+    "context": {
+      "project_type": "e_commerce_api",
+      "team_size": 6,
+      "complexity": "complex",
+      "primary_languages": [
+        "Python",
+        "TypeScript"
+      ],
+      "frameworks": [
+        "FastAPI",
+        "React",
+        "PostgreSQL",
+        "Redis"
+      ],
+      "performance_requirements": {
+        "response_time": "<50ms",
+        "throughput": ">1000 rps",
+        "availability": "99.9%",
+        "test_coverage": ">95%"
+      },
+      "existing_tools": [
+        "pytest",
+        "docker",
+        "kubernetes",
+        "prometheus"
+      ],
+      "constraints": {
+        "budget": "medium",
+        "timeline": "3 months",
+        "team_experience": "senior"
+      }
+    },
+    "targets": {
+      "priority": "speed",
+      "target_completion_time": 60.0,
+      "target_token_usage": 800,
+      "target_memory_usage": 2048.0,
+      "target_error_rate": 0.05
+    },
+    "metrics": {
+      "completion_rate": 1.0,
+      "avg_tokens_per_task": 56,
+      "avg_execution_time": 0.8020058472951254,
+      "error_rate": 0.0,
+      "peak_memory_mb": 256.0,
+      "optimization_score": 0.9565498538176218,
+      "cache_hit_rate": 0.0,
+      "parallel_efficiency": 0.85
+    },
+    "config_file": "api_development_speed_claude.md",
+    "timestamp": "2025-08-06T01:57:03.249398"
+  },
+  {
+    "use_case": "api_development",
+    "priority": "accuracy",
+    "context": {
+      "project_type": "e_commerce_api",
+      "team_size": 6,
+      "complexity": "complex",
+      "primary_languages": [
+        "Python",
+        "TypeScript"
+      ],
+      "frameworks": [
+        "FastAPI",
+        "React",
+        "PostgreSQL",
+        "Redis"
+      ],
+      "performance_requirements": {
+        "response_time": "<50ms",
+        "throughput": ">1000 rps",
+        "availability": "99.9%",
+        "test_coverage": ">95%"
+      },
+      "existing_tools": [
+        "pytest",
+        "docker",
+        "kubernetes",
+        "prometheus"
+      ],
+      "constraints": {
+        "budget": "medium",
+        "timeline": "3 months",
+        "team_experience": "senior"
+      }
+    },
+    "targets": {
+      "priority": "accuracy",
+      "target_completion_time": 60.0,
+      "target_token_usage": 800,
+      "target_memory_usage": 2048.0,
+      "target_error_rate": 0.01
+    },
+    "metrics": {
+      "completion_rate": 1.0,
+      "avg_tokens_per_task": 56,
+      "avg_execution_time": 0.8019355138142904,
+      "error_rate": 0.0,
+      "peak_memory_mb": 256.0,
+      "optimization_score": 0.9565516121546427,
+      "cache_hit_rate": 0.0,
+      "parallel_efficiency": 0.85
+    },
+    "config_file": "api_development_accuracy_claude.md",
+    "timestamp": "2025-08-06T01:57:05.655788"
+  },
+  {
+    "use_case": "api_development",
+    "priority": "tokens",
+    "context": {
+      "project_type": "e_commerce_api",
+      "team_size": 6,
+      "complexity": "complex",
+      "primary_languages": [
+        "Python",
+        "TypeScript"
+      ],
+      "frameworks": [
+        "FastAPI",
+        "React",
+        "PostgreSQL",
+        "Redis"
+      ],
+      "performance_requirements": {
+        "response_time": "<50ms",
+        "throughput": ">1000 rps",
+        "availability": "99.9%",
+        "test_coverage": ">95%"
+      },
+      "existing_tools": [
+        "pytest",
+        "docker",
+        "kubernetes",
+        "prometheus"
+      ],
+      "constraints": {
+        "budget": "medium",
+        "timeline": "3 months",
+        "team_experience": "senior"
+      }
+    },
+    "targets": {
+      "priority": "tokens",
+      "target_completion_time": 60.0,
+      "target_token_usage": 500,
+      "target_memory_usage": 2048.0,
+      "target_error_rate": 0.05
+    },
+    "metrics": {
+      "completion_rate": 1.0,
+      "avg_tokens_per_task": 56,
+      "avg_execution_time": 0.8019122282663981,
+      "error_rate": 0.0,
+      "peak_memory_mb": 256.0,
+      "optimization_score": 0.9565521942933399,
+      "cache_hit_rate": 0.0,
+      "parallel_efficiency": 0.85
+    },
+    "config_file": "api_development_tokens_claude.md",
+    "timestamp": "2025-08-06T01:57:08.062094"
+  },
+  {
+    "use_case": "ml_pipeline",
+    "priority": "accuracy",
+    "context": {
+      "project_type": "ml_classification",
+      "team_size": 4,
+      "complexity": "complex",
+      "primary_languages": [
+        "Python",
+        "R"
+      ],
+      "frameworks": [
+        "PyTorch",
+        "scikit-learn",
+        "MLflow",
+        "Airflow"
+      ],
+      "performance_requirements": {
+        "model_accuracy": ">92%",
+        "training_time": "<30min",
+        "inference_latency": "<100ms",
+        "reproducibility": "100%"
+      },
+      "existing_tools": [
+        "jupyter",
+        "wandb",
+        "docker",
+        "kubernetes"
+      ],
+      "constraints": {
+        "gpu_budget": "limited",
+        "data_size": "large",
+        "interpretability": "required"
+      }
+    },
+    "targets": {
+      "priority": "accuracy",
+      "target_completion_time": 90.0,
+      "target_token_usage": 1000,
+      "target_memory_usage": 4096.0,
+      "target_error_rate": 0.005
+    },
+    "metrics": {
+      "completion_rate": 1.0,
+      "avg_tokens_per_task": 63,
+      "avg_execution_time": 0.8019064664840698,
+      "error_rate": 0.0,
+      "peak_memory_mb": 256.0,
+      "optimization_score": 0.9555023383378982,
+      "cache_hit_rate": 0.0,
+      "parallel_efficiency": 0.85
+    },
+    "config_file": "ml_pipeline_claude.md",
+    "mle_star_enabled": true,
+    "timestamp": "2025-08-06T01:57:09.666368"
+  },
+  {
+    "use_case": "performance_optimization",
+    "priority": "speed",
+    "context": {
+      "project_type": "performance_tuning",
+      "team_size": 3,
+      "complexity": "medium",
+      "primary_languages": [
+        "Python",
+        "Go",
+        "JavaScript"
+      ],
+      "frameworks": [
+        "Flask",
+        "Gin",
+        "Node.js"
+      ],
+      "performance_requirements": {
+        "latency_reduction": ">50%",
+        "throughput_increase": ">100%",
+        "memory_optimization": ">30%",
+        "cpu_optimization": ">40%"
+      },
+      "existing_tools": [
+        "profiler",
+        "benchmark",
+        "monitoring"
+      ],
+      "constraints": {
+        "no_architecture_changes": true,
+        "backward_compatibility": "required"
+      }
+    },
+    "targets": {
+      "priority": "speed",
+      "target_completion_time": 45.0,
+      "target_token_usage": 400,
+      "target_memory_usage": 1024.0,
+      "target_error_rate": 0.02
+    },
+    "metrics": {
+      "completion_rate": 1.0,
+      "avg_tokens_per_task": 50,
+      "avg_execution_time": 0.8019484678904215,
+      "error_rate": 0.0,
+      "peak_memory_mb": 256.0,
+      "optimization_score": 0.9574512883027394,
+      "cache_hit_rate": 0.0,
+      "parallel_efficiency": 0.85
+    },
+    "config_file": "performance_optimization_claude.md",
+    "timestamp": "2025-08-06T01:57:12.072678"
+  },
+  {
+    "use_case": "testing_automation",
+    "priority": "accuracy",
+    "context": {
+      "project_type": "test_automation",
+      "team_size": 5,
+      "complexity": "medium",
+      "primary_languages": [
+        "Python",
+        "JavaScript",
+        "Java"
+      ],
+      "frameworks": [
+        "pytest",
+        "jest",
+        "selenium",
+        "testcontainers"
+      ],
+      "performance_requirements": {
+        "test_coverage": ">95%",
+        "test_execution_time": "<5min",
+        "flaky_test_rate": "<1%",
+        "maintenance_overhead": "<10%"
+      },
+      "existing_tools": [
+        "CI/CD",
+        "test-reporting",
+        "parallel-execution"
+      ],
+      "constraints": {
+        "existing_test_suite": "large",
+        "integration_complexity": "high"
+      }
+    },
+    "targets": {
+      "priority": "accuracy",
+      "target_completion_time": 30.0,
+      "target_token_usage": 600,
+      "target_memory_usage": 1536.0,
+      "target_error_rate": 0.01
+    },
+    "metrics": {
+      "completion_rate": 1.0,
+      "avg_tokens_per_task": 55,
+      "avg_execution_time": 0.8019680976867676,
+      "error_rate": 0.0,
+      "peak_memory_mb": 256.0,
+      "optimization_score": 0.9567007975578308,
+      "cache_hit_rate": 0.0,
+      "parallel_efficiency": 0.85
+    },
+    "config_file": "testing_automation_claude.md",
+    "timestamp": "2025-08-06T01:57:14.479111"
+  },
+  {
+    "use_case": "custom_optimization",
+    "priority": "custom",
+    "custom_rules_count": 3,
+    "rules_applied": [
+      "legacy_system_integration",
+      "regulatory_compliance",
+      "resource_constraints"
+    ],
+    "base_config": {
+      "use_case": "custom_development",
+      "max_agents": 4,
+      "swarm_topology": "hierarchical",
+      "critical_rules": [
+        "Standard development practices"
+      ]
+    },
+    "optimized_config": {
+      "use_case": "custom_development",
+      "max_agents": 4,
+      "swarm_topology": "hierarchical",
+      "critical_rules": [
+        "Standard development practices"
+      ]
+    },
+    "timestamp": "2025-08-06T01:57:14.479224"
+  }
+]

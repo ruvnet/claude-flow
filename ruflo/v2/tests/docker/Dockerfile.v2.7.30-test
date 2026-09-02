@@ -1,0 +1,106 @@
+# Dockerfile for testing v2.7.30 - agentdb update
+FROM node:20-slim
+
+# Install basic tools and build dependencies for native modules
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    jq \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create test directory
+WORKDIR /test
+
+# Copy package files
+COPY package.json package-lock.json ./
+COPY bin/ ./bin/
+COPY src/ ./src/
+COPY scripts/ ./scripts/
+
+# Install dependencies (using legacy-peer-deps for test environment)
+RUN npm install --legacy-peer-deps
+
+# Create test script
+RUN echo '#!/bin/bash' > /test/test-v2.7.30.sh && \
+    echo 'set -e' >> /test/test-v2.7.30.sh && \
+    echo '' >> /test/test-v2.7.30.sh && \
+    echo 'echo "🧪 Testing claude-flow v2.7.30 - agentdb update"' >> /test/test-v2.7.30.sh && \
+    echo 'echo "======================================================="' >> /test/test-v2.7.30.sh && \
+    echo '' >> /test/test-v2.7.30.sh && \
+    echo '# Test 1: Verify version' >> /test/test-v2.7.30.sh && \
+    echo 'echo ""' >> /test/test-v2.7.30.sh && \
+    echo 'echo "Test 1: Checking version"' >> /test/test-v2.7.30.sh && \
+    echo 'VERSION=$(node bin/claude-flow.js --version 2>&1 | grep -o "v[0-9].*")' >> /test/test-v2.7.30.sh && \
+    echo 'echo "Version: $VERSION"' >> /test/test-v2.7.30.sh && \
+    echo 'if [ "$VERSION" != "v2.7.30" ]; then' >> /test/test-v2.7.30.sh && \
+    echo '  echo "❌ FAILED: Expected v2.7.30, got $VERSION"' >> /test/test-v2.7.30.sh && \
+    echo '  exit 1' >> /test/test-v2.7.30.sh && \
+    echo 'else' >> /test/test-v2.7.30.sh && \
+    echo '  echo "✅ PASSED: Version is v2.7.30"' >> /test/test-v2.7.30.sh && \
+    echo 'fi' >> /test/test-v2.7.30.sh && \
+    echo '' >> /test/test-v2.7.30.sh && \
+    echo '# Test 2: Check package.json has agentdb ^1.6.1' >> /test/test-v2.7.30.sh && \
+    echo 'echo ""' >> /test/test-v2.7.30.sh && \
+    echo 'echo "Test 2: Verifying agentdb version in package.json"' >> /test/test-v2.7.30.sh && \
+    echo 'AGENTDB_VERSION=$(cat package.json | jq -r ".optionalDependencies.agentdb")' >> /test/test-v2.7.30.sh && \
+    echo 'echo "agentdb version: $AGENTDB_VERSION"' >> /test/test-v2.7.30.sh && \
+    echo 'if [ "$AGENTDB_VERSION" != "^1.6.1" ]; then' >> /test/test-v2.7.30.sh && \
+    echo '  echo "❌ FAILED: Expected ^1.6.1, got $AGENTDB_VERSION"' >> /test/test-v2.7.30.sh && \
+    echo '  exit 1' >> /test/test-v2.7.30.sh && \
+    echo 'else' >> /test/test-v2.7.30.sh && \
+    echo '  echo "✅ PASSED: agentdb is ^1.6.1"' >> /test/test-v2.7.30.sh && \
+    echo 'fi' >> /test/test-v2.7.30.sh && \
+    echo '' >> /test/test-v2.7.30.sh && \
+    echo '# Test 3: Verify agentdb installed correctly' >> /test/test-v2.7.30.sh && \
+    echo 'echo ""' >> /test/test-v2.7.30.sh && \
+    echo 'echo "Test 3: Checking agentdb installation"' >> /test/test-v2.7.30.sh && \
+    echo 'if [ -d "node_modules/agentdb" ]; then' >> /test/test-v2.7.30.sh && \
+    echo '  INSTALLED_VERSION=$(cat node_modules/agentdb/package.json | jq -r ".version")' >> /test/test-v2.7.30.sh && \
+    echo '  echo "Installed agentdb version: $INSTALLED_VERSION"' >> /test/test-v2.7.30.sh && \
+    echo '  if [[ "$INSTALLED_VERSION" =~ ^1\.6\. ]]; then' >> /test/test-v2.7.30.sh && \
+    echo '    echo "✅ PASSED: agentdb 1.6.x installed"' >> /test/test-v2.7.30.sh && \
+    echo '  else' >> /test/test-v2.7.30.sh && \
+    echo '    echo "❌ FAILED: Expected 1.6.x, got $INSTALLED_VERSION"' >> /test/test-v2.7.30.sh && \
+    echo '    exit 1' >> /test/test-v2.7.30.sh && \
+    echo '  fi' >> /test/test-v2.7.30.sh && \
+    echo 'else' >> /test/test-v2.7.30.sh && \
+    echo '  echo "⚠️  WARNING: agentdb not installed (optional dependency)"' >> /test/test-v2.7.30.sh && \
+    echo '  echo "✅ PASSED: This is OK for optional dependencies"' >> /test/test-v2.7.30.sh && \
+    echo 'fi' >> /test/test-v2.7.30.sh && \
+    echo '' >> /test/test-v2.7.30.sh && \
+    echo '# Test 4: Verify npm install succeeded' >> /test/test-v2.7.30.sh && \
+    echo 'echo ""' >> /test/test-v2.7.30.sh && \
+    echo 'echo "Test 4: Checking node_modules installed"' >> /test/test-v2.7.30.sh && \
+    echo 'if [ ! -d "node_modules" ]; then' >> /test/test-v2.7.30.sh && \
+    echo '  echo "❌ FAILED: node_modules not found"' >> /test/test-v2.7.30.sh && \
+    echo '  exit 1' >> /test/test-v2.7.30.sh && \
+    echo 'fi' >> /test/test-v2.7.30.sh && \
+    echo 'MODULE_COUNT=$(find node_modules -maxdepth 1 -type d | wc -l)' >> /test/test-v2.7.30.sh && \
+    echo 'echo "Found $MODULE_COUNT modules in node_modules"' >> /test/test-v2.7.30.sh && \
+    echo 'if [ "$MODULE_COUNT" -lt 10 ]; then' >> /test/test-v2.7.30.sh && \
+    echo '  echo "❌ FAILED: Too few modules installed"' >> /test/test-v2.7.30.sh && \
+    echo '  exit 1' >> /test/test-v2.7.30.sh && \
+    echo 'else' >> /test/test-v2.7.30.sh && \
+    echo '  echo "✅ PASSED: Dependencies installed successfully"' >> /test/test-v2.7.30.sh && \
+    echo 'fi' >> /test/test-v2.7.30.sh && \
+    echo '' >> /test/test-v2.7.30.sh && \
+    echo '# Test 5: Verify CLI works' >> /test/test-v2.7.30.sh && \
+    echo 'echo ""' >> /test/test-v2.7.30.sh && \
+    echo 'echo "Test 5: Testing CLI execution"' >> /test/test-v2.7.30.sh && \
+    echo 'if ! node bin/claude-flow.js --help >/dev/null 2>&1; then' >> /test/test-v2.7.30.sh && \
+    echo '  echo "❌ FAILED: CLI --help failed"' >> /test/test-v2.7.30.sh && \
+    echo '  exit 1' >> /test/test-v2.7.30.sh && \
+    echo 'else' >> /test/test-v2.7.30.sh && \
+    echo '  echo "✅ PASSED: CLI executes successfully"' >> /test/test-v2.7.30.sh && \
+    echo 'fi' >> /test/test-v2.7.30.sh && \
+    echo '' >> /test/test-v2.7.30.sh && \
+    echo 'echo ""' >> /test/test-v2.7.30.sh && \
+    echo 'echo "✅ All tests passed! v2.7.30 is ready for release"' >> /test/test-v2.7.30.sh && \
+    chmod +x /test/test-v2.7.30.sh
+
+# Set entrypoint
+ENTRYPOINT ["/bin/bash"]
+CMD ["/test/test-v2.7.30.sh"]

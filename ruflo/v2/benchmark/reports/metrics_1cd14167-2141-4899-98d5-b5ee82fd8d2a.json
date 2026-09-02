@@ -1,0 +1,66 @@
+{
+  "summary": {
+    "wall_clock_time": 1.30511474609375,
+    "tasks_per_second": 0.7662161530187532,
+    "success_rate": 1.0,
+    "peak_memory_mb": 0.0,
+    "average_cpu_percent": 0.0
+  },
+  "performance": {
+    "average_duration": 0.0,
+    "median_duration": 0.0,
+    "p95_duration": 0.0,
+    "p99_duration": 0.0,
+    "total_cpu_seconds": 0.0
+  },
+  "resources": {
+    "memory": {
+      "peak_mb": 0.0,
+      "average_mb": 0.0
+    },
+    "cpu": {
+      "average_percent": 0.0,
+      "total_seconds": 0.0
+    },
+    "io": {
+      "disk_read_mb": 0.0,
+      "disk_write_mb": 0.0,
+      "network_sent_mb": 0.0,
+      "network_recv_mb": 0.0
+    }
+  },
+  "processes": {
+    "total": 1,
+    "peak_threads": 0,
+    "peak_fds": 0
+  },
+  "output": {
+    "total_size": 5,
+    "average_size": 5,
+    "complexity_score": 3.831080765093766
+  },
+  "collectors": {
+    "performance": 1,
+    "resource": 1
+  },
+  "timestamp": "2025-08-06T01:51:44.720010",
+  "process_executions": {
+    "sparc:{\"positional\": [\"coder\", \"Build a data processing pipeline\"]}": {
+      "command_type": "sparc",
+      "args": {
+        "positional": [
+          "coder",
+          "Build a data processing pipeline"
+        ]
+      },
+      "execution_count": 1,
+      "success_count": 1,
+      "failure_count": 0,
+      "success_rate": 1.0,
+      "average_duration": 0.30324411392211914,
+      "total_duration": 0.30324411392211914,
+      "average_memory_mb": 42.071614583333336,
+      "peak_memory_mb": 70.10546875
+    }
+  }
+}

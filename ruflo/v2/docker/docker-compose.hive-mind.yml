@@ -1,0 +1,236 @@
+version: '3.8'
+
+services:
+  # Main Hive Mind service
+  hive-mind:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.hive-mind
+      target: runtime
+    container_name: hive-mind-main
+    ports:
+      - "8080:8080"  # API port
+      - "3000:3000"  # Web UI port
+    volumes:
+      - hive-data:/data
+      - hive-logs:/app/logs
+      - ../src:/app/src:ro  # Read-only source mount for live updates
+    environment:
+      - NODE_ENV=production
+      - HIVE_DB_PATH=/data/hive-mind.db
+      - HIVE_LOG_LEVEL=info
+      - HIVE_MAX_AGENTS=100
+      - HIVE_MCP_ENABLED=true
+      - HIVE_API_KEY=${HIVE_API_KEY:-default-key}
+    networks:
+      - hive-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "src/cli/simple-cli.js", "hive-mind", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # MCP Server for Claude integration
+  mcp-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.hive-mind
+      target: runtime
+    container_name: hive-mcp-server
+    command: ["npx", "ruv-swarm", "mcp", "start", "--port", "8081"]
+    ports:
+      - "8081:8081"  # MCP server port
+    volumes:
+      - hive-data:/data:ro  # Read-only access to Hive data
+      - mcp-config:/app/.claude
+    environment:
+      - MCP_MODE=server
+      - MCP_PORT=8081
+      - HIVE_DB_PATH=/data/hive-mind.db
+    networks:
+      - hive-network
+    depends_on:
+      - hive-mind
+    restart: unless-stopped
+
+  # Development environment
+  hive-dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.hive-mind
+      target: development
+    container_name: hive-mind-dev
+    ports:
+      - "8082:8080"  # Dev API port
+      - "3001:3000"  # Dev UI port
+      - "9229:9229"  # Node.js debugger
+    volumes:
+      - ../src:/app/src
+      - ../tests:/app/tests
+      - hive-dev-data:/data
+      - hive-dev-logs:/app/logs
+      - dev-node-modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - HIVE_DB_PATH=/data/hive-mind-dev.db
+      - HIVE_LOG_LEVEL=debug
+      - HIVE_DEV_MODE=true
+      - NODE_OPTIONS=--inspect=0.0.0.0:9229
+    networks:
+      - hive-network
+    stdin_open: true
+    tty: true
+    profiles:
+      - development
+
+  # Test runner
+  hive-test:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.hive-mind
+      target: test
+    container_name: hive-mind-test
+    volumes:
+      - ../src:/app/src:ro
+      - ../tests:/app/tests:ro
+      - test-results:/app/coverage
+    environment:
+      - NODE_ENV=test
+      - HIVE_TEST_MODE=true
+      - CI=${CI:-false}
+    networks:
+      - hive-network
+    profiles:
+      - test
+
+  # Performance monitoring with Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: hive-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - hive-network
+    profiles:
+      - monitoring
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: hive-grafana
+    ports:
+      - "3002:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - hive-network
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+
+  # Redis for distributed caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: hive-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - hive-network
+    profiles:
+      - cache
+
+  # Load balancer for multiple Hive Mind instances
+  nginx:
+    image: nginx:alpine
+    container_name: hive-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - hive-network
+    depends_on:
+      - hive-mind
+    profiles:
+      - production
+
+  # Backup service
+  backup:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.hive-mind
+      target: runtime
+    container_name: hive-backup
+    volumes:
+      - hive-data:/data:ro
+      - backups:/backups
+    environment:
+      - BACKUP_SCHEDULE=${BACKUP_SCHEDULE:-0 2 * * *}
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-7}
+    command: ["/app/scripts/backup.sh"]
+    networks:
+      - hive-network
+    profiles:
+      - production
+
+# Networks
+networks:
+  hive-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# Volumes
+volumes:
+  hive-data:
+    driver: local
+  hive-logs:
+    driver: local
+  hive-dev-data:
+    driver: local
+  hive-dev-logs:
+    driver: local
+  dev-node-modules:
+    driver: local
+  mcp-config:
+    driver: local
+  test-results:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  redis-data:
+    driver: local
+  backups:
+    driver: local
+
+# Compose configuration for different environments
+# Usage:
+#   Development: docker-compose -f docker-compose.hive-mind.yml --profile development up
+#   Testing: docker-compose -f docker-compose.hive-mind.yml --profile test up
+#   Production: docker-compose -f docker-compose.hive-mind.yml up
+#   With monitoring: docker-compose -f docker-compose.hive-mind.yml --profile monitoring up
+#   With caching: docker-compose -f docker-compose.hive-mind.yml --profile cache up

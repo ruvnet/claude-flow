@@ -1,0 +1,23 @@
+{
+  "name": "@claude-flow/neural",
+  "version": "3.0.0-alpha.6",
+  "type": "module",
+  "description": "Neural module - SONA learning integration, neural modes",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@claude-flow/memory": "^3.0.0-alpha.2",
+    "@ruvector/sona": "latest"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "v3alpha"
+  }
+}

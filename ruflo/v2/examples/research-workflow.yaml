@@ -1,0 +1,302 @@
+# Advanced Research Workflow with Conditional Execution and Loops
+name: "Advanced Research Workflow"
+version: "2.0.0"
+description: "Multi-stage research workflow with conditional execution, loops, and error recovery"
+
+metadata:
+  author: "Claude-Flow Team"
+  category: "Research"
+  tags: ["research", "analysis", "automation"]
+
+variables:
+  topic: "artificial intelligence trends"
+  depth: "comprehensive"
+  sources_limit: 10
+  enable_analysis: true
+  enable_summarization: true
+  output_format: "markdown"
+
+agents:
+  - id: "primary-researcher"
+    type: "researcher"
+    name: "Primary Research Agent"
+    config:
+      model: "claude-3"
+      temperature: 0.3
+      max_tokens: 4000
+      timeout: 180
+    resources:
+      memory: "2GB"
+      cpu: "1 core"
+    retries: 2
+
+  - id: "data-analyst"
+    type: "analyst" 
+    name: "Data Analysis Agent"
+    config:
+      model: "claude-3"
+      specialization: "data-analysis"
+      temperature: 0.1
+      timeout: 120
+    resources:
+      memory: "1GB"
+      cpu: "0.5 core"
+    retries: 1
+
+  - id: "summarizer"
+    type: "documenter"
+    name: "Summary Agent"
+    config:
+      model: "claude-3"
+      style: "academic"
+      format: "markdown"
+      timeout: 60
+
+conditions:
+  - id: "analysis-enabled"
+    expression: "variables.enable_analysis === true"
+    type: "javascript"
+    description: "Check if detailed analysis should be performed"
+
+  - id: "has-sufficient-data"
+    expression: "outputs['research-task.sources'].length >= 3"
+    type: "javascript"
+    description: "Ensure minimum data quality for analysis"
+
+  - id: "summarization-needed"
+    expression: "variables.enable_summarization && outputs['research-task.word_count'] > 2000"
+    type: "javascript"
+    description: "Check if content needs summarization"
+
+loops:
+  - id: "source-validation"
+    type: "foreach"
+    condition: "outputs['research-task.sources']"
+    tasks: ["validate-source"]
+    maxIterations: 10
+    continueOnError: true
+
+tasks:
+  - id: "research-task"
+    name: "Primary Research"
+    type: "research"
+    description: "Conduct comprehensive research on the specified topic"
+    assignTo: "primary-researcher"
+    input:
+      topic: "${topic}"
+      depth: "${depth}"
+      max_sources: "${sources_limit}"
+      research_areas:
+        - "current trends"
+        - "future predictions"
+        - "key technologies"
+        - "market analysis"
+    output:
+      - "findings"
+      - "sources"
+      - "summary"
+      - "word_count"
+      - "confidence_score"
+    timeout: 300000  # 5 minutes
+    retries: 2
+    priority: 1
+    tags: ["research", "primary"]
+    onSuccess: ["validate-results"]
+    onFailure: ["research-fallback"]
+
+  - id: "validate-source"
+    name: "Source Validation"
+    type: "validation"
+    description: "Validate research source quality and relevance"
+    assignTo: "data-analyst"
+    input:
+      source: "${loop.current_item}"
+      topic: "${topic}"
+    output:
+      - "is_valid"
+      - "quality_score"
+      - "relevance_score"
+    timeout: 30000
+    retries: 1
+
+  - id: "validate-results"
+    name: "Results Validation"
+    type: "validation"
+    description: "Validate research results quality"
+    depends: ["research-task"]
+    assignTo: "data-analyst"
+    input:
+      findings: "${research-task.findings}"
+      sources: "${research-task.sources}"
+      minimum_confidence: 0.7
+    output:
+      - "validation_passed"
+      - "quality_metrics"
+    timeout: 60000
+    condition: "has-sufficient-data"
+
+  - id: "detailed-analysis"
+    name: "Detailed Analysis"
+    type: "analysis"
+    description: "Perform detailed analysis of research findings"
+    depends: ["research-task", "validate-results"]
+    assignTo: "data-analyst"
+    condition: "analysis-enabled"
+    input:
+      research_data: "${research-task.findings}"
+      sources: "${research-task.sources}"
+      analysis_type: "comprehensive"
+      include_statistics: true
+      include_trends: true
+    output:
+      - "insights"
+      - "trends"
+      - "recommendations"
+      - "statistics"
+      - "risk_analysis"
+    timeout: 240000  # 4 minutes
+    retries: 1
+    priority: 2
+    parallel: true
+
+  - id: "market-analysis"
+    name: "Market Analysis"
+    type: "analysis"
+    description: "Analyze market implications and opportunities"
+    depends: ["research-task"]
+    assignTo: "data-analyst"
+    condition: "analysis-enabled"
+    input:
+      research_data: "${research-task.findings}"
+      focus_areas:
+        - "market size"
+        - "growth potential"
+        - "competitive landscape"
+        - "investment opportunities"
+    output:
+      - "market_insights"
+      - "opportunities"
+      - "risks"
+      - "competitive_analysis"
+    timeout: 180000
+    priority: 2
+    parallel: true
+
+  - id: "generate-summary"
+    name: "Generate Summary"
+    type: "documentation"
+    description: "Generate comprehensive summary report"
+    depends: ["research-task", "detailed-analysis", "market-analysis"]
+    assignTo: "summarizer"
+    condition: "summarization-needed"
+    input:
+      research_summary: "${research-task.summary}"
+      detailed_insights: "${detailed-analysis.insights}"
+      market_analysis: "${market-analysis.market_insights}"
+      format: "${output_format}"
+      style: "executive"
+      max_length: 2000
+    output:
+      - "executive_summary"
+      - "detailed_report"
+      - "key_findings"
+      - "recommendations"
+    timeout: 120000
+    priority: 3
+
+  - id: "research-fallback"
+    name: "Fallback Research"
+    type: "research"
+    description: "Simplified research if primary task fails"
+    assignTo: "primary-researcher"
+    input:
+      topic: "${topic}"
+      depth: "basic"
+      max_sources: 5
+    output:
+      - "basic_findings"
+      - "basic_sources"
+    timeout: 120000
+    retries: 1
+
+  - id: "quality-check"
+    name: "Final Quality Check"
+    type: "validation"
+    description: "Final quality assurance check"
+    depends: ["generate-summary"]
+    input:
+      summary: "${generate-summary.executive_summary}"
+      research: "${research-task.findings}"
+      quality_criteria:
+        - "completeness"
+        - "accuracy"
+        - "relevance"
+        - "clarity"
+    output:
+      - "quality_score"
+      - "passed"
+      - "improvements"
+    timeout: 60000
+
+integrations:
+  - id: "notification-webhook"
+    type: "webhook"
+    config:
+      url: "https://hooks.slack.com/services/..."
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+    auth:
+      type: "bearer"
+      credentials:
+        token: "${SLACK_WEBHOOK_TOKEN}"
+
+  - id: "results-database"
+    type: "database"
+    config:
+      connectionString: "${DB_CONNECTION_STRING}"
+      table: "research_results"
+    auth:
+      type: "basic"
+      credentials:
+        username: "${DB_USER}"
+        password: "${DB_PASS}"
+
+settings:
+  maxConcurrency: 3
+  timeout: 900000  # 15 minutes
+  retryPolicy: "exponential"
+  failurePolicy: "continue"
+  errorHandler: "log-and-notify"
+  
+  monitoring:
+    enabled: true
+    interval: 5000
+    metrics:
+      - "progress"
+      - "performance" 
+      - "errors"
+      - "resource_usage"
+    alerts:
+      - condition: "error_rate > 0.3"
+        action: "notification-webhook"
+        threshold: 3
+        cooldown: 300000
+
+  resources:
+    limits:
+      memory: "8GB"
+      cpu: "4 cores"
+      disk: "1GB"
+    requests:
+      memory: "4GB"
+      cpu: "2 cores"
+      disk: "500MB"
+
+  notifications:
+    enabled: true
+    channels: ["webhook", "email"]
+    events: ["workflow.started", "workflow.completed", "workflow.failed", "task.failed"]
+    templates:
+      workflow.completed: "Research workflow '${workflow.name}' completed successfully"
+      workflow.failed: "Research workflow '${workflow.name}' failed: ${error.message}"

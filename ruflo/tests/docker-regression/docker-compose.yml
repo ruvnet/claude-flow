@@ -1,0 +1,148 @@
+# Claude-Flow Deep Regression Test Suite
+# Docker Compose orchestration for comprehensive testing
+
+version: '3.8'
+
+services:
+  # Main test runner
+  test-runner:
+    build:
+      context: ../..
+      dockerfile: tests/docker-regression/Dockerfile
+    container_name: claude-flow-test-runner
+    volumes:
+      - test-data:/app/data
+      - test-reports:/app/reports
+      - test-logs:/app/logs
+    environment:
+      - NODE_ENV=test
+      - CLAUDE_FLOW_MODE=test
+      - CLAUDE_FLOW_MEMORY_PATH=/app/data
+      - CLAUDE_FLOW_LOG_LEVEL=debug
+      - CLAUDE_FLOW_MAX_AGENTS=15
+      - CLAUDE_FLOW_SECURITY_MODE=strict
+      - CLAUDE_FLOW_HNSW_M=16
+      - CLAUDE_FLOW_HNSW_EF=200
+      - CLAUDE_FLOW_EMBEDDING_DIM=384
+      - CI=true
+      - TEST_REPORT_PATH=/app/reports
+      - MCP_SERVER_HOST=localhost
+      - MCP_SERVER_PORT=3000
+    networks:
+      - claude-flow-test
+    command: ["bash", "/app/tests/docker-regression/scripts/run-all-tests.sh"]
+
+  # MCP Server for integration tests
+  mcp-server:
+    build:
+      context: ../..
+      dockerfile: tests/docker-regression/Dockerfile
+    container_name: claude-flow-mcp-server
+    volumes:
+      - test-data:/app/data
+      - test-logs:/app/logs
+    environment:
+      - NODE_ENV=test
+      - CLAUDE_FLOW_MODE=test
+      - CLAUDE_FLOW_MEMORY_PATH=/app/data
+      - CLAUDE_FLOW_LOG_LEVEL=info
+      - MCP_PORT=3000
+    ports:
+      - "3000:3000"
+    networks:
+      - claude-flow-test
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "3000"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    command: ["npx", "claude-flow", "mcp", "start", "--port", "3000"]
+
+  # Unit test runner
+  unit-tests:
+    build:
+      context: ../..
+      dockerfile: tests/docker-regression/Dockerfile
+    container_name: claude-flow-unit-tests
+    volumes:
+      - test-reports:/app/reports
+    environment:
+      - NODE_ENV=test
+      - CI=true
+      - TEST_REPORT_PATH=/app/reports
+    networks:
+      - claude-flow-test
+    command: ["bash", "/app/tests/docker-regression/scripts/run-unit-tests.sh"]
+
+  # Integration test runner
+  integration-tests:
+    build:
+      context: ../..
+      dockerfile: tests/docker-regression/Dockerfile
+    container_name: claude-flow-integration-tests
+    volumes:
+      - test-data:/app/data
+      - test-reports:/app/reports
+    environment:
+      - NODE_ENV=test
+      - CLAUDE_FLOW_MODE=test
+      - CLAUDE_FLOW_MEMORY_PATH=/app/data
+      - CI=true
+      - TEST_REPORT_PATH=/app/reports
+      - MCP_SERVER_HOST=mcp-server
+      - MCP_SERVER_PORT=3000
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    networks:
+      - claude-flow-test
+    command: ["bash", "/app/tests/docker-regression/scripts/run-integration-tests.sh"]
+
+  # Performance benchmark runner
+  benchmark-tests:
+    build:
+      context: ../..
+      dockerfile: tests/docker-regression/Dockerfile
+    container_name: claude-flow-benchmark-tests
+    volumes:
+      - test-data:/app/data
+      - test-reports:/app/reports
+    environment:
+      - NODE_ENV=test
+      - CLAUDE_FLOW_MODE=test
+      - CLAUDE_FLOW_MEMORY_PATH=/app/data
+      - CI=true
+      - TEST_REPORT_PATH=/app/reports
+    networks:
+      - claude-flow-test
+    command: ["bash", "/app/tests/docker-regression/scripts/run-benchmark-tests.sh"]
+
+  # Security test runner
+  security-tests:
+    build:
+      context: ../..
+      dockerfile: tests/docker-regression/Dockerfile
+    container_name: claude-flow-security-tests
+    volumes:
+      - test-reports:/app/reports
+    environment:
+      - NODE_ENV=test
+      - CLAUDE_FLOW_SECURITY_MODE=strict
+      - CI=true
+      - TEST_REPORT_PATH=/app/reports
+    networks:
+      - claude-flow-test
+    command: ["bash", "/app/tests/docker-regression/scripts/run-security-tests.sh"]
+
+networks:
+  claude-flow-test:
+    driver: bridge
+
+volumes:
+  test-data:
+    driver: local
+  test-reports:
+    driver: local
+  test-logs:
+    driver: local

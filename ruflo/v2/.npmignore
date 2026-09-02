@@ -1,0 +1,96 @@
+# Development files
+*.log
+*.tmp
+.DS_Store
+.env*
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# UI source files (extension not needed for CLI)
+src/ui/
+
+# Test files
+__tests__/
+test/
+tests/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+coverage/
+.nyc_output/
+
+# Build artifacts (we include dist/ for compiled files)
+*.map
+tsconfig.tsbuildinfo
+
+# Source control
+.git/
+.gitignore
+.github/
+
+# TypeScript source files (we ship compiled JS)
+src/**/*.ts
+!src/**/*.d.ts
+# Include memory JS files
+!src/memory/*.js
+!src/memory/*.sql
+# Include MCP server files
+!src/mcp/mcp-server.js
+
+# Documentation source files
+docs/
+*.md
+!README.md
+!SWARM_TTY_SOLUTION.md
+!SWARM_VISIBILITY.md
+# Include agent markdown files
+!.claude/agents/**/*.md
+
+# Development configs
+.eslintrc*
+.prettierrc*
+jest.config.*
+tsconfig.json
+deno.json
+deno.lock
+
+# Local files
+claude-flow
+claude-flow.cmd
+init-test/
+exported-memory.json
+test-memory.json
+*.json.bak
+
+# Reports and analysis
+reports/
+*.json
+!package.json
+!package-lock.json
+!.claude/config.json
+
+# Binary builds (we don't need prebuilt binaries for npm)
+bin/claude-flow-linux
+bin/claude-flow-macos
+bin/claude-flow-win
+bin/claude-flow-node-pkg
+bin/*.exe
+
+# Example and demo files
+examples/
+demo/
+
+# CI/CD
+.travis.yml
+.circleci/
+.gitlab-ci.yml
+
+# Keep essential files for npm package
+!cli.js
+!scripts/install.js
+!scripts/swarm-blessed-ui.js
+!scripts/swarm-simple.js
+!scripts/swarm-example.sh

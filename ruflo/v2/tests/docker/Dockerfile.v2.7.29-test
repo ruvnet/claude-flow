@@ -1,0 +1,103 @@
+# Dockerfile for testing v2.7.29 installation
+FROM node:20-slim
+
+# Install basic tools
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create test directory
+WORKDIR /test
+
+# Copy only the package files for local installation test
+COPY package.json package-lock.json ./
+COPY bin/ ./bin/
+COPY src/ ./src/
+COPY scripts/ ./scripts/
+
+# Install dependencies locally (using legacy-peer-deps for test environment)
+RUN npm install --legacy-peer-deps
+
+# Create test script
+RUN echo '#!/bin/bash' > /test/test-v2.7.29.sh && \
+    echo 'set -e' >> /test/test-v2.7.29.sh && \
+    echo '' >> /test/test-v2.7.29.sh && \
+    echo 'echo "🧪 Testing claude-flow v2.7.29 installation and dependencies"' >> /test/test-v2.7.29.sh && \
+    echo 'echo "================================================================"' >> /test/test-v2.7.29.sh && \
+    echo '' >> /test/test-v2.7.29.sh && \
+    echo '# Test 1: Verify version' >> /test/test-v2.7.29.sh && \
+    echo 'echo ""' >> /test/test-v2.7.29.sh && \
+    echo 'echo "Test 1: Checking version"' >> /test/test-v2.7.29.sh && \
+    echo 'VERSION=$(node bin/claude-flow.js --version 2>&1 | grep -o "v[0-9].*")' >> /test/test-v2.7.29.sh && \
+    echo 'echo "Version: $VERSION"' >> /test/test-v2.7.29.sh && \
+    echo 'if [ "$VERSION" != "v2.7.29" ]; then' >> /test/test-v2.7.29.sh && \
+    echo '  echo "❌ FAILED: Expected v2.7.29, got $VERSION"' >> /test/test-v2.7.29.sh && \
+    echo '  exit 1' >> /test/test-v2.7.29.sh && \
+    echo 'else' >> /test/test-v2.7.29.sh && \
+    echo '  echo "✅ PASSED: Version is v2.7.29"' >> /test/test-v2.7.29.sh && \
+    echo 'fi' >> /test/test-v2.7.29.sh && \
+    echo '' >> /test/test-v2.7.29.sh && \
+    echo '# Test 2: Check package.json does NOT have @xenova/transformers' >> /test/test-v2.7.29.sh && \
+    echo 'echo ""' >> /test/test-v2.7.29.sh && \
+    echo 'echo "Test 2: Verifying @xenova/transformers removed"' >> /test/test-v2.7.29.sh && \
+    echo 'if grep -q "@xenova/transformers" package.json; then' >> /test/test-v2.7.29.sh && \
+    echo '  echo "❌ FAILED: @xenova/transformers still in package.json"' >> /test/test-v2.7.29.sh && \
+    echo '  exit 1' >> /test/test-v2.7.29.sh && \
+    echo 'else' >> /test/test-v2.7.29.sh && \
+    echo '  echo "✅ PASSED: @xenova/transformers removed from package.json"' >> /test/test-v2.7.29.sh && \
+    echo 'fi' >> /test/test-v2.7.29.sh && \
+    echo '' >> /test/test-v2.7.29.sh && \
+    echo '# Test 3: Check package.json does NOT have onnxruntime-node' >> /test/test-v2.7.29.sh && \
+    echo 'echo ""' >> /test/test-v2.7.29.sh && \
+    echo 'echo "Test 3: Verifying onnxruntime-node removed"' >> /test/test-v2.7.29.sh && \
+    echo 'if grep -q "onnxruntime-node" package.json; then' >> /test/test-v2.7.29.sh && \
+    echo '  echo "❌ FAILED: onnxruntime-node still in package.json"' >> /test/test-v2.7.29.sh && \
+    echo '  exit 1' >> /test/test-v2.7.29.sh && \
+    echo 'else' >> /test/test-v2.7.29.sh && \
+    echo '  echo "✅ PASSED: onnxruntime-node removed from package.json"' >> /test/test-v2.7.29.sh && \
+    echo 'fi' >> /test/test-v2.7.29.sh && \
+    echo '' >> /test/test-v2.7.29.sh && \
+    echo '# Test 4: Verify npm install succeeded' >> /test/test-v2.7.29.sh && \
+    echo 'echo ""' >> /test/test-v2.7.29.sh && \
+    echo 'echo "Test 4: Checking node_modules installed"' >> /test/test-v2.7.29.sh && \
+    echo 'if [ ! -d "node_modules" ]; then' >> /test/test-v2.7.29.sh && \
+    echo '  echo "❌ FAILED: node_modules not found"' >> /test/test-v2.7.29.sh && \
+    echo '  exit 1' >> /test/test-v2.7.29.sh && \
+    echo 'fi' >> /test/test-v2.7.29.sh && \
+    echo 'MODULE_COUNT=$(find node_modules -maxdepth 1 -type d | wc -l)' >> /test/test-v2.7.29.sh && \
+    echo 'echo "Found $MODULE_COUNT modules in node_modules"' >> /test/test-v2.7.29.sh && \
+    echo 'if [ "$MODULE_COUNT" -lt 10 ]; then' >> /test/test-v2.7.29.sh && \
+    echo '  echo "❌ FAILED: Too few modules installed"' >> /test/test-v2.7.29.sh && \
+    echo '  exit 1' >> /test/test-v2.7.29.sh && \
+    echo 'else' >> /test/test-v2.7.29.sh && \
+    echo '  echo "✅ PASSED: Dependencies installed successfully"' >> /test/test-v2.7.29.sh && \
+    echo 'fi' >> /test/test-v2.7.29.sh && \
+    echo '' >> /test/test-v2.7.29.sh && \
+    echo '# Test 5: Verify CLI works' >> /test/test-v2.7.29.sh && \
+    echo 'echo ""' >> /test/test-v2.7.29.sh && \
+    echo 'echo "Test 5: Testing CLI execution"' >> /test/test-v2.7.29.sh && \
+    echo 'if ! node bin/claude-flow.js --help >/dev/null 2>&1; then' >> /test/test-v2.7.29.sh && \
+    echo '  echo "❌ FAILED: CLI --help failed"' >> /test/test-v2.7.29.sh && \
+    echo '  exit 1' >> /test/test-v2.7.29.sh && \
+    echo 'else' >> /test/test-v2.7.29.sh && \
+    echo '  echo "✅ PASSED: CLI executes successfully"' >> /test/test-v2.7.29.sh && \
+    echo 'fi' >> /test/test-v2.7.29.sh && \
+    echo '' >> /test/test-v2.7.29.sh && \
+    echo '# Test 6: Verify no transformers or onnx in node_modules' >> /test/test-v2.7.29.sh && \
+    echo 'echo ""' >> /test/test-v2.7.29.sh && \
+    echo 'echo "Test 6: Verifying removed dependencies not installed"' >> /test/test-v2.7.29.sh && \
+    echo 'if [ -d "node_modules/@xenova" ] || [ -d "node_modules/onnxruntime-node" ]; then' >> /test/test-v2.7.29.sh && \
+    echo '  echo "❌ FAILED: Removed dependencies still in node_modules"' >> /test/test-v2.7.29.sh && \
+    echo '  exit 1' >> /test/test-v2.7.29.sh && \
+    echo 'else' >> /test/test-v2.7.29.sh && \
+    echo '  echo "✅ PASSED: Removed dependencies not installed"' >> /test/test-v2.7.29.sh && \
+    echo 'fi' >> /test/test-v2.7.29.sh && \
+    echo '' >> /test/test-v2.7.29.sh && \
+    echo 'echo ""' >> /test/test-v2.7.29.sh && \
+    echo 'echo "✅ All tests passed! v2.7.29 is ready for release"' >> /test/test-v2.7.29.sh && \
+    chmod +x /test/test-v2.7.29.sh
+
+# Set entrypoint
+ENTRYPOINT ["/bin/bash"]
+CMD ["/test/test-v2.7.29.sh"]

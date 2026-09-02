@@ -1,0 +1,12 @@
+{
+  "moderate": true,
+  "high": true,
+  "critical": true,
+  "allowlist": [],
+  "report": {
+    "type": "json",
+    "path": "security-audit.json"
+  },
+  "skip-dev": false,
+  "package-manager": "npm"
+}

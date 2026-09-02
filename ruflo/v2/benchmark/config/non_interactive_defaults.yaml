@@ -1,0 +1,47 @@
+# Non-Interactive Default Configuration for Claude Flow Benchmark
+# This configuration ensures all claude-flow commands run in non-interactive mode
+
+# Global defaults for all commands
+defaults:
+  interactive: false
+  non_interactive: true
+  executor: true  # Use built-in executor
+  analysis: true  # Read-only mode by default for safety
+  verbose: true   # Verbose output for better debugging
+  timeout: 300    # 5 minute timeout for all commands
+
+# Command-specific settings
+commands:
+  swarm:
+    executor: true
+    analysis: true
+    background: false
+    ui: false  # Disable UI
+    claude: false  # Don't open Claude Code CLI
+    
+  hive_mind:
+    executor: true
+    analysis: true
+    interactive: false
+    
+  sparc:
+    verbose: true
+    format: json  # Output in JSON for parsing
+    
+# Execution settings
+execution:
+  max_retries: 3
+  retry_delay: 5  # seconds
+  fallback_on_error: true  # Use simulation if real execution fails
+  
+# Safety settings
+safety:
+  read_only: true  # Default to read-only operations
+  dry_run: false   # Set to true to simulate without executing
+  max_agents: 5    # Limit agent spawning
+  
+# Performance settings
+performance:
+  parallel: true   # Enable parallel execution where possible
+  cache_results: true
+  stream_output: true

@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250811-215039", "task": "review ls -la /usr/local/share/nvm/versions/node/v20.19.0/lib/node_modules/@anthropic-ai/claude-code", "timestamp": "2025-08-11T21:50:40Z", "commit": "4e45880b40ce39b274b5974146a1b812c63e68b1", "github_release": "true"}

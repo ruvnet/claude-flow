@@ -1,0 +1,29 @@
+{
+  "name": "notes-cli",
+  "version": "1.0.0",
+  "description": "Note-taking CLI application created by Claude Flow Swarm",
+  "main": "notes.js",
+  "bin": {
+    "notes": "./notes.js"
+  },
+  "scripts": {
+    "start": "node notes.js",
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage"
+  },
+  "keywords": ["notes", "cli", "productivity", "swarm", "claude-flow"],
+  "author": "Claude Flow Swarm",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0"
+  },
+  "type": "module",
+  "swarm": {
+    "created": "2025-06-13",
+    "strategy": "development",
+    "agents": ["Coordinator-1", "Developer-1", "Developer-2", "Tester-1", "Reviewer-1", "Documenter-1"],
+    "qualityThreshold": 0.9,
+    "parallel": true
+  }
+}

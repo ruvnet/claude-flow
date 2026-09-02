@@ -1,0 +1,17 @@
+{
+  "performance": {
+    "duration_ms": 4,
+    "operations_per_minute": "0.0",
+    "tokens_saved": 0,
+    "efficiency_score": "NaN"
+  },
+  "learning": {
+    "patterns_improved": 0,
+    "average_improvement": "NaN",
+    "confidence_average": "NaN"
+  },
+  "agents": {
+    "total_spawned": 0,
+    "by_type": {}
+  }
+}

@@ -1,0 +1,224 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#fafafa] text-[#1a1a1a] antialiased;
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  }
+}
+
+@layer components {
+  /* Leonardo Table Header */
+  .leo-th {
+    background: #111111;
+    color: white;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    padding: 5px 6px;
+    text-align: center;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  /* Sticky header support */
+  .leo-table-freeze thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #111111;
+  }
+  .leo-table-freeze thead tr:nth-child(2) th {
+    top: 28px;
+  }
+  .leo-table-freeze {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    overflow-x: auto;
+  }
+
+  /* Leonardo Sub-Header (group headers) */
+  .leo-th-group {
+    background: #111111;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 5px 6px;
+    text-align: center;
+    letter-spacing: 0.04em;
+    border-left: 1px solid rgba(255,255,255,0.15);
+  }
+
+  /* Leonardo Table Cell */
+  .leo-td {
+    padding: 4px 6px;
+    font-size: 11px;
+    text-align: center;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+  }
+
+  /* Leonardo Footer Row */
+  .leo-footer td {
+    background: #f1f5f9;
+    font-weight: 600;
+    border-top: 2px solid #111111;
+    padding: 5px 6px;
+    font-size: 11px;
+  }
+
+  /* Leonardo Section Title */
+  .leo-section-title {
+    text-transform: uppercase;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: #374151;
+  }
+
+  /* Leonardo Card */
+  .leo-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+
+  /* Leonardo Button Primary */
+  .leo-btn {
+    background: #3b5bdb;
+    color: white;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background 0.15s;
+  }
+  .leo-btn:hover {
+    background: #3451c7;
+  }
+  .leo-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Leonardo Button Secondary */
+  .leo-btn-secondary {
+    background: white;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background 0.15s;
+  }
+  .leo-btn-secondary:hover {
+    background: #f8f9fa;
+  }
+
+  /* Leonardo Select / Input */
+  .leo-select {
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    background: white;
+    color: #1a1a1a;
+  }
+  .leo-select:focus {
+    outline: none;
+    border-color: #3b5bdb;
+    box-shadow: 0 0 0 2px rgba(59,91,219,0.15);
+  }
+
+  /* Positive / Negative colors */
+  .leo-positive { color: #16a34a; }
+  .leo-negative { color: #dc2626; }
+
+  /* Current week highlight */
+  .leo-current-week {
+    background: rgba(59, 91, 219, 0.05);
+  }
+
+  /* Alternating rows */
+  .leo-table tbody tr:nth-child(even) {
+    background: #f8f9fa;
+  }
+  .leo-table tbody tr:hover {
+    background: #f1f5f9;
+  }
+
+  /* Mobile table scroll wrapper */
+  .leo-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .leo-table-scroll::-webkit-scrollbar {
+    height: 6px;
+  }
+  .leo-table-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+}
+
+/* ── Native App (Capacitor) ── */
+.native-app {
+  /* Account for iOS safe areas (notch, home indicator) */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Disable pull-to-refresh and rubber-band scrolling in native WebView */
+.native-app {
+  overscroll-behavior: none;
+}
+
+/* ── Mobile Responsive ── */
+@media (max-width: 767px) {
+  .leo-th {
+    font-size: 10px;
+    padding: 6px 6px;
+  }
+  .leo-td {
+    font-size: 11px;
+    padding: 5px 6px;
+  }
+  .leo-footer td {
+    font-size: 11px;
+    padding: 6px 6px;
+  }
+  .leo-section-title {
+    font-size: 13px;
+  }
+  .leo-btn, .leo-btn-secondary {
+    padding: 10px 16px;
+    min-height: 44px;
+    font-size: 13px;
+  }
+  .leo-select {
+    padding: 8px 10px;
+    min-height: 44px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 639px) {
+  .leo-th {
+    font-size: 9px;
+    padding: 4px 4px;
+  }
+  .leo-td {
+    font-size: 10px;
+    padding: 4px 4px;
+  }
+}

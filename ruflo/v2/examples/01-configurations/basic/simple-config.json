@@ -1,0 +1,19 @@
+{
+  "name": "Simple Claude Flow Configuration",
+  "description": "Basic configuration for getting started with Claude Flow",
+  "orchestrator": {
+    "model": "claude-3-sonnet-20240229",
+    "temperature": 0.7,
+    "maxTokens": 4096,
+    "timeout": 30000
+  },
+  "memory": {
+    "backend": "json",
+    "location": "./memory/simple-flow.json"
+  },
+  "logging": {
+    "level": "info",
+    "format": "pretty",
+    "destination": "console"
+  }
+}

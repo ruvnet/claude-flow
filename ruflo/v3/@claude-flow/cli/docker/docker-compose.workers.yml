@@ -1,0 +1,159 @@
+# Docker Compose for Claude Flow V3 Headless Worker Pool
+# ADR-020: Headless Worker Integration Architecture - Phase 3
+#
+# Usage:
+#   docker-compose -f docker-compose.workers.yml up -d
+#   docker-compose -f docker-compose.workers.yml scale worker-pool=5
+#   docker-compose -f docker-compose.workers.yml down
+#
+# Environment Variables (required):
+#   ANTHROPIC_API_KEY - Your Anthropic API key
+#
+# Optional:
+#   CLAUDE_FLOW_WORKERS - Comma-separated list of workers to enable
+#   CLAUDE_FLOW_SANDBOX - Sandbox mode (strict, permissive, disabled)
+
+version: '3.8'
+
+services:
+  # Worker Pool - Scalable headless worker containers
+  worker-pool:
+    image: ghcr.io/ruvnet/claude-flow-headless:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.headless
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_CODE_HEADLESS=true
+      - CLAUDE_CODE_SANDBOX_MODE=${CLAUDE_FLOW_SANDBOX:-strict}
+      - CLAUDE_FLOW_WORKERS=${CLAUDE_FLOW_WORKERS:-audit,optimize,testgaps}
+      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=production
+    volumes:
+      - workspace:/workspace:ro
+      - claude-flow-state:/root/.claude-flow
+      - worker-logs:/var/log/claude-flow
+    command: npx claude-flow@v3alpha daemon start --foreground --headless
+    networks:
+      - claude-flow-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Queue Manager - Coordinates task distribution
+  queue-manager:
+    image: ghcr.io/ruvnet/claude-flow-headless:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.headless
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - QUEUE_MODE=manager
+      - MAX_WORKERS=${MAX_WORKERS:-10}
+      - NODE_ENV=production
+    volumes:
+      - claude-flow-state:/root/.claude-flow
+      - queue-logs:/var/log/queue-manager
+    command: npx claude-flow@v3alpha queue manager --workers ${MAX_WORKERS:-10}
+    networks:
+      - claude-flow-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis - Message queue and result storage
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - claude-flow-network
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Metrics Dashboard (optional) - Prometheus metrics
+  metrics:
+    image: prom/prometheus:latest
+    profiles:
+      - monitoring
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - claude-flow-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+
+  # Grafana Dashboard (optional)
+  grafana:
+    image: grafana/grafana:latest
+    profiles:
+      - monitoring
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - claude-flow-network
+    depends_on:
+      - metrics
+
+networks:
+  claude-flow-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  workspace:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${WORKSPACE_PATH:-.}
+  claude-flow-state:
+  worker-logs:
+  queue-logs:
+  redis-data:
+  prometheus-data:
+  grafana-data:

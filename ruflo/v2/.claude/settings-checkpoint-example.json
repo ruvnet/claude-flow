@@ -1,0 +1,29 @@
+{
+  "version": "1.0.0",
+  "hooks": {
+    "PreToolUse:Edit": {
+      "enabled": true,
+      "command": "FILE=$(echo '{{tool_input}}' | jq -r '.file_path // empty') && [ -n \"$FILE\" ] && CHECKPOINT_BRANCH=\"checkpoint/pre-edit-$(date +%Y%m%d-%H%M%S)\" && git add -A && git stash push -m \"Pre-edit checkpoint for $FILE\" && git branch \"$CHECKPOINT_BRANCH\" && mkdir -p .claude/checkpoints && echo \"{\\\"branch\\\": \\\"$CHECKPOINT_BRANCH\\\", \\\"file\\\": \\\"$FILE\\\", \\\"timestamp\\\": \\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\", \\\"type\\\": \\\"pre-edit\\\"}\" > \".claude/checkpoints/$(date +%s).json\" && git stash pop --quiet || true && echo \"✅ Created checkpoint: $CHECKPOINT_BRANCH for $FILE\""
+    },
+    
+    "PostToolUse:Edit": {
+      "enabled": true,
+      "command": "FILE=$(echo '{{tool_input}}' | jq -r '.file_path // empty') && [ -n \"$FILE\" ] && [ -f \"$FILE\" ] && if ! git diff --quiet \"$FILE\" 2>/dev/null; then CHECKPOINT_BRANCH=\"checkpoint/post-edit-$(date +%Y%m%d-%H%M%S)\" && COMMIT_MSG=\"🔖 Checkpoint: Edit $FILE\" && git add \"$FILE\" && git commit -m \"$COMMIT_MSG\" --quiet && TAG_NAME=\"checkpoint-$(date +%Y%m%d-%H%M%S)\" && git tag -a \"$TAG_NAME\" -m \"Checkpoint after editing $FILE\" && mkdir -p .claude/checkpoints && echo \"{\\\"tag\\\": \\\"$TAG_NAME\\\", \\\"file\\\": \\\"$FILE\\\", \\\"timestamp\\\": \\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\", \\\"type\\\": \\\"post-edit\\\"}\" > \".claude/checkpoints/$(date +%s).json\" && echo \"✅ Created checkpoint: $TAG_NAME for $FILE\"; else echo \"ℹ️  No changes to checkpoint for $FILE\"; fi"
+    },
+    
+    "PreToolUse:Write": {
+      "enabled": true,
+      "command": "FILE=$(echo '{{tool_input}}' | jq -r '.file_path // empty') && [ -n \"$FILE\" ] && [ ! -f \"$FILE\" ] && CHECKPOINT_BRANCH=\"checkpoint/pre-create-$(date +%Y%m%d-%H%M%S)\" && git add -A && git commit -m \"🔖 Checkpoint before creating $FILE\" --quiet || true && git branch \"$CHECKPOINT_BRANCH\" && echo \"✅ Created checkpoint: $CHECKPOINT_BRANCH before creating $FILE\""
+    },
+    
+    "UserPromptSubmit": {
+      "enabled": true,
+      "command": "TASK=$(echo '{{user_prompt}}' | head -c 100 | tr '\\n' ' ') && [ -n \"$TASK\" ] && CHECKPOINT_NAME=\"task-$(date +%Y%m%d-%H%M%S)\" && git add -A && git commit -m \"🔖 Task checkpoint: $TASK...\" --quiet || true && mkdir -p .claude/checkpoints && echo \"{\\\"checkpoint\\\": \\\"$CHECKPOINT_NAME\\\", \\\"task\\\": \\\"$TASK\\\", \\\"timestamp\\\": \\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\", \\\"commit\\\": \\\"$(git rev-parse HEAD)\\\"}\" > \".claude/checkpoints/task-$(date +%s).json\" && echo \"✅ Created task checkpoint: $CHECKPOINT_NAME\""
+    },
+    
+    "Stop": {
+      "enabled": true,
+      "command": "SESSION_ID=\"session-$(date +%Y%m%d-%H%M%S)\" && SUMMARY_FILE=\".claude/checkpoints/summary-$SESSION_ID.md\" && mkdir -p .claude/checkpoints && echo \"# Session Summary - $(date +'%Y-%m-%d %H:%M:%S')\" > \"$SUMMARY_FILE\" && echo \"\" >> \"$SUMMARY_FILE\" && echo \"## Recent Checkpoints\" >> \"$SUMMARY_FILE\" && git tag -l 'checkpoint-*' --sort=-creatordate | head -10 >> \"$SUMMARY_FILE\" && echo \"\" >> \"$SUMMARY_FILE\" && echo \"## Recent Commits\" >> \"$SUMMARY_FILE\" && git log --oneline -10 --grep=\"Checkpoint\" >> \"$SUMMARY_FILE\" || echo \"No checkpoint commits\" >> \"$SUMMARY_FILE\" && git add -A && git commit -m \"🏁 Session end checkpoint: $SESSION_ID\" --quiet || true && git tag -a \"session-end-$SESSION_ID\" -m \"End of Claude session\" && echo \"✅ Session summary saved to: $SUMMARY_FILE\" && echo \"📌 Final checkpoint: session-end-$SESSION_ID\""
+    }
+  }
+}

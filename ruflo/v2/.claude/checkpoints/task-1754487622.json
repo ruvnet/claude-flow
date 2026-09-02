@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250806-134021", "task": "sparc does have an non-interactive flag.  ./claude-flow sparc run code 'user service' --non-interact", "timestamp": "2025-08-06T13:40:22Z", "commit": "8b4133fcfaba875e0a688c9600a38d83403be936", "github_release": "true"}

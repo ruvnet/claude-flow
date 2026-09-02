@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250906-214055", "task": "npx claude-flow@alpha init --force actually creates all teh files.  ", "timestamp": "2025-09-06T21:40:56Z", "commit": "3bdda141f1ada607d5622bc6930341b9f386cbfa", "github_release": "true"}

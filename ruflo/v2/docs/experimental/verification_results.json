@@ -1,0 +1,12 @@
+{
+  "verified_zeros": [],
+  "statistics": {},
+  "patterns": {
+    "status": "insufficient_data"
+  },
+  "verification_parameters": {
+    "precision": 100,
+    "parallel_workers": 8,
+    "total_zeros_found": 0
+  }
+}

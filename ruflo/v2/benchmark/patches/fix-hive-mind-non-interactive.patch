@@ -1,0 +1,32 @@
+--- a/src/cli/simple-commands/hive-mind.js
++++ b/src/cli/simple-commands/hive-mind.js
+@@ -426,6 +426,16 @@ async function spawnSwarmWizard() {
+ async function spawnSwarm(args, flags) {
+   const objective = args.join(' ').trim();
+ 
++  // Check for non-interactive mode FIRST
++  if (flags['non-interactive'] || flags.nonInteractive) {
++    if (!objective) {
++      console.error(chalk.red('Error: Objective required in non-interactive mode'));
++      console.log('Usage: claude-flow hive-mind spawn --non-interactive "Your objective"');
++      return;
++    }
++    // Skip wizard and proceed with defaults
++    // Continue with the spawn logic using provided parameters
++  }
++
+   if (!objective && !flags.wizard) {
+     console.error(chalk.red('Error: Please provide an objective or use --wizard flag'));
+     console.log('Example: claude-flow hive-mind spawn "Build REST API"');
+@@ -1483,7 +1493,12 @@ export async function hiveMindCommand(args, flags) {
+     case 'spawn':
+-      if (flags.wizard || subArgs.length === 0) {
++      // Check for non-interactive mode first
++      if (flags['non-interactive'] || flags.nonInteractive) {
++        // Use spawnSwarm directly with provided arguments
++        await spawnSwarm(subArgs, flags);
++      } else if (flags.wizard || subArgs.length === 0) {
++        // Use wizard for interactive mode
+         await spawnSwarmWizard();
+       } else {
+         await spawnSwarm(subArgs, flags);

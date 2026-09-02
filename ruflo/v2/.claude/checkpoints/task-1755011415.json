@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250812-151014", "task": "update ./claude-flow --help and --version with the alpha 89 and brief details of the latest major ad", "timestamp": "2025-08-12T15:10:15Z", "commit": "79026615c7420e0cad3c807e168f8137ad6034d6", "github_release": "true"}

@@ -1,0 +1,10 @@
+# security-architect agent configuration
+type: security-architect
+version: "3.0.0"
+capabilities:
+  - threat-modeling
+  - vulnerability-analysis
+  - security-review
+optimizations:
+  - pattern-matching
+createdAt: "2026-01-12T16:29:57.462Z"

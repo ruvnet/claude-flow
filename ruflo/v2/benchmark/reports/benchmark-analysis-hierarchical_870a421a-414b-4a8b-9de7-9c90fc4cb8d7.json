@@ -1,0 +1,129 @@
+{
+  "id": "870a421a-414b-4a8b-9de7-9c90fc4cb8d7",
+  "name": "benchmark-analysis-hierarchical",
+  "description": "Benchmark: Analyze user behavior patterns",
+  "status": "completed",
+  "config": {
+    "name": "benchmark-analysis-hierarchical",
+    "description": "Benchmark: Analyze user behavior patterns",
+    "strategy": "analysis",
+    "mode": "hierarchical",
+    "max_agents": 5,
+    "max_tasks": 100,
+    "timeout": 3600,
+    "task_timeout": 300,
+    "max_retries": 3,
+    "parallel": false,
+    "background": false,
+    "monitoring": false,
+    "quality_threshold": 0.8,
+    "resource_limits": {
+      "max_memory_mb": 1024,
+      "max_cpu_percent": 80,
+      "max_network_mbps": 100
+    },
+    "output_formats": [
+      "json"
+    ],
+    "output_directory": "./reports",
+    "verbose": false
+  },
+  "tasks": [
+    {
+      "id": "bf54fb52-b07a-425e-bf5f-9a8a7120cebe",
+      "objective": "Analyze user behavior patterns",
+      "description": "Benchmark task: Analyze user behavior patterns",
+      "strategy": "analysis",
+      "mode": "hierarchical",
+      "parameters": {},
+      "timeout": 300,
+      "max_retries": 3,
+      "priority": 1,
+      "status": "pending",
+      "created_at": "2025-06-14T16:35:41.459834",
+      "started_at": null,
+      "completed_at": null,
+      "duration": null,
+      "assigned_agents": [],
+      "parent_task_id": null,
+      "subtasks": [],
+      "dependencies": []
+    }
+  ],
+  "results": [
+    {
+      "id": "cb72c8e9-19f3-4f69-99b0-47069a6574ef",
+      "task_id": "bf54fb52-b07a-425e-bf5f-9a8a7120cebe",
+      "agent_id": "analysis-agent",
+      "status": "success",
+      "output": {
+        "analysis_results": "Analysis completed for: Analyze user behavior patterns",
+        "insights": [
+          "trend 1",
+          "pattern 2",
+          "correlation 3"
+        ],
+        "methodology": "statistical analysis"
+      },
+      "errors": [],
+      "warnings": [],
+      "performance_metrics": {
+        "execution_time": 0.150357,
+        "queue_time": 0.0,
+        "throughput": 0.0,
+        "success_rate": 1.0,
+        "error_rate": 0.0,
+        "retry_count": 0,
+        "coordination_overhead": 0.0,
+        "communication_latency": 0.0
+      },
+      "quality_metrics": {
+        "accuracy_score": 0.0,
+        "completeness_score": 0.0,
+        "consistency_score": 0.0,
+        "relevance_score": 0.0,
+        "overall_quality": 0.0,
+        "review_score": null,
+        "automated_score": null
+      },
+      "resource_usage": {
+        "cpu_percent": 20.0,
+        "memory_mb": 192,
+        "network_bytes_sent": 0,
+        "network_bytes_recv": 0,
+        "disk_bytes_read": 0,
+        "disk_bytes_write": 0,
+        "peak_memory_mb": 0.0,
+        "average_cpu_percent": 0.0
+      },
+      "execution_details": {},
+      "created_at": "2025-06-14T16:35:41.610310",
+      "started_at": "2025-06-14T16:35:41.459867",
+      "completed_at": "2025-06-14T16:35:41.610257",
+      "duration": 0.15039
+    }
+  ],
+  "metrics": {
+    "total_tasks": 1,
+    "completed_tasks": 1,
+    "failed_tasks": 0,
+    "total_agents": 0,
+    "active_agents": 0,
+    "average_execution_time": 0.150357,
+    "total_execution_time": 0.150357,
+    "success_rate": 1.0,
+    "throughput": 0.0,
+    "resource_efficiency": 0.0,
+    "coordination_efficiency": 0.0,
+    "quality_score": 0.0,
+    "peak_memory_usage": 0.0,
+    "total_cpu_time": 0.0,
+    "network_overhead": 0.0
+  },
+  "created_at": "2025-06-14T16:35:41.459854",
+  "started_at": "2025-06-14T16:35:41.459861",
+  "completed_at": "2025-06-14T16:35:41.610345",
+  "duration": 0.150484,
+  "error_log": [],
+  "metadata": {}
+}

@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Flow + Claude Code - Browser IDE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2d2d30;
+            border-bottom: 1px solid #3e3e42;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-title {
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #00ff88, #00cc66);
+            border-radius: 6px;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #00ff88;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main-container {
+            display: flex;
+            height: calc(100vh - 49px);
+        }
+
+        .sidebar {
+            width: 250px;
+            background: #252526;
+            border-right: 1px solid #3e3e42;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-section {
+            padding: 12px;
+            border-bottom: 1px solid #3e3e42;
+        }
+
+        .sidebar-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #969696;
+            margin-bottom: 8px;
+        }
+
+        .file-tree {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .file-item {
+            padding: 6px 8px;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .file-item:hover {
+            background: #2a2d2e;
+        }
+
+        .file-icon {
+            font-size: 16px;
+        }
+
+        .agent-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .agent-item {
+            padding: 8px;
+            margin: 4px 0;
+            background: #2a2d2e;
+            border-radius: 4px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .agent-status {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .agent-status.active {
+            background: #00ff8822;
+            color: #00ff88;
+        }
+
+        .agent-status.idle {
+            background: #ffa50022;
+            color: #ffa500;
+        }
+
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor-tabs {
+            background: #2d2d30;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            padding: 0 8px;
+            gap: 2px;
+        }
+
+        .editor-tab {
+            padding: 8px 16px;
+            font-size: 13px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: #969696;
+            border-top: 2px solid transparent;
+        }
+
+        .editor-tab.active {
+            color: #d4d4d4;
+            border-top-color: #00ff88;
+            background: #1e1e1e;
+        }
+
+        .editor-tab:hover {
+            color: #d4d4d4;
+        }
+
+        #editor {
+            flex: 1;
+        }
+
+        .bottom-panel {
+            height: 250px;
+            background: #1e1e1e;
+            border-top: 1px solid #3e3e42;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-tabs {
+            background: #2d2d30;
+            display: flex;
+            padding: 0 8px;
+            gap: 2px;
+        }
+
+        .panel-tab {
+            padding: 8px 16px;
+            font-size: 12px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: #969696;
+            border-bottom: 2px solid transparent;
+        }
+
+        .panel-tab.active {
+            color: #d4d4d4;
+            border-bottom-color: #00ff88;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+        }
+
+        .terminal-output {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            display: flex;
+            gap: 8px;
+        }
+
+        .log-timestamp {
+            color: #858585;
+            font-size: 11px;
+        }
+
+        .toolbar {
+            background: #2d2d30;
+            padding: 8px 12px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            font-size: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00ff88, #00cc66);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
+        }
+
+        .btn-secondary {
+            background: #3e3e42;
+            color: #d4d4d4;
+        }
+
+        .btn-secondary:hover {
+            background: #4e4e52;
+        }
+
+        .consensus-tracker {
+            padding: 12px;
+            background: #2a2d2e;
+            border-radius: 6px;
+            margin-top: 8px;
+        }
+
+        .consensus-bar {
+            height: 24px;
+            background: #1e1e1e;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .consensus-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #00cc66);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            font-weight: 600;
+            font-size: 11px;
+        }
+
+        .consensus-info {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #858585;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .swarm-canvas-container {
+            padding: 12px;
+            background: #2a2d2e;
+            border-radius: 6px;
+            margin-top: 8px;
+        }
+
+        #swarmCanvas {
+            width: 100%;
+            height: 120px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-title">
+            <div class="logo"></div>
+            <span>Claude Flow + Claude Code</span>
+            <span style="font-size: 11px; color: #858585;">Browser IDE</span>
+        </div>
+        <div class="connection-status">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusLabel">Disconnected</span>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">Swarm Agents</div>
+                <div class="agent-list" id="agentList">
+                    <!-- Agents populated by JS -->
+                </div>
+                <button class="btn btn-primary" onclick="spawnAgents()" style="width: 100%; margin-top: 8px;">
+                    🚀 Spawn Agents
+                </button>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Consensus</div>
+                <div class="consensus-tracker">
+                    <div class="consensus-bar">
+                        <div class="consensus-fill" id="consensusFill" style="width: 0%">
+                            <span id="consensusText">0/0</span>
+                        </div>
+                    </div>
+                    <div class="consensus-info">
+                        <span id="consensusPercentage">0%</span>
+                        <span>Margin: +<span id="securityMargin">0</span></span>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" onclick="testConsensus()" style="width: 100%; margin-top: 8px;">
+                    Test Byzantine
+                </button>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Network Topology</div>
+                <div class="swarm-canvas-container">
+                    <canvas id="swarmCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Editor Area -->
+        <div class="editor-container">
+            <div class="toolbar">
+                <button class="btn btn-primary" onclick="executeCode()">▶️ Run Code</button>
+                <button class="btn btn-secondary" onclick="saveFile()">💾 Save</button>
+                <button class="btn btn-secondary" onclick="loadFile()">📂 Load</button>
+                <button class="btn btn-secondary" onclick="clearOutput()">🗑️ Clear Output</button>
+            </div>
+
+            <div class="editor-tabs">
+                <button class="editor-tab active" data-file="server.js">server.js</button>
+                <button class="editor-tab" data-file="client.js">client.js</button>
+                <button class="editor-tab" data-file="package.json">package.json</button>
+            </div>
+
+            <div id="editor"></div>
+        </div>
+    </div>
+
+    <!-- Bottom Panel -->
+    <div class="bottom-panel">
+        <div class="panel-tabs">
+            <button class="panel-tab active" onclick="switchPanel('terminal')">Terminal</button>
+            <button class="panel-tab" onclick="switchPanel('output')">Output</button>
+            <button class="panel-tab" onclick="switchPanel('logs')">Activity Log</button>
+            <button class="panel-tab" onclick="switchPanel('mcp')">MCP Messages</button>
+        </div>
+        <div class="panel-content">
+            <div id="terminalPanel" class="terminal-output"></div>
+            <div id="outputPanel" class="terminal-output" style="display: none;"></div>
+            <div id="logsPanel" style="display: none;"></div>
+            <div id="mcpPanel" class="terminal-output" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <script src="dashboard-code.js"></script>
+</body>
+</html>

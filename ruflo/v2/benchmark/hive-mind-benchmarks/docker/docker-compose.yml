@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  hive-mind-benchmark:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: hive-mind-benchmark-runner
+    environment:
+      - NODE_ENV=test
+      - PYTHON_ENV=test
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - BENCHMARK_PROFILE=${BENCHMARK_PROFILE:-quick}
+      - BENCHMARK_TIMEOUT_MINUTES=${BENCHMARK_TIMEOUT_MINUTES:-60}
+      - PARALLEL_WORKERS=${PARALLEL_WORKERS:-2}
+    volumes:
+      - benchmark-results:/app/benchmark-results
+      - benchmark-logs:/app/logs
+      - ../config:/app/config:ro
+      - ../scripts:/app/scripts:ro
+    networks:
+      - benchmark-network
+    mem_limit: 2g
+    cpu_count: 2
+    restart: unless-stopped
+    command: >
+      python3 scripts/automated_test_runner.py
+      --profile ${BENCHMARK_PROFILE:-quick}
+      --timeout ${BENCHMARK_TIMEOUT_MINUTES:-60}
+      --output-dir /app/benchmark-results
+
+  benchmark-monitor:
+    image: prom/prometheus:latest
+    container_name: benchmark-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - benchmark-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+
+  benchmark-dashboard:
+    image: grafana/grafana:latest
+    container_name: benchmark-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - benchmark-network
+    depends_on:
+      - benchmark-monitor
+
+  redis-cache:
+    image: redis:7-alpine
+    container_name: benchmark-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - benchmark-network
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+volumes:
+  benchmark-results:
+    driver: local
+  benchmark-logs:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  benchmark-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

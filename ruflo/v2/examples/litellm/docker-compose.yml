@@ -1,0 +1,288 @@
+version: '3.9'
+
+services:
+  # Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: litellm-lb
+    ports:
+      - "4000:80"
+      - "4443:443"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - litellm-1
+      - litellm-2
+      - litellm-3
+    networks:
+      - litellm-network
+    restart: unless-stopped
+
+  # LiteLLM Proxy Instances
+  litellm-1:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    container_name: litellm-proxy-1
+    environment:
+      - DATABASE_URL=postgresql://litellm:${DB_PASSWORD}@postgres:5432/litellm
+      - REDIS_URL=redis://redis:6379
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      - LITELLM_SALT_KEY=${LITELLM_SALT_KEY}
+      - LITELLM_LOG_LEVEL=INFO
+      - LITELLM_TELEMETRY=false
+      - PROMETHEUS_PORT=9090
+    volumes:
+      - ./config/config.yaml:/app/config.yaml:ro
+      - ./tenants:/app/tenants:ro
+      - litellm-logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - litellm-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  litellm-2:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    container_name: litellm-proxy-2
+    environment:
+      - DATABASE_URL=postgresql://litellm:${DB_PASSWORD}@postgres:5432/litellm
+      - REDIS_URL=redis://redis:6379
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      - LITELLM_SALT_KEY=${LITELLM_SALT_KEY}
+      - LITELLM_LOG_LEVEL=INFO
+      - LITELLM_TELEMETRY=false
+      - PROMETHEUS_PORT=9091
+    volumes:
+      - ./config/config.yaml:/app/config.yaml:ro
+      - ./tenants:/app/tenants:ro
+      - litellm-logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - litellm-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  litellm-3:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    container_name: litellm-proxy-3
+    environment:
+      - DATABASE_URL=postgresql://litellm:${DB_PASSWORD}@postgres:5432/litellm
+      - REDIS_URL=redis://redis:6379
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      - LITELLM_SALT_KEY=${LITELLM_SALT_KEY}
+      - LITELLM_LOG_LEVEL=INFO
+      - LITELLM_TELEMETRY=false
+      - PROMETHEUS_PORT=9092
+    volumes:
+      - ./config/config.yaml:/app/config.yaml:ro
+      - ./tenants:/app/tenants:ro
+      - litellm-logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - litellm-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: litellm-postgres
+    environment:
+      - POSTGRES_DB=litellm
+      - POSTGRES_USER=litellm
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - litellm-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: litellm-redis
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - litellm-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Prometheus for Metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: litellm-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - litellm-network
+    restart: unless-stopped
+
+  # Grafana for Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: litellm-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_INSTALL_PLUGINS=redis-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - litellm-network
+    restart: unless-stopped
+
+  # Loki for Log Aggregation
+  loki:
+    image: grafana/loki:latest
+    container_name: litellm-loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./config/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - litellm-network
+    restart: unless-stopped
+
+  # Promtail for Log Collection
+  promtail:
+    image: grafana/promtail:latest
+    container_name: litellm-promtail
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./config/promtail.yml:/etc/promtail/config.yml:ro
+      - litellm-logs:/var/log/litellm:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    depends_on:
+      - loki
+    networks:
+      - litellm-network
+    restart: unless-stopped
+
+  # PgAdmin for Database Management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: litellm-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@litellm.local}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - litellm-network
+    restart: unless-stopped
+    profiles:
+      - tools
+
+  # Ollama for Local Models (Optional)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: litellm-ollama
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - litellm-network
+    restart: unless-stopped
+    profiles:
+      - local-models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  loki-data:
+    driver: local
+  litellm-logs:
+    driver: local
+  pgadmin-data:
+    driver: local
+  ollama-data:
+    driver: local
+
+networks:
+  litellm-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16

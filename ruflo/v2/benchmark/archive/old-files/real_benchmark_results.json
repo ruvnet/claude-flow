@@ -1,0 +1,92 @@
+{
+  "timestamp": 1750179932.8374412,
+  "summary": {
+    "total_tests": 9,
+    "successful_tests": 2,
+    "failed_tests": 7,
+    "average_duration": 2.6278141604529486
+  },
+  "results": [
+    {
+      "description": "Version Check",
+      "command": "/workspaces/claude-code-flow/claude-flow --version",
+      "duration": 0.005857944488525391,
+      "success": true,
+      "stdout": "v1.0.70\n",
+      "stderr": "",
+      "return_code": 0
+    },
+    {
+      "description": "Help Command",
+      "command": "/workspaces/claude-code-flow/claude-flow --help",
+      "duration": 3.870547294616699,
+      "success": true,
+      "stdout": "\n\ud83e\udde0 Claude-Flow v1.0.70 - Advanced AI Agent Orchestration System\n\nUSAGE:\n  claude-flow <command> [options]\n\nINSTALLATION & SETUP:\n  npx claude-flow@latest init --sparc  # Initialize SPARC development environment\n  \n  The --sparc flag creates:\n  \u2022 .roomodes file with 17 pre-configured SPARC modes\n  \u2022 CLAUDE.md for project instructions\n  \u2022 Ready-to-use TDD and code generation environment\n\nKEY COMMANDS:\n  init [--sparc]                       Initialize project with Claude integration\n  start [--ui]                         Start orchestration (--ui for enhanced UI)\n  spawn <type> [--name <name>]         Create AI agent (alias for agent spawn)\n  agent spawn <type> [--name <name>]   Create AI agent (researcher, coder, analyst)\n  sparc <subcommand>                   SPARC-based development modes\n  memory <subcommand>                  Manage persistent memory\n  status                               Show system status\n\nCOMMAND CATEGORIES:\n  Core:         init, start, status, config\n  Agents:       agent, task, claude\n  Development:  sparc, memory, workflow\n  Infrastructure: mcp, terminal, session\n  Enterprise:   project, deploy, cloud, security, analytics\n\nQUICK START:\n  npx -y claude-flow@latest init --sparc # First-time setup with SPARC modes\n  ./claude-flow start --ui              # Interactive process management UI\n  ./claude-flow sparc modes             # List available development modes\n  ./claude-flow sparc \"build app\"       # Run SPARC orchestrator (default)\n  ./claude-flow sparc run code \"feature\" # Run specific mode (auto-coder)\n  ./claude-flow sparc tdd \"tests\"       # Run test-driven development\n  ./claude-flow memory store key \"data\"  # Store information\n  ./claude-flow status                  # Check system status\n\nGET DETAILED HELP:\n  claude-flow help <command>           # Show command-specific help\n  claude-flow <command> --help         # Alternative help syntax\n  \n  Examples:\n    claude-flow help sparc             # SPARC development commands\n    claude-flow help agent             # Agent management commands\n    claude-flow help memory            # Memory operations\n    claude-flow agent --help           # Agent subcommands\n\nCOMMON OPTIONS:\n  --verbose, -v                        Enable detailed output\n  --help                               Show command help\n  --config <path>                      Use custom config file\n\nDocumentation: https://github.com/ruvnet/claude-code-flow\n\nCreated by rUv - Built with \u2764\ufe0f for the Claude community\n\n\nRegistered Commands:\n  start       Start the orchestration system\n  agent       Manage agents (spawn, list, terminate, info)\n  task        Comprehensive task management with orchestration features\n  config      Manage configuration (show, get, set, init, validate)\n  status      Show system status\n  memory      Manage memory (query, export, import, stats, cleanup)\n  monitor     Monitor system in real-time\n  ui          UI and terminal compatibility tools\n  mcp         Manage MCP server and tools\n  session     Manage terminal sessions\n  mcp         Manage MCP server and tools\n  workflow    Execute workflow files\n  repl        Start interactive REPL mode\n  init        Initialize Claude-Flow project\n  spawn       Spawn a new agent (alias for agent spawn)\n  sparc       SPARC-based development commands with comprehensive mode support\n  claude      Claude API integration with conversation management and context optimization\n  project     Project management (Enterprise feature)\n  deploy      Deployment operations (Enterprise feature)\n  cloud       Cloud infrastructure management (Enterprise feature)\n  security    Security and compliance tools (Enterprise feature)\n  analytics   Analytics and insights (Enterprise feature)\n  swarm       Swarm-based AI agent coordination\n  help        Show help for a specific command\n\nUse \"claude-flow help <command>\" for detailed usage information\n",
+      "stderr": "",
+      "return_code": 0
+    },
+    {
+      "description": "Status Command (Non-Interactive)",
+      "command": "/workspaces/claude-code-flow/claude-flow status --non-interactive",
+      "duration": 2.821547746658325,
+      "success": false,
+      "stdout": "",
+      "stderr": "error: unknown option '--non-interactive'\n",
+      "return_code": 1
+    },
+    {
+      "description": "SPARC List Modes",
+      "command": "/workspaces/claude-code-flow/claude-flow sparc list --non-interactive",
+      "duration": 2.806483030319214,
+      "success": false,
+      "stdout": "",
+      "stderr": "error: unknown option '--non-interactive'\n",
+      "return_code": 1
+    },
+    {
+      "description": "SPARC Coder Mode",
+      "command": "/workspaces/claude-code-flow/claude-flow sparc coder Create a simple hello world function --non-interactive",
+      "duration": 2.8286101818084717,
+      "success": false,
+      "stdout": "",
+      "stderr": "error: unknown option '--non-interactive'\n",
+      "return_code": 1
+    },
+    {
+      "description": "SPARC Researcher Mode",
+      "command": "/workspaces/claude-code-flow/claude-flow sparc researcher Research best practices for Python testing --non-interactive",
+      "duration": 2.962684392929077,
+      "success": false,
+      "stdout": "",
+      "stderr": "error: unknown option '--non-interactive'\n",
+      "return_code": 1
+    },
+    {
+      "description": "Swarm Auto Strategy",
+      "command": "/workspaces/claude-code-flow/claude-flow swarm Create a basic calculator --strategy auto --non-interactive",
+      "duration": 2.847248077392578,
+      "success": false,
+      "stdout": "",
+      "stderr": "error: unknown option '--non-interactive'\n",
+      "return_code": 1
+    },
+    {
+      "description": "Swarm Research Strategy (Distributed)",
+      "command": "/workspaces/claude-code-flow/claude-flow swarm Research cloud computing trends --strategy research --mode distributed --non-interactive",
+      "duration": 2.749251127243042,
+      "success": false,
+      "stdout": "",
+      "stderr": "error: unknown option '--non-interactive'\n",
+      "return_code": 1
+    },
+    {
+      "description": "Swarm Development Strategy (Hierarchical)",
+      "command": "/workspaces/claude-code-flow/claude-flow swarm Build a REST API endpoint --strategy development --mode hierarchical --non-interactive",
+      "duration": 2.7580976486206055,
+      "success": false,
+      "stdout": "",
+      "stderr": "error: unknown option '--non-interactive'\n",
+      "return_code": 1
+    }
+  ]
+}

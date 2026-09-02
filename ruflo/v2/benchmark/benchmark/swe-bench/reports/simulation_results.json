@@ -1,0 +1,175 @@
+{
+  "results": [
+    {
+      "success_rate": 0.7966448348373448,
+      "avg_duration": 19.64843749812106,
+      "total_tasks": 10,
+      "successful_tasks": 7,
+      "config": "hierarchical-development-5agents",
+      "mode": "hierarchical",
+      "strategy": "development",
+      "agents": 5,
+      "timestamp": "2025-08-07T13:50:29.931839",
+      "combined_score": 0.7418701344086887
+    },
+    {
+      "success_rate": 0.8189537451005793,
+      "avg_duration": 17.890137480957186,
+      "total_tasks": 10,
+      "successful_tasks": 8,
+      "config": "mesh-development-5agents",
+      "mode": "mesh",
+      "strategy": "development",
+      "agents": 5,
+      "timestamp": "2025-08-07T13:50:31.857468",
+      "combined_score": 0.7785859717989192
+    },
+    {
+      "success_rate": 0.705727513716307,
+      "avg_duration": 17.388630256468275,
+      "total_tasks": 10,
+      "successful_tasks": 7,
+      "config": "distributed-development-5agents",
+      "mode": "distributed",
+      "strategy": "development",
+      "agents": 5,
+      "timestamp": "2025-08-07T13:50:33.755665",
+      "combined_score": 0.7053456965237956
+    },
+    {
+      "success_rate": 0.8969780451664854,
+      "avg_duration": 17.188593965963754,
+      "total_tasks": 10,
+      "successful_tasks": 8,
+      "config": "hierarchical-optimization-5agents",
+      "mode": "hierarchical",
+      "strategy": "optimization",
+      "agents": 5,
+      "timestamp": "2025-08-07T13:50:35.907569",
+      "combined_score": 0.8416215040249747
+    },
+    {
+      "success_rate": 0.6767213453554187,
+      "avg_duration": 15.36415683529688,
+      "total_tasks": 10,
+      "successful_tasks": 6,
+      "config": "hierarchical-testing-5agents",
+      "mode": "hierarchical",
+      "strategy": "testing",
+      "agents": 5,
+      "timestamp": "2025-08-07T13:50:37.878489",
+      "combined_score": 0.7093350597252305
+    },
+    {
+      "success_rate": 0.7220796373711298,
+      "avg_duration": 21.687708131756537,
+      "total_tasks": 10,
+      "successful_tasks": 7,
+      "config": "hierarchical-development-3agents",
+      "mode": "hierarchical",
+      "strategy": "development",
+      "agents": 3,
+      "timestamp": "2025-08-07T13:50:39.915437",
+      "combined_score": 0.6652032485787124
+    },
+    {
+      "success_rate": 0.8738077421834156,
+      "avg_duration": 12.948986438307163,
+      "total_tasks": 10,
+      "successful_tasks": 8,
+      "config": "hierarchical-development-8agents",
+      "mode": "hierarchical",
+      "strategy": "development",
+      "agents": 8,
+      "timestamp": "2025-08-07T13:50:41.880294",
+      "combined_score": 0.876277582268705
+    },
+    {
+      "success_rate": 0.9768944957348785,
+      "avg_duration": 11.144243414891204,
+      "total_tasks": 10,
+      "successful_tasks": 9,
+      "config": "mesh-optimization-8agents",
+      "mode": "mesh",
+      "strategy": "optimization",
+      "agents": 8,
+      "timestamp": "2025-08-07T13:50:44.085520",
+      "combined_score": 0.9700952260357205
+    },
+    {
+      "success_rate": 0.5127671143223428,
+      "avg_duration": 21.591813870123943,
+      "total_tasks": 10,
+      "successful_tasks": 5,
+      "config": "distributed-testing-3agents",
+      "mode": "distributed",
+      "strategy": "testing",
+      "agents": 3,
+      "timestamp": "2025-08-07T13:50:45.997725",
+      "combined_score": 0.5198352135841526
+    },
+    {
+      "success_rate": 0.9396752997274892,
+      "avg_duration": 11.61611865331854,
+      "total_tasks": 10,
+      "successful_tasks": 9,
+      "config": "mesh-optimization-10agents",
+      "mode": "mesh",
+      "strategy": "optimization",
+      "agents": 10,
+      "timestamp": "2025-08-07T13:50:47.832844",
+      "combined_score": 0.9383792859694199
+    }
+  ],
+  "optimal": {
+    "success_rate": 0.9768944957348785,
+    "avg_duration": 11.144243414891204,
+    "total_tasks": 10,
+    "successful_tasks": 9,
+    "config": "mesh-optimization-8agents",
+    "mode": "mesh",
+    "strategy": "optimization",
+    "agents": 8,
+    "timestamp": "2025-08-07T13:50:44.085520",
+    "combined_score": 0.9700952260357205
+  },
+  "top3": [
+    {
+      "success_rate": 0.9768944957348785,
+      "avg_duration": 11.144243414891204,
+      "total_tasks": 10,
+      "successful_tasks": 9,
+      "config": "mesh-optimization-8agents",
+      "mode": "mesh",
+      "strategy": "optimization",
+      "agents": 8,
+      "timestamp": "2025-08-07T13:50:44.085520",
+      "combined_score": 0.9700952260357205
+    },
+    {
+      "success_rate": 0.9396752997274892,
+      "avg_duration": 11.61611865331854,
+      "total_tasks": 10,
+      "successful_tasks": 9,
+      "config": "mesh-optimization-10agents",
+      "mode": "mesh",
+      "strategy": "optimization",
+      "agents": 10,
+      "timestamp": "2025-08-07T13:50:47.832844",
+      "combined_score": 0.9383792859694199
+    },
+    {
+      "success_rate": 0.8738077421834156,
+      "avg_duration": 12.948986438307163,
+      "total_tasks": 10,
+      "successful_tasks": 8,
+      "config": "hierarchical-development-8agents",
+      "mode": "hierarchical",
+      "strategy": "development",
+      "agents": 8,
+      "timestamp": "2025-08-07T13:50:41.880294",
+      "combined_score": 0.876277582268705
+    }
+  ],
+  "timestamp": "2025-08-07T13:50:50.964522"
+}
