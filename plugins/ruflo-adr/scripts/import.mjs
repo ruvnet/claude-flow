@@ -139,28 +139,29 @@ const result = {
 
 if (fmt === 'json') {
   console.log(JSON.stringify(result, null, 2));
-  process.exit(0);
+} else {
+  console.log('## ADR Index Summary');
+  console.log('');
+  console.log(`Total ADRs: **${result.total}** across ${result.sourceDirs} source dirs (root: ${ROOT})`);
+  console.log(`Records stored to \`adr-patterns\`: ${result.storedRecords}/${result.total}${dryRun ? ' (dry-run, skipped)' : ''}`);
+  console.log(`Edges stored to \`adr-edges\`: ${result.storedEdges}/${result.edges}${dryRun ? ' (dry-run, skipped)' : ''}`);
+  console.log('');
+  console.log('### By status');
+  for (const [k, n] of Object.entries(byStatus).sort((a, b) => b[1] - a[1])) console.log(`- ${k}: ${n}`);
+  console.log('');
+  console.log(`### Relationships: **${result.edges}** edges`);
+  for (const [k, n] of Object.entries(byRelation).sort((a, b) => b[1] - a[1])) console.log(`- ${k}: ${n}`);
+  console.log('');
+  console.log('### Issues found');
+  console.log(`- Dangling refs (edge → non-existent ADR): ${danglingRefs.length}`);
+  for (const d of danglingRefs.slice(0, 10)) console.log(`  - ${d.relation} ${d.from} → ${d.to} (missing)`);
+  console.log(`- Status mismatches (superseded but not marked): ${statusMismatches.length}`);
+  for (const m of statusMismatches.slice(0, 10)) console.log(`  - ${m.id} status='${m.status}' (${m.file})`);
+  console.log(`- Storage errors: ${errors.length}`);
+  for (const e of errors.slice(0, 5)) console.log(`  - ${e}`);
+  console.log('');
+  console.log('### Source breakdown');
+  for (const [s, n] of Object.entries(bySource).sort((a, b) => b[1] - a[1]).slice(0, 12)) console.log(`- ${s}: ${n}`);
 }
 
-console.log('## ADR Index Summary');
-console.log('');
-console.log(`Total ADRs: **${result.total}** across ${result.sourceDirs} source dirs (root: ${ROOT})`);
-console.log(`Records stored to \`adr-patterns\`: ${result.storedRecords}/${result.total}${dryRun ? ' (dry-run, skipped)' : ''}`);
-console.log(`Edges stored to \`adr-edges\`: ${result.storedEdges}/${result.edges}${dryRun ? ' (dry-run, skipped)' : ''}`);
-console.log('');
-console.log('### By status');
-for (const [k, n] of Object.entries(byStatus).sort((a, b) => b[1] - a[1])) console.log(`- ${k}: ${n}`);
-console.log('');
-console.log(`### Relationships: **${result.edges}** edges`);
-for (const [k, n] of Object.entries(byRelation).sort((a, b) => b[1] - a[1])) console.log(`- ${k}: ${n}`);
-console.log('');
-console.log('### Issues found');
-console.log(`- Dangling refs (edge → non-existent ADR): ${danglingRefs.length}`);
-for (const d of danglingRefs.slice(0, 10)) console.log(`  - ${d.relation} ${d.from} → ${d.to} (missing)`);
-console.log(`- Status mismatches (superseded but not marked): ${statusMismatches.length}`);
-for (const m of statusMismatches.slice(0, 10)) console.log(`  - ${m.id} status='${m.status}' (${m.file})`);
-console.log(`- Storage errors: ${errors.length}`);
-for (const e of errors.slice(0, 5)) console.log(`  - ${e}`);
-console.log('');
-console.log('### Source breakdown');
-for (const [s, n] of Object.entries(bySource).sort((a, b) => b[1] - a[1]).slice(0, 12)) console.log(`- ${s}: ${n}`);
+process.exitCode = errors.length > 0 ? 1 : 0;
