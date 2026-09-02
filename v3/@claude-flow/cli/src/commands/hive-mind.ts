@@ -371,6 +371,13 @@ async function spawnClaudeCodeInstance(
         }
       });
 
+
+      if (!claudeProcess || claudeProcess.killed || claudeProcess.exitCode !== null) {
+      output.writeLine();
+      output.printError('Failed to launch Claude Code');
+      return { success: false, promptFile };
+      }
+
       output.writeln();
       output.printSuccess('Claude Code launched with Hive Mind coordination');
       output.printInfo('The Queen coordinator will orchestrate all worker agents');
