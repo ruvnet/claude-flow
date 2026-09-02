@@ -1200,11 +1200,17 @@ export class PrimeRadiantPlugin implements IPlugin {
         // Store metrics
         if (context.has('memory')) {
           const memory = context.get<{
-            store: (entry: { namespace: string; key: string; content: string }) => Promise<void>;
+            store: (entry: {
+              namespace: string;
+              key: string;
+              content: string;
+              provenance_type: 'system_observation';
+            }) => Promise<void>;
           }>('memory');
           await memory.store({
             namespace: 'pr/stability-metrics',
             key: `task-${task.taskId}`,
+            provenance_type: 'system_observation',
             content: JSON.stringify({
               taskId: task.taskId,
               stable: spectral.stable,

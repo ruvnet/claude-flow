@@ -41,9 +41,17 @@ interface NamespaceConfig {
   schema?: Record<string, { type: string; index?: boolean }>;
 }
 
+type MemoryProvenanceType =
+  | 'user_claim'
+  | 'agent_output'
+  | 'system_observation'
+  | 'tool_result'
+  | 'unknown';
+
 interface StoreEntry {
   namespace: string;
   content: string;
+  provenance_type: MemoryProvenanceType;
   embedding?: Float32Array;
   metadata?: Record<string, unknown>;
   type?: string;
@@ -214,6 +222,7 @@ export class QEMemoryBridge implements IQEMemoryBridge {
           usageCount: pattern.usageCount,
           tags: pattern.tags,
         },
+        provenance_type: 'agent_output',
         type: 'semantic',
       });
 
@@ -293,6 +302,7 @@ export class QEMemoryBridge implements IQEMemoryBridge {
           startLine: gap.location.startLine,
           endLine: gap.location.endLine,
         },
+        provenance_type: 'tool_result',
         type: 'episodic',
         ttl: QE_NAMESPACES.coverageData.ttl,
       });
@@ -402,6 +412,7 @@ export class QEMemoryBridge implements IQEMemoryBridge {
           stepCount: trajectory.steps.length,
           durationMs: trajectory.durationMs,
         },
+        provenance_type: 'system_observation',
         type: 'procedural',
       });
 

@@ -1,0 +1,86 @@
+name: Plugin memory provenance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'v3/plugins/**/src/**'
+      - 'v3/plugins/agentic-qe/__tests__/memory-provenance.test.ts'
+      - 'v3/plugins/prime-radiant/__tests__/memory-provenance.test.ts'
+      - 'v3/plugins/agentic-qe/package.json'
+      - 'v3/plugins/prime-radiant/package.json'
+      - 'v3/scripts/audit-plugin-memory-provenance.mjs'
+      - 'v3/scripts/__tests__/audit-plugin-memory-provenance.test.mjs'
+      - 'v3/package.json'
+      - 'v3/pnpm-lock.yaml'
+      - '.github/workflows/plugin-memory-provenance.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'v3/plugins/**/src/**'
+      - 'v3/plugins/agentic-qe/__tests__/memory-provenance.test.ts'
+      - 'v3/plugins/prime-radiant/__tests__/memory-provenance.test.ts'
+      - 'v3/plugins/agentic-qe/package.json'
+      - 'v3/plugins/prime-radiant/package.json'
+      - 'v3/scripts/audit-plugin-memory-provenance.mjs'
+      - 'v3/scripts/__tests__/audit-plugin-memory-provenance.test.mjs'
+      - 'v3/package.json'
+      - 'v3/pnpm-lock.yaml'
+      - '.github/workflows/plugin-memory-provenance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provenance-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: v3/pnpm-lock.yaml
+
+      - name: Install V3 dependencies
+        working-directory: v3
+        run: pnpm install --frozen-lockfile
+
+      - name: Test provenance audit
+        working-directory: v3
+        run: node --test scripts/__tests__/audit-plugin-memory-provenance.test.mjs
+
+      - name: Audit plugin memory writes
+        working-directory: v3
+        run: node scripts/audit-plugin-memory-provenance.mjs
+
+      - name: Install Agentic-QE dependencies
+        working-directory: v3/plugins/agentic-qe
+        run: npm install --ignore-scripts --no-audit --no-fund --no-package-lock
+
+      - name: Test Agentic-QE provenance
+        working-directory: v3/plugins/agentic-qe
+        run: npm exec vitest -- run __tests__/memory-provenance.test.ts
+
+      - name: Type-check Agentic-QE
+        working-directory: v3/plugins/agentic-qe
+        run: npm run type-check
+
+      - name: Install Prime Radiant dependencies
+        working-directory: v3/plugins/prime-radiant
+        run: npm install --ignore-scripts --no-audit --no-fund --no-package-lock
+
+      - name: Test Prime Radiant provenance
+        working-directory: v3/plugins/prime-radiant
+        run: npm exec vitest -- run __tests__/memory-provenance.test.ts
+
+      - name: Type-check Prime Radiant
+        working-directory: v3/plugins/prime-radiant
+        run: npm run typecheck
