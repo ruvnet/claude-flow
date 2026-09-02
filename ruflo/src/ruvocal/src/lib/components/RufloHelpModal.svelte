@@ -21,11 +21,11 @@
 
 	const models: ModelInfo[] = [
 		{
-			name: "Claude Haiku 4.5",
-			provider: "Anthropic",
-			strength: "Fast, cheap, reliable tool-calling",
-			notes: "Default. Best price/perf for routine MCP tool flows.",
-			isDefault: true,
+  			name: "Claude Sonnet 4.6",
+  			provider: "Anthropic",
+  			strength: "Best general reasoning + long-horizon work",
+  			notes: "Default. Best default for complex workflows and multi-step MCP tasks.",
+  			isDefault: true,
 		},
 		{
 			name: "Claude Sonnet 4.6",
