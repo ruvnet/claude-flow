@@ -51,7 +51,13 @@ function createMockBackend(): IMemoryBackend & { storedEntries: MemoryEntry[] } 
       storedEntries.push(entry);
     }),
     get: vi.fn().mockResolvedValue(null),
-    getByKey: vi.fn().mockResolvedValue(null),
+    // Mirrors the real backend's keyIndex lookup (agentdb-backend.ts) so tests
+    // that store() a full entry and then look it up by its `key` (as
+    // AutoMemoryBridge does — see resolveConsolidationReward's id/key note)
+    // exercise the real distinction between `entry.id` and `entry.key`.
+    getByKey: vi.fn().mockImplementation(async (namespace: string, key: string) => {
+      return storedEntries.find((e) => e.namespace === namespace && e.key === key) ?? null;
+    }),
     update: vi.fn().mockImplementation(async (id: string, upd: MemoryEntryUpdate) => {
       const entry = storedEntries.find(e => e.id === id);
       if (!entry) return null;
@@ -440,6 +446,115 @@ describe('LearningBridge', () => {
 
       const result = await bridge.consolidate();
       expect(result.trajectoriesCompleted).toBe(9);
+    });
+
+    function createLowThresholdBridge(threshold = 1) {
+      return new LearningBridge(backend, {
+        consolidationThreshold: threshold,
+        neuralLoader: createNeuralLoader(neural),
+      });
+    }
+
+    // These reproduce the real AutoMemoryBridge flow: the backend entry's
+    // internal `id` (a UUID) is DIFFERENT from the human-readable `key` it
+    // was stored under, and it is the `key` — not the `id` — that flows
+    // into onInsightRecorded/activeTrajectories/consolidate as "entryId".
+    // Storing via backend.store() and looking up via the real getByKey
+    // mock (keyed by namespace+key, not id) proves the fix resolves reward
+    // through the correct index rather than merely satisfying a mock that
+    // doesn't distinguish id from key.
+    it('should pass the entry\'s current confidence as the completion reward, looked up by key (not id)', async () => {
+      const lowThresholdBridge = createLowThresholdBridge();
+      const entry = createTestEntry({
+        id: 'uuid-independent-of-key',
+        key: 'insight:debugging:1:0',
+        metadata: { confidence: 0.42 },
+      });
+      await backend.store(entry);
+      neural.beginTask.mockReturnValueOnce('traj-0');
+      await lowThresholdBridge.onInsightRecorded(createTestInsight(), entry.key);
+
+      await lowThresholdBridge.consolidate();
+
+      expect(backend.getByKey).toHaveBeenCalledWith('learnings', entry.key);
+      expect(neural.completeTask).toHaveBeenCalledWith('traj-0', 0.42);
+      lowThresholdBridge.destroy();
+    });
+
+    it('should differentiate reward per trajectory based on each entry\'s confidence', async () => {
+      const lowThresholdBridge = createLowThresholdBridge(2);
+      const entryA = createTestEntry({ id: 'uuid-a', key: 'insight:a:1:0', metadata: { confidence: 0.9 } });
+      const entryB = createTestEntry({ id: 'uuid-b', key: 'insight:b:2:1', metadata: { confidence: 0.2 } });
+      await backend.store(entryA);
+      await backend.store(entryB);
+      neural.beginTask.mockReturnValueOnce('traj-0').mockReturnValueOnce('traj-1');
+      await lowThresholdBridge.onInsightRecorded(createTestInsight(), entryA.key);
+      await lowThresholdBridge.onInsightRecorded(createTestInsight({ summary: 'S2' }), entryB.key);
+
+      await lowThresholdBridge.consolidate();
+
+      expect(neural.completeTask).toHaveBeenCalledWith('traj-0', 0.9);
+      expect(neural.completeTask).toHaveBeenCalledWith('traj-1', 0.2);
+      lowThresholdBridge.destroy();
+    });
+
+    it('should fall back to reward=1.0 when no entry was ever stored under that key (unchanged prior behavior)', async () => {
+      const lowThresholdBridge = createLowThresholdBridge();
+      neural.beginTask.mockReturnValueOnce('traj-0');
+      await lowThresholdBridge.onInsightRecorded(createTestInsight(), 'insight:never-stored:1:0');
+
+      const result = await lowThresholdBridge.consolidate();
+
+      expect(neural.completeTask).toHaveBeenCalledWith('traj-0', 1.0);
+      expect(result.trajectoriesCompleted).toBe(1);
+      expect(result.patternsLearned).toBe(1);
+      lowThresholdBridge.destroy();
+    });
+
+    it('should fall back to reward=1.0 when the stored entry lacks numeric confidence', async () => {
+      const lowThresholdBridge = createLowThresholdBridge();
+      const entry = createTestEntry({ id: 'uuid-c', key: 'insight:c:1:0', metadata: {} });
+      await backend.store(entry);
+      neural.beginTask.mockReturnValueOnce('traj-0');
+      await lowThresholdBridge.onInsightRecorded(createTestInsight(), entry.key);
+
+      await lowThresholdBridge.consolidate();
+
+      expect(neural.completeTask).toHaveBeenCalledWith('traj-0', 1.0);
+      lowThresholdBridge.destroy();
+    });
+
+    it('should fall back to reward=1.0 when the backend lookup throws', async () => {
+      const lowThresholdBridge = createLowThresholdBridge();
+      neural.beginTask.mockReturnValueOnce('traj-0');
+      await lowThresholdBridge.onInsightRecorded(createTestInsight(), 'insight:d:1:0');
+      (backend.getByKey as any).mockRejectedValueOnce(new Error('DB unavailable'));
+
+      const result = await lowThresholdBridge.consolidate();
+
+      expect(neural.completeTask).toHaveBeenCalledWith('traj-0', 1.0);
+      expect(result.trajectoriesCompleted).toBe(1);
+      lowThresholdBridge.destroy();
+    });
+
+    it('should respect a custom insightNamespace when resolving reward', async () => {
+      const customNsBridge = new LearningBridge(backend, {
+        consolidationThreshold: 1,
+        insightNamespace: 'custom-ns',
+        neuralLoader: createNeuralLoader(neural),
+      });
+      const entry = createTestEntry({
+        id: 'uuid-e', key: 'insight:e:1:0', namespace: 'custom-ns', metadata: { confidence: 0.77 },
+      });
+      await backend.store(entry);
+      neural.beginTask.mockReturnValueOnce('traj-0');
+      await customNsBridge.onInsightRecorded(createTestInsight(), entry.key);
+
+      await customNsBridge.consolidate();
+
+      expect(backend.getByKey).toHaveBeenCalledWith('custom-ns', entry.key);
+      expect(neural.completeTask).toHaveBeenCalledWith('traj-0', 0.77);
+      customNsBridge.destroy();
     });
 
     it('should respect custom consolidationThreshold', async () => {
