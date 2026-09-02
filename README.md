@@ -135,6 +135,44 @@ This adds slash commands and agent definitions. `ruflo-core` (installed above) d
 | [**ruflo-metaharness**](plugins/ruflo-metaharness/README.md) | Grade your agent setup, scan tool configs for security risks, and track changes over time ([guide](docs/metaharness-user-guide.md)) |
 | [**ruflo-arena**](plugins/ruflo-arena/README.md) | Competitive ruliology — pit agent strategies against each other in tournaments, hill-climb and co-evolve the winners (ADR-147/148) |
 
+## AgentDB / RAG behavior
+
+### Automatic ingestion
+Agents automatically ingest project context into AgentDB through:
+
+- SessionStart hooks
+- auto-memory import
+- post-task trajectory capture
+
+This keeps AgentDB updated without requiring manual vector-store prompts.
+
+### Retrieval flow
+Agents retrieve context through:
+
+- `memory_search_unified`
+- AgentDB vector search
+- Claude memory + AgentDB merged retrieval
+
+This allows semantic retrieval before file search or edit decisions.
+
+### Tracking / audit
+RAG usage can be inspected through:
+
+- `memory_bridge_status`
+- statusline memory indicators
+- auto-memory hook status output
+
+This makes AgentDB usage visible and debuggable.
+
+### What gets stored
+AgentDB stores:
+
+- Claude auto-memory entries
+- task trajectories
+- routing decisions
+- learned execution patterns
+- ONNX vector embeddings for semantic search
+
 #### DevOps & Observability
 
 | Plugin | What it does |

@@ -46,6 +46,44 @@ V3 represents a complete architectural overhaul:
 | Flash Attention | 2.49x-7.47x | Validated |
 | AgentDB Search | 150x-12,500x | HNSW indexed |
 
+## AgentDB / RAG behavior
+
+### Automatic ingestion
+Agents automatically ingest project context into AgentDB through:
+
+- SessionStart hooks
+- auto-memory import
+- post-task trajectory capture
+
+This keeps AgentDB updated without requiring manual vector-store prompts.
+
+### Retrieval flow
+Agents retrieve context through:
+
+- `memory_search_unified`
+- AgentDB vector search
+- Claude memory + AgentDB merged retrieval
+
+This allows semantic retrieval before file search or edit decisions.
+
+### Tracking / audit
+RAG usage can be inspected through:
+
+- `memory_bridge_status`
+- statusline memory indicators
+- auto-memory hook status output
+
+This makes AgentDB usage visible and debuggable.
+
+### What gets stored
+AgentDB stores:
+
+- Claude auto-memory entries
+- task trajectories
+- routing decisions
+- learned execution patterns
+- ONNX vector embeddings for semantic search
+
 ## Architecture
 
 ### Architecture Decision Records (ADRs)
