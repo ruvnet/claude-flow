@@ -1438,14 +1438,33 @@ export async function checkAndMigrateLegacy(options: {
  * (ReasoningBank, SkillLibrary, ExplainableRecall, etc.) are instantiated.
  *
  * Uses the memory-bridge's getControllerRegistry() which lazily creates
- * a singleton ControllerRegistry and initializes it with the given dbPath.
- * After this call, all enabled controllers are ready for immediate use.
+ * a singleton ControllerRegistry. Deliberately called with NO dbPath so the
+ * bridge resolves its own dedicated file via `getAgentDbPath()` — the same
+ * resolution every other bridge call (bridgeStoreEntry, bridgeGetEntry, ...)
+ * uses when it omits `dbPath`. After this call, all enabled controllers are
+ * ready for immediate use.
  *
- * Failures are isolated: if @claude-flow/memory or agentdb is not installed,
- * this returns an empty result without throwing.
+ * #3155: this used to be called with the sql.js-facing `memory.db` path
+ * (the one just written by the block above, via `resolveDbPath()`), which
+ * seeded the process-wide ControllerRegistry singleton with THAT file as
+ * AgentDB's native better-sqlite3 database — instead of the dedicated
+ * `agentdb-memory.db` sibling `getAgentDbPath()` exists specifically to
+ * provide (#2786, so native better-sqlite3 doesn't hit a possibly-encrypted
+ * `memory.db`). Because `initializeMemoryDatabase()` only reaches this call
+ * on a database's FIRST-EVER init (the `#1791.6` already-exists branch above
+ * returns early without activating anything), a bridge started against a
+ * brand-new `.swarm/` directory would activate the registry against
+ * `memory.db`, store/retrieve correctly for that process's lifetime, and
+ * then a SUBSEQUENT process — where `.swarm/memory.db` already exists so
+ * this init path is skipped — would have its first bridge call activate the
+ * registry against `agentdb-memory.db` instead (via the `dbPath ||
+ * getAgentDbPath()` fallback in memory-bridge.ts's `getRegistry()`), an
+ * empty file that never received the earlier writes. Restarting the bridge
+ * therefore silently lost read access to everything it had written, with no
+ * error anywhere. Passing no dbPath here makes both code paths agree on
+ * `agentdb-memory.db` every time, regardless of init history.
  */
 async function activateControllerRegistry(
-  dbPath: string,
   verbose?: boolean,
 ): Promise<{ activated: string[]; failed: string[]; initTimeMs: number }> {
   const startTime = performance.now();
@@ -1458,7 +1477,7 @@ async function activateControllerRegistry(
       return { activated, failed, initTimeMs: performance.now() - startTime };
     }
 
-    const registry = await bridge.getControllerRegistry(dbPath);
+    const registry = await bridge.getControllerRegistry();
     if (!registry) {
       return { activated, failed, initTimeMs: performance.now() - startTime };
     }
@@ -1915,7 +1934,7 @@ export async function initializeMemoryDatabase(options: {
 
       // ADR-053: Activate ControllerRegistry so controllers (ReasoningBank,
       // SkillLibrary, ExplainableRecall, etc.) are instantiated during init
-      const controllerResult = await activateControllerRegistry(dbPath, verbose);
+      const controllerResult = await activateControllerRegistry(verbose);
 
       return {
         success: true,
@@ -1978,7 +1997,7 @@ export async function initializeMemoryDatabase(options: {
       writeFileRestricted(dbPath, sqliteHeader, { encrypt: true });
 
       // ADR-053: Activate ControllerRegistry even on fallback path
-      const controllerResult = await activateControllerRegistry(dbPath, verbose);
+      const controllerResult = await activateControllerRegistry(verbose);
 
       return {
         success: true,
