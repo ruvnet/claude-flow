@@ -541,7 +541,15 @@ export class ControllerRegistry extends EventEmitter {
         return;
       }
 
-      this.agentdb = new AgentDBClass({ dbPath });
+      // Pass embedding config so AgentDB uses the correct model, not its own default
+      const embCfg = typeof agentdbModule.getEmbeddingConfig === 'function'
+        ? agentdbModule.getEmbeddingConfig()
+        : { model: undefined, dimension: undefined };
+      this.agentdb = new AgentDBClass({
+        dbPath,
+        embeddingModel: embCfg.model,
+        dimension: embCfg.dimension,
+      });
 
       // Suppress agentdb's noisy info-level output during init
       // using stderr redirect instead of monkey-patching console.log
