@@ -372,6 +372,13 @@ User --> Claude Code / CLI
 
 ---
 
+## Roadmap & ADR Tracking
+
+Planning and architecture tracking for the v3.6 cycle is documented here:
+
+- Roadmap: `docs/roadmap/v3.6-roadmap.md`
+- ADR Index: `docs/adr/README.md`
+
 ## Documentation
 
 Four docs for four audiences:
