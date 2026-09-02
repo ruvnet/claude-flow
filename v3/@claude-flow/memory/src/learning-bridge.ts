@@ -40,6 +40,15 @@ export interface LearningBridgeConfig {
   /** Enable the bridge (default: true). When false all methods are no-ops */
   enabled?: boolean;
   /**
+   * Namespace insights are stored under by the caller (default: 'learnings',
+   * matching AutoMemoryBridge.storeInsightInAgentDB). Entry IDs passed into
+   * this bridge (onInsightRecorded/onInsightAccessed/consolidate) are the
+   * human-readable `key` the caller stored the entry under, not the backend's
+   * internal `entry.id` — so lookups must go through getByKey(namespace, key)
+   * rather than get(id).
+   */
+  insightNamespace?: string;
+  /**
    * Optional factory for the neural learning system.
    * When provided, this replaces the default dynamic import of @claude-flow/neural.
    * Primarily used for testing.
@@ -90,6 +99,7 @@ const DEFAULT_CONFIG: ResolvedConfig = {
   ewcLambda: 2000,
   consolidationThreshold: 10,
   enabled: true,
+  insightNamespace: 'learnings',
 };
 
 const MS_PER_HOUR = 3_600_000;
@@ -229,7 +239,8 @@ export class LearningBridge extends EventEmitter {
     const entries = Array.from(this.activeTrajectories.entries());
     for (const [entryId, trajectoryId] of entries) {
       try {
-        await this.neural.completeTask(trajectoryId, 1.0);
+        const reward = await this.resolveConsolidationReward(entryId);
+        await this.neural.completeTask(trajectoryId, reward);
         completed++;
         patternsLearned++;
         toRemove.push(entryId);
@@ -414,6 +425,33 @@ export class LearningBridge extends EventEmitter {
       // @claude-flow/neural not installed or failed to initialize.
       // This is expected in many environments; degrade silently.
       this.neural = null;
+    }
+  }
+
+  /**
+   * Resolve the reward to report to the neural system when a trajectory
+   * completes. Uses the insight's current confidence (as tracked in
+   * backend metadata, which reflects access boosts and time decay) so the
+   * completion signal reflects how the insight actually turned out rather
+   * than an unconditional constant. Falls back to 1.0 — the prior hardcoded
+   * value — when the entry is missing or lacks a numeric confidence, so
+   * that case's behavior is unchanged.
+   *
+   * `entryId` here is the caller-assigned `key` an insight was stored
+   * under (e.g. AutoMemoryBridge.storeInsightInAgentDB), not the backend's
+   * internal `entry.id` — the two are generated independently
+   * (types.ts:createDefaultEntry always mints its own id). Looking this up
+   * with `backend.get(entryId)` would silently miss in production and
+   * always fall through to the 1.0 default, so this must go through
+   * getByKey(namespace, key) instead.
+   */
+  private async resolveConsolidationReward(entryId: string): Promise<number> {
+    try {
+      const entry = await this.backend.getByKey(this.config.insightNamespace, entryId);
+      const confidence = entry?.metadata?.confidence;
+      return typeof confidence === 'number' ? confidence : 1.0;
+    } catch {
+      return 1.0;
     }
   }
 
