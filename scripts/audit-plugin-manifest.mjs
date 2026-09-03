@@ -11,6 +11,7 @@
 //     but not that it has a value).
 //   - A new plugin authored without ANY plugin.json (no smoke means no
 //     coverage at all).
+//   - Oversized, deeply nested, or prototype-polluting JSON structures.
 //
 // USAGE
 //   node scripts/audit-plugin-manifest.mjs                 # all plugins
@@ -18,24 +19,31 @@
 //   node scripts/audit-plugin-manifest.mjs --only ruflo-cost-tracker
 //
 // CHECKS per plugins/<name>/.claude-plugin/plugin.json
-//   1. File exists and parses as JSON.
-//   2. Required fields present and non-empty: name / version / description.
-//   3. version matches semver (N.N.N optionally with +/- suffix).
-//   4. name matches the enclosing directory name (drift after rename).
-//   5. keywords is an array (may be empty, but must be present).
+//   1. File exists, is size-bounded, and parses as JSON.
+//   2. Root is a plain object with bounded depth and collection sizes.
+//   3. Reserved prototype-pollution keys are rejected at every depth.
+//   4. Required fields present and non-empty: name / version / description.
+//   5. version matches semver (N.N.N optionally with +/- suffix).
+//   6. name matches the enclosing directory name (drift after rename).
+//   7. keywords is an array (may be empty, but must be present).
 //
 // EXIT CODES
 //   0  all manifests clean
 //   1  at least one violation
 //   2  scan error (no plugins dir)
 
-import { readdirSync, statSync, readFileSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  parseUntrustedJsonFile,
+  UntrustedJsonError,
+} from './lib/parse-untrusted-json.mjs';
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = dirname(SCRIPTS_DIR);
 const PLUGINS_DIR = join(REPO_ROOT, 'plugins');
+const MAX_MANIFEST_BYTES = 1_048_576;
 
 const ARGS = (() => {
   const a = { format: 'table', only: null };
@@ -75,18 +83,32 @@ function discoverManifests() {
   return out.sort((a, b) => a.plugin.localeCompare(b.plugin));
 }
 
+function jsonViolationCheck(error) {
+  if (!(error instanceof UntrustedJsonError)) return 'safe JSON structure';
+  if (error.code === 'READ_ERROR' || error.code === 'NOT_A_FILE') return 'readable';
+  if (error.code === 'INVALID_JSON') return 'valid JSON';
+  if (error.code === 'FILE_SIZE_LIMIT') return 'file size limit';
+  return 'safe JSON structure';
+}
+
 function auditManifest(entry) {
   const violations = [];
-  let raw;
-  try { raw = readFileSync(entry.path, 'utf-8'); }
-  catch (e) {
-    violations.push({ check: 'readable', detail: e.message });
-    return violations;
-  }
   let json;
-  try { json = JSON.parse(raw); }
-  catch (e) {
-    violations.push({ check: 'valid JSON', detail: e.message.slice(0, 120) });
+  try {
+    json = parseUntrustedJsonFile(entry.path, {
+      maxBytes: MAX_MANIFEST_BYTES,
+      maxDepth: 16,
+      maxNodes: 50_000,
+      maxArrayLength: 10_000,
+      maxObjectKeys: 5_000,
+      maxStringLength: 256_000,
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    violations.push({
+      check: jsonViolationCheck(error),
+      detail: detail.slice(0, 160),
+    });
     return violations;
   }
 
@@ -154,7 +176,9 @@ function main() {
     console.log('');
     if (findings.length === 0) {
       console.log('✓ Every plugin.json:');
-      console.log('  - parses as JSON');
+      console.log('  - is bounded and parses as JSON');
+      console.log('  - has a plain-object root and safe nested keys');
+      console.log('  - stays within depth and collection limits');
       console.log('  - has name / version / description / keywords[]');
       console.log('  - name matches the enclosing directory');
       console.log('  - version matches semver X.Y.Z[±suffix]');
