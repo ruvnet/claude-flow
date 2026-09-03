@@ -30,6 +30,15 @@ export interface SearchCandidate {
   createdAt?: number;
   /** Optional unix-ms timestamp; preferred over createdAt when present. */
   updatedAt?: number;
+  /**
+   * Optional embedding vector, when the caller's SearchFn has one on hand
+   * (e.g. already computed for the primary similarity score). When both
+   * candidates in an MMR comparison carry one, `mmrRerank` uses cosine
+   * similarity instead of the token-Jaccard proxy — see "MMR Diversity"
+   * below. Never forwarded to CLI/MCP JSON responses by this module's
+   * callers (they whitelist output fields explicitly).
+   */
+  embedding?: number[];
 }
 
 export interface RawSearchRequest {
@@ -238,7 +247,19 @@ function pickTimestamp(cand: SearchCandidate): number | undefined {
   return undefined;
 }
 
-// ── MMR Diversity (token-Jaccard proxy) ────────────────────────
+// ── MMR Diversity (embedding-cosine, token-Jaccard fallback) ───
+//
+// Dream Cycle 2026-09-03: 2026 production practice (LangChain's reference
+// `maximal_marginal_relevance`, Qdrant's native `Mmr` query, Weaviate 1.37's
+// MMR reranker) universally computes MMR's "similarity to already-selected"
+// term over the embedding space, not lexical overlap — token-Jaccard misses
+// low-token-overlap paraphrases that embeddings correctly flag as
+// near-duplicates (see e.g. openclaw/openclaw#19760). Ruflo's own retrieval
+// pipeline already computes these embeddings upstream; this only threads
+// them through to MMR. Falls back to token-Jaccard whenever either
+// candidate lacks an embedding (test fakes, or a SearchFn that doesn't
+// supply one) or the two embeddings have mismatched dimensions, so existing
+// callers/tests that never populate `.embedding` are unaffected.
 
 /**
  * Public-facing MMR rerank.
@@ -261,11 +282,13 @@ function mmrRerank(scored: Scored[], lambda: number, limit: number): Scored[] {
   const selected: Scored[] = [];
   const remaining = [...scored];
   const selectedTokens: Set<string>[] = [];
+  const selectedEmbeddings: Array<number[] | undefined> = [];
 
   // Seed with the top-scored candidate.
   const first = remaining.shift()!;
   selected.push(first);
   selectedTokens.push(tokenize(first.candidate.content));
+  selectedEmbeddings.push(first.candidate.embedding);
 
   while (selected.length < limit && remaining.length > 0) {
     let bestIdx = -1;
@@ -274,9 +297,10 @@ function mmrRerank(scored: Scored[], lambda: number, limit: number): Scored[] {
     for (let i = 0; i < remaining.length; i++) {
       const cand = remaining[i];
       const candTokens = tokenize(cand.candidate.content);
+      const candEmbedding = cand.candidate.embedding;
       let maxOverlap = 0;
-      for (const selTokens of selectedTokens) {
-        const sim = jaccard(candTokens, selTokens);
+      for (let j = 0; j < selectedTokens.length; j++) {
+        const sim = pairSimilarity(candEmbedding, selectedEmbeddings[j], candTokens, selectedTokens[j]);
         if (sim > maxOverlap) maxOverlap = sim;
       }
       const mmr = lambda * cand.score - (1 - lambda) * maxOverlap;
@@ -290,9 +314,36 @@ function mmrRerank(scored: Scored[], lambda: number, limit: number): Scored[] {
     const [chosen] = remaining.splice(bestIdx, 1);
     selected.push(chosen);
     selectedTokens.push(tokenize(chosen.candidate.content));
+    selectedEmbeddings.push(chosen.candidate.embedding);
   }
 
   return selected;
+}
+
+/** Cosine similarity when both embeddings exist and agree in dimension; token-Jaccard otherwise. */
+function pairSimilarity(
+  embA: number[] | undefined,
+  embB: number[] | undefined,
+  tokensA: Set<string>,
+  tokensB: Set<string>
+): number {
+  if (embA && embB && embA.length > 0 && embA.length === embB.length) {
+    return cosineSimilarity(embA, embB);
+  }
+  return jaccard(tokensA, tokensB);
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
 function tokenize(text: string): Set<string> {

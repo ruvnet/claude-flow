@@ -543,6 +543,10 @@ export const memoryTools: MCPTool[] = [
                   score: e.score,
                   namespace: e.namespace,
                   provenanceType: e.provenanceType,
+                  // Dream Cycle 2026-09-03: thread the already-computed
+                  // embedding through so SmartRetrieval's MMR step can use
+                  // cosine similarity instead of a text-overlap proxy.
+                  embedding: e.embedding,
                 })),
               };
             };

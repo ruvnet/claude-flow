@@ -175,6 +175,80 @@ describe('smartSearch — MMR diversity', () => {
   });
 });
 
+describe('smartSearch — MMR diversity uses embedding-cosine when available', () => {
+  it('prefers a genuinely different topic over a low-token-overlap paraphrase, when Jaccard alone would not', async () => {
+    // A is the seed. B is a paraphrase of A (barely any shared tokens, but
+    // near-identical embedding — the "verbose restatement" case token
+    // overlap misses). C is a genuinely different topic (no shared tokens,
+    // orthogonal embedding). Under the old token-Jaccard-only proxy, B and
+    // C look almost equally "diverse" from A (both share ~0 tokens), so B's
+    // higher relevance score wins second place. With embedding-cosine, B's
+    // near-1.0 similarity to A correctly suppresses it in favor of C.
+    const search: SearchFn = async () => ({
+      results: [
+        makeCandidate({
+          id: 'a',
+          content: 'the quarterly revenue report shows strong growth',
+          score: 0.95,
+          embedding: [1, 0, 0],
+        }),
+        makeCandidate({
+          id: 'b-paraphrase',
+          content: 'quarterly earnings update reveals robust expansion',
+          score: 0.9,
+          embedding: [0.99, 0.01, 0], // near-duplicate of A in embedding space
+        }),
+        makeCandidate({
+          id: 'c-different-topic',
+          content: 'a stray cat wandered into the office kitchen',
+          score: 0.6,
+          embedding: [0, 1, 0], // orthogonal to A
+        }),
+      ],
+    });
+
+    const { results } = await smartSearch(search, {
+      query: 'x',
+      limit: 3,
+      multiQuery: false,
+      recencyBoost: false,
+      sessionDiversity: false,
+      diversityMMR: true,
+      mmrLambda: 0.3, // lean heavily on diversity
+    });
+
+    expect(results[0].id).toBe('a');
+    // Discriminating assertion: token-Jaccard between A and both B and C is
+    // near-zero either way, so a Jaccard-only proxy picks B second (higher
+    // relevance score, 0.9 vs 0.6). Embedding-cosine correctly identifies B
+    // as a near-duplicate of A and picks C instead.
+    expect(results[1].id).toBe('c-different-topic');
+  });
+
+  it('falls back to token-Jaccard when embeddings are absent or mismatched (existing behavior unchanged)', async () => {
+    const search: SearchFn = async () => ({
+      results: [
+        makeCandidate({ id: 'a', content: 'the cat sat on the mat quietly', score: 0.95 }),
+        makeCandidate({ id: 'b', content: 'the cat sat on the mat quietly today', score: 0.94, embedding: [1, 0] }), // mismatched: only one side has an embedding
+        makeCandidate({ id: 'c', content: 'quantum entanglement paradox resolved', score: 0.6 }),
+      ],
+    });
+
+    const { results } = await smartSearch(search, {
+      query: 'x',
+      limit: 3,
+      multiQuery: false,
+      recencyBoost: false,
+      sessionDiversity: false,
+      diversityMMR: true,
+      mmrLambda: 0.3,
+    });
+
+    expect(results[0].id).toBe('a');
+    expect(results[1].id).toBe('c');
+  });
+});
+
 describe('smartSearch — session round-robin', () => {
   it('interleaves results across distinct sessions', async () => {
     const search: SearchFn = async () => ({

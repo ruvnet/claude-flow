@@ -829,6 +829,12 @@ export class ControllerRegistry extends EventEmitter {
                 createdAt: r.entry.createdAt,
                 updatedAt: r.entry.updatedAt,
                 score: r.score,
+                // Dream Cycle 2026-09-03: `r.entry.embedding` is already
+                // populated by the adapter (agentdb-backend.ts) — was
+                // stashed in `_entry` but never copied to `.embedding`, so
+                // applyMMR below fell back to token-Jaccard here too.
+                // Float32Array→number[] to match smart-retrieval's shape.
+                embedding: r.entry.embedding ? Array.from(r.entry.embedding as ArrayLike<number>) : undefined,
                 _entry: r.entry,
               }));
 
