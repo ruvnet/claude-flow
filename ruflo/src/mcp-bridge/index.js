@@ -1060,10 +1060,12 @@ const PROVIDER_ROUTES = {
   openai: { baseURL: "https://api.openai.com/v1/chat/completions", getKey: () => process.env.OPENAI_API_KEY },
   gemini: { baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", getKey: () => process.env.GOOGLE_API_KEY },
   openrouter: { baseURL: "https://openrouter.ai/api/v1/chat/completions", getKey: () => process.env.OPENROUTER_API_KEY },
+  orcarouter: { baseURL: "https://api.orcarouter.ai/v1/chat/completions", getKey: () => process.env.ORCAROUTER_API_KEY },
 };
 
 function resolveProvider(model) {
   if (typeof model === "string") {
+    if (model.startsWith("orcarouter/")) return "orcarouter";
     if (model.startsWith("gemini-")) return "gemini";
     if (model.includes("/")) return "openrouter";
   }
@@ -1695,6 +1697,7 @@ const KNOWN_MODELS = [
   "gemini-2.5-pro", "gemini-2.5-flash",
   "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini",
   "o3-mini", "o1-mini",
+  "orcarouter/fusion", "orcarouter/fusion-mini", "orcarouter/auto",
 ];
 
 app.get("/models", (_, res) => {
