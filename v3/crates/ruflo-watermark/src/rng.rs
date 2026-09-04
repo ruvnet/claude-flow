@@ -12,7 +12,7 @@ use crate::hash::g_unit;
 /// Layer namespace for base categorical draws, kept disjoint from tournament
 /// g-value layers (which live in `0..m`) so a draw's randomness never aliases
 /// the selection signal.
-const RNG_LAYER_BASE: u32 = 0xF000_0000;
+pub(crate) const RNG_LAYER_BASE: u32 = 0xF000_0000;
 
 /// Draw one token index from `probs` (which must be finite, non-negative, and
 /// sum to > 0) using the uniform derived from `(seed, draw_index)`. Inverse-CDF
