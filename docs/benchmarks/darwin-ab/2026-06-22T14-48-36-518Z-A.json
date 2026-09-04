@@ -1,0 +1,20 @@
+{
+  "label": "A",
+  "ok": true,
+  "mutator": "deterministic",
+  "sandbox": "mock",
+  "seed": 42,
+  "shape": {
+    "generations": 2,
+    "children": 3,
+    "concurrency": 2
+  },
+  "baselineScore": null,
+  "championScore": null,
+  "delta": null,
+  "archiveSize": 0,
+  "lineageDepth": 0,
+  "mutatorTelemetry": null,
+  "durationMs": 35,
+  "workRoot": "/tmp/ab-target/.metaharness/ab-A"
+}

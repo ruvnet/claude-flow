@@ -1,0 +1,313 @@
+[
+  {
+    "variant": {
+      "id": "baseline",
+      "parentId": null,
+      "generation": 0,
+      "dir": "/tmp/ab-target/.metaharness/ab-B/variants/baseline",
+      "mutationSurface": "planner",
+      "mutationSummary": "baseline generated from repo profile",
+      "createdAt": "2026-06-22T14:48:36.556Z"
+    },
+    "score": {
+      "variantId": "baseline",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": true,
+      "reason": "promoted: finalScore 0.7650 > parent 0.0000 + delta 0 (safety 1.00, no test regression)"
+    },
+    "children": [
+      "g1_v0",
+      "g1_v1",
+      "g1_v2",
+      "g2_v0",
+      "g2_v1",
+      "g2_v2"
+    ]
+  },
+  {
+    "variant": {
+      "id": "g1_v0",
+      "parentId": "baseline",
+      "generation": 1,
+      "dir": "/tmp/ab-target/.metaharness/ab-B/variants/g1_v0",
+      "mutationSurface": "scorePolicy",
+      "mutationSummary": "openrouter:google/gemini-2.5-flash regenerated scorePolicy",
+      "createdAt": "2026-06-22T14:48:38.751Z"
+    },
+    "score": {
+      "variantId": "g1_v0",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": [
+      "g2_v3",
+      "g2_v4",
+      "g2_v5"
+    ]
+  },
+  {
+    "variant": {
+      "id": "g1_v1",
+      "parentId": "baseline",
+      "generation": 1,
+      "dir": "/tmp/ab-target/.metaharness/ab-B/variants/g1_v1",
+      "mutationSurface": "retryPolicy",
+      "mutationSummary": "openrouter:google/gemini-2.5-flash regenerated retryPolicy",
+      "createdAt": "2026-06-22T14:48:52.125Z"
+    },
+    "score": {
+      "variantId": "g1_v1",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  },
+  {
+    "variant": {
+      "id": "g1_v2",
+      "parentId": "baseline",
+      "generation": 1,
+      "dir": "/tmp/ab-target/.metaharness/ab-B/variants/g1_v2",
+      "mutationSurface": "contextBuilder",
+      "mutationSummary": "openrouter:google/gemini-2.5-flash regenerated contextBuilder",
+      "createdAt": "2026-06-22T14:48:55.667Z"
+    },
+    "score": {
+      "variantId": "g1_v2",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  },
+  {
+    "variant": {
+      "id": "g2_v0",
+      "parentId": "baseline",
+      "generation": 2,
+      "dir": "/tmp/ab-target/.metaharness/ab-B/variants/g2_v0",
+      "mutationSurface": "toolPolicy",
+      "mutationSummary": "openrouter:google/gemini-2.5-flash regenerated toolPolicy",
+      "createdAt": "2026-06-22T14:48:58.107Z"
+    },
+    "score": {
+      "variantId": "g2_v0",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  },
+  {
+    "variant": {
+      "id": "g2_v1",
+      "parentId": "baseline",
+      "generation": 2,
+      "dir": "/tmp/ab-target/.metaharness/ab-B/variants/g2_v1",
+      "mutationSurface": "retryPolicy",
+      "mutationSummary": "openrouter:google/gemini-2.5-flash regenerated retryPolicy",
+      "createdAt": "2026-06-22T14:49:02.207Z"
+    },
+    "score": {
+      "variantId": "g2_v1",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  },
+  {
+    "variant": {
+      "id": "g2_v2",
+      "parentId": "baseline",
+      "generation": 2,
+      "dir": "/tmp/ab-target/.metaharness/ab-B/variants/g2_v2",
+      "mutationSurface": "memoryPolicy",
+      "mutationSummary": "openrouter:google/gemini-2.5-flash regenerated memoryPolicy",
+      "createdAt": "2026-06-22T14:49:04.906Z"
+    },
+    "score": {
+      "variantId": "g2_v2",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  },
+  {
+    "variant": {
+      "id": "g2_v3",
+      "parentId": "g1_v0",
+      "generation": 2,
+      "dir": "/tmp/ab-target/.metaharness/ab-B/variants/g2_v3",
+      "mutationSurface": "memoryPolicy",
+      "mutationSummary": "openrouter:google/gemini-2.5-flash regenerated memoryPolicy",
+      "createdAt": "2026-06-22T14:49:07.192Z"
+    },
+    "score": {
+      "variantId": "g2_v3",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  },
+  {
+    "variant": {
+      "id": "g2_v4",
+      "parentId": "g1_v0",
+      "generation": 2,
+      "dir": "/tmp/ab-target/.metaharness/ab-B/variants/g2_v4",
+      "mutationSurface": "reviewer",
+      "mutationSummary": "openrouter:google/gemini-2.5-flash regenerated reviewer",
+      "createdAt": "2026-06-22T14:49:10.059Z"
+    },
+    "score": {
+      "variantId": "g2_v4",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  },
+  {
+    "variant": {
+      "id": "g2_v5",
+      "parentId": "g1_v0",
+      "generation": 2,
+      "dir": "/tmp/ab-target/.metaharness/ab-B/variants/g2_v5",
+      "mutationSurface": "contextBuilder",
+      "mutationSummary": "openrouter:google/gemini-2.5-flash regenerated contextBuilder",
+      "createdAt": "2026-06-22T14:49:12.712Z"
+    },
+    "score": {
+      "variantId": "g2_v5",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  }
+]

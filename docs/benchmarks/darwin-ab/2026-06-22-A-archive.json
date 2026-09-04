@@ -1,0 +1,313 @@
+[
+  {
+    "variant": {
+      "id": "baseline",
+      "parentId": null,
+      "generation": 0,
+      "dir": "/tmp/ab-target/.metaharness/ab-A/variants/baseline",
+      "mutationSurface": "planner",
+      "mutationSummary": "baseline generated from repo profile",
+      "createdAt": "2026-06-22T14:48:36.532Z"
+    },
+    "score": {
+      "variantId": "baseline",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": true,
+      "reason": "promoted: finalScore 0.7650 > parent 0.0000 + delta 0 (safety 1.00, no test regression)"
+    },
+    "children": [
+      "g1_v0",
+      "g1_v1",
+      "g1_v2",
+      "g2_v0",
+      "g2_v1",
+      "g2_v2"
+    ]
+  },
+  {
+    "variant": {
+      "id": "g1_v0",
+      "parentId": "baseline",
+      "generation": 1,
+      "dir": "/tmp/ab-target/.metaharness/ab-A/variants/g1_v0",
+      "mutationSurface": "scorePolicy",
+      "mutationSummary": "appended scorePolicy tracking note (no structural edit available)",
+      "createdAt": "2026-06-22T14:48:36.537Z"
+    },
+    "score": {
+      "variantId": "g1_v0",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": [
+      "g2_v3",
+      "g2_v4",
+      "g2_v5"
+    ]
+  },
+  {
+    "variant": {
+      "id": "g1_v1",
+      "parentId": "baseline",
+      "generation": 1,
+      "dir": "/tmp/ab-target/.metaharness/ab-A/variants/g1_v1",
+      "mutationSurface": "retryPolicy",
+      "mutationSummary": "adjusted retry/attempt budget (variant 2)",
+      "createdAt": "2026-06-22T14:48:36.540Z"
+    },
+    "score": {
+      "variantId": "g1_v1",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  },
+  {
+    "variant": {
+      "id": "g1_v2",
+      "parentId": "baseline",
+      "generation": 1,
+      "dir": "/tmp/ab-target/.metaharness/ab-A/variants/g1_v2",
+      "mutationSurface": "contextBuilder",
+      "mutationSummary": "adjusted context slice window (variant 1)",
+      "createdAt": "2026-06-22T14:48:36.541Z"
+    },
+    "score": {
+      "variantId": "g1_v2",
+      "taskSuccess": 0.2,
+      "testPassRate": 0.2,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.545,
+      "finalScore": 0.545,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.5450 ≤ parent 0.7650 + delta 0; testPassRate regression 0.20 < 0.60"
+    },
+    "children": []
+  },
+  {
+    "variant": {
+      "id": "g2_v0",
+      "parentId": "baseline",
+      "generation": 2,
+      "dir": "/tmp/ab-target/.metaharness/ab-A/variants/g2_v0",
+      "mutationSurface": "toolPolicy",
+      "mutationSummary": "appended toolPolicy tracking note (no structural edit available)",
+      "createdAt": "2026-06-22T14:48:36.545Z"
+    },
+    "score": {
+      "variantId": "g2_v0",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  },
+  {
+    "variant": {
+      "id": "g2_v1",
+      "parentId": "baseline",
+      "generation": 2,
+      "dir": "/tmp/ab-target/.metaharness/ab-A/variants/g2_v1",
+      "mutationSurface": "retryPolicy",
+      "mutationSummary": "adjusted retry/attempt budget (variant 2)",
+      "createdAt": "2026-06-22T14:48:36.546Z"
+    },
+    "score": {
+      "variantId": "g2_v1",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  },
+  {
+    "variant": {
+      "id": "g2_v2",
+      "parentId": "baseline",
+      "generation": 2,
+      "dir": "/tmp/ab-target/.metaharness/ab-A/variants/g2_v2",
+      "mutationSurface": "memoryPolicy",
+      "mutationSummary": "appended memoryPolicy tracking note (no structural edit available)",
+      "createdAt": "2026-06-22T14:48:36.548Z"
+    },
+    "score": {
+      "variantId": "g2_v2",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  },
+  {
+    "variant": {
+      "id": "g2_v3",
+      "parentId": "g1_v0",
+      "generation": 2,
+      "dir": "/tmp/ab-target/.metaharness/ab-A/variants/g2_v3",
+      "mutationSurface": "memoryPolicy",
+      "mutationSummary": "appended memoryPolicy tracking note (no structural edit available)",
+      "createdAt": "2026-06-22T14:48:36.549Z"
+    },
+    "score": {
+      "variantId": "g2_v3",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  },
+  {
+    "variant": {
+      "id": "g2_v4",
+      "parentId": "g1_v0",
+      "generation": 2,
+      "dir": "/tmp/ab-target/.metaharness/ab-A/variants/g2_v4",
+      "mutationSurface": "reviewer",
+      "mutationSummary": "refined planner/reviewer phrasing (variant 0)",
+      "createdAt": "2026-06-22T14:48:36.551Z"
+    },
+    "score": {
+      "variantId": "g2_v4",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  },
+  {
+    "variant": {
+      "id": "g2_v5",
+      "parentId": "g1_v0",
+      "generation": 2,
+      "dir": "/tmp/ab-target/.metaharness/ab-A/variants/g2_v5",
+      "mutationSurface": "contextBuilder",
+      "mutationSummary": "adjusted context slice window (variant 4)",
+      "createdAt": "2026-06-22T14:48:36.552Z"
+    },
+    "score": {
+      "variantId": "g2_v5",
+      "taskSuccess": 0.6,
+      "testPassRate": 0.6,
+      "traceQuality": 0.9,
+      "costEfficiency": 1,
+      "latencyEfficiency": 1,
+      "safetyScore": 1,
+      "secretExposure": 0,
+      "destructiveAction": 0,
+      "hallucinatedFile": 0,
+      "toolLoop": 0,
+      "costOverrun": 0,
+      "baseScore": 0.765,
+      "finalScore": 0.765,
+      "promoted": false,
+      "reason": "not promoted: finalScore 0.7650 ≤ parent 0.7650 + delta 0"
+    },
+    "children": []
+  }
+]

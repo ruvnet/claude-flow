@@ -1,0 +1,25 @@
+{
+  "label": "B",
+  "ok": true,
+  "mutator": "openrouter",
+  "sandbox": "mock",
+  "seed": 42,
+  "shape": {
+    "generations": 2,
+    "children": 3,
+    "concurrency": 2
+  },
+  "baselineScore": null,
+  "championScore": null,
+  "delta": null,
+  "archiveSize": 0,
+  "lineageDepth": 0,
+  "mutatorTelemetry": {
+    "calls": 9,
+    "promptTokens": 4851,
+    "completionTokens": 3677,
+    "costUSD": 0.010541321999999999
+  },
+  "durationMs": 36170,
+  "workRoot": "/tmp/ab-target/.metaharness/ab-B"
+}
