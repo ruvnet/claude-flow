@@ -52,6 +52,7 @@
   },
   "packageManager": "pnpm@8.15.0",
   "dependencies": {
+    "hnswlib-node": "^3.0.0",
     "semantic-release": "25.0.2"
   },
   "overrides": {
