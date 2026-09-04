@@ -1796,7 +1796,7 @@ Full MCP server with tools for coordination, monitoring, memory, and GitHub inte
 | **Memory & Neural** | `memory_usage`, `neural_status`, `neural_train`, `neural_patterns` | Memory operations and learning |
 | **GitHub** | `github_swarm`, `repo_analyze`, `pr_enhance`, `issue_triage`, `code_review` | Repository integration |
 | **Workers** | `worker/run`, `worker/status`, `worker/alerts`, `worker/history` | Background task management |
-| **Hooks** | `hooks/pre-*`, `hooks/post-*`, `hooks/route`, `hooks/session-*`, `hooks/teammate-*`, `hooks/task-*` | 33 lifecycle hooks |
+| **Hooks** | `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `SessionStart`, `SessionEnd`, `Stop`, `PreCompact`, `SubagentStop` | 33 lifecycle hooks |
 | **Progress** | `progress/check`, `progress/sync`, `progress/summary`, `progress/watch` | V3 implementation tracking |
 
 </details>
