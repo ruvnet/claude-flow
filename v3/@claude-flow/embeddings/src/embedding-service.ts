@@ -844,32 +844,33 @@ async function isAgenticFlowAvailable(): Promise<boolean> {
 }
 
 /**
- * Auto-install agentic-flow and initialize model
+ * Check if agentic-flow embedding model is available and guide the user
+ * through manual installation. Auto-install was removed as a security
+ * measure (ref: ruflo security review — no silent package installation).
  */
 async function autoInstallAgenticFlow(): Promise<boolean> {
-  const { exec } = await import('child_process');
-  const { promisify } = await import('util');
-  const execAsync = promisify(exec);
-
-  try {
-    // Check if already available
-    if (await isAgenticFlowAvailable()) {
-      return true;
-    }
-
-    console.log('[embeddings] Installing agentic-flow@alpha...');
-    await execAsync('npm install agentic-flow@alpha --save', { timeout: 120000 });
-
-    // Initialize the model
-    console.log('[embeddings] Downloading embedding model...');
-    await execAsync('npx agentic-flow@alpha embeddings init', { timeout: 300000 });
-
-    // Verify installation
-    return await isAgenticFlowAvailable();
-  } catch (error) {
-    console.warn('[embeddings] Auto-install failed:', error instanceof Error ? error.message : error);
-    return false;
+  if (await isAgenticFlowAvailable()) {
+    return true;
   }
+
+  const instructions = [
+    '',
+    '══════════════════════════════════════════════════════════',
+    '  Ruflo embeddings require agentic-flow.',
+    '',
+    '  Install it manually:',
+    '    npm install agentic-flow@alpha --save',
+    '    npx agentic-flow@alpha embeddings init',
+    '',
+    '  This step is manual because silent package installation',
+    '  is a supply-chain risk. You control what enters your',
+    '  dependency tree.',
+    '══════════════════════════════════════════════════════════',
+    '',
+  ].join('\n');
+
+  console.error(instructions);
+  return false;
 }
 
 /**

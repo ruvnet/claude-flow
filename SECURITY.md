@@ -46,8 +46,8 @@ We appreciate the work of security researchers. With your permission, we will pu
 This project employs the following security measures at system boundaries:
 
 - **Input validation** using Zod schemas for all public API inputs
-- **Parameterized SQL queries** to prevent injection attacks
 - **Path traversal prevention** via the `PathValidator` module
-- **Command injection protection** via the `SafeExecutor` module
+- **Command injection protection** via the `SafeExecutor` module (command allowlist + execFile, no shell)
+- **Note:** The current memory backend is in-memory (Map-based), not SQLite. When a real SQL backend is added, parameterized queries will be enforced at that boundary.
 
 For questions about this policy, contact security@ruv.io.
