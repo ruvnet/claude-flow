@@ -75,7 +75,7 @@ RuFlo plugins use Claude Code's native capabilities when available:
 - Plugins declare required permissions in their manifest
 - Pin versions for production use: `/plugin install ruflo-core@0.1.0@ruflo`
 - Security scanning available via ruflo-security-audit
-- Cryptographically-signed [witness manifest](../verification.md) attests every documented fix; see [Validation System](validation/) for the three-layer regression-protection stack
+- Cryptographically-signed [witness manifest](../verification/README.md) attests every documented fix; see [Validation System](validation/) for the three-layer regression-protection stack
 
 ## Links
 
