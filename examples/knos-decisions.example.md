@@ -5,8 +5,8 @@
 
 ## Decisions
 
-- **rule 1** - Do what has been asked; nothing more, nothing less. _(source: CLAUDE.md)_
-- **rule 2** - NEVER create files unless they're absolutely necessary for achieving your goal. _(source: CLAUDE.md)_
+- Do what has been asked; nothing more, nothing less. _(source: CLAUDE.md)_
+- NEVER create files unless they're absolutely necessary for achieving your goal. _(source: CLAUDE.md)_
 
 ## Being worked on right now
 
