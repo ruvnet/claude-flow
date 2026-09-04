@@ -262,7 +262,8 @@ export const AgentTypeSchema = z.enum([
  * Agent spawn request schema
  */
 export const SpawnAgentSchema = z.object({
-  type: AgentTypeSchema,
+  agentType: AgentTypeSchema,
+  name: SafeStringSchema.max(200, 'Name too long').optional(),
   id: IdentifierSchema.optional(),
   config: z.record(z.unknown()).optional(),
   timeout: z.number().positive().optional(),
