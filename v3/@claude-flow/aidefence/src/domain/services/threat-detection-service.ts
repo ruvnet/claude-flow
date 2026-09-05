@@ -231,7 +231,10 @@ const PROMPT_INJECTION_PATTERNS: ThreatPattern[] = [
  */
 const PII_PATTERNS = [
   {
-    pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/,
+    // Bounded per RFC 5321 (local part ≤ 64, domain ≤ 253): the unbounded `+`
+    // quantifiers were quadratic on inputs like `a.a.a…` (3.8 s / 100 KB),
+    // and `detect()` runs PII detection on every scan.
+    pattern: /\b[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,24}\b/,
     type: 'email',
     description: 'Email address',
   },
