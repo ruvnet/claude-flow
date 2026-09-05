@@ -1,15 +1,34 @@
 /**
  * CLI Cold Start Benchmark
  *
- * Target: <500ms (5x faster than current ~2.5s)
+ * Target: <500ms (see V3_PERFORMANCE_TARGETS['cli-cold-start'])
  *
  * Measures the time to start the CLI from a completely cold state,
  * including module loading, initialization, and ready state.
+ *
+ * 2026-09-05 dream-cycle finding: every benchmark below except
+ * `runRealColdStartMeasurement()` is a synthetic `setTimeout()` delay chain
+ * that never touches the real CLI — they are illustrative of *where* time
+ * could go, not measurements of where it *does* go. The previously-present
+ * "V2 vs V3 Speedup" benchmark computed a hardcoded ~5.00x on every run by
+ * construction (`setTimeout(100)` vs `setTimeout(20)`, no code in between)
+ * and has been removed rather than fixed — there is no "V2 binary" left to
+ * compare against, so no synthetic replacement was substituted for it. The
+ * real number now comes from `runRealColdStartMeasurement()`, which spawns
+ * an actual `node bin/cli.js` child process via the `measureColdStart()`
+ * helper that was already written but never called.
  */
 
 import { benchmark, BenchmarkRunner, formatTime, meetsTarget } from '../../src/framework/benchmark.js';
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/** Path to the real CLI entry point this benchmark spawns for real measurements. */
+export const CLI_BIN_PATH = path.resolve(__dirname, '../../../cli/bin/cli.js');
 
 // ============================================================================
 // Test Helpers
@@ -18,7 +37,7 @@ import * as path from 'path';
 /**
  * Measure CLI cold start time by spawning a new process
  */
-async function measureColdStart(command: string, args: string[]): Promise<number> {
+export async function measureColdStart(command: string, args: string[]): Promise<number> {
   return new Promise((resolve, reject) => {
     const startTime = performance.now();
 
@@ -95,6 +114,27 @@ async function simulateCLIInit(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 3));
 }
 
+/**
+ * Real cold-start measurement: spawns the actual CLI binary N times and
+ * reports genuine wall-clock timings. Uses `--version` because it is the
+ * one subcommand that succeeds without a built `dist/` in this repo's
+ * current worktree state (other subcommands import compiled output and
+ * fail fast with ERR_MODULE_NOT_FOUND if `npm run build` hasn't run —
+ * `measureColdStart()` still resolves on `child.on('close')` in that case,
+ * so a failing invocation is honestly reported as a fast *failure*, not
+ * silently treated as a successful start).
+ */
+export async function runRealColdStartMeasurement(
+  iterations = 5
+): Promise<{ mean: number; min: number; max: number; samples: number[] }> {
+  const samples: number[] = [];
+  for (let i = 0; i < iterations; i++) {
+    samples.push(await measureColdStart('node', [CLI_BIN_PATH, '--version']));
+  }
+  const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+  return { mean, min: Math.min(...samples), max: Math.max(...samples), samples };
+}
+
 // ============================================================================
 // Benchmark Suite
 // ============================================================================
@@ -103,6 +143,16 @@ export async function runColdStartBenchmarks(): Promise<void> {
   const runner = new BenchmarkRunner('CLI Cold Start');
 
   console.log('\n--- CLI Cold Start Benchmarks ---\n');
+
+  // Benchmark 0: REAL cold start (spawns the actual CLI binary — everything
+  // else in this suite below is a synthetic setTimeout() illustration, not
+  // a measurement of real code).
+  const real = await runRealColdStartMeasurement(5);
+  console.log(`[REAL] CLI Cold Start (node bin/cli.js --version): ${formatTime(real.mean)}`);
+  console.log(`  min=${formatTime(real.min)} max=${formatTime(real.max)} n=${real.samples.length}`);
+  const realTarget = meetsTarget('cli-cold-start', real.mean);
+  console.log(`  Target (<500ms): ${realTarget.met ? 'PASS' : 'FAIL'}`);
+  console.log('\n--- Synthetic illustrations below (not real measurements) ---\n');
 
   // Benchmark 1: Module Loading Simulation
   const moduleResult = await runner.run(
@@ -200,29 +250,12 @@ export async function runColdStartBenchmarks(): Promise<void> {
   const fullTarget = meetsTarget('cli-cold-start', fullColdStartResult.mean);
   console.log(`  Target (<500ms): ${fullTarget.met ? 'PASS' : 'FAIL'}`);
 
-  // Benchmark 7: V2 vs V3 Comparison Simulation
-  const v2SimulationResult = await runner.run(
-    'v2-cold-start-simulation',
-    async () => {
-      // Simulate V2's heavier startup
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    },
-    { iterations: 20 }
-  );
-
-  const v3SimulationResult = await runner.run(
-    'v3-cold-start-simulation',
-    async () => {
-      // Simulate V3's optimized startup
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    },
-    { iterations: 50 }
-  );
-
-  const speedup = v2SimulationResult.mean / v3SimulationResult.mean;
-  console.log(`\nV2 vs V3 Speedup: ${speedup.toFixed(2)}x`);
-  console.log(`  V2 Simulation: ${formatTime(v2SimulationResult.mean)}`);
-  console.log(`  V3 Simulation: ${formatTime(v3SimulationResult.mean)}`);
+  // NOTE: a "V2 vs V3 Comparison Simulation" benchmark previously lived here.
+  // It computed setTimeout(100) vs setTimeout(20) with no code in between —
+  // a "5.00x speedup" guaranteed by construction on every run, regardless of
+  // any real V2 or V3 behavior. Removed 2026-09-05 rather than "fixed": there
+  // is no V2 binary left in this repo to honestly compare against. The [REAL]
+  // measurement above is this suite's only real speedup evidence now.
 
   // Print summary
   runner.printResults();

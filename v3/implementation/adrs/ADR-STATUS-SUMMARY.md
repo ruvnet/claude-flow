@@ -163,8 +163,8 @@
 
 | Target | Specification | Status | Evidence |
 |--------|---------------|--------|----------|
-| HNSW Search | 150x-12,500x faster | ✅ Achieved | HNSW index in memory module |
-| CLI Startup | <500ms | ✅ Achieved | Lazy loading, -200ms improvement |
+| HNSW Search | 150x-12,500x faster | ⚠️ Not reproduced | Measured instead: ~1.9x @ N=20k, ~3.2x-4.7x @ N=5k vs brute force (see `v3/CLAUDE.md`, `scripts/benchmark-intelligence.mjs`) |
+| CLI Startup | <500ms | ⚠️ Partially verified | 2026-09-05: the prior "Achieved"/"5x faster" claim traced to a benchmark suite (`v3/@claude-flow/performance/benchmarks/startup/*.bench.ts`) that measured `setTimeout()` delays, not the real CLI. `cli-cold-start.bench.ts` now spawns the real binary (`--version`, the one subcommand that runs without a build in this worktree): measured ~54.7ms mean over 5 runs, under target — but this covers only that subcommand, not full command initialization, so "Achieved" for the whole surface remains unverified |
 | MCP Response | <100ms | ✅ Achieved | Connection pooling, 3-5x throughput |
 | Memory Reduction | 50-75% | ✅ Achieved | Quantization, tree-shaking |
 | Pattern Search | Real vector search | ✅ Achieved | alpha.100: 0.87 similarity, 318ms |

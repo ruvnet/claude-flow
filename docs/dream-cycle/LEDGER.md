@@ -131,3 +131,43 @@ alerting.
 | 2026-08-17 | intelligence | discounted Thompson-sampling prior decay for model-router bandit (opt-in), recovers faster after workload shift | #3048 | #3049 | yes | ACCEPT-scoped | low-bucket recovery -17.6% (t=7.00, held); med-bucket null (no generalization) | e0fb0242... | recovered-live |
 | 2026-08-18 | memory | hybridSearch controller reachable via explicit opt-in (was silently null-returning despite config flag) | #3056 | #3057 | yes | ACCEPT-scoped | overall recall@10 +0.267; category B (pure-paraphrase) regresses -0.133 | b28714fb... | recovered-live |
 | 2026-08-19 | swarm | MessageBus retry-attempts silently reset to 0 on every re-queue, unbounded redelivery, message.failed unreachable | #3061 | #3062 | yes | ACCEPT | invocations 96-98/0-failed (baseline) → 3/2/1 stable (candidate); 220/220 tests | 62c4fdf7... | 08-14..08-18 all OPEN, none merged yet |
+
+**Recovery note (2026-09-05):** rows for 2026-08-24 through 2026-09-03 were
+again never appended live — same failure class as the 2026-08-19 recovery
+above, now confirmed for a 3rd distinct occurrence. Verified via direct
+evidence before concluding this (per STEP 1's anti-inference rule): `git
+ls-remote --heads origin "dream/*"` shows real branches for every date
+2026-08-24..2026-09-03, and `search_issues label:dream-cycle` /
+`search_pull_requests` confirm a real issue+draft-PR pair for each —
+the pipeline ran to completion every one of those nights; only the
+ledger-append step silently no-op'd. **2026-08-20 through 2026-08-23 is a
+separate, genuine gap**: no branches, no issues, no PRs for those 4 dates —
+confirmed independently by three separate dream-cycle nights (08-24, 08-25,
+08-27) before tonight, and reconfirmed here — the pipeline did not run at
+all those nights (root cause still undiagnosed, still out of scope for a
+single-surface nightly slot). Also separately confirmed via `issue_read` on
+#3109: PRs #3043/#3044 (08-16), #3048/#3049 (08-17), #3056/#3057 (08-18),
+#3061/#3062 (08-19) were **MERGED 2026-08-21** — a human merged the backlog
+that had built up, contradicting nothing above but updating the "OPEN"
+status this ledger last recorded for them. Backfilled below from issues/PRs
+directly (titles + verdict only — full effect-size detail is in each
+linked issue; not re-extracted tonight to protect budget for tonight's own
+research per STEP 0.6). **This is now the 3rd occurrence of the same
+ledger-append failure mode** (2026-08-19 recovery, implied prior instances,
+now this one) — no longer a one-off. Elevating this from a "candidate
+finding" to an explicit recommendation: a future `automation`/`meta` DEEP
+night should treat "harden STEP 25's ledger-append against silent failure"
+as a first-class, high-priority candidate, not a background note.
+
+| 2026-08-24 | swarm | TopologyManager weightedConsensus() trust weights now reach the vote tally (were computed, discarded) | #3085 | #3086 | yes | ACCEPT | see issue #3085 | n/a (backfill) | unmerged draft as of 09-05 |
+| 2026-08-25 | performance | productQuantizeDistance() implemented but never dispatched in HNSW search path — wired in | #3093 | #3094 | yes | ACCEPT | see issue #3093 | n/a (backfill) | unmerged draft as of 09-05 |
+| 2026-08-26 | security | authorizeMcpTool() trusted unsigned caller identity (ASI07) — ADR-377 verifyInvocationToken bound into live chokepoint | #3102 | #3103 | yes | ACCEPT-with-caveats | see issue #3102 | n/a (backfill) | unmerged draft as of 09-05 |
+| 2026-08-27 | intelligence | distillLearning() EWC gate read 1 of 384 Fisher dims via length-collapsed getPenalty() call; rewired to computeConfidencePenalty()/updateFisherFromConfidences() | #3109 | #3110 | yes | ACCEPT-scoped | 152/152 tests (+4 new), baseline-fails/candidate-passes via stash isolation | 89946458... | unmerged draft as of 09-05 |
+| 2026-08-28 | memory | HybridBackend's dead `weights` field now drives real weighted-RRF fusion (was computed, never read by merge helpers) | #3118 | #3119 | yes | ACCEPT | see issue #3118 | n/a (backfill) | unmerged draft as of 09-05 |
+| 2026-08-29 | swarm | TopologyManager.rebalanceHybrid() one-directional adjacency bug fixed | #3122 | #3123 | yes | ACCEPT | see issue #3122 | n/a (backfill) | unmerged draft as of 09-05 |
+| 2026-08-30 | performance | unwired diskann-backend.ts removed + stale 150x-12,500x HNSW claim in generated CLAUDE.md corrected | #3129 | #3130 | yes | ACCEPT | see issue #3129 | n/a (backfill) | unmerged draft as of 09-05 |
+| 2026-08-31 | security | MCP governance policy (.harness/mcp-policy.json) was never enforced at runtime — opt-in enforcement wired in | #3138 | #3139 | yes | ACCEPT | see issue #3138 | n/a (backfill) | unmerged draft as of 09-05 |
+| 2026-09-01 | security | maxToolCallsPerTurn was a session-lifetime cumulative cap that never reset — sliding-window reset implemented | #3151 | #3152 | yes | ACCEPT | see issue #3151 | n/a (backfill) | unmerged draft as of 09-05 |
+| 2026-09-02 | intelligence | LearningBridge.consolidate() was reward-blind — fixed to weight consolidation by trajectory reward | #3159 | #3160 | yes | ACCEPT | see issue #3159 | n/a (backfill) | unmerged draft as of 09-05 |
+| 2026-09-03 | memory | SmartRetrieval's MMR diversity step used token-Jaccard similarity instead of the available embedding-cosine | #3168 | #3169 | yes | ACCEPT | see issue #3168 | n/a (backfill) | unmerged draft as of 09-05 |
+| 2026-09-05 | performance | cli-cold-start.bench.ts's real measureColdStart() was dead code; every number (incl. a by-construction "5.00x V2 vs V3") came from setTimeout(); real spawn-based measurement wired in, fabricated comparison removed, 2 stale ADR-STATUS-SUMMARY.md rows corrected | #3183 | #3184 | yes | ACCEPT-scoped | real: 54.65ms mean (min 51.94/max 57.92, n=5) vs 500ms target; 99/99 tests (+4 new), baseline-fails/candidate-passes via stash isolation | 04f903ba... | 08-24..08-31 all unmerged drafts (ACCEPT/ACCEPT-scoped, correctly awaiting human review, none stale <14d) |
