@@ -320,17 +320,36 @@ function mmrRerank(scored: Scored[], lambda: number, limit: number): Scored[] {
   return selected;
 }
 
-/** Cosine similarity when both embeddings exist and agree in dimension; token-Jaccard otherwise. */
+/** Cosine similarity when both embeddings exist, agree in dimension, and are well-formed; token-Jaccard otherwise. */
 function pairSimilarity(
   embA: number[] | undefined,
   embB: number[] | undefined,
   tokensA: Set<string>,
   tokensB: Set<string>
 ): number {
-  if (embA && embB && embA.length > 0 && embA.length === embB.length) {
+  if (
+    isWellFormedEmbedding(embA) &&
+    isWellFormedEmbedding(embB) &&
+    embA.length === embB.length
+  ) {
     return cosineSimilarity(embA, embB);
   }
   return jaccard(tokensA, tokensB);
+}
+
+/**
+ * Guards against malformed embeddings (NaN/Infinity components, empty
+ * arrays, non-arrays) reaching `cosineSimilarity`, where a single NaN/
+ * Infinity would poison the dot product and silently corrupt every
+ * downstream MMR comparison for the rest of the rerank — falls back to
+ * `jaccard` instead, same as a missing/dimension-mismatched embedding.
+ */
+function isWellFormedEmbedding(emb: number[] | undefined): emb is number[] {
+  return (
+    Array.isArray(emb) &&
+    emb.length > 0 &&
+    emb.every((v) => typeof v === 'number' && Number.isFinite(v))
+  );
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
