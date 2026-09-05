@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GolfMatch — Find Your Golf Partner</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#1a5e1a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="GolfMatch">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Auth Screen -->
+  <div id="auth-screen" class="auth-screen">
+    <div class="auth-container">
+      <div class="auth-hero">
+        <div class="logo-large">⛳ GolfMatch</div>
+        <h1>Find Your Perfect Golf Partner</h1>
+        <p>Connect with golfers in your area based on handicap, preferred courses, and playing style.</p>
+        <div class="auth-features">
+          <div class="feature-item">🏌️ Browse player handicaps</div>
+          <div class="feature-item">📍 Filter by local area</div>
+          <div class="feature-item">⛳ See preferred courses</div>
+          <div class="feature-item">🤝 Send connection requests</div>
+        </div>
+      </div>
+
+      <!-- Login Form -->
+      <div id="login-form" class="auth-form">
+        <h2>Welcome Back</h2>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="login-email" placeholder="your@email.com" onkeydown="if(event.key==='Enter')login()">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="login-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
+        </div>
+        <div id="login-error" class="error-msg hidden"></div>
+        <button class="btn btn-primary btn-full" onclick="login()">Sign In</button>
+        <p class="auth-switch">No account? <a href="#" onclick="showRegister(event)">Create one free</a></p>
+        <div class="demo-hint">Demo accounts: <strong>james@example.com</strong> / password123</div>
+      </div>
+
+      <!-- Register Form -->
+      <div id="register-form" class="auth-form hidden">
+        <h2>Join GolfMatch</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Full Name *</label>
+            <input type="text" id="reg-name" placeholder="John Smith">
+          </div>
+          <div class="form-group">
+            <label>Handicap</label>
+            <input type="number" id="reg-handicap" placeholder="12.5" step="0.1" min="0" max="54">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" id="reg-email" placeholder="your@email.com">
+        </div>
+        <div class="form-group">
+          <label>Password *</label>
+          <input type="password" id="reg-password" placeholder="Min. 6 characters">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>City</label>
+            <input type="text" id="reg-city" placeholder="Austin">
+          </div>
+          <div class="form-group">
+            <label>State</label>
+            <input type="text" id="reg-state" placeholder="TX" maxlength="2">
+          </div>
+        </div>
+        <div id="reg-error" class="error-msg hidden"></div>
+        <button class="btn btn-primary btn-full" onclick="register()">Create Account</button>
+        <p class="auth-switch">Already have an account? <a href="#" onclick="showLogin(event)">Sign in</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="app" class="app hidden">
+    <header class="app-header">
+      <div class="header-content">
+        <div class="logo">⛳ GolfMatch</div>
+        <nav class="nav">
+          <button class="nav-btn active" data-page="discover" onclick="showPage('discover')">🔍 Discover</button>
+          <button class="nav-btn" data-page="profile" onclick="showPage('profile')">👤 My Profile</button>
+          <button class="nav-btn" data-page="connections" onclick="showPage('connections')">
+            🤝 Connections <span id="connection-badge" class="badge hidden">0</span>
+          </button>
+        </nav>
+        <div class="header-actions">
+          <span id="user-greeting" class="user-greeting"></span>
+          <button class="btn btn-outline btn-sm" onclick="logout()">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Discover Page -->
+    <section id="page-discover" class="page active">
+      <div class="page-container">
+        <div class="page-header">
+          <h2>Find Golf Partners</h2>
+          <p>Discover players near you — filter by location, handicap, and availability</p>
+        </div>
+        <div class="filters-card">
+          <div class="filters-grid">
+            <div class="form-group">
+              <label>City</label>
+              <input type="text" id="filter-city" placeholder="Austin" oninput="debounceSearch()">
+            </div>
+            <div class="form-group">
+              <label>State</label>
+              <input type="text" id="filter-state" placeholder="TX" maxlength="2" oninput="debounceSearch()">
+            </div>
+            <div class="form-group">
+              <label>Min Handicap</label>
+              <input type="number" id="filter-min-handicap" placeholder="0" min="0" max="54" step="0.1" oninput="debounceSearch()">
+            </div>
+            <div class="form-group">
+              <label>Max Handicap</label>
+              <input type="number" id="filter-max-handicap" placeholder="54" min="0" max="54" step="0.1" oninput="debounceSearch()">
+            </div>
+            <div class="form-group">
+              <label>Plays</label>
+              <select id="filter-frequency" onchange="loadPlayers()">
+                <option value="">Any frequency</option>
+                <option value="daily">Daily</option>
+                <option value="multiple_weekly">Multiple/week</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Biweekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+            <div class="form-group filter-actions">
+              <label>&nbsp;</label>
+              <button class="btn btn-outline" onclick="clearFilters()">Clear Filters</button>
+            </div>
+          </div>
+        </div>
+        <div id="players-count" class="results-count"></div>
+        <div id="players-grid" class="players-grid">
+          <div class="loading">Loading players...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Profile Page -->
+    <section id="page-profile" class="page hidden">
+      <div class="page-container page-narrow">
+        <div class="page-header">
+          <h2>My Profile</h2>
+          <p>Set your handicap and preferred courses so other players can find you</p>
+        </div>
+        <div class="card">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Full Name *</label>
+              <input type="text" id="profile-name">
+            </div>
+            <div class="form-group">
+              <label>Handicap Index</label>
+              <input type="number" id="profile-handicap" step="0.1" min="0" max="54">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>City</label>
+              <input type="text" id="profile-city">
+            </div>
+            <div class="form-group">
+              <label>State</label>
+              <input type="text" id="profile-state" maxlength="2">
+            </div>
+            <div class="form-group">
+              <label>Zip Code</label>
+              <input type="text" id="profile-zip" maxlength="10">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Playing Frequency</label>
+              <select id="profile-frequency">
+                <option value="daily">Daily</option>
+                <option value="multiple_weekly">Multiple times a week</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Biweekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Skill Level</label>
+              <select id="profile-skill">
+                <option value="beginner">Beginner (18+)</option>
+                <option value="intermediate">Intermediate (10–18)</option>
+                <option value="advanced">Advanced (5–10)</option>
+                <option value="expert">Expert (&lt;5)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Bio</label>
+            <textarea id="profile-bio" rows="3" placeholder="Tell other golfers about yourself — your playing style, availability, what you're looking for..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Preferred Courses</label>
+            <p class="field-hint">Add the courses you play most often — this helps players find compatible partners</p>
+            <div id="courses-list" class="courses-list"></div>
+            <div class="add-course-row">
+              <input type="text" id="new-course-name" placeholder="e.g. Barton Creek Country Club" class="flex-1" onkeydown="if(event.key==='Enter')addCourse()">
+              <button class="btn btn-outline btn-sm" onclick="addCourse()">+ Add</button>
+            </div>
+          </div>
+          <div id="profile-success" class="success-msg hidden">✓ Profile saved successfully!</div>
+          <div id="profile-error" class="error-msg hidden"></div>
+          <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Connections Page -->
+    <section id="page-connections" class="page hidden">
+      <div class="page-container page-narrow">
+        <div class="page-header">
+          <h2>Connections</h2>
+          <p>Manage your golf partner requests and accepted connections</p>
+        </div>
+        <div class="tabs">
+          <button class="tab active" onclick="showTab('received', event)">Received <span id="received-count" class="tab-count"></span></button>
+          <button class="tab" onclick="showTab('sent', event)">Sent</button>
+          <button class="tab" onclick="showTab('partners', event)">Partners</button>
+        </div>
+        <div id="tab-received" class="tab-content">
+          <div id="received-list" class="connections-list"></div>
+        </div>
+        <div id="tab-sent" class="tab-content hidden">
+          <div id="sent-list" class="connections-list"></div>
+        </div>
+        <div id="tab-partners" class="tab-content hidden">
+          <div id="partners-list" class="connections-list"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Connect Modal -->
+  <div id="connect-modal" class="modal hidden" onclick="if(event.target===this)closeModal()">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h3>Send Connection Request</h3>
+      <p>Reach out to <strong id="modal-player-name"></strong> to set up a round</p>
+      <div class="form-group">
+        <label>Message (optional)</label>
+        <textarea id="modal-message" rows="3" placeholder="Hi! I noticed we both play at similar courses and have similar handicaps — would love to play a round together!"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitConnection()">Send Request</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
