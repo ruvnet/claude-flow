@@ -142,3 +142,5 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 
 **Last Updated:** 2026-01-14
 **CLI Version:** @claude-flow/cli@3.0.0-alpha.104
+
+| ADR-381 | Adaptive Memory Trust Scoring for AgentDB | Proposed | 2026-08-06 |
