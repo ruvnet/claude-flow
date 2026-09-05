@@ -237,6 +237,125 @@ describe('HybridBackend - ADR-009', () => {
     });
   });
 
+  describe('Weighted Union Fusion (Dream Cycle 2026-08-28)', () => {
+    // Before this fix, `queryHybrid`'s 'union' strategy computed `weights`
+    // and then never consumed it (combineUnion was a plain dedup, no score
+    // math) — this suite proves `weights` now actually controls ordering.
+    const QUERY_CONTENT = 'authentication token verification';
+
+    beforeEach(async () => {
+      // Explicit, distinct `createdAt` values (rather than relying on wall-clock
+      // gaps between two `store()` calls, which can tie at millisecond
+      // resolution) so SQLiteBackend's `ORDER BY created_at DESC` deterministically
+      // ranks 'fusion-struct-fav' first in structured results.
+      // 'fusion-sem-fav' content closely matches QUERY_CONTENT → ranks BEFORE
+      // 'struct-fav' in semantic (AgentDB cosine) results. Opposite ranks in
+      // each arm is what makes the weight-sensitivity assertions below
+      // meaningful (same-order ranks in both arms couldn't distinguish a real
+      // weighted fusion from any dedup that happens to prefer one arm).
+      const semFav = createDefaultEntry({
+        key: 'fusion-sem-fav',
+        content: 'authentication token verification flow',
+        namespace: 'fusion-test',
+      });
+      semFav.createdAt = 1000;
+      await backend.store(semFav);
+
+      // Content deliberately shares nothing with QUERY_CONTENT → ranks
+      // AFTER 'fusion-sem-fav' in semantic results.
+      const structFav = createDefaultEntry({
+        key: 'fusion-struct-fav',
+        content: 'zzz totally unrelated filler xyz 12345',
+        namespace: 'fusion-test',
+      });
+      structFav.createdAt = 2000; // strictly newer → ranks FIRST under created_at DESC
+      await backend.store(structFav);
+    });
+
+    async function fusedTopKey(weights: { semantic: number; structured: number }) {
+      const results = await backend.queryHybrid({
+        semantic: {
+          content: QUERY_CONTENT,
+          k: 5,
+          threshold: 0.01, // low: let both entries pass so both arms are populated
+          filters: { namespace: 'fusion-test' },
+        },
+        structured: {
+          namespace: 'fusion-test',
+          keyPrefix: 'fusion-',
+          limit: 5,
+        },
+        combineStrategy: 'union',
+        weights,
+      });
+      expect(results.length).toBe(2); // sanity: both entries present in the fused union
+      return results[0].key;
+    }
+
+    it('heavily semantic-weighted fusion ranks the semantically-closer entry first', async () => {
+      expect(await fusedTopKey({ semantic: 1, structured: 0.01 })).toBe('fusion-sem-fav');
+    });
+
+    it('heavily structured-weighted fusion ranks the more-recently-stored entry first', async () => {
+      expect(await fusedTopKey({ semantic: 0.01, structured: 1 })).toBe('fusion-struct-fav');
+    });
+
+    it('still returns the full deduped union when weights are omitted (regression guard)', async () => {
+      const results = await backend.queryHybrid({
+        semantic: {
+          content: QUERY_CONTENT,
+          k: 5,
+          threshold: 0.01,
+          filters: { namespace: 'fusion-test' },
+        },
+        structured: {
+          namespace: 'fusion-test',
+          keyPrefix: 'fusion-',
+          limit: 5,
+        },
+        combineStrategy: 'union',
+      });
+      const keys = results.map((r) => r.key).sort();
+      expect(keys).toEqual(['fusion-sem-fav', 'fusion-struct-fav']);
+    });
+
+    // Review (PR #3119): malformed weights previously had undefined ranking
+    // semantics (NaN poisons the sort comparator, negative/Infinity invert
+    // or swamp the intended ordering). Each malformed component now falls
+    // back to its own default (0.7 semantic / 0.3 structured) — same
+    // ranking as the semantic-heavy default, since 0.7 > 0.3.
+    it.each([
+      ['NaN semantic weight', { semantic: NaN, structured: 0.3 }],
+      ['negative semantic weight', { semantic: -5, structured: 0.3 }],
+      ['Infinity structured weight', { semantic: 0.7, structured: Infinity }],
+    ])('falls back to default weighting for a malformed weight (%s)', async (_label, weights) => {
+      expect(await fusedTopKey(weights)).toBe('fusion-sem-fav');
+    });
+
+    it('breaks exact rrf ties deterministically by entry id, not iteration order', async () => {
+      // weights of 0/0 make every entry's rrf contribution 0 — a genuine
+      // tie between both entries, not just a coincidentally-close score.
+      const results = await backend.queryHybrid({
+        semantic: {
+          content: QUERY_CONTENT,
+          k: 5,
+          threshold: 0.01,
+          filters: { namespace: 'fusion-test' },
+        },
+        structured: {
+          namespace: 'fusion-test',
+          keyPrefix: 'fusion-',
+          limit: 5,
+        },
+        combineStrategy: 'union',
+        weights: { semantic: 0, structured: 0 },
+      });
+      expect(results.map((r) => r.key)).toEqual(
+        ['fusion-sem-fav', 'fusion-struct-fav'].sort((a, b) => a.localeCompare(b))
+      );
+    });
+  });
+
   describe('CRUD Operations', () => {
     let testEntry: MemoryEntry;
 
