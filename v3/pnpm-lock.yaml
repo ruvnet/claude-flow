@@ -253,6 +253,9 @@ importers:
       '@claude-flow/cli':
         specifier: ^3.0.0
         version: link:../cli
+      '@claude-flow/security':
+        specifier: 3.0.0-alpha.14
+        version: link:../security
       '@iarna/toml':
         specifier: ^2.2.5
         version: 2.2.5
