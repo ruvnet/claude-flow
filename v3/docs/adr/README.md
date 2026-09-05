@@ -6,6 +6,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 
 | ADR | Title | Status |
 |-----|-------|--------|
+| [ADR-381](ADR-381-agentdb-temporal-decay-perishability.md) | AgentDB Temporal Decay — Type-Conditioned Perishability Model | Proposed |
 | [ADR-001](../../implementation/adrs/ADR-001-AGENT-IMPLEMENTATION.md) | Adopt agentic-flow as Core Foundation | Complete |
 | [ADR-002](../../implementation/adrs/ADR-002-DDD-STRUCTURE.md) | Domain-Driven Design Structure | Complete |
 | [ADR-003](../../implementation/adrs/ADR-003-CONSOLIDATION-COMPLETE.md) | Single Coordination Engine | Complete |
