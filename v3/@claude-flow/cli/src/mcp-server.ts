@@ -27,6 +27,11 @@ import * as os from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { trackRequest } from './mcp-tools/request-tracker.js';
+import {
+  isPolicyEnforcementEnabled,
+  loadMcpPolicy,
+  evaluateToolCall,
+} from './mcp-tools/policy-enforcer.js';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -643,6 +648,18 @@ export class MCPServerManager extends EventEmitter {
               id: message.id,
               error: { code: -32601, message: `Tool not found: ${toolName}` },
             };
+          }
+
+          if (isPolicyEnforcementEnabled()) {
+            const check = evaluateToolCall(loadMcpPolicy(), sessionId, toolName);
+            if (!check.allowed) {
+              trackRequest(toolName, false);
+              return {
+                jsonrpc: '2.0',
+                id: message.id,
+                error: { code: -32001, message: `Policy denied: ${check.reason}` },
+              };
+            }
           }
 
           try {
