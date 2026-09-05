@@ -360,10 +360,20 @@ class LocalSonaCoordinator {
 
           // Check EWC penalty before applying update
           if (ewcConsolidator) {
-            const oldWeights = [oldConfidence];
             const proposedConfidence = Math.min(1.0, oldConfidence + this.config.loraLearningRate * reward);
-            const newWeights = [proposedConfidence];
-            const penalty = ewcConsolidator.getPenalty(oldWeights, newWeights);
+            // Use computeConfidencePenalty (averages the full Fisher diagonal),
+            // not getPenalty([oldConf],[newConf]) — that call shape collapses
+            // to fisherDiag[0] only (Math.min(1,1,384) === 1), an arbitrary
+            // single dimension instead of the full accumulated Fisher signal.
+            // computeConfidencePenalty exists precisely for this
+            // scalar-confidence case (see its docstring) but was unwired.
+            // Note: neither call shape differentiates between patterns — both
+            // take only a confidence delta, not a per-pattern embedding, so
+            // two patterns with the same delta under the same consolidator
+            // state get the same penalty either way. This fix corrects which
+            // shared Fisher signal informs that penalty; it does not add
+            // per-pattern discrimination (see ewc-distill-confidence-gate.test.ts).
+            const penalty = ewcConsolidator.computeConfidencePenalty(oldConfidence, proposedConfidence);
             totalEwcPenalty += penalty;
 
             // If penalty is too high, reduce the update magnitude
@@ -393,15 +403,14 @@ class LocalSonaCoordinator {
       }
     }
 
-    // Update EWC Fisher matrix with confidence changes
+    // Update EWC Fisher matrix with confidence changes. updateFisherFromConfidences
+    // takes the full per-pattern embedding + confidence-delta batch directly (it
+    // computes the same squared confidence-delta-scaled-embedding gradient proxy
+    // internally) — replaces the previous per-change recordGradient loop, which
+    // updated the full 384-dim globalFisher but fed a signal that getPenalty's
+    // 1-element call shape then read back only at index 0.
     if (ewcConsolidator && confidenceChanges.length > 0) {
-      for (const change of confidenceChanges) {
-        // Use confidence delta as gradient proxy
-        const gradient = change.embedding.map(
-          e => e * Math.abs(change.newConf - change.oldConf)
-        );
-        ewcConsolidator.recordGradient(change.id, gradient, true);
-      }
+      ewcConsolidator.updateFisherFromConfidences(confidenceChanges);
     }
 
     // Persist updated patterns

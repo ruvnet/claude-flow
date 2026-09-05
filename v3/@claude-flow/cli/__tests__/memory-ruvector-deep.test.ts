@@ -710,6 +710,74 @@ describe('EWC Consolidation', () => {
       expect(consolidator.getLambda()).toBe(0.8);
     });
   });
+
+  // Dream Cycle 2026-08-27 (intelligence): computeConfidencePenalty() and
+  // updateFisherFromConfidences() are the scalar-confidence-shaped EWC methods
+  // documented as "used by SONA after distillLearning" — previously dead code,
+  // now wired into intelligence.ts's distillLearning(). Neither had a unit
+  // test before this fix.
+  describe('computeConfidencePenalty / updateFisherFromConfidences', () => {
+    it('scales with the average Fisher diagonal, not a single dimension', () => {
+      // High-magnitude embedding across every dimension -> high average Fisher.
+      consolidator.updateFisherFromConfidences([
+        { id: 'p1', embedding: [10, 10, 10, 10, 10, 10, 10, 10], oldConf: 0.5, newConf: 0.9 },
+      ]);
+      const highPenalty = consolidator.computeConfidencePenalty(0.5, 0.6);
+
+      consolidator.resetFisher();
+
+      // Near-zero embedding -> near-zero average Fisher.
+      consolidator.updateFisherFromConfidences([
+        { id: 'p2', embedding: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01], oldConf: 0.5, newConf: 0.9 },
+      ]);
+      const lowPenalty = consolidator.computeConfidencePenalty(0.5, 0.6);
+
+      expect(highPenalty).toBeGreaterThan(lowPenalty);
+      expect(lowPenalty).toBeGreaterThanOrEqual(0);
+    });
+
+    it('returns 0 when the confidence delta is 0, regardless of Fisher', () => {
+      consolidator.updateFisherFromConfidences([
+        { id: 'p1', embedding: [5, 5, 5, 5, 5, 5, 5, 5], oldConf: 0.2, newConf: 0.8 },
+      ]);
+      expect(consolidator.computeConfidencePenalty(0.7, 0.7)).toBe(0);
+    });
+
+    it('ignores confidence-change entries with zero delta when building Fisher', () => {
+      consolidator.updateFisherFromConfidences([
+        { id: 'p1', embedding: [9, 9, 9, 9, 9, 9, 9, 9], oldConf: 0.5, newConf: 0.5 },
+      ]);
+      const stats = consolidator.getConsolidationStats();
+      expect(stats.avgFisherValue).toBe(0);
+    });
+
+    // This is the exact defect the 2026-08-27 candidate fixes: getPenalty()
+    // called with 1-element weight arrays (as intelligence.ts's distillLearning
+    // did before this fix) only ever reads fisherDiag[0] — so a Fisher signal
+    // that is high everywhere EXCEPT dimension 0 is invisible to it, while
+    // computeConfidencePenalty() (which averages the full diagonal) correctly
+    // reflects it. Same globalFisher state, two different read paths, two very
+    // different verdicts about how much "forgetting protection" a pattern gets.
+    it('demonstrates the fixed defect: getPenalty([old],[new]) collapses to fisherDiag[0], computeConfidencePenalty does not', () => {
+      // Embedding with a zero in slot 0 and large values elsewhere.
+      consolidator.updateFisherFromConfidences([
+        { id: 'p1', embedding: [0, 8, 8, 8, 8, 8, 8, 8], oldConf: 0.5, newConf: 0.9 },
+      ]);
+
+      const oldConfidence = 0.5;
+      const newConfidence = 0.7;
+
+      // The call shape distillLearning() used to make: 1-element arrays, no
+      // explicit fisher argument -> falls back to globalFisher, but
+      // Math.min(1, 1, 384) collapses the read to globalFisher[0] alone.
+      const buggyPenalty = consolidator.getPenalty([oldConfidence], [newConfidence]);
+      expect(buggyPenalty).toBe(0); // globalFisher[0] is 0 -> zero protection, wrongly.
+
+      // The fixed call: averages the entire Fisher diagonal.
+      const fixedPenalty = consolidator.computeConfidencePenalty(oldConfidence, newConfidence);
+      expect(fixedPenalty).toBeGreaterThan(0); // correctly reflects the real importance signal.
+    });
+  });
 });
 
 // =============================================================================
