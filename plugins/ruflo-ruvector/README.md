@@ -1,6 +1,6 @@
 # ruflo-ruvector
 
-Self-learning vector database powered by [`ruvector@0.2.25`](https://www.npmjs.com/package/ruvector) — HNSW, Adaptive LoRA embeddings, hooks-based intelligence, SONA self-optimizing patterns, brain (collective knowledge), and 103 MCP tools.
+Self-learning vector database powered by [`ruvector@0.2.25`](https://www.npmjs.com/package/ruvector) — HNSW, Adaptive LoRA embeddings, hooks-based intelligence, SONA self-optimizing patterns, brain (collective knowledge), and 91 MCP tools (verified via `ruvector mcp tools`).
 
 > **Pinned version:** this plugin targets `ruvector@0.2.25`. Earlier 0.1.x versions are missing several commands (`brain`, `route`, `sona`); some legacy docs referenced 2.x features that do not exist on npm. Always invoke with the pin.
 
@@ -31,7 +31,7 @@ npx -y ruvector@0.2.25 doctor
 claude --plugin-dir plugins/ruflo-ruvector
 ```
 
-## MCP Integration (103 Tools)
+## MCP Integration (91 Tools)
 
 Register with the pinned version:
 ```bash

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ruflo": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp-launch.cjs"],
+      "env": {
+        "CLAUDE_FLOW_MCP_TRANSPORT": "stdio"
+      }
+    }
+  }
+}

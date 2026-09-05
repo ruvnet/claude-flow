@@ -46,4 +46,4 @@ bash plugins/ruflo-testgen/scripts/smoke.sh
 
 ## Implementation status
 
-Plugin version v0.2.0 shipped and listed in marketplace.json. Source exists at `plugins/ruflo-testgen/`. Contract elements implemented: `testgaps` background worker dispatch via `hooks_worker-dispatch` documented; `hooks coverage-gaps|coverage-route|coverage-suggest` CLI coverage commands covered; SPARC Refinement-phase ownership cross-linked; namespace `testgen-gaps` claimed; smoke-as-contract gate defined in `scripts/smoke.sh`.
+Plugin version v0.2.0 shipped and listed in marketplace.json. Source exists at `plugins/ruflo-testgen/`. Contract elements implemented: `testgaps` background worker dispatch via `hooks_worker-dispatch` documented; `hooks coverage-gaps|coverage-route|coverage-suggest` CLI coverage commands covered; SPARC Refinement-phase ownership cross-linked; namespace `test-gaps` claimed; smoke-as-contract gate defined in `scripts/smoke.sh`.

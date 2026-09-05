@@ -1,7 +1,7 @@
 {
   "name": "ruflo-rag-memory",
   "description": "RuVector memory with HNSW search, AgentDB, and semantic retrieval",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

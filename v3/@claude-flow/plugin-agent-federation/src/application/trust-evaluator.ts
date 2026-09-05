@@ -27,6 +27,22 @@ export interface TrustEvaluatorDeps {
   onTrustChange?: (nodeId: string, result: TrustTransitionResult) => void;
 }
 
+/**
+ * Audit record emitted by `bootstrapElevate`. Captures the bypass intent,
+ * the operator-supplied reason, and the before/after trust levels so that
+ * downstream audit consumers can flag bootstrap elevations distinctly from
+ * organic trust transitions. See ADR-164 §3.5.4.
+ */
+export interface BootstrapElevationAuditEntry {
+  readonly tag: 'bootstrap_elevation';
+  readonly nodeId: string;
+  readonly previousLevel: TrustLevel;
+  readonly newLevel: TrustLevel;
+  readonly reason: string;
+  readonly timestamp: string;
+  readonly operatorBypass: true;
+}
+
 export interface ThreatWindow {
   readonly detections: Date[];
   readonly windowMs: number;
@@ -144,6 +160,62 @@ export class TrustEvaluator {
 
     this.deps.onTrustChange?.(node.nodeId, result);
     return result;
+  }
+
+  /**
+   * Founder-bootstrap trust elevation (ADR-164 §3.5.4).
+   *
+   * Bypasses the organic trust-accrual thresholds (minInteractions: 500 for
+   * 2→3, etc.) so a freshly-joined BBS peer can be hand-promoted to
+   * TRUSTED on Day 1, before its interaction count has accrued. This is an
+   * operator escape hatch — every invocation MUST be recorded as a special
+   * `bootstrap_elevation` audit entry so it is distinguishable from organic
+   * upgrades. `reason` MUST be a non-empty operator-supplied string.
+   *
+   * The caller is responsible for refusing to invoke this method when the
+   * target node is not a registered federation peer; this function trusts
+   * its inputs and only performs the elevation + audit construction.
+   *
+   * @returns audit entry tagged `bootstrap_elevation` ready to be persisted.
+   */
+  bootstrapElevate(
+    node: FederationNode,
+    newLevel: TrustLevel,
+    reason: string,
+  ): BootstrapElevationAuditEntry {
+    if (typeof reason !== 'string' || reason.trim().length === 0) {
+      throw new Error('bootstrapElevate requires a non-empty reason');
+    }
+    if (
+      newLevel !== TrustLevel.VERIFIED &&
+      newLevel !== TrustLevel.ATTESTED &&
+      newLevel !== TrustLevel.TRUSTED &&
+      newLevel !== TrustLevel.PRIVILEGED
+    ) {
+      throw new Error(`bootstrapElevate target level must be VERIFIED..PRIVILEGED, got ${newLevel}`);
+    }
+    const previousLevel = node.trustLevel;
+    node.updateTrustLevel(newLevel);
+
+    const result: TrustTransitionResult = {
+      previousLevel,
+      newLevel,
+      score: 0,
+      components: { successRate: 0, uptime: 0, threatPenalty: 0, dataIntegrityScore: 0 },
+      reason: `Bootstrap elevation: ${reason}`,
+      requiresHumanApproval: false,
+    };
+    this.deps.onTrustChange?.(node.nodeId, result);
+
+    return {
+      tag: 'bootstrap_elevation',
+      nodeId: node.nodeId,
+      previousLevel,
+      newLevel,
+      reason: reason.trim(),
+      timestamp: new Date().toISOString(),
+      operatorBypass: true,
+    };
   }
 
   recordThreatDetection(nodeId: string): boolean {

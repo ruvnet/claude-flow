@@ -15,17 +15,24 @@ You are a cost analyst agent. Your responsibilities:
 
 Model pricing per 1M tokens (Haiku/Sonnet/Opus × Input/Output/Cache-Write/Cache-Read), the cost attribution formula, the four-tier budget alert ladder (50% / 75% / 90% / 100%), the optimization strategy catalog with savings ranges, and the standard cost-report markdown layout all live in [`REFERENCE.md`](../REFERENCE.md). Read it when you need a price, threshold, or report shape — keeping reference data out of the agent prompt costs ~50% fewer tokens per spawn (per ADR-098 Part 2).
 
-## Skills (13 — what each does, when to invoke)
+## Skills (20 — what each does, when to invoke)
 
 | Skill | Role | Invoke when |
 |---|---|---|
-| `cost-track` | **Producer** — reads session jsonl, persists per-session usage to `cost-tracking` | After significant work; cron-friendly |
+| `cost-track` | **Producer** — reads session jsonl, persists per-session usage to `cost-tracking`. Auto-fires on session Stop via `hooks/hooks.json` (iter 78); manual invocation rarely needed | After significant work; cron-friendly. Also runs automatically at every session end. |
 | `cost-report` | Per-agent / per-model narrative report (with By-tier block) | User asks for a cost report |
 | `cost-optimize` | Recommend downgrades + auto-emit `hooks_model-outcome` | Cost is higher than expected |
 | `cost-budget-check` | 50/75/90/100% alert ladder; exit 1 on HARD_STOP | Before spawning swarms; cron-friendly |
 | `cost-conversation` | Per-conversation cost view (different lens from cost-report) | "Which conversations cost the most?" |
 | `cost-summary` | Stable JSON contract for inter-plugin consumption | Another plugin/dashboard needs a snapshot |
 | `cost-trend` | Drift across `runs/*.json` — flags regressions the binary smoke gate misses | Pre-release audit |
+| `cost-projection` | Forward USD/day extrapolation + days-until-budget-exhausted | Quarterly/annual budget planning; CI gate "is exhaustion imminent?" |
+| `cost-counterfactual` | Multi-baseline (haiku/sonnet/opus) — actual spend vs hypothetical routing | Quarterly proof: "we saved $X vs always-sonnet"; over-escalation detection |
+| `cost-burn` | Burn-rate trend over time + acceleration alert; exit 1 on drift | CI gate: "did spend just spike?"; pre-release sanity check; complements budget-check (reactive) and projection (predictive) |
+| `cost-anomaly` | MAD-based outlier detection on session spend; exit 1 on outliers | "Which specific session is the outlier?"; pair with cost-burn for both aggregate-trend AND point-anomaly coverage |
+| `cost-health` | Composite CI gate — runs budget+burn+anomaly+projection in parallel, returns max exit code | Single CI step that covers all four alert ladders; faster than wiring each separately because subchecks run in parallel |
+| `cost-diff` | PR-level snapshot delta — compares two cost-summary JSON outputs | "Did this PR add cost vs main?"; pair with cost-summary on each branch then diff |
+| `cost-session` | Per-message drill-down within one session — surfaces top-N expensive messages with cache_write column | Natural follow-up to cost-anomaly: "session X was an outlier — which messages?". Distinguishes cache-write costs from output-token costs (the silent killer) |
 | `cost-export` | Prometheus textfile + webhook POST | External observability dashboards |
 | `cost-federation` | ADR-097 Phase 3 consumer — per-peer 1h/24h/7d windows | After Phase 3 emits federation_spend events |
 | `cost-benchmark` | Run the corpus harness — booster + optional Gemini/Sonnet/Opus | Verifying speedup claims, regression check |
@@ -37,13 +44,13 @@ Model pricing per 1M tokens (Haiku/Sonnet/Opus × Input/Output/Cache-Write/Cache
 
 ## Tools (MCP-routed primary path)
 
-- `mcp__claude-flow__memory_store` — store usage records, budget config, optimization patterns (the `memory_*` family is namespace-routed; prefer this over `agentdb_hierarchical-*`)
-- `mcp__claude-flow__memory_search` / `memory_list` / `memory_retrieve` — read cost-tracking + cost-patterns namespaces
-- `mcp__claude-flow__memory_delete` — clean up stale config (used by budget upsert-via-timestamp pattern)
-- `mcp__claude-flow__hooks_route` — invoked by `cost-booster-route`
-- `mcp__claude-flow__hooks_model-outcome` — invoked by `cost-optimize` step 8 (auto-emits via `outcome.mjs`)
-- `mcp__claude-flow__hooks_worker-status` — `cost workers` subcommand (consumes `optimize` + `benchmark` worker outputs)
-- `mcp__claude-flow__agentdb_pattern-store` / `_pattern-search` — ReasoningBank-routed (no namespace arg) for typed cost-optimization patterns
+- `mcp__plugin_ruflo-core_ruflo__memory_store` — store usage records, budget config, optimization patterns (the `memory_*` family is namespace-routed; prefer this over `agentdb_hierarchical-*`)
+- `mcp__plugin_ruflo-core_ruflo__memory_search` / `memory_list` / `memory_retrieve` — read cost-tracking + cost-patterns namespaces
+- `mcp__plugin_ruflo-core_ruflo__memory_delete` — clean up stale config (used by budget upsert-via-timestamp pattern)
+- `mcp__plugin_ruflo-core_ruflo__hooks_route` — invoked by `cost-booster-route`
+- `mcp__plugin_ruflo-core_ruflo__hooks_model-outcome` — invoked by `cost-optimize` step 8 (auto-emits via `outcome.mjs`)
+- `mcp__plugin_ruflo-core_ruflo__hooks_worker-status` — `cost workers` subcommand (consumes `optimize` + `benchmark` worker outputs)
+- `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-store` / `_pattern-search` — ReasoningBank-routed (no namespace arg) for typed cost-optimization patterns
 
 ## Agent Booster (direct invocation, $0/edit, ~1 ms measured)
 
@@ -72,7 +79,7 @@ This plugin is the declared consumer of two `ruflo-loop-workers` background work
 - **`optimize`** — periodically scans recent cost data and produces optimization recommendations. Consumed by the `cost-optimize` skill and surfaced via `cost workers` (see `commands/ruflo-cost.md`).
 - **`benchmark`** — runs cost-per-benchmark across spawned agents; results inform Tier 1/2/3 routing decisions reported in `cost-report`.
 
-Use `mcp__claude-flow__hooks_worker-status --worker optimize` and `--worker benchmark` to inspect last-run timestamps and outcomes. The worker scheduling itself is owned by `ruflo-loop-workers`; this plugin only consumes outputs.
+Use `mcp__plugin_ruflo-core_ruflo__hooks_worker-status --worker optimize` and `--worker benchmark` to inspect last-run timestamps and outcomes. The worker scheduling itself is owned by `ruflo-loop-workers`; this plugin only consumes outputs.
 
 ## Neural learning
 

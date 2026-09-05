@@ -1,0 +1,338 @@
+{
+  "runAt": "2026-05-30T19:07:53.391Z",
+  "benchmark": "cross-repo-generalisation",
+  "repo": "ruvnet/agentdb",
+  "cwd": "/private/tmp/agentdb-bench",
+  "storeSize": 15,
+  "queries": 10,
+  "hybrid": {
+    "top1HitRate": 1,
+    "top3HitRate": 1,
+    "mrr3": 1,
+    "precision3": 0.4,
+    "ndcg3": 0.9919720789148186,
+    "ndcg5": 0.9919720789148186,
+    "avgLatencyMs": 3.4387249999999994
+  },
+  "rerank": {
+    "top1HitRate": 1,
+    "top3HitRate": 1,
+    "mrr3": 1,
+    "precision3": 0.4,
+    "ndcg3": 1,
+    "ndcg5": 1,
+    "avgLatencyMs": 901.857925
+  },
+  "perQueryRerank": [
+    {
+      "q": "SQL injection fix REINDEX",
+      "top1": true,
+      "topK": [
+        {
+          "name": "fix(security): SQL injection (REINDEX), insecure PRNG for IDs, JSON.parse crash hardening",
+          "relevant": true,
+          "score": "0.671"
+        },
+        {
+          "name": "fix: inline schemas + prefer native better-sqlite3 (closes #1, #2, ruflo#2235 A)",
+          "relevant": false,
+          "score": "0.513"
+        },
+        {
+          "name": "docs: rewrite README in ruflo style — concise, opinionated, scannable",
+          "relevant": false,
+          "score": "0.500"
+        },
+        {
+          "name": "SOTA roadmap — deep review findings (intelligence · performance · security · MCP) — tracki",
+          "relevant": false,
+          "score": "0.499"
+        },
+        {
+          "name": "init: agentdb package source + marketing UI",
+          "relevant": false,
+          "score": "0.453"
+        }
+      ]
+    },
+    {
+      "q": "insecure PRNG random IDs",
+      "top1": true,
+      "topK": [
+        {
+          "name": "fix(security): SQL injection (REINDEX), insecure PRNG for IDs, JSON.parse crash hardening",
+          "relevant": true,
+          "score": "0.726"
+        },
+        {
+          "name": "SOTA roadmap — deep review findings (intelligence · performance · security · MCP) — tracki",
+          "relevant": false,
+          "score": "0.500"
+        },
+        {
+          "name": "init: agentdb package source + marketing UI",
+          "relevant": false,
+          "score": "0.492"
+        },
+        {
+          "name": "fix(security): bump vulnerable deps + harden JSON.parse in DB row readers (#3)",
+          "relevant": false,
+          "score": "0.467"
+        },
+        {
+          "name": "fix(plugins): repository must be string per Claude Code plugin schema (not npm-style objec",
+          "relevant": false,
+          "score": "0.356"
+        }
+      ]
+    },
+    {
+      "q": "JSON parse crash hardening",
+      "top1": true,
+      "topK": [
+        {
+          "name": "fix(security): bump vulnerable deps + harden JSON.parse in DB row readers (#3)",
+          "relevant": true,
+          "score": "0.612"
+        },
+        {
+          "name": "fix(security): SQL injection (REINDEX), insecure PRNG for IDs, JSON.parse crash hardening",
+          "relevant": true,
+          "score": "0.500"
+        },
+        {
+          "name": "feat: ADR-073 SOTA roadmap — security hardening + 3 MCP additions + recall harness",
+          "relevant": false,
+          "score": "0.444"
+        },
+        {
+          "name": "AgentDB is not working - Mising Schema files",
+          "relevant": false,
+          "score": "0.500"
+        },
+        {
+          "name": "fix(security): patch protobufjs critical CVE + 16 high-severity otel CVEs; harden execSync",
+          "relevant": false,
+          "score": "0.444"
+        }
+      ]
+    },
+    {
+      "q": "protobuf critical CVE patch",
+      "top1": true,
+      "topK": [
+        {
+          "name": "fix(security): patch protobufjs critical CVE + 16 high-severity otel CVEs; harden execSync",
+          "relevant": true,
+          "score": "1.000"
+        },
+        {
+          "name": "fix(security): SQL injection (REINDEX), insecure PRNG for IDs, JSON.parse crash hardening",
+          "relevant": false,
+          "score": "0.375"
+        },
+        {
+          "name": "SOTA roadmap — deep review findings (intelligence · performance · security · MCP) — tracki",
+          "relevant": false,
+          "score": "0.428"
+        },
+        {
+          "name": "init: agentdb package source + marketing UI",
+          "relevant": false,
+          "score": "0.383"
+        },
+        {
+          "name": "docs: rewrite README in ruflo style — concise, opinionated, scannable",
+          "relevant": false,
+          "score": "0.365"
+        }
+      ]
+    },
+    {
+      "q": "spawnSync vs execSync security",
+      "top1": true,
+      "topK": [
+        {
+          "name": "fix(security): patch protobufjs critical CVE + 16 high-severity otel CVEs; harden execSync",
+          "relevant": true,
+          "score": "0.854"
+        },
+        {
+          "name": "SOTA roadmap — deep review findings (intelligence · performance · security · MCP) — tracki",
+          "relevant": false,
+          "score": "0.610"
+        },
+        {
+          "name": "fix(security): SQL injection (REINDEX), insecure PRNG for IDs, JSON.parse crash hardening",
+          "relevant": false,
+          "score": "0.491"
+        },
+        {
+          "name": "AgentDB is not working - Mising Schema files",
+          "relevant": false,
+          "score": "0.500"
+        },
+        {
+          "name": "chore: clean up repo root — archive stale release notes, drop tarballs",
+          "relevant": false,
+          "score": "0.461"
+        }
+      ]
+    },
+    {
+      "q": "better-sqlite3 inline schemas",
+      "top1": true,
+      "topK": [
+        {
+          "name": "fix: inline schemas + prefer native better-sqlite3 (closes #1, #2, ruflo#2235 A)",
+          "relevant": true,
+          "score": "0.836"
+        },
+        {
+          "name": "fix(security): bump vulnerable deps + harden JSON.parse in DB row readers (#3)",
+          "relevant": false,
+          "score": "0.500"
+        },
+        {
+          "name": "feat: ADR-073 SOTA roadmap — security hardening + 3 MCP additions + recall harness",
+          "relevant": false,
+          "score": "0.440"
+        },
+        {
+          "name": "chore: clean up repo root — archive stale release notes, drop tarballs",
+          "relevant": false,
+          "score": "0.386"
+        },
+        {
+          "name": "docs: rewrite README in ruflo style — concise, opinionated, scannable",
+          "relevant": false,
+          "score": "0.380"
+        }
+      ]
+    },
+    {
+      "q": "Claude Code marketplace plugins",
+      "top1": true,
+      "topK": [
+        {
+          "name": "feat: Claude Code marketplace + 6 plugins + npm SEO bump",
+          "relevant": true,
+          "score": "0.855"
+        },
+        {
+          "name": "fix(plugins): repository must be string per Claude Code plugin schema (not npm-style objec",
+          "relevant": true,
+          "score": "0.690"
+        },
+        {
+          "name": "docs: rewrite README in ruflo style — concise, opinionated, scannable",
+          "relevant": false,
+          "score": "0.500"
+        },
+        {
+          "name": "fix(security): bump vulnerable deps + harden JSON.parse in DB row readers (#3)",
+          "relevant": false,
+          "score": "0.482"
+        },
+        {
+          "name": "fix(security): patch protobufjs critical CVE + 16 high-severity otel CVEs; harden execSync",
+          "relevant": false,
+          "score": "0.455"
+        }
+      ]
+    },
+    {
+      "q": "README rewrite ruflo style",
+      "top1": true,
+      "topK": [
+        {
+          "name": "docs: rewrite README in ruflo style — concise, opinionated, scannable",
+          "relevant": true,
+          "score": "0.880"
+        },
+        {
+          "name": "chore: clean up repo root — archive stale release notes, drop tarballs",
+          "relevant": false,
+          "score": "0.520"
+        },
+        {
+          "name": "fix(plugins): repository must be string per Claude Code plugin schema (not npm-style objec",
+          "relevant": false,
+          "score": "0.456"
+        },
+        {
+          "name": "SOTA roadmap — deep review findings (intelligence · performance · security · MCP) — tracki",
+          "relevant": false,
+          "score": "0.376"
+        },
+        {
+          "name": "fix(security): SQL injection (REINDEX), insecure PRNG for IDs, JSON.parse crash hardening",
+          "relevant": false,
+          "score": "0.360"
+        }
+      ]
+    },
+    {
+      "q": "WASM browser fs.readFileSync blocking",
+      "top1": true,
+      "topK": [
+        {
+          "name": "agentdb/wasm: AgentDB.initialize() blocks browser use via fs.readFileSync in loadSchemas()",
+          "relevant": true,
+          "score": "0.671"
+        },
+        {
+          "name": "fix: inline schemas + prefer native better-sqlite3 (closes #1, #2, ruflo#2235 A)",
+          "relevant": false,
+          "score": "0.561"
+        },
+        {
+          "name": "SOTA roadmap — deep review findings (intelligence · performance · security · MCP) — tracki",
+          "relevant": false,
+          "score": "0.500"
+        },
+        {
+          "name": "fix(plugins): repository must be string per Claude Code plugin schema (not npm-style objec",
+          "relevant": false,
+          "score": "0.384"
+        },
+        {
+          "name": "init: agentdb package source + marketing UI",
+          "relevant": false,
+          "score": "0.362"
+        }
+      ]
+    },
+    {
+      "q": "AgentDB missing schema files",
+      "top1": true,
+      "topK": [
+        {
+          "name": "AgentDB is not working - Mising Schema files",
+          "relevant": true,
+          "score": "1.000"
+        },
+        {
+          "name": "agentdb/wasm: AgentDB.initialize() blocks browser use via fs.readFileSync in loadSchemas()",
+          "relevant": false,
+          "score": "0.428"
+        },
+        {
+          "name": "fix: inline schemas + prefer native better-sqlite3 (closes #1, #2, ruflo#2235 A)",
+          "relevant": false,
+          "score": "0.430"
+        },
+        {
+          "name": "init: agentdb package source + marketing UI",
+          "relevant": false,
+          "score": "0.460"
+        },
+        {
+          "name": "SOTA roadmap — deep review findings (intelligence · performance · security · MCP) — tracki",
+          "relevant": false,
+          "score": "0.446"
+        }
+      ]
+    }
+  ]
+}

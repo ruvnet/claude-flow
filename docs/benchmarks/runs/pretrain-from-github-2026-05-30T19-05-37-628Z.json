@@ -1,0 +1,62 @@
+{
+  "runAt": "2026-05-30T19:05:37.628Z",
+  "benchmark": "pretrain-from-github",
+  "source": "all",
+  "config": {
+    "COMMITS": 20,
+    "ISSUES": 10
+  },
+  "harvest": {
+    "commits": 12,
+    "issues": 3,
+    "total": 15,
+    "harvestMs": 773.49
+  },
+  "feed": {
+    "trained": 15,
+    "failed": 0,
+    "avgLatencyMs": 3.17,
+    "totalMs": 47.56,
+    "sampleFailures": [],
+    "verdictMix": {
+      "success": 15,
+      "partial": 0,
+      "reverted": 0,
+      "hotfixed": 0
+    }
+  },
+  "seedNeuralStore": {
+    "stored": 15,
+    "total": 15,
+    "seedMs": 9.77
+  },
+  "before": {
+    "trajectoriesRecorded": 0,
+    "patternsLearned": 0,
+    "signalsProcessed": 0,
+    "neuralPatternCount": 0,
+    "memoryBridgeTotal": 0
+  },
+  "after": {
+    "trajectoriesRecorded": 17,
+    "patternsLearned": 27,
+    "signalsProcessed": 3,
+    "neuralPatternCount": 15,
+    "memoryBridgeTotal": 0
+  },
+  "deltas": {
+    "trajectoriesRecorded": 17,
+    "patternsLearned": 27,
+    "signalsProcessed": 3,
+    "neuralPatternCount": 15,
+    "memoryBridgeTotal": 0
+  },
+  "consistency": {
+    "sonaTracksGlobal": false,
+    "sonaTracksGlobalDelta": -17,
+    "notes": [
+      "sona.trajectoriesTotal (0) drifts from globalStats.trajectoriesRecorded (17) by -17 — expected to track within ±1"
+    ]
+  },
+  "passed": true
+}

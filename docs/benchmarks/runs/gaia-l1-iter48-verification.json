@@ -1,0 +1,105 @@
+{
+  "iterTag": "iter-48-verification",
+  "level": 1,
+  "model": "claude-sonnet-4-6",
+  "tracksEnabled": "basic-agent-loop-only",
+  "groundedQueryRestored": true,
+  "summary": {
+    "total": 5,
+    "passed": 3,
+    "nonEmpty": 4,
+    "passRate": 0.6,
+    "nonEmptyRate": 0.8,
+    "estCostUsd": 0.5163599999999999,
+    "passVerdict": "PASS (>=3/5 non-empty)"
+  },
+  "results": [
+    {
+      "task_id": "8e867cd7-cff9-4e6c-867a-ff5ddc2550be",
+      "question": "How many studio albums were published by Mercedes Sosa between 2000 and 2009 (included)? You can use the latest 2022 version of english wikipedia.",
+      "model": "claude-sonnet-4-6",
+      "correct": false,
+      "answer": "4",
+      "expected_output": "3",
+      "turns": 8,
+      "wallMs": 64217,
+      "inputTokens": 23570,
+      "outputTokens": 1052,
+      "groundedQueryFired": true,
+      "toolCallsByName": {
+        "web_search": 3,
+        "grounded_query": 4
+      }
+    },
+    {
+      "task_id": "4fc2f1ae-8625-45b5-ab34-ad4433bc21f8",
+      "question": "Who nominated the only Featured Article on English Wikipedia about a dinosaur that was promoted in November 2016?",
+      "model": "claude-sonnet-4-6",
+      "correct": true,
+      "answer": "FunkMonk",
+      "expected_output": "FunkMonk",
+      "turns": 5,
+      "wallMs": 30189,
+      "inputTokens": 9207,
+      "outputTokens": 452,
+      "groundedQueryFired": true,
+      "toolCallsByName": {
+        "web_search": 3,
+        "grounded_query": 2
+      }
+    },
+    {
+      "task_id": "d0633230-7067-47a9-9dbf-ee11e0a2cdd6",
+      "question": "In the Scikit-Learn July 2017 changelog, what other predictor base command received a bug fix? Just give the name, not a path.",
+      "model": "claude-sonnet-4-6",
+      "correct": false,
+      "answer": "",
+      "expected_output": "BaseLabelPropagation",
+      "turns": 12,
+      "wallMs": 134780,
+      "inputTokens": 62413,
+      "outputTokens": 1609,
+      "groundedQueryFired": true,
+      "toolCallsByName": {
+        "web_search": 6,
+        "grounded_query": 8,
+        "file_read": 2
+      }
+    },
+    {
+      "task_id": "305ac316-eef6-4446-960a-92d80d542f82",
+      "question": "Who did the actor who played Ray in the Polish-language version of Everybody Loves Raymond play in Magda M.? Give only the first name.",
+      "model": "claude-sonnet-4-6",
+      "correct": true,
+      "answer": "Wojciech",
+      "expected_output": "Wojciech",
+      "turns": 4,
+      "wallMs": 21240,
+      "inputTokens": 7335,
+      "outputTokens": 365,
+      "groundedQueryFired": true,
+      "toolCallsByName": {
+        "web_search": 2,
+        "grounded_query": 2
+      }
+    },
+    {
+      "task_id": "840bfca7-4f7b-481a-8794-c560c340185d",
+      "question": "On June 6, 2023, an article by Carolyn Collins Petersen was published in Universe Today. This article mentions a team that produced a paper about their observations, linked at the bottom of the article. Find this paper. Under what NASA award number was the work performed by R. G. Arendt supported by?",
+      "model": "claude-sonnet-4-6",
+      "correct": true,
+      "answer": "80GSFC21M0002",
+      "expected_output": "80GSFC21M0002",
+      "turns": 10,
+      "wallMs": 72477,
+      "inputTokens": 45120,
+      "outputTokens": 1417,
+      "groundedQueryFired": true,
+      "toolCallsByName": {
+        "web_search": 5,
+        "grounded_query": 4,
+        "file_read": 1
+      }
+    }
+  ]
+}

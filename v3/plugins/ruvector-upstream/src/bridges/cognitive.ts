@@ -94,7 +94,7 @@ export class CognitiveBridge implements WasmBridge<CognitiveModule> {
     this._status = 'loading';
 
     try {
-      const wasmModule = await import('@ruvector/cognitum-gate-kernel').catch(() => null);
+      const wasmModule = await import('@ruvector/cognitum-gate-kernel' as string).catch(() => null);
 
       if (wasmModule) {
         this._module = wasmModule as unknown as CognitiveModule;

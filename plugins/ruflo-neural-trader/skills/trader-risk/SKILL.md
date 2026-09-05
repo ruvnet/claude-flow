@@ -1,7 +1,7 @@
 ---
 name: trader-risk
 description: Assess portfolio risk using npx neural-trader — VaR, CVaR, Sharpe, position sizing, circuit breaker status
-allowed-tools: Bash Read mcp__claude-flow__memory_store mcp__claude-flow__memory_search
+allowed-tools: Bash Read mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search
 argument-hint: "[--symbol TICKER] [--portfolio NAME]"
 ---
 Assess portfolio and position risk using neural-trader's risk engine.
@@ -30,4 +30,4 @@ Steps:
    - Max positions, single-name concentration (>10%)
 5. Present: risk metrics, position sizing recommendation, active breakers, alerts
 6. Store assessment:
-   `mcp__claude-flow__memory_store({ key: "risk-TICKER-DATE", value: "RISK_METRICS", namespace: "trading-risk" })`
+   `mcp__plugin_ruflo-core_ruflo__memory_store({ key: "risk-TICKER-DATE", value: "RISK_METRICS", namespace: "trading-risk" })`

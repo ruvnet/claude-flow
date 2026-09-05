@@ -72,7 +72,10 @@ describe('smartSearch — multi-query fan-out', () => {
   });
 
   it('falls back to a single raw call when multiQuery=false', async () => {
-    const search = vi.fn<SearchFn>(async () => ({
+    // NOTE: no vi.fn<T> generic — the hoisted vitest (1.x) types Mock as
+    // Mock<Args extends any[], Returns>, so the vitest-4 single-generic
+    // form fails `tsc`. The inferred signature is identical.
+    const search: SearchFn = vi.fn(async () => ({
       results: [makeCandidate({ id: 'x', content: 'only one' })],
     }));
 

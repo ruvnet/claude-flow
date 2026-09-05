@@ -1,0 +1,135 @@
+# Funnel release gates — ADR-310.
+#
+# Enforces the hard gates on every change touching a funnel surface:
+#   - promo output in CI or non-TTY: 0
+#   - promotional display before disclosure: 0
+#   - control-sequence injection through message copy: 0
+#   - lower-precedence source re-enabling a higher disable: 0
+#   - credit recovery on anything but COGNITUM_CREDIT_EXHAUSTED: 0
+#   - funnel events without telemetry consent: 0
+#   - RUFLO_FUNNEL=0 suppresses every funnel surface
+#
+# Two jobs:
+#   1. invariants — the vitest suite mapping 1:1 to the gates above
+#   2. runtime-suppression — builds the CLI and proves, in a real CI
+#      environment, that `hooks statusline --json` emits promo: null and
+#      that RUFLO_FUNNEL=0 / user opt-out hold end-to-end
+
+name: funnel-gates
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'v3/@claude-flow/cli/src/funnel/**'
+      - 'v3/@claude-flow/cli/src/commands/funnel.ts'
+      - 'v3/@claude-flow/cli/src/commands/init.ts'
+      - 'v3/@claude-flow/cli/src/commands/hooks.ts'
+      - 'v3/@claude-flow/cli/src/init/statusline-generator.ts'
+      - 'v3/@claude-flow/cli/__tests__/funnel.test.ts'
+      - 'v3/docs/api/cognitum-v1.openapi.yaml'
+      - '.github/workflows/funnel-gates.yml'
+  pull_request:
+    paths:
+      - 'v3/@claude-flow/cli/src/funnel/**'
+      - 'v3/@claude-flow/cli/src/commands/funnel.ts'
+      - 'v3/@claude-flow/cli/src/commands/init.ts'
+      - 'v3/@claude-flow/cli/src/commands/hooks.ts'
+      - 'v3/@claude-flow/cli/src/init/statusline-generator.ts'
+      - 'v3/@claude-flow/cli/__tests__/funnel.test.ts'
+      - 'v3/docs/api/cognitum-v1.openapi.yaml'
+      - '.github/workflows/funnel-gates.yml'
+  workflow_dispatch:
+
+# Setup mirrors the green "Build V3" job in v3-ci.yml exactly (pnpm 8 via
+# action-setup@v6, frozen-lockfile full install, workspace-wide build) — a
+# filtered install under a newer pnpm resolves the bare-semver workspace
+# deps from the registry instead of linking them, and the cli build then
+# can't find @claude-flow/cli-core's dist.
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8'
+
+jobs:
+  invariants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+      - name: Install dependencies
+        working-directory: v3
+        run: pnpm install --frozen-lockfile
+      - name: Funnel invariant suite (ADR-310 gate map)
+        working-directory: v3/@claude-flow/cli
+        run: npx vitest run __tests__/funnel.test.ts __tests__/statusline-cost-display.test.ts
+
+      - name: OpenAPI contract parses (ADR-308)
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 -c "import yaml,sys; yaml.safe_load(open('v3/docs/api/cognitum-v1.openapi.yaml')); print('openapi yaml ok')"
+
+  runtime-suppression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+      - name: Install dependencies
+        working-directory: v3
+        run: pnpm install --frozen-lockfile
+      - name: Build workspace
+        working-directory: v3
+        run: pnpm build
+
+      # Gate: promo output in CI = 0. GitHub Actions sets CI=true — the real
+      # environment IS the test fixture.
+      - name: Promo suppressed under CI (promo must be null)
+        working-directory: v3/@claude-flow/cli
+        run: |
+          export RUFLO_STATE_DIR="$(mktemp -d)"
+          PROMO=$(node bin/cli.js hooks statusline --json 2>/dev/null | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const j=JSON.parse(d);process.stdout.write(String(j.promo))})")
+          echo "promo=$PROMO"
+          test "$PROMO" = "null"
+
+      # Gate: RUFLO_FUNNEL=0 suppresses every surface even outside CI env vars.
+      - name: RUFLO_FUNNEL=0 suppresses promo (CI vars cleared)
+        working-directory: v3/@claude-flow/cli
+        run: |
+          export RUFLO_STATE_DIR="$(mktemp -d)"
+          PROMO=$(env -u CI -u GITHUB_ACTIONS RUFLO_FUNNEL=0 RUFLO_STATE_DIR="$RUFLO_STATE_DIR" node bin/cli.js hooks statusline --json 2>/dev/null | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const j=JSON.parse(d);process.stdout.write(String(j.promo))})")
+          echo "promo=$PROMO"
+          test "$PROMO" = "null"
+
+      # Gate: user opt-out (`ruflo funnel disable`) holds and reports its source.
+      - name: funnel disable persists and wins over re-enable attempts below it
+        working-directory: v3/@claude-flow/cli
+        run: |
+          export RUFLO_STATE_DIR="$(mktemp -d)"
+          node bin/cli.js funnel disable
+          STATUS=$(env -u CI -u GITHUB_ACTIONS RUFLO_STATE_DIR="$RUFLO_STATE_DIR" node bin/cli.js funnel status --json 2>/dev/null | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const j=JSON.parse(d);process.stdout.write(j.enabled+':'+j.decidedBy)})")
+          echo "status=$STATUS"
+          test "$STATUS" = "false:user-config"
+
+      # Gate: init in CI never prompts (enrollment suppressed, exit 0).
+      - name: init --minimal in CI runs non-interactively with no enrollment prompt
+        run: |
+          export RUFLO_STATE_DIR="$(mktemp -d)"
+          WORKDIR="$(mktemp -d)"
+          cd "$WORKDIR"
+          node "$GITHUB_WORKSPACE/v3/@claude-flow/cli/bin/cli.js" init --minimal --force < /dev/null | tee init.log
+          ! grep -q "Unlock additional capabilities" init.log

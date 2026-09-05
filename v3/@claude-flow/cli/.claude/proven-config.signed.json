@@ -1,0 +1,41 @@
+{
+  "manifest": {
+    "schema": "ruflo.proven-config/v1",
+    "policy": {
+      "ref": "sha256:6141a8ea990c5063b77e090ae8f37f9c539d8aa8f58dcceb30f3a82f97e57319",
+      "value": {
+        "alpha": 0.3,
+        "subjectWeight": 1,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1.5,
+        "typePenaltyFactor": 0.5
+      }
+    },
+    "layer": "framework/node-cli",
+    "compatibility": {
+      "ruflo": ">=3.24.0"
+    },
+    "benchmark": {
+      "corpus": "ADR-081-labelled-v1",
+      "corpusHash": "sha256:2f700b5c363e20a3bd88ce2bc9b87bbbbaa61732c6177894c6ec37890f888982"
+    },
+    "receipt": {
+      "heldOutDelta": 0.07381404928570845,
+      "redblue": "PASS",
+      "drift": 0,
+      "canary": {
+        "rollbackRate": 0,
+        "latencyP95": 244.612458000076,
+        "costPerTask": 0
+      },
+      "receiptCoverage": 1
+    },
+    "platform": [
+      "linux",
+      "macOS",
+      "windows"
+    ]
+  },
+  "signature": "gC7VYhZ+l1RQQ9vO4Ml2pVV3fUy38rBBn5vsMx8XQP4wWuZBOzNd1ZGAhtfNvkTeV1hXd3Dr5Ln09Etr1VcdCw==",
+  "algorithm": "ed25519"
+}

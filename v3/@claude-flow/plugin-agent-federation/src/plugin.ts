@@ -25,30 +25,53 @@ import { RoutingService } from './domain/services/routing-service.js';
 import { AuditService, type ComplianceMode } from './domain/services/audit-service.js';
 import { PIIPipelineService } from './domain/services/pii-pipeline-service.js';
 import { TrustEvaluator } from './application/trust-evaluator.js';
-import { PolicyEngine, type FederationClaimType } from './application/policy-engine.js';
+import { PolicyEngine } from './application/policy-engine.js';
+import {
+  createFederationClaimChecker,
+  type FederationAuthorizationMode,
+} from './application/claim-checker.js';
 import { TrustLevel, getTrustLevelLabel } from './domain/entities/trust-level.js';
 import { type FederationMessageType } from './domain/entities/federation-envelope.js';
 
 // ADR-104: real wire transport via agentic-flow loader pattern.
-// Today this resolves to WebSocketFallbackTransport (real ws networking);
-// when ruvnet/agentic-flow ships a native QUIC binding the same import
-// auto-upgrades with no plugin changes (set AGENTIC_FLOW_QUIC_NATIVE=1).
-type LoadedTransport = Awaited<ReturnType<typeof loadQuicTransport>> & {
+// ADR-120: midstream-aware loader wraps the agentic-flow loader so
+// when `midstreamer` (ruvnet/midstream) ships its production QUIC
+// build (Step 1 of ADR-120) and operators opt in with
+// MIDSTREAMER_QUIC_NATIVE=1, the federation transport auto-upgrades.
+// Until then, the wrapper transparently defers to the agentic-flow
+// loader — which itself resolves to WebSocketFallbackTransport
+// today, or native QUIC when AGENTIC_FLOW_QUIC_NATIVE=1.
+import {
+  loadFederationTransport,
+  type AgentMessage,
+  type AgentTransport,
+} from './transport/midstream-aware-loader.js';
+
+type LoadedTransport = AgentTransport & {
   /** WebSocketFallbackTransport adds listen(); the loader's interface
    * doesn't include it, so we cast at the call site. */
   listen?: (port: number, host?: string) => Promise<void>;
 };
 import {
-  loadQuicTransport,
-  type AgentMessage,
-} from 'agentic-flow/transport/loader';
-import { dispatchInbound, canonicalizeEnvelopeForVerify } from './application/inbound-dispatcher.js';
+  DEFAULT_ENVELOPE_SIGNATURE_MODE,
+  JCS_SIGNATURE_PROTOCOL,
+  canonicalizeEnvelopeForVerify,
+  dispatchInbound,
+  selectEnvelopeSignatureVersion,
+  type EnvelopeSignatureMode,
+} from './application/inbound-dispatcher.js';
 import { createMcpTools } from './mcp-tools.js';
 import { createCliCommands } from './cli-commands.js';
+import { FEDERATION_PLUGIN_VERSION } from './version.js';
+// A2A (Agent2Agent, Linux Foundation) Agent Card adapter — cards only.
+// Opt-in via config.a2aCard; serves /.well-known/agent-card.json on a
+// 127.0.0.1-default bind (ADR-166 posture preserved).
+import { toAgentCard } from './a2a/agent-card.js';
+import { startAgentCardServer, type AgentCardServerHandle } from './a2a/well-known.js';
 
 export class AgentFederationPlugin implements ClaudeFlowPlugin {
   readonly name = '@claude-flow/plugin-agent-federation';
-  readonly version = '1.0.0-alpha.1';
+  readonly version = FEDERATION_PLUGIN_VERSION;
   readonly description = 'Cross-installation agent federation with PII protection and AI defence';
   readonly author = 'Claude Flow Team';
   readonly dependencies = ['@claude-flow/security', '@claude-flow/aidefence'];
@@ -60,6 +83,9 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
   // in-process behavior — preserves backward compat for tests that
   // don't supply a port).
   private transport: LoadedTransport | null = null;
+  // A2A Agent Card well-known endpoint (opt-in via config.a2aCard). Null
+  // when the HTTP surface is off — everything else works without it.
+  private agentCardServer: AgentCardServerHandle | null = null;
 
   async initialize(context: PluginContext): Promise<void> {
     this.context = context;
@@ -70,6 +96,12 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
     const complianceMode = (config['complianceMode'] as ComplianceMode) ?? 'none';
     const staticPeers = (config['staticPeers'] as string[]) ?? [];
     const hashSalt = (config['hashSalt'] as string) ?? `salt-${nodeId}`;
+    const signatureMode =
+      (config['signatureMode'] as EnvelopeSignatureMode | undefined)
+      ?? DEFAULT_ENVELOPE_SIGNATURE_MODE;
+    if (!['legacy', 'prefer-jcs', 'require-jcs'].includes(signatureMode)) {
+      throw new TypeError(`Unsupported federation signature mode: ${String(signatureMode)}`);
+    }
 
     // ADR-095 G2: real Ed25519 keypair instead of empty publicKey + stub
     // signatures. Persist to .claude-flow/federation/key-<nodeId>.json so
@@ -109,7 +141,21 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
       nodeId,
       publicKey: publicKeyHex,
       endpoint,
-      capabilities: ['send', 'receive', 'query-redacted', 'status', 'ping', 'discovery'],
+      capabilities: [
+        'send',
+        'receive',
+        'query-redacted',
+        'status',
+        'ping',
+        'discovery',
+        ...(signatureMode === 'legacy' ? [] : [JCS_SIGNATURE_PROTOCOL]),
+      ],
+      supportedProtocols: [
+        'websocket',
+        'http',
+        ...(signatureMode === 'legacy' ? [] : [JCS_SIGNATURE_PROTOCOL]),
+      ],
+      version: FEDERATION_PLUGIN_VERSION,
     };
 
     const generateId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -210,26 +256,54 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
       },
     });
 
-    const policyEngine = new PolicyEngine(
-      { checkClaim: () => true },
-    );
+    const authorizationMode =
+      (config['authorizationMode'] as FederationAuthorizationMode | undefined) ?? 'legacy';
+    const grantedClaims = Array.isArray(config['federationClaims'])
+      ? config['federationClaims'].filter((claim): claim is string => typeof claim === 'string')
+      : [];
+    const claimChecker = createFederationClaimChecker({
+      mode: authorizationMode,
+      grantedClaims,
+      onObservation: (claim, granted) => {
+        context.eventBus.emit('federation:policy-observation', {
+          claim,
+          granted,
+          mode: authorizationMode,
+        });
+      },
+    });
+    if (claimChecker.mode === 'legacy') {
+      context.logger.warn(
+        'Federation authorization is in ADR-325 legacy compatibility mode; ' +
+          'use observe before enabling enforce',
+      );
+    }
+    const policyEngine = new PolicyEngine({ checkClaim: claimChecker.checkClaim });
 
     const sessions: Map<string, import('./domain/entities/federation-session.js').FederationSession> = new Map();
 
-    // ADR-104: load wire transport. WebSocket fallback by default; native
-    // QUIC when AGENTIC_FLOW_QUIC_NATIVE=1 + binding installed. Failures
-    // here downgrade to in-process noop (logged), preserving backward
-    // compat for tests/environments without ws available.
+    // ADR-104 + ADR-120: load wire transport. WebSocket fallback by
+    // default; native QUIC when AGENTIC_FLOW_QUIC_NATIVE=1 (ADR-108) or
+    // MIDSTREAMER_QUIC_NATIVE=1 (ADR-120 Step 1, when midstream@0.3.0
+    // ships its real QUIC build). The midstream-aware loader picks the
+    // best available transport transparently. Failures downgrade to
+    // in-process noop (logged), preserving backward compat for
+    // tests/environments without ws available.
     let transport: LoadedTransport | null = null;
     try {
-      transport = await loadQuicTransport({
+      const loaded = await loadFederationTransport({
         serverName: nodeId,
         maxIdleTimeoutMs: 30_000,
         maxConcurrentStreams: 100,
         enable0Rtt: true,
-      }) as LoadedTransport;
+      });
+      transport = loaded.transport as LoadedTransport;
       this.transport = transport;
-      context.logger.info(`Federation transport loaded: ${nodeId}`);
+      context.logger.info(
+        `Federation transport loaded: ${nodeId} (source=${loaded.source}${
+          loaded.fallbackReason ? `, note=${loaded.fallbackReason}` : ''
+        })`,
+      );
     } catch (err) {
       context.logger.warn(
         `Federation transport unavailable (${err instanceof Error ? err.message : err}); ` +
@@ -291,12 +365,18 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
           return;
         }
         const address = resolveAddress(targetNodeId);
-        if (!address) {
+        const peer = discovery.getPeer(targetNodeId);
+        if (!address || !peer) {
           context.logger.warn(
             `Federation send aborted: peer ${targetNodeId} not in discovery registry`,
           );
           throw new Error(`PEER_UNKNOWN: ${targetNodeId}`);
         }
+        const signatureVersion = selectEnvelopeSignatureVersion(
+          signatureMode,
+          peer.capabilities.supportedProtocols,
+          envelope.messageType,
+        );
         // Build the AgentMessage WITHOUT signature first, canonicalize
         // the bytes, sign them, then attach the signature to metadata.
         // The receiver runs the same canonicalization and verifies
@@ -309,9 +389,10 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
             sourceNodeId: envelope.sourceNodeId,
             targetNodeId: envelope.targetNodeId,
             sessionId: envelope.sessionId,
+            ...(signatureVersion === 'jcs-v1' ? { signatureVersion } : {}),
           },
         };
-        const canon = canonicalizeEnvelopeForVerify(baseMessage);
+        const canon = canonicalizeEnvelopeForVerify(baseMessage, signatureVersion);
         const signature = signBytes(canon);
         const signed: AgentMessage = {
           ...baseMessage,
@@ -383,6 +464,16 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
           eventBus: context.eventBus,
           logger: context.logger,
           verifyEnvelope,
+          acceptedSignatureVersions:
+            signatureMode === 'require-jcs' ? ['jcs-v1'] : ['legacy-v1', 'jcs-v1'],
+          authorizationMode,
+          authorizeInbound: ({ messageType, peer, messageSizeBytes, sourceNodeId }) =>
+            policyEngine.evaluateMessage(
+              messageType as FederationMessageType,
+              peer.trustLevel,
+              messageSizeBytes,
+              sourceNodeId,
+            ),
         });
       });
       context.logger.debug('Federation inbound dispatcher subscribed (with Ed25519 sig verify)');
@@ -393,17 +484,74 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
       );
     }
 
+    // A2A Agent Card well-known endpoint (opt-in, graceful). Enabled with
+    // config.a2aCard = true + config.a2aCardPort. Serves the local node's
+    // manifest as a spec-compliant A2A 1.0 card at
+    // /.well-known/agent-card.json. Binds 127.0.0.1 unless config.a2aCardHost
+    // is set AND config.a2aCardAllowNonLoopback is true (ADR-166: never
+    // loosen binding implicitly). A bind failure logs and degrades — the
+    // rest of federation is unaffected.
+    const a2aEnabled = config['a2aCard'] === true;
+    const a2aPort = config['a2aCardPort'] as number | undefined;
+    if (a2aEnabled && typeof a2aPort === 'number') {
+      try {
+        this.agentCardServer = await startAgentCardServer({
+          getCard: () => {
+            const manifest = discovery.getLocalManifest() ?? {
+              nodeId,
+              publicKey: publicKeyHex,
+              endpoint,
+              capabilities: {
+                agentTypes: coordConfig.capabilities,
+                maxConcurrentSessions: 10,
+                supportedProtocols: [
+                  'websocket',
+                  'http',
+                  ...(signatureMode === 'legacy' ? [] : [JCS_SIGNATURE_PROTOCOL]),
+                ],
+                complianceModes: complianceMode === 'none' ? [] : [complianceMode],
+              },
+              version: this.version,
+              signature: '',
+              timestamp: new Date().toISOString(),
+            };
+            return toAgentCard(manifest);
+          },
+          port: a2aPort,
+          host: (config['a2aCardHost'] as string | undefined) ?? '127.0.0.1',
+          allowNonLoopback: config['a2aCardAllowNonLoopback'] === true,
+        });
+        context.logger.info(`A2A agent card served at ${this.agentCardServer.url}`);
+      } catch (err) {
+        context.logger.warn(
+          `A2A agent card endpoint unavailable (${err instanceof Error ? err.message : err}); ` +
+            'federation continues without the A2A discovery surface',
+        );
+        this.agentCardServer = null;
+      }
+    }
+
     context.logger.info('Agent Federation plugin initialized');
   }
 
   async shutdown(): Promise<void> {
+    if (this.agentCardServer) {
+      try {
+        await this.agentCardServer.close();
+      } catch (err) {
+        this.context?.logger.warn(
+          `A2A agent card server close error: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+      this.agentCardServer = null;
+    }
     if (this.coordinator) {
       await this.coordinator.shutdown();
       this.coordinator = null;
     }
     if (this.transport) {
       try {
-        await this.transport.close();
+        await this.transport.close?.();
       } catch (err) {
         this.context?.logger.warn(
           `Federation transport close error: ${err instanceof Error ? err.message : err}`,

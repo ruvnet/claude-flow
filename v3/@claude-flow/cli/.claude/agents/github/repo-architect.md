@@ -144,9 +144,9 @@ mcp__github__push_files {
 
 ## Quick Start
 \`\`\`bash
-npx claude-flow init --sparc
+npx @claude-flow/cli@latest init --sparc
 npm install
-npx claude-flow start --ui
+npx @claude-flow/cli@latest start --ui
 \`\`\`
 
 ## Features
@@ -184,8 +184,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - run: npm install && npm test`,
     message: "ci: Standardize integration workflow across repositories",

@@ -1,6 +1,6 @@
 import express from "express";
 import { spawn } from "child_process";
-import { randomUUID } from "crypto";
+import { randomUUID, timingSafeEqual } from "crypto";
 
 // =============================================================================
 // CONFIGURATION
@@ -12,6 +12,7 @@ const CLOUD_FUNCTIONS = {
 };
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
+const BIND_HOST = process.env.MCP_BIND_HOST || "127.0.0.1";
 
 // =============================================================================
 // TOOL GROUPS — Enable/disable categories of tools independently
@@ -729,10 +730,34 @@ async function geminiGroundedSearch(query, mode = "search") {
 }
 
 // =============================================================================
+// SSRF GUARD — Reject requests to private/loopback ranges (CWE-918)
+// =============================================================================
+
+const PRIVATE_IP_RE = /^(?:10\.|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.|::1|fc|fd)/i;
+
+function assertSafeUrl(rawUrl) {
+  let parsed;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error(`SSRF guard: invalid URL — ${rawUrl}`);
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error(`SSRF guard: only HTTPS URLs are permitted, got ${parsed.protocol}`);
+  }
+  const host = parsed.hostname;
+  if (PRIVATE_IP_RE.test(host) || host === "localhost" || host.endsWith(".local")) {
+    throw new Error(`SSRF guard: private/loopback host rejected — ${host}`);
+  }
+}
+
+// =============================================================================
 // HELPER — Call a backend Cloud Function / API
 // =============================================================================
 
 async function callCloudFunction(url, payload, timeoutMs = 25000) {
+  // Validate the URL before making any network request.
+  assertSafeUrl(url);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -918,7 +943,30 @@ async function executeGoapSearchGemini(query, args) {
 // TOOL EXECUTOR
 // =============================================================================
 
+// ADR-166 §6 Phase 1d + 2a — server-side tool gate.
+// Enforced HERE (not just in the autopilot handler) so /mcp, /mcp/:group,
+// autopilot, and any future path share ONE denial gate. Was the missing
+// link that made the disclosed unauthenticated-RCE chain reach shell.
+const DANGEROUS_TOOLS = Object.freeze(new Set([
+  "terminal_execute",
+  "ruflo__terminal_execute",
+  "devtools__terminal_execute",
+]));
+function isTerminalTool(name) {
+  return DANGEROUS_TOOLS.has(name) || /terminal_execute/i.test(name);
+}
+const MCP_ENABLE_TERMINAL = process.env.MCP_ENABLE_TERMINAL === "true";
+
 async function executeTool(name, args) {
+  // Deny dangerous tools unless the operator explicitly opted in.
+  // Enforced on every path (not just autopilot) — root cause of ADR-166 V2/V3.
+  if (isTerminalTool(name) && !MCP_ENABLE_TERMINAL) {
+    return {
+      error:
+        `Tool "${name}" is disabled by default. Set MCP_ENABLE_TERMINAL=true to allow.`,
+      code: "TOOL_DISABLED",
+    };
+  }
   switch (name) {
     case "search": {
       if (CLOUD_FUNCTIONS.search) {
@@ -1009,14 +1057,56 @@ const GROUP_DISPLAY_NAMES = {
 const app = express();
 app.use(express.json({ limit: "10mb" }));
 
-// ---------- CORS middleware ----------
+// ---------- MCP Streamable HTTP session (#2425 djimit) ----------
+// Streamable-HTTP clients (Codex/RMCP) send `DELETE /mcp` with an
+// `Mcp-Session-Id` header at shutdown. We echo a stable session id back
+// on every /mcp* response so those clients can attach it to the DELETE
+// and to `notifications/initialized` handshakes.
+const MCP_SESSION_ID = randomUUID();
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.path.startsWith("/mcp")) {
+    res.setHeader("Mcp-Session-Id", MCP_SESSION_ID);
+  }
+  next();
+});
+
+// ---------- CORS middleware (ADR-166 §6 Phase 3b) ----------
+// MCP_CORS_ORIGIN: comma-separated allowlist (e.g. "https://a.example,https://b.example").
+//   unset → "*" for back-compat (loopback default is same-origin anyway)
+//   "*"   → wildcard (explicit opt-in — same as legacy behavior)
+//   other → echo the request origin ONLY if it appears in the allowlist
+const CORS_ALLOWLIST = (process.env.MCP_CORS_ORIGIN || "*")
+  .split(",").map(s => s.trim()).filter(Boolean);
+const CORS_WILDCARD = CORS_ALLOWLIST.length === 1 && CORS_ALLOWLIST[0] === "*";
+app.use((req, res, next) => {
+  const origin = req.get("origin") || "";
+  if (CORS_WILDCARD) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  } else if (origin && CORS_ALLOWLIST.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+  // If no match, do NOT set the header — browser will block the request.
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
+
+// ---------- Auth middleware ----------
+// No-op in local-only mode (MCP_AUTH_TOKEN unset). Enforces 401 when token is set.
+const MCP_TOKEN = process.env.MCP_AUTH_TOKEN || "";
+function requireAuth(req, res, next) {
+  if (req.path === "/health") return next();
+  if (!MCP_TOKEN) return next();
+  const expected = `Bearer ${MCP_TOKEN}`;
+  const got = req.get("authorization") || "";
+  const ok = got.length === expected.length &&
+    timingSafeEqual(Buffer.from(got), Buffer.from(expected));
+  if (!ok) return res.status(401).json({ error: "unauthorized" });
+  next();
+}
+app.use(requireAuth);
 
 // ---------- Shared MCP handler ----------
 function createMcpHandler(groupName) {
@@ -1048,7 +1138,9 @@ function createMcpHandler(groupName) {
           });
         }
         case "notifications/initialized":
-          return res.json({ jsonrpc: "2.0", id, result: {} });
+          // MCP streamable-HTTP spec: notifications must return 202 Accepted
+          // with an empty body (no jsonrpc envelope).
+          return res.status(202).end();
         default:
           return res.json({ jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${method}` } });
       }
@@ -1072,6 +1164,8 @@ function createMcpSseHandler(groupName) {
 for (const groupName of Object.keys(TOOL_GROUPS)) {
   app.post(`/mcp/${groupName}`, createMcpHandler(groupName));
   app.get(`/mcp/${groupName}`, createMcpSseHandler(groupName));
+  // #2425 djimit — streamable-HTTP session cleanup
+  app.delete(`/mcp/${groupName}`, (_, res) => res.sendStatus(204));
 }
 
 // ---------- Catch-all /mcp — serves ALL enabled tools (backwards-compatible) ----------
@@ -1103,7 +1197,7 @@ app.post("/mcp", async (req, res) => {
         });
       }
       case "notifications/initialized":
-        return res.json({ jsonrpc: "2.0", id, result: {} });
+        return res.status(202).end();
       default:
         return res.json({ jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${method}` } });
     }
@@ -1119,6 +1213,9 @@ app.get("/mcp", (req, res) => {
   res.setHeader("Connection", "keep-alive");
   res.write(`data: ${JSON.stringify({ type: "endpoint", url: "/mcp" })}\n\n`);
 });
+
+// #2425 djimit — streamable-HTTP session cleanup on the catch-all route.
+app.delete("/mcp", (_, res) => res.sendStatus(204));
 
 // ---------- GET /mcp-servers — returns MCP_SERVERS JSON for Chat UI config ----------
 app.get("/mcp-servers", (_, res) => {
@@ -1862,10 +1959,30 @@ app.get("/groups", (_, res) => {
 // =============================================================================
 
 async function main() {
-  app.listen(PORT, () => {
-    console.log(`MCP Bridge v2.0.0 on port ${PORT}`);
+  const isPublic = BIND_HOST !== "127.0.0.1" && BIND_HOST !== "localhost";
+  if (isPublic && !process.env.MCP_AUTH_TOKEN) {
+    console.error(
+      "FATAL: refusing to bind a public interface without MCP_AUTH_TOKEN. " +
+      "Generate one with: MCP_AUTH_TOKEN=$(openssl rand -base64 32)"
+    );
+    process.exit(1);
+  }
+  app.listen(PORT, BIND_HOST, () => {
+    console.log(`MCP Bridge v2.0.0 on port ${PORT} (${BIND_HOST})`);
     const enabled = Object.entries(TOOL_GROUPS).filter(([, g]) => g.enabled).map(([n]) => n);
     console.log(`Active groups: ${enabled.join(", ")}`);
+    // ADR-166 §6 — startup posture banner (helps operators see the security state at boot)
+    console.log(
+      `[security] bind=${BIND_HOST} auth=${process.env.MCP_AUTH_TOKEN ? "bearer" : "off (local-only)"} ` +
+      `terminal=${MCP_ENABLE_TERMINAL ? "ENABLED (⚠ opt-in)" : "disabled"}`,
+    );
+    if (MCP_ENABLE_TERMINAL) {
+      console.warn(
+        "[security] WARNING: terminal_execute is enabled. This tool grants shell access " +
+        "inside the bridge container to any client the auth layer accepts. Ensure " +
+        "MCP_AUTH_TOKEN is set on any non-loopback bind. See ADR-166 §6 Phase 1d.",
+      );
+    }
   });
 
   const anyBackendNeeded = BACKEND_DEFS.some(isBackendNeeded);

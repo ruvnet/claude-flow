@@ -3,6 +3,7 @@
 <div align="center">
 
 [![npm version](https://img.shields.io/npm/v/@claude-flow/browser?style=for-the-badge&logo=npm&color=blue)](https://www.npmjs.com/package/@claude-flow/browser)
+[![npm downloads](https://img.shields.io/npm/dm/@claude-flow/browser?style=for-the-badge&logo=npm&color=cb3837)](https://www.npmjs.com/package/@claude-flow/browser)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Tests](https://img.shields.io/badge/Tests-128%20passing-green?style=for-the-badge&logo=vitest)](./tests)

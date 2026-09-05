@@ -288,43 +288,32 @@ export class GuidanceCompiler {
     const riskMatch = text.match(RISK_PATTERN);
     const riskClass = (riskMatch?.[1]?.toLowerCase() as RiskClass) ?? this.config.defaultRiskClass;
 
-    // Extract tool classes
+    // Phase 1 perf — replace 4 `new RegExp(PATTERN.source, 'gi')` calls per
+    // parseRule with `text.matchAll(PATTERN)` against the existing
+    // module-level global regex. On a 500-rule file that previously meant
+    // 2,000 RegExp constructions per compile; matchAll is allocation-free
+    // per call and the module-level pattern is constructed exactly once.
     const toolClasses: ToolClass[] = [];
-    let toolMatch;
-    const toolRegex = new RegExp(TOOL_TAG_PATTERN.source, 'gi');
-    while ((toolMatch = toolRegex.exec(text)) !== null) {
-      toolClasses.push(toolMatch[1].toLowerCase() as ToolClass);
+    for (const m of text.matchAll(TOOL_TAG_PATTERN)) {
+      toolClasses.push(m[1].toLowerCase() as ToolClass);
     }
     if (toolClasses.length === 0) toolClasses.push('all');
 
-    // Extract intents
     const intents: TaskIntent[] = [];
-    let intentMatch;
-    const intentRegex = new RegExp(INTENT_TAG_PATTERN.source, 'gi');
-    while ((intentMatch = intentRegex.exec(text)) !== null) {
-      intents.push(intentMatch[1].toLowerCase() as TaskIntent);
+    for (const m of text.matchAll(INTENT_TAG_PATTERN)) {
+      intents.push(m[1].toLowerCase() as TaskIntent);
     }
-    if (intents.length === 0) {
-      intents.push(...this.inferIntents(text));
-    }
+    if (intents.length === 0) intents.push(...this.inferIntents(text));
 
-    // Extract domains
     const domains: string[] = [];
-    let domainMatch;
-    const domainRegex = new RegExp(DOMAIN_TAG_PATTERN.source, 'gi');
-    while ((domainMatch = domainRegex.exec(text)) !== null) {
-      domains.push(domainMatch[1].toLowerCase());
+    for (const m of text.matchAll(DOMAIN_TAG_PATTERN)) {
+      domains.push(m[1].toLowerCase());
     }
-    if (domains.length === 0) {
-      domains.push(...this.inferDomains(text));
-    }
+    if (domains.length === 0) domains.push(...this.inferDomains(text));
 
-    // Extract repo scopes
     const repoScopes: string[] = [];
-    let scopeMatch;
-    const scopeRegex = new RegExp(SCOPE_PATTERN.source, 'gi');
-    while ((scopeMatch = scopeRegex.exec(text)) !== null) {
-      repoScopes.push(scopeMatch[1]);
+    for (const m of text.matchAll(SCOPE_PATTERN)) {
+      repoScopes.push(m[1]);
     }
     if (repoScopes.length === 0) repoScopes.push('**/*');
 

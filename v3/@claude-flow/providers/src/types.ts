@@ -120,6 +120,14 @@ export interface LLMProviderConfig {
   // Provider-specific options
   providerOptions?: Record<string, unknown>;
 
+  /**
+   * Anthropic prompt caching (default: enabled). When true/undefined, the
+   * provider marks the system prompt + trailing message as ephemeral cache
+   * breakpoints so repeated-prefix multi-turn calls hit the prompt cache
+   * (~90% discount on cached input tokens). Set false to disable.
+   */
+  promptCache?: boolean;
+
   // Performance settings
   timeout?: number;
   retryAttempts?: number;

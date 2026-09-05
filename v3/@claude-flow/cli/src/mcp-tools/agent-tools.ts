@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateIdentifier, validateText, validateAgentSpawn } from './validate-input.js';
 import { executeAgentTask } from './agent-execute-core.js';
+import { pheromoneAgentEligibility } from './swarm-tools.js';
 
 // Storage paths
 const STORAGE_DIR = '.claude-flow';
@@ -22,7 +23,7 @@ const AGENT_FILE = 'store.json';
 const HIVE_AGENT_FILE = 'agents.json';
 
 // Model types matching Claude Agent SDK
-type ClaudeModel = 'haiku' | 'sonnet' | 'opus' | 'inherit';
+type ClaudeModel = 'haiku' | 'sonnet' | 'opus' | 'opus-4.7' | 'inherit';
 
 interface AgentRecord {
   agentId: string;
@@ -33,9 +34,23 @@ interface AgentRecord {
   config: Record<string, unknown>;
   createdAt: string;
   domain?: string;
-  model?: ClaudeModel;  // Model assigned to this agent
-  modelRoutedBy?: 'explicit' | 'router' | 'agent-booster' | 'default';  // How model was determined (ADR-026)
-  lastResult?: Record<string, unknown>;  // Output from last completed task
+  model?: ClaudeModel;  // Tier label assigned to this agent
+  modelRoutedBy?: 'explicit' | 'router' | 'codemod' | 'default' | 'hybrid';  // ADR-026/143/149
+  /** ADR-149 — concrete picked model id (e.g. inclusionai/ling-2.6-flash). */
+  modelId?: string;
+  /** ADR-148 — execution provider hint. #2962 widened to include 'ollama'. */
+  provider?: 'anthropic' | 'openrouter' | 'ollama';
+  /** ADR-148 — concrete OpenRouter slug when provider='openrouter'. */
+  openrouterModel?: string;
+  lastResult?: Record<string, unknown>;
+  /**
+   * ACOW — path to this agent's per-agent Copy-On-Write memory branch
+   * (agenticow), set only when the agent was spawned with `memoryBase`. On
+   * terminate the branch is promoted (merged to base) or discarded.
+   */
+  memoryBranch?: string;
+  /** ACOW — the shared base `.rvf` this agent's branch was forked from. */
+  memoryBase?: string;
 }
 
 interface AgentStore {
@@ -140,10 +155,20 @@ async function getModelRouter() {
   return modelRouterInstance;
 }
 
+// ADR-149 — the cost-optimal neural router fires only when
+// `routeToModelFull(task, embedding)` is called with a real embedding. We
+// delegate to the shared task-embedder module (ADR-149 iter 9) so the
+// @xenova/transformers MiniLM pipeline + LRU cache are shared across
+// agent-tools and the agent-execute-core fallback path.
+async function embedTaskSafe(task: string): Promise<number[] | undefined> {
+  const { embedTaskWithCache } = await import('../ruvector/task-embedder.js');
+  return embedTaskWithCache(task);
+}
+
 /**
  * Determine model for agent based on (ADR-026 3-tier routing):
  * 1. Explicit model in config
- * 2. Enhanced task-based routing with Agent Booster AST (if task provided)
+ * 2. Enhanced task-based routing with deterministic Tier-1 codemods (if task provided)
  * 3. Agent type defaults
  * 4. Fallback to sonnet
  */
@@ -153,47 +178,95 @@ async function determineAgentModel(
   task?: string
 ): Promise<{
   model: ClaudeModel;
-  routedBy: 'explicit' | 'router' | 'agent-booster' | 'default';
+  routedBy: 'explicit' | 'router' | 'codemod' | 'default' | 'hybrid';
   canSkipLLM?: boolean;
-  agentBoosterIntent?: string;
+  codemodIntent?: string;
   tier?: 1 | 2 | 3;
+  /** ADR-149 — concrete picked model id when the neural backend fired. */
+  modelId?: string;
+  /** ADR-148 — execution provider hint. #2962 widened to include 'ollama'. */
+  provider?: 'anthropic' | 'openrouter' | 'ollama';
+  /** ADR-148 — concrete OpenRouter slug when provider='openrouter'. */
+  openrouterModel?: string;
 }> {
   // 1. Explicit model in config
-  if (config.model && ['haiku', 'sonnet', 'opus', 'inherit'].includes(config.model as string)) {
-    return { model: config.model as ClaudeModel, routedBy: 'explicit' };
+  if (config.model) {
+    const explicitModel = config.model as string;
+    if (['haiku', 'sonnet', 'opus', 'opus-4.7', 'inherit'].includes(explicitModel)) {
+      return { model: explicitModel as ClaudeModel, routedBy: 'explicit' };
+    }
+    // #2962 — a non-alias model string (e.g. an Ollama tag like
+    // 'qwen3.6:27b', or any other provider-native model id) is still an
+    // explicit user selection. Route it through the modelId fast-path
+    // (executeAgentTask already prefers agent.modelId over
+    // MODEL_MAP[agent.model] — ADR-149 iter 13) instead of falling through
+    // to task-based routing / agent-type defaults, which silently
+    // substituted 'sonnet' and discarded the user's request.
+    return { model: 'sonnet', routedBy: 'explicit', modelId: explicitModel };
   }
 
-  // 2. Enhanced task-based routing with Agent Booster AST
+  // 2. Enhanced task-based routing with deterministic Tier-1 codemods
   if (task) {
     try {
-      // Try enhanced router first (includes Agent Booster detection)
+      // Try enhanced router first (includes codemod-intent detection)
       const { getEnhancedModelRouter } = await import('../ruvector/enhanced-model-router.js');
       const enhancedRouter = getEnhancedModelRouter();
-      const routeResult = await enhancedRouter.route(task, { filePath: config.filePath as string });
+      // ADR-149 — embed the task so the cost-optimal neural backend fires.
+      // We probe the embedder lazily; if it can't load (no @xenova/transformers
+      // available), the enhanced router falls back to heuristic+bandit and
+      // the existing behaviour is preserved.
+      const embedding = await embedTaskSafe(task);
+      const routeResult = await enhancedRouter.route(task, { filePath: config.filePath as string, embedding });
 
       if (routeResult.tier === 1 && routeResult.canSkipLLM) {
-        // Agent Booster can handle this task
+        // Deterministic codemod can apply this edit ($0, no LLM)
         return {
-          model: 'haiku', // Use haiku as fallback if AB fails
-          routedBy: 'agent-booster',
+          model: 'haiku', // fallback model if the codemod can't apply
+          routedBy: 'codemod',
           canSkipLLM: true,
-          agentBoosterIntent: routeResult.agentBoosterIntent?.type,
+          codemodIntent: (routeResult.codemodIntent ?? routeResult.agentBoosterIntent)?.type,
           tier: 1,
         };
       }
 
+      // ADR-149 — forward the per-model fields. When the neural backend
+      // fired, modelId carries the cost-optimal pick (e.g. Ling); when
+      // it didn't, these are undefined and downstream behaviour is unchanged.
+      const routedBy: 'router' | 'hybrid' =
+        routeResult.routedBy === 'hybrid' ? 'hybrid' : 'router';
       return {
         model: routeResult.model!,
-        routedBy: 'router',
+        routedBy,
         tier: routeResult.tier,
+        modelId: routeResult.modelId,
+        provider: routeResult.provider,
+        openrouterModel: routeResult.openrouterModel,
       };
     } catch {
       // Enhanced router not available, try basic router
       const router = await getModelRouter();
       if (router) {
         try {
-          const result = await router.route(task);
-          return { model: result.model, routedBy: 'router' };
+          // ADR-149 — embed the task so the cost-optimal neural backend
+          // fires (it's gated on `embedding && embedding.length > 0`).
+          // Without the embedding, route() falls back to heuristic+bandit
+          // and every per-model Pareto win the v2 measurement landed is
+          // invisible. embedTaskSafe returns undefined on any failure;
+          // route(task, undefined) behaves exactly as the prior code.
+          const embedding = await embedTaskSafe(task);
+          const result = await router.route(task, embedding);
+          // Map the routing mechanism to the broader agent-record taxonomy.
+          // 'hybrid' = neural prior + bandit blended (ADR-149); fold the rest
+          // into 'router' for back-compat with consumers reading modelRoutedBy.
+          const routedBy: 'router' | 'hybrid' =
+            result.routedBy === 'hybrid' ? 'hybrid' : 'router';
+          return {
+            model: result.model,
+            routedBy,
+            modelId: result.modelId,
+            provider: result.provider,
+            openrouterModel: result.openrouterModel,
+          };
         } catch {
           // Fall through to defaults on router error
         }
@@ -221,14 +294,20 @@ export const agentTools: MCPTool[] = [
       properties: {
         agentType: { type: 'string', description: 'Type of agent to spawn' },
         agentId: { type: 'string', description: 'Optional custom agent ID' },
+        // #2085 — accept swarmId so spawned agents register in the
+        // swarm.agents array that swarm_status reports. Omit to register
+        // with the most-recently-created swarm.
+        swarmId: { type: 'string', description: 'Optional swarm to register the agent with (defaults to most-recent swarm)' },
         config: { type: 'object', description: 'Agent configuration' },
         domain: { type: 'string', description: 'Agent domain' },
         model: {
           type: 'string',
-          enum: ['haiku', 'sonnet', 'opus', 'inherit'],
-          description: 'Claude model to use (haiku=fast/cheap, sonnet=balanced, opus=most capable)'
+          enum: ['haiku', 'sonnet', 'opus', 'opus-4.7', 'inherit'],
+          description: 'Claude model alias (haiku=fast/cheap, sonnet=balanced, opus=current Opus 4.8, opus-4.7=prior Opus pin)'
         },
         task: { type: 'string', description: 'Task description for intelligent model routing' },
+        memoryBase: { type: 'string', description: 'Opt-in: base .rvf memory file to fork a per-agent Copy-On-Write branch from (agenticow). When set, the agent gets an isolated ~162-byte COW branch instead of a full copy — promote on success, discard on terminate. Requires the optional `agenticow` dep; degrades to a no-op when absent or when CLAUDE_FLOW_NO_COW_MEMORY=1.' },
+        memoryDimension: { type: 'integer', description: 'Vector dimension for the COW base (required only when memoryBase does not exist yet)' },
       },
       required: ['agentType'],
     },
@@ -259,6 +338,17 @@ export const agentTools: MCPTool[] = [
         task
       );
 
+      // #2962 — an explicit, unambiguous provider choice in config wins over
+      // the router's own pick. 'anthropic' is deliberately excluded: the CLI's
+      // `agent spawn` action always sets config.provider (defaulting to
+      // 'anthropic' when --provider isn't passed — commands/agent.ts), so
+      // 'anthropic' here is indistinguishable from that silent default.
+      // 'ollama'/'openrouter' are never silently defaulted and are unambiguous.
+      const explicitConfigProvider =
+        config.provider === 'ollama' || config.provider === 'openrouter'
+          ? (config.provider as 'ollama' | 'openrouter')
+          : undefined;
+
       const agent: AgentRecord = {
         agentId,
         agentType,
@@ -270,10 +360,44 @@ export const agentTools: MCPTool[] = [
         domain: input.domain as string,
         model: routingResult.model,
         modelRoutedBy: routingResult.routedBy,
+        ...(routingResult.modelId ? { modelId: routingResult.modelId } : {}),
+        ...(explicitConfigProvider
+          ? { provider: explicitConfigProvider }
+          : routingResult.provider ? { provider: routingResult.provider } : {}),
+        ...(routingResult.openrouterModel ? { openrouterModel: routingResult.openrouterModel } : {}),
       };
 
       store.agents[agentId] = agent;
       saveAgentStore(store);
+
+      // #2085 — also push to the swarm store's agents array so that
+      // swarm_status reports the new agent. Without this, agent_spawn
+      // and swarm_status read/write separate stores and agents added
+      // post-init never show up in swarm_status.agents — confirmed for
+      // all topologies (hierarchical, mesh, etc.).
+      try {
+        const { loadSwarmStore: _loadSwarmStore, saveSwarmStore: _saveSwarmStore } =
+          await import('./swarm-tools.js');
+        const swarmStore = _loadSwarmStore();
+        let targetSwarmId = (input.swarmId as string) || '';
+        if (!targetSwarmId) {
+          // Default to the most-recently-created swarm.
+          const all = Object.values(swarmStore.swarms);
+          const latest = all.sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )[0];
+          targetSwarmId = latest?.swarmId || '';
+        }
+        if (targetSwarmId && swarmStore.swarms[targetSwarmId]) {
+          const swarm = swarmStore.swarms[targetSwarmId];
+          if (!Array.isArray(swarm.agents)) swarm.agents = [];
+          // Idempotent — don't duplicate if agent_spawn is retried.
+          if (!swarm.agents.includes(agentId)) {
+            swarm.agents.push(agentId);
+            _saveSwarmStore(swarmStore);
+          }
+        }
+      } catch { /* swarm store unavailable — agent still registered globally */ }
 
       // Record agent in graph database (ADR-087, best-effort)
       try {
@@ -281,27 +405,60 @@ export const agentTools: MCPTool[] = [
         await addNode({ id: agentId, type: 'agent', name: agentType });
       } catch { /* graph-node not available */ }
 
-      // Include Agent Booster routing info if applicable
+      // ACOW — opt-in per-agent COW memory branch. Only when the caller
+      // supplies `memoryBase` does the agent get an isolated 162-byte branch
+      // (vs a full .rvf copy). Lazy-imported so agenticow stays off the
+      // startup path. Non-fatal: a branch failure never blocks the spawn —
+      // the agent is already registered above.
+      let memoryBranch: string | undefined;
+      if (input.memoryBase) {
+        try {
+          const { SwarmMemoryBranches } = await import('../services/swarm-memory-branches.js');
+          const svc = new SwarmMemoryBranches();
+          const br = await svc.branchForAgent(String(input.memoryBase), agentId, {
+            dimension: typeof input.memoryDimension === 'number' ? input.memoryDimension : undefined,
+          });
+          if (br.branchPath) {
+            memoryBranch = br.branchPath;
+            agent.memoryBranch = br.branchPath;
+            agent.memoryBase = br.basePath;
+            store.agents[agentId] = agent;
+            saveAgentStore(store);
+          }
+          // else: degraded (agenticow missing / kill-switched) — agent stands
+          // without an isolated branch; callers see no memoryBranch field.
+        } catch { /* COW branch is best-effort; agent already registered */ }
+      }
+
+      // Include deterministic codemod routing info if applicable
       const response: Record<string, unknown> = {
         success: true,
         agentId,
         agentType: agent.agentType,
         model: agent.model,
         modelRoutedBy: routingResult.routedBy,
+        ...(routingResult.modelId ? { modelId: routingResult.modelId } : {}),
+        // #2962 — mirror the same precedence used for the stored agent
+        // record, so the response a caller sees matches what was actually
+        // persisted (previously this always reported the router's own
+        // pick, silently dropping an explicit config.provider override).
+        ...(agent.provider ? { provider: agent.provider } : {}),
+        ...(routingResult.openrouterModel ? { openrouterModel: routingResult.openrouterModel } : {}),
         status: 'registered',
         createdAt: agent.createdAt,
+        ...(memoryBranch ? { memoryBranch, memoryBase: agent.memoryBase } : {}),
         note: 'Agent registered for coordination. Three execution paths: ' +
           '(1) call agent_execute(agentId, prompt) — direct LLM call via Anthropic Messages API (requires ANTHROPIC_API_KEY); ' +
           '(2) Claude Code Task tool — spawns a real subagent; ' +
           '(3) claude -p — headless background instance.',
       };
 
-      // Add Agent Booster info if task can skip LLM
+      // Add codemod info if task can skip LLM (deterministic Tier-1, ADR-143)
       if (routingResult.canSkipLLM) {
         response.canSkipLLM = true;
-        response.agentBoosterIntent = routingResult.agentBoosterIntent;
+        response.codemodIntent = routingResult.codemodIntent;
         response.tier = routingResult.tier;
-        response.note = `Agent Booster can handle "${routingResult.agentBoosterIntent}" - use agent_booster_edit_file MCP tool`;
+        response.note = `Deterministic codemod can apply "${routingResult.codemodIntent}" — call the hooks_codemod MCP tool (intent="${routingResult.codemodIntent}"), $0, no LLM`;
       } else if (routingResult.tier) {
         response.tier = routingResult.tier;
       }
@@ -337,6 +494,15 @@ export const agentTools: MCPTool[] = [
       if (!vId.valid) return { success: false, error: `Input validation failed: ${vId.error}` };
       const vP = validateText(input.prompt as string, 'prompt');
       if (!vP.valid) return { success: false, error: `Input validation failed: ${vP.error}` };
+      const pheromone = pheromoneAgentEligibility(input.agentId as string);
+      if (!pheromone.eligible) {
+        return {
+          success: false,
+          agentId: input.agentId,
+          suspended: true,
+          error: pheromone.reason,
+        };
+      }
 
       // Delegate to the shared core (also used by the workflow runtime).
       return executeAgentTask({
@@ -358,6 +524,7 @@ export const agentTools: MCPTool[] = [
       properties: {
         agentId: { type: 'string', description: 'ID of agent to terminate' },
         force: { type: 'boolean', description: 'Force immediate termination' },
+        promoteMemory: { type: 'boolean', description: 'When the agent has a per-agent COW memory branch (spawned with memoryBase), promote (merge) its edits into the shared base on terminate. Default false → discard the branch (throw its edits away). No-op when the agent has no branch.' },
       },
       required: ['agentId'],
     },
@@ -369,13 +536,31 @@ export const agentTools: MCPTool[] = [
       const agentId = input.agentId as string;
 
       if (store.agents[agentId]) {
-        store.agents[agentId].status = 'terminated';
+        const rec = store.agents[agentId];
+        rec.status = 'terminated';
         saveAgentStore(store);
+
+        // ACOW — resolve the agent's COW memory branch on teardown: promote
+        // (merge into base) when asked, else discard. Non-fatal — a failure
+        // here never blocks termination. Discard needs no agenticow (pure fs),
+        // so cleanup still works in the degraded path.
+        let memory: Record<string, unknown> | undefined;
+        if (rec.memoryBranch) {
+          try {
+            const { SwarmMemoryBranches } = await import('../services/swarm-memory-branches.js');
+            const svc = new SwarmMemoryBranches();
+            memory = input.promoteMemory
+              ? (await svc.promoteAgent(agentId)) as unknown as Record<string, unknown>
+              : (await svc.discardAgent(agentId)) as unknown as Record<string, unknown>;
+          } catch { /* best-effort teardown */ }
+        }
+
         return {
           success: true,
           agentId,
           terminated: true,
           terminatedAt: new Date().toISOString(),
+          ...(memory ? { memory } : {}),
         };
       }
 

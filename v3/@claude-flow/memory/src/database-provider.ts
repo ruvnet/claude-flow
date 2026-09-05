@@ -24,11 +24,22 @@ import {
 } from './types.js';
 import { SQLiteBackend, SQLiteBackendConfig } from './sqlite-backend.js';
 import { SqlJsBackend, SqlJsBackendConfig } from './sqljs-backend.js';
+import type { EmbeddingGenerator } from './types.js';
 
 /**
- * Available database provider types
+ * Available database provider types.
+ *
+ * ADR-125 Phase 2 added `'hybrid'` and `'agentdb'` so the package can deliver
+ * ADR-009's "HybridBackend by default" promise through `createDatabase`.
  */
-export type DatabaseProvider = 'better-sqlite3' | 'sql.js' | 'json' | 'rvf' | 'auto';
+export type DatabaseProvider =
+  | 'better-sqlite3'
+  | 'sql.js'
+  | 'json'
+  | 'rvf'
+  | 'hybrid'
+  | 'agentdb'
+  | 'auto';
 
 /**
  * Database creation options
@@ -57,6 +68,15 @@ export interface DatabaseOptions {
 
   /** Path to sql.js WASM file */
   wasmPath?: string;
+
+  /**
+   * Embedding generator. Required for `'hybrid'` and `'agentdb'` providers
+   * (and recommended for semantic search on any provider).
+   */
+  embeddingGenerator?: EmbeddingGenerator;
+
+  /** Vector dimensions for `'hybrid'` and `'agentdb'` providers (default 1536) */
+  dimensions?: number;
 }
 
 /**
@@ -220,6 +240,8 @@ export async function createDatabase(
     maxEntries = 1000000,
     autoPersistInterval = 5000,
     wasmPath,
+    embeddingGenerator,
+    dimensions = 1536,
   } = options;
 
   // Select provider
@@ -266,10 +288,47 @@ export async function createDatabase(
       const { RvfBackend } = await import('./rvf-backend.js');
       backend = new RvfBackend({
         databasePath: path.replace(/\.(db|json)$/, '.rvf'),
-        dimensions: 1536,
+        dimensions,
         verbose,
         defaultNamespace,
         autoPersistInterval,
+      });
+      break;
+    }
+
+    case 'hybrid': {
+      // ADR-009: SQLite for structured queries + AgentDB for semantic search.
+      const { HybridBackend } = await import('./hybrid-backend.js');
+      backend = new HybridBackend({
+        sqlite: {
+          databasePath: path,
+          walMode,
+          optimize,
+          defaultNamespace,
+          maxEntries,
+          verbose,
+        },
+        agentdb: {
+          dbPath: path.replace(/\.(db|json|rvf)$/, '.agentdb'),
+          namespace: defaultNamespace,
+          vectorDimension: dimensions,
+          embeddingGenerator,
+          maxEntries,
+        },
+        defaultNamespace,
+        embeddingGenerator,
+      });
+      break;
+    }
+
+    case 'agentdb': {
+      const { AgentDBBackend } = await import('./agentdb-backend.js');
+      backend = new AgentDBBackend({
+        dbPath: path,
+        namespace: defaultNamespace,
+        vectorDimension: dimensions,
+        embeddingGenerator,
+        maxEntries,
       });
       break;
     }

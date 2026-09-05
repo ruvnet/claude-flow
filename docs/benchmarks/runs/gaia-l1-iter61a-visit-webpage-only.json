@@ -1,0 +1,457 @@
+{
+  "run_id": "gaia-l1-iter61a-visit-webpage-only",
+  "description": "iter-61b config (ToolCalling, NO visit_webpage) \u2014 working tree had visit_webpage commented out; actual config is iter-61b isolation, NOT iter-61a. Artifact named iter-61a per original task.",
+  "actual_config": {
+    "mode": "toolcalling",
+    "visit_webpage": false,
+    "hybrid_routing": false,
+    "note": "visit_webpage was commented out in gaia-tools/index.ts prior to run (iter-61b isolation label in source)"
+  },
+  "model": "claude-sonnet-4-6",
+  "level": 1,
+  "total_questions": 53,
+  "pass_count": 30,
+  "fail_count": 23,
+  "pass_rate": "56.6%",
+  "cost_usd": 3.8821,
+  "mean_turns": 4.7,
+  "mean_time_s": 41.2,
+  "visit_webpage_invocations": 0,
+  "empty_answer_fails": 17,
+  "wrong_answer_fails": 6,
+  "comparisons": {
+    "iter56b_score": "35/53 (66.0%)",
+    "n3_mean_score": "32/53 (60.4%)",
+    "iter60_score": "28/53 (52.8%)",
+    "delta_vs_iter56b": -5,
+    "delta_vs_n3_mean": -2,
+    "delta_vs_iter60": 2
+  },
+  "verdict": "ToolCalling without visit_webpage scores 30/53 (56.6%) \u2014 2 below n=3 mean (32) and 5 below iter56b (35). Regression from iter56b is NOT solely from visit_webpage. The branch code itself shows a modest regression vs baseline even in pure ToolCalling mode.",
+  "results": [
+    {
+      "q": 1,
+      "id": "e1fc63a2-da7a-432f-be78-7c4a95598703",
+      "pass": false,
+      "answer": "",
+      "expected": "3",
+      "turns": 1
+    },
+    {
+      "q": 2,
+      "id": "8e867cd7-cff9-4e6c-867a-ff5ddc2550be",
+      "pass": false,
+      "answer": "",
+      "expected": "17",
+      "turns": 12
+    },
+    {
+      "q": 3,
+      "id": "ec09fa32-d03f-4bf8-84b0-1f16922c3ae4",
+      "pass": false,
+      "answer": "",
+      "expected": "3",
+      "turns": 12
+    },
+    {
+      "q": 4,
+      "id": "5d0080cb-90d7-4712-bc33-848150e917d3",
+      "pass": true,
+      "answer": "0.1777 m\u00b3",
+      "expected": "0.1777",
+      "turns": 3
+    },
+    {
+      "q": 5,
+      "id": "a1e91b78-d3d8-4675-bb8d-62741b4b68a6",
+      "pass": true,
+      "answer": "3",
+      "expected": "3",
+      "turns": 4
+    },
+    {
+      "q": 6,
+      "id": "46719c30-f4c3-4cad-be07-d5cb21eee6bb",
+      "pass": true,
+      "answer": "Mapping Human-Oriented Information to Software Agents for Online Systems Usage",
+      "expected": "Mapping Human Oriented Information to Software Agents for Online Systems Usage",
+      "turns": 10
+    },
+    {
+      "q": 7,
+      "id": "4b6bb5f7-f634-410e-815d-e673ab7f8632",
+      "pass": false,
+      "answer": "",
+      "expected": "Right",
+      "turns": 1
+    },
+    {
+      "q": 8,
+      "id": "cffe0e32-c9a6-4c52-9877-78ceb4aaa9fb",
+      "pass": false,
+      "answer": "INT. THE CASTLE - DAY",
+      "expected": "THE CASTLE",
+      "turns": 5
+    },
+    {
+      "q": 9,
+      "id": "2d83110e-a098-4ebb-9987-066c06fa42d0",
+      "pass": false,
+      "answer": "",
+      "expected": "Fred",
+      "turns": 12
+    },
+    {
+      "q": 10,
+      "id": "5cfb274c-0207-4aa7-9575-6ac0bd95d9b2",
+      "pass": true,
+      "answer": "(\u00acA \u2192 B) \u2194 (A \u2228 \u00acB)",
+      "expected": "(\u00acA \u2192 B) \u2194 (A \u2228 \u00acB)",
+      "turns": 1
+    },
+    {
+      "q": 11,
+      "id": "27d5d136-8563-469e-92bf-fd103c28b57c",
+      "pass": true,
+      "answer": "2",
+      "expected": "2",
+      "turns": 1
+    },
+    {
+      "q": 12,
+      "id": "dc28cf18-6431-458b-83ef-64b3ce566c10",
+      "pass": true,
+      "answer": "No",
+      "expected": "No",
+      "turns": 2
+    },
+    {
+      "q": 13,
+      "id": "b816bfce-3d80-4913-a07d-69b752ce6377",
+      "pass": false,
+      "answer": "",
+      "expected": "Maktay mato apple",
+      "turns": 1
+    },
+    {
+      "q": 14,
+      "id": "72e110e7-464c-453c-a309-90a95aed6538",
+      "pass": true,
+      "answer": "fluffy",
+      "expected": "fluffy",
+      "turns": 7
+    },
+    {
+      "q": 15,
+      "id": "42576abe-0deb-4869-8c63-225c2d75a95a",
+      "pass": false,
+      "answer": "",
+      "expected": "Guatemala",
+      "turns": 12
+    },
+    {
+      "q": 16,
+      "id": "b415aba4-4b68-4fc6-9b89-2c812e55a3e1",
+      "pass": false,
+      "answer": "Nf2+",
+      "expected": "Rd5",
+      "turns": 1
+    },
+    {
+      "q": 17,
+      "id": "cca530fc-4052-43b2-b130-b30968d8aa44",
+      "pass": false,
+      "answer": "",
+      "expected": "research",
+      "turns": 12
+    },
+    {
+      "q": 18,
+      "id": "935e2cff-ae78-4218-b3f5-115589b19dae",
+      "pass": false,
+      "answer": "",
+      "expected": "diamond",
+      "turns": 12
+    },
+    {
+      "q": 19,
+      "id": "4fc2f1ae-8625-45b5-ab34-ad4433bc21f8",
+      "pass": true,
+      "answer": "b, e",
+      "expected": "b, e",
+      "turns": 1
+    },
+    {
+      "q": 20,
+      "id": "5188369a-3bbe-43d8-8b94-11558f909a08",
+      "pass": true,
+      "answer": "FunkMonk",
+      "expected": "FunkMonk",
+      "turns": 4
+    },
+    {
+      "q": 21,
+      "id": "6f37996b-2ac7-44b0-8e68-6d28256631b4",
+      "pass": true,
+      "answer": "Annie Levin",
+      "expected": "Annie Levin",
+      "turns": 6
+    },
+    {
+      "q": 22,
+      "id": "9318445f-fe6a-4e1b-acbf-c68228c9906a",
+      "pass": true,
+      "answer": "Guava",
+      "expected": "Guava",
+      "turns": 1
+    },
+    {
+      "q": 23,
+      "id": "389793a7-ca17-4e82-81cb-2b3a2391b4b9",
+      "pass": true,
+      "answer": "3/4,1/4,3/4,3/4,2/4,1/2,5/35,7/21,30/5,3/4,1/15,1/3,4/9,1/8,32/23,103/170",
+      "expected": "3/4,1/4,3/4,3/4,2/4,1/2,5/35,7/21,30/5,30/5,3/4,1/15,1/3,4/9,1/8,32/23,103/170",
+      "turns": 1
+    },
+    {
+      "q": 24,
+      "id": "4b650a35-8529-4695-89ed-8dc7a500a498",
+      "pass": true,
+      "answer": "3",
+      "expected": "3",
+      "turns": 2
+    },
+    {
+      "q": 25,
+      "id": "a3fbeb63-0e8c-4a11-bff6-0e3b484c3e9c",
+      "pass": true,
+      "answer": "4",
+      "expected": "4",
+      "turns": 2
+    },
+    {
+      "q": 26,
+      "id": "c714ab3a-da30-4603-bacd-d008800188b9",
+      "pass": false,
+      "answer": "",
+      "expected": "100",
+      "turns": 1
+    },
+    {
+      "q": 27,
+      "id": "9d191bce-651d-4746-be2d-7ef8ecadb9c2",
+      "pass": true,
+      "answer": "Extremely.",
+      "expected": "Extremely",
+      "turns": 3
+    },
+    {
+      "q": 28,
+      "id": "65afbc8a-89ca-4ad5-8d62-355bb401f61d",
+      "pass": true,
+      "answer": "broccoli, celery, fresh basil, lettuce, sweet potatoes",
+      "expected": "broccoli, celery, fresh basil, lettuce, sweet potatoes",
+      "turns": 2
+    },
+    {
+      "q": 29,
+      "id": "cabe07ed-9eca-40ea-8ead-410ef5e83f91",
+      "pass": false,
+      "answer": "",
+      "expected": "F478A7",
+      "turns": 2
+    },
+    {
+      "q": 30,
+      "id": "3cef3a44-215e-4aed-8e3b-b1e3f08063b7",
+      "pass": false,
+      "answer": "",
+      "expected": "Louvrier",
+      "turns": 12
+    },
+    {
+      "q": 31,
+      "id": "99c9cc74-fdc8-46c6-8f8d-3ce2d3bfeea3",
+      "pass": false,
+      "answer": "",
+      "expected": "cornstarch, freshly squeezed lemon juice, granulated sugar, pure vanilla extract, ripe strawberries",
+      "turns": 2
+    },
+    {
+      "q": 32,
+      "id": "d0633230-7067-47a9-9dbf-ee11e0a2cdd6",
+      "pass": true,
+      "answer": "Wojciech",
+      "expected": "Wojciech",
+      "turns": 3
+    },
+    {
+      "q": 33,
+      "id": "305ac316-eef6-4446-960a-92d80d542f82",
+      "pass": false,
+      "answer": "",
+      "expected": "BaseLabelPropagation",
+      "turns": 12
+    },
+    {
+      "q": 34,
+      "id": "0383a3ee-47a7-41a4-b493-519bdefe0488",
+      "pass": true,
+      "answer": "0",
+      "expected": "0",
+      "turns": 2
+    },
+    {
+      "q": 35,
+      "id": "f918266a-b3e0-4914-865d-4faa564f1aef",
+      "pass": true,
+      "answer": "6",
+      "expected": "6",
+      "turns": 2
+    },
+    {
+      "q": 36,
+      "id": "11af4e1a-5f45-467d-9aeb-46f4bb0bf034",
+      "pass": true,
+      "answer": "Rockhopper penguins",
+      "expected": "Rockhopper penguin",
+      "turns": 3
+    },
+    {
+      "q": 37,
+      "id": "e142056d-56ab-4352-b091-b56054bd1359",
+      "pass": true,
+      "answer": "The seagull glided peacefully to my chair.",
+      "expected": "The seagull glided peacefully to my chair.",
+      "turns": 1
+    },
+    {
+      "q": 38,
+      "id": "50ad0280-0819-4bd9-b275-5de32d3b5bcb",
+      "pass": false,
+      "answer": "",
+      "expected": "16000",
+      "turns": 1
+    },
+    {
+      "q": 39,
+      "id": "7673d772-ef80-4f0f-a602-1bf4485c9b43",
+      "pass": false,
+      "answer": "",
+      "expected": "inference",
+      "turns": 12
+    },
+    {
+      "q": 40,
+      "id": "c365c1c7-a3db-4d5e-a9a1-66f56eae7865",
+      "pass": false,
+      "answer": "Honolulu, Quincy",
+      "expected": "Braintree, Honolulu",
+      "turns": 4
+    },
+    {
+      "q": 41,
+      "id": "7d4a7d1d-cac6-44a8-96e8-ea9584a70825",
+      "pass": true,
+      "answer": "22",
+      "expected": "22",
+      "turns": 3
+    },
+    {
+      "q": 42,
+      "id": "dc22a632-937f-4e6a-b72f-ba0ff3f5ff97",
+      "pass": true,
+      "answer": "Five Hundred Things to Eat Before It's Too Late: And the Very Best Places to Eat Them",
+      "expected": "Five Hundred Things To Eat Before It's Too Late: and the Very Best Places to Eat Them",
+      "turns": 6
+    },
+    {
+      "q": 43,
+      "id": "3f57289b-8c60-48be-bd80-01f8099ca449",
+      "pass": true,
+      "answer": "132, 133, 134, 197, 245",
+      "expected": "132, 133, 134, 197, 245",
+      "turns": 2
+    },
+    {
+      "q": 44,
+      "id": "23dd907f-1261-4488-b21c-e9185af91d5e",
+      "pass": false,
+      "answer": "551",
+      "expected": "519",
+      "turns": 3
+    },
+    {
+      "q": 45,
+      "id": "1f975693-876d-457b-a649-393859e79bf3",
+      "pass": true,
+      "answer": "2",
+      "expected": "2",
+      "turns": 7
+    },
+    {
+      "q": 46,
+      "id": "840bfca7-4f7b-481a-8794-c560c340185d",
+      "pass": true,
+      "answer": "Saint Petersburg",
+      "expected": "Saint Petersburg",
+      "turns": 3
+    },
+    {
+      "q": 47,
+      "id": "a0068077-79f4-461a-adfe-75c1a4148545",
+      "pass": true,
+      "answer": "80GSFC21M0002",
+      "expected": "80GSFC21M0002",
+      "turns": 6
+    },
+    {
+      "q": 48,
+      "id": "bda648d7-d618-4883-88f4-3466eabd860e",
+      "pass": false,
+      "answer": "",
+      "expected": "90",
+      "turns": 12
+    },
+    {
+      "q": 49,
+      "id": "50ec8903-b81f-4257-9450-1085afd2c319",
+      "pass": false,
+      "answer": "Yamasaki, Uehara",
+      "expected": "Yoshida, Uehara",
+      "turns": 3
+    },
+    {
+      "q": 50,
+      "id": "cf106601-ab4f-4af9-b045-5295fe67b37d",
+      "pass": true,
+      "answer": "CUB",
+      "expected": "CUB",
+      "turns": 3
+    },
+    {
+      "q": 51,
+      "id": "a0c07678-e491-4bbc-8f0b-07405144218f",
+      "pass": false,
+      "answer": "white, yellow",
+      "expected": "green, white",
+      "turns": 2
+    },
+    {
+      "q": 52,
+      "id": "7bd855d8-463d-4ed5-93ca-5fe35145f733",
+      "pass": true,
+      "answer": "$89706.00",
+      "expected": "89706.00",
+      "turns": 2
+    },
+    {
+      "q": 53,
+      "id": "5a0c1adf-205e-4841-a666-7c3ef95def9d",
+      "pass": true,
+      "answer": "Claus",
+      "expected": "Claus",
+      "turns": 7
+    }
+  ]
+}

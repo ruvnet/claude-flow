@@ -53,7 +53,7 @@ kg search <query>            # Semantic search across the graph
 
 ## Namespace coordination
 
-This plugin owns the `kg-graph` AgentDB namespace (kebab-case, follows the convention from [ruflo-agentdb ADR-0001 §"Namespace convention"](../ruflo-agentdb/docs/adrs/0001-agentdb-optimization.md)). Reserved namespaces (`pattern`, `claude-memories`, `default`) MUST NOT be shadowed.
+This plugin owns the `knowledge-graph` AgentDB namespace (kebab-case, follows the convention from [ruflo-agentdb ADR-0001 §"Namespace convention"](../ruflo-agentdb/docs/adrs/0001-agentdb-optimization.md)). Reserved namespaces (`pattern`, `claude-memories`, `default`) MUST NOT be shadowed.
 
 Entity nodes are stored via `agentdb_hierarchical-store`; relation edges via `agentdb_causal-edge`; semantic indexing via `embeddings_generate` (NOT `embeddings_embed` — that tool name doesn't exist; ADR-0001 fixes prior references).
 

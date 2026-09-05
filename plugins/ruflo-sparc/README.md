@@ -76,7 +76,7 @@ This plugin orchestrates the lifecycle; sibling plugins do the deep work per pha
 
 ## Namespace coordination
 
-This plugin owns four AgentDB namespaces, all kebab-case compliant per [ruflo-agentdb ADR-0001 §"Namespace convention"](../ruflo-agentdb/docs/adrs/0001-agentdb-optimization.md):
+This plugin owns three AgentDB namespaces, all kebab-case compliant per [ruflo-agentdb ADR-0001 §"Namespace convention"](../ruflo-agentdb/docs/adrs/0001-agentdb-optimization.md):
 
 | Namespace | Purpose |
 |-----------|---------|
@@ -84,7 +84,7 @@ This plugin owns four AgentDB namespaces, all kebab-case compliant per [ruflo-ag
 | `sparc-phases` | Phase artifacts (specs, pseudocode, ADRs, reports) |
 | `sparc-gates` | Gate check results and history |
 
-The reserved `patterns` (plural) namespace is consumed for cross-feature SPARC pattern learning — note the pluralization (different from the singular `pattern` ReasoningBank target). Reserved namespaces (`pattern`, `claude-memories`, `default`) MUST NOT be shadowed.
+Additionally, the shared `patterns` (plural) namespace is consumed (not owned) for cross-feature SPARC pattern learning — note the pluralization (different from the singular `pattern` ReasoningBank target). Reserved namespaces (`pattern`, `claude-memories`, `default`) MUST NOT be shadowed.
 
 ## Verification
 

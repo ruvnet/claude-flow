@@ -522,6 +522,13 @@ export interface MigrationConfig {
 
   /** Type mapping */
   typeMapping?: Record<string, MemoryType>;
+
+  /**
+   * Max concurrent single-entry embedding calls per migration batch when
+   * no batch embedding generator is available (default: 8). Set to 1 to
+   * restore fully sequential embedding.
+   */
+  embeddingConcurrency?: number;
 }
 
 /**
@@ -668,6 +675,18 @@ export interface LearningPattern {
  * Embedding generator function type
  */
 export type EmbeddingGenerator = (content: string) => Promise<Float32Array>;
+
+/**
+ * Batch embedding generator function type.
+ *
+ * Implementations that can run a single padded forward pass over many
+ * texts (e.g. transformers.js `tokenizer(texts[])` + one model call)
+ * should be exposed through this type — it is dramatically cheaper than
+ * N sequential single-text inferences in import/migration hot paths.
+ *
+ * Contract: MUST return one embedding per input text, in input order.
+ */
+export type BatchEmbeddingGenerator = (contents: string[]) => Promise<Float32Array[]>;
 
 /**
  * Generates a unique memory ID

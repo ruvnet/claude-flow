@@ -14,11 +14,19 @@
  * Created with ❤️ by ruv.io
  */
 
-import type {
-  WasmMicroLoRA,
-  WasmScopedLoRA,
-  WasmTrajectoryBuffer,
-} from '@ruvector/learning-wasm';
+// Optional dependency — `@ruvector/learning-wasm` is not always installed in
+// CI (install-safety / Build V3 configurations). A literal `import type … from
+// '@ruvector/learning-wasm'` triggers TS2307 at build time when absent, even
+// though every runtime callsite is behind try/catch. Alias the exported types
+// to `any` locally — matches the pattern already used a few lines below for
+// `@ruvector/attention` and preserves the runtime behaviour that the wasm
+// bridge lazy-loads via dynamic import (#2586 / #2608 pattern).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- optional-dep type aliases
+type WasmMicroLoRA = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- optional-dep type aliases
+type WasmScopedLoRA = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- optional-dep type aliases
+type WasmTrajectoryBuffer = any;
 
 // @ruvector/attention types — use any since the NAPI exports vary across versions
 type FlashAttention = any;
@@ -317,10 +325,15 @@ export async function initializeTraining(config: TrainingConfig = {}): Promise<{
     const { createRequire } = await import('module');
     const require = createRequire(import.meta.url);
 
-    const wasmPath = require.resolve('@ruvector/learning-wasm/ruvector_learning_wasm_bg.wasm');
+    // Indirect the optional-dep specifier through a string variable so tsc
+    // doesn't statically resolve `@ruvector/learning-wasm` at build time
+    // (TS2307 when the optional dep is absent — #2586 pattern).
+    const learningWasmPkg: string = '@ruvector/learning-wasm';
+    const wasmPath = require.resolve(`${learningWasmPkg}/ruvector_learning_wasm_bg.wasm`);
     const wasmBuffer = fs.readFileSync(wasmPath);
 
-    const learningWasm = await import('@ruvector/learning-wasm');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- optional-dep dynamic import
+    const learningWasm: any = await import(learningWasmPkg);
     learningWasm.initSync({ module: wasmBuffer });
 
     microLoRA = new learningWasm.WasmMicroLoRA(dim, alpha, lr);

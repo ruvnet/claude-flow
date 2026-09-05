@@ -9,41 +9,11 @@
 //   CONV_LIMIT=20 node scripts/conversation.mjs      # most recent N
 //   CONV_NAMESPACE=cost-tracking (default)
 
-import { spawnSync } from 'node:child_process';
-
+// iter 73 — shared session-loader (was duplicated across 6 scripts).
 // ADR-100 / #1748 Issue 3 — CLI_CORE=1 routes to lite cli-core (~2s cold-cache).
-// Conversation listing is list+retrieve only; no search. JSON backend is fine.
-const CLI_PKG = process.env.CLI_CORE === '1'
-  ? '@claude-flow/cli-core@alpha'
-  : '@claude-flow/cli@latest';
+import { loadSessions, memoryListSessionKeys } from './_sessions.mjs';
 
 const NS = process.env.CONV_NAMESPACE || 'cost-tracking';
-
-function memoryListSessionKeys() {
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'list',
-    '--namespace', NS, '--format', 'json',
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
-  if (r.status !== 0) return [];
-  const m = /\[[\s\S]*\]/.exec(r.stdout || '');
-  if (!m) return [];
-  let entries;
-  try { entries = JSON.parse(m[0]); } catch { return []; }
-  return entries
-    .map((e) => e.key)
-    .filter((k) => typeof k === 'string' && k.startsWith('session-'));
-}
-
-function memoryRetrieve(key) {
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'retrieve',
-    '--namespace', NS, '--key', key,
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
-  if (r.status !== 0) return null;
-  const m = /\{[\s\S]*\}/.exec(r.stdout || '');
-  if (!m) return null;
-  try { return JSON.parse(m[0]); } catch { return null; }
-}
 
 function fmtUsd(n) { return `$${(n || 0).toFixed(4)}`; }
 function fmtTs(s) { return s ? new Date(s).toISOString().replace('T', ' ').replace(/\.\d+Z/, '') : ''; }
@@ -53,12 +23,12 @@ function topModel(byModel) {
 }
 
 function main() {
-  const keys = memoryListSessionKeys();
+  const keys = memoryListSessionKeys(NS);
   if (!keys.length) {
     console.log(`No sessions in '${NS}'. Run \`cost track\` first.`);
     return;
   }
-  const records = keys.map((k) => memoryRetrieve(k)).filter(Boolean);
+  const records = loadSessions(NS);
   records.sort((a, b) => (a.startedAt || '').localeCompare(b.startedAt || ''));
 
   const limit = parseInt(process.env.CONV_LIMIT || '50', 10);

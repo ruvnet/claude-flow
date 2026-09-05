@@ -2,7 +2,7 @@
 name: sparc-refine
 description: Run the SPARC Refinement and Completion phases — review code, improve test coverage, validate against specification, and generate documentation
 argument-hint: ""
-allowed-tools: mcp__claude-flow__memory_store mcp__claude-flow__memory_search mcp__claude-flow__memory_retrieve mcp__claude-flow__task_create mcp__claude-flow__task_update mcp__claude-flow__task_complete mcp__claude-flow__hooks_intelligence_trajectory-step mcp__claude-flow__hooks_intelligence_trajectory-end mcp__claude-flow__neural_train mcp__claude-flow__neural_predict Bash Read Write Edit
+allowed-tools: mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__memory_retrieve mcp__plugin_ruflo-core_ruflo__task_create mcp__plugin_ruflo-core_ruflo__task_update mcp__plugin_ruflo-core_ruflo__task_complete mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-end mcp__plugin_ruflo-core_ruflo__neural_train mcp__plugin_ruflo-core_ruflo__neural_predict Bash Read Write Edit
 ---
 
 # SPARC Refinement + Completion
@@ -17,9 +17,9 @@ After the Architecture phase is complete and its gate has been passed. This skil
 
 ### Phase 4 — Refinement
 
-1. **Retrieve all prior artifacts** — call `mcp__claude-flow__memory_search` with namespace `sparc-phases` and query for the feature slug. Load spec (acceptance criteria), pseudocode, and architecture.
+1. **Retrieve all prior artifacts** — call `mcp__plugin_ruflo-core_ruflo__memory_search` with namespace `sparc-phases` and query for the feature slug. Load spec (acceptance criteria), pseudocode, and architecture.
 
-2. **Retrieve phase state** — call `mcp__claude-flow__memory_search` with namespace `sparc-state` to confirm we are in Phase 4.
+2. **Retrieve phase state** — call `mcp__plugin_ruflo-core_ruflo__memory_search` with namespace `sparc-state` to confirm we are in Phase 4.
 
 3. **Code review** — review the implementation against:
    a. **Specification compliance**: does every acceptance criterion have a corresponding code path?
@@ -48,9 +48,9 @@ After the Architecture phase is complete and its gate has been passed. This skil
    - Coverage meets the threshold
    - Performance constraints are satisfied
 
-7. **Store refinement artifact** — call `mcp__claude-flow__memory_store` with namespace `sparc-phases`, key `refine-{feature-slug}`, value: `{ status: "complete", reviewFindings: [...], coveragePercent: N, performanceResults: {...}, iterations: N }`
+7. **Store refinement artifact** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-phases`, key `refine-{feature-slug}`, value: `{ status: "complete", reviewFindings: [...], coveragePercent: N, performanceResults: {...}, iterations: N }`
 
-8. **Record trajectory step** — call `mcp__claude-flow__hooks_intelligence_trajectory-step` with refinement summary
+8. **Record trajectory step** — call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step` with refinement summary
 
 ### Phase 5 — Completion
 
@@ -75,13 +75,13 @@ After the Architecture phase is complete and its gate has been passed. This skil
     - [ ] Rollback plan defined
     - [ ] Security review complete (no secrets, inputs validated)
 
-13. **Store completion artifact** — call `mcp__claude-flow__memory_store` with namespace `sparc-phases`, key `complete-{feature-slug}`, value: `{ status: "complete", traceabilityMatrix: [...], documentationFiles: [...], deploymentChecklist: {...}, regressionResult: "pass" }`
+13. **Store completion artifact** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-phases`, key `complete-{feature-slug}`, value: `{ status: "complete", traceabilityMatrix: [...], documentationFiles: [...], deploymentChecklist: {...}, regressionResult: "pass" }`
 
-14. **End trajectory** — call `mcp__claude-flow__hooks_intelligence_trajectory-end` with the full SPARC cycle summary
+14. **End trajectory** — call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-end` with the full SPARC cycle summary
 
-15. **Train neural patterns** — call `mcp__claude-flow__neural_train` with the successful SPARC cycle data to improve future predictions
+15. **Train neural patterns** — call `mcp__plugin_ruflo-core_ruflo__neural_train` with the successful SPARC cycle data to improve future predictions
 
-16. **Store learned pattern** — call `mcp__claude-flow__memory_store` with namespace `patterns`, key `sparc-{feature-slug}`, value summarizing what worked, phase durations, and common blockers encountered
+16. **Store learned pattern** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `patterns`, key `sparc-{feature-slug}`, value summarizing what worked, phase durations, and common blockers encountered
 
 17. **Present completion report** — display the traceability matrix, deployment checklist, and final status. Suggest running `/sparc advance` to pass the final gate, or `/sparc report` for the full methodology report.
 

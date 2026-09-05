@@ -62,6 +62,7 @@
   "dependencies": {
     "@claude-flow/memory": "^3.0.0-alpha.2",
     "@claude-flow/neural": "^3.0.0-alpha.2",
+    "@claude-flow/security": "^3.0.0-alpha.12",
     "@claude-flow/shared": "^3.0.0-alpha.1",
     "zod": "^3.23.0"
   },
@@ -72,7 +73,7 @@
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^20.10.0",
     "typescript": "^5.3.0",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "peerDependencies": {
     "@claude-flow/shared": "^3.0.0-alpha.1"

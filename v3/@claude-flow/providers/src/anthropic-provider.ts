@@ -21,13 +21,14 @@ import {
   LLMProviderError,
 } from './types.js';
 
+interface CacheControl { type: 'ephemeral' }
 interface AnthropicRequest {
   model: string;
   messages: Array<{
     role: 'user' | 'assistant';
-    content: string | Array<{ type: string; text?: string; source?: unknown }>;
+    content: string | Array<{ type: string; text?: string; source?: unknown; cache_control?: CacheControl }>;
   }>;
-  system?: string;
+  system?: string | Array<{ type: 'text'; text: string; cache_control?: CacheControl }>;
   max_tokens: number;
   temperature?: number;
   top_p?: number;
@@ -310,7 +311,7 @@ export class AnthropicProvider extends BaseProvider {
     const otherMessages = request.messages.filter((m) => m.role !== 'system');
 
     // Transform messages
-    const messages = otherMessages.map((msg) => ({
+    const messages: AnthropicRequest['messages'] = otherMessages.map((msg) => ({
       role: msg.role as 'user' | 'assistant',
       content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
     }));
@@ -323,9 +324,32 @@ export class AnthropicProvider extends BaseProvider {
     };
 
     if (systemMessage) {
-      anthropicRequest.system = typeof systemMessage.content === 'string'
+      const systemText = typeof systemMessage.content === 'string'
         ? systemMessage.content
         : JSON.stringify(systemMessage.content);
+      // Prompt caching (hermes-agent pattern): mark the stable system prompt as
+      // an ephemeral cache breakpoint so multi-turn / repeated-system-prompt
+      // calls hit Anthropic's prompt cache (~90% discount on cached input
+      // tokens, 5-min TTL). Opt-out via config.promptCache === false.
+      if (this.config.promptCache !== false && systemText.length > 0) {
+        anthropicRequest.system = [{ type: 'text', text: systemText, cache_control: { type: 'ephemeral' } }];
+      } else {
+        anthropicRequest.system = systemText;
+      }
+    }
+
+    // Second cache breakpoint at the last message, so the growing conversation
+    // prefix is also cached turn-over-turn (system + trailing-context strategy).
+    if (this.config.promptCache !== false && messages.length > 0) {
+      const last = messages[messages.length - 1];
+      const blocks: Array<{ type: string; text?: string; source?: unknown; cache_control?: CacheControl }> =
+        typeof last.content === 'string'
+          ? [{ type: 'text', text: last.content }]
+          : last.content;
+      if (blocks.length > 0) {
+        blocks[blocks.length - 1] = { ...blocks[blocks.length - 1], cache_control: { type: 'ephemeral' } };
+        last.content = blocks;
+      }
     }
 
     if (request.temperature !== undefined) {

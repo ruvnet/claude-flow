@@ -1,0 +1,11 @@
+{
+  "$schema": "Trust anchors for ADR-145 PluginIntegrityVerifier. Edits gated on CODEOWNERS review.",
+  "version": 1,
+  "anchors": [
+    {
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "owner": "PLACEHOLDER — Ruflo official-plugin signing key (to be filled in P1.1 with the real key fingerprint when the publish flow is wired)",
+      "scope": "@claude-flow/*"
+    }
+  ]
+}

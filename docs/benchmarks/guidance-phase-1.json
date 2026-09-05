@@ -1,0 +1,49 @@
+{
+  "tag": "phase-1",
+  "iters": 5000,
+  "node": "v22.22.1",
+  "platform": "darwin-arm64",
+  "capturedAt": "2026-05-22T03:16:36.368Z",
+  "results": [
+    {
+      "name": "analyzer.analyze(CLAUDE.md ~150 lines)",
+      "iters": 5000,
+      "trials": 5,
+      "opsPerSec": 2860,
+      "avgMicros": 349.665,
+      "opsMin": 2701,
+      "opsMax": 2965,
+      "variance": 0.092
+    },
+    {
+      "name": "compiler.compile(CLAUDE.md ~150 lines, multiple rules)",
+      "iters": 1000,
+      "trials": 5,
+      "opsPerSec": 3704,
+      "avgMicros": 269.958,
+      "opsMin": 3436,
+      "opsMax": 3782,
+      "variance": 0.093
+    },
+    {
+      "name": "retriever.cosine(384-d, naive 3-accumulator)",
+      "iters": 100000,
+      "trials": 5,
+      "opsPerSec": 2256460,
+      "avgMicros": 0.443,
+      "opsMin": 2247109,
+      "opsMax": 2268667,
+      "variance": 0.01
+    },
+    {
+      "name": "retriever.cosine(384-d, unit-norm dot-only)",
+      "iters": 100000,
+      "trials": 5,
+      "opsPerSec": 2784972,
+      "avgMicros": 0.359,
+      "opsMin": 2777302,
+      "opsMax": 2804364,
+      "variance": 0.01
+    }
+  ]
+}

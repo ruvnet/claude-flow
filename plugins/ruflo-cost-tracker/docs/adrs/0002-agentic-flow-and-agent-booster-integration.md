@@ -66,7 +66,7 @@ Six changes, ranked by leverage. Each is plugin-local; no CLI source modificatio
 - **Inputs:** a task description (or batch of recent task descriptions from `cost-tracking` namespace).
 - **Behavior:** invoke `hooks_route` for each task; partition results by whether the response contains `[AGENT_BOOSTER_AVAILABLE]`. Sum the partition counts and the inferred token spend that *would have* gone through Tier 2/3 if the booster wasn't used.
 - **Output:** a "Booster bypass report" section — `N tasks analyzed, M routed to Tier 1 (booster), avg latency <1ms, $0 cost`.
-- **Allowed tools:** `mcp__claude-flow__hooks_route`, `mcp__claude-flow__memory_search`, `Bash`. No wildcard.
+- **Allowed tools:** `mcp__plugin_ruflo-core_ruflo__hooks_route`, `mcp__plugin_ruflo-core_ruflo__memory_search`, `Bash`. No wildcard.
 - **Expected savings:** structurally $0 per Tier 1 routed task. CLAUDE.md root's "352x faster" speedup figure is **claimed upstream, not yet verified** — the skill reports the latency the router actually returns, not the upstream multiplier.
 - **Verification:** smoke check confirms the skill exists, references `hooks_route` and the `[AGENT_BOOSTER_AVAILABLE]` literal, and has no wildcard tool grant.
 
@@ -75,7 +75,7 @@ Six changes, ranked by leverage. Each is plugin-local; no CLI source modificatio
 `skills/cost-compact-context/SKILL.md`. Wraps `getTokenOptimizer().getCompactContext()` for retrieval-augmented prompt compression on cost-analysis queries.
 
 - **Inputs:** a natural-language query (e.g. "what optimizations worked last sprint").
-- **Behavior:** import `getTokenOptimizer` from `@claude-flow/integration` via a `Bash`-shelled Node one-liner (or via a new `mcp__claude-flow__token_optimize_compact` tool if/when one is added — see "Riskiest assumption" below). Report the bridge's `tokensSaved` figure plus the `agentBoosterAvailable` flag.
+- **Behavior:** import `getTokenOptimizer` from `@claude-flow/integration` via a `Bash`-shelled Node one-liner (or via a new `mcp__plugin_ruflo-core_ruflo__token_optimize_compact` tool if/when one is added — see "Riskiest assumption" below). Report the bridge's `tokensSaved` figure plus the `agentBoosterAvailable` flag.
 - **Output:** "Context compacted: N memories retrieved, K tokens saved (per agentic-flow bridge; upstream-reported, not measured against a no-RAG baseline)."
 - **Allowed tools:** `Bash` only (no MCP tool yet exists for this; we explicitly do **not** add one in this ADR).
 - **Expected savings:** the CLAUDE.md root claim "-32% tokens" is **claimed upstream, not yet verified**. The skill MUST surface the bridge's figure as bridge-reported, with the disclaimer copied from `token-optimizer.ts:9-10`.
@@ -84,9 +84,9 @@ Six changes, ranked by leverage. Each is plugin-local; no CLI source modificatio
 
 ### 3. Extend `cost-optimize/SKILL.md` with a model-outcome feedback step
 
-After the existing step 7 ("Store the optimization pattern"), add step 8: when a downgrade recommendation is *applied* (or its application is logged), call `mcp__claude-flow__hooks_model-outcome` with `{task, fromModel, toModel, outcome: 'success'|'escalated'|'failure'}`. This closes the routing loop documented in ruflo-intelligence ADR-0001.
+After the existing step 7 ("Store the optimization pattern"), add step 8: when a downgrade recommendation is *applied* (or its application is logged), call `mcp__plugin_ruflo-core_ruflo__hooks_model-outcome` with `{task, fromModel, toModel, outcome: 'success'|'escalated'|'failure'}`. This closes the routing loop documented in ruflo-intelligence ADR-0001.
 
-- **Allowed-tools update:** add `mcp__claude-flow__hooks_model-outcome`.
+- **Allowed-tools update:** add `mcp__plugin_ruflo-core_ruflo__hooks_model-outcome`.
 - **Cross-link:** ruflo-intelligence ADR-0001 §"Neutral" (migration target).
 - **Expected effect:** the model router's recommendations tighten over time. No direct token saving; this is *the mechanism* through which Decision #1's bypass rate improves.
 - **Verification:** smoke check confirms `cost-optimize/SKILL.md` references `hooks_model-outcome`.
@@ -96,7 +96,7 @@ After the existing step 7 ("Store the optimization pattern"), add step 8: when a
 ruflo-loop-workers README already declares this. Honor it on the cost-tracker side:
 
 - **`agents/cost-analyst.md`** — add a "Background workers" section listing `optimize` (consumed for cost-optimization recommendations) and `benchmark` (consumed for cost-per-benchmark reporting). Cross-link ruflo-loop-workers ADR-0001 §"12-worker trigger map".
-- **`commands/ruflo-cost.md`** — add a `cost workers` subcommand that calls `mcp__claude-flow__hooks_worker-status --worker optimize` and `--worker benchmark` and reports last-run timestamps + outcomes.
+- **`commands/ruflo-cost.md`** — add a `cost workers` subcommand that calls `mcp__plugin_ruflo-core_ruflo__hooks_worker-status --worker optimize` and `--worker benchmark` and reports last-run timestamps + outcomes.
 - **No new skill** — the existing `loop-worker` skill from `ruflo-loop-workers` is reused.
 - **Expected savings:** none direct. This is contract honoring; failure to wire means cost-tracker ignores ~7 days of optimization recommendations the worker may have produced.
 - **Verification:** smoke check confirms agent + command reference both worker triggers.
@@ -152,7 +152,7 @@ A new smoke contract extends the ADR-0001 smoke from 10 to 16 checks. We don't w
 
 11. `skills/cost-booster-route/SKILL.md` exists with valid frontmatter, references `hooks_route` and the `[AGENT_BOOSTER_AVAILABLE]` literal, and grants no wildcard tools.
 12. `skills/cost-compact-context/SKILL.md` exists with valid frontmatter, references `getTokenOptimizer` (or `@claude-flow/integration`), documents the agentic-flow-unavailable fallback, and tags upstream figures as "claimed upstream, not yet verified".
-13. `cost-optimize/SKILL.md` step list includes a `hooks_model-outcome` invocation step, and `allowed-tools` enumerates `mcp__claude-flow__hooks_model-outcome`.
+13. `cost-optimize/SKILL.md` step list includes a `hooks_model-outcome` invocation step, and `allowed-tools` enumerates `mcp__plugin_ruflo-core_ruflo__hooks_model-outcome`.
 14. `agents/cost-analyst.md` documents both `optimize` and `benchmark` workers in a "Background workers" section, with a cross-link to ruflo-loop-workers ADR-0001.
 15. `commands/ruflo-cost.md` includes a `cost workers` subcommand referencing `hooks_worker-status` for both `optimize` and `benchmark`.
 16. `cost-report/SKILL.md` step list mentions tier aggregation; `REFERENCE.md` documents the "By tier" report block with Tier 1 / Tier 2 / Tier 3 enumerated.

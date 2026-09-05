@@ -1,0 +1,55 @@
+name: neural-trader-smoke
+
+# Runs the ruflo-neural-trader plugin's runtime smoke test against
+# the currently-pinned neural-trader npm package. Catches regressions
+# where the published package stops matching what the plugin's skills
+# document (e.g. another missing-loader bug, another fork-bomb, an
+# advanced feature flag being silently dropped).
+#
+# Structural smoke (smoke.sh) runs separately as part of the broader
+# validate-marketplace pipeline; this one specifically gates the
+# *runtime* contract — installs the package fresh, runs the documented
+# CLI flags, asserts the JSON shape.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/ruflo-neural-trader/**'
+      - '.github/workflows/neural-trader-smoke.yml'
+  pull_request:
+    paths:
+      - 'plugins/ruflo-neural-trader/**'
+      - '.github/workflows/neural-trader-smoke.yml'
+  workflow_dispatch:
+  schedule:
+    # Catch upstream regressions even when nothing in the plugin
+    # changes (e.g. a new `neural-trader` release breaks the contract).
+    - cron: '17 6 * * 1'   # Mondays 06:17 UTC
+
+jobs:
+  runtime-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Run runtime smoke
+        run: bash plugins/ruflo-neural-trader/scripts/runtime-smoke.sh
+
+      - name: Upload smoke output on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-smoke-output
+          path: |
+            /tmp/runtime-smoke-*.log
+          if-no-files-found: ignore

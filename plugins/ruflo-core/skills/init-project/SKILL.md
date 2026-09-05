@@ -1,6 +1,6 @@
 ---
 name: init-project
-description: Initialize a new Ruflo project with MCP tools, hooks, and agent configuration
+description: Initialize a new Ruflo project with MCP tools, hooks, and agent configuration. Use when setting up Ruflo in a fresh repo, or when the user says "init ruflo", "set up ruflo", or asks how to bootstrap the MCP server, hooks, and agent configs from scratch.
 argument-hint: "[--preset standard|minimal|full]"
 allowed-tools: Bash(npx *) Read Write Edit
 ---

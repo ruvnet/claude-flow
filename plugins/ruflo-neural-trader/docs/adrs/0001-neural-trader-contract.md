@@ -13,14 +13,15 @@ tags: [plugin, neural-trader, trading, backtesting, risk, namespace, smoke-test]
 
 `ruflo-neural-trader` (v0.2.0) — neural trading via `npx neural-trader` (Rust/NAPI bindings, 112+ MCP tools, 8-19x faster than Python). 4 agents + 6 skills + 1 command.
 
-### Namespace audit — already compliant
+### Namespace audit — canonical 5-namespace set
 
-Four namespaces in use, all kebab-case `<plugin-stem>-<intent>` compliant per [ruflo-agentdb ADR-0001 §"Namespace convention"](../../ruflo-agentdb/docs/adrs/0001-agentdb-optimization.md):
+Five namespaces in use, all kebab-case `<plugin-stem>-<intent>` compliant per [ruflo-agentdb ADR-0001 §"Namespace convention"](../../ruflo-agentdb/docs/adrs/0001-agentdb-optimization.md). The canonical set is defined by [ADR-126](../../../../v3/docs/adr/ADR-126-neural-trader-substrate-integration.md) Phase 1:
 
-- `trading-backtests` — backtest results
-- `trading-risk` — risk metrics per portfolio
-- `trading-analysis` — regime + analysis history
-- `trading-strategies` — strategy definitions
+- `trading-strategies` — strategy definitions, parameters, regime-condition mappings
+- `trading-backtests` — historical backtest results (long-lived; signed in ADR-126 Phase 4)
+- `trading-risk` — risk model state, VaR/CVaR snapshots, circuit-breaker triggers
+- `trading-analysis` — market-analyst output (regime classifications, technical-indicator summaries, model-training results)
+- `trading-signals` — short-lived signal events (intraday; TTL applied in ADR-126 Phase 2)
 
 Note: namespace prefix is `trading-` (not `neural-trader-`) for ergonomic tightness — the trading concern is the actual intent. This is consistent with the convention's `<plugin-stem>-<intent>` form interpreted broadly (the plugin's primary concern *is* trading).
 
@@ -60,4 +61,4 @@ bash plugins/ruflo-neural-trader/scripts/smoke.sh
 
 ## Implementation status
 
-Plugin version v0.2.0 shipped and listed in marketplace.json. Source exists at `plugins/ruflo-neural-trader/`. Contract elements implemented: all 4 namespaces (`trading-backtests`, `trading-risk`, `trading-signals`, `trading-models`) already compliant with kebab-case `<plugin-stem>-<intent>` convention; 4 agents + 6 skills shipped; smoke-as-contract gate defined in `scripts/smoke.sh` (11 checks).
+Plugin version v0.2.0 shipped and listed in marketplace.json. Source exists at `plugins/ruflo-neural-trader/`. Contract elements implemented: all 5 namespaces (`trading-strategies`, `trading-backtests`, `trading-risk`, `trading-analysis`, `trading-signals`) compliant with kebab-case `<plugin-stem>-<intent>` convention per ADR-126 Phase 1 (was previously documented as 4, with a three-way mismatch between README, this ADR, and the `trader-signal` skill — fixed in ADR-126 Phase 1); 4 agents + 7 skills shipped; smoke-as-contract gate defined in `scripts/smoke.sh` (11 checks, fifth-namespace assertion added in ADR-126 Phase 1).

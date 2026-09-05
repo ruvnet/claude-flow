@@ -1,0 +1,205 @@
+{
+  "meta": {
+    "ts": "2026-06-15T20:23:22.479Z",
+    "node": "v22.22.1",
+    "platform": "darwin-arm64",
+    "args": {
+      "live": true,
+      "models": null,
+      "maxCost": 0.5,
+      "repeat": 1,
+      "maxTokens": 256,
+      "save": true
+    },
+    "corpusSize": 15
+  },
+  "results": [
+    {
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "family": "nvidia",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 430.11651953333364,
+        "p50": 390.6120840000076,
+        "p95": 900.115374999994
+      },
+      "usdCost": 0,
+      "promptTokens": 706,
+      "completionTokens": 1163,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "inclusionai/ling-2.6-flash",
+      "family": "inclusionai",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 799.8311998666667,
+        "p50": 778.6027080000058,
+        "p95": 1149.9681249999994
+      },
+      "usdCost": 0.000014580000000000001,
+      "promptTokens": 750,
+      "completionTokens": 236,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "google/gemini-2.5-flash-lite",
+      "family": "google",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 577.4307249333358,
+        "p50": 524.9370830000116,
+        "p95": 885.5081250000076
+      },
+      "usdCost": 0.0001485,
+      "promptTokens": 477,
+      "completionTokens": 252,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "family": "meta",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 687.6668222666659,
+        "p50": 331.4224169999943,
+        "p95": 3149.184874999999
+      },
+      "usdCost": 0.00018102000000000003,
+      "promptTokens": 654,
+      "completionTokens": 240,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "openai/gpt-4o-mini",
+      "family": "openai",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 1092.8220832000031,
+        "p50": 834.9564170000012,
+        "p95": 4911.467665999997
+      },
+      "usdCost": 0.00022574999999999996,
+      "promptTokens": 565,
+      "completionTokens": 235,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "google/gemini-2.5-flash",
+      "family": "google",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 649.6309389333328,
+        "p50": 665.0986249999987,
+        "p95": 837.960458
+      },
+      "usdCost": 0.0008231000000000001,
+      "promptTokens": 477,
+      "completionTokens": 272,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "anthropic/claude-haiku-4.5",
+      "family": "anthropic",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 1209.5933666666674,
+        "p50": 1128.2955000000002,
+        "p95": 2231.7682080000013
+      },
+      "usdCost": 0.002266,
+      "promptTokens": 616,
+      "completionTokens": 330,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "meta-llama/llama-3.1-8b-instruct",
+      "family": "meta",
+      "passRate": 0.9333333333333333,
+      "passes": 14,
+      "total": 15,
+      "latency": {
+        "mean": 475.31108893333254,
+        "p50": 340.8429160000087,
+        "p95": 871.2512920000008
+      },
+      "usdCost": 0.0000198,
+      "promptTokens": 627,
+      "completionTokens": 242,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "qwen/qwen-2.5-7b-instruct",
+      "family": "qwen",
+      "passRate": 0.8666666666666667,
+      "passes": 13,
+      "total": 15,
+      "latency": {
+        "mean": 3384.594372200001,
+        "p50": 5250.7696670000005,
+        "p95": 5630.635208000001
+      },
+      "usdCost": 0.00005620000000000001,
+      "promptTokens": 696,
+      "completionTokens": 214,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "mistralai/ministral-3b-2512",
+      "family": "mistral",
+      "passRate": 0.8666666666666667,
+      "passes": 13,
+      "total": 15,
+      "latency": {
+        "mean": 485.16349720000136,
+        "p50": 461.544041000001,
+        "p95": 1001.0864169999986
+      },
+      "usdCost": 0.0000776,
+      "promptTokens": 511,
+      "completionTokens": 265,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "nvidia/nemotron-nano-9b-v2:free",
+      "family": "nvidia",
+      "passRate": 0.3333333333333333,
+      "passes": 5,
+      "total": 15,
+      "latency": {
+        "mean": 295.27676953333327,
+        "p50": 234.82704200000444,
+        "p95": 777.731417
+      },
+      "usdCost": 0,
+      "promptTokens": 646,
+      "completionTokens": 3548,
+      "errorCount": 0,
+      "errorSample": []
+    }
+  ]
+}

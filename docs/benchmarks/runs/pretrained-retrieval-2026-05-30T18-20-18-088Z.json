@@ -1,0 +1,270 @@
+{
+  "runAt": "2026-05-30T18:20:18.088Z",
+  "benchmark": "pretrained-retrieval",
+  "mode": "hybrid",
+  "rerank": true,
+  "storeSize": 2,
+  "queries": 10,
+  "matchedQueries": 10,
+  "matchRate": 1,
+  "top1HitRate": 0.1,
+  "top3HitRate": 0.1,
+  "mrr3": 0.1,
+  "top1Diversity": 0.2,
+  "top3DupRate": 0,
+  "avgQueryLatencyMs": 27.33,
+  "totalQueryMs": 273.33,
+  "results": [
+    {
+      "query": "how was the Opus model alias fixed",
+      "matched": true,
+      "top1Relevant": false,
+      "top3Relevant": false,
+      "firstRelevantRank": -1,
+      "topK": [
+        {
+          "id": "pattern-1777839848335-0ps3",
+          "name": "test-pattern-auth",
+          "type": "security",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        },
+        {
+          "id": "verify-test-1-train-0",
+          "name": "{\"samples\":[{\"input\":\"authentication bug\",\"output\":\"security\"},{\"input\":\"performance slow query\",\"ou",
+          "type": "classifier",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        }
+      ]
+    },
+    {
+      "query": "self-learning wiring task-completed pretrain",
+      "matched": true,
+      "top1Relevant": false,
+      "top3Relevant": false,
+      "firstRelevantRank": -1,
+      "topK": [
+        {
+          "id": "pattern-1777839848335-0ps3",
+          "name": "test-pattern-auth",
+          "type": "security",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        },
+        {
+          "id": "verify-test-1-train-0",
+          "name": "{\"samples\":[{\"input\":\"authentication bug\",\"output\":\"security\"},{\"input\":\"performance slow query\",\"ou",
+          "type": "classifier",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        }
+      ]
+    },
+    {
+      "query": "deterministic codemod engine var-to-const",
+      "matched": true,
+      "top1Relevant": false,
+      "top3Relevant": false,
+      "firstRelevantRank": -1,
+      "topK": [
+        {
+          "id": "pattern-1777839848335-0ps3",
+          "name": "test-pattern-auth",
+          "type": "security",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        },
+        {
+          "id": "verify-test-1-train-0",
+          "name": "{\"samples\":[{\"input\":\"authentication bug\",\"output\":\"security\"},{\"input\":\"performance slow query\",\"ou",
+          "type": "classifier",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        }
+      ]
+    },
+    {
+      "query": "MCP server orphan leak parent-death",
+      "matched": true,
+      "top1Relevant": false,
+      "top3Relevant": false,
+      "firstRelevantRank": -1,
+      "topK": [
+        {
+          "id": "pattern-1777839848335-0ps3",
+          "name": "test-pattern-auth",
+          "type": "security",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        },
+        {
+          "id": "verify-test-1-train-0",
+          "name": "{\"samples\":[{\"input\":\"authentication bug\",\"output\":\"security\"},{\"input\":\"performance slow query\",\"ou",
+          "type": "classifier",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        }
+      ]
+    },
+    {
+      "query": "unified learning stats aggregator",
+      "matched": true,
+      "top1Relevant": false,
+      "top3Relevant": false,
+      "firstRelevantRank": -1,
+      "topK": [
+        {
+          "id": "pattern-1777839848335-0ps3",
+          "name": "test-pattern-auth",
+          "type": "security",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        },
+        {
+          "id": "verify-test-1-train-0",
+          "name": "{\"samples\":[{\"input\":\"authentication bug\",\"output\":\"security\"},{\"input\":\"performance slow query\",\"ou",
+          "type": "classifier",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        }
+      ]
+    },
+    {
+      "query": "structured distillation 4-field schema",
+      "matched": true,
+      "top1Relevant": false,
+      "top3Relevant": false,
+      "firstRelevantRank": -1,
+      "topK": [
+        {
+          "id": "pattern-1777839848335-0ps3",
+          "name": "test-pattern-auth",
+          "type": "security",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        },
+        {
+          "id": "verify-test-1-train-0",
+          "name": "{\"samples\":[{\"input\":\"authentication bug\",\"output\":\"security\"},{\"input\":\"performance slow query\",\"ou",
+          "type": "classifier",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        }
+      ]
+    },
+    {
+      "query": "SQL injection migrate.ts table identifier",
+      "matched": true,
+      "top1Relevant": false,
+      "top3Relevant": false,
+      "firstRelevantRank": -1,
+      "topK": [
+        {
+          "id": "pattern-1777839848335-0ps3",
+          "name": "test-pattern-auth",
+          "type": "security",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        },
+        {
+          "id": "verify-test-1-train-0",
+          "name": "{\"samples\":[{\"input\":\"authentication bug\",\"output\":\"security\"},{\"input\":\"performance slow query\",\"ou",
+          "type": "classifier",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        }
+      ]
+    },
+    {
+      "query": "recall@k HNSW benchmark harness",
+      "matched": true,
+      "top1Relevant": false,
+      "top3Relevant": false,
+      "firstRelevantRank": -1,
+      "topK": [
+        {
+          "id": "pattern-1777839848335-0ps3",
+          "name": "test-pattern-auth",
+          "type": "security",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        },
+        {
+          "id": "verify-test-1-train-0",
+          "name": "{\"samples\":[{\"input\":\"authentication bug\",\"output\":\"security\"},{\"input\":\"performance slow query\",\"ou",
+          "type": "classifier",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        }
+      ]
+    },
+    {
+      "query": "Q-learning encoder keyword block",
+      "matched": true,
+      "top1Relevant": false,
+      "top3Relevant": false,
+      "firstRelevantRank": -1,
+      "topK": [
+        {
+          "id": "pattern-1777839848335-0ps3",
+          "name": "test-pattern-auth",
+          "type": "security",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        },
+        {
+          "id": "verify-test-1-train-0",
+          "name": "{\"samples\":[{\"input\":\"authentication bug\",\"output\":\"security\"},{\"input\":\"performance slow query\",\"ou",
+          "type": "classifier",
+          "score": 0.5,
+          "cosineScore": 0,
+          "bm25Score": 0
+        }
+      ]
+    },
+    {
+      "query": "security hardening crypto random IDs",
+      "matched": true,
+      "top1Relevant": true,
+      "top3Relevant": true,
+      "firstRelevantRank": 1,
+      "topK": [
+        {
+          "id": "verify-test-1-train-0",
+          "name": "{\"samples\":[{\"input\":\"authentication bug\",\"output\":\"security\"},{\"input\":\"performance slow query\",\"ou",
+          "type": "classifier",
+          "score": 0.7,
+          "cosineScore": 0,
+          "bm25Score": 1.519857605214498
+        },
+        {
+          "id": "pattern-1777839848335-0ps3",
+          "name": "test-pattern-auth",
+          "type": "security",
+          "score": 0.3,
+          "cosineScore": 0,
+          "bm25Score": 0
+        }
+      ]
+    }
+  ],
+  "passed": true
+}

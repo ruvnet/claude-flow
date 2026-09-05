@@ -2,7 +2,7 @@
 name: cost-budget-check
 description: Read accumulated cost-tracking spend + budget config, compute utilization, emit 50/75/90/100% alert ladder
 argument-hint: "[--period today|week|month|all]"
-allowed-tools: Bash mcp__claude-flow__memory_retrieve mcp__claude-flow__memory_list mcp__claude-flow__memory_store
+allowed-tools: Bash mcp__plugin_ruflo-core_ruflo__memory_retrieve mcp__plugin_ruflo-core_ruflo__memory_list mcp__plugin_ruflo-core_ruflo__memory_store
 ---
 
 # Cost Budget Check

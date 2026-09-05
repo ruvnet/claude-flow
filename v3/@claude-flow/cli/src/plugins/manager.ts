@@ -11,6 +11,21 @@ import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
 
+// On Windows, `npm` is a shell script (no `.exe`) and `npm.cmd` is a batch
+// wrapper. Since Node 18.20.2 / 20.12.2 (CVE-2024-27980) the runtime refuses
+// to spawn `.cmd`/`.bat` files directly and throws `spawn EINVAL` — the only
+// supported invocation is via a real `.exe` shell. We wrap every npm call
+// through `cmd.exe /d /s /c npm <args>`, which keeps Node's safe array-form
+// argument escaping intact and avoids both ENOENT and EINVAL.
+const isWindows = process.platform === 'win32';
+
+function runNpm(args: string[], timeoutMs: number): Promise<{ stdout: string; stderr: string }> {
+  if (isWindows) {
+    return execFileAsync('cmd.exe', ['/d', '/s', '/c', 'npm', ...args], { timeout: timeoutMs });
+  }
+  return execFileAsync('npm', args, { timeout: timeoutMs });
+}
+
 /**
  * Validate npm package name to prevent shell injection (S-3)
  */
@@ -160,10 +175,7 @@ export class PluginManager {
       // Use npm to install (array form prevents shell injection)
       console.log(`[PluginManager] Installing ${versionSpec}...`);
 
-      await execFileAsync(
-        'npm', ['install', '--prefix', this.config.pluginsDir, versionSpec],
-        { timeout: 120000 }
-      );
+      await runNpm(['install', '--prefix', this.config.pluginsDir, versionSpec], 120000);
 
       // Get installed version
       const packageJsonPath = path.join(installDir, packageName, 'package.json');
@@ -291,10 +303,7 @@ export class PluginManager {
       // For npm-installed plugins, remove from node_modules
       if (plugin.source === 'npm') {
         validatePackageName(packageName);
-        await execFileAsync(
-          'npm', ['uninstall', '--prefix', this.config.pluginsDir, packageName],
-          { timeout: 60000 }
-        );
+        await runNpm(['uninstall', '--prefix', this.config.pluginsDir, packageName], 60000);
       }
 
       // Remove from manifest
@@ -451,10 +460,7 @@ export class PluginManager {
       validatePackageName(versionSpec);
 
       // Reinstall with new version (array form prevents shell injection)
-      await execFileAsync(
-        'npm', ['install', '--prefix', this.config.pluginsDir, versionSpec],
-        { timeout: 120000 }
-      );
+      await runNpm(['install', '--prefix', this.config.pluginsDir, versionSpec], 120000);
 
       // Update manifest
       const installDir = path.join(this.config.pluginsDir, 'node_modules');

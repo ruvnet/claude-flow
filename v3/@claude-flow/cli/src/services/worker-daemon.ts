@@ -6,7 +6,8 @@
  * - map: Codebase mapping (5 min interval)
  * - audit: Security analysis (10 min interval)
  * - optimize: Performance optimization (15 min interval)
- * - consolidate: Memory consolidation (30 min interval)
+ * - consolidate: Memory distillation — memory_entries -> episodes/reasoning_patterns/
+ *   causal_edges (30 min interval, ADR-174; RUFLO_DAEMON_NO_DISTILL=1 / --no-distill to skip)
  * - testgaps: Test coverage analysis (20 min interval)
  */
 
@@ -14,6 +15,7 @@ import { EventEmitter } from 'events';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, unlinkSync, renameSync } from 'fs';
 import { cpus } from 'os';
 import { join } from 'path';
+import { writeFileAtomic } from '../fs-secure.js';
 import {
   HeadlessWorkerExecutor,
   HEADLESS_WORKER_TYPES,
@@ -22,6 +24,16 @@ import {
   type HeadlessWorkerType,
   type HeadlessExecutionResult,
 } from './headless-worker-executor.js';
+// ADR-174 M3: the consolidate worker below drives the real DISTILL/CONSOLIDATE
+// pass instead of writing a hardcoded { patternsConsolidated: 0 } stub. The
+// service itself is owned/frozen elsewhere (memory-distillation.ts) — it is
+// incremental (rowid cursor), non-destructive, transactional, and
+// quick_check-gated, so it's safe to call unconditionally on every tick.
+import { runDistillation, defaultMemoryDbPath, type DistillReport } from './memory-distillation.js';
+import { backupMemoryDb } from './memory-backup.js';
+import { resolveGitWorkspaceIdentity, type GitWorkspaceIdentity } from './git-workspace-identity.js';
+import { getWorkspaceLeaseRegistry } from './workspace-lease.js';
+import { getRepoSupervisorRegistry, type SupervisorRecord } from './repo-supervisor.js';
 
 // Worker types matching hooks-tools.ts
 export type WorkerType =
@@ -36,7 +48,9 @@ export type WorkerType =
   | 'document'
   | 'refactor'
   | 'benchmark'
-  | 'testgaps';
+  | 'testgaps'
+  | 'backup'
+  | 'harness';
 
 interface WorkerConfig {
   type: WorkerType;
@@ -78,6 +92,14 @@ interface DaemonStatus {
   startedAt?: Date;
   workers: Map<WorkerType, WorkerState>;
   config: DaemonConfig;
+  // #2661 root-fix — repository-supervisor state, null when AI workers are
+  // disabled or the git identity couldn't be resolved (non-git directory).
+  supervisor?: {
+    repositoryId: string;
+    isSupervisor: boolean;
+    record: SupervisorRecord | null;
+    activeLeases: number;
+  } | null;
 }
 
 export interface DaemonConfig {
@@ -90,6 +112,21 @@ export interface DaemonConfig {
     maxCpuLoad: number;
     minFreeMemoryPercent: number;
   };
+  // #2356 (carry-forward from pacphi/ruflo-machine-ref token-leak findings):
+  // self-terminating lifecycle so a forgotten daemon cannot run for days
+  // dispatching headless `claude --print` sweeps. ttlMs = graceful shutdown
+  // once daemon age exceeds this (0 disables). idleShutdownMs = graceful
+  // shutdown if no worker has run within this window (0 disables).
+  ttlMs: number;
+  idleShutdownMs: number;
+  // #2661 — explicit consent gate for scheduled AI workers. When false
+  // (the default), NO worker is ever promoted to headless `claude --print`
+  // execution, regardless of whether the Claude CLI is on PATH. Merely
+  // finding `claude` must not authorize recurring model calls: a default
+  // install produces zero autonomous Claude launches. Enable via
+  // `daemon start --headless`, `daemon.aiWorkers.enabled: true` in
+  // .claude-flow/config.json, or RUFLO_DAEMON_AI_WORKERS=1.
+  aiWorkersEnabled: boolean;
   workers: WorkerConfig[];
 }
 
@@ -103,8 +140,10 @@ const DEFAULT_WORKERS: WorkerConfigInternal[] = [
   { type: 'map', intervalMs: 15 * 60 * 1000, offsetMs: 0, priority: 'normal', description: 'Codebase mapping', enabled: true },
   { type: 'audit', intervalMs: 10 * 60 * 1000, offsetMs: 2 * 60 * 1000, priority: 'critical', description: 'Security analysis', enabled: true },
   { type: 'optimize', intervalMs: 15 * 60 * 1000, offsetMs: 4 * 60 * 1000, priority: 'high', description: 'Performance optimization', enabled: true },
-  { type: 'consolidate', intervalMs: 30 * 60 * 1000, offsetMs: 6 * 60 * 1000, priority: 'low', description: 'Memory consolidation', enabled: true },
+  { type: 'consolidate', intervalMs: 30 * 60 * 1000, offsetMs: 6 * 60 * 1000, priority: 'low', description: 'Memory distillation (ADR-174)', enabled: true },
   { type: 'testgaps', intervalMs: 20 * 60 * 1000, offsetMs: 8 * 60 * 1000, priority: 'normal', description: 'Test coverage analysis', enabled: true },
+  { type: 'backup', intervalMs: 24 * 60 * 60 * 1000, offsetMs: 10 * 60 * 1000, priority: 'low', description: 'Nightly memory DB backup (WAL-safe, rotated)', enabled: true },
+  { type: 'harness', intervalMs: 6 * 60 * 60 * 1000, offsetMs: 12 * 60 * 1000, priority: 'low', description: 'Self-optimizing harness loop (opt-in RUFLO_HARNESS_LOOP, $0-default)', enabled: true },
   { type: 'predict', intervalMs: 10 * 60 * 1000, offsetMs: 0, priority: 'low', description: 'Predictive preloading', enabled: false },
   { type: 'document', intervalMs: 60 * 60 * 1000, offsetMs: 0, priority: 'low', description: 'Auto-documentation', enabled: false },
 ];
@@ -112,6 +151,56 @@ const DEFAULT_WORKERS: WorkerConfigInternal[] = [
 // Worker timeout — must exceed the longest per-worker headless timeout (15 min for audit/refactor).
 // Previously 5 min, which caused orphan processes when daemon timeout fired before executor timeout (#1117).
 const DEFAULT_WORKER_TIMEOUT_MS = 16 * 60 * 1000;
+
+// ADR-174 M3: hard cap on rows the `consolidate` worker distills in a single
+// tick. The distillation service is cursor-driven (per-namespace rowid) and
+// batches in transactions of `batchSize`, so a capped `maxEntries` guarantees
+// this worker returns well within DEFAULT_WORKER_TIMEOUT_MS even against a
+// large backlog — the cursor just picks up where it left off next tick
+// (every 30 min per DEFAULT_WORKERS), draining an arbitrarily large backlog
+// over several ticks instead of blocking on one.
+const CONSOLIDATE_MAX_ENTRIES_PER_TICK = 1000;
+const CONSOLIDATE_BATCH_SIZE = 200;
+// ADR-174 M5: platform-default distillation config, chosen by the M4 self-
+// optimization grid-search (scripts/tune-distill.mjs) on the real ~7.9k-entry
+// corpus. Winner: batchSize=200, dedupDistance=0.2 (held-out MRR@10 0.753 vs
+// 0.749 baseline — measured on-par, not a large uplift; the payoff is the
+// populated substrate + trainable model). Override per-run via `memory distill`.
+const CONSOLIDATE_DEDUP_DISTANCE = 0.2;
+
+// ADR-174 M3 opt-out: set to skip the real distillation pass entirely (e.g.
+// constrained CI hosts, or a user who wants the daemon's other workers but
+// not this one without touching persisted worker-enabled state). Mirrors the
+// `--no-distill` flag on `daemon start` (see commands/daemon.ts), which sets
+// this env var on the forked/foreground daemon process.
+const NO_DISTILL_ENV = 'RUFLO_DAEMON_NO_DISTILL';
+
+// #2356 — Self-terminating lifecycle defaults. A background daemon with no
+// upper bound on its lifetime runs until the box reboots; in the field this
+// leaked tens of thousands of headless `claude --print` sweeps over many days
+// (one observed daemon ran 19 days). A 12h default age cap (matching the
+// pacphi/ruflo-machine-ref kit's proven value) heals a forgotten daemon within
+// half a day; set RUFLO_DAEMON_TTL_SECS=0 (or `--ttl 0`) to opt out. Idle
+// shutdown is opt-in (0 = disabled) since a legitimately quiet daemon is not a leak.
+const DEFAULT_DAEMON_TTL_MS = 12 * 60 * 60 * 1000;
+// #2834 — an auto-started daemon must not remain alive for the full 12h TTL
+// after its workspace goes idle. Explicit 0 via config/env still disables the
+// idle cap for operators who intentionally want a resident daemon.
+const DEFAULT_DAEMON_IDLE_SHUTDOWN_MS = 30 * 60 * 1000;
+
+/**
+ * Read a non-negative seconds value from an env var and return it as ms.
+ * Unlike the `parseInt(x) || default` idiom used elsewhere, an explicit `0`
+ * is honored (it disables the corresponding limit) rather than falling back
+ * to the default. Invalid / negative / absent values fall back.
+ */
+function readEnvSecsAsMs(name: string, defaultMs: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === '') return defaultMs;
+  const secs = Number.parseInt(raw, 10);
+  if (!Number.isFinite(secs) || secs < 0) return defaultMs;
+  return secs * 1000;
+}
 
 /**
  * Worker Daemon - Manages background workers with Node.js
@@ -123,6 +212,9 @@ export class WorkerDaemon extends EventEmitter {
   // #1845: separate timer for the MCP-dispatch queue poller. Kept off
   // the per-worker map so stop() clears both kinds without confusion.
   private queuePollTimer?: NodeJS.Timeout;
+  // #2356: separate timer that enforces the daemon's max-age TTL + idle
+  // shutdown. Cleared in stop() alongside the worker/queue timers.
+  private lifecycleTimer?: NodeJS.Timeout;
   private running = false;
   private startedAt?: Date;
   private projectRoot: string;
@@ -132,10 +224,31 @@ export class WorkerDaemon extends EventEmitter {
   // Headless execution support
   private headlessExecutor: HeadlessWorkerExecutor | null = null;
   private headlessAvailable: boolean = false;
+  // #2251 — Promise that resolves once initHeadlessExecutor() has finished
+  // probing `claude --version` and constructed the executor. The constructor
+  // kicks off init fire-and-forget; without awaiting this on the trigger
+  // path, `ruflo daemon trigger -w <worker>` runs before headlessAvailable
+  // is set and falls through to the local stub in ~2ms.
+  private headlessInitPromise: Promise<void> = Promise.resolve();
 
   // Preserve the original constructor config so we can detect explicit overrides
   // during state restoration (R1: constructor config takes priority over stale state)
   private originalConfig?: Partial<DaemonConfig>;
+
+  // #2935 — same purpose as originalConfig, but for values that came from
+  // .claude-flow/config.{json,yaml,yml} (Layer B) rather than a constructor
+  // arg. A file-supplied resourceThresholds value is just as much an
+  // explicit, deliberate override as a constructor arg, but
+  // initializeWorkerStates()'s stale-state guard only ever checked
+  // originalConfig — so a config.json override kept losing to whatever
+  // .claude-flow/daemon-state.json had persisted from a previous run.
+  private fileConfigResourceThresholds?: { maxCpuLoad?: number; minFreeMemoryPercent?: number };
+
+  // #2661 root-fix — resolved once (git identity doesn't change at runtime)
+  // and reused for lease heartbeats + supervisor election, both gated on
+  // aiWorkersEnabled since they only matter for the recurring AI schedule.
+  private gitIdentity: GitWorkspaceIdentity | null = null;
+  private lastSupervisorRenewalMs = 0;
 
   constructor(projectRoot: string, config?: Partial<DaemonConfig>) {
     super();
@@ -146,10 +259,28 @@ export class WorkerDaemon extends EventEmitter {
 
     // Read daemon config from .claude-flow/config.json (Layer B)
     const fileConfig = this.readDaemonConfigFromFile(claudeFlowDir);
+    // #2935 — remember which resourceThresholds fields came from the file so
+    // initializeWorkerStates() can treat them as explicit too (see field doc).
+    this.fileConfigResourceThresholds = {
+      maxCpuLoad: fileConfig.maxCpuLoad,
+      minFreeMemoryPercent: fileConfig.minFreeMemoryPercent,
+    };
 
     // CPU-proportional smart default instead of hardcoded 2.0
     const cpuCount = WorkerDaemon.getEffectiveCpuCount();
-    const smartMaxCpuLoad = Math.max(cpuCount * 0.8, 2.0); // Floor of 2.0 for single-CPU machines
+    let smartMaxCpuLoad = Math.max(cpuCount * 0.8, 2.0); // Floor of 2.0 for single-CPU machines
+
+    // #2110 — WSL2 reports `/proc/loadavg` values that include Windows-side
+    // process counts mapped into the Linux kernel. Real load on a 4-CPU
+    // WSL2 host can be 200-400 even when the Linux side is idle. The
+    // default gate of `cpuCount * 0.8` always trips, deferring every
+    // worker as "CPU load too high" while the daemon reports healthy.
+    // Bump the floor to 1000 when WSL is detected so the gate is
+    // effectively disabled (real load on Linux side rarely exceeds 100
+    // even under heavy contention).
+    if (WorkerDaemon.isWslEnvironment()) {
+      smartMaxCpuLoad = Math.max(smartMaxCpuLoad, 1000);
+    }
 
     // Platform-aware default: macOS os.freemem() excludes reclaimable file cache,
     // so reported "free" is much lower than actually available memory.
@@ -169,8 +300,30 @@ export class WorkerDaemon extends EventEmitter {
         maxCpuLoad: config?.resourceThresholds?.maxCpuLoad ?? fileConfig.maxCpuLoad ?? smartMaxCpuLoad,
         minFreeMemoryPercent: config?.resourceThresholds?.minFreeMemoryPercent ?? fileConfig.minFreeMemoryPercent ?? defaultMinFreeMemory,
       },
+      // #2356 — precedence: constructor arg > config.json (daemon.ttlSecs) >
+      // env (RUFLO_DAEMON_TTL_SECS) > built-in default. readEnvSecsAsMs folds
+      // env-or-default and honors an explicit 0 (disable).
+      ttlMs: config?.ttlMs ?? fileConfig.ttlMs ?? readEnvSecsAsMs('RUFLO_DAEMON_TTL_SECS', DEFAULT_DAEMON_TTL_MS),
+      idleShutdownMs: config?.idleShutdownMs ?? fileConfig.idleShutdownMs ?? readEnvSecsAsMs('RUFLO_DAEMON_IDLE_SECS', DEFAULT_DAEMON_IDLE_SHUTDOWN_MS),
+      // #2661 — AI workers are opt-in: flag > config.json > env > OFF.
+      // Deliberately NOT restored from daemon-state.json (initializeWorkerStates
+      // whitelist) so a stale state file can never resurrect consent.
+      aiWorkersEnabled: config?.aiWorkersEnabled
+        ?? fileConfig.aiWorkersEnabled
+        ?? (process.env.RUFLO_DAEMON_AI_WORKERS === '1'),
       workers: config?.workers ?? DEFAULT_WORKERS,
     };
+
+    // #2935 — deferred from readDaemonConfigFromFile(): this.config (and
+    // therefore this.config.logDir) doesn't exist until the assignment
+    // above, so logging from inside that method was silently swallowed by
+    // log()'s own try/catch and never reached daemon.log.
+    if (fileConfig.configSourcePath) {
+      this.log('info', `Daemon config loaded from ${fileConfig.configSourcePath}`);
+    }
+    if (fileConfig.yamlParseWarning) {
+      this.log('warn', fileConfig.yamlParseWarning);
+    }
 
     // Setup graceful shutdown handlers
     this.setupShutdownHandlers();
@@ -190,8 +343,11 @@ export class WorkerDaemon extends EventEmitter {
     // Initialize worker states
     this.initializeWorkerStates();
 
-    // Initialize headless executor (async, non-blocking)
-    this.initHeadlessExecutor().catch((err) => {
+    // Initialize headless executor (async, non-blocking) — capture the
+    // promise so the trigger path (#2251) can await it before checking
+    // `headlessAvailable`. Scheduled fires hit a long-running daemon and
+    // are unaffected; the on-demand `trigger` path was racing this init.
+    this.headlessInitPromise = this.initHeadlessExecutor().catch((err) => {
       this.log('warn', `Headless executor init failed: ${err}`);
     });
   }
@@ -200,6 +356,17 @@ export class WorkerDaemon extends EventEmitter {
    * Initialize headless executor if Claude Code is available
    */
   private async initHeadlessExecutor(): Promise<void> {
+    // #2661 — scheduled AI workers require explicit consent. Without it,
+    // don't even probe `claude --version`: headlessAvailable stays false,
+    // every worker runs its $0 local path, and a default install produces
+    // zero autonomous Claude launches regardless of worktree count.
+    if (!this.config.aiWorkersEnabled) {
+      this.log(
+        'info',
+        'AI workers disabled (default) - all workers run local-only. Enable with `daemon start --headless`, daemon.aiWorkers.enabled=true, or RUFLO_DAEMON_AI_WORKERS=1 (#2661)'
+      );
+      return;
+    }
     try {
       this.headlessExecutor = new HeadlessWorkerExecutor(this.projectRoot, {
         maxConcurrent: this.config.maxConcurrent,
@@ -262,6 +429,26 @@ export class WorkerDaemon extends EventEmitter {
    * cgroup v2 / v1 quota files first so the maxCpuLoad threshold stays
    * meaningful under resource-limited containers.
    */
+  /**
+   * #2110 — detect WSL2 / WSL1 so the CPU-load gate can use a sane
+   * default. `/proc/loadavg` on WSL maps in Windows-side process counts
+   * and routinely reports values 100-1000x larger than real Linux load.
+   *
+   * Detection order:
+   *   1. `WSL_DISTRO_NAME` env var (set by Microsoft's WSL launcher)
+   *   2. `WSL_INTEROP` env var (set by recent WSL2)
+   *   3. `/proc/sys/kernel/osrelease` contains "microsoft" or "WSL"
+   *      (kernel build marker; survives env stripping)
+   */
+  static isWslEnvironment(): boolean {
+    if (process.env.WSL_DISTRO_NAME || process.env.WSL_INTEROP) return true;
+    try {
+      const osrelease = readFileSync('/proc/sys/kernel/osrelease', 'utf8').toLowerCase();
+      if (osrelease.includes('microsoft') || osrelease.includes('wsl')) return true;
+    } catch { /* not on Linux or /proc inaccessible */ }
+    return false;
+  }
+
   static getEffectiveCpuCount(): number {
     // 1. Try cgroup v2: /sys/fs/cgroup/cpu.max
     try {
@@ -290,7 +477,13 @@ export class WorkerDaemon extends EventEmitter {
    * Supports dot-notation keys like 'daemon.resourceThresholds.maxCpuLoad'.
    * #1844: prefer JSON when both exist (existing behavior) but fall back
    * to YAML so operators using the v3 canonical YAML format aren't silently
-   * ignored. The chosen path is logged at info level.
+   * ignored. The chosen path (or a parse warning) is returned rather than
+   * logged directly — #2935: this method runs from the constructor before
+   * `this.config` (and therefore `this.config.logDir`) is assigned, so a
+   * `this.log()` call made here throws inside log()'s own try/catch and is
+   * silently swallowed. It never reached daemon.log, which made "is the
+   * config file even being read?" impossible to answer from the log alone.
+   * The caller logs these once `this.config` exists.
    */
   private readDaemonConfigFromFile(claudeFlowDir: string): {
     autoStart?: boolean;
@@ -298,6 +491,11 @@ export class WorkerDaemon extends EventEmitter {
     workerTimeoutMs?: number;
     maxCpuLoad?: number;
     minFreeMemoryPercent?: number;
+    ttlMs?: number;
+    idleShutdownMs?: number;
+    aiWorkersEnabled?: boolean;
+    configSourcePath?: string;
+    yamlParseWarning?: string;
   } {
     const jsonPath = join(claudeFlowDir, 'config.json');
     const yamlPath = join(claudeFlowDir, 'config.yaml');
@@ -328,18 +526,15 @@ export class WorkerDaemon extends EventEmitter {
           chosenPath = yPath;
         }
       } catch {
-        this.log(
-          'warn',
-          `Found ${yPath} but yaml parser unavailable. Install \`yaml\` or convert to JSON. Falling back to defaults.`,
-        );
-        return {};
+        return {
+          yamlParseWarning: `Found ${yPath} but yaml parser unavailable. Install \`yaml\` or convert to JSON. Falling back to defaults.`,
+        };
       }
     }
 
     if (!raw || !chosenPath) {
       return {};
     }
-    this.log('info', `Daemon config loaded from ${chosenPath}`);
 
     try {
       // Support both flat keys at root and nested under scopes.project
@@ -348,12 +543,23 @@ export class WorkerDaemon extends EventEmitter {
       const rawMinMem = cfg['daemon.resourceThresholds.minFreeMemoryPercent'] ?? raw['daemon.resourceThresholds.minFreeMemoryPercent'];
       const rawMaxConcurrent = cfg['daemon.maxConcurrent'] ?? raw['daemon.maxConcurrent'];
       const rawTimeout = cfg['daemon.workerTimeoutMs'] ?? raw['daemon.workerTimeoutMs'];
+      // #2356 — lifecycle limits are configured in SECONDS in config.json
+      // (`daemon.ttlSecs` / `daemon.idleSecs`) for parity with the CLI flag
+      // and env var; stored internally as ms. An explicit 0 disables.
+      const rawTtl = cfg['daemon.ttlSecs'] ?? raw['daemon.ttlSecs'];
+      const rawIdle = cfg['daemon.idleSecs'] ?? raw['daemon.idleSecs'];
+      // #2661 — explicit opt-in for scheduled AI workers.
+      const rawAiEnabled = cfg['daemon.aiWorkers.enabled'] ?? raw['daemon.aiWorkers.enabled'];
       return {
         autoStart: typeof raw['daemon.autoStart'] === 'boolean' ? raw['daemon.autoStart'] : undefined,
         maxConcurrent: (typeof rawMaxConcurrent === 'number' && rawMaxConcurrent > 0) ? rawMaxConcurrent : undefined,
         workerTimeoutMs: (typeof rawTimeout === 'number' && rawTimeout > 0) ? rawTimeout : undefined,
         maxCpuLoad: (typeof rawCpuLoad === 'number' && rawCpuLoad > 0 && rawCpuLoad < 1000) ? rawCpuLoad : undefined,
         minFreeMemoryPercent: (typeof rawMinMem === 'number' && rawMinMem >= 0 && rawMinMem <= 100) ? rawMinMem : undefined,
+        ttlMs: (typeof rawTtl === 'number' && rawTtl >= 0) ? rawTtl * 1000 : undefined,
+        idleShutdownMs: (typeof rawIdle === 'number' && rawIdle >= 0) ? rawIdle * 1000 : undefined,
+        aiWorkersEnabled: typeof rawAiEnabled === 'boolean' ? rawAiEnabled : undefined,
+        configSourcePath: chosenPath,
       };
     } catch {
       return {};
@@ -585,13 +791,24 @@ export class WorkerDaemon extends EventEmitter {
         }
 
         // Restore resourceThresholds, maxConcurrent, workerTimeoutMs from saved state
-        // Only restore if valid numeric values within sane ranges
-        if (saved.config?.resourceThresholds && !this.originalConfig?.resourceThresholds) {
+        // Only restore if valid numeric values within sane ranges.
+        // #2935 — a field is restored from stale state only if NEITHER the
+        // constructor arg NOR .claude-flow/config.{json,yaml,yml} explicitly
+        // set it. The old gate checked only `originalConfig`, so a
+        // config.json override (e.g. minFreeMemoryPercent: 0 to work around
+        // the Darwin os.freemem() skew) silently lost to whatever a stale
+        // daemon-state.json had persisted from before the override existed —
+        // same class of bug #2661 already fixed for aiWorkersEnabled.
+        if (saved.config?.resourceThresholds) {
           const rt = saved.config.resourceThresholds;
-          if (typeof rt.maxCpuLoad === 'number' && rt.maxCpuLoad > 0 && rt.maxCpuLoad < 1000) {
+          const maxCpuLoadExplicit = this.originalConfig?.resourceThresholds?.maxCpuLoad !== undefined
+            || this.fileConfigResourceThresholds?.maxCpuLoad !== undefined;
+          const minFreeMemExplicit = this.originalConfig?.resourceThresholds?.minFreeMemoryPercent !== undefined
+            || this.fileConfigResourceThresholds?.minFreeMemoryPercent !== undefined;
+          if (!maxCpuLoadExplicit && typeof rt.maxCpuLoad === 'number' && rt.maxCpuLoad > 0 && rt.maxCpuLoad < 1000) {
             this.config.resourceThresholds.maxCpuLoad = rt.maxCpuLoad;
           }
-          if (typeof rt.minFreeMemoryPercent === 'number' && rt.minFreeMemoryPercent >= 0 && rt.minFreeMemoryPercent <= 100) {
+          if (!minFreeMemExplicit && typeof rt.minFreeMemoryPercent === 'number' && rt.minFreeMemoryPercent >= 0 && rt.minFreeMemoryPercent <= 100) {
             this.config.resourceThresholds.minFreeMemoryPercent = rt.minFreeMemoryPercent;
           }
         }
@@ -729,6 +946,15 @@ export class WorkerDaemon extends EventEmitter {
     this.writePidFile();
     this.emit('started', { pid: process.pid, startedAt: this.startedAt });
 
+    // #2661 root-fix — resolve repository identity and register/attempt
+    // election immediately at start, not just on the first 60s lifecycle
+    // tick, so `daemon status` reflects supervisor state right away. Only
+    // meaningful when AI workers are enabled (see field doc comment).
+    if (this.config.aiWorkersEnabled) {
+      this.gitIdentity = resolveGitWorkspaceIdentity(this.projectRoot);
+      void this.renewLeaseAndSupervisor();
+    }
+
     // Schedule all enabled workers
     for (const workerConfig of this.config.workers) {
       if (workerConfig.enabled) {
@@ -746,6 +972,10 @@ export class WorkerDaemon extends EventEmitter {
     if (typeof this.queuePollTimer.unref === 'function') {
       this.queuePollTimer.unref();
     }
+
+    // #2356: self-terminating lifecycle. Without an upper bound on lifetime a
+    // forgotten daemon keeps dispatching headless worker sweeps for days.
+    this.startLifecycleMonitor();
 
     // Save state
     this.saveState();
@@ -831,6 +1061,33 @@ export class WorkerDaemon extends EventEmitter {
       this.queuePollTimer = undefined;
     }
 
+    // #2356: stop the TTL/idle lifecycle monitor.
+    if (this.lifecycleTimer) {
+      clearInterval(this.lifecycleTimer);
+      this.lifecycleTimer = undefined;
+    }
+
+    // #2661 — reap in-flight headless `claude --print` children. They run
+    // detached (own process group on POSIX) and would otherwise outlive the
+    // daemon; `daemon stop --all` relies on SIGTERM → this path to cancel
+    // active Claude process groups.
+    if (this.headlessExecutor) {
+      try { this.headlessExecutor.cancelAll(); } catch { /* best-effort */ }
+    }
+
+    // #2661 root-fix — release this worktree's lease and, if held,
+    // supervisor status, so a sibling worktree's daemon can take over the
+    // schedule within its next tick instead of waiting out the 3-minute
+    // supervisor staleness window. Best-effort — a graceful release is an
+    // optimization; the staleness timeout is what actually bounds a crash.
+    if (this.config.aiWorkersEnabled && this.gitIdentity) {
+      const { repositoryId, worktreeRoot } = this.gitIdentity;
+      try {
+        await getRepoSupervisorRegistry().release(repositoryId, worktreeRoot);
+        await getWorkspaceLeaseRegistry().release(repositoryId, worktreeRoot);
+      } catch { /* best-effort */ }
+    }
+
     this.running = false;
     this.removePidFile();
     this.saveState();
@@ -839,15 +1096,164 @@ export class WorkerDaemon extends EventEmitter {
   }
 
   /**
+   * #2356 — Self-terminating lifecycle monitor. A daemon with no upper bound
+   * on its lifetime is the documented root cause of multi-day token leaks:
+   * each interval worker spawns a headless `claude --print` sweep, so a daemon
+   * left running for days dispatches tens of thousands of sessions invisibly.
+   * This timer enforces a max age (`ttlMs`) and an optional idle window
+   * (`idleShutdownMs`), shutting the daemon down gracefully when either trips.
+   * Checked once a minute and `unref()`'d so it never keeps the process alive
+   * on its own. A no-op when both limits are disabled (0).
+   */
+  private startLifecycleMonitor(): void {
+    const ttlMs = this.config.ttlMs;
+    const idleMs = this.config.idleShutdownMs;
+    // #2661 — unlike ttl/idle (both optional), the workspace-removal check
+    // always runs, so the monitor is no longer skipped when both limits are
+    // disabled. A daemon whose worktree was deleted must not keep running.
+
+    const CHECK_INTERVAL_MS = 60_000;
+    this.lifecycleTimer = setInterval(() => {
+      if (!this.running) return;
+      const reason = this.lifecycleShutdownReason(Date.now());
+      if (reason) {
+        void this.selfShutdown(reason);
+        return;
+      }
+      // #2661 root-fix — renew this worktree's lease + supervisor status on
+      // the same cadence. Both windows (15min lease TTL, 3min supervisor
+      // staleness) comfortably outlive a single missed 60s tick.
+      if (this.config.aiWorkersEnabled) {
+        void this.renewLeaseAndSupervisor();
+      }
+    }, CHECK_INTERVAL_MS);
+    if (typeof this.lifecycleTimer.unref === 'function') {
+      this.lifecycleTimer.unref();
+    }
+
+    const parts: string[] = ['workspace-removal'];
+    if (ttlMs > 0) parts.push(`ttl=${Math.round(ttlMs / 1000)}s`);
+    if (idleMs > 0) parts.push(`idle=${Math.round(idleMs / 1000)}s`);
+    this.log('info', `Lifecycle monitor active (${parts.join(', ')})`);
+  }
+
+  /**
+   * Decide whether the daemon should self-shutdown, and why. Extracted from
+   * the lifecycle timer so it is testable without racing a 60s interval or
+   * calling process.exit().
+   *
+   * #2661 (invariant 6, containment form): a removed worktree makes its
+   * daemon ineligible within one check interval — the daemon detects that
+   * its workspace directory is gone and shuts down instead of continuing to
+   * schedule jobs against a deleted tree. The full lease architecture
+   * (supervisor-dispatched jobs, heartbeats) is follow-up work; this stops
+   * the leak where recreated/removed worktrees leave schedulers behind.
+   */
+  private lifecycleShutdownReason(now: number): string | null {
+    if (!existsSync(this.projectRoot)) {
+      return 'workspace directory removed (#2661)';
+    }
+
+    const ttlMs = this.config.ttlMs;
+    const idleMs = this.config.idleShutdownMs;
+    const startedMs = this.startedAt?.getTime() ?? now;
+
+    if (ttlMs > 0 && now - startedMs >= ttlMs) {
+      return `max age ${Math.round(ttlMs / 1000)}s reached`;
+    }
+    if (idleMs > 0) {
+      const lastActivity = this.lastWorkerActivityMs() ?? startedMs;
+      if (now - lastActivity >= idleMs) {
+        return `idle for ${Math.round(idleMs / 1000)}s (no worker activity)`;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Most recent worker start/finish time across all workers (epoch ms), or
+   * null if no worker has ever started. Used for idle-shutdown detection.
+   */
+  private lastWorkerActivityMs(): number | null {
+    let latest: number | null = null;
+    for (const state of this.workers.values()) {
+      for (const t of [state.lastRun, state.lastStartedAt]) {
+        if (t) {
+          const ms = t.getTime();
+          if (latest === null || ms > latest) latest = ms;
+        }
+      }
+    }
+    return latest;
+  }
+
+  /**
+   * Graceful self-shutdown triggered by the lifecycle monitor. Mirrors the
+   * signal-handler path (`stop()` then `process.exit(0)`) because the
+   * foreground keep-alive in the daemon command is a *ref'd* `setInterval`
+   * that would otherwise hold the process open after `stop()` clears the
+   * service timers — leaving a zombie that reports stopped but never exits.
+   */
+  private async selfShutdown(reason: string): Promise<void> {
+    this.log('info', `Daemon self-shutdown: ${reason}`);
+    this.emit('self-shutdown', { reason });
+    try {
+      await this.stop();
+    } catch { /* best-effort — we are exiting regardless */ }
+    process.exit(0);
+  }
+
+  /**
+   * #2661 root-fix — heartbeat this worktree's lease and attempt/renew
+   * repository-supervisor election. Best-effort: any failure here must
+   * never affect worker scheduling correctness (the budget ledger remains
+   * the hard invariant regardless of supervisor state) — a daemon that
+   * can't safely coordinate simply falls back to "not supervisor" and runs
+   * its cheap local-only workers, same as any other lease-only worktree.
+   */
+  private async renewLeaseAndSupervisor(): Promise<void> {
+    if (!this.gitIdentity) return;
+    const { repositoryId, worktreeRoot } = this.gitIdentity;
+    try {
+      await getWorkspaceLeaseRegistry().heartbeat(repositoryId, worktreeRoot);
+      await getRepoSupervisorRegistry().electOrRenew(repositoryId, worktreeRoot);
+      this.lastSupervisorRenewalMs = Date.now();
+    } catch { /* best-effort — see docstring */ }
+  }
+
+  /**
+   * Cheap read-only check: does THIS daemon currently hold repository
+   * supervisor status? Used to gate recurring headless (`claude --print`)
+   * execution — see repo-supervisor.ts's module doc comment for the full
+   * rationale. Never true when AI workers are disabled or the git identity
+   * couldn't be resolved (e.g. a non-git directory).
+   */
+  private isRepositorySupervisor(): boolean {
+    if (!this.config.aiWorkersEnabled || !this.gitIdentity) return false;
+    return getRepoSupervisorRegistry().isSupervisor(this.gitIdentity.repositoryId, this.gitIdentity.worktreeRoot);
+  }
+
+  /**
    * Get daemon status
    */
   getStatus(): DaemonStatus {
+    let supervisor: DaemonStatus['supervisor'] = null;
+    if (this.config.aiWorkersEnabled && this.gitIdentity) {
+      const { repositoryId, worktreeRoot } = this.gitIdentity;
+      supervisor = {
+        repositoryId,
+        isSupervisor: getRepoSupervisorRegistry().isSupervisor(repositoryId, worktreeRoot),
+        record: getRepoSupervisorRegistry().getRecord(repositoryId),
+        activeLeases: getWorkspaceLeaseRegistry().listActive(repositoryId).length,
+      };
+    }
     return {
       running: this.running,
       pid: process.pid,
       startedAt: this.startedAt,
       workers: new Map(this.workers),
       config: this.config,
+      supervisor,
     };
   }
 
@@ -916,7 +1322,7 @@ export class WorkerDaemon extends EventEmitter {
   /**
    * Execute a worker with timeout protection
    */
-  private async executeWorker(workerConfig: WorkerConfig): Promise<WorkerResult> {
+  private async executeWorker(workerConfig: WorkerConfig, opts?: { manualTrigger?: boolean }): Promise<WorkerResult> {
     const state = this.workers.get(workerConfig.type)!;
     const workerId = `${workerConfig.type}_${Date.now()}`;
     const startTime = Date.now();
@@ -933,7 +1339,7 @@ export class WorkerDaemon extends EventEmitter {
       // Execute worker logic with timeout (P1 fix)
       // Pass cleanup callback to kill orphan child processes on timeout (#1117)
       const output = await this.runWithTimeout(
-        () => this.runWorkerLogic(workerConfig),
+        () => this.runWorkerLogic(workerConfig, opts),
         this.config.workerTimeoutMs,
         `Worker ${workerConfig.type} timed out after ${this.config.workerTimeoutMs / 1000}s`,
         () => {
@@ -1044,26 +1450,71 @@ export class WorkerDaemon extends EventEmitter {
   /**
    * Run the actual worker logic
    */
-  private async runWorkerLogic(workerConfig: WorkerConfig): Promise<unknown> {
-    // Check if this is a headless worker type and headless execution is available
-    if (isHeadlessWorker(workerConfig.type) && this.headlessAvailable && this.headlessExecutor) {
+  private async runWorkerLogic(workerConfig: WorkerConfig, opts?: { manualTrigger?: boolean }): Promise<unknown> {
+    // Check if this is a headless worker type and headless execution is available.
+    // #2661 — aiWorkersEnabled is re-checked here (not just at init) as
+    // defence in depth: no code path may promote a worker to `claude --print`
+    // without explicit consent.
+    //
+    // #2661 root-fix — the RECURRING schedule additionally requires this
+    // daemon to be the elected repository supervisor (see repo-supervisor.ts):
+    // ten worktree daemons of one repository must not each independently
+    // decide "is it time to run audit" every tick. An explicit
+    // `daemon trigger --headless` (opts.manualTrigger) is still honored
+    // regardless of supervisor status — it's a one-off, user-initiated
+    // action, still budget/dedup-gated the same as any other launch.
+    const supervisorGateOk = opts?.manualTrigger === true || this.isRepositorySupervisor();
+    if (this.config.aiWorkersEnabled && supervisorGateOk && isHeadlessWorker(workerConfig.type) && this.headlessAvailable && this.headlessExecutor) {
       try {
         this.log('info', `Running ${workerConfig.type} in headless mode (Claude Code AI)`);
         const result = await this.headlessExecutor.execute(workerConfig.type as HeadlessWorkerType);
-        // #1793: persist the headless result to the same metrics files the
-        // local workers write to. Without this, AI-mode runs produced rich
-        // parsedOutput that lived only in `.claude-flow/logs/headless/*` and
-        // never reached `.claude-flow/metrics/<name>.json` — `memory stats`
-        // and downstream consumers saw nothing despite successful runs.
-        try {
-          this.persistHeadlessResult(workerConfig.type as HeadlessWorkerType, result);
-        } catch (persistError) {
-          this.log('warn', `Failed to persist headless result for ${workerConfig.type}: ${(persistError as Error).message}`);
+
+        // #2110 — `HeadlessWorkerExecutor.execute()` returns
+        // `createErrorResult(...)` with `success: false` when
+        // `isAvailable()` is false, instead of throwing. The previous
+        // try/catch never fired in that path, and the result was
+        // persisted as mode:"headless" despite being a stub. Downstream
+        // dashboards / `memory stats` couldn't distinguish a real AI
+        // run from a fallback. Treat falsy success the same as throw.
+        const ok = (result as { success?: unknown })?.success === true;
+        if (!ok) {
+          const reason =
+            (result as { error?: unknown })?.error ||
+            (result as { note?: unknown })?.note ||
+            'headless executor reported success=false';
+          this.log('warn', `Headless ${workerConfig.type} returned success=false (${String(reason).slice(0, 200)}); falling back to local mode`);
+          this.emit('headless:fallback', {
+            type: workerConfig.type,
+            error: String(reason).slice(0, 500),
+          });
+          // Fall through to local switch.
+        } else if (result.dedupSkipped) {
+          // #2661 invariant 5 — the same job (repositoryId + HEAD + worker +
+          // config) already succeeded within the freshness window, e.g. in a
+          // sibling worktree. No model call happened; do NOT overwrite the
+          // persisted metrics (which hold the real prior result) and do NOT
+          // fall back to local — the work is already done.
+          this.log('info', `Worker ${workerConfig.type} dedup-skipped (same repo+HEAD job ran recently in another worktree)`);
+          return {
+            mode: 'headless-dedup-skip',
+            ...result,
+          };
+        } else {
+          // #1793: persist the headless result to the same metrics files the
+          // local workers write to. Without this, AI-mode runs produced rich
+          // parsedOutput that lived only in `.claude-flow/logs/headless/*` and
+          // never reached `.claude-flow/metrics/<name>.json` — `memory stats`
+          // and downstream consumers saw nothing despite successful runs.
+          try {
+            this.persistHeadlessResult(workerConfig.type as HeadlessWorkerType, result);
+          } catch (persistError) {
+            this.log('warn', `Failed to persist headless result for ${workerConfig.type}: ${(persistError as Error).message}`);
+          }
+          return {
+            mode: 'headless',
+            ...result,
+          };
         }
-        return {
-          mode: 'headless',
-          ...result,
-        };
       } catch (error) {
         this.log('warn', `Headless execution failed for ${workerConfig.type}, falling back to local mode`);
         this.emit('headless:fallback', {
@@ -1084,6 +1535,10 @@ export class WorkerDaemon extends EventEmitter {
         return this.runOptimizeWorkerLocal();
       case 'consolidate':
         return this.runConsolidateWorker();
+      case 'backup':
+        return this.runBackupWorker();
+      case 'harness':
+        return this.runHarnessWorker();
       case 'testgaps':
         return this.runTestGapsWorkerLocal();
       case 'predict':
@@ -1242,8 +1697,27 @@ export class WorkerDaemon extends EventEmitter {
     return perf;
   }
 
+  /**
+   * ADR-174 M3: memory consolidation — runs the real DISTILL/CONSOLIDATE pass
+   * (memory-distillation.ts) against `.swarm/memory.db`, turning raw
+   * `memory_entries` into `episodes` / `reasoning_patterns` /
+   * `pattern_embeddings` / `causal_edges`. Previously this wrote a hardcoded
+   * `{ patternsConsolidated: 0 }` stub and touched no database — the root
+   * cause of the intelligence tables staying empty.
+   *
+   * Kept as `runConsolidateWorker` / worker type `'consolidate'` for
+   * back-compat with existing `-w consolidate` scripts and docs.
+   *
+   * Safety:
+   *  - Bounded via CONSOLIDATE_MAX_ENTRIES_PER_TICK so a large backlog can
+   *    never approach DEFAULT_WORKER_TIMEOUT_MS — the incremental cursor in
+   *    runDistillation() drains a bounded slice per tick and picks up where
+   *    it left off on the next scheduled run.
+   *  - runDistillation() never throws (it catches internally and returns
+   *    `{ skipped }` / `{ corrupt: true }`), but this worker still wraps the
+   *    call defensively — a background worker must never crash the daemon.
+   */
   private async runConsolidateWorker(): Promise<unknown> {
-    // Memory consolidation - clean up old patterns
     const consolidateFile = join(this.projectRoot, '.claude-flow', 'metrics', 'consolidation.json');
     const metricsDir = join(this.projectRoot, '.claude-flow', 'metrics');
 
@@ -1251,14 +1725,157 @@ export class WorkerDaemon extends EventEmitter {
       mkdirSync(metricsDir, { recursive: true });
     }
 
+    // Opt-out: RUFLO_DAEMON_NO_DISTILL=1 (or `daemon start --no-distill`)
+    // skips the real distillation pass entirely without touching persisted
+    // worker-enabled state (see also: `daemon enable -w consolidate --disable`,
+    // which disables the worker's schedule altogether).
+    if (process.env[NO_DISTILL_ENV] === '1') {
+      const disabledResult = {
+        timestamp: new Date().toISOString(),
+        distillationEnabled: false,
+        note: `Distillation disabled via ${NO_DISTILL_ENV}=1 / --no-distill`,
+        patternsConsolidated: 0,
+        memoryCleaned: 0,
+        duplicatesRemoved: 0,
+      };
+      writeFileSync(consolidateFile, JSON.stringify(disabledResult, null, 2));
+      return disabledResult;
+    }
+
+    let report: DistillReport;
+    try {
+      report = await runDistillation({
+        dbPath: defaultMemoryDbPath(this.projectRoot),
+        maxEntries: CONSOLIDATE_MAX_ENTRIES_PER_TICK,
+        batchSize: CONSOLIDATE_BATCH_SIZE,
+        dedupDistance: CONSOLIDATE_DEDUP_DISTANCE,
+      });
+    } catch (error) {
+      // Defensive only — runDistillation() is internally try/catch'd and
+      // should never reach here. A worker must never crash the daemon.
+      const message = error instanceof Error ? error.message : String(error);
+      this.log('warn', `Consolidate worker: distillation threw unexpectedly: ${message}`);
+      const errorResult = {
+        timestamp: new Date().toISOString(),
+        distillationEnabled: true,
+        error: message,
+        patternsConsolidated: 0,
+        memoryCleaned: 0,
+        duplicatesRemoved: 0,
+      };
+      writeFileSync(consolidateFile, JSON.stringify(errorResult, null, 2));
+      return errorResult;
+    }
+
+    if (report.corrupt) {
+      this.log('warn', `Consolidate worker: memory DB reports corruption — ${report.skipped ?? 'skipped'}`);
+    } else if (report.skipped) {
+      this.log('info', `Consolidate worker: distillation skipped (${report.skipped})`);
+    }
+
     const result = {
       timestamp: new Date().toISOString(),
-      patternsConsolidated: 0,
-      memoryCleaned: 0,
-      duplicatesRemoved: 0,
+      distillationEnabled: true,
+      // Mapping onto the pre-existing metrics shape (ADR-174 M3):
+      patternsConsolidated: report.patterns,
+      // rows drained from the incremental cursor this tick — distillation is
+      // non-destructive (never mutates/deletes memory_entries), so "cleaned"
+      // here means "processed into the intelligence tables", not removed.
+      memoryCleaned: report.processed,
+      // clustering collapses near-duplicate entries into a single pattern
+      // rather than deleting them; this is the count that got merged away
+      // instead of becoming their own distinct pattern.
+      duplicatesRemoved: Math.max(0, report.processed - report.patterns),
+      episodes: report.episodes,
+      episodeEmbeddings: report.episodeEmbeddings,
+      patternEmbeddings: report.patternEmbeddings,
+      causalEdges: report.causalEdges,
+      promoted: report.promoted,
+      byProvenance: report.byProvenance,
+      namespaces: report.namespaces,
+      dryRun: report.dryRun,
+      corrupt: report.corrupt ?? false,
+      skipped: report.skipped,
     };
 
     writeFileSync(consolidateFile, JSON.stringify(result, null, 2));
+    return result;
+  }
+
+  /**
+   * Nightly memory-DB backup worker (24h interval). Takes a WAL-safe, consistent
+   * snapshot of .swarm/memory.db with rotation (keep last N). Never throws — a
+   * worker must not crash the daemon; a skip/error is written to the metrics
+   * file. Opt-out by omitting `backup` from `-w`; offsite GCS is opt-in via
+   * RUFLO_BACKUP_GCS (a gs:// prefix), retention via RUFLO_BACKUP_KEEP.
+   */
+  private async runBackupWorker(): Promise<unknown> {
+    const metricsDir = join(this.projectRoot, '.claude-flow', 'metrics');
+    if (!existsSync(metricsDir)) mkdirSync(metricsDir, { recursive: true });
+    const backupFile = join(metricsDir, 'backup.json');
+
+    let result: Record<string, unknown>;
+    try {
+      const keepEnv = Number(process.env.RUFLO_BACKUP_KEEP);
+      const r = await backupMemoryDb({
+        dbPath: defaultMemoryDbPath(this.projectRoot),
+        keep: Number.isFinite(keepEnv) && keepEnv > 0 ? keepEnv : 7,
+        gcs: process.env.RUFLO_BACKUP_GCS || undefined,
+      });
+      result = {
+        timestamp: new Date().toISOString(),
+        backedUp: r.backedUp,
+        path: r.path,
+        sizeBytes: r.sizeBytes ?? 0,
+        rotatedAway: r.rotatedAway?.length ?? 0,
+        gcsUri: r.gcsUri,
+        skipped: r.skipped,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.log('warn', `Backup worker failed: ${message}`);
+      result = { timestamp: new Date().toISOString(), backedUp: false, error: message };
+    }
+
+    writeFileSync(backupFile, JSON.stringify(result, null, 2));
+    return result;
+  }
+
+  /**
+   * Self-optimizing harness loop worker (ADR-176 phase 8). Strictly bounded:
+   * OPT-IN (RUFLO_HARNESS_LOOP), $0-default (no optimizer/verifier wired => no
+   * promotion), trajectory-capped, single-flight via the daemon, never throws.
+   * On acceptance the (unsigned) champion is staged for the separate sign step.
+   */
+  private async runHarnessWorker(): Promise<unknown> {
+    const metricsDir = join(this.projectRoot, '.claude-flow', 'metrics');
+    if (!existsSync(metricsDir)) mkdirSync(metricsDir, { recursive: true });
+    const harnessFile = join(metricsDir, 'harness-loop.json');
+
+    let result: Record<string, unknown>;
+    try {
+      // ADR-176 flywheel (A-P3b autonomy loop): run ONE COMPOUNDING generation
+      // on the install's REAL data — read the persisted champion as baseline,
+      // gate a constrained candidate on the frozen self-supervised held-out with
+      // the human-anchor guard + separate canary, and on a verified promotion
+      // advance the champion so the NEXT tick compounds. Shadow-first (serve lags
+      // one tick). Opt-in ($0 no-op without RUFLO_HARNESS_LOOP).
+      const { runFlywheelGenerationWorker } = await import('./harness-flywheel-runtime.js');
+      const gen = await runFlywheelGenerationWorker(this.projectRoot, { sample: 120 });
+      let status: unknown = null;
+      try {
+        const { flywheelStatus } = await import('./harness-flywheel-generations.js');
+        status = flywheelStatus(this.projectRoot);
+      } catch { /* no lineage yet */ }
+      if (gen.promoted) this.log('info', `Flywheel gen ${gen.generation}: PROMOTED (+${(gen.delta ?? 0).toFixed(4)} held-out, significant=${gen.significant}) — champion advanced`);
+      result = { timestamp: new Date().toISOString(), flywheel: gen, lineage: status };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.log('warn', `Harness worker failed: ${message}`);
+      result = { timestamp: new Date().toISOString(), ran: false, error: message };
+    }
+
+    writeFileSync(harnessFile, JSON.stringify(result, null, 2));
     return result;
   }
 
@@ -1397,7 +2014,17 @@ export class WorkerDaemon extends EventEmitter {
     if (!workerConfig) {
       throw new Error(`Unknown worker type: ${type}`);
     }
-    return this.executeWorker(workerConfig);
+    // #2251 — wait for headless probe to settle before running. Without
+    // this, on-demand `daemon trigger -w <worker>` races the constructor's
+    // fire-and-forget init and ALWAYS falls through to local mode even
+    // when `claude` is on PATH and scheduled fires of the same worker
+    // use headless correctly. Scheduled fires already wait long enough
+    // (timer + offset) that this is a no-op for them.
+    await this.headlessInitPromise;
+    // #2661 root-fix — an explicit manual trigger bypasses the repository-
+    // supervisor gate (still budget/dedup-gated) — see runWorkerLogic()'s
+    // doc comment.
+    return this.executeWorker(workerConfig, { manualTrigger: true });
   }
 
   /**
@@ -1448,9 +2075,11 @@ export class WorkerDaemon extends EventEmitter {
     };
 
     try {
-      const tmpFile = this.config.stateFile + '.tmp';
-      writeFileSync(tmpFile, JSON.stringify(state, null, 2));
-      renameSync(tmpFile, this.config.stateFile);
+      // ruvnet/ruflo#2782: use writeFileAtomic — its temp file is uniquified with
+      // pid + timestamp + random suffix, so two concurrent in-process saveState()
+      // calls can no longer collide on a shared `.tmp` basename and race one
+      // another's renameSync into ENOENT. Related to but distinct from #1637.
+      writeFileAtomic(this.config.stateFile, Buffer.from(JSON.stringify(state, null, 2)));
     } catch (error) {
       this.log('error', `Failed to save state: ${error}`);
     }

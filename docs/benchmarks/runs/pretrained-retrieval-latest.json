@@ -1,0 +1,626 @@
+{
+  "runAt": "2026-05-30T18:58:53.670Z",
+  "benchmark": "pretrained-retrieval",
+  "mode": "hybrid",
+  "rerank": true,
+  "storeSize": 420,
+  "queries": 10,
+  "matchedQueries": 10,
+  "matchRate": 1,
+  "top1HitRate": 0.9,
+  "top3HitRate": 1,
+  "mrr3": 0.9333,
+  "label_top1HitRate": 0.9,
+  "label_top3HitRate": 1,
+  "label_mrr3": 0.95,
+  "label_precision3": 0.7,
+  "label_ndcg3": 0.9631,
+  "label_ndcg5": 0.944,
+  "top1Diversity": 1,
+  "top3DupRate": 0,
+  "avgQueryLatencyMs": 949.49,
+  "totalQueryMs": 9494.92,
+  "results": [
+    {
+      "query": "how was the Opus model alias fixed",
+      "matched": true,
+      "top1Relevant": true,
+      "top3Relevant": true,
+      "firstRelevantRank": 1,
+      "label_top1": true,
+      "label_top3_count": 1,
+      "label_top5_count": 3,
+      "label_firstRank": 1,
+      "label_ndcg3": 1,
+      "label_ndcg5": 0.8529278650606567,
+      "topK": [
+        {
+          "id": "pattern-1780161237213-1o-860k",
+          "name": "Is Ruflo safe on Claude Opus 4.8? — `opus` alias still pins to 4.7, and literal model ids silently d",
+          "type": "history-issue",
+          "score": 0.7369520287125506,
+          "cosineScore": 0.003778643529534665,
+          "bm25Score": 52.763722719504834,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161237205-9-48p8",
+          "name": "chore(release): bump 3.10.10 → 3.10.11 (4-issue bug cluster)",
+          "type": "history-commit",
+          "score": 0.5972130700187058,
+          "cosineScore": 0.11877348981913242,
+          "bm25Score": 15.508603531446157,
+          "labelRelevant": false
+        },
+        {
+          "id": "pattern-1780161324680-9-5bpv",
+          "name": "chore(release): bump 3.10.10 → 3.10.11 (4-issue bug cluster)",
+          "type": "history-commit",
+          "score": 0.5972130700187058,
+          "cosineScore": 0.11877348981913242,
+          "bm25Score": 15.508603531446157,
+          "labelRelevant": false
+        },
+        {
+          "id": "pattern-1780159888525-1o-qiri",
+          "name": "Is Ruflo safe on Claude Opus 4.8? — `opus` alias still pins to 4.7, and literal model ids silently d",
+          "type": "history-issue",
+          "score": 0.5699954884514554,
+          "cosineScore": 0.003778643529534665,
+          "bm25Score": 35.1452255264163,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161237206-a-bqc4",
+          "name": "fix(intelligence): 4-issue bug cluster — Opus 4.8 + uptime + MCP orphan + Q-encoder",
+          "type": "history-commit",
+          "score": 0.4411337481482297,
+          "cosineScore": 0.0020688282745718813,
+          "bm25Score": 21.88145052006411,
+          "labelRelevant": true
+        }
+      ]
+    },
+    {
+      "query": "self-learning wiring task-completed pretrain",
+      "matched": true,
+      "top1Relevant": true,
+      "top3Relevant": true,
+      "firstRelevantRank": 1,
+      "label_top1": true,
+      "label_top3_count": 3,
+      "label_top5_count": 5,
+      "label_firstRank": 1,
+      "label_ndcg3": 1,
+      "label_ndcg5": 1,
+      "topK": [
+        {
+          "id": "pattern-1780161237211-1e-nvg1",
+          "name": "Self-learning reports success but persists nothing (3.10.6): signalsProcessed dead, task-completed s",
+          "type": "history-issue",
+          "score": 0.8124513076654658,
+          "cosineScore": 0.04246140228195686,
+          "bm25Score": 38.538168325210684,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161237204-3-zs1a",
+          "name": "Merge fix/self-learning-2245: ADR-074 self-learning wiring (closes #2245)",
+          "type": "history-commit",
+          "score": 0.7032364262410042,
+          "cosineScore": 0.028229282902256594,
+          "bm25Score": 31.97080636401089,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161324679-3-tozb",
+          "name": "Merge fix/self-learning-2245: ADR-074 self-learning wiring (closes #2245)",
+          "type": "history-commit",
+          "score": 0.7032364262410042,
+          "cosineScore": 0.028229282902256594,
+          "bm25Score": 31.97080636401089,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780158992310-a-1p27",
+          "name": "Self-learning reports success but persists nothing (3.10.6): signalsProcessed dead, task-completed s",
+          "type": "history-issue",
+          "score": 0.6871595077555956,
+          "cosineScore": 0.04246140228195686,
+          "bm25Score": 28.881135375820307,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780159888524-1e-ahj2",
+          "name": "Self-learning reports success but persists nothing (3.10.6): signalsProcessed dead, task-completed s",
+          "type": "history-issue",
+          "score": 0.6871595077555956,
+          "cosineScore": 0.04246140228195686,
+          "bm25Score": 28.881135375820307,
+          "labelRelevant": true
+        }
+      ]
+    },
+    {
+      "query": "deterministic codemod engine var-to-const",
+      "matched": true,
+      "top1Relevant": true,
+      "top3Relevant": true,
+      "firstRelevantRank": 1,
+      "label_top1": true,
+      "label_top3_count": 2,
+      "label_top5_count": 4,
+      "label_firstRank": 1,
+      "label_ndcg3": 1,
+      "label_ndcg5": 0.9558295932317544,
+      "topK": [
+        {
+          "id": "pattern-1780161237206-c-jffq",
+          "name": "Merge feat/deterministic-tier1-codemods: deterministic Tier-1 codemods (ADR-143)",
+          "type": "history-commit",
+          "score": 0.802982004368638,
+          "cosineScore": 0.040446535166730725,
+          "bm25Score": 21.195273445814774,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161324680-c-rcpm",
+          "name": "Merge feat/deterministic-tier1-codemods: deterministic Tier-1 codemods (ADR-143)",
+          "type": "history-commit",
+          "score": 0.802982004368638,
+          "cosineScore": 0.040446535166730725,
+          "bm25Score": 21.195273445814774,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161324702-4s-bo8j",
+          "name": "adr: ADR-123 — reframe as Graph Intelligence Engine with complexity-aware execution",
+          "type": "history-commit",
+          "score": 0.7957460079249132,
+          "cosineScore": 0.010547052616670351,
+          "bm25Score": 23.51504033322106,
+          "labelRelevant": false
+        },
+        {
+          "id": "pattern-1780161237206-d-hik9",
+          "name": "feat(intelligence): deterministic Tier-1 codemods replacing Agent Booster (ADR-143)",
+          "type": "history-commit",
+          "score": 0.635585836335748,
+          "cosineScore": -0.0440172201991718,
+          "bm25Score": 20.837130846423726,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161324680-d-vq2u",
+          "name": "feat(intelligence): deterministic Tier-1 codemods replacing Agent Booster (ADR-143)",
+          "type": "history-commit",
+          "score": 0.635585836335748,
+          "cosineScore": -0.0440172201991718,
+          "bm25Score": 20.837130846423726,
+          "labelRelevant": true
+        }
+      ]
+    },
+    {
+      "query": "MCP server orphan leak parent-death",
+      "matched": true,
+      "top1Relevant": true,
+      "top3Relevant": true,
+      "firstRelevantRank": 1,
+      "label_top1": true,
+      "label_top3_count": 3,
+      "label_top5_count": 4,
+      "label_firstRank": 1,
+      "label_ndcg3": 1,
+      "label_ndcg5": 1,
+      "topK": [
+        {
+          "id": "pattern-1780161237212-1n-sokv",
+          "name": "MCP servers orphan on every Claude Code restart — ~1 GB leaked, and a stale server silently serves t",
+          "type": "history-issue",
+          "score": 0.7583213521628854,
+          "cosineScore": -0.005021665326373356,
+          "bm25Score": 41.10256425461641,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161237206-a-bqc4",
+          "name": "fix(intelligence): 4-issue bug cluster — Opus 4.8 + uptime + MCP orphan + Q-encoder",
+          "type": "history-commit",
+          "score": 0.6498162488164477,
+          "cosineScore": -0.02824698444563799,
+          "bm25Score": 35.62871503054129,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161324680-a-jg1q",
+          "name": "fix(intelligence): 4-issue bug cluster — Opus 4.8 + uptime + MCP orphan + Q-encoder",
+          "type": "history-commit",
+          "score": 0.6498162488164477,
+          "cosineScore": -0.02824698444563799,
+          "bm25Score": 35.62871503054129,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780159888525-1n-2zyq",
+          "name": "MCP servers orphan on every Claude Code restart — ~1 GB leaked, and a stale server silently serves t",
+          "type": "history-issue",
+          "score": 0.5604585694809501,
+          "cosineScore": -0.005021665326373356,
+          "bm25Score": 24.837228777053515,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161237205-9-48p8",
+          "name": "chore(release): bump 3.10.10 → 3.10.11 (4-issue bug cluster)",
+          "type": "history-commit",
+          "score": 0.5535932865110383,
+          "cosineScore": 0.017234812587240394,
+          "bm25Score": 20.970782787973114,
+          "labelRelevant": false
+        }
+      ]
+    },
+    {
+      "query": "unified learning stats aggregator",
+      "matched": true,
+      "top1Relevant": true,
+      "top3Relevant": true,
+      "firstRelevantRank": 1,
+      "label_top1": true,
+      "label_top3_count": 3,
+      "label_top5_count": 5,
+      "label_firstRank": 1,
+      "label_ndcg3": 1,
+      "label_ndcg5": 1,
+      "topK": [
+        {
+          "id": "pattern-1780161221198-1-3ezl",
+          "name": "feat(memory): unified learning-stats aggregator (ADR-075)",
+          "type": "history-commit",
+          "score": 0.7112690143152043,
+          "cosineScore": -0.03179548242068774,
+          "bm25Score": 33.91953195974668,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780163971873-1-kxwd",
+          "name": "feat(memory): unified learning-stats aggregator (ADR-075)",
+          "type": "history-commit",
+          "score": 0.7112690143152043,
+          "cosineScore": -0.03179548242068774,
+          "bm25Score": 33.91953195974668,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780163991305-1-ng0z",
+          "name": "feat(memory): unified learning-stats aggregator (ADR-075)",
+          "type": "history-commit",
+          "score": 0.7112690143152043,
+          "cosineScore": -0.03179548242068774,
+          "bm25Score": 33.91953195974668,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780164011125-1-q5kx",
+          "name": "feat(memory): unified learning-stats aggregator (ADR-075)",
+          "type": "history-commit",
+          "score": 0.7112690143152043,
+          "cosineScore": -0.03179548242068774,
+          "bm25Score": 33.91953195974668,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780164061889-1-dp9i",
+          "name": "feat(memory): unified learning-stats aggregator (ADR-075)",
+          "type": "history-commit",
+          "score": 0.7112690143152043,
+          "cosineScore": -0.03179548242068774,
+          "bm25Score": 33.91953195974668,
+          "labelRelevant": true
+        }
+      ]
+    },
+    {
+      "query": "structured distillation 4-field schema",
+      "matched": true,
+      "top1Relevant": true,
+      "top3Relevant": true,
+      "firstRelevantRank": 1,
+      "label_top1": true,
+      "label_top3_count": 3,
+      "label_top5_count": 5,
+      "label_firstRank": 1,
+      "label_ndcg3": 1,
+      "label_ndcg5": 1,
+      "topK": [
+        {
+          "id": "pattern-1780161221198-2-kxx1",
+          "name": "feat(intelligence): structured distillation (ADR-076)",
+          "type": "history-commit",
+          "score": 0.7863857724122153,
+          "cosineScore": 0.01303151951388954,
+          "bm25Score": 45.76215069283218,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780163971873-2-ced8",
+          "name": "feat(intelligence): structured distillation (ADR-076)",
+          "type": "history-commit",
+          "score": 0.7863857724122153,
+          "cosineScore": 0.01303151951388954,
+          "bm25Score": 45.76215069283218,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780163991305-2-bbx9",
+          "name": "feat(intelligence): structured distillation (ADR-076)",
+          "type": "history-commit",
+          "score": 0.7863857724122153,
+          "cosineScore": 0.01303151951388954,
+          "bm25Score": 45.76215069283218,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780164011125-2-hz9g",
+          "name": "feat(intelligence): structured distillation (ADR-076)",
+          "type": "history-commit",
+          "score": 0.7863857724122153,
+          "cosineScore": 0.01303151951388954,
+          "bm25Score": 45.76215069283218,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780164061889-2-g68y",
+          "name": "feat(intelligence): structured distillation (ADR-076)",
+          "type": "history-commit",
+          "score": 0.7863857724122153,
+          "cosineScore": 0.01303151951388954,
+          "bm25Score": 45.76215069283218,
+          "labelRelevant": true
+        }
+      ]
+    },
+    {
+      "query": "SQL injection migrate.ts table identifier",
+      "matched": true,
+      "top1Relevant": false,
+      "top3Relevant": true,
+      "firstRelevantRank": 3,
+      "label_top1": true,
+      "label_top3_count": 1,
+      "label_top5_count": 1,
+      "label_firstRank": 1,
+      "label_ndcg3": 1,
+      "label_ndcg5": 1,
+      "topK": [
+        {
+          "id": "pattern-1780161324687-1s-ibq9",
+          "name": "fix(security): patch CVEs, shell injection, SSRF in ruflo (#2114)",
+          "type": "history-commit",
+          "score": 0.7496683121925704,
+          "cosineScore": 0.013552514538906218,
+          "bm25Score": 17.385529422508366,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161324691-2k-8wey",
+          "name": "fix(smoke): #2089 — accept E2BIG as valid rejection in github-safe injection smoke",
+          "type": "history-commit",
+          "score": 0.6120726663381497,
+          "cosineScore": -0.03030855555620211,
+          "bm25Score": 15.245231730179402,
+          "labelRelevant": false
+        },
+        {
+          "id": "pattern-1780161324686-1l-uwcb",
+          "name": "fix(memory): #2120 — accept NULL status in memory_entries (legacy DBs) + 3.7.0 stable",
+          "type": "history-commit",
+          "score": 0.4308784383211308,
+          "cosineScore": 0.08345807062618357,
+          "bm25Score": 2.0867963971112022,
+          "labelRelevant": false
+        },
+        {
+          "id": "pattern-1780161324692-2o-blny",
+          "name": "feat(ci): #2089 ADR-127 Phase 1 — github-safe injection smoke + uses: pin smoke + supply-chain allow",
+          "type": "history-commit",
+          "score": 0.5656525624573043,
+          "cosineScore": -0.010739342553144992,
+          "bm25Score": 12.451477317504837,
+          "labelRelevant": false
+        },
+        {
+          "id": "pattern-1780161237215-24-4gf9",
+          "name": "[Dream Cycle 2026-05-26] security: Indirect prompt injection critical gap vs OWASP ASI01 + intellige",
+          "type": "history-issue",
+          "score": 0.5360244406461236,
+          "cosineScore": -0.025503342917368558,
+          "bm25Score": 12.311284864524511,
+          "labelRelevant": false
+        }
+      ]
+    },
+    {
+      "query": "recall@k HNSW benchmark harness",
+      "matched": true,
+      "top1Relevant": true,
+      "top3Relevant": true,
+      "firstRelevantRank": 1,
+      "label_top1": true,
+      "label_top3_count": 2,
+      "label_top5_count": 2,
+      "label_firstRank": 1,
+      "label_ndcg3": 1,
+      "label_ndcg5": 1,
+      "topK": [
+        {
+          "id": "pattern-1780161324693-2z-5x4a",
+          "name": "feat(neural-trader): #48 — benchmark suite (signal, backtest, memory-recall)",
+          "type": "history-commit",
+          "score": 0.8734908266979406,
+          "cosineScore": 0.08967419136034757,
+          "bm25Score": 22.72722152532161,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161324698-3y-v3g2",
+          "name": "feat(memory): #2061 ADR-125 Phase 3 — persistent HNSW snapshot + restore",
+          "type": "history-commit",
+          "score": 0.7916358014837522,
+          "cosineScore": 0.08630266804079345,
+          "bm25Score": 19.267091972257315,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161237205-6-7kk3",
+          "name": "chore(release): bump 3.10.12 → 3.10.13 + agentdb@3.0.0-alpha.16",
+          "type": "history-commit",
+          "score": 0.5198757928997108,
+          "cosineScore": 0.013638755437439873,
+          "bm25Score": 12.52972367217003,
+          "labelRelevant": false
+        },
+        {
+          "id": "pattern-1780161324679-6-xn7y",
+          "name": "chore(release): bump 3.10.12 → 3.10.13 + agentdb@3.0.0-alpha.16",
+          "type": "history-commit",
+          "score": 0.5198757928997108,
+          "cosineScore": 0.013638755437439873,
+          "bm25Score": 12.52972367217003,
+          "labelRelevant": false
+        },
+        {
+          "id": "pattern-1780161237210-13-hqcn",
+          "name": "fix(ci): graph benchmark process.exit — eliminate 40-min hang (#2148)",
+          "type": "history-commit",
+          "score": 0.6997408203707638,
+          "cosineScore": 0.06790435166188932,
+          "bm25Score": 16.511844334590442,
+          "labelRelevant": false
+        }
+      ]
+    },
+    {
+      "query": "Q-learning encoder keyword block",
+      "matched": true,
+      "top1Relevant": true,
+      "top3Relevant": true,
+      "firstRelevantRank": 1,
+      "label_top1": true,
+      "label_top3_count": 2,
+      "label_top5_count": 2,
+      "label_firstRank": 1,
+      "label_ndcg3": 1,
+      "label_ndcg5": 1,
+      "topK": [
+        {
+          "id": "pattern-1780161237212-1j-us8j",
+          "name": "Route Q-state encoder discards the entire keyword block — keyword-distinct tasks collapse to one Q-s",
+          "type": "history-issue",
+          "score": 0.6428258091644229,
+          "cosineScore": -0.08305818918298438,
+          "bm25Score": 49.861468797898674,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780159888525-1j-o7o2",
+          "name": "Route Q-state encoder discards the entire keyword block — keyword-distinct tasks collapse to one Q-s",
+          "type": "history-issue",
+          "score": 0.504193935954098,
+          "cosineScore": -0.08305818918298438,
+          "bm25Score": 36.03669115695696,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161324692-2o-blny",
+          "name": "feat(ci): #2089 ADR-127 Phase 1 — github-safe injection smoke + uses: pin smoke + supply-chain allow",
+          "type": "history-commit",
+          "score": 0.5925110387802567,
+          "cosineScore": 0.09696516710558883,
+          "bm25Score": 13.388701820142487,
+          "labelRelevant": false
+        },
+        {
+          "id": "pattern-1780161237205-9-48p8",
+          "name": "chore(release): bump 3.10.10 → 3.10.11 (4-issue bug cluster)",
+          "type": "history-commit",
+          "score": 0.48046064055505455,
+          "cosineScore": 0.029870791404767158,
+          "bm25Score": 13.938013753646597,
+          "labelRelevant": false
+        },
+        {
+          "id": "pattern-1780161324680-9-5bpv",
+          "name": "chore(release): bump 3.10.10 → 3.10.11 (4-issue bug cluster)",
+          "type": "history-commit",
+          "score": 0.48046064055505455,
+          "cosineScore": 0.029870791404767158,
+          "bm25Score": 13.938013753646597,
+          "labelRelevant": false
+        }
+      ]
+    },
+    {
+      "query": "security hardening crypto random IDs",
+      "matched": true,
+      "top1Relevant": true,
+      "top3Relevant": true,
+      "firstRelevantRank": 1,
+      "label_top1": false,
+      "label_top3_count": 1,
+      "label_top5_count": 1,
+      "label_firstRank": 2,
+      "label_ndcg3": 0.6309297535714575,
+      "label_ndcg5": 0.6309297535714575,
+      "topK": [
+        {
+          "id": "pattern-1780161324701-4k-s8su",
+          "name": "ci: #2046 supply-chain hardening — five-layer audit + dependency review + CODEOWNERS",
+          "type": "history-commit",
+          "score": 0.7683521455484774,
+          "cosineScore": 0.02961367472444284,
+          "bm25Score": 16.78700114221645,
+          "labelRelevant": false
+        },
+        {
+          "id": "pattern-1780161324699-44-nys5",
+          "name": "chore(release): publish 3.7.0-alpha.70 — CWE-347 security fix",
+          "type": "history-commit",
+          "score": 0.734955163555904,
+          "cosineScore": 0.0679787880690766,
+          "bm25Score": 13.016977906207593,
+          "labelRelevant": true
+        },
+        {
+          "id": "pattern-1780161237205-6-7kk3",
+          "name": "chore(release): bump 3.10.12 → 3.10.13 + agentdb@3.0.0-alpha.16",
+          "type": "history-commit",
+          "score": 0.5894397052836056,
+          "cosineScore": 0.03253431220092657,
+          "bm25Score": 10.5785517143945,
+          "labelRelevant": false
+        },
+        {
+          "id": "pattern-1780161324679-6-xn7y",
+          "name": "chore(release): bump 3.10.12 → 3.10.13 + agentdb@3.0.0-alpha.16",
+          "type": "history-commit",
+          "score": 0.5894397052836056,
+          "cosineScore": 0.03253431220092657,
+          "bm25Score": 10.5785517143945,
+          "labelRelevant": false
+        },
+        {
+          "id": "pattern-1780161324692-2n-9rpj",
+          "name": "feat(security): #2089 ADR-127 Phase 2 — github-safe maxBuffer + agent frontmatter tools: + swarm-pr/",
+          "type": "history-commit",
+          "score": 0.6812870831790458,
+          "cosineScore": 0.07733370497882346,
+          "bm25Score": 10.569255981200145,
+          "labelRelevant": false
+        }
+      ]
+    }
+  ],
+  "passed": true
+}

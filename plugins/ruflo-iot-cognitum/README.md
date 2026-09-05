@@ -10,7 +10,7 @@ This plugin requires a **Cognitum Seed** device. Get one at **https://cognitum.o
 
 Treats every Cognitum Seed device as a Ruflo agent with hardware capabilities. Devices progress through a 5-tier trust model, emit telemetry vectors for anomaly detection, participate in mesh networks, and maintain Ed25519 witness chains for provenance.
 
-Backed by `@claude-flow/plugin-iot-cognitum` (239 tests, 32 source files).
+Backed by `@claude-flow/plugin-iot-cognitum` (239 tests, 39 source files).
 
 ## Installation
 

@@ -127,6 +127,11 @@
       "description": "Cross-installation agent federation with zero-trust security, PII-gated data flow, and compliance-grade audit trails"
     },
     {
+      "name": "ruflo-graph-intelligence",
+      "source": "./plugins/ruflo-graph-intelligence",
+      "description": "Real-time graph intelligence — personalized PageRank, streaming delta updates, witness-signed reasoning, and federation-distributable vectors"
+    },
+    {
       "name": "ruflo-iot-cognitum",
       "source": "./plugins/ruflo-iot-cognitum",
       "description": "IoT device lifecycle, telemetry anomaly detection, fleet management, and witness chain verification for Cognitum Seed hardware"
@@ -165,6 +170,36 @@
       "name": "ruflo-sparc",
       "source": "./plugins/ruflo-sparc",
       "description": "SPARC methodology — Specification, Pseudocode, Architecture, Refinement, Completion phases with quality gates"
+    },
+    {
+      "name": "ruflo-metaharness",
+      "source": "./plugins/ruflo-metaharness",
+      "description": "MetaHarness integration — surfaces score/genome/mint/mcp-scan/threat-model via skills; pairs with @metaharness/router (ADR-148/149) for cost-optimal model routing; honors ADR-150 optional-augmentation constraint"
+    },
+    {
+      "name": "ruflo-arena",
+      "source": "./plugins/ruflo-arena",
+      "description": "Competitive ruliology for ruflo swarms — arenas, tournaments, and adaptive co-evolution of program strategies (ADR-147/148); strategies-as-programs compete under payoff games"
+    },
+    {
+      "name": "ruflo-agntcy",
+      "source": "./plugins/ruflo-agntcy",
+      "description": "AGNTCY/Outshift Internet-of-Cognition runtime integration — SLIM secure transport, CASA intent-scoped tool authorization, and AGNTCY identity/observability spans (ADR-380); optional, removable augmentation per ADR-150"
+    },
+    {
+      "name": "ruflo-bbs-federation",
+      "source": "./plugins/ruflo-bbs-federation",
+      "description": "AgentBBS federated business-domain BBS room integration (ADR-164 Phase 1) — register/publish/watch/human-join MCP tools wrapping the agentbbs Rust workspace as a federation peer; degrades gracefully when agentbbs is absent"
+    },
+    {
+      "name": "ruflo-business-pods",
+      "source": "./plugins/ruflo-business-pods",
+      "description": "Business-domain pod templates for the federated business autopilot (ADR-164 Phase 2) — pod templates plus a dry-run-by-default single-tick runner that validates, reserves budget, and resolves agent roles before posting to the BBS room"
+    },
+    {
+      "name": "ruflo-music",
+      "source": "./plugins/ruflo-music",
+      "description": "AI music generation via Cognitum Music (cogmusic MCP) — compose lyrics/prompts, generate tracks, separate stems, extract MIDI, and master through your own music.cognitum.one account"
     }
   ]
 }

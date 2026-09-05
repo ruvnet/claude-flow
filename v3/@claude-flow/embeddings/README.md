@@ -32,6 +32,65 @@
 npm install @claude-flow/embeddings
 ```
 
+## Standalone use (without the Ruflo CLI)
+
+This package runs on its own — no `@claude-flow/cli`, no MCP server,
+no API key required for the recipes below (the `MockEmbeddingService`
+gives deterministic 384-dim vectors so examples are reproducible).
+Swap to `OpenAIEmbeddingService` / `TransformersEmbeddingService` /
+`AgenticFlowEmbeddingService` when you're ready for real embeddings.
+
+### Recipe — Embed + compare without a network call
+
+```typescript
+// recipe.mjs
+import {
+  MockEmbeddingService,
+  cosineSimilarity,
+} from '@claude-flow/embeddings';
+
+const service = new MockEmbeddingService({ dimension: 384 });
+
+// `embed()` returns { embedding: Float32Array, tokens, ... } —
+// destructure for the raw vector.
+const [{ embedding: cat }, { embedding: dog }, { embedding: car }] =
+  await Promise.all([
+    service.embed('a friendly cat'),
+    service.embed('a friendly dog'),
+    service.embed('a red sports car'),
+  ]);
+
+console.log('cat ↔ dog:', cosineSimilarity(cat, dog).toFixed(4));
+console.log('cat ↔ car:', cosineSimilarity(cat, car).toFixed(4));
+// With real embeddings the pet pair will score higher than the cat/car pair.
+```
+
+### Provider swap — same surface, real vectors
+
+```typescript
+import { createEmbeddingService, cosineSimilarity } from '@claude-flow/embeddings';
+
+// OpenAI
+const openai = createEmbeddingService({
+  provider: 'openai',
+  model: 'text-embedding-3-small',
+  apiKey: process.env.OPENAI_API_KEY!,
+});
+
+// Or local ONNX via @huggingface/transformers (no API key needed)
+const local = createEmbeddingService({
+  provider: 'transformers',
+  model: 'Xenova/all-MiniLM-L6-v2', // 384-dim, ~25MB
+});
+
+await openai.initialize();
+const v = await openai.embed('hello world');
+```
+
+`cosineSimilarity`, `euclideanDistance`, `dotProduct`, and
+`computeSimilarity` are exported as plain functions — useful when you
+already have vectors from another source and just need the math.
+
 ## Quick Start
 
 ```typescript

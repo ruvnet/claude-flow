@@ -32,7 +32,7 @@ For the REST API task:
 ## CLI Usage
 ```bash
 # Execute parallel tasks via CLI
-npx claude-flow parallel "Build REST API" --max-agents 8
+npx @claude-flow/cli@latest parallel "Build REST API" --max-agents 8
 ```
 
 ## Performance Gains

@@ -1,0 +1,15 @@
+{
+  "description": "Stop hook auto-runs cost-track at session end so the cost-tracking namespace stays populated without users remembering to run `/cost-track` manually. TRACK_QUIET=1 suppresses the markdown summary. A track failure never blocks session end — analytics data is best-effort, not load-bearing (see scripts/ruflo-hook.cjs). The command is a `node -e` bootstrap: it resolves scripts/ruflo-hook.cjs from process.env.CLAUDE_PLUGIN_ROOT inside Node (no shell `${VAR}`/`%VAR%` expansion), so the exact same command string runs unchanged on Windows, macOS, and Linux — no bash or /dev/null redirection involved.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(require('path').join(process.env.CLAUDE_PLUGIN_ROOT,'scripts','ruflo-hook.cjs'))\""
+          }
+        ]
+      }
+    ]
+  }
+}

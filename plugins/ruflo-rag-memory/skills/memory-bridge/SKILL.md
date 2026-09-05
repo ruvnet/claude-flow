@@ -2,7 +2,7 @@
 name: memory-bridge
 description: Bridge Claude Code auto-memory into AgentDB with ONNX embeddings, deduplicate, and enable unified cross-project search
 argument-hint: "[--all-projects] [--dedupe]"
-allowed-tools: Bash Read mcp__claude-flow__memory_import_claude mcp__claude-flow__memory_bridge_status mcp__claude-flow__memory_search_unified
+allowed-tools: Bash Read mcp__plugin_ruflo-core_ruflo__memory_import_claude mcp__plugin_ruflo-core_ruflo__memory_bridge_status mcp__plugin_ruflo-core_ruflo__memory_search_unified
 ---
 
 # Memory Bridge
@@ -21,12 +21,12 @@ Claude Code stores memories as markdown files in `~/.claude/projects/*/memory/*.
 ## Steps
 
 1. **Check bridge health**:
-   `mcp__claude-flow__memory_bridge_status({})`
+   `mcp__plugin_ruflo-core_ruflo__memory_bridge_status({})`
    Verify: Claude files count, AgentDB entries, SONA state, connection status.
 
 2. **Import memories**:
-   - Current project: `mcp__claude-flow__memory_import_claude({})`
-   - All projects: `mcp__claude-flow__memory_import_claude({ allProjects: true })`
+   - Current project: `mcp__plugin_ruflo-core_ruflo__memory_import_claude({})`
+   - All projects: `mcp__plugin_ruflo-core_ruflo__memory_import_claude({ allProjects: true })`
 
    CLI alternative:
    ```bash
@@ -34,14 +34,14 @@ Claude Code stores memories as markdown files in `~/.claude/projects/*/memory/*.
    ```
 
 3. **Verify import**:
-   `mcp__claude-flow__memory_bridge_status({})`
+   `mcp__plugin_ruflo-core_ruflo__memory_bridge_status({})`
    Confirm entry counts match expected file counts.
 
 4. **Deduplicate** (if --dedupe):
    Search for near-duplicate entries (cosine > 0.95) and merge them, keeping the most recent version.
 
 5. **Test unified search**:
-   `mcp__claude-flow__memory_search_unified({ query: "test query", limit: 3 })`
+   `mcp__plugin_ruflo-core_ruflo__memory_search_unified({ query: "test query", limit: 3 })`
    Results include source attribution: `claude-code`, `auto-memory`, or `agentdb`.
 
 ## Auto-import

@@ -1,0 +1,85 @@
+{
+  "_comment": "Exact harness configuration for GAIA L1 stable run — iter 63 (convergence layer)",
+  "run_id": "gaia-l1-iter63-convergence",
+  "commit_sha": "3ef6e175ddeb867135f00e843247aba2324d3c6d",
+  "commit_sha_short": "3ef6e175d",
+  "branch": "main",
+  "date": "2026-05-28",
+
+  "model": {
+    "provider": "anthropic",
+    "model_id": "claude-sonnet-4-6",
+    "display": "claude-sonnet-4-6"
+  },
+
+  "dataset": {
+    "name": "gaia-2023",
+    "level": 1,
+    "split": "validation",
+    "question_count": 53,
+    "source": "HuggingFace gaia-benchmark/GAIA — 2023_level1 validation"
+  },
+
+  "convergence_layer": {
+    "enabled": true,
+    "max_turns_per_question": 12,
+    "max_loop_iterations": 3,
+    "token_budget_per_question": 128000,
+    "deterministic_finalization": true,
+    "description": "After max_turns, extract best partial answer deterministically rather than returning empty"
+  },
+
+  "tools_enabled": {
+    "T1_attachment_readers": {
+      "enabled": true,
+      "formats": ["xlsx", "pptx", "py", "png", "mp3"],
+      "description": "Native file-type readers for GAIA attachment questions (Track T1, Gate 1)"
+    },
+    "T2_extraction_cascade": {
+      "enabled": true,
+      "strategy": "narrowed",
+      "description": "Narrowed T2 extraction: targeted regex + answer normalization, prevents over-extraction regression from iter 52b"
+    },
+    "web_search": {
+      "enabled": true,
+      "backend": "google"
+    },
+    "python_exec": {
+      "enabled": true
+    }
+  },
+
+  "tools_disabled": {
+    "visit_webpage": {
+      "enabled": false,
+      "reason": "Isolated in iter 61a: net -3 questions vs baseline. visit_webpage adds noise from page-scrape failures and inflates token cost without proportional accuracy gain. Rejected by rollback discipline."
+    },
+    "CodeAgent_smolagents": {
+      "enabled": false,
+      "reason": "Isolated in iter 56: 30/53 (56.6%) vs tool-calling 34/53 (64.2%). CodeAgent adds execution overhead and a second class of failure modes. Net -4 questions vs stable config. Rejected."
+    }
+  },
+
+  "routing": {
+    "default_mode": "ToolCalling",
+    "CodeAgent_mode": false,
+    "hybrid_mode": false,
+    "description": "Pure ToolCalling mode. Hybrid routing (iter 60: 28/53) and CodeAgent routing both tested and rejected."
+  },
+
+  "harness_version": {
+    "package": "@claude-flow/cli",
+    "version": "3.10.4",
+    "gaia_bench_command": "node v3/@claude-flow/cli/dist/cli.js gaia-bench run --level 1 --model claude-sonnet-4-6 --limit 53 --enable-convergence"
+  },
+
+  "measured_outcome": {
+    "n_runs_completed": 1,
+    "n_runs_planned": 3,
+    "run_1_score": 34,
+    "run_1_pass_rate": 0.6415,
+    "headline_score": "34/53 (64.2%)",
+    "status": "DRAFT — pending n=3 confirmation",
+    "note": "iter63b file is empty (run not yet completed). Package is pre-submission. Headline is n=1 only."
+  }
+}

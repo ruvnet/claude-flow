@@ -1,0 +1,148 @@
+{
+  "metadata": {
+    "ts": "2026-06-15T18:15:36Z",
+    "node": "v22.22.1",
+    "platform": "darwin-arm64",
+    "args": {
+      "N": 400,
+      "dim": 32,
+      "epochs": 40,
+      "hidden": 12,
+      "seed": 99,
+      "jsonOnly": true
+    },
+    "splits": {
+      "train": 280,
+      "test": 120
+    },
+    "label_balance": {
+      "cheap": 56,
+      "strong": 64
+    },
+    "mh_native_available": true,
+    "mh_native_version": "2.2.3",
+    "mh_auto_backend": "native"
+  },
+  "trivial_baselines": {
+    "always_cheap_accuracy": 0.4666666666666667,
+    "always_strong_accuracy": 0.5333333333333333
+  },
+  "systems": [
+    {
+      "name": "heuristic+thompson-bandit (shipped, cold)",
+      "accuracy": 0.5416666666666666,
+      "costAdjReward": 12.73333333333333,
+      "latency": {
+        "mean": 0.07637190833333325,
+        "p50": 0.05137500000000017,
+        "p95": 0.20712500000000134
+      },
+      "n": 120,
+      "sample": [
+        {
+          "task": "refactor the rpc-client module to use the strategy pattern a",
+          "label": "strong",
+          "choice": "sonnet",
+          "predCheap": false
+        },
+        {
+          "task": "compare CRDT-based and OT-based collaborative editing for in",
+          "label": "strong",
+          "choice": "sonnet",
+          "predCheap": false
+        },
+        {
+          "task": "design a distributed consensus protocol that tolerates byzan",
+          "label": "strong",
+          "choice": "opus",
+          "predCheap": false
+        },
+        {
+          "task": "write a threat model for span including STRIDE categorizatio",
+          "label": "strong",
+          "choice": "sonnet",
+          "predCheap": false
+        },
+        {
+          "task": "change var to const in session",
+          "label": "cheap",
+          "choice": "sonnet",
+          "predCheap": false
+        }
+      ]
+    },
+    {
+      "name": "@metaharness/router 0.3.2 k-NN (pure TS, no training)",
+      "accuracy": 1,
+      "costAdjReward": 60.26666666666672,
+      "latency": {
+        "mean": 0.10782291666666678,
+        "p50": 0.09208300000000236,
+        "p95": 0.1424170000000018
+      },
+      "n": 120,
+      "build": {
+        "buildMs": 0.18187500000000156,
+        "qualityBar": 0.8
+      }
+    },
+    {
+      "name": "@metaharness/router 0.3.2 KRR (pure TS, LOO-tuned)",
+      "accuracy": 1,
+      "costAdjReward": 60.26666666666672,
+      "latency": {
+        "mean": 0.020049691665675103,
+        "p50": 0.01908299999195151,
+        "p95": 0.023582999987411313
+      },
+      "n": 120,
+      "train": {
+        "trainMs": 85793.98429200001,
+        "lambda": 0.01,
+        "looQuality": 0.9242499999999977,
+        "jsonBytes": 443477
+      }
+    },
+    {
+      "name": "tiny-dancer fastgrnn score() (0.1.22)",
+      "accuracy": 1,
+      "costAdjReward": 63.11111111111117,
+      "latency": {
+        "mean": 0.03693049166698378,
+        "p50": 0.035708999988855794,
+        "p95": 0.04579099999682512
+      },
+      "n": 120,
+      "train": {
+        "epochsRun": 40,
+        "trainAccuracy": 1,
+        "valAccuracy": 1,
+        "trainLoss": 8.514225919498131e-05,
+        "modelBytes": 6164,
+        "modelPath": "/tmp/bench-router-1781547245894.safetensors",
+        "trainMs": 25.0089169999992
+      },
+      "artifactBytes": 6164
+    }
+  ],
+  "agreements": {
+    "baseline_vs_tinydancer": 0.55,
+    "baseline_vs_mh_knn": 0.55,
+    "baseline_vs_mh_krr": 0.55,
+    "mh_knn_vs_tinydancer": 1
+  },
+  "improvement_vs_baseline": {
+    "mh_knn": {
+      "accuracy_delta": 0.45833333333333337,
+      "latency_ratio": 1.4118138333804924
+    },
+    "mh_krr": {
+      "accuracy_delta": 0.45833333333333337,
+      "latency_ratio": 0.26252704827233214
+    },
+    "tiny_dancer": {
+      "accuracy_delta": 0.45833333333333337,
+      "latency_ratio": 0.4835612003538886
+    }
+  }
+}

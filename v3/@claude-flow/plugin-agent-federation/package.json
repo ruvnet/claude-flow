@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/plugin-agent-federation",
-  "version": "1.0.0-alpha.15",
+  "version": "1.0.0-alpha.18",
   "description": "Cross-installation agent federation with zero-trust security, PII-gated data flow, and compliance-grade audit trails.",
   "homepage": "https://github.com/ruvnet/ruflo",
   "type": "module",
@@ -16,19 +16,34 @@
   ],
   "scripts": {
     "build": "tsc",
+    "benchmark:canonicalization": "npm run build && node scripts/benchmark-envelope-canonicalization.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@noble/ed25519": "^2.0.0",
-    "agentic-flow": "2.0.12-fix.8"
+    "ws": "^8.20.0"
+  },
+  "peerDependencies": {
+    "agentic-flow": ">=2.0.12-fix.8 <4.0.0",
+    "midstreamer": ">=0.3.1"
+  },
+  "peerDependenciesMeta": {
+    "agentic-flow": {
+      "optional": true
+    },
+    "midstreamer": {
+      "optional": true
+    }
   },
   "devDependencies": {
-    "@claude-flow/shared": "workspace:*",
-    "@claude-flow/security": "workspace:*",
+    "@claude-flow/shared": "3.0.0-alpha.8",
+    "@claude-flow/security": "file:../security",
+    "@types/ws": "^8.18.1",
+    "agentic-flow": "2.0.12-fix.8",
     "typescript": "^5.4.0",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "keywords": [
     "federation",

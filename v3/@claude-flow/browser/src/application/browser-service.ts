@@ -6,6 +6,8 @@
 import { AgentBrowserAdapter } from '../infrastructure/agent-browser-adapter.js';
 import { createMemoryManager, type BrowserMemoryManager } from '../infrastructure/memory-integration.js';
 import { getSecurityScanner, type BrowserSecurityScanner, type ThreatScanResult } from '../infrastructure/security-integration.js';
+import { sealTrajectory, type SealedTrajectory } from './signed-trajectory-service.js';
+import type { WitnessKey } from '../infrastructure/witness-signer.js';
 import type {
   Snapshot,
   SnapshotOptions,
@@ -42,6 +44,12 @@ export interface BrowserServiceConfig extends Partial<BrowserAgentConfig> {
   requireHttps?: boolean;
   blockedDomains?: string[];
   allowedDomains?: string[];
+  /** ADR-122 Phase 1: sign every completed trajectory with Ed25519 witness. */
+  signTrajectories?: boolean;
+  /** Override the witness key (else resolved from RUFLO_BROWSER_WITNESS_KEY or generated). */
+  witnessKey?: WitnessKey;
+  /** Project ID embedded in signed envelopes (federation trust boundary). */
+  projectId?: string;
 }
 
 export class BrowserService {
@@ -116,16 +124,25 @@ export class BrowserService {
   }
 
   /**
-   * End trajectory and return for learning (also stores in memory)
+   * End trajectory and return for learning (also stores in memory).
+   *
+   * When `signTrajectories: true` is configured, the completed trajectory is
+   * also sealed into an Ed25519-signed envelope (ADR-122 Phase 1). The signed
+   * envelope is attached to the returned object as `__sealed` so callers can
+   * persist it to disk or distribute via federation.
    */
-  async endTrajectory(success: boolean, verdict?: string): Promise<BrowserTrajectory | null> {
+  async endTrajectory(success: boolean, verdict?: string): Promise<(BrowserTrajectory & { __sealed?: SealedTrajectory }) | null> {
     if (!this.currentTrajectory) return null;
 
     const trajectory = activeTrajectories.get(this.currentTrajectory);
     if (!trajectory) return null;
 
     const completed: BrowserTrajectory = {
-      ...trajectory,
+      id: trajectory.id,
+      sessionId: trajectory.sessionId,
+      goal: trajectory.goal,
+      steps: trajectory.steps,
+      startedAt: trajectory.startedAt,
       completedAt: new Date().toISOString(),
       success,
       verdict,
@@ -139,7 +156,17 @@ export class BrowserService {
     activeTrajectories.delete(this.currentTrajectory);
     this.currentTrajectory = undefined;
 
-    return completed;
+    // ADR-122 Phase 1: optionally seal the trajectory.
+    let sealed: SealedTrajectory | undefined;
+    if (this.config.signTrajectories) {
+      sealed = sealTrajectory({
+        trajectory: completed,
+        witnessKey: this.config.witnessKey,
+        projectId: this.config.projectId,
+      });
+    }
+
+    return sealed ? { ...completed, __sealed: sealed } : completed;
   }
 
   /**

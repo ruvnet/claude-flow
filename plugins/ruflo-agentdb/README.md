@@ -2,7 +2,7 @@
 
 The substrate plugin for Ruflo memory. Wraps three CLI MCP families — `agentdb_*` (controller bridge, 15 tools), `embeddings_*` (RuVector ONNX engine, 10 tools), and `ruvllm_hnsw_*` (WASM-backed pattern router, 3 tools) — into discoverable skills and commands. Other plugins (`ruflo-browser`, `ruflo-rag-memory`, `ruflo-intelligence`) compose this substrate; this plugin owns the namespace convention and the smoke contract for the substrate as a whole.
 
-> **Status:** ADR-0001 implemented. Plugin v0.3.0 targets `@claude-flow/cli` v3.6.x with bundled `agentdb@^3.0.0-alpha.11`. The smoke contract (10 checks) is the verification mechanism — see [docs/adrs/0001-agentdb-optimization.md](./docs/adrs/0001-agentdb-optimization.md).
+> **Status:** ADR-0001 implemented. Plugin v0.3.0 targets `@claude-flow/cli` v3.6.x with bundled `agentdb@^3.0.0-alpha.11`. The smoke contract (13 numbered checks + 3 documentation invariants) is the verification mechanism — see [docs/adrs/0001-agentdb-optimization.md](./docs/adrs/0001-agentdb-optimization.md).
 
 ## Install
 

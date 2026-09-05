@@ -12,6 +12,7 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveWorkspaceFlag,
   daemonCommandLineBelongsToWorkspace,
+  extractWorkspaceFromDaemonLine,
 } from '../src/commands/daemon.js';
 
 const psLine = (root: string, pid = 4242, extra = '') =>
@@ -58,6 +59,41 @@ describe('#1914 — daemon workspace scoping', () => {
       const root = '/Users/some user/My Project';
       expect(daemonCommandLineBelongsToWorkspace(psLine(root), root)).toBe(true);
       expect(daemonCommandLineBelongsToWorkspace(psLine('/Users/some user/My Project Two'), root)).toBe(false);
+    });
+  });
+
+  // #2356 — the inverse helper that powers `daemon status --all`: pull the
+  // workspace root back out of a daemon process command line so leaked daemons
+  // in other workspaces can be enumerated and aged.
+  describe('extractWorkspaceFromDaemonLine', () => {
+    it('extracts the workspace stamped last in the argv', () => {
+      expect(extractWorkspaceFromDaemonLine(psLine('/Users/me/proj-a'))).toBe('/Users/me/proj-a');
+    });
+
+    it('extracts a workspace path containing spaces', () => {
+      const root = '/Users/some user/My Project';
+      expect(extractWorkspaceFromDaemonLine(psLine(root))).toBe(root);
+    });
+
+    it('extracts even when extra flags precede --workspace', () => {
+      expect(extractWorkspaceFromDaemonLine(psLine('/Users/me/proj-a', 7, ' --max-cpu-load 4.0'))).toBe('/Users/me/proj-a');
+    });
+
+    it('tolerates trailing whitespace after the workspace', () => {
+      expect(extractWorkspaceFromDaemonLine(`${psLine('/Users/me/proj-a')}   `)).toBe('/Users/me/proj-a');
+    });
+
+    it('returns null for a pre-#1914 daemon line with no --workspace stamp', () => {
+      const legacy = '4242 node /usr/local/lib/node_modules/@claude-flow/cli/bin/cli.js daemon start --foreground --quiet';
+      expect(extractWorkspaceFromDaemonLine(legacy)).toBeNull();
+    });
+
+    it('round-trips with daemonCommandLineBelongsToWorkspace', () => {
+      const root = '/Users/me/proj-a';
+      const line = psLine(root);
+      const extracted = extractWorkspaceFromDaemonLine(line);
+      expect(extracted).toBe(root);
+      expect(daemonCommandLineBelongsToWorkspace(line, extracted as string)).toBe(true);
     });
   });
 

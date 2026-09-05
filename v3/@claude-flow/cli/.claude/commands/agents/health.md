@@ -11,7 +11,7 @@ Monitor agent health status, resource usage, and detect issues.
 ## Usage
 
 ```bash
-npx claude-flow agent health [agent-id] [options]
+npx @claude-flow/cli@latest agent health [agent-id] [options]
 ```
 
 ## Options
@@ -26,19 +26,19 @@ npx claude-flow agent health [agent-id] [options]
 
 ```bash
 # Overall health check
-npx claude-flow agent health
+npx @claude-flow/cli@latest agent health
 
 # Specific agent health
-npx claude-flow agent health coder-lx7m9k2
+npx @claude-flow/cli@latest agent health coder-lx7m9k2
 
 # Continuous monitoring
-npx claude-flow agent health --watch
+npx @claude-flow/cli@latest agent health --watch
 
 # Custom interval
-npx claude-flow agent health -w -i 10
+npx @claude-flow/cli@latest agent health -w -i 10
 
 # JSON output
-npx claude-flow agent health --format json
+npx @claude-flow/cli@latest agent health --format json
 ```
 
 ## Output
@@ -99,7 +99,7 @@ Recommendations
 Continuous monitoring with real-time updates:
 
 ```bash
-npx claude-flow agent health --watch
+npx @claude-flow/cli@latest agent health --watch
 
 # Output updates every 5 seconds:
 # [10:30:15] Agent Health: 3 healthy, 0 warning, 0 critical
@@ -134,6 +134,6 @@ Press `Ctrl+C` to stop watching.
 
 ## Related Commands
 
-- `npx claude-flow agent status` - Detailed agent info
-- `npx claude-flow agent metrics` - Performance metrics
-- `npx claude-flow doctor` - System-wide health
+- `npx @claude-flow/cli@latest agent status` - Detailed agent info
+- `npx @claude-flow/cli@latest agent metrics` - Performance metrics
+- `npx @claude-flow/cli@latest doctor` - System-wide health

@@ -17,69 +17,201 @@ import { validateIdentifier, validateText } from './validate-input.js';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-// Try to import real embeddings — prefer agentic-flow v3 ReasoningBank, then @claude-flow/embeddings
-let realEmbeddings: { embed: (text: string) => Promise<number[]> } | null = null;
-let embeddingServiceName: string = 'none';
-try {
-  // Tier 1: agentic-flow v3 ReasoningBank (fastest — WASM-accelerated)
-  const rb = await import('agentic-flow/reasoningbank').catch(() => null);
-  if (rb?.computeEmbedding) {
-    realEmbeddings = { embed: (text: string) => rb.computeEmbedding(text) };
-    embeddingServiceName = 'agentic-flow/reasoningbank';
+/**
+ * ADR-176/177: an adopted+applied proven-config champion supplies the retrieval
+ * defaults (`.claude-flow/harness-active-policy.json` → params). Read it once,
+ * cached with a short TTL, fully fail-safe (any error → {} → hardcoded defaults).
+ * A caller's explicit param always still wins over the champion.
+ */
+/**
+ * Corpus-stats cache (perf): tokenized subject/body docs + BM25 corpus stats
+ * depend ONLY on the stored patterns, not the query or retrieval config — yet
+ * were rebuilt on every hybrid search (O(all docs) per call). Memoize them keyed
+ * by a cheap store fingerprint (count + id + name/content lengths). This makes
+ * repeated searches — e.g. the flywheel scoring many configs over a fixed store —
+ * iterate in reasonable time, and speeds up every hybrid search. Invalidates when
+ * the store changes size or a doc's length changes.
+ */
+interface CorpusStatsEntry { fp: string; subjectDocs: string[][]; bodyDocs: string[][]; subjectStats: unknown; bodyStats: unknown }
+let _corpusStatsCache: CorpusStatsEntry | null = null;
+// (query, store) → embedding + cosine cache. Small LRU (not size-1): the flywheel
+// scores many configs across several queries in interleaved order, so a size-1
+// cache would thrash. Cap keeps memory bounded; eviction is oldest-first.
+const _cosineCache = new Map<string, { queryEmbedding: number[]; cosineArr: number[] }>();
+const _COSINE_CACHE_MAX = 128;
+function _cosineCacheGet(key: string): { queryEmbedding: number[]; cosineArr: number[] } | undefined {
+  const v = _cosineCache.get(key);
+  if (v) { _cosineCache.delete(key); _cosineCache.set(key, v); } // LRU touch
+  return v;
+}
+function _cosineCacheSet(key: string, v: { queryEmbedding: number[]; cosineArr: number[] }): void {
+  _cosineCache.set(key, v);
+  if (_cosineCache.size > _COSINE_CACHE_MAX) _cosineCache.delete(_cosineCache.keys().next().value as string);
+}
+function corpusFingerprint(patterns: Array<{ id: string; name?: string; content?: string }>): string {
+  let h = 2166136261 >>> 0;
+  for (const p of patterns) {
+    const s = `${p.id}|${p.name?.length ?? 0}|${p.content?.length ?? 0}`;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
   }
-
-  // Tier 2: @claude-flow/embeddings with agentic-flow provider
-  if (!realEmbeddings) {
-    const embeddingsModule = await import('@claude-flow/embeddings').catch(() => null);
-    if (embeddingsModule?.createEmbeddingService) {
-      try {
-        const service = embeddingsModule.createEmbeddingService({ provider: 'agentic-flow' });
-        realEmbeddings = {
-          embed: async (text: string) => {
-            const result = await service.embed(text);
-            return Array.from(result.embedding);
-          },
-        };
-        embeddingServiceName = 'agentic-flow';
-      } catch {
-        // agentic-flow provider not available, try ONNX
-      }
-    }
-  }
-
-  // Tier 3: @claude-flow/embeddings with ONNX provider
-  if (!realEmbeddings) {
-    const embeddingsModule = await import('@claude-flow/embeddings').catch(() => null);
-    if (embeddingsModule?.createEmbeddingService) {
-      try {
-        const service = embeddingsModule.createEmbeddingService({ provider: 'onnx' });
-        realEmbeddings = {
-          embed: async (text: string) => {
-            const result = await service.embed(text);
-            return Array.from(result.embedding);
-          },
-        };
-        embeddingServiceName = 'onnx';
-      } catch {
-        // ONNX provider not available, fall through to mock
-      }
-    }
-  }
-
-  // No Tier 4 mock fallback. If Tier 1 (agentic-flow) and Tier 3 (onnx)
-  // both failed to import, leave realEmbeddings null and let downstream
-  // code use the explicit hash-fallback path with a clear _embeddingNote
-  // in stats. Silently substituting mock embeddings would hide a missing
-  // production dependency from callers.
-} catch {
-  // No embedding provider available, will use fallback
+  return `${patterns.length}:${h.toString(16)}`;
 }
 
-// Storage paths
+let _champCache: { at: number; params: Record<string, unknown> } | null = null;
+function activeChampionParams(): Record<string, unknown> {
+  try {
+    if (_champCache && Date.now() - _champCache.at < 30_000) return _champCache.params;
+    const p = join(getProjectCwd(), '.claude-flow', 'harness-active-policy.json');
+    let params: Record<string, unknown> = {};
+    if (existsSync(p)) {
+      const active = JSON.parse(readFileSync(p, 'utf-8'));
+      if (active && !active.rolledBack && active.params && typeof active.params === 'object') params = active.params;
+    }
+    _champCache = { at: Date.now(), params };
+    return params;
+  } catch { return {}; }
+}
+
+// Real embeddings — resolved LAZILY on first use.
+// Perf (measured 2026-07): the previous top-level-await version of this block
+// ran `await import('ruvector')` + `initOnnxEmbedder()` + a probe embed at
+// module-import time, adding ~450ms (warm) to ~2800ms (cold) to EVERY CLI
+// command, because mcp-client statically imports this module. ensureEmbeddings()
+// keeps the exact same tier chain and degraded/fallback semantics, but only
+// pays the cost when a handler actually needs an embedding.
+// Tier 0 (ADR-089): ruvector@0.2.27 bundled ONNX (no sharp dep, fixes ADR-086's
+//   silent-fallback bug at source; closes the chain described in ruvnet/ruvector#523).
+// Tier 1: agentic-flow v3 ReasoningBank (was Tier 1 — broken on darwin-arm64 without sharp)
+// Tier 2-3: @claude-flow/embeddings
+let realEmbeddings: { embed: (text: string) => Promise<number[]> } | null = null;
+let embeddingServiceName: string = 'none';
+let embeddingsPromise: Promise<void> | null = null;
+
+/**
+ * Memoized lazy initialiser for the embedding provider chain. Safe to call
+ * concurrently (single shared promise). If every tier fails to import or
+ * probe, `realEmbeddings` stays null and callers use the explicit
+ * hash-fallback path — identical degraded semantics to the old eager block.
+ */
+function ensureEmbeddings(): Promise<void> {
+  if (embeddingsPromise) return embeddingsPromise;
+  embeddingsPromise = (async () => {
+    try {
+      // Tier -1 (PRIMARY): optional WASM embedder — a pluggable real embedder
+      // ahead of everything. OPT-IN (RUFLO_EMBED_WASM_PKG) + FAIL-CLOSED: unset
+      // or absent/init-fail ⇒ fall straight through to the existing
+      // ruvector-ONNX → hash tiers with zero regression.
+      try {
+        const we = await import('../ruvector/wasm-embedder.js').catch(() => null);
+        if (we && await we.wasmEmbedderAvailable()) {
+          const model = we.DEFAULT_EMBED_MODEL;
+          realEmbeddings = {
+            embed: async (text: string) => {
+              const v = await we.wasmEmbed(text, model);
+              if (!v || !v.length) throw new Error('wasm embed failed'); // → generateEmbedding falls to next tier
+              return v;
+            },
+          };
+          embeddingServiceName = `wasm-embedder/${model} (${we.wasmEmbedderModels().length} model${we.wasmEmbedderModels().length === 1 ? '' : 's'})`;
+        }
+      } catch { /* not configured — fall through */ }
+
+      // Tier 0: ruvector@0.2.27 — bundled all-MiniLM-L6-v2 + parallel worker pool.
+      // Probe with isOnnxAvailable() and verify an actual embed succeeds (avoids
+      // the type-load-success-but-runtime-fails trap from ADR-086). The probe now
+      // runs on first embed request instead of at import time.
+      // NOTE: ruvector's embed() returns `{embedding, dimension, timeMs}` — we
+      // unwrap to plain number[] for the shared interface.
+      const rv = !realEmbeddings ? await import('ruvector').catch(() => null) as any : null;
+      if (!realEmbeddings && rv?.embed && typeof rv.embed === 'function' && rv.isOnnxAvailable?.()) {
+        try {
+          if (typeof rv.initOnnxEmbedder === 'function') await rv.initOnnxEmbedder();
+          const probe = await rv.embed('probe');
+          // Handle both shapes: ruvector wraps as {embedding, dimension, timeMs};
+          // some versions returned raw Float32Array.
+          const probeVec = probe?.embedding ?? probe;
+          if (probeVec && (Array.isArray(probeVec) || (probeVec as ArrayLike<number>).length > 0)) {
+            realEmbeddings = {
+              embed: async (text: string) => {
+                const r = await rv.embed(text);
+                const v = r?.embedding ?? r;
+                return Array.isArray(v) ? v : Array.from(v as ArrayLike<number>);
+              },
+            };
+            embeddingServiceName = 'ruvector@0.2.27 (bundled all-MiniLM-L6-v2)';
+          }
+        } catch {
+          // ruvector embed failed at runtime; fall through to next tier
+        }
+      }
+
+      // Tier 1: agentic-flow v3 ReasoningBank (kept for backward-compat; may
+      // silently fall back on darwin-arm64 without sharp — that's the bug
+      // Tier 0 was added to bypass).
+      if (!realEmbeddings) {
+        const rb = await import('agentic-flow/reasoningbank').catch(() => null);
+        if (rb?.computeEmbedding) {
+          realEmbeddings = { embed: (text: string) => rb.computeEmbedding(text) };
+          embeddingServiceName = 'agentic-flow/reasoningbank';
+        }
+      }
+
+      // Tier 2: @claude-flow/embeddings with agentic-flow provider
+      if (!realEmbeddings) {
+        const embeddingsModule = await import('@claude-flow/embeddings').catch(() => null);
+        if (embeddingsModule?.createEmbeddingService) {
+          try {
+            const service = embeddingsModule.createEmbeddingService({ provider: 'agentic-flow' });
+            realEmbeddings = {
+              embed: async (text: string) => {
+                const result = await service.embed(text);
+                return Array.from(result.embedding);
+              },
+            };
+            embeddingServiceName = 'agentic-flow';
+          } catch {
+            // agentic-flow provider not available, try ONNX
+          }
+        }
+      }
+
+      // Tier 3: @claude-flow/embeddings with ONNX provider
+      if (!realEmbeddings) {
+        const embeddingsModule = await import('@claude-flow/embeddings').catch(() => null);
+        if (embeddingsModule?.createEmbeddingService) {
+          try {
+            const service = embeddingsModule.createEmbeddingService({ provider: 'onnx' });
+            realEmbeddings = {
+              embed: async (text: string) => {
+                const result = await service.embed(text);
+                return Array.from(result.embedding);
+              },
+            };
+            embeddingServiceName = 'onnx';
+          } catch {
+            // ONNX provider not available, fall through to mock
+          }
+        }
+      }
+
+      // No Tier 4 mock fallback. If all real-embedder tiers fail to import or
+      // probe, leave realEmbeddings null and let downstream code use the
+      // explicit hash-fallback path with a clear _embeddingNote in stats.
+      // Silently substituting mock embeddings would hide a missing production
+      // dependency from callers — that's the bug ADR-086 was about.
+    } catch {
+      // No embedding provider available, will use fallback
+    }
+  })();
+  return embeddingsPromise;
+}
+
+// Storage paths. Note: `.claude-flow/neural/patterns.json` is a SEPARATE
+// file owned by the ReasoningBank store in memory/intelligence.ts — this
+// module only ever reads/writes MODELS_FILE, never a patterns.json.
 const STORAGE_DIR = '.claude-flow';
 const NEURAL_DIR = 'neural';
 const MODELS_FILE = 'models.json';
-const PATTERNS_FILE = 'patterns.json';
 
 interface NeuralModel {
   id: string;
@@ -97,6 +229,10 @@ interface Pattern {
   name: string;
   type: string;
   embedding: number[];
+  /** Source text the embedding was built from. Cap 4096 chars. Used for
+   *  BM25 in hybrid retrieval (ADR-078). Optional for backwards compat —
+   *  pre-3.10.18 patterns fall back to `name` for BM25 tokenisation. */
+  content?: string;
   metadata: Record<string, unknown>;
   createdAt: string;
   usageCount: number;
@@ -135,13 +271,94 @@ function loadNeuralStore(): NeuralStore {
   return { models: {}, patterns: {}, version: '3.0.0' };
 }
 
+/**
+ * ADR-176 flywheel: expose the stored patterns (id/name/content) so the
+ * self-optimizing loop can harvest a benchmark corpus from real usage. Additive,
+ * read-only, never throws.
+ */
+export function getStorePatterns(): Array<{ id: string; name: string; content?: string }> {
+  try {
+    return Object.values(loadNeuralStore().patterns ?? {}).map((p) => ({ id: p.id, name: p.name, content: p.content }));
+  } catch { return []; }
+}
+
 function saveNeuralStore(store: NeuralStore): void {
   ensureNeuralDir();
   writeFileSync(getNeuralPath(), JSON.stringify(store, null, 2), 'utf-8');
 }
 
+/**
+ * Public helper: read-only stats about the neural store, for the unified
+ * learning-stats aggregator. Returns total pattern count + per-type breakdown
+ * without exposing the embeddings.
+ */
+export function getNeuralStoreStats(): {
+  patternCount: number;
+  byType: Record<string, number>;
+  modelCount: number;
+  source: string;
+} {
+  const store = loadNeuralStore();
+  const patterns = Object.values(store.patterns ?? {});
+  const byType: Record<string, number> = {};
+  for (const p of patterns) {
+    const t = (p as { type?: string }).type || 'unknown';
+    byType[t] = (byType[t] ?? 0) + 1;
+  }
+  return {
+    patternCount: patterns.length,
+    byType,
+    modelCount: Object.values(store.models ?? {}).length,
+    source: '.claude-flow/neural/models.json (loadNeuralStore)',
+  };
+}
+
+/**
+ * Public helper: store an array of patterns into the neural store so they
+ * surface via `neural_patterns list`. Used by hooks_pretrain so its extracted
+ * patterns are actually queryable, not just bundled in the `pretrain` namespace.
+ * #2245.
+ *
+ * Returns the number of patterns written.
+ */
+export async function storeNeuralPatterns(items: Array<{
+  name: string;
+  type: string;
+  content?: string;
+  metadata?: Record<string, unknown>;
+}>): Promise<{ stored: number; total: number }> {
+  if (!items || items.length === 0) return { stored: 0, total: 0 };
+  // realEmbeddings is initialised lazily by ensureEmbeddings() (invoked from
+  // generateEmbedding()); it falls back to a hash-based embedding if no
+  // provider is available.
+  const store = loadNeuralStore();
+  let stored = 0;
+  for (const item of items) {
+    if (!item.name || !item.type) continue;
+    const sourceText = item.content ?? item.name;
+    const embedding = await generateEmbedding(sourceText);
+    const id = `pattern-${Date.now()}-${stored.toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    store.patterns[id] = {
+      id,
+      name: String(item.name).slice(0, 200),
+      type: String(item.type).slice(0, 64),
+      embedding,
+      content: typeof sourceText === 'string' ? sourceText.slice(0, 4096) : undefined,
+      metadata: item.metadata ?? {},
+      createdAt: new Date().toISOString(),
+      usageCount: 0,
+    };
+    stored++;
+  }
+  saveNeuralStore(store);
+  return { stored, total: items.length };
+}
+
 // Generate embedding - uses real ML embeddings if available, falls back to deterministic hash
 async function generateEmbedding(text?: string, dims: number = 384): Promise<number[]> {
+  // Lazily resolve the embedding provider on first real use (perf: keeps
+  // ONNX init off the CLI startup path — see ensureEmbeddings()).
+  if (text) await ensureEmbeddings();
   // If real embeddings available and text provided, use them
   if (realEmbeddings && text) {
     try {
@@ -154,6 +371,7 @@ async function generateEmbedding(text?: string, dims: number = 384): Promise<num
   // Hash-based deterministic embedding (better than pure random for consistency)
   // NOTE: No semantic meaning — only useful for consistent deduplication, not similarity search
   if (text) {
+    (await import('../memory/embedding-policy.js')).enforceNoStub('neural-tools.generateEmbedding'); // "no stubs" strict mode
     if (embeddingServiceName === 'none') {
       embeddingServiceName = 'hash-fallback';
     }
@@ -420,7 +638,18 @@ export const neuralTools: MCPTool[] = [
         patternId: { type: 'string', description: 'Pattern ID' },
         name: { type: 'string', description: 'Pattern name' },
         type: { type: 'string', description: 'Pattern type' },
+        content: { type: 'string', description: 'Pattern source text (used for BM25 in hybrid search; falls back to name)' },
         query: { type: 'string', description: 'Search query' },
+        limit: { type: 'number', description: 'Top-K results to return (default 10, max 100)' },
+        mode: { type: 'string', enum: ['hybrid', 'cosine'], description: 'Search mode — hybrid (cosine+BM25+MMR, default) or cosine (pre-3.10.18 behaviour, for A/B)' },
+        alpha: { type: 'number', description: 'Hybrid: cosine weight in [0,1]; (1-α) is BM25 weight (default 0.5, tuned ADR-082)' },
+        mmrLambda: { type: 'number', description: 'Hybrid: MMR balance — 1.0 = pure relevance, 0.0 = pure diversity (default 0.7, tuned ADR-082)' },
+        subjectWeight: { type: 'number', description: 'Hybrid: multi-field BM25 weight for subject/name (default 2.0 non-rerank, 3.0 with rerank — tuned ADR-082/083)' },
+        bodyWeight: { type: 'number', description: 'Hybrid: multi-field BM25 weight for body/content (default 1.0)' },
+        typePenaltyFactor: { type: 'number', description: 'Hybrid: meta-commit score multiplier — release/merge/bump commits × this factor (default 1.0 = disabled; set 0.5 for aggressive suppression)' },
+        rerank: { type: 'boolean', description: 'Hybrid: opt-in cross-encoder rerank pass over the top-K (ADR-080). Adds ~20-40 ms per (query, doc) pair; first call downloads ~30MB model. Gracefully degrades to hybrid+MMR order when unavailable.' },
+        hybridWeight: { type: 'number', description: 'Rerank: hybrid score weight in final combination (default 0.7, tuned ADR-083)' },
+        ceWeight: { type: 'number', description: 'Rerank: cross-encoder score weight in final combination (default 0.3, tuned ADR-083)' },
         data: { type: 'object', description: 'Pattern data' },
       },
     },
@@ -461,15 +690,17 @@ export const neuralTools: MCPTool[] = [
       if (action === 'store') {
         const patternId = `pattern-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         const patternName = (input.name as string) || 'Unnamed pattern';
+        const patternContent = (input.content as string) ?? patternName;
 
-        // Generate embedding from pattern name/content
-        const embedding = await generateEmbedding(patternName, 384);
+        // Generate embedding from pattern content (falls back to name).
+        const embedding = await generateEmbedding(patternContent, 384);
 
         const pattern: Pattern = {
           id: patternId,
           name: patternName,
           type: (input.type as string) || 'general',
           embedding,
+          content: typeof patternContent === 'string' ? patternContent.slice(0, 4096) : undefined,
           metadata: (input.data as Record<string, unknown>) || {},
           createdAt: new Date().toISOString(),
           usageCount: 0,
@@ -493,32 +724,189 @@ export const neuralTools: MCPTool[] = [
 
       if (action === 'search') {
         const query = input.query as string;
+        const k = Math.min(Math.max(Number(input.limit ?? input.topK ?? 10), 1), 100);
+        // ADR-078 hybrid retrieval controls. Cosine-only mode preserves the
+        // pre-3.10.18 behaviour for A/B tests via {mode:'cosine'}; default is
+        // hybrid (cosine + BM25 + MMR).
+        const mode = String(input.mode ?? 'hybrid');
+        const useRerank = input.rerank === true || String(input.rerank) === 'true';
+        // ADR-083 joint grid: rerank path benefits from DIFFERENT hybrid
+        // sub-params than non-rerank (the cross-encoder adds semantic depth,
+        // so the hybrid stage can be more keyword-focused). nDCG@3 0.900 →
+        // 0.963 on rerank just by switching sw 2.0 → 3.0 in the hybrid stage.
+        // Champion-provided defaults (ADR-176/177): explicit input wins, then the
+        // adopted proven-config champion, then the hardcoded ADR-082 defaults.
+        const champ = activeChampionParams();
+        const alpha = Number(input.alpha ?? champ.alpha ?? 0.5);
+        const mmrLambda = Number(input.mmrLambda ?? champ.mmrLambda ?? 0.7);
 
-        // Generate query embedding for real similarity search
-        const queryEmbedding = await generateEmbedding(query, 384);
+        const { tokenize, buildCorpusStats, hybridScores, mmrRerank, multiFieldBM25, typePenalty } =
+          await import('../memory/hybrid-retrieval.js');
 
-        // Calculate REAL cosine similarity against stored patterns
-        const results = Object.values(store.patterns)
-          .map(p => ({
-            ...p,
-            similarity: cosineSimilarity(queryEmbedding, p.embedding),
-          }))
-          .sort((a, b) => b.similarity - a.similarity)
-          .slice(0, 10);
+        const patterns = Object.values(store.patterns);
+
+        // Query embedding + cosine array depend only on (query, store) — NOT the
+        // retrieval config. Cache them so scoring many configs for one query
+        // (the flywheel's access pattern) embeds + cosines once, not per config.
+        const _cosKey = `${corpusFingerprint(patterns)}::${query}`;
+        let queryEmbedding: number[], cosineArr: number[];
+        const _hit = _cosineCacheGet(_cosKey);
+        if (_hit) {
+          queryEmbedding = _hit.queryEmbedding;
+          cosineArr = _hit.cosineArr;
+        } else {
+          queryEmbedding = await generateEmbedding(query, 384);
+          cosineArr = patterns.map((p) => cosineSimilarity(queryEmbedding, p.embedding));
+          _cosineCacheSet(_cosKey, { queryEmbedding, cosineArr });
+        }
+
+        if (mode === 'cosine') {
+          const ranked = patterns
+            .map((p, i) => ({ ...p, similarity: cosineArr[i] }))
+            .sort((a, b) => b.similarity - a.similarity)
+            .slice(0, k);
+          return {
+            _realSimilarity: true,
+            _realEmbedding: !!realEmbeddings,
+            _embeddingSource: embeddingServiceName,
+            embeddingProvider: embeddingServiceName,
+            mode: 'cosine',
+            query,
+            results: ranked.map((r) => ({ id: r.id, name: r.name, type: r.type, similarity: r.similarity })),
+            total: ranked.length,
+          };
+        }
+
+        // Hybrid path — multi-field BM25 (subject 3×, body 1×) + type penalty
+        // for meta-commits (release bumps / merges) per ADR-079. Falls back
+        // to single-field BM25 when no content is stored.
+        // Cache the (config-independent) tokenized docs + BM25 stats by store fingerprint.
+        const _fp = corpusFingerprint(patterns);
+        let subjectDocs: string[][], bodyDocs: string[][], subjectStats: ReturnType<typeof buildCorpusStats>, bodyStats: ReturnType<typeof buildCorpusStats>;
+        if (_corpusStatsCache && _corpusStatsCache.fp === _fp) {
+          subjectDocs = _corpusStatsCache.subjectDocs;
+          bodyDocs = _corpusStatsCache.bodyDocs;
+          subjectStats = _corpusStatsCache.subjectStats as ReturnType<typeof buildCorpusStats>;
+          bodyStats = _corpusStatsCache.bodyStats as ReturnType<typeof buildCorpusStats>;
+        } else {
+          subjectDocs = patterns.map((p) => tokenize(p.name ?? ''));
+          bodyDocs = patterns.map((p) => {
+            // Body is content minus the subject — if content starts with name,
+            // strip it; otherwise use full content (with name removed if duplicated).
+            const c = p.content ?? '';
+            const n = p.name ?? '';
+            return tokenize(c.startsWith(n) ? c.slice(n.length) : c);
+          });
+          subjectStats = buildCorpusStats(subjectDocs);
+          bodyStats = buildCorpusStats(bodyDocs);
+          _corpusStatsCache = { fp: _fp, subjectDocs, bodyDocs, subjectStats, bodyStats };
+        }
+        const queryTokens = tokenize(query);
+        // ADR-082: subjectWeight 3.0 → 2.0 from grid (sw=2 dominates at hybrid-only).
+        // ADR-083 joint grid: when rerank is on, the cross-encoder handles
+        // semantic understanding, so the hybrid stage can be MORE
+        // subject-focused (sw=3) — recovers nDCG@3 0.963.
+        const subjectWeight = Number(input.subjectWeight ?? champ.subjectWeight ?? (useRerank ? 3.0 : 2.0));
+        const bodyWeight = Number(input.bodyWeight ?? champ.bodyWeight ?? 1.0);
+        const bm25Arr = patterns.map((_, i) =>
+          multiFieldBM25(queryTokens, subjectDocs[i], bodyDocs[i], subjectStats, bodyStats, subjectWeight, bodyWeight),
+        );
+        const baseHybrid = hybridScores(cosineArr, bm25Arr, alpha);
+        // Type penalty — opt-in (default 1.0 = disabled). Ablation in ADR-079
+        // showed multi-field BM25 alone gives best top-1 (8/10 vs 7/10 with
+        // penalty enabled) because some relevant work commits also match the
+        // Merge/release regex. Callers wanting aggressive meta-commit
+        // suppression can set {typePenaltyFactor: 0.5}.
+        const typeFactor = Number(input.typePenaltyFactor ?? champ.typePenaltyFactor ?? 1.0);
+        const hybridArr = typeFactor === 1.0
+          ? baseHybrid
+          : baseHybrid.map((s, i) => s * typePenalty(patterns[i].name, typeFactor));
+
+        // Candidate pool sizing: k*3 for MMR, k*6 for cross-encoder (it needs
+        // more options to find the truly-best). ADR-080 ablation: rerank over
+        // a narrow post-MMR slice degrades top-1; reranking a wider hybrid
+        // top-K*6 pool restores and exceeds the no-rerank baseline.
+        // useRerank declared at top of search block for conditional defaults.
+        const poolSize = useRerank ? k * 6 : k * 3;
+        const prelim = patterns
+          .map((p, i) => ({ p, hybrid: hybridArr[i], cosine: cosineArr[i], bm25: bm25Arr[i] }))
+          .sort((a, b) => b.hybrid - a.hybrid)
+          .slice(0, Math.min(poolSize, patterns.length));
+
+        const candidates = prelim.map(({ p, hybrid, cosine, bm25 }) => ({
+          id: p.id, name: p.name, type: p.type,
+          embedding: p.embedding,
+          content: p.content,
+          relevance: hybrid,
+          _cosine: cosine,
+          _bm25: bm25,
+        }));
+
+        let picked: Array<typeof candidates[number] & { mmrScore?: number; _crossEncoderScore?: number }>;
+
+        if (useRerank) {
+          // ADR-080: cross-encoder reranks the wider candidate pool, then
+          // final score = hybridWeight * hybrid + ceWeight * crossEncoder
+          // on normalised scales. Ablation showed cross-encoder alone hits
+          // 100% top-3 but loses top-1 (calibration on short commit subjects
+          // is noisy); linear combination preserves hybrid's top-1 strength
+          // while gaining the cross-encoder's recall.
+          try {
+            const { crossEncoderRerank } = await import('../memory/cross-encoder-rerank.js');
+            const { normalise } = await import('../memory/hybrid-retrieval.js');
+            const docs = candidates.map((c) => c.content || c.name);
+            const reranked = await crossEncoderRerank(query, docs);
+            const ceScores = new Array(candidates.length).fill(0);
+            for (const { index, score } of reranked) ceScores[index] = score;
+
+            const hybridNorm = normalise(candidates.map((c) => c.relevance));
+            const ceNorm = normalise(ceScores);
+            // ADR-083 joint grid: hw=0.7 cw=0.3 (with α=0.5 sw=3 from above) is
+            // the joint optimum at nDCG@3=0.963 (vs 0.900 at 0.5/0.5). The
+            // hybrid signal carries most of the relevance; the cross-encoder
+            // contributes a 30% smoothing/disambiguation kick.
+            const hybridWeight = Number(input.hybridWeight ?? 0.7);
+            const ceWeight = Number(input.ceWeight ?? 0.3);
+            const combined = candidates.map((c, i) => ({
+              ...c,
+              _crossEncoderScore: ceScores[i],
+              _combinedScore: hybridWeight * hybridNorm[i] + ceWeight * ceNorm[i],
+            }));
+            picked = combined
+              .sort((a, b) => b._combinedScore - a._combinedScore)
+              .slice(0, k);
+          } catch {
+            picked = candidates.slice(0, k);
+          }
+        } else {
+          // Default path: MMR diversity over top-K*3 hybrid candidates.
+          picked = mmrRerank(candidates, k, mmrLambda);
+        }
 
         return {
           _realSimilarity: true,
           _realEmbedding: !!realEmbeddings,
           _embeddingSource: embeddingServiceName,
           embeddingProvider: embeddingServiceName,
+          mode: 'hybrid',
+          alpha,
+          mmrLambda,
+          rerank: useRerank,
           query,
-          results: results.map(r => ({
+          results: picked.map((r) => ({
             id: r.id,
             name: r.name,
             type: r.type,
-            similarity: r.similarity,
+            similarity: r.relevance,   // exposed as `similarity` for back-compat
+            hybridScore: r.relevance,
+            cosineScore: r._cosine,
+            bm25Score: r._bm25,
+            mmrScore: r.mmrScore,
+            ...((r as { _crossEncoderScore?: number })._crossEncoderScore !== undefined
+              ? { crossEncoderScore: (r as { _crossEncoderScore?: number })._crossEncoderScore }
+              : {}),
           })),
-          total: results.length,
+          total: picked.length,
         };
       }
 
@@ -550,6 +938,9 @@ export const neuralTools: MCPTool[] = [
     handler: async (input) => {
       if (input.modelId) { const v = validateIdentifier(input.modelId as string, 'modelId'); if (!v.valid) return { success: false, error: v.error }; }
 
+      // Resolve provider so embeddingProvider in the result matches the old
+      // eager-init reporting.
+      await ensureEmbeddings();
       const store = loadNeuralStore();
       const method = (input.method as string) || 'quantize';
       const targetReduction = (input.targetSize as number) || 0.5;
@@ -661,6 +1052,9 @@ export const neuralTools: MCPTool[] = [
     handler: async (input) => {
       if (input.modelId) { const v = validateIdentifier(input.modelId as string, 'modelId'); if (!v.valid) return { success: false, error: v.error }; }
 
+      // Resolve provider so _realEmbeddings/embeddingProvider report the same
+      // values the old eager-init version produced.
+      await ensureEmbeddings();
       const store = loadNeuralStore();
 
       if (input.modelId) {
@@ -728,6 +1122,9 @@ export const neuralTools: MCPTool[] = [
     handler: async (input) => {
       if (input.modelId) { const v = validateIdentifier(input.modelId as string, 'modelId'); if (!v.valid) return { success: false, error: v.error }; }
 
+      // Resolve provider so embeddingProvider in the result matches the old
+      // eager-init reporting.
+      await ensureEmbeddings();
       const store = loadNeuralStore();
       const target = (input.target as string) || 'balanced';
       const patterns = Object.values(store.patterns);

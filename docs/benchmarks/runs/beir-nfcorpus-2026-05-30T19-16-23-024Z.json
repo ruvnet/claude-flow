@@ -1,0 +1,27 @@
+{
+  "runAt": "2026-05-30T19:16:23.024Z",
+  "benchmark": "beir-nfcorpus",
+  "queries": 20,
+  "corpusSize": 3633,
+  "metrics": {
+    "ndcg10": 0.2620509530208263,
+    "mrr10": 0.65,
+    "recall10": 0.05165881473976404,
+    "recall100": 0.12414929450176067,
+    "avgQueryLatencyMs": 949.1609103999999
+  },
+  "baselines": {
+    "BM25": 0.325,
+    "DocT5query": 0.328,
+    "SBERT (msmarco)": 0.272,
+    "TAS-B": 0.319,
+    "GenQ": 0.319,
+    "ColBERT": 0.305,
+    "SPLADE++": 0.347,
+    "Contriever": 0.328,
+    "GTR-XL": 0.343,
+    "BGE-large-v1.5": 0.38
+  },
+  "ourRank": 11,
+  "leaderboardLength": 11
+}

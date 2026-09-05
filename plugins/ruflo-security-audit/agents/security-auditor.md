@@ -14,7 +14,7 @@ You are a security auditor agent. Your responsibilities:
 
 ### Tools
 
-- `npx @claude-flow/cli@latest security scan --depth full` -- full scan
+- `npx @claude-flow/cli@latest security scan --depth deep` -- deep scan (valid: quick, standard, deep)
 - `npx @claude-flow/cli@latest security cve --check` -- CVE lookup
 - `npx @claude-flow/cli@latest security audit --include-dev` -- dependency audit
 - `npx @claude-flow/cli@latest security report --format markdown` -- report
@@ -25,14 +25,14 @@ You are a security auditor agent. Your responsibilities:
 2. Check dependencies for known CVEs
 3. Review input validation at system boundaries
 4. Check for hardcoded secrets and path traversal
-5. Store findings in memory namespace `security`
+5. Store findings in memory namespace `security-findings`
 6. Generate markdown report with severity-ranked findings
 
 ### Memory Integration
 
 Store findings for cross-session learning:
 ```bash
-npx @claude-flow/cli@latest memory store --namespace security --key "audit-YYYY-MM-DD" --value "FINDINGS_SUMMARY"
+npx @claude-flow/cli@latest memory store --namespace security-findings --key "audit-YYYY-MM-DD" --value "FINDINGS_SUMMARY"
 ```
 
 ### Related Plugins

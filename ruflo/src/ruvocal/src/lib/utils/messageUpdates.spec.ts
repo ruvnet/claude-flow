@@ -129,6 +129,30 @@ describe("smoothStreamUpdates", () => {
 		expect(delays[0]).toBeGreaterThanOrEqual(delays.at(-1) ?? 0);
 	});
 
+	it("drains stream chunks without timer pacing while the page is hidden", async () => {
+		const source: MessageUpdate[] = [
+			{ type: MessageUpdateType.Stream, token: "one two three four five " },
+		];
+		const delays: number[] = [];
+
+		const updates = await collect(
+			smoothStreamUpdates(fromArray(source), {
+				minDelayMs: 5,
+				maxDelayMs: 80,
+				_internal: {
+					sleep: async (ms: number) => {
+						delays.push(ms);
+					},
+					isPageHidden: () => true,
+					detectChunk: (buffer) => /\S+\s+/.exec(buffer)?.[0] ?? null,
+				},
+			})
+		);
+
+		expect(streamText(updates)).toBe("one two three four five ");
+		expect(delays).toEqual([]);
+	});
+
 	it("handles CJK text correctly", async () => {
 		const source: MessageUpdate[] = [{ type: MessageUpdateType.Stream, token: "你好，世界！" }];
 

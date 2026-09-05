@@ -35,7 +35,7 @@ mcp__claude-flow__swarm_status({
 
 #### Using CLI (Fallback)
 ```bash
-npx claude-flow swarm "research AI trends" \
+npx @claude-flow/cli@latest swarm "research AI trends" \
   --strategy research \
   --mode distributed \
   --max-agents 6 \
@@ -85,7 +85,7 @@ mcp__claude-flow__swarm_monitor({
 
 #### Using CLI (Fallback)
 ```bash
-npx claude-flow swarm "build REST API" \
+npx @claude-flow/cli@latest swarm "build REST API" \
   --strategy development \
   --mode hierarchical \
   --monitor \
@@ -134,7 +134,7 @@ mcp__claude-flow__performance_report({
 
 #### Using CLI (Fallback)
 ```bash
-npx claude-flow swarm "analyze codebase" \
+npx @claude-flow/cli@latest swarm "analyze codebase" \
   --strategy analysis \
   --mode mesh \
   --parallel \

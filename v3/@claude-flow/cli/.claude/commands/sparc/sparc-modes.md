@@ -65,19 +65,19 @@ mcp__claude-flow__swarm_monitor {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx claude-flow sparc run <mode> "task description"
+npx @claude-flow/cli@latest sparc run <mode> "task description"
 
 # For alpha features
 npx claude-flow@alpha sparc run <mode> "task description"
 
 # List all modes
-npx claude-flow sparc modes
+npx @claude-flow/cli@latest sparc modes
 
 # Get help for a mode
-npx claude-flow sparc help <mode>
+npx @claude-flow/cli@latest sparc help <mode>
 
 # Run with options
-npx claude-flow sparc run <mode> "task" --parallel --monitor
+npx @claude-flow/cli@latest sparc run <mode> "task" --parallel --monitor
 ```
 
 ### Option 3: Local Installation
@@ -126,16 +126,16 @@ mcp__claude-flow__sparc_mode {
 #### Using NPX CLI (Fallback)
 ```bash
 # 1. Architecture design
-npx claude-flow sparc run architect "design microservices"
+npx @claude-flow/cli@latest sparc run architect "design microservices"
 
 # 2. Implementation
-npx claude-flow sparc run coder "implement services"
+npx @claude-flow/cli@latest sparc run coder "implement services"
 
 # 3. Testing
-npx claude-flow sparc run tdd "test all services"
+npx @claude-flow/cli@latest sparc run tdd "test all services"
 
 # 4. Review
-npx claude-flow sparc run reviewer "review implementation"
+npx @claude-flow/cli@latest sparc run reviewer "review implementation"
 ```
 
 ### Research and Innovation
@@ -164,11 +164,11 @@ mcp__claude-flow__sparc_mode {
 #### Using NPX CLI (Fallback)
 ```bash
 # 1. Research phase
-npx claude-flow sparc run researcher "research best practices"
+npx @claude-flow/cli@latest sparc run researcher "research best practices"
 
 # 2. Innovation
-npx claude-flow sparc run innovator "propose novel solutions"
+npx @claude-flow/cli@latest sparc run innovator "propose novel solutions"
 
 # 3. Documentation
-npx claude-flow sparc run documenter "document findings"
+npx @claude-flow/cli@latest sparc run documenter "document findings"
 ```

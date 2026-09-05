@@ -24,19 +24,26 @@ claude --plugin-dir plugins/ruflo-cost-tracker
 |-------|-------|-------------|
 | `cost-report` | `/cost-report [--period today]` | Generate a cost report with token usage and USD costs by tier, model, and agent |
 | `cost-optimize` | `/cost-optimize` | Analyze usage patterns, recommend cost optimizations, and emit `hooks_model-outcome` events |
-| `cost-track` | `/cost-track` | **Auto-capture** per-session token usage from the Claude Code jsonl into `cost-tracking` namespace (producer side) |
+| `cost-track` | `/cost-track` | **Auto-capture** per-session token usage from the Claude Code jsonl into `cost-tracking` namespace (producer side). Also auto-fires on session-end via the Stop hook in `hooks/hooks.json` — no manual invocation needed. |
 | `cost-budget-check` | `/cost-budget-check [--period today\|week\|month\|all]` | Read totals + budget config, emit 50/75/90/100% alert ladder; exit 1 on HARD_STOP |
 | `cost-booster-route` | `/cost-booster-route <task>` | Route tasks via `hooks_route` and report Agent Booster (Tier 1) bypass utilization |
 | `cost-booster-edit` | `/cost-booster-edit <intent> <file>` | **Apply** a Tier 1 transform via `agent-booster.apply()` (sub-millisecond, $0, deterministic) |
 | `cost-benchmark` | `/cost-benchmark [--llm] [--anthropic]` | Run the corpus benchmark and persist measured-vs-claimed table to `docs/benchmarks/runs/` |
 | `cost-trend` | `/cost-trend` | Read all bench runs and surface drift (win rate, latency, speedup) — flags regressions the smoke gate misses |
+| `cost-projection` | `/cost-projection [--window 7d]` | **Forward** spend extrapolation: USD/day rate × 7d/30d/90d/365d horizons + days-until-budget-exhausted (predictive counterpart to `cost-budget-check`) |
+| `cost-counterfactual` | `/cost-counterfactual [--since 7d] [--baseline all]` | **Comparative** cost analysis: actual spend vs always-haiku / always-sonnet / always-opus baselines. Negative savings flag over-escalation; positive savings quantify routing's win. |
+| `cost-burn` | `/cost-burn [--bucket 1d] [--lookback 14d] [--alert-on-acceleration-pct N]` | **Trend** burn-rate analysis: window-over-window delta + optional drift-alert exit code. Catches "hot loop burning 10× normal" before budget alarm fires. |
+| `cost-anomaly` | `/cost-anomaly [--since 7d] [--threshold 3.5] [--alert-on-outliers N]` | **Point-anomaly** MAD-based outlier detection: flags individual sessions with `\|modified z\| > threshold` (Iglewicz-Hoaglin 3.5 default). Robust to outliers themselves; works on n=10. |
+| `cost-diff` | `/cost-diff --baseline <path> --current <path> [--alert-on-pct N] [--alert-on-usd N]` | **PR regression detection** — diffs two cost-summary JSON snapshots. Per-tier + per-model breakdowns sorted by `\|delta\|`. Optional pct/USD alert thresholds for CI gating. |
+| `cost-session` | `/cost-session [--session-id <id>] [--top 20] [--since <iso-ts>]` | **Drill-down** — per-message cost breakdown within ONE session. Surfaces top-N expensive messages with cache_write column so $16 messages stop looking like 569-token outputs. Pair with cost-anomaly. |
+| `cost-health` | `/cost-health [--alert-acceleration 100] [--alert-outliers 1] [--skip burn,anomaly]` | **Composite CI gate** — runs budget+burn+anomaly+projection in parallel, returns `max(exit)`. One shell-out covers all four alert ladders. |
 | `cost-conversation` | `/cost-conversation` | Per-conversation cost view (different lens from cost-report's per-agent / per-model) |
 | `cost-export` | `/cost-export [--prometheus <path>] [--webhook <url>]` | Emit cost data as Prometheus textfile or POST to a webhook |
 | `cost-federation` | `/cost-federation` | ADR-097 Phase 3 consumer — per-peer 1h/24h/7d federation_spend rolling windows |
 | `cost-summary` | `/cost-summary [--format json\|markdown]` | Single-shot programmatic dump of all cost data (stable JSON contract for inter-plugin consumption) |
 | `cost-compact-context` | `/cost-compact-context <query>` | Wrap `getTokenOptimizer().getCompactContext()` for retrieval-compacted analysis (graceful fallback when agentic-flow not installed) |
 
-## Commands (15 subcommands)
+## Commands (23 subcommands)
 
 ```bash
 cost track                                # Auto-capture this session's token usage (producer)
@@ -49,6 +56,13 @@ cost budget get                           # Show current budget config
 cost budget check [--period ...]          # Compute utilization + alert; exit 1 on HARD_STOP
 cost benchmark [--llm] [--anthropic]      # Run measured benchmark — booster + optional Gemini/Sonnet/Opus baselines
 cost trend                                # Drift across bench runs (win rate, latency, regressions)
+cost projection [--window 7d]             # Forward USD/day extrapolation + days-until-budget-exhausted
+cost counterfactual [--since 7d]          # Multi-baseline (haiku/sonnet/opus) — is routing earning its keep?
+cost burn [--bucket 1d] [--alert ...]     # Burn-rate trend + acceleration alert (exit 1 on drift)
+cost anomaly [--since 7d] [--alert ...]   # MAD-based per-session outlier detection (exit 1 on outliers)
+cost diff --baseline <p> --current <p> ... # Snapshot delta — PR-level regression detection (exit 1 on >N% growth)
+cost session [--session-id <id>] [--top N] # Per-message drill-down within one session (cache_write column!)
+cost health [--alert-acceleration N] ...  # Composite CI gate: budget+burn+anomaly+projection in parallel (max exit)
 cost conversation                         # Per-conversation cost view
 cost summary [--format json|markdown]     # Programmatic JSON contract for inter-plugin consumption
 cost export [--prometheus] [--webhook]    # External observability — Prometheus textfile + webhook POST

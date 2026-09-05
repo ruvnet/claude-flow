@@ -1,0 +1,30 @@
+{
+  "generated_by": "scripts/gen-seed-corpus-v2.mjs",
+  "generated_at": "2026-06-15T22:52:42Z",
+  "schema_version": 2,
+  "dim": 384,
+  "rows": 40,
+  "tier_distribution": {
+    "cheap": 12,
+    "mid": 10,
+    "strong": 18
+  },
+  "embedder": "Xenova/all-MiniLM-L6-v2 (quantized ONNX via @xenova/transformers)",
+  "caveat": "Seed corpus is now measured (ADR-149). Re-measure quarterly via `scripts/benchmark-seed-corpus.mjs --live`. To regenerate the embeddings (not the scores), use `scripts/gen-seed-corpus.mjs`.",
+  "notes": [
+    "Rows persist `task` + `tier` directly — benchmark-seed-corpus.mjs reads these from the row instead of regenerating from templates (the v1 approach).",
+    "Embeddings are real 384-dim semantic vectors from MiniLM, not synthetic deterministic projections."
+  ],
+  "measured_at": "2026-06-15T23:01:54.544Z",
+  "measured_against": [
+    "inclusionai/ling-2.6-flash",
+    "google/gemini-2.5-flash-lite",
+    "anthropic/claude-haiku-4.5",
+    "openai/gpt-4.1",
+    "meta-llama/llama-3.3-70b-instruct",
+    "anthropic/claude-sonnet-4-6",
+    "anthropic/claude-opus-4"
+  ],
+  "judge": "anthropic/claude-sonnet-4-6",
+  "measurement_run": "seed-corpus-2026-06-15-23-01-54Z.json"
+}

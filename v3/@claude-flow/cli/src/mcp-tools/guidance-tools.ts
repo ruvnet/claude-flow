@@ -10,44 +10,72 @@
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateIdentifier, validateText } from './validate-input.js';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  buildCapabilityBrain,
+  recommendCapabilities,
+  type CapabilityToolMetadata,
+} from './capability-brain.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const CLI_ROOT = join(__dirname, '../../..');
-
 /**
  * Find the project root by looking for .claude/ directory.
  * Tries CWD first (most common), then walks up from the CLI package location.
  */
 function findProjectRoot(): string {
-  // Strategy 1: CWD (most reliable when invoked by user)
-  if (existsSync(join(getProjectCwd(), '.claude'))) {
-    return getProjectCwd();
+  const cwd = getProjectCwd();
+  let cwdIsCliPackage = false;
+  const cwdManifest = join(cwd, 'package.json');
+  if (existsSync(cwdManifest)) {
+    try {
+      const manifest = JSON.parse(readFileSync(cwdManifest, 'utf-8')) as { name?: string };
+      cwdIsCliPackage = manifest.name === '@claude-flow/cli';
+    } catch {
+      // An invalid project manifest is not a reason to hide discoverable files.
+    }
   }
 
-  // Strategy 2: Walk up from CLI package location
-  // CLI is at v3/@claude-flow/cli/ — project root is 4 levels up
-  const fromPackage = join(CLI_ROOT, '../../../..');
-  if (existsSync(join(fromPackage, '.claude'))) {
-    return fromPackage;
+  // User projects with a local .claude directory remain the primary root.
+  // Exclude the CLI package's own shipped .claude assets during repository
+  // development; otherwise ecosystem discovery silently stops at the package.
+  if (!cwdIsCliPackage && existsSync(join(cwd, '.claude'))) {
+    return cwd;
   }
 
-  // Strategy 3: Walk up from CWD
-  let dir = getProjectCwd();
+  // Walk up to a Git/workspace root. Worktrees use a .git file, so existsSync
+  // is intentionally used instead of requiring a directory.
+  let dir = cwd;
   for (let i = 0; i < 10; i++) {
-    if (existsSync(join(dir, '.claude'))) return dir;
+    if (existsSync(join(dir, '.git'))) return dir;
+    if (!(cwdIsCliPackage && dir === cwd) && existsSync(join(dir, '.claude'))) return dir;
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
 
   // Fallback: CWD
-  return getProjectCwd();
+  return cwd;
 }
 
 const PROJECT_ROOT = findProjectRoot();
+
+/**
+ * Injected by mcp-client after every MCP tool has been registered. Keeping the
+ * provider here avoids guidance importing the registry and creating a cycle.
+ */
+let liveToolProvider: () => readonly CapabilityToolMetadata[] = () => [];
+
+export function configureGuidanceToolProvider(
+  provider: () => readonly CapabilityToolMetadata[],
+): void {
+  liveToolProvider = provider;
+}
+
+function getCapabilityBrain() {
+  return buildCapabilityBrain(liveToolProvider());
+}
 
 // ── Capability Catalog ──────────────────────────────────────
 
@@ -315,9 +343,6 @@ const WORKFLOW_TEMPLATES: Record<string, { steps: string[]; agents: string[]; to
 // ── Dynamic Discovery ───────────────────────────────────────
 
 function discoverAgents(): string[] {
-  const agentsDir = join(PROJECT_ROOT, '.claude/agents');
-  if (!existsSync(agentsDir)) return [];
-
   const agents: string[] = [];
   function walk(dir: string) {
     try {
@@ -333,27 +358,117 @@ function discoverAgents(): string[] {
       }
     } catch { /* ignore */ }
   }
-  walk(agentsDir);
+  const roots = [
+    join(PROJECT_ROOT, '.claude/agents'),
+    join(PROJECT_ROOT, '.agents/agents'),
+  ];
+  const pluginsDir = join(PROJECT_ROOT, 'plugins');
+  if (existsSync(pluginsDir)) {
+    for (const entry of readdirSync(pluginsDir, { withFileTypes: true })) {
+      if (entry.isDirectory()) roots.push(join(pluginsDir, entry.name, 'agents'));
+    }
+  }
+  for (const root of roots) {
+    if (existsSync(root)) walk(root);
+  }
   return [...new Set(agents)].sort();
 }
 
 function discoverSkills(): string[] {
-  const skillsDir = join(PROJECT_ROOT, '.claude/skills');
-  if (!existsSync(skillsDir)) return [];
-
   const skills: string[] = [];
-  try {
-    const entries = readdirSync(skillsDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const skillFile = join(skillsDir, entry.name, 'SKILL.md');
-        if (existsSync(skillFile)) {
-          skills.push(entry.name);
+  function walk(dir: string) {
+    try {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const target = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(target);
+        } else if (entry.name === 'SKILL.md') {
+          const content = readFileSync(target, 'utf-8');
+          const nameMatch = content.match(/^name:\s*(.+)$/m);
+          skills.push(
+            nameMatch
+              ? nameMatch[1]!.trim().replace(/^["']|["']$/g, '')
+              : relative(PROJECT_ROOT, dirname(target)),
+          );
         }
       }
+    } catch {
+      // Missing or unreadable optional capability roots are reported by absence.
     }
-  } catch { /* ignore */ }
-  return skills.sort();
+  }
+
+  const roots = [
+    join(PROJECT_ROOT, '.claude/skills'),
+    join(PROJECT_ROOT, '.agents/skills'),
+  ];
+  const pluginsDir = join(PROJECT_ROOT, 'plugins');
+  if (existsSync(pluginsDir)) {
+    for (const entry of readdirSync(pluginsDir, { withFileTypes: true })) {
+      if (entry.isDirectory()) roots.push(join(pluginsDir, entry.name, 'skills'));
+    }
+  }
+  for (const root of roots) {
+    if (existsSync(root)) walk(root);
+  }
+  return [...new Set(skills)].sort();
+}
+
+function discoverPlugins(): Array<Record<string, unknown>> {
+  const pluginsDir = join(PROJECT_ROOT, 'plugins');
+  if (!existsSync(pluginsDir)) return [];
+  const plugins: Array<Record<string, unknown>> = [];
+  for (const entry of readdirSync(pluginsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const manifestPath = join(pluginsDir, entry.name, '.claude-plugin', 'plugin.json');
+    if (!existsSync(manifestPath)) continue;
+    try {
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as Record<string, unknown>;
+      plugins.push({
+        id: entry.name,
+        name: manifest.name ?? entry.name,
+        version: manifest.version ?? 'unknown',
+        description: manifest.description ?? '',
+        manifest: relative(PROJECT_ROOT, manifestPath),
+      });
+    } catch {
+      plugins.push({
+        id: entry.name,
+        name: entry.name,
+        version: 'unknown',
+        manifest: relative(PROJECT_ROOT, manifestPath),
+        invalidManifest: true,
+      });
+    }
+  }
+  return plugins.sort((left, right) => String(left.id).localeCompare(String(right.id), 'en-US'));
+}
+
+function discoverPackages(): Array<Record<string, unknown>> {
+  const packagesDir = join(PROJECT_ROOT, 'v3', '@claude-flow');
+  if (!existsSync(packagesDir)) return [];
+  const packages: Array<Record<string, unknown>> = [];
+  for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const manifestPath = join(packagesDir, entry.name, 'package.json');
+    if (!existsSync(manifestPath)) continue;
+    try {
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as Record<string, unknown>;
+      packages.push({
+        name: manifest.name ?? entry.name,
+        version: manifest.version ?? 'unknown',
+        description: manifest.description ?? '',
+        manifest: relative(PROJECT_ROOT, manifestPath),
+      });
+    } catch {
+      packages.push({
+        name: entry.name,
+        version: 'unknown',
+        manifest: relative(PROJECT_ROOT, manifestPath),
+        invalidManifest: true,
+      });
+    }
+  }
+  return packages.sort((left, right) => String(left.name).localeCompare(String(right.name), 'en-US'));
 }
 
 // ── MCP Tool Definitions ────────────────────────────────────
@@ -378,20 +493,49 @@ const guidanceCapabilities: MCPTool = {
   handler: async (params: Record<string, unknown>) => {
     const area = params.area as string | undefined;
     const format = (params.format as string) || 'summary';
+    const brain = getCapabilityBrain();
 
     if (area) { const v = validateIdentifier(area, 'area'); if (!v.valid) return { content: [{ type: 'text', text: JSON.stringify({ error: v.error }, null, 2) }], isError: true }; }
 
     if (area) {
       const cap = CAPABILITY_CATALOG[area];
-      if (!cap) {
-        const available = Object.keys(CAPABILITY_CATALOG).join(', ');
+      const brainDomain = brain.domains.find((domain) => domain.id === area);
+      if (!cap && !brainDomain) {
+        const available = [
+          ...Object.keys(CAPABILITY_CATALOG),
+          ...brain.domains.map((domain) => domain.id),
+        ].filter((value, index, all) => all.indexOf(value) === index).join(', ');
         return { content: [{ type: 'text', text: JSON.stringify({ error: `Unknown area: ${area}`, available }, null, 2) }], isError: true };
       }
-      return { content: [{ type: 'text', text: JSON.stringify(cap, null, 2) }] };
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            ...(cap ?? {}),
+            legacyCatalogStatus: cap ? 'compatibility-only; tool names may be deprecated aliases' : undefined,
+            legacyToolResolution: cap ? cap.tools.map((name) => ({
+              name,
+              registered: brain.domains.some((entry) => entry.tools.some((tool) => tool.name === name)),
+            })) : undefined,
+            capabilityBrain: brainDomain,
+          }, null, 2),
+        }],
+      };
     }
 
     if (format === 'detailed') {
-      return { content: [{ type: 'text', text: JSON.stringify(CAPABILITY_CATALOG, null, 2) }] };
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            legacyCatalog: {
+              status: 'compatibility-only; use capabilityBrain for live routing',
+              areas: CAPABILITY_CATALOG,
+            },
+            capabilityBrain: brain,
+          }, null, 2),
+        }],
+      };
     }
 
     const summary = Object.entries(CAPABILITY_CATALOG).map(([key, val]) => ({
@@ -404,7 +548,30 @@ const guidanceCapabilities: MCPTool = {
       whenToUse: val.whenToUse,
     }));
 
-    return { content: [{ type: 'text', text: JSON.stringify({ areas: summary, totalAreas: summary.length }, null, 2) }] };
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          areas: summary,
+          totalAreas: summary.length,
+          live: {
+            schemaVersion: brain.schemaVersion,
+            registeredToolCount: brain.coverage.registeredToolCount,
+            classifiedToolCount: brain.coverage.classifiedToolCount,
+            coveragePercent: brain.coverage.coveragePercent,
+            fallbackClassifiedTools: brain.coverage.fallbackClassifiedTools,
+            domains: brain.domains.map((domain) => ({
+              id: domain.id,
+              name: domain.name,
+              registeredToolCount: domain.tools.length,
+              health: domain.health,
+              authority: domain.authority,
+              risk: domain.risk,
+            })),
+          },
+        }, null, 2),
+      }],
+    };
   },
 };
 
@@ -425,6 +592,8 @@ const guidanceRecommend: MCPTool = {
     const task = params.task as string;
 
     { const v = validateText(task, 'task'); if (!v.valid) return { content: [{ type: 'text', text: JSON.stringify({ error: v.error }, null, 2) }], isError: true }; }
+    const brain = getCapabilityBrain();
+    const capabilityRecommendation = recommendCapabilities(brain, task);
 
     const matches: Array<{ area: string; capability: CapabilityArea; workflow: string; score: number }> = [];
 
@@ -463,6 +632,7 @@ const guidanceRecommend: MCPTool = {
               { area: 'hooks-automation', reason: 'Use hooks for task routing and learning' },
             ],
             tip: 'Use guidance_capabilities for a full list of all capability areas.',
+            capabilityBrain: capabilityRecommendation,
           }, null, 2),
         }],
       };
@@ -470,6 +640,9 @@ const guidanceRecommend: MCPTool = {
 
     const primaryWorkflow = recommendations[0]?.workflow;
     const template = primaryWorkflow ? WORKFLOW_TEMPLATES[primaryWorkflow] : undefined;
+    const liveToolNames = new Set(
+      brain.domains.flatMap((domain) => domain.tools.map((tool) => tool.name)),
+    );
 
     return {
       content: [{
@@ -480,7 +653,8 @@ const guidanceRecommend: MCPTool = {
             area: r.area,
             name: r.capability.name,
             description: r.capability.description,
-            tools: r.capability.tools,
+            tools: r.capability.tools.filter((name) => liveToolNames.has(name)),
+            unregisteredLegacyToolRefs: r.capability.tools.filter((name) => !liveToolNames.has(name)),
             agents: r.capability.agents,
             skills: r.capability.skills,
           })),
@@ -490,6 +664,7 @@ const guidanceRecommend: MCPTool = {
             agents: template.agents,
             topology: template.topology,
           } : undefined,
+          capabilityBrain: capabilityRecommendation,
         }, null, 2),
       }],
     };
@@ -504,7 +679,7 @@ const guidanceDiscover: MCPTool = {
     properties: {
       type: {
         type: 'string',
-        enum: ['agents', 'skills', 'all'],
+        enum: ['agents', 'skills', 'plugins', 'packages', 'all'],
         description: 'What to discover. Default: all.',
       },
     },
@@ -523,6 +698,21 @@ const guidanceDiscover: MCPTool = {
       const skills = discoverSkills();
       result.skills = { count: skills.length, names: skills };
     }
+
+    if (type === 'plugins' || type === 'all') {
+      const plugins = discoverPlugins();
+      result.plugins = { count: plugins.length, entries: plugins };
+    }
+
+    if (type === 'packages' || type === 'all') {
+      const packages = discoverPackages();
+      result.packages = { count: packages.length, entries: packages };
+    }
+
+    result.capabilityBrain = {
+      registeredTools: getCapabilityBrain().coverage.registeredToolCount,
+      note: 'Filesystem discovery reports installed artifacts; it does not prove configuration, health, or authorization.',
+    };
 
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
   },
@@ -668,10 +858,159 @@ const guidanceQuickRef: MCPTool = {
   },
 };
 
+const guidanceBrain: MCPTool = {
+  name: 'guidance_brain',
+  description: 'Use when choosing how to execute a task with Ruflo. Queries the live capability brain, covers every registered MCP tool, separates registration from configuration/reachability/health/authorization, recommends capabilities, and returns the validated implementation loop.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      mode: {
+        type: 'string',
+        enum: ['overview', 'capabilities', 'coverage', 'ecosystem', 'recommend', 'implementation-loop'],
+        description: 'Brain view. Default: overview.',
+      },
+      task: {
+        type: 'string',
+        description: 'Required for recommend mode.',
+      },
+      domain: {
+        type: 'string',
+        description: 'Optional capability domain filter for capabilities mode.',
+      },
+    },
+  },
+  handler: async (params: Record<string, unknown>) => {
+    const mode = (params.mode as string | undefined) ?? 'overview';
+    const task = params.task as string | undefined;
+    const domain = params.domain as string | undefined;
+    const brain = getCapabilityBrain();
+
+    if (domain) {
+      const validation = validateIdentifier(domain, 'domain');
+      if (!validation.valid) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ error: validation.error }, null, 2) }],
+          isError: true,
+        };
+      }
+    }
+
+    let result: unknown;
+    switch (mode) {
+      case 'overview':
+        result = {
+          schemaVersion: brain.schemaVersion,
+          generatedAt: brain.generatedAt,
+          truthModel: brain.truthModel,
+          coverage: brain.coverage,
+          domainCount: brain.domains.length,
+          cliCommandCount: brain.cliCommands.length,
+          cliCommands: brain.cliCommands,
+          registeredDomains: brain.domains
+            .filter((entry) => entry.health.registered)
+            .map((entry) => ({
+              id: entry.id,
+              name: entry.name,
+              toolCount: entry.tools.length,
+              maturity: entry.maturity,
+              authority: entry.authority,
+              risk: entry.risk,
+              health: entry.health,
+            })),
+          implementationLoop: brain.implementationLoop.map((step) => step.id),
+        };
+        break;
+      case 'capabilities': {
+        const capabilities = domain
+          ? brain.domains.filter((entry) => entry.id === domain)
+          : brain.domains;
+        if (domain && capabilities.length === 0) {
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                error: `Unknown capability domain: ${domain}`,
+                available: brain.domains.map((entry) => entry.id),
+              }, null, 2),
+            }],
+            isError: true,
+          };
+        }
+        result = { schemaVersion: brain.schemaVersion, truthModel: brain.truthModel, capabilities };
+        break;
+      }
+      case 'coverage':
+        result = {
+          schemaVersion: brain.schemaVersion,
+          coverage: brain.coverage,
+          assignments: brain.domains.map((entry) => ({
+            domain: entry.id,
+            tools: entry.tools.map((tool) => tool.name),
+          })),
+        };
+        break;
+      case 'ecosystem': {
+        const agents = discoverAgents();
+        const skills = discoverSkills();
+        const plugins = discoverPlugins();
+        const packages = discoverPackages();
+        result = {
+          schemaVersion: brain.schemaVersion,
+          agents: { count: agents.length, names: agents },
+          skills: { count: skills.length, names: skills },
+          plugins: { count: plugins.length, entries: plugins },
+          packages: { count: packages.length, entries: packages },
+          cliCommands: { count: brain.cliCommands.length, names: brain.cliCommands },
+          availabilityNote: 'Installed or catalogued artifacts are not necessarily configured, reachable, healthy, or authorized.',
+        };
+        break;
+      }
+      case 'recommend': {
+        const validation = validateText(task, 'task');
+        if (!validation.valid) {
+          return {
+            content: [{ type: 'text', text: JSON.stringify({ error: validation.error }, null, 2) }],
+            isError: true,
+          };
+        }
+        result = recommendCapabilities(brain, task!);
+        break;
+      }
+      case 'implementation-loop':
+        result = {
+          schemaVersion: brain.schemaVersion,
+          steps: brain.implementationLoop,
+          invariants: [
+            'Recall precedes implementation.',
+            'Testing and validation precede optimization.',
+            'Benchmarks compare a source-bound candidate with a source-bound baseline.',
+            'Learning and optimization cannot authorize promotion.',
+            'Publishing requires separate authorization and immutable artifact evidence.',
+          ],
+        };
+        break;
+      default:
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              error: `Unknown mode: ${mode}`,
+              available: ['overview', 'capabilities', 'coverage', 'ecosystem', 'recommend', 'implementation-loop'],
+            }, null, 2),
+          }],
+          isError: true,
+        };
+    }
+
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  },
+};
+
 /**
  * All guidance tools
  */
 export const guidanceTools: MCPTool[] = [
+  guidanceBrain,
   guidanceCapabilities,
   guidanceRecommend,
   guidanceDiscover,

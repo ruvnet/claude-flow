@@ -6,6 +6,7 @@
 
 import fs from 'fs-extra';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 import type {
   CodexInitOptions,
   CodexInitResult,
@@ -13,14 +14,23 @@ import type {
   BuiltInSkill,
 } from './types.js';
 import { generateAgentsMd } from './generators/agents-md.js';
-import { generateSkillMd, generateBuiltInSkill } from './generators/skill-md.js';
+import {
+  BUILT_IN_SKILL_NAMES,
+  generateSkillMd,
+  generateBuiltInSkill,
+} from './generators/skill-md.js';
 import { generateConfigToml } from './generators/config-toml.js';
-import { DEFAULT_SKILLS_BY_TEMPLATE, AGENTS_OVERRIDE_TEMPLATE, GITIGNORE_ENTRIES, ALL_AVAILABLE_SKILLS } from './templates/index.js';
+import { DEFAULT_SKILLS_BY_TEMPLATE, AGENTS_OVERRIDE_TEMPLATE, GITIGNORE_ENTRIES } from './templates/index.js';
+import { getRufloMcpAddCommand } from './mcp-config.js';
 
 /**
  * Bundled skills source directory (relative to package)
  */
-const BUNDLED_SKILLS_DIR = '../../../../.agents/skills';
+const BUNDLED_SKILLS_DIR = '../.agents/skills';
+
+export function resolveBundledSkillsPath(moduleUrl = import.meta.url): string {
+  return path.resolve(path.dirname(fileURLToPath(moduleUrl)), BUNDLED_SKILLS_DIR);
+}
 
 /**
  * Main initializer for Codex projects
@@ -44,10 +54,7 @@ export class CodexInitializer {
     this.dual = options.dual ?? false;
 
     // Resolve bundled skills path (relative to this file's location)
-    this.bundledSkillsPath = path.resolve(
-      path.dirname(new URL(import.meta.url).pathname),
-      BUNDLED_SKILLS_DIR
-    );
+    this.bundledSkillsPath = resolveBundledSkillsPath();
 
     const filesCreated: string[] = [];
     const skillsGenerated: string[] = [];
@@ -72,6 +79,21 @@ export class CodexInitializer {
 
       if (alreadyInitialized && this.force) {
         warnings.push('Overwriting existing configuration files');
+      }
+
+      // Template catalog entries are capability names, not proof that a
+      // complete SKILL.md payload ships in this package. For default template
+      // selections, install only canonical packaged assets. Explicit
+      // `options.skills` remain an intentional custom-skill request and keep
+      // the existing scaffold behavior.
+      if (options.skills === undefined) {
+        const omitted = await this.retainCanonicalPackagedSkills();
+        if (omitted.length > 0) {
+          warnings.push(
+            `Omitted ${omitted.length} catalog skills without canonical packaged assets. ` +
+            'Install additional capabilities from the Ruflo plugin catalog.',
+          );
+        }
       }
 
       // Create directory structure
@@ -156,6 +178,24 @@ export class CodexInitializer {
       }
       if (mcpResult.warning) {
         warnings.push(mcpResult.warning);
+      }
+
+      // #2801 — install the canonical ruflo-core@ruflo plugin so Codex
+      // gets Ruflo's lifecycle hooks (PreToolUse/PostToolUse/PreCompact/
+      // Stop). Before this, --codex/--dual set up skills + MCP but no
+      // lifecycle hooks. We install the UPSTREAM plugin (not a second
+      // project-local bundle) to avoid the #2640 double-firing class.
+      const pluginResult = await this.installRufloCorePlugin();
+      if (pluginResult.installed) {
+        filesCreated.push('Codex plugin (ruflo-core@ruflo) installed');
+      }
+      if (pluginResult.warning) {
+        warnings.push(pluginResult.warning);
+      }
+      if (pluginResult.activationMessage) {
+        // Surfaced as a warning so it prints prominently. Codex deliberately
+        // does NOT auto-trust new command hooks — the user must review them.
+        warnings.push(pluginResult.activationMessage);
       }
 
       // If dual mode, also generate Claude Code files
@@ -254,6 +294,28 @@ export class CodexInitializer {
   }
 
   /**
+   * Keep generated configuration truthful: a template-selected skill is
+   * enabled only when its canonical SKILL.md is present in the package.
+   */
+  private async retainCanonicalPackagedSkills(): Promise<string[]> {
+    const canonical = new Set<string>();
+    try {
+      const entries = await fs.readdir(this.bundledSkillsPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const skillMd = path.join(this.bundledSkillsPath, entry.name, 'SKILL.md');
+        if (await fs.pathExists(skillMd)) canonical.add(entry.name);
+      }
+    } catch {
+      // Missing/unreadable package assets must fail safe to omission.
+    }
+
+    const omitted = this.skills.filter((skillName) => !canonical.has(skillName));
+    this.skills = this.skills.filter((skillName) => canonical.has(skillName));
+    return omitted;
+  }
+
+  /**
    * Copy bundled skills from the package or source directory
    * Returns the list of skills copied
    */
@@ -326,39 +388,142 @@ export class CodexInitializer {
       } catch {
         return {
           registered: false,
-          warning: 'Codex CLI not found. Run: codex mcp add ruflo -- npx ruflo mcp start',
+          warning: `Codex CLI not found. Run: ${getRufloMcpAddCommand()}`,
         };
       }
 
-      // Check if already registered
+      // Check if already registered. Prefer the structured `--json` output
+      // (each entry has a `name` field — confirmed current as of the 2026
+      // `codex mcp` CLI) over a plain substring match against the human
+      // -readable table, which false-positives on any server whose name or
+      // command merely contains "ruflo" and breaks silently if the table
+      // formatting changes.
       try {
-        const list = execSync('codex mcp list 2>&1', { encoding: 'utf-8' });
-        if (list.includes('ruflo')) {
+        const listJson = execSync('codex mcp list --json 2>&1', { encoding: 'utf-8' });
+        const parsed = JSON.parse(listJson);
+        // Confirmed shape (2026 `codex mcp` CLI) is a bare array; tolerate a
+        // future `{ servers: [...] }` wrapper but otherwise treat an
+        // unrecognized shape as "unknown" rather than silently concluding
+        // not-registered — falls through to the safe text-based fallback.
+        const servers = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.servers) ? parsed.servers : null;
+        if (!servers) throw new Error('unrecognized `codex mcp list --json` shape');
+        if (servers.some((s: unknown) => s && typeof s === 'object' && (s as { name?: unknown }).name === 'ruflo')) {
           return { registered: true }; // Already registered
         }
       } catch {
-        // Ignore list errors
+        // --json unsupported (older codex CLI) or unparsable — fall back to
+        // the plain-text listing so registration still no-ops idempotently.
+        try {
+          const list = execSync('codex mcp list 2>&1', { encoding: 'utf-8' });
+          if (list.includes('ruflo')) {
+            return { registered: true };
+          }
+        } catch {
+          // Ignore list errors — fall through to (re-)register below.
+        }
       }
 
-      // Register the MCP server
+      // Register the MCP server.
+      //
+      // Use the shared platform-aware Ruflo MCP definition so generators,
+      // migrations, and live registration cannot drift.
       try {
-        execSync('codex mcp add ruflo -- npx ruflo mcp start', {
-          stdio: 'pipe',
-          timeout: 10000,
-        });
+        execSync(
+          getRufloMcpAddCommand(),
+          {
+            stdio: 'pipe',
+            timeout: 10000,
+          }
+        );
         return { registered: true };
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         return {
           registered: false,
-          warning: `Failed to register MCP server: ${errorMessage}. Run manually: codex mcp add ruflo -- npx ruflo mcp start`,
+          warning: `Failed to register MCP server: ${errorMessage}. Run manually: ${getRufloMcpAddCommand()}`,
         };
       }
     } catch {
       return {
         registered: false,
-        warning: 'Could not register MCP server. Run manually: codex mcp add ruflo -- npx ruflo mcp start',
+        warning: `Could not register MCP server. Run manually: ${getRufloMcpAddCommand()}`,
       };
+    }
+  }
+
+  /**
+   * #2801 — Install the canonical `ruflo-core@ruflo` plugin so Codex
+   * discovers Ruflo's lifecycle hooks. Idempotent: adds the marketplace
+   * and installs the plugin at user scope, mirroring registerMCPServer's
+   * detect-then-add pattern. Codex does NOT auto-trust command hooks, so
+   * we always return an activation message instructing the user to review
+   * and trust them in a new session. Installation state is NOT reported as
+   * "hook-active" — only "installed, pending trust review".
+   */
+  private async installRufloCorePlugin(): Promise<{ installed: boolean; warning?: string; activationMessage?: string }> {
+    const ACTIVATION = [
+      '',
+      'ACTION REQUIRED (Ruflo lifecycle hooks): start a new Codex session, open /hooks,',
+      'review the ruflo-core@ruflo hook definitions, and trust them. Use "trust all" only',
+      'when every pending definition is from Ruflo; otherwise trust the Ruflo definitions',
+      'individually. Hooks are installed but remain INACTIVE until you complete this review.',
+    ].join('\n');
+    const MANUAL = 'Install manually: codex plugin marketplace add ruvnet/ruflo --ref main && codex plugin add ruflo-core@ruflo';
+
+    try {
+      const { execSync } = await import('child_process');
+
+      // Codex CLI present?
+      try {
+        execSync('which codex', { stdio: 'pipe' });
+      } catch {
+        return { installed: false, warning: `Codex CLI not found. ${MANUAL}` };
+      }
+
+      // Already installed? (structured --json first, plain-text fallback —
+      // same resilience approach as registerMCPServer).
+      try {
+        const listJson = execSync('codex plugin list --json 2>&1', { encoding: 'utf-8' });
+        const parsed = JSON.parse(listJson);
+        const plugins = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.plugins) ? parsed.plugins : null;
+        if (plugins && plugins.some((p: unknown) => {
+          if (!p || typeof p !== 'object') return false;
+          const name = String((p as { name?: unknown }).name ?? '');
+          return name === 'ruflo-core' || name === 'ruflo-core@ruflo' || name.startsWith('ruflo-core@');
+        })) {
+          // Installed already — still surface the trust reminder (idempotent).
+          return { installed: true, activationMessage: ACTIVATION };
+        }
+      } catch {
+        try {
+          const list = execSync('codex plugin list 2>&1', { encoding: 'utf-8' });
+          if (list.includes('ruflo-core')) {
+            return { installed: true, activationMessage: ACTIVATION };
+          }
+        } catch {
+          // Ignore — fall through to install.
+        }
+      }
+
+      // Add the marketplace (idempotent — codex no-ops if already added; any
+      // error here is non-fatal, the plugin-add below reports the real failure).
+      try {
+        execSync('codex plugin marketplace add ruvnet/ruflo --ref main', { stdio: 'pipe', timeout: 20000 });
+      } catch {
+        // Marketplace may already exist, or the CLI may not support this exact
+        // verb — let the plugin-add attempt surface the actionable error.
+      }
+
+      // Install the plugin at user scope.
+      try {
+        execSync('codex plugin add ruflo-core@ruflo', { stdio: 'pipe', timeout: 20000 });
+        return { installed: true, activationMessage: ACTIVATION };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { installed: false, warning: `Failed to install ruflo-core@ruflo plugin: ${msg}. ${MANUAL}` };
+      }
+    } catch {
+      return { installed: false, warning: `Could not install Ruflo plugin. ${MANUAL}` };
     }
   }
 
@@ -431,18 +596,9 @@ web_search = "live"
     await fs.ensureDir(skillDir);
 
     // Check if it's a built-in skill
-    const builtInSkills: BuiltInSkill[] = [
-      'swarm-orchestration',
-      'memory-management',
-      'sparc-methodology',
-      'security-audit',
-      'performance-analysis',
-      'github-automation',
-    ];
-
     let skillMd: string;
 
-    if (builtInSkills.includes(skillName as BuiltInSkill)) {
+    if (BUILT_IN_SKILL_NAMES.includes(skillName as BuiltInSkill)) {
       const result = await generateBuiltInSkill(skillName);
       skillMd = result.skillMd;
 
@@ -451,15 +607,19 @@ web_search = "live"
         const scriptsDir = path.join(skillDir, 'scripts');
         await fs.ensureDir(scriptsDir);
         for (const [scriptName, scriptContent] of Object.entries(result.scripts)) {
-          await fs.writeFile(path.join(scriptsDir, scriptName), scriptContent, 'utf-8');
+          const scriptPath = path.join(scriptsDir, scriptName);
+          await fs.ensureDir(path.dirname(scriptPath));
+          await fs.writeFile(scriptPath, scriptContent, 'utf-8');
         }
       }
 
       if (Object.keys(result.references).length > 0) {
-        const refsDir = path.join(skillDir, 'docs');
+        const refsDir = path.join(skillDir, 'references');
         await fs.ensureDir(refsDir);
         for (const [refName, refContent] of Object.entries(result.references)) {
-          await fs.writeFile(path.join(refsDir, refName), refContent, 'utf-8');
+          const referencePath = path.join(refsDir, refName);
+          await fs.ensureDir(path.dirname(referencePath));
+          await fs.writeFile(referencePath, refContent, 'utf-8');
         }
       }
     } else {
@@ -488,14 +648,18 @@ web_search = "live"
       content = await fs.readFile(gitignorePath, 'utf-8');
     }
 
-    // Check if Codex entries already exist
-    if (content.includes('.codex/')) {
-      return false; // Already has entries
-    }
+    const existingLines = new Set(content.split(/\r?\n/));
+    const missing = GITIGNORE_ENTRIES.filter(
+      (entry) => entry.length > 0 && !existingLines.has(entry),
+    );
+    if (missing.length === 0) return false;
 
-    // Add entries with proper spacing
-    const separator = content.length > 0 && !content.endsWith('\n') ? '\n\n' : '\n';
-    const newContent = content + separator + GITIGNORE_ENTRIES.join('\n') + '\n';
+    // Add only missing entries so a preceding Claude-native init does not
+    // duplicate shared .env and runtime rules.
+    const separator = content.length === 0
+      ? ''
+      : content.endsWith('\n') ? '\n' : '\n\n';
+    const newContent = content + separator + missing.join('\n') + '\n';
     await fs.writeFile(gitignorePath, newContent, 'utf-8');
     return true;
   }
@@ -578,6 +742,9 @@ Skills are invoked using \`$skill-name\` syntax. Each skill has:
 ## Instructions
 
 **Primary instructions are in \`AGENTS.md\`** (Agentic AI Foundation standard).
+Read and follow that file before starting work; it contains the live
+\`guidance_brain\` routing workflow, concurrency ownership rules, and authority
+boundaries.
 
 This file provides compatibility for Claude Code users.
 
@@ -613,8 +780,9 @@ ${this.skills.map(s => `- \`$${s}\` (Codex) / \`/${s}\` (Claude Code)`).join('\n
 ## MCP Integration
 
 \`\`\`bash
-# Start MCP server
-npx ruflo mcp start
+# Start Ruflo's MCP server over stdio (dedicated entry point — the
+# management \`ruflo mcp start\` CLI does NOT answer JSON-RPC on stdio).
+npx -y ruflo@latest mcp start
 \`\`\`
 
 ## Swarm Orchestration

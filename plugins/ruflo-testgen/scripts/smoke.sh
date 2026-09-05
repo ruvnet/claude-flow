@@ -7,9 +7,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.2.0 with new keywords"
+step "1. plugin.json declares 0.2.1 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.2.0" ]]; then bad "expected 0.2.0, got '$v'"; else
+if [[ "$v" != "0.2.1" ]]; then bad "expected 0.2.1, got '$v'"; else
   miss=""
   for k in mcp tdd-london-school coverage-routing; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
@@ -17,9 +17,9 @@ if [[ "$v" != "0.2.0" ]]; then bad "expected 0.2.0, got '$v'"; else
   [[ -z "$miss" ]] && ok || bad "missing keywords:$miss"
 fi
 
-step "2. both skills + agent + command present with valid frontmatter"
+step "2. all skills + agent + command present with valid frontmatter"
 miss=""
-for s in tdd-workflow test-gaps; do
+for s in tdd-workflow test-gaps tdd-repair; do
   f="$ROOT/skills/$s/SKILL.md"
   [[ -f "$f" ]] || { miss="$miss missing-$s"; continue; }
   for k in 'name:' 'description:' 'allowed-tools:'; do
@@ -63,10 +63,10 @@ grep -q "ruflo-sparc" "$F" \
   && grep -qE "Refinement|refinement phase" "$F" \
   && ok || bad "SPARC Refinement-phase cross-reference missing"
 
-step "9. ADR-0001 exists with status Proposed"
+step "9. ADR-0001 exists with status Accepted"
 ADR="$ROOT/docs/adrs/0001-testgen-contract.md"
-[[ -f "$ADR" ]] && grep -qE "^status:[[:space:]]*Proposed" "$ADR" \
-  && ok || bad "ADR missing or status != Proposed"
+[[ -f "$ADR" ]] && grep -qE "^status:[[:space:]]*Accepted" "$ADR" \
+  && ok || bad "ADR missing or status != Accepted"
 
 step "10. no wildcard tool grants in skills"
 bad_skills=""

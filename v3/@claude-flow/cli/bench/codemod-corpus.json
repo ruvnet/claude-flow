@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "description": "Golden corpus for deterministic Tier-1 codemods (ADR-143). Each case: applyCodemod(intent, code) must equal expected exactly.",
+  "cases": [
+    {
+      "id": "v2c-simple",
+      "intent": "var-to-const",
+      "language": "javascript",
+      "code": "var x = 1;\nvar y = 2;",
+      "expected": "const x = 1;\nconst y = 2;"
+    },
+    {
+      "id": "v2c-reassigned",
+      "intent": "var-to-const",
+      "language": "javascript",
+      "code": "var x = 1;\nx = 2;",
+      "expected": "let x = 1;\nx = 2;"
+    },
+    {
+      "id": "v2c-for-loop",
+      "intent": "var-to-const",
+      "language": "javascript",
+      "code": "for (var i = 0; i < 3; i++) {\n  f(i);\n}",
+      "expected": "for (let i = 0; i < 3; i++) {\n  f(i);\n}"
+    },
+    {
+      "id": "v2c-destructure",
+      "intent": "var-to-const",
+      "language": "javascript",
+      "code": "var { a, b } = obj;",
+      "expected": "const { a, b } = obj;"
+    },
+    {
+      "id": "v2c-scope-aware",
+      "intent": "var-to-const",
+      "language": "javascript",
+      "code": "function a() {\n  var x = 1;\n  return x;\n}\nfunction b() {\n  var x = 1;\n  x = 2;\n  return x;\n}",
+      "expected": "function a() {\n  const x = 1;\n  return x;\n}\nfunction b() {\n  let x = 1;\n  x = 2;\n  return x;\n}"
+    },
+    {
+      "id": "v2c-comments-preserved",
+      "intent": "var-to-const",
+      "language": "javascript",
+      "code": "// counter\nvar n = 0; // local",
+      "expected": "// counter\nconst n = 0; // local"
+    },
+    {
+      "id": "rmc-midblock",
+      "intent": "remove-console",
+      "language": "javascript",
+      "code": "const a = 1;\nconsole.log(a);\nconst b = 2;",
+      "expected": "const a = 1;\nconst b = 2;"
+    },
+    {
+      "id": "rmc-multiple",
+      "intent": "remove-console",
+      "language": "javascript",
+      "code": "console.error(\"x\");\nconsole.warn(\"y\");\nfoo();",
+      "expected": "foo();"
+    },
+    {
+      "id": "rmc-indented",
+      "intent": "remove-console",
+      "language": "javascript",
+      "code": "function f() {\n  console.log(\"hi\");\n  return 1;\n}",
+      "expected": "function f() {\n  return 1;\n}"
+    },
+    {
+      "id": "rmc-keep-logger",
+      "intent": "remove-console",
+      "language": "javascript",
+      "code": "logger.log(\"keep\");\nbar();",
+      "expected": "logger.log(\"keep\");\nbar();"
+    },
+    {
+      "id": "log-named-fn",
+      "intent": "add-logging",
+      "language": "javascript",
+      "code": "function greet() {\n  return 1;\n}",
+      "expected": "function greet() {\n  console.log(\"greet called\");\n  return 1;\n}"
+    },
+    {
+      "id": "log-arrow-var",
+      "intent": "add-logging",
+      "language": "javascript",
+      "code": "const add = (a, b) => {\n  return a + b;\n};",
+      "expected": "const add = (a, b) => {\n  console.log(\"add called\");\n  return a + b;\n};"
+    }
+  ]
+}

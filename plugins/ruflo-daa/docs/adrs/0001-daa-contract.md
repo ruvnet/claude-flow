@@ -11,7 +11,7 @@ tags: [plugin, daa, cognitive, adaptive, knowledge-sharing, namespace, smoke-tes
 
 ## Context
 
-`ruflo-daa` (v0.1.0) wraps 8 `daa_*` MCP tools at `v3/@claude-flow/cli/src/mcp-tools/daa-tools.ts:90, 161, 223, 271, 322, 388, 444, 512`:
+`ruflo-daa` (v0.2.0) wraps 8 `daa_*` MCP tools at `v3/@claude-flow/cli/src/mcp-tools/daa-tools.ts:90, 161, 223, 271, 322, 388, 444, 512`:
 
 | Tool | Purpose |
 |------|---------|

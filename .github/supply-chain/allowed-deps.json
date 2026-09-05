@@ -1,0 +1,77 @@
+{
+  "$schema": "./allowed-deps.schema.json",
+  "version": 1,
+  "comment": "Top-level dependency allowlist for ruflo. Adding any new top-level (non-transitive) dependency to any package.json under plugins/* or v3/@claude-flow/* MUST be matched by an entry here. CI enforces. Transitive deps are out of scope. Maintained per ADR-123 supply-chain hardening.",
+  "policies": {
+    "rejectInRegistry": [
+      "ruflo-graph-intellligence",
+      "ruflo-graph-intelligance",
+      "sublinear-time-solvor",
+      "sublinear-time-server",
+      "agent-browse",
+      "agent-browsr",
+      "agentic-fl0w",
+      "agentic-flo"
+    ],
+    "comment": "rejectInRegistry blocks installation of these known typosquats even if a future maintainer is fooled into adding them"
+  },
+  "packages": {
+    "ruflo-graph-intelligence": {
+      "comment": "ADR-123 plugin",
+      "dependencies": [
+        "sublinear-time-solver",
+        "zod"
+      ],
+      "peerDependencies": [
+        "@claude-flow/cli"
+      ],
+      "devDependencies": [
+        "@types/node",
+        "typescript",
+        "vitest"
+      ]
+    },
+    "@claude-flow/browser": {
+      "comment": "ADR-122 substrate",
+      "dependencies": [
+        "agent-browser",
+        "agentic-flow",
+        "zod"
+      ],
+      "peerDependencies": [
+        "@claude-flow/cli"
+      ],
+      "devDependencies": [
+        "@types/node",
+        "typescript",
+        "vitest"
+      ]
+    }
+  },
+  "actions": {
+    "comment": "ADR-127 Phase 1 — all uses: refs in .claude/agents/github/, .claude/skills/github-*/, and v3/@claude-flow/cli/.claude/commands/github/ must be either SHA-pinned or present in this list. Phase 3 will upgrade @v3 refs to @v4; until then the non-SHA refs are tracked here. ruvnet/swarm-action@v1 is a first-party action requiring SHA-pin in a future phase (ADR-127 Phase 3 note).",
+    "allowed": [
+      "actions/checkout",
+      "actions/setup-node",
+      "pnpm/action-setup",
+      "actions/cache",
+      "actions/upload-artifact",
+      "ruvnet/swarm-action",
+      "aws-actions/configure-aws-credentials"
+    ],
+    "minimumVersion": {
+      "actions/checkout": "v4",
+      "actions/setup-node": "v4"
+    }
+  },
+  "publisherTrust": {
+    "comment": "We rely on npm publisher identity for these critical upstream deps. If a publisher account changes or unpublishes, supply-chain-audit alerts.",
+    "criticalUpstreamPackages": [
+      "sublinear-time-solver",
+      "agent-browser",
+      "agentic-flow",
+      "zod",
+      "@modelcontextprotocol/sdk"
+    ]
+  }
+}

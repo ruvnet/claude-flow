@@ -56,8 +56,8 @@ Remember: The swarm coordinates HOW Claude Code researches, not WHAT it finds.
 ## CLI Usage
 ```bash
 # Start research workflow via CLI
-npx claude-flow workflow research "modern web frameworks"
+npx @claude-flow/cli@latest workflow research "modern web frameworks"
 
 # Export research workflow
-npx claude-flow workflow export research --format json
+npx @claude-flow/cli@latest workflow export research --format json
 ```

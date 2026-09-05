@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "description": "Paired trajectory corpus for measuring raw vs structured-distilled retrieval MRR (#2241 §SOTA, arXiv:2603.13017). Each entry has (id, raw, query). Gold answer for each query is its own id; we run the search across all ids and measure where the gold lands.",
+  "trajectories": [
+    {
+      "id": "t-001",
+      "raw": "I refactored the authentication middleware in src/auth/middleware.ts. Replaced the manual JWT parsing logic with the jwt-verify helper from @claude-flow/security. This removes ~80 lines of duplicated code and centralises the token-validation contract. Touched src/auth/middleware.ts:45-128 and added a regression test at __tests__/auth-middleware.test.ts.",
+      "query": "where did we centralise the JWT verification helper"
+    },
+    {
+      "id": "t-002",
+      "raw": "Fixed a SQL injection vulnerability in migrate.ts. The legacy COUNT(*) FROM ${table} pattern interpolated sqlite_master rows directly. Now wraps the table name through validateSqlIdentifier from src/security/input-validation.ts:262. Added a regression test that the injection-attempt rejects with ValidationError.",
+      "query": "SQL injection fix in migrate"
+    },
+    {
+      "id": "t-003",
+      "raw": "Added the recall@k benchmark harness for HNSW indexing. Located at scripts/benchmark-recall.mjs, the script generates N=2000 random 384-dim vectors, builds a HierarchicalNSW index with M=16/efConstruction=200/efSearch=100, then measures recall@1/@10/@100 against brute-force gold. Production measurement: recall@10 = 0.912 at D=384.",
+      "query": "HNSW recall benchmark harness"
+    },
+    {
+      "id": "t-004",
+      "raw": "Implemented deterministic codemod engine for var-to-const. Uses TypeScript compiler API to walk VariableDeclarationList nodes, applies formatting-preserving text-range edits (no re-printing). Source at src/ruvector/codemods/engine.ts. Tests at __tests__/codemod-engine.test.ts cover scope-aware reassignment analysis and idempotency.",
+      "query": "codemod engine var-to-const"
+    },
+    {
+      "id": "t-005",
+      "raw": "Replaced Math.random() ID generation in agentdb-fast.ts:383 with crypto.randomBytes(8).toString('hex'). The previous PRNG was non-cryptographic and predictable (CWE-338). Affected three call sites total: agentdb-fast.ts:383, GraphDatabaseAdapter.ts:162, GraphDatabaseAdapter.ts:187.",
+      "query": "secure random ID generation in agentdb"
+    },
+    {
+      "id": "t-006",
+      "raw": "Wired signalsProcessed to actually increment. Was a dead counter — defined three times, read once, incremented zero times. Now bridgeStoreEntry calls intel.recordSignalProcessed() with throttled persistence (every 16th signal). Source: src/memory/intelligence.ts and src/memory/memory-bridge.ts. Tests at __tests__/self-learning-2245.test.ts.",
+      "query": "signalsProcessed dead counter fix"
+    },
+    {
+      "id": "t-007",
+      "raw": "Built the parent-death watchdog for ruflo mcp start. Polls process.ppid every 2 seconds; when it transitions to 1 (orphaned by Claude Code exit), runs cleanup and exits cleanly. Source: src/runtime/parent-death-watchdog.ts. Wired into src/commands/mcp.ts. Tests at __tests__/parent-death-watchdog-2234.test.ts.",
+      "query": "parent death watchdog MCP server"
+    },
+    {
+      "id": "t-008",
+      "raw": "Documented the four learning stat sources and how they relate. globalStats is authoritative for trajectory-pipeline counters; sonaCoordinator is in-process and resets; memory-bridge is the broader AgentDB entry count; neural-patterns stores pretrain output. ADR-075 at v3/docs/adr/ADR-075-unified-learning-stats.md introduces getUnifiedLearningStats().",
+      "query": "unified learning stats aggregator"
+    },
+    {
+      "id": "t-009",
+      "raw": "Bumped the Opus alias from claude-opus-4-7 to claude-opus-4-8 in src/mcp-tools/agent-execute-core.ts. Added opus-4.7 alias to keep the prior pin reachable. Also routed executeAgentTask through resolveAnthropicModel() so literal claude-* ids stop silently collapsing to Sonnet 4.6.",
+      "query": "Opus model alias fix"
+    },
+    {
+      "id": "t-010",
+      "raw": "Inlined the agentdb schemas as TypeScript string constants via scripts/inline-schemas.mjs. Reads src/schemas/*.sql at build time and writes src/schemas/inline.ts exporting SCHEMA_SQL and FRONTIER_SCHEMA_SQL. Three call sites switched: AgentDB.loadSchemas, agentdb-cli.initialize, db-unified.initializeMode. Browser and globally-installed CLIs now work.",
+      "query": "agentdb schemas inlined for browser"
+    },
+    {
+      "id": "t-011",
+      "raw": "Added deterministic codemod for remove-console. Walks ExpressionStatement nodes; if the call target's root identifier is `console`, removes the statement. Preserves indentation when the statement owns its line; preserves inline when other code is on the same line. Source: src/ruvector/codemods/engine.ts.",
+      "query": "remove-console codemod"
+    },
+    {
+      "id": "t-012",
+      "raw": "Wrote the codemod golden-corpus benchmark. bench/codemod-corpus.json holds 12 paired (input, expected) cases. scripts/benchmark-codemods.mjs runs applyCodemod, asserts output matches expected, measures latency. Latest run: 12/12 correct, avg 0.55 ms per edit, p99 3.1 ms.",
+      "query": "codemod golden corpus benchmark"
+    },
+    {
+      "id": "t-013",
+      "raw": "Added scope-aware reassignment analysis for var-to-const. Builds a per-function scope tree, resolves each assignment to its declaring scope, marks a var as `let` only when its OWN binding is reassigned. Source: src/ruvector/codemods/scope-analysis.ts. Soundness: never emits incorrect const — only ever errs toward let.",
+      "query": "scope-aware var-to-const"
+    },
+    {
+      "id": "t-014",
+      "raw": "Fixed the Q-state encoder bug. The 31-bit truncating fold silently discarded features 0-31 (the entire keyword block), collapsing keyword-distinct tasks to one Q-state. Replaced with 32-bit FNV-1a over the full quantized vector. Added encoderVersion=2 in PersistedModel; loadModel resets the Q-table on a v1→v2 mismatch. Source: src/ruvector/q-learning-router.ts.",
+      "query": "Q-learning encoder fix"
+    },
+    {
+      "id": "t-015",
+      "raw": "Implemented batch+glob mode for hooks_codemod. Now takes file, files[], or glob pattern; applies the intent atomically across all matches. Uses Node 22 fs.globSync (typed locally because @types/node here predates it). Path validation prevents traversal; results capped at 2000 files. Source: src/mcp-tools/hooks-tools.ts.",
+      "query": "hooks_codemod batch glob"
+    },
+    {
+      "id": "t-016",
+      "raw": "Replaced the agent-booster Tier-1 stub with deterministic codemods. The router previously emitted [AGENT_BOOSTER_AVAILABLE] for transforms it never executed. ADR-143 documents the replacement: route-time dry-run gates Tier-1 emission, codemod engine performs the transform, all measurable. Source: src/ruvector/enhanced-model-router.ts.",
+      "query": "Agent Booster replacement deterministic codemods"
+    },
+    {
+      "id": "t-017",
+      "raw": "Tier-1 routing now uses a route-time dry-run. enhanced-model-router.ts compiles the candidate codemod, applies it to a synthetic source, and only emits [CODEMOD_AVAILABLE] when output != input. Eliminates the silent-no-op case from the previous regex-only intent gate.",
+      "query": "route-time dry-run codemod"
+    },
+    {
+      "id": "t-018",
+      "raw": "Closed the MCP server orphan leak. ruflo mcp start now installs a parent-death watchdog that exits cleanly when ppid becomes 1 (orphaned by Claude Code restart). Was leaking ~1GB across a week of restarts (#2234). Wiring point: src/commands/mcp.ts. Watchdog implementation at src/runtime/parent-death-watchdog.ts.",
+      "query": "MCP orphan leak fix"
+    },
+    {
+      "id": "t-019",
+      "raw": "Fixed system_status.uptime to read from process.uptime() instead of a persisted file timestamp. Was reporting ~8.8 days on a freshly-spawned server because metrics.startTime was the file creation time, not the live process start. Source: src/mcp-tools/system-tools.ts:115. Tests at __tests__/system-uptime-2235.test.ts.",
+      "query": "system_status uptime fix"
+    },
+    {
+      "id": "t-020",
+      "raw": "Added the recall@k harness as a CI guard. tests/recall-benchmark-harness.test.ts asserts recall@10 >= 0.90 on the deterministic seeded corpus. If a future quantization or indexing change regresses recall, CI breaks. Run: npx vitest run tests/recall-benchmark-harness.test.ts.",
+      "query": "recall benchmark CI guard"
+    },
+    {
+      "id": "t-021",
+      "raw": "Hooked the OWASP ASI06 content sanitizer into task-completed. Before training, the user-supplied content is run through replace(/[\\x00-\\x08\\x0B-\\x1F\\x7F]/g, '') to strip control chars and slice(0, 4096) to cap length. Prevents memory/context-poisoning via crafted control sequences. Source: src/mcp-tools/hooks-tools.ts.",
+      "query": "ASI06 content sanitization SONA"
+    },
+    {
+      "id": "t-022",
+      "raw": "Wired hooks_task-completed {trainPatterns:true} to actually feed the trajectory pipeline. Synthesises a one-step trajectory from {taskId, success, quality, content} and calls recordTrajectory(). Returns learningPath: 'trajectory-pipeline' | 'recorded-only' so callers know which path ran. Source: src/mcp-tools/hooks-tools.ts.",
+      "query": "task-completed trajectory pipeline wiring"
+    },
+    {
+      "id": "t-023",
+      "raw": "Added storeNeuralPatterns() exported from neural-tools.ts. Iterates over input items, generates embeddings (real ONNX if available, hash-fallback otherwise), writes each as a row into .claude-flow/neural/patterns.json so neural_patterns list reflects them. Used by hooks_pretrain.",
+      "query": "neural patterns store helper"
+    },
+    {
+      "id": "t-024",
+      "raw": "Wrote ADR-074 covering the #2245 self-learning wiring round. Documents the three broken paths (task-completed stub, signalsProcessed dead, pretrain hollow), the wiring decisions, and the honest multi-path output design. Path at v3/docs/adr/ADR-074-self-learning-wiring-2245.md.",
+      "query": "ADR-074 self-learning wiring"
+    },
+    {
+      "id": "t-025",
+      "raw": "Added the unified learning-stats aggregator. getUnifiedLearningStats() returns all 4 sub-views (global / sona / memoryBridge / neuralPatterns) with each sub-view naming its source. A consistency block flags cross-store drift. New MCP tool: hooks_intelligence_unified-stats. ADR-075 at v3/docs/adr/ADR-075-unified-learning-stats.md.",
+      "query": "unified learning stats four sub-views"
+    },
+    {
+      "id": "t-026",
+      "raw": "Round B wired post-edit and post-command to feed the trajectory pipeline. Each handler now synthesises a one-step trajectory from {filePath/command, success}, calls recordTrajectory(), and reports trajectoriesDelta in the response. Source: src/mcp-tools/hooks-tools.ts.",
+      "query": "post-edit post-command trajectory wiring round B"
+    },
+    {
+      "id": "t-027",
+      "raw": "Added MCP causal_traverse tool. Walks the causal graph between two memories up to max_depth hops via CausalMemoryGraph.getCausalChain(). Returns the chain with confidence and uplift per edge. Closes ADR-073 §B.3 — multi-hop explainability surface.",
+      "query": "causal traverse MCP multi-hop"
+    },
+    {
+      "id": "t-028",
+      "raw": "Added agentdb_delete_batch MCP tool — atomic IN-clause DELETE with id whitelist validation and table whitelist (episodes | reasoning_patterns). Faster + safer than looping agentdb_delete. Each id validated as positive integer before being parameterised.",
+      "query": "batch delete MCP atomic"
+    },
+    {
+      "id": "t-029",
+      "raw": "Added consolidate_now MCP tool. Wraps NightlyLearner.run() for on-demand consolidation: discovers new causal edges, prunes low-confidence edges, promotes high-reward episodes to skills. Returns a summary report instead of waiting for the scheduled pass.",
+      "query": "on-demand consolidation NightlyLearner"
+    },
+    {
+      "id": "t-030",
+      "raw": "Closed the Tier-1 mislabel: enhanced-model-router.ts and CLI hooks both replaced [AGENT_BOOSTER_AVAILABLE] with [CODEMOD_AVAILABLE]. The recommendation now points at the real hooks_codemod tool, not a phantom agent_booster_edit_file that never existed.",
+      "query": "Tier-1 codemod recommendation literal"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "runAt": "2026-05-30T20:43:23.463Z",
+  "benchmark": "beir-scifact-bge",
+  "dataset": "scifact",
+  "model": "Xenova/bge-base-en-v1.5",
+  "queries": 300,
+  "corpusSize": 5183,
+  "metrics": {
+    "ndcg10": 0.6255647791860727,
+    "mrr10": 0.5931878306878305,
+    "recall10": 0.7412222222222221,
+    "recall100": 0.8283333333333334,
+    "avgQueryLatencyMs": 410.13004235999966
+  },
+  "baselines": {
+    "BM25 (Lucene)": 0.679,
+    "DocT5query": 0.675,
+    "TAS-B": 0.643,
+    "GenQ": 0.644,
+    "ColBERT": 0.671,
+    "Contriever": 0.677,
+    "GTR-XL": 0.662,
+    "SPLADE++": 0.704,
+    "BGE-large-v1.5 (pub)": 0.722,
+    "SBERT msmarco": 0.555
+  },
+  "ourRank": 10,
+  "leaderboardLength": 11
+}

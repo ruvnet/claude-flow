@@ -1,0 +1,120 @@
+{
+  "summary": {
+    "runAt": "2026-05-29T21:27:54.272Z",
+    "benchmark": "codemod-tier1",
+    "corpusVersion": 1,
+    "corpusSize": 12,
+    "winRate": 1,
+    "winRatePct": "100.0%",
+    "successCount": 12,
+    "avgLatencyMs": 0.549,
+    "p50LatencyMs": 0.306,
+    "p99LatencyMs": 2.9676,
+    "maxLatencyMs": 2.9676,
+    "structuralCostUsd": 0,
+    "llmBaseline": "estimated",
+    "estimatedSavingsUsd": {
+      "vsHaiku": 0.0024,
+      "vsSonnet": 0.036,
+      "vsOpus": 0.18
+    }
+  },
+  "results": [
+    {
+      "id": "v2c-simple",
+      "intent": "var-to-const",
+      "correct": true,
+      "changed": true,
+      "edits": 2,
+      "latencyMs": 2.9676
+    },
+    {
+      "id": "v2c-reassigned",
+      "intent": "var-to-const",
+      "correct": true,
+      "changed": true,
+      "edits": 1,
+      "latencyMs": 0.475
+    },
+    {
+      "id": "v2c-for-loop",
+      "intent": "var-to-const",
+      "correct": true,
+      "changed": true,
+      "edits": 1,
+      "latencyMs": 0.5999
+    },
+    {
+      "id": "v2c-destructure",
+      "intent": "var-to-const",
+      "correct": true,
+      "changed": true,
+      "edits": 1,
+      "latencyMs": 0.306
+    },
+    {
+      "id": "v2c-scope-aware",
+      "intent": "var-to-const",
+      "correct": true,
+      "changed": true,
+      "edits": 2,
+      "latencyMs": 0.8177
+    },
+    {
+      "id": "v2c-comments-preserved",
+      "intent": "var-to-const",
+      "correct": true,
+      "changed": true,
+      "edits": 1,
+      "latencyMs": 0.2913
+    },
+    {
+      "id": "rmc-midblock",
+      "intent": "remove-console",
+      "correct": true,
+      "changed": true,
+      "edits": 1,
+      "latencyMs": 0.282
+    },
+    {
+      "id": "rmc-multiple",
+      "intent": "remove-console",
+      "correct": true,
+      "changed": true,
+      "edits": 2,
+      "latencyMs": 0.1397
+    },
+    {
+      "id": "rmc-indented",
+      "intent": "remove-console",
+      "correct": true,
+      "changed": true,
+      "edits": 1,
+      "latencyMs": 0.1083
+    },
+    {
+      "id": "rmc-keep-logger",
+      "intent": "remove-console",
+      "correct": true,
+      "changed": false,
+      "edits": 0,
+      "latencyMs": 0.0618
+    },
+    {
+      "id": "log-named-fn",
+      "intent": "add-logging",
+      "correct": true,
+      "changed": true,
+      "edits": 1,
+      "latencyMs": 0.1789
+    },
+    {
+      "id": "log-arrow-var",
+      "intent": "add-logging",
+      "correct": true,
+      "changed": true,
+      "edits": 1,
+      "latencyMs": 0.3603
+    }
+  ]
+}

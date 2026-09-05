@@ -140,7 +140,7 @@ hooks:
     # ═══════════════════════════════════════════════════════════════
     echo "🔒 Running comprehensive security validation..."
 
-    npx claude-flow@v3alpha security scan --depth full --output-format json > /tmp/security-scan.json 2>/dev/null
+    npx claude-flow@v3alpha security scan --depth deep --output-format json > /tmp/security-scan.json 2>/dev/null
     VULNERABILITIES=$(jq -r '.vulnerabilities | length' /tmp/security-scan.json 2>/dev/null || echo "0")
     CRITICAL_COUNT=$(jq -r '.vulnerabilities | map(select(.severity == "critical")) | length' /tmp/security-scan.json 2>/dev/null || echo "0")
     HIGH_COUNT=$(jq -r '.vulnerabilities | map(select(.severity == "high")) | length' /tmp/security-scan.json 2>/dev/null || echo "0")

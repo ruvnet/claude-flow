@@ -5,7 +5,7 @@
  *
  * Auth/config via .env (loaded from CWD or any parent):
  *   FEDERATION_NODE_NAME      - this node's identity (default: hostname)
- *   FEDERATION_BIND_HOST      - bind address (default: 0.0.0.0)
+ *   FEDERATION_BIND_HOST      - bind address (default: 127.0.0.1, ADR-166 Phase 3d)
  *   FEDERATION_BIND_PORT      - bind port (default: 8443)
  *   FEDERATION_TRUST_LEVEL    - default trust tier (default: untrusted)
  */
@@ -129,7 +129,7 @@ function makeContext(): PluginContext {
   return {
     config: {
       nodeName: process.env.FEDERATION_NODE_NAME ?? hostname(),
-      bindHost: process.env.FEDERATION_BIND_HOST ?? '0.0.0.0',
+      bindHost: process.env.FEDERATION_BIND_HOST ?? '127.0.0.1',
       bindPort: Number(process.env.FEDERATION_BIND_PORT ?? 8443),
       defaultTrustLevel: process.env.FEDERATION_TRUST_LEVEL ?? 'untrusted',
     },

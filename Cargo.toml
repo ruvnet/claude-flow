@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = [
+  "v3/crates/ruflo-federation-peer",
+  "v3/crates/ruflo-agntcy",
+]
+exclude = [
+  "v3/plugins/gastown-bridge",
+]
+
+# ruflo is primarily TypeScript; this workspace manifest exists so the
+# repo-scorecard analyzer sees ruflo's Rust components (federation peer
+# binary, gastown-bridge plugin) without traversing deep subdirs.
+#
+# `v3/plugins/gastown-bridge` is deliberately in `exclude`, not `members`:
+# it declares its own nested `[workspace]` (a separate WASM-focused
+# workspace — see its own Cargo.toml) for `wasm/gastown-formula-wasm` and
+# `wasm/ruvector-gnn-wasm`. Cargo refuses to resolve ANY member of this
+# (parent) workspace — old or new — while a listed member path is itself
+# another workspace root ("multiple workspace roots found in the same
+# workspace"). `exclude` keeps the directory out of Cargo's member-set
+# resolution (so `cargo check`/`cargo test` on every other crate here
+# works) while still leaving it in the repo tree at the same path for the
+# scorecard analyzer to find.

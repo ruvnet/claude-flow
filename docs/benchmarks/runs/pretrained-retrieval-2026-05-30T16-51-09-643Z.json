@@ -1,0 +1,373 @@
+{
+  "runAt": "2026-05-30T16:51:09.643Z",
+  "benchmark": "pretrained-retrieval",
+  "storeSize": 15,
+  "queries": 10,
+  "matchedQueries": 10,
+  "matchRate": 1,
+  "avgQueryLatencyMs": 2.08,
+  "totalQueryMs": 20.78,
+  "results": [
+    {
+      "query": "how was the Opus model alias fixed",
+      "matched": true,
+      "topK": [
+        {
+          "id": "pattern-1780158992309-8-px2n",
+          "name": "chore(release): bump 3.10.10 → 3.10.11 (4-issue bug cluster)",
+          "type": "history-commit",
+          "score": 0.11877348981913242
+        },
+        {
+          "id": "pattern-1780158992308-4-a45i",
+          "name": "feat(intelligence): self-learning wiring + honest multi-path output (ADR-074, #2245)",
+          "type": "history-commit",
+          "score": 0.09638388002926226
+        },
+        {
+          "id": "pattern-1780158992307-2-7bpa",
+          "name": "Merge fix/self-learning-2245: ADR-074 self-learning wiring (closes #2245)",
+          "type": "history-commit",
+          "score": 0.06989229137998311
+        },
+        {
+          "id": "pattern-1780158992306-1-jwma",
+          "name": "feat(intelligence): unified learning-stats aggregator (ADR-075, #2245 follow-up)",
+          "type": "history-commit",
+          "score": 0.026488049174911946
+        },
+        {
+          "id": "pattern-1780158992312-c-24xx",
+          "name": "[verification] HIGH: verify.mjs cannot load @noble/ed25519 — witness check skipped on all three plat",
+          "type": "history-issue",
+          "score": 0.02560485034783461
+        }
+      ]
+    },
+    {
+      "query": "self-learning wiring task-completed pretrain",
+      "matched": true,
+      "topK": [
+        {
+          "id": "pattern-1780158992307-3-p1z2",
+          "name": "chore(release): bump 3.10.13 → 3.10.14 (ADR-074 self-learning wiring)",
+          "type": "history-commit",
+          "score": 0.09545006956277129
+        },
+        {
+          "id": "pattern-1780158992306-0-r7vp",
+          "name": "feat(intelligence): Round B (post-edit/-command + trajectory-end → globalStats) + Round C structured",
+          "type": "history-commit",
+          "score": 0.08319271966988125
+        },
+        {
+          "id": "pattern-1780158992310-a-1p27",
+          "name": "Self-learning reports success but persists nothing (3.10.6): signalsProcessed dead, task-completed s",
+          "type": "history-issue",
+          "score": 0.04246140228195686
+        },
+        {
+          "id": "pattern-1780158992316-e-0arj",
+          "name": "SHABHNAM JAYAV 8÷58/🔄 Rollback Incident: [Brief Description] not work",
+          "type": "history-issue",
+          "score": 0.03946003342228745
+        },
+        {
+          "id": "pattern-1780158992306-1-jwma",
+          "name": "feat(intelligence): unified learning-stats aggregator (ADR-075, #2245 follow-up)",
+          "type": "history-commit",
+          "score": 0.03342775150291508
+        }
+      ]
+    },
+    {
+      "query": "deterministic codemod engine var-to-const",
+      "matched": true,
+      "topK": [
+        {
+          "id": "pattern-1780158992316-e-0arj",
+          "name": "SHABHNAM JAYAV 8÷58/🔄 Rollback Incident: [Brief Description] not work",
+          "type": "history-issue",
+          "score": 0.09003400935678209
+        },
+        {
+          "id": "pattern-1780158992316-d-d89c",
+          "name": "[Dream Cycle 2026-05-30] performance: MV-HNSW 14× gap + LAMaS 38-46% latency + security,hive-mind sc",
+          "type": "history-issue",
+          "score": 0.08668336218498832
+        },
+        {
+          "id": "pattern-1780158992309-7-mbqt",
+          "name": "chore(release): bump 3.10.11 → 3.10.12 + agentdb@3.0.0-alpha.15 (closes #2235 A)",
+          "type": "history-commit",
+          "score": 0.07525242620328712
+        },
+        {
+          "id": "pattern-1780158992306-1-jwma",
+          "name": "feat(intelligence): unified learning-stats aggregator (ADR-075, #2245 follow-up)",
+          "type": "history-commit",
+          "score": 0.047778492927650885
+        },
+        {
+          "id": "pattern-1780158992307-2-7bpa",
+          "name": "Merge fix/self-learning-2245: ADR-074 self-learning wiring (closes #2245)",
+          "type": "history-commit",
+          "score": 0.030417517124599287
+        }
+      ]
+    },
+    {
+      "query": "MCP server orphan leak parent-death",
+      "matched": true,
+      "topK": [
+        {
+          "id": "pattern-1780158992308-6-4r0m",
+          "name": "chore: remove conflicting root overrides.agentdb (kept in ruflo wrapper)",
+          "type": "history-commit",
+          "score": 0.10135302749253655
+        },
+        {
+          "id": "pattern-1780158992308-4-a45i",
+          "name": "feat(intelligence): self-learning wiring + honest multi-path output (ADR-074, #2245)",
+          "type": "history-commit",
+          "score": 0.06527851854393246
+        },
+        {
+          "id": "pattern-1780158992306-1-jwma",
+          "name": "feat(intelligence): unified learning-stats aggregator (ADR-075, #2245 follow-up)",
+          "type": "history-commit",
+          "score": 0.04326542262549045
+        },
+        {
+          "id": "pattern-1780158992309-8-px2n",
+          "name": "chore(release): bump 3.10.10 → 3.10.11 (4-issue bug cluster)",
+          "type": "history-commit",
+          "score": 0.017234812587240394
+        },
+        {
+          "id": "pattern-1780158992310-a-1p27",
+          "name": "Self-learning reports success but persists nothing (3.10.6): signalsProcessed dead, task-completed s",
+          "type": "history-issue",
+          "score": 0.01243783861901708
+        }
+      ]
+    },
+    {
+      "query": "unified learning stats aggregator",
+      "matched": true,
+      "topK": [
+        {
+          "id": "pattern-1780158992316-d-d89c",
+          "name": "[Dream Cycle 2026-05-30] performance: MV-HNSW 14× gap + LAMaS 38-46% latency + security,hive-mind sc",
+          "type": "history-issue",
+          "score": 0.05601600756509163
+        },
+        {
+          "id": "pattern-1780158992309-7-mbqt",
+          "name": "chore(release): bump 3.10.11 → 3.10.12 + agentdb@3.0.0-alpha.15 (closes #2235 A)",
+          "type": "history-commit",
+          "score": 0.047020276207395684
+        },
+        {
+          "id": "pattern-1780158992306-0-r7vp",
+          "name": "feat(intelligence): Round B (post-edit/-command + trajectory-end → globalStats) + Round C structured",
+          "type": "history-commit",
+          "score": 0.04315304894831175
+        },
+        {
+          "id": "pattern-1780158992310-a-1p27",
+          "name": "Self-learning reports success but persists nothing (3.10.6): signalsProcessed dead, task-completed s",
+          "type": "history-issue",
+          "score": 0.034424472724151355
+        },
+        {
+          "id": "pattern-1780158992316-e-0arj",
+          "name": "SHABHNAM JAYAV 8÷58/🔄 Rollback Incident: [Brief Description] not work",
+          "type": "history-issue",
+          "score": 0.01893308049996749
+        }
+      ]
+    },
+    {
+      "query": "structured distillation 4-field schema",
+      "matched": true,
+      "topK": [
+        {
+          "id": "pattern-1780158992316-d-d89c",
+          "name": "[Dream Cycle 2026-05-30] performance: MV-HNSW 14× gap + LAMaS 38-46% latency + security,hive-mind sc",
+          "type": "history-issue",
+          "score": 0.06650317230550058
+        },
+        {
+          "id": "pattern-1780158992309-7-mbqt",
+          "name": "chore(release): bump 3.10.11 → 3.10.12 + agentdb@3.0.0-alpha.15 (closes #2235 A)",
+          "type": "history-commit",
+          "score": 0.06351508551247664
+        },
+        {
+          "id": "pattern-1780158992312-c-24xx",
+          "name": "[verification] HIGH: verify.mjs cannot load @noble/ed25519 — witness check skipped on all three plat",
+          "type": "history-issue",
+          "score": 0.044501461622084626
+        },
+        {
+          "id": "pattern-1780158992309-9-awc4",
+          "name": "fix(intelligence): 4-issue bug cluster — Opus 4.8 + uptime + MCP orphan + Q-encoder",
+          "type": "history-commit",
+          "score": 0.038837711957490785
+        },
+        {
+          "id": "pattern-1780158992308-6-4r0m",
+          "name": "chore: remove conflicting root overrides.agentdb (kept in ruflo wrapper)",
+          "type": "history-commit",
+          "score": 0.03752116635315068
+        }
+      ]
+    },
+    {
+      "query": "SQL injection migrate.ts table identifier",
+      "matched": true,
+      "topK": [
+        {
+          "id": "pattern-1780158992316-e-0arj",
+          "name": "SHABHNAM JAYAV 8÷58/🔄 Rollback Incident: [Brief Description] not work",
+          "type": "history-issue",
+          "score": 0.09202215587572203
+        },
+        {
+          "id": "pattern-1780158992316-d-d89c",
+          "name": "[Dream Cycle 2026-05-30] performance: MV-HNSW 14× gap + LAMaS 38-46% latency + security,hive-mind sc",
+          "type": "history-issue",
+          "score": 0.08700450515219874
+        },
+        {
+          "id": "pattern-1780158992309-7-mbqt",
+          "name": "chore(release): bump 3.10.11 → 3.10.12 + agentdb@3.0.0-alpha.15 (closes #2235 A)",
+          "type": "history-commit",
+          "score": 0.06601047132918589
+        },
+        {
+          "id": "pattern-1780158992306-0-r7vp",
+          "name": "feat(intelligence): Round B (post-edit/-command + trajectory-end → globalStats) + Round C structured",
+          "type": "history-commit",
+          "score": 0.06299633579831797
+        },
+        {
+          "id": "pattern-1780158992308-4-a45i",
+          "name": "feat(intelligence): self-learning wiring + honest multi-path output (ADR-074, #2245)",
+          "type": "history-commit",
+          "score": 0.06055631685889217
+        }
+      ]
+    },
+    {
+      "query": "recall@k HNSW benchmark harness",
+      "matched": true,
+      "topK": [
+        {
+          "id": "pattern-1780158992316-e-0arj",
+          "name": "SHABHNAM JAYAV 8÷58/🔄 Rollback Incident: [Brief Description] not work",
+          "type": "history-issue",
+          "score": 0.16408597847506598
+        },
+        {
+          "id": "pattern-1780158992316-d-d89c",
+          "name": "[Dream Cycle 2026-05-30] performance: MV-HNSW 14× gap + LAMaS 38-46% latency + security,hive-mind sc",
+          "type": "history-issue",
+          "score": 0.04455002993971059
+        },
+        {
+          "id": "pattern-1780158992307-3-p1z2",
+          "name": "chore(release): bump 3.10.13 → 3.10.14 (ADR-074 self-learning wiring)",
+          "type": "history-commit",
+          "score": 0.034421545675473286
+        },
+        {
+          "id": "pattern-1780158992308-4-a45i",
+          "name": "feat(intelligence): self-learning wiring + honest multi-path output (ADR-074, #2245)",
+          "type": "history-commit",
+          "score": 0.030843120611694513
+        },
+        {
+          "id": "pattern-1780158992306-1-jwma",
+          "name": "feat(intelligence): unified learning-stats aggregator (ADR-075, #2245 follow-up)",
+          "type": "history-commit",
+          "score": 0.020629779471346817
+        }
+      ]
+    },
+    {
+      "query": "Q-learning encoder keyword block",
+      "matched": true,
+      "topK": [
+        {
+          "id": "pattern-1780158992306-1-jwma",
+          "name": "feat(intelligence): unified learning-stats aggregator (ADR-075, #2245 follow-up)",
+          "type": "history-commit",
+          "score": 0.09408856184596699
+        },
+        {
+          "id": "pattern-1780158992312-c-24xx",
+          "name": "[verification] HIGH: verify.mjs cannot load @noble/ed25519 — witness check skipped on all three plat",
+          "type": "history-issue",
+          "score": 0.06882926867976581
+        },
+        {
+          "id": "pattern-1780158992310-a-1p27",
+          "name": "Self-learning reports success but persists nothing (3.10.6): signalsProcessed dead, task-completed s",
+          "type": "history-issue",
+          "score": 0.047176070719885235
+        },
+        {
+          "id": "pattern-1780158992309-9-awc4",
+          "name": "fix(intelligence): 4-issue bug cluster — Opus 4.8 + uptime + MCP orphan + Q-encoder",
+          "type": "history-commit",
+          "score": 0.046511352616632896
+        },
+        {
+          "id": "pattern-1780158992309-8-px2n",
+          "name": "chore(release): bump 3.10.10 → 3.10.11 (4-issue bug cluster)",
+          "type": "history-commit",
+          "score": 0.029870791404767158
+        }
+      ]
+    },
+    {
+      "query": "security hardening crypto random IDs",
+      "matched": true,
+      "topK": [
+        {
+          "id": "pattern-1780158992308-4-a45i",
+          "name": "feat(intelligence): self-learning wiring + honest multi-path output (ADR-074, #2245)",
+          "type": "history-commit",
+          "score": 0.04552836356999761
+        },
+        {
+          "id": "pattern-1780158992310-a-1p27",
+          "name": "Self-learning reports success but persists nothing (3.10.6): signalsProcessed dead, task-completed s",
+          "type": "history-issue",
+          "score": 0.03627100028754322
+        },
+        {
+          "id": "pattern-1780158992308-5-cbi9",
+          "name": "chore(release): bump 3.10.12 → 3.10.13 + agentdb@3.0.0-alpha.16",
+          "type": "history-commit",
+          "score": 0.03253431220092657
+        },
+        {
+          "id": "pattern-1780158992309-7-mbqt",
+          "name": "chore(release): bump 3.10.11 → 3.10.12 + agentdb@3.0.0-alpha.15 (closes #2235 A)",
+          "type": "history-commit",
+          "score": 0.023920782225840324
+        },
+        {
+          "id": "pattern-1780158992306-1-jwma",
+          "name": "feat(intelligence): unified learning-stats aggregator (ADR-075, #2245 follow-up)",
+          "type": "history-commit",
+          "score": -0.004873547559631856
+        }
+      ]
+    }
+  ],
+  "passed": true
+}

@@ -22,7 +22,7 @@ Standard contract gaps: no plugin-level ADR, no smoke test, no Compatibility sec
 1. Add this ADR (Proposed).
 2. README augment: Compatibility (pin v3.6); Namespace coordination (claims `git-patterns`); ADR-compliance integration block (jujutsu's diff analysis is the substrate that `/adr check` runs on); 6-tool MCP surface table; Verification + Architecture Decisions sections.
 3. Bump `0.1.0 → 0.2.0`. Keywords add `mcp`, `change-classification`, `reviewer-recommendation`.
-4. `scripts/smoke.sh` — 10 structural checks: version + keywords; both skills + agent + command with valid frontmatter; all 6 `analyze_*` tools referenced; v3.6 pin; namespace coordination; ADR-compliance cross-reference (ruflo-adr); ADR Proposed; no wildcard tools.
+4. `scripts/smoke.sh` — 10 structural checks: version + keywords; both skills + agent + command with valid frontmatter; all 6 `analyze_*` tools referenced; v3.6 pin; namespace coordination; ADR-compliance cross-reference (ruflo-adr); ADR Accepted; no wildcard tools.
 
 ## Consequences
 

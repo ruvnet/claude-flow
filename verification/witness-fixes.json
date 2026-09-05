@@ -87,9 +87,9 @@
     },
     {
       "id": "ADR-104-transport",
-      "desc": "Federation plugin wires real wire transport via agentic-flow/transport/loader (loadQuicTransport). plugin.ts loads transport in initialize(), binds optional listener on config.port, closes on shutdown. sendToNode now does real ws send to peer endpoint resolved via discovery.getPeer. Validated mac\u2194ruvultra over tailscale (150ms real send).",
+      "desc": "Federation plugin wires wire transport via loadFederationTransport (midstream-aware loader in src/transport/midstream-aware-loader.ts). agentic-flow is an OPTIONAL peer dep \u2014 when its transport/loader subpath is unavailable, the loader falls back to WebSocket via the plugin's bundled midstream-aware path. Verified locally: mac\u2194ruvultra 150ms real send.",
       "file": "v3/@claude-flow/plugin-agent-federation/dist/plugin.js",
-      "marker": "agentic-flow/transport/loader"
+      "marker": "loadFederationTransport"
     },
     {
       "id": "ADR-109-inbound-dispatch",
@@ -201,15 +201,39 @@
     },
     {
       "id": "#1921-shim",
-      "desc": "scripts/ruflo-hook.sh \u2014 resilient invoker shipped in each plugin (.claude-plugin/, plugin/, plugins/ruflo-core/): prefers a local `ruflo`/`claude-flow` binary, else `npx --prefer-offline --yes ruflo@alpha`, always `exit 0`. stdin (hook event JSON) passes through unchanged. Companion to #1921.",
+      "desc": "scripts/ruflo-hook.sh \u2014 resilient invoker shipped in each plugin (.claude-plugin/, plugin/, plugins/ruflo-core/): prefers a local `ruflo`/`claude-flow` binary, else `npx --prefer-offline --yes ruflo@latest`, always `exit 0`. stdin (hook event JSON) passes through unchanged. Companion to #1921.",
       "file": "plugins/ruflo-core/scripts/ruflo-hook.sh",
-      "marker": "npx --prefer-offline --yes ruflo@alpha hooks"
+      "marker": "npx --prefer-offline --yes ruflo@latest hooks"
     },
     {
       "id": "#1927",
       "desc": "ruflo-cost-tracker track.mjs encodeProjectPath now replaces Windows path separators (`\\`) and the drive colon (`:`), not just `/`, so `D:\\project\\Foo` encodes to `D--project-Foo` (matching Claude Code's ~/.claude/projects/<encoded-cwd>/ scheme) instead of being passed through unchanged on Windows. Behavioral CI guard: smoke.sh step 29b runs track.mjs with a Windows-style TRACK_CWD and asserts the 'looked under' path is encoded. (Also fixed smoke.sh step 8 \u2014 ADR-0001 is Accepted, not Proposed.)",
       "file": "plugins/ruflo-cost-tracker/scripts/track.mjs",
       "marker": "#1927: Claude Code encodes"
+    },
+    {
+      "id": "ADR-129-P1",
+      "desc": "ADR-129 Phase 1: JsModelProvider wired at agent creation time so wasm_agent_prompt routes through the v3 provider system (Anthropic/OpenRouter/Ollama) instead of the echo stub. No-op when no provider key is set \u2014 echo fallback is preserved for keyless CI.",
+      "file": "v3/@claude-flow/cli/dist/src/ruvector/agent-wasm.js",
+      "marker": "ADR-129 P1 \u2014 wire JsModelProvider"
+    },
+    {
+      "id": "ADR-129-P2",
+      "desc": "ADR-129 Phase 2: wasm_agent_compose tool + addMcpTools bridge \u2014 RVF containers now carry an explicit MCP-tool allowlist with destructive-tool gate (DESTRUCTIVE_TOOL_PATTERNS). Composed agents declare which of Ruflo's 314 MCP tools they need (principle of least privilege).",
+      "file": "v3/@claude-flow/cli/dist/src/mcp-tools/wasm-agent-tools.js",
+      "marker": "ADR-129 P2 \u2014 Destructive-tool gate"
+    },
+    {
+      "id": "ADR-129-P3",
+      "desc": "ADR-129 Phase 3: 10 gallery CRUD tools (wasm_gallery_load_rvf, wasm_gallery_configure, wasm_gallery_categories, wasm_gallery_list_by_category, wasm_gallery_add_custom, wasm_gallery_remove_custom, wasm_gallery_import, wasm_gallery_export, wasm_gallery_active, wasm_gallery_config) + 6 agent introspection tools. wasm_gallery_import has AIDefence prompt-injection gate.",
+      "file": "v3/@claude-flow/cli/dist/src/mcp-tools/wasm-agent-tools.js",
+      "marker": "ADR-129 P3 \u2014 Gallery CRUD tools"
+    },
+    {
+      "id": "ADR-129-P4",
+      "desc": "ADR-129 Phase 4: includePlugins parameter on wasm_agent_compose auto-wires skills from plugins that declare rvagent.exposeSkillsAsTools in their plugin.json. Missing plugins emit a warning and are skipped (graceful no-op).",
+      "file": "v3/@claude-flow/cli/dist/src/mcp-tools/wasm-agent-tools.js",
+      "marker": "ADR-129 P4: auto-wire plugin skills"
     }
   ]
 }

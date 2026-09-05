@@ -249,13 +249,77 @@ describe('Memory Initializer', () => {
   });
 
   describe('HNSW status', () => {
-    it('should report unavailable when not initialized', async () => {
+    // #2356: `getHNSWStatus()` now separates "loaded in this process"
+    // (`initialized`) from "@ruvector/core capability present" (`available`).
+    // Previously `available` tracked the lazy in-process singleton, so a fresh
+    // `neural status` process always reported "Not loaded" even when the
+    // package was installed — a false negative. After clearing the index the
+    // contract is: not initialized, 0 entries, 384-dim; `available` reflects
+    // whether @ruvector/core is resolvable (env-dependent, so not hard-asserted).
+    it('should report not-initialized after the index is cleared', async () => {
       const { getHNSWStatus, clearHNSWIndex } = await import('../src/memory/memory-initializer.js');
       clearHNSWIndex();
       const status = getHNSWStatus();
-      expect(status.available).toBe(false);
+      expect(status.initialized).toBe(false);
+      expect(status.entryCount).toBe(0);
       expect(status.dimensions).toBe(384);
+      expect(typeof status.available).toBe('boolean');
     });
+  });
+
+  // AUDIT #3: generateEmbedding must expose a truthful `backend` field so an
+  // operator can distinguish real ONNX semantics from the deterministic hash
+  // fallback (inverted/meaningless semantics) even when `model` reports a
+  // real-looking name.
+  describe('generateEmbedding backend field', () => {
+    const prevDisableBridge = process.env.CLAUDE_FLOW_DISABLE_BRIDGE;
+
+    afterEach(() => {
+      vi.resetModules();
+      vi.doUnmock('@huggingface/transformers');
+      vi.doUnmock('@xenova/transformers');
+      vi.doUnmock('ruvector');
+      vi.doUnmock('agentic-flow');
+      vi.doUnmock('agentic-flow/reasoningbank');
+      if (prevDisableBridge === undefined) delete process.env.CLAUDE_FLOW_DISABLE_BRIDGE;
+      else process.env.CLAUDE_FLOW_DISABLE_BRIDGE = prevDisableBridge;
+    });
+
+    it("reports backend='mock' when no real embedding model is available", async () => {
+      // Force the raw fallback path (no AgentDB bridge) and make every real
+      // embedding provider import fail so loadEmbeddingModel lands on the
+      // hash fallback (model = null).
+      process.env.CLAUDE_FLOW_DISABLE_BRIDGE = '1';
+      vi.resetModules();
+      const fail = () => { throw new Error('unavailable in test'); };
+      vi.doMock('@huggingface/transformers', fail);
+      vi.doMock('@xenova/transformers', fail);
+      vi.doMock('ruvector', fail);
+      vi.doMock('agentic-flow', fail);
+      vi.doMock('agentic-flow/reasoningbank', fail);
+
+      const { generateEmbedding } = await import('../src/memory/memory-initializer.js');
+      const result = await generateEmbedding('audit-3 mock-backend assertion');
+
+      expect(result.backend).toBe('mock');
+      expect(result.model).toBe('hash-fallback');
+      expect(Array.isArray(result.embedding)).toBe(true);
+      expect(result.embedding.length).toBe(result.dimensions);
+    });
+
+    it("always sets backend, and 'mock' implies the hash-fallback model", async () => {
+      // Invariant check that holds regardless of which providers are installed:
+      // backend is one of the two known values, and mock <=> hash-fallback.
+      process.env.CLAUDE_FLOW_DISABLE_BRIDGE = '1';
+      vi.resetModules();
+      const { generateEmbedding } = await import('../src/memory/memory-initializer.js');
+      const result = await generateEmbedding('audit-3 backend invariant');
+
+      expect(['onnx', 'mock']).toContain(result.backend);
+      if (result.backend === 'mock') {
+        expect(result.model).toBe('hash-fallback');
+      }
+    }, 60000); // real ONNX model can be slow to cold-load when installed
   });
 });
 

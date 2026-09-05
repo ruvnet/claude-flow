@@ -20,10 +20,12 @@ claude --plugin-dir plugins/ruflo-observability
 
 ## Skills
 
-| Skill | Usage | Description |
-|-------|-------|-------------|
-| `observe-trace` | `/observe-trace <task-id>` | Trace agent execution by collecting spans and building a trace tree |
-| `observe-metrics` | `/observe-metrics [--period 1h]` | Aggregate and display system metrics with anomaly detection |
+Skills are auto-invoked via the Skill tool when their `description` matches the task (progressive disclosure). For an explicit CLI surface use the `/observe` slash command below.
+
+| Skill | Argument hint | Description |
+|-------|---------------|-------------|
+| `observe-trace` | `<task-id>` | Trace agent execution by collecting spans and building a trace tree |
+| `observe-metrics` | `[--period 1h]` | Aggregate and display system metrics with anomaly detection |
 
 ## Commands (5 subcommands)
 

@@ -9,31 +9,136 @@
  */
 
 import { randomUUID } from 'crypto';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-// Suppress the SPECIFIC cosmetic "[AgentDB Patch] Controller index not found"
-// warning from agentic-flow's runtime patch — these are emitted because the
-// patch was written for agentdb v1.x and we use v3, where the controllers
-// dist directory is laid out differently. The warning surfaces on every
-// command and the audit (audit_1776483149979) flagged a too-broad suppression
-// as a security risk because it could hide legitimate [AgentDB Patch] warnings.
+// #2253 / #2256: Console filter installed BEFORE any other import. Two jobs:
 //
-// Tight match: must include both the prefix AND the specific "Controller
-// index not found" text. Anything else (including future [AgentDB Patch]
-// warnings about real issues) flows through unchanged. Also patch
-// console.log because the underlying code uses it (the previous filter
-// only caught console.warn and was therefore a no-op).
+// 1. Suppress the cosmetic "[AgentDB Patch] Controller index not found"
+//    warning from agentic-flow (it expects agentdb v1.x but we use v3).
+//    Tight match — must include BOTH the prefix AND the specific text;
+//    other [AgentDB Patch] messages flow through. Audit log
+//    audit_1776483149979 flagged a broader filter as too aggressive.
+//
+// 2. Redirect noisy stdout writes from upstream embedder libraries
+//    (ruvector ONNX loader, ruvector-onnx-embeddings-wasm parallel
+//    embedder) to stderr. Those libraries use console.log for progress
+//    messages — "Loading model:", "  Downloading: …", "🚀 Initializing N
+//    workers" — which corrupts MCP JSON-RPC stdio (#2253) and is noise
+//    on stdout. stderr is the right channel for progress to a TTY user,
+//    and the MCP stdio framer reads stdout only.
+//
+// This MUST be installed before `import('../dist/src/index.js')` so the
+// patch is in place before agentic-flow / ruvector load transitively.
 const _origWarn = console.warn;
 const _origLog = console.log;
+const _origError = console.error;
+
+// #2726 — Some MCP clients place every advertised schema in every model
+// request. Keep "all" as the backwards-compatible default, but honor the
+// same category/namespace/exact-name selector as `mcp start --tools`.
+function _filterAdvertisedMcpTools(tools) {
+  const argv = process.argv.slice(2);
+  const toolsIndex = argv.findIndex((arg) => arg === '--tools');
+  const inlineTools = argv.find((arg) => arg.startsWith('--tools='));
+  const configured = process.env.CLAUDE_FLOW_MCP_TOOLS
+    || (toolsIndex >= 0 ? argv[toolsIndex + 1] : undefined)
+    || (inlineTools ? inlineTools.slice('--tools='.length) : undefined);
+  if (!configured || configured.trim().toLowerCase() === 'all') return tools;
+  const selectors = new Set(
+    configured.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean),
+  );
+  if (selectors.size === 0) return tools;
+  return tools.filter((tool) => {
+    const name = tool.name.toLowerCase();
+    const category = typeof tool.category === 'string' ? tool.category.toLowerCase() : '';
+    return selectors.has(name)
+      || selectors.has(category)
+      || Array.from(selectors).some((selector) => name.startsWith(`${selector}_`));
+  });
+}
 const _isCosmeticAgentdbPatchNoise = (msg) =>
   msg.includes('[AgentDB Patch]') && msg.includes('Controller index not found');
+const _STDERR_REDIRECT_PREFIXES = [
+  'Loading model: ',
+  '  Downloading: ',
+  '  Cache hit: ',
+  '  Disk cache hit: ',
+  'Model cache cleared',
+  '🚀 Initializing ',
+  '✅ ',
+];
+// agentdb's EmbeddingService.initialize() prints this cluster when
+// `@xenova/transformers` fails to load (commonly: macOS arm64 without
+// `brew install vips` — sharp can't resolve libvips). The warnings claim
+// agentdb is "falling back to mock embeddings", but memory-bridge.ts's
+// rescueAgentdbEmbedder swaps the embedder over to ruvector ONNX in
+// that exact case, so the user is NOT on mocks. The warnings are stale
+// and misleading; drop them. Match anchored to exact upstream prefixes
+// (agentdb/dist/controllers/EmbeddingService.js:48–56) so unrelated
+// warnings always flow through.
+const _AGENTDB_MOCK_FALLBACK_DROP_PREFIXES = [
+  'Transformers.js initialization failed:',
+  '   Falling back to mock embeddings for testing',
+  '   This is normal if:',
+  '     - Running offline/without internet access',
+  '     - Model not yet downloaded',
+  '     - Network connectivity issues',
+  '   To use real embeddings:',
+  '     - Ensure internet connectivity for first',
+  '     - Or pre-download: npx agentdb',
+];
+const _shouldRedirectToStderr = (msg) => {
+  for (const prefix of _STDERR_REDIRECT_PREFIXES) {
+    if (msg.startsWith(prefix)) return true;
+  }
+  return false;
+};
+const _isAgentdbMockFallbackNoise = (msg) => {
+  for (const prefix of _AGENTDB_MOCK_FALLBACK_DROP_PREFIXES) {
+    if (msg.startsWith(prefix)) return true;
+  }
+  return false;
+};
 console.warn = (...args) => {
-  if (_isCosmeticAgentdbPatchNoise(String(args[0] ?? ''))) return;
+  const head = String(args[0] ?? '');
+  if (_isCosmeticAgentdbPatchNoise(head)) return;
+  if (_isAgentdbMockFallbackNoise(head)) return;
   _origWarn.apply(console, args);
 };
 console.log = (...args) => {
-  if (_isCosmeticAgentdbPatchNoise(String(args[0] ?? ''))) return;
+  const head = String(args[0] ?? '');
+  if (_isCosmeticAgentdbPatchNoise(head)) return;
+  if (_shouldRedirectToStderr(head)) {
+    _origError.apply(console, args);
+    return;
+  }
   _origLog.apply(console, args);
 };
+
+// #2256 fast path: --version / -V / --help / -h must NOT trigger heavy
+// imports (agentic-flow, ruvector ONNX, etc.) — those eagerly download a
+// 23 MB ONNX model on cold cache, blocking 60+ s and causing SIGTERM
+// under common timeout windows (npx default, MCP stdio 30 s). Resolve
+// version directly from package.json and exit before any heavy import.
+{
+  const _argv = process.argv.slice(2);
+  if (_argv.length === 1 && (_argv[0] === '--version' || _argv[0] === '-V')) {
+    try {
+      const __dirname = dirname(fileURLToPath(import.meta.url));
+      const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
+      process.stdout.write(`ruflo v${pkg.version || '0.0.0'}\n`);
+    } catch {
+      process.stdout.write('ruflo v0.0.0\n');
+    }
+    process.exit(0);
+  }
+  // --help / -h with no other args also stays lightweight — fall through
+  // to the existing fast help path inside index.ts; we don't short-circuit
+  // here because some users pass `<command> --help` which needs lazy command
+  // loading. The version short-circuit is the only one safe to inline.
+}
 
 // Check if we should run in MCP server mode
 // Conditions:
@@ -156,7 +261,7 @@ if (isMCPMode) {
         };
 
       case 'tools/list': {
-        const tools = listMCPTools();
+        const tools = _filterAdvertisedMcpTools(listMCPTools());
         return {
           jsonrpc: '2.0',
           id: message.id,

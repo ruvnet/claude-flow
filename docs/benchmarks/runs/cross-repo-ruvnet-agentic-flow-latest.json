@@ -1,0 +1,338 @@
+{
+  "runAt": "2026-05-30T19:08:06.604Z",
+  "benchmark": "cross-repo-generalisation",
+  "repo": "ruvnet/agentic-flow",
+  "cwd": "/private/tmp/agentic-flow-bench",
+  "storeSize": 40,
+  "queries": 10,
+  "hybrid": {
+    "top1HitRate": 1,
+    "top3HitRate": 1,
+    "mrr3": 1,
+    "precision3": 0.5666666666666667,
+    "ndcg3": 1,
+    "ndcg5": 0.9815936990526491,
+    "avgLatencyMs": 12.563066699999997
+  },
+  "rerank": {
+    "top1HitRate": 1,
+    "top3HitRate": 1,
+    "mrr3": 1,
+    "precision3": 0.6666666666666667,
+    "ndcg3": 1,
+    "ndcg5": 0.9982892081956688,
+    "avgLatencyMs": 1258.9802209
+  },
+  "perQueryRerank": [
+    {
+      "q": "CWE-78 shell injection fix",
+      "top1": true,
+      "topK": [
+        {
+          "name": "fix(security): patch 7 shell injection sites, resolve 45 CVEs, add transitive overrides (#",
+          "relevant": true,
+          "score": "0.742"
+        },
+        {
+          "name": "fix(security): CWE-78 shell injection, SSRF, hardcoded key, NaN-panic, RUSTSEC advisories ",
+          "relevant": true,
+          "score": "0.500"
+        },
+        {
+          "name": "fix(agentdb): cache prepared statements to plug sql.js leak (#144)",
+          "relevant": false,
+          "score": "0.524"
+        },
+        {
+          "name": "fix(transport): WebSocket fallback so QUIC API actually moves bytes (#153)",
+          "relevant": false,
+          "score": "0.523"
+        },
+        {
+          "name": "Merge pull request #152 from ruvnet/refactor/agentdb-submodule",
+          "relevant": false,
+          "score": "0.500"
+        }
+      ]
+    },
+    {
+      "q": "SSRF hardcoded key NaN panic security",
+      "top1": true,
+      "topK": [
+        {
+          "name": "fix(security): CWE-78 shell injection, SSRF, hardcoded key, NaN-panic, RUSTSEC advisories ",
+          "relevant": true,
+          "score": "0.755"
+        },
+        {
+          "name": "MCP security scan: @sparkleideas/agentic-flow (score 60/100)",
+          "relevant": false,
+          "score": "0.542"
+        },
+        {
+          "name": "fix(agentdb): cache prepared statements to plug sql.js leak (#144)",
+          "relevant": false,
+          "score": "0.500"
+        },
+        {
+          "name": "fix(security): replace shell-injectable execSync with safe-exec in MCP server (#156)",
+          "relevant": false,
+          "score": "0.478"
+        },
+        {
+          "name": "[FEAT] Add Ollama provider to config-wizard whitelist + downstream gaps in agentdb / aidef",
+          "relevant": false,
+          "score": "0.448"
+        }
+      ]
+    },
+    {
+      "q": "WebSocket QUIC transport fallback",
+      "top1": true,
+      "topK": [
+        {
+          "name": "fix(transport): WebSocket fallback so QUIC API actually moves bytes (#153)",
+          "relevant": true,
+          "score": "0.718"
+        },
+        {
+          "name": "fix(security): patch 7 shell injection sites, resolve 45 CVEs, add transitive overrides (#",
+          "relevant": false,
+          "score": "0.500"
+        },
+        {
+          "name": "feat(agentdb): Add comprehensive edge case tests (Task #37)",
+          "relevant": false,
+          "score": "0.457"
+        },
+        {
+          "name": "Bug: EmbeddingService passes bare model name to transformers.js — silently falls back to m",
+          "relevant": false,
+          "score": "0.435"
+        },
+        {
+          "name": "fix(agentdb): add delete API to GraphDatabaseAdapter + ReflexionMemory.deleteEpisode (#150",
+          "relevant": false,
+          "score": "0.404"
+        }
+      ]
+    },
+    {
+      "q": "agentdb submodule bump",
+      "top1": true,
+      "topK": [
+        {
+          "name": "chore: clean up repo root + bump agentdb submodule",
+          "relevant": true,
+          "score": "0.755"
+        },
+        {
+          "name": "chore: bump agentdb submodule — ruflo-style README rewrite (43d1cc3)",
+          "relevant": true,
+          "score": "0.751"
+        },
+        {
+          "name": "chore: bump agentdb submodule (a478ab3) — Claude Code plugin schema fix",
+          "relevant": true,
+          "score": "0.728"
+        },
+        {
+          "name": "chore: merge feature/adr-071-wasm-integration into main + bump versions for release",
+          "relevant": false,
+          "score": "0.731"
+        },
+        {
+          "name": "chore: bump agentdb submodule pin — root organize cleanup",
+          "relevant": true,
+          "score": "0.641"
+        }
+      ]
+    },
+    {
+      "q": "sql.js prepared statement leak",
+      "top1": true,
+      "topK": [
+        {
+          "name": "fix(agentdb): cache prepared statements to plug sql.js leak (#144)",
+          "relevant": true,
+          "score": "0.768"
+        },
+        {
+          "name": "chore(release): agentdb 3.0.0-alpha.13 + agentic-flow 2.0.10",
+          "relevant": false,
+          "score": "0.500"
+        },
+        {
+          "name": "fix: LLMRouter.ts top-level dotenv import crashes standalone installs",
+          "relevant": false,
+          "score": "0.478"
+        },
+        {
+          "name": "fix(transport): WebSocket fallback so QUIC API actually moves bytes (#153)",
+          "relevant": false,
+          "score": "0.474"
+        },
+        {
+          "name": "feat(agentdb): Add comprehensive edge case tests (Task #37)",
+          "relevant": false,
+          "score": "0.459"
+        }
+      ]
+    },
+    {
+      "q": "WASM ADR-071 integration",
+      "top1": true,
+      "topK": [
+        {
+          "name": "chore: regenerated WASM artifacts + agentdb lockfile bump for 3.0.0-alpha.12",
+          "relevant": true,
+          "score": "0.500"
+        },
+        {
+          "name": "chore: merge feature/adr-071-wasm-integration into main + bump versions for release",
+          "relevant": true,
+          "score": "0.446"
+        },
+        {
+          "name": "Merge pull request #148 from ruvnet/release/merge-adr-071-wasm",
+          "relevant": true,
+          "score": "0.418"
+        },
+        {
+          "name": "perf(agentdb): Implement high-impact optimizations - buffer pooling, SIMD, WASM caching",
+          "relevant": true,
+          "score": "0.634"
+        },
+        {
+          "name": "chore(agentdb): Release v3.0.0-alpha.5 (Tasks #44, #45)",
+          "relevant": false,
+          "score": "0.336"
+        }
+      ]
+    },
+    {
+      "q": "patch CVEs transitive overrides",
+      "top1": true,
+      "topK": [
+        {
+          "name": "fix(security): patch 7 shell injection sites, resolve 45 CVEs, add transitive overrides (#",
+          "relevant": true,
+          "score": "0.598"
+        },
+        {
+          "name": "fix(security): CWE-78 shell injection, SSRF, hardcoded key, NaN-panic, RUSTSEC advisories ",
+          "relevant": false,
+          "score": "0.513"
+        },
+        {
+          "name": "fix(agentdb): cache prepared statements to plug sql.js leak (#144)",
+          "relevant": false,
+          "score": "0.500"
+        },
+        {
+          "name": "chore(release): agentdb 3.0.0-alpha.14 + agentic-flow 2.0.11 (npm SEO + plugin marketplace",
+          "relevant": false,
+          "score": "0.500"
+        },
+        {
+          "name": "[FEAT] Add Ollama provider to config-wizard whitelist + downstream gaps in agentdb / aidef",
+          "relevant": false,
+          "score": "0.464"
+        }
+      ]
+    },
+    {
+      "q": "GraphDatabaseAdapter delete API",
+      "top1": true,
+      "topK": [
+        {
+          "name": "fix(agentdb): add delete API to GraphDatabaseAdapter + ReflexionMemory.deleteEpisode (#150",
+          "relevant": true,
+          "score": "0.955"
+        },
+        {
+          "name": "agentdb: GraphDatabaseAdapter has no delete methods — blocks downstream re-indexing (ruflo",
+          "relevant": true,
+          "score": "0.366"
+        },
+        {
+          "name": "chore(release): agentdb 3.0.0-alpha.13 + agentic-flow 2.0.10",
+          "relevant": false,
+          "score": "0.329"
+        },
+        {
+          "name": "perf: ruflo memory store needs batch/pipe mode — CLI startup overhead makes bulk import im",
+          "relevant": false,
+          "score": "0.500"
+        },
+        {
+          "name": "chore: clean up repo root + bump agentdb submodule",
+          "relevant": false,
+          "score": "0.455"
+        }
+      ]
+    },
+    {
+      "q": "release alpha publish version",
+      "top1": true,
+      "topK": [
+        {
+          "name": "chore(release): agentic-flow 2.0.9 — bump agentdb to 3.0.0-alpha.12",
+          "relevant": true,
+          "score": "0.743"
+        },
+        {
+          "name": "chore(agentdb): Bump version to 3.0.0-alpha.11 for ADR-072 Phase 1",
+          "relevant": true,
+          "score": "0.708"
+        },
+        {
+          "name": "chore: merge feature/adr-071-wasm-integration into main + bump versions for release",
+          "relevant": true,
+          "score": "0.497"
+        },
+        {
+          "name": "chore(release): agentdb 3.0.0-alpha.13 + agentic-flow 2.0.10",
+          "relevant": true,
+          "score": "0.485"
+        },
+        {
+          "name": "chore(agentdb): Release v3.0.0-alpha.5 (Tasks #44, #45)",
+          "relevant": true,
+          "score": "0.477"
+        }
+      ]
+    },
+    {
+      "q": "extract packages to dedicated repo",
+      "top1": true,
+      "topK": [
+        {
+          "name": "refactor: extract packages/agentdb to dedicated ruvnet/agentdb repo",
+          "relevant": true,
+          "score": "0.854"
+        },
+        {
+          "name": "Merge pull request #152 from ruvnet/refactor/agentdb-submodule",
+          "relevant": true,
+          "score": "0.642"
+        },
+        {
+          "name": "chore: bump agentdb submodule — ruflo-style README rewrite (43d1cc3)",
+          "relevant": true,
+          "score": "0.500"
+        },
+        {
+          "name": "chore(release): agentic-flow 2.0.9 — bump agentdb to 3.0.0-alpha.12",
+          "relevant": true,
+          "score": "0.489"
+        },
+        {
+          "name": "agentdb: GraphDatabaseAdapter has no delete methods — blocks downstream re-indexing (ruflo",
+          "relevant": true,
+          "score": "0.469"
+        }
+      ]
+    }
+  ]
+}

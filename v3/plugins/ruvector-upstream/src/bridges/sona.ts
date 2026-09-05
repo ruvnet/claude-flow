@@ -112,7 +112,7 @@ export class SonaBridge implements WasmBridge<SonaModule> {
     this._status = 'loading';
 
     try {
-      const wasmModule = await import('@ruvector/sona').catch(() => null);
+      const wasmModule = await import('@ruvector/sona' as string).catch(() => null);
 
       if (wasmModule) {
         this._module = wasmModule as unknown as SonaModule;

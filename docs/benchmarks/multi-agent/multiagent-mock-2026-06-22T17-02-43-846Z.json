@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "ruflo.multiagent.v1",
+  "adr": "ADR-163",
+  "backend": "mock",
+  "seed": 42,
+  "runsPerTask": 100,
+  "startedAt": "2026-06-22T17:02:43.846Z",
+  "finishedAt": "2026-06-22T17:02:43.850Z",
+  "perTask": [
+    {
+      "task": "T1",
+      "title": "Code generation",
+      "type": "single-agent",
+      "runs": 100,
+      "passes": 84,
+      "passRate": 0.84,
+      "avgLatencyMs": 2077,
+      "avgTokens": 1451,
+      "avgCostUsd": 0.0029,
+      "totalCostUsd": 0.2893
+    },
+    {
+      "task": "T2",
+      "title": "Multi-file refactor",
+      "type": "hierarchical",
+      "runs": 100,
+      "passes": 68,
+      "passRate": 0.68,
+      "avgLatencyMs": 18252,
+      "avgTokens": 9850,
+      "avgCostUsd": 0.0291,
+      "totalCostUsd": 2.9114
+    },
+    {
+      "task": "T3",
+      "title": "Research synthesis",
+      "type": "mesh",
+      "runs": 100,
+      "passes": 69,
+      "passRate": 0.69,
+      "avgLatencyMs": 12234,
+      "avgTokens": 7290,
+      "avgCostUsd": 0.0222,
+      "totalCostUsd": 2.2226
+    },
+    {
+      "task": "T4",
+      "title": "Security audit",
+      "type": "specialized",
+      "runs": 100,
+      "passes": 82,
+      "passRate": 0.82,
+      "avgLatencyMs": 8431,
+      "avgTokens": 5190,
+      "avgCostUsd": 0.0157,
+      "totalCostUsd": 1.5701
+    },
+    {
+      "task": "T5",
+      "title": "End-to-end feature",
+      "type": "full-pipeline",
+      "runs": 100,
+      "passes": 58,
+      "passRate": 0.58,
+      "avgLatencyMs": 31954,
+      "avgTokens": 16361,
+      "avgCostUsd": 0.0491,
+      "totalCostUsd": 4.9124
+    }
+  ],
+  "overall": {
+    "totalRuns": 500,
+    "totalPasses": 361,
+    "overallPassRate": 0.722,
+    "totalCostUsd": 11.9058,
+    "avgLatencyMs": 14590
+  },
+  "targets": {
+    "langGraph": {
+      "passRate": 0.62,
+      "costPerTask": 0.08,
+      "source": "Independent 2026 benchmark, Grade B"
+    },
+    "autoGen": {
+      "passRate": 0.58,
+      "costPerTask": 0.1,
+      "source": "Same"
+    },
+    "crewAi": {
+      "passRate": 0.54,
+      "costPerTask": 0.12,
+      "source": "Same"
+    },
+    "rufloTarget": {
+      "passRate": 0.65
+    }
+  },
+  "note": "MOCK backend — synthetic deterministic Bernoulli. No LLM calls. Use --backend ruflo --confirm for publishable numbers."
+}

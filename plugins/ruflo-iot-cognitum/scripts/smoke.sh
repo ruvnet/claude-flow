@@ -7,9 +7,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.2.0 with new keywords"
+step "1. plugin.json declares 0.2.1 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.2.0" ]]; then bad "expected 0.2.0, got '$v'"; else
+if [[ "$v" != "0.2.1" ]]; then bad "expected 0.2.1, got '$v'"; else
   miss=""
   for k in mcp cognitum-seed 5-tier-trust; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
@@ -83,10 +83,10 @@ grep -q "ruflo-federation" "$F" \
   && grep -qE "trust|trust model" "$F" \
   && ok || bad "federation trust-model parallel cross-reference missing"
 
-step "11. ADR-0001 exists with status Proposed"
+step "11. ADR-0001 exists with status Accepted"
 ADR="$ROOT/docs/adrs/0001-iot-cognitum-contract.md"
-[[ -f "$ADR" ]] && grep -qE "^status:[[:space:]]*Proposed" "$ADR" \
-  && ok || bad "ADR missing or status != Proposed"
+[[ -f "$ADR" ]] && grep -qE "^status:[[:space:]]*Accepted" "$ADR" \
+  && ok || bad "ADR missing or status != Accepted"
 
 step "12. REFERENCE.md exists and is non-empty"
 [[ -s "$ROOT/REFERENCE.md" ]] && ok || bad "REFERENCE.md missing or empty"

@@ -1,0 +1,94 @@
+name: ADR-166 MCP Bridge Security Lock
+
+# Anti-regression gate for the ADR-166 remediation. Runs on every PR touching
+# either bridge file, the shared docker-compose, or the security tests. Fails
+# closed if any load-bearing control drifts.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ruflo/src/mcp-bridge/**'
+      - 'ruflo/src/ruvocal/mcp-bridge/**'
+      - 'ruflo/docker-compose.yml'
+      - 'ruflo/docker-compose.public.yml'
+      - 'v3/@claude-flow/plugin-agent-federation/src/bin.ts'
+      - '.github/workflows/adr-166-mcp-bridge-security.yml'
+  pull_request:
+    paths:
+      - 'ruflo/src/mcp-bridge/**'
+      - 'ruflo/src/ruvocal/mcp-bridge/**'
+      - 'ruflo/docker-compose.yml'
+      - 'ruflo/docker-compose.public.yml'
+      - 'v3/@claude-flow/plugin-agent-federation/src/bin.ts'
+      - '.github/workflows/adr-166-mcp-bridge-security.yml'
+  workflow_dispatch:
+
+jobs:
+  static-source-lock:
+    name: Static-source security lock
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: ADR-166 §6 #9 — anti-regression lock (both bridges)
+        run: node ruflo/src/mcp-bridge/test-security-lock.js
+
+  runtime-behavior:
+    name: Runtime behavior — 401 + terminal gate + fail-closed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install both bridges
+        run: |
+          (cd ruflo/src/mcp-bridge && npm install --no-audit --no-fund)
+          (cd ruflo/src/ruvocal/mcp-bridge && npm install --no-audit --no-fund)
+      - name: ADR-166 runtime verification
+        run: node ruflo/src/mcp-bridge/test-runtime-security.mjs
+
+  compose-loopback-only:
+    name: Compose default binds loopback + Mongo has auth
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert docker-compose binds ONLY to 127.0.0.1
+        run: |
+          set -euo pipefail
+          # No line may map a container port to a public host port.
+          # Look for "N.N.N.N:PORT:PORT" or bare "PORT:PORT" patterns under `ports:`.
+          if grep -nE '^\s*-\s+"(?!127\.0\.0\.1|0\.0\.0\.0)?[^"]*3001:3001"' ruflo/docker-compose.yml \
+             | grep -v '127.0.0.1:3001'; then
+            echo "::error::docker-compose.yml exposes 3001 on non-loopback interface"
+            exit 1
+          fi
+          if grep -nE '^\s*-\s+"(?!127\.0\.0\.1|0\.0\.0\.0)?[^"]*27017:27017"' ruflo/docker-compose.yml \
+             | grep -v '127.0.0.1:27017'; then
+            echo "::error::docker-compose.yml exposes 27017 on non-loopback interface"
+            exit 1
+          fi
+          # Mongo must run with --auth AND require MONGO_INITDB_ROOT_PASSWORD to boot.
+          grep -q '"--auth"' ruflo/docker-compose.yml \
+            || { echo "::error::mongodb service missing --auth (Phase 2b)"; exit 1; }
+          grep -q 'MONGO_INITDB_ROOT_PASSWORD:\?' ruflo/docker-compose.yml \
+            || { echo "::error::MONGO_INITDB_ROOT_PASSWORD must be a required variable (:? syntax)"; exit 1; }
+          grep -q 'read_only: true' ruflo/docker-compose.yml \
+            || { echo "::error::bridge service must be read_only: true (Phase 2c)"; exit 1; }
+          echo "compose defaults: OK"
+
+  federation-loopback-default:
+    name: plugin-agent-federation bindHost default
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert bindHost defaults to 127.0.0.1
+        run: |
+          set -euo pipefail
+          grep -q "bindHost: process.env.FEDERATION_BIND_HOST ?? '127.0.0.1'" \
+            v3/@claude-flow/plugin-agent-federation/src/bin.ts \
+            || { echo "::error::plugin-agent-federation bindHost must default to 127.0.0.1 (Phase 3d)"; exit 1; }
+          echo "federation default: OK"

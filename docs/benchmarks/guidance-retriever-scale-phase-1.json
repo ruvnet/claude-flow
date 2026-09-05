@@ -1,0 +1,48 @@
+{
+  "tag": "phase-1",
+  "node": "v22.22.1",
+  "platform": "darwin-arm64",
+  "capturedAt": "2026-05-22T03:20:35.051Z",
+  "results": [
+    {
+      "N": 10,
+      "name": "retriever.retrieve(N=10 shards)",
+      "iters": 632,
+      "trials": 5,
+      "opsPerSec": 64071,
+      "avgMicros": 15.608,
+      "opsMin": 39831,
+      "opsMax": 74778
+    },
+    {
+      "N": 100,
+      "name": "retriever.retrieve(N=100 shards)",
+      "iters": 200,
+      "trials": 5,
+      "opsPerSec": 12392,
+      "avgMicros": 80.697,
+      "opsMin": 11949,
+      "opsMax": 12575
+    },
+    {
+      "N": 500,
+      "name": "retriever.retrieve(N=500 shards)",
+      "iters": 89,
+      "trials": 5,
+      "opsPerSec": 2724,
+      "avgMicros": 367.137,
+      "opsMin": 2617,
+      "opsMax": 2766
+    },
+    {
+      "N": 1000,
+      "name": "retriever.retrieve(N=1000 shards)",
+      "iters": 63,
+      "trials": 5,
+      "opsPerSec": 1425,
+      "avgMicros": 701.997,
+      "opsMin": 1293,
+      "opsMax": 1434
+    }
+  ]
+}

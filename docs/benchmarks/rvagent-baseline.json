@@ -1,0 +1,97 @@
+{
+  "tag": "baseline",
+  "trials": 5,
+  "node": "v22.22.1",
+  "platform": "darwin-arm64",
+  "capturedAt": "2026-05-24T17:53:40.839Z",
+  "adr": "ADR-129",
+  "phases": [
+    "P1-provider-routing",
+    "P2-compose-throughput",
+    "P3-gallery-crud",
+    "P4-plugin-enum"
+  ],
+  "results": [
+    {
+      "name": "P1-echo-stub: createWasmAgent (keyless)",
+      "trials": 5,
+      "reps": 5,
+      "medianMs": 0.031,
+      "minMs": 0.015,
+      "maxMs": 0.063,
+      "variance": 1.558
+    },
+    {
+      "name": "P1-provider-path: createWasmAgent (fake key)",
+      "trials": 5,
+      "reps": 5,
+      "medianMs": 0.025,
+      "minMs": 0.02,
+      "maxMs": 0.036,
+      "variance": 0.657
+    },
+    {
+      "name": "P2-compose: 10 MCP tools",
+      "trials": 5,
+      "reps": 10,
+      "medianMs": 0.083,
+      "minMs": 0.045,
+      "maxMs": 0.176,
+      "variance": 1.579
+    },
+    {
+      "name": "P2-compose: 50 MCP tools",
+      "trials": 5,
+      "reps": 10,
+      "medianMs": 0.146,
+      "minMs": 0.133,
+      "maxMs": 0.249,
+      "variance": 0.797
+    },
+    {
+      "name": "P2-compose: 100 MCP tools",
+      "trials": 5,
+      "reps": 10,
+      "medianMs": 0.215,
+      "minMs": 0.136,
+      "maxMs": 0.229,
+      "variance": 0.434
+    },
+    {
+      "name": "P3-gallery-crud: add→list→import→export→remove",
+      "trials": 5,
+      "reps": 5,
+      "medianMs": 0.094,
+      "minMs": 0.06,
+      "maxMs": 0.212,
+      "variance": 1.618
+    },
+    {
+      "name": "P3-gallery-categories: getCategories",
+      "trials": 5,
+      "reps": 10,
+      "medianMs": 0.009,
+      "minMs": 0.009,
+      "maxMs": 0.018,
+      "variance": 0.987
+    },
+    {
+      "name": "P4-plugin-enum: compose WITHOUT includePlugins",
+      "trials": 5,
+      "reps": 10,
+      "medianMs": 0.018,
+      "minMs": 0.017,
+      "maxMs": 0.053,
+      "variance": 1.933
+    },
+    {
+      "name": "P4-plugin-enum: compose WITH includePlugins (absent plugins)",
+      "trials": 5,
+      "reps": 10,
+      "medianMs": 0.035,
+      "minMs": 0.035,
+      "maxMs": 0.042,
+      "variance": 0.198
+    }
+  ]
+}

@@ -95,7 +95,7 @@ mcp__github__add_issue_comment {
   - Final validation and merge preparation
   
   ---
-  🤖 Generated with Claude Code using ruv-swarm coordination`
+  `
 }
 
 // Store progress in swarm memory
@@ -213,8 +213,9 @@ mcp__github__update_issue {
 Updates will be posted automatically by swarm agents during implementation.
 
 ---
-🤖 Generated with Claude Code
 ```
+
+<!-- last-updated: 2026-05-21 — ADR-127 -->
 
 ### Bug Report Template:
 ```markdown
@@ -251,7 +252,6 @@ Updates will be posted automatically by swarm agents during implementation.
 - **Tester**: Validation and testing
 
 ---
-🤖 Generated with Claude Code
 ```
 
 ## Best Practices

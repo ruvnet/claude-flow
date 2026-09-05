@@ -1,0 +1,13 @@
+{
+  "manifest": {
+    "version": "3.38.20",
+    "files": {
+      "auto-memory-hook.mjs": "85fe05c757421c52137c0bc8545a0896bab6b4714538c2a11d1d0835bfcc8c1c",
+      "hook-handler.cjs": "dae295fb9ae2626b89899c19a20cc911541af82b52d2eeb9b214d618b96e9a86",
+      "intelligence.cjs": "30e42ed7ec4ca5a94ac54fdb1330d2d47ac5f3fdeeef207753574723a9e77b5c",
+      "statusline.cjs": "4a48353b4f1566fa4379b00fd0321b6676a22b6cc91fbbd8380ac5183d619468"
+    }
+  },
+  "signature": "XrmLYCSWusInkReUHieYqHKPPC8/0TKovnPNWAdPvxDEhHezvy+BkkVyk7Y62HClcy7a4+PP2G4mJ1kaPLJ7Bw==",
+  "algorithm": "ed25519"
+}

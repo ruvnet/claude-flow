@@ -1,0 +1,170 @@
+{
+  "meta": {
+    "ts": "2026-06-15T20:18:30.690Z",
+    "node": "v22.22.1",
+    "platform": "darwin-arm64",
+    "args": {
+      "live": true,
+      "models": null,
+      "maxCost": 0.5,
+      "repeat": 1,
+      "maxTokens": 256,
+      "save": true
+    },
+    "corpusSize": 15
+  },
+  "results": [
+    {
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "family": "meta",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 317.70737766666673,
+        "p50": 270.5034579999992,
+        "p95": 734.197583000001
+      },
+      "usdCost": 0.00018779000000000002,
+      "promptTokens": 703,
+      "completionTokens": 241,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "openai/gpt-4o-mini",
+      "family": "openai",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 620.2804639999995,
+        "p50": 602.2898340000011,
+        "p95": 887.8966670000009
+      },
+      "usdCost": 0.00022335,
+      "promptTokens": 565,
+      "completionTokens": 231,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "anthropic/claude-haiku-4.5",
+      "family": "anthropic",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 1072.1184472000007,
+        "p50": 1001.6487500000003,
+        "p95": 1506.5448750000032
+      },
+      "usdCost": 0.002266,
+      "promptTokens": 616,
+      "completionTokens": 330,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "qwen/qwen-2.5-7b-instruct",
+      "family": "qwen",
+      "passRate": 0.9333333333333333,
+      "passes": 14,
+      "total": 15,
+      "latency": {
+        "mean": 2159.9822471333323,
+        "p50": 1362.1940830000021,
+        "p95": 5418.988208000001
+      },
+      "usdCost": 0.00006370000000000002,
+      "promptTokens": 822,
+      "completionTokens": 226,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "google/gemini-2.0-flash-exp:free",
+      "family": "google",
+      "passRate": 0,
+      "passes": 0,
+      "total": 15,
+      "latency": {
+        "mean": 64.18991126666585,
+        "p50": 39.518167000001995,
+        "p95": 142.38216599999578
+      },
+      "usdCost": 0,
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "errorCount": 15,
+      "errorSample": [
+        {
+          "row": "rename-1",
+          "status": 404,
+          "error": "No endpoints found for google/gemini-2.0-flash-exp:free."
+        },
+        {
+          "row": "console-log-1",
+          "status": 404,
+          "error": "No endpoints found for google/gemini-2.0-flash-exp:free."
+        }
+      ]
+    },
+    {
+      "model": "google/gemini-flash-1.5",
+      "family": "google",
+      "passRate": 0,
+      "passes": 0,
+      "total": 15,
+      "latency": {
+        "mean": 65.57621673333345,
+        "p50": 44.391999999999825,
+        "p95": 129.62758300000132
+      },
+      "usdCost": 0,
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "errorCount": 15,
+      "errorSample": [
+        {
+          "row": "rename-1",
+          "status": 404,
+          "error": "No endpoints found for google/gemini-flash-1.5."
+        },
+        {
+          "row": "console-log-1",
+          "status": 404,
+          "error": "No endpoints found for google/gemini-flash-1.5."
+        }
+      ]
+    },
+    {
+      "model": "mistralai/ministral-3b",
+      "family": "mistral",
+      "passRate": 0,
+      "passes": 0,
+      "total": 15,
+      "latency": {
+        "mean": 69.28148053333298,
+        "p50": 49.90770799999882,
+        "p95": 176.719833
+      },
+      "usdCost": 0,
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "errorCount": 15,
+      "errorSample": [
+        {
+          "row": "rename-1",
+          "status": 404,
+          "error": "No endpoints found for mistralai/ministral-3b."
+        },
+        {
+          "row": "console-log-1",
+          "status": 404,
+          "error": "No endpoints found for mistralai/ministral-3b."
+        }
+      ]
+    }
+  ]
+}

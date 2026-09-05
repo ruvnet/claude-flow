@@ -1,0 +1,21 @@
+# Optional public deployment override.
+# Use: docker compose -f docker-compose.yml -f docker-compose.public.yml up -d
+#
+# Required env vars (set in .env or your secrets manager):
+#   MCP_BIND_HOST=0.0.0.0
+#   MCP_AUTH_TOKEN=<base64 token, >=32 bytes; openssl rand -base64 32>
+#
+# Without both, the bridge will exit non-zero at startup.
+services:
+  mcp-bridge:
+    ports:
+      - "${MCP_BIND_HOST:-127.0.0.1}:3001:3001"
+    environment:
+      MCP_BIND_HOST: "${MCP_BIND_HOST}"
+      MCP_AUTH_TOKEN: "${MCP_AUTH_TOKEN}"
+  mongodb:
+    # Public deployment uses stronger Mongo isolation — auth + non-mapped host port.
+    ports: []  # remove the host port mapping; access only over the docker network
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "${MONGO_ROOT_USERNAME}"
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGO_ROOT_PASSWORD}"

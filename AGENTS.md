@@ -26,6 +26,79 @@
 
 ---
 
+## Ruflo Policy-Governed Concurrent Codex Workflow
+
+Ruflo is the coordination ledger and policy decision point. Codex agents are
+the executors. Coordination records do not write code or run tests.
+
+Use `guidance_brain({ mode: "recommend", task: "..." })` to select Ruflo
+capabilities from the live MCP registry. A registered tool is not necessarily
+configured, reachable, healthy, or authorized. If it is unavailable, continue
+with compatible guidance tools, CLI discovery, and repository instructions.
+
+1. Recall relevant AgentDB memory and ADRs.
+2. Inspect source, runtime, dependencies, policy, and health.
+3. Route to the smallest capable topology, agents, skills, and tools.
+4. Plan acceptance criteria, safety envelope, ownership, and validation.
+5. Execute with Codex workers in isolated scopes; Ruflo records coordination.
+6. Test focused, regression, and failure paths.
+7. Validate types, security, policy, compatibility, and artifact integrity.
+8. Benchmark a source-bound candidate against a source-bound baseline.
+9. Optimize only measured bottlenecks without weakening safety.
+10. Bind claims and evidence into exact source/build receipts.
+11. Reconcile handoffs and disclose unresolved limitations.
+12. Publish only through a separately authorized release gate.
+
+Hard invariants:
+
+- Never run two writers in one worktree.
+- Delegation may only reduce tools, servers, namespaces, network, spend,
+  concurrency, expiry, and depth.
+- Policy denial cancels dependent work before side effects.
+- MetaHarness may evaluate candidates concurrently, but only ADR-322A may
+  promote them and MetaHarness may never expand its own SafetyEnvelope.
+- Do not commit, push, merge, release, or remove worktrees unless authorized.
+- Existing installations migrate in `legacy` policy mode; use `observe` before
+  switching to `enforce`.
+
+Repository harness integration:
+
+- If tracked repository instructions define a collaboration harness, start its
+  session only after assigning an isolated worktree.
+- Inspect existing claims, acquire exact paths/resources/ports, renew leases,
+  check acknowledged inbox messages at integration boundaries, and release ownership on
+  handoff or exit.
+- A repository lease coordinates ownership; it does not grant authorization.
+  Protected work still requires the ADR-324/325 action capability and current
+  fencing epoch.
+- In-memory reference adapters demonstrate semantics; they are not distributed,
+  restart-durable release authorities.
+- Heartbeats and lease expiry establish liveness; a PID is diagnostic only.
+- `HEAD` alone is not an exact source-state identity in a dirty worktree.
+  Release evidence must bind a clean commit or an immutable snapshot of tracked
+  and untracked changes.
+
+Useful checks:
+
+```bash
+npx ruflo policy status
+npx ruflo policy verify
+npx ruflo metaharness flywheel status
+```
+
+Repository release contract:
+
+- The stable public train is exactly `@claude-flow/cli`, `claude-flow`, and
+  `ruflo`; internal `@claude-flow/*` components are bundled and are not part of
+  a normal standalone publish.
+- Publish from a clean, reviewed source state in that order.
+- Only the CLI publish receives the helper-signing configuration from
+  `ruv-dev`; use the existing authenticated npm session for publication.
+- Run `node scripts/audit-umbrella-version-lockstep.mjs`, verify all three
+  registry versions, and align `latest`, `alpha`, and `v3alpha`.
+
+---
+
 ## 🚨 CRITICAL: CODEX DOES THE WORK, CLAUDE-FLOW ORCHESTRATES
 
 ```

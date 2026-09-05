@@ -6,17 +6,23 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 const TEST_URL = process.env.TEST_URL || 'http://localhost:3000';
 const SESSION = 'e2e-test';
 
 /**
- * Execute agent-browser command
+ * Execute agent-browser command.
+ *
+ * The `command` argument is split on whitespace into discrete tokens so that
+ * execFileSync can receive an argv array.  This prevents shell injection when
+ * test fixtures contain special characters (CWE-78).
  */
 function browser(command: string): string {
   try {
-    const result = execSync(`agent-browser --session ${SESSION} --json ${command}`, {
+    // Split command into tokens and pass as array — no shell expansion.
+    const argv = ['--session', SESSION, '--json', ...command.trim().split(/\s+/)];
+    const result = execFileSync('agent-browser', argv, {
       encoding: 'utf-8',
       timeout: 30000,
     });

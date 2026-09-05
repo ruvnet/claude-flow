@@ -32,7 +32,7 @@
 import { writeFileSync, appendFileSync, readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { execSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { osDir } from './lib.mjs';
 
@@ -50,14 +50,15 @@ const ASJSON = !!args.json;
 const COMPARE_BASELINE = !!args.baseline;
 const ENABLED = (args.capabilities ?? 'install_pack,install_no_optional,memory_load,memory_round_trip,witness_verify').split(',').map(s => s.trim()).filter(Boolean);
 
-const gitCommit = execSync('git rev-parse HEAD', { cwd: REPO_ROOT }).toString().trim();
+const gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO_ROOT }).toString().trim();
 const issuedAt = new Date().toISOString();
 const os = osDir();
 
 // ─── benchmark runners ─────────────────────────────────────────
 const runners = {
   install_pack: () => bench(() => {
-    execSync('pnpm pack --pack-destination ' + tmpdir(), {
+    // execFileSync with array args prevents shell injection (CWE-78).
+    execFileSync('pnpm', ['pack', '--pack-destination', tmpdir()], {
       cwd: join(REPO_ROOT, 'v3/@claude-flow/memory'),
       stdio: 'pipe',
     });
@@ -65,15 +66,16 @@ const runners = {
 
   install_no_optional: () => {
     const dir = mkdtempSync(join(tmpdir(), 'perf-install-'));
-    const tarball = execSync('pnpm pack --pack-destination ' + dir, {
+    const tarball = execFileSync('pnpm', ['pack', '--pack-destination', dir], {
       cwd: join(REPO_ROOT, 'v3/@claude-flow/memory'),
       stdio: 'pipe',
     }).toString().trim().split('\n').filter(l => l.endsWith('.tgz')).pop();
     if (!tarball) throw new Error('pnpm pack produced no tarball');
-    execSync('npm init -y >/dev/null', { cwd: dir, stdio: 'pipe', shell: true });
-    execSync('npm pkg set type=module', { cwd: dir, stdio: 'pipe' });
+    execFileSync('npm', ['init', '-y'], { cwd: dir, stdio: 'pipe' });
+    execFileSync('npm', ['pkg', 'set', 'type=module'], { cwd: dir, stdio: 'pipe' });
     const ms = bench(() => {
-      execSync(`npm install "${tarball}" --omit=optional --no-audit --no-fund`, { cwd: dir, stdio: 'pipe' });
+      // Pass tarball path as a discrete argument — no shell quoting needed.
+      execFileSync('npm', ['install', tarball, '--omit=optional', '--no-audit', '--no-fund'], { cwd: dir, stdio: 'pipe' });
     });
     rmSync(dir, { recursive: true, force: true });
     return ms;
@@ -113,7 +115,8 @@ const runners = {
     const manifest = join(REPO_ROOT, 'verification', os, 'manifest.md.json');
     if (!existsSync(manifest)) return null;
     return bench(() => {
-      execSync(`node ${join(__dirname, 'verify.mjs')} --manifest ${manifest} --json`, {
+      // Use execFileSync so paths with spaces or special chars are safe (CWE-78).
+      execFileSync(process.execPath, [join(__dirname, 'verify.mjs'), '--manifest', manifest, '--json'], {
         cwd: REPO_ROOT, stdio: 'pipe',
       });
     });

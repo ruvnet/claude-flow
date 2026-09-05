@@ -1,0 +1,22 @@
+{
+  "_comment": "Ed25519 witness for GAIA L1 submission package. Key derived deterministically from 'ruflo-gaia-submission-key-v1' for reproducibility. A production HAL submission should use a persistent off-repo keypair.",
+  "schema_version": "1.0",
+  "package": "gaia-l1-submission-stable-3ef6e175d",
+  "build_date": "2026-05-28",
+  "git_sha": "3ef6e175ddeb867135f00e843247aba2324d3c6d",
+  "model": "claude-sonnet-4-6",
+  "score_n1": "34/53",
+  "file_hashes": {
+    "predictions.json": "f744bab18af7f16910b2b1e518cbcb77d076587a17340688e2b758ed9756ece4",
+    "config.json": "cc3495511641007b30e8bcd014fdb24efb46a213c3893e7531c0bda7e064301f",
+    "metadata.md": "7c4e1ceb3765d0593f16e717bd4085ac0f23a8dec84b4e5beb6e195f98188a57",
+    "reproduction.md": "39319af7ec8471a269176dbac5b4b24b440526e89f8e3583ad658b21eba8aa9d",
+    "variance-analysis.md": "880aadfc1f205818c6600458b17f23ad35df60a1a538b63a30abe42b32065090"
+  },
+  "payload_hash": "567775c50cf645bda91e3c6d500589a5763c4f962feb2f2fdec9b7ef992bfcbb",
+  "signature": "f6aea158083a8a9aca7059f89188b87ae1f7ed8e8071ae4338e3503853823b942a642ef6a728800458dac6810b0c4ecee71cbd3a56d81058f289bf4cab4c3709",
+  "public_key": "57c8bab520484359a9c2129f380e456795f38e9fcf95b9a8bd00d49969392680",
+  "algorithm": "Ed25519",
+  "signed_at": "2026-05-28T14:54:31.032Z",
+  "verification_note": "ed25519.verify(fromHex(signature), fromHex(payload_hash), fromHex(public_key)) must return true"
+}

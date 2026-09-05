@@ -1,5 +1,7 @@
 {
-  "_note": "#1921 — hook commands invoke scripts/ruflo-hook.sh (resilient shim): prefers a locally-installed `ruflo`/`claude-flow` binary, falls back to `npx --prefer-offline`, and always exits 0 so a CLI/install failure (e.g. arborist `Invalid Version` on npm 10.8.x) never surfaces an error in Claude Code or blocks a turn. The trailing `|| true` guards the case where $CLAUDE_PLUGIN_ROOT is unset (older Claude Code) — the hook then no-ops silently. DO NOT revert to a bare `npx <pkg>@alpha hooks …` per fire.",
+  "description": "Hook commands invoke scripts/ruflo-hook.sh (resilient shim): prefers a locally-installed `ruflo`/`claude-flow` binary, falls back to `npx --prefer-offline`, and always exits 0 so a CLI/install failure never surfaces an error in Claude Code or blocks a turn. The trailing `|| true` guards the case where $CLAUDE_PLUGIN_ROOT is unset (older Claude Code) — the hook then no-ops silently. This manifest is intentionally POSIX-only (Mac/Linux): it uses /bin/bash, POSIX pipelines (jq, xargs, tr), and .sh scripts, and is known-broken on native Windows. It is a separately-published legacy \"claude-flow\" plugin package (not in the ruflo marketplace list) with its own jq/xargs-based hook set and its own scripts/ruflo-hook.cjs that this file never references — still needs its own Windows-compatible, Node-based rewrite.",
+  "_platform": "posix",
+  "_legacy_unaudited_shim": true,
   "hooks": {
     "PreToolUse": [
       {

@@ -761,7 +761,7 @@ export const coordinationTools: MCPTool[] = [
         topology: store.topology.type,
         // Honest stub: no executor wired up yet. Don't lie about completion time.
         executor: 'none',
-        _note: 'coordination_orchestrate currently records the orchestration request but does not execute it. For real multi-agent execution use agent_spawn + the Task tool, or hive-mind_spawn for queen-led coordination.',
+        _note: 'coordination_orchestrate currently records the orchestration request but does not execute it. For real multi-agent execution use agent_spawn + the Task tool, or hive-mind_spawn for queen-led coordination. Real executor tracked in issue #2140.',
       };
     },
   },

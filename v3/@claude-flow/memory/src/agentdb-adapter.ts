@@ -8,6 +8,8 @@
  */
 
 import { EventEmitter } from 'node:events';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
   IMemoryBackend,
   MemoryEntry,
@@ -742,7 +744,13 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
   }
 
   /**
-   * Semantic search by content string
+   * Semantic search by content string.
+   *
+   * ADR-125 Phase 5 — degrades gracefully when the embedding generator is
+   * unavailable. Instead of throwing, emits `health:embedder` with
+   * `status: 'degraded'` and falls back to {@link searchKeyword} so the
+   * memory subsystem remains usable when `@claude-flow/embeddings` is
+   * unreachable (per ADR-124's lazy/degrade posture).
    */
   async semanticSearch(
     content: string,
@@ -750,11 +758,60 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
     threshold?: number
   ): Promise<SearchResult[]> {
     if (!this.config.embeddingGenerator) {
-      throw new Error('Embedding generator not configured');
+      this.emit('health:embedder', { status: 'degraded', reason: 'no-generator' });
+      return this.searchKeyword(content, { k, threshold } as SearchOptions);
     }
 
-    const embedding = await this.config.embeddingGenerator(content);
-    return this.search(embedding, { k, threshold });
+    try {
+      const embedding = await this.config.embeddingGenerator(content);
+      return this.search(embedding, { k, threshold });
+    } catch (err) {
+      this.emit('health:embedder', {
+        status: 'degraded',
+        reason: err instanceof Error ? err.message : String(err),
+      });
+      return this.searchKeyword(content, { k, threshold } as SearchOptions);
+    }
+  }
+
+  /**
+   * Keyword search — in-memory token-overlap ranking against the
+   * `entries` map. Used as a fallback when the embedder is unavailable
+   * and as the "sparse" arm of the hybridSearch controller.
+   *
+   * Falls back to the SqlJs / SQLite backend FTS5 path when a backend is
+   * wired that exposes a `searchKeyword` method. The AgentDBAdapter itself
+   * keeps the implementation cheap and dependency-free.
+   *
+   * @internal ADR-125 Phase 5
+   */
+  async searchKeyword(
+    query: string,
+    options: SearchOptions = { k: 10 } as SearchOptions
+  ): Promise<SearchResult[]> {
+    const k = options.k ?? 10;
+    const tokens = tokenize(query);
+    if (tokens.size === 0) return [];
+
+    const scored: SearchResult[] = [];
+    for (const entry of this.entries.values()) {
+      const entryTokens = tokenize(entry.content);
+      let overlap = 0;
+      for (const t of tokens) if (entryTokens.has(t)) overlap += 1;
+      if (overlap === 0) continue;
+      // Simple token-overlap ratio in [0,1]. Adequate for fallback ranking.
+      const score = overlap / Math.max(tokens.size, 1);
+      if (options.threshold && score < options.threshold) continue;
+      // Apply additional filters if provided
+      if (options.filters) {
+        const filtered = this.applyFilters([entry], options.filters);
+        if (filtered.length === 0) continue;
+      }
+      scored.push({ entry, score, distance: 1 - score });
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, k);
   }
 
   // ===== Private Methods =====
@@ -1022,16 +1079,230 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
     return { status: 'healthy', latency: 0 };
   }
 
-  private async loadFromDisk(): Promise<void> {
-    // Placeholder for persistence implementation
-    // Would use SQLite or file-based storage
-    this.emit('persistence:loaded');
+  /**
+   * Path to the HNSW snapshot sidecar.
+   * Convention: `<persistencePath>.hnsw`
+   */
+  private getHnswSidecarPath(): string | null {
+    if (!this.config.persistencePath) return null;
+    return `${this.config.persistencePath}.hnsw`;
   }
 
-  private async saveToDisk(): Promise<void> {
-    // Placeholder for persistence implementation
-    this.emit('persistence:saved');
+  /**
+   * Path to the in-memory Maps (entries/namespaceIndex/keyIndex/tagIndex) sidecar.
+   * Convention: `<persistencePath>.meta.json`
+   */
+  private getMetaSidecarPath(): string | null {
+    if (!this.config.persistencePath) return null;
+    return `${this.config.persistencePath}.meta.json`;
   }
+
+  /**
+   * Persist a snapshot of the in-memory state to disk.
+   *
+   * Writes two sidecar files alongside `persistencePath`:
+   * - `<persistencePath>.hnsw`        — binary HNSW snapshot via {@link HNSWIndex.serialize}
+   * - `<persistencePath>.meta.json`   — entries + indices in stable JSON
+   *
+   * Public so {@link MemoryService} can trigger periodic snapshots (ADR-125 Phase 3).
+   */
+  async saveSnapshot(): Promise<void> {
+    await this.saveToDisk();
+  }
+
+  /**
+   * ADR-125 Phase 3 — real persistence implementation.
+   *
+   * Loads two sidecar files alongside `persistencePath` (when both exist):
+   * - `<persistencePath>.hnsw`        — binary HNSW snapshot
+   * - `<persistencePath>.meta.json`   — entries + namespaceIndex + keyIndex + tagIndex
+   *
+   * Emits `persistence:loaded` with `{ status: 'restored' | 'fresh' | 'corrupt' }`.
+   * Falls back to a fresh state on any deserialize / IO error so callers don't throw.
+   */
+  private async loadFromDisk(): Promise<void> {
+    const hnswPath = this.getHnswSidecarPath();
+    const metaPath = this.getMetaSidecarPath();
+
+    if (!hnswPath || !metaPath) {
+      this.emit('persistence:loaded', { status: 'fresh', reason: 'no-path' });
+      return;
+    }
+
+    let hnswExists = false;
+    let metaExists = false;
+    try { hnswExists = fs.existsSync(hnswPath); } catch { /* ignore */ }
+    try { metaExists = fs.existsSync(metaPath); } catch { /* ignore */ }
+
+    if (!hnswExists || !metaExists) {
+      this.emit('persistence:loaded', { status: 'fresh', reason: 'no-sidecar' });
+      return;
+    }
+
+    try {
+      const metaRaw = fs.readFileSync(metaPath, 'utf-8');
+      const meta = JSON.parse(metaRaw) as PersistedMeta;
+
+      // Restore entries (rehydrate Float32Array embeddings if present)
+      this.entries.clear();
+      this.namespaceIndex.clear();
+      this.keyIndex.clear();
+      this.tagIndex.clear();
+
+      for (const persisted of meta.entries) {
+        const entry: MemoryEntry = {
+          ...persisted,
+          embedding: persisted.embedding
+            ? Float32Array.from(persisted.embedding)
+            : undefined,
+        };
+        this.entries.set(entry.id, entry);
+      }
+      for (const [ns, ids] of Object.entries(meta.namespaceIndex)) {
+        this.namespaceIndex.set(ns, new Set(ids));
+      }
+      for (const [key, id] of Object.entries(meta.keyIndex)) {
+        this.keyIndex.set(key, id);
+      }
+      for (const [tag, ids] of Object.entries(meta.tagIndex)) {
+        this.tagIndex.set(tag, new Set(ids));
+      }
+
+      // Restore HNSW
+      const hnswBuf = fs.readFileSync(hnswPath);
+      const restored = HNSWIndex.deserialize(hnswBuf);
+      // Swap pointers — preserves forwarded events because we only re-listen
+      // when the adapter is reconstructed (which happens on a fresh instance).
+      this.index = restored;
+      // Re-forward HNSW events
+      this.index.on('point:added', (data) => this.emit('index:added', data));
+
+      this.emit('persistence:loaded', { status: 'restored', count: this.entries.size });
+    } catch (err) {
+      // Corrupt sidecar — start fresh, leave existing files in place for
+      // operator inspection.
+      this.entries.clear();
+      this.namespaceIndex.clear();
+      this.keyIndex.clear();
+      this.tagIndex.clear();
+      this.emit('persistence:loaded', {
+        status: 'corrupt',
+        reason: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * ADR-125 Phase 3 — real snapshot implementation.
+   *
+   * Writes both sidecars atomically via a temp-file-and-rename dance so a
+   * crash mid-write doesn't leave half-baked state on disk.
+   */
+  private async saveToDisk(): Promise<void> {
+    const hnswPath = this.getHnswSidecarPath();
+    const metaPath = this.getMetaSidecarPath();
+
+    if (!hnswPath || !metaPath) {
+      this.emit('persistence:saved', { status: 'skipped', reason: 'no-path' });
+      return;
+    }
+
+    try {
+      // Ensure parent dir exists
+      const dir = path.dirname(hnswPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      // Build stable JSON representation
+      const meta = this.buildPersistedMeta();
+      const metaText = JSON.stringify(meta);
+
+      // Build HNSW snapshot
+      const hnswBuf = this.index.serialize();
+
+      // Atomic write via temp + rename
+      const hnswTmp = `${hnswPath}.tmp`;
+      const metaTmp = `${metaPath}.tmp`;
+      fs.writeFileSync(hnswTmp, hnswBuf);
+      fs.writeFileSync(metaTmp, metaText);
+      fs.renameSync(hnswTmp, hnswPath);
+      fs.renameSync(metaTmp, metaPath);
+
+      this.emit('persistence:saved', {
+        status: 'ok',
+        bytes: hnswBuf.length + Buffer.byteLength(metaText, 'utf-8'),
+      });
+    } catch (err) {
+      this.emit('persistence:saved', {
+        status: 'failed',
+        reason: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * Build a stable, diff-friendly JSON representation of the in-memory Maps.
+   * Keys are sorted; embeddings are serialized as plain number arrays.
+   */
+  private buildPersistedMeta(): PersistedMeta {
+    const entriesArr = [...this.entries.values()].sort((a, b) =>
+      a.id.localeCompare(b.id)
+    );
+    const persistedEntries = entriesArr.map((e) => ({
+      ...e,
+      embedding: e.embedding ? Array.from(e.embedding) : undefined,
+    }));
+
+    const namespaceIndex: Record<string, string[]> = {};
+    for (const ns of [...this.namespaceIndex.keys()].sort()) {
+      namespaceIndex[ns] = [...this.namespaceIndex.get(ns)!].sort();
+    }
+    const keyIndex: Record<string, string> = {};
+    for (const k of [...this.keyIndex.keys()].sort()) {
+      keyIndex[k] = this.keyIndex.get(k)!;
+    }
+    const tagIndex: Record<string, string[]> = {};
+    for (const t of [...this.tagIndex.keys()].sort()) {
+      tagIndex[t] = [...this.tagIndex.get(t)!].sort();
+    }
+
+    return { version: 1, entries: persistedEntries, namespaceIndex, keyIndex, tagIndex };
+  }
+}
+
+/**
+ * Wire-format for the meta sidecar (`<persistencePath>.meta.json`).
+ * `embedding` is stored as a plain number[] to keep the JSON canonical.
+ */
+interface PersistedMeta {
+  version: 1;
+  entries: Array<Omit<MemoryEntry, 'embedding'> & { embedding?: number[] }>;
+  namespaceIndex: Record<string, string[]>;
+  keyIndex: Record<string, string>;
+  tagIndex: Record<string, string[]>;
+}
+
+// ADR-125 Phase 5 — minimal tokenizer for the in-memory keyword fallback.
+// Mirrors the shape used in `smart-retrieval.ts` but is duplicated here so the
+// adapter has no dependency on the retrieval layer.
+const STOPWORDS = new Set([
+  'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'any', 'can',
+  'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his',
+  'how', 'man', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy',
+  'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use', 'with', 'this',
+  'that', 'have', 'from', 'they', 'will', 'been', 'were', 'what', 'when',
+  'your',
+]);
+
+function tokenize(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter((t) => t.length > 2 && !STOPWORDS.has(t))
+  );
 }
 
 export default AgentDBAdapter;

@@ -21,6 +21,10 @@ node plugins/ruflo-core/scripts/witness/regen.mjs \
 # Verify against live tree
 node plugins/ruflo-core/scripts/witness/verify.mjs --manifest verification.md.json
 
+# Verify without dependencies or generated dist/ artifacts
+node plugins/ruflo-core/scripts/witness/verify.mjs \
+  --manifest verification.md.json --source-only
+
 # Temporal queries
 node plugins/ruflo-core/scripts/witness/history.mjs --history verification-history.jsonl summary
 node plugins/ruflo-core/scripts/witness/history.mjs --history verification-history.jsonl regressions

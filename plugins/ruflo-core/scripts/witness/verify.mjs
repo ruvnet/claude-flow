@@ -5,18 +5,26 @@
  * Project-agnostic — works without ruflo CLI being installed.
  *
  * Usage:
- *   node verify.mjs --manifest <path> [--root <path>] [--json]
+ *   node verify.mjs --manifest <path> [--root <path>] [--source-only] [--json]
  *
  * Exit codes:
  *   0  — signature valid + all fixes pass or drift (marker present)
- *   1  — signature invalid OR any fix regressed/missing
- *   2  — bad arguments / file not found
+ *   1  — signature invalid OR any fix regressed/missing (real failure)
+ *   2  — bad arguments / file not found OR precondition not met
+ *        (e.g. dist files not built during full-tree verification).
+ *        Issue #1880: scheduled runners use this to distinguish a
+ *        "needs install+build" environment from a real verification
+ *        failure, so we stop filing recurring issues on every cron run.
  */
 
 import { readFileSync, existsSync } from 'node:fs';
-import { resolve, join, sep } from 'node:path';
-import { createHash } from 'node:crypto';
-import { createRequire } from 'node:module';
+import { resolve, join } from 'node:path';
+import {
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+  verify as verifyEd25519,
+} from 'node:crypto';
 import { fileSha256, fileContains } from './lib.mjs';
 
 const args = parseArgs(process.argv.slice(2));
@@ -27,14 +35,33 @@ if (!existsSync(manifestPath)) { console.error(`not found: ${manifestPath}`); pr
 
 const repoRoot = resolve(args.root ?? process.cwd());
 const asJson = !!args.json;
+const sourceOnly = !!args['source-only'];
 
 const witness = JSON.parse(readFileSync(manifestPath, 'utf8'));
 
 // ─── signature ────────────────────────────────────────────────────
-const sig = await verifySignature(witness, repoRoot);
+const sig = verifySignature(witness);
 
 // ─── per-fix marker check ─────────────────────────────────────────
-const fileResults = witness.manifest.fixes.map((fix) => {
+const allFixes = witness.manifest.fixes;
+const selectedFixes = sourceOnly
+  ? allFixes.filter((fix) => !isGeneratedDistPath(fix.file))
+  : allFixes;
+const skippedGenerated = allFixes.length - selectedFixes.length;
+
+if (sourceOnly && selectedFixes.length === 0) {
+  const result = {
+    ok: false,
+    scope: 'source-only',
+    precondition: 'no-source-entries',
+    signature: sig,
+  };
+  if (asJson) console.log(JSON.stringify(result, null, 2));
+  else console.error('verify.mjs: manifest contains no source entries to verify');
+  process.exit(2);
+}
+
+const fileResults = selectedFixes.map((fix) => {
   const installed = join(repoRoot, fix.file);
   if (!existsSync(installed)) {
     return { ...fix, status: 'missing', sha256Match: false, markerPresent: false };
@@ -52,19 +79,57 @@ const summary = {
   drift: fileResults.filter(r => r.status === 'drift').length,
   regressed: fileResults.filter(r => r.status === 'regressed').length,
   missing: fileResults.filter(r => r.status === 'missing').length,
+  skippedGenerated,
 };
+
+// Issue #1880 / #2528 — heuristic: if the only missing entries are
+// generated `/dist/` artifacts and no marker regressed, the checkout was
+// source-only (dependencies may be installed, but no build ran). That's a
+// precondition failure, not a regression. Source-file drift is still
+// reported in the JSON summary, but the operator action is the same:
+// install + build before verifying the dist-layer witness entries.
+const allMissing = fileResults.length > 0
+                && summary.missing === fileResults.length;
+const missingResults = fileResults.filter(r => r.status === 'missing');
+const missingOnlyDist = missingResults.length > 0
+  && missingResults.every(r => isGeneratedDistPath(r.file));
+const referencesDist = fileResults.some(r => isGeneratedDistPath(r.file));
+if (!sourceOnly && ((allMissing && referencesDist) || (missingOnlyDist && summary.regressed === 0))) {
+  if (asJson) {
+    console.log(JSON.stringify(
+      { ok: false, scope: 'full', precondition: 'dist-not-built', signature: sig, summary },
+      null, 2
+    ));
+  } else {
+    console.error(
+      `verify.mjs: every manifest entry is missing and the manifest references\n` +
+      `dist/ artifacts. The checkout appears to be source-only (no build run).\n` +
+      `\n` +
+      `Fix: from the repo root, run \`npm ci && npm run build\` (or the\n` +
+      `equivalent for the workspaces witness markers reference) before\n` +
+      `invoking this script. See #1880 for the full diagnosis.`
+    );
+  }
+  process.exit(2);
+}
+
 const ok = sig.signatureValid && sig.manifestHashOk && sig.publicKeyReproducible
         && summary.regressed === 0 && summary.missing === 0;
 
 if (asJson) {
-  console.log(JSON.stringify({ ok, signature: sig, summary, results: fileResults }, null, 2));
+  console.log(JSON.stringify(
+    { ok, scope: sourceOnly ? 'source-only' : 'full', signature: sig, summary, results: fileResults },
+    null,
+    2
+  ));
 } else {
+  console.log(`Verification scope: ${sourceOnly ? 'source-only' : 'full'}`);
   console.log('Manifest signature:');
   console.log(`  hash matches:                    ${sig.manifestHashOk ? 'yes' : 'NO'}`);
   console.log(`  public key reproducible:         ${sig.publicKeyReproducible ? 'yes' : 'NO'}`);
   console.log(`  Ed25519 signature valid:         ${sig.signatureValid ? 'yes' : 'NO'}`);
   console.log('');
-  console.log(`Summary: pass=${summary.pass} drift=${summary.drift} regressed=${summary.regressed} missing=${summary.missing}`);
+  console.log(`Summary: pass=${summary.pass} drift=${summary.drift} regressed=${summary.regressed} missing=${summary.missing} skipped-generated=${summary.skippedGenerated}`);
   if (summary.regressed > 0) {
     console.log('\nRegressed:');
     for (const r of fileResults.filter(r => r.status === 'regressed')) {
@@ -82,41 +147,60 @@ if (asJson) {
 process.exit(ok ? 0 : 1);
 
 // ─── ed25519 helpers ─────────────────────────────────────────────
-async function verifySignature(witness, repoRoot) {
-  // Probe multiple plausible install roots — pnpm's isolated linker
-  // doesn't hoist transitive deps to v3/node_modules, so we also check
-  // workspace packages that declare @noble/ed25519 directly. A user's
-  // flat npm install satisfies the first probe; pnpm satisfies the latter.
-  let ed;
-  let probeErr;
-  const probes = [
-    repoRoot,
-    join(repoRoot, 'v3'),
-    join(repoRoot, 'v3/@claude-flow/cli'),
-    join(repoRoot, 'v3/@claude-flow/plugin-agent-federation'),
-  ];
-  for (const root of probes) {
-    try { ed = createRequire(join(root, 'noop.js'))('@noble/ed25519'); break; }
-    catch (e) { probeErr = e; }
-  }
-  if (!ed) {
-    console.error(`verify.mjs: could not load @noble/ed25519 from any of:\n  ${probes.join('\n  ')}\n  last error: ${probeErr?.message ?? '?'}`);
-    return { manifestHashOk: false, publicKeyReproducible: false, signatureValid: false };
-  }
+function verifySignature(witness) {
+  try {
+    const recomputed = createHash('sha256').update(JSON.stringify(witness.manifest)).digest('hex');
+    const manifestHashOk = recomputed === witness.integrity.manifestHash;
+    const seed = createHash('sha256')
+      .update(witness.manifest.gitCommit + ':ruflo-witness/v1')
+      .digest();
 
-  ed.etc.sha512Sync = (...m) => { const h = createHash('sha512'); for (const x of m) h.update(x); return h.digest(); };
+    // RFC 8410 DER wrappers let Node/OpenSSL derive and verify Ed25519 keys
+    // without a package install. The witness format remains byte-compatible
+    // with manifests produced by @noble/ed25519.
+    const privateKey = createPrivateKey({
+      key: Buffer.concat([
+        Buffer.from('302e020100300506032b657004220420', 'hex'),
+        seed,
+      ]),
+      format: 'der',
+      type: 'pkcs8',
+    });
+    const reproducedKey = createPublicKey(privateKey)
+      .export({ format: 'der', type: 'spki' })
+      .subarray(-32);
+    const publicKeyReproducible =
+      reproducedKey.toString('hex') === witness.integrity.publicKey;
 
-  const recomputed = createHash('sha256').update(JSON.stringify(witness.manifest)).digest('hex');
-  const manifestHashOk = recomputed === witness.integrity.manifestHash;
-  const seed = createHash('sha256').update(witness.manifest.gitCommit + ':ruflo-witness/v1').digest();
-  const reKey = ed.getPublicKey(seed);
-  const publicKeyReproducible = Buffer.from(reKey).toString('hex') === witness.integrity.publicKey;
-  const signatureValid = ed.verify(
-    Buffer.from(witness.integrity.signature, 'hex'),
-    Buffer.from(witness.integrity.manifestHash, 'hex'),
-    Buffer.from(witness.integrity.publicKey, 'hex'),
-  );
-  return { manifestHashOk, publicKeyReproducible, signatureValid };
+    const declaredKey = createPublicKey({
+      key: Buffer.concat([
+        Buffer.from('302a300506032b6570032100', 'hex'),
+        Buffer.from(witness.integrity.publicKey, 'hex'),
+      ]),
+      format: 'der',
+      type: 'spki',
+    });
+    const signatureValid = verifyEd25519(
+      null,
+      Buffer.from(witness.integrity.manifestHash, 'hex'),
+      declaredKey,
+      Buffer.from(witness.integrity.signature, 'hex'),
+    );
+    return { manifestHashOk, publicKeyReproducible, signatureValid, verifier: 'node:crypto' };
+  } catch (error) {
+    return {
+      manifestHashOk: false,
+      publicKeyReproducible: false,
+      signatureValid: false,
+      verifier: 'node:crypto',
+      reason: 'signature-verification-error',
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function isGeneratedDistPath(file) {
+  return typeof file === 'string' && file.split(/[\\/]/).includes('dist');
 }
 
 function parseArgs(argv) {

@@ -301,7 +301,6 @@ const diffCommand: Command = {
   },
 };
 
-// Code subcommand (placeholder for future code analysis)
 const codeCommand: Command = {
   name: 'code',
   description: 'Static code analysis and quality assessment',

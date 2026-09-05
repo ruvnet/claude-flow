@@ -1,5 +1,9 @@
 # @claude-flow/plugin-agent-federation
 
+[![npm version](https://img.shields.io/npm/v/@claude-flow/plugin-agent-federation.svg)](https://www.npmjs.com/package/@claude-flow/plugin-agent-federation)
+[![npm downloads](https://img.shields.io/npm/dm/@claude-flow/plugin-agent-federation.svg)](https://www.npmjs.com/package/@claude-flow/plugin-agent-federation)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Cross-installation agent federation with zero-trust security, PII-gated data flow, and compliance-grade audit trails.
 
 ## Install + run

@@ -1,0 +1,12 @@
+{
+  "submitted_at": "2026-07-03T00:00:00Z",
+  "harness": "ruflo@3.17.x / @claude-flow/cli@3.17.x",
+  "model": "claude-haiku-4-5",
+  "gaia_level": 1,
+  "tool_catalogue": ["web_search", "file_read", "grounded_query", "python_exec"],
+  "total_questions": 5,
+  "pass_rate": 1.0,
+  "est_cost_usd": 0.0009,
+  "adrs": ["ADR-133"],
+  "git_sha": "deadbee"
+}

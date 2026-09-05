@@ -1,0 +1,54 @@
+{
+  "name": "hr",
+  "displayName": "Human Resources",
+  "roomId": "hr",
+  "agents": [
+    {
+      "role": "policy-retriever",
+      "agentType": "researcher",
+      "description": "Surfaces policy answers for employee queries with citations to source documents",
+      "preferLocal": true
+    },
+    {
+      "role": "onboarding-template-gen",
+      "agentType": "base-template-generator",
+      "description": "Generates onboarding-checklist templates per role and tracks completion",
+      "preferLocal": true
+    },
+    {
+      "role": "policy-doc-keeper",
+      "agentType": "api-docs",
+      "description": "Maintains the canonical policy/handbook documents and surfaces drift between versions",
+      "preferLocal": true
+    }
+  ],
+  "allowedMcpTools": [
+    "memory_store",
+    "memory_search",
+    "federation_bbs_register",
+    "federation_bbs_publish",
+    "federation_bbs_watch",
+    "federation_bbs_human_join"
+  ],
+  "bench": {
+    "name": "hr-compliance-bench",
+    "description": "Measures policy-query coverage and onboarding-tracking accuracy. PII policy is GDPR — employee data is treated with finance-grade sensitivity per ADR-164 Appendix A.",
+    "successCriteria": [
+      "No onboarding step older than 48h without status update",
+      "All leave/policy queries classified within 24h",
+      "Policy query response latency < 5 min",
+      "Zero employee-PII envelopes routed off the local node"
+    ],
+    "scheduleHours": 24
+  },
+  "piiPolicy": "gdpr",
+  "budgetUsdMonthly": 30,
+  "budgetUsdPerRun": 1.00,
+  "preferLocalExecution": true,
+  "cronSchedule": "0 10 * * 1-5",
+  "auditReadView": {
+    "includedEventTypes": ["task-result", "alert", "bench-result", "pod-status"],
+    "retentionDays": 365
+  },
+  "reservationExpiryMs": 120000
+}

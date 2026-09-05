@@ -1,0 +1,73 @@
+{
+  "runAt": "2026-05-30T16:00:50.536Z",
+  "benchmark": "self-learning-2245",
+  "n": 10,
+  "sections": {
+    "A_recordSignalProcessed": {
+      "calls": 10,
+      "signalsProcessedDelta": 10,
+      "passed": true,
+      "elapsedMs": 0.46
+    },
+    "B_taskCompleted_trainPatterns": {
+      "calls": 10,
+      "trainedViaPipeline": 10,
+      "trajectoriesDelta": 10,
+      "patternsLearnedDelta": 11,
+      "passed": true,
+      "elapsedMs": 201.32,
+      "avgLatencyMsPerCall": 20.13
+    },
+    "C_taskCompleted_recordedOnly": {
+      "calls": 10,
+      "trajectoriesDelta": 0,
+      "passed": true,
+      "note": "negative control — should NOT touch trajectories",
+      "elapsedMs": 0.04
+    },
+    "D_pretrain_neuralPatterns": {
+      "attempted": 10,
+      "stored": 10,
+      "listTotal": 10,
+      "passed": true,
+      "elapsedMs": 5.07
+    },
+    "E_multiStepTrajectory": {
+      "cycles": 5,
+      "persistedCount": 5,
+      "sonaUpdateCount": 5,
+      "passed": true,
+      "note": "MCP trajectory tools feed sonaCoordinator (see hooks_intelligence_stats), not globalStats — observable outcomes checked here",
+      "elapsedMs": 31.15
+    },
+    "F_unifiedStats": {
+      "shape": [
+        "global",
+        "sona",
+        "memoryBridge",
+        "neuralPatterns",
+        "consistency"
+      ],
+      "observed": {
+        "global.patternsLearned": 11,
+        "global.trajectoriesRecorded": 10,
+        "global.signalsProcessed": 20,
+        "memoryBridge.totalEntries": 10,
+        "memoryBridge.reachable": true,
+        "neuralPatterns.patternCount": 10,
+        "sona.available": true,
+        "consistency.notes": 1
+      },
+      "passed": true,
+      "note": "ADR-075 — one aggregator across the 4 stores. Each sub-view names its source.",
+      "elapsedMs": 5.87
+    }
+  },
+  "finalState": {
+    "signalsProcessed": 10,
+    "trajectoriesRecorded": 10,
+    "patternsLearned": 11
+  },
+  "scratch": "/tmp/claude-501/learn-bench-m5Fe9p",
+  "passed": true
+}

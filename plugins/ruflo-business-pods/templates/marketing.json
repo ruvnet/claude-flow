@@ -1,0 +1,53 @@
+{
+  "name": "marketing",
+  "displayName": "Marketing",
+  "roomId": "marketing",
+  "agents": [
+    {
+      "role": "campaign-researcher",
+      "agentType": "researcher",
+      "description": "Surveys the past 24h of #marketing traffic and identifies underperforming campaigns",
+      "preferLocal": false
+    },
+    {
+      "role": "content-drafter",
+      "agentType": "base-template-generator",
+      "description": "Drafts blog posts, ad copy, and outreach templates for human review",
+      "preferLocal": false
+    },
+    {
+      "role": "martech-integrator",
+      "agentType": "api-docs",
+      "description": "Maintains marketing-tech integration docs (HubSpot, Mailchimp, Segment) and surfaces drift",
+      "preferLocal": false
+    }
+  ],
+  "allowedMcpTools": [
+    "memory_store",
+    "memory_search",
+    "federation_bbs_register",
+    "federation_bbs_publish",
+    "federation_bbs_watch",
+    "federation_bbs_human_join"
+  ],
+  "bench": {
+    "name": "marketing-output-bench",
+    "description": "Measures content production rate and campaign-metric accuracy over the past 24h",
+    "successCriteria": [
+      "At least 1 draft piece of content per 24h cycle",
+      "Campaign metric delta reported within 12h of cycle start",
+      "No SEO/research queue item older than 72h pending"
+    ],
+    "scheduleHours": 24
+  },
+  "piiPolicy": "soc2",
+  "budgetUsdMonthly": 40,
+  "budgetUsdPerRun": 0.30,
+  "preferLocalExecution": false,
+  "cronSchedule": "0 9 * * 1-5",
+  "auditReadView": {
+    "includedEventTypes": ["task-result", "alert", "bench-result"],
+    "retentionDays": 90
+  },
+  "reservationExpiryMs": 60000
+}

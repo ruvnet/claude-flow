@@ -1,5 +1,9 @@
 # @claude-flow/cli-core
 
+[![npm version](https://img.shields.io/npm/v/@claude-flow/cli-core.svg)](https://www.npmjs.com/package/@claude-flow/cli-core)
+[![npm downloads](https://img.shields.io/npm/dm/@claude-flow/cli-core.svg)](https://www.npmjs.com/package/@claude-flow/cli-core)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 > **Status:** alpha (pre-release). Tracking ADR-100. Don't depend on this in production yet.
 
 Lightweight core CLI surface for [Claude Flow](https://github.com/ruvnet/ruflo) — `memory` + `hooks` commands only. Designed to load fast on a cold npx cache so plugin skills don't race Claude Code's 30 second MCP-startup timeout.

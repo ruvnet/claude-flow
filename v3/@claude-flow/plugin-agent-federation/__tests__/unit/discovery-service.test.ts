@@ -158,6 +158,14 @@ describe('DiscoveryService', () => {
       ).rejects.toThrow(/invalid manifest/i);
     });
 
+    it('should reject a signed manifest for a different endpoint', async () => {
+      const manifest = makeManifest({ signature: 'valid' });
+
+      await expect(
+        service.addStaticPeer('https://other.example.com', manifest),
+      ).rejects.toThrow(/manifest endpoint mismatch/i);
+    });
+
     it('should mark existing peer as seen and return it without creating a duplicate', async () => {
       const manifest = makeManifest({ signature: 'valid' });
       const first = await service.addStaticPeer('https://peer1.example.com', manifest);

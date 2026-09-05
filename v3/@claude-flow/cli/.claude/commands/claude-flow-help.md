@@ -91,7 +91,7 @@ npx -y claude-flow@latest init --sparc
 ```
 
 ## 🎯 Best Practices
-- Use `./claude-flow` instead of `npx claude-flow` after initialization
+- Use `./claude-flow` instead of `npx @claude-flow/cli@latest` after initialization
 - Store important context in memory for cross-session persistence
 - Use swarm mode for complex tasks requiring multiple agents
 - Enable monitoring for real-time progress tracking

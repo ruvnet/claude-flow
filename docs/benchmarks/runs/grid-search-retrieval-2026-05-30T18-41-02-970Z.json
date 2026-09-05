@@ -1,0 +1,689 @@
+{
+  "runAt": "2026-05-30T18:41:02.970Z",
+  "benchmark": "grid-search-retrieval",
+  "queries": 10,
+  "configsEvaluated": 32,
+  "grid": {
+    "ALPHA_GRID": [
+      0.3,
+      0.5,
+      0.7
+    ],
+    "SUBJ_GRID": [
+      2,
+      3,
+      5
+    ],
+    "MMR_GRID": [
+      0.3,
+      0.5,
+      0.7
+    ],
+    "RERANK_GRID": [
+      [
+        0.3,
+        0.7
+      ],
+      [
+        0.4,
+        0.6
+      ],
+      [
+        0.5,
+        0.5
+      ],
+      [
+        0.6,
+        0.4
+      ],
+      [
+        0.7,
+        0.3
+      ]
+    ]
+  },
+  "results": [
+    {
+      "name": "hybrid α=0.3 sw=2 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 2,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.9,
+        "label_precision3": 0.5666666666666667,
+        "label_ndcg3": 0.8919720789148187,
+        "avgLatencyMs": 44.8147042
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=2 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 2,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.9,
+        "label_precision3": 0.5666666666666667,
+        "label_ndcg3": 0.8919720789148187,
+        "avgLatencyMs": 42.7988292
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=2 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.9333333333333333,
+        "label_precision3": 0.6666666666666666,
+        "label_ndcg3": 0.9419720789148187,
+        "avgLatencyMs": 39.512345800000006
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=3 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 3,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.85,
+        "label_precision3": 0.5666666666666667,
+        "label_ndcg3": 0.8613147192765458,
+        "avgLatencyMs": 34.2177917
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=3 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 3,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.8699999999999999,
+        "label_precision3": 0.5666666666666667,
+        "label_ndcg3": 0.8613147192765458,
+        "avgLatencyMs": 38.97439999999999
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=3 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.9,
+        "label_precision3": 0.6666666666666666,
+        "label_ndcg3": 0.9244076946336917,
+        "avgLatencyMs": 36.701479199999994
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=5 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 5,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.85,
+        "label_precision3": 0.5666666666666667,
+        "label_ndcg3": 0.8613147192765458,
+        "avgLatencyMs": 35.63641659999998
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=5 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 5,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.875,
+        "label_precision3": 0.5666666666666667,
+        "label_ndcg3": 0.8613147192765458,
+        "avgLatencyMs": 37.19082919999996
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=5 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 5,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.9,
+        "label_precision3": 0.6666666666666666,
+        "label_ndcg3": 0.9244076946336917,
+        "avgLatencyMs": 39.034287499999984
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=2 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 2,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.9,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.8839441578296375,
+        "avgLatencyMs": 39.86475829999999
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=2 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 2,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.9333333333333333,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.95,
+        "avgLatencyMs": 38.87682920000002
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=2 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.95,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.9630929753571458,
+        "avgLatencyMs": 41.63309580000005
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=3 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 3,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.9,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.8759162367444564,
+        "avgLatencyMs": 39.85475420000002
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=3 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 3,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.9333333333333333,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.9419720789148187,
+        "avgLatencyMs": 37.078512499999945
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=3 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.95,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.9550650542719644,
+        "avgLatencyMs": 37.612912500000036
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=5 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 5,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.85,
+        "label_precision3": 0.4333333333333333,
+        "label_ndcg3": 0.8630929753571458,
+        "avgLatencyMs": 40.55730409999997
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=5 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 5,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.8833333333333334,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.919342640361727,
+        "avgLatencyMs": 39.953062499999945
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=5 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 5,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.9,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.9324356157188728,
+        "avgLatencyMs": 39.32278340000003
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=2 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 2,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.5,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.6,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5630929753571458,
+        "avgLatencyMs": 43.69035830000003
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=2 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 2,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.5,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.62,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5630929753571458,
+        "avgLatencyMs": 41.72429999999995
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=2 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.5,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.615,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5630929753571458,
+        "avgLatencyMs": 72.73329170000007
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=3 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 3,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.4,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.55,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5261859507142915,
+        "avgLatencyMs": 49.70607920000002
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=3 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 3,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.4,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.5700000000000001,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5261859507142915,
+        "avgLatencyMs": 45.67079170000015
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=3 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.4,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.5650000000000001,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5261859507142915,
+        "avgLatencyMs": 44.217941599999904
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=5 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 5,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.4,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.55,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5261859507142915,
+        "avgLatencyMs": 44.227116600000045
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=5 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 5,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.4,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.5700000000000001,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5261859507142915,
+        "avgLatencyMs": 51.73877920000014
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=5 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 5,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.4,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.5650000000000001,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5261859507142915,
+        "avgLatencyMs": 55.52428749999999
+      }
+    },
+    {
+      "name": "rerank hw=0.3 cw=0.7",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.6,
+        "subjectWeight": 3,
+        "hybridWeight": 0.3,
+        "ceWeight": 0.7
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.8833333333333334,
+        "label_precision3": 0.6666666666666665,
+        "label_ndcg3": 0.9130929753571457,
+        "avgLatencyMs": 955.0884791000001
+      }
+    },
+    {
+      "name": "rerank hw=0.4 cw=0.6",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.6,
+        "subjectWeight": 3,
+        "hybridWeight": 0.4,
+        "ceWeight": 0.6
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.8833333333333334,
+        "label_precision3": 0.6666666666666665,
+        "label_ndcg3": 0.9130929753571457,
+        "avgLatencyMs": 840.5522042
+      }
+    },
+    {
+      "name": "rerank hw=0.5 cw=0.5",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.6,
+        "subjectWeight": 3,
+        "hybridWeight": 0.5,
+        "ceWeight": 0.5
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.8833333333333334,
+        "label_precision3": 0.6666666666666665,
+        "label_ndcg3": 0.9130929753571457,
+        "avgLatencyMs": 851.7643958000001
+      }
+    },
+    {
+      "name": "rerank hw=0.6 cw=0.4",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.6,
+        "subjectWeight": 3,
+        "hybridWeight": 0.6,
+        "ceWeight": 0.4
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.9333333333333333,
+        "label_precision3": 0.7,
+        "label_ndcg3": 0.95,
+        "avgLatencyMs": 861.9551584000001
+      }
+    },
+    {
+      "name": "rerank hw=0.7 cw=0.3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.6,
+        "subjectWeight": 3,
+        "hybridWeight": 0.7,
+        "ceWeight": 0.3
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.95,
+        "label_precision3": 0.6666666666666666,
+        "label_ndcg3": 0.9630929753571458,
+        "avgLatencyMs": 857.9553665999999
+      }
+    }
+  ],
+  "winners": {
+    "nDcg3": "hybrid α=0.5 sw=2 mmr=0.7",
+    "top1": "hybrid α=0.5 sw=2 mmr=0.7",
+    "precision3": "rerank hw=0.6 cw=0.4",
+    "bestNonRerank": "hybrid α=0.5 sw=2 mmr=0.7",
+    "bestRerank": "rerank hw=0.7 cw=0.3"
+  }
+}

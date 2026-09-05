@@ -6,6 +6,64 @@
 import type { InitOptions } from './types.js';
 import { generateStatuslineScript, generateStatuslineHook } from './statusline-generator.js';
 
+// ADR-127 Phase 4 — attribution is opt-in (#1670 / #2089).
+// When the user passes --attribution (options.attribution === true),
+// this footer is available for injection into generated content such as
+// PR body templates and release notes.  It is NEVER hard-wired into the
+// static command-file templates — those are user-owned content.
+export const ATTRIBUTION_FOOTER =
+  '🤖 Generated with [RuFlo](https://github.com/ruvnet/ruflo)';
+
+/**
+ * Detect whether a Claude Code PostToolUse payload represents a FAILED tool run.
+ *
+ * Why this matters: the learning substrate had 898 feedback records, 100%
+ * success, 0 failures — because the post-edit/post-task hooks recorded a
+ * hardcoded `success:true` and never inspected the tool outcome. With no
+ * negative examples, the oracle tier can't teach good-vs-bad (see the DB
+ * analysis + ADR-174). Claude Code passes the tool result in the PostToolUse
+ * hook payload (`tool_response`), which for a failed Write/Edit/Bash carries an
+ * error marker. This predicate is the single source of truth the generated
+ * hook inlines, and is unit-tested here so the detection stays honest.
+ *
+ * Conservative: returns true only on a POSITIVE error signal; ambiguous/missing
+ * payloads default to success (matches prior behavior, avoids false failures).
+ */
+export function isToolFailure(hookInput: unknown): boolean {
+  if (!hookInput || typeof hookInput !== 'object') return false;
+  const h = hookInput as Record<string, unknown>;
+  const tr = (h.tool_response ?? h.toolResponse ?? h.result) as unknown;
+  if (tr == null) return false;
+  if (typeof tr === 'string') {
+    return /\b(error|failed|failure|exception|not found|no such|permission denied|traceback)\b/i.test(tr);
+  }
+  if (typeof tr === 'object') {
+    const o = tr as Record<string, unknown>;
+    if (o.is_error === true || o.isError === true || o.success === false || o.error != null) return true;
+    // Bash tool: non-zero exit code is a failure.
+    const code = (o.exit_code ?? o.exitCode ?? o.code) as unknown;
+    if (typeof code === 'number' && code !== 0) return true;
+    // Nested content array (Claude tool result shape): {content:[...], is_error:true}
+    if (Array.isArray(o.content) && o.is_error === true) return true;
+  }
+  return false;
+}
+
+// The exact predicate the generated hook inlines — kept in sync with
+// isToolFailure() above (mirrored, since the generated .cjs has no imports).
+const TOOL_FAILURE_EXPR =
+  '(function(hi){' +
+  'if(!hi||typeof hi!=="object")return false;' +
+  'var tr=hi.tool_response!=null?hi.tool_response:(hi.toolResponse!=null?hi.toolResponse:hi.result);' +
+  'if(tr==null)return false;' +
+  'if(typeof tr==="string")return /\\b(error|failed|failure|exception|not found|no such|permission denied|traceback)\\b/i.test(tr);' +
+  'if(typeof tr==="object"){' +
+  'if(tr.is_error===true||tr.isError===true||tr.success===false||tr.error!=null)return true;' +
+  'var code=tr.exit_code!=null?tr.exit_code:(tr.exitCode!=null?tr.exitCode:tr.code);' +
+  'if(typeof code==="number"&&code!==0)return true;' +
+  'if(Array.isArray(tr.content)&&tr.is_error===true)return true;' +
+  '}return false;})(hookInput)';
+
 /**
  * Generate pre-commit hook script
  */
@@ -203,7 +261,16 @@ export function generateAgentRouter(): string {
   return `#!/usr/bin/env node
 /**
  * Ruflo Agent Router
- * Routes tasks to optimal agents based on learned patterns
+ *
+ * Static keyword router that suggests an agent for a task description.
+ * NOTE: This is *not* a learned model. It is a heuristic table; "confidence"
+ * is reported as a heuristic prior, not a calibrated probability.
+ *
+ * #2257 fix: patterns are now word-boundary-anchored so short tokens like
+ * \`cd\`, \`ci\`, \`ui\`, \`add\`, \`structure\` no longer match inside unrelated
+ * words (\`decision\`, \`infrastructure\`, \`address\`, \`addendum\`). Default
+ * matched-confidence dropped from 0.8 to 0.6, and fall-through from 0.5 to
+ * 0.3, to reflect that this is a static heuristic, not a learned classifier.
  */
 
 const AGENT_CAPABILITIES = {
@@ -217,40 +284,54 @@ const AGENT_CAPABILITIES = {
   devops: ['ci-cd', 'docker', 'deployment', 'infrastructure'],
 };
 
-const TASK_PATTERNS = {
-  // Code patterns
-  'implement|create|build|add|write code': 'coder',
-  'test|spec|coverage|unit test|integration': 'tester',
-  'review|audit|check|validate|security': 'reviewer',
-  'research|find|search|documentation|explore': 'researcher',
-  'design|architect|structure|plan': 'architect',
+// Each entry has a token list. Single tokens get \\b…\\b boundaries so 'cd'
+// won't match inside 'decide'. Phrases (whitespace or '/') match literally —
+// the whitespace acts as a natural boundary.
+const TASK_PATTERNS = [
+  { tokens: ['implement', 'create', 'build', 'add', 'write code', 'refactor', 'debug'], agent: 'coder' },
+  { tokens: ['test', 'tests', 'spec', 'coverage', 'unit test', 'integration test'], agent: 'tester' },
+  { tokens: ['review', 'audit', 'check', 'validate', 'security'], agent: 'reviewer' },
+  { tokens: ['research', 'find', 'search', 'documentation', 'explore'], agent: 'researcher' },
+  { tokens: ['design', 'architect', 'architecture', 'structure', 'plan'], agent: 'architect' },
+  { tokens: ['api', 'endpoint', 'server', 'backend', 'database'], agent: 'backend-dev' },
+  { tokens: ['ui', 'frontend', 'component', 'react', 'css', 'style'], agent: 'frontend-dev' },
+  { tokens: ['deploy', 'docker', 'ci', 'cd', 'ci/cd', 'pipeline', 'infrastructure', 'devops'], agent: 'devops' },
+];
 
-  // Domain patterns
-  'api|endpoint|server|backend|database': 'backend-dev',
-  'ui|frontend|component|react|css|style': 'frontend-dev',
-  'deploy|docker|ci|cd|pipeline|infrastructure': 'devops',
-};
+function escapeRegex(s) {
+  return s.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&');
+}
+
+function buildPattern(tokens) {
+  const alternatives = tokens.map((tok) => {
+    const escaped = escapeRegex(tok.toLowerCase());
+    if (/\\s|\\//.test(tok)) return escaped;
+    return \`\\\\b\${escaped}\\\\b\`;
+  });
+  return new RegExp(\`(?:\${alternatives.join('|')})\`, 'i');
+}
+
+const COMPILED_PATTERNS = TASK_PATTERNS.map((entry) => ({
+  agent: entry.agent,
+  tokens: entry.tokens,
+  regex: buildPattern(entry.tokens),
+}));
 
 function routeTask(task) {
-  const taskLower = task.toLowerCase();
-
-  // Check patterns
-  for (const [pattern, agent] of Object.entries(TASK_PATTERNS)) {
-    const regex = new RegExp(pattern, 'i');
-    if (regex.test(taskLower)) {
+  const taskLower = String(task == null ? '' : task).toLowerCase();
+  for (const entry of COMPILED_PATTERNS) {
+    if (entry.regex.test(taskLower)) {
       return {
-        agent,
-        confidence: 0.8,
-        reason: \`Matched pattern: \${pattern}\`,
+        agent: entry.agent,
+        confidence: 0.6,
+        reason: \`Matched keyword(s) from: \${entry.tokens.join('|')}\`,
       };
     }
   }
-
-  // Default to coder for unknown tasks
   return {
     agent: 'coder',
-    confidence: 0.5,
-    reason: 'Default routing - no specific pattern matched',
+    confidence: 0.3,
+    reason: 'Default routing - no specific keyword matched',
   };
 }
 
@@ -265,7 +346,7 @@ if (task) {
   console.log('\\nAvailable agents:', Object.keys(AGENT_CAPABILITIES).join(', '));
 }
 
-module.exports = { routeTask, AGENT_CAPABILITIES, TASK_PATTERNS };
+module.exports = { routeTask, AGENT_CAPABILITIES, TASK_PATTERNS, buildPattern };
 `;
 }
 
@@ -375,8 +456,39 @@ export function generateHookHandler(): string {
     '',
     "const path = require('path');",
     "const fs = require('fs');",
+    "const os = require('os');",
+    "const { spawn } = require('child_process');",
     '',
     'const helpersDir = __dirname;',
+    '',
+    // #2661-adjacent fix: `refreshRemoteMessages()` (the funnel promo/disclosure
+    // pool) is fire-and-forget by design so the statusline's own short-lived
+    // per-render subprocess never blocks on a network call — but that also
+    // means it NEVER gets a chance to finish there (confirmed live: two
+    // consecutive cold-cache statusline renders returned promo:null and no
+    // cache file was ever written). `refresh-funnel` exists specifically to
+    // be spawned from a longer-lived context; wire that spawn here, once per
+    // session, detached so it survives this hook process exiting and isn't
+    // awaited so it never adds to the hook's own timeout budget.
+    //
+    // Deliberately always via npx (--prefer-offline avoids a registry round
+    // trip when already cached), never a locally-resolved bin/cli.js path:
+    // a fire-and-forget detached spawn has no way to recover if the first
+    // candidate is a broken/unbuilt local install (confirmed live — a stale
+    // marketplace checkout with a bin/cli.js that exists but throws
+    // MODULE_NOT_FOUND on its own dist/ silently ate the spawn with no
+    // fallback and no visible error, since stdio is intentionally ignored).
+    // npx resolves a real, structurally-valid published package every time.
+    'function spawnFunnelRefresh() {',
+    '  try {',
+    "    var cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';",
+    "    var args = ['--prefer-offline', '@claude-flow/cli', 'hooks', 'refresh-funnel', '--quiet'];",
+    '    var child = spawn(cmd, args, {',
+    "      detached: true, stdio: 'ignore', env: Object.assign({}, process.env),",
+    '    });',
+    '    child.unref();',
+    '  } catch (e) { /* best-effort — the statusline\'s own fallback still renders */ }',
+    '}',
     '',
     'function safeRequire(modulePath) {',
     '  try {',
@@ -438,6 +550,9 @@ export function generateHookHandler(): string {
     '  // hook (#1944). Pull `.command` off whichever stdin shape Claude Code sent.',
     '  var toolInputObj = hookInput.toolInput || hookInput.tool_input || {};',
     "  var prompt = hookInput.prompt || hookInput.command || toolInputObj.command || process.env.PROMPT || process.env.TOOL_INPUT_command || args.join(' ') || '';",
+    '  // Capture FAILURES, not just successes, so the learning substrate has',
+    '  // negative examples (see ADR-174 / DB analysis). Mirrors isToolFailure().',
+    '  var toolFailed = ' + TOOL_FAILURE_EXPR + ';',
     '',
     'const handlers = {',
     "  'route': () => {",
@@ -461,6 +576,57 @@ export function generateHookHandler(): string {
     '    } else {',
     "      console.log('[INFO] Router not available, using default routing');",
     '    }',
+    '',
+    '    // Rate-limit -> sponsored-capacity nudge (ADR-312/313). Fires here,',
+    '    // client-side, BEFORE the API call this prompt would make - so it',
+    '    // still reaches the transcript even if that call then fails from the',
+    '    // rate limit. Cheap local file reads only; never a network call or a',
+    '    // child process, so it cannot add latency to prompt submission.',
+    '    try {',
+    "      var rlFunnelEnv = process.env.RUFLO_FUNNEL;",
+    '      var rlDisabledByEnv = rlFunnelEnv !== undefined && /^(0|false|off|no)$/i.test(String(rlFunnelEnv).trim());',
+    "      var rlCiVars = ['CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CIRCLECI', 'TRAVIS', 'BUILDKITE', 'JENKINS_URL', 'TEAMCITY_VERSION', 'TF_BUILD'];",
+    '      var rlIsCi = rlCiVars.some(function (v) {',
+    '        var val = process.env[v];',
+    "        return val !== undefined && val !== '' && val !== '0' && String(val).toLowerCase() !== 'false';",
+    '      });',
+    "      var rlHome = path.join(os.homedir(), '.ruflo');",
+    '      var rlUserDisabled = false;',
+    '      try {',
+    "        var rlUserCfg = JSON.parse(fs.readFileSync(path.join(rlHome, 'funnel.json'), 'utf8'));",
+    '        rlUserDisabled = !!(rlUserCfg && rlUserCfg.enabled === false);',
+    '      } catch (e) { /* absent/malformed = not disabled */ }',
+    '      var rlProjectDisabled = false;',
+    '      try {',
+    "        var rlProjCfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'claude-flow.config.json'), 'utf8'));",
+    '        rlProjectDisabled = !!(rlProjCfg && rlProjCfg.funnel && rlProjCfg.funnel.enabled === false);',
+    '      } catch (e) { /* absent/malformed = not disabled */ }',
+    '',
+    '      if (!rlDisabledByEnv && !rlIsCi && !rlUserDisabled && !rlProjectDisabled) {',
+    '        var rlStatus = null;',
+    "        try { rlStatus = JSON.parse(fs.readFileSync(path.join(rlHome, 'rate-limit-status.json'), 'utf8')); } catch (e) { /* not flagged */ }",
+    '        var rlIsLimited = false;',
+    '        if (rlStatus && rlStatus.limited) {',
+    '          if (rlStatus.since) {',
+    '            var rlSinceMs = Date.parse(rlStatus.since);',
+    '            rlIsLimited = isNaN(rlSinceMs) ? true : (Date.now() - rlSinceMs) < 6 * 60 * 60 * 1000;',
+    '          } else {',
+    '            rlIsLimited = true;',
+    '          }',
+    '        }',
+    '        if (rlIsLimited) {',
+    '          var rlConsented = false;',
+    '          try {',
+    "            var rlConsentFile = JSON.parse(fs.readFileSync(path.join(rlHome, 'consent.json'), 'utf8'));",
+    "            var rlReceipt = rlConsentFile && rlConsentFile['sponsored-downtime'];",
+    '            rlConsented = !!(rlReceipt && rlReceipt.granted === true && rlReceipt.at !== null && rlReceipt.policyVersion === 1);',
+    '          } catch (e) { /* not consented */ }',
+    '          if (!rlConsented) {',
+    "            console.log('[COGNITUM] Hit your Claude usage limit? Free sponsored capacity is available at cognitum.one/meta-llm -- run: ruflo proxy sponsor-enable --yes');",
+    '          }',
+    '        }',
+    '      }',
+    '    } catch (e) { /* nudge must never break the hook */ }',
     '  },',
     '',
     "  'pre-bash': () => {",
@@ -482,13 +648,14 @@ export function generateHookHandler(): string {
     '    if (intelligence && intelligence.recordEdit) {',
     '      try {',
     "        var file = process.env.TOOL_INPUT_file_path || args[0] || '';",
-    '        intelligence.recordEdit(file);',
+    '        intelligence.recordEdit(file, !toolFailed);',
     '      } catch (e) { /* non-fatal */ }',
     '    }',
-    "    console.log('[OK] Edit recorded');",
+    "    console.log(toolFailed ? '[LEARN] Edit FAILURE recorded' : '[OK] Edit recorded');",
     '  },',
     '',
     "  'session-restore': () => {",
+    '    spawnFunnelRefresh();',
     '    if (session) {',
     '      var existing = session.restore && session.restore();',
     '      if (!existing) {',
@@ -541,10 +708,10 @@ export function generateHookHandler(): string {
     "  'post-task': () => {",
     '    if (intelligence && intelligence.feedback) {',
     '      try {',
-    '        intelligence.feedback(true);',
+    '        intelligence.feedback(!toolFailed);',
     '      } catch (e) { /* non-fatal */ }',
     '    }',
-    "    console.log('[OK] Task completed');",
+    "    console.log(toolFailed ? '[LEARN] Task FAILURE recorded' : '[OK] Task completed');",
     '  },',
     '',
     "  'compact-manual': () => {",
@@ -617,11 +784,22 @@ export function generateIntelligenceStub(): string {
     "const path = require('path');",
     "const os = require('os');",
     '',
-    "const DATA_DIR = path.join(process.cwd(), '.claude-flow', 'data');",
+    'function resolveProjectRoot(startDir) {',
+    '  if (process.env.CLAUDE_PROJECT_DIR) return path.resolve(process.env.CLAUDE_PROJECT_DIR);',
+    '  var dir = path.resolve(startDir || process.cwd());',
+    '  while (true) {',
+    '    if (fs.existsSync(path.join(dir, ".git")) || fs.existsSync(path.join(dir, ".claude-flow"))) return dir;',
+    '    var parent = path.dirname(dir);',
+    '    if (parent === dir) return path.resolve(startDir || process.cwd());',
+    '    dir = parent;',
+    '  }',
+    '}',
+    "const PROJECT_ROOT = resolveProjectRoot(process.cwd());",
+    "const DATA_DIR = path.join(PROJECT_ROOT, '.claude-flow', 'data');",
     "const STORE_PATH = path.join(DATA_DIR, 'auto-memory-store.json');",
     "const RANKED_PATH = path.join(DATA_DIR, 'ranked-context.json');",
     "const PENDING_PATH = path.join(DATA_DIR, 'pending-insights.jsonl');",
-    "const SESSION_DIR = path.join(process.cwd(), '.claude-flow', 'sessions');",
+    "const SESSION_DIR = path.join(PROJECT_ROOT, '.claude-flow', 'sessions');",
     "const SESSION_FILE = path.join(SESSION_DIR, 'current.json');",
     '',
     'function ensureDir(dir) {',
@@ -665,8 +843,8 @@ export function generateIntelligenceStub(): string {
     '  var entries = [];',
     '  var candidates = [',
     '    path.join(os.homedir(), ".claude", "projects"),',
-    '    path.join(process.cwd(), ".claude-flow", "memory"),',
-    '    path.join(process.cwd(), ".claude", "memory"),',
+    '    path.join(PROJECT_ROOT, ".claude-flow", "memory"),',
+    '    path.join(PROJECT_ROOT, ".claude", "memory"),',
     '  ];',
     '  for (var i = 0; i < candidates.length; i++) {',
     '    try {',
@@ -789,10 +967,12 @@ export function generateIntelligenceStub(): string {
     '    return lines2.join("\\n");',
     '  },',
     '',
-    '  recordEdit: function(file) {',
+    '  recordEdit: function(file, success) {',
     '    if (!file) return;',
     '    ensureDir(DATA_DIR);',
-    '    var line = JSON.stringify({ type: "edit", file: file, timestamp: Date.now() }) + "\\n";',
+    '    // success defaults to true; an explicit false (failed edit) is recorded',
+    '    // so consolidation/distillation gets a negative example (ADR-174).',
+    '    var line = JSON.stringify({ type: "edit", file: file, success: success !== false, timestamp: Date.now() }) + "\\n";',
     '    fs.appendFileSync(PENDING_PATH, line, "utf-8");',
     '  },',
     '',
@@ -844,13 +1024,37 @@ const DATA_DIR = join(PROJECT_ROOT, '.claude-flow', 'data');
 const STORE_PATH = join(DATA_DIR, 'auto-memory-store.json');
 
 const DIM = '\\x1b[2m';
+const YELLOW = '\\x1b[0;33m';
 const RESET = '\\x1b[0m';
 const dim = (msg) => console.log(\`  \${DIM}\${msg}\${RESET}\`);
+
+// #2545: fail LOUD instead of a silent dim skip when @claude-flow/memory is
+// unresolvable — self-learning imports are a no-op and the user must be told.
+function warnMemoryUnavailable() {
+  const l1 = \`[AutoMemory] @claude-flow/memory not resolvable from \${PROJECT_ROOT} — self-learning imports are DISABLED.\`;
+  const l2 = '             Fix: npm i -D @claude-flow/memory   (or re-run: npx ruflo@latest init, then npx ruflo@latest doctor --fix)';
+  console.log(\`\${YELLOW}\${l1}\${RESET}\`);
+  console.log(\`\${YELLOW}\${l2}\${RESET}\`);
+  process.stderr.write(\`\${l1}\\n\${l2}\\n\`);
+}
 
 // Ensure data dir
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 
 async function loadMemoryPackage() {
+  // Strategy 0 (#2545): sidecar recorded by \`init\` / \`doctor --fix\`. On the npx
+  // path @claude-flow/memory lands in the npx cache (unreachable by walk-up), so
+  // init records its absolute path here — the only strategy that works there.
+  try {
+    const sidecar = join(PROJECT_ROOT, '.claude-flow', 'memory-package.json');
+    if (existsSync(sidecar)) {
+      const rec = JSON.parse(readFileSync(sidecar, 'utf-8'));
+      if (rec && rec.distPath && existsSync(rec.distPath)) {
+        return await import(\`file://\${rec.distPath}\`);
+      }
+    }
+  } catch { /* fall through */ }
+
   // Strategy 1: Use createRequire for CJS-style resolution (handles nested node_modules
   // when installed as a transitive dependency via npx ruflo / npx claude-flow)
   try {
@@ -880,7 +1084,7 @@ async function doImport() {
   const memPkg = await loadMemoryPackage();
 
   if (!memPkg || !memPkg.AutoMemoryBridge) {
-    dim('Memory package not available — auto memory import skipped (non-critical)');
+    warnMemoryUnavailable();
     return;
   }
 
@@ -897,7 +1101,7 @@ async function doSync() {
   const memPkg = await loadMemoryPackage();
 
   if (!memPkg || !memPkg.AutoMemoryBridge) {
-    dim('Memory package not available — sync skipped (non-critical)');
+    warnMemoryUnavailable();
     return;
   }
 
@@ -1192,6 +1396,14 @@ export function generateHelpers(options: InitOptions): Record<string, string> {
     // Windows-specific scripts
     helpers['daemon-manager.ps1'] = generateWindowsDaemonManager();
     helpers['daemon-manager.cmd'] = generateWindowsBatchWrapper();
+
+    // ADR-127 Phase 4 — expose the attribution footer as a helper file only
+    // when the user explicitly opts in. The file content is the single-line
+    // string so init-generated PR templates can `cat .claude/helpers/attribution`
+    // and append it conditionally without hard-wiring the string everywhere.
+    if (options.attribution === true) {
+      helpers['attribution'] = ATTRIBUTION_FOOTER + '\n';
+    }
   }
 
   if (options.components.statusline) {
@@ -1200,4 +1412,76 @@ export function generateHelpers(options: InitOptions): Record<string, string> {
   }
 
   return helpers;
+}
+
+/**
+ * Generate cross-platform Node.js port of ruflo-hook.sh (#2132).
+ *
+ * The bash shim works on Mac/Linux but fails on native Windows (exit 126).
+ * This .cjs version is always deployed to .claude/helpers/ so:
+ *   - Windows: settings.json overrides plugin bash hooks with node-based cmds
+ *   - Mac/Linux: plugin hooks.json still uses .sh (faster, battle-tested)
+ *   - Both: .claude/helpers/ruflo-hook.cjs available as a canonical cross-platform shim
+ */
+export function generateRufloHookCjs(): string {
+  return `#!/usr/bin/env node
+/**
+ * ruflo-hook.cjs — cross-platform Node.js port of ruflo-hook.sh (#2132)
+ *
+ * Deployed to .claude/helpers/ during ruflo init. On Windows, the
+ * generated .claude/settings.json hooks point here instead of the
+ * plugin's bash-only ruflo-hook.sh.
+ *
+ * Always exits 0 — hook subcommands are best-effort telemetry and must
+ * never block a Claude Code turn.
+ */
+
+'use strict';
+
+const { spawnSync, execSync } = require('child_process');
+const fs = require('fs');
+
+function done() { process.exit(0); }
+
+function commandExists(cmd) {
+  try {
+    const r = execSync(
+      process.platform === 'win32' ? 'where ' + cmd : 'command -v ' + cmd,
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+    );
+    return r.trim().length > 0;
+  } catch { return false; }
+}
+
+function invokeHook(bin, binArgs, hookArgs, stdinData) {
+  const args = [...binArgs, ...hookArgs];
+  const result = spawnSync(bin, args, {
+    shell: process.platform === 'win32',
+    input: stdinData || '',
+    encoding: 'utf8',
+    stdio: ['pipe', 'ignore', 'ignore'],
+    timeout: 30_000,
+  });
+  return result.status === 0;
+}
+
+function main() {
+  const args = process.argv.slice(2);
+  if (args.length === 0) done();
+
+  const [subcommand, ...rest] = args;
+
+  let stdinData = '';
+  try { stdinData = fs.readFileSync(0, 'utf8'); } catch { stdinData = ''; }
+
+  const hookArgs = ['hooks', subcommand, ...rest];
+
+  if (commandExists('ruflo')) { invokeHook('ruflo', [], hookArgs, stdinData); done(); }
+  if (commandExists('claude-flow')) { invokeHook('claude-flow', [], hookArgs, stdinData); done(); }
+  invokeHook('npx', ['--prefer-offline', '--yes', 'ruflo@latest'], hookArgs, stdinData);
+  done();
+}
+
+main();
+`;
 }

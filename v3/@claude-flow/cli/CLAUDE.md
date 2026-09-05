@@ -17,13 +17,13 @@
 
 **CLI coordinates, Task tool agents do the actual work!**
 
-### 🤖 INTELLIGENT 3-TIER MODEL ROUTING (ADR-026)
+### 🤖 INTELLIGENT 3-TIER MODEL ROUTING (ADR-026, ADR-143)
 
 **The routing system has 3 tiers for optimal cost/performance:**
 
 | Tier | Handler | Latency | Cost | Use Cases |
 |------|---------|---------|------|-----------|
-| **1** | Agent Booster | <1ms | $0 | Simple transforms (var→const, add-types, remove-console) |
+| **1** | Deterministic codemod | ~1ms | $0 | Structural transforms, **no LLM**: var→const, remove-console, add-logging |
 | **2** | Haiku | ~500ms | $0.0002 | Simple tasks, bug fixes, low complexity |
 | **3** | Sonnet/Opus | 2-5s | $0.003-$0.015 | Architecture, security, complex reasoning |
 
@@ -34,8 +34,9 @@ npx @claude-flow/cli@latest hooks pre-task --description "[task description]"
 
 **When you see these recommendations:**
 
-1. `[AGENT_BOOSTER_AVAILABLE]` → Skip LLM entirely, use Edit tool directly
-   - Intent types: `var-to-const`, `add-types`, `add-error-handling`, `async-await`, `add-logging`, `remove-console`
+1. `[CODEMOD_AVAILABLE]` → call the `hooks_codemod` MCP tool (intent + file). It applies the transform deterministically via the TypeScript compiler at $0, no LLM.
+   - Deterministic intents (Tier 1): `var-to-const`, `remove-console`, `add-logging`
+   - `add-types`, `add-error-handling`, `async-await` need judgement → they route to a model (Tier 2/3), NOT a $0 codemod
 
 2. `[TASK_MODEL_RECOMMENDATION] Use model="X"` → Use that model in Task tool:
 ```javascript
@@ -46,7 +47,7 @@ Task({
 })
 ```
 
-**Benefits:** 75% cost reduction, 352x faster for Tier 1 tasks
+**Benefits:** Tier-1 codemods are $0 and ~1ms (no model call); routing keeps simple edits off Sonnet/Opus.
 
 ---
 
@@ -287,7 +288,7 @@ Bash("npx @claude-flow/cli@latest hooks worker dispatch --trigger optimize")
 | `init` | 4 | Project initialization with wizard, presets, skills, hooks |
 | `agent` | 8 | Agent lifecycle (spawn, list, status, stop, metrics, pool, health, logs) |
 | `swarm` | 6 | Multi-agent swarm coordination and orchestration |
-| `memory` | 11 | AgentDB memory with vector search (150x-12,500x faster) |
+| `memory` | 11 | AgentDB memory with HNSW vector search (measured ~1.9x–4.7x vs brute force above crossover) |
 | `mcp` | 9 | MCP server management and tool execution |
 | `task` | 6 | Task creation, assignment, and lifecycle |
 | `session` | 7 | Session state management and persistence |
@@ -308,7 +309,7 @@ Bash("npx @claude-flow/cli@latest hooks worker dispatch --trigger optimize")
 | `providers` | 5 | AI providers (list, add, remove, test, configure) |
 | `plugins` | 5 | Plugin management (list, install, uninstall, enable, disable) |
 | `deployment` | 5 | Deployment management (deploy, rollback, status, environments, release) |
-| `embeddings` | 4 | Vector embeddings (embed, batch, search, init) - 75x faster with agentic-flow |
+| `embeddings` | 4 | Vector embeddings (embed, batch, search, init) — agentic-flow ONNX backend (speedup unverified, no benchmark) |
 | `claims` | 4 | Claims-based authorization (check, grant, revoke, list) |
 | `migrate` | 5 | V2 to V3 migration with rollback support |
 | `doctor` | 1 | System diagnostics with health checks |
@@ -480,12 +481,12 @@ npx @claude-flow/cli@latest migrate validate
 
 ## 🧠 Intelligence System (RuVector)
 
-V3 includes the RuVector Intelligence System:
-- **SONA**: Self-Optimizing Neural Architecture (<0.05ms adaptation)
-- **MoE**: Mixture of Experts for specialized routing
-- **HNSW**: 150x-12,500x faster pattern search
+V3 includes the RuVector Intelligence System (measured numbers: see [audit](../../../docs/reviews/intelligence-system-audit-2026-05-29.md) + [`scripts/benchmark-intelligence.mjs`](../../../scripts/benchmark-intelligence.mjs)):
+- **SONA**: Self-Optimizing Neural Architecture (measured 0.0043ms/adapt, target <0.05ms met)
+- **MoE**: Mixture of Experts for specialized routing (gate converges — confidence 0.13→0.88 after rewards)
+- **HNSW**: measured ~1.9x at N=20k, ~3.2x–4.7x at N=5k vs brute force (recall@10 ~0.99); ANN wins above the crossover, ruvector NAPI backend (WASM not active on test host)
 - **EWC++**: Elastic Weight Consolidation (prevents forgetting)
-- **Flash Attention**: 2.49x-7.47x speedup
+- **Flash Attention**: integration available; speedup dropped from docs pending an in-tree benchmark (was: 2.49x–7.47x, inherited unverified from upstream — removed to avoid a credibility claim we can't reproduce)
 
 The 4-step intelligence pipeline:
 1. **RETRIEVE** - Fetch relevant patterns via HNSW
@@ -500,7 +501,7 @@ Features:
 - **Document chunking**: Configurable overlap and size
 - **Normalization**: L2, L1, min-max, z-score
 - **Hyperbolic embeddings**: Poincaré ball model for hierarchical data
-- **75x faster**: With agentic-flow ONNX integration
+- **agentic-flow ONNX integration**: speedup unverified (no benchmark; backend reported `onnx`, model all-MiniLM-L6-v2, 384-dim)
 - **Neural substrate**: Integration with RuVector
 
 ## 🐝 Hive-Mind Consensus
@@ -520,14 +521,18 @@ Features:
 
 ## V3 Performance Targets
 
-| Metric | Target |
-|--------|--------|
-| Flash Attention | 2.49x-7.47x speedup |
-| HNSW Search | 150x-12,500x faster |
-| Memory Reduction | 50-75% with quantization |
-| MCP Response | <100ms |
-| CLI Startup | <500ms |
-| SONA Adaptation | <0.05ms |
+> Source of truth: [`docs/reviews/intelligence-system-audit-2026-05-29.md`](../../../docs/reviews/intelligence-system-audit-2026-05-29.md) + [`scripts/benchmark-intelligence.mjs`](../../../scripts/benchmark-intelligence.mjs). Numbers below are measured unless marked "target/unverified".
+
+| Metric | Measured / Target | Status |
+|--------|-------------------|--------|
+| HNSW Search | ~1.9x at N=20k, ~3.2x–4.7x at N=5k vs brute force (recall@10 ~0.99) | **Measured** (ruvector NAPI; 150x-12,500x NOT reproduced) |
+| Int8 Quantization | 3.84x compression, reconstruction cosine 0.99999 | **Measured** |
+| RaBitQ Quantization | 32x compression, 0.60ms/query | **Measured** |
+| SONA Adaptation | 0.0043ms/adapt (target <0.05ms met) | **Measured** |
+| MoE Gate | converges (confidence 0.13→0.88) | **Measured** |
+| Flash Attention | integration available; measured speedup pending benchmark | **Not measured** — prior "2.49x–7.47x" figure was inherited from upstream marketing, never reproduced in-tree; dropped to avoid a credibility claim we can't verify |
+| MCP Response | <100ms | target |
+| CLI Startup | <500ms | target |
 
 ## 📊 Performance Optimization Protocol
 
@@ -604,7 +609,7 @@ Run `npx @claude-flow/cli@latest doctor` to check:
 
 ```bash
 # Add MCP servers (auto-detects MCP mode when stdin is piped)
-claude mcp add claude-flow -- npx -y @claude-flow/cli@latest
+claude mcp add claude-flow -- npx -y ruflo@latest mcp start
 claude mcp add ruv-swarm -- npx -y ruv-swarm mcp start  # Optional
 claude mcp add flow-nexus -- npx -y flow-nexus@latest mcp start  # Optional
 

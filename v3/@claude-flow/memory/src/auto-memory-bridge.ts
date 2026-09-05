@@ -762,10 +762,11 @@ export function resolveAutoMemoryDir(workingDir: string): string {
   const gitRoot = findGitRoot(workingDir);
   const basePath = gitRoot || workingDir;
 
-  // Claude Code normalizes to forward slashes then replaces with dashes
-  // The leading dash IS preserved (e.g. /workspaces/foo -> -workspaces-foo)
+  // Claude Code normalizes to forward slashes then replaces both `/` and `_`
+  // with dashes (e.g. /workspaces/RX_ERP -> -workspaces-RX-ERP). The leading
+  // dash IS preserved.
   const normalized = basePath.split(path.sep).join('/');
-  const projectKey = normalized.replace(/\//g, '-');
+  const projectKey = normalized.replace(/[\/_]/g, '-');
 
   return path.join(
     process.env.HOME || process.env.USERPROFILE || '~',
@@ -795,17 +796,43 @@ export function findGitRoot(dir: string): string | null {
 
 /**
  * Parse markdown content into structured entries.
- * Splits on ## headings and extracts content under each.
+ *
+ * Three-tier strategy to handle both legacy topic files and Claude Code's
+ * native auto-memory format:
+ *  1. Strip YAML frontmatter if present and capture name/description/type.
+ *  2. Split body on `## ` headings (legacy MEMORY.md-style topic files).
+ *  3. If no `## ` headings were found, fall back to a single entry per file
+ *     using frontmatter.name as the heading (or `(untitled)`), the
+ *     post-frontmatter body as content, and frontmatter fields as metadata.
+ *
+ * Without (3), files like Claude Code's `~/.claude/projects/<key>/memory/*.md`
+ * (frontmatter + free-text body, no `## ` sub-headings) parse to zero entries
+ * and silently drop on import. See issue #2283.
  */
 export function parseMarkdownEntries(content: string): ParsedEntry[] {
   const entries: ParsedEntry[] = [];
-  const lines = content.split('\n');
+
+  // Strip YAML frontmatter and capture key fields.
+  const frontmatter: Record<string, string> = {};
+  let body = content;
+  const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+  if (fmMatch) {
+    body = fmMatch[2];
+    for (const fmLine of fmMatch[1].split(/\r?\n/)) {
+      const kv = fmLine.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+      if (kv) frontmatter[kv[1]] = kv[2].trim().replace(/^["']|["']$/g, '');
+    }
+  }
+
+  const lines = body.split('\n');
   let currentHeading = '';
   let currentLines: string[] = [];
+  let sawHeading = false;
 
   for (const line of lines) {
     const headingMatch = line.match(/^##\s+(.+)/);
     if (headingMatch) {
+      sawHeading = true;
       if (currentHeading && currentLines.length > 0) {
         entries.push({
           heading: currentHeading,
@@ -826,6 +853,18 @@ export function parseMarkdownEntries(content: string): ParsedEntry[] {
       content: currentLines.join('\n').trim(),
       metadata: {},
     });
+  }
+
+  if (!sawHeading) {
+    const trimmedBody = body.trim();
+    if (trimmedBody) {
+      const heading = frontmatter.name || frontmatter.description || '(untitled)';
+      const metadata: Record<string, string> = {};
+      if (frontmatter.type) metadata.type = frontmatter.type;
+      if (frontmatter.description) metadata.description = frontmatter.description;
+      if (frontmatter.originSessionId) metadata.originSessionId = frontmatter.originSessionId;
+      entries.push({ heading, content: trimmedBody, metadata });
+    }
   }
 
   return entries;

@@ -31,10 +31,14 @@ npm install && npm run build && npm test
 
 ## Performance Targets
 
-| Metric | Target | Status |
-|--------|--------|--------|
-| HNSW Search | 150x-12,500x faster | Implemented |
-| Memory Reduction | 50-75% (Int8 quantization) | Implemented |
-| MCP Response | <100ms | Achieved |
-| CLI Startup | <500ms | Achieved |
-| Flash Attention | 2.49x-7.47x speedup | In progress |
+> Source of truth: [`docs/reviews/intelligence-system-audit-2026-05-29.md`](../docs/reviews/intelligence-system-audit-2026-05-29.md) + [`scripts/benchmark-intelligence.mjs`](../scripts/benchmark-intelligence.mjs). Numbers below are measured unless marked "target/unverified".
+
+| Metric | Measured / Target | Status |
+|--------|-------------------|--------|
+| HNSW Search | ~1.9x at N=20k, ~3.2x–4.7x at N=5k vs brute force (recall@10 ~0.99) | **Measured** (ruvector NAPI; 150x-12,500x NOT reproduced) |
+| Int8 Quantization | 3.84x compression, reconstruction cosine 0.99999 | **Measured** |
+| RaBitQ Quantization | 32x compression, 0.60ms/query | **Measured** |
+| SONA Adaptation | 0.0043ms/adapt (target <0.05ms met) | **Measured** |
+| MCP Response | <100ms | target |
+| CLI Startup | <500ms | target |
+| Flash Attention | integration available; measured speedup pending benchmark | **Not measured** — prior "2.49x–7.47x" figure was inherited from upstream marketing, never reproduced in-tree; dropped to avoid a credibility claim we can't verify |

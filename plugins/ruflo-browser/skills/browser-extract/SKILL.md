@@ -2,7 +2,7 @@
 name: browser-extract
 description: Extract structured data via stored browser-templates or one-shot DOM queries, with mandatory AIDefence PII + prompt-injection gates before content reaches the model
 argument-hint: "<url> [--template <name>] [--save-template <name>]"
-allowed-tools: mcp__claude-flow__browser_open mcp__claude-flow__browser_close mcp__claude-flow__browser_get-text mcp__claude-flow__browser_get-value mcp__claude-flow__browser_eval mcp__claude-flow__browser_snapshot mcp__claude-flow__browser_screenshot mcp__claude-flow__browser_scroll mcp__claude-flow__browser_wait mcp__claude-flow__browser_click mcp__claude-flow__aidefence_has_pii mcp__claude-flow__aidefence_is_safe mcp__claude-flow__aidefence_scan Bash Read Write
+allowed-tools: mcp__plugin_ruflo-core_ruflo__browser_open mcp__plugin_ruflo-core_ruflo__browser_close mcp__plugin_ruflo-core_ruflo__browser_get-text mcp__plugin_ruflo-core_ruflo__browser_get-value mcp__plugin_ruflo-core_ruflo__browser_eval mcp__plugin_ruflo-core_ruflo__browser_snapshot mcp__plugin_ruflo-core_ruflo__browser_screenshot mcp__plugin_ruflo-core_ruflo__browser_scroll mcp__plugin_ruflo-core_ruflo__browser_wait mcp__plugin_ruflo-core_ruflo__browser_click mcp__plugin_ruflo-core_ruflo__aidefence_has_pii mcp__plugin_ruflo-core_ruflo__aidefence_is_safe mcp__plugin_ruflo-core_ruflo__aidefence_scan Bash Read Write
 ---
 
 # Browser Extract
@@ -32,7 +32,7 @@ Pull structured data out of a web page. Replaces the older `browser-scrape` skil
    - **One-shot path**: prefer `browser_snapshot` for accessibility trees over raw HTML; fall back to `browser_eval` with `document.querySelectorAll` for bulk lookups.
 4. **AIDefence pre-storage**: every extracted string passes the PII gate.
    ```bash
-   # Pseudocode — mcp__claude-flow__aidefence_has_pii returns true/false per string.
+   # Pseudocode — mcp__plugin_ruflo-core_ruflo__aidefence_has_pii returns true/false per string.
    for s in $extracted; do
      PII=$(call aidefence_has_pii "$s")
      if [[ "$PII" == "true" ]]; then redact_to_placeholder "$s"; fi

@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs';
 import type { CLICommandDefinition, PluginContext } from '@claude-flow/shared/src/plugin-interface.js';
 import type { FederationCoordinator } from './application/federation-coordinator.js';
+import { JCS_SIGNATURE_PROTOCOL } from './application/inbound-dispatcher.js';
 import { getTrustLevelLabel, TrustLevel } from './domain/entities/trust-level.js';
+import type { FederationManifest } from './domain/services/discovery-service.js';
+import { FEDERATION_PLUGIN_VERSION } from './version.js';
 
 type CoordinatorGetter = () => FederationCoordinator | null;
 type ContextGetter = () => PluginContext | null;
@@ -9,6 +13,20 @@ function requireCoordinator(get: CoordinatorGetter): FederationCoordinator {
   const c = get();
   if (!c) throw new Error('Federation not initialized. Run "federation init" first.');
   return c;
+}
+
+function readPeerManifest(value: unknown): FederationManifest | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new TypeError('Peer manifest must be a JSON string or file path');
+  }
+  const input = value.trim();
+  const json = input.startsWith('{') ? input : readFileSync(input, 'utf8');
+  const parsed = JSON.parse(json) as unknown;
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new TypeError('Peer manifest must be a JSON object');
+  }
+  return parsed as FederationManifest;
 }
 
 export function createCliCommands(
@@ -34,10 +52,10 @@ export function createCliCommands(
           capabilities: {
             agentTypes: ['coder', 'reviewer', 'tester'],
             maxConcurrentSessions: 10,
-            supportedProtocols: ['websocket', 'http'],
+            supportedProtocols: ['websocket', 'http', JCS_SIGNATURE_PROTOCOL],
             complianceModes: [args['compliance'] as string],
           },
-          version: '1.0.0-alpha.1',
+          version: FEDERATION_PLUGIN_VERSION,
           timestamp: new Date().toISOString(),
         });
         console.log(`Federation initialized: ${nodeId} at ${args['endpoint']}`);
@@ -45,11 +63,17 @@ export function createCliCommands(
     },
     {
       name: 'federation join',
-      description: 'Join a federation by connecting to a peer endpoint',
+      description: 'Join a federation endpoint; supply a signed peer manifest to negotiate consequential protocols',
       arguments: [{ name: 'endpoint', description: 'Remote peer endpoint', required: true }],
+      options: [
+        { name: 'manifest', short: 'm', description: 'Signed peer manifest as JSON or a file path', type: 'string' },
+      ],
       handler: async (args) => {
         const coordinator = requireCoordinator(getCoordinator);
-        const session = await coordinator.joinPeer(args._[0]!);
+        const session = await coordinator.joinPeer(
+          args._[0]!,
+          readPeerManifest(args['manifest']),
+        );
         console.log(`Joined peer. Session: ${session.sessionId}`);
         console.log(`Trust level: ${getTrustLevelLabel(session.trustLevel)}`);
         console.log(`Capabilities: ${session.negotiatedCapabilities.join(', ')}`);
@@ -90,9 +114,15 @@ export function createCliCommands(
       name: 'federation peers add',
       description: 'Add a static peer to the federation',
       arguments: [{ name: 'endpoint', description: 'Peer endpoint to add', required: true }],
+      options: [
+        { name: 'manifest', short: 'm', description: 'Signed peer manifest as JSON or a file path', type: 'string' },
+      ],
       handler: async (args) => {
         const coordinator = requireCoordinator(getCoordinator);
-        const session = await coordinator.joinPeer(args._[0]!);
+        const session = await coordinator.joinPeer(
+          args._[0]!,
+          readPeerManifest(args['manifest']),
+        );
         console.log(`Peer added and connected. Session: ${session.sessionId}`);
       },
     },
@@ -155,6 +185,103 @@ export function createCliCommands(
           const events = await audit.query(query);
           console.log(JSON.stringify(events, null, 2));
         }
+      },
+    },
+    {
+      name: 'federation trust elevate',
+      description:
+        'ADR-164 §3.5.4 — Founder-bootstrap trust elevation escape hatch. ' +
+        'Hand-promote a registered BBS peer past the organic minInteractions ' +
+        'threshold (e.g. 500 for ATTESTED→TRUSTED) so #exec / #finance pods can ' +
+        'reach the share-context capability on Day 1. Refuses if the target ' +
+        'is not a registered federation peer. Every invocation writes a ' +
+        '`trust_level_changed` audit entry tagged `bootstrap_elevation`.',
+      arguments: [{ name: 'node-id', description: 'BBS / federation node id to elevate', required: true }],
+      options: [
+        {
+          name: 'to',
+          description: 'Target trust level (VERIFIED, ATTESTED, TRUSTED, PRIVILEGED, or numeric 1-4)',
+          type: 'string',
+          required: true,
+        },
+        {
+          name: 'reason',
+          description: 'Operator-supplied reason — appears verbatim in the audit log',
+          type: 'string',
+          required: true,
+        },
+        {
+          name: 'audit',
+          description: 'MANDATORY — print the resulting audit-log entry to stdout',
+          type: 'boolean',
+          default: false,
+        },
+      ],
+      handler: async (args) => {
+        const coordinator = requireCoordinator(getCoordinator);
+        const nodeId = (args._?.[0] ?? '') as string;
+        if (!nodeId) {
+          console.error('node-id is required');
+          process.exitCode = 1;
+          return;
+        }
+
+        const rawTo = args['to'];
+        const reason = args['reason'];
+        const auditFlag = args['audit'];
+
+        if (typeof reason !== 'string' || reason.trim().length === 0) {
+          console.error('--reason is required and must be a non-empty string');
+          process.exitCode = 1;
+          return;
+        }
+        if (auditFlag !== true && auditFlag !== 'true') {
+          console.error(
+            '--audit is mandatory for bootstrap elevation (ADR-164 §3.5.4). ' +
+            'Pass --audit to acknowledge the audit-log emission.',
+          );
+          process.exitCode = 1;
+          return;
+        }
+
+        let target: TrustLevel | null = null;
+        const toStr = String(rawTo).trim().toUpperCase();
+        switch (toStr) {
+          case 'VERIFIED': case '1': target = TrustLevel.VERIFIED; break;
+          case 'ATTESTED': case '2': target = TrustLevel.ATTESTED; break;
+          case 'TRUSTED':  case '3': target = TrustLevel.TRUSTED;  break;
+          case 'PRIVILEGED': case '4': target = TrustLevel.PRIVILEGED; break;
+        }
+        if (target === null) {
+          console.error(
+            `--to value "${rawTo}" not recognized. ` +
+            `Use VERIFIED, ATTESTED, TRUSTED, PRIVILEGED, or numeric 1-4.`,
+          );
+          process.exitCode = 1;
+          return;
+        }
+
+        const entry = await coordinator.bootstrapElevatePeer(nodeId, target, reason);
+        if (entry === null) {
+          console.error(
+            `Node "${nodeId}" is not a registered federation peer. ` +
+            `Run "ruflo-federation peers add <endpoint>" first.`,
+          );
+          process.exitCode = 1;
+          return;
+        }
+
+        // --audit is mandatory; always print the entry to stdout.
+        const human =
+          `[BOOTSTRAP-ELEVATION] ${entry.timestamp}\n` +
+          `  nodeId:         ${entry.nodeId}\n` +
+          `  previousLevel:  ${getTrustLevelLabel(entry.previousLevel)} (${entry.previousLevel})\n` +
+          `  newLevel:       ${getTrustLevelLabel(entry.newLevel)} (${entry.newLevel})\n` +
+          `  reason:         ${entry.reason}\n` +
+          `  operatorBypass: ${entry.operatorBypass}\n` +
+          `  tag:            ${entry.tag}`;
+        console.log(human);
+        console.log(JSON.stringify(entry));
       },
     },
     {

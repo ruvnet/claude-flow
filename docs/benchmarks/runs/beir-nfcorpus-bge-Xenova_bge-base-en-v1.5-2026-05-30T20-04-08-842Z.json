@@ -1,0 +1,28 @@
+{
+  "runAt": "2026-05-30T20:04:08.842Z",
+  "benchmark": "beir-nfcorpus-bge",
+  "model": "Xenova/bge-base-en-v1.5",
+  "queries": 10,
+  "corpusSize": 3633,
+  "metrics": {
+    "ndcg10": 0.41916809843750186,
+    "mrr10": 0.9,
+    "recall10": 0.0949639786350715,
+    "recall100": 0.26451266067235196,
+    "avgQueryLatencyMs": 325.2941667000065
+  },
+  "baselines": {
+    "BM25 (Lucene)": 0.325,
+    "DocT5query": 0.328,
+    "TAS-B": 0.319,
+    "GenQ": 0.319,
+    "ColBERT": 0.305,
+    "Contriever": 0.328,
+    "GTR-XL": 0.343,
+    "SPLADE++": 0.347,
+    "BGE-large-v1.5 (pub)": 0.38,
+    "SBERT msmarco": 0.272
+  },
+  "ourRank": 1,
+  "leaderboardLength": 11
+}

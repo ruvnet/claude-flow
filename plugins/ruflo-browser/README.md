@@ -1,8 +1,10 @@
 # ruflo-browser
 
-Session-as-skill browser automation. Playwright-backed via 23 `mcp__claude-flow__browser_*` tools, with each session captured as a first-class **RVF cognitive container** holding manifest + trajectory + screenshots + sanitized cookies + findings, indexed in AgentDB and gated by AIDefence.
+Session-as-skill browser automation. Playwright-backed via 23 `mcp__plugin_ruflo-core_ruflo__browser_*` tools, with each session captured as a first-class **RVF cognitive container** holding manifest + trajectory + screenshots + sanitized cookies + findings, indexed in AgentDB and gated by AIDefence.
 
 > **v0.2.0 architecture** — every browser session is now an addressable, replayable, federatable artifact. Status is **Proposed** per [ADR-0001](./docs/adrs/0001-browser-skills-architecture.md); the load-bearing replay assumption requires a pre-Accept spike (see ADR Verification §4).
+>
+> **Substrate alignment (ADR-122).** This plugin is the user-facing skill layer; the substrate primitives — signed trajectories (Ed25519 + RVF), causal-graph self-healing, AIDefence-attested cookie vault, federated MCTS, Session Capsules, Workflow Compiler — ship in the [`@claude-flow/browser@3.0.0-alpha.4`](https://www.npmjs.com/package/@claude-flow/browser) npm package. See the [substrate announcement](https://gist.github.com/ruvnet/a708fafb1375ed69bc48377df47fa2ac) and tracking issue [#2041](https://github.com/ruvnet/ruflo/issues/2041).
 
 ## Install
 
@@ -72,11 +74,11 @@ Raw cookies and tokens never enter AgentDB unwrapped — see ADR §3.
 
 1. **Pre-storage scan** — every scraped string passes `aidefence_has_pii` before AgentDB store.
 2. **Cookie sanitization** — `aidefence_scan` flags high-entropy strings; vault them in `browser-cookies`.
-3. **Prompt-injection check** — extracted text returning to an LLM passes `aidefence_is_safe`. Hits get quarantined to `findings.md`.
+3. **Prompt-injection check** — extracted text returning to an LLM passes `aidefence_is_safe`. Hits get quarantined to `findings.md`. With [`aidefence@2.3.0` (ADR-118)](../../v3/docs/adr/ADR-118-aidefence-2.3.0-upgrade.md) the check now catches role-hijack (`you are now …` / `act as …` / `pretend to be …`) and jailbreak markers (`DAN mode` / `developer mode` / `god mode` / `root mode`) in addition to the canonical `ignore all previous instructions` family — high-leverage upgrade for browser-scraped pages.
 
 ## MCP surface
 
-23 existing `mcp__claude-flow__browser_*` tools (interaction primitive) **+ 5 new `browser_session_*` lifecycle tools (implemented in v0.2.0)**:
+18 existing `mcp__plugin_ruflo-core_ruflo__browser_*` interaction primitives (in [`browser-tools.ts`](../../v3/@claude-flow/cli/src/mcp-tools/browser-tools.ts): open/close/click/type/fill/select/check/uncheck/hover/press/scroll/screenshot/snapshot/eval/wait/reload/back/forward) **+ 5 new `browser_session_*` lifecycle tools (implemented in v0.2.0)** for a total of 23:
 
 | Tool | Purpose |
 |------|---------|

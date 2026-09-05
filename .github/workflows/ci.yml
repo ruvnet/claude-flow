@@ -28,7 +28,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Run security audit
         run: |
@@ -70,23 +70,21 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Run all tests
-        run: npm test || echo "⚠️ Some tests failed (Jest teardown issues - non-blocking)"
-        continue-on-error: true
-
-      - name: Generate coverage report
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run test:coverage || echo "⚠️ Coverage generation failed (non-blocking)"
-        continue-on-error: true
+        # #3030: the historical suite has known debt, but new failing files
+        # are release-blocking. The committed file-level baseline may only
+        # shrink; replacing an old failure with a new one still fails.
+        run: node scripts/ci-test-ratchet.mjs
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.os }}
-          path: coverage/
+          path: .test-results/vitest.json
+          if-no-files-found: error
 
   # Documentation generation
   docs:
@@ -137,11 +135,21 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ "${{ runner.os }}" == "Linux" ]; then
-            npm ci --legacy-peer-deps
-          else
-            npm ci --legacy-peer-deps --omit=optional || npm ci --legacy-peer-deps --force
-          fi
+          # Retries absorb the transient sharp/libvips "socket hang up" /
+          # 503 download flake (see .github/actions/npm-ci-retry) — this
+          # step predates that composite action and can't call it directly
+          # since it needs the OS-conditional --omit=optional fallback too.
+          for attempt in 1 2 3; do
+            if [ "${{ runner.os }}" == "Linux" ]; then
+              npm ci --legacy-peer-deps && exit 0
+            else
+              (npm ci --legacy-peer-deps --omit=optional || npm ci --legacy-peer-deps --force) && exit 0
+            fi
+            echo "npm ci failed (attempt $attempt/3) — retrying in 15s"
+            sleep 15
+          done
+          echo "npm ci failed after 3 attempts"
+          exit 1
         shell: bash
 
       - name: Build project

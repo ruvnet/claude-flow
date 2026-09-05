@@ -438,7 +438,17 @@ const feedbackCommand: Command = {
       const clampedReward = Math.max(-1, Math.min(1, reward));
       const tdError = router.update(taskDescription, agentId, clampedReward, nextTask);
 
+      // #2222: persist immediately. The Q-learner only auto-saves every
+      // autoSaveInterval updates, but the CLI process exits after this single
+      // feedback call, so without an explicit flush the learned update is lost
+      // and route-learning never improves across invocations. saveModel()
+      // swallows its own errors (returns false), so this await cannot throw.
+      const persisted = await router.saveModel();
+
       output.printSuccess(`Feedback recorded for agent "${agent.name}"`);
+      if (!persisted) {
+        output.printWarning('Feedback applied but the model could not be persisted to disk.');
+      }
       output.writeln();
       output.printBox([
         `Task: ${taskDescription}`,

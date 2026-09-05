@@ -20,177 +20,60 @@
 // is hundreds of MCP round-trips. spawnSync over the CLI is materially faster
 // and avoids shell-quoting pitfalls in the ADR titles.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { findAdrs, parseAdr } from './lib/parse-adrs.mjs';
+import {
+  adrRecordKey,
+  adrRecordValue,
+  edgeKey,
+  edgeValue,
+  memoryStoreArgs,
+  uniqueEdges,
+} from './lib/index-records.mjs';
 
-// ADR-100 / #1748 Issue 3 — CLI_CORE=1 routes to lite cli-core (~2s cold-cache).
-// Note: cli-core's JsonMemoryBackend overwrites by default, so the
-// "exists" / UNIQUE-constraint detection below collapses to "ok" under CLI_CORE.
-// Re-running import in CLI_CORE mode is therefore idempotent (records refreshed)
-// rather than incremental (records skipped). For incremental imports across
-// many runs, leave CLI_CORE unset.
-const CLI_PKG = process.env.CLI_CORE === '1'
-  ? '@claude-flow/cli-core@alpha'
-  : '@claude-flow/cli@latest';
+// #2781 (Jordi-Izquierdo-DDS): CLI_CORE=1 previously routed writes through
+// `@claude-flow/cli-core@alpha`, whose JsonMemoryBackend lives in a different
+// store than `@claude-flow/cli@latest`'s SQLite backend. The default
+// `ruflo memory search` reader hits the SQLite store, so setting CLI_CORE=1
+// for the ~2s cold-cache speedup silently made `import` succeed against a
+// store the default reader never looks at ("147/147 stored" but zero hits
+// in later searches). Unified on the default CLI so writer and reader
+// always agree — the CLI_CORE env var is now honored as read-only/logged
+// but no longer routes to a different package.
+if (process.env.CLI_CORE === '1') {
+  console.warn(
+    '[ruflo-adr] warning: CLI_CORE=1 is ignored — writing to the default ' +
+    "`@claude-flow/cli@latest` store so `ruflo memory search` can find the records (#2781).",
+  );
+}
 
 const ROOT = process.env.ADR_ROOT || process.cwd();
-const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'v2', '.next', '.turbo', 'build']);
-
-function findAdrs(dir, out = []) {
-  let entries;
-  try { entries = readdirSync(dir); } catch { return out; }
-  for (const e of entries) {
-    if (SKIP_DIRS.has(e)) continue;
-    const p = join(dir, e);
-    let st;
-    try { st = statSync(p); } catch { continue; }
-    if (st.isDirectory()) {
-      findAdrs(p, out);
-    } else if (e.endsWith('.md') && (p.includes('/docs/adr/') || p.includes('/docs/adrs/'))) {
-      out.push(p);
-    }
-  }
-  return out;
-}
-
-function parseAdr(path) {
-  const text = readFileSync(path, 'utf-8');
-  const id = parseId(path, text);
-  const title = parseTitle(text);
-  const status = parseStatus(text);
-  const date = parseDate(text);
-  const tags = parseTags(text);
-  const context = parseContextFirstParagraph(text);
-  const links = parseLinks(text, id);
-  return { id, title, status, date, tags, context, links, file: path.replace(ROOT + '/', '') };
-}
-
-function parseId(path, text) {
-  const fm = /^---\s*$([\s\S]*?)^---\s*$/m.exec(text);
-  if (fm) {
-    const m = /^id:\s*(\S+)/m.exec(fm[1]);
-    if (m) return m[1].toUpperCase();
-  }
-  const fname = basename(path, '.md');
-  const m = /^(ADR-?\d+|\d{3,4})/i.exec(fname);
-  if (m) {
-    const raw = m[1];
-    return raw.toUpperCase().startsWith('ADR') ? raw.toUpperCase().replace(/^ADR-?/, 'ADR-') : `ADR-${raw}`;
-  }
-  return fname;
-}
-
-function parseTitle(text) {
-  const fm = /^---\s*$([\s\S]*?)^---\s*$/m.exec(text);
-  if (fm) {
-    const m = /^title:\s*(.+)$/m.exec(fm[1]);
-    if (m) return m[1].trim();
-  }
-  const m = /^#\s*(?:ADR-?\d+:?\s*)?(.+?)$/m.exec(text);
-  return m ? m[1].trim() : '(untitled)';
-}
-
-function parseStatus(text) {
-  const fm = /^---\s*$([\s\S]*?)^---\s*$/m.exec(text);
-  if (fm) {
-    const m = /^status:\s*(.+)$/im.exec(fm[1]);
-    if (m) return m[1].trim();
-  }
-  // Match `**Status**:` plus `**Status**:` with possible adornments.
-  // Strip parenthetical qualifiers like "Proposed (v3.6.x)" -> "Proposed".
-  const m = /^\*\*Status\*\*:\s*([A-Za-z][A-Za-z\- ]*?)(?:\s*\(.*?\))?\s*$/m.exec(text);
-  return m ? m[1].trim() : 'Unknown';
-}
-
-function parseDate(text) {
-  const fm = /^---\s*$([\s\S]*?)^---\s*$/m.exec(text);
-  if (fm) {
-    const m = /^date:\s*(\S+)/m.exec(fm[1]);
-    if (m) return m[1];
-  }
-  const m = /^\*\*Date\*\*:\s*(\S+)/m.exec(text);
-  return m ? m[1] : '';
-}
-
-function parseTags(text) {
-  const fm = /^---\s*$([\s\S]*?)^---\s*$/m.exec(text);
-  if (fm) {
-    const m = /^tags:\s*\[([^\]]+)\]/m.exec(fm[1]);
-    if (m) return m[1].split(',').map((s) => s.trim()).filter(Boolean);
-  }
-  const m = /^\*\*Tags\*\*:\s*(.+)$/m.exec(text);
-  return m ? m[1].split(',').map((s) => s.trim()).filter(Boolean) : [];
-}
-
-function parseContextFirstParagraph(text) {
-  const m = /^##\s*Context\s*$\s*([\s\S]+?)(?=^##\s|\Z)/m.exec(text);
-  if (!m) return '';
-  return m[1].trim().split(/\n\s*\n/)[0].replace(/\s+/g, ' ').slice(0, 400);
-}
-
-// Extract ADR-NNN references from a link line. CRITICAL: must distinguish ADR
-// references from GitHub issue numbers (#1697 etc.) which the prior version
-// false-positively captured as "ADR-1697". We only recognize bare numbers as
-// ADR refs when they appear in a known ADR-link section AND they don't look
-// like GitHub issues (no leading #, no leading "issue").
-function parseLinks(text, selfId) {
-  const out = [];
-  // Frontmatter relationships
-  const fm = /^---\s*$([\s\S]*?)^---\s*$/m.exec(text);
-  if (fm) {
-    for (const [field, relation] of [
-      ['supersedes', 'supersedes'],
-      ['amended-by', 'amends'],
-      ['amends', 'amends'],
-      ['related', 'related'],
-      ['depends-on', 'depends-on'],
-    ]) {
-      const re = new RegExp(`^${field}:\\s*\\[?([^\\]\\n]+)\\]?$`, 'mi');
-      const m = re.exec(fm[1]);
-      if (m) for (const ref of extractAdrRefs(m[1])) {
-        if (relation === 'supersedes') out.push({ from: ref, to: selfId, relation });
-        else out.push({ from: selfId, to: ref, relation });
-      }
-    }
-  }
-  // Body relationship lines
-  const supersedes = /\*\*Supersedes\*\*:\s*(.+)$/m.exec(text);
-  if (supersedes) for (const ref of extractAdrRefs(supersedes[1])) out.push({ from: ref, to: selfId, relation: 'supersedes' });
-  const amended = /\*\*(?:Amended[ -]by|Amends)\*\*:\s*(.+)$/m.exec(text);
-  if (amended) for (const ref of extractAdrRefs(amended[1])) out.push({ from: selfId, to: ref, relation: 'amends' });
-  const related = /\*\*Related\*\*:\s*(.+)$/m.exec(text);
-  if (related) for (const ref of extractAdrRefs(related[1])) out.push({ from: selfId, to: ref, relation: 'related' });
-  const dependsOn = /\*\*Depends[ -]on\*\*:\s*(.+)$/m.exec(text);
-  if (dependsOn) for (const ref of extractAdrRefs(dependsOn[1])) out.push({ from: selfId, to: ref, relation: 'depends-on' });
-  return out;
-}
-
-function extractAdrRefs(s) {
-  const refs = new Set();
-  // Strip GitHub issue / commit references first to prevent false positives.
-  const cleaned = s
-    .replace(/#\d+/g, '')               // #1697
-    .replace(/issue[s]?\s*\d+/gi, '')    // issue 1697
-    .replace(/PR\s*\d+/gi, '')           // PR 1234
-    .replace(/commit\s*[`a-f0-9]+/gi, '') // commit `abc123`
-    .replace(/`[^`]*`/g, '');             // any backtick-quoted span
-  const re = /\bADR-?(\d+)\b/gi;
-  let m;
-  while ((m = re.exec(cleaned))) refs.add(`ADR-${m[1].padStart(3, '0').replace(/^0+(\d{3,})/, '$1')}`);
-  return [...refs];
-}
 
 function memoryStore(namespace, key, value) {
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'store',
-    '--namespace', namespace,
-    '--key', key,
-    '--value', typeof value === 'string' ? value : JSON.stringify(value),
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
+  // #2474 Bug 1 (fatal): ADR titles like "ADR-005 — Repository …" contain
+  // a U+2014 em-dash. \`npm exec\` runs argv validation BEFORE handing args
+  // to the underlying bin, and \`commander\`-style argv with a non-ASCII
+  // dash that starts an arg makes it reject with:
+  //   npm error arg Argument starts with non-ascii dash, this is probably invalid: — …
+  // Result: every store failed → \`Records stored: 0/N\`.
+  //
+  // Use the \`--flag=value\` form so npm sees a single \`--value=…\` token
+  // and doesn't try to interpret the leading character of the value.
+  // This works on both legacy and current npm; the underlying CLI accepts
+  // \`--flag=value\` and \`--flag value\` equivalently.
+  // #2666 point 2: without `cwd: ROOT`, this subprocess inherits THIS
+  // process's own cwd, so `ADR_ROOT=/other/repo node import.mjs` run from
+  // anywhere else scans the right files but writes to the wrong
+  // `.swarm/memory.db` (the CLI resolves the db path relative to the
+  // subprocess's cwd, not ADR_ROOT). Every memory subprocess call in this
+  // plugin must pass `cwd: ROOT` so the scan root and the db root agree.
+  // #2660: pass --upsert explicitly. The importer owns stable logical keys,
+  // so re-running it must refresh changed ADRs and relationships in place.
+  // Do not depend on a CLI parser default for this data-integrity contract.
+  const r = spawnSync('npx', memoryStoreArgs(namespace, key, value),
+    { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: ROOT });
   if (r.status !== 0) {
-    if (/UNIQUE constraint/i.test(r.stderr || r.stdout || '')) return 'exists';
-    return 'error: ' + (r.stderr || '').slice(0, 100);
+    return 'error: ' + (r.stderr || r.stdout || '').slice(0, 100);
   }
   return 'ok';
 }
@@ -199,27 +82,27 @@ const dryRun = process.env.IMPORT_DRY_RUN === '1';
 const fmt = process.env.IMPORT_FORMAT || 'markdown';
 
 const files = findAdrs(ROOT);
-const adrs = files.map(parseAdr);
+const adrs = files.map((f) => parseAdr(f, ROOT));
 const byId = new Map();
-const allEdges = [];
+const parsedEdges = [];
 for (const a of adrs) {
   byId.set(a.id, a);
-  allEdges.push(...a.links);
+  parsedEdges.push(...a.links);
 }
+const allEdges = uniqueEdges(parsedEdges);
 
 let storedRecords = 0, storedEdges = 0;
 const errors = [];
 if (!dryRun) {
   for (const a of adrs) {
-    const r = memoryStore('adr-patterns', `${a.id}::${basename(a.file, '.md')}`,
-      `${a.title} — ${a.context || '(no context)'}\n\nfile: ${a.file}\nstatus: ${a.status}\ndate: ${a.date}\ntags: ${a.tags.join(',')}`);
-    if (r === 'ok' || r === 'exists') storedRecords++;
+    const r = memoryStore('adr-patterns', adrRecordKey(a), adrRecordValue(a));
+    if (r === 'ok') storedRecords++;
     else errors.push(`${a.id} ${a.file}: ${r}`);
   }
   for (const e of allEdges) {
-    const key = `${e.relation}:${e.from}->${e.to}:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const r = memoryStore('adr-edges', key, JSON.stringify({ ...e, capturedAt: new Date().toISOString() }));
-    if (r === 'ok' || r === 'exists') storedEdges++;
+    const r = memoryStore('adr-edges', edgeKey(e), edgeValue(e));
+    if (r === 'ok') storedEdges++;
+    else errors.push(`${edgeKey(e)}: ${r}`);
   }
 }
 

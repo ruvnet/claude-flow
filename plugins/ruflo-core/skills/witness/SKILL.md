@@ -35,7 +35,7 @@ node plugins/ruflo-core/scripts/witness/init.mjs --root .
 # while the fix is present. If someone reverts the fix, the marker
 # disappears and `verify` reports it as `regressed`.
 
-# Regenerate the manifest (signs with Ed25519 from current gitCommit)
+# Regenerate the manifest (signing requires @noble/ed25519)
 npm i @noble/ed25519
 node plugins/ruflo-core/scripts/witness/regen.mjs \
   --manifest verification.md.json \
@@ -45,6 +45,11 @@ node plugins/ruflo-core/scripts/witness/regen.mjs \
 # Verify markers are present in the live tree
 node plugins/ruflo-core/scripts/witness/verify.mjs \
   --manifest verification.md.json
+
+# Or authenticate the manifest and check source markers in a clean clone.
+# Generated dist/ entries are explicitly reported as skipped.
+node plugins/ruflo-core/scripts/witness/verify.mjs \
+  --manifest verification.md.json --source-only
 ```
 
 ## Temporal queries (ADR-103)
@@ -100,3 +105,4 @@ and before `publish`. Failure modes:
 | `signatureValid: no` | manifest hand-edited; re-run regen |
 | `regressed: > 0` | a documented fix lost its marker since issuance |
 | `missing: > 0` | a cited dist file no longer exists; rebuild or remove the entry |
+| `scope: source-only` | signature + source markers checked; generated entries intentionally skipped |

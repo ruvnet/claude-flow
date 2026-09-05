@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.ruflo/
+*.tsbuildinfo
+# Lockfile is regenerated inside the ruflo workspace; an isolated install pulls peer deps.
+package-lock.json

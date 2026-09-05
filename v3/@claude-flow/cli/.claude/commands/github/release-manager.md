@@ -167,9 +167,11 @@ This release was coordinated using ruv-swarm agents:
 This release is production-ready with comprehensive validation and testing.
 
 ---
-🤖 Generated with Claude Code using ruv-swarm coordination`
+`
 }
 ```
+
+<!-- last-updated: 2026-05-21 — ADR-127 -->
 
 ## Batch Release Workflow
 
@@ -310,9 +312,9 @@ jobs:
   release-validation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
       - name: Install and Test
@@ -320,7 +322,7 @@ jobs:
           cd claude-code-flow/claude-code-flow && npm install && npm test
           cd ../../ruv-swarm/npm && npm install && npm test:all
       - name: Validate Release
-        run: npx claude-flow release validate
+        run: npx @claude-flow/cli@latest release validate
 ```
 
 ## Monitoring and Metrics

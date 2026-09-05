@@ -1237,6 +1237,8 @@ const findTools: MCPTool[] = [
 // Export All Tools
 // ============================================================================
 
+import { signedTrajectoryTools } from './signed-trajectory-tools.js';
+
 export const browserTools: MCPTool[] = [
   ...navigationTools,
   ...snapshotTools,
@@ -1251,6 +1253,7 @@ export const browserTools: MCPTool[] = [
   ...settingsTools,
   ...debugTools,
   ...findTools,
+  ...signedTrajectoryTools, // ADR-122 Phase 1
 ];
 
 export default browserTools;

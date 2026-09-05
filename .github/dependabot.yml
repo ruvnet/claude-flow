@@ -17,6 +17,50 @@ updates:
       prefix: "chore"
       include: "scope"
 
+  # ruflo-graph-intelligence — ADR-123, supply-chain-audited
+  - package-ecosystem: "npm"
+    directory: "/plugins/ruflo-graph-intelligence"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "ruvnet"
+    labels:
+      - "dependencies"
+      - "npm"
+      - "supply-chain"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    # Block major bumps — they need allowlist re-approval per
+    # scripts/audit-supply-chain.mjs. Patch + minor are auto-PR'd.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # @claude-flow/browser — ADR-122 substrate, supply-chain-audited
+  - package-ecosystem: "npm"
+    directory: "/v3/@claude-flow/browser"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "ruvnet"
+    labels:
+      - "dependencies"
+      - "npm"
+      - "supply-chain"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"

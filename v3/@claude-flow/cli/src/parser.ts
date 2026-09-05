@@ -263,8 +263,12 @@ export class CommandParser {
       i++;
     }
 
-    // Apply defaults
-    this.applyDefaults(result.flags);
+    // Apply defaults (globals + resolved command/subcommand — #2775 follow-up).
+    // Previously only globals were walked, so any subcommand-declared
+    // `default: true` silently dropped and reached the action handler as
+    // `undefined`. That trapped `memory store --upsert` and every other
+    // subcommand that leaned on a per-flag default.
+    this.applyDefaults(result.flags, resolvedCmd, resolvedSub);
 
     return result;
   }
@@ -297,8 +301,17 @@ export class CommandParser {
         const normalizedKey = this.normalizeKey(key);
 
         if (booleanFlags.has(normalizedKey)) {
-          flags[normalizedKey] = true;
-        } else if (nextIndex < args.length && !args[nextIndex].startsWith('-')) {
+          // #explore-flag: allow an explicit boolean value (`--explore false`,
+          // `--explore true`). Without this, a default-true boolean could never
+          // be disabled via the space form — the value was dropped and the flag
+          // forced to true. The `=` form already worked via parseValue.
+          if (nextIndex < args.length && this.isBooleanLiteral(args[nextIndex])) {
+            flags[normalizedKey] = args[nextIndex].toLowerCase() === 'true';
+            nextIndex++;
+          } else {
+            flags[normalizedKey] = true;
+          }
+        } else if (nextIndex < args.length && this.isFlagValue(args[nextIndex])) {
           flags[normalizedKey] = this.parseValue(args[nextIndex]);
           nextIndex++;
         } else {
@@ -315,8 +328,15 @@ export class CommandParser {
         const normalizedKey = this.normalizeKey(key);
 
         if (booleanFlags.has(normalizedKey)) {
-          flags[normalizedKey] = true;
-        } else if (nextIndex < args.length && !args[nextIndex].startsWith('-')) {
+          // #explore-flag: short boolean flags also accept an explicit value
+          // (`-e false`) so a default-true boolean can be turned off.
+          if (nextIndex < args.length && this.isBooleanLiteral(args[nextIndex])) {
+            flags[normalizedKey] = args[nextIndex].toLowerCase() === 'true';
+            nextIndex++;
+          } else {
+            flags[normalizedKey] = true;
+          }
+        } else if (nextIndex < args.length && this.isFlagValue(args[nextIndex])) {
           flags[normalizedKey] = this.parseValue(args[nextIndex]);
           nextIndex++;
         } else {
@@ -332,6 +352,35 @@ export class CommandParser {
     }
 
     return { flags, nextIndex };
+  }
+
+  /**
+   * Decide whether `arg` should be consumed as the VALUE of the preceding flag,
+   * rather than treated as the next flag.
+   *
+   * Bug fix (audit #1, follow-up to #2222): a negative numeric value such as
+   * `-1.0` starts with '-', so the old `!arg.startsWith('-')` test rejected it
+   * as a value and parsed it as a (bogus) short flag. For `route feedback
+   * -r -1.0` this silently dropped the value and coerced reward to `true` → 1.0,
+   * so NEGATIVE feedback REINFORCED the agent. Only `--reward=-1.0` worked.
+   *
+   * Anything not starting with '-' is a value (unchanged). Anything that starts
+   * with '-' is a value ONLY if it is a pure negative number (e.g. `-1`, `-1.0`,
+   * `-3.14`, `-1e3`). Real flags like `-r`, `--reward`, `-abc` are never numeric
+   * after the leading dash, so they are still correctly treated as flags.
+   */
+  private isFlagValue(arg: string): boolean {
+    if (!arg.startsWith('-')) return true;
+    // Negative number: '-' followed by a parseable numeric literal.
+    return /^-\d*\.?\d+(?:[eE][+-]?\d+)?$/.test(arg);
+  }
+
+  /** True for the literal tokens `true`/`false` (case-insensitive). Used so a
+   * boolean flag can take an explicit value in the space form, e.g.
+   * `--explore false` / `-e true`. */
+  private isBooleanLiteral(arg: string): boolean {
+    const a = arg.toLowerCase();
+    return a === 'true' || a === 'false';
   }
 
   private parseValue(value: string): string | number | boolean {
@@ -410,14 +459,34 @@ export class CommandParser {
 
   /**
    * Get boolean flags scoped to a specific command/subcommand.
+   *
+   * `getBooleanFlags()` walks EVERY command + subcommand in the registry
+   * and adds their boolean options into one flat set. That's convenient
+   * for the common case but causes cross-subcommand pollution: if `swarm
+   * start --parallel` is boolean AND `hooks route --parallel` is numeric,
+   * the flat set marks `parallel` as boolean, and `hooks route --parallel 7`
+   * drops the `7` as a positional (parseFlag treats booleanFlags-hit as
+   * "consume no value"). This is the exact bug that forced the
+   * --moa-parallel rename in the 2026-07-26 dream-cycle #2778 fix.
+   *
+   * Fix: if the resolved subcommand declares the flag as a non-boolean
+   * type, REMOVE it from the boolean set. Narrowest scope wins.
+   * (Documented via in-tree comment in commands/hooks.ts and the #2778
+   * commit message.)
    */
   private getScopedBooleanFlags(resolvedCmd?: Command): Set<string> {
     const flags = this.getBooleanFlags();
 
     if (resolvedCmd?.options) {
       for (const opt of resolvedCmd.options) {
+        const key = this.normalizeKey(opt.name);
         if (opt.type === 'boolean') {
-          flags.add(this.normalizeKey(opt.name));
+          flags.add(key);
+        } else if (opt.type) {
+          // Subcommand explicitly re-declares this flag as a non-boolean
+          // type (string/number/array) — narrowest scope wins, so drop
+          // it from the boolean set to override any global pollution.
+          flags.delete(key);
         }
       }
     }
@@ -466,16 +535,27 @@ export class CommandParser {
     return flags;
   }
 
-  private applyDefaults(flags: ParsedFlags): void {
-    // Apply global option defaults
-    for (const opt of this.globalOptions) {
-      const key = this.normalizeKey(opt.name);
-      if (flags[key] === undefined && opt.default !== undefined) {
-        flags[key] = opt.default as string | boolean | number | string[];
+  private applyDefaults(flags: ParsedFlags, command?: Command, subcommand?: Command): void {
+    // #2775: apply defaults from globals AND the resolved command/subcommand.
+    // Subcommand > command > global (later writes lose to earlier — because
+    // we only set when `undefined`, so the FIRST option definition that
+    // supplies a default wins; walk narrow-to-broad so subcommand options
+    // apply before broader ones do).
+    const layers: CommandOption[][] = [];
+    if (subcommand?.options) layers.push(subcommand.options);
+    if (command?.options) layers.push(command.options);
+    layers.push(this.globalOptions);
+
+    for (const layer of layers) {
+      for (const opt of layer) {
+        const key = this.normalizeKey(opt.name);
+        if (flags[key] === undefined && opt.default !== undefined) {
+          flags[key] = opt.default as string | boolean | number | string[];
+        }
       }
     }
 
-    // Apply custom defaults
+    // Apply custom defaults (lowest precedence)
     if (this.options.defaults) {
       for (const [key, value] of Object.entries(this.options.defaults)) {
         const normalizedKey = this.normalizeKey(key);

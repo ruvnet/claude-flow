@@ -1,6 +1,6 @@
 ---
 name: vector-engineer
-description: Vector operations specialist using npx ruvector@0.2.25 — HNSW indexing, adaptive LoRA embeddings, code-graph clustering, hooks routing, brain/SONA, 103 MCP tools
+description: Vector operations specialist using npx ruvector@0.2.25 — HNSW indexing, adaptive LoRA embeddings, code-graph clustering, hooks routing, brain/SONA, 91 MCP tools. Use when the task involves generating/storing embeddings, semantic vector search, RVF cognitive containers, GNN clustering, or hyperbolic (Poincare) hierarchical embeddings.
 model: sonnet
 ---
 
@@ -45,7 +45,7 @@ npx -y ruvector@0.2.25 info
 
 ### MCP Integration
 
-ruvector@0.2.25 exposes 103 MCP tools. Register the MCP server with the pinned version:
+ruvector@0.2.25 exposes 91 MCP tools (verified via `ruvector mcp tools`). Register the MCP server with the pinned version:
 ```bash
 claude mcp add ruvector -- npx -y ruvector@0.2.25 mcp start
 ```

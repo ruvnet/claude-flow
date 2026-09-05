@@ -176,7 +176,10 @@ export class WasmBridge {
   private async loadWasmNode(wasmPath: string): Promise<void> {
     try {
       // Try dynamic import of the WASM package
-      const primeRadiant = await import('prime-radiant-advanced-wasm');
+      // Specifier behind a string var so tsc doesn't statically resolve this
+      // optionalDependency at build time (TS2307 when it isn't installed).
+      const pkg: string = 'prime-radiant-advanced-wasm';
+      const primeRadiant = await import(pkg);
 
       // Initialize the module
       if (typeof primeRadiant.default === 'function') {
@@ -235,7 +238,10 @@ export class WasmBridge {
   private async loadWasmBrowser(wasmPath: string): Promise<void> {
     try {
       // Try dynamic import first (bundler support)
-      const primeRadiant = await import('prime-radiant-advanced-wasm');
+      // Specifier behind a string var so tsc doesn't statically resolve this
+      // optionalDependency at build time (TS2307 when it isn't installed).
+      const pkg: string = 'prime-radiant-advanced-wasm';
+      const primeRadiant = await import(pkg);
 
       if (typeof primeRadiant.default === 'function') {
         await primeRadiant.default();

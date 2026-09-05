@@ -1,0 +1,73 @@
+{
+  "_meta": {
+    "purpose": "ADR-148 — per-Claude-tier OpenRouter alternate models. When `CLAUDE_FLOW_ROUTER_PROVIDER=openrouter` (or `OPENROUTER_API_KEY` is set and `CLAUDE_FLOW_ROUTER_PROVIDER` is not `anthropic`), the router suggests the OpenRouter slug below for the picked tier. Downstream `agent-execute-core` uses it to override the default MODEL_MAP entry.",
+    "generated": "2026-06-15",
+    "schema_version": 1,
+    "caveat": "These costs and choices are sensible starters, not measured. Override per-installation via $CLAUDE_FLOW_ROUTER_OPENROUTER_ALTS pointing at a custom JSON, or per-call via $OPENROUTER_DEFAULT_MODEL. Re-train an artifact with measured DRACO rows for your traffic to do better.",
+    "judge_bias_check_2026_06_15": {
+      "summary": "Cross-graded a 12-row cheap-tier slice with openai/gpt-4.1 as the judge instead of the default anthropic/claude-sonnet-4-6. gpt-4.1 marks the same answers 7-11 pp lower across all models (consistently harsher), but the RELATIVE ranking is preserved (Ling > gpt-4.1 > Opus > Sonnet > Haiku ≈ Llama). The Sonnet judge does NOT show systematic Anthropic-family favoritism: it rated gpt-4.1 at 89.6% (above Sonnet's own 88.5%), and gpt-4.1 (judging itself) rated itself 82.3% (below Ling's 87.5%). Net: single-judge measurements in this repo are mildly inflated by ~8-10 pp but ordinally honest. For absolute-quality claims, halve the absolute numbers and trust the ranking.",
+      "judge_diff_pp_by_model": {
+        "inclusionai/ling-2.6-flash": -6.3,
+        "openai/gpt-4.1": -7.3,
+        "google/gemini-2.5-flash-lite": -7.3,
+        "anthropic/claude-opus-4": -8.4,
+        "anthropic/claude-sonnet-4-6": -10.4,
+        "meta-llama/llama-3.3-70b-instruct": -10.4,
+        "anthropic/claude-haiku-4.5": -11.4
+      },
+      "bench": "docs/benchmarks/runs/seed-corpus-2026-06-15-23-0*.json (--judge openai/gpt-4.1 --max-rows 12)"
+    }
+  },
+  "tiers": {
+    "haiku": {
+      "anthropic_default": "anthropic/claude-haiku-4-5-20251001",
+      "openrouter_alt": "inclusionai/ling-2.6-flash",
+      "cost_per_m_tok_in":  0.01,
+      "cost_per_m_tok_out": 0.03,
+      "rationale": "Cheap-tier alt: Inclusion AI Ling 2.6 Flash. Variance-measured 100% pass rate over 45 runs (15 queries × 3 repeats), 684 ± 104 ms mean latency (lowest std-dev of all measured models), $0.001/1k passes — 151× cheaper than Anthropic Haiku 4.5. Nemotron-3 Super 120B free tier is faster (350 ms) but has free-tier rate limits (8/45 calls hit 429) and 97.8% pass rate; safe as a $0 fallback chain but not as the default. See docs/benchmarks/runs/cheap-models-2026-06-15-20-3*Z.json for the 4-model variance run.",
+      "alternates_ranked_by_dollar_per_1k_passes_measured_2026_06_15_repeat_3": [
+        { "id": "nvidia/nemotron-3-super-120b-a12b:free", "pass_rate": 0.978, "latency_mean_ms": 350,  "latency_stdev_ms": 171, "usd_per_1k_passes": 0.0000, "note": "FREE; 8/45 rate-limited in parallel run, 97.8% solo" },
+        { "id": "inclusionai/ling-2.6-flash",             "pass_rate": 1.000, "latency_mean_ms": 684,  "latency_stdev_ms": 104, "usd_per_1k_passes": 0.0010, "note": "stable Pareto-best paid" },
+        { "id": "google/gemini-2.5-flash-lite",           "pass_rate": 1.000, "latency_mean_ms": 525,  "latency_stdev_ms": 248, "usd_per_1k_passes": 0.0100, "note": "fastest paid 100%-pass, higher variance" },
+        { "id": "meta-llama/llama-3.3-70b-instruct",      "pass_rate": 1.000, "latency_mean_ms": 688,  "latency_stdev_ms": null, "usd_per_1k_passes": 0.0121 },
+        { "id": "openai/gpt-4o-mini",                     "pass_rate": 1.000, "latency_mean_ms": 1093, "latency_stdev_ms": null, "usd_per_1k_passes": 0.0150 },
+        { "id": "anthropic/claude-haiku-4.5",             "pass_rate": 1.000, "latency_mean_ms": 1022, "latency_stdev_ms": 226, "usd_per_1k_passes": 0.1511, "note": "control: most expensive and 1.5× slower than Ling" }
+      ]
+    },
+    "sonnet": {
+      "anthropic_default": "anthropic/claude-sonnet-4-6",
+      "openrouter_alt": "openai/gpt-4.1",
+      "cost_per_m_tok_in":  2.00,
+      "cost_per_m_tok_out": 8.00,
+      "rationale": "Mid-tier alt: OpenAI GPT-4.1 — measured 81.0% quality (LLM-judged 5-criterion rubric) vs Sonnet 4.6's 76.7%, at 4× lower cost ($0.030 vs $0.112 per call) and 2.7× faster (582 ms vs 1593 ms). For maximum cost reduction at the price of ~10% quality, prefer meta-llama/llama-3.3-70b-instruct (69.6% quality at 70× cheaper $/quality). See docs/benchmarks/runs/midtier-models-2026-06-15-*.json.",
+      "alternates_ranked_by_quality_measured_2026_06_15": [
+        { "id": "openai/gpt-4.1",                    "avg_score": 0.810, "structural_pass": 0.92, "latency_mean_ms": 582,  "usd_per_run": 0.02975, "usd_per_quality": 0.0367 },
+        { "id": "google/gemini-2.5-flash",           "avg_score": 0.767, "structural_pass": 1.00, "latency_mean_ms": 997,  "usd_per_run": 0.01377, "usd_per_quality": 0.0180 },
+        { "id": "anthropic/claude-sonnet-4-6",       "avg_score": 0.767, "structural_pass": 0.83, "latency_mean_ms": 1593, "usd_per_run": 0.11152, "usd_per_quality": 0.1455, "note": "control: 4-8× more expensive than measured alts" },
+        { "id": "meta-llama/llama-3.3-70b-instruct", "avg_score": 0.696, "structural_pass": 0.92, "latency_mean_ms": 613,  "usd_per_run": 0.00137, "usd_per_quality": 0.0020, "note": "Pareto $/quality leader — 70× cheaper than Sonnet for 91% of its quality" },
+        { "id": "qwen/qwen3-32b",                    "avg_score": 0.367, "structural_pass": 0.50, "latency_mean_ms": 705,  "usd_per_run": 0.00853, "usd_per_quality": 0.0233 },
+        { "id": "openai/gpt-5-mini",                 "avg_score": 0.083, "structural_pass": 0.08, "latency_mean_ms": 586,  "usd_per_run": 0.01873, "usd_per_quality": 0.2247, "note": "fails at max_tokens=768 — reasoning model consumes the budget before visible output. Re-bench with --max-tokens 4096 to evaluate fairly." },
+        { "id": "google/gemini-2.5-pro",             "avg_score": 0.023, "structural_pass": 0.17, "latency_mean_ms": 1996, "usd_per_run": 0.09316, "usd_per_quality": 4.0651, "note": "same caveat as gpt-5-mini — reasoning model + 768 cap" }
+      ],
+      "alternates_ranked_at_max_tokens_4096_measured_2026_06_15": [
+        { "id": "openai/gpt-4.1",         "avg_score": 0.742, "structural_pass": 0.92, "latency_mean_ms": 506,  "usd_per_run": 0.03136, "usd_per_quality": 0.0423, "note": "Pareto leader even at 4096 tokens" },
+        { "id": "openai/gpt-5-mini",      "avg_score": 0.721, "structural_pass": 0.75, "latency_mean_ms": 698,  "usd_per_run": 0.04041, "usd_per_quality": 0.0561, "note": "competitive with gpt-4.1 at 4096 but pricier per quality — reasoning premium doesn't pay off here" },
+        { "id": "google/gemini-2.5-pro",  "avg_score": 0.683, "structural_pass": 0.75, "latency_mean_ms": 2161, "usd_per_run": 0.23994, "usd_per_quality": 0.3511, "note": "strictly Pareto-dominated even at 4096 tokens — slowest, lowest quality, 8× pricier per quality than gpt-4.1" }
+      ]
+    },
+    "opus": {
+      "anthropic_default": "anthropic/claude-opus-4-8",
+      "openrouter_alt": "anthropic/claude-opus-4",
+      "cost_per_m_tok_in":  15.00,
+      "cost_per_m_tok_out": 75.00,
+      "rationale": "Strong-tier alt: same model family via OpenRouter (lets users with OR-only access still reach Opus). Real diversity here requires Phase B."
+    },
+    "inherit": {
+      "anthropic_default": "anthropic/claude-sonnet-4-6",
+      "openrouter_alt": "anthropic/claude-sonnet-4-6",
+      "cost_per_m_tok_in":  3.00,
+      "cost_per_m_tok_out": 15.00,
+      "rationale": "`inherit` is the caller-defined default; we don't override it. Both paths map to Sonnet 4.6."
+    }
+  }
+}

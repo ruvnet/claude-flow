@@ -2,8 +2,9 @@
  * Attention Coordinator for Flash Attention Integration
  *
  * Provides integration with agentic-flow's attention mechanisms,
- * including Flash Attention for 2.49x-7.47x speedup with
- * 50-75% memory reduction.
+ * including an approximate sparse Flash Attention path. Speedup and
+ * memory reduction are unverified — no benchmark kernel is wired here.
+ * See docs/reviews/intelligence-system-audit-2026-05-29.md
  *
  * Supported Mechanisms:
  * - Flash Attention (fastest, recommended)
@@ -69,8 +70,11 @@ const MECHANISM_PROFILES: Record<AttentionMechanism, {
   bestFor: string[];
 }> = {
   'flash': {
-    speedupRange: [2.49, 7.47],
-    memoryReduction: 0.75,
+    // Speedup is UNMEASURED — sentinel [0, 0] means "no verified benchmark".
+    // Do NOT restore a fabricated 2.49x-7.47x range.
+    // See docs/reviews/intelligence-system-audit-2026-05-29.md
+    speedupRange: [0, 0],
+    memoryReduction: 0,
     latencyMs: [0.7, 1.5],
     bestFor: ['general', 'high-throughput', 'memory-constrained'],
   },
@@ -158,7 +162,8 @@ export class AttentionCoordinator extends EventEmitter {
    * This implements ADR-001: Adopt agentic-flow as Core Foundation
    * When a reference is provided, attention computation for sequences
    * longer than 512 tokens delegates to agentic-flow's optimized
-   * Flash Attention implementation for 2.49x-7.47x speedup.
+   * Flash Attention implementation (approximate sparse attention;
+   * speedup unverified — see docs/reviews/intelligence-system-audit-2026-05-29.md).
    *
    * @param attentionRef - The agentic-flow Attention interface reference
    */
@@ -496,8 +501,8 @@ export class AttentionCoordinator extends EventEmitter {
    * Perform attention computation
    *
    * ADR-001: For sequences longer than 512 tokens, delegates to
-   * agentic-flow's native Flash Attention for 2.49x-7.47x speedup
-   * and 50-75% memory reduction.
+   * agentic-flow's native Flash Attention (approximate sparse attention;
+   * speedup unverified — see docs/reviews/intelligence-system-audit-2026-05-29.md).
    */
   private async performAttention(params: {
     query: number[] | Float32Array;
@@ -514,8 +519,9 @@ export class AttentionCoordinator extends EventEmitter {
     // Calculate sequence length for delegation decision
     const sequenceLength = qArray.length;
 
-    // ADR-001: Delegate to agentic-flow for long sequences
-    // Flash Attention provides 2.49x-7.47x speedup for sequences > 512 tokens
+    // ADR-001: Delegate to agentic-flow for long sequences.
+    // Flash Attention is an approximate sparse path; speedup unverified —
+    // see docs/reviews/intelligence-system-audit-2026-05-29.md
     if (
       this.isDelegationEnabled() &&
       this.agenticFlowAttention &&
@@ -631,9 +637,15 @@ export class AttentionCoordinator extends EventEmitter {
       this.metrics.throughputTps = 1000 / this.metrics.avgLatencyMs;
     }
 
-    // Calculate speedup factor based on mechanism
+    // Speedup factor based on mechanism profile.
+    // A [0, 0] speedupRange is the "unmeasured" sentinel (e.g. flash, where
+    // no benchmark kernel is wired) — report 0 rather than fabricate a value.
+    // See docs/reviews/intelligence-system-audit-2026-05-29.md
     const profile = MECHANISM_PROFILES[this.config.mechanism];
-    this.metrics.speedupFactor = (profile.speedupRange[0] + profile.speedupRange[1]) / 2;
+    const isUnmeasured = profile.speedupRange[0] === 0 && profile.speedupRange[1] === 0;
+    this.metrics.speedupFactor = isUnmeasured
+      ? 0 // unmeasured — no fabrication
+      : (profile.speedupRange[0] + profile.speedupRange[1]) / 2;
     this.metrics.memoryEfficiency = 1 - profile.memoryReduction;
   }
 

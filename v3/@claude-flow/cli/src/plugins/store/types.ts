@@ -62,6 +62,11 @@ export interface PluginEntry {
 
 /**
  * Plugin types
+ *
+ * ADR-150 added 'harness' — a MetaHarness-generated standalone agent
+ * harness. Harnesses share the ruflo plugin registry shape (per
+ * `buildRegistryEntry()` from metaharness) so `npx ruflo plugins list
+ * --type harness` surfaces community harnesses alongside plugins.
  */
 export type PluginType =
   | 'agent'      // Adds new agent types
@@ -71,7 +76,8 @@ export type PluginType =
   | 'integration'// External integrations
   | 'theme'      // UI themes
   | 'core'       // Core functionality extensions
-  | 'hybrid';    // Multiple types
+  | 'hybrid'     // Multiple types
+  | 'harness';   // ADR-150 — MetaHarness-generated standalone harness
 
 /**
  * Plugin dependency

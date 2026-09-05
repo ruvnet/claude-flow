@@ -1,0 +1,47 @@
+{
+  "name": "ruflo-arena",
+  "version": "0.1.0",
+  "description": "Competitive ruliology for Ruflo swarms — arenas, tournaments, and adaptive co-evolution of program strategies (ADR-147/148).",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./mcp-tools": "./dist/mcp-tools/index.js",
+    "./engine": "./dist/engine/index.js"
+  },
+  "bin": {
+    "ruflo-arena": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests",
+    "demo": "node --experimental-strip-types src/cli.ts demo"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@types/node": "^20.10.0",
+    "eslint": "^9.10.0",
+    "typescript": "^5.3.0",
+    "typescript-eslint": "^8.5.0",
+    "vitest": "^4.0.16"
+  },
+  "keywords": ["ruflo", "arena", "tournament", "ruliology", "co-evolution"],
+  "author": "ruvnet",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/ruflo.git",
+    "directory": "plugins/ruflo-arena"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

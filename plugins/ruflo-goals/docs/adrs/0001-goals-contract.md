@@ -49,7 +49,7 @@ A future ADR can propose the rename + migration once the data-portability path i
 1. Add this ADR (Proposed).
 2. README augment: Compatibility (pin v3.6); Namespace coordination block with the legacy-vs-canonical mapping above; ADR-099 cross-link for dossier-collect; Verification + Architecture Decisions sections.
 3. Plugin metadata stays at `0.2.0` (already at the cadence). Keywords add `mcp`, `gop` (typo: `goap`), `legacy-namespaces`, `evidence-grading`. Actually skipping `gop` — already has `goap`.
-4. `scripts/smoke.sh` — 10 structural checks: version + new keywords; all 5 skills + all 4 agents + 1 command with valid frontmatter; selection guide present (4 task patterns); ADR-099 cross-link in README; v3.6 pin; namespace coordination block with legacy mapping; ADR Proposed; no wildcard tools.
+4. `scripts/smoke.sh` — 10 structural checks: version + new keywords; all 5 skills + all 4 agents + 1 command with valid frontmatter; selection guide present (4 task patterns); ADR-099 cross-link in README; v3.6 pin; namespace coordination block with legacy mapping; ADR Accepted; no wildcard tools.
 
 ## Consequences
 

@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/memory",
-  "version": "3.0.0-alpha.15",
+  "version": "3.0.0-alpha.23",
   "type": "module",
   "description": "Memory module - AgentDB unification, HNSW indexing, vector search, hybrid SQLite+AgentDB backend (ADR-009)",
   "main": "dist/index.js",
@@ -11,13 +11,14 @@
   },
   "scripts": {
     "test": "vitest run",
-    "bench": "vitest bench",
+    "bench": "vitest bench --config vitest.bench.config.ts",
     "build": "tsc",
     "prebuild": "rm -rf dist tsconfig.tsbuildinfo",
-    "prepublishOnly": "npm run build && node -e \"const m = await import('./dist/index.js'); const required = ['ControllerRegistry','HnswLite','PersistentSonaCoordinator','RvfBackend','RvfLearningStore','RvfMigrator']; const missing = required.filter(k => !m[k]); if (missing.length) { console.error('Missing exports:', missing); process.exit(1); } console.log('All required exports present');\""
+    "prepublishOnly": "npm run build && node -e \"const m = await import('./dist/index.js'); const required = ['ControllerRegistry','MemoryService','UnifiedMemoryService','PersistentSonaCoordinator','RvfLearningStore','RvfMigrator']; const missing = required.filter(k => !m[k]); if (missing.length) { console.error('Missing exports:', missing); process.exit(1); } const forbidden = ['HnswLite','RvfBackend']; const leaks = forbidden.filter(k => k in m); if (leaks.length) { console.error('Forbidden public exports present (ADR-125):', leaks); process.exit(1); } console.log('All required exports present; ADR-125 surface clean');\""
   },
   "dependencies": {
-    "agentdb": "^3.0.0-alpha.10",
+    "@claude-flow/security": "^3.0.0-alpha.12",
+    "agentdb": "^3.0.0-alpha.17",
     "sql.js": "^1.10.3"
   },
   "optionalDependencies": {
@@ -26,7 +27,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",
     "@types/sql.js": "^1.4.9",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "files": [
     "dist",

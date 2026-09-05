@@ -404,6 +404,65 @@ describe('ControllerRegistry', () => {
       });
       expect(registry.isEnabled('learningBridge')).toBe(false);
     });
+
+    // Regression guard for ruvnet/ruflo#2019.
+    //
+    // agentdb@3.0.0-alpha.14's `getController()` switch only handles
+    // memory/reflexion/skills/causal/causalGraph and THROWS
+    // `Unknown controller: vectorBackend` for everything else. The
+    // registry's old try/catch silently swallowed that throw and
+    // returned null — so `vectorBackend` (and `graphAdapter`) reported
+    // `enabled: false` even though the field is right there on the
+    // agentdb instance. The fix probes `agentdb[name]` directly before
+    // falling back to getController.
+    it('vectorBackend/graphAdapter: prefers direct property over getController (issue #2019)', async () => {
+      const fakeVectorBackend = { kind: 'vectorBackend' };
+      const fakeGraphAdapter = { kind: 'graphAdapter' };
+      // Simulate agentdb@3.0.0-alpha.14: fields exist, but getController
+      // throws Unknown controller for anything not in the small switch.
+      const fakeAgentDb: any = {
+        vectorBackend: fakeVectorBackend,
+        graphAdapter: fakeGraphAdapter,
+        getController(name: string) {
+          if (name === 'memory' || name === 'reflexion') return null;
+          throw new Error(`Unknown controller: ${name}`);
+        },
+      };
+
+      await registry.initialize({
+        backend: mockBackend,
+        agentdb: fakeAgentDb,
+      });
+
+      // Both controllers must be reachable via the direct property
+      // probe, NOT silently null because getController threw.
+      expect(registry.get('vectorBackend')).toBe(fakeVectorBackend);
+      expect(registry.get('graphAdapter')).toBe(fakeGraphAdapter);
+      expect(registry.isEnabled('vectorBackend')).toBe(true);
+      expect(registry.isEnabled('graphAdapter')).toBe(true);
+    });
+
+    // Companion guard: if a future agentdb exposes these via
+    // getController instead of as direct fields, we must still find
+    // them — proves the fallback path stays intact.
+    it('vectorBackend: falls back to getController when no direct property exists (issue #2019)', async () => {
+      const fakeVectorBackend = { kind: 'vectorBackend-via-controller' };
+      const fakeAgentDb: any = {
+        // No `.vectorBackend` field at all.
+        getController(name: string) {
+          if (name === 'vectorBackend') return fakeVectorBackend;
+          return null;
+        },
+      };
+
+      await registry.initialize({
+        backend: mockBackend,
+        agentdb: fakeAgentDb,
+      });
+
+      expect(registry.get('vectorBackend')).toBe(fakeVectorBackend);
+      expect(registry.isEnabled('vectorBackend')).toBe(true);
+    });
   });
 
   // ----- Health Check -----
@@ -662,6 +721,23 @@ describe('ControllerRegistry', () => {
       await registry.initialize({ backend: mockBackend });
       // AgentDB may or may not be available in test environment
       // Just verify the listener doesn't break anything
+    });
+
+    it('should emit controller:degraded with the reason hierarchicalMemory fell back (#2887)', async () => {
+      const degraded: Array<{ name: string; reason: string; persistence: string }> = [];
+      registry.on('controller:degraded', (e: any) => degraded.push(e));
+
+      await registry.initialize({
+        backend: mockBackend,
+        controllers: { hierarchicalMemory: true },
+      });
+
+      // agentdb dropped its HierarchicalMemory export at 3.0.0-alpha.17, so the
+      // tiered fallback is the live path. Taking it must be announced, not silent.
+      const hmDegraded = degraded.find((e) => e.name === 'hierarchicalMemory');
+      expect(hmDegraded).toBeDefined();
+      expect(hmDegraded!.reason).toBeTruthy();
+      expect(registry.getHierarchicalFallback()).toMatchObject({ reason: hmDegraded!.reason });
     });
 
     it('should emit all lifecycle events', async () => {

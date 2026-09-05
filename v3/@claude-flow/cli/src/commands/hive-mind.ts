@@ -10,10 +10,11 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { select, confirm, input } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
-import { spawn as childSpawn, execSync } from 'child_process';
+import { spawn as childSpawn } from 'child_process';
 import { mkdir, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { resolveClaudeLaunchCommand } from '../runtime/claude-command.js';
 
 // Worker type definitions for prompt generation
 interface HiveWorker {
@@ -232,12 +233,11 @@ async function spawnClaudeCodeInstance(
     output.writeln();
     output.printSuccess(`Hive Mind prompt saved to: ${promptFile}`);
 
-    // Check if claude command exists
-    let claudeAvailable = false;
-    try {
-      execSync('which claude', { stdio: 'ignore' });
-      claudeAvailable = true;
-    } catch {
+    // Resolve a directly spawnable command. On Windows, npm exposes shell
+    // shims that Node cannot launch with shell:false, so the resolver follows
+    // the shim to Claude Code's executable or JavaScript entry point.
+    const claudeLaunch = resolveClaudeLaunchCommand();
+    if (!claudeLaunch) {
       output.writeln();
       output.printWarning('Claude Code CLI not found in PATH');
       output.writeln(output.dim('Install it with: npm install -g @anthropic-ai/claude-code'));
@@ -246,7 +246,7 @@ async function spawnClaudeCodeInstance(
 
     const dryRun = flags.dryRun || flags['dry-run'];
 
-    if (claudeAvailable && !dryRun) {
+    if (claudeLaunch && !dryRun) {
       // Build arguments - flags first, then prompt
       const claudeArgs: string[] = [];
 
@@ -297,7 +297,17 @@ async function spawnClaudeCodeInstance(
       // HIGH-02: Strict boolean check (=== true) instead of loose truthiness (!== false)
       // to prevent undefined/null from being treated as "skip permissions".
       // Behavior change: only explicit --dangerously-skip-permissions flag triggers skip.
-      const skipPermissions = flags['dangerously-skip-permissions'] === true && !flags['no-auto-permissions'];
+      // #2269: the arg parser normalizes kebab-case to camelCase (parser.ts:350,
+      // normalizeKey) and stores only the normalized key, so reading
+      // flags['dangerously-skip-permissions'] alone is always undefined. Accept
+      // both forms — mirroring the isNonInteractive pattern a few lines above.
+      // The deny clause must ALSO accept the yargs-style negation the parser
+      // produces for `--no-auto-permissions` (stored as `autoPermissions: false`,
+      // NOT `noAutoPermissions: true`); without this third clause, the deny half
+      // never fires and `--no-auto-permissions` is silently ignored.
+      const skipPermissions =
+        (flags['dangerously-skip-permissions'] === true || flags.dangerouslySkipPermissions === true) &&
+        !(flags['no-auto-permissions'] || flags.noAutoPermissions || flags.autoPermissions === false);
       if (skipPermissions) {
         claudeArgs.push('--dangerously-skip-permissions');
         if (!isNonInteractive) {
@@ -313,7 +323,10 @@ async function spawnClaudeCodeInstance(
       output.writeln(output.dim('Press Ctrl+C to pause the session'));
 
       // Spawn claude with properly ordered arguments
-      const claudeProcess = childSpawn('claude', claudeArgs, {
+      const claudeProcess = childSpawn(claudeLaunch.command, [
+        ...claudeLaunch.argsPrefix,
+        ...claudeArgs,
+      ], {
         stdio: 'inherit',
         shell: false,
       });
@@ -363,7 +376,21 @@ async function spawnClaudeCodeInstance(
       output.printInfo('The Queen coordinator will orchestrate all worker agents');
       output.writeln(output.dim(`Prompt file saved at: ${promptFile}`));
 
-      return { success: true, promptFile };
+      // #2297: await child exit before returning. Without this, the CLI
+      // process resolves immediately, finishes, and the still-initializing
+      // `claude` child loses its controlling terminal and is killed mid-launch
+      // — visible as a stray XTVERSION reply leaking onto the next shell
+      // prompt (the terminal queried for capabilities, but the child died
+      // before reading the answer). Awaiting also makes the existing
+      // claudeProcess.on('exit', ...) log lines actually print, and lets the
+      // non-interactive (-p / --non-interactive) path complete only after
+      // Claude Code finishes.
+      const claudeExitCode = await new Promise<number>((resolve) => {
+        claudeProcess.on('exit', (c) => resolve(c ?? 0));
+        claudeProcess.on('error', () => resolve(1));
+      });
+
+      return { success: claudeExitCode === 0, promptFile };
     } else if (dryRun) {
       output.writeln();
       output.printInfo('Dry run - would execute Claude Code with prompt:');

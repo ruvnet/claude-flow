@@ -72,7 +72,7 @@ hooks:
     # 3. Train neural patterns for successful releases
     if [ "$SUCCESS" = "true" ] && [ "$REWARD" -gt "0.9" ]; then
       echo "🧠 Training neural pattern from successful release"
-      npx claude-flow neural train \
+      npx @claude-flow/cli@latest neural train \
         --pattern-type "coordination" \
         --training-data "$RELEASE_OUTPUT" \
         --epochs 50
@@ -577,9 +577,9 @@ jobs:
   release-validation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
       - name: Install and Test
@@ -587,7 +587,7 @@ jobs:
           cd claude-code-flow/claude-code-flow && npm install && npm test
           cd ../../ruv-swarm/npm && npm install && npm test:all
       - name: Validate Release
-        run: npx claude-flow release validate
+        run: npx @claude-flow/cli@latest release validate
 ```
 
 ## Monitoring and Metrics

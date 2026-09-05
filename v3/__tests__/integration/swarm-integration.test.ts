@@ -122,10 +122,10 @@ describe('Swarm Integration Tests', () => {
     expect(stateAfter.topology).toBe('hierarchical');
   });
 
-  // SKIP #1872 — real bug: SwarmCoordinator doesn't catch errors from
-  // agent.executeTask; mocked rejection propagates instead of returning
-  // {status:'failed', error:...} as the test (and contract) expects.
-  it.skip('should handle agent failures gracefully', async () => {
+  // ruflo#1872 — fixed: SwarmCoordinator.executeTask now wraps the
+  // agent call in try/catch so a thrown error becomes a structured
+  // {status:'failed', error} result.
+  it('should handle agent failures gracefully', async () => {
     const agent = await coordinator.spawnAgent({
       id: 'fragile-agent',
       type: 'coder',
@@ -194,10 +194,10 @@ describe('Swarm Integration Tests', () => {
     expect(connections.every(c => c.type === 'peer')).toBe(true);
   });
 
-  // SKIP #1872 — real bug: scaleAgents({count: N}) accumulates rather
-  // than targets N total. Scale-down path also broken (1 → 4 → 6 instead
-  // of 1 → 4 → 2).
-  it.skip('should handle dynamic agent scaling', async () => {
+  // ruflo#1872 — fixed: scaleAgents({count:N}) now interprets count as
+  // the TARGET TOTAL of that agent type (spawning or terminating to
+  // reach it) rather than as a delta.
+  it('should handle dynamic agent scaling', async () => {
     await coordinator.spawnAgent({ id: 'base-agent', type: 'coder', capabilities: ['code'] });
 
     const initialCount = (await coordinator.listAgents()).length;

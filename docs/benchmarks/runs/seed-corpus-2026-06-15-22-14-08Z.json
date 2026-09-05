@@ -1,0 +1,2736 @@
+{
+  "meta": {
+    "ts": "2026-06-15T22:14:08.560Z",
+    "candidates": [
+      {
+        "id": "inclusionai/ling-2.6-flash",
+        "in_per_m": 0.01,
+        "out_per_m": 0.03,
+        "tier": "haiku"
+      },
+      {
+        "id": "google/gemini-2.5-flash-lite",
+        "in_per_m": 0.1,
+        "out_per_m": 0.4,
+        "tier": "haiku"
+      },
+      {
+        "id": "anthropic/claude-haiku-4.5",
+        "in_per_m": 1,
+        "out_per_m": 5,
+        "tier": "haiku"
+      },
+      {
+        "id": "openai/gpt-4.1",
+        "in_per_m": 2,
+        "out_per_m": 8,
+        "tier": "sonnet"
+      },
+      {
+        "id": "meta-llama/llama-3.3-70b-instruct",
+        "in_per_m": 0.13,
+        "out_per_m": 0.4,
+        "tier": "sonnet"
+      },
+      {
+        "id": "anthropic/claude-sonnet-4-6",
+        "in_per_m": 3,
+        "out_per_m": 15,
+        "tier": "sonnet"
+      },
+      {
+        "id": "anthropic/claude-opus-4",
+        "in_per_m": 15,
+        "out_per_m": 75,
+        "tier": "opus"
+      }
+    ],
+    "judge": "anthropic/claude-sonnet-4-6",
+    "corpusSize": 30,
+    "args": {
+      "live": true,
+      "models": null,
+      "judge": "anthropic/claude-sonnet-4-6",
+      "maxCost": 5,
+      "maxRows": null,
+      "maxTokens": 512,
+      "save": true,
+      "writeRows": true
+    }
+  },
+  "perCandidate": [
+    {
+      "id": "openai/gpt-4.1",
+      "tier": "sonnet",
+      "cheap_avg_score": 0.8958333333333334,
+      "mid_avg_score": 0.8880000000000001,
+      "strong_avg_score": 0.5243749999999999,
+      "overall_avg_score": 0.7941666666666668,
+      "latency_mean_ms": 459.9194833000038,
+      "usd_cost_total": 0.05099599999999999,
+      "cost_per_m_tok_in": 2,
+      "cost_per_m_tok_out": 8,
+      "errors": 0
+    },
+    {
+      "id": "anthropic/claude-opus-4",
+      "tier": "opus",
+      "cheap_avg_score": 0.8958333333333334,
+      "mid_avg_score": 0.8700000000000001,
+      "strong_avg_score": 0.5031249999999999,
+      "overall_avg_score": 0.7825,
+      "latency_mean_ms": 1385.6360958000014,
+      "usd_cost_total": 0.543885,
+      "cost_per_m_tok_in": 15,
+      "cost_per_m_tok_out": 75,
+      "errors": 0
+    },
+    {
+      "id": "anthropic/claude-sonnet-4-6",
+      "tier": "sonnet",
+      "cheap_avg_score": 0.8854166666666666,
+      "mid_avg_score": 0.783,
+      "strong_avg_score": 0.56875,
+      "overall_avg_score": 0.7668333333333333,
+      "latency_mean_ms": 1408.1463555000018,
+      "usd_cost_total": 0.13972199999999999,
+      "cost_per_m_tok_in": 3,
+      "cost_per_m_tok_out": 15,
+      "errors": 0
+    },
+    {
+      "id": "inclusionai/ling-2.6-flash",
+      "tier": "haiku",
+      "cheap_avg_score": 0.9270833333333334,
+      "mid_avg_score": 0.7539999999999999,
+      "strong_avg_score": 0.538125,
+      "overall_avg_score": 0.7656666666666667,
+      "latency_mean_ms": 720.9125098333283,
+      "usd_cost_total": 0.00021950000000000002,
+      "cost_per_m_tok_in": 0.01,
+      "cost_per_m_tok_out": 0.03,
+      "errors": 0
+    },
+    {
+      "id": "anthropic/claude-haiku-4.5",
+      "tier": "haiku",
+      "cheap_avg_score": 0.8854166666666666,
+      "mid_avg_score": 0.8030000000000002,
+      "strong_avg_score": 0.453125,
+      "overall_avg_score": 0.7426666666666667,
+      "latency_mean_ms": 1256.7744055666656,
+      "usd_cost_total": 0.040359000000000006,
+      "cost_per_m_tok_in": 1,
+      "cost_per_m_tok_out": 5,
+      "errors": 0
+    },
+    {
+      "id": "meta-llama/llama-3.3-70b-instruct",
+      "tier": "sonnet",
+      "cheap_avg_score": 0.8854166666666666,
+      "mid_avg_score": 0.739,
+      "strong_avg_score": 0.45624999999999993,
+      "overall_avg_score": 0.7221666666666667,
+      "latency_mean_ms": 577.9267653666669,
+      "usd_cost_total": 0.00233931,
+      "cost_per_m_tok_in": 0.13,
+      "cost_per_m_tok_out": 0.4,
+      "errors": 0
+    },
+    {
+      "id": "google/gemini-2.5-flash-lite",
+      "tier": "haiku",
+      "cheap_avg_score": 0.8854166666666666,
+      "mid_avg_score": 0.682,
+      "strong_avg_score": 0.409375,
+      "overall_avg_score": 0.6906666666666668,
+      "latency_mean_ms": 471.1867833666662,
+      "usd_cost_total": 0.003114,
+      "cost_per_m_tok_in": 0.1,
+      "cost_per_m_tok_out": 0.4,
+      "errors": 0
+    }
+  ],
+  "rows": [
+    {
+      "idx": 0,
+      "tier": "cheap",
+      "task": "Rename `count` to `total` in this code. Return ONLY the corrected JavaScript, no prose:\n\nlet count = 0;\nfor (const x of items) { count += x; }\nreturn count;",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.875,
+        "google/gemini-2.5-flash-lite": 0.875,
+        "anthropic/claude-haiku-4.5": 0.875,
+        "openai/gpt-4.1": 1,
+        "meta-llama/llama-3.3-70b-instruct": 0.875,
+        "anthropic/claude-sonnet-4-6": 0.875,
+        "anthropic/claude-opus-4": 0.875
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.875,
+          "usdCost": 0.0000015499999999999998,
+          "judgeUsdCost": 0.001749,
+          "latencyMs": 893.8264999999999,
+          "comment": "Code correct but wrapped in markdown code block instead of plain code only",
+          "promptTokens": 65,
+          "completionTokens": 30
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.875,
+          "usdCost": 0.000016200000000000004,
+          "judgeUsdCost": 0.001734,
+          "latencyMs": 827.2340829999999,
+          "comment": "Code correct but wrapped in markdown code block instead of plain code",
+          "promptTokens": 46,
+          "completionTokens": 29
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.875,
+          "usdCost": 0.000216,
+          "judgeUsdCost": 0.001749,
+          "latencyMs": 1209.309833,
+          "comment": "Code correct but wrapped in markdown code block instead of plain code only",
+          "promptTokens": 56,
+          "completionTokens": 32
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 1,
+          "usdCost": 0.000286,
+          "judgeUsdCost": 0.001734,
+          "latencyMs": 739.932125,
+          "comment": "Perfect rename of count→total, no prose, behavior preserved.",
+          "promptTokens": 51,
+          "completionTokens": 23
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.875,
+          "usdCost": 0.000020940000000000003,
+          "judgeUsdCost": 0.001734,
+          "latencyMs": 454.044333,
+          "comment": "Code correct but wrapped in markdown code block instead of plain code",
+          "promptTokens": 78,
+          "completionTokens": 27
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.875,
+          "usdCost": 0.000648,
+          "judgeUsdCost": 0.001749,
+          "latencyMs": 2395.130458,
+          "comment": "Code correct but wrapped in markdown code block instead of plain code only",
+          "promptTokens": 56,
+          "completionTokens": 32
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.875,
+          "usdCost": 0.00324,
+          "judgeUsdCost": 0.001734,
+          "latencyMs": 1498.4829579999998,
+          "comment": "Code correct but wrapped in markdown code block instead of plain code",
+          "promptTokens": 56,
+          "completionTokens": 32
+        }
+      ]
+    },
+    {
+      "idx": 1,
+      "tier": "cheap",
+      "task": "Add a console.log(\"debug:\", value) on the line before the return. Return ONLY the JavaScript:\n\nfunction f(value) {\n  return value * 2;\n}",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.875,
+        "google/gemini-2.5-flash-lite": 0.875,
+        "anthropic/claude-haiku-4.5": 0.875,
+        "openai/gpt-4.1": 0.875,
+        "meta-llama/llama-3.3-70b-instruct": 0.875,
+        "anthropic/claude-sonnet-4-6": 0.875,
+        "anthropic/claude-opus-4": 0.875
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.875,
+          "usdCost": 0.00000146,
+          "judgeUsdCost": 0.001788,
+          "latencyMs": 687.2430419999991,
+          "comment": "Code is correct but wrapped in markdown code block; prompt said return ONLY the JavaScript",
+          "promptTokens": 56,
+          "completionTokens": 30
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.875,
+          "usdCost": 0.0000163,
+          "judgeUsdCost": 0.001788,
+          "latencyMs": 379.8964589999996,
+          "comment": "Code is correct but wrapped in markdown code block; prompt said return ONLY the JavaScript",
+          "promptTokens": 39,
+          "completionTokens": 31
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.875,
+          "usdCost": 0.000217,
+          "judgeUsdCost": 0.001788,
+          "latencyMs": 1209.8187500000004,
+          "comment": "Code is correct but wrapped in markdown code block; prompt said return ONLY the JavaScript",
+          "promptTokens": 47,
+          "completionTokens": 34
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.875,
+          "usdCost": 0.000292,
+          "judgeUsdCost": 0.001788,
+          "latencyMs": 392.9954580000003,
+          "comment": "Code is correct but wrapped in markdown code block; prompt said return ONLY the JavaScript",
+          "promptTokens": 42,
+          "completionTokens": 26
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.875,
+          "usdCost": 0.00001612,
+          "judgeUsdCost": 0.001788,
+          "latencyMs": 120.25445899999977,
+          "comment": "Code is correct but wrapped in markdown code block; prompt said return ONLY the JavaScript",
+          "promptTokens": 44,
+          "completionTokens": 26
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.875,
+          "usdCost": 0.000651,
+          "judgeUsdCost": 0.001788,
+          "latencyMs": 942.6646249999994,
+          "comment": "Code is correct but wrapped in markdown code block; prompt said return ONLY the JavaScript",
+          "promptTokens": 47,
+          "completionTokens": 34
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.875,
+          "usdCost": 0.003255,
+          "judgeUsdCost": 0.001788,
+          "latencyMs": 1726.3021250000002,
+          "comment": "Code is correct but wrapped in markdown code block; prompt said return ONLY the JavaScript",
+          "promptTokens": 47,
+          "completionTokens": 34
+        }
+      ]
+    },
+    {
+      "idx": 2,
+      "tier": "cheap",
+      "task": "Convert this `var` declaration to `const`. Return ONLY the JavaScript:\n\nvar name = \"alice\";",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 1,
+        "anthropic/claude-haiku-4.5": 0.875,
+        "openai/gpt-4.1": 1,
+        "meta-llama/llama-3.3-70b-instruct": 0.875,
+        "anthropic/claude-sonnet-4-6": 0.875,
+        "anthropic/claude-opus-4": 1
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 6.599999999999999e-7,
+          "judgeUsdCost": 0.001602,
+          "latencyMs": 692.4660829999993,
+          "comment": "Perfect transformation: var→const, no prose, behavior preserved.",
+          "promptTokens": 42,
+          "completionTokens": 8
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 1,
+          "usdCost": 0.000004600000000000001,
+          "judgeUsdCost": 0.001602,
+          "latencyMs": 436.6882910000004,
+          "comment": "Perfect transformation: var→const, no prose, behavior preserved.",
+          "promptTokens": 22,
+          "completionTokens": 6
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.875,
+          "usdCost": 0.0001,
+          "judgeUsdCost": 0.001617,
+          "latencyMs": 1272.9663329999985,
+          "comment": "Code is correct but wrapped in markdown code block instead of plain JS",
+          "promptTokens": 30,
+          "completionTokens": 14
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 1,
+          "usdCost": 0.000114,
+          "judgeUsdCost": 0.001602,
+          "latencyMs": 334.080582999999,
+          "comment": "Perfect transformation: var→const, no prose, behavior preserved.",
+          "promptTokens": 29,
+          "completionTokens": 7
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.875,
+          "usdCost": 0.000008560000000000001,
+          "judgeUsdCost": 0.001617,
+          "latencyMs": 418.69245799999953,
+          "comment": "Code is correct but wrapped in markdown code block instead of plain JS",
+          "promptTokens": 32,
+          "completionTokens": 11
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.875,
+          "usdCost": 0.0003,
+          "judgeUsdCost": 0.001617,
+          "latencyMs": 2329.822416000001,
+          "comment": "Code is correct but wrapped in markdown code block instead of plain JS",
+          "promptTokens": 30,
+          "completionTokens": 14
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 1,
+          "usdCost": 0.001125,
+          "judgeUsdCost": 0.001602,
+          "latencyMs": 1157.1153749999994,
+          "comment": "Perfect transformation: var→const, no prose, behavior preserved.",
+          "promptTokens": 30,
+          "completionTokens": 9
+        }
+      ]
+    },
+    {
+      "idx": 3,
+      "tier": "cheap",
+      "task": "Add TypeScript type annotations to the parameter and return value. The function adds two numbers. Return ONLY the corrected TS:\n\nfunction add(a, b) { return a + b; }",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.875,
+        "google/gemini-2.5-flash-lite": 0.875,
+        "anthropic/claude-haiku-4.5": 0.875,
+        "openai/gpt-4.1": 0.875,
+        "meta-llama/llama-3.3-70b-instruct": 0.875,
+        "anthropic/claude-sonnet-4-6": 0.875,
+        "anthropic/claude-opus-4": 0.875
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.875,
+          "usdCost": 0.00000128,
+          "judgeUsdCost": 0.001728,
+          "latencyMs": 636.465166,
+          "comment": "Code correct but wrapped in markdown ```ts``` block instead of plain code",
+          "promptTokens": 56,
+          "completionTokens": 24
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.875,
+          "usdCost": 0.0000146,
+          "judgeUsdCost": 0.001692,
+          "latencyMs": 390.1670830000003,
+          "comment": "Correct types added; markdown code block present but minimal",
+          "promptTokens": 38,
+          "completionTokens": 27
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.875,
+          "usdCost": 0.000199,
+          "judgeUsdCost": 0.001692,
+          "latencyMs": 1121.3831250000003,
+          "comment": "Correct types added; markdown code block present but minor",
+          "promptTokens": 49,
+          "completionTokens": 30
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.875,
+          "usdCost": 0.000272,
+          "judgeUsdCost": 0.001698,
+          "latencyMs": 451.0485840000001,
+          "comment": "Code correct but wrapped in markdown code block instead of plain text",
+          "promptTokens": 44,
+          "completionTokens": 23
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.875,
+          "usdCost": 0.000018429999999999998,
+          "judgeUsdCost": 0.001683,
+          "latencyMs": 261.09262500000114,
+          "comment": "Correct types added; markdown code block present but minimal",
+          "promptTokens": 71,
+          "completionTokens": 23
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.875,
+          "usdCost": 0.000552,
+          "judgeUsdCost": 0.001713,
+          "latencyMs": 938.0375830000012,
+          "comment": "Code is correct but wrapped in markdown code block instead of plain text",
+          "promptTokens": 49,
+          "completionTokens": 27
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.875,
+          "usdCost": 0.00276,
+          "judgeUsdCost": 0.001683,
+          "latencyMs": 1226.692332999999,
+          "comment": "Correct types added; markdown code block present but minimal",
+          "promptTokens": 49,
+          "completionTokens": 27
+        }
+      ]
+    },
+    {
+      "idx": 4,
+      "tier": "cheap",
+      "task": "Wrap this in a try/catch that logs the error. Return ONLY the JavaScript:\n\nconst data = JSON.parse(input);",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.875,
+        "google/gemini-2.5-flash-lite": 0.75,
+        "anthropic/claude-haiku-4.5": 0.875,
+        "openai/gpt-4.1": 0.875,
+        "meta-llama/llama-3.3-70b-instruct": 0.875,
+        "anthropic/claude-sonnet-4-6": 0.875,
+        "anthropic/claude-opus-4": 0.875
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.875,
+          "usdCost": 0.0000014,
+          "judgeUsdCost": 0.001707,
+          "latencyMs": 658.442332999999,
+          "comment": "Correct transform; markdown code fences present but no prose explanation",
+          "promptTokens": 44,
+          "completionTokens": 32
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.75,
+          "usdCost": 0.000031100000000000004,
+          "judgeUsdCost": 0.002016,
+          "latencyMs": 334.1878340000003,
+          "comment": "Correct try/catch with error logging, but includes comments and markdown fences; also adds extra comment lines not in original.",
+          "promptTokens": 27,
+          "completionTokens": 71
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.875,
+          "usdCost": 0.000246,
+          "judgeUsdCost": 0.001809,
+          "latencyMs": 1022.7403749999976,
+          "comment": "Correct try/catch with console.error, but uses markdown code block instead of plain JS",
+          "promptTokens": 36,
+          "completionTokens": 42
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.875,
+          "usdCost": 0.000296,
+          "judgeUsdCost": 0.001731,
+          "latencyMs": 370.79362500000207,
+          "comment": "Markdown code fences present; otherwise correct transform and behavior preserved.",
+          "promptTokens": 32,
+          "completionTokens": 29
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.875,
+          "usdCost": 0.00001535,
+          "judgeUsdCost": 0.001707,
+          "latencyMs": 1237.2924590000002,
+          "comment": "Correct transform; markdown code fences present but no prose explanation",
+          "promptTokens": 35,
+          "completionTokens": 27
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.875,
+          "usdCost": 0.000678,
+          "judgeUsdCost": 0.001692,
+          "latencyMs": 708.8801669999993,
+          "comment": "Correct transform; markdown code fence present but no prose explanation",
+          "promptTokens": 36,
+          "completionTokens": 38
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.875,
+          "usdCost": 0.00339,
+          "judgeUsdCost": 0.001692,
+          "latencyMs": 1336.3124169999974,
+          "comment": "Correct transform; markdown code block present but no prose explanation",
+          "promptTokens": 36,
+          "completionTokens": 38
+        }
+      ]
+    },
+    {
+      "idx": 5,
+      "tier": "cheap",
+      "task": "Fix the spelling in the comment. Return ONLY the JavaScript:\n\n// Recieves data from the server\nfunction handle() {}",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.875,
+        "google/gemini-2.5-flash-lite": 0.875,
+        "anthropic/claude-haiku-4.5": 0.875,
+        "openai/gpt-4.1": 0.875,
+        "meta-llama/llama-3.3-70b-instruct": 0.875,
+        "anthropic/claude-sonnet-4-6": 0.875,
+        "anthropic/claude-opus-4": 1
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.875,
+          "usdCost": 9.8e-7,
+          "judgeUsdCost": 0.001695,
+          "latencyMs": 732.5074590000004,
+          "comment": "Spelling fixed correctly, but response uses markdown code fences instead of plain JS",
+          "promptTokens": 44,
+          "completionTokens": 18
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.875,
+          "usdCost": 0.0000093,
+          "judgeUsdCost": 0.001695,
+          "latencyMs": 449.0829999999987,
+          "comment": "Spelling fixed correctly, but response uses markdown code fences instead of plain JS",
+          "promptTokens": 25,
+          "completionTokens": 17
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.875,
+          "usdCost": 0.000135,
+          "judgeUsdCost": 0.00171,
+          "latencyMs": 4496.815792000001,
+          "comment": "Spelling fixed correctly, but response uses markdown code fences instead of ONLY JavaScript",
+          "promptTokens": 35,
+          "completionTokens": 20
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.875,
+          "usdCost": 0.0002,
+          "judgeUsdCost": 0.001695,
+          "latencyMs": 898.1077090000035,
+          "comment": "Spelling fixed correctly, but response uses markdown code fences instead of plain JS",
+          "promptTokens": 32,
+          "completionTokens": 17
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.875,
+          "usdCost": 0.00001619,
+          "judgeUsdCost": 0.001695,
+          "latencyMs": 282.26791700000103,
+          "comment": "Spelling fixed correctly, but response uses markdown code fences instead of plain JS",
+          "promptTokens": 63,
+          "completionTokens": 20
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.875,
+          "usdCost": 0.000405,
+          "judgeUsdCost": 0.001695,
+          "latencyMs": 1014.9047080000018,
+          "comment": "Spelling fixed correctly, but response uses markdown code fences instead of plain JS",
+          "promptTokens": 35,
+          "completionTokens": 20
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 1,
+          "usdCost": 0.00165,
+          "judgeUsdCost": 0.00177,
+          "latencyMs": 1177.7125000000015,
+          "comment": "Perfect fix: 'Recieves'→'Receives', no extra prose, code intact.",
+          "promptTokens": 35,
+          "completionTokens": 15
+        }
+      ]
+    },
+    {
+      "idx": 6,
+      "tier": "cheap",
+      "task": "Remove the unused import `path`. Return ONLY the JavaScript:\n\nimport { readFileSync } from \"fs\";\nimport path from \"path\";\n\nconsole.log(readFileSync(\"./x\"));",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.875,
+        "google/gemini-2.5-flash-lite": 0.875,
+        "anthropic/claude-haiku-4.5": 0.875,
+        "openai/gpt-4.1": 0.875,
+        "meta-llama/llama-3.3-70b-instruct": 0.875,
+        "anthropic/claude-sonnet-4-6": 0.875,
+        "anthropic/claude-opus-4": 0.875
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.875,
+          "usdCost": 0.00000129,
+          "judgeUsdCost": 0.001785,
+          "latencyMs": 705.880291999998,
+          "comment": "Code is correct but wrapped in markdown fences; prompt said return ONLY the JavaScript",
+          "promptTokens": 57,
+          "completionTokens": 24
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.875,
+          "usdCost": 0.000013000000000000003,
+          "judgeUsdCost": 0.001725,
+          "latencyMs": 633.7850829999988,
+          "comment": "Code is correct but wrapped in markdown fences instead of plain JS",
+          "promptTokens": 38,
+          "completionTokens": 23
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.875,
+          "usdCost": 0.0002,
+          "judgeUsdCost": 0.001785,
+          "latencyMs": 1339.0015830000011,
+          "comment": "Code is correct but wrapped in markdown fences; prompt said return ONLY the JavaScript",
+          "promptTokens": 50,
+          "completionTokens": 30
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.875,
+          "usdCost": 0.000272,
+          "judgeUsdCost": 0.001725,
+          "latencyMs": 534.2433749999982,
+          "comment": "Code is correct but wrapped in markdown fences instead of plain JS",
+          "promptTokens": 44,
+          "completionTokens": 23
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.875,
+          "usdCost": 0.00001412,
+          "judgeUsdCost": 0.001785,
+          "latencyMs": 185.90570800000205,
+          "comment": "Code is correct but wrapped in markdown fences; prompt said return ONLY the JavaScript",
+          "promptTokens": 44,
+          "completionTokens": 21
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.875,
+          "usdCost": 0.0006,
+          "judgeUsdCost": 0.001785,
+          "latencyMs": 1212.4037910000006,
+          "comment": "Code is correct but wrapped in markdown fences; prompt said return ONLY the JavaScript",
+          "promptTokens": 50,
+          "completionTokens": 30
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.875,
+          "usdCost": 0.003,
+          "judgeUsdCost": 0.001725,
+          "latencyMs": 1541.98675,
+          "comment": "Code is correct but wrapped in markdown fences instead of plain JS",
+          "promptTokens": 50,
+          "completionTokens": 30
+        }
+      ]
+    },
+    {
+      "idx": 7,
+      "tier": "cheap",
+      "task": "Add the TypeScript return type annotation. The function returns a string. Return ONLY the TS:\n\nfunction greet(name: string) { return `hello ${name}`; }",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 0.875,
+        "anthropic/claude-haiku-4.5": 0.875,
+        "openai/gpt-4.1": 0.875,
+        "meta-llama/llama-3.3-70b-instruct": 0.875,
+        "anthropic/claude-sonnet-4-6": 0.875,
+        "anthropic/claude-opus-4": 0.875
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 0.00000104,
+          "judgeUsdCost": 0.001731,
+          "latencyMs": 636.4400410000017,
+          "comment": "Perfect: added `: string` return type, no prose, behavior preserved.",
+          "promptTokens": 53,
+          "completionTokens": 17
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.875,
+          "usdCost": 0.0000118,
+          "judgeUsdCost": 0.001671,
+          "latencyMs": 419.79204200000095,
+          "comment": "Correct annotation added; markdown code block present but minimal",
+          "promptTokens": 34,
+          "completionTokens": 21
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.875,
+          "usdCost": 0.000176,
+          "judgeUsdCost": 0.001821,
+          "latencyMs": 895.6597079999992,
+          "comment": "Correct annotation added; markdown code block present but prompt said 'Return ONLY the TS'",
+          "promptTokens": 46,
+          "completionTokens": 26
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.875,
+          "usdCost": 0.00025,
+          "judgeUsdCost": 0.001671,
+          "latencyMs": 285.73562500000116,
+          "comment": "Correct annotation added; markdown code block present but minimal",
+          "promptTokens": 41,
+          "completionTokens": 21
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.875,
+          "usdCost": 0.00001412,
+          "judgeUsdCost": 0.001671,
+          "latencyMs": 1206.432458999996,
+          "comment": "Correct annotation added; markdown code block present but minimal",
+          "promptTokens": 44,
+          "completionTokens": 21
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.875,
+          "usdCost": 0.000528,
+          "judgeUsdCost": 0.001671,
+          "latencyMs": 1182.396667000001,
+          "comment": "Correct annotation added; markdown code block present but minimal",
+          "promptTokens": 46,
+          "completionTokens": 26
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.875,
+          "usdCost": 0.00264,
+          "judgeUsdCost": 0.001671,
+          "latencyMs": 1278.6115409999984,
+          "comment": "Correct annotation added; markdown code block present but minimal",
+          "promptTokens": 46,
+          "completionTokens": 26
+        }
+      ]
+    },
+    {
+      "idx": 8,
+      "tier": "cheap",
+      "task": "Convert this camelCase variable name to kebab-case (as a string). Return ONLY the string in quotes: myHelperFunction",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 1,
+        "anthropic/claude-haiku-4.5": 1,
+        "openai/gpt-4.1": 1,
+        "meta-llama/llama-3.3-70b-instruct": 1,
+        "anthropic/claude-sonnet-4-6": 1,
+        "anthropic/claude-opus-4": 1
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 6.4e-7,
+          "judgeUsdCost": 0.001638,
+          "latencyMs": 678.3936250000042,
+          "comment": "Perfect response: correct kebab-case transformation, no extra prose.",
+          "promptTokens": 43,
+          "completionTokens": 7
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 1,
+          "usdCost": 0.000005300000000000001,
+          "judgeUsdCost": 0.001638,
+          "latencyMs": 416.8524170000019,
+          "comment": "Perfect response: correct kebab-case transformation, no extra prose.",
+          "promptTokens": 25,
+          "completionTokens": 7
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 1,
+          "usdCost": 0.000086,
+          "judgeUsdCost": 0.001638,
+          "latencyMs": 980.2952920000025,
+          "comment": "Perfect response: correct kebab-case transformation, no extra prose.",
+          "promptTokens": 36,
+          "completionTokens": 10
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 1,
+          "usdCost": 0.000112,
+          "judgeUsdCost": 0.001638,
+          "latencyMs": 338.1970000000001,
+          "comment": "Perfect response: correct kebab-case transformation, no extra prose.",
+          "promptTokens": 32,
+          "completionTokens": 6
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 1,
+          "usdCost": 0.00000708,
+          "judgeUsdCost": 0.001638,
+          "latencyMs": 363.3906659999993,
+          "comment": "Perfect response: correct kebab-case transformation, no extra prose.",
+          "promptTokens": 36,
+          "completionTokens": 6
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 1,
+          "usdCost": 0.000258,
+          "judgeUsdCost": 0.001638,
+          "latencyMs": 2334.4712080000027,
+          "comment": "Perfect response: correct kebab-case transformation, no extra prose.",
+          "promptTokens": 36,
+          "completionTokens": 10
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 1,
+          "usdCost": 0.00129,
+          "judgeUsdCost": 0.001638,
+          "latencyMs": 1368.9481670000023,
+          "comment": "Perfect response: correct kebab-case transformation, no extra prose.",
+          "promptTokens": 36,
+          "completionTokens": 10
+        }
+      ]
+    },
+    {
+      "idx": 9,
+      "tier": "cheap",
+      "task": "Increment the counter variable by 1. Return ONLY the JavaScript:\n\nlet counter = 0;",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.875,
+        "google/gemini-2.5-flash-lite": 0.75,
+        "anthropic/claude-haiku-4.5": 0.875,
+        "openai/gpt-4.1": 0.75,
+        "meta-llama/llama-3.3-70b-instruct": 0.75,
+        "anthropic/claude-sonnet-4-6": 0.875,
+        "anthropic/claude-opus-4": 0.75
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.875,
+          "usdCost": 8.4e-7,
+          "judgeUsdCost": 0.001683,
+          "latencyMs": 677.7222909999982,
+          "comment": "Code is correct but uses markdown code block despite 'ONLY the JavaScript' instruction",
+          "promptTokens": 39,
+          "completionTokens": 15
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.75,
+          "usdCost": 0.000004800000000000001,
+          "judgeUsdCost": 0.001707,
+          "latencyMs": 439.755250000002,
+          "comment": "Correct increment but omits `let counter = 0;` declaration and uses markdown code block",
+          "promptTokens": 20,
+          "completionTokens": 7
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.875,
+          "usdCost": 0.000114,
+          "judgeUsdCost": 0.001728,
+          "latencyMs": 822.9099169999972,
+          "comment": "Correct increment added, but uses markdown code block despite 'ONLY the JavaScript' instruction.",
+          "promptTokens": 29,
+          "completionTokens": 17
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.75,
+          "usdCost": 0.000134,
+          "judgeUsdCost": 0.001716,
+          "latencyMs": 367.49708299999475,
+          "comment": "Correct increment but missing the `let counter = 0;` line and uses markdown code block",
+          "promptTokens": 27,
+          "completionTokens": 10
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.75,
+          "usdCost": 0.000009820000000000001,
+          "judgeUsdCost": 0.001707,
+          "latencyMs": 289.87533400000393,
+          "comment": "Correct increment but omits `let counter = 0;` declaration and uses markdown code block",
+          "promptTokens": 54,
+          "completionTokens": 7
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.875,
+          "usdCost": 0.000342,
+          "judgeUsdCost": 0.001728,
+          "latencyMs": 1555.3105419999993,
+          "comment": "Correct increment added, but uses markdown code block despite 'ONLY the JavaScript' instruction.",
+          "promptTokens": 29,
+          "completionTokens": 17
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.75,
+          "usdCost": 0.001185,
+          "judgeUsdCost": 0.001707,
+          "latencyMs": 1424.4522499999948,
+          "comment": "Correct increment but omits `let counter = 0;` declaration and uses markdown code block",
+          "promptTokens": 29,
+          "completionTokens": 10
+        }
+      ]
+    },
+    {
+      "idx": 10,
+      "tier": "cheap",
+      "task": "Convert this function expression to an arrow function. Return ONLY the JavaScript:\n\nconst double = function(n) { return n * 2; };",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 1,
+        "anthropic/claude-haiku-4.5": 0.875,
+        "openai/gpt-4.1": 0.875,
+        "meta-llama/llama-3.3-70b-instruct": 1,
+        "anthropic/claude-sonnet-4-6": 0.875,
+        "anthropic/claude-opus-4": 0.875
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 8.7e-7,
+          "judgeUsdCost": 0.001614,
+          "latencyMs": 981.1587919999947,
+          "comment": "Perfect arrow function conversion, no prose, behavior preserved.",
+          "promptTokens": 48,
+          "completionTokens": 13
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 1,
+          "usdCost": 0.000007800000000000002,
+          "judgeUsdCost": 0.001614,
+          "latencyMs": 484.15062500000204,
+          "comment": "Perfect arrow function conversion, no prose, behavior preserved.",
+          "promptTokens": 30,
+          "completionTokens": 12
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.875,
+          "usdCost": 0.000138,
+          "judgeUsdCost": 0.001674,
+          "latencyMs": 1216.0721249999988,
+          "comment": "Correct arrow function, but uses markdown code block instead of plain JS",
+          "promptTokens": 38,
+          "completionTokens": 20
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.875,
+          "usdCost": 0.000192,
+          "judgeUsdCost": 0.001683,
+          "latencyMs": 303.9923329999947,
+          "comment": "Correct arrow function, but wrapped in markdown code block instead of plain JS",
+          "promptTokens": 36,
+          "completionTokens": 15
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 1,
+          "usdCost": 0.00001259,
+          "judgeUsdCost": 0.001608,
+          "latencyMs": 296.3067499999961,
+          "comment": "Perfect arrow function conversion, no prose, behavior preserved.",
+          "promptTokens": 63,
+          "completionTokens": 11
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.875,
+          "usdCost": 0.000414,
+          "judgeUsdCost": 0.001674,
+          "latencyMs": 1115.468958999998,
+          "comment": "Correct arrow function, but uses markdown code block instead of plain JS",
+          "promptTokens": 38,
+          "completionTokens": 20
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.875,
+          "usdCost": 0.00207,
+          "judgeUsdCost": 0.001764,
+          "latencyMs": 1292.2722500000018,
+          "comment": "Correct arrow function, but wrapped in markdown code block despite 'ONLY the JavaScript' instruction",
+          "promptTokens": 38,
+          "completionTokens": 20
+        }
+      ]
+    },
+    {
+      "idx": 11,
+      "tier": "cheap",
+      "task": "Add a default value of 10 for parameter `n`. Return ONLY the JavaScript:\n\nfunction times(n) { return n * 3; }",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 0.875,
+        "anthropic/claude-haiku-4.5": 0.875,
+        "openai/gpt-4.1": 0.875,
+        "meta-llama/llama-3.3-70b-instruct": 0.875,
+        "anthropic/claude-sonnet-4-6": 0.875,
+        "anthropic/claude-opus-4": 0.875
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 0.00000101,
+          "judgeUsdCost": 0.001662,
+          "latencyMs": 694.2049590000024,
+          "comment": "Perfect response: correct default param, no prose, behavior preserved.",
+          "promptTokens": 50,
+          "completionTokens": 17
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.875,
+          "usdCost": 0.000012,
+          "judgeUsdCost": 0.001752,
+          "latencyMs": 351.8738330000051,
+          "comment": "Code is correct but wrapped in markdown code block despite 'ONLY the JavaScript' instruction",
+          "promptTokens": 32,
+          "completionTokens": 22
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.875,
+          "usdCost": 0.00016,
+          "judgeUsdCost": 0.001752,
+          "latencyMs": 1108.7223749999976,
+          "comment": "Code is correct but wrapped in markdown code block despite 'ONLY the JavaScript' instruction",
+          "promptTokens": 40,
+          "completionTokens": 24
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.875,
+          "usdCost": 0.000234,
+          "judgeUsdCost": 0.001752,
+          "latencyMs": 324.2347910000026,
+          "comment": "Code is correct but wrapped in markdown code block despite 'ONLY the JavaScript' instruction",
+          "promptTokens": 37,
+          "completionTokens": 20
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.875,
+          "usdCost": 0.00001307,
+          "judgeUsdCost": 0.001752,
+          "latencyMs": 2357.7608330000003,
+          "comment": "Code is correct but wrapped in markdown code block despite 'ONLY the JavaScript' instruction",
+          "promptTokens": 39,
+          "completionTokens": 20
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.875,
+          "usdCost": 0.00048,
+          "judgeUsdCost": 0.001752,
+          "latencyMs": 946.8703339999993,
+          "comment": "Code is correct but wrapped in markdown code block despite 'ONLY the JavaScript' instruction",
+          "promptTokens": 40,
+          "completionTokens": 24
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.875,
+          "usdCost": 0.0024,
+          "judgeUsdCost": 0.001752,
+          "latencyMs": 1345.5360409999994,
+          "comment": "Code is correct but wrapped in markdown code block despite 'ONLY the JavaScript' instruction",
+          "promptTokens": 40,
+          "completionTokens": 24
+        }
+      ]
+    },
+    {
+      "idx": 12,
+      "tier": "mid",
+      "task": "Refactor this if/else chain into the Strategy pattern using TypeScript classes. Return ONLY the refactored code:\n\nfunction processPayment(method: string, amount: number) {\n  if (method === \"card\") return { ok: true, txn: \"card-\" + amount };\n  if (method === \"paypal\") return { ok: true, txn: \"pp-\" + amount };\n  if (method === \"bank\") return { ok: amount > 10, txn: amount > 10 ? \"b-\" + amount : null };\n  throw new Error(\"unknown\");\n}",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.8999999999999999,
+        "google/gemini-2.5-flash-lite": 1,
+        "anthropic/claude-haiku-4.5": 1,
+        "openai/gpt-4.1": 1,
+        "meta-llama/llama-3.3-70b-instruct": 0.9500000000000001,
+        "anthropic/claude-sonnet-4-6": 1,
+        "anthropic/claude-opus-4": 1
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.8999999999999999,
+          "usdCost": 0.000011370000000000001,
+          "judgeUsdCost": 0.003651,
+          "latencyMs": 672.8907919999983,
+          "comment": "Strategy pattern correctly implemented. Minor issue: wrapper function still uses switch/if chain instead of a registry/map, which is more idiomatic for Strategy pattern dispatch.",
+          "promptTokens": 147,
+          "completionTokens": 330
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 1,
+          "usdCost": 0.0001444,
+          "judgeUsdCost": 0.003432,
+          "latencyMs": 369.23904200000106,
+          "comment": "Perfect Strategy pattern refactor: interface, concrete classes, registry map, error handling all correct.",
+          "promptTokens": 128,
+          "completionTokens": 329
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 1,
+          "usdCost": 0.00184,
+          "judgeUsdCost": 0.00333,
+          "latencyMs": 1826.7591669999965,
+          "comment": "Perfect Strategy pattern refactor with interface, concrete classes, and context class using Map dispatch.",
+          "promptTokens": 145,
+          "completionTokens": 339
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 1,
+          "usdCost": 0.002142,
+          "judgeUsdCost": 0.003255,
+          "latencyMs": 384.6655419999952,
+          "comment": "Clean Strategy pattern implementation with interface, concrete classes, and registry map. All logic preserved exactly.",
+          "promptTokens": 127,
+          "completionTokens": 236
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.9500000000000001,
+          "usdCost": 0.0001565,
+          "judgeUsdCost": 0.003669,
+          "latencyMs": 543.0175840000011,
+          "comment": "Comments and usage example add minor prose beyond 'ONLY the refactored code'",
+          "promptTokens": 130,
+          "completionTokens": 349
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 1,
+          "usdCost": 0.006045,
+          "judgeUsdCost": 0.00345,
+          "latencyMs": 1376.6145000000033,
+          "comment": "Perfect Strategy pattern implementation with interface, concrete strategies, context class, and backward-compatible wrapper.",
+          "promptTokens": 145,
+          "completionTokens": 374
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 1,
+          "usdCost": 0.0315,
+          "judgeUsdCost": 0.003501,
+          "latencyMs": 1217.0076249999984,
+          "comment": "Perfect Strategy pattern implementation with interface, concrete strategies, context class, and backward-compatible wrapper.",
+          "promptTokens": 145,
+          "completionTokens": 391
+        }
+      ]
+    },
+    {
+      "idx": 13,
+      "tier": "mid",
+      "task": "Design the minimal TypeScript types for an event-sourced bank account: Event union (Deposit, Withdraw, AccountOpened, AccountClosed), a Reducer function, and a Snapshot type. Each event has timestamp and id. Withdraw must include a reason. Return ONLY the TypeScript.",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 1,
+        "anthropic/claude-haiku-4.5": 1,
+        "openai/gpt-4.1": 1,
+        "meta-llama/llama-3.3-70b-instruct": 1,
+        "anthropic/claude-sonnet-4-6": 0.5,
+        "anthropic/claude-opus-4": 1
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 0.00000818,
+          "judgeUsdCost": 0.003075,
+          "latencyMs": 682.0375839999906,
+          "comment": "All requirements met: union type, BaseEvent with id/timestamp, Withdraw with reason, Snapshot, and Reducer. Clean and idiomatic.",
+          "promptTokens": 74,
+          "completionTokens": 248
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 1,
+          "usdCost": 0.00008500000000000002,
+          "judgeUsdCost": 0.002949,
+          "latencyMs": 513.5817499999976,
+          "comment": "All requirements met cleanly: union type, BaseEvent, Withdraw with reason, Reducer, Snapshot. Idiomatic TS.",
+          "promptTokens": 54,
+          "completionTokens": 199
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 1,
+          "usdCost": 0.002366,
+          "judgeUsdCost": 0.003558,
+          "latencyMs": 1135.6765830000077,
+          "comment": "Perfect implementation: union type, Snapshot, Reducer type+impl, all required fields including reason on Withdraw.",
+          "promptTokens": 71,
+          "completionTokens": 459
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 1,
+          "usdCost": 0.001886,
+          "judgeUsdCost": 0.003003,
+          "latencyMs": 701.6228330000013,
+          "comment": "All requirements met: union type, Snapshot, reducer, timestamp/id on all events, reason on Withdraw.",
+          "promptTokens": 63,
+          "completionTokens": 220
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 1,
+          "usdCost": 0.00006432,
+          "judgeUsdCost": 0.002811,
+          "latencyMs": 149.09449999999197,
+          "comment": "Perfect implementation: all events with timestamp/id, Withdraw has reason, proper union type, Reducer and Snapshot types all correct.",
+          "promptTokens": 64,
+          "completionTokens": 140
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.5,
+          "usdCost": 0.007893,
+          "judgeUsdCost": 0.003816,
+          "latencyMs": 2662.9043329999986,
+          "comment": "Response is truncated mid-reducer, missing Withdraw/Deposit cases. Imports uuid unnecessarily. Types are solid but implementation is incomplete.",
+          "promptTokens": 71,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 1,
+          "usdCost": 0.01704,
+          "judgeUsdCost": 0.00282,
+          "latencyMs": 1381.6399170000077,
+          "comment": "Perfect minimal implementation: BaseEvent, all four event types, union, Snapshot, and Reducer type all correct.",
+          "promptTokens": 71,
+          "completionTokens": 213
+        }
+      ]
+    },
+    {
+      "idx": 14,
+      "tier": "mid",
+      "task": "Implement a JavaScript function `longestSubarrayWithSumAtMost(arr, k)` that returns the length of the longest contiguous subarray whose sum is <= k. Use the sliding-window technique (O(n)). Include 3 inline test cases as comments. Return ONLY the JavaScript.",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0,
+        "google/gemini-2.5-flash-lite": 0.66,
+        "anthropic/claude-haiku-4.5": 0.7,
+        "openai/gpt-4.1": 1,
+        "meta-llama/llama-3.3-70b-instruct": 1,
+        "anthropic/claude-sonnet-4-6": 0.8500000000000001,
+        "anthropic/claude-opus-4": 1
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0,
+          "usdCost": 0.00000875,
+          "judgeUsdCost": 0.005757,
+          "latencyMs": 703.0970839999936,
+          "comment": "",
+          "promptTokens": 74,
+          "completionTokens": 267
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.66,
+          "usdCost": 0.00018930000000000002,
+          "judgeUsdCost": 0.004884,
+          "latencyMs": 460.6575829999929,
+          "comment": "Sliding window works for non-negative arrays but fails with negatives (Test 2 expected 3 but gets wrong answer since while-loop shrink logic breaks with negatives). Test 2 claim is also incorrect: [-1,2,-3] sums to -2≤0, but [-1,2,-3,4,-5] sums to -3≤0 giving length 5. The algorithm is O(n) only for non-negative inputs.",
+          "promptTokens": 57,
+          "completionTokens": 459
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.7,
+          "usdCost": 0.001645,
+          "judgeUsdCost": 0.004215,
+          "latencyMs": 1192.3564170000027,
+          "comment": "Sliding window works for non-negative arrays but fails with negative numbers; Test 1 comment wrong (sum [1,2,3,4]=10≤10, but [1,2,3,4,5]=15>10, so answer is 4—ok); Test 2 comment mentions non-contiguous subarray [1,3,5,7] which is incorrect. Core algorithm is correct for non-negative inputs.",
+          "promptTokens": 75,
+          "completionTokens": 314
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 1,
+          "usdCost": 0.002218,
+          "judgeUsdCost": 0.003015,
+          "latencyMs": 445.6158330000035,
+          "comment": "Clean sliding window implementation with correct logic and 3 inline test cases as requested.",
+          "promptTokens": 65,
+          "completionTokens": 261
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 1,
+          "usdCost": 0.00008911000000000002,
+          "judgeUsdCost": 0.002853,
+          "latencyMs": 437.76295799999207,
+          "comment": "Perfect implementation with sliding window, correct logic, 3 inline test cases, no extra prose.",
+          "promptTokens": 67,
+          "completionTokens": 201
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.8500000000000001,
+          "usdCost": 0.00789,
+          "judgeUsdCost": 0.00372,
+          "latencyMs": 1230.5639579999988,
+          "comment": "Response truncated mid-comment; only 2 of 3 test cases shown. Otherwise clean implementation.",
+          "promptTokens": 75,
+          "completionTokens": 511
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 1,
+          "usdCost": 0.0249,
+          "judgeUsdCost": 0.003054,
+          "latencyMs": 1464.5666669999919,
+          "comment": "Clean sliding window implementation with correct logic and 3 inline test cases with expected outputs.",
+          "promptTokens": 75,
+          "completionTokens": 317
+        }
+      ]
+    },
+    {
+      "idx": 15,
+      "tier": "mid",
+      "task": "Implement a token-bucket rate limiter in TypeScript: `class TokenBucket { constructor(capacity: number, refillRatePerSec: number); tryAcquire(tokens?: number): boolean; }`. Refill lazily on each check. Include JSDoc on public methods. Return ONLY the TS class.",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 0.5,
+        "anthropic/claude-haiku-4.5": 0.9500000000000001,
+        "openai/gpt-4.1": 0.9500000000000001,
+        "meta-llama/llama-3.3-70b-instruct": 0.72,
+        "anthropic/claude-sonnet-4-6": 0.6799999999999999,
+        "anthropic/claude-opus-4": 0.9500000000000001
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 0.00001425,
+          "judgeUsdCost": 0.003708,
+          "latencyMs": 668.3037080000067,
+          "comment": "Perfect implementation: lazy refill, capped at capacity, correct default param, JSDoc on both public methods, no extra prose.",
+          "promptTokens": 81,
+          "completionTokens": 448
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.5,
+          "usdCost": 0.000211,
+          "judgeUsdCost": 0.00387,
+          "latencyMs": 341.3910840000026,
+          "comment": "Response is truncated mid-method; refillTokens() is incomplete, making the code non-functional.",
+          "promptTokens": 62,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.9500000000000001,
+          "usdCost": 0.002095,
+          "judgeUsdCost": 0.003342,
+          "latencyMs": 1120.4967920000054,
+          "comment": "Wrapped in code block instead of returning ONLY the TS class, but otherwise perfect.",
+          "promptTokens": 80,
+          "completionTokens": 403
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.9500000000000001,
+          "usdCost": 0.002824,
+          "judgeUsdCost": 0.003426,
+          "latencyMs": 329.54116700000304,
+          "comment": "Wrapped in code block instead of returning ONLY the TS class, but otherwise perfect.",
+          "promptTokens": 68,
+          "completionTokens": 336
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.72,
+          "usdCost": 0.00013749,
+          "judgeUsdCost": 0.003582,
+          "latencyMs": 417.6762500000041,
+          "comment": "Math.floor on refill loses fractional tokens; lastRefillTime should only advance by consumed elapsed time, not full now, causing drift. Otherwise solid.",
+          "promptTokens": 73,
+          "completionTokens": 320
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.6799999999999999,
+          "usdCost": 0.00792,
+          "judgeUsdCost": 0.003678,
+          "latencyMs": 1098.0005000000092,
+          "comment": "Response is truncated — tryAcquire method body is missing, making implementation incomplete.",
+          "promptTokens": 80,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.9500000000000001,
+          "usdCost": 0.02685,
+          "judgeUsdCost": 0.003159,
+          "latencyMs": 1588.000332999989,
+          "comment": "Wrapped in code block instead of returning ONLY the TS class, but otherwise excellent.",
+          "promptTokens": 80,
+          "completionTokens": 342
+        }
+      ]
+    },
+    {
+      "idx": 16,
+      "tier": "mid",
+      "task": "Write 3 Vitest unit tests in TDD London School (mock-first) style for this UserService. Mock the repo with vi.fn. Cover: (1) findById returns user, (2) findById returns null, (3) createUser calls repo.save with lowercased email. Return ONLY the test code.\n\nclass UserService {\n  constructor(private repo: { findById(id: string): User | null; save(u: User): User }) {}\n  findById(id: string) { return this.repo.findById(id); }\n  createUser(input: { email: string; name: string }) {\n    return this.repo.save({ id: \"new\", email: input.email.toLowerCase(), name: input.name });\n  }\n}",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 0.5,
+        "anthropic/claude-haiku-4.5": 0.6000000000000001,
+        "openai/gpt-4.1": 0.9500000000000001,
+        "meta-llama/llama-3.3-70b-instruct": 1,
+        "anthropic/claude-sonnet-4-6": 0.6000000000000001,
+        "anthropic/claude-opus-4": 1
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 0.00001232,
+          "judgeUsdCost": 0.003741,
+          "latencyMs": 705.4313339999935,
+          "comment": "All 3 tests correct, mock-first style, vi.fn used properly, lowercase email verified.",
+          "promptTokens": 179,
+          "completionTokens": 351
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.5,
+          "usdCost": 0.00022160000000000002,
+          "judgeUsdCost": 0.00423,
+          "latencyMs": 608.8905419999937,
+          "comment": "Response is truncated mid-test; third test case is incomplete. Missing `beforeEach` import. Otherwise structure is correct.",
+          "promptTokens": 168,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.6000000000000001,
+          "usdCost": 0.002744,
+          "judgeUsdCost": 0.004065,
+          "latencyMs": 1296.8042920000007,
+          "comment": "Response is truncated mid-test; third test case is incomplete. First two tests are correct and idiomatic.",
+          "promptTokens": 184,
+          "completionTokens": 512
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.9500000000000001,
+          "usdCost": 0.003258,
+          "judgeUsdCost": 0.003837,
+          "latencyMs": 380.97837500000605,
+          "comment": "Minor prose (type def comment, import note) but otherwise clean. All 3 tests correct and idiomatic.",
+          "promptTokens": 165,
+          "completionTokens": 366
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 1,
+          "usdCost": 0.00013696000000000002,
+          "judgeUsdCost": 0.003723,
+          "latencyMs": 325.778542,
+          "comment": "All 3 tests correct, mock-first style, vi.fn used properly, lowercased email verified.",
+          "promptTokens": 152,
+          "completionTokens": 293
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.6000000000000001,
+          "usdCost": 0.008232,
+          "judgeUsdCost": 0.003957,
+          "latencyMs": 1362.6497919999965,
+          "comment": "Response is truncated mid-test, cutting off the third test's assertion block.",
+          "promptTokens": 184,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 1,
+          "usdCost": 0.03801,
+          "judgeUsdCost": 0.00393,
+          "latencyMs": 1387.6791669999948,
+          "comment": "All 3 tests correct, mock-first TDD style, vi.fn used properly, covers all cases.",
+          "promptTokens": 184,
+          "completionTokens": 470
+        }
+      ]
+    },
+    {
+      "idx": 17,
+      "tier": "mid",
+      "task": "Design the OpenAPI 3.0 paths block (paths only, not full spec) for a Todo REST API: list (cursor pagination), get-by-id, create, partial-update, delete. Inline response schemas (no $ref). Return ONLY YAML.",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.54,
+        "google/gemini-2.5-flash-lite": 0.4,
+        "anthropic/claude-haiku-4.5": 0.4,
+        "openai/gpt-4.1": 0.6,
+        "meta-llama/llama-3.3-70b-instruct": 0.5,
+        "anthropic/claude-sonnet-4-6": 0.4,
+        "anthropic/claude-opus-4": 0.4
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.54,
+          "usdCost": 0.00001605,
+          "judgeUsdCost": 0.003849,
+          "latencyMs": 761.3025000000052,
+          "comment": "Response is truncated mid-sentence; missing get-by-id, patch, and delete endpoints entirely.",
+          "promptTokens": 69,
+          "completionTokens": 512
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.4,
+          "usdCost": 0.00021020000000000001,
+          "judgeUsdCost": 0.003873,
+          "latencyMs": 621.3009579999925,
+          "comment": "Response is truncated mid-schema, missing delete, patch, get-by-id endpoints entirely. Incomplete output.",
+          "promptTokens": 54,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.4,
+          "usdCost": 0.002626,
+          "judgeUsdCost": 0.003696,
+          "latencyMs": 795.0791670000035,
+          "comment": "Response is truncated mid-schema, missing get-by-id, partial-update, delete endpoints entirely.",
+          "promptTokens": 66,
+          "completionTokens": 512
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.6,
+          "usdCost": 0.004214,
+          "judgeUsdCost": 0.004074,
+          "latencyMs": 342.79904199999874,
+          "comment": "Missing DELETE endpoint entirely; PATCH 200 response lacks inline schema; GET list missing description field in todo items; otherwise well-structured",
+          "promptTokens": 59,
+          "completionTokens": 512
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.5,
+          "usdCost": 0.00021299,
+          "judgeUsdCost": 0.004074,
+          "latencyMs": 967.6197919999977,
+          "comment": "Response is truncated mid-YAML, missing patch/delete endpoints and has $ref in list items violating inline schema requirement",
+          "promptTokens": 63,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.4,
+          "usdCost": 0.007878,
+          "judgeUsdCost": 0.003753,
+          "latencyMs": 1091.341167000006,
+          "comment": "Response is truncated mid-word ('updated'), missing get-by-id, create, partial-update, delete endpoints entirely.",
+          "promptTokens": 66,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.4,
+          "usdCost": 0.03939,
+          "judgeUsdCost": 0.003711,
+          "latencyMs": 1336.9645830000081,
+          "comment": "Response is truncated mid-sentence, missing get-by-id, partial-update, and delete endpoints entirely.",
+          "promptTokens": 66,
+          "completionTokens": 512
+        }
+      ]
+    },
+    {
+      "idx": 18,
+      "tier": "mid",
+      "task": "Write a JavaScript regex that matches a GitHub PR URL on github.com of form /owner/repo/pull/NUMBER. Capture owner, repo, number as named groups. Then write 3 inline asserts (valid, invalid non-github, edge case). Return ONLY the JS.",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.9500000000000001,
+        "google/gemini-2.5-flash-lite": 0.9500000000000001,
+        "anthropic/claude-haiku-4.5": 0.9500000000000001,
+        "openai/gpt-4.1": 0.9500000000000001,
+        "meta-llama/llama-3.3-70b-instruct": 0.6200000000000001,
+        "anthropic/claude-sonnet-4-6": 0.9500000000000001,
+        "anthropic/claude-opus-4": 0.9500000000000001
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.9500000000000001,
+          "usdCost": 0.0000064100000000000005,
+          "judgeUsdCost": 0.002703,
+          "latencyMs": 705.4293329999782,
+          "comment": "Code block wrapper is minor extra formatting beyond 'ONLY the JS' instruction.",
+          "promptTokens": 74,
+          "completionTokens": 189
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.9500000000000001,
+          "usdCost": 0.0000677,
+          "judgeUsdCost": 0.002523,
+          "latencyMs": 385.2617920000048,
+          "comment": "Code block wrapper is minor extra formatting, but otherwise clean output.",
+          "promptTokens": 57,
+          "completionTokens": 155
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.9500000000000001,
+          "usdCost": 0.002453,
+          "judgeUsdCost": 0.003453,
+          "latencyMs": 907.6207080000022,
+          "comment": "Wrapped in code block instead of raw JS, but otherwise excellent.",
+          "promptTokens": 68,
+          "completionTokens": 477
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.9500000000000001,
+          "usdCost": 0.00137,
+          "judgeUsdCost": 0.002595,
+          "latencyMs": 446.2318750000268,
+          "comment": "Code block wrapper is minor extra formatting, but otherwise clean and correct.",
+          "promptTokens": 65,
+          "completionTokens": 155
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.6200000000000001,
+          "usdCost": 0.00005183,
+          "judgeUsdCost": 0.002658,
+          "latencyMs": 511.4229590000177,
+          "comment": "Regex doesn't capture named groups in asserts; no github.com hostname validation as implied by prompt; asserts don't verify captured group values.",
+          "promptTokens": 91,
+          "completionTokens": 100
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.9500000000000001,
+          "usdCost": 0.006354,
+          "judgeUsdCost": 0.003237,
+          "latencyMs": 993.0329579999961,
+          "comment": "Code block wrapper is minor extra formatting, but otherwise clean output.",
+          "promptTokens": 68,
+          "completionTokens": 410
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.9500000000000001,
+          "usdCost": 0.014895,
+          "judgeUsdCost": 0.002577,
+          "latencyMs": 1402.7693750000035,
+          "comment": "Code block wrapper is minor extra formatting, but otherwise clean and correct.",
+          "promptTokens": 68,
+          "completionTokens": 185
+        }
+      ]
+    },
+    {
+      "idx": 19,
+      "tier": "mid",
+      "task": "Write a Dockerfile that builds a TypeScript Node.js app in a multi-stage build: stage 1 installs deps and compiles, stage 2 is slim production with only the compiled output and prod node_modules. Use node:20-alpine. Cache npm install separately. Return ONLY the Dockerfile.",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.55,
+        "google/gemini-2.5-flash-lite": 0.81,
+        "anthropic/claude-haiku-4.5": 0.88,
+        "openai/gpt-4.1": 0.8300000000000001,
+        "meta-llama/llama-3.3-70b-instruct": 0.5,
+        "anthropic/claude-sonnet-4-6": 0.9500000000000001,
+        "anthropic/claude-opus-4": 0.85
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.55,
+          "usdCost": 0.00000484,
+          "judgeUsdCost": 0.003012,
+          "latencyMs": 713.9636249999749,
+          "comment": "Fails to install prod-only deps in stage 2 (copies all node_modules including devDeps). Should use `npm ci --omit=dev` in stage 2. Also has markdown fences around Dockerfile.",
+          "promptTokens": 79,
+          "completionTokens": 135
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.81,
+          "usdCost": 0.00008109999999999999,
+          "judgeUsdCost": 0.002946,
+          "latencyMs": 388.60599999999977,
+          "comment": "Good multi-stage build but copies all node_modules instead of running npm ci --omit=dev in stage 2, missing proper prod-only deps separation.",
+          "promptTokens": 63,
+          "completionTokens": 187
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.88,
+          "usdCost": 0.0006,
+          "judgeUsdCost": 0.002703,
+          "latencyMs": 786.1707500000193,
+          "comment": "Good multi-stage build. Minor: stage 2 reinstalls prod deps instead of copying from builder (less efficient); --only=production deprecated, prefer --omit=dev",
+          "promptTokens": 75,
+          "completionTokens": 105
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.8300000000000001,
+          "usdCost": 0.001496,
+          "judgeUsdCost": 0.003309,
+          "latencyMs": 522.631207999977,
+          "comment": "Good multi-stage build. Minor: prod deps reinstalled in stage 2 rather than copied from builder (less efficient, but valid). --only=production deprecated; prefer --omit=dev. Dockerfile wrapped in code fence despite 'ONLY the Dockerfile' instruction.",
+          "promptTokens": 68,
+          "completionTokens": 170
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.5,
+          "usdCost": 0.0000711,
+          "judgeUsdCost": 0.003132,
+          "latencyMs": 125.41983299999265,
+          "comment": "Missing spaces in COPY commands (e.g. `package*.json./` should be `package*.json ./`); prod stage should use `npm ci --only=production` not copy all node_modules; no --omit=dev separation",
+          "promptTokens": 70,
+          "completionTokens": 155
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.9500000000000001,
+          "usdCost": 0.003405,
+          "judgeUsdCost": 0.002709,
+          "latencyMs": 1183.3733749999956,
+          "comment": "Wrapped in markdown code block instead of raw Dockerfile, but otherwise excellent.",
+          "promptTokens": 75,
+          "completionTokens": 212
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.85,
+          "usdCost": 0.01335,
+          "judgeUsdCost": 0.002877,
+          "latencyMs": 1381.6341250000114,
+          "comment": "Works well but reinstalls prod deps in stage 2 instead of copying from builder (less efficient); response wrapped in code fence despite 'ONLY the Dockerfile' instruction.",
+          "promptTokens": 75,
+          "completionTokens": 163
+        }
+      ]
+    },
+    {
+      "idx": 20,
+      "tier": "mid",
+      "task": "Audit this JWT-handling code for 3 specific security issues and produce a corrected version. Return your answer as JSON: { \"issues\": [{\"line\": N, \"issue\": \"...\", \"severity\": \"high|medium|low\"}], \"fixed_code\": \"...\" }. No prose outside JSON.\n\nconst jwt = require(\"jsonwebtoken\");\nfunction verify(token) {\n  const secret = process.env.JWT_SECRET || \"devsecret\";\n  const decoded = jwt.verify(token, secret);\n  console.log(\"user:\", decoded);\n  return decoded;\n}",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 0.5,
+        "anthropic/claude-haiku-4.5": 1,
+        "openai/gpt-4.1": 1,
+        "meta-llama/llama-3.3-70b-instruct": 0.7999999999999999,
+        "anthropic/claude-sonnet-4-6": 1,
+        "anthropic/claude-opus-4": 1
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 0.000009289999999999999,
+          "judgeUsdCost": 0.003273,
+          "latencyMs": 638.8945830000157,
+          "comment": "All 3 issues identified with correct lines/severities; fixed code addresses all issues idiomatically; pure JSON output.",
+          "promptTokens": 143,
+          "completionTokens": 262
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.5,
+          "usdCost": 0.00018240000000000002,
+          "judgeUsdCost": 0.004092,
+          "latencyMs": 635.6289999999863,
+          "comment": "Response truncated mid-code; fixed_code incomplete. Issues identified are valid but exp/nbf are auto-checked by default in jsonwebtoken—that's a weak finding. Output format partially correct but cut off.",
+          "promptTokens": 124,
+          "completionTokens": 425
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 1,
+          "usdCost": 0.001546,
+          "judgeUsdCost": 0.003279,
+          "latencyMs": 1309.117166000011,
+          "comment": "Perfect: 3 issues identified with correct lines/severities, fixed code addresses all issues idiomatically, pure JSON output.",
+          "promptTokens": 141,
+          "completionTokens": 281
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 1,
+          "usdCost": 0.002448,
+          "judgeUsdCost": 0.00336,
+          "latencyMs": 421.3257910000102,
+          "comment": "All 3 issues correctly identified with accurate line numbers, severity, and fixes. Output is pure JSON.",
+          "promptTokens": 116,
+          "completionTokens": 277
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.7999999999999999,
+          "usdCost": 0.00009747,
+          "judgeUsdCost": 0.003489,
+          "latencyMs": 274.41366699998616,
+          "comment": "Identifies 3 issues correctly; fixed code removes fallback secret and adds error handling. Missing algorithm specification (algorithms option) which is a known JWT security best practice. Logging error details in catch may still leak sensitive info.",
+          "promptTokens": 119,
+          "completionTokens": 205
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 1,
+          "usdCost": 0.007218,
+          "judgeUsdCost": 0.003735,
+          "latencyMs": 3140.819750000024,
+          "comment": "All 3 issues correctly identified with accurate line numbers; fixed code addresses each cleanly and idiomatically.",
+          "promptTokens": 141,
+          "completionTokens": 453
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 1,
+          "usdCost": 0.02244,
+          "judgeUsdCost": 0.003234,
+          "latencyMs": 1434.9294999999984,
+          "comment": "Exactly 3 issues identified with correct lines/severities; fixed code addresses all three cleanly; pure JSON output.",
+          "promptTokens": 141,
+          "completionTokens": 271
+        }
+      ]
+    },
+    {
+      "idx": 21,
+      "tier": "mid",
+      "task": "Find the race condition in this Node.js code and produce a corrected version. Return JSON: { \"bug\": \"...\", \"why_unsafe\": \"...\", \"fixed_code\": \"...\" }. No prose outside JSON.\n\nconst fs = require(\"fs\");\nasync function increment() {\n  const data = JSON.parse(await fs.promises.readFile(\"counter.json\"));\n  data.n += 1;\n  await fs.promises.writeFile(\"counter.json\", JSON.stringify(data));\n}",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.6,
+        "google/gemini-2.5-flash-lite": 0.5,
+        "anthropic/claude-haiku-4.5": 0.55,
+        "openai/gpt-4.1": 0.6,
+        "meta-llama/llama-3.3-70b-instruct": 0.3,
+        "anthropic/claude-sonnet-4-6": 0.8999999999999999,
+        "anthropic/claude-opus-4": 0.55
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.6,
+          "usdCost": 0.0000074799999999999995,
+          "judgeUsdCost": 0.003585,
+          "latencyMs": 878.1161670000001,
+          "comment": "Bug/why identified correctly. Fix uses proper-lockfile but incorrectly passes file handle (lock() expects path string), and doesn't release lock before close—lock is never explicitly released. A mutex/queue approach would be more idiomatic for single-process Node.js.",
+          "promptTokens": 121,
+          "completionTokens": 209
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.5,
+          "usdCost": 0.0002157,
+          "judgeUsdCost": 0.004065,
+          "latencyMs": 523.972374999983,
+          "comment": "Response is truncated mid-code. Lock approach is reasonable but fixed_code is incomplete. JSON format used but code cut off.",
+          "promptTokens": 109,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.55,
+          "usdCost": 0.001902,
+          "judgeUsdCost": 0.003837,
+          "latencyMs": 1349.3042909999785,
+          "comment": "Bug/why correct. Fixed code uses external deps (proper-lockfile, async-lock) not in original; no self-contained mutex (e.g., promise queue). Two increment() definitions is invalid JS. Format has extra ```json fences.",
+          "promptTokens": 122,
+          "completionTokens": 356
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.6,
+          "usdCost": 0.001762,
+          "judgeUsdCost": 0.003096,
+          "latencyMs": 460.14387500000885,
+          "comment": "Uses external lockfile dep without showing install; a mutex/queue pattern is more idiomatic for in-process Node.js concurrency.",
+          "promptTokens": 101,
+          "completionTokens": 195
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.3,
+          "usdCost": 0.00007286,
+          "judgeUsdCost": 0.002988,
+          "latencyMs": 215.44204100000206,
+          "comment": "Identifies race condition but fixed_code doesn't actually fix it—still has same TOCTOU race. No locking/mutex/queue implemented.",
+          "promptTokens": 102,
+          "completionTokens": 149
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.8999999999999999,
+          "usdCost": 0.007851,
+          "judgeUsdCost": 0.003846,
+          "latencyMs": 1733.6081670000276,
+          "comment": "Mutex approach is correct but importing unused `promisify` is a minor issue; atomic rename is a nice touch.",
+          "promptTokens": 122,
+          "completionTokens": 499
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.55,
+          "usdCost": 0.020655,
+          "judgeUsdCost": 0.003132,
+          "latencyMs": 1535.7399999999907,
+          "comment": "Uses external lockfile dep not in original; simpler mutex/queue solution preferred. Prose outside JSON (code block wrapping).",
+          "promptTokens": 122,
+          "completionTokens": 251
+        }
+      ]
+    },
+    {
+      "idx": 22,
+      "tier": "strong",
+      "task": "Write a PostgreSQL migration that adds a NOT NULL `created_at TIMESTAMPTZ` column with default NOW() to a 50M-row `orders` table, AND a separate down migration. Must be safe to run on a live system without locking writes for more than ~1s. Return ONLY the two SQL files concatenated, separated by `-- DOWN --`.",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.5,
+        "google/gemini-2.5-flash-lite": 0.22499999999999998,
+        "anthropic/claude-haiku-4.5": 0.42500000000000004,
+        "openai/gpt-4.1": 0.65,
+        "meta-llama/llama-3.3-70b-instruct": 0.275,
+        "anthropic/claude-sonnet-4-6": 0.425,
+        "anthropic/claude-opus-4": 0.525
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.5,
+          "usdCost": 0.00000984,
+          "judgeUsdCost": 0.004452,
+          "latencyMs": 619.7588340000075,
+          "comment": "Critical flaw: step 3 `SET NOT NULL` on 50M rows still takes full table scan + AccessExclusiveLock in PG<12 and even PG12+ requires CHECK NOT NULL validation scan. Should use `ADD CONSTRAINT ... NOT NULL NOT VALID` + `VALIDATE CONSTRAINT` pattern, or at minimum note the lock risk. Batched backfill is pseudo-code not runnable SQL. Index creation is bonus, not requested. Down migration is complete.",
+          "promptTokens": 93,
+          "completionTokens": 297
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.22499999999999998,
+          "usdCost": 0.0000296,
+          "judgeUsdCost": 0.002958,
+          "latencyMs": 447.10237500001676,
+          "comment": "Critical failure: ADD COLUMN NOT NULL DEFAULT on 50M rows rewrites entire table in older PG, causing long lock. Safe approach requires ADD COLUMN nullable first, backfill in batches, then SET NOT NULL with NOT VALID constraint. No mention of this at all.",
+          "promptTokens": 76,
+          "completionTokens": 55
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.42500000000000004,
+          "usdCost": 0.001406,
+          "judgeUsdCost": 0.003645,
+          "latencyMs": 1120.296583999996,
+          "comment": "Critical flaws: COMMIT/BEGIN inside DO $$ block is invalid in PL/pgSQL; UPDATE...LIMIT not valid PostgreSQL syntax; wrapping everything in one transaction defeats batching purpose. No mention of NOT VALID constraint trick or pg 11+ instant default. No tradeoffs discussed.",
+          "promptTokens": 86,
+          "completionTokens": 264
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.65,
+          "usdCost": 0.001902,
+          "judgeUsdCost": 0.004122,
+          "latencyMs": 398.01350000000093,
+          "comment": "Step 3 (SET NOT NULL) still takes AccessExclusiveLock and scans 50M rows—major liveness issue. No mention of CHECK CONSTRAINT trick (ADD CONSTRAINT NOT VALID + VALIDATE) or lock_timeout. Batched backfill is correct but UPDATE...LIMIT without ORDER BY is non-deterministic in PG. Missing pg_sleep recommendation is commented out. No discussion of index or replication lag concerns.",
+          "promptTokens": 83,
+          "completionTokens": 217
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.275,
+          "usdCost": 0.00005825,
+          "judgeUsdCost": 0.003159,
+          "latencyMs": 535.9190420000232,
+          "comment": "Critical flaw: UPDATE on 50M rows locks table/causes massive bloat. No batching, no concurrent index, no mention of Postgres 11+ default optimization. SET NOT NULL syntax is wrong. No discussion of lock timeouts or batched backfill strategy.",
+          "promptTokens": 85,
+          "completionTokens": 118
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.425,
+          "usdCost": 0.007938,
+          "judgeUsdCost": 0.004008,
+          "latencyMs": 1016.4226249999774,
+          "comment": "Response is truncated mid-code (cursor_id := cursor_id + batch_) — missing DOWN migration entirely, incomplete backfill loop, no VALIDATE CONSTRAINT step shown.",
+          "promptTokens": 86,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.525,
+          "usdCost": 0.022365,
+          "judgeUsdCost": 0.003786,
+          "latencyMs": 1188.3796250000014,
+          "comment": "Missing key insight: in PG12+ ADD COLUMN with DEFAULT is instant (no rewrite). Final SET NOT NULL still takes full table scan lock. No mention of NOT VALID constraint trick or pg_repack. LIMIT in UPDATE is non-standard PostgreSQL syntax (needs ORDER BY or CTE). No tradeoffs discussed.",
+          "promptTokens": 86,
+          "completionTokens": 281
+        }
+      ]
+    },
+    {
+      "idx": 23,
+      "tier": "strong",
+      "task": "Compare CRDT and OT (Operational Transform) for a collaborative text editor. List 4 concrete trade-offs as JSON: { \"tradeoffs\": [{\"dimension\": \"...\", \"crdt\": \"...\", \"ot\": \"...\", \"favors\": \"crdt|ot|neither\"}] }. No prose outside JSON.",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.75,
+        "google/gemini-2.5-flash-lite": 0.5750000000000001,
+        "anthropic/claude-haiku-4.5": 0.625,
+        "openai/gpt-4.1": 0.625,
+        "meta-llama/llama-3.3-70b-instruct": 0.625,
+        "anthropic/claude-sonnet-4-6": 0.9,
+        "anthropic/claude-opus-4": 0.625
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.75,
+          "usdCost": 0.000008609999999999999,
+          "judgeUsdCost": 0.003063,
+          "latencyMs": 891.5149589999928,
+          "comment": "Good tradeoffs but lacks depth on tombstoning, vector clocks, or Jupiter/dOPT specifics",
+          "promptTokens": 87,
+          "completionTokens": 258
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.5750000000000001,
+          "usdCost": 0.0001551,
+          "judgeUsdCost": 0.00447,
+          "latencyMs": 573.2159169999941,
+          "comment": "JSON wrapped in code block (minor format issue). CRDT bias: 3/4 favor CRDT, missing key OT strengths (intent preservation, proven at scale like Google Docs). Depth is surface-level; no mention of tombstones, vector clocks, Jupiter protocol, or specific CRDT types (RGA, LSEQ). Memory overhead claim about OT is debatable/oversimplified.",
+          "promptTokens": 67,
+          "completionTokens": 371
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.625,
+          "usdCost": 0.001549,
+          "judgeUsdCost": 0.003786,
+          "latencyMs": 1094.9114999999874,
+          "comment": "Correct format, 4 tradeoffs covered. But depth is shallow—CRDT 'simpler' claim is debatable (Logoot/LSEQ complexity), no mention of intent preservation, causality tracking, or specific algorithms like Jupiter/dOPT vs. RGA/YATA.",
+          "promptTokens": 84,
+          "completionTokens": 293
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.625,
+          "usdCost": 0.002424,
+          "judgeUsdCost": 0.003744,
+          "latencyMs": 429.02108400000725,
+          "comment": "Correct format, 4 tradeoffs covered, but lacks depth: no mention of specific CRDT types (RGA, LSEQ), OT algorithms (Jupiter, dOPT), or concrete gotchas like intent preservation failures.",
+          "promptTokens": 72,
+          "completionTokens": 285
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.625,
+          "usdCost": 0.00010633,
+          "judgeUsdCost": 0.003342,
+          "latencyMs": 394.74320799999987,
+          "comment": "Correct format, 4 tradeoffs present, but lacks depth: OT conflict resolution isn't 'manual', CRDT memory overhead missing, tombstoning/causality issues absent.",
+          "promptTokens": 101,
+          "completionTokens": 233
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.9,
+          "usdCost": 0.007167,
+          "judgeUsdCost": 0.00378,
+          "latencyMs": 1074.4893750000047,
+          "comment": "Excellent technical depth with specific algorithms (Logoot, RGA, dOPT). Actionable is partial—JSON comparison aids decisions but lacks implementation steps.",
+          "promptTokens": 84,
+          "completionTokens": 461
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.625,
+          "usdCost": 0.02091,
+          "judgeUsdCost": 0.003873,
+          "latencyMs": 1250.3328749999928,
+          "comment": "Correct format, 4 tradeoffs present, but lacks depth: CRDT complexity claim is oversimplified (e.g., no mention of tombstones, vector clocks, or specific algorithms like YATA/RGA). OT intention preservation advantage is debatable and underexplained. Memory overhead comparison misses CRDT tombstone growth nuance.",
+          "promptTokens": 84,
+          "completionTokens": 262
+        }
+      ]
+    },
+    {
+      "idx": 24,
+      "tier": "strong",
+      "task": "Design a backwards-compatible API deprecation path for an existing GET /users/:id endpoint, where the response shape needs to change (rename `email` → `primary_email`, add nested `verification: { status, verified_at }`). Spec the migration across 3 release trains. Return as structured plan with phases and consumer expectations. JSON: { \"phases\": [{\"phase\": N, \"duration\": \"...\", \"server_behavior\": \"...\", \"client_action\": \"...\", \"rollback\": \"...\"}] }. No prose outside JSON.",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.56,
+        "google/gemini-2.5-flash-lite": 0.5,
+        "anthropic/claude-haiku-4.5": 0.425,
+        "openai/gpt-4.1": 0.55,
+        "meta-llama/llama-3.3-70b-instruct": 0.42500000000000004,
+        "anthropic/claude-sonnet-4-6": 0.425,
+        "anthropic/claude-opus-4": 0.65
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.56,
+          "usdCost": 0.000016649999999999998,
+          "judgeUsdCost": 0.004161,
+          "latencyMs": 703.1978749999835,
+          "comment": "Response truncated mid-phase-3 rollback. Missing tradeoffs (caching, SDK versioning, monitoring). Good structure but incomplete.",
+          "promptTokens": 129,
+          "completionTokens": 512
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.5,
+          "usdCost": 0.00021590000000000002,
+          "judgeUsdCost": 0.004233,
+          "latencyMs": 495.0453329999873,
+          "comment": "Response is truncated mid-phase-3, missing rollback for final phase. Verbose prose in fields. No dual-field approach or versioned URL path discussed. Partial credit across all criteria.",
+          "promptTokens": 111,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.425,
+          "usdCost": 0.002688,
+          "judgeUsdCost": 0.004089,
+          "latencyMs": 970.4371659999888,
+          "comment": "Response is truncated mid-JSON, missing phases 2 completion and phase 3 entirely. Partial credit for depth/tradeoffs shown in phase 1.",
+          "promptTokens": 128,
+          "completionTokens": 512
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.55,
+          "usdCost": 0.003244,
+          "judgeUsdCost": 0.004074,
+          "latencyMs": 535.3482499999809,
+          "comment": "Covers basics but lacks depth: no versioning headers, no Sunset header RFC 8594, no API version strategy, no caching/CDN concerns, no contract testing mention, no specific deprecation warning mechanism details.",
+          "promptTokens": 114,
+          "completionTokens": 377
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.42500000000000004,
+          "usdCost": 0.00016366000000000002,
+          "judgeUsdCost": 0.003726,
+          "latencyMs": 396.5847500000091,
+          "comment": "Missing deprecation headers (Sunset, Deprecation), versioning strategy, consumer notification mechanisms, and zero trade-offs discussed.",
+          "promptTokens": 142,
+          "completionTokens": 363
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.425,
+          "usdCost": 0.008064,
+          "judgeUsdCost": 0.003966,
+          "latencyMs": 1557.0834160000086,
+          "comment": "Response is truncated mid-phase-1, never delivers phases 2-3, violates the 3-phase spec entirely.",
+          "promptTokens": 128,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.65,
+          "usdCost": 0.036795,
+          "judgeUsdCost": 0.003849,
+          "latencyMs": 1610.972833000007,
+          "comment": "Good structure and headers usage, but missing API versioning strategy, content negotiation, and field-level deprecation gotchas like caching.",
+          "promptTokens": 128,
+          "completionTokens": 465
+        }
+      ]
+    },
+    {
+      "idx": 25,
+      "tier": "strong",
+      "task": "Plan a zero-downtime migration of an `orders` table from a single postgres instance (~200GB, 50M rows) to a sharded postgres setup (4 shards by `customer_id`). Output as JSON: { \"phases\": [{\"phase\": N, \"objective\": \"...\", \"data_flow\": \"...\", \"cutover_risk\": \"low|medium|high\", \"rollback\": \"...\"}] }. No prose outside JSON.",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.425,
+        "google/gemini-2.5-flash-lite": 0.5,
+        "anthropic/claude-haiku-4.5": 0.425,
+        "openai/gpt-4.1": 0.5,
+        "meta-llama/llama-3.3-70b-instruct": 0.5,
+        "anthropic/claude-sonnet-4-6": 0.425,
+        "anthropic/claude-opus-4": 0.5
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.425,
+          "usdCost": 0.000016530000000000003,
+          "judgeUsdCost": 0.0042,
+          "latencyMs": 674.3708749999932,
+          "comment": "Response is truncated mid-phase 5, missing cutover/switchover phases entirely. No mention of shard key conflicts, replication lag monitoring, or specific tooling tradeoffs.",
+          "promptTokens": 117,
+          "completionTokens": 512
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.5,
+          "usdCost": 0.0002144,
+          "judgeUsdCost": 0.004335,
+          "latencyMs": 517.4761670000153,
+          "comment": "Response is truncated mid-sentence, missing phases 5+, cutover, and validation. Dual-write logic is vague; no hash/range sharding specifics, no lag monitoring, no FK/index handling.",
+          "promptTokens": 96,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.425,
+          "usdCost": 0.002668,
+          "judgeUsdCost": 0.004239,
+          "latencyMs": 864.7578339999891,
+          "comment": "Response is truncated mid-phase 5, missing cutover, final validation, and cleanup phases. Partial credit for dual-write pattern and replication approach, but no mention of FK constraints, sequence handling, or hash function specifics.",
+          "promptTokens": 108,
+          "completionTokens": 512
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.5,
+          "usdCost": 0.004292,
+          "judgeUsdCost": 0.004554,
+          "latencyMs": 387.4547920000041,
+          "comment": "Response is truncated mid-JSON, missing phase 5 close and phase 6 (decommission). Lacks specifics: no mention of logical replication, CDC, sequence/PK conflicts, cross-shard queries, or consistency guarantees.",
+          "promptTokens": 98,
+          "completionTokens": 512
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.5,
+          "usdCost": 0.00021806,
+          "judgeUsdCost": 0.004134,
+          "latencyMs": 174.41995899999165,
+          "comment": "Phases are generic; missing sharding key routing logic, dual-write pattern, lag monitoring, and the response is truncated.",
+          "promptTokens": 102,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.425,
+          "usdCost": 0.008004,
+          "judgeUsdCost": 0.003954,
+          "latencyMs": 867.0207079999964,
+          "comment": "Response is truncated mid-phase-2, missing phases 3+ (bulk copy, cutover, cleanup). Partial credit for depth shown.",
+          "promptTokens": 108,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.5,
+          "usdCost": 0.04002,
+          "judgeUsdCost": 0.004134,
+          "latencyMs": 1448.7304580000055,
+          "comment": "Response is truncated mid-phase 5, missing final cutover and cleanup phases. No mention of sharding key hash strategy, rebalancing, cross-shard queries, or sequence/ID conflicts.",
+          "promptTokens": 108,
+          "completionTokens": 512
+        }
+      ]
+    },
+    {
+      "idx": 26,
+      "tier": "strong",
+      "task": "Design an event-sourced architecture for an inventory system (products, stock levels, orders). Include: domain events, aggregate boundaries, snapshot strategy, and replay path. Return as JSON: { \"events\": [...], \"aggregates\": [{\"name\": \"...\", \"invariants\": \"...\", \"events_owned\": [...]}], \"snapshot_strategy\": \"...\", \"replay_strategy\": \"...\" }. No prose outside JSON.",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.47,
+        "google/gemini-2.5-flash-lite": 0.3,
+        "anthropic/claude-haiku-4.5": 0.3,
+        "openai/gpt-4.1": 0.42500000000000004,
+        "meta-llama/llama-3.3-70b-instruct": 0.42500000000000004,
+        "anthropic/claude-sonnet-4-6": 0.3,
+        "anthropic/claude-opus-4": 0.375
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.47,
+          "usdCost": 0.00001495,
+          "judgeUsdCost": 0.004026,
+          "latencyMs": 749.4130420000001,
+          "comment": "Good structure but lacks tradeoffs (e.g., snapshot frequency vs storage, eventual consistency, saga patterns for cross-aggregate ops). Depth is surface-level.",
+          "promptTokens": 103,
+          "completionTokens": 464
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.3,
+          "usdCost": 0.0002134,
+          "judgeUsdCost": 0.003939,
+          "latencyMs": 458.2806659999769,
+          "comment": "Response is truncated mid-JSON, missing snapshot_strategy, replay_strategy, aggregates, and tradeoffs entirely.",
+          "promptTokens": 86,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.3,
+          "usdCost": 0.002659,
+          "judgeUsdCost": 0.003837,
+          "latencyMs": 1982.2304169999843,
+          "comment": "Response truncated mid-JSON; missing aggregates, snapshot_strategy, replay_strategy, and tradeoffs entirely.",
+          "promptTokens": 99,
+          "completionTokens": 512
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.42500000000000004,
+          "usdCost": 0.003606,
+          "judgeUsdCost": 0.004041,
+          "latencyMs": 397.0886660000251,
+          "comment": "Missing tradeoffs, no saga/process manager for cross-aggregate consistency, no versioning, no causation/correlation IDs in payloads, snapshot N value unexplained",
+          "promptTokens": 91,
+          "completionTokens": 428
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.42500000000000004,
+          "usdCost": 0.00012648,
+          "judgeUsdCost": 0.003549,
+          "latencyMs": 397.26008300000103,
+          "comment": "Minimal viable structure but lacks depth: no event versioning, causation/correlation IDs, projection details, or concurrency handling. No tradeoffs surfaced.",
+          "promptTokens": 96,
+          "completionTokens": 285
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.3,
+          "usdCost": 0.007977,
+          "judgeUsdCost": 0.003837,
+          "latencyMs": 1165.4022910000058,
+          "comment": "Response truncated mid-JSON; missing snapshot_strategy, replay_strategy, aggregates, and tradeoffs entirely.",
+          "promptTokens": 99,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.375,
+          "usdCost": 0.039885,
+          "judgeUsdCost": 0.003852,
+          "latencyMs": 1551.097167,
+          "comment": "Response is truncated mid-JSON, missing aggregates, snapshot_strategy, replay_strategy, and tradeoffs entirely.",
+          "promptTokens": 99,
+          "completionTokens": 512
+        }
+      ]
+    },
+    {
+      "idx": 27,
+      "tier": "strong",
+      "task": "Write a threat model for a public webhook receiver that accepts user-provided JSON payloads up to 100KB. Use STRIDE categorization. Return as JSON: { \"threats\": [{\"category\": \"S|T|R|I|D|E\", \"scenario\": \"...\", \"mitigation\": \"...\", \"residual_risk\": \"low|medium|high\"}] }. Include at least 6 threats. No prose outside JSON.",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.55,
+        "google/gemini-2.5-flash-lite": 0.3,
+        "anthropic/claude-haiku-4.5": 0.5,
+        "openai/gpt-4.1": 0.42500000000000004,
+        "meta-llama/llama-3.3-70b-instruct": 0.42500000000000004,
+        "anthropic/claude-sonnet-4-6": 0.75,
+        "anthropic/claude-opus-4": 0.425
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.55,
+          "usdCost": 0.00001588,
+          "judgeUsdCost": 0.004401,
+          "latencyMs": 767.7526669999934,
+          "comment": "R category misused (should be Repudiation, not modification). Mitigations lack depth (no HMAC sig validation, no payload bomb protection for 100KB limit, no async queue specifics). No trade-offs surfaced. Exactly 6 threats, minimal coverage.",
+          "promptTokens": 115,
+          "completionTokens": 491
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.3,
+          "usdCost": 0.0001187,
+          "judgeUsdCost": 0.003183,
+          "latencyMs": 415.1530840000487,
+          "comment": "Response is truncated mid-sentence, missing 4+ threats and all trade-offs. Incomplete output fails completeness entirely.",
+          "promptTokens": 91,
+          "completionTokens": 274
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.5,
+          "usdCost": 0.002664,
+          "judgeUsdCost": 0.003777,
+          "latencyMs": 754.9614580000052,
+          "comment": "Response truncated mid-JSON, missing closing structure; partial credit across all criteria due to incomplete output",
+          "promptTokens": 104,
+          "completionTokens": 512
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.42500000000000004,
+          "usdCost": 0.003752,
+          "judgeUsdCost": 0.004056,
+          "latencyMs": 637.2951250000042,
+          "comment": "I category misused (flooding is D not I); no trade-offs surfaced; mitigations are generic; 100KB limit not addressed; missing SSRF, injection threats",
+          "promptTokens": 100,
+          "completionTokens": 444
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.42500000000000004,
+          "usdCost": 0.00017793,
+          "judgeUsdCost": 0.004092,
+          "latencyMs": 550.032332999981,
+          "comment": "Mitigations are generic; no trade-offs or gotchas. Missing SSRF, JSON bomb/zip-bomb, category 'R' is non-repudiation not replay. Shallow depth.",
+          "promptTokens": 101,
+          "completionTokens": 412
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.75,
+          "usdCost": 0.007992,
+          "judgeUsdCost": 0.003912,
+          "latencyMs": 1296.5412079999805,
+          "comment": "Response truncated mid-sentence, missing D and E threats; only 4 complete threats shown. Good depth on shown items but incomplete.",
+          "promptTokens": 104,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.425,
+          "usdCost": 0.03996,
+          "judgeUsdCost": 0.004134,
+          "latencyMs": 1352.7455840000184,
+          "comment": "Response is truncated mid-JSON, missing closing brackets and at least one threat (only 5 complete). I category misclassified as DoS (should be D). No trade-offs surfaced.",
+          "promptTokens": 104,
+          "completionTokens": 512
+        }
+      ]
+    },
+    {
+      "idx": 28,
+      "tier": "strong",
+      "task": "Reason about the consistency guarantees of a leader-based replicated key-value store under (a) a network partition that isolates the leader, (b) recovery when the partition heals, and (c) a stale read against a follower that hasn't caught up. Return as JSON: { \"scenarios\": [{\"name\": \"...\", \"guarantee\": \"...\", \"what_clients_see\": \"...\", \"mitigation\": \"...\"}] }. No prose outside JSON.",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.55,
+        "google/gemini-2.5-flash-lite": 0.5,
+        "anthropic/claude-haiku-4.5": 0.625,
+        "openai/gpt-4.1": 0.595,
+        "meta-llama/llama-3.3-70b-instruct": 0.55,
+        "anthropic/claude-sonnet-4-6": 0.775,
+        "anthropic/claude-opus-4": 0.55
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.55,
+          "usdCost": 0.00000862,
+          "judgeUsdCost": 0.003336,
+          "latencyMs": 701.2792499999632,
+          "comment": "Correct but shallow; misses split-brain risk, two-leader scenario, epoch/term details, read-index/lease specifics, and linearizability vs sequential consistency nuance.",
+          "promptTokens": 112,
+          "completionTokens": 250
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.5,
+          "usdCost": 0.00019710000000000002,
+          "judgeUsdCost": 0.004305,
+          "latencyMs": 409.3837910000002,
+          "comment": "Response is truncated mid-sentence, missing scenario 3 (stale read). Depth is moderate but lacks specifics like Raft/Paxos epoch fencing, split-brain prevention details, or linearizability vs. sequential consistency distinctions.",
+          "promptTokens": 95,
+          "completionTokens": 469
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.625,
+          "usdCost": 0.002247,
+          "judgeUsdCost": 0.004092,
+          "latencyMs": 1110.7243330000201,
+          "comment": "Covers all 3 scenarios cleanly. Missing depth: no mention of Raft/Paxos specifics, linearizability vs serializability, lease-based reads, or split-brain quorum math. Mitigations are correct but generic.",
+          "promptTokens": 112,
+          "completionTokens": 427
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.595,
+          "usdCost": 0.002964,
+          "judgeUsdCost": 0.00387,
+          "latencyMs": 553.8799580000341,
+          "comment": "Covers basics but lacks depth: no mention of split-brain writes being committed before isolation detected, no discussion of log truncation on recovery, no linearizability vs. sequential consistency distinction, no concrete lease duration tradeoffs.",
+          "promptTokens": 98,
+          "completionTokens": 346
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.55,
+          "usdCost": 0.00013019,
+          "judgeUsdCost": 0.003864,
+          "latencyMs": 3299.9050840000273,
+          "comment": "Shallow on key details: partition scenario mislabels guarantee (CP not AP for leader-based), misses split-brain, quorum loss, log divergence, term numbers. Recovery omits log truncation/rollback of uncommitted entries. Mitigations are generic.",
+          "promptTokens": 103,
+          "completionTokens": 292
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.775,
+          "usdCost": 0.008016,
+          "judgeUsdCost": 0.004083,
+          "latencyMs": 1833.2278340000194,
+          "comment": "Strong depth on partition/Raft mechanics; response truncated mid-JSON missing scenario 3 (stale follower read); mitigations are concrete but incomplete due to cutoff",
+          "promptTokens": 112,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.55,
+          "usdCost": 0.026805,
+          "judgeUsdCost": 0.003531,
+          "latencyMs": 1254.8878329999861,
+          "comment": "Correct structure but shallow: misses split-brain detail, Raft/Paxos epoch mechanics, fencing tokens, and linearizability vs sequential consistency nuance.",
+          "promptTokens": 112,
+          "completionTokens": 335
+        }
+      ]
+    },
+    {
+      "idx": 29,
+      "tier": "strong",
+      "task": "Architect a multi-tenant database schema with row-level security for a SaaS application where tenants must NEVER see each other's data. Cover: schema-level isolation choices, RLS policy design, application-layer enforcement. Return as JSON: { \"isolation_strategy\": \"...\", \"rls_policies\": [{\"table\": \"...\", \"policy_sql\": \"...\"}], \"app_layer_guards\": [...], \"audit_strategy\": \"...\" }. No prose outside JSON.",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.5,
+        "google/gemini-2.5-flash-lite": 0.375,
+        "anthropic/claude-haiku-4.5": 0.3,
+        "openai/gpt-4.1": 0.42500000000000004,
+        "meta-llama/llama-3.3-70b-instruct": 0.42500000000000004,
+        "anthropic/claude-sonnet-4-6": 0.55,
+        "anthropic/claude-opus-4": 0.375
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.5,
+          "usdCost": 0.00001646,
+          "judgeUsdCost": 0.004365,
+          "latencyMs": 715.8704999999609,
+          "comment": "Truncated audit_strategy, no ENABLE RLS/FORCE RLS, no SET LOCAL for session vars, missing WITH CHECK clauses, no tradeoffs vs schema-per-tenant",
+          "promptTokens": 110,
+          "completionTokens": 512
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.375,
+          "usdCost": 0.0002146,
+          "judgeUsdCost": 0.004215,
+          "latencyMs": 407.9500419999822,
+          "comment": "Truncated response missing audit_strategy; RLS policies lack WITH CHECK clauses and ENABLE ROW LEVEL SECURITY; no tradeoffs between isolation strategies; app guards are prose not structured data",
+          "promptTokens": 98,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.3,
+          "usdCost": 0.002674,
+          "judgeUsdCost": 0.003984,
+          "latencyMs": 1389.832333999977,
+          "comment": "Response is truncated mid-JSON, missing rls_policies, app_layer_guards, audit_strategy entirely. No tradeoffs surfaced.",
+          "promptTokens": 114,
+          "completionTokens": 512
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.42500000000000004,
+          "usdCost": 0.00254,
+          "judgeUsdCost": 0.003624,
+          "latencyMs": 683.0692920000292,
+          "comment": "Missing ALTER TABLE ENABLE ROW LEVEL SECURITY, no WITH CHECK clauses, no tradeoffs vs schema-per-tenant, no superuser bypass warning, audit is vague",
+          "promptTokens": 98,
+          "completionTokens": 293
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.42500000000000004,
+          "usdCost": 0.00010139,
+          "judgeUsdCost": 0.003717,
+          "latencyMs": 147.9743749999907,
+          "comment": "RLS policies use current_user comparison which is wrong (should use session vars like current_setting); no ALTER TABLE ENABLE RLS; no tradeoffs discussed; schema isolation claim contradicts shared-table RLS approach; missing SET LOCAL, connection pooling gotchas, and index considerations.",
+          "promptTokens": 103,
+          "completionTokens": 220
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.55,
+          "usdCost": 0.008022,
+          "judgeUsdCost": 0.004092,
+          "latencyMs": 884.9332500000019,
+          "comment": "Response truncated mid-JSON; missing rls_policies, app_layer_guards, audit_strategy fields entirely. Tradeoffs section is strong but incomplete output fails completeness.",
+          "promptTokens": 114,
+          "completionTokens": 512
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.375,
+          "usdCost": 0.04011,
+          "judgeUsdCost": 0.004434,
+          "latencyMs": 1406.58050000004,
+          "comment": "Response is truncated mid-JSON, missing audit_strategy and full app_layer_guards. No tradeoffs discussed (schema-per-tenant vs shared, RLS perf costs). RLS policies lack FOR ALL/WITH CHECK clauses and ENABLE ROW LEVEL SECURITY statements.",
+          "promptTokens": 114,
+          "completionTokens": 512
+        }
+      ]
+    }
+  ]
+}

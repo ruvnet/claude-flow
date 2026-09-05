@@ -7,7 +7,20 @@
 
 ## Context
 
-The current model routing system uses `tiny-dancer` for neural-based complexity analysis to select between `haiku`, `sonnet`, and `opus` models. While effective, this approach:
+> **Note (2026-06-09, #2329):** This ADR was authored when the design intent
+> was a `@ruvector/tiny-dancer` neural router. The shipped router in
+> `v3/@claude-flow/cli/src/ruvector/model-router.ts` is instead a lexical
+> complexity heuristic combined with a Thompson-sampling Beta-Bernoulli
+> bandit (no `@ruvector/tiny-dancer` import, no neural model load). Read
+> every `tiny-dancer` mention below as "the local heuristic + bandit
+> ModelRouter" until this ADR is rewritten or the neural path is wired
+> in. The 3-tier Agent Booster integration on top of it (the actual
+> subject of this ADR) is unaffected.
+
+The current model routing system uses the local heuristic + bandit
+`ModelRouter` (named `tiny-dancer` here for historical reasons; see note
+above) for complexity analysis to select between `haiku`, `sonnet`, and
+`opus` models. While effective, this approach:
 
 1. Doesn't leverage AST-based analysis for code-specific tasks
 2. Can't detect when tasks can be handled entirely by Agent Booster (352x faster, $0 cost)
@@ -442,7 +455,9 @@ v3/@claude-flow/cli/src/
 - ADR-018: Claude Code Integration
 - Agent Booster: https://github.com/anthropics/agent-booster
 - agentic-flow: https://github.com/ruvnet/agentic-flow
-- tiny-dancer: Neural model router
+- tiny-dancer: design-intent name for the model-routing layer; the shipped
+  implementation is a lexical + Thompson-bandit `ModelRouter`, not a neural
+  router (see note at top of this ADR and #2329)
 
 ---
 

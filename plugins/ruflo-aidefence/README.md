@@ -51,6 +51,18 @@ Every consumer plugin handling untrusted content should apply these three gates 
 
 This is the pattern `ruflo-browser` ADR-0001 §4 codified and `ruflo-aidefence` ADR-0001 canonicalizes. Reference these gates by name in any new plugin that handles user-supplied content.
 
+### What the gates catch (after [ADR-118](../../v3/docs/adr/ADR-118-aidefence-2.3.0-upgrade.md))
+
+The upstream `aidefence@2.3.0` / `aimds-*@0.1.1` release (shipped 2026-05-14) widens the detection net without changing the MCP-tool surface. Gate 3 (`aidefence_is_safe`) now flags:
+
+| Category | Sample input |
+|----------|--------------|
+| **Prompt injection** (0..4 modifier-word window) | `ignore all previous instructions`, `forget every rule above`, `disregard the system prompt` |
+| **Role hijack** | `you are now …`, `act as …`, `pretend to be …` |
+| **Jailbreak markers** | `DAN mode`, `developer mode`, `god mode`, `root mode` |
+
+`aidefence_stats` now also reports accurate `total_mitigations` and `successful_mitigations` (previously hardcoded `0` — an unclosed TODO that's now backed by `AtomicU64` counters).
+
 ## Namespace coordination
 
 This plugin owns the `security-patterns` AgentDB namespace (kebab-case, follows the convention from [ruflo-agentdb ADR-0001 §"Namespace convention"](../ruflo-agentdb/docs/adrs/0001-agentdb-optimization.md)). Reserved namespaces (`pattern`, `claude-memories`, `default`) MUST NOT be shadowed.

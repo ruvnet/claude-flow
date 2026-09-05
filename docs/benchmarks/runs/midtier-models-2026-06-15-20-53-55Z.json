@@ -1,0 +1,206 @@
+{
+  "meta": {
+    "ts": "2026-06-15T20:53:55.540Z",
+    "node": "v22.22.1",
+    "platform": "darwin-arm64",
+    "args": {
+      "live": true,
+      "models": null,
+      "judge": "anthropic/claude-sonnet-4-6",
+      "maxCost": 1,
+      "repeat": 1,
+      "maxTokens": 768,
+      "save": true
+    },
+    "judge": "anthropic/claude-sonnet-4-6",
+    "corpusSize": 12
+  },
+  "results": [
+    {
+      "model": "openai/gpt-4.1",
+      "family": "openai",
+      "avgScore": 0.8104166666666668,
+      "scoreStdev": 0.29454478231311243,
+      "structuralPassRate": 0.9166666666666666,
+      "total": 12,
+      "latency": {
+        "mean": 582.1458644166606,
+        "p50": 582.3742499999935,
+        "p95": 836.1313329999975,
+        "stdev": 133.81768747869015
+      },
+      "usdCost": 0.029748000000000004,
+      "judgeUsdCost": 0.040809,
+      "promptTokens": 1198,
+      "completionTokens": 3419,
+      "errorCount": 1,
+      "errorSample": [
+        {
+          "row": "design-event-sourcing-1",
+          "error": "structural: missing required substring \"Reducer\""
+        }
+      ]
+    },
+    {
+      "model": "google/gemini-2.5-flash",
+      "family": "google",
+      "avgScore": 0.7666666666666666,
+      "scoreStdev": 0.28351153041593896,
+      "structuralPassRate": 1,
+      "total": 12,
+      "latency": {
+        "mean": 997.3121735833398,
+        "p50": 679.9574579999899,
+        "p95": 2065.4907080000266,
+        "stdev": 556.5530466210216
+      },
+      "usdCost": 0.013772200000000002,
+      "judgeUsdCost": 0.056889,
+      "promptTokens": 1174,
+      "completionTokens": 5368,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "anthropic/claude-sonnet-4-6",
+      "family": "anthropic",
+      "avgScore": 0.7666666666666666,
+      "scoreStdev": 0.37330424670241913,
+      "structuralPassRate": 0.8333333333333334,
+      "total": 12,
+      "latency": {
+        "mean": 1592.5882048333372,
+        "p50": 1487.8200410000281,
+        "p95": 4323.250041999971,
+        "stdev": 912.1895496898968
+      },
+      "usdCost": 0.11151900000000002,
+      "judgeUsdCost": 0.04510200000000001,
+      "promptTokens": 1363,
+      "completionTokens": 7162,
+      "errorCount": 2,
+      "errorSample": [
+        {
+          "row": "sql-migration-1",
+          "error": "structural: missing required substring \"-- DOWN --\""
+        },
+        {
+          "row": "regex-complex-1",
+          "error": "structural: missing required substring \"regex\""
+        }
+      ]
+    },
+    {
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "family": "meta",
+      "avgScore": 0.6958333333333333,
+      "scoreStdev": 0.28660103195060466,
+      "structuralPassRate": 0.9166666666666666,
+      "total": 12,
+      "latency": {
+        "mean": 612.8063889166627,
+        "p50": 510.690625,
+        "p95": 2003.5729580000043,
+        "stdev": 475.864542758686
+      },
+      "usdCost": 0.00136682,
+      "judgeUsdCost": 0.04073699999999999,
+      "promptTokens": 1314,
+      "completionTokens": 2990,
+      "errorCount": 1,
+      "errorSample": [
+        {
+          "row": "regex-complex-1",
+          "error": "structural: missing required substring \"regex\""
+        }
+      ]
+    },
+    {
+      "model": "qwen/qwen3-32b",
+      "family": "qwen",
+      "avgScore": 0.36666666666666664,
+      "scoreStdev": 0.43358093159458044,
+      "structuralPassRate": 0.5,
+      "total": 12,
+      "latency": {
+        "mean": 704.7780139166603,
+        "p50": 552.6807079999708,
+        "p95": 1647.4444999999832,
+        "stdev": 457.8569032522981
+      },
+      "usdCost": 0.0085346,
+      "judgeUsdCost": 0.022713,
+      "promptTokens": 1199,
+      "completionTokens": 28049,
+      "errorCount": 6,
+      "errorSample": [
+        {
+          "row": "refactor-strategy-1",
+          "error": "structural: empty response"
+        },
+        {
+          "row": "design-event-sourcing-1",
+          "error": "structural: empty response"
+        }
+      ]
+    },
+    {
+      "model": "openai/gpt-5-mini",
+      "family": "openai",
+      "avgScore": 0.08333333333333333,
+      "scoreStdev": 0.2886751345948128,
+      "structuralPassRate": 0.08333333333333333,
+      "total": 12,
+      "latency": {
+        "mean": 586.2608334999857,
+        "p50": 571.8974589999998,
+        "p95": 1001.6334170000046,
+        "stdev": 177.96806633426533
+      },
+      "usdCost": 0.018728500000000002,
+      "judgeUsdCost": 0.003801,
+      "promptTokens": 1186,
+      "completionTokens": 9216,
+      "errorCount": 11,
+      "errorSample": [
+        {
+          "row": "design-event-sourcing-1",
+          "error": "structural: empty response"
+        },
+        {
+          "row": "security-jwt-audit-1",
+          "error": "structural: empty response"
+        }
+      ]
+    },
+    {
+      "model": "google/gemini-2.5-pro",
+      "family": "google",
+      "avgScore": 0.022916666666666665,
+      "scoreStdev": 0.06524284472552364,
+      "structuralPassRate": 0.16666666666666666,
+      "total": 12,
+      "latency": {
+        "mean": 1995.7429724166657,
+        "p50": 2042.2449580000248,
+        "p95": 2378.86941699998,
+        "stdev": 218.58866340955782
+      },
+      "usdCost": 0.09315749999999999,
+      "judgeUsdCost": 0.005475,
+      "promptTokens": 1174,
+      "completionTokens": 9169,
+      "errorCount": 10,
+      "errorSample": [
+        {
+          "row": "design-event-sourcing-1",
+          "error": "structural: missing required substring \"Reducer\""
+        },
+        {
+          "row": "security-jwt-audit-1",
+          "error": "structural: missing required substring \"fixed_code\""
+        }
+      ]
+    }
+  ]
+}

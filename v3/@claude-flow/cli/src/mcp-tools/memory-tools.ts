@@ -97,6 +97,34 @@ function sanitizeMemoryKey(key: string): string {
   return safe.length > MAX_KEY_LENGTH ? safe.slice(0, MAX_KEY_LENGTH) : safe;
 }
 
+// #1937 — minimal glob → RegExp helper for memory_import_claude exclusion
+// patterns. Anchored. Supports the three operators the issue's voice-fidelity
+// workflow needs:
+//   `**` — any chars including path separators
+//   `*`  — any chars except path separators
+//   `?`  — exactly one char except a path separator
+// Everything else is regex-escaped. Used to match absolute file paths.
+function globToRegex(pattern: string): RegExp {
+  // Tokenize so we can replace `**` before `*` without overlap.
+  let out = '';
+  for (let i = 0; i < pattern.length; i++) {
+    const c = pattern[i];
+    if (c === '*' && pattern[i + 1] === '*') {
+      out += '.*';
+      i++;
+    } else if (c === '*') {
+      out += '[^/\\\\]*';
+    } else if (c === '?') {
+      out += '[^/\\\\]';
+    } else if (/[.+^$|(){}\[\]\\]/.test(c)) {
+      out += '\\' + c;
+    } else {
+      out += c;
+    }
+  }
+  return new RegExp('^' + out + '$');
+}
+
 // #1883 — resolve the Claude-Code project memory directory for the *current*
 // project. Claude Code hashes the project path differently per host OS, and
 // our previous logic only POSIX-slash-replaced cwd, which breaks for:
@@ -217,6 +245,23 @@ async function getMemoryFunctions() {
 }
 
 /**
+ * #2922: every `backend:` field in this file's tool responses used to be the
+ * hardcoded literal `'sql.js + HNSW'` regardless of which search path was
+ * actually active — most of the time that's the bridge doing a brute-force
+ * cosine scan, not HNSW. This reports the real algorithm via the same
+ * capability probe `getHNSWStatus()` already exposes.
+ */
+async function describeBackend(): Promise<string> {
+  try {
+    const { getHNSWStatus } = await import('../memory/memory-initializer.js');
+    const status = getHNSWStatus();
+    return status.algorithm === 'hnsw' ? 'sql.js + HNSW' : 'sqlite (bridge, brute-force cosine)';
+  } catch {
+    return 'sqlite';
+  }
+}
+
+/**
  * Ensure memory database is initialized and migrate legacy data if needed.
  * #1606: Wrapped in try/catch to prevent process-level crashes that kill
  * the stdio MCP transport on Windows/Codex.
@@ -265,7 +310,7 @@ async function ensureInitialized(): Promise<void> {
 export const memoryTools: MCPTool[] = [
   {
     name: 'memory_store',
-    description: 'Persistent key-value store with vector embedding — survives across sessions and is searchable by meaning, not just by file path. Use when native Write is wrong because the data is not a file (e.g. a learned pattern, a decision, a budget config) AND you need to recall it later by semantic query, not by path. Defaults to namespace="default"; pass --upsert=true to update an existing key.',
+    description: 'Persistent key-value store with vector embedding — survives across sessions and is searchable by meaning, not just by file path. Use when native Write is wrong because the data is not a file (e.g. a learned pattern, a decision, a budget config) AND you need to recall it later by semantic query, not by path. Defaults to namespace="default". Upsert semantics: writing an existing key updates it (matching the CLI `memory store` default); pass `upsert: false` to force strict-insert instead.',
     category: 'memory',
     inputSchema: {
       type: 'object',
@@ -279,7 +324,12 @@ export const memoryTools: MCPTool[] = [
           description: 'Optional tags for filtering',
         },
         ttl: { type: 'number', description: 'Time-to-live in seconds (optional)' },
-        upsert: { type: 'boolean', description: 'If true, update existing key instead of failing (default: false)' },
+        upsert: { type: 'boolean', description: 'Update existing key instead of failing (default: true, matching CLI `memory store`; set false for strict-insert). #2775 parity.' },
+        provenance_type: {
+          type: 'string',
+          enum: ['user_claim', 'agent_output', 'system_observation', 'tool_result', 'unknown'],
+          description: 'ADR-323: who/what produced this value, so shared-namespace retrieval can filter by trust level instead of conflating a user\'s stated claim with an agent\'s own output. Default: "unknown".',
+        },
       },
       required: ['key', 'value'],
     },
@@ -293,7 +343,11 @@ export const memoryTools: MCPTool[] = [
       const value = typeof rawValue === 'string' ? rawValue : (rawValue !== undefined ? JSON.stringify(rawValue) : '');
       const tags = (input.tags as string[]) || [];
       const ttl = input.ttl as number | undefined;
-      const upsert = (input.upsert as boolean) || false;
+      // #2775 parity with CLI: default true; only explicit `upsert: false` opts out.
+      const upsert = input.upsert !== false;
+      // ADR-323: leave undefined when omitted so storeEntry's own default
+      // ('unknown') applies uniformly across the CLI, MCP tool, and other callers.
+      const provenanceType = input.provenance_type as string | undefined;
 
       if (!value) {
         return {
@@ -318,6 +372,7 @@ export const memoryTools: MCPTool[] = [
           tags,
           ttl,
           upsert,
+          provenanceType,
         });
 
         const duration = performance.now() - startTime;
@@ -330,7 +385,8 @@ export const memoryTools: MCPTool[] = [
           storedAt: new Date().toISOString(),
           hasEmbedding: !!result.embedding,
           embeddingDimensions: result.embedding?.dimensions || null,
-          backend: 'sql.js + HNSW',
+          provenanceType: provenanceType || 'unknown',
+          backend: await describeBackend(),
           storeTime: `${duration.toFixed(2)}ms`,
           error: result.error,
         };
@@ -386,7 +442,7 @@ export const memoryTools: MCPTool[] = [
             accessCount: result.entry.accessCount,
             hasEmbedding: result.entry.hasEmbedding,
             found: true,
-            backend: 'sql.js + HNSW',
+            backend: await describeBackend(),
           };
         }
 
@@ -415,10 +471,15 @@ export const memoryTools: MCPTool[] = [
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Search query (semantic similarity)' },
-        namespace: { type: 'string', description: 'Namespace to search (default: "default")' },
+        namespace: { type: 'string', description: 'Namespace to search (default: all namespaces — omit to search across every namespace)' },
         limit: { type: 'number', description: 'Maximum results (default: 10)' },
         threshold: { type: 'number', description: 'Minimum similarity threshold 0-1 (default: 0.3)' },
         smart: { type: 'boolean', description: 'Enable SmartRetrieval pipeline — query expansion, RRF fusion, recency boost, MMR diversity (default: false)' },
+        provenance_filter: {
+          type: 'array',
+          items: { type: 'string', enum: ['user_claim', 'agent_output', 'system_observation', 'tool_result', 'unknown'] },
+          description: 'ADR-323: restrict results to these provenance types (e.g. exclude user_claim when fact-checking). Omit for no filtering. Enforced for standard and SmartRetrieval searches.',
+        },
       },
       required: ['query'],
     },
@@ -427,11 +488,20 @@ export const memoryTools: MCPTool[] = [
       const { searchEntries } = await getMemoryFunctions();
 
       const query = input.query as string;
-      const namespace = (input.namespace as string) || 'default';
+      const provenanceFilter = input.provenance_filter as string[] | undefined;
+      // #2646 (3rd occurrence of #1123/#1131 shape): do NOT coerce an omitted
+      // namespace to the literal string 'default' here. Both searchEntries()
+      // and bridgeSearchEntries() already resolve an omitted/undefined
+      // namespace to 'all' (fan out across every namespace) — but 'default'
+      // is truthy, so passing it defeats that fallback and silently scopes
+      // the search to a namespace that is usually empty. Leave namespace
+      // undefined when not provided so the underlying `|| 'all'` fallback
+      // in the search layer actually fires.
+      const namespace = input.namespace as string | undefined;
       const limit = (input.limit as number) ?? 10;
       const threshold = (input.threshold as number) ?? 0.3;
 
-      validateMemoryInput(undefined, undefined, query);
+      validateMemoryInput(undefined, undefined, query, namespace);
 
       const startTime = performance.now();
 
@@ -463,6 +533,7 @@ export const memoryTools: MCPTool[] = [
                 namespace: req.namespace || namespace,
                 limit: req.limit || limit * 3,
                 threshold: req.threshold ?? threshold,
+                provenanceFilter,
               });
               return {
                 results: r.results.map(e => ({
@@ -471,6 +542,7 @@ export const memoryTools: MCPTool[] = [
                   content: e.content,
                   score: e.score,
                   namespace: e.namespace,
+                  provenanceType: e.provenanceType,
                 })),
               };
             };
@@ -484,7 +556,7 @@ export const memoryTools: MCPTool[] = [
 
             const duration = performance.now() - startTime;
 
-            const results = smartResult.results.map((r: { content: string; key: string; namespace: string; score: number }) => {
+            const results = smartResult.results.map((r: { content: string; key: string; namespace: string; score: number; provenanceType?: string }) => {
               let value: unknown = r.content;
               try { value = JSON.parse(r.content); } catch { /* keep as string */ }
               return {
@@ -492,6 +564,7 @@ export const memoryTools: MCPTool[] = [
                 namespace: r.namespace,
                 value,
                 similarity: r.score,
+                provenanceType: r.provenanceType,
               };
             });
 
@@ -514,12 +587,19 @@ export const memoryTools: MCPTool[] = [
         // Original non-smart path (unchanged) — also reached when smart was
         // requested but unavailable. We attach `smartFallback` to the
         // response so callers can see the degradation explicitly.
+        // ADR-323: the same filter is also passed into every raw search used
+        // by SmartRetrieval above, so query expansion cannot widen trust scope.
         const result = await searchEntries({
           query,
           namespace,
           limit,
           threshold,
+          provenanceFilter,
         });
+
+        if (!result.success) {
+          return { query, results: [], total: 0, error: result.error };
+        }
 
         const duration = performance.now() - startTime;
 
@@ -537,6 +617,7 @@ export const memoryTools: MCPTool[] = [
             namespace: r.namespace,
             value,
             similarity: r.score,
+            provenanceType: r.provenanceType,
           };
         });
 
@@ -588,7 +669,7 @@ export const memoryTools: MCPTool[] = [
           namespace,
           deleted: result.deleted,
           hnswIndexInvalidated: result.deleted,
-          backend: 'sql.js + HNSW',
+          backend: await describeBackend(),
         };
       } catch (error) {
         return {
@@ -645,7 +726,7 @@ export const memoryTools: MCPTool[] = [
           total: result.total,
           limit,
           offset,
-          backend: 'sql.js + HNSW',
+          backend: await describeBackend(),
         };
       } catch (error) {
         return {
@@ -691,7 +772,7 @@ export const memoryTools: MCPTool[] = [
             ? `${((withEmbeddings / allEntries.total) * 100).toFixed(1)}%`
             : '0%',
           namespaces,
-          backend: 'sql.js + HNSW',
+          backend: await describeBackend(),
           version: status.version || '3.0.0',
           features: status.features || {
             vectorEmbeddings: true,
@@ -745,7 +826,7 @@ export const memoryTools: MCPTool[] = [
         success: true,
         message: 'Migration completed',
         migrated: Object.keys(legacyStore.entries).length,
-        backend: 'sql.js + HNSW',
+        backend: await describeBackend(),
       };
     },
   },
@@ -754,7 +835,7 @@ export const memoryTools: MCPTool[] = [
 
   {
     name: 'memory_import_claude',
-    description: 'Import Claude Code auto-memory files into AgentDB with ONNX vector embeddings. Reads ~/.claude/projects/*/memory/*.md files, parses YAML frontmatter, splits into sections, and stores with 384-dim embeddings for semantic search. Use allProjects=true to import from ALL Claude projects. Pass projectPath to override cwd-based detection (#1883 — required when Ruflo runs in WSL but Claude Code is on Windows). Use when native Read/Write is wrong because you need (a) cross-session retrieval by semantic similarity (vector embeddings) not by file path, (b) namespacing across projects without managing directory layout, or (c) the .swarm/memory.db audit trail. For one-shot file I/O, native Read/Write is fine.',
+    description: 'Import Claude Code auto-memory files into AgentDB with ONNX vector embeddings. Reads ~/.claude/projects/*/memory/*.md files, parses YAML frontmatter, splits into sections, and stores with 384-dim embeddings for semantic search. Use allProjects=true to import from ALL Claude projects. Pass projectPath to override cwd-based detection (#1883 — required when Ruflo runs in WSL but Claude Code is on Windows). Pass excludeFilePatterns (glob list) or excludeFiles (absolute path list) to skip voice-load-bearing, PII, or persona-restricted files (#1937). Use when native Read/Write is wrong because you need (a) cross-session retrieval by semantic similarity (vector embeddings) not by file path, (b) namespacing across projects without managing directory layout, or (c) the .swarm/memory.db audit trail. For one-shot file I/O, native Read/Write is fine.',
     category: 'memory',
     inputSchema: {
       type: 'object',
@@ -762,6 +843,16 @@ export const memoryTools: MCPTool[] = [
         allProjects: { type: 'boolean', description: 'Import from all Claude projects (default: current project only)' },
         namespace: { type: 'string', description: 'Target namespace (default: "claude-memories")' },
         projectPath: { type: 'string', description: '#1883 — explicit project path to hash, used when cwd does not match Claude Code\'s view (e.g. WSL bridge to Windows host). Pass the canonical project root as Claude Code sees it.' },
+        excludeFilePatterns: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '#1937 — glob patterns matched against the absolute file path. Files matching ANY pattern are skipped. Supports `*` (any chars within a path segment), `**` (any chars including separators), and `?` (single char). Examples: `**/voice-*.md`, `**/persona-*.md`. Combine with excludeFiles for explicit paths.',
+        },
+        excludeFiles: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '#1937 — absolute file paths to skip verbatim. Faster than a pattern when the list is known ahead of time (operator captured baselines). Combine with excludeFilePatterns.',
+        },
       },
     },
     handler: async (input) => {
@@ -774,8 +865,19 @@ export const memoryTools: MCPTool[] = [
       const projectPathOverride = input.projectPath as string | undefined;
       const claudeProjectsDir = join(homedir(), '.claude', 'projects');
 
+      // #1937 — voice-fidelity / persona-restricted exclusion.
+      const excludeFilePatterns = Array.isArray(input.excludeFilePatterns) ? input.excludeFilePatterns as string[] : [];
+      const excludeFilesList = Array.isArray(input.excludeFiles) ? new Set(input.excludeFiles as string[]) : new Set<string>();
+      const excludeRegexes = excludeFilePatterns.map(globToRegex);
+      const isExcluded = (absPath: string): boolean => {
+        if (excludeFilesList.has(absPath)) return true;
+        return excludeRegexes.some(re => re.test(absPath));
+      };
+
       // Find memory files
       const memoryFiles: Array<{ path: string; project: string; file: string }> = [];
+
+      let excludedByPattern = 0;
 
       if (allProjects) {
         // Scan all projects
@@ -786,7 +888,9 @@ export const memoryTools: MCPTool[] = [
               const memDir = join(claudeProjectsDir, project.name, 'memory');
               if (!existsSync(memDir)) continue;
               for (const file of readdirSync(memDir).filter((f: string) => f.endsWith('.md'))) {
-                memoryFiles.push({ path: join(memDir, file), project: project.name, file });
+                const absPath = join(memDir, file);
+                if (isExcluded(absPath)) { excludedByPattern++; continue; }
+                memoryFiles.push({ path: absPath, project: project.name, file });
               }
             }
           } catch { /* scan error */ }
@@ -798,7 +902,9 @@ export const memoryTools: MCPTool[] = [
         if (resolved) {
           try {
             for (const file of readdirSync(resolved.memDir).filter((f: string) => f.endsWith('.md'))) {
-              memoryFiles.push({ path: join(resolved.memDir, file), project: resolved.projectHash, file });
+              const absPath = join(resolved.memDir, file);
+              if (isExcluded(absPath)) { excludedByPattern++; continue; }
+              memoryFiles.push({ path: absPath, project: resolved.projectHash, file });
             }
           } catch { /* scan error */ }
         }
@@ -873,15 +979,27 @@ export const memoryTools: MCPTool[] = [
         }
       }
 
+      // AUDIT #3: report the embedding backend truthfully — a hash-fallback
+      // import is NOT semantically searchable, so an operator must not read
+      // "ONNX ... (384-dim)" when the vectors are mock.
+      let importBackend: 'onnx' | 'mock' | 'unknown' = 'unknown';
+      try {
+        const { generateEmbedding } = await import('../memory/memory-initializer.js');
+        const probe = await generateEmbedding('memory_import_claude backend probe');
+        importBackend = probe.backend ?? 'unknown';
+      } catch { /* probe failed — leave 'unknown' */ }
+
       return {
         success: true,
         imported,
         skipped,
         duplicatesSkipped,
+        excludedByPattern,
         files: memoryFiles.length,
         projects: projects.size,
         namespace: ns,
-        embedding: 'ONNX all-MiniLM-L6-v2 (384-dim)',
+        embedding: `all-MiniLM-L6-v2 (384-dim, backend=${importBackend})`,
+        embeddingBackend: importBackend,
       };
     },
   },
@@ -947,14 +1065,37 @@ export const memoryTools: MCPTool[] = [
         if (stats) intelligence = { sonaEnabled: stats.sonaEnabled, patternsLearned: stats.patternsLearned, trajectoriesRecorded: stats.trajectoriesRecorded };
       } catch { /* not initialized */ }
 
+      // AUDIT #3: probe the embedding backend so operators can tell real ONNX
+      // output from the deterministic hash fallback (which has inverted/
+      // meaningless semantics). Without this, the status string reports the
+      // model name unconditionally and mock output is indistinguishable.
+      let embeddingBackend: 'onnx' | 'mock' | 'unknown' = 'unknown';
+      try {
+        const { generateEmbedding } = await import('../memory/memory-initializer.js');
+        const probe = await generateEmbedding('memory_bridge_status backend probe');
+        embeddingBackend = probe.backend ?? 'unknown';
+      } catch { /* probe failed — leave 'unknown' */ }
+
+      const embeddingLabel = `all-MiniLM-L6-v2 (384-dim, backend=${embeddingBackend})`;
+
       return {
         claudeCode: { memoryFiles: claudeFiles, projects: claudeProjects },
-        agentdb: { totalEntries: agentdbEntries, claudeMemoryEntries, namespaces: namespaceCounts, backend: 'sql.js + ONNX' },
+        agentdb: {
+          totalEntries: agentdbEntries,
+          claudeMemoryEntries,
+          namespaces: namespaceCounts,
+          backend: embeddingBackend === 'mock' ? 'sql.js + MOCK (hash fallback)' : 'sql.js + ONNX',
+          embeddingBackend,
+        },
         intelligence,
         // #1940: report 'connected' whenever ANY namespace has imported
         // content, not just `claude-memories` — the bridge can be in active
         // use from other import paths (e.g. plugin namespaces, task memory).
-        bridge: { status: agentdbEntries > 0 ? 'connected' : 'not-synced', embedding: 'all-MiniLM-L6-v2 (384-dim)' },
+        bridge: {
+          status: agentdbEntries > 0 ? 'connected' : 'not-synced',
+          embedding: embeddingLabel,
+          embeddingBackend,
+        },
       };
     },
   },
@@ -968,23 +1109,58 @@ export const memoryTools: MCPTool[] = [
       properties: {
         query: { type: 'string', description: 'Search query (natural language)' },
         limit: { type: 'number', description: 'Max results (default: 10)' },
-        namespace: { type: 'string', description: 'Filter to namespace (omit for all)' },
+        namespace: { type: 'string', description: 'Filter to a single namespace (mutually exclusive with `namespaces`)' },
+        namespaces: { type: 'array', items: { type: 'string' }, description: 'Explicit list of namespaces to fan out across (overrides defaults and env)' },
       },
       required: ['query'],
     },
     handler: async (input) => {
       await ensureInitialized();
-      const { searchEntries } = await getMemoryFunctions();
+      const { searchEntries, listEntries } = await getMemoryFunctions();
       validateMemoryInput(undefined, undefined, input.query as string);
 
       const query = input.query as string;
       const limit = (input.limit as number) ?? 10;
       const ns = input.namespace as string | undefined;
+      const nsList = Array.isArray(input.namespaces) ? (input.namespaces as string[]) : undefined;
 
       if (ns) { const vNs = validateIdentifier(ns, 'namespace'); if (!vNs.valid) return { success: false, query, results: [], total: 0, error: vNs.error }; }
+      if (nsList) {
+        for (const n of nsList) { const v = validateIdentifier(n, 'namespaces[]'); if (!v.valid) return { success: false, query, results: [], total: 0, error: v.error }; }
+      }
 
-      // Search all namespaces unless filtered
-      const namespaces = ns ? [ns] : ['default', 'claude-memories', 'auto-memory', 'patterns', 'tasks', 'feedback'];
+      // #2246 fix: namespace resolution priority is
+      //   1. explicit single `namespace` (back-compat)
+      //   2. explicit `namespaces: string[]` (new in 3.10.29)
+      //   3. env var CLAUDE_FLOW_MEMORY_SEARCH_NAMESPACES (CSV)
+      //   4. dynamic enumeration via listEntries({}) over the actual store
+      //   5. legacy 6-namespace hardcode as last-resort fallback
+      // The legacy default was silently missing ~95% of entries on stores with
+      // custom namespaces (issue #2246). Dynamic enumeration fixes that.
+      const LEGACY_DEFAULT = ['default', 'claude-memories', 'auto-memory', 'patterns', 'tasks', 'feedback'];
+      let namespaces: string[];
+      let namespaceSource: 'param-single' | 'param-list' | 'env' | 'dynamic' | 'legacy-fallback';
+      if (ns) {
+        namespaces = [ns]; namespaceSource = 'param-single';
+      } else if (nsList && nsList.length > 0) {
+        namespaces = nsList; namespaceSource = 'param-list';
+      } else if (process.env.CLAUDE_FLOW_MEMORY_SEARCH_NAMESPACES) {
+        namespaces = process.env.CLAUDE_FLOW_MEMORY_SEARCH_NAMESPACES.split(',').map(s => s.trim()).filter(Boolean);
+        namespaceSource = 'env';
+      } else {
+        // Dynamic enumeration — list all entries and collect distinct namespaces.
+        // Cap entries at 100k to bound memory; in practice this is fast (<200ms).
+        try {
+          const all = await listEntries({ limit: 100000 });
+          const seenNs = new Set<string>();
+          for (const e of all?.entries ?? []) if (e.namespace) seenNs.add(e.namespace);
+          namespaces = seenNs.size > 0 ? Array.from(seenNs).sort() : LEGACY_DEFAULT;
+          namespaceSource = seenNs.size > 0 ? 'dynamic' : 'legacy-fallback';
+        } catch {
+          namespaces = LEGACY_DEFAULT; namespaceSource = 'legacy-fallback';
+        }
+      }
+
       const allResults: Array<{ key: string; content: string; score: number; namespace: string; source: string }> = [];
 
       for (const searchNs of namespaces) {
@@ -1019,6 +1195,7 @@ export const memoryTools: MCPTool[] = [
         results: deduplicated,
         total: deduplicated.length,
         searchedNamespaces: namespaces,
+        namespaceSource,        // #2246 — surface how the namespace list was resolved
         searchTime: Date.now(),
       };
     },
@@ -1042,7 +1219,7 @@ export const memoryTools: MCPTool[] = [
         bytes += (e.size as number) || 0;
       }
       return {
-        backend: 'sql.js + HNSW',
+        backend: await describeBackend(),
         entries: all.total ?? all.entries.length,
         size: bytes,
         namespaces: Object.entries(nsCounts).map(([name, entries]) => ({ name, entries })),
@@ -1068,6 +1245,7 @@ export const memoryTools: MCPTool[] = [
     handler: async (input) => {
       await ensureInitialized();
       const { listEntries, deleteEntry } = await getMemoryFunctions();
+      const startedAt = Date.now();
       const dryRun = input.dryRun !== false; // default true
       const namespace = input.namespace ? String(input.namespace) : undefined;
       if (namespace) { const v = validateIdentifier(namespace, 'namespace'); if (!v.valid) throw new Error(v.error); }
@@ -1081,6 +1259,7 @@ export const memoryTools: MCPTool[] = [
       });
       let freedBytes = 0;
       let deleted = 0;
+      let vectorsRemoved = 0;
       if (!dryRun) {
         for (const e of expired) {
           try { await deleteEntry({ key: e.key, namespace: e.namespace }); freedBytes += (e.size as number) || 0; deleted++; }
@@ -1089,11 +1268,21 @@ export const memoryTools: MCPTool[] = [
       } else {
         freedBytes = expired.reduce((s, e) => s + ((e.size as number) || 0), 0);
       }
+      if (!dryRun) {
+        const { reconcileHNSWIndex } = await import('../memory/memory-initializer.js');
+        vectorsRemoved = await reconcileHNSWIndex();
+      }
+      const formatted = freedBytes < 1024
+        ? `${freedBytes} B`
+        : freedBytes < 1024 * 1024
+          ? `${(freedBytes / 1024).toFixed(1)} KiB`
+          : `${(freedBytes / (1024 * 1024)).toFixed(1)} MiB`;
       return {
         dryRun,
         candidates: { expired: expired.length, stale: 0, lowQuality: 0, total: expired.length },
-        deleted: { entries: dryRun ? 0 : deleted, vectors: 0, patterns: 0 },
-        freed: { bytes: freedBytes },
+        deleted: { entries: dryRun ? 0 : deleted, vectors: vectorsRemoved, patterns: 0 },
+        freed: { bytes: freedBytes, formatted },
+        duration: Date.now() - startedAt,
         note: dryRun ? 'dry run — re-run with dryRun:false to delete' : undefined,
       };
     },
@@ -1143,14 +1332,23 @@ export const memoryTools: MCPTool[] = [
       if (!outputPath) return { error: 'outputPath is required' };
       const namespace = input.namespace ? String(input.namespace) : undefined;
       if (namespace) { const v = validateIdentifier(namespace, 'namespace'); if (!v.valid) throw new Error(v.error); }
-      const all = await listEntries({ limit: 100000, namespace });
+      // #2073: pass includeContent so the value field carries the actual
+      // entry body. Without this, `value` is always null because listEntries
+      // strips content by default (callers pay for the JSON parse only when
+      // they need it).
+      const all = await listEntries({ limit: 100000, namespace, includeContent: true });
       const payload = {
         schema: 'ruflo-memory-export/v1',
         exportedAt: new Date().toISOString(),
         namespace: namespace ?? null,
         count: all.entries.length,
         entries: all.entries.map(e => ({
-          key: e.key, namespace: e.namespace, value: (e as { value?: unknown }).value ?? null,
+          key: e.key,
+          namespace: e.namespace,
+          // #2073: `e.content` is the stored value string; `e.value` was a
+          // never-populated alias. Fall back to null only if content is
+          // missing for backward-compat with the schema.
+          value: typeof e.content === 'string' ? e.content : ((e as { value?: unknown }).value ?? null),
           createdAt: e.createdAt, updatedAt: e.updatedAt, accessCount: e.accessCount, hasEmbedding: e.hasEmbedding, size: e.size,
         })),
       };

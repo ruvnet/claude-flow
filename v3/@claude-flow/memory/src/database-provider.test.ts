@@ -185,6 +185,57 @@ describe('DatabaseProvider', () => {
 
       await db.shutdown();
     });
+
+    // ADR-125 Phase 2 — new 'hybrid' and 'agentdb' provider cases
+    it('should create database with hybrid provider returning a HybridBackend', async () => {
+      const { HybridBackend } = await import('./hybrid-backend.js');
+      const db = await createDatabase(':memory:', {
+        provider: 'hybrid',
+        verbose: false,
+      });
+
+      expect(db).toBeDefined();
+      expect(db).toBeInstanceOf(HybridBackend);
+
+      // Basic CRUD smoke
+      const entry = createDefaultEntry({
+        key: 'hybrid-test',
+        content: 'testing hybrid backend',
+        namespace: 'test',
+      });
+
+      await db.store(entry);
+      const retrieved = await db.get(entry.id);
+      expect(retrieved).toBeDefined();
+      expect(retrieved?.key).toBe('hybrid-test');
+
+      await db.shutdown();
+    });
+
+    it('should create database with agentdb provider returning an AgentDBBackend', async () => {
+      const { AgentDBBackend } = await import('./agentdb-backend.js');
+      const db = await createDatabase(':memory:', {
+        provider: 'agentdb',
+        verbose: false,
+      });
+
+      expect(db).toBeDefined();
+      expect(db).toBeInstanceOf(AgentDBBackend);
+
+      // Basic CRUD smoke
+      const entry = createDefaultEntry({
+        key: 'agentdb-test',
+        content: 'testing agentdb backend',
+        namespace: 'test',
+      });
+
+      await db.store(entry);
+      const retrieved = await db.get(entry.id);
+      expect(retrieved).toBeDefined();
+      expect(retrieved?.key).toBe('agentdb-test');
+
+      await db.shutdown();
+    });
   });
 
   describe('Cross-Platform Functionality', () => {

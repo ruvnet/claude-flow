@@ -1,0 +1,464 @@
+name: Stable npm Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing v-prefixed Git tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stable-npm-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish stable package train
+    if: github.actor == 'ruvnet'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Validate release inputs
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::tag must be a stable v-prefixed semantic version"
+            exit 1
+          fi
+
+      - name: Checkout immutable release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 1
+
+      - name: Verify immutable tag checkout
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          tag_commit="$(git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}")"
+          test "$(git rev-parse HEAD)" = "$tag_commit"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 8
+
+      - name: Setup Node.js and npm authentication
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+          cache-dependency-path: v3/pnpm-lock.yaml
+
+      - name: Install root release-audit dependencies
+        run: npm ci --ignore-scripts --omit=dev --omit=optional --no-audit --no-fund
+
+      - name: Validate version train
+        shell: bash
+        run: |
+          node scripts/audit-umbrella-version-lockstep.mjs
+          node - <<'NODE'
+          const expected = process.env.RELEASE_TAG.slice(1);
+          const packages = [
+            ['@claude-flow/cli', require('./v3/@claude-flow/cli/package.json')],
+            ['claude-flow', require('./package.json')],
+            ['ruflo', require('./ruflo/package.json')],
+          ];
+          const expectedNames = ['@claude-flow/cli', 'claude-flow', 'ruflo'];
+          if (JSON.stringify(packages.map(([name]) => name)) !== JSON.stringify(expectedNames)) {
+            throw new Error('stable release package set drifted');
+          }
+          for (const [name, pkg] of packages) {
+            if (pkg.name !== name) {
+              throw new Error(`expected package ${name}, got ${pkg.name}`);
+            }
+            if (pkg.version !== expected) {
+              throw new Error(`${pkg.name}: expected ${expected}, got ${pkg.version}`);
+            }
+          }
+          NODE
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+
+      - name: Install and build publishable packages
+        working-directory: v3
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Run release test gates
+        working-directory: v3
+        run: |
+          pnpm --dir @claude-flow/cli exec vitest run \
+            __tests__/guidance-brain.test.ts \
+            __tests__/mcp-client-guardrail.test.ts
+          pnpm --dir @claude-flow/codex exec vitest run
+          pnpm --dir @claude-flow/security exec vitest run
+          pnpm --dir @claude-flow/plugin-agent-federation exec vitest run
+          node ../scripts/__tests__/stage-internal-runtime-bundles.test.mjs
+
+      - name: Verify signed helper manifest
+        working-directory: v3/@claude-flow/cli
+        run: node scripts/verify-helpers.mjs
+
+      - name: Verify policy release artifacts
+        shell: bash
+        run: |
+          test -f v3/@claude-flow/security/dist/policy/engine.js
+          test -f v3/@claude-flow/security/dist/policy/product-plane.js
+          test -f v3/@claude-flow/cli/dist/src/services/policy-runtime.js
+          test -f v3/@claude-flow/cli/dist/src/commands/policy.js
+          test -f v3/@claude-flow/cli/dist/src/mcp-tools/capability-brain.js
+          test -f v3/@claude-flow/codex/dist/harness/index.js
+          test -f v3/@claude-flow/plugin-agent-federation/dist/application/inbound-dispatcher.js
+
+      - name: Stage CLI publish assets
+        shell: bash
+        run: |
+          node scripts/stage-internal-runtime-bundles.mjs --target v3/@claude-flow/cli
+          node scripts/stage-internal-runtime-bundles.mjs --target . --no-build
+          source_date_epoch="$(git show -s --format=%ct HEAD)"
+          SOURCE_DATE_EPOCH="$source_date_epoch" \
+            node v3/@claude-flow/cli/scripts/generate-catalog-manifest.mjs
+          first_catalog_digest="$(sha256sum v3/@claude-flow/cli/catalog-manifest.json | cut -d' ' -f1)"
+          SOURCE_DATE_EPOCH="$source_date_epoch" \
+            node v3/@claude-flow/cli/scripts/generate-catalog-manifest.mjs
+          test "$(sha256sum v3/@claude-flow/cli/catalog-manifest.json | cut -d' ' -f1)" = \
+            "$first_catalog_digest"
+          node - <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const catalog = require('./v3/@claude-flow/cli/catalog-manifest.json');
+          const expected = execFileSync('git', ['rev-parse', '--short=8', 'HEAD'], {
+            encoding: 'utf8',
+          }).trim();
+          if (catalog.gitSha !== expected) {
+            throw new Error(`catalog gitSha ${catalog.gitSha} does not match ${expected}`);
+          }
+          NODE
+          node - <<'NODE'
+          const fs = require('node:fs');
+          fs.copyFileSync('README.md', 'v3/@claude-flow/cli/README.md');
+          const target = 'v3/@claude-flow/cli/plugins/ruflo-metaharness';
+          fs.rmSync(target, { recursive: true, force: true });
+          fs.mkdirSync('v3/@claude-flow/cli/plugins', { recursive: true });
+          fs.cpSync('plugins/ruflo-metaharness', target, { recursive: true });
+          fs.copyFileSync('README.md', 'ruflo/README.md');
+          NODE
+
+      - name: Build and smoke-test immutable package archives
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          node --input-type=module - <<'NODE'
+          await import('./v3/@claude-flow/cli/dist/src/mcp-tools/capability-brain.js');
+          await import('./v3/@claude-flow/codex/dist/harness/index.js');
+          await import('./v3/@claude-flow/security/dist/policy/product-plane.js');
+          await import('./v3/@claude-flow/plugin-agent-federation/dist/application/inbound-dispatcher.js');
+          NODE
+
+          release_version="${RELEASE_TAG#v}"
+          release_dir="$RUNNER_TEMP/ruflo-release-${release_version}"
+          mkdir -p "$release_dir"
+          npm pack --json --ignore-scripts --pack-destination "$release_dir" \
+            ./v3/@claude-flow/cli >"$release_dir/cli-pack.json"
+          npm pack --json --ignore-scripts --pack-destination "$release_dir" \
+            . >"$release_dir/root-pack.json"
+          npm pack --json --ignore-scripts --pack-destination "$release_dir" \
+            ./ruflo >"$release_dir/ruflo-pack.json"
+
+          cli_archive="$release_dir/$(node -p "require('$release_dir/cli-pack.json')[0].filename")"
+          root_archive="$release_dir/$(node -p "require('$release_dir/root-pack.json')[0].filename")"
+          ruflo_archive="$release_dir/$(node -p "require('$release_dir/ruflo-pack.json')[0].filename")"
+          archives=("$cli_archive" "$root_archive" "$ruflo_archive")
+          test "${#archives[@]}" -eq 3
+          test "$(find "$release_dir" -maxdepth 1 -name '*.tgz' | wc -l)" -eq 3
+
+          for archive in "${archives[@]}"; do
+            test -f "$archive"
+            tar -tzf "$archive" >/dev/null
+            if tar -tzf "$archive" | grep -Eq '(^|/)\.\.(/|$)'; then
+              echo "::error::$archive contains a path-escaping member"
+              exit 1
+            fi
+          done
+
+          for archive in "$cli_archive" "$root_archive"; do
+            for bundle in security codex mcp plugin-agent-federation; do
+              tar -tzf "$archive" \
+                "package/node_modules/@claude-flow/$bundle/package.json" >/dev/null
+              tar -tzf "$archive" \
+                "package/node_modules/@claude-flow/$bundle/dist/index.js" >/dev/null
+            done
+          done
+
+          expected_sha="$(git rev-parse --short=8 HEAD)"
+          cli_catalog="$(tar -xOf "$cli_archive" package/catalog-manifest.json)"
+          root_catalog="$(tar -xOf "$root_archive" package/v3/@claude-flow/cli/catalog-manifest.json)"
+          for catalog in "$cli_catalog" "$root_catalog"; do
+            CATALOG="$catalog" EXPECTED_SHA="$expected_sha" node - <<'NODE'
+          const catalog = JSON.parse(process.env.CATALOG);
+          if (catalog.gitSha !== process.env.EXPECTED_SHA) {
+            throw new Error(`packed catalog gitSha ${catalog.gitSha} does not match ${process.env.EXPECTED_SHA}`);
+          }
+          NODE
+          done
+
+          for archive in "$cli_archive" "$root_archive"; do
+            extracted="$(mktemp -d)"
+            tar -xzf "$archive" -C "$extracted"
+            diff -qr v3/@claude-flow/security/dist \
+              "$extracted/package/node_modules/@claude-flow/security/dist"
+            diff -qr v3/@claude-flow/codex/dist \
+              "$extracted/package/node_modules/@claude-flow/codex/dist"
+            diff -qr v3/@claude-flow/mcp/dist \
+              "$extracted/package/node_modules/@claude-flow/mcp/dist"
+            diff -qr v3/@claude-flow/plugin-agent-federation/dist \
+              "$extracted/package/node_modules/@claude-flow/plugin-agent-federation/dist"
+          done
+
+          cli_install="$(mktemp -d)"
+          (
+            cd "$cli_install"
+            npm init -y >/dev/null
+            npm install "$cli_archive" --omit=optional --no-audit --no-fund
+            npm ls --all
+            node node_modules/@claude-flow/cli/bin/cli.js --version
+            node node_modules/@claude-flow/cli/bin/cli.js policy status
+            node --input-type=module - <<'NODE'
+          const base = './node_modules/@claude-flow/cli/node_modules/@claude-flow';
+          const security = await import(base + '/security/dist/index.js');
+          const codex = await import(base + '/codex/dist/index.js');
+          const mcp = await import(base + '/mcp/dist/index.js');
+          const federation = await import(base + '/plugin-agent-federation/dist/index.js');
+          if (!security.AgenticPolicyEngine) throw new Error('AgenticPolicyEngine missing');
+          if (!codex.CodexInitializer) throw new Error('CodexInitializer missing');
+          if (!mcp.ToolRegistry) throw new Error('ToolRegistry missing');
+          if (!federation.AgentFederationPlugin || !federation.FederationNodeState) {
+            throw new Error('Federation exports missing');
+          }
+          NODE
+            mkdir project
+            cd project
+            node ../node_modules/@claude-flow/cli/bin/cli.js init --codex --force \
+              2>&1 | tee init.log
+            test -f AGENTS.md
+            test -f .agents/skills/swarm-orchestration/SKILL.md
+            ! grep -q 'Bundled skills directory not found' init.log
+            timeout 30s node ../node_modules/@claude-flow/cli/bin/cli.js daemon start
+            timeout 30s node ../node_modules/@claude-flow/cli/bin/cli.js daemon status
+            timeout 30s node ../node_modules/@claude-flow/cli/bin/cli.js daemon stop
+            cd ..
+            mkdir autopilot-scope
+            cd autopilot-scope
+            if node ../node_modules/@claude-flow/cli/bin/cli.js \
+              autopilot config --task-sources issues; then
+              echo "::error::invalid explicit Autopilot source was accepted"
+              exit 1
+            fi
+            test ! -f .claude-flow/data/autopilot-state.json
+            node ../node_modules/@claude-flow/cli/bin/cli.js autopilot config \
+              --task-sources swarm-tasks,file-checklist \
+              --max-iterations 77
+            node - <<'NODE'
+          const state = require('./.claude-flow/data/autopilot-state.json');
+          if (JSON.stringify(state.taskSources) !== JSON.stringify(['swarm-tasks', 'file-checklist'])) {
+            throw new Error(`unexpected Autopilot task sources: ${JSON.stringify(state.taskSources)}`);
+          }
+          if (state.maxIterations !== 77) {
+            throw new Error(`unexpected Autopilot maxIterations: ${state.maxIterations}`);
+          }
+          NODE
+          )
+
+          root_install="$(mktemp -d)"
+          (
+            cd "$root_install"
+            npm init -y >/dev/null
+            npm install "$root_archive" --omit=optional --no-audit --no-fund
+            npm ls --all
+            node node_modules/claude-flow/bin/cli.js --version
+            node node_modules/claude-flow/bin/cli.js policy status
+          )
+
+          ruflo_install="$(mktemp -d)"
+          (
+            cd "$ruflo_install"
+            npm init -y >/dev/null
+            npm install "$cli_archive" "$ruflo_archive" \
+              --omit=optional --no-audit --no-fund
+            npm ls --all
+            node node_modules/ruflo/bin/ruflo.js --version
+          )
+
+          agentic_v3_install="$(mktemp -d)"
+          (
+            cd "$agentic_v3_install"
+            npm init -y >/dev/null
+            npm install "$cli_archive" agentic-flow@3.0.0-alpha.2 \
+              --omit=optional --no-audit --no-fund
+            node --input-type=module - <<'NODE'
+          const modulePath = './node_modules/@claude-flow/cli/node_modules/@claude-flow/plugin-agent-federation/dist/transport/midstream-aware-loader.js';
+          const { loadFederationTransport } = await import(modulePath);
+          const loaded = await loadFederationTransport({ host: '127.0.0.1', port: 0 });
+          if (loaded.source !== 'websocket-fallback') {
+            throw new Error(`agentic-flow v3 must use validated fallback, got ${loaded.source}`);
+          }
+          const received = new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('federation fallback timed out')), 5000);
+            loaded.transport.onMessage((_address, message) => {
+              clearTimeout(timer);
+              resolve(message);
+            });
+          });
+          await loaded.transport.listen(0, '127.0.0.1');
+          const address = loaded.transport.server.address();
+          const sent = { id: 'v3-smoke', type: 'heartbeat', payload: { nested: true } };
+          await loaded.transport.send(`ws://127.0.0.1:${address.port}`, sent);
+          const message = await received;
+          if (JSON.stringify(message) !== JSON.stringify(sent)) {
+            throw new Error('federation fallback changed the message');
+          }
+          await loaded.transport.close();
+          NODE
+          )
+
+          {
+            echo "CLI_ARCHIVE=$cli_archive"
+            echo "ROOT_ARCHIVE=$root_archive"
+            echo "RUFLO_ARCHIVE=$ruflo_archive"
+            echo "CLI_INTEGRITY=$(node -p "require('$release_dir/cli-pack.json')[0].integrity")"
+            echo "ROOT_INTEGRITY=$(node -p "require('$release_dir/root-pack.json')[0].integrity")"
+            echo "RUFLO_INTEGRITY=$(node -p "require('$release_dir/ruflo-pack.json')[0].integrity")"
+          } >>"$GITHUB_ENV"
+
+      - name: Publish the three verified archives
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          candidate_tag="release-${version//./-}"
+          packages=("@claude-flow/cli" "claude-flow" "ruflo")
+          archives=("$CLI_ARCHIVE" "$ROOT_ARCHIVE" "$RUFLO_ARCHIVE")
+          integrities=("$CLI_INTEGRITY" "$ROOT_INTEGRITY" "$RUFLO_INTEGRITY")
+          test "${#packages[@]}" -eq 3
+          test "${#archives[@]}" -eq 3
+          test "${#integrities[@]}" -eq 3
+
+          for index in "${!packages[@]}"; do
+            package="${packages[$index]}"
+            archive="${archives[$index]}"
+            if npm view "${package}@${version}" version >/dev/null 2>&1; then
+              echo "${package}@${version} already published"
+            else
+              npm publish "$archive" --ignore-scripts --access public --tag "$candidate_tag"
+            fi
+          done
+
+          for index in "${!packages[@]}"; do
+            package="${packages[$index]}"
+            expected_integrity="${integrities[$index]}"
+            found=false
+            for attempt in {1..10}; do
+              registry_version="$(npm view "${package}@${version}" version 2>/dev/null || true)"
+              registry_integrity="$(npm view "${package}@${version}" dist.integrity 2>/dev/null || true)"
+              if [[ "$registry_version" == "$version" && "$registry_integrity" == "$expected_integrity" ]]; then
+                found=true
+                break
+              fi
+              sleep 3
+            done
+            if [[ "$found" != true ]]; then
+              echo "::error::${package}@${version} does not match the verified archive integrity"
+            fi
+            test "$found" = true
+          done
+
+          for package in "${packages[@]}"; do
+            for tag in latest alpha v3alpha; do
+              npm dist-tag add "${package}@${version}" "$tag"
+            done
+            npm dist-tag rm "$package" "$candidate_tag" >/dev/null 2>&1 || true
+          done
+
+      - name: Verify registry deployment
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          packages=("@claude-flow/cli" "claude-flow" "ruflo")
+          for package in "${packages[@]}"; do
+            tags_ready=false
+            for attempt in {1..10}; do
+              tags="$(npm view "$package" dist-tags --json 2>/dev/null || true)"
+              if TAGS="$tags" VERSION="$version" node - <<'NODE'
+          const tags = JSON.parse(process.env.TAGS || '{}');
+          process.exit(['latest', 'alpha', 'v3alpha'].every((tag) => tags[tag] === process.env.VERSION) ? 0 : 1);
+          NODE
+              then
+                tags_ready=true
+                break
+              fi
+              sleep 3
+            done
+            test "$tags_ready" = true
+            TAGS="$tags" VERSION="$version" PACKAGE="$package" node - <<'NODE'
+          const tags = JSON.parse(process.env.TAGS);
+          for (const tag of ['latest', 'alpha', 'v3alpha']) {
+            if (tags[tag] !== process.env.VERSION) {
+              throw new Error(`${process.env.PACKAGE}:${tag}=${tags[tag]}, expected ${process.env.VERSION}`);
+            }
+          }
+          NODE
+          done
+
+          cli_install="$(mktemp -d)"
+          (
+            cd "$cli_install"
+            npm init -y >/dev/null
+            npm install "@claude-flow/cli@${version}" --omit=optional --no-audit --no-fund
+            npm ls --all
+            node node_modules/@claude-flow/cli/bin/cli.js --version
+            node node_modules/@claude-flow/cli/bin/cli.js policy status
+            node --input-type=module - <<'NODE'
+          const base = './node_modules/@claude-flow/cli/node_modules/@claude-flow';
+          const security = await import(base + '/security/dist/index.js');
+          const codex = await import(base + '/codex/dist/index.js');
+          const federation = await import(base + '/plugin-agent-federation/dist/index.js');
+          if (!security.AgenticPolicyEngine || !codex.CodexInitializer || !federation.AgentFederationPlugin) {
+            throw new Error('registry artifact is missing a bundled runtime');
+          }
+          NODE
+          )
+
+          root_install="$(mktemp -d)"
+          (
+            cd "$root_install"
+            npm init -y >/dev/null
+            npm install "claude-flow@${version}" --omit=optional --no-audit --no-fund
+            npm ls --all
+            node node_modules/claude-flow/bin/cli.js --version
+            node node_modules/claude-flow/bin/cli.js policy status
+          )
+
+          ruflo_install="$(mktemp -d)"
+          (
+            cd "$ruflo_install"
+            npm init -y >/dev/null
+            npm install "ruflo@${version}" --omit=optional --no-audit --no-fund
+            npm ls --all
+            node node_modules/ruflo/bin/ruflo.js --version
+          )

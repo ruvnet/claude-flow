@@ -10,6 +10,7 @@ import {
   migrateFromClaudeCode,
   convertSkillSyntax,
   convertSettingsToToml,
+  generateConfigTomlFromParsed,
   generateMigrationReport,
   FEATURE_MAPPINGS,
 } from '../src/migrations/index.js';
@@ -422,7 +423,7 @@ describe('convertSettingsToToml', () => {
       model: 'claude-3-opus',
     };
 
-    const result = convertSettingsToToml(settings);
+    const result = convertSettingsToToml(settings, 'linux');
 
     expect(result).toContain('model = "claude-3-opus"');
   });
@@ -434,7 +435,7 @@ describe('convertSettingsToToml', () => {
       },
     };
 
-    const result = convertSettingsToToml(settings);
+    const result = convertSettingsToToml(settings, 'linux');
 
     expect(result).toContain('approval_policy = "never"');
   });
@@ -478,13 +479,24 @@ describe('convertSettingsToToml', () => {
       },
     };
 
-    const result = convertSettingsToToml(settings);
+    const result = convertSettingsToToml(settings, 'linux');
 
-    expect(result).toContain('[mcp_servers.claude-flow]');
-    expect(result).toContain('command = "npx"');
-    expect(result).toContain('args = ["-y", "@claude-flow/cli"]');
+    expect(result).toContain('[mcp_servers.ruflo]');
+    expect(result).toContain('args = ["-y", "ruflo@latest", "mcp", "start"]');
+    expect(result).toContain('startup_timeout_sec = 120');
     expect(result).toContain('[mcp_servers.custom-server]');
     expect(result).toContain('command = "node"');
+  });
+
+  it('adds Ruflo alongside unrelated custom MCP servers', () => {
+    const result = convertSettingsToToml({
+      mcpServers: { custom: { command: 'node', args: ['server.js'] } },
+    }, 'win32');
+
+    expect(result).toContain('[mcp_servers.custom]');
+    expect(result).toContain('[mcp_servers.ruflo]');
+    expect(result).toContain('command = "cmd"');
+    expect(result).toContain('args = ["/c", "npx", "-y", "ruflo@latest", "mcp", "start"]');
   });
 
   it('should add default ruflo server when no mcpServers', () => {
@@ -492,7 +504,7 @@ describe('convertSettingsToToml', () => {
       model: 'gpt-4',
     };
 
-    const result = convertSettingsToToml(settings);
+    const result = convertSettingsToToml(settings, 'linux');
 
     // The implementation adds a default ruflo server when none specified
     expect(result).toContain('[mcp_servers.ruflo]');
@@ -504,6 +516,49 @@ describe('convertSettingsToToml', () => {
 
     expect(result).toContain('# Migrated from settings.json');
     expect(result.split('\n').length).toBeGreaterThan(1);
+  });
+
+  it('adds compatibility-safe policy and bounded swarm defaults', () => {
+    const result = convertSettingsToToml({});
+
+    expect(result).toContain('[policy]');
+    expect(result).toContain('mode = "legacy"');
+    expect(result).toContain('[swarm.automation]');
+    expect(result).toContain('enabled = false');
+    expect(result).toContain('max_concurrent = 4');
+    expect(result).toContain('worktree_isolation = true');
+    expect(result).toContain('[profiles.dev]');
+    expect(result).toContain('sandbox_mode = "workspace-write"');
+  });
+});
+
+describe('generateConfigTomlFromParsed', () => {
+  it('preserves custom MCP servers and adds compatibility-safe Ruflo policy defaults', () => {
+    const result = generateConfigTomlFromParsed({
+      title: 'Migrated',
+      sections: [],
+      skills: [],
+      hooks: [],
+      customInstructions: [],
+      codeBlocks: [],
+      mcpServers: [{
+        name: 'custom',
+        command: 'node',
+        args: ['server.js'],
+        enabled: true,
+      }],
+      settings: {},
+      warnings: [],
+    });
+
+    expect(result).toContain('[mcp_servers.custom]');
+    expect(result).toContain('[mcp_servers.ruflo]');
+    expect(result).toContain('[policy]');
+    expect(result).toContain('mode = "legacy"');
+    expect(result).toContain('[swarm.automation]');
+    expect(result).toContain('enabled = false');
+    expect(result).toContain('[profiles.dev]');
+    expect(result).toContain('sandbox_mode = "workspace-write"');
   });
 });
 

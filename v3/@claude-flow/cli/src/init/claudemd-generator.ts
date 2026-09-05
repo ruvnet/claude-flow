@@ -19,8 +19,53 @@ function behavioralRules(): string {
 - NEVER save working files or tests to root — use \`/src\`, \`/tests\`, \`/docs\`, \`/config\`, \`/scripts\`
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files
+- NEVER add a \`Co-Authored-By\` trailer to user commits unless this project's \`.claude/settings.json\` has \`attribution.commit\` set (#2078). The Claude Code Bash tool may suggest one in its default commit-message template — ignore it. \`Co-Authored-By\` is semantic authorship attribution under git/GitHub convention; the tool is the facilitator, not a co-author.
 - Keep files under 500 lines
 - Validate input at system boundaries`;
+}
+
+function policyGovernedWorkflow(): string {
+  return `## Ruflo Capability Brain & Implementation Loop
+
+Ruflo is the coordination ledger and policy decision point. Claude Code is the
+executor: after a Ruflo coordination call, continue implementing the task.
+
+When it is registered, call
+\`guidance_brain({ mode: "recommend", task: "..." })\` before complex Ruflo
+work. Use its live registry instead of guessing tool names. Treat
+\`registered\`, \`configured\`, \`reachable\`, \`healthy\`, and \`authorized\`
+as separate facts. If the brain is unavailable, continue with the compatible
+\`guidance_recommend\` tool, CLI discovery, and repository instructions.
+
+Follow the returned loop:
+
+1. Recall memory and ADR constraints.
+2. Inspect source, runtime, dependencies, policy, and health.
+3. Route to the smallest capable topology, agents, skills, and tools.
+4. Plan acceptance criteria, safety envelope, ownership, and validation.
+5. Execute in isolated scopes; the coding agent performs the work.
+6. Test focused, regression, and failure paths.
+7. Validate types, security, policy, compatibility, and artifacts.
+8. Benchmark a source-bound candidate against a source-bound baseline.
+9. Optimize measured bottlenecks without weakening safety.
+10. Bind claims and evidence to exact source/build receipts.
+11. Reconcile concurrent handoffs and disclose limitations.
+12. Publish only through a separately authorized release gate.
+
+### Concurrency and authority
+
+- Never allow two writers in one worktree; give each writing agent an isolated
+  worktree and explicit file ownership.
+- Read-only research may run concurrently and report findings to the owner.
+- Only the integration owner edits shared manifests and lockfiles or reconciles
+  overlapping changes.
+- A child may drop capabilities but cannot add tools, network, secrets, spend,
+  concurrency, namespaces, or delegation depth.
+- A lease or claim coordinates ownership; it does not authorize a side effect.
+- Darwin, Flywheel, MetaHarness, memory, and neural systems may propose or
+  evaluate candidates but cannot self-promote or expand their SafetyEnvelope.
+- Bind tests, benchmarks, policy decisions, and release evidence to an exact
+  commit or immutable dirty-worktree snapshot.`;
 }
 
 function agentComms(): string {
@@ -65,8 +110,10 @@ SendMessage({ to: "researcher", summary: "Start", message: "[task context]" })
 - ALWAYS name agents — \`name: "role"\` makes them addressable
 - ALWAYS include comms instructions in prompts — who to message, what to send
 - Spawn ALL agents in ONE message with \`run_in_background: true\`
-- After spawning: STOP, tell user what's running, wait for results
-- NEVER poll status — agents message back or complete automatically`;
+- After spawning, continue independent local work; wait only when a dependency
+  genuinely blocks progress
+- Do not poll repeatedly — agents message back or complete automatically
+- Give every writing agent an isolated worktree and a non-overlapping file scope`;
 }
 
 function swarmConfig(options: InitOptions): string {
@@ -181,10 +228,14 @@ function setupAndBoundary(): string {
   return `## Setup
 
 \`\`\`bash
-claude mcp add claude-flow -- npx -y @claude-flow/cli@latest
-npx @claude-flow/cli@latest daemon start
-npx @claude-flow/cli@latest doctor --fix
+claude mcp add claude-flow -- npx -y ruflo@latest mcp start
+npx ruflo@latest doctor --fix
 \`\`\`
+
+> The background \`daemon\` is optional. It runs interval workers that each spawn
+> a headless \`claude\` session, so it consumes tokens continuously. Start it only
+> if you want those sweeps: \`npx ruflo@latest daemon start\` (self-stops after 12h
+> by default; \`--ttl 0\` to disable, \`daemon status --all\` to audit running daemons).
 
 **Agent tool** handles execution (agents, files, code, git). **MCP tools** handle coordination (swarm, memory, hooks). **CLI** is the same via Bash.`;
 }
@@ -209,7 +260,7 @@ function securitySection(): string {
 - Always use parameterized queries (prevent injection)
 
 \`\`\`bash
-npx @claude-flow/cli@latest security scan --depth full
+npx @claude-flow/cli@latest security scan --depth deep
 npx @claude-flow/cli@latest security audit --report
 \`\`\`
 
@@ -297,6 +348,7 @@ CLAUDE_FLOW_MEMORY_PATH=./data/memory
 const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => string>> = {
   minimal: [
     behavioralRules,
+    (_opts) => policyGovernedWorkflow(),
     (_opts) => agentComms(),
     swarmConfig,
     (_opts) => buildAndTest(),
@@ -305,6 +357,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
   ],
   standard: [
     behavioralRules,
+    (_opts) => policyGovernedWorkflow(),
     (_opts) => agentComms(),
     swarmConfig,
     (_opts) => memoryAndLearning(),
@@ -315,6 +368,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
   ],
   full: [
     behavioralRules,
+    (_opts) => policyGovernedWorkflow(),
     (_opts) => agentComms(),
     swarmConfig,
     (_opts) => memoryAndLearning(),
@@ -329,6 +383,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
   ],
   security: [
     behavioralRules,
+    (_opts) => policyGovernedWorkflow(),
     (_opts) => agentComms(),
     swarmConfig,
     (_opts) => securitySection(),
@@ -340,6 +395,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
   ],
   performance: [
     behavioralRules,
+    (_opts) => policyGovernedWorkflow(),
     (_opts) => agentComms(),
     swarmConfig,
     (_opts) => performanceSection(),
@@ -352,6 +408,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
   ],
   solo: [
     behavioralRules,
+    (_opts) => policyGovernedWorkflow(),
     (_opts) => agentComms(),
     (_opts) => memoryAndLearning(),
     (_opts) => buildAndTest(),

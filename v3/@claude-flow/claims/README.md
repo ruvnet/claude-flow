@@ -1,5 +1,9 @@
 # @claude-flow/claims
 
+[![npm version](https://img.shields.io/npm/v/@claude-flow/claims.svg)](https://www.npmjs.com/package/@claude-flow/claims)
+[![npm downloads](https://img.shields.io/npm/dm/@claude-flow/claims.svg)](https://www.npmjs.com/package/@claude-flow/claims)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 **Issue claiming and work coordination for human-agent collaboration.**
 
 ## What is this?

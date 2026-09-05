@@ -1,7 +1,7 @@
 /**
  * Tests for WASM Agent MCP Tools
  *
- * Validates all 10 MCP tool handlers work correctly.
+ * ADR-129: Validates all MCP tool handlers (10 original + 17 new P2/P3/P4).
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -28,6 +28,7 @@ vi.mock('../src/ruvector/agent-wasm.js', () => ({
   getWasmAgent: vi.fn().mockReturnValue({ ...mockAgentInfo }),
   listWasmAgents: vi.fn().mockReturnValue([{ ...mockAgentInfo }]),
   terminateWasmAgent: vi.fn().mockReturnValue(true),
+  resetWasmAgent: vi.fn().mockReturnValue(true),
   getWasmAgentState: vi.fn().mockReturnValue({ messages: [], turn_count: 0 }),
   getWasmAgentTools: vi.fn().mockReturnValue(['read_file', 'write_file']),
   getWasmAgentTodos: vi.fn().mockReturnValue([]),
@@ -41,6 +42,16 @@ vi.mock('../src/ruvector/agent-wasm.js', () => ({
   createAgentFromTemplate: vi.fn().mockResolvedValue({ ...mockAgentInfo, id: 'wasm-agent-2-tpl' }),
   buildRvfContainer: vi.fn().mockResolvedValue(new Uint8Array([0x52, 0x56, 0x46, 0x01])),
   buildRvfFromTemplate: vi.fn().mockResolvedValue(new Uint8Array([0x52, 0x56, 0x46, 0x01])),
+  // ADR-129 P3 gallery CRUD
+  galleryLoadRvf: vi.fn().mockResolvedValue(new Uint8Array([0x52, 0x56, 0x46, 0x01])),
+  galleryConfigure: vi.fn().mockResolvedValue(undefined),
+  galleryListByCategory: vi.fn().mockResolvedValue([{ id: 'coder', name: 'Coder Agent' }]),
+  galleryAddCustom: vi.fn().mockResolvedValue(undefined),
+  galleryRemoveCustom: vi.fn().mockResolvedValue(undefined),
+  galleryImportCustom: vi.fn().mockResolvedValue(1),
+  galleryExportCustom: vi.fn().mockResolvedValue([{ id: 'custom-1' }]),
+  galleryGetActive: vi.fn().mockResolvedValue('coder'),
+  galleryGetConfig: vi.fn().mockResolvedValue({ maxTurns: 50 }),
 }));
 
 import { wasmAgentTools } from '../src/mcp-tools/wasm-agent-tools.js';
@@ -69,8 +80,8 @@ function parseResult(result: { content: Array<{ type: string; text: string }> })
 const __SKIP_WASM_TESTS = process.env.CI === 'true';
 
 describe.skipIf(__SKIP_WASM_TESTS)('wasm-agent-tools MCP', () => {
-  it('exports 10 tools', () => {
-    expect(wasmAgentTools).toHaveLength(10);
+  it('exports 27 tools (10 original + 17 new ADR-129 P2/P3/P4)', () => {
+    expect(wasmAgentTools).toHaveLength(27);
   });
 
   it('all tools have required fields', () => {

@@ -5,16 +5,24 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import * as TOML from '@iarna/toml';
 import {
   generateAgentsMd,
   generateSkillMd,
   generateConfigToml,
 } from '../src/generators/index.js';
-import { generateBuiltInSkill } from '../src/generators/skill-md.js';
+import {
+  BUILT_IN_SKILL_NAMES,
+  generateBuiltInSkill,
+  validateBuiltInSkillPayload,
+} from '../src/generators/skill-md.js';
 import {
   generateMinimalConfigToml,
   generateCIConfigToml,
 } from '../src/generators/config-toml.js';
+import { resolveBundledSkillsPath } from '../src/initializer.js';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type {
   AgentsMdOptions,
   SkillMdOptions,
@@ -26,6 +34,12 @@ import type {
 // =============================================================================
 
 describe('generateAgentsMd', () => {
+  it('resolves built-in skills inside the Codex package', () => {
+    const skillsPath = resolveBundledSkillsPath();
+    expect(skillsPath).toMatch(/[\\/]@claude-flow[\\/]codex[\\/]\.agents[\\/]skills$/);
+    expect(existsSync(skillsPath)).toBe(true);
+  });
+
   describe('minimal template', () => {
     it('should generate a minimal AGENTS.md with required sections', async () => {
       const options: AgentsMdOptions = {
@@ -111,6 +125,18 @@ describe('generateAgentsMd', () => {
       expect(result).toContain('## Code Standards');
       expect(result).toContain('## Security');
       expect(result).toContain('## Memory System');
+      expect(result).toContain('## Ruflo + Codex Automated Workflow');
+      expect(result).toContain('If it is not registered, use compatible');
+      expect(result).toContain('Never allow two writers in one worktree');
+      expect(result).toContain('MetaHarness may benchmark candidates concurrently');
+      expect(result).toContain('### Repository harness adapter');
+      expect(result).toContain(
+        'A repository lease coordinates ownership; it does not grant authorization',
+      );
+      expect(result).toContain(
+        'HEAD alone is not an exact source-state',
+      );
+      expect(result).not.toContain('Co-Authored-By: ruflo-bot');
     });
 
     it('should include tech stack', async () => {
@@ -189,9 +215,26 @@ describe('generateAgentsMd', () => {
 
       const result = await generateAgentsMd(options);
 
-      expect(result).toContain('Co-Authored-By: claude-flow');
+      expect(result).not.toContain('Co-Authored-By: ruflo-bot');
+      expect(result).toContain('unless the repository explicitly');
       expect(result).toContain('feat');
       expect(result).toContain('fix');
+    });
+  });
+
+  describe('policy and swarm automation config', () => {
+    it('generates safe backward-compatible policy and bounded concurrency defaults', async () => {
+      const result = await generateConfigToml({});
+      expect(result).toContain('[policy]');
+      expect(result).toContain('mode = "legacy"');
+      expect(result).toContain('[swarm.automation]');
+      expect(result).toContain('enabled = false');
+      expect(result).toContain('max_concurrent = 4');
+      expect(result).toContain('max_writers = 2');
+      expect(result).toContain('worktree_isolation = true');
+      expect(result).toContain('[profiles.dev]');
+      expect(result).toContain('approval_policy = "on-request"');
+      expect(result).toContain('sandbox_mode = "workspace-write"');
     });
   });
 
@@ -529,7 +572,7 @@ describe('generateBuiltInSkill', () => {
     expect(result.skillMd).toContain('name: swarm-orchestration');
     expect(result.skillMd).toContain('Multi-agent swarm coordination');
     expect(result.skillMd).toContain('Initialize Swarm');
-    expect(result.skillMd).toContain('npx ruflo swarm init');
+    expect(result.skillMd).toContain('npx @claude-flow/cli swarm init');
   });
 
   it('should generate memory-management skill', async () => {
@@ -537,8 +580,8 @@ describe('generateBuiltInSkill', () => {
 
     expect(result.skillMd).toContain('name: memory-management');
     expect(result.skillMd).toContain('AgentDB memory system');
-    expect(result.skillMd).toContain('Store Pattern');
-    expect(result.skillMd).toContain('Semantic Search');
+    expect(result.skillMd).toContain('Store Data');
+    expect(result.skillMd).toContain('Search Data');
   });
 
   it('should generate sparc-methodology skill', async () => {
@@ -554,7 +597,7 @@ describe('generateBuiltInSkill', () => {
     const result = await generateBuiltInSkill('security-audit');
 
     expect(result.skillMd).toContain('name: security-audit');
-    expect(result.skillMd).toContain('security scanning');
+    expect(result.skillMd).toContain('Security scanning');
     expect(result.skillMd).toContain('Full Security Scan');
     expect(result.skillMd).toContain('--depth full');
   });
@@ -583,21 +626,48 @@ describe('generateBuiltInSkill', () => {
     );
   });
 
-  it('should return generated scripts for skills with scripts', async () => {
-    const result = await generateBuiltInSkill('swarm-orchestration');
-
-    // Scripts are now generated for skills that have them
-    expect(Object.keys(result.scripts).length).toBeGreaterThan(0);
-    expect(result.references).toEqual({});
+  it('uses packaged skill trees as the canonical generator source (#2765)', async () => {
+    const bundledRoot = resolveBundledSkillsPath();
+    for (const skillName of BUILT_IN_SKILL_NAMES) {
+      const result = await generateBuiltInSkill(skillName);
+      const packaged = readFileSync(join(bundledRoot, skillName, 'SKILL.md'), 'utf8');
+      expect(result.skillMd).toBe(packaged);
+    }
   });
 
-  it('should generate valid bash scripts', async () => {
-    const result = await generateBuiltInSkill('memory-management');
+  it('ships every local path and prevents paths escaping the skill root', async () => {
+    for (const skillName of BUILT_IN_SKILL_NAMES) {
+      const result = await generateBuiltInSkill(skillName);
+      expect(() => validateBuiltInSkillPayload(
+        skillName,
+        result.skillMd,
+        result.scripts,
+        result.references,
+      )).not.toThrow();
+    }
+    expect(() => validateBuiltInSkillPayload(
+      'broken-skill',
+      'Use `scripts/missing.sh`.',
+      {},
+      {},
+    )).toThrow('broken-skill/scripts/missing.sh');
+    expect(() => validateBuiltInSkillPayload(
+      'escaping-skill',
+      'Use `scripts/../../outside.sh`.',
+      {},
+      {},
+    )).toThrow('escapes escaping-skill');
+  });
 
-    // Check that scripts are generated and contain bash shebang
-    for (const script of Object.values(result.scripts)) {
-      expect(script).toContain('#!/bin/bash');
-      expect(script).toContain('set -e');
+  it('packages all canonical built-in skill trees in npm artifacts', () => {
+    const bundledRoot = resolveBundledSkillsPath();
+    const packageJson = JSON.parse(readFileSync(
+      join(bundledRoot, '..', '..', 'package.json'),
+      'utf8',
+    )) as { files: string[] };
+    expect(packageJson.files).toContain('.agents/skills');
+    for (const skillName of BUILT_IN_SKILL_NAMES) {
+      expect(existsSync(join(bundledRoot, skillName, 'SKILL.md'))).toBe(true);
     }
   });
 });
@@ -607,9 +677,22 @@ describe('generateBuiltInSkill', () => {
 // =============================================================================
 
 describe('generateConfigToml', () => {
+  it('keeps Codex settings at the TOML root', async () => {
+    const parsed = TOML.parse(await generateConfigToml({
+      model: 'gpt-test',
+      approvalPolicy: 'on-request',
+      sandboxMode: 'workspace-write',
+    })) as Record<string, unknown>;
+    expect(parsed.model).toBe('gpt-test');
+    expect(parsed.approval_policy).toBe('on-request');
+    expect(parsed.sandbox_mode).toBe('workspace-write');
+    expect((parsed.policy as Record<string, unknown>).mode).toBe('legacy');
+    expect(((parsed.swarm as Record<string, unknown>).automation as Record<string, unknown>).enabled).toBe(false);
+  });
+
   describe('default configuration', () => {
     it('should generate valid TOML with header', async () => {
-      const result = await generateConfigToml();
+      const result = await generateConfigToml({ platform: 'linux' });
 
       expect(result).toContain('# Claude Flow V3 - Codex Configuration');
       expect(result).toContain('# Generated by: @claude-flow/codex');
@@ -646,11 +729,11 @@ describe('generateConfigToml', () => {
     });
 
     it('should include default ruflo MCP server', async () => {
-      const result = await generateConfigToml();
+      const result = await generateConfigToml({ platform: 'linux' });
 
       expect(result).toContain('[mcp_servers.ruflo]');
       expect(result).toContain('command = "npx"');
-      expect(result).toContain('args = ["-y", "ruflo@latest", "mcp", "start"]');
+      expect(result).toContain(`args = ["-y", "ruflo@latest", "mcp", "start"]`);
       expect(result).toContain('enabled = true');
     });
 
@@ -658,8 +741,8 @@ describe('generateConfigToml', () => {
       const result = await generateConfigToml();
 
       expect(result).toContain('[profiles.dev]');
-      expect(result).toContain('approval_policy = "never"');
-      expect(result).toContain('sandbox_mode = "danger-full-access"');
+      expect(result).toContain('approval_policy = "on-request"');
+      expect(result).toContain('sandbox_mode = "workspace-write"');
 
       expect(result).toContain('[profiles.safe]');
       expect(result).toContain('sandbox_mode = "read-only"');
@@ -924,5 +1007,14 @@ describe('generateCIConfigToml', () => {
     const result = await generateCIConfigToml();
 
     expect(result).toContain('persistence = "none"');
+  });
+
+  it('should generate a Windows-safe Ruflo MCP command with startup headroom', async () => {
+    const result = await generateCIConfigToml('win32');
+
+    expect(result).toContain('command = "cmd"');
+    expect(result).toContain('args = ["/c", "npx", "-y", "ruflo@latest", "mcp", "start"]');
+    expect(result).toContain('startup_timeout_sec = 120');
+    expect(result).toContain('tool_timeout_sec = 300');
   });
 });

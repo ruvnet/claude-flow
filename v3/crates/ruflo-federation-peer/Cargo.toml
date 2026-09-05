@@ -1,0 +1,60 @@
+[package]
+name = "ruflo-federation-peer"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Single-process federation peer for ruflo: midstreamer-quic transport composed with aimds-* 3-gate safety pipeline (ADR-120 Step 3)"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/ruflo"
+keywords = ["ruflo", "federation", "quic", "aimds", "agent"]
+categories = ["network-programming", "asynchronous"]
+
+[lib]
+crate-type = ["lib"]
+
+[[bin]]
+name = "ruflo-federation-peer"
+path = "src/bin.rs"
+
+[features]
+default = []
+# When `native` is enabled the binary actually wires midstreamer-quic
+# + aimds-core into the runtime via the embedding traits exposed in
+# ruvnet/midstream PR #82 (midstreamer-quic@0.3.0, aimds-core@0.2.0).
+# Off by default so `cargo check` works in CI environments that
+# haven't materialized the upstream Rust dependency tree yet — the
+# trait surface compiles either way.
+native = [
+    "dep:midstreamer-quic",
+    "dep:aimds-core",
+    "dep:uuid",
+    "dep:chrono",
+]
+
+[dependencies]
+# Core async runtime (always required for the trait surface).
+tokio = { version = "1.42", features = ["rt-multi-thread", "macros", "io-util", "io-std", "sync"] }
+async-trait = "0.1"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tracing = "0.1"
+
+# Optional — only pulled in when `--features native` is on. These are
+# the upstream crates this peer composes:
+#   - midstreamer-quic@0.3.0 — quinn-backed transport with the new
+#     `QuicTransport` embedding trait (ruvnet/midstream PR #82)
+#   - aimds-core@0.2.0 — `SafetyGate` composing trait + verdict enum
+#     (`Pass` / `Block` / `Redact`) for the 3-gate pipeline (ADR-118)
+midstreamer-quic = { version = "0.3.0", optional = true }
+aimds-core = { version = "0.2.0", optional = true }
+uuid = { version = "1", optional = true, features = ["v4"] }
+chrono = { version = "0.4", optional = true, features = ["serde"] }
+
+[dev-dependencies]
+tokio = { version = "1.42", features = ["full"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true

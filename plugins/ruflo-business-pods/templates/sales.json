@@ -1,0 +1,59 @@
+{
+  "name": "sales",
+  "displayName": "Sales",
+  "roomId": "sales",
+  "agents": [
+    {
+      "role": "lead-gen-agent",
+      "agentType": "researcher",
+      "description": "Discovers and qualifies inbound leads from the past 24h of #sales activity",
+      "preferLocal": false
+    },
+    {
+      "role": "crm-sync-agent",
+      "agentType": "backend-dev",
+      "description": "Syncs pipeline state to CRM via webhook and reports drift",
+      "preferLocal": false
+    },
+    {
+      "role": "outreach-drafter",
+      "agentType": "api-docs",
+      "description": "Drafts outreach emails for human review",
+      "preferLocal": false
+    },
+    {
+      "role": "pipeline-analyst",
+      "agentType": "perf-analyzer",
+      "description": "Monitors pipeline velocity and flags stalls in #sales",
+      "preferLocal": false
+    }
+  ],
+  "allowedMcpTools": [
+    "memory_store",
+    "memory_search",
+    "federation_bbs_register",
+    "federation_bbs_publish",
+    "federation_bbs_watch",
+    "federation_bbs_human_join"
+  ],
+  "bench": {
+    "name": "sales-pipeline-bench",
+    "description": "Measures pipeline movement per cycle",
+    "successCriteria": [
+      "At least 1 new lead qualified per 24h cycle",
+      "CRM sync error rate < 5%",
+      "No outreach draft older than 48h pending in queue"
+    ],
+    "scheduleHours": 6
+  },
+  "piiPolicy": "soc2",
+  "budgetUsdMonthly": 50,
+  "budgetUsdPerRun": 0.50,
+  "preferLocalExecution": false,
+  "cronSchedule": "0 */6 * * *",
+  "auditReadView": {
+    "includedEventTypes": ["task-result", "alert", "bench-result"],
+    "retentionDays": 90
+  },
+  "reservationExpiryMs": 60000
+}

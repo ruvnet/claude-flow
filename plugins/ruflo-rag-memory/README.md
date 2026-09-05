@@ -4,7 +4,30 @@ Retrieval-Augmented Generation memory with HNSW vector search, AgentDB persisten
 
 ## Overview
 
-Provides semantic store/search/recall over AgentDB with HNSW-indexed vector search (150x-12,500x faster than brute force). Bridges Claude Code's native auto-memory into AgentDB with 384-dim ONNX embeddings for unified cross-session semantic retrieval.
+Provides semantic store/search/recall over AgentDB with HNSW-indexed vector search (measured ~1.9x at N=20k, ~3.2x–4.7x at N=5k vs brute force, recall@10 ~0.99; ANN wins above the index-size crossover). Bridges Claude Code's native auto-memory into AgentDB with 384-dim ONNX embeddings for unified cross-session semantic retrieval.
+
+## Quick Start
+
+Store and retrieve knowledge across sessions:
+
+```bash
+# Store a pattern you want to remember
+npx ruflo memory store --key "oauth-flow" --value "OAuth2 with pkce for SPAs, use refresh tokens" --namespace patterns
+
+# Search for it later (even across projects!)
+npx ruflo recall "oauth single page app"
+
+# Retrieve exact entry
+npx ruflo memory retrieve --key "oauth-flow" --namespace patterns
+```
+
+Use with agents:
+
+```bash
+# In your Claude Code agent prompt:
+const context = await memory_search({ query: "authentication patterns", limit: 3 });
+// Returns top 3 semantic matches from all sessions
+```
 
 ## Installation
 
@@ -70,7 +93,7 @@ Claude Code Auto-Memory (~/.claude/projects/*/memory/*.md)
         └── claude-memories namespace
         │
         ▼ (HNSW ANN index)
-    Semantic Search (150x-12,500x faster)
+    Semantic Search (HNSW ANN — measured ~1.9x at N=20k vs brute force; see docs/reviews/intelligence-system-audit-2026-05-29.md)
 ```
 
 ## Encryption at rest (ruflo 3.6.25+)
@@ -127,7 +150,7 @@ Results include source attribution: `claude-code`, `auto-memory`, or `agentdb`.
 npx @claude-flow/cli@latest memory search --query "auth patterns" --smart --limit 10
 
 # MCP
-mcp__claude-flow__memory_search({ query: "auth patterns", smart: true, limit: 10 })
+mcp__plugin_ruflo-core_ruflo__memory_search({ query: "auth patterns", smart: true, limit: 10 })
 ```
 
 Best for multi-session recall, temporal queries ("what did we decide last week?"), and diverse result sets.
@@ -144,12 +167,15 @@ npx @claude-flow/cli@latest memory search --query "auth security" --limit 5
 
 ## HNSW Performance
 
-| Operation | Latency | vs Brute Force |
-|-----------|---------|----------------|
-| Vector search (100 entries) | ~0.01ms | 150x faster |
-| Vector search (10k entries) | ~0.05ms | 2,500x faster |
-| Vector search (100k entries) | ~0.1ms | 12,500x faster |
-| Store + index | ~1ms | — |
+Measured numbers from [`docs/reviews/intelligence-system-audit-2026-05-29.md`](../../docs/reviews/intelligence-system-audit-2026-05-29.md) + [`scripts/benchmark-intelligence.mjs`](../../scripts/benchmark-intelligence.mjs):
+
+| Operation | vs Brute Force | Notes |
+|-----------|----------------|-------|
+| Vector search (N=5k) | ~3.2x–4.7x faster | ruvector NAPI, recall@10 ~0.99 |
+| Vector search (N=20k) | ~1.9x faster | ANN wins above crossover |
+| Vector search (below crossover) | ties/loses | brute force preferred for small N |
+
+The previously published "150x–12,500x" figures were brute-force fallback artifacts and are not reproduced under the audit harness.
 
 ## Integration with ruvector
 

@@ -1,0 +1,57 @@
+{
+  "iter": "61b",
+  "label": "hybrid-routing-only (no visit_webpage) — isolation experiment",
+  "branch": "feat/iter-61b-hybrid-only",
+  "model": "claude-sonnet-4-6",
+  "mode": "hybrid",
+  "visit_webpage_in_toolcalling_catalogue": false,
+  "total": 53,
+  "pass": 31,
+  "fail": 22,
+  "pass_rate": 0.5849056603773585,
+  "pass_rate_pct": "58.5%",
+  "cost_usd": 4.0969,
+  "mean_turns": 4.9,
+  "mean_time_s": 49.6,
+  "routing": {
+    "ToolCalling": 46,
+    "CodeAgent": 7
+  },
+  "routing_rules": {
+    "web_retrieval": 15,
+    "pure_reasoning": 7,
+    "default": 16,
+    "attachment": 11,
+    "long_question": 4
+  },
+  "pass_by_mode": {
+    "ToolCalling": {
+      "pass": 27,
+      "total": 46,
+      "rate": "58.7%"
+    },
+    "CodeAgent": {
+      "pass": 4,
+      "total": 7,
+      "rate": "57.1%"
+    }
+  },
+  "vs_baseline": {
+    "n3_mean_T2T1_sonnet": {
+      "score": "32/53",
+      "delta": -1,
+      "verdict": "NEUTRAL (-1, within noise)"
+    },
+    "iter60_hybrid_plus_visit": {
+      "score": "28/53",
+      "delta": 3,
+      "verdict": "RECOVERED +3 from visit_webpage regression"
+    },
+    "iter56b_best": {
+      "score": "35/53",
+      "delta": -4
+    }
+  },
+  "verdict": "Hybrid routing is NEUTRAL vs baseline (31 vs 32). visit_webpage caused the -4 regression in iter60 (28/53).",
+  "recommendation": "Disable visit_webpage from ToolCalling catalogue. Hybrid routing can stay — no harm, minimal gain (+1 CodeAgent Qs at 57%). Consider iter62: CodeAgent-only for pure_reasoning subset (7 Qs, 57% vs 58% ToolCalling — parity, so routing adds negligible lift from mode alone)."
+}

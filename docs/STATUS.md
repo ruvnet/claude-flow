@@ -10,8 +10,8 @@ Ruflo is a multi-agent AI orchestration layer for Claude Code. It turns Claude C
 
 The runtime is the `ruflo` npm package. End-user surface is:
 
-- **MCP server** — exposes 300+ tools to Claude Code (memory, agents, swarm coordination, hooks, GitHub integration, browser automation, etc.).
-- **CLI** — 49 top-level commands (`ruflo agent`, `ruflo swarm`, `ruflo memory`, `ruflo hooks`, `ruflo verify`, …) for terminal/script use.
+- **MCP server** — exposes 323 tools to Claude Code (memory, agents, swarm coordination, hooks, GitHub integration, browser automation, etc.).
+- **CLI** — 45 top-level commands (`ruflo agent`, `ruflo swarm`, `ruflo memory`, `ruflo hooks`, `ruflo verify`, …) for terminal/script use.
 - **Claude Code plugins** — 32 installable plugins (`ruflo-core`, `ruflo-federation`, `ruflo-cost-tracker`, …) that bundle agent + skill + slash-command definitions.
 - **WASM kernels** — Rust-compiled WASM for the policy engine, embeddings, and proof system; plugged into the same MCP/CLI surface.
 
@@ -27,7 +27,7 @@ The intended day-to-day flow:
    ```
    This writes a `CLAUDE.md` with hooks and routing rules, registers the MCP server with Claude Code, and seeds `.claude-flow/` with config + memory.
 
-2. **Just use Claude Code normally**. Hooks automatically route tasks, retrieve relevant memory patterns, and coordinate background agents. You don't have to learn the 300 MCP tools — the routing layer does.
+2. **Just use Claude Code normally**. Hooks automatically route tasks, retrieve relevant memory patterns, and coordinate background agents. You don't have to learn the 323 MCP tools — the routing layer does.
 
 3. **Run the CLI for orchestration tasks** that don't fit naturally into Claude Code:
    - `ruflo agent spawn -t coder --name api-worker` — long-running agent
@@ -46,24 +46,24 @@ Full command reference: [`USERGUIDE.md`](USERGUIDE.md).
 
 ## Status — what currently works
 
-**Snapshot at branch `fix/issues-may-1-3`**, last commit `52a96f3`. Latest published is `ruflo@3.6.24` on npm; the branch holds 22+ unpublished commits queued for `3.6.25`.
+**Snapshot at `ruflo@3.10.2` / `@claude-flow/cli@3.10.1`**, branch `main` @ commit `cdd5308d8`. Capability counts updated 2026-05-25 via quality-sweep audit (see `docs/QUALITY-SWEEP.md`).
 
 ### Test baseline
 
 | Suite | Count | Status |
 |---|---|---|
-| `@claude-flow/cli` vitest | 1933 / 1933 | green, 0 failures, 46 intentionally skipped |
+| `@claude-flow/cli` vitest | 1999 / 1999 | green, 0 failures, 46 intentionally skipped |
 | `@claude-flow/plugin-agent-federation` vitest | 366 / 366 | green |
-| **Combined audit-fix surface** | 76 encryption-track + 41 federation-budget + others | green |
+| **Combined audit-fix surface** | all encryption + federation + graph tests | green |
 
 ### Capability inventory (auto-generated via [`scripts/inventory-capabilities.mjs`](../scripts/inventory-capabilities.mjs))
 
 | Surface | Count | Verified by |
 |---|---|---|
-| MCP tools | **300** | `verification-inventory.json` (sidecar to `verification.md`) |
-| CLI commands (top-level) | **49** | same |
-| Plugins (`plugins/ruflo-*`) | **32** | same |
-| Agent definitions | **43** | same |
+| MCP tools | **323** | `verification/inventory.json` + quality-sweep audit 2026-05-25 |
+| CLI commands (top-level) | **45** | quality-sweep audit 2026-05-25 (commands/index.ts) |
+| Plugins (`plugins/ruflo-*`) | **33** | quality-sweep audit 2026-05-25 (33 dirs with .claude-plugin/plugin.json) |
+| Agent definitions | **45** | quality-sweep audit 2026-05-25 (plugins/*/agents/*.md count) |
 
 ### Recently shipped (since `ruflo@3.6.24` published)
 

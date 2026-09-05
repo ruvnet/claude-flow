@@ -1,0 +1,163 @@
+{
+  "schema": 1,
+  "bench": "agenticow-vs-full-copy",
+  "agenticowVersion": "0.2.3",
+  "ts": "2026-06-29T15:03:37.725Z",
+  "dim": 128,
+  "runsPerSize": 5,
+  "bySize": {
+    "1000": {
+      "n": 1000,
+      "baseBuildMs": 27,
+      "baseBytes": 520603,
+      "agenticow": {
+        "branchMsMedian": 9.61,
+        "branchMsAll": [
+          9.61,
+          8.646,
+          9.627,
+          8.036,
+          9.657
+        ],
+        "branchBytesMedian": 162,
+        "branchBytesAll": [
+          162,
+          162,
+          162,
+          162,
+          162
+        ],
+        "queryMsMedian": 0.088,
+        "queryMsAll": [
+          0.271,
+          0.077,
+          0.087,
+          0.093,
+          0.088
+        ]
+      },
+      "fullCopy": {
+        "copyMsMedian": 0.375,
+        "copyBytesMedian": 520603
+      },
+      "ratios": {
+        "speedup": 0.04,
+        "sizeReduction": 3213.6
+      },
+      "publishedClaim": {
+        "branchMsTarget": 0.5,
+        "branchBytesTarget": 162,
+        "speedupClaim": 83,
+        "sizeReductionClaim": 3000
+      },
+      "verdict": {
+        "branchMsHit": false,
+        "branchBytesHit": true,
+        "speedupHit": false,
+        "sizeReductionHit": true
+      }
+    },
+    "10000": {
+      "n": 10000,
+      "baseBuildMs": 133,
+      "baseBytes": 5207948,
+      "agenticow": {
+        "branchMsMedian": 9.068,
+        "branchMsAll": [
+          9.56,
+          8.716,
+          10.412,
+          8.667,
+          9.068
+        ],
+        "branchBytesMedian": 162,
+        "branchBytesAll": [
+          162,
+          162,
+          162,
+          162,
+          162
+        ],
+        "queryMsMedian": 0.449,
+        "queryMsAll": [
+          5973.038,
+          0.281,
+          0.339,
+          0.449,
+          0.481
+        ]
+      },
+      "fullCopy": {
+        "copyMsMedian": 3.014,
+        "copyBytesMedian": 5793253
+      },
+      "ratios": {
+        "speedup": 0.33,
+        "sizeReduction": 35760.82
+      },
+      "publishedClaim": {
+        "branchMsTarget": 0.5,
+        "branchBytesTarget": 162,
+        "speedupClaim": 83,
+        "sizeReductionClaim": 3000
+      },
+      "verdict": {
+        "branchMsHit": false,
+        "branchBytesHit": true,
+        "speedupHit": false,
+        "sizeReductionHit": true
+      }
+    },
+    "50000": {
+      "n": 50000,
+      "baseBuildMs": 683,
+      "baseBytes": 26114128,
+      "agenticow": {
+        "branchMsMedian": 9.732,
+        "branchMsAll": [
+          10.967,
+          10.21,
+          9.732,
+          8.501,
+          9.632
+        ],
+        "branchBytesMedian": 162,
+        "branchBytesAll": [
+          162,
+          162,
+          162,
+          162,
+          162
+        ],
+        "queryMsMedian": 0.741,
+        "queryMsAll": [
+          36829.844,
+          0.589,
+          0.632,
+          0.741,
+          0.758
+        ]
+      },
+      "fullCopy": {
+        "copyMsMedian": 16.405,
+        "copyBytesMedian": 29472737
+      },
+      "ratios": {
+        "speedup": 1.69,
+        "sizeReduction": 181930.48
+      },
+      "publishedClaim": {
+        "branchMsTarget": 0.5,
+        "branchBytesTarget": 162,
+        "speedupClaim": 83,
+        "sizeReductionClaim": 3000
+      },
+      "verdict": {
+        "branchMsHit": false,
+        "branchBytesHit": true,
+        "speedupHit": false,
+        "sizeReductionHit": true
+      }
+    }
+  }
+}

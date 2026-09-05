@@ -144,7 +144,7 @@ Usage: /vector <subcommand> [options]
 
 For first-run users hitting `ONNX WASM files not bundled`, `Brain commands require @ruvector/pi-brain`, or `SONA not available`, invoke the `vector-setup` skill: `/vector-setup`.
 
-## MCP server (103 tools)
+## MCP server (91 tools)
 
 - Register once: `claude mcp add ruvector -- npx -y ruvector@0.2.25 mcp start`
 - Verify: `claude mcp list | grep ruvector`

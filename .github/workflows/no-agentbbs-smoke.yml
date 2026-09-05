@@ -1,0 +1,173 @@
+# ADR-164 architectural constraint enforcement.
+#
+#   "Ruflo remains operational if the agentbbs package is removed."
+#
+# This workflow asserts three architectural rules from ADR-164 §5.1.1:
+#   1. agentbbs is lazy/optional and NEVER lives in `dependencies`
+#   2. Every code path that touches agentbbs in v3/@claude-flow/cli/src/
+#      is preceded by `loadAgentbbs()` (or a dynamic `import('agentbbs')`)
+#   3. Runtime drill: with `--no-optional` / unreachable registry, the smoke
+#      contract exits 0 (graceful degradation).
+#
+# If this job ever fails, an agentbbs API has accidentally been promoted to
+# a hard runtime requirement — breaking the optional-dep playbook from
+# ADR-150 / agenticow / metaharness. The fix is either to make the new code
+# path graceful, or to write a new ADR that supersedes the constraint.
+name: no-agentbbs-smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/ruflo-bbs-federation/**'
+      - 'v3/@claude-flow/cli/src/mcp-tools/agentbbs-tools.ts'
+      - 'v3/@claude-flow/cli/src/mcp-client.ts'
+      - 'v3/@claude-flow/cli/src/mcp-tools/index.ts'
+      - 'v3/@claude-flow/cli/package.json'
+      - 'scripts/smoke-agentbbs.sh'
+      - '.github/workflows/no-agentbbs-smoke.yml'
+  pull_request:
+    paths:
+      - 'plugins/ruflo-bbs-federation/**'
+      - 'v3/@claude-flow/cli/src/mcp-tools/agentbbs-tools.ts'
+      - 'v3/@claude-flow/cli/src/mcp-client.ts'
+      - 'v3/@claude-flow/cli/src/mcp-tools/index.ts'
+      - 'v3/@claude-flow/cli/package.json'
+      - 'scripts/smoke-agentbbs.sh'
+      - '.github/workflows/no-agentbbs-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke-without-agentbbs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Rule 1 — agentbbs must NOT appear in non-optional dependencies anywhere
+        # Static check: agentbbs may be omitted entirely for cold-start
+        # performance or listed under optionalDependencies, but never under
+        # dependencies.
+        run: |
+          node -e "
+            const { readFileSync, readdirSync, statSync } = require('fs');
+            const { join } = require('path');
+            const candidates = [
+              'package.json',
+              'ruflo/package.json',
+              'v3/@claude-flow/cli/package.json',
+            ];
+            try {
+              for (const p of readdirSync('plugins')) {
+                const pj = join('plugins', p, 'package.json');
+                try { statSync(pj); candidates.push(pj); } catch {}
+              }
+            } catch {}
+            const offenders = [];
+            for (const c of candidates) {
+              let json;
+              try { json = JSON.parse(readFileSync(c, 'utf-8')); } catch { continue; }
+              for (const dep of Object.keys(json.dependencies || {})) {
+                if (/^agentbbs$/.test(dep)) {
+                  offenders.push({ file: c, dep });
+                }
+              }
+            }
+            if (offenders.length) {
+              console.error('ADR-164 architectural constraint violated:');
+              for (const o of offenders) console.error('  ' + o.file + ' → ' + o.dep + ' in dependencies (must be optionalDependencies)');
+              process.exit(1);
+            }
+            console.log('OK — agentbbs is not in non-optional dependencies anywhere.');
+          "
+
+      - name: Rule 2 — every `agentbbs` usage in cli/src must be guarded by loadAgentbbs / dynamic import
+        # Walk every .ts under v3/@claude-flow/cli/src that mentions agentbbs.
+        # For each match, the SAME file must also reference loadAgentbbs() OR
+        # use a dynamic import('agentbbs'). Static `import ... from 'agentbbs'`
+        # is forbidden — it would make the dep mandatory.
+        run: |
+          node -e "
+            const { readFileSync, readdirSync, statSync } = require('fs');
+            const { join } = require('path');
+            const root = 'v3/@claude-flow/cli/src';
+            const offenders = [];
+            function walk(dir) {
+              for (const e of readdirSync(dir)) {
+                const p = join(dir, e);
+                const st = statSync(p);
+                if (st.isDirectory()) { walk(p); continue; }
+                if (!p.endsWith('.ts')) continue;
+                const src = readFileSync(p, 'utf-8');
+                // Static import — forbidden:
+                if (/^\s*import\s+[^;]*from\s+['\"]agentbbs['\"]/m.test(src)) {
+                  offenders.push({ file: p, reason: 'static import of agentbbs' });
+                  continue;
+                }
+                // If file mentions agentbbs at all, require a guard — except
+                // for files that ONLY re-export our own agentbbsTools symbol
+                // (the symbol itself contains the loadAgentbbs guard).
+                if (/agentbbs/.test(src)) {
+                  // Strip benign re-exports + comment mentions, then check the rest.
+                  // Patterns we treat as safe (do not require their own loadAgentbbs guard):
+                  //   - `export { agentbbsTools } from './agentbbs-tools.js';`
+                  //   - `import { agentbbsTools } from './mcp-tools/agentbbs-tools.js';`
+                  //   - `...agentbbsTools,`
+                  //   - any comment line mentioning agentbbs
+                  const stripped = src
+                    .replace(/^\s*\/\/.*$/gm, '')                                   // single-line comments
+                    .replace(/\/\*[\s\S]*?\*\//g, '')                               // block comments
+                    .replace(/export\s+\{[^}]*agentbbsTools[^}]*\}\s+from\s+['\"][^'\"]+agentbbs-tools[^'\"]*['\"];?/g, '')
+                    .replace(/import\s+\{[^}]*agentbbsTools[^}]*\}\s+from\s+['\"][^'\"]+agentbbs-tools[^'\"]*['\"];?/g, '')
+                    .replace(/\.\.\.agentbbsTools,?/g, '');
+                  if (/agentbbs/.test(stripped)) {
+                    const guarded = /loadAgentbbs|import\(['\"]agentbbs['\"]\)/m.test(src);
+                    if (!guarded) {
+                      offenders.push({ file: p, reason: 'agentbbs reference without loadAgentbbs/dynamic import guard' });
+                    }
+                  }
+                }
+              }
+            }
+            walk(root);
+            if (offenders.length) {
+              console.error('ADR-164 rule 2 violated:');
+              for (const o of offenders) console.error('  ' + o.file + ': ' + o.reason);
+              process.exit(1);
+            }
+            console.log('OK — every agentbbs reference under ' + root + ' is dynamically guarded.');
+          "
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+
+      - name: Rule 3 — runtime drill (surgically remove agentbbs only, run smoke)
+        # Install everything (so other optional deps like agentdb stay available
+        # for transitive consumers — they have their own degradation paths)
+        # but DELETE node_modules/agentbbs to force loadAgentbbs() to return null.
+        # smoke-agentbbs.sh accepts DEGRADED:agentbbs-not-found as a PASS for
+        # step 8, so the whole script should still exit 0.
+        # Uses pnpm (the v3/ workspace's real package manager) since some root
+        # deps use the `workspace:*` protocol that npm doesn't support.
+        run: |
+          set -e
+          (cd v3 && pnpm install --frozen-lockfile)
+          # Build whole workspace dep-first (cli has cross-package deps the
+          # `...` filter can't discover from package.json alone)
+          (cd v3 && pnpm -r --no-bail build || pnpm --filter @claude-flow/cli build)
+          # Surgically remove agentbbs from every install location it landed.
+          find v3 -type d -name agentbbs -path '*node_modules*' -exec rm -rf {} + 2>/dev/null || true
+          # Sanity check — the package really is gone
+          if find v3 -type d -name agentbbs -path '*node_modules*' 2>/dev/null | grep -q . ; then
+            echo "ERROR: agentbbs still in node_modules"; exit 1
+          fi
+          bash scripts/smoke-agentbbs.sh

@@ -1,0 +1,94 @@
+# Regression guard for issue #2578.
+#
+# Bug: The ADR-104 witness fix marker was the literal string
+#   `agentic-flow/transport/loader`, and plugin-agent-federation's
+#   `src/transport/midstream-aware-loader.ts` performed a static
+#   `import type { … } from 'agentic-flow/transport/loader'`. Upstream
+#   `agentic-flow` does not expose that subpath in its `exports` map —
+#   any external verifier that literally resolves the specifier fails
+#   with `ERR_MODULE_NOT_FOUND`, and strict `moduleResolution: bundler`
+#   builds break too.
+#
+# Rules enforced (regression trip-wires):
+#   1. No file under v3/@claude-flow/plugin-agent-federation/src/ may
+#      static-import `agentic-flow/transport/loader`. Dynamic
+#      `import('agentic-flow/transport/loader')` guarded by try/catch
+#      remains allowed (that is the intentional optional-path).
+#   2. verification/witness-fixes.json's `ADR-104-transport` entry must
+#      NOT declare `agentic-flow/transport/loader` as its `marker`.
+#   3. ADR-104's supported smoke import target is the federation plugin
+#      loader, and that loader owns a WebSocket fallback for current
+#      agentic-flow releases that do not export `./transport/loader`.
+name: no-phantom-agentic-flow-subpath
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'v3/@claude-flow/plugin-agent-federation/src/**'
+      - 'v3/@claude-flow/plugin-agent-federation/dist/**'
+      - 'v3/docs/adr/ADR-104-federation-wire-transport.md'
+      - 'scripts/smoke-adr104-transport.mjs'
+      - 'verification/witness-fixes.json'
+      - '.github/workflows/no-phantom-agentic-flow-subpath.yml'
+  pull_request:
+    paths:
+      - 'v3/@claude-flow/plugin-agent-federation/src/**'
+      - 'v3/@claude-flow/plugin-agent-federation/dist/**'
+      - 'v3/docs/adr/ADR-104-federation-wire-transport.md'
+      - 'scripts/smoke-adr104-transport.mjs'
+      - 'verification/witness-fixes.json'
+      - '.github/workflows/no-phantom-agentic-flow-subpath.yml'
+  workflow_dispatch:
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rule 1 — midstream-aware-loader must not static-import agentic-flow/transport/loader
+        # Scoped to the file the #2578 fix touched. midstream-aware-loader.ts
+        # is what plugin.ts uses at runtime (via loadFederationTransport), so a
+        # regression here breaks the runtime path and the external Check 8
+        # verifier. A dynamic `import('agentic-flow/transport/loader')` guarded
+        # by try/catch is the intentional optional path and stays allowed.
+        run: |
+          node -e "
+            const { readFileSync } = require('fs');
+            const target = 'v3/@claude-flow/plugin-agent-federation/src/transport/midstream-aware-loader.ts';
+            const src = readFileSync(target, 'utf-8');
+            const re = /^\s*(?:import|export)(?:\s+type)?\s+[^;]*?from\s+['\"]agentic-flow\/transport\/loader['\"]/m;
+            if (re.test(src)) {
+              console.error('#2578 regression: ' + target + ' static-imports agentic-flow/transport/loader.');
+              console.error('That subpath is not in agentic-flow\\'s published exports map — external Check 8 verifiers ERR_MODULE_NOT_FOUND.');
+              console.error('Use the locally-declared type surface + dynamic import guarded by try/catch instead.');
+              process.exit(1);
+            }
+            console.log('OK — ' + target + ' does not static-import the phantom subpath.');
+          "
+
+      - name: Rule 2 — ADR-104 witness marker must not be the phantom subpath
+        run: |
+          node -e "
+            const { readFileSync } = require('fs');
+            const witness = JSON.parse(readFileSync('verification/witness-fixes.json', 'utf-8'));
+            const fixes = witness.fixes || witness || [];
+            const entries = Array.isArray(fixes) ? fixes : Object.values(fixes);
+            const adr104 = entries.find(f => f && f.id === 'ADR-104-transport');
+            if (!adr104) {
+              console.error('#2578 regression guard: ADR-104-transport entry missing from verification/witness-fixes.json');
+              process.exit(1);
+            }
+            if (adr104.marker === 'agentic-flow/transport/loader') {
+              console.error('#2578 regression: ADR-104-transport marker reverted to the phantom subpath.');
+              console.error('agentic-flow does not export ./transport/loader — external Check 8 verifiers will ERR_MODULE_NOT_FOUND.');
+              console.error('Use a marker that appears in the plugin\\'s own dist (e.g. loadFederationTransport).');
+              process.exit(1);
+            }
+            console.log('OK — ADR-104-transport marker is \"' + adr104.marker + '\" (not the phantom subpath).');
+          "
+
+      - name: Rule 3 — ADR-104 smoke import target must be plugin loader
+        run: node scripts/smoke-adr104-transport.mjs

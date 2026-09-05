@@ -1,0 +1,62 @@
+{
+  "$schema": "./accepted-findings.schema.json",
+  "version": 1,
+  "comment": "Triaged supply-chain findings that the audit currently tolerates. Every entry must cite a tracking issue or ADR. Entries WITHOUT a tracking link fail audit. Adding to this file requires CODEOWNER review per .github/CODEOWNERS.",
+  "fixedDirectly": [
+    {
+      "date": "2026-05-19",
+      "commit": "PR #2050 follow-up",
+      "summary": "Bumped agentdb 3.0.0-alpha.10/13 → 3.0.0-alpha.14 (root, memory, cli), agentic-flow 2.0.7 → 2.0.11 (root + browser). Added overrides for @opentelemetry/sdk-node >= 0.218.0, @opentelemetry/auto-instrumentations-node >= 0.75.0, @opentelemetry/exporter-prometheus >= 0.217.0, axios >= 1.13.2, fast-uri >= 3.1.0, vite >= 6.4.6, ws >= 8.18.4. Root npm audit now reports 0 vulnerabilities (was 13 HIGH/CRITICAL). Same overrides duplicated in v3/@claude-flow/browser/package.json for standalone npm publish."
+    },
+    {
+      "date": "2026-05-19",
+      "commit": "ADR-124 — agentic-flow@2.0.12 upstream fix",
+      "summary": "Shipped agentic-flow@2.0.12 with @xenova/transformers moved from `dependencies` to `optionalDependencies` (upstream PR ruvnet/agentic-flow#154). Bumped agentic-flow ^2.0.11 → ^2.0.12 in root + v3/@claude-flow/browser. Removed the previously-accepted CVE entry for agentic-flow → @xenova/transformers — root npm audit now reports 0 vulnerabilities. End-user fresh-install with `npm install --omit=optional` skips @xenova/transformers entirely; default install still pulls it for users who need embeddings."
+    },
+    {
+      "date": "2026-05-19",
+      "commit": "ruflo#2048 — agentic-flow@2.0.13 lazy onnxruntime-node load",
+      "summary": "Shipped agentic-flow@2.0.13 to fix ruflo#2048 — `import('agentic-flow/reasoningbank')` on Windows crashed because router/providers/onnx-local.ts used a top-level `await import('onnxruntime-node')` which forced the native binding (`onnxruntime_binding.node`) to load at module import time. On Windows this throws \"OS cannot run %1\" even when VCRedist is installed. Upstream PR ruvnet/agentic-flow#155 moves the import into a lazy `loadOrt()` helper called from `initializeSession()`, so `reasoningbank` consumers never trigger the binding unless they actually run local ONNX inference. Bumped agentic-flow ^2.0.12 → ^2.0.13 in root + v3/@claude-flow/browser. Acceptance test: `node -e \"import('agentic-flow/reasoningbank').then(()=>console.log('OK'))\"` now succeeds under both default install and `--omit=optional` (binding absent)."
+    }
+  ],
+  "cve": [
+    {
+      "package": "v3/@claude-flow/browser",
+      "depName": "agentic-flow",
+      "severity": "high",
+      "via": ["@xenova/transformers"],
+      "tracking": "ADR-124 — Moot finding: @xenova/transformers is now an OPTIONAL dependency of agentic-flow as of 2.0.12 (PR ruvnet/agentic-flow#154). The vulnerable module is not installed when consumers pass `npm install --omit=optional`. `npm audit` still reports the finding because it reads the lockfile graph (including optionals) rather than what's actually on disk — a known npm limitation. Real-world impact: zero when consumers use --omit=optional; same as before when they include optionals.",
+      "trackingIssue": "https://github.com/ruvnet/agentic-flow/pull/154",
+      "expiresAt": "2026-11-19",
+      "rationale": "Cannot fully eliminate from the audit graph until either @xenova/transformers itself ships a fix OR agentic-flow drops it entirely (covered by ADR-121 Phase 4 migration). The browser substrate does not invoke embedding code paths, so the optional-dep path is the right install profile. Re-audit when ADR-121 Phase 4 lands or @xenova/transformers ships a CVE-clean version."
+    },
+    {
+      "package": "v3/@claude-flow/browser",
+      "depName": "vitest",
+      "severity": "critical",
+      "via": ["GHSA-5xrq-8626-4rwp"],
+      "tracking": "ruflo#2268 — Vitest <4.1.0 UI server arbitrary-file-read/exec (CWE-862, CVSS 9.8). vitest is a devDependency only — never in the published tarball, never in the runtime path. The advisory's exploit requires the Vitest UI server (vitest --ui) to be listening, which only happens during interactive local test development. CI (--run) and production install (--omit=dev) never activate the UI server. Spec was already bumped to ^4.1.0 in v3/@claude-flow/browser/package.json on 2026-06-02 (release/3.10.34); the standalone-publish package-lock.json carries workspace:* refs that npm cannot resolve in isolation, so the lockfile refresh has to wait until the next workspace-coordinated rebuild. Tracked separately so this entry expires the moment that rebuild lands.",
+      "trackingIssue": "https://github.com/ruvnet/ruflo/issues/2268",
+      "expiresAt": "2026-09-02",
+      "rationale": "devDependency-only + exploit requires `vitest --ui` which is local-dev only. Spec already requires ^4.1.0; only the standalone package-lock graph hasn't refreshed (workspace:* protocol limitation on raw `npm install`). Zero production / CI exposure. Re-audit and remove this entry the next time the browser's package-lock.json is regenerated."
+    },
+    {
+      "package": "plugins/ruflo-graph-intelligence",
+      "depName": "@claude-flow/cli",
+      "severity": "high",
+      "via": ["@claude-flow/embeddings", "@claude-flow/guidance"],
+      "tracking": "ruflo#2412 follow-up — @claude-flow/cli is declared as a peerDependency by ruflo-graph-intelligence; the plugin does not redistribute cli's dependency graph (the consumer installs @claude-flow/cli@latest separately). The audit script treats peerDependencies as direct deps, so it surfaces every HIGH transitive inside cli's own tree (xenova/transformers, agentdb's opentelemetry chain, onnxruntime-web) inside this plugin's report. Each of those transitives is independently triaged in its own package (see the v3/@claude-flow/browser entries above) and the cli already runs its own audit pipeline on every publish. Accepting this pair so the plugin's audit isn't transitively blocked on cli's chain.",
+      "trackingIssue": "https://github.com/ruvnet/ruflo/issues/2412",
+      "expiresAt": "2026-11-25",
+      "rationale": "Peer-dependency-only — the plugin does not redistribute cli's transitives. cli@3.14.2 ships its own audit on each publish. Re-audit and drop this entry once either (a) the peer is removed in favor of a slim interface package or (b) cli's tree no longer reports HIGH transitives."
+    }
+  ],
+  "lockfile": [
+    {
+      "package": "v3/@claude-flow/browser",
+      "pattern": "/node_modules/.pnpm/",
+      "reason": "pnpm-store symlinked shadow entries inside an npm lockfile do not carry SHA-512 integrity hashes. The real integrity is enforced by pnpm in /v3/pnpm-lock.yaml separately.",
+      "tracking": "not-a-vuln — out-of-scope by construction"
+    }
+  ]
+}

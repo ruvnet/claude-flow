@@ -7,6 +7,7 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { select, confirm, multiSelect } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
+import { swarmJoinCommand } from './agntcy/swarm-join.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -51,6 +52,58 @@ function getSwarmStatus(swarmId?: string) {
       }
     } catch {
       // Ignore
+    }
+  }
+
+  // The canonical agent registry is the same source used by `agent list`.
+  // Prefer it over the swarm-level coordination boolean so idle agents are
+  // not reported as active (#2808). Hive agents are merged additively.
+  if (totalAgents === 0) {
+    try {
+      const canonicalPath = path.join(process.cwd(), '.claude-flow', 'agents', 'store.json');
+      const hivePath = path.join(process.cwd(), '.claude-flow', 'agents.json');
+      const merged: Record<string, { status?: string }> = {};
+      for (const storePath of [hivePath, canonicalPath]) {
+        if (!fs.existsSync(storePath)) continue;
+        const parsed = JSON.parse(fs.readFileSync(storePath, 'utf-8'));
+        if (parsed?.agents && typeof parsed.agents === 'object') {
+          Object.assign(merged, parsed.agents);
+        }
+      }
+      const agents = Object.values(merged).filter(agent => agent.status !== 'terminated');
+      if (agents.length > 0) {
+        totalAgents = agents.length;
+        activeAgents = agents.filter(agent =>
+          agent.status === 'active' ||
+          agent.status === 'running' ||
+          agent.status === 'busy'
+        ).length;
+      }
+    } catch {
+      // Ignore — the count-only activity file remains the final fallback.
+    }
+  }
+
+  // #2799 — `agent spawn` never writes `.swarm/agents/*.json`; it records
+  // the count in `.claude-flow/metrics/swarm-activity.json` (via
+  // updateSwarmActivityMetrics in commands/agent.ts). So when the agents
+  // dir is empty, reconcile against that authoritative activity file
+  // instead of reporting Total 0 while `agent list` shows N agents.
+  if (totalAgents === 0) {
+    try {
+      const activityPath = path.join(process.cwd(), '.claude-flow', 'metrics', 'swarm-activity.json');
+      if (fs.existsSync(activityPath)) {
+        const activity = JSON.parse(fs.readFileSync(activityPath, 'utf-8'));
+        const count = Math.max(0, Number((activity?.swarm?.agent_count)) || 0);
+        if (count > 0) {
+          totalAgents = count;
+          // swarm-activity.json tracks a count, not per-agent status; treat
+          // a coordination-active swarm's agents as active, else idle.
+          activeAgents = activity?.swarm?.coordination_active ? count : 0;
+        }
+      }
+    } catch {
+      // Ignore — fall back to 0
     }
   }
 
@@ -230,7 +283,8 @@ const TOPOLOGIES = [
   { value: 'ring', label: 'Ring', hint: 'Circular communication pattern' },
   { value: 'star', label: 'Star', hint: 'Central coordinator with spoke agents' },
   { value: 'hybrid', label: 'Hybrid', hint: 'Hierarchical mesh for maximum flexibility' },
-  { value: 'hierarchical-mesh', label: 'Hierarchical Mesh', hint: 'V3 15-agent queen + peer communication (recommended)' }
+  { value: 'hierarchical-mesh', label: 'Hierarchical Mesh', hint: 'V3 15-agent queen + peer communication (recommended)' },
+  { value: 'pheromone-adaptive', label: 'Pheromone Adaptive', hint: 'Role-aware dynamic eligibility with quorum safety (ADR-330)' }
 ];
 
 // Swarm strategies
@@ -284,12 +338,36 @@ const initCommand: Command = {
       description: 'Enable V3 15-agent hierarchical mesh mode',
       type: 'boolean',
       default: false
-    }
+    },
+    {
+      name: 'apsc-live',
+      description: 'Apply APSC suspension decisions (default is calibration-only dry run)',
+      type: 'boolean',
+      default: false
+    },
+    { name: 'apsc-alpha', description: 'Task-success score weight', type: 'number', default: 0.5 },
+    { name: 'apsc-beta', description: 'Latency score weight', type: 'number', default: 0.2 },
+    { name: 'apsc-gamma', description: 'Consensus-alignment score weight', type: 'number', default: 0.3 },
+    { name: 'apsc-pruning-factor', description: 'Fraction of adaptive threshold below which agents are eligible for suspension', type: 'number', default: 0.6 },
+    { name: 'apsc-reactivation-threshold', description: 'Fraction of adaptive threshold required for recovery', type: 'number', default: 0.75 },
+    { name: 'apsc-min-active-agents', description: 'Hard quorum floor', type: 'number', default: 3 },
+    { name: 'apsc-min-samples', description: 'Warm-up observations before pruning', type: 'number', default: 3 },
+    {
+      // #2768 — dream-cycle SubagentPermissionDelegate. Ships a per-role
+      // capability manifest to `.swarm/permissions.jsonl` + an append-only
+      // audit trail. Task-tool prompts can consult the manifest; ruflo
+      // does NOT enforce at the syscall boundary (Claude Code owns that).
+      name: 'with-permissions',
+      description: 'Ship workspace-scoped permission manifest (preset: strict|standard|permissive) — dream-cycle #2768',
+      type: 'string',
+      choices: ['strict', 'standard', 'permissive'],
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let topology = ctx.flags.topology as string;
     const maxAgents = ctx.flags.maxAgents as number || 15;
     const v3Mode = ctx.flags.v3Mode as boolean;
+    const withPermissions = ctx.flags.withPermissions as string | undefined;
 
     // V3 mode enables hierarchical-mesh hybrid
     if (v3Mode) {
@@ -323,7 +401,7 @@ const initCommand: Command = {
           autoScaling?: boolean;
         };
       }>('swarm_init', {
-        topology: topology as 'hierarchical' | 'mesh' | 'adaptive' | 'collective' | 'hierarchical-mesh',
+        topology: topology as 'hierarchical' | 'mesh' | 'adaptive' | 'collective' | 'hierarchical-mesh' | 'pheromone-adaptive',
         maxAgents,
         config: {
           communicationProtocol: 'message-bus',
@@ -331,6 +409,18 @@ const initCommand: Command = {
           failureHandling: 'retry',
           loadBalancing: true,
           autoScaling: ctx.flags.autoScale ?? true,
+          ...(topology === 'pheromone-adaptive' ? {
+            apsc: {
+              alpha: Number(ctx.flags.apscAlpha ?? 0.5),
+              beta: Number(ctx.flags.apscBeta ?? 0.2),
+              gamma: Number(ctx.flags.apscGamma ?? 0.3),
+              pruningFactor: Number(ctx.flags.apscPruningFactor ?? 0.6),
+              reactivationThreshold: Number(ctx.flags.apscReactivationThreshold ?? 0.75),
+              minActiveAgents: Number(ctx.flags.apscMinActiveAgents ?? 3),
+              minSamples: Number(ctx.flags.apscMinSamples ?? 3),
+              dryRun: ctx.flags.apscLive !== true,
+            },
+          } : {}),
         },
         metadata: {
           v3Mode,
@@ -361,7 +451,10 @@ const initCommand: Command = {
           { property: 'Max Agents', value: result.config.maxAgents },
           { property: 'Auto Scale', value: result.config.autoScaling ? 'Enabled' : 'Disabled' },
           { property: 'Protocol', value: result.config.communicationProtocol || 'N/A' },
-          { property: 'V3 Mode', value: v3Mode ? 'Enabled' : 'Disabled' }
+          { property: 'V3 Mode', value: v3Mode ? 'Enabled' : 'Disabled' },
+          ...(topology === 'pheromone-adaptive'
+            ? [{ property: 'APSC Mode', value: ctx.flags.apscLive === true ? 'Live' : 'Dry run' }]
+            : [])
         ]
       });
 
@@ -381,11 +474,41 @@ const initCommand: Command = {
           maxAgents: result.config.maxAgents,
           strategy: ctx.flags.strategy || 'development',
           v3Mode,
+          permissions: withPermissions ?? null,
           initializedAt: result.initializedAt,
           status: 'ready'
         }, null, 2));
       } catch {
         // Ignore errors writing state file
+      }
+
+      // #2768 — write the permission manifest + seed the audit trail.
+      // Optional: only fires when --with-permissions was passed. Missing
+      // module or failed I/O is non-critical; we log a dim warning and
+      // continue so a broken permission layer never blocks swarm init.
+      if (withPermissions) {
+        try {
+          const [{ resolvePreset }, { writeGrants, appendAuditEvent }] = await Promise.all([
+            import('../permission/permission-set.js'),
+            import('../permission/permission-audit.js'),
+          ]);
+          const sets = resolvePreset(withPermissions);
+          writeGrants(sets, swarmDir);
+          for (const set of sets) {
+            appendAuditEvent({
+              agentId: 'swarm-init',
+              role: set.role,
+              event: 'granted',
+              capability: `preset:${withPermissions}`,
+              swarmId: result.swarmId,
+              reason: `Initial grant from swarm init --with-permissions ${withPermissions}`,
+            }, swarmDir);
+          }
+          output.writeln(output.dim(`  Wrote permission manifest (preset: ${withPermissions}, ${sets.length} roles) → .swarm/permissions.jsonl`));
+          output.writeln(output.dim(`  Audit trail seeded → .swarm/permission-audit.jsonl`));
+        } catch (err) {
+          output.writeln(output.dim(`  ⚠ permission manifest skipped: ${err instanceof Error ? err.message : String(err)}`));
+        }
       }
 
       if (ctx.flags.format === 'json') {
@@ -511,7 +634,11 @@ const startCommand: Command = {
     } catch (err) {
       spinner.fail('MCP swarm_init failed — swarm metadata saved locally only');
       output.writeln(output.dim(`  Error: ${err instanceof Error ? err.message : String(err)}`));
-      output.writeln(output.dim('  The MCP server may not be running. Start it with: claude mcp add claude-flow npx claude-flow@v3alpha mcp start'));
+      // #2370: the old hint referenced the deprecated `claude-flow@v3alpha`
+      // dist-tag which now resolves to a pre-rename package. Use the current
+      // `ruflo@latest` and force a fresh fetch with `-y` so npx doesn't pick
+      // a stale local install.
+      output.writeln(output.dim('  The MCP server may not be running. Start it with: claude mcp add claude-flow -- npx -y ruflo@latest mcp start'));
     }
 
     // Persist swarm state to disk so `swarm status` can read it
@@ -851,15 +978,108 @@ const coordinateCommand: Command = {
 };
 
 // Main swarm command
+// #2727 dream-cycle — inter-agent message compressor (IB+VQ-inspired
+// MVP). Advisory tool: takes a message + token budget, returns a
+// compressed variant that preserves must-see spans (code, URLs, paths)
+// and keeps the top-scored sentences by TF-IDF-ish keyword density.
+// v2 wires a real VQ codec once a training pipeline exists.
+const compressMessageCommand: Command = {
+  name: 'compress-message',
+  description: 'Compress an inter-agent message to a token budget (IB+VQ-inspired, dream-cycle #2727)',
+  options: [
+    { name: 'message', short: 'm', type: 'string', description: 'Message text (or use --message-file)' },
+    { name: 'message-file', type: 'string', description: 'Path to a file whose contents will be compressed' },
+    { name: 'budget-tokens', short: 'b', type: 'number', default: 200, description: 'Target token budget (approximate, ~4 chars per token)' },
+    { name: 'mode', type: 'string', choices: ['keyword', 'sentence', 'hybrid'], default: 'hybrid', description: 'Scoring mode' },
+  ],
+  examples: [
+    { command: 'claude-flow swarm compress-message -m "…" --budget-tokens 100', description: 'Compress inline message to 100 tokens' },
+    { command: 'claude-flow swarm compress-message --message-file ./msg.md -b 300 --format json', description: 'JSON for pipelines' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const inlineMsg = ctx.flags.message as string | undefined;
+    const msgFile = ctx.flags.messageFile as string | undefined;
+    const budgetTokens = (ctx.flags.budgetTokens as number) || 200;
+    const mode = (ctx.flags.mode as string) || 'hybrid';
+
+    let message = inlineMsg ?? '';
+    if (msgFile) {
+      try {
+        const fsMod = await import('node:fs');
+        const pathMod = await import('node:path');
+        message = fsMod.readFileSync(pathMod.resolve(msgFile), 'utf-8');
+      } catch (err) {
+        output.printError(`Failed to read ${msgFile}: ${err instanceof Error ? err.message : String(err)}`);
+        return { success: false, exitCode: 1 };
+      }
+    }
+
+    if (!message) {
+      output.printError('No message provided. Use --message "..." or --message-file <path>.');
+      return { success: false, exitCode: 1 };
+    }
+
+    const { compressMessage } = await import('../swarm/message-compressor.js');
+    const result = compressMessage(message, { budgetTokens, mode: mode as 'keyword' | 'sentence' | 'hybrid' });
+
+    if (ctx.flags.format === 'json') {
+      output.printJson(result);
+      return { success: true, data: result };
+    }
+
+    output.writeln();
+    output.printBox(
+      `Original: ${result.stats.originalTokens} tokens · Compressed: ${result.stats.compressedTokens} tokens\n` +
+      `Ratio: ${(result.stats.compressionRatio * 100).toFixed(1)}%\n` +
+      `Sentences kept: ${result.stats.sentencesKept}/${result.stats.sentencesTotal} · Preserved spans: ${result.stats.preservedSpans}\n` +
+      `Info retained (top-quartile): ${(result.stats.infoRetainedEstimate * 100).toFixed(1)}%`,
+      'Message Compressor (#2727 IB+VQ MVP)'
+    );
+    output.writeln();
+    output.writeln(output.bold('Compressed message'));
+    output.writeln(output.dim('─'.repeat(60)));
+    output.writeln(result.compressed);
+    output.writeln(output.dim('─'.repeat(60)));
+    return { success: true, data: result };
+  },
+};
+
+const pheromoneCommand: Command = {
+  name: 'pheromone',
+  description: 'Inspect or update ADR-330 pheromone-adaptive scheduling state',
+  options: [
+    { name: 'agent-id', description: 'Agent identifier; omit to show status', type: 'string' },
+    { name: 'role', description: 'Agent role for role-local normalization', type: 'string' },
+    { name: 'task-success', description: 'Task success in [0,1]', type: 'number' },
+    { name: 'normalized-latency', description: 'Latency divided by budget in [0,1]', type: 'number' },
+    { name: 'consensus-alignment', description: 'Consensus alignment in [0,1]', type: 'number' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const agentId = ctx.flags.agentId as string | undefined;
+    const data = agentId
+      ? await callMCPTool<Record<string, unknown>>('swarm_pheromone_update', {
+        agentId,
+        role: String(ctx.flags.role ?? 'worker'),
+        taskSuccess: Number(ctx.flags.taskSuccess ?? 1),
+        normalizedLatency: Number(ctx.flags.normalizedLatency ?? 0),
+        consensusAlignment: Number(ctx.flags.consensusAlignment ?? 1),
+      })
+      : await callMCPTool<Record<string, unknown>>('swarm_pheromone_status', {});
+    output.writeln(JSON.stringify(data, null, 2));
+    return { success: data.active !== false, data };
+  },
+};
+
 export const swarmCommand: Command = {
   name: 'swarm',
   description: 'Swarm coordination commands',
-  subcommands: [initCommand, startCommand, statusCommand, stopCommand, scaleCommand, coordinateCommand],
+  subcommands: [initCommand, startCommand, statusCommand, stopCommand, scaleCommand, coordinateCommand, compressMessageCommand, pheromoneCommand, swarmJoinCommand],
   options: [],
   examples: [
     { command: 'claude-flow swarm init --v3-mode', description: 'Initialize V3 swarm' },
     { command: 'claude-flow swarm start -o "Build API" -s development', description: 'Start development swarm' },
-    { command: 'claude-flow swarm coordinate --agents 15', description: 'V3 coordination' }
+    { command: 'claude-flow swarm coordinate --agents 15', description: 'V3 coordination' },
+    { command: 'claude-flow swarm pheromone', description: 'Inspect pheromone-adaptive scheduling state' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
@@ -874,7 +1094,8 @@ export const swarmCommand: Command = {
       `${output.highlight('status')}      - Show swarm status`,
       `${output.highlight('stop')}        - Stop swarm execution`,
       `${output.highlight('scale')}       - Scale swarm agent count`,
-      `${output.highlight('coordinate')}  - V3 15-agent coordination`
+      `${output.highlight('coordinate')}  - V3 15-agent coordination`,
+      `${output.highlight('pheromone')}   - Inspect/update adaptive pheromone state`
     ]);
 
     return { success: true };

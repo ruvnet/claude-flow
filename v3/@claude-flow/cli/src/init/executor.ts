@@ -26,8 +26,12 @@ import {
   generateHookHandler,
   generateIntelligenceStub,
   generateAutoMemoryHook,
+  generateRufloHookCjs,
 } from './helpers-generator.js';
+import { getInstalledCliVersion, HELPERS_STAMP_FILE } from './helper-refresh.js';
 import { generateClaudeMd } from './claudemd-generator.js';
+import { recordMemoryPackagePath } from './memory-package-resolver.js';
+import { scanSettingsForRisk, formatRiskFindingsAsWarnings } from './settings-risk-scanner.js';
 
 /**
  * Skills to copy based on configuration
@@ -81,6 +85,10 @@ const SKILLS_MAP: Record<string, string[]> = {
 
 /**
  * Commands to copy based on configuration
+ * ADR-128 Phase 4: every subdirectory under .claude/commands/ now has a
+ * corresponding key. The flow-nexus/ dir was deleted (belongs to the plugin).
+ * New substrate keys default true; opt-in keys (pair, training, stream-chain,
+ * truth, verify) default false per ADR-128 §Phase 3 opt-in rationale.
  */
 const COMMANDS_MAP: Record<string, string[]> = {
   core: ['claude-flow-help.md', 'claude-flow-swarm.md', 'claude-flow-memory.md'],
@@ -91,6 +99,19 @@ const COMMANDS_MAP: Record<string, string[]> = {
   monitoring: ['monitoring'],
   optimization: ['optimization'],
   sparc: ['sparc'],
+  // ADR-128 Phase 4 promotions (previously orphaned)
+  agents: ['agents'],
+  coordination: ['coordination'],
+  hiveMind: ['hive-mind'],
+  memory: ['memory'],
+  swarm: ['swarm'],
+  workflows: ['workflows'],
+  // Opt-in categories (non-universal; default false in CommandsConfig)
+  pair: ['pair'],
+  training: ['training'],
+  streamChain: ['stream-chain'],
+  truth: ['truth'],
+  verify: ['verify'],
 };
 
 /**
@@ -205,6 +226,53 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     // Generate helpers
     if (options.components.helpers) {
       await writeHelpers(targetDir, options, result);
+
+      // #2545: The auto-memory hook needs @claude-flow/memory, which is an
+      // optionalDependency of the CLI and lands in the npx cache — unreachable
+      // by a node_modules walk-up from the user's project. Resolve it from the
+      // CLI's own context now (where it IS present) and record the absolute
+      // path in a machine-local sidecar the hook reads first. Best-effort:
+      // when the optional dep is absent the hook fails loud and doctor flags it.
+      const memRecord = recordMemoryPackagePath(targetDir, 'init');
+      if (memRecord) {
+        result.created.files.push('.claude-flow/memory-package.json');
+      }
+
+      // #2568-followup: if this project already has a memory DB that predates
+      // the `vector_indexes` table (older CLI / agentdb-written), self-heal it
+      // so the statusline vector count + namespace routing work. Best-effort,
+      // dynamically imported so a WASM-only host without better-sqlite3 just
+      // skips it.
+      //
+      // Persistent memory ON BY DEFAULT: `runtime.memoryBackend` already
+      // defaults to 'hybrid' in DEFAULT_INIT_OPTIONS, but that only ever
+      // configured the DECLARED backend — the actual .swarm/memory.db file
+      // was never created until something eventually called `memory store`
+      // or the user ran `memory init --force` by hand (both the generated
+      // CLAUDE.md and the quickstart docs told users to do this as a
+      // separate step). A fresh project could sit for days looking
+      // "configured for AgentDB" while genuinely capturing nothing, with no
+      // signal that the config and the on-disk reality had diverged. Fresh
+      // projects now get the DB eagerly created here, matching what
+      // `memoryBackend` already promised; MINIMAL_INIT_OPTIONS
+      // (memoryBackend: 'memory') opts out, matching its non-persistent intent.
+      try {
+        const memDbPath = path.join(targetDir, '.swarm', 'memory.db');
+        if (fs.existsSync(memDbPath)) {
+          const { repairVectorIndexes } = await import('../memory/memory-initializer.js');
+          await repairVectorIndexes(memDbPath, { autoRecover: true });
+        } else if (options.runtime.memoryBackend !== 'memory') {
+          const { initializeMemoryDatabase } = await import('../memory/memory-initializer.js');
+          const initResult = await initializeMemoryDatabase({
+            backend: options.runtime.memoryBackend,
+            dbPath: memDbPath,
+            verbose: false,
+          });
+          if (initResult.success) {
+            result.created.files.push('.swarm/memory.db');
+          }
+        }
+      } catch { /* best-effort — never block init on memory setup */ }
     }
 
     // Generate statusline
@@ -253,6 +321,13 @@ export interface UpgradeResult {
   addedCommands?: string[];
   /** Added by --settings flag */
   settingsUpdated?: string[];
+  /**
+   * Advisory-only findings from settings-risk-scanner.ts: dangerous-looking
+   * hook commands or Bash allow-rules found in the *pre-existing*
+   * settings.json this upgrade carried forward unexamined. Never blocks
+   * the upgrade — surfaced so a user can review before trusting it.
+   */
+  warnings?: string[];
 }
 
 /**
@@ -260,7 +335,16 @@ export interface UpgradeResult {
  * Preserves user customizations while adding new features like Agent Teams
  * Uses platform-specific commands for Mac, Linux, and Windows
  */
-function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<string, unknown> {
+export function mergeSettingsForUpgrade(
+  existing: Record<string, unknown>
+): { merged: Record<string, unknown>; warnings: string[] } {
+  // Scan the pre-existing hooks/permissions BEFORE they get spread into
+  // `merged` below — this is the untrusted, disk-sourced content a
+  // malicious settings.json would use to smuggle a hook payload through.
+  const warnings = formatRiskFindingsAsWarnings(
+    scanSettingsForRisk({ hooks: existing.hooks, permissions: existing.permissions } as Record<string, unknown>)
+  );
+
   const merged = { ...existing };
   const platform = detectPlatform();
   const isWindows = platform.os === 'windows';
@@ -342,13 +426,81 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
 
   // 3. Fix statusLine config (remove invalid fields, ensure correct format)
   // Claude Code only supports: type, command, padding
+  //
+  // #2448 — Detect and REGENERATE the runaway `npx @claude-flow/cli@latest`
+  // statusline form. Pre-#2337 init wrote this to settings.json; it spawns
+  // a cold Node process + npm registry round-trip on every fire (statusline
+  // refires every few hundred ms), which on macOS produced load average 49
+  // / jetsam / kernel panic. Preserving the user's existing command (the
+  // old behavior here) means anyone who installed pre-#2337 and upgraded
+  // never gets the fix. Now we detect the broken form and overwrite.
+  const NEW_STATUSLINE_CMD =
+    `node -e "var c=require('child_process'),p=require('path'),r;try{r=c.execSync('git rev-parse --show-toplevel',{encoding:'utf8'}).trim()}catch(e){r=process.cwd()}var s=p.join(r,'.claude/helpers/statusline.cjs');process.argv.splice(1,0,s);require(s)"`;
+  // Matches any invocation of `claude-flow hooks statusline` — either via npx
+  // (`npx [--prefer-offline] [@]claude-flow[/cli][@<tag>] hooks statusline …`)
+  // or as a bare command (`claude-flow hooks statusline …`). Both forms cold-
+  // load the ONNX model on every fire (~1s); Claude Code times out and hides
+  // the status bar (#2450). The migration replaces the whole command with
+  // NEW_STATUSLINE_CMD which invokes the local helper directly via `node -e`.
+  // Flag-list repetition bounded at 10 (real invocations never carry more) —
+  // an unbounded `*` here is exponential-backtracking-prone (CodeQL
+  // js/redos): a crafted settings.json command string with dozens of
+  // dash-token repetitions can hang this check for minutes.
+  const BROKEN_STATUSLINE_RE = /(?:npx\s+(?:--?\S+\s+){0,10})?@?claude-flow(?:\/cli)?(?:@\S+)?\s+hooks\s+statusline/;
+  const BROKEN_NPX_LATEST_RE = /npx\s+(?:--?\S+\s+){0,10}@?claude-flow\/cli@latest\s+\S+/;
   const existingStatusLine = existing.statusLine as Record<string, unknown> | undefined;
   if (existingStatusLine) {
+    const existingCmd = typeof existingStatusLine.command === 'string' ? existingStatusLine.command : '';
+    const isBroken = BROKEN_STATUSLINE_RE.test(existingCmd) || BROKEN_NPX_LATEST_RE.test(existingCmd);
     merged.statusLine = {
       type: 'command',
-      command: existingStatusLine.command || `node -e "var c=require('child_process'),p=require('path'),r;try{r=c.execSync('git rev-parse --show-toplevel',{encoding:'utf8'}).trim()}catch(e){r=process.cwd()}var s=p.join(r,'.claude/helpers/statusline.cjs');process.argv.splice(1,0,s);require(s)"`,
+      command: isBroken || !existingCmd ? NEW_STATUSLINE_CMD : existingCmd,
       // Remove invalid fields: refreshMs, enabled (not supported by Claude Code)
     };
+  }
+
+  // #2448 / #2677 — Detect and REGENERATE per-action hook commands that still
+  // use the runaway `npx @claude-flow/cli@latest hooks <sub>` form. These fire
+  // on every PreToolUse/PostToolUse/UserPromptSubmit, each spawning ~130 MB
+  // of cold Node + npm registry resolution; the storm is what kernel-paniced
+  // the reporter's machine in #2448.
+  //
+  // We walk each hook event's `hooks[]` and swap any command matching the
+  // broken pattern for the local-helper form. Idempotent: re-running this
+  // migration on already-correct settings is a no-op.
+  // Bounded for the same reason as BROKEN_STATUSLINE_RE above (CodeQL js/redos).
+  const BROKEN_HOOK_RE = /npx\s+(?:--?\S+\s+){0,10}@?claude-flow\/cli@latest\s+hooks\s+(\S+)/;
+  const localHookCmd = (sub: string): string => {
+    // POSIX form mirrors settings-generator.ts::hookCmd() exactly.
+    // Windows users hit a separate code path (cmd /c …) — Claude Code on
+    // Windows is rarer and the migration there is left to a follow-up.
+    if (process.platform === 'win32') {
+      return `cmd /c "IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" ${sub}) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" ${sub})"`;
+    }
+    return `sh -c 'D="\${CLAUDE_PROJECT_DIR:-.}"; [ -f "$D/.claude/helpers/hook-handler.cjs" ] || D="\${HOME}"; exec node "$D/.claude/helpers/hook-handler.cjs" ${sub}'`;
+  };
+  const mergedHooks = merged.hooks as Record<string, unknown> | undefined;
+  if (mergedHooks) {
+    for (const eventName of Object.keys(mergedHooks)) {
+      const groups = mergedHooks[eventName] as Array<{ hooks?: Array<{ type?: string; command?: string; timeout?: number }> }> | undefined;
+      if (!Array.isArray(groups)) continue;
+      for (const group of groups) {
+        if (!Array.isArray(group.hooks)) continue;
+        group.hooks = group.hooks.filter((h) => {
+          if (typeof h?.command !== 'string') return true;
+          const m = BROKEN_HOOK_RE.exec(h.command);
+          if (m) {
+            // Subcommand captured (e.g. "pre-bash", "post-edit", "route") — keep it.
+            h.command = localHookCmd(m[1]);
+            return true;
+          }
+          // Sibling CLI invocations (memory/daemon/swarm/...) have no
+          // hook-handler equivalent. Drop the stale extra; the merge above
+          // has already installed current local-helper hooks for this event.
+          return !BROKEN_NPX_LATEST_RE.test(h.command);
+        });
+      }
+    }
   }
 
   // 4. Merge claudeFlow settings (preserve existing, add agentTeams + memory)
@@ -364,13 +516,15 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
       taskListEnabled: true,
       mailboxEnabled: true,
       coordination: {
-        autoAssignOnIdle: true,
+        // #3031: an upgrade must remove the unsafe generated default. Idle
+        // status is not proof that a task is unowned or inside agent scope.
+        autoAssignOnIdle: false,
         trainPatternsOnComplete: true,
         notifyLeadOnComplete: true,
         sharedMemoryNamespace: 'agent-teams',
       },
       hooks: {
-        teammateIdle: { enabled: true, autoAssign: true, checkTaskList: true },
+        teammateIdle: { enabled: true, autoAssign: false, checkTaskList: true },
         taskCompleted: { enabled: true, trainPatterns: true, notifyLead: true },
       },
     },
@@ -382,7 +536,7 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
     },
   };
 
-  return merged;
+  return { merged, warnings };
 }
 
 /**
@@ -420,7 +574,8 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
     // 0. ALWAYS update critical helpers (force overwrite)
     const sourceHelpersForUpgrade = findSourceHelpersDir();
     if (sourceHelpersForUpgrade) {
-      const criticalHelpers = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs'];
+      // Keep in sync with helper-refresh.ts:CRITICAL_HELPERS.
+      const criticalHelpers = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs'];
       for (const helperName of criticalHelpers) {
         const targetPath = path.join(targetDir, '.claude', 'helpers', helperName);
         const sourcePath = path.join(sourceHelpersForUpgrade, helperName);
@@ -451,6 +606,22 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
         fs.writeFileSync(targetPath, content, 'utf-8');
         try { fs.chmodSync(targetPath, '755'); } catch {}
       }
+    }
+
+    // Stamp the installed version so the startup auto-refresh treats these as
+    // current (no redundant re-copy on the next command).
+    try {
+      fs.writeFileSync(
+        path.join(targetDir, '.claude', 'helpers', HELPERS_STAMP_FILE),
+        getInstalledCliVersion(), 'utf-8',
+      );
+    } catch { /* non-fatal */ }
+
+    // #2545: (re)record the resolved @claude-flow/memory path so the auto-memory
+    // hook can find it on the npx install path. Best-effort — see executeInit.
+    const memRecord = recordMemoryPackagePath(targetDir, 'upgrade');
+    if (memRecord) {
+      result.updated.push('.claude-flow/memory-package.json');
     }
 
     // 1. ALWAYS update statusline helper (force overwrite)
@@ -535,7 +706,7 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
         initialized: new Date().toISOString(),
         status: 'PENDING',
         cvesFixed: 0,
-        totalCves: 3,
+        totalCves: 0,
         lastScan: null,
         _note: 'Run: npx @claude-flow/cli@latest security scan'
       };
@@ -551,7 +722,7 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
       if (fs.existsSync(settingsPath)) {
         try {
           const existingSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-          const mergedSettings = mergeSettingsForUpgrade(existingSettings);
+          const { merged: mergedSettings, warnings: settingsRiskWarnings } = mergeSettingsForUpgrade(existingSettings);
           fs.writeFileSync(settingsPath, JSON.stringify(mergedSettings, null, 2), 'utf-8');
           result.updated.push('.claude/settings.json');
           result.settingsUpdated = [
@@ -563,6 +734,9 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
             'claudeFlow.agentTeams',
             'claudeFlow.memory (learningBridge, memoryGraph, agentScopes)',
           ];
+          if (settingsRiskWarnings.length > 0) {
+            result.warnings = [...(result.warnings ?? []), ...settingsRiskWarnings];
+          }
         } catch (settingsError) {
           result.errors.push(`Settings merge failed: ${settingsError instanceof Error ? settingsError.message : String(settingsError)}`);
         }
@@ -730,6 +904,17 @@ async function writeSettings(
     // Merge hooks/env/permissions into existing settings instead of skipping
     try {
       const existing = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+
+      // Scan the pre-existing hooks/permissions BEFORE any merge decision
+      // below — same untrusted, disk-sourced content mergeSettingsForUpgrade()
+      // scans; see settings-risk-scanner.ts for why.
+      const riskWarnings = formatRiskFindingsAsWarnings(
+        scanSettingsForRisk({ hooks: existing.hooks, permissions: existing.permissions } as Record<string, unknown>)
+      );
+      if (riskWarnings.length > 0) {
+        result.warnings = [...(result.warnings ?? []), ...riskWarnings];
+      }
+
       let merged = false;
 
       // Merge hooks (the critical missing piece — #1484)
@@ -784,7 +969,7 @@ async function writeSettings(
  * "same MCP server twice under two different prefixes" duplication the
  * issue describes.
  *
- * Returns the path of the file that already declares `ruflo` (so we can
+ * Returns the path of the file that already declares `ruflo`/`claude-flow` (so we can
  * surface it in the skipped-message), or null if none found.
  */
 function detectExistingRufloMCP(targetDir: string): string | null {
@@ -814,21 +999,42 @@ function detectExistingRufloMCP(targetDir: string): string | null {
     try {
       const parsed = JSON.parse(fs.readFileSync(candidate, 'utf-8'));
       if (!parsed || typeof parsed !== 'object') continue;
-      // (a) Top-level mcpServers (legacy / global form)
+      // (a) Top-level mcpServers (legacy / global form).
+      // Accept BOTH names so init does not add a second server for the same
+      // binary when a project carries a pre-rename `claude-flow` registration
+      // and the current generator would write `ruflo` (#2612).
       if (parsed.mcpServers && typeof parsed.mcpServers === 'object') {
-        if ('ruflo' in parsed.mcpServers) return candidate;
+        const servers = parsed.mcpServers as Record<string, unknown>;
+        // #2369: also recognise the legacy dist-tag keys generated by
+        // pre-rename installs (claude-flow ≤ 2.x). Without these the
+        // detection walks parent dirs, doesn't match, and writes a NEW
+        // claude-flow-keyed config — both servers then run under
+        // different prefixes producing duplicate-tool noise.
+        if (
+          'claude-flow' in servers ||
+          'ruflo' in servers ||
+          'claude-flow@alpha' in servers ||
+          'claude-flow@v3alpha' in servers
+        ) return candidate;
       }
       // (b) #1840: Claude Code project-scoped registrations under
-      //     parsed.projects[<projectPath>].mcpServers.ruflo. Match by
-      //     normalized path against targetDir or any of its ancestors so
-      //     a `claude mcp add ruflo` in this repo is detected even when
-      //     Claude stored the key with different casing/slash style.
+      //     parsed.projects[<projectPath>].mcpServers. Match by
+      //     normalized path against targetDir or any of its ancestors so an
+      //     existing `claude-flow` or `ruflo` registration in this repo is
+      //     detected even when Claude stored the key with different casing/slash style.
       if (parsed.projects && typeof parsed.projects === 'object') {
         for (const [projectKey, projectVal] of Object.entries(parsed.projects)) {
           if (!projectVal || typeof projectVal !== 'object') continue;
           const projectMcp = (projectVal as { mcpServers?: unknown }).mcpServers;
           if (!projectMcp || typeof projectMcp !== 'object') continue;
-          if (!('ruflo' in (projectMcp as Record<string, unknown>))) continue;
+          const mcp = projectMcp as Record<string, unknown>;
+          // #2369: legacy dist-tag keys also count as already-registered.
+          if (
+            !('claude-flow' in mcp) &&
+            !('ruflo' in mcp) &&
+            !('claude-flow@alpha' in mcp) &&
+            !('claude-flow@v3alpha' in mcp)
+          ) continue;
           if (targetAncestors.has(normalizeProjectKey(projectKey))) {
             return `${candidate} (projects[${projectKey}])`;
           }
@@ -860,20 +1066,45 @@ async function writeMCPConfig(
   const mcpPath = path.join(targetDir, '.mcp.json');
 
   if (fs.existsSync(mcpPath) && !options.force) {
+    // #2369: an existing .mcp.json from a pre-rename install is the most
+    // common cause of "autopilot tools missing after init" reports. Parse
+    // the existing file and surface a loud, specific message naming the
+    // stale key so users know to either delete the file or re-run with
+    // --force. Without this they get a silent skip and no warning.
+    try {
+      const parsed = JSON.parse(fs.readFileSync(mcpPath, 'utf-8')) as { mcpServers?: Record<string, unknown> };
+      const servers = parsed?.mcpServers;
+      if (servers && typeof servers === 'object') {
+        const staleKeys = ['claude-flow@alpha', 'claude-flow@v3alpha'].filter(k => k in servers);
+        if (staleKeys.length > 0) {
+          result.skipped.push(
+            `.mcp.json (existing file uses deprecated key '${staleKeys[0]}' — autopilot/browser/wasm-agent tools will be missing; ` +
+            `delete .mcp.json and re-run, or re-run with --force to overwrite)`
+          );
+          return;
+        }
+      }
+    } catch {
+      // Existing file isn't valid JSON — fall through to the generic skip.
+    }
     result.skipped.push('.mcp.json');
     return;
   }
 
-  // #1779 — Skip writing if the user already has a `ruflo`-keyed MCP
-  // server registered elsewhere (parent .mcp.json, ~/.claude.json, etc).
-  // Writing our `claude-flow`-keyed entry on top of that produces the
-  // duplicate-registration the issue describes (~250 duplicate tools).
-  // Force-mode (`--force`) bypasses this guard for users who actually
-  // want both registrations.
+  // #1779/#2612 — Skip writing if the user already has this MCP server
+  // registered elsewhere (parent .mcp.json, ~/.claude.json, etc). The
+  // canonical key is `claude-flow` (per #2206 — matches mcp__claude-flow__*
+  // tool refs used throughout the CLI-track scaffold; NOT the marketplace
+  // plugin binding, which is mcp__plugin_<plugin>_<server>__* per plugin —
+  // see #2985); a stray `ruflo`-keyed entry pointing at the same
+  // binary is the legacy-duplicate form that #2612 healed. Writing our
+  // fresh `claude-flow` entry on top of either variant starts the same
+  // binary twice under two tool namespaces. Force-mode (`--force`)
+  // bypasses this guard for users who actually want both registrations.
   if (!options.force) {
     const existingRufloPath = detectExistingRufloMCP(targetDir);
     if (existingRufloPath) {
-      result.skipped.push(`.mcp.json (existing 'ruflo' MCP registration found at ${existingRufloPath} — would create duplicate; pass --force to write anyway)`);
+      result.skipped.push(`.mcp.json (existing ruflo/claude-flow MCP registration found at ${existingRufloPath} — would create duplicate; pass --force to write anyway)`);
       return;
     }
   }
@@ -959,6 +1190,19 @@ async function copyCommands(
     if (commandsConfig.monitoring) commandsToCopy.push(...COMMANDS_MAP.monitoring);
     if (commandsConfig.optimization) commandsToCopy.push(...COMMANDS_MAP.optimization);
     if (commandsConfig.sparc) commandsToCopy.push(...COMMANDS_MAP.sparc);
+    // ADR-128 Phase 4 substrate promotions
+    if (commandsConfig.agents) commandsToCopy.push(...(COMMANDS_MAP.agents || []));
+    if (commandsConfig.coordination) commandsToCopy.push(...(COMMANDS_MAP.coordination || []));
+    if (commandsConfig.hiveMind) commandsToCopy.push(...(COMMANDS_MAP.hiveMind || []));
+    if (commandsConfig.memory) commandsToCopy.push(...(COMMANDS_MAP.memory || []));
+    if (commandsConfig.swarm) commandsToCopy.push(...(COMMANDS_MAP.swarm || []));
+    if (commandsConfig.workflows) commandsToCopy.push(...(COMMANDS_MAP.workflows || []));
+    // ADR-128 Phase 4 opt-in categories
+    if (commandsConfig.pair) commandsToCopy.push(...(COMMANDS_MAP.pair || []));
+    if (commandsConfig.training) commandsToCopy.push(...(COMMANDS_MAP.training || []));
+    if (commandsConfig.streamChain) commandsToCopy.push(...(COMMANDS_MAP.streamChain || []));
+    if (commandsConfig.truth) commandsToCopy.push(...(COMMANDS_MAP.truth || []));
+    if (commandsConfig.verify) commandsToCopy.push(...(COMMANDS_MAP.verify || []));
   }
 
   // Find source commands directory
@@ -1117,6 +1361,12 @@ async function writeHelpers(
   // Find source helpers directory (works for npm package and local dev)
   const sourceHelpersDir = findSourceHelpersDir(options.sourceBaseDir);
 
+  // On Windows: emit a notice before writing helpers — the settings.json
+  // hooks will use node-based commands instead of bash shims (#2132).
+  if (process.platform === 'win32') {
+    console.log('Detected Windows — adding cross-platform hook overrides to .claude/settings.json (#2132)');
+  }
+
   // Try to copy existing helpers from source first
   if (sourceHelpersDir && fs.existsSync(sourceHelpersDir)) {
     const helperFiles = fs.readdirSync(sourceHelpersDir);
@@ -1144,6 +1394,18 @@ async function writeHelpers(
       }
     }
 
+    // #2132: Always generate ruflo-hook.cjs regardless of source copy path.
+    // The source helpers dir may not contain this file (it lives in
+    // plugins/ruflo-core/scripts/, not .claude/helpers/), but it must
+    // always be present so Windows users can use the node-based shim.
+    const rufloHookDest = path.join(helpersDir, 'ruflo-hook.cjs');
+    if (!fs.existsSync(rufloHookDest) || options.force) {
+      fs.writeFileSync(rufloHookDest, generateRufloHookCjs(), 'utf-8');
+      result.created.files.push('.claude/helpers/ruflo-hook.cjs');
+    } else {
+      result.skipped.push('.claude/helpers/ruflo-hook.cjs');
+    }
+
     if (copiedCount > 0) {
       return; // Skip generating if we copied from source
     }
@@ -1159,6 +1421,10 @@ async function writeHelpers(
     'hook-handler.cjs': generateHookHandler(),
     'intelligence.cjs': generateIntelligenceStub(),
     'auto-memory-hook.mjs': generateAutoMemoryHook(),
+    // #2132: cross-platform Node.js port of ruflo-hook.sh — always deployed so
+    // Windows users have a working shim even if the plugin's hooks.json bash
+    // commands are overridden via settings.json.
+    'ruflo-hook.cjs': generateRufloHookCjs(),
   };
 
   for (const [name, content] of Object.entries(helpers)) {
@@ -1277,6 +1543,8 @@ async function writeRuntimeConfig(
   options: InitOptions,
   result: InitResult
 ): Promise<void> {
+  updateRootGitignore(targetDir, result);
+
   const configPath = path.join(targetDir, '.claude-flow', 'config.yaml');
 
   if (fs.existsSync(configPath) && !options.force) {
@@ -1350,6 +1618,35 @@ neural/
 
   // Write CAPABILITIES.md with full system overview
   await writeCapabilitiesDoc(targetDir, options, result);
+}
+
+/**
+ * Protect project-local secrets and runtime state for Claude-only installs.
+ * Append missing entries without replacing the project's existing rules.
+ */
+function updateRootGitignore(targetDir: string, result: InitResult): void {
+  const gitignorePath = path.join(targetDir, '.gitignore');
+  const entries = [
+    '# Ruflo local secrets and runtime data',
+    '.env',
+    '.env.local',
+    '.env.*.local',
+    '.claude-flow/data/',
+    '.claude-flow/logs/',
+    '.claude-flow/sessions/',
+  ];
+  const existing = fs.existsSync(gitignorePath)
+    ? fs.readFileSync(gitignorePath, 'utf8')
+    : '';
+  const existingLines = new Set(existing.split(/\r?\n/));
+  const missing = entries.filter((entry) => !existingLines.has(entry));
+  if (missing.length === 0) return;
+
+  const separator = existing.length === 0
+    ? ''
+    : existing.endsWith('\n') ? '\n' : '\n\n';
+  fs.writeFileSync(gitignorePath, `${existing}${separator}${missing.join('\n')}\n`, 'utf8');
+  result.created.files.push('.gitignore (updated)');
 }
 
 /**
@@ -1461,7 +1758,7 @@ async function writeInitialMetrics(
       initialized: new Date().toISOString(),
       status: 'PENDING',
       cvesFixed: 0,
-      totalCves: 3,
+      totalCves: 0,
       lastScan: null,
       _note: 'Run: npx @claude-flow/cli@latest security scan'
     };
@@ -1837,7 +2134,7 @@ npx @claude-flow/cli@latest hive-mind consensus --propose "task"
 ### MCP Server Setup
 \`\`\`bash
 # Add Ruflo MCP
-claude mcp add ruflo -- npx -y ruflo@latest
+claude mcp add ruflo -- npx -y ruflo@latest mcp start
 
 # Optional servers
 claude mcp add ruv-swarm -- npx -y ruv-swarm mcp start
@@ -1907,6 +2204,18 @@ async function writeClaudeMd(
   if (fs.existsSync(claudeMdPath) && !options.force) {
     result.skipped.push('CLAUDE.md');
   } else {
+    // #2208: if overwriting an existing CLAUDE.md (force mode), back it up first so
+    // users don't silently lose curated project context.
+    if (fs.existsSync(claudeMdPath)) {
+      const backupBase = `${claudeMdPath}.pre-ruflo`;
+      // Don't clobber an existing backup — append a timestamp if one already exists.
+      const backupPath = fs.existsSync(backupBase)
+        ? `${backupBase}.${Date.now()}`
+        : backupBase;
+      fs.copyFileSync(claudeMdPath, backupPath);
+      result.created.files.push(path.basename(backupPath));
+      console.warn(`[ruflo init] Existing CLAUDE.md backed up to ${path.basename(backupPath)} before overwrite`);
+    }
     // Determine template: explicit option > infer from components > 'standard'
     const inferredTemplate = (!options.components.commands && !options.components.agents) ? 'minimal' : undefined;
     const content = generateClaudeMd(options, inferredTemplate);

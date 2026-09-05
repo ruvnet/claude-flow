@@ -1,0 +1,1188 @@
+{
+  "meta": {
+    "ts": "2026-06-15T23:06:00.228Z",
+    "candidates": [
+      {
+        "id": "inclusionai/ling-2.6-flash",
+        "in_per_m": 0.01,
+        "out_per_m": 0.03,
+        "tier": "haiku"
+      },
+      {
+        "id": "google/gemini-2.5-flash-lite",
+        "in_per_m": 0.1,
+        "out_per_m": 0.4,
+        "tier": "haiku"
+      },
+      {
+        "id": "anthropic/claude-haiku-4.5",
+        "in_per_m": 1,
+        "out_per_m": 5,
+        "tier": "haiku"
+      },
+      {
+        "id": "openai/gpt-4.1",
+        "in_per_m": 2,
+        "out_per_m": 8,
+        "tier": "sonnet"
+      },
+      {
+        "id": "meta-llama/llama-3.3-70b-instruct",
+        "in_per_m": 0.13,
+        "out_per_m": 0.4,
+        "tier": "sonnet"
+      },
+      {
+        "id": "anthropic/claude-sonnet-4-6",
+        "in_per_m": 3,
+        "out_per_m": 15,
+        "tier": "sonnet"
+      },
+      {
+        "id": "anthropic/claude-opus-4",
+        "in_per_m": 15,
+        "out_per_m": 75,
+        "tier": "opus"
+      }
+    ],
+    "judge": "openai/gpt-4.1",
+    "corpusSize": 12,
+    "args": {
+      "live": true,
+      "models": null,
+      "judge": "openai/gpt-4.1",
+      "maxCost": 5,
+      "maxRows": 12,
+      "maxTokens": 512,
+      "save": true,
+      "writeRows": false
+    }
+  },
+  "perCandidate": [
+    {
+      "id": "inclusionai/ling-2.6-flash",
+      "tier": "haiku",
+      "cheap_avg_score": 0.875,
+      "mid_avg_score": null,
+      "strong_avg_score": null,
+      "overall_avg_score": 0.875,
+      "latency_mean_ms": 687.7944756666676,
+      "usd_cost_total": 0.000012870000000000002,
+      "cost_per_m_tok_in": 0.01,
+      "cost_per_m_tok_out": 0.03,
+      "errors": 0
+    },
+    {
+      "id": "openai/gpt-4.1",
+      "tier": "sonnet",
+      "cheap_avg_score": 0.8229166666666666,
+      "mid_avg_score": null,
+      "strong_avg_score": null,
+      "overall_avg_score": 0.8229166666666666,
+      "latency_mean_ms": 535.0697188333335,
+      "usd_cost_total": 0.002654,
+      "cost_per_m_tok_in": 2,
+      "cost_per_m_tok_out": 8,
+      "errors": 0
+    },
+    {
+      "id": "google/gemini-2.5-flash-lite",
+      "tier": "haiku",
+      "cheap_avg_score": 0.8125,
+      "mid_avg_score": null,
+      "strong_avg_score": null,
+      "overall_avg_score": 0.8125,
+      "latency_mean_ms": 458.22958333333355,
+      "usd_cost_total": 0.00014680000000000002,
+      "cost_per_m_tok_in": 0.1,
+      "cost_per_m_tok_out": 0.4,
+      "errors": 0
+    },
+    {
+      "id": "anthropic/claude-opus-4",
+      "tier": "opus",
+      "cheap_avg_score": 0.8125,
+      "mid_avg_score": null,
+      "strong_avg_score": null,
+      "overall_avg_score": 0.8125,
+      "latency_mean_ms": 1626.0364098333337,
+      "usd_cost_total": 0.028005,
+      "cost_per_m_tok_in": 15,
+      "cost_per_m_tok_out": 75,
+      "errors": 0
+    },
+    {
+      "id": "anthropic/claude-sonnet-4-6",
+      "tier": "sonnet",
+      "cheap_avg_score": 0.78125,
+      "mid_avg_score": null,
+      "strong_avg_score": null,
+      "overall_avg_score": 0.78125,
+      "latency_mean_ms": 1591.339170166667,
+      "usd_cost_total": 0.005856,
+      "cost_per_m_tok_in": 3,
+      "cost_per_m_tok_out": 15,
+      "errors": 0
+    },
+    {
+      "id": "anthropic/claude-haiku-4.5",
+      "tier": "haiku",
+      "cheap_avg_score": 0.7708333333333334,
+      "mid_avg_score": null,
+      "strong_avg_score": null,
+      "overall_avg_score": 0.7708333333333334,
+      "latency_mean_ms": 1048.937451666666,
+      "usd_cost_total": 0.001987,
+      "cost_per_m_tok_in": 1,
+      "cost_per_m_tok_out": 5,
+      "errors": 0
+    },
+    {
+      "id": "meta-llama/llama-3.3-70b-instruct",
+      "tier": "sonnet",
+      "cheap_avg_score": 0.7708333333333334,
+      "mid_avg_score": null,
+      "strong_avg_score": null,
+      "overall_avg_score": 0.7708333333333334,
+      "latency_mean_ms": 360.60521525000013,
+      "usd_cost_total": 0.00015811,
+      "cost_per_m_tok_in": 0.13,
+      "cost_per_m_tok_out": 0.4,
+      "errors": 0
+    }
+  ],
+  "rows": [
+    {
+      "idx": 0,
+      "tier": "cheap",
+      "task": "Rename `count` to `total` in this code. Return ONLY the corrected JavaScript, no prose:\n\nlet count = 0;\nfor (const x of items) { count += x; }\nreturn count;",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.75,
+        "google/gemini-2.5-flash-lite": 0.75,
+        "anthropic/claude-haiku-4.5": 0.75,
+        "openai/gpt-4.1": 1,
+        "meta-llama/llama-3.3-70b-instruct": 0.75,
+        "anthropic/claude-sonnet-4-6": 0.75,
+        "anthropic/claude-opus-4": 0.75
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.75,
+          "usdCost": 0.0000015499999999999998,
+          "judgeUsdCost": 0.001374,
+          "latencyMs": 843.8328750000001,
+          "comment": "Code is correct but markdown was included.",
+          "promptTokens": 65,
+          "completionTokens": 30
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.75,
+          "usdCost": 0.000016200000000000004,
+          "judgeUsdCost": 0.001374,
+          "latencyMs": 563.282625,
+          "comment": "Code is correct but includes markdown formatting.",
+          "promptTokens": 46,
+          "completionTokens": 29
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.75,
+          "usdCost": 0.000216,
+          "judgeUsdCost": 0.001374,
+          "latencyMs": 1135.18,
+          "comment": "Code is correct but markdown was included.",
+          "promptTokens": 56,
+          "completionTokens": 32
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 1,
+          "usdCost": 0.000286,
+          "judgeUsdCost": 0.001404,
+          "latencyMs": 506.35241599999995,
+          "comment": "All criteria fully met; code is correct and concise.",
+          "promptTokens": 51,
+          "completionTokens": 23
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.75,
+          "usdCost": 0.000020940000000000003,
+          "judgeUsdCost": 0.001374,
+          "latencyMs": 485.498291,
+          "comment": "Code is correct but markdown was included.",
+          "promptTokens": 78,
+          "completionTokens": 27
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.75,
+          "usdCost": 0.000648,
+          "judgeUsdCost": 0.001374,
+          "latencyMs": 6123.015541999999,
+          "comment": "Code is correct but includes markdown formatting.",
+          "promptTokens": 56,
+          "completionTokens": 32
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.75,
+          "usdCost": 0.00324,
+          "judgeUsdCost": 0.001374,
+          "latencyMs": 1823.540417,
+          "comment": "Code is correct but markdown was included.",
+          "promptTokens": 56,
+          "completionTokens": 32
+        }
+      ]
+    },
+    {
+      "idx": 1,
+      "tier": "cheap",
+      "task": "Add a console.log(\"debug:\", value) on the line before the return. Return ONLY the JavaScript:\n\nfunction f(value) {\n  return value * 2;\n}",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 0.75,
+        "anthropic/claude-haiku-4.5": 0.75,
+        "openai/gpt-4.1": 0.75,
+        "meta-llama/llama-3.3-70b-instruct": 0.75,
+        "anthropic/claude-sonnet-4-6": 0.75,
+        "anthropic/claude-opus-4": 0.75
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 0.00000131,
+          "judgeUsdCost": 0.001419,
+          "latencyMs": 751.9616669999996,
+          "comment": "All criteria fully met; correct code, no prose, behavior preserved.",
+          "promptTokens": 56,
+          "completionTokens": 25
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.75,
+          "usdCost": 0.0000163,
+          "judgeUsdCost": 0.001299,
+          "latencyMs": 464.50083300000006,
+          "comment": "Includes markdown, otherwise correct",
+          "promptTokens": 39,
+          "completionTokens": 31
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.75,
+          "usdCost": 0.000217,
+          "judgeUsdCost": 0.001314,
+          "latencyMs": 1364.3930839999994,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 47,
+          "completionTokens": 34
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.75,
+          "usdCost": 0.000292,
+          "judgeUsdCost": 0.001299,
+          "latencyMs": 542.9914159999998,
+          "comment": "Includes markdown, otherwise correct",
+          "promptTokens": 42,
+          "completionTokens": 26
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.75,
+          "usdCost": 0.00001625,
+          "judgeUsdCost": 0.001299,
+          "latencyMs": 347.44804099999965,
+          "comment": "Includes markdown, otherwise correct",
+          "promptTokens": 45,
+          "completionTokens": 26
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.75,
+          "usdCost": 0.000651,
+          "judgeUsdCost": 0.001299,
+          "latencyMs": 982.2502910000003,
+          "comment": "Includes markdown, otherwise correct",
+          "promptTokens": 47,
+          "completionTokens": 34
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.75,
+          "usdCost": 0.003255,
+          "judgeUsdCost": 0.001359,
+          "latencyMs": 1707.9402499999997,
+          "comment": "Includes markdown, otherwise correct and preserves behavior.",
+          "promptTokens": 47,
+          "completionTokens": 34
+        }
+      ]
+    },
+    {
+      "idx": 2,
+      "tier": "cheap",
+      "task": "Convert this `var` declaration to `const`. Return ONLY the JavaScript:\n\nvar name = \"alice\";",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 1,
+        "anthropic/claude-haiku-4.5": 0.75,
+        "openai/gpt-4.1": 1,
+        "meta-llama/llama-3.3-70b-instruct": 0.75,
+        "anthropic/claude-sonnet-4-6": 0.75,
+        "anthropic/claude-opus-4": 1
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 6.599999999999999e-7,
+          "judgeUsdCost": 0.0012,
+          "latencyMs": 665.4128330000003,
+          "comment": "All criteria fully met.",
+          "promptTokens": 42,
+          "completionTokens": 8
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 1,
+          "usdCost": 0.000004600000000000001,
+          "judgeUsdCost": 0.0012,
+          "latencyMs": 878.277082999999,
+          "comment": "All criteria fully met.",
+          "promptTokens": 22,
+          "completionTokens": 6
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.75,
+          "usdCost": 0.0001,
+          "judgeUsdCost": 0.001335,
+          "latencyMs": 861.563791999999,
+          "comment": "Includes markdown, not just code.",
+          "promptTokens": 30,
+          "completionTokens": 14
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 1,
+          "usdCost": 0.000114,
+          "judgeUsdCost": 0.0012,
+          "latencyMs": 318.2392089999994,
+          "comment": "All criteria fully met.",
+          "promptTokens": 29,
+          "completionTokens": 7
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.75,
+          "usdCost": 0.000008560000000000001,
+          "judgeUsdCost": 0.001335,
+          "latencyMs": 405.4979999999996,
+          "comment": "Includes markdown, not just code.",
+          "promptTokens": 32,
+          "completionTokens": 11
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.75,
+          "usdCost": 0.0003,
+          "judgeUsdCost": 0.001335,
+          "latencyMs": 1631.9851670000007,
+          "comment": "Includes markdown, not just code.",
+          "promptTokens": 30,
+          "completionTokens": 14
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 1,
+          "usdCost": 0.001125,
+          "judgeUsdCost": 0.00132,
+          "latencyMs": 2106.9770419999986,
+          "comment": "All criteria fully met; correct, concise, and behavior preserved.",
+          "promptTokens": 30,
+          "completionTokens": 9
+        }
+      ]
+    },
+    {
+      "idx": 3,
+      "tier": "cheap",
+      "task": "Add TypeScript type annotations to the parameter and return value. The function adds two numbers. Return ONLY the corrected TS:\n\nfunction add(a, b) { return a + b; }",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.75,
+        "google/gemini-2.5-flash-lite": 0.75,
+        "anthropic/claude-haiku-4.5": 0.75,
+        "openai/gpt-4.1": 0.75,
+        "meta-llama/llama-3.3-70b-instruct": 0.75,
+        "anthropic/claude-sonnet-4-6": 0.75,
+        "anthropic/claude-opus-4": 0.75
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.75,
+          "usdCost": 0.00000128,
+          "judgeUsdCost": 0.001356,
+          "latencyMs": 644.5683329999993,
+          "comment": "Code is correct but markdown is extraneous.",
+          "promptTokens": 56,
+          "completionTokens": 24
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.75,
+          "usdCost": 0.0000146,
+          "judgeUsdCost": 0.001344,
+          "latencyMs": 374.53120899999885,
+          "comment": "Code is correct but includes markdown formatting.",
+          "promptTokens": 38,
+          "completionTokens": 27
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.75,
+          "usdCost": 0.000199,
+          "judgeUsdCost": 0.001344,
+          "latencyMs": 1373.4348340000015,
+          "comment": "Code is correct but includes markdown formatting.",
+          "promptTokens": 49,
+          "completionTokens": 30
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.75,
+          "usdCost": 0.000272,
+          "judgeUsdCost": 0.001341,
+          "latencyMs": 311.1475419999988,
+          "comment": "Code is correct but includes markdown formatting.",
+          "promptTokens": 44,
+          "completionTokens": 23
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.75,
+          "usdCost": 0.000016510000000000003,
+          "judgeUsdCost": 0.001365,
+          "latencyMs": 408.87895899999967,
+          "comment": "Code is correct but markdown is extraneous.",
+          "promptTokens": 47,
+          "completionTokens": 26
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.75,
+          "usdCost": 0.000552,
+          "judgeUsdCost": 0.001356,
+          "latencyMs": 1132.1731250000012,
+          "comment": "Code is correct but markdown is extraneous.",
+          "promptTokens": 49,
+          "completionTokens": 27
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.75,
+          "usdCost": 0.00276,
+          "judgeUsdCost": 0.001356,
+          "latencyMs": 1586.1222500000003,
+          "comment": "Code is correct but markdown is extraneous.",
+          "promptTokens": 49,
+          "completionTokens": 27
+        }
+      ]
+    },
+    {
+      "idx": 4,
+      "tier": "cheap",
+      "task": "Wrap this in a try/catch that logs the error. Return ONLY the JavaScript:\n\nconst data = JSON.parse(input);",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.75,
+        "google/gemini-2.5-flash-lite": 0.75,
+        "anthropic/claude-haiku-4.5": 0.75,
+        "openai/gpt-4.1": 0.75,
+        "meta-llama/llama-3.3-70b-instruct": 0.75,
+        "anthropic/claude-sonnet-4-6": 0.75,
+        "anthropic/claude-opus-4": 0.75
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.75,
+          "usdCost": 0.0000014,
+          "judgeUsdCost": 0.001287,
+          "latencyMs": 607.9726249999985,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 44,
+          "completionTokens": 32
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.75,
+          "usdCost": 0.000031100000000000004,
+          "judgeUsdCost": 0.00144,
+          "latencyMs": 379.71191700000054,
+          "comment": "Includes markdown, otherwise correct and preserves behavior.",
+          "promptTokens": 27,
+          "completionTokens": 71
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.75,
+          "usdCost": 0.000246,
+          "judgeUsdCost": 0.001302,
+          "latencyMs": 906.026167,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 36,
+          "completionTokens": 42
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.75,
+          "usdCost": 0.000296,
+          "judgeUsdCost": 0.001323,
+          "latencyMs": 340.80108400000245,
+          "comment": "Code is correct but includes markdown block.",
+          "promptTokens": 32,
+          "completionTokens": 29
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.75,
+          "usdCost": 0.00001522,
+          "judgeUsdCost": 0.001332,
+          "latencyMs": 126.1282089999986,
+          "comment": "Includes markdown, otherwise correct and preserves behavior.",
+          "promptTokens": 34,
+          "completionTokens": 27
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.75,
+          "usdCost": 0.000678,
+          "judgeUsdCost": 0.001287,
+          "latencyMs": 1213.4039159999993,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 36,
+          "completionTokens": 38
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.75,
+          "usdCost": 0.00339,
+          "judgeUsdCost": 0.001332,
+          "latencyMs": 1897.913583999998,
+          "comment": "Includes markdown, otherwise correct and preserves behavior.",
+          "promptTokens": 36,
+          "completionTokens": 38
+        }
+      ]
+    },
+    {
+      "idx": 5,
+      "tier": "cheap",
+      "task": "Fix the spelling in the comment. Return ONLY the JavaScript:\n\n// Recieves data from the server\nfunction handle() {}",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.75,
+        "google/gemini-2.5-flash-lite": 0.75,
+        "anthropic/claude-haiku-4.5": 0.75,
+        "openai/gpt-4.1": 0.75,
+        "meta-llama/llama-3.3-70b-instruct": 0.75,
+        "anthropic/claude-sonnet-4-6": 0.75,
+        "anthropic/claude-opus-4": 1
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.75,
+          "usdCost": 9.8e-7,
+          "judgeUsdCost": 0.001287,
+          "latencyMs": 650.2568330000031,
+          "comment": "Returned with markdown, not just JS.",
+          "promptTokens": 44,
+          "completionTokens": 18
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.75,
+          "usdCost": 0.0000093,
+          "judgeUsdCost": 0.001287,
+          "latencyMs": 428.799417000002,
+          "comment": "Returned with markdown, not plain JS.",
+          "promptTokens": 25,
+          "completionTokens": 17
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.75,
+          "usdCost": 0.000135,
+          "judgeUsdCost": 0.001317,
+          "latencyMs": 992.9412919999995,
+          "comment": "Returned code block, not plain JS as instructed.",
+          "promptTokens": 35,
+          "completionTokens": 20
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.75,
+          "usdCost": 0.0002,
+          "judgeUsdCost": 0.001287,
+          "latencyMs": 392.02950000000055,
+          "comment": "Returned with markdown, not just JS.",
+          "promptTokens": 32,
+          "completionTokens": 17
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.75,
+          "usdCost": 0.00001447,
+          "judgeUsdCost": 0.001287,
+          "latencyMs": 430.53708400000323,
+          "comment": "Returned with markdown, not just JS.",
+          "promptTokens": 59,
+          "completionTokens": 17
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.75,
+          "usdCost": 0.000405,
+          "judgeUsdCost": 0.001317,
+          "latencyMs": 986.2108340000013,
+          "comment": "Returned code block, not plain JS as instructed.",
+          "promptTokens": 35,
+          "completionTokens": 20
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 1,
+          "usdCost": 0.00165,
+          "judgeUsdCost": 0.001374,
+          "latencyMs": 1394.5279590000027,
+          "comment": "All criteria fully met; spelling fixed, no extra text, code preserved.",
+          "promptTokens": 35,
+          "completionTokens": 15
+        }
+      ]
+    },
+    {
+      "idx": 6,
+      "tier": "cheap",
+      "task": "Remove the unused import `path`. Return ONLY the JavaScript:\n\nimport { readFileSync } from \"fs\";\nimport path from \"path\";\n\nconsole.log(readFileSync(\"./x\"));",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.75,
+        "google/gemini-2.5-flash-lite": 0.75,
+        "anthropic/claude-haiku-4.5": 0.75,
+        "openai/gpt-4.1": 0.75,
+        "meta-llama/llama-3.3-70b-instruct": 0.75,
+        "anthropic/claude-sonnet-4-6": 0.75,
+        "anthropic/claude-opus-4": 0.75
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.75,
+          "usdCost": 0.00000129,
+          "judgeUsdCost": 0.001341,
+          "latencyMs": 632.8309579999986,
+          "comment": "Code is correct but markdown was included.",
+          "promptTokens": 57,
+          "completionTokens": 24
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.75,
+          "usdCost": 0.000013000000000000003,
+          "judgeUsdCost": 0.001341,
+          "latencyMs": 343.5271250000005,
+          "comment": "Code is correct but markdown was included.",
+          "promptTokens": 38,
+          "completionTokens": 23
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.75,
+          "usdCost": 0.0002,
+          "judgeUsdCost": 0.001341,
+          "latencyMs": 795.3065409999981,
+          "comment": "Code is correct but markdown was included.",
+          "promptTokens": 50,
+          "completionTokens": 30
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.75,
+          "usdCost": 0.000272,
+          "judgeUsdCost": 0.001431,
+          "latencyMs": 1709.2785000000003,
+          "comment": "Code is correct but markdown was included.",
+          "promptTokens": 44,
+          "completionTokens": 23
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.75,
+          "usdCost": 0.00001412,
+          "judgeUsdCost": 0.001341,
+          "latencyMs": 330.6520840000012,
+          "comment": "Code is correct but markdown was included.",
+          "promptTokens": 44,
+          "completionTokens": 21
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.75,
+          "usdCost": 0.0006,
+          "judgeUsdCost": 0.001341,
+          "latencyMs": 931.7005830000016,
+          "comment": "Code is correct but markdown was included.",
+          "promptTokens": 50,
+          "completionTokens": 30
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.75,
+          "usdCost": 0.003,
+          "judgeUsdCost": 0.001341,
+          "latencyMs": 1578.400625000002,
+          "comment": "Code is correct but markdown was included.",
+          "promptTokens": 50,
+          "completionTokens": 30
+        }
+      ]
+    },
+    {
+      "idx": 7,
+      "tier": "cheap",
+      "task": "Add the TypeScript return type annotation. The function returns a string. Return ONLY the TS:\n\nfunction greet(name: string) { return `hello ${name}`; }",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 0.75,
+        "anthropic/claude-haiku-4.5": 0.75,
+        "openai/gpt-4.1": 0.75,
+        "meta-llama/llama-3.3-70b-instruct": 0.75,
+        "anthropic/claude-sonnet-4-6": 0.75,
+        "anthropic/claude-opus-4": 0.75
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 0.00000104,
+          "judgeUsdCost": 0.001401,
+          "latencyMs": 846.6414170000025,
+          "comment": "All criteria fully met; correct TS, no prose, behavior preserved.",
+          "promptTokens": 53,
+          "completionTokens": 17
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.75,
+          "usdCost": 0.0000118,
+          "judgeUsdCost": 0.001386,
+          "latencyMs": 313.43858300000284,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 34,
+          "completionTokens": 21
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.75,
+          "usdCost": 0.000176,
+          "judgeUsdCost": 0.001296,
+          "latencyMs": 1141.181833999999,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 46,
+          "completionTokens": 26
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.75,
+          "usdCost": 0.00025,
+          "judgeUsdCost": 0.001386,
+          "latencyMs": 539.9072080000005,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 41,
+          "completionTokens": 21
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.75,
+          "usdCost": 0.00001412,
+          "judgeUsdCost": 0.001296,
+          "latencyMs": 845.6341250000005,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 44,
+          "completionTokens": 21
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.75,
+          "usdCost": 0.000528,
+          "judgeUsdCost": 0.001386,
+          "latencyMs": 1082.801958,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 46,
+          "completionTokens": 26
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.75,
+          "usdCost": 0.00264,
+          "judgeUsdCost": 0.001296,
+          "latencyMs": 1633.0900840000031,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 46,
+          "completionTokens": 26
+        }
+      ]
+    },
+    {
+      "idx": 8,
+      "tier": "cheap",
+      "task": "Convert this camelCase variable name to kebab-case (as a string). Return ONLY the string in quotes: myHelperFunction",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 1,
+        "anthropic/claude-haiku-4.5": 1,
+        "openai/gpt-4.1": 1,
+        "meta-llama/llama-3.3-70b-instruct": 1,
+        "anthropic/claude-sonnet-4-6": 1,
+        "anthropic/claude-opus-4": 1
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 6.4e-7,
+          "judgeUsdCost": 0.001299,
+          "latencyMs": 633.038959000005,
+          "comment": "All criteria fully met.",
+          "promptTokens": 43,
+          "completionTokens": 7
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 1,
+          "usdCost": 0.000005300000000000001,
+          "judgeUsdCost": 0.001299,
+          "latencyMs": 454.57304199999635,
+          "comment": "All criteria fully met.",
+          "promptTokens": 25,
+          "completionTokens": 7
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 1,
+          "usdCost": 0.000086,
+          "judgeUsdCost": 0.001299,
+          "latencyMs": 669.8894579999978,
+          "comment": "All criteria fully met.",
+          "promptTokens": 36,
+          "completionTokens": 10
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 1,
+          "usdCost": 0.000112,
+          "judgeUsdCost": 0.001209,
+          "latencyMs": 424.57479199999943,
+          "comment": "All criteria fully met.",
+          "promptTokens": 32,
+          "completionTokens": 6
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 1,
+          "usdCost": 0.00000695,
+          "judgeUsdCost": 0.001209,
+          "latencyMs": 128.28066599999875,
+          "comment": "All criteria fully met.",
+          "promptTokens": 35,
+          "completionTokens": 6
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 1,
+          "usdCost": 0.000258,
+          "judgeUsdCost": 0.001209,
+          "latencyMs": 1124.4020000000019,
+          "comment": "All criteria fully met.",
+          "promptTokens": 36,
+          "completionTokens": 10
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 1,
+          "usdCost": 0.00129,
+          "judgeUsdCost": 0.001209,
+          "latencyMs": 1347.3593330000003,
+          "comment": "All criteria fully met.",
+          "promptTokens": 36,
+          "completionTokens": 10
+        }
+      ]
+    },
+    {
+      "idx": 9,
+      "tier": "cheap",
+      "task": "Increment the counter variable by 1. Return ONLY the JavaScript:\n\nlet counter = 0;",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 0.75,
+        "google/gemini-2.5-flash-lite": 0.75,
+        "anthropic/claude-haiku-4.5": 0.75,
+        "openai/gpt-4.1": 0.75,
+        "meta-llama/llama-3.3-70b-instruct": 0.75,
+        "anthropic/claude-sonnet-4-6": 0.75,
+        "anthropic/claude-opus-4": 0.75
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 0.75,
+          "usdCost": 8.4e-7,
+          "judgeUsdCost": 0.001215,
+          "latencyMs": 657.7388330000031,
+          "comment": "Includes markdown, otherwise correct",
+          "promptTokens": 39,
+          "completionTokens": 15
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.75,
+          "usdCost": 0.000004800000000000001,
+          "judgeUsdCost": 0.001227,
+          "latencyMs": 525.8162500000035,
+          "comment": "Includes markdown, not just code.",
+          "promptTokens": 20,
+          "completionTokens": 7
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.75,
+          "usdCost": 0.000114,
+          "judgeUsdCost": 0.00123,
+          "latencyMs": 1296.947666999993,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 29,
+          "completionTokens": 17
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.75,
+          "usdCost": 0.000134,
+          "judgeUsdCost": 0.001206,
+          "latencyMs": 605.1311669999996,
+          "comment": "Includes markdown, otherwise correct",
+          "promptTokens": 27,
+          "completionTokens": 10
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.75,
+          "usdCost": 0.000006700000000000001,
+          "judgeUsdCost": 0.001227,
+          "latencyMs": 405.2693750000035,
+          "comment": "Includes markdown, not just code.",
+          "promptTokens": 30,
+          "completionTokens": 7
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.75,
+          "usdCost": 0.000342,
+          "judgeUsdCost": 0.001215,
+          "latencyMs": 1810.729625,
+          "comment": "Includes markdown, otherwise correct",
+          "promptTokens": 29,
+          "completionTokens": 17
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.75,
+          "usdCost": 0.001185,
+          "judgeUsdCost": 0.001212,
+          "latencyMs": 1510.2877079999962,
+          "comment": "Includes markdown, not just code",
+          "promptTokens": 29,
+          "completionTokens": 10
+        }
+      ]
+    },
+    {
+      "idx": 10,
+      "tier": "cheap",
+      "task": "Convert this function expression to an arrow function. Return ONLY the JavaScript:\n\nconst double = function(n) { return n * 2; };",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 1,
+        "anthropic/claude-haiku-4.5": 0.75,
+        "openai/gpt-4.1": 0.75,
+        "meta-llama/llama-3.3-70b-instruct": 0.75,
+        "anthropic/claude-sonnet-4-6": 0.75,
+        "anthropic/claude-opus-4": 0.75
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 8.7e-7,
+          "judgeUsdCost": 0.001329,
+          "latencyMs": 663.8469580000019,
+          "comment": "All criteria fully met; concise, correct arrow function.",
+          "promptTokens": 48,
+          "completionTokens": 13
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 1,
+          "usdCost": 0.000007800000000000002,
+          "judgeUsdCost": 0.001329,
+          "latencyMs": 347.6995410000018,
+          "comment": "All criteria fully met; concise and correct arrow function.",
+          "promptTokens": 30,
+          "completionTokens": 12
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.75,
+          "usdCost": 0.000138,
+          "judgeUsdCost": 0.001269,
+          "latencyMs": 931.0879170000044,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 38,
+          "completionTokens": 20
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.75,
+          "usdCost": 0.000192,
+          "judgeUsdCost": 0.001293,
+          "latencyMs": 373.4964170000021,
+          "comment": "Code is correct but includes markdown formatting.",
+          "promptTokens": 36,
+          "completionTokens": 15
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.75,
+          "usdCost": 0.00001107,
+          "judgeUsdCost": 0.001308,
+          "latencyMs": 117.12995799999771,
+          "comment": "Includes markdown, otherwise correct and preserves behavior.",
+          "promptTokens": 39,
+          "completionTokens": 15
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.75,
+          "usdCost": 0.000414,
+          "judgeUsdCost": 0.001314,
+          "latencyMs": 973.755333999994,
+          "comment": "Includes markdown, otherwise correct and preserves behavior.",
+          "promptTokens": 38,
+          "completionTokens": 20
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.75,
+          "usdCost": 0.00207,
+          "judgeUsdCost": 0.001314,
+          "latencyMs": 1381.4966249999998,
+          "comment": "Includes markdown, otherwise correct and preserves behavior.",
+          "promptTokens": 38,
+          "completionTokens": 20
+        }
+      ]
+    },
+    {
+      "idx": 11,
+      "tier": "cheap",
+      "task": "Add a default value of 10 for parameter `n`. Return ONLY the JavaScript:\n\nfunction times(n) { return n * 3; }",
+      "scores": {
+        "inclusionai/ling-2.6-flash": 1,
+        "google/gemini-2.5-flash-lite": 0.75,
+        "anthropic/claude-haiku-4.5": 0.75,
+        "openai/gpt-4.1": 0.875,
+        "meta-llama/llama-3.3-70b-instruct": 0.75,
+        "anthropic/claude-sonnet-4-6": 0.875,
+        "anthropic/claude-opus-4": 0.75
+      },
+      "details": [
+        {
+          "id": "inclusionai/ling-2.6-flash",
+          "score": 1,
+          "usdCost": 0.00000101,
+          "judgeUsdCost": 0.001341,
+          "latencyMs": 655.4314169999998,
+          "comment": "All criteria fully met; code is correct and concise.",
+          "promptTokens": 50,
+          "completionTokens": 17
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "score": 0.75,
+          "usdCost": 0.000012,
+          "judgeUsdCost": 0.001281,
+          "latencyMs": 424.59737499999756,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 32,
+          "completionTokens": 22
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "score": 0.75,
+          "usdCost": 0.00016,
+          "judgeUsdCost": 0.001326,
+          "latencyMs": 1119.2968340000007,
+          "comment": "Code is correct but markdown is extraneous.",
+          "promptTokens": 40,
+          "completionTokens": 24
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "score": 0.875,
+          "usdCost": 0.000234,
+          "judgeUsdCost": 0.001311,
+          "latencyMs": 356.8873749999984,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 37,
+          "completionTokens": 20
+        },
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "score": 0.75,
+          "usdCost": 0.000013199999999999999,
+          "judgeUsdCost": 0.001281,
+          "latencyMs": 296.30779099999927,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 40,
+          "completionTokens": 20
+        },
+        {
+          "id": "anthropic/claude-sonnet-4-6",
+          "score": 0.875,
+          "usdCost": 0.00048,
+          "judgeUsdCost": 0.001341,
+          "latencyMs": 1103.6416670000035,
+          "comment": "Correct code, but includes markdown formatting.",
+          "promptTokens": 40,
+          "completionTokens": 24
+        },
+        {
+          "id": "anthropic/claude-opus-4",
+          "score": 0.75,
+          "usdCost": 0.0024,
+          "judgeUsdCost": 0.001281,
+          "latencyMs": 1544.781041000002,
+          "comment": "Includes markdown, otherwise correct.",
+          "promptTokens": 40,
+          "completionTokens": 24
+        }
+      ]
+    }
+  ]
+}

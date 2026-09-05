@@ -55,7 +55,7 @@ export class HnswBridge implements WasmBridge<HnswModule> {
 
     try {
       // Dynamic import of WASM module
-      const wasmModule = await import('@ruvector/micro-hnsw-wasm').catch(() => null);
+      const wasmModule = await import('@ruvector/micro-hnsw-wasm' as string).catch(() => null);
 
       if (wasmModule) {
         this._module = wasmModule as unknown as HnswModule;

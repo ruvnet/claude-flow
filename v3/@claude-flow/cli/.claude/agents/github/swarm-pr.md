@@ -80,7 +80,7 @@ jobs:
   swarm-handler:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Handle Swarm Command
         run: |
           if [[ "${{ github.event.comment.body }}" == /swarm* ]]; then

@@ -202,7 +202,24 @@ export class SwarmCoordinator {
     }
 
     const startTime = Date.now();
-    const result = await agent.executeTask(task);
+    // ruflo#1872 — `agent.executeTask` can throw (mock rejection in
+    // tests, real broker/network errors in production). Previously the
+    // throw propagated up to the caller, defeating the
+    // "TaskResult{status:'failed', error}" contract callers rely on
+    // for graceful degradation. Wrap in try/catch so a crashed agent
+    // produces a structured failure result instead of an unhandled
+    // promise rejection.
+    let result: TaskResult;
+    try {
+      result = await agent.executeTask(task);
+    } catch (err) {
+      result = {
+        taskId: task.id,
+        status: 'failed',
+        error: err instanceof Error ? err.message : String(err),
+        agentId,
+      };
+    }
     const duration = Date.now() - startTime;
 
     // Update metrics
@@ -317,25 +334,28 @@ export class SwarmCoordinator {
    * Scale agents
    */
   async scaleAgents(config: { type: string; count: number }): Promise<void> {
+    // ruflo#1872 — `count` is the TARGET TOTAL of this agent type, not
+    // a delta. Previously `count` was added to the existing count, so
+    // calling `scaleAgents({count:3})` then `scaleAgents({count:2})`
+    // ended up at 1+3+2=6 instead of the intuitive 2.
     const existingOfType = Array.from(this.agents.values()).filter(
       a => a.type === config.type
     );
-
     const currentCount = existingOfType.length;
-    const targetCount = currentCount + config.count;
+    const targetCount = Math.max(0, Math.floor(config.count));
 
-    if (config.count > 0) {
+    if (targetCount > currentCount) {
       // Scale up
       for (let i = currentCount; i < targetCount; i++) {
         await this.spawnAgent({
           id: `${config.type}-${Date.now()}-${i}`,
           type: config.type,
-          capabilities: this.getDefaultCapabilities(config.type)
+          capabilities: this.getDefaultCapabilities(config.type),
         });
       }
-    } else if (config.count < 0) {
-      // Scale down
-      const toRemove = existingOfType.slice(0, Math.abs(config.count));
+    } else if (targetCount < currentCount) {
+      // Scale down — terminate the oldest first so deterministic.
+      const toRemove = existingOfType.slice(0, currentCount - targetCount);
       for (const agent of toRemove) {
         await this.terminateAgent(agent.id);
       }

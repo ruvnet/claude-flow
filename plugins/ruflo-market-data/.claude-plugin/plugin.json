@@ -1,7 +1,7 @@
 {
   "name": "ruflo-market-data",
   "description": "Market data ingestion — feed normalization, OHLCV vectorization, and HNSW-indexed pattern matching",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

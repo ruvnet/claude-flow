@@ -24,6 +24,64 @@
 npm install @claude-flow/security
 ```
 
+## Standalone use (without the Ruflo CLI)
+
+This is a plain library — every primitive (`PasswordHasher`,
+`PathValidator`, `SafeExecutor`, `InputValidator`, `CredentialGenerator`)
+is independently importable. No CLI, no MCP server, no daemon. The
+primitives close CVE-2 (weak hashing), CVE-3 (default credentials),
+HIGH-1 (command injection), and HIGH-2 (path traversal) — drop them
+into any Node app that needs to validate at a system boundary.
+
+### Recipe — Validate input, hash a password, generate an API key
+
+```typescript
+// recipe.mjs
+import {
+  InputValidator,
+  EmailSchema,
+  PasswordHasher,
+  createCredentialGenerator,
+} from '@claude-flow/security';
+
+// 1. Validate user input at the boundary (Zod schemas, no surprises)
+const email = InputValidator.validate(EmailSchema, 'user@example.com');
+//             ↳ throws if invalid; returns the typed value otherwise
+
+// 2. Hash a password with bcrypt at the recommended cost (CVE-2)
+//    Default policy: ≥8 chars, ≥1 upper, ≥1 lower, ≥1 digit.
+//    Tune with new PasswordHasher({ rounds, requireUppercase, ... }).
+const hasher = new PasswordHasher({ rounds: 12 });
+const hash   = await hasher.hash('CorrectHorseBatteryStaple9');
+const ok     = await hasher.verify('CorrectHorseBatteryStaple9', hash); // true
+
+// 3. Generate a high-entropy API key (CVE-3) — uses crypto.randomBytes
+//    under the hood and refuses to emit keys below 32 bytes of entropy.
+const creds = createCredentialGenerator();
+const apiKey = creds.generateApiKey('ck_live_');
+console.log(apiKey.keyId, apiKey.key.slice(0, 16) + '…');
+// → 7e2b1a9c-…  ck_live_xX9aQ…
+```
+
+### Recipe — Refuse command injection + path traversal
+
+```typescript
+import {
+  createDevelopmentExecutor,
+  createProjectPathValidator,
+} from '@claude-flow/security';
+
+// SafeExecutor — only the allow-listed commands ever run (HIGH-1)
+const exec = createDevelopmentExecutor({ projectRoot: process.cwd() });
+const { stdout } = await exec.execute('git', ['status', '--porcelain']);
+
+// PathValidator — refuses traversal and symlinks out of the project (HIGH-2)
+const paths = createProjectPathValidator(process.cwd());
+const result = await paths.validate('../../etc/passwd');
+if (!result.isValid) console.log('blocked:', result.errors.join('; '));
+// → blocked: Path traversal pattern detected
+```
+
 ## Quick Start
 
 ```typescript

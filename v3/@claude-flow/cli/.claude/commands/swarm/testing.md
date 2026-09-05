@@ -23,7 +23,7 @@ mcp__claude-flow__task_orchestrate({
 ```
 
 ### Using CLI (Fallback)
-`npx claude-flow swarm "test application" --strategy testing`
+`npx @claude-flow/cli@latest swarm "test application" --strategy testing`
 
 ## Agent Roles
 

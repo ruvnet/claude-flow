@@ -828,72 +828,95 @@ export function formatBenchmark(result: BenchmarkResult): string {
 // Metric Extraction
 // ============================================================================
 
+// Phase 1 perf — module-level patterns so we don't reconstruct them on
+// every `extractMetrics` call. Hoisted from previous in-body literals.
+const HEADING_RE = /^#+\s/;
+const H2_RE = /^##\s/;
+const RULE_LINE_RE = /^[\s]*[-*]\s+(?:NEVER|ALWAYS|MUST|Do not|Never|Always|Prefer|Avoid|Use|Run|Ensure|Follow|No\s|All\s|Keep)\b/;
+const ANY_BULLET_RE = /^[\s]*[-*]\s/;
+const STRICT_RULE_PREFIX_RE = /^[\s]*[-*]\s+(?:NEVER|ALWAYS|MUST|Prefer|Use|No\s|All\s)/i;
+const ENFORCEMENT_RE = /\b(NEVER|ALWAYS|MUST|REQUIRED|FORBIDDEN|DO NOT|SHALL NOT)\b/gi;
+const TOOL_RE = /\b(npm|pnpm|yarn|bun|docker|git|make|cargo|go|pip|poetry)\b/gi;
+const CODE_FENCE_RE = /```/g;
+const BUILD_CMD_RE = /\b(build|compile|tsc|webpack|vite|rollup)\b/i;
+const TEST_CMD_RE = /\b(test|vitest|jest|pytest|mocha|cargo test)\b/i;
+const SECURITY_SEC_RE = /^##.*security/im;
+const ARCH_SEC_RE = /^##.*(architecture|structure|design)/im;
+const IMPORTS_RE = /@[~/]/;
+
 function extractMetrics(content: string): AnalysisMetrics {
+  // Phase 1 perf — replace 6 separate `lines.filter()` passes + two `for-of`
+  // loops with a single pass that accumulates every line-derived metric in
+  // one iteration. The 10+ predicates that used to traverse `lines`
+  // independently now share one walk; measurable on `analyzer.analyze()`
+  // which is called on every analyze, optimizeForSize, and scoreCompilability.
   const lines = content.split('\n');
   const totalLines = lines.length;
-  const contentLines = lines.filter(l => l.trim().length > 0).length;
 
-  const headings = lines.filter(l => /^#+\s/.test(l));
-  const headingCount = headings.length;
-  const sectionCount = lines.filter(l => /^##\s/.test(l)).length;
-
-  // Constitution: lines before second H2 (or first 60 lines)
+  let contentLines = 0;
+  let headingCount = 0;
+  let sectionCount = 0;
+  let ruleCount = 0;
+  let domainRuleCount = 0;
   let constitutionLines = 0;
   let h2Count = 0;
-  for (let i = 0; i < lines.length; i++) {
-    if (/^##\s/.test(lines[i])) {
-      h2Count++;
-      if (h2Count === 2) {
-        constitutionLines = i;
-        break;
-      }
-    }
-  }
-  if (constitutionLines === 0) constitutionLines = Math.min(totalLines, 60);
-
-  // Rules: lines starting with - that contain imperative verbs or constraints
-  const rulePattern = /^[\s]*[-*]\s+((?:NEVER|ALWAYS|MUST|Do not|Never|Always|Prefer|Avoid|Use|Run|Ensure|Follow|No\s|All\s|Keep)\b.*)/;
-  const ruleCount = lines.filter(l => rulePattern.test(l)).length;
-
-  // Code blocks
-  const codeBlockCount = (content.match(/```/g) || []).length / 2;
-
-  // Enforcement statements
-  const enforcementPattern = /\b(NEVER|ALWAYS|MUST|REQUIRED|FORBIDDEN|DO NOT|SHALL NOT)\b/gi;
-  const enforcementStatements = (content.match(enforcementPattern) || []).length;
-
-  // Tool mentions
-  const toolPattern = /\b(npm|pnpm|yarn|bun|docker|git|make|cargo|go|pip|poetry)\b/gi;
-  const toolMentions = new Set((content.match(toolPattern) || []).map(m => m.toLowerCase())).size;
-
-  // Estimated shards = number of H2 sections
-  const estimatedShards = Math.max(1, sectionCount);
-
-  // Boolean features
-  const hasBuildCommand = /\b(build|compile|tsc|webpack|vite|rollup)\b/i.test(content);
-  const hasTestCommand = /\b(test|vitest|jest|pytest|mocha|cargo test)\b/i.test(content);
-  const hasSecuritySection = /^##.*security/im.test(content);
-  const hasArchitectureSection = /^##.*(architecture|structure|design)/im.test(content);
-  const hasImports = /@[~\/]/.test(content);
-
-  // Longest section
   let longestSectionLines = 0;
   let currentSectionLength = 0;
-  for (const line of lines) {
-    if (/^##\s/.test(line)) {
-      longestSectionLines = Math.max(longestSectionLines, currentSectionLength);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // contentLines — non-empty (after trim)
+    if (line.trim().length > 0) contentLines++;
+
+    // headingCount — any heading
+    if (HEADING_RE.test(line)) headingCount++;
+
+    // H2-driven metrics: sectionCount, constitutionLines, longestSectionLines
+    if (H2_RE.test(line)) {
+      sectionCount++;
+      h2Count++;
+      if (h2Count === 2 && constitutionLines === 0) {
+        constitutionLines = i;
+      }
+      // Close out the longest-section accumulator at every H2 boundary.
+      if (currentSectionLength > longestSectionLines) {
+        longestSectionLines = currentSectionLength;
+      }
       currentSectionLength = 0;
     } else {
       currentSectionLength++;
     }
-  }
-  longestSectionLines = Math.max(longestSectionLines, currentSectionLength);
 
-  // Domain rules
-  const domainRuleCount = lines.filter(l =>
-    /^[\s]*[-*]\s/.test(l) && !/^[\s]*[-*]\s+(NEVER|ALWAYS|MUST|Prefer|Use|No\s|All\s)/i.test(l) &&
-    l.length > 20
-  ).length;
+    // ruleCount — bullets that start with an enforcement verb
+    if (RULE_LINE_RE.test(line)) ruleCount++;
+
+    // domainRuleCount — bullets that are NOT enforcement-prefixed and long
+    if (line.length > 20 && ANY_BULLET_RE.test(line) && !STRICT_RULE_PREFIX_RE.test(line)) {
+      domainRuleCount++;
+    }
+  }
+
+  // Flush the last section length
+  if (currentSectionLength > longestSectionLines) {
+    longestSectionLines = currentSectionLength;
+  }
+  if (constitutionLines === 0) constitutionLines = Math.min(totalLines, 60);
+
+  // Content-level (whole-string) regex passes — these scan once and don't
+  // benefit from per-line iteration. Kept as separate calls.
+  const codeBlockCount = (content.match(CODE_FENCE_RE) || []).length / 2;
+  const enforcementStatements = (content.match(ENFORCEMENT_RE) || []).length;
+  const toolMatches = content.match(TOOL_RE);
+  let toolMentions = 0;
+  if (toolMatches) {
+    // Cheaper than Set when count is small (typical CLAUDE.md has <12 unique tools)
+    const seen = new Set<string>();
+    for (const m of toolMatches) seen.add(m.toLowerCase());
+    toolMentions = seen.size;
+  }
+
+  const estimatedShards = Math.max(1, sectionCount);
 
   return {
     totalLines,
@@ -906,12 +929,12 @@ function extractMetrics(content: string): AnalysisMetrics {
     enforcementStatements,
     toolMentions,
     estimatedShards,
-    hasBuildCommand,
-    hasTestCommand,
-    hasSecuritySection,
-    hasArchitectureSection,
+    hasBuildCommand: BUILD_CMD_RE.test(content),
+    hasTestCommand: TEST_CMD_RE.test(content),
+    hasSecuritySection: SECURITY_SEC_RE.test(content),
+    hasArchitectureSection: ARCH_SEC_RE.test(content),
     longestSectionLines,
-    hasImports,
+    hasImports: IMPORTS_RE.test(content),
     domainRuleCount,
   };
 }

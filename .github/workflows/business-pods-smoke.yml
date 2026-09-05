@@ -1,0 +1,61 @@
+# ADR-164 Phase 2 — sales-pod smoke contract.
+#
+# Asserts that the business-pod template surface (sales.json + pod-schema
+# validator + business_pod_validate MCP tool + pod-tick.mjs dry-run runner)
+# stays green on every PR that touches the relevant files.
+name: business-pods-smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/ruflo-business-pods/**'
+      - 'v3/@claude-flow/cli/src/business-pods/**'
+      - 'v3/@claude-flow/cli/src/mcp-tools/business-pod-tools.ts'
+      - 'v3/@claude-flow/cli/src/mcp-tools/index.ts'
+      - 'v3/@claude-flow/cli/src/mcp-client.ts'
+      - '.github/workflows/business-pods-smoke.yml'
+  pull_request:
+    paths:
+      - 'plugins/ruflo-business-pods/**'
+      - 'v3/@claude-flow/cli/src/business-pods/**'
+      - 'v3/@claude-flow/cli/src/mcp-tools/business-pod-tools.ts'
+      - 'v3/@claude-flow/cli/src/mcp-tools/index.ts'
+      - 'v3/@claude-flow/cli/src/mcp-client.ts'
+      - '.github/workflows/business-pods-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+      - name: install + build CLI (pnpm, v3 workspace)
+        # The root package.json uses npm/workspaces but the v3/ tree is a
+        # pnpm workspace (v3/pnpm-workspace.yaml). npm chokes on
+        # `workspace:*` here — use pnpm in the v3 dir instead.
+        working-directory: v3
+        run: |
+          pnpm install --frozen-lockfile
+          # Build ALL workspace packages in topological order — the cli has
+          # cross-package deps (e.g. imports @claude-flow/swarm/dist/...)
+          # that pnpm's dependency-aware filter can't discover from
+          # package.json alone. `pnpm -r build` runs the build script across
+          # the whole workspace, dep-first.
+          pnpm -r --no-bail build || pnpm --filter @claude-flow/cli build
+      - name: vitest — business-pod-tools
+        working-directory: v3/@claude-flow/cli
+        run: pnpm vitest run __tests__/business-pod-tools.test.ts
+      - name: node --test — pod-tick
+        run: node --test plugins/ruflo-business-pods/scripts/pod-tick.test.mjs
+      - name: smoke contract
+        run: bash plugins/ruflo-business-pods/scripts/smoke.sh

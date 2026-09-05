@@ -9,5 +9,8 @@ export default defineConfig({
     hookTimeout: 10000,
     globals: false,
     typecheck: { enabled: false },
+    // ADR-125 Phase 7 — wipe ruvector.db / *.rvf / *.redb stray artifacts
+    // before and after each test run so no DB file leaks into git status.
+    setupFiles: ['./vitest.setup.ts'],
   },
 });

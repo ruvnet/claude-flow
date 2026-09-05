@@ -1,15 +1,15 @@
 {
   "name": "@claude-flow/cli",
-  "version": "3.7.0-alpha.35",
+  "version": "3.38.21",
   "type": "module",
   "description": "Ruflo CLI - Enterprise AI agent orchestration with 60+ specialized agents, swarm coordination, MCP server, self-learning hooks, and vector memory for Claude Code",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "sideEffects": false,
   "bin": {
-    "cli": "./bin/cli.js",
-    "claude-flow": "./bin/cli.js",
-    "claude-flow-mcp": "./bin/mcp-server.js"
+    "cli": "bin/cli.js",
+    "claude-flow": "bin/cli.js",
+    "claude-flow-mcp": "bin/mcp-server.js"
   },
   "homepage": "https://github.com/ruvnet/claude-flow#readme",
   "bugs": {
@@ -17,7 +17,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/claude-flow.git",
+    "url": "git+https://github.com/ruvnet/claude-flow.git",
     "directory": "v3/@claude-flow/cli"
   },
   "keywords": [
@@ -40,11 +40,7 @@
     "self-learning",
     "enterprise"
   ],
-  "author": {
-    "name": "RuvNet",
-    "email": "ruv@ruv.io",
-    "url": "https://ruv.io"
-  },
+  "author": "RuvNet <ruv@ruv.io> (https://ruv.io)",
   "license": "MIT",
   "exports": {
     ".": {
@@ -75,56 +71,110 @@
   },
   "files": [
     "dist",
+    "!dist/**/*.map",
+    "!dist/**/*.tsbuildinfo",
     "bin",
-    "scripts",
+    "scripts/postinstall.cjs",
     ".claude",
-    "README.md"
+    "plugins",
+    "README.md",
+    "catalog-manifest.json"
   ],
   "scripts": {
     "build": "tsc",
+    "check:metaharness-pins": "node ../../../scripts/check-metaharness-pins.mjs",
     "test": "vitest run",
     "test:plugin-store": "npx tsx src/plugins/tests/standalone-test.ts",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
     "postinstall": "node ./scripts/postinstall.cjs",
-    "prepublishOnly": "cp ../../../README.md ./README.md",
-    "release": "npm version prerelease --preid=alpha && npm run publish:all",
+    "prepublishOnly": "node scripts/prepare-publish.mjs",
+    "release": "npm publish --access public --tag latest",
+    "release:alpha": "npm version prerelease --preid=alpha && npm run publish:all",
     "publish:all": "./scripts/publish.sh"
   },
   "devDependencies": {
+    "tsx": "^4.19.0",
     "typescript": "^5.3.0",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "dependencies": {
-    "@claude-flow/cli-core": "^3.7.0-alpha.5",
-    "@claude-flow/mcp": "^3.0.0-alpha.8",
-    "@claude-flow/neural": "^3.0.0-alpha.8",
-    "@claude-flow/shared": "^3.0.0-alpha.7",
-    "@noble/ed25519": "^2.1.0",
-    "@ruvector/rabitq-wasm": "^0.1.0",
-    "semver": "^7.6.0",
-    "yaml": "^2.8.0"
+    "@claude-flow/cli-core": "3.7.0-alpha.5",
+    "@claude-flow/codex": "3.0.3",
+    "@claude-flow/mcp": "3.0.0-alpha.10",
+    "@claude-flow/neural": "3.0.0-alpha.9",
+    "@claude-flow/plugin-agent-federation": "1.0.0-alpha.18",
+    "@claude-flow/security": "3.0.0-alpha.14",
+    "@claude-flow/shared": "3.0.0-alpha.7",
+    "@iarna/toml": "^2.2.5",
+    "@noble/ed25519": "2.3.0",
+    "@ruvector/rabitq-wasm": "0.1.0",
+    "ajv": "^8.20.0",
+    "bcryptjs": "^3.0.3",
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "cors": "^2.8.5",
+    "express": ">=4.22.2",
+    "express-rate-limit": ">=8.4.1",
+    "fast-uri": "3.1.5",
+    "fs-extra": "^11.2.0",
+    "helmet": "^7.2.0",
+    "inquirer": "^9.2.0",
+    "semver": "7.7.3",
+    "sql.js": "^1.13.0",
+    "toml": "^3.0.0",
+    "ws": "^8.21.0",
+    "yaml": "^2.8.0",
+    "zod": "^3.22.0",
+    "@claude-flow/memory": "^3.0.0-alpha.23"
   },
   "optionalDependencies": {
-    "@claude-flow/aidefence": "^3.0.2",
-    "@claude-flow/codex": "^3.0.0-alpha.8",
-    "@claude-flow/embeddings": "^3.0.0-alpha.12",
-    "@claude-flow/guidance": "^3.0.0-alpha.1",
-    "@claude-flow/memory": "^3.0.0-alpha.14",
-    "@claude-flow/plugin-gastown-bridge": "^0.1.3",
-    "@claude-flow/security": "^3.0.0-alpha.1",
-    "@ruvector/attention": "^0.1.32",
-    "@ruvector/attention-darwin-arm64": "0.1.32",
-    "@ruvector/diskann": "^0.1.0",
-    "@ruvector/learning-wasm": "^0.1.29",
-    "@ruvector/router": "^0.1.30",
-    "@ruvector/ruvllm-wasm": "^2.0.2",
-    "@ruvector/rvagent-wasm": "^0.1.0",
-    "@ruvector/sona": "^0.1.6",
-    "agentdb": "^3.0.0-alpha.13",
-    "agentic-flow": "^3.0.0-alpha.1"
+    "@agntcy/slim-bindings": "2.0.0-alpha.5",
+    "@claude-flow/memory": "^3.0.0-alpha.23",
+    "@metaharness/darwin": "~0.9.0",
+    "@metaharness/flywheel": "~0.1.10",
+    "@metaharness/radio": "~0.1.0",
+    "@metaharness/turn-credit": "~0.1.0",
+    "@napi-rs/keyring": "1.3.0",
+    "agentdb": "^3.0.0-alpha.17",
+    "agentic-flow": "^3.0.0-alpha.1",
+    "better-sqlite3": "^12.9.0",
+    "ruvector": "^0.2.27"
+  },
+  "peerDependencies": {
+    "@metaharness/router": "^0.4.0",
+    "metaharness": "^0.4.1"
+  },
+  "peerDependenciesMeta": {
+    "@metaharness/router": {
+      "optional": true
+    },
+    "metaharness": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public",
     "tag": "latest"
+  },
+  "overrides": {
+    "protobufjs": ">=7.5.6",
+    "js-yaml": ">=4.3.0",
+    "express": ">=4.22.2",
+    "qs": ">=6.15.2",
+    "@opentelemetry/core": ">=2.8.0",
+    "@opentelemetry/resources": ">=2.8.0",
+    "@opentelemetry/sdk-trace-base": ">=2.8.0",
+    "@opentelemetry/sdk-node": ">=0.220.0",
+    "agentdb": "$agentdb",
+    "better-sqlite3": "^12.9.0"
+  },
+  "bundleDependencies": [
+    "@claude-flow/codex",
+    "@claude-flow/mcp",
+    "@claude-flow/plugin-agent-federation",
+    "@claude-flow/security"
+  ],
+  "directories": {
+    "doc": "docs"
   }
 }

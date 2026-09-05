@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/browser",
-  "version": "3.0.0-alpha.3",
+  "version": "3.0.0-alpha.4",
   "description": "Browser automation for AI agents - integrates agent-browser with claude-flow swarms",
   "type": "module",
   "main": "dist/index.js",
@@ -22,9 +22,34 @@
     "postinstall": "node -e \"const{execSync}=require('child_process');try{execSync('agent-browser --version',{stdio:'ignore'});}catch{console.log('\\n📦 Installing agent-browser globally...');try{execSync('npm install -g agent-browser@latest',{stdio:'inherit'});console.log('✅ agent-browser installed successfully!');}catch(e){console.log('⚠️  Could not install agent-browser globally. Run manually:\\n   npm install -g agent-browser@latest');}}\""
   },
   "dependencies": {
-    "agent-browser": "^0.6.0",
-    "agentic-flow": "^2.0.3",
+    "agent-browser": "^0.27.0",
+    "agentic-flow": "^2.0.13",
     "zod": "^3.22.4"
+  },
+  "overrides": {
+    "@opentelemetry/sdk-node": ">=0.218.0",
+    "@opentelemetry/auto-instrumentations-node": ">=0.75.0",
+    "@opentelemetry/exporter-prometheus": ">=0.217.0",
+    "@opentelemetry/core": "1.25.1",
+    "@opentelemetry/resources": "1.25.1",
+    "@opentelemetry/sdk-trace-base": "1.25.1",
+    "axios": ">=1.13.2",
+    "fast-uri": ">=3.1.0",
+    "hono": ">=4.11.4",
+    "@hono/node-server": ">=1.19.10",
+    "path-to-regexp": ">=8.2.1",
+    "undici": ">=7.18.0",
+    "minimatch": ">=10.0.0",
+    "@isaacs/brace-expansion": ">=5.0.1",
+    "picomatch": ">=4.0.3",
+    "flatted": ">=3.4.0",
+    "tar": ">=7.5.11",
+    "cacache": ">=20.0.0",
+    "make-fetch-happen": ">=15.0.0",
+    "express-rate-limit": ">=8.4.1",
+    "protobufjs": ">=7.5.5",
+    "vite": ">=6.4.6",
+    "ws": ">=8.18.4"
   },
   "peerDependencies": {
     "@claude-flow/cli": ">=3.5.0"
@@ -32,7 +57,7 @@
   "devDependencies": {
     "@types/node": "^20.10.0",
     "typescript": "^5.3.0",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "keywords": [
     "browser",

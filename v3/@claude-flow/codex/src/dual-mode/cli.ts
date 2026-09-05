@@ -5,13 +5,18 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   DualModeOrchestrator,
   DualModeConfig,
   WorkerConfig,
   CollaborationTemplates,
   CollaborationResult,
+  loadSwarmAutomationConfig,
 } from './orchestrator.js';
+import { CodexWorktreeCoordinator } from '../worktrees/coordinator.js';
 
 /**
  * Create the dual-mode command
@@ -43,8 +48,8 @@ function createRunCommand(): Command {
     .option('--parallel-workers', 'Run --worker specs in parallel instead of chaining them sequentially', false)
     .option('-c, --config <path>', 'Path to collaboration config JSON')
     .option('--task <description>', 'Task description for the swarm')
-    .option('--max-concurrent <n>', 'Maximum concurrent workers', '4')
-    .option('--timeout <ms>', 'Worker timeout in milliseconds', '300000')
+    .option('--max-concurrent <n>', 'Maximum concurrent workers (bounded by .agents/config.toml)')
+    .option('--timeout <ms>', 'Worker timeout in milliseconds (bounded by .agents/config.toml)')
     .option('--namespace <name>', 'Shared memory namespace', 'collaboration')
     .action(async (templateArg: string | undefined, options) => {
       console.log(chalk.cyan('═══════════════════════════════════════════════════════════════'));
@@ -53,10 +58,25 @@ function createRunCommand(): Command {
       console.log(chalk.cyan('═══════════════════════════════════════════════════════════════'));
       console.log();
 
+      const automation = loadSwarmAutomationConfig(process.cwd());
+      if (!automation.enabled) {
+        throw new Error('unattended swarm automation is disabled; set [swarm.automation] enabled = true');
+      }
+      const requestedConcurrency = options.maxConcurrent
+        ? parseInt(options.maxConcurrent, 10)
+        : automation.maxConcurrent;
+      const requestedTimeout = options.timeout
+        ? parseInt(options.timeout, 10)
+        : automation.agentTimeoutSeconds * 1000;
       const config: DualModeConfig = {
         projectPath: process.cwd(),
-        maxConcurrent: parseInt(options.maxConcurrent, 10),
-        timeout: parseInt(options.timeout, 10),
+        maxConcurrent: Math.min(requestedConcurrency, automation.maxConcurrent),
+        maxWriters: automation.maxWriters,
+        worktreeIsolation: automation.worktreeIsolation,
+        dependencyFailure: automation.dependencyFailure,
+        timeout: Math.min(requestedTimeout, automation.agentTimeoutSeconds * 1000),
+        maxOutputBytes: automation.maxOutputBytes,
+        policyPreflight: true,
         sharedNamespace: options.namespace,
       };
 
@@ -94,7 +114,7 @@ function createRunCommand(): Command {
         workers = getTemplateWorkers(templateName, task);
         taskContext = `Template: ${templateName}, Task: ${task}`;
       } else if (options.config) {
-        const configData = await import(options.config);
+        const configData = await loadWorkerConfig(options.config, process.cwd());
         workers = configData.workers;
         taskContext = configData.taskContext || options.task || 'Collaborative task';
       } else {
@@ -108,6 +128,24 @@ function createRunCommand(): Command {
         console.log('Custom workers:');
         console.log('  --worker "claude:architect:Design the API" --worker "codex:coder:Implement it"');
         return;
+      }
+
+      if (automation.worktreeIsolation) {
+        const runId = `dual-${Date.now().toString(36)}`;
+        const coordinator = new CodexWorktreeCoordinator(process.cwd());
+        const record = coordinator.prepare(
+          runId,
+          workers.map((worker) => ({
+            id: worker.id,
+            ...(worker.readOnly === undefined ? {} : { readOnly: worker.readOnly }),
+          })),
+        );
+        const assignments = new Map(record.assignments.map((item) => [item.agentId, item.path]));
+        workers = workers.map((worker) => {
+          const worktreePath = assignments.get(worker.id);
+          return { ...worker, ...(worktreePath ? { worktreePath } : {}) };
+        });
+        console.log(chalk.gray(`  Worktree run: ${runId} (retained for explicit integrate/cleanup)`));
       }
 
       console.log();
@@ -140,6 +178,26 @@ function createRunCommand(): Command {
 
       printResults(result);
     });
+}
+
+export async function loadWorkerConfig(
+  configPath: string,
+  cwd = process.cwd(),
+): Promise<{ workers: WorkerConfig[]; taskContext?: string }> {
+  const absolute = path.resolve(cwd, configPath);
+  const loaded = path.extname(absolute).toLowerCase() === '.json'
+    ? JSON.parse(await readFile(absolute, 'utf8'))
+    : await import(pathToFileURL(absolute).href);
+  const config = loaded.default && typeof loaded.default === 'object'
+    ? loaded.default
+    : loaded;
+  if (!Array.isArray(config.workers)) {
+    throw new Error(`Dual-mode config must export a workers array: ${absolute}`);
+  }
+  return {
+    workers: config.workers,
+    ...(typeof config.taskContext === 'string' ? { taskContext: config.taskContext } : {}),
+  };
 }
 
 /**
@@ -187,7 +245,7 @@ function createStatusCommand(): Command {
       const { spawn } = await import('child_process');
 
       const proc = spawn('npx', [
-        'ruflo@alpha', 'memory', 'list',
+        'ruflo@latest', 'memory', 'list',
         '--namespace', options.namespace
       ], { stdio: 'inherit' });
 
@@ -288,5 +346,5 @@ function printResults(result: CollaborationResult): void {
   }
 
   console.log();
-  console.log(chalk.gray('View shared memory: npx ruflo@alpha memory list --namespace collaboration'));
+  console.log(chalk.gray('View shared memory: npx ruflo@latest memory list --namespace collaboration'));
 }

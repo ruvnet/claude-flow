@@ -127,7 +127,7 @@ function loadEnvConfig(): Partial<SystemConfig> {
   const defaultSwarm = defaultSystemConfig.swarm ?? { topology: 'hierarchical-mesh' as const, maxAgents: 20 };
   if (process.env.CLAUDE_FLOW_SWARM_TOPOLOGY) {
     const topology = process.env.CLAUDE_FLOW_SWARM_TOPOLOGY as NonNullable<SystemConfig['swarm']>['topology'];
-    if (['hierarchical', 'mesh', 'ring', 'star', 'adaptive', 'hierarchical-mesh'].includes(topology)) {
+    if (['hierarchical', 'mesh', 'ring', 'star', 'adaptive', 'pheromone-adaptive', 'hierarchical-mesh'].includes(topology)) {
       config.swarm = {
         ...defaultSwarm,
         topology,

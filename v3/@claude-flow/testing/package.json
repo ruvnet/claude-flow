@@ -52,7 +52,7 @@
     "@claude-flow/shared": "^3.0.0-alpha.1",
     "@claude-flow/swarm": "^3.0.0-alpha.1",
     "typescript": "^5.3.0",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "publishConfig": {
     "access": "public",

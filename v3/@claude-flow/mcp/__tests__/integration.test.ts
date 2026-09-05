@@ -11,6 +11,7 @@ import {
   definePrompt,
   textMessage,
   resourceMessage,
+  HttpTransport,
 } from '../src/index.js';
 import type { ILogger, MCPRequest, MCPResponse } from '../src/types.js';
 
@@ -445,5 +446,45 @@ describe('MCP 2025-11-25 Integration', () => {
       // Should complete quickly (< 100ms), not hang due to ReDoS
       expect(elapsed).toBeLessThan(100);
     });
+  });
+});
+
+describe('HTTP transport security controls', () => {
+  it('rate-limits MCP requests while leaving health checks available', async () => {
+    const port = 41000 + Math.floor(Math.random() * 2000);
+    const transport = new HttpTransport(createMockLogger(), {
+      host: '127.0.0.1',
+      port,
+      corsEnabled: false,
+      rateLimit: { windowMs: 60_000, limit: 1 },
+    });
+    transport.onRequest(async (request) => ({
+      jsonrpc: '2.0',
+      id: request.id,
+      result: { ok: true },
+    }));
+
+    await transport.start();
+    try {
+      const request = {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }),
+      } as const;
+      const first = await fetch(`http://127.0.0.1:${port}/mcp`, request);
+      expect(first.status).toBe(200);
+
+      const limited = await fetch(`http://127.0.0.1:${port}/mcp`, request);
+      expect(limited.status).toBe(429);
+      expect(limited.headers.get('retry-after')).toBeTruthy();
+      await expect(limited.json()).resolves.toMatchObject({
+        error: { code: -32000, message: 'Rate limit exceeded' },
+      });
+
+      const health = await fetch(`http://127.0.0.1:${port}/health`);
+      expect(health.status).toBe(200);
+    } finally {
+      await transport.stop();
+    }
   });
 });

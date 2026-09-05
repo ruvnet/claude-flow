@@ -24,7 +24,11 @@ import type {
   ToolContext,
 } from './types.js';
 import { MCPServerError, ErrorCodes } from './types.js';
-import { ToolRegistry, createToolRegistry } from './tool-registry.js';
+import {
+  ToolRegistry,
+  createToolRegistry,
+  type ToolAuthorizer,
+} from './tool-registry.js';
 import { SessionManager, createSessionManager } from './session-manager.js';
 import { ConnectionPool, createConnectionPool } from './connection-pool.js';
 import { ResourceRegistry, createResourceRegistry } from './resource-registry.js';
@@ -53,6 +57,7 @@ export interface IMCPServer {
   stop(): Promise<void>;
   registerTool(tool: MCPTool): boolean;
   registerTools(tools: MCPTool[]): { registered: number; failed: string[] };
+  setToolAuthorizer(authorizer?: ToolAuthorizer): void;
   getHealthStatus(): Promise<{
     healthy: boolean;
     error?: string;
@@ -75,7 +80,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   private readonly transportManager: TransportManager;
   private readonly rateLimiter: RateLimiter;
   private readonly samplingManager: SamplingManager;
-  private transport?: ITransport;
+  private transports: ITransport[] = [];
   private running = false;
   private startTime?: Date;
   private startupDuration?: number;
@@ -111,12 +116,17 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     config: Partial<MCPServerConfig>,
     private readonly logger: ILogger,
     private readonly orchestrator?: unknown,
-    private readonly swarmCoordinator?: unknown
+    private readonly swarmCoordinator?: unknown,
+    toolAuthorizer?: ToolAuthorizer,
   ) {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config } as MCPServerConfig;
 
     this.toolRegistry = createToolRegistry(logger);
+    if (this.config.requireToolAuthorization && !toolAuthorizer) {
+      throw new Error('tool authorization is required but no authorizer was provided');
+    }
+    this.toolRegistry.setAuthorizer(toolAuthorizer);
     this.sessionManager = createSessionManager(logger, {
       maxSessions: 100,
       sessionTimeout: 30 * 60 * 1000,
@@ -207,26 +217,38 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     });
 
     try {
-      this.transport = createTransport(this.config.transport, this.logger, {
+      const hosts = this.config.transport === 'http'
+        ? [...new Set([this.config.host, ...(this.config.additionalHosts ?? [])])]
+        : [this.config.host];
+      const transports = hosts.map((host) => createTransport(this.config.transport, this.logger, {
         type: this.config.transport,
-        host: this.config.host,
+        host,
         port: this.config.port,
         corsEnabled: this.config.corsEnabled,
         corsOrigins: this.config.corsOrigins,
         auth: this.config.auth,
         maxRequestSize: String(this.config.maxRequestSize),
         requestTimeout: this.config.requestTimeout,
-      } as any);
+      } as any));
 
-      this.transport.onRequest(async (request) => {
-        return await this.handleRequest(request);
-      });
+      for (const transport of transports) {
+        transport.onRequest(async (request) => await this.handleRequest(request));
+        transport.onNotification(async (notification) => {
+          await this.handleNotification(notification);
+        });
+      }
 
-      this.transport.onNotification(async (notification) => {
-        await this.handleNotification(notification);
-      });
-
-      await this.transport.start();
+      const started: ITransport[] = [];
+      try {
+        for (const transport of transports) {
+          await transport.start();
+          started.push(transport);
+        }
+      } catch (error) {
+        await Promise.all(started.map((transport) => transport.stop()));
+        throw error;
+      }
+      this.transports = started;
       await this.registerBuiltInTools();
 
       this.running = true;
@@ -256,9 +278,10 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     this.logger.info('Stopping MCP server');
 
     try {
-      if (this.transport) {
-        await this.transport.stop();
-        this.transport = undefined;
+      if (this.transports.length > 0) {
+        const transports = this.transports;
+        this.transports = [];
+        await Promise.all(transports.map((transport) => transport.stop()));
       }
 
       this.sessionManager.clearAll();
@@ -290,6 +313,13 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     return this.toolRegistry.registerBatch(tools);
   }
 
+  setToolAuthorizer(authorizer?: ToolAuthorizer): void {
+    if (this.config.requireToolAuthorization && !authorizer) {
+      throw new Error('tool authorization is required and cannot be disabled');
+    }
+    this.toolRegistry.setAuthorizer(authorizer);
+  }
+
   unregisterTool(name: string): boolean {
     return this.toolRegistry.unregister(name);
   }
@@ -300,9 +330,9 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     metrics?: Record<string, number>;
   }> {
     try {
-      const transportHealth = this.transport
-        ? await this.transport.getHealthStatus()
-        : { healthy: false, error: 'Transport not initialized' };
+      const transportHealth = this.transports.length > 0
+        ? await Promise.all(this.transports.map((transport) => transport.getHealthStatus()))
+        : [{ healthy: false, error: 'Transport not initialized' }];
 
       const sessionMetrics = this.sessionManager.getSessionMetrics();
       const poolStats = this.connectionPool?.getStats();
@@ -314,7 +344,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         failedRequests: this.requestStats.failed,
         totalSessions: sessionMetrics.total,
         activeSessions: sessionMetrics.active,
-        ...(transportHealth.metrics || {}),
+        ...Object.assign({}, ...transportHealth.map((health) => health.metrics || {})),
       };
 
       if (poolStats) {
@@ -324,8 +354,8 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       }
 
       return {
-        healthy: this.running && transportHealth.healthy,
-        error: transportHealth.error,
+        healthy: this.running && transportHealth.every((health) => health.healthy),
+        error: transportHealth.map((health) => health.error).filter(Boolean).join('; ') || undefined,
         metrics,
       };
 
@@ -999,13 +1029,11 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   // ============================================================================
 
   private async sendNotification(method: string, params?: Record<string, unknown>): Promise<void> {
-    if (this.transport?.sendNotification) {
-      await this.transport.sendNotification({
-        jsonrpc: '2.0',
-        method,
-        params,
-      });
-    }
+    await Promise.all(this.transports.map(async (transport) => {
+      if (transport.sendNotification) {
+        await transport.sendNotification({ jsonrpc: '2.0', method, params });
+      }
+    }));
   }
 
   private getOrCreateSession(): MCPSession {
@@ -1125,7 +1153,8 @@ export function createMCPServer(
   config: Partial<MCPServerConfig>,
   logger: ILogger,
   orchestrator?: unknown,
-  swarmCoordinator?: unknown
+  swarmCoordinator?: unknown,
+  toolAuthorizer?: ToolAuthorizer,
 ): MCPServer {
-  return new MCPServer(config, logger, orchestrator, swarmCoordinator);
+  return new MCPServer(config, logger, orchestrator, swarmCoordinator, toolAuthorizer);
 }

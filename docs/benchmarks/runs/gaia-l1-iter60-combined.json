@@ -1,0 +1,65 @@
+{
+  "iter": 60,
+  "branch": "feat/visit-webpage-tool",
+  "pr": 2211,
+  "model": "claude-sonnet-4-6",
+  "mode": "hybrid",
+  "total": 53,
+  "pass": 28,
+  "fail": 25,
+  "pass_rate": 0.5283018867924528,
+  "pass_rate_pct": "52.8%",
+  "cost_usd": 6.1162,
+  "mean_turns": 4.6,
+  "mean_time_s": 35.8,
+  "routing": {
+    "ToolCalling": 46,
+    "CodeAgent": 7
+  },
+  "routing_rules": {
+    "web_retrieval": 15,
+    "pure_reasoning": 7,
+    "default": 16,
+    "attachment": 11,
+    "long_question": 4
+  },
+  "visit_webpage_invocations": 113,
+  "empty_answer_failures": 19,
+  "comparisons": {
+    "iter56b_n1_high_draw": {
+      "score": 35,
+      "pct": "66.0%",
+      "delta": -7
+    },
+    "iter56c_n1": {
+      "score": 30,
+      "pct": "56.6%",
+      "delta": -2
+    },
+    "iter56d_n1": {
+      "score": 31,
+      "pct": "58.5%",
+      "delta": -3
+    },
+    "n3_mean": {
+      "score": 32.0,
+      "pct": "60.4%",
+      "delta": -4.0
+    },
+    "iter57_combined_naive": {
+      "score": 25,
+      "pct": "47.2%",
+      "delta": "+3 vs iter57"
+    }
+  },
+  "verdict": "within_n3_mean_variance",
+  "autonomous_action": "keep_main_document",
+  "notes": [
+    "28/53 = 52.8% is above iter57 naive (25/53=47.2%) but below n3 mean (32.0/53=60.4%)",
+    "19/25 failures are empty-answer, indicating FINAL_ANSWER extraction regression at some turns",
+    "visit_webpage fired 113 times \u2014 tool is active and being invoked",
+    "hybrid routing: 46 ToolCalling (87%), 7 CodeAgent (13%)",
+    "Score falls in 30-32 neutral band per autonomous decision matrix",
+    "Consistent with high variance single-run \u2014 not a clear regression vs main"
+  ]
+}

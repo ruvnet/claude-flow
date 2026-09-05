@@ -18,6 +18,16 @@
  * - Selective consolidation based on pattern importance
  * - Persistent storage in .swarm/ewc-fisher.json
  *
+ * IMPLEMENTATION NOTE (honesty — see docs/reviews/intelligence-system-audit-2026-05-29.md):
+ * The penalty math above is real, but `F_i` here is NOT true Fisher information
+ * (the expectation of squared log-likelihood gradients). There are no model
+ * gradients in this pattern-memory context, so `F_i` is a HEURISTIC IMPORTANCE
+ * PROXY: accumulated squared embedding magnitude per dimension
+ * (`F_i += embedding_i^2`, see computeFisherMatrix). It protects high-magnitude
+ * embedding dimensions during consolidation — a reasonable importance signal —
+ * but "Fisher information" overstates it; read `F_i` as "embedding-importance
+ * weight", not gradient curvature.
+ *
  * @module v3/cli/memory/ewc-consolidation
  */
 

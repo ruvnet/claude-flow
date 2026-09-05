@@ -83,7 +83,7 @@ hooks:
     # 4. Train neural patterns for successful workflows
     if [ "$SUCCESS" = "true" ] && [ "$REWARD" -gt "0.9" ]; then
       echo "🧠 Training neural pattern from successful workflow"
-      npx claude-flow neural train \
+      npx @claude-flow/cli@latest neural train \
         --pattern-type "coordination" \
         --training-data "$WORKFLOW_OUTPUT" \
         --epochs 50
@@ -320,7 +320,7 @@ jobs:
   swarm-analysis:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Initialize Swarm
         uses: ruvnet/swarm-action@v1
@@ -368,7 +368,7 @@ jobs:
   detect-and-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Detect Languages
         id: detect

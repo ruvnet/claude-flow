@@ -1,0 +1,44 @@
+# ruflo-watermark — SynthID-Text-style LLM text watermarking (generation +
+# detection) plus a robustness-evaluation harness.
+#
+# Self-contained `[workspace]` so this crate builds standalone (`cargo test`,
+# `cargo build --target wasm32-unknown-unknown`) WITHOUT being pulled into
+# ruflo's parent workspace resolution — the parent root Cargo.toml documents
+# why nested workspace roots must stay isolated. It is equally droppable into
+# agent-harness-generator/crates/ as a plain member.
+[package]
+name = "ruflo-watermark"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+license = "MIT"
+description = "High-speed SynthID-Text-style LLM text watermarking (Tournament + distortion-free Gumbel) with Bayesian detection and a robustness-evaluation harness. Rust core + optional WASM bindings."
+repository = "https://github.com/ruvnet/ruflo"
+keywords = ["watermark", "llm", "synthid", "provenance", "wasm"]
+categories = ["algorithms", "text-processing", "wasm"]
+
+[workspace]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["std"]
+std = []
+# WASM bindings. Build: `cargo build --release --features wasm --target wasm32-unknown-unknown`
+wasm = ["dep:wasm-bindgen"]
+
+[dependencies]
+wasm-bindgen = { version = "0.2", optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "throughput"
+harness = false
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1

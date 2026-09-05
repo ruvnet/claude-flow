@@ -20,10 +20,30 @@ import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 // Mock fs to prevent actual file I/O during tests
 vi.mock('node:fs', () => {
   const memStore = new Map<string, string>();
+  const descriptors = new Map<number, string>();
+  let nextDescriptor = 3;
   return {
     existsSync: vi.fn((p: string) => memStore.has(p)),
     readFileSync: vi.fn((p: string) => memStore.get(p) || '{}'),
     writeFileSync: vi.fn((p: string, d: string) => memStore.set(p, d)),
+    renameSync: vi.fn((from: string, to: string) => {
+      memStore.set(to, memStore.get(from) || '');
+      memStore.delete(from);
+    }),
+    openSync: vi.fn((p: string) => {
+      const descriptor = nextDescriptor++;
+      descriptors.set(descriptor, p);
+      if (!memStore.has(p)) memStore.set(p, '');
+      return descriptor;
+    }),
+    writeSync: vi.fn((descriptor: number, data: Buffer) => {
+      const path = descriptors.get(descriptor);
+      if (path) memStore.set(path, data.toString());
+      return data.length;
+    }),
+    fsyncSync: vi.fn(),
+    closeSync: vi.fn((descriptor: number) => descriptors.delete(descriptor)),
+    chmodSync: vi.fn(),
     mkdirSync: vi.fn(),
     readdirSync: vi.fn(() => []),
     unlinkSync: vi.fn(),
@@ -33,10 +53,30 @@ vi.mock('node:fs', () => {
 
 vi.mock('fs', () => {
   const memStore = new Map<string, string>();
+  const descriptors = new Map<number, string>();
+  let nextDescriptor = 3;
   return {
     existsSync: vi.fn((p: string) => memStore.has(p)),
     readFileSync: vi.fn((p: string) => memStore.get(p) || '{}'),
     writeFileSync: vi.fn((p: string, d: string) => memStore.set(p, d)),
+    renameSync: vi.fn((from: string, to: string) => {
+      memStore.set(to, memStore.get(from) || '');
+      memStore.delete(from);
+    }),
+    openSync: vi.fn((p: string) => {
+      const descriptor = nextDescriptor++;
+      descriptors.set(descriptor, p);
+      if (!memStore.has(p)) memStore.set(p, '');
+      return descriptor;
+    }),
+    writeSync: vi.fn((descriptor: number, data: Buffer) => {
+      const path = descriptors.get(descriptor);
+      if (path) memStore.set(path, data.toString());
+      return data.length;
+    }),
+    fsyncSync: vi.fn(),
+    closeSync: vi.fn((descriptor: number) => descriptors.delete(descriptor)),
+    chmodSync: vi.fn(),
     mkdirSync: vi.fn(),
     readdirSync: vi.fn(() => []),
     unlinkSync: vi.fn(),

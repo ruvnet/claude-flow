@@ -15,7 +15,7 @@ tags: [plugin, knowledge-graph, entities, relations, pathfinder, namespace, smok
 
 ### The drift this ADR fixes
 
-Two files reference `mcp__claude-flow__embeddings_embed`, but the real tool is `embeddings_generate` (`v3/@claude-flow/cli/src/mcp-tools/embeddings-tools.ts:260`). There is no `embeddings_embed` MCP tool.
+Two files reference `mcp__plugin_ruflo-core_ruflo__embeddings_embed`, but the real tool is `embeddings_generate` (`v3/@claude-flow/cli/src/mcp-tools/embeddings-tools.ts:260`). There is no `embeddings_embed` MCP tool.
 
 - `skills/kg-extract/SKILL.md:5` — `allowed-tools` line includes the wrong tool name
 - `agents/graph-navigator.md:56` — agent's tool list also wrong

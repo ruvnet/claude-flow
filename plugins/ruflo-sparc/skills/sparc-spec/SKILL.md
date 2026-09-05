@@ -2,7 +2,7 @@
 name: sparc-spec
 description: Run the SPARC Specification phase — gather requirements, define acceptance criteria, identify constraints, and store the spec in memory
 argument-hint: "<feature-description>"
-allowed-tools: mcp__claude-flow__memory_store mcp__claude-flow__memory_search mcp__claude-flow__memory_retrieve mcp__claude-flow__task_create mcp__claude-flow__task_update mcp__claude-flow__task_complete mcp__claude-flow__hooks_intelligence_trajectory-start mcp__claude-flow__hooks_intelligence_trajectory-step mcp__claude-flow__neural_predict Bash Read Edit
+allowed-tools: mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__memory_retrieve mcp__plugin_ruflo-core_ruflo__task_create mcp__plugin_ruflo-core_ruflo__task_update mcp__plugin_ruflo-core_ruflo__task_complete mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-start mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step mcp__plugin_ruflo-core_ruflo__neural_predict Bash Read Edit
 ---
 
 # SPARC Specification Phase
@@ -15,11 +15,11 @@ When starting a new feature or project that needs structured requirements gather
 
 ## Steps
 
-1. **Initialize phase tracking** — call `mcp__claude-flow__hooks_intelligence_trajectory-start` with metadata `{ "phase": "specification", "feature": "$ARGUMENTS" }`
+1. **Initialize phase tracking** — call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-start` with metadata `{ "phase": "specification", "feature": "$ARGUMENTS" }`
 
-2. **Check for prior work** — call `mcp__claude-flow__memory_search` with namespace `sparc-state` and query for the feature to see if a SPARC workflow already exists. If it does, retrieve existing artifacts. If not, initialize state with phase 1.
+2. **Check for prior work** — call `mcp__plugin_ruflo-core_ruflo__memory_search` with namespace `sparc-state` and query for the feature to see if a SPARC workflow already exists. If it does, retrieve existing artifacts. If not, initialize state with phase 1.
 
-3. **Search for similar patterns** — call `mcp__claude-flow__neural_predict` with the feature description to find relevant past specifications and learned patterns
+3. **Search for similar patterns** — call `mcp__plugin_ruflo-core_ruflo__neural_predict` with the feature description to find relevant past specifications and learned patterns
 
 4. **Gather requirements** — analyze the feature description and the codebase to identify:
    - **Functional requirements**: what the feature must do (user-facing behaviors)
@@ -45,17 +45,17 @@ When starting a new feature or project that needs structured requirements gather
    - What happens under concurrent access?
    - What happens when external dependencies fail?
 
-8. **Store specification** — call `mcp__claude-flow__memory_store` with:
+8. **Store specification** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with:
    - Namespace: `sparc-phases`
    - Key: `spec-{feature-slug}`
    - Value: JSON with `{ status: "complete", requirements, acceptanceCriteria, constraints, edgeCases, integrationPoints }`
 
-9. **Update phase state** — call `mcp__claude-flow__memory_store` with:
+9. **Update phase state** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with:
    - Namespace: `sparc-state`
    - Key: `current-phase-{feature-slug}`
    - Value: updated state with artifacts list including the spec key
 
-10. **Record trajectory step** — call `mcp__claude-flow__hooks_intelligence_trajectory-step` with the specification summary
+10. **Record trajectory step** — call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step` with the specification summary
 
 11. **Present specification** — display the full specification document to the user with a summary table and suggest running `/sparc advance` to pass the gate and move to the Pseudocode phase
 

@@ -1,0 +1,92 @@
+{
+  "tag": "phase-3-m3v2-filtered",
+  "node": "v22.22.1",
+  "platform": "darwin-arm64",
+  "capturedAt": "2026-05-22T03:26:22.411Z",
+  "results": [
+    {
+      "N": 10,
+      "unfiltered": {
+        "name": "retrieve(N=10, unfiltered)",
+        "iters": 632,
+        "trials": 5,
+        "opsPerSec": 73187,
+        "avgMicros": 13.664,
+        "opsMin": 48968,
+        "opsMax": 80728
+      },
+      "filtered": {
+        "name": "retrieve(N=10, riskFilter=[critical])",
+        "iters": 632,
+        "trials": 5,
+        "opsPerSec": 192414,
+        "avgMicros": 5.197,
+        "opsMin": 93685,
+        "opsMax": 207627
+      }
+    },
+    {
+      "N": 100,
+      "unfiltered": {
+        "name": "retrieve(N=100, unfiltered)",
+        "iters": 200,
+        "trials": 5,
+        "opsPerSec": 12234,
+        "avgMicros": 81.742,
+        "opsMin": 10877,
+        "opsMax": 12819
+      },
+      "filtered": {
+        "name": "retrieve(N=100, riskFilter=[critical])",
+        "iters": 200,
+        "trials": 5,
+        "opsPerSec": 47742,
+        "avgMicros": 20.946,
+        "opsMin": 44571,
+        "opsMax": 50847
+      }
+    },
+    {
+      "N": 500,
+      "unfiltered": {
+        "name": "retrieve(N=500, unfiltered)",
+        "iters": 89,
+        "trials": 5,
+        "opsPerSec": 2468,
+        "avgMicros": 405.213,
+        "opsMin": 2396,
+        "opsMax": 2589
+      },
+      "filtered": {
+        "name": "retrieve(N=500, riskFilter=[critical])",
+        "iters": 89,
+        "trials": 5,
+        "opsPerSec": 11807,
+        "avgMicros": 84.696,
+        "opsMin": 11449,
+        "opsMax": 12122
+      }
+    },
+    {
+      "N": 1000,
+      "unfiltered": {
+        "name": "retrieve(N=1000, unfiltered)",
+        "iters": 63,
+        "trials": 5,
+        "opsPerSec": 1333,
+        "avgMicros": 750.112,
+        "opsMin": 1168,
+        "opsMax": 1364
+      },
+      "filtered": {
+        "name": "retrieve(N=1000, riskFilter=[critical])",
+        "iters": 63,
+        "trials": 5,
+        "opsPerSec": 6646,
+        "avgMicros": 150.462,
+        "opsMin": 6539,
+        "opsMax": 6816
+      }
+    }
+  ]
+}

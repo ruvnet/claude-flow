@@ -1,0 +1,41 @@
+{
+  "$comment": "ADR-150 iter 30 — MCP governance policy for ruflo's claude-flow MCP server. Closes the 'no-policy' HIGH finding from `harness mcp-scan`. Configured to reflect ruflo's ACTUAL MCP-layer posture: the claude-flow MCP server exposes 314 tools that operate via higher-level abstractions (memory_*, hooks_*, agentdb_*) — NOT raw shell, network, or filesystem. Those primitives are reached via native Claude Code tools (Bash / Write / Edit / WebFetch) which are governed by Claude Code's own permission system, not this MCP policy. Hence: this policy denies all three at the MCP layer.",
+
+  "schema": 1,
+  "policyVersion": 1,
+  "harnessId": "claude-flow",
+  "rationale": "ADR-022 default-deny posture. The claude-flow MCP server's tools are pure-data operations (read/write via AgentDB, route via embeddings, dispatch via hooks). Shell / network / file-write are NOT in this server's tool surface — they happen at the native-Claude-Code layer, outside this policy's jurisdiction.",
+
+  "defaultDeny": true,
+
+  "allowShell": false,
+  "allowNetwork": false,
+  "allowFileWrite": false,
+
+  "requireApprovalForDangerous": true,
+  "auditLog": true,
+
+  "toolTimeoutMs": 600000,
+  "maxToolCallsPerTurn": 200,
+
+  "dangerousPatterns": [
+    "Bash\\(rm\\b",
+    "Bash\\(sudo\\b",
+    "Bash\\(chmod\\s+777\\b",
+    "Bash\\(curl.+\\|\\s*(sh|bash)\\b",
+    "Bash\\(wget.+\\|\\s*(sh|bash)\\b",
+    "Bash\\(ssh\\b",
+    "Bash\\(git\\s+push.*--force\\b",
+    "Bash\\(npm\\s+publish\\b"
+  ],
+
+  "approvedServers": [
+    "claude-flow"
+  ],
+
+  "references": {
+    "adr": "v3/docs/adr/ADR-150-metaharness-integration-surfaces.md",
+    "constraint": "Ruflo remains operational if every MetaHarness package is removed.",
+    "upstream": "github.com/ruvnet/agent-harness-generator/blob/main/dist/mcp-scan.js"
+  }
+}

@@ -94,6 +94,39 @@ export {
   type OfficialHookOutput,
 } from './bridge/official-hooks-bridge.js';
 
+// ChannelGuard Worker (ADR-320 — arXiv:2607.19430 "ChannelGuard").
+// Inter-agent message sanitization gate reusing @claude-flow/security's
+// InputValidator (sanitizeString). Wired into SwarmCommunication.sendMessage
+// below; CLAUDE_FLOW_SECURITY_CHANNEL_GATE=0 disables it.
+export {
+  scanChannelMessage,
+  sanitizeChannelMessage,
+  guardChannelMessage,
+  isChannelGateEnabled,
+  createChannelGuardHandler,
+  registerChannelGuardHook,
+  type ChannelFindingKind,
+  type ChannelFinding,
+  type ChannelGuardOptions,
+  type ChannelScanResult,
+  type ChannelGuardOutcome,
+} from './workers/channel-guard-worker.js';
+
+// MemoryPoisonForensics (ADR-377 Phase 2 — ruvnet/ruflo#2516, #2873).
+// Behavioral-anomaly detection on AgentDB write sequences. Opt-in
+// PostToolUse handler; CLAUDE_FLOW_POISON_FORENSICS=0 disables recording.
+export {
+  MemoryPoisonForensics,
+  getSharedMemoryPoisonForensics,
+  isPoisonForensicsEnabled,
+  createMemoryPoisonForensicsHandler,
+  registerMemoryPoisonForensicsHook,
+  type WriteEvent,
+  type AnomalyFinding,
+  type PoisonForensicsResult,
+  type PoisonForensicsConfig,
+} from './workers/memory-poison-forensics.js';
+
 // Swarm Communication
 export {
   SwarmCommunication,

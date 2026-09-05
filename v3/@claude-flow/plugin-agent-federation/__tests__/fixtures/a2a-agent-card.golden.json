@@ -1,0 +1,50 @@
+{
+  "name": "ruflo-federation/node-golden",
+  "description": "Ruflo federation node node-golden — zero-trust cross-installation agent federation (2 agent role(s), PII-gated data flow, compliance-grade audit trail).",
+  "supportedInterfaces": [
+    {
+      "url": "ws://127.0.0.1:9100",
+      "protocolBinding": "RUFLO-FEDERATION",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "version": "1.0.0-alpha.16",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "extendedAgentCard": false,
+    "extensions": [
+      {
+        "uri": "urn:ruflo:federation:manifest:v1",
+        "description": "ruflo cross-installation federation identity (Ed25519-signed manifest)",
+        "required": false,
+        "params": {
+          "nodeId": "node-golden",
+          "publicKey": "aabbccddeeff",
+          "endpoint": "ws://127.0.0.1:9100",
+          "maxConcurrentSessions": 5,
+          "supportedProtocols": ["websocket", "http"],
+          "complianceModes": ["hipaa"],
+          "manifestSignature": "sig-golden",
+          "manifestTimestamp": "2026-07-03T00:00:00.000Z"
+        }
+      }
+    ]
+  },
+  "defaultInputModes": ["application/json", "text/plain"],
+  "defaultOutputModes": ["application/json", "text/plain"],
+  "skills": [
+    {
+      "id": "agent-type:coder",
+      "name": "coder",
+      "description": "Federated ruflo agent role \"coder\" — dispatchable via cross-installation federation sessions.",
+      "tags": ["ruflo", "federation", "agent-role", "coder"]
+    },
+    {
+      "id": "agent-type:reviewer",
+      "name": "reviewer",
+      "description": "Federated ruflo agent role \"reviewer\" — dispatchable via cross-installation federation sessions.",
+      "tags": ["ruflo", "federation", "agent-role", "reviewer"]
+    }
+  ]
+}

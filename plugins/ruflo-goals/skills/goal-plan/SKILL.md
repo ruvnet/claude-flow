@@ -2,7 +2,7 @@
 name: goal-plan
 description: Create and execute Goal-Oriented Action Plans (GOAP) with precondition analysis, cost optimization, and adaptive replanning
 argument-hint: "<goal-description>"
-allowed-tools: mcp__claude-flow__task_create mcp__claude-flow__task_list mcp__claude-flow__task_status mcp__claude-flow__task_assign mcp__claude-flow__task_update mcp__claude-flow__task_complete mcp__claude-flow__task_summary mcp__claude-flow__memory_store mcp__claude-flow__memory_search mcp__claude-flow__neural_predict mcp__claude-flow__workflow_create mcp__claude-flow__workflow_execute mcp__claude-flow__workflow_status mcp__claude-flow__hooks_intelligence_trajectory-start mcp__claude-flow__hooks_intelligence_trajectory-step mcp__claude-flow__hooks_intelligence_trajectory-end Bash Read Write Edit
+allowed-tools: mcp__plugin_ruflo-core_ruflo__task_create mcp__plugin_ruflo-core_ruflo__task_list mcp__plugin_ruflo-core_ruflo__task_status mcp__plugin_ruflo-core_ruflo__task_assign mcp__plugin_ruflo-core_ruflo__task_update mcp__plugin_ruflo-core_ruflo__task_complete mcp__plugin_ruflo-core_ruflo__task_summary mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__neural_predict mcp__plugin_ruflo-core_ruflo__workflow_create mcp__plugin_ruflo-core_ruflo__workflow_execute mcp__plugin_ruflo-core_ruflo__workflow_status mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-start mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-end Bash Read Write Edit
 ---
 
 # Goal Plan
@@ -23,18 +23,18 @@ When you have a complex objective that requires multiple steps, has dependencies
    - Effects (what becomes true after this action)
    - Cost estimate (time, complexity, risk)
 5. **Generate plan** — find the optimal action sequence using A* through the state space
-6. **Record trajectory** — call `mcp__claude-flow__hooks_intelligence_trajectory-start` to begin tracking
-7. **Create tasks** — call `mcp__claude-flow__task_create` for each action in the plan
+6. **Record trajectory** — call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-start` to begin tracking
+7. **Create tasks** — call `mcp__plugin_ruflo-core_ruflo__task_create` for each action in the plan
 8. **Execute** — work through tasks in dependency order:
    - Before each action: verify preconditions still hold
    - After each action: verify effects achieved
-   - Record each step via `mcp__claude-flow__hooks_intelligence_trajectory-step`
+   - Record each step via `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step`
 9. **Monitor & replan** — if an action fails or produces unexpected results:
    - Reassess current state
    - Recalculate optimal path from new state
    - Update remaining tasks
-10. **Complete trajectory** — call `mcp__claude-flow__hooks_intelligence_trajectory-end`
-11. **Store successful plan** — call `mcp__claude-flow__memory_store` with namespace `goap-plans`
+10. **Complete trajectory** — call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-end`
+11. **Store successful plan** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `goap-plans`
 
 ## Plan output format
 

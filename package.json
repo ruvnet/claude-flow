@@ -1,11 +1,16 @@
 {
   "name": "claude-flow",
-  "version": "3.7.0-alpha.35",
+  "version": "3.38.21",
+  "workspaces": [
+    "v3/@claude-flow/codex",
+    "v3/@claude-flow/plugin-agent-federation",
+    "v3/@claude-flow/security"
+  ],
   "description": "Ruflo - Enterprise AI agent orchestration for Claude Code. Deploy 60+ specialized agents in coordinated swarms with self-learning, fault-tolerant consensus, vector memory, and MCP integration",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "claude-flow": "./bin/cli.js"
+    "claude-flow": "bin/cli.js"
   },
   "homepage": "https://github.com/ruvnet/claude-flow#readme",
   "bugs": {
@@ -23,6 +28,7 @@
     "v3/@claude-flow/cli/dist/**/*.d.ts",
     "!v3/@claude-flow/cli/dist/**/*.map",
     "v3/@claude-flow/cli/package.json",
+    "v3/@claude-flow/cli/catalog-manifest.json",
     "v3/@claude-flow/shared/dist/**/*.js",
     "v3/@claude-flow/shared/dist/**/*.d.ts",
     "!v3/@claude-flow/shared/dist/**/*.map",
@@ -35,6 +41,10 @@
     ".claude/**",
     "!.claude/**/*.db",
     "!.claude/**/*.map",
+    "!.claude/worktrees/**",
+    "!.claude/projects/**",
+    "!.claude/scheduled_tasks.lock",
+    "!.claude/sessions/**",
     "README.md",
     "LICENSE"
   ],
@@ -42,6 +52,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "build:ts": "cd v3/@claude-flow/cli && npm run build || true",
+    "prepublishOnly": "node scripts/prepare-root-publish.mjs",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:security": "vitest run v3/__tests__/security/",
@@ -54,42 +65,86 @@
     "v3:security": "npm run security:audit && npm run security:test"
   },
   "dependencies": {
-    "@claude-flow/cli-core": "^3.7.0-alpha.5",
-    "@claude-flow/mcp": "^3.0.0-alpha.8",
-    "@claude-flow/neural": "^3.0.0-alpha.8",
-    "@claude-flow/shared": "^3.0.0-alpha.7",
-    "@noble/ed25519": "^2.1.0",
-    "@ruvector/rabitq-wasm": "^0.1.0",
-    "semver": "^7.6.0",
-    "zod": "^3.22.4"
+    "@claude-flow/cli-core": "3.7.0-alpha.5",
+    "@claude-flow/codex": "3.0.3",
+    "@claude-flow/mcp": "3.0.0-alpha.10",
+    "@claude-flow/neural": "3.0.0-alpha.9",
+    "@claude-flow/plugin-agent-federation": "1.0.0-alpha.18",
+    "@claude-flow/security": "3.0.0-alpha.14",
+    "@claude-flow/shared": "3.0.0-alpha.8",
+    "@iarna/toml": "^2.2.5",
+    "@noble/ed25519": "2.3.0",
+    "@ruvector/rabitq-wasm": "0.1.0",
+    "ajv": "^8.20.0",
+    "bcryptjs": "^3.0.3",
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "cors": "^2.8.5",
+    "fs-extra": "^11.2.0",
+    "express": ">=4.22.2",
+    "express-rate-limit": ">=8.4.1",
+    "fast-uri": "3.1.5",
+    "helmet": "^7.2.0",
+    "inquirer": "^9.2.0",
+    "semver": "7.7.3",
+    "toml": "^3.0.0",
+    "ws": ">=8.21.0",
+    "yaml": "^2.8.0",
+    "zod": "3.25.76"
   },
   "optionalDependencies": {
-    "@claude-flow/codex": "^3.0.0-alpha.8",
+    "@napi-rs/keyring": "1.3.0",
     "@claude-flow/plugin-gastown-bridge": "^0.1.3",
     "@ruvector/attention": "^0.1.3",
     "@ruvector/core": "^0.1.30",
     "@ruvector/router": "^0.1.30",
     "@ruvector/router-linux-x64-gnu": "^0.1.30",
     "@ruvector/sona": "^0.1.5",
-    "agentdb": "^3.0.0-alpha.9",
-    "agentic-flow": "^2.0.7"
+    "agentdb": "^3.0.0-alpha.17",
+    "agentic-flow": "^2.0.14",
+    "better-sqlite3": "12.9.0"
   },
   "overrides": {
-    "hono": ">=4.11.4",
+    "ruvector": "^0.2.27",
+    "better-sqlite3": "12.9.0",
+    "js-yaml": ">=4.3.0",
+    "hono": ">=4.13.2",
     "@ruvector/rvf-wasm": "0.1.5",
-    "@hono/node-server": ">=1.19.10",
+    "@hono/node-server": ">=2.1.1",
     "flatted": ">=3.4.0",
     "tar": ">=7.5.11",
     "picomatch": ">=4.0.3",
     "path-to-regexp": ">=8.2.1",
-    "undici": ">=7.18.0",
+    "undici": ">=8.10.0",
     "minimatch": ">=10.0.0",
     "@isaacs/brace-expansion": ">=5.0.1",
     "cacache": ">=20.0.0",
     "make-fetch-happen": ">=15.0.0",
     "express-rate-limit": ">=8.4.1",
-    "protobufjs": ">=7.5.5",
-    "uuid": ">=14.0.0"
+    "express": ">=4.22.2",
+    "qs": ">=6.15.2",
+    "protobufjs": ">=8.7.2",
+    "uuid": ">=14.0.0",
+    "@opentelemetry/core": ">=2.8.0",
+    "@opentelemetry/resources": ">=2.8.0",
+    "@opentelemetry/sdk-trace-base": ">=2.8.0",
+    "@opentelemetry/sdk-node": ">=0.220.0",
+    "@opentelemetry/auto-instrumentations-node": ">=0.75.0",
+    "@opentelemetry/exporter-prometheus": ">=0.220.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": ">=0.220.0",
+    "@opentelemetry/exporter-trace-otlp-http": ">=0.220.0",
+    "@opentelemetry/exporter-trace-otlp-proto": ">=0.220.0",
+    "@opentelemetry/otlp-exporter-base": ">=0.220.0",
+    "@opentelemetry/otlp-grpc-exporter-base": ">=0.220.0",
+    "@opentelemetry/otlp-transformer": ">=0.220.0",
+    "axios": ">=1.19.0",
+    "fast-uri": "$fast-uri",
+    "vite": ">=8.0.16",
+    "ws": ">=8.21.0",
+    "@grpc/grpc-js": ">=1.14.4",
+    "form-data": ">=4.0.6",
+    "http-proxy-middleware": ">=3.0.7",
+    "@ruvector/ruvllm": ">=2.6.0"
   },
   "devDependencies": {
     "@openai/codex": "^0.98.0",
@@ -98,14 +153,19 @@
     "eslint": "^8.0.0",
     "tsx": "^4.21.0",
     "typescript": "^5.0.0",
-    "vitest": "^1.0.0"
+    "vitest": "^3.2.6"
+  },
+  "pnpm": {
+    "overrides": {
+      "better-sqlite3": "12.9.0"
+    }
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/claude-flow.git"
+    "url": "git+https://github.com/ruvnet/claude-flow.git"
   },
   "keywords": [
     "ruvflow",
@@ -142,14 +202,20 @@
     "consensus",
     "self-learning"
   ],
-  "author": {
-    "name": "RuvNet",
-    "email": "ruv@ruv.io",
-    "url": "https://ruv.io"
-  },
+  "author": "RuvNet <ruv@ruv.io> (https://ruv.io)",
   "license": "MIT",
   "publishConfig": {
     "access": "public",
     "tag": "latest"
+  },
+  "bundleDependencies": [
+    "@claude-flow/codex",
+    "@claude-flow/mcp",
+    "@claude-flow/plugin-agent-federation",
+    "@claude-flow/security"
+  ],
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
   }
 }

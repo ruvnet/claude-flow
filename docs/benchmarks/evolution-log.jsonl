@@ -1,0 +1,1 @@
+{"iter":13,"ts":"2026-06-26T21:16:53Z","dimension":"beir-nfcorpus","change":"nfcorpus-bm25-weight-0.4-to-0.2","measured":{"ndcg10":0.348873309816081,"prior":0.3443},"deltaScore":0.004573309816081,"action":"measured-improved","commit":"f04a36931"}

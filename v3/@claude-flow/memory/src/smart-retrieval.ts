@@ -150,6 +150,19 @@ interface Scored {
   score: number;
 }
 
+/**
+ * Public-facing Reciprocal Rank Fusion. Takes any number of pre-sorted
+ * candidate lists (best-first) and fuses them with the RRF score
+ * `sum(1 / (k + rank_i))`. Used by the ADR-125 Phase 5 hybridSearch
+ * controller to fuse dense + sparse arms.
+ */
+export function applyRRF<T extends SearchCandidate>(
+  rankedLists: T[][],
+  k: number = 60
+): Array<{ candidate: T; score: number }> {
+  return reciprocalRankFusion(rankedLists as any, k) as any;
+}
+
 function reciprocalRankFusion(
   rankedLists: SearchCandidate[][],
   k: number
@@ -226,6 +239,21 @@ function pickTimestamp(cand: SearchCandidate): number | undefined {
 }
 
 // ── MMR Diversity (token-Jaccard proxy) ────────────────────────
+
+/**
+ * Public-facing MMR rerank.
+ *
+ * Re-exported as `applyMMR` for ADR-125 Phase 5 callers (the hybridSearch
+ * controller). Takes already-scored candidates plus an MMR lambda
+ * (1.0 = pure relevance, 0.0 = pure diversity).
+ */
+export function applyMMR<T extends SearchCandidate>(
+  scored: Array<{ candidate: T; score: number }>,
+  lambda: number = 0.7,
+  limit?: number
+): Array<{ candidate: T; score: number }> {
+  return mmrRerank(scored as any, lambda, limit ?? scored.length) as any;
+}
 
 function mmrRerank(scored: Scored[], lambda: number, limit: number): Scored[] {
   if (scored.length <= 1) return scored.slice(0, limit);

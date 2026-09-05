@@ -631,12 +631,18 @@ export class ContainerWorkerPool extends EventEmitter {
   }
 
   /**
-   * Build worker command for container execution
+   * Build worker command for container execution.
+   *
+   * #2371: the old command spawned `npx claude-flow@v3alpha daemon trigger`,
+   * which (a) referenced a deprecated dist-tag pointing at the pre-rename
+   * package, and (b) omitted `-y`, so npx could silently fall back to a
+   * locally-installed stale `claude-flow` without fetching the published
+   * version. Workers were running pre-autopilot / pre-browser builds.
+   * Use the current `ruflo@latest` and force a fresh resolution with `-y`.
    */
   private buildWorkerCommand(options: ContainerExecutionOptions): string[] {
-    // Use npx to run claude-flow daemon trigger
     return [
-      'npx', 'claude-flow@v3alpha',
+      'npx', '-y', 'ruflo@latest',
       'daemon', 'trigger',
       '-w', options.workerType,
       '--headless',

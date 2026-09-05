@@ -2,12 +2,12 @@
 name: cost-booster-route
 description: Route tasks through hooks_route, partition by Agent Booster availability, and report Tier 1 bypass utilization with $0 cost
 argument-hint: "[--from-recent] | <task-description>"
-allowed-tools: mcp__claude-flow__hooks_route mcp__claude-flow__memory_search mcp__claude-flow__memory_list Bash
+allowed-tools: mcp__plugin_ruflo-core_ruflo__hooks_route mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__memory_list Bash
 ---
 
 # Cost Booster Route
 
-Wraps `mcp__claude-flow__hooks_route` and reports how many tasks the 3-tier router classified as Agent Booster (Tier 1) eligible. Tier 1 bypasses run as WASM transforms — no LLM call, structurally **$0** cost.
+Wraps `mcp__plugin_ruflo-core_ruflo__hooks_route` and reports how many tasks the 3-tier router classified as Agent Booster (Tier 1) eligible. Tier 1 bypasses run as WASM transforms — no LLM call, structurally **$0** cost.
 
 ## When to use
 

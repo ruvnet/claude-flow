@@ -22,7 +22,7 @@ jobs:
   swarm-analysis:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Initialize Swarm
         uses: ruvnet/swarm-action@v1
@@ -70,7 +70,7 @@ jobs:
   detect-and-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Detect Languages
         id: detect

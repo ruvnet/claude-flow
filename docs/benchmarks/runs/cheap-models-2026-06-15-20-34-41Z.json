@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "ts": "2026-06-15T20:34:41.736Z",
+    "node": "v22.22.1",
+    "platform": "darwin-arm64",
+    "args": {
+      "live": true,
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "maxCost": 0.01,
+      "repeat": 3,
+      "maxTokens": 256,
+      "save": true
+    },
+    "corpusSize": 15
+  },
+  "results": [
+    {
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "family": "nvidia",
+      "passRate": 0.9777777777777777,
+      "passes": 44,
+      "total": 45,
+      "latency": {
+        "mean": 350.24503335555715,
+        "p50": 291.8288750000065,
+        "p95": 807.6890000000058,
+        "stdev": 171.03208123415098
+      },
+      "usdCost": 0,
+      "promptTokens": 2077,
+      "completionTokens": 3620,
+      "errorCount": 1,
+      "errorSample": [
+        {
+          "row": "snake-to-camel-1",
+          "status": 429,
+          "error": "Rate limit exceeded: free-models-per-min. "
+        }
+      ]
+    }
+  ]
+}

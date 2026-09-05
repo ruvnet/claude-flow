@@ -1,0 +1,94 @@
+# Meta-smoke: run every plugins/*/scripts/smoke.sh in parallel and fail the
+# build if any plugin's structural contract regresses.
+#
+# Before iter 74, only ruflo-cost-tracker and ruflo-agent had dedicated CI
+# gates — the other 30 plugins shipped smoke.sh files that nobody enforced.
+# This workflow turns the 32 unrelated smoke scripts into a single
+# CI-gateable check. New plugins authored with the canonical scripts/smoke.sh
+# layout are automatically covered.
+#
+# Triggers on any plugin change (paths-filter) and is fast enough (~8s wall
+# on the iter-74 baseline) that it can be a required check on PRs.
+name: all-plugins-smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+      - 'scripts/smoke-all-plugins.mjs'
+      - 'scripts/audit-plugin-mcp-prefix.mjs'
+      - '.github/workflows/all-plugins-smoke.yml'
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - 'scripts/smoke-all-plugins.mjs'
+      - 'scripts/audit-plugin-mcp-prefix.mjs'
+      - '.github/workflows/all-plugins-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke-all:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Discover and run every plugin smoke contract (parallel)
+        # --timeout 300 caps each individual plugin smoke at 5 minutes.
+        # iter 119 — bumped from 60s because ruflo-metaharness has grown
+        # to 118 steps with many npx invocations and routinely exceeds
+        # 60s (was timing out at 151s before SIGKILL). Most plugins
+        # still complete in <5s; 300s protects against a genuinely-hung
+        # smoke while letting the metaharness fleet finish.
+        run: node scripts/smoke-all-plugins.mjs --timeout 300
+
+      - name: Fleet-wide exit-bypass antipattern lint (iter-75 bug class)
+        run: node scripts/audit-exit-bypass-antipattern.mjs
+        # Static analyzer: scans every plugins/*/scripts/*.mjs for the
+        # iter-75 antipattern — `return console.log(JSON.stringify(...))`
+        # placed BEFORE a `process.exit(N>0)` in the same function (which
+        # silently swallows the exit signal). Use the inline marker
+        # `// audit-allow: exit-bypass — <reason>` to suppress known-safe
+        # cases (e.g. early returns on no-config paths that can't reach
+        # the exit).
+
+      - name: Fleet-wide SKILL.md frontmatter audit (iter 87)
+        run: node scripts/audit-skill-frontmatter.mjs
+        # Scans every plugins/*/skills/*/SKILL.md for required frontmatter:
+        # name / description / allowed-tools all present and non-empty,
+        # no wildcard allowed-tools (security), name matches directory.
+        # Each plugin's own smoke checks its own skills; this catches
+        # violations that escape per-plugin coverage (new plugin without
+        # smoke, new skill without smoke-list update, etc.).
+
+      - name: Fleet-wide plugin.json manifest audit (iter 88)
+        run: node scripts/audit-plugin-manifest.mjs
+        # Scans every plugins/*/.claude-plugin/plugin.json for: valid JSON,
+        # required fields (name/version/description/keywords[]) present
+        # and non-empty, version matches semver X.Y.Z, name matches
+        # enclosing directory. Each plugin's smoke step 1 pins its own
+        # expected version literal; this catches structural violations
+        # (non-semver, name drift, missing fields) that the per-plugin
+        # grep can't see.
+
+      - name: Fleet-wide plugin MCP namespace audit
+        run: node scripts/audit-plugin-mcp-prefix.mjs
+        # Claude marketplace plugins expose the ruflo MCP server under the
+        # plugin-qualified namespace. Reject standalone namespace references
+        # that silently disable tools in plugin skills and agents.
+
+      - name: Upload machine-readable report
+        if: always()
+        run: node scripts/smoke-all-plugins.mjs --format json > /tmp/smoke-all-plugins.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: all-plugins-smoke-report
+          path: /tmp/smoke-all-plugins.json
+          retention-days: 30

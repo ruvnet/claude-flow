@@ -405,9 +405,11 @@ export interface StatuslineData {
 
   /** Security status */
   security: {
-    status: 'PENDING' | 'IN_PROGRESS' | 'CLEAN';
+    status: 'PENDING' | 'IN_PROGRESS' | 'ISSUES' | 'CLEAN';
     cvesFixed: number;
     totalCves: number;
+    findings?: number;
+    scannedAt?: string;
   };
 
   /** Swarm activity */

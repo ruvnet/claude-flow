@@ -10,6 +10,20 @@ const path = require('path');
 const SESSION_DIR = path.join(process.cwd(), '.claude-flow', 'sessions');
 const SESSION_FILE = path.join(SESSION_DIR, 'current.json');
 
+// #2307: Atomic write — serialize to a per-process temp file, then rename()
+// into place. rename() is atomic on the same filesystem, so concurrent writers
+// (session-restore, metric, daemon workers, teammates) can't interleave partial
+// content. Without this, two non-atomic writeFileSync calls can race so that a
+// shorter payload overwrites a longer one in place, leaving the longer payload's
+// tail dangling past the end (valid JSON + trailing garbage = parse error).
+// Temp name includes process.pid so concurrent writers don't collide on it.
+// Same class as #1707 (metrics) / #1637 (daemon-state) — session.js was missed.
+function atomicWrite(file, data) {
+  const tmp = `${file}.tmp.${process.pid}`;
+  fs.writeFileSync(tmp, data);
+  fs.renameSync(tmp, file);
+}
+
 const commands = {
   start: () => {
     const sessionId = `session-${Date.now()}`;
@@ -27,7 +41,7 @@ const commands = {
     };
 
     fs.mkdirSync(SESSION_DIR, { recursive: true });
-    fs.writeFileSync(SESSION_FILE, JSON.stringify(session, null, 2));
+    atomicWrite(SESSION_FILE, JSON.stringify(session, null, 2));
 
     console.log(`Session started: ${sessionId}`);
     return session;
@@ -39,9 +53,17 @@ const commands = {
       return null;
     }
 
-    const session = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
+    let session;
+    try {
+      session = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
+    } catch (e) {
+      // #2307: corrupted session file (e.g. from a pre-atomic-write race).
+      // Don't throw — start a fresh session so the hook recovers cleanly.
+      console.log(`Session file corrupted (${e.message}); starting fresh`);
+      return commands.start();
+    }
     session.restoredAt = new Date().toISOString();
-    fs.writeFileSync(SESSION_FILE, JSON.stringify(session, null, 2));
+    atomicWrite(SESSION_FILE, JSON.stringify(session, null, 2));
 
     console.log(`Session restored: ${session.id}`);
     return session;
@@ -59,7 +81,7 @@ const commands = {
 
     // Archive session
     const archivePath = path.join(SESSION_DIR, `${session.id}.json`);
-    fs.writeFileSync(archivePath, JSON.stringify(session, null, 2));
+    atomicWrite(archivePath, JSON.stringify(session, null, 2));
     fs.unlinkSync(SESSION_FILE);
 
     console.log(`Session ended: ${session.id}`);
@@ -95,7 +117,7 @@ const commands = {
     const session = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
     session.context[key] = value;
     session.updatedAt = new Date().toISOString();
-    fs.writeFileSync(SESSION_FILE, JSON.stringify(session, null, 2));
+    atomicWrite(SESSION_FILE, JSON.stringify(session, null, 2));
 
     return session;
   },
@@ -116,7 +138,7 @@ const commands = {
     const session = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
     if (session.metrics[name] !== undefined) {
       session.metrics[name]++;
-      fs.writeFileSync(SESSION_FILE, JSON.stringify(session, null, 2));
+      atomicWrite(SESSION_FILE, JSON.stringify(session, null, 2));
     }
 
     return session;

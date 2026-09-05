@@ -17,7 +17,7 @@ Verbs:
    # or with semantic filter:
    npx -y @claude-flow/cli@latest memory search --namespace browser-sessions --query "QUERY"
    ```
-   For active (live) sessions, also call `mcp__claude-flow__browser_session-list`.
+   For active (live) sessions, also call `mcp__plugin_ruflo-core_ruflo__browser_session-list`.
 
 2. **show `<session-id>`**
    Print the session manifest + last 20 trajectory entries + verdict.
@@ -52,9 +52,9 @@ Verbs:
    bash plugins/ruflo-browser/scripts/smoke.sh
    ```
    Plus dependency probes:
-   - Playwright runner reachable (`mcp__claude-flow__browser_open` against `about:blank`)
-   - AgentDB controllers initialized (`mcp__claude-flow__agentdb_health`)
-   - AIDefence loaded (`mcp__claude-flow__aidefence_stats`)
+   - Playwright runner reachable (`mcp__plugin_ruflo-core_ruflo__browser_open` against `about:blank`)
+   - AgentDB controllers initialized (`mcp__plugin_ruflo-core_ruflo__agentdb_health`)
+   - AIDefence loaded (`mcp__plugin_ruflo-core_ruflo__aidefence_stats`)
    - ruvector pinned to 0.2.25 (`npx -y ruvector@0.2.25 --version`)
 
 Notes:

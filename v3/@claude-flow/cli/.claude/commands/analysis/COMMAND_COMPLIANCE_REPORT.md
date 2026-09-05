@@ -3,7 +3,7 @@
 ## Overview
 Reviewed all command files in `.claude/commands/analysis/` directory to ensure proper usage of:
 - `mcp__claude-flow__*` tools (preferred)
-- `npx claude-flow` commands (as fallback)
+- `npx @claude-flow/cli@latest` commands (as fallback)
 - No direct implementation calls
 
 ## Files Reviewed

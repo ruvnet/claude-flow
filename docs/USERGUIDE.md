@@ -260,12 +260,12 @@ Agents organize into swarms led by queens that coordinate work, prevent drift, a
 | Coordination | Queen, Swarm, Consensus | Manages agent teams (Raft, Byzantine, Gossip) |
 | Drift Control | Hierarchical topology, Checkpoints | Prevents agents from going off-task |
 | Hive Mind | Queen-led hierarchy, Collective memory | Strategic/tactical/adaptive queens coordinate workers |
-| Consensus | Byzantine, Weighted, Majority | Fault-tolerant decisions (2/3 majority for BFT) |
+| Consensus | Byzantine, Raft, Gossip, CRDT, Quorum | Fault-tolerant decisions (2/3 majority for BFT) |
 
 **Hive Mind Capabilities:**
 - 🐝 **Queen Types**: Strategic (planning), Tactical (execution), Adaptive (optimization)
 - 👷 **8 Worker Types**: Researcher, Coder, Analyst, Tester, Architect, Reviewer, Optimizer, Documenter
-- 🗳️ **3 Consensus Algorithms**: Majority, Weighted (Queen 3x), Byzantine (f < n/3)
+- 🗳️ **5 Consensus Algorithms**: Byzantine (f < n/3), Raft (leader-elected), Gossip (eventually consistent), CRDT (conflict-free), Quorum (configurable threshold)
 - 🧠 **Collective Memory**: Shared knowledge, LRU cache, SQLite persistence with WAL
 - ⚡ **Performance**: Fast batch spawning with parallel agent coordination
 
@@ -768,8 +768,8 @@ The `--add-missing` flag automatically detects and installs new skills, agents, 
 Add ruflo as an MCP server for seamless integration:
 
 ```bash
-# Add ruflo MCP server to Claude Code
-claude mcp add ruflo -- npx -y ruflo@latest mcp start
+# Add ruflo MCP server to Claude Code (canonical key is claude-flow — #2206)
+claude mcp add claude-flow -- npx -y ruflo@latest mcp start
 
 # Verify installation
 claude mcp list
@@ -1295,11 +1295,11 @@ Restart Claude Desktop after saving. Look for the MCP indicator (hammer icon) in
 <summary>⌨️ <strong>Claude Code (CLI)</strong></summary>
 
 ```bash
-# Add via CLI (recommended)
-claude mcp add ruflo -- npx ruflo@latest mcp start
+# Add via CLI (recommended; canonical key is claude-flow — #2206)
+claude mcp add claude-flow -- npx ruflo@latest mcp start
 
 # Or add with environment variables
-claude mcp add ruflo \
+claude mcp add claude-flow \
   --env ANTHROPIC_API_KEY=sk-ant-... \
   -- npx ruflo@latest mcp start
 
@@ -1689,9 +1689,11 @@ The Hive Mind system implements queen-led hierarchical coordination where strate
 
 | Algorithm | Voting | Fault Tolerance | Best For |
 |-----------|--------|-----------------|----------|
-| **Majority** | Simple democratic | None | Quick decisions |
-| **Weighted** | Queen 3x weight | None | Strategic guidance |
 | **Byzantine** | 2/3 supermajority | f < n/3 faulty | Critical decisions |
+| **Raft** | Leader-elected | f < n/2 faulty | Strongly-consistent state |
+| **Quorum** | Configurable (majority / supermajority / unanimous) | Threshold-dependent | Tunable agreement |
+| **Gossip** | Epidemic | Eventually consistent | Large peer networks |
+| **CRDT** | Conflict-free merge | Partition-tolerant | Distributed shared state |
 
 **Collective Memory Types:**
 - `knowledge` (permanent), `context` (1h TTL), `task` (30min TTL), `result` (permanent)
@@ -2434,7 +2436,8 @@ ruflo ruvector backup --output ./backup.sql
 | **Queen Types** | Strategic, Tactical, Adaptive | Research/planning, execution, optimization |
 | **Worker Types** | 8 specialized agents | researcher, coder, analyst, tester, architect, reviewer, optimizer, documenter |
 | **Byzantine Consensus** | Fault-tolerant agreement | f < n/3 tolerance (2/3 supermajority) |
-| **Weighted Consensus** | Queen 3x voting power | Strategic guidance with democratic input |
+| **Raft Consensus** | Leader-elected agreement | f < n/2 tolerance, strongly-consistent state |
+| **Quorum Consensus** | Configurable voting threshold | Majority / supermajority / unanimous |
 | **Collective Memory** | Shared pattern storage | 8 memory types with TTL, LRU cache, SQLite WAL |
 | **Specialist Spawning** | Domain-specific agents | Security, performance, etc. |
 | **Adaptive Topology** | Dynamic structure changes | Load-based optimization, auto-scaling |
@@ -2585,6 +2588,30 @@ Claude Code pipes JSON session data via **stdin** to the statusline script after
 | `💾 512MB` | Memory usage | Node.js process RSS |
 | `🧠 15%` | Intelligence score | Pattern count from AgentDB |
 | `📦 AgentDB ●1.2K` | AgentDB vector count | File size estimate (`size / 2KB`) |
+
+**Customizing the cost segment:**
+
+`cost.total_cost_usd` is a client-side estimate from Claude Code that *may differ from your actual bill* and, on subscription plans, does not reflect out-of-pocket spend. Two environment variables let you relabel or remove the segment (the default is unchanged):
+
+| Variable | Effect | Example |
+|----------|--------|---------|
+| `RUFLO_STATUSLINE_COST_SYMBOL` | Overrides the leading `$`. Set to an empty string to show the number alone. | `RUFLO_STATUSLINE_COST_SYMBOL=⚡` → `⚡1.30` |
+| `RUFLO_STATUSLINE_HIDE_COST` | `1`/`true`/`yes`/`on` removes the segment entirely. | `RUFLO_STATUSLINE_HIDE_COST=1` |
+
+Set them in the `env` block of `.claude/settings.json` — Claude Code applies it to every session and to the statusline subprocess, and unlike hand-editing the helper it survives `npx ruflo@latest init --update`:
+
+```json
+{
+  "statusLine": { "type": "command", "command": "node .claude/helpers/statusline.cjs" },
+  "env": { "RUFLO_STATUSLINE_COST_SYMBOL": "⚡" }
+}
+```
+
+Or export them in your shell profile before launching Claude Code:
+
+```bash
+export RUFLO_STATUSLINE_COST_SYMBOL=⚡   # or: export RUFLO_STATUSLINE_HIDE_COST=1
+```
 
 **Setup (Automatic):**
 

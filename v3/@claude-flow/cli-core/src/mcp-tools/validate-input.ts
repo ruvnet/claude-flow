@@ -82,6 +82,15 @@ export function validatePackageName(value: unknown, label: string): ValidationRe
   return { valid: true, sanitized: value };
 }
 
+// Path-specific shell-meta check: backslash is a legitimate Windows path
+// separator (e.g. `E:\Repos\app\file.ts`) and Claude Code's hook events
+// deliver absolute paths in `tool_input.file_path` with backslashes on
+// Windows. The general SHELL_META set includes `\` for identifier safety,
+// but paths are not shell-expanded — normalizing to forward slashes for
+// the check keeps every other shell metacharacter rejected while letting
+// absolute Windows paths through (#2352).
+const PATH_SHELL_META = /[;&|`$(){}[\]<>!#]/;
+
 /**
  * Validate a file path (prevents traversal and shell injection).
  */
@@ -95,10 +104,13 @@ export function validatePath(value: unknown, label: string): ValidationResult {
   if (PATH_TRAVERSAL.test(value)) {
     return { valid: false, sanitized: '', error: `${label} contains path traversal (..)` };
   }
-  if (SHELL_META.test(value)) {
+  if (PATH_SHELL_META.test(value)) {
     return { valid: false, sanitized: '', error: `${label} contains shell metacharacters` };
   }
-  return { valid: true, sanitized: value };
+  // Normalize Windows backslashes to forward slashes in the sanitized value
+  // so downstream consumers see a single path shape regardless of OS.
+  const sanitized = value.replace(/\\/g, '/');
+  return { valid: true, sanitized };
 }
 
 /**

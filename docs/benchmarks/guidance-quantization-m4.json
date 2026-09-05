@@ -1,0 +1,34 @@
+{
+  "tag": "m4",
+  "dim": 384,
+  "wordsPerSig": 12,
+  "iters": 1000000,
+  "node": "v22.22.1",
+  "platform": "darwin-arm64",
+  "capturedAt": "2026-05-22T03:50:22.176Z",
+  "sanityCheck": {
+    "cosine": 0.04131843146221919,
+    "hammingApprox": 0.08987211489923509
+  },
+  "results": [
+    {
+      "name": "cosine.dot (float32, 384-d)",
+      "iters": 1000000,
+      "trials": 5,
+      "opsPerSec": 3006455,
+      "avgNanos": 332.62,
+      "opsMin": 2374688,
+      "opsMax": 3460421
+    },
+    {
+      "name": "hamming.popcount (uint32, 12 words)",
+      "iters": 1000000,
+      "trials": 5,
+      "opsPerSec": 32862982,
+      "avgNanos": 30.43,
+      "opsMin": 30148519,
+      "opsMax": 34869733
+    }
+  ],
+  "speedup": 10.93
+}

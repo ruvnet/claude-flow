@@ -4,7 +4,7 @@ View agent performance metrics.
 
 ## Usage
 ```bash
-npx claude-flow agent metrics [options]
+npx @claude-flow/cli@latest agent metrics [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx claude-flow agent metrics [options]
 ## Examples
 ```bash
 # All agents metrics
-npx claude-flow agent metrics
+npx @claude-flow/cli@latest agent metrics
 
 # Specific agent
-npx claude-flow agent metrics --agent-id agent-001
+npx @claude-flow/cli@latest agent metrics --agent-id agent-001
 
 # Last hour
-npx claude-flow agent metrics --period 1h
+npx @claude-flow/cli@latest agent metrics --period 1h
 ```

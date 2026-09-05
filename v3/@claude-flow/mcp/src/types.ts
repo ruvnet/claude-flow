@@ -100,6 +100,8 @@ export interface MCPServerConfig {
   version: string;
   transport: TransportType;
   host?: string;
+  /** Additional HTTP bind addresses that share the same MCP server state. */
+  additionalHosts?: string[];
   port?: number;
   tlsEnabled?: boolean;
   tlsCert?: string;
@@ -115,6 +117,8 @@ export interface MCPServerConfig {
   enableCaching?: boolean;
   cacheTTL?: number;
   logLevel?: 'debug' | 'info' | 'warn' | 'error';
+  /** Fail construction unless a ToolAuthorizer is installed. */
+  requireToolAuthorization?: boolean;
 }
 
 // ============================================================================

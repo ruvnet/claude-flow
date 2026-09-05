@@ -1,0 +1,2 @@
+immediate protection — create marker file in dev tree
+Reason: hand-maintained helpers on dev branch. Delete this file to allow helper-refresh to overwrite. See helper-refresh.ts autoRefreshHelpersIfStale for the check.

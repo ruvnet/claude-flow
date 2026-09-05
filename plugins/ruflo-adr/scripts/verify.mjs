@@ -3,14 +3,17 @@
 // dangling refs, supersede cycles, and status mismatches.
 //
 // Companion to scripts/import.mjs. Run after import to validate graph integrity.
-// Useful in CI: exits with code 1 if any issues found (gate on graph health).
+// Useful in CI: exits with code 1 on supersede cycles by default, or on ANY
+// issue (dangling refs, status mismatches) when VERIFY_STRICT=1 is set.
 //
 // Usage:
 //   node scripts/verify.mjs                     # markdown report
 //   VERIFY_FORMAT=json node scripts/verify.mjs  # JSON for chaining
 //   VERIFY_STRICT=1 node scripts/verify.mjs     # exit 1 on ANY issue (default: only on cycles)
+//   ADR_ROOT=/path/to/repo node scripts/verify.mjs   # same root import.mjs was run with
 
 import { spawnSync } from 'node:child_process';
+import { parseEdgeKey } from './lib/index-records.mjs';
 
 // ADR-100 / #1748 Issue 3 — CLI_CORE=1 routes to lite cli-core (~2s cold-cache).
 // verify only does list+retrieve across adr-patterns and adr-edges namespaces;
@@ -19,11 +22,16 @@ const CLI_PKG = process.env.CLI_CORE === '1'
   ? '@claude-flow/cli-core@alpha'
   : '@claude-flow/cli@latest';
 
+// #2666 point 2: must match whatever ADR_ROOT import.mjs/reindex.mjs were
+// run with — the CLI resolves `.swarm/memory.db` relative to this
+// subprocess's cwd, so a mismatched root silently reads the wrong db.
+const ROOT = process.env.ADR_ROOT || process.cwd();
+
 function memoryListJson(namespace) {
   const r = spawnSync('npx', [
     CLI_PKG, 'memory', 'list',
     '--namespace', namespace, '--format', 'json',
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
+  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: ROOT });
   if (r.status !== 0) return [];
   const m = /\[[\s\S]*\]/.exec(r.stdout || '');
   if (!m) return [];
@@ -33,7 +41,7 @@ function memoryRetrieve(namespace, key) {
   const r = spawnSync('npx', [
     CLI_PKG, 'memory', 'retrieve',
     '--namespace', namespace, '--key', key,
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
+  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: ROOT });
   if (r.status !== 0) return null;
   // Strip ANSI / box-drawing
   const txt = (r.stdout || '').replace(/\x1b\[[0-9;]*m/g, '');
@@ -51,9 +59,10 @@ const adrIds = new Set(
 const edges = [];
 for (const e of edgeEntries) {
   const k = e.key || '';
-  // key format: relation:FROM->TO:timestamp-rand
-  const m = /^(\w[\w-]*?):(\S+?)->(\S+?):/.exec(k);
-  if (m) edges.push({ relation: m[1], from: m[2], to: m[3], key: k });
+  // Current deterministic key: relation:FROM->TO. Keep reading the legacy
+  // relation:FROM->TO:timestamp-rand shape for seamless upgrades (#2660).
+  const parsed = parseEdgeKey(k);
+  if (parsed) edges.push(parsed);
 }
 
 const danglingRefs = edges.filter((e) => !adrIds.has(e.to));

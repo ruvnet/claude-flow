@@ -1,0 +1,106 @@
+{
+  "meta": {
+    "ts": "2026-06-15T20:30:51.754Z",
+    "node": "v22.22.1",
+    "platform": "darwin-arm64",
+    "args": {
+      "live": true,
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "inclusionai/ling-2.6-flash",
+        "google/gemini-2.5-flash-lite",
+        "anthropic/claude-haiku-4.5"
+      ],
+      "maxCost": 0.2,
+      "repeat": 3,
+      "maxTokens": 256,
+      "save": true
+    },
+    "corpusSize": 15
+  },
+  "results": [
+    {
+      "model": "inclusionai/ling-2.6-flash",
+      "family": "inclusionai",
+      "passRate": 1,
+      "passes": 45,
+      "total": 45,
+      "latency": {
+        "mean": 683.9157406888887,
+        "p50": 657.4418750000041,
+        "p95": 898.0734170000069,
+        "stdev": 104.172222238227
+      },
+      "usdCost": 0.000043889999999999995,
+      "promptTokens": 2250,
+      "completionTokens": 713,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "google/gemini-2.5-flash-lite",
+      "family": "google",
+      "passRate": 1,
+      "passes": 45,
+      "total": 45,
+      "latency": {
+        "mean": 524.6492212888874,
+        "p50": 452.53087499999674,
+        "p95": 745.8989580000052,
+        "stdev": 248.4208489999936
+      },
+      "usdCost": 0.00044950000000000014,
+      "promptTokens": 1431,
+      "completionTokens": 766,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "anthropic/claude-haiku-4.5",
+      "family": "anthropic",
+      "passRate": 1,
+      "passes": 45,
+      "total": 45,
+      "latency": {
+        "mean": 1022.1312156888889,
+        "p50": 986.0101660000073,
+        "p95": 1442.7464579999942,
+        "stdev": 225.63280009630205
+      },
+      "usdCost": 0.006797999999999999,
+      "promptTokens": 1848,
+      "completionTokens": 990,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "family": "nvidia",
+      "passRate": 0.8222222222222222,
+      "passes": 37,
+      "total": 45,
+      "latency": {
+        "mean": 277.8450972000009,
+        "p50": 280.7359170000127,
+        "p95": 516.7583749999976,
+        "stdev": 155.48809512302515
+      },
+      "usdCost": 0,
+      "promptTokens": 1733,
+      "completionTokens": 3097,
+      "errorCount": 8,
+      "errorSample": [
+        {
+          "row": "rename-1",
+          "status": 429,
+          "error": "Rate limit exceeded: free-models-per-min. "
+        },
+        {
+          "row": "var-to-const-1",
+          "status": 429,
+          "error": "Rate limit exceeded: free-models-per-min. "
+        }
+      ]
+    }
+  ]
+}

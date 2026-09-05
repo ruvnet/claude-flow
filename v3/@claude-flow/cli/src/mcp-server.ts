@@ -79,6 +79,70 @@ const DEFAULT_OPTIONS: Required<MCPServerOptions> = {
   timeout: 30000,
 };
 
+export function parseMcpToolSelection(value: string | undefined): string[] | 'all' {
+  if (!value || value.trim().toLowerCase() === 'all') return 'all';
+  const selectors = value.split(',').map((item) => item.trim()).filter(Boolean);
+  return selectors.length > 0 ? selectors : 'all';
+}
+
+/**
+ * Apply the existing `--tools` contract to advertised schemas. A selector can
+ * be an exact tool name, a category, or a namespace prefix (`memory` matches
+ * `memory_store`). Execution remains registered internally; only the fixed
+ * per-request schema catalogue is reduced.
+ */
+export function filterAdvertisedMcpTools<T extends { name: string; category?: string }>(
+  tools: T[],
+  selection: string[] | 'all',
+): T[] {
+  if (selection === 'all') return tools;
+  const selectors = new Set(selection.map((item) => item.toLowerCase()));
+  return tools.filter((tool) => {
+    const name = tool.name.toLowerCase();
+    const category = tool.category?.toLowerCase();
+    return selectors.has(name)
+      || (category !== undefined && selectors.has(category))
+      || Array.from(selectors).some((selector) => name.startsWith(`${selector}_`));
+  });
+}
+
+export interface McpSchemaOverhead {
+  toolCount: number;
+  bytes: number;
+  estimatedTokens: number;
+  contextWindowTokens?: number;
+  ratio?: number;
+  risk: 'normal' | 'high';
+}
+
+/** Conservative JSON-size estimate for the fixed tools/list catalogue. */
+export function assessMcpSchemaOverhead(
+  tools: Array<{ name: string; description?: string; inputSchema?: unknown }>,
+  contextWindowTokens?: number,
+): McpSchemaOverhead {
+  const catalogue = tools.map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    inputSchema: tool.inputSchema,
+  }));
+  const bytes = Buffer.byteLength(JSON.stringify(catalogue), 'utf8');
+  const estimatedTokens = Math.ceil(bytes / 4);
+  const validWindow = Number.isFinite(contextWindowTokens) && Number(contextWindowTokens) > 0
+    ? Number(contextWindowTokens)
+    : undefined;
+  const ratio = validWindow ? estimatedTokens / validWindow : undefined;
+  return {
+    toolCount: tools.length,
+    bytes,
+    estimatedTokens,
+    ...(validWindow === undefined ? {} : { contextWindowTokens: validWindow }),
+    ...(ratio === undefined ? {} : { ratio }),
+    risk: (ratio !== undefined ? ratio >= 0.2 : estimatedTokens >= 8_000)
+      ? 'high'
+      : 'normal',
+  };
+}
+
 /**
  * MCP Server Manager
  *
@@ -90,10 +154,18 @@ export class MCPServerManager extends EventEmitter {
   private server?: Server;
   private startTime?: Date;
   private healthCheckInterval?: NodeJS.Timeout;
+  private mcpServers: Array<{ stop(): Promise<void> }> = [];
 
   constructor(options: MCPServerOptions = {}) {
     super();
-    this.options = { ...DEFAULT_OPTIONS, ...options };
+    // `options.tools`, populated by the `mcp start --tools` CLI flag, is
+    // spread last below and therefore takes precedence over this env fallback.
+    const environmentTools = parseMcpToolSelection(process.env.CLAUDE_FLOW_MCP_TOOLS);
+    this.options = {
+      ...DEFAULT_OPTIONS,
+      ...(environmentTools === 'all' ? {} : { tools: environmentTools }),
+      ...options,
+    };
   }
 
   /**
@@ -183,6 +255,12 @@ export class MCPServerManager extends EventEmitter {
           this.server!.close(() => resolve());
         });
         this.server = undefined;
+      }
+
+      if (this.mcpServers.length > 0) {
+        const servers = this.mcpServers;
+        this.mcpServers = [];
+        await Promise.all(servers.map((server) => server.stop()));
       }
 
       // Remove PID file
@@ -309,6 +387,66 @@ export class MCPServerManager extends EventEmitter {
    * Handles stdin/stdout directly like V2 implementation
    */
   private async startStdioServer(): Promise<void> {
+    // ruflo#1910 — protect the JSON-RPC stdout from any stray
+    // console.log/info/debug emitted by lazily-loaded modules
+    // (@ruvector/router, @claude-flow/neural, transformers.js, ONNX,
+    // semantic-router init, etc.). Codex closes the MCP transport
+    // the moment it sees a non-JSON line on stdout, and one such
+    // line during a tool batch bricked the whole session.
+    //
+    // Strategy: replace console.log/info/debug with stderr writers
+    // for the rest of the process. JSON-RPC frames go out via the
+    // dedicated `writeFrame()` helper below (process.stdout.write
+    // with the original native binding, NOT console.log), so the
+    // hijack can't accidentally redirect protocol frames too.
+    process.env.MCP_STDIO_MODE = '1';
+    const originalLog = console.log;  // eslint-disable-line no-console
+    console.log = (...args: unknown[]) => process.stderr.write('[stdout→stderr] ' + args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ') + '\n');
+    console.info = (...args: unknown[]) => process.stderr.write('[stdout→stderr] ' + args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ') + '\n');
+    console.debug = (...args: unknown[]) => process.stderr.write('[stdout→stderr] ' + args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ') + '\n');
+
+    // #2426 — Force blocking writes on stdout so JSON-RPC frames larger than
+    // the OS pipe buffer (64KB on macOS) are delivered atomically. Without
+    // this, `process.stdout.write()` returns after a partial write when the
+    // pipe buffer is full; the truncated frame is unparseable JSON and the
+    // MCP client (Claude Code) silently drops all 314 tools. The MCP SDK's
+    // StdioServerTransport does the same thing for this reason. `setBlocking`
+    // is an internal Node API but stable since v10 and used in many MCP
+    // implementations; we feature-gate it so we degrade gracefully on
+    // exotic stdout handles (e.g., when not bound to a pipe in tests).
+    const stdoutHandle = (process.stdout as unknown as {
+      _handle?: { setBlocking?: (b: boolean) => void };
+    })._handle;
+    if (stdoutHandle && typeof stdoutHandle.setBlocking === 'function') {
+      stdoutHandle.setBlocking(true);
+    }
+    // Same for stderr — long structured error messages can also exceed the
+    // pipe buffer and tearing those mid-message corrupts the client's log view.
+    const stderrHandle = (process.stderr as unknown as {
+      _handle?: { setBlocking?: (b: boolean) => void };
+    })._handle;
+    if (stderrHandle && typeof stderrHandle.setBlocking === 'function') {
+      stderrHandle.setBlocking(true);
+    }
+
+    /** Send a single JSON-RPC frame to the real stdout. Use this instead
+     * of `console.log` so the hijack above can't redirect protocol frames. */
+    const writeFrame = (msg: unknown): void => {
+      process.stdout.write(JSON.stringify(msg) + '\n');
+    };
+    // Reference originalLog to keep the eslint-disable meaningful — also
+    // gives us an escape hatch if a test wants to verify it was replaced.
+    void originalLog;
+
+    // Catch fatal errors that would otherwise close the transport
+    // mid-batch with no JSON-RPC error returned to the client.
+    process.on('uncaughtException', (err) => {
+      process.stderr.write(`[mcp-stdio] uncaughtException: ${err.stack || err.message}\n`);
+    });
+    process.on('unhandledRejection', (reason) => {
+      process.stderr.write(`[mcp-stdio] unhandledRejection: ${reason instanceof Error ? reason.stack || reason.message : String(reason)}\n`);
+    });
+
     // Import the tool registry
     const { listMCPTools, callMCPTool, hasTool } = await import('./mcp-client.js');
 
@@ -364,7 +502,7 @@ export class MCPServerManager extends EventEmitter {
     }));
 
     // Send server initialization notification
-    console.log(JSON.stringify({
+    writeFrame({
       jsonrpc: '2.0',
       method: 'server.initialized',
       params: {
@@ -377,7 +515,7 @@ export class MCPServerManager extends EventEmitter {
           },
         },
       },
-    }));
+    });
 
     // Handle stdin messages (S-5: bounded buffer to prevent OOM)
     const MAX_BUFFER_SIZE = 10 * 1024 * 1024; // 10MB
@@ -391,10 +529,10 @@ export class MCPServerManager extends EventEmitter {
           `[${new Date().toISOString()}] ERROR [claude-flow-mcp] Buffer exceeded ${MAX_BUFFER_SIZE} bytes, rejecting`
         );
         buffer = '';
-        console.log(JSON.stringify({
+        writeFrame({
           jsonrpc: '2.0',
           error: { code: -32600, message: 'Request too large' },
-        }));
+        });
         return;
       }
 
@@ -408,7 +546,7 @@ export class MCPServerManager extends EventEmitter {
             const message = JSON.parse(line);
             const response = await this.handleMCPMessage(message, sessionId);
             if (response) {
-              console.log(JSON.stringify(response));
+              writeFrame(response);
             }
           } catch (error) {
             console.error(
@@ -482,7 +620,7 @@ export class MCPServerManager extends EventEmitter {
           };
 
         case 'tools/list':
-          const tools = listMCPTools();
+          const tools = filterAdvertisedMcpTools(listMCPTools(), this.options.tools);
           return {
             jsonrpc: '2.0',
             id: message.id,
@@ -579,23 +717,57 @@ export class MCPServerManager extends EventEmitter {
       error: (msg: string, data?: unknown) => this.emit('log', { level: 'error', msg, data }),
     };
 
+    const { listMCPTools, callMCPTool } = await import('./mcp-client.js');
+    const fallbackSessionId = `http-${randomUUID()}`;
+    const cliTools = filterAdvertisedMcpTools(listMCPTools(), this.options.tools).map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+      category: tool.category,
+      tags: tool.tags,
+      version: tool.version,
+      cacheable: tool.cacheable,
+      cacheTTL: tool.cacheTTL,
+      handler: async (input: unknown, context?: { sessionId?: string }) => {
+        try {
+          const result = await callMCPTool(
+            tool.name,
+            (input as Record<string, unknown>) || {},
+            { sessionId: context?.sessionId || fallbackSessionId }
+          );
+          trackRequest(tool.name, true);
+          return result;
+        } catch (error) {
+          trackRequest(tool.name, false);
+          throw error;
+        }
+      },
+    }));
+
+    // Use one MCP server with two HTTP transports for the localhost default.
+    // Both loopback sockets therefore share sessions, tools, and notifications.
+    const dualLoopback = this.options.host === 'localhost';
     const mcpServer = createMCPServer(
       {
         name: 'Claude-Flow MCP Server V3',
         version: '3.0.0',
         transport: this.options.transport as 'http' | 'websocket',
-        host: this.options.host,
+        host: dualLoopback ? '127.0.0.1' : this.options.host,
+        additionalHosts: dualLoopback && this.options.transport === 'http' ? ['::1'] : undefined,
         port: this.options.port,
         enableMetrics: true,
         enableCaching: true,
       },
       logger
     );
-
+    const registration = mcpServer.registerTools(
+      cliTools as Parameters<typeof mcpServer.registerTools>[0]
+    );
+    if (registration.failed.length > 0) {
+      throw new Error(`Failed to register MCP tools: ${registration.failed.join(', ')}`);
+    }
     await mcpServer.start();
-
-    // Store reference for stopping
-    (this as any)._mcpServer = mcpServer;
+    this.mcpServers = [mcpServer];
   }
 
   /**

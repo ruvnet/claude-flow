@@ -27,9 +27,43 @@ const CYAN = '\x1b[0;36m';
 const DIM = '\x1b[2m';
 const RESET = '\x1b[0m';
 
+const YELLOW = '\x1b[0;33m';
 const log = (msg) => console.log(`${CYAN}[AutoMemory] ${msg}${RESET}`);
 const success = (msg) => console.log(`${GREEN}[AutoMemory] ✓ ${msg}${RESET}`);
 const dim = (msg) => console.log(`  ${DIM}${msg}${RESET}`);
+
+// #2545: fail LOUD instead of a silent dim skip. When @claude-flow/memory cannot
+// be resolved, self-learning imports are a no-op — the user must see this and be
+// told exactly how to fix it (on both stdout, so it shows in the Claude Code hook
+// transcript, and stderr, per the issue's requested channel).
+function warnMemoryUnavailable() {
+  const line1 = `[AutoMemory] @claude-flow/memory not resolvable from ${PROJECT_ROOT} — self-learning imports are DISABLED.`;
+  const line2 = '             Fix: npm i -D @claude-flow/memory   (or re-run: npx ruflo@latest init, then npx ruflo@latest doctor --fix)';
+  console.log(`${YELLOW}${line1}${RESET}`);
+  console.log(`${YELLOW}${line2}${RESET}`);
+  process.stderr.write(`${line1}\n${line2}\n`);
+}
+
+const DEBUG = !!(process.env.RUFLO_DEBUG || process.env.DEBUG);
+
+// ── Graceful shutdown (FIX 3) ───────────────────────────────────────────────
+// Track the backend in use so a SIGTERM/SIGINT mid-run can still flush it
+// (the JSON backend persists; a SQLite-backed one closes/flushes WAL) instead
+// of leaving a half-written store or a stale lock behind.
+let activeBackend = null;
+let shuttingDown = false;
+function trackBackend(b) { activeBackend = b; return b; }
+async function gracefulExit(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  if (DEBUG) process.stderr.write(`[AutoMemory] received ${signal}, flushing backend before exit\n`);
+  try {
+    if (activeBackend && typeof activeBackend.shutdown === 'function') await activeBackend.shutdown();
+  } catch { /* best effort — never block exit on cleanup */ }
+  process.exit(0);
+}
+process.on('SIGTERM', () => { gracefulExit('SIGTERM'); });
+process.on('SIGINT', () => { gracefulExit('SIGINT'); });
 
 // Ensure data dir
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -131,6 +165,21 @@ class JsonFileBackend {
 // ============================================================================
 
 async function loadMemoryPackage() {
+  // Strategy 0 (#2545): sidecar recorded by `init` / `doctor --fix`. On the
+  // documented `npx ruflo` path @claude-flow/memory (an optionalDependency of
+  // the CLI) lands in the npx cache, which is NOT on the walk-up path from the
+  // project — so init resolves it from the CLI's own context and records the
+  // absolute path here. This is the only strategy that works on that install.
+  try {
+    const sidecar = join(PROJECT_ROOT, '.claude-flow', 'memory-package.json');
+    if (existsSync(sidecar)) {
+      const rec = JSON.parse(readFileSync(sidecar, 'utf-8'));
+      if (rec?.distPath && existsSync(rec.distPath)) {
+        return await import(`file://${rec.distPath}`);
+      }
+    }
+  } catch { /* fall through */ }
+
   // Strategy 1: Local dev (built dist)
   const localDist = join(PROJECT_ROOT, 'v3/@claude-flow/memory/dist/index.js');
   if (existsSync(localDist)) {
@@ -214,12 +263,12 @@ async function doImport() {
 
   const memPkg = await loadMemoryPackage();
   if (!memPkg || !memPkg.AutoMemoryBridge) {
-    dim('Memory package not available — skipping auto memory import');
+    warnMemoryUnavailable();
     return;
   }
 
   const config = readConfig();
-  const backend = new JsonFileBackend(STORE_PATH);
+  const backend = trackBackend(new JsonFileBackend(STORE_PATH));
   await backend.initialize();
 
   const bridgeConfig = {
@@ -255,36 +304,6 @@ async function doImport() {
     dim(`├─ Learning: ${config.learningBridge.enabled ? 'active' : 'disabled'}`);
     dim(`├─ Graph: ${config.memoryGraph.enabled ? 'active' : 'disabled'}`);
     dim(`└─ Agent scopes: ${config.agentScopes.enabled ? 'active' : 'disabled'}`);
-
-    // Bridge to AgentDB: store entries with ONNX vector embeddings for semantic search
-    let vectorized = 0;
-    try {
-      const cliDistPath = join(PROJECT_ROOT, 'v3/@claude-flow/cli/dist/src/memory/memory-initializer.js');
-      if (existsSync(cliDistPath)) {
-        const memInit = await import(`file://${cliDistPath}`);
-        await memInit.initializeMemoryDatabase({ force: false, verbose: false });
-
-        const entries = await backend.query({});
-        for (const entry of entries) {
-          if (!entry.content || entry.content.length < 10) continue;
-          try {
-            await memInit.storeEntry({
-              key: entry.key || entry.id,
-              value: entry.content,
-              namespace: entry.namespace || 'auto-memory',
-              generateEmbeddingFlag: true,
-            });
-            vectorized++;
-          } catch { /* skip entries that fail to embed */ }
-        }
-
-        if (vectorized > 0) {
-          success(`Vectorized ${vectorized} entries into AgentDB (ONNX 384-dim)`);
-        }
-      }
-    } catch (vecErr) {
-      dim(`AgentDB vectorization skipped: ${vecErr.message?.slice(0, 60)}`);
-    }
   } catch (err) {
     dim(`Import failed (non-critical): ${err.message}`);
   }
@@ -297,12 +316,12 @@ async function doSync() {
 
   const memPkg = await loadMemoryPackage();
   if (!memPkg || !memPkg.AutoMemoryBridge) {
-    dim('Memory package not available — skipping sync');
+    warnMemoryUnavailable();
     return;
   }
 
   const config = readConfig();
-  const backend = new JsonFileBackend(STORE_PATH);
+  const backend = trackBackend(new JsonFileBackend(STORE_PATH));
   await backend.initialize();
 
   const entryCount = await backend.count();
@@ -343,21 +362,6 @@ async function doSync() {
     // Curate MEMORY.md index with graph-aware ordering
     await bridge.curateIndex();
     success('Curated MEMORY.md index');
-
-    // Flush intelligence patterns to disk (SONA + ReasoningBank)
-    try {
-      const intPath = join(PROJECT_ROOT, 'v3/@claude-flow/cli/dist/src/memory/intelligence.js');
-      if (existsSync(intPath)) {
-        const intelligence = await import(`file://${intPath}`);
-        if (intelligence.flushPatterns) {
-          intelligence.flushPatterns();
-          const stats = intelligence.getIntelligenceStats?.();
-          if (stats && stats.patternsLearned > 0) {
-            success(`Flushed ${stats.patternsLearned} learned patterns to disk`);
-          }
-        }
-      }
-    } catch { /* non-critical */ }
   } catch (err) {
     dim(`Sync failed (non-critical): ${err.message}`);
   }
@@ -370,8 +374,12 @@ async function doStatus() {
   const memPkg = await loadMemoryPackage();
   const config = readConfig();
 
+  const sidecar = join(PROJECT_ROOT, '.claude-flow', 'memory-package.json');
+  const hasSidecar = existsSync(sidecar);
+
   console.log('\n=== Auto Memory Bridge Status ===\n');
-  console.log(`  Package:        ${memPkg ? '✅ Available' : '❌ Not found'}`);
+  console.log(`  Package:        ${memPkg ? '✅ Available' : '❌ Not found — self-learning DISABLED (fix: npm i -D @claude-flow/memory)'}`);
+  console.log(`  Resolver:       ${hasSidecar ? '✅ .claude-flow/memory-package.json' : '⏸ no sidecar (run: npx ruflo@latest doctor --fix)'}`);
   console.log(`  Store:          ${existsSync(STORE_PATH) ? '✅ ' + STORE_PATH : '⏸ Not initialized'}`);
   console.log(`  LearningBridge: ${config.learningBridge.enabled ? '✅ Enabled' : '⏸ Disabled'}`);
   console.log(`  MemoryGraph:    ${config.memoryGraph.enabled ? '✅ Enabled' : '⏸ Disabled'}`);
@@ -384,156 +392,7 @@ async function doStatus() {
     } catch { /* ignore */ }
   }
 
-  // AgentDB vector status
-  try {
-    const dbPath = join(PROJECT_ROOT, '.claude-flow', 'memory', 'memory.db');
-    const swarmDbPath = join(PROJECT_ROOT, '.swarm', 'memory.db');
-    const hasDb = existsSync(dbPath) || existsSync(swarmDbPath);
-    console.log(`  AgentDB:        ${hasDb ? '✅ sql.js database exists' : '⏸ Not initialized'}`);
-
-    const intPath = join(PROJECT_ROOT, 'v3/@claude-flow/cli/dist/src/memory/intelligence.js');
-    if (existsSync(intPath)) {
-      const intelligence = await import(`file://${intPath}`);
-      const stats = intelligence.getIntelligenceStats?.();
-      if (stats) {
-        console.log(`  SONA:           ${stats.sonaEnabled ? '✅ Active' : '⏸ Not initialized'}`);
-        console.log(`  Patterns:       ${stats.patternsLearned} learned`);
-        console.log(`  Trajectories:   ${stats.trajectoriesRecorded} recorded`);
-      }
-    }
-  } catch { /* ignore */ }
-
   console.log('');
-}
-
-// ============================================================================
-// Import ALL Claude Code memories from all projects into AgentDB
-// ============================================================================
-
-async function doImportAll() {
-  log('Importing ALL Claude Code memories into AgentDB...');
-
-  const { homedir } = await import('os');
-  const { readdirSync } = await import('fs');
-  const claudeProjectsDir = join(homedir(), '.claude', 'projects');
-
-  if (!existsSync(claudeProjectsDir)) {
-    dim('No Claude Code projects found at ' + claudeProjectsDir);
-    return;
-  }
-
-  // Find all memory files across all projects
-  const memoryFiles = [];
-  try {
-    const projects = readdirSync(claudeProjectsDir, { withFileTypes: true });
-    for (const project of projects) {
-      if (!project.isDirectory()) continue;
-      const memDir = join(claudeProjectsDir, project.name, 'memory');
-      if (!existsSync(memDir)) continue;
-      const files = readdirSync(memDir).filter(f => f.endsWith('.md'));
-      for (const file of files) {
-        memoryFiles.push({
-          path: join(memDir, file),
-          project: project.name,
-          file,
-        });
-      }
-    }
-  } catch (err) {
-    dim('Error scanning projects: ' + err.message);
-    return;
-  }
-
-  if (memoryFiles.length === 0) {
-    dim('No memory files found');
-    return;
-  }
-
-  log(`Found ${memoryFiles.length} memory files across ${new Set(memoryFiles.map(f => f.project)).size} projects`);
-
-  // Load memory-initializer for vectorized storage
-  let memInit = null;
-  try {
-    const cliDistPath = join(PROJECT_ROOT, 'v3/@claude-flow/cli/dist/src/memory/memory-initializer.js');
-    if (existsSync(cliDistPath)) {
-      memInit = await import(`file://${cliDistPath}`);
-      await memInit.initializeMemoryDatabase({ force: false, verbose: false });
-    }
-  } catch (err) {
-    dim('Memory initializer not available: ' + err.message?.slice(0, 60));
-  }
-
-  if (!memInit) {
-    dim('Cannot vectorize without memory-initializer. Run: cd v3/@claude-flow/cli && npm run build');
-    return;
-  }
-
-  let imported = 0;
-  let skipped = 0;
-
-  for (const memFile of memoryFiles) {
-    try {
-      const content = readFileSync(memFile.path, 'utf-8');
-
-      // Parse YAML frontmatter + body
-      const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-      let name = memFile.file.replace('.md', '');
-      let description = '';
-      let type = 'auto-memory';
-      let body = content;
-
-      if (frontmatterMatch) {
-        const yaml = frontmatterMatch[1];
-        body = frontmatterMatch[2].trim();
-        const nameMatch = yaml.match(/^name:\s*(.+)$/m);
-        const descMatch = yaml.match(/^description:\s*(.+)$/m);
-        const typeMatch = yaml.match(/^type:\s*(.+)$/m);
-        if (nameMatch) name = nameMatch[1].trim();
-        if (descMatch) description = descMatch[1].trim();
-        if (typeMatch) type = typeMatch[1].trim();
-      }
-
-      // Split body into sections (## headers) for granular entries
-      const sections = body.split(/^(?=## )/m).filter(s => s.trim().length > 20);
-
-      if (sections.length === 0) {
-        // Store whole file as one entry
-        if (body.length > 10) {
-          await memInit.storeEntry({
-            key: `claude-memory:${memFile.project}:${name}`,
-            value: body.slice(0, 4096),
-            namespace: 'claude-memories',
-            generateEmbeddingFlag: true,
-          });
-          imported++;
-        }
-      } else {
-        // Store each section separately for better search granularity
-        for (const section of sections) {
-          const titleMatch = section.match(/^##\s+(.+)/);
-          const sectionTitle = titleMatch ? titleMatch[1].trim() : name;
-          const sectionBody = section.replace(/^##\s+.+\n/, '').trim();
-          if (sectionBody.length < 10) continue;
-
-          await memInit.storeEntry({
-            key: `claude-memory:${memFile.project}:${name}:${sectionTitle.slice(0, 50)}`,
-            value: sectionBody.slice(0, 4096),
-            namespace: 'claude-memories',
-            generateEmbeddingFlag: true,
-          });
-          imported++;
-        }
-      }
-
-      dim(`  ✓ ${memFile.project}/${memFile.file} (${sections.length || 1} entries)`);
-    } catch (err) {
-      dim(`  ✗ ${memFile.project}/${memFile.file}: ${err.message?.slice(0, 60)}`);
-      skipped++;
-    }
-  }
-
-  success(`Imported ${imported} entries from ${memoryFiles.length} files (${skipped} skipped)`);
-  success('All Claude Code memories now searchable via AgentDB vector search');
 }
 
 // ============================================================================
@@ -542,23 +401,30 @@ async function doImportAll() {
 
 const command = process.argv[2] || 'status';
 
-// Suppress unhandled rejection warnings from dynamic import() failures
-// which can cause non-zero exit codes even when caught
-process.on('unhandledRejection', () => {});
+// Dynamic import() failures can surface as unhandled rejections on a later
+// microtask even when the awaiting call site already caught them, which would
+// otherwise force a non-zero exit. Swallow to keep hooks exit-0, but surface the
+// reason under RUFLO_DEBUG/DEBUG so genuine async bugs aren't silently hidden
+// (FIX 2 — the previous `() => {}` discarded every rejection process-wide).
+process.on('unhandledRejection', (reason) => {
+  if (DEBUG) {
+    const detail = reason && reason.message ? reason.message : String(reason);
+    process.stderr.write(`[AutoMemory] unhandledRejection (suppressed): ${detail}\n`);
+  }
+});
 
 try {
   switch (command) {
     case 'import': await doImport(); break;
-    case 'import-all': await doImportAll(); break;
     case 'sync': await doSync(); break;
     case 'status': await doStatus(); break;
     default:
       console.log('Usage: auto-memory-hook.mjs <import|sync|status>');
-      process.exit(1);
+      break;
   }
 } catch (err) {
   // Hooks must never crash Claude Code - fail silently
-  dim(`Error (non-critical): ${err.message}`);
+  try { dim(`Error (non-critical): ${err.message}`); } catch (_) {}
 }
-// Ensure clean exit for Claude Code hooks (exit 0 = success, no stderr = no error)
+// Force clean exit — process.exitCode alone isn't enough if async errors override it
 process.exit(0);

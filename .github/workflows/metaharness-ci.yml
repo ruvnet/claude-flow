@@ -1,0 +1,682 @@
+# MetaHarness integration gates — ADR-150 Phase 1 MVP.
+#
+# Three jobs, all fast (subprocess invocations of `npx metaharness`):
+#   1. score              — fail if ruflo's own harnessFit drops below 70
+#   2. mcp-scan           — fail on any HIGH-severity MCP finding in ruflo
+#   3. router-compat      — exercise `@metaharness/router.Router` constructor;
+#                            catches breaking API changes before publish
+#
+# Triggers on changes that could move any of these signals:
+#   - the ruflo-metaharness plugin
+#   - the @metaharness/router optional dep version in v3/@claude-flow/cli
+#   - the v3 ruvector router-trajectory + neural-router source
+#   - this workflow file
+name: metaharness-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/ruflo-metaharness/**'
+      - 'v3/@claude-flow/cli/package.json'
+      - 'v3/@claude-flow/cli/src/ruvector/neural-router.ts'
+      - 'v3/@claude-flow/cli/src/ruvector/router-trajectory.ts'
+      - 'scripts/check-metaharness-compat.mjs'
+      - 'scripts/check-metaharness-pins.mjs'
+      - 'scripts/metaharness-clean-install-test.mjs'
+      - '.github/workflows/metaharness-ci.yml'
+  pull_request:
+    paths:
+      - 'plugins/ruflo-metaharness/**'
+      - 'v3/@claude-flow/cli/package.json'
+      - 'v3/@claude-flow/cli/src/ruvector/neural-router.ts'
+      - 'v3/@claude-flow/cli/src/ruvector/router-trajectory.ts'
+      - 'scripts/check-metaharness-compat.mjs'
+      - 'scripts/check-metaharness-pins.mjs'
+      - 'scripts/metaharness-clean-install-test.mjs'
+      - '.github/workflows/metaharness-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Plugin structural smoke
+        run: bash plugins/ruflo-metaharness/scripts/smoke.sh
+
+      - name: Genome preserves blocked verdict payloads (#2626)
+        shell: bash
+        run: |
+          fixture="$(mktemp -d)"
+          output="$RUNNER_TEMP/metaharness-genome-blocked.json"
+          node plugins/ruflo-metaharness/scripts/genome.mjs \
+            --path "$fixture" \
+            --format json > "$output"
+          GENOME_OUTPUT="$output" node - <<'NODE'
+          const payload = JSON.parse(require('node:fs').readFileSync(process.env.GENOME_OUTPUT, 'utf8'));
+          if (payload.verdict !== 'blocked' || payload.verdictExitCode !== 2) {
+            throw new Error(`expected blocked/2 verdict, got ${payload.verdict}/${payload.verdictExitCode}`);
+          }
+          if (typeof payload.risk_score !== 'number' || payload.risk_score < 0.7) {
+            throw new Error(`expected blocked risk score, got ${payload.risk_score}`);
+          }
+          NODE
+
+      - name: harness-score against ruflo (alert on harnessFit < 70)
+        run: |
+          node plugins/ruflo-metaharness/scripts/score.mjs \
+            --path . \
+            --alert-on-fit-below 70 \
+            --format json > /tmp/metaharness-score.json
+          cat /tmp/metaharness-score.json
+
+      - name: Upload score artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaharness-score
+          path: /tmp/metaharness-score.json
+          retention-days: 30
+
+      - name: harness-genome against ruflo (alert on risk_score > 0.5)
+        run: |
+          node plugins/ruflo-metaharness/scripts/genome.mjs \
+            --path . \
+            --alert-on-risk-above 0.5 \
+            --format json > /tmp/metaharness-genome.json
+          cat /tmp/metaharness-genome.json
+
+      - name: Upload genome artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaharness-genome
+          path: /tmp/metaharness-genome.json
+          retention-days: 30
+
+  # MANDATORY dependency-contract gate: the declared installable pins must
+  # actually install from a pristine directory and export their advertised
+  # symbols. This is the failure the optional-peer era shipped: a clean ruflo
+  # install with zero MetaHarness packages on disk while every advertised
+  # surface assumed they might be present. No continue-on-error — a red run
+  # here means an advertised integration degrades on a fresh install.
+  clean-install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Pin declaration contract (fails on undeclared / peer-only / stale)
+        run: node scripts/check-metaharness-pins.mjs
+
+      - name: Clean-directory install + advertised-symbol contract
+        run: node scripts/metaharness-clean-install-test.mjs
+
+  mcp-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: harness mcp-scan against ruflo (fail on HIGH findings)
+        run: |
+          # Exit 0 on no/low-severity findings; exit 1 on HIGH.
+          # Exit 0 also when metaharness is unavailable — ADR-150
+          # graceful-degradation rule #3 lets ruflo continue without it.
+          node plugins/ruflo-metaharness/scripts/mcp-scan.mjs \
+            --path . \
+            --fail-on high \
+            --format json > /tmp/metaharness-mcp-scan.json
+          cat /tmp/metaharness-mcp-scan.json
+
+      - name: Upload mcp-scan artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaharness-mcp-scan
+          path: /tmp/metaharness-mcp-scan.json
+          retention-days: 30
+
+  router-compat:
+    runs-on: ubuntu-latest
+    # iter 136: 5m → 12m — parallel-pipeline e2e + bench-overhead step
+    # consistently exceeds 5m on shared runners (#2405 PR run + manual re-run
+    # both canceled at exactly 5m0s).
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Compat check against current @metaharness/router pin
+        # Exercises the Router constructor, fromExamples factory, and
+        # routedBy field shape. If any of these change in @metaharness/
+        # router@0.4.x, this fails BEFORE we publish a ruflo release
+        # that would break neural-router.ts at runtime.
+        run: node scripts/check-metaharness-compat.mjs
+
+      - name: Parallel-pipeline e2e integration test (ADR-150 iter 13)
+        # Exercises recorder TS module ↔ JSONL ↔ analyzer composition.
+        # 25 assertions including the exact 3 thresholds from
+        # ADR-150 review-round-1, plus --strict semantics for both
+        # promotable and non-promotable paths.
+        run: node plugins/ruflo-metaharness/scripts/test-parallel-pipeline.mjs
+
+      - name: MCP tool runtime contract test (ADR-150 iter 23)
+        # Builds the CLI dist, imports metaharnessTools, invokes every
+        # handler with minimal input, asserts each returns the
+        # {success, data, degraded, exitCode} contract without throwing.
+        # 65 assertions across 7 tools. Slow path (~50s) due to npx
+        # warmup; runs only on PRs that touched the MCP wiring.
+        run: |
+          # iter 117 — `npm install` in a single v3 workspace pkg fails with
+          # EUNSUPPORTEDPROTOCOL "workspace:*" because the workspace uses pnpm
+          # (v3/pnpm-workspace.yaml). Install at workspace root with pnpm.
+          # iter 119 — cli imports from workspace siblings; build them first.
+          # iter 127 — switched from `-F "@claude-flow/cli..."` to `-r` because
+          # cli imports from `../../../swarm/src/...` (CROSS-PACKAGE relative
+          # path, NOT via the package dep graph). pnpm filter follows
+          # package.json deps and missed swarm, producing TS6305 "Output file
+          # has not been built from source file" errors. `-r --no-bail` builds
+          # all workspace packages in topological order, tolerating unrelated
+          # failures (which the cli build doesn't need to succeed).
+          # pnpm@8.15.0 matches v3/package.json's packageManager pin.
+          cd v3
+          # iter 139 — npm/pnpm fetch retries via env. Several postinstalls
+          # (onnxruntime-node, sharp) download CDN binaries; GH runners
+          # observed ECONNRESET mid-fetch with no auto-retry. These env
+          # vars push npm/pnpm to retry 5x with 1s→60s backoff.
+          export npm_config_fetch_retries=5
+          export npm_config_fetch_retry_mintimeout=1000
+          export npm_config_fetch_retry_maxtimeout=60000
+          export npm_config_fetch_retry_factor=2
+          npx -y pnpm@8.15.0 install --frozen-lockfile --reporter=append-only
+          # iter 138 — pnpm rebuild sharp (iter 134) didn't fix the missing
+          # linux-x64 .node binary because pnpm 8.15's store doesn't honor
+          # sharp's vendored download script in some CI configs. Force the
+          # platform-specific install directly into the workspace's sharp
+          # node_modules path. The CLI's transitive agentic-flow chain
+          # require()s sharp at bootstrap; without this binary the CLI
+          # crashes with "Cannot find module '../build/Release/
+          # sharp-linux-x64.node'" before eject's action even runs.
+          SHARP_DIR=$(find node_modules/.pnpm -maxdepth 4 -type d -name sharp 2>/dev/null | head -1)
+          if [ -n "$SHARP_DIR" ]; then
+            ( cd "$SHARP_DIR" && npm install --no-audit --no-fund --ignore-scripts=false 2>&1 | tail -3 || true )
+            ls "$SHARP_DIR/build/Release/" 2>&1 | grep -E '\.node$' || echo "sharp prebuild missing — runtime may fall back to optional path"
+          fi
+          # iter 127b — `|| true` because cli's tsc emits TS6305 ("Output
+          # file has not been built from source file") for cross-package
+          # relative imports from @claude-flow/swarm/src/..., even though
+          # the JS gets emitted correctly. Mirror the existing v3-ci.yml
+          # pattern: keep building, then assert the critical dist exists.
+          npx -y pnpm@8.15.0 -r --no-bail run build || true
+          test -f @claude-flow/cli/dist/src/index.js \
+            || { echo "::error::cli build did not produce dist/src/index.js"; exit 1; }
+          cd @claude-flow/cli
+          cd ../../..
+          node plugins/ruflo-metaharness/scripts/test-mcp-tools.mjs
+
+      - name: Regression gate — iter-12 dispatch overhead < 500ns (iter 24/25)
+        # Micro-benchmark proving the iter-12 "zero default-path overhead"
+        # claim with measured numbers. Threshold 500ns chosen as ~3.5x
+        # headroom over the iter-24 baseline of ~147ns on Apple Silicon
+        # /Node 22. Fails the PR if someone accidentally inflates the
+        # route() hot path on the default path.
+        run: |
+          node plugins/ruflo-metaharness/scripts/bench-recordpair-overhead.mjs \
+            --max-overhead-ns 500 --format json > /tmp/bench-overhead.json
+          # Pretty-print the verdict
+          node -e "
+            const r = JSON.parse(require('fs').readFileSync('/tmp/bench-overhead.json'));
+            const baseline = r.results.find(x => x.label.startsWith('baseline'));
+            const env = r.results.find(x => x.label.includes('FLAG OFF'));
+            const overhead = env.meanNsPerCall - baseline.meanNsPerCall;
+            console.log('Measured overhead:', Math.round(overhead) + 'ns per route() call');
+            console.log('Threshold: 500ns. Headroom: ' + Math.round(500 - overhead) + 'ns');
+          "
+
+      - name: Upload benchmark artifact (90-day retention for trend tracking)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaharness-bench-overhead-${{ github.run_id }}
+          path: /tmp/bench-overhead.json
+          retention-days: 90
+
+  eject-dryrun:
+    # ADR-150 Phase 2 — verify `ruflo eject` dry-run produces a valid
+    # plan against the ruflo repo itself, AND that the safety gate
+    # rejects --target paths inside the repo. The actual eject is
+    # never executed in CI; only the dry-run path + safety gates.
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build CLI to dist
+        # The eject command lives in v3/@claude-flow/cli/src/commands/.
+        # CI doesn't have the bundled dist; build it here.
+        run: |
+          # iter 117 — `npm install` in a single v3 workspace pkg fails with
+          # EUNSUPPORTEDPROTOCOL "workspace:*" because the workspace uses pnpm
+          # (v3/pnpm-workspace.yaml). Install at workspace root with pnpm.
+          # iter 119 — cli imports from workspace siblings; build them first.
+          # iter 127 — switched from `-F "@claude-flow/cli..."` to `-r` because
+          # cli imports from `../../../swarm/src/...` (CROSS-PACKAGE relative
+          # path, NOT via the package dep graph). pnpm filter follows
+          # package.json deps and missed swarm, producing TS6305 "Output file
+          # has not been built from source file" errors. `-r --no-bail` builds
+          # all workspace packages in topological order, tolerating unrelated
+          # failures (which the cli build doesn't need to succeed).
+          # pnpm@8.15.0 matches v3/package.json's packageManager pin.
+          cd v3
+          # iter 139 — npm/pnpm fetch retries via env. Several postinstalls
+          # (onnxruntime-node, sharp) download CDN binaries; GH runners
+          # observed ECONNRESET mid-fetch with no auto-retry. These env
+          # vars push npm/pnpm to retry 5x with 1s→60s backoff.
+          export npm_config_fetch_retries=5
+          export npm_config_fetch_retry_mintimeout=1000
+          export npm_config_fetch_retry_maxtimeout=60000
+          export npm_config_fetch_retry_factor=2
+          npx -y pnpm@8.15.0 install --frozen-lockfile --reporter=append-only
+          # iter 138 — pnpm rebuild sharp (iter 134) didn't fix the missing
+          # linux-x64 .node binary because pnpm 8.15's store doesn't honor
+          # sharp's vendored download script in some CI configs. Force the
+          # platform-specific install directly into the workspace's sharp
+          # node_modules path. The CLI's transitive agentic-flow chain
+          # require()s sharp at bootstrap; without this binary the CLI
+          # crashes with "Cannot find module '../build/Release/
+          # sharp-linux-x64.node'" before eject's action even runs.
+          SHARP_DIR=$(find node_modules/.pnpm -maxdepth 4 -type d -name sharp 2>/dev/null | head -1)
+          if [ -n "$SHARP_DIR" ]; then
+            ( cd "$SHARP_DIR" && npm install --no-audit --no-fund --ignore-scripts=false 2>&1 | tail -3 || true )
+            ls "$SHARP_DIR/build/Release/" 2>&1 | grep -E '\.node$' || echo "sharp prebuild missing — runtime may fall back to optional path"
+          fi
+          # iter 127b — `|| true` because cli's tsc emits TS6305 ("Output
+          # file has not been built from source file") for cross-package
+          # relative imports from @claude-flow/swarm/src/..., even though
+          # the JS gets emitted correctly. Mirror the existing v3-ci.yml
+          # pattern: keep building, then assert the critical dist exists.
+          npx -y pnpm@8.15.0 -r --no-bail run build || true
+          test -f @claude-flow/cli/dist/src/index.js \
+            || { echo "::error::cli build did not produce dist/src/index.js"; exit 1; }
+          cd @claude-flow/cli
+
+      - name: eject dry-run produces a valid plan
+        run: |
+          set -e
+          # Run via the built bin
+          OUT=$(node v3/@claude-flow/cli/bin/cli.js eject --name my-test-harness --format json 2>&1 || true)
+          echo "$OUT" | head -20
+          # Must contain the dry-run plan + dryRun:true
+          echo "$OUT" | grep -q '"dryRun"' || { echo "FAIL: eject dry-run did not emit dryRun:true"; exit 1; }
+          echo "$OUT" | grep -q '"name": "my-test-harness"' || { echo "FAIL: name not in plan"; exit 1; }
+          echo "✓ eject dry-run plan validates"
+
+      - name: eject refuses --target inside the repo (safety gate)
+        run: |
+          set -e
+          OUT=$(node v3/@claude-flow/cli/bin/cli.js eject --name foo --target "$PWD/eject-test" --confirm 2>&1 || true)
+          echo "$OUT" | head -10
+          echo "$OUT" | grep -qi "refusing to write\|target-inside-repo" || {
+            echo "FAIL: eject should refuse --target inside the repo"
+            exit 1
+          }
+          echo "✓ eject correctly refused in-repo target"
+
+  similarity-tests:
+    # iter 40 — direct CI gate on the ADR-152 §3.1 contract.
+    # Runs without any @metaharness/* installed — the production module is
+    # pure-TS and must work in that environment (architectural constraint #4).
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Unit tests — _similarity.mjs (iter 39, 53 assertions)
+        run: node plugins/ruflo-metaharness/scripts/test-similarity.mjs
+
+      - name: Spike invariants still hold (iter 35 regression anchor)
+        run: node plugins/ruflo-metaharness/scripts/_spike-similarity.mjs
+
+      - name: CLI skill — file-input round-trip
+        run: |
+          set -e
+          cat > /tmp/a.json <<'JSON'
+          {"score":{"harnessFit":78,"compileConfidence":92,"taskCoverage":65,"toolSafety":88,"memoryUsefulness":70,"estCostPerRunUsd":0.04,"recommendedMode":"CLI + MCP","archetype":"compliance-harness","template":"vertical:legal"},"genome":{"repo_type":"node_mcp_ci","agent_topology":["a1","a2","a3","a4"],"risk_score":0.45,"test_confidence":0.7,"publish_readiness":0.6}}
+          JSON
+          cat > /tmp/b.json <<'JSON'
+          {"score":{"harnessFit":75,"compileConfidence":90,"taskCoverage":70,"toolSafety":90,"memoryUsefulness":72,"estCostPerRunUsd":0.05,"recommendedMode":"CLI + MCP","archetype":"compliance-harness","template":"vertical:support"},"genome":{"repo_type":"node_mcp_ci","agent_topology":["b1","b2","b3","a3","a4"],"risk_score":0.40,"test_confidence":0.75,"publish_readiness":0.65}}
+          JSON
+          OUT=$(node plugins/ruflo-metaharness/scripts/similarity.mjs --a /tmp/a.json --b /tmp/b.json --format json)
+          echo "$OUT"
+          echo "$OUT" | grep -q '"overall"' || { echo "FAIL: no overall field"; exit 1; }
+          echo "✓ similarity skill emits valid JSON"
+
+      - name: audit-trend structural-distance integration (iter 38)
+        run: |
+          set -e
+          cat > /tmp/audit-baseline.json <<'JSON'
+          {"startedAt":"2026-06-15T00:00:00Z","composite":{"worst":"clean"},"components":{"oiaManifest":{},"threatModel":{},"mcpScan":{"json":{"findings":[]}}},"fingerprint":{"score":{"harnessFit":82,"recommendedMode":"CLI + MCP","archetype":"typescript-sdk-harness","template":"vertical:coding"},"genome":{"repo_type":"node_mcp_ci","agent_topology":["maintainer","tester","security","release"],"risk_score":0.3,"test_confidence":0.85,"publish_readiness":0.9}}}
+          JSON
+          cat > /tmp/audit-current.json <<'JSON'
+          {"startedAt":"2026-06-16T00:00:00Z","composite":{"worst":"low"},"components":{"oiaManifest":{},"threatModel":{},"mcpScan":{"json":{"findings":[]}}},"fingerprint":{"score":{"harnessFit":75,"recommendedMode":"CLI + MCP","archetype":"typescript-sdk-harness","template":"vertical:coding"},"genome":{"repo_type":"node_mcp_ci","agent_topology":["maintainer","tester","security","release","experimental"],"risk_score":0.35,"test_confidence":0.78,"publish_readiness":0.85}}}
+          JSON
+          OUT=$(node plugins/ruflo-metaharness/scripts/audit-trend.mjs --baseline /tmp/audit-baseline.json --current /tmp/audit-current.json --format json)
+          echo "$OUT" | python3 -c "import json,sys; d=json.load(sys.stdin); sd=d['delta']['structuralDistance']; assert sd['verdict'] in ('near-identical','minor-drift'), sd; assert 0 < sd['distance'] < 0.2, sd; print('✓ structural-distance:', sd['verdict'], 'distance=' + str(sd['distance']))"
+
+      - name: Graceful fallback when fingerprint missing
+        run: |
+          set -e
+          cat > /tmp/audit-old.json <<'JSON'
+          {"startedAt":"2026-06-01T00:00:00Z","composite":{"worst":"clean"},"components":{"oiaManifest":{},"threatModel":{},"mcpScan":{"json":{"findings":[]}}}}
+          JSON
+          cat > /tmp/audit-new.json <<'JSON'
+          {"startedAt":"2026-06-16T00:00:00Z","composite":{"worst":"clean"},"components":{"oiaManifest":{},"threatModel":{},"mcpScan":{"json":{"findings":[]}}},"fingerprint":{"score":{"harnessFit":82},"genome":{"repo_type":"node_mcp_ci","agent_topology":["x"]}}}
+          JSON
+          OUT=$(node plugins/ruflo-metaharness/scripts/audit-trend.mjs --baseline /tmp/audit-old.json --current /tmp/audit-new.json --format json)
+          echo "$OUT" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['delta']['structuralDistance']['verdict']=='unavailable', d['delta']['structuralDistance']; print('✓ graceful fallback when fingerprint absent')"
+
+      - name: Distance alert gate exits 1 below threshold
+        run: |
+          set -e
+          # The fixtures from the previous step produce overall ~0.97;
+          # threshold 0.99 must trigger exit 1.
+          if node plugins/ruflo-metaharness/scripts/audit-trend.mjs \
+            --baseline /tmp/audit-baseline.json \
+            --current /tmp/audit-current.json \
+            --alert-on-distance-below 0.99 > /tmp/trend-alert.txt 2>&1; then
+            echo "FAIL: --alert-on-distance-below should have exited 1"
+            cat /tmp/trend-alert.txt
+            exit 1
+          else
+            echo "✓ structural-distance alert correctly exited non-zero (got $?)"
+          fi
+
+      - name: Performance gate — sub-10μs mean per similarity() call (iter 41)
+        # CI runners are slower than Apple-Silicon baseline (~0.4μs); 10μs
+        # ceiling gives ~25× headroom while still catching ~10× regressions.
+        # 100k iters keeps the job fast (~50ms total work).
+        # iter 82 — also capture JSON output as artifact so historical perf
+        # data accumulates. Future regression analysis can diff across runs
+        # without re-running the bench.
+        run: |
+          node plugins/ruflo-metaharness/scripts/bench-similarity.mjs \
+            --iters 100000 \
+            --max-mean-us 10 \
+            --format json > /tmp/bench-similarity.json
+          echo "## Similarity perf (iter 82 — artifact tracking)" >> $GITHUB_STEP_SUMMARY
+          node -e "
+            const j = JSON.parse(require('fs').readFileSync('/tmp/bench-similarity.json'));
+            for (const r of j.results) {
+              console.log('| ' + r.label.padEnd(18) + ' | mean ' + r.meanUs.toFixed(3) + 'μs | p99 ' + r.p99Us.toFixed(3) + 'μs |');
+            }
+          " | tee -a $GITHUB_STEP_SUMMARY
+
+      - name: Upload bench-similarity artifact (iter 82)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-similarity-${{ github.run_id }}
+          path: /tmp/bench-similarity.json
+          retention-days: 90
+
+      - name: Performance gate — parseMcpScanText sub-5μs (iter 87)
+        # iter 86 measured sub-2μs across all categories on Apple Silicon.
+        # CI runners are slower; 5μs ceiling gives ~3× headroom while
+        # still catching ~10× regressions. 100k iters keeps the job fast.
+        run: |
+          node plugins/ruflo-metaharness/scripts/bench-parse-mcp-scan.mjs \
+            --iters 100000 \
+            --max-mean-us 5 \
+            --format json > /tmp/bench-parse-mcp-scan.json
+          echo "## parseMcpScanText perf (iter 87 — artifact tracking)" >> $GITHUB_STEP_SUMMARY
+          node -e "
+            const j = JSON.parse(require('fs').readFileSync('/tmp/bench-parse-mcp-scan.json'));
+            for (const r of j.results) {
+              console.log('| ' + r.label.padEnd(20) + ' | mean ' + r.meanUs.toFixed(3) + 'μs | p99 ' + r.p99Us.toFixed(3) + 'μs |');
+            }
+          " | tee -a $GITHUB_STEP_SUMMARY
+
+      - name: Upload bench-parse-mcp-scan artifact (iter 87)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-parse-mcp-scan-${{ github.run_id }}
+          path: /tmp/bench-parse-mcp-scan.json
+          retention-days: 90
+
+      - name: Build CLI dist (for dispatcher round-trip)
+        run: |
+          # iter 117 — `npm install` in a single v3 workspace pkg fails with
+          # EUNSUPPORTEDPROTOCOL "workspace:*" because the workspace uses pnpm
+          # (v3/pnpm-workspace.yaml). Install at workspace root with pnpm.
+          # iter 119 — cli imports from workspace siblings; build them first.
+          # iter 127 — switched from `-F "@claude-flow/cli..."` to `-r` because
+          # cli imports from `../../../swarm/src/...` (CROSS-PACKAGE relative
+          # path, NOT via the package dep graph). pnpm filter follows
+          # package.json deps and missed swarm, producing TS6305 "Output file
+          # has not been built from source file" errors. `-r --no-bail` builds
+          # all workspace packages in topological order, tolerating unrelated
+          # failures (which the cli build doesn't need to succeed).
+          # pnpm@8.15.0 matches v3/package.json's packageManager pin.
+          cd v3
+          # iter 139 — npm/pnpm fetch retries via env. Several postinstalls
+          # (onnxruntime-node, sharp) download CDN binaries; GH runners
+          # observed ECONNRESET mid-fetch with no auto-retry. These env
+          # vars push npm/pnpm to retry 5x with 1s→60s backoff.
+          export npm_config_fetch_retries=5
+          export npm_config_fetch_retry_mintimeout=1000
+          export npm_config_fetch_retry_maxtimeout=60000
+          export npm_config_fetch_retry_factor=2
+          npx -y pnpm@8.15.0 install --frozen-lockfile --reporter=append-only
+          # iter 138 — pnpm rebuild sharp (iter 134) didn't fix the missing
+          # linux-x64 .node binary because pnpm 8.15's store doesn't honor
+          # sharp's vendored download script in some CI configs. Force the
+          # platform-specific install directly into the workspace's sharp
+          # node_modules path. The CLI's transitive agentic-flow chain
+          # require()s sharp at bootstrap; without this binary the CLI
+          # crashes with "Cannot find module '../build/Release/
+          # sharp-linux-x64.node'" before eject's action even runs.
+          SHARP_DIR=$(find node_modules/.pnpm -maxdepth 4 -type d -name sharp 2>/dev/null | head -1)
+          if [ -n "$SHARP_DIR" ]; then
+            ( cd "$SHARP_DIR" && npm install --no-audit --no-fund --ignore-scripts=false 2>&1 | tail -3 || true )
+            ls "$SHARP_DIR/build/Release/" 2>&1 | grep -E '\.node$' || echo "sharp prebuild missing — runtime may fall back to optional path"
+          fi
+          # iter 127b — `|| true` because cli's tsc emits TS6305 ("Output
+          # file has not been built from source file") for cross-package
+          # relative imports from @claude-flow/swarm/src/..., even though
+          # the JS gets emitted correctly. Mirror the existing v3-ci.yml
+          # pattern: keep building, then assert the critical dist exists.
+          npx -y pnpm@8.15.0 -r --no-bail run build || true
+          test -f @claude-flow/cli/dist/src/index.js \
+            || { echo "::error::cli build did not produce dist/src/index.js"; exit 1; }
+          cd @claude-flow/cli
+
+      - name: CLI dispatcher round-trip — `node bin/cli.js metaharness similarity` (iter 36)
+        # Proves the iter-36 SUBCOMMANDS entry actually dispatches at the
+        # CLI surface, not just at the script. Closes the gap between
+        # "the script works in isolation" and "the user-facing command works".
+        run: |
+          set -e
+          OUT=$(node v3/@claude-flow/cli/bin/cli.js metaharness similarity \
+            --a /tmp/a.json --b /tmp/b.json --format json)
+          echo "$OUT" | head -20
+          echo "$OUT" | grep -q '"overall"' || { echo "FAIL: dispatcher did not emit overall"; exit 1; }
+          echo "$OUT" | grep -q '"adr": "ADR-152"' || { echo "FAIL: dispatcher output missing ADR tag"; exit 1; }
+          echo "✓ CLI dispatcher round-trip green"
+
+      - name: CLI help lists similarity subcommand
+        # Anti-regression on the help text (iter 36 added this line).
+        run: |
+          set -e
+          OUT=$(node v3/@claude-flow/cli/bin/cli.js metaharness 2>&1 || true)
+          echo "$OUT" | grep -q "similarity" || { echo "FAIL: help text dropped similarity"; exit 1; }
+          echo "✓ help text references similarity subcommand"
+
+  metaharness-real-data:
+    # iter 48 — the load-bearing integration gate at PR time. Unlike
+    # `similarity-tests` (which runs WITHOUT @metaharness/* to prove
+    # architectural constraint #1), this job INSTALLS the upstream dep
+    # and exercises the real CLI → fingerprint → similarity chain.
+    #
+    # This is the only CI surface that would have caught the iter-38
+    # schema-shape bug fixed in iter 47. Every other test uses hand-built
+    # fixtures that happened to have the correct shape.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Pre-flight — confirm metaharness CLI is reachable via npx
+        # The roundtrip test uses npx -y metaharness@latest, which fetches
+        # the package on first call. Warm the cache here so the test's
+        # 90s timeout doesn't expire on cold start.
+        run: |
+          npx -y metaharness@latest --version
+          echo "✓ metaharness CLI warm"
+
+      - name: Upstream fingerprint schema invariants (iter 81 — protects _similarity.mjs)
+        # If upstream `metaharness score|genome` renames any of the 14
+        # fields _similarity.mjs::projectToVec reads (harnessFit,
+        # compileConfidence, taskCoverage, toolSafety, memoryUsefulness,
+        # estCostPerRunUsd, recommendedMode, archetype, template, repo_type,
+        # agent_topology, risk_score, test_confidence, publish_readiness),
+        # projectToVec defaults that field to 0 and similarity silently
+        # degrades to categorical+jaccard-only signal. Same class of bug
+        # as iter-47 (CLI binary schema mismatch).
+        run: |
+          node scripts/check-fingerprint-schema.mjs --format json
+          echo "✓ upstream fingerprint schema compatible with _similarity.mjs"
+
+      - name: Upstream mcp-scan format invariants (iter 80 — protects iter-50 parser)
+        # If upstream `harness mcp-scan` ever changes its text format,
+        # iter-50's parseMcpScanText silently returns empty findings and
+        # iter-49's introduced/cleared diff regresses to dead code. This
+        # tripwire fails the workflow if the format invariant drifts.
+        run: |
+          node scripts/check-mcp-scan-format.mjs --format json
+          echo "✓ upstream text format compatible with parseMcpScanText"
+
+      - name: End-to-end pipeline roundtrip (iter 47)
+        # Must exit 0. Exit 2 means metaharness wasn't reachable (we just
+        # warmed it, so that would be infra failure). Exit 1 means the
+        # roundtrip's load-bearing self-match invariant (overall===1)
+        # failed — that's the schema-shape regression iter 47 fixed.
+        run: |
+          node plugins/ruflo-metaharness/scripts/test-pipeline-roundtrip.mjs
+          echo "✓ full ADR-152 §3.1 pipeline works with real metaharness output"
+
+      - name: Cross-check — same path also produces valid score JSON via dispatcher
+        # Hits the iter-36 score subcommand via the iter-42-fixed dispatcher
+        # to confirm the CLI surface stays aligned with what oia-audit
+        # consumes internally.
+        run: |
+          set -e
+          # iter 117 — `npm install` in a single v3 workspace pkg fails with
+          # EUNSUPPORTEDPROTOCOL "workspace:*" because the workspace uses pnpm
+          # (v3/pnpm-workspace.yaml). Install at workspace root with pnpm.
+          # iter 119 — cli imports from workspace siblings; build them first.
+          # iter 127 — switched from `-F "@claude-flow/cli..."` to `-r` because
+          # cli imports from `../../../swarm/src/...` (CROSS-PACKAGE relative
+          # path, NOT via the package dep graph). pnpm filter follows
+          # package.json deps and missed swarm, producing TS6305 "Output file
+          # has not been built from source file" errors. `-r --no-bail` builds
+          # all workspace packages in topological order, tolerating unrelated
+          # failures (which the cli build doesn't need to succeed).
+          # pnpm@8.15.0 matches v3/package.json's packageManager pin.
+          cd v3
+          # iter 139 — npm/pnpm fetch retries via env. Several postinstalls
+          # (onnxruntime-node, sharp) download CDN binaries; GH runners
+          # observed ECONNRESET mid-fetch with no auto-retry. These env
+          # vars push npm/pnpm to retry 5x with 1s→60s backoff.
+          export npm_config_fetch_retries=5
+          export npm_config_fetch_retry_mintimeout=1000
+          export npm_config_fetch_retry_maxtimeout=60000
+          export npm_config_fetch_retry_factor=2
+          npx -y pnpm@8.15.0 install --frozen-lockfile --reporter=append-only
+          # iter 138 — pnpm rebuild sharp (iter 134) didn't fix the missing
+          # linux-x64 .node binary because pnpm 8.15's store doesn't honor
+          # sharp's vendored download script in some CI configs. Force the
+          # platform-specific install directly into the workspace's sharp
+          # node_modules path. The CLI's transitive agentic-flow chain
+          # require()s sharp at bootstrap; without this binary the CLI
+          # crashes with "Cannot find module '../build/Release/
+          # sharp-linux-x64.node'" before eject's action even runs.
+          SHARP_DIR=$(find node_modules/.pnpm -maxdepth 4 -type d -name sharp 2>/dev/null | head -1)
+          if [ -n "$SHARP_DIR" ]; then
+            ( cd "$SHARP_DIR" && npm install --no-audit --no-fund --ignore-scripts=false 2>&1 | tail -3 || true )
+            ls "$SHARP_DIR/build/Release/" 2>&1 | grep -E '\.node$' || echo "sharp prebuild missing — runtime may fall back to optional path"
+          fi
+          # iter 127b — `|| true` because cli's tsc emits TS6305 ("Output
+          # file has not been built from source file") for cross-package
+          # relative imports from @claude-flow/swarm/src/..., even though
+          # the JS gets emitted correctly. Mirror the existing v3-ci.yml
+          # pattern: keep building, then assert the critical dist exists.
+          npx -y pnpm@8.15.0 -r --no-bail run build || true
+          test -f @claude-flow/cli/dist/src/index.js \
+            || { echo "::error::cli build did not produce dist/src/index.js"; exit 1; }
+          cd @claude-flow/cli
+          cd ../../../
+          OUT=$(node v3/@claude-flow/cli/bin/cli.js metaharness score --path . --format json)
+          echo "$OUT" | grep -q '"harnessFit"' || { echo "FAIL: score dispatcher dropped harnessFit"; exit 1; }
+          echo "✓ score dispatcher emits the expected metaharness schema"
+
+      - name: Drift-from-history dispatcher round-trip with --baseline-file (iter 98)
+        # Exercises the iter-66/67 fast-path THROUGH the iter-42-fixed
+        # CLI dispatcher. Catches:
+        #   - iter-42 dispatcher flag-drop regression
+        #   - iter-67 --baseline-file synth-listResult drift
+        #   - iter-95 timing.path derivation drift
+        # The score cross-check above tests the simple path (one arg).
+        # This tests the chained-subprocess path (composes 3 scripts).
+        run: |
+          set -e
+          # Generate a fresh audit as baseline-file input
+          node plugins/ruflo-metaharness/scripts/oia-audit.mjs \
+            --dry-run --format json > /tmp/drift-baseline.json
+          # Dispatch through the CLI — exercises iter-42 flag round-trip
+          OUT=$(node v3/@claude-flow/cli/bin/cli.js metaharness drift-from-history \
+            --baseline-file /tmp/drift-baseline.json \
+            --dry-run --format json)
+          # Verify the iter-95 timing.path field surfaces with 'file'
+          echo "$OUT" | grep -q '"path": "file"' \
+            || { echo "FAIL: dispatcher did not propagate baseline-file or timing.path missing"; echo "$OUT" | head -30; exit 1; }
+          # Verify the iter-66 skip flag is true (proves the fast-path
+          # synthesizes the listResult correctly through the dispatcher)
+          echo "$OUT" | grep -q '"skippedAuditList": true' \
+            || { echo "FAIL: dispatcher fast-path bypass not active"; exit 1; }
+          # iter 99 — also verify the fast-path actually delivers the
+          # measured ~1.4s baseline (slow path is ~26s). Allow 30s budget
+          # to tolerate slow CI runners while still catching a ~10x regression.
+          WALL=$(node -e "
+            const j = JSON.parse(\`$OUT\`);
+            console.log(j.timing?.parallelWallMs ?? 0);
+          ")
+          if [ "$WALL" -gt 30000 ]; then
+            echo "FAIL: dispatcher fast-path wall ${WALL}ms > 30000ms (regression?)"
+            exit 1
+          fi
+          echo "✓ drift-from-history dispatcher round-trip green (fast-path via CLI; wall ${WALL}ms)"

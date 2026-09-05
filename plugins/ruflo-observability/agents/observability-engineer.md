@@ -85,12 +85,12 @@ Span hierarchy for swarm operations:
 
 ### Tools
 
-- `mcp__claude-flow__agentdb_hierarchical-store` -- store trace spans and log entries
-- `mcp__claude-flow__agentdb_hierarchical-recall` -- recall traces by traceId or correlationId
-- `mcp__claude-flow__agentdb_pattern-store` -- store anomaly patterns for future detection
-- `mcp__claude-flow__agentdb_pattern-search` -- search for similar anomaly patterns
-- `mcp__claude-flow__agentdb_semantic-route` -- route observability queries to relevant data
-- `mcp__claude-flow__agentdb_context-synthesize` -- synthesize context from multiple trace spans
+- `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store` -- store trace spans and log entries
+- `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-recall` -- recall traces by traceId or correlationId
+- `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-store` -- store anomaly patterns for future detection
+- `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search` -- search for similar anomaly patterns
+- `mcp__plugin_ruflo-core_ruflo__agentdb_semantic-route` -- route observability queries to relevant data
+- `mcp__plugin_ruflo-core_ruflo__agentdb_context-synthesize` -- synthesize context from multiple trace spans
 
 ### Neural Learning
 

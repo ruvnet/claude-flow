@@ -1,0 +1,107 @@
+{
+  "meta": {
+    "ts": "2026-06-15T22:49:48.599Z",
+    "node": "v22.22.1",
+    "platform": "darwin-arm64",
+    "args": {
+      "live": true,
+      "models": [
+        "openai/gpt-5-mini",
+        "google/gemini-2.5-pro",
+        "openai/gpt-4.1"
+      ],
+      "judge": "anthropic/claude-sonnet-4-6",
+      "maxCost": 1,
+      "repeat": 1,
+      "maxTokens": 4096,
+      "save": true
+    },
+    "judge": "anthropic/claude-sonnet-4-6",
+    "corpusSize": 12
+  },
+  "results": [
+    {
+      "model": "openai/gpt-4.1",
+      "family": "openai",
+      "avgScore": 0.7416666666666667,
+      "scoreStdev": 0.37588279927110096,
+      "structuralPassRate": 0.9166666666666666,
+      "total": 12,
+      "latency": {
+        "mean": 505.87198258332614,
+        "p50": 456.07379200000287,
+        "p95": 876.3215839999611,
+        "stdev": 163.15612469726165
+      },
+      "usdCost": 0.031356,
+      "judgeUsdCost": 0.047907000000000005,
+      "promptTokens": 1198,
+      "completionTokens": 3620,
+      "errorCount": 1,
+      "errorSample": [
+        {
+          "row": "design-event-sourcing-1",
+          "error": "structural: missing required substring \"Reducer\""
+        }
+      ]
+    },
+    {
+      "model": "openai/gpt-5-mini",
+      "family": "openai",
+      "avgScore": 0.7208333333333333,
+      "scoreStdev": 0.44079387748044146,
+      "structuralPassRate": 0.75,
+      "total": 12,
+      "latency": {
+        "mean": 698.1696702500003,
+        "p50": 418.4898749999993,
+        "p95": 2552.8496249999735,
+        "stdev": 663.7897091061928
+      },
+      "usdCost": 0.040410499999999995,
+      "judgeUsdCost": 0.040965,
+      "promptTokens": 1186,
+      "completionTokens": 20057,
+      "errorCount": 3,
+      "errorSample": [
+        {
+          "row": "design-event-sourcing-1",
+          "error": "structural: missing required substring \"Reducer\""
+        },
+        {
+          "row": "sql-migration-1",
+          "error": "structural: missing required substring \"-- DOWN --\""
+        }
+      ]
+    },
+    {
+      "model": "google/gemini-2.5-pro",
+      "family": "google",
+      "avgScore": 0.6833333333333332,
+      "scoreStdev": 0.42135244011145684,
+      "structuralPassRate": 0.75,
+      "total": 12,
+      "latency": {
+        "mean": 2160.916486250001,
+        "p50": 2079.2918340000324,
+        "p95": 3077.893333999993,
+        "stdev": 359.9185309571259
+      },
+      "usdCost": 0.23994125000000002,
+      "judgeUsdCost": 0.03397800000000001,
+      "promptTokens": 913,
+      "completionTokens": 23880,
+      "errorCount": 3,
+      "errorSample": [
+        {
+          "row": "tests-london-school-1",
+          "error": "structural: empty response"
+        },
+        {
+          "row": "api-design-1",
+          "error": "structural: empty response"
+        }
+      ]
+    }
+  ]
+}

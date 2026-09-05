@@ -1,0 +1,141 @@
+Training FastGRNN model
+Train samples: 224, Val samples: 56
+Hyperparameters: TrainingConfig { learning_rate: 0.05, batch_size: 32, epochs: 40, validation_split: 0.2, early_stopping_patience: None, lr_decay: 0.5, lr_decay_step: 20, grad_clip: 5.0, adam_beta1: 0.9, adam_beta2: 0.999, adam_epsilon: 1e-8, l2_reg: 0.0, enable_distillation: false, distillation_temperature: 3.0, distillation_alpha: 0.5 }
+Epoch 1/40: train_loss=0.6426, val_loss=0.5111, train_acc=0.9196, val_acc=0.8393
+Epoch 2/40: train_loss=0.3190, val_loss=0.2045, train_acc=0.9777, val_acc=0.9286
+Epoch 3/40: train_loss=0.0699, val_loss=0.0366, train_acc=1.0000, val_acc=1.0000
+Epoch 4/40: train_loss=0.0081, val_loss=0.0044, train_acc=1.0000, val_acc=1.0000
+Epoch 5/40: train_loss=0.0013, val_loss=0.0012, train_acc=1.0000, val_acc=1.0000
+Epoch 6/40: train_loss=0.0005, val_loss=0.0006, train_acc=1.0000, val_acc=1.0000
+Epoch 7/40: train_loss=0.0003, val_loss=0.0004, train_acc=1.0000, val_acc=1.0000
+Epoch 8/40: train_loss=0.0002, val_loss=0.0003, train_acc=1.0000, val_acc=1.0000
+Epoch 9/40: train_loss=0.0002, val_loss=0.0003, train_acc=1.0000, val_acc=1.0000
+Epoch 10/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 11/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 12/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 13/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 14/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 15/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 16/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 17/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 18/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 19/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 20/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Decaying learning rate to 0.025000
+Epoch 21/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 22/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 23/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 24/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 25/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 26/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 27/40: train_loss=0.0001, val_loss=0.0002, train_acc=1.0000, val_acc=1.0000
+Epoch 28/40: train_loss=0.0001, val_loss=0.0001, train_acc=1.0000, val_acc=1.0000
+Epoch 29/40: train_loss=0.0001, val_loss=0.0001, train_acc=1.0000, val_acc=1.0000
+Epoch 30/40: train_loss=0.0001, val_loss=0.0001, train_acc=1.0000, val_acc=1.0000
+Epoch 31/40: train_loss=0.0001, val_loss=0.0001, train_acc=1.0000, val_acc=1.0000
+Epoch 32/40: train_loss=0.0001, val_loss=0.0001, train_acc=1.0000, val_acc=1.0000
+Epoch 33/40: train_loss=0.0001, val_loss=0.0001, train_acc=1.0000, val_acc=1.0000
+Epoch 34/40: train_loss=0.0001, val_loss=0.0001, train_acc=1.0000, val_acc=1.0000
+Epoch 35/40: train_loss=0.0001, val_loss=0.0001, train_acc=1.0000, val_acc=1.0000
+Epoch 36/40: train_loss=0.0001, val_loss=0.0001, train_acc=1.0000, val_acc=1.0000
+Epoch 37/40: train_loss=0.0001, val_loss=0.0001, train_acc=1.0000, val_acc=1.0000
+Epoch 38/40: train_loss=0.0001, val_loss=0.0001, train_acc=1.0000, val_acc=1.0000
+Epoch 39/40: train_loss=0.0001, val_loss=0.0001, train_acc=1.0000, val_acc=1.0000
+Epoch 40/40: train_loss=0.0001, val_loss=0.0001, train_acc=1.0000, val_acc=1.0000
+{
+  "metadata": {
+    "ts": "2026-06-15T18:01:28Z",
+    "node": "v22.22.1",
+    "platform": "darwin-arm64",
+    "args": {
+      "N": 400,
+      "dim": 32,
+      "epochs": 40,
+      "hidden": 12,
+      "seed": 42,
+      "jsonOnly": true
+    },
+    "splits": {
+      "train": 280,
+      "test": 120
+    },
+    "label_balance": {
+      "cheap": 56,
+      "strong": 64
+    }
+  },
+  "trivial_baselines": {
+    "always_cheap_accuracy": 0.4666666666666667,
+    "always_strong_accuracy": 0.5333333333333333
+  },
+  "baseline": {
+    "name": "heuristic+thompson-bandit (shipped, cold)",
+    "accuracy": 0.5416666666666666,
+    "costAdjReward": 10.866666666666662,
+    "latency": {
+      "mean": 0.07405902499999992,
+      "p50": 0.0519999999999996,
+      "p95": 0.16799999999999926
+    },
+    "n": 120,
+    "sample": [
+      {
+        "task": "fix typo in sandbox",
+        "label": "cheap",
+        "choice": "sonnet",
+        "predCheap": false
+      },
+      {
+        "task": "reason about the consistency guarantees of jwt-decoder under",
+        "label": "strong",
+        "choice": "sonnet",
+        "predCheap": false
+      },
+      {
+        "task": "change var to const in queue",
+        "label": "cheap",
+        "choice": "sonnet",
+        "predCheap": false
+      },
+      {
+        "task": "remove unused import telemetry",
+        "label": "cheap",
+        "choice": "sonnet",
+        "predCheap": false
+      },
+      {
+        "task": "add try/catch around rate-limiter",
+        "label": "cheap",
+        "choice": "sonnet",
+        "predCheap": false
+      }
+    ]
+  },
+  "system_under_test": {
+    "name": "tiny-dancer fastgrnn score() (0.1.22)",
+    "accuracy": 1,
+    "costAdjReward": 63.111111111111185,
+    "latency": {
+      "mean": 0.0383698000000002,
+      "p50": 0.03770800000000207,
+      "p95": 0.044583000000002926
+    },
+    "n": 120,
+    "train": {
+      "epochsRun": 40,
+      "trainAccuracy": 1,
+      "valAccuracy": 1,
+      "trainLoss": 0.00006356520316330716,
+      "modelBytes": 6164,
+      "modelPath": "/tmp/bench-router-1781546488642.safetensors",
+      "trainMs": 23.172292
+    },
+    "artifactBytes": 6164
+  },
+  "agreement_rate": 0.5666666666666667,
+  "improvement": {
+    "accuracy_delta": 0.45833333333333337,
+    "cost_adj_reward_delta": 52.244444444444525,
+    "latency_mean_ratio": 0.5180975579951295
+  }
+}

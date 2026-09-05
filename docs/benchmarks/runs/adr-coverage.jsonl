@@ -1,0 +1,46 @@
+{
+  "iter": "8",
+  "ts": "2026-06-26T20:41:38.000Z",
+  "dimension": "adr-coverage",
+  "change": "reproducibility-run-3",
+  "measured": null,
+  "deltaScore": 0,
+  "action": "regressed",
+  "commit": ""
+}
+{
+  "iter": "8",
+  "ts": "2026-06-26T20:41:53.000Z",
+  "dimension": "adr-coverage",
+  "change": "reproducibility-run-3",
+  "measured": {
+    "storedOK": 3,
+    "edges": 0,
+    "dangling": 0,
+    "statusKnown": 1,
+    "total": 3,
+    "ratio": 0.33
+  },
+  "deltaScore": 0,
+  "action": "regressed",
+  "commit": ""
+}
+{
+  "iter": "8",
+  "ts": "2026-06-26T20:42:29.000Z",
+  "dimension": "adr-coverage",
+  "change": "reproducibility-run-3",
+  "measured": {
+    "storedOK": 3,
+    "edges": 4,
+    "dangling": 2,
+    "statusKnown": 3,
+    "total": 3,
+    "ratio": 1.0000
+  },
+  "deltaScore": 0,
+  "action": "proven",
+  "commit": ""
+}
+{"iter":9,"ts":"2026-06-26T00:00:00Z","dimension":"beir-nfcorpus","change":"bm25-only-measurement","measured":{"bm25Ndcg10":null},"deltaScore":null,"action":"infra-blocked","commit":"","note":"run-beir-bge.mjs embeds docs ONE-AT-A-TIME in loop (line 224-227, no batching), writes cache only AFTER loop (line 236). No progress logged until first writeFileSync. Process (PID 24053) stuck at 12+ min likely during getBgeEmbedder init (line 204) or first embed call (line 227). Lucene-BM25-only scripts all require cached BGE embeddings to exist first. Cannot measure BM25 baseline without either: (a) finishing BGE cache, (b) refactoring BM25 scripts to run standalone, or (c) creating dummy cache files. Iter 1 min-max norm validation blocked on measurement infrastructure."}
+{"iter":10,"ts":"2026-06-26T20:53:44.342Z","dimension":"beir-nfcorpus","change":"validate-iters-1-4-stacked","measured":{"ndcg10":0.3372007633305164,"baseline":0.3282},"deltaScore":0.009000763330516400,"action":"measured-improved","commit":""}

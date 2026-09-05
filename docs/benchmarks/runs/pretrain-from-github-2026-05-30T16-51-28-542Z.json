@@ -1,0 +1,57 @@
+{
+  "runAt": "2026-05-30T16:51:28.542Z",
+  "benchmark": "pretrain-from-github",
+  "source": "all",
+  "config": {
+    "COMMITS": 50,
+    "ISSUES": 30
+  },
+  "harvest": {
+    "commits": 50,
+    "issues": 30,
+    "total": 80,
+    "harvestMs": 598.47
+  },
+  "feed": {
+    "trained": 80,
+    "failed": 0,
+    "avgLatencyMs": 3.36,
+    "totalMs": 268.65,
+    "sampleFailures": []
+  },
+  "seedNeuralStore": {
+    "stored": 80,
+    "total": 80,
+    "seedMs": 29.47
+  },
+  "before": {
+    "trajectoriesRecorded": 0,
+    "patternsLearned": 0,
+    "signalsProcessed": 0,
+    "neuralPatternCount": 15,
+    "memoryBridgeTotal": 0
+  },
+  "after": {
+    "trajectoriesRecorded": 95,
+    "patternsLearned": 85,
+    "signalsProcessed": 0,
+    "neuralPatternCount": 95,
+    "memoryBridgeTotal": 0
+  },
+  "deltas": {
+    "trajectoriesRecorded": 95,
+    "patternsLearned": 85,
+    "signalsProcessed": 0,
+    "neuralPatternCount": 80,
+    "memoryBridgeTotal": 0
+  },
+  "consistency": {
+    "sonaTracksGlobal": false,
+    "sonaTracksGlobalDelta": -95,
+    "notes": [
+      "sona.trajectoriesTotal (0) drifts from globalStats.trajectoriesRecorded (95) by -95 — expected to track within ±1",
+      "memory-bridge unreachable — bridge-dependent counters (post-edit/-command persistence, pretrain bundle) will show 0"
+    ]
+  },
+  "passed": true
+}

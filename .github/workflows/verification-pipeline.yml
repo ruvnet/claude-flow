@@ -51,7 +51,7 @@ jobs:
           echo "cache-key=${{ env.CACHE_VERSION }}-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Cache dependencies
         uses: actions/cache@v4
@@ -87,7 +87,7 @@ jobs:
           key: ${{ needs.setup-verification.outputs.cache-key }}
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Security audit
         run: |
@@ -140,7 +140,7 @@ jobs:
           key: ${{ needs.setup-verification.outputs.cache-key }}
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: ESLint code analysis
         run: |
@@ -195,12 +195,22 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ "${{ runner.os }}" == "Linux" ]; then
-            npm ci --legacy-peer-deps
-          else
-            # Skip optional platform-specific dependencies on macOS/Windows
-            npm ci --legacy-peer-deps --omit=optional || npm ci --legacy-peer-deps --force
-          fi
+          # Retries absorb the transient sharp/libvips "socket hang up" /
+          # 503 download flake (see .github/actions/npm-ci-retry) — this
+          # step predates that composite action and can't call it directly
+          # since it needs the OS-conditional --omit=optional fallback too.
+          for attempt in 1 2 3; do
+            if [ "${{ runner.os }}" == "Linux" ]; then
+              npm ci --legacy-peer-deps && exit 0
+            else
+              # Skip optional platform-specific dependencies on macOS/Windows
+              (npm ci --legacy-peer-deps --omit=optional || npm ci --legacy-peer-deps --force) && exit 0
+            fi
+            echo "npm ci failed (attempt $attempt/3) — retrying in 15s"
+            sleep 15
+          done
+          echo "npm ci failed after 3 attempts"
+          exit 1
         shell: bash
 
       - name: Run unit tests
@@ -255,7 +265,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Build CLI package
         run: |
@@ -267,6 +277,14 @@ jobs:
         run: |
           echo "✅ Verifying CLI..."
           test -f v3/@claude-flow/cli/bin/cli.js && echo "CLI binary exists" || echo "⚠️ CLI binary not found (non-blocking)"
+        continue-on-error: true
+
+      # Pre-warm npx cache so downstream --version smoke checks don't pay
+      # cold-install cost for the CLI + wrapper (#2561).
+      - name: Pre-warm npx cache for CLI smoke checks
+        run: |
+          npm install -g @claude-flow/cli@alpha ruflo@alpha --prefer-offline --no-audit --no-fund || \
+            echo "⚠️ Pre-warm install skipped (non-blocking)"
         continue-on-error: true
 
       - name: Package for distribution
@@ -322,7 +340,7 @@ jobs:
       # while `download-artifact@v3` returned a warning; @v4 makes it a
       # hard error and surfaces this as a failure. Build locally instead.
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        uses: ./.github/actions/npm-ci-retry
 
       - name: Build CLI for benchmarks
         run: |
@@ -361,14 +379,13 @@ jobs:
   verification-report:
     name: 📊 Verification Report
     runs-on: ubuntu-latest
-    needs: [
-      setup-verification,
-      security-verification,
-      code-quality,
-      test-verification,
-      build-verification,
-      docs-verification
-    ]
+    needs:
+      - setup-verification
+      - security-verification
+      - code-quality
+      - test-verification
+      - build-verification
+      - docs-verification
     if: always()
     steps:
       - name: Checkout repository

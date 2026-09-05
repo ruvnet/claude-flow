@@ -1,4 +1,6 @@
-FROM node:20-slim
+# Node 24 is Active LTS through April 2028. Keep this pinned to a
+# supported LTS line; test-security-lock.js fails if it drifts to EOL.
+FROM node:24-slim
 
 WORKDIR /app
 

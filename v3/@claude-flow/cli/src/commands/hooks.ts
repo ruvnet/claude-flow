@@ -10,6 +10,11 @@ import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { storeCommand } from './transfer-store.js';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import {
+  getSecurityStatus as sharedGetSecurityStatus,
+  getSwarmStatus as sharedGetSwarmStatus,
+  getGitUncommittedCount as sharedGetGitUncommittedCount,
+} from '../funnel/local-signals.js';
 
 /**
  * #1686 — `?? 0` only defaults null/undefined; NaN slips through and
@@ -466,9 +471,22 @@ const postEditCommand: Command = {
         timestamp: Date.now(),
       });
 
+      // #2352: the MCP handler returns `{success: false, error: "..."}` on
+      // validation failure (e.g. unsupported path shape) without throwing.
+      // Surface that explicitly instead of always printing the success line —
+      // Windows users were seeing `[OK]` while nothing reached the learning
+      // pipeline because absolute paths were rejected upstream.
+      const mcpFailed = result && (result as { success?: boolean }).success === false;
+      const mcpError = (result as { error?: string } | undefined)?.error;
+
       if (ctx.flags.format === 'json') {
         output.printJson(result);
-        return { success: true, data: result };
+        return { success: !mcpFailed, exitCode: mcpFailed ? 1 : 0, data: result };
+      }
+
+      if (mcpFailed) {
+        output.printError(`Post-edit hook failed: ${mcpError || 'unknown error'}`);
+        return { success: false, exitCode: 1 };
       }
 
       output.writeln();
@@ -735,15 +753,68 @@ const routeCommand: Command = {
       description: 'Number of top agent suggestions',
       type: 'number',
       default: 3
-    }
+    },
+    {
+      // #2778 dream-cycle — Mixture-of-Agents test-time scaling.
+      // When `--mode moa` is set AND the router would have chosen a
+      // Tier-3 model (Sonnet/Opus), swap to N parallel Tier-2 (Haiku)
+      // calls + majority-vote consensus. Grade-A ACL 2026 SRW evidence
+      // (arXiv 2605.01566): +2.7pp accuracy at equal-cost when parallel
+      // generations exceed sequential aggregations.
+      name: 'mode',
+      description: 'Routing mode: single (default) or moa (mixture-of-agents fanout, #2778)',
+      type: 'string',
+      choices: ['single', 'moa'],
+      default: 'single',
+    },
+    {
+      // #2778 canonical fanout-width flag. Restored to `--parallel` in
+      // v3.32.14 after the parser scoping fix landed (subcommand's
+      // non-boolean declaration now overrides the global boolean set,
+      // so `--parallel 7` on `hooks route` no longer collides with the
+      // boolean `--parallel` on `swarm start` / `workflow run`).
+      // NOTE: no `default:` here — default is resolved in the action so
+      // we can distinguish "user explicitly passed --parallel" from
+      // "user passed --moa-parallel (the v3.32.13 compat alias)". Without
+      // this, the parser's applied default would shadow the alias.
+      name: 'parallel',
+      short: 'p',
+      description: 'MoA fanout width (N parallel calls at Haiku tier; only meaningful when --mode=moa)',
+      type: 'number',
+    },
+    {
+      // v3.32.13 compat alias — kept so any users who upgraded to that
+      // release keep working. Prefer `--parallel` going forward.
+      name: 'moa-parallel',
+      description: 'DEPRECATED alias for --parallel (kept for v3.32.13 backward compat)',
+      type: 'number',
+    },
+    {
+      name: 'consensus',
+      description: 'MoA consensus strategy: majority-vote (default) or best-confidence',
+      type: 'string',
+      choices: ['majority-vote', 'best-confidence'],
+      default: 'majority-vote',
+    },
   ],
   examples: [
-    { command: 'claude-flow hooks route -t "Fix authentication bug"', description: 'Route task to optimal agent' },
-    { command: 'claude-flow hooks route -t "Optimize database queries" -K 5', description: 'Get top 5 suggestions' }
+    { command: 'claude-flow hooks route -t "Fix authentication bug"', description: 'Route task to optimal agent (single mode)' },
+    { command: 'claude-flow hooks route -t "Optimize database queries" -K 5', description: 'Get top 5 suggestions' },
+    { command: 'claude-flow hooks route -t "Design payment webhook" --mode moa --parallel 3', description: 'MoA fanout: 3× Haiku + consensus (dream-cycle #2778)' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const task = (ctx.flags.task as string) || ctx.args[0];
     const topK = ctx.flags.topK as number || 3;
+    const mode = (ctx.flags.mode as string) || 'single';
+    // #2778: prefer canonical --parallel; fall back to --moa-parallel
+    // (v3.32.13 compat alias). Nullish coalescing so an explicit 0 still
+    // falls through to the alias / default, and neither flag being set
+    // resolves to 3 (the ACL 2026 SRW paper's baseline fanout width).
+    const parallelRaw = (ctx.flags.parallel as number | undefined)
+      ?? (ctx.flags.moaParallel as number | undefined)
+      ?? 3;
+    const parallel = Math.max(2, parallelRaw);
+    const consensus = (ctx.flags.consensus as string) || 'majority-vote';
 
     if (!task) {
       output.printError('Task description is required. Use --task or -t flag.');
@@ -788,6 +859,44 @@ const routeCommand: Command = {
         topK,
         includeEstimates: true,
       });
+
+      // #2778 — compute the MoA plan BEFORE the JSON output branch so
+      // programmatic callers see `moaPlan` in the JSON result too.
+      let moaPlan: {
+        mode: 'moa';
+        parallel: number;
+        tier: 'tier2-haiku';
+        consensus: string;
+        rationale: string;
+        agents: Array<{ name: string; model: 'haiku'; role: string }>;
+        synthesizer: { name: string; model: 'haiku'; role: string };
+      } | null = null;
+      if (mode === 'moa') {
+        const complexity = result.estimatedMetrics?.complexity ?? 'medium';
+        const wouldTier3 = complexity === 'high';
+        const primaryAgent = result.primaryAgent.type;
+        const agents = Array.from({ length: parallel }, (_, i) => ({
+          name: `moa-${primaryAgent}-${i + 1}`,
+          model: 'haiku' as const,
+          role: primaryAgent,
+        }));
+        moaPlan = {
+          mode: 'moa',
+          parallel,
+          tier: 'tier2-haiku',
+          consensus,
+          rationale: wouldTier3
+            ? `Complexity=${complexity} would tier-3 (Sonnet/Opus). MoA fanout — ${parallel}× Haiku is typically <1× Sonnet cost (arXiv 2605.01566: +2.7pp at equal cost).`
+            : `Complexity=${complexity} — MoA still available as a diversity mechanism, but the single-agent path is usually the cost-optimal choice below Tier-3.`,
+          agents,
+          synthesizer: {
+            name: `moa-synth-${primaryAgent}`,
+            model: 'haiku',
+            role: 'synthesizer',
+          },
+        };
+        (result as unknown as Record<string, unknown>).moaPlan = moaPlan;
+      }
 
       if (ctx.flags.format === 'json') {
         output.printJson(result);
@@ -849,6 +958,27 @@ const routeCommand: Command = {
           `Estimated Duration: ${result.estimatedMetrics.estimatedDuration}`,
           `Complexity: ${result.estimatedMetrics.complexity.toUpperCase()}`
         ]);
+      }
+
+      // #2778 dream-cycle — render the MoA plan to text output. moaPlan
+      // was already spliced into the result above so JSON consumers see it.
+      if (mode === 'moa' && moaPlan) {
+        const primaryAgent = result.primaryAgent.type;
+        output.writeln();
+        output.writeln(output.bold('Mixture-of-Agents Plan (#2778)'));
+        output.printList([
+          `Mode: moa`,
+          `Fanout: ${parallel} parallel ${primaryAgent} × Haiku`,
+          `Consensus: ${consensus}`,
+          `Synthesizer: 1 Haiku agent (${consensus} over ${parallel} verdicts)`,
+        ]);
+        output.writeln();
+        output.printBox(
+          `Spawn ${parallel} background Task calls with model="haiku" and subagent_type="${primaryAgent}"\n` +
+          `then a synthesizer Task ("moa-synth-${primaryAgent}") that reads all ${parallel} results and picks the ${consensus === 'majority-vote' ? 'majority answer' : 'highest-confidence answer'}.\n\n` +
+          `Cost note: ${parallel}× Haiku is typically <1× Sonnet on comparable complexity — see arXiv 2605.01566 for the ACL 2026 evidence.`,
+          'MoA Execution Directive'
+        );
       }
 
       return { success: true, data: result };
@@ -1356,6 +1486,9 @@ const metricsCommand: Command = {
           total?: number;
           successful?: number;
           failed?: number;
+          unknown?: number;
+          described?: number;
+          descriptionCoverage?: number;
           avgConfidence?: number;
         };
         routing?: {
@@ -1365,6 +1498,8 @@ const metricsCommand: Command = {
         };
         agents?: {
           routingAccuracy?: number;
+          averageConfidence?: number;
+          outcomeSuccessRate?: number;
           totalRoutes?: number;
           topAgent?: string;
         };
@@ -1394,9 +1529,25 @@ const metricsCommand: Command = {
       const totalPatterns = safeNum(rawMetrics.patterns?.total ?? rawMetrics.summary?.patternsLearned);
       const successfulPatterns = safeNum(rawMetrics.patterns?.successful ?? Math.round(safeNum(rawMetrics.summary?.successRate) * totalPatterns));
       const failedPatterns = Math.max(0, safeNum(rawMetrics.patterns?.failed ?? totalPatterns - successfulPatterns));
+      const unknownPatterns = Math.max(0, safeNum(rawMetrics.patterns?.unknown));
+      const describedPatterns = Math.max(0, safeNum(rawMetrics.patterns?.described));
+      const descriptionCoverage = safeNum(
+        rawMetrics.patterns?.descriptionCoverage ??
+        (totalPatterns > 0 ? describedPatterns / totalPatterns : 0),
+      );
       const avgConfidence = safeNum(rawMetrics.patterns?.avgConfidence ?? rawMetrics.summary?.avgQuality);
 
-      const routingAccuracy = safeNum(rawMetrics.agents?.routingAccuracy ?? rawMetrics.routing?.avgConfidence);
+      const routingAccuracy = rawMetrics.agents?.routingAccuracy == null
+        ? null
+        : safeNum(rawMetrics.agents.routingAccuracy);
+      const averageRoutingConfidence = safeNum(
+        rawMetrics.agents?.averageConfidence ??
+        rawMetrics.routing?.avgConfidence ??
+        rawMetrics.patterns?.avgConfidence,
+      );
+      const routingOutcomeSuccessRate = rawMetrics.agents?.outcomeSuccessRate == null
+        ? null
+        : safeNum(rawMetrics.agents.outcomeSuccessRate);
       const totalRoutes = safeNum(rawMetrics.agents?.totalRoutes ?? rawMetrics.routing?.totalRoutes);
       const topAgent = rawMetrics.agents?.topAgent ?? rawMetrics.routing?.topAgents?.[0]?.agent ?? 'n/a';
 
@@ -1406,8 +1557,22 @@ const metricsCommand: Command = {
 
       const result = {
         ...rawMetrics,
-        patterns: { total: totalPatterns, successful: successfulPatterns, failed: failedPatterns, avgConfidence },
-        agents: { routingAccuracy, totalRoutes, topAgent },
+        patterns: {
+          total: totalPatterns,
+          successful: successfulPatterns,
+          failed: failedPatterns,
+          unknown: unknownPatterns,
+          described: describedPatterns,
+          descriptionCoverage,
+          avgConfidence,
+        },
+        agents: {
+          routingAccuracy,
+          averageConfidence: averageRoutingConfidence,
+          outcomeSuccessRate: routingOutcomeSuccessRate,
+          totalRoutes,
+          topAgent,
+        },
         commands: { totalExecuted: totalCommands, successRate: commandSuccessRate, avgRiskScore },
       };
 
@@ -1427,6 +1592,8 @@ const metricsCommand: Command = {
           { metric: 'Total Patterns', value: totalPatterns },
           { metric: 'Successful', value: output.success(String(successfulPatterns)) },
           { metric: 'Failed', value: output.error(String(failedPatterns)) },
+          ...(unknownPatterns > 0 ? [{ metric: 'Unclassified', value: String(unknownPatterns) }] : []),
+          { metric: 'With Task Context', value: `${(descriptionCoverage * 100).toFixed(1)}%` },
           { metric: 'Avg Confidence', value: `${(avgConfidence * 100).toFixed(1)}%` }
         ]
       });
@@ -1441,7 +1608,14 @@ const metricsCommand: Command = {
           { key: 'value', header: 'Value', width: 20, align: 'right' }
         ],
         data: [
-          { metric: 'Routing Accuracy', value: `${(routingAccuracy * 100).toFixed(1)}%` },
+          {
+            metric: routingAccuracy === null ? 'Avg Confidence' : 'Routing Accuracy',
+            value: `${((routingAccuracy ?? averageRoutingConfidence) * 100).toFixed(1)}%`,
+          },
+          ...(routingOutcomeSuccessRate === null ? [] : [{
+            metric: 'Outcome Success Rate',
+            value: `${(routingOutcomeSuccessRate * 100).toFixed(1)}%`,
+          }]),
           { metric: 'Total Routes', value: totalRoutes },
           { metric: 'Top Agent', value: output.highlight(topAgent) }
         ]
@@ -1523,7 +1697,7 @@ const transferFromProjectCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const sourcePath = (ctx.flags.source as string) || ctx.args[0];
-    const minConfidence = ctx.flags.minConfidence as number || 0.7;
+    const minConfidence = ctx.flags.minConfidence as number ?? 0.7;
 
     if (!sourcePath) {
       output.printError('Source project path is required. Use --source or -s flag.');
@@ -1539,19 +1713,21 @@ const transferFromProjectCommand: Command = {
 
       // Call MCP tool for transfer
       const result = await callMCPTool<{
+        success: boolean;
+        message?: string;
         sourcePath: string;
         transferred: {
           total: number;
           byType: Record<string, number>;
-        };
-        skipped: {
+        } | number;
+        skipped?: {
           lowConfidence: number;
           duplicates: number;
           conflicts: number;
         };
-        stats: {
-          avgConfidence: number;
-          avgAge: string;
+        stats?: {
+          avgConfidence: number | null;
+          avgAgeDays: number | null;
         };
       }>('hooks_transfer', {
         sourcePath,
@@ -1559,6 +1735,17 @@ const transferFromProjectCommand: Command = {
         minConfidence,
         mergeStrategy: 'keep-highest-confidence',
       });
+
+      // #2859 — the handler reports success:false (no destination write
+      // happened) when the source has no matching patterns at all. Surface
+      // that honestly instead of claiming a transfer occurred.
+      if (!result.success || typeof result.transferred === 'number') {
+        spinner.fail(result.message ?? 'No patterns transferred');
+        if (ctx.flags.format === 'json') {
+          output.printJson(result);
+        }
+        return { success: false, exitCode: 1, data: result };
+      }
 
       spinner.succeed(`Transferred ${result.transferred.total} patterns`);
 
@@ -1576,9 +1763,9 @@ const transferFromProjectCommand: Command = {
         ],
         data: [
           { category: 'Total Transferred', count: output.success(String(result.transferred.total)) },
-          { category: 'Skipped (Low Confidence)', count: result.skipped.lowConfidence },
-          { category: 'Skipped (Duplicates)', count: result.skipped.duplicates },
-          { category: 'Skipped (Conflicts)', count: result.skipped.conflicts }
+          { category: 'Skipped (Low Confidence)', count: result.skipped?.lowConfidence ?? 0 },
+          { category: 'Skipped (Duplicates)', count: result.skipped?.duplicates ?? 0 },
+          { category: 'Skipped (Conflicts)', count: result.skipped?.conflicts ?? 0 }
         ]
       });
 
@@ -1594,11 +1781,19 @@ const transferFromProjectCommand: Command = {
         });
       }
 
-      output.writeln();
-      output.printList([
-        `Avg Confidence: ${(result.stats.avgConfidence * 100).toFixed(1)}%`,
-        `Avg Age: ${result.stats.avgAge}`
-      ]);
+      // #2865-style honesty: omit stats that have no real measured value
+      // rather than showing a fabricated number.
+      const statLines: string[] = [];
+      if (result.stats?.avgConfidence != null) {
+        statLines.push(`Avg Confidence: ${(result.stats.avgConfidence * 100).toFixed(1)}%`);
+      }
+      if (result.stats?.avgAgeDays != null) {
+        statLines.push(`Avg Age: ${result.stats.avgAgeDays.toFixed(1)} days`);
+      }
+      if (statLines.length > 0) {
+        output.writeln();
+        output.printList(statLines);
+      }
 
       return { success: true, data: result };
     } catch (error) {
@@ -1831,24 +2026,25 @@ const preTaskCommand: Command = {
         output.printList(result.recommendations);
       }
 
-      // Enhanced model routing with Agent Booster AST (ADR-026)
+      // Enhanced model routing with deterministic codemod Tier-1 (ADR-026, ADR-143)
       try {
         const { getEnhancedModelRouter } = await import('../ruvector/enhanced-model-router.js');
         const router = getEnhancedModelRouter();
         const routeResult = await router.route(description, { filePath: ctx.flags.file as string });
+        const intent = routeResult.codemodIntent ?? routeResult.agentBoosterIntent;
 
         output.writeln();
         output.writeln(output.bold('Intelligent Model Routing'));
 
         if (routeResult.tier === 1) {
-          // Agent Booster can handle this task - skip LLM entirely
-          output.writeln(output.success(`  Tier 1: Agent Booster (WASM)`));
-          output.writeln(output.dim(`  Intent: ${routeResult.agentBoosterIntent?.type}`));
-          output.writeln(output.dim(`  Latency: <1ms | Cost: $0`));
+          // Deterministic codemod can apply this edit - skip LLM entirely ($0)
+          output.writeln(output.success(`  Tier 1: Deterministic codemod`));
+          output.writeln(output.dim(`  Intent: ${intent?.type}`));
+          output.writeln(output.dim(`  Latency: ~1ms | Cost: $0 | No LLM`));
           output.writeln();
           output.writeln(output.dim('─'.repeat(60)));
-          output.writeln(output.bold(output.success(`[AGENT_BOOSTER_AVAILABLE] Skip LLM - use Agent Booster for "${routeResult.agentBoosterIntent?.type}"`)));
-          output.writeln(output.dim(`Confidence: ${(routeResult.confidence * 100).toFixed(0)}% | Intent: ${routeResult.agentBoosterIntent?.description}`));
+          output.writeln(output.bold(output.success(`[CODEMOD_AVAILABLE] Skip LLM — call hooks_codemod with intent="${intent?.type}" (deterministic, $0)`)));
+          output.writeln(output.dim(`Confidence: ${(routeResult.confidence * 100).toFixed(0)}% | Intent: ${intent?.description}`));
           output.writeln(output.dim('─'.repeat(60)));
         } else {
           // LLM required - show tier and model recommendation
@@ -1875,7 +2071,8 @@ const preTaskCommand: Command = {
           complexity: routeResult.complexity,
           reasoning: routeResult.reasoning,
           canSkipLLM: routeResult.canSkipLLM,
-          agentBoosterIntent: routeResult.agentBoosterIntent
+          deterministic: routeResult.deterministic,
+          codemodIntent: routeResult.codemodIntent ?? routeResult.agentBoosterIntent,
         };
       } catch {
         // Enhanced router not available, skip recommendation
@@ -1923,11 +2120,58 @@ const postTaskCommand: Command = {
       short: 'a',
       description: 'Agent that executed the task',
       type: 'string'
+    },
+    {
+      name: 'agent-role',
+      description: 'Stable agent role used for role-aware pheromone comparison (for example coder, tester, coordinator)',
+      type: 'string'
+    },
+    {
+      name: 'duration',
+      description: 'Observed task duration in milliseconds for latency fitness',
+      type: 'number'
+    },
+    {
+      name: 'latency-budget-ms',
+      description: 'Expected task duration in milliseconds; paired with --duration to normalize latency fitness',
+      type: 'number'
+    },
+    {
+      name: 'consensus-alignment',
+      description: 'Consensus alignment score from 0 to 1',
+      type: 'number'
+    },
+    {
+      name: 'task',
+      short: 't',
+      description: 'Task description text (used for routing-outcome persistence and keyword extraction so hooks_metrics can surface Pattern Learning / Agent Routing counts). Without this + --agent, no routing outcome is recorded (#2785).',
+      type: 'string',
+      required: false
+    },
+    {
+      name: 'store-results',
+      description: 'Also persist the routing decision to the memory DB (maps to hooks_post-task storeDecisions) so hooks_metrics can cross-reference it. Requires --task and --agent.',
+      type: 'boolean',
+      required: false
+    },
+    {
+      // ADR-147 P2: nested-subagent spawn-tree capture
+      name: 'parent-agent-id',
+      description: 'ID of the parent agent (from Claude Code\'s parent_agent_id OTel span tag). Omit for top-level work.',
+      type: 'string',
+      required: false
+    },
+    {
+      name: 'depth',
+      description: 'Chain depth from root lead session (0 = lead, 1+ = subagent). Used by ADR-147 P3 depth-aware guardrail.',
+      type: 'number',
+      required: false
     }
   ],
   examples: [
     { command: 'claude-flow hooks post-task -i task-123 --success true', description: 'Record successful completion' },
-    { command: 'claude-flow hooks post-task -i task-456 --success false -q 0.3', description: 'Record failed task' }
+    { command: 'claude-flow hooks post-task -i task-456 --success false -q 0.3', description: 'Record failed task' },
+    { command: 'claude-flow hooks post-task -i task-789 --success true --task "add JWT auth" --agent coder --store-results', description: 'Record with routing-outcome persistence for hooks_metrics' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Auto-generate task ID if not provided
@@ -1952,7 +2196,21 @@ const postTaskCommand: Command = {
         success,
         quality: ctx.flags.quality,
         agent: ctx.flags.agent,
+        agentRole: ctx.flags.agentRole,
+        duration: ctx.flags.duration,
+        latencyBudgetMs: ctx.flags.latencyBudgetMs,
+        consensusAlignment: ctx.flags.consensusAlignment,
+        // #2785: forward the task description so routing outcomes actually persist
+        // (hooks_post-task requires taskText + agent to write the outcome row that
+        // hooks_metrics reads via getIntelligenceStatsFromMemory)
+        task: ctx.flags.task,
+        // Maps to storeDecisions on the MCP tool — persist routing decision in
+        // memory DB for cross-session vector retrieval + metrics attribution
+        storeDecisions: ctx.flags.storeResults,
         timestamp: Date.now(),
+        // ADR-147 P2: forward spawn-tree lineage if caller supplied it
+        parentAgentId: ctx.flags.parentAgentId,
+        depth: ctx.flags.depth,
       });
 
       if (ctx.flags.format === 'json') {
@@ -2348,9 +2606,17 @@ const intelligenceCommand: Command = {
           moe: {
             enabled: enableMoe,
             status: String(mcpMoe?.status ?? (hasLocalData ? 'active' : 'idle')),
-            expertsActive: Number(mcpMoe?.expertsActive ?? (hasLocalData ? 8 : 0)),
-            routingAccuracy: Number(mcpMoe?.routingAccuracy ?? (hasLocalData ? 0.82 : 0)),
-            loadBalance: Number(mcpMoe?.loadBalance ?? (hasLocalData ? 0.9 : 0)),
+            // #2865 — these three previously fell back to hardcoded
+            // hasLocalData ? <constant> : 0 whenever the MCP tool didn't
+            // report a real value, so "Routing Accuracy: 82.0%" displayed
+            // on every project with local neural data regardless of actual
+            // routing quality (measured 49% on a real store). None of these
+            // three has a cheap, honest local substitute the way
+            // `hooks metrics`' routingAccuracy falls back to averageConfidence,
+            // so they are null (unmeasured) rather than a fabricated number.
+            expertsActive: mcpMoe?.expertsActive == null ? null : Number(mcpMoe.expertsActive),
+            routingAccuracy: mcpMoe?.routingAccuracy == null ? null : Number(mcpMoe.routingAccuracy),
+            loadBalance: mcpMoe?.loadBalance == null ? null : Number(mcpMoe.loadBalance),
           },
           hnsw: {
             enabled: enableHnsw,
@@ -2379,7 +2645,12 @@ const intelligenceCommand: Command = {
           tokenReduction: 'N/A',
           sweBenchScore: 'N/A',
         },
-        lastTrainingMs: lastAdaptation ? Date.now() - lastAdaptation : undefined,
+        // #2940: a training cycle that actually ran this invocation is "now"
+        // — reading the pre-call `lastAdaptation` here would still show the
+        // stale age (the exact "aged instead of reset" symptom reported).
+        lastTrainingMs: (mcpResult as { training?: { trained?: boolean } } | null)?.training?.trained
+          ? 0
+          : (lastAdaptation ? Date.now() - lastAdaptation : undefined),
         persistence: {
           dataDir: persistence.dataDir,
           patternsFile: persistence.patternsFile,
@@ -2392,10 +2663,33 @@ const intelligenceCommand: Command = {
         },
       };
 
+      // #2940: this block used to be a cosmetic 500ms sleep followed by an
+      // unconditional "Training cycle completed" — no training ever ran and
+      // `lastAdaptation` never moved, so `--status` could never report a
+      // training cycle as recent no matter how many times `--train` was
+      // invoked. `hooks_intelligence` now actually distills when asked
+      // (see mcp-tools/hooks-tools.ts); report what it actually did instead
+      // of a canned success message.
+      const trainingResult = (mcpResult as { training?: { attempted: boolean; trained: boolean; patternsDistilled?: number; reason?: string } } | null)?.training;
       if (forceTraining) {
-        spinner.setText('Running training cycle...');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        spinner.succeed('Training cycle completed');
+        if (trainingResult?.trained && trainingResult.patternsDistilled) {
+          spinner.succeed(
+            `Training cycle completed — distilled ${trainingResult.patternsDistilled} pattern${trainingResult.patternsDistilled === 1 ? '' : 's'}`
+          );
+        } else if (trainingResult?.trained) {
+          // Ran (SONA/EWC++ distillation pass executed, lastAdaptation
+          // moved) but found zero new patterns — deliberately NOT the same
+          // message as a real distillation, or this is exactly the "success
+          // report with no state change behind it" the issue describes.
+          spinner.stop();
+          output.printWarning(`Training cycle ran — 0 new patterns to distill (${trainingResult.reason || 'nothing new since the last cycle'})`);
+        } else if (trainingResult?.attempted) {
+          spinner.stop();
+          output.printWarning(`Training cycle ran with nothing to do — ${trainingResult.reason || 'no new trajectories to distill'}`);
+        } else {
+          spinner.stop();
+          output.printWarning('Training cycle could not run — intelligence MCP tool unavailable');
+        }
       } else {
         spinner.succeed(hasLocalData ? 'Intelligence system active (local data loaded)' : 'Intelligence system active');
       }
@@ -2452,9 +2746,11 @@ const intelligenceCommand: Command = {
           ],
           data: [
             { metric: 'Status', value: formatIntelligenceStatus(moe.status) },
-            { metric: 'Active Experts', value: moe.expertsActive ?? 0 },
-            { metric: 'Routing Accuracy', value: `${((moe.routingAccuracy ?? 0) * 100).toFixed(1)}%` },
-            { metric: 'Load Balance', value: `${((moe.loadBalance ?? 0) * 100).toFixed(1)}%` }
+            // #2865 — omit rather than show a fabricated 0/0.0% when the
+            // MCP tool hasn't reported a real value for these.
+            ...(moe.expertsActive == null ? [] : [{ metric: 'Active Experts', value: moe.expertsActive }]),
+            ...(moe.routingAccuracy == null ? [] : [{ metric: 'Routing Accuracy', value: `${(moe.routingAccuracy * 100).toFixed(1)}%` }]),
+            ...(moe.loadBalance == null ? [] : [{ metric: 'Load Balance', value: `${(moe.loadBalance * 100).toFixed(1)}%` }]),
           ]
         });
       } else {
@@ -2692,7 +2988,8 @@ const workerDispatchCommand: Command = {
 
     if (!trigger) {
       output.printError('--trigger is required');
-      output.writeln('Available triggers: ultralearn, optimize, consolidate, predict, audit, map, preload, deepdive, document, refactor, benchmark, testgaps');
+      output.writeln('Available triggers: ultralearn, optimize, consolidate, predict, audit, map, preload, deepdive, document, refactor, benchmark, testgaps, oia-audit');
+      output.writeln(output.dim('Tip: `oia-audit` (ADR-150) also runs as `ruflo metaharness oia-audit` for direct invocation.'));
       return { success: false, exitCode: 1 };
     }
 
@@ -3065,7 +3362,7 @@ const coverageRouteCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const task = (ctx.flags.task as string) || ctx.args[0];
-    const threshold = ctx.flags.threshold as number || 80;
+    const threshold = ctx.flags.threshold as number ?? 80;
     const useRuvector = !ctx.flags['no-ruvector'];
 
     if (!task) {
@@ -3337,7 +3634,7 @@ const coverageSuggestCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const targetPath = (ctx.flags.path as string) || ctx.args[0];
-    const threshold = ctx.flags.threshold as number || 80;
+    const threshold = ctx.flags.threshold as number ?? 80;
     const limit = ctx.flags.limit as number || 20;
 
     if (!targetPath) {
@@ -3570,7 +3867,7 @@ const coverageGapsCommand: Command = {
     { command: 'claude-flow hooks coverage-gaps --threshold 90', description: 'Stricter threshold' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const threshold = ctx.flags.threshold as number || 80;
+    const threshold = ctx.flags.threshold as number ?? 80;
     const groupByAgent = ctx.flags['group-by-agent'] !== false;
     const criticalOnly = ctx.flags['critical-only'] as boolean || false;
 
@@ -4095,55 +4392,11 @@ const statuslineCommand: Command = {
       return { domainsCompleted, totalDomains, dddProgress, patternsLearned: learning.patterns, sessionsCompleted: learning.sessions };
     }
 
-    // Get security status
-    function getSecurityStatus() {
-      const scanResultsPath = path.join(process.cwd(), '.claude', 'security-scans');
-      let cvesFixed = 0;
-      const totalCves = 3;
-
-      if (fs.existsSync(scanResultsPath)) {
-        try {
-          const scans = fs.readdirSync(scanResultsPath).filter((f: string) => f.endsWith('.json'));
-          cvesFixed = Math.min(totalCves, scans.length);
-        } catch {
-          // Ignore
-        }
-      }
-
-      const auditPath = path.join(process.cwd(), '.swarm', 'security');
-      if (fs.existsSync(auditPath)) {
-        try {
-          const audits = fs.readdirSync(auditPath).filter((f: string) => f.includes('audit'));
-          cvesFixed = Math.min(totalCves, Math.max(cvesFixed, audits.length));
-        } catch {
-          // Ignore
-        }
-      }
-
-      const status = cvesFixed >= totalCves ? 'CLEAN' : cvesFixed > 0 ? 'IN_PROGRESS' : 'PENDING';
-      return { status, cvesFixed, totalCves };
-    }
-
-    // Get swarm status
-    function getSwarmStatus() {
-      let activeAgents = 0;
-      let coordinationActive = false;
-      const maxAgents = 15;
-      const isWindows = process.platform === 'win32';
-
-      try {
-        const psCmd = isWindows
-          ? 'tasklist /FI "IMAGENAME eq node.exe" /NH 2>NUL | find /c /v "" 2>NUL || echo 0'
-          : 'ps aux 2>/dev/null | grep -c agentic-flow || echo "0"';
-        const ps = execSync(psCmd, { encoding: 'utf-8', timeout: 3000 });
-        activeAgents = Math.max(0, parseInt(ps.trim()) - 1);
-        coordinationActive = activeAgents > 0;
-      } catch {
-        // ps/tasklist unavailable or timed out — report zero
-      }
-
-      return { activeAgents, maxAgents, coordinationActive };
-    }
+    // Security/swarm status — shared with the advisor-tip refresh (ADR-316)
+    // via funnel/local-signals.ts, a single source of truth so the two call
+    // sites can never silently drift on what these signals mean.
+    const getSecurityStatus = sharedGetSecurityStatus;
+    const getSwarmStatus = sharedGetSwarmStatus;
 
     // Get system metrics
     function getSystemMetrics() {
@@ -4212,21 +4465,66 @@ const statuslineCommand: Command = {
       return { memoryMB, contextPct, intelligencePct, subAgents };
     }
 
+    // #2733: Claude Code pipes session JSON (incl. the real active model) on
+    // stdin to statusline commands. Read it synchronously the same way
+    // .claude/helpers/statusline.cjs's getModelFromStdin() does, so this CLI
+    // subcommand is correct standalone — not just when the generated helper
+    // happens to override its output. Read once, memoized per invocation
+    // (mirrors statusline.cjs's _stdinData cache).
+    let _stdinData: unknown;
+    let _stdinRead = false;
+    function getStdinData(): { model?: { display_name?: string } } | null {
+      if (_stdinRead) return _stdinData as { model?: { display_name?: string } } | null;
+      _stdinRead = true;
+      try {
+        if (process.stdin.isTTY) { _stdinData = null; return null; }
+        const chunks: Buffer[] = [];
+        const buf = Buffer.alloc(4096);
+        let bytesRead: number;
+        try {
+          while ((bytesRead = fs.readSync(0, buf, 0, buf.length, null)) > 0) {
+            chunks.push(Buffer.from(buf.subarray(0, bytesRead)));
+          }
+        } catch { /* EOF or read error */ }
+        const raw = Buffer.concat(chunks).toString('utf-8').trim();
+        _stdinData = (raw && raw.startsWith('{')) ? JSON.parse(raw) : null;
+      } catch {
+        _stdinData = null;
+      }
+      return _stdinData as { model?: { display_name?: string } } | null;
+    }
+    function getModelFromStdin(): string | null {
+      const data = getStdinData();
+      return (data && data.model && typeof data.model.display_name === 'string') ? data.model.display_name : null;
+    }
+
     // Get user info
     function getUserInfo() {
-      let name = 'user';
+      const identityMode = (process.env.RUFLO_STATUSLINE_IDENTITY || 'project').toLowerCase();
+      let name = path.basename(process.cwd()) || 'project';
       let gitBranch = '';
-      const modelName = 'Opus 4.6 (1M context)';
+      // Real active model from Claude Code's stdin payload when available;
+      // this string is only a last-resort label for direct/manual CLI
+      // invocation with no stdin (e.g. a bare terminal run) — never shown
+      // when Claude Code itself is the caller.
+      const modelName = getModelFromStdin() || 'Claude Code';
       const isWindows = process.platform === 'win32';
 
       try {
-        const nameCmd = isWindows
-          ? 'git config user.name 2>NUL || echo user'
-          : 'git config user.name 2>/dev/null || echo "user"';
+        const rootCmd = isWindows
+          ? 'git rev-parse --show-toplevel 2>NUL'
+          : 'git rev-parse --show-toplevel 2>/dev/null';
         const branchCmd = isWindows
           ? 'git branch --show-current 2>NUL || echo.'
           : 'git branch --show-current 2>/dev/null || echo ""';
-        name = execSync(nameCmd, { encoding: 'utf-8' }).trim();
+        const root = execSync(rootCmd, { encoding: 'utf-8' }).trim();
+        name = path.basename(root) || name;
+        if (identityMode === 'author') {
+          const authorCmd = isWindows
+            ? 'git config user.name 2>NUL || echo user'
+            : 'git config user.name 2>/dev/null || echo "user"';
+          name = execSync(authorCmd, { encoding: 'utf-8' }).trim() || 'user';
+        }
         gitBranch = execSync(branchCmd, { encoding: 'utf-8' }).trim();
         if (gitBranch === '.') gitBranch = '';
       } catch {
@@ -4242,6 +4540,23 @@ const statuslineCommand: Command = {
     const swarm = getSwarmStatus();
     const system = getSystemMetrics();
     const user = getUserInfo();
+    const getGitUncommittedCount = sharedGetGitUncommittedCount;
+
+    // Funnel promo row (ADR-301). The statusline is spawned with piped stdio
+    // by an interactive host, so interactivity is asserted here; all other
+    // gates (RUFLO_FUNNEL, enterprise policy, config, CI, disclosure,
+    // rotation ratio) are enforced inside getFunnelPromo. Never allowed to
+    // break the statusline.
+    let promo: import('../funnel/types.js').PromoRow | null = null;
+    try {
+      const { getFunnelPromo } = await import('../funnel/index.js');
+      promo = getFunnelPromo({
+        interactive: true,
+        localInsights: { security, swarm, gitUncommittedCount: getGitUncommittedCount() },
+      });
+    } catch {
+      promo = null;
+    }
 
     const statusData = {
       user,
@@ -4249,6 +4564,7 @@ const statuslineCommand: Command = {
       security,
       swarm,
       system,
+      promo,
       timestamp: new Date().toISOString()
     };
 
@@ -4268,7 +4584,10 @@ const statuslineCommand: Command = {
     const terminalCols = process.stdout.columns ?? 80;
     const autoCompact = !ctx.flags.full && terminalCols < COMPACT_WIDTH_THRESHOLD;
     if (ctx.flags.compact || autoCompact) {
-      const line = `DDD:${progress.domainsCompleted}/${progress.totalDomains} CVE:${security.cvesFixed}/${security.totalCves} Swarm:${swarm.activeAgents}/${swarm.maxAgents} Ctx:${system.contextPct}% Int:${system.intelligencePct}%`;
+      const securityCompact = security.findings > 0
+        ? `Findings:${security.findings}`
+        : `Security:${security.status}`;
+      const line = `DDD:${progress.domainsCompleted}/${progress.totalDomains} ${securityCompact} Swarm:${swarm.activeAgents}/${swarm.maxAgents} Ctx:${system.contextPct}% Int:${system.intelligencePct}%`;
       output.writeln(line);
       return { success: true, data: statusData };
     }
@@ -4447,14 +4766,14 @@ const statuslineCommand: Command = {
 
     const swarmIndicator = swarm.coordinationActive ? `${c.brightGreen}◉${c.reset}` : `${c.dim}○${c.reset}`;
     const agentsColor = swarm.activeAgents > 0 ? c.brightGreen : c.red;
-    const securityIcon = security.status === 'CLEAN' ? '🟢' : security.status === 'IN_PROGRESS' ? '🟡' : '🔴';
-    const securityColor = security.status === 'CLEAN' ? c.brightGreen : security.status === 'IN_PROGRESS' ? c.brightYellow : c.brightRed;
+    const securityIcon = security.status === 'CLEAN' ? '🟢' : security.status === 'PENDING' ? '🟡' : '🔴';
+    const securityColor = security.status === 'CLEAN' ? c.brightGreen : security.status === 'PENDING' ? c.brightYellow : c.brightRed;
     const hooksColor = hooksStats.enabled > 0 ? c.brightGreen : c.dim;
 
     const line2 = `${c.brightYellow}🤖 Swarm${c.reset}  ${swarmIndicator} [${agentsColor}${String(swarm.activeAgents).padStart(2)}${c.reset}/${c.brightWhite}${swarm.maxAgents}${c.reset}]  ` +
       `${c.brightPurple}👥 ${system.subAgents}${c.reset}    ` +
       `${c.brightBlue}🪝 ${hooksColor}${hooksStats.enabled}${c.reset}/${c.brightWhite}${hooksStats.total}${c.reset}    ` +
-      `${securityIcon} ${securityColor}CVE ${security.cvesFixed}${c.reset}/${c.brightWhite}${security.totalCves}${c.reset}    ` +
+      `${securityIcon} ${securityColor}${security.findings > 0 ? `Findings ${security.findings}` : `Security ${security.status}`}${c.reset}    ` +
       `${c.brightCyan}💾 ${system.memoryMB}MB${c.reset}    ` +
       `${c.brightPurple}🧠 ${String(system.intelligencePct).padStart(3)}%${c.reset}`;
 
@@ -4952,7 +5271,8 @@ const teammateIdleCommand: Command = {
       short: 'a',
       description: 'Automatically assign pending tasks to idle teammate',
       type: 'boolean',
-      default: true
+      // #3031: explicit opt-in only. Idle/liveness is not assignment authority.
+      default: false
     },
     {
       name: 'check-task-list',
@@ -4978,7 +5298,7 @@ const teammateIdleCommand: Command = {
     { command: 'claude-flow hooks teammate-idle -t worker-1 --check-task-list', description: 'Check tasks for specific teammate' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const autoAssign = ctx.flags.autoAssign !== false;
+    const autoAssign = ctx.flags.autoAssign === true;
     const checkTaskList = ctx.flags.checkTaskList !== false;
     const teammateId = ctx.flags.teammateId as string;
     const teamName = ctx.flags.teamName as string;
@@ -5217,6 +5537,90 @@ const notifyCommand: Command = {
   }
 };
 
+// Refresh-funnel subcommand — the fix for "promo doesn't load right away".
+//
+// refreshRemoteMessages() (funnel/message-transport.ts) is fire-and-forget
+// by design so the STATUSLINE's own per-render invocation never blocks on
+// a network call. But the statusline is spawned as a short-lived subprocess
+// per render (execSync from statusline-generator.ts) — a fire-and-forget
+// promise kicked off there has no "later" to run in; the process exits
+// before the HTTPS fetch can complete, so the local message cache never
+// actually gets written and the promo row never appears (confirmed live:
+// two consecutive cold-cache statusline renders, 5s apart, both returned
+// promo:null and the cache file was never created).
+//
+// This command exists to be invoked from a LONGER-LIVED context — the
+// SessionStart hook (see hook-handler.cjs's 'session-restore' handler,
+// which spawns this detached so it isn't killed when the hook's own
+// process exits, and isn't awaited so it doesn't add to the hook's own
+// timeout budget). One real, properly-awaited refresh attempt here, once
+// per session, is what actually gives refreshRemoteMessages() a chance to
+// finish before anything needs the cache.
+const refreshFunnelCommand: Command = {
+  name: 'refresh-funnel',
+  description: 'Best-effort background refresh of the funnel message cache (internal — see hook-handler.cjs session-restore)',
+  options: [
+    { name: 'quiet', description: 'Suppress output (used when spawned detached from a hook)', type: 'boolean', default: false },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    try {
+      const { refreshRemoteMessages } = await import('../funnel/index.js');
+      const result = await refreshRemoteMessages();
+      if (!ctx.flags.quiet) {
+        output.writeln(JSON.stringify(result));
+      }
+      return { success: true, data: result };
+    } catch (error) {
+      // Fail silent by design (matches message-transport.ts's own "fail
+      // silent" discipline) — a broken refresh must never surface as a
+      // hook error, only ever as "no promo this session."
+      if (!ctx.flags.quiet) {
+        output.printError(`refresh-funnel failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      return { success: true, data: { refreshed: false, skipped: 'error' } };
+    }
+  }
+};
+
+// Refresh-advisor subcommand — ADR-316's co-pilot tip. Mirrors
+// refreshFunnelCommand exactly: a properly-awaited CLI subcommand meant to
+// be spawned DETACHED from hook-handler.cjs's session-restore handler, so a
+// real (potentially multi-second, real-money) `claude -p` call gets a
+// chance to finish without ever blocking or being awaited by the hook's own
+// process. refreshAdvisorTipIfStale() itself is the safety net that makes
+// this cheap to call on every session-restore: it checks consent + a 24h
+// TTL BEFORE spending anything, so most invocations are a no-op file read.
+const refreshAdvisorCommand: Command = {
+  name: 'refresh-advisor',
+  description: 'Best-effort background refresh of the co-pilot advisor tip (internal — see hook-handler.cjs session-restore; ADR-316)',
+  options: [
+    { name: 'quiet', description: 'Suppress output (used when spawned detached from a hook)', type: 'boolean', default: false },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    try {
+      const { refreshAdvisorTipIfStale } = await import('../funnel/advisor-tip.js');
+      const { getSecurityStatus, getSwarmStatus, getGitUncommittedCount } = await import('../funnel/local-signals.js');
+      const result = await refreshAdvisorTipIfStale({
+        security: getSecurityStatus(),
+        swarm: getSwarmStatus(),
+        gitUncommittedCount: getGitUncommittedCount(),
+      });
+      if (!ctx.flags.quiet) {
+        output.writeln(JSON.stringify(result));
+      }
+      return { success: true, data: result };
+    } catch (error) {
+      // Fail silent by design (matches refresh-funnel's own discipline) — a
+      // broken advisor refresh must never surface as a hook error, only
+      // ever as "no tip this window."
+      if (!ctx.flags.quiet) {
+        output.printError(`refresh-advisor failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      return { success: true, data: { refreshed: false, reason: 'error' } };
+    }
+  }
+};
+
 // Main hooks command
 export const hooksCommand: Command = {
   name: 'hooks',
@@ -5260,6 +5664,10 @@ export const hooksCommand: Command = {
     // Agent Teams integration
     teammateIdleCommand,
     taskCompletedCommand,
+    // Funnel background refresh — see refreshFunnelCommand's own doc comment
+    refreshFunnelCommand,
+    // Advisor co-pilot tip background refresh — ADR-316
+    refreshAdvisorCommand,
   ],
   options: [],
   examples: [

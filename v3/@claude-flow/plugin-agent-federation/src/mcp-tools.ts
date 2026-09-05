@@ -2,8 +2,11 @@ import type { MCPToolDefinition } from '@claude-flow/shared/src/plugin-interface
 import type { PluginContext } from '@claude-flow/shared/src/plugin-interface.js';
 import type { FederationCoordinator } from './application/federation-coordinator.js';
 import type { FederationMessageType } from './domain/entities/federation-envelope.js';
+import type { FederationManifest } from './domain/services/discovery-service.js';
 import type { WgMeshService } from './domain/services/wg-mesh-service.js';
 import { generateWgKeyPair } from './domain/value-objects/wg-config.js';
+import { JCS_SIGNATURE_PROTOCOL } from './application/inbound-dispatcher.js';
+import { FEDERATION_PLUGIN_VERSION } from './version.js';
 
 type CoordinatorGetter = () => FederationCoordinator | null;
 type ContextGetter = () => PluginContext | null;
@@ -34,7 +37,7 @@ export function createMcpTools(
       name: 'federation_init',
       description: 'Initialize federation on this node with a manifest and begin discovery',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {
@@ -54,10 +57,10 @@ export function createMcpTools(
           capabilities: {
             agentTypes: (params['agentTypes'] as string[]) ?? ['coder', 'reviewer'],
             maxConcurrentSessions: 10,
-            supportedProtocols: ['websocket', 'http'],
+            supportedProtocols: ['websocket', 'http', JCS_SIGNATURE_PROTOCOL],
             complianceModes: [],
           },
-          version: '1.0.0-alpha.1',
+          version: FEDERATION_PLUGIN_VERSION,
           timestamp: new Date().toISOString(),
         });
         return textResult(`Federation initialized for node ${nodeId}`);
@@ -65,19 +68,26 @@ export function createMcpTools(
     },
     {
       name: 'federation_join',
-      description: 'Join a federation by connecting to a remote peer endpoint',
+      description: 'Join a federation endpoint. A signed manifest is required before consequential protocol capabilities are trusted.',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {
           endpoint: { type: 'string', description: 'Remote peer endpoint to join' },
+          manifest: {
+            type: 'object',
+            description: 'Optional signed peer manifest. Without it the session remains endpoint-only, untrusted, and legacy-low-risk.',
+          },
         },
         required: ['endpoint'],
       },
       handler: async (params) => {
         const coordinator = requireCoordinator();
-        const session = await coordinator.joinPeer(params['endpoint'] as string);
+        const session = await coordinator.joinPeer(
+          params['endpoint'] as string,
+          params['manifest'] as FederationManifest | undefined,
+        );
         return textResult(`Joined peer. Session: ${session.sessionId}, Trust: ${session.trustLevel}`);
       },
     },
@@ -85,7 +95,7 @@ export function createMcpTools(
       name: 'federation_peers',
       description: 'List all known federation peers with their trust levels and status',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {},
@@ -100,7 +110,7 @@ export function createMcpTools(
       name: 'federation_send',
       description: 'Send a message to a federated peer through the PII pipeline and security gates. Optional budget controls (ADR-097): maxHops defaults to 8 to prevent recursive delegation; maxTokens/maxUsd cap cumulative spend across the hop chain.',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {
@@ -157,7 +167,7 @@ export function createMcpTools(
       name: 'federation_query',
       description: 'Query federated memory from a remote peer (PII-gated)',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {
@@ -181,7 +191,7 @@ export function createMcpTools(
       name: 'federation_status',
       description: 'Get federation health status including active sessions, peers, and trust levels',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {},
@@ -195,7 +205,7 @@ export function createMcpTools(
       name: 'federation_trust',
       description: 'View or review trust score details for a specific node',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {
@@ -218,7 +228,7 @@ export function createMcpTools(
       name: 'federation_audit',
       description: 'Query federation audit logs with optional compliance mode filtering',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {
@@ -247,7 +257,7 @@ export function createMcpTools(
       name: 'federation_breaker_status',
       description: 'ADR-097 Phase 4: per-peer circuit-breaker state snapshot. Returns each known peer with its lifecycle state (ACTIVE/SUSPENDED/EVICTED), when it changed, and why. Combine with federation_evict / federation_reactivate to operate the breaker manually.',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {
@@ -267,7 +277,7 @@ export function createMcpTools(
       name: 'federation_evict',
       description: 'ADR-097 Phase 4: operator-initiated evict for a peer. Marks the peer EVICTED so subsequent federation_send calls short-circuit with PEER_EVICTED. Reversible only via federation_reactivate (operator override).',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {
@@ -293,7 +303,7 @@ export function createMcpTools(
       name: 'federation_reactivate',
       description: 'ADR-097 Phase 4: operator-initiated reactivate for a SUSPENDED or EVICTED peer. Used after a health probe confirms recovery, or as an operator override on a manual evict. The breaker does NOT auto-reactivate; this MCP tool is the explicit lever.',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {
@@ -318,7 +328,7 @@ export function createMcpTools(
       name: 'federation_report_spend',
       description: 'ADR-097 Phase 3 upstream: report the actual cost of a completed federated call. Fans out to the cost-tracker bus (via the integrator-wired SpendReporter) and the breaker service (so its in-memory rolling buffer is fed). Both targets are optional; calling without either configured is a silent no-op.',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {
@@ -348,7 +358,7 @@ export function createMcpTools(
       name: 'federation_consensus',
       description: 'Propose a federated consensus operation across all active peers',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {
@@ -381,7 +391,7 @@ export function createMcpTools(
       name: 'federation_wg_status',
       description: 'ADR-111 Phase 6: WG mesh state — per-peer trust level, mesh IP, suspended/evicted flags, and the AllowedIPs slice each peer currently has. Use to inspect what the breaker has propagated to the L3 layer.',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {
@@ -406,7 +416,7 @@ export function createMcpTools(
       name: 'federation_wg_attest',
       description: 'ADR-111 Phase 6 (witness chain): emit an operator-signed attestation entry for a coordination change. Returns the canonical bytes the operator signs + the witness entry; operator appends it to .claude-flow/federation/wg-changes.log. Idempotent — re-attesting the same change just appends another entry.',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {
@@ -433,7 +443,7 @@ export function createMcpTools(
       name: 'federation_wg_keyrotate',
       description: 'ADR-111 Phase 6: rotate the local WG keypair. Returns the new public key + recommended next steps (republish manifest, peers regenerate their wg-quick config, grace-period destruction of old key). DESTRUCTIVE — the old private key is overwritten on disk; existing tunnels are dropped until peers update.',
       pluginName: '@claude-flow/plugin-agent-federation',
-      version: '1.0.0-alpha.1',
+      version: FEDERATION_PLUGIN_VERSION,
       inputSchema: {
         type: 'object',
         properties: {

@@ -12,7 +12,11 @@
 //   BUDGET_PERIOD=today|week|month|all   filter session totals by capturedAt
 //   BUDGET_QUIET=1            machine-readable JSON only
 
-import { spawnSync } from 'node:child_process';
+import { spawnNpxSync } from './_npx.mjs';
+// iter 73 — shared session-loader (was duplicated across 6 scripts).
+// Only the session-list path consolidates; budget-config reads stay local
+// because they have their own "latest stamp" upsert resolution logic.
+import { loadSessions } from './_sessions.mjs';
 
 // ADR-100 / #1748 Issue 3 — opt into cli-core's lite path with CLI_CORE=1.
 // Cold-cache wall-time drops from ~25s to ~2s. JSON backend instead of
@@ -33,41 +37,39 @@ function memoryStore(key, value) {
   //   This avoids the conflict entirely. Retrieve resolves via the index.
   if (key === KEY) {
     const stamped = `${KEY}-${Date.now()}`;
-    const r = spawnSync('npx', [
+    const r = spawnNpxSync([
       CLI_PKG, 'memory', 'store',
       '--namespace', NS, '--key', stamped, '--value', JSON.stringify(value),
-    ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
+    ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
     if (r.status !== 0) throw new Error(`memory store failed: ${r.stderr?.slice(0, 200) || r.status}`);
     // The "current pointer" is found at retrieval time by listing all
     // budget-config-* keys and picking the lexicographically-largest
     // (timestamp suffixes sort correctly because they are equal-width).
     return;
   }
-  const r = spawnSync('npx', [
+  const r = spawnNpxSync([
     CLI_PKG, 'memory', 'store',
     '--namespace', NS, '--key', key, '--value', JSON.stringify(value),
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
+  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
   if (r.status !== 0) throw new Error(`memory store failed: ${r.stderr?.slice(0, 200) || r.status}`);
 }
 
 function memoryRetrieveOne(key) {
-  const r = spawnSync('npx', [
+  const r = spawnNpxSync([
     CLI_PKG, 'memory', 'retrieve',
-    '--namespace', NS, '--key', key,
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
+    '--namespace', NS, '--key', key, '--value-only',
+  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
   if (r.status !== 0) return null;
-  const m = /\{[\s\S]*\}/.exec(r.stdout || '');
-  if (!m) return null;
-  try { return JSON.parse(m[0]); } catch { return null; }
+  try { return JSON.parse((r.stdout || '').trim()); } catch { return null; }
 }
 
 function memoryRetrieve(key) {
   // For budget-config: pick the latest budget-config-<timestamp> entry.
   if (key === KEY) {
-    const list = spawnSync('npx', [
+    const list = spawnNpxSync([
       CLI_PKG, 'memory', 'list',
       '--namespace', NS, '--format', 'json',
-    ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
+    ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
     if (list.status !== 0) return null;
     const m = /\[[\s\S]*\]/.exec(list.stdout || '');
     if (!m) return null;
@@ -85,29 +87,6 @@ function memoryRetrieve(key) {
     return memoryRetrieveOne(latest);
   }
   return memoryRetrieveOne(key);
-}
-
-function memoryListSessionRecords() {
-  // Use --format json so keys aren't truncated with `...` in tabular output.
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'list',
-    '--namespace', NS, '--format', 'json',
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
-  if (r.status !== 0) return [];
-  // CLI may emit a small banner before the JSON array; extract the first '['..']' block.
-  const m = /\[[\s\S]*\]/.exec(r.stdout || '');
-  if (!m) return [];
-  let entries;
-  try { entries = JSON.parse(m[0]); } catch { return []; }
-  const sessionKeys = entries
-    .map((e) => e.key)
-    .filter((k) => typeof k === 'string' && k.startsWith('session-'));
-  const records = [];
-  for (const k of sessionKeys) {
-    const rec = memoryRetrieve(k);
-    if (rec) records.push(rec);
-  }
-  return records;
 }
 
 function periodFilter(period) {
@@ -175,12 +154,13 @@ function cmdGet() {
 function cmdCheck() {
   const cfg = memoryRetrieve(KEY);
   const period = process.env.BUDGET_PERIOD || 'all';
-  const records = memoryListSessionRecords();
+  const records = loadSessions(NS);
   const filt = periodFilter(period);
   const filtered = records.filter((r) => filt(r.capturedAt || r.endedAt));
   const totalSpend = filtered.reduce((s, r) => s + (r.total_cost_usd || 0), 0);
   if (!cfg || !Number.isFinite(cfg.budget_usd)) {
     const out = { period, totalSpend, recordCount: filtered.length, error: 'no budget configured' };
+    // audit-allow: exit-bypass — no-budget path can't reach the HARD_STOP exit (no `alert` is computed in this branch).
     if (process.env.BUDGET_QUIET === '1') return console.log(JSON.stringify(out));
     console.log(`Period: ${period}`);
     console.log(`Spent so far: $${totalSpend.toFixed(2)} across ${filtered.length} sessions`);
@@ -200,19 +180,24 @@ function cmdCheck() {
     recommended_action: recommendedAction(alert.level),
     sessionCount: filtered.length,
   };
-  if (process.env.BUDGET_QUIET === '1') return console.log(JSON.stringify(out));
-  console.log(`# Budget check (period: ${period})`);
-  console.log('');
-  console.log(`| Metric | Value |`);
-  console.log(`|---|---:|`);
-  console.log(`| Budget | $${cfg.budget_usd.toFixed(2)} |`);
-  console.log(`| Spent | $${totalSpend.toFixed(2)} |`);
-  console.log(`| Remaining | $${out.remaining_usd.toFixed(2)} |`);
-  console.log(`| Utilization | ${out.utilization_pct.toFixed(1)}% |`);
-  console.log(`| Sessions counted | ${filtered.length} |`);
-  console.log(`| **Alert** | **${alert.emoji} ${alert.level}** |`);
-  console.log('');
-  console.log(`Action: ${out.recommended_action}`);
+  if (process.env.BUDGET_QUIET === '1') {
+    console.log(JSON.stringify(out));
+  } else {
+    console.log(`# Budget check (period: ${period})`);
+    console.log('');
+    console.log(`| Metric | Value |`);
+    console.log(`|---|---:|`);
+    console.log(`| Budget | $${cfg.budget_usd.toFixed(2)} |`);
+    console.log(`| Spent | $${totalSpend.toFixed(2)} |`);
+    console.log(`| Remaining | $${out.remaining_usd.toFixed(2)} |`);
+    console.log(`| Utilization | ${out.utilization_pct.toFixed(1)}% |`);
+    console.log(`| Sessions counted | ${filtered.length} |`);
+    console.log(`| **Alert** | **${alert.emoji} ${alert.level}** |`);
+    console.log('');
+    console.log(`Action: ${out.recommended_action}`);
+  }
+  // CRITICAL: must run in BOTH branches — otherwise BUDGET_QUIET=1 silently
+  // swallowed HARD_STOP, breaking cost-health composite gate (iter 75 fix).
   if (alert.level === 'HARD_STOP') process.exit(1);
 }
 

@@ -9,6 +9,7 @@
 
 import { EventEmitter } from 'node:events';
 import { reasoningBank, type GuidancePattern } from '../reasoningbank/index.js';
+import { guardChannelMessage } from '../workers/channel-guard-worker.js';
 
 // ============================================================================
 // Types
@@ -237,12 +238,21 @@ export class SwarmCommunication extends EventEmitter {
   ): Promise<SwarmMessage> {
     await this.ensureInitialized();
 
+    // ADR-320 ChannelGuard: sanitize inter-agent message content at the
+    // routing boundary (arXiv:2607.19430). No-op passthrough (with a
+    // console.warn side-effect for unsafe content) unless
+    // CLAUDE_FLOW_SECURITY_CHANNEL_GATE=0. See channel-guard-worker.ts's
+    // file header for the scope caveat: this covers callers that route
+    // through SwarmCommunication, not @claude-flow/swarm's separate
+    // topology-coordinator message paths.
+    const guarded = guardChannelMessage(content);
+
     const message: SwarmMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       from: this.config.agentId,
       to,
       type: options.type || 'context',
-      content,
+      content: guarded.content,
       metadata: options.metadata || {},
       timestamp: Date.now(),
       ttl: options.ttl,

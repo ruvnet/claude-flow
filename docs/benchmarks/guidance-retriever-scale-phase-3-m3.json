@@ -1,0 +1,48 @@
+{
+  "tag": "phase-3-m3",
+  "node": "v22.22.1",
+  "platform": "darwin-arm64",
+  "capturedAt": "2026-05-22T03:23:58.407Z",
+  "results": [
+    {
+      "N": 10,
+      "name": "retriever.retrieve(N=10 shards)",
+      "iters": 632,
+      "trials": 5,
+      "opsPerSec": 70761,
+      "avgMicros": 14.132,
+      "opsMin": 49163,
+      "opsMax": 74365
+    },
+    {
+      "N": 100,
+      "name": "retriever.retrieve(N=100 shards)",
+      "iters": 200,
+      "trials": 5,
+      "opsPerSec": 12227,
+      "avgMicros": 81.784,
+      "opsMin": 11623,
+      "opsMax": 12493
+    },
+    {
+      "N": 500,
+      "name": "retriever.retrieve(N=500 shards)",
+      "iters": 89,
+      "trials": 5,
+      "opsPerSec": 2482,
+      "avgMicros": 402.918,
+      "opsMin": 2374,
+      "opsMax": 2495
+    },
+    {
+      "N": 1000,
+      "name": "retriever.retrieve(N=1000 shards)",
+      "iters": 63,
+      "trials": 5,
+      "opsPerSec": 1321,
+      "avgMicros": 757.027,
+      "opsMin": 1261,
+      "opsMax": 1585
+    }
+  ]
+}

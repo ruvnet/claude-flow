@@ -1,0 +1,211 @@
+{
+  "label": "single-round proof-of-mechanism",
+  "disclaimers": [
+    "not flywheel proof",
+    "not compounding learning",
+    "not production learning"
+  ],
+  "generation": 0,
+  "parent": null,
+  "branch": "main",
+  "kind": "synthetic",
+  "createdAt": 1700000000000,
+  "inputHoldoutHash": "sha256:3cb58b6d4cd6fe6f0fa1f114d604b5743963eb96c3b9648508bf2ea502dad9f9",
+  "baselineManifestHash": "sha256:ea6643a45ebd3578fedfbe44774d22327f6852115c8670c5ae2996652060f6d8",
+  "candidateManifestHash": "sha256:d17cbe4d0bd2ff9a73d9bcb706905858e5a4b01bca074c6235e479505487e126",
+  "meetsPromotionRule": {
+    "version": "accept/v1+sig",
+    "result": true
+  },
+  "decisionReceipt": {
+    "promotionRuleVersion": "accept/v1+sig",
+    "verdictInputs": {
+      "heldOutScore": 0.7520000000000001,
+      "baselineHeldOutScore": 0.656,
+      "redblue": "PASS",
+      "drift": 0,
+      "driftThreshold": 0.05,
+      "replayDeterministic": true,
+      "receiptCoverage": 1,
+      "canaryRollbackRate": 0,
+      "baselineRollbackRate": 0
+    },
+    "result": {
+      "accept": true,
+      "terms": {
+        "held_out_improves": {
+          "value": "0.7520 > 0.6560",
+          "pass": true
+        },
+        "redblue_pass": {
+          "value": "PASS",
+          "pass": true
+        },
+        "drift_within": {
+          "value": "0 <= 0.05",
+          "pass": true
+        },
+        "replay_deterministic": {
+          "value": true,
+          "pass": true
+        },
+        "receipt_coverage_full": {
+          "value": 1,
+          "pass": true
+        },
+        "canary_no_worse": {
+          "value": "0 <= 0",
+          "pass": true
+        }
+      },
+      "failed": []
+    },
+    "significant": true,
+    "deltaCILow": 0.07600000000000004,
+    "promoted": true,
+    "reason": "promoted (all accept/v1+sig terms held)"
+  },
+  "shadow": {
+    "registrationId": "shadow:44b2b4e021f61a1482f1c3e8794517d4abcb490398d73dbaa70be96978cf39c0",
+    "state": "shadow",
+    "served": false,
+    "candidateManifestHash": "sha256:d17cbe4d0bd2ff9a73d9bcb706905858e5a4b01bca074c6235e479505487e126",
+    "registeredAt": 1700000000000
+  },
+  "costReceipt": {
+    "usd": 0,
+    "llmCalls": 0,
+    "tier": "synthetic",
+    "notes": "deterministic synthetic round — no model, no network, no real store"
+  },
+  "mutationClass": "retrieval:multi",
+  "mutationSummary": "alpha:0.5→0.3, bodyWeight:1→1.5, mmrLambda:0.7→0.5, subjectWeight:2→1, typePenaltyFactor:1→0.5",
+  "deltas": {
+    "benchmark": 0.09600000000000009,
+    "security": 0,
+    "cost": 0
+  },
+  "promotion": {
+    "parentManifestHash": null,
+    "candidateManifestHash": "sha256:d17cbe4d0bd2ff9a73d9bcb706905858e5a4b01bca074c6235e479505487e126",
+    "mutationClass": "retrieval:multi",
+    "mutationSummary": "alpha:0.5→0.3, bodyWeight:1→1.5, mmrLambda:0.7→0.5, subjectWeight:2→1, typePenaltyFactor:1→0.5",
+    "deltas": {
+      "benchmark": 0.09600000000000009,
+      "security": 0,
+      "cost": 0
+    },
+    "decisionReceipt": {
+      "promotionRuleVersion": "accept/v1+sig",
+      "verdictInputs": {
+        "heldOutScore": 0.7520000000000001,
+        "baselineHeldOutScore": 0.656,
+        "redblue": "PASS",
+        "drift": 0,
+        "driftThreshold": 0.05,
+        "replayDeterministic": true,
+        "receiptCoverage": 1,
+        "canaryRollbackRate": 0,
+        "baselineRollbackRate": 0
+      },
+      "result": {
+        "accept": true,
+        "terms": {
+          "held_out_improves": {
+            "value": "0.7520 > 0.6560",
+            "pass": true
+          },
+          "redblue_pass": {
+            "value": "PASS",
+            "pass": true
+          },
+          "drift_within": {
+            "value": "0 <= 0.05",
+            "pass": true
+          },
+          "replay_deterministic": {
+            "value": true,
+            "pass": true
+          },
+          "receipt_coverage_full": {
+            "value": 1,
+            "pass": true
+          },
+          "canary_no_worse": {
+            "value": "0 <= 0",
+            "pass": true
+          }
+        },
+        "failed": []
+      },
+      "significant": true,
+      "deltaCILow": 0.07600000000000004,
+      "promoted": true,
+      "reason": "promoted (all accept/v1+sig terms held)"
+    }
+  },
+  "regression": null,
+  "holdout": [
+    {
+      "taskId": "t0",
+      "baselineScore": 0.6,
+      "candidateScore": 0.7
+    },
+    {
+      "taskId": "t1",
+      "baselineScore": 0.8,
+      "candidateScore": 0.86
+    },
+    {
+      "taskId": "t2",
+      "baselineScore": 0.5,
+      "candidateScore": 0.62
+    },
+    {
+      "taskId": "t3",
+      "baselineScore": 0.72,
+      "candidateScore": 0.8
+    },
+    {
+      "taskId": "t4",
+      "baselineScore": 0.66,
+      "candidateScore": 0.78
+    }
+  ],
+  "baselineManifest": {
+    "schema": "ruflo.proven-config/v1",
+    "policy": {
+      "ref": "sha256:0e7ffc6910134ff6ec2c1074165ee4571ed5df973c777b613c6dac6fea1c46a8",
+      "value": {
+        "alpha": 0.5,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      }
+    },
+    "layer": "synthetic/proof",
+    "benchmark": {
+      "corpus": "synthetic-proof-v1",
+      "corpusHash": "sha256:3b8a34acbcd0e385ca4d9ddc177f8ea93152d98c29c46d9286419b492beded1b"
+    }
+  },
+  "candidateManifest": {
+    "schema": "ruflo.proven-config/v1",
+    "policy": {
+      "ref": "sha256:6141a8ea990c5063b77e090ae8f37f9c539d8aa8f58dcceb30f3a82f97e57319",
+      "value": {
+        "alpha": 0.3,
+        "subjectWeight": 1,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1.5,
+        "typePenaltyFactor": 0.5
+      }
+    },
+    "layer": "synthetic/proof",
+    "benchmark": {
+      "corpus": "synthetic-proof-v1",
+      "corpusHash": "sha256:3b8a34acbcd0e385ca4d9ddc177f8ea93152d98c29c46d9286419b492beded1b"
+    }
+  }
+}

@@ -1,10 +1,10 @@
-# ADR-104 — Federation wire transport: agentic-flow loader (WS today, QUIC roadmap)
+# ADR-104 — Federation wire transport: plugin-owned WS fallback (QUIC roadmap)
 
 - Status: **Accepted — Implemented (transport selection); pending native QUIC for v2**
 - Date: 2026-05-09
 - Authors: claude (drafted with rUv)
 - Supersedes / extends: [ADR-097 — Federation budget circuit breaker](./ADR-097-federation-budget-circuit-breaker.md)
-- Related upstream: [ruvnet/agentic-flow#153](https://github.com/ruvnet/agentic-flow/pull/153)
+- Related upstream: [ruvnet/agentic-flow#153](https://github.com/ruvnet/agentic-flow/pull/153), ruvnet/ruflo#2618
 
 ## Context
 
@@ -34,13 +34,13 @@ The published QUIC transport is **API-only**. The native build that would unstub
 
 ## Decision
 
-**Adopt agentic-flow's `loadQuicTransport()` loader pattern with WebSocket fallback for v1; native QUIC remains the v2 target.**
+**Adopt the federation plugin's `loadFederationTransport()` loader with a plugin-owned WebSocket fallback for v1; native QUIC remains the v2 target.**
 
 We:
 
 1. **Backported `loadQuicTransport()` + `WebSocketFallbackTransport` from the OUTER repo's `quic-loader.ts` into the published inner `agentic-flow` package** (PR [ruvnet/agentic-flow#153](https://github.com/ruvnet/agentic-flow/pull/153)). The loader detects native QUIC availability (today: false) and selects WebSocket. Same `AgentTransport` interface for both backends — federation code never branches on transport.
 2. **Published `agentic-flow@2.0.12-fix.1` on the `fix` dist-tag** so federation can consume the working transport without waiting for upstream merge. When upstream merges + cuts a release, federation re-points to the official version with no code change.
-3. **Federation plugin imports `agentic-flow/transport/loader`**, not `./transport/quic` (the stub). The loader's `getTransportCapabilities()` answer drives the doctor surface — operators see `selectedBackend: 'websocket'` today and will see `selectedBackend: 'quic'` automatically when the native binding lands and `AGENTIC_FLOW_QUIC_NATIVE=1`.
+3. **Federation plugin imports its own loader, `@claude-flow/plugin-agent-federation/dist/transport/midstream-aware-loader.js`**, not `agentic-flow/transport/loader`. Current `agentic-flow` releases do not export `./transport/loader`; external ADR-104 smoke scripts that import that subpath fail with `ERR_PACKAGE_PATH_NOT_EXPORTED` (#2618). The plugin loader still probes `midstreamer` and `agentic-flow` opportunistically, but it owns the baseline WebSocket fallback itself.
 
 ## Validated end-to-end (2026-05-09)
 
@@ -84,8 +84,8 @@ mac (darwin/arm64) → ruvultra:9101 (linux/x64) over tailscale, real bytes on t
 | Upstream fix (loader + WS fallback) | Open PR | [ruvnet/agentic-flow#153](https://github.com/ruvnet/agentic-flow/pull/153) |
 | Patched npm release | Published | `agentic-flow@2.0.12-fix.1` (`fix` dist-tag) |
 | End-to-end mac↔ruvultra over tailscale | Verified | This ADR's "Validated" section |
-| Federation plugin wiring (`agentic-flow/transport/loader` integration) | TODO | Tracked as ADR-104 phase 2 — depends on upstream merge timing |
-| 12h verification routine — QUIC check | TODO | Update [`trig_01DKn9PZUJfqCrugRVwac5LX`](https://claude.ai/code/routines/trig_01DKn9PZUJfqCrugRVwac5LX) with Check 8 (real-network smoke against `agentic-flow@fix`) |
+| Federation plugin wiring (`loadFederationTransport()` integration) | Implemented | `v3/@claude-flow/plugin-agent-federation/src/transport/midstream-aware-loader.ts` |
+| 12h verification routine — transport check | Implemented in repo; external runner must call plugin loader | Check 8 should import `@claude-flow/plugin-agent-federation/dist/transport/midstream-aware-loader.js`, not `agentic-flow/transport/loader` |
 | Native QUIC binding (real upgrade path) | Deferred | Tracked upstream at agentic-flow#15-21 |
 
 ## Operator-visible signal

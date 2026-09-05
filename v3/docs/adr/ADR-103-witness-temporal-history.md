@@ -3,7 +3,7 @@
 **Status**: Accepted
 **Date**: 2026-05-08
 **Version**: ruflo-core@0.2.1+ / @claude-flow/cli@3.7.0-alpha.18+
-**Related**: ADR-102 (CI smoke harness), #1867, #1859, #1862, project memory `project_verification_process.md`
+**Related**: ADR-102 (CI smoke harness), ADR-332 (hermetic source verification), #1867, #1859, #1862, project memory `project_verification_process.md`
 
 ## Context
 
@@ -87,8 +87,10 @@ Plus exposure as Claude Code surface area:
 | `plugins/ruflo-core/agents/witness-curator.md` | Agent for adding fixes / interpreting regressions |
 
 The scripts are project-agnostic: they take `--manifest`, `--history`,
-`--fixes`, `--root` flags. They probe `<root>` and `<root>/v3` for
-`@noble/ed25519`, so they work in monorepo and flat layouts.
+`--fixes`, `--root` flags. Manifest generation probes `<root>` and
+`<root>/v3` for `@noble/ed25519`, so it works in monorepo and flat layouts.
+As amended by ADR-332, verification uses `node:crypto` and needs no installed
+package; `--source-only` authenticates clean source checkouts explicitly.
 
 The ruflo internal entrypoint at `scripts/regen-witness.mjs` is now a
 thin wrapper that hard-codes ruflo's paths and reads the
@@ -124,8 +126,9 @@ to a small set of commits to read.
   per-fix lookups O(1) without scanning, which matters once history
   reaches 100+ entries.
 - `verify.mjs` is parallel to the bundled `ruflo verify` command but
-  has no ruflo CLI dependency — adopters who only want the witness
-  toolkit can install one tiny package (`@noble/ed25519`) and run it.
+  has no ruflo CLI or package dependency. Generation continues to use
+  `@noble/ed25519`; ADR-332 preserves its witness bytes while moving
+  standalone verification to Node's built-in Ed25519 implementation.
 
 ## Consequences
 
@@ -145,8 +148,9 @@ to a small set of commits to read.
 - One extra file in the repo (`verification-history.jsonl`).
 - ~2-3 KB per regen entry (81 fixes × ~30 bytes avg). After 1000
   regens, ~3 MB.
-- Adopters take a runtime dependency on `@noble/ed25519` (~15 KB
-  minified, no transitive deps).
+- Adopters generating manifests take a development dependency on
+  `@noble/ed25519` (~15 KB minified, no transitive deps). Verification
+  itself has no package dependency (ADR-332).
 
 ### Not addressed (residual)
 

@@ -18,8 +18,9 @@
  * @module lora-adapter
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
+import { createRequire } from 'module';
 
 // ============================================================================
 // Types & Constants
@@ -135,6 +136,49 @@ const DEFAULT_CONFIG: LoRAConfig = {
 
 let ruvllmPipeline: any = null;
 let pipelineLoaded = false;
+
+/**
+ * Which training backend a train call would use — WITHOUT loading the
+ * pipeline (#2549). Before this existed, status surfaces read module state
+ * that only a prior in-process train populates, so a fresh read-only
+ * process always reported 'js-fallback'/'unavailable' even with
+ * @ruvector/ruvllm installed. The pipeline stays lazy: this only probes
+ * module resolution.
+ */
+export function resolveTrainingBackend(): 'ruvllm' | 'js-fallback' {
+  if (pipelineLoaded) return ruvllmPipeline ? 'ruvllm' : 'js-fallback';
+  try {
+    createRequire(import.meta.url).resolve('@ruvector/ruvllm');
+    return 'ruvllm';
+  } catch {
+    return 'js-fallback';
+  }
+}
+
+/**
+ * Whether the resolved @ruvector/ruvllm persists checkpoints to disk.
+ * saveCheckpoint(path) was a silent no-op (private, void, wrote 0 bytes)
+ * before 2.5.7 — status surfaces must not advertise checkpoints against
+ * older versions. Reads the resolved package's version; the package does
+ * not export ./package.json, so walk up from the resolved entry instead.
+ */
+export function nativeCheckpointsSupported(): boolean {
+  try {
+    const req = createRequire(import.meta.url);
+    let dir = dirname(req.resolve('@ruvector/ruvllm'));
+    for (let i = 0; i < 5; i++) {
+      const pkgPath = join(dir, 'package.json');
+      if (existsSync(pkgPath)) {
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+        if (pkg.name !== '@ruvector/ruvllm') { dir = dirname(dir); continue; }
+        const [maj, min, pat] = String(pkg.version).split('.').map(Number);
+        return maj > 2 || (maj === 2 && (min > 5 || (min === 5 && pat >= 7)));
+      }
+      dir = dirname(dir);
+    }
+  } catch { /* unresolved — no native checkpoints */ }
+  return false;
+}
 
 async function loadTrainingPipeline(adapter: LoRAAdapter): Promise<any> {
   if (pipelineLoaded) return ruvllmPipeline;
@@ -407,9 +451,7 @@ export class LoRAAdapter {
         ? this.adaptationNormSum / this.totalAdaptations
         : 0,
       lastUpdate: this.lastUpdate,
-      _trainingBackend: pipelineLoaded
-        ? (ruvllmPipeline ? 'ruvllm' : 'js-fallback')
-        : 'js-fallback',
+      _trainingBackend: resolveTrainingBackend(),
     };
   }
 
@@ -512,11 +554,17 @@ export class LoRAAdapter {
    * Falls back to writing our own weight JSON if ruvllm is unavailable.
    */
   async saveCheckpoint(path: string): Promise<boolean> {
+    // Parent dir must exist for BOTH paths: ruvllm <2.5.7 never wrote a
+    // file at all, and the JS fallback's writeFileSync throws ENOENT on a
+    // missing dir — which the catch silently converted to `false` (#2549).
+    try {
+      mkdirSync(dirname(path), { recursive: true });
+    } catch { /* fs errors surface on write below */ }
     const pipeline = await loadTrainingPipeline(this);
     if (pipeline) {
       try {
         pipeline.saveCheckpoint(path);
-        // Verify ruvllm actually wrote the file (some versions are no-op)
+        // Verify ruvllm actually wrote the file (<2.5.7 is a silent no-op)
         const fs = await import('fs');
         if (fs.existsSync(path)) return true;
       } catch { /* fall through to JS fallback */ }
@@ -607,6 +655,114 @@ export class LoRAAdapter {
 }
 
 // ============================================================================
+// Checkpoint auto-load (the training flywheel)
+// ============================================================================
+
+/**
+ * Info about the newest on-disk training checkpoint.
+ */
+export interface CheckpointInfo {
+  /** Absolute path to the checkpoint file */
+  path: string;
+  /** Basename, e.g. lora-checkpoint-1712345678901.json */
+  filename: string;
+  /** Age in ms derived from the filename timestamp (falls back to mtime) */
+  ageMs: number;
+  /** Human-friendly age, e.g. "2h ago" */
+  ageLabel: string;
+}
+
+/**
+ * Directories `neural train` writes checkpoints to. It only ever writes to
+ * `<cwd>/.claude-flow/neural` (see commands/neural.ts + services/native-training.ts),
+ * so that is the single source of truth — kept in a helper so the discovery
+ * and status surfaces stay consistent.
+ */
+function checkpointDirs(): string[] {
+  return [join(process.cwd(), '.claude-flow', 'neural')];
+}
+
+/** Compact relative-age label. Most-significant unit only. */
+export function formatCheckpointAge(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
+}
+
+/**
+ * Find the newest `lora-checkpoint-<ts>.json` without loading it. Pure disk
+ * scan — safe to call from read-only status surfaces. Returns null when no
+ * checkpoint exists or the directory is unreadable.
+ */
+export function latestCheckpointInfo(): CheckpointInfo | null {
+  try {
+    let best: { path: string; filename: string; ts: number } | null = null;
+    for (const dir of checkpointDirs()) {
+      if (!existsSync(dir)) continue;
+      for (const f of readdirSync(dir)) {
+        const match = /^lora-checkpoint-(\d+)\.json$/.exec(f);
+        if (!match) continue;
+        const ts = Number(match[1]);
+        if (!Number.isFinite(ts)) continue;
+        if (!best || ts > best.ts) best = { path: join(dir, f), filename: f, ts };
+      }
+    }
+    if (!best) return null;
+    const ageMs = Math.max(0, Date.now() - best.ts);
+    return { path: best.path, filename: best.filename, ageMs, ageLabel: formatCheckpointAge(ageMs) };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Validate a file looks like a ruvllm training checkpoint before loading it,
+ * so a stray/corrupt JSON in the neural dir can't poison routing weights.
+ * Accepts both the JS-fallback envelope ({A,B,scaling}) and native ruvllm
+ * checkpoint shapes (weights/adapter/epoch/step/loss/version/index markers).
+ */
+function isCheckpointEnvelope(path: string): boolean {
+  try {
+    const data = JSON.parse(readFileSync(path, 'utf-8'));
+    if (!data || typeof data !== 'object') return false;
+    const obj = data as Record<string, unknown>;
+    if (Array.isArray(obj.A) && Array.isArray(obj.B)) return true;
+    return ['weights', 'adapter', 'epoch', 'step', 'loss', 'version', 'index'].some((k) => k in obj);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Flywheel entry point: locate the newest trained checkpoint and load it into
+ * `adapter` via the adapter's existing loadCheckpoint path, so routing /
+ * adaptation benefits from prior `neural train` runs.
+ *
+ * Contract: lazy (call on first adaptation use, never at CLI startup),
+ * non-fatal on any failure, and kill-switchable via
+ * CLAUDE_FLOW_NO_CHECKPOINT_AUTOLOAD=1.
+ */
+export async function loadLatestCheckpoint(
+  adapter: LoRAAdapter,
+): Promise<{ loaded: boolean; path?: string; ageMs?: number }> {
+  if (process.env.CLAUDE_FLOW_NO_CHECKPOINT_AUTOLOAD === '1') return { loaded: false };
+  try {
+    const info = latestCheckpointInfo();
+    if (!info) return { loaded: false };
+    if (!isCheckpointEnvelope(info.path)) return { loaded: false, path: info.path, ageMs: info.ageMs };
+    const loaded = await adapter.loadCheckpoint(info.path);
+    return { loaded, path: info.path, ageMs: info.ageMs };
+  } catch {
+    return { loaded: false };
+  }
+}
+
+// ============================================================================
 // Singleton & Factory Functions
 // ============================================================================
 
@@ -628,6 +784,13 @@ export async function getLoRAAdapter(): Promise<LoRAAdapter> {
   initPromise = (async () => {
     const adapter = new LoRAAdapter();
     await adapter.initialize();
+    // Flywheel: fold in the newest trained checkpoint so routing/adaptation
+    // benefits from prior `neural train` runs. This singleton is constructed
+    // lazily on first adaptation use (NOT at CLI startup), so the checkpoint
+    // scan + ruvllm load stay off the hot `--help` path. Non-fatal.
+    try {
+      await loadLatestCheckpoint(adapter);
+    } catch { /* auto-load is best-effort — never block adaptation */ }
     loraInstance = adapter;
     return adapter;
   })();

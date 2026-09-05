@@ -1,0 +1,427 @@
+[
+  {
+    "task_id": "e1fc63a2-da7a-432f-be78-7c4a95598703",
+    "model_answer": "17000",
+    "turns": 7,
+    "wall_seconds": 62.7,
+    "input_tokens": 27812,
+    "output_tokens": 1154
+  },
+  {
+    "task_id": "8e867cd7-cff9-4e6c-867a-ff5ddc2550be",
+    "model_answer": "3",
+    "turns": 12,
+    "wall_seconds": 105.5,
+    "input_tokens": 68412,
+    "output_tokens": 1546
+  },
+  {
+    "task_id": "ec09fa32-d03f-4bf8-84b0-1f16922c3ae4",
+    "model_answer": "",
+    "turns": 3,
+    "wall_seconds": 55.0,
+    "input_tokens": 6360,
+    "output_tokens": 2838
+  },
+  {
+    "task_id": "5d0080cb-90d7-4712-bc33-848150e917d3",
+    "model_answer": "0.1777 m^3",
+    "turns": 3,
+    "wall_seconds": 15.2,
+    "input_tokens": 4636,
+    "output_tokens": 177
+  },
+  {
+    "task_id": "a1e91b78-d3d8-4675-bb8d-62741b4b68a6",
+    "model_answer": "14",
+    "turns": 3,
+    "wall_seconds": 15.4,
+    "input_tokens": 4433,
+    "output_tokens": 161
+  },
+  {
+    "task_id": "46719c30-f4c3-4cad-be07-d5cb21eee6bb",
+    "model_answer": "A New Software Agent 'Learning' Algorithm",
+    "turns": 9,
+    "wall_seconds": 89.5,
+    "input_tokens": 51577,
+    "output_tokens": 1372
+  },
+  {
+    "task_id": "4b6bb5f7-f634-410e-815d-e673ab7f8632",
+    "model_answer": "",
+    "turns": 4,
+    "wall_seconds": 24.5,
+    "input_tokens": 4632,
+    "output_tokens": 281,
+    "error": "fetch failed"
+  },
+  {
+    "task_id": "cffe0e32-c9a6-4c52-9877-78ceb4aaa9fb",
+    "model_answer": "Fred",
+    "turns": 12,
+    "wall_seconds": 97.6,
+    "input_tokens": 65186,
+    "output_tokens": 2030
+  },
+  {
+    "task_id": "2d83110e-a098-4ebb-9987-066c06fa42d0",
+    "model_answer": "",
+    "turns": 1,
+    "wall_seconds": 1.9,
+    "input_tokens": 1297,
+    "output_tokens": 1
+  },
+  {
+    "task_id": "5cfb274c-0207-4aa7-9575-6ac0bd95d9b2",
+    "model_answer": "",
+    "turns": 2,
+    "wall_seconds": 27.3,
+    "input_tokens": 4460,
+    "output_tokens": 2157
+  },
+  {
+    "task_id": "27d5d136-8563-469e-92bf-fd103c28b57c",
+    "model_answer": "(\u00acA \u2192 B) \u2194 (A \u2228 \u00acB)**",
+    "turns": 2,
+    "wall_seconds": 24.4,
+    "input_tokens": 2889,
+    "output_tokens": 1021
+  },
+  {
+    "task_id": "dc28cf18-6431-458b-83ef-64b3ce566c10",
+    "model_answer": "2",
+    "turns": 1,
+    "wall_seconds": 9.7,
+    "input_tokens": 1444,
+    "output_tokens": 557
+  },
+  {
+    "task_id": "b816bfce-3d80-4913-a07d-69b752ce6377",
+    "model_answer": "fluffy",
+    "turns": 9,
+    "wall_seconds": 74.0,
+    "input_tokens": 38867,
+    "output_tokens": 1351
+  },
+  {
+    "task_id": "72e110e7-464c-453c-a309-90a95aed6538",
+    "model_answer": "Indonesia",
+    "turns": 12,
+    "wall_seconds": 123.7,
+    "input_tokens": 70202,
+    "output_tokens": 1937
+  },
+  {
+    "task_id": "42576abe-0deb-4869-8c63-225c2d75a95a",
+    "model_answer": "",
+    "turns": 1,
+    "wall_seconds": 6.8,
+    "input_tokens": 1491,
+    "output_tokens": 224
+  },
+  {
+    "task_id": "b415aba4-4b68-4fc6-9b89-2c812e55a3e1",
+    "model_answer": "diamond",
+    "turns": 12,
+    "wall_seconds": 174.5,
+    "input_tokens": 115764,
+    "output_tokens": 2123
+  },
+  {
+    "task_id": "cca530fc-4052-43b2-b130-b30968d8aa44",
+    "model_answer": "Qg3+",
+    "turns": 2,
+    "wall_seconds": 21.2,
+    "input_tokens": 4251,
+    "output_tokens": 864
+  },
+  {
+    "task_id": "935e2cff-ae78-4218-b3f5-115589b19dae",
+    "model_answer": "Research",
+    "turns": 12,
+    "wall_seconds": 143.1,
+    "input_tokens": 78418,
+    "output_tokens": 2095
+  },
+  {
+    "task_id": "4fc2f1ae-8625-45b5-ab34-ad4433bc21f8",
+    "model_answer": "FunkMonk",
+    "turns": 5,
+    "wall_seconds": 31.1,
+    "input_tokens": 9182,
+    "output_tokens": 478
+  },
+  {
+    "task_id": "5188369a-3bbe-43d8-8b94-11558f909a08",
+    "model_answer": "Annie Levin",
+    "turns": 8,
+    "wall_seconds": 50.5,
+    "input_tokens": 17224,
+    "output_tokens": 797
+  },
+  {
+    "task_id": "6f37996b-2ac7-44b0-8e68-6d28256631b4",
+    "model_answer": "b, e",
+    "turns": 1,
+    "wall_seconds": 6.5,
+    "input_tokens": 1374,
+    "output_tokens": 365
+  },
+  {
+    "task_id": "9318445f-fe6a-4e1b-acbf-c68228c9906a",
+    "model_answer": "3/4,1/4,2/4,1/2,5/35,7/21,30/5,3/4,1/15,1/3,4/9,1/8,32/23,103/170",
+    "turns": 1,
+    "wall_seconds": 8.0,
+    "input_tokens": 2837,
+    "output_tokens": 370
+  },
+  {
+    "task_id": "389793a7-ca17-4e82-81cb-2b3a2391b4b9",
+    "model_answer": "3",
+    "turns": 2,
+    "wall_seconds": 13.2,
+    "input_tokens": 2974,
+    "output_tokens": 739
+  },
+  {
+    "task_id": "4b650a35-8529-4695-89ed-8dc7a500a498",
+    "model_answer": "Guava",
+    "turns": 1,
+    "wall_seconds": 1.9,
+    "input_tokens": 1297,
+    "output_tokens": 16
+  },
+  {
+    "task_id": "a3fbeb63-0e8c-4a11-bff6-0e3b484c3e9c",
+    "model_answer": "4",
+    "turns": 2,
+    "wall_seconds": 7.0,
+    "input_tokens": 2883,
+    "output_tokens": 379
+  },
+  {
+    "task_id": "c714ab3a-da30-4603-bacd-d008800188b9",
+    "model_answer": "100",
+    "turns": 1,
+    "wall_seconds": 12.3,
+    "input_tokens": 1541,
+    "output_tokens": 511
+  },
+  {
+    "task_id": "9d191bce-651d-4746-be2d-7ef8ecadb9c2",
+    "model_answer": "\"Extremely.\"",
+    "turns": 3,
+    "wall_seconds": 15.2,
+    "input_tokens": 5188,
+    "output_tokens": 230
+  },
+  {
+    "task_id": "65afbc8a-89ca-4ad5-8d62-355bb401f61d",
+    "model_answer": "",
+    "turns": 2,
+    "wall_seconds": 36.0,
+    "input_tokens": 5253,
+    "output_tokens": 2152
+  },
+  {
+    "task_id": "cabe07ed-9eca-40ea-8ead-410ef5e83f91",
+    "model_answer": "Louvrier",
+    "turns": 3,
+    "wall_seconds": 22.8,
+    "input_tokens": 6009,
+    "output_tokens": 387
+  },
+  {
+    "task_id": "3cef3a44-215e-4aed-8e3b-b1e3f08063b7",
+    "model_answer": "broccoli, celery, fresh basil, lettuce, sweet potatoes",
+    "turns": 2,
+    "wall_seconds": 28.6,
+    "input_tokens": 18706,
+    "output_tokens": 1039
+  },
+  {
+    "task_id": "99c9cc74-fdc8-46c6-8f8d-3ce2d3bfeea3",
+    "model_answer": "",
+    "turns": 2,
+    "wall_seconds": 6.3,
+    "input_tokens": 3241,
+    "output_tokens": 155
+  },
+  {
+    "task_id": "d0633230-7067-47a9-9dbf-ee11e0a2cdd6",
+    "model_answer": "is_regressor",
+    "turns": 12,
+    "wall_seconds": 116.7,
+    "input_tokens": 64012,
+    "output_tokens": 1657
+  },
+  {
+    "task_id": "305ac316-eef6-4446-960a-92d80d542f82",
+    "model_answer": "Wojciech",
+    "turns": 3,
+    "wall_seconds": 15.7,
+    "input_tokens": 5815,
+    "output_tokens": 235
+  },
+  {
+    "task_id": "0383a3ee-47a7-41a4-b493-519bdefe0488",
+    "model_answer": "Rockhopper penguin",
+    "turns": 3,
+    "wall_seconds": 19.7,
+    "input_tokens": 5126,
+    "output_tokens": 158
+  },
+  {
+    "task_id": "f918266a-b3e0-4914-865d-4faa564f1aef",
+    "model_answer": "0",
+    "turns": 2,
+    "wall_seconds": 7.6,
+    "input_tokens": 2971,
+    "output_tokens": 319
+  },
+  {
+    "task_id": "11af4e1a-5f45-467d-9aeb-46f4bb0bf034",
+    "model_answer": "6",
+    "turns": 2,
+    "wall_seconds": 10.0,
+    "input_tokens": 5368,
+    "output_tokens": 184
+  },
+  {
+    "task_id": "e142056d-56ab-4352-b091-b56054bd1359",
+    "model_answer": "",
+    "turns": 1,
+    "wall_seconds": 24.6,
+    "input_tokens": 1456,
+    "output_tokens": 1479
+  },
+  {
+    "task_id": "50ad0280-0819-4bd9-b275-5de32d3b5bcb",
+    "model_answer": "THE SEAGULL GLIDED PEACEFULLY TO MY CHAIR",
+    "turns": 1,
+    "wall_seconds": 4.2,
+    "input_tokens": 1276,
+    "output_tokens": 142
+  },
+  {
+    "task_id": "7673d772-ef80-4f0f-a602-1bf4485c9b43",
+    "model_answer": "as",
+    "turns": 12,
+    "wall_seconds": 156.8,
+    "input_tokens": 89628,
+    "output_tokens": 2299
+  },
+  {
+    "task_id": "c365c1c7-a3db-4d5e-a9a1-66f56eae7865",
+    "model_answer": "Honolulu, Quincy",
+    "turns": 4,
+    "wall_seconds": 44.6,
+    "input_tokens": 15970,
+    "output_tokens": 812
+  },
+  {
+    "task_id": "7d4a7d1d-cac6-44a8-96e8-ea9584a70825",
+    "model_answer": "22",
+    "turns": 5,
+    "wall_seconds": 42.3,
+    "input_tokens": 22932,
+    "output_tokens": 508
+  },
+  {
+    "task_id": "dc22a632-937f-4e6a-b72f-ba0ff3f5ff97",
+    "model_answer": "Tasting New Mexico: Recipes Celebrating One Hundred Years of Distinctive Home Cooking",
+    "turns": 10,
+    "wall_seconds": 107.9,
+    "input_tokens": 71469,
+    "output_tokens": 1858
+  },
+  {
+    "task_id": "3f57289b-8c60-48be-bd80-01f8099ca449",
+    "model_answer": "551",
+    "turns": 3,
+    "wall_seconds": 28.8,
+    "input_tokens": 5890,
+    "output_tokens": 217
+  },
+  {
+    "task_id": "23dd907f-1261-4488-b21c-e9185af91d5e",
+    "model_answer": "1",
+    "turns": 9,
+    "wall_seconds": 95.8,
+    "input_tokens": 30166,
+    "output_tokens": 1025
+  },
+  {
+    "task_id": "1f975693-876d-457b-a649-393859e79bf3",
+    "model_answer": "132, 133, 134, 197, 245",
+    "turns": 2,
+    "wall_seconds": 6.8,
+    "input_tokens": 3104,
+    "output_tokens": 247
+  },
+  {
+    "task_id": "840bfca7-4f7b-481a-8794-c560c340185d",
+    "model_answer": "80GSFC21M0002",
+    "turns": 10,
+    "wall_seconds": 76.0,
+    "input_tokens": 38376,
+    "output_tokens": 1515
+  },
+  {
+    "task_id": "a0068077-79f4-461a-adfe-75c1a4148545",
+    "model_answer": "90",
+    "turns": 4,
+    "wall_seconds": 37.6,
+    "input_tokens": 8780,
+    "output_tokens": 380
+  },
+  {
+    "task_id": "bda648d7-d618-4883-88f4-3466eabd860e",
+    "model_answer": "Saint Petersburg",
+    "turns": 3,
+    "wall_seconds": 16.4,
+    "input_tokens": 4763,
+    "output_tokens": 250
+  },
+  {
+    "task_id": "50ec8903-b81f-4257-9450-1085afd2c319",
+    "model_answer": "green, white",
+    "turns": 2,
+    "wall_seconds": 37.0,
+    "input_tokens": 4164,
+    "output_tokens": 1911
+  },
+  {
+    "task_id": "cf106601-ab4f-4af9-b045-5295fe67b37d",
+    "model_answer": "CUB",
+    "turns": 4,
+    "wall_seconds": 25.7,
+    "input_tokens": 7015,
+    "output_tokens": 321
+  },
+  {
+    "task_id": "a0c07678-e491-4bbc-8f0b-07405144218f",
+    "model_answer": "Yamasaki, Uehara",
+    "turns": 3,
+    "wall_seconds": 17.6,
+    "input_tokens": 7201,
+    "output_tokens": 373
+  },
+  {
+    "task_id": "7bd855d8-463d-4ed5-93ca-5fe35145f733",
+    "model_answer": "$89706.00",
+    "turns": 2,
+    "wall_seconds": 10.4,
+    "input_tokens": 3480,
+    "output_tokens": 602
+  },
+  {
+    "task_id": "5a0c1adf-205e-4841-a666-7c3ef95def9d",
+    "model_answer": "Claus",
+    "turns": 6,
+    "wall_seconds": 61.0,
+    "input_tokens": 31675,
+    "output_tokens": 920
+  }
+]

@@ -110,6 +110,195 @@ export {
   type BrowserServiceConfig,
 } from './application/browser-service.js';
 
+// Signed trajectory containers (ADR-122 Phase 1)
+export {
+  sealTrajectory,
+  verifySealedTrajectory,
+  writeSealedTrajectory,
+  readSealedTrajectory,
+  planReplay,
+  buildReplayDelta,
+  type SealTrajectoryInput,
+  type SealedTrajectory,
+} from './application/signed-trajectory-service.js';
+export {
+  generateWitnessKey,
+  loadWitnessKey,
+  resolveWitnessKey,
+  signTrajectory,
+  verifyTrajectory,
+  canonicalJSON,
+  sha256Hex,
+  type WitnessKey,
+} from './infrastructure/witness-signer.js';
+export {
+  SIGNED_TRAJECTORY_ENVELOPE_VERSION,
+  SIGNED_TRAJECTORY_KIND,
+  SignedTrajectoryEnvelopeSchema,
+  SignedTrajectoryPayloadSchema,
+  type SignedTrajectoryEnvelope,
+  type SignedTrajectoryPayload,
+  type VerificationResult,
+  type ReplayDelta,
+  type ReplayMutation,
+} from './domain/signed-trajectory.js';
+
+// Causal-graph self-healing selectors (ADR-122 Phase 2)
+export {
+  CausalRecoveryService,
+  type CausalRecoveryServiceOptions,
+  type AnnotatedSnapshot,
+} from './application/causal-recovery-service.js';
+export {
+  InMemoryBreakStore,
+  JsonFileBreakStore,
+  classifyBreak,
+  parseUrl,
+  type IBreakStore,
+} from './infrastructure/causal-recovery-store.js';
+export {
+  SelectorBreakEventSchema,
+  SelectorBreakKindSchema,
+  CausalRiskAnnotationSchema,
+  type SelectorBreakEvent,
+  type SelectorBreakKind,
+  type CausalRiskAnnotation,
+  type RecoveryExplanation,
+} from './domain/causal-recovery.js';
+
+// Workflow Compiler + Production-Aware UCT (ADR-122 Phase 7)
+export {
+  WorkflowCompiler,
+  type CompileInput,
+} from './application/workflow-compiler.js';
+export {
+  productionUct,
+  blendQ,
+  type ProductionUctInput,
+} from './application/production-uct.js';
+export {
+  WORKFLOW_VERSION,
+  CompiledWorkflowSchema,
+  WorkflowStepSchema as CompiledWorkflowStepSchema,
+  WorkflowRequirementsSchema as CompiledWorkflowRequirementsSchema,
+  WorkflowGuardsSchema as CompiledWorkflowGuardsSchema,
+  WorkflowReplaySchema as CompiledWorkflowReplaySchema,
+  SelectorStrategySchema,
+  SelectorSpecSchema,
+  DEFAULT_PRODUCTION_UCT_WEIGHTS,
+  type CompiledWorkflow,
+  type WorkflowStep as CompiledWorkflowStep,
+  type WorkflowRequirements as CompiledWorkflowRequirements,
+  type WorkflowGuards as CompiledWorkflowGuards,
+  type WorkflowReplay as CompiledWorkflowReplay,
+  type SelectorSpec,
+  type SelectorStrategy,
+  type ProductionUctSignals,
+  type ProductionUctWeights,
+} from './domain/workflow.js';
+
+// Session Capsule + Risk Classifier + Browser Execution Adapter (ADR-122 Phase 6 — substrate)
+export {
+  SessionCapsuleService,
+  RiskClassifier,
+  type CreateCapsuleInput,
+} from './application/session-capsule-service.js';
+export {
+  CAPSULE_ENVELOPE_VERSION,
+  CAPSULE_ENVELOPE_KIND,
+  SessionCapsuleEnvelopeSchema,
+  SessionCapsulePayloadSchema,
+  ReusePolicySchema,
+  OriginPolicySchema,
+  ConsentProofSchema,
+  BrowserProfileSchema,
+  StateRefSchema,
+  InlineStateSchema,
+  RiskClassSchema,
+  AUTONOMOUS_CLASSES,
+  type SessionCapsuleEnvelope,
+  type SessionCapsulePayload,
+  type ReusePolicy,
+  type OriginPolicy,
+  type ConsentProof,
+  type BrowserProfile,
+  type StateRef,
+  type InlineState,
+  type RiskClass,
+  type RiskClassification,
+  type CapsuleVerificationResult,
+} from './domain/session-capsule.js';
+export {
+  AgentBrowserExecutionAdapter,
+} from './infrastructure/agent-browser-execution-adapter.js';
+export type {
+  BrowserExecutionAdapter,
+  Observation,
+  AdapterBackend,
+} from './domain/browser-adapter.js';
+
+// Cost-aware action routing + GOAP preflight (ADR-122 Phase 5)
+export {
+  ActionRouter,
+  type ActionRouterOptions,
+} from './application/action-router.js';
+export {
+  ActionTierSchema,
+  type ActionTier,
+  type RoutingDecision,
+  type ActionRoutingInput,
+  type TrajectoryCostReport,
+} from './domain/action-routing.js';
+export {
+  GoapPreflightService,
+  type GoapPreflightServiceOptions,
+  type GoapPreflightInput,
+  type GoapPreflightResult,
+  type GoapPreflightFinding,
+  type PlannedStep,
+} from './application/goap-preflight.js';
+
+// Federated MCTS branch exploration (ADR-122 Phase 4)
+export {
+  MctsExplorer,
+  ucb1,
+  type MctsExplorerOptions,
+  type RootAction,
+  type ExpansionPolicy,
+} from './application/mcts-explorer.js';
+export {
+  McTsBranchSchema,
+  BranchStatusSchema,
+  type McTsBranch,
+  type BranchStatus,
+  type MctsRunResult,
+  type PeerAdapter,
+  type UcbParams,
+  type ValueScorer,
+} from './domain/mcts-branch.js';
+
+// AIDefence-attested cookie vault (ADR-122 Phase 3)
+export {
+  CookieVaultService,
+  type CookieVaultServiceOptions,
+  type CookieVaultScannerInfo,
+} from './application/cookie-vault-service.js';
+export {
+  VAULT_ENVELOPE_VERSION,
+  VAULT_ENVELOPE_KIND,
+  VaultEntryEnvelopeSchema,
+  VaultEntryPayloadSchema,
+  CookieValueSchema,
+  ScanAttestationSchema,
+  VaultRefusalSchema,
+  type CookieValue,
+  type ScanAttestation,
+  type VaultEntryEnvelope,
+  type VaultEntryPayload,
+  type VaultVerificationResult,
+  type VaultRefusal,
+} from './domain/cookie-vault.js';
+
 // MCP tools
 export { browserTools } from './mcp-tools/browser-tools.js';
 export type { MCPTool } from './mcp-tools/browser-tools.js';

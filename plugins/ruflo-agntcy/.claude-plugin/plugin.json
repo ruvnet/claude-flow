@@ -1,0 +1,27 @@
+{
+  "name": "ruflo-agntcy",
+  "description": "AGNTCY/Outshift Internet-of-Cognition runtime integration for Ruflo — SLIM secure transport for cross-host agent coordination, CASA intent-scoped tool authorization enforcement, optional IOC Layer 9 coordination events, and AGNTCY identity/observability spans (ADR-380). Optional, removable augmentation per ADR-150; degrades gracefully when AGNTCY/SLIM packages are not installed.",
+  "version": "0.1.0",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "agntcy",
+    "outshift",
+    "casa",
+    "slim",
+    "ioc",
+    "internet-of-cognition",
+    "identity",
+    "observability",
+    "oasf",
+    "mycelium",
+    "authorization",
+    "multi-agent",
+    "distributed"
+  ]
+}

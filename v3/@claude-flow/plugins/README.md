@@ -1,5 +1,9 @@
 # @claude-flow/plugins
 
+[![npm version](https://img.shields.io/npm/v/@claude-flow/plugins.svg)](https://www.npmjs.com/package/@claude-flow/plugins)
+[![npm downloads](https://img.shields.io/npm/dm/@claude-flow/plugins.svg)](https://www.npmjs.com/package/@claude-flow/plugins)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 **Unified Plugin SDK for Claude Flow V3**
 
 A comprehensive plugin development framework providing workers, hooks, providers, and security utilities for building Claude Flow extensions.

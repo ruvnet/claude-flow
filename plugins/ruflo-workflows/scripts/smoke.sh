@@ -7,9 +7,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.2.0 with new keywords"
+step "1. plugin.json declares 0.5.1 with lifecycle keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.2.0" ]]; then bad "expected 0.2.0, got '$v'"; else
+if [[ "$v" != "0.5.1" ]]; then bad "expected 0.5.1, got '$v'"; else
   miss=""
   for k in mcp workflow-templates pause-resume lifecycle; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
@@ -72,10 +72,10 @@ grep -q "workflow_execute" "$F" \
   && grep -qE "stateless|one-shot|fire-and-forget" "$F" \
   && ok || bad "stateless path not documented"
 
-step "10. ADR-0001 exists with status Proposed"
+step "10. ADR-0001 exists with status Accepted"
 ADR="$ROOT/docs/adrs/0001-workflows-contract.md"
-[[ -f "$ADR" ]] && grep -qE "^status:[[:space:]]*Proposed" "$ADR" \
-  && ok || bad "ADR missing or status != Proposed"
+[[ -f "$ADR" ]] && grep -qE "^status:[[:space:]]*Accepted" "$ADR" \
+  && ok || bad "ADR-0001 missing or status != Accepted"
 
 step "11. no wildcard tool grants in skills"
 bad_skills=""
@@ -83,6 +83,33 @@ for f in "$ROOT"/skills/*/SKILL.md; do
   grep -q '^allowed-tools:[[:space:]]*\*' "$f" && bad_skills="$bad_skills $(basename $(dirname "$f"))"
 done
 [[ -z "$bad_skills" ]] && ok || bad "wildcard:$bad_skills"
+
+step "12. ADR-0002 exists with status Accepted"
+ADR2="$ROOT/docs/adrs/0002-native-workflow-orchestration.md"
+[[ -f "$ADR2" ]] && grep -qE "^status:[[:space:]]*Accepted" "$ADR2" \
+  && ok || bad "ADR-0002 missing or status != Accepted"
+
+step "13. README documents native workflow orchestration"
+F="$ROOT/README.md"
+grep -q "Native Workflow Orchestration" "$F" \
+  && grep -qF ".claude/workflows" "$F" \
+  && grep -qF "Workflow({" "$F" \
+  && ok || bad "native orchestration section incomplete"
+
+step "14. four-hook API documented (agent/parallel/pipeline/phase)"
+F="$ROOT/README.md"
+miss=""
+for hook in 'agent(' 'parallel(' 'pipeline(' 'phase('; do
+  grep -qF "$hook" "$F" || miss="$miss $hook"
+done
+[[ -z "$miss" ]] && ok || bad "missing hooks:$miss"
+
+step "15. plugin.json declares native-workflow keywords"
+miss=""
+for k in native-workflow agent-fanout pipeline parallel; do
+  grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
+done
+[[ -z "$miss" ]] && ok || bad "missing native keywords:$miss"
 
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1

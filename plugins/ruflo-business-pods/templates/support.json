@@ -1,0 +1,53 @@
+{
+  "name": "support",
+  "displayName": "Customer Support",
+  "roomId": "support",
+  "agents": [
+    {
+      "role": "ticket-triager",
+      "agentType": "researcher",
+      "description": "Classifies and prioritises inbound tickets across severity and product surface",
+      "preferLocal": false
+    },
+    {
+      "role": "response-drafter",
+      "agentType": "api-docs",
+      "description": "Drafts first-response replies citing relevant docs for human review",
+      "preferLocal": false
+    },
+    {
+      "role": "trace-analyzer",
+      "agentType": "code-analyzer",
+      "description": "Inspects bug-report traces and routes likely defects to #ops",
+      "preferLocal": false
+    }
+  ],
+  "allowedMcpTools": [
+    "memory_store",
+    "memory_search",
+    "federation_bbs_register",
+    "federation_bbs_publish",
+    "federation_bbs_watch",
+    "federation_bbs_human_join"
+  ],
+  "bench": {
+    "name": "support-response-bench",
+    "description": "Measures first-response latency and classification accuracy over the past 24h",
+    "successCriteria": [
+      "First-response draft within 2h of ticket open",
+      "Classification accuracy > 90% (spot-checked by human weekly)",
+      "Escalations routed within 30 min of P1 classification"
+    ],
+    "scheduleHours": 1
+  },
+  "piiPolicy": "soc2",
+  "budgetUsdMonthly": 40,
+  "budgetUsdPerRun": 0.02,
+  "preferLocalExecution": false,
+  "cronSchedule": "*/15 * * * *",
+  "auditReadView": {
+    "includedEventTypes": ["task-result", "alert", "bench-result"],
+    "retentionDays": 180
+  },
+  "reservationExpiryMs": 60000
+}

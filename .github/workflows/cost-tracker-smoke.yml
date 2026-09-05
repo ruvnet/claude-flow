@@ -55,6 +55,29 @@ jobs:
         # The checkout only contains the runs that were committed — useful
         # as a sanity check that trend.mjs runs cleanly on real data.
 
+      - name: cost-health composite gate (smoke — no sessions in CI)
+        run: |
+          # In CI there's no cost-tracking namespace, so every subcheck
+          # returns "insufficient data" / "no budget" — the composite must
+          # still exit 0. This guards against regressions where a subcheck
+          # mis-handles empty input and bubbles up a false alert.
+          node plugins/ruflo-cost-tracker/scripts/health.mjs --format json > /tmp/cost-health.json
+          node -e "
+            const r = JSON.parse(require('fs').readFileSync('/tmp/cost-health.json'));
+            if (!r.overall.ok) {
+              console.error('cost-health failed on empty CI input:', JSON.stringify(r, null, 2));
+              process.exit(1);
+            }
+            console.log('cost-health: ' + r.checks.length + ' subchecks, all OK on empty fixture');
+          "
+
+      - name: cost-health integration test (synthetic fixtures incl. iter-75 regression)
+        run: node plugins/ruflo-cost-tracker/scripts/test-health-integration.mjs
+        # 7 end-to-end assertions including the EXACT iter-75 regression
+        # target: budget HARD_STOP via BUDGET_QUIET=1 must propagate as
+        # exit 1 to cost-health's composite gate. Catches cross-script
+        # contract violations that per-script smoke can't see.
+
       - name: Verify Tier 1 win rate ≥ 0.80 (regression gate)
         run: |
           node -e "

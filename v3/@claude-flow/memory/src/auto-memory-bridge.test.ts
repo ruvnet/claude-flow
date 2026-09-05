@@ -96,6 +96,15 @@ describe('resolveAutoMemoryDir', () => {
     expect(result).toContain('workspaces-my-project');
   });
 
+  it('should normalize underscores to dashes (issue #2282)', () => {
+    // Claude Code normalizes both `/` and `_` to `-` when computing the
+    // project key, so paths like /home/phil/A-Project/RX_ERP/ map to
+    // -home-phil-A-Project-RX-ERP, not -home-phil-A-Project-RX_ERP.
+    const result = resolveAutoMemoryDir('/home/phil/A-Project/RX_ERP');
+    expect(result).toContain('A-Project-RX-ERP');
+    expect(result).not.toContain('RX_ERP');
+  });
+
   it('should produce consistent paths for same input', () => {
     const a = resolveAutoMemoryDir('/workspaces/my-project');
     const b = resolveAutoMemoryDir('/workspaces/my-project');
@@ -148,8 +157,64 @@ Content of section two.
     expect(entries[1].heading).toBe('Section Two');
   });
 
-  it('should return empty array for content without ## headings', () => {
+  it('should fall back to single untitled entry when no ## headings or frontmatter (issue #2283)', () => {
+    // Pre-fix behavior was to return [] — we now emit one entry with the
+    // body as content so files without ## subheadings still import.
     const content = '# Only h1 heading\nSome text\n';
+    const entries = parseMarkdownEntries(content);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].heading).toBe('(untitled)');
+    expect(entries[0].content).toContain('# Only h1 heading');
+    expect(entries[0].content).toContain('Some text');
+  });
+
+  it('should parse YAML frontmatter + body as a single entry (issue #2283)', () => {
+    // Claude Code's auto-memory format: YAML frontmatter + free-text body,
+    // no ## sub-headings. Pre-fix this returned [] silently.
+    const content = `---
+name: GitHub identity for RX Platform
+description: Phil uses PrimitiveOne / one@primitive1.com for...
+type: user
+originSessionId: 753b313d-3414-abcd
+---
+For the RX Platform / RX_ERP project specifically:
+
+- **GitHub login**: \`PrimitiveOne\`
+- **GitHub email**: \`one@primitive1.com\`
+`;
+    const entries = parseMarkdownEntries(content);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].heading).toBe('GitHub identity for RX Platform');
+    expect(entries[0].content).toContain('GitHub login');
+    expect(entries[0].content).toContain('PrimitiveOne');
+    expect(entries[0].metadata.type).toBe('user');
+    expect(entries[0].metadata.description).toContain('Phil uses PrimitiveOne');
+    expect(entries[0].metadata.originSessionId).toBe('753b313d-3414-abcd');
+  });
+
+  it('should prefer ## headings over frontmatter fallback when both present', () => {
+    const content = `---
+name: Should be ignored when ## headings exist
+type: user
+---
+## Real Section
+Section content
+`;
+    const entries = parseMarkdownEntries(content);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].heading).toBe('Real Section');
+    expect(entries[0].content).toContain('Section content');
+  });
+
+  it('should return empty array for empty content', () => {
+    expect(parseMarkdownEntries('')).toHaveLength(0);
+  });
+
+  it('should return empty array when frontmatter has no body', () => {
+    const content = `---
+name: Frontmatter only
+---
+`;
     const entries = parseMarkdownEntries(content);
     expect(entries).toHaveLength(0);
   });
@@ -171,10 +236,6 @@ Line 3
     const content = '## Padded\n\n  Text here  \n\n';
     const entries = parseMarkdownEntries(content);
     expect(entries[0].content).toBe('Text here');
-  });
-
-  it('should handle empty content', () => {
-    expect(parseMarkdownEntries('')).toHaveLength(0);
   });
 });
 
@@ -927,7 +988,9 @@ Already in DB
       }));
     });
 
-    it('should handle files with no ## headings', async () => {
+    it('should import files with no ## headings as a single untitled entry (issue #2283)', async () => {
+      // Pre-#2283 the parser dropped these silently. Now a file with body but
+      // no sub-headings imports as one entry with the full body as content.
       fsSync.writeFileSync(
         path.join(testDir, 'empty.md'),
         '# Just a title\nSome text without sections\n',
@@ -935,7 +998,7 @@ Already in DB
       );
 
       const result = await bridge.importFromAutoMemory();
-      expect(result.imported).toBe(0);
+      expect(result.imported).toBe(1);
       expect(result.files).toContain('empty.md');
     });
   });

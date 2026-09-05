@@ -1,0 +1,157 @@
+# ADR-150 architectural constraint rule #4 enforcement.
+#
+#   "Ruflo remains operational if every MetaHarness package is removed."
+#
+# This workflow installs ruflo with `--no-optional` (or equivalent) so
+# every `@metaharness/*` and `metaharness` package is EXCLUDED. It then
+# runs scripts/smoke-all-plugins.mjs and asserts that ruflo's entire
+# plugin fleet still passes its structural contract.
+#
+# If this job ever fails, a MetaHarness package has accidentally been
+# promoted to a hard runtime requirement — breaking the architectural
+# constraint. The fix is either to make the new code path graceful, or
+# to write a new ADR that supersedes the constraint.
+name: no-metaharness-smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+      - 'scripts/**'
+      - '**/package.json'
+      - '**/package-lock.json'
+      - '.github/workflows/no-metaharness-smoke.yml'
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - 'scripts/**'
+      - '**/package.json'
+      - '**/package-lock.json'
+      - '.github/workflows/no-metaharness-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke-without-metaharness:
+    runs-on: ubuntu-latest
+    # iter 136: 10m → 20m — consistently hit 10m wall on shared runners
+    # (#2405 PR run + manual re-run both canceled at exactly 10m0s).
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify no `@metaharness/*` or `metaharness` appears in non-optional deps anywhere
+        # Static check: every plugins/*/package.json AND v3/*/package.json
+        # AND the root package.json AND ruflo/package.json must NOT list
+        # metaharness/router/kernel in `dependencies` (only `optionalDependencies`
+        # or `peerDependencies` are allowed).
+        run: |
+          node -e "
+            const { readFileSync, readdirSync, statSync } = require('fs');
+            const { join } = require('path');
+            const candidates = [
+              'package.json',
+              'ruflo/package.json',
+              'v3/@claude-flow/cli/package.json',
+            ];
+            // Also scan all plugins/*/package.json (if any plugin has one)
+            try {
+              for (const p of readdirSync('plugins')) {
+                const pj = join('plugins', p, 'package.json');
+                try { statSync(pj); candidates.push(pj); } catch {}
+              }
+            } catch {}
+            const offenders = [];
+            for (const c of candidates) {
+              let json;
+              try { json = JSON.parse(readFileSync(c, 'utf-8')); } catch { continue; }
+              for (const dep of Object.keys(json.dependencies || {})) {
+                if (/^metaharness$|^@metaharness\//.test(dep)) {
+                  offenders.push({ file: c, dep });
+                }
+              }
+            }
+            if (offenders.length) {
+              console.error('ADR-150 architectural constraint rule #2 violated:');
+              for (const o of offenders) console.error('  ' + o.file + ' → ' + o.dep + ' in dependencies (must be optionalDependencies)');
+              process.exit(1);
+            }
+            console.log('✓ No metaharness/* in non-optional dependencies anywhere.');
+          "
+
+      - name: Run meta-smoke (should pass with current optional deps in place)
+        # iter 119 — 300s timeout to give ruflo-metaharness (118 steps,
+        # many npx invocations) enough wall time. Same change as
+        # all-plugins-smoke.yml; 60s was timing out at 151s+ in CI.
+        run: node scripts/smoke-all-plugins.mjs --timeout 300
+
+      - name: Simulate metaharness-absent runtime by clearing the npm cache fetch
+        # We can't actually un-install optional deps cleanly in this matrix
+        # without breaking other plugins. Instead, the per-skill graceful
+        # degradation path is exercised directly: force `npx` to fail by
+        # pointing the registry at a black hole, then run each skill and
+        # assert exit code 0 + degraded:true JSON.
+        run: |
+          set -e
+          # Use a closed local port so `npx metaharness@latest` fails
+          # deterministically without waiting on DNS or network retries.
+          # The skills should detect this and emit the degraded payload.
+          export npm_config_registry=http://127.0.0.1:9/
+          export npm_config_fetch_retries=0
+          # Disable network-cache to ensure the npx miss is fresh
+          export NPX_NO_LOCAL=1
+          # Since the pinned-cache resolution (_invoke.mjs), skills no longer
+          # go through npx: they resolve locally-installed metaharness first,
+          # then a versioned ~/.ruflo cache. Both defeat this drill's absence
+          # simulation (metaharness IS installed in the CI workspace, and the
+          # meta-smoke step above warms the cache). Use the purpose-built test
+          # seams so "absent" means absent again:
+          export RUFLO_METAHARNESS_SKIP_LOCAL=1
+          export RUFLO_METAHARNESS_CACHE_BASE="$(mktemp -d)/empty-cache-root"
+
+          # iter 55 — expanded from 4 to 7 skills. The new entries are:
+          # oia-audit (composite, calls all 5 sub-skills), mint (scaffolds
+          # via `metaharness new`), drift-from-history (composes 3 scripts
+          # — needs oia-audit to gracefully degrade for the chain to too).
+          # Each skill needs a per-skill argv recipe to match its required
+          # flags (e.g. mint needs --name; drift-from-history needs --dry-run).
+          declare -A SKILL_ARGS=(
+            [score]="--format json"
+            [genome]="--format json"
+            [mcp-scan]="--format json"
+            [threat-model]="--format json"
+            [oia-audit]="--dry-run --format json"
+            [mint]="--name no-metaharness-drill --template vertical:coding --format json"
+            [drift-from-history]="--dry-run --threshold 0.5 --format json"
+          )
+          for skill in score genome mcp-scan threat-model oia-audit mint drift-from-history; do
+            echo "--- exercising ${skill}.mjs with unreachable registry ---"
+            ARGS="${SKILL_ARGS[$skill]}"
+            set +e
+            OUT=$(node plugins/ruflo-metaharness/scripts/$skill.mjs $ARGS 2>&1)
+            EXIT=$?
+            set -e
+            echo "$OUT" | head -10
+            echo "exit: $EXIT"
+            # Assert: graceful path means exit 0 (or 3 for drift-from-history
+            # which intentionally signals "test-cannot-run" via exit 3 per
+            # iter 53's 4-code semantic). Both must emit a degraded payload.
+            ACCEPTABLE_EXITS="0"
+            if [ "$skill" = "drift-from-history" ]; then ACCEPTABLE_EXITS="0 3"; fi
+            MATCHED=0
+            for ok in $ACCEPTABLE_EXITS; do
+              if [ "$EXIT" = "$ok" ]; then MATCHED=1; break; fi
+            done
+            if [ "$MATCHED" = "0" ]; then
+              echo "FAIL: $skill exited $EXIT but graceful-degradation requires one of: $ACCEPTABLE_EXITS"
+              exit 1
+            fi
+            if ! echo "$OUT" | grep -q '"degraded"'; then
+              echo "FAIL: $skill did not emit degraded:true payload"
+              exit 1
+            fi
+          done
+          echo "✓ All 7 skills gracefully degraded when metaharness was unreachable."

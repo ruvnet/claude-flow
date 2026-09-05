@@ -1,6 +1,6 @@
 # ruflo-core
 
-Foundation plugin. Registers the `ruflo` MCP server (300+ tools), provides three generalist agents (`coder`, `researcher`, `reviewer`), three first-run helpers (`init-project`, `ruflo-doctor`, `discover-plugins`), and a curated catalog covering all 30+ sibling plugins.
+Foundation plugin. Registers the `ruflo` MCP server (314 tools), provides three generalist agents (`coder`, `researcher`, `reviewer`), three first-run helpers (`init-project`, `ruflo-doctor`, `discover-plugins`), and a curated catalog covering all 32 sibling plugins.
 
 ## Install
 
@@ -11,7 +11,7 @@ Foundation plugin. Registers the `ruflo` MCP server (300+ tools), provides three
 
 ## What's Included
 
-- **MCP Server**: 300+ tools via `@claude-flow/cli` (memory, agentdb, embeddings, hooks, neural, autopilot, browser, aidefence, agent, swarm, system, terminal, github, daa, coordination, performance, workflow, …)
+- **MCP Server**: 314 tools via `@claude-flow/cli` (memory, agentdb, embeddings, hooks, neural, autopilot, browser, aidefence, agent, swarm, system, terminal, github, daa, coordination, performance, workflow, …)
 - **CLI Commands**: 26 commands with 140+ subcommands for agent orchestration
 - **3-Tier Model Routing**: Agent Booster (WASM), Haiku, Sonnet/Opus with automatic cost optimization
 - **Session Management**: Persistent sessions with cross-conversation learning
@@ -28,7 +28,7 @@ The MCP server starts automatically when this plugin is active. Override environ
 
 ## MCP server contract
 
-The registered `ruflo` MCP server exposes 300+ tools across these families. Runtime truth is `mcp tool call mcp_status`:
+The registered `ruflo` MCP server exposes 314 tools across these families. Runtime truth is `mcp tool call mcp_status`:
 
 | Family | Notable tools | Plugin documenting it |
 |--------|---------------|-----------------------|

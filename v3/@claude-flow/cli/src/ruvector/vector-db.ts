@@ -11,6 +11,11 @@
  * Created with love by ruv.io
  */
 
+import os from 'node:os';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { enforceNoStub } from '../memory/embedding-policy.js';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -172,7 +177,29 @@ export async function loadRuVector(): Promise<boolean> {
       const VectorDBClass = ruvector.VectorDB || ruvector.VectorDb;
       ruvectorModule = {
         createVectorDB: async (dimensions: number): Promise<VectorDB> => {
-          const db = new VectorDBClass({ dimensions });
+          // Build the HNSW graph with explicit, high-recall parameters instead
+          // of relying on the native layer's undocumented defaults. Measured on
+          // a 384-dim clustered corpus (scripts/benchmark-intelligence.mjs):
+          //   - sparser graphs (e.g. m=16/efConstruction=64) are faster but
+          //     drop recall@10 to ~0.68 at N=20k — unacceptable for a memory
+          //     store, so we use the standard high-recall HNSW setting
+          //     m=32/efConstruction=200, which keeps recall@10 ~0.99 while still
+          //     scaling sub-linearly (log-graph traversal) above the crossover.
+          // These map onto ruvector's DbOptions.hnsw { m, efConstruction }.
+          //
+          // storagePath: the native ruvector DB takes an exclusive file lock on
+          // its storage path. Without an explicit path it defaults to a shared
+          // file in the CWD (e.g. agentdb.rvf), which is frequently already
+          // held by a running daemon/MCP server. When the lock cannot be
+          // acquired the constructor THROWS, and createVectorDB() below
+          // silently degrades to the O(n) brute-force FallbackVectorDB — so the
+          // "HNSW" index is never actually used. Giving each transient index a
+          // unique path avoids that contention so the real HNSW graph is built.
+          const db = new VectorDBClass({
+            dimensions,
+            hnswConfig: { m: 32, efConstruction: 200 },
+            storagePath: path.join(os.tmpdir(), `ruvector-${process.pid}-${randomUUID()}.rvf`),
+          });
           // Wrap ruvector's VectorDB to match our interface
           return {
             insert: (embedding: Float32Array, id: string, metadata?: Record<string, unknown>) => {
@@ -248,8 +275,13 @@ export async function createVectorDB(dimensions: number = 768): Promise<VectorDB
   if (ruvectorModule && typeof ruvectorModule.createVectorDB === 'function') {
     try {
       return await ruvectorModule.createVectorDB(dimensions);
-    } catch {
-      // Fall back to simple implementation
+    } catch (err) {
+      // Fall back to simple implementation, but make the degradation VISIBLE.
+      // A silent fall-through here turns HNSW into O(n) brute force without any
+      // signal — exactly the failure mode that masked the lock-contention bug.
+      console.warn(
+        `[vector-db] ruvector HNSW init failed, falling back to brute-force search: ${(err as Error)?.message ?? err}`
+      );
     }
   }
 
@@ -273,6 +305,7 @@ export function generateEmbedding(text: string, dimensions: number = 768): Float
     }
   }
 
+  enforceNoStub('vector-db.generateEmbedding'); // "no stubs" strict mode → throw instead of hash
   const embedding = generateHashEmbedding(text, dimensions);
   // Tag the result so consumers can detect it came from hash fallback
   Object.defineProperty(embedding, '_warning', {
@@ -304,7 +337,7 @@ export function computeSimilarity(a: Float32Array, b: Float32Array): number {
 export function getStatus(): {
   available: boolean;
   wasmAccelerated: boolean;
-  backend: 'ruvector-wasm' | 'ruvector' | 'fallback';
+  backend: 'ruvector-stub-search-disabled' | 'ruvector-native' | 'fallback';
 } {
   if (!isAvailable) {
     return {
@@ -314,10 +347,17 @@ export function getStatus(): {
     };
   }
 
-  const wasmAccelerated = isWASMAccelerated();
+  // HONESTY (audit docs/reviews/intelligence-system-audit-2026-05-29.md):
+  // ruvector's `isWasm()` does NOT mean "WASM-accelerated" — there is no WASM
+  // HNSW build in this stack. `isWasm()===true` means the do-nothing STUB is
+  // active (search() returns []), i.e. native NAPI failed to load. So
+  // wasmAccelerated===false is the HEALTHY state (native NAPI is the fastest
+  // backend available). We label the stub honestly so a regression into it is
+  // visible instead of being mistaken for a faster mode.
+  const stubActive = isWASMAccelerated();
   return {
     available: true,
-    wasmAccelerated,
-    backend: wasmAccelerated ? 'ruvector-wasm' : 'ruvector',
+    wasmAccelerated: stubActive,
+    backend: stubActive ? 'ruvector-stub-search-disabled' : 'ruvector-native',
   };
 }

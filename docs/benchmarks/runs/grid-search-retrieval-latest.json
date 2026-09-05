@@ -1,0 +1,1162 @@
+{
+  "runAt": "2026-05-30T18:54:27.482Z",
+  "benchmark": "grid-search-retrieval",
+  "queries": 10,
+  "configsEvaluated": 55,
+  "grid": {
+    "ALPHA_GRID": [
+      0.3,
+      0.5,
+      0.7
+    ],
+    "SUBJ_GRID": [
+      2,
+      3,
+      5
+    ],
+    "MMR_GRID": [
+      0.3,
+      0.5,
+      0.7
+    ],
+    "RERANK_GRID": [
+      [
+        0.2,
+        0.8
+      ],
+      [
+        0.3,
+        0.7
+      ],
+      [
+        0.4,
+        0.6
+      ],
+      [
+        0.5,
+        0.5
+      ],
+      [
+        0.6,
+        0.4
+      ],
+      [
+        0.7,
+        0.3
+      ],
+      [
+        0.8,
+        0.2
+      ]
+    ]
+  },
+  "results": [
+    {
+      "name": "hybrid α=0.3 sw=2 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 2,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.9,
+        "label_precision3": 0.5666666666666667,
+        "label_ndcg3": 0.8919720789148187,
+        "avgLatencyMs": 46.5360375
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=2 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 2,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.9,
+        "label_precision3": 0.5666666666666667,
+        "label_ndcg3": 0.8919720789148187,
+        "avgLatencyMs": 41.546275000000016
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=2 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.9333333333333333,
+        "label_precision3": 0.6666666666666666,
+        "label_ndcg3": 0.9419720789148187,
+        "avgLatencyMs": 42.716383300000004
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=3 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 3,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.85,
+        "label_precision3": 0.5666666666666667,
+        "label_ndcg3": 0.8613147192765458,
+        "avgLatencyMs": 43.105075000000014
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=3 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 3,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.8699999999999999,
+        "label_precision3": 0.5666666666666667,
+        "label_ndcg3": 0.8613147192765458,
+        "avgLatencyMs": 40.62767080000001
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=3 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.9,
+        "label_precision3": 0.6666666666666666,
+        "label_ndcg3": 0.9244076946336917,
+        "avgLatencyMs": 37.55194580000002
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=5 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 5,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.85,
+        "label_precision3": 0.5666666666666667,
+        "label_ndcg3": 0.8613147192765458,
+        "avgLatencyMs": 40.06068749999999
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=5 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 5,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.875,
+        "label_precision3": 0.5666666666666667,
+        "label_ndcg3": 0.8613147192765458,
+        "avgLatencyMs": 40.78096660000001
+      }
+    },
+    {
+      "name": "hybrid α=0.3 sw=5 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.3,
+        "subjectWeight": 5,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.9,
+        "label_precision3": 0.6666666666666666,
+        "label_ndcg3": 0.9244076946336917,
+        "avgLatencyMs": 39.84199590000003
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=2 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 2,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.9,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.8839441578296375,
+        "avgLatencyMs": 49.049279100000014
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=2 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 2,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.9333333333333333,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.95,
+        "avgLatencyMs": 44.84427500000002
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=2 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.95,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.9630929753571458,
+        "avgLatencyMs": 44.555958399999966
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=3 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 3,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.9,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.8759162367444564,
+        "avgLatencyMs": 41.23240419999993
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=3 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 3,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.9333333333333333,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.9419720789148187,
+        "avgLatencyMs": 39.689941700000055
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=3 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.95,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.9550650542719644,
+        "avgLatencyMs": 37.415162500000044
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=5 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 5,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.85,
+        "label_precision3": 0.4333333333333333,
+        "label_ndcg3": 0.8630929753571458,
+        "avgLatencyMs": 36.97860000000001
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=5 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 5,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.8833333333333334,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.919342640361727,
+        "avgLatencyMs": 37.53268329999992
+      }
+    },
+    {
+      "name": "hybrid α=0.5 sw=5 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.5,
+        "subjectWeight": 5,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.9,
+        "label_precision3": 0.5333333333333333,
+        "label_ndcg3": 0.9324356157188728,
+        "avgLatencyMs": 37.932275000000025
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=2 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 2,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.5,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.6,
+        "label_precision3": 0.3,
+        "label_ndcg3": 0.5550650542719645,
+        "avgLatencyMs": 40.52321250000004
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=2 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 2,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.5,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.62,
+        "label_precision3": 0.3,
+        "label_ndcg3": 0.5550650542719645,
+        "avgLatencyMs": 39.80015829999993
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=2 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.5,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.615,
+        "label_precision3": 0.3,
+        "label_ndcg3": 0.5550650542719645,
+        "avgLatencyMs": 38.89919590000009
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=3 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 3,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.4,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.55,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5261859507142915,
+        "avgLatencyMs": 37.38098339999997
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=3 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 3,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.4,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.5700000000000001,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5261859507142915,
+        "avgLatencyMs": 40.424562500000135
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=3 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.4,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.5650000000000001,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5261859507142915,
+        "avgLatencyMs": 39.245041599999965
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=5 mmr=0.3",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 5,
+        "mmrLambda": 0.3,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.4,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.55,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5261859507142915,
+        "avgLatencyMs": 37.59598330000008
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=5 mmr=0.5",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 5,
+        "mmrLambda": 0.5,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.4,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.5700000000000001,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5261859507142915,
+        "avgLatencyMs": 39.11966250000005
+      }
+    },
+    {
+      "name": "hybrid α=0.7 sw=5 mmr=0.7",
+      "rerank": false,
+      "params": {
+        "rerank": false,
+        "alpha": 0.7,
+        "subjectWeight": 5,
+        "mmrLambda": 0.7,
+        "bodyWeight": 1,
+        "typePenaltyFactor": 1
+      },
+      "metrics": {
+        "label_top1HitRate": 0.4,
+        "label_top3HitRate": 0.6,
+        "label_mrr3": 0.5650000000000001,
+        "label_precision3": 0.26666666666666666,
+        "label_ndcg3": 0.5261859507142915,
+        "avgLatencyMs": 38.87682080000013
+      }
+    },
+    {
+      "name": "rerank hw=0.2 cw=0.8 α=0.3 sw=2",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.3,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.2,
+        "ceWeight": 0.8
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7666666666666667,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 933.7481166
+      }
+    },
+    {
+      "name": "rerank hw=0.2 cw=0.8 α=0.3 sw=3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.3,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.2,
+        "ceWeight": 0.8
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7666666666666667,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 879.4089292000001
+      }
+    },
+    {
+      "name": "rerank hw=0.2 cw=0.8 α=0.5 sw=2",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.5,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.2,
+        "ceWeight": 0.8
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 897.2303916999997
+      }
+    },
+    {
+      "name": "rerank hw=0.2 cw=0.8 α=0.5 sw=3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.5,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.2,
+        "ceWeight": 0.8
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.875,
+        "label_precision3": 0.6666666666666666,
+        "label_ndcg3": 0.8630929753571458,
+        "avgLatencyMs": 861.4125707999999
+      }
+    },
+    {
+      "name": "rerank hw=0.3 cw=0.7 α=0.3 sw=2",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.3,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.3,
+        "ceWeight": 0.7
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7666666666666667,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 879.6433875000002
+      }
+    },
+    {
+      "name": "rerank hw=0.3 cw=0.7 α=0.3 sw=3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.3,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.3,
+        "ceWeight": 0.7
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7666666666666667,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 902.5864875
+      }
+    },
+    {
+      "name": "rerank hw=0.3 cw=0.7 α=0.5 sw=2",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.5,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.3,
+        "ceWeight": 0.7
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 876.1186999999998
+      }
+    },
+    {
+      "name": "rerank hw=0.3 cw=0.7 α=0.5 sw=3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.5,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.3,
+        "ceWeight": 0.7
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.875,
+        "label_precision3": 0.6666666666666666,
+        "label_ndcg3": 0.8630929753571458,
+        "avgLatencyMs": 849.2545624999999
+      }
+    },
+    {
+      "name": "rerank hw=0.4 cw=0.6 α=0.3 sw=2",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.3,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.4,
+        "ceWeight": 0.6
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7333333333333333,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 888.1055582999994
+      }
+    },
+    {
+      "name": "rerank hw=0.4 cw=0.6 α=0.3 sw=3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.3,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.4,
+        "ceWeight": 0.6
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.8,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 911.6689583
+      }
+    },
+    {
+      "name": "rerank hw=0.4 cw=0.6 α=0.5 sw=2",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.5,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.4,
+        "ceWeight": 0.6
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 896.537950000001
+      }
+    },
+    {
+      "name": "rerank hw=0.4 cw=0.6 α=0.5 sw=3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.5,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.4,
+        "ceWeight": 0.6
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.875,
+        "label_precision3": 0.6666666666666666,
+        "label_ndcg3": 0.8630929753571458,
+        "avgLatencyMs": 832.0959624999989
+      }
+    },
+    {
+      "name": "rerank hw=0.5 cw=0.5 α=0.3 sw=2",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.3,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.5,
+        "ceWeight": 0.5
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7333333333333333,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 889.6455958999999
+      }
+    },
+    {
+      "name": "rerank hw=0.5 cw=0.5 α=0.3 sw=3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.3,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.5,
+        "ceWeight": 0.5
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.8,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 886.2357917000002
+      }
+    },
+    {
+      "name": "rerank hw=0.5 cw=0.5 α=0.5 sw=2",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.5,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.5,
+        "ceWeight": 0.5
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 881.0955125000007
+      }
+    },
+    {
+      "name": "rerank hw=0.5 cw=0.5 α=0.5 sw=3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.5,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.5,
+        "ceWeight": 0.5
+      },
+      "metrics": {
+        "label_top1HitRate": 0.8,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.875,
+        "label_precision3": 0.6666666666666666,
+        "label_ndcg3": 0.8630929753571458,
+        "avgLatencyMs": 848.3681125000003
+      }
+    },
+    {
+      "name": "rerank hw=0.6 cw=0.4 α=0.3 sw=2",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.3,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.6,
+        "ceWeight": 0.4
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7333333333333333,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 907.0746207999997
+      }
+    },
+    {
+      "name": "rerank hw=0.6 cw=0.4 α=0.3 sw=3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.3,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.6,
+        "ceWeight": 0.4
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7333333333333333,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 891.8464374999982
+      }
+    },
+    {
+      "name": "rerank hw=0.6 cw=0.4 α=0.5 sw=2",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.5,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.6,
+        "ceWeight": 0.4
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 880.5650875000022
+      }
+    },
+    {
+      "name": "rerank hw=0.6 cw=0.4 α=0.5 sw=3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.5,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.6,
+        "ceWeight": 0.4
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.6666666666666666,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 856.0589041
+      }
+    },
+    {
+      "name": "rerank hw=0.7 cw=0.3 α=0.3 sw=2",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.3,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.7,
+        "ceWeight": 0.3
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7333333333333333,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 882.3316709000006
+      }
+    },
+    {
+      "name": "rerank hw=0.7 cw=0.3 α=0.3 sw=3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.3,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.7,
+        "ceWeight": 0.3
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.7,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 896.2746833000012
+      }
+    },
+    {
+      "name": "rerank hw=0.7 cw=0.3 α=0.5 sw=2",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.5,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.7,
+        "ceWeight": 0.3
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.6333333333333332,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 891.5837584000022
+      }
+    },
+    {
+      "name": "rerank hw=0.7 cw=0.3 α=0.5 sw=3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.5,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.7,
+        "ceWeight": 0.3
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.95,
+        "label_precision3": 0.7,
+        "label_ndcg3": 0.9630929753571458,
+        "avgLatencyMs": 836.2012083000009
+      }
+    },
+    {
+      "name": "rerank hw=0.8 cw=0.2 α=0.3 sw=2",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.3,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.8,
+        "ceWeight": 0.2
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.6666666666666666,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 898.0529125
+      }
+    },
+    {
+      "name": "rerank hw=0.8 cw=0.2 α=0.3 sw=3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.3,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.8,
+        "ceWeight": 0.2
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.95,
+        "label_precision3": 0.7666666666666666,
+        "label_ndcg3": 0.9630929753571458,
+        "avgLatencyMs": 885.745087500001
+      }
+    },
+    {
+      "name": "rerank hw=0.8 cw=0.2 α=0.5 sw=2",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.5,
+        "subjectWeight": 2,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.8,
+        "ceWeight": 0.2
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 0.9,
+        "label_mrr3": 0.925,
+        "label_precision3": 0.6666666666666666,
+        "label_ndcg3": 0.9,
+        "avgLatencyMs": 886.3895041000011
+      }
+    },
+    {
+      "name": "rerank hw=0.8 cw=0.2 α=0.5 sw=3",
+      "rerank": true,
+      "params": {
+        "rerank": true,
+        "alpha": 0.5,
+        "subjectWeight": 3,
+        "mmrLambda": 0.7,
+        "hybridWeight": 0.8,
+        "ceWeight": 0.2
+      },
+      "metrics": {
+        "label_top1HitRate": 0.9,
+        "label_top3HitRate": 1,
+        "label_mrr3": 0.95,
+        "label_precision3": 0.7,
+        "label_ndcg3": 0.9550650542719644,
+        "avgLatencyMs": 859.4657124999998
+      }
+    }
+  ],
+  "winners": {
+    "nDcg3": "hybrid α=0.5 sw=2 mmr=0.7",
+    "top1": "hybrid α=0.5 sw=2 mmr=0.7",
+    "precision3": "rerank hw=0.4 cw=0.6 α=0.3 sw=3",
+    "bestNonRerank": "hybrid α=0.5 sw=2 mmr=0.7",
+    "bestRerank": "rerank hw=0.7 cw=0.3 α=0.5 sw=3"
+  }
+}

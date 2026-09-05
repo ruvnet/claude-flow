@@ -3,15 +3,15 @@
  *
  * Implements attention-based coordination mechanisms from agentic-flow@alpha:
  * - multi-head: Standard multi-head attention
- * - flash: 2.49x-7.47x speedup, 75% memory reduction
+ * - flash: approximate sparse attention; speedup unverified — see docs/reviews/intelligence-system-audit-2026-05-29.md
  * - linear: For long sequences
  * - hyperbolic: Hierarchical data
  * - moe: Mixture of Experts routing
  * - graph-rope: Graph-aware positional embeddings
  *
  * Performance Targets:
- * - Flash Attention: 2.49x-7.47x speedup
- * - Memory Reduction: 50-75%
+ * - Flash Attention: approximate sparse attention; speedup unverified — see docs/reviews/intelligence-system-audit-2026-05-29.md
+ * - Memory Reduction: unverified — see docs/reviews/intelligence-system-audit-2026-05-29.md
  * - MoE Routing: <5ms
  *
  * @module v3/swarm/attention-coordinator
@@ -28,7 +28,7 @@ import { EventEmitter } from 'events';
  */
 export type AttentionType =
   | 'multi-head'   // Standard multi-head attention
-  | 'flash'        // 2.49x-7.47x speedup, 75% memory reduction
+  | 'flash'        // approximate sparse attention; speedup unverified — see docs/reviews/intelligence-system-audit-2026-05-29.md
   | 'linear'       // For long sequences
   | 'hyperbolic'   // Hierarchical data
   | 'moe'          // Mixture of Experts
@@ -374,7 +374,8 @@ export class AttentionCoordinator extends EventEmitter {
   // ===========================================================================
 
   /**
-   * Flash Attention - 2.49x-7.47x speedup
+   * Flash Attention - approximate sparse attention; speedup unverified
+   * — see docs/reviews/intelligence-system-audit-2026-05-29.md
    */
   private async flashAttentionCoordination(
     agentOutputs: AgentOutput[]
@@ -418,8 +419,11 @@ export class AttentionCoordinator extends EventEmitter {
       memoryUsed,
       participatingAgents: agentOutputs.map(o => o.agentId),
       metadata: {
-        speedup: '2.49x-7.47x',
-        memoryReduction: '75%',
+        // Speedup/memory reduction are UNMEASURED — no benchmark is wired.
+        // Do not advertise a made-up factor. See
+        // docs/reviews/intelligence-system-audit-2026-05-29.md
+        speedup: 'unverified',
+        memoryReduction: 'unverified',
         blockSize,
       },
     };
@@ -967,10 +971,13 @@ export class AttentionCoordinator extends EventEmitter {
     this.performanceStats.totalLatency += latency;
 
     if (mechanism === 'flash') {
-      // Track Flash Attention performance
-      // In production, compare against baseline
-      this.performanceStats.flashSpeedup = 2.49 + Math.random() * 4.98; // 2.49x-7.47x
-      this.performanceStats.memoryReduction = 0.75;
+      // Flash Attention speedup is UNMEASURED in this build — no benchmark
+      // kernel is wired here. Do NOT fabricate a value. Sentinel 0 means
+      // "unmeasured"; consumers must not advertise a speedup until a real
+      // measured path (kernel benchmark vs baseline) is implemented.
+      // See docs/reviews/intelligence-system-audit-2026-05-29.md
+      this.performanceStats.flashSpeedup = 0; // 0 = unmeasured (no fabrication)
+      this.performanceStats.memoryReduction = 0; // 0 = unmeasured (no fabrication)
     }
   }
 

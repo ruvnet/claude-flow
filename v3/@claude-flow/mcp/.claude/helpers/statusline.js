@@ -131,39 +131,27 @@ function getV3Progress() {
 
 // Get security status based on actual scans
 function getSecurityStatus() {
-  // Check for security scan results in memory
+  // ponytail: read the NEWEST scan in .claude/security-scans/ and surface its
+  // real findings count. Previously hardcoded totalCves=3 and counted scan
+  // *files* as "CVEs fixed", fabricating "⚠ 3 CVEs" for every project.
   const scanResultsPath = path.join(process.cwd(), '.claude', 'security-scans');
-  let cvesFixed = 0;
-  const totalCves = 3;
-
-  if (fs.existsSync(scanResultsPath)) {
-    try {
-      const scans = fs.readdirSync(scanResultsPath).filter(f => f.endsWith('.json'));
-      // Each successful scan file = 1 CVE addressed
-      cvesFixed = Math.min(totalCves, scans.length);
-    } catch (e) {
-      // Ignore
+  if (!fs.existsSync(scanResultsPath)) return { status: 'PENDING', findings: 0, cvesFixed: 0, totalCves: 0 };
+  try {
+    const files = fs.readdirSync(scanResultsPath).filter(f => f.endsWith('.json'));
+    if (files.length === 0) return { status: 'PENDING', findings: 0, cvesFixed: 0, totalCves: 0 };
+    let newest = files[0];
+    let newestMtime = -1;
+    for (const f of files) {
+      const st = fs.statSync(path.join(scanResultsPath, f));
+      if (st.mtimeMs > newestMtime) { newestMtime = st.mtimeMs; newest = f; }
     }
+    const scan = JSON.parse(fs.readFileSync(path.join(scanResultsPath, newest), 'utf-8'));
+    const findings = Math.max(0, scan.summary?.total ?? scan.totalFindings ?? scan.findings?.length ?? 0);
+    const status = findings > 0 ? 'ISSUES' : 'CLEAN';
+    return { status, findings, scannedAt: scan.timestamp, cvesFixed: 0, totalCves: 0 };
+  } catch (e) {
+    return { status: 'PENDING', findings: 0, cvesFixed: 0, totalCves: 0 };
   }
-
-  // Also check .swarm/security for audit results
-  const auditPath = path.join(process.cwd(), '.swarm', 'security');
-  if (fs.existsSync(auditPath)) {
-    try {
-      const audits = fs.readdirSync(auditPath).filter(f => f.includes('audit'));
-      cvesFixed = Math.min(totalCves, Math.max(cvesFixed, audits.length));
-    } catch (e) {
-      // Ignore
-    }
-  }
-
-  const status = cvesFixed >= totalCves ? 'CLEAN' : cvesFixed > 0 ? 'IN_PROGRESS' : 'PENDING';
-
-  return {
-    status,
-    cvesFixed,
-    totalCves,
-  };
 }
 
 // Get swarm status
@@ -270,7 +258,7 @@ function generateStatusline() {
   lines.push(
     `${c.brightYellow}🤖 Swarm${c.reset}  ${swarmIndicator} [${agentsColor}${String(swarm.activeAgents).padStart(2)}${c.reset}/${c.brightWhite}${swarm.maxAgents}${c.reset}]  ` +
     `${c.brightPurple}👥 ${system.subAgents}${c.reset}    ` +
-    `${securityIcon} ${securityColor}CVE ${security.cvesFixed}${c.reset}/${c.brightWhite}${security.totalCves}${c.reset}    ` +
+    `${securityIcon} ${securityColor}Findings ${security.findings || 0}${c.reset}    ` +
     `${c.brightCyan}💾 ${system.memoryMB}MB${c.reset}    ` +
     `${c.brightGreen}📂 ${String(system.contextPct).padStart(3)}%${c.reset}    ` +
     `${c.dim}🧠 ${String(system.intelligencePct).padStart(3)}%${c.reset}`

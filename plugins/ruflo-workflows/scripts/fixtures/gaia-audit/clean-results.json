@@ -1,0 +1,50 @@
+{
+  "level": 1,
+  "model": "claude-sonnet-4-6",
+  "summary": {
+    "total": 3,
+    "passed": 2,
+    "passRate": 0.6667,
+    "estCostUsd": 0.0412,
+    "meanTurns": 4.3,
+    "meanWallMs": 18400
+  },
+  "results": [
+    {
+      "task_id": "fx-clean-001",
+      "question": "What is the melting point of tungsten in degrees Celsius?",
+      "model": "claude-sonnet-4-6",
+      "correct": true,
+      "answer": "3422",
+      "expected_output": "3422",
+      "turns": 4,
+      "wallMs": 15200,
+      "inputTokens": 6210,
+      "outputTokens": 412
+    },
+    {
+      "task_id": "fx-clean-002",
+      "question": "Which architect designed the Sagrada Familia?",
+      "model": "claude-sonnet-4-6",
+      "correct": true,
+      "answer": "Antoni Gaudi",
+      "expected_output": "Antoni Gaudi",
+      "turns": 3,
+      "wallMs": 12800,
+      "inputTokens": 4105,
+      "outputTokens": 305
+    },
+    {
+      "task_id": "fx-clean-003",
+      "question": "How many moons does Kepler-90 have confirmed as of 2023?",
+      "model": "claude-sonnet-4-6",
+      "correct": false,
+      "answer": "12",
+      "expected_output": "0",
+      "turns": 6,
+      "wallMs": 27200,
+      "inputTokens": 9870,
+      "outputTokens": 601
+    }
+  ]
+}

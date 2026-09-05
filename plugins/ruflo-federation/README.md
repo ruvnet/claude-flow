@@ -46,9 +46,15 @@ Phase 1 enforces at the **send** side. Phase 2 (peer state machine: ACTIVE / SUS
 
 | Command | Description |
 |---------|-------------|
-| `/federation-init` | Generate keypair and initialize federation on this node |
-| `/federation-status` | Show peers, sessions, trust levels, and health |
-| `/federation-audit` | Query structured audit logs with compliance filtering |
+| `/federation <subcommand>` | Dispatcher for `init`, `join`, `leave`, `peers`, `send`, `status`, `audit`, `trust`, `config` (see [`commands/federation.md`](commands/federation.md)) |
+
+## Skills (auto-invoked by description)
+
+| Skill | When it triggers |
+|-------|------------------|
+| `federation-init` | Initialize this node — generate keypair and configure peers |
+| `federation-status` | "is federation healthy?", "show peers", "federation status" |
+| `federation-audit` | Query audit logs with compliance / severity / date filters |
 
 ## Agents
 
@@ -78,6 +84,8 @@ Federation's "PII Pipeline" feature is a richer specialization of the canonical 
 | Prompt-injection (`aidefence_is_safe`) | Inbound message verification before delivery to local agents |
 
 Federation extends the canonical gates with adaptive confidence calibration and trust-level-aware policies, but the gate ordering and intent are identical. New federated content paths should reference the canonical 3-gate pattern by name.
+
+With the [`aidefence@2.3.0` upgrade (ADR-118)](../../v3/docs/adr/ADR-118-aidefence-2.3.0-upgrade.md), the inbound `aidefence_is_safe` gate (Gate 3) now catches a wider injection surface — `ignore all previous instructions` family (0..4 modifier-word window), role-hijack (`you are now …` / `act as …` / `pretend to be …`), and jailbreak markers (`DAN mode` / `developer mode` / `god mode` / `root mode`). Federation's adaptive confidence calibration runs over the broader detection set automatically; no plugin code change required.
 
 ## Namespace coordination
 

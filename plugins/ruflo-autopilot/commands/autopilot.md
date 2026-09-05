@@ -8,7 +8,7 @@ Manage Ruflo autopilot for autonomous /loop-driven task completion.
 Usage:
 - `/autopilot enable` -- Enable autopilot and start the completion loop
 - `/autopilot disable` -- Disable autopilot, let agents stop
-- `/autopilot config --max-iterations 50 --timeout 30` -- Set limits
+- `/autopilot config --maxIterations 50 --timeoutMinutes 30` -- Set limits (param names match the `autopilot_config` MCP tool signature)
 - `/autopilot reset` -- Reset iteration counter and restart timer
 - `/autopilot learn` -- Discover success patterns from completed tasks
 - `/autopilot history KEYWORD` -- Search past completion episodes

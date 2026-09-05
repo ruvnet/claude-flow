@@ -1,0 +1,20 @@
+=== Nested-subagent depth probe — empirical result ===
+started: 2026-06-09T15:45:42.449Z
+finished: 2026-06-09T15:46:19.839Z
+duration_ms: 37390
+exit_code: 0
+cli_command: claude -p --max-budget-usd 3.00 --model claude-haiku-4-5 --output-format text <prompt>
+
+--- VERDICT ---
+INCONCLUSIVE — Agent tool was missing at level=1. Likely the tools: [Task] frontmatter is not being honored by this CLI build, or the cache stage didn't include the agent file at that level.
+
+okMatches (levels that successfully spawned): []
+failMatches: []
+noToolMatches: [1]
+testLimitHit: []
+
+--- RAW STDOUT ---
+FINAL: level=1 status=NO_AGENT_TOOL
+
+
+--- RAW STDERR ---

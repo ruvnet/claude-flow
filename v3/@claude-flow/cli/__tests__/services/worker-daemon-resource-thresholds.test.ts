@@ -743,4 +743,116 @@ describe('WorkerDaemon resource thresholds', () => {
       expect(config.resourceThresholds.maxCpuLoad).toBeCloseTo(expectedMaxCpuLoad, 1);
     });
   });
+
+  // =========================================================================
+  // #2356 — Self-terminating lifecycle (TTL + idle shutdown)
+  // Caps how long a forgotten daemon can keep dispatching headless worker
+  // sweeps. Precedence: constructor arg > config.json (seconds) > env
+  // (RUFLO_DAEMON_TTL_SECS / RUFLO_DAEMON_IDLE_SECS) > built-in default.
+  // =========================================================================
+  describe('self-terminating lifecycle (ttl/idle)', () => {
+    const TTL_ENV = 'RUFLO_DAEMON_TTL_SECS';
+    const IDLE_ENV = 'RUFLO_DAEMON_IDLE_SECS';
+    let savedTtl: string | undefined;
+    let savedIdle: string | undefined;
+
+    beforeEach(() => {
+      savedTtl = process.env[TTL_ENV];
+      savedIdle = process.env[IDLE_ENV];
+      delete process.env[TTL_ENV];
+      delete process.env[IDLE_ENV];
+    });
+
+    afterEach(() => {
+      if (savedTtl === undefined) delete process.env[TTL_ENV]; else process.env[TTL_ENV] = savedTtl;
+      if (savedIdle === undefined) delete process.env[IDLE_ENV]; else process.env[IDLE_ENV] = savedIdle;
+    });
+
+    it('defaults ttlMs to 12h and idleShutdownMs to 30m (#2834)', () => {
+      const config = new WorkerDaemon(tempDir).getStatus().config;
+      expect(config.ttlMs).toBe(12 * 60 * 60 * 1000);
+      expect(config.idleShutdownMs).toBe(30 * 60 * 1000);
+    });
+
+    it('honors RUFLO_DAEMON_TTL_SECS env override (seconds → ms)', () => {
+      process.env[TTL_ENV] = '3600';
+      const config = new WorkerDaemon(tempDir).getStatus().config;
+      expect(config.ttlMs).toBe(3600 * 1000);
+    });
+
+    it('honors an explicit RUFLO_DAEMON_TTL_SECS=0 as "disabled" (not falling back to default)', () => {
+      process.env[TTL_ENV] = '0';
+      const config = new WorkerDaemon(tempDir).getStatus().config;
+      expect(config.ttlMs).toBe(0);
+    });
+
+    it('falls back to default for an invalid/negative env value', () => {
+      process.env[TTL_ENV] = '-5';
+      const config = new WorkerDaemon(tempDir).getStatus().config;
+      expect(config.ttlMs).toBe(12 * 60 * 60 * 1000);
+    });
+
+    it('honors RUFLO_DAEMON_IDLE_SECS env override', () => {
+      process.env[IDLE_ENV] = '7200';
+      const config = new WorkerDaemon(tempDir).getStatus().config;
+      expect(config.idleShutdownMs).toBe(7200 * 1000);
+    });
+
+    it('reads daemon.ttlSecs / daemon.idleSecs from config.json (seconds → ms)', () => {
+      const configFile = join(tempDir, '.claude-flow', 'config.json');
+      writeFileSync(configFile, JSON.stringify({
+        'daemon.ttlSecs': 1800,
+        'daemon.idleSecs': 900,
+      }));
+      const config = new WorkerDaemon(tempDir).getStatus().config;
+      expect(config.ttlMs).toBe(1800 * 1000);
+      expect(config.idleShutdownMs).toBe(900 * 1000);
+    });
+
+    it('honors config.json daemon.ttlSecs=0 as disabled', () => {
+      const configFile = join(tempDir, '.claude-flow', 'config.json');
+      writeFileSync(configFile, JSON.stringify({ 'daemon.ttlSecs': 0 }));
+      const config = new WorkerDaemon(tempDir).getStatus().config;
+      expect(config.ttlMs).toBe(0);
+    });
+
+    it('prefers constructor arg over config.json and env', () => {
+      process.env[TTL_ENV] = '3600';
+      const configFile = join(tempDir, '.claude-flow', 'config.json');
+      writeFileSync(configFile, JSON.stringify({ 'daemon.ttlSecs': 1800 }));
+      const config = new WorkerDaemon(tempDir, { ttlMs: 60_000 }).getStatus().config;
+      expect(config.ttlMs).toBe(60_000);
+    });
+
+    it('prefers config.json over env', () => {
+      process.env[TTL_ENV] = '3600';
+      const configFile = join(tempDir, '.claude-flow', 'config.json');
+      writeFileSync(configFile, JSON.stringify({ 'daemon.ttlSecs': 1800 }));
+      const config = new WorkerDaemon(tempDir).getStatus().config;
+      expect(config.ttlMs).toBe(1800 * 1000);
+    });
+
+    it('arms the lifecycle monitor even when ttl/idle are disabled (#2661 workspace-removal check)', () => {
+      const daemon = new WorkerDaemon(tempDir, { ttlMs: 0, idleShutdownMs: 0 });
+      // Pre-#2661 this was a no-op with both limits at 0. The monitor now
+      // always runs so a daemon whose worktree is deleted shuts itself
+      // down; ttl/idle remain opt-in inside the shared predicate.
+      (daemon as any).startLifecycleMonitor();
+      expect((daemon as any).lifecycleTimer).toBeDefined();
+      // But with the workspace present and both limits off, the predicate
+      // must not request a shutdown.
+      expect((daemon as any).lifecycleShutdownReason(Date.now())).toBeNull();
+      clearInterval((daemon as any).lifecycleTimer);
+      (daemon as any).lifecycleTimer = undefined;
+    });
+
+    it('arms (and can clear) the lifecycle monitor when a TTL is set', () => {
+      const daemon = new WorkerDaemon(tempDir, { ttlMs: 60_000, idleShutdownMs: 0 });
+      (daemon as any).startLifecycleMonitor();
+      expect((daemon as any).lifecycleTimer).toBeDefined();
+      // The monitor timer must be unref'd so it never keeps the process alive.
+      clearInterval((daemon as any).lifecycleTimer);
+      (daemon as any).lifecycleTimer = undefined;
+    });
+  });
 });

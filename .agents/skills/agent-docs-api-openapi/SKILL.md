@@ -3,7 +3,14 @@ name: agent-docs-api-openapi
 description: Agent skill for docs-api-openapi - invoke with $agent-docs-api-openapi
 ---
 
----
+<!--
+The block below is the legacy agent-definition YAML. It used to be a
+second `---` fenced block which renderers (skills.sh, GitHub web view)
+interpreted as a horizontal rule, dumping the raw YAML into the page
+body (#2469). Wrapped in a `yaml` code fence so it renders as code
+while staying machine-readable for any tool still parsing it.
+-->
+```yaml
 name: "api-docs"
 description: "Expert agent for creating and maintaining OpenAPI/Swagger documentation"
 color: "indigo"
@@ -117,7 +124,7 @@ examples:
     response: "I'll create comprehensive OpenAPI 3.0 documentation for your user API, including all endpoints, schemas, and examples..."
   - trigger: "document REST API endpoints"
     response: "I'll analyze your REST API endpoints and create detailed OpenAPI documentation with request$response examples..."
----
+```
 
 # OpenAPI Documentation Specialist
 

@@ -12,50 +12,44 @@
 //   EXPORT_WEBHOOK_HEADER='Authorization: Bearer xxx'  optional, may repeat (comma-separated)
 //   EXPORT_QUIET=1        suppress confirmation output (errors still printed)
 
-import { spawnSync } from 'node:child_process';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-
-// ADR-100 / #1748 Issue 3 — CLI_CORE=1 routes to lite cli-core (~2s cold-cache).
-// Export is list+retrieve only; no search. JSON backend is fine.
-const CLI_PKG = process.env.CLI_CORE === '1'
-  ? '@claude-flow/cli-core@alpha'
-  : '@claude-flow/cli@latest';
+// iter 73 — shared session-loader + memoryRetrieve. Iter 83 brought export.mjs
+// into the consolidation (was missed in the original sweep).
+import { memoryListAllKeys, memoryRetrieve, loadSessions } from './_sessions.mjs';
 
 const NS = process.env.EXPORT_NAMESPACE || 'cost-tracking';
 
-function memoryListKeys() {
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'list',
-    '--namespace', NS, '--format', 'json',
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
-  if (r.status !== 0) return [];
-  const m = /\[[\s\S]*\]/.exec(r.stdout || '');
-  if (!m) return [];
-  try { return JSON.parse(m[0]).map((e) => e.key).filter(Boolean); } catch { return []; }
-}
-function memoryRetrieve(key) {
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'retrieve',
-    '--namespace', NS, '--key', key,
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
-  if (r.status !== 0) return null;
-  const m = /\{[\s\S]*\}/.exec(r.stdout || '');
-  if (!m) return null;
-  try { return JSON.parse(m[0]); } catch { return null; }
-}
-
 function gather() {
-  const keys = memoryListKeys();
-  const sessions = keys.filter((k) => k.startsWith('session-')).map(memoryRetrieve).filter(Boolean);
-  const budget = keys.filter((k) => /^budget-config(-\d+)?$/.test(k)).sort().reverse()
-    .map(memoryRetrieve).filter(Boolean)[0] || null;
+  const sessions = loadSessions(NS);
+  const budgetKeys = memoryListAllKeys(NS).filter((k) => /^budget-config(-\d+)?$/.test(k)).sort().reverse();
+  const budget = budgetKeys.length ? memoryRetrieve(NS, budgetKeys[0]) : null;
   const totalUsd = sessions.reduce((s, r) => s + (r.total_cost_usd || 0), 0);
   const byTier = { haiku: 0, sonnet: 0, opus: 0, unknown: 0 };
+  // iter 83 — track tokens per (tier, type). Without this Prometheus
+  // consumers can see "haiku spent $X" but can't slice by "cache_write
+  // growth on opus" — the exact iter-82 driver. byTierTokens lets
+  // Grafana panels split spend by class.
+  const byTierTokens = {
+    haiku:   { input: 0, output: 0, cache_write: 0, cache_read: 0 },
+    sonnet:  { input: 0, output: 0, cache_write: 0, cache_read: 0 },
+    opus:    { input: 0, output: 0, cache_write: 0, cache_read: 0 },
+    unknown: { input: 0, output: 0, cache_write: 0, cache_read: 0 },
+  };
   for (const r of sessions) {
     if (r.byTier) for (const [t, v] of Object.entries(r.byTier)) byTier[t] = (byTier[t] || 0) + v;
+    if (r.byModel) {
+      for (const slot of Object.values(r.byModel)) {
+        const tier = slot.tier || 'unknown';
+        if (!byTierTokens[tier]) byTierTokens[tier] = { input: 0, output: 0, cache_write: 0, cache_read: 0 };
+        byTierTokens[tier].input       += slot.input_tokens || 0;
+        byTierTokens[tier].output      += slot.output_tokens || 0;
+        byTierTokens[tier].cache_write += slot.cache_creation_input_tokens || 0;
+        byTierTokens[tier].cache_read  += slot.cache_read_input_tokens || 0;
+      }
+    }
   }
-  return { sessions, budget, totalUsd, byTier, exportedAt: new Date().toISOString() };
+  return { sessions, budget, totalUsd, byTier, byTierTokens, exportedAt: new Date().toISOString() };
 }
 
 function escLabel(v) {
@@ -82,6 +76,20 @@ function toPrometheus(data) {
     const sid = (s.sessionId || '').slice(0, 8);
     lines.push(`cost_tracker_session_total_usd{session="${escLabel(sid)}"} ${(s.total_cost_usd || 0).toFixed(6)}`);
     lines.push(`cost_tracker_session_messages{session="${escLabel(sid)}"} ${s.messageCount || 0}`);
+  }
+  // iter 83 — per-tier-per-type token totals. Lets dashboards slice by:
+  //   sum by (type) (cost_tracker_tokens_total)       — total cache_write everywhere
+  //   sum by (tier) (cost_tracker_tokens_total)       — total tokens per tier
+  //   cost_tracker_tokens_total{tier="opus",type="cache_write"}  — the iter-82 driver
+  lines.push('');
+  lines.push('# HELP cost_tracker_tokens_total Total tokens per tier and type (input/output/cache_write/cache_read)');
+  lines.push('# TYPE cost_tracker_tokens_total counter');
+  for (const [tier, perType] of Object.entries(data.byTierTokens || {})) {
+    for (const [type, count] of Object.entries(perType)) {
+      if (count > 0) {
+        lines.push(`cost_tracker_tokens_total{tier="${escLabel(tier)}",type="${escLabel(type)}"} ${count}`);
+      }
+    }
   }
   if (data.budget?.budget_usd) {
     lines.push('');

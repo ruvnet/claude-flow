@@ -31,6 +31,7 @@ Design: [ADR-115](../../v3/docs/adr/ADR-115-managed-agents-rvagent-backend.md) (
 - `wasm-agent` — create and manage sandboxed WASM agents (local)
 - `wasm-gallery` — browse and publish agents in the community gallery
 - `managed-agent` — run an Anthropic Claude Managed Agent (cloud) — create / prompt / status / events / list / terminate
+- `nested-subagents` — spawn nested sub-agent trees (depth ≤ 5) via Claude Code's native `Task` tool for context-managed deep delegation
 
 ## MCP surface (16 tools)
 

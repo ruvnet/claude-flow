@@ -15,7 +15,7 @@ tags: [plugin, market-data, ohlcv, candlestick, namespace, hnsw, smoke-test]
 
 ### Three real bugs found in skills
 
-1. `market-ingest/SKILL.md` referenced `mcp__claude-flow__embeddings_embed` — that tool name does not exist. Real tool is `embeddings_generate` (per [ruflo-knowledge-graph ADR-0001](../../ruflo-knowledge-graph/docs/adrs/0001-knowledge-graph-contract.md), same fix).
+1. `market-ingest/SKILL.md` referenced `mcp__plugin_ruflo-core_ruflo__embeddings_embed` — that tool name does not exist. Real tool is `embeddings_generate` (per [ruflo-knowledge-graph ADR-0001](../../ruflo-knowledge-graph/docs/adrs/0001-knowledge-graph-contract.md), same fix).
 2. `market-ingest/SKILL.md` used `agentdb_hierarchical-store` with `namespace: 'market-data'`. Per [ruflo-agentdb ADR-0001 §"Namespace convention"](../../ruflo-agentdb/docs/adrs/0001-agentdb-optimization.md), `agentdb_hierarchical-*` routes by **tier** (`working|episodic|semantic`), not namespace. The namespace arg was silently ignored.
 3. `market-pattern/SKILL.md` had the same hierarchical-recall + namespace bug **plus** the same pattern-store + namespace bug as ruflo-cost-tracker (`agentdb_pattern-store` with `namespace: 'market-patterns'` — ReasoningBank ignores namespace).
 

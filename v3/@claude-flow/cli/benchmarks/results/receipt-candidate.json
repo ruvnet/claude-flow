@@ -1,0 +1,12 @@
+{
+  "name": "candidate (scanSettingsForRisk)",
+  "tp": 15,
+  "fp": 0,
+  "tn": 9,
+  "fn": 0,
+  "precision": 1,
+  "recall": 1,
+  "f1": 1,
+  "falsePositiveRate": 0,
+  "misclassified": []
+}

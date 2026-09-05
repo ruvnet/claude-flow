@@ -9,9 +9,20 @@
  * @module enhanced-model-router
  */
 
-import { existsSync, readFileSync } from 'fs';
-import { extname } from 'path';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { extname, isAbsolute, resolve as resolvePath } from 'path';
 import { ClaudeModel, getModelRouter, ModelRouter, ModelRoutingResult } from './model-router.js';
+import { applyCodemod, isDeterministicCodemod, type CodemodLanguage } from './codemods/engine.js';
+
+/** Map a file path to the codemod engine's language, falling back to a hint. */
+function codemodLanguageFor(filePath: string, fallback?: string): CodemodLanguage {
+  const ext = extname(filePath).toLowerCase();
+  if (ext === '.tsx') return 'tsx';
+  if (ext === '.jsx') return 'jsx';
+  if (ext === '.ts' || ext === '.mts' || ext === '.cts') return 'typescript';
+  if (ext === '.js' || ext === '.mjs' || ext === '.cjs') return 'javascript';
+  return fallback === 'typescript' ? 'typescript' : 'javascript';
+}
 
 // ============================================================================
 // Types
@@ -44,15 +55,32 @@ export interface EditIntent {
  */
 export interface EnhancedRouteResult {
   tier: 1 | 2 | 3;
-  handler: 'agent-booster' | 'haiku' | 'sonnet' | 'opus';
+  handler: 'codemod' | 'agent-booster' | 'haiku' | 'sonnet' | 'opus';
   model?: ClaudeModel;
   confidence: number;
   complexity?: number;
   reasoning: string;
+  /** The detected edit intent (Tier 1 only). */
+  codemodIntent?: EditIntent;
+  /**
+   * Back-compat alias for {@link codemodIntent}. Older callers read this field.
+   * @deprecated use {@link codemodIntent}
+   */
   agentBoosterIntent?: EditIntent;
+  /** true when a deterministic, $0 codemod can fully apply this edit (no LLM). */
+  deterministic?: boolean;
   canSkipLLM?: boolean;
   estimatedLatencyMs: number;
   estimatedCost: number;
+  // ADR-149 — forwarded from the underlying ModelRouter when the cost-optimal
+  // neural backend contributed. `modelId` is the concrete picked model
+  // (e.g. `inclusionai/ling-2.6-flash`); `routedBy` reflects the decision
+  // mechanism ('hybrid' | 'bandit-fallback' | 'heuristic'); `provider` +
+  // `openrouterModel` are the execution-layer hint pair.
+  modelId?: string;
+  routedBy?: 'hybrid' | 'bandit-fallback' | 'heuristic';
+  provider?: 'anthropic' | 'openrouter';
+  openrouterModel?: string;
 }
 
 /**
@@ -238,7 +266,12 @@ const LANGUAGE_MAP: Record<string, string> = {
  */
 export class EnhancedModelRouter {
   private config: EnhancedModelRouterConfig;
-  private tinyDancerRouter: ModelRouter;
+  // The base text-routing path delegated to here is the local
+  // heuristic + Thompson-bandit ModelRouter — NOT the @ruvector/tiny-dancer
+  // neural router that an earlier design (ADR-026) described (#2329). The
+  // public `getStats()` return still exposes the field as `tinyDancerStats`
+  // for telemetry-schema stability.
+  private baseRouter: ModelRouter;
 
   constructor(config?: Partial<EnhancedModelRouterConfig>) {
     this.config = {
@@ -262,7 +295,7 @@ export class EnhancedModelRouter {
       ...config,
     };
 
-    this.tinyDancerRouter = getModelRouter();
+    this.baseRouter = getModelRouter();
   }
 
   /**
@@ -346,22 +379,60 @@ export class EnhancedModelRouter {
   /**
    * Route a task to the optimal tier and handler
    */
-  async route(task: string, context?: { filePath?: string }): Promise<EnhancedRouteResult> {
-    // Step 1: Try Agent Booster intent detection
+  async route(task: string, context?: { filePath?: string; embedding?: number[] }): Promise<EnhancedRouteResult> {
+    // Step 1: Deterministic codemod detection (ADR-143).
+    // Only intents that a codemod can apply *deterministically and safely* skip
+    // the LLM. Intents that need inference (add-types, add-error-handling,
+    // async-await) are detected but fall through to model routing below.
     if (this.config.agentBoosterEnabled) {
       const intent = this.detectIntent(task);
 
-      if (intent && intent.confidence >= this.config.agentBoosterConfidenceThreshold) {
-        return {
-          tier: 1,
-          handler: 'agent-booster',
-          confidence: intent.confidence,
-          reasoning: `Agent Booster can handle "${intent.type}" with ${(intent.confidence * 100).toFixed(0)}% confidence`,
-          agentBoosterIntent: intent,
-          canSkipLLM: true,
-          estimatedLatencyMs: 1,
-          estimatedCost: 0,
-        };
+      if (
+        intent &&
+        intent.confidence >= this.config.agentBoosterConfidenceThreshold &&
+        isDeterministicCodemod(intent.type)
+      ) {
+        // Route-time dry-run (ADR-143 #3): when a target file is known, only
+        // claim Tier-1 if the codemod actually changes something. This avoids
+        // recommending [CODEMOD_AVAILABLE] for no-ops (e.g. "remove console" on
+        // a file with no console calls). With no file to check, recommend Tier-1
+        // best-effort — the executor (hooks_codemod) verifies before writing.
+        // Prefer the caller-provided path (authoritative, usually absolute) over
+        // the path heuristically extracted from the task text; resolve relatives.
+        const fpRaw = context?.filePath || intent.filePath;
+        const fp = fpRaw ? (isAbsolute(fpRaw) ? fpRaw : resolvePath(process.cwd(), fpRaw)) : undefined;
+        let tier1 = true;
+        let edits: number | undefined;
+        if (fp && existsSync(fp)) {
+          try {
+            const code = readFileSync(fp, 'utf-8');
+            const res = applyCodemod(intent.type, code, { language: codemodLanguageFor(fp, intent.language) });
+            if (res.success && res.changed) {
+              edits = res.edits;
+            } else {
+              tier1 = false; // verified no-op / can't apply → fall through to model routing
+            }
+          } catch {
+            // read error → leave best-effort Tier-1 (executor will verify)
+          }
+        }
+
+        if (tier1) {
+          const editsNote = edits !== undefined ? ` (${edits} edit${edits === 1 ? '' : 's'})` : '';
+          return {
+            tier: 1,
+            handler: 'codemod',
+            confidence: intent.confidence,
+            reasoning: `Deterministic codemod can apply "${intent.type}" with ${(intent.confidence * 100).toFixed(0)}% confidence — $0, no LLM${editsNote}`,
+            codemodIntent: intent,
+            agentBoosterIntent: intent,
+            deterministic: true,
+            canSkipLLM: true,
+            estimatedLatencyMs: 1,
+            estimatedCost: 0,
+          };
+        }
+        // verified no-op: fall through to model routing below
       }
     }
 
@@ -394,14 +465,17 @@ export class EnhancedModelRouter {
       }
     }
 
-    // Step 4: Text-based complexity + tiny-dancer routing
-    const tinyDancerResult = await this.tinyDancerRouter.route(task);
+    // Step 4: Text-based complexity via the local heuristic + bandit router.
+    // ADR-149 — forward the optional embedding so the cost-optimal neural
+    // path can fire. Without it, base routing falls back to heuristic+bandit
+    // and the per-model Pareto wins from the measured seed corpus are lost.
+    const baseResult = await this.baseRouter.route(task, context?.embedding);
 
-    // Step 5: Combine AST complexity with tiny-dancer result
-    // Also boost if single tier3 keyword found
+    // Step 5: Combine AST complexity with the text-routing result.
+    // Also boost if a single tier3 keyword is found.
     let finalComplexity = astComplexity !== undefined
-      ? (astComplexity + tinyDancerResult.complexity) / 2
-      : tinyDancerResult.complexity;
+      ? (astComplexity + baseResult.complexity) / 2
+      : baseResult.complexity;
 
     // Boost complexity if tier3 keywords found (even just one)
     if (tier3Check.matches) {
@@ -411,17 +485,30 @@ export class EnhancedModelRouter {
     // Step 6: Determine tier based on complexity
     const { haiku, sonnet } = this.config.complexityThresholds;
 
+    // ADR-149 — forward the per-model fields from baseResult onto every
+    // tier-2/3 return. This keeps the cost-optimal pick alive end-to-end:
+    // if the neural backend picked Ling for a cheap task, the enhanced
+    // router surfaces `modelId: 'inclusionai/ling-2.6-flash'` alongside
+    // `model: 'haiku'` so downstream consumers can dispatch via OpenRouter.
+    const neuralFields = {
+      ...(baseResult.modelId ? { modelId: baseResult.modelId } : {}),
+      ...(baseResult.routedBy ? { routedBy: baseResult.routedBy } : {}),
+      ...(baseResult.provider ? { provider: baseResult.provider } : {}),
+      ...(baseResult.openrouterModel ? { openrouterModel: baseResult.openrouterModel } : {}),
+    };
+
     if (finalComplexity < haiku) {
       return {
         tier: 2,
         handler: 'haiku',
         model: 'haiku',
-        confidence: tinyDancerResult.confidence,
+        confidence: baseResult.confidence,
         complexity: finalComplexity,
         reasoning: `Low complexity (${(finalComplexity * 100).toFixed(0)}%) - using haiku`,
         canSkipLLM: false,
         estimatedLatencyMs: 500,
         estimatedCost: 0.0002,
+        ...neuralFields,
       };
     }
 
@@ -430,12 +517,13 @@ export class EnhancedModelRouter {
         tier: 2,
         handler: 'sonnet',
         model: 'sonnet',
-        confidence: tinyDancerResult.confidence,
+        confidence: baseResult.confidence,
         complexity: finalComplexity,
         reasoning: `Medium complexity (${(finalComplexity * 100).toFixed(0)}%) - using sonnet`,
         canSkipLLM: false,
         estimatedLatencyMs: 2000,
         estimatedCost: 0.003,
+        ...neuralFields,
       };
     }
 
@@ -443,12 +531,13 @@ export class EnhancedModelRouter {
       tier: 3,
       handler: 'opus',
       model: 'opus',
-      confidence: tinyDancerResult.confidence,
+      confidence: baseResult.confidence,
       complexity: finalComplexity,
       reasoning: `High complexity (${(finalComplexity * 100).toFixed(0)}%) - using opus`,
       canSkipLLM: false,
       estimatedLatencyMs: 5000,
       estimatedCost: 0.015,
+      ...neuralFields,
     };
   }
 
@@ -489,35 +578,39 @@ export class EnhancedModelRouter {
   }
 
   /**
-   * Execute task using the appropriate tier
-   * Returns the result and routing information
+   * Execute task using the appropriate tier.
+   *
+   * For Tier-1 deterministic intents this applies the codemod directly (writing
+   * the file back when a path is given) — $0, no LLM. Otherwise it returns the
+   * routing result and the caller invokes the recommended model.
    */
   async execute(
     task: string,
     context?: { filePath?: string; originalCode?: string }
   ): Promise<{
-    result: string | { applied: boolean; confidence: number };
+    result: string | { applied: boolean; changed: boolean; edits: number };
     routeResult: EnhancedRouteResult;
   }> {
     const routeResult = await this.route(task, context);
+    const intent = routeResult.codemodIntent ?? routeResult.agentBoosterIntent;
 
-    if (routeResult.tier === 1 && routeResult.agentBoosterIntent) {
-      // Try to execute with Agent Booster
-      const abResult = await this.tryAgentBooster(routeResult.agentBoosterIntent, context);
+    if (routeResult.tier === 1 && routeResult.deterministic && intent) {
+      const cm = this.tryCodemod(intent, context);
 
-      if (abResult.success) {
+      if (cm.success) {
         return {
-          result: { applied: true, confidence: abResult.confidence },
+          result: { applied: true, changed: cm.changed, edits: cm.edits },
           routeResult,
         };
       }
 
-      // Agent Booster failed, fall back to LLM
+      // Codemod could not apply (no file / parse issue) — fall back to a model.
       routeResult.tier = 2;
       routeResult.handler = 'sonnet';
       routeResult.model = 'sonnet';
+      routeResult.deterministic = false;
       routeResult.canSkipLLM = false;
-      routeResult.reasoning += ' (Agent Booster fallback to LLM)';
+      routeResult.reasoning += ' (codemod fallback to LLM)';
     }
 
     // Return routing result - caller handles LLM invocation
@@ -525,72 +618,32 @@ export class EnhancedModelRouter {
   }
 
   /**
-   * Try to apply edit using Agent Booster
+   * Apply a deterministic codemod to the intent's target file.
+   *
+   * This is the real Tier-1 execution path (ADR-143). It uses the in-process
+   * TypeScript-compiler codemod engine — no `agent-booster` import, no subprocess,
+   * no LLM. Writes the transformed source back to disk when it changes.
    */
-  private async tryAgentBooster(
+  private tryCodemod(
     intent: EditIntent,
     context?: { filePath?: string; originalCode?: string }
-  ): Promise<{ success: boolean; confidence: number; output?: string }> {
-    try {
-      const filePath = intent.filePath || context?.filePath;
-      if (!filePath || !existsSync(filePath)) {
-        return { success: false, confidence: 0 };
-      }
-
-      const originalCode = context?.originalCode || readFileSync(filePath, 'utf-8');
-
-      const intentToInstruction: Record<EditIntentType, string> = {
-        'var-to-const': 'Convert all var declarations to const',
-        'add-types': 'Add TypeScript type annotations',
-        'add-error-handling': 'Wrap in try/catch blocks',
-        'async-await': 'Convert to async/await',
-        'add-logging': 'Add console.log statements',
-        'remove-console': 'Remove all console.* statements',
-      };
-
-      const instruction = intentToInstruction[intent.type];
-      const language = intent.language || 'javascript';
-
-      // Try local agentic-flow agent-booster (v3 — no npx needed)
-      // Note: agent-booster export declared but dist missing in alpha.1; use intelligence path as fallback
-      const boosterModule = await import('agentic-flow/agent-booster')
-        .catch(() => import(/* @vite-ignore */ 'agentic-flow/intelligence/agent-booster-enhanced'))
-        .catch(() => null);
-      if (boosterModule?.enhancedApply) {
-        const result = await boosterModule.enhancedApply({
-          code: originalCode,
-          edit: instruction,
-          language,
-        });
-        if (result && result.confidence >= this.config.agentBoosterConfidenceThreshold) {
-          return { success: true, confidence: result.confidence, output: result.output };
-        }
-        return { success: false, confidence: result?.confidence ?? 0 };
-      }
-
-      // Fallback: shell out to npx agent-booster
-      // Sanitize language to prevent command injection (whitelist only)
-      const SAFE_LANGUAGES = ['javascript', 'typescript', 'python', 'rust', 'go', 'java', 'c', 'cpp', 'ruby', 'swift', 'kotlin'];
-      const safeLang = SAFE_LANGUAGES.includes(language) ? language : 'javascript';
-      const { execSync } = await import('child_process');
-      const cmd = `npx --yes agent-booster@0.2.2 apply --language ${safeLang}`;
-      const result = execSync(cmd, {
-        encoding: 'utf-8',
-        input: JSON.stringify({ code: originalCode, edit: instruction }),
-        maxBuffer: 10 * 1024 * 1024,
-        timeout: 5000,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-
-      const parsed = JSON.parse(result);
-      if (parsed.confidence >= this.config.agentBoosterConfidenceThreshold) {
-        return { success: true, confidence: parsed.confidence, output: parsed.output };
-      }
-      return { success: false, confidence: parsed.confidence ?? 0 };
-    } catch {
-      // Agent Booster not available or failed
-      return { success: false, confidence: 0 };
+  ): { success: boolean; changed: boolean; edits: number } {
+    const filePath = intent.filePath || context?.filePath;
+    if (!filePath || !existsSync(filePath)) {
+      return { success: false, changed: false, edits: 0 };
     }
+
+    const originalCode = context?.originalCode ?? readFileSync(filePath, 'utf-8');
+    const language = codemodLanguageFor(filePath, intent.language);
+    const result = applyCodemod(intent.type, originalCode, { language });
+
+    if (!result.success) {
+      return { success: false, changed: false, edits: 0 };
+    }
+    if (result.changed && !context?.originalCode) {
+      writeFileSync(filePath, result.output, 'utf-8');
+    }
+    return { success: true, changed: result.changed, edits: result.edits };
   }
 
   /**
@@ -602,7 +655,10 @@ export class EnhancedModelRouter {
   } {
     return {
       config: { ...this.config },
-      tinyDancerStats: this.tinyDancerRouter.getStats(),
+      // Field name kept as `tinyDancerStats` for telemetry-schema
+      // stability; the underlying router is the local heuristic + bandit
+      // ModelRouter, not @ruvector/tiny-dancer. See #2329.
+      tinyDancerStats: this.baseRouter.getStats(),
     };
   }
 }
@@ -657,18 +713,24 @@ export async function enhancedRouteToModel(
 }
 
 /**
- * Detect if a task can be handled by Agent Booster
+ * Detect if a task can be applied by a deterministic, $0 codemod (ADR-143).
+ * Only the deterministic intents qualify — others need a model.
  */
-export function canUseAgentBooster(task: string): {
+export function canUseCodemod(task: string): {
   canUse: boolean;
   intent?: EditIntent;
 } {
   const router = getEnhancedModelRouter();
   const intent = router.detectIntent(task);
 
-  if (intent && intent.confidence >= 0.7) {
+  if (intent && intent.confidence >= 0.7 && isDeterministicCodemod(intent.type)) {
     return { canUse: true, intent };
   }
 
   return { canUse: false };
 }
+
+/**
+ * @deprecated Agent Booster never performed these transforms. Use {@link canUseCodemod}.
+ */
+export const canUseAgentBooster = canUseCodemod;

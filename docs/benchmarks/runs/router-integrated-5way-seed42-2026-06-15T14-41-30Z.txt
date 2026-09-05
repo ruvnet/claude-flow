@@ -1,0 +1,29 @@
+# Router Benchmark — shipped heuristic+bandit  vs  @metaharness/router (k-NN / KRR)  vs  tiny-dancer score()
+
+- ts: 2026-06-15T18:41:11Z  node: v22.22.1  platform: darwin-arm64
+- N=400, dim=32, epochs=40, hidden=12, seed=42
+- split: train=280, test=120  label_balance(test): cheap=56, strong=64
+- @metaharness/router: native_available=true  native_version=2.2.3  auto_backend=native
+
+| System | Accuracy | Cost-adj reward | Latency mean | p50 | p95 |
+|---|---|---|---|---|---|
+| trivial: always cheap | 46.7% | — | 0ms | — | — |
+| trivial: always strong | 53.3% | — | 0ms | — | — |
+| **heuristic+thompson-bandit (shipped, cold)** | **55.0%** | 11.47 | 0.228ms | 0.065ms | 0.796ms |
+| **INTEGRATED ruflo path (CLAUDE_FLOW_ROUTER_NEURAL=1)** | **100.0%** | 60.27 | 0.133ms | 0.113ms | 0.259ms |
+| **@metaharness/router 0.3.2 k-NN (pure TS, no training)** | **100.0%** | 60.27 | 0.132ms | 0.114ms | 0.186ms |
+| **@metaharness/router 0.3.2 KRR (pure TS, LOO-tuned)** | **100.0%** | 60.27 | 0.020ms | 0.019ms | 0.023ms |
+| **tiny-dancer fastgrnn score() (0.1.22)** | **100.0%** | 63.11 | 0.037ms | 0.036ms | 0.045ms |
+
+Agreements (binary cheap/strong, fraction of test set):
+  baseline_vs_tinydancer: 55.0%
+  baseline_vs_mh_knn: 55.0%
+  baseline_vs_mh_krr: 55.0%
+  mh_knn_vs_tinydancer: 100.0%
+
+Training/build cost:
+  @metaharness/router k-NN: build 0.08ms (no model file; uses raw examples in-memory)
+  @metaharness/router KRR:  train 94151.8ms, λ=1.00e-2, looQuality=0.9259, JSON artifact 418290B
+  tiny-dancer FastGRNN:     train 25.1ms, val_acc=1.000, safetensors 6164B
+
+===BENCH_JSON===

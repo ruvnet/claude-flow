@@ -225,6 +225,112 @@ describe('CommandParser', () => {
       const result = p.parse([]);
       expect(result.flags.myFlag).toBe('default-value');
     });
+
+    // #2775 regression: applyDefaults previously only walked globalOptions,
+    // so command-level and subcommand-level `default:` values silently
+    // dropped and the action handler saw them as `undefined`. The immediate
+    // victim was `memory store --upsert` — every subcommand with a per-flag
+    // default was affected.
+    it('applies command-level option defaults (#2775 regression)', () => {
+      const cmd: Command = {
+        name: 'cmd',
+        description: 'Test',
+        options: [
+          { name: 'upsert', type: 'boolean', description: 'Upsert', default: true },
+        ],
+      };
+      const p = new CommandParser({ allowUnknownFlags: true });
+      p.registerCommand(cmd);
+      const result = p.parse(['cmd']);
+      expect(result.flags.upsert).toBe(true);
+    });
+
+    it('applies subcommand-level option defaults (#2775 regression)', () => {
+      const cmd: Command = {
+        name: 'memory',
+        description: 'Memory command',
+        subcommands: [
+          {
+            name: 'store',
+            description: 'Store',
+            options: [
+              { name: 'upsert', type: 'boolean', description: 'Upsert', default: true },
+            ],
+          },
+        ],
+      };
+      const p = new CommandParser({ allowUnknownFlags: true });
+      p.registerCommand(cmd);
+      const result = p.parse(['memory', 'store']);
+      expect(result.flags.upsert).toBe(true);
+    });
+
+    it('does not overwrite explicit subcommand flags with the default', () => {
+      const cmd: Command = {
+        name: 'memory',
+        description: 'Memory command',
+        subcommands: [
+          {
+            name: 'store',
+            description: 'Store',
+            options: [
+              { name: 'upsert', type: 'boolean', description: 'Upsert', default: true },
+            ],
+          },
+        ],
+      };
+      const p = new CommandParser({ allowUnknownFlags: true });
+      p.registerCommand(cmd);
+      // --no-upsert should defeat the default:true
+      const result = p.parse(['memory', 'store', '--no-upsert']);
+      expect(result.flags.upsert).toBe(false);
+    });
+
+    // #2778 follow-up: getScopedBooleanFlags previously walked EVERY
+    // registered command's options and marked any boolean-typed flag as
+    // boolean everywhere. That broke a numeric --parallel on `hooks route`
+    // because `swarm start --parallel` (boolean) polluted the global set.
+    // Narrowest-scope wins: subcommand's non-boolean declaration overrides.
+    it('subcommand non-boolean flag overrides a boolean declaration on another command', () => {
+      const swarmCmd: Command = {
+        name: 'swarm',
+        description: 'Swarm',
+        subcommands: [
+          {
+            name: 'start',
+            description: 'Start swarm',
+            options: [
+              { name: 'parallel', type: 'boolean', description: 'Enable parallel execution' },
+            ],
+          },
+        ],
+      };
+      const hooksCmd: Command = {
+        name: 'hooks',
+        description: 'Hooks',
+        subcommands: [
+          {
+            name: 'route',
+            description: 'Route',
+            options: [
+              { name: 'parallel', type: 'number', description: 'Fanout width' },
+            ],
+          },
+        ],
+      };
+      const p = new CommandParser({ allowUnknownFlags: true });
+      p.registerCommand(swarmCmd);
+      p.registerCommand(hooksCmd);
+
+      // On hooks route, `--parallel 7` must reach as the NUMBER 7 — not the
+      // boolean `true` that the polluted global set would have produced.
+      const result = p.parse(['hooks', 'route', '--parallel', '7']);
+      expect(result.flags.parallel).toBe(7);
+
+      // And on swarm start, `--parallel` still parses as boolean.
+      const swarmResult = p.parse(['swarm', 'start', '--parallel']);
+      expect(swarmResult.flags.parallel).toBe(true);
+    });
   });
 
   // -------------------------------------------------------------------------

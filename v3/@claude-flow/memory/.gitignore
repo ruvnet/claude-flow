@@ -1,0 +1,30 @@
+# ADR-125 Phase 7 — package-local gitignore.
+#
+# `*.db` / `*.rvf` / `*.redb` are already ignored at the repo root, but
+# we re-state them here so the package is self-contained and contributors
+# editing inside the package directory get the same behaviour.
+
+# Test pollution from agentdb / @ruvector/rvf — these files are written
+# to the package root at runtime and must not be committed.
+ruvector.db
+*.db
+*.db-journal
+*.db-wal
+*.rvf
+*.rvf.lock
+*.redb
+
+# Build output (mirrors root .gitignore)
+dist/
+tsconfig.tsbuildinfo
+
+# Test artifacts
+test-*.db
+test-*.rvf
+test-*.json
+tests/.tmp/
+benchmarks/longmemeval/results/*.json
+benchmarks/longmemeval/results/*.md
+
+# Node modules (defensive — should never appear here in a workspace)
+node_modules/

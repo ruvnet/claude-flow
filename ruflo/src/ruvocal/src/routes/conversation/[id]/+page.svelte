@@ -249,6 +249,7 @@
 			// Initialize lastUpdateTime outside the loop to persist between updates
 			let lastUpdateTime = new Date();
 			let frameFlushScheduled = false;
+			let frameFlushTimeout: ReturnType<typeof setTimeout> | undefined;
 
 			const flushBuffer = (currentTime: Date) => {
 				if (buffer.length === 0) return;
@@ -261,14 +262,20 @@
 				if (frameFlushScheduled) return;
 				frameFlushScheduled = true;
 				const flush = () => {
+					if (!frameFlushScheduled) return;
 					frameFlushScheduled = false;
+					if (frameFlushTimeout !== undefined) {
+						clearTimeout(frameFlushTimeout);
+						frameFlushTimeout = undefined;
+					}
 					flushBuffer(new Date());
 				};
 				if (typeof requestAnimationFrame === "function") {
 					requestAnimationFrame(flush);
-				} else {
-					setTimeout(flush, 0);
 				}
+				// requestAnimationFrame is suspended in background tabs. Keep a
+				// bounded fallback so buffered tokens still reach the DOM there.
+				frameFlushTimeout = setTimeout(flush, 300);
 			};
 
 			for await (const update of messageUpdatesIterator) {

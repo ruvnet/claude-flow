@@ -4,9 +4,14 @@
 // the smoke gate misses (gate is binary; trend is a curve).
 //
 // Usage:
-//   node scripts/trend.mjs                     # markdown summary
+//   node scripts/trend.mjs                     # markdown summary (booster series)
 //   TREND_FORMAT=json node scripts/trend.mjs   # machine-readable JSON
 //   TREND_LIMIT=10 node scripts/trend.mjs      # consider only the most recent N runs
+//   BENCH_NAME=codemod-tier1 node scripts/trend.mjs  # a specific benchmark series
+//
+// Runs are tagged via summary.benchmark. With no BENCH_NAME, only legacy booster
+// runs (untagged or benchmark==="booster") are shown, so other benchmarks
+// (e.g. codemod-tier1) never conflate the booster drift curve.
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -17,19 +22,27 @@ const PLUGIN_ROOT = resolve(HERE, '..');
 const RUNS_DIR = join(PLUGIN_ROOT, 'docs', 'benchmarks', 'runs');
 
 function loadRuns() {
+  const benchName = process.env.BENCH_NAME;
   const files = readdirSync(RUNS_DIR)
-    .filter((f) => f.endsWith('.json') && f !== 'latest.json')
+    .filter((f) => f.endsWith('.json') && !f.endsWith('latest.json'))
     .map((f) => ({ f, mtime: statSync(join(RUNS_DIR, f)).mtimeMs }))
     .sort((a, b) => a.mtime - b.mtime);
   const limit = parseInt(process.env.TREND_LIMIT || '50', 10);
-  return files.slice(-limit).map(({ f }) => {
+  return files.map(({ f }) => {
     try {
       const json = JSON.parse(readFileSync(join(RUNS_DIR, f), 'utf-8'));
       return { file: f, summary: json.summary || {} };
     } catch {
       return null;
     }
-  }).filter(Boolean);
+  }).filter(Boolean)
+    // Keep one benchmark series: BENCH_NAME if set, else legacy booster runs
+    // (untagged or benchmark==="booster"). Prevents cross-benchmark conflation.
+    .filter((r) => {
+      const b = r.summary.benchmark;
+      return benchName ? b === benchName : (b === undefined || b === 'booster');
+    })
+    .slice(-limit);
 }
 
 function pct(n) { return `${(n * 100).toFixed(1)}%`; }

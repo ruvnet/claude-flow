@@ -60,6 +60,42 @@ This project uses hierarchical swarm coordination for complex tasks:
 - Documentation updates
 - Configuration changes
 
+### Policy-Governed Concurrent Execution
+
+- Ruflo coordinates and records policy decisions; Codex workers execute.
+- Use `guidance_brain` for live capability routing; registration is distinct
+  from configuration, reachability, health, and authorization.
+- Follow the complete loop: recall, inspect, route, plan, execute, test,
+  validate, benchmark, optimize, receipt, handoff, then authorized publish.
+- Search AgentDB before planning and store only validated patterns after success.
+- Use bounded fanout only for independent tasks.
+- Every writing worker gets a unique git worktree and a reduced capability
+  envelope. Never place two writers in one worktree.
+- Read-only researchers may share a checkout.
+- One integration agent owns shared manifests/lockfiles, consumes committed
+  handoffs in dependency order, and runs scoped then full tests.
+- Cancel dependent and not-yet-started sibling work on policy denial or dependency failure.
+- MetaHarness can benchmark candidates concurrently but cannot authorize its
+  own promotion or expand network, provider, spend, secret, or concurrency
+  scope.
+- Do not auto-commit, push, merge, release, or delete worktrees without user
+  authorization.
+- Existing projects start in ADR-324 `legacy` mode, may rehearse in `observe`,
+  and opt into `enforce` after reviewing receipts.
+- When tracked repository instructions define a local harness, assign the
+  isolated worktree first, then register a session, inspect claims, acquire
+  exact paths/resources/ports, renew leases, check acknowledged inbox messages, and
+  release ownership on handoff or exit.
+- A repository lease coordinates ownership; it does not grant authorization.
+  Protected work still requires the ADR-324/325 capability and current fencing
+  epoch.
+- In-memory reference adapters are not distributed, restart-durable release
+  authorities.
+- Heartbeats and lease expiry establish liveness; PIDs are diagnostic only.
+- `HEAD` alone is not an exact source-state identity in a dirty worktree.
+  Release receipts bind a clean commit or an immutable snapshot of tracked and
+  untracked changes.
+
 ### Available Skills
 
 Use `$skill-name` syntax to invoke:
@@ -103,7 +139,7 @@ Use `$skill-name` syntax to invoke:
 
 [optional body]
 
-Co-Authored-By: claude-flow <ruv@ruv.net>
+Co-Authored-By: ruflo-bot <ruflo-bot@users.noreply.github.com>
 ```
 
 Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`

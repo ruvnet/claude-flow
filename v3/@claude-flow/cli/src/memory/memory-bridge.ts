@@ -26,6 +26,53 @@ import { createRequire } from 'node:module';
 let registryPromise: Promise<any> | null = null;
 let registryInstance: any = null;
 let bridgeAvailable: boolean | null = null;
+// #2652/#2120: rows created before the status column existed receive NULL
+// during migration. They are live rows, not tombstones. Every user-facing
+// read/delete path must agree with list() about their visibility.
+const ACTIVE_MEMORY_ROW_SQL = `(status = 'active' OR status IS NULL)`;
+/**
+ * Why the bridge is unavailable, when it is.
+ *
+ * `bridgeAvailable = false` latches for the life of the process, so a single
+ * transient init failure (a slow Xenova/ONNX fetch, a locked db) routes every
+ * later write to the sql.js whole-image fallback — which then refuses whenever
+ * -wal/-shm sidecars are present. Without this, that refusal is the only
+ * symptom the caller ever sees, and it names a cause ("restore the native
+ * better-sqlite3 bridge") the caller has no way to check.
+ */
+let bridgeFailureReason: string | null = null;
+
+/**
+ * #3024: AgentDB's optional native controller stack can abort the whole Node
+ * process on Windows during registry initialization (a Rust allocation panic),
+ * which cannot be caught by JavaScript. Keep the CLI/MCP server on the
+ * sql.js + local-embedding path there until the native dependency is proven
+ * safe. Advanced users and CI can opt back in explicitly for diagnosis.
+ */
+export function shouldDisableNativeBridge(
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (env.CLAUDE_FLOW_DISABLE_BRIDGE === '1') return true;
+  return platform === 'win32' && env.CLAUDE_FLOW_ENABLE_NATIVE_BRIDGE_ON_WINDOWS !== '1';
+}
+
+/**
+ * ADR-323: reuse memory-initializer's provenance-type allowlist rather than
+ * duplicating it (drift risk). Lazy CJS require for the same circular-ESM-
+ * dependency reason as getDbPath() below.
+ */
+function isValidProvenanceType(value: unknown): boolean {
+  try {
+    const cjsRequire = createRequire(import.meta.url);
+    const mod = cjsRequire('./memory-initializer.js') as { isValidProvenanceType?: (v: unknown) => boolean };
+    if (typeof mod.isValidProvenanceType === 'function') {
+      return mod.isValidProvenanceType(value);
+    }
+  } catch { /* memory-initializer not resolvable in this build */ }
+  // Fallback allowlist — keep in sync with memory-initializer.ts's PROVENANCE_TYPES.
+  return typeof value === 'string' && ['user_claim', 'agent_output', 'system_observation', 'tool_result', 'unknown'].includes(value);
+}
 
 /**
  * Resolve database path with path traversal protection.
@@ -68,10 +115,57 @@ function getDbPath(customPath?: string): string {
 }
 
 /**
+ * Resolve AgentDB's native better-sqlite3 database path (#2786).
+ *
+ * AgentDB is opened by ControllerRegistry via native better-sqlite3, which
+ * requires a plaintext SQLite file. The sibling `memory.db` file written by
+ * `memory-initializer.ts` (`writeFileRestricted(..., {encrypt: true})`) is
+ * encrypted-at-rest when `CLAUDE_FLOW_ENCRYPT_AT_REST=1` — pointing native
+ * better-sqlite3 at it fails with "file is not a database" and silently
+ * disables `learningSystem`/`reasoningBank`.
+ *
+ * Give AgentDB a distinct filename in the same directory so both writers
+ * coexist: sql.js keeps `memory.db` (possibly encrypted); AgentDB owns
+ * `agentdb-memory.db`. Preserves the traversal protection in `getDbPath()`
+ * because we derive from its already-validated return value.
+ */
+function getAgentDbPath(): string {
+  const dbPath = getDbPath();
+  if (dbPath === ':memory:') return ':memory:';
+  return path.join(path.dirname(dbPath), 'agentdb-memory.db');
+}
+
+/**
  * Generate a secure random ID for memory entries.
  */
 function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
+}
+
+/** Noisy init banners that carry no operational signal. */
+const INIT_LOG_NOISE = [
+  'Transformers.js',
+  'better-sqlite3',
+  '[AgentDB]',
+  '[HNSWLibBackend]',
+  'RuVector graph',
+];
+
+/**
+ * Should this init-time log line be swallowed?
+ *
+ * A DEGRADATION notice never is. AgentDB logs "[AgentDB] better-sqlite3 not
+ * available, using sql.js WASM" when it falls back to WASM, and both the
+ * '[AgentDB]' and 'better-sqlite3' entries above match it — so the one line
+ * explaining why the native driver was not in use was being discarded as
+ * noise. Suppress the banners, keep the bad news.
+ */
+export function shouldSuppressInitLog(msg: string): boolean {
+  const degradation = msg.includes('not available')
+    || msg.includes('falling back')
+    || msg.includes('fallback');
+  if (degradation) return false;
+  return INIT_LOG_NOISE.some((needle) => msg.includes(needle));
 }
 
 /**
@@ -79,6 +173,12 @@ function generateId(prefix: string): string {
  * Returns null if @claude-flow/memory is not available.
  */
 async function getRegistry(dbPath?: string): Promise<any | null> {
+  if (shouldDisableNativeBridge()) {
+    bridgeFailureReason = process.platform === 'win32'
+      ? 'AgentDB native bridge disabled on Windows after #3024; set CLAUDE_FLOW_ENABLE_NATIVE_BRIDGE_ON_WINDOWS=1 to opt in'
+      : 'AgentDB native bridge disabled by CLAUDE_FLOW_DISABLE_BRIDGE=1';
+    return null;
+  }
   if (bridgeAvailable === false) return null;
 
   if (registryInstance) return registryInstance;
@@ -89,21 +189,19 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
         const { ControllerRegistry } = await import('@claude-flow/memory');
         const registry = new ControllerRegistry();
 
-        // Suppress noisy console.log during init
+        // Suppress noisy console.log during init — but never suppress a
+        // DEGRADATION notice (see shouldSuppressInitLog).
         const origLog = console.log;
         console.log = (...args: unknown[]) => {
           const msg = String(args[0] ?? '');
-          if (msg.includes('Transformers.js') ||
-              msg.includes('better-sqlite3') ||
-              msg.includes('[AgentDB]') ||
-              msg.includes('[HNSWLibBackend]') ||
-              msg.includes('RuVector graph')) return;
+          if (shouldSuppressInitLog(msg)) return;
           origLog.apply(console, args);
         };
 
         try {
           await (registry as any).initialize({
-            dbPath: dbPath || getDbPath(),
+            // #2786: use agentdb-memory.db (plaintext) so native better-sqlite3 doesn't hit the encrypted memory.db.
+            dbPath: dbPath || getAgentDbPath(),
             embeddingModel: 'Xenova/all-MiniLM-L6-v2',
             dimension: 384,
             vectorBackend: 'auto',
@@ -324,8 +422,13 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
 
         registryInstance = registry;
         bridgeAvailable = true;
+        bridgeFailureReason = null;
         return registry;
-      } catch {
+      } catch (err) {
+        // Record WHY. This latches for the process lifetime (see the
+        // bridgeFailureReason doc comment), so discarding the error here
+        // makes the resulting sql.js-fallback refusal undiagnosable.
+        bridgeFailureReason = err instanceof Error ? err.message : String(err);
         bridgeAvailable = false;
         registryPromise = null;
         return null;
@@ -345,15 +448,14 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
  */
 function bm25Score(
   queryTerms: string[],
-  docContent: string,
+  docWords: string[],
+  docLength: number,
   avgDocLength: number,
   docCount: number,
   termDocFreqs: Map<string, number>,
 ): number {
   const k1 = 1.2;
   const b = 0.75;
-  const docWords = docContent.toLowerCase().split(/\s+/);
-  const docLength = docWords.length;
 
   let score = 0;
   for (const term of queryTerms) {
@@ -370,28 +472,40 @@ function bm25Score(
 }
 
 /**
- * Compute BM25 term document frequencies for a set of rows.
+ * Tokenize a corpus once per query. Each row is lowercased + split a single
+ * time; the resulting `{ contentLower, words }` feed BM25 term-frequency,
+ * per-doc BM25 scoring, and the #2558 coverage floor — which previously each
+ * re-lowercased+re-split the same content (3× string scans per row).
+ * Bit-identical to the prior split-per-consumer path.
+ */
+interface TokenizedDoc { contentLower: string; words: string[] }
+function tokenizeCorpus(rows: Array<{ content: string }>): TokenizedDoc[] {
+  return rows.map(row => {
+    const contentLower = (row.content || '').toLowerCase();
+    return { contentLower, words: contentLower.split(/\s+/) };
+  });
+}
+
+/**
+ * Compute BM25 term document frequencies over an already-tokenized corpus.
  */
 function computeTermDocFreqs(
   queryTerms: string[],
-  rows: Array<{ content: string }>,
+  docs: TokenizedDoc[],
 ): { termDocFreqs: Map<string, number>; avgDocLength: number } {
   const termDocFreqs = new Map<string, number>();
   let totalLength = 0;
 
-  for (const row of rows) {
-    const content = (row.content || '').toLowerCase();
-    const words = content.split(/\s+/);
-    totalLength += words.length;
-
+  for (const doc of docs) {
+    totalLength += doc.words.length;
     for (const term of queryTerms) {
-      if (content.includes(term)) {
+      if (doc.contentLower.includes(term)) {
         termDocFreqs.set(term, (termDocFreqs.get(term) || 0) + 1);
       }
     }
   }
 
-  return { termDocFreqs, avgDocLength: rows.length > 0 ? totalLength / rows.length : 1 };
+  return { termDocFreqs, avgDocLength: docs.length > 0 ? totalLength / docs.length : 1 };
 }
 
 // ===== Phase 2: TieredCache helpers =====
@@ -488,17 +602,22 @@ async function logAttestation(
   }
 }
 
+// Tracks db handles whose schema DDL has already been ensured, so getDb()
+// runs the CREATE…IF NOT EXISTS block at most once per handle instead of on
+// every bridge call. WeakSet so handles GC without leaking.
+const _schemaEnsuredDbs = new WeakSet<object>();
+
 /**
- * Get the AgentDB database handle and ensure memory_entries table exists.
- * Returns null if not available.
+ * Create/migrate the bridge's `memory_entries` table on `db`.
+ *
+ * Returns true when the schema is known-good, false when the database was not
+ * writable (caller then leaves it un-ensured so a later writable call retries).
+ *
+ * Exported so the ADR-323 column migration can be tested directly: the bug it
+ * fixes was invisible end-to-end, because the resulting error was swallowed and
+ * reported as an unrelated WAL-sidecar refusal.
  */
-function getDb(registry: any): any | null {
-  const agentdb = registry.getAgentDB();
-  if (!agentdb?.database) return null;
-
-  const db = agentdb.database;
-
-  // Ensure memory_entries table exists (idempotent)
+export function ensureBridgeSchema(db: { exec: (sql: string) => unknown }): boolean {
   try {
     db.exec(`CREATE TABLE IF NOT EXISTS memory_entries (
       id TEXT PRIMARY KEY,
@@ -518,17 +637,148 @@ function getDb(registry: any): any | null {
       last_accessed_at INTEGER,
       access_count INTEGER DEFAULT 0,
       status TEXT DEFAULT 'active',
+      provenance_type TEXT DEFAULT 'unknown',
       UNIQUE(namespace, key)
     )`);
-    // Ensure indexes
+    // ADR-323 added provenance_type to bridgeStoreEntry's INSERT, and
+    // ensureSchemaColumns() backfills it on the sql.js path — the bridge path
+    // had no equivalent. `CREATE TABLE IF NOT EXISTS` is a no-op on a table
+    // created before ADR-323, so on any pre-existing database every bridge
+    // write threw "table memory_entries has no column named provenance_type",
+    // was swallowed by the catch at the end of bridgeStoreEntry(), and demoted
+    // the caller to the sql.js whole-image path — which then refused with a
+    // WAL-sidecar error naming an unrelated cause. Silent, total write loss.
+    try {
+      db.exec(`ALTER TABLE memory_entries ADD COLUMN provenance_type TEXT DEFAULT 'unknown'`);
+    } catch (err) {
+      // Already present is the common case. SQLite has no ADD COLUMN IF NOT
+      // EXISTS, so attempt-and-ignore only that exact condition. Treating a
+      // read-only, locked, or corrupt database as migrated would cache a
+      // schema that bridgeStoreEntry() still cannot use.
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!/duplicate column name:\s*provenance_type/i.test(msg)) {
+        throw err;
+      }
+    }
     db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_ns ON memory_entries(namespace)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_key ON memory_entries(key)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_status ON memory_entries(status)`);
+    return true;
   } catch {
-    // Table already exists or db is read-only — that's fine
+    // Read-only database — leave it un-ensured so a writable call can retry.
+    return false;
+  }
+}
+
+
+/**
+ * Get the AgentDB database handle and ensure memory_entries table exists.
+ * Returns null if not available.
+ */
+function getDb(registry: any): any | null {
+  const agentdb = registry.getAgentDB();
+  if (!agentdb?.database) return null;
+
+  const db = agentdb.database;
+
+  // Ensure memory_entries table exists (idempotent). The DDL is run at most
+  // once per db handle — re-parsing 4× CREATE…IF NOT EXISTS on every bridge
+  // call (store/search/get) was pure per-op overhead. Keyed by handle via a
+  // WeakSet so a new db instance re-ensures without a stale global flag.
+  if (!_schemaEnsuredDbs.has(db)) {
+    if (ensureBridgeSchema(db)) _schemaEnsuredDbs.add(db);
   }
 
+  // ─── #2256-followup: rescue agentdb.embedder when its transformers.js
+  // path fell through to mock embeddings.
+  //
+  // What was happening: agentdb's `EmbeddingService.initialize()` always
+  // tries `@xenova/transformers` first, which transitively requires `sharp`
+  // → `libvips`. On macOS arm64 systems without `brew install vips`, sharp
+  // fails to load and agentdb silently falls back to MOCK EMBEDDINGS
+  // (random vectors). The bridge then calls `agentdb.embedder.embed(...)`
+  // and gets garbage; semantic search returns no useful matches.
+  //
+  // In our process, `memory-initializer.ts::loadEmbeddingModel()` already
+  // tried this same chain and ALSO has a working ruvector-ONNX fallback
+  // that the user typically reaches before the bridge initialises. The
+  // ruvector ONNX model has been loaded; the agentdb instance just doesn't
+  // know about it. We monkey-patch `embed`/`embedBatch` to delegate to our
+  // `generateEmbedding()` so the bridge gets real vectors.
+  //
+  // Detection signal: `embedder.pipeline === null` after init means
+  // transformers failed and agentdb would otherwise use mockEmbedding().
+  // Patch is idempotent (`__ruvectorRescued` sentinel) and a no-op if
+  // ruvector is also unavailable.
+  rescueAgentdbEmbedder(agentdb).catch(() => { /* non-fatal */ });
+
   return { db, agentdb };
+}
+
+// One-shot guard so we only patch once per process — the embedder is shared
+// by ReflexionMemory/SkillLibrary/CausalRecall and they all see the same
+// object reference.
+let _embedderPatched = false;
+async function rescueAgentdbEmbedder(agentdb: { embedder?: { pipeline?: unknown; embed?: (t: string) => Promise<Float32Array>; embedBatch?: (ts: string[]) => Promise<Float32Array[]>; __ruvectorRescued?: boolean } }): Promise<void> {
+  if (_embedderPatched) return;
+  const emb = agentdb?.embedder;
+  if (!emb || emb.__ruvectorRescued) return;
+
+  // Only rescue when transformers.js initialisation failed: that's
+  // signalled by a null pipeline. If transformers IS working, agentdb's
+  // own embed() does the right thing and we should not interpose.
+  if (emb.pipeline) return;
+
+  // #2312: delegate to generateLOCALEmbedding, NOT generateEmbedding.
+  // generateEmbedding is bridge-first — routing the rescued embed through it
+  // closes a cycle (generateEmbedding → bridgeGenerateEmbedding →
+  // embedder.embed [patched] → generateEmbedding → …) that allocated
+  // unboundedly via microtasks until V8 hit the heap limit (~4 GB on the CI
+  // runner, SIGABRT 134). The local chain never consults the bridge, so the
+  // rescued embedder is a leaf. If the running memory-initializer build
+  // predates generateLocalEmbedding, decline the rescue entirely — a stale
+  // pairing must fail safe, not recurse.
+  type EmbedFn = (text: string) => Promise<{ embedding: number[] | Float32Array; dimensions: number; model: string; backend?: 'onnx' | 'mock' }>;
+  let localEmbed: EmbedFn | null = null;
+  try {
+    const mod = (await import('./memory-initializer.js')) as unknown as { generateLocalEmbedding?: EmbedFn };
+    localEmbed = mod.generateLocalEmbedding ?? null;
+  } catch {
+    return; // can't import the rescuer — leave the mock fallback alone
+  }
+  if (!localEmbed) return;
+  const embed: EmbedFn = localEmbed;
+
+  // Probe once to confirm the rescuer actually returns REAL ONNX vectors
+  // (#2312: the old probe only checked non-zero, which the deterministic
+  // hash fallback also satisfies — so it "rescued" agentdb's mock with our
+  // own mock and reported it as real). Require backend === 'onnx'.
+  try {
+    const probe = await embed('rescue-probe');
+    const arr = probe?.embedding ? Array.from(probe.embedding as ArrayLike<number>) : [];
+    const hasSignal = arr.length > 0 && arr.some((v: number) => Math.abs(v) > 1e-9);
+    if (!hasSignal || probe.backend !== 'onnx') {
+      // Local chain is also degraded — leave agentdb's embedder alone, but
+      // tag it so bridgeGenerateEmbedding's AUDIT-#3 isMock check reports
+      // backend='mock' truthfully instead of labeling mock vectors 'onnx'.
+      try { (emb as { backend?: string }).backend = 'mock'; } catch { /* frozen */ }
+      return;
+    }
+  } catch {
+    return;
+  }
+
+  const newEmbed = async (text: string): Promise<Float32Array> => {
+    const out = await embed(text);
+    return out.embedding instanceof Float32Array
+      ? out.embedding
+      : new Float32Array((out.embedding as number[]) ?? []);
+  };
+  emb.embed = newEmbed;
+  emb.embedBatch = async (texts: string[]): Promise<Float32Array[]> =>
+    Promise.all(texts.map(t => newEmbed(t)));
+  emb.__ruvectorRescued = true;
+  _embedderPatched = true;
 }
 
 // ===== Bridge functions — match memory-initializer.ts signatures =====
@@ -547,6 +797,8 @@ export async function bridgeStoreEntry(options: {
   ttl?: number;
   dbPath?: string;
   upsert?: boolean;
+  /** ADR-323: defaults to 'unknown' when omitted. */
+  provenanceType?: string;
 }): Promise<{
   success: boolean;
   id: string;
@@ -556,7 +808,25 @@ export async function bridgeStoreEntry(options: {
   cached?: boolean;
   attested?: boolean;
   error?: string;
+  /** #2968: set when the post-write checkpoint failed in a way that
+   *  indicates this connection may not durably persist writes at all
+   *  (the sql.js fallback driver, engaged when better-sqlite3's native
+   *  binding is missing). The write above still ran and `success` is
+   *  still true — this is advisory, not a failure — but callers should
+   *  surface it instead of only printing an unconditional success message. */
+  persistWarning?: string;
 } | null> {
+  // ADR-323 — validated once in storeEntry() before this is reached on that
+  // path, but bridgeStoreEntry() also has direct internal callers, so check
+  // again here rather than trust every call site.
+  if (options.provenanceType !== undefined && !isValidProvenanceType(options.provenanceType)) {
+    return {
+      success: false,
+      id: '',
+      error: `Invalid provenance type "${options.provenanceType}"`,
+    };
+  }
+
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -565,8 +835,27 @@ export async function bridgeStoreEntry(options: {
 
   try {
     const { key, value, namespace = 'default', tags = [], ttl } = options;
+    let provenanceType = options.provenanceType ?? 'unknown';
+    // An omitted type on an upsert means "update the value", not "erase the
+    // existing trust label". New rows still receive the backward-compatible
+    // unknown default.
+    if (options.upsert && options.provenanceType === undefined) {
+      try {
+        const existing = ctx.db.prepare(
+          'SELECT provenance_type FROM memory_entries WHERE namespace = ? AND key = ? LIMIT 1'
+        ).get(namespace, key);
+        provenanceType = existing?.provenance_type || 'unknown';
+      } catch { /* legacy schema or new row — keep unknown */ }
+    }
     const id = generateId('entry');
     const now = Date.now();
+
+    // #2245 — record the activity so signalsProcessed stops being a dead
+    // zero. Fire-and-forget; never blocks the write path.
+    try {
+      const intel = await import('./intelligence.js');
+      intel.recordSignalProcessed();
+    } catch { /* intelligence module not yet initialised */ }
 
     // Phase 5: MutationGuard validation before write
     const guardResult = await guardValidate(registry, 'store', { key, namespace, size: value.length });
@@ -576,6 +865,7 @@ export async function bridgeStoreEntry(options: {
 
     // Generate embedding via AgentDB's embedder
     let embeddingJson: string | null = null;
+    let embeddingArr: number[] | null = null;
     let dimensions = 0;
     let model = 'local';
 
@@ -585,7 +875,8 @@ export async function bridgeStoreEntry(options: {
         if (embedder) {
           const emb = await embedder.embed(value);
           if (emb) {
-            embeddingJson = JSON.stringify(Array.from(emb));
+            embeddingArr = Array.from(emb) as number[];
+            embeddingJson = JSON.stringify(embeddingArr);
             dimensions = emb.length;
             model = 'Xenova/all-MiniLM-L6-v2';
           }
@@ -595,18 +886,48 @@ export async function bridgeStoreEntry(options: {
       }
     }
 
-    // better-sqlite3 uses synchronous .run() with positional params
+    // #2775: strict-insert path now auto-resurrects soft-deleted tombstones
+    // via ON CONFLICT DO UPDATE ... WHERE status='deleted'. Rationale:
+    // `bridgeDeleteEntry` performs a soft delete (status='deleted'), so the
+    // `UNIQUE(namespace, key)` slot stays occupied — before this fix, a
+    // natural `delete → store` sequence hit UNIQUE, the catch below returned
+    // `null`, `storeEntry` fell back to the sql.js whole-image path, and the
+    // #2735 -wal/-shm sidecar guard refused with a message about a "native
+    // WAL connection" that had nothing to do with the actual failure.
+    //
+    // Semantics under the new strict-insert SQL:
+    //   • no existing row               → INSERT succeeds, changes = 1
+    //   • existing row, status='deleted' → resurrected in-place, changes = 1
+    //   • existing row, status='active'  → ON CONFLICT WHERE=false suppresses
+    //                                       the update, changes = 0 (checked
+    //                                       below → typed "already exists"
+    //                                       error, NEVER a null demotion).
+    // Upsert path (INSERT OR REPLACE) is unchanged.
     const insertSql = options.upsert
       ? `INSERT OR REPLACE INTO memory_entries (
           id, key, namespace, content, type,
           embedding, embedding_dimensions, embedding_model,
-          tags, metadata, created_at, updated_at, expires_at, status
-        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')`
+          tags, metadata, provenance_type, created_at, updated_at, expires_at, status
+        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`
       : `INSERT INTO memory_entries (
           id, key, namespace, content, type,
           embedding, embedding_dimensions, embedding_model,
-          tags, metadata, created_at, updated_at, expires_at, status
-        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')`;
+          tags, metadata, provenance_type, created_at, updated_at, expires_at, status
+        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+        ON CONFLICT(namespace, key) DO UPDATE SET
+          id                    = excluded.id,
+          content               = excluded.content,
+          embedding             = excluded.embedding,
+          embedding_dimensions  = excluded.embedding_dimensions,
+          embedding_model       = excluded.embedding_model,
+          tags                  = excluded.tags,
+          metadata              = excluded.metadata,
+          provenance_type       = excluded.provenance_type,
+          created_at            = excluded.created_at,
+          updated_at            = excluded.updated_at,
+          expires_at            = excluded.expires_at,
+          status                = 'active'
+        WHERE memory_entries.status = 'deleted'`;
 
     // #1941: provision a `vector_indexes` row for this namespace before the
     // entry insert. AgentDB's HNSW/router keys lookups by namespace via this
@@ -620,20 +941,92 @@ export async function bridgeStoreEntry(options: {
     } catch { /* vector_indexes may not exist on legacy DBs — fall through */ }
 
     const stmt = ctx.db.prepare(insertSql);
-    stmt.run(
+    const runResult = stmt.run(
       id, key, namespace, value,
       embeddingJson, dimensions || null, model,
       tags.length > 0 ? JSON.stringify(tags) : null,
       '{}',
+      provenanceType,
       now, now,
       ttl ? now + (ttl * 1000) : null
     );
 
-    // Phase 2: Write-through to TieredCache
+    // A completed native write proves the bridge is currently healthy. Do not
+    // retain a diagnostic from an earlier transient failure and append it to a
+    // later, unrelated sql.js fallback refusal.
+    bridgeFailureReason = null;
+
+    // #2775: strict insert against an ACTIVE existing row → changes === 0
+    // (the ON CONFLICT WHERE clause above suppressed the update). Surface
+    // this as a typed data-level error rather than a bridge failure —
+    // returning non-null so the caller does NOT demote to sql.js and does
+    // NOT trip the #2735 whole-image guard with a misleading message.
+    if (!options.upsert && (runResult?.changes ?? 0) === 0) {
+      return {
+        success: false,
+        id,
+        error: `key "${key}" already exists in namespace "${namespace}" — pass upsert=true (--upsert on the CLI) to update it`,
+      };
+    }
+
+    // #2558: keep `vector_indexes.total_vectors` accurate so status/tooling
+    // stop reporting "HNSW index: 0 vectors" while embedded entries exist.
+    try {
+      ctx.db
+        .prepare(
+          `UPDATE vector_indexes SET
+             total_vectors = (SELECT COUNT(*) FROM memory_entries
+                              WHERE namespace = ? AND embedding IS NOT NULL),
+             updated_at = ?
+           WHERE name = ?`,
+        )
+        .run(namespace, now, namespace);
+    } catch { /* vector_indexes may not exist on legacy DBs — non-fatal */ }
+
+    // #2558: better-sqlite3 opens the DB in WAL mode and, for the small write
+    // volumes typical of CLI usage, may never reach the auto-checkpoint
+    // threshold — leaving committed rows only in the -wal file. WAL-blind
+    // readers (the sql.js fallback search path; the statusline's read-only
+    // `sqlite3` vector count) then see a stale/empty main DB file and report
+    // "0 vectors" / empty search. A PASSIVE checkpoint flushes committed pages
+    // into the main file without blocking writers. Best-effort, never fatal.
+    let persistWarning: string | undefined;
+    try {
+      if (typeof ctx.db.pragma === 'function') {
+        ctx.db.pragma('wal_checkpoint(PASSIVE)');
+      }
+    } catch (checkpointErr) {
+      // #2968: on the sql.js fallback driver (engaged when better-sqlite3's
+      // native binding never got built — e.g. a skipped optionalDependency
+      // postinstall), this PRAGMA isn't implemented and throws "Invalid
+      // PRAGMA command". sql.js has no WAL journal to checkpoint at all, so
+      // this specific failure is the strongest signal available here that
+      // the insert above may exist only in this process's in-memory image
+      // and never reach disk — not the ordinary "non-WAL, busy, or
+      // unsupported" case the old blanket catch assumed. Surface it rather
+      // than swallow it silently; other pragma failures stay non-fatal.
+      const msg = checkpointErr instanceof Error ? checkpointErr.message : String(checkpointErr);
+      if (/Invalid PRAGMA/i.test(msg)) {
+        persistWarning = `sql.js fallback driver in use — this write may not be durably persisted to disk (${msg}). Install better-sqlite3's native binding to restore durable writes (see issue #2968: npm rebuild better-sqlite3, or reinstall with install scripts enabled).`;
+      }
+    }
+
+    // Phase 2: Invalidate cache so the next read fetches the fresh row.
+    //
+    // #3051 — this used to be a write-through with a partial payload
+    // (`{ id, key, namespace, content, embedding }` — missing `tags`,
+    // access_count, timestamps, metadata, provenance_type). Any read that
+    // hit the cache then returned `tags: cached.tags || []` = `[]` for the
+    // very entry that had just been written with real tags, so
+    // `memory_store({ tags })` → `memory_retrieve()` looked like it silently
+    // dropped tags. Invalidating instead of partial-cache-set forces the
+    // next `bridgeGetEntry` to load the authoritative row (which correctly
+    // parses tags/metadata from the JSON columns) and repopulate the cache
+    // from that full shape.
     const safeNs = String(namespace).replace(/:/g, '_');
     const safeKey = String(key).replace(/:/g, '_');
     const cacheKey = `entry:${safeNs}:${safeKey}`;
-    await cacheSet(registry, cacheKey, { id, key, namespace, content: value, embedding: embeddingJson });
+    await cacheInvalidate(registry, cacheKey);
 
     // Phase 4: AttestationLog write audit
     await logAttestation(registry, 'store', id, { key, namespace, hasEmbedding: !!embeddingJson });
@@ -642,12 +1035,36 @@ export async function bridgeStoreEntry(options: {
       success: true,
       id,
       embedding: embeddingJson ? { dimensions, model } : undefined,
-      rawEmbedding: embeddingJson ? JSON.parse(embeddingJson) as number[] : undefined,
+      rawEmbedding: embeddingArr ?? undefined,
       guarded: true,
       cached: true,
       attested: true,
+      ...(persistWarning ? { persistWarning } : {}),
     };
-  } catch {
+  } catch (err) {
+    // #2775: distinguish a data-level UNIQUE constraint violation (key
+    // already exists — expected outcome of a strict insert) from a real
+    // bridge failure (registry gone, DB locked, disk full, etc.). The
+    // ON CONFLICT clause on the strict-insert SQL above should normally
+    // convert UNIQUE hits into a `changes === 0` result, so reaching here
+    // with a UNIQUE error means the schema pre-dates the (namespace, key)
+    // unique index or the conflict target didn't match — treat it as a
+    // clean "already exists" so the caller never demotes to sql.js and
+    // never triggers the #2735 whole-image guard with a misleading
+    // "active native WAL connection" error.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/UNIQUE constraint failed/i.test(msg)) {
+      return {
+        success: false,
+        id: '',
+        error: `key "${options.key}" already exists in namespace "${options.namespace ?? 'default'}" — pass upsert=true (--upsert on the CLI) to update it`,
+      };
+    }
+    // Returning null below demotes the caller to the sql.js whole-image path,
+    // whose WAL-sidecar guard then reports a cause that has nothing to do with
+    // what actually went wrong here. Record the real error so it can be
+    // surfaced alongside that guard's message.
+    bridgeFailureReason = msg;
     return null;
   }
 }
@@ -663,6 +1080,8 @@ export async function bridgeSearchEntries(options: {
   limit?: number;
   threshold?: number;
   dbPath?: string;
+  /** ADR-323: restrict results to these provenance types. */
+  provenanceFilter?: string[];
 }): Promise<{
   success: boolean;
   results: {
@@ -672,11 +1091,20 @@ export async function bridgeSearchEntries(options: {
     score: number;
     namespace: string;
     provenance?: string;
+    /** ADR-323 — NOT the same as `provenance` above (that's the
+     *  ExplainableRecall score breakdown). This is the entry's
+     *  user_claim/agent_output/... provenance type. */
+    provenanceType?: string;
   }[];
   searchTime: number;
   searchMethod?: string;
   error?: string;
 } | null> {
+  if (options.provenanceFilter?.length) {
+    const invalid = options.provenanceFilter.filter(p => !isValidProvenanceType(p));
+    if (invalid.length > 0) return null; // caller (searchEntries) demotes to sql.js, which returns a typed error
+  }
+
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -684,7 +1112,7 @@ export async function bridgeSearchEntries(options: {
   if (!ctx) return null;
 
   try {
-    const { query: queryStr, namespace, limit = 10, threshold = 0.3 } = options;
+    const { query: queryStr, namespace, limit = 10, threshold = 0.3, provenanceFilter } = options;
     const effectiveNamespace = namespace || 'all';
     const startTime = Date.now();
 
@@ -701,31 +1129,52 @@ export async function bridgeSearchEntries(options: {
     }
 
     // better-sqlite3: .prepare().all() returns array of objects
-    const nsFilter = effectiveNamespace !== 'all'
-      ? `AND namespace = ?`
-      : '';
+    // ADR-323: compose namespace + provenance filters into one WHERE clause.
+    const filters: string[] = [];
+    const filterParams: string[] = [];
+    if (effectiveNamespace !== 'all') {
+      filters.push('namespace = ?');
+      filterParams.push(effectiveNamespace);
+    }
+    if (provenanceFilter?.length) {
+      filters.push(`provenance_type IN (${provenanceFilter.map(() => '?').join(',')})`);
+      filterParams.push(...provenanceFilter);
+    }
+    const whereExtra = filters.length > 0 ? `AND ${filters.join(' AND ')}` : '';
 
     let rows: any[];
     try {
+      // #2982/#2976: this pre-rank SELECT truncates the corpus to 1000 rows
+      // before BM25/embedding scoring runs. Without ORDER BY, SQLite returns
+      // rows in arbitrary storage order (effectively oldest-inserted-first at
+      // scale), so on any corpus over 1000 entries the newest — and often
+      // most relevant — rows never reach scoring at all. bridgeListEntries()
+      // already orders by updated_at DESC for the same reason; mirror it here.
       const stmt = ctx.db.prepare(`
-        SELECT id, key, namespace, content, embedding
+        SELECT id, key, namespace, content, embedding, provenance_type
         FROM memory_entries
-        WHERE status = 'active' ${nsFilter}
+        WHERE ${ACTIVE_MEMORY_ROW_SQL} ${whereExtra}
+        ORDER BY updated_at DESC
         LIMIT 1000
       `);
-      rows = effectiveNamespace !== 'all' ? stmt.all(effectiveNamespace) : stmt.all();
+      rows = filterParams.length > 0 ? stmt.all(...filterParams) : stmt.all();
     } catch {
       return null;
     }
 
-    // Phase 2: Compute BM25 term stats for the corpus
+    // Phase 2: Compute BM25 term stats for the corpus. Tokenize the corpus a
+    // single time and reuse the per-doc `{contentLower, words}` for term-freq,
+    // BM25 scoring, and the coverage floor below.
     const queryTerms = queryStr.toLowerCase().split(/\s+/).filter(t => t.length > 1);
-    const { termDocFreqs, avgDocLength } = computeTermDocFreqs(queryTerms, rows);
+    const docs = tokenizeCorpus(rows);
+    const { termDocFreqs, avgDocLength } = computeTermDocFreqs(queryTerms, docs);
     const docCount = rows.length;
 
-    const results: { id: string; key: string; content: string; score: number; namespace: string; provenance?: string }[] = [];
+    const results: { id: string; key: string; content: string; score: number; namespace: string; provenance?: string; provenanceType?: string }[] = [];
 
-    for (const row of rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const doc = docs[i];
       let semanticScore = 0;
       let bm25ScoreVal = 0;
 
@@ -741,23 +1190,40 @@ export async function bridgeSearchEntries(options: {
 
       // Phase 2: BM25 keyword scoring (replaces String.includes fallback)
       if (queryTerms.length > 0 && row.content) {
-        bm25ScoreVal = bm25Score(queryTerms, row.content, avgDocLength, docCount, termDocFreqs);
+        bm25ScoreVal = bm25Score(queryTerms, doc.words, doc.words.length, avgDocLength, docCount, termDocFreqs);
         // Normalize BM25 to 0-1 range (cap at 10 for normalization)
         bm25ScoreVal = Math.min(bm25ScoreVal / 10, 1.0);
       }
 
-      // Reciprocal rank fusion: combine semantic and BM25
-      // Weight: 0.7 semantic + 0.3 BM25 when both embeddings present
-      // Fall back to BM25-only when either query or row lacks an embedding
-      const score = semanticScore > 0
-        ? (0.7 * semanticScore + 0.3 * bm25ScoreVal)
-        : bm25ScoreVal;
+      // #2558: keyword-coverage floor for the lexical signal.
+      // BM25's IDF collapses toward zero when a term appears in most/all
+      // documents (routine on small memory corpora), and the /10 normalization
+      // crushed exact-keyword hits well below the default 0.3 threshold — so
+      // `memory search` recalled NOTHING even when the content literally
+      // contained the query term (issue #2558: "keyword recall random"). The
+      // pre-BM25 fallback guaranteed keyword recall via matchCount/words*0.5;
+      // this restores that guarantee. `coverage` is the fraction of query
+      // terms present in the document — a full-coverage hit must always be
+      // recallable regardless of IDF.
+      const contentLower = doc.contentLower;
+      const matchedTerms = queryTerms.filter(t => contentLower.includes(t)).length;
+      const coverage = queryTerms.length > 0 ? matchedTerms / queryTerms.length : 0;
+      const lexicalScore = Math.max(bm25ScoreVal, coverage);
+
+      // Recall-friendly fusion: a strong semantic OR lexical signal alone must
+      // clear the threshold. `blended` (0.6 semantic + 0.4 lexical) drives
+      // ranking; taking max() with the raw semantic score means (a) a genuinely
+      // similar entry is never dropped just because it lacks the query's exact
+      // words, and (b) a full-coverage keyword hit (lexical=1 → blended≥0.4) is
+      // never dropped just because its embedding cosine is low or negative.
+      const blended = 0.6 * Math.max(0, semanticScore) + 0.4 * lexicalScore;
+      const score = Math.max(blended, semanticScore);
 
       if (score >= threshold) {
         // Phase 4: ExplainableRecall provenance
         const provenance = queryEmbedding
-          ? `semantic:${semanticScore.toFixed(3)}+bm25:${bm25ScoreVal.toFixed(3)}`
-          : `bm25:${bm25ScoreVal.toFixed(3)}`;
+          ? `semantic:${semanticScore.toFixed(3)}+lexical:${lexicalScore.toFixed(3)}`
+          : `lexical:${lexicalScore.toFixed(3)}`;
 
         results.push({
           id: String(row.id).substring(0, 12),
@@ -766,6 +1232,7 @@ export async function bridgeSearchEntries(options: {
           score,
           namespace: row.namespace || 'default',
           provenance,
+          provenanceType: row.provenance_type || 'unknown',
         });
       }
     }
@@ -791,6 +1258,10 @@ export async function bridgeListEntries(options: {
   limit?: number;
   offset?: number;
   dbPath?: string;
+  /** #2073: When true, include the entry's full `content` string in each result. */
+  includeContent?: boolean;
+  /** ADR-323: restrict rows to these provenance types. */
+  provenanceFilter?: string[];
 }): Promise<{
   success: boolean;
   entries: {
@@ -802,6 +1273,9 @@ export async function bridgeListEntries(options: {
     createdAt: string;
     updatedAt: string;
     hasEmbedding: boolean;
+    /** #2073: Present when `includeContent: true` was requested. */
+    content?: string;
+    provenanceType?: string;
   }[];
   total: number;
   error?: string;
@@ -813,18 +1287,38 @@ export async function bridgeListEntries(options: {
   if (!ctx) return null;
 
   try {
-    const { namespace, limit = 20, offset = 0 } = options;
+    const { namespace, limit = 20, offset = 0, provenanceFilter } = options;
+    if (provenanceFilter?.some(p => !isValidProvenanceType(p))) return null;
 
-    const nsFilter = namespace ? `AND namespace = ?` : '';
-    const nsParams = namespace ? [namespace] : [];
+    const filters: string[] = [];
+    const filterParams: string[] = [];
+    if (namespace) {
+      filters.push('namespace = ?');
+      filterParams.push(namespace);
+    }
+    if (provenanceFilter?.length) {
+      filters.push(`provenance_type IN (${provenanceFilter.map(() => '?').join(',')})`);
+      filterParams.push(...provenanceFilter);
+    }
+    const extraFilter = filters.length > 0 ? `AND ${filters.join(' AND ')}` : '';
+
+    // #2120 — `status IS NULL` accepted alongside `'active'`. Old
+    // databases imported by the auto-memory bridge (before the status
+    // column existed) end up with NULL status after schema migration if
+    // the migration ran on an existing DB without a backfill. Reporter
+    // @alexandrelealbess on WSL2 had 251 entries with NULL status, so
+    // the `status = 'active'` filter matched zero. Treat NULL as
+    // "legacy-active" — the safe default for any entry that predates the
+    // status column.
+    const statusFilter = ACTIVE_MEMORY_ROW_SQL;
 
     // Count
     let total = 0;
     try {
       const countStmt = ctx.db.prepare(
-        `SELECT COUNT(*) as cnt FROM memory_entries WHERE status = 'active' ${nsFilter}`
+        `SELECT COUNT(*) as cnt FROM memory_entries WHERE ${statusFilter} ${extraFilter}`
       );
-      const countRow = countStmt.get(...nsParams);
+      const countRow = countStmt.get(...filterParams);
       total = countRow?.cnt ?? 0;
     } catch {
       return null;
@@ -834,16 +1328,18 @@ export async function bridgeListEntries(options: {
     const entries: any[] = [];
     try {
       const stmt = ctx.db.prepare(`
-        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at
+        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type
         FROM memory_entries
-        WHERE status = 'active' ${nsFilter}
+        WHERE ${statusFilter} ${extraFilter}
         ORDER BY updated_at DESC
         LIMIT ? OFFSET ?
       `);
-      const rows = stmt.all(...nsParams, limit, offset);
+      const rows = stmt.all(...filterParams, limit, offset);
       for (const row of rows) {
-        entries.push({
-          id: String(row.id).substring(0, 20),
+        const entry: Record<string, unknown> = {
+          // #2073: don't truncate id when content is requested — callers
+          // (notably memory_export) need the full id to round-trip via import.
+          id: options.includeContent ? String(row.id) : String(row.id).substring(0, 20),
           key: row.key || String(row.id).substring(0, 15),
           namespace: row.namespace || 'default',
           size: (row.content || '').length,
@@ -851,7 +1347,12 @@ export async function bridgeListEntries(options: {
           createdAt: row.created_at || new Date().toISOString(),
           updatedAt: row.updated_at || new Date().toISOString(),
           hasEmbedding: !!(row.embedding && String(row.embedding).length > 10),
-        });
+          provenanceType: row.provenance_type || 'unknown',
+        };
+        if (options.includeContent) {
+          entry.content = row.content || '';
+        }
+        entries.push(entry);
       }
     } catch {
       return null;
@@ -926,7 +1427,7 @@ export async function bridgeGetEntry(options: {
       const stmt = ctx.db.prepare(`
         SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, tags
         FROM memory_entries
-        WHERE status = 'active' AND key = ? AND namespace = ?
+        WHERE ${ACTIVE_MEMORY_ROW_SQL} AND key = ? AND namespace = ?
         LIMIT 1
       `);
       row = stmt.get(key, namespace);
@@ -1011,12 +1512,27 @@ export async function bridgeDeleteEntry(options: {
       const result = ctx.db.prepare(`
         UPDATE memory_entries
         SET status = 'deleted', updated_at = ?
-        WHERE key = ? AND namespace = ? AND status = 'active'
+        WHERE key = ? AND namespace = ? AND ${ACTIVE_MEMORY_ROW_SQL}
       `).run(Date.now(), key, namespace);
       changes = result?.changes ?? 0;
     } catch {
       return null;
     }
+
+    // #2775: mirror the #2558 PASSIVE checkpoint after the delete. Without
+    // this, the tombstone stays WAL-only until some unrelated store
+    // eventually checkpoints — meaning WAL-blind readers (sql.js fallback,
+    // statusline's read-only sqlite3 counter) keep serving the deleted row.
+    // If the process exits before another checkpoint, on live multi-worktree
+    // installations we've observed rows `active` in the main image but
+    // `deleted` in the -wal, or rows existing only in an orphaned -wal
+    // invisible to every image reader. PASSIVE flushes committed pages
+    // without blocking writers. Best-effort, never fatal.
+    try {
+      if (typeof ctx.db.pragma === 'function') {
+        ctx.db.pragma('wal_checkpoint(PASSIVE)');
+      }
+    } catch { /* non-WAL, busy, or unsupported — non-fatal */ }
 
     // Phase 2: Invalidate cache
     const safeNs = String(namespace).replace(/:/g, '_');
@@ -1030,7 +1546,7 @@ export async function bridgeDeleteEntry(options: {
 
     let remaining = 0;
     try {
-      const row = ctx.db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE status = 'active'`).get();
+      const row = ctx.db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE ${ACTIVE_MEMORY_ROW_SQL}`).get();
       remaining = row?.cnt ?? 0;
     } catch {
       // Non-fatal
@@ -1049,6 +1565,70 @@ export async function bridgeDeleteEntry(options: {
   }
 }
 
+// #2666 — Hard, namespace-scoped purge. bridgeDeleteEntry above only ever
+// soft-deletes a single (namespace, key); this is a real
+// `DELETE FROM memory_entries WHERE namespace = ?` against the live
+// better-sqlite3-style handle, for callers (e.g. a plugin's index-reconcile
+// step) that need a namespace to be genuinely empty rather than tombstoned.
+// Irreversible — callers must gate this behind an explicit confirmation.
+export async function bridgePurgeNamespace(options: {
+  namespace: string;
+  dbPath?: string;
+}): Promise<{
+  success: boolean;
+  deletedCount: number;
+  remainingEntries: number;
+  guarded?: boolean;
+  error?: string;
+} | null> {
+  const registry = await getRegistry(options.dbPath);
+  if (!registry) return null;
+
+  const ctx = getDb(registry);
+  if (!ctx) return null;
+
+  try {
+    const { namespace } = options;
+
+    const guardResult = await guardValidate(registry, 'purge', { namespace });
+    if (!guardResult.allowed) {
+      return { success: false, deletedCount: 0, remainingEntries: 0, error: `MutationGuard rejected: ${guardResult.reason}` };
+    }
+
+    let deletedCount = 0;
+    try {
+      const result = ctx.db.prepare(`DELETE FROM memory_entries WHERE namespace = ?`).run(namespace);
+      deletedCount = result?.changes ?? 0;
+    } catch (e) {
+      return { success: false, deletedCount: 0, remainingEntries: 0, error: e instanceof Error ? e.message : String(e) };
+    }
+
+    const safeNs = String(namespace).replace(/:/g, '_');
+    await cacheInvalidate(registry, `namespace:${safeNs}`);
+
+    if (deletedCount > 0) {
+      await logAttestation(registry, 'purge', namespace, { namespace, deletedCount });
+    }
+
+    let remaining = 0;
+    try {
+      const row = ctx.db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE status = 'active'`).get();
+      remaining = row?.cnt ?? 0;
+    } catch {
+      // Non-fatal
+    }
+
+    return {
+      success: true,
+      deletedCount,
+      remainingEntries: remaining,
+      guarded: true,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ===== Phase 2: Embedding bridge =====
 
 /**
@@ -1058,7 +1638,7 @@ export async function bridgeDeleteEntry(options: {
 export async function bridgeGenerateEmbedding(
   text: string,
   dbPath?: string,
-): Promise<{ embedding: number[]; dimensions: number; model: string } | null> {
+): Promise<{ embedding: number[]; dimensions: number; model: string; backend?: 'onnx' | 'mock' } | null> {
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
 
@@ -1070,10 +1650,29 @@ export async function bridgeGenerateEmbedding(
     const emb = await embedder.embed(text);
     if (!emb) return null;
 
+    // AUDIT #3: surface backend truthfully. AgentDB's embedder is a real ONNX
+    // model when present; if it ever exposes a mock/stub signal, honor it.
+    const isMock = (embedder as { isMock?: boolean; backend?: string }).isMock === true
+      || (embedder as { backend?: string }).backend === 'mock';
+
+    // #2395 — AgentDB's vectorBackend controller may initialize as
+    // `enabled: false` (e.g., ruvector isn't wired into its neural substrate
+    // yet) and silently fall back to a 128-dim hash stub. The embedder doesn't
+    // expose isMock=true in that path, so the wrapper above was reporting
+    // backend='onnx' on what's actually 128-dim hash garbage. The model name
+    // we hardcode ('Xenova/all-MiniLM-L6-v2') always produces 384-dim, so a
+    // dimensions mismatch is a definitive stub signal: return null and let
+    // the caller fall through to generateLocalEmbedding which routes to
+    // transformers.js / ruvector ONNX directly.
+    if (emb.length !== 384) {
+      return null;
+    }
+
     return {
       embedding: Array.from(emb),
       dimensions: emb.length,
       model: 'Xenova/all-MiniLM-L6-v2',
+      backend: isMock ? 'mock' : 'onnx',
     };
   } catch {
     return null;
@@ -1119,16 +1718,24 @@ export async function bridgeLoadEmbeddingModel(
 // ===== Phase 3: HNSW bridge =====
 
 /**
- * Get HNSW status from AgentDB v3's vector backend or HNSW index.
+ * Get vector search status from AgentDB v3's SQLite-backed store.
  * Returns null if unavailable.
+ *
+ * #2922: previously named `bridgeGetHNSWStatus` and unconditionally returned
+ * `available: true` whenever a DB connection succeeded — but the search this
+ * status describes (`bridgeSearchBruteForceCosine`, below) is a full-table
+ * SELECT + brute-force cosine scan, not an HNSW index lookup. Renamed and
+ * given an explicit `algorithm` field so callers can't mistake "vector
+ * search works" for "vector search is HNSW-accelerated".
  */
-export async function bridgeGetHNSWStatus(
+export async function bridgeGetVectorSearchStatus(
   dbPath?: string,
 ): Promise<{
   available: boolean;
   initialized: boolean;
   entryCount: number;
   dimensions: number;
+  algorithm: 'brute-force-cosine';
 } | null> {
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
@@ -1153,6 +1760,7 @@ export async function bridgeGetHNSWStatus(
       initialized: true,
       entryCount,
       dimensions: 384,
+      algorithm: 'brute-force-cosine',
     };
   } catch {
     return null;
@@ -1160,11 +1768,11 @@ export async function bridgeGetHNSWStatus(
 }
 
 /**
- * Search using AgentDB v3's embedder + SQLite entries.
- * This is the HNSW-equivalent search through the bridge.
- * Returns null if unavailable.
+ * Search AgentDB v3's embedder + SQLite entries via a full-table scan and
+ * brute-force cosine similarity. NOT HNSW-accelerated — see #2922. Returns
+ * null if unavailable.
  */
-export async function bridgeSearchHNSW(
+export async function bridgeSearchBruteForceCosine(
   queryEmbedding: number[],
   options?: { k?: number; namespace?: string; threshold?: number },
   dbPath?: string,
@@ -1190,10 +1798,14 @@ export async function bridgeSearchHNSW(
 
     let rows: any[];
     try {
+      // #2982/#2976: same unordered pre-rank truncation as bridgeSearchEntries
+      // above — without ORDER BY, a corpus over 10000 rows silently drops
+      // its newest entries before cosine scoring ever runs.
       const stmt = ctx.db.prepare(`
         SELECT id, key, namespace, content, embedding
         FROM memory_entries
         WHERE status = 'active' AND embedding IS NOT NULL ${nsFilter}
+        ORDER BY updated_at DESC
         LIMIT 10000
       `);
       rows = nsFilter
@@ -1235,10 +1847,11 @@ export async function bridgeSearchHNSW(
 }
 
 /**
- * Add entry to the bridge's database with embedding.
- * Returns null if unavailable.
+ * Add entry to the bridge's database with embedding. No HNSW index is built
+ * or updated here — see #2922; the embedding is only stored for a later
+ * brute-force scan. Returns null if unavailable.
  */
-export async function bridgeAddToHNSW(
+export async function bridgeAddEmbedding(
   id: string,
   embedding: number[],
   entry: { id: string; key: string; namespace: string; content: string },
@@ -1253,12 +1866,25 @@ export async function bridgeAddToHNSW(
   try {
     const now = Date.now();
     const embeddingJson = JSON.stringify(embedding);
+    // Do not use INSERT OR REPLACE here. storeEntry() has already written the
+    // authoritative row, including provenance/tags/metadata; REPLACE deleted
+    // that row and recreated it without provenance_type, silently resetting
+    // every typed CLI/MCP write to "unknown".
     ctx.db.prepare(`
-      INSERT OR REPLACE INTO memory_entries (
+      INSERT INTO memory_entries (
         id, key, namespace, content, type,
         embedding, embedding_dimensions, embedding_model,
         created_at, updated_at, status
       ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, 'Xenova/all-MiniLM-L6-v2', ?, ?, 'active')
+      ON CONFLICT(namespace, key) DO UPDATE SET
+        id                   = excluded.id,
+        content              = excluded.content,
+        type                 = excluded.type,
+        embedding            = excluded.embedding,
+        embedding_dimensions = excluded.embedding_dimensions,
+        embedding_model      = excluded.embedding_model,
+        updated_at           = excluded.updated_at,
+        status               = 'active'
     `).run(
       id, entry.key, entry.namespace, entry.content,
       embeddingJson, embedding.length,
@@ -1341,7 +1967,45 @@ export async function getControllerRegistry(dbPath?: string): Promise<any | null
 }
 
 /**
+ * Why the bridge last declined a write, or null when it has not.
+ *
+ * Deliberately NOT gated on `bridgeAvailable === false`. A bridge that
+ * initialised fine can still fail every write — a schema mismatch throws
+ * per-operation while the registry stays healthy — and that case is exactly
+ * the one worth reporting, since the caller then demotes to a fallback whose
+ * error message describes something else entirely.
+ *
+ * Callers that surface a degraded-path error should include this so the
+ * operator learns the cause instead of only the symptom.
+ */
+export function getBridgeFailureReason(): string | null {
+  return bridgeFailureReason;
+}
+
+/**
+ * Install a pre-initialized registry for deterministic bridge tests.
+ *
+ * The CLI test runner intentionally externalizes the optional
+ * `@claude-flow/memory` package so an unbuilt workspace can still exercise
+ * fallback paths. That also makes module-level mocking of ControllerRegistry
+ * environment-dependent. This narrow seam keeps native SQL regression tests
+ * independent of package build order without changing production startup.
+ */
+export function __setMemoryBridgeRegistryForTests(registry: any | null): void {
+  registryInstance = registry;
+  registryPromise = registry ? Promise.resolve(registry) : null;
+  bridgeAvailable = registry ? true : null;
+  bridgeFailureReason = null;
+}
+
+/**
  * Shutdown the bridge and release resources.
+ *
+ * The cached state is cleared unconditionally. Previously the reset lived
+ * inside `if (registryInstance)`, so it could not clear a FAILED init — the
+ * one state that actually needs clearing, since `registryInstance` is null
+ * precisely when init failed. A process that latched `bridgeAvailable = false`
+ * therefore had no recovery path short of a restart.
  */
 export async function shutdownBridge(): Promise<void> {
   if (registryInstance) {
@@ -1350,10 +2014,11 @@ export async function shutdownBridge(): Promise<void> {
     } catch {
       // Best-effort
     }
-    registryInstance = null;
-    registryPromise = null;
-    bridgeAvailable = null;
   }
+  registryInstance = null;
+  registryPromise = null;
+  bridgeAvailable = null;
+  bridgeFailureReason = null;
 }
 
 // ===== Phase 3: ReasoningBank pattern operations =====
@@ -1453,6 +2118,42 @@ export async function bridgeSearchPatterns(options: {
       };
     }
 
+    // #2226 — the wired-in LocalReasoningBank implements store() + findSimilar()/getAll()
+    // but NOT searchPatterns()/search(). bridgeStorePattern commits patterns to its
+    // store(), so search MUST read the SAME backend or stored patterns are never found
+    // (previously search fell through to the disjoint sql.js 'pattern' namespace, which
+    // the store never wrote to → always-empty results). Adapt findSimilar (semantic) with
+    // a getAll() substring fallback so freshly-stored patterns are visible. This mirrors
+    // what hooks_intelligence_pattern-search already does against the same backend.
+    if (reasoningBank && typeof reasoningBank.findSimilar === 'function') {
+      const k = options.topK || 5;
+      const threshold = options.minConfidence ?? 0.3;
+      let mapped: Array<{ id: string; content: string; score: number }> = [];
+      try {
+        const { generateEmbedding } = await import('./memory-initializer.js');
+        const qEmb = await generateEmbedding(options.query);
+        if (qEmb && Array.isArray(qEmb.embedding) && qEmb.embedding.length > 0) {
+          const hits = reasoningBank.findSimilar(qEmb.embedding, { k, threshold });
+          mapped = (Array.isArray(hits) ? hits : []).map((r: any) => ({
+            id: r.id ?? '',
+            content: r.content ?? '',
+            score: r.confidence ?? r.score ?? 0,
+          }));
+        }
+      } catch { /* embedding unavailable — fall through to substring scan */ }
+
+      // Deterministic substring fallback over the same in-memory store.
+      if (mapped.length === 0 && typeof reasoningBank.getAll === 'function') {
+        const q = options.query.toLowerCase();
+        mapped = (reasoningBank.getAll() as any[])
+          .filter((p: any) => typeof p.content === 'string' && p.content.toLowerCase().includes(q))
+          .slice(0, k)
+          .map((p: any) => ({ id: p.id ?? '', content: p.content ?? '', score: p.confidence ?? 0 }));
+      }
+
+      return { results: mapped, controller: 'reasoningBank' };
+    }
+
     // Fallback: search via bridge
     const result = await bridgeSearchEntries({
       query: options.query,
@@ -1479,12 +2180,20 @@ export async function bridgeSearchPatterns(options: {
  */
 export async function bridgeRecordFeedback(options: {
   taskId: string;
+  /** Human-readable task text used as the semantic learning signal. */
+  task?: string;
   success: boolean;
   quality: number;
   agent?: string;
   duration?: number;
   patterns?: string[];
   dbPath?: string;
+  // ADR-147 P2: nested-subagent spawn tree capture.
+  // parentAgentId is sourced from Claude Code's `parent_agent_id` OTel span tag
+  // (header `x-claude-code-parent-agent-id`). depth is the chain length from the
+  // root lead session (0 = lead, 1+ = subagent). Both undefined for top-level work.
+  parentAgentId?: string;
+  depth?: number;
 }): Promise<{ success: boolean; controller: string; updated: number } | null> {
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
@@ -1493,42 +2202,72 @@ export async function bridgeRecordFeedback(options: {
     let controller = 'none';
     let updated = 0;
 
-    // Try LearningSystem first (Phase 4)
-    const learningSystem = registry.get('learningSystem');
-    if (learningSystem) {
-      try {
-        if (typeof learningSystem.recordFeedback === 'function') {
-          await learningSystem.recordFeedback({
-            taskId: options.taskId, success: options.success, quality: options.quality,
-            agent: options.agent, duration: options.duration, timestamp: Date.now(),
-          });
-          controller = 'learningSystem';
-          updated++;
-        } else if (typeof learningSystem.record === 'function') {
-          await learningSystem.record(options.taskId, options.quality, options.success ? 'success' : 'failure');
-          controller = 'learningSystem';
-          updated++;
-        }
-      } catch { /* API mismatch — skip */ }
+    // Real intelligence-pipeline write (#2786 fix-3, 2026-07-26 sweep follow-up).
+    // The prior code called `learningSystem.recordFeedback/.record` and
+    // `reasoningBank.recordOutcome/.record` — none of those methods exist on
+    // the LocalSonaCoordinator / LocalReasoningBank instances the bridge
+    // actually wires into the registry (see initializeIntelligence in
+    // memory/intelligence.ts). The silent catch made it look successful.
+    //
+    // The REAL public API is `intelligence.recordTrajectory(steps, verdict)`
+    // — same call `hooks_post-command` already uses (hooks-tools.ts).
+    // It initializes lazily, embeds the step, and drives both the SONA
+    // coordinator and pattern distillation.
+    try {
+      const intelligence = await import('./intelligence.js');
+      const verdict = options.success ? 'success' : 'failure';
+      const taskContext = options.task?.trim();
+      const recorded = await intelligence.recordTrajectory(
+        [{
+          type: 'action',
+          // Put the task description first so the embedding represents the
+          // work, not just the bookkeeping suffix (#2812).
+          content: `${taskContext ? `${taskContext} — ` : ''}Task ${options.taskId} completed by ${options.agent || 'unknown'} — success=${options.success}, quality=${options.quality.toFixed(3)}`,
+          metadata: {
+            taskId: options.taskId,
+            task: taskContext,
+            agent: options.agent,
+            quality: options.quality,
+            duration: options.duration,
+            // ADR-147 P2: forward spawn-tree lineage if present
+            parentAgentId: options.parentAgentId,
+            depth: options.depth,
+          },
+          timestamp: Date.now(),
+        }],
+        verdict,
+      );
+      if (recorded) {
+        controller = 'intelligence';
+        updated++;
+      }
+    } catch {
+      // Intelligence init failed (missing embeddings backend etc.). Fall
+      // through to the memory-store write below — that always succeeds via
+      // sql.js fallback so feedback is never fully lost.
     }
 
-    // Also record in ReasoningBank for pattern reinforcement
+    // Optional pattern store: if the caller supplied learned patterns,
+    // add them to LocalReasoningBank via its real `.store()` method (the
+    // one method that DOES exist on the class).
     const reasoningBank = registry.get('reasoningBank');
-    if (reasoningBank) {
-      try {
-        if (typeof reasoningBank.recordOutcome === 'function') {
-          await reasoningBank.recordOutcome({
-            taskId: options.taskId, verdict: options.success ? 'success' : 'failure',
-            score: options.quality, timestamp: Date.now(),
-          });
-          controller = controller === 'none' ? 'reasoningBank' : `${controller}+reasoningBank`;
-          updated++;
-        } else if (typeof reasoningBank.record === 'function') {
-          await reasoningBank.record(options.taskId, options.quality);
-          controller = controller === 'none' ? 'reasoningBank' : `${controller}+reasoningBank`;
-          updated++;
-        }
-      } catch { /* API mismatch — skip */ }
+    if (reasoningBank && Array.isArray(options.patterns) && options.patterns.length) {
+      for (const pattern of options.patterns) {
+        try {
+          if (typeof reasoningBank.store === 'function') {
+            reasoningBank.store({
+              id: `feedback-pattern-${options.taskId}-${updated}`,
+              content: pattern,
+              category: options.agent || 'general',
+              confidence: options.quality,
+              source: 'bridge-feedback',
+            });
+            updated++;
+          }
+        } catch { /* pattern rejected — non-critical */ }
+      }
+      if (updated > 0 && controller === 'intelligence') controller = 'intelligence+reasoningBank';
+      else if (updated > 0 && controller === 'none') controller = 'reasoningBank';
     }
 
     // Phase 4: SkillLibrary promotion for high-quality patterns
@@ -2092,6 +2831,14 @@ export async function bridgeHealthCheck(
   controllers: Array<{ name: string; enabled: boolean; level: number }>;
   attestationCount?: number;
   cacheStats?: { size: number; hits: number; misses: number };
+  hierarchicalMemory?: {
+    controller: string;
+    durable: boolean;
+    persistence: string;
+    /** Real row count in the backing table — null when nothing is on disk. */
+    persistedRows: number | null;
+    fallbackFrom?: string;
+  };
 } | null> {
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
@@ -2114,7 +2861,19 @@ export async function bridgeHealthCheck(
       cacheStats = { size: s.size ?? 0, hits: s.hits ?? 0, misses: s.misses ?? 0 };
     }
 
-    return { available: true, controllers, attestationCount, cacheStats };
+    // #2887: cacheStats alone let a "successful" hierarchical-store coexist
+    // with an empty store. Report the backing table's real row count so the
+    // inconsistency is visible instead of inferred.
+    let hierarchicalMemory;
+    const hm = registry.get('hierarchicalMemory');
+    if (hm) {
+      hierarchicalMemory = {
+        ...describeHierarchicalStore(hm, getHierarchicalFallback(registry)),
+        persistedRows: typeof hm.countPersisted === 'function' ? hm.countPersisted() : null,
+      };
+    }
+
+    return { available: true, controllers, attestationCount, cacheStats, hierarchicalMemory };
   } catch {
     return null;
   }
@@ -2128,10 +2887,55 @@ export async function bridgeHealthCheck(
  *
  * Real HierarchicalMemory API (agentdb alpha.10+):
  *   store(content, importance?, tier?, options?) → Promise<string>
- * Stub API (fallback):
- *   store(key, value, tier) — synchronous
+ * Fallback API (@claude-flow/memory TieredMemoryStore):
+ *   store(key, value, tier, temporalOptions?) — synchronous, returns
+ *   { id, key, tier, superseded? }
+ *
+ * Temporal validity (Zep/Graphiti-style, impl/memory-sota):
+ * - validFrom / validUntil (ISO) travel with the entry.
+ * - supersedes=<entryId|key> INVALIDATES the old entry (validUntil=now +
+ *   supersededBy=newId) instead of deleting it. Natively supported by the
+ *   TieredMemoryStore fallback; on the real agentdb HierarchicalMemory the
+ *   temporal fields are stored in metadata, and supersede is reported as
+ *   unsupported (no public update API) rather than silently dropped.
  */
-export async function bridgeHierarchicalStore(params: { key: string; value: string; tier?: string; importance?: number }): Promise<any> {
+/**
+ * Describe which store `agentdb_hierarchical-*` actually landed on and
+ * whether its writes survive the process (#2887).
+ *
+ * agentdb removed its `HierarchicalMemory` export at 3.0.0-alpha.17, so the
+ * @claude-flow/memory TieredMemoryStore fallback is the live path. It is only
+ * durable when it was handed a SQLite connection — callers must not report a
+ * volatile write as a success.
+ */
+export function describeHierarchicalStore(
+  hm: any,
+  fallback: { reason: string } | null,
+): { controller: string; fallbackFrom?: string; durable: boolean; persistence: string } {
+  // Only the tiered fallback exposes isDurable(); the native controller
+  // (should agentdb reintroduce it) writes to agentdb's own tables.
+  if (typeof hm?.isDurable !== 'function') {
+    return { controller: 'hierarchicalMemory', durable: true, persistence: 'agentdb' };
+  }
+  return {
+    controller: 'tieredMemoryStore',
+    fallbackFrom: fallback?.reason ?? 'hierarchicalMemory',
+    durable: hm.isDurable() === true,
+    persistence: typeof hm.getPersistence === 'function' ? hm.getPersistence() : 'unknown',
+  };
+}
+
+/** Read `getHierarchicalFallback()` off a registry that may predate it. */
+function getHierarchicalFallback(registry: any): { reason: string } | null {
+  return typeof registry?.getHierarchicalFallback === 'function'
+    ? registry.getHierarchicalFallback()
+    : null;
+}
+
+export async function bridgeHierarchicalStore(params: {
+  key: string; value: string; tier?: string; importance?: number;
+  validFrom?: string; validUntil?: string; supersedes?: string;
+}): Promise<any> {
   const registry = await getRegistry();
   if (!registry) return null;
   try {
@@ -2141,16 +2945,49 @@ export async function bridgeHierarchicalStore(params: { key: string; value: stri
 
     // Detect real HierarchicalMemory (has async store returning id) vs stub
     if (typeof hm.getStats === 'function' && typeof hm.promote === 'function') {
-      // Real agentdb HierarchicalMemory
+      // Real agentdb HierarchicalMemory — temporal fields ride in metadata
+      // so bridgeHierarchicalRecall can filter on them.
+      const metadata: Record<string, unknown> = { key: params.key };
+      if (params.validFrom) metadata.validFrom = params.validFrom;
+      if (params.validUntil) metadata.validUntil = params.validUntil;
       const id = await hm.store(params.value, params.importance || 0.5, tier, {
-        metadata: { key: params.key },
+        metadata,
         tags: [params.key],
       });
-      return { success: true, id, key: params.key, tier };
+      const result: any = {
+        success: true, id, key: params.key, tier,
+        controller: 'hierarchicalMemory', durable: true, persistence: 'agentdb',
+      };
+      if (params.supersedes) {
+        // No public update/invalidate API on agentdb HierarchicalMemory —
+        // surface the limitation honestly instead of silently dropping it.
+        result.superseded = null;
+        result.warning = 'supersedes is not supported by the native agentdb HierarchicalMemory backend (no update API); the referenced entry was left untouched';
+      }
+      return result;
     }
-    // Stub fallback
-    hm.store(params.key, params.value, tier);
-    return { success: true, key: params.key, tier };
+    // TieredMemoryStore fallback (temporal-aware) / legacy stub.
+    // agentdb dropped its HierarchicalMemory export at 3.0.0-alpha.17, so
+    // this is the live path — and it is only trustworthy when the store is
+    // backed by SQLite. A volatile write must NOT report success (#2887).
+    const storeResult = hm.store(params.key, params.value, tier, {
+      validFrom: params.validFrom,
+      validUntil: params.validUntil,
+      supersedes: params.supersedes,
+    });
+    const info = describeHierarchicalStore(hm, getHierarchicalFallback(registry));
+    const base = {
+      ...info,
+      ...(storeResult && typeof storeResult === 'object' ? storeResult : { key: params.key, tier }),
+    };
+    if (!info.durable) {
+      return {
+        ...base,
+        success: false,
+        error: `hierarchical-store is running on the ${info.persistence} tiered fallback (${info.fallbackFrom}); the entry is NOT persisted to disk and will be lost when this process exits. Use memory_store for durable key-value persistence.`,
+      };
+    }
+    return { success: true, ...base };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
@@ -2163,7 +3000,7 @@ export async function bridgeHierarchicalStore(params: { key: string; value: stri
  * Stub API (fallback):
  *   recall(query: string, topK: number) → synchronous array
  */
-export async function bridgeHierarchicalRecall(params: { query: string; tier?: string; topK?: number }): Promise<any> {
+export async function bridgeHierarchicalRecall(params: { query: string; tier?: string; topK?: number; includeExpired?: boolean }): Promise<any> {
   const registry = await getRegistry();
   if (!registry) return null;
   try {
@@ -2181,15 +3018,37 @@ export async function bridgeHierarchicalRecall(params: { query: string; tier?: s
         memoryQuery.tier = params.tier;
       }
       const results = await hm.recall(memoryQuery);
-      return { results: results || [], controller: 'hierarchicalMemory' };
+      // Temporal filter over metadata (validFrom/validUntil stamped by
+      // bridgeHierarchicalStore). Entries without the fields are always
+      // valid — legacy behavior unchanged.
+      const filtered = params.includeExpired
+        ? (results || [])
+        : (results || []).filter((r: any) => {
+            const meta = r?.metadata || {};
+            const now = Date.now();
+            if (meta.validFrom) {
+              const from = Date.parse(String(meta.validFrom));
+              if (!Number.isNaN(from) && from > now) return false;
+            }
+            if (meta.validUntil) {
+              const until = Date.parse(String(meta.validUntil));
+              if (!Number.isNaN(until) && until <= now) return false;
+            }
+            return true;
+          });
+      return { results: filtered, controller: 'hierarchicalMemory' };
     }
 
-    // Stub fallback — recall(string, number)
-    const results = hm.recall(params.query, params.topK || 5);
+    // TieredMemoryStore fallback — recall(string, number, options?).
+    // Temporal filtering happens inside the store; the legacy stub simply
+    // ignores the extra argument.
+    const results = hm.recall(params.query, params.topK || 5, {
+      includeExpired: params.includeExpired === true,
+    });
     const filtered = params.tier
       ? results.filter((r: any) => r.tier === params.tier)
       : results;
-    return { results: filtered, controller: 'hierarchicalMemory' };
+    return { results: filtered, ...describeHierarchicalStore(hm, getHierarchicalFallback(registry)) };
   } catch (e: any) { return { results: [], error: e.message }; }
 }
 
@@ -2401,4 +3260,47 @@ function cosineSim(a: number[], b: number[]): number {
   }
   const mag = Math.sqrt(normA * normB);
   return mag === 0 ? 0 : dot / mag;
+}
+
+/**
+ * Public helper for the unified learning-stats aggregator: counts of entries
+ * per namespace + the top-level total. Best-effort — if the bridge isn't
+ * available it returns zeros so the aggregator can still report the other
+ * stores honestly. (#2245 follow-up.)
+ */
+export async function getMemoryBridgeStats(options: {
+  namespaces?: string[];
+  dbPath?: string;
+} = {}): Promise<{
+  totalEntries: number;
+  perNamespace: Record<string, number>;
+  source: string;
+  reachable: boolean;
+}> {
+  const namespaces = options.namespaces ?? [
+    'default', 'patterns', 'claude-memories', 'auto-memory',
+    'tasks', 'feedback', 'pretrain', 'trajectories',
+  ];
+  try {
+    const all = await bridgeListEntries({ dbPath: options.dbPath, limit: 1 });
+    if (!all) {
+      return { totalEntries: 0, perNamespace: {}, source: 'memory-bridge (unreachable)', reachable: false };
+    }
+    const perNamespace: Record<string, number> = {};
+    for (const ns of namespaces) {
+      try {
+        const r = await bridgeListEntries({ namespace: ns, dbPath: options.dbPath, limit: 1 });
+        const n = r?.total ?? 0;
+        if (n > 0) perNamespace[ns] = n;
+      } catch { /* skip per-namespace failure */ }
+    }
+    return {
+      totalEntries: all.total,
+      perNamespace,
+      source: 'memory-bridge AgentDB (bridgeListEntries)',
+      reachable: true,
+    };
+  } catch {
+    return { totalEntries: 0, perNamespace: {}, source: 'memory-bridge (error)', reachable: false };
+  }
 }

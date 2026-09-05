@@ -133,6 +133,94 @@ export class CLI {
         this.checkForUpdatesOnStartup().catch(() => {/* silent */});
       }
 
+      // Version-stamped helper auto-refresh — propagate hook fixes to an already
+      // initialized project without a manual re-init. Skip for init/upgrade
+      // (they refresh explicitly). AWAITED (not fire-and-forget) so a fast
+      // command can't exit before the copy lands; the fast path is a single
+      // stamp read + string compare (sub-ms), and the copy runs at most once per
+      // version bump. Best-effort + silent — never blocks or fails a command.
+      if (commandPath[0] !== 'init' && commandPath[0] !== 'update') {
+        // ADR-324: existing installations acquire a versioned policy state on
+        // first use. Migration is additive and starts in legacy mode, so older
+        // AgentDB, MCP, hooks, and swarm workflows keep their exact behavior.
+        try {
+          const { autoMigratePolicyStateIfNeeded } = await import('./services/policy-runtime.js');
+          const migration = await autoMigratePolicyStateIfNeeded(process.cwd());
+          if (migration.migrated && this.output.isVerbose()) {
+            this.output.printDebug(`Initialized agentic policy compatibility state (${migration.mode})`);
+          }
+        } catch (error) {
+          // Legacy compatibility requires startup to remain available if the
+          // policy state cannot be initialized. Enforce-mode actions still
+          // fail at their authoritative dispatcher when state is unreadable.
+          if (this.output.isVerbose()) {
+            this.output.printDebug(`Policy compatibility migration skipped: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+
+        try {
+          const { autoRefreshHelpersIfStale } = await import('./init/helper-refresh.js');
+          // alsoRefreshGlobal:true — refresh ~/.claude/helpers too, not just
+          // <cwd>/.claude/helpers. Fixes the "promo row missing on remote
+          // installs" bug where Claude Code's global settings.json falls back
+          // to ~/.claude/helpers/statusline.cjs (executor.ts:460-462) and that
+          // file was frozen at whatever version was current when the user
+          // last ran `ruflo init` — pre-3.31.3 nothing refreshed it, so any
+          // helpers change (e.g. the 2026-07-13 Line-3 funnel row addition)
+          // never reached existing installs. Same forward-only semver.gte
+          // guard applies to the global pass.
+          const r = await autoRefreshHelpersIfStale(process.cwd(), { alsoRefreshGlobal: true });
+          if (r.blocked) {
+            // Integrity failure = potential on-disk tampering of hook code. Warn
+            // loudly (not silent) — the existing project helpers were left intact.
+            this.output.printWarning(`Skipped helper auto-refresh — ${r.blocked}. Reinstall @claude-flow/cli from a trusted source.`);
+          } else if (r.refreshed && this.output.isVerbose()) {
+            this.output.printDebug(`Refreshed .claude/helpers (${r.from} → ${r.to})`);
+          }
+          if (r.global?.refreshed && this.output.isVerbose()) {
+            this.output.printDebug(`Refreshed ~/.claude/helpers (${r.global.from} → ${r.global.to})`);
+          } else if (r.global?.blocked && r.global.blocked !== r.blocked) {
+            this.output.printWarning(`Skipped ~/.claude/helpers auto-refresh — ${r.global.blocked}.`);
+          }
+        } catch { /* silent */ }
+
+        // ADR-177: adopt a signed proven-configuration champion if the package
+        // ships one newer than this project's stamp AND it is authentic +
+        // suitable for this environment. Sibling of the helper channel above —
+        // its own stamp + trust root; additive no-op when no champion ships.
+        try {
+          const { autoAdoptProvenConfigIfStale } = await import('./config/proven-config-refresh.js');
+          const a = await autoAdoptProvenConfigIfStale(process.cwd());
+          if (a.adopted && this.output.isVerbose()) {
+            this.output.printDebug(`Adopted proven config (${a.from} → ${a.to})`);
+          }
+          // Close the loop (ADR-176 phase 9): promote the adopted champion to the
+          // ACTIVE policy that consumers (neural_patterns retrieval, …) read. A
+          // no-op if nothing is adopted or it is already active; reversible.
+          const { applyChampion } = await import('./config/harness-feedback-applier.js');
+          const ap = applyChampion(process.cwd());
+          if (ap.applied && this.output.isVerbose()) {
+            this.output.printDebug(`Applied proven config to active policy (${ap.from ?? '(none)'} → ${ap.to})`);
+          }
+        } catch { /* silent */ }
+
+        // Self-running daemon: ensure the background workers (distillation,
+        // backup, …) are actually firing without a manual `daemon start`.
+        // Single-instance (only spawns when none is alive; the spawned daemon
+        // re-checks its own lock), bounded (TTL/idle self-shutdown), opt-out via
+        // RUFLO_DAEMON_AUTOSTART=0. Skipped for `daemon` (no recursion). Detached
+        // + fire-and-forget, so it never blocks the command.
+        if (commandPath[0] !== 'daemon') {
+          try {
+            const { ensureDaemonRunning } = await import('./services/daemon-autostart.js');
+            const d = ensureDaemonRunning(process.cwd());
+            if (d.started) {
+              this.output.printInfo(`Started Ruflo background daemon for ${process.cwd()} (stop: ruflo daemon stop)`);
+            }
+          } catch { /* silent */ }
+        }
+      }
+
       // Handle lazy-loaded commands that weren't recognized by the parser
       // If commandPath is empty but positional has a command name, check if it's lazy-loadable
       if (commandPath.length === 0 && positional.length > 0 && !positional[0].startsWith('-')) {
@@ -607,6 +695,8 @@ export {
 // Memory & Intelligence (V3 Performance Features)
 export {
   initializeMemoryDatabase,
+  repairVectorIndexes,
+  recoverMemoryDatabase,
   generateEmbedding,
   generateBatchEmbeddings,
   storeEntry,

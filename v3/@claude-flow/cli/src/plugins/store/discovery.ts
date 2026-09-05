@@ -13,7 +13,7 @@ import type {
   PluginStoreConfig,
   PluginEntry,
 } from './types.js';
-import { resolveIPNS, fetchFromIPFS } from '../../transfer/ipfs/client.js';
+import { resolveIPNS, fetchFromIPFS, verifyEd25519Signature } from '../../transfer/ipfs/client.js';
 
 /**
  * Fetch real npm download stats for a package
@@ -178,11 +178,19 @@ export class PluginDiscoveryService {
         return this.createDemoRegistryAsync(registry);
       }
 
-      // Verify registry signature if required
-      if (this.config.requireVerification && registryData.registrySignature) {
-        const verified = this.verifyRegistrySignature(registryData, registry.publicKey);
+      // Verify registry signature when required.
+      // Fail closed on missing/invalid signature — silently warning and using
+      // an unverified registry would let a compromised IPFS gateway (or any
+      // on-path attacker) swap in attacker-mapped plugin entries that the
+      // installer would then load unsandboxed.
+      if (this.config.requireVerification) {
+        const verified = await this.verifyRegistrySignature(registryData, registry.publicKey);
         if (!verified) {
-          console.warn(`[PluginDiscovery] Registry signature verification failed`);
+          console.warn(
+            `[PluginDiscovery] Registry signature verification failed for ` +
+              `${registry.name} (CID ${cid}); falling back to demo registry.`,
+          );
+          return this.createDemoRegistryAsync(registry);
         }
       }
 
@@ -228,6 +236,9 @@ export class PluginDiscoveryService {
         { id: 'integrations', name: 'Integrations', description: 'Third-party integrations', pluginCount: 2 },
         { id: 'agents', name: 'Agents', description: 'Custom agent types', pluginCount: 1 },
         { id: 'iot', name: 'IoT', description: 'IoT device management and fleet orchestration', pluginCount: 1 },
+        // ADR-150 — MetaHarness-generated standalone harnesses
+        // surface alongside plugins. Filter via `--type harness`.
+        { id: 'harness', name: 'Harness', description: 'MetaHarness-generated standalone agent harnesses (ADR-150)', pluginCount: 0 },
       ],
       authors: [
         {
@@ -1197,14 +1208,34 @@ export class PluginDiscoveryService {
   }
 
   /**
-   * Verify registry signature
+   * Verify registry Ed25519 signature.
+   *
+   * Mirrors the signing scheme in scripts/publish-registry.ts: the signer
+   * removes registrySignature + registryPublicKey from the registry object
+   * and signs JSON.stringify(rest). The verifier reproduces those bytes and
+   * checks the signature against the registry config's pre-pinned
+   * publicKey — NOT registry.registryPublicKey, which is asserted by
+   * whoever served the registry and can be swapped by a compromised
+   * gateway / on-path attacker.
    */
-  private verifyRegistrySignature(registry: PluginRegistry, expectedPublicKey: string): boolean {
-    if (!registry.registrySignature || !registry.registryPublicKey) {
+  private async verifyRegistrySignature(
+    registry: PluginRegistry,
+    expectedPublicKey: string,
+  ): Promise<boolean> {
+    if (!registry.registrySignature || !expectedPublicKey) {
       return false;
     }
-    // In production: Verify Ed25519 signature
-    return registry.registryPublicKey.startsWith(expectedPublicKey.split(':')[0]);
+    // Object spread preserves insertion order; delete drops a key without
+    // re-ordering the rest, matching the signer's view of the registry.
+    const registryToVerify: Record<string, unknown> = { ...registry };
+    delete registryToVerify.registrySignature;
+    delete registryToVerify.registryPublicKey;
+    const message = JSON.stringify(registryToVerify);
+    return verifyEd25519Signature(
+      message,
+      registry.registrySignature,
+      expectedPublicKey,
+    );
   }
 
   /**

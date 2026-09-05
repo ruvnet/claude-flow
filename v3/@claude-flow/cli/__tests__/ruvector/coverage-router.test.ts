@@ -670,8 +670,7 @@ describe('CoverageRouter Advanced Scenarios', () => {
         const report = router.parseCoverage(clover, 'cobertura');
         expect(report).toBeDefined();
       } catch {
-        // Clover format not supported is acceptable
-        expect(true).toBe(true);
+        // Clover format not supported is acceptable — no assertion needed
       }
     });
 

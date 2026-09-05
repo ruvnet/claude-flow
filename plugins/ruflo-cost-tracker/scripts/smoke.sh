@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-cost-tracker v0.3.0 (ADR-0001 + ADR-0002).
+# Structural smoke test for ruflo-cost-tracker v0.26.3.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0
@@ -8,21 +8,21 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.16.1 with new keywords"
+step "1. plugin.json declares 0.26.3 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.16.1" ]]; then
-  bad "expected 0.16.1, got '$v'"
+if [[ "$v" != "0.26.3" ]]; then
+  bad "expected 0.26.3, got '$v'"
 else
   miss=""
-  for k in namespace-routing mcp agentic-flow agent-booster tier1-routing model-routing benchmarking verified telemetry budget; do
+  for k in namespace-routing mcp agentic-flow agent-booster tier1-routing model-routing benchmarking verified telemetry budget projection forecast counterfactual drift-detection trend-alert anomaly-detection outlier-detection health-check composite-gate auto-track stop-hook snapshot-diff pr-regression git-context traceability drill-down per-message; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
   done
   [[ -z "$miss" ]] && ok || bad "missing keywords:$miss"
 fi
 
-step "2. all thirteen skills present with valid frontmatter"
+step "2. all twenty skills present with valid frontmatter"
 miss=""
-for s in cost-report cost-optimize cost-booster-route cost-booster-edit cost-compact-context cost-benchmark cost-track cost-budget-check cost-trend cost-conversation cost-export cost-federation cost-summary; do
+for s in cost-report cost-optimize cost-booster-route cost-booster-edit cost-compact-context cost-benchmark cost-track cost-budget-check cost-trend cost-conversation cost-export cost-federation cost-summary cost-projection cost-counterfactual cost-burn cost-anomaly cost-health cost-diff cost-session; do
   f="$ROOT/skills/$s/SKILL.md"
   [[ -f "$f" ]] || { miss="$miss missing-$s"; continue; }
   for k in 'name:' 'description:' 'allowed-tools:'; do
@@ -237,12 +237,32 @@ grep -q 'cost-tracking' "$F" || miss="$miss namespace"
 grep -q '^allowed-tools:[[:space:]]*\*' "$F" && miss="$miss wildcard"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
-step "29. track.mjs harness present + parses + uses spawnSync (no shell-escape risks)"
+step "28b. hooks/hooks.json auto-runs cost-track on Stop (iter 78, rewired #2721)"
+F="$ROOT/hooks/hooks.json"
+SHIM="$ROOT/scripts/ruflo-hook.cjs"
+miss=""
+[[ -f "$F" ]] || miss="$miss missing-file"
+node -e "JSON.parse(require('fs').readFileSync('$F'))" 2>/dev/null || miss="$miss invalid-json"
+grep -q '"Stop"' "$F" || miss="$miss no-Stop-hook"
+grep -q "CLAUDE_PLUGIN_ROOT" "$F" || miss="$miss no-plugin-root-var"
+# #2721 — hooks.json no longer invokes track.mjs / TRACK_QUIET=1 / `|| true`
+# directly: it's a `node -e` bootstrap (no shell, cross-platform) that
+# requires scripts/ruflo-hook.cjs, which does the track.mjs spawn + resilient
+# always-exit-0 itself. Verify the indirection is actually wired, not just
+# present on disk unreferenced (that exact gap is what shipped as #2721).
+grep -q "ruflo-hook\.cjs" "$F" || miss="$miss hooks-json-not-wired-to-shim"
+[[ -f "$SHIM" ]] || miss="$miss missing-shim-file"
+grep -q "track\.mjs" "$SHIM" || miss="$miss shim-not-invoking-track"
+grep -q "TRACK_QUIET" "$SHIM" || miss="$miss shim-no-quiet-flag"
+grep -q "function done" "$SHIM" || miss="$miss shim-not-resilient"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "29. track.mjs harness present + parses + uses safe argv spawning"
 F="$ROOT/scripts/track.mjs"
 miss=""
 [[ -x "$F" ]] || miss="$miss not-executable"
 node --check "$F" 2>/dev/null || miss="$miss syntax-error"
-grep -q "spawnSync" "$F" || miss="$miss no-spawnSync"
+grep -qE "spawnNpxSync|spawnSync" "$F" || miss="$miss no-safe-spawn"
 grep -q "PRICING" "$F" || miss="$miss no-pricing-table"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
@@ -273,14 +293,25 @@ grep -qE "budget\.mjs|cost-tracking:budget-config" "$F" || miss="$miss budget-sc
 grep -q '^allowed-tools:[[:space:]]*\*' "$F" && miss="$miss wildcard"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
-step "32. budget.mjs harness present + parses + uses spawnSync"
+step "32. budget.mjs harness present + parses + uses safe argv spawning"
 F="$ROOT/scripts/budget.mjs"
 miss=""
 [[ -x "$F" ]] || miss="$miss not-executable"
 node --check "$F" 2>/dev/null || miss="$miss syntax-error"
-grep -q "spawnSync" "$F" || miss="$miss no-spawnSync"
+grep -qE "spawnNpxSync|spawnSync|_sessions\.mjs" "$F" || miss="$miss no-safe-exec"
 grep -qE "HARD_STOP|alertLevel" "$F" || miss="$miss no-alert-impl"
 grep -q "process.exit(1)" "$F" || miss="$miss no-fail-closed"
+# iter 75 regression guard: in the WITH-BUDGET branch (after `const alert =
+# alertLevel(...)` is computed), the HARD_STOP exit must follow the
+# JSON/markdown output, not be skipped by an early return. The previous bug
+# was `if (BUDGET_QUIET) return console.log(...)` placed AFTER alert was
+# computed but BEFORE the exit check, silently swallowing the alert for
+# cost-health. Detect via: in lines AFTER `const alert =`, there must be no
+# `return console.log(JSON.stringify(out))` pattern.
+post_alert_lines=$(awk '/const alert = alertLevel/,/^}/' "$F")
+if printf '%s\n' "$post_alert_lines" | grep -qE "return console\.log\(JSON\.stringify\(out\)\)"; then
+  miss="$miss budget-quiet-early-return-after-alert"
+fi
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "33. ruflo-cost.md documents 'cost budget set/get/check' subcommands"
@@ -302,7 +333,7 @@ F="$ROOT/scripts/outcome.mjs"
 miss=""
 [[ -x "$F" ]] || miss="$miss not-executable"
 node --check "$F" 2>/dev/null || miss="$miss syntax-error"
-grep -q "spawnSync" "$F" || miss="$miss no-spawnSync"
+grep -qE "spawnNpxSync|spawnSync" "$F" || miss="$miss no-safe-spawn"
 grep -q "hooks.*model-outcome" "$F" || miss="$miss no-hooks-call"
 grep -qE "success.*escalated.*failure|ALLOWED" "$F" || miss="$miss no-validation"
 [[ -z "$miss" ]] && ok || bad "$miss"
@@ -349,6 +380,13 @@ node --check "$F1" 2>/dev/null || miss="$miss syntax-error"
 grep -q "total_cost_usd" "$F1" || miss="$miss no-headline-metric"
 grep -qE "byTier|byModel" "$F1" || miss="$miss no-aggregation"
 grep -q "alertLevel" "$F1" || miss="$miss no-alert-level"
+# iter 81 — git context for snapshot traceability (used by cost-diff).
+grep -q "captureGitContext" "$F1" || miss="$miss no-git-context-fn"
+grep -qE "shaShort|isDirty" "$F1" || miss="$miss no-git-fields"
+# iter 84 — per-token-class breakdown surfaces cache_write as a driver
+# (otherwise summaries hide the iter-82 bug class at the AGGREGATE level).
+grep -q "byTokenClass" "$F1" || miss="$miss no-token-class-aggregation"
+grep -q "By token class" "$F1" || miss="$miss no-token-class-markdown"
 [[ -f "$F2" ]] || miss="$miss skill-missing"
 grep -q "summary\.mjs" "$F2" || miss="$miss skill-no-script-ref"
 grep -qE "stable|contract|JSON" "$F2" || miss="$miss no-contract-doc"
@@ -376,9 +414,159 @@ miss=""
 node --check "$F1" 2>/dev/null || miss="$miss syntax-error"
 grep -q "cost_tracker_total_usd" "$F1" || miss="$miss no-prom-metric"
 grep -q "fetch(" "$F1" || miss="$miss no-webhook-fn"
+# iter 83 — per-tier-per-type token metric emits cache_write growth signal.
+grep -q "cost_tracker_tokens_total" "$F1" || miss="$miss no-tokens-metric"
+grep -q "byTierTokens" "$F1" || miss="$miss no-tokens-aggregation"
+grep -q "cache_creation_input_tokens" "$F1" || miss="$miss no-cache-write-tokens"
 [[ -f "$F2" ]] || miss="$miss skill-missing"
 grep -q "export\.mjs" "$F2" || miss="$miss skill-no-script-ref"
 grep -q '^allowed-tools:[[:space:]]*\*' "$F2" && miss="$miss wildcard"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "39d. cost-burn skill + burn.mjs (windowed trend + drift-alert exit code)"
+F1="$ROOT/scripts/burn.mjs"
+F2="$ROOT/skills/cost-burn/SKILL.md"
+miss=""
+[[ -x "$F1" ]] || miss="$miss burn-not-executable"
+node --check "$F1" 2>/dev/null || miss="$miss syntax-error"
+# After iter 73 consolidation, scripts can satisfy the "safe shell-out"
+# invariant via the vetted _sessions.mjs helper instead of direct spawnSync.
+grep -qE "spawnSync|_sessions\.mjs" "$F1" || miss="$miss no-safe-exec"
+grep -q "bucket" "$F1" || miss="$miss no-bucket-arg"
+grep -q "lookback" "$F1" || miss="$miss no-lookback-arg"
+grep -q "alert-on-acceleration-pct" "$F1" || miss="$miss no-alert-flag"
+grep -qE "priorMean|priorNonEmpty" "$F1" || miss="$miss no-prior-mean-impl"
+grep -q "process.exit(1)" "$F1" || miss="$miss no-fail-closed"
+grep -q "process.exit(2)" "$F1" || miss="$miss no-config-exit"
+[[ -f "$F2" ]] || miss="$miss skill-missing"
+grep -q "burn\.mjs" "$F2" || miss="$miss skill-no-script-ref"
+grep -qE "drift|acceleration|burn[- ]rate" "$F2" || miss="$miss no-concept-keyword"
+grep -q "alert-on-acceleration-pct" "$F2" || miss="$miss skill-no-alert-flag"
+grep -q '^allowed-tools:[[:space:]]*\*' "$F2" && miss="$miss wildcard"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "39f. cost-anomaly skill + anomaly.mjs (MAD-based outlier detection)"
+F1="$ROOT/scripts/anomaly.mjs"
+F2="$ROOT/skills/cost-anomaly/SKILL.md"
+miss=""
+[[ -x "$F1" ]] || miss="$miss anomaly-not-executable"
+node --check "$F1" 2>/dev/null || miss="$miss syntax-error"
+# After iter 73 consolidation, scripts can satisfy the "safe shell-out"
+# invariant via the vetted _sessions.mjs helper instead of direct spawnSync.
+grep -qE "spawnSync|_sessions\.mjs" "$F1" || miss="$miss no-safe-exec"
+grep -qE "MAD|median absolute deviation" "$F1" || miss="$miss no-mad-concept"
+grep -qE "0\.6745|Iglewicz" "$F1" || miss="$miss no-modified-z-constant"
+grep -q "alert-on-outliers" "$F1" || miss="$miss no-alert-flag"
+grep -q "process.exit(1)" "$F1" || miss="$miss no-fail-closed"
+grep -q "process.exit(2)" "$F1" || miss="$miss no-config-exit"
+grep -qE "filtered\.length < 3|sufficient" "$F1" || miss="$miss no-small-sample-guard"
+[[ -f "$F2" ]] || miss="$miss skill-missing"
+grep -q "anomaly\.mjs" "$F2" || miss="$miss skill-no-script-ref"
+grep -qE "MAD|outlier|anomaly" "$F2" || miss="$miss no-concept-keyword"
+grep -q "alert-on-outliers" "$F2" || miss="$miss skill-no-alert-flag"
+grep -q '^allowed-tools:[[:space:]]*\*' "$F2" && miss="$miss wildcard"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "39h. cost-health skill + health.mjs (composite CI gate)"
+F1="$ROOT/scripts/health.mjs"
+F2="$ROOT/skills/cost-health/SKILL.md"
+miss=""
+[[ -x "$F1" ]] || miss="$miss health-not-executable"
+node --check "$F1" 2>/dev/null || miss="$miss syntax-error"
+grep -q "Promise.all" "$F1" || miss="$miss no-parallel-spawn"
+grep -q "spawn(" "$F1" || miss="$miss no-spawn"
+grep -qE "max\(.*exitCode|maxExit" "$F1" || miss="$miss no-max-exit-aggregation"
+grep -q "alert-acceleration" "$F1" || miss="$miss no-burn-threshold"
+grep -q "alert-outliers" "$F1" || miss="$miss no-anomaly-threshold"
+grep -q "alert-days-to-exhaust" "$F1" || miss="$miss no-projection-threshold"
+grep -q -- "'--skip'" "$F1" || miss="$miss no-skip-flag"
+[[ -f "$F2" ]] || miss="$miss skill-missing"
+grep -q "health\.mjs" "$F2" || miss="$miss skill-no-script-ref"
+grep -qE "composit|max\(|parallel" "$F2" || miss="$miss no-concept-keyword"
+grep -q '^allowed-tools:[[:space:]]*\*' "$F2" && miss="$miss wildcard"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "39j. cost-diff skill + diff.mjs (PR-level snapshot regression detection)"
+F1="$ROOT/scripts/diff.mjs"
+F2="$ROOT/skills/cost-diff/SKILL.md"
+miss=""
+[[ -x "$F1" ]] || miss="$miss diff-not-executable"
+node --check "$F1" 2>/dev/null || miss="$miss syntax-error"
+grep -q "loadSnapshot" "$F1" || miss="$miss no-loader-fn"
+grep -q "alert-on-pct" "$F1" || miss="$miss no-pct-flag"
+grep -q "alert-on-usd" "$F1" || miss="$miss no-usd-flag"
+grep -qE "byTier|byModel" "$F1" || miss="$miss no-breakdown"
+# iter 85 — per-token-class delta surfaces cache_write growth driver.
+grep -q "tokenClassDeltas\|byTokenClass" "$F1" || miss="$miss no-token-class-diff"
+grep -q "cache_write" "$F1" || miss="$miss no-cache-write-callout"
+# iter 86 — per-class % alert threshold (--alert-on-class-pct cache_write:50).
+grep -q "alert-on-class-pct" "$F1" || miss="$miss no-class-pct-flag"
+grep -q "alertClassPct" "$F1" || miss="$miss no-class-pct-storage"
+grep -q "process.exit(1)" "$F1" || miss="$miss no-fail-closed"
+grep -q "process.exit(2)" "$F1" || miss="$miss no-config-exit"
+[[ -f "$F2" ]] || miss="$miss skill-missing"
+grep -q "diff\.mjs" "$F2" || miss="$miss skill-no-script-ref"
+grep -qE "PR.level|snapshot.delta|regression" "$F2" || miss="$miss no-concept"
+grep -q "alert-on-pct" "$F2" || miss="$miss skill-no-pct-flag"
+grep -q '^allowed-tools:[[:space:]]*\*' "$F2" && miss="$miss wildcard"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "39l. cost-session skill + session.mjs (per-message drill-down)"
+F1="$ROOT/scripts/session.mjs"
+F2="$ROOT/skills/cost-session/SKILL.md"
+miss=""
+[[ -x "$F1" ]] || miss="$miss session-not-executable"
+node --check "$F1" 2>/dev/null || miss="$miss syntax-error"
+grep -q "findSessionJsonl" "$F1" || miss="$miss no-resolver"
+grep -q "summarizeMessages" "$F1" || miss="$miss no-aggregator"
+grep -q "cache_creation_input_tokens" "$F1" || miss="$miss no-cache-write-column"
+grep -qE "p50_cost_usd|p99_cost_usd" "$F1" || miss="$miss no-percentile-context"
+grep -q "process.exit(2)" "$F1" || miss="$miss no-config-exit"
+[[ -f "$F2" ]] || miss="$miss skill-missing"
+grep -q "session\.mjs" "$F2" || miss="$miss skill-no-script-ref"
+grep -qE "drill.down|cache_write|per-message" "$F2" || miss="$miss no-concept"
+grep -qE "cache_creation_input_tokens|Cache W" "$F2" || miss="$miss no-cache-write-doc"
+grep -q '^allowed-tools:[[:space:]]*\*' "$F2" && miss="$miss wildcard"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "39m. ruflo-cost.md documents 'cost session' subcommand"
+F="$ROOT/commands/ruflo-cost.md"
+miss=""
+grep -q "cost session" "$F" || miss="$miss subcommand"
+grep -qE "session-id|drill.down|per-message" "$F" || miss="$miss no-concept"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "39k. ruflo-cost.md documents 'cost diff' subcommand"
+F="$ROOT/commands/ruflo-cost.md"
+miss=""
+grep -q "cost diff" "$F" || miss="$miss subcommand"
+grep -q "alert-on-pct" "$F" || miss="$miss pct-flag"
+grep -q "alert-on-usd" "$F" || miss="$miss usd-flag"
+grep -qE "baseline.*current|snapshot" "$F" || miss="$miss snapshot-concept"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "39i. ruflo-cost.md documents 'cost health' subcommand"
+F="$ROOT/commands/ruflo-cost.md"
+miss=""
+grep -q "cost health" "$F" || miss="$miss subcommand"
+grep -qE "max\(|composite|HEALTHY" "$F" || miss="$miss no-concept"
+grep -q "alert-acceleration" "$F" || miss="$miss no-burn-flag"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "39g. ruflo-cost.md documents 'cost anomaly' subcommand with alert flag"
+F="$ROOT/commands/ruflo-cost.md"
+miss=""
+grep -q "cost anomaly" "$F" || miss="$miss subcommand"
+grep -q "alert-on-outliers" "$F" || miss="$miss alert-flag"
+grep -qE "threshold|modified z|MAD" "$F" || miss="$miss algo-concept"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "39e. ruflo-cost.md documents 'cost burn' subcommand with alert flag"
+F="$ROOT/commands/ruflo-cost.md"
+miss=""
+grep -q "cost burn" "$F" || miss="$miss subcommand"
+grep -q "alert-on-acceleration-pct" "$F" || miss="$miss alert-flag"
+grep -qE "bucket|lookback" "$F" || miss="$miss bucket-or-lookback"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "40a. cost-conversation skill + conversation.mjs"
@@ -423,6 +611,37 @@ for d in "$ROOT"/skills/*/; do
   grep -qE "\\| \`$name\`" "$F" 2>/dev/null || miss="$miss $name"
 done
 [[ -z "$miss" ]] && ok || bad "README skills table missing:$miss"
+
+step "42a. test-health-integration.mjs runtime test exists w/ iter-75 regression case"
+F="$ROOT/scripts/test-health-integration.mjs"
+miss=""
+[[ -x "$F" ]] || miss="$miss not-executable"
+node --check "$F" 2>/dev/null || miss="$miss syntax-error"
+grep -q "iter-75 regression" "$F" || miss="$miss no-iter-75-reference"
+grep -q "BUDGET_QUIET" "$F" || miss="$miss no-budget-quiet-case"
+grep -q "HARD_STOP" "$F" || miss="$miss no-hard-stop-case"
+grep -q "overall\.ok" "$F" || miss="$miss no-composite-assertion"
+grep -q "process\.exit(1)" "$F" || miss="$miss no-fail-closed"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "42b. _sessions.mjs shared loader is the single source of truth"
+F="$ROOT/scripts/_sessions.mjs"
+miss=""
+[[ -f "$F" ]] || miss="$miss missing"
+node --check "$F" 2>/dev/null || miss="$miss syntax-error"
+grep -qE "spawnNpxSync|spawnSync" "$F" || miss="$miss no-safe-spawn"
+grep -q "memoryListAllKeys" "$F" || miss="$miss no-list-all-export"
+grep -q "memoryListSessionKeys" "$F" || miss="$miss no-list-session-export"
+grep -q "memoryRetrieve" "$F" || miss="$miss no-retrieve-export"
+grep -q "loadSessions" "$F" || miss="$miss no-load-sessions-export"
+grep -q "parseDurationMs" "$F" || miss="$miss no-duration-parser-export"
+grep -q "sessionTs" "$F" || miss="$miss no-session-ts-export"
+# Verify consumers actually use the shared loader (anomaly/burn/projection/counterfactual/conversation/budget/summary)
+consumers="anomaly burn projection counterfactual conversation budget summary"
+for c in $consumers; do
+  grep -q "from './_sessions" "$ROOT/scripts/$c.mjs" 2>/dev/null || miss="$miss $c-not-importing"
+done
+[[ -z "$miss" ]] && ok || bad "$miss"
 
 step "43. every script in scripts/*.mjs parses cleanly"
 miss=""

@@ -86,6 +86,9 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
   private persistTimer: NodeJS.Timeout | null = null;
   private SQL: any = null;
 
+  /** Whether the FTS5 virtual table is available on this build of sql.js. */
+  private ftsAvailable: boolean = false;
+
   // Performance tracking
   private stats = {
     queryCount: 0,
@@ -207,6 +210,17 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_namespace_key ON memory_entries(namespace, key)'
     );
 
+    // ADR-125 Phase 5 — FTS5 keyword index. sql.js ships FTS5 since 1.10.
+    try {
+      this.db.run(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts
+          USING fts5(id UNINDEXED, content, tokenize='porter unicode61')
+      `);
+      this.ftsAvailable = true;
+    } catch {
+      this.ftsAvailable = false;
+    }
+
     if (this.config.verbose) {
       console.log('[SqlJsBackend] Schema created successfully');
     }
@@ -250,6 +264,15 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
       entry.accessCount,
       entry.lastAccessedAt,
     ]);
+
+    // ADR-125 Phase 5 — mirror into FTS5 for keyword search.
+    if (this.ftsAvailable) {
+      this.db!.run('DELETE FROM memory_fts WHERE id = ?', [entry.id]);
+      this.db!.run('INSERT INTO memory_fts(id, content) VALUES (?, ?)', [
+        entry.id,
+        entry.content,
+      ]);
+    }
 
     const duration = performance.now() - startTime;
     this.stats.writeCount++;
@@ -352,6 +375,9 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
     const startTime = performance.now();
 
     this.db!.run('DELETE FROM memory_entries WHERE id = ?', [id]);
+    if (this.ftsAvailable) {
+      this.db!.run('DELETE FROM memory_fts WHERE id = ?', [id]);
+    }
 
     const duration = performance.now() - startTime;
     this.stats.writeCount++;
@@ -359,6 +385,60 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
 
     this.emit('entry:deleted', { id, duration });
     return true;
+  }
+
+  /**
+   * ADR-125 Phase 5 — keyword (FTS5) search.
+   *
+   * Mirrors the SQLiteBackend.searchKeyword shape. Falls back to a LIKE
+   * scan when FTS5 isn't available on the sql.js build.
+   */
+  async searchKeyword(query: string, limit: number = 10): Promise<SearchResult[]> {
+    this.ensureInitialized();
+    if (!query || !query.trim()) return [];
+
+    if (this.ftsAvailable) {
+      try {
+        const stmt = this.db!.prepare(`
+          SELECT e.*, fts.rank as fts_rank
+          FROM memory_fts AS fts
+          JOIN memory_entries AS e ON e.id = fts.id
+          WHERE memory_fts MATCH ?
+          ORDER BY fts.rank
+          LIMIT ?
+        `);
+        stmt.bind([escapeFtsQuery(query), limit]);
+        const results: SearchResult[] = [];
+        while (stmt.step()) {
+          const row: any = stmt.getAsObject();
+          const entry = this.rowToEntry(row);
+          const score = 1 / (1 + Math.abs(row.fts_rank || 0));
+          results.push({ entry, score, distance: 1 - score });
+        }
+        stmt.free();
+        return results;
+      } catch {
+        // Fall through to LIKE
+      }
+    }
+
+    // LIKE fallback
+    const like = `%${query.replace(/[%_]/g, '')}%`;
+    const stmt = this.db!.prepare(
+      'SELECT * FROM memory_entries WHERE content LIKE ? ORDER BY updated_at DESC LIMIT ?'
+    );
+    stmt.bind([like, limit]);
+    const results: SearchResult[] = [];
+    while (stmt.step()) {
+      const row: any = stmt.getAsObject();
+      results.push({
+        entry: this.rowToEntry(row),
+        score: 0.5,
+        distance: 0.5,
+      });
+    }
+    stmt.free();
+    return results;
   }
 
   /**
@@ -764,4 +844,17 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
     const data = this.db.export();
     return data.length;
   }
+}
+
+/**
+ * Escape an FTS5 MATCH query string. Wraps each whitespace-separated
+ * token as a quoted phrase so prose input doesn't trip FTS5's mini-language.
+ * @internal
+ */
+function escapeFtsQuery(q: string): string {
+  return q
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((tok) => `"${tok.replace(/"/g, '""')}"`)
+    .join(' ');
 }

@@ -77,7 +77,7 @@
     "@types/node": "^20.10.0",
     "rimraf": "^5.0.5",
     "typescript": "^5.3.0",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "peerDependencies": {
     "@ruvector/micro-hnsw-wasm": ">=0.1.0",

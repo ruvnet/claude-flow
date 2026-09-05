@@ -25,6 +25,7 @@ import { MemoryGraph } from './memory-graph.js';
 import type { MemoryGraphConfig } from './memory-graph.js';
 import { TieredCacheManager } from './cache-manager.js';
 import type { CacheConfig } from './types.js';
+import { TieredMemoryStore } from './tiered-memory.js';
 
 // ===== Types =====
 
@@ -66,6 +67,25 @@ export type CLIControllerName =
   | 'rvfOptimizer'
   | 'mmrDiversityRanker'
   | 'guardedVectorBackend';
+
+/**
+ * Minimal surface the `hybridSearch` controller needs from a backend when
+ * falling back to `this.backend` (no `memoryService` supplied) — the same
+ * two methods `AgentDBAdapter` exposes and the only two this factory calls.
+ * A named guard instead of ad-hoc `typeof` checks so a future backend that
+ * happens to define same-named-but-differently-shaped methods is easier to
+ * catch and reason about at one call site (Dream Cycle 2026-08-18).
+ */
+interface HybridCapableBackend {
+  semanticSearch(query: string, k?: number, threshold?: number): Promise<unknown[]>;
+  searchKeyword(query: string, options?: { k?: number }): Promise<unknown[]>;
+}
+
+function isHybridCapableBackend(backend: unknown): backend is HybridCapableBackend {
+  if (!backend || typeof backend !== 'object') return false;
+  const b = backend as Record<string, unknown>;
+  return typeof b.semanticSearch === 'function' && typeof b.searchKeyword === 'function';
+}
 
 /**
  * All controller names
@@ -136,6 +156,24 @@ export interface RuntimeConfig {
 
   /** Backend instance to use (if pre-created) */
   backend?: IMemoryBackend;
+
+  /**
+   * Pre-initialized AgentDB instance to use. When provided, the
+   * registry skips its own dynamic-import / initialize cycle and uses
+   * this instance as-is — useful for testing, multi-registry sharing,
+   * and consumers that already hold an AgentDB they want governed by
+   * the registry. Issue #2019 added the regression tests that depend
+   * on this injection point.
+   */
+  agentdb?: unknown;
+
+  /**
+   * `MemoryService` (or compatible) used to back the `nightlyLearner`
+   * controller. When provided, ADR-125 Phase 4 wraps it with
+   * `MemoryConsolidator.runAll()` instead of delegating directly to AgentDB's
+   * `NightlyLearner`. Accepts `any` to avoid a circular import.
+   */
+  memoryService?: any;
 }
 
 /**
@@ -212,6 +250,7 @@ export class ControllerRegistry extends EventEmitter {
   private config: RuntimeConfig = {};
   private initialized = false;
   private initTimeMs = 0;
+  private hierarchicalFallback: { reason: string; persistence: string } | null = null;
 
   /**
    * Initialize all controllers in level-based order.
@@ -255,6 +294,9 @@ export class ControllerRegistry extends EventEmitter {
           const errorMsg = result.reason instanceof Error
             ? result.reason.message
             : String(result.reason);
+
+          // #2432 — close any prior instance before replacing.
+          await this.closePriorIfAny(name);
 
           this.controllers.set(name, {
             name,
@@ -327,13 +369,20 @@ export class ControllerRegistry extends EventEmitter {
       return entry.instance as T;
     }
 
-    // Fall back to AgentDB internal controllers
-    if (this.agentdb && typeof this.agentdb.getController === 'function') {
-      try {
-        const controller = this.agentdb.getController(name);
-        if (controller) return controller as T;
-      } catch {
-        // Controller not available in AgentDB
+    // Fall back to AgentDB internal controllers. Issue #2019:
+    // probe `agentdb[name]` first so we don't depend on the upstream
+    // getController switch knowing about every field it carries.
+    if (this.agentdb) {
+      const agentdb: any = this.agentdb;
+      const direct = agentdb[name];
+      if (direct) return direct as T;
+      if (typeof agentdb.getController === 'function') {
+        try {
+          const controller = agentdb.getController(name);
+          if (controller) return controller as T;
+        } catch {
+          // Upstream switch threw for an unknown name — fine, fall through.
+        }
       }
     }
 
@@ -347,12 +396,16 @@ export class ControllerRegistry extends EventEmitter {
     const entry = this.controllers.get(name);
     if (entry?.enabled) return true;
 
-    // Check AgentDB internal controllers
-    if (this.agentdb && typeof this.agentdb.getController === 'function') {
-      try {
-        return this.agentdb.getController(name) !== null;
-      } catch {
-        return false;
+    // Issue #2019: same direct-then-fallback shape as get() above.
+    if (this.agentdb) {
+      const agentdb: any = this.agentdb;
+      if (agentdb[name]) return true;
+      if (typeof agentdb.getController === 'function') {
+        try {
+          return agentdb.getController(name) !== null;
+        } catch {
+          return false;
+        }
       }
     }
 
@@ -458,6 +511,14 @@ export class ControllerRegistry extends EventEmitter {
    * Initialize AgentDB instance with dynamic import and fallback chain.
    */
   private async initAgentDB(config: RuntimeConfig): Promise<void> {
+    // Caller-supplied agentdb wins — used by tests (#2019 regression
+    // guards) and by consumers that own the AgentDB lifecycle.
+    if (config.agentdb) {
+      this.agentdb = config.agentdb;
+      this.emit('agentdb:initialized');
+      return;
+    }
+
     try {
       // Validate dbPath to prevent path traversal
       const dbPath = config.dbPath || ':memory:';
@@ -544,7 +605,6 @@ export class ControllerRegistry extends EventEmitter {
       case 'causalRecall':
       case 'learningSystem':
       case 'explainableRecall':
-      case 'nightlyLearner':
       case 'graphTransformer':
       case 'graphAdapter':
       case 'gnnService':
@@ -555,12 +615,23 @@ export class ControllerRegistry extends EventEmitter {
       case 'mmrDiversityRanker':
         return this.agentdb !== null;
 
+      // ADR-125 Phase 4 — nightlyLearner is enabled when EITHER an AgentDB
+      // is present (legacy path) OR a MemoryService is registered (new path
+      // backed by MemoryConsolidator.runAll).
+      case 'nightlyLearner':
+        return this.agentdb !== null || !!this.config.memoryService;
+
       // SemanticRouter — auto-enable if agentdb available (exported since alpha.10)
       case 'semanticRouter':
         return this.agentdb !== null;
 
-      // Optional controllers
+      // ADR-125 Phase 5 — hybridSearch auto-enables when a MemoryService is
+      // registered. Replaces the prior "placeholder, require explicit enable"
+      // posture.
       case 'hybridSearch':
+        return !!this.config.memoryService;
+
+      // Optional controllers
       case 'agentMemoryScope':
       case 'sonaTrajectory':
       case 'federatedSession':
@@ -572,10 +643,44 @@ export class ControllerRegistry extends EventEmitter {
   }
 
   /**
+   * Close any prior controller instance for `name` before it is replaced.
+   *
+   * #2432 fix — pre-fix, `controllers.set(name, ...)` silently orphaned the
+   * prior instance. For backends that allocate native / WASM resources
+   * (notably `SqlJsRvfBackend` which keeps an Emscripten MEMFS file ~11 MB
+   * per `new SQL.Database(buffer)` until `close()` runs), GC'ing the JS
+   * wrapper does NOT reclaim the underlying allocation. A long-running
+   * `mcp start` process that re-init'd controllers hundreds of times grew
+   * external memory by ~36 GB in production over 6 weeks.
+   *
+   * Best-effort close: catch and ignore errors — replacement must proceed
+   * even if the prior instance's close throws (it's already orphaned at
+   * this point either way).
+   */
+  private async closePriorIfAny(name: ControllerName): Promise<void> {
+    const prior = this.controllers.get(name);
+    if (!prior?.instance) return;
+    const inst = prior.instance as { close?: () => unknown; dispose?: () => unknown };
+    try {
+      if (typeof inst.close === 'function') {
+        await inst.close();
+      } else if (typeof inst.dispose === 'function') {
+        await inst.dispose();
+      }
+    } catch {
+      // Best-effort — leak is preferable to crashing init on a replacement.
+    }
+  }
+
+  /**
    * Initialize a single controller with error isolation.
    */
   private async initController(name: ControllerName, level: number): Promise<void> {
     const startTime = performance.now();
+
+    // #2432 — close any prior instance before replacing the map entry,
+    // otherwise its native/WASM resources leak (e.g. sql.js MEMFS files).
+    await this.closePriorIfAny(name);
 
     try {
       const instance = await this.createController(name);
@@ -663,26 +768,139 @@ export class ControllerRegistry extends EventEmitter {
         return cache;
       }
 
-      case 'hybridSearch':
-        // BM25 hybrid search — placeholder for future implementation
-        return null;
+      case 'hybridSearch': {
+        // ADR-125 Phase 5 + ADR-147 P2 — three-arm RRF + MMR hybrid search.
+        // Runs semanticSearch() (dense, with graceful fallback),
+        // searchKeyword() (sparse FTS5), and a per-entity keyword search
+        // (entity arm, gated on extractEntities(query) returning anything)
+        // independently in parallel, fuses via RRF, diversifies via MMR.
+        // Results carry a `signals` field naming which arms surfaced each
+        // entry (provenance for debugging + downstream rerankers).
+        //
+        // Dream Cycle 2026-08-18: the auto-enable gate (`isControllerEnabled`)
+        // already honors an explicit `controllers: { hybridSearch: true }`
+        // override, but until now this factory unconditionally required
+        // `config.memoryService` regardless of that override — so explicitly
+        // opting in without also hand-building a `UnifiedMemoryService`
+        // silently produced a disabled controller (no error, no signal why).
+        // When no `memoryService` was supplied, fall back to `this.backend`
+        // if it duck-types as AgentDBAdapter-compatible (has `semanticSearch`
+        // + `searchKeyword`) — the same two methods this factory already
+        // calls below. Only reachable when a caller explicitly requests
+        // `hybridSearch`; the default (memoryService-only) auto-enable
+        // condition and its behavior are unchanged.
+        const memSvc = this.config.memoryService;
+        const directBackend =
+          !memSvc && isHybridCapableBackend(this.backend) ? this.backend : null;
+        const adapter = memSvc
+          ? typeof memSvc.getAdapter === 'function'
+            ? memSvc.getAdapter()
+            : null
+          : directBackend;
+        if (!adapter) return null;
+
+        const { applyRRF, applyMMR } = await import('./smart-retrieval.js');
+        const { extractEntities } = await import('./entity-tagger.js');
+
+        return {
+          /**
+           * Run a fused hybrid search.
+           * @param query        Free-form query string.
+           * @param opts.limit   Final result count (default 10).
+           * @param opts.fanOutK Per-arm fanout before fusion (default = limit * 3).
+           * @param opts.mmrLambda MMR relevance/diversity balance (default 0.7).
+           */
+          search: async (
+            query: string,
+            opts: { limit?: number; fanOutK?: number; mmrLambda?: number } = {}
+          ) => {
+            const limit = opts.limit ?? 10;
+            const fanOutK = opts.fanOutK ?? Math.max(limit * 3, 20);
+            const mmrLambda = opts.mmrLambda ?? 0.7;
+
+            // Adapt SearchResult[] → SearchCandidate[] expected by RRF
+            const toCands = (results: any[]) =>
+              results.map((r: any) => ({
+                id: r.entry.id,
+                key: r.entry.key,
+                content: r.entry.content,
+                namespace: r.entry.namespace,
+                metadata: r.entry.metadata,
+                createdAt: r.entry.createdAt,
+                updatedAt: r.entry.updatedAt,
+                score: r.score,
+                _entry: r.entry,
+              }));
+
+            // Entity arm — only fire if the query actually contains
+            // extractable entities. Empty arm is dropped from RRF input
+            // so it doesn't dilute the fusion.
+            const entities = extractEntities(query);
+            const entityFanOut = entities.length > 0
+              ? Math.max(1, Math.ceil(fanOutK / entities.length))
+              : 0;
+
+            // Run all three arms in parallel. Per-arm try/catch (via the
+            // .catch(...) tails) keeps one failing backend from blanking
+            // the other arms — the same defensive shape used pre-ADR-147.
+            const [dense, sparse, entityHits] = await Promise.all([
+              adapter.semanticSearch(query, fanOutK).catch(() => [] as any[]),
+              adapter.searchKeyword(query, { k: fanOutK }).catch(() => [] as any[]),
+              entities.length > 0
+                ? Promise.all(
+                    entities.map((e: string) =>
+                      adapter.searchKeyword(e, { k: entityFanOut }).catch(() => [] as any[]),
+                    ),
+                  ).then((perEntity: any[][]) => perEntity.flat())
+                : Promise.resolve([] as any[]),
+            ]);
+
+            const denseCands = toCands(dense);
+            const sparseCands = toCands(sparse);
+            const entityCands = toCands(entityHits);
+
+            // Build signal-provenance sets keyed by candidate id BEFORE
+            // RRF so we can stamp `signals` onto the fused output.
+            const candKey = (c: { id?: string; key?: string; content: string }) =>
+              c.id || c.key || c.content.slice(0, 128);
+            const denseIds = new Set(denseCands.map(candKey));
+            const sparseIds = new Set(sparseCands.map(candKey));
+            const entityIds = new Set(entityCands.map(candKey));
+
+            const arms = [denseCands, sparseCands];
+            if (entityCands.length > 0) arms.push(entityCands);
+
+            const fused = applyRRF(arms, 60);
+            const diverse = applyMMR(fused, mmrLambda, limit);
+
+            return diverse.map((s: any) => {
+              const key = candKey(s.candidate);
+              const signals: ('vector' | 'bm25' | 'entity')[] = [];
+              if (denseIds.has(key)) signals.push('vector');
+              if (sparseIds.has(key)) signals.push('bm25');
+              if (entityIds.has(key)) signals.push('entity');
+              return {
+                entry: s.candidate._entry,
+                score: s.score,
+                signals,
+              };
+            });
+          },
+          source: 'hybrid-rrf-mmr' as const,
+        };
+      }
 
       case 'agentMemoryScope':
         // Agent memory scope — placeholder, activated when explicitly enabled
         return null;
 
-      case 'semanticRouter': {
-        // SemanticRouter exported from agentdb 3.0.0-alpha.10 (ADR-062)
-        // Constructor: () — requires initialize() after construction
-        try {
-          const agentdbModule: any = await import('agentdb');
-          const SR = agentdbModule.SemanticRouter;
-          if (!SR) return null;
-          const router = new SR();
-          await router.initialize();
-          return router;
-        } catch { return null; }
-      }
+      case 'semanticRouter':
+        // SemanticRouter was exported by agentdb 3.0.0-alpha.10 (ADR-062) but
+        // dropped from every installable range (`^3.0.0-alpha.17`) — issue
+        // #2977. No fallback implementation exists for this controller;
+        // returning null directly instead of attempting a dynamic import
+        // that never resolves.
+        return null;
 
       case 'sonaTrajectory':
         // Delegate to AgentDB's SonaTrajectoryService if available
@@ -696,42 +914,32 @@ export class ControllerRegistry extends EventEmitter {
         return null;
 
       case 'hierarchicalMemory': {
-        // HierarchicalMemory exported from agentdb 3.0.0-alpha.10 (ADR-066 Phase P2-3)
-        // Constructor: (db, embedder, vectorBackend?, graphBackend?, config?)
-        if (!this.agentdb) return this.createTieredMemoryStub();
-        try {
-          const agentdbModule: any = await import('agentdb');
-          const HM = agentdbModule.HierarchicalMemory;
-          if (!HM) return this.createTieredMemoryStub();
-          const embedder = this.createEmbeddingService();
-          const hm = new HM(this.agentdb.database, embedder);
-          await hm.initializeDatabase();
-          return hm;
-        } catch {
-          return this.createTieredMemoryStub();
-        }
+        // HierarchicalMemory was exported by agentdb 3.0.0-alpha.10 (ADR-066
+        // Phase P2-3) and REMOVED again at alpha.17 — every installable range
+        // (`^3.0.0-alpha.17`) is missing it, and alpha.10 — the one version
+        // that DOES export it — throws `RangeError: Too few parameter values
+        // were provided` on the very first store() call (issue #2977), so
+        // there is no version of agentdb where the native path actually
+        // works. The dynamic-import/instantiate attempt is dead code on
+        // every install; the tiered fallback is the only implementation that
+        // has ever worked here, so it is promoted to first-class instead of
+        // being attempted-and-discarded on every init. Still records *why*
+        // it's in use, because taking a fallback silently is what made
+        // stores look successful while landing nowhere (#2887).
+        return this.tieredMemoryFallback(
+          this.agentdb ? 'agentdb-export-missing' : 'agentdb-unavailable',
+        );
       }
 
       case 'memoryConsolidation': {
-        // MemoryConsolidation exported from agentdb 3.0.0-alpha.10 (ADR-066 Phase P2-3)
-        // Constructor: (db, hierarchicalMemory, embedder, vectorBackend?, graphBackend?, config?)
-        if (!this.agentdb) return this.createConsolidationStub();
-        try {
-          const agentdbModule: any = await import('agentdb');
-          const MC = agentdbModule.MemoryConsolidation;
-          if (!MC) return this.createConsolidationStub();
-          // Get the HierarchicalMemory instance (must be initialized at level 1 before us at level 3)
-          const hm: any = this.get('hierarchicalMemory');
-          if (!hm || typeof hm.recall !== 'function' || typeof hm.store !== 'function') {
-            return this.createConsolidationStub();
-          }
-          const embedder = this.createEmbeddingService();
-          const mc = new MC(this.agentdb.database, hm, embedder);
-          await mc.initializeDatabase();
-          return mc;
-        } catch {
-          return this.createConsolidationStub();
-        }
+        // MemoryConsolidation was exported by agentdb 3.0.0-alpha.10 (ADR-066
+        // Phase P2-3) and removed at alpha.14 — no installable range exports
+        // it, and it requires a working HierarchicalMemory instance to
+        // construct, which is itself dead (see hierarchicalMemory above,
+        // #2977). The no-op stub is therefore the only implementation that
+        // has ever worked here; it is promoted to first-class instead of
+        // attempting a dynamic import that never resolves.
+        return this.createConsolidationStub();
       }
 
       case 'federatedSession':
@@ -792,6 +1000,25 @@ export class ControllerRegistry extends EventEmitter {
       }
 
       case 'nightlyLearner': {
+        // ADR-125 Phase 4 — prefer the MemoryConsolidator when a
+        // MemoryService is registered. The consolidator's `runAll()` is the
+        // documented entry point for sweep + dedup + compact and replaces the
+        // thin delegate to AgentDB's NightlyLearner.
+        const memSvc = this.config.memoryService;
+        if (memSvc && typeof memSvc.getConsolidator === 'function') {
+          try {
+            const consolidator = await memSvc.getConsolidator();
+            return {
+              run: () => consolidator.runAll(),
+              runAll: () => consolidator.runAll(),
+              sweepExpired: () => consolidator.sweepExpired(),
+              dedup: (s?: any) => consolidator.dedup(s),
+              compactHnsw: () => consolidator.compactHnsw(),
+              source: 'memory-consolidator' as const,
+            };
+          } catch { /* fall through to AgentDB */ }
+        }
+
         if (!this.agentdb) return null;
         try {
           const agentdbModule: any = await import('agentdb');
@@ -840,80 +1067,45 @@ export class ControllerRegistry extends EventEmitter {
         } catch { return null; }
       }
 
-      case 'mutationGuard': {
-        // MutationGuard exported from agentdb 3.0.0-alpha.10 (ADR-060)
-        // Constructor: (config?) where config.dimension, config.maxElements, config.enableWasmProofs
-        if (!this.agentdb) return null;
-        try {
-          const agentdbModule: any = await import('agentdb');
-          const MG = agentdbModule.MutationGuard;
-          if (!MG) return null;
-          return new MG({ dimension: this.config.dimension || 384 });
-        } catch { return null; }
-      }
-
-      case 'attestationLog': {
-        // AttestationLog exported from agentdb 3.0.0-alpha.10 (ADR-060)
-        // Constructor: (db) — uses database for append-only audit log
-        if (!this.agentdb) return null;
-        try {
-          const agentdbModule: any = await import('agentdb');
-          const AL = agentdbModule.AttestationLog;
-          if (!AL) return null;
-          return new AL(this.agentdb.database);
-        } catch { return null; }
-      }
-
-      case 'gnnService': {
-        // GNNService exported from agentdb 3.0.0-alpha.10 (ADR-062)
-        // Constructor: (config?) — requires initialize() after construction
-        try {
-          const agentdbModule: any = await import('agentdb');
-          const GNN = agentdbModule.GNNService;
-          if (!GNN) return null;
-          const gnn = new GNN({ inputDim: this.config.dimension || 384 });
-          await gnn.initialize();
-          return gnn;
-        } catch { return null; }
-      }
-
-      case 'rvfOptimizer': {
-        // RVFOptimizer exported from agentdb 3.0.0-alpha.10 (ADR-062/065)
-        // Constructor: (config?) — no-arg for defaults
-        try {
-          const agentdbModule: any = await import('agentdb');
-          const RVF = agentdbModule.RVFOptimizer;
-          if (!RVF) return null;
-          return new RVF();
-        } catch { return null; }
-      }
-
-      case 'guardedVectorBackend': {
-        // GuardedVectorBackend exported from agentdb 3.0.0-alpha.10 (ADR-060)
-        // Constructor: (innerBackend, mutationGuard, attestationLog?)
-        // Requires vectorBackend and mutationGuard to be initialized first (level 2)
-        if (!this.agentdb) return null;
-        try {
-          const vb = this.get('vectorBackend');
-          const guard = this.get('mutationGuard');
-          if (!vb || !guard) return null;
-          const agentdbModule: any = await import('agentdb');
-          const GVB = agentdbModule.GuardedVectorBackend;
-          if (!GVB) return null;
-          const log = this.get('attestationLog');
-          return new GVB(vb, guard, log || undefined);
-        } catch { return null; }
-      }
+      // MutationGuard, AttestationLog, GNNService, RVFOptimizer, and
+      // GuardedVectorBackend were all exported by agentdb 3.0.0-alpha.10
+      // (ADR-060/062/065) but dropped from every installable range
+      // (`^3.0.0-alpha.17`) — issue #2977. No fallback implementation exists
+      // for any of these five controllers; they return null directly instead
+      // of attempting a dynamic import that never resolves.
+      case 'mutationGuard':
+      case 'attestationLog':
+      case 'gnnService':
+      case 'rvfOptimizer':
+      case 'guardedVectorBackend':
+        return null;
 
       case 'vectorBackend':
       case 'graphAdapter': {
-        // These are accessed via AgentDB internal state, not direct construction
+        // These are accessed via AgentDB internal state, not direct
+        // construction. Issue #2019: agentdb@3.0.0-alpha.14's
+        // `getController()` switch only handles
+        // memory/reflexion/skills/causal/causalGraph and throws
+        // `Unknown controller: vectorBackend` for everything else —
+        // which a try/catch silently swallowed, leaving the controller
+        // permanently `enabled: false` even though the field is right
+        // there on the agentdb instance (`agentdb.vectorBackend` is
+        // assigned in AgentDB.initialize()).
+        //
+        // Prefer the direct-property access. Fall back to
+        // `getController` only if the field is absent — preserves
+        // forward-compat with a future agentdb that wires
+        // vectorBackend / graphAdapter into the switch but stops
+        // exposing them as public fields.
         if (!this.agentdb) return null;
+        const agentdb: any = this.agentdb;
+        const direct = agentdb[name];
+        if (direct) return direct;
         try {
-          if (typeof this.agentdb.getController === 'function') {
-            return this.agentdb.getController(name) ?? null;
+          if (typeof agentdb.getController === 'function') {
+            return agentdb.getController(name) ?? null;
           }
-        } catch { /* fallthrough */ }
+        } catch { /* upstream switch threw for an unknown name */ }
         return null;
       }
 
@@ -970,57 +1162,63 @@ export class ControllerRegistry extends EventEmitter {
   }
 
   /**
-   * Lightweight in-memory tiered store (fallback when HierarchicalMemory
-   * cannot be initialized from agentdb).
-   * Enforces per-tier size limits to prevent unbounded memory growth.
+   * Tiered store used when agentdb's HierarchicalMemory is unavailable.
+   *
+   * Since agentdb 3.0.0-alpha.17 dropped the `HierarchicalMemory` export
+   * entirely, this is the ONLY backing store for `agentdb_hierarchical-*`
+   * in practice — so it is handed AgentDB's SQLite connection and writes
+   * through to it. Without a connection it stays volatile and reports
+   * `isDurable() === false` so callers can refuse to claim success (#2887).
+   *
+   * Keeps the legacy duck-typed API — store(key, value, tier) /
+   * recall(query, topK) / getTierStats() — plus Zep/Graphiti-style temporal
+   * validity (validFrom / validUntil / supersededBy).
    */
-  private createTieredMemoryStub() {
-    const MAX_PER_TIER = 5000;
-    const tiers: Record<string, Map<string, { value: string; ts: number }>> = {
-      working: new Map(),
-      episodic: new Map(),
-      semantic: new Map(),
-    };
-    return {
-      store(key: string, value: string, tier = 'working') {
-        const t = tiers[tier] || tiers.working;
-        // Evict oldest if at capacity
-        if (t.size >= MAX_PER_TIER) {
-          const oldest = t.keys().next().value;
-          if (oldest !== undefined) t.delete(oldest);
-        }
-        t.set(key, { value: value.substring(0, 100_000), ts: Date.now() });
-      },
-      recall(query: string, topK = 5) {
-        const safeTopK = Math.min(Math.max(1, topK), 100);
-        const q = query.toLowerCase().substring(0, 10_000);
-        const results: Array<{ key: string; value: string; tier: string; ts: number }> = [];
-        for (const [tierName, map] of Object.entries(tiers)) {
-          for (const [key, entry] of map) {
-            if (key.toLowerCase().includes(q) || entry.value.toLowerCase().includes(q)) {
-              results.push({ key, value: entry.value, tier: tierName, ts: entry.ts });
-              if (results.length >= safeTopK * 3) break; // Early exit for large stores
-            }
-          }
-        }
-        return results.sort((a, b) => b.ts - a.ts).slice(0, safeTopK);
-      },
-      getTierStats() {
-        return Object.fromEntries(
-          Object.entries(tiers).map(([name, map]) => [name, map.size]),
-        );
-      },
-    };
+  private createTieredMemoryStub(): TieredMemoryStore {
+    const db = this.agentdb?.database ?? null;
+    const usable = db && typeof db.prepare === 'function' && typeof db.exec === 'function'
+      ? db
+      : null;
+    return new TieredMemoryStore({ db: usable });
+  }
+
+  /** Build the tiered fallback and record/emit why the native one was skipped. */
+  private tieredMemoryFallback(reason: string): TieredMemoryStore {
+    const store = this.createTieredMemoryStub();
+    this.hierarchicalFallback = { reason, persistence: store.getPersistence() };
+    this.emit('controller:degraded', {
+      name: 'hierarchicalMemory',
+      reason,
+      persistence: store.getPersistence(),
+    });
+    return store;
   }
 
   /**
-   * No-op consolidation stub (fallback when MemoryConsolidation
-   * cannot be initialized from agentdb).
+   * Why `hierarchicalMemory` is served by the tiered fallback, and whether
+   * that fallback is durable. Null when the native controller is in use.
+   */
+  getHierarchicalFallback(): { reason: string; persistence: string } | null {
+    return this.hierarchicalFallback;
+  }
+
+  /**
+   * No-op consolidation stub — the first-class implementation for
+   * `memoryConsolidation` since agentdb has never shipped a working native
+   * MemoryConsolidation on any installable range (#2977). `promoted: 0,
+   * pruned: 0` on its own reads as "ran and found nothing to do"; `source`
+   * and `note` make it explicit that consolidation never actually ran.
    */
   private createConsolidationStub() {
     return {
       consolidate() {
-        return { promoted: 0, pruned: 0, timestamp: Date.now() };
+        return {
+          promoted: 0,
+          pruned: 0,
+          timestamp: Date.now(),
+          source: 'stub' as const,
+          note: 'no-op: native MemoryConsolidation is unavailable (agentdb never exports a working implementation, #2977) — nothing was consolidated, this did not run',
+        };
       },
     };
   }

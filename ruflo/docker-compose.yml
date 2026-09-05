@@ -6,16 +6,19 @@
 #   docker compose up -d
 
 services:
-  # --- MongoDB ---
+  # --- MongoDB (ADR-166 §6 Phase 2b — auth on by default) ---
   mongodb:
     image: mongo:7
     restart: unless-stopped
     volumes:
       - mongo-data:/data/db
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     environment:
       MONGO_INITDB_DATABASE: ${MONGODB_DB_NAME:-chat-db}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-ruflo}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?FATAL: MONGO_INITDB_ROOT_PASSWORD is required. Generate: MONGO_INITDB_ROOT_PASSWORD=$(openssl rand -base64 32)}
+    command: ["--auth"]
 
   # --- MCP Bridge (ruvocal version — Gemini grounded search, autopilot SSE) ---
   mcp-bridge:
@@ -24,7 +27,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     environment:
       PORT: "3001"
       NODE_ENV: production
@@ -51,6 +54,15 @@ services:
       MCP_GROUP_CODEX: ${MCP_GROUP_CODEX:-false}
       # API keys for optional groups
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # --- ADR-166 §6 security surface ---
+      MCP_BIND_HOST: ${MCP_BIND_HOST:-127.0.0.1}
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
+      MCP_ENABLE_TERMINAL: ${MCP_ENABLE_TERMINAL:-false}
+      MCP_CORS_ORIGIN: ${MCP_CORS_ORIGIN:-*}
+    # ADR-166 §6 Phase 2c — read-only rootfs breaks the PoC's /app/beacon.js write.
+    read_only: true
+    tmpfs:
+      - /tmp
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r => process.exit(r.ok ? 0 : 1))"]
       interval: 30s
@@ -87,7 +99,7 @@ services:
     environment:
       # Runtime config injected via DOTENV_LOCAL (entrypoint.sh writes .env.local)
       DOTENV_LOCAL: |
-        MONGODB_URL=mongodb://mongodb:27017
+        MONGODB_URL=mongodb://${MONGO_INITDB_ROOT_USERNAME:-ruflo}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGODB_DB_NAME:-chat-db}?authSource=admin
         MONGODB_DB_NAME=${MONGODB_DB_NAME:-chat-db}
         PUBLIC_APP_NAME=${BRAND_NAME:-RuFlo}
         PUBLIC_APP_DESCRIPTION=${BRAND_DESCRIPTION:-Enterprise AI Agent Orchestration Platform}

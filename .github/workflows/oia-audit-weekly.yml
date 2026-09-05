@@ -1,0 +1,196 @@
+# Weekly composite audit (ADR-150 Phase 2 — iter 7).
+#
+# Runs `harness oia-audit` against the ruflo repo every Sunday at
+# 04:17 UTC (off-peak, off-the-hour to avoid the global :00 thundering
+# herd; see CronCreate "Avoid the :00 and :30 minute marks").
+#
+# The audit bundles three orthogonal MetaHarness static-analysis
+# surfaces — oia-manifest + threat-model + mcp-scan — into one
+# timestamped record uploaded as a CI artifact. Failure threshold:
+# composite worst severity >= HIGH fails the workflow.
+#
+# Accumulated artifacts (retained 90 days) enable drift detection
+# over time without needing a persistent memory store in CI.
+#
+# ADR-150 graceful degradation: when metaharness is unavailable, the
+# script emits a degraded payload and exits 0 — the workflow
+# continues, and the artifact records the degraded state.
+name: oia-audit-weekly
+
+on:
+  schedule:
+    - cron: '17 4 * * 0'  # Sundays at 04:17 UTC
+  workflow_dispatch:        # manual trigger for ad-hoc audits
+    # iter 109 — parameterize the policy thresholds so ad-hoc runs can
+    # explore stricter/looser gates without editing YAML.
+    inputs:
+      threshold:
+        description: 'Structural similarity threshold (default 0.85 — scheduled). Lower = stricter drift alert.'
+        type: string
+        default: '0.85'
+        required: false
+      alert_on_new_severity:
+        description: 'Alert on any introduced finding ≥ this severity'
+        type: choice
+        options:
+          - info
+          - low
+          - medium
+          - warn
+          - high
+          - error
+          - critical
+        default: high
+        required: false
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/ruflo-metaharness/scripts/oia-audit.mjs'
+      - 'plugins/ruflo-metaharness/scripts/_harness.mjs'
+      - '.github/workflows/oia-audit-weekly.yml'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run composite audit (alert on HIGH)
+        # --dry-run because CI has no persistent memory store; the
+        # artifact upload below is the durability mechanism.
+        # --alert-on-worst high fails the job on any composite HIGH
+        # finding; medium/low/clean pass.
+        run: |
+          node plugins/ruflo-metaharness/scripts/oia-audit.mjs \
+            --path . \
+            --dry-run \
+            --alert-on-worst high \
+            --format json \
+            > /tmp/oia-audit.json
+          cat /tmp/oia-audit.json | head -80
+          # Extract composite severity for the workflow summary
+          WORST=$(node -e "
+            const j = JSON.parse(require('fs').readFileSync('/tmp/oia-audit.json'));
+            console.log(j.composite?.worst || 'unknown');
+          ")
+          echo "## Composite worst severity: \`$WORST\`" >> $GITHUB_STEP_SUMMARY
+          echo "Artifact uploaded under \`oia-audit-$(date -u +%Y-%m-%d)\`." >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload audit artifact (90-day retention for drift tracking)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oia-audit-${{ github.run_id }}
+          path: /tmp/oia-audit.json
+          retention-days: 90
+
+      # iter 69 — close the loop: the weekly cron has always claimed
+      # "Accumulated artifacts enable drift detection over time" (line 13)
+      # but the diff step was never wired. Iter-67's --baseline-file
+      # fastpath made it cheap (~1.4s). Now every Sunday's run diffs
+      # against the most recent prior weekly artifact and surfaces the
+      # structural distance + alert.
+      # iter 70 — `if: always()` so drift detection fires EVEN when the
+      # audit step exits non-zero (HIGH alert). The pre-iter-70 default
+      # conditional skipped drift exactly when it was most valuable:
+      # the weeks where something was breaking.
+      - name: Download prior week's audit artifact (if any)
+        id: prior-artifact
+        if: always()
+        continue-on-error: true
+        run: |
+          set +e
+          # List recent successful runs of this workflow, pick the most
+          # recent one BEFORE this run, then download its artifact.
+          PREV_RUN=$(gh run list \
+            --workflow=oia-audit-weekly.yml \
+            --status=success \
+            --limit=10 \
+            --json databaseId,headSha \
+            --jq ".[] | select(.databaseId != ${{ github.run_id }}) | .databaseId" \
+            | head -1)
+          if [ -z "$PREV_RUN" ]; then
+            echo "No prior successful run found — first weekly audit. Skipping drift step."
+            echo "has_prior=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "Downloading prior audit from run $PREV_RUN..."
+          gh run download "$PREV_RUN" \
+            --name "oia-audit-${PREV_RUN}" \
+            --dir /tmp/prior \
+            && echo "has_prior=true" >> $GITHUB_OUTPUT \
+            && ls -la /tmp/prior/
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Compute structural drift vs prior week (iter 69)
+        # iter 70 — always() AND has-prior: fires on the failure path too
+        if: always() && steps.prior-artifact.outputs.has_prior == 'true'
+        run: |
+          set -e
+          # iter-67 fastest path: --baseline-file skips audit-list + memory roundtrip
+          # iter 79 — also gate on new HIGH-severity findings. Catches the
+          # case where structure stayed similar but a security regression
+          # appeared (e.g., new mcp-scan HIGH finding). Either gate can fire.
+          # iter 109 — parameterized policy thresholds via workflow_dispatch
+          # inputs. Scheduled runs fall back to 0.85 / high.
+          THRESHOLD="${{ inputs.threshold || '0.85' }}"
+          ALERT_SEV="${{ inputs.alert_on_new_severity || 'high' }}"
+          node plugins/ruflo-metaharness/scripts/drift-from-history.mjs \
+            --baseline-file /tmp/prior/oia-audit.json \
+            --dry-run \
+            --threshold "$THRESHOLD" \
+            --alert-on-new-severity "$ALERT_SEV" \
+            --format json \
+            > /tmp/drift-trend.json || true
+          # Extract verdict for the workflow summary
+          VERDICT=$(node -e "
+            const j = JSON.parse(require('fs').readFileSync('/tmp/drift-trend.json'));
+            console.log(j.drift?.structuralDistance?.verdict || 'unavailable');
+          ")
+          OVERALL=$(node -e "
+            const j = JSON.parse(require('fs').readFileSync('/tmp/drift-trend.json'));
+            console.log(j.drift?.structuralDistance?.overall ?? 'n/a');
+          ")
+          ALERT=$(node -e "
+            const j = JSON.parse(require('fs').readFileSync('/tmp/drift-trend.json'));
+            console.log(j.alert?.triggered ? 'TRIGGERED' : 'OK');
+          ")
+          # iter 97 — also surface the fast-path label so the Actions UI
+          # shows which iter-66/67 path executed. Confirms cron used the
+          # baseline-file path (expected ~1.4s) and not slow path (~26s).
+          PATH_TAKEN=$(node -e "
+            const j = JSON.parse(require('fs').readFileSync('/tmp/drift-trend.json'));
+            const t = j.timing || {};
+            console.log((t.path || 'unknown') + ' (wall ' + (t.parallelWallMs ?? '?') + 'ms)');
+          ")
+          echo "## Drift vs prior week: \`$VERDICT\` (similarity=$OVERALL)" >> $GITHUB_STEP_SUMMARY
+          echo "Alert status: \`$ALERT\`" >> $GITHUB_STEP_SUMMARY
+          echo "Path: \`$PATH_TAKEN\`" >> $GITHUB_STEP_SUMMARY
+          # iter 108 — fail the workflow if the cron accidentally fell
+          # through to the slow path. The cron's --baseline-file flag
+          # is the load-bearing invariant for cron-budget correctness;
+          # if it disappears, the audit takes ~26s instead of ~1.4s
+          # and the iter-7 weekly-cron budget exhausts on slower runners.
+          PATH_LABEL=$(node -e "
+            const j = JSON.parse(require('fs').readFileSync('/tmp/drift-trend.json'));
+            console.log(j.timing?.path || 'unknown');
+          ")
+          if [ "$PATH_LABEL" != "file" ]; then
+            echo "::error::Cron drift step expected timing.path='file' but got '$PATH_LABEL' — the iter-67 fastpath flag may have regressed"
+            exit 1
+          fi
+
+      - name: Upload drift trend artifact
+        # iter 70 — same always() pattern; the trend artifact is most
+        # useful for forensics when the workflow has failed.
+        if: always() && steps.prior-artifact.outputs.has_prior == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-trend-${{ github.run_id }}
+          path: /tmp/drift-trend.json
+          retention-days: 90

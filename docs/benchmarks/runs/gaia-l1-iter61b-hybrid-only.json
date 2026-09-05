@@ -1,0 +1,1139 @@
+
+GAIA Benchmark -- Level 1
+------------------------------------------------------------
+Models  : claude-haiku-4-5
+Mode    : hybrid (iter 58 hybrid routing — gaia-mode-router)
+Limit   : 53
+Concurrency: 3
+Planning: ADR-135 Track B -- checkpoint every 4 turns
+
+Loaded  : 53 questions
+
+Running model: claude-haiku-4-5
+----------------------------------------
+  [1/53] e1fc63a2-da7a-432f-be78-7c4a95598703 [hybrid:ToolCalling/web_retrieval] -- If Eliud Kipchoge could maintain his record-m...
+  [2/53] 8e867cd7-cff9-4e6c-867a-ff5ddc2550be [hybrid:ToolCalling/web_retrieval] -- How many studio albums were published by Merc...
+  [3/53] ec09fa32-d03f-4bf8-84b0-1f16922c3ae4 [hybrid:CodeAgent/pure_reasoning] -- Here's a fun riddle that I think you'll enjoy...
+[grounded_query] model=gemini-2.5-flash query="Mercedes Sosa studio albums discography 2000-2009"
+[grounded_query] model=gemini-2.5-flash query="Eliud Kipchoge marathon world record time"
+[grounded_query] grounded=true sources=6 cost_usd=0.000040
+[grounded_query] grounded=true sources=4 cost_usd=0.000041
+[grounded_query] model=gemini-2.5-flash query="Moon perigee minimum distance Earth kilometers"
+[grounded_query] model=gemini-2.5-flash query="Mercedes Sosa complete discography list all studio albums"
+[grounded_query] grounded=true sources=7 cost_usd=0.000060
+[grounded_query] grounded=true sources=3 cost_usd=0.000152
+[grounded_query] model=gemini-2.5-flash query="\"Mercedes Sosa\" albums 2000 2001 2002 2003 2004 2005 2006 2007 2008 2009"
+[grounded_query] model=gemini-2.5-flash query="Wikipedia Moon article minimum perigee distance exact value"
+[grounded_query] grounded=true sources=0 cost_usd=0.000049
+[grounded_query] grounded=true sources=5 cost_usd=0.000082
+    PASS  answer="17"  expected="17"  turns=6  30.3s
+[grounded_query] model=gemini-2.5-flash query="Mercedes Sosa wikipedia discography studio albums released 2000 2005 2009"
+[grounded_query] grounded=true sources=7 cost_usd=0.000064
+    FAIL  answer="4"  expected="3"  turns=7  44.8s
+    FAIL  answer="50"  expected="3"  turns=5  63.0s
+  [4/53] 5d0080cb-90d7-4712-bc33-848150e917d3 [hybrid:CodeAgent/pure_reasoning] -- What was the volume in m^3 of the fish bag th...
+  [5/53] a1e91b78-d3d8-4675-bb8d-62741b4b68a6 [hybrid:ToolCalling/web_retrieval] -- In the video https://www.youtube.com/watch?v=...
+  [6/53] 46719c30-f4c3-4cad-be07-d5cb21eee6bb [hybrid:ToolCalling/default] -- Of the authors (First M. Last) that worked on...
+[grounded_query] model=gemini-2.5-flash query="Pie Menus or Linear Menus Which Is Better 2015 authors"
+    FAIL  answer="I cannot access YouTube videos directly, so I'm unable to determine the highest number of bird species on camera simultaneously in that video."  expected="3"  turns=1  3.3s
+[grounded_query] grounded=true sources=3 cost_usd=0.000035
+[grounded_query] model=gemini-2.5-flash query="Pietro Murano papers before 2015"
+[grounded_query] model=gemini-2.5-flash query="Iram Khan papers before 2015"
+[grounded_query] grounded=true sources=4 cost_usd=0.000279
+[grounded_query] grounded=true sources=0 cost_usd=0.000023
+[grounded_query] model=gemini-2.5-flash query="Pietro Murano first publication earliest paper 2003"
+[grounded_query] grounded=true sources=1 cost_usd=0.000055
+    PASS  answer="Mapping Human-Oriented Information to Software Agents for Online Systems Usage"  expected="Mapping Human Oriented Information to Software Agents for Online Systems Usage"  turns=6  29.0s
+    FAIL  answer=""  expected="0.1777"  turns=20  236.6s
+  [7/53] 4b6bb5f7-f634-410e-815d-e673ab7f8632 [hybrid:ToolCalling/web_retrieval] -- In Series 9, Episode 11 of Doctor Who, the Do...
+  [8/53] cffe0e32-c9a6-4c52-9877-78ceb4aaa9fb [hybrid:ToolCalling/attachment] -- An office held a Secret Santa gift exchange w...
+  [9/53] 2d83110e-a098-4ebb-9987-066c06fa42d0 [hybrid:ToolCalling/default] -- .rewsna eht sa "tfel" drow eht fo etisoppo eh...
+    PASS  answer="right"  expected="Right"  turns=1  1.6s
+    FAIL  answer="I cannot read the .docx file with the current tools. Please provide the document content in text form or another readable format so I can identify who did not give a gift."  expected="Fred"  turns=2  5.4s
+[grounded_query] model=gemini-2.5-flash query="Doctor Who Series 9 Episode 11 maze episode title"
+[grounded_query] grounded=true sources=7 cost_usd=0.000031
+[grounded_query] model=gemini-2.5-flash query="\"Heaven Sent\" Doctor Who castle setting name official"
+[grounded_query] grounded=true sources=6 cost_usd=0.000054
+[grounded_query] model=gemini-2.5-flash query="Heaven Sent Doctor Who script first scene heading INT EXT castle"
+[grounded_query] grounded=true sources=1 cost_usd=0.000021
+    FAIL  answer="INT. THE CASTLE - DAY"  expected="THE CASTLE"  turns=7  42.7s
+  [10/53] 5cfb274c-0207-4aa7-9575-6ac0bd95d9b2 [hybrid:ToolCalling/attachment] -- Each cell in the attached spreadsheet represe...
+  [11/53] 27d5d136-8563-469e-92bf-fd103c28b57c [hybrid:ToolCalling/default] -- ¬(A ∧ B) ↔ (¬A ∨ ¬B)
+¬(A ∨ B) ↔ (¬A ∧ ¬B)
+(A ...
+  [12/53] dc28cf18-6431-458b-83ef-64b3ce566c10 [hybrid:CodeAgent/pure_reasoning] -- My family reunion is this week, and I was ass...
+    PASS  answer="(¬A → B) ↔ (A ∨ ¬B)"  expected="(¬A → B) ↔ (A ∨ ¬B)"  turns=1  3.7s
+    PASS  answer="No"  expected="No"  turns=2  11.3s
+    PASS  answer="2"  expected="2"  turns=2  29.6s
+  [13/53] b816bfce-3d80-4913-a07d-69b752ce6377 [hybrid:ToolCalling/web_retrieval] -- In Emily Midkiff's June 2014 article in a jou...
+  [14/53] 72e110e7-464c-453c-a309-90a95aed6538 [hybrid:ToolCalling/web_retrieval] -- Under DDC 633 on Bielefeld University Library...
+  [15/53] 42576abe-0deb-4869-8c63-225c2d75a95a [hybrid:ToolCalling/long_question] -- In the fictional language of Tizin, basic sen...
+[grounded_query] model=gemini-2.5-flash query="Hreidmar sons Norse mythology guarded house"
+    PASS  answer="Maktay Mato Apple"  expected="Maktay mato apple"  turns=1  4.2s
+[grounded_query] grounded=true sources=8 cost_usd=0.000068
+[grounded_query] model=gemini-2.5-flash query="Bielefeld University Library BASE DDC 633 unknown language article unique flag country 2020"
+[grounded_query] model=gemini-2.5-flash query="Fafnir journal publication"
+[grounded_query] grounded=true sources=4 cost_usd=0.000102
+[grounded_query] model=gemini-2.5-flash query="Emily Midkiff June 2014 Fafnir dragon"
+[grounded_query] grounded=true sources=5 cost_usd=0.000065
+[grounded_query] grounded=true sources=0 cost_usd=0.000036
+    FAIL  answer="I cannot determine the answer to this question as the BASE database records from 2020 are not accessible through available search tools."  expected="Guatemala"  turns=4  30.5s
+[grounded_query] model=gemini-2.5-flash query="Emily Midkiff \"Dragons are Tricksy\" two authors quoted word distaste dragon"
+[grounded_query] grounded=true sources=8 cost_usd=0.000067
+    PASS  answer="fluffy"  expected="fluffy"  turns=7  46.5s
+  [16/53] b415aba4-4b68-4fc6-9b89-2c812e55a3e1 [hybrid:ToolCalling/web_retrieval] -- In Nature journal's Scientific Reports confer...
+  [17/53] cca530fc-4052-43b2-b130-b30968d8aa44 [hybrid:ToolCalling/attachment] -- Review the chess position provided in the ima...
+  [18/53] 935e2cff-ae78-4218-b3f5-115589b19dae [hybrid:ToolCalling/web_retrieval] -- In the year 2022, and before December, what d...
+    FAIL  answer="Qb3+"  expected="Rd5"  turns=1  5.4s
+[grounded_query] model=gemini-2.5-flash query="Nature Scientific Reports 2012 conference proceedings nano-compound not plasmons"
+[grounded_query] model=gemini-2.5-flash query="Legume Wikipedia page content violation policy logs 2022"
+[grounded_query] grounded=true sources=9 cost_usd=0.000138
+[grounded_query] model=gemini-2.5-flash query="Wikipedia three core policies R verifiability no original research neutral point of view"
+[grounded_query] grounded=true sources=20 cost_usd=0.000088
+[grounded_query] grounded=true sources=1 cost_usd=0.000115
+[grounded_query] model=gemini-2.5-flash query="\"R\" Wikipedia policy abbreviation NOR NPOV V"
+[grounded_query] grounded=true sources=9 cost_usd=0.000078
+[grounded_query] model=gemini-2.5-flash query="\"Scientific Reports\" 2012 nano-compound without plasmons article"
+[grounded_query] model=gemini-2.5-flash query="Legume Wikipedia article edit history 2022 violations policy"
+[grounded_query] grounded=true sources=5 cost_usd=0.000119
+[grounded_query] model=gemini-2.5-flash query="\"Legume\" Wikipedia \"R\" policy 2022 \"reliable sources\" OR \"research\" OR \"revert\""
+[grounded_query] grounded=true sources=3 cost_usd=0.000117
+[grounded_query] grounded=true sources=6 cost_usd=0.000120
+[grounded_query] model=gemini-2.5-flash query="Nature Scientific Reports 2012 conference proceedings document publication"
+[grounded_query] grounded=true sources=3 cost_usd=0.000054
+[grounded_query] model=gemini-2.5-flash query="Legume article Wikipedia edit log \"R\" before December 2022"
+    FAIL  answer="I cannot determine the answer. Scientific Reports is a peer-reviewed research journal that does not publish conference proceedings. The document referenced in the question does not appear to exist in the form described."  expected="diamond"  turns=6  61.1s
+[grounded_query] grounded=true sources=2 cost_usd=0.000078
+[grounded_query] model=gemini-2.5-flash query="Wikipedia three core content policies abbreviations NOR NPOV V Reliable sources"
+[grounded_query] grounded=true sources=3 cost_usd=0.000031
+    FAIL  answer="Unable to determine - the specific public logs on the Legume Wikipedia page referenced in this question cannot be located or verified through available sources."  expected="research"  turns=10  78.1s
+  [19/53] 4fc2f1ae-8625-45b5-ab34-ad4433bc21f8 [hybrid:ToolCalling/web_retrieval] -- Who nominated the only Featured Article on En...
+  [20/53] 5188369a-3bbe-43d8-8b94-11558f909a08 [hybrid:ToolCalling/default] -- What writer is quoted by Merriam-Webster for ...
+  [21/53] 6f37996b-2ac7-44b0-8e68-6d28256631b4 [hybrid:CodeAgent/pure_reasoning] -- Given this table defining * on the set S = {a...
+[grounded_query] model=gemini-2.5-flash query="Merriam-Webster Word of the Day June 27 2022 writer quoted"
+[grounded_query] model=gemini-2.5-flash query="Wikipedia Featured Article dinosaur promoted November 2016"
+[grounded_query] grounded=true sources=1 cost_usd=0.000019
+    PASS  answer="b, e"  expected="b, e"  turns=2  12.1s
+[grounded_query] grounded=true sources=1 cost_usd=0.000052
+    PASS  answer="Annie Levin"  expected="Annie Levin"  turns=3  15.2s
+[grounded_query] model=gemini-2.5-flash query="Giganotosaurus Wikipedia Featured Article nominee nominator who nominated"
+[grounded_query] grounded=true sources=3 cost_usd=0.000028
+    PASS  answer="FunkMonk"  expected="FunkMonk"  turns=6  30.7s
+  [22/53] 9318445f-fe6a-4e1b-acbf-c68228c9906a [hybrid:ToolCalling/attachment] -- As a comma separated list with no whitespace,...
+  [23/53] 389793a7-ca17-4e82-81cb-2b3a2391b4b9 [hybrid:ToolCalling/attachment] -- You are a telecommunications engineer who wan...
+  [24/53] 4b650a35-8529-4695-89ed-8dc7a500a498 [hybrid:CodeAgent/pure_reasoning] -- If there is anything that doesn't make sense ...
+    PASS  answer="3"  expected="3"  turns=2  6.5s
+    FAIL  answer="6/8,3/4,4/60,1/15,30/90,1/3,5/18,5/18,9/72,1/8,64/48,4/3,206/340,103/170"  expected="3/4,1/4,3/4,3/4,2/4,1/2,5/35,7/21,30/5,30/5,3/4,1/15,1/3,4/9,1/8,32/23,103/170"  turns=1  4.8s
+    FAIL  answer=""  expected="Guava"  turns=20  70.2s
+  [25/53] a3fbeb63-0e8c-4a11-bff6-0e3b484c3e9c [hybrid:ToolCalling/attachment] -- How many slides in this PowerPoint presentati...
+  [26/53] c714ab3a-da30-4603-bacd-d008800188b9 [hybrid:ToolCalling/web_retrieval] -- You are Van Helsing, a renowned vampire hunte...
+  [27/53] 9d191bce-651d-4746-be2d-7ef8ecadb9c2 [hybrid:ToolCalling/web_retrieval] -- Examine the video at https://www.youtube.com/...
+    FAIL  answer=""  expected="Extremely"  turns=1  2.5s
+    PASS  answer="4"  expected="4"  turns=2  3.9s
+    PASS  answer="100"  expected="100"  turns=1  6.0s
+  [28/53] 65afbc8a-89ca-4ad5-8d62-355bb401f61d [hybrid:ToolCalling/attachment] -- You are given this Excel file as a map. You s...
+  [29/53] cabe07ed-9eca-40ea-8ead-410ef5e83f91 [hybrid:ToolCalling/default] -- What is the surname of the equine veterinaria...
+  [30/53] 3cef3a44-215e-4aed-8e3b-b1e3f08063b7 [hybrid:ToolCalling/long_question] -- I'm making a grocery list for my mom, but she...
+    FAIL  answer="basil, broccoli, celery, lettuce, sweet potatoes"  expected="broccoli, celery, fresh basil, lettuce, sweet potatoes"  turns=1  4.1s
+[grounded_query] model=gemini-2.5-flash query="LibreTexts Introductory Chemistry 1.E Exercises equine veterinarian Marisa Alviar-Agnew"
+[grounded_query] grounded=true sources=9 cost_usd=0.000042
+    FAIL  answer=""  expected="F478A7"  turns=2  19.0s
+[grounded_query] model=gemini-2.5-flash query="LibreTexts Introductory Chemistry 1.E Exercises equine veterinarian surname"
+[grounded_query] grounded=true sources=1 cost_usd=0.000029
+    PASS  answer="Louvrier"  expected="Louvrier"  turns=5  27.7s
+  [31/53] 99c9cc74-fdc8-46c6-8f8d-3ce2d3bfeea3 [hybrid:ToolCalling/attachment] -- Hi, I'm making a pie but I could use some hel...
+  [32/53] d0633230-7067-47a9-9dbf-ee11e0a2cdd6 [hybrid:ToolCalling/default] -- In the Scikit-Learn July 2017 changelog, what...
+  [33/53] 305ac316-eef6-4446-960a-92d80d542f82 [hybrid:ToolCalling/default] -- Who did the actor who played Ray in the Polis...
+/Users/cohen/.local/share/mise/installs/python/3.12.13/lib/python3.12/site-packages/whisper/transcribe.py:132: UserWarning: FP16 is not supported on CPU; using FP32 instead
+  warnings.warn("FP16 is not supported on CPU; using FP32 instead")
+[grounded_query] model=gemini-2.5-flash query="Polish version Everybody Loves Raymond who played Ray"
+    FAIL  answer="cornstarch, granulated sugar, lemon juice, pure vanilla extract, ripe strawberries"  expected="cornstarch, freshly squeezed lemon juice, granulated sugar, pure vanilla extract, ripe strawberries"  turns=2  6.1s
+[grounded_query] grounded=true sources=1 cost_usd=0.000022
+[grounded_query] model=gemini-2.5-flash query="Bartłomiej Kasprzykowski Magda M film cast"
+[grounded_query] model=gemini-2.5-flash query="Scikit-Learn July 2017 changelog bug fix predictor command"
+[grounded_query] grounded=true sources=5 cost_usd=0.000066
+    PASS  answer="Wojciech"  expected="Wojciech"  turns=4  17.8s
+[grounded_query] grounded=true sources=2 cost_usd=0.000093
+    FAIL  answer="I cannot determine the answer - the Scikit-Learn July 2017 changelog document is not accessible through available tools (web searches are timing out and the file is not in standard local locations)."  expected="BaseLabelPropagation"  turns=8  41.3s
+  [34/53] 0383a3ee-47a7-41a4-b493-519bdefe0488 [hybrid:ToolCalling/default] -- On the BBC Earth YouTube video of the Top 5 S...
+  [35/53] f918266a-b3e0-4914-865d-4faa564f1aef [hybrid:ToolCalling/attachment] -- What is the final numeric output from the att...
+  [36/53] 11af4e1a-5f45-467d-9aeb-46f4bb0bf034 [hybrid:CodeAgent/pure_reasoning] -- How many more blocks (also denoted as layers)...
+    PASS  answer="6"  expected="6"  turns=3  7.2s
+    PASS  answer="0"  expected="0"  turns=2  7.5s
+[grounded_query] model=gemini-2.5-flash query="BBC Earth Top 5 Silliest Animal Moments YouTube video bird featured"
+[grounded_query] grounded=true sources=1 cost_usd=0.000030
+    PASS  answer="Penguin (rockhopper penguin)"  expected="Rockhopper penguin"  turns=4  18.6s
+  [37/53] e142056d-56ab-4352-b091-b56054bd1359 [hybrid:ToolCalling/long_question] -- Bob was invited to participate in a game show...
+  [38/53] 50ad0280-0819-4bd9-b275-5de32d3b5bcb [hybrid:ToolCalling/default] -- Pull out the sentence in the following 5x7 bl...
+  [39/53] 7673d772-ef80-4f0f-a602-1bf4485c9b43 [hybrid:ToolCalling/web_retrieval] -- On Cornell Law School website's legal informa...
+    FAIL  answer="The sea gull glides peacefully to my chair"  expected="The seagull glided peacefully to my chair."  turns=1  2.8s
+[grounded_query] model=gemini-2.5-flash query="Cornell Legal Information Institute federal rules fifth section alphabetically"
+[grounded_query] grounded=true sources=4 cost_usd=0.000115
+    FAIL  answer=""  expected="16000"  turns=1  18.0s
+[grounded_query] model=gemini-2.5-flash query="Federal Rules of Bankruptcy Procedure witnesses most titles article"
+[grounded_query] grounded=true sources=0 cost_usd=0.000026
+[grounded_query] model=gemini-2.5-flash query="Cornell LII Federal Rules of Bankruptcy Procedure all articles and parts list"
+[grounded_query] grounded=true sources=6 cost_usd=0.000183
+[grounded_query] model=gemini-2.5-flash query="\"Federal Rules of Bankruptcy Procedure\" \"witnesses\" rule titles list"
+[grounded_query] grounded=true sources=9 cost_usd=0.000176
+[grounded_query] model=gemini-2.5-flash query="Cornell LII \"Federal Rules of Bankruptcy Procedure\" Part VII adversary proceedings witnesses rules"
+[grounded_query] grounded=true sources=6 cost_usd=0.000176
+[grounded_query] model=gemini-2.5-flash query="Cornell LII federal rules alphabetical list Federal Rules of Civil Procedure Criminal Evidence Bankruptcy"
+[grounded_query] grounded=true sources=11 cost_usd=0.000040
+[grounded_query] model=gemini-2.5-flash query="Cornell LII all federal rules alphabetical appellate procedure evidence bankruptcy civil criminal"
+[grounded_query] grounded=true sources=10 cost_usd=0.000185
+[grounded_query] model=gemini-2.5-flash query="Federal Rules of Evidence witnesses article rules titles Cornell LII"
+[grounded_query] grounded=true sources=6 cost_usd=0.000141
+[grounded_query] model=gemini-2.5-flash query="Federal Rules of Evidence Rule 601 amendment history 2021 word deleted"
+[grounded_query] grounded=true sources=4 cost_usd=0.000072
+[grounded_query] model=gemini-2.5-flash query="\"Rule 601\" \"Federal Rules of Evidence\" 2011 amendment changes deleted word"
+[grounded_query] grounded=true sources=3 cost_usd=0.000063
+[grounded_query] model=gemini-2.5-flash query="Cornell LII Federal Rules of Evidence Rule 601 committee notes 2011 restyling amendment text"
+[grounded_query] grounded=true sources=4 cost_usd=0.000052
+    FAIL  answer=""  expected="inference"  turns=12  105.5s
+  [40/53] c365c1c7-a3db-4d5e-a9a1-66f56eae7865 [hybrid:ToolCalling/default] -- Of the cities within the United States where ...
+  [41/53] 7d4a7d1d-cac6-44a8-96e8-ea9584a70825 [hybrid:ToolCalling/web_retrieval] -- According to Girls Who Code, how long did it ...
+  [42/53] dc22a632-937f-4e6a-b72f-ba0ff3f5ff97 [hybrid:ToolCalling/default] -- What was the complete title of the book in wh...
+[grounded_query] model=gemini-2.5-flash query="what is the westernmost US city where a president was born"
+[grounded_query] model=gemini-2.5-flash query="what is the easternmost US city where a president was born"
+[grounded_query] grounded=true sources=3 cost_usd=0.000054
+[grounded_query] grounded=true sources=5 cost_usd=0.000032
+[grounded_query] model=gemini-2.5-flash query="Ali Khan TV show 2015"
+[grounded_query] model=gemini-2.5-flash query="Ali Khan cost-conscious cooking show television"
+    PASS  answer="Braintree, Honolulu"  expected="Braintree, Honolulu"  turns=2  10.3s
+[grounded_query] model=gemini-2.5-flash query="Girls Who Code women computer scientists 37% percentage change 13%"
+[grounded_query] grounded=true sources=2 cost_usd=0.000038
+[grounded_query] grounded=true sources=6 cost_usd=0.000061
+[grounded_query] model=gemini-2.5-flash query="Ali Khan Cheap Eats New Mexican restaurant"
+[grounded_query] model=gemini-2.5-flash query="James Beard Award winners restaurant recommendations book"
+[grounded_query] grounded=true sources=6 cost_usd=0.000071
+[grounded_query] grounded=true sources=6 cost_usd=0.000096
+[grounded_query] model=gemini-2.5-flash query="Girls Who Code 1995 women computer scientists 37% how many years decline"
+[grounded_query] grounded=true sources=2 cost_usd=0.000063
+[grounded_query] model=gemini-2.5-flash query="Ali Khan Cheap Eats book recommendations"
+[grounded_query] model=gemini-2.5-flash query="\"Ali Khan\" book restaurants James Beard"
+[grounded_query] grounded=false sources=0 cost_usd=0.000040
+[grounded_query] grounded=true sources=10 cost_usd=0.000073
+[grounded_query] model=gemini-2.5-flash query="\"Girls Who Code\" \"37%\" \"13%\" years timeline"
+[grounded_query] grounded=true sources=5 cost_usd=0.000087
+[grounded_query] grounded=true sources=9 cost_usd=0.000129
+[grounded_query] model=gemini-2.5-flash query="\"Girls Who Code\" women computer science 37% 24% years how long"
+[grounded_query] model=gemini-2.5-flash query="two James Beard Award winners book restaurant recommendations"
+[grounded_query] model=gemini-2.5-flash query="\"Cheap Eats\" Ali Khan book restaurant guide"
+[grounded_query] grounded=true sources=8 cost_usd=0.000046
+[grounded_query] grounded=true sources=6 cost_usd=0.000074
+[grounded_query] model=gemini-2.5-flash query="\"Girls Who Code\" 1995 2008 women computer scientists percentage decline"
+[grounded_query] grounded=true sources=2 cost_usd=0.000151
+[grounded_query] model=gemini-2.5-flash query="Cheap Eats Albuquerque Ali Khan carne adovada restaurant"
+[grounded_query] model=gemini-2.5-flash query="\"Cheap Eats\" guide book food writers James Beard"
+[grounded_query] grounded=true sources=14 cost_usd=0.000095
+[grounded_query] grounded=true sources=11 cost_usd=0.000096
+[grounded_query] grounded=true sources=7 cost_usd=0.000187
+    FAIL  answer="13"  expected="22"  turns=8  60.0s
+[grounded_query] model=gemini-2.5-flash query="book Albuquerque restaurants James Beard Award chef author"
+[grounded_query] model=gemini-2.5-flash query="\"restaurant guide\" \"James Beard\" award winners book Ali Khan"
+[grounded_query] grounded=true sources=3 cost_usd=0.000129
+[grounded_query] grounded=true sources=5 cost_usd=0.000120
+[grounded_query] model=gemini-2.5-flash query="\"Cheap Eats\" book restaurants two authors food writers"
+[grounded_query] model=gemini-2.5-flash query="food guide book \"Ali Khan\" \"Cheap Eats\" authors"
+[grounded_query] grounded=true sources=6 cost_usd=0.000073
+[grounded_query] grounded=true sources=4 cost_usd=0.000045
+[grounded_query] model=gemini-2.5-flash query="\"Cheap Eats\" \"Ali Khan\" book \"James Beard\" restaurant recommendations"
+[grounded_query] model=gemini-2.5-flash query="Cheryl Alters Jamison Bill Jamison book Ali Khan restaurant"
+[grounded_query] model=gemini-2.5-flash query="\"Tasting New Mexico\" book restaurant recommendations"
+[grounded_query] grounded=true sources=4 cost_usd=0.000051
+[grounded_query] grounded=true sources=9 cost_usd=0.000166
+[grounded_query] grounded=true sources=13 cost_usd=0.000229
+[grounded_query] model=gemini-2.5-flash query="\"Cheap Eats\" book author \"35\" restaurants guide"
+[grounded_query] model=gemini-2.5-flash query="food guide book two authors \"Cheap Eats\" title"
+[grounded_query] grounded=true sources=6 cost_usd=0.000063
+[grounded_query] grounded=true sources=8 cost_usd=0.000053
+[grounded_query] model=gemini-2.5-flash query="\"Ali Khan\" \"Mary and Tito's\" carne adovada book recommendation"
+[grounded_query] model=gemini-2.5-flash query="Mary Tito's Cafe Albuquerque featured book James Beard authors"
+[grounded_query] grounded=true sources=6 cost_usd=0.000134
+[grounded_query] grounded=true sources=11 cost_usd=0.000107
+[grounded_query] model=gemini-2.5-flash query="\"American Home Cooking\" Cheryl Jamison Bill Jamison restaurants featured"
+[grounded_query] model=gemini-2.5-flash query="\"Border Cookbook\" Cheryl Jamison Bill Jamison restaurant recommendations"
+[grounded_query] grounded=true sources=4 cost_usd=0.000074
+[grounded_query] grounded=true sources=9 cost_usd=0.000057
+    FAIL  answer=""  expected="Five Hundred Things To Eat Before It's Too Late: and the Very Best Places to Eat Them"  turns=12  136.1s
+  [43/53] 3f57289b-8c60-48be-bd80-01f8099ca449 [hybrid:CodeAgent/pure_reasoning] -- How many at bats did the Yankee with the most...
+  [44/53] 23dd907f-1261-4488-b21c-e9185af91d5e [hybrid:ToolCalling/default] -- In Audre Lorde’s poem “Father Son and Holy Gh...
+  [45/53] 1f975693-876d-457b-a649-393859e79bf3 [hybrid:ToolCalling/attachment] -- Hi, I was out sick from my classes on Friday,...
+/Users/cohen/.local/share/mise/installs/python/3.12.13/lib/python3.12/site-packages/whisper/transcribe.py:132: UserWarning: FP16 is not supported on CPU; using FP32 instead
+  warnings.warn("FP16 is not supported on CPU; using FP32 instead")
+    PASS  answer="132, 133, 134, 197, 245"  expected="132, 133, 134, 197, 245"  turns=2  4.2s
+[grounded_query] model=gemini-2.5-flash query="Audre Lorde \"Father Son and Holy Ghost\" poem text"
+[grounded_query] grounded=true sources=4 cost_usd=0.000101
+    FAIL  answer="525"  expected="519"  turns=2  20.3s
+    PASS  answer="2"  expected="2"  turns=4  25.6s
+  [46/53] 840bfca7-4f7b-481a-8794-c560c340185d [hybrid:ToolCalling/web_retrieval] -- On June 6, 2023, an article by Carolyn Collin...
+  [47/53] a0068077-79f4-461a-adfe-75c1a4148545 [hybrid:ToolCalling/web_retrieval] -- What was the actual enrollment count of the c...
+  [48/53] bda648d7-d618-4883-88f4-3466eabd860e [hybrid:ToolCalling/default] -- Where were the Vietnamese specimens described...
+[grounded_query] model=gemini-2.5-flash query="H. pylori acne vulgaris clinical trial enrollment 2018 NIH clinicaltrials.gov"
+[grounded_query] model=gemini-2.5-flash query="Nedoshivina 2010 paper Kuznetzov Vietnamese specimens deposited"
+[grounded_query] model=gemini-2.5-flash query="Carolyn Collins Petersen Universe Today June 6 2023"
+[grounded_query] grounded=true sources=3 cost_usd=0.000049
+[grounded_query] grounded=true sources=4 cost_usd=0.000058
+    PASS  answer="Saint Petersburg"  expected="Saint Petersburg"  turns=3  14.9s
+[grounded_query] grounded=true sources=1 cost_usd=0.000047
+[grounded_query] model=gemini-2.5-flash query="Universe Today June 6 2023 Mysterious Filaments Center Milky Way Arendt paper"
+    FAIL  answer="I cannot determine the specific enrollment count as the search tools are unable to access the detailed clinical trial records from the NIH website at this time."  expected="90"  turns=4  24.1s
+[grounded_query] grounded=true sources=6 cost_usd=0.000121
+[grounded_query] model=gemini-2.5-flash query="R. G. Arendt NASA award number magnetized filaments"
+[grounded_query] grounded=true sources=2 cost_usd=0.000041
+    PASS  answer="80GSFC21M0002"  expected="80GSFC21M0002"  turns=6  37.5s
+  [49/53] 50ec8903-b81f-4257-9450-1085afd2c319 [hybrid:ToolCalling/long_question] -- A standard Rubik’s cube has been broken into ...
+  [50/53] cf106601-ab4f-4af9-b045-5295fe67b37d [hybrid:ToolCalling/default] -- What country had the least number of athletes...
+  [51/53] a0c07678-e491-4bbc-8f0b-07405144218f [hybrid:ToolCalling/default] -- Who are the pitchers with the number before a...
+[grounded_query] model=gemini-2.5-flash query="1928 Summer Olympics participating countries athletes"
+[grounded_query] model=gemini-2.5-flash query="Taishō Tamai pitcher number"
+[grounded_query] grounded=true sources=1 cost_usd=0.000016
+[grounded_query] model=gemini-2.5-flash query="Hokkaido Nippon-Ham Fighters pitcher number 18 2023"
+[grounded_query] model=gemini-2.5-flash query="Hokkaido Nippon-Ham Fighters pitcher number 20 2023"
+[grounded_query] grounded=true sources=4 cost_usd=0.000185
+[grounded_query] grounded=true sources=3 cost_usd=0.000023
+    PASS  answer="CUB"  expected="CUB"  turns=3  16.2s
+    FAIL  answer=""  expected="green, white"  turns=1  17.8s
+[grounded_query] grounded=true sources=1 cost_usd=0.000064
+[grounded_query] model=gemini-2.5-flash query="\"Hokkaido Nippon-Ham Fighters\" \"number 18\" pitcher 2023 roster"
+[grounded_query] grounded=true sources=2 cost_usd=0.000022
+[grounded_query] model=gemini-2.5-flash query="Sachiya Yamasaki Hokkaido Nippon-Ham Fighters 2023 number 18"
+[grounded_query] grounded=true sources=3 cost_usd=0.000033
+[grounded_query] model=gemini-2.5-flash query="\"Hokkaido Nippon-Ham Fighters\" 2023 roster pitchers numbers July"
+[grounded_query] grounded=true sources=2 cost_usd=0.000183
+[grounded_query] model=gemini-2.5-flash query="Sachiya Yamasaki when did he join Hokkaido Nippon-Ham Fighters"
+[grounded_query] grounded=true sources=4 cost_usd=0.000031
+[grounded_query] model=gemini-2.5-flash query="Hiromi Itoh Hokkaido Nippon-Ham Fighters pitcher number 2023"
+[grounded_query] grounded=true sources=7 cost_usd=0.000032
+[grounded_query] model=gemini-2.5-flash query="\"number 18\" pitcher \"Hokkaido Nippon-Ham Fighters\" 2023 -Yamasaki"
+[grounded_query] grounded=true sources=2 cost_usd=0.000117
+    PASS  answer="Yoshida, Uehara"  expected="Yoshida, Uehara"  turns=10  79.9s
+  [52/53] 7bd855d8-463d-4ed5-93ca-5fe35145f733 [hybrid:ToolCalling/attachment] -- The attached Excel file contains the sales of...
+  [53/53] 5a0c1adf-205e-4841-a666-7c3ef95def9d [hybrid:ToolCalling/default] -- What is the first name of the only Malko Comp...
+    PASS  answer="$89,706.00"  expected="89706.00"  turns=2  5.1s
+[grounded_query] model=gemini-2.5-flash query="Malko Competition winners recipients list"
+[grounded_query] grounded=true sources=6 cost_usd=0.000128
+[grounded_query] model=gemini-2.5-flash query="Malko Competition winners 1977 1978 1979 1980 1981 1982 1983 1984 1985 1986 1987 1988 1989 1990 1991 1992 1993 1994 1995 1996 1997 1998 1999"
+[grounded_query] grounded=true sources=6 cost_usd=0.000176
+[grounded_query] model=gemini-2.5-flash query="Claus Peter Flor conductor nationality East Germany West Germany"
+[grounded_query] grounded=true sources=11 cost_usd=0.000061
+[grounded_query] model=gemini-2.5-flash query="Claus Peter Flor Malko Competition 1983 first name"
+[grounded_query] grounded=true sources=5 cost_usd=0.000019
+    PASS  answer="Claus"  expected="Claus"  turns=6  45.4s
+
+Results for claude-haiku-4-5:
+  Pass rate : 28/53 (52.8%)
+  Est. cost : $0.4239
+  Mean turns: 4.5
+  Mean time : 31.2s per question
+
+{
+  "level": 1,
+  "model": "claude-haiku-4-5",
+  "summary": {
+    "total": 53,
+    "passed": 28,
+    "passRate": 0.5283018867924528,
+    "estCostUsd": 0.42393775,
+    "meanTurns": 4.471698113207547,
+    "meanWallMs": 31170.962264150945
+  },
+  "results": [
+    {
+      "task_id": "e1fc63a2-da7a-432f-be78-7c4a95598703",
+      "question": "If Eliud Kipchoge could maintain his record-making marathon pace indefinitely, how many thousand hours would it take him to run the distance between the Earth and the Moon its closest approach? Please use the minimum perigee value on the Wikipedia page for the Moon when carrying out your calculation. Round your result to the nearest 1000 hours and do not use any comma separators if necessary.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "17",
+      "expected_output": "17",
+      "turns": 6,
+      "wallMs": 30322,
+      "inputTokens": 22321,
+      "outputTokens": 1094,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "8e867cd7-cff9-4e6c-867a-ff5ddc2550be",
+      "question": "How many studio albums were published by Mercedes Sosa between 2000 and 2009 (included)? You can use the latest 2022 version of english wikipedia.",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "4",
+      "expected_output": "3",
+      "turns": 7,
+      "wallMs": 44823,
+      "inputTokens": 25075,
+      "outputTokens": 997,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "ec09fa32-d03f-4bf8-84b0-1f16922c3ae4",
+      "question": "Here's a fun riddle that I think you'll enjoy.\n\nYou have been selected to play the final round of the hit new game show \"Pick That Ping-Pong\". In this round, you will be competing for a large cash prize. Your job will be to pick one of several different numbered ping-pong balls, and then the game will commence. The host describes how the game works.\n\nA device consisting of a winding clear ramp and a series of pistons controls the outcome of the game. The ramp feeds balls onto a platform. The platform has room for three ping-pong balls at a time. The three balls on the platform are each aligned with one of three pistons. At each stage of the game, one of the three pistons will randomly fire, ejecting the ball it strikes. If the piston ejects the ball in the first position on the platform the balls in the second and third position on the platform each advance one space, and the next ball on the ramp advances to the third position. If the piston ejects the ball in the second position, the ball in the first position is released and rolls away, the ball in the third position advances two spaces to occupy the first position, and the next two balls on the ramp advance to occupy the second and third positions on the platform. If the piston ejects the ball in the third position, the ball in the first position is released and rolls away, the ball in the second position advances one space to occupy the first position, and the next two balls on the ramp advance to occupy the second and third positions on the platform.\n\nThe ramp begins with 100 numbered ping-pong balls, arranged in ascending order from 1 to 100. The host activates the machine and the first three balls, numbered 1, 2, and 3, advance to the platform. Before the random firing of the pistons begins, you are asked which of the 100 balls you would like to pick. If your pick is ejected by one of the pistons, you win the grand prize, $10,000.\n\nWhich ball should you choose to maximize your odds of winning the big prize? Please provide your answer as the number of the ball selected.",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "50",
+      "expected_output": "3",
+      "turns": 5,
+      "wallMs": 62975,
+      "inputTokens": 35583,
+      "outputTokens": 10090,
+      "decomposed": false,
+      "routedMode": "CodeAgent",
+      "routedRule": "pure_reasoning"
+    },
+    {
+      "task_id": "5d0080cb-90d7-4712-bc33-848150e917d3",
+      "question": "What was the volume in m^3 of the fish bag that was calculated in the University of Leicester paper \"Can Hiccup Supply Enough Fish to Maintain a Dragon’s Diet?\"",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "",
+      "expected_output": "0.1777",
+      "turns": 20,
+      "wallMs": 236611,
+      "inputTokens": 303926,
+      "outputTokens": 29800,
+      "decomposed": false,
+      "routedMode": "CodeAgent",
+      "routedRule": "pure_reasoning"
+    },
+    {
+      "task_id": "a1e91b78-d3d8-4675-bb8d-62741b4b68a6",
+      "question": "In the video https://www.youtube.com/watch?v=L1vXCYZAYYM, what is the highest number of bird species to be on camera simultaneously?",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "I cannot access YouTube videos directly, so I'm unable to determine the highest number of bird species on camera simultaneously in that video.",
+      "expected_output": "3",
+      "turns": 1,
+      "wallMs": 3324,
+      "inputTokens": 1263,
+      "outputTokens": 208,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "46719c30-f4c3-4cad-be07-d5cb21eee6bb",
+      "question": "Of the authors (First M. Last) that worked on the paper \"Pie Menus or Linear Menus, Which Is Better?\" in 2015, what was the title of the first paper authored by the one that had authored prior papers?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "Mapping Human-Oriented Information to Software Agents for Online Systems Usage",
+      "expected_output": "Mapping Human Oriented Information to Software Agents for Online Systems Usage",
+      "turns": 6,
+      "wallMs": 29017,
+      "inputTokens": 16454,
+      "outputTokens": 865,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "4b6bb5f7-f634-410e-815d-e673ab7f8632",
+      "question": "In Series 9, Episode 11 of Doctor Who, the Doctor is trapped inside an ever-shifting maze. What is this location called in the official script for the episode? Give the setting exactly as it appears in the first scene heading.",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "INT. THE CASTLE - DAY",
+      "expected_output": "THE CASTLE",
+      "turns": 7,
+      "wallMs": 42653,
+      "inputTokens": 24836,
+      "outputTokens": 941,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "cffe0e32-c9a6-4c52-9877-78ceb4aaa9fb",
+      "question": "An office held a Secret Santa gift exchange where each of its twelve employees was assigned one other employee in the group to present with a gift. Each employee filled out a profile including three likes or hobbies. On the day of the gift exchange, only eleven gifts were given, each one specific to one of the recipient's interests. Based on the information in the document, who did not give a gift?",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "I cannot read the .docx file with the current tools. Please provide the document content in text form or another readable format so I can identify who did not give a gift.",
+      "expected_output": "Fred",
+      "turns": 2,
+      "wallMs": 5407,
+      "inputTokens": 2966,
+      "outputTokens": 399,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "attachment"
+    },
+    {
+      "task_id": "2d83110e-a098-4ebb-9987-066c06fa42d0",
+      "question": ".rewsna eht sa \"tfel\" drow eht fo etisoppo eht etirw ,ecnetnes siht dnatsrednu uoy fI",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "right",
+      "expected_output": "Right",
+      "turns": 1,
+      "wallMs": 1566,
+      "inputTokens": 1300,
+      "outputTokens": 45,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "5cfb274c-0207-4aa7-9575-6ac0bd95d9b2",
+      "question": "Each cell in the attached spreadsheet represents a plot of land. The color of the cell indicates who owns that plot. Green cells are plots owned by Earl Smith. Can Earl walk through every plot he owns (and no other plots) and return to his starting plot without backtracking? For this question, consider backtracking to be any instance where Earl would enter a plot of land he had already entered since leaving his starting plot.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "No",
+      "expected_output": "No",
+      "turns": 2,
+      "wallMs": 11300,
+      "inputTokens": 4465,
+      "outputTokens": 1807,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "attachment"
+    },
+    {
+      "task_id": "27d5d136-8563-469e-92bf-fd103c28b57c",
+      "question": "¬(A ∧ B) ↔ (¬A ∨ ¬B)\n¬(A ∨ B) ↔ (¬A ∧ ¬B)\n(A → B) ↔ (¬B → ¬A)\n(A → B) ↔ (¬A ∨ B)\n(¬A → B) ↔ (A ∨ ¬B)\n¬(A → B) ↔ (A ∧ ¬B)\n\nWhich of the above is not logically equivalent to the rest? Provide the full statement that doesn't fit.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "(¬A → B) ↔ (A ∨ ¬B)",
+      "expected_output": "(¬A → B) ↔ (A ∨ ¬B)",
+      "turns": 1,
+      "wallMs": 3700,
+      "inputTokens": 1388,
+      "outputTokens": 676,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "dc28cf18-6431-458b-83ef-64b3ce566c10",
+      "question": "My family reunion is this week, and I was assigned the mashed potatoes to bring. The attendees include my married mother and father, my twin brother and his family, my aunt and her family, my grandma and her brother, her brother's daughter, and his daughter's family. All the adults but me have been married, and no one is divorced or remarried, but my grandpa and my grandma's sister-in-law passed away last year. All living spouses are attending. My brother has two children that are still kids, my aunt has one six-year-old, and my grandma's brother's daughter has three kids under 12. I figure each adult will eat about 1.5 potatoes of mashed potatoes and each kid will eat about 1/2 a potato of mashed potatoes, except my second cousins don't eat carbs. The average potato is about half a pound, and potatoes are sold in 5-pound bags. How many whole bags of potatoes do I need? Just give the number.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "2",
+      "expected_output": "2",
+      "turns": 2,
+      "wallMs": 29578,
+      "inputTokens": 6035,
+      "outputTokens": 4459,
+      "decomposed": false,
+      "routedMode": "CodeAgent",
+      "routedRule": "pure_reasoning"
+    },
+    {
+      "task_id": "b816bfce-3d80-4913-a07d-69b752ce6377",
+      "question": "In Emily Midkiff's June 2014 article in a journal named for the one of Hreidmar's sons that guarded his house, what word was quoted from two different authors in distaste for the nature of dragon depictions?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "fluffy",
+      "expected_output": "fluffy",
+      "turns": 7,
+      "wallMs": 46540,
+      "inputTokens": 34155,
+      "outputTokens": 1086,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "72e110e7-464c-453c-a309-90a95aed6538",
+      "question": "Under DDC 633 on Bielefeld University Library's BASE, as of 2020, from what country was the unknown language article with a flag unique from the others?",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "I cannot determine the answer to this question as the BASE database records from 2020 are not accessible through available search tools.",
+      "expected_output": "Guatemala",
+      "turns": 4,
+      "wallMs": 30495,
+      "inputTokens": 6417,
+      "outputTokens": 555,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "42576abe-0deb-4869-8c63-225c2d75a95a",
+      "question": "In the fictional language of Tizin, basic sentences are arranged with the Verb first, followed by the direct object, followed by the subject of the sentence. I want to express my love for apples to my Tizin friend. \n\nThe word that indicates oneself is \"Pa\" is the nominative form, \"Mato\" is the accusative form, and \"Sing\" is the genitive form. \n\nThe root verb that indicates an intense like for something is \"Maktay\". When it is used in the present, it is used in it's root form, when it is used in the preterit past, it is \"Tay\", and when it is used in the imperfect past, it is \"Aktay\". It is used differently than in English, and is better translated as \"is pleasing to\", meaning that the thing doing the liking is actually the object of the sentence rather than the subject.\n\nThe word for apples is borrowed from English in Tizin, and so it is \"Apple\" is the nominative form, \"Zapple\" is the accusative form, and \"Izapple\" is the genitive form. \n\nPlease translate \"I like apples\" to Tizin.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "Maktay Mato Apple",
+      "expected_output": "Maktay mato apple",
+      "turns": 1,
+      "wallMs": 4203,
+      "inputTokens": 1494,
+      "outputTokens": 411,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "long_question"
+    },
+    {
+      "task_id": "b415aba4-4b68-4fc6-9b89-2c812e55a3e1",
+      "question": "In Nature journal's Scientific Reports conference proceedings from 2012, in the article that did not mention plasmons or plasmonics, what nano-compound is studied? Don't use the prefix nano in your answer if there is one.",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "I cannot determine the answer. Scientific Reports is a peer-reviewed research journal that does not publish conference proceedings. The document referenced in the question does not appear to exist in the form described.",
+      "expected_output": "diamond",
+      "turns": 6,
+      "wallMs": 61139,
+      "inputTokens": 15318,
+      "outputTokens": 951,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "cca530fc-4052-43b2-b130-b30968d8aa44",
+      "question": "Review the chess position provided in the image. It is black's turn. Provide the correct next move for black which guarantees a win. Please provide your response in algebraic notation.",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "Qb3+",
+      "expected_output": "Rd5",
+      "turns": 1,
+      "wallMs": 5361,
+      "inputTokens": 2047,
+      "outputTokens": 513,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "attachment"
+    },
+    {
+      "task_id": "935e2cff-ae78-4218-b3f5-115589b19dae",
+      "question": "In the year 2022, and before December, what does \"R\" stand for in the three core policies of the type of content that was violated in the public logs on the Legume Wikipedia page?",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "Unable to determine - the specific public logs on the Legume Wikipedia page referenced in this question cannot be located or verified through available sources.",
+      "expected_output": "research",
+      "turns": 10,
+      "wallMs": 78147,
+      "inputTokens": 91834,
+      "outputTokens": 1964,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "4fc2f1ae-8625-45b5-ab34-ad4433bc21f8",
+      "question": "Who nominated the only Featured Article on English Wikipedia about a dinosaur that was promoted in November 2016?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "FunkMonk",
+      "expected_output": "FunkMonk",
+      "turns": 6,
+      "wallMs": 30714,
+      "inputTokens": 11584,
+      "outputTokens": 683,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "5188369a-3bbe-43d8-8b94-11558f909a08",
+      "question": "What writer is quoted by Merriam-Webster for the Word of the Day from June 27, 2022?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "Annie Levin",
+      "expected_output": "Annie Levin",
+      "turns": 3,
+      "wallMs": 15204,
+      "inputTokens": 4490,
+      "outputTokens": 280,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "6f37996b-2ac7-44b0-8e68-6d28256631b4",
+      "question": "Given this table defining * on the set S = {a, b, c, d, e}\n\n|*|a|b|c|d|e|\n|---|---|---|---|---|---|\n|a|a|b|c|b|d|\n|b|b|c|a|e|c|\n|c|c|a|b|b|a|\n|d|b|e|b|e|d|\n|e|d|b|a|d|c|\n\nprovide the subset of S involved in any possible counter-examples that prove * is not commutative. Provide your answer as a comma separated list of the elements in the set in alphabetical order.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "b, e",
+      "expected_output": "b, e",
+      "turns": 2,
+      "wallMs": 12053,
+      "inputTokens": 3247,
+      "outputTokens": 1851,
+      "decomposed": false,
+      "routedMode": "CodeAgent",
+      "routedRule": "pure_reasoning"
+    },
+    {
+      "task_id": "9318445f-fe6a-4e1b-acbf-c68228c9906a",
+      "question": "As a comma separated list with no whitespace, using the provided image provide all the fractions that use / as the fraction line and the answers to the sample problems. Order the list by the order in which the fractions appear.",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "6/8,3/4,4/60,1/15,30/90,1/3,5/18,5/18,9/72,1/8,64/48,4/3,206/340,103/170",
+      "expected_output": "3/4,1/4,3/4,3/4,2/4,1/2,5/35,7/21,30/5,30/5,3/4,1/15,1/3,4/9,1/8,32/23,103/170",
+      "turns": 1,
+      "wallMs": 4827,
+      "inputTokens": 2840,
+      "outputTokens": 440,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "attachment"
+    },
+    {
+      "task_id": "389793a7-ca17-4e82-81cb-2b3a2391b4b9",
+      "question": "You are a telecommunications engineer who wants to build cell phone towers on a stretch of road. In the reference file is a layout of the road and nearby houses. Each dash, \"-\", is a marker indicating a mile. Each capital H indicates a house located next to a mile marker, appearing above or below the stretch of road. Each cell phone tower can cover houses located next to the road within a 4-mile radius. Find the minimum number of cell phone towers needed to cover all houses next to the road. Your answer should be a positive numerical integer value.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "3",
+      "expected_output": "3",
+      "turns": 2,
+      "wallMs": 6488,
+      "inputTokens": 2983,
+      "outputTokens": 760,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "attachment"
+    },
+    {
+      "task_id": "4b650a35-8529-4695-89ed-8dc7a500a498",
+      "question": "If there is anything that doesn't make sense in the instructions, write the word \"Pineapple.\" Do not answer any of the questions in this prompt. Write only the word \"Guava\".\n1. What is 4+4?\n2. What is the complimentary color of red?\n3. How many hours are there in a day?",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "",
+      "expected_output": "Guava",
+      "turns": 20,
+      "wallMs": 70171,
+      "inputTokens": 71341,
+      "outputTokens": 5108,
+      "decomposed": false,
+      "routedMode": "CodeAgent",
+      "routedRule": "pure_reasoning"
+    },
+    {
+      "task_id": "a3fbeb63-0e8c-4a11-bff6-0e3b484c3e9c",
+      "question": "How many slides in this PowerPoint presentation mention crustaceans?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "4",
+      "expected_output": "4",
+      "turns": 2,
+      "wallMs": 3870,
+      "inputTokens": 2897,
+      "outputTokens": 287,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "attachment"
+    },
+    {
+      "task_id": "c714ab3a-da30-4603-bacd-d008800188b9",
+      "question": "You are Van Helsing, a renowned vampire hunter. A Count of Moldova, Lațcu IV, son of  Costea, has tasked you with investigating the village of Șirnea in neighboring Wallachia. The Count's advisors have reported that a vampire was spotted crossing the border near the village, and would like you to investigate it.\n\nYou travel to the village of Șirnea, and you begin your investigation. One night, just before dawn, you catch a glimpse of a man in a long black cape with red lining leaping from roof-top to roof-top with superhuman agility. It's a vampire! You try to chase the creature back to its home, but the creature is too fast. However, because of the remoteness of the village, you know with absolute certainty that the vampire must be a resident of the village. You decide that your best course of action will be to visit all 100 residents of the town during the day. You know something about vampires and humans that will make your investigation possible; humans always tell the truth, but vampires always lie.\n\nIn the afternoon, you go from house to house, speaking with all 100 residents of Șirnea. You ask everyone the same question: \"How many vampires are living in Șirnea\". Everyone in the village gives the same response, \"At least one of us is a human.\"\n\nHow many residents of Șirnea have been turned into vampires?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "100",
+      "expected_output": "100",
+      "turns": 1,
+      "wallMs": 6050,
+      "inputTokens": 1544,
+      "outputTokens": 562,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "9d191bce-651d-4746-be2d-7ef8ecadb9c2",
+      "question": "Examine the video at https://www.youtube.com/watch?v=1htKBjuUWec.\n\nWhat does Teal'c say in response to the question \"Isn't that hot?\"",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "",
+      "expected_output": "Extremely",
+      "turns": 1,
+      "wallMs": 2489,
+      "inputTokens": 1270,
+      "outputTokens": 193,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "65afbc8a-89ca-4ad5-8d62-355bb401f61d",
+      "question": "You are given this Excel file as a map. You start on the START cell and move toward the END cell. You are allowed to move two cells per turn, and you may move up, down, left, or right. You may not move fewer than two cells, and you may not move backward. You must avoid moving onto any blue cells. On the eleventh turn, what is the 6-digit hex code (without prefix) of the color of the cell where you land after moving?",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "",
+      "expected_output": "F478A7",
+      "turns": 2,
+      "wallMs": 18996,
+      "inputTokens": 5272,
+      "outputTokens": 2165,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "attachment"
+    },
+    {
+      "task_id": "cabe07ed-9eca-40ea-8ead-410ef5e83f91",
+      "question": "What is the surname of the equine veterinarian mentioned in 1.E Exercises from the chemistry materials licensed by Marisa Alviar-Agnew & Henry Agnew under the CK-12 license in LibreText's Introductory Chemistry materials as compiled 08/21/2023?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "Louvrier",
+      "expected_output": "Louvrier",
+      "turns": 5,
+      "wallMs": 27657,
+      "inputTokens": 15712,
+      "outputTokens": 775,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "3cef3a44-215e-4aed-8e3b-b1e3f08063b7",
+      "question": "I'm making a grocery list for my mom, but she's a professor of botany and she's a real stickler when it comes to categorizing things. I need to add different foods to different categories on the grocery list, but if I make a mistake, she won't buy anything inserted in the wrong category. Here's the list I have so far:\n\nmilk, eggs, flour, whole bean coffee, Oreos, sweet potatoes, fresh basil, plums, green beans, rice, corn, bell pepper, whole allspice, acorns, broccoli, celery, zucchini, lettuce, peanuts\n\nI need to make headings for the fruits and vegetables. Could you please create a list of just the vegetables from my list? If you could do that, then I can figure out how to categorize the rest of the list into the appropriate categories. But remember that my mom is a real stickler, so make sure that no botanical fruits end up on the vegetable list, or she won't get them when she's at the store. Please alphabetize the list of vegetables, and place each item in a comma separated list.",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "basil, broccoli, celery, lettuce, sweet potatoes",
+      "expected_output": "broccoli, celery, fresh basil, lettuce, sweet potatoes",
+      "turns": 1,
+      "wallMs": 4069,
+      "inputTokens": 1471,
+      "outputTokens": 444,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "long_question"
+    },
+    {
+      "task_id": "99c9cc74-fdc8-46c6-8f8d-3ce2d3bfeea3",
+      "question": "Hi, I'm making a pie but I could use some help with my shopping list. I have everything I need for the crust, but I'm not sure about the filling. I got the recipe from my friend Aditi, but she left it as a voice memo and the speaker on my phone is buzzing so I can't quite make out what she's saying. Could you please listen to the recipe and list all of the ingredients that my friend described? I only want the ingredients for the filling, as I have everything I need to make my favorite pie crust. I've attached the recipe as Strawberry pie.mp3.\n\nIn your response, please only list the ingredients, not any measurements. So if the recipe calls for \"a pinch of salt\" or \"two cups of ripe strawberries\" the ingredients on the list would be \"salt\" and \"ripe strawberries\".\n\nPlease format your response as a comma separated list of ingredients. Also, please alphabetize the ingredients.",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "cornstarch, granulated sugar, lemon juice, pure vanilla extract, ripe strawberries",
+      "expected_output": "cornstarch, freshly squeezed lemon juice, granulated sugar, pure vanilla extract, ripe strawberries",
+      "turns": 2,
+      "wallMs": 6121,
+      "inputTokens": 3258,
+      "outputTokens": 181,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "attachment"
+    },
+    {
+      "task_id": "d0633230-7067-47a9-9dbf-ee11e0a2cdd6",
+      "question": "In the Scikit-Learn July 2017 changelog, what other predictor base command received a bug fix? Just give the name, not a path.",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "I cannot determine the answer - the Scikit-Learn July 2017 changelog document is not accessible through available tools (web searches are timing out and the file is not in standard local locations).",
+      "expected_output": "BaseLabelPropagation",
+      "turns": 8,
+      "wallMs": 41308,
+      "inputTokens": 17955,
+      "outputTokens": 989,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "305ac316-eef6-4446-960a-92d80d542f82",
+      "question": "Who did the actor who played Ray in the Polish-language version of Everybody Loves Raymond play in Magda M.? Give only the first name.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "Wojciech",
+      "expected_output": "Wojciech",
+      "turns": 4,
+      "wallMs": 17837,
+      "inputTokens": 7556,
+      "outputTokens": 375,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "0383a3ee-47a7-41a4-b493-519bdefe0488",
+      "question": "On the BBC Earth YouTube video of the Top 5 Silliest Animal Moments, what species of bird is featured?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "Penguin (rockhopper penguin)",
+      "expected_output": "Rockhopper penguin",
+      "turns": 4,
+      "wallMs": 18595,
+      "inputTokens": 6085,
+      "outputTokens": 365,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "f918266a-b3e0-4914-865d-4faa564f1aef",
+      "question": "What is the final numeric output from the attached Python code?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "0",
+      "expected_output": "0",
+      "turns": 2,
+      "wallMs": 7528,
+      "inputTokens": 2979,
+      "outputTokens": 365,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "attachment"
+    },
+    {
+      "task_id": "11af4e1a-5f45-467d-9aeb-46f4bb0bf034",
+      "question": "How many more blocks (also denoted as layers) in BERT base encoder than the encoder from the architecture proposed in Attention is All You Need?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "6",
+      "expected_output": "6",
+      "turns": 3,
+      "wallMs": 7242,
+      "inputTokens": 3459,
+      "outputTokens": 724,
+      "decomposed": false,
+      "routedMode": "CodeAgent",
+      "routedRule": "pure_reasoning"
+    },
+    {
+      "task_id": "e142056d-56ab-4352-b091-b56054bd1359",
+      "question": "Bob was invited to participate in a game show, and he advanced to the final round. The final round offered Bob the chance to win a large sum by playing a game against the host. The host has 30 shiny prop coins, each of which is worth $1,000 if Bob manages to win them by playing the game. The host hides the coins in three different prize boxes and then shuffles their order. The only rule restricting the host's coin placement is that one box must contain at least 2 coins, and one box must contain 6 more coins than another box. In order to play, Bob must submit three guesses, one guess for the number of coins in each box. The box is then opened and the number of coins is revealed. If Bob's guess is a number greater than the number of coins in the box, Bob earns no coins. If Bob guesses a number equal to or less than the number of coins in the box, Bob wins a number of coins equal to his guess.\n\nIf Bob plays uses the optimal strategy, what's the minimum amount of money he can win from the game?",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "",
+      "expected_output": "16000",
+      "turns": 1,
+      "wallMs": 17960,
+      "inputTokens": 1459,
+      "outputTokens": 2048,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "long_question"
+    },
+    {
+      "task_id": "50ad0280-0819-4bd9-b275-5de32d3b5bcb",
+      "question": "Pull out the sentence in the following 5x7 block of text. Read from left to right and use all of the letters in order:\n\nTHESE\nAGULL\nGLIDE\nDPEAC\nEFULL\nYTOMY\nCHAIR",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "The sea gull glides peacefully to my chair",
+      "expected_output": "The seagull glided peacefully to my chair.",
+      "turns": 1,
+      "wallMs": 2818,
+      "inputTokens": 1279,
+      "outputTokens": 325,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "7673d772-ef80-4f0f-a602-1bf4485c9b43",
+      "question": "On Cornell Law School website's legal information institute, under the fifth section of federal rules alphabetically, what word was deleted in the last amendment to the first rule in the article that has \"witnesses\" in the most titles as of 2021?",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "",
+      "expected_output": "inference",
+      "turns": 12,
+      "wallMs": 105476,
+      "inputTokens": 110097,
+      "outputTokens": 2349,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "c365c1c7-a3db-4d5e-a9a1-66f56eae7865",
+      "question": "Of the cities within the United States where U.S. presidents were born, which two are the farthest apart from the westernmost to the easternmost going east, giving the city names only? Give them to me in alphabetical order, in a comma-separated list",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "Braintree, Honolulu",
+      "expected_output": "Braintree, Honolulu",
+      "turns": 2,
+      "wallMs": 10305,
+      "inputTokens": 4730,
+      "outputTokens": 321,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "7d4a7d1d-cac6-44a8-96e8-ea9584a70825",
+      "question": "According to Girls Who Code, how long did it take in years for the percentage of computer scientists that were women to change by 13% from a starting point of 37%?",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "13",
+      "expected_output": "22",
+      "turns": 8,
+      "wallMs": 60030,
+      "inputTokens": 41679,
+      "outputTokens": 1147,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "dc22a632-937f-4e6a-b72f-ba0ff3f5ff97",
+      "question": "What was the complete title of the book in which two James Beard Award winners recommended the restaurant where Ali Khan enjoyed a New Mexican staple in his cost-conscious TV show that started in 2015? Write the numbers in plain text if there are some in the title.",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "",
+      "expected_output": "Five Hundred Things To Eat Before It's Too Late: and the Very Best Places to Eat Them",
+      "turns": 12,
+      "wallMs": 136084,
+      "inputTokens": 173676,
+      "outputTokens": 2382,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "3f57289b-8c60-48be-bd80-01f8099ca449",
+      "question": "How many at bats did the Yankee with the most walks in the 1977 regular season have that same season?",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "525",
+      "expected_output": "519",
+      "turns": 2,
+      "wallMs": 20253,
+      "inputTokens": 4503,
+      "outputTokens": 3105,
+      "decomposed": false,
+      "routedMode": "CodeAgent",
+      "routedRule": "pure_reasoning"
+    },
+    {
+      "task_id": "23dd907f-1261-4488-b21c-e9185af91d5e",
+      "question": "In Audre Lorde’s poem “Father Son and Holy Ghost”, what is the number of the stanza in which some lines are indented?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "2",
+      "expected_output": "2",
+      "turns": 4,
+      "wallMs": 25570,
+      "inputTokens": 8231,
+      "outputTokens": 650,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "1f975693-876d-457b-a649-393859e79bf3",
+      "question": "Hi, I was out sick from my classes on Friday, so I'm trying to figure out what I need to study for my Calculus mid-term next week. My friend from class sent me an audio recording of Professor Willowbrook giving out the recommended reading for the test, but my headphones are broken :(\n\nCould you please listen to the recording for me and tell me the page numbers I'm supposed to go over? I've attached a file called Homework.mp3 that has the recording. Please provide just the page numbers as a comma-delimited list. And please provide the list in ascending order.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "132, 133, 134, 197, 245",
+      "expected_output": "132, 133, 134, 197, 245",
+      "turns": 2,
+      "wallMs": 4211,
+      "inputTokens": 3120,
+      "outputTokens": 209,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "attachment"
+    },
+    {
+      "task_id": "840bfca7-4f7b-481a-8794-c560c340185d",
+      "question": "On June 6, 2023, an article by Carolyn Collins Petersen was published in Universe Today. This article mentions a team that produced a paper about their observations, linked at the bottom of the article. Find this paper. Under what NASA award number was the work performed by R. G. Arendt supported by?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "80GSFC21M0002",
+      "expected_output": "80GSFC21M0002",
+      "turns": 6,
+      "wallMs": 37516,
+      "inputTokens": 17492,
+      "outputTokens": 814,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "a0068077-79f4-461a-adfe-75c1a4148545",
+      "question": "What was the actual enrollment count of the clinical trial on H. pylori in acne vulgaris patients from Jan-May 2018 as listed on the NIH website?",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "I cannot determine the specific enrollment count as the search tools are unable to access the detailed clinical trial records from the NIH website at this time.",
+      "expected_output": "90",
+      "turns": 4,
+      "wallMs": 24115,
+      "inputTokens": 6957,
+      "outputTokens": 612,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "web_retrieval"
+    },
+    {
+      "task_id": "bda648d7-d618-4883-88f4-3466eabd860e",
+      "question": "Where were the Vietnamese specimens described by Kuznetzov in Nedoshivina's 2010 paper eventually deposited? Just give me the city name without abbreviations.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "Saint Petersburg",
+      "expected_output": "Saint Petersburg",
+      "turns": 3,
+      "wallMs": 14910,
+      "inputTokens": 5055,
+      "outputTokens": 297,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "50ec8903-b81f-4257-9450-1085afd2c319",
+      "question": "A standard Rubik’s cube has been broken into cubes making up its sides. The cubes are jumbled, and one is removed. There are 6 cubes with one colored face, 12 edge cubes with two colored faces, and 8 corner cubes with three colored faces. All blue cubes have been found. All cubes directly left, right, above, and below the orange center cube have been found, along with the center cube. The green corners have all been found, along with all green that borders yellow. For all orange cubes found, the opposite face’s cubes have been found. The removed cube has two colors on its faces. What are they? Answer using a comma separated list, with the colors ordered alphabetically.",
+      "model": "claude-haiku-4-5",
+      "correct": false,
+      "answer": "",
+      "expected_output": "green, white",
+      "turns": 1,
+      "wallMs": 17797,
+      "inputTokens": 1382,
+      "outputTokens": 2048,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "long_question"
+    },
+    {
+      "task_id": "cf106601-ab4f-4af9-b045-5295fe67b37d",
+      "question": "What country had the least number of athletes at the 1928 Summer Olympics? If there's a tie for a number of athletes, return the first in alphabetical order. Give the IOC country code as your answer.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "CUB",
+      "expected_output": "CUB",
+      "turns": 3,
+      "wallMs": 16158,
+      "inputTokens": 5463,
+      "outputTokens": 269,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "a0c07678-e491-4bbc-8f0b-07405144218f",
+      "question": "Who are the pitchers with the number before and after Taishō Tamai's number as of July 2023? Give them to me in the form Pitcher Before, Pitcher After, use their last names only, in Roman characters.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "Yoshida, Uehara",
+      "expected_output": "Yoshida, Uehara",
+      "turns": 10,
+      "wallMs": 79922,
+      "inputTokens": 47974,
+      "outputTokens": 1744,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    },
+    {
+      "task_id": "7bd855d8-463d-4ed5-93ca-5fe35145f733",
+      "question": "The attached Excel file contains the sales of menu items for a local fast-food chain. What were the total sales that the chain made from food (not including drinks)? Express your answer in USD with two decimal places.",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "$89,706.00",
+      "expected_output": "89706.00",
+      "turns": 2,
+      "wallMs": 5123,
+      "inputTokens": 3485,
+      "outputTokens": 559,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "attachment"
+    },
+    {
+      "task_id": "5a0c1adf-205e-4841-a666-7c3ef95def9d",
+      "question": "What is the first name of the only Malko Competition recipient from the 20th Century (after 1977) whose nationality on record is a country that no longer exists?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "Claus",
+      "expected_output": "Claus",
+      "turns": 6,
+      "wallMs": 45433,
+      "inputTokens": 27274,
+      "outputTokens": 1528,
+      "decomposed": false,
+      "routedMode": "ToolCalling",
+      "routedRule": "default"
+    }
+  ]
+}

@@ -88,7 +88,7 @@ export class ExoticBridge implements WasmBridge<ExoticModule> {
     this._status = 'loading';
 
     try {
-      const wasmModule = await import('@ruvector/exotic-wasm').catch(() => null);
+      const wasmModule = await import('@ruvector/exotic-wasm' as string).catch(() => null);
 
       if (wasmModule) {
         this._module = wasmModule as unknown as ExoticModule;

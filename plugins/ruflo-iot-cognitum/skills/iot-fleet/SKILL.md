@@ -1,7 +1,7 @@
 ---
 name: iot-fleet
 description: Create and manage Cognitum Seed device fleets with firmware policies
-allowed-tools: Bash(npx *) mcp__claude-flow__memory_store mcp__claude-flow__memory_search Read
+allowed-tools: Bash(npx *) mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search Read
 argument-hint: "<create|list|add|remove|delete> [options]"
 ---
 Manage device fleets. Parse subcommand from arguments.

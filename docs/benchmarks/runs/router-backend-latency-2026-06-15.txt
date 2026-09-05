@@ -1,0 +1,32 @@
+# Integrated router backend latency comparison (ADR-149 iter 10)
+
+ts: 2026-06-15T...Z
+platform: darwin-arm64, node v22.22.1
+embedder: Xenova/all-MiniLM-L6-v2 (384-dim, quantized ONNX)
+probes: 5 distinct (cached via LRU after first call)
+N: 100 calls per backend, warmed
+
+| Backend                           | Mean      | p50       | p95       |
+|-----------------------------------|-----------|-----------|-----------|
+| metaharness-krr (bundled default) | 0.155 ms  | 0.153 ms  | 0.168 ms  |
+| fastgrnn (tiny-dancer native)     | 0.033 ms  | 0.032 ms  | 0.046 ms  |
+
+Speedup: FastGRNN is 4.7× faster at mean, 3.7× faster at p95.
+
+## Caveats
+
+- FastGRNN model was trained on the v2 40-row seed corpus. Reported
+  trainAcc=1.0 / valAcc=0.5 — the high-capacity FastGRNN hard-overfits
+  the small training set without regularisation.
+- KRR with LOO-tuned λ generalises better on this corpus size (looQuality
+  0.705 vs FastGRNN's 0.5 val-acc).
+- Latency is the win FastGRNN offers; quality requires ≥1000 measured
+  rows before it competes with KRR's data-efficient generalisation.
+
+## When to flip the default
+
+- Run benchmark-seed-corpus.mjs over a corpus of ≥500 measured rows.
+- If FastGRNN's valAcc ≥ KRR's looQuality, set CLAUDE_FLOW_ROUTER_MODEL_PATH
+  default to the safetensors and benefit from the 4-5× inference speedup.
+- Until then, stick with the bundled KRR: it picks correctly more often
+  on this small-corpus regime.

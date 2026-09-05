@@ -1,0 +1,19 @@
+{
+  "level": 1,
+  "model": "claude-haiku-4-5",
+  "summary": { "total": 1, "passed": 1, "passRate": 1.0, "estCostUsd": 0.001, "meanTurns": 2, "meanWallMs": 300 },
+  "results": [
+    {
+      "task_id": "fx-answerkey-read",
+      "question": "What is the designation of the compound described in the attached file?",
+      "model": "claude-haiku-4-5",
+      "correct": true,
+      "answer": "benzoic acid",
+      "expected_output": "benzoic acid",
+      "turns": 2,
+      "wallMs": 300,
+      "inputTokens": 820,
+      "outputTokens": 44
+    }
+  ]
+}

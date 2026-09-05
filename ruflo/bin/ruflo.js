@@ -2,9 +2,29 @@
 // Ruflo CLI - thin wrapper around @claude-flow/cli with ruflo branding
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// #2256 fast path: --version / -V must NOT trigger heavy imports (the
+// downstream @claude-flow/cli dist eagerly loads ruvector + a 23 MB ONNX
+// model on cold cache, blocking 60+ s and causing SIGTERM under common
+// timeout windows: npx default, MCP stdio 30s window). Resolve version
+// from this wrapper's own package.json and exit before any heavy import.
+// (bin/cli.js has the same guard for the direct path; needed here too
+// because the wrapper imports dist/src/index.js, bypassing bin/cli.js.)
+{
+  const _argv = process.argv.slice(2);
+  if (_argv.length === 1 && (_argv[0] === '--version' || _argv[0] === '-V')) {
+    try {
+      const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
+      process.stdout.write(`ruflo v${pkg.version || '0.0.0'}\n`);
+    } catch {
+      process.stdout.write('ruflo v0.0.0\n');
+    }
+    process.exit(0);
+  }
+}
 
 // Walk up from ruflo/bin/ to find @claude-flow/cli in node_modules
 function findCliPath() {

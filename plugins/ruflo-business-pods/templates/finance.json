@@ -1,0 +1,54 @@
+{
+  "name": "finance",
+  "displayName": "Finance",
+  "roomId": "finance",
+  "agents": [
+    {
+      "role": "reconcile-agent",
+      "agentType": "code-analyzer",
+      "description": "Reconciles transactions against the local ledger and reports anomalies",
+      "preferLocal": true
+    },
+    {
+      "role": "query-optimizer",
+      "agentType": "perf-analyzer",
+      "description": "Optimizes finance reporting queries and tracks query-cost drift",
+      "preferLocal": true
+    },
+    {
+      "role": "ledger-keeper",
+      "agentType": "database-specialist",
+      "description": "Maintains schema integrity of the local finance ledger DB",
+      "preferLocal": true
+    }
+  ],
+  "allowedMcpTools": [
+    "memory_store",
+    "memory_search",
+    "federation_bbs_register",
+    "federation_bbs_publish",
+    "federation_bbs_watch",
+    "federation_bbs_human_join"
+  ],
+  "bench": {
+    "name": "finance-accuracy-bench",
+    "description": "Measures reconciliation accuracy and classification latency per cycle. GDPR-grade PII handling; HIPAA-compatible event taxonomy. All execution stays on local node; cloud routing is forbidden by policy.",
+    "successCriteria": [
+      "Reconciliation error rate < 0.1% of transactions",
+      "All transactions classified within 24h",
+      "No budget over-run alerts older than 4h unacknowledged",
+      "Zero transactions leave the local node (cloud-routed agents fail the bench)"
+    ],
+    "scheduleHours": 24
+  },
+  "piiPolicy": "gdpr",
+  "budgetUsdMonthly": 80,
+  "budgetUsdPerRun": 1.50,
+  "preferLocalExecution": true,
+  "cronSchedule": "0 6,18 * * 1-5",
+  "auditReadView": {
+    "includedEventTypes": ["task-result", "alert", "bench-result", "pod-status"],
+    "retentionDays": 365
+  },
+  "reservationExpiryMs": 180000
+}

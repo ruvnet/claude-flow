@@ -46,15 +46,15 @@ Persist the domain model as a navigable graph so subsequent sessions can travers
 
 ```bash
 # Store bounded context hierarchy
-mcp__claude-flow__agentdb_hierarchical-store --parent "domain" \
+mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store --parent "domain" \
   --child "context:ordering" --relation "contains"
-mcp__claude-flow__agentdb_hierarchical-store --parent "context:ordering" \
+mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store --parent "context:ordering" \
   --child "aggregate:order" --relation "contains"
 
 # Store context dependencies
-mcp__claude-flow__agentdb_causal-edge --from "context:ordering" \
+mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge --from "context:ordering" \
   --to "context:inventory" --type "depends-on"
-mcp__claude-flow__agentdb_causal-edge --from "context:ordering" \
+mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge --from "context:ordering" \
   --to "context:payments" --type "publishes-events-to"
 ```
 

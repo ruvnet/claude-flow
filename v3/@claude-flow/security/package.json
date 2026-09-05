@@ -1,24 +1,36 @@
 {
   "name": "@claude-flow/security",
-  "version": "3.0.0-alpha.7",
+  "version": "3.0.0-alpha.14",
   "type": "module",
   "description": "Security module - CVE fixes, input validation, path security",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "exports": {
     ".": "./dist/index.js",
     "./*": "./dist/*.js"
   },
   "scripts": {
     "test": "vitest run",
-    "build": "tsc"
+    "benchmark:policy": "npm run build && node scripts/benchmark-policy-engine.mjs",
+    "benchmark:product-plane": "npm run build && node scripts/benchmark-product-plane.mjs",
+    "test:oauth-surface": "vitest run __tests__/oauth-export-surface.test.ts __tests__/oauth-pkce.test.ts __tests__/oauth-browser.test.ts",
+    "build": "tsc && node scripts/verify-oauth-exports.mjs",
+    "prepublishOnly": "npm run build && npm run test:oauth-surface"
   },
   "dependencies": {
+    "@noble/ed25519": "^2.1.0",
     "bcryptjs": "^3.0.3",
     "zod": "^3.22.0"
   },
+  "optionalDependencies": {
+    "@napi-rs/keyring": "1.3.0"
+  },
   "devDependencies": {
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "publishConfig": {
     "access": "public",

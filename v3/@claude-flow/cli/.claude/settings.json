@@ -105,7 +105,7 @@
   "permissions": {
     "allow": [
       "Bash(npx @claude-flow*)",
-      "Bash(npx claude-flow*)",
+      "Bash(npx @claude-flow/cli@latest*)",
       "Bash(node .claude/*)",
       "mcp__claude-flow__:*"
     ],
@@ -115,7 +115,7 @@
     ]
   },
   "attribution": {
-    "commit": "Co-Authored-By: claude-flow <ruv@ruv.net>",
+    "commit": "Co-Authored-By: ruflo-bot <ruflo-bot@users.noreply.github.com>",
     "pr": "Generated with [claude-flow](https://github.com/ruvnet/claude-flow)"
   },
   "claudeFlow": {

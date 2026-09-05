@@ -1,0 +1,80 @@
+name: federation-peer-rust
+
+# Builds + tests the v3/crates/ruflo-federation-peer crate (ADR-120
+# Step 3). Triggers only on changes to the crate or this workflow.
+# Two jobs:
+#
+#   stable-noop  — cargo build + cargo test without --features native.
+#                  Verifies the trait surface compiles in a tree that
+#                  doesn't have the upstream crate deps materialized.
+#
+#   stable-native — cargo check --features native. Pulls in
+#                   midstreamer-quic@0.2.1 + aimds-*@0.1.1 from
+#                   crates.io. Type-checks only (the placeholder impls
+#                   don't yet exercise the upstream APIs).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'v3/crates/ruflo-federation-peer/**'
+      - '.github/workflows/federation-peer-rust.yml'
+  pull_request:
+    paths:
+      - 'v3/crates/ruflo-federation-peer/**'
+      - '.github/workflows/federation-peer-rust.yml'
+  workflow_dispatch:
+
+jobs:
+  stable-noop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            v3/crates/ruflo-federation-peer/target
+          key: federation-peer-${{ runner.os }}-${{ hashFiles('v3/crates/ruflo-federation-peer/Cargo.toml') }}
+
+      - name: cargo build (no native features)
+        working-directory: v3/crates/ruflo-federation-peer
+        run: cargo build --verbose
+
+      - name: cargo test (no native features)
+        working-directory: v3/crates/ruflo-federation-peer
+        run: cargo test --verbose
+
+      - name: cargo clippy (no native features)
+        working-directory: v3/crates/ruflo-federation-peer
+        run: cargo clippy --all-targets -- -D warnings
+        continue-on-error: true
+
+  stable-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            v3/crates/ruflo-federation-peer/target
+          key: federation-peer-native-${{ runner.os }}-${{ hashFiles('v3/crates/ruflo-federation-peer/Cargo.toml') }}
+
+      - name: cargo check --features native (resolves midstreamer-quic + aimds-*)
+        working-directory: v3/crates/ruflo-federation-peer
+        run: cargo check --features native --verbose

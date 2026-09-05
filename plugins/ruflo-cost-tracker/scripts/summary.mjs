@@ -20,37 +20,39 @@
 //
 // Markdown form is also available (--format markdown, the default).
 
-import { spawnSync } from 'node:child_process';
-
+// iter 73 — shared session-loader + memoryRetrieve (was duplicated across 7 scripts).
 // ADR-100 / #1748 Issue 3 — CLI_CORE=1 routes to lite cli-core (~2s cold-cache).
-// summary only does list/retrieve across cost-tracking + federation-spend
-// namespaces; substring search is unused so the JSON backend is sufficient.
-const CLI_PKG = process.env.CLI_CORE === '1'
-  ? '@claude-flow/cli-core@alpha'
-  : '@claude-flow/cli@latest';
+import { memoryListAllKeys, memoryRetrieve } from './_sessions.mjs';
+// iter 81 — optional git context (sha/branch/isDirty) for snapshot traceability.
+import { spawnSync } from 'node:child_process';
 
 const NS = process.env.SUMMARY_NAMESPACE || 'cost-tracking';
 const FED_NS = process.env.SUMMARY_FED_NAMESPACE || 'federation-spend';
 
-function memoryListKeys(ns) {
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'list',
-    '--namespace', ns, '--format', 'json',
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
-  if (r.status !== 0) return [];
-  const m = /\[[\s\S]*\]/.exec(r.stdout || '');
-  if (!m) return [];
-  try { return JSON.parse(m[0]).map((e) => e.key).filter(Boolean); } catch { return []; }
-}
-function memoryRetrieve(ns, key) {
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'retrieve',
-    '--namespace', ns, '--key', key,
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
-  if (r.status !== 0) return null;
-  const m = /\{[\s\S]*\}/.exec(r.stdout || '');
-  if (!m) return null;
-  try { return JSON.parse(m[0]); } catch { return null; }
+// iter 81 — git context (optional; graceful degrade outside a repo).
+// Makes snapshots traceable — cost-diff can then surface "baseline was
+// at sha X, current is at sha Y" without operators having to track it
+// out-of-band. All three lookups are best-effort: any failure leaves
+// `git: null` in the JSON, which downstream consumers treat as "unknown".
+function captureGitContext() {
+  function tryGit(args) {
+    const r = spawnSync('git', args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf-8',
+    });
+    if (r.status !== 0) return null;
+    return (r.stdout || '').trim() || null;
+  }
+  const sha = tryGit(['rev-parse', 'HEAD']);
+  if (!sha) return null;
+  const branch = tryGit(['rev-parse', '--abbrev-ref', 'HEAD']);
+  const status = tryGit(['status', '--porcelain']);
+  return {
+    sha,
+    shaShort: sha.slice(0, 7),
+    branch: branch || null,
+    isDirty: status !== null && status.length > 0,
+  };
 }
 
 function alertLevel(util) {
@@ -62,13 +64,16 @@ function alertLevel(util) {
 }
 
 function gather() {
-  const ctKeys = memoryListKeys(NS);
+  const ctKeys = memoryListAllKeys(NS);
   const sessions = ctKeys.filter((k) => k.startsWith('session-'))
     .map((k) => memoryRetrieve(NS, k)).filter(Boolean);
 
   const totalUsd = sessions.reduce((s, r) => s + (r.total_cost_usd || 0), 0);
   const byTier = { haiku: 0, sonnet: 0, opus: 0, unknown: 0 };
   const byModel = {};
+  // iter 84 — per-token-class aggregation (mirrors iter 83's export.mjs).
+  // Surfaces cache_write as a distinct cost driver in summary output.
+  const byTokenClass = { input: 0, output: 0, cache_write: 0, cache_read: 0 };
   for (const r of sessions) {
     if (r.byTier) for (const [t, v] of Object.entries(r.byTier)) byTier[t] = (byTier[t] || 0) + v;
     if (r.byModel) {
@@ -82,6 +87,10 @@ function gather() {
         agg.cache_creation_input_tokens += slot.cache_creation_input_tokens || 0;
         agg.cache_read_input_tokens += slot.cache_read_input_tokens || 0;
         byModel[m] = agg;
+        byTokenClass.input       += slot.input_tokens || 0;
+        byTokenClass.output      += slot.output_tokens || 0;
+        byTokenClass.cache_write += slot.cache_creation_input_tokens || 0;
+        byTokenClass.cache_read  += slot.cache_read_input_tokens || 0;
       }
     }
   }
@@ -100,7 +109,7 @@ function gather() {
   } : null;
 
   // Federation aggregate
-  const fedKeys = memoryListKeys(FED_NS);
+  const fedKeys = memoryListAllKeys(FED_NS);
   const fedEvents = fedKeys.filter((k) => k.startsWith('fed-spend-'))
     .map((k) => memoryRetrieve(FED_NS, k)).filter(Boolean);
   const peers = new Set(fedEvents.map((e) => e.peerId).filter(Boolean));
@@ -113,11 +122,16 @@ function gather() {
 
   return {
     exportedAt: new Date().toISOString(),
+    // iter 81 — git context for snapshot traceability (null outside a git repo).
+    git: captureGitContext(),
     total_cost_usd: totalUsd,
     sessionCount: sessions.length,
     conversationCount: sessions.length,
     byTier,
     byModel,
+    // iter 84 — per-token-class summary so consumers can see "X% of spend
+    // is cache_write" without re-aggregating byModel themselves.
+    byTokenClass,
     topSession: topSession ? {
       sessionId: topSession.sessionId,
       total_cost_usd: topSession.total_cost_usd,
@@ -137,6 +151,10 @@ function fmtUsd(n) { return `$${(n || 0).toFixed(4)}`; }
 function asMarkdown(s) {
   const lines = [];
   lines.push(`# cost-summary (${s.exportedAt})`);
+  if (s.git) {
+    const dirty = s.git.isDirty ? ' **(dirty working tree)**' : '';
+    lines.push(`_git: \`${s.git.shaShort}\` (${s.git.branch || 'detached HEAD'})${dirty}_`);
+  }
   lines.push('');
   lines.push(`| Metric | Value |`);
   lines.push(`|---|---:|`);
@@ -158,6 +176,27 @@ function asMarkdown(s) {
     if (c > 0) lines.push(`| ${t} | ${fmtUsd(c)} |`);
   }
   lines.push('');
+  // iter 84 — surface token-class breakdown so cache_write is visible.
+  // A 569-output-token, $16 cache-write message used to look like "$16 went
+  // to opus" in summary; now it shows "$16 = cache_write tokens" which is
+  // what operators need to know to fix the underlying cause.
+  if (s.byTokenClass) {
+    const totalTokens = Object.values(s.byTokenClass).reduce((a, b) => a + b, 0);
+    if (totalTokens > 0) {
+      lines.push(`## By token class`);
+      lines.push('');
+      lines.push('| Class | Tokens | % of tokens |');
+      lines.push('|---|---:|---:|');
+      for (const cls of ['input', 'output', 'cache_write', 'cache_read']) {
+        const n = s.byTokenClass[cls] || 0;
+        if (n > 0) {
+          const pct = (n / totalTokens) * 100;
+          lines.push(`| ${cls} | ${n.toLocaleString()} | ${pct.toFixed(1)}% |`);
+        }
+      }
+      lines.push('');
+    }
+  }
   if (s.topSession) {
     lines.push(`## Top session`);
     lines.push('');

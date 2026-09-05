@@ -59,6 +59,28 @@ const AUTOPILOT_STATE_PATH = join(DATA_DIR, 'autopilot-state.json');
 // Approximate tokens per character (Claude averages ~3.5 chars per token)
 const CHARS_PER_TOKEN = 3.5;
 
+const DEBUG = !!(process.env.RUFLO_DEBUG || process.env.DEBUG);
+
+// ── Graceful shutdown (FIX 3) ───────────────────────────────────────────────
+// The active backend is created mid-handler and closed at the end. SQLite holds
+// a native handle and a WAL; if a SIGTERM/SIGINT arrives between creation and
+// `backend.shutdown()`, that close is skipped — risking an unflushed WAL or a
+// stale lock file. Track the active backend and flush it on signal before exit.
+let activeBackend = null;
+let shuttingDown = false;
+function trackBackend(b) { activeBackend = b; return b; }
+async function gracefulExit(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  if (DEBUG) process.stderr.write(`[ContextPersistence] received ${signal}, flushing backend before exit\n`);
+  try {
+    if (activeBackend && typeof activeBackend.shutdown === 'function') await activeBackend.shutdown();
+  } catch { /* best effort — never block exit on cleanup */ }
+  process.exit(0);
+}
+process.on('SIGTERM', () => { gracefulExit('SIGTERM'); });
+process.on('SIGINT', () => { gracefulExit('SIGINT'); });
+
 // Ensure data dir
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 
@@ -714,7 +736,7 @@ async function resolveBackend() {
   try {
     const backend = new SQLiteBackend(ARCHIVE_DB_PATH);
     await backend.initialize();
-    return { backend, type: 'sqlite' };
+    return { backend: trackBackend(backend), type: 'sqlite' };
   } catch { /* fall through */ }
 
   // Tier 2: RuVector PostgreSQL (TB-scale, vector search, GNN)
@@ -723,7 +745,7 @@ async function resolveBackend() {
     if (rvConfig) {
       const backend = new RuVectorBackend(rvConfig);
       await backend.initialize();
-      return { backend, type: 'ruvector' };
+      return { backend: trackBackend(backend), type: 'ruvector' };
     }
   } catch { /* fall through */ }
 
@@ -739,14 +761,14 @@ async function resolveBackend() {
     if (memPkg?.AgentDBBackend) {
       const backend = new memPkg.AgentDBBackend();
       await backend.initialize();
-      return { backend, type: 'agentdb' };
+      return { backend: trackBackend(backend), type: 'agentdb' };
     }
   } catch { /* fall through */ }
 
   // Tier 4: JSON file (always works)
   const backend = new JsonFileBackend(ARCHIVE_JSON_PATH);
   await backend.initialize();
-  return { backend, type: 'json' };
+  return { backend: trackBackend(backend), type: 'json' };
 }
 
 // ============================================================================

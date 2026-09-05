@@ -15,7 +15,7 @@
 // shell pipelines is error-prone. This script uses spawnSync with explicit
 // argv so a task description with quotes/newlines is preserved.
 
-import { spawnSync } from 'node:child_process';
+import { spawnNpxSync } from './_npx.mjs';
 
 const ALLOWED = new Set(['success', 'escalated', 'failure']);
 
@@ -30,10 +30,10 @@ function main() {
     console.error(`invalid outcome '${outcome}' — must be one of: success, escalated, failure`);
     process.exit(2);
   }
-  const r = spawnSync('npx', [
+  const r = spawnNpxSync([
     '@claude-flow/cli@latest', 'hooks', 'model-outcome',
     '-t', task, '-m', model, '-o', outcome,
-  ], { stdio: 'inherit' });
+  ], { stdio: 'inherit', shell: process.platform === 'win32' });
   if (r.status !== 0) {
     console.error(`emit failed (exit ${r.status})`);
     process.exit(r.status || 1);

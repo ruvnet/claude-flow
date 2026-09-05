@@ -2,7 +2,7 @@
 # ruflo-hook.sh — resilient invoker for ruflo CLI hook subcommands (#1921).
 #
 # Hooks fire on EVERY PreToolUse / PostToolUse / Stop. A bare
-# `npx <pkg>@alpha hooks …` re-resolves the @alpha dist-tag and re-installs
+# `npx <pkg>@latest hooks …` re-resolves the @latest dist-tag and re-installs
 # from cold cache on every fire, and when the install crashes (e.g. an
 # arborist `Invalid Version` on npm 10.8.x) the user sees a hook error in
 # Claude Code after every turn. This shim:
@@ -17,8 +17,12 @@
 # Usage: ruflo-hook.sh <hook-subcommand> [args…]   (the literal `hooks`
 # word is prepended here, so callers pass e.g. `post-edit -f "$FILE" -s true`).
 
-# Swallow all diagnostics — nothing this script prints should reach Claude Code.
-exec 2>/dev/null
+# Swallow all diagnostics — nothing this script prints should reach the host.
+# stdout is silenced too because Cursor (#2613) imports Claude Code hooks under
+# its stricter `preToolUse` contract that requires valid-JSON stdout and
+# fail-closes on any other text. Claude Code doesn't consume this stdout either,
+# so redirecting it is a pure cleanup with no functional cost.
+exec 1>/dev/null 2>/dev/null
 
 run() { "$@" || true; }
 
@@ -27,7 +31,7 @@ if command -v ruflo >/dev/null 2>&1; then
 elif command -v claude-flow >/dev/null 2>&1; then
   run claude-flow hooks "$@"
 else
-  run npx --prefer-offline --yes ruflo@alpha hooks "$@"
+  run npx --prefer-offline --yes ruflo@latest hooks "$@"
 fi
 
 exit 0

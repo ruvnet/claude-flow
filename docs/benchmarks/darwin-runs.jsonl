@@ -1,0 +1,10 @@
+{"iter":14,"dim":"beir-nfcorpus","config":"bm25_weight=0.0","ndcg10":0.35171471732484655,"delta":0.00281471732484655,"delta_pct":0.81,"action":"advance","wall_sec":180}
+{"iter":15,"dim":"beir-nfcorpus","ndcg10":0.3517,"delta":0.0,"action":"noImprovement"}
+{"iter":16,"dim":"beir-nfcorpus","ndcg10":0.2961,"delta":-0.0556,"action":"noImprovement"}
+{"iter":17,"ts":"2026-06-26T21:49:37.378Z","dimension":"beir-scifact","change":"validate-stacked-iters-1-14-on-scifact","measured":{"ndcg10":0.5765772269258473,"baseline":0.5694},"deltaScore":0.0071772269258473,"action":"measured-improved","commit":""}
+{"iter":18,"dim":"beir-scifact","dataset":"scifact","ndcg10":0.5971257945924495,"delta":0.0205257945924495,"baseline":0.5766,"action":"commit","weights":{"dense":1.0,"bm25":0.4},"rank":"10/11"}
+{"iter":19,"dim":"beir-scifact","ndcg10":0.6136,"delta":0.0165,"action":"advance","weights":"dense=1.0 bm25=0.2","notes":"nfcorpus winner recipe tested on scifact","timestamp":"2026-06-26T21:58:51.622Z"}
+{"iter":20,"dim":"beir-scifact","ndcg10":0.626,"delta":0.0124,"action":"commit","weights":{"dense":1.0,"bm25":0.0},"rank":"10/11","notes":"pure dense fusion, nfcorpus winner recipe","timestamp":"2026-06-26T22:03:37Z"}
+{"iter":21,"dim":"beir-scifact","ndcg10":0.626,"delta":-0.0004,"baseline":0.6256,"action":"noImprovement","reason":"larger pool (top-1000) no improvement on small corpus"}
+{"iter":22,"ts":"2026-06-26T22:17:30Z","dimension":"metaharness-score","change":"memory documentation (Quick Start + EXAMPLES.md)","measured":{"memoryUsefulness":40,"prior":40,"harnessFit":82,"compileConfidence":100,"taskCoverage":79,"toolSafety":100},"deltaScore":0,"action":"noImprovement","commit":"26d69e504"}
+{"iter":23,"ts":"2026-06-26T22:25:08.554Z","dimension":"metaharness-score","change":"add-root-signal-files-mcp-contributing-codex","measured":{"memoryUsefulness":46,"prior":40,"harnessFit":82,"compileConfidence":100,"taskCoverage":79,"toolSafety":100},"deltaScore":6,"action":"advance","commit":"c01c6866a"}

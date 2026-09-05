@@ -83,6 +83,9 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
   private db: Database.Database | null = null;
   private initialized: boolean = false;
 
+  /** Whether the FTS5 virtual table is available on this build. */
+  private ftsAvailable: boolean = false;
+
   // Performance tracking
   private stats = {
     queryCount: 0,
@@ -197,6 +200,14 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
       embeddingStmt.run(entry.id, Buffer.from(entry.embedding.buffer));
     }
 
+    // ADR-125 Phase 5 — mirror into FTS5 for keyword search.
+    if (this.ftsAvailable) {
+      // REPLACE semantics for FTS: delete-then-insert so updates reflect.
+      this.db!.prepare('DELETE FROM memory_fts WHERE id = ?').run(entry.id);
+      this.db!.prepare('INSERT INTO memory_fts(id, content) VALUES (?, ?)')
+        .run(entry.id, entry.content);
+    }
+
     const duration = performance.now() - startTime;
     this.stats.writeCount++;
     this.stats.totalWriteTime += duration;
@@ -275,6 +286,9 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
 
     const result = deleteEntry.run(id);
     deleteEmbedding.run(id);
+    if (this.ftsAvailable) {
+      this.db!.prepare('DELETE FROM memory_fts WHERE id = ?').run(id);
+    }
 
     if (result.changes > 0) {
       this.emit('entry:deleted', { id });
@@ -282,6 +296,53 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
     }
 
     return false;
+  }
+
+  /**
+   * ADR-125 Phase 5 — keyword (FTS5) search.
+   *
+   * Runs `memory_fts MATCH ?` ranked by FTS5's BM25 implementation, then
+   * joins back to `memory_entries` for full records. Falls back to a
+   * `LIKE`-based scan when FTS5 is unavailable.
+   */
+  async searchKeyword(query: string, limit: number = 10): Promise<SearchResult[]> {
+    this.ensureInitialized();
+    if (!query || !query.trim()) return [];
+
+    if (this.ftsAvailable) {
+      try {
+        const stmt = this.db!.prepare(`
+          SELECT e.*, fts.rank as fts_rank
+          FROM memory_fts AS fts
+          JOIN memory_entries AS e ON e.id = fts.id
+          WHERE memory_fts MATCH ?
+          ORDER BY fts.rank
+          LIMIT ?
+        `);
+        const rows = stmt.all(escapeFtsQuery(query), limit) as any[];
+        return rows.map((row) => {
+          const entry = this.rowToEntry(row);
+          // FTS5 rank is non-positive — closer to 0 is better. Convert to
+          // a [0,1] similarity-ish score so callers see a consistent shape.
+          const score = 1 / (1 + Math.abs(row.fts_rank || 0));
+          return { entry, score, distance: 1 - score };
+        });
+      } catch {
+        // Fall through to LIKE
+      }
+    }
+
+    // LIKE fallback (does no ranking; first N matches)
+    const like = `%${query.replace(/[%_]/g, '')}%`;
+    const stmt = this.db!.prepare(
+      'SELECT * FROM memory_entries WHERE content LIKE ? ORDER BY updated_at DESC LIMIT ?'
+    );
+    const rows = stmt.all(like, limit) as any[];
+    return rows.map((row) => ({
+      entry: this.rowToEntry(row),
+      score: 0.5,
+      distance: 0.5,
+    }));
   }
 
   /**
@@ -668,6 +729,20 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
         FOREIGN KEY (entry_id) REFERENCES memory_entries(id) ON DELETE CASCADE
       );
     `);
+
+    // ADR-125 Phase 5 — FTS5 virtual table for keyword search.
+    // FTS5 is built into better-sqlite3 since 11.x. Surrounding try/catch so
+    // older SQLite builds gracefully skip FTS without taking the whole backend
+    // offline; queries against `searchKeyword` will fall back to LIKE.
+    try {
+      this.db.exec(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts
+          USING fts5(id UNINDEXED, content, tokenize='porter unicode61');
+      `);
+      this.ftsAvailable = true;
+    } catch {
+      this.ftsAvailable = false;
+    }
   }
 
   private rowToEntry(row: any): MemoryEntry {
@@ -741,6 +816,24 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
       embeddingStmt.run(entry.id, Buffer.from(entry.embedding.buffer));
     }
   }
+}
+
+/**
+ * Escape an FTS5 MATCH query string. FTS5 has its own mini-language
+ * (`AND`, `OR`, `NOT`, `*` wildcards, parentheses, quoted phrases). User
+ * input that's plain prose can hit syntax errors. We wrap each whitespace-
+ * separated token in double quotes (FTS5's phrase delimiter), which is
+ * close to literal interpretation and is what the keyword-fallback callers
+ * actually want.
+ *
+ * @internal
+ */
+function escapeFtsQuery(q: string): string {
+  return q
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((tok) => `"${tok.replace(/"/g, '""')}"`)
+    .join(' ');
 }
 
 export default SQLiteBackend;

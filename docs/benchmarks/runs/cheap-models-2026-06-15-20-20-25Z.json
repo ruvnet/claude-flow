@@ -1,0 +1,171 @@
+{
+  "meta": {
+    "ts": "2026-06-15T20:20:25.278Z",
+    "node": "v22.22.1",
+    "platform": "darwin-arm64",
+    "args": {
+      "live": true,
+      "models": null,
+      "maxCost": 0.5,
+      "repeat": 1,
+      "maxTokens": 256,
+      "save": true
+    },
+    "corpusSize": 15
+  },
+  "results": [
+    {
+      "model": "inclusionai/ling-2.6-flash",
+      "family": "inclusionai",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 825.6970167333345,
+        "p50": 774.2063750000016,
+        "p95": 1148.793958000002
+      },
+      "usdCost": 0.000014580000000000001,
+      "promptTokens": 750,
+      "completionTokens": 236,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "google/gemini-2.5-flash-lite",
+      "family": "google",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 574.1590083333326,
+        "p50": 524.4854999999989,
+        "p95": 1066.8713750000024
+      },
+      "usdCost": 0.00015050000000000003,
+      "promptTokens": 477,
+      "completionTokens": 257,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "family": "meta",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 360.1747390000007,
+        "p50": 352.46199999999953,
+        "p95": 683.2684169999993
+      },
+      "usdCost": 0.0001899,
+      "promptTokens": 710,
+      "completionTokens": 244,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "openai/gpt-4o-mini",
+      "family": "openai",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 582.6571165999998,
+        "p50": 582.3646670000016,
+        "p95": 916.325375
+      },
+      "usdCost": 0.00022755,
+      "promptTokens": 565,
+      "completionTokens": 238,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "google/gemini-2.5-flash",
+      "family": "google",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 884.0437084,
+        "p50": 636.5193330000002,
+        "p95": 3668.802958
+      },
+      "usdCost": 0.0008231000000000001,
+      "promptTokens": 477,
+      "completionTokens": 272,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "anthropic/claude-haiku-4.5",
+      "family": "anthropic",
+      "passRate": 1,
+      "passes": 15,
+      "total": 15,
+      "latency": {
+        "mean": 1339.2287111333328,
+        "p50": 1183.552749999999,
+        "p95": 2549.6583339999997
+      },
+      "usdCost": 0.002266,
+      "promptTokens": 616,
+      "completionTokens": 330,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "meta-llama/llama-3.1-8b-instruct",
+      "family": "meta",
+      "passRate": 0.9333333333333333,
+      "passes": 14,
+      "total": 15,
+      "latency": {
+        "mean": 357.14011659999966,
+        "p50": 308.005042,
+        "p95": 684.8352080000004
+      },
+      "usdCost": 0.00001948,
+      "promptTokens": 626,
+      "completionTokens": 232,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "qwen/qwen-2.5-7b-instruct",
+      "family": "qwen",
+      "passRate": 0.9333333333333333,
+      "passes": 14,
+      "total": 15,
+      "latency": {
+        "mean": 2554.7078110000016,
+        "p50": 1711.4795830000003,
+        "p95": 6555.853666000001
+      },
+      "usdCost": 0.00006370000000000002,
+      "promptTokens": 822,
+      "completionTokens": 226,
+      "errorCount": 0,
+      "errorSample": []
+    },
+    {
+      "model": "mistralai/ministral-3b-2512",
+      "family": "mistral",
+      "passRate": 0.9333333333333333,
+      "passes": 14,
+      "total": 15,
+      "latency": {
+        "mean": 422.2388112000008,
+        "p50": 310.3607920000004,
+        "p95": 1302.3792499999981
+      },
+      "usdCost": 0.0000768,
+      "promptTokens": 511,
+      "completionTokens": 257,
+      "errorCount": 0,
+      "errorSample": []
+    }
+  ]
+}

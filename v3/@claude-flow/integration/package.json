@@ -27,7 +27,7 @@
     "agentic-flow": "^2.0.0-alpha"
   },
   "devDependencies": {
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   },
   "publishConfig": {
     "access": "public",

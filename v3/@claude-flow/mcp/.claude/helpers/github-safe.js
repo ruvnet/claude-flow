@@ -9,7 +9,7 @@
  *   ./github-safe.js pr create --title "Title" --body "Complex body"
  */
 
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { writeFileSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -76,13 +76,13 @@ if ((command === 'issue' || command === 'pr') &&
         newArgs[bodyIndex + 1] = tmpFile;
       }
       
-      // Execute safely
-      const ghCommand = `gh ${command} ${subcommand} ${newArgs.join(' ')}`;
-      console.log(`Executing: ${ghCommand}`);
-      
-      const result = execSync(ghCommand, { 
+      // Execute safely — use execFileSync so shell cannot interpret args.
+      const ghArgv = [command, subcommand, ...newArgs];
+      console.log(`Executing: gh ${ghArgv.join(' ')}`);
+
+      execFileSync('gh', ghArgv, {
         stdio: 'inherit',
-        timeout: 30000 // 30 second timeout
+        timeout: 30000,
       });
       
     } catch (error) {
@@ -97,10 +97,10 @@ if ((command === 'issue' || command === 'pr') &&
       }
     }
   } else {
-    // No body content, execute normally
-    execSync(`gh ${args.join(' ')}`, { stdio: 'inherit' });
+    // No body content — pass args array directly to avoid shell splitting.
+    execFileSync('gh', args, { stdio: 'inherit' });
   }
 } else {
-  // Other commands, execute normally
-  execSync(`gh ${args.join(' ')}`, { stdio: 'inherit' });
+  // Other commands — pass args array directly to avoid shell splitting.
+  execFileSync('gh', args, { stdio: 'inherit' });
 }

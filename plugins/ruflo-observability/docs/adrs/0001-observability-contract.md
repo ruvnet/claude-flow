@@ -18,10 +18,10 @@ Same namespace-routing bug class as cost-tracker / market-data / migrations: bot
 ## Decision
 
 1. **Functional fix:** switch namespaced reads from `agentdb_hierarchical-recall` to `memory_search` / `memory_list` (namespace-routed) in both skills. Document the dual pattern-store path in observe-metrics.
-2. Add this ADR (Proposed).
+2. Add this ADR (Accepted).
 3. README augment: Compatibility (pin v3.6); Namespace coordination (claims `observability`); Verification + Architecture Decisions sections.
 4. Bump `0.1.0 → 0.2.0`. Keywords add `mcp`, `distributed-tracing`, `anomaly-detection`.
-5. `scripts/smoke.sh` — 10 structural checks: version + keywords; both skills + agent + command; skills use `memory_*` not `hierarchical-*` with namespace; v3.6 pin; namespace coordination; ADR Proposed; no wildcard tools.
+5. `scripts/smoke.sh` — 10 structural checks: version + keywords; both skills + agent + command; skills use `memory_*` not `hierarchical-*` with namespace; v3.6 pin; namespace coordination; ADR Accepted; no wildcard tools.
 
 ## Consequences
 

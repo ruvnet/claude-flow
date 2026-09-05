@@ -108,6 +108,15 @@ interface CacheEntry {
  */
 interface PersistedModel {
   version: string;
+  /**
+   * State-key encoder version. v1 was the 31-bit truncating fold that
+   * silently discarded the keyword block (features 0–31). v2 is a lossless
+   * 32-bit FNV-1a fold over the full quantized vector. See #2239.
+   *
+   * On version mismatch, the qTable is reset (keys are computed with the old
+   * encoder and would never be matched by new lookups); stats/epsilon are kept.
+   */
+  encoderVersion?: number;
   config: Partial<QLearningRouterConfig>;
   qTable: Record<string, { qValues: number[]; visits: number }>;
   stats: {
@@ -121,6 +130,9 @@ interface PersistedModel {
     totalExperiences: number;
   };
 }
+
+/** Current state-key encoder version (see PersistedModel.encoderVersion). */
+const ENCODER_VERSION = 2;
 
 /**
  * Default configuration
@@ -255,8 +267,18 @@ export class QLearningRouter {
         return false;
       }
 
-      // Import Q-table
-      this.import(model.qTable);
+      // #2239 — Encoder-version migration guard. v1 state keys were computed
+      // by a fold that silently dropped the keyword block, so they cannot be
+      // matched by v2 lookups. Skip the qTable import on mismatch (keep
+      // stats/epsilon so learning curve survives a restart).
+      const persistedEncoder = model.encoderVersion ?? 1;
+      if (persistedEncoder === ENCODER_VERSION) {
+        this.import(model.qTable);
+      } else {
+        console.warn(
+          `[Q-Learning] Encoder version mismatch (persisted=${persistedEncoder}, current=${ENCODER_VERSION}); resetting Q-table (see #2239).`,
+        );
+      }
 
       // Restore stats
       this.stepCount = model.stats.stepCount || 0;
@@ -286,6 +308,7 @@ export class QLearningRouter {
 
       const model: PersistedModel = {
         version: '1.0.0',
+        encoderVersion: ENCODER_VERSION, // #2239
         config: {
           learningRate: this.config.learningRate,
           gamma: this.config.gamma,
@@ -423,6 +446,14 @@ export class QLearningRouter {
     this.cacheOrder = [];
   }
 
+  /** Invalidate a single state's cached route (called after its Q-values change
+   * so the next route() reflects the update immediately). */
+  private invalidateCacheEntry(stateKey: string): void {
+    if (this.routeCache.delete(stateKey)) {
+      this.cacheOrder = this.cacheOrder.filter(k => k !== stateKey);
+    }
+  }
+
   /**
    * Update Q-values based on feedback
    * Includes experience replay for stable learning
@@ -452,6 +483,12 @@ export class QLearningRouter {
 
     // Perform direct update
     const tdError = this.updateQValue(stateKey, actionIdx, reward, nextStateKey);
+
+    // #cache-staleness: invalidate THIS state's cached route immediately. The
+    // periodic full invalidation (every 50 updates) otherwise left a freshly
+    // learned Q-update hidden behind a stale cached decision, so feedback
+    // appeared to have no effect on routing until 50 updates accumulated.
+    this.invalidateCacheEntry(stateKey);
 
     // Perform experience replay
     if (this.config.enableReplay && this.replayBuffer.length >= this.config.replayBatchSize) {
@@ -696,6 +733,15 @@ export class QLearningRouter {
   }
 
   /**
+   * Public state-key encoder (#2239). This is exactly what `route()` uses
+   * to look up Q-values, so testing it directly is testing the binding the
+   * Q-learner actually sees.
+   */
+  getStateKey(context: string): string {
+    return this.hashStateOptimized(context);
+  }
+
+  /**
    * Optimized state hashing using feature extraction
    * Creates a more semantic representation of the task context
    */
@@ -771,10 +817,17 @@ export class QLearningRouter {
 
   /**
    * Convert feature vector to state key
-   * Uses locality-sensitive hashing for similar contexts
+   * Uses locality-sensitive hashing for similar contexts.
+   *
+   * #2239 — the previous fold was `((hash << 4) ^ q[i]) & 0x7fffffff` over 16
+   * 4-bit groups: each group i landed at bit 4·(15−i), so groups 0–7 (= the
+   * entire keyword block, features 0–31) shifted past the 31-bit mask and were
+   * discarded. Keyword-distinct tasks collapsed to one Q-state. We now use a
+   * 32-bit FNV-1a hash, which mixes every quantized group losslessly into the
+   * state key. Encoder version bumped to 2; see PersistedModel.encoderVersion.
    */
   private featureVectorToKey(features: Float32Array): string {
-    // Quantize features to create discrete state
+    // Quantize features into 4-bit groups (16 groups for a 64-dim vector).
     const quantized: number[] = [];
     for (let i = 0; i < features.length; i += 4) {
       let bucket = 0;
@@ -786,13 +839,13 @@ export class QLearningRouter {
       quantized.push(bucket);
     }
 
-    // Create hash from quantized values
-    let hash = 0;
+    // 32-bit FNV-1a over the quantized array — every group contributes.
+    let hash = 0x811c9dc5 | 0; // FNV offset basis
     for (let i = 0; i < quantized.length; i++) {
-      hash = ((hash << 4) ^ quantized[i]) & 0x7fffffff;
+      hash ^= quantized[i] & 0xff;
+      hash = Math.imul(hash, 0x01000193); // FNV prime
     }
-
-    return `fstate_${hash.toString(36)}`;
+    return `fstate_${(hash >>> 0).toString(36)}`;
   }
 
   /**

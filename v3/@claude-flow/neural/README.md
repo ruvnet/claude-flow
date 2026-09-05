@@ -17,6 +17,30 @@ A self-contained learning module that records agent execution trajectories, dist
 npm install @claude-flow/neural
 ```
 
+> **Note (2026-05-16):** `@claude-flow/neural@3.0.0-alpha.9+` pins
+> `@ruvector/sona` to the exact known-good `0.1.5` because
+> `@ruvector/sona@0.1.6` shipped as an empty publish (README +
+> `package.json` only — no `index.js`, no native bins). Prior alpha.8
+> used `"latest"` and broke on every fresh install. The pin will
+> stay until `@ruvector/sona@0.1.7+` ships with content.
+
+## Standalone use (without the Ruflo CLI)
+
+```typescript
+// route a task across 8 specialized experts (MoE) — no other deps
+import { getMoERouter } from '@claude-flow/neural';
+
+const router = getMoERouter();
+await router.initialize();
+
+const decision = await router.route(
+  new Float32Array(384).fill(0.1),   // task embedding
+  { task: 'optimize-query', complexity: 0.7 },
+);
+console.log(decision.expert, decision.confidence);
+// → 'performance', 0.83  (or whichever expert wins)
+```
+
 ## Quick start (recommended)
 
 `NeuralLearningSystem` is the high-level entry point — it wires `SONAManager`, `ReasoningBank`, and `PatternLearner` together so callers don't have to:

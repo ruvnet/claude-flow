@@ -1,7 +1,7 @@
 ---
 name: iot-register
 description: Register a Cognitum Seed device by endpoint and establish agent bridge
-allowed-tools: Bash(npx *) mcp__claude-flow__memory_store Read
+allowed-tools: Bash(npx *) mcp__plugin_ruflo-core_ruflo__memory_store Read
 argument-hint: "[endpoint] [--token PAIRING_TOKEN]"
 ---
 Register a Cognitum Seed device. Creates a SeedClient connection, fetches identity, and assigns initial trust level.
@@ -15,4 +15,4 @@ Steps:
 4. Show device status: `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot status DEVICE_ID`
 
 Store registration event:
-`mcp__claude-flow__memory_store({ key: "iot-register-DEVICEID", value: "Registered at ENDPOINT", namespace: "iot-devices" })`
+`mcp__plugin_ruflo-core_ruflo__memory_store({ key: "iot-register-DEVICEID", value: "Registered at ENDPOINT", namespace: "iot-devices" })`

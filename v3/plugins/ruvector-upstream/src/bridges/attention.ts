@@ -58,7 +58,7 @@ export class AttentionBridge implements WasmBridge<AttentionModule> {
     this._status = 'loading';
 
     try {
-      const wasmModule = await import('@ruvector/attention-wasm').catch(() => null);
+      const wasmModule = await import('@ruvector/attention-wasm' as string).catch(() => null);
 
       if (wasmModule) {
         this._module = wasmModule as unknown as AttentionModule;

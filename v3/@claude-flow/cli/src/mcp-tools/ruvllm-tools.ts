@@ -9,7 +9,24 @@ import type { MCPTool } from './types.js';
 import { validateIdentifier, validateText } from './validate-input.js';
 import type { ChatMessage } from '../ruvector/ruvllm-wasm.js';
 
+// #2086 — every ruvllm_* MCP handler that touches the WASM runtime calls
+// this. The downstream `createSonaInstant`/`createMicroLora`/`createHnswRouter`
+// helpers all need `initSync({ module: wasmBytes })` to have run, otherwise
+// the WASM exports throw. Doing it here makes the bootstrap invisible to
+// MCP callers — they don't need a separate `ruvllm_init` tool. `_wasmReady`
+// inside `initRuvllmWasm` short-circuits on the second+ call, so the cost
+// after the first invocation is one boolean check.
+//
+// `ruvllm_status` deliberately uses `loadRuvllmWasmModule()` (no init) so a
+// caller diagnosing why nothing works gets `initialized=false` instead of
+// an error from a failed init.
 async function loadRuvllmWasm() {
+  const mod = await loadRuvllmWasmModule();
+  await mod.initRuvllmWasm();
+  return mod;
+}
+
+async function loadRuvllmWasmModule() {
   return import('../ruvector/ruvllm-wasm.js');
 }
 
@@ -20,7 +37,7 @@ export const ruvllmWasmTools: MCPTool[] = [
     inputSchema: { type: 'object' as const, properties: {} },
     handler: async () => {
       try {
-        const mod = await loadRuvllmWasm();
+        const mod = await loadRuvllmWasmModule();
         const wasmStatus = await mod.getRuvllmStatus();
 
         // Also include native ruvllm CJS backend status (ADR-086)

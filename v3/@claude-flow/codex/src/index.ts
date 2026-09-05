@@ -44,8 +44,26 @@ export {
 export { CodexInitializer, initializeCodexProject } from './initializer.js';
 
 // Dual-mode collaborative execution
-export { DualModeOrchestrator, CollaborationTemplates, createDualModeCommand } from './dual-mode/index.js';
-export type { DualModeConfig, WorkerConfig, WorkerResult, CollaborationResult } from './dual-mode/index.js';
+export {
+  DualModeOrchestrator,
+  CollaborationTemplates,
+  createDualModeCommand,
+  loadSwarmAutomationConfig,
+} from './dual-mode/index.js';
+export type {
+  DualModeConfig,
+  WorkerConfig,
+  WorkerResult,
+  CollaborationResult,
+  LoadedSwarmAutomationConfig,
+  WorkerCapabilityEnvelope,
+} from './dual-mode/index.js';
+
+export { CodexWorktreeCoordinator } from './worktrees/index.js';
+export type { WorktreeAssignment, WorktreeRunRecord } from './worktrees/index.js';
+
+// Repository harness contracts and in-memory reference implementations.
+export * from './harness/index.js';
 
 // Codex /loop-compatible runner
 export {
@@ -75,7 +93,7 @@ export {
 /**
  * Package version
  */
-export const VERSION = '3.0.0-alpha.9';
+export const VERSION = '3.0.3';
 
 /**
  * Package metadata
