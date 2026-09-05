@@ -179,7 +179,10 @@ export class ByzantineConsensus extends EventEmitter {
     return primaryId;
   }
 
-  async propose(value: unknown): Promise<ConsensusProposal> {
+  async propose(
+    value: unknown,
+    weights?: Map<string, number>
+  ): Promise<ConsensusProposal> {
     if (!this.node.isPrimary) {
       throw new Error('Only primary can propose values');
     }
@@ -197,6 +200,7 @@ export class ByzantineConsensus extends EventEmitter {
       timestamp: new Date(),
       votes: new Map(),
       status: 'pending',
+      weights,
     };
 
     this.proposals.set(proposalId, proposal);
@@ -227,6 +231,18 @@ export class ByzantineConsensus extends EventEmitter {
     return proposal;
   }
 
+  // Dream Cycle 2026-08-24 (swarm): per-voter weight for weighted consensus,
+  // clamped to [0,1]. The clamp is a hard safety invariant, not a style
+  // choice: byzantine.ts's f-faulty-node quorum (2f+1) assumes each vote
+  // contributes at most one unit — an unclamped weight >1 would let a
+  // single high-weight node satisfy quorum alone, defeating the BFT
+  // guarantee. Missing weights/voter defaults to 1 (flat vote), reproducing
+  // today's behavior exactly when no weights map is supplied.
+  private voteWeight(proposal: ConsensusProposal, voterId: string): number {
+    const w = proposal.weights?.get(voterId) ?? 1;
+    return Math.max(0, Math.min(1, w));
+  }
+
   async vote(proposalId: string, vote: ConsensusVote): Promise<void> {
     const proposal = this.proposals.get(proposalId);
     if (!proposal || proposal.status !== 'pending') {
@@ -240,14 +256,15 @@ export class ByzantineConsensus extends EventEmitter {
     const n = this.nodes.size + 1;
     const requiredVotes = 2 * f + 1;
 
-    const approvingVotes = Array.from(proposal.votes.values()).filter(
-      v => v.approve
-    ).length;
+    const castVotes = Array.from(proposal.votes.values());
+    const approvingWeight = castVotes
+      .filter(v => v.approve)
+      .reduce((sum, v) => sum + this.voteWeight(proposal, v.voterId), 0);
 
-    if (approvingVotes >= requiredVotes) {
+    if (approvingWeight >= requiredVotes) {
       proposal.status = 'accepted';
       this.emit('consensus.achieved', { proposalId, approved: true });
-    } else if (proposal.votes.size >= n && approvingVotes < requiredVotes) {
+    } else if (proposal.votes.size >= n && approvingWeight < requiredVotes) {
       proposal.status = 'rejected';
       this.emit('consensus.achieved', { proposalId, approved: false });
     }
@@ -368,6 +385,15 @@ export class ByzantineConsensus extends EventEmitter {
     }
   }
 
+  // KNOWN LIMITATION (pre-existing, not fixed here, flagged by adversarial
+  // review during dream-cycle 2026-08-24): this PBFT protocol-message commit
+  // quorum is a second, fully separate acceptance path from vote()'s
+  // weighted tally below — it accepts on raw commit-message count (2f+1),
+  // with no concept of per-voter weight. Currently unreachable in this
+  // package's unit tests (no transport wired), but a deployment that wires
+  // real multi-node PBFT transport traffic would bypass weighted consensus
+  // entirely via this path. "Weighted Byzantine consensus" governs the
+  // vote() API only, not the underlying commit-message protocol.
   async handleCommit(message: ByzantineMessage): Promise<void> {
     const key = `${message.viewNumber}_${message.sequenceNumber}`;
 
@@ -457,16 +483,19 @@ export class ByzantineConsensus extends EventEmitter {
 
   private createResult(proposal: ConsensusProposal, durationMs: number): ConsensusResult {
     const n = this.nodes.size + 1;
-    const approvingVotes = Array.from(proposal.votes.values()).filter(
-      v => v.approve
-    ).length;
+    const castVotes = Array.from(proposal.votes.values());
+    const approvingWeight = castVotes
+      .filter(v => v.approve)
+      .reduce((sum, v) => sum + this.voteWeight(proposal, v.voterId), 0);
+    const totalCastWeight = castVotes.reduce(
+      (sum, v) => sum + this.voteWeight(proposal, v.voterId),
+      0
+    );
 
     return {
       proposalId: proposal.id,
       approved: proposal.status === 'accepted',
-      approvalRate: proposal.votes.size > 0
-        ? approvingVotes / proposal.votes.size
-        : 0,
+      approvalRate: totalCastWeight > 0 ? approvingWeight / totalCastWeight : 0,
       participationRate: proposal.votes.size / n,
       finalValue: proposal.value,
       rounds: 3, // pre-prepare, prepare, commit

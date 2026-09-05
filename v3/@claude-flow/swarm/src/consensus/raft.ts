@@ -176,7 +176,10 @@ export class RaftConsensus extends EventEmitter {
     this.peers.delete(peerId);
   }
 
-  async propose(value: unknown): Promise<ConsensusProposal> {
+  async propose(
+    value: unknown,
+    weights?: Map<string, number>
+  ): Promise<ConsensusProposal> {
     if (this.node.state !== 'leader') {
       throw new Error('Only leader can propose values');
     }
@@ -192,6 +195,7 @@ export class RaftConsensus extends EventEmitter {
       timestamp: new Date(),
       votes: new Map(),
       status: 'pending',
+      weights,
     };
 
     // Add to local log
@@ -444,6 +448,17 @@ export class RaftConsensus extends EventEmitter {
     }
   }
 
+  // Dream Cycle 2026-08-24 (swarm): per-voter weight for weighted consensus.
+  // Clamped to [0,1] — a vote can never count for *more* than one unweighted
+  // vote, so the raft safety margin (quorum computed from totalVoters) can
+  // only get harder to satisfy under weighting, never easier/bypassable via
+  // an oversized weight. Missing weights/voter defaults to 1 (flat vote),
+  // reproducing today's behavior exactly when no weights map is supplied.
+  private voteWeight(proposal: ConsensusProposal, voterId: string): number {
+    const w = proposal.weights?.get(voterId) ?? 1;
+    return Math.max(0, Math.min(1, w));
+  }
+
   private async checkConsensus(proposalId: string): Promise<void> {
     const proposal = this.proposals.get(proposalId);
     if (!proposal || proposal.status !== 'pending') {
@@ -451,18 +466,22 @@ export class RaftConsensus extends EventEmitter {
     }
 
     const totalVoters = this.peers.size + 1;
-    const votesReceived = proposal.votes.size;
-    const approvingVotes = Array.from(proposal.votes.values()).filter(
-      v => v.approve
-    ).length;
+    const castVotes = Array.from(proposal.votes.values());
+    const approvingWeight = castVotes
+      .filter(v => v.approve)
+      .reduce((sum, v) => sum + this.voteWeight(proposal, v.voterId), 0);
+    const totalCastWeight = castVotes.reduce(
+      (sum, v) => sum + this.voteWeight(proposal, v.voterId),
+      0
+    );
 
     const threshold = this.config.threshold ?? 0.66;
     const quorum = Math.floor(totalVoters * threshold);
 
-    if (approvingVotes >= quorum) {
+    if (approvingWeight >= quorum) {
       proposal.status = 'accepted';
       this.emit('consensus.achieved', { proposalId, approved: true });
-    } else if (votesReceived - approvingVotes > totalVoters - quorum) {
+    } else if (totalCastWeight - approvingWeight > totalVoters - quorum) {
       proposal.status = 'rejected';
       this.emit('consensus.achieved', { proposalId, approved: false });
     }
@@ -470,16 +489,19 @@ export class RaftConsensus extends EventEmitter {
 
   private createResult(proposal: ConsensusProposal, durationMs: number): ConsensusResult {
     const totalVoters = this.peers.size + 1;
-    const approvingVotes = Array.from(proposal.votes.values()).filter(
-      v => v.approve
-    ).length;
+    const castVotes = Array.from(proposal.votes.values());
+    const approvingWeight = castVotes
+      .filter(v => v.approve)
+      .reduce((sum, v) => sum + this.voteWeight(proposal, v.voterId), 0);
+    const totalCastWeight = castVotes.reduce(
+      (sum, v) => sum + this.voteWeight(proposal, v.voterId),
+      0
+    );
 
     return {
       proposalId: proposal.id,
       approved: proposal.status === 'accepted',
-      approvalRate: proposal.votes.size > 0
-        ? approvingVotes / proposal.votes.size
-        : 0,
+      approvalRate: totalCastWeight > 0 ? approvingWeight / totalCastWeight : 0,
       participationRate: proposal.votes.size / totalVoters,
       finalValue: proposal.value,
       rounds: 1,

@@ -961,11 +961,21 @@ describe('QueenCoordinator', () => {
 
       await queen.coordinateConsensus(decision);
 
+      // Dream Cycle 2026-08-24 (swarm): weights are now also threaded as a
+      // dedicated second argument (the one the tally logic actually reads);
+      // the embedded `weights` field on the first argument is kept for
+      // backward compatibility with anything inspecting result.finalValue.
       expect(mockSwarm.proposeConsensus).toHaveBeenCalledWith(
         expect.objectContaining({
           weights: expect.any(Object),
-        })
+        }),
+        expect.any(Map)
       );
+
+      const [, weightsArg] = vi.mocked(mockSwarm.proposeConsensus).mock.calls[0];
+      expect(weightsArg).toBeInstanceOf(Map);
+      expect((weightsArg as Map<string, number>).get('agent_1')).toBeGreaterThan(0);
+      expect((weightsArg as Map<string, number>).get('agent_2')).toBeGreaterThan(0);
     });
 
     it('should emit consensus completed event', async () => {
