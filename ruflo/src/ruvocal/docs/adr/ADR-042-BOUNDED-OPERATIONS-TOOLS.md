@@ -2,7 +2,7 @@
 
 Date: 2026-09-05
 
-Status: Accepted for implementation; deployment remains an operator action.
+Status: Proposed. Implemented on the review branch; reviewer acceptance and deployment remain pending.
 
 ## Context
 

@@ -5,6 +5,8 @@
 **Implementation baseline:** `ruvnet/ruflo@db4991967c45c6f72133dff0bb80b0a492960fc1`
 **Decisions:** [ADR-039](../adr/ADR-039-WORKSPACE-CAPABILITY-EVIDENCE.md), [ADR-040](../adr/ADR-040-GOVERNED-RUNTIME-INTEGRATIONS.md), [ADR-041](../adr/ADR-041-IMPLEMENTATION-OPTIMIZATION-LOOP.md)
 
+**Implementation evidence:** [Validation report and remaining release gates](2026-09-05-workspace-validation.md).
+
 ## Decision
 
 Evolve the existing RuVocal chat application into a workspace with visible mission drafting, searchable capabilities and truthful runtime observations. Retain the conversation product and add a bounded administrator observation API. Integrate current Ruflo status and policy surfaces first; expose Autogenous and MetaHarness as configured capabilities with explicit evidence limits; reuse ruOS's instrument panel interaction principles.
