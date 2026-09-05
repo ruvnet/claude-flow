@@ -3045,6 +3045,11 @@ export async function searchEntries(options: {
     score: number;
     namespace: string;
     provenanceType?: string;
+    /** Dream Cycle 2026-09-03: the query-time cosine score above already
+     *  consumes this vector — surfaced so SmartRetrieval's MMR step can
+     *  reuse it instead of falling back to a text-overlap proxy. Internal
+     *  plumbing only; CLI/MCP response mappers do not forward this field. */
+    embedding?: number[];
   }[];
   searchTime: number;
   error?: string;
@@ -3105,7 +3110,7 @@ export async function searchEntries(options: {
         const SQL = await initSqlJs();
         const fileBuffer = readFileMaybeEncrypted(dbPath, null);
         const db = new SQL.Database(fileBuffer);
-        const reranked: { id: string; key: string; content: string; score: number; namespace: string; provenanceType?: string }[] = [];
+        const reranked: { id: string; key: string; content: string; score: number; namespace: string; provenanceType?: string; embedding?: number[] }[] = [];
 
         for (const candidate of rabitqCandidates) {
           // ADR-323: provenance_type is fetched in the same per-candidate
@@ -3121,10 +3126,11 @@ export async function searchEntries(options: {
               continue;
             }
             let score = 0;
+            let parsedEmbedding: number[] | undefined;
             if (embeddingJson) {
               try {
-                const embedding = JSON.parse(embeddingJson) as number[];
-                score = cosineSim(queryEmbedding, embedding);
+                parsedEmbedding = JSON.parse(embeddingJson) as number[];
+                score = cosineSim(queryEmbedding, parsedEmbedding);
               } catch { /* skip */ }
             }
             if (score >= threshold) {
@@ -3135,6 +3141,7 @@ export async function searchEntries(options: {
                 score,
                 namespace: candidate.namespace,
                 provenanceType: provenanceTypeVal || 'unknown',
+                embedding: parsedEmbedding,
               });
             }
           }
@@ -3240,20 +3247,22 @@ export async function searchEntries(options: {
     searchStmt.free();
     const entries = searchRows.length > 0 ? [{ values: searchRows }] : [];
 
-    const results: { id: string; key: string; content: string; score: number; namespace: string; provenanceType?: string }[] = [];
+    const results: { id: string; key: string; content: string; score: number; namespace: string; provenanceType?: string; embedding?: number[] }[] = [];
 
     if (entries[0]?.values) {
       for (const row of entries[0].values) {
         const [id, key, ns, content, embeddingJson, provenanceTypeVal] = row as [string, string, string, string, string | null, string | null];
 
         let score = 0;
+        let parsedEmbedding: number[] | undefined;
 
         if (embeddingJson) {
           try {
-            const embedding = JSON.parse(embeddingJson) as number[];
-            score = cosineSim(queryEmbedding, embedding);
+            parsedEmbedding = JSON.parse(embeddingJson) as number[];
+            score = cosineSim(queryEmbedding, parsedEmbedding);
           } catch {
             // Invalid embedding, use keyword score
+            parsedEmbedding = undefined;
           }
         }
 
@@ -3275,6 +3284,7 @@ export async function searchEntries(options: {
             score,
             namespace: ns || 'default',
             provenanceType: provenanceTypeVal || 'unknown',
+            embedding: parsedEmbedding,
           });
         }
       }
