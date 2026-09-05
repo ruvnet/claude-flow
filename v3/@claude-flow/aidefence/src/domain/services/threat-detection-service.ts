@@ -89,7 +89,7 @@ const PROMPT_INJECTION_PATTERNS: ThreatPattern[] = [
 
   // Jailbreak patterns
   {
-    pattern: /\bDAN\b.*\bmode\b|\bmode\b.*\bDAN\b/i,
+    pattern: /\bDAN\b[^\n]{0,200}?\bmode\b|\bmode\b[^\n]{0,200}?\bDAN\b/i,
     type: 'jailbreak',
     severity: 'critical',
     description: 'DAN jailbreak attempt',
@@ -154,7 +154,7 @@ const PROMPT_INJECTION_PATTERNS: ThreatPattern[] = [
     baseConfidence: 0.75,
   },
   {
-    pattern: /\[\[.*?\]\]|<<.*?>>|\{\{.*?\}\}/,
+    pattern: /\[\[[^\]\n]{0,200}\]\]|<<[^>\n]{0,200}>>|\{\{[^}\n]{0,200}\}\}/,
     type: 'context_manipulation',
     severity: 'medium',
     description: 'Special bracket injection attempt',
@@ -231,32 +231,35 @@ const PROMPT_INJECTION_PATTERNS: ThreatPattern[] = [
  */
 const PII_PATTERNS = [
   {
-    pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
+    // Bounded per RFC 5321 (local part ≤ 64, domain ≤ 253): the unbounded `+`
+    // quantifiers were quadratic on inputs like `a.a.a…` (3.8 s / 100 KB),
+    // and `detect()` runs PII detection on every scan.
+    pattern: /\b[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,24}\b/,
     type: 'email',
     description: 'Email address',
   },
   {
-    pattern: /\b\d{3}-\d{2}-\d{4}\b/g,
+    pattern: /\b\d{3}-\d{2}-\d{4}\b/,
     type: 'ssn',
     description: 'Social Security Number',
   },
   {
-    pattern: /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g,
+    pattern: /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/,
     type: 'credit_card',
     description: 'Credit card number',
   },
   {
-    pattern: /\b(sk-[a-zA-Z0-9]{20,}|sk-ant-[a-zA-Z0-9-]{20,})\b/g,
+    pattern: /\b(sk-[a-zA-Z0-9]{20,}|sk-ant-[a-zA-Z0-9-]{20,})\b/,
     type: 'api_key',
     description: 'API key (OpenAI/Anthropic format)',
   },
   {
-    pattern: /\b(ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{82})\b/g,
+    pattern: /\b(ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{82})\b/,
     type: 'api_key',
     description: 'GitHub token',
   },
   {
-    pattern: /password\s*[:=]\s*["']?[^"'\s]{4,}["']?/gi,
+    pattern: /password\s*[:=]\s*["']?[^"'\s]{4,}["']?/i,
     type: 'password',
     description: 'Hardcoded password',
   },
@@ -285,12 +288,21 @@ export class ThreatDetectionService {
     // Normalize input
     const normalizedInput = this.normalizeInput(input);
 
-    // Pattern matching
+    // Pattern matching. The indicator count is computed once per input,
+    // not once per match (it was O(P^2) per detect).
+    let threatIndicatorCount = 0;
+    const matches: Array<{ pattern: ThreatPattern; match: RegExpExecArray }> = [];
     for (const pattern of this.patterns) {
       const match = pattern.pattern.exec(normalizedInput);
       if (match) {
+        threatIndicatorCount += 1;
+        matches.push({ pattern, match });
+      }
+    }
+    for (const { pattern, match } of matches) {
+      {
         // Calculate confidence with context
-        const confidence = this.calculateConfidence(pattern, match, normalizedInput);
+        const confidence = this.calculateConfidence(pattern, match, normalizedInput, threatIndicatorCount);
 
         threats.push(createThreat({
           type: pattern.type,
@@ -391,12 +403,12 @@ export class ThreatDetectionService {
   private calculateConfidence(
     pattern: ThreatPattern,
     match: RegExpExecArray,
-    input: string
+    input: string,
+    threatIndicatorCount: number
   ): number {
     let confidence = pattern.baseConfidence;
 
-    // Boost confidence if multiple threat indicators
-    const threatIndicatorCount = this.patterns.filter(p => p.pattern.test(input)).length;
+    // Boost confidence if multiple threat indicators (counted once by the caller)
     if (threatIndicatorCount > 1) {
       confidence = Math.min(confidence + 0.05 * (threatIndicatorCount - 1), 0.99);
     }
