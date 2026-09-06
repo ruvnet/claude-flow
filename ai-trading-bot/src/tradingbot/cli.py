@@ -124,10 +124,30 @@ def doctor(config: str = CONFIG_OPT) -> None:
             mt5.shutdown()
         else:
             code, msg = mt5.last_error()
-            rows.append((
-                "MT5 terminal reachable", False,
-                f"({code}) {msg} -- start MetaTrader 5 and log in",
-            ))
+            # (-6, 'Authorization failed') covers an expired demo, a wrong
+            # server, a bad password and a terminal with no account at all.
+            # The terminal's own log knows which -- surface that instead.
+            from .ops.mt5_diagnostics import diagnose_all
+
+            hint = "start MetaTrader 5 and log in"
+            try:
+                failures = [d for d in diagnose_all() if d.is_failure]
+                if failures:
+                    d = failures[0]
+                    hint = f"{d.summary()}"
+                    mt5_detail = d.explanation
+                else:
+                    mt5_detail = ""
+            except Exception:  # diagnostics must never break the check itself
+                log.debug("log diagnostics failed", exc_info=True)
+                mt5_detail = ""
+
+            rows.append(("MT5 terminal reachable", False, f"({code}) {msg}"))
+            # ok=None marks an explanatory row: rendered, but not counted as a
+            # separate failure.
+            rows.append(("  broker said", None, hint))
+            if mt5_detail:
+                rows.append(("  likely cause", None, mt5_detail))
 
     var = cfg.path("state_path").parent
     try:
@@ -157,10 +177,16 @@ def doctor(config: str = CONFIG_OPT) -> None:
     table.add_column("", width=4)
     table.add_column("detail")
     for name, ok, detail in rows:
-        table.add_row(name, "[green]OK[/green]" if ok else "[red]--[/red]", detail)
+        if ok is None:
+            marker = ""           # explanatory continuation of the row above
+        elif ok:
+            marker = "[green]OK[/green]"
+        else:
+            marker = "[red]--[/red]"
+        table.add_row(name, marker, detail)
     console.print(table)
 
-    failures = [r for r in rows if not r[1]]
+    failures = [r for r in rows if r[1] is False]
     if failures:
         console.print(
             f"\n[red]{len(failures)} check(s) failed.[/red] "

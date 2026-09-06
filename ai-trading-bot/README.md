@@ -90,6 +90,46 @@ This checks Python, packages, that the MT5 terminal is running and logged in,
 that algo trading is enabled, and that your configured symbols exist at your
 broker. Fix whatever it flags.
 
+### When doctor says the terminal is unreachable
+
+The Python bridge reports `(-6, 'Terminal: Authorization failed')` for *every*
+authorization problem — an expired demo, a wrong server, a bad password and a
+terminal with no account at all all produce that same string. So `doctor` reads
+the terminal's own log and tells you what the broker actually said:
+
+```
+| MT5 terminal reachable  | -- | (-6) Terminal: Authorization failed          |
+|   broker said           |    | account 124578369 on ICMarketsSC-Demo:       |
+|                         |    | authorization failed (Invalid account)       |
+|   likely cause          |    | The broker rejected this login as not        |
+|                         |    | existing on that server. Usually an expired  |
+|                         |    | demo account, or the right login pointed at  |
+|                         |    | the wrong server.                            |
+```
+
+Common causes, in rough order:
+
+- **Expired demo.** Most brokers cull demo accounts after ~30 days idle.
+  Fix: `File → Open an Account` in MT5 and make a new one.
+- **Wrong server.** A login valid on `ICMarketsSC-Demo` is "Invalid account" on
+  `ICMarketsGlobal-Demo`. Check the server string exactly.
+- **Investor password.** Logs in read-only; the bot cannot place orders.
+- **Algo Trading off.** The toolbar button must be green.
+
+### If you run more than one terminal
+
+`mt5.initialize()` attaches to whichever terminal the OS hands it, so with
+several installed the bot can silently trade a *different account than you
+expect*. Pin it:
+
+```yaml
+mt5:
+  terminal_path: "C:\\Program Files\\MetaTrader 5 IC Markets Global\\terminal64.exe"
+```
+
+`doctor` lists every terminal it can find, with the broker and build each one
+is running.
+
 Broker symbol names vary (`EURUSD` vs `EURUSD.a` vs `EURUSD.raw`):
 
 ```bash

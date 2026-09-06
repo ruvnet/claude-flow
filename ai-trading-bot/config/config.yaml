@@ -7,7 +7,13 @@
 
 mt5:
   # login / password / server come from the environment.
-  terminal_path: null          # autodetected; set if you run several terminals
+  #
+  # terminal_path pins WHICH terminal the bot attaches to. Leave it null only
+  # if exactly one MT5 terminal ever runs on this machine -- with several
+  # installed, mt5.initialize() attaches to whichever the OS hands it, and the
+  # bot can silently end up trading a different account than you expect.
+  # Run `python -m tradingbot doctor` to see every terminal it can find.
+  terminal_path: "C:\\Program Files\\MetaTrader 5 IC Markets Global\\terminal64.exe"
   timeout_ms: 60000
   magic: 770101                # tags our orders; we never touch anything else
   deviation_points: 20
