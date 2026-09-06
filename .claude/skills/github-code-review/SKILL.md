@@ -478,7 +478,7 @@ review:
 
 ```yaml
 # .github/workflows/auto-review.yml
-name: Automated Code Review
+name: github-code-review
 on:
   pull_request:
     types: [opened, synchronize]
@@ -759,7 +759,7 @@ npx ruv-swarm github register-agent \
 
 ```yaml
 # .github/workflows/build-and-review.yml
-name: Build and Review
+name: github-code-review
 on: [pull_request]
 
 jobs:

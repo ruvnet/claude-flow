@@ -928,7 +928,7 @@ Updates will be posted automatically by swarm agents during implementation.
 
 ```markdown
 <!-- .github/ISSUE_TEMPLATE/swarm-task.yml -->
-name: Swarm Task
+name: github-project-management
 description: Create a task for AI swarm processing
 body:
   - type: dropdown
@@ -962,7 +962,7 @@ body:
 
 ```yaml
 # .github/workflows/issue-swarm.yml
-name: Issue Swarm Handler
+name: github-project-management
 on:
   issues:
     types: [opened, labeled, commented]

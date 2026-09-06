@@ -670,7 +670,7 @@ npx claude-flow github release-compliance \
 ### Complete Release Workflow
 ```yaml
 # .github/workflows/release.yml
-name: Intelligent Release Workflow
+name: github-release-management
 on:
   push:
     tags: ['v*']
@@ -820,7 +820,7 @@ jobs:
 ### Hotfix Workflow
 ```yaml
 # .github/workflows/hotfix.yml
-name: Emergency Hotfix Workflow
+name: github-release-management
 on:
   issues:
     types: [labeled]
