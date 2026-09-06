@@ -16,6 +16,7 @@
 import { randomUUID } from "crypto";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { dirname } from "path";
+import { Readable, Writable } from "stream";
 
 // ---------------------------------------------------------------------------
 // ObjectId compatibility
@@ -1022,41 +1023,59 @@ export class RvfGridFSBucket {
 		options?: { metadata?: Record<string, unknown>; contentType?: string }
 	) {
 		const id = randomUUID();
-		const chunks: string[] = [];
+		const chunks: Buffer[] = [];
+		const files = this.files;
 
-		return {
-			id: new ObjectId(id),
-			write(chunk: Buffer | string) {
-				chunks.push(
-					typeof chunk === "string" ? chunk : chunk.toString("base64")
-				);
+		// objectMode so callers may pass ArrayBuffer/Uint8Array/Buffer/string
+		// (uploadFile.ts hands us an ArrayBuffer cast to Buffer).
+		const stream = new Writable({
+			objectMode: true,
+			write(chunk, _enc, cb) {
+				try {
+					chunks.push(
+						typeof chunk === "string" ? Buffer.from(chunk) : Buffer.from(chunk as ArrayBufferLike)
+					);
+					cb();
+				} catch (e) {
+					cb(e as Error);
+				}
 			},
-			end: async () => {
-				const data = chunks.join("");
-				this.files.set(id, {
-					_id: id,
-					filename,
-					contentType: options?.contentType ?? "application/octet-stream",
-					length: data.length,
-					data,
-					metadata: options?.metadata ?? {},
-					createdAt: new Date(),
-				});
-				scheduleSave();
+			final(cb) {
+				try {
+					const data = Buffer.concat(chunks).toString("base64");
+					files.set(id, {
+						_id: id,
+						filename,
+						contentType: options?.contentType ?? "application/octet-stream",
+						length: data.length,
+						data,
+						metadata: options?.metadata ?? {},
+						createdAt: new Date(),
+					});
+					scheduleSave();
+					cb();
+				} catch (e) {
+					cb(e as Error);
+				}
 			},
-		};
+		});
+		(stream as unknown as { id: ObjectId }).id = new ObjectId(id);
+		return stream;
 	}
 
 	openDownloadStream(id: ObjectId | string) {
 		const fileId = typeof id === "string" ? id : id.toString();
-		const files = this.files;
-		return {
-			async toArray(): Promise<Buffer[]> {
-				const file = files.get(fileId);
-				if (!file) throw new Error("File not found");
-				return [Buffer.from(file.data as string, "base64")];
-			},
-		};
+		const file = this.files.get(fileId);
+		if (!file) {
+			// Match MongoDB GridFS (and the prior shim): a missing file is an
+			// error. Surface it on the stream so callers see it via either
+			// .on("error") or a rejected .toArray(), rather than silently
+			// yielding zero bytes.
+			const missing = new Readable({ read() {} });
+			missing.destroy(new Error("File not found"));
+			return missing;
+		}
+		return Readable.from([Buffer.from(file.data as string, "base64")]);
 	}
 
 	async delete(id: ObjectId | string) {
@@ -1065,7 +1084,7 @@ export class RvfGridFSBucket {
 		scheduleSave();
 	}
 
-	async find(filter: Record<string, unknown> = {}) {
+	find(filter: Record<string, unknown> = {}) {
 		const results: Record<string, unknown>[] = [];
 		for (const doc of this.files.values()) {
 			if (matchesFilter(doc, filter)) {
@@ -1073,6 +1092,10 @@ export class RvfGridFSBucket {
 				results.push(meta);
 			}
 		}
-		return { toArray: async () => results };
+		let i = 0;
+		return {
+			next: async () => (i < results.length ? results[i++] : null),
+			toArray: async () => results,
+		};
 	}
 }
