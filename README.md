@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/ruvnet-ruflo-badge.png)](https://mseep.ai/app/ruvnet-ruflo)
+
 <div align="center">
 
 [![Ruflo Banner](ruflo/assets/ruflo-small.jpeg)](https://cognitum.one/agentic-engineering)
