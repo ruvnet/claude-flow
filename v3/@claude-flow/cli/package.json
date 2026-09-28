@@ -75,6 +75,7 @@
     "!dist/**/*.tsbuildinfo",
     "bin",
     "scripts/postinstall.cjs",
+    "templates",
     ".claude",
     "plugins",
     "README.md",

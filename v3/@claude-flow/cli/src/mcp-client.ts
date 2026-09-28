@@ -79,6 +79,8 @@ import { businessPodTools } from './mcp-tools/business-pod-tools.js';
 // + auth headers; opt-in via CLAUDE_FLOW_HTTP_FETCH_ALLOW_PRIVATE / _AUTH=1.
 import { httpFetchTools } from './mcp-tools/http-fetch-tools.js';
 import { missionTools } from './mcp-tools/mission-tools.js';
+// ADR-402 — host-agnostic Agent Teams bus (team_create/send/inbox/spawn/…)
+import { teamTools } from './mcp-tools/team-tools.js';
 // #1916: coverage-aware routing tools — defined in ruvector/coverage-tools.ts
 // but were never registered, so the `ruflo hooks coverage-*` CLI subcommands
 // failed with `Tool not found: hooks_coverage-route`.
@@ -194,6 +196,8 @@ registerTools([
   ...httpFetchTools,
   // ADR-406 — mission semantic operations (create/plan/get/events/request_action)
   ...missionTools,
+  // ADR-402 — host-agnostic Agent Teams (9 tools)
+  ...teamTools,
 ]);
 
 // The capability brain consumes the completed live registry. This is injected

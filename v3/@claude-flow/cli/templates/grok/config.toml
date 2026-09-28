@@ -1,0 +1,63 @@
+# Ruflo on Grok Build — project-scoped host config
+# Loaded by Grok when this folder is trusted (see ~/.grok/trusted_folders.toml).
+#
+# Goal: full harness (MCP + hooks + skills + agent teams path), not a thin CLI wrapper.
+# See: .grok/rules/ruflo-grok.md and v3/docs/adr/ADR-402-host-agnostic-agent-teams.md
+#
+# After editing: restart Grok (or reload MCPs) so tool lists refresh.
+
+# ---------------------------------------------------------------------------
+# Ruflo MCP — orchestrator / ledger (memory, swarm, hooks, team bus, neural)
+# `ruflo init --grok` pins this to the Ruflo version that ran it, because the
+# team_* tools ship in that same release (an older @latest may lack them).
+# From a source checkout it points at that checkout's bin/cli.js instead.
+# Cold npx can exceed 30s; keep timeouts high.
+# ---------------------------------------------------------------------------
+[mcp_servers.ruflo]
+command = {{RUFLO_MCP_COMMAND}}
+args = {{RUFLO_MCP_ARGS}}
+enabled = true
+startup_timeout_sec = 120
+tool_timeout_sec = 180
+
+# ---------------------------------------------------------------------------
+# Optional: RuvNet Brain grounding (search_ruvnet over embedded rUv source)
+# Install: npx ruvnet-brain@latest  → kb under ~/.cache/ruvnet-brain/kb
+#
+# forge-mcp-all defaults KB_DIR to process.cwd(). When Grok spawns MCP from the
+# project root, search fails with "passages sidecar not found: ./agentdb…".
+# Always set env.KB_DIR to the absolute kb path. tool_timeout_sec high for cold
+# BGE model download (first big search can take minutes).
+# init --grok fills in your home directory for the {{HOME}} paths below.
+# ---------------------------------------------------------------------------
+# [mcp_servers.ruvnet-brain]
+# command = "node"
+# args = ["{{HOME}}/.cache/ruvnet-brain/kb/forge-mcp-all.mjs"]
+# env = { KB_DIR = "{{HOME}}/.cache/ruvnet-brain/kb" }
+# enabled = true
+# startup_timeout_sec = 90
+# tool_timeout_sec = 600
+
+# ---------------------------------------------------------------------------
+# Permissions — allow Ruflo CLI + helpers without re-prompting every turn
+# (deny still wins over allow; PreToolUse hooks can still block)
+# ---------------------------------------------------------------------------
+[permission]
+allow = [
+  "Bash(npx ruflo*)",
+  "Bash(npx @claude-flow*)",
+  "Bash(npx claude-flow*)",
+  "Bash(node .claude/*)",
+  "Bash(npx -y ruflo*)",
+  "Bash(node scripts/grok-team-bus.mjs*)",
+  "MCPTool(ruflo__*)",
+  "MCPTool(ruvnet-brain__*)",
+]
+
+# ---------------------------------------------------------------------------
+# Subagent defaults are user-level on Grok Build 1.0.41.
+# Project .grok/config.toml contributes only [mcp_servers], [plugins],
+# [permission], and [mcp].max_output_bytes. A [subagents] table here is ignored.
+# Put role defaults in ~/.grok/config.toml if you need them.
+# Team children: pass host.grok.spawn from team_spawn (see docs/grok/README.md).
+# ---------------------------------------------------------------------------

@@ -61,3 +61,7 @@ export {
 // Main executor
 export { executeInit, executeUpgrade, executeUpgradeWithMissing, default } from './executor.js';
 export type { UpgradeResult } from './executor.js';
+
+// Grok Build host (ADR-402)
+export { executeGrokInit } from './grok-generator.js';
+export type { GrokInitOptions, GrokInitResult } from './grok-generator.js';

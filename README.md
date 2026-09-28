@@ -118,6 +118,8 @@ User → Ruflo (CLI/MCP) → Router → Swarm → Agents → Memory → LLM prov
 
 A harness is the workbench around the model: it organizes tasks, carries context between steps and helps check results. **This establishes Ruflo's lineage, not a universal first across every Claude Code tool.** [See the illustrated explainer, exact commits and earlier ecosystem context](docs/harness-origins.md).
 
+**Grok Build:** `npx ruflo init --grok` writes the project host surface (`.grok/`, the team bus, and the operator guide) and nothing outside the project; add `--dry-run` to preview. Setup, the `spawn_subagent` contract, the optional status row, and what to re-check when Grok updates: [the Grok operator guide](v3/@claude-flow/cli/templates/grok/docs/README.md).
+
 <details>
 <summary><strong>📖 Background — where the name comes from</strong></summary>
 
