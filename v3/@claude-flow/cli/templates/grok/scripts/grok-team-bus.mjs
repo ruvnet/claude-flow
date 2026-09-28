@@ -22,24 +22,27 @@ import {
   ensureRealDir,
   loadTeam,
   mailboxDir,
+  parseHostPlans,
+  parseStopFields,
   nowIso,
   readJson,
   realDirExists,
   safeName,
   teamDir,
   teamFile,
-  teamsRoot,
   updateTeam,
   withTeamLock,
   writeJsonAtomic,
 } from './grok-team-store.mjs';
+
+export { teamsWithMember } from './grok-team-store.mjs'; // the SubagentStop hook imports it from here
 
 export const GROK_CONTRACT = 'grok-build-1.0.41';
 export const MAX_PRIORITY = 999;
 export const DEFAULT_PRIORITY = 2;
 
 
-const ROLE_DEFAULTS = {
+export const ROLE_DEFAULTS = {
   researcher: { capability_mode: 'read-only', isolation: 'none', subagent_type: 'explore', claudeTaskType: 'researcher' },
   architect: { capability_mode: 'read-only', isolation: 'none', subagent_type: 'plan', claudeTaskType: 'system-architect' },
   developer: { capability_mode: 'all', isolation: 'worktree', subagent_type: 'general-purpose', claudeTaskType: 'coder' },
@@ -179,6 +182,8 @@ export async function spawnMember(projectRoot, opts) {
   const role = safeName(opts.role || agent, 'role');
   const next = parseNext(opts.next);
   const prompt = typeof opts.prompt === 'string' ? opts.prompt : '';
+  const hostPlans = parseHostPlans(opts.hostPlans);
+  const model = typeof opts.model === 'string' && opts.model ? opts.model : undefined;
   const result = await updateTeam(projectRoot, opts.team, (t) => {
     assertActive(t);
     const members = t.members || (t.members = {});
@@ -186,12 +191,16 @@ export async function spawnMember(projectRoot, opts) {
       throw new Error(`Team "${t.name}" is full (maxAgents=${t.maxAgents})`);
     }
     const plan = buildSpawnPlan(t, agent, role, prompt, next);
+    Object.assign(plan.host, hostPlans);
+    // The top-level prompt is the team host's variant when a caller entry has one.
+    if (typeof plan.host[t.host]?.prompt === 'string') plan.prompt = plan.host[t.host].prompt;
     members[agent] = {
       name: agent,
       role,
       status: 'registered',
       registeredAt: nowIso(),
       next,
+      ...(model ? { model } : {}),
       spawn: plan.host,
     };
     return { action: 'spawn', spawnPlan: plan, teamId: t.id };
@@ -351,36 +360,45 @@ export function setPlan(projectRoot, opts) {
   });
 }
 
+/**
+ * Record a stop. "done" (default) advances the plan when the agent owns the
+ * current step; "failed" marks member and step failed without advancing. A
+ * repeated runId for the member is a no-op (a hook and a runner may both report).
+ */
 export function onStop(projectRoot, opts) {
   const agent = safeName(opts.agent, 'agent');
+  const { outcome, runId, reason } = parseStopFields(opts);
   return updateTeam(projectRoot, opts.team, (t) => {
     assertActive(t);
     const member = t.members?.[agent];
+    if (member && runId && member.lastStopRunId === runId) {
+      return { action: 'on-stop', agent, member: true, duplicate: true, runId };
+    }
     if (member) {
-      member.status = 'idle';
+      member.status = outcome === 'failed' ? 'failed' : 'idle';
       member.lastStopAt = nowIso();
+      member.lastOutcome = outcome;
+      if (runId) member.lastStopRunId = runId;
+      if (reason !== undefined) member.lastStopReason = reason;
     }
     const plan = t.plan || (t.plan = { steps: [], index: 0 });
     const cur = plan.steps[plan.index];
-    const advanced = Boolean(cur && (cur.agent === agent || cur.id === agent));
+    const owns = Boolean(cur && (cur.agent === agent || cur.id === agent));
+    const advanced = owns && outcome === 'done';
+    if (owns) cur.status = advanced ? 'done' : 'failed';
     if (advanced) {
-      cur.status = 'done';
       plan.index = Math.min(plan.index + 1, plan.steps.length);
-      const nxt = plan.steps[plan.index];
-      if (nxt) nxt.status = 'ready';
-      plan.updatedAt = nowIso();
+      if (plan.steps[plan.index]) plan.steps[plan.index].status = 'ready';
     }
+    if (owns) plan.updatedAt = nowIso();
     const nextStep = plan.steps[plan.index] || null;
-    return {
-      action: 'on-stop',
-      agent,
-      member: Boolean(member),
-      advanced,
-      next: nextStep,
-      assign: nextStep
+    const why = reason ? ` (${reason.slice(0, 200)})` : '';
+    const assign = outcome === 'failed'
+      ? { hint: `Agent "${agent}" failed${why}: retry with \`ruflo team run\` or reassign the step`, agent }
+      : nextStep
         ? { hint: `Spawn or resume agent "${nextStep.agent}" for the next plan step`, agent: nextStep.agent }
-        : { hint: 'Plan complete — lead should synthesize' },
-    };
+        : { hint: 'Plan complete — lead should synthesize' };
+    return { action: 'on-stop', agent, outcome, member: Boolean(member), advanced, next: nextStep, assign };
   });
 }
 
@@ -391,23 +409,6 @@ export function shutdownTeam(projectRoot, opts) {
     for (const m of Object.values(t.members || {})) m.status = 'shutdown';
     return { action: 'shutdown', teamId: t.id };
   });
-}
-
-/**
- * Active teams that list `agent` as a member. The SubagentStop hook uses this
- * when the spawn description carries no @team: exactly one match is used,
- * several matches are reported as ambiguous.
- */
-export function teamsWithMember(projectRoot, agent) {
-  const root = teamsRoot(projectRoot);
-  if (!realDirExists(root)) return [];
-  const out = [];
-  for (const ent of fs.readdirSync(root, { withFileTypes: true })) {
-    if (!ent.isDirectory() || !NAME_RE.test(ent.name)) continue;
-    const t = readJson(path.join(root, ent.name, 'team.json'));
-    if (t && t.status === 'active' && t.members && t.members[agent]) out.push(ent.name);
-  }
-  return out.sort();
 }
 
 // ---------------------------------------------------------------------------
@@ -443,7 +444,7 @@ const USAGE = [
   'inbox --team <team> --agent <name> [--peek]',
   'status --team <team>',
   'plan --team <team> --steps \'["architect","developer","tester"]\'',
-  'on-stop --team <team> --agent <name>',
+  'on-stop --team <team> --agent <name> [--outcome done|failed] [--run-id id] [--reason "..."]',
   'shutdown --team <team>',
 ];
 
@@ -488,7 +489,7 @@ export async function runCli(argv, env = process.env) {
     case 'plan':
       return setPlan(projectRoot, { team, steps: args.steps });
     case 'on-stop':
-      return onStop(projectRoot, { team, agent: args.agent });
+      return onStop(projectRoot, { team, agent: args.agent, outcome: args.outcome, runId: args['run-id'], reason: args.reason });
     case 'shutdown':
       return shutdownTeam(projectRoot, { team });
     default:

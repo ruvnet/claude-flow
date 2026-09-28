@@ -348,4 +348,17 @@ describe('executeGrokInit', () => {
       );
     }
   });
+
+  it('never writes through a symlinked directory in the project (#3513 review)', () => {
+    const outside = mkdtempSync(join(tmpdir(), 'ruflo-grok-outside-'));
+    try {
+      symlinkSync(outside, join(dir, 'scripts'));
+      const r = executeGrokInit({ targetDir: dir, homeDir: home });
+      expect(r.success).toBe(false);
+      expect(r.errors.join('\n')).toMatch(/refusing to write through symlink/);
+      expect(readdirSync(outside)).toEqual([]);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
 });

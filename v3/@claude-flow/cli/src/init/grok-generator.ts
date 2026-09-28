@@ -282,6 +282,8 @@ function wireGrokUserStatusLine(
 // ---------------------------------------------------------------------------
 
 interface CopyContext {
+  /** Project root; nothing is written through a symlink below it. */
+  root: string;
   force: boolean;
   dryRun: boolean;
   created: string[];
@@ -349,8 +351,27 @@ function validateExistingUserConfig(dest: string): string | null {
   return null;
 }
 
+/** The first symlink on the path from ctx.root down to dest, if any. */
+function symlinkOnPath(root: string, dest: string): string | undefined {
+  let cur = root;
+  for (const part of path.relative(root, dest).split(path.sep).filter(Boolean)) {
+    cur = path.join(cur, part);
+    try {
+      if (fs.lstatSync(cur).isSymbolicLink()) return cur;
+    } catch {
+      return undefined; // does not exist yet; nothing below it can either
+    }
+  }
+  return undefined;
+}
+
 function writeProjectFile(ctx: CopyContext, dest: string, write: () => void): void {
   try {
+    const link = symlinkOnPath(ctx.root, dest);
+    if (link) {
+      ctx.errors.push(`${dest}: refusing to write through symlink ${link}`);
+      return;
+    }
     if (fs.existsSync(dest) && !ctx.force) {
       ctx.skipped.push(dest);
       return;
@@ -380,7 +401,9 @@ function walkCopy(ctx: CopyContext, srcDir: string, destDir: string): void {
   for (const ent of fs.readdirSync(srcDir, { withFileTypes: true })) {
     const src = path.join(srcDir, ent.name);
     const dest = path.join(destDir, ent.name);
-    if (ent.isDirectory()) walkCopy(ctx, src, dest);
+    // Templates are plain files and directories; a symlink is never followed.
+    if (ent.isSymbolicLink()) ctx.errors.push(`${src}: template entry is a symlink; not copied`);
+    else if (ent.isDirectory()) walkCopy(ctx, src, dest);
     else copyFile(ctx, src, dest);
   }
 }
@@ -391,7 +414,7 @@ function walkCopy(ctx: CopyContext, srcDir: string, destDir: string): void {
 export function executeGrokInit(options: GrokInitOptions): GrokInitResult {
   const { targetDir, force = false, docs = true, statusLine = false, dryRun = false } = options;
   const home = options.homeDir || os.homedir();
-  const ctx: CopyContext = { force, dryRun, created: [], skipped: [], errors: [] };
+  const ctx: CopyContext = { root: path.resolve(targetDir), force, dryRun, created: [], skipped: [], errors: [] };
   const tpl = grokTemplatesRoot();
   const mcp = rufloMcpLaunch();
   const userConfig: GrokUserConfigResult = {

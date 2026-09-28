@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import * as TOML from '@iarna/toml';
 import {
   generateAgentsMd,
+  renderTeamBusSection,
   generateSkillMd,
   generateConfigToml,
 } from '../src/generators/index.js';
@@ -32,6 +33,26 @@ import type {
 // =============================================================================
 // AGENTS.md Generator Tests
 // =============================================================================
+
+describe('Agent Teams section in AGENTS.md', () => {
+  it('default, full and enterprise include the team section; minimal points to the skill', async () => {
+    for (const template of ['default', 'full', 'enterprise'] as const) {
+      const md = await generateAgentsMd({ projectName: 'p', template });
+      expect(md, template).toContain(renderTeamBusSection().trim());
+    }
+    const minimal = await generateAgentsMd({ projectName: 'p', template: 'minimal' });
+    expect(minimal).toContain('## Agent Teams');
+    expect(minimal).toContain('$agent-teams');
+    expect(minimal).not.toContain('### Lead loop');
+  });
+
+  it('team section names only ruflo team run and team_* tools', () => {
+    const section = renderTeamBusSection();
+    expect(section).toContain('ruflo team run');
+    expect(section).toMatch(/team_create[\s\S]*team_plan[\s\S]*team_spawn/);
+    expect(section).not.toMatch(/full-auto|dangerously-bypass|\/Users\//);
+  });
+});
 
 describe('generateAgentsMd', () => {
   it('resolves built-in skills inside the Codex package', () => {
@@ -618,6 +639,14 @@ describe('generateBuiltInSkill', () => {
     expect(result.skillMd).toContain('GitHub workflow automation');
     expect(result.skillMd).toContain('Create Pull Request');
     expect(result.skillMd).toContain('gh pr create');
+  });
+
+  it('should generate the agent-teams skill', async () => {
+    const result = await generateBuiltInSkill('agent-teams');
+
+    expect(result.skillMd).toContain('name: agent-teams');
+    expect(result.skillMd).toContain('ruflo team run');
+    expect(result.skillMd).not.toMatch(/full-auto|dangerously-bypass/);
   });
 
   it('should throw for unknown skill', async () => {

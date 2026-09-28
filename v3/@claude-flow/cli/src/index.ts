@@ -132,8 +132,14 @@ export class CLI {
         this.output.printDebug(`CWD: ${process.cwd()}`);
       }
 
+      // `team` is a machine interface called by hooks, shims and the team
+      // runner (often once per agent turn). It skips the update check, the
+      // helper/config refresh and the daemon autostart so each call stays
+      // fast and free of side effects.
+      const machineInterface = (commandPath[0] ?? positional[0]) === 'team';
+
       // Run startup update check (non-blocking, silent on skip)
-      if (!flags.noUpdate && flags.update !== false && commandPath[0] !== 'update' && !(commandPath[0] === 'doctor' && flags.json)) {
+      if (!flags.noUpdate && flags.update !== false && commandPath[0] !== 'update' && !(commandPath[0] === 'doctor' && flags.json) && !machineInterface) {
         this.checkForUpdatesOnStartup().catch(() => {/* silent */});
       }
 
@@ -143,7 +149,7 @@ export class CLI {
       // command can't exit before the copy lands; the fast path is a single
       // stamp read + string compare (sub-ms), and the copy runs at most once per
       // version bump. Best-effort + silent — never blocks or fails a command.
-      if (commandPath[0] !== 'init' && commandPath[0] !== 'update') {
+      if (commandPath[0] !== 'init' && commandPath[0] !== 'update' && !machineInterface) {
         // ADR-324: existing installations acquire a versioned policy state on
         // first use. Migration is additive and starts in legacy mode, so older
         // AgentDB, MCP, hooks, and swarm workflows keep their exact behavior.

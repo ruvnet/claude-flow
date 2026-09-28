@@ -151,6 +151,70 @@ Re-checked against `grok 1.0.41` and `~/.grok/docs/user-guide/` on that binary. 
 - The spawn description is `<role>:<agent>@<team>`; the SubagentStop hook parses it, and reports on stderr (exit 1) when a team subagent cannot be recorded or the team is ambiguous.
 - `init --grok` writes only inside the project unless `--grok-statusline` is passed; then it installs `~/.grok/ruflo/host-statusline.mjs` and merges `[ui.status_line]` into `~/.grok/config.toml` with a TOML parser, or prints the snippet when it cannot merge safely. `--dry-run` lists what would be written. The project MCP entry is pinned to the running Ruflo version (the one that ships `team_*`), not `@latest`.
 
+## Amendment (2026-09-28) — exec hosts: Codex and command hosts (#3513)
+
+Builds on the store above; nothing here adds a second store. The `.mjs` store gains two optional inputs: `spawnMember` takes `hostPlans` (extra `host.<label>` entries, merged after `grok` and `claude`) and `model`, and `onStop` takes `outcome`, `runId` and `reason`.
+
+### Host kinds
+
+- A **native-spawn host** (Grok, Claude) spawns children itself; the store builds its plan entry, and its stop hook reports completion.
+- An **exec host** is a CLI that runs one headless turn and exits. `ruflo team run` executes it, and process exit is the stop signal. Codex and every command host are exec hosts. Their adapters live in `cli/src/mcp-tools/team-hosts/` and implement `protocolLines`, `plan` and `stopIdentity`.
+
+`team_spawn` takes optional `hosts: string[]` (default `[team.host, "claude"]`) and `model`. Exec labels get a `host.<label>` entry with its own `prompt`; when the team host is an exec host, the top-level `prompt` is that entry's. Built-in labels resolve first, then `.claude-flow/team-hosts.json`. An unknown label is an error. `team_create` checks its `host` the same way. `team_spawn` rejects unknown parameters (`task` suggests `prompt`).
+
+### Command hosts
+
+Any one-shot agent CLI can be a teammate, declared in `.claude-flow/team-hosts.json`:
+
+```json
+{ "hosts": { "myagent": {
+    "kind": "exec", "command": "myagent", "args": ["run", "--message", "{prompt}"],
+    "promptVia": "stdin", "passEnv": ["MYAGENT_HOME"], "isolation": "none"
+} } }
+```
+
+- The label matches `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$` and cannot redeclare a built-in; `kind` is `exec`; unknown keys are rejected.
+- The placeholders are `{prompt}`, `{team}`, `{agent}`, `{role}`, `{cwd}`, `{teamRoot}` and `{resultFile}`, and each fills a whole argv element. `promptVia: "arg"` needs exactly one `{prompt}`; `"stdin"` has none.
+- `passEnv` holds variable names. Secret-looking names (key, token, secret, password, credential, auth, session, cookie, private) and `CLAUDE_FLOW_*` are rejected: a command host reads its own credentials.
+- The runner never uses a shell.
+
+### Trust model
+
+`team-hosts.json` and `team.json` are part of the checkout, so anyone who can edit the checkout can edit them. Therefore:
+
+1. **Run time never trusts `team.json`.** `ruflo team run` rebuilds the command from the host definition every time: the built-in adapter for Codex, or the validated `team-hosts.json` entry. The stored `exec` block is informational; when it differs, the run records the warning `storedPlanIgnored`.
+2. **Command hosts need an explicit trust step.** `ruflo team trust-host <label>` records the project root, label and a SHA-256 of the validated entry in `~/.claude-flow/trusted-team-hosts.json` (outside any checkout; `RUFLO_TEAM_TRUST_FILE` overrides the path). `team run` refuses an untrusted entry, and editing the entry invalidates the record. `--dry-run` reports `trusted` and runs nothing. Trust is a CLI step only; there is no MCP tool for it.
+3. **Shells and paths need more.** A command that is a shell or command wrapper (`sh`, `bash`, `zsh`, `cmd`, `powershell`, `pwsh`, `env`, `sudo`, `xargs`, …) or a path (`./x`, `/bin/x`, `C:\x`) is refused by `team_create`, `team_spawn` and `team run` unless the trust record was made with `--allow-unsafe-command`.
+4. **Secrets stay out.** The child environment comes from `buildWorkerEnvironment` (`@claude-flow/codex`): secret-named variables and Ruflo identity/policy variables are stripped. `passEnv` re-adds names, but for a command host it can never re-add a secret-named or `CLAUDE_FLOW_*` name (validated at load, filtered again at run). The Codex adapter's own `passEnv` (`CODEX_HOME`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`) is fixed in code, not configurable.
+5. **The bus is not authenticated.** It is a set of files in the project. `team_send`'s `from` is whatever the caller says, and `team_on_stop` / `ruflo team hook-stop` mark whichever agent is named. Anything that can write `.claude-flow/teams/` can do the same directly. Treat messages as untrusted input, and do not use the bus across trust boundaries.
+
+### Runner
+
+`ruflo team run --team T --agent A [--host <label>] [--timeout ms] [--max-output bytes] [--dry-run] [--json]`:
+
+- **State checks.** Under the team lock it refuses a shut-down team or member, a member whose plan step is not the current one (or whose steps are all done), and an agent that is already `running` with a live runner (`runPid` on the same host). It then marks the member `running` with `runId`, `runPid`, `runHost`. A `running` record whose process is gone is replaced (`staleRunReplaced`). One run per agent at a time; parallelism is one `ruflo team run` per agent.
+- **Messages.** Exec children may have no Ruflo MCP, so the runner drains this team's mailbox for the agent (`readInbox`, which archives) and puts the messages in a `=== Messages for you … ===` block before the task. When the run fails, they are queued again in the same team. `--dry-run` only peeks.
+- **Process.** The child runs in its own process group (POSIX). A timeout or an interrupt (SIGINT/SIGTERM to the runner) sends SIGTERM to the group, then SIGKILL after a grace period; on Windows `taskkill /T /F` ends the tree. The run returns only after the child has exited, so a retry never races it. The dual-mode orchestrator uses the same helper for `stopAll`.
+- **Output.** stdout and stderr are capped at `--max-output` (1 MB). A capped stream keeps its first 16 KB and its tail, so Codex's `thread.started` and `turn.completed` both survive, and it is decoded as UTF-8 once, at the end. `{resultFile}` is read up to the same cap and only if it is a regular file (a symlink is ignored).
+- **Prompt in argv.** With `promptVia: "arg"` the full prompt, inbox included, is in the child's argv and visible to other local users in the process list; the run records `promptInArgv`. Prefer `stdin` when the CLI supports it (Codex does).
+- **Outcome.** For `events: "codex-jsonl"`, `done` means exit 0 and no `turn.failed`; otherwise `done` means exit 0 and no timeout. The runner writes `.claude-flow/teams/T/runs/A-<runId>.json`, sends the final message (`type: "result"`, capped at 64 KB) to each `next` agent, or to `lead` when there is none or the run failed, and calls `onStop` with `outcome`, `runId` and `reason`. It exits with the child's code, 124 on timeout, 130 when interrupted.
+
+`onStop` with `failed` marks the member and its current step `failed` and does not advance; a later `done` advances normally. A repeated `runId` for the same member is a no-op, so a hook and the runner reporting the same stop are safe.
+
+`ruflo team hook-stop --host <id>` is the entry point for native stop hooks (Codex's `SubagentStop`). It reads the hook JSON on stdin until EOF (2 s for the first byte, 10 s overall), maps it through the adapter's `stopIdentity`, and resolves the team from the payload or the `@team` of a spawn description, then `TEAM_NAME`, then the only active team that lists the agent. An unparseable payload or an ambiguous team is reported on stderr and records nothing. It always exits 0.
+
+The `team` command skips the CLI's update check, helper refresh and daemon autostart, because hooks and runners call it once per agent turn. `ruflo team <verb> --params '<json>'` calls the same handlers as the MCP tools.
+
+### Codex host
+
+The primary Codex path is `codex exec` through the runner (native Codex subagents are delegated by the model's prompt, not deterministically). Plan, from the codex-cli 0.157.1 flags:
+
+- `exec --sandbox read-only|workspace-write [--worktree] --skip-git-repo-check --json -o {resultFile} -C {cwd} -c mcp_servers.{mcpServer}.env.CLAUDE_FLOW_CWD="{teamRoot}" [-m <model>] -`, prompt over stdin, stdin then closed. Never `--full-auto` or `--dangerously-bypass-*`.
+- `{mcpServer}` resolves at run time to the first enabled `ruflo` or `claude-flow` in `codex mcp list --json`; without one the `-c` pair is dropped (`mcpServerNotFound`). Pinning `CLAUDE_FLOW_CWD` keeps a child in a worktree on the team's mailboxes.
+- The thread id from `thread.started` is recorded on the member.
+
+`init --codex` adds a Team Bus section to AGENTS.md, an `agent-teams` skill, and (unless `--no-team-hooks`) one `SubagentStop` entry in `.codex/hooks.json` running `npx --no-install ruflo team hook-stop --host codex`, which Codex asks the user to trust in `/hooks`. `runHeadlessProcess`, `killProcessTree` and `buildWorkerEnvironment` are exported from `@claude-flow/codex/dual-mode`; with an older `@claude-flow/codex`, `team run` says so and runs nothing.
+
 ## References
 
 - [RuvNet Brain](https://isovision.ai/ruvnet-brain/) — grounding at intent + action; `search_ruvnet`

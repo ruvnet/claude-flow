@@ -5,16 +5,21 @@
  * The contract is the same on every host:
  *   discover  did this process load rules, agents, skills, hooks, and an MCP server?
  *   connect   does the server that host is configured to start expose the Ruflo tools?
- *   execute   does a headless turn run a SessionStart hook?
- *   live      can that turn store and retrieve a memory value?  (--live)
+ *   execute   does one headless turn run?                           (--execute)
+ *   live      grok/claude: store and retrieve a memory value;
+ *             codex/command: a team round trip through `ruflo team run`  (--live)
+ *
+ * Model turns are opt-in. Without --execute or --live no host process that
+ * calls a model is started. --live implies --execute. --no-execute is
+ * accepted and ignored (it is the default).
  *
  * What each CLI cannot answer is a SKIP, not a pass.
  *
- *   node scripts/probe-host-live.mjs --host grok
- *   node scripts/probe-host-live.mjs --host claude
- *   node scripts/probe-host-live.mjs --host codex
- *   node scripts/probe-host-live.mjs --host all --no-execute
- *   node scripts/probe-host-live.mjs --host grok --live
+ *   node scripts/probe-host-live.mjs --host all
+ *   node scripts/probe-host-live.mjs --host grok --execute
+ *   node scripts/probe-host-live.mjs --host codex --execute
+ *   node scripts/probe-host-live.mjs --host codex --live
+ *   node scripts/probe-host-live.mjs --host command --command-label myagent --live [--project <dir>]
  *
  * --host defaults to grok. probe-grok-host-live.mjs is that default.
  * The Grok checks read this checkout's .grok/ — generate it with
@@ -23,7 +28,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -33,7 +38,7 @@ const REPO_ROOT = resolve(__dirname, '..');
 const args = process.argv.slice(2);
 const JSON_OUT = args.includes('--json');
 const LIVE = args.includes('--live');
-const NO_EXECUTE = args.includes('--no-execute');
+const EXECUTE = LIVE || args.includes('--execute');
 
 function flag(name) {
   const i = args.indexOf(name);
@@ -42,6 +47,9 @@ function flag(name) {
 }
 
 const HOST_ARG = (flag('--host') || 'grok').toLowerCase();
+const CLI = resolve(flag('--cli') || join(REPO_ROOT, 'v3/@claude-flow/cli/bin/cli.js'));
+const PROJECT = resolve(flag('--project') || process.cwd());
+const COMMAND_LABEL = flag('--command-label');
 const RUN_ID = `probe-${Date.now().toString(36)}`;
 const MCP_NAMES = ['ruflo', 'claude-flow'];
 const REQUIRED_TOOLS = [
@@ -65,14 +73,15 @@ function record(host, id, domain, level, ok, ms, detail) {
   console.log(`${mark}\t${host}\t${domain}\t${id}\t${detail}`);
 }
 
-function run(cmd, cmdArgs, timeoutMs) {
+function run(cmd, cmdArgs, timeoutMs, opts = {}) {
   const start = Date.now();
   const r = spawnSync(cmd, cmdArgs, {
-    cwd: REPO_ROOT,
+    cwd: opts.cwd || REPO_ROOT,
     encoding: 'utf8',
     timeout: timeoutMs,
     maxBuffer: 20 * 1024 * 1024,
-    env: process.env,
+    env: { ...process.env, RUFLO_DAEMON_AUTOSTART: '0', ...opts.env },
+    input: opts.input,
   });
   return {
     code: r.status,
@@ -311,6 +320,19 @@ const adapters = {
     binary: 'codex',
     discover() {
       record('codex', 'inspect', 'discover', 'skip', false, 0, 'Codex CLI has no inspect --json for rules, agents, skills, or hooks.');
+      if (!existsSync(join(REPO_ROOT, '.agents')) && !existsSync(join(REPO_ROOT, 'AGENTS.md'))) {
+        record('codex', 'init:agent-teams', 'discover', 'skip', false, 0, 'project not initialized for Codex (ruflo init --codex)');
+        return;
+      }
+      const skill = join(REPO_ROOT, '.agents', 'skills', 'agent-teams', 'SKILL.md');
+      // A project initialized by an older Ruflo has no agent-teams skill yet: warn, not fail.
+      record('codex', 'init:skill:agent-teams', 'discover', 'warn', existsSync(skill), 0,
+        existsSync(skill) ? '.agents/skills/agent-teams/SKILL.md' : 'agent-teams skill missing; re-run ruflo init --codex');
+      let hooks = null;
+      try { hooks = JSON.parse(readFileSync(join(REPO_ROOT, '.codex', 'hooks.json'), 'utf8')); } catch { /* none */ }
+      const entry = JSON.stringify(hooks?.hooks?.SubagentStop ?? []).includes('team hook-stop');
+      if (entry) record('codex', 'init:hook:subagent-stop', 'discover', 'critical', true, 0, '.codex/hooks.json → team hook-stop (trust it in /hooks)');
+      else record('codex', 'init:hook:subagent-stop', 'discover', 'warn', false, 0, 'no team hook-stop entry: init --codex adds it unless --no-team-hooks; ruflo team run does not need it');
     },
     connect() {
       const r = run('codex', ['mcp', 'list', '--json'], 30_000);
@@ -354,17 +376,115 @@ const adapters = {
       }
     },
     execute() {
-      record('codex', 'hook:session-start', 'execute', 'skip', false, 0, 'Codex can bypass hook trust, but this adapter does not yet know a safe temp hook file Codex will load. Not counted as a pass.');
-      record('codex', 'session:ping', 'execute', 'skip', false, 0, 'Headless codex exec is implemented only once a hook install path is confirmed. Run is not faked.');
+      record('codex', 'hook:session-start', 'execute', 'skip', false, 0, 'The exec path needs no hook; the stop signal is the --json stream and the exit code.');
+      if (LIVE) {
+        teamRoundTrip('codex', ['codex']);
+        return;
+      }
+      // One read-only, ephemeral turn. The prompt goes over stdin and stdin is closed.
+      const r = run('codex', ['exec', '--ephemeral', '--sandbox', 'read-only', '--skip-git-repo-check', '--json', '-'], 180_000,
+        { cwd: tmpdir(), input: 'Reply with exactly: PING' });
+      const events = r.stdout.split('\n').map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+      const done = events.some((e) => e.type === 'turn.completed');
+      const failed = events.find((e) => e.type === 'turn.failed');
+      record('codex', 'session:ping', 'execute', 'critical', r.code === 0 && done && !failed, r.ms,
+        done ? 'turn.completed' : failed ? `turn.failed: ${failed.error?.message || ''}` : `exit=${r.code} ${(r.error || r.stderr).slice(0, 200)}`);
     },
   },
 };
 
+/** Ruflo team CLI call against a project root. */
+function teamCli(verb, params, root) {
+  const r = run(process.execPath, [CLI, 'team', verb, '--params', JSON.stringify(params)], 60_000,
+    { cwd: root, env: { CLAUDE_FLOW_CWD: root } });
+  return { ...r, json: parseJson(r.stdout) };
+}
+
+/**
+ * Team round trip through the exec runner: a one-step plan, team_spawn for
+ * the host, `ruflo team run`, then check the run file, the lead's inbox and
+ * the plan index. Spends one model turn on the host.
+ */
+function teamRoundTrip(host, hosts, root = mkdtempSync(join(tmpdir(), `${RUN_ID}-team-`))) {
+  const team = `${RUN_ID}-${host}`.replace(/[^A-Za-z0-9_-]/g, '-');
+  const setup = [
+    teamCli('create', { name: team, host: hosts[0] }, root),
+    teamCli('plan', { team, steps: ['child'] }, root),
+    teamCli('spawn', {
+      team, agent: 'child', role: 'reviewer', hosts,
+      prompt: 'Do not edit files. Reply with exactly: TEAM_OK',
+    }, root),
+  ];
+  const bad = setup.find((s) => s.json?.success !== true);
+  if (bad) {
+    record(host, 'live:team-setup', 'execute', 'critical', false, bad.ms, String(bad.json?.error || bad.stderr).slice(0, 240));
+    return;
+  }
+  const r = run(process.execPath, [CLI, 'team', 'run', '--team', team, '--agent', 'child', '--json', '--timeout', '300000'], 330_000,
+    { cwd: root, env: { CLAUDE_FLOW_CWD: root } });
+  const res = parseJson(r.stdout);
+  record(host, 'live:team-run', 'execute', 'critical', r.code === 0 && res?.outcome === 'done', r.ms,
+    r.code === 0 ? `${res?.runFile}` : `exit=${r.code} ${String(res?.reason || res?.error || r.stderr).slice(0, 240)}`);
+  let runFile = null;
+  try { runFile = JSON.parse(readFileSync(join(root, res?.runFile || '-'), 'utf8')); } catch { /* reported */ }
+  record(host, 'live:run-file', 'execute', 'critical', runFile?.code === 0, 0, runFile ? `code=${runFile.code} ms=${runFile.ms}` : 'missing');
+  const inbox = teamCli('inbox', { team, agent: 'lead', peek: true }, root);
+  const result = (inbox.json?.messages || []).find((m) => m.type === 'result' && m.from === 'child');
+  record(host, 'live:lead-result', 'execute', 'critical', Boolean(result), 0, result ? result.content.slice(0, 120).replace(/\s+/g, ' ') : 'no result message in the lead inbox');
+  const status = teamCli('status', { team }, root);
+  const idx = status.json?.team?.plan?.index;
+  record(host, 'live:plan-advanced', 'execute', 'critical', idx === 1, 0, `plan index=${idx}`);
+  if (runFile && Array.isArray(runFile.mcpTools)) {
+    const teamCalls = runFile.mcpTools.filter((t) => /team_/.test(t));
+    record(host, 'live:child-called-team-tools', 'execute', 'warn', teamCalls.length > 0, 0,
+      teamCalls.length ? teamCalls.join(', ') : 'child made no team_* MCP call (the runner delivered the handoff)');
+  }
+  teamCli('shutdown', { team }, root);
+}
+
+const commandAdapter = {
+  binary: 'node',
+  discover() {
+    const file = join(PROJECT, '.claude-flow', 'team-hosts.json');
+    let doc = null;
+    try { doc = JSON.parse(readFileSync(file, 'utf8')); } catch { /* none */ }
+    if (!doc) {
+      record('command', 'team-hosts.json', 'discover', 'skip', false, 0, `no ${file}`);
+      return false;
+    }
+    const labels = Object.keys(doc.hosts || {});
+    const label = COMMAND_LABEL || labels[0];
+    const cfg = doc.hosts?.[label];
+    record('command', `host:${label}`, 'discover', 'critical', Boolean(cfg), 0, cfg ? `${cfg.command} ${cfg.args?.join(' ')}` : `label not in ${labels.join(', ') || '(none)'}`);
+    if (!cfg) return false;
+    const bin = which(cfg.command);
+    record('command', `binary:${cfg.command}`, 'discover', 'critical', Boolean(bin), 0, bin || 'not on PATH');
+    return Boolean(bin);
+  },
+  connect() {
+    record('command', 'mcp', 'connect', 'skip', false, 0, 'command hosts are checked through the runner, not an MCP handshake');
+  },
+  execute() {
+    const label = COMMAND_LABEL || Object.keys(JSON.parse(readFileSync(join(PROJECT, '.claude-flow', 'team-hosts.json'), 'utf8')).hosts)[0];
+    teamRoundTrip('command', [label], PROJECT);
+  },
+};
+
 function readPrompt(path) {
-  return spawnSync('/bin/cat', [path], { encoding: 'utf8' }).stdout || '';
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return '';
+  }
 }
 
 function runHost(id) {
+  if (id === 'command') {
+    const ready = commandAdapter.discover();
+    commandAdapter.connect();
+    if (EXECUTE && ready) commandAdapter.execute();
+    return;
+  }
   const adapter = adapters[id];
   const bin = which(adapter.binary);
   if (!bin) {
@@ -375,7 +495,8 @@ function runHost(id) {
   adapter.discover();
   adapter.connect();
   statusCheck(id);
-  if (!NO_EXECUTE) adapter.execute();
+  if (EXECUTE) adapter.execute();
+  else record(id, 'execute', 'execute', 'skip', false, 0, 'model turns are opt-in: pass --execute or --live');
 }
 
 function statusCheck(id) {
@@ -421,13 +542,13 @@ function statusCheck(id) {
 }
 
 function main() {
-  const known = Object.keys(adapters);
+  const known = [...Object.keys(adapters), 'command'];
   if (HOST_ARG !== 'all' && !known.includes(HOST_ARG)) {
     console.error(`Unknown --host ${HOST_ARG}. Use ${known.join(', ')}, or all.`);
     process.exit(2);
   }
   const hosts = HOST_ARG === 'all' ? known : [HOST_ARG];
-  if (!JSON_OUT) console.log(`Host probe  run=${RUN_ID}  hosts=${hosts.join(',')}  live=${LIVE}  execute=${!NO_EXECUTE}`);
+  if (!JSON_OUT) console.log(`Host probe  run=${RUN_ID}  hosts=${hosts.join(',')}  live=${LIVE}  execute=${EXECUTE}`);
   for (const id of hosts) runHost(id);
   const critical = results.filter((r) => r.level === 'critical' && !r.ok);
   const skips = results.filter((r) => r.level === 'skip');
@@ -437,7 +558,7 @@ function main() {
     when: new Date().toISOString(),
     hosts,
     live: LIVE,
-    execute: !NO_EXECUTE,
+    execute: EXECUTE,
     pass: results.filter((r) => r.ok).length,
     fail: critical.length,
     skip: skips.length,

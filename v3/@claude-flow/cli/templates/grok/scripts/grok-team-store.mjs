@@ -285,3 +285,51 @@ export function assertActive(t) {
   }
 }
 
+/**
+ * Active teams that list `agent` as a member. The SubagentStop hook uses this
+ * when the spawn description carries no @team: exactly one match is used,
+ * several matches are reported as ambiguous.
+ */
+export function teamsWithMember(projectRoot, agent) {
+  const root = teamsRoot(projectRoot);
+  if (!realDirExists(root)) return [];
+  const out = [];
+  for (const ent of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!ent.isDirectory() || !NAME_RE.test(ent.name)) continue;
+    const t = readJson(path.join(root, ent.name, 'team.json'));
+    if (t && t.status === 'active' && t.members && t.members[agent]) out.push(ent.name);
+  }
+  return out.sort();
+}
+
+// ---------------------------------------------------------------------------
+// Input checks for the optional spawn / stop fields (exec hosts, runner)
+// ---------------------------------------------------------------------------
+
+const HOST_LABEL_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
+/**
+ * Extra host entries from the caller (the CLI's exec-host adapters: codex and
+ * command hosts), merged into plan.host after the grok and claude entries.
+ */
+export function parseHostPlans(hostPlans) {
+  if (hostPlans === undefined || hostPlans === null) return {};
+  if (typeof hostPlans !== 'object' || Array.isArray(hostPlans)) throw new Error('hostPlans must be an object');
+  for (const [label, entry] of Object.entries(hostPlans)) {
+    if (!HOST_LABEL_RE.test(label)) throw new Error(`Invalid host label "${label}"`);
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new Error(`hostPlans.${label} must be an object`);
+  }
+  return hostPlans;
+}
+
+const RUN_ID_RE = /^[A-Za-z0-9_.-]{1,128}$/;
+
+/** outcome ("done" default | "failed"), runId and reason for onStop. */
+export function parseStopFields(opts) {
+  const outcome = opts.outcome === undefined || opts.outcome === null ? 'done' : String(opts.outcome);
+  if (outcome !== 'done' && outcome !== 'failed') throw new Error('outcome must be "done" or "failed"');
+  const runId = opts.runId === undefined || opts.runId === null ? undefined : String(opts.runId);
+  if (runId !== undefined && !RUN_ID_RE.test(runId)) throw new Error('Invalid runId');
+  const reason = opts.reason === undefined || opts.reason === null ? undefined : String(opts.reason).slice(0, 4000);
+  return { outcome, runId, reason };
+}

@@ -178,6 +178,8 @@ export interface CodexInitOptions {
    * Also settable with RUFLO_CODEX_TRUST=full; the option wins over the environment.
    */
   codexTrust?: CodexTrust;
+  /** Merge a SubagentStop → `ruflo team hook-stop --host codex` hook into .codex/hooks.json (default true) */
+  teamHooks?: boolean;
   migrateFrom?: 'claude.md' | 'CLAUDE.md';
 }
 
@@ -261,7 +263,8 @@ export type BuiltInSkill =
   | 'sparc-methodology'
   | 'security-audit'
   | 'performance-analysis'
-  | 'github-automation';
+  | 'github-automation'
+  | 'agent-teams';
 
 /**
  * Codex undocumented features (from binary analysis)

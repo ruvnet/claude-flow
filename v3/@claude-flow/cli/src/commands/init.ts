@@ -117,7 +117,7 @@ export function readCodexTrustFlag(flags: Record<string, unknown>): 'standard' |
 // package, the current project, or the global npm prefix.
 export function runCodexInitializerCli(
   cwd: string,
-  options: { template: string; force: boolean; dual: boolean; codexTrust?: 'standard' | 'full' },
+  options: { template: string; force: boolean; dual: boolean; codexTrust?: 'standard' | 'full'; teamHooks?: boolean },
 ): boolean {
   const npxArgs = [
     '-y',
@@ -128,6 +128,7 @@ export function runCodexInitializerCli(
     ...(options.force ? ['--force'] : []),
     ...(options.dual ? ['--dual'] : []),
     ...(options.codexTrust ? ['--codex-trust', options.codexTrust] : []),
+    ...(options.teamHooks === false ? ['--no-team-hooks'] : []),
   ];
 
   const result = process.platform === 'win32'
@@ -497,9 +498,9 @@ async function initGrokAction(
 // Codex initialization action
 async function initCodexAction(
   ctx: CommandContext,
-  options: { codexMode: boolean; dualMode: boolean; force: boolean; minimal: boolean; full: boolean }
+  options: { codexMode: boolean; dualMode: boolean; force: boolean; minimal: boolean; full: boolean; teamHooks?: boolean }
 ): Promise<CommandResult> {
-  const { force, minimal, full, dualMode } = options;
+  const { force, minimal, full, dualMode, teamHooks } = options;
   const codexTrust = readCodexTrustFlag(ctx.flags);
   if (codexTrust === null) {
     output.printError(`Invalid --codex-trust: ${String(ctx.flags.codexTrust ?? ctx.flags['codex-trust'])} (valid: standard, full)`);
@@ -522,7 +523,7 @@ async function initCodexAction(
     if (!CodexInitializer) {
       spinner.stop();
       output.printInfo('Fetching the stable Codex adapter for this initialization...');
-      const success = runCodexInitializerCli(ctx.cwd, { template, force, dual: dualMode, codexTrust });
+      const success = runCodexInitializerCli(ctx.cwd, { template, force, dual: dualMode, codexTrust, teamHooks });
       if (!success) {
         output.printError('Codex initialization failed while running @claude-flow/codex@latest.');
         return { success: false, exitCode: 1 };
@@ -538,6 +539,7 @@ async function initCodexAction(
       force,
       dual: dualMode,
       codexTrust,
+      teamHooks,
     });
 
     if (!result.success) {
@@ -584,12 +586,19 @@ async function initCodexAction(
     // Warnings
     const otherWarnings = (result.warnings ?? []).filter((w) => !isTrustNote(w));
     if (otherWarnings.length > 0) {
+      // Trust steps (e.g. the /hooks review) are always shown, never folded
+      // into the "... and N more" line.
+      const actions = otherWarnings.filter((w) => w.includes('ACTION REQUIRED'));
+      const others = otherWarnings.filter((w) => !w.includes('ACTION REQUIRED'));
       output.printWarning('Warnings:');
-      for (const warning of otherWarnings.slice(0, 5)) {
+      for (const warning of others.slice(0, 5)) {
         output.printInfo(`  • ${warning}`);
       }
-      if (otherWarnings.length > 5) {
-        output.printInfo(`  ... and ${otherWarnings.length - 5} more`);
+      if (others.length > 5) {
+        output.printInfo(`  ... and ${others.length - 5} more`);
+      }
+      for (const action of actions) {
+        output.printInfo(action);
       }
       output.writeln();
     }
@@ -600,6 +609,7 @@ async function initCodexAction(
       `Review ${output.highlight('AGENTS.md')} for project instructions`,
       `Add skills with ${output.highlight('$skill-name')} syntax`,
       `Configure ${output.highlight('.agents/config.toml')} for your project`,
+      `Teams: ${output.highlight('ruflo team run')}; see AGENTS.md → Agent Teams`,
       dualMode ? `Claude Code users can use ${output.highlight('CLAUDE.md')}` : '',
     ].filter(Boolean));
 
@@ -1044,6 +1054,8 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const codexMode = ctx.flags.codex as boolean;
   const dualMode = ctx.flags.dual as boolean;
   const grokMode = ctx.flags.grok as boolean;
+  // The CLI parser turns `--no-team-hooks` into `teamHooks: false`.
+  const teamHooks = !(ctx.flags.teamHooks === false || ctx.flags['no-team-hooks'] === true);
 
   // Grok Build host (ADR-402) — separate surface under .grok/
   if (grokMode) {
@@ -1055,7 +1067,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
   }
 
   if (codexMode && !dualMode) {
-    return initCodexAction(ctx, { codexMode, dualMode: false, force, minimal, full });
+    return initCodexAction(ctx, { codexMode, dualMode: false, force, minimal, full, teamHooks });
   }
   if (!dualMode) {
     return initClaudeAction(ctx);
@@ -1081,6 +1093,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     force,
     minimal,
     full,
+    teamHooks,
   });
   if (!codexResult.success) {
     return {
@@ -1907,6 +1920,12 @@ export const initCommand: Command = {
       name: 'codex-trust',
       description: 'Trust level of the generated .codex/config.toml: standard (default: workspace-write sandbox, on-request approvals, cached web search) or full (danger-full-access, no approvals, live web search). An existing file is never rewritten',
       type: 'string',
+    },
+    {
+      name: 'no-team-hooks',
+      description: 'With --codex/--dual: skip the Agent Teams SubagentStop hook in .codex/hooks.json',
+      type: 'boolean',
+      default: false,
     },
     {
       name: 'no-codex-detect',
