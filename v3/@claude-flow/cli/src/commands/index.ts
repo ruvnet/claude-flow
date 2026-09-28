@@ -54,6 +54,7 @@ const commandLoaders: Record<string, CommandLoader> = {
   // P0 Commands
   completions: () => import('./completions.js'),
   doctor: () => import('./doctor.js'),
+  harness: () => import('./harness.js'),
   // Verification (ADR-095, signed witness manifest)
   verify: () => import('./verify.js'),
   // Analysis Commands
