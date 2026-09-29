@@ -55,6 +55,24 @@ export interface TeamStopHookMergeResult {
 }
 
 /**
+ * The first symlink on the path from `root` down to `dest`, if any. Mirrors
+ * `symlinkOnPath` in `@claude-flow/cli/src/init/grok-generator.ts` — the same
+ * check added for the Grok-side init path but missing here (#3513 MINOR 2).
+ */
+function symlinkOnPath(root: string, dest: string): string | undefined {
+  let cur = root;
+  for (const part of path.relative(root, dest).split(path.sep).filter(Boolean)) {
+    cur = path.join(cur, part);
+    try {
+      if (fs.lstatSync(cur).isSymbolicLink()) return cur;
+    } catch {
+      return undefined; // does not exist yet; nothing below it can either
+    }
+  }
+  return undefined;
+}
+
+/**
  * Merge one SubagentStop entry that calls `ruflo team hook-stop --host codex`
  * into the project's .codex/hooks.json. Idempotent: nothing is added when an
  * existing command already contains `team hook-stop`. Existing entries are
@@ -65,6 +83,10 @@ export async function mergeTeamStopHook(
   platform: NodeJS.Platform = process.platform,
 ): Promise<TeamStopHookMergeResult> {
   const file = path.join(projectPath, '.codex', 'hooks.json');
+  const link = symlinkOnPath(projectPath, file);
+  if (link) {
+    throw new Error(`refusing to write through symlink ${link}`);
+  }
   let doc: { hooks?: Record<string, unknown> } = { hooks: {} };
   if (await fs.pathExists(file)) {
     const raw = await fs.readFile(file, 'utf-8');

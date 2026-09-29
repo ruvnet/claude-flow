@@ -194,6 +194,21 @@ export async function spawnMember(projectRoot, opts) {
     Object.assign(plan.host, hostPlans);
     // The top-level prompt is the team host's variant when a caller entry has one.
     if (typeof plan.host[t.host]?.prompt === 'string') plan.prompt = plan.host[t.host].prompt;
+    const existing = members[agent];
+    // A member mid-run holds a live claim: status "running" plus the runId,
+    // runPid and runHost `ruflo team run` recorded when it started. Blindly
+    // replacing the record (as this used to) drops that claim, so a second
+    // `team run` for the same agent no longer sees it as running and starts
+    // concurrently (#3513 MAJOR F). Re-spawning must carry the claim forward.
+    const liveClaim = existing && existing.status === 'running' && existing.runId
+      ? {
+          status: existing.status,
+          runId: existing.runId,
+          runPid: existing.runPid,
+          runHost: existing.runHost,
+          runStartedAt: existing.runStartedAt,
+        }
+      : undefined;
     members[agent] = {
       name: agent,
       role,
@@ -202,6 +217,7 @@ export async function spawnMember(projectRoot, opts) {
       next,
       ...(model ? { model } : {}),
       spawn: plan.host,
+      ...liveClaim,
     };
     return { action: 'spawn', spawnPlan: plan, teamId: t.id };
   });
@@ -373,6 +389,14 @@ export function onStop(projectRoot, opts) {
     const member = t.members?.[agent];
     if (member && runId && member.lastStopRunId === runId) {
       return { action: 'on-stop', agent, member: true, duplicate: true, runId };
+    }
+    // A member with a live run claim (status "running" plus the runId
+    // `ruflo team run` recorded) may only be released by a report naming
+    // that EXACT runId. A stop report with no runId at all, or with a
+    // stale/foreign one, must not release a concurrently-running claim it
+    // has no way to know is stale (#3513 MAJOR F).
+    if (member && member.status === 'running' && member.runId && member.runId !== runId) {
+      return { action: 'on-stop', agent, member: true, ignored: 'runIdMismatch', runId, liveRunId: member.runId };
     }
     if (member) {
       member.status = outcome === 'failed' ? 'failed' : 'idle';

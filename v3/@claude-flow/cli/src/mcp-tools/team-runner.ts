@@ -239,146 +239,179 @@ export async function runTeamAgent(opts: TeamRunOptions): Promise<TeamRunResult>
   } catch (err) {
     return abandon(errText(err));
   }
-  const prompt = withMessages(basePrompt, delivered);
-  const args = rawArgs.map((a) => fillPlaceholders(a, { ...vars, prompt }));
-
-  store.ensureRealDir(root, runsDir);
-  const env = dual.buildWorkerEnvironment(process.env, { principalId: `agent:${agent}`, passEnv });
-  env.CLAUDE_FLOW_CWD = root;
-  const startedAt = new Date().toISOString();
-  const timeoutMs = opts.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS;
-  let code: number | null = null;
-  let timedOut = false;
-  let aborted = false;
-  let ms = 0;
-  let stdout = '';
-  let stderr = '';
-  let spawnError: string | undefined;
-  // The child leads its own process group, so Ctrl-C at the terminal no
-  // longer reaches it; forward SIGINT/SIGTERM as an abort that stops the tree.
-  const ac = new AbortController();
-  const onSignal = () => ac.abort();
-  process.once('SIGINT', onSignal);
-  process.once('SIGTERM', onSignal);
-  try {
-    const r = await dual.runHeadlessProcess({
-      command,
-      args,
-      cwd: root,
-      env,
-      stdinText: promptVia === 'stdin' ? prompt : undefined,
-      timeoutMs,
-      maxOutputBytes,
-      signal: ac.signal,
-    });
-    ({ code, timedOut, ms, stdout, stderr } = r);
-    aborted = (r as { aborted?: boolean }).aborted === true;
-    if ((r as { truncated?: boolean }).truncated) warnings.push('outputTruncated');
-  } catch (err) {
-    spawnError = err instanceof Error ? err.message : String(err);
-  } finally {
-    process.removeListener('SIGINT', onSignal);
-    process.removeListener('SIGTERM', onSignal);
-  }
-
-  const events = plan.events === 'codex-jsonl' ? parseCodexEvents(stdout) : undefined;
-  const fromFile = readResultFile(resultFile, maxOutputBytes);
-  if (fromFile.truncated) warnings.push('resultFileTruncated');
-  if (fromFile.refused) warnings.push(`resultFileIgnored:${fromFile.refused}`);
-  let text = fromFile.text;
-  if (!text.trim()) text = events ? events.lastMessage ?? '' : stdout;
-  if (!existsSync(resultFile) && !fromFile.refused) writeFileSync(resultFile, text, 'utf-8');
-
-  let reason: string | undefined;
-  if (spawnError) reason = `could not start ${command}: ${spawnError}`;
-  else if (aborted) reason = 'interrupted';
-  else if (timedOut) reason = `timed out after ${timeoutMs}ms`;
-  else if (code !== 0) reason = `exit code ${code}${stderr.trim() ? `: ${stderr.trim().slice(-500)}` : ''}`;
-  else if (events?.terminal === 'turn.failed') reason = events.failure;
-  const outcome: 'done' | 'failed' = reason === undefined ? 'done' : 'failed';
-  if (events && outcome === 'done' && !events.terminal) warnings.push('noTerminalEvent');
-
-  // A failed run did not act on the delivered messages. Queue them again in
-  // the same team so a retry with `ruflo team run` sees them (the archived
-  // copies stay as history).
-  if (outcome === 'failed') {
+  // From here the inbox has been drained: an exception anywhere below (in
+  // run-directory, result-file, or run-file handling) must not strand the
+  // member "running" forever with its messages silently dropped. It either
+  // requeues `delivered` (unless the normal failed-outcome path below
+  // already did) and releases the run claim, or — if `onStop` already ran —
+  // leaves the state `onStop` already settled alone (#3513 MINOR 4).
+  let messagesRequeued = false;
+  const requeueDelivered = (): void => {
+    if (messagesRequeued) return;
+    messagesRequeued = true;
     for (const m of delivered) {
       trySend(bus, root, {
-        team: teamName,
-        to: agent,
-        from: m.from,
-        type: m.type,
-        summary: m.summary,
-        message: m.content,
-        priority: m.priority,
+        team: teamName, to: agent, from: m.from, type: m.type, summary: m.summary,
+        message: m.content, priority: m.priority,
       }, warnings, `requeueFailed:${m.id}`);
     }
-  }
-
-  writeRunFile(runFile, {
-    runId,
-    team: teamName,
-    agent,
-    host: label,
-    command,
-    startedAt,
-    code,
-    timedOut,
-    ms,
-    outcome,
-    ...(reason ? { reason } : {}),
-    resultFile: relative(root, resultFile),
-    ...(events?.threadId ? { threadId: events.threadId } : {}),
-    ...(events ? { mcpTools: events.mcpTools ?? [] } : {}),
-    inboxDelivered: delivered.map((m) => m.id),
-    warnings,
-  });
-
-  if (events?.threadId) {
+  };
+  let onStopSettled = false;
+  const releaseRunClaim = (): void => {
+    if (onStopSettled) return;
     try {
       store.updateTeam(root, teamName, (t) => {
         const m = t.members?.[agent];
-        if (m) m.threadId = events.threadId;
+        if (m && m.runId === runId) m.status = 'idle';
       });
     } catch {
-      warnings.push('threadIdNotRecorded');
+      /* the claim goes stale; a future run replaces it */
     }
-  }
-
-  // A failed run goes to the lead only; the next step is not ready.
-  const targets = outcome === 'done' && member.next?.length ? member.next : ['lead'];
-  const body = text.trim()
-    ? text.length > HANDOFF_MAX_CHARS ? `${text.slice(0, HANDOFF_MAX_CHARS)}\n…(truncated)` : text
-    : `(no final message${reason ? `; ${reason}` : ''})`;
-  for (const to of targets) {
-    trySend(bus, root, {
-      team: teamName,
-      to,
-      from: agent,
-      type: 'result',
-      summary: `${agent} ${outcome}`,
-      message: `${body}\n\n[run: ${relative(root, runFile)}]`,
-    }, warnings, `sendFailed:${to}`);
-  }
-
-  let onStop: unknown;
-  try {
-    onStop = bus.onStop(root, { team: teamName, agent, outcome, runId, reason });
-  } catch (err) {
-    onStop = { success: false, error: errText(err) };
-    warnings.push('onStopFailed');
-  }
-  const exitCode = code === 0 && outcome === 'done' ? 0 : aborted ? INTERRUPTED_EXIT_CODE : timedOut ? TIMEOUT_EXIT_CODE : code || 1;
-  return {
-    success: outcome === 'done',
-    exitCode,
-    runId,
-    runFile: relative(root, runFile),
-    outcome,
-    reason,
-    warnings,
-    onStop,
   };
+
+  try {
+    const prompt = withMessages(basePrompt, delivered);
+    const args = rawArgs.map((a) => fillPlaceholders(a, { ...vars, prompt }));
+
+    store.ensureRealDir(root, runsDir);
+    const env = dual.buildWorkerEnvironment(process.env, { principalId: `agent:${agent}`, passEnv });
+    env.CLAUDE_FLOW_CWD = root;
+    const startedAt = new Date().toISOString();
+    const timeoutMs = opts.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS;
+    let code: number | null = null;
+    let timedOut = false;
+    let aborted = false;
+    let ms = 0;
+    let stdout = '';
+    let stderr = '';
+    let spawnError: string | undefined;
+    // The child leads its own process group, so Ctrl-C or a closed terminal
+    // no longer reaches it; forward SIGINT/SIGTERM/SIGHUP as an abort that
+    // stops the tree. SIGHUP (a closed terminal/SSH session) was previously
+    // NOT forwarded, so the runner died on its own SIGHUP-default handling
+    // while the detached child kept running, untracked (#3513 MEDIUM D).
+    // SIGKILL of the runner itself cannot be caught by definition; see the
+    // "known limitation" note in docs/adr/ADR-402-host-agnostic-agent-teams.md.
+    const ac = new AbortController();
+    const onSignal = () => ac.abort();
+    process.once('SIGINT', onSignal);
+    process.once('SIGTERM', onSignal);
+    process.once('SIGHUP', onSignal);
+    try {
+      const r = await dual.runHeadlessProcess({
+        command,
+        args,
+        cwd: root,
+        env,
+        stdinText: promptVia === 'stdin' ? prompt : undefined,
+        timeoutMs,
+        maxOutputBytes,
+        signal: ac.signal,
+      });
+      ({ code, timedOut, ms, stdout, stderr } = r);
+      aborted = (r as { aborted?: boolean }).aborted === true;
+      if ((r as { truncated?: boolean }).truncated) warnings.push('outputTruncated');
+    } catch (err) {
+      spawnError = err instanceof Error ? err.message : String(err);
+    } finally {
+      process.removeListener('SIGINT', onSignal);
+      process.removeListener('SIGTERM', onSignal);
+      process.removeListener('SIGHUP', onSignal);
+    }
+
+    const events = plan.events === 'codex-jsonl' ? parseCodexEvents(stdout) : undefined;
+    const fromFile = readResultFile(resultFile, maxOutputBytes);
+    if (fromFile.truncated) warnings.push('resultFileTruncated');
+    if (fromFile.refused) warnings.push(`resultFileIgnored:${fromFile.refused}`);
+    let text = fromFile.text;
+    if (!text.trim()) text = events ? events.lastMessage ?? '' : stdout;
+    if (!existsSync(resultFile) && !fromFile.refused) writeFileSync(resultFile, text, 'utf-8');
+
+    let reason: string | undefined;
+    if (spawnError) reason = `could not start ${command}: ${spawnError}`;
+    else if (aborted) reason = 'interrupted';
+    else if (timedOut) reason = `timed out after ${timeoutMs}ms`;
+    else if (code !== 0) reason = `exit code ${code}${stderr.trim() ? `: ${stderr.trim().slice(-500)}` : ''}`;
+    else if (events?.terminal === 'turn.failed') reason = events.failure;
+    const outcome: 'done' | 'failed' = reason === undefined ? 'done' : 'failed';
+    if (events && outcome === 'done' && !events.terminal) warnings.push('noTerminalEvent');
+
+    // A failed run (including an interrupted one — SIGINT/SIGTERM/SIGHUP, or
+    // a timeout) did not act on the delivered messages. Queue them again in
+    // the same team so a retry with `ruflo team run` sees them (the archived
+    // copies stay as history).
+    if (outcome === 'failed') requeueDelivered();
+
+    writeRunFile(runFile, {
+      runId,
+      team: teamName,
+      agent,
+      host: label,
+      command,
+      startedAt,
+      code,
+      timedOut,
+      ms,
+      outcome,
+      ...(reason ? { reason } : {}),
+      resultFile: relative(root, resultFile),
+      ...(events?.threadId ? { threadId: events.threadId } : {}),
+      ...(events ? { mcpTools: events.mcpTools ?? [] } : {}),
+      inboxDelivered: delivered.map((m) => m.id),
+      warnings,
+    });
+
+    if (events?.threadId) {
+      try {
+        store.updateTeam(root, teamName, (t) => {
+          const m = t.members?.[agent];
+          if (m) m.threadId = events.threadId;
+        });
+      } catch {
+        warnings.push('threadIdNotRecorded');
+      }
+    }
+
+    // A failed run goes to the lead only; the next step is not ready.
+    const targets = outcome === 'done' && member.next?.length ? member.next : ['lead'];
+    const body = text.trim()
+      ? text.length > HANDOFF_MAX_CHARS ? `${text.slice(0, HANDOFF_MAX_CHARS)}\n…(truncated)` : text
+      : `(no final message${reason ? `; ${reason}` : ''})`;
+    for (const to of targets) {
+      trySend(bus, root, {
+        team: teamName,
+        to,
+        from: agent,
+        type: 'result',
+        summary: `${agent} ${outcome}`,
+        message: `${body}\n\n[run: ${relative(root, runFile)}]`,
+      }, warnings, `sendFailed:${to}`);
+    }
+
+    let onStop: unknown;
+    try {
+      onStop = bus.onStop(root, { team: teamName, agent, outcome, runId, reason });
+      onStopSettled = true;
+    } catch (err) {
+      onStop = { success: false, error: errText(err) };
+      warnings.push('onStopFailed');
+    }
+    const exitCode = code === 0 && outcome === 'done' ? 0 : aborted ? INTERRUPTED_EXIT_CODE : timedOut ? TIMEOUT_EXIT_CODE : code || 1;
+    return {
+      success: outcome === 'done',
+      exitCode,
+      runId,
+      runFile: relative(root, runFile),
+      outcome,
+      reason,
+      warnings,
+      onStop,
+    };
+  } catch (err) {
+    requeueDelivered();
+    releaseRunClaim();
+    return fail(`run-directory, result-file, or run-file handling failed: ${errText(err)}`);
+  }
 }
 
 export interface HookStopResult {

@@ -4,7 +4,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { closeSync, lstatSync, openSync, readSync, renameSync, writeFileSync } from 'node:fs';
+import { closeSync, constants as FS_CONSTANTS, fstatSync, openSync, readSync, renameSync, writeFileSync } from 'node:fs';
 import { hostname } from 'node:os';
 import type { ExecSpec } from './team-hosts/index.js';
 import type { BusMessage, StoreMember, StoreTeam } from './team-bus.js';
@@ -137,17 +137,30 @@ export function runLooksLive(m: StoreMember): boolean {
   }
 }
 
-/** Read at most `max` bytes of a regular file. Symlinks and devices are refused. */
+/**
+ * Read at most `max` bytes of a regular file. Symlinks and devices are
+ * refused.
+ *
+ * #3513 MINOR 3: this used to `lstatSync` the path and THEN `openSync` it —
+ * two syscalls against a path, not one against a descriptor, so the file
+ * could be swapped for a symlink between the check and the open (TOCTOU).
+ * `O_NOFOLLOW` makes the open itself refuse a symlink atomically, and the
+ * "is it a regular file" check runs against the already-open descriptor
+ * (`fstatSync`), so nothing can be swapped underneath it either.
+ */
 export function readResultFile(file: string, max: number): { text: string; truncated: boolean; refused?: string } {
-  let st;
+  let fd: number;
   try {
-    st = lstatSync(file);
-  } catch {
-    return { text: '', truncated: false };
+    fd = openSync(file, FS_CONSTANTS.O_RDONLY | (FS_CONSTANTS.O_NOFOLLOW ?? 0));
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') return { text: '', truncated: false };
+    if (code === 'ELOOP') return { text: '', truncated: false, refused: 'symlink' };
+    return { text: '', truncated: false, refused: 'not a regular file' };
   }
-  if (!st.isFile()) return { text: '', truncated: false, refused: st.isSymbolicLink() ? 'symlink' : 'not a regular file' };
-  const fd = openSync(file, 'r');
   try {
+    const st = fstatSync(fd);
+    if (!st.isFile()) return { text: '', truncated: false, refused: 'not a regular file' };
     const buf = Buffer.alloc(Math.min(st.size, max));
     const n = readSync(fd, buf, 0, buf.length, 0);
     let text = buf.subarray(0, n).toString('utf8');

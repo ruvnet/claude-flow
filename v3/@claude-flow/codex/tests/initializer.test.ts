@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -121,6 +121,17 @@ describe('Agent Teams stop hook (on by default)', () => {
     expect(doc.hooks.PreToolUse).toEqual(existing.hooks.PreToolUse);
     expect(doc.hooks.SubagentStop[0]).toEqual(existing.hooks.SubagentStop[0]);
     expect(doc.hooks.SubagentStop[1].hooks[0].command).toContain('team hook-stop');
+  });
+
+  it('refuses to write through a symlinked .codex directory (#3513 MINOR 2)', async () => {
+    const outside = mkdtempSync(join(tmpdir(), 'codex-hooks-outside-'));
+    try {
+      symlinkSync(outside, join(projectPath, '.codex'));
+      await expect(mergeTeamStopHook(projectPath, 'linux')).rejects.toThrow(/refusing to write through symlink/);
+      expect(readdirSync(outside)).toEqual([]);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 
   it('is idempotent', async () => {

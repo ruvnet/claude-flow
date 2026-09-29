@@ -223,6 +223,14 @@ const trustHostCommand: Command = {
       });
       return { success: false, exitCode: 1 };
     }
+    // Look-before-you-trust (#3513 MEDIUM B): show the resolved entry — the
+    // exact command, args, passEnv and isolation that a future `team run`
+    // will execute — BEFORE persisting the trust record, not after. A user
+    // piping this through a pager or a CI log sees what they are trusting
+    // in time to Ctrl-C, rather than a record that already exists on disk.
+    if (!ctx.flags.revoke) {
+      printJson({ preview: true, label, host: cfg, unsafe: unsafe ?? null, action: 'about to trust' });
+    }
     const entry = hosts.recordTrust(root, label, cfg, {
       allowUnsafeCommand: ctx.flags.allowUnsafeCommand === true,
       revoke: ctx.flags.revoke === true,

@@ -12,18 +12,30 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
+import {
+  existsSync, linkSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import type { CommandHostConfig } from './types.js';
 
 const TRUST_FILE_VERSION = 1;
+const LOCK_WAIT_MS = 5000;
+const LOCK_STALE_MS = 15000;
 
 /** Commands that run arbitrary code from their arguments. Compared after lowercasing and dropping a Windows extension. */
 const UNSAFE_COMMANDS = new Set([
   'sh', 'bash', 'zsh', 'dash', 'ksh', 'mksh', 'ash', 'csh', 'tcsh', 'fish', 'busybox',
   'cmd', 'command', 'powershell', 'pwsh', 'wscript', 'cscript', 'mshta',
   'env', 'sudo', 'doas', 'su', 'xargs', 'nohup', 'nice', 'timeout', 'exec', 'eval', 'osascript',
+  // #3513 MEDIUM B: general-purpose interpreters and tools that can run
+  // arbitrary code via a flag (`-e`, `-c`, `eval`) — a plain `trust-host`
+  // (without --allow-unsafe-command) accepted `node -e "<script>" {prompt}`
+  // and the script ran.
+  'node', 'nodejs', 'python', 'python3', 'python2', 'ruby', 'perl', 'perl5',
+  'php', 'lua', 'tclsh', 'wish', 'groovy', 'jjs', 'deno', 'bun',
+  'npx', 'npm', 'yarn', 'pnpm', 'git', 'find', 'make', 'gcc', 'g++', 'cc',
+  'rlwrap', 'ssh', 'rsync', 'tar',
 ]);
 
 export interface TrustEntry {
@@ -72,6 +84,79 @@ export function unsafeCommandReason(command: string): string | undefined {
   return undefined;
 }
 
+function sleepMs(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * Break a lock file older than LOCK_STALE_MS (a crashed holder). Renames it
+ * aside and checks the token it held: if a live holder re-took the lock in
+ * between, the rename caught theirs, so it is linked back (link fails rather
+ * than overwrite) and this waiter keeps waiting. Mirrors the same pattern
+ * `grok-team-store.mjs`'s `withTeamLock` uses for `team.json`.
+ */
+function breakStaleLock(lock: string, token: string): void {
+  let seen: string;
+  try {
+    if (Date.now() - statSync(lock).mtimeMs <= LOCK_STALE_MS) return;
+    seen = readFileSync(lock, 'utf-8');
+  } catch {
+    return; // released meanwhile
+  }
+  const aside = `${lock}.stale.${token}`;
+  try {
+    renameSync(lock, aside);
+  } catch {
+    return; // another waiter broke it first
+  }
+  try {
+    if (readFileSync(aside, 'utf-8') !== seen) {
+      try {
+        linkSync(aside, lock);
+      } catch {
+        /* slot taken; that holder's release is a no-op */
+      }
+    }
+  } finally {
+    rmSync(aside, { force: true });
+  }
+}
+
+/**
+ * Run `fn` holding a cross-process lock on the trust file: a `<file>.lock`
+ * file created with O_EXCL and holding a random token. #3513 MINOR 1: without
+ * this, 12 parallel `trust-host` calls could leave fewer than 12 records, and
+ * a concurrent `--revoke` could be clobbered by a racing write (read-modify-
+ * write with no lock at all).
+ */
+function withTrustLock<T>(fn: () => T): T {
+  const file = trustFilePath();
+  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  const lock = `${file}.lock`;
+  const token = `${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 10)}`;
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  for (let wait = 2; ; wait = Math.min(wait * 2, 50)) {
+    try {
+      writeFileSync(lock, token, { flag: 'wx', mode: 0o600 });
+      break;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+    }
+    breakStaleLock(lock, token);
+    if (Date.now() > deadline) throw new Error('Timed out waiting for the trust-file lock');
+    sleepMs(wait + Math.floor(Math.random() * wait));
+  }
+  try {
+    return fn();
+  } finally {
+    try {
+      if (readFileSync(lock, 'utf-8') === token) rmSync(lock, { force: true });
+    } catch {
+      /* already gone */
+    }
+  }
+}
+
 function readTrustFile(): TrustFile {
   const file = trustFilePath();
   if (!existsSync(file)) return { version: TRUST_FILE_VERSION, entries: [] };
@@ -97,24 +182,26 @@ export function recordTrust(
   opts: { allowUnsafeCommand?: boolean; revoke?: boolean } = {},
 ): TrustEntry | undefined {
   const root = canonicalRoot(projectRoot);
-  const doc = readTrustFile();
-  // One record per project and label: a new trust replaces the old digest.
-  doc.entries = doc.entries.filter((e) => !(e.projectRoot === root && e.label === label));
-  let entry: TrustEntry | undefined;
-  if (!opts.revoke) {
-    entry = {
-      projectRoot: root,
-      label,
-      sha256: hostConfigDigest(cfg),
-      allowUnsafeCommand: opts.allowUnsafeCommand === true,
-      trustedAt: new Date().toISOString(),
-    };
-    doc.entries.push(entry);
-  }
-  const file = trustFilePath();
-  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
-  const tmp = `${file}.tmp.${process.pid}`;
-  writeFileSync(tmp, JSON.stringify({ version: TRUST_FILE_VERSION, entries: doc.entries }, null, 2) + '\n', { mode: 0o600 });
-  renameSync(tmp, file);
-  return entry;
+  return withTrustLock(() => {
+    const doc = readTrustFile();
+    // One record per project and label: a new trust replaces the old digest.
+    doc.entries = doc.entries.filter((e) => !(e.projectRoot === root && e.label === label));
+    let entry: TrustEntry | undefined;
+    if (!opts.revoke) {
+      entry = {
+        projectRoot: root,
+        label,
+        sha256: hostConfigDigest(cfg),
+        allowUnsafeCommand: opts.allowUnsafeCommand === true,
+        trustedAt: new Date().toISOString(),
+      };
+      doc.entries.push(entry);
+    }
+    const file = trustFilePath();
+    mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+    const tmp = `${file}.tmp.${process.pid}`;
+    writeFileSync(tmp, JSON.stringify({ version: TRUST_FILE_VERSION, entries: doc.entries }, null, 2) + '\n', { mode: 0o600 });
+    renameSync(tmp, file);
+    return entry;
+  });
 }

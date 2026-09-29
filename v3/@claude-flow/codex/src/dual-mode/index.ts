@@ -24,4 +24,6 @@ export type {
   WorkerEnvironmentOptions,
 } from './process.js';
 
+export { isProtectedEnvName } from './env-policy.js';
+
 export { createDualModeCommand } from './cli.js';

@@ -8,6 +8,9 @@
  */
 
 import { spawn, spawnSync, ChildProcess } from 'child_process';
+import { isProtectedEnvName } from './env-policy.js';
+
+export { isProtectedEnvName } from './env-policy.js';
 
 export interface HeadlessProcessOptions {
   command: string;
@@ -182,12 +185,23 @@ export function runHeadlessProcess(opts: HeadlessProcessOptions): Promise<Headle
     const stopTree = () => {
       if (exited && process.platform === 'win32') return;
       killProcessTree(proc, 'SIGTERM');
-      timers.push(setTimeout(() => {
+      // The SIGKILL escalation is deliberately NOT pushed onto `timers`:
+      // those are cleared by settle(), which can fire early — the group
+      // *leader's* `close` event resolves the promise as soon as the leader
+      // exits and nothing else holds its stdio pipes open, even though a
+      // descendant that trapped SIGTERM and detached its own stdio
+      // (`exec >/dev/null 2>&1`) is still alive in the same process group.
+      // The escalation must run to completion regardless of leader state,
+      // or that descendant survives past the grace period (#3513 MAJOR E).
+      setTimeout(() => {
         killProcessTree(proc, 'SIGKILL');
         // A process that left the group can hold the pipes open; once the
-        // child itself is gone, stop waiting for 'close'.
-        timers.push(setTimeout(() => { if (exited) finish(); }, 2000));
-      }, grace));
+        // child itself is gone, stop waiting for 'close'. Skipped once the
+        // promise already settled — nothing left to finish.
+        if (!settled) {
+          timers.push(setTimeout(() => { if (exited) finish(); }, 2000));
+        }
+      }, grace);
     };
     function onAbort() {
       if (settled || timedOut || aborted) return;
@@ -238,13 +252,15 @@ export interface WorkerEnvironmentOptions {
   passEnv?: string[];
 }
 
-const SENSITIVE_ENV_NAME = /(?:^|_)(?:API_?KEY|KEY|SECRET|TOKEN|PASSWORD|CREDENTIALS?)$/i;
-
 /**
  * Build a child environment from `base`: drop secrets and policy/identity
- * variables, then set the worker's principal, database path and envelope.
- * Names in `passEnv` (for example a host's own auth key) are re-added from
- * `base` after the strip. Token minting is left to the caller.
+ * variables (via the shared `isProtectedEnvName` policy — #3513 MAJOR A),
+ * then set the worker's principal, database path and envelope. Names in
+ * `passEnv` (for example a host's own auth key) are re-added from `base`
+ * after the strip — callers that hand this an untrusted `passEnv` (a custom
+ * command host's declared list) must filter it through `isProtectedEnvName`
+ * themselves first, the same way `team-runner.ts` does; this function trusts
+ * whatever `passEnv` it is given. Token minting is left to the caller.
  */
 export function buildWorkerEnvironment(
   base: NodeJS.ProcessEnv,
@@ -252,11 +268,7 @@ export function buildWorkerEnvironment(
 ): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   for (const [name, value] of Object.entries(base)) {
-    if (SENSITIVE_ENV_NAME.test(name)
-      || name.startsWith('CLAUDE_FLOW_POLICY_')
-      || name === 'CLAUDE_FLOW_PRINCIPAL_ID'
-      || name === 'CLAUDE_FLOW_MCP_INVOCATION_TOKEN'
-      || name === 'CLAUDE_FLOW_MCP_CALLER_PUBKEY') continue;
+    if (isProtectedEnvName(name)) continue;
     env[name] = value;
   }
   env.FORCE_COLOR = '0';

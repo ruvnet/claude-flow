@@ -4,7 +4,7 @@
  * respect team and plan state, one run per agent at a time, and the result
  * file read is bounded. No model calls.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -12,7 +12,7 @@ import { PassThrough } from 'node:stream';
 import { teamTools } from '../src/mcp-tools/team-tools.js';
 import { planBlock, readResultFile, runTeamAgent } from '../src/mcp-tools/team-runner.js';
 import { loadTeamHosts, recordTrust, unsafeCommandReason } from '../src/mcp-tools/team-hosts/index.js';
-import { parseHookPayload, readHookPayload } from '../src/commands/team.js';
+import { parseHookPayload, readHookPayload, teamCommand } from '../src/commands/team.js';
 
 function tool(name: string) {
   const t = teamTools.find((x) => x.name === name);
@@ -151,6 +151,65 @@ describe('team run guards', () => {
     for (const c of ['codex', 'aider', 'myagent', 'goose']) expect(unsafeCommandReason(c), c).toBeUndefined();
   });
 
+  it('classifies general-purpose interpreters as unsafe (#3513 MEDIUM B)', () => {
+    // Every one of these can run arbitrary code via a -e/-c/eval-style flag.
+    for (const c of ['node', 'node.exe', 'python3', 'python', 'perl', 'ruby', 'npx', 'git', 'find', 'deno', 'bun', 'php']) {
+      expect(unsafeCommandReason(c), c).toBeDefined();
+    }
+  });
+
+  it('refuses `node -e "<script>" {prompt}` without --allow-unsafe-command, and runs it after (#3513 MEDIUM B)', async () => {
+    const marker = join(cwd, 'RAN_ARBITRARY');
+    writeHosts({
+      myagent: {
+        kind: 'exec',
+        command: 'node',
+        args: ['-e', `require('fs').writeFileSync(${JSON.stringify(marker)},'x')`, '{prompt}'],
+        promptVia: 'arg',
+      },
+    });
+    const cfg = loadTeamHosts(cwd).myagent;
+    expect(unsafeCommandReason(cfg.command)).toBeDefined();
+
+    // Trusted WITHOUT --allow-unsafe-command: team_create still refuses it.
+    recordTrust(cwd, 'myagent', cfg);
+    expect((await tool('team_create').handler({ name: 'demo', host: 'myagent' })).success).toBe(false);
+    expect(existsSync(marker)).toBe(false);
+
+    // Only after --allow-unsafe-command does the plan (and the run) go through.
+    recordTrust(cwd, 'myagent', cfg, { allowUnsafeCommand: true });
+    expect((await tool('team_create').handler({ name: 'demo', host: 'myagent' })).success).toBe(true);
+    await tool('team_spawn').handler({ team: 'demo', agent: 'worker', role: 'coder', prompt: 'x' });
+    const r = await runTeamAgent({ team: 'demo', agent: 'worker' });
+    expect(r.outcome).toBe('done');
+    expect(existsSync(marker)).toBe(true);
+  });
+
+  it('trust-host shows the resolved host entry before persisting the trust record (#3513 MEDIUM B)', async () => {
+    writeHosts({ myagent: { kind: 'exec', command: node, args: ['{prompt}'] } });
+    const trustHost = teamCommand.subcommands!.find((c) => c.name === 'trust-host')!;
+    const trustFile = process.env.RUFLO_TEAM_TRUST_FILE!;
+    const writes: Array<{ json: Record<string, unknown>; fileExistedBefore: boolean }> = [];
+    const spy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      writes.push({ json: JSON.parse(String(chunk)), fileExistedBefore: existsSync(trustFile) });
+      return true;
+    });
+    try {
+      await trustHost.action!({
+        args: ['myagent'], flags: { _: [], allowUnsafeCommand: true }, cwd, interactive: false,
+      });
+    } finally {
+      spy.mockRestore();
+    }
+    expect(writes.length).toBeGreaterThanOrEqual(2);
+    expect(writes[0].json.preview).toBe(true);
+    expect(writes[0].json.host).toMatchObject({ command: node });
+    expect(writes[0].fileExistedBefore).toBe(false);
+    const final = writes[writes.length - 1];
+    expect(final.json.success).toBe(true);
+    expect(final.fileExistedBefore).toBe(true);
+  });
+
   it('refuses to run after team_shutdown', async () => {
     await setup(['-e', "require('fs').writeFileSync('ran','x')", '{prompt}']);
     await tool('team_shutdown').handler({ team: 'demo' });
@@ -187,6 +246,97 @@ describe('team run guards', () => {
     const r1 = await first;
     expect(r1.outcome).toBe('done');
     expect(readTeam().members.worker.lastStopRunId).toBe(r1.runId);
+  });
+
+  it('re-spawning a member mid-run preserves its live run claim, so the concurrency guard still refuses a second run (#3513 MAJOR F)', async () => {
+    await setup(['-e', "process.stdout.write('ok')", '{prompt}']);
+    const t = readTeam();
+    // A live claim: status "running" with a runId and OUR OWN pid, which
+    // `runLooksLive` will see as genuinely alive.
+    Object.assign(t.members.worker, {
+      status: 'running', runId: 'run_live', runPid: process.pid, runHost: (await import('node:os')).hostname(),
+    });
+    writeTeam(t);
+
+    // Re-spawn the same agent (e.g. the lead re-registering it mid-run).
+    const spawned = await tool('team_spawn').handler({ team: 'demo', agent: 'worker', role: 'coder', prompt: 'do it' });
+    expect(spawned.success).toBe(true);
+
+    // The claim must have survived the respawn, not been reset to "registered".
+    const after = readTeam().members.worker;
+    expect(after.status).toBe('running');
+    expect(after.runId).toBe('run_live');
+    expect(after.runPid).toBe(process.pid);
+
+    // So a second `team run` is still refused as a concurrent run.
+    const second = await runTeamAgent({ team: 'demo', agent: 'worker' });
+    expect(second.success).toBe(false);
+    expect(second.error).toMatch(/already running/);
+  });
+
+  it('onStop with a stale or missing runId does not release a live run claim (#3513 MAJOR F)', async () => {
+    await setup(['-e', "process.stdout.write('ok')", '{prompt}']);
+    const t = readTeam();
+    Object.assign(t.members.worker, {
+      status: 'running', runId: 'run_live', runPid: process.pid, runHost: (await import('node:os')).hostname(),
+    });
+    writeTeam(t);
+
+    // No runId at all.
+    const r1 = await tool('team_on_stop').handler({ team: 'demo', agent: 'worker', outcome: 'done' });
+    expect(r1.success).toBe(true); // the call itself succeeds…
+    expect(readTeam().members.worker.status).toBe('running'); // …but the claim is untouched.
+    expect(readTeam().members.worker.runId).toBe('run_live');
+
+    // A stale/foreign runId.
+    const r2 = await tool('team_on_stop').handler({ team: 'demo', agent: 'worker', outcome: 'done', runId: 'run_other' });
+    expect(r2.success).toBe(true);
+    expect(readTeam().members.worker.status).toBe('running');
+    expect(readTeam().members.worker.runId).toBe('run_live');
+
+    // The exact live runId is still honored.
+    const r3 = await tool('team_on_stop').handler({ team: 'demo', agent: 'worker', outcome: 'done', runId: 'run_live' });
+    expect(r3.success).toBe(true);
+    expect(readTeam().members.worker.status).toBe('idle');
+  });
+
+  it('forwards SIGHUP to the child like SIGINT/SIGTERM, and requeues drained messages (#3513 MEDIUM D)', async () => {
+    const started = join(cwd, 'started');
+    await setup(['-e', `require('fs').writeFileSync(${JSON.stringify(started)},'x');setTimeout(()=>{},8000)`, '{prompt}']);
+    await tool('team_send').handler({ team: 'demo', to: 'worker', message: 'do not lose me' });
+
+    const runPromise = runTeamAgent({ team: 'demo', agent: 'worker', timeoutMs: 20_000 });
+    const deadline = Date.now() + 5000;
+    while (!existsSync(started)) {
+      if (Date.now() > deadline) throw new Error('child never started');
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    process.emit('SIGHUP');
+    const r = await runPromise;
+    expect(r.outcome).toBe('failed');
+    expect(r.reason).toBe('interrupted');
+
+    const inbox = await tool('team_inbox').handler({ team: 'demo', agent: 'worker', peek: true });
+    expect((inbox as { messages: Array<{ content: string }> }).messages.map((m) => m.content)).toEqual(['do not lose me']);
+  });
+
+  it('an exception in run-directory handling requeues drained messages and releases the run claim instead of stranding it "running" (#3513 MINOR 4)', async () => {
+    await setup(['-e', "process.stdout.write('ok')", '{prompt}']);
+    await tool('team_send').handler({ team: 'demo', to: 'worker', message: 'do not lose me either' });
+
+    // Pre-create the "runs" directory as a plain FILE, so `ensureRealDir`
+    // throws "not a real directory" the moment the runner reaches it —
+    // well after the inbox has already been drained.
+    const runsDir = join(cwd, '.claude-flow', 'teams', 'demo', 'runs');
+    writeFileSync(runsDir, 'not a directory');
+
+    const r = await runTeamAgent({ team: 'demo', agent: 'worker' });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/run-directory, result-file, or run-file handling failed/);
+    expect(readTeam().members.worker.status).toBe('idle');
+
+    const inbox = await tool('team_inbox').handler({ team: 'demo', agent: 'worker', peek: true });
+    expect((inbox as { messages: Array<{ content: string }> }).messages.map((m) => m.content)).toEqual(['do not lose me either']);
   });
 
   it('replaces a run whose runner process is gone', async () => {

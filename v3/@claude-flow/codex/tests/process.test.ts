@@ -121,6 +121,40 @@ describe('runHeadlessProcess', () => {
     rmSync(dir, { recursive: true, force: true });
   }, 10000);
 
+  it.skipIf(process.platform === 'win32')(
+    'kills a descendant that traps SIGTERM and detaches its own stdio, even though the leader exits first (#3513 MAJOR E)',
+    async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'headless-orphan-detached-'));
+      const marker = join(dir, 'ORPHAN3');
+      const started = Date.now();
+      // The leader (this /bin/sh) does not trap TERM, so it dies from the
+      // group SIGTERM almost immediately. The backgrounded subshell DOES
+      // trap TERM and detaches its own stdout/stderr before sleeping, so it
+      // no longer holds the leader's stdio pipes open: 'close' can fire as
+      // soon as the leader exits, well before the subshell is actually dead.
+      // Before the fix, that early 'close' cancelled the pending SIGKILL
+      // escalation, so the subshell ran to completion and created the marker.
+      const result = await runHeadlessProcess({
+        command: 'sh',
+        args: ['-c', `( trap "" TERM; exec >/dev/null 2>&1; sleep 8; touch '${marker}' ) & wait`],
+        cwd: dir,
+        env: process.env,
+        timeoutMs: 300,
+        killGraceMs: 500,
+        maxOutputBytes: 1024,
+      });
+      expect(result.timedOut).toBe(true);
+      expect(result.code).toBeNull();
+      // The promise may resolve quickly (the leader's close can still fire
+      // early) — what matters is that the descendant does not survive.
+      expect(Date.now() - started).toBeLessThan(2000);
+      await new Promise((r) => setTimeout(r, 4000));
+      expect(existsSync(marker)).toBe(false);
+      rmSync(dir, { recursive: true, force: true });
+    },
+    10000,
+  );
+
   it.skipIf(process.platform === 'win32')('escalates to SIGKILL when SIGTERM is ignored', async () => {
     const result = await runHeadlessProcess({
       command: node,
@@ -194,4 +228,61 @@ describe('buildWorkerEnvironment', () => {
     expect('MISSING' in env).toBe(false);
     expect(env.CLAUDE_FLOW_CAPABILITY_ENVELOPE).toBeUndefined();
   });
+
+  // #3513 MAJOR A: the base-environment strip used a narrower, separately
+  // maintained regex than the passEnv validation in
+  // @claude-flow/cli/src/mcp-tools/team-hosts/command.ts, so a trusted host's
+  // BASE environment (copied before passEnv is ever consulted) still leaked
+  // every one of these — reproduced against a real `printenv` child below.
+  const POISONED_ENV = {
+    PATH: '/bin',
+    HOME: '/home/tester',
+    PGPASSWORD: 'hunter2',
+    DATABASE_URL: 'postgres://user:hunter2@db.internal/app',
+    SSH_AUTH_SOCK: '/tmp/ssh-agent.sock',
+    GITHUB_PAT: 'ghp_deadbeef',
+    MYSQL_PWD: 'hunter2',
+    SESSION_SECRET_X: 'topsecret',
+    MY_AUTH: 'bearer-xyz',
+    SLACK_WEBHOOK_URL: 'https://hooks.slack.com/services/T0/B0/xyz',
+    CLAUDE_FLOW_POLICY_MODE: 'x',
+    CLAUDE_FLOW_MCP_INVOCATION_TOKEN: 'tok',
+    CLAUDE_FLOW_CONFIG: './claude-flow.config.json',
+    CLAUDE_FLOW_LOG_LEVEL: 'info',
+  };
+  const POISONED_NAMES = Object.keys(POISONED_ENV).filter((n) => n !== 'PATH' && n !== 'HOME');
+
+  it('strips every poisoned name from the review repro (unit level)', () => {
+    const env = buildWorkerEnvironment(POISONED_ENV, { principalId: 'agent:w1' });
+    expect(env.PATH).toBe('/bin');
+    expect(env.HOME).toBe('/home/tester');
+    for (const name of POISONED_NAMES) {
+      expect(env[name], name).toBeUndefined();
+    }
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'a trusted printenv child never receives any poisoned name (end to end repro)',
+    async () => {
+      // Keep the REAL PATH so `printenv` can actually be found on PATH;
+      // only the poisoned names are the thing under test.
+      const env = buildWorkerEnvironment({ ...process.env, ...POISONED_ENV, PATH: process.env.PATH }, { principalId: 'agent:w1' });
+      const result = await runHeadlessProcess({
+        command: 'printenv',
+        args: [],
+        cwd: process.cwd(),
+        env,
+        timeoutMs: 5000,
+        maxOutputBytes: 1024 * 64,
+      });
+      expect(result.code).toBe(0);
+      for (const name of POISONED_NAMES) {
+        expect(result.stdout, name).not.toContain(name);
+      }
+      // The only CLAUDE_FLOW_* name to survive is the one buildWorkerEnvironment
+      // itself sets fresh, after the strip — not one copied from the base env.
+      const survivingClaudeFlowLines = result.stdout.split('\n').filter((l) => l.startsWith('CLAUDE_FLOW_'));
+      expect(survivingClaudeFlowLines).toEqual(['CLAUDE_FLOW_PRINCIPAL_ID=agent:w1']);
+    },
+  );
 });

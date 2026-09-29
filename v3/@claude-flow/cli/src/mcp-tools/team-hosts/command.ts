@@ -6,6 +6,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { isProtectedEnvName } from '@claude-flow/codex/dual-mode';
 import { readStopIdentity } from './identity.js';
 import {
   EXEC_PLACEHOLDERS,
@@ -22,16 +23,17 @@ const LABEL_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const PLACEHOLDER_RE = /\{([A-Za-z]+)\}/g;
 const HOST_KEYS = new Set(['kind', 'command', 'args', 'promptVia', 'passEnv', 'isolation', 'description']);
-/**
- * Secret-looking names. Broader than the strip in buildWorkerEnvironment
- * (@claude-flow/codex dual-mode/process.ts), which it must stay a superset of.
- */
-const SENSITIVE_ENV_NAME = /(?:^|_)(?:API_?KEY|KEY|SECRET|TOKEN|PASSWORD|CREDENTIALS?)$|SECRET|TOKEN|PASSW(?:OR)?D|PASSPHRASE|CREDENTIAL|PRIVATE|AUTH|COOKIE|SESSION|API_?KEY/i;
 
-/** Names a command host's passEnv may never re-add: secrets and Ruflo's own identity/policy variables. */
-export function isProtectedEnvName(name: string): boolean {
-  return SENSITIVE_ENV_NAME.test(name) || /^CLAUDE_FLOW_/i.test(name);
-}
+/**
+ * Names a command host's passEnv may never re-add: secrets and Ruflo's own
+ * identity/policy variables. Re-exported from `@claude-flow/codex` — the
+ * SAME function `buildWorkerEnvironment` uses to strip the base environment
+ * before spawning any host. #3513 MAJOR A: these used to be two separately
+ * maintained regexes, and the base-environment strip's was the narrower one,
+ * so a command host's environment leaked names its own `passEnv` validation
+ * would have refused. One deny policy now, consulted from both places.
+ */
+export { isProtectedEnvName } from '@claude-flow/codex/dual-mode';
 
 export class TeamHostsError extends Error {}
 
