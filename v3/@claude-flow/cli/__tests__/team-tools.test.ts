@@ -3,7 +3,7 @@
  * Regression coverage for the #3512 review (scoping, locking, lifecycle, hook).
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import {
+import fs, {
   mkdtempSync,
   rmSync,
   existsSync,
@@ -17,7 +17,10 @@ import {
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { teamTools } from '../src/mcp-tools/team-tools.js';
+
+const STORE = join(resolve(__dirname, '..', 'templates', 'grok', 'scripts'), 'grok-team-store.mjs');
 
 const SCRIPTS = resolve(__dirname, '..', 'templates', 'grok', 'scripts');
 const BUS = join(SCRIPTS, 'grok-team-bus.mjs');
@@ -165,6 +168,113 @@ describe('teamTools (ADR-402)', () => {
     expect(readdirSync(join(cwd, '.claude-flow', 'teams', 'stale')).filter((f) => f.includes('.stale.'))).toEqual([]);
   });
 
+  it('re-verifies a stale lock before breaking it, and never renames one that changed underneath it (review N2)', async () => {
+    // Reproduces the round-2 review's race: waiter W1 reads a stale lock's
+    // token; meanwhile another waiter breaks that same lock and a third
+    // party re-acquires a fresh, live one at the same path. A buggy
+    // breakStaleLock would rename that live lock away regardless (and, in a
+    // real multi-process run, risk a fourth party grabbing the vacated slot
+    // before it's put back — two holders at once). The fix re-verifies the
+    // token immediately before renaming and backs off if it changed.
+    await tool('team_create')({ name: 'race2' });
+    const dir = join(cwd, '.claude-flow', 'teams', 'race2');
+    const lock = join(dir, 'team.lock');
+    writeFileSync(lock, 'crashed-holder', { encoding: 'utf8' });
+    const old = new Date(Date.now() - 120_000);
+    utimesSync(lock, old, old);
+
+    const store: any = await import(pathToFileURL(STORE).href);
+
+    const realReadFileSync: any = fs.readFileSync;
+    const realRenameSync: any = fs.renameSync;
+    let renamed = false;
+    let triggered = false;
+    (fs as any).readFileSync = (...args: any[]) => {
+      const result = realReadFileSync(...args);
+      if (!triggered && args[0] === lock && result === 'crashed-holder') {
+        triggered = true;
+        // Simulate another waiter breaking this exact lock and a third
+        // party re-acquiring a fresh one, right after we read the stale
+        // token but before we act on it.
+        writeFileSync(lock, 'C-token', { encoding: 'utf8' });
+        const now = new Date();
+        utimesSync(lock, now, now);
+      }
+      return result;
+    };
+    (fs as any).renameSync = (...args: any[]) => {
+      renamed = true;
+      return realRenameSync(...args);
+    };
+
+    try {
+      store.breakStaleLock(lock, 'our-break-token');
+    } finally {
+      (fs as any).readFileSync = realReadFileSync;
+      (fs as any).renameSync = realRenameSync;
+    }
+
+    expect(triggered).toBe(true);
+    expect(renamed).toBe(false); // never touched the lock once it saw it had changed
+    expect(readFileSync(lock, 'utf8')).toBe('C-token'); // untouched, not clobbered/restored
+    expect(readdirSync(dir).filter((f) => f.includes('.stale.'))).toEqual([]);
+  });
+
+  it('breaks a stale lock safely with several real concurrent waiters, no lost updates (review N2/N3)', async () => {
+    await tool('team_create')({ name: 'race-stale', maxAgents: 10 });
+    const dir = join(cwd, '.claude-flow', 'teams', 'race-stale');
+    const lock = join(dir, 'team.lock');
+    writeFileSync(lock, 'crashed-holder', { encoding: 'utf8' });
+    const old = new Date(Date.now() - 120_000);
+    utimesSync(lock, old, old);
+
+    const results = await Promise.all(
+      Array.from({ length: 3 }, (_, i) =>
+        runNode(BUS, ['spawn', '--root', cwd, '--team', 'race-stale', '--agent', `w${i}`], { cwd }),
+      ),
+    );
+    for (const r of results) expect(r.code, r.stdout + r.stderr).toBe(0);
+
+    const team = readTeam(cwd, 'race-stale');
+    expect(Object.keys(team.members).sort()).toEqual(['w0', 'w1', 'w2']);
+    expect(existsSync(lock)).toBe(false);
+    expect(readdirSync(dir).filter((f) => f.includes('.stale.') || f.endsWith('.tmp'))).toEqual([]);
+  }, 30_000);
+
+  it('lock-wait timeout covers the stale window, so a wait never gives up before the lock could be broken (review N3)', async () => {
+    const store: any = await import(pathToFileURL(STORE).href);
+    // Import the same constants indirectly: a lock that just turned stale
+    // must still be breakable well within one wait attempt's own timeout —
+    // otherwise every spawn in the gap between "give up" and "now stale"
+    // fails even though nothing is actually stuck.
+    await tool('team_create')({ name: 'timing' });
+    const dir = join(cwd, '.claude-flow', 'teams', 'timing');
+    const lock = join(dir, 'team.lock');
+    writeFileSync(lock, 'crashed-holder', { encoding: 'utf8' });
+    // Just past the stale threshold used in grok-team-store.mjs (4s) — not
+    // past the wait timeout (4.5s), so this must succeed, not time out.
+    const justStale = new Date(Date.now() - 4_050);
+    utimesSync(lock, justStale, justStale);
+    const result = await store.withTeamLock(cwd, 'timing', () => 'held');
+    expect(result).toBe('held');
+  });
+
+  it('clears the old mailbox when force-recreating a team (review N4)', async () => {
+    await tool('team_create')({ name: 'reborn' });
+    await tool('team_spawn')({ team: 'reborn', agent: 'old-member' });
+    await tool('team_send')({ team: 'reborn', to: 'old-member', message: 'from the old incarnation' });
+    const mailbox = join(cwd, '.claude-flow', 'teams', 'reborn', 'mailbox');
+    expect(readdirSync(join(mailbox, 'old-member')).filter((f) => f.endsWith('.json'))).toHaveLength(1);
+
+    const recreated = await tool('team_create')({ name: 'reborn', force: true });
+    expect(recreated.success).toBe(true);
+    expect(existsSync(join(mailbox, 'old-member'))).toBe(false); // wiped, not carried over
+    expect(readTeam(cwd, 'reborn').members).toEqual({});
+
+    await tool('team_spawn')({ team: 'reborn', agent: 'new-member' });
+    expect((await tool('team_inbox')({ team: 'reborn', agent: 'new-member' })).messages).toEqual([]);
+  });
+
   it('closes the team on shutdown and enforces maxAgents (review #8)', async () => {
     await tool('team_create')({ name: 'small', maxAgents: 2 });
     expect((await tool('team_spawn')({ team: 'small', agent: 'a' })).success).toBe(true);
@@ -205,7 +315,7 @@ describe('teamTools (ADR-402)', () => {
   it('validates priority and sorts numerically (review minor)', async () => {
     await tool('team_create')({ name: 'prio' });
     await tool('team_spawn')({ team: 'prio', agent: 'p' });
-    for (const bad of ['abc', -1, 1.5, 1000]) {
+    for (const bad of ['abc', -1, 1.5, 1000, '1e2', '0x10', '0o20', '0b101']) {
       const r = await tool('team_send')({ team: 'prio', to: 'p', message: 'm', priority: bad });
       expect(r.success, String(bad)).toBe(false);
       expect(r.error).toMatch(/priority must be an integer/);

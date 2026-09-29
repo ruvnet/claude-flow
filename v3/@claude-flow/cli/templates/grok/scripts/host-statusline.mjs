@@ -51,13 +51,98 @@ function has(rel) {
   return existsSync(join(ROOT, rel));
 }
 
+// ---------------------------------------------------------------------------
+// Minimal, comment-aware TOML table reader.
+//
+// This script is a zero-dependency copy: `init --grok --grok-statusline`
+// writes it to ~/.grok/ruflo/host-statusline.mjs, and `init --grok` also
+// copies it to <project>/scripts/host-statusline.mjs — both live outside any
+// node_modules tree, so (unlike grok-generator.ts, which is part of the
+// installed @claude-flow/cli package) it can't `import '@iarna/toml'`
+// without risking "Cannot find package" at the exact moment Grok tries to
+// render the status line. The previous version matched `trusted = true` /
+// `[mcp_servers.name]` via substring/regex on the raw file text, which
+// happily matched inside a `#` comment and never noticed a sibling
+// `enabled = false` key. This walks real `[section]` boundaries and strips
+// comments outside of string literals first, instead (ADR-402 round-2
+// review, minor item 3). It is not a general TOML parser — only enough of
+// one for the two shapes this file actually reads: table headers (with
+// quoted or bare dotted keys) and simple `key = true|false` booleans.
+// ---------------------------------------------------------------------------
+
+function stripComment(line) {
+  let quote = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote) {
+      if (c === '\\' && quote === '"') { i++; continue; }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'") { quote = c; continue; }
+    if (c === '#') return line.slice(0, i);
+  }
+  return line;
+}
+
+/** Splits a dotted TOML key on top-level dots only (not dots inside quotes), then dequotes each part. */
+function splitDottedKey(raw) {
+  const parts = [];
+  let cur = '';
+  let quote = null;
+  for (const c of raw) {
+    if (quote) {
+      cur += c;
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'") { quote = c; cur += c; continue; }
+    if (c === '.') { parts.push(cur.trim()); cur = ''; continue; }
+    cur += c;
+  }
+  parts.push(cur.trim());
+  return parts.map((p) => p.replace(/^["']|["']$/g, ''));
+}
+
+/** '[a."b.c"]' or '[a.b]' → normalized key 'a.b.c' (dequoted parts joined by '.'), or null if not a table header. */
+function sectionHeaderKey(line) {
+  const trimmed = line.trim();
+  if (trimmed.startsWith('[[')) return null; // array-of-tables: not modeled, not needed here
+  const m = /^\[\s*([^\]]+?)\s*\]$/.exec(trimmed);
+  if (!m) return null;
+  return splitDottedKey(m[1]).join('.');
+}
+
+/** { normalizedSectionPath -> { key -> rawValueText } } for every `[table]` in the file. */
+function parseTomlTables(text) {
+  const tables = new Map([['', {}]]);
+  let current = '';
+  for (const rawLine of text.split('\n')) {
+    const line = stripComment(rawLine).trim();
+    if (!line) continue;
+    const header = sectionHeaderKey(line);
+    if (header !== null) {
+      current = header;
+      if (!tables.has(current)) tables.set(current, {});
+      continue;
+    }
+    const kv = /^([^=]+?)\s*=\s*(.+)$/.exec(line);
+    if (!kv) continue;
+    tables.get(current)[kv[1].trim().replace(/^["']|["']$/g, '')] = kv[2].trim();
+  }
+  return tables;
+}
+
+function tomlBool(raw) {
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  return undefined;
+}
+
 function sectionTrusted(text, folder) {
-  const header = `[folders."${folder}"]`;
-  const at = text.indexOf(header);
-  if (at < 0) return false;
-  const next = text.indexOf('\n[', at + header.length);
-  const body = text.slice(at, next === -1 ? text.length : next);
-  return /trusted\s*=\s*true/.test(body);
+  const tables = parseTomlTables(text);
+  const table = tables.get(sectionHeaderKey(`[folders."${folder}"]`));
+  return table ? tomlBool(table.trusted) === true : false;
 }
 
 function grokTrusted() {
@@ -70,9 +155,18 @@ function grokTrusted() {
   }
 }
 
+/** A `[mcp_servers.<name>]` table exists and is not explicitly `enabled = false`. */
 function configHasServer(file, name) {
   if (!existsSync(file)) return false;
-  return readFileSync(file, 'utf8').includes(`[mcp_servers.${name}]`);
+  let tables;
+  try {
+    tables = parseTomlTables(readFileSync(file, 'utf8'));
+  } catch {
+    return false;
+  }
+  const table = tables.get(sectionHeaderKey(`[mcp_servers.${name}]`));
+  if (!table) return false;
+  return tomlBool(table.enabled) !== false;
 }
 
 function readStdinPayload() {
@@ -108,12 +202,11 @@ function snapshot(host) {
   }
   if (host === 'codex') {
     const homeCfg = join(homedir(), '.codex', 'config.toml');
-    const text = existsSync(homeCfg) ? readFileSync(homeCfg, 'utf8') : '';
     return {
       host,
       surface: null,
       loaded: {
-        mcp: /\[mcp_servers\.(ruflo|claude-flow)\]/.test(text) || text.includes('claude-flow') || text.includes('ruflo'),
+        mcp: configHasServer(homeCfg, 'ruflo') || configHasServer(homeCfg, 'claude-flow'),
       },
     };
   }

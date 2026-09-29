@@ -13,8 +13,22 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
-const LOCK_WAIT_MS = 10_000;
-const LOCK_STALE_MS = 30_000;
+// A waiter must never give up before the lock it's waiting on can even be
+// considered stale — otherwise every spawn attempted in the gap between
+// "waiter gives up" and "lock is stale" fails outright even though nothing
+// is actually stuck (ADR-402 round-2 review, N3). So LOCK_WAIT_MS >=
+// LOCK_STALE_MS, always.
+//
+// Both are also sized to fit inside the SubagentStop hook's own 5s command
+// timeout (templates/grok/hooks/subagent-stop-team.json): worst case, the
+// hook waits out the full stale window, breaks the lock, and runs its (tiny,
+// sub-millisecond) critical section — that must land comfortably under 5s
+// including node startup. 4s stale / 4.5s wait leaves ~0.5s of margin for
+// process startup and the break-then-acquire dance, while still being far
+// longer than any legitimate holder ever needs (team.json read-modify-write
+// is the only thing done under this lock).
+const LOCK_WAIT_MS = 4_500;
+const LOCK_STALE_MS = 4_000;
 
 // ---------------------------------------------------------------------------
 // Names, paths, and filesystem safety
@@ -112,8 +126,22 @@ export function writeJsonAtomic(file, data) {
   }
 }
 
+/**
+ * Synchronous sleep via Atomics.wait — blocks this thread (and, in an MCP
+ * server, every other in-flight request on it) for `ms`. Kept only for the
+ * tiny (<=200ms worst case, ~20 attempts x 10ms), bounded Windows
+ * rename-retry in writeJsonAtomic, which is a rare edge case and not worth
+ * threading a Promise through every atomic write for. Anything that can
+ * block for the length of a lock wait — potentially seconds — must use
+ * sleepMsAsync instead (ADR-402 round-2 review, N3).
+ */
 export function sleepMs(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/** Non-blocking sleep: yields to the event loop instead of the whole thread. */
+export function sleepMsAsync(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function nowIso() {
@@ -131,8 +159,15 @@ export function nowIso() {
  * re-took the lock in between, the rename caught theirs, so it is linked back
  * (link fails rather than overwrite) and this waiter keeps waiting. Release
  * removes the file only while it still holds our token.
+ *
+ * Async: the wait loop yields via sleepMsAsync (setTimeout), not a blocking
+ * Atomics.wait, so an MCP server (or any other caller) keeps serving other
+ * requests while this call waits for the lock (ADR-402 round-2 review, N3).
+ * `fn` itself still runs synchronously once the lock is held — team.json
+ * read-modify-write is fast enough that yielding mid-critical-section isn't
+ * worth the added complexity.
  */
-export function withTeamLock(projectRoot, team, fn) {
+export async function withTeamLock(projectRoot, team, fn) {
   const dir = teamDir(projectRoot, team);
   if (!realDirExists(dir)) throw new Error(`Team "${team}" not found — run create first`);
   const lock = path.join(dir, 'team.lock');
@@ -147,7 +182,7 @@ export function withTeamLock(projectRoot, team, fn) {
     }
     breakStaleLock(lock, token);
     if (Date.now() > deadline) throw new Error(`Timed out waiting for the lock on team "${team}"`);
-    sleepMs(wait + Math.floor(Math.random() * wait));
+    await sleepMsAsync(wait + Math.floor(Math.random() * wait));
   }
   try {
     return fn();
@@ -160,14 +195,36 @@ export function withTeamLock(projectRoot, team, fn) {
   }
 }
 
-function breakStaleLock(lock, token) {
-  let seen;
+/**
+ * Break `lock` if it's still stale. Re-verifies the token and mtime we
+ * observed as stale immediately before renaming anything: without this, a
+ * waiter that read a stale token, then got preempted while another waiter
+ * broke the same lock and a fresh holder re-acquired it, would rename that
+ * LIVE lock out from under its holder — and the window that opens between
+ * the rename and the "put it back" recovery lets a fourth party grab the
+ * vacated slot, leaving two holders at once (ADR-402 round-2 review, N2).
+ * If anything has changed since our first observation, someone else already
+ * handled it: back off without touching the file and let the caller's own
+ * wait loop retry.
+ */
+export function breakStaleLock(lock, token) {
+  let seen, mtime;
   try {
-    if (Date.now() - fs.statSync(lock).mtimeMs <= LOCK_STALE_MS) return;
+    mtime = fs.statSync(lock).mtimeMs;
+    if (Date.now() - mtime <= LOCK_STALE_MS) return;
     seen = fs.readFileSync(lock, 'utf8');
   } catch {
     return; // released meanwhile
   }
+  let mtime2, seen2;
+  try {
+    mtime2 = fs.statSync(lock).mtimeMs;
+    seen2 = fs.readFileSync(lock, 'utf8');
+  } catch {
+    return; // released meanwhile
+  }
+  if (mtime2 !== mtime || seen2 !== seen) return; // changed underneath us — back off
+
   const aside = `${lock}.stale.${token}`;
   try {
     fs.renameSync(lock, aside);
@@ -176,7 +233,8 @@ function breakStaleLock(lock, token) {
   }
   try {
     if (fs.readFileSync(aside, 'utf8') !== seen) {
-      // We moved a live holder's fresh lock: put it back if the slot is free.
+      // Same-millisecond collision the re-verify above couldn't rule out:
+      // put the live lock back if the slot is still free.
       try { fs.linkSync(aside, lock); } catch { /* slot taken; that holder's release is a no-op */ }
     }
   } finally {

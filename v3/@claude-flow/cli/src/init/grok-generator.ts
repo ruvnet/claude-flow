@@ -216,11 +216,31 @@ export function mergeGrokStatusLine(existing: string, home: string): MergeOutcom
   return { kind: 'write', text };
 }
 
+/**
+ * If `file` is a symlink, resolve it to what it actually points at. A rename
+ * onto a symlink path replaces the symlink itself with a plain file — in a
+ * dotfiles-managed setup where `~/.grok/config.toml` is a symlink, that
+ * silently destroys the symlink instead of updating the file it points to
+ * (ADR-402 round-2 review, minor item 1). A broken symlink (target missing)
+ * falls back to writing `file` itself, same as a plain non-existent path.
+ */
+function resolveWriteTarget(file: string): string {
+  try {
+    if (fs.lstatSync(file).isSymbolicLink()) {
+      return fs.realpathSync(file);
+    }
+  } catch {
+    /* missing, unreadable, or a broken symlink target: write `file` itself */
+  }
+  return file;
+}
+
 function writeFileAtomic(file: string, text: string, mode?: number): void {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  const target = resolveWriteTarget(file);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  const tmp = `${target}.${process.pid}.${Date.now()}.tmp`;
   fs.writeFileSync(tmp, text, { encoding: 'utf-8', mode: mode ?? 0o600 });
-  fs.renameSync(tmp, file);
+  fs.renameSync(tmp, target);
 }
 
 function wireGrokUserStatusLine(
@@ -284,6 +304,62 @@ interface CopyContext {
   created: string[];
   skipped: string[];
   errors: string[];
+}
+
+/** First `object.key` (or `[index]`) path to a BigInt value, or null. */
+function findBigIntKeyPath(value: unknown, path: string[] = []): string | null {
+  if (typeof value === 'bigint') return path.length ? path.join('.') : '(root)';
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const found = findBigIntKeyPath(value[i], [...path, `[${i}]`]);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      const found = findBigIntKeyPath(v, [...path, k]);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/**
+ * Whether an existing `~/.grok/config.toml` can be safely parsed and
+ * serialized before init touches anything. A TOML integer literal above
+ * 2^53 parses to a BigInt (@iarna/toml), and `JSON.stringify` — used by
+ * `mergeGrokStatusLine`'s stableJson comparison — throws "Do not know how
+ * to serialize a BigInt" on it. That merge used to run as the LAST step of
+ * `executeGrokInit`, so the crash left project files already written and
+ * nothing to show for the failure. Checked here, first, so init either
+ * fully succeeds or writes nothing at all (ADR-402 round-2 review, minor
+ * item 2). Returns a user-facing error message naming the offending key,
+ * or null if the file is fine (or absent, or already unparseable as
+ * TOML — mergeGrokStatusLine reports that case on its own, safely).
+ */
+function validateExistingUserConfig(dest: string): string | null {
+  let existing: string;
+  try {
+    if (!fs.existsSync(dest)) return null;
+    existing = fs.readFileSync(dest, 'utf-8');
+  } catch (e) {
+    return `could not read ${dest}: ${(e as Error).message}`;
+  }
+  let doc: TOML.JsonMap;
+  try {
+    doc = TOML.parse(existing);
+  } catch {
+    return null;
+  }
+  try {
+    JSON.stringify(doc);
+  } catch (e) {
+    const offending = findBigIntKeyPath(doc);
+    const where = offending ? ` at "${offending}"` : '';
+    return `${dest} has a value ruflo cannot serialize${where} (${(e as Error).message}) — fix or remove it before running init --grok --grok-statusline again`;
+  }
+  return null;
 }
 
 function writeProjectFile(ctx: CopyContext, dest: string, write: () => void): void {
@@ -351,6 +427,17 @@ export function executeGrokInit(options: GrokInitOptions): GrokInitResult {
       `Grok templates not found at ${tpl}. Reinstall @claude-flow/cli or run from a monorepo checkout that includes templates/grok.`,
     );
     return done();
+  }
+
+  // Validate any existing user-level config before writing a single project
+  // file — see validateExistingUserConfig for why (BigInt/serialization
+  // failures must not leave a half-initialized project).
+  if (statusLine) {
+    const problem = validateExistingUserConfig(userConfig.path);
+    if (problem) {
+      ctx.errors.push(problem);
+      return done();
+    }
   }
 
   // .grok/config.toml — placeholders filled, then checked with a TOML parser

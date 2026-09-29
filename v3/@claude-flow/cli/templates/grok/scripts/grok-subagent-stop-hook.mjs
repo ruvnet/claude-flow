@@ -80,7 +80,7 @@ if (!team) {
 }
 
 try {
-  const r = bus.onStop(projectRoot, { team: String(team), agent: String(agent) });
+  const r = await bus.onStop(projectRoot, { team: String(team), agent: String(agent) });
   if (!r.member && !r.advanced) {
     fail(`agent "${agent}" is not a member of team "${team}" and is not its current plan step`);
   }

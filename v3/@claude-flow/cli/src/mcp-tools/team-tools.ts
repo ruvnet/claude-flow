@@ -18,7 +18,7 @@ import { validateText } from './validate-input.js';
 import { grokTemplatesRoot } from '../init/grok-generator.js';
 
 type BusResult = Record<string, unknown>;
-type BusOp = (projectRoot: string, opts: Record<string, unknown>) => BusResult;
+type BusOp = (projectRoot: string, opts: Record<string, unknown>) => BusResult | Promise<BusResult>;
 
 interface TeamBus {
   createTeam: BusOp;
@@ -50,7 +50,11 @@ async function run(
 ): Promise<{ success: boolean } & Record<string, unknown>> {
   try {
     const bus = await loadBus();
-    return { success: true, ...bus[op](getProjectCwd(), opts) };
+    // Some ops (create/spawn/send) hold the team lock, which now waits via a
+    // non-blocking async poll rather than Atomics.wait (ADR-402 round-2
+    // review, N3) — always await, whether or not this particular op returns
+    // a promise.
+    return { success: true, ...(await bus[op](getProjectCwd(), opts)) };
   } catch (e) {
     return { success: false, error: (e as Error).message || String(e) };
   }

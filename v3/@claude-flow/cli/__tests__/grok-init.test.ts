@@ -4,7 +4,18 @@
  * Windows escaping, and the shipped status row.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
+import {
+  mkdtempSync,
+  rmSync,
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  readdirSync,
+  symlinkSync,
+  lstatSync,
+  realpathSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -213,6 +224,88 @@ describe('executeGrokInit', () => {
     expect(snap.loaded).toMatchObject({ mcp: true, rules: true, agents: 4, skills: 1, hook: true });
     // Only folder trust (a Grok-side setting) is left
     expect(snap.line).toMatch(/^RuFlo │ missing untrusted/);
+  });
+
+  it('host-statusline.mjs parses real TOML instead of text-matching (round-2 review, minor item 3)', () => {
+    executeGrokInit({ targetDir: dir, homeDir: home });
+    const runStatusline = () =>
+      JSON.parse(
+        spawnSync(process.execPath, [join(dir, 'scripts', 'host-statusline.mjs'), '--json'], {
+          cwd: dir,
+          env: { ...process.env, HOME: home, USERPROFILE: home },
+          encoding: 'utf-8',
+          input: '',
+        }).stdout,
+      );
+    // Node's spawn cwd is resolved to the real path (e.g. macOS /var is a
+    // symlink to /private/var) before the child ever sees process.cwd(), so
+    // the section key must match that resolved path, not the tmpdir's own.
+    const root = realpathSync(dir);
+
+    // A commented-out `trusted = true` must not read as trusted (a
+    // substring/regex match on the section body would say yes).
+    mkdirSync(join(home, '.grok'), { recursive: true });
+    writeFileSync(join(home, '.grok', 'trusted_folders.toml'), `[folders."${root}"]\n# trusted = true\n`);
+    expect(runStatusline().loaded.trusted).toBe(false);
+
+    // A genuine (uncommented) trusted = true in the same section shape
+    // still works — this isn't just rejecting everything.
+    writeFileSync(join(home, '.grok', 'trusted_folders.toml'), `[folders."${root}"]\ntrusted = true\n`);
+    expect(runStatusline().loaded.trusted).toBe(true);
+
+    // An mcp_servers.ruflo table that exists but is explicitly disabled
+    // must not count as "loaded" (a substring match on `[mcp_servers.name]`
+    // alone would say yes regardless of `enabled`).
+    writeFileSync(
+      join(dir, '.grok', 'config.toml'),
+      '[mcp_servers.ruflo]\ncommand = "node"\nargs = ["x"]\nenabled = false\n',
+    );
+    expect(runStatusline().loaded.mcp).toBe(false);
+  });
+
+  it('writes through a symlinked ~/.grok/config.toml instead of replacing it (round-2 review, minor item 1)', () => {
+    // A dotfiles-managed setup often symlinks ~/.grok/config.toml at a real
+    // file living elsewhere (e.g. a dotfiles repo checkout).
+    const realTarget = join(home, 'dotfiles-config.toml');
+    writeFileSync(realTarget, '# keep me\n[ui]\ntheme = "dark"\n');
+    mkdirSync(join(home, '.grok'), { recursive: true });
+    const symlinkPath = join(home, '.grok', 'config.toml');
+    symlinkSync(realTarget, symlinkPath);
+
+    const r = executeGrokInit({ targetDir: dir, homeDir: home, statusLine: true });
+    expect(r.success, r.errors.join('\n')).toBe(true);
+
+    // The symlink itself must survive, still pointing at the same target.
+    expect(lstatSync(symlinkPath).isSymbolicLink()).toBe(true);
+    expect(realpathSync(symlinkPath)).toBe(realpathSync(realTarget));
+
+    // The status row was written THROUGH the symlink, into the real file.
+    const written = readFileSync(realTarget, 'utf-8');
+    expect(written.startsWith('# keep me\n[ui]\ntheme = "dark"\n')).toBe(true);
+    const parsed = TOML.parse(written) as any;
+    expect(parsed.ui.status_line.command).toBe(grokStatusLineCommand(home));
+  });
+
+  it('rejects an existing user config with an unserializable value before writing anything (round-2 review, minor item 2)', () => {
+    mkdirSync(join(home, '.grok'), { recursive: true });
+    const dest = join(home, '.grok', 'config.toml');
+    // A TOML integer literal above 2^53 parses to a BigInt (@iarna/toml),
+    // which crashes JSON.stringify — previously discovered only as the LAST
+    // step of init, after project files were already written.
+    const original = '# keep me\ngiant = 99999999999999999999\n';
+    writeFileSync(dest, original);
+
+    const r = executeGrokInit({ targetDir: dir, homeDir: home, statusLine: true });
+    expect(r.success).toBe(false);
+    expect(r.errors.join('\n')).toMatch(/config\.toml/);
+    expect(r.errors.join('\n')).toMatch(/giant/);
+    expect(r.errors.join('\n')).toMatch(/BigInt|serialize/i);
+
+    // Nothing was written: not the user config, not a single project file.
+    expect(readFileSync(dest, 'utf-8')).toBe(original);
+    expect(r.filesCreated).toEqual([]);
+    expect(existsSync(join(dir, '.grok'))).toBe(false);
+    expect(readdirSync(dir)).toEqual([]);
   });
 
   it('copies the scripts byte-for-byte from templates (no second copy to drift)', () => {

@@ -133,7 +133,7 @@ function buildSpawnPlan(t, agent, role, prompt, next) {
 // Operations (throw Error on failure; return plain objects)
 // ---------------------------------------------------------------------------
 
-export function createTeam(projectRoot, opts) {
+export async function createTeam(projectRoot, opts) {
   const name = safeName(opts.name, 'name');
   const dir = teamDir(projectRoot, name);
   ensureRealDir(projectRoot, dir);
@@ -150,8 +150,16 @@ export function createTeam(projectRoot, opts) {
     plan: { steps: [], index: 0 },
   };
   return withTeamLock(projectRoot, name, () => {
-    if (fs.existsSync(teamFile(projectRoot, name)) && !opts.force) {
+    const existed = fs.existsSync(teamFile(projectRoot, name));
+    if (existed && !opts.force) {
       throw new Error(`Team "${name}" already exists (pass force to overwrite its metadata)`);
+    }
+    if (existed && opts.force) {
+      // Recreating an existing team must not leak the old incarnation's
+      // mailboxes (pending or archived messages) into the fresh one — wipe
+      // them along with the metadata (ADR-402 round-2 review, N4).
+      const mailbox = path.join(dir, 'mailbox');
+      if (realDirExists(mailbox)) fs.rmSync(mailbox, { recursive: true, force: true });
     }
     writeJsonAtomic(teamFile(projectRoot, name), t);
     ensureRealDir(projectRoot, path.join(dir, 'mailbox'));
@@ -166,12 +174,12 @@ function parseNext(next) {
   return list.map((s) => s.trim()).filter(Boolean).map((s) => safeName(s, 'next'));
 }
 
-export function spawnMember(projectRoot, opts) {
+export async function spawnMember(projectRoot, opts) {
   const agent = safeName(opts.agent, 'agent');
   const role = safeName(opts.role || agent, 'role');
   const next = parseNext(opts.next);
   const prompt = typeof opts.prompt === 'string' ? opts.prompt : '';
-  const result = updateTeam(projectRoot, opts.team, (t) => {
+  const result = await updateTeam(projectRoot, opts.team, (t) => {
     assertActive(t);
     const members = t.members || (t.members = {});
     if (!members[agent] && Object.keys(members).length >= t.maxAgents) {
@@ -192,9 +200,26 @@ export function spawnMember(projectRoot, opts) {
   return result;
 }
 
+/**
+ * Priority must be a plain base-10 integer literal 0-MAX_PRIORITY. A string
+ * value is checked against that shape directly, rejecting anything
+ * `Number()` would otherwise happily coerce — scientific notation ("1e2")
+ * and hex/octal/binary prefixes ("0x10", "0o20", "0b101") all parse to an
+ * in-range integer but are not the small plain integer this field is meant
+ * to be (ADR-402 round-2 review, N5, minor item 5).
+ */
 export function parsePriority(value) {
   if (value === undefined || value === null || value === '') return DEFAULT_PRIORITY;
-  const n = typeof value === 'number' ? value : Number(String(value).trim());
+  let n;
+  if (typeof value === 'number') {
+    n = value;
+  } else {
+    const s = String(value).trim();
+    if (!/^-?\d+$/.test(s)) {
+      throw new Error(`priority must be an integer 0-${MAX_PRIORITY} (lower is read first), got "${value}"`);
+    }
+    n = Number(s);
+  }
   if (!Number.isInteger(n) || n < 0 || n > MAX_PRIORITY) {
     throw new Error(`priority must be an integer 0-${MAX_PRIORITY} (lower is read first), got "${value}"`);
   }
@@ -422,7 +447,7 @@ const USAGE = [
   'shutdown --team <team>',
 ];
 
-export function runCli(argv, env = process.env) {
+export async function runCli(argv, env = process.env) {
   const args = parseArgs(argv);
   const cmd = args._[0];
   const projectRoot = path.resolve(
@@ -471,17 +496,19 @@ export function runCli(argv, env = process.env) {
   }
 }
 
-function main() {
+async function main() {
   let result;
   try {
-    result = runCli(process.argv.slice(2));
+    result = await runCli(process.argv.slice(2));
   } catch (err) {
     print({ ok: false, error: err.message || String(err) });
     process.exit(1);
+    return;
   }
   if (result === null) {
     print({ ok: false, error: 'usage', commands: USAGE });
     process.exit(process.argv[2] ? 1 : 0);
+    return;
   }
   print({ ok: true, ...result });
 }
