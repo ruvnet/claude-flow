@@ -14,7 +14,7 @@
 
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateText } from './validate-input.js';
-import { loadBus, type TeamBus } from './team-bus.js';
+import { loadBus, type BusOp, type TeamBus } from './team-bus.js';
 import { normalizeAgentLabel, resolveHost, TeamHostsError } from './team-hosts/index.js';
 import { buildExecHostPlans, stringList } from './team-hosts/plan.js';
 
@@ -39,7 +39,9 @@ async function run(
     const bus = await loadBus();
     // Some ops hold the team lock via an async wait (ADR-402 round-2 review,
     // N3). Always await: updateTeam returns a promise (round-3 review).
-    return { success: true, ...(await bus[op](getProjectCwd(), opts)) };
+    // readInbox is synchronous and has a narrower argument than BusOp, so the
+    // indexed call is invoked as BusOp. Await still unwraps its plain result.
+    return { success: true, ...(await (bus[op] as BusOp)(getProjectCwd(), opts)) };
   } catch (e) {
     return { success: false, error: (e as Error).message || String(e) };
   }
@@ -127,7 +129,8 @@ export const teamTools: MCPTool[] = [
       let hostPlans: Record<string, Record<string, unknown>>;
       try {
         const bus = await loadBus();
-        const team = (bus.teamStatus(root, { team: input.team }) as { team: { id: string; name: string; host?: string } }).team;
+        const status = await bus.teamStatus(root, { team: input.team });
+        const team = (status as { team: { id: string; name: string; host?: string } }).team;
         const requested = stringList(input.hosts);
         const labels = [...new Set(requested.length ? requested : [team.host || 'grok', 'claude'])];
         hostPlans = buildExecHostPlans(

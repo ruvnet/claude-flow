@@ -111,6 +111,16 @@ class BoundedCapture {
  * process group (see runHeadlessProcess), so the whole group is signalled.
  * On Windows `taskkill /T /F` ends the tree.
  */
+/** True when a POSIX process group still has a member. ESRCH means it is gone. */
+function groupAlive(pid: number): boolean {
+  try {
+    process.kill(-pid, 0);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code !== 'ESRCH';
+  }
+}
+
 export function killProcessTree(proc: ChildProcess, signal: NodeJS.Signals = 'SIGTERM'): void {
   const pid = proc.pid;
   if (pid === undefined) return;
@@ -137,8 +147,12 @@ export function killProcessTree(proc: ChildProcess, signal: NodeJS.Signals = 'SI
  *
  * The child runs in its own process group (POSIX), so a timeout or an abort
  * stops everything it started: SIGTERM to the group, then SIGKILL after
- * `killGraceMs`. The promise resolves only after the child has exited, so a
- * caller that retries never races the old process.
+ * `killGraceMs`. The promise resolves only after that group is gone (or the
+ * SIGKILL has been sent and a short follow-up wait has elapsed). Resolving
+ * on the leader's `close` is not enough: a descendant that traps SIGTERM and
+ * detaches its stdio stays in the group, and a caller that then
+ * `process.exit`s would cancel a SIGKILL timer that had not fired yet
+ * (#3513 round-3 review).
  */
 export function runHeadlessProcess(opts: HeadlessProcessOptions): Promise<HeadlessProcessResult> {
   const { command, args, cwd, env, stdinText, timeoutMs, maxOutputBytes } = opts;
@@ -153,6 +167,7 @@ export function runHeadlessProcess(opts: HeadlessProcessOptions): Promise<Headle
     let aborted = false;
     let exited = false;
     let exitCode: number | null = null;
+    let stopping = false;
     const timers: NodeJS.Timeout[] = [];
 
     const settle = (fn: () => void) => {
@@ -183,25 +198,40 @@ export function runHeadlessProcess(opts: HeadlessProcessOptions): Promise<Headle
     });
 
     const stopTree = () => {
-      if (exited && process.platform === 'win32') return;
+      if (stopping) return;
+      // Windows taskkill /T /F ends the tree immediately; `close` finishes.
+      if (process.platform === 'win32' || proc.pid === undefined) {
+        if (!(exited && process.platform === 'win32')) killProcessTree(proc, 'SIGTERM');
+        return;
+      }
+      stopping = true;
+      const pid = proc.pid;
       killProcessTree(proc, 'SIGTERM');
-      // The SIGKILL escalation is deliberately NOT pushed onto `timers`:
-      // those are cleared by settle(), which can fire early — the group
-      // *leader's* `close` event resolves the promise as soon as the leader
-      // exits and nothing else holds its stdio pipes open, even though a
-      // descendant that trapped SIGTERM and detached its own stdio
-      // (`exec >/dev/null 2>&1`) is still alive in the same process group.
-      // The escalation must run to completion regardless of leader state,
-      // or that descendant survives past the grace period (#3513 MAJOR E).
-      setTimeout(() => {
-        killProcessTree(proc, 'SIGKILL');
-        // A process that left the group can hold the pipes open; once the
-        // child itself is gone, stop waiting for 'close'. Skipped once the
-        // promise already settled — nothing left to finish.
-        if (!settled) {
-          timers.push(setTimeout(() => { if (exited) finish(); }, 2000));
+      // Do not resolve while the group is still alive. The leader's `close`
+      // can fire as soon as it exits, before a descendant that trapped
+      // SIGTERM is dead. A timer that outlives this promise is cancelled
+      // when the CLI calls process.exit on the result (#3513 round-3).
+      const deadline = Date.now() + grace;
+      const tick = () => {
+        if (settled) return;
+        if (!groupAlive(pid)) {
+          finish();
+          return;
         }
-      }, grace);
+        if (Date.now() >= deadline) {
+          killProcessTree(proc, 'SIGKILL');
+          const killDeadline = Date.now() + 500;
+          const afterKill = () => {
+            if (settled) return;
+            if (!groupAlive(pid) || Date.now() >= killDeadline) finish();
+            else setTimeout(afterKill, 20);
+          };
+          setTimeout(afterKill, 20);
+          return;
+        }
+        setTimeout(tick, 20);
+      };
+      setTimeout(tick, 20);
     };
     function onAbort() {
       if (settled || timedOut || aborted) return;
@@ -235,7 +265,7 @@ export function runHeadlessProcess(opts: HeadlessProcessOptions): Promise<Headle
     proc.on('close', (code) => {
       exited = true;
       if (exitCode === null) exitCode = code;
-      finish();
+      if (!stopping) finish();
     });
     proc.on('error', (e) => {
       settle(() => reject(e));

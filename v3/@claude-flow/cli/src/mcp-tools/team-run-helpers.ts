@@ -138,8 +138,8 @@ export function runLooksLive(m: StoreMember): boolean {
 }
 
 /**
- * Read at most `max` bytes of a regular file. Symlinks and devices are
- * refused.
+ * Read at most `max` bytes of a regular file. Symlinks, FIFOs, and devices
+ * are refused, and the open does not block.
  *
  * #3513 MINOR 3: this used to `lstatSync` the path and THEN `openSync` it —
  * two syscalls against a path, not one against a descriptor, so the file
@@ -147,11 +147,17 @@ export function runLooksLive(m: StoreMember): boolean {
  * `O_NOFOLLOW` makes the open itself refuse a symlink atomically, and the
  * "is it a regular file" check runs against the already-open descriptor
  * (`fstatSync`), so nothing can be swapped underneath it either.
+ * `O_NONBLOCK` is required too: a FIFO opened without it blocks forever,
+ * the run's timeout never fires, and the claim stays `running`
+ * (#3513 round-3 review).
  */
 export function readResultFile(file: string, max: number): { text: string; truncated: boolean; refused?: string } {
   let fd: number;
   try {
-    fd = openSync(file, FS_CONSTANTS.O_RDONLY | (FS_CONSTANTS.O_NOFOLLOW ?? 0));
+    fd = openSync(
+      file,
+      FS_CONSTANTS.O_RDONLY | (FS_CONSTANTS.O_NOFOLLOW ?? 0) | (FS_CONSTANTS.O_NONBLOCK ?? 0),
+    );
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code === 'ENOENT') return { text: '', truncated: false };

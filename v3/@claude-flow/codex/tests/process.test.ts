@@ -134,6 +134,7 @@ describe('runHeadlessProcess', () => {
       // soon as the leader exits, well before the subshell is actually dead.
       // Before the fix, that early 'close' cancelled the pending SIGKILL
       // escalation, so the subshell ran to completion and created the marker.
+      let pid: number | undefined;
       const result = await runHeadlessProcess({
         command: 'sh',
         args: ['-c', `( trap "" TERM; exec >/dev/null 2>&1; sleep 8; touch '${marker}' ) & wait`],
@@ -142,12 +143,24 @@ describe('runHeadlessProcess', () => {
         timeoutMs: 300,
         killGraceMs: 500,
         maxOutputBytes: 1024,
+        onSpawn: (p) => { pid = p.pid; },
       });
       expect(result.timedOut).toBe(true);
       expect(result.code).toBeNull();
-      // The promise may resolve quickly (the leader's close can still fire
-      // early) — what matters is that the descendant does not survive.
       expect(Date.now() - started).toBeLessThan(2000);
+      // The group must already be dead when the promise resolves. The CLI
+      // calls process.exit on this result, which cancels any timer that is
+      // still pending. Checking the marker later does not catch that: the
+      // sleep has not finished, and under a test runner the stray SIGKILL
+      // timer can still fire.
+      expect(pid).toBeTypeOf('number');
+      let groupAlive = true;
+      try {
+        process.kill(-(pid as number), 0);
+      } catch (err) {
+        groupAlive = (err as NodeJS.ErrnoException).code !== 'ESRCH';
+      }
+      expect(groupAlive).toBe(false);
       await new Promise((r) => setTimeout(r, 4000));
       expect(existsSync(marker)).toBe(false);
       rmSync(dir, { recursive: true, force: true });

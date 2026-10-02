@@ -5,6 +5,7 @@
  * file read is bounded. No model calls.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -363,6 +364,16 @@ describe('team run guards', () => {
     symlinkSync(target, link);
     expect(readResultFile(link, 100)).toMatchObject({ text: '', refused: 'symlink' });
     expect(readResultFile(target, 3)).toEqual({ text: 'sec', truncated: true });
+  });
+
+  it('refuses a FIFO result file without blocking', () => {
+    if (process.platform === 'win32') return;
+    const fifo = join(cwd, 'result.fifo');
+    execFileSync('mkfifo', [fifo]);
+    const started = Date.now();
+    const r = readResultFile(fifo, 100);
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(r).toMatchObject({ text: '', refused: 'not a regular file' });
   });
 
   it('team_spawn rejects unknown keys with a hint', async () => {

@@ -78,10 +78,14 @@ function errText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** Send through the store; a failure becomes a warning, never an exception. */
-function trySend(bus: TeamBus, root: string, opts: Record<string, unknown>, warnings: string[], tag: string): void {
+/**
+ * Send through the store; a failure becomes a warning, never an exception.
+ * `sendMessage` returns the team-lock promise, so this must be awaited:
+ * a try/catch around the call does not see a rejection (#3513 round-3).
+ */
+async function trySend(bus: TeamBus, root: string, opts: Record<string, unknown>, warnings: string[], tag: string): Promise<void> {
   try {
-    bus.sendMessage(root, opts);
+    await bus.sendMessage(root, opts);
   } catch {
     warnings.push(tag);
   }
@@ -107,7 +111,7 @@ export async function runTeamAgent(opts: TeamRunOptions): Promise<TeamRunResult>
   // two runners cannot both start the same agent.
   let claim: Claim;
   try {
-    claim = store.updateTeam<Claim>(root, teamName, (team) => {
+    claim = await store.updateTeam<Claim>(root, teamName, (team) => {
       store.assertActive(team); // throws after team_shutdown
       const member = team.members?.[agent];
       if (!member) return { error: `Agent "${agent}" is not registered on team "${teamName}" — call team_spawn first` };
@@ -142,10 +146,10 @@ export async function runTeamAgent(opts: TeamRunOptions): Promise<TeamRunResult>
   if (claim.staleRun) warnings.push(`staleRunReplaced:${claim.staleRun}`);
 
   // Release the claim when the run cannot start after all.
-  const abandon = (error: string): TeamRunResult => {
+  const abandon = async (error: string): Promise<TeamRunResult> => {
     if (!opts.dryRun) {
       try {
-        store.updateTeam(root, teamName, (t) => {
+        await store.updateTeam(root, teamName, (t) => {
           const m = t.members?.[agent];
           if (m && m.runId === runId) m.status = 'idle';
         });
@@ -246,21 +250,21 @@ export async function runTeamAgent(opts: TeamRunOptions): Promise<TeamRunResult>
   // already did) and releases the run claim, or — if `onStop` already ran —
   // leaves the state `onStop` already settled alone (#3513 MINOR 4).
   let messagesRequeued = false;
-  const requeueDelivered = (): void => {
+  const requeueDelivered = async (): Promise<void> => {
     if (messagesRequeued) return;
     messagesRequeued = true;
     for (const m of delivered) {
-      trySend(bus, root, {
+      await trySend(bus, root, {
         team: teamName, to: agent, from: m.from, type: m.type, summary: m.summary,
         message: m.content, priority: m.priority,
       }, warnings, `requeueFailed:${m.id}`);
     }
   };
   let onStopSettled = false;
-  const releaseRunClaim = (): void => {
+  const releaseRunClaim = async (): Promise<void> => {
     if (onStopSettled) return;
     try {
-      store.updateTeam(root, teamName, (t) => {
+      await store.updateTeam(root, teamName, (t) => {
         const m = t.members?.[agent];
         if (m && m.runId === runId) m.status = 'idle';
       });
@@ -340,7 +344,7 @@ export async function runTeamAgent(opts: TeamRunOptions): Promise<TeamRunResult>
     // a timeout) did not act on the delivered messages. Queue them again in
     // the same team so a retry with `ruflo team run` sees them (the archived
     // copies stay as history).
-    if (outcome === 'failed') requeueDelivered();
+    if (outcome === 'failed') await requeueDelivered();
 
     writeRunFile(runFile, {
       runId,
@@ -363,7 +367,7 @@ export async function runTeamAgent(opts: TeamRunOptions): Promise<TeamRunResult>
 
     if (events?.threadId) {
       try {
-        store.updateTeam(root, teamName, (t) => {
+        await store.updateTeam(root, teamName, (t) => {
           const m = t.members?.[agent];
           if (m) m.threadId = events.threadId;
         });
@@ -378,7 +382,7 @@ export async function runTeamAgent(opts: TeamRunOptions): Promise<TeamRunResult>
       ? text.length > HANDOFF_MAX_CHARS ? `${text.slice(0, HANDOFF_MAX_CHARS)}\n…(truncated)` : text
       : `(no final message${reason ? `; ${reason}` : ''})`;
     for (const to of targets) {
-      trySend(bus, root, {
+      await trySend(bus, root, {
         team: teamName,
         to,
         from: agent,
@@ -390,7 +394,7 @@ export async function runTeamAgent(opts: TeamRunOptions): Promise<TeamRunResult>
 
     let onStop: unknown;
     try {
-      onStop = bus.onStop(root, { team: teamName, agent, outcome, runId, reason });
+      onStop = await bus.onStop(root, { team: teamName, agent, outcome, runId, reason });
       onStopSettled = true;
     } catch (err) {
       onStop = { success: false, error: errText(err) };
@@ -408,8 +412,8 @@ export async function runTeamAgent(opts: TeamRunOptions): Promise<TeamRunResult>
       onStop,
     };
   } catch (err) {
-    requeueDelivered();
-    releaseRunClaim();
+    await requeueDelivered();
+    await releaseRunClaim();
     return fail(`run-directory, result-file, or run-file handling failed: ${errText(err)}`);
   }
 }
@@ -446,7 +450,7 @@ export async function hookStop(host: string, payload: unknown, env: NodeJS.Proce
     team = teams[0];
   }
   try {
-    const onStop = bus.onStop(root, { team, agent: id.agent, outcome: id.outcome });
+    const onStop = await bus.onStop(root, { team, agent: id.agent, outcome: id.outcome });
     return { handled: true, team, agent: id.agent, onStop };
   } catch (err) {
     return { handled: false, reason: errText(err), team, agent: id.agent };

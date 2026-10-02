@@ -4,8 +4,8 @@
  * The store is templates/grok/scripts/grok-team-bus.mjs (operations) and
  * grok-team-store.mjs (storage) — the same files `init --grok` copies into a
  * project — so the MCP tools, the `ruflo team` runner and the SubagentStop
- * hook share one implementation. Everything here is synchronous and throws
- * Error on failure.
+ * hook share one implementation. Mutations go through the async team lock
+ * and return promises; callers must await them. Throws Error on failure.
  */
 
 import { join } from 'node:path';
@@ -14,7 +14,7 @@ import { grokTemplatesRoot } from '../init/grok-templates.js';
 import type { RoleTable } from './team-hosts/plan.js';
 
 type Obj = Record<string, unknown>;
-export type BusOp = (projectRoot: string, opts: Obj) => Obj;
+export type BusOp = (projectRoot: string, opts: Obj) => Promise<Obj>;
 
 export interface BusMessage {
   id: string;
@@ -62,7 +62,7 @@ export interface StoreTeam {
 
 export interface TeamStore {
   loadTeam: (projectRoot: string, team: string) => StoreTeam;
-  updateTeam: <T>(projectRoot: string, team: string, mutate: (t: StoreTeam) => T) => T;
+  updateTeam: <T>(projectRoot: string, team: string, mutate: (t: StoreTeam) => T) => Promise<T>;
   assertActive: (t: StoreTeam) => void;
   teamDir: (projectRoot: string, team: string) => string;
   ensureRealDir: (base: string, dir: string) => void;
