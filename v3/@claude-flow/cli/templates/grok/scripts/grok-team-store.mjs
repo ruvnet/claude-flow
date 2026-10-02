@@ -195,6 +195,19 @@ export async function withTeamLock(projectRoot, team, fn) {
   }
 }
 
+/** True when the lock token names a pid that still exists on this host. */
+function lockHolderAlive(token) {
+  const pid = Number(String(token).split('.')[0]);
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    // EPERM: the process exists and we cannot signal it. ESRCH: it is gone.
+    return err.code === 'EPERM';
+  }
+}
+
 /**
  * Break `lock` if it's still stale. Re-verifies the token and mtime we
  * observed as stale immediately before renaming anything: without this, a
@@ -205,7 +218,8 @@ export async function withTeamLock(projectRoot, team, fn) {
  * vacated slot, leaving two holders at once (ADR-402 round-2 review, N2).
  * If anything has changed since our first observation, someone else already
  * handled it: back off without touching the file and let the caller's own
- * wait loop retry.
+ * wait loop retry. A token whose pid is still alive is left alone even when
+ * the file is older than LOCK_STALE_MS (round-3 review).
  */
 export function breakStaleLock(lock, token) {
   let seen, mtime;
@@ -224,6 +238,13 @@ export function breakStaleLock(lock, token) {
     return; // released meanwhile
   }
   if (mtime2 !== mtime || seen2 !== seen) return; // changed underneath us — back off
+  // A live holder is not stale, however old the file is. The lock is not
+  // refreshed while held, so a stall longer than LOCK_STALE_MS (SIGSTOP,
+  // sleep, a hook killed mid-update) used to let the next writer break it
+  // and drop one of the two updates. The token starts with the holder's
+  // pid; if that pid is still alive on this host, leave the lock alone
+  // (ADR-402 round-3 review). A dead or unparsable pid keeps the mtime rule.
+  if (lockHolderAlive(seen2)) return;
 
   const aside = `${lock}.stale.${token}`;
   try {

@@ -104,13 +104,30 @@ function splitDottedKey(raw) {
   return parts.map((p) => p.replace(/^["']|["']$/g, ''));
 }
 
-/** '[a."b.c"]' or '[a.b]' → normalized key 'a.b.c' (dequoted parts joined by '.'), or null if not a table header. */
+/**
+ * '[a."b.c"]' or '[a.b]' → normalized key 'a.b.c' (dequoted parts joined by '.'),
+ * or null if not a table header. A `]` inside a quoted key is part of the key
+ * (`[folders."/x/a]b"]`), not the end of the header.
+ */
 function sectionHeaderKey(line) {
   const trimmed = line.trim();
-  if (trimmed.startsWith('[[')) return null; // array-of-tables: not modeled, not needed here
-  const m = /^\[\s*([^\]]+?)\s*\]$/.exec(trimmed);
-  if (!m) return null;
-  return splitDottedKey(m[1]).join('.');
+  if (!trimmed.startsWith('[') || trimmed.startsWith('[[')) return null; // array-of-tables: not modeled
+  let quote = null;
+  let end = -1;
+  for (let i = 1; i < trimmed.length; i++) {
+    const c = trimmed[i];
+    if (quote) {
+      if (c === '\\' && quote === '"') { i++; continue; }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'") { quote = c; continue; }
+    if (c === ']') { end = i; break; }
+  }
+  if (end < 0 || trimmed.slice(end + 1).trim() !== '') return null;
+  const inner = trimmed.slice(1, end).trim();
+  if (!inner) return null;
+  return splitDottedKey(inner).join('.');
 }
 
 /** { normalizedSectionPath -> { key -> rawValueText } } for every `[table]` in the file. */

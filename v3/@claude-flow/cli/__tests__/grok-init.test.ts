@@ -263,6 +263,23 @@ describe('executeGrokInit', () => {
     expect(runStatusline().loaded.mcp).toBe(false);
   });
 
+  it('treats a ] inside a quoted trusted-folder key as part of the path (round-3 review)', () => {
+    executeGrokInit({ targetDir: dir, homeDir: home });
+    const weird = join(dir, 'a]b');
+    mkdirSync(weird, { recursive: true });
+    const root = realpathSync(weird);
+    mkdirSync(join(home, '.grok'), { recursive: true });
+    writeFileSync(join(home, '.grok', 'trusted_folders.toml'), `[folders."${root}"]\ntrusted = true\n`);
+    const r = spawnSync(process.execPath, [join(grokTemplatesRoot(), 'scripts', 'host-statusline.mjs'), '--json'], {
+      cwd: weird,
+      env: { ...process.env, HOME: home, USERPROFILE: home },
+      encoding: 'utf-8',
+      input: '',
+    });
+    expect(r.status, r.stderr).toBe(0);
+    expect(JSON.parse(r.stdout).loaded.trusted).toBe(true);
+  });
+
   it('writes through a symlinked ~/.grok/config.toml instead of replacing it (round-2 review, minor item 1)', () => {
     // A dotfiles-managed setup often symlinks ~/.grok/config.toml at a real
     // file living elsewhere (e.g. a dotfiles repo checkout).
@@ -306,6 +323,21 @@ describe('executeGrokInit', () => {
     expect(r.filesCreated).toEqual([]);
     expect(existsSync(join(dir, '.grok'))).toBe(false);
     expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('keeps init working when a BigInt sits beside an existing status row (round-3 review)', () => {
+    mkdirSync(join(home, '.grok'), { recursive: true });
+    const dest = join(home, '.grok', 'config.toml');
+    // Nothing is serialized when the user already has [ui.status_line], so
+    // the integer must not fail the whole init.
+    const original = 'giant = 99999999999999999999\n[ui.status_line]\ntype = "command"\ncommand = "mine"\n';
+    writeFileSync(dest, original);
+
+    const r = executeGrokInit({ targetDir: dir, homeDir: home, statusLine: true });
+    expect(r.success, r.errors.join('\n')).toBe(true);
+    expect(r.userConfig.action).toBe('already-set');
+    expect(readFileSync(dest, 'utf-8')).toBe(original);
+    expect(existsSync(join(dir, '.grok', 'config.toml'))).toBe(true);
   });
 
   it('copies the scripts byte-for-byte from templates (no second copy to drift)', () => {

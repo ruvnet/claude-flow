@@ -352,6 +352,10 @@ function validateExistingUserConfig(dest: string): string | null {
   } catch {
     return null;
   }
+  // An existing status row is left as-is, so nothing in this file is
+  // serialized. A BigInt elsewhere must not fail init in that case
+  // (ADR-402 round-3 review). The status step reports already-set.
+  if (statusLineOf(doc) !== undefined) return null;
   try {
     JSON.stringify(doc);
   } catch (e) {

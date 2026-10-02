@@ -220,6 +220,27 @@ describe('teamTools (ADR-402)', () => {
     expect(readdirSync(dir).filter((f) => f.includes('.stale.'))).toEqual([]);
   });
 
+  it('does not break a stale lock whose holder pid is still alive (round-3 review)', async () => {
+    await tool('team_create')({ name: 'alive' });
+    const dir = join(cwd, '.claude-flow', 'teams', 'alive');
+    const lock = join(dir, 'team.lock');
+    const store: any = await import(pathToFileURL(STORE).href);
+    const live = `${process.pid}.${Date.now()}.live`;
+    writeFileSync(lock, live);
+    const old = new Date(Date.now() - 120_000);
+    utimesSync(lock, old, old);
+
+    store.breakStaleLock(lock, 'waiter-token');
+    expect(readFileSync(lock, 'utf8')).toBe(live);
+
+    const deadPid = 2 ** 22 + 12345;
+    writeFileSync(lock, `${deadPid}.${Date.now()}.dead`);
+    utimesSync(lock, old, old);
+    store.breakStaleLock(lock, 'waiter-token');
+    expect(existsSync(lock)).toBe(false);
+    expect(readdirSync(dir).filter((f) => f.includes('.stale.'))).toEqual([]);
+  });
+
   it('breaks a stale lock safely with several real concurrent waiters, no lost updates (review N2/N3)', async () => {
     await tool('team_create')({ name: 'race-stale', maxAgents: 10 });
     const dir = join(cwd, '.claude-flow', 'teams', 'race-stale');
