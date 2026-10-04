@@ -17,6 +17,7 @@ import {
 import {
   DualModeOrchestrator,
   CollaborationTemplates,
+  buildWorkerEnvironment,
   loadSwarmAutomationConfig,
 } from '../src/dual-mode/index.js';
 import type { WorkerConfig } from '../src/dual-mode/index.js';
@@ -265,6 +266,60 @@ describe('DualModeOrchestrator', () => {
     } finally {
       delete process.env.CLAUDE_FLOW_POLICY_SIGNING_KEY;
       delete process.env.OPENROUTER_API_KEY;
+    }
+  });
+
+  // #3513 round 4: the command-host deny list also stripped orchestrator
+  // workers, so a gateway base URL never reached ruflo's own children.
+  it('passes base URLs to an orchestrator worker and keeps them off a command host', () => {
+    const previous = {
+      ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL,
+      OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+      OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
+      CLAUDE_FLOW_LOG_LEVEL: process.env.CLAUDE_FLOW_LOG_LEVEL,
+      CLAUDE_FLOW_POLICY_MODE: process.env.CLAUDE_FLOW_POLICY_MODE,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    };
+    process.env.ANTHROPIC_BASE_URL = 'https://gateway.example/anthropic';
+    process.env.OPENAI_BASE_URL = 'https://gateway.example/openai';
+    process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
+    process.env.CLAUDE_FLOW_LOG_LEVEL = 'debug';
+    process.env.CLAUDE_FLOW_POLICY_MODE = 'enforce';
+    process.env.OPENAI_API_KEY = 'sk-test';
+    try {
+      const workerEnv = (orch() as unknown as {
+        workerEnvironment(worker: WorkerConfig): NodeJS.ProcessEnv;
+      }).workerEnvironment({
+        id: 'url-worker',
+        platform: 'codex',
+        role: 'coder',
+        prompt: 'implement',
+      });
+      expect(workerEnv.ANTHROPIC_BASE_URL).toBe('https://gateway.example/anthropic');
+      expect(workerEnv.OPENAI_BASE_URL).toBe('https://gateway.example/openai');
+      expect(workerEnv.OLLAMA_BASE_URL).toBe('http://127.0.0.1:11434');
+      expect(workerEnv.CLAUDE_FLOW_LOG_LEVEL).toBe('debug');
+      expect(workerEnv.CLAUDE_FLOW_POLICY_MODE).toBeUndefined();
+      expect(workerEnv.OPENAI_API_KEY).toBeUndefined();
+
+      const hostEnv = buildWorkerEnvironment({
+        PATH: '/bin',
+        ANTHROPIC_BASE_URL: 'https://gateway.example/anthropic',
+        OPENAI_BASE_URL: 'https://gateway.example/openai',
+        OLLAMA_BASE_URL: 'http://127.0.0.1:11434',
+        CLAUDE_FLOW_LOG_LEVEL: 'debug',
+        OPENAI_API_KEY: 'sk-test',
+      }, { principalId: 'agent:command-host' });
+      expect(hostEnv.ANTHROPIC_BASE_URL).toBeUndefined();
+      expect(hostEnv.OPENAI_BASE_URL).toBeUndefined();
+      expect(hostEnv.OLLAMA_BASE_URL).toBeUndefined();
+      expect(hostEnv.CLAUDE_FLOW_LOG_LEVEL).toBeUndefined();
+      expect(hostEnv.OPENAI_API_KEY).toBeUndefined();
+    } finally {
+      for (const [name, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
     }
   });
 

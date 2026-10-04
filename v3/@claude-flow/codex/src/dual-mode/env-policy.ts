@@ -1,23 +1,23 @@
 /**
- * Environment-name deny policy shared by every path that hands ruflo's own
- * environment to a child process:
+ * Environment-name deny policies for children that inherit ruflo's environment.
  *
- *  - `buildWorkerEnvironment` (process.ts, this package) — the base-environment
- *    strip applied before spawning ANY headless worker or command host.
- *  - `passEnv` validation for custom command hosts
- *    (`@claude-flow/cli` `src/mcp-tools/team-hosts/command.ts`) — names a
- *    project's `.claude-flow/team-hosts.json` entry may re-add after the strip.
+ * Command hosts (`ruflo team run`, and `passEnv` in
+ * `@claude-flow/cli` `src/mcp-tools/team-hosts/command.ts`) use
+ * `isProtectedEnvName`. #3513 MAJOR A: those two paths used to keep separate
+ * regexes, and the base-environment strip was the narrower one, so a trusted
+ * command host still received `PGPASSWORD`, `DATABASE_URL`, `SSH_AUTH_SOCK`,
+ * `GITHUB_PAT`, `MYSQL_PWD`, `SESSION_SECRET_X`, `MY_AUTH`,
+ * `SLACK_WEBHOOK_URL`, and every `CLAUDE_FLOW_*` name. Both of those call
+ * sites import this function. A name added to one and not the other is that
+ * bug again.
  *
- * #3513 review MAJOR A: these two used to keep separately maintained regexes.
- * `buildWorkerEnvironment`'s was narrower (it required a `_`-or-start anchor,
- * so `PGPASSWORD` slipped through) and didn't strip `CLAUDE_FLOW_*` generally
- * (only three exact names), so a trusted command host's *base* environment —
- * copied before `passEnv` is ever consulted — still received `PGPASSWORD`,
- * `DATABASE_URL`, `SSH_AUTH_SOCK`, `GITHUB_PAT`, `MYSQL_PWD`,
- * `SESSION_SECRET_X`, `MY_AUTH`, `SLACK_WEBHOOK_URL`, and every `CLAUDE_FLOW_*`
- * variable, regardless of what a host's `passEnv` would have refused. Both
- * call sites MUST import `isProtectedEnvName` from here rather than keep a
- * local copy — a name added to one and not the other is exactly this bug.
+ * Dual-mode orchestrator workers are ruflo's own children, not an untrusted
+ * command host. They keep `isOrchestratorProtectedEnvName`, the rule `main`
+ * used before this PR (#3513 round 4): drop secret-shaped suffixes and the
+ * policy/identity `CLAUDE_FLOW_*` names, and leave base URLs and the rest of
+ * `CLAUDE_FLOW_*` in place. Applying the command-host list there makes a
+ * worker that talks through `ANTHROPIC_BASE_URL` or `OLLAMA_BASE_URL` call
+ * the default endpoint instead.
  */
 
 /**
@@ -52,11 +52,10 @@ const SUFFIX_TOKEN_RE = /(?:^|_)(?:KEY|PWD|PAT|URL)$/i;
 const CLAUDE_FLOW_RE = /^CLAUDE_FLOW_/i;
 
 /**
- * True when `name` must never reach a headless worker or command host's
- * environment: it looks like a secret, or it is one of Ruflo's own
- * identity/policy variables. `PWD` (present working directory) is the one
- * explicit exception — it is not a secret, and it would otherwise match the
- * `PWD` suffix token meant to catch `MYSQL_PWD`.
+ * True when `name` must never reach a command host: it looks like a secret,
+ * or it is one of Ruflo's own variables. `PWD` (present working directory)
+ * is the one explicit exception — it is not a secret, and it would otherwise
+ * match the `PWD` suffix token meant to catch `MYSQL_PWD`.
  */
 export function isProtectedEnvName(name: string): boolean {
   if (name === 'PWD') return false;
@@ -64,4 +63,19 @@ export function isProtectedEnvName(name: string): boolean {
   if (SENSITIVE_SUBSTRINGS.some((s) => upper.includes(s))) return true;
   if (SUFFIX_TOKEN_RE.test(name)) return true;
   return CLAUDE_FLOW_RE.test(name);
+}
+
+/**
+ * The dual-mode orchestrator's deny rule from `main`, kept verbatim so a
+ * worker still receives gateway base URLs and non-policy `CLAUDE_FLOW_*`
+ * settings. Secret-shaped suffixes and the policy/identity names stay out.
+ */
+const ORCHESTRATOR_SENSITIVE_RE = /(?:^|_)(?:API_?KEY|KEY|SECRET|TOKEN|PASSWORD|CREDENTIALS?)$/i;
+
+export function isOrchestratorProtectedEnvName(name: string): boolean {
+  return ORCHESTRATOR_SENSITIVE_RE.test(name)
+    || name.startsWith('CLAUDE_FLOW_POLICY_')
+    || name === 'CLAUDE_FLOW_PRINCIPAL_ID'
+    || name === 'CLAUDE_FLOW_MCP_INVOCATION_TOKEN'
+    || name === 'CLAUDE_FLOW_MCP_CALLER_PUBKEY';
 }

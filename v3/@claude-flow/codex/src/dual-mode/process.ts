@@ -8,7 +8,7 @@
  */
 
 import { spawn, spawnSync, ChildProcess } from 'child_process';
-import { isProtectedEnvName } from './env-policy.js';
+import { isOrchestratorProtectedEnvName, isProtectedEnvName } from './env-policy.js';
 
 export { isProtectedEnvName } from './env-policy.js';
 
@@ -280,25 +280,34 @@ export interface WorkerEnvironmentOptions {
   envelope?: unknown;
   /** Names copied back from `base` after the sensitive-name strip. */
   passEnv?: string[];
+  /**
+   * `host` (default) is the command-host deny list. `orchestrator` is the
+   * rule dual-mode workers had on main (#3513 round 4).
+   */
+  policy?: 'host' | 'orchestrator';
 }
 
 /**
- * Build a child environment from `base`: drop secrets and policy/identity
- * variables (via the shared `isProtectedEnvName` policy — #3513 MAJOR A),
- * then set the worker's principal, database path and envelope. Names in
- * `passEnv` (for example a host's own auth key) are re-added from `base`
- * after the strip — callers that hand this an untrusted `passEnv` (a custom
- * command host's declared list) must filter it through `isProtectedEnvName`
- * themselves first, the same way `team-runner.ts` does; this function trusts
- * whatever `passEnv` it is given. Token minting is left to the caller.
+ * Build a child environment from `base`: drop names the selected policy
+ * refuses, then set the worker's principal, database path and envelope.
+ * The default policy is the command-host list (`isProtectedEnvName`,
+ * #3513 MAJOR A). Dual-mode passes `policy: 'orchestrator'` so its own
+ * workers keep base URLs and non-policy `CLAUDE_FLOW_*` names.
+ * Names in `passEnv` (for example a host's own auth key) are re-added from
+ * `base` after the strip. Callers that hand this an untrusted `passEnv`
+ * (a custom command host's declared list) must filter it through
+ * `isProtectedEnvName` themselves first, the same way `team-runner.ts`
+ * does; this function trusts whatever `passEnv` it is given. Token minting
+ * is left to the caller.
  */
 export function buildWorkerEnvironment(
   base: NodeJS.ProcessEnv,
   opts: WorkerEnvironmentOptions,
 ): NodeJS.ProcessEnv {
+  const denied = opts.policy === 'orchestrator' ? isOrchestratorProtectedEnvName : isProtectedEnvName;
   const env: NodeJS.ProcessEnv = {};
   for (const [name, value] of Object.entries(base)) {
-    if (isProtectedEnvName(name)) continue;
+    if (denied(name)) continue;
     env[name] = value;
   }
   env.FORCE_COLOR = '0';

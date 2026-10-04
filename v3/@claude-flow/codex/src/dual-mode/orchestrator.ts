@@ -586,6 +586,7 @@ Remember: Other agents depend on your results in shared memory. Be concise and s
       principalId: `agent:${worker.id}`,
       dbPath: this.config.memoryDbPath,
       envelope: this.resolveWorkerEnvelope(worker),
+      policy: 'orchestrator',
     });
     // ADR-377 Phase 3 (dream-cycle candidate, 2026-08-26) — off by default.
     // When caller-auth is enabled, back the freshly-set CLAUDE_FLOW_PRINCIPAL_ID
