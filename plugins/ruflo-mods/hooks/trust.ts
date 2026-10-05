@@ -54,19 +54,28 @@ const RISKY_EVENTS: Record<string, string> = {
   'agent.spawn': 'can rewrite or answer every agent spawn',
   'tool.describe': 'can rewrite the tool descriptions the model reads',
   'session.append': 'can rewrite every row added to the conversation',
+  'prompt.section': 'can rewrite system prompt sections',
+  'prompt.context': 'can rewrite the context added to prompts',
+  'prompt.attachment': 'can rewrite prompt attachments',
+  'skill.prompt': 'can rewrite skill prompts',
+  'session.receive': 'can rewrite or drop messages from other agents',
+  'turn.step': 'can rewrite or answer every model request',
+  'process.run': "can rewrite or answer other mods' host commands",
+  'http.fetch': "can rewrite or answer other mods' network requests",
+  'mcp.call': "can rewrite or answer other mods' MCP calls",
 }
 
 /**
  * The risky events a registered pattern reaches. The scan reports patterns as
- * written, so a glob (`tool.*`) or a negation (`!tool.describe`: every event
- * but one) must be judged by what it selects, not by how it is spelled.
+ * written, so a glob (`tool.*`) or a negation (`!tool.describe`, every event
+ * but one) must be judged by what it selects, not by its spelling.
  */
 const escapeRe = (text: string) => text.replace(/[.+?^$()|[\]{}\\]/g, '\\$&')
 
 function riskyEventsOf(pattern: string): string[] {
   if (Object.hasOwn(RISKY_EVENTS, pattern)) return [pattern]
   if (pattern.startsWith('!')) return ['*']
-  // A settings hook by name, or a glob of them, can answer any of them.
+  // Any settings hook, one by name or a glob of them, can answer it.
   if (pattern.startsWith('classic.')) return ['classic.*']
   if (!pattern.includes('*')) return []
   const glob = new RegExp(`^${pattern.split('*').map(escapeRe).join('.*')}$`)
