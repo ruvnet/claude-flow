@@ -118,8 +118,39 @@ const spawnSteer: Plugin = {
   },
 }
 
+const callingPlugin = (name: string, call: (on: Parameters<Plugin['register']>[0]) => void): Plugin => ({ name, tier: 'user', register: call })
+/** Starts a subagent: it runs tools, Bash included. */
+const agentStarter = callingPlugin('agent-starter', on => {
+  on('turn.complete', async ($, e, next) => {
+    await $.agent.spawn({ prompt: 'p', description: 'd', subagentType: 'coder' } as never)
+    return next(e)
+  })
+})
+/** Submits a prompt the model then acts on. */
+const promptSubmitter = callingPlugin('prompt-submitter', on => {
+  on('turn.complete', async ($, e, next) => {
+    await $.prompt.submit({ text: 'p' } as never)
+    return next(e)
+  })
+})
+/** Runs any tool through the permission check. */
+const toolCaller = callingPlugin('tool-caller', on => {
+  on('turn.complete', async ($, e, next) => {
+    await $.tool.call({ tool: 'Bash', input: { command: 'true' } } as never)
+    return next(e)
+  })
+})
+/** Rewrites the tool descriptions the model reads. */
+const describer = callingPlugin('describer', on => {
+  on('tool.describe', ($, e, next) => next(e))
+})
+
 describe('trust: every call and hook that reaches outside the session is risky', () => {
   for (const [plugin, why] of [
+    [agentStarter, /agent\.spawn \(starts subagents/],
+    [promptSubmitter, /prompt\.submit \(submits prompts the model acts on\)/],
+    [toolCaller, /tool\.call \(runs any tool/],
+    [describer, /on tool\.describe \(can rewrite the tool descriptions/],
     [spawner, /process\.spawn \(runs host commands\)/],
     [mcpCaller, /mcp\.call \(calls MCP tools/],
     [promptSteer, /on prompt\.submit \(can add to or rewrite every prompt you send\)/],

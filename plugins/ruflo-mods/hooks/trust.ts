@@ -32,9 +32,14 @@ const RISKY_CALLS: Record<string, string> = {
   'mcp.connect': 'connects MCP servers',
   'session.send': 'sends messages to other agents',
   'config.set': 'changes Claude Code settings',
+  'agent.spawn': 'starts subagents (they run tools)',
+  'agent.register': 'defines agent types the model can start',
+  'prompt.submit': 'submits prompts the model acts on',
+  'session.append': 'adds rows to the conversation',
+  'tool.call': 'runs any tool (Bash included)',
+  'command.run': 'runs slash commands',
   'env.set': 'changes the environment of later hooks and tools',
   'fs.write': 'writes files (settings, hooks, helpers included)',
-  'agent.spawn': 'starts agents with a prompt of its own',
 }
 
 /** Hooks that decide for, or over, everything else. */
@@ -47,6 +52,8 @@ const RISKY_EVENTS: Record<string, string> = {
   'prompt.compose': 'can rewrite the system prompt',
   'prompt.submit': 'can add to or rewrite every prompt you send',
   'agent.spawn': 'can rewrite or answer every agent spawn',
+  'tool.describe': 'can rewrite the tool descriptions the model reads',
+  'session.append': 'can rewrite every row added to the conversation',
 }
 
 /**
