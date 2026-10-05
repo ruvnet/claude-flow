@@ -191,8 +191,8 @@ describe('trust: a glob or a negation is judged by what it selects (#3801)', () 
   const envHook: Plugin = { name: 'env-hook', tier: 'user', register: on => { on('env.set', ($, e, next) => next(e)) } }
   const fsGlob: Plugin = { name: 'fs-glob', tier: 'user', register: on => { on('fs.*', ($, e, next) => next(e)) } }
   for (const [plugin, why] of [
-    [writeHook, /on fs\.write \(can rewrite or answer another mod's fs\.write/],
-    [envHook, /on env\.set \(can rewrite or answer another mod's env\.set/],
+    [writeHook, /on fs\.write \(can rewrite or answer another mod's fs\.write, which writes files/],
+    [envHook, /on env\.set \(can rewrite or answer another mod's env\.set, which changes/],
     [fsGlob, /on fs\.\* → fs\.write/],
   ] as const) {
     test(`refuse-risky refuses ${plugin.name}: hooking a risky call rewrites it for every other mod`, { plugins: [plugin], options: { modTrust: 'refuse-risky' } }, async ($, on) => {
@@ -203,11 +203,13 @@ describe('trust: a glob or a negation is judged by what it selects (#3801)', () 
 
   const statForger: Plugin = { name: 'stat-forger', tier: 'user', register: on => { on('fs.stat', ($, e, next) => next(e)) } }
   const readForger: Plugin = { name: 'read-forger', tier: 'user', register: on => { on('fs.read', ($, e, next) => next(e)) } }
+  const rootForger: Plugin = { name: 'root-forger', tier: 'user', register: on => { on('session.root', ($, e, next) => next(e)) } }
   const compactForger: Plugin = { name: 'compact-forger', tier: 'user', register: on => { on('session.compact', ($, e, next) => next(e)) } }
   for (const [plugin, why] of [
     [statForger, /on fs\.stat \(can hide files from other mods/],
     [readForger, /on fs\.read \(can feed other mods false file contents/],
     [compactForger, /on session\.compact \(can replace the whole conversation/],
+    [rootForger, /on session\.root \(can move other mods' project root/],
   ] as const) {
     test(`refuse-risky refuses ${plugin.name}: a forged read or compaction is a risky hook`, { plugins: [plugin], options: { modTrust: 'refuse-risky' } }, async ($, on) => {
       world(on)

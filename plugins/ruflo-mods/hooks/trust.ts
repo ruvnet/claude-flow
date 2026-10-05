@@ -71,6 +71,10 @@ const RISKY_EVENTS: Record<string, string> = {
   'fs.list': 'can hide files from other mods',
   'settings.read': 'can forge the settings other mods decide by',
   'env.get': 'can forge the environment other mods decide by',
+  'session.root': "can move other mods' project root (ruflo's policy projection read from elsewhere)",
+  'session.cwd': 'can move the directory other mods resolve paths from',
+  'fs.ancestors': 'can hide parent directories from other mods',
+  'command.register': 'can rewrite commands other mods register',
 }
 
 /**
@@ -80,7 +84,7 @@ const RISKY_EVENTS: Record<string, string> = {
  * the value it sets).
  */
 const HOOK_RISK: Record<string, string> = {
-  ...Object.fromEntries(Object.entries(RISKY_CALLS).map(([call, does]) => [call, `can rewrite or answer another mod's ${call} (it ${does})`])),
+  ...Object.fromEntries(Object.entries(RISKY_CALLS).map(([call, does]) => [call, `can rewrite or answer another mod's ${call}, which ${does}`])),
   ...RISKY_EVENTS,
 }
 
