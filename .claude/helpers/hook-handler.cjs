@@ -85,7 +85,7 @@ function isRunnableCli(p) {
 // user pinned (the same npx-cache skew as #3306), and that cannot start
 // offline on a cold cache.
 //
-// Two lookups, fs calls only (no child process), reached only after every
+// Three lookups, fs calls only (no child process), reached only after every
 // candidate above missed:
 //   1. npm's global prefix, resolved the way npm resolves it
 //      (npmGlobalPrefix() below). First because it does not depend on PATH:
@@ -105,18 +105,16 @@ function isRunnableCli(p) {
 //      exposed to WSL through the appended Windows PATH.
 //      Relative PATH entries (`.` or an empty entry) are skipped, so a bare
 //      `./ruflo` in the working directory is never picked up.
+//   3. ~/.npm-global, npm's documented no-sudo prefix, when 1 and 2 both
+//      missed: the prefix setting may live where this hook's node never
+//      reads it, and a wrapper script on PATH is skipped by 2.
 // `env`/`platform`/`execPath` are parameters so any layout is testable
 // from any OS.
 function resolveGlobalCliBin(env = process.env, platform = process.platform, execPath = process.execPath) {
   const prefix = npmGlobalPrefix(env, platform, execPath);
   if (prefix) {
-    const modules = platform === 'win32'
-      ? path.join(prefix, 'node_modules')
-      : path.join(prefix, 'lib', 'node_modules');
-    for (const pkg of ['ruflo', 'claude-flow', path.join('@claude-flow', 'cli')]) {
-      const hit = cliInPackage(path.join(modules, pkg));
-      if (hit) return hit;
-    }
+    const hit = cliUnderPrefix(prefix, platform);
+    if (hit) return hit;
   }
   const dirs = String(env.PATH || env.Path || '').split(platform === 'win32' ? ';' : ':');
   const exts = platform === 'win32' ? ['.cmd', ''] : [''];
@@ -143,6 +141,33 @@ function resolveGlobalCliBin(env = process.env, platform = process.platform, exe
         }
       }
     }
+  }
+  // Last resort: ~/.npm-global, the prefix npm's own docs recommend for
+  // global installs without sudo ("Resolving EACCES permissions errors").
+  // The setting that points npm there can live where this hook's node never
+  // looks (another node's builtin npmrc, or a wrapper script that sets it
+  // per call), and a `ruflo` wrapper script on PATH is skipped above by
+  // design. Without this, such a machine fell back to npx @latest on every
+  // hook. Checked only after the configured prefix and PATH both miss, so it
+  // can never override either.
+  const home = env.HOME || env.USERPROFILE;
+  if (home && path.isAbsolute(home)) {
+    const hit = cliUnderPrefix(path.join(home, '.npm-global'), platform);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+// The CLI of a global install under an npm prefix: <prefix>/lib/node_modules
+// on POSIX, <prefix>\node_modules on Windows, trying the three published
+// package names in order.
+function cliUnderPrefix(prefix, platform) {
+  const modules = platform === 'win32'
+    ? path.join(prefix, 'node_modules')
+    : path.join(prefix, 'lib', 'node_modules');
+  for (const pkg of ['ruflo', 'claude-flow', path.join('@claude-flow', 'cli')]) {
+    const hit = cliInPackage(path.join(modules, pkg));
+    if (hit) return hit;
   }
   return null;
 }

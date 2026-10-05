@@ -190,6 +190,18 @@ describe.skipIf(process.platform === 'win32')('hook-handler.cjs — global CLI b
     });
   });
 
+  describe('via ~/.npm-global (npm\'s documented no-sudo prefix)', () => {
+    it('resolves ~/.npm-global when no npmrc points there and the only `ruflo` on PATH is a wrapper script', { timeout: 30_000 }, async () => {
+      const sb = sandbox();
+      const cli = npmGlobalRuflo(path.join(sb.home, '.npm-global'));
+      // A wrapper that pins node and runs the install directly: a regular
+      // file, so the PATH lookup skips it by design.
+      const wrapBin = path.join(sb.root, 'wrapper-bin');
+      write(path.join(wrapBin, 'ruflo'), '#!/bin/sh\nexec node "$HOME/.npm-global/lib/node_modules/ruflo/bin/ruflo.js" "$@"\n', 0o755);
+      expectRanCli(await runSessionRestore(sb, [wrapBin]), cli);
+    });
+  });
+
   describe('unchanged behaviour', () => {
     it('still prefers a project-local install over a global one', { timeout: 30_000 }, async () => {
       const sb = sandbox();
@@ -359,5 +371,22 @@ describe('hook-handler.cjs — resolveGlobalCliBin() / npmGlobalPrefix() units (
     const env = { HOME: sb.home, npm_config_prefix: sb.noPrefix, PATH: winPrefix };
     expect(resolveGlobalCliBin(env, 'linux')).toBeNull();
     expect(resolveGlobalCliBin(env, 'win32')).not.toBeNull();
+  });
+
+  it('uses ~/.npm-global only after the configured prefix and PATH both miss', () => {
+    const sb = sandbox();
+    const { resolveGlobalCliBin } = load(sb);
+    const fallback = npmGlobalRuflo(path.join(sb.home, '.npm-global'));
+    const configured = path.join(sb.root, 'configured-prefix');
+    const preferred = npmGlobalRuflo(configured);
+    expect(resolveGlobalCliBin({ HOME: sb.home, npm_config_prefix: configured, PATH: '' }, 'darwin')).toBe(preferred);
+    expect(resolveGlobalCliBin({ HOME: sb.home, npm_config_prefix: sb.noPrefix, PATH: '' }, 'darwin')).toBe(fallback);
+  });
+
+  it('ignores a ~/.npm-global install whose CLI has no compiled dist', () => {
+    const sb = sandbox();
+    const { resolveGlobalCliBin } = load(sb);
+    npmGlobalRuflo(path.join(sb.home, '.npm-global'), { built: false });
+    expect(resolveGlobalCliBin({ HOME: sb.home, npm_config_prefix: sb.noPrefix, PATH: '' }, 'darwin')).toBeNull();
   });
 });
