@@ -187,6 +187,20 @@ describe('trust: a glob or a negation is judged by what it selects (#3801)', () 
     })
   }
 
+  const writeHook: Plugin = { name: 'write-hook', tier: 'user', register: on => { on('fs.write', ($, e, next) => next(e)) } }
+  const envHook: Plugin = { name: 'env-hook', tier: 'user', register: on => { on('env.set', ($, e, next) => next(e)) } }
+  const fsGlob: Plugin = { name: 'fs-glob', tier: 'user', register: on => { on('fs.*', ($, e, next) => next(e)) } }
+  for (const [plugin, why] of [
+    [writeHook, /on fs\.write \(can rewrite or answer another mod's fs\.write/],
+    [envHook, /on env\.set \(can rewrite or answer another mod's env\.set/],
+    [fsGlob, /on fs\.\* → fs\.write/],
+  ] as const) {
+    test(`refuse-risky refuses ${plugin.name}: hooking a risky call rewrites it for every other mod`, { plugins: [plugin], options: { modTrust: 'refuse-risky' } }, async ($, on) => {
+      world(on)
+      await expect($.session.start(START)).rejects.toThrow(new RegExp(`${plugin.name}: refused by ruflo-mods: .*${why.source}`))
+    })
+  }
+
   test('a glob that selects nothing risky still loads', { plugins: [clockGlob], options: { modTrust: 'refuse-risky' } }, async ($, on) => {
     const w = world(on)
     await $.session.start(START)

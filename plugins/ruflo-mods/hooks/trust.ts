@@ -60,9 +60,18 @@ const RISKY_EVENTS: Record<string, string> = {
   'skill.prompt': 'can rewrite skill prompts',
   'session.receive': 'can rewrite or drop messages from other agents',
   'turn.step': 'can rewrite or answer every model request',
-  'process.run': "can rewrite or answer other mods' host commands",
-  'http.fetch': "can rewrite or answer other mods' network requests",
-  'mcp.call': "can rewrite or answer other mods' MCP calls",
+  'tool.register': 'can rewrite tools other mods register',
+}
+
+/**
+ * Every call on `$` is also an event a hook above the caller can rewrite or
+ * answer for every other mod, so a hook on a risky call is a risky hook too
+ * (a hook on fs.write can redirect another mod's write; one on env.set can change
+ * the value it sets).
+ */
+const HOOK_RISK: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(RISKY_CALLS).map(([call, does]) => [call, `can rewrite or answer another mod's ${call} (it ${does})`])),
+  ...RISKY_EVENTS,
 }
 
 /**
@@ -73,13 +82,13 @@ const RISKY_EVENTS: Record<string, string> = {
 const escapeRe = (text: string) => text.replace(/[.+?^$()|[\]{}\\]/g, '\\$&')
 
 function riskyEventsOf(pattern: string): string[] {
-  if (Object.hasOwn(RISKY_EVENTS, pattern)) return [pattern]
+  if (Object.hasOwn(HOOK_RISK, pattern)) return [pattern]
   if (pattern.startsWith('!')) return ['*']
   // Any settings hook, one by name or a glob of them, can answer it.
   if (pattern.startsWith('classic.')) return ['classic.*']
   if (!pattern.includes('*')) return []
   const glob = new RegExp(`^${pattern.split('*').map(escapeRe).join('.*')}$`)
-  return Object.keys(RISKY_EVENTS).filter(name => name !== '*' && name !== 'classic.*' && glob.test(name))
+  return Object.keys(HOOK_RISK).filter(name => name !== '*' && name !== 'classic.*' && glob.test(name))
 }
 
 const isStrings = (v: unknown): v is readonly string[] => Array.isArray(v) && v.every(s => typeof s === 'string')
@@ -90,7 +99,7 @@ export function riskOf(scan: ModuleScan): string[] {
   const events = isStrings(scan.uses?.events) ? scan.uses.events : []
   return [
     ...calls.filter(c => Object.hasOwn(RISKY_CALLS, c)).map(c => `${c} (${RISKY_CALLS[c]})`),
-    ...events.flatMap(ev => riskyEventsOf(ev).map(name => `on ${ev === name ? ev : `${ev} → ${name}`} (${RISKY_EVENTS[name]})`)),
+    ...events.flatMap(ev => riskyEventsOf(ev).map(name => `on ${ev === name ? ev : `${ev} → ${name}`} (${HOOK_RISK[name]})`)),
   ]
 }
 
