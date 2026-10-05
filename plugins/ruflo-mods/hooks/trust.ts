@@ -61,6 +61,16 @@ const RISKY_EVENTS: Record<string, string> = {
   'session.receive': 'can rewrite or drop messages from other agents',
   'turn.step': 'can rewrite or answer every model request',
   'tool.register': 'can rewrite tools other mods register',
+  'session.compact': 'can replace the whole conversation at compaction',
+  'prompt.edit': 'can rewrite what the person types',
+  'attribution.text': 'can rewrite git text the model reads',
+  // Reads other mods decide by: forging them can switch off an enforced policy (the projection reads as absent).
+  'fs.read': "can feed other mods false file contents (ruflo's policy projection included)",
+  'fs.stat': "can hide files from other mods (ruflo's policy projection included)",
+  'fs.exists': 'can hide files from other mods',
+  'fs.list': 'can hide files from other mods',
+  'settings.read': 'can forge the settings other mods decide by',
+  'env.get': 'can forge the environment other mods decide by',
 }
 
 /**
