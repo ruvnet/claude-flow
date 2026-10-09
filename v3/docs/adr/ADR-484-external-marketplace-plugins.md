@@ -71,5 +71,10 @@ marketplace. They do not cover the external plugin; its own repository runs its 
   bundling code from another repository in ruflo CI; left out on purpose.
 - **Older Claude Code cannot read the marketplace at all.** Claude Code before 2.1.69 refuses the whole `marketplace.json` over this one entry
   (`plugins.N.source: Invalid input`), so `ruflo-*` plugins stop installing there too; found by bisecting `claude plugin marketplace add` across
-  npm releases (2.1.68 refuses, 2.1.69 adds it). The README already requires 2.1.287 for the marketplace, well above that line.
+  npm releases (2.1.68 refuses, 2.1.69 adds it). On such a client an existing `ruflo` marketplace stops refreshing (`Failed to refresh
+  marketplace 'ruflo': Invalid schema … plugins.9.source`) and its installed plugins report "not found in marketplace". The line was already
+  crossed on `main`: on 2.1.68, 37 of the 46 listed plugins refuse to install (`Unrecognized key: "userConfig"`), and `ruflo-testgen`, one that
+  installs, fails to load (`Hook load failed`). The README requires Claude Code 2.1.287 (2026-10-01) or later; 2.1.69 is from 2026-03-04.
+  A second marketplace file for external entries would avoid this, but the plugin would then be `agentic-qe-fleet@<other name>`, outside the
+  console's `ruflo` health matrix, so it is not done.
 - `--plugin-dir plugins/...` (the plugins README's quick start) does not load an external plugin; it installs from the marketplace only.
