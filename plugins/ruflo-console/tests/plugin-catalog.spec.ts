@@ -4,6 +4,8 @@ import { readCatalog, readDoc, visible, type CatalogPlugin } from '../hooks/data
 import type { ReaderFs } from '../hooks/data/files'
 
 const ROOT = '/h/.claude/plugins/marketplaces/ruflo'
+const CACHE = '/h/.claude/plugins/cache/ruflo'
+const GIT = { source: 'git-subdir', url: 'https://example.com/qe.git', path: 'plugins/qe', ref: 'v2.0.0', sha: 'a'.repeat(40) }
 const files: Record<string, string> = {
   [`${ROOT}/.claude-plugin/marketplace.json`]: JSON.stringify({
     plugins: [
@@ -11,6 +13,9 @@ const files: Record<string, string> = {
       { name: 'b-mod', source: './plugins/b-mod', description: 'A mod' },
       { name: 'evil', source: './../../etc', description: 'climbs out' },
       { name: 'bad name!', source: './plugins/x', description: 'not a word' },
+      { name: 'ext-installed', source: GIT, description: 'An external plugin, installed' },
+      { name: 'ext-missing', source: { ...GIT, path: 'plugins/other' }, description: 'An external plugin, not installed' },
+      { name: 'ext-odd', source: { source: 'npm', package: 'x' }, description: 'a source kind it does not read' },
     ],
   }),
   [`${ROOT}/plugins/a-plugin/.claude-plugin/plugin.json`]: '{"version":"1.2.3"}',
@@ -19,6 +24,10 @@ const files: Record<string, string> = {
   [`${ROOT}/plugins/a-plugin/commands/go.md`]: 'x',
   [`${ROOT}/plugins/a-plugin/.mcp.json`]: '{}',
   [`${ROOT}/plugins/b-mod/hooks/register.ts`]: 'x',
+  [`${CACHE}/ext-installed/2.0.0/.claude-plugin/plugin.json`]: '{"version":"2.0.0","userConfig":{"guardMode":{}}}',
+  [`${CACHE}/ext-installed/2.0.0/commands/qe-go.md`]: '---\ndescription: Go\n---\n',
+  [`${CACHE}/ext-installed/2.0.0/.mcp.json`]: '{}',
+  [`${CACHE}/ext-installed/2.0.0/hooks/register.ts`]: 'x',
 }
 
 const fs: ReaderFs = {
@@ -38,12 +47,24 @@ const fs: ReaderFs = {
 }
 
 describe('plugin catalog reader', () => {
-  it('lists each plugin with what it ships, skipping a climbing source and a non-word name', async () => {
+  it('lists each plugin with what it ships, skipping a climbing source, a non-word name and a source kind it does not read', async () => {
     const plugins = (await readCatalog(fs, ROOT)) as CatalogPlugin[]
 
-    expect(plugins.map(plugin => plugin.name)).toEqual(['a-plugin', 'b-mod'])
+    expect(plugins.map(plugin => plugin.name)).toEqual(['a-plugin', 'b-mod', 'ext-installed', 'ext-missing'])
     expect(plugins[0]).toMatchObject({ version: '1.2.3', skills: ['alpha'], agents: ['helper'], commands: ['go'], hasMcp: true, isMod: false })
+    expect(plugins[0]?.external).toBeUndefined()
     expect(plugins[1]).toMatchObject({ isMod: true, skills: [] })
+  })
+
+  it('reads an external plugin from its install path, and lists one that is not installed by its entry alone', async () => {
+    const plugins = (await readCatalog(fs, ROOT, new Map([['ext-installed', `${CACHE}/ext-installed/2.0.0`]]))) as CatalogPlugin[]
+    const installed = plugins.find(plugin => plugin.name === 'ext-installed') as CatalogPlugin
+    const missing = plugins.find(plugin => plugin.name === 'ext-missing') as CatalogPlugin
+
+    expect(installed).toMatchObject({ dir: `${CACHE}/ext-installed/2.0.0`, version: '2.0.0', commands: ['qe-go'], options: ['guardMode'], hasMcp: true, isMod: true, external: 'https://example.com/qe.git plugins/qe @ v2.0.0' })
+    expect((await readDoc(fs, installed, 'command', 'qe-go'))?.description).toBe('Go')
+    expect(missing).toMatchObject({ dir: '', version: null, skills: [], agents: [], commands: [], hasMcp: false, isMod: false, external: 'https://example.com/qe.git plugins/other @ v2.0.0' })
+    expect(await readDoc(fs, missing, 'command', 'qe-go')).toBeNull()
   })
 
   it('refuses a location with .. or a relative one, and a missing manifest', async () => {
@@ -66,7 +87,7 @@ describe('plugin catalog reader', () => {
     const installed = new Set(['a-plugin'])
 
     expect(visible(plugins, installed, 'installed', '').map(plugin => plugin.name)).toEqual(['a-plugin'])
-    expect(visible(plugins, installed, 'missing', '').map(plugin => plugin.name)).toEqual(['b-mod'])
+    expect(visible(plugins, installed, 'missing', '').map(plugin => plugin.name)).toEqual(['b-mod', 'ext-installed', 'ext-missing'])
     expect(visible(plugins, installed, 'mods', '').map(plugin => plugin.name)).toEqual(['b-mod'])
     expect(visible(plugins, installed, 'all', 'alpha').map(plugin => plugin.name)).toEqual(['a-plugin'])
     expect(visible(plugins, installed, 'skills', '').map(plugin => plugin.name)).toEqual(['a-plugin'])

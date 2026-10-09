@@ -16,6 +16,7 @@ on:
     branches: [main]
     paths:
       - 'plugins/**'
+      - '.claude-plugin/marketplace.json'
       - 'scripts/smoke-all-plugins.mjs'
       - 'scripts/audit-plugin-mcp-prefix.mjs'
       - 'scripts/audit-skill-mcp-tools.mjs'
@@ -33,6 +34,7 @@ on:
   pull_request:
     paths:
       - 'plugins/**'
+      - '.claude-plugin/marketplace.json'
       - 'scripts/smoke-all-plugins.mjs'
       - 'scripts/audit-plugin-mcp-prefix.mjs'
       - 'scripts/audit-skill-mcp-tools.mjs'

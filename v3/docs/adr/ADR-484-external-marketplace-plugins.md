@@ -1,0 +1,75 @@
+# ADR 484: External plugins in the ruflo marketplace (first: Agentic QE)
+
+Status: Accepted
+
+Date: 2026-10-09
+
+Builds on: ADR-446 (the plugin fleet as mods), ADR-434 (the Plugins page detects the marketplace), ADR-411 (the plugin map)
+
+## 1. Context
+
+Every entry in `.claude-plugin/marketplace.json` has been a local folder, `./plugins/ruflo-*`. Agentic QE (`agentic-qe` on npm) ships a
+Claude Code plugin, `agentic-qe-fleet`, from its own repository and its own marketplace: 11 QE agents, 9 skills, 9 commands, an `.mcp.json`
+that runs `npx -y agentic-qe@<plugin version> mcp`, and an ADR-446-style mod (`aqe-mod`: a status file at `.claude-flow/aqe-mod/status.json`,
+`/aqe-mod`, and a tighten-only `tool.call` guard that refuses destructive operations on `.agentic-qe/*.db` and `*.rvf`). Ruflo users should
+be able to install it from the ruflo marketplace and see it in the console.
+
+Two ways to list it:
+
+1. **An external entry**: the marketplace points at the plugin's folder in its own repository, pinned to a commit.
+2. **A local wrapper**: a `plugins/ruflo-agentic-qe` folder with its own `plugin.json` and a pinned `.mcp.json`.
+
+The wrapper would carry only what it copies: the agents, skills, commands and the mod would either be copied (two sources of truth, drifting
+on every AQE release) or left out (a plugin that is mostly an MCP line).
+
+## 2. Decision
+
+**List external plugins by a `git-subdir` source pinned to a full commit sha**, and teach the ruflo tooling that an entry may have no folder
+here. The first entry:
+
+```json
+{ "name": "agentic-qe-fleet",
+  "source": { "source": "git-subdir", "url": "https://github.com/proffesor-for-testing/agentic-qe.git",
+              "path": "plugins/agentic-qe-fleet", "ref": "v3.15.0", "sha": "1363bc7dcba895ca0b28585d8053d2535c5a8b67" } }
+```
+
+Rules for an external entry:
+
+- **Pinned.** `sha` is the full 40-character commit; `ref` names the release tag for people. Moving to a new release is a reviewed change to
+  this file. `validate-marketplace.yml`, which failed on any non-string source (`Missing plugin dir: [object Object]`), now checks an
+  external entry instead: a `git-subdir` with an https url, a path without `..`, a full sha and a description.
+- **Smoked at the pin.** `scripts/smoke-all-plugins.mjs` checks out each external entry at its sha (shallow, blobless, into a temporary
+  folder), requires its `plugin.json` to carry the listed name, and runs the plugin's own `scripts/smoke.sh` when it ships one. The step needs
+  network access; `--skip-external` turns it off. `all-plugins-smoke.yml` also runs when `marketplace.json` changes.
+- **Mapped in the console.** `hooks/plugin-map.ts` has a line for it like any plugin (Agentic QE: Dev Tools, beside `ruflo-testgen`), and
+  `tests/plugin-coverage.spec.ts` requires a line for every external marketplace entry as well as every `plugins/` folder.
+- **Read from the installed copy.** The Plugin Catalog reads a local plugin from the marketplace clone; an external one has no copy there, so
+  its skills, agents, commands, `.mcp.json` and `hooks/register.ts` are read from its install path in Claude Code's
+  `installed_plugins.json` (the same checked path the What's new page reads). Not installed, it is listed by its entry alone. Either way
+  the row carries an `EXT` badge and the detail names where it is installed from. Ruflo console 0.43.6.
+
+Nothing else needed a change: the health matrix lists installed plugins by marketplace (`agentic-qe-fleet@ruflo` is a ruflo plugin there),
+the Mods section already reads any `.claude-flow/*-mod/status.json`, and the scripts that walk `plugins/*` (`audit-plugin-*`,
+`check-plugin-manifests`, `mod-capability-matrix`, `probe-mod-guards`, the CLI command inventory) skip a non-string source or never read the
+marketplace. They do not cover the external plugin; its own repository runs its manifest, mod and guard tests.
+
+## 3. Evidence (Claude Code 2.1.295, 2026-10-09)
+
+- `claude plugin validate .claude-plugin/marketplace.json` passes with the entry; a `{"source":"bogus"}` source is refused.
+  `claude plugin validate .` at the root fails exactly as it does on `main`, on the legacy root `.claude-plugin/plugin.json`
+  (`repository` must be a string), and reports nothing about the new entry.
+- In a throwaway `CLAUDE_CONFIG_DIR`: `claude plugin marketplace add <marketplace>` then `claude plugin install agentic-qe-fleet@<marketplace>`
+  installs 3.15.0 into `plugins/cache/<marketplace>/agentic-qe-fleet/3.15.0`; `claude mcp list` shows
+  `plugin:agentic-qe-fleet:agentic-qe: npx -y agentic-qe@3.15.0 mcp - ✔ Connected`; `claude -p "/aqe-mod status"` answers from the mod and writes
+  `.claude-flow/aqe-mod/status.json`; `claude plugin test` on the installed copy: 11 pass, 0 fail.
+
+## 4. Consequences
+
+- Ruflo does not review each AQE commit, only each pin. The pinned sha is the trust boundary: an AQE release reaches ruflo users when a PR here
+  moves the pin and the external smoke passes on it.
+- The AQE mod's guard is not in `probe-mod-guards` or the capability matrix, which read `plugins/` only. Covering external guards would mean
+  bundling code from another repository in ruflo CI; left out on purpose.
+- **Older Claude Code cannot read the marketplace at all.** Claude Code before 2.1.69 refuses the whole `marketplace.json` over this one entry
+  (`plugins.N.source: Invalid input`), so `ruflo-*` plugins stop installing there too; found by bisecting `claude plugin marketplace add` across
+  npm releases (2.1.68 refuses, 2.1.69 adds it). The README already requires 2.1.287 for the marketplace, well above that line.
+- `--plugin-dir plugins/...` (the plugins README's quick start) does not load an external plugin; it installs from the marketplace only.

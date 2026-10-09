@@ -9,6 +9,11 @@
 //   node scripts/smoke-all-plugins.mjs --only ruflo-agent,ruflo-cost-tracker
 //   node scripts/smoke-all-plugins.mjs --skip ruflo-iot-cognitum
 //   node scripts/smoke-all-plugins.mjs --skip-guard-probe # omit the final guard-probe step
+//   node scripts/smoke-all-plugins.mjs --skip-external    # omit the external plugins (no network)
+//
+// External plugins: a marketplace entry whose source is a git-subdir pinned to a commit (a plugin maintained in another
+// repository) is checked out at that commit into a temporary folder, its manifest must carry the listed name, and its own
+// scripts/smoke.sh, when it ships one, runs as one more row. This step needs network access to the plugin's repository.
 //
 // After the per-plugin smokes, `scripts/probe-mod-guards.mjs --fast` runs every hooks/guard.ts through the adversarial corpus. It
 // fails only on holes NOT listed in scripts/probe-mod-guards.known-holes.json, so a regression (or a new guard copied from a
@@ -24,7 +29,8 @@
 //   2  config error (e.g. invalid CLI args)
 //   3  no smoke scripts found (likely repo-layout drift — fail closed)
 
-import { readdirSync, existsSync, statSync, readFileSync } from 'node:fs';
+import { readdirSync, existsSync, statSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,6 +48,7 @@ const ARGS = (() => {
     timeoutSec: 120,  // per-plugin hard cap — prevents a hung smoke from deadlocking the run
     failFast: false,  // if true, kill remaining smokes on first failure
     guardProbe: true, // final step: fast adversarial probe of every hooks/guard.ts
+    external: true,   // check out each external plugin at its pinned commit and run its own smoke
   };
   for (let i = 2; i < process.argv.length; i++) {
     const v = process.argv[i];
@@ -50,6 +57,7 @@ const ARGS = (() => {
     else if (v === '--timeout') a.timeoutSec = parseFloat(process.argv[++i]);
     else if (v === '--fail-fast') a.failFast = true;
     else if (v === '--skip-guard-probe') a.guardProbe = false;
+    else if (v === '--skip-external') a.external = false;
     else if (v === '--only') {
       a.only = new Set((process.argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean));
     } else if (v === '--skip') {
@@ -81,6 +89,45 @@ function discoverPlugins() {
     plugins.push({ name, smoke });
   }
   return plugins.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** The marketplace's external entries (a git-subdir source), filtered by --only and --skip. */
+function discoverExternal() {
+  let plugins = [];
+  try { plugins = JSON.parse(readFileSync(join(REPO_ROOT, '.claude-plugin', 'marketplace.json'), 'utf8')).plugins ?? []; } catch { return []; }
+  return plugins
+    .filter((p) => p && typeof p.source === 'object' && p.source !== null && typeof p.name === 'string')
+    .filter((p) => (!ARGS.only || ARGS.only.has(p.name)) && !ARGS.skip.has(p.name))
+    .map((p) => ({ name: p.name, source: p.source }));
+}
+
+/** One external plugin as a smoke row: checkout at the pinned commit, manifest name, then its own scripts/smoke.sh. */
+async function runExternal(entry) {
+  const name = `${entry.name} (external)`;
+  const t0 = Date.now();
+  const fail = (reason) => ({ name, exitCode: 1, ok: false, timedOut: false, aborted: false, terminationReason: reason, passed: null, failed: null, durationMs: Date.now() - t0, failingSteps: [], stderrTail: '' });
+  const { source: kind, url, path, sha } = entry.source;
+  if (kind !== 'git-subdir' || typeof url !== 'string' || !url.startsWith('https://') || typeof path !== 'string' || path.split('/').includes('..')) {
+    return fail('source is not a git-subdir with an https url and a path');
+  }
+  if (typeof sha !== 'string' || !/^[0-9a-f]{40}$/.test(sha)) return fail('source does not pin a full commit sha');
+  const dir = mkdtempSync(join(tmpdir(), 'smoke-external-'));
+  try {
+    const git = (...args) => spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', timeout: ARGS.timeoutSec * 1000 });
+    for (const args of [['init', '-q'], ['remote', 'add', 'origin', url], ['fetch', '-q', '--depth', '1', '--filter=blob:none', 'origin', sha], ['checkout', '-q', 'FETCH_HEAD']]) {
+      const r = git(...args);
+      if (r.status !== 0) return fail(`git ${args[0]} failed: ${(r.stderr || r.error?.message || '').trim().slice(0, 200)}`);
+    }
+    const root = join(dir, path);
+    let manifest = null;
+    try { manifest = JSON.parse(readFileSync(join(root, '.claude-plugin', 'plugin.json'), 'utf8')); } catch { /* reported below */ }
+    if (manifest?.name !== entry.name) return fail(`plugin.json at ${path} does not name ${entry.name}`);
+    const smoke = join(root, 'scripts', 'smoke.sh');
+    if (!existsSync(smoke)) return { ...fail('no scripts/smoke.sh; manifest checked'), exitCode: 0, ok: true };
+    return { ...(await runSmoke({ name, smoke })), durationMs: Date.now() - t0 };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 function runSmoke(plugin, abortSignal) {
@@ -207,7 +254,8 @@ function runChangelogContract() {
 
 async function main() {
   const plugins = discoverPlugins();
-  if (plugins.length === 0) {
+  const external = ARGS.external ? discoverExternal() : [];
+  if (plugins.length === 0 && external.length === 0) {
     console.error('smoke-all-plugins: no plugins/*/scripts/smoke.sh found — repo layout drift?');
     process.exit(3);
   }
@@ -245,6 +293,9 @@ async function main() {
     results = await Promise.all(pending);
   }
 
+  if (ARGS.external && !abortController?.signal.aborted) {
+    for (const entry of external) results.push(await runExternal(entry));
+  }
   results.push(runChangelogContract());
   if (ARGS.guardProbe && !abortController?.signal.aborted) results.push(runGuardProbe());
 

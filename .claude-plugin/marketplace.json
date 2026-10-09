@@ -52,6 +52,17 @@
       "description": "Test gap detection, coverage analysis, and automated test generation"
     },
     {
+      "name": "agentic-qe-fleet",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/proffesor-for-testing/agentic-qe.git",
+        "path": "plugins/agentic-qe-fleet",
+        "ref": "v3.15.0",
+        "sha": "1363bc7dcba895ca0b28585d8053d2535c5a8b67"
+      },
+      "description": "Agentic QE (external: maintained in proffesor-for-testing/agentic-qe, pinned to v3.15.0): a quality-engineering fleet with 11 QE agents, 9 skills, 9 commands, the agentic-qe MCP server pinned to the plugin version, and the aqe-mod guard that refuses destructive operations on AQE learning data"
+    },
+    {
       "name": "ruflo-docs",
       "source": "./plugins/ruflo-docs",
       "description": "Documentation generation, drift detection, and API docs automation"

@@ -1,8 +1,9 @@
 /**
- * Plugin coverage: every ruflo plugin directory has a home section in the console, no entry names a plugin that is gone, every
- * home is a real view, and a plugin that has no surface of its own says why. A new plugin added without a line fails here.
+ * Plugin coverage: every ruflo plugin directory and every external plugin the marketplace lists has a home section in the
+ * console, no entry names a plugin that is gone, every home is a real view, and a plugin that has no surface of its own says
+ * why. A new plugin added without a line fails here.
  */
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -14,6 +15,11 @@ const onDisk = readdirSync(PLUGINS, { withFileTypes: true })
   .filter(entry => entry.isDirectory() && existsSync(join(PLUGINS, entry.name, '.claude-plugin', 'plugin.json')))
   .map(entry => entry.name)
   .sort()
+// An external plugin is listed by a git source (an object, not a `./plugins/...` path): it has no directory here.
+const external = (JSON.parse(readFileSync(join(PLUGINS, '..', '.claude-plugin', 'marketplace.json'), 'utf8')) as { plugins: { name: string; source: unknown }[] }).plugins
+  .filter(plugin => typeof plugin.source !== 'string')
+  .map(plugin => plugin.name)
+const known = [...onDisk, ...external]
 
 describe('plugin coverage', () => {
   it('finds the plugin directories (the guard is not checking nothing)', () => {
@@ -22,8 +28,8 @@ describe('plugin coverage', () => {
   })
 
   it('every plugin directory has a home section, and no home is for a plugin that is gone', () => {
-    expect(onDisk.filter(name => PLUGIN_MAP[name] === undefined), 'unmapped plugins: add a line to hooks/plugin-map.ts').toEqual([])
-    expect(Object.keys(PLUGIN_MAP).filter(name => !onDisk.includes(name)), 'stale entries').toEqual([])
+    expect(known.filter(name => PLUGIN_MAP[name] === undefined), 'unmapped plugins: add a line to hooks/plugin-map.ts').toEqual([])
+    expect(Object.keys(PLUGIN_MAP).filter(name => !known.includes(name)), 'stale entries').toEqual([])
   })
 
   it('every home is a real section, and a plugin without a surface of its own says why', () => {
@@ -41,6 +47,7 @@ describe('plugin coverage', () => {
   it('homeOf reads a plugin name or a slash name; pluginsOfView lists what a section owns', () => {
     expect(homeOf('ruflo-cost-tracker')).toBe('cost')
     expect(homeOf('ruflo-ruos:deploy')).toBe('swarm')
+    expect(homeOf('agentic-qe-fleet:aqe-generate')).toBe('devtools')
     expect(homeOf('not-a-plugin:thing')).toBeNull()
     expect(pluginsOfView('secure')).toEqual(['ruflo-aidefence', 'ruflo-protector', 'ruflo-security-audit'])
   })
