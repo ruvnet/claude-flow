@@ -11,9 +11,10 @@
 //   node scripts/smoke-all-plugins.mjs --skip-guard-probe # omit the final guard-probe step
 //   node scripts/smoke-all-plugins.mjs --skip-external    # omit the external plugins (no network)
 //
-// External plugins: a marketplace entry whose source is a git-subdir pinned to a commit (a plugin maintained in another
-// repository) is checked out at that commit into a temporary folder, its manifest must carry the listed name, and its own
-// scripts/smoke.sh, when it ships one, runs as one more row. This step needs network access to the plugin's repository.
+// External plugins: a marketplace entry whose source is a git-subdir pinned to a commit on github.com (a plugin maintained in
+// another repository) is checked out at that commit into a temporary folder, its manifest must carry the listed name, and its
+// own scripts/smoke.sh, when it ships one, runs as one more row with a scrubbed env, a temporary HOME and its checkout as cwd
+// (scripts/external-plugins.mjs). This step needs network access to the plugin's repository.
 //
 // After the per-plugin smokes, `scripts/probe-mod-guards.mjs --fast` runs every hooks/guard.ts through the adversarial corpus. It
 // fails only on holes NOT listed in scripts/probe-mod-guards.known-holes.json, so a regression (or a new guard copied from a
@@ -29,11 +30,11 @@
 //   2  config error (e.g. invalid CLI args)
 //   3  no smoke scripts found (likely repo-layout drift — fail closed)
 
-import { readdirSync, existsSync, statSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readdirSync, existsSync, statSync, readFileSync, rmSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checkoutAt, externalSmokePlan, externalSourceProblem, makeWorkArea } from './external-plugins.mjs';
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = dirname(SCRIPTS_DIR);
@@ -101,39 +102,32 @@ function discoverExternal() {
     .map((p) => ({ name: p.name, source: p.source }));
 }
 
-/** One external plugin as a smoke row: checkout at the pinned commit, manifest name, then its own scripts/smoke.sh. */
+/** One external plugin as a smoke row: checkout at the pinned commit, manifest name, then its own scripts/smoke.sh, run as
+ * third-party code (scrubbed env, temporary HOME, cwd = its own checkout outside the workspace; see external-plugins.mjs). */
 async function runExternal(entry) {
   const name = `${entry.name} (external)`;
   const t0 = Date.now();
   const fail = (reason) => ({ name, exitCode: 1, ok: false, timedOut: false, aborted: false, terminationReason: reason, passed: null, failed: null, durationMs: Date.now() - t0, failingSteps: [], stderrTail: '' });
-  const { source: kind, url, path, sha } = entry.source;
-  if (kind !== 'git-subdir' || typeof url !== 'string' || !url.startsWith('https://') || typeof path !== 'string' || path.split('/').includes('..')) {
-    return fail('source is not a git-subdir with an https url and a path');
-  }
-  if (typeof sha !== 'string' || !/^[0-9a-f]{40}$/.test(sha)) return fail('source does not pin a full commit sha');
-  const dir = mkdtempSync(join(tmpdir(), 'smoke-external-'));
+  const problem = externalSourceProblem(entry.source);
+  if (problem !== null) return fail(problem);
+  const { url, path, sha } = entry.source;
+  const area = makeWorkArea();
   try {
-    const git = (...args) => spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', timeout: ARGS.timeoutSec * 1000 });
-    for (const args of [['init', '-q'], ['remote', 'add', 'origin', url], ['fetch', '-q', '--depth', '1', '--filter=blob:none', 'origin', sha], ['checkout', '-q', 'FETCH_HEAD']]) {
-      const r = git(...args);
-      if (r.status !== 0) return fail(`git ${args[0]} failed: ${(r.stderr || r.error?.message || '').trim().slice(0, 200)}`);
-    }
-    const root = join(dir, path);
-    let manifest = null;
-    try { manifest = JSON.parse(readFileSync(join(root, '.claude-plugin', 'plugin.json'), 'utf8')); } catch { /* reported below */ }
-    if (manifest?.name !== entry.name) return fail(`plugin.json at ${path} does not name ${entry.name}`);
-    const smoke = join(root, 'scripts', 'smoke.sh');
-    if (!existsSync(smoke)) return { ...fail('no scripts/smoke.sh; manifest checked'), exitCode: 0, ok: true };
-    return { ...(await runSmoke({ name, smoke })), durationMs: Date.now() - t0 };
+    const fetched = checkoutAt(url, sha, area.checkout, area.home, ARGS.timeoutSec * 1000);
+    if (fetched !== null) return fail(fetched);
+    const plan = externalSmokePlan(area.checkout, area.home, path, entry.name);
+    if (plan.problem) return fail(plan.problem);
+    if (plan.smoke === null) return { ...fail('no scripts/smoke.sh; manifest checked'), exitCode: 0, ok: true };
+    return { ...(await runSmoke({ name, smoke: plan.smoke, cwd: plan.cwd, env: plan.env })), durationMs: Date.now() - t0 };
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(area.dir, { recursive: true, force: true });
   }
 }
 
 function runSmoke(plugin, abortSignal) {
   return new Promise((resolve) => {
     const start = Date.now();
-    const p = spawn('bash', [plugin.smoke], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const p = spawn('bash', [plugin.smoke], { stdio: ['ignore', 'pipe', 'pipe'], ...(plugin.cwd && { cwd: plugin.cwd }), ...(plugin.env && { env: plugin.env }) });
     let stdout = '';
     let stderr = '';
     let timedOut = false;

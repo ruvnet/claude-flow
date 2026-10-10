@@ -41,6 +41,12 @@ Rules for an external entry:
 - **Smoked at the pin.** `scripts/smoke-all-plugins.mjs` checks out each external entry at its sha (shallow, blobless, into a temporary
   folder), requires its `plugin.json` to carry the listed name, and runs the plugin's own `scripts/smoke.sh` when it ships one. The step needs
   network access; `--skip-external` turns it off. `all-plugins-smoke.yml` also runs when `marketplace.json` changes.
+- **Third-party code in CI is fenced** (`scripts/external-plugins.mjs`, `tests/external-plugins.test.mjs`). Only
+  `https://github.com/<owner>/<repo>` sources are accepted, in both validators. The plugin folder and its `smoke.sh` must stay inside
+  the checkout after links are resolved. The smoke runs with only PATH, LANG, TERM and CI from the job's environment (no GITHUB_TOKEN,
+  ACTIONS_*, *_TOKEN, *_KEY or *SECRET*), a temporary HOME, and the checkout, in a temporary folder outside the workspace, as its working
+  directory. `all-plugins-smoke.yml` runs with `permissions: contents: read` and checks out with `persist-credentials: false`, so no
+  token sits in the workspace's git config. This is not a sandbox: the script can still read absolute paths and use the network.
 - **Mapped in the console.** `hooks/plugin-map.ts` has a line for it like any plugin (Agentic QE: Dev Tools, beside `ruflo-testgen`), and
   `tests/plugin-coverage.spec.ts` requires a line for every external marketplace entry as well as every `plugins/` folder.
 - **Read from the installed copy.** The Plugin Catalog reads a local plugin from the marketplace clone; an external one has no copy there, so
