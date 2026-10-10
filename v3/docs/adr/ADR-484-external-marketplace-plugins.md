@@ -30,7 +30,7 @@ here. The first entry:
 ```json
 { "name": "agentic-qe-fleet",
   "source": { "source": "git-subdir", "url": "https://github.com/proffesor-for-testing/agentic-qe.git",
-              "path": "plugins/agentic-qe-fleet", "ref": "v3.15.1", "sha": "4f0f8412b78ff918d6d9d420c10b60a03b8903f2" } }
+              "path": "plugins/agentic-qe-fleet", "ref": "v3.15.2", "sha": "9db36edfaf85c467c7a91cac1791d660b74a9762" } }
 ```
 
 Rules for an external entry:
@@ -59,15 +59,16 @@ the Mods section already reads any `.claude-flow/*-mod/status.json`, and the scr
 `check-plugin-manifests`, `mod-capability-matrix`, `probe-mod-guards`, the CLI command inventory) skip a non-string source or never read the
 marketplace. They do not cover the external plugin; its own repository runs its manifest, mod and guard tests.
 
-## 3. Evidence (Claude Code 2.1.295 on 2026-10-09; the install re-run on 2.1.296 at the v3.15.1 pin, 2026-10-10)
+## 3. Evidence (Claude Code 2.1.295 on 2026-10-09; the install re-run on 2.1.296 at the v3.15.2 pin, 2026-10-10)
 
 - `claude plugin validate .claude-plugin/marketplace.json` passes with the entry; a `{"source":"bogus"}` source is refused.
   `claude plugin validate .` at the root fails exactly as it does on `main`, on the legacy root `.claude-plugin/plugin.json`
   (`repository` must be a string), and reports nothing about the new entry.
 - In a throwaway `CLAUDE_CONFIG_DIR`: `claude plugin marketplace add <marketplace>` then `claude plugin install agentic-qe-fleet@<marketplace>`
-  installs 3.15.1 into `plugins/cache/<marketplace>/agentic-qe-fleet/3.15.1`; `claude mcp list` shows
-  `plugin:agentic-qe-fleet:agentic-qe: npx -y agentic-qe@3.15.1 mcp - ✔ Connected`; `claude -p "/aqe-mod status"` answers from the mod and writes
-  `.claude-flow/aqe-mod/status.json`; `claude plugin test` on the installed copy: 22 pass, 0 fail (11 at v3.15.0; v3.15.1 adds the guard's bypass tests).
+  installs 3.15.2 into `plugins/cache/<marketplace>/agentic-qe-fleet/3.15.2`; `claude mcp list` shows
+  `plugin:agentic-qe-fleet:agentic-qe: npx -y agentic-qe@3.15.2 mcp - ✔ Connected`; `claude -p "/aqe-mod status"` answers from the mod and writes
+  `.claude-flow/aqe-mod/status.json`; `claude plugin test` on the installed copy: 45 pass, 0 fail across 3 files (11 at v3.15.0, 22 at v3.15.1: each release added guard and status-file tests); `/aqe-mod status` reports
+  the mod's version (3.15.2) and its totals across sessions.
 
 ## 4. Consequences
 
