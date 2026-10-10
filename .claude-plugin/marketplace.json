@@ -57,10 +57,10 @@
         "source": "git-subdir",
         "url": "https://github.com/proffesor-for-testing/agentic-qe.git",
         "path": "plugins/agentic-qe-fleet",
-        "ref": "v3.15.0",
-        "sha": "1363bc7dcba895ca0b28585d8053d2535c5a8b67"
+        "ref": "v3.15.1",
+        "sha": "4f0f8412b78ff918d6d9d420c10b60a03b8903f2"
       },
-      "description": "Agentic QE (external: maintained in proffesor-for-testing/agentic-qe, pinned to v3.15.0): a quality-engineering fleet with 11 QE agents, 9 skills, 9 commands, the agentic-qe MCP server pinned to the plugin version, and the aqe-mod guard that refuses destructive operations on AQE learning data"
+      "description": "Agentic QE (external: maintained in proffesor-for-testing/agentic-qe, pinned to v3.15.1): a quality-engineering fleet with 11 QE agents, 9 skills, 9 commands, the agentic-qe MCP server pinned to the plugin version, and the aqe-mod guard that refuses destructive operations on AQE learning data"
     },
     {
       "name": "ruflo-docs",

@@ -30,7 +30,7 @@ here. The first entry:
 ```json
 { "name": "agentic-qe-fleet",
   "source": { "source": "git-subdir", "url": "https://github.com/proffesor-for-testing/agentic-qe.git",
-              "path": "plugins/agentic-qe-fleet", "ref": "v3.15.0", "sha": "1363bc7dcba895ca0b28585d8053d2535c5a8b67" } }
+              "path": "plugins/agentic-qe-fleet", "ref": "v3.15.1", "sha": "4f0f8412b78ff918d6d9d420c10b60a03b8903f2" } }
 ```
 
 Rules for an external entry:
@@ -65,8 +65,8 @@ marketplace. They do not cover the external plugin; its own repository runs its 
   `claude plugin validate .` at the root fails exactly as it does on `main`, on the legacy root `.claude-plugin/plugin.json`
   (`repository` must be a string), and reports nothing about the new entry.
 - In a throwaway `CLAUDE_CONFIG_DIR`: `claude plugin marketplace add <marketplace>` then `claude plugin install agentic-qe-fleet@<marketplace>`
-  installs 3.15.0 into `plugins/cache/<marketplace>/agentic-qe-fleet/3.15.0`; `claude mcp list` shows
-  `plugin:agentic-qe-fleet:agentic-qe: npx -y agentic-qe@3.15.0 mcp - ✔ Connected`; `claude -p "/aqe-mod status"` answers from the mod and writes
+  installs 3.15.1 into `plugins/cache/<marketplace>/agentic-qe-fleet/3.15.1`; `claude mcp list` shows
+  `plugin:agentic-qe-fleet:agentic-qe: npx -y agentic-qe@3.15.1 mcp - ✔ Connected`; `claude -p "/aqe-mod status"` answers from the mod and writes
   `.claude-flow/aqe-mod/status.json`; `claude plugin test` on the installed copy: 11 pass, 0 fail.
 
 ## 4. Consequences
