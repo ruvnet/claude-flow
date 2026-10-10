@@ -47,6 +47,8 @@ Rules for an external entry:
   ACTIONS_*, *_TOKEN, *_KEY or *SECRET*), a temporary HOME, and the checkout, in a temporary folder outside the workspace, as its working
   directory. `all-plugins-smoke.yml` runs with `permissions: contents: read` and checks out with `persist-credentials: false`, so no
   token sits in the workspace's git config. This is not a sandbox: the script can still read absolute paths and use the network.
+  So every pin bump needs a human review of the pinned commit's `scripts/smoke.sh` (and anything it runs) before merge: a hosted
+  runner cannot contain it, only keep secrets away from it.
 - **Mapped in the console.** `hooks/plugin-map.ts` has a line for it like any plugin (Agentic QE: Dev Tools, beside `ruflo-testgen`), and
   `tests/plugin-coverage.spec.ts` requires a line for every external marketplace entry as well as every `plugins/` folder.
 - **Read from the installed copy.** The Plugin Catalog reads a local plugin from the marketplace clone; an external one has no copy there, so

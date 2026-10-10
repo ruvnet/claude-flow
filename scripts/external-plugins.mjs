@@ -14,6 +14,9 @@ import { join, sep } from 'node:path';
 /** github.com repositories only: owner and repo are plain names; `.` and `..` are not names. */
 const GITHUB_REPO_URL = /^https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/;
 
+/** A relative folder of plain names: no leading or trailing slash, no empty segment, no `%`, `\\` or other punctuation. */
+const PLUGIN_PATH = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
+
 /** True for `https://github.com/<owner>/<repo>` with an optional `.git`, nothing before or after it. */
 export function isAllowedRepoUrl(url) {
   const match = typeof url === 'string' ? GITHUB_REPO_URL.exec(url) : null;
@@ -27,8 +30,8 @@ export function externalSourceProblem(source) {
   const s = source ?? {};
   if (s.source !== 'git-subdir') return 'source is not a git-subdir';
   if (!isAllowedRepoUrl(s.url)) return 'url is not https://github.com/<owner>/<repo>';
-  if (typeof s.path !== 'string' || s.path === '' || s.path.startsWith('/') || s.path.split('/').some((part) => part === '..' || part === '.')) {
-    return 'path is not a relative folder without . or ..';
+  if (typeof s.path !== 'string' || !PLUGIN_PATH.test(s.path) || s.path.split('/').some((part) => part === '..' || part === '.')) {
+    return 'path is not a relative folder of plain names without . or ..';
   }
   if (typeof s.sha !== 'string' || !/^[0-9a-f]{40}$/.test(s.sha)) return 'source does not pin a full 40-character commit sha';
   return null;

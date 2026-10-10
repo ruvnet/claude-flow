@@ -32,6 +32,9 @@ const REFUSED_URLS = [
   '--upload-pack=x',
 ];
 
+// Paths the plugin folder may not take: encoded or backslashed climbs, empty or trailing segments, absolute, . and .. segments.
+const BAD_PATHS = ['%2e%2e', 'plugins/%2e%2e/x', 'a\\..\\b', 'a//b', 'plugins/p/', '/etc', '.', '..', 'a/./b', 'a/../b', '', 'a b', 'a/b?c'];
+
 test('the allowlist takes https://github.com/<owner>/<repo>, with or without .git', () => {
   assert.equal(isAllowedRepoUrl('https://github.com/proffesor-for-testing/agentic-qe.git'), true);
   assert.equal(isAllowedRepoUrl('https://github.com/ruvnet/ruflo'), true);
@@ -48,6 +51,9 @@ test('externalSourceProblem refuses a non-github host, a lookalike, a climbing p
   assert.match(externalSourceProblem(source({ url: 'https://evil.io/github.com/owner/repo' })), /github/);
   assert.match(externalSourceProblem(source({ path: 'plugins/../..' })), /path/);
   assert.match(externalSourceProblem(source({ path: '/etc' })), /path/);
+  for (const path of BAD_PATHS) assert.match(externalSourceProblem(source({ path })) ?? 'accepted', /path/, path);
+  assert.equal(externalSourceProblem(source({ path: 'plugins/agentic-qe-fleet' })), null);
+  assert.equal(externalSourceProblem(source({ path: 'a.b/c_d-e' })), null);
   assert.match(externalSourceProblem(source({ sha: SHA.slice(0, 12) })), /sha/);
   assert.match(externalSourceProblem(source({ source: 'url' })), /git-subdir/);
 });
@@ -76,7 +82,8 @@ test('validate-marketplace.yml accepts a pinned github git-subdir and refuses ot
     assert.notEqual(r.status, 0, url);
     assert.match(r.stderr, /github\.com/, url);
   }
-  assert.notEqual(runWorkflowValidator(source({ path: 'plugins/../x' })).status, 0);
+  for (const path of [...BAD_PATHS, 'plugins/../x']) assert.notEqual(runWorkflowValidator(source({ path })).status, 0, path);
+  assert.equal(runWorkflowValidator(source({ path: 'a.b/c_d-e' })).status, 0);
   assert.notEqual(runWorkflowValidator(source({ sha: 'abc' })).status, 0);
 });
 
