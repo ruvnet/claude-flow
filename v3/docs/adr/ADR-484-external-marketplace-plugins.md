@@ -59,7 +59,7 @@ the Mods section already reads any `.claude-flow/*-mod/status.json`, and the scr
 `check-plugin-manifests`, `mod-capability-matrix`, `probe-mod-guards`, the CLI command inventory) skip a non-string source or never read the
 marketplace. They do not cover the external plugin; its own repository runs its manifest, mod and guard tests.
 
-## 3. Evidence (Claude Code 2.1.295, 2026-10-09)
+## 3. Evidence (Claude Code 2.1.295 on 2026-10-09; the install re-run on 2.1.296 at the v3.15.1 pin, 2026-10-10)
 
 - `claude plugin validate .claude-plugin/marketplace.json` passes with the entry; a `{"source":"bogus"}` source is refused.
   `claude plugin validate .` at the root fails exactly as it does on `main`, on the legacy root `.claude-plugin/plugin.json`
@@ -67,7 +67,7 @@ marketplace. They do not cover the external plugin; its own repository runs its 
 - In a throwaway `CLAUDE_CONFIG_DIR`: `claude plugin marketplace add <marketplace>` then `claude plugin install agentic-qe-fleet@<marketplace>`
   installs 3.15.1 into `plugins/cache/<marketplace>/agentic-qe-fleet/3.15.1`; `claude mcp list` shows
   `plugin:agentic-qe-fleet:agentic-qe: npx -y agentic-qe@3.15.1 mcp - ✔ Connected`; `claude -p "/aqe-mod status"` answers from the mod and writes
-  `.claude-flow/aqe-mod/status.json`; `claude plugin test` on the installed copy: 11 pass, 0 fail.
+  `.claude-flow/aqe-mod/status.json`; `claude plugin test` on the installed copy: 22 pass, 0 fail (11 at v3.15.0; v3.15.1 adds the guard's bypass tests).
 
 ## 4. Consequences
 
