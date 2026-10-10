@@ -94,3 +94,52 @@ describe('plugin catalog reader', () => {
     expect(visible(plugins, installed, 'all', 'nothing-like-this')).toEqual([])
   })
 })
+
+describe('plugin catalog reader: hostile text from an external plugin', () => {
+  // ESC/CSI colour, an OSC 8 hyperlink and an OSC title, and the bidi embeddings, overrides and isolates (U+202A–202E, U+2066–2069),
+  // written as \u escapes so no control character sits in this source.
+  const ESC = '\u001b'
+  const BIDI = ['‪', '‫', '‬', '‭', '‮', '⁦', '⁧', '⁨', '⁩']
+  const hostile = `${ESC}[31mred${ESC}[0m ${ESC}]8;;https://evil.example${ESC}\\link${ESC}]8;;${ESC}\\ ${ESC}]0;title\u0007${BIDI.join('')}txt.exe`
+  const dir = `${CACHE}/ext-hostile/1.0.0`
+  const hostileFiles: Record<string, string> = {
+    [`${ROOT}/.claude-plugin/marketplace.json`]: JSON.stringify({ plugins: [{ name: 'ext-hostile', source: { ...GIT, url: `https://github.com/o/r${ESC}[2J` } }] }),
+    [`${dir}/.claude-plugin/plugin.json`]: JSON.stringify({ name: 'ext-hostile', version: `1.0.0${ESC}[2J${BIDI[4]}`, description: hostile }),
+    [`${dir}/commands/go.md`]: `---\ndescription: ${hostile}\n---\n${hostile}\n`,
+    [`${dir}/commands/${ESC}[2Jbad.md`]: 'x',
+  }
+  const hostileFs: ReaderFs = {
+    read: async path => {
+      if (!(path in hostileFiles)) throw new Error('ENOENT')
+
+      return hostileFiles[path] as string
+    },
+    stat: async path => (path in hostileFiles ? { size: (hostileFiles[path] as string).length } : undefined),
+    list: async path => {
+      const below = Object.keys(hostileFiles).filter(file => file.startsWith(`${path}/`)).map(file => file.slice(path.length + 1))
+
+      if (below.length === 0) throw new Error('ENOENT')
+
+      return [...new Set(below.map(name => name.split('/')[0] as string))].map(name => ({ name, kind: below.some(file => file === name) ? 'file' : 'dir' }))
+    },
+  }
+  const clean = (text: string) => {
+    expect(text).not.toMatch(/[\u0000-\u001f\u007f-\u009f]/)
+    for (const mark of BIDI) expect(text.includes(mark), `U+${mark.charCodeAt(0).toString(16)}`).toBe(false)
+    expect(text).not.toMatch(/\]8;;|\[31m|\[2J|\]0;/)
+  }
+
+  it('strips escape sequences and bidi controls from its description, version, source line and docs, and drops a hostile file name', async () => {
+    const [plugin] = (await readCatalog(hostileFs, ROOT, new Map([['ext-hostile', dir]]))) as CatalogPlugin[]
+
+    expect(plugin?.name).toBe('ext-hostile')
+    for (const text of [plugin?.description ?? '', plugin?.version ?? '', plugin?.external ?? '']) clean(text)
+    expect(plugin?.description).toBe('red link txt.exe')
+    expect(plugin?.commands).toEqual(['go'])
+
+    const doc = await readDoc(hostileFs, plugin as CatalogPlugin, 'command', 'go')
+
+    clean(doc?.description ?? 'missing')
+    for (const line of doc?.lines ?? []) clean(line)
+  })
+})
