@@ -83,6 +83,7 @@ scripts/__tests__/guard-label.test.mjs
 scripts/__tests__/mod-capability-matrix.test.mjs
 tests/check-guard-tool-names.test.mjs
 tests/check-status-forwarding.test.mjs
+tests/external-plugins.test.mjs
 plugins/ruflo-console/tests/result-display.test.ts
 plugins/ruflo-console/tests/toasts.test.ts
 plugins/ruflo-console/tests/full-text.test.ts
