@@ -1,0 +1,11 @@
+  Parameters: {"requestId":"cap-3","missionId":"msn_694db5dfd982c67fd44f4dfc","expectedRevision":2,"action":"cancel","reason":"capture"}
+
+[OK] Tool executed in 9.70ms
+
+Result:
+{
+  "ok": false,
+  "code": "revision-conflict",
+  "message": "revision-conflict: expected 2, current 1; refresh and retry",
+  "currentRevision": 1
+}

@@ -1,15 +1,15 @@
 {
   "manifest": {
     "schema": "ruflo-witness/v1",
-    "issuedAt": "2026-10-09T21:34:46.666Z",
-    "gitCommit": "11a8cf79a77ae98baa18eb2efa1b7940b8db001b",
-    "branch": "release/3.56.3",
+    "issuedAt": "2026-10-11T01:52:03.200Z",
+    "gitCommit": "435deabd04d2cef44cdd171daeacdf22c98eadc9",
+    "branch": "release/3.56.5",
     "os": "linux",
     "releases": {
-      "ruflo": "3.56.3",
-      "claude-flow": "3.56.3",
-      "@claude-flow/cli": "3.56.3",
-      "@claude-flow/memory": "3.0.3"
+      "ruflo": "3.56.5",
+      "claude-flow": "3.56.5",
+      "@claude-flow/cli": "3.56.5",
+      "@claude-flow/memory": "3.0.4"
     },
     "summary": {
       "totalFixes": 117,
@@ -117,7 +117,7 @@
         "id": "#1697",
         "desc": "rvf-wasm overrides",
         "file": "package.json",
-        "sha256": "1ca284cc838089d8996c17aa94f70bf2976d054c9da06632f7969465c9f3b06d",
+        "sha256": "aae67dc9226ba5418a113f0a9f44690ea0068af7dcc287d7306f2386a4094190",
         "marker": "@ruvector/rvf-wasm",
         "markerVerified": true
       },
@@ -141,7 +141,7 @@
         "id": "#1721",
         "desc": "postinstall copies all dist/src/* siblings",
         "file": "v3/@claude-flow/cli/package.json",
-        "sha256": "749db429d722266fb7e606be5a3afa22ce630d072dc0771d0418a2f205316e4d",
+        "sha256": "7dfb3f6dc0984f991c07d154c48f0b407996c4e9e6a521c0a5cd9a0a5b3a8686",
         "marker": "postinstall.cjs",
         "markerVerified": true
       },
@@ -165,7 +165,7 @@
         "id": "G3",
         "desc": "workflow runtime task/wait/condition",
         "file": "v3/@claude-flow/cli/dist/src/mcp-tools/workflow-tools.js",
-        "sha256": "001f5f7ea41c667f81974849a839d4faa3fba4f93133f89c338daced7cf6aa35",
+        "sha256": "27f1420cb94ac4326af2119edd5d614429e11f350600e80fea25868e794ec83d",
         "marker": "executeAgentTask",
         "markerVerified": true
       },
@@ -421,7 +421,7 @@
         "id": "CAP-MCP-task-tools",
         "desc": "MCP tools (7): task_assign, task_cancel, task_complete, …",
         "file": "v3/@claude-flow/cli/dist/src/mcp-tools/task-tools.js",
-        "sha256": "9617a04fa75443ef58fd8e265078edc4ad63decfbfc0d0ccd0448aec55b392b0",
+        "sha256": "2815b4106360c1dd7b50c0451fc9a485b08ad336b1327b7ec6a4b2d3dba93113",
         "marker": "task_assign",
         "markerVerified": true
       },
@@ -437,7 +437,7 @@
         "id": "CAP-MCP-transfer-tools",
         "desc": "MCP tools (11): transfer_detect-pii, transfer_ipfs-resolve, transfer_plugin-featured, …",
         "file": "v3/@claude-flow/cli/dist/src/mcp-tools/transfer-tools.js",
-        "sha256": "8a15f0da3ed12eb20ac47041ed21d082dec78914d690a62a8de1f72d8bec6414",
+        "sha256": "3ceb57a74d43bf5fb88c9b82060df6ea230fc1320fd0db27772099672057605d",
         "marker": "transfer_detect-pii",
         "markerVerified": true
       },
@@ -453,7 +453,7 @@
         "id": "CAP-MCP-workflow-tools",
         "desc": "MCP tools (10): workflow_cancel, workflow_create, workflow_delete, …",
         "file": "v3/@claude-flow/cli/dist/src/mcp-tools/workflow-tools.js",
-        "sha256": "001f5f7ea41c667f81974849a839d4faa3fba4f93133f89c338daced7cf6aa35",
+        "sha256": "27f1420cb94ac4326af2119edd5d614429e11f350600e80fea25868e794ec83d",
         "marker": "workflow_cancel",
         "markerVerified": true
       },
@@ -461,7 +461,7 @@
         "id": "#1795",
         "desc": "umbrella package missing cli-core dep (ERR_MODULE_NOT_FOUND)",
         "file": "package.json",
-        "sha256": "1ca284cc838089d8996c17aa94f70bf2976d054c9da06632f7969465c9f3b06d",
+        "sha256": "aae67dc9226ba5418a113f0a9f44690ea0068af7dcc287d7306f2386a4094190",
         "marker": "@claude-flow/cli-core",
         "markerVerified": true
       },
@@ -477,7 +477,7 @@
         "id": "#1791.6",
         "desc": "memory init idempotent when DB exists",
         "file": "v3/@claude-flow/cli/dist/src/memory/memory-initializer.js",
-        "sha256": "eed8f797011a363ef4d535ef1656be7590efee55fdba212c8725aa95b4f518f6",
+        "sha256": "a81feca25661064ab686c6a6fc558adce1a82320c87d33dcf4e4c4724e43e283",
         "marker": "alreadyExists",
         "markerVerified": true
       },
@@ -485,7 +485,7 @@
         "id": "#1791.7",
         "desc": "doctor walk-up .git fallback",
         "file": "v3/@claude-flow/cli/dist/src/commands/doctor.js",
-        "sha256": "d2f94d0d207b25167c965d180113bb3d2e156147b9b3299c9f4021e8db27d3f1",
+        "sha256": "24224e652948c39f7bc7b1a33b7ad5c0c74ad8ae78441944de157d046871da59",
         "marker": "is-inside-work-tree",
         "markerVerified": true
       },
@@ -501,7 +501,7 @@
         "id": "#1791.5",
         "desc": "doctor --fix help text clarification",
         "file": "v3/@claude-flow/cli/dist/src/commands/doctor.js",
-        "sha256": "d2f94d0d207b25167c965d180113bb3d2e156147b9b3299c9f4021e8db27d3f1",
+        "sha256": "24224e652948c39f7bc7b1a33b7ad5c0c74ad8ae78441944de157d046871da59",
         "marker": "Print suggested fix commands",
         "markerVerified": true
       },
@@ -541,7 +541,7 @@
         "id": "#1798",
         "desc": "doctor surfaces config collision (legacy JSON + v3 YAML)",
         "file": "v3/@claude-flow/cli/dist/src/commands/doctor.js",
-        "sha256": "d2f94d0d207b25167c965d180113bb3d2e156147b9b3299c9f4021e8db27d3f1",
+        "sha256": "24224e652948c39f7bc7b1a33b7ad5c0c74ad8ae78441944de157d046871da59",
         "marker": "Config collision",
         "markerVerified": true
       },
@@ -565,7 +565,7 @@
         "id": "#1686",
         "desc": "NaN-safe coercion in hooks metrics + pretrain (safeNum)",
         "file": "v3/@claude-flow/cli/dist/src/commands/hooks.js",
-        "sha256": "f1503ff2eae08fca5e4ae5913208dd5b11c0699e7c23fd19febbfe10205fd7dd",
+        "sha256": "3872b7099c2c75b494bd3abae33c2fd2b9077d462f3812d337469f464df4dd4f",
         "marker": "safeNum",
         "markerVerified": true
       },
@@ -573,7 +573,7 @@
         "id": "#1670",
         "desc": "RuFlo Co-Authored-By trailer made opt-in",
         "file": "v3/@claude-flow/cli/dist/src/init/settings-generator.js",
-        "sha256": "4c4d6f89b0e76a528bca2a30edba16d2a76317d5d5612a1dabd9d2f6fd72344f",
+        "sha256": "933d250e285e4847d4f76fbe8a14596a765a55435af6cdd28bdf4a6c81326b38",
         "marker": "options.attribution === true",
         "markerVerified": true
       },
@@ -613,7 +613,7 @@
         "id": "#1779",
         "desc": "init detect-and-skip when ruflo MCP already registered",
         "file": "v3/@claude-flow/cli/dist/src/init/executor.js",
-        "sha256": "5a676d5265323008cf89763f5c7c580228f83fea614421891bea6a41220a9ebb",
+        "sha256": "287c257f98e770a8e6d86eb2b399e565c8c6662a5ca6469cfabf2f2d4e074112",
         "marker": "detectExistingRufloMCP",
         "markerVerified": true
       },
@@ -621,7 +621,7 @@
         "id": "#1463",
         "desc": "statusline detects Python test_*.py / spec_*.py",
         "file": ".claude/helpers/statusline.cjs",
-        "sha256": "d951be92aa434a293b1a747d79b0a3094f6793270315a6ba0cff1c42035fc12b",
+        "sha256": "71df271bd980e4ea33a69b0cbefcfc5474755615d32dc06f30b0a3f4f23be11f",
         "marker": "startsWith('test_')",
         "markerVerified": true
       },
@@ -629,7 +629,7 @@
         "id": "#1825",
         "desc": "hotfix: workspace: protocol leak in cli optionalDependencies",
         "file": "v3/@claude-flow/cli/package.json",
-        "sha256": "749db429d722266fb7e606be5a3afa22ce630d072dc0771d0418a2f205316e4d",
+        "sha256": "7dfb3f6dc0984f991c07d154c48f0b407996c4e9e6a521c0a5cd9a0a5b3a8686",
         "marker": "\"@claude-flow/memory\": \"3.",
         "markerVerified": true
       },
@@ -653,7 +653,7 @@
         "id": "#1859",
         "desc": "CLI flag/positional priority swap — named flags win over stray positionals (14 sites in hooks.ts)",
         "file": "v3/@claude-flow/cli/dist/src/commands/hooks.js",
-        "sha256": "f1503ff2eae08fca5e4ae5913208dd5b11c0699e7c23fd19febbfe10205fd7dd",
+        "sha256": "3872b7099c2c75b494bd3abae33c2fd2b9077d462f3812d337469f464df4dd4f",
         "marker": "ctx.flags.file || ctx.args[0]",
         "markerVerified": true
       },
@@ -717,7 +717,7 @@
         "id": "ADR-097-Phase4-doctor",
         "desc": "ruflo doctor health-check: checkFederationBreaker probes plugin loadability + asserts FederationNodeState export presence (catches version-skew regressions where users have an older pre-Phase-2 federation plugin installed)",
         "file": "v3/@claude-flow/cli/dist/src/commands/doctor.js",
-        "sha256": "d2f94d0d207b25167c965d180113bb3d2e156147b9b3299c9f4021e8db27d3f1",
+        "sha256": "24224e652948c39f7bc7b1a33b7ad5c0c74ad8ae78441944de157d046871da59",
         "marker": "checkFederationBreaker",
         "markerVerified": true
       },
@@ -869,7 +869,7 @@
         "id": "#1916-cli-tools",
         "desc": "Registered the 16 MCP tools that CLI subcommands referenced but that were never wired into the registry (the `MCP tool not found` class surfaced by #1916-guard): task_retry, workflow_stop, workflow_validate, session_current/export/import, memory_detailed-stats/cleanup/compress/export/import, hive-mind_optimize-memory, hooks_teammate-idle, hooks_task-completed, mcp_start, mcp_stop — plus renamed the coverage tools `hooks/coverage-*` → `hooks_coverage-*` (now match the CLI's underscore calls) and pointed `swarm stop` at `swarm_shutdown`. cli-mcp-tool-baseline.json is now 0.",
         "file": "v3/@claude-flow/cli/dist/src/mcp-tools/workflow-tools.js",
-        "sha256": "001f5f7ea41c667f81974849a839d4faa3fba4f93133f89c338daced7cf6aa35",
+        "sha256": "27f1420cb94ac4326af2119edd5d614429e11f350600e80fea25868e794ec83d",
         "marker": "workflow_validate",
         "markerVerified": true
       },
@@ -909,7 +909,7 @@
         "id": "#1862",
         "desc": "ruflo-core PostToolUse hooks call documented CLI flags (-c/-s/-e, -f/-s) instead of bogus --format true. (#1921 moved the invocation behind scripts/ruflo-hook.sh; #2721 rewired hooks.json to a node -e bootstrap and moved the flag-construction logic itself into scripts/ruflo-hook.cjs — the documented-flag form is preserved there.)",
         "file": "plugins/ruflo-core/scripts/ruflo-hook.cjs",
-        "sha256": "0781578dbd40185c5e318925f0b1e463a7cb89b23929a684c1f462b6c2d85d16",
+        "sha256": "9f0977573c7d433fdc009a4bd29d7fdc6b79220b1e14c41bd2b96cf8a89a7341",
         "marker": "['-f', String(file), '-s', 'true']",
         "markerVerified": true
       },
@@ -957,10 +957,10 @@
   },
   "integrity": {
     "manifestHashAlgo": "sha256",
-    "manifestHash": "4e49840e5eaff6ef9c701ecae3e8bf29a5caf419cbe93673b100b1f872353f58",
+    "manifestHash": "3350092a1f0e77e8e6db9dd49ce886da1461a1f57fcfc97d013a8af224466466",
     "signatureAlgo": "ed25519",
-    "publicKey": "3a32220d100fc7018774410525950aeef2c1642de55bce987fe3b4030b5f846c",
-    "signature": "16535b79427a0098c16f5f68136df000468b7c49e1eec02325a7d1b42e7ded58ed1b9e9d0f7939976e3b714fc2f8647372747112c27490b0e6d136019c747e00",
+    "publicKey": "dc8ca66aafd963a9d2afbc3ff10d9ff8e9f266ff580162171a7b83a138ffc6fc",
+    "signature": "d81c1b5361b322f329bf80ed451b8b9b4c8f7a668b619f8da7f4a2abdf111bc78e4b53cebf9362eaded4d35996c8cf2588d521a641f37789c1dcb042d91f6709",
     "seedDerivation": "sha256(gitCommit + ':ruflo-witness/v1')"
   }
 }
