@@ -30,7 +30,7 @@ Minor-feature patch: `@claude-flow/codex` 3.0.4 (published standalone; the CLI a
 
 ### Added
 
-- `ruflo tui`: the ruflo console in a terminal of its own (ADR-489, phase 1, #4059). `prepare-publish` stages the bundled `plugins/ruflo-console/dist/tui.mjs` into the CLI tarball (about 449 KB larger).
+- `ruflo tui`: the ruflo console in a terminal of its own (ADR-489, #4059, #4075, #4076). Six pages, opened with `--view` or keys 1-6: Overview, Cost, Swarm, Events, Missions (read-only) and an AI page that asks Codex (pinned 0.162.0, read-only) or OpenRouter, each question after a confirm card; `--no-ai` turns it off and `--max-spend-usd` (default 0.5) stops sending to OpenRouter once the provider-reported spend reaches it. `--plain` prints one frame and exits 0; without a terminal it exits 2 with a hint. `prepare-publish` stages the bundled `plugins/ruflo-console/dist/tui.mjs` (about 1.27 MB, 446 KB gzipped) into the CLI tarball (about 0.4 MB larger, 3.9 MB packed). Console 0.42.7 is a marketplace plugin, not npm.
 - MCP resources capability on the CLI server, and a three-host integration loop (Claude Code, Codex, OpenRouter) with ADR-490/491 (#4068).
 - `doctor` flags a better-sqlite3 built against Node 24.19+ headers on Node 24.19-24.21 (#4069, #4074; reported in #4055 by @ronmikailov).
 - `ruflo mods`: doctor repairs that repair, `--strict`, atomic install, startup self-check (#4073).
