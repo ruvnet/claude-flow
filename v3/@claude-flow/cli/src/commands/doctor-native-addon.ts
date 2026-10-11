@@ -92,7 +92,7 @@ export interface NativeAddonCheckDeps {
 }
 
 const FIX = [
-  'Use a Node release that contains nodejs/node#65946 (not in any release through 24.21.0), or Node 22 / 24.18.1;',
+  'Use a Node release that contains nodejs/node#65943 (not in any release through 24.21.0), or Node 22 / 24.18.1;',
   'or rebuild each listed copy against 24.18.1 headers:',
   'cd <copy> && npx node-gyp rebuild --release --nodedir=<path to node 24.18.1 headers> ;',
   'or install the 12.x prebuilt (npm install better-sqlite3@12 in the project).',
