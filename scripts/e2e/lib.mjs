@@ -21,7 +21,7 @@ export function redact(s) {
 export function recorder(leg) {
   const rows = []
   const add = (status, name, evidence = '', extra = {}) => {
-    rows.push({ leg, name, status, evidence: redact(evidence).slice(0, 600), ...extra })
+    rows.push({ leg, name, status, evidence: redact(evidence).slice(0, extra.long ? 3000 : 600), ...extra })
     return status === 'pass'
   }
   return {
