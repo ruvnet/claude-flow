@@ -2846,6 +2846,7 @@ Run `npx ruflo@latest doctor` to diagnose and fix common issues.
 | **MCP servers** | Responsive | ✅ Restarts unresponsive servers |
 | **Disk space** | >100MB free | ❌ Manual cleanup required |
 | **TypeScript** | Installed | ✅ Installs if missing |
+| **Native addon headers** | No `better-sqlite3` built against Node 24.19+ headers while running Node 24.19–24.21 | ❌ See below |
 
 **Commands:**
 
@@ -2862,6 +2863,14 @@ npx ruflo@latest doctor --component memory
 # Verbose output
 npx ruflo@latest doctor --verbose
 ```
+
+**Node 24.19–24.21 abort (#4055).** A native addon compiled against Node 24.19+ headers can abort the process with `Assertion failed: (env) != nullptr` in `node::RemoveEnvironmentCleanupHook` (nodejs/node#65446; the fix, PR #65943, is in no release through 24.21.0). Prebuilt binaries are not affected, only copies compiled locally, which carry a `build/config.gypi` naming the headers they used. `doctor --component native-addon` reads those files (it never loads an addon) and lists each affected copy. Workarounds, any one of:
+
+- run Node 22, or Node 24.18.1, or a Node release that contains the fix;
+- rebuild the listed copy against older headers: `cd <copy> && npx node-gyp rebuild --release --nodedir=<node 24.18.1 headers>`;
+- install the 12.x prebuilt in the project: `npm install better-sqlite3@12`.
+
+ruflo opens AgentDB through its own prebuilt 12.x copy (since 3.56.4), so a flagged nested copy under `agentdb` or `agentic-flow` matters only to code that loads it directly. npm ignores `overrides` in a dependency's package.json, so the nested 11.x copies cannot be removed from inside the published package.
 
 **Output Example:**
 

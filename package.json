@@ -55,6 +55,8 @@
     "build:ts": "cd v3/@claude-flow/cli && npm run build || true",
     "prepublishOnly": "node scripts/prepare-root-publish.mjs",
     "test": "vitest",
+    "e2e": "node scripts/e2e/host-matrix.mjs",
+    "e2e:live": "RUFLO_E2E_LIVE=1 node scripts/e2e/host-matrix.mjs --live",
     "test:ui": "vitest --ui",
     "test:security": "vitest run v3/__tests__/security/",
     "lint": "cd v3/@claude-flow/cli && npm run lint || true",

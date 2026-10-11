@@ -257,7 +257,7 @@ if (isMCPMode) {
             serverInfo: { name: 'ruflo', version: VERSION },
             capabilities: {
               tools: { listChanged: true },
-              resources: { subscribe: true, listChanged: true },
+              resources: {},
             },
           },
         };
@@ -321,6 +321,16 @@ if (isMCPMode) {
           };
         }
       }
+
+      // A declared capability must be served (ADR-490): no resources are exposed, so list answers are empty and a read is "not found".
+      case 'resources/list':
+        return { jsonrpc: '2.0', id: message.id, result: { resources: [] } };
+
+      case 'resources/templates/list':
+        return { jsonrpc: '2.0', id: message.id, result: { resourceTemplates: [] } };
+
+      case 'resources/read':
+        return { jsonrpc: '2.0', id: message.id, error: { code: -32002, message: 'Resource not found' } };
 
       case 'notifications/initialized':
         return null;

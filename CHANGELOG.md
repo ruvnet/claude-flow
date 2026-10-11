@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ruflo init` / `init --dual` / `@claude-flow/codex init` no longer write a permissive `.codex/config.toml` by default. The generated file now uses `sandbox_mode = "workspace-write"`, `approval_policy = "on-request"` and `web_search = "cached"` (**standard** trust); the old `danger-full-access` / `never` / `live` file needs an explicit `--codex-trust full` (or `RUFLO_CODEX_TRUST=full`). `init` prints which level was written, an existing `.codex/config.toml` is never rewritten (not even with `--force`), and a kept permissive file is flagged with how to tighten it. Found by the three-host e2e run (ADR-490). `@claude-flow/codex` 3.0.4 (bundled, ships with the next train).
 
+### Added
+
+- `ruflo doctor` reports `better-sqlite3` copies compiled against Node 24.19+ headers when running Node 24.19–24.21, where they can abort the process (`Assertion failed: (env) != nullptr`, nodejs/node#65446), with the documented workarounds. `doctor --component native-addon` runs it alone (#4055, reported by @ronmikailov).
+
 ### Fixed
 
 Batch of reviewed fixes from @rudycelekli (PRs #4020-#4026, #4028-#4030, #4032, #4033, #4035, #4037; #4027 and #4034 landed earlier):
