@@ -67,16 +67,17 @@ const INVARIANTS = [
     why: 'Per-namespace vector_indexes provisioning in storeEntry (sql.js fallback) — same root cause as the bridge path; one needs both branches.',
   },
 
-  // #1943 — settings-generator project-local OR $HOME probe
+  // #1943 — project-level settings: project-local OR $HOME probe (user-level
+  // settings are pinned to $HOME instead; see helper-commands.ts)
   {
     issue: '#1943',
-    file: 'v3/@claude-flow/cli/src/init/settings-generator.ts',
+    file: 'v3/@claude-flow/cli/src/init/helper-commands.ts',
     substring: '[ -f "$D/',
-    why: 'POSIX sh probe in hookCmd() — without it, global-install hook paths anchor at `${CLAUDE_PROJECT_DIR}` only and every Bash/Edit/Session hook fires MODULE_NOT_FOUND.',
+    why: 'POSIX sh probe in helperHookCommand() — without it, global-install hook paths anchor at `${CLAUDE_PROJECT_DIR}` only and every Bash/Edit/Session hook fires MODULE_NOT_FOUND.',
   },
   {
     issue: '#1943',
-    file: 'v3/@claude-flow/cli/src/init/settings-generator.ts',
+    file: 'v3/@claude-flow/cli/src/init/helper-commands.ts',
     substring: 'IF EXIST',
     why: 'Windows `cmd /c IF EXIST … ELSE …` fallback — Win32 equivalent of the sh probe.',
   },
@@ -193,7 +194,7 @@ const INVARIANTS = [
   // #1948 — Windows-specific statusLine command (no `sh` required)
   {
     issue: '#1948',
-    file: 'v3/@claude-flow/cli/src/init/settings-generator.ts',
+    file: 'v3/@claude-flow/cli/src/init/helper-commands.ts',
     regex: /process\.platform === ['"]win32['"]/,
     why: 'Platform-aware statusLine emission. On native Windows we emit `node -e "…"` instead of `sh -c …` so missing/mangled-quoting `sh` no longer produces stray repo-root files.',
   },

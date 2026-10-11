@@ -46,6 +46,7 @@ export class ResourceRegistry extends EventEmitter {
   private handlers: Map<string, ResourceHandler> = new Map();
   private subscriptions: Map<string, Subscription[]> = new Map();
   private cache: Map<string, CachedResource> = new Map();
+  private cacheEpoch = 0;
   private subscriptionCounter = 0;
 
   private readonly options: Required<ResourceRegistryOptions>;
@@ -112,6 +113,7 @@ export class ResourceRegistry extends EventEmitter {
     this.resources.delete(uri);
     this.handlers.delete(uri);
     this.cache.delete(uri);
+    this.cacheEpoch++;
 
     // Cancel subscriptions for this resource
     const subs = this.subscriptions.get(uri) || [];
@@ -174,10 +176,12 @@ export class ResourceRegistry extends EventEmitter {
       throw new Error(`Resource not found: ${uri}`);
     }
 
+    const cacheEpoch = this.cacheEpoch;
     const contents = await handler(uri);
 
-    // Cache the result with size limit (LRU eviction)
-    if (this.options.cacheEnabled) {
+    // An update/removal can invalidate this read while its producer is pending.
+    // Return its snapshot, but never let it repopulate the invalidated cache.
+    if (this.options.cacheEnabled && cacheEpoch === this.cacheEpoch) {
       // SECURITY: Enforce max cache size to prevent memory exhaustion
       if (this.cache.size >= this.options.maxCacheSize) {
         // Remove oldest entry (first entry in Map iteration order)
@@ -254,6 +258,7 @@ export class ResourceRegistry extends EventEmitter {
   async notifyUpdate(uri: string): Promise<void> {
     // Reads must observe updates even when no client subscribes to notifications.
     this.cache.delete(uri);
+    this.cacheEpoch++;
 
     const subs = this.subscriptions.get(uri);
     if (!subs || subs.length === 0) {
@@ -337,6 +342,7 @@ export class ResourceRegistry extends EventEmitter {
    */
   clearCache(): void {
     this.cache.clear();
+    this.cacheEpoch++;
     this.logger.debug('Resource cache cleared');
   }
 

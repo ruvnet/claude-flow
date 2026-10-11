@@ -1,0 +1,10 @@
+  Parameters: {"taskId":"task-0-none","reason":"capture"}
+
+[OK] Tool executed in 8.48ms
+
+Result:
+{
+  "success": false,
+  "taskId": "task-0-none",
+  "error": "Task not found"
+}

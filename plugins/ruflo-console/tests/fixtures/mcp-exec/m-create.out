@@ -1,0 +1,14 @@
+  Parameters: {"requestId":"cap-1","objective":"capture a transcript"}
+
+[OK] Tool executed in 31.17ms
+
+Result:
+{
+  "ok": true,
+  "data": {
+    "missionId": "msn_694db5dfd982c67fd44f4dfc",
+    "revision": 1,
+    "state": "draft",
+    "deduplicated": false
+  }
+}

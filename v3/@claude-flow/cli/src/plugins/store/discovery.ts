@@ -14,6 +14,7 @@ import type {
   PluginEntry,
 } from './types.js';
 import { resolveIPNS, fetchFromIPFS, verifyEd25519Signature } from '../../transfer/ipfs/client.js';
+import { isPlaceholderSigningKey, isStrictPluginMode } from '../trust-policy.js';
 
 /**
  * Fetch real npm download stats for a package
@@ -118,6 +119,46 @@ export interface PluginDiscoveryResult {
    * is NOT the verified registry, and callers must say so rather than report a discovery.
    */
   demo?: boolean;
+  /**
+   * True only when the registry's signature verified against the pinned key. Entries of an
+   * unverified registry carry no registry trust: their trustLevel is reported as
+   * 'unverified', so nothing downstream can treat them as registry-vouched.
+   */
+  verified?: boolean;
+  /** Why the registry is not verified (set whenever `verified` is not true). */
+  unverifiedReason?: string;
+}
+
+/**
+ * Strip registry-asserted trust from a registry that was not verified. Its trust labels, its
+ * `official` list and its author verification are just claims made by whoever served (or
+ * hardcoded) the list.
+ */
+function withoutRegistryTrust(registry: PluginRegistry): PluginRegistry {
+  return {
+    ...registry,
+    plugins: registry.plugins.map((p) => ({
+      ...p,
+      trustLevel: 'unverified' as const,
+      verified: false,
+      ...(p.author ? { author: { ...p.author, verified: false } } : {}),
+    })),
+    official: [],
+    authors: (registry.authors ?? []).map((a) => ({ ...a, verified: false })),
+  };
+}
+
+/** Registry-level verification status, for callers that report registry data. */
+export function registryStatus(result: PluginDiscoveryResult): {
+  verified: boolean;
+  unverifiedReason?: string;
+  source?: string;
+} {
+  return {
+    verified: result.verified === true,
+    ...(result.verified === true ? {} : { unverifiedReason: result.unverifiedReason ?? 'registry not verified' }),
+    ...(result.source ? { source: result.source } : {}),
+  };
 }
 
 /**
@@ -125,10 +166,24 @@ export interface PluginDiscoveryResult {
  */
 export class PluginDiscoveryService {
   private config: PluginStoreConfig;
-  private cache: Map<string, { registry: PluginRegistry; timestamp: number; demo?: boolean }> = new Map();
+  private cache: Map<string, {
+    registry: PluginRegistry;
+    timestamp: number;
+    demo?: boolean;
+    verified?: boolean;
+    unverifiedReason?: string;
+  }> = new Map();
 
   constructor(config: Partial<PluginStoreConfig> = {}) {
     this.config = { ...DEFAULT_PLUGIN_STORE_CONFIG, ...config };
+  }
+
+  /**
+   * Whether an unverified registry may be replaced by the built-in list. Off under
+   * `CLAUDE_FLOW_STRICT_PLUGINS=true` (ADR-145) unless the config says otherwise.
+   */
+  private allowsUnverifiedFallback(): boolean {
+    return this.config.allowUnverifiedFallback ?? !isStrictPluginMode();
   }
 
   /**
@@ -153,11 +208,13 @@ export class PluginDiscoveryService {
       console.log(`[PluginDiscovery] Cache hit for ${registry.name}`);
       return {
         success: true,
-        registry: cached.registry,
+        registry: cached.verified ? cached.registry : withoutRegistryTrust(cached.registry),
         fromCache: true,
         // A cached fallback is still the fallback: never relabel it as the real registry.
         source: cached.demo ? `${registry.name} (demo)` : registry.name,
         ...(cached.demo ? { demo: true } : {}),
+        verified: cached.verified === true,
+        ...(cached.verified ? {} : { unverifiedReason: cached.unverifiedReason ?? 'registry not verified' }),
       };
     }
 
@@ -174,8 +231,7 @@ export class PluginDiscoveryService {
         // Resolve IPNS to get current CID
         cid = await resolveIPNS(registry.ipnsName, registry.gateway);
         if (!cid) {
-          // Fallback to demo registry
-          return this.createDemoRegistryAsync(registry);
+          return this.fallbackToBuiltIn(registry, `could not resolve IPNS name ${registry.ipnsName}`);
         }
         console.log(`[PluginDiscovery] Resolved IPNS to CID: ${cid}`);
       }
@@ -183,7 +239,7 @@ export class PluginDiscoveryService {
       // Fetch registry from IPFS
       const registryData = await fetchFromIPFS<PluginRegistry>(cid, registry.gateway);
       if (!registryData) {
-        return this.createDemoRegistryAsync(registry);
+        return this.fallbackToBuiltIn(registry, `could not fetch registry CID ${cid}`);
       }
 
       // Verify registry signature when required.
@@ -192,20 +248,35 @@ export class PluginDiscoveryService {
       // on-path attacker) swap in attacker-mapped plugin entries that the
       // installer would then load unsandboxed.
       if (this.config.requireVerification) {
-        const verified = await this.verifyRegistrySignature(registryData, registry.publicKey);
-        if (!verified) {
-          console.warn(
-            `[PluginDiscovery] Registry signature verification failed for ` +
-              `${registry.name} (CID ${cid}); falling back to demo registry.`,
-          );
-          return this.createDemoRegistryAsync(registry);
+        const failure = await this.registrySignatureFailure(registryData, registry.publicKey);
+        if (failure) {
+          return this.fallbackToBuiltIn(registry, `${failure}, CID ${cid}`);
         }
+      } else {
+        // Verification disabled by config: usable, but it vouches for nothing.
+        const unverifiedReason = 'signature verification disabled (requireVerification: false)';
+        this.cache.set(registry.ipnsName, {
+          registry: registryData,
+          timestamp: Date.now(),
+          verified: false,
+          unverifiedReason,
+        });
+        return {
+          success: true,
+          registry: withoutRegistryTrust(registryData),
+          cid,
+          source: registry.name,
+          fromCache: false,
+          verified: false,
+          unverifiedReason,
+        };
       }
 
       // Cache the result
       this.cache.set(registry.ipnsName, {
         registry: registryData,
         timestamp: Date.now(),
+        verified: true,
       });
 
       return {
@@ -214,12 +285,49 @@ export class PluginDiscoveryService {
         cid,
         source: registry.name,
         fromCache: false,
+        verified: true,
       };
     } catch (error) {
       console.error(`[PluginDiscovery] Failed to discover registry:`, error);
-      // Return demo registry on error
-      return this.createDemoRegistryAsync(registry);
+      return this.fallbackToBuiltIn(registry, `discovery error: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+
+  /**
+   * The signed registry is unavailable or unverified. Outside strict mode, use the built-in
+   * list, labelled as such and stripped of registry trust; in strict mode, fail.
+   */
+  private async fallbackToBuiltIn(
+    registry: KnownPluginRegistry,
+    reason: string,
+  ): Promise<PluginDiscoveryResult> {
+    if (!this.allowsUnverifiedFallback()) {
+      return {
+        success: false,
+        verified: false,
+        unverifiedReason: reason,
+        error:
+          `Plugin registry ${registry.name} is not verified (${reason}). ` +
+          'Not falling back to the built-in plugin list because CLAUDE_FLOW_STRICT_PLUGINS=true.',
+      };
+    }
+
+    console.warn(
+      `[PluginDiscovery] Registry ${registry.name} is not verified (${reason}); ` +
+        'using the built-in plugin list, which is unverified and confers no registry trust.',
+    );
+    const result = await this.createDemoRegistryAsync(registry);
+    const cached = this.cache.get(registry.ipnsName);
+    if (cached) {
+      cached.verified = false;
+      cached.unverifiedReason = reason;
+    }
+    return {
+      ...result,
+      ...(result.registry ? { registry: withoutRegistryTrust(result.registry) } : {}),
+      verified: false,
+      unverifiedReason: reason,
+    };
   }
 
   /**
@@ -1158,7 +1266,7 @@ export class PluginDiscoveryService {
   }
 
   /**
-   * Verify registry Ed25519 signature.
+   * Verify the registry Ed25519 signature; returns why it failed, or null when it verified.
    *
    * Mirrors the signing scheme in scripts/publish-registry.ts: the signer
    * removes registrySignature + registryPublicKey from the registry object
@@ -1168,12 +1276,17 @@ export class PluginDiscoveryService {
    * whoever served the registry and can be swapped by a compromised
    * gateway / on-path attacker.
    */
-  private async verifyRegistrySignature(
+  private async registrySignatureFailure(
     registry: PluginRegistry,
     expectedPublicKey: string,
-  ): Promise<boolean> {
-    if (!registry.registrySignature || !expectedPublicKey) {
-      return false;
+  ): Promise<string | null> {
+    // A placeholder pin (e.g. the all-zero key) can't vouch for anything, and the all-zero
+    // key accepts a forged signature under ZIP-215 verification. Never verify against it.
+    if (isPlaceholderSigningKey(expectedPublicKey)) {
+      return 'pinned registry signing key is missing or a placeholder';
+    }
+    if (!registry.registrySignature) {
+      return 'registry is unsigned';
     }
     // Object spread preserves insertion order; delete drops a key without
     // re-ordering the rest, matching the signer's view of the registry.
@@ -1181,11 +1294,12 @@ export class PluginDiscoveryService {
     delete registryToVerify.registrySignature;
     delete registryToVerify.registryPublicKey;
     const message = JSON.stringify(registryToVerify);
-    return verifyEd25519Signature(
+    const ok = await verifyEd25519Signature(
       message,
       registry.registrySignature,
       expectedPublicKey,
     );
+    return ok ? null : 'registry signature does not verify against the pinned key';
   }
 
   /**

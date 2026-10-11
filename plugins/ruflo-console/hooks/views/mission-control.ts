@@ -236,7 +236,7 @@ export function missionControlView(ctx: Ctx): RenderElement {
 
   if (mission !== null) rows.push(...controlRows(ctx, mission))
 
-  if (mc.last !== null) rows.push(...fullRows(ctx, ` ${mc.last.ok ? '✓' : '✗'} `, `${mc.last.label}${mc.last.detail === '' ? '' : ` — ${mc.last.detail}`}`, { key: 'mc-last', color: mc.last.ok ? THEME.ok : THEME.bad, maxLines: 12, hint: 'your text is still in its field' }))
+  if (mc.last !== null) rows.push(...fullRows(ctx, ` ${mc.last.ok ? '✓' : '✗'} `, `${mc.last.label}${mc.last.detail === '' ? '' : ` — ${mc.last.detail}`}`, { key: 'mc-last', color: mc.last.ok ? THEME.ok : THEME.bad, maxLines: 12, hint: 'your text is still in its field' }), ...(mc.last.lines ?? []).slice(0, 8).map(line => text(ctx, `   ${line}`, { dimColor: true })))
 
   rows.push(row(ctx, TABS.filter(tab => mission !== null || tab.id === 'plan' || tab.id === 'record').map(tab => chip(ctx, `mc-tab-${tab.id}`, tab.label, mc.tab === tab.id, () => ctx.act.mission.tab(tab.id))), 'mc-tabs'))
 
