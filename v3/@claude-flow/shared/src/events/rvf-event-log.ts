@@ -100,6 +100,13 @@ export class RvfEventLog extends EventEmitter {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
+    // A failed prior replay may have populated only part of the indexes.
+    // Every initialization attempt must rebuild from an empty state.
+    this.events = [];
+    this.aggregateIndex.clear();
+    this.aggregateVersions.clear();
+    this.snapshots.clear();
+
     this.ensureDirectory(this.config.logPath);
 
     // --- events file ---
@@ -172,12 +179,12 @@ export class RvfEventLog extends EventEmitter {
     event.version = nextVersion;
 
     // Persist to disk first (crash-safe ordering)
-    this.appendRecord(this.config.logPath, event);
+    const persisted = this.appendRecord(this.config.logPath, event);
 
     // Update in-memory state
-    this.indexEvent(event);
+    this.indexEvent(persisted);
 
-    this.emit('event:appended', event);
+    this.emit('event:appended', structuredClone(persisted));
 
     if (nextVersion % this.config.snapshotThreshold === 0) {
       this.emit('snapshot:recommended', {
@@ -191,10 +198,10 @@ export class RvfEventLog extends EventEmitter {
   async saveSnapshot(snapshot: EventSnapshot): Promise<void> {
     this.ensureInitialized();
 
-    this.appendRecord(this.snapshotPath, snapshot);
-    this.snapshots.set(snapshot.aggregateId, snapshot);
+    const persisted = this.appendRecord(this.snapshotPath, snapshot);
+    this.snapshots.set(persisted.aggregateId, persisted);
 
-    this.emit('snapshot:saved', snapshot);
+    this.emit('snapshot:saved', structuredClone(persisted));
   }
 
   // ===========================================================================
@@ -208,7 +215,7 @@ export class RvfEventLog extends EventEmitter {
     const indices = this.aggregateIndex.get(aggregateId);
     if (!indices || indices.length === 0) return [];
 
-    let result = indices.map((i) => this.events[i]);
+    let result = indices.map((i) => structuredClone(this.events[i]));
 
     if (fromVersion !== undefined) {
       result = result.filter((e) => e.version >= fromVersion);
@@ -224,10 +231,10 @@ export class RvfEventLog extends EventEmitter {
     this.ensureInitialized();
 
     if (!filter) {
-      return [...this.events].sort((a, b) => a.timestamp - b.timestamp);
+      return structuredClone(this.events).sort((a, b) => a.timestamp - b.timestamp);
     }
 
-    let result: DomainEvent[] = [...this.events];
+    let result: DomainEvent[] = structuredClone(this.events);
 
     // Aggregate ID filter
     if (filter.aggregateIds && filter.aggregateIds.length > 0) {
@@ -267,7 +274,7 @@ export class RvfEventLog extends EventEmitter {
     if (filter.offset) {
       result = result.slice(filter.offset);
     }
-    if (filter.limit) {
+    if (filter.limit !== undefined) {
       result = result.slice(0, filter.limit);
     }
 
@@ -277,7 +284,7 @@ export class RvfEventLog extends EventEmitter {
   /** Get latest snapshot for an aggregate. */
   async getSnapshot(aggregateId: string): Promise<EventSnapshot | null> {
     this.ensureInitialized();
-    return this.snapshots.get(aggregateId) ?? null;
+    return structuredClone(this.snapshots.get(aggregateId) ?? null);
   }
 
   /** Return event store statistics. */
@@ -381,13 +388,15 @@ export class RvfEventLog extends EventEmitter {
   }
 
   /** Append a single record to an RVF file. */
-  private appendRecord(filePath: string, record: unknown): void {
+  private appendRecord<T>(filePath: string, record: T): T {
     const json = JSON.stringify(record);
+    const persisted = JSON.parse(json) as T;
     const payload = Buffer.from(json, 'utf8');
     const lengthBuf = Buffer.allocUnsafe(LENGTH_PREFIX_BYTES);
     lengthBuf.writeUInt32BE(payload.length, 0);
 
     appendFileSync(filePath, Buffer.concat([lengthBuf, payload]));
+    return persisted;
   }
 
   /** Add an event to the in-memory indexes. */

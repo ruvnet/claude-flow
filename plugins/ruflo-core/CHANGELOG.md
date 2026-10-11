@@ -2,6 +2,11 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.2.7 — 2026-10-11
+- fix: researcher agent calls agentdb_semantic-route, pattern-search, context-synthesize, hierarchical-store/recall and causal-edge with their real parameter names (input, topK, maxEntries, key/value/tier, sourceId/targetId/relation); it now follows edges with agentdb_graph-query and agentdb_graph-pathfinder (causal-edge only records)
+- fix: drop the invalid `--train-neural` flag from `hooks post-task` in the coder and researcher agents
+- fix: README no longer states stale tool and command counts; smoke expectation corrected to 11
+
 ## 0.2.6 — 2026-07-29
 - feat: hand route/post-edit to the ruflo mod via RUFLO_MODS_OWNS (ADR-404)
 - fix: repair CI regressions surfaced by the integrated community fixes

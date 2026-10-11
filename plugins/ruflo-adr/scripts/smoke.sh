@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-adr v0.5.4 (ADR-0001, ADR-0002).
+# Structural smoke test for ruflo-adr v0.5.5 (ADR-0001, ADR-0002).
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0

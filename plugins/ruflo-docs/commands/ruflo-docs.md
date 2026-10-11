@@ -7,7 +7,7 @@ $ARGUMENTS
 Generate or update documentation using the document worker and drift detection.
 
 **Full project**: `npx @claude-flow/cli@latest hooks worker dispatch --trigger document`
-**Specific scope**: `npx @claude-flow/cli@latest hooks worker dispatch --trigger document --scope api`
+**Specific scope**: `npx @claude-flow/cli@latest hooks worker dispatch --trigger document --context api`
 
 Parse $ARGUMENTS to determine scope:
 - If a file path is given, generate docs for that file

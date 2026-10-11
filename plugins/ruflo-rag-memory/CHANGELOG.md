@@ -2,6 +2,10 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.5 — 2026-10-11
+- fix: `npx ruflo recall` and `npx ruflo memory bridge` do not exist; docs use `memory search -q`, `/recall`, `memory_import_claude` and the auto-memory helper
+- fix: the recall command put user text inside double quotes in a shell command (`$(...)` would run) and suggested `npx ruvector search --hybrid`, which is not a valid call; it now single-quotes the query and uses `memory search --smart` / `--type hybrid`
+
 ## 0.3.4 — 2026-10-05
 - fix: shared textsOf reports truncation and every guard fails closed on it
 

@@ -26,12 +26,13 @@ You are a knowledge graph navigator agent. Your responsibilities:
 
 | Relation | Direction | Weight | Example |
 |----------|-----------|--------|---------|
-| imports | A -> B | 1.0 | `auth.service` imports `user.repository` |
+| imports | A -> B | 0.9 | `auth.service` imports `user.repository` |
 | extends | A -> B | 0.9 | `AdminUser` extends `BaseUser` |
-| implements | A -> B | 0.9 | `UserService` implements `IUserService` |
+| implements | A -> B | 0.7 | `UserService` implements `IUserService` |
 | depends-on | A -> B | 0.8 | `PaymentController` depends-on `StripeClient` |
 | calls | A -> B | 0.7 | `handleOrder` calls `validatePayment` |
-| references | A -> B | 0.5 | README references `AuthModule` |
+| references | A -> B | 0.3 | README references `AuthModule` |
+| type-depends-on | A -> B | 0.1 | `import type { User }` (never used for cycle detection; see kg-extract) |
 | tests | A -> B | 0.6 | `auth.test.ts` tests `AuthService` |
 
 ### Pathfinder Algorithm
@@ -59,8 +60,8 @@ The pathfinder traversal algorithm finds relevant subgraphs:
 
 After completing graph construction or traversal tasks, train patterns:
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
-npx @claude-flow/cli@latest neural train --pattern-type knowledge-graph --epochs 10
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --quality 0.9 --task "TASK_DESCRIPTION" --agent graph-navigator
+npx @claude-flow/cli@latest neural train --pattern coordination --epochs 10
 ```
 
 ### Memory Learning

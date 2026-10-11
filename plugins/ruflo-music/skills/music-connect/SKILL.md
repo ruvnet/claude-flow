@@ -28,11 +28,11 @@ Wires this session up to the user's own Cognitum Music account (music.cognitum.o
    - Click "Generate connection token" (label it something recognizable, e.g. "Claude Code")
    - Copy the raw token — it starts with `cogmcp_` and is shown **exactly once**
 
-3. **Register the MCP server** once you have the token (never print the full token back to the user in plain chat if avoidable — treat it as a secret; it's fine as a one-time argument to `claude mcp add`, which stores it in local config, not in conversation history):
+3. **Register the MCP server** once you have the token. Do not paste the token into the chat or have the model type it into a command: ask the user to run the registration themselves (in Claude Code, `!claude mcp add ...` runs it in this session) so the token never enters the conversation transcript. Never echo it back. Treat it as a secret; it's fine as a one-time argument to `claude mcp add`, which stores it in local config, not in conversation history):
    ```bash
-   claude mcp add cogmusic --env COGMUSIC_TOKEN=cogmcp_... -- npx -y cogmusic@latest
+   claude mcp add cogmusic --env COGMUSIC_TOKEN=cogmcp_... -- npx -y cogmusic@0.1.1
    ```
-   Pin to `cogmusic@0.1.1` or later — earlier `0.1.0` has no fetch timeout and fails
+   Pin an exact version (0.1.1 is the current release) instead of `@latest`, so a later publish cannot change what runs with your token. Versions before `0.1.1` have no fetch timeout and fail
    `create_production` calls that run past Node's ~5-minute default (see
    [ADR-0001](../../docs/adrs/0001-music-contract.md)).
 
@@ -45,7 +45,7 @@ Wires this session up to the user's own Cognitum Music account (music.cognitum.o
 5. **If registration already exists but is unhealthy**, remove and re-add rather than editing config by hand:
    ```bash
    claude mcp remove cogmusic -s local
-   claude mcp add cogmusic --env COGMUSIC_TOKEN=cogmcp_... -- npx -y cogmusic@latest
+   claude mcp add cogmusic --env COGMUSIC_TOKEN=cogmcp_... -- npx -y cogmusic@0.1.1
    ```
 
 6. Once connected, the `mcp__cogmusic__*` tools (`list_productions`, `get_production`, `create_production`, `separate_stems`, `extract_midi`, `master`) become available — proceed to `music-generate` or `music-list`.
