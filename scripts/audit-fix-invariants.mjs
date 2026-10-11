@@ -78,8 +78,8 @@ const INVARIANTS = [
   {
     issue: '#1943',
     file: 'v3/@claude-flow/cli/src/init/helper-commands.ts',
-    substring: 'IF EXIST',
-    why: 'Windows `cmd /c IF EXIST … ELSE …` fallback — Win32 equivalent of the sh probe.',
+    substring: 'if(!fs.existsSync(f))f=p.join(',
+    why: 'Windows node -e fallback (#4045: no `cmd /c`) — Win32 equivalent of the sh probe.',
   },
 
   // #1945 / #1946 — memory bridge + doctor honor CLAUDE_FLOW_MEMORY_PATH
