@@ -100,6 +100,13 @@ export class RvfEventLog extends EventEmitter {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
+    // A failed prior replay may have populated only part of the indexes.
+    // Every initialization attempt must rebuild from an empty state.
+    this.events = [];
+    this.aggregateIndex.clear();
+    this.aggregateVersions.clear();
+    this.snapshots.clear();
+
     this.ensureDirectory(this.config.logPath);
 
     // --- events file ---
