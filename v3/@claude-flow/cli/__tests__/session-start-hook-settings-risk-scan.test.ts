@@ -184,6 +184,42 @@ describe('hook-handler.cjs session-restore — ReDoS guard on the powershell pat
     expect(Date.now() - start).toBeLessThan(200);
   });
 
+  it('stays linear on repeated "powershell " tokens (a lazy token loop turns quadratic there) in BOTH scanners', () => {
+    delete require_.cache[require_.resolve(HOOK_PATH)];
+    const hook = require_(HOOK_PATH);
+    const inputs = [
+      'powershell '.repeat(90_000), // ~1MB, no -enc: every start rescans the tail in a backtracking pattern
+      'powershell a '.repeat(80_000),
+      'powershell.exe '.repeat(70_000),
+    ];
+    for (const hostile of inputs) {
+      const cjsStart = Date.now();
+      hook.srScanCommandStringForRisk(hostile);
+      expect(Date.now() - cjsStart).toBeLessThan(500);
+      const tsStart = Date.now();
+      tsScanCommandStringForRisk(hostile);
+      expect(Date.now() - tsStart).toBeLessThan(500);
+    }
+  });
+
+  it('keeps detecting encoded powershell across token shapes, identically in both scanners', () => {
+    delete require_.cache[require_.resolve(HOOK_PATH)];
+    const hook = require_(HOOK_PATH);
+    const hits = [
+      'powershell -e SQBFAFgA',
+      'POWERSHELL.EXE -NoProfile -Enc SQBFAFgA',
+      'cmd /c powershell -ExecutionPolicy Bypass -EncodedCommand SQBFAFgA',
+      'xpowershell -enc AAAA',
+    ];
+    const misses = ['powershell -enc', 'powershell -encoded SQB', 'powershell -Command Get-Date', 'echo powershell', 'pwsh -e'];
+    for (const c of hits) {
+      expect({ c, ts: tsScanCommandStringForRisk(c).length > 0, cjs: hook.srScanCommandStringForRisk(c).length > 0 }).toEqual({ c, ts: true, cjs: true });
+    }
+    for (const c of misses) {
+      expect({ c, ts: tsScanCommandStringForRisk(c).length > 0, cjs: hook.srScanCommandStringForRisk(c).length > 0 }).toEqual({ c, ts: false, cjs: false });
+    }
+  });
+
   it('still detects a real EncodedCommand payload after the linear-time rewrite', () => {
     delete require_.cache[require_.resolve(HOOK_PATH)];
     const hook = require_(HOOK_PATH);
