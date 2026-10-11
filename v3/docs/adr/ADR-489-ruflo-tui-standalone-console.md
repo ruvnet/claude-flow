@@ -32,7 +32,75 @@ Static check over all 343 `.ts` files under `hooks/` (comments stripped; the rul
 |---|---|---|---|
 | host-neutral | no engine call, no Node module, no package; reads files through `Host.fs`, runs the ruflo CLI through `Host.run` | **315** | top level 97, `data/` 103, `views/` 98, `gfx/` 17 |
 | host-engine-dependent | calls a `Host` member only the Claude Code host can answer (panes, `blit`, prompt box, `toolCall`, `rufloSnapshot`, dialogs, toasts) | **26** | top level 23, `views/` 3 (`wf-control`, `wf-guide`, `wf-templates`) |
-| Claude-Code-only | touches `$` or `on(...)` directly | **2** | `register.ts`, `model-tools.ts` (the model-facing `console_*` tools) |
+| Claude-Code-only | touches `# ADR 489: `ruflo tui`: the console in a terminal of its own, over the same views
+
+Status: Proposed (phase 1, a read-only Overview and Cost, is implemented in the draft PR that adds this file; phases 2 to 4 are a roadmap)
+
+Date: 2026-10-11
+
+Builds on: ADR-407 (the cockpit), ADR-446 (plugin mods), ADR-448 (the Room), ADR-481 (one sanitiser for drawn text), ADR-486 (session workspace), ADR-150 (plugin skills dispatched by the CLI, with graceful degradation), ADR-437 (multi-provider cost ledger). Security inputs: #3983 (every confirm route bound to the card the person saw), #3981 (no transcript text or path in a model-facing answer).
+
+Numbering: 488 is the highest on `main` and no open pull request names 489 (checked 2026-10-11 before committing). ADR-487 exists twice, so check again at merge.
+
+## 1. Context
+
+rUv's goal: a TUI for ruflo, part of `npx ruflo`, that reuses the ruflo-console components and works both on its own and as the mod inside Claude Code
+(ruflo-mods). A standalone host should eventually drive Codex and OpenRouter. The agreed starting point was a **thin shell first**: a `ruflo tui` entry
+that embeds the existing views, Codex and OpenRouter through their own CLI or API, Claude Code staying a supported host, and not a new agent harness.
+
+This ADR records what the code showed, the decision, and the first slice. Every number below was measured on `main` at 72255a2f4 unless it says otherwise.
+
+## 2. Findings (evidence)
+
+### 2.1 The host boundary already exists
+
+`plugins/ruflo-console/hooks/host.ts` defines `Host`, "the engine as `session.start` bound it": 31 required members and 3 optional ones (`fs`, `run`, `spawn`,
+`every`, `after`, `storeGet/Set`, `openPane`, `blit`, `toolCall`, `rufloSnapshot`, `httpSend` …). Its contract says any member may be refused and a refusal is
+a missing fact, never a crash. `register.ts` `hostOf($, …)` is the one place that spells `$.noun.method(...)`: the Claude Code adapter. The controller
+(`createController(state, host)`), every view (`(ctx) => RenderElement`, built only from `ctx.kit.Box|Text|Button`, optional `Raster|Input`) and the page
+(`paneView`) are plain functions over that interface.
+
+Static check over all 343 `.ts` files under `hooks/` (comments stripped; the rules are asserted by `tests/tui-boundary.spec.ts`):
+
+| class | meaning | files | where |
+|---|---|---|---|
+| host-neutral | no engine call, no Node module, no package; reads files through `Host.fs`, runs the ruflo CLI through `Host.run` | **315** | top level 97, `data/` 103, `views/` 98, `gfx/` 17 |
+| host-engine-dependent | calls a `Host` member only the Claude Code host can answer (panes, `blit`, prompt box, `toolCall`, `rufloSnapshot`, dialogs, toasts) | **26** | top level 23, `views/` 3 (`wf-control`, `wf-guide`, `wf-templates`) |
+ or `on(...)` directly | **2** | `register.ts` (the one file that binds `# ADR 489: `ruflo tui`: the console in a terminal of its own, over the same views
+
+Status: Proposed (phase 1, a read-only Overview and Cost, is implemented in the draft PR that adds this file; phases 2 to 4 are a roadmap)
+
+Date: 2026-10-11
+
+Builds on: ADR-407 (the cockpit), ADR-446 (plugin mods), ADR-448 (the Room), ADR-481 (one sanitiser for drawn text), ADR-486 (session workspace), ADR-150 (plugin skills dispatched by the CLI, with graceful degradation), ADR-437 (multi-provider cost ledger). Security inputs: #3983 (every confirm route bound to the card the person saw), #3981 (no transcript text or path in a model-facing answer).
+
+Numbering: 488 is the highest on `main` and no open pull request names 489 (checked 2026-10-11 before committing). ADR-487 exists twice, so check again at merge.
+
+## 1. Context
+
+rUv's goal: a TUI for ruflo, part of `npx ruflo`, that reuses the ruflo-console components and works both on its own and as the mod inside Claude Code
+(ruflo-mods). A standalone host should eventually drive Codex and OpenRouter. The agreed starting point was a **thin shell first**: a `ruflo tui` entry
+that embeds the existing views, Codex and OpenRouter through their own CLI or API, Claude Code staying a supported host, and not a new agent harness.
+
+This ADR records what the code showed, the decision, and the first slice. Every number below was measured on `main` at 72255a2f4 unless it says otherwise.
+
+## 2. Findings (evidence)
+
+### 2.1 The host boundary already exists
+
+`plugins/ruflo-console/hooks/host.ts` defines `Host`, "the engine as `session.start` bound it": 31 required members and 3 optional ones (`fs`, `run`, `spawn`,
+`every`, `after`, `storeGet/Set`, `openPane`, `blit`, `toolCall`, `rufloSnapshot`, `httpSend` …). Its contract says any member may be refused and a refusal is
+a missing fact, never a crash. `register.ts` `hostOf($, …)` is the one place that spells `$.noun.method(...)`: the Claude Code adapter. The controller
+(`createController(state, host)`), every view (`(ctx) => RenderElement`, built only from `ctx.kit.Box|Text|Button`, optional `Raster|Input`) and the page
+(`paneView`) are plain functions over that interface.
+
+Static check over all 343 `.ts` files under `hooks/` (comments stripped; the rules are asserted by `tests/tui-boundary.spec.ts`):
+
+| class | meaning | files | where |
+|---|---|---|---|
+| host-neutral | no engine call, no Node module, no package; reads files through `Host.fs`, runs the ruflo CLI through `Host.run` | **315** | top level 97, `data/` 103, `views/` 98, `gfx/` 17 |
+| host-engine-dependent | calls a `Host` member only the Claude Code host can answer (panes, `blit`, prompt box, `toolCall`, `rufloSnapshot`, dialogs, toasts) | **26** | top level 23, `views/` 3 (`wf-control`, `wf-guide`, `wf-templates`) |
+), `model-tools.ts` (the model-facing `console_*` tool server over `on`; it also exports helpers such as `modelLine` that the controller imports, so it is in the standalone bundle but its server is never started: only `register.ts` calls it, asserted by the boundary test) |
 
 95 files import `claude-code`, all as types; no file imports a Node module or a package. The "about 113 files" in the question is the
 top level of `hooks/` (122 `.ts` files: 97 host-neutral, 23 engine-dependent, 2 engine-only); the whole folder has 343. "Host-neutral" is a statement about imports, not about usefulness: many neutral views
@@ -121,7 +189,7 @@ add one as an **optional, lazily imported** dependency, per the published-train 
 | Constraint | How it holds on the standalone host |
 |---|---|
 | Confirm gate bound to the card the person saw (#3983) | Phase 1 has **no write path**: buttons are inert, no key maps to an action, `askChoice` rejects, and `run` only accepts the ruflo CLI. The controller's `confirm(seen)` binding is unchanged and unexercised. A write phase must port the #3983 tests to this host before it lifts any refusal. |
-| One sanitiser for drawn text (ADR-481, `modelLine`) | `modelLine` guards what a **model** reads and lives in `model-tools.ts` (engine-only), so it is not imported. The terminal needs the same guarantee for what a **person's terminal** executes: `ansi.ts` `clean` is the chokepoint (OSC/CSI/C1/invisible removed, a line holding a secret or invite withheld whole, using the same `ESCAPES`, `INVISIBLE`, `hasSecret`, `hasInvite`). The mod gets this from the engine; here it is ours. `tui-render.spec.ts` feeds OSC title injection, `\u001b[2J`, `\u001b[?1049h`, a GitHub token and an Anthropic key through every colour depth. |
+| One sanitiser for drawn text (ADR-481, `modelLine`) | `modelLine` guards what a **model** reads (one line, whitespace collapsed and trimmed). The terminal needs the same guarantee for what a **person's terminal** executes, and must keep indentation, so `ansi.ts` `clean` is the chokepoint, built from the same primitives (OSC/CSI/C1/invisible removed, a line holding a secret or invite withheld whole, using the same `ESCAPES`, `INVISIBLE`, `hasSecret`, `hasInvite`). The mod gets this from the engine; here it is ours. `tui-render.spec.ts` feeds OSC title injection, `\u001b[2J`, `\u001b[?1049h`, a GitHub token and an Anthropic key through every colour depth. |
 | Path and transcript leaks (#3981) | Reads are confined to the project, `~/.claude` (or `CLAUDE_CONFIG_DIR`) and `~/.claude-flow`, symlinks resolved before the check (tests: `../`, a link out of the project, `~/.ssh`). The page is drawn for a person (`ctx.text` false), so session previews follow ADR-486; the model-facing path (`viewText`, `console_state`) is untouched. **Not a model channel:** non-TTY output is one plain frame; if someone pipes it to a model that is their choice, and it still passes `clean`. |
 | No credentials in output or child processes | `run` starts only `process.execPath <this cli.js> …` (no shell, fixed argv) with an environment allowlist (`PATH`, `HOME`, `LANG`, `TERM`, `CLAUDE_FLOW_*`, `RUFLO_*` …): `OPENROUTER_API_KEY` and friends do not reach the child (test). `fetchText`, `httpSend`, `spawn` are refused. Nothing is written to disk (the store is in memory). |
 | A repository cannot supply code that ruflo runs | The bundle is loaded from the CLI's own install only (`ownPluginDirs`); a `plugins/ruflo-console/dist/tui.mjs` inside the opened project is ignored (test). |
@@ -141,7 +209,7 @@ not a replacement and not a second implementation.
 
 ## 4. Phases
 
-1. **Phase 1 (this PR, draft): the vertical slice.** `ruflo tui [--view overview|cost]`; alternate screen, keys `o c Tab r j k PgUp PgDn g G q`, auto-refresh every 3 s; headless prints one plain frame; read-only; the boundary and security tests; ADR.
+1. **Phase 1 (this PR, draft): the vertical slice.** `ruflo tui [--view overview|cost]`; alternate screen, keys `o c Tab r j k PgUp PgDn g G q`, auto-refresh every 3 s; headless prints one plain frame after the CLI's own startup lines; read-only; the boundary and security tests; ADR.
 1b. **Publish wiring.** `prepare-publish.mjs` builds and stages the bundle; a CI job runs `ruflo tui` headless from the packed tarball; decide on `esbuild` as a declared devDependency.
 2. **Host capabilities and more pages.** `Host.capabilities` so chrome and rows that need Claude Code are hidden, not drawn inert; Swarm, Room, Events, Missions read-only; Raster to half-block cells; Windows and tmux verification; `NO_COLOR` and width (CJK, emoji) handling.
 3. **Drive Codex and OpenRouter** (3.5) behind the confirm gate, with #3983's tests ported; the AI terminal page; per-provider spend read from the CLIs' own reports and the ledger.
@@ -149,6 +217,7 @@ not a replacement and not a second implementation.
 
 ## 5. Risks
 
+- **Cell width.** Width is counted in terminal cells with a small table (CJK, fullwidth, the emoji blocks, combining marks); a symbol the table does not list, or a terminal that draws an emoji at another width, can still shift a border. Tested for the emoji the pane header uses.
 - **Chrome that lies.** Inert Claude-only controls are visible until phase 2. They are dimmed and the footer says read-only; still a rough edge.
 - **Drift.** A new view may import something engine-specific. Mitigation: `tui-boundary.spec.ts` (imports) and a headless smoke over the pages the TUI opens.
 - **Bundle size.** 437 KiB gzip for a feature many will not use. It loads lazily, only for `tui`. Dropping the unused pages from the bundle (tree-shaking by an explicit page list) is a phase 2 option.
@@ -163,13 +232,12 @@ a web or desktop front end; publishing, version bumps, and the Slack or dashboar
 
 ## 7. Verification
 
-Run on this machine (Linux 6.17, Node 22.23.2, a pty from `script`): 36 new vitest tests in `plugins/ruflo-console/tests/tui-{host,render,session,boundary}.spec.ts` and 6 in `v3/@claude-flow/cli/__tests__/tui-command.test.ts`,
+Run on this machine (Linux 6.17, Node 22.23.2, a pty from `script`): 40 new vitest tests in `plugins/ruflo-console/tests/tui-{host,render,session,boundary}.spec.ts` and 6 in `v3/@claude-flow/cli/__tests__/tui-command.test.ts`,
 all passing; `tsc -p plugins/ruflo-console` reports no error in `tui/` or the new tests (7 errors exist in other files already on `main`); `node …/cli.js tui` against this repository printed the
 real CLI version (`v3.56.5`), the real swarm id, daemon state and helpers manifest; the pty run entered the alternate screen once, switched to Cost on `c`, scrolled on `j`, quit on `q`, left raw mode and the
 alternate screen, exit 0.
 
-**Unverified:** Node 20 (the declared floor; the bundle targets it but only 22 was run), macOS Terminal, iTerm2, kitty, Windows Terminal and conhost (raw mode and SGR), tmux/screen colour depth, a terminal narrower than 40 columns, wide
-characters, `npx ruflo tui` from a registry install (the bundle is not staged by `prepare-publish.mjs` yet), and every page other than Overview and Cost.
+**Unverified:** Node 20 (the declared floor; the bundle targets it but only 22 was run), macOS Terminal, iTerm2, kitty, Windows Terminal and conhost (raw mode and SGR), tmux/screen colour depth, a terminal narrower than 40 columns, `npx ruflo tui` from a registry install (the bundle is not staged by `prepare-publish.mjs` yet), and every page other than Overview and Cost.
 
 ## 8. Decisions for the owner
 

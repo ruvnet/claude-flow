@@ -59,25 +59,57 @@ function sgr(style: Style, depth: Depth): string {
 }
 
 const RESET = '\u001b[0m'
-/** Visible length of a line: SGR sequences cost nothing (only ours are ever in it), every code point is one cell. */
-export const widthOf = (line: string): number => [...line.replace(/\u001b\[[0-9;]*m/g, '')].length
+/** Wide (two-cell) ranges: CJK, fullwidth forms, and the emoji blocks terminals draw two cells wide. A table, not a library; unlisted ambiguous symbols count one. */
+const WIDE: readonly (readonly [number, number])[] = [
+  [0x1100, 0x115f], [0x231a, 0x231b], [0x23e9, 0x23ec], [0x23f0, 0x23f0], [0x23f3, 0x23f3], [0x25fd, 0x25fe], [0x2614, 0x2615], [0x2648, 0x2653], [0x267f, 0x267f], [0x2693, 0x2693], [0x26a1, 0x26a1], [0x26aa, 0x26ab], [0x26bd, 0x26be], [0x26c4, 0x26c5], [0x26ce, 0x26ce], [0x26d4, 0x26d4], [0x26ea, 0x26ea], [0x26f2, 0x26f3], [0x26f5, 0x26f5], [0x26fa, 0x26fa], [0x26fd, 0x26fd],
+  [0x2705, 0x2705], [0x270a, 0x270b], [0x2728, 0x2728], [0x274c, 0x274c], [0x274e, 0x274e], [0x2753, 0x2755], [0x2757, 0x2757], [0x2795, 0x2797], [0x27b0, 0x27b0], [0x27bf, 0x27bf], [0x2b1b, 0x2b1c], [0x2b50, 0x2b50], [0x2b55, 0x2b55],
+  [0x2e80, 0xa4cf], [0xac00, 0xd7a3], [0xf900, 0xfaff], [0xfe30, 0xfe6f], [0xff00, 0xff60], [0xffe0, 0xffe6], [0x1f300, 0x1faff], [0x20000, 0x3fffd],
+]
+
+/** Terminal cells one code point takes: 0 for a combining mark, 2 for a wide one, else 1. */
+export function cellsOf(code: number): number {
+  if (code >= 0x300 && code <= 0x36f) return 0
+
+  return WIDE.some(([from, to]) => code >= from && code <= to) ? 2 : 1
+}
+
+/** Cells a string takes (no escape sequences in it). */
+export const cells = (text: string): number => [...text].reduce((sum, ch) => sum + cellsOf(ch.codePointAt(0) as number), 0)
+
+/** The longest head of `text` that fits `room` cells, and the rest. */
+function split(text: string, room: number): [string, string] {
+  let used = 0
+  let head = ''
+
+  for (const ch of text) {
+    const w = cellsOf(ch.codePointAt(0) as number)
+
+    if (used + w > room) break
+    used += w
+    head += ch
+  }
+
+  return [head, text.slice(head.length)]
+}
+
+/** Visible width of a line in cells: SGR sequences cost nothing (only ours are ever in it). */
+export const widthOf = (line: string): number => cells(line.replace(/\u001b\[[0-9;]*m/g, ''))
 
 /** Cuts a styled line to `width` cells, keeping the sequences, and closes any style left open. */
 function cut(line: string, width: number, mark = ''): string {
   if (widthOf(line) <= width) return line
 
   let out = ''
-  let seen = 0
-  const keep = Math.max(0, width - [...mark].length)
+  let left = Math.max(0, width - cells(mark))
 
   for (const part of line.split(/(\u001b\[[0-9;]*m)/)) {
     if (part.startsWith('\u001b[')) out += part
-    else
-      for (const ch of part) {
-        if (seen >= keep) break
-        out += ch
-        seen++
-      }
+    else {
+      const [head] = split(part, left)
+
+      out += head
+      left -= cells(head)
+    }
   }
 
   return `${out}${mark}${out.includes('\u001b') ? RESET : ''}`
@@ -90,13 +122,16 @@ function wordWrap(text: string, width: number): string[] {
   for (const word of text.split(' ')) {
     let rest = word
 
-    while ([...rest].length > width) {
+    while (cells(rest) > width) {
       if (current !== '') lines.push(current), (current = '')
-      lines.push([...rest].slice(0, width).join(''))
-      rest = [...rest].slice(width).join('')
+      const [head, tail] = split(rest, width)
+
+      if (head === '') break
+      lines.push(head)
+      rest = tail
     }
 
-    if (current !== '' && [...current].length + [...rest].length + 1 > width) {
+    if (current !== '' && cells(current) + cells(rest) + 1 > width) {
       lines.push(current)
       current = rest
     } else current = current === '' ? rest : `${current} ${rest}`

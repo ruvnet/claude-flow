@@ -30,7 +30,7 @@ export type NodeHostOptions = {
 
 const MAX_OUT = 1_000_000
 /** Variables a child may see: enough to run node and find the project, none of the API keys in the parent's environment. */
-const CHILD_ENV = /^(PATH|HOME|USERPROFILE|SystemRoot|TMPDIR|TEMP|TMP|LANG|LC_[A-Z]+|TERM|NO_COLOR|CLAUDE_FLOW_[A-Z_]+|RUFLO_[A-Z_]+)$/
+const CHILD_ENV = /^(PATH|HOME|USERPROFILE|SystemRoot|TMPDIR|TEMP|TMP|LANG|LC_[A-Z]+|TERM|NO_COLOR|CLAUDE_CONFIG_DIR|CLAUDE_FLOW_[A-Z_]+|RUFLO_[A-Z_]+)$/
 
 const refuse = (what: string): Promise<never> => Promise.reject(new Error(`${what}: not available in the standalone terminal`))
 

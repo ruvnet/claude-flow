@@ -99,6 +99,27 @@ describe('the same views over real ruflo files', () => {
     session.stop()
   })
 
+  it.each([
+    ['escapes only: the words stay, the sequences go', 'boom \u001b]0;pwned\u0007\u001b[2J\u009b31m end', /exit 1: .*boom.* end/],
+    ['an escape and a token: the whole line is withheld', 'boom \u001b]0;pwned\u0007 ghp_abcdefghijklmnopqrstuvwxyz0123456789 end', /line withheld/],
+  ])('what a failing child prints reaches the frame as clean text (stderr is not JSON, so no data layer in front): %s', async (_name, stderr, expected) => {
+    const base = openSession({ cwd: project, home: join(root, 'home') }).host
+    const hostileRun = async () => ({ exitCode: 1, stdout: '', stderr, isStdoutTruncated: false, isStderrTruncated: false })
+    const session = openSession({ cwd: project }, { ...base, run: hostileRun })
+
+    await session.refresh()
+    await session.refresh()
+    for (const depth of ['none', '256'] as const) {
+      const text = session.frame(110, depth).join('\n')
+
+      expect(text).toMatch(expected)
+      expect(text).not.toContain('pwned')
+      expect(text).not.toContain('ghp_abcdefghij')
+      expect(text.match(/\u001b/g)?.length ?? 0).toBe(text.match(/\u001b\[[0-9;]*m/g)?.length ?? 0)
+    }
+    session.stop()
+  })
+
   it('never calls the engine: every host call the controller made was a read or a refusal', async () => {
     const ran: string[][] = []
     const calls: string[] = []

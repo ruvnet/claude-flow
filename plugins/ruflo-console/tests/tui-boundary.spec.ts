@@ -7,6 +7,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -51,6 +52,24 @@ describe('tui/ is the second adapter', () => {
     const offenders = tui.filter(({ text }) => importsOf(text).some(([isType, from]) => !isType && !from.startsWith('node:') && !from.startsWith('.'))).map(({ file }) => file)
 
     expect(offenders).toEqual([])
+  })
+
+  it('keeps register.ts (the one file that binds $) out of the bundle, even through hooks/; model-tools.ts is in it only for the helpers the controller shares', () => {
+    let esbuild: typeof import('esbuild')
+
+    try {
+      esbuild = createRequire(import.meta.url)('esbuild')
+    } catch {
+      return // esbuild is a build-time tool; without it the build script itself says so
+    }
+
+    const built = esbuild.buildSync({ entryPoints: [join(root, 'tui', 'main.ts')], bundle: true, write: false, metafile: true, platform: 'node', format: 'esm', logLevel: 'silent' })
+    const inputs = Object.keys(built.metafile.inputs)
+
+    expect(inputs.some(input => /hooks\/views\/pane\.ts$/.test(input))).toBe(true)
+    expect(inputs.filter(input => /hooks\/register\.ts$/.test(input))).toEqual([])
+    // The console_* tool server inside model-tools.ts is started only by register.ts; the standalone shell never calls it.
+    expect(readdirSync(join(root, 'tui')).map(name => readFileSync(join(root, 'tui', name), 'utf8')).some(text => /serveModelTools|announceModelTools/.test(text))).toBe(false)
   })
 
   it('implements every member of Host the controller can call, and nothing in hooks/ changed shape', async () => {

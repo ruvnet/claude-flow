@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { clean, render, terminalKit, widthOf } from '../tui/ansi'
+import { cells, clean, render, terminalKit, widthOf } from '../tui/ansi'
 
 const kit = terminalKit()
 const text = (children: unknown, props: Record<string, unknown> = {}) => kit.Text({ children, ...props } as never)
@@ -75,6 +75,17 @@ describe('render', () => {
     expect(out.every(line => widthOf(line) === 20)).toBe(true)
     expect(out[0]?.startsWith('╭')).toBe(true)
     expect(out[1]).toContain(' hi')
+  })
+
+  it('counts emoji and CJK as two cells, so a border stays straight on a row that has them', () => {
+    expect([cells('abc'), cells('🏠'), cells('✅'), cells('日本'), cells('é'), cells('e\u0301')]).toEqual([3, 2, 2, 4, 1, 1])
+
+    const rows = ['plain row', '🏠 Overview', '🎯 📌 👑 🐝 four', '日本語のテキスト', 'x'.repeat(60)]
+    const out = render(box(rows.map(row => box([text(row)], { flexDirection: 'row' })), { borderStyle: 'round', paddingX: 1 }), 30, 'none')
+
+    expect(out.length).toBeGreaterThan(rows.length)
+    expect(new Set(out.map(widthOf))).toEqual(new Set([30]))
+    expect(widthOf(render(text('🏠'.repeat(20), { wrap: 'truncate-end' }), 11, 'none')[0] as string)).toBeLessThanOrEqual(11)
   })
 
   it('draws a button as an inert bracketed label and skips hidden boxes', () => {
