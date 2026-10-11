@@ -2,6 +2,10 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.3 — 2026-10-11
+- fix: document-worker scoping uses `--context` (CLI) and `context` (MCP); `--scope`/`scope` are not parameters and were silently ignored, so api/full scoping never took effect
+- fix: drop the invalid `--train-neural` post-task flag from the docs-writer agent; smoke expectation corrected to 13
+
 ## 0.3.2 — 2026-10-05
 - fix: shared textsOf reports truncation and every guard fails closed on it
 

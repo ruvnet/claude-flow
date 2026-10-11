@@ -83,14 +83,14 @@ This plugin is the declared consumer of two `ruflo-loop-workers` background work
 - **`optimize`** — periodically scans recent cost data and produces optimization recommendations. Consumed by the `cost-optimize` skill and surfaced via `cost workers` (see `commands/ruflo-cost.md`).
 - **`benchmark`** — runs cost-per-benchmark across spawned agents; results inform Tier 1/2/3 routing decisions reported in `cost-report`.
 
-Use `mcp__plugin_ruflo-core_ruflo__hooks_worker-status --worker optimize` and `--worker benchmark` to inspect last-run timestamps and outcomes. The worker scheduling itself is owned by `ruflo-loop-workers`; this plugin only consumes outputs.
+Use `mcp__plugin_ruflo-core_ruflo__hooks_worker-status({ includeCompleted: true })` and pick out the `optimize` and `benchmark` entries to inspect last-run timestamps and outcomes (the tool has no per-worker-name filter). The worker scheduling itself is owned by `ruflo-loop-workers`; this plugin only consumes outputs.
 
 ## Neural learning
 
 After generating cost reports or applying optimizations, feed the cost-optimization learning loop so future strategies compound:
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
-npx @claude-flow/cli@latest neural train --pattern-type cost-optimization --epochs 5
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true
+npx @claude-flow/cli@latest neural train --pattern optimization --epochs 5
 ```
 
 ## Related plugins

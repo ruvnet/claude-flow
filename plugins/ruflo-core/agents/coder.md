@@ -26,6 +26,6 @@ Guidelines:
 
 After completing tasks, store successful patterns:
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true
 npx @claude-flow/cli@latest memory search --query "TASK_TYPE patterns" --namespace patterns
 ```
