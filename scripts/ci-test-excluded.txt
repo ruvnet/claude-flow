@@ -92,4 +92,5 @@ plugins/ruflo-protector/tests/mod.test.ts
 plugins/ruflo-protector/tests/rules.test.ts
 plugins/ruflo-swarm/tests/toast.test.ts
 plugins/ruflo-mods/tests/protector.test.ts
+plugins/ruflo-mods/tests/selfcheck.test.ts
 plugins/ruflo-testgen/scripts/tdd-repair/tdd-repair.test.mjs
