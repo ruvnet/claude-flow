@@ -101,13 +101,22 @@ async function resolveCodexInitializer(cwd: string): Promise<CodexInitializerCto
   return undefined;
 }
 
+// Trust level for a newly generated .codex/config.toml. Safe by default: only
+// an explicit `--codex-trust full` (or RUFLO_CODEX_TRUST=full, read by the
+// adapter) restores danger-full-access. Anything else is rejected here.
+export function readCodexTrustFlag(flags: Record<string, unknown>): 'standard' | 'full' | undefined | null {
+  const raw = flags.codexTrust ?? flags['codex-trust'];
+  if (raw === undefined || raw === null || raw === false || raw === '') return undefined;
+  return raw === 'standard' || raw === 'full' ? raw : null;
+}
+
 // Keep Codex out of the CLI dependency graph so cold `npx ruflo --version`
 // remains fast (#2561). An explicit `init --codex` may fetch the small,
 // stable adapter on demand when it is not already installed by an umbrella
 // package, the current project, or the global npm prefix.
 export function runCodexInitializerCli(
   cwd: string,
-  options: { template: string; force: boolean; dual: boolean },
+  options: { template: string; force: boolean; dual: boolean; codexTrust?: 'standard' | 'full' },
 ): boolean {
   const npxArgs = [
     '-y',
@@ -117,6 +126,7 @@ export function runCodexInitializerCli(
     options.template,
     ...(options.force ? ['--force'] : []),
     ...(options.dual ? ['--dual'] : []),
+    ...(options.codexTrust ? ['--codex-trust', options.codexTrust] : []),
   ];
 
   const result = process.platform === 'win32'
@@ -143,6 +153,7 @@ async function maybeAutoDetectCodex(
   options: { force: boolean; minimal: boolean; full: boolean },
 ): Promise<void> {
   try {
+    const codexTrust = readCodexTrustFlag(ctx.flags) ?? undefined;
     // The CLI parser turns `--no-codex-detect` into `codexDetect: false`.
     // Retain the literal key for programmatic CommandContext callers.
     if (ctx.flags.codexDetect === false || ctx.flags['no-codex-detect'] === true) return;
@@ -163,6 +174,7 @@ async function maybeAutoDetectCodex(
       template: (options.minimal ? 'minimal' : options.full ? 'full' : 'default') as 'minimal' | 'default' | 'full' | 'enterprise',
       force: options.force,
       dual: false, // Claude Code files were already written by the main init flow above
+      codexTrust,
     });
 
     if (!result.success) return; // best-effort — never fail the primary init over this
@@ -386,6 +398,11 @@ async function initCodexAction(
   options: { codexMode: boolean; dualMode: boolean; force: boolean; minimal: boolean; full: boolean }
 ): Promise<CommandResult> {
   const { force, minimal, full, dualMode } = options;
+  const codexTrust = readCodexTrustFlag(ctx.flags);
+  if (codexTrust === null) {
+    output.printError(`Invalid --codex-trust: ${String(ctx.flags.codexTrust ?? ctx.flags['codex-trust'])} (valid: standard, full)`);
+    return { success: false, exitCode: 1 };
+  }
 
   output.writeln();
   output.writeln(output.bold('Initializing RuFlo V3 for OpenAI Codex'));
@@ -403,7 +420,7 @@ async function initCodexAction(
     if (!CodexInitializer) {
       spinner.stop();
       output.printInfo('Fetching the stable Codex adapter for this initialization...');
-      const success = runCodexInitializerCli(ctx.cwd, { template, force, dual: dualMode });
+      const success = runCodexInitializerCli(ctx.cwd, { template, force, dual: dualMode, codexTrust });
       if (!success) {
         output.printError('Codex initialization failed while running @claude-flow/codex@latest.');
         return { success: false, exitCode: 1 };
@@ -418,6 +435,7 @@ async function initCodexAction(
       template: template as 'minimal' | 'default' | 'full' | 'enterprise',
       force,
       dual: dualMode,
+      codexTrust,
     });
 
     if (!result.success) {
@@ -454,14 +472,22 @@ async function initCodexAction(
     );
     output.writeln();
 
+    // The trust level of .codex/config.toml is always shown (never truncated
+    // behind other warnings): it decides what Codex may do without asking.
+    const isTrustNote = (w: string) => w.startsWith('.codex/config.toml');
+    const trustNotes = (result.warnings ?? []).filter(isTrustNote);
+    for (const note of trustNotes) output.printInfo(note);
+    if (trustNotes.length > 0) output.writeln();
+
     // Warnings
-    if (result.warnings && result.warnings.length > 0) {
+    const otherWarnings = (result.warnings ?? []).filter((w) => !isTrustNote(w));
+    if (otherWarnings.length > 0) {
       output.printWarning('Warnings:');
-      for (const warning of result.warnings.slice(0, 5)) {
+      for (const warning of otherWarnings.slice(0, 5)) {
         output.printInfo(`  • ${warning}`);
       }
-      if (result.warnings.length > 5) {
-        output.printInfo(`  ... and ${result.warnings.length - 5} more`);
+      if (otherWarnings.length > 5) {
+        output.printInfo(`  ... and ${otherWarnings.length - 5} more`);
       }
       output.writeln();
     }
@@ -1746,6 +1772,11 @@ export const initCommand: Command = {
       description: 'Initialize for both Claude Code and OpenAI Codex',
       type: 'boolean',
       default: false,
+    },
+    {
+      name: 'codex-trust',
+      description: 'Trust level of the generated .codex/config.toml: standard (default: workspace-write sandbox, on-request approvals, cached web search) or full (danger-full-access, no approvals, live web search). An existing file is never rewritten',
+      type: 'string',
     },
     {
       name: 'no-codex-detect',
