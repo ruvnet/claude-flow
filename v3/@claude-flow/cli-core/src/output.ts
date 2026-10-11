@@ -385,15 +385,15 @@ export class OutputFormatter {
     return new Progress(this, options);
   }
 
-  progressBar(current: number, total: number, width: number = 40): string {
-    const percent = Math.min(100, Math.max(0, (current / total) * 100));
+  progressBar(current: number, total: number, width: number = 40, showPercentage: boolean = true): string {
+    const percent = total === 0 ? 100 : Math.min(100, Math.max(0, (current / total) * 100));
     const filled = Math.round((width * percent) / 100);
     const empty = width - filled;
 
     const bar = this.color('#'.repeat(filled), 'green') +
                 this.dim('-'.repeat(empty));
 
-    return `[${bar}] ${percent.toFixed(1)}%`;
+    return `[${bar}]${showPercentage ? ` ${percent.toFixed(1)}%` : ''}`;
   }
 
   // ============================================
@@ -529,7 +529,7 @@ export class Progress {
   }
 
   render(): void {
-    const bar = this.formatter.progressBar(this.current, this.total, this.width);
+    const bar = this.formatter.progressBar(this.current, this.total, this.width, this.showPercentage);
 
     let output = bar;
 
