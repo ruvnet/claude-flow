@@ -213,6 +213,7 @@ export class CircuitBreaker extends EventEmitter {
    * Handle successful request
    */
   private onSuccess(): void {
+    this.cleanOldRequests();
     this.lastSuccess = new Date();
     this.requests.push({ timestamp: Date.now(), success: true });
 
@@ -230,6 +231,7 @@ export class CircuitBreaker extends EventEmitter {
    * Handle failed request
    */
   private onFailure(error: Error): void {
+    this.cleanOldRequests();
     this.lastFailure = new Date();
     this.requests.push({ timestamp: Date.now(), success: false });
 
