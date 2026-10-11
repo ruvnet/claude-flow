@@ -34,11 +34,11 @@ jobs:
       - name: Install workspace
         working-directory: v3
         run: pnpm install --frozen-lockfile --ignore-scripts
-      - name: Build the CLI and what it imports
+      - name: Build the workspace (same recipe as v3-ci; --no-bail keeps going past unrelated packages)
         working-directory: v3
         run: |
-          for p in shared security mcp swarm; do (cd @claude-flow/$p && pnpm run build); done
-          (cd @claude-flow/cli && pnpm run build)
+          pnpm --recursive --no-bail run build || true
+          test -f @claude-flow/cli/dist/src/index.js || { echo "::error::the CLI did not build"; exit 1; }
       - name: Install the pinned Codex (0.162.0)
         run: |
           npm install -g @openai/codex@0.162.0
