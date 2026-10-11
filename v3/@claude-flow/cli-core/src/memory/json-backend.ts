@@ -198,7 +198,7 @@ export class JsonMemoryBackend implements MemoryBackend {
     const entries = Object.values(state.entries);
     const namespaces = [...new Set(entries.map((e) => e.namespace))].sort();
     const sizeBytes = existsSync(this.path)
-      ? readFileSync(this.path, 'utf-8').length
+      ? Buffer.byteLength(readFileSync(this.path, 'utf-8'), 'utf-8')
       : 0;
     return {
       totalEntries: entries.length,
