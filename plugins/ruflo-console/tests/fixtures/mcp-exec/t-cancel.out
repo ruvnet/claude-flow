@@ -1,0 +1,11 @@
+  Parameters: {"taskId":"task-1791563600018-yl0nu9","reason":"capture"}
+
+[OK] Tool executed in 7.44ms
+
+Result:
+{
+  "success": true,
+  "taskId": "task-1791563600018-yl0nu9",
+  "status": "cancelled",
+  "cancelledAt": "2026-10-09T16:34:02.808Z"
+}

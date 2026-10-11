@@ -61,7 +61,7 @@ describe('a Yes runs only the card it was pressed on', () => {
 
     state.pending = { id: 41, label: 'ask Claude about the terminal', args: [], expect: 'e', askedAtMs: 1, rememberKey: 'ask' }
     state.terminal.harness = 'claude'
-    state.terminal.asked = { key: 'k', label: 'ask Claude about the terminal' } as never
+    state.terminal.asked = { key: 'k', label: 'ask Claude about the terminal', card: 41 }
 
     const card = confirmRow({ kit, state, act, columns: 100, nowMs: 1_000, pictures: new Map() } as never) as unknown as El
 

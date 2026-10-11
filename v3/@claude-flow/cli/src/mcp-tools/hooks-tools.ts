@@ -3503,19 +3503,23 @@ export const hooksTrajectoryEnd: MCPTool = {
       } catch { /* intelligence module not loadable — keep sona-only behaviour */ }
     }
 
-    // #2351: when an agent calls trajectory-end with no recorded steps but a
-    // non-empty `feedback` string, the feedback was previously dropped on the
-    // floor — `patternsExtracted` reported 0 and `pattern-search` never
-    // surfaced it. Step-less trajectories are the common case for LLM agents
-    // (nothing forces step logging mid-task), and feedback is often the most
-    // distilled lesson available. Route it through the same store + embed
-    // path that pattern-store uses so it becomes searchable. Best-effort:
-    // failures here must not turn the trajectory-end call itself into a
-    // failure — the trajectory record was already persisted above.
+    // #2351: when an agent calls trajectory-end with a non-empty `feedback`
+    // string, the feedback was previously dropped on the floor —
+    // `patternsExtracted` reported 0 and `pattern-search` never surfaced it.
+    // Route it through the same store + embed path that pattern-store uses
+    // so it becomes searchable. Best-effort: failures here must not turn the
+    // trajectory-end call itself into a failure — the trajectory record was
+    // already persisted above.
+    //
+    // #3662: #2351's original fix gated this on `!hasSteps` (step-less
+    // trajectories only). The common start -> step -> end path (the one real
+    // agents actually use) therefore recorded SONA state while leaving the
+    // feedback unindexed. Non-empty feedback is promoted regardless of
+    // whether steps were recorded — a trajectory's steps and its distilled
+    // feedback are not mutually exclusive evidence.
     let feedbackDistilled: { stored: boolean; patternId?: string; controller?: string } = { stored: false };
-    const hasSteps = !!trajectory && trajectory.steps.length > 0;
     const trimmedFeedback = typeof feedback === 'string' ? feedback.trim() : '';
-    if (trajectory && !hasSteps && trimmedFeedback.length > 0) {
+    if (trajectory && trimmedFeedback.length > 0) {
       const distilledPatternId = `pattern-feedback-${trajectoryId}-${Date.now()}`;
       const patternMetadata: Record<string, unknown> = {
         sourceTrajectoryId: trajectoryId,
