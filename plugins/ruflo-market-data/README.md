@@ -1,10 +1,10 @@
 # ruflo-market-data
 
-Market data ingestion -- feed normalization, OHLCV vectorization, and HNSW-indexed pattern matching.
+Market data ingestion -- feed normalization, OHLCV vectorization, and candlestick pattern detection (read-only analysis, no order placement).
 
 ## Overview
 
-Ingests market data from REST APIs and WebSocket feeds, normalizes to OHLCV vectors with consistent scaling, and vectorizes candlestick patterns for HNSW similarity search. Detects single-candle (doji, hammer) and multi-candle (engulfing, morning star, head & shoulders) formations with reliability scoring.
+Ingests market data from REST APIs and WebSocket feeds, normalizes to OHLCV vectors with consistent scaling, and vectorizes candlestick patterns for similarity search (use `ruflo-ruvector` for nearest-neighbour search over history; the built-in `ruvllm_hnsw_*` router holds only about 11 patterns). Detects single-candle (doji, hammer) and multi-candle (engulfing, morning star, head & shoulders) formations with reliability scoring.
 
 ## Installation
 
@@ -16,13 +16,13 @@ claude --plugin-dir plugins/ruflo-market-data
 
 | Agent | Model | Role |
 |-------|-------|------|
-| `data-engineer` | sonnet | Ingest market feeds, normalize OHLCV, vectorize candlestick patterns, HNSW-indexed pattern matching |
+| `data-engineer` | sonnet | Ingest market feeds, normalize OHLCV, vectorize candlestick patterns, pattern matching |
 
 ## Skills
 
 | Skill | Usage | Description |
 |-------|-------|-------------|
-| `market-ingest` | `/market-ingest <symbol> [--source api]` | Ingest and normalize market data into OHLCV vectors with HNSW indexing |
+| `market-ingest` | `/market-ingest <symbol> [--source api]` | Ingest and normalize market data into OHLCV vectors stored by symbol and date |
 | `market-pattern` | `/market-pattern <symbol> [--period 1D]` | Detect and classify candlestick patterns from ingested data |
 
 ## Commands (5 subcommands)
@@ -57,7 +57,7 @@ market compare <sym1> <sym2>             # Compare pattern profiles between symb
 | Head & Shoulders | Reversal | 5-7 | Very High |
 | Double Top/Bottom | Reversal | Variable | High |
 
-Each pattern is encoded as a 64-dimension padded vector for HNSW indexing.
+Each pattern is encoded as a 64-dimension padded vector.
 
 ## Compatibility
 
@@ -90,7 +90,7 @@ bash plugins/ruflo-market-data/scripts/smoke.sh
 
 - `ruflo-agentdb` — namespace convention owner; defines the routing rules ADR-0001 fixes violations of
 - `ruflo-neural-trader` -- Consumes market patterns as strategy signals
-- `ruflo-ruvector` -- HNSW indexing engine for pattern similarity search
+- `ruflo-ruvector` -- HNSW indexing engine for nearest-neighbour search over candle windows
 - `ruflo-observability` -- Data feed health and ingestion latency dashboards
 
 ## License

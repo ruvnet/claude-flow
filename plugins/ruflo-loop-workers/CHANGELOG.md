@@ -2,6 +2,12 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.4 — 2026-10-11
+
+- Fix: `CronCreate` takes `{ cron, prompt, recurring }` (not `schedule`, and not positional arguments), and its jobs are session-scoped and expire after 7 days; docs no longer say they survive restarts. Use `/schedule` or an OS scheduler for that.
+- Fix: `ScheduleWakeup` examples now include the required `prompt`; the 270s heartbeat is documented as applying to the 5-minute cache TTL, with 1200-1800s for sessions on the 1-hour TTL.
+- Fix: `hooks_worker-dispatch` has no `scope` field (use `context`); `/ruflo-schedule` no longer claims to be `/schedule`; map interval aligned to 270s; invalid `--train-neural` flag removed.
+
 ## 0.3.3 — 2026-10-05
 - fix: shared textsOf reports truncation and every guard fails closed on it
 
