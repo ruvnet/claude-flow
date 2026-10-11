@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.2.5 — 2026-10-11
+- fix: `/arena` told Claude to call MCP tools the plugin never registers (`arena/run`, ...), so a plain install could not run it. It now uses the CLI (`node dist/cli.js ...`, with the build prerequisite stated) and says so when it cannot run, instead of inventing results
+
 ## 0.2.4 — 2026-10-09
 - chore: drop the unused `categories` key from plugin.json (claude.ai plugin validator warns on it; nothing read it)
 
