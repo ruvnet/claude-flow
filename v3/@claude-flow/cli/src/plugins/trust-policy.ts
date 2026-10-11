@@ -7,6 +7,7 @@
  */
 
 import { createHash } from 'crypto';
+import { ExtendedPoint } from '@noble/ed25519';
 
 /**
  * Permissions a plugin may declare and still have its hooks and commands
@@ -118,4 +119,31 @@ export function parseSha256Checksum(checksum: unknown): string | null {
 
 export function sha256Hex(data: Buffer): string {
   return createHash('sha256').update(data).digest('hex');
+}
+
+/**
+ * Whether `CLAUDE_FLOW_STRICT_PLUGINS=true` (ADR-145): an unverified plugin
+ * registry is then an error, not a warning.
+ */
+export function isStrictPluginMode(env: NodeJS.ProcessEnv = process.env): boolean {
+  return (env.CLAUDE_FLOW_STRICT_PLUGINS ?? '').trim().toLowerCase() === 'true';
+}
+
+/**
+ * A signing key that cannot vouch for anything: missing, not 32 bytes of hex,
+ * not a curve point, or a small-order point — which includes the all-zero
+ * placeholder in `trust/trust-anchors.json`. Signatures can be forged against
+ * small-order keys under ZIP-215 verification, so such a key must never be
+ * handed to a verifier.
+ */
+export function isPlaceholderSigningKey(key: unknown): boolean {
+  if (typeof key !== 'string') return true;
+  const hex = key.trim().replace(/^ed25519:/i, '');
+  if (!/^[0-9a-f]{64}$/i.test(hex)) return true;
+  try {
+    // zip215=true decodes every encoding a lenient verifier would accept.
+    return ExtendedPoint.fromHex(hex, true).isSmallOrder();
+  } catch {
+    return true;
+  }
 }

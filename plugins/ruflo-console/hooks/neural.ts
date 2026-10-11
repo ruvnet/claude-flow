@@ -10,7 +10,8 @@ import type { ActionSpec } from './actions'
 import { autoSpec, tool, type AutoEntry } from './automate'
 import { recallEntries } from './recall'
 import { EPOCHS, freeText, objectIn, parseTrain, PATTERNS, tableRows, type Pattern } from './data/automate'
-import { numberOf, plain, recordOf } from './data/parse'
+import { plain, recordOf } from './data/parse'
+import { ratioOf } from './data/safe'
 import { labLines } from './mh-lab'
 import type { State } from './state'
 
@@ -54,11 +55,12 @@ function routeRead(stdout: string, stderr: string): string[] {
 
   if (value === null || primary === null) return labLines('nn-route', stdout, stderr)
 
-  const confidence = numberOf(primary.confidence)
+  // A confidence is a 0..1 ratio: clamped where it is read, so `1e300` is not drawn as "1e+302%" (#3822).
+  const confidence = ratioOf(primary.confidence)
   const out = [`→ ${plain(String(primary.type ?? 'n/a'), 30)}${confidence !== undefined ? ` · ${Math.round(confidence * 100)}%` : ''} · ${plain(String(recordOf(value.routing)?.method ?? 'n/a'), 30)}${value.matchedPattern !== undefined ? ` · pattern ${plain(String(value.matchedPattern), 30)}` : ''}`]
 
   for (const alt of (Array.isArray(value.alternativeAgents) ? value.alternativeAgents : []).slice(0, 4).map(recordOf)) {
-    const score = numberOf(alt?.confidence ?? alt?.score)
+    const score = ratioOf(alt?.confidence ?? alt?.score)
 
     if (alt !== null) out.push(`  or ${plain(String(alt.type ?? alt.agent ?? ''), 30)}${score !== undefined ? ` · ${Math.round(score * 100)}%` : ''}`)
   }

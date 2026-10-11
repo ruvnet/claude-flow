@@ -230,7 +230,7 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
   const tasksNow = (): readonly TaskRecord[] => state.snapshot?.tasks ?? []
 
   /** Runs a slash command on the goal (or the active mission's objective) in the main UI: now when idle, prepared in the prompt box mid-turn. */
-  const launch = (slash: string, label: string, custom?: { args: string; note: string; byModel?: boolean }) => {
+  const launch = (slash: string, label: string, custom?: { args: string; note: string; byModel?: boolean; byCall?: number }) => {
     const objective = activeMission(state)?.objective ?? mc.goal
 
     // A research start brings its own, already screened arguments; every other launch works on the goal.
@@ -244,7 +244,7 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
     runner.ask(
       {
         label: `run /${slash} on the goal in the main Claude UI`,
-        ...(custom?.byModel === true && { byModel: true }),
+        ...(custom?.byModel === true && { byModel: true, byCall: custom.byCall }),
         scope: 'controls',
         args: [],
         shows: `/${slash} ${args}`,
@@ -273,6 +273,7 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
   /** Research start: validate, screen the question (always: it reaches the web), refuse when unsafe, then ask with the confirm in words. */
   const research = () => {
     const byModel = state.control.viaModel
+    const byCall = state.control.callTag ?? undefined
     const draft = { ...researchOf(state) }
     const question = plain(draft.question, MAX_TEXT).trim()
 
@@ -291,7 +292,7 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
       if (now.question !== draft.question || now.depth !== draft.depth || now.cap !== draft.cap) return
       if (blocksGuidance(screen)) return say('AIDefence blocked the question', false, `${screen.detail}. Change the question.`)
 
-      launch(slashOf(skill), 'deep research', { args: researchArgs(question, draft.depth, cap), note: researchConfirm(draft.depth, cap, screen), byModel })
+      launch(slashOf(skill), 'deep research', { args: researchArgs(question, draft.depth, cap), note: researchConfirm(draft.depth, cap, screen), byModel, byCall })
     })
   }
 
@@ -357,7 +358,7 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
       runner.ask(dispatchSpec(state, host, mission, task, text => host.submitPrompt(text)), 'nothing to hand out')
     },
     pause: () => setPaused(state, host, true),
-    resume: () => setPaused(state, host, false),
+    resume: by => setPaused(state, host, false, by),
     cancel: () => {
       const mission = activeMission(state)
 
@@ -411,12 +412,13 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
       if (t !== '') mc.lastGuide = t
 
       const byModel = state.control.viaModel
+      const byCall = state.control.callTag ?? undefined
 
       const ask = () =>
         runner.ask(
           t === ''
             ? null
-            : { label: `send Claude: ${plain(t, 70)}`, byModel, scope: 'guide', args: [], shows: `to the Claude Code session, as a visible prompt: “${t}”`, expect: 'the instruction in the transcript', note: 'Starts a Claude Code turn (billed as any turn is).', run: async () => host.submitPrompt(t) },
+            : { label: `send Claude: ${plain(t, 70)}`, byModel, byCall, scope: 'guide', args: [], shows: `to the Claude Code session, as a visible prompt: “${t}”`, expect: 'the instruction in the transcript', note: 'Starts a Claude Code turn (billed as any turn is).', run: async () => host.submitPrompt(t) },
           'type the instruction first',
         )
 

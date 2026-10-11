@@ -5,6 +5,7 @@
 
 import type { InitOptions, HooksConfig, PlatformInfo } from './types.js';
 import { detectPlatform } from './types.js';
+import { helperHookCommand, helperScopeFor, helperStatusLineCommand, type HelperScope } from './helper-commands.js';
 
 /**
  * Generate the complete settings.json content
@@ -19,7 +20,7 @@ export function generateSettings(options: InitOptions): object {
   // fails to find its handler. Either bundle the helpers OR drop the hooks —
   // the option this fix takes is the latter (minimal stays minimal).
   if (options.components.settings && options.components.helpers) {
-    settings.hooks = generateHooksConfig(options.hooks);
+    settings.hooks = generateHooksConfig(options.hooks, helperScopeFor(options.targetDir));
   }
 
   // Add statusLine configuration if enabled
@@ -173,109 +174,37 @@ export function generateSettings(options: InitOptions): object {
 }
 
 /**
- * Detect if we're on Windows for platform-aware hook commands.
+ * Build a hook command that resolves to the right helpers dir for where the
+ * settings live (#1943). Project-level settings probe the project's helpers
+ * first and fall back to `$HOME/.claude/helpers`; user-level settings
+ * (`~/.claude/settings.json`) apply to every opened project, so they are
+ * pinned to `$HOME/.claude/helpers`. See helper-commands.ts.
  */
-const IS_WINDOWS = process.platform === 'win32';
-
-/**
- * Build a hook command that resolves to the right helpers dir on every
- * install layout. `ruflo init` can land helpers either project-locally
- * (`<project>/.claude/helpers/…`, when run from a project root) or globally
- * (`$HOME/.claude/helpers/…`, when settings.json gets merged into the
- * user-level Claude Code config). The earlier `${CLAUDE_PROJECT_DIR:-.}`
- * form assumed project-local — so any global-install user hit
- * `MODULE_NOT_FOUND` on every Bash/Edit/Session hook (#1943).
- *
- * The fix is a tiny POSIX `sh` probe: try `$CLAUDE_PROJECT_DIR/.claude/...`
- * first, fall back to `$HOME/.claude/...` if it's missing. Both modes work,
- * the global install never crashes, and project-local overrides still take
- * precedence when present. On Windows, the same probe via `cmd /c` (the %~%
- * fallback uses `IF EXIST`).
- */
-function hookCmd(script: string, subcommand: string): string {
-  if (IS_WINDOWS) {
-    // cmd.exe equivalent of the sh probe below. `IF EXIST` checks the
-    // project-local path; falls back to %USERPROFILE% if missing.
-    return `cmd /c "IF EXIST \"%CLAUDE_PROJECT_DIR%\\${script.replace(/\//g, '\\')}\" (node \"%CLAUDE_PROJECT_DIR%\\${script.replace(/\//g, '\\')}\" ${subcommand}) ELSE (node \"%USERPROFILE%\\${script.replace(/\//g, '\\')}\" ${subcommand})"`;
-  }
-  // POSIX sh: prefer project-local helpers, fall back to $HOME/.claude/.
-  // The fallback handles `ruflo init`'s global-install path where helpers
-  // live at `$HOME/.claude/helpers/` but Claude Code still sets
-  // `CLAUDE_PROJECT_DIR` to the *project* root (which has no helpers).
-  // eslint-disable-next-line no-template-curly-in-string
-  const projVar = '${CLAUDE_PROJECT_DIR:-.}';
-  // eslint-disable-next-line no-template-curly-in-string
-  const homeVar = '${HOME}';
-  return `sh -c 'D="${projVar}"; [ -f "$D/${script}" ] || D="${homeVar}"; exec node "$D/${script}" ${subcommand}'`;
+function hookCmd(script: string, subcommand: string, scope: HelperScope): string {
+  return helperHookCommand(script, subcommand, scope);
 }
 
 /** Shorthand for CJS hook-handler commands */
-function hookHandlerCmd(subcommand: string): string {
-  return hookCmd('.claude/helpers/hook-handler.cjs', subcommand);
+function hookHandlerCmd(subcommand: string, scope: HelperScope): string {
+  return hookCmd('.claude/helpers/hook-handler.cjs', subcommand, scope);
 }
 
 /** Shorthand for ESM auto-memory-hook commands */
-function autoMemoryCmd(subcommand: string): string {
-  return hookCmd('.claude/helpers/auto-memory-hook.mjs', subcommand);
+function autoMemoryCmd(subcommand: string, scope: HelperScope): string {
+  return hookCmd('.claude/helpers/auto-memory-hook.mjs', subcommand, scope);
 }
 
 /**
  * Generate statusLine configuration for Claude Code
- * Uses local helper script for cross-platform compatibility (no npx cold-start)
+ * Uses local helper script for cross-platform compatibility (no npx cold-start).
+ * Claude Code pipes JSON session data to the script via stdin; valid fields
+ * are type, command and padding. Platform handling (#1948, #1973) lives in
+ * helperStatusLineCommand().
  */
-function generateStatusLineConfig(_options: InitOptions): object {
-  // Claude Code pipes JSON session data to the script via stdin.
-  // Valid fields: type, command, padding (optional).
-  // The script runs after each assistant message (debounced 300ms).
-  //
-  // ruflo#1948 + #1973: the previous `sh -c 'D="${CLAUDE_PROJECT_DIR:-.}"; …'`
-  // form requires a POSIX shell on PATH. On native Windows (no
-  // Git-Bash / WSL), `sh` either isn't found or its quoting gets
-  // mangled, producing weird artifacts like files named `0)` or
-  // `toastr.error('ESD...` from misparsed tokens leaking back into
-  // the file system. NEVER use `cmd /c` for statusline — Claude Code
-  // manages stdin directly for statusline commands and `cmd /c`
-  // blocks the stdin forwarding.
-  //
-  // Solution: emit a platform-appropriate command at init time.
-  //   POSIX:   `sh -c 'D="…"; … exec node "$D/<script>"'` (existing)
-  //   Windows: a Node.js one-liner that resolves the path internally
-  //            using `process.env.CLAUDE_PROJECT_DIR` with a HOME
-  //            fallback — no shell-quoting hazards because the
-  //            resolution happens inside node, not in the shell.
-  const script = '.claude/helpers/statusline.cjs';
-
-  if (process.platform === 'win32') {
-    // The Node CLI's `-e` flag avoids all shell-quoting pitfalls.
-    // We write the path resolution in JS:
-    //   const fs = require('fs'); const p = require('path');
-    //   const d = process.env.CLAUDE_PROJECT_DIR || '.';
-    //   const f = p.join(d, '.claude/helpers/statusline.cjs');
-    //   const home = process.env.USERPROFILE || process.env.HOME || '.';
-    //   const h = p.join(home, '.claude/helpers/statusline.cjs');
-    //   require(fs.existsSync(f) ? f : h);
-    // …compressed onto one line. Double-quotes around the -e arg are
-    // safe on cmd.exe; the inner JS uses single-quotes for strings.
-    const js =
-      "const fs=require('fs'),p=require('path');" +
-      `const d=process.env.CLAUDE_PROJECT_DIR||'.';` +
-      `const f=p.join(d,'${script}');` +
-      `const h=p.join(process.env.USERPROFILE||process.env.HOME||'.', '${script}');` +
-      'require(fs.existsSync(f)?f:h);';
-    return {
-      type: 'command',
-      command: `node -e "${js}"`,
-    };
-  }
-
-  // Same project-local / $HOME fallback as `hookCmd()` (see #1943).
-  // eslint-disable-next-line no-template-curly-in-string
-  const projVar = '${CLAUDE_PROJECT_DIR:-.}';
-  // eslint-disable-next-line no-template-curly-in-string
-  const homeVar = '${HOME}';
+function generateStatusLineConfig(options: InitOptions): object {
   return {
     type: 'command',
-    command: `sh -c 'D="${projVar}"; [ -f "$D/${script}" ] || D="${homeVar}"; exec node "$D/${script}"'`,
+    command: helperStatusLineCommand(helperScopeFor(options.targetDir)),
   };
 }
 
@@ -285,7 +214,7 @@ function generateStatusLineConfig(_options: InitOptions): object {
  * All hooks invoke scripts directly via `node <script> <subcommand>`,
  * working identically on Windows, macOS, and Linux.
  */
-function generateHooksConfig(config: HooksConfig): object {
+function generateHooksConfig(config: HooksConfig, scope: HelperScope): object {
   const hooks: Record<string, unknown[]> = {};
 
   // Node.js scripts handle errors internally via try/catch.
@@ -299,7 +228,7 @@ function generateHooksConfig(config: HooksConfig): object {
         hooks: [
           {
             type: 'command',
-            command: hookHandlerCmd('pre-bash'),
+            command: hookHandlerCmd('pre-bash', scope),
             timeout: config.timeout,
           },
         ],
@@ -309,7 +238,7 @@ function generateHooksConfig(config: HooksConfig): object {
         hooks: [
           {
             type: 'command',
-            command: hookHandlerCmd('pre-edit'),
+            command: hookHandlerCmd('pre-edit', scope),
             timeout: config.timeout,
           },
         ],
@@ -325,7 +254,7 @@ function generateHooksConfig(config: HooksConfig): object {
         hooks: [
           {
             type: 'command',
-            command: hookHandlerCmd('post-edit'),
+            command: hookHandlerCmd('post-edit', scope),
             timeout: 10000,
           },
         ],
@@ -335,7 +264,7 @@ function generateHooksConfig(config: HooksConfig): object {
         hooks: [
           {
             type: 'command',
-            command: hookHandlerCmd('post-bash'),
+            command: hookHandlerCmd('post-bash', scope),
             timeout: config.timeout,
           },
         ],
@@ -350,7 +279,7 @@ function generateHooksConfig(config: HooksConfig): object {
         hooks: [
           {
             type: 'command',
-            command: hookHandlerCmd('route'),
+            command: hookHandlerCmd('route', scope),
             timeout: 10000,
           },
         ],
@@ -365,12 +294,12 @@ function generateHooksConfig(config: HooksConfig): object {
         hooks: [
           {
             type: 'command',
-            command: hookHandlerCmd('session-restore'),
+            command: hookHandlerCmd('session-restore', scope),
             timeout: 15000,
           },
           {
             type: 'command',
-            command: autoMemoryCmd('import'),
+            command: autoMemoryCmd('import', scope),
             timeout: 8000,
           },
         ],
@@ -385,7 +314,7 @@ function generateHooksConfig(config: HooksConfig): object {
         hooks: [
           {
             type: 'command',
-            command: hookHandlerCmd('session-end'),
+            command: hookHandlerCmd('session-end', scope),
             timeout: 10000,
           },
         ],
@@ -400,7 +329,7 @@ function generateHooksConfig(config: HooksConfig): object {
         hooks: [
           {
             type: 'command',
-            command: autoMemoryCmd('sync'),
+            command: autoMemoryCmd('sync', scope),
             timeout: 10000,
           },
         ],
@@ -416,11 +345,11 @@ function generateHooksConfig(config: HooksConfig): object {
         hooks: [
           {
             type: 'command',
-            command: hookHandlerCmd('compact-manual'),
+            command: hookHandlerCmd('compact-manual', scope),
           },
           {
             type: 'command',
-            command: hookHandlerCmd('session-end'),
+            command: hookHandlerCmd('session-end', scope),
             timeout: 5000,
           },
         ],
@@ -430,11 +359,11 @@ function generateHooksConfig(config: HooksConfig): object {
         hooks: [
           {
             type: 'command',
-            command: hookHandlerCmd('compact-auto'),
+            command: hookHandlerCmd('compact-auto', scope),
           },
           {
             type: 'command',
-            command: hookHandlerCmd('session-end'),
+            command: hookHandlerCmd('session-end', scope),
             timeout: 6000,
           },
         ],
@@ -448,7 +377,7 @@ function generateHooksConfig(config: HooksConfig): object {
       hooks: [
         {
           type: 'command',
-          command: hookHandlerCmd('status'),
+          command: hookHandlerCmd('status', scope),
           timeout: 3000,
         },
       ],
@@ -462,7 +391,7 @@ function generateHooksConfig(config: HooksConfig): object {
       hooks: [
         {
           type: 'command',
-          command: hookHandlerCmd('post-task'),
+          command: hookHandlerCmd('post-task', scope),
           timeout: 5000,
         },
       ],
@@ -476,7 +405,7 @@ function generateHooksConfig(config: HooksConfig): object {
         hooks: [
           {
             type: 'command',
-            command: hookHandlerCmd('notify'),
+            command: hookHandlerCmd('notify', scope),
             timeout: 3000,
           },
         ],

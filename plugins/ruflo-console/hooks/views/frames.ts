@@ -6,7 +6,7 @@
 import type { AuditTrend, HarnessScore, Intelligence } from '../data/cli'
 import { recentByAgent } from '../data/events'
 import { agentLabels } from '../data/parse'
-import { swarmStatusOf } from '../data/swarm-status'
+import { presentAgents, swarmStatusOf } from '../data/swarm-status'
 import { getBootChecks } from '../boot-checks'
 import { bootFacts } from '../boot-facts'
 import { getBuild } from '../build'
@@ -109,22 +109,42 @@ export function healthRowsOf(state: State): HealthRow[] {
   }))
 }
 
-/** The timeline's lanes over the last 15 minutes: ruflo agents' observed statuses and Claude Code's tool calls. */
+/**
+ * The timeline's lanes over the last 15 minutes: ruflo agents' observed statuses and Claude Code's tool calls, in the order a short list must
+ * keep them: the person's own main session, then busy agents, then sub-agents with calls in the window (latest first), then the other present
+ * agents, then quiet sub-agents. A page that shows the first few never hides main or a busy agent behind earlier quiet rows, and the full
+ * length is what its "+N more" counts. (presentAgents already leaves the agent store's old idle records out.)
+ */
 export function lanesOf(state: State, nowMs: number): Lane[] {
   const from = nowMs - watchOf(state).rangeMs
   const labels = agentLabels(state.snapshot?.agents ?? [])
-  const agents = (state.snapshot?.agents ?? []).slice(0, 24).map(agent => {
+  // Only agents with evidence of activity (data/swarm-status.ts presentAgents): the store holds every agent ever spawned.
+  const agents = presentAgents(state.snapshot?.agents ?? [], state.statusLog, from, nowMs).map(agent => {
     const log = state.statusLog.get(agent.id) ?? []
 
     return {
-      label: labels.get(agent.id) ?? agent.type,
-      spans: log.map((entry, i) => ({ fromMs: Math.max(from, entry.atMs), toMs: log[i + 1]?.atMs ?? nowMs, busy: /busy|active|working/i.test(entry.status) })).filter(span => span.toMs >= from),
-      ticks: [],
+      busy: /busy|active|working|running/i.test(agent.status),
+      lane: {
+        label: labels.get(agent.id) ?? agent.type,
+        spans: log.map((entry, i) => ({ fromMs: Math.max(from, entry.atMs), toMs: log[i + 1]?.atMs ?? nowMs, busy: /busy|active|working/i.test(entry.status) })).filter(span => span.toMs >= from),
+        ticks: [],
+      },
     }
   })
-  const claude = [...state.toolsByAgent].slice(0, 6).map(([who, calls]) => ({ label: who === 'main' ? 'claude (main)' : `cc ${who.slice(-6)}`, spans: [], ticks: calls.map(call => call.atMs).filter(at => at >= from) }))
+  const claude = [...state.toolsByAgent].map(([who, calls]) => {
+    const ticks = calls.map(call => call.atMs).filter(at => at >= from)
 
-  return [...claude, ...agents]
+    return { main: who === 'main', lastMs: ticks.reduce((latest, at) => Math.max(latest, at), 0), lane: { label: who === 'main' ? 'claude (main)' : `cc ${who.slice(-6)}`, spans: [], ticks } }
+  })
+  const subs = claude.filter(entry => !entry.main).sort((a, b) => b.lastMs - a.lastMs)
+
+  return [
+    ...claude.filter(entry => entry.main).map(entry => entry.lane),
+    ...agents.filter(entry => entry.busy).map(entry => entry.lane),
+    ...subs.filter(entry => entry.lastMs > 0).map(entry => entry.lane),
+    ...agents.filter(entry => !entry.busy).map(entry => entry.lane),
+    ...subs.filter(entry => entry.lastMs === 0).map(entry => entry.lane),
+  ]
 }
 
 /** When the score on screen was first drawn: the radar grows from there. Module-held, reset by a new value. */
