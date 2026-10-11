@@ -133,7 +133,7 @@ function parseTags(text) {
 }
 
 function parseContextFirstParagraph(text) {
-  const m = /^##\s*Context\s*$\s*([\s\S]+?)(?=^##\s|\Z)/m.exec(text);
+  const m = /^##\s*Context\s*$\s*([\s\S]+?)(?=^##\s|(?![\s\S]))/m.exec(text);
   if (!m) return '';
   return m[1].trim().split(/\n\s*\n/)[0].replace(/\s+/g, ' ').slice(0, 400);
 }
