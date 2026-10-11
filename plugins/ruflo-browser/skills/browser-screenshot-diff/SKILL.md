@@ -19,8 +19,8 @@ Compare two recorded sessions step-by-step. Pairs each step in session A to the 
 
 1. **Locate both RVF containers**:
    ```bash
-   npx -y ruvector@0.2.25 rvf status <session-id-a>.rvf
-   npx -y ruvector@0.2.25 rvf status <session-id-b>.rvf
+   npx -y ruvector@0.2.27 rvf status <session-id-a>.rvf
+   npx -y ruvector@0.2.27 rvf status <session-id-b>.rvf
    ```
 2. **Load both trajectories** from `trajectory.ndjson`. Build a `step-id → (screenshot_path, snapshot_path)` map for each.
 3. **Pair steps** by `step-id`. Steps that exist on only one side are flagged as `unmatched` and contribute to the divergence score.

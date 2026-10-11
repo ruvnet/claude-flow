@@ -8,9 +8,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "0. plugin.json declares 0.2.3"
+step "0. plugin.json declares 0.2.4"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-[[ "$v" == "0.2.3" ]] && ok || bad "expected 0.2.3, got '$v'"
+[[ "$v" == "0.2.4" ]] && ok || bad "expected 0.2.4, got '$v'"
 
 # M1. The mod (ADR-445 pattern): hooks module registered, files within the 500-line rule
 step "M1. mod: hooks.json names register.ts, every hook file is present and under 500 lines"
