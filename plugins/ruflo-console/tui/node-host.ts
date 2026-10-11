@@ -53,7 +53,8 @@ const CHILD_ENV = /^(PATH|HOME|USERPROFILE|SystemRoot|TMPDIR|TEMP|TMP|LANG|LC_[A
 const CODEX_ENV = /^CODEX_HOME$/
 const HTTP_WAIT_MS = 120_000
 const HTTP_BODY_CAP = 1_000_000
-const VERSION_SAYS = new RegExp('^codex-cli ' + PINNED_CODEX.replace(/\./g, '\\.') + '\\s*$')
+/** What the pinned program's --version must print, exactly. */
+const VERSION_SAYS = 'codex-cli ' + PINNED_CODEX
 
 const refuse = (what: string): Promise<never> => Promise.reject(new Error(`${what}: not available in the standalone terminal`))
 
@@ -91,7 +92,7 @@ export async function resolveCodex(home: string, explicit?: string): Promise<{ o
   for (const bin of candidates) {
     const said = await new Promise<string>(done => execFile(bin, ['--version'], { timeout: 5_000, windowsHide: true, env: childEnv(CODEX_ENV) }, (error, stdout) => done(error === null ? String(stdout) : '')))
 
-    if (VERSION_SAYS.test(said.trim())) return { ok: true, bin }
+    if (said.trim() === VERSION_SAYS) return { ok: true, bin }
   }
 
   return { ok: false, why: 'the pinned Codex ' + PINNED_CODEX + ' is not installed under ~/.codex/packages/standalone/releases (the terminal never uses current or PATH: 0.162.1 crashes)' }
