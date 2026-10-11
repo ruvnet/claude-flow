@@ -73,6 +73,9 @@ export class JsonMemoryBackend implements MemoryBackend {
       if (parsed.version !== 1) {
         throw new Error(`Unsupported memory file version: ${parsed.version}`);
       }
+      if (typeof parsed.entries !== 'object' || parsed.entries === null || Array.isArray(parsed.entries)) {
+        throw new Error('Memory entries must be a JSON object');
+      }
       this.cache = parsed;
       return structuredClone(parsed);
     } catch (err) {
