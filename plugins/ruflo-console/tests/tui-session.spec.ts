@@ -1,0 +1,182 @@
+/**
+ * `ruflo tui` end to end without a terminal (ADR-489): real ruflo files on disk, the mod's own controller and views over the Node
+ * host, drawn by the mod's own paneView, headless and with an injected terminal. Run with
+ *   npx vitest run plugins/ruflo-console/tests/tui-session.spec.ts
+ */
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+import { depthOf, keyOf, runTui, type TuiIO } from '../tui/run'
+import { openSession } from '../tui/session'
+import { RUFLO_FILES } from './fixtures/ruflo-run'
+
+let root: string
+let project: string
+let hostile: string
+
+const ESC = '\u001b'
+const put = (base: string, files: Record<string, string>) => {
+  for (const [path, body] of Object.entries(files)) {
+    mkdirSync(dirname(join(base, path)), { recursive: true })
+    writeFileSync(join(base, path), body)
+  }
+}
+
+beforeAll(() => {
+  root = mkdtempSync(join(tmpdir(), 'tui-session-'))
+  project = join(root, 'project')
+  hostile = join(root, 'hostile')
+  put(project, RUFLO_FILES)
+  // The same project with an escape sequence and a token where a swarm id and topology are read from disk (both files that name it).
+  put(hostile, { ...RUFLO_FILES, '.swarm/state.json': JSON.stringify({ id: `swarm-\u001b]0;pwned\u0007-1`, topology: 'ghp_abcdefghijklmnopqrstuvwxyz0123456789', status: 'running' }), '.claude-flow/swarm/swarm-state.json': JSON.stringify({ swarms: { 'swarm-1': { swarmId: `swarm-\u001b]0;pwned\u0007-1`, topology: 'ghp_abcdefghijklmnopqrstuvwxyz0123456789', status: 'running', agents: [] } } }) })
+})
+afterAll(() => rmSync(root, { recursive: true, force: true }))
+
+function fakeIO(isTTY: boolean) {
+  const out: string[] = []
+  const err: string[] = []
+  const listeners: Array<(chunk: string) => void> = []
+  const raw: boolean[] = []
+  const io: TuiIO = {
+    stdin: { isTTY, setRawMode: isTTY ? on => void raw.push(on) : undefined, on: (_e, fn) => void listeners.push(fn as never), off: () => void listeners.splice(0), resume: () => undefined, pause: () => undefined },
+    stdout: { isTTY, columns: 100, rows: 30, write: text => void out.push(text) },
+    stderr: { write: text => void err.push(text) },
+    env: { TERM: 'xterm-256color' },
+  }
+
+  return { io, out, err, raw, press: (key: string) => listeners.forEach(fn => fn(key)) }
+}
+
+describe('the same views over real ruflo files', () => {
+  it('Overview shows the swarm, the daemon and the helpers read from disk', async () => {
+    const session = openSession({ cwd: project, home: join(root, 'home') })
+
+    await session.refresh()
+    const text = session.frame(110, 'none').join('\n')
+
+    expect(text).toContain('swarm-1790903031804-y9rnjr')
+    expect(text).toContain('running per daemon-state.json')
+    expect(text).toContain('manifest v3.32.24')
+    expect(text).toContain('Overview')
+    session.stop()
+  })
+
+  it('Cost shows its sections and says n/a for what only the Claude Code host can measure', async () => {
+    const session = openSession({ cwd: project, home: join(root, 'home') })
+
+    await session.refresh()
+    session.show('cost')
+    const text = session.frame(110, 'none').join('\n')
+
+    expect(text).toContain('Where it goes')
+    expect(text).toContain('Alert thresholds')
+    expect(text).toMatch(/Claude Code\s+n\/a/)
+    session.stop()
+  })
+
+  it('is the mod\'s own tree: the standalone frame carries the same pane header the mod draws', async () => {
+    const session = openSession({ cwd: project, home: join(root, 'home') })
+
+    await session.refresh()
+    expect(session.frame(110, 'none').join('\n')).toContain('what ruflo is doing here')
+    session.stop()
+  })
+
+  it('hostile ruflo files: no escape from content and no token reach the frame (the data layer refuses the id, the renderer strips the rest)', async () => {
+    const session = openSession({ cwd: hostile, home: join(root, 'home') })
+
+    await session.refresh()
+    for (const depth of ['none', '256'] as const) {
+      const text = session.frame(110, depth).join('\n')
+
+      expect(text).toContain('Subsystems')
+      expect(text).not.toContain('pwned')
+      expect(text).not.toContain('ghp_abcdefghij')
+      expect(text.match(/\u001b\[[0-9;]*m/g)?.length ?? 0).toBe(depth === 'none' ? 0 : text.match(/\u001b/g)?.length)
+    }
+    session.stop()
+  })
+
+  it('never calls the engine: every host call the controller made was a read or a refusal', async () => {
+    const ran: string[][] = []
+    const calls: string[] = []
+    const base = openSession({ cwd: project, home: join(root, 'home') }).host
+    const spy = new Proxy(base, { get: (target, key: string) => (typeof target[key as keyof typeof target] === 'function' ? (...args: never[]) => (calls.push(key), (target[key as keyof typeof target] as (...a: never[]) => unknown)(...args)) : target[key as keyof typeof target]) })
+    const session = openSession({ cwd: project }, { ...spy, run: async argv => (ran.push([...argv]), Promise.reject(new Error('no program'))) })
+
+    await session.refresh()
+    expect(calls.filter(call => ['openPane', 'blit', 'toolCall', 'submitPrompt', 'spawn', 'askChoice'].includes(call))).toEqual([])
+    expect(ran.length).toBeGreaterThan(0)
+    expect(ran.every(argv => argv[0] === 'npx' || argv[0] === 'claude')).toBe(true)
+    session.stop()
+  })
+})
+
+describe('headless', () => {
+  it('prints one plain frame to stdout, a note to stderr, and returns 0', async () => {
+    const { io, out, err } = fakeIO(false)
+    const code = await runTui({ cwd: project, home: join(root, 'home') }, io)
+
+    expect(code).toBe(0)
+    expect(out.join('')).toContain('swarm-1790903031804-y9rnjr')
+    expect(out.join('')).not.toContain(ESC)
+    expect(err.join('')).toMatch(/not an interactive terminal/)
+  })
+
+  it('opens the page asked for', async () => {
+    const { io, out } = fakeIO(false)
+
+    await runTui({ cwd: project, home: join(root, 'home'), view: 'cost' }, io)
+    expect(out.join('')).toContain('Where it goes')
+  })
+})
+
+describe('interactive', () => {
+  it('enters the alternate screen, switches page on a key, and restores the terminal on q', async () => {
+    const { io, out, raw, press } = fakeIO(true)
+    const running = runTui({ cwd: project, home: join(root, 'home') }, io)
+
+    await new Promise(resolve => setTimeout(resolve, 150))
+    press('c')
+    press('j')
+    press('q')
+    await expect(running).resolves.toBe(0)
+
+    const screen = out.join('')
+
+    expect(screen.startsWith(`${ESC}[?1049h`)).toBe(true)
+    expect(screen).toContain('Where it goes')
+    expect(screen).toContain('cost ·')
+    expect(screen.endsWith(`${ESC}[?25h${ESC}[?1049l`)).toBe(true)
+    expect(raw).toEqual([true, false])
+  })
+
+  it('restores the terminal when the signal aborts', async () => {
+    const { io, out, raw } = fakeIO(true)
+    const stop = new AbortController()
+    const running = runTui({ cwd: project, home: join(root, 'home') }, { ...io, signal: stop.signal })
+
+    await new Promise(resolve => setTimeout(resolve, 100))
+    stop.abort()
+    await expect(running).resolves.toBe(0)
+    expect(out.join('').endsWith(`${ESC}[?1049l`)).toBe(true)
+    expect(raw).toEqual([true, false])
+  })
+})
+
+describe('keys and colour depth', () => {
+  it('maps the documented keys and ignores the rest', () => {
+    expect([keyOf('q'), keyOf('\u0003'), keyOf('o'), keyOf('c'), keyOf('r'), keyOf('j'), keyOf(`${ESC}[A`), keyOf(' ')]).toEqual(['quit', 'quit', 'overview', 'cost', 'refresh', 'down', 'up', 'pagedown'])
+    expect([keyOf('x'), keyOf(`${ESC}]0;t\u0007`), keyOf('')]).toEqual([null, null, null])
+  })
+
+  it('picks the colour depth from the environment', () => {
+    expect(depthOf({ NO_COLOR: '1', TERM: 'xterm' })).toBe('none')
+    expect(depthOf({ TERM: 'dumb' })).toBe('none')
+    expect(depthOf({})).toBe('none')
+    expect(depthOf({ TERM: 'xterm-256color' })).toBe('256')
+    expect(depthOf({ TERM: 'xterm', COLORTERM: 'truecolor' })).toBe('truecolor')
+  })
+})
