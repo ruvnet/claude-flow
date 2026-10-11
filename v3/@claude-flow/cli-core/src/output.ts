@@ -224,7 +224,7 @@ export class OutputFormatter {
     const { columns, data, border = true, header = true, padding = 1, maxWidth } = options;
 
     // Calculate column widths
-    const widths = this.calculateColumnWidths(columns, data, maxWidth);
+    const widths = this.calculateColumnWidths(columns, data, maxWidth, padding);
 
     const lines: string[] = [];
     const pad = ' '.repeat(padding);
@@ -294,7 +294,8 @@ export class OutputFormatter {
   private calculateColumnWidths(
     columns: TableColumn[],
     data: Record<string, unknown>[],
-    maxWidth?: number
+    maxWidth?: number,
+    padding: number = 1
   ): number[] {
     const widths = columns.map((col, i) => {
       // Start with header width
@@ -320,7 +321,7 @@ export class OutputFormatter {
 
     // Apply max width constraint
     if (maxWidth) {
-      const totalWidth = widths.reduce((a, b) => a + b, 0) + (columns.length * 3) + 1;
+      const totalWidth = widths.reduce((a, b) => a + b, 0) + (columns.length * (2 * padding + 1)) + 1;
       if (totalWidth > maxWidth) {
         const reduction = (totalWidth - maxWidth) / columns.length;
         return widths.map(w => Math.max(3, Math.floor(w - reduction)));
