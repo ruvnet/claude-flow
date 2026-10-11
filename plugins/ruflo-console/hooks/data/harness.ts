@@ -3,6 +3,7 @@
  * says, per capability, whether it can do that and why not. An action a harness has not declared stays unavailable; nothing is inferred.
  * Discovery is local and read-only: it makes no model call, spawns no process and wakes no agent.
  */
+import type { PassBudget } from './harness-track'
 import type { ReaderFs } from './files'
 
 export const HARNESS_IDS = ['claude', 'codex', 'ruflo'] as const
@@ -39,6 +40,8 @@ export type Signals = {
   approval: boolean
   /** The last tool failed and nothing followed it. */
   failed: boolean
+  /** When the failure was recorded, from the failing record's own timestamp: a later metadata line (title, cost) does not make it new. */
+  failedAtMs?: number | null
   /** The last turn finished at this time. */
   turnEndedAtMs: number | null
 }
@@ -92,6 +95,8 @@ export type ScanEnv = {
   nowMs: number
   /** Relist everything (slow pass); otherwise only what changed and the recently active files. */
   full: boolean
+  /** The pass's read allowance, shared by every adapter in the pass (data/harness-track.ts); a fresh one per scan when absent. */
+  budget?: PassBudget
 }
 
 export interface HarnessAdapter {

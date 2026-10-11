@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.56.5] - 2026-10-11
+
+Patch release: one fix in `@claude-flow/cli`. No leaf package changed since 3.56.4 (`git diff v3.56.4..HEAD -- v3/@claude-flow` touches only `cli`; the `integration` change drops `publishConfig.tag` and has no runtime effect).
+
+### Fixed
+
+- The graph-edge-writer encryption-header sniff no longer closes the raw DB file descriptor, which dropped live SQLite POSIX locks; the header is read in a bounded child process (#4044, fixes #4040).
+
+## [3.56.4] - 2026-10-10
+
+Patch release: security hardening of the plugin-trust and helper paths, MCP/task fixes, and the Node 24 sqlite fix. Standalone leaves published first: `@claude-flow/memory` 3.0.4, `@claude-flow/integration` 3.0.1, `@claude-flow/plugins` 3.0.2, `@claude-flow/mcp` 3.1.1 (bundled; republished standalone), `@claude-flow/security` 3.0.4 (bundled; republished standalone). Then `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.4.
+
+### Security
+
+- Plugin registry trust: a placeholder (all-zero) trust anchor is a small-order Ed25519 key and no longer vouches for anything; signature verification uses strict (non-ZIP-215) rules; an unsigned registry no longer grants "official" trust (#3948).
+- `plugins upgrade` no longer runs the new version's `postinstall` or registers `shell:exec` hooks without the install-time gate (#3951).
+- Plugin and helper locators stop walking up at `node_modules`, so a project-local install cannot reach project `plugins/ruflo-*` code (#3986, replaces #3954).
+- Helpers: session ids and session paths are validated, module roots are no longer project-chosen (#3949); the statusline no longer interpolates `HELPER_ROOT` into a shell string, and `npx` runs the helper CLI from the helper root (#3990, replaces #3953).
+- User-level settings pin home helpers (#3952).
+- `task_assign` rejects `__proto__` agent ids that wrote onto `Object.prototype` (#3967).
+
+### Fixed
+
+- Node 24: `better-sqlite3` is routed to a build that does not abort at exit (#3955).
+- Importing the `agentic-flow` root entry no longer runs its CLI (#3958).
+- MCP resource cache: stale writes are fenced after invalidation (#4019). `security scan` code patterns no longer report the false positives seen on a real tree (#3999).
+- MCP, task and CLI fixes: #3975, #3974, #3970, #3969, #3968, #3980, #3947; graph path search ~94x faster at n=3200 (#3977).
+
 ## [3.56.3] - 2026-10-09
 
 Patch release: AgentDB `3.0.0-alpha.20` update. `@claude-flow/memory` 3.0.3 (published standalone; the CLI pins it exactly) and `@claude-flow/cli` 3.56.3. `neural`, `shared` and `cli-core` are unchanged.

@@ -17,11 +17,16 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+// Executable modules resolve only from the helper's own install root. A
+// home-level helper can serve an untrusted project, so CLAUDE_PROJECT_DIR must
+// never decide which JavaScript gets imported.
+const MODULE_ROOT = join(__dirname, '../..');
 // Home-level helpers can serve a different project. Keep the memory writer on
 // the same project root as intelligence.cjs, which reads CLAUDE_PROJECT_DIR.
+// PROJECT_ROOT is for data only.
 const PROJECT_ROOT = process.env.CLAUDE_PROJECT_DIR
   ? resolve(process.env.CLAUDE_PROJECT_DIR)
-  : join(__dirname, '../..');
+  : MODULE_ROOT;
 const DATA_DIR = join(PROJECT_ROOT, '.claude-flow', 'data');
 const STORE_PATH = join(DATA_DIR, 'auto-memory-store.json');
 
@@ -41,7 +46,7 @@ const dim = (msg) => console.log(`  ${DIM}${msg}${RESET}`);
 // told exactly how to fix it (on both stdout, so it shows in the Claude Code hook
 // transcript, and stderr, per the issue's requested channel).
 function warnMemoryUnavailable() {
-  const line1 = `[AutoMemory] @claude-flow/memory not resolvable from ${PROJECT_ROOT} — self-learning imports are DISABLED.`;
+  const line1 = `[AutoMemory] @claude-flow/memory not resolvable from ${MODULE_ROOT} — self-learning imports are DISABLED.`;
   const line2 = '             Fix: npm i -D @claude-flow/memory   (or re-run: npx ruflo@latest init, then npx ruflo@latest doctor --fix)';
   console.log(`${YELLOW}${line1}${RESET}`);
   console.log(`${YELLOW}${line2}${RESET}`);
@@ -175,7 +180,7 @@ async function loadMemoryPackage() {
   // project — so init resolves it from the CLI's own context and records the
   // absolute path here. This is the only strategy that works on that install.
   try {
-    const sidecar = join(PROJECT_ROOT, '.claude-flow', 'memory-package.json');
+    const sidecar = join(MODULE_ROOT, '.claude-flow', 'memory-package.json');
     if (existsSync(sidecar)) {
       const rec = JSON.parse(readFileSync(sidecar, 'utf-8'));
       if (rec?.distPath && existsSync(rec.distPath)) {
@@ -185,7 +190,7 @@ async function loadMemoryPackage() {
   } catch { /* fall through */ }
 
   // Strategy 1: Local dev (built dist)
-  const localDist = join(PROJECT_ROOT, 'v3/@claude-flow/memory/dist/index.js');
+  const localDist = join(MODULE_ROOT, 'v3/@claude-flow/memory/dist/index.js');
   if (existsSync(localDist)) {
     try {
       return await import(`file://${localDist}`);
@@ -196,7 +201,7 @@ async function loadMemoryPackage() {
   // when installed as a transitive dependency via npx ruflo / npx @claude-flow/cli@latest)
   try {
     const { createRequire } = await import('module');
-    const require = createRequire(join(PROJECT_ROOT, 'package.json'));
+    const require = createRequire(join(MODULE_ROOT, 'package.json'));
     return require('@claude-flow/memory');
   } catch { /* fall through */ }
 
@@ -205,8 +210,8 @@ async function loadMemoryPackage() {
     return await import('@claude-flow/memory');
   } catch { /* fall through */ }
 
-  // Strategy 4: Walk up from PROJECT_ROOT looking for @claude-flow/memory in any node_modules
-  let searchDir = PROJECT_ROOT;
+  // Strategy 4: Walk up from MODULE_ROOT looking for @claude-flow/memory in any node_modules
+  let searchDir = MODULE_ROOT;
   const { parse } = await import('path');
   while (searchDir !== parse(searchDir).root) {
     const candidate = join(searchDir, 'node_modules', '@claude-flow', 'memory', 'dist', 'index.js');
@@ -378,7 +383,7 @@ async function doStatus() {
   const memPkg = await loadMemoryPackage();
   const config = readConfig();
 
-  const sidecar = join(PROJECT_ROOT, '.claude-flow', 'memory-package.json');
+  const sidecar = join(MODULE_ROOT, '.claude-flow', 'memory-package.json');
   const hasSidecar = existsSync(sidecar);
 
   console.log('\n=== Auto Memory Bridge Status ===\n');

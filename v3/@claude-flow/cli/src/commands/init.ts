@@ -75,16 +75,9 @@ async function resolveCodexInitializer(cwd: string): Promise<CodexInitializerCto
   const resolutionStrategies = [
     // Strategy 1: Direct import (works if installed as CLI dependency)
     async () => (await import(codexModuleId)).CodexInitializer,
-    // Strategy 2: Project node_modules (works if installed in user's project)
-    async () => {
-      const projectPath = path.join(cwd, 'node_modules', '@claude-flow', 'codex', 'dist', 'index.js');
-      if (fs.existsSync(projectPath)) {
-        const mod = await import(`file://${projectPath}`);
-        return mod.CodexInitializer;
-      }
-      throw new Error('Not found in project');
-    },
-    // Strategy 3: Global node_modules
+    // (No project node_modules strategy: init must not import code the
+    // target project supplies.)
+    // Strategy 2: Global node_modules
     async () => {
       const { execSync } = await import('child_process');
       const globalPath = execSync('npm root -g', { encoding: 'utf-8' }).trim();

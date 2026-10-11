@@ -26,9 +26,12 @@ import Database from 'better-sqlite3';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+// Executable modules resolve only from the helper's own install root; a
+// home-level helper can serve an untrusted project. PROJECT_ROOT is data only.
+const MODULE_ROOT = join(__dirname, '../..');
 const PROJECT_ROOT = process.env.CLAUDE_PROJECT_DIR
   ? resolve(process.env.CLAUDE_PROJECT_DIR)
-  : join(__dirname, '../..');
+  : MODULE_ROOT;
 const DATA_DIR = join(PROJECT_ROOT, '.claude-flow/learning');
 const DB_PATH = join(DATA_DIR, 'patterns.db');
 const METRICS_PATH = join(DATA_DIR, 'learning-metrics.json');
@@ -463,7 +466,7 @@ class EmbeddingService {
 
     try {
       // Dynamically import agentic-flow OptimizedEmbedder
-      const agenticFlowPath = join(PROJECT_ROOT, 'node_modules/agentic-flow/dist/embeddings/optimized-embedder.js');
+      const agenticFlowPath = join(MODULE_ROOT, 'node_modules/agentic-flow/dist/embeddings/optimized-embedder.js');
 
       if (existsSync(agenticFlowPath)) {
         const { getOptimizedEmbedder } = await import(agenticFlowPath);

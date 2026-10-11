@@ -338,6 +338,6 @@ describe('the new skills actions', () => {
     const state = newState({})
     const update = skillPaletteEntries(state).find(entry => entry.id === 'skills-update')
 
-    expect(update?.run).toEqual({ kind: 'spec', spec: null, why: 'the skills view is not wired yet' })
+    expect(update?.run).toEqual({ kind: 'spec', spec: null, why: 'the console is not running in this session: open it first (console_open skills)' })
   })
 })

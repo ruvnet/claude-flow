@@ -2,6 +2,31 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.42.6 — 2026-10-10
+- fix: the Plugin Catalog says "mod synced here, plugin not installed" (and marks the row ◇) for a mod Claude Code loaded by sync, such as ruflo-arena@synced, instead of a flat "not installed" that contradicted the Plugins page; the install button stays (#3979)
+- chore: work-in-progress and merge lines are dropped from the console and mods changelogs shown on What's new (#3979)
+
+## 0.42.5 — 2026-10-10
+- fix: every confirm route answers the card the person saw. A typed /ruflo yes answers only a card that was put in front of you (drawn in the open pane, or named in the answer to your own /ruflo run) and /ruflo yes <id> names its card; otherwise it runs nothing and says the card's id (#3983)
+- fix: Enter again in the terminal, skills and automation fields answers the card that field raised, by its id, not a later card that merely reads the same; an auto-confirmed Claude call settles only the card it started, so an unrelated write that lands while a read is still running is left to the person (#3983)
+
+## 0.42.4 — 2026-10-10
+- fix: a confirm card nobody answers is cleared unrun at 30 s on the console's own clock, with one event and "expired: ask again" as the last result, so it no longer blocks every later Claude action; a Yes after the window still runs nothing, and the Room stops counting past 30 s (#3984)
+- feat: Claude can withdraw its own waiting write ask (console_run ask-withdraw), never the person's card and never a spend, install, network or delete card; at most 3 a minute, with a cooldown on re-asking the same thing (#3984)
+- fix: the ADR and skills entries say what to open (console_open adrs, console_open skills) instead of "not wired yet" (#3984)
+
+## 0.42.3 — 2026-10-10
+- fix: the session workspace keeps other projects' folders, working directories and git branches out of text answers (what console_state and ask-claude read): the group headings, the cwd and branch line and the unassigned titles name a session by harness and position, never by a recorded path; an adversarial test draws every view with canaries in every transcript field and a failed listing and finds none (#3981, ADR-486 section 3)
+- fix: Needs you raises a failure only after the 30 s quiet period (ADR-486 2.3), not for a permission refusal, an Esc or a Codex interrupted turn, and a failure already seen stays seen when only cost or title lines are appended; a time in the future can no longer silence a session; one 12 MB read budget per pass is shared by every adapter and enforced before each read; attention.json is refreshed at least every 5 minutes and a failed write backs off; the Room's Who is here lists only agents with recent activity, keeps your main session first and counts what it leaves out (#3981)
+
+## 0.42.2 — 2026-10-10
+- fix: numbers read from CLI JSON are bounded at the reader (a count of 1e999 no longer draws Infinity on the band); an unreadable count stays visible as unknown rather than a measured 0, and a listed finding is never hidden by an under-reporting summary (#3822)
+- fix: a mission resume made by Claude keeps each task's hand-out count, so resuming cannot buy more billed hand-outs after the limit paused the mission (#3823)
+
+## 0.42.1 — 2026-10-10
+- fix: Mission Control create retries only a real policy-state lock timeout (and a silent failure or a wait that ran out), reads the CLI's own Result: line rather than the Parameters object, undoes every open task of the mission when it must abort, asks the mission record to cancel, and reads the stores back so the result says what they show, not what was asked (#3945)
+- fix: a run that reports for itself (mission create, the ADR page writes) now becomes the console's outcome when it ends, so console_state.lastResult carries how it ended however long it took (#3945)
+
 ## 0.42.0 — 2026-10-09
 - feat: an optional, detect-only Grounding line for Stuart Kerr's third-party ruvnet-brain plugin: Overview says whether it is on, not installed, installed but disabled, or unknown (read from the plugin list and your settings; ruflo works the same without it, and nothing of it is bundled or copied) (ADR-487)
 - feat: with the brain on and a mission that names the ruvnet stack (RuVector, RVF, AgentDB, ruflo ...), Claude's mission context carries one fixed line pointing at `search_ruvnet`; Settings → "RuvNet Brain nudge" turns it off (default on). The console never calls the brain and no mission text enters the line
@@ -71,7 +96,6 @@ Newest first. One `## <version> — <date>` heading per version, then `feat:`, `
 
 ## 0.37.0 — 2026-10-07
 - feat: shared toast system with levels, dedupe, persistence and Settings (ADR-477)
-- feat: shared toast policy and its call sites (ADR-477), work in progress
 - fix: CONSOLE_VERSION follows the manifest (0.36.1)
 
 ## 0.36.1 — 2026-10-07
@@ -81,7 +105,6 @@ Newest first. One `## <version> — <date>` heading per version, then `feat:`, `
 - feat: 0.36.0 integration: eventsPersist option, shared whole-batch append argv, hostile-time hardening, init ignores console/
 - fix: log Claude's refused request when the person's card is waiting; mission-auto why when not wired; document the local-read allowlist
 - fix: session control cap, gate on read-only entries that act, hostile text/data, mission auto-run guards (#3814 #3815 #3816 #3817 #3818)
-- chore: Merge verify/events-0.36 into feat/console-0.36
 
 ## 0.35.0 — 2026-10-06
 - feat: autopilot envelope editor, parallel hand-over, spend windows, band segment, and the first live run (ADR-470)

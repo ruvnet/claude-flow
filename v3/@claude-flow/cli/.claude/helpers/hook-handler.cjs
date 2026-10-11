@@ -18,6 +18,10 @@ const fs = require('fs');
 const os = require('os');
 
 const helpersDir = __dirname;
+// The helper's own install root: the project for a project-local helper,
+// $HOME for a home-level one. CLI resolution starts here, never at the opened
+// project, so a home-level helper does not run code the project supplies.
+const helperRoot = path.resolve(helpersDir, '..', '..');
 
 // Resolve an installed @claude-flow/cli (or ruflo) bin — mirrors
 // statusline-generator.ts's resolveCliBin() candidate list. Used only to
@@ -38,12 +42,11 @@ const helpersDir = __dirname;
 function resolveCliBinForHook() {
   try {
     const home = os.homedir();
-    const cwd = process.cwd();
     const candidates = [
       path.join(home, '.claude', 'plugins', 'marketplaces', 'ruflo', 'bin', 'cli.js'),
-      path.join(cwd, 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
-      path.join(cwd, 'node_modules', 'ruflo', 'bin', 'cli.js'),
-      path.join(cwd, 'v3', '@claude-flow', 'cli', 'bin', 'cli.js'),
+      path.join(helperRoot, 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
+      path.join(helperRoot, 'node_modules', 'ruflo', 'bin', 'cli.js'),
+      path.join(helperRoot, 'v3', '@claude-flow', 'cli', 'bin', 'cli.js'),
       // helpersDir is .claude/helpers/ inside the package itself when this
       // file is running from a real @claude-flow/cli install (not a project
       // that merely copied the helper) — its bin/ is two levels up.
@@ -77,14 +80,19 @@ function resolveCliBinForHook() {
 // render path, where local-first exists purely for per-render latency.
 // `--prefer-offline` avoids a registry round trip for the tarball when
 // already cached while still resolving the current `@latest` version.
+//
+// `--prefix helperRoot` makes npx resolve @claude-flow/cli from the helper's
+// install root instead of the cwd (the opened project); the spawned CLI still
+// runs with the project as its cwd.
+function cliSpawnArgs(cliBin, args, platform = process.platform) {
+  if (cliBin) return [process.execPath, [cliBin, ...args]];
+  return [platform === 'win32' ? 'npx.cmd' : 'npx', ['--prefer-offline', '--prefix', helperRoot, '@claude-flow/cli', ...args]];
+}
+
 function spawnDetachedHookRefresh(subcommand) {
   try {
     const { spawn } = require('child_process');
-    const cliBin = resolveCliBinForHook();
-    const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-    const spawnArgs = cliBin
-      ? [process.execPath, [cliBin, 'hooks', subcommand, '--quiet']]
-      : [cmd, ['--prefer-offline', '@claude-flow/cli', 'hooks', subcommand, '--quiet']];
+    const spawnArgs = cliSpawnArgs(resolveCliBinForHook(), ['hooks', subcommand, '--quiet']);
     const child = spawn(spawnArgs[0], spawnArgs[1], {
       detached: true,
       stdio: 'ignore',
@@ -151,10 +159,7 @@ function firstRunAutoEnableIfEligible() {
     const cliBin = resolveCliBinForHook();
     const runDetached = (args) => {
       try {
-        const spawnArgs = cliBin
-          ? [process.execPath, [cliBin, ...args]]
-          : [process.platform === 'win32' ? 'npx.cmd' : 'npx',
-             ['--prefer-offline', '@claude-flow/cli', ...args]];
+        const spawnArgs = cliSpawnArgs(cliBin, args);
         const child = spawn(spawnArgs[0], spawnArgs[1], {
           detached: true, stdio: 'ignore', env: process.env, windowsHide: true,
         });
@@ -772,4 +777,4 @@ if (require.main === module) {
 // Which sibling helpers loaded (all CommonJS, shipped as .cjs — #3555).
 const loadedHelpers = { router: !!router, session: !!session, memory: !!memory, intelligence: !!intelligence };
 
-module.exports = { runWithTimeout, INTELLIGENCE_TIMEOUT_MS, loadedHelpers, ownedByMod, MOD_OWNABLE_EVENTS };
+module.exports = { runWithTimeout, INTELLIGENCE_TIMEOUT_MS, loadedHelpers, ownedByMod, MOD_OWNABLE_EVENTS, resolveCliBinForHook, cliSpawnArgs, helperRoot };
