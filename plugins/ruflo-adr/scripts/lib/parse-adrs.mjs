@@ -6,7 +6,7 @@
 // Pure functions only — no memory_store / subprocess calls live here. Callers
 // own persistence.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, realpathSync } from 'node:fs';
 import { join, basename } from 'node:path';
 
 // #2474 bonus: `.claude/worktrees/*` mirrors the repo so every ADR was
@@ -36,7 +36,11 @@ export function normalizeAdrId(raw) {
   return digits.length >= 4 ? `ADR-${digits}` : `ADR-${digits.padStart(3, '0')}`;
 }
 
-export function findAdrs(dir, out = []) {
+export function findAdrs(dir, out = [], visited = new Set()) {
+  let canonical;
+  try { canonical = realpathSync(dir); } catch { return out; }
+  if (visited.has(canonical)) return out;
+  visited.add(canonical);
   let entries;
   try { entries = readdirSync(dir); } catch { return out; }
   for (const e of entries) {
@@ -45,7 +49,7 @@ export function findAdrs(dir, out = []) {
     let st;
     try { st = statSync(p); } catch { continue; }
     if (st.isDirectory()) {
-      findAdrs(p, out);
+      findAdrs(p, out, visited);
     } else if (e.endsWith('.md') && (p.includes('/docs/adr/') || p.includes('/docs/adrs/'))) {
       out.push(p);
     }
