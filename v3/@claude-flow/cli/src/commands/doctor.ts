@@ -11,6 +11,7 @@ import { existsSync, readFileSync, statSync, openSync, readSync, closeSync } fro
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { createHash } from 'crypto';
+import { ownInstallAncestors } from '../plugins/own-install.js';
 import { execSync, exec, execFile } from 'child_process';
 import { promisify } from 'util';
 import { decodeKey, isEncryptionEnabled } from '../encryption/vault.js';
@@ -2113,27 +2114,18 @@ async function checkMetaharnessIntegration(): Promise<HealthCheck> {
   // (dev) until we find a directory containing `plugins/ruflo-metaharness/`.
   const candidates: string[] = [];
 
-  // Strategy 1: walk up from this module's own URL — covers npx + global install.
+  // Walk up from this module's own URL — covers npx, global and project-local
+  // installs and monorepo dev. The plugin found here is imported below, so it
+  // must come from this CLI's own install, never from the cwd (the project).
   try {
+    // Bounded at node_modules: a project-local install must not reach the project.
     const selfDir = dirname(fileURLToPath(import.meta.url));
-    let q = selfDir;
-    for (let i = 0; i < 8; i++) {
+    for (const q of ownInstallAncestors(selfDir)) {
       candidates.push(join(q, 'plugins', 'ruflo-metaharness'));
-      q = dirname(q);
     }
   } catch {
-    // import.meta.url unavailable under some bundlers — fall through to cwd walk.
+    // import.meta.url unavailable under some bundlers — the plugin is reported absent.
   }
-
-  // Strategy 2: walk up from cwd — covers monorepo dev (running from a sub-package).
-  let p = process.cwd();
-  for (let i = 0; i < 8; i++) {
-    candidates.push(join(p, 'plugins', 'ruflo-metaharness'));
-    p = dirname(p);
-  }
-
-  // Strategy 3: explicit node_modules path relative to cwd — covers project-local install.
-  candidates.push(join(process.cwd(), 'node_modules', '@claude-flow', 'cli', 'plugins', 'ruflo-metaharness'));
 
   let pluginDir: string | null = null;
   for (const c of candidates) {

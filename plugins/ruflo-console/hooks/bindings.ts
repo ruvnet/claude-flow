@@ -238,7 +238,15 @@ export function actionsOf(state: State, host: Host, runner: Runner, steps: Steps
 
       if (best !== undefined) runner.runEntry(best, best.run.kind === 'text' ? state.palette.query.trim().slice(best.run.keyword.length).trim() : '')
     },
-    run: (id, text = '') => runner.runById(id, text),
+    run: (id, text = '') => {
+      const before = state.pending?.id
+      const isRun = runner.runById(id, text)
+
+      // The card this field text raised, by id: Enter again on the same text confirms that card and no other.
+      state.askedAgain = state.pending !== null && state.pending.id !== before && state.pending.id !== undefined ? { entry: id, text: text.trim(), card: state.pending.id } : null
+
+      return isRun
+    },
     costBudgetDraft: text => {
       state.costBudgetDraft = text
     },
@@ -308,7 +316,7 @@ export function actionsOf(state: State, host: Host, runner: Runner, steps: Steps
           state.terminal.draft = ''
           state.terminal.harness = pick.id
           // An ask the previous harness left on screen goes with it.
-          if (state.terminal.asked !== null && state.pending?.label === state.terminal.asked.label) runner.cancel()
+          if (state.terminal.asked !== null && state.terminal.asked.card !== null && state.pending?.id === state.terminal.asked.card) runner.cancel()
           state.terminal.asked = null
           host.invalidate()
           keepField()
@@ -332,10 +340,11 @@ export function actionsOf(state: State, host: Host, runner: Runner, steps: Steps
         }
 
         // The engine may empty the field on submit, so an empty Enter on a pending ask confirms it too.
-        if (asked !== null && (asked.key === key || text.trim() === '') && state.pending?.label === asked.label) {
+        // Enter again answers the card this field raised, by its id: a card with the same words that took its place is not it.
+        if (asked !== null && asked.card !== null && (asked.key === key || text.trim() === '') && state.pending?.id === asked.card) {
           state.terminal.asked = null
           state.terminal.draft = ''
-          void runner.confirm()
+          void runner.confirm(asked.card)
 
           return
         }
@@ -344,8 +353,10 @@ export function actionsOf(state: State, host: Host, runner: Runner, steps: Steps
 
         // The text is in the pending ask (an empty Enter or Yes runs it): the field clears, unless it cannot be sent and stays to be fixed.
         state.terminal.draft = spec !== null ? '' : text
+        const before = state.pending?.id
+
         runner.ask(spec, whyNotRun(state, text) ?? 'nothing to run')
-        state.terminal.asked = spec !== null ? { key, label: spec.label } : null
+        state.terminal.asked = spec !== null ? { key, label: spec.label, card: state.pending !== null && state.pending.id !== before ? (state.pending.id ?? null) : null } : null
       },
       stop: () => {
         for (const run of state.terminal.runs.values()) run.stop()

@@ -16,7 +16,7 @@ export type Intent =
   | { kind: 'delegate'; owner: 'ruflo-mods' | 'ruflo-swarm'; words: string }
   | { kind: 'palette'; query: string }
   | { kind: 'run'; paletteId: string; text: string }
-  | { kind: 'confirm'; isYes: boolean }
+  | { kind: 'confirm'; isYes: boolean; /** The card id a typed `yes <id>` names. */ card?: number }
   | { kind: 'agent'; who: string }
   | { kind: 'back' }
   | { kind: 'select'; by: number }
@@ -66,8 +66,11 @@ export function parseRuflo(args: string): Intent {
     case 'act':
       return second === '' ? { kind: 'palette', query: '' } : { kind: 'run', paletteId: second, text: rest.slice(second.length).trim() }
     case 'yes':
-    case 'y':
-      return { kind: 'confirm', isYes: true }
+    case 'y': {
+      const card = /^#?([0-9]{1,9})$/.exec(second)?.[1]
+
+      return card === undefined ? { kind: 'confirm', isYes: true } : { kind: 'confirm', isYes: true, card: Number(card) }
+    }
     case 'no':
     case 'n':
       return { kind: 'confirm', isYes: false }
