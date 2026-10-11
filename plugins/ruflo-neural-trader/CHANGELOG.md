@@ -2,6 +2,13 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.5 — 2026-10-11
+
+- Fix (checked by running neural-trader 2.8.11 offline): `--regime-detect`, `--var`, `--indicators`, `--correlation`, `--position-sizing` (standalone), `--risk-tolerance`, `--sector-analysis`, `--model X --symbol T` (without `--train`/`--predict`), `--strategy X --create` and `--broker`/`--swarm` all answer "Unknown command". Docs now use the handled forms (`--regime`, `--risk assess --returns`, `--train`, `--predict`, `--strategy-create`) and say which features have no CLI flag.
+- Fix: several handlers return demo output (`--regime` classifies a built-in sample, `--risk assess` without `--returns` uses a 7-value sample, `--portfolio` returns equal weights, `--train`/`--predict` return `upstreamStub: true`). Skills now require reading `dataSource`/`note`/`upstreamStub` and not presenting demo output as market analysis.
+- Safety: backtests and signal scans run on synthetic bars unless `--live` is passed (and silently fall back to them if the fetch fails). `trader-backtest` now refuses to sign a result for paper-to-live promotion when any `dataSource` is not `yahoo-finance`. The `live` command is documented as unavailable (no broker path exists in 2.8.11); nothing enforces circuit breakers automatically, and the risk-analyst docs no longer claim it does.
+- Fix: `trader-signal` used `expiresAt` (not a `memory_store` parameter, so signals never expired); it is `ttl` in seconds. `neural_train` takes `modelType`, `agentdb_pattern-store` takes `{ pattern, type, confidence }`.
+
 ## 0.3.4 — 2026-10-05
 - fix: a domain plugin's refusal of another plugin's memory_store no longer claims the write (variant B, review #8)
 

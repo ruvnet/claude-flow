@@ -2,6 +2,11 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.3 — 2026-10-11
+
+- Security: `npx -y -p @claude-flow/plugin-iot-cognitum@latest` replaced with the pinned `@1.0.0` (the CLI controls real fleets; `@latest` ran whatever was published last).
+- Safety: `iot-firmware` (deploy/advance/rollback) and `iot-fleet delete` now require the fleet, version and stage to be stated and explicitly confirmed by the user; `advance` requires a clean canary `status` + `iot-anomalies` check first. Removed invalid `--train-neural` flag from agent examples.
+
 ## 0.3.2 — 2026-10-05
 - fix: shared textsOf reports truncation and every guard fails closed on it
 

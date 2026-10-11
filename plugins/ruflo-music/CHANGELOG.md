@@ -2,6 +2,10 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.2.4 — 2026-10-11
+
+- Security: `music-generate` attached the account bearer token to whatever `audio_url` a tool result returned; it now only sends it to `https://music.cognitum.one/` and otherwise shows the URL. `music-connect` pins `cogmusic@0.1.1` instead of `@latest` and tells the user to run the registration themselves so the token never enters the transcript.
+
 ## 0.2.3 — 2026-10-05
 - fix: a domain plugin's refusal of another plugin's memory_store no longer claims the write (variant B, review #8)
 

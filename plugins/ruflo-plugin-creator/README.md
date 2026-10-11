@@ -56,7 +56,7 @@ Lessons learned from sibling-ADR fixes — the scaffolder warns about these:
 | `namespace` arg passed to `agentdb_hierarchical-*` | Use `tier` (working/episodic/semantic), or use `memory_*` for namespaced reads/writes |
 | `namespace` arg passed to `agentdb_pattern-*` | Don't pass it — ReasoningBank routes; fallback writes to `pattern` reserved |
 | `pattern` and `patterns` confused | They are **different** reserved namespaces |
-| Hard-coded "19 AgentDB controllers" | Defer to `agentdb_controllers` runtime; real count varies (~15 MCP tools, 29 controller names) |
+| Hard-coded "19 AgentDB controllers" | Defer to `agentdb_controllers` runtime; real count varies (20 MCP tools, 29 controller names) |
 
 ## Verification
 

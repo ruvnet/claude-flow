@@ -34,20 +34,37 @@ export function helperScopeFor(targetDir: string | undefined): HelperScope {
   return canonical(targetDir) === canonical(os.homedir()) ? 'user' : 'project';
 }
 
+/**
+ * Windows hook command (#4045). It must not go through `cmd /c`: under Git Bash
+ * MSYS rewrites `/c` into a path, cmd starts interactively and executes the
+ * hook's stdin JSON, and any `>` in that text creates a file. A single
+ * `node -e` has no shell syntax to misread (no cmd, no `%VAR%`, no `<>|&$` and
+ * no inner double quotes), so cmd, PowerShell and Git Bash pass it through
+ * unchanged. The script and its subcommand stay in one string, because the
+ * ruflo-mods ownership rule matches `hook-handler.cjs <subcommand>`. Project
+ * scope prefers the project's helper and falls back to the user profile's
+ * (#1943); user scope never looks at the project. The helper runs as a child
+ * with inherited stdio so stdin, stdout and the exit status pass through (a
+ * `require` would skip the helper's `require.main === module` entry point).
+ */
+function windowsHookCommand(script: string, subcommand: string, scope: HelperScope): string {
+  // Ternaries, not `||`: the command carries no pipe or ampersand at all.
+  const home = "(e.USERPROFILE?e.USERPROFILE:e.HOME?e.HOME:'.')";
+  const pick = scope === 'user'
+    ? `f=p.join(${home},a[0]);`
+    : "f=p.join(e.CLAUDE_PROJECT_DIR?e.CLAUDE_PROJECT_DIR:'.',a[0]);" +
+      `if(!fs.existsSync(f))f=p.join(${home},a[0]);`;
+  const js = `var a='${[script, subcommand].filter(Boolean).join(' ')}'.split(' '),e=process.env,fs=require('fs'),p=require('path'),f;` + pick +
+    "var r=require('child_process').spawnSync(process.execPath,[f].concat(a.slice(1)),{stdio:'inherit'});" +
+    'process.exit(r.status===null?1:r.status)';
+  return `node -e "${js}"`;
+}
+
 /** Command that runs `node <script> <subcommand>` for a hook. */
 export function helperHookCommand(script: string, subcommand: string, scope: HelperScope, windows = IS_WINDOWS): string {
-  const winScript = script.replace(/\//g, '\\');
   const arg = subcommand ? ` ${subcommand}` : '';
-  if (scope === 'user') {
-    return windows
-      ? `cmd /c "node "%USERPROFILE%\\${winScript}"${arg}"`
-      : `sh -c 'exec node "\${HOME}/${script}"${arg}'`;
-  }
-  if (windows) {
-    // cmd.exe equivalent of the sh probe below. `IF EXIST` checks the
-    // project-local path; falls back to %USERPROFILE% if missing.
-    return `cmd /c "IF EXIST \"%CLAUDE_PROJECT_DIR%\\${winScript}\" (node \"%CLAUDE_PROJECT_DIR%\\${winScript}\"${arg}) ELSE (node \"%USERPROFILE%\\${winScript}\"${arg})"`;
-  }
+  if (windows) return windowsHookCommand(script, subcommand, scope);
+  if (scope === 'user') return `sh -c 'exec node "\${HOME}/${script}"${arg}'`;
   // POSIX sh: prefer project-local helpers, fall back to $HOME/.claude/.
   // eslint-disable-next-line no-template-curly-in-string
   const projVar = '${CLAUDE_PROJECT_DIR:-.}';
@@ -108,6 +125,16 @@ const IF_EXIST_PREAMBLE = /"IF EXIST "%CLAUDE_PROJECT_DIR%\\\.claude\\helpers\\[
  * commands (other scripts, redirects, chains) are left alone.
  */
 export function pinToUserHelpers(command: string, windows = IS_WINDOWS): string | null {
+  // The #4045 Windows form: recognised only when it is exactly what ruflo generates.
+  const generated = /^node -e "var a='\.claude\/helpers\/([\w.-]+)((?: [\w:.=-]+)*)'\.split\(' '\)/.exec(command);
+  if (generated) {
+    if (!RUFLO_HELPERS.includes(generated[1])) return null;
+    const script = `.claude/helpers/${generated[1]}`;
+    const subcommand = generated[2].trim();
+    return command === helperHookCommand(script, subcommand, 'project', true)
+      ? helperHookCommand(script, subcommand, 'user', true)
+      : null;
+  }
   const refs = [...command.matchAll(HELPER_REF)];
   if (refs.length === 0) return null;
   const helper = refs[refs.length - 1][1];

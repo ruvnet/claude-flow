@@ -22,8 +22,8 @@ Verbs:
 2. **show `<session-id>`**
    Print the session manifest + last 20 trajectory entries + verdict.
    ```bash
-   npx -y ruvector@0.2.25 rvf status <session-id>.rvf
-   npx -y ruvector@0.2.25 rvf segments <session-id>.rvf
+   npx -y ruvector@0.2.27 rvf status <session-id>.rvf
+   npx -y ruvector@0.2.27 rvf segments <session-id>.rvf
    ```
    Then `Read` the trajectory.ndjson tail and the findings.md.
 
@@ -33,13 +33,13 @@ Verbs:
 
 4. **export `<session-id>` [-o <path>] [--federate]**
    ```bash
-   npx -y ruvector@0.2.25 rvf export <session-id>.rvf -o <path>
+   npx -y ruvector@0.2.27 rvf export <session-id>.rvf -o <path>
    ```
    With `--federate`, also push via the `ruflo-federation` plugin.
 
 5. **fork `<session-id>` [--name <new-name>]**
    ```bash
-   npx -y ruvector@0.2.25 rvf derive <session-id>.rvf <new-name>.rvf
+   npx -y ruvector@0.2.27 rvf derive <session-id>.rvf <new-name>.rvf
    ```
    Lineage tracked. Cookies, selectors, templates inherited.
 
@@ -55,7 +55,7 @@ Verbs:
    - Playwright runner reachable (`mcp__plugin_ruflo-core_ruflo__browser_open` against `about:blank`)
    - AgentDB controllers initialized (`mcp__plugin_ruflo-core_ruflo__agentdb_health`)
    - AIDefence loaded (`mcp__plugin_ruflo-core_ruflo__aidefence_stats`)
-   - ruvector pinned to 0.2.25 (`npx -y ruvector@0.2.25 --version`)
+   - ruvector pinned to 0.2.27 (`npx -y ruvector@0.2.27 --version`)
 
 Notes:
 - Verbs `replay`, `fork`, and the `browser_session_*` MCP tools are part of the v0.2.0 architecture but their MCP-tool implementation is pending (see ADR-0001 Verification §4 spike).

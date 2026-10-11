@@ -50,16 +50,14 @@ describe('generated settings by scope', () => {
 
 describe('helper command forms', () => {
   it('user-level Windows commands never reference the project', () => {
-    expect(helperHookCommand('.claude/helpers/hook-handler.cjs', 'pre-bash', 'user', true))
-      .toBe('cmd /c "node "%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs" pre-bash"');
+    expect(helperHookCommand('.claude/helpers/hook-handler.cjs', 'pre-bash', 'user', true)).not.toMatch(/cmd|CLAUDE_PROJECT_DIR/);
     expect(helperStatusLineCommand('user', true)).not.toContain('CLAUDE_PROJECT_DIR');
   });
 
   it('project-level commands are unchanged from #1943', () => {
     expect(helperHookCommand('.claude/helpers/hook-handler.cjs', 'route', 'project', false))
       .toBe(`sh -c 'D="\${CLAUDE_PROJECT_DIR:-.}"; [ -f "$D/.claude/helpers/hook-handler.cjs" ] || D="\${HOME}"; exec node "$D/.claude/helpers/hook-handler.cjs" route'`);
-    expect(helperHookCommand('.claude/helpers/hook-handler.cjs', 'route', 'project', true))
-      .toBe('cmd /c "IF EXIST "%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs" (node "%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs" route) ELSE (node "%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs" route)"');
+    expect(helperHookCommand('.claude/helpers/hook-handler.cjs', 'route', 'project', true)).toMatch(/^node -e "var a='\.claude\/helpers\/hook-handler\.cjs route'/);
   });
 
   it('re-pins every generated project-probe form and leaves other commands alone', () => {

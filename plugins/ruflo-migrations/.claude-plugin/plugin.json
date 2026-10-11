@@ -1,7 +1,7 @@
 {
   "name": "ruflo-migrations",
   "description": "Schema migration management — generate, validate, dry-run, and rollback database migrations. As a mod (ADR-445): a tighten-only guard on its tools, /migrations-mod, and a status file the console shows",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

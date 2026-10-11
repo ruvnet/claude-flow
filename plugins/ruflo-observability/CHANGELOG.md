@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.4 — 2026-10-11
+- fix: observe-trace and observe-metrics now say nothing is recorded when the namespace is empty (ruflo does not write spans or metrics by itself) instead of inviting an invented trace; tool-call syntax corrected; README states what produces the data
+
 ## 0.3.3 — 2026-10-05
 - fix: a domain plugin's refusal of another plugin's memory_store no longer claims the write (variant B, review #8)
 

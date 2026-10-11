@@ -1,14 +1,14 @@
 {
   "manifest": {
     "schema": "ruflo-witness/v1",
-    "issuedAt": "2026-10-11T01:52:03.200Z",
-    "gitCommit": "435deabd04d2cef44cdd171daeacdf22c98eadc9",
-    "branch": "release/3.56.5",
+    "issuedAt": "2026-10-11T16:06:44.686Z",
+    "gitCommit": "8137b3d2f668b7e50bb3b2cdbc50d04132fb5213",
+    "branch": "release/3.56.6",
     "os": "linux",
     "releases": {
-      "ruflo": "3.56.5",
-      "claude-flow": "3.56.5",
-      "@claude-flow/cli": "3.56.5",
+      "ruflo": "3.56.6",
+      "claude-flow": "3.56.6",
+      "@claude-flow/cli": "3.56.6",
       "@claude-flow/memory": "3.0.4"
     },
     "summary": {
@@ -21,7 +21,7 @@
         "id": "F1",
         "desc": "hooks_metrics persistence",
         "file": "v3/@claude-flow/cli/dist/src/mcp-tools/hooks-tools.js",
-        "sha256": "05091f26957d3cb093ac8b01486dab536ec7630b7091451dc6658ff7128fd14f",
+        "sha256": "c4a473d4d8b4ada1329495f6db19ad9d772c8eca3477e96a82301ff14e8db8c2",
         "marker": "getIntelligenceStatsFromMemory",
         "markerVerified": true
       },
@@ -29,7 +29,7 @@
         "id": "F2",
         "desc": "worker-dispatch honesty",
         "file": "v3/@claude-flow/cli/dist/src/mcp-tools/hooks-tools.js",
-        "sha256": "05091f26957d3cb093ac8b01486dab536ec7630b7091451dc6658ff7128fd14f",
+        "sha256": "c4a473d4d8b4ada1329495f6db19ad9d772c8eca3477e96a82301ff14e8db8c2",
         "marker": "'no-daemon'",
         "markerVerified": true
       },
@@ -93,7 +93,7 @@
         "id": "F10",
         "desc": "intelligence_attention real patterns",
         "file": "v3/@claude-flow/cli/dist/src/mcp-tools/hooks-tools.js",
-        "sha256": "05091f26957d3cb093ac8b01486dab536ec7630b7091451dc6658ff7128fd14f",
+        "sha256": "c4a473d4d8b4ada1329495f6db19ad9d772c8eca3477e96a82301ff14e8db8c2",
         "marker": "real-flash-attention+memory",
         "markerVerified": true
       },
@@ -117,7 +117,7 @@
         "id": "#1697",
         "desc": "rvf-wasm overrides",
         "file": "package.json",
-        "sha256": "aae67dc9226ba5418a113f0a9f44690ea0068af7dcc287d7306f2386a4094190",
+        "sha256": "8c584f509fc4444e0d0df6cedbea66d9088247990fd92a2c7233428ed7b17dfa",
         "marker": "@ruvector/rvf-wasm",
         "markerVerified": true
       },
@@ -141,7 +141,7 @@
         "id": "#1721",
         "desc": "postinstall copies all dist/src/* siblings",
         "file": "v3/@claude-flow/cli/package.json",
-        "sha256": "7dfb3f6dc0984f991c07d154c48f0b407996c4e9e6a521c0a5cd9a0a5b3a8686",
+        "sha256": "9f25fabb2fb2e646d1183324253110c57275b9475d61306f9c4ecddd1c282230",
         "marker": "postinstall.cjs",
         "markerVerified": true
       },
@@ -341,7 +341,7 @@
         "id": "CAP-MCP-hooks-tools",
         "desc": "MCP tools (62): build-agents, explain, hooks_build-agents, …",
         "file": "v3/@claude-flow/cli/dist/src/mcp-tools/hooks-tools.js",
-        "sha256": "05091f26957d3cb093ac8b01486dab536ec7630b7091451dc6658ff7128fd14f",
+        "sha256": "c4a473d4d8b4ada1329495f6db19ad9d772c8eca3477e96a82301ff14e8db8c2",
         "marker": "build-agents",
         "markerVerified": true
       },
@@ -461,7 +461,7 @@
         "id": "#1795",
         "desc": "umbrella package missing cli-core dep (ERR_MODULE_NOT_FOUND)",
         "file": "package.json",
-        "sha256": "aae67dc9226ba5418a113f0a9f44690ea0068af7dcc287d7306f2386a4094190",
+        "sha256": "8c584f509fc4444e0d0df6cedbea66d9088247990fd92a2c7233428ed7b17dfa",
         "marker": "@claude-flow/cli-core",
         "markerVerified": true
       },
@@ -629,7 +629,7 @@
         "id": "#1825",
         "desc": "hotfix: workspace: protocol leak in cli optionalDependencies",
         "file": "v3/@claude-flow/cli/package.json",
-        "sha256": "7dfb3f6dc0984f991c07d154c48f0b407996c4e9e6a521c0a5cd9a0a5b3a8686",
+        "sha256": "9f25fabb2fb2e646d1183324253110c57275b9475d61306f9c4ecddd1c282230",
         "marker": "\"@claude-flow/memory\": \"3.",
         "markerVerified": true
       },
@@ -957,10 +957,10 @@
   },
   "integrity": {
     "manifestHashAlgo": "sha256",
-    "manifestHash": "3350092a1f0e77e8e6db9dd49ce886da1461a1f57fcfc97d013a8af224466466",
+    "manifestHash": "a9229e15db28a5b919a9b56337d3960c7fc1fcefeeddaea23fbb7ca5d009971e",
     "signatureAlgo": "ed25519",
-    "publicKey": "dc8ca66aafd963a9d2afbc3ff10d9ff8e9f266ff580162171a7b83a138ffc6fc",
-    "signature": "d81c1b5361b322f329bf80ed451b8b9b4c8f7a668b619f8da7f4a2abdf111bc78e4b53cebf9362eaded4d35996c8cf2588d521a641f37789c1dcb042d91f6709",
+    "publicKey": "0b385fb7fd30ebe976b6fbee5323279519d9f3bdd92e5047010764b25b10619a",
+    "signature": "6c2db7160f77beb7234f4782e8a56e9f67b5d538766637a1d76c4eda20118b17cd7acf3d2a2ecd7b2a2609a5885a47a23ed4b885ee1e1d91d3c476c342e77706",
     "seedDerivation": "sha256(gitCommit + ':ruflo-witness/v1')"
   }
 }
