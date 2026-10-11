@@ -213,6 +213,198 @@ function spawnDetachedAdvisorRefresh() {
   spawnDetachedHookRefresh('refresh-advisor');
 }
 
+// ── Settings-risk scan for the automatic SessionStart hook ────────────────
+//
+// Mirrors v3/@claude-flow/cli/src/init/settings-risk-scanner.ts's
+// `scanSettingsForRisk()`/`formatRiskFindingsAsWarnings()`. That TS scanner
+// already runs at `ruflo init`/`--upgrade` time and (via the
+// `hooks_session-restore` MCP/CLI tool handler) on an explicit
+// `session-restore` call — but neither covers the one path that actually
+// fires automatically, unconditionally, on every real Claude Code session
+// boot: THIS file, invoked as the `SessionStart` hook configured in
+// .claude/settings.json itself. That is precisely the persistence mechanism
+// used by the real 2026 "Mini Shai-Hulud" npm-worm campaign (a malicious
+// SessionStart hook written into settings.json re-fires on every session,
+// surviving removal of the original infected package) and the escalation
+// path closed by CVE-2026-25725 in Claude Code's own sandbox. hook-handler.cjs
+// has no build step and cannot import the TS module, so this is a deliberate
+// CJS port — keep the pattern lists in sync with settings-risk-scanner.ts;
+// see the logic-parity test guarding this.
+//
+// Advisory-only: never mutates settings.json, never blocks session-restore.
+// A missing settings.json or any JSON.parse failure yields zero findings
+// silently. Unlike the opt-in `hooks_session-restore` MCP-tool path (#3835,
+// which narrows its catch to SyntaxError only so a real scanner bug
+// surfaces), THIS path fires unconditionally on every real session boot —
+// an adversarial review of this exact candidate flagged that narrowing the
+// same way here would let a non-SyntaxError JSON.parse failure (e.g. a V8
+// RangeError on deeply-nested JSON) abort session-restore itself, not just
+// skip the scan. "Can't scan it" and "can't parse it" are the same case
+// here, so any parse failure degrades to zero findings.
+const SR_DANGEROUS_COMMAND_WORDS = [
+  'rm', 'rmdir', 'del', 'format', 'mkfs', 'dd', 'chmod', 'chown',
+  'kill', 'killall', 'pkill', 'reboot', 'shutdown', 'poweroff', 'halt',
+  'sudo', 'eval',
+];
+const SR_SHELL_EXEC_WORDS = ['bash', 'sh', 'zsh', 'python', 'python3', 'perl', 'ruby', 'eval'];
+const SR_DOWNLOADER_WORDS = ['curl', 'wget'];
+const SR_STANDALONE_RISK_PATTERNS = [
+  /\bInvoke-Expression\b/i,
+  /\biex\s*\(/i,
+  /\/dev\/tcp\//i,
+  /\bnc\s+-e\b/i,
+  /base64\s+(-d|--decode)\b/i,
+];
+const SR_RISKY_PREAPPROVE_WORDS = [...SR_DANGEROUS_COMMAND_WORDS, ...SR_SHELL_EXEC_WORDS, ...SR_DOWNLOADER_WORDS];
+
+// Encoded PowerShell (`powershell[.exe] ... -e|-enc|-encodedcommand <payload>`),
+// matched on whitespace-separated tokens in ONE linear pass. The earlier regex
+// (`powershell\\s+(?:\\S+\\s+)*?-e...`) is quadratic on repeated "powershell "
+// tokens (every start rescans the tail: 256KB measured ~2.5s, 1MB ~40s) because
+// the lazy token loop re-runs from each start. Same semantics: a token ending in
+// powershell/powershell.exe, then LATER a token that is exactly -e/-enc/
+// -encodedcommand, then at least one more token.
+function srHasEncodedPowershell(command) {
+  let seenPs = false;
+  let pendingEnc = false;
+  for (const raw of String(command).split(/\s+/)) {
+    if (!raw) continue;
+    if (pendingEnc) return true;
+    const t = raw.toLowerCase();
+    if (seenPs && (t === '-e' || t === '-enc' || t === '-encodedcommand')) pendingEnc = true;
+    else if (t.endsWith('powershell') || t.endsWith('powershell.exe')) seenPs = true;
+  }
+  return false;
+}
+
+function srWordBoundaryMatches(text, word) {
+  return new RegExp(`\\b${word}\\b`, 'i').test(text);
+}
+
+function srScanCommandStringForRisk(command) {
+  const reasons = [];
+  if (srHasEncodedPowershell(command) || SR_STANDALONE_RISK_PATTERNS.some((pattern) => pattern.test(command))) {
+    reasons.push('matches a known-dangerous execution pattern (encoded/remote command execution)');
+  }
+  const hasDownloader = SR_DOWNLOADER_WORDS.some((w) => srWordBoundaryMatches(command, w));
+  const hasShellExec = SR_SHELL_EXEC_WORDS.some((w) => srWordBoundaryMatches(command, w));
+  if (hasDownloader && hasShellExec) {
+    reasons.push('combines a downloader (curl/wget) with a shell/interpreter invocation in the same command');
+  }
+  for (const word of SR_DANGEROUS_COMMAND_WORDS) {
+    if (srWordBoundaryMatches(command, word)) {
+      reasons.push(`invokes dangerous command "${word}"`);
+    }
+  }
+  return reasons;
+}
+
+function srScanAllowRuleForRisk(rule) {
+  const trimmed = rule.trim();
+  const reasons = [];
+  if (/^Bash\(\s*\*\s*(:\s*\*\s*)?\)$/i.test(trimmed)) {
+    reasons.push('grants unrestricted Bash execution (wildcard allow rule)');
+  }
+  for (const word of SR_RISKY_PREAPPROVE_WORDS) {
+    if (new RegExp(`^Bash\\(\\s*${word}\\s*(:| |\\))`, 'i').test(trimmed)) {
+      reasons.push(`pre-allows "${word}" with no per-call confirmation`);
+    }
+  }
+  return reasons;
+}
+
+// Strips ANSI/control characters from untrusted text before it's ever
+// embedded in a warning string printed to the terminal (same rationale as
+// settings-risk-scanner.ts's sanitizeForDisplay()).
+function srSanitizeForDisplay(text) {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+}
+
+function srBuildSnippet(text) {
+  const clean = srSanitizeForDisplay(text);
+  return clean.length > 120 ? `${clean.slice(0, 120)}…` : clean;
+}
+
+function srScanSettingsForRisk(settings) {
+  const findings = [];
+  const hooks = settings && settings.hooks;
+  if (hooks && typeof hooks === 'object') {
+    for (const [eventName, groups] of Object.entries(hooks)) {
+      if (!Array.isArray(groups)) continue;
+      groups.forEach((group, groupIdx) => {
+        const hookList = group && group.hooks;
+        if (!Array.isArray(hookList)) return;
+        hookList.forEach((h, hookIdx) => {
+          if (!h || typeof h.command !== 'string') return;
+          for (const reason of srScanCommandStringForRisk(h.command)) {
+            findings.push({
+              location: `hooks.${eventName}[${groupIdx}].hooks[${hookIdx}]`,
+              snippet: srBuildSnippet(h.command),
+              reason,
+            });
+          }
+        });
+      });
+    }
+  }
+  const allow = settings && settings.permissions && settings.permissions.allow;
+  if (Array.isArray(allow)) {
+    allow.forEach((rule, idx) => {
+      if (typeof rule !== 'string') return;
+      for (const reason of srScanAllowRuleForRisk(rule)) {
+        findings.push({
+          location: `permissions.allow[${idx}]`,
+          snippet: srBuildSnippet(rule),
+          reason,
+        });
+      }
+    });
+  }
+  return findings;
+}
+
+function srFormatRiskFindingsAsWarnings(findings) {
+  return findings.map((f) => `${f.location}: ${f.reason} — "${f.snippet}"`);
+}
+
+// Location + reason only, no snippet — see scanSessionStartSettingsForRisk's
+// doc comment for why the automatic boot path deliberately drops it.
+function srFormatRiskFindingsForAutomaticBoot(findings) {
+  return findings.map((f) => `${f.location}: ${f.reason}`);
+}
+
+// Reads and scans THIS project's own .claude/settings.json. Returns a
+// (possibly empty) array of warning strings; never throws on a
+// missing/malformed file.
+//
+// Deliberately omits the matched snippet (unlike srFormatRiskFindingsAsWarnings,
+// which `init`/`--upgrade` uses and which DOES include it): this function's
+// only caller is the 'session-restore' handler below, whose stdout is read
+// back into the live Claude Code session as context — not a human reading a
+// terminal. Printing up to 120 characters of attacker-controlled settings.json
+// content into that context is a prompt-injection path even with control
+// characters stripped (flagged by review on PR #4053). The location and
+// static reason string are both scanner-generated, never attacker content.
+function scanSessionStartSettingsForRisk() {
+  const projectRoot = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const settingsPath = path.join(projectRoot, '.claude', 'settings.json');
+  let raw;
+  try {
+    raw = fs.readFileSync(settingsPath, 'utf-8');
+  } catch (e) {
+    return []; // no settings.json (or unreadable) — nothing to scan
+  }
+  let settings;
+  try {
+    settings = JSON.parse(raw);
+  } catch (e) {
+    return []; // can't parse it, so can't scan it — never block session-restore for this
+  }
+  if (!settings || typeof settings !== 'object') return [];
+  return srFormatRiskFindingsForAutomaticBoot(srScanSettingsForRisk(settings));
+}
+
 // Safe require with stdout suppression - the helper modules have CLI
 // sections that run unconditionally on require(), so we mute console
 // during the require to prevent noisy output.
@@ -651,6 +843,11 @@ const handlers = {
     // Fully non-blocking (detached spawn) so session-restore latency
     // is unchanged.
     firstRunAutoEnableIfEligible();
+    // Advisory-only settings.json risk scan — see scanSessionStartSettingsForRisk's
+    // own doc comment for why this runs specifically on this automatic path.
+    for (const warning of scanSessionStartSettingsForRisk()) {
+      console.log(`[WARN] ${warning}`);
+    }
     if (session) {
       // Try restore first, fall back to start
       const existing = session.restore && session.restore();
@@ -777,4 +974,4 @@ if (require.main === module) {
 // Which sibling helpers loaded (all CommonJS, shipped as .cjs — #3555).
 const loadedHelpers = { router: !!router, session: !!session, memory: !!memory, intelligence: !!intelligence };
 
-module.exports = { runWithTimeout, INTELLIGENCE_TIMEOUT_MS, loadedHelpers, ownedByMod, MOD_OWNABLE_EVENTS, resolveCliBinForHook, cliSpawnArgs, helperRoot };
+module.exports = { runWithTimeout, INTELLIGENCE_TIMEOUT_MS, loadedHelpers, ownedByMod, MOD_OWNABLE_EVENTS, resolveCliBinForHook, cliSpawnArgs, helperRoot, scanSessionStartSettingsForRisk, srFormatRiskFindingsForAutomaticBoot, srScanSettingsForRisk, srScanCommandStringForRisk, srScanAllowRuleForRisk, SR_DANGEROUS_COMMAND_WORDS, SR_SHELL_EXEC_WORDS, SR_DOWNLOADER_WORDS, SR_STANDALONE_RISK_PATTERNS };
