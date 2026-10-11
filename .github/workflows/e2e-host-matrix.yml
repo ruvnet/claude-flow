@@ -11,6 +11,8 @@ on:
       - 'v3/@claude-flow/cli/bin/**'
       - 'v3/@claude-flow/cli/src/mcp-server.ts'
       - 'v3/@claude-flow/codex/src/**'
+      - 'plugins/ruflo-console/tui/**'
+      - 'plugins/ruflo-console/hooks/views/standalone-pane.ts'
       - '.github/workflows/e2e-host-matrix.yml'
   schedule:
     - cron: '23 5 * * 1'
@@ -39,6 +41,11 @@ jobs:
         run: |
           pnpm --recursive --no-bail run build || true
           test -f @claude-flow/cli/dist/src/index.js || { echo "::error::the CLI did not build"; exit 1; }
+      - name: Build the TUI bundle (esbuild only, no root install; the tui leg skips cleanly without it)
+        run: |
+          mkdir -p "$RUNNER_TEMP/esb"
+          npm install --prefix "$RUNNER_TEMP/esb" --ignore-scripts esbuild@0.27.2
+          RUFLO_ESBUILD_DIR="$RUNNER_TEMP/esb" node plugins/ruflo-console/scripts/build-tui.mjs
       - name: Install the pinned Codex (0.162.0)
         run: |
           npm install -g @openai/codex@0.162.0

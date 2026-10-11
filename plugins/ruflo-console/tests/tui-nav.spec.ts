@@ -1,5 +1,5 @@
 /**
- * `ruflo tui` phase 2 (ADR-489): the five pages, the page bar and keys, resize and narrow terminals, and the chrome that must not
+ * `ruflo tui` phase 2 (ADR-489): the six pages, the page bar and keys, resize and narrow terminals, and the chrome that must not
  * be drawn on a host with no Claude session and no mouse. Real ruflo files on disk, an injected terminal, no engine.
  *   npx vitest run plugins/ruflo-console/tests/tui-nav.spec.ts
  */
@@ -64,13 +64,13 @@ const plain = (screen: string) => screen.replace(/\u001b\[[0-9;?]*[A-Za-z]/g, ''
 const lastFrame = (chunks: string[]) => plain((chunks.join('').split(`${ESC}[H`).pop() ?? '').replace(/\r/g, '')).split('\n')
 
 describe('keys', () => {
-  it('maps digits and letters to the five pages, tab and arrows to neighbours, and ignores the rest', () => {
-    expect(TUI_VIEWS).toEqual(['overview', 'cost', 'swarm', 'events', 'missions'])
-    expect(['1', '2', '3', '4', '5'].map(keyOf)).toEqual(TUI_VIEWS.map(page => ({ page })))
-    expect([keyOf('o'), keyOf('c'), keyOf('s'), keyOf('e'), keyOf('m')]).toEqual([{ page: 'overview' }, { page: 'cost' }, { page: 'swarm' }, { page: 'events' }, { page: 'missions' }])
+  it('maps digits and letters to the pages, tab and arrows to neighbours, and ignores the rest', () => {
+    expect(TUI_VIEWS).toEqual(['overview', 'cost', 'swarm', 'events', 'missions', 'ai'])
+    expect(['1', '2', '3', '4', '5', '6'].map(keyOf)).toEqual(TUI_VIEWS.map(page => ({ page })))
+    expect([keyOf('o'), keyOf('c'), keyOf('s'), keyOf('e'), keyOf('m'), keyOf('a')]).toEqual([{ page: 'overview' }, { page: 'cost' }, { page: 'swarm' }, { page: 'events' }, { page: 'missions' }, { page: 'ai' }])
     expect([keyOf('\t'), keyOf(`${ESC}[C`), keyOf('l')]).toEqual(['next', 'next', 'next'])
     expect([keyOf(`${ESC}[Z`), keyOf(`${ESC}[D`), keyOf('h')]).toEqual(['prev', 'prev', 'prev'])
-    expect([keyOf('0'), keyOf('6'), keyOf('9'), keyOf('x'), keyOf(`${ESC}]0;t\u0007`)]).toEqual([null, null, null, null, null])
+    expect([keyOf('0'), keyOf('7'), keyOf('9'), keyOf('x'), keyOf(`${ESC}]0;t\u0007`)]).toEqual([null, null, null, null, null])
   })
 
   it('has no key for Room: its content is a message box and Claude sessions this host does not have', () => {
@@ -81,26 +81,26 @@ describe('keys', () => {
 
 describe('page bar and key line', () => {
   it('lists the pages with the current one marked, and shortens to a position when narrow', () => {
-    expect(navLine('swarm', 100, 'none')).toBe(' 1 Overview   2 Cost  [3 Swarm]  4 Events   5 Missions ')
+    expect(navLine('swarm', 100, 'none')).toBe(' 1 Overview   2 Cost  [3 Swarm]  4 Events   5 Missions   6 AI ')
     expect(navLine('swarm', 100, '256')).toContain(`${ESC}[7m 3 Swarm ${ESC}[0m`)
-    expect(navLine('swarm', 59, 'none')).toBe('‹ 3/5 Swarm ›')
+    expect(navLine('swarm', 59, 'none')).toBe('‹ 3/6 Swarm ›')
     expect(widthOf(navLine('missions', 60, '256'))).toBeLessThanOrEqual(60)
   })
 
   it('has a short key line for a narrow terminal and says read-only on a wide one', () => {
     expect(keyLine(100)).toContain('read-only')
     expect(keyLine(100)).toContain('q quit')
-    expect(keyLine(50)).toBe('1-5 page · j/k scroll · q quit')
-    expect(keyLine(25)).toBe('1-5 page · q quit')
+    expect(keyLine(50)).toBe('1-6 page · j/k scroll · q quit')
+    expect(keyLine(25)).toBe('1-6 page · q quit')
     for (const columns of [40, 50, 59, 60, 70, 80, 99, 120]) for (const place of ['', ' · 1-18/42']) expect(widthOf(keyLine(columns, place)), `${columns}${place}`).toBeLessThanOrEqual(columns)
   })
 })
 
 describe('every page, on a host with no Claude session and no mouse', () => {
   for (const columns of [80, 120]) {
-    it(`draws all five pages at ${columns} columns, no wider than the terminal, with none of Claude Code's chrome`, async () => {
+    it(`draws all six pages at ${columns} columns, no wider than the terminal, with none of Claude Code's chrome`, async () => {
       for (const view of TUI_VIEWS) {
-        const session = openSession({ cwd: project, home: join(root, 'home') })
+        const session = openSession({ cwd: project, home: join(root, 'home'), aiPage: {} })
 
         try {
           session.show(view)
@@ -171,7 +171,7 @@ describe('the terminal loop', () => {
     t.press('q')
     await expect(running).resolves.toBe(0)
 
-    const bars = plain(t.out.join('')).match(/1 Overview {1,3}2 Cost {1,3}3 Swarm {1,3}4 Events {1,3}5 Missions/g) ?? []
+    const bars = plain(t.out.join('')).match(/1 Overview {1,3}2 Cost {1,3}3 Swarm {1,3}4 Events {1,3}5 Missions {1,3}6 AI/g) ?? []
 
     expect(bars.length).toBeGreaterThanOrEqual(5)
     expect(t.out.join('')).toContain(`${ESC}[7m 3 Swarm ${ESC}[0m`)
@@ -194,7 +194,7 @@ describe('the terminal loop', () => {
 
       expect(frame, `${rows} rows`).toHaveLength(rows)
       expect(frame[0]).toContain('4 Events')
-      expect(frame[rows - 1]).toMatch(/^1-5 or o c s e m page/)
+      expect(frame[rows - 1]).toMatch(/^1-6 or o c s e m a page/)
     }
   })
 
@@ -222,8 +222,8 @@ describe('the terminal loop', () => {
     const running = runTui({ cwd: project, home: join(root, 'home') }, narrow.io)
 
     await settle()
-    expect(plain(narrow.out.join(''))).toContain('‹ 1/5 Overview ›')
-    expect(plain(narrow.out.join(''))).toContain('1-5 page · j/k scroll · q quit')
+    expect(plain(narrow.out.join(''))).toContain('‹ 1/6 Overview ›')
+    expect(plain(narrow.out.join(''))).toContain('1-6 page · j/k scroll · q quit')
     for (const line of lastFrame(narrow.out)) expect(widthOf(line), line).toBeLessThanOrEqual(52)
 
     const before = narrow.out.length
@@ -246,7 +246,7 @@ describe('the terminal loop', () => {
 
       expect(code).toBe(0)
       expect(text).not.toContain(ESC)
-      expect(text.split('\n')[0]).toContain(`[${{ overview: '1 Overview', cost: '2 Cost', swarm: '3 Swarm', events: '4 Events', missions: '5 Missions' }[view]}]`)
+      expect(text.split('\n')[0]).toContain(`[${{ overview: '1 Overview', cost: '2 Cost', swarm: '3 Swarm', events: '4 Events', missions: '5 Missions', ai: '6 AI' }[view]}]`)
     }
   })
 })

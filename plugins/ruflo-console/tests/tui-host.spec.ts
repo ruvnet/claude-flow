@@ -103,7 +103,8 @@ describe('the Claude Code engine is refused, not faked', () => {
     for (const refused of [host.fetchText('https://example.com'), host.askChoice('ok?', ['yes']), host.openPane({} as never), host.panes(), host.settings(), host.rufloSnapshot(), host.submitPrompt('hi'), host.runSlash('x', '')]) await expect(refused).rejects.toThrow(/not available in the standalone terminal/)
     expect(() => host.spawn(['ruflo'])).toThrow()
     expect(host.toolCall).toBeUndefined()
-    expect(host.httpSend).toBeUndefined()
+    // httpSend exists for the AI page but sends nothing unless the host was built with the AI options (host tests in tui-ai-host.spec.ts).
+    await expect(host.httpSend!('https://openrouter.ai/x', { method: 'POST', headers: {}, body: '{}' })).resolves.toMatchObject({ ok: false, status: 0 })
     await expect(host.fillPrompt('x')).resolves.toBe(false)
   })
 
