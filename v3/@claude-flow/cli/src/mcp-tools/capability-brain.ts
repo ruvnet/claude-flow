@@ -124,7 +124,7 @@ export const RUFLO_CLI_COMMANDS = [
   'ruvector', 'benchmark', 'guidance', 'appliance', 'appliance-advanced',
   'transfer-store', 'cleanup', 'autopilot', 'gaia-bench', 'metaharness',
   'eject', 'funnel', 'settings', 'auth', 'proxy', 'advisor', 'spinner',
-  'announcements',
+  'announcements', 'dashboard',
 ] as const;
 
 export interface ImplementationLoopStep {

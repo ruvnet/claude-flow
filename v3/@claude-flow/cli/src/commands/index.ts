@@ -99,6 +99,8 @@ const commandLoaders: Record<string, CommandLoader> = {
   spinner: () => import('./spinner.js'),
   // ruflo as a Claude Code mod: function hooks, early access (ADR-404)
   mods: () => import('./mods.js'),
+  // Hosted dashboard connector (ADR-482) - default OFF, outbound-only, signed
+  dashboard: () => import('./dashboard.js'),
   // ADR-406 command catalog and mission control (interim homes until mods.ts follow-up)
   catalog: () => import('./catalog.js'),
   mission: () => import('./mission.js'),
