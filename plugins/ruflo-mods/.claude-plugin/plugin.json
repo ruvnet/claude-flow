@@ -1,7 +1,7 @@
 {
   "name": "ruflo-mods",
   "description": "ruflo as a Claude Code mod (function hooks, ADR-404): in-process prompt routing, edit learning signals, tighten-only tool checks from ruflo policy, the cost-tracker budget ladder, a mod trust gate for newly installed mods, and the $.ruflo noun other mods compose their status with. Opt-in and removable: the classic hook-handler hooks stay the default and take every event back whenever the mod is not loaded.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

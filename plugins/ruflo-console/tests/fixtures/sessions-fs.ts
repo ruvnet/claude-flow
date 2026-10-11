@@ -62,7 +62,12 @@ export function fsOn(disk: Disk, withTail = true): SessionFs {
     fs.readTail = async (path, bytes) => {
       disk.tails.push(path)
 
-      return (disk.files.get(path)?.content ?? '').slice(-bytes)
+      const file = disk.files.get(path)
+
+      // A refused read is refused whichever call makes it.
+      if (file === undefined || disk.failRead.has(path)) throw new Error('refused')
+
+      return file.content.slice(-bytes)
     }
   }
 

@@ -28,13 +28,23 @@ import { VIEWS, type State, type ViewId } from './state'
 import { XRUV } from './xruv'
 import { VEC, vecSpec, vecWhy } from './vector'
 import { selection } from './views/select'
+import { plain } from './data/parse'
 
 export type PaletteRun =
   | { kind: 'spec'; spec: ActionSpec | null; why: string }
   | { kind: 'view'; view: ViewId }
   | { kind: 'drill'; agentId: string }
   | { kind: 'text'; keyword: string; make: (text: string) => ActionSpec | null; why?: (text: string) => string }
-  | { kind: 'command'; name: 'refresh' | 'help' | 'close' }
+  | { kind: 'command'; name: 'refresh' | 'help' | 'close' | 'withdraw' }
+
+/** The entry Claude uses to take back its own waiting ask; it is listed only while a card Claude raised is waiting. */
+export const WITHDRAW_ID = 'ask-withdraw'
+
+/** A card Claude raised by its own console_run, of the write class: the only kind it may withdraw (the runner also matches the card's id). */
+export const canWithdraw = (state: State): boolean => state.pending?.source === 'claude' && state.pending.origin === 'console_run' && state.pending.kind === 'write'
+
+/** How Claude can stop waiting on its own card, for a refusal's text: withdraw it. Any other card waits for the person or its window. */
+export const withdrawHint = (state: State): string => (canWithdraw(state) ? `, or withdraw your own ask with console_run ${WITHDRAW_ID}` : '')
 
 export type PaletteEntry = { id: string; label: string; group: string; run: PaletteRun }
 
@@ -192,6 +202,8 @@ export function paletteEntries(state: State, nowMs: number): PaletteEntry[] {
 
   for (const view of VIEWS) add(`view-${view.id}`, 'views', `go to ${view.label}${view.key === '' ? '' : ` (${view.key})`}`, { kind: 'view', view: view.id })
 
+  // Claude can take back its own waiting ask (never the person's): a read, it runs nothing and only clears the card.
+  if (canWithdraw(state) && state.pending !== null) add(WITHDRAW_ID, 'console', `withdraw Claude's waiting ask ("${plain(state.pending.label, 60)}"): nothing runs`, { kind: 'command', name: 'withdraw' })
   add('refresh', 'console', 'refresh now', { kind: 'command', name: 'refresh' })
   add('help', 'console', 'help: keys and commands', { kind: 'command', name: 'help' })
   add('close', 'console', 'close the console', { kind: 'command', name: 'close' })

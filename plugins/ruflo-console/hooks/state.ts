@@ -150,7 +150,7 @@ export function optionsOf(raw: PluginOptions | undefined): Options {
 }
 
 /** A mutating action waiting for the person's second press; `shows` is the command line when it is not a ruflo one. */
-export type Pending = { /** Which ask this is (runner.ts hands out ids in order): a Yes names the card it answers, so another card that took its place is never the one run. */ id?: number; label: string; args: readonly string[]; expect: string; askedAtMs: number; shows?: string; note?: string; /** The kind of action, when it may be remembered (see remember.ts). */ rememberKey?: string; /** Where in its view the ask came from. */ scope?: string; /** The page that raised it: the ask shows in full there, and as a pointer on every other page. */ view?: string; /** Who raised it: Claude's tool call or the person's own action (ADR-450 T14). */ source?: 'claude' | 'you'; /** The class the entry declares for itself; the gate takes the stricter of this and the class read from its words. */ declared?: 'write' | 'network' | 'install' | 'spend' | 'delete'; /** The class of action, set only on Claude's asks. */ kind?: 'write' | 'network' | 'install' | 'spend' | 'delete' }
+export type Pending = { /** Which ask this is (runner.ts hands out ids in order): a Yes names the card it answers, so another card that took its place is never the one run. */ id?: number; label: string; args: readonly string[]; expect: string; askedAtMs: number; shows?: string; note?: string; /** The kind of action, when it may be remembered (see remember.ts). */ rememberKey?: string; /** Where in its view the ask came from. */ scope?: string; /** The page that raised it: the ask shows in full there, and as a pointer on every other page. */ view?: string; /** Who raised it: Claude's tool call or the person's own action (ADR-450 T14). */ source?: 'claude' | 'you'; /** The class the entry declares for itself; the gate takes the stricter of this and the class read from its words. */ declared?: 'write' | 'network' | 'install' | 'spend' | 'delete'; /** Set only on a card Claude raised by its own direct console_run in this session: the one kind of card it may withdraw (runner.ts also matches the id). */ origin?: 'console_run'; /** The class of action, set only on Claude's asks. */ kind?: 'write' | 'network' | 'install' | 'spend' | 'delete'; /** The number of the Claude call that started this ask (ActionSpec.byCall): only that call settles it. */ byCall?: number }
 
 /** The MetaHarness lab's last run: what it was, how it exited, its cost note, and its output as lines to scroll. */
 export type LabResult = { id: string; label: string; ok: boolean; exitCode: number | null; note?: string; lines: string[]; atMs: number }
@@ -173,7 +173,7 @@ export type TermSessions = { codex?: string; claude?: string }
 export const termStoreKeyOf = (cwd: string): string => `ruflo-console/term:${cwd}`
 
 /** What an action did: what ran, how it exited, whether the disk shows the change, and anything it printed to show. */
-export type Outcome = { label: string; ok: boolean; verified: 'yes' | 'no' | 'n/a'; detail: string; atMs: number; lines?: string[] }
+export type Outcome = { label: string; ok: boolean; verified: 'yes' | 'no' | 'n/a'; detail: string; atMs: number; lines?: string[]; /** A confirm card that nobody answered within PENDING_TTL_MS and was cleared unrun (the Room shows it briefly). */ expired?: boolean }
 
 /** One module seen registering since the console loaded, as the engine's scan named it. */
 export type ModSeen = { name: string; provenance: string; isLoaded: boolean; reason?: string; atMs: number }
@@ -275,6 +275,10 @@ export type State = {
   drill: { agentId: string | null; logs: string[] | null; logsAtMs: number }
   palette: { isOpen: boolean; query: string; index: number; context: 'all' | 'selection' }
   pending: Pending | null
+  /** The id of the confirm card last put in front of the person (drawn in the shown pane, or named in a typed answer): the one card a bare `/ruflo yes` may answer. */
+  shownCard: number | null
+  /** The last field Enter that raised a card: which entry and text, and the card's id, so Enter again confirms that card and no other that merely reads the same. */
+  askedAgain: { entry: string; text: string; card: number } | null
   /** The key of the element last pressed, and the one the last ask or answer came from: the page draws them right there (views/attention.ts). */
   lastPressed: string | null
   origin: string | null
@@ -309,7 +313,7 @@ export type State = {
     scroll: number
     unseen: number
     /** The text the last Enter asked about: Enter on the same text again confirms it. */
-    asked: { key: string; label: string } | null
+    asked: { key: string; label: string; card: number | null } | null
   }
   /** The skills view: installed skills, the last search, and the change running now. */
   skills: SkillsState
@@ -328,7 +332,7 @@ export type State = {
   /** The Workflows page: the last read of Claude Code's run folders, the cursor, the inspector tab (wf-state.ts). */
   wf: WfState
   /** Claude's control of the console (ADR-444): paused by the person, the call counts, and the log the dashboard shows. */
-  control: { paused: boolean; calls: number; turnCalls: number; /** Model-driven actions this session, by class (ADR-450 T8 budget). */ used: Record<string, number>; log: ControlEntry[]; /** Until when Claude counts as driving (a tool call extends it): the console does not spend a second Claude turn on guidance meanwhile. */ drivingUntilMs: number; /** Claude's console_run / console_set calls running now: an ask that lands while one runs is settled (gated) by that call; one that lands with none running (console_open and console_state settle nothing) is checked by the runner. */ activeCalls: number; /** True while one of Claude's tool calls is running: a person's "always allow" answer must not let Claude's call skip the level and confirm checks (ADR-444). */ viaModel: boolean }
+  control: { paused: boolean; calls: number; turnCalls: number; /** Model-driven actions this session, by class (ADR-450 T8 budget). */ used: Record<string, number>; log: ControlEntry[]; /** Until when Claude counts as driving (a tool call extends it): the console does not spend a second Claude turn on guidance meanwhile. */ drivingUntilMs: number; /** Claude's console_run / console_set calls running now: an ask that lands while one runs is settled (gated) by that call; one that lands with none running (console_open and console_state settle nothing) is checked by the runner. */ activeCalls: number; /** True while one of Claude's tool calls is running: a person's "always allow" answer must not let Claude's call skip the level and confirm checks (ADR-444). */ viaModel: boolean; /** The last number handed to a console_run / console_set call, and the number of the call whose synchronous start is running now (null when none is). */ callSeq: number; callTag: number | null }
 }
 
 export function newState(raw: PluginOptions | undefined): State {
@@ -388,6 +392,8 @@ export function newState(raw: PluginOptions | undefined): State {
     drill: { agentId: null, logs: null, logsAtMs: 0 },
     palette: { isOpen: false, query: '', index: 0, context: 'all' },
     pending: null,
+    shownCard: null,
+    askedAgain: null,
     lastPressed: null,
     origin: null,
     outcome: null,
@@ -406,7 +412,7 @@ export function newState(raw: PluginOptions | undefined): State {
     timers: new Map(),
     stats: { renders: [], refreshes: [], frames: [] },
     wf: emptyWf(),
-    control: { paused: false, calls: 0, turnCalls: 0, used: {}, log: [], drivingUntilMs: 0, activeCalls: 0, viaModel: false },
+    control: { paused: false, calls: 0, turnCalls: 0, used: {}, log: [], drivingUntilMs: 0, activeCalls: 0, viaModel: false, callSeq: 0, callTag: null },
   }
 }
 

@@ -6,9 +6,10 @@
  * and almost nothing while it is closed. Nothing here starts a process, makes a model call, or touches a session it lists.
  */
 import { buildIndex, type Index, type Scanned } from './data/sessions-index'
-import { attentionOf, countsOf, markViewed, viewedOf, type AttentionItem, type Viewed } from './data/sessions-attention'
+import { attentionOf, countsOf, markViewed, needsRewrite, viewedOf, type AttentionItem, type Viewed } from './data/sessions-attention'
 import { claudeAdapter } from './data/harness-claude'
 import { codexAdapter } from './data/harness-codex'
+import { passBudget } from './data/harness-track'
 import { rufloAdapter, type LedgerFacts, type RufloInput } from './data/harness-ruflo'
 import type { HarnessAdapter, SessionFs } from './data/harness'
 import { mcOf } from './mission-control'
@@ -40,8 +41,13 @@ export type Workspace = {
   /** A line about the last action that could not run, with its reason. */
   note: string
   signature: string
-  /** The counts last written to the summary file, so it is rewritten only when one changes. */
+  /** The counts last written to the summary file, so it is rewritten only when one changes or the heartbeat is due. */
   summary: string
+  /** When the summary file was last written. */
+  summaryAtMs: number
+  /** After a failed summary write: how long the current wait is, and when the next attempt may run. */
+  writeBackoffMs: number
+  writeRetryAtMs: number
   timer: { cancel: () => void } | null
 }
 
@@ -59,7 +65,7 @@ export function workspaceOf(state: State): Workspace {
   let found = spaces.get(state)
 
   if (found === undefined) {
-    found = { adapters: [claudeAdapter(), codexAdapter(), rufloAdapter(() => rufloInputOf(state, Date.now()))], index: null, selected: null, cursor: 0, viewed: null, scanning: false, lastScanMs: 0, lastFullMs: 0, scanTimes: [], shown: new Map(), note: '', signature: '', summary: '', timer: null }
+    found = { adapters: [claudeAdapter(), codexAdapter(), rufloAdapter(() => rufloInputOf(state, Date.now()))], index: null, selected: null, cursor: 0, viewed: null, scanning: false, lastScanMs: 0, lastFullMs: 0, scanTimes: [], shown: new Map(), note: '', signature: '', summary: '', summaryAtMs: 0, writeBackoffMs: 0, writeRetryAtMs: 0, timer: null }
     spaces.set(state, found)
   }
 
@@ -82,7 +88,8 @@ export async function scanSessions(state: State, host: Pick<Host, 'fs' | 'invali
   const started = performance.now()
 
   try {
-    const env = { fs: host.fs as SessionFs, claudeDir: state.configDir, codexDir: codexDirOf(state), nowMs, full }
+    // One read budget for the whole pass, shared by every adapter (ADR-486 §2.4).
+    const env = { fs: host.fs as SessionFs, claudeDir: state.configDir, codexDir: codexDirOf(state), nowMs, full, budget: passBudget() }
     const scans: Scanned[] = await Promise.all(
       ws.adapters.map(async adapter => ({
         id: adapter.id,
@@ -159,8 +166,12 @@ export function commitViewed(state: State, host: Pick<Host, 'storeSet' | 'invali
   return true
 }
 
-/** Where the counts-only summary ruflo-mods can show lives: the console's own state folder, in a ruflo project, rewritten only when a count changes. */
+/** Where the counts-only summary ruflo-mods can show lives: the console's own state folder, in a ruflo project, rewritten when a count changes or the heartbeat is due. */
 export const ATTENTION_FILE = '.claude-flow/console/attention.json'
+/** The file is rewritten at least this often while the workspace runs, so a reader can tell a quiet queue from a console that stopped (ruflo-mods hooks/attention.ts ATTENTION_STALE_MS). */
+export const ATTENTION_HEARTBEAT_MS = 5 * 60_000
+/** The first wait after a failed write of the summary; it doubles up to ATTENTION_HEARTBEAT_MS. */
+export const WRITE_RETRY_MS = 30_000
 
 export async function mirrorAttention(state: State, host: Pick<Host, 'fs' | 'run'>, nowMs: number = Date.now()): Promise<void> {
   const ws = workspaceOf(state)
@@ -170,13 +181,25 @@ export async function mirrorAttention(state: State, host: Pick<Host, 'fs' | 'run
   const counts = attentionCounts(state)
   const key = `${counts['needs-approval']}/${counts.question}/${counts.failed}/${counts['completed-unread']}`
 
-  if (key === ws.summary) return
+  if (key === ws.summary && nowMs - ws.summaryAtMs < ATTENTION_HEARTBEAT_MS) return
+  if (nowMs < ws.writeRetryAtMs) return
 
   ws.summary = key
+  ws.summaryAtMs = nowMs
   // Counts only: no title, path or transcript text is in this file.
   const text = `${JSON.stringify({ schema: 'ruflo-console.attention/1', approve: counts['needs-approval'], question: counts.question, failed: counts.failed, unread: counts['completed-unread'], atMs: nowMs })}\n`
 
-  if ((await replaceFile(host, state.cwd, `${state.cwd.replace(/\/+$/, '')}/${ATTENTION_FILE}`, text)) !== null) ws.summary = ''
+  if ((await replaceFile(host, state.cwd, `${state.cwd.replace(/\/+$/, '')}/${ATTENTION_FILE}`, text)) === null) {
+    ws.writeBackoffMs = 0
+    ws.writeRetryAtMs = 0
+
+    return
+  }
+
+  // A failed write is retried, but not every tick: 30 s, doubling to 5 minutes, until one succeeds.
+  ws.summary = ''
+  ws.writeBackoffMs = ws.writeBackoffMs === 0 ? WRITE_RETRY_MS : Math.min(ATTENTION_HEARTBEAT_MS, ws.writeBackoffMs * 2)
+  ws.writeRetryAtMs = nowMs + ws.writeBackoffMs
 }
 
 export type SessionActions = {
@@ -227,20 +250,33 @@ export function sessionActions(state: State, host: Pick<Host, 'fs' | 'invalidate
   }
 }
 
+/**
+ * Loads the viewed map. The baseline is the first time this queue ever ran: older completions are history, not unread. It is stored so a
+ * restart keeps it. A stored value that was not a Viewed, or held a stamp or baseline in the future, is written back repaired, once.
+ */
+export async function loadViewed(state: State, host: Pick<Host, 'storeGet' | 'storeSet'>, nowMs: number = Date.now()): Promise<void> {
+  const ws = workspaceOf(state)
+  let raw: unknown
+
+  try {
+    raw = await host.storeGet(VIEWED_KEY)
+  } catch {
+    ws.viewed = viewedOf(null, nowMs)
+
+    return
+  }
+
+  ws.viewed = viewedOf(raw, nowMs)
+  if (needsRewrite(raw, ws.viewed)) await host.storeSet(VIEWED_KEY, ws.viewed).catch(() => undefined)
+}
+
 /** Starts the watcher once. A closed pane scans rarely; a shown one every second (stat-only unless something changed). */
 export function startSessions(state: State, host: Host): void {
   const ws = workspaceOf(state)
 
   if (ws.timer !== null) return
 
-  // The baseline is the first time this queue ever ran: older completions are history, not unread. It is stored so a restart keeps it.
-  void host.storeGet(VIEWED_KEY).then(
-    raw => {
-      ws.viewed = viewedOf(raw, Date.now())
-      if (typeof raw !== 'object' || raw === null) void host.storeSet(VIEWED_KEY, ws.viewed).catch(() => undefined)
-    },
-    () => (ws.viewed = viewedOf(null, Date.now())),
-  )
+  void loadViewed(state, host)
 
   ws.timer = host.every(FAST_MS, () => {
     if (!state.options.sessionWorkspace) return
