@@ -531,6 +531,7 @@ export class Progress {
   }
 
   render(): void {
+    if (!this.formatter.supportsInteractiveOutput() || this.formatter.isQuiet()) return;
     const bar = this.formatter.progressBar(this.current, this.total, this.width, this.showPercentage);
 
     let output = bar;
@@ -548,7 +549,7 @@ export class Progress {
 
     // Clear previous line and write new
     if (this.lastRender) {
-      process.stdout.write('\r' + ' '.repeat(this.lastRender.length) + '\r');
+      process.stdout.write('\r\x1b[2K');
     }
 
     process.stdout.write(output);
@@ -558,7 +559,9 @@ export class Progress {
   finish(): void {
     this.current = this.total;
     this.render();
-    process.stdout.write('\n');
+    if (this.formatter.supportsInteractiveOutput() && !this.formatter.isQuiet()) {
+      process.stdout.write('\n');
+    }
   }
 
   private formatTime(ms: number): string {
