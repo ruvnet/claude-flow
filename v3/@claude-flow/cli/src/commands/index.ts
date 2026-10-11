@@ -99,6 +99,8 @@ const commandLoaders: Record<string, CommandLoader> = {
   spinner: () => import('./spinner.js'),
   // ruflo as a Claude Code mod: function hooks, early access (ADR-404)
   mods: () => import('./mods.js'),
+  // ADR-489: the console in a terminal of its own (read-only Overview and Cost); loads a bundle from this CLI's own install.
+  tui: () => import('./tui.js'),
   // ADR-406 command catalog and mission control (interim homes until mods.ts follow-up)
   catalog: () => import('./catalog.js'),
   mission: () => import('./mission.js'),
