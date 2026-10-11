@@ -43,6 +43,10 @@ const CONFIG = {
 };
 
 const CWD = process.cwd();
+// The helper's own install root: the project for a project-local helper,
+// $HOME for a home-level one. The CLI is resolved from here, never from CWD,
+// so a home-level statusline does not run code the opened project supplies.
+const HELPER_ROOT = path.resolve(__dirname, '..', '..');
 
 // ─── Delegation cache ───────────────────────────────────────────
 // Cache the CLI JSON result so rapid prompt re-renders (Claude Code
@@ -107,9 +111,9 @@ function resolveCliBinCandidates() {
     const home = os.homedir();
     candidates.push(
       path.join(home, '.claude', 'plugins', 'marketplaces', 'ruflo', 'bin', 'cli.js'),
-      path.join(CWD, 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
-      path.join(CWD, 'node_modules', 'ruflo', 'bin', 'cli.js'),
-      path.join(CWD, 'v3', '@claude-flow', 'cli', 'bin', 'cli.js'),
+      path.join(HELPER_ROOT, 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
+      path.join(HELPER_ROOT, 'node_modules', 'ruflo', 'bin', 'cli.js'),
+      path.join(HELPER_ROOT, 'v3', '@claude-flow', 'cli', 'bin', 'cli.js'),
     );
     try {
       const binDir = path.dirname(process.execPath);
@@ -233,9 +237,15 @@ function getStatuslineData() {
   // intelligence and an empty promo row (the memo cache that keeps the row
   // populated across CLI hiccups is only ever written from a SUCCESSFUL
   // delegation, so it could never get seeded on Windows either).
+  // These command lines go through a shell, so a path the shell would interpret
+  // (a quote, $, backtick, %, !, newline, or a backslash on POSIX) is never
+  // interpolated: the directory name is chosen by whoever made the checkout.
+  const shellSafe = (p) => !/["`$%!\r\n]/.test(p) && (process.platform === 'win32' || !p.includes('\\'));
   const cmds = resolveCliBinCandidates()
+    .filter((bin) => shellSafe(bin) && shellSafe(process.execPath))
     .map((bin) => '"' + process.execPath + '" "' + bin + '" hooks statusline --json')
-    .concat(['npx --prefer-offline @claude-flow/cli hooks statusline --json']);
+    // --prefix: npx resolves the package from HELPER_ROOT, not the project.
+    .concat(shellSafe(HELPER_ROOT) ? ['npx --prefer-offline --prefix "' + HELPER_ROOT + '" @claude-flow/cli hooks statusline --json'] : []);
   for (const cmd of cmds) {
     try {
       const raw = execSync(

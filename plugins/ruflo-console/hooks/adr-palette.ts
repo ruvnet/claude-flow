@@ -19,9 +19,25 @@ const TO: Record<string, AdrStatus> = { 'adr-accept': 'accepted', 'adr-reject': 
 
 export function adrPalette(state: State): PaletteEntry[] {
   const wired = adrWired(state)
-  const why = 'the ADRs page is not wired yet: open the console first'
+  const adr = adrOf(state)
+  // Why an entry has nothing to run, most basic first: no console in this session, the ADR folder not read yet (the page reads it when opened), then the value itself.
+  const blocked = wired === undefined ? 'the console is not running in this session: open it first (console_open adrs)' : !adr.isLoaded ? 'the ADR folder has not been read this session: open the ADRs page first (console_open adrs), then run it again' : null
+  const numbered = (keyword: string) => (value: string): string => {
+    // adr-supersede takes two numbers; every other entry one, written as "3", "0003" or "adr-3".
+    const words = keyword === 'adr-supersede' ? value.trim().split(/\s+/) : [value.trim()]
+    const missing = words.find(word => docFor(word) === undefined)
+
+    const usage = keyword === 'adr-supersede' ? `type two ADR numbers, the old then the new: "${keyword} 1 3"` : `type the ADR number: "${keyword} 3"`
+
+    if (blocked !== null) return blocked
+    if (missing === undefined || (keyword === 'adr-supersede' && words.length !== 2)) return usage
+
+    const number = NUMBER.exec(missing)?.[1]
+
+    return number === undefined ? usage : `no ADR ${Number(number)} in ${adr.dir ?? 'the ADR folder'}`
+  }
   const local = (label: string, run: () => void, declared?: NonNullable<ActionSpec['declared']>): ActionSpec | null => (wired === undefined ? null : { label, args: [], expect: label, isReadOnly: true, ...(declared !== undefined && { declared }), run: async () => void run() })
-  const text = (keyword: string, make: (value: string) => ActionSpec | null) => ({ kind: 'text' as const, keyword, make: (value: string) => (wired === undefined ? null : make(value)), why: () => why })
+  const text = (keyword: string, make: (value: string) => ActionSpec | null) => ({ kind: 'text' as const, keyword, make: (value: string) => (wired === undefined ? null : make(value)), why: numbered(keyword) })
   const docFor = (value: string) => {
     const match = NUMBER.exec(value.trim())
 
@@ -51,7 +67,7 @@ export function adrPalette(state: State): PaletteEntry[] {
         return doc === undefined ? null : local(`show ADR ${doc.number}`, () => wired?.actions.select(doc.file))
       }),
     },
-    { id: 'adr-init', group: 'adrs', label: 'initialise ADRs here: create the folder and a first record (asks first, never overwrites)', run: { kind: 'spec', spec: wired === undefined ? null : initSpec(state, wired.host, today()), why: adrOf(state).dir === null ? why : 'this project already has an ADR folder' } },
+    { id: 'adr-init', group: 'adrs', label: 'initialise ADRs here: create the folder and a first record (asks first, never overwrites)', run: { kind: 'spec', spec: wired === undefined ? null : initSpec(state, wired.host, today()), why: blocked ?? 'this project already has an ADR folder' } },
     {
       id: 'adr-propose',
       group: 'adrs',
@@ -62,7 +78,7 @@ export function adrPalette(state: State): PaletteEntry[] {
         why: (value: string) => {
           const fit = titleFit(value)
 
-          return wired !== undefined && !fit.ok ? fit.message : why
+          return wired !== undefined && !fit.ok ? fit.message : blocked ?? (adr.dir === null ? 'this project has no ADR folder yet: adr-init first' : 'type a title: "adr-propose Use Postgres"')
         },
       },
     },
@@ -83,7 +99,7 @@ export function adrPalette(state: State): PaletteEntry[] {
     },
     { id: 'adr-attach', group: 'adrs', label: 'adr-attach <number>: attach an ADR to the active mission (Claude and the swarm are told its decision)', run: text('adr-attach', value => needDoc(value, file => wired?.actions.attach(file, true), 'attach ADR N to the active mission', 'write')) },
     { id: 'adr-detach', group: 'adrs', label: 'adr-detach <number>: detach an ADR from the active mission', run: text('adr-detach', value => needDoc(value, file => wired?.actions.attach(file, false), 'detach ADR N from the active mission', 'write')) },
-    { id: 'adr-scope', group: 'adrs', label: 'compare the changed files with the paths in the active mission’s accepted ADRs (paths only)', run: { kind: 'spec', spec: local('compare changed files with the attached ADRs', () => wired?.actions.scope()), why } },
+    { id: 'adr-scope', group: 'adrs', label: 'compare the changed files with the paths in the active mission’s accepted ADRs (paths only)', run: { kind: 'spec', spec: local('compare changed files with the attached ADRs', () => wired?.actions.scope()), why: blocked ?? '' } },
   ].map(entry => ({ ...entry, label: plain(entry.label, 200) })) as PaletteEntry[]
 }
 

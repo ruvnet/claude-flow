@@ -11,7 +11,7 @@ import type { RenderElement } from 'claude-code'
 import { alertsOf, waitingApprovalsOf } from '../data/alerts'
 import { agentLabels } from '../data/parse'
 import { swarmStatusOf } from '../data/swarm-status'
-import { secMemo } from '../secure'
+import { secMemo, securityBand } from '../secure'
 import type { State, ViewId } from '../state'
 import { sparkline } from '../memory-lines'
 import { visibleNotice, type Notice } from '../notices'
@@ -173,10 +173,9 @@ export function barParts(state: State, nowMs: number = Date.now()): BarPart[] {
     parts.push({ text: `ctx ${Math.round(context)}%${context >= 85 ? ' · /compact soon' : ''}`, tone: context >= 80 ? 'attention' : 'plain', go: 'cost', row: 'standing', compact: `ctx ${Math.round(context)}%` })
   }
 
-  const findings = secMemo(state).findings
-  const serious = findings === null ? 0 : findings.counts.critical + findings.counts.high
+  const security = securityBand(secMemo(state).findings)
 
-  if (findings !== null && serious > 0) parts.push({ text: `🔒 ${serious} high or critical`, tone: findings.counts.critical > 0 ? 'attention' : 'plain', go: 'secure', row: 'standing', compact: `🔒 ${serious}` })
+  if (security !== null) parts.push({ text: security.text, tone: security.isAttention ? 'attention' : 'plain', go: 'secure', row: 'standing', compact: security.compact })
   if (state.updateAvailable !== '') parts.push({ text: `⬆ ${state.updateAvailable} available`, tone: 'attention', go: 'settings', row: 'standing' })
 
   return parts

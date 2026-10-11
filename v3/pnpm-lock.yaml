@@ -123,7 +123,7 @@ importers:
         specifier: 3.0.3
         version: link:../codex
       '@claude-flow/mcp':
-        specifier: 3.1.0
+        specifier: 3.1.1
         version: link:../mcp
       '@claude-flow/neural':
         specifier: 3.0.0
@@ -132,7 +132,7 @@ importers:
         specifier: 1.0.1
         version: link:../plugin-agent-federation
       '@claude-flow/security':
-        specifier: 3.0.3
+        specifier: 3.0.4
         version: link:../security
       '@claude-flow/shared':
         specifier: 3.0.2
