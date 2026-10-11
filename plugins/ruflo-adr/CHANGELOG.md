@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-adr`.
 
+## 0.5.6 — 2026-10-11
+- fix: adr-review, `adr graph` and the adr-architect agent called `agentdb_causal-query` and `agentdb_hierarchical-query`, which are not tools; relationships are now read from the `adr-edges` memory namespace (`memory_list`) and the hierarchical lookup uses `agentdb_hierarchical-recall`
+
 ## 0.5.4 — 2026-10-07
 - fix: run the installed ruflo CLI before `npx @claude-flow/cli@latest` in cost-tracker, adr and metaharness
 - fix: use a key separator the memory validator accepts for edges
