@@ -55,7 +55,7 @@ export class JsonMemoryBackend implements MemoryBackend {
   }
 
   private load(): FileShape {
-    if (this.cache) return this.cache;
+    if (this.cache) return structuredClone(this.cache);
     if (!existsSync(this.path)) {
       const fresh: FileShape = {
         version: 1,
@@ -65,7 +65,7 @@ export class JsonMemoryBackend implements MemoryBackend {
         updatedAt: nowIso(),
       };
       this.cache = fresh;
-      return fresh;
+      return structuredClone(fresh);
     }
     try {
       const raw = readFileSync(this.path, 'utf-8');
@@ -74,7 +74,7 @@ export class JsonMemoryBackend implements MemoryBackend {
         throw new Error(`Unsupported memory file version: ${parsed.version}`);
       }
       this.cache = parsed;
-      return parsed;
+      return structuredClone(parsed);
     } catch (err) {
       throw new Error(`memory: failed to load ${this.path}: ${(err as Error).message}`);
     }
@@ -82,14 +82,16 @@ export class JsonMemoryBackend implements MemoryBackend {
 
   private save(state: FileShape): void {
     state.updatedAt = nowIso();
-    this.cache = state;
     const dir = dirname(this.path);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
     const tmp = `${this.path}.tmp.${process.pid}.${Date.now()}`;
-    writeFileSync(tmp, JSON.stringify(state, null, 2), 'utf-8');
+    const serialized = JSON.stringify(state, null, 2);
+    writeFileSync(tmp, serialized, 'utf-8');
     renameSync(tmp, this.path);
+    // Commit only the independently owned representation actually persisted.
+    this.cache = JSON.parse(serialized);
   }
 
   private isExpired(entry: MemoryEntry): boolean {
