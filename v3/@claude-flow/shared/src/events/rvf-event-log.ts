@@ -64,6 +64,9 @@ export class RvfEventLog extends EventEmitter {
   private config: Required<RvfEventLogConfig>;
   private initialized = false;
 
+  /** Files whose incomplete tails could not be repaired because they are read-only. */
+  private readOnlyFiles = new Set<string>();
+
   /**
    * All events kept in insertion order.
    * Rebuilt from the file on initialize().
@@ -146,6 +149,7 @@ export class RvfEventLog extends EventEmitter {
     this.aggregateIndex.clear();
     this.aggregateVersions.clear();
     this.snapshots.clear();
+    this.readOnlyFiles.clear();
     this.initialized = false;
 
     this.emit('shutdown');
@@ -383,12 +387,25 @@ export class RvfEventLog extends EventEmitter {
     }
 
     if (recoverableTail && offset < buf.length) {
-      truncateSync(filePath, offset);
+      try {
+        truncateSync(filePath, offset);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'EACCES' && code !== 'EROFS' && code !== 'EPERM') throw error;
+        // Preserve readable history but never append behind an unreadable tail.
+        this.readOnlyFiles.add(filePath);
+        if (this.config.verbose) {
+          console.warn(`[RvfEventLog] Read-only log has an unrepaired tail: ${filePath}`);
+        }
+      }
     }
   }
 
   /** Append a single record to an RVF file. */
   private appendRecord(filePath: string, record: unknown): void {
+    if (this.readOnlyFiles.has(filePath)) {
+      throw new Error(`[RvfEventLog] Read-only log has an unrepaired tail; append refused: ${filePath}`);
+    }
     const json = JSON.stringify(record);
     const payload = Buffer.from(json, 'utf8');
     const lengthBuf = Buffer.allocUnsafe(LENGTH_PREFIX_BYTES);
