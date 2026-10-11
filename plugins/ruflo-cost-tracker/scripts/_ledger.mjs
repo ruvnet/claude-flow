@@ -15,7 +15,9 @@
 //           skip events whose total did not move, and treat a total that goes
 //           DOWN (compaction/reset) as a fresh base. Cached input is a SUBSET of
 //           input_tokens, so uncached = input - cached. A forked rollout replays
-//           its parent's events, so events are de-duplicated by timestamp+totals.
+//           its parent's events, so events are de-duplicated by owner+timestamp+totals.
+//           Copied metadata identifies replayed usage; explicit thread markers
+//           restore the helper's ownership without resetting the running total.
 //           The model comes from the latest `turn_context`, not the token event.
 //   grok    `~/.grok/sessions/<urlencoded-cwd>/<session-id>/usage.json` — one row
 //           per turn when `turns[]` is present, else one row from `session`
@@ -104,12 +106,26 @@ export function* codexRows({ sinceMs = 0 } = {}) {
         let effort = '';
         let session = id;
         let project = '';
+        let own = null;
         let prev = null;
         for (const text of lines(file)) {
-          if (!text.includes('"turn_context"') && !text.includes('"token_count"') && !text.includes('"session_meta"')) continue;
+          if (!text.includes('"turn_context"') && !text.includes('"token_count"') && !text.includes('"session_meta"') && !text.includes('"thread_id"')) continue;
           const line = parse(text);
           const payload = line?.payload;
-          if (line?.type === 'session_meta') { session = payload?.id ?? session; project = payload?.cwd ?? project; continue; }
+          if (line?.type === 'session_meta') {
+            if ((payload?.id ?? session) !== session) { model = ''; effort = ''; }
+            session = payload?.id ?? session;
+            project = payload?.cwd ?? project;
+            own ??= { session, project };
+            continue;
+          }
+          const marker = line?.type === 'turn_context' || (line?.type === 'event_msg' &&
+            ['task_started', 'thread_settings_applied'].includes(payload?.type));
+          if (marker && typeof payload?.thread_id === 'string' && payload.thread_id && payload.thread_id !== session) {
+            session = payload.thread_id;
+            project = session === own?.session ? own.project : '';
+            model = ''; effort = '';
+          }
           if (line?.type === 'turn_context') { model = payload?.model ?? model; effort = payload?.effort ?? effort; project = payload?.cwd ?? project; continue; }
           if (payload?.type !== 'token_count' || !payload.info?.total_token_usage) continue;
           const total = payload.info.total_token_usage;
@@ -120,7 +136,7 @@ export function* codexRows({ sinceMs = 0 } = {}) {
           for (const field of FIELDS) delta[field] = n(total[field]) - (prev === null || reset ? 0 : n(prev[field]));
           prev = total;
           if (FIELDS.every(field => delta[field] === 0) || ts < sinceMs) continue;
-          const key = `${line.timestamp}|${total.input_tokens}|${total.output_tokens}`;
+          const key = JSON.stringify([session, line.timestamp, ...FIELDS.map(field => n(total[field]))]);
           if (seenEvents.has(key)) continue;
           seenEvents.add(key);
           const cached = delta.cached_input_tokens;

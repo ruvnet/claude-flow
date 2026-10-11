@@ -657,6 +657,7 @@ node -e "JSON.parse(require('fs').readFileSync('$ROOT/.claude-plugin/plugin.json
 step "45. multi-provider ledger: runtime counting-rule tests + price book + new skills"
 miss=""
 node "$ROOT/scripts/test-ledger.mjs" >/dev/null 2>&1 || miss="$miss test-ledger-failed"
+node --test "$ROOT/scripts/test-codex-ledger.mjs" >/dev/null 2>&1 || miss="$miss test-codex-ledger-failed"
 node -e "const b=JSON.parse(require('fs').readFileSync('$ROOT/data/prices.json'));if(!b.asOf||!b.models.length||b.models.some(m=>!m.source||!m.unit))process.exit(1)" 2>/dev/null || miss="$miss price-book-invalid"
 for s in cost-ledger cost-advise cost-openrouter cost-local; do
   f="$ROOT/skills/$s/SKILL.md"

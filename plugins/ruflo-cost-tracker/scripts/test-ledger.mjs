@@ -49,7 +49,10 @@ const rollout = [
 ];
 jsonl(join(process.env.CODEX_HOME, 'sessions', '2026', '10', '03', 'rollout-a.jsonl'), rollout);
 jsonl(join(process.env.CODEX_HOME, 'archived_sessions', 'rollout-a.jsonl'), rollout); // same rollout archived: active copy wins
-jsonl(join(process.env.CODEX_HOME, 'sessions', '2026', '10', '03', 'rollout-fork.jsonl'), [{ type: 'turn_context', payload: { model: 'gpt-5.3-codex' } }, event(10, total(1000, 800, 100)), event(11, total(3000, 2600, 300))]); // replayed parent history
+jsonl(join(process.env.CODEX_HOME, 'sessions', '2026', '10', '03', 'rollout-fork.jsonl'), [
+  { type: 'session_meta', payload: { id: 'fork', cwd: '/y' } },
+  ...rollout.slice(0, 5), // copied parent metadata and usage, before any helper activity
+]);
 
 // ── Grok: usage.json with turns[] → one row per turn; cached ⊂ input; project from encoded folder / summary.
 writeFileSync(join(grokSession, 'usage.json'), JSON.stringify({
