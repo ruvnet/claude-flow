@@ -40,7 +40,7 @@ export async function openrouterLeg({ cli, live }) {
       const c2 = await mcpClient(cli.cmd, [...cli.args, 'mcp', 'start'], { cwd: sb.project('p2'), env: { ...keyless, OPENROUTER_BASE_URL: bad.url } })
       await c2.tool('agent_spawn', { agentType: 'coder', agentId: 'e2e-or' })
       const e = await c2.tool('agent_execute', { agentId: 'e2e-or', prompt: 'x' })
-      rec.check(`stub: provider ${status} is reported as a failure, not a success`, e.json?.success === false && /openrouter|${status}|stub/i.test(text(e)) && !text(e).includes('stub-key-not-a-real-credential'), text(e).slice(0, 200))
+      rec.check(`stub: provider ${status} is reported as a failure, not a success`, e.json?.success === false && new RegExp(`openrouter|${status}|stub`, "i").test(text(e)) && !text(e).includes('stub-key-not-a-real-credential'), text(e).slice(0, 200))
       c2.close(); await bad.close()
     }
   } catch (e) { rec.fail('stub leg ran to completion', String(e?.message ?? e)) }
