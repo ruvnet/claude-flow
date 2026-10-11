@@ -25,7 +25,7 @@ export async function openrouterLeg({ cli, live }) {
   const rec = recorder('openrouter')
   const sb = sandbox('e2e-or.')
   const stub = await stubOpenRouter({ reply: 'STUB-HELLO' })
-  const keyless = { ...sb.env, OPENROUTER_API_KEY: 'sk-or-v1-0000000000000000stub', OPENROUTER_BASE_URL: stub.url, RUFLO_PROVIDER: 'openrouter' }
+  const keyless = { ...sb.env, OPENROUTER_API_KEY: 'stub-key-not-a-real-credential', OPENROUTER_BASE_URL: stub.url, RUFLO_PROVIDER: 'openrouter' }
   let c
   try {
     c = await mcpClient(cli.cmd, [...cli.args, 'mcp', 'start'], { cwd: sb.project(), env: keyless })
@@ -34,13 +34,13 @@ export async function openrouterLeg({ cli, live }) {
     rec.check('stub: agent_execute returns the provider reply', r.json?.success === true && r.json?.output === 'STUB-HELLO', text(r).slice(0, 200))
     rec.check('stub: request went to the OpenAI-compatible path with a bearer header', stub.seen.at(-1)?.url === '/v1/chat/completions' && stub.seen.at(-1)?.hasAuth === true, JSON.stringify(stub.seen.at(-1)))
     rec.check('stub: usage tokens surfaced', r.json?.usage?.totalTokens === 15, JSON.stringify(r.json?.usage))
-    rec.check('stub: key never echoed in the tool output', !text(r).includes('sk-or-v1-0000000000000000stub'), 'checked output text')
+    rec.check('stub: key never echoed in the tool output', !text(r).includes('stub-key-not-a-real-credential'), 'checked output text')
     for (const status of [429, 500]) {
       const bad = await stubOpenRouter({ status })
       const c2 = await mcpClient(cli.cmd, [...cli.args, 'mcp', 'start'], { cwd: sb.project('p2'), env: { ...keyless, OPENROUTER_BASE_URL: bad.url } })
       await c2.tool('agent_spawn', { agentType: 'coder', agentId: 'e2e-or' })
       const e = await c2.tool('agent_execute', { agentId: 'e2e-or', prompt: 'x' })
-      rec.check(`stub: provider ${status} is reported as a failure, not a success`, e.json?.success === false && /openrouter|${status}|stub/i.test(text(e)) && !text(e).includes('0000000000000000stub'), text(e).slice(0, 200))
+      rec.check(`stub: provider ${status} is reported as a failure, not a success`, e.json?.success === false && /openrouter|${status}|stub/i.test(text(e)) && !text(e).includes('stub-key-not-a-real-credential'), text(e).slice(0, 200))
       c2.close(); await bad.close()
     }
   } catch (e) { rec.fail('stub leg ran to completion', String(e?.message ?? e)) }
