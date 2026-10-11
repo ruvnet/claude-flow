@@ -2,6 +2,10 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-mods`.
 
+## 0.6.0 — 2026-10-11
+- feat: option `selfCheck` (default on): once per session, a toast when an enabled ruflo plugin (ruflo-console, ruflo-swarm) is missing from the ruflo marketplace clone and has no cached install, which makes Claude Code skip it without a word. The line is fixed text with the repair (`claude plugin marketplace update ruflo`); read-only, fail-open, nothing for the model.
+- chore: smoke checks that `/ruflo-mods` stays an alias of `/ruflo mods` (ADR-406) and that the self-check cannot write or echo repository text.
+
 ## 0.5.1 — 2026-10-10
 - fix: the attention row says STALE when the console's summary is older than 15 minutes (three missed 5-minute heartbeats) or carries no believable time, so a closed console or a turned-off session workspace no longer shows its last counts as current (#3981)
 
