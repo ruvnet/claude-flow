@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.2.4 — 2026-10-11
+- docs: deepseek-chat and deepseek-reason state that the prompt and system text are sent to api.deepseek.com and that the key stays in the shell environment
+
 ## 0.2.3 — 2026-10-05
 - fix: shared textsOf reports truncation and every guard fails closed on it
 

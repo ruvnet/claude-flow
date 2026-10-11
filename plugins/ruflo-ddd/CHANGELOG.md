@@ -2,6 +2,10 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.5 — 2026-10-11
+- fix: ddd-context, ddd-aggregate and REFERENCE.md store the domain graph with real tool parameters (agentdb_hierarchical-store key/value/tier plus agentdb_causal-edge sourceId/targetId/relation); the old `--parent/--child/--relation` form did not exist and failed on the required key/value
+- fix: drop the invalid `--train-neural` post-task flag; smoke expectation corrected to 13
+
 ## 0.3.4 — 2026-10-08
 - feat: native Codex hooks (`.codex-plugin`, `hooks/codex-hooks.json`, generated `codex-hook.cjs`) reusing the existing guard, screen and status functions
 - fix: allow native freeform tool inputs in the Codex adapter and version the Codex hook repair
