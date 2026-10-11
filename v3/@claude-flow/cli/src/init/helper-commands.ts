@@ -17,6 +17,9 @@ import * as path from 'path';
 
 export type HelperScope = 'project' | 'user';
 
+/** Claude Code reads a hook's `timeout` in SECONDS; the auto-memory hooks wrote 6000-10000, i.e. up to 100 minutes (#4058). */
+export const AUTO_MEMORY_HOOK_TIMEOUT_S = 30;
+
 const IS_WINDOWS = process.platform === 'win32';
 const STATUSLINE_SCRIPT = '.claude/helpers/statusline.cjs';
 

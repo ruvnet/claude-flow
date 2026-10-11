@@ -108,9 +108,54 @@ function readJSON(filePath) {
   return null;
 }
 
+// Atomic (temp + rename): auto-memory-hook.mjs reads and writes the same store
+// from the session hooks, and a reader must never see a half-written file (#4058).
 function writeJSON(filePath, data) {
   ensureDataDir();
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+  const tmp = filePath + '.' + process.pid + '.tmp';
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tmp, filePath);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch { /* nothing to clean */ }
+    throw e;
+  }
+}
+
+// Short advisory directory lock shared with auto-memory-hook.mjs. It fails open
+// after ~2 s so a stuck lock can never hang a hook.
+function withStoreLock(filePath, fn) {
+  const lock = filePath + '.lock';
+  const deadline = Date.now() + 2000;
+  let held = false;
+  for (;;) {
+    try { fs.mkdirSync(lock); held = true; break; } catch (e) {
+      if (!e || e.code !== 'EEXIST') break;
+      try {
+        if (Date.now() - fs.statSync(lock).mtimeMs > 10000) { fs.rmSync(lock, { recursive: true, force: true }); continue; }
+      } catch { /* lock vanished: retry */ }
+      if (Date.now() > deadline) break;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+    }
+  }
+  try { return fn(); } finally { if (held) { try { fs.rmdirSync(lock); } catch { /* already gone */ } } }
+}
+
+// Write the store, keeping entries another writer added after we read it.
+function writeStoreMerged(filePath, next, loaded) {
+  const loadedIds = new Set((Array.isArray(loaded) ? loaded : []).map((e) => e && e.id));
+  withStoreLock(filePath, () => {
+    let out = next;
+    try {
+      const current = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      if (Array.isArray(current)) {
+        const have = new Set(next.map((e) => e && e.id));
+        const added = current.filter((e) => e && !loadedIds.has(e.id) && !have.has(e.id));
+        if (added.length) out = next.concat(added);
+      }
+    } catch { /* missing or unreadable: write ours */ }
+    writeJSON(filePath, out);
+  });
 }
 
 function tokenize(text) {
@@ -481,7 +526,7 @@ function init() {
     const bootstrapped = bootstrapFromMemoryFiles();
     if (bootstrapped.length > 0) {
       store = bootstrapped;
-      writeJSON(STORE_PATH, store);
+      writeStoreMerged(STORE_PATH, store, []);
     } else {
       return { nodes: 0, edges: 0, message: 'No memory entries to index' };
     }
@@ -503,7 +548,7 @@ function init() {
       `[INTELLIGENCE] Deduped store: ${store.length} -> ${deduped.length} entries ` +
       `(by-id: ${store.length - beforeContentDedup} dropped, by-content: ${beforeContentDedup - deduped.length} dropped)\n`
     );
-    writeJSON(STORE_PATH, deduped);
+    writeStoreMerged(STORE_PATH, deduped, store);
   }
 
   // Skip rebuild if graph is fresh and store hasn't changed. #2920: nodeCount
@@ -834,6 +879,7 @@ function consolidate() {
     return { entries: 0, edges: 0, newEntries: 0, message: 'No store to consolidate' };
   }
 
+  const loadedStore = store;
   // Deduplicate store entries by ID before processing (fixes #1518)
   const preDedupCount = store.length;
   store = deduplicateById(store);
@@ -979,7 +1025,7 @@ function consolidate() {
   // RANKED_PATH are rewritten unconditionally just above; writing the
   // (already deduped, size-bounded per ADR-095 G6) store alongside them
   // costs nothing near the <500ms budget and removes the whole bug class.
-  writeJSON(STORE_PATH, store);
+  writeStoreMerged(STORE_PATH, store, loadedStore);
 
   // 9. Save snapshot for delta tracking
   const updatedGraph = readJSON(GRAPH_PATH);
