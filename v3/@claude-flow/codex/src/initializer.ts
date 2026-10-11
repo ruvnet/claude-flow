@@ -9,6 +9,7 @@ import path from 'path';
 import { fileURLToPath } from 'node:url';
 import type {
   CodexInitOptions,
+  CodexTrust,
   CodexInitResult,
   AgentsMdTemplate,
   BuiltInSkill,
@@ -41,6 +42,8 @@ export class CodexInitializer {
   private skills: string[] = [];
   private force: boolean = false;
   private dual: boolean = false;
+  private codexTrust: CodexTrust = 'standard';
+  private codexTrustWarning: string | undefined;
   private bundledSkillsPath: string = '';
 
   /**
@@ -52,6 +55,9 @@ export class CodexInitializer {
     this.skills = options.skills ?? DEFAULT_SKILLS_BY_TEMPLATE[this.template];
     this.force = options.force ?? false;
     this.dual = options.dual ?? false;
+    const trust = this.resolveCodexTrust(options.codexTrust);
+    this.codexTrust = trust.level;
+    this.codexTrustWarning = trust.warning;
 
     // Resolve bundled skills path (relative to this file's location)
     this.bundledSkillsPath = resolveBundledSkillsPath();
@@ -159,10 +165,30 @@ export class CodexInitializer {
       }
 
       // Generate local config.toml
+      // A person's own .codex/config.toml is never rewritten, not even with
+      // --force: it holds their sandbox/approval choices (and often local
+      // secrets). The trust level only shapes a file we create.
       const localConfigPath = path.join(this.projectPath, '.codex', 'config.toml');
-      if (await this.shouldWriteFile(localConfigPath)) {
+      if (this.codexTrustWarning) warnings.push(this.codexTrustWarning);
+      if (await fs.pathExists(localConfigPath)) {
+        warnings.push('.codex/config.toml already exists - kept (never rewritten, including with --force)');
+        const existing = await fs.readFile(localConfigPath, 'utf-8').catch(() => '');
+        if (/sandbox_mode\s*=\s*"danger-full-access"/.test(existing)) {
+          warnings.push(
+            '.codex/config.toml uses sandbox_mode = "danger-full-access": Codex can write anywhere and run without approval prompts. ' +
+              'Edit it to "workspace-write" (and approval_policy = "on-request") to tighten it.',
+          );
+        }
+      } else {
         await fs.writeFile(localConfigPath, await this.generateLocalConfigToml(), 'utf-8');
         filesCreated.push('.codex/config.toml');
+        warnings.push(
+          this.codexTrust === 'full'
+            ? '.codex/config.toml: full trust (danger-full-access sandbox, no approval prompts, live web search). ' +
+                'Switch back with --codex-trust standard or edit the file.'
+            : '.codex/config.toml: standard trust (workspace-write sandbox, on-request approvals, cached web search). ' +
+                'Opt in to full access with --codex-trust full (or RUFLO_CODEX_TRUST=full).',
+        );
       }
 
       // Update .gitignore
@@ -553,17 +579,45 @@ export class CodexInitializer {
   }
 
   /**
+   * Trust level for a newly generated .codex/config.toml: explicit option,
+   * then RUFLO_CODEX_TRUST, then the safe default. Unknown values fall back
+   * to standard with a warning, never to full.
+   */
+  private resolveCodexTrust(option: CodexTrust | undefined): { level: CodexTrust; warning?: string } {
+    const raw = option ?? process.env.RUFLO_CODEX_TRUST;
+    if (raw === undefined || raw === '') return { level: 'standard' };
+    if (raw === 'standard' || raw === 'full') return { level: raw };
+    return {
+      level: 'standard',
+      warning: `Unknown codex trust "${String(raw)}" - using "standard" (valid: standard, full)`,
+    };
+  }
+
+  /**
    * Generate local config.toml for .codex directory
    */
   private async generateLocalConfigToml(): Promise<string> {
+    const full = this.codexTrust === 'full';
+    const approval = full ? 'never' : 'on-request';
+    const sandbox = full ? 'danger-full-access' : 'workspace-write';
+    const webSearch = full ? 'live' : 'cached';
+    const tier = full
+      ? `# Trust level: FULL (opted in with --codex-trust full or RUFLO_CODEX_TRUST=full).
+# Codex can write anywhere and runs commands without asking. Switch back with
+# --codex-trust standard, or set sandbox_mode = "workspace-write" and
+# approval_policy = "on-request" below.`
+      : `# Trust level: STANDARD (the default).
+# Codex may write inside this workspace only and asks before anything riskier.
+# Opt in to full access with --codex-trust full (or RUFLO_CODEX_TRUST=full);
+# this file is never rewritten once it exists, so edit the three keys below directly.`;
     return `# Local Codex Configuration
 # This file overrides .agents/config.toml for local development
 # DO NOT commit this file to version control
 
-# Development profile - more permissive
-approval_policy = "never"
-sandbox_mode = "danger-full-access"
-web_search = "live"
+${tier}
+approval_policy = "${approval}"
+sandbox_mode = "${sandbox}"
+web_search = "${webSearch}"
 
 # Debug settings
 # Uncomment to enable debug logging
