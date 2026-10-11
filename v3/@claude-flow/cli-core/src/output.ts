@@ -299,7 +299,7 @@ export class OutputFormatter {
   ): number[] {
     const widths = columns.map((col, i) => {
       // Start with header width
-      let width = col.header.length;
+      let width = this.stripAnsi(col.header).length;
 
       // Check all data values
       for (const row of data) {
@@ -443,7 +443,7 @@ export class OutputFormatter {
 
   box(content: string, title?: string): string {
     const lines = content.split('\n');
-    const maxLen = Math.max(...lines.map(l => this.stripAnsi(l).length), title?.length ?? 0);
+    const maxLen = Math.max(...lines.map(l => this.stripAnsi(l).length), this.stripAnsi(title ?? '').length);
     const width = maxLen + 4;
 
     const border = {
@@ -457,8 +457,9 @@ export class OutputFormatter {
     // Top border with optional title
     if (title) {
       const titleText = ` ${title} `;
-      const leftPad = Math.floor((width - titleText.length - 2) / 2);
-      const rightPad = width - titleText.length - leftPad - 2;
+      const titleWidth = this.stripAnsi(titleText).length;
+      const leftPad = Math.floor((width - titleWidth - 2) / 2);
+      const rightPad = width - titleWidth - leftPad - 2;
       result.push(
         border.topLeft +
         border.horizontal.repeat(leftPad) +
