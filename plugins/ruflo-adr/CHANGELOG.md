@@ -2,6 +2,10 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-adr`.
 
+## 0.5.5 — 2026-10-11
+- fix: keep the last ADR's Context when the file ends without a following heading, and keep literal `Z` characters (#4027, thanks @rudycelekli)
+- fix: scan each real directory once so symlink cycles cannot loop (#4034, thanks @rudycelekli)
+
 ## 0.5.4 — 2026-10-07
 - fix: run the installed ruflo CLI before `npx @claude-flow/cli@latest` in cost-tracker, adr and metaharness
 - fix: use a key separator the memory validator accepts for edges

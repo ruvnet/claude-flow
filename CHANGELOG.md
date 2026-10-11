@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+Batch of reviewed fixes from @rudycelekli (PRs #4020-#4026, #4028-#4030, #4032, #4033, #4035, #4037; #4027 and #4034 landed earlier):
+
+- `@claude-flow/cli-core` 3.7.1: JSON memory backend owns its snapshots, rejects invalid entry containers, measures size in UTF-8 bytes, omits non-matching substring results and lets expired keys be reused; output formatter honours progress controls, empty totals, table padding, coloured header widths, and suppresses progress in quiet or redirected output.
+- `@claude-flow/shared` 3.0.3: RVF event log honours zero limits, rebuilds indexes on retried initialization and isolates persisted records from caller mutation; circuit breaker returns independent date snapshots and expires rolling requests on completion.
+- `ruflo-adr` 0.5.5 (see its changelog).
+- Not included: #4031 (RVF truncated-tail recovery) is waiting on the author for a read-only-log fallback.
+
+## [3.56.6] - 2026-10-11
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.6, with the already-published leaves `@claude-flow/cli-core` 3.7.1 and `@claude-flow/shared` 3.0.3 now pinned exactly. Signed helpers changed (`hook-handler.cjs`) and were re-signed in #4053.
+
+### Fixed
+
+- Windows hooks launch through `node -e` instead of `cmd /c`, which started an interactive cmd that executed the hook JSON payload and created stray files (#4045).
+- The settings.json risk scanner now runs on the automatic SessionStart hook; both scanners match encoded PowerShell in linear time (#4052, #4053).
+- Trajectory-end feedback is indexed even when steps were recorded (#3662, #4051).
+- `@claude-flow/cli-core` 3.7.1 and `@claude-flow/shared` 3.0.3: JSON memory backend, table/progress output, RVF event log and circuit breaker fixes from a reviewed batch by @rudycelekli (#4061; PRs #4020-#4026, #4028-#4030, #4032, #4033, #4035, #4037).
+
+### Plugins (no npm impact)
+
+- `ruflo-cost-tracker`: preserve Codex usage ownership (#4048, @Devesh-Maheshwari). `ruflo-swarm`: host-specific no-op manifest for native Codex hook discovery (#4050). `ruflo-adr` 0.5.5.
+
 ## [3.56.5] - 2026-10-11
 
 Patch release: one fix in `@claude-flow/cli`. No leaf package changed since 3.56.4 (`git diff v3.56.4..HEAD -- v3/@claude-flow` touches only `cli`; the `integration` change drops `publishConfig.tag` and has no runtime effect).

@@ -6,8 +6,8 @@ $ARGUMENTS
 
 Start a live event stream for the active swarm. Use the Monitor tool to run:
 
-`npx @claude-flow/cli@latest swarm watch --stream`
+`node "${CLAUDE_PLUGIN_ROOT}/scripts/swarm-watch.mjs"`
 
-Each line is an NDJSON event (agent spawn, task update, memory write, health ping). Notifications arrive as events occur -- no polling needed.
+The ruflo CLI has no `swarm watch`; this script polls `swarm status --format json` (default every 10 s, `--interval 2..300`) and prints one NDJSON line only when the status changes: `swarm.snapshot` first, then `swarm.changed`, or `swarm.error` once per distinct failure. It reports status changes, not individual agent or memory events. Each line is one notification, so you do not poll yourself.
 
 For one-shot status checks, use `/status` or `npx @claude-flow/cli@latest swarm status` instead.

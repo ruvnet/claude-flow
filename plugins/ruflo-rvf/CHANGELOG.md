@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-rvf`.
 
+## 0.3.6 — 2026-10-11
+- fix: rvf-manage exported through `hooks transfer store`, which is the public IPFS pattern marketplace (publish); export and import now use `memory export` / `memory import`, `from-project` stays local, and the skill warns before anything is published
+
 ## 0.3.5 — 2026-10-05
 - fix: a domain plugin's refusal of another plugin's memory_store no longer claims the write (variant B, review #8)
 

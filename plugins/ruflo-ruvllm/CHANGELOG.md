@@ -2,6 +2,10 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.4 — 2026-10-11
+- fix: chat-format claimed Claude/GPT/Gemini/Ollama/Cohere provider formatting; the tool formats local-model templates (llama3, mistral, chatml, phi, gemma, or a model id) and the WASM HNSW router holds about 11 patterns
+- fix: llm-config described MicroLoRA as saved adapter weights trained on data; instances are in-process, lost on MCP restart, and adapt from a 0-1 quality signal; /ruvllm status describes what ruvllm_status really returns
+
 ## 0.3.3 — 2026-10-05
 - fix: shared textsOf reports truncation and every guard fails closed on it
 

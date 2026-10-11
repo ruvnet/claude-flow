@@ -13,7 +13,7 @@ Agent teams, swarm coordination, Monitor streams, and worktree isolation.
 
 - **Agent Teams**: TeamCreate, SendMessage, and Task tool integration for multi-agent coordination
 - **Topologies**: hierarchical, mesh, hierarchical-mesh, ring, star, adaptive
-- **Monitor Streams**: Real-time swarm status via `Monitor("npx @claude-flow/cli@latest swarm watch --stream")`
+- **Monitor Streams**: Real-time swarm status changes via `Monitor` on `node "${CLAUDE_PLUGIN_ROOT}/scripts/swarm-watch.mjs"` (polls `swarm status`; the CLI has no `swarm watch`)
 - **Worktree Isolation**: Each agent works in its own git worktree to avoid conflicts
 - **Hive-Mind Consensus**: Byzantine, Raft, Gossip, CRDT, and Quorum strategies
 - **Anti-Drift**: hierarchical topology with specialized strategy for tight coordination

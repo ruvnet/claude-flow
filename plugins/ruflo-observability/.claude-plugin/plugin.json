@@ -1,7 +1,7 @@
 {
   "name": "ruflo-observability",
   "description": "Structured logging, distributed tracing, and metrics — correlate agent swarm activity with application telemetry. As a mod (ADR-445): a tighten-only guard on its tools, /observe-mod, and a status file the console shows",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
