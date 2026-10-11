@@ -23,7 +23,7 @@ export type TuiOutput = {
   off?: (event: 'resize', fn: () => void) => unknown
 }
 export type TuiIO = { stdin: TuiInput; stdout: TuiOutput; stderr: { write: (text: string) => unknown }; env: Record<string, string | undefined>; signal?: AbortSignal }
-export type TuiOptions = { cwd: string; view?: TuiView; cliEntry?: string; configDir?: string; home?: string; pluginRoot?: string; refreshMs?: number }
+export type TuiOptions = { cwd: string; view?: TuiView; plain?: boolean; cliEntry?: string; configDir?: string; home?: string; pluginRoot?: string; refreshMs?: number }
 
 export const isTuiView = (value: unknown): value is TuiView => typeof value === 'string' && (TUI_VIEWS as readonly string[]).includes(value)
 
@@ -98,22 +98,32 @@ function paint(session: Session, io: TuiIO, depth: Depth, scroll: number): numbe
   return top
 }
 
-/** Headless: one frame as plain text on stdout (the same views, read-only), a note on stderr. Returns the exit code. */
+/** `--plain`: one frame as plain text on stdout (the same views, read-only, no escapes) and exit 0. Nothing on stderr, so a script's output is only the frame. */
 async function once(session: Session, io: TuiIO, view: TuiView): Promise<number> {
   session.show(view)
   await session.refresh()
   io.stdout.write(`${session.frame(Math.max(40, Math.min(200, io.stdout.columns ?? 100)), 'none').join('\n')}\n`)
-  io.stderr.write('ruflo tui: not an interactive terminal, so one plain frame was printed. Run it in a terminal for the live view.\n')
 
   return 0
 }
 
+/** Without a terminal and without `--plain` the live view cannot run: say so in one line and exit 2 (a usage error), so a script notices instead of reading a silent frame. */
+export const NOT_A_TERMINAL_HINT = 'ruflo tui: not an interactive terminal. Run it in a terminal, or pass --plain to print one frame and exit 0.\n'
+
 export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
+  const interactive = io.stdin.isTTY === true && io.stdout.isTTY === true && io.stdin.setRawMode !== undefined
+
+  if (options.plain !== true && !interactive) {
+    io.stderr.write(NOT_A_TERMINAL_HINT)
+
+    return 2
+  }
+
   const session = openSession({ cwd: options.cwd, ...(options.cliEntry !== undefined && { cliEntry: options.cliEntry }), ...(options.configDir !== undefined && { configDir: options.configDir }), ...(options.home !== undefined && { home: options.home }), ...(options.pluginRoot !== undefined && { pluginRoot: options.pluginRoot }) })
   let view: TuiView = options.view ?? 'overview'
 
   try {
-    if (io.stdin.isTTY !== true || io.stdout.isTTY !== true || io.stdin.setRawMode === undefined) return await once(session, io, view)
+    if (options.plain === true || !interactive || io.stdin.setRawMode === undefined) return await once(session, io, view)
 
     const depth = depthOf(io.env)
     let scroll = 0

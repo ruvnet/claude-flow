@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { depthOf, keyOf, runTui, type TuiIO } from '../tui/run'
+import { depthOf, keyOf, NOT_A_TERMINAL_HINT, runTui, type TuiIO } from '../tui/run'
 import { openSession } from '../tui/session'
 import { RUFLO_FILES } from './fixtures/ruflo-run'
 
@@ -136,21 +136,51 @@ describe('the same views over real ruflo files', () => {
 })
 
 describe('headless', () => {
-  it('prints one plain frame to stdout, a note to stderr, and returns 0', async () => {
+  it('--plain prints one plain frame to stdout, nothing to stderr, and returns 0', async () => {
     const { io, out, err } = fakeIO(false)
-    const code = await runTui({ cwd: project, home: join(root, 'home') }, io)
+    const code = await runTui({ cwd: project, home: join(root, 'home'), plain: true }, io)
 
     expect(code).toBe(0)
     expect(out.join('')).toContain('swarm-1790903031804-y9rnjr')
     expect(out.join('')).not.toContain(ESC)
-    expect(err.join('')).toMatch(/not an interactive terminal/)
+    expect(err.join('')).toBe('')
   })
 
-  it('opens the page asked for', async () => {
+  it('--plain opens the page asked for', async () => {
     const { io, out } = fakeIO(false)
 
-    await runTui({ cwd: project, home: join(root, 'home'), view: 'cost' }, io)
+    await runTui({ cwd: project, home: join(root, 'home'), view: 'cost', plain: true }, io)
     expect(out.join('')).toContain('Where it goes')
+  })
+
+  it('--plain in a real terminal still prints one frame and never enters the alternate screen or raw mode', async () => {
+    const { io, out, raw } = fakeIO(true)
+    const code = await runTui({ cwd: project, home: join(root, 'home'), plain: true }, io)
+
+    expect(code).toBe(0)
+    expect(out.join('')).toContain('swarm-1790903031804-y9rnjr')
+    expect(out.join('')).not.toContain(ESC)
+    expect(raw).toEqual([])
+  })
+
+  it('without a terminal and without --plain prints a one-line hint to stderr and returns 2, with nothing on stdout', async () => {
+    const { io, out, err } = fakeIO(false)
+    const code = await runTui({ cwd: project, home: join(root, 'home') }, io)
+
+    expect(code).toBe(2)
+    expect(out).toEqual([])
+    expect(err.join('')).toBe(NOT_A_TERMINAL_HINT)
+    expect(NOT_A_TERMINAL_HINT.trimEnd().split('\n')).toHaveLength(1)
+    expect(NOT_A_TERMINAL_HINT).toMatch(/--plain/)
+  })
+
+  it('a terminal that cannot do raw mode counts as no terminal', async () => {
+    const { io, out, err } = fakeIO(true)
+    const code = await runTui({ cwd: project, home: join(root, 'home') }, { ...io, stdin: { ...io.stdin, setRawMode: undefined } })
+
+    expect(code).toBe(2)
+    expect(out).toEqual([])
+    expect(err.join('')).toBe(NOT_A_TERMINAL_HINT)
   })
 })
 

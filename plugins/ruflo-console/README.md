@@ -45,6 +45,19 @@ CONSOLE_DRIVE_INSTALL="$PWD:ruflo-mods@ruflo" RUFLO_E2E_LIVE=1 bash plugins/rufl
 - **Missions, loops, swarms.** Attach ADRs to the active mission (the page suggests some from the goal's words; you decide). Claude's mission context, each task's instruction and spawned swarm agents (ruflo-swarm 0.3.5) are told the accepted decisions, masked and capped. At *verify*, changed files are compared with the paths the attached accepted ADRs name: a warning in the mission record. **That compares paths only. It does not prove a change follows or breaks a decision, and it never blocks.** When a mission is done, *draft an ADR from this mission* prepares a proposed record from its goal and tasks; the decision is yours to write.
 - **For Claude.** `/ruflo run adr-propose <title>`, `adr-accept <n>`, `adr-supersede <old> <new>`, `adr-attach <n>` and the rest are palette entries, so Claude reaches them through `console_run` at the *write* control level (reading the page is *read*); a change still waits for your Yes on the diff.
 
+## In a terminal of its own: `ruflo tui` (ADR-489)
+
+The same Overview and Cost views, drawn by a small standalone terminal host instead of Claude Code. Read-only; `npx ruflo tui` (the `ruflo` package and `@claude-flow/cli` carry the bundle).
+
+```bash
+npx ruflo tui                    # interactive: o overview, c cost, Tab, j/k, PgUp/PgDn, g/G, r refresh, q quit
+npx ruflo tui --view cost        # start on the Cost page
+npx ruflo tui --plain | head -40 # one plain frame, exit 0: for scripts and CI
+npx ruflo tui | cat              # no terminal and no --plain: a one-line hint on stderr, exit 2
+```
+
+From a checkout, build the bundle first: `node plugins/ruflo-console/scripts/build-tui.mjs`. Swarm, Events, Missions and Room come next, in that order; Codex and OpenRouter later, read-only by default (decisions C and D in the ADR).
+
 ## Toasts (ADR-477)
 
 Settings → Interface and updates → **Toasts** sets what the ruflo plugins may show over the transcript: `all`, `important` (warnings and errors) or `off`, with a mute chip each for `console`, `swarm`, `protector` and `mods`. It is kept in the console's store and mirrored to `.claude-flow/console/toast-prefs.json`, which the other plugins read. Every toast, drawn or not, becomes an event on the Events page (`toast <source> <glyph> <text> [off|muted|deduped|…]`); the other plugins' digests are read from `.claude-flow/console/toasts/<source>.jsonl`, masked and capped. The console itself also toasts a mission that finishes (`ok`) or loses a task (`error`), and its update notes by level. Design and contract: [ADR-477](../../v3/docs/adr/ADR-477-mod-toasts.md).

@@ -4,11 +4,13 @@
  * Runs the same views the Claude Code mod (plugins/ruflo-console) draws, over a Node host instead of the mod host. Read-only in
  * this phase: Overview and Cost. The bundle is built from the plugin's source (scripts/build-tui.mjs) and loaded from this
  * CLI's OWN install only (never from the working directory: opening a repository must not run code that repository supplies).
- * No bundle, or no terminal, is a message and a clean exit, never a crash; ruflo stays operational without it.
+ * No bundle is a message and exit 1, never a crash; ruflo stays operational without it. Without a terminal (a pipe, CI) the live view cannot run:
+ * a one-line hint and exit 2, unless --plain asks for one frame as plain text and exit 0 (ADR-489 decision E).
  *
  *   npx ruflo tui                 # interactive, in a terminal
  *   npx ruflo tui --view cost     # start on the Cost page
- *   npx ruflo tui | cat           # not a terminal: one plain frame, then exit
+ *   npx ruflo tui --plain | head  # one plain frame, exit 0 (scripts, CI)
+ *   npx ruflo tui | cat           # not a terminal and no --plain: a hint on stderr, exit 2
  */
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -42,10 +44,14 @@ function cliEntry(): string | undefined {
 export const tuiCommand: Command = {
   name: 'tui',
   description: 'The ruflo console in your terminal (Overview and Cost, read-only). Same views as the Claude Code mod.',
-  options: [{ name: 'view', description: `Page to open: ${VIEWS.join(' | ')}`, type: 'string' as const, default: 'overview' }],
+  options: [
+    { name: 'view', description: `Page to open: ${VIEWS.join(' | ')}`, type: 'string' as const, default: 'overview' },
+    { name: 'plain', description: 'Print one frame as plain text and exit 0 (scripts and CI). Without it, a non-terminal gets a hint and exit 2', type: 'boolean' as const, default: false },
+  ],
   examples: [
     { command: 'npx ruflo tui', description: 'Open the console in this terminal' },
     { command: 'npx ruflo tui --view cost', description: 'Start on the Cost page' },
+    { command: 'npx ruflo tui --plain | head -40', description: 'One plain frame, exit 0: for scripts and CI (no terminal needed)' },
   ],
   async action(context: CommandContext): Promise<CommandResult> {
     const ctx = context as { args?: string[]; flags?: Record<string, unknown>; cwd?: string };
@@ -78,7 +84,7 @@ export const tuiCommand: Command = {
 
     try {
       const code = await mod.runTui(
-        { cwd: ctx.cwd ?? process.cwd(), view: wanted, ...(cliEntry() !== undefined && { cliEntry: cliEntry() }), ...(process.env.CLAUDE_CONFIG_DIR !== undefined && { configDir: process.env.CLAUDE_CONFIG_DIR }) },
+        { cwd: ctx.cwd ?? process.cwd(), view: wanted, ...(ctx.flags?.plain === true && { plain: true }), ...(cliEntry() !== undefined && { cliEntry: cliEntry() }), ...(process.env.CLAUDE_CONFIG_DIR !== undefined && { configDir: process.env.CLAUDE_CONFIG_DIR }) },
         { stdin: process.stdin, stdout: process.stdout, stderr: process.stderr, env: process.env, signal: stop.signal },
       );
       return { success: code === 0, exitCode: code };

@@ -64,12 +64,17 @@ describe('tui command', () => {
     expect(result).toMatchObject({ success: false, exitCode: 1 });
   });
 
-  it.skipIf(locateTuiBundle() === null)('prints one plain frame headless and exits 0 (real bundle)', async () => {
+  it('declares --plain as a boolean option and lists it in the examples', () => {
+    expect(tuiCommand.options?.find(option => option.name === 'plain')).toMatchObject({ type: 'boolean', default: false });
+    expect(tuiCommand.examples?.some(example => example.command.includes('--plain'))).toBe(true);
+  });
+
+  it.skipIf(locateTuiBundle() === null)('--plain prints one plain frame to stdout and exits 0 (real bundle)', async () => {
     const lines: string[] = [];
     const real = process.stdout.write.bind(process.stdout);
     process.stdout.write = ((chunk: string | Uint8Array) => (lines.push(String(chunk)), true)) as typeof process.stdout.write;
     try {
-      const result = await tuiCommand.action!({ args: [], flags: { view: 'overview' }, cwd: tmp() } as never);
+      const result = await tuiCommand.action!({ args: [], flags: { view: 'overview', plain: true }, cwd: tmp() } as never);
 
       expect(result).toMatchObject({ success: true, exitCode: 0 });
     } finally {
@@ -77,5 +82,25 @@ describe('tui command', () => {
     }
     expect(lines.join('')).toContain('what ruflo is doing here');
     expect(existsSync(locateTuiBundle()!)).toBe(true);
+  });
+
+  // Needs a non-terminal stdin and stdout, which is what a test runner has; skipped when someone runs the suite from a real terminal.
+  it.skipIf(locateTuiBundle() === null || process.stdin.isTTY === true || process.stdout.isTTY === true)('without a terminal and without --plain prints a hint on stderr, nothing on stdout, and exits 2 (real bundle)', async () => {
+    const out: string[] = [];
+    const errs: string[] = [];
+    const realOut = process.stdout.write.bind(process.stdout);
+    const realErr = process.stderr.write.bind(process.stderr);
+    process.stdout.write = ((chunk: string | Uint8Array) => (out.push(String(chunk)), true)) as typeof process.stdout.write;
+    process.stderr.write = ((chunk: string | Uint8Array) => (errs.push(String(chunk)), true)) as typeof process.stderr.write;
+    try {
+      const result = await tuiCommand.action!({ args: [], flags: { view: 'overview' }, cwd: tmp() } as never);
+
+      expect(result).toMatchObject({ success: false, exitCode: 2 });
+    } finally {
+      process.stdout.write = realOut;
+      process.stderr.write = realErr;
+    }
+    expect(out.join('')).toBe('');
+    expect(errs.join('')).toMatch(/not an interactive terminal.*--plain/s);
   });
 });
