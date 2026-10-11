@@ -16,6 +16,9 @@
  *   2. Spawns track.mjs with TRACK_QUIET=1 and swallows all output.
  *   3. Always exits 0 — telemetry is best-effort, must NEVER block a turn.
  *   4. Times out at 30s so a hung track.mjs can't stall session shutdown.
+ *   5. If the spawn itself errors, times out, or exits non-zero, that
+ *      failure is appended to the shared diagnostic log (_diagnostic-log.cjs,
+ *      #3227) — still without ever changing the always-exit-0 contract.
  *
  * Usage: node ruflo-hook.cjs [hook-args ignored]
  */
@@ -47,10 +50,26 @@ if (!fs.existsSync(trackScript)) {
   done();
 }
 
-spawnSync(process.execPath, [trackScript], {
+const result = spawnSync(process.execPath, [trackScript], {
   env: { ...process.env, TRACK_QUIET: '1' },
   stdio: 'ignore',
   timeout: 30_000,
 });
+
+if (result.error || result.status !== 0 || result.signal) {
+  try {
+    const { logFailure } = require('./_diagnostic-log.cjs');
+    logFailure({
+      source: 'ruflo-hook.cjs',
+      reason: result.error
+        ? result.error.message
+        : result.signal
+          ? `signal ${result.signal}`
+          : `exit ${result.status}`,
+    });
+  } catch {
+    // Diagnostic logging must never block the Stop hook — swallow and continue.
+  }
+}
 
 done();

@@ -667,5 +667,9 @@ done
 grep -q -- '--yes' "$ROOT/scripts/openrouter.mjs" || miss="$miss openrouter-no-consent-gate"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
+step "46. #3227 diagnostic log: track.mjs / ruflo-hook.cjs failure logging"
+node "$ROOT/scripts/test-cost-tracker-diagnostic-log-3227.mjs" >/dev/null 2>&1 \
+  && ok || bad "test-cost-tracker-diagnostic-log-3227-failed"
+
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1
