@@ -2,6 +2,11 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.42.7 — 2026-10-11
+- feat: `ruflo tui` has five pages: Overview, Cost, Swarm, Events and Missions (keys 1 to 5, or o c s e m; Tab and Shift-Tab cycle). A page bar shows where you are, a key line says what the keys are, and the terminal redraws on a resize (a short bar under 60 columns, a one-line notice under 40). Room is left out on purpose: it is a message box and Claude sessions this host does not have (ADR-489)
+- fix: on the standalone terminal the shared chrome no longer draws what only Claude Code can do: no tab bar, footer buttons, Launch section, Ask Claude buttons or Claude control card, and buttons that nobody can press are not drawn (a state chip such as `● all 0` and a section title are). Under Claude Code nothing changes: every new branch is behind `state.isStandalone`
+- fix: Missions on the standalone terminal reads the mission record only (ADR-406); the goal field, plan and research launch are Claude turns and are not shown
+
 ## 0.42.6 — 2026-10-10
 - fix: the Plugin Catalog says "mod synced here, plugin not installed" (and marks the row ◇) for a mod Claude Code loaded by sync, such as ruflo-arena@synced, instead of a flat "not installed" that contradicted the Plugins page; the install button stays (#3979)
 - chore: work-in-progress and merge lines are dropped from the console and mods changelogs shown on What's new (#3979)

@@ -1,6 +1,6 @@
 /**
  * `ruflo tui` end to end without a terminal (ADR-489): real ruflo files on disk, the mod's own controller and views over the Node
- * host, drawn by the mod's own paneView, headless and with an injected terminal. Run with
+ * host, drawn by the mod's own page bodies in the standalone pane, headless and with an injected terminal. Run with
  *   npx vitest run plugins/ruflo-console/tests/tui-session.spec.ts
  */
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -199,7 +199,7 @@ describe('interactive', () => {
 
     expect(screen.startsWith(`${ESC}[?1049h`)).toBe(true)
     expect(screen).toContain('Where it goes')
-    expect(screen).toContain('cost ·')
+    expect(screen).toContain('2 Cost')
     expect(screen.endsWith(`${ESC}[?25h${ESC}[?1049l`)).toBe(true)
     expect(raw).toEqual([true, false])
   })
@@ -219,7 +219,7 @@ describe('interactive', () => {
 
 describe('keys and colour depth', () => {
   it('maps the documented keys and ignores the rest', () => {
-    expect([keyOf('q'), keyOf('\u0003'), keyOf('o'), keyOf('c'), keyOf('r'), keyOf('j'), keyOf(`${ESC}[A`), keyOf(' ')]).toEqual(['quit', 'quit', 'overview', 'cost', 'refresh', 'down', 'up', 'pagedown'])
+    expect([keyOf('q'), keyOf('\u0003'), keyOf('o'), keyOf('c'), keyOf('r'), keyOf('j'), keyOf(`${ESC}[A`), keyOf(' ')]).toEqual(['quit', 'quit', { page: 'overview' }, { page: 'cost' }, 'refresh', 'down', 'up', 'pagedown'])
     expect([keyOf('x'), keyOf(`${ESC}]0;t\u0007`), keyOf('')]).toEqual([null, null, null])
   })
 

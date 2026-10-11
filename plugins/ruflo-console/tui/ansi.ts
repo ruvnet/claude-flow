@@ -176,10 +176,18 @@ export function render(node: unknown, width: number, depth: Depth): string[] {
     return lines.map(line => (open === '' ? line : `${open}${line}${RESET}`))
   }
 
+  // A Button is a mouse or hotkey control of the Claude Code host, and this terminal has neither: a control that would act is not drawn
+  // (a bracketed "button" nobody can press is a lie), and one that starts a Claude turn (✦) never is. What stays is information:
+  // a section title (key `sec-…`, without its fold mark since nothing folds here), and a chip that shows a state, such as `● all 0`
+  // against `○ bad 0`, with a gap after it so neighbours do not run together.
   if (type === 'Button') {
-    const label = clean(props.label)
+    const label = clean(props.label).trim()
 
-    return [cut(`${sgr({ dimColor: true }, depth)}[${props.hotkey === undefined ? '' : `${clean(props.hotkey)} `}${label}]${depth === 'none' ? '' : RESET}`, width)]
+    if (label.includes('✦')) return []
+
+    if (typeof props.key === 'string' && props.key.startsWith('sec-')) return [cut(`${sgr({ bold: true }, depth)}${label.replace(/^[▾▸]\s*/, '')}${depth === 'none' ? '' : RESET}`, width)]
+
+    return /^[●○]/.test(label) ? [cut(`${sgr({ dimColor: true }, depth)}${label}  ${depth === 'none' ? '' : RESET}`, width)] : []
   }
 
   if (type !== 'Box') return []

@@ -11,11 +11,18 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const flag = name => process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined
 const outfile = resolve(flag('--outfile') ?? join(root, 'dist', 'tui.mjs'))
 
+// The repo's own esbuild (npm install at the root), or the one in RUFLO_ESBUILD_DIR (a directory with node_modules/esbuild: CI installs it alone, since a root install is heavy).
 let esbuild
-try {
-  esbuild = createRequire(join(root, '..', '..', 'package.json'))('esbuild')
-} catch {
-  console.error('build-tui: esbuild is not installed (run npm install at the repo root).')
+for (const base of [join(root, '..', '..', 'package.json'), ...(process.env.RUFLO_ESBUILD_DIR ? [join(process.env.RUFLO_ESBUILD_DIR, 'package.json')] : [])]) {
+  try {
+    esbuild = createRequire(base)('esbuild')
+    break
+  } catch {
+    // try the next place
+  }
+}
+if (esbuild === undefined) {
+  console.error('build-tui: esbuild is not installed (run npm install at the repo root, or set RUFLO_ESBUILD_DIR to a directory that has node_modules/esbuild).')
   process.exit(1)
 }
 

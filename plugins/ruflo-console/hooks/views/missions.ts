@@ -48,7 +48,7 @@ export function observationRows(ctx: Ctx): RenderElement[] {
   rows.push(...researchRows(ctx))
 
   if (observation === null) {
-    rows.push(text(ctx, ' No mission record yet (ADR-406): create one from a goal in Plan.', { color: THEME.warn }))
+    rows.push(text(ctx, ctx.state.isStandalone ? ' No mission record yet (ADR-406). Missions are made from a goal in the Claude Code console; this page shows the record once one exists.' : ' No mission record yet (ADR-406): create one from a goal in Plan.', { color: THEME.warn }))
 
     return rows
   }
