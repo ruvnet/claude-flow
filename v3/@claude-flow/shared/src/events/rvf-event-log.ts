@@ -267,7 +267,7 @@ export class RvfEventLog extends EventEmitter {
     if (filter.offset) {
       result = result.slice(filter.offset);
     }
-    if (filter.limit) {
+    if (filter.limit !== undefined) {
       result = result.slice(0, filter.limit);
     }
 
