@@ -11,6 +11,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import { createBuiltinAIDefence, type DefenceEngine } from '../security/builtin-aidefence.js';
+import { CODE_PATTERNS, codeLinesOf, isGeneratedReportAsset } from './security-code-patterns.js';
 
 // Accepted values for `security scan`'s enum flags — the single source of truth
 // for both validation and the traversal-depth maps below.
@@ -292,14 +293,7 @@ const scanCommand: Command = {
       // Phase 3: Check for common security issues in code
       if ((scanType === 'all' || scanType === 'code') && depth !== 'quick') {
         spinner.setText('Analyzing code patterns...');
-        const codePatterns = [
-          { pattern: /eval\s*\(/g, type: 'Eval Usage', severity: 'medium', desc: 'eval() can execute arbitrary code' },
-          { pattern: /innerHTML\s*=/g, type: 'innerHTML', severity: 'medium', desc: 'XSS risk with innerHTML' },
-          { pattern: /dangerouslySetInnerHTML/g, type: 'React XSS', severity: 'medium', desc: 'React XSS risk' },
-          { pattern: /child_process.*exec[^S]/g, type: 'Command Injection', severity: 'high', desc: 'Possible command injection' },
-          { pattern: /\$\{.*\}.*sql|sql.*\$\{/gi, type: 'SQL Injection', severity: 'high', desc: 'Possible SQL injection' },
-        ];
-
+        // The patterns, and the comment stripping they are tested after, live in security-code-patterns.ts.
         const scanCodeDir = (dir: string, depthLimit: number) => {
           // Positive-test rather than `<= 0`: undefined and NaN both fail this,
           // so a bad budget stops the recursion instead of disabling the limiter.
@@ -309,15 +303,17 @@ const scanCommand: Command = {
             for (const entry of entries) {
               if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist') continue;
               const fullPath = path.join(dir, entry.name);
+              // Coverage and Playwright report assets bundle third-party code (prettify, CodeMirror, React), not the project's.
+              if (isGeneratedReportAsset(path.basename(dir), entry.name, name => fs.existsSync(path.join(dir, name)))) continue;
               if (entry.isDirectory()) {
                 scanCodeDir(fullPath, depthLimit - 1);
               } else if (entry.isFile() && /\.(ts|js|tsx|jsx)$/.test(entry.name) && !entry.name.endsWith('.d.ts')) {
                 try {
                   const content = fs.readFileSync(fullPath, 'utf-8');
-                  const lines = content.split('\n');
+                  const lines = codeLinesOf(content);
                   for (let i = 0; i < lines.length; i++) {
-                    for (const { pattern, type, severity, desc } of codePatterns) {
-                      if (pattern.test(lines[i])) {
+                    for (const { match, type, severity, desc } of CODE_PATTERNS) {
+                      if (match(lines[i])) {
                         if (severity === 'high') highCount++;
                         else mediumCount++;
                         findings.push({
@@ -326,7 +322,6 @@ const scanCommand: Command = {
                           location: `${path.relative(target, fullPath)}:${i + 1}`,
                           description: desc,
                         });
-                        pattern.lastIndex = 0;
                       }
                     }
                   }

@@ -12,19 +12,47 @@ export const TAIL_BYTES = 262_144
 export const LINE_CAP = 400_000
 export const MAX_LINES = 30_000
 
-export type Window = { text: string; whole: boolean } | { text: null; reason: 'missing' | 'refused' | 'not-regular' | 'too-large' }
+export type Window = { text: string; whole: boolean; bytes: number } | { text: null; reason: 'missing' | 'refused' | 'not-regular' | 'too-large' }
 
-/** The text one session file can be summarised from, given its size from a stat that already ruled out links. Never reads what the host cannot bound. */
-export async function readWindow(fs: SessionFs, path: string, size: number): Promise<Window> {
+/**
+ * What reading this file reserves from the pass's budget, before it is read: the whole file (plus the one byte that tells a whole read from a
+ * grown one), the tail window, or nothing when the host cannot bound the read and it is not attempted.
+ */
+export const readCost = (fs: SessionFs, size: number): number => (size <= READ_MAX ? size + 1 : fs.readTail === undefined ? 0 : TAIL_BYTES)
+
+/** The last lines of a tail: the first line starts somewhere inside a line, so it is dropped, never parsed. */
+const tailText = (read: string): string => {
+  const tail = read.slice(-TAIL_BYTES)
+  const cut = tail.indexOf('\n')
+
+  return cut < 0 ? '' : tail.slice(cut + 1)
+}
+
+/**
+ * The text one session file can be summarised from, given its size from a stat that already ruled out links, reading at most `limit` bytes
+ * where the host can bound a read (`readTail`): a file that grew past its stat since is read as a tail, never pulled whole. Without `readTail`
+ * a whole read is bounded by the size it was stat-ed at and by the engine's 4 MiB refusal, nothing else.
+ */
+export async function readWindow(fs: SessionFs, path: string, size: number, limit: number = Number.POSITIVE_INFINITY): Promise<Window> {
   try {
-    if (size <= READ_MAX) return { text: (await fs.read(path)).slice(0, READ_MAX), whole: true }
+    if (size <= READ_MAX) {
+      if (fs.readTail !== undefined && Number.isFinite(limit)) {
+        const want = Math.max(1, Math.min(READ_MAX + 1, limit))
+        const read = await fs.readTail(path, want)
+
+        // Shorter than asked for: that is the whole file. Otherwise it grew past what this pass may read, and only its tail is used.
+        return read.length < want ? { text: read, whole: true, bytes: read.length } : { text: tailText(read), whole: false, bytes: read.length }
+      }
+
+      const whole = await fs.read(path)
+
+      return { text: whole.slice(0, READ_MAX), whole: true, bytes: whole.length }
+    }
     if (fs.readTail === undefined) return { text: null, reason: 'too-large' }
 
-    const tail = (await fs.readTail(path, TAIL_BYTES)).slice(-TAIL_BYTES * 2)
-    const cut = tail.indexOf('\n')
+    const read = await fs.readTail(path, Math.min(TAIL_BYTES, limit))
 
-    // The first line of a window starts somewhere inside a line: it is dropped, never parsed.
-    return { text: cut < 0 ? '' : tail.slice(cut + 1), whole: false }
+    return { text: tailText(read), whole: false, bytes: read.length }
   } catch {
     return { text: null, reason: 'refused' }
   }
@@ -71,6 +99,19 @@ export const timeMs = (value: unknown): number | undefined => {
   const ms = typeof value === 'string' ? Date.parse(value) : typeof value === 'number' ? value : Number.NaN
 
   return Number.isFinite(ms) && ms > 946_684_800_000 && ms < 8.64e15 ? ms : undefined
+}
+
+/** How far ahead of the clock a recorded time may be before it is not believed (clock skew between processes, not years). */
+export const FUTURE_SLACK_MS = 300_000
+
+/**
+ * A time a record claims, held to what the file can vouch for: never after the file was last written, never more than FUTURE_SLACK_MS ahead
+ * of now. A far-future timestamp would otherwise be stored as "seen" and silence every later event of that session.
+ */
+export const believedAt = (ms: number | null | undefined, mtimeMs: number, nowMs: number): number | null => {
+  if (ms === null || ms === undefined || !Number.isFinite(ms)) return null
+
+  return Math.min(ms, nowMs + FUTURE_SLACK_MS, mtimeMs > 0 ? mtimeMs : Number.POSITIVE_INFINITY)
 }
 
 /** A test runner's summary line in a tool's output, found without a backtracking pattern. Null when none is there. */

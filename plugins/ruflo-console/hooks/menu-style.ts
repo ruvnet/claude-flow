@@ -8,7 +8,7 @@
  */
 import { activeMission, progressOf } from './mission-control'
 import { alertsOf, waitingApprovalsOf } from './data/alerts'
-import { secMemo } from './secure'
+import { secMemo, securityBand } from './secure'
 import type { State, ViewId } from './state'
 import { hasUnseen } from './whatsnew'
 import { money } from './views/bar'
@@ -29,8 +29,7 @@ export function badgesOf(state: State, nowMs: number): Partial<Record<ViewId, Ba
   const mission = activeMission(state)
   const busy = snap?.agents.filter(agent => /busy|active|working/i.test(agent.status)).length ?? 0
   const claims = snap?.claims.length ?? 0
-  const findings = secMemo(state).findings
-  const serious = findings === null ? 0 : findings.counts.critical + findings.counts.high
+  const security = securityBand(secMemo(state).findings)
 
   if (mission !== null && !mission.cancelled) {
     const { done, total } = progressOf(mission, snap?.tasks ?? [])
@@ -42,7 +41,7 @@ export function badgesOf(state: State, nowMs: number): Partial<Record<ViewId, Ba
   if (alerts > 0) out.overview = { text: `⚠ ${alerts}`, tone: 'attention' }
   if (busy > 0) out.swarm = { text: `▶ ${busy}`, tone: 'plain' }
   if (claims > 0) out.claims = { text: String(claims), tone: 'plain' }
-  if (findings !== null && serious > 0) out.secure = { text: `🔒 ${serious}`, tone: findings.counts.critical > 0 ? 'attention' : 'plain' }
+  if (security !== null) out.secure = { text: security.compact, tone: security.isAttention ? 'attention' : 'plain' }
   if (state.usage?.costUsd !== undefined && state.usage.costUsd >= 0.01) out.cost = { text: money(state.usage.costUsd), tone: 'plain' }
   if (state.terminal.runs.size > 0) out.terminal = { text: '●', tone: 'plain' }
   if (hasUnseen(state)) out.whatsnew = { text: 'new', tone: 'attention' }
