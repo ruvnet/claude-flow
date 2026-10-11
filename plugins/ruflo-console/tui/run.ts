@@ -4,6 +4,7 @@
  * a test drives it without a terminal.
  */
 import type { Depth } from './ansi'
+import { cells, clean } from './ansi'
 import { openSession, TUI_VIEWS, type Session, type TuiView } from './session'
 
 export type TuiInput = {
@@ -35,11 +36,37 @@ export function depthOf(env: Record<string, string | undefined>): Depth {
   return env.COLORTERM === 'truecolor' || env.COLORTERM === '24bit' ? 'truecolor' : '256'
 }
 
-const KEYS = 'o overview · c cost · r refresh · j/k scroll · q quit'
 const ESC = '\u001b'
+/** Below this the frame is a short message, not a squeezed page; below NARROW the bar and the key line are the short forms. */
+export const MIN_COLUMNS = 40
+export const NARROW_COLUMNS = 60
+
+const LABELS: Record<TuiView, string> = { overview: 'Overview', cost: 'Cost', swarm: 'Swarm', events: 'Events', missions: 'Missions' }
+const LETTER: Partial<Record<string, TuiView>> = { o: 'overview', c: 'cost', s: 'swarm', e: 'events', m: 'missions' }
+
+/** The page bar: every page with its number (the current one in reverse), or `‹ 3/5 Swarm ›` when the terminal is narrow. Page names are ours, never from a file. */
+export function navLine(view: TuiView, columns: number, depth: Depth): string {
+  const at = TUI_VIEWS.indexOf(view)
+
+  if (columns < NARROW_COLUMNS) return `‹ ${at + 1}/${TUI_VIEWS.length} ${LABELS[view]} ›`
+
+  return TUI_VIEWS.map((page, i) => {
+    const text = ` ${i + 1} ${LABELS[page]} `
+
+    return page === view && depth !== 'none' ? `${ESC}[7m${text}${ESC}[0m` : page === view ? `[${text.trim()}]` : text
+  }).join(' ')
+}
+
+/** The key line under the page: every key when there is room, fewer keys as the terminal narrows, always inside `columns` (the scroll position, when there is one, is counted in). */
+export function keyLine(columns: number, place = ''): string {
+  const tiers = [`1-${TUI_VIEWS.length} or o c s e m page · tab next · r refresh · j/k scroll · q quit · read-only`, '1-5 page · tab next · r refresh · j/k scroll · q quit', '1-5 page · j/k scroll · q quit', '1-5 page · q quit']
+  const fits = tiers.find(line => cells(line + place) <= columns) ?? tiers[tiers.length - 1] as string
+
+  return `${fits}${place}`.slice(0, columns)
+}
 
 /** One keypress as an action, from the bytes a terminal sends. Anything else is ignored. */
-export type Key = 'quit' | 'overview' | 'cost' | 'next' | 'refresh' | 'down' | 'up' | 'pagedown' | 'pageup' | 'top' | 'bottom' | null
+export type Key = 'quit' | { page: TuiView } | 'next' | 'prev' | 'refresh' | 'down' | 'up' | 'pagedown' | 'pageup' | 'top' | 'bottom' | null
 
 export function keyOf(chunk: string): Key {
   switch (chunk) {
@@ -47,12 +74,14 @@ export function keyOf(chunk: string): Key {
     case '\u0003':
     case '\u0004':
       return 'quit'
-    case 'o':
-      return 'overview'
-    case 'c':
-      return 'cost'
     case '\t':
+    case 'l':
+    case `${ESC}[C`:
       return 'next'
+    case `${ESC}[Z`:
+    case 'h':
+    case `${ESC}[D`:
+      return 'prev'
     case 'r':
       return 'refresh'
     case 'j':
@@ -73,15 +102,29 @@ export function keyOf(chunk: string): Key {
     case 'G':
     case `${ESC}[F`:
       return 'bottom'
-    default:
-      return null
+    default: {
+      const digit = /^[1-9]$/.test(chunk) ? TUI_VIEWS[Number(chunk) - 1] : undefined
+      const page = digit ?? LETTER[chunk]
+
+      return page === undefined ? null : { page }
+    }
   }
 }
 
-function paint(session: Session, io: TuiIO, depth: Depth, scroll: number): number {
-  const columns = Math.max(40, Math.min(200, io.stdout.columns ?? 100))
+function paint(session: Session, io: TuiIO, depth: Depth, scroll: number, clear = false): number {
+  const raw = io.stdout.columns ?? 100
   const rows = Math.max(5, io.stdout.rows ?? 30)
-  const room = rows - 1
+  const reset = clear ? `${ESC}[2J` : ''
+
+  // Too narrow for a page: say so in a line that fits, rather than a squeezed frame of broken cards.
+  if (raw < MIN_COLUMNS) {
+    io.stdout.write(`${reset}${ESC}[H${'Too narrow: need 40 columns (q quits)'.slice(0, Math.max(1, raw))}${ESC}[K${ESC}[J`)
+
+    return 0
+  }
+
+  const columns = Math.min(200, raw)
+  const room = rows - 2
   let lines: string[]
 
   try {
@@ -91,9 +134,10 @@ function paint(session: Session, io: TuiIO, depth: Depth, scroll: number): numbe
   }
 
   const top = Math.max(0, Math.min(scroll, Math.max(0, lines.length - room)))
-  const footer = `${depth === 'none' ? '' : `${ESC}[7m`} ${session.state.view} · ${top + 1}-${Math.min(lines.length, top + room)}/${lines.length} · ${KEYS} · read-only ${depth === 'none' ? '' : `${ESC}[0m`}`
+  const place = lines.length > room ? ` · ${top + 1}-${Math.min(lines.length, top + room)}/${lines.length}` : ''
+  const footer = `${depth === 'none' ? '' : `${ESC}[2m`}${clean(keyLine(columns, place))}${depth === 'none' ? '' : `${ESC}[0m`}`
 
-  io.stdout.write(`${ESC}[H${lines.slice(top, top + room).map(line => `${line}${ESC}[K`).join('\r\n')}${ESC}[J\r\n${footer.slice(0, columns + 12)}`)
+  io.stdout.write(`${reset}${ESC}[H${navLine(session.state.view as TuiView, columns, depth)}${ESC}[K\r\n${[...lines.slice(top, top + room), ...Array.from({ length: Math.max(0, room - (lines.length - top)) }, () => '')].map(line => `${line}${ESC}[K`).join('\r\n')}${ESC}[J\r\n${footer}`)
 
   return top
 }
@@ -102,7 +146,9 @@ function paint(session: Session, io: TuiIO, depth: Depth, scroll: number): numbe
 async function once(session: Session, io: TuiIO, view: TuiView): Promise<number> {
   session.show(view)
   await session.refresh()
-  io.stdout.write(`${session.frame(Math.max(40, Math.min(200, io.stdout.columns ?? 100)), 'none').join('\n')}\n`)
+  const columns = Math.max(MIN_COLUMNS, Math.min(200, io.stdout.columns ?? 100))
+
+  io.stdout.write(`${navLine(view, columns, 'none')}\n${session.frame(columns, 'none').join('\n')}\n`)
 
   return 0
 }
@@ -140,8 +186,9 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
       const page = Math.max(1, (io.stdout.rows ?? 30) - 2)
 
       if (key === 'quit') return finish()
-      if (key === 'overview' || key === 'cost') (view = key), (scroll = 0), session.show(view)
+      if (typeof key === 'object' && key !== null) (view = key.page), (scroll = 0), session.show(view)
       else if (key === 'next') (view = TUI_VIEWS[(TUI_VIEWS.indexOf(view) + 1) % TUI_VIEWS.length] as TuiView), (scroll = 0), session.show(view)
+      else if (key === 'prev') (view = TUI_VIEWS[(TUI_VIEWS.indexOf(view) + TUI_VIEWS.length - 1) % TUI_VIEWS.length] as TuiView), (scroll = 0), session.show(view)
       else if (key === 'down') scroll += 1
       else if (key === 'up') scroll = Math.max(0, scroll - 1)
       else if (key === 'pagedown') scroll += page
@@ -159,7 +206,9 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
     io.stdin.setRawMode(true)
     io.stdin.resume()
     io.stdin.on('data', onKey)
-    io.stdout.on?.('resize', draw)
+    const resize = () => void (scroll = paint(session, io, depth, scroll, true))
+
+    io.stdout.on?.('resize', resize)
     io.signal?.addEventListener('abort', finish, { once: true })
     draw()
 
@@ -173,7 +222,7 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
       isDone = true
       clearInterval(timer)
       io.stdin.off('data', onKey)
-      io.stdout.off?.('resize', draw)
+      io.stdout.off?.('resize', resize)
       io.stdin.setRawMode(false)
       io.stdin.pause()
       io.stdout.write(`${ESC}[?25h${ESC}[?1049l`)

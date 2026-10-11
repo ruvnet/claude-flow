@@ -64,6 +64,26 @@ describe('tui command', () => {
     expect(result).toMatchObject({ success: false, exitCode: 1 });
   });
 
+  it.skipIf(locateTuiBundle() === null)('opens each of the five pages with --plain, and refuses Room and anything else with exit 2 (real bundle)', async () => {
+    for (const view of ['overview', 'cost', 'swarm', 'events', 'missions']) {
+      const lines: string[] = [];
+      const real = process.stdout.write.bind(process.stdout);
+      process.stdout.write = ((chunk: string | Uint8Array) => (lines.push(String(chunk)), true)) as typeof process.stdout.write;
+      try {
+        const result = await tuiCommand.action!({ args: [], flags: { view, plain: true }, cwd: tmp() } as never);
+
+        expect(result, view).toMatchObject({ success: true, exitCode: 0 });
+      } finally {
+        process.stdout.write = real;
+      }
+      expect(lines.join(''), view).toContain('1 Overview');
+    }
+
+    for (const view of ['room', 'nope']) {
+      expect(await tuiCommand.action!({ args: [], flags: { view, plain: true }, cwd: tmp() } as never), view).toMatchObject({ success: false, exitCode: 2 });
+    }
+  });
+
   it('declares --plain as a boolean option and lists it in the examples', () => {
     expect(tuiCommand.options?.find(option => option.name === 'plain')).toMatchObject({ type: 'boolean', default: false });
     expect(tuiCommand.examples?.some(example => example.command.includes('--plain'))).toBe(true);

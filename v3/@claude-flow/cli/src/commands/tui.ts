@@ -2,13 +2,13 @@
  * `ruflo tui` — the ruflo console in a terminal of its own (ADR-489).
  *
  * Runs the same views the Claude Code mod (plugins/ruflo-console) draws, over a Node host instead of the mod host. Read-only in
- * this phase: Overview and Cost. The bundle is built from the plugin's source (scripts/build-tui.mjs) and loaded from this
+ * this phase: Overview, Cost, Swarm, Events and Missions (keys 1-5). The bundle is built from the plugin's source (scripts/build-tui.mjs) and loaded from this
  * CLI's OWN install only (never from the working directory: opening a repository must not run code that repository supplies).
  * No bundle is a message and exit 1, never a crash; ruflo stays operational without it. Without a terminal (a pipe, CI) the live view cannot run:
  * a one-line hint and exit 2, unless --plain asks for one frame as plain text and exit 0 (ADR-489 decision E).
  *
  *   npx ruflo tui                 # interactive, in a terminal
- *   npx ruflo tui --view cost     # start on the Cost page
+ *   npx ruflo tui --view swarm    # start on the Swarm page (keys 1-5 or o c s e m switch pages)
  *   npx ruflo tui --plain | head  # one plain frame, exit 0 (scripts, CI)
  *   npx ruflo tui | cat           # not a terminal and no --plain: a hint on stderr, exit 2
  */
@@ -22,7 +22,7 @@ import { ownPluginDirs } from '../plugins/own-install.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const VIEWS = ['overview', 'cost'] as const;
+const VIEWS = ['overview', 'cost', 'swarm', 'events', 'missions'] as const;
 
 type TuiModule = { runTui: (options: Record<string, unknown>, io: Record<string, unknown>) => Promise<number>; isTuiView: (value: unknown) => boolean };
 
@@ -43,14 +43,14 @@ function cliEntry(): string | undefined {
 
 export const tuiCommand: Command = {
   name: 'tui',
-  description: 'The ruflo console in your terminal (Overview and Cost, read-only). Same views as the Claude Code mod.',
+  description: 'The ruflo console in your terminal (Overview, Cost, Swarm, Events, Missions; read-only). Same views as the Claude Code mod.',
   options: [
     { name: 'view', description: `Page to open: ${VIEWS.join(' | ')}`, type: 'string' as const, default: 'overview' },
     { name: 'plain', description: 'Print one frame as plain text and exit 0 (scripts and CI). Without it, a non-terminal gets a hint and exit 2', type: 'boolean' as const, default: false },
   ],
   examples: [
     { command: 'npx ruflo tui', description: 'Open the console in this terminal' },
-    { command: 'npx ruflo tui --view cost', description: 'Start on the Cost page' },
+    { command: 'npx ruflo tui --view swarm', description: 'Start on the Swarm page (keys 1-5 switch pages, tab cycles, q quits)' },
     { command: 'npx ruflo tui --plain | head -40', description: 'One plain frame, exit 0: for scripts and CI (no terminal needed)' },
   ],
   async action(context: CommandContext): Promise<CommandResult> {

@@ -66,7 +66,7 @@ const NETWORKS: readonly (readonly [string, ViewId])[] = [['x.ruv.io', 'xruv'], 
 /** Width from which every tab spells its name beside its emoji (the 1-9 row is about 128 columns with names). */
 const WIDE_TABS = 140
 
-const BODIES: Record<ViewId, (ctx: Ctx) => RenderElement> = {
+export const BODIES: Record<ViewId, (ctx: Ctx) => RenderElement> = {
   menu: menuView,
   overview: overviewView,
   swarm: swarmView,
