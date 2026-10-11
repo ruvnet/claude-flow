@@ -33,7 +33,7 @@ You are an intelligence specialist for the Ruflo self-learning system. You drive
 | End a trajectory with a verdict | `hooks_intelligence_trajectory-end` |
 | Run a learning cycle | `hooks_intelligence_learn` |
 | Configure attention mode | `hooks_intelligence_attention` |
-| Train neural patterns | `neural_train` (`--pattern-type`, `--epochs`) |
+| Train neural patterns | `neural_train` (`modelType` required, `epochs`; CLI: `--pattern`, `--epochs`) |
 | Predict outcome for a task | `neural_predict` |
 | List learned patterns | `neural_patterns` |
 | Compress patterns for storage | `neural_compress` |
@@ -70,7 +70,7 @@ The plugin claims EWC++ consolidation. In code that means:
 
 1. After `hooks_intelligence_trajectory-end`, call `hooks_intelligence_learn`.
 2. Every N task completions (≥10 is reasonable), call `agentdb_consolidate`.
-3. For SONA / MicroLoRA adapters, call `ruvllm_microlora_adapt --consolidate` to apply EWC++ on the adapter's weight deltas.
+3. `hooks_intelligence_learn` already runs EWC++ consolidation by default. `ruvllm_microlora_adapt` takes `{ loraId, quality }` and has no consolidate option.
 
 Skip these and the system forgets.
 
@@ -79,14 +79,15 @@ Skip these and the system forgets.
 For sharing learned patterns across machines or projects:
 
 ```bash
-# Publish current project's patterns to IPFS
-mcp tool call hooks_transfer --json -- '{"action": "store"}'
+# Copy patterns from a sibling project on disk (hooks_transfer: sourcePath, filter, minConfidence)
+npx @claude-flow/cli@latest hooks transfer from-project --source ../other-project --min-confidence 0.7
 
-# Pull a peer's patterns from IPFS by CID
-mcp tool call hooks_transfer --json -- '{"action": "load", "cid": "Qm..."}'
+# Browse and fetch from the pattern marketplace (IPFS registry)
+npx @claude-flow/cli@latest hooks transfer store search --query routing
+npx @claude-flow/cli@latest hooks transfer store download --name PATTERN_NAME
 ```
 
-Requires `PINATA_API_JWT` configured. The `intelligence-transfer` skill walks the full flow.
+The `intelligence-transfer` skill walks the full flow, including the PII check before any publish.
 
 ## Related Plugins
 
@@ -100,7 +101,7 @@ Requires `PINATA_API_JWT` configured. The `intelligence-transfer` skill walks th
 Always close the loop after a task completes:
 
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --quality 0.9 --task "TASK_DESCRIPTION" --agent AGENT_TYPE
 ```
 
-This calls `agentdb_pattern-store` (ReasoningBank — writes to `pattern` with `memory-store-fallback` if registry is unavailable) and feeds the DISTILL phase.
+Passing `--task` and `--agent` is what records a routing outcome; without them no routing outcome is persisted (#2785).

@@ -19,4 +19,4 @@ Available workers (12 total):
 - **consolidate** (low) -- memory consolidation
 - **preload** (low) -- resource preloading
 
-Run the worker via `npx @claude-flow/cli@latest hooks worker dispatch --trigger WORKER_NAME`, then use `ScheduleWakeup` with delay 270s (cache-warm) to schedule the next iteration.
+Run the worker via `npx @claude-flow/cli@latest hooks worker dispatch --trigger WORKER_NAME`, then use `ScheduleWakeup` (`delaySeconds` 270 on the 5-minute cache TTL, 1200-1800 on the 1-hour TTL; `reason`; and `prompt` set to this same /loop input) to schedule the next iteration.
