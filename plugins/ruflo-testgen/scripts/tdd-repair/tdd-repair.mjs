@@ -51,7 +51,7 @@
  */
 
 import { spawnSync, spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const ARGS = (() => {
@@ -253,10 +253,28 @@ async function main() {
   }
   process.stderr.write(`[tdd-repair] pre-flight: test FAILS (exit ${before.exitCode}) — proceeding with repair\n`);
 
+  // The test is the fitness function, so the repair agent must not be able to
+  // pass it by editing it. The prompt forbids that; this enforces it: keep the
+  // original bytes, and if an attempt changed the file, restore it and score
+  // the attempt as failed.
+  const testAbs = resolve(repoPath, ARGS.test);
+  const originalTest = existsSync(testAbs) ? readFileSync(testAbs) : null;
+  let testModified = false;
+
   const attempts = [];
   let final = null;
   for (let i = 1; i <= ARGS.maxAttempts; i++) {
     const claudeResult = await spawnClaudeRepair(repoPath, i);
+    if (originalTest && (!existsSync(testAbs) || !readFileSync(testAbs).equals(originalTest))) {
+      writeFileSync(testAbs, originalTest);
+      testModified = true;
+      attempts.push({
+        attempt: i,
+        claude: { ok: claudeResult.ok, exitCode: claudeResult.exitCode, durationMs: claudeResult.durationMs, usage: claudeResult.parsed?.usage },
+        verify: { passed: false, reason: 'test-file-modified', restored: true },
+      });
+      continue;
+    }
     const verify = runTest(repoPath);
     attempts.push({
       attempt: i,
@@ -272,7 +290,7 @@ async function main() {
       break;
     }
   }
-  if (!final) final = { repaired: false, reason: 'max-attempts-exhausted', attempts: ARGS.maxAttempts };
+  if (!final) final = { repaired: false, reason: testModified ? 'test-file-modified' : 'max-attempts-exhausted', attempts: ARGS.maxAttempts, ...(testModified ? { hint: 'An attempt edited the test file; it was restored and the attempt did not count as a repair.' } : {}) };
 
   // Aggregate cost from per-attempt usage (claude -p reports usage.cost_usd)
   const totalCostUsd = attempts.reduce(
