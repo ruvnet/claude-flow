@@ -47,7 +47,9 @@ export function missionPalette(state: State): PaletteEntry[] {
       }),
     },
     { id: 'mission-pause', group: 'missions', label: 'pause: no more tasks are handed out', run: spec(() => local('pause the mission', () => wired?.actions.pause(), 'write')) },
-    { id: 'mission-resume', group: 'missions', label: 'resume handing out tasks', run: spec(() => local('resume the mission', () => wired?.actions.resume(), 'write')) },
+    // Who resumes is known when the entry is built: Claude's console_run builds the palette inside its call (state.control.viaModel). Claude's
+    // resume keeps the hand-out counts; only the person's gives an exhausted task more billed turns (#3823).
+    { id: 'mission-resume', group: 'missions', label: 'resume handing out tasks', run: spec(() => (state.control.viaModel ? local('resume the mission (Claude: hand-out counts kept)', () => wired?.actions.resume('model'), 'write') : local('resume the mission', () => wired?.actions.resume('person'), 'write'))) },
     { id: 'mission-cancel', group: 'missions', label: 'cancel the mission and its open tasks (asks first)', run: spec(() => { const mission = activeMission(state); return wired === undefined || mission === null ? null : cancelSpec(state, wired.host, mission, tasks()) }) },
     { id: 'mission-aside', group: 'missions', label: 'mission-aside <question>: /btw beside the running task', run: text('mission-aside', value => local('ask aside', () => wired?.actions.aside(value), 'spend')) },
     { id: 'mission-guide', group: 'missions', label: 'mission-guide <instruction>: a visible instruction to Claude (screened, asks first)', run: text('mission-guide', value => local('guide Claude', () => wired?.actions.guide(value))) },

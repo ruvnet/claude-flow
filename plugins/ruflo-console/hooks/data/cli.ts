@@ -7,7 +7,7 @@
 import { closeOf } from './json-span'
 import { failureReason } from './failure'
 import { idOf, msOf, numberOf, plain, recordOf, stringOf, valuesOf } from './parse'
-import { own } from './safe'
+import { countOf, measureOf, own, ratioOf } from './safe'
 import { researchProbe } from './research'
 import { CLI_PREFIXES, type CliChoice, type State, type ViewId } from '../state'
 
@@ -118,12 +118,12 @@ export const memoryProbe: Probe<MemoryStats> = {
 
     const entries = recordOf(value.entries)
     const stats: MemoryStats = { backend: stringOf(value.backend, 60) ?? 'unknown' }
-    const total = numberOf(entries?.total)
-    const vectors = numberOf(entries?.vectors)
+    const total = countOf(entries?.total)
+    const vectors = countOf(entries?.vectors)
     const storage = stringOf(recordOf(value.storage)?.total, 30)
     const oldestMs = msOf(value.oldestEntry)
     const newestMs = msOf(value.newestEntry)
-    const unread = numberOf(recordOf(value.unreadStore)?.rows)
+    const unread = countOf(recordOf(value.unreadStore)?.rows)
 
     if (total !== undefined) stats.total = total
     if (unread !== undefined) stats.unread = unread
@@ -162,7 +162,7 @@ export const namespacesProbe: Probe<Namespaces> = {
       const record = recordOf(entry)
       const name = stringOf(record?.namespace, 40) ?? '(none)'
       const key = stringOf(record?.key, 128)
-      const size = numberOf(record?.size)
+      const size = countOf(record?.size)
       const atMs = msOf(record?.updatedAt ?? record?.createdAt)
 
       counts.set(name, (counts.get(name) ?? 0) + 1)
@@ -198,7 +198,7 @@ export const scoreProbe: Probe<HarnessScore> = {
     }
 
     const score: HarnessScore = { dims }
-    const costUsd = numberOf(value.estCostPerRunUsd)
+    const costUsd = measureOf(value.estCostPerRunUsd)
     const archetype = stringOf(value.archetype, 40)
     const constraints = stringOf(value.hardConstraints, 10)
     const atMs = msOf(value.generatedAt)
@@ -232,12 +232,12 @@ export const flywheelProbe: Probe<Flywheel> = {
 
     const flywheel: Flywheel = {
       isLedgerValid: ledger.valid === true,
-      commits: numberOf(ledger.commits) ?? 0,
+      commits: countOf(ledger.commits) ?? 0,
       receipts: Object.keys(recordOf(state?.receiptStates) ?? {}).length,
       errors: (Array.isArray(ledger.errors) ? ledger.errors : []).slice(0, 3).map(error => plain(error, 100)),
     }
     const champion = stringOf(state?.activeChampionRef, 80)
-    const epoch = numberOf(state?.servingEpoch)
+    const epoch = countOf(state?.servingEpoch)
 
     if (champion !== undefined) flywheel.champion = champion
     if (epoch !== undefined) flywheel.epoch = epoch
@@ -271,7 +271,7 @@ export const auditProbe: Probe<AuditTrend> = {
       const record = recordOf(entry)
       const atMs = msOf(record?.finishedAt ?? record?.startedAt ?? record?.timestamp ?? record?.generatedAt ?? record?.createdAt ?? recordOf(record?.value)?.generatedAt)
       const worst = stringOf(record?.worst ?? recordOf(record?.value)?.worst, 12)
-      const findings = numberOf(record?.findings ?? recordOf(record?.value)?.findingCount)
+      const findings = countOf(record?.findings ?? recordOf(record?.value)?.findingCount)
       const key = idOf(record?.key) ?? undefined
 
       return atMs === undefined ? [] : [{ atMs, ...(worst !== undefined && { worst }), ...(findings !== undefined && { findings }), ...(key !== undefined && { key }) }]
@@ -279,7 +279,7 @@ export const auditProbe: Probe<AuditTrend> = {
 
     points.sort((a, b) => a.atMs - b.atMs)
 
-    return { total: numberOf(value.totalInNamespace) ?? points.length, points }
+    return { total: countOf(value.totalInNamespace) ?? points.length, points }
   },
 }
 
@@ -304,13 +304,13 @@ export const intelligenceProbe: Probe<Intelligence> = {
     const sona = recordOf(value.sona)
     const router = recordOf(value.modelRouter)
     const neural = recordOf(value.neuralRouter)
-    const routerDecisions = numberOf(router?.totalDecisions)
+    const routerDecisions = countOf(router?.totalDecisions)
     const out: Intelligence = {}
-    const trajectories = numberOf(sona?.trajectoriesTotal)
-    const patterns = numberOf(sona?.patternsLearned)
-    const successRate = numberOf(sona?.successRate)
-    const moeDecisions = numberOf(recordOf(value.moe)?.routingDecisions)
-    const ewc = numberOf(recordOf(value.ewc)?.consolidations)
+    const trajectories = countOf(sona?.trajectoriesTotal)
+    const patterns = countOf(sona?.patternsLearned)
+    const successRate = ratioOf(sona?.successRate)
+    const moeDecisions = countOf(recordOf(value.moe)?.routingDecisions)
+    const ewc = countOf(recordOf(value.ewc)?.consolidations)
 
     if (trajectories !== undefined) out.trajectories = trajectories
     if (patterns !== undefined) out.patterns = patterns
@@ -319,7 +319,7 @@ export const intelligenceProbe: Probe<Intelligence> = {
     if (ewc !== undefined) out.ewcConsolidations = ewc
     if (routerDecisions !== undefined) out.routerDecisions = routerDecisions
     // The tool answers a default confidence before the first decision: only a measured one is kept.
-    if (routerDecisions !== undefined && routerDecisions > 0 && numberOf(router?.avgConfidence) !== undefined) out.routerConfidence = numberOf(router?.avgConfidence) as number
+    if (routerDecisions !== undefined && routerDecisions > 0 && ratioOf(router?.avgConfidence) !== undefined) out.routerConfidence = ratioOf(router?.avgConfidence) as number
     if (neural !== null) out.neuralRouter = neural.enabled === true ? 'on' : `off (${plain(neural.reason, 40) || 'not enabled'})`
 
     return out
@@ -450,7 +450,7 @@ export const registryProbe: Probe<Registry> = {
 
     const reg = recordOf(value.registration)
     const limits = recordOf(reg?.limits)
-    const limitText = limits === null ? undefined : Object.entries(limits).slice(0, 4).flatMap(([key, n]) => (numberOf(n) === undefined ? [] : [`${plain(key, 16)} ${numberOf(n)}`])).join(' · ')
+    const limitText = limits === null ? undefined : Object.entries(limits).slice(0, 4).flatMap(([key, n]) => (measureOf(n) === undefined ? [] : [`${plain(key, 16)} ${measureOf(n)}`])).join(' · ')
     const out: Registry = {
       join: (Array.isArray(value.join) ? value.join : []).slice(0, 6).flatMap(step => (typeof step === 'string' ? [plain(step, 200)] : [])),
       channels: (Array.isArray(value.defaultChannels) ? value.defaultChannels : []).slice(0, 8).flatMap(entry => {
