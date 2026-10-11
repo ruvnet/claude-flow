@@ -24,6 +24,27 @@ Batch of reviewed fixes from @rudycelekli (PRs #4020-#4026, #4028-#4030, #4032, 
 - `ruflo-adr` 0.5.5 (see its changelog).
 - Not included: #4031 (RVF truncated-tail recovery) is waiting on the author for a read-only-log fallback.
 
+## [3.56.7] - 2026-10-11
+
+Minor-feature patch: `@claude-flow/codex` 3.0.4 (published standalone; the CLI and root pin it exactly) and `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.7. Signed helpers changed (#4071, re-signed there).
+
+### Added
+
+- `ruflo tui`: the ruflo console in a terminal of its own (ADR-489, phase 1, #4059). `prepare-publish` stages the bundled `plugins/ruflo-console/dist/tui.mjs` into the CLI tarball (about 449 KB larger).
+- MCP resources capability on the CLI server, and a three-host integration loop (Claude Code, Codex, OpenRouter) with ADR-490/491 (#4068).
+- `doctor` flags a better-sqlite3 built against Node 24.19+ headers on Node 24.19-24.21 (#4069, #4074; reported in #4055 by @ronmikailov).
+- `ruflo mods`: doctor repairs that repair, `--strict`, atomic install, startup self-check (#4073).
+
+### Fixed
+
+- Auto-memory hooks deliver their subcommand, sync sees learnings, worktrees share the main memory dir, store writes are atomic (#4071, #4058 by @ronmikailov).
+- `memory purge` keeps the on-disk format on sql.js write-back (#4057); command recording has an off switch and redaction, and `memory cleanup --expired-only` reaches the bridge store (#4056, #4072; both reported by @ronmikailov).
+- `init --dual` writes a safe default `.codex/config.toml`; the previous permissive values now need `--codex-trust full` (#4070).
+
+### Known
+
+- Nested better-sqlite3 11.x copies under agentdb and agentic-flow still ship; fixing that needs an agentdb release depending on better-sqlite3 ^12. `doctor` warns on affected Node versions.
+
 ## [3.56.6] - 2026-10-11
 
 Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.6, with the already-published leaves `@claude-flow/cli-core` 3.7.1 and `@claude-flow/shared` 3.0.3 now pinned exactly. Signed helpers changed (`hook-handler.cjs`) and were re-signed in #4053.
