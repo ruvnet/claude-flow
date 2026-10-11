@@ -45,8 +45,12 @@ export type McState = {
   /** AIDefence's verdict on the goal (null: not screened yet or the screen is off), and whether the screen is on. */
   screen: Screen | null
   isScreenOn: boolean
-  last: { label: string; ok: boolean; detail: string; atMs?: number; next?: string } | null
+  /** `lines` add what one line cannot hold (which tasks are still pending after a failed create). */
+  last: { label: string; ok: boolean; detail: string; atMs?: number; next?: string; lines?: string[] } | null
 }
+
+/** Who resumed a mission: only the person re-arms hand-outs that ran out (#3823). */
+export type ResumeBy = 'person' | 'model'
 
 export type MissionActions = {
   goal: (text: string) => void
@@ -58,7 +62,8 @@ export type MissionActions = {
   /** Hands the next ready task to the primary session (asks first: it starts a model turn). */
   next: () => void
   pause: () => void
-  resume: () => void
+  /** Resume dispatching. The person's resume gives each task its hand-outs back; Claude's (`'model'`) keeps the counts (#3823). */
+  resume: (by?: ResumeBy) => void
   cancel: () => void
   /** Auto-run: when a task finishes and the session is idle, hand over the next ready one without asking. */
   auto: (on: boolean) => void

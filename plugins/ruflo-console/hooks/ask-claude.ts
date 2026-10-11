@@ -143,6 +143,7 @@ export function askActions(state: State, host: Host, runner: Runner, act: () => 
   /** Resolves once the ask is queued (after its screen, when a typed question is screened): a model call waits on it so the ask keeps its origin and level (#3815). */
   const deliver = (mode: 'visible' | 'aside', question: string | undefined, view: ViewId): void | Promise<void> => {
     const byModel = state.control.viaModel
+    const byCall = state.control.callTag ?? undefined
     const typed = plain(question ?? '', MAX_QUESTION).trim()
     const fit = checkLimit(typed, LONG_TEXT_MAX, 'the question', 'sent to Claude as one prompt')
 
@@ -154,6 +155,7 @@ export function askActions(state: State, host: Host, runner: Runner, act: () => 
         {
           label: `ask Claude about ${labelOf(view)}${mode === 'aside' ? ' (/btw aside)' : ''}`,
           byModel,
+          byCall,
           scope: 'ask',
           args: [],
           shows: `${mode === 'aside' ? '/btw ' : ''}“${plain(typed || VIEW_ASK[view].default, 120)}” with this view’s text as data (secrets removed) — ${prompt.length} characters`,

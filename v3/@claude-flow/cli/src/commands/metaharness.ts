@@ -40,6 +40,8 @@ import { spawnSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { homedir } from 'os';
+import { ownPluginDirs } from '../plugins/own-install.js';
 import { runFlywheelWorker } from '../services/harness-flywheel-runtime.js';
 import {
   listFlywheelReceipts,
@@ -219,20 +221,13 @@ async function dispatchFlywheel(
  * `prepublishOnly`).
  */
 function locatePluginScripts(requiredScript?: string): string | null {
-  const candidates: string[] = [];
-  // Up from the cli dist dir
-  let p = resolve(__dirname);
-  for (let i = 0; i < 8; i++) {
-    candidates.push(join(p, 'plugins', 'ruflo-metaharness', 'scripts'));
-    candidates.push(join(p, '..', 'plugins', 'ruflo-metaharness', 'scripts'));
-    p = dirname(p);
-  }
-  // Also try from cwd (covers the "npx ruflo" case where the user is
-  // sitting in their own repo and `npx ruflo metaharness score` should
-  // score THAT repo using the LOCAL plugin if present).
-  const cwd = process.cwd();
-  candidates.push(join(cwd, 'plugins', 'ruflo-metaharness', 'scripts'));
-  candidates.push(join(cwd, 'node_modules', '@claude-flow', 'cli', 'plugins', 'ruflo-metaharness', 'scripts'));
+  // Up from the cli dist dir, bounded at node_modules: a project-local install
+  // must not reach the project.
+  const candidates: string[] = ownPluginDirs(__dirname, 'ruflo-metaharness', 'scripts');
+  // The scripts are executed, so they come from this CLI's own install (or the
+  // user's marketplace checkout), never from the cwd: scoring a repo must not
+  // run plugin code that repo supplies. The repo is still the scoring target.
+  candidates.push(join(homedir(), '.claude', 'plugins', 'marketplaces', 'ruflo', 'plugins', 'ruflo-metaharness', 'scripts'));
 
   for (const c of candidates) {
     if (!existsSync(join(c, '_harness.mjs'))) continue;
