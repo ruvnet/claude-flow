@@ -1,14 +1,14 @@
 {
   "manifest": {
-    "version": "3.56.3",
+    "version": "3.56.4",
     "files": {
-      "auto-memory-hook.mjs": "c8d218526a3c34034c2a69de23f507f0eb0f70d59c16426a8edc849e6ac22529",
-      "hook-handler.cjs": "34d2aacfb59a73ff94b1467bb57ab9d9c4af89c0e470aadf3bd0d74a503a658d",
+      "auto-memory-hook.mjs": "381412515fb490def7d821ddfe1ebf8d9bee76e49a86e182806c0274f568bf15",
+      "hook-handler.cjs": "38fc235079ddcf74b62452a91b9e56703026a1a7682dcce3c635be5ad1c8ea19",
       "intelligence.cjs": "ac5033a77bcea9796856629d5d319bde9ab6b7edf0dcd0d4af187ce30af90836",
-      "statusline.cjs": "4a48353b4f1566fa4379b00fd0321b6676a22b6cc91fbbd8380ac5183d619468",
+      "statusline.cjs": "d72417ecb38634011a19f095a30e07b9929e6f97663520172ece9be7491b2eaa",
       "router.cjs": "16648b3c0d73b6681ac2d8d13def6a68286c57f5a11004de5b19a0fa088c833d"
     }
   },
-  "signature": "U1PReRNeRDIa3/64YWz99uxvI1OmVc3d53VBaVg9neZlrSC5LNaCGtMcGyIcrB2bA6jl4SHsHlbDvNcVH38UCw==",
+  "signature": "Dhlixv3hNK+hc+t5recMVcHtVZ6ilyT4uN4YLuFsoSVwbTI6dt6VfzyZZXDjgfm6ei8NR9IHIjjmVgKkUmRBDw==",
   "algorithm": "ed25519"
 }

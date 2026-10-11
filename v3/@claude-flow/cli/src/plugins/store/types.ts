@@ -319,6 +319,11 @@ export interface PluginStoreConfig {
 
   // Security
   requireVerification: boolean;
+  /**
+   * Fall back to the built-in (unverified) plugin list when the signed registry can't be
+   * verified. Defaults to true, or false under `CLAUDE_FLOW_STRICT_PLUGINS=true`.
+   */
+  allowUnverifiedFallback?: boolean;
   requireSecurityAudit: boolean;
   minTrustLevel: TrustLevel;
   trustedAuthors: string[];

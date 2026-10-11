@@ -320,7 +320,7 @@ export function moreSkillActions(state: State, host: Host, runner: Runner, load:
  */
 export function skillPaletteEntries(state: State): PaletteEntry[] {
   const wired = hosts.get(state)
-  const why = 'the skills view is not wired yet'
+  const why = 'the console is not running in this session: open it first (console_open skills)'
   const spec = (make: (host: Host) => ActionSpec): { kind: 'spec'; spec: ActionSpec | null; why: string } => ({ kind: 'spec', spec: wired === undefined ? null : make(wired.host), why })
   const find = (text: string): ActionSpec | null => {
     const argv = findArgv(text)

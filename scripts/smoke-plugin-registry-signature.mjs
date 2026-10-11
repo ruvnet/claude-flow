@@ -18,13 +18,16 @@
  *
  *   [1/3] STATIC CONTRACT — the source file must:
  *         - import `verifyEd25519Signature` from `transfer/ipfs/client.ts`
- *         - call it from the `verifyRegistrySignature` private method
+ *         - call it from the `registrySignatureFailure` private method
+ *           (formerly `verifyRegistrySignature`; returns the failure
+ *           reason, or null when the signature verified)
  *         - strip BOTH `registrySignature` AND `registryPublicKey` from
  *           the registry copy before stringifying (canonical form)
  *         - pin to the caller-supplied `expectedPublicKey`, NOT to the
  *           served `registry.registryPublicKey` field
  *         - the call site must `await` the verifier AND fail-closed
- *           (return demo registry / not just `console.warn`)
+ *           (`if (failure) return this.fallbackToBuiltIn(...)` — the
+ *           unverified, trust-stripped fallback; not just `console.warn`)
  *
  *   [2/3] CRYPTO ROUND-TRIP — using the exact same Ed25519 scheme as
  *         `signRegistry()` in
@@ -38,8 +41,9 @@
  *           scenario the original report calls out)
  *
  *   [3/3] CALL-SITE BYTE — the call site must contain `requireVerification`
- *         AND `await this.verifyRegistrySignature` AND a `return` (the
- *         fail-closed branch). A future regression that drops `await`
+ *         AND `await this.registrySignatureFailure` AND
+ *         `if (failure) return this.fallbackToBuiltIn(` (the fail-closed
+ *         branch). A future regression that drops `await`
  *         or that reverts to plain `console.warn` will be caught here.
  */
 
@@ -103,14 +107,14 @@ function extractMethodBody(source, methodSignatureRegex) {
 
 const body = extractMethodBody(
   src,
-  /private\s+async\s+verifyRegistrySignature\s*\(/,
+  /private\s+async\s+registrySignatureFailure\s*\(/,
 );
 if (body) {
   if (/delete\s+\w+\.registrySignature/.test(body) && /delete\s+\w+\.registryPublicKey/.test(body)) {
     ok('canonicalization strips BOTH registrySignature AND registryPublicKey');
   } else {
     fail(
-      'verifyRegistrySignature must delete both signature fields before stringify',
+      'registrySignatureFailure must delete both signature fields before stringify',
       'attacker can otherwise re-sign by spreading the served fields back in',
     );
   }
@@ -118,7 +122,7 @@ if (body) {
     ok('canonical message is JSON.stringify of stripped registry');
   } else {
     fail(
-      'verifyRegistrySignature must JSON.stringify the stripped registry',
+      'registrySignatureFailure must JSON.stringify the stripped registry',
       'the signer uses plain JSON.stringify (no whitespace, no sort) — the verifier must match',
     );
   }
@@ -135,7 +139,7 @@ if (body) {
     );
   }
 } else {
-  fail('verifyRegistrySignature method not found in async form');
+  fail('registrySignatureFailure method not found in async form');
 }
 
 // Old stub pattern must be GONE. A future regression that brings back
@@ -282,16 +286,16 @@ const callSiteMatch = src.match(
 );
 if (callSiteMatch) {
   const block = callSiteMatch[0];
-  if (/await\s+this\.verifyRegistrySignature\(/.test(block)) {
-    ok('call site awaits verifyRegistrySignature');
+  if (/await\s+this\.registrySignatureFailure\(/.test(block)) {
+    ok('call site awaits registrySignatureFailure');
   } else {
     fail(
       'call site does not await the async verifier',
-      'without await, the Promise<boolean> is truthy and verification is bypassed',
+      'without await, the Promise is truthy and the verifier result is never read',
     );
   }
-  if (/return\s+this\.createDemoRegistryAsync\(/.test(block) || /return\s+\w+/.test(block)) {
-    ok('call site fails closed (returns rather than continuing)');
+  if (/if\s*\(\s*failure\s*\)\s*\{?\s*return\s+this\.fallbackToBuiltIn\(/.test(block)) {
+    ok('call site fails closed (if (failure) return this.fallbackToBuiltIn(...))');
   } else {
     fail(
       'call site must return/fall-back on verification failure (not just warn)',
