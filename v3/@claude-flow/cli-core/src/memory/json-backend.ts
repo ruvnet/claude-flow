@@ -100,14 +100,14 @@ export class JsonMemoryBackend implements MemoryBackend {
   private isExpired(entry: MemoryEntry): boolean {
     if (!entry.ttlSeconds) return false;
     const expiresAt = new Date(entry.storedAt).getTime() + entry.ttlSeconds * 1000;
-    return Date.now() > expiresAt;
+    return Date.now() >= expiresAt;
   }
 
   async store(key: string, value: unknown, opts?: StoreOptions): Promise<void> {
     const namespace = opts?.namespace || 'default';
     const ck = compositeKey(namespace, key);
     const state = this.load();
-    if (state.entries[ck] && !opts?.upsert) {
+    if (state.entries[ck] && !this.isExpired(state.entries[ck]) && !opts?.upsert) {
       throw new Error(`memory: UNIQUE constraint failed for namespace='${namespace}' key='${key}' (pass --upsert to overwrite)`);
     }
     state.entries[ck] = {
