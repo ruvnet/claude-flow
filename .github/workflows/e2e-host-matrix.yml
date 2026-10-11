@@ -43,8 +43,9 @@ jobs:
           test -f @claude-flow/cli/dist/src/index.js || { echo "::error::the CLI did not build"; exit 1; }
       - name: Build the TUI bundle (esbuild only, no root install; the tui leg skips cleanly without it)
         run: |
-          npm install --no-save --no-package-lock --ignore-scripts --workspaces=false esbuild@0.27.2
-          node plugins/ruflo-console/scripts/build-tui.mjs
+          mkdir -p "$RUNNER_TEMP/esb"
+          npm install --prefix "$RUNNER_TEMP/esb" --ignore-scripts esbuild@0.27.2
+          RUFLO_ESBUILD_DIR="$RUNNER_TEMP/esb" node plugins/ruflo-console/scripts/build-tui.mjs
       - name: Install the pinned Codex (0.162.0)
         run: |
           npm install -g @openai/codex@0.162.0
