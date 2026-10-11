@@ -36,7 +36,7 @@ export async function codexLeg({ cli, live }) {
 
     // `init --dual` registers the ruflo marketplace and installs ruflo-core@ruflo itself (#2801). On a fresh CODEX_HOME that must just work.
     const afterInit = await run(bin, ['plugin', 'list'], { cwd: proj, env, timeout: 60_000 })
-    rec.check('init --dual on a fresh CODEX_HOME leaves ruflo-core@ruflo installed (marketplace clone must outlast the init timeout)', /ruflo-core@ruflo\s+installed/.test(afterInit.out), (afterInit.out.match(/ruflo-core@ruflo.*/) ?? [redact(init.out.match(/Failed to install[^\n]*/)?.[0] ?? 'not listed')])[0].slice(0, 180))
+    rec.check('init --dual on a fresh CODEX_HOME leaves ruflo-core@ruflo installed (marketplace clone must outlast the init timeout)', /ruflo-core@ruflo\s+installed/.test(afterInit.out), (afterInit.out.match(/ruflo-core@ruflo.*/) ?? [`not listed. list exit=${afterInit.code} out=${afterInit.out.replace(/\s+/g, ' ').slice(0, 120)} err=${redact(afterInit.err).replace(/\s+/g, ' ').slice(0, 120)} | init said: ${redact(`${init.out}\n${init.err}`).split('\n').filter(l => /codex|plugin|marketplace|ruflo-core/i.test(l)).join(' / ').replace(/\s+/g, ' ').slice(0, 300)}`])[0].slice(0, 600))
     // Then swap in the CHECKOUT as a local marketplace, so the remaining assertions test this tree, not main on GitHub.
     await run(bin, ['plugin', 'marketplace', 'remove', 'ruflo'], { cwd: proj, env, timeout: 60_000 })
     const mk = await run(bin, ['plugin', 'marketplace', 'add', REPO], { cwd: proj, env, timeout: 120_000 })
