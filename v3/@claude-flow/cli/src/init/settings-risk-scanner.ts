@@ -53,7 +53,14 @@ const DOWNLOADER_WORDS = ['curl', 'wget'];
 const STANDALONE_RISK_PATTERNS: RegExp[] = [
   /\bInvoke-Expression\b/i,
   /\biex\s*\(/i,
-  /powershell(\.exe)?\s+.*-e(nc(odedcommand)?)?\s+\S/i,
+  // Linear-time, not `.*` — the previous `\s+.*-e(...)` backtracked
+  // quadratically on hostile input (64,000 spaces with no match measured at
+  // ~1.9s; a 1MB hook command would stall whatever calls this for minutes).
+  // Flagged by review on the 2026-10-11 dream-cycle PR (#4053) that ported
+  // this pattern into hook-handler.cjs's automatic SessionStart path, where
+  // that stall is unconditional on every session boot — fixed here too since
+  // this is the shared root definition.
+  /powershell(\.exe)?\s+(?:\S+\s+)*?-e(nc(odedcommand)?)?\s+\S/i,
   /\/dev\/tcp\//i,
   /\bnc\s+-e\b/i,
   /base64\s+(-d|--decode)\b/i,

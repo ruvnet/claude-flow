@@ -251,7 +251,11 @@ const SR_DOWNLOADER_WORDS = ['curl', 'wget'];
 const SR_STANDALONE_RISK_PATTERNS = [
   /\bInvoke-Expression\b/i,
   /\biex\s*\(/i,
-  /powershell(\.exe)?\s+.*-e(nc(odedcommand)?)?\s+\S/i,
+  // Linear-time, not `.*` — see settings-risk-scanner.ts's identical fix
+  // (review on PR #4053 measured the old pattern at ~1.9s on 64,000 hostile
+  // spaces; a 1MB hook command would stall this unconditional boot path for
+  // minutes).
+  /powershell(\.exe)?\s+(?:\S+\s+)*?-e(nc(odedcommand)?)?\s+\S/i,
   /\/dev\/tcp\//i,
   /\bnc\s+-e\b/i,
   /base64\s+(-d|--decode)\b/i,
@@ -352,9 +356,24 @@ function srFormatRiskFindingsAsWarnings(findings) {
   return findings.map((f) => `${f.location}: ${f.reason} — "${f.snippet}"`);
 }
 
+// Location + reason only, no snippet — see scanSessionStartSettingsForRisk's
+// doc comment for why the automatic boot path deliberately drops it.
+function srFormatRiskFindingsForAutomaticBoot(findings) {
+  return findings.map((f) => `${f.location}: ${f.reason}`);
+}
+
 // Reads and scans THIS project's own .claude/settings.json. Returns a
 // (possibly empty) array of warning strings; never throws on a
 // missing/malformed file.
+//
+// Deliberately omits the matched snippet (unlike srFormatRiskFindingsAsWarnings,
+// which `init`/`--upgrade` uses and which DOES include it): this function's
+// only caller is the 'session-restore' handler below, whose stdout is read
+// back into the live Claude Code session as context — not a human reading a
+// terminal. Printing up to 120 characters of attacker-controlled settings.json
+// content into that context is a prompt-injection path even with control
+// characters stripped (flagged by review on PR #4053). The location and
+// static reason string are both scanner-generated, never attacker content.
 function scanSessionStartSettingsForRisk() {
   const projectRoot = process.env.CLAUDE_PROJECT_DIR || process.cwd();
   const settingsPath = path.join(projectRoot, '.claude', 'settings.json');
@@ -371,7 +390,7 @@ function scanSessionStartSettingsForRisk() {
     return []; // can't parse it, so can't scan it — never block session-restore for this
   }
   if (!settings || typeof settings !== 'object') return [];
-  return srFormatRiskFindingsAsWarnings(srScanSettingsForRisk(settings));
+  return srFormatRiskFindingsForAutomaticBoot(srScanSettingsForRisk(settings));
 }
 
 // Safe require with stdout suppression - the helper modules have CLI
@@ -943,4 +962,4 @@ if (require.main === module) {
 // Which sibling helpers loaded (all CommonJS, shipped as .cjs — #3555).
 const loadedHelpers = { router: !!router, session: !!session, memory: !!memory, intelligence: !!intelligence };
 
-module.exports = { runWithTimeout, INTELLIGENCE_TIMEOUT_MS, loadedHelpers, ownedByMod, MOD_OWNABLE_EVENTS, resolveCliBinForHook, cliSpawnArgs, helperRoot, scanSessionStartSettingsForRisk, srScanSettingsForRisk, srScanCommandStringForRisk, srScanAllowRuleForRisk, SR_DANGEROUS_COMMAND_WORDS, SR_SHELL_EXEC_WORDS, SR_DOWNLOADER_WORDS, SR_STANDALONE_RISK_PATTERNS };
+module.exports = { runWithTimeout, INTELLIGENCE_TIMEOUT_MS, loadedHelpers, ownedByMod, MOD_OWNABLE_EVENTS, resolveCliBinForHook, cliSpawnArgs, helperRoot, scanSessionStartSettingsForRisk, srFormatRiskFindingsForAutomaticBoot, srScanSettingsForRisk, srScanCommandStringForRisk, srScanAllowRuleForRisk, SR_DANGEROUS_COMMAND_WORDS, SR_SHELL_EXEC_WORDS, SR_DOWNLOADER_WORDS, SR_STANDALONE_RISK_PATTERNS };
