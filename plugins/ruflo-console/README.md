@@ -47,16 +47,18 @@ CONSOLE_DRIVE_INSTALL="$PWD:ruflo-mods@ruflo" RUFLO_E2E_LIVE=1 bash plugins/rufl
 
 ## In a terminal of its own: `ruflo tui` (ADR-489)
 
-The same views the mod draws, on five pages (Overview, Cost, Swarm, Events, Missions), drawn by a small standalone terminal host instead of Claude Code. Read-only; `npx ruflo tui` (the `ruflo` package and `@claude-flow/cli` carry the bundle).
+The same views the mod draws, on five pages (Overview, Cost, Swarm, Events, Missions), drawn by a small standalone terminal host instead of Claude Code, and a sixth, AI, that asks Codex or OpenRouter. The five are read-only; the AI page shows a card of exactly what would be sent and sends only after a `y`; `npx ruflo tui` (the `ruflo` package and `@claude-flow/cli` carry the bundle).
 
 ```bash
 npx ruflo tui                    # interactive: 1-5 or o c s e m pick a page, Tab/Shift-Tab cycle, j/k, PgUp/PgDn, g/G, r refresh, q quit
 npx ruflo tui --view swarm       # start on the Swarm page
+npx ruflo tui --view ai --model openai/gpt-4o-mini --max-spend-usd 0.1   # ask OpenRouter on a cheap model, stopping at $0.10 reported (key in $OPENROUTER_API_KEY, never shown)
+npx ruflo tui --no-ai            # without the AI page
 npx ruflo tui --plain | head -40 # one plain frame, exit 0: for scripts and CI
 npx ruflo tui | cat              # no terminal and no --plain: a one-line hint on stderr, exit 2
 ```
 
-From a checkout, build the bundle first: `node plugins/ruflo-console/scripts/build-tui.mjs`. Room is not in the terminal (it is a message box and Claude sessions); Codex and OpenRouter come next, read-only by default (decision D in the ADR). A terminal narrower than 60 columns gets a short page bar, and under 40 a one-line notice.
+From a checkout, build the bundle first: `node plugins/ruflo-console/scripts/build-tui.mjs`. Room is not in the terminal (it is a message box and Claude sessions). **AI page:** Ctrl-T picks Codex or OpenRouter, Enter shows the card, `y` sends, `n` or Esc cancels, Ctrl-S stops a running answer, Esc hands the keys back to the page bar. Codex runs read-only and only as the pinned 0.162.0 release (never `current` or PATH); OpenRouter goes to `openrouter.ai` over https, or to a host a `--convo-targets` entry names (`endpoint:<name>=<https-base-url>|<KEY_ENV>|<model>`); a key is read by its variable name and never drawn. Details and what is not done yet: ADR-489 section 4. A terminal narrower than 60 columns gets a short page bar, and under 40 a one-line notice.
 
 ## Toasts (ADR-477)
 

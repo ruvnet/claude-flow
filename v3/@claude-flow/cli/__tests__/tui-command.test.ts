@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { locateTuiBundle, tuiCommand } from '../src/commands/tui.js';
+import { aiPage, locateTuiBundle, tuiCommand } from '../src/commands/tui.js';
 
 /** The command names capability-brain.ts lists, read from the source so the test fails if `tui` is dropped. */
 const COMMANDS_FOR_BRAIN = [...readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'mcp-tools', 'capability-brain.ts'), 'utf8').matchAll(/'([a-z][a-z-]*)'/g)].map(match => match[1]);
@@ -64,8 +64,8 @@ describe('tui command', () => {
     expect(result).toMatchObject({ success: false, exitCode: 1 });
   });
 
-  it.skipIf(locateTuiBundle() === null)('opens each of the five pages with --plain, and refuses Room and anything else with exit 2 (real bundle)', async () => {
-    for (const view of ['overview', 'cost', 'swarm', 'events', 'missions']) {
+  it.skipIf(locateTuiBundle() === null)('opens each of the six pages with --plain, and refuses Room and anything else with exit 2 (real bundle)', async () => {
+    for (const view of ['overview', 'cost', 'swarm', 'events', 'missions', 'ai']) {
       const lines: string[] = [];
       const real = process.stdout.write.bind(process.stdout);
       process.stdout.write = ((chunk: string | Uint8Array) => (lines.push(String(chunk)), true)) as typeof process.stdout.write;
@@ -77,11 +77,26 @@ describe('tui command', () => {
         process.stdout.write = real;
       }
       expect(lines.join(''), view).toContain('1 Overview');
+      expect(lines.join(''), view).not.toContain(process.env.OPENROUTER_API_KEY ?? '\u0000never');
     }
 
     for (const view of ['room', 'nope']) {
       expect(await tuiCommand.action!({ args: [], flags: { view, plain: true }, cwd: tmp() } as never), view).toMatchObject({ success: false, exitCode: 2 });
     }
+  });
+
+  it('reads the AI flags: a model, a numeric cap (a bad one is dropped), the endpoint list from a flag or the environment', () => {
+    expect(aiPage({})).toEqual({});
+    expect(aiPage({ model: 'openai/gpt-4o-mini', maxSpendUsd: 0.1, convoTargets: 'endpoint:a=https://x.example/v1|A_KEY|m' })).toEqual({ model: 'openai/gpt-4o-mini', maxSpendUsd: 0.1, convoTargets: 'endpoint:a=https://x.example/v1|A_KEY|m' });
+    expect(aiPage({ 'max-spend-usd': '0.25' })).toEqual({ maxSpendUsd: 0.25 });
+    expect(aiPage({ maxSpendUsd: -1 })).toEqual({});
+    expect(aiPage({ maxSpendUsd: 'lots' })).toEqual({});
+    expect(aiPage({ model: '' })).toEqual({});
+  });
+
+  it('declares --ai (default on, --no-ai turns it off), --model, --max-spend-usd and --convo-targets', () => {
+    expect(tuiCommand.options?.find(option => option.name === 'ai')).toMatchObject({ type: 'boolean', default: true });
+    for (const name of ['model', 'max-spend-usd', 'convo-targets']) expect(tuiCommand.options?.some(option => option.name === name), name).toBe(true);
   });
 
   it('declares --plain as a boolean option and lists it in the examples', () => {

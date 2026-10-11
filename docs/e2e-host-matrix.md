@@ -8,7 +8,7 @@ RUFLO_E2E_LIVE=1 npm run e2e:live            # also real sessions, capped at 6 U
 node scripts/e2e/host-matrix.mjs --legs codex --cli-path "$PWD/v3/@claude-flow/cli/bin/cli.js" --json out.json
 ```
 
-Flags: `--legs claude,codex,openrouter`, `--cli-version latest|X.Y.Z` (default: the published `ruflo`), `--cli-path <cli.js>` (test a workspace
+Flags: `--legs claude,codex,openrouter,tui` (the `tui` leg runs the standalone `ruflo tui` bundle in process, so build it first: `node plugins/ruflo-console/scripts/build-tui.mjs`; keyless it covers the six pages, the not-a-terminal exit and the AI page against a stub fetch; live it asks OpenRouter and the pinned Codex one trivial question each after a card), `--cli-version latest|X.Y.Z` (default: the published `ruflo`), `--cli-path <cli.js>` (test a workspace
 build; build `shared security mcp swarm cli` first), `--json <file>`, `--cap <usd>`. Exit code 1 only when a row is `fail`.
 
 ## What you need for the live mode
