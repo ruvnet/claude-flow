@@ -127,6 +127,16 @@ Against the **published 3.56.5** (live, Claude + Codex): 33 pass, **2 fail**, 1 
 | 3 | Advisory: `init --dual` writes a gitignored `.codex/config.toml` with `sandbox_mode = "danger-full-access"`, `approval_policy = "never"`, `web_search = "live"`, labelled "Development profile - more permissive". | Row `advisory`. | **Decision for rUv**, not changed here: it is a documented local override, but it is the default a Codex user gets. |
 | 4 | Not defects (checked): OpenRouter accepts the `claude-sonnet-5` name ruflo sends; `--no-codex-detect` gates only *auto*-detection, `--codex` / `--dual` configure Codex by design. | Direct calls; source read. | None. |
 
+**Open, not understood.** On GitHub-hosted runners (and only there; it passed on three local setups, including an npm-global Codex under a trimmed
+`PATH`) `init --dual` printed "Codex CLI not found" while a Node replay of the initializer's exact call (`execSync('which codex', { stdio: 'pipe' })`,
+same env and cwd) found the binary. Five CI iterations narrowed it to *inside the ruflo process* (or its `npx @claude-flow/codex@latest` child, which
+is what a fresh project runs when no initializer is installed) but did not find the cause. The matrix reports that row as `flaky` with the evidence
+whenever this exact signature appears; it is never reported as a pass. Worth an issue of its own.
+
+Also worth knowing: `init --dual` in a project without `@claude-flow/codex` runs `npx -y @claude-flow/codex@latest init`, i.e. the *published*
+adapter (3.0.3 at the time of writing, with the 20 s budget), not the workspace source, so finding 2's fix reaches that path only once
+`@claude-flow/codex` is republished.
+
 Harness bugs found and fixed on the way (not ruflo bugs): the redactor's `sk-` pattern masked task ids (`task-...`) and its callback mis-printed
 offsets; a `__proto__` assertion tested the wrong property (the pollution is covered by the unit test from #3967); a costHardStop assertion that
 matched the model's prose would also pass on a hallucinated refusal and now reads the `tool_result`.
