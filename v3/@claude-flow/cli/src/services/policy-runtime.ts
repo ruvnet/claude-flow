@@ -1,8 +1,10 @@
 import {
   AgenticPolicyEngine,
+  canonicalizePolicy,
   createLegacyCompatibleState,
   isMcpCallerAuthEnabled,
   decodeTokenEnvelope,
+  policyHash,
   publicKeyFromHex,
   verifyInvocationToken,
   type BudgetLimit,
@@ -557,21 +559,54 @@ function reconcileLedger(
   return fail('anchor-missing');
 }
 
-function readArchiveReceipts(archivePath: string): PolicyReceipt[] {
-  if (!existsSync(archivePath)) return [];
-  return readFileSync(archivePath, 'utf8')
-    .split('\n')
-    .filter((line) => line.trim().length > 0)
-    .map((line) => JSON.parse(line) as PolicyReceipt);
+/**
+ * Parses already-read-into-memory jsonl archive content (#3892: the caller
+ * reads the file while still holding the policy lock, so no concurrent
+ * `appendFileSync` can produce a torn read here). Fails closed with a clean
+ * error on any unparseable line rather than letting `JSON.parse` throw
+ * uncaught — a torn line (from a crash, or previously from the now-closed
+ * concurrent-read race) must report `{valid: false, error}`, not crash the
+ * caller.
+ */
+function parseArchiveReceipts(content: string): { receipts: PolicyReceipt[]; error?: string } {
+  const receipts: PolicyReceipt[] = [];
+  for (const line of content.split('\n')) {
+    if (line.trim().length === 0) continue;
+    try {
+      receipts.push(JSON.parse(line) as PolicyReceipt);
+    } catch {
+      return { receipts: [], error: 'policy-ledger-archive-parse-error' };
+    }
+  }
+  return { receipts };
 }
 
-/** Dedupes crash-duplicate archive lines (#3164); same sequence + differing hash is tampering. */
+/**
+ * Dedupes crash-duplicate archive lines (#3164); same sequence + differing
+ * hash is tampering. #3892 Blocker 2: a receipt's own stored `hash` must
+ * also match its own `payload` content before it is trusted at all — a
+ * tampered record whose hash was never recomputed would otherwise pass
+ * through untouched as long as it had no colliding duplicate. Two
+ * same-sequence candidates that individually pass that check and whose
+ * hash strings also match are additionally deep-compared by payload
+ * (defense in depth: a genuine hash collision is not something SHA-256
+ * tampering can produce, but the check is cheap and belongs here).
+ */
 function dedupeArchiveReceipts(receipts: PolicyReceipt[]): { receipts: PolicyReceipt[]; error?: string } {
   const bySequence = new Map<number, PolicyReceipt>();
   for (const receipt of receipts) {
+    if (policyHash(receipt.payload) !== receipt.hash) {
+      return { receipts: [], error: 'policy-ledger-archive-conflict' };
+    }
     const sequence = receipt.payload.sequence;
     const existing = bySequence.get(sequence);
-    if (existing && existing.hash !== receipt.hash) return { receipts: [], error: 'policy-ledger-archive-conflict' };
+    if (existing) {
+      if (existing.hash !== receipt.hash
+        || canonicalizePolicy(existing.payload) !== canonicalizePolicy(receipt.payload)) {
+        return { receipts: [], error: 'policy-ledger-archive-conflict' };
+      }
+      continue;
+    }
     bySequence.set(sequence, receipt);
   }
   const sequences = [...bySequence.keys()].sort((a, b) => a - b);
@@ -588,14 +623,16 @@ function dedupeArchiveReceipts(receipts: PolicyReceipt[]): { receipts: PolicyRec
  * hash/signature/anchor checks — never on the hot MCP-call path.
  */
 function verifyFullPolicyLedger(
-  archivePath: string,
+  archiveContent: string,
   state: PolicyState,
   engineOptions: { signingKey?: string; keyId?: string },
 ): PolicyLedgerVerification {
   const retainedFrom = state.retainedFrom ?? 0;
   const totalLength = retainedFrom + state.receipts.length;
   if (retainedFrom === 0) return { valid: true, length: totalLength };
-  const { receipts: archived, error } = dedupeArchiveReceipts(readArchiveReceipts(archivePath));
+  const { receipts: parsed, error: parseError } = parseArchiveReceipts(archiveContent);
+  if (parseError) return { valid: false, length: totalLength, error: parseError };
+  const { receipts: archived, error } = dedupeArchiveReceipts(parsed);
   if (error) return { valid: false, length: totalLength, error };
   if (archived.length < retainedFrom) return { valid: false, length: totalLength, error: 'policy-ledger-archive-gap' };
   const fullReceipts = [...archived.slice(0, retainedFrom), ...state.receipts];
@@ -615,24 +652,47 @@ export async function verifyPolicyLedger(
 ): Promise<PolicyLedgerVerification> {
   const target = paths(projectRoot);
   mkdirSync(target.dir, { recursive: true, mode: 0o700 });
+  const engineOptions = {
+    signingKey: process.env.CLAUDE_FLOW_POLICY_SIGNING_KEY,
+    keyId: process.env.CLAUDE_FLOW_POLICY_KEY_ID,
+  };
+  let outcomeResult: PolicyLedgerVerification;
+  let snapshotState: PolicyState;
+  let archiveContent = '';
+  // #3892 Blocker 3: the lock is held only for the bounded work below (load,
+  // reconcile, persist a catch-up anchor, and — when a full replay is about
+  // to happen — reading the archive's raw bytes). It is released BEFORE the
+  // O(total-history) parse+dedupe+verify work, which otherwise blocked
+  // every other MCP call for the entire replay — exactly the lock
+  // contention #3164 fixed on the hot path, reintroduced here for the audit
+  // path. The raw read must stay inside the lock: reading it after release
+  // would race a concurrent transaction's `appendFileSync` to the same
+  // file, risking a torn read. The CPU-bound work on that already-read
+  // string happens entirely outside the lock.
   const release = await acquireLock(target.lock);
   try {
-    const engineOptions = {
-      signingKey: process.env.CLAUDE_FLOW_POLICY_SIGNING_KEY,
-      keyId: process.env.CLAUDE_FLOW_POLICY_KEY_ID,
-    };
     const engine = AgenticPolicyEngine.fromState(loadPolicyState(projectRoot), engineOptions);
     const outcome = reconcileLedger(projectRoot, engine, options);
     if (outcome.persist) {
       const by = outcome.event === 'establish-anchor' ? userInfo().username : undefined;
       await writePolicyState(projectRoot, target.state, engine.exportState(), outcome.event, by);
     }
-    if (!options.full || !outcome.result.valid) return outcome.result;
-    const full = verifyFullPolicyLedger(target.archive, engine.exportState(), engineOptions);
-    return { ...full, secondaryAnchor: outcome.result.secondaryAnchor };
+    outcomeResult = outcome.result;
+    snapshotState = engine.exportState();
+    if (options.full && outcomeResult.valid) {
+      archiveContent = existsSync(target.archive) ? readFileSync(target.archive, 'utf8') : '';
+    }
   } finally {
     release();
   }
+  if (!options.full || !outcomeResult.valid) return outcomeResult;
+  // The archive is append-only: verifying history up to this snapshot's
+  // `retainedFrom` stays correct even if another transaction appends more
+  // receipts after the lock above is released — `verifyFullPolicyLedger`
+  // only ever consumes the first `retainedFrom` archived entries, and the
+  // content it works from was already read, in full, under the lock.
+  const full = verifyFullPolicyLedger(archiveContent, snapshotState, engineOptions);
+  return { ...full, secondaryAnchor: outcomeResult.secondaryAnchor };
 }
 
 /**
