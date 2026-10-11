@@ -197,6 +197,8 @@ export type State = {
   configDir: string | null
   /** False in a session with no pane to show (claude -p, an SDK host): views are then answered as text. */
   isInteractive: boolean
+  /** True on the standalone terminal host (ADR-489): there is no Claude session, prompt box, tab bar or mouse, so the shared chrome and the Claude-only controls are not drawn. False under Claude Code. */
+  isStandalone: boolean
   /** When this module loaded: "since the console loaded" series and stall times count from here. */
   loadedAtMs: number
   view: ViewId
@@ -343,6 +345,7 @@ export function newState(raw: PluginOptions | undefined): State {
     nostrKeyVerifiedAtMs: null,
     configDir: null,
     isInteractive: true,
+    isStandalone: false,
     loadedAtMs: Date.now(),
     view: 'overview',
     back: 'overview',

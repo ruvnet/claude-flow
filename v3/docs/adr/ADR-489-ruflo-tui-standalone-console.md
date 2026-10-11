@@ -1,6 +1,6 @@
 # ADR 489: `ruflo tui`: the console in a terminal of its own, over the same views
 
-Status: Accepted. The owner accepted decisions A to E on 2026-10-11 (section 8). Phase 1 (read-only Overview and Cost, `--plain`, publish wiring) is implemented in PR #4059; phases 2 to 4 are a roadmap that must follow those decisions.
+Status: Accepted. The owner accepted decisions A to E on 2026-10-11 (section 8). Phase 1 (read-only Overview and Cost, `--plain`, publish wiring) is implemented in PR #4059; phase 2 (Swarm, Events and Missions, page bar and keys, resize, host capability flag) is implemented in PR 1 of the continuation; phases 3 and 4 are a roadmap that must follow those decisions.
 
 Date: 2026-10-11
 
@@ -151,14 +151,14 @@ not a replacement and not a second implementation.
 
 1. **Phase 1 (PR #4059): the vertical slice.** `ruflo tui [--view overview|cost] [--plain]`; alternate screen, keys `o c Tab r j k PgUp PgDn g G q`, auto-refresh every 3 s; `--plain` prints one plain frame and exits 0, and without a terminal and without `--plain` it prints a one-line hint and exits 2 (decision E); read-only; the boundary and security tests; ADR.
 1b. **Publish wiring (done in PR #4059, decisions A and B).** `prepare-publish.mjs` builds and stages the bundle and `esbuild` is a declared devDependency. Still to do: a CI job that runs `ruflo tui --plain` from the packed tarball.
-2. **Host capabilities and more pages.** `Host.capabilities` so chrome and rows that need Claude Code are hidden, not drawn inert; pages in the accepted order (decision C): Swarm, then Events, then Missions, then Room, all read-only; Raster to half-block cells; Windows and tmux verification; `NO_COLOR` and width (CJK, emoji) handling.
+2. **Host capabilities and more pages (done).** `state.isStandalone` is the capability flag: the shared chrome and the Claude-only rows are not drawn on this host (no tab bar, footer buttons, Launch section, Ask Claude, Claude control card; a button that cannot be pressed is not drawn, a state chip and a section title are). Pages in the accepted order (decision C): Overview, Cost, **Swarm, Events, Missions**, all read-only; keys `1`-`5`, `o c s e m`, Tab and Shift-Tab, a page bar, a key line that shortens with the width, a clear-and-redraw on resize, a position bar under 60 columns and a one-line notice under 40. **Room is not shipped, on purpose:** its content is what people said to Claude in a session plus a message box, neither of which this host has, so it could only draw empty cards; it comes back if a host source for it exists. Missions shows the ADR-406 mission record only (goal entry, planning and research start a Claude turn). Still open: Raster to half-block cells, Windows verification, CJK and emoji width beyond the table in `ansi.ts`.
 3. **Drive Codex and OpenRouter** (3.5) behind the confirm gate, with #3983's tests ported; the AI terminal page; per-provider spend read from the CLIs' own reports and the ledger.
 4. **Actions.** Pressable buttons and fields (an optional lazily loaded input dependency, or hand-rolled), the confirm card, the palette; each write goes through `Runner` as in the mod.
 
 ## 5. Risks
 
 - **Cell width.** Width is counted in terminal cells with a small table (CJK, fullwidth, the emoji blocks, combining marks); a symbol the table does not list, or a terminal that draws an emoji at another width, can still shift a border. Tested for the emoji the pane header uses.
-- **Chrome that lies.** Inert Claude-only controls are visible until phase 2. They are dimmed and the footer says read-only; still a rough edge.
+- **Chrome that lies (closed in phase 2).** The Claude-only controls are no longer drawn. Residual: some page text still names a button (a hint such as "open Memory"), because the view's words are shared with Claude Code.
 - **Drift.** A new view may import something engine-specific. Mitigation: `tui-boundary.spec.ts` (imports) and a headless smoke over the pages the TUI opens.
 - **Bundle size.** 437 KiB gzip for a feature many will not use. It loads lazily, only for `tui`. Dropping the unused pages from the bundle (tree-shaking by an explicit page list) is a phase 2 option.
 - **A second place to sanitise.** The engine's escape handling is not inherited. `clean` is one function with a test; any new drawing path must go through `render`.

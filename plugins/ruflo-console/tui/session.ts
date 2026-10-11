@@ -1,16 +1,21 @@
 /**
- * One standalone console session (ADR-489): the mod's own state and controller over the Node host, drawn by the mod's own
- * `paneView` into terminal lines. This is the "same code path": nothing below `paneView` is forked; only the Host and the Kit differ.
+ * One standalone console session (ADR-489): the mod's own state and controller over the Node host, with the mod's own page bodies
+ * (`BODIES`, the same functions `paneView` calls) drawn by `standalonePane` into terminal lines. This is the "same code path": no view is
+ * forked; only the Host, the Kit and the pane around the body differ (Claude Code's tab bar, footer and Launch section are not drawn here).
  */
 import { createController, type Controller } from '../hooks/controller'
 import type { Host } from '../hooks/host'
 import { newState, type State, type ViewId } from '../hooks/state'
-import { paneView } from '../hooks/views/pane'
+import { BODIES } from '../hooks/views/pane'
+import { standalonePane } from '../hooks/views/standalone-pane'
 import { render, terminalKit, type Depth } from './ansi'
 import { createNodeHost, type NodeHostOptions } from './node-host'
 
-/** The pages the standalone shell opens in this phase: the rest need the Claude Code host's panes, prompt or dialogs. */
-export const TUI_VIEWS = ['overview', 'cost'] as const satisfies readonly ViewId[]
+/**
+ * The pages the standalone shell opens: Overview and Cost, then Swarm, Events and Missions (ADR-489 decision C). Room is left out on purpose:
+ * its content is what people said to Claude in a session and a message box, neither of which this host has, so it could only draw empty cards.
+ */
+export const TUI_VIEWS = ['overview', 'cost', 'swarm', 'events', 'missions'] as const satisfies readonly ViewId[]
 export type TuiView = (typeof TUI_VIEWS)[number]
 
 export type Session = {
@@ -30,6 +35,7 @@ export function openSession(options: NodeHostOptions, host: Host = createNodeHos
 
   state.cwd = options.cwd
   state.isInteractive = true
+  state.isStandalone = true
   // The controller draws and probes only for a pane that is open and shown; here the whole terminal is that pane.
   state.pane.isOpen = true
   state.pane.isShown = true
@@ -59,7 +65,7 @@ export function openSession(options: NodeHostOptions, host: Host = createNodeHos
     },
     frame: (columns, depth) => {
       state.pane.columns = columns
-      const tree = paneView({ kit: terminalKit(), state, nowMs: Date.now(), columns, pictures: new Map(), act: controller.actions })
+      const tree = standalonePane({ kit: terminalKit(), state, nowMs: Date.now(), columns, pictures: new Map(), act: controller.actions }, BODIES[state.view])
 
       return render(tree, columns, depth)
     },

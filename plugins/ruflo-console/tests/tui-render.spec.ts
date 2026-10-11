@@ -88,8 +88,14 @@ describe('render', () => {
     expect(widthOf(render(text('🏠'.repeat(20), { wrap: 'truncate-end' }), 11, 'none')[0] as string)).toBeLessThanOrEqual(11)
   })
 
-  it('draws a button as an inert bracketed label and skips hidden boxes', () => {
-    expect(render(kit.Button({ key: 'k', label: 'Refresh' } as never), 30, 'none')).toEqual(['[Refresh]'])
+  it('draws only a state chip from a button (a control nobody can press is not drawn), and skips hidden boxes', () => {
+    expect(render(kit.Button({ key: 'k', label: 'Refresh' } as never), 30, 'none')).toEqual([])
+    expect(render(kit.Button({ key: 'k', label: ' ✦ ask Claude ' } as never), 30, 'none')).toEqual([])
+    expect(render(kit.Button({ key: 'k', label: ' ● all 3 ', hotkey: 'a' } as never), 30, 'none')).toEqual(['● all 3  '])
+    expect(render(kit.Button({ key: 'k', label: ' ○ bad 0 ' } as never), 30, 'none')).toEqual(['○ bad 0  '])
+    // A section title stays, without the fold mark (nothing folds in a terminal).
+    expect(render(kit.Button({ key: 'sec-optimizer', label: '▾ Optimizer' } as never), 30, 'none')).toEqual(['Optimizer'])
+    expect(render(kit.Button({ key: 'sec-plan', label: '▸ Plan options' } as never), 30, 'none')).toEqual(['Plan options'])
     expect(render(box([text('gone')], { hidden: true }), 30, 'none')).toEqual([])
   })
 

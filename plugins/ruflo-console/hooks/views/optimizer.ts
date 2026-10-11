@@ -21,7 +21,8 @@ function findingRows(ctx: Ctx, finding: Finding): RenderElement[] {
   return [
     row(ctx, [ctx.kit.Text({ bold: true, color: COLOR[finding.level](), children: ` ${GLYPH[finding.level]} ${clip(finding.title, Math.max(20, ctx.columns - 34))} ` }), ctx.kit.Text({ dimColor: true, children: `· ${finding.area} · ${finding.metric}` })], `opt-head-${finding.id}`),
     text(ctx, `   ${clip(finding.why, Math.max(20, ctx.columns - 6))}`, { dimColor: true }),
-    row(
+    // The standalone terminal has no buttons, so a row of fixes (or "no button for this one") would say something false there.
+    ...(ctx.state.isStandalone ? [] : [row(
       ctx,
       [
         ...fixes.map(item => ctx.kit.Button({ key: `opt-fix-${finding.id}-${item.id}`, label: ` ▸ ${item.label} `, plain: true, onPress: () => ctx.act.optimizer.fix(finding.id, item.id) })),
@@ -29,7 +30,7 @@ function findingRows(ctx: Ctx, finding: Finding): RenderElement[] {
         ctx.kit.Button({ key: `opt-ask-${finding.id}`, label: ' ✦ ask Claude ', plain: true, dimColor: true, onPress: () => ctx.act.optimizer.ask(finding.id) }),
       ],
       `opt-fixes-${finding.id}`,
-    ),
+    )]),
     ...(before === undefined ? [] : [text(ctx, `   after ${cfg.ran.get(finding.id) ?? 'a fix'}: ${before}  →  now ${now ?? 'resolved (no longer a finding)'}  (refresh r re-reads)`, { color: now === null ? THEME.ok : THEME.info })]),
   ]
 }

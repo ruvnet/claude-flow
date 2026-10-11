@@ -47,16 +47,16 @@ CONSOLE_DRIVE_INSTALL="$PWD:ruflo-mods@ruflo" RUFLO_E2E_LIVE=1 bash plugins/rufl
 
 ## In a terminal of its own: `ruflo tui` (ADR-489)
 
-The same Overview and Cost views, drawn by a small standalone terminal host instead of Claude Code. Read-only; `npx ruflo tui` (the `ruflo` package and `@claude-flow/cli` carry the bundle).
+The same views the mod draws, on five pages (Overview, Cost, Swarm, Events, Missions), drawn by a small standalone terminal host instead of Claude Code. Read-only; `npx ruflo tui` (the `ruflo` package and `@claude-flow/cli` carry the bundle).
 
 ```bash
-npx ruflo tui                    # interactive: o overview, c cost, Tab, j/k, PgUp/PgDn, g/G, r refresh, q quit
-npx ruflo tui --view cost        # start on the Cost page
+npx ruflo tui                    # interactive: 1-5 or o c s e m pick a page, Tab/Shift-Tab cycle, j/k, PgUp/PgDn, g/G, r refresh, q quit
+npx ruflo tui --view swarm       # start on the Swarm page
 npx ruflo tui --plain | head -40 # one plain frame, exit 0: for scripts and CI
 npx ruflo tui | cat              # no terminal and no --plain: a one-line hint on stderr, exit 2
 ```
 
-From a checkout, build the bundle first: `node plugins/ruflo-console/scripts/build-tui.mjs`. Swarm, Events, Missions and Room come next, in that order; Codex and OpenRouter later, read-only by default (decisions C and D in the ADR).
+From a checkout, build the bundle first: `node plugins/ruflo-console/scripts/build-tui.mjs`. Room is not in the terminal (it is a message box and Claude sessions); Codex and OpenRouter come next, read-only by default (decision D in the ADR). A terminal narrower than 60 columns gets a short page bar, and under 40 a one-line notice.
 
 ## Toasts (ADR-477)
 
