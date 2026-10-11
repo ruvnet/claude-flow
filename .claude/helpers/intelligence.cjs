@@ -141,16 +141,22 @@ function withStoreLock(filePath, fn) {
   try { return fn(); } finally { if (held) { try { fs.rmdirSync(lock); } catch { /* already gone */ } } }
 }
 
+// IDs present when the store was read. Take this BEFORE deduping: those passes
+// assign IDs to entries in place, and an entry that had none must still count as
+// ours (not as something another writer added).
+function storeIds(loaded) {
+  return new Set((Array.isArray(loaded) ? loaded : []).map((e) => e && e.id));
+}
+
 // Write the store, keeping entries another writer added after we read it.
-function writeStoreMerged(filePath, next, loaded) {
-  const loadedIds = new Set((Array.isArray(loaded) ? loaded : []).map((e) => e && e.id));
+function writeStoreMerged(filePath, next, loadedIds) {
   withStoreLock(filePath, () => {
     let out = next;
     try {
       const current = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
       if (Array.isArray(current)) {
         const have = new Set(next.map((e) => e && e.id));
-        const added = current.filter((e) => e && !loadedIds.has(e.id) && !have.has(e.id));
+        const added = current.filter((e) => e && e.id != null && !loadedIds.has(e.id) && !have.has(e.id));
         if (added.length) out = next.concat(added);
       }
     } catch { /* missing or unreadable: write ours */ }
@@ -520,13 +526,14 @@ function init() {
   // Check if graph-state.json is fresh (within 60s of store)
   const graphState = readJSON(GRAPH_PATH);
   let store = readJSON(STORE_PATH);
+  const loadedIds = storeIds(store);
 
   // Bootstrap from MEMORY.md files if store is empty
   if (!store || !Array.isArray(store) || store.length === 0) {
     const bootstrapped = bootstrapFromMemoryFiles();
     if (bootstrapped.length > 0) {
       store = bootstrapped;
-      writeStoreMerged(STORE_PATH, store, []);
+      writeStoreMerged(STORE_PATH, store, loadedIds);
     } else {
       return { nodes: 0, edges: 0, message: 'No memory entries to index' };
     }
@@ -548,7 +555,7 @@ function init() {
       `[INTELLIGENCE] Deduped store: ${store.length} -> ${deduped.length} entries ` +
       `(by-id: ${store.length - beforeContentDedup} dropped, by-content: ${beforeContentDedup - deduped.length} dropped)\n`
     );
-    writeStoreMerged(STORE_PATH, deduped, store);
+    writeStoreMerged(STORE_PATH, deduped, loadedIds);
   }
 
   // Skip rebuild if graph is fresh and store hasn't changed. #2920: nodeCount
@@ -879,7 +886,7 @@ function consolidate() {
     return { entries: 0, edges: 0, newEntries: 0, message: 'No store to consolidate' };
   }
 
-  const loadedStore = store;
+  const loadedIds = storeIds(store);
   // Deduplicate store entries by ID before processing (fixes #1518)
   const preDedupCount = store.length;
   store = deduplicateById(store);
@@ -1025,7 +1032,7 @@ function consolidate() {
   // RANKED_PATH are rewritten unconditionally just above; writing the
   // (already deduped, size-bounded per ADR-095 G6) store alongside them
   // costs nothing near the <500ms budget and removes the whole bug class.
-  writeStoreMerged(STORE_PATH, store, loadedStore);
+  writeStoreMerged(STORE_PATH, store, loadedIds);
 
   // 9. Save snapshot for delta tracking
   const updatedGraph = readJSON(GRAPH_PATH);
