@@ -788,7 +788,7 @@ export class MCPServerManager extends EventEmitter {
           version: VERSION,
           capabilities: {
             tools: { listChanged: true },
-            resources: { subscribe: true, listChanged: true },
+            resources: {},
           },
         },
       },
@@ -891,7 +891,7 @@ export class MCPServerManager extends EventEmitter {
               serverInfo: { name: 'ruflo', version: '3.0.0' },
               capabilities: {
                 tools: { listChanged: true },
-                resources: { subscribe: true, listChanged: true },
+                resources: {},
               },
             },
           };
@@ -954,6 +954,17 @@ export class MCPServerManager extends EventEmitter {
               },
             };
           }
+
+        // The server advertises `resources` (so clients such as Codex offer list_mcp_resources), and a declared capability must
+        // be served: it exposes no resources, so the answers are empty, and a read is the spec's "resource not found" (ADR-490).
+        case 'resources/list':
+          return { jsonrpc: '2.0', id: message.id, result: { resources: [] } };
+
+        case 'resources/templates/list':
+          return { jsonrpc: '2.0', id: message.id, result: { resourceTemplates: [] } };
+
+        case 'resources/read':
+          return { jsonrpc: '2.0', id: message.id, error: { code: -32002, message: 'Resource not found' } };
 
         case 'notifications/initialized':
           // Client notification - no response needed

@@ -35,6 +35,10 @@ export function resolveBundledSkillsPath(moduleUrl = import.meta.url): string {
 /**
  * Main initializer for Codex projects
  */
+/** `codex plugin marketplace add` clones the repo (~17.5 s measured, ADR-490); `plugin add` is a local copy. */
+const MARKETPLACE_ADD_TIMEOUT_MS = 180_000;
+const PLUGIN_ADD_TIMEOUT_MS = 60_000;
+
 export class CodexInitializer {
   private projectPath: string = '';
   private template: AgentsMdTemplate = 'default';
@@ -505,22 +509,29 @@ export class CodexInitializer {
         }
       }
 
-      // Add the marketplace (idempotent — codex no-ops if already added; any
-      // error here is non-fatal, the plugin-add below reports the real failure).
+      // Add the marketplace (idempotent — codex no-ops if already added). The add is a git clone of
+      // the whole repo: ~17.5 s measured on an idle machine, so a 20 s budget was killed under the
+      // load init itself creates (ADR-490 e2e). A failure here is remembered, not swallowed: the
+      // plugin-add below then fails with "plugin not found in marketplace", which names the wrong cause.
+      let marketplaceFailure = '';
       try {
-        execSync('codex plugin marketplace add ruvnet/ruflo --ref main', { stdio: 'pipe', timeout: 20000 });
-      } catch {
-        // Marketplace may already exist, or the CLI may not support this exact
-        // verb — let the plugin-add attempt surface the actionable error.
+        execSync('codex plugin marketplace add ruvnet/ruflo --ref main', { stdio: 'pipe', timeout: MARKETPLACE_ADD_TIMEOUT_MS });
+      } catch (err) {
+        const e = err as { code?: string; killed?: boolean; message?: string };
+        const timedOut = e.code === 'ETIMEDOUT' || e.killed === true;
+        marketplaceFailure = `marketplace add ${timedOut ? 'timed out (ETIMEDOUT)' : 'failed'}: ${(e.message ?? String(err)).split('\n')[0]}`;
+        // The marketplace may already exist, or the CLI may not support this exact verb:
+        // still try the plugin-add and report both failures if it fails too.
       }
 
       // Install the plugin at user scope.
       try {
-        execSync('codex plugin add ruflo-core@ruflo', { stdio: 'pipe', timeout: 20000 });
+        execSync('codex plugin add ruflo-core@ruflo', { stdio: 'pipe', timeout: PLUGIN_ADD_TIMEOUT_MS });
         return { installed: true, activationMessage: ACTIVATION };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        return { installed: false, warning: `Failed to install ruflo-core@ruflo plugin: ${msg}. ${MANUAL}` };
+        const cause = marketplaceFailure ? ` (the marketplace ${marketplaceFailure})` : '';
+        return { installed: false, warning: `Failed to install ruflo-core@ruflo plugin: ${msg}${cause}. ${MANUAL}` };
       }
     } catch {
       return { installed: false, warning: `Could not install Ruflo plugin. ${MANUAL}` };
