@@ -117,7 +117,7 @@ importers:
   '@claude-flow/cli':
     dependencies:
       '@claude-flow/cli-core':
-        specifier: 3.7.0
+        specifier: 3.7.1
         version: link:../cli-core
       '@claude-flow/codex':
         specifier: 3.0.3
@@ -135,7 +135,7 @@ importers:
         specifier: 3.0.4
         version: link:../security
       '@claude-flow/shared':
-        specifier: 3.0.2
+        specifier: 3.0.3
         version: link:../shared
       '@iarna/toml':
         specifier: ^2.2.5
