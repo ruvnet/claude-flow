@@ -710,9 +710,18 @@ const postCommandCommand: Command = {
         timestamp: Date.now(),
       });
 
+      // #4056: recording switched off on purpose is not a failure.
+      const recordingOff = (result as { disabled?: boolean }).disabled === true;
+
       if (ctx.flags.format === 'json') {
         output.printJson(result);
-        return { success: result.recorded, exitCode: result.recorded ? 0 : 1, data: result };
+        const ok = result.recorded || recordingOff;
+        return { success: ok, exitCode: ok ? 0 : 1, data: result };
+      }
+
+      if (recordingOff) {
+        output.printInfo('Command recording is switched off (CLAUDE_FLOW_HOOKS_RECORD_COMMANDS / CLAUDE_FLOW_HOOKS_ENABLED / hooks.recordCommands); nothing was stored.');
+        return { success: true, data: result };
       }
 
       if (!result.recorded) {

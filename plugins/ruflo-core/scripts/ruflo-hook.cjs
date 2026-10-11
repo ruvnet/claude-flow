@@ -403,6 +403,17 @@ function precompactAuto() {
   process.stdout.write(lines.join('\n') + '\n');
 }
 
+/**
+ * #4056: command history is opt-out. When the person has switched it off the
+ * shim does not even start the CLI for a Bash event (the CLI re-checks, and
+ * also reads hooks.recordCommands from the config files).
+ */
+function commandRecordingOff(env = process.env) {
+  const off = new Set(['0', 'false', 'off', 'no']);
+  return [env.CLAUDE_FLOW_HOOKS_RECORD_COMMANDS, env.CLAUDE_FLOW_HOOKS_ENABLED]
+    .some((v) => v !== undefined && off.has(String(v).trim().toLowerCase()));
+}
+
 function main() {
   const [subcommand] = process.argv.slice(2);
   if (!subcommand) done(); // no subcommand — no-op, same as bash version
@@ -437,6 +448,7 @@ function main() {
 
   // PostToolUse: derive CLI flags from the hook event JSON (replaces jq).
   if (subcommand === 'post-command') {
+    if (commandRecordingOff()) done();
     const cmd = event?.tool_input?.command;
     if (!cmd) done(); // bash version: `[ -z "$CMD" ] && exit 0`
     const exitCode = event?.tool_response?.exit_code ?? 0;
@@ -477,4 +489,4 @@ if (process.env.RUFLO_HOOK_UNIT_TEST !== '1') {
   main();
 }
 
-module.exports = { escapeCmdArg, invokeHook, npxPrefix, resolveCommandPath, resolveInvocation, resolveNpmShim };
+module.exports = { commandRecordingOff, escapeCmdArg, invokeHook, npxPrefix, resolveCommandPath, resolveInvocation, resolveNpmShim };
