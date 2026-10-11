@@ -19,7 +19,7 @@ import { markPicture } from './gfx/pictures'
 import type { Host } from './host'
 import { agentLogs } from './ops'
 import { landingRefusal } from './model-tools'
-import { createRunner, type Runner } from './runner'
+import { createRunner, EXPIRY_TIMER, type Runner } from './runner'
 import { advance, loadLedger, mcOf } from './mission-control'
 import { hasLiveWork } from './mission-list'
 import { loadAllowed } from './remember'
@@ -400,8 +400,8 @@ export function createController(state: State, host: Host): Controller {
     state.pane.isShown = false
     state.pane.isClosedByPerson = true
     persist()
-    cancel('frames')
-    cancel('watch')
+    // A waiting card's expiry timer does not outlive the pane either: past its window it is cleared at the next ask or tool call instead.
+    for (const name of ['frames', 'watch', EXPIRY_TIMER]) cancel(name)
     await host.closePane(PANE_ID).catch(() => undefined)
   }
 

@@ -415,6 +415,9 @@ export function confirmRow(ctx: Ctx): RenderElement | null {
   // One bordered card in the warning colour: the person says yes to everything in it, so it reads as a unit, not as loose lines. Its border and
   // padding take four columns, so the text inside is clipped to the narrower width.
   const inner: Ctx = { ...ctx, columns: Math.max(20, ctx.columns - 4) }
+  // Drawn for a person in a pane they can see: this is now the card a bare typed yes may answer. A text answer for a model shows it to no one.
+  if (ctx.text !== true && ctx.state.pane.isShown && pending.id !== undefined) ctx.state.shownCard = pending.id
+
   const hasMoney = pending.note !== undefined && /money|models/i.test(pending.note)
 
   return ctx.kit.Box({
@@ -439,7 +442,7 @@ export function confirmRow(ctx: Ctx): RenderElement | null {
           // A low-risk ruflo action may be remembered: it is not asked again (Settings lists and forgets it).
           ...(pending.rememberKey !== undefined ? [button(ctx, 'remember', `Always allow “${pending.rememberKey}”`, () => ctx.act.remember(pending.id))] : []),
           // An AI terminal turn (claude -p in plan mode, codex read-only, the budget cap) may be always accepted: Settings resets it.
-          ...(ctx.state.terminal.asked !== null && pending.label === ctx.state.terminal.asked.label && ctx.state.terminal.harness !== 'ruflo' ? [button(ctx, 'always', 'Always accept AI turns', () => ctx.act.settings.alwaysAccept(pending.id))] : []),
+          ...(ctx.state.terminal.asked !== null && pending.id !== undefined && pending.id === ctx.state.terminal.asked.card && ctx.state.terminal.harness !== 'ruflo' ? [button(ctx, 'always', 'Always accept AI turns', () => ctx.act.settings.alwaysAccept(pending.id))] : []),
         ],
       }),
     ],

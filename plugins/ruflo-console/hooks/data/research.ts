@@ -5,7 +5,8 @@
  * validated, never from typed text. Read-only: the section stores and starts nothing.
  */
 import type { Probe } from './cli'
-import { jsonObject, msOf, numberOf, recordOf, stringOf } from './parse'
+import { jsonObject, msOf, recordOf, stringOf } from './parse'
+import { measureOf } from './safe'
 
 import type { State } from '../state'
 
@@ -63,8 +64,9 @@ export function parseResearch(stdout: string): ResearchRecord[] | null {
     if (record === null || question === undefined) return []
 
     const findings = (Array.isArray(record.findings) ? record.findings : []).slice(0, MAX_FINDINGS)
-    const spent = numberOf(record.spentUsd)
-    const cap = numberOf(record.capUsd)
+    // Dollars are bounded where they are read: `1e300` would draw "$1e+300" (#3822).
+    const spent = measureOf(record.spentUsd)
+    const cap = measureOf(record.capUsd)
     const status = typeof record.status === 'string' && STATUSES.includes(record.status) ? (record.status as ResearchRecord['status']) : 'unknown'
 
     return [{

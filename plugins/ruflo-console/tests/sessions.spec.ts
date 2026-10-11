@@ -117,7 +117,8 @@ describe('the attention queue', () => {
     expect(kinds[0]).toBe('needs-approval')
     expect(queue.filter(item => item.kind === 'needs-approval').map(item => item.harness).sort()).toEqual(['console', 'ruflo'])
     expect(queue.find(item => item.kind === 'question')?.rowKey).toBe(`claude:${CLAUDE}:${uuid(3)}`)
-    expect(queue.filter(item => item.kind === 'failed').map(item => item.harness).sort()).toEqual(['claude', 'codex', 'ruflo'])
+    // Codex's aborted rollout was an Esc ("interrupted"): the person's choice, not a failure.
+    expect(queue.filter(item => item.kind === 'failed').map(item => item.harness).sort()).toEqual(['claude', 'ruflo'])
     expect(queue.filter(item => item.kind === 'completed-unread').length).toBeGreaterThanOrEqual(4)
     expect(kinds).toEqual([...kinds].sort((a, b) => ['needs-approval', 'question', 'failed', 'completed-unread'].indexOf(a) - ['needs-approval', 'question', 'failed', 'completed-unread'].indexOf(b)))
     // No item names any of the three unassigned rows.
@@ -208,7 +209,7 @@ describe('read means viewed', () => {
   })
 
   it('brings a cleared failure back only when the session moves on to something newer', () => {
-    const row = { key: 'k', unassigned: null, stale: null, title: 't', harness: 'claude', updatedMs: 100, signals: { question: false, approval: false, failed: true, turnEndedAtMs: null } } as unknown as Parameters<typeof attentionOf>[0][number]
+    const row = { key: 'k', unassigned: null, stale: null, title: 't', harness: 'claude', status: 'failed', updatedMs: 100, signals: { question: false, approval: false, failed: true, turnEndedAtMs: null } } as unknown as Parameters<typeof attentionOf>[0][number]
     const first = attentionOf([row], { baselineMs: 0, seen: {} }, null)
     const viewed = markViewed({ baselineMs: 0, seen: {} }, first)
 

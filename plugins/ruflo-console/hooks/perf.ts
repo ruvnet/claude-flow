@@ -9,6 +9,7 @@
 import { exec } from './actions'
 import { jsonAfter } from './data/cli'
 import { plain, recordOf } from './data/parse'
+import { measureOf } from './data/safe'
 import { labLines } from './mh-lab'
 import { mcpReader, textLines, type Reader, type SecCost } from './secure'
 import type { State } from './state'
@@ -49,14 +50,21 @@ export function sparkline(values: readonly number[], width = 32): string {
 
 /** Any value as one cleaned cell: numbers must be finite and sane (a hostile 1e300 is "n/a", not a display value), text goes through plain(). */
 function show(value: unknown, max = 24): string {
-  if (typeof value === 'number') return Number.isFinite(value) && Math.abs(value) <= 1e12 ? String(value) : 'n/a'
+  if (typeof value === 'number') return measureOf(value) === undefined ? 'n/a' : String(value)
   if (value === undefined || value === null) return 'n/a'
 
   return plain(typeof value === 'string' ? value : typeof value === 'boolean' ? String(value) : '', max) || 'n/a'
 }
 
-const ms = (value: unknown, digits = 3): string => (typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(digits)}ms` : 'n/a')
-const mb = (bytes: unknown): string => (typeof bytes === 'number' && Number.isFinite(bytes) ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : 'n/a')
+// Every number below is bounded where it is read (#3822): `1e999` parses as Infinity and `1e300` prints as "1e+300", neither a measurement.
+const as = (value: unknown, text: (n: number) => string): string => {
+  const n = measureOf(value)
+
+  return n === undefined ? 'n/a' : text(n)
+}
+const ms = (value: unknown, digits = 3): string => as(value, n => `${n.toFixed(digits)}ms`)
+const mb = (bytes: unknown): string => as(bytes, n => `${(n / 1024 / 1024).toFixed(1)} MB`)
+const pct = (value: unknown, digits?: number): string => as(value, n => `${digits === undefined ? String(n) : n.toFixed(digits)}%`)
 
 /** `performance metrics --format json`: memory, CPU, load and the event-loop latency, which feeds the sparkline. */
 export const metricsReader: Reader = (stdout, stderr, state) => {
@@ -68,18 +76,19 @@ export const metricsReader: Reader = (stdout, stderr, state) => {
   const cpu = recordOf(record.cpu) ?? {}
   const latency = recordOf(record.latency) ?? {}
   const cache = recordOf(record.cache) ?? {}
-  const avg = typeof latency.avgMs === 'number' && Number.isFinite(latency.avgMs) ? latency.avgMs : null
+  const avg = measureOf(latency.avgMs) ?? null
+  const heap = measureOf(memory.heapUsed)
   const memo = perfMemo(state)
 
   if (avg !== null) memo.loop = [...memo.loop, avg].slice(-KEEP)
-  memo.heapMb = typeof memory.heapUsed === 'number' ? memory.heapUsed / 1024 / 1024 : null
+  memo.heapMb = heap === undefined ? null : heap / 1024 / 1024
   memo.atMs = Date.now()
 
-  const load = Array.isArray(cpu.loadAverage) ? cpu.loadAverage.filter(value => typeof value === 'number').map(value => value.toFixed(2)).join(' ') : 'n/a'
+  const load = Array.isArray(cpu.loadAverage) ? cpu.loadAverage.flatMap(value => (measureOf(value) === undefined ? [] : [as(value, n => n.toFixed(2))])).join(' ') : 'n/a'
 
   return [
     `event-loop latency ${ms(avg)} · heap ${mb(memory.heapUsed)} of ${mb(memory.heapTotal)} · rss ${mb(memory.rss)}`,
-    `system memory ${typeof memory.systemPercent === 'number' ? `${memory.systemPercent}%` : 'n/a'} · load ${load}`,
+    `system memory ${pct(memory.systemPercent)} · load ${load}`,
     `embedding cache ~${show(cache.entries)} entries · HNSW ${show(cache.hnswEntries)} entries`,
     'measured in the CLI process at the moment it ran: one sample per run',
   ]
@@ -108,7 +117,9 @@ export const reportReader: Reader = (stdout, stderr, state) => {
   const history = (Array.isArray(result.history) ? result.history : []).map(recordOf).flatMap(row => {
     const avg = recordOf(row?.latency)?.avg
 
-    return typeof avg === 'number' && Number.isFinite(avg) ? [avg] : []
+    const sample = measureOf(avg)
+
+    return sample === undefined ? [] : [sample]
   })
   const memo = perfMemo(state)
   const cpu = recordOf(current.cpu) ?? {}
@@ -119,7 +130,7 @@ export const reportReader: Reader = (stdout, stderr, state) => {
   memo.atMs = Date.now()
 
   return [
-    `cpu ${typeof cpu.usage === 'number' ? `${cpu.usage.toFixed(1)}%` : 'n/a'} of ${show(cpu.cores)} cores · memory ${show(memory.used)} of ${show(memory.total)} MB · heap ${show(memory.heap)} MB`,
+    `cpu ${pct(cpu.usage, 1)} of ${show(cpu.cores)} cores · memory ${show(memory.used)} of ${show(memory.total)} MB · heap ${show(memory.heap)} MB`,
     `latency avg ${ms(latency.avg)} · p50 ${ms(latency.p50)} · p95 ${ms(latency.p95)} · p99 ${ms(latency.p99)}`,
     `history: ${history.length} stored sample${history.length === 1 ? '' : 's'} in .claude-flow/performance/metrics.json`,
     ...labLines('performance_report', JSON.stringify({ trends: result.trends, recommendations: result.recommendations })).slice(0, 12),
