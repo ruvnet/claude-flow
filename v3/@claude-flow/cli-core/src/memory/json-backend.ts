@@ -158,7 +158,7 @@ export class JsonMemoryBackend implements MemoryBackend {
       const haystack = `${entry.key} ${JSON.stringify(entry.value)}`.toLowerCase();
       let score = 0;
       if (haystack.includes(q)) score = 1.0;
-      if (score < threshold) continue;
+      if (score === 0 || score < threshold) continue;
       out.push({ ...entry, score, backend: 'json' });
     }
     out.sort((a, b) => b.score - a.score);
