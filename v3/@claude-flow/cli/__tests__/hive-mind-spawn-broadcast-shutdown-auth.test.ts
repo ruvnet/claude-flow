@@ -51,10 +51,17 @@ import { hiveMindTools, getHiveTokenForCli } from '../src/mcp-tools/hive-mind-to
 
 const CLI = join(__dirname, '..', 'bin', 'cli.js');
 
-// A child with no exit status either died from a signal or never started (spawn
-// error: EAGAIN/ENOMEM/EMFILE under the full parallel suite). A real defect
-// repeats, so that case is retried once, and the signal / error code and message
-// are always reported instead of an opaque -1.
+// A child with no exit status either died from a signal or never started. Under
+// the full parallel suite (hundreds of forked test files) the runner can be out of
+// memory for a moment: run 38290339354 failed this test with
+// "spawnSync node ENOMEM". That is resource pressure, not a defect, and it clears
+// as sibling forks exit, so such a spawn is retried a few times with a short
+// back-off. A real defect repeats on every attempt and still fails; the signal /
+// error code and message are always reported instead of an opaque -1.
+const TRANSIENT_SPAWN = new Set(['ENOMEM', 'EAGAIN', 'EMFILE', 'ENFILE']);
+function pause(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
 function runCli(args: string[], cwd: string, attempt = 1): { stdout: string; exit: number } {
   try {
     const stdout = execFileSync('node', [CLI, ...args], {
@@ -66,8 +73,11 @@ function runCli(args: string[], cwd: string, attempt = 1): { stdout: string; exi
     return { stdout, exit: 0 };
   } catch (err) {
     const e = err as { status?: number | null; signal?: string | null; code?: string; message?: string; stdout?: Buffer; stderr?: Buffer };
-    if (e.status == null && attempt < 2) return runCli(args, cwd, attempt + 1);
-    const killed = e.status == null ? `\n[no exit status: signal=${e.signal ?? 'none'} code=${e.code ?? 'none'} message=${String(e.message ?? '').split('\n')[0]}]` : '';
+    if (e.status == null && attempt < 5 && (e.signal || TRANSIENT_SPAWN.has(String(e.code)))) {
+      pause(500 * attempt);
+      return runCli(args, cwd, attempt + 1);
+    }
+    const killed = e.status == null ? `\n[no exit status after ${attempt} attempt(s): signal=${e.signal ?? 'none'} code=${e.code ?? 'none'} message=${String(e.message ?? '').split('\n')[0]}]` : '';
     return { stdout: (e.stdout?.toString() ?? '') + (e.stderr?.toString() ?? '') + killed, exit: e.status ?? -1 };
   }
 }
