@@ -207,7 +207,7 @@ export class CommandParser {
       break;
     }
 
-    const { aliases, booleanFlags, stringFlags } = this.getFlagScope(resolvedCommands);
+    const { aliases, booleanFlags, stringFlags, arrayFlags } = this.getFlagScope(resolvedCommands);
 
     let i = 0;
     let parsingFlags = true;
@@ -227,6 +227,14 @@ export class CommandParser {
       if (parsingFlags && arg.startsWith('-')) {
         const parseResult = this.parseFlag(args, i, aliases, booleanFlags, stringFlags);
 
+        // Array declarations retain text and accumulate repeated occurrences.
+        for (const key of arrayFlags) {
+          const value = parseResult.flags[key];
+          if (value !== undefined && value !== true && value !== false) {
+            const previous = result.flags[key];
+            parseResult.flags[key] = [...(Array.isArray(previous) ? previous : []), String(value)];
+          }
+        }
         // Apply to result flags
         const { _: ignoredPositionals, ...parsedFlags } = parseResult.flags;
         Object.assign(result.flags, parsedFlags);
@@ -523,6 +531,7 @@ export class CommandParser {
     aliases: Record<string, string>;
     booleanFlags: Set<string>;
     stringFlags: Set<string>;
+    arrayFlags: Set<string>;
   } {
     const aliases = this.buildScopedAliases(commands[commands.length - 1]);
     const booleanFlags = this.getScopedBooleanFlags(commands[commands.length - 1]);
@@ -532,18 +541,22 @@ export class CommandParser {
         if (option.short) aliases[option.short] = option.name;
       }
     }
+    const arrayFlags = new Set((this.options.arrayFlags ?? []).map(flag => this.normalizeKey(flag)));
+    for (const flag of arrayFlags) stringFlags.add(flag);
     const layers = [this.globalOptions, ...commands.map(command => command.options ?? [])];
     for (const options of layers) {
       for (const option of options) {
         const key = this.normalizeKey(option.name);
-        if (option.type === 'string') stringFlags.add(key);
+        if (option.type === 'array') arrayFlags.add(key);
+        else if (option.type) arrayFlags.delete(key);
+        if (option.type === 'string' || option.type === 'array') stringFlags.add(key);
         else if (option.type) stringFlags.delete(key);
         if (option.type === 'boolean') booleanFlags.add(key);
         else if (option.type) booleanFlags.delete(key);
       }
     }
     for (const flag of stringFlags) booleanFlags.delete(flag);
-    return { aliases, booleanFlags, stringFlags };
+    return { aliases, booleanFlags, stringFlags, arrayFlags };
   }
 
   private getBooleanFlags(): Set<string> {
@@ -633,7 +646,7 @@ export class CommandParser {
       // followed by another flag) is parsed as boolean `true`. Commands then treat `true` as
       // the value: `hooks route --task` crashed with "task.trim is not a function" and
       // `memory retrieve --key` looked up the key "true". Report it instead.
-      if ((opt.type === 'string' || opt.type === 'number') && flags[key] === true) {
+      if ((opt.type === 'string' || opt.type === 'number' || opt.type === 'array') && flags[key] === true) {
         errors.push(`Option --${opt.name} needs a value`);
       }
 
