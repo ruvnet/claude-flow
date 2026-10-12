@@ -436,7 +436,12 @@ export class MonitoringHooks {
         Date.now() - a.timestamp < 60000
       );
 
-      if (!recentAlert) {
+      if (recentAlert && level === 'critical' && recentAlert.level !== 'critical') {
+        Object.assign(recentAlert, {
+          level, value, threshold, timestamp: Date.now(),
+          message: `${name} exceeded ${level} threshold: ${value} >= ${threshold}`,
+        });
+      } else if (!recentAlert) {
         this.alerts.push({
           id: `alert_${Date.now()}_${Math.random().toString(36).substring(7)}`,
           level,
