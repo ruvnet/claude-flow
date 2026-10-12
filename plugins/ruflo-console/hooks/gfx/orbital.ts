@@ -111,7 +111,7 @@ export function orbitalGlobe(columns: number, rows: number, timeMs: number): Gri
 /** Fixed-height header: red scan line, travelling ASCII pulse and an orbit marker. */
 export function orbitalHeader(label: string, columns: number, timeMs: number): Grid {
   const swarm = /swarm/i.test(label)
-  const grid = blank(columns, swarm ? 12 : 4)
+  const grid = blank(columns, swarm ? 16 : 4)
   const tick = Math.floor((Number.isFinite(timeMs) ? timeMs : 0) / 160)
   const title = ` RUFLO / ${label.toUpperCase()} `
   grid.text(0, 0, title.slice(0, grid.columns), RED)
@@ -131,16 +131,41 @@ export function orbitalHeader(label: string, columns: number, timeMs: number): G
     const center = { x: Math.floor(grid.columns / 2), y: 5 }
     const ms = Number.isFinite(timeMs) ? timeMs : 0
     const phase = ms / 12000 * TAU
-    const icons = ['◇', '□', '△', '◎', '◇', '□']
+    const icons = ['◇', '□', '△', '◎', '◇', '□', '△', '◎']
     const nodes = icons.map((icon, index) => {
       const angle = phase + index * TAU / icons.length
       const z = Math.sin(angle)
       const perspective = 2.8 / (2.8 - z * 0.5)
       return { icon, index, z, x: Math.round(center.x + Math.cos(angle) * grid.columns * 0.32 * perspective), y: Math.round(center.y + (Math.sin(angle) * 2.3 + Math.cos(angle) * 0.7) * perspective) }
     }).sort((a, b) => a.z - b.z)
+    const beat = ((ms % 4800) + 4800) % 4800
+    const stage = Math.floor(beat / 1200)
+    // Sparse graph mesh and moving edge packets, all illustrative rather than reported traffic.
+    for (let y = 1; y <= 9; y += 2) for (let x = 3; x < grid.columns - 3; x += 6) grid.set(x, y, '·', 0x18241f)
+    nodes.forEach(node => {
+      const next = nodes.find(other => other.index === (node.index + 1) % nodes.length)!
+      const dx = next.x - node.x
+      const dy = next.y - node.y
+      const steps = Math.max(1, Math.abs(dx), Math.abs(dy))
+      const packet = ((ms / 1100 + node.index * 0.19) % 1 + 1) % 1
+      for (let step = 1; step < steps; step++) {
+        const f = step / steps
+        const lit = Math.abs(packet - f) < 0.045
+        grid.set(Math.round(node.x + dx * f), Math.round(node.y + dy * f), lit ? '•' : '·', lit ? INK : 0x344138)
+      }
+    })
+    // Projected direction vectors extend from the hub, rotating independently of the graph.
+    for (let axis = 0; axis < 3; axis++) {
+      const angle = phase * 1.5 + axis * TAU / 3
+      for (let step = 2; step <= 8; step++) {
+        const x = center.x + Math.round(Math.cos(angle) * step * Math.min(1.7, grid.columns / 36))
+        const y = center.y + Math.round(Math.sin(angle) * step * 0.36)
+        grid.set(x, y, step === 8 ? (Math.cos(angle) < 0 ? '◀' : '▶') : '·', step === 8 ? RED : 0x6c4335)
+      }
+    }
     const drawHub = () => {
       grid.text(center.x - 2, center.y + 1, ' ░░░ ', 0x4b2924)
-      grid.text(center.x - 2, center.y, '[ ◈ ]', INK)
+      grid.text(center.x - 2, center.y, '[ ◈ ]', stage === 2 ? GREEN : INK)
     }
     let hubDrawn = false
     nodes.forEach(node => {
@@ -148,7 +173,8 @@ export function orbitalHeader(label: string, columns: number, timeMs: number): G
       const dx = node.x - center.x
       const dy = node.y - center.y
       const steps = Math.max(Math.abs(dx), Math.abs(dy))
-      const pulse = ((ms / 1700 + node.index / icons.length) % 1 + 1) % 1
+      const outbound = ((ms / 1300 + node.index / icons.length) % 1 + 1) % 1
+      const pulse = stage >= 2 ? 1 - outbound : outbound
       for (let step = 3; step < steps; step++) {
         const f = step / steps
         const x = Math.round(center.x + dx * f)
@@ -162,8 +188,19 @@ export function orbitalHeader(label: string, columns: number, timeMs: number): G
       } else grid.set(node.x, node.y, node.icon, DIM)
     })
     if (!hubDrawn) drawHub()
-    grid.text(1, 10, ' ◈ HUB   ◇ WORKER   □ TOOL   ◎ MEMORY', DIM)
-    grid.text(1, 11, ' Decorative orbit / live topology below', DIM)
+    grid.text(1, 10, ' ◈ HUB  ◇ WORKER  □ TOOL  △ TASK  ◎ MEMORY', DIM)
+    const stages = ['DISPATCH', 'PARALLEL', 'SYNC', 'RETURN']
+    const lane = Math.max(1, Math.floor((grid.columns - 2) / 4))
+    stages.forEach((label, index) => {
+      const x = 1 + index * lane
+      grid.text(x, 12, `${index === stage ? '▶' : '·'} ${label}`.slice(0, lane), index === stage ? INK : DIM)
+      const cells = Math.max(1, lane - 2)
+      for (let i = 0; i < cells; i++) {
+        const lit = index === stage && i === Math.floor((beat % 1200) / 1200 * cells)
+        grid.set(x + i, 13, lit ? '▪' : '·', lit ? GREEN : 0x35413c)
+      }
+    })
+    grid.text(1, 15, ' Illustrative orchestration / live graph below', DIM)
   } else if (grid.columns >= 30) grid.text(0, 3, ' ruvnet / agent swarm console', DIM)
   return grid
 }

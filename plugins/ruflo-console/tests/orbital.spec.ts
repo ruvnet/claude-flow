@@ -116,7 +116,7 @@ it('gives swarm control its own bounded routing animation', () => {
   for (const width of [20, 44, 72]) {
     const first = orbitalHeader('swarm control', width, 0)
     const later = orbitalHeader('swarm control', width, 500)
-    expect([first.columns, first.rows]).toEqual([width, 12])
+    expect([first.columns, first.rows]).toEqual([width, 16])
     expect(first.cells).not.toEqual(later.cells)
     expect(gridText(first)).toContain('◈')
     expect(gridText(first)).not.toContain('agents online')
