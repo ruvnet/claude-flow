@@ -12,11 +12,16 @@
 //   TRACK_DRY_RUN=1           skip the memory_store call
 //   TRACK_QUIET=1             suppress markdown summary
 //   TRACK_NAMESPACE=<name>    override (default: cost-tracking)
+//
+// A real persistToMemory() failure (not TRACK_DRY_RUN) is also appended to
+// the shared diagnostic log (_diagnostic-log.cjs, #3227) before TRACK_QUIET
+// suppresses the markdown summary that would otherwise be the only trace.
 
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnNpxSync } from './_npx.mjs';
+import { logFailure } from './_diagnostic-log.cjs';
 // iter 68 — shared PRICING table (was duplicated in counterfactual.mjs too).
 import { modelTier, costForUsage } from './_prices.mjs';
 
@@ -139,6 +144,9 @@ function main() {
   let storeResult = { ok: false, reason: 'dry-run' };
   if (process.env.TRACK_DRY_RUN !== '1') {
     storeResult = persistToMemory(summary);
+    if (!storeResult.ok) {
+      logFailure({ source: 'track.mjs', reason: storeResult.reason, sessionId: summary.sessionId });
+    }
   }
 
   if (process.env.TRACK_QUIET === '1') return;
