@@ -9,7 +9,7 @@ const DIM = 0x596561
 const BLACK = 0x000000
 const TAU = Math.PI * 2
 
-// Original five-row block wordmark. Small panes use the readable text lockup.
+// Original five-row tiled wordmark with a one-cell extrusion. Small panes use the readable text lockup.
 const WORDMARK = [
   '####  #   # ##### #      ### ',
   '#   # #   # #     #     #   #',
@@ -88,21 +88,32 @@ export function orbitalHeader(label: string, columns: number, timeMs: number): G
 /** Checks are actual self-check results; the globe and sweep are explicitly decorative. */
 export function orbitalBoot(project: string, columns: number, timeMs: number, checks?: readonly BootCheck[]): Grid {
   const grid = blank(columns, 22)
-  if (grid.columns >= 30) {
-    const offset = Math.floor((grid.columns - WORDMARK[0].length) / 2)
-    const sweep = Math.floor((Number.isFinite(timeMs) ? timeMs : 0) / 160) % WORDMARK[0].length
+  if (grid.columns >= 32) {
+    const scale = grid.columns >= 60 ? 2 : 1
+    const logoWidth = WORDMARK[0].length * scale
+    const offset = Math.floor((grid.columns - logoWidth - 1) / 2)
+    const sweep = Math.floor((Number.isFinite(timeMs) ? timeMs : 0) / 160) % logoWidth
+    // Draw the extrusion first, then the smaller square faces so depth never hides the mark.
     WORDMARK.forEach((line, y) => {
-      for (let x = 0; x < line.length; x++) grid.set(offset + x, y, line[x] === '#' ? '█' : ' ', x === sweep ? INK : RED, BLACK)
+      for (let x = 0; x < line.length; x++) if (line[x] === '#') {
+        grid.set(offset + x * scale + 1, y + 1, '▪', 0x713026, BLACK)
+      }
+    })
+    WORDMARK.forEach((line, y) => {
+      for (let x = 0; x < line.length; x++) if (line[x] === '#') {
+        const shade = [0xffad85, 0xff8b64, RED, 0xd44c38, 0xa93629][y]!
+        grid.set(offset + x * scale, y, '■', Math.abs(x * scale - sweep) <= 1 ? INK : shade, BLACK)
+      }
     })
   } else grid.text(0, 1, ' RUFLO', RED)
   const brand = grid.columns >= 42 ? 'ruvnet / agent swarm console / ORBITAL' : 'ruvnet / ORBITAL'
-  grid.text(Math.max(0, Math.floor((grid.columns - brand.length) / 2)), 5, brand, DIM)
-  grid.text(0, 6, ` ${project}`.slice(0, grid.columns), INK)
-  const globe = orbitalGlobe(Math.min(38, grid.columns), 10, timeMs)
+  grid.text(Math.max(0, Math.floor((grid.columns - brand.length) / 2)), 6, brand, DIM)
+  grid.text(0, 7, ` ${project}`.slice(0, grid.columns), INK)
+  const globe = orbitalGlobe(Math.min(38, grid.columns), 9, timeMs)
   const left = Math.floor((grid.columns - globe.columns) / 2)
   for (let y = 0; y < globe.rows; y++) for (let x = 0; x < globe.columns; x++) {
     const i = (y * globe.columns + x) * 3
-    grid.set(left + x, y + 7, globe.cells[i]!, globe.cells[i + 1]!, BLACK)
+    grid.set(left + x, y + 8, globe.cells[i]!, globe.cells[i + 1]!, BLACK)
   }
   grid.text(0, 18, ' LOADING CONSOLE / decorative orbit', RED)
   const passed = checks?.filter(c => c.ok).length ?? 0
