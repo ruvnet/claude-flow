@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.4 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
 ## 0.3.3 — 2026-10-11
 
 - Security: `npx -y -p @claude-flow/plugin-iot-cognitum@latest` replaced with the pinned `@1.0.0` (the CLI controls real fleets; `@latest` ran whatever was published last).

@@ -1,7 +1,7 @@
 {
   "name": "ruflo-graph-intelligence",
   "description": "RuFlo Graph Intelligence Engine — real-time relationship intelligence with complexity-aware execution. Single-entry personalized PageRank, streaming delta updates, witness-signed reasoning artifacts, federation-distributable PR vectors. Built on sublinear-time-solver@1.7.0.",
-  "version": "0.2.0-alpha.5",
+  "version": "0.2.0-alpha.6",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

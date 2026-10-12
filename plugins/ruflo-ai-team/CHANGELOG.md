@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-ai-team`.
 
+## 0.3.2 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
 ## 0.3.1 — 2026-10-12
 - fix: stored teams, runs, tasks and memories no longer share mutable objects with the caller or with exported snapshots (#3995)
 - fix: run evidence includes the task history of the run in its audit trail (#3996)
