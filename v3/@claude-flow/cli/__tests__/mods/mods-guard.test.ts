@@ -18,6 +18,12 @@ import { loadMod, memoryWorld, type World } from './harness';
 import { generateHookHandler } from '../../src/init/helpers-generator';
 
 const HELPERS = join(resolve(__dirname, '../..'), '.claude', 'helpers');
+// `bash -c '<inner>'` nested n times, each level single-quoted as bash would need it.
+const nest = (n: number, inner: string): string => {
+  let command = inner;
+  for (let i = 0; i < n; i++) command = `bash -c '${command.replace(/'/g, `'\\''`)}'`;
+  return command;
+};
 const PROJECTION = '/work/.claude-flow/policy/claude-code.json';
 const RANK = { allow: 0, ask: 1, deny: 2 } as const;
 type D = keyof typeof RANK;
@@ -415,12 +421,61 @@ describe('#3698 root deletion guard parity', () => {
     ["rm -rf $'\\\\' /tmp", false],
     ["rm -r $'\\x2d' /tmp", false],
     ['echo "$"\'rm -rf /\'', false],
-    // Brace expansion is not evaluated either (documented limit).
-    ['{rm,-rf,/}', false],
-    ['rm -rf /{tmp,}', false],
+    // Unquoted brace lists expand into words, as bash does (no sequences, no ${...}): one of them can be the root.
+    ['{rm,-rf,/}', true],
+    ['rm -rf /{tmp,}', true],
+    ['rm -rf {/*,}', true],
+    ['rm -rf {/,}*', true],
+    ['rm -rf {,/}*', true],
+    ['rm -rf /{,}', true],
+    ['rm -rf {/,/tmp}', true],
+    ['rm -rf {a,{b,/*}}', true],
+    ['rm -rf x{/*,}', false],
+    ['rm -rf {/tmp/a,/tmp/b}', false],
+    ['rm -rf /tmp/{a,b,c}', false],
+    ["rm -rf '{/*,}'", false],
+    ['rm -rf "{/,}"*', false],
+    ['rm -rf \\{/,\\}', false],
+    ['rm -rf ${HOME}/tmp', false],
+    ['echo {/,}', false],
+    ['echo ' + '{a,b}'.repeat(14), false],
+    // Past the expansion budget an rm in progress fails closed: one of the words may be the root.
+    ['rm -rf ' + '{a,b}'.repeat(14), true],
+    ['rm -rf /tmp/' + '{a,b}'.repeat(10), false],
+    // A list too large to expand is judged by its tokens, so it cannot hide the rm itself.
+    ['{rm,-rf,/,' + '{a,b}'.repeat(14) + '} --no-preserve-root', true],
+    // A quoted brace list handed to a shell is rescanned and expanded there.
+    ["bash -c '{rm,-rf,/,--no-preserve-root}'", true],
+    ['echo ${v:-{a,b}}', false],
+    // Deep or comma-free nesting is linear and never throws (a throw would fail the classic hook open).
+    ['echo ' + '{a,'.repeat(4000) + 'b' + '}'.repeat(4000) + '; rm -rf / --no-preserve-root', true],
+    ['echo ' + '{'.repeat(8000) + 'a' + '}'.repeat(8000), false],
+    ['rm -' + 'r'.repeat(16000) + '! /tmp', false],
+    // Past four rescans a nested string is judged by its tokens, not by one literal spelling.
+    [nest(5, 'rm -fr /'), true],
+    [nest(5, "rm -rf '/'"), true],
+    [nest(6, 'rm --recursive --force /'), true],
+    [nest(5, 'rm -rf /tmp/x'), false],
+    [nest(5, 'r"m" -rf /'), true],
+    [nest(5, 'rm -rf /{tmp,}'), true],
+    [nest(4, 'echo `rm -fr /`'), true],
+    [nest(4, 'echo `rm -rf /tmp/x`'), false],
     ['format c: /q /y', true],
     ['del /s /q c:\\', true],
     [':(){:|:&};:', true],
+    // A fork bomb whatever the spacing or the function's name, with or without the ; before the call.
+    [':(){ :|:& };:', true],
+    [':(){ :|: & };:', true],
+    [':() { : | : & } ; :', true],
+    ['bomb(){ bomb|bomb& };bomb', true],
+    [':(){ :|:& }\n:', true],
+    // Defining one is the danger: the call may come later, after other commands or a comment.
+    ['function f(){ f|f& };f', true],
+    ['function f { f|f& }; f', true],
+    ['f(){ f|f& };true;f', true],
+    ['f(){ f|f& };# later\nf', true],
+    ['f(){ echo hi; };f', false],
+    ['f(){ f|g& };f', false],
   ];
   function expectParity(command: string, denied: boolean) {
     expect(dangerousCommandVerdict('Bash', { command })?.decision === 'deny').toBe(denied);
