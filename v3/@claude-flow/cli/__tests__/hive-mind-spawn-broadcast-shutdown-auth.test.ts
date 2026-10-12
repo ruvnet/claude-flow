@@ -51,7 +51,11 @@ import { hiveMindTools, getHiveTokenForCli } from '../src/mcp-tools/hive-mind-to
 
 const CLI = join(__dirname, '..', 'bin', 'cli.js');
 
-function runCli(args: string[], cwd: string): { stdout: string; exit: number } {
+// A child killed by a signal has no exit status. Under the full parallel suite a
+// CLI child can die at native-binding teardown (the SIGSEGV class the v3 CI job
+// documents); a real defect repeats, so a signal death is retried once and the
+// signal is always reported instead of an opaque -1.
+function runCli(args: string[], cwd: string, attempt = 1): { stdout: string; exit: number } {
   try {
     const stdout = execFileSync('node', [CLI, ...args], {
       cwd,
@@ -61,8 +65,10 @@ function runCli(args: string[], cwd: string): { stdout: string; exit: number } {
     });
     return { stdout, exit: 0 };
   } catch (err) {
-    const e = err as { status?: number; stdout?: Buffer; stderr?: Buffer };
-    return { stdout: (e.stdout?.toString() ?? '') + (e.stderr?.toString() ?? ''), exit: e.status ?? -1 };
+    const e = err as { status?: number | null; signal?: string | null; stdout?: Buffer; stderr?: Buffer };
+    if (e.status == null && e.signal && attempt < 2) return runCli(args, cwd, attempt + 1);
+    const killed = e.status == null ? `\n[child ended by signal ${e.signal ?? 'unknown'}, no exit status]` : '';
+    return { stdout: (e.stdout?.toString() ?? '') + (e.stderr?.toString() ?? '') + killed, exit: e.status ?? -1 };
   }
 }
 
@@ -388,14 +394,14 @@ describe('hive-mind_spawn / consensus(propose) / broadcast / shutdown capability
   describe('real CLI-process integration (not just direct handler calls)', () => {
     it('`hive-mind init` then `hive-mind spawn` succeed end-to-end through the actual CLI binary in a fresh child process', () => {
       const initResult = runCli(['hive-mind', 'init', '--consensus', 'raft'], dir);
-      expect(initResult.exit).toBe(0);
+      expect(initResult.exit, initResult.stdout).toBe(0);
       expect(existsSync(join(dir, '.claude-flow', 'hive-mind', 'state.json'))).toBe(true);
 
       // Fresh state read (this is a separate `node` process from the one
       // that ran init -- no in-process cache of any kind survives between
       // these two runCli() calls).
       const spawnResult = runCli(['hive-mind', 'spawn', '--count', '1'], dir);
-      expect(spawnResult.exit).toBe(0);
+      expect(spawnResult.exit, spawnResult.stdout).toBe(0);
 
       const persisted = readPersistedState(dir) as any;
       expect(persisted.workers.length).toBe(1);

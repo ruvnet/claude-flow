@@ -33,8 +33,6 @@ const KNOWN_FAILING = [
   '@claude-flow/cli/__tests__/memory-concurrent-write-loss-2878.test.ts', // 1/6
   '@claude-flow/cli/__tests__/memory-search-scores-3327.test.ts', // 3/8
   '@claude-flow/cli/__tests__/mods/mods-guidance-e2e.test.ts', // 14/47
-  '@claude-flow/cli/__tests__/plugins-install-scripts-3557.test.ts', // 2/2
-  '@claude-flow/cli/__tests__/plugins-upgrade-trust-gate.test.ts', // 4/4
   '@claude-flow/cli/__tests__/router-cjs-esm-3555.test.ts', // 1/9
   '@claude-flow/mcp/__tests__/http-transport-auth.test.ts', // 5/26
   '__tests__/integration/swarm-integration.test.ts', // 1/15
@@ -44,6 +42,16 @@ const KNOWN_FAILING = [
   '@claude-flow/plugins/__tests__/ruvector-streaming.test.ts', // <20 MB heap growth, no forced GC; 1/26
   '@claude-flow/neural/__tests__/algorithms.test.ts', // Decision Transformer train < 100 ms; 1/44
 ];
+
+// The quarantine above is a debt, not a permanent exclusion. After this date the
+// config refuses to load, so the list has to be triaged (fix a file and delete
+// its entry, or renew the date with a reason) instead of quietly hiding failures.
+const KNOWN_FAILING_EXPIRES = '2026-12-01';
+if (new Date().toISOString().slice(0, 10) > KNOWN_FAILING_EXPIRES) {
+  throw new Error(
+    `v3/vitest.config.ts: the KNOWN_FAILING quarantine expired on ${KNOWN_FAILING_EXPIRES}. Triage the listed files (fix and remove, or renew the date with a reason).`,
+  );
+}
 
 export default defineConfig({
   test: {
