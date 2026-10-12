@@ -116,13 +116,9 @@ User → Ruflo (CLI/MCP) → Router → Swarm → Agents → Memory → LLM prov
 
 <p align="center"><img src="docs/assets/readme/console.svg" alt="Mission control: inspect agent work" width="100%"></p>
 
-<p align="center"><a href="https://raw.githubusercontent.com/ruvnet/ruflo/main/docs/assets/ruflo-console-theme-demo.svg"><img src="docs/assets/ruflo-console-theme-demo.svg" width="100%" alt="Ruflo Orbital console theme demo: animated boot checks, Ruflo block header, vector menu icons, rotating globe, swarm routing, six color presets, customization, saved themes, JSON import and narrow layout"></a></p>
+<p align="center"><img src="docs/assets/ruflo-console-workflows.svg" width="952" height="964" alt="An animated recording of the ruflo console inside Claude Code: the boot (the neon sign and every area checked), then the Workflows page on a sample run: phases and agents with model, tokens and time; drilling from a run into one agent's activity, log and result; search; failure triage; cost; replay and compare; the control tab with a confirm card; and the mission autopilot panel"></p>
 
-[Open the animated SVG](https://raw.githubusercontent.com/ruvnet/ruflo/main/docs/assets/ruflo-console-theme-demo.svg) · [Theme Studio guide](plugins/ruflo-console/README.md) · [Previous workflow demo](docs/assets/ruflo-console-workflows.svg)
-
-<sub>Approximately 30 MB. If the embedded preview is still, open the SVG directly in a browser. The reduced motion segment intentionally pauses graphics.</sub>
-
-<img src="docs/assets/readme/console-icon-workflows.svg" width="28" height="28" alt=""> **Your agent cockpit.** Track workflows, agents, models, tokens and cost beside Claude Code. The 38 second animation shows the **Orbital theme and Theme Studio** using actual renderer frames: boot checks, animated branding, globe and swarm previews, six palettes, customization, persistence, JSON import and resizing. It is a renderer demo; native host and AI provider execution are unverified.
+<img src="docs/assets/readme/console-icon-workflows.svg" width="28" height="28" alt=""> **Your agent cockpit.** Track workflows, agents, models, tokens and cost beside Claude Code. The animation shows startup checks and a **sample workflow**, not a live session.
 
 <img src="docs/assets/readme/console-icon-inspect.svg" width="28" height="28" alt=""> **Inspect any run.** Open agent logs and results, search, triage failures, replay and compare. Start with `npx ruflo init`, restart Claude Code, then `/ruflo`. [Full console tour](docs/assets/ruflo-console-walkthrough-wide.gif).
 
@@ -140,7 +136,7 @@ User → Ruflo (CLI/MCP) → Router → Swarm → Agents → Memory → LLM prov
 4. **Verify the result.** Check that Missions contains the goal and Overview records the action. Creating a mission does not mean the feature has been implemented.
 5. **Keep control.** **Take back control** pauses Claude's console tools. A later call should be refused until you restore control.
 
-**What the recording demonstrates:** a real Claude Haiku session with `write + auto`, mission creation, page navigation, a refused swarm stop, and control being taken back. The steps above use `ask` so you approve creation yourself. The linked workflow demo uses sample data, and the theme animation replays renderer frames. These demonstrations are not evidence of completed swarm work or memory recall.
+**What the recording demonstrates:** a real Claude Haiku session with `write + auto`, mission creation, page navigation, a refused swarm stop, and control being taken back. The steps above use `ask` so you approve creation yourself. The separate workflow animation uses sample data; neither is evidence of completed swarm work or memory recall.
 
 [Implementation and recorded test findings](v3/docs/adr/ADR-444-claude-controls-the-console.md) · [Reproduction script](plugins/ruflo-console/scripts/e2e-control.sh)
 
