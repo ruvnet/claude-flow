@@ -10,14 +10,18 @@ const DIM = 0x596561
 const BLACK = 0x000000
 const TAU = Math.PI * 2
 
-// Coarse original continent silhouettes in longitude/latitude degrees, for decoration only.
+// Original stylized continent silhouettes in longitude/latitude degrees, for decoration only.
 const LAND = [
-  [[-168, 65], [-130, 72], [-58, 49], [-82, 10], [-112, 28], [-125, 50]],
-  [[-81, 12], [-49, 2], [-35, -10], [-68, -56], [-76, -20]],
-  [[-18, 35], [12, 37], [51, 12], [33, -34], [17, -35], [-5, 5]],
-  [[-10, 36], [-10, 60], [45, 72], [170, 64], [135, 35], [105, 0], [70, 24], [35, 30]],
-  [[112, -12], [139, -10], [154, -28], [132, -39], [113, -30]],
-  [[-53, 59], [-22, 81], [-52, 84], [-66, 70]],
+  [[-168,65],[-150,71],[-135,69],[-128,58],[-123,49],[-124,41],[-117,32],[-108,24],[-97,16],[-86,10],[-83,15],[-90,21],[-97,26],[-81,25],[-81,32],[-70,44],[-58,49],[-65,60],[-95,72],[-130,73]],
+  [[-81,12],[-70,11],[-61,6],[-51,3],[-35,-6],[-39,-19],[-49,-28],[-56,-37],[-68,-56],[-74,-49],[-73,-30],[-80,-5]],
+  [[-17,35],[-4,36],[10,37],[24,32],[33,30],[43,12],[51,11],[42,0],[35,-12],[32,-27],[18,-35],[12,-20],[9,-3],[-1,5],[-15,11],[-18,22]],
+  [[-10,36],[-9,44],[1,49],[9,54],[5,59],[20,71],[33,69],[29,58],[44,48],[36,42],[26,39],[21,36],[12,46],[3,43]],
+  [[29,58],[45,72],[95,77],[140,71],[179,66],[160,55],[143,49],[135,35],[121,30],[109,19],[104,1],[98,7],[91,22],[80,8],[73,20],[64,25],[51,12],[43,14],[35,30],[44,48]],
+  [[112,-12],[130,-11],[137,-16],[143,-11],[153,-25],[151,-37],[139,-39],[129,-32],[115,-35],[113,-24]],
+  [[-53,59],[-42,61],[-22,76],[-30,83],[-52,84],[-66,70]],
+  [[46,-13],[50,-17],[47,-25],[44,-22]],
+  [[130,31],[136,35],[142,43],[145,44],[141,35]],
+  [[166,-34],[179,-39],[172,-47],[166,-45]],
 ] as const
 
 function onLand(lon: number, lat: number): boolean {
@@ -55,6 +59,14 @@ export function orbitalGlobe(columns: number, rows: number, timeMs: number): Gri
     const ny = ((height - 1) / 2 - y) / radius
     const r2 = nx * nx + ny * ny
     if (r2 > 1) {
+      // Thin orbital arc behind the planet; the solid sphere occludes the middle.
+      const ringX = nx * 0.966 + ny * 0.259
+      const ringY = -nx * 0.259 + ny * 0.966
+      const ring = ringX * ringX / 3.24 + ringY * ringY / 0.16
+      if (Math.abs(ring - 1) < 0.09) grid.set(x, y, '.', 0x543b32, BLACK)
+      const satelliteX = 1.8 * Math.cos(angle)
+      const satelliteY = 0.4 * Math.sin(angle)
+      if (Math.abs(ringX - satelliteX) < 0.09 && Math.abs(ringY - satelliteY) < 0.1) grid.set(x, y, '+', RED, BLACK)
       // Stable positions, slow brightness changes, and clear space around the limb.
       const seed = ((x + 17) * 73856093 ^ (y + 11) * 19349663) >>> 0
       if (r2 > 1.2 && seed % 113 === 0) {
@@ -73,13 +85,13 @@ export function orbitalGlobe(columns: number, rows: number, timeMs: number): Gri
     const lon = ((Math.atan2(ax, pz) + angle) * 180 / Math.PI + 540) % 360 - 180
     const land = onLand(lon, lat)
     const sun = Math.max(0, -0.58 * nx + 0.4 * ny + 0.71 * z)
-    const brightness = 0.2 + 0.8 * sun
+    const brightness = 0.28 + 0.72 * sun
     const meridian = Math.abs(lon / 30 - Math.round(lon / 30)) < 0.055
     const parallel = Math.abs(lat / 30 - Math.round(lat / 30)) < 0.055
     const glyph = land ? (sun > 0.65 ? '#' : sun > 0.3 ? '+' : ':') : meridian || parallel ? ':' : '.'
     // A coral limb and dim night side keep the sphere readable without filling it solid.
     const base = z < 0.28 ? RED : land ? INK : GREEN
-    grid.set(x, y, glyph, tint(base, land || z < 0.28 ? brightness : brightness * 0.48), BLACK)
+    grid.set(x, y, glyph, tint(base, land || z < 0.28 ? Math.max(z < 0.28 ? 0.58 : 0, brightness) : brightness * 0.48), BLACK)
   }
   return grid
 }
@@ -115,7 +127,7 @@ function orbitalBrandColor(color: number): number {
 
 /** Checks are actual self-check results; the globe and sweep are explicitly decorative. */
 export function orbitalBoot(project: string, columns: number, timeMs: number, checks?: readonly BootCheck[]): Grid {
-  const grid = blank(columns, 22)
+  const grid = blank(columns, 24)
   // Reuse the original console banner, including its half-block font and sweep, recolored for Orbital.
   const banner = bannerPicture(project, grid.columns, timeMs)
   for (let y = 0; y < banner.rows; y++) for (let x = 0; x < banner.columns; x++) {
@@ -123,16 +135,16 @@ export function orbitalBoot(project: string, columns: number, timeMs: number, ch
     grid.set(x, y, banner.cells[i]!, orbitalBrandColor(banner.cells[i + 1]!), BLACK)
   }
   grid.text(0, 3, ' ruvnet / ORBITAL', DIM)
-  const globe = orbitalGlobe(grid.columns, 14, timeMs)
+  const globe = orbitalGlobe(grid.columns, 16, timeMs)
   const left = Math.floor((grid.columns - globe.columns) / 2)
   for (let y = 0; y < globe.rows; y++) for (let x = 0; x < globe.columns; x++) {
     const i = (y * globe.columns + x) * 3
     grid.set(left + x, y + 4, globe.cells[i]!, globe.cells[i + 1]!, BLACK)
   }
-  grid.text(0, 18, ' LOADING CONSOLE / decorative orbit', RED)
+  grid.text(0, 20, ' LOADING CONSOLE / decorative orbit', RED)
   const passed = checks?.filter(c => c.ok).length ?? 0
   const failed = checks?.filter(c => !c.ok).length ?? 0
-  grid.text(0, 19, checks === undefined ? ' Self-check: pending' : ` Self-check: ${passed} passed / ${failed} failed`, failed > 0 ? RED : GREEN)
-  grid.text(0, 21, ' Motion: Settings > fps | Boot: optional', DIM)
+  grid.text(0, 21, checks === undefined ? ' Self-check: pending' : ` Self-check: ${passed} passed / ${failed} failed`, failed > 0 ? RED : GREEN)
+  grid.text(0, 23, ' Motion: Settings > fps | Boot: optional', DIM)
   return grid
 }
