@@ -129,13 +129,13 @@ npx tsx plugins/ruflo-console/scripts/theme-demo.mts /tmp/ruflo-demo-new
 
 Use a fresh output directory. The capture refuses to overwrite an existing `demo-session.json`; omitting the directory creates a unique temporary directory and prints its path. Outputs are `frames.json` (the captured terminal cells for every step, with a caption, palette and column count) and `receipt.json` (what was and was not exercised: no native host, no AI provider). Turning the frames into a GIF or video is left to your own renderer; the repository ships none, so no Python or image library is needed.
 
-For a genuine animated vector export of those same captured frames, install Python fontTools and run:
+For a genuine animated vector export of those same captured frames, run (Node only):
 
 ```sh
-python3 plugins/ruflo-console/scripts/render-theme-svg.py /tmp/ruflo-demo-new
+node plugins/ruflo-console/scripts/render-theme-svg.mjs /tmp/ruflo-demo-new
 ```
 
-`ruflo-console-demo.svg` contains outlined glyphs, block paths and reusable row symbols, replayed with native SVG discrete animation over the same 38 seconds. It has no embedded images, video, scripts, external fonts or other external assets. The complete 456-frame replay is approximately 20 MB. It scales through its viewBox; open the file in an SVG animation capable browser when a document preview shows only a still frame.
+`ruflo-console-demo.svg` contains text runs, block rectangles and reusable row symbols (the font is your system monospace), replayed with native SVG discrete animation over the same 38 seconds. It has no embedded images, video, scripts or other external assets. The complete 456-frame replay is approximately 20 MB. It scales through its viewBox; open the file in an SVG animation capable browser when a document preview shows only a still frame.
 
 The terminal color picker provides swatches and exact `#RRGGBB` entry for headings, success, failure, warning, information and background. Preview the globe and swarm motion, adjust speed and decorative layers, then **Save preview and apply**. Up to twelve named custom presets are stored locally through the host; reusing a name replaces that preset. Failed saves leave the active theme unchanged. Settings `fps: 0` still disables animation. Layouts retain the compact/narrow fallbacks.
 
