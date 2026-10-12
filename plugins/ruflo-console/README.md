@@ -117,6 +117,19 @@ Six bundled **Color presets** load with one click and persist across sessions. T
 
 Select a preset to load it immediately. Edit colors or motion and choose **Save and apply** to create a custom copy; bundled originals remain available. Portable version 1 JSON presets also load through **AI → Import theme JSON**, followed by **Save and apply**. **Use configured look** restores the plugin setting.
 
+### Reproduce the theme workflow demo
+
+The demo drives actual console view handlers through boot, Main Menu, all six presets, custom color and motion, save, fresh state restoration from a local JSON store, portable JSON import, reduced motion, and 80/116 column layouts. It checks each transition and writes `receipt.json`. This is a renderer integration demo, not a native Claude host recording: other console actions are not exercised, the FPS setting is changed by the harness, and no AI provider is invoked.
+
+From the repository root, with Node, Python Pillow and ffmpeg available:
+
+```sh
+npx tsx plugins/ruflo-console/scripts/theme-demo.mts /tmp/ruflo-demo-new
+python3 plugins/ruflo-console/scripts/render-theme-demo.py /tmp/ruflo-demo-new
+```
+
+Use a fresh output directory. The capture refuses to overwrite an existing `demo-session.json`; omitting the directory creates a unique temporary directory and prints its path. Outputs include a 38 second MP4 at 12 fps, a GIF at 6 fps, captured cell frames and an assertion receipt. Native host rendering and live AI theme generation remain separate acceptance checks.
+
 The terminal color picker provides swatches and exact `#RRGGBB` entry for headings, success, failure, warning, information and background. Preview the globe and swarm motion, adjust speed and decorative layers, then **Save preview and apply**. Up to twelve named custom presets are stored locally through the host; reusing a name replaces that preset. Failed saves leave the active theme unchanged. Settings `fps: 0` still disables animation. Layouts retain the compact/narrow fallbacks.
 
 **Generate with Claude** or **Generate with Codex** runs the bundled `generate-console-theme` skill through AI Terminal with its existing confirmation and model controls. Enter the design brief first, generate a preset, then paste the returned JSON into **Import theme JSON** and review before saving. The generator produces palette and motion variations of the existing Orbital renderer, not executable animation code. No additional API credentials are requested. Installed Claude plugins discover the bundled skill; Codex can read `plugins/ruflo-console/skills/generate-console-theme/SKILL.md` directly in this checkout.
