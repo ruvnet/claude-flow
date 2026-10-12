@@ -10,8 +10,8 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { lstatSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import type { IMemoryBackend, MemoryEntry, SONAMode } from './types.js';
 import type { MemoryInsight, InsightCategory } from './auto-memory-bridge.js';
 
@@ -135,6 +135,9 @@ const DEFAULT_CONFIG: ResolvedConfig = {
 
 const MS_PER_HOUR = 3_600_000;
 
+/** Largest learning-state file restore will read (state is bounded by the neural system's own caps, ~1.5 MB at the trajectory cap). */
+const MAX_STATE_BYTES = 16 * 1024 * 1024;
+
 // ===== LearningBridge =====
 
 /**
@@ -162,6 +165,8 @@ export class LearningBridge extends EventEmitter {
     totalBoostAmount: 0,
   };
   private destroyed = false;
+  /** Set when the state file belongs to another schema version: it is left untouched instead of being overwritten. */
+  private keepExistingState = false;
   private neuralInitPromise: Promise<void> | null = null;
 
   constructor(backend: IMemoryBackend, config?: LearningBridgeConfig) {
@@ -484,46 +489,100 @@ export class LearningBridge extends EventEmitter {
   }
 
   /**
-   * Best-effort restore of previously persisted learning state
-   * (trajectories, patterns, LoRA weights, EWC state) into the freshly
+   * Best-effort restore of previously persisted learning state into the freshly
    * constructed neural instance. Without this, every short-lived
-   * auto-memory-hook.mjs invocation starts SONAManager from a blank slate,
-   * so completed-trajectory counts (and everything gated behind them, incl.
-   * EWC consolidation) can never accumulate past one process's lifetime.
-   * Silently ignores a missing, corrupt, or schema-incompatible file —
-   * NeuralLearningSystem.deserialize() already throws on an unsupported
-   * schema version; a fresh start is always safe, a thrown restore error
-   * from a cold path is not.
+   * auto-memory-hook.mjs invocation starts SONAManager from a blank slate, so
+   * completed-trajectory counts (and everything gated behind them, incl. EWC
+   * consolidation) can never accumulate past one process's lifetime.
+   *
+   * The state file lives in the project directory, so it is treated as
+   * untrusted input: a symlink or non-regular file is never followed, the read
+   * is size-capped, and a rejected restore is rolled back to the pre-restore
+   * snapshot so a schema-valid but malformed file cannot leave the neural
+   * instance half-applied. A file written by another schema version is kept
+   * as is (never overwritten by this process).
    */
   private restoreNeuralState(): void {
     if (!this.neural || typeof this.neural.deserialize !== 'function') return;
+    const path = this.config.statePath;
+    let parsed: unknown;
     try {
-      if (!existsSync(this.config.statePath)) return;
-      const raw = readFileSync(this.config.statePath, 'utf-8');
-      this.neural.deserialize(JSON.parse(raw));
+      const st = lstatSync(path);
+      if (!st.isFile() || st.size > MAX_STATE_BYTES) return;
+      parsed = JSON.parse(readFileSync(path, 'utf-8'));
     } catch {
-      // Missing, corrupt, or schema-incompatible state file: start fresh.
+      return; // missing, unreadable or corrupt: start fresh (a later persist replaces it)
+    }
+
+    let snapshot: unknown;
+    let haveSnapshot = false;
+    if (typeof this.neural.serialize === 'function') {
+      try {
+        snapshot = this.neural.serialize();
+        haveSnapshot = true;
+      } catch {
+        // no rollback point available
+      }
+    }
+
+    try {
+      this.neural.deserialize(parsed);
+    } catch {
+      if (haveSnapshot) {
+        try {
+          this.neural.deserialize(snapshot);
+        } catch {
+          // best effort
+        }
+      }
+      const fileVersion = (parsed as { schemaVersion?: unknown } | null)?.schemaVersion;
+      const ownVersion = (snapshot as { schemaVersion?: unknown } | null)?.schemaVersion;
+      if (typeof fileVersion === 'number' && fileVersion !== ownVersion) {
+        this.keepExistingState = true;
+      }
     }
   }
 
   /**
    * Best-effort persistence of the current learning state. Called from
-   * destroy(), which auto-memory-hook.mjs invokes synchronously and
-   * unawaited right before the short-lived process exits — so this writes
-   * synchronously rather than racing an async write against process exit,
-   * mirroring MoERouter's existing `.swarm/moe-weights.json` convention.
+   * destroy(), which auto-memory-hook.mjs invokes synchronously and unawaited
+   * right before the short-lived process exits, so the write is synchronous.
+   *
+   * Nothing is written when nothing was learned this session (no stray
+   * `.swarm/` directories in every working directory), when the existing file
+   * belongs to another schema version, or when the target (or its directory) is
+   * a symlink or not a regular file. The write is atomic (private temp file,
+   * mode 0600, then rename) so a killed process cannot leave a torn file.
+   * Concurrent processes are last-writer-wins: this is a known limitation.
    */
   private persistNeuralState(): void {
+    if (this.keepExistingState) return;
+    if (this.stats.totalTrajectories === 0 && this.stats.completedTrajectories === 0) return;
     if (!this.neural || typeof this.neural.serialize !== 'function') return;
+    const path = this.config.statePath;
+    const dir = dirname(path);
+    const tmp = join(dir, `.${basename(path)}.${process.pid}.${Date.now()}.tmp`);
     try {
-      const state = this.neural.serialize();
-      const dir = dirname(this.config.statePath);
-      if (!existsSync(dir)) {
+      const body = JSON.stringify(this.neural.serialize());
+      try {
+        if (lstatSync(dir).isSymbolicLink()) return;
+      } catch {
         mkdirSync(dir, { recursive: true });
       }
-      writeFileSync(this.config.statePath, JSON.stringify(state));
+      try {
+        if (!lstatSync(path).isFile()) return;
+      } catch {
+        // no existing file: fine
+      }
+      writeFileSync(tmp, body, { flag: 'wx', mode: 0o600 });
+      renameSync(tmp, path);
     } catch {
       // Best-effort; never block teardown on a persistence failure.
+      try {
+        unlinkSync(tmp);
+      } catch {
+        // nothing to clean up
+      }
     }
   }
 

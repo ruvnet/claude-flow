@@ -6,7 +6,17 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { IMemoryBackend, MemoryEntry, MemoryEntryUpdate } from './types.js';
@@ -1027,6 +1037,140 @@ describe('LearningBridge', () => {
       });
 
       expect(() => b.destroy()).not.toThrow();
+    });
+
+    // ---- hardening found in the #4081 review (symlink, litter, torn writes, poisoned restore) ----
+
+    it('never writes through a symlink at statePath (an opened repo can plant one)', async () => {
+      const victim = join(stateDir, 'victim.txt');
+      writeFileSync(victim, 'VICTIM-ORIGINAL');
+      symlinkSync(victim, statePath);
+      const persistable = createPersistableNeuralSystem({ taskCount: 9 });
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(persistable as any),
+        statePath,
+      });
+
+      await b.onInsightRecorded(createTestInsight(), 'entry-1');
+      b.destroy();
+
+      expect(readFileSync(victim, 'utf-8')).toBe('VICTIM-ORIGINAL');
+      expect(persistable.deserialize).not.toHaveBeenCalled();
+    });
+
+    it('does not read a symlinked state file either', async () => {
+      const real = join(stateDir, 'real.json');
+      writeFileSync(real, JSON.stringify({ taskCount: 5 }));
+      symlinkSync(real, statePath);
+      const persistable = createPersistableNeuralSystem();
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(persistable as any),
+        statePath,
+      });
+
+      await b.onInsightRecorded(createTestInsight(), 'entry-1');
+
+      expect(persistable.deserialize).not.toHaveBeenCalled();
+      b.destroy();
+    });
+
+    it('creates no state file or directory when nothing was learned this session', async () => {
+      const nested = join(stateDir, 'never', 'made', 'state.json');
+      const persistable = createPersistableNeuralSystem({ taskCount: 0 });
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(persistable as any),
+        statePath: nested,
+      });
+
+      // Neural gets loaded (e.g. by a read-only lookup) but no insight is recorded.
+      await b.findSimilarPatterns('anything');
+      b.destroy();
+
+      expect(existsSync(join(stateDir, 'never'))).toBe(false);
+      expect(persistable.serialize).not.toHaveBeenCalled();
+    });
+
+    it('writes atomically: no temp files left behind and the file is private (0600)', async () => {
+      const persistable = createPersistableNeuralSystem({ taskCount: 3 });
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(persistable as any),
+        statePath,
+      });
+
+      await b.onInsightRecorded(createTestInsight(), 'entry-1');
+      b.destroy();
+
+      expect(readdirSync(stateDir)).toEqual(['sona-learning-state.json']);
+      if (process.platform !== 'win32') {
+        expect(statSync(statePath).mode & 0o777).toBe(0o600);
+      }
+    });
+
+    it('rolls the neural instance back when a schema-valid but malformed state is rejected', async () => {
+      writeFileSync(statePath, JSON.stringify({ schemaVersion: 1 }));
+      const persistable = createPersistableNeuralSystem({ fresh: true });
+      // A restore that throws after partially mutating the instance.
+      persistable.deserialize = vi.fn().mockImplementationOnce(() => {
+        throw new Error('half-applied');
+      });
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(persistable as any),
+        statePath,
+      });
+
+      await b.onInsightRecorded(createTestInsight(), 'entry-1');
+
+      // First call is the rejected restore, second is the rollback to the pre-restore snapshot.
+      expect(persistable.deserialize).toHaveBeenCalledTimes(2);
+      expect(persistable.deserialize).toHaveBeenLastCalledWith({ fresh: true });
+      b.destroy();
+    });
+
+    it('preserves a state file written by a newer schema instead of overwriting it', async () => {
+      const newer = JSON.stringify({ schemaVersion: 2, keep: 'me' });
+      writeFileSync(statePath, newer);
+      const persistable = createPersistableNeuralSystem({ taskCount: 1 });
+      persistable.deserialize = vi.fn().mockImplementation(() => {
+        throw new Error('SONAManager: unsupported schemaVersion 2 (expected 1)');
+      });
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(persistable as any),
+        statePath,
+      });
+
+      await b.onInsightRecorded(createTestInsight(), 'entry-1');
+      b.destroy();
+
+      expect(readFileSync(statePath, 'utf-8')).toBe(newer);
+    });
+
+    it('heals a corrupt state file by replacing it with a valid one after learning', async () => {
+      writeFileSync(statePath, '{truncated');
+      const persistable = createPersistableNeuralSystem({ taskCount: 2 });
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(persistable as any),
+        statePath,
+      });
+
+      await b.onInsightRecorded(createTestInsight(), 'entry-1');
+      b.destroy();
+
+      expect(JSON.parse(readFileSync(statePath, 'utf-8'))).toEqual({ taskCount: 2 });
+    });
+
+    it('creates the parent directory only when it has something to write', async () => {
+      const nested = join(stateDir, 'a', 'b', 'state.json');
+      const persistable = createPersistableNeuralSystem({ taskCount: 4 });
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(persistable as any),
+        statePath: nested,
+      });
+
+      await b.onInsightRecorded(createTestInsight(), 'entry-1');
+      b.destroy();
+
+      expect(JSON.parse(readFileSync(nested, 'utf-8'))).toEqual({ taskCount: 4 });
+      mkdirSync(stateDir, { recursive: true });
     });
 
     it('should default statePath to .swarm/sona-learning-state.json', () => {
