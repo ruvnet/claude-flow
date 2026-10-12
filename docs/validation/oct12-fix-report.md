@@ -93,7 +93,7 @@ Parent-supplied checks for head `4059c29`: **119 passed, 3 skipped, zero failure
 - Witness smoke skipped 99 absent generated files; it does not establish full artifact integrity.
 - The initial out-of-scope testgen runtime experiment and mock tests were removed. Missing-plugin graceful degradation remains its existing deliberate contract. Signal-termination/result parsing observations are deferred for a separately scoped review, not counted as #4085 fixes.
 - Required parent/repository/nested instructions were read before edits. Existing coordination was inspected: policy `legacy`, zero rules, valid empty ledger; no tracked collaboration-session adapter was found in `.harness`. A one-agent coordination record was initialized. Memory recall returned `Database not found`; no learning-memory success receipt is claimed. The installed CLI reported daemon auto-start during recall; `ruflo daemon stop` then reported it was not running, and subsequent CLI coordination disabled auto-start. No AI worker or external model execution was requested.
-- `source-sha256.txt` binds the final modified source/tests/configuration, including untracked files, to their bytes. Parent inspection and independent rerun are the next integration step. All changes remain uncommitted.
+- `source-sha256.txt` binds the final modified source/tests/configuration, including untracked files, to their bytes. Parent inspection and independent rerun are the next integration step. (The hashes describe the first validated state; the review addendum changes some of these files.)
 
 ## Review addendum (independent review of PR #4097)
 
