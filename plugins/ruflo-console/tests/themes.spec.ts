@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { activeTheme, COLOR_KEYS, loadThemes, lowContrast, ORBITAL_THEME, parseTheme, themeActions, themeFromText, themesOf } from '../hooks/themes'
+import { activeTheme, COLOR_KEYS, loadThemes, lowContrast, ORBITAL_THEME, parseTheme, themeActions, themeFromText, themesOf, themeLayout } from '../hooks/themes'
 import { newState } from '../hooks/state'
 import type { Host } from '../hooks/host'
 import { orbitalBoot, orbitalGlobe, orbitalHeader } from '../hooks/gfx/orbital'
@@ -15,6 +15,22 @@ describe('Theme Studio', () => {
     expect(groupOf('themes')).toBe('TOOLS')
     expect(findPages('color')).toContain('themes')
     expect(GROUPS.find(g => g.title === 'TOOLS')!.sections.flatMap(s => s.items).some(i => i.go === 'themes')).toBe(true)
+  })
+  it('keeps editor and preview within one width at the breakpoint', () => {
+    for (const width of [12, 20, 44, 72, 99, 100, 120, 160, 240]) {
+      const layout = themeLayout(width)
+      expect(layout.wide ? layout.controls + 2 + layout.preview : layout.preview).toBeLessThanOrEqual(width)
+      expect(layout.wide).toBe(width >= 100)
+    }
+  })
+  it('switches focused editors and discards only unsaved changes', async () => {
+    const state = newState({ look: 'orbital' }), host = hostOf(), act = themeActions(state, host, vi.fn())
+    act.tab('motion'); act.role('warn'); act.name('Saved'); act.save(); await flush()
+    act.color('head', '#ffffff'); act.discard()
+    expect(themesOf(state).tab).toBe('motion')
+    expect(themesOf(state).role).toBe('warn')
+    expect(themesOf(state).draft).toEqual(activeTheme(state))
+    expect(themesOf(state).saved).toHaveLength(1)
   })
   it('accepts only bounded data and clones it', () => {
     const raw = copy(), parsed = parseTheme(raw)!

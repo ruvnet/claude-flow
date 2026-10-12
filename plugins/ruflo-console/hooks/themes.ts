@@ -43,12 +43,17 @@ export function contrast(a: string, b: string): number {
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
 }
 export const lowContrast = (theme: ConsoleTheme): ColorKey[] => COLOR_KEYS.filter(key => key !== 'background' && contrast(theme.palette[key], theme.palette.background) < 3)
-export type ThemeStudio = { saved: ConsoleTheme[]; active: ConsoleTheme | null; draft: ConsoleTheme; selected: string | null; brief: string; message: string; loaded: boolean; revision: number; saving: boolean; initialLook: State['options']['look'] }
+export const themeLayout = (columns: number) => {
+  const width = Math.max(1, Math.min(200, Math.floor(columns) || 1))
+  return { width, wide: width >= 100, controls: width >= 100 ? 38 : width, preview: width >= 100 ? width - 40 : width }
+}
+export type StudioTab = 'colors' | 'motion' | 'generate'
+export type ThemeStudio = { tab: StudioTab; role: ColorKey; saved: ConsoleTheme[]; active: ConsoleTheme | null; draft: ConsoleTheme; selected: string | null; brief: string; message: string; loaded: boolean; revision: number; saving: boolean; initialLook: State['options']['look'] }
 const studios = new WeakMap<State, ThemeStudio>()
 export function themesOf(state: State): ThemeStudio {
   let studio = studios.get(state)
   if (!studio) {
-    studio = { saved: [], active: null, draft: clone(ORBITAL_THEME), selected: null, brief: 'A calm cyberpunk theme with readable colors and slow orbital motion', message: '', loaded: false, revision: 0, saving: false, initialLook: state.options.look }
+    studio = { tab: 'colors', role: 'head', saved: [], active: null, draft: clone(ORBITAL_THEME), selected: null, brief: 'A calm cyberpunk theme with readable colors and slow orbital motion', message: '', loaded: false, revision: 0, saving: false, initialLook: state.options.look }
     studios.set(state, studio)
   }
   return studio
@@ -71,6 +76,9 @@ export async function loadThemes(state: State, host: Host): Promise<void> {
   } catch { studio.message = 'Saved themes could not be read; using the configured look.'; host.invalidate() }
 }
 export type ThemeActions = {
+  tab: (tab: StudioTab) => void
+  role: (role: ColorKey) => void
+  discard: () => void
   select: (id: string) => void
   color: (key: ColorKey, value: string) => void
   name: (value: string) => void
@@ -97,6 +105,9 @@ export function themeActions(state: State, host: Host, ask: (agent: 'claude' | '
     finally { studio.saving = false; host.invalidate() }
   }
   return {
+    tab: tab => { if (['colors', 'motion', 'generate'].includes(tab)) { studio.tab = tab; host.invalidate() } },
+    role: role => { if (COLOR_KEYS.includes(role)) { studio.role = role; host.invalidate() } },
+    discard: () => { studio.draft = clone(studio.active ?? ORBITAL_THEME); tell('Draft restored to the active palette.') },
     select: id => {
       if (id === 'bbs' || id === 'plain' || id === 'orbital') { void persist(id, studio.saved, null, id); return }
       const theme = studio.saved.find(t => `custom:${t.name}` === id)

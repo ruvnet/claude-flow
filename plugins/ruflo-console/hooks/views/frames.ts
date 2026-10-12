@@ -1,4 +1,4 @@
-import { activeTheme, themesOf } from '../themes'
+import { activeTheme, themesOf, themeLayout } from '../themes'
 /**
  * The pictures of the view in front, by Raster key, for one instant. The render mounts them and the animation loop
  * blits them, both through `picturesOf`, so a frame is always the mounted size. Each picture's model is read from the
@@ -224,8 +224,10 @@ export function picturesOf(state: State, columns: number, nowMs: number, t: numb
 
   if (state.view === 'themes') {
     const draft = themesOf(state).draft
-    if (draft.motion.globe) pictures.set('theme-globe', orbitalGlobe(Math.max(1, Math.min(columns, width, 72)), 9, state.options.fps > 0 ? t * draft.motion.speed : 0, draft))
-    pictures.set('theme-preview', orbitalHeader('swarm preview', Math.max(1, Math.min(columns, width, 90)), state.options.fps > 0 ? t * draft.motion.speed : 0, state.pane.rows > 0 ? Math.max(1, Math.min(16, state.pane.rows - 12)) : 16, draft))
+    const layout = themeLayout(Math.min(columns, width))
+    const previewWidth = Math.max(1, layout.preview - 2)
+    if (draft.motion.globe) pictures.set('theme-globe', orbitalGlobe(previewWidth, layout.wide ? 14 : 9, state.options.fps > 0 ? t * draft.motion.speed : 0, draft))
+    pictures.set('theme-preview', orbitalHeader('swarm preview', previewWidth, state.options.fps > 0 ? t * draft.motion.speed : 0, layout.wide ? 16 : 4, draft))
   }
 
   switch (state.view) {

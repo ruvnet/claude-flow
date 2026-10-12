@@ -65,7 +65,7 @@ export function orbitalGlobe(columns: number, rows: number, timeMs: number, them
       const ringX = nx * 0.966 + ny * 0.259
       const ringY = -nx * 0.259 + ny * 0.966
       const ring = ringX * ringX / 3.24 + ringY * ringY / 0.16
-      if (Math.abs(ring - 1) < 0.09) grid.set(x, y, '.', 0x543b32, BLACK)
+      if (Math.abs(ring - 1) < 0.09) grid.set(x, y, '.', mix(BLACK, RED, 0.32), BLACK)
       // Stable positions, slow brightness changes, and clear space around the limb.
       const seed = ((x + 17) * 73856093 ^ (y + 11) * 19349663) >>> 0
       if (theme.motion.stars && r2 > 1.2 && seed % 113 === 0) {
@@ -146,7 +146,7 @@ export function orbitalHeader(label: string, columns: number, timeMs: number, ma
     const beat = ((ms % 4800) + 4800) % 4800
     const stage = Math.floor(beat / 1200)
     // Sparse graph mesh and moving edge packets, all illustrative rather than reported traffic.
-    for (let y = 1; y <= 9; y += 2) for (let x = 3; x < grid.columns - 3; x += 6) grid.set(x, y, '·', 0x18241f)
+    for (let y = 1; y <= 9; y += 2) for (let x = 3; x < grid.columns - 3; x += 6) grid.set(x, y, '·', mix(BLACK, GREEN, 0.14))
     nodes.forEach(node => {
       const next = nodes.find(other => other.index === (node.index + 1) % nodes.length)!
       const dx = next.x - node.x
@@ -156,7 +156,7 @@ export function orbitalHeader(label: string, columns: number, timeMs: number, ma
       for (let step = 1; step < steps; step++) {
         const f = step / steps
         const lit = Math.abs(packet - f) < 0.045
-        grid.set(Math.round(node.x + dx * f), Math.round(node.y + dy * f), lit ? '•' : '·', lit ? INK : 0x344138)
+        grid.set(Math.round(node.x + dx * f), Math.round(node.y + dy * f), lit ? '•' : '·', lit ? INK : mix(BLACK, GREEN, 0.28))
       }
     })
     // Projected direction vectors extend from the hub, rotating independently of the graph.
@@ -165,11 +165,11 @@ export function orbitalHeader(label: string, columns: number, timeMs: number, ma
       for (let step = 2; step <= 8; step++) {
         const x = center.x + Math.round(Math.cos(angle) * step * Math.min(1.7, grid.columns / 36))
         const y = center.y + Math.round(Math.sin(angle) * step * 0.36)
-        grid.set(x, y, step === 8 ? (Math.cos(angle) < 0 ? '◀' : '▶') : '·', step === 8 ? RED : 0x6c4335)
+        grid.set(x, y, step === 8 ? (Math.cos(angle) < 0 ? '◀' : '▶') : '·', step === 8 ? RED : mix(BLACK, RED, 0.40))
       }
     }
     const drawHub = () => {
-      grid.text(center.x - 2, center.y + 1, ' ░░░ ', 0x4b2924)
+      grid.text(center.x - 2, center.y + 1, ' ░░░ ', mix(BLACK, RED, 0.25))
       grid.text(center.x - 2, center.y, '[ ◈ ]', stage === 2 ? GREEN : INK)
     }
     let hubDrawn = false
@@ -185,10 +185,10 @@ export function orbitalHeader(label: string, columns: number, timeMs: number, ma
         const x = Math.round(center.x + dx * f)
         const y = Math.round(center.y + dy * f)
         const lit = pulse - f >= 0 && pulse - f < 0.14
-        grid.set(x, y, lit ? '•' : '·', lit ? GREEN : node.z < 0 ? 0x29342f : 0x58675e)
+        grid.set(x, y, lit ? '•' : '·', lit ? GREEN : node.z < 0 ? mix(BLACK, GREEN, 0.23) : mix(BLACK, GREEN, 0.48))
       }
       if (node.z > 0) {
-        grid.text(node.x, node.y + 1, '░░', 0x4b2924)
+        grid.text(node.x, node.y + 1, '░░', mix(BLACK, RED, 0.25))
         grid.text(node.x - 1, node.y, `[${node.icon}]`, pulse > 0.8 ? INK : RED)
       } else grid.set(node.x, node.y, node.icon, DIM)
     })
@@ -202,10 +202,10 @@ export function orbitalHeader(label: string, columns: number, timeMs: number, ma
       const cells = Math.max(1, lane - 2)
       for (let i = 0; i < cells; i++) {
         const lit = index === stage && i === Math.floor((beat % 1200) / 1200 * cells)
-        grid.set(x + i, 13, lit ? '▪' : '·', lit ? GREEN : 0x35413c)
+        grid.set(x + i, 13, lit ? '▪' : '·', lit ? GREEN : mix(BLACK, GREEN, 0.28))
       }
     })
-    grid.text(1, 15, ' Illustrative orchestration / live graph below', DIM)
+    grid.text(1, 15, /preview/i.test(label) ? ' Illustrative routing / palette preview' : ' Illustrative orchestration / live graph below', DIM)
   } else if (swarm) {
     const stages = ['DISPATCH', 'PARALLEL', 'SYNC', 'RETURN']
     const stage = Math.floor(Math.max(0, Number.isFinite(timeMs) ? timeMs : 0) / 1200) % 4
@@ -277,7 +277,7 @@ export function orbitalBoot(project: string, columns: number, timeMs: number, ch
   }
   const loaderWidth = Math.max(1, grid.columns - 4)
   const loader = Math.floor((Math.sin(intro / 450) + 1) / 2 * (loaderWidth - 1))
-  for (let x = 0; x < loaderWidth; x++) grid.set(x + 2, 2, Math.abs(x - loader) < 3 ? '=' : '.', Math.abs(x - loader) < 3 ? GREEN : 0x303c37)
+  for (let x = 0; x < loaderWidth; x++) grid.set(x + 2, 2, Math.abs(x - loader) < 3 ? '=' : '.', Math.abs(x - loader) < 3 ? GREEN : mix(BLACK, GREEN, 0.25))
   grid.text(0, 20, ' LOADING CONSOLE / decorative orbit', RED)
   const passed = checks?.filter(c => c.ok).length ?? 0
   const failed = checks?.filter(c => !c.ok).length ?? 0
