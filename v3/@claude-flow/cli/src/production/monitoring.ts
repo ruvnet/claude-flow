@@ -259,7 +259,7 @@ export class MonitoringHooks {
       } catch (error) {
         checks[name] = {
           status: 'unhealthy',
-          message: (error as Error).message,
+          message: error instanceof Error ? error.message : String(error),
           lastCheck: Date.now(),
           responseTimeMs: Date.now() - startTime,
         };
