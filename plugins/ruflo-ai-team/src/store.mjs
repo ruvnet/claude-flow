@@ -55,7 +55,9 @@ export class InMemoryStore {
   }
   async evidence(tenantId, runId) {
     const b = this.#bucket(tenantId); const run = b.runs.get(runId); if (!run) return null;
-    return { schema: 'ruflo.ai-team.evidence.v1', generatedAt: now(), run: clone(run), team: clone(b.teams.get(run.teamId)), tasks: await this.listTasks(tenantId, runId), audit: clone(b.audit.filter((x) => x.targetId === runId || x.targetId === run.teamId)) };
+    const tasks = await this.listTasks(tenantId, runId);
+    const targets = new Set([runId, run.teamId, ...tasks.map(task => task.id)]);
+    return { schema: 'ruflo.ai-team.evidence.v1', generatedAt: now(), run: clone(run), team: clone(b.teams.get(run.teamId)), tasks, audit: clone(b.audit.filter((x) => targets.has(x.targetId))) };
   }
   #audit(bucket, actor, eventType, targetId) { bucket.audit.push({ id: randomUUID(), at: now(), actor, eventType, targetId }); }
 }
@@ -91,5 +93,5 @@ export class FirestoreStore {
   async remember(t,i,a='-') { const timestamp=now(); const v={id:i.key||`mem_${randomUUID()}`,teamId:i.teamId,runId:i.runId||null,text:i.text,tags:i.tags||[],provenance:i.provenance||'user',actorHash:a,contentHash:createHash('sha256').update(i.text).digest('hex'),safetyStatus:i.safetyStatus||'accepted',embeddingModel:'feature-hash-256',embeddingVersion:'1',createdAt:timestamp,updatedAt:timestamp}; await this.#put(t,'memories',v); await this.#audit(t,a,'memory.remembered',v.id); return v; }
   async listMemories(t,{teamId}={}) { let query=this.#tenant(t).collection('memories'); if(teamId)query=query.where('teamId','==',teamId); const snap=await query.limit(1000).get(); return snap.docs.map(d=>d.data()); }
   async usage(t) { const [teams,runs,tasks,memories]=await Promise.all(['teams','runs','tasks','memories'].map(k=>this.#list(t,k))); return {teams:teams.length,runs:runs.length,tasks:tasks.length,memories:memories.length,limits:{teams:1,agentsPerTeam:3,monthlyTasks:100,runBudgetUnits:100}}; }
-  async evidence(t,runId) { const run=await this.#get(t,'runs',runId); if(!run)return null; return {schema:'ruflo.ai-team.evidence.v1',generatedAt:now(),run,team:await this.#get(t,'teams',run.teamId),tasks:await this.listTasks(t,runId),audit:(await this.#list(t,'audit')).filter(x=>x.targetId===runId||x.targetId===run.teamId)}; }
+  async evidence(t,runId) { const run=await this.#get(t,'runs',runId); if(!run)return null; const tasks=await this.listTasks(t,runId); const targets=new Set([runId,run.teamId,...tasks.map(task=>task.id)]); return {schema:'ruflo.ai-team.evidence.v1',generatedAt:now(),run,team:await this.#get(t,'teams',run.teamId),tasks,audit:(await this.#list(t,'audit')).filter(x=>targets.has(x.targetId))}; }
 }
