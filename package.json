@@ -68,13 +68,13 @@
     "v3:security": "npm run security:audit && npm run security:test"
   },
   "dependencies": {
-    "@claude-flow/cli-core": "3.7.1",
+    "@claude-flow/cli-core": "3.7.2",
     "@claude-flow/codex": "3.0.4",
     "@claude-flow/mcp": "3.1.1",
     "@claude-flow/neural": "3.0.0",
     "@claude-flow/plugin-agent-federation": "1.0.1",
     "@claude-flow/security": "3.0.4",
-    "@claude-flow/shared": "3.0.4",
+    "@claude-flow/shared": "3.0.5",
     "@iarna/toml": "^2.2.5",
     "@noble/ed25519": "2.3.0",
     "@ruvector/rabitq-wasm": "0.1.0",
