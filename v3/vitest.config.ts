@@ -36,6 +36,9 @@ const KNOWN_FAILING = [
   '@claude-flow/cli/__tests__/router-cjs-esm-3555.test.ts', // 1/9
   '@claude-flow/mcp/__tests__/http-transport-auth.test.ts', // 5/26
   '__tests__/integration/swarm-integration.test.ts', // 1/15
+  // Spawns the real CLI from the worker; `spawnSync node ENOMEM` on every attempt in the
+  // full parallel suite on a CI runner (runs 38290339354, 38291176206), passes alone.
+  '@claude-flow/cli/__tests__/hive-mind-real-cli-auth.test.ts', // 2/2 (run alone to check)
   // Flaky under a parallel run: wall-clock or heap thresholds measured while
   // ~16 other files run. Each passes alone; the whole file is excluded for one
   // assertion, so the fix is in the test (relax or skip the timing under CI).
