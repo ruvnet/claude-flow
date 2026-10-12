@@ -1,13 +1,13 @@
 /** Orbital cell art: decorative motion, never a simulated health or progress measurement. */
+import { ORBITAL_THEME, type ConsoleTheme } from '../themes'
 import type { BootCheck } from '../boot-checks'
-import { Grid } from './raster'
+import { Grid, mix } from './raster'
 import { bannerPicture } from './pictures'
 
-const RED = 0xf06449
-const GREEN = 0x72c79b
-const INK = 0xc6cbc8
-const DIM = 0x596561
-const BLACK = 0x000000
+function colors(theme: ConsoleTheme) {
+  const rgb = (hex: string) => parseInt(hex.slice(1), 16)
+  return { RED: rgb(theme.palette.head), GREEN: rgb(theme.palette.ok), INK: rgb(theme.palette.info), BLACK: rgb(theme.palette.background), BAD: rgb(theme.palette.bad), DIM: mix(rgb(theme.palette.background), rgb(theme.palette.info), 0.48) }
+}
 const TAU = Math.PI * 2
 
 // Original stylized continent silhouettes in longitude/latitude degrees, for decoration only.
@@ -36,17 +36,19 @@ function onLand(lon: number, lat: number): boolean {
   })
 }
 
-function blank(columns: number, rows: number): Grid {
+function blank(columns: number, rows: number, theme = ORBITAL_THEME): Grid {
+  const { INK, BLACK } = colors(theme)
   const grid = new Grid(Math.max(1, Math.min(200, Math.floor(columns) || 1)), rows)
   for (let y = 0; y < rows; y++) for (let x = 0; x < grid.columns; x++) grid.set(x, y, ' ', INK, BLACK)
   return grid
 }
 
 /** Tilted orthographic Earth with fixed sunlight and a sparse starfield. One turn takes 12 seconds. */
-export function orbitalGlobe(columns: number, rows: number, timeMs: number): Grid {
+export function orbitalGlobe(columns: number, rows: number, timeMs: number, theme = ORBITAL_THEME): Grid {
+  const { RED, GREEN, INK, BLACK } = colors(theme)
   const height = Math.max(5, Math.min(24, Math.floor(rows) || 5))
-  const grid = blank(columns, height)
-  const radius = Math.min((height - 1) / 2, (grid.columns - 1) / 4)
+  const grid = blank(columns, height, theme)
+  const radius = Math.max(0.25, Math.min((height - 1) / 2, (grid.columns - 1) / 4))
   const angle = (Number.isFinite(timeMs) ? timeMs % 12000 : 0) / 12000 * TAU
   const tilt = 23.4 * Math.PI / 180
   const pitch = 0.18
@@ -66,7 +68,7 @@ export function orbitalGlobe(columns: number, rows: number, timeMs: number): Gri
       if (Math.abs(ring - 1) < 0.09) grid.set(x, y, '.', 0x543b32, BLACK)
       // Stable positions, slow brightness changes, and clear space around the limb.
       const seed = ((x + 17) * 73856093 ^ (y + 11) * 19349663) >>> 0
-      if (r2 > 1.2 && seed % 113 === 0) {
+      if (theme.motion.stars && r2 > 1.2 && seed % 113 === 0) {
         const glow = 0.45 + 0.3 * (1 + Math.sin(angle + seed % 31)) / 2
         grid.set(x, y, seed % 3 === 0 ? '+' : '.', tint(INK, glow), BLACK)
       }
@@ -109,10 +111,11 @@ export function orbitalGlobe(columns: number, rows: number, timeMs: number): Gri
 }
 
 /** Fixed-height header: red scan line, travelling ASCII pulse and an orbit marker. */
-export function orbitalHeader(label: string, columns: number, timeMs: number, maxRows = 16): Grid {
+export function orbitalHeader(label: string, columns: number, timeMs: number, maxRows = 16, theme = ORBITAL_THEME): Grid {
+  const { RED, GREEN, INK, BLACK, DIM } = colors(theme)
   const swarm = /swarm/i.test(label)
-  const expanded = swarm && columns >= 56 && maxRows >= 16
-  const grid = blank(columns, expanded ? 16 : Math.max(1, Math.min(4, maxRows)))
+  const expanded = theme.motion.topology && swarm && columns >= 56 && maxRows >= 16
+  const grid = blank(columns, expanded ? 16 : Math.max(1, Math.min(4, maxRows)), theme)
   const tick = Math.floor((Number.isFinite(timeMs) ? timeMs : 0) / 160)
   const fullTitle = ` RUFLO / ${label.toUpperCase()} `
   const title = columns >= fullTitle.length ? fullTitle : columns >= 12 ? ` RUFLO / ${swarm ? 'SWARM' : label.toUpperCase()}` : ' RUFLO'
@@ -212,7 +215,7 @@ export function orbitalHeader(label: string, columns: number, timeMs: number, ma
 }
 
 /** Map the original banner's neon channels into Orbital's palette, preserving its highlight sweep. */
-function orbitalBrandColor(color: number): number {
+function orbitalBrandColor(color: number, theme = ORBITAL_THEME): number {
   const r = (color >>> 16) & 255
   const g = (color >>> 8) & 255
   // Original magenta and cyan are mixed with white by the shared banner renderer.
@@ -220,39 +223,42 @@ function orbitalBrandColor(color: number): number {
   const white = Math.max(0, Math.min(1 - cyan, (g - 42 - 175 * cyan) / 213))
   const coral = 1 - cyan - white
   const channel = (a: number, z: number, light: number) => Math.round(a * coral + z * cyan + light * white)
-  return (channel(240, 114, 240) << 16) | (channel(100, 199, 239) << 8) | channel(73, 155, 226)
+  const { RED, GREEN, INK } = colors(theme)
+  const ch = (shift: number) => channel((RED >>> shift) & 255, (GREEN >>> shift) & 255, (INK >>> shift) & 255)
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0)
 }
 
 /** Checks are actual self-check results; the globe and sweep are explicitly decorative. */
-export function orbitalBoot(project: string, columns: number, timeMs: number, checks?: readonly BootCheck[], maxRows = 30): Grid {
+export function orbitalBoot(project: string, columns: number, timeMs: number, checks?: readonly BootCheck[], maxRows = 30, theme = ORBITAL_THEME): Grid {
+  const { RED, GREEN, INK, BLACK, DIM, BAD } = colors(theme)
   const available = Math.max(1, Math.min(30, Math.floor(maxRows) || 1))
   if (columns < 48 || available < 30) {
-    const grid = blank(columns, Math.min(9, available))
+    const grid = blank(columns, Math.min(9, available), theme)
     const failed = checks?.filter(check => !check.ok) ?? []
     const passed = checks?.filter(check => check.ok).length ?? 0
     grid.text(0, 0, 'RUFLO / BOOT', RED)
-    grid.text(0, 1, checks === undefined ? 'Pending checks' : `${passed} OK ${failed.length} FAIL`, failed.length ? RED : GREEN)
+    grid.text(0, 1, checks === undefined ? 'Pending checks' : `${passed} OK ${failed.length} FAIL`, failed.length ? BAD : GREEN)
     // Reserve the first detail row for a real failure even in very short panes.
-    if (grid.rows > 2) grid.text(0, 2, failed.length ? `FAIL ${failed[0]!.area}` : project, failed.length ? RED : DIM)
+    if (grid.rows > 2) grid.text(0, 2, failed.length ? `FAIL ${failed[0]!.area}` : project, failed.length ? BAD : DIM)
     if (grid.rows > 3) {
       const tick = Math.floor(Math.max(0, Number.isFinite(timeMs) ? timeMs : 0) / 100)
       grid.text(0, 3, '.'.repeat(grid.columns), DIM)
       grid.set(tick % grid.columns, 3, '>', GREEN)
     }
     const shown = [...failed, ...(checks?.filter(check => check.ok) ?? [])]
-    shown.slice(0, Math.max(0, grid.rows - 5)).forEach((check, i) => grid.text(0, 4 + i, `${check.ok ? 'OK' : 'FAIL'} ${check.area}`, check.ok ? GREEN : RED))
+    shown.slice(0, Math.max(0, grid.rows - 5)).forEach((check, i) => grid.text(0, 4 + i, `${check.ok ? 'OK' : 'FAIL'} ${check.area}`, check.ok ? GREEN : BAD))
     if (grid.rows >= 6) grid.text(0, grid.rows - 1, 'Local checks', DIM)
     return grid
   }
-  const grid = blank(columns, 30)
+  const grid = blank(columns, 30, theme)
   // Reuse the original console banner, including its half-block font and sweep, recolored for Orbital.
   const banner = bannerPicture(project, grid.columns, timeMs, Math.max(0, Number.isFinite(timeMs) ? timeMs : 0))
   for (let y = 0; y < banner.rows; y++) for (let x = 0; x < banner.columns; x++) {
     const i = (y * banner.columns + x) * 3
-    grid.set(x, y, banner.cells[i]!, orbitalBrandColor(banner.cells[i + 1]!), BLACK)
+    grid.set(x, y, banner.cells[i]!, orbitalBrandColor(banner.cells[i + 1]!, theme), BLACK)
   }
-  grid.text(0, 3, ' ruvnet / ORBITAL', DIM)
-  const globe = orbitalGlobe(grid.columns, 16, timeMs)
+  grid.text(0, 3, ` ruvnet / ${theme.name.toUpperCase()}`, DIM)
+  const globe = theme.motion.globe ? orbitalGlobe(grid.columns, 16, timeMs, theme) : blank(grid.columns, 16, theme)
   const intro = Math.max(0, Number.isFinite(timeMs) ? timeMs : 0)
   const reveal = Math.min(1, Math.max(0, (intro - 150) / 750))
   const eased = 1 - Math.pow(1 - reveal, 3)
@@ -275,7 +281,7 @@ export function orbitalBoot(project: string, columns: number, timeMs: number, ch
   grid.text(0, 20, ' LOADING CONSOLE / decorative orbit', RED)
   const passed = checks?.filter(c => c.ok).length ?? 0
   const failed = checks?.filter(c => !c.ok).length ?? 0
-  grid.text(0, 21, checks === undefined ? ' Self-check: pending' : ` Self-check: ${passed} passed / ${failed} failed`, failed > 0 ? RED : GREEN)
+  grid.text(0, 21, checks === undefined ? ' Self-check: pending' : ` Self-check: ${passed} passed / ${failed} failed`, failed > 0 ? BAD : GREEN)
   const age = Math.max(0, Number.isFinite(timeMs) ? timeMs : 0)
   const scan = Math.floor(age / 100) % Math.max(1, grid.columns - 2)
   grid.text(0, 22, ' '.repeat(grid.columns), DIM)
@@ -297,7 +303,7 @@ export function orbitalBoot(project: string, columns: number, timeMs: number, ch
       const name = check.ok ? check.area.toUpperCase().slice(0, reveal) : check.area.toUpperCase()
       const status = check.ok ? '[PASS]' : '[FAIL]'
       const detail = !check.ok && check.problems.length > 0 ? ` / ${check.problems[0]}` : ''
-      grid.text(0, 23 + i, ` ${status} ${name}${detail}`.slice(0, check.ok && grid.columns >= 55 ? grid.columns - 14 : grid.columns), check.ok ? GREEN : RED)
+      grid.text(0, 23 + i, ` ${status} ${name}${detail}`.slice(0, check.ok && grid.columns >= 55 ? grid.columns - 14 : grid.columns), check.ok ? GREEN : BAD)
       const cursor = 8 + name.length
       if (check.ok && reveal < check.area.length && cursor < (grid.columns >= 55 ? grid.columns - 14 : grid.columns)) grid.set(cursor, 23 + i, '_', INK)
       if (grid.columns >= 55 && check.ok) {

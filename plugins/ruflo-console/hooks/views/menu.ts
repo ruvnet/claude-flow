@@ -52,7 +52,7 @@ export const GROUPS: readonly { title: string; sections: readonly { name: string
   },
   {
     title: 'TOOLS',
-    sections: [{ name: 'tools', items: [{ label: 'AI Terminal', go: 'terminal' }, { label: 'Automation', go: 'automate' }, { label: 'Dev Tools', go: 'devtools' }, { label: 'Plugins & Mods', go: 'plugins' }, { label: 'ADRs', go: 'adrs' }, { label: 'What’s new', go: 'whatsnew' }, { label: 'Settings', go: 'settings' }, { label: 'Command Palette', go: 'palette' }, { label: 'Help', go: 'help' }, { label: 'Log Off', go: 'close' }] }],
+    sections: [{ name: 'tools', items: [{ label: 'AI Terminal', go: 'terminal' }, { label: 'Automation', go: 'automate' }, { label: 'Dev Tools', go: 'devtools' }, { label: 'Plugins & Mods', go: 'plugins' }, { label: 'ADRs', go: 'adrs' }, { label: 'What’s new', go: 'whatsnew' }, { label: 'Theme Studio', go: 'themes' }, { label: 'Settings', go: 'settings' }, { label: 'Command Palette', go: 'palette' }, { label: 'Help', go: 'help' }, { label: 'Log Off', go: 'close' }] }],
   },
 ]
 

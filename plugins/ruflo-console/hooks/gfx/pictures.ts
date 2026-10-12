@@ -4,6 +4,7 @@
  * always fits the mounted Raster. What motion means is said beside each picture: data where it is data, decoration
  * where it is not.
  */
+import type { ConsoleTheme } from '../themes'
 import { Braille, COLOR, Grid, mix, ramp, sparkline } from './raster'
 import { bigText } from './font'
 import { hash } from './boot-cyber'
@@ -21,12 +22,12 @@ export const FLIGHT_MS = 1400
 const isBusy = (status: string) => /busy|active|running|working/i.test(status)
 const isDown = (status: string) => /stop|terminat|offline|dead|error|fail/i.test(status)
 
-export function nodeColor(node: TopoNode): number {
-  if (node.isLeader) return COLOR.accent
-  if (isDown(node.status)) return /error|fail/i.test(node.status) ? COLOR.bad : COLOR.dim
-  if (isBusy(node.status)) return COLOR.warn
+export function nodeColor(node: TopoNode, colors = COLOR): number {
+  if (node.isLeader) return colors.accent
+  if (isDown(node.status)) return /error|fail/i.test(node.status) ? colors.bad : colors.dim
+  if (isBusy(node.status)) return colors.warn
 
-  return COLOR.info
+  return colors.info
 }
 
 /**
@@ -95,7 +96,9 @@ export function edges(model: TopoModel): [number, number][] {
  * A dot runs from the leader to a node once each time the console sees an event about that agent (data); the leader's
  * slow heartbeat is decoration.
  */
-export function topologyPicture(model: TopoModel, columns: number, rows: number, t: number, depth = false, motionTime = t): Grid {
+export function topologyPicture(model: TopoModel, columns: number, rows: number, t: number, depth = false, motionTime = t, palette?: ConsoleTheme['palette']): Grid {
+  const rgb = (hex: string) => parseInt(hex.slice(1), 16)
+  const colors = palette ? { ...COLOR, accent: rgb(palette.head), info: rgb(palette.info), ok: rgb(palette.ok), bad: rgb(palette.bad), warn: rgb(palette.warn), dim: mix(rgb(palette.background), rgb(palette.info), 0.45), line: mix(rgb(palette.background), rgb(palette.info), 0.3) } : COLOR
   const grid = new Grid(columns, rows)
   const canvas = new Braille(columns, rows)
   const points = layout(model, canvas.width, canvas.height)
@@ -118,7 +121,7 @@ export function topologyPicture(model: TopoModel, columns: number, rows: number,
     const p = points[a]
     const q = points[b]
 
-    if (p !== undefined && q !== undefined) canvas.line(p.x, p.y, q.x, q.y, COLOR.line)
+    if (p !== undefined && q !== undefined) canvas.line(p.x, p.y, q.x, q.y, colors.line)
   }
 
   // Work in flight: while ruflo has an agent busy, a dim amber dot keeps travelling down its edge from the leader.
@@ -132,8 +135,8 @@ export function topologyPicture(model: TopoModel, columns: number, rows: number,
     const x = leader.x + (q.x - leader.x) * k
     const y = leader.y + (q.y - leader.y) * k
 
-    canvas.dot(x, y, COLOR.warn)
-    canvas.dot(x + 1, y, COLOR.warn)
+    canvas.dot(x, y, colors.warn)
+    canvas.dot(x + 1, y, colors.warn)
   })
 
   model.nodes.forEach((node, i) => {
@@ -165,7 +168,7 @@ export function topologyPicture(model: TopoModel, columns: number, rows: number,
     const flash = node.pulseAtMs !== undefined && t - node.pulseAtMs >= 0 && t - node.pulseAtMs < PULSE_MS + 600
     // A busy agent breathes (brighter and back, about once every 2 s) so it reads as working, not just coloured.
     const breath = !node.isLeader && isBusy(node.status) ? 0.45 * Math.sin(t / 330 + i) ** 2 : 0
-    const color = flash ? 0xffffff : node.isLeader ? mix(COLOR.accent, 0xffffff, heartbeat) : mix(nodeColor(node), 0xffffff, breath)
+    const color = flash ? 0xffffff : node.isLeader ? mix(colors.accent, 0xffffff, heartbeat) : mix(nodeColor(node, colors), 0xffffff, breath)
 
     if (depth) grid.set(cx + 1, cy + 1, '░', 0x49332c)
     grid.set(cx, cy, depth ? (node.isLeader ? '◈' : isDown(node.status) ? '×' : isBusy(node.status) ? '◉' : '◇') : node.isLeader ? '★' : isBusy(node.status) ? '◉' : '●', color)
@@ -173,10 +176,11 @@ export function topologyPicture(model: TopoModel, columns: number, rows: number,
     if (room >= 5 || node.isLeader) {
       const label = node.label.slice(0, Math.max(3, room - 1))
 
-      grid.text(Math.max(0, Math.min(columns - label.length, cx - Math.floor(label.length / 2))), Math.min(rows - 1, cy + 1), label, node.isLeader ? COLOR.accent : nodeColor(node))
+      grid.text(Math.max(0, Math.min(columns - label.length, cx - Math.floor(label.length / 2))), Math.min(rows - 1, cy + 1), label, node.isLeader ? colors.accent : nodeColor(node, colors))
     }
   })
 
+  if (palette) for (let i = 2; i < grid.cells.length; i += 3) grid.cells[i] = rgb(palette.background)
   return grid
 }
 

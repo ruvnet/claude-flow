@@ -23,6 +23,7 @@ import { createRunner, EXPIRY_TIMER, type Runner } from './runner'
 import { advance, loadLedger, mcOf } from './mission-control'
 import { hasLiveWork } from './mission-list'
 import { loadAllowed } from './remember'
+import { loadThemes } from './themes'
 import { loadAiPrefs } from './settings'
 import { openLoaders } from './view-open'
 import { listSkills } from './skills'
@@ -317,6 +318,7 @@ export function createController(state: State, host: Host): Controller {
     let lastIdleMs = 0
 
     // The AI terminal's saved model and budget apply from the first turn, not only once Settings was opened.
+    void loadThemes(state, host)
     void loadAiPrefs(state, host)
     void loadAllowed(state, host)
     void loadLedger(state, host)

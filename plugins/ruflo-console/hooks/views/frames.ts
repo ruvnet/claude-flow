@@ -1,3 +1,4 @@
+import { activeTheme, themesOf } from '../themes'
 /**
  * The pictures of the view in front, by Raster key, for one instant. The render mounts them and the animation loop
  * blits them, both through `picturesOf`, so a frame is always the mounted size. Each picture's model is read from the
@@ -7,7 +8,7 @@ import type { AuditTrend, HarnessScore, Intelligence } from '../data/cli'
 import { recentByAgent } from '../data/events'
 import { agentLabels } from '../data/parse'
 import { presentAgents, swarmStatusOf } from '../data/swarm-status'
-import { orbitalBoot, orbitalHeader } from '../gfx/orbital'
+import { orbitalBoot, orbitalHeader, orbitalGlobe } from '../gfx/orbital'
 import { getBootChecks } from '../boot-checks'
 import { bootFacts } from '../boot-facts'
 import { getBuild } from '../build'
@@ -178,13 +179,15 @@ function titleThatFits(paneColumns: number, names: readonly string[], build: (na
 
 export function picturesOf(state: State, columns: number, nowMs: number, t: number): Map<string, Grid> {
   const pictures = new Map<string, Grid>()
+  const theme = activeTheme(state)
+  const motionTime = state.options.fps > 0 ? t * theme.motion.speed : 0
   // A page in cards (views/card.ts) is narrower by the border and padding: its pictures are drawn to that width, by the render and by the frame loop alike.
   const width = Math.max(20, Math.min(200, hasCards(columns, isCompactPane(state)) ? columns - CARD_COLUMNS : columns))
   const snapshot = state.snapshot
 
   // The selected boot screen owns the pane for its first seconds; nothing else is drawn under it.
   if (isBooting(state, nowMs)) {
-    pictures.set('boot', state.options.look === 'orbital' ? orbitalBoot(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.max(1, Math.min(columns, width, 90)), state.options.fps > 0 ? nowMs - state.pane.bootAtMs : 0, getBootChecks(), state.pane.rows > 0 ? state.pane.rows : 30) : bootPicture(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.min(width, 90), nowMs - state.pane.bootAtMs, state.probes.size, PROBES.length, state.pane.rows, getBootChecks(), bootFacts(state, CONSOLE_VERSION, getBuild())))
+    pictures.set('boot', state.options.look === 'orbital' ? orbitalBoot(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.max(1, Math.min(columns, width, 90)), state.options.fps > 0 ? (nowMs - state.pane.bootAtMs) * theme.motion.speed : 0, getBootChecks(), state.pane.rows > 0 ? state.pane.rows : 30, theme) : bootPicture(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.min(width, 90), nowMs - state.pane.bootAtMs, state.probes.size, PROBES.length, state.pane.rows, getBootChecks(), bootFacts(state, CONSOLE_VERSION, getBuild())))
 
     return pictures
   }
@@ -216,7 +219,13 @@ export function picturesOf(state: State, columns: number, nowMs: number, t: numb
 
   if (state.options.look === 'orbital') {
     const page = state.isHelp ? 'help' : state.palette.isOpen ? 'commands' : (VIEWS.find(view => view.id === state.view)?.label ?? state.view)
-    pictures.set(state.view === 'menu' ? 'header' : 'title', orbitalHeader(page, Math.max(1, Math.min(120, columns - iconCells(false) - ICON_SLACK)), state.options.fps > 0 ? t : 0, state.pane.rows > 0 ? Math.max(1, state.pane.rows - 12) : 16))
+    pictures.set(state.view === 'menu' ? 'header' : 'title', orbitalHeader(page, Math.max(1, Math.min(120, columns - iconCells(false) - ICON_SLACK)), motionTime, state.pane.rows > 0 ? Math.max(1, state.pane.rows - 12) : 16, theme))
+  }
+
+  if (state.view === 'themes') {
+    const draft = themesOf(state).draft
+    if (draft.motion.globe) pictures.set('theme-globe', orbitalGlobe(Math.max(1, Math.min(columns, width, 72)), 9, state.options.fps > 0 ? t * draft.motion.speed : 0, draft))
+    pictures.set('theme-preview', orbitalHeader('swarm preview', Math.max(1, Math.min(columns, width, 90)), state.options.fps > 0 ? t * draft.motion.speed : 0, state.pane.rows > 0 ? Math.max(1, Math.min(16, state.pane.rows - 12)) : 16, draft))
   }
 
   switch (state.view) {
@@ -226,7 +235,7 @@ export function picturesOf(state: State, columns: number, nowMs: number, t: numb
     case 'swarm': {
       const model = topoModelOf(snapshot, recentByAgent(state.events, nowMs, PULSE_MS + 600), nowMs)
 
-      if (model !== null) pictures.set('topology', topologyPicture(model, width, topologyRows(width, model.nodes.length), t, state.options.look === 'orbital', state.options.fps > 0 ? t : 0))
+      if (model !== null) pictures.set('topology', topologyPicture(model, width, topologyRows(width, model.nodes.length), t, state.options.look === 'orbital' && theme.motion.topology, motionTime, state.options.look === 'orbital' ? theme.palette : undefined))
       break
     }
     case 'hive':

@@ -3,6 +3,7 @@
  * and the pictures computed for this frame. They call nothing on the engine; buttons call the closures in `ctx.act`.
  * Text colours are theme names only, so nothing fades on a light background.
  */
+import type { ThemeActions, ConsoleTheme } from '../themes'
 import type { AskActions } from '../ask-claude'
 import type { OptimizerActions } from '../optimizer'
 import { askedBy } from '../data/room'
@@ -143,6 +144,7 @@ export type Actions = {
   /** The Workflows page: cursor keys, the inspector's tab, the confirm-gated ruflo agent verbs, and naming a transcript's path. */
   workflows: WorkflowsActions
   /** Settings: the level, a plugin, an option or ruflo config change (each asks first), AI preferences, and ▸ ask claude/codex. */
+  themes: ThemeActions
   settings: SettingsActions
 }
 
@@ -175,10 +177,9 @@ const NEON_LABEL = '#2fbf71'
 export const THEME: { head: string; ok: string; bad: string; warn: string; info: string } = { ...PLAIN }
 let look: Look = 'plain'
 
-export function setLook(next: Look): void {
-  if (next === look) return
+export function setLook(next: Look, palette?: ConsoleTheme['palette']): void {
   look = next
-  Object.assign(THEME, next === 'bbs' ? NEON : next === 'orbital' ? ORBITAL : PLAIN)
+  Object.assign(THEME, next === 'bbs' ? NEON : next === 'orbital' ? (palette ?? ORBITAL) : PLAIN)
 }
 
 export const isOrbital = (): boolean => look === 'orbital'

@@ -25,6 +25,8 @@ import { ago, button, clip, col, confirmRow, isBbs, isOrbital, row, setLook, tex
 import { costView } from './cost'
 import { evolveResult, evolveView } from './evolve'
 import { catalogView } from './plugin-catalog'
+import { activeTheme } from '../themes'
+import { themesView } from './themes'
 import { settingsView } from './settings'
 import { whatsnewView } from './whatsnew'
 import { adrsView } from './adr'
@@ -96,6 +98,7 @@ export const BODIES: Record<ViewId, (ctx: Ctx) => RenderElement> = {
   devtools: devtoolsView,
   sandbox: sandboxView,
   market: catalogView,
+  themes: themesView,
   settings: settingsView,
   whatsnew: whatsnewView, adrs: adrsView,
   agent: agentView,
@@ -362,7 +365,7 @@ function withIcons(ctx: Ctx, parts: RenderElement[], lead: number): RenderElemen
 }
 
 export function paneView(base: Ctx): RenderElement {
-  setLook(base.state.options.look)
+  setLook(base.state.options.look, activeTheme(base.state).palette)
 
   // Every Button and Input remembers its key, and a column that holds the origin of the current ask places the confirm and the answer after it.
   const attention = newAttention(base.state.origin, [])
@@ -445,7 +448,7 @@ export function paneView(base: Ctx): RenderElement {
       ? bbs.art.length + (about !== null ? 1 : 0)
       : title.length + (isMenu && isBbs() ? 1 : 0)
 
-  return ctx.kit.Box({ flexDirection: 'column', ...(isOrbital() ? { backgroundColor: '#000000' } : {}), children: withIcons(ctx, parts, lead) })
+  return ctx.kit.Box({ flexDirection: 'column', ...(isOrbital() ? { backgroundColor: activeTheme(ctx.state).palette.background } : {}), children: withIcons(ctx, parts, lead) })
 }
 
 type Plain = { type: string; props: { children?: unknown; label?: string } }
