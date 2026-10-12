@@ -179,6 +179,34 @@ describe('the terminal loop', () => {
     expect(t.out.join('')).toContain(`${ESC}[7m 5 Missions ${ESC}[0m`)
   })
 
+  it('highlights 6 AI in the page bar on the AI page, started there or reached by key (not the page before it)', async () => {
+    const started = terminal()
+    const first = runTui({ cwd: project, home: join(root, 'home'), view: 'ai', aiPage: { codexBin: '/nonexistent/codex' } }, started.io)
+
+    await settle()
+    started.press('\u0003')
+    await first
+
+    const reached = terminal()
+    const second = runTui({ cwd: project, home: join(root, 'home'), aiPage: { codexBin: '/nonexistent/codex' } }, reached.io)
+
+    await settle()
+    reached.press('5')
+    reached.press('6')
+    await settle(50)
+    reached.press('\u0003')
+    await second
+
+    // The bar is checked in the raw output (the reverse-video mark is an escape): the AI page is marked, the page before it is not.
+    const startedOut = started.out.join('')
+    const reachedOut = reached.out.join('')
+
+    expect(startedOut, 'started on ai').toContain(`${ESC}[7m 6 AI ${ESC}[0m`)
+    expect(startedOut, 'started on ai').not.toContain(`${ESC}[7m 1 Overview`)
+    expect(reachedOut, 'reached with 6').toContain(`${ESC}[7m 5 Missions ${ESC}[0m`)
+    expect(reachedOut.slice(reachedOut.lastIndexOf(`${ESC}[7m `)), 'reached with 6').toContain(`${ESC}[7m 6 AI ${ESC}[0m`)
+  })
+
   it('fills the terminal exactly: the page bar on the first row, the key line on the last', async () => {
     for (const rows of [24, 40]) {
       const t = terminal(100, rows)
