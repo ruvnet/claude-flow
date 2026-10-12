@@ -162,12 +162,13 @@ export type Ctx = {
   text?: boolean
 }
 
-export type Look = 'bbs' | 'plain'
+export type Look = 'bbs' | 'plain' | 'orbital'
 
 /** The terminal theme's own colours: readable on light and dark backgrounds alike. */
 const PLAIN = { head: 'claude', ok: 'success', bad: 'error', warn: 'warning', info: 'suggestion' }
 /** The BBS look: neon magenta headings, cyan values, matrix-green labels; amber stays for attention. */
 const NEON = { head: '#ff2a6d', ok: '#39ff14', bad: '#ff3355', warn: '#ffd319', info: '#05d9e8' }
+const ORBITAL = { head: '#f06449', ok: '#72c79b', bad: '#ff6868', warn: '#e3ba74', info: '#c6cbc8' }
 const NEON_LABEL = '#2fbf71'
 
 /** The palette every view reads; `setLook` swaps it in place before a render, so callers keep using THEME.x. */
@@ -177,8 +178,10 @@ let look: Look = 'plain'
 export function setLook(next: Look): void {
   if (next === look) return
   look = next
-  Object.assign(THEME, next === 'bbs' ? NEON : PLAIN)
+  Object.assign(THEME, next === 'bbs' ? NEON : next === 'orbital' ? ORBITAL : PLAIN)
 }
+
+export const isOrbital = (): boolean => look === 'orbital'
 
 export const isBbs = (): boolean => look === 'bbs'
 

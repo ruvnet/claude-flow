@@ -208,7 +208,7 @@ export const MORE_TOPICS: readonly HelpTopic[] = [
     summary: 'change how the console looks and behaves, in place',
     steps: [
       { text: 'Open Settings (key s). Each row is edited right there.', go: { view: 'settings' } },
-      { text: 'look: bbs is the neon look, plain uses your terminal’s own colours. boot turns the intro on or off.' },
+      { text: 'look: bbs is neon, plain uses terminal colours, orbital is dark telemetry with square red panels. boot turns the intro on or off.' },
       { text: 'fps sets how fast things move: 0 turns motion off, 12 is the most.' },
       { text: 'panel decides whether the cockpit opens by itself: auto, only on /ruflo, or never.' },
       { text: 'More options (how often the disk is re-read, the band above the prompt) are listed under the plugin’s options.' },

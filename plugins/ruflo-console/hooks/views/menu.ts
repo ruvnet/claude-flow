@@ -6,7 +6,7 @@ import type { RenderElement } from 'claude-code'
 import { ACCENT, badgesOf, chip, LOUD, MUTED, PALETTE } from '../menu-style'
 import { VIEWS, type ViewId } from '../state'
 import { barParts } from './bar'
-import { button, clip, col, isBbs, picture, row, text, THEME, type Ctx } from './common'
+import { button, clip, col, isBbs, isOrbital, picture, row, text, THEME, type Ctx } from './common'
 import { missionStrip } from './mission-control'
 
 type Item = { label: string; go: string }
@@ -101,7 +101,7 @@ export function menuView(ctx: Ctx): RenderElement {
     const started = entry === null || entry >= groupStart(gi)
     let seen = 0
     const accent = ACCENT[group.title] ?? '#d0d0d0'
-    const title = clip(`▓▒░ ${group.title} ░▒▓`, width - 8)
+    const title = clip(isOrbital() ? group.title : `▓▒░ ${group.title} ░▒▓`, width - 8)
     const isOpen = isGroupOpen(group, gi)
     const count = group.sections.reduce((n, section) => n + section.items.filter(isShown).length, 0)
 
@@ -109,7 +109,7 @@ export function menuView(ctx: Ctx): RenderElement {
       flexDirection: 'column',
       width,
       borderStyle: 'single',
-      borderColor: bbs && started ? accent : 'inactive',
+      borderColor: isOrbital() ? THEME.head : bbs && started ? accent : 'inactive',
       paddingX: 1,
       key: `menu-${group.title}`,
       children: [

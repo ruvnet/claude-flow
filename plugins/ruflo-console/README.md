@@ -83,3 +83,15 @@ An optional **Project Anatole** section on the Security & Doctor page (key `u`) 
 - **Shows** the mode, the baseline's maturity ("learning 62%"), open alerts by severity, blocked and `degraded`; one row per rule (OWASP refs, severity, an off · notify · block chip, hits and acked share over the last 200 alerts, "changed from default"); the open alerts with `ack` and `allow`. The Findings meter counts open alerts, labelled as Anatole's.
 - **Runs** `/protector run` and `/protector replay` into the page's Result panel.
 - **Edits** the mode (off, learn, notify, enforce) and per-rule modes through `/protector`; every change asks first and its confirm row starts with `Effect:`. `enforce` is declared an install-class action and `reset-baseline` a delete-class one, so Claude's console tools always wait for you on both (palette ids `anatole-mode`, `anatole-rule`, `anatole-ack`, `anatole-allow`, `anatole-reset`, `anatole-run`, `anatole-replay`).
+
+## Orbital theme
+
+An optional dark telemetry look inspired by compact system monitors: black panel background, square red borders, warm red headings, muted readable values and green health indicators. It uses the existing live views and command palette; no extra polling, simulated metrics or model calls. BBS remains the default.
+
+Choose Settings → ruflo-console → Look → orbital, or run in your shell:
+
+```sh
+printf '%s\n' '{"look":"orbital"}' | claude plugin configure ruflo-console@ruflo --values-stdin
+```
+
+Reload plugins after changing the option. Select `bbs` or `plain` to restore those looks. A dark terminal background gives the closest match; terminal graphics and host controls keep their existing renderer. Narrow panes retain the existing responsive layout.

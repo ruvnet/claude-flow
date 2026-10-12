@@ -21,7 +21,7 @@ import { isBooting, isCompactPane, NAV_STYLES, VIEWS, type ViewId } from '../sta
 import { agentView } from './agent'
 import { automateResult, automateView } from './automate'
 import { claimsView } from './claims'
-import { ago, button, clip, col, confirmRow, isBbs, row, setLook, text, THEME, type Ctx } from './common'
+import { ago, button, clip, col, confirmRow, isBbs, isOrbital, row, setLook, text, THEME, type Ctx } from './common'
 import { costView } from './cost'
 import { evolveResult, evolveView } from './evolve'
 import { catalogView } from './plugin-catalog'
@@ -444,7 +444,7 @@ export function paneView(base: Ctx): RenderElement {
       ? bbs.art.length + (about !== null ? 1 : 0)
       : title.length + (isMenu && isBbs() ? 1 : 0)
 
-  return ctx.kit.Box({ flexDirection: 'column', children: withIcons(ctx, parts, lead) })
+  return ctx.kit.Box({ flexDirection: 'column', ...(isOrbital() ? { backgroundColor: '#000000' } : {}), children: withIcons(ctx, parts, lead) })
 }
 
 type Plain = { type: string; props: { children?: unknown; label?: string } }

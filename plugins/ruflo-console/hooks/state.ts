@@ -115,8 +115,8 @@ export type Options = GuardOptions & ConvoOptions & SessionOptions & {
   panel: 'auto' | 'command' | 'off'
   /** Lets the federation view ask the public relay for the roster. Off by default: no network without consent. */
   federationNetwork: boolean
-  /** `bbs`: the neon ASCII-art look (default); `plain`: the terminal theme's own colours and plain rules. */
-  look: 'bbs' | 'plain'
+  /** `bbs`: neon (default); `plain`: terminal colours; `orbital`: dark telemetry panels with red accents. */
+  look: 'bbs' | 'plain' | 'orbital'
   /** With the bbs look, a short dial-up boot screen when the cockpit opens. */
   boot: boolean
   /** ADR-474: keep the Events and Timeline history in `.claude-flow/console/` (events.jsonl, lanes.jsonl). On by default; masked text only. */
@@ -140,7 +140,7 @@ export function optionsOf(raw: PluginOptions | undefined): Options {
     bar: value.bar === 'on' || value.bar === 'off' ? value.bar : 'auto',
     panel: value.panel === 'command' || value.panel === 'off' ? value.panel : 'auto',
     federationNetwork: value.federationNetwork === true,
-    look: value.look === 'plain' ? 'plain' : 'bbs',
+    look: value.look === 'plain' || value.look === 'orbital' ? value.look : 'bbs',
     boot: value.boot !== false,
     eventsPersist: value.eventsPersist !== false && value.eventsPersist !== 'false',
     ...guardOptionsOf(raw),
