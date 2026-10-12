@@ -50,13 +50,13 @@ npx neural-trader --backtest --strategy NAME --symbol TICKER --benchmark SPY
 6. Store results and train SONA:
    ```bash
    npx @claude-flow/cli@latest memory store --namespace trading-backtests --key "bt-STRATEGY-DATE" --value "RESULTS"
-   npx @claude-flow/cli@latest neural train --pattern-type trading-strategy --epochs 10
+   npx @claude-flow/cli@latest neural train --pattern prediction --epochs 10
    ```
 
 ### Neural Learning
 
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --quality 0.9 --task "TASK_DESCRIPTION" --agent backtest-engineer
 ```
 
 ### Comms protocol (ADR-126 Phase 5 — orthogonal research lane)

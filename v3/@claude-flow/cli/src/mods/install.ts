@@ -163,18 +163,35 @@ export function installMod(
     backup = `${settingsFile}.bak-ruflo-mods-${Date.now()}`;
     copyFileSync(settingsFile, backup);
   }
-  writeJson(settingsFile, next);
-  // What ruflo added once is still ruflo's to remove: merge into the record.
-  const record = readRecord(projectRoot) ?? { version: 2, installedAt: '', files: {} };
-  const before = record.files[settingsFile] ?? { plugins: [], marketplace: false, env: false };
-  record.files[settingsFile] = {
-    plugins: [...new Set([...before.plugins, ...added.plugins])],
-    marketplace: before.marketplace || added.marketplace,
-    env: before.env || added.env,
-    claudeInstalled: before.claudeInstalled ?? [],
-  };
-  record.installedAt = new Date().toISOString();
-  writeJson(join(resolve(projectRoot), INSTALL_RECORD), record);
+  // One operation: the settings and the record that lets uninstall take them back are written together.
+  // If the record cannot be written, the settings go back as they were (or the file ruflo created goes
+  // away), so nothing is left half-installed with no record to remove it by.
+  try {
+    writeJson(settingsFile, next);
+    // What ruflo added once is still ruflo's to remove: merge into the record.
+    const record = readRecord(projectRoot) ?? { version: 2, installedAt: '', files: {} };
+    const before = record.files[settingsFile] ?? { plugins: [], marketplace: false, env: false };
+    record.files[settingsFile] = {
+      plugins: [...new Set([...before.plugins, ...added.plugins])],
+      marketplace: before.marketplace || added.marketplace,
+      env: before.env || added.env,
+      claudeInstalled: before.claudeInstalled ?? [],
+    };
+    record.installedAt = new Date().toISOString();
+    writeJson(join(resolve(projectRoot), INSTALL_RECORD), record);
+  } catch (error) {
+    try {
+      if (backup) {
+        copyFileSync(backup, settingsFile);
+        unlinkSync(backup);
+      } else if (existsSync(settingsFile)) {
+        unlinkSync(settingsFile);
+      }
+    } catch {
+      // the restore itself failed: the original error below is the one to report
+    }
+    throw error;
+  }
   return { settingsFile, backup, added, dryRun, next };
 }
 

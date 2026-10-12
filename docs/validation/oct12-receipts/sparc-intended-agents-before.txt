@@ -1,0 +1,66 @@
+TAP version 13
+# Subtest: \#4086 status enumerates all keys and retrieves exact current values
+ok 1 - \#4086 status enumerates all keys and retrieves exact current values
+  ---
+  duration_ms: 1.954421
+  ...
+# Subtest: \#4087 every explicit phase agent resolves to a shipped plugin agent
+not ok 2 - \#4087 every explicit phase agent resolves to a shipped plugin agent
+  ---
+  duration_ms: 3.304492
+  location: '<repo>/tests/regression/oct12-sparc.test.cjs:15:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+
+      [
+        'ruflo-core:researcher',
+    +   'ruflo-core:researcher',
+    +   'ruflo-ddd:domain-modeler',
+    -   'ruflo-goals:goal-planner',
+    -   'ruflo-swarm:architect',
+        'ruflo-core:coder',
+        'ruflo-testgen:tester',
+        'ruflo-core:reviewer'
+      ]
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: 'ruflo-core:researcher'
+    1: 'ruflo-goals:goal-planner'
+    2: 'ruflo-swarm:architect'
+    3: 'ruflo-core:coder'
+    4: 'ruflo-testgen:tester'
+    5: 'ruflo-core:reviewer'
+  actual:
+    0: 'ruflo-core:researcher'
+    1: 'ruflo-core:researcher'
+    2: 'ruflo-ddd:domain-modeler'
+    3: 'ruflo-core:coder'
+    4: 'ruflo-testgen:tester'
+    5: 'ruflo-core:reviewer'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-sparc.test.cjs:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: \#4088 SPARC command references resolve to the shipped command filename
+ok 3 - \#4088 SPARC command references resolve to the shipped command filename
+  ---
+  duration_ms: 0.59254
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 2
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 19.109909

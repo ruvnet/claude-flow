@@ -334,10 +334,13 @@ export async function verifyEd25519Signature(
     // Handle prefixed public key (e.g., "ed25519:abc123...")
     const pubKeyHex = publicKey.replace(/^ed25519:/, '');
 
+    // RFC 8032 strict mode: rejects small-order public keys, against which
+    // signatures can be forged under the library's default ZIP-215 rules.
     const isValid = await ed.verifyAsync(
       Buffer.from(signature, 'hex'),
       new TextEncoder().encode(message),
-      Buffer.from(pubKeyHex, 'hex')
+      Buffer.from(pubKeyHex, 'hex'),
+      { zip215: false }
     );
 
     return isValid;

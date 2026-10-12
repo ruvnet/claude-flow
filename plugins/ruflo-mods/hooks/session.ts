@@ -8,6 +8,7 @@ import type { ModOptions } from './options'
 import { ATTENTION_MAX_BYTES, ATTENTION_STATUS, attentionLine } from './attention'
 import { MAX_BYTES, PROTECTOR_STATUS, protectorLine } from './protector'
 import { redraw, report, under, type ModState } from './state'
+import { runSelfCheck } from './selfcheck'
 import { bindToasts } from './toast'
 
 /** `/ruflo-mods` plus the protector row when `.claude-flow/protector-mod/status.json` is present and readable (bounded, regular file only). */
@@ -110,6 +111,7 @@ export function registerSession(on: On, state: ModState, options: ModOptions, gu
     // neither own project events nor be created by the display heartbeat.
     const project = await $.fs.stat(under(state, '.claude-flow')).then(stat => stat.kind === 'dir').catch(() => false)
     const settings = await $.settings.read()
+    if (options.selfCheck) await runSelfCheck({ read: path => $.fs.read(path), exists: path => $.fs.exists(path), home: () => $.env.get('HOME'), configDirEnv: () => $.env.get('CLAUDE_CONFIG_DIR') }, state, (settings as { enabledPlugins?: unknown } | null)?.enabledPlugins)
     state.owned = new Set(project ? ownedEvents(settings, await helperHonours($)) : [])
     await $.env.set('RUFLO_MODS_OWNS', state.owned.size ? [...state.owned].join(',') : undefined)
     state.statusLine = options.statusLine && !hasClassicStatusLine(settings)

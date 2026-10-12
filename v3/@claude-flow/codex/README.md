@@ -751,18 +751,35 @@ enabled = true
 
 ### .codex/config.toml (Local Overrides)
 
+`init` creates this gitignored file with **standard** trust by default:
+
 ```toml
 # Local development overrides (gitignored)
 # These settings override .agents/config.toml
 
-approval_policy = "never"
-sandbox_mode = "danger-full-access"
-web_search = "live"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+web_search = "cached"
 
 # Disable MCP in local if needed
 [mcp_servers.claude-flow]
 enabled = false
 ```
+
+Codex can then write inside the workspace only and asks before anything riskier.
+Opt in to the old permissive file (`approval_policy = "never"`,
+`sandbox_mode = "danger-full-access"`, `web_search = "live"`) explicitly:
+
+```bash
+npx ruflo@latest init --dual --codex-trust full     # or: RUFLO_CODEX_TRUST=full
+npx @claude-flow/codex init --codex-trust full
+```
+
+`init` prints which level you got. An existing `.codex/config.toml` is never
+rewritten, not even with `--force` (it holds your own sandbox and approval
+choices), so to change the level of an existing file edit those three keys.
+Unknown `--codex-trust` values are rejected on the command line and fall back to
+`standard` (with a warning) from the environment variable.
 
 ### Environment Variables
 

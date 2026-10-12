@@ -1,6 +1,6 @@
 import type { RenderElement } from 'claude-code'
 
-import { catalogOf, installedOf, listOf, MODES, PAGE, type Verb } from '../plugin-catalog'
+import { catalogOf, installedOf, listOf, MODES, PAGE, syncedOf, type Verb } from '../plugin-catalog'
 import type { CatalogPlugin } from '../data/plugin-catalog'
 import { RUFLO_MARKET } from '../data/snapshot'
 import { ago, button, clip, col, kv, row, rule, section, text, THEME, type Ctx } from './common'
@@ -21,7 +21,7 @@ function counts(plugin: CatalogPlugin): string {
 /** One plugin row: the whole row selects it, the trailing button changes it. */
 function pluginRow(ctx: Ctx, plugin: CatalogPlugin, lead: number): RenderElement {
   const { installed, enabled } = installedOf(ctx.state)
-  const badge = enabled.has(plugin.name) ? '■' : installed.has(plugin.name) ? '□' : '·'
+  const badge = enabled.has(plugin.name) ? '■' : installed.has(plugin.name) ? '□' : syncedOf(ctx.state).has(plugin.name) ? '◇' : '·'
   const act = verbOf(ctx, plugin)
   const isPicked = catalogOf(ctx.state).selected === plugin.name
   const press = () => ctx.act.catalog.select(isPicked ? null : plugin.name)
@@ -55,7 +55,7 @@ function itemRow(ctx: Ctx, kind: 'skill' | 'agent' | 'command', plugin: CatalogP
 
 function detailRows(ctx: Ctx, plugin: CatalogPlugin): RenderElement[] {
   const { installed, enabled, version } = installedOf(ctx.state)
-  const state = enabled.has(plugin.name) ? 'installed and enabled' : installed.has(plugin.name) ? 'installed, disabled' : 'not installed'
+  const state = enabled.has(plugin.name) ? 'installed and enabled' : installed.has(plugin.name) ? 'installed, disabled' : syncedOf(ctx.state).has(plugin.name) ? 'mod synced here, plugin not installed' : 'not installed'
   const rows: RenderElement[] = [rule(ctx, plugin.name, state), text(ctx, ` ${plugin.description}`, { color: THEME.info })]
 
   rows.push(kv(ctx, 'version', `${plugin.version ?? 'n/a'}${installed.has(plugin.name) ? ` (installed ${version.get(plugin.name) ?? '?'})` : ''}`))
@@ -119,7 +119,7 @@ export function catalogView(ctx: Ctx): RenderElement {
   const lead = Math.max(24, Math.min(34, ctx.columns - 60))
 
   rows.push(rule(ctx, 'Plugin Catalog', `${all.length} plugins · ${installed.size} installed · ${enabled.size} enabled`))
-  rows.push(text(ctx, ` ${total(plugin => plugin.skills.length)} skills · ${total(plugin => plugin.agents.length)} agents · ${total(plugin => plugin.commands.length)} commands · ${all.filter(plugin => plugin.hasMcp).length} MCP · ${all.filter(plugin => plugin.isMod).length} mods · ■ enabled □ installed · not installed`, { dimColor: true }))
+  rows.push(text(ctx, ` ${total(plugin => plugin.skills.length)} skills · ${total(plugin => plugin.agents.length)} agents · ${total(plugin => plugin.commands.length)} commands · ${all.filter(plugin => plugin.hasMcp).length} MCP · ${all.filter(plugin => plugin.isMod).length} mods · ■ enabled □ installed ◇ mod synced, plugin not installed · not installed`, { dimColor: true }))
   // The marketplace these come from: how fresh the clone is, with the way back to the Plugins page (the setup's health) and the update.
   const market = state.snapshot?.plugins.markets?.find(entry => entry.name === RUFLO_MARKET)
   const isStale = (state.snapshot?.plugins.missingFromClone.length ?? 0) > 0

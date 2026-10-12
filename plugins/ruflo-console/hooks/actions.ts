@@ -31,6 +31,8 @@ export type ActionSpec = {
   shows?: string
   /** Raised on Claude's behalf: set by a deferred ask (one that resolves after its screen) from the origin it had when called, so it is never attributed to the person (ADR-450 T14, #3815). */
   byModel?: boolean
+  /** Which of Claude's console_run / console_set calls started this ask (model-tools.ts hands out the numbers): the call that settles it is that one and no other (#3983). */
+  byCall?: number
   /** The class the entry itself declares (a Dev Tools entry's `cost`): Claude's confirm gate never reads it as less than this. */
   declared?: 'write' | 'network' | 'install' | 'spend' | 'delete'
   /** A MetaHarness lab entry's id: the runner keeps what it printed for the lab's result panel. */

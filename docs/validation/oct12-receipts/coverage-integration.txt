@@ -1,0 +1,8 @@
+
+ RUN  v4.1.0 <repo>
+
+
+ Test Files  2 passed (2)
+      Tests  42 passed (42)
+   Start at  13:20:48
+   Duration  942ms (transform 485ms, setup 0ms, import 558ms, tests 42ms, environment 0ms)

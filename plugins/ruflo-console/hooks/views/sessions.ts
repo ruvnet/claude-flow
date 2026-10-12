@@ -19,6 +19,17 @@ const KIND_COLOR: Record<AttentionKind, string> = { 'needs-approval': THEME.warn
 const STATUS_MARK: Record<SessionRow['status'], string> = { working: '●', idle: '○', done: '✓', failed: '✗', unknown: '?' }
 /** A title the harness wrote is transcript text: a text answer a model may read names the session by harness and id instead. */
 const titleOf = (ctx: Ctx, harness: string, key: string | null, title: string): string => (ctx.text === true && harness !== 'ruflo' && harness !== 'console' ? `${harness} session ${(key?.split(':').pop() ?? '').slice(0, 8)}` : title)
+/**
+ * A group heading is a path a transcript recorded (another project's directory, a worktree name): a text answer names it by harness and
+ * position instead. Only a group made of the console's own ruflo records keeps its label, which is the console's own working directory.
+ */
+const groupLabelOf = (ctx: Ctx, group: { label: string; unassigned: boolean; rows: readonly SessionRow[] }, n: number): string => {
+  if (ctx.text !== true || group.unassigned) return group.label
+
+  const harnesses = [...new Set(group.rows.map(found => found.harness))]
+
+  return harnesses.every(harness => harness === 'ruflo') ? group.label : `${harnesses.filter(harness => harness !== 'ruflo').join('+')} repo ${n}`
+}
 const SHOWN_ROWS = 30
 const QUEUE_ROWS = 8
 
@@ -42,7 +53,8 @@ function previewRows(ctx: Ctx, found: SessionRow): RenderElement[] {
 
   rows.push(text(ctx, ` ${titleOf(ctx, found.harness, found.key, found.title)}`, { bold: true }))
   rows.push(text(ctx, ` ${found.status}${found.stale === null ? '' : ` · STALE: ${found.stale}`} · ${found.external ? 'started outside Ruflo' : 'started by Ruflo'} · updated ${found.updatedMs > 0 ? ago(found.updatedMs, nowMs) : 'n/a'} · ${costText(found.cost)}`, { dimColor: true }))
-  if (found.cwd !== null) rows.push(text(ctx, ` in ${clip(found.cwd, Math.max(20, ctx.columns - 10))}${found.branch === null ? '' : ` @ ${found.branch}`}`, { dimColor: true }))
+  // The recorded cwd and git branch are transcript text (a branch name can be any words): drawn for a person, never in a text answer.
+  if (found.cwd !== null && ctx.text !== true) rows.push(text(ctx, ` in ${clip(found.cwd, Math.max(20, ctx.columns - 10))}${found.branch === null ? '' : ` @ ${found.branch}`}`, { dimColor: true }))
   for (const [i, line] of found.context.entries()) rows.push(text(ctx, ` ${clip(line, ctx.columns - 6)}`, { dimColor: true, ...(i === 0 && { bold: false }) }))
 
   if (found.unassigned !== null) {
@@ -122,10 +134,10 @@ export function sessionRows(ctx: Ctx): RenderElement[] {
 
   let left = SHOWN_ROWS
 
-  for (const group of index.groups) {
+  for (const [n, group] of index.groups.entries()) {
     if (left <= 0) break
 
-    body.push(text(ctx, ` ${group.label}`, { bold: true, color: group.unassigned ? THEME.warn : THEME.head }))
+    body.push(text(ctx, ` ${groupLabelOf(ctx, group, n + 1)}`, { bold: true, color: group.unassigned ? THEME.warn : THEME.head }))
 
     for (const found of group.rows.slice(0, left)) {
       const picked = ws.selected === found.key

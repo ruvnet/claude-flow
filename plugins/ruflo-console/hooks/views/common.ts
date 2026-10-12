@@ -3,6 +3,7 @@
  * and the pictures computed for this frame. They call nothing on the engine; buttons call the closures in `ctx.act`.
  * Text colours are theme names only, so nothing fades on a light background.
  */
+import type { ThemeActions, ConsoleTheme } from '../themes'
 import type { AskActions } from '../ask-claude'
 import type { OptimizerActions } from '../optimizer'
 import { askedBy } from '../data/room'
@@ -143,6 +144,7 @@ export type Actions = {
   /** The Workflows page: cursor keys, the inspector's tab, the confirm-gated ruflo agent verbs, and naming a transcript's path. */
   workflows: WorkflowsActions
   /** Settings: the level, a plugin, an option or ruflo config change (each asks first), AI preferences, and ▸ ask claude/codex. */
+  themes: ThemeActions
   settings: SettingsActions
 }
 
@@ -162,23 +164,25 @@ export type Ctx = {
   text?: boolean
 }
 
-export type Look = 'bbs' | 'plain'
+export type Look = 'bbs' | 'plain' | 'orbital'
 
 /** The terminal theme's own colours: readable on light and dark backgrounds alike. */
 const PLAIN = { head: 'claude', ok: 'success', bad: 'error', warn: 'warning', info: 'suggestion' }
 /** The BBS look: neon magenta headings, cyan values, matrix-green labels; amber stays for attention. */
 const NEON = { head: '#ff2a6d', ok: '#39ff14', bad: '#ff3355', warn: '#ffd319', info: '#05d9e8' }
+const ORBITAL = { head: '#f06449', ok: '#72c79b', bad: '#ff6868', warn: '#e3ba74', info: '#c6cbc8' }
 const NEON_LABEL = '#2fbf71'
 
 /** The palette every view reads; `setLook` swaps it in place before a render, so callers keep using THEME.x. */
 export const THEME: { head: string; ok: string; bad: string; warn: string; info: string } = { ...PLAIN }
 let look: Look = 'plain'
 
-export function setLook(next: Look): void {
-  if (next === look) return
+export function setLook(next: Look, palette?: ConsoleTheme['palette']): void {
   look = next
-  Object.assign(THEME, next === 'bbs' ? NEON : PLAIN)
+  Object.assign(THEME, next === 'bbs' ? NEON : next === 'orbital' ? (palette ?? ORBITAL) : PLAIN)
 }
+
+export const isOrbital = (): boolean => look === 'orbital'
 
 export const isBbs = (): boolean => look === 'bbs'
 
@@ -415,6 +419,9 @@ export function confirmRow(ctx: Ctx): RenderElement | null {
   // One bordered card in the warning colour: the person says yes to everything in it, so it reads as a unit, not as loose lines. Its border and
   // padding take four columns, so the text inside is clipped to the narrower width.
   const inner: Ctx = { ...ctx, columns: Math.max(20, ctx.columns - 4) }
+  // Drawn for a person in a pane they can see: this is now the card a bare typed yes may answer. A text answer for a model shows it to no one.
+  if (ctx.text !== true && ctx.state.pane.isShown && pending.id !== undefined) ctx.state.shownCard = pending.id
+
   const hasMoney = pending.note !== undefined && /money|models/i.test(pending.note)
 
   return ctx.kit.Box({
@@ -439,7 +446,7 @@ export function confirmRow(ctx: Ctx): RenderElement | null {
           // A low-risk ruflo action may be remembered: it is not asked again (Settings lists and forgets it).
           ...(pending.rememberKey !== undefined ? [button(ctx, 'remember', `Always allow “${pending.rememberKey}”`, () => ctx.act.remember(pending.id))] : []),
           // An AI terminal turn (claude -p in plan mode, codex read-only, the budget cap) may be always accepted: Settings resets it.
-          ...(ctx.state.terminal.asked !== null && pending.label === ctx.state.terminal.asked.label && ctx.state.terminal.harness !== 'ruflo' ? [button(ctx, 'always', 'Always accept AI turns', () => ctx.act.settings.alwaysAccept(pending.id))] : []),
+          ...(ctx.state.terminal.asked !== null && pending.id !== undefined && pending.id === ctx.state.terminal.asked.card && ctx.state.terminal.harness !== 'ruflo' ? [button(ctx, 'always', 'Always accept AI turns', () => ctx.act.settings.alwaysAccept(pending.id))] : []),
         ],
       }),
     ],

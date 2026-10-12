@@ -1,0 +1,130 @@
+TAP version 13
+# Subtest: \#4082 empty instrumented file is fully covered, not a gap
+ok 1 - \#4082 empty instrumented file is fully covered, not a gap
+  ---
+  duration_ms: 3.302621
+  ...
+# Subtest: \#4082 pct-only summaries preserve explicit zero and nonzero percentages
+ok 2 - \#4082 pct-only summaries preserve explicit zero and nonzero percentages
+  ---
+  duration_ms: 0.96361
+  ...
+# Subtest: \#4083 LCOV aggregates counts for every metric, including unterminated last record
+ok 3 - \#4083 LCOV aggregates counts for every metric, including unterminated last record
+  ---
+  duration_ms: 1.219651
+  ...
+# Subtest: \#4084 Istanbul final and NYC counters count unique lines and individual branch arms
+ok 4 - \#4084 Istanbul final and NYC counters count unique lines and individual branch arms
+  ---
+  duration_ms: 1.928131
+  ...
+# Subtest: empty or malformed reports do not hide a valid fallback
+ok 5 - empty or malformed reports do not hide a valid fallback
+  ---
+  duration_ms: 1.23548
+  ...
+# Subtest: Istanbul empty-file Unknown sentinel yields numeric 100% in totals and entries
+ok 6 - Istanbul empty-file Unknown sentinel yields numeric 100% in totals and entries
+  ---
+  duration_ms: 0.884351
+  ...
+# Subtest: legacy NYC summary reports remain readable
+ok 7 - legacy NYC summary reports remain readable
+  ---
+  duration_ms: 0.9545
+  ...
+# Subtest: pct-only files retain their percentage but unknown aggregate counts stay conservative
+not ok 8 - pct-only files retain their percentage but unknown aggregate counts stay conservative
+  ---
+  duration_ms: 2.672092
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:75:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    100 !== 0
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 100
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:78:69)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: mixed counted and uncounted files cannot claim a fully covered aggregate
+not ok 9 - mixed counted and uncounted files cannot claim a fully covered aggregate
+  ---
+  duration_ms: 1.4818
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:81:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    100 !== 0
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 100
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:84:12)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: valid supplied aggregate percentages including zero take precedence
+ok 10 - valid supplied aggregate percentages including zero take precedence
+  ---
+  duration_ms: 1.604111
+  ...
+# Subtest: incomplete or invalid counts do not manufacture a percentage
+not ok 11 - incomplete or invalid counts do not manufacture a percentage
+  ---
+  duration_ms: 7.111804
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:93:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    100 !== 0
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 100
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:97:12)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: explicit empty counts across every file remain fully covered
+ok 12 - explicit empty counts across every file remain fully covered
+  ---
+  duration_ms: 1.02833
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 9
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 40.28002

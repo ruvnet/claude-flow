@@ -15,5 +15,5 @@
     "typeRoots": ["./.claude-plugin/types"],
     "types": ["claude-code", "claude-code-tools", "claude-code-mcp"]
   },
-  "include": ["hooks", "types", "tests"]
+  "include": ["hooks", "tui", "types", "tests"]
 }

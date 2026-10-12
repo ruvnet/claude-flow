@@ -20,19 +20,19 @@ The default endpoint when none is supplied is `http://169.254.42.1/` — the Cog
 
 ```bash
 # Lifecycle
-npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot register [endpoint]
-npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot pair <device-id>
-npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot unpair <device-id>
-npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot remove <device-id>
+npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot register [endpoint]
+npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot pair <device-id>
+npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot unpair <device-id>
+npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot remove <device-id>
 
 # Inspection
-npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot status <device-id>
-npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot list
-npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot mesh <device-id>
+npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot status <device-id>
+npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot list
+npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot mesh <device-id>
 
 # Witness audit
-npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot witness <device-id>
-npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot witness verify <device-id>
+npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot witness <device-id>
+npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot witness verify <device-id>
 ```
 
 ## Background workers
