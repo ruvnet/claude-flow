@@ -8,8 +8,14 @@ import type { Outcome } from '../state'
 import { jsonAfter } from './cli'
 import { plain, recordOf, stringOf } from './parse'
 
-/** `npx -y skills`: downloads the CLI on first use, so every run here reaches the network. */
-export const SKILLS = ['npx', '-y', 'skills'] as const
+/**
+ * The skills CLI release every action runs, pinned like the AI page's Codex (`PINNED_CODEX`): `npx -y skills` would
+ * fetch and execute whatever `latest` is at that moment, with the person's permissions and their agents' skill folders.
+ * Raise it deliberately after reading the new release.
+ */
+export const PINNED_SKILLS = '1.7.2'
+/** `npx -y skills@<pin>`: downloads that CLI on first use, so every run here reaches the network. */
+export const SKILLS = ['npx', '-y', `skills@${PINNED_SKILLS}`] as const
 
 export type Scope = 'project' | 'global'
 

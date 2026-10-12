@@ -46,7 +46,7 @@ export function previewRows(ctx: Ctx): RenderElement[] {
 
   rows.push(rule(ctx, 'Preview', previewing !== null ? `reading ${clip(previewing, 40)}…` : preview === null ? '' : `${preview.kind === 'installed' ? 'local read' : 'add --list · nothing installed'} · ${ago(preview.atMs, nowMs)}`))
 
-  if (using !== null) rows.push(text(ctx, ` ▸ fetching ${using} for the AI terminal (npx -y skills use)…`, { color: THEME.warn }))
+  if (using !== null) rows.push(text(ctx, ` ▸ fetching ${using} for the AI terminal (npx -y skills@1.7.2 use)…`, { color: THEME.warn }))
   if (preview === null) return rows
 
   rows.push(
