@@ -1741,6 +1741,15 @@ jobs:
             fi
           done
 
+      - name: Fresh-consumer smoke for @claude-flow/shared (#4031, #4089)
+        # Packs the built package, installs the tarball into an empty directory and checks, with plain Node,
+        # that it ships no tests, imports on a clean install and keeps every RVF append after a damaged tail.
+        # The package's own tests run against workspace source, which cannot see packaging or declared-dependency bugs.
+        shell: bash
+        run: |
+          (cd v3 && pnpm --filter @claude-flow/shared run build)
+          node scripts/smoke-shared-fresh-consumer.mjs
+
       - name: Run plugin package audit
         shell: bash
         run: node scripts/audit-plugin-packages.mjs

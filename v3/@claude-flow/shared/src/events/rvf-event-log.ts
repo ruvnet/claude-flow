@@ -16,7 +16,7 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, renameSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, renameSync, truncateSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { DomainEvent } from './domain-events.js';
 
@@ -39,12 +39,19 @@ export interface RvfEventLogConfig {
   verbose?: boolean;
   /** Maximum events before snapshot recommendation */
   snapshotThreshold?: number;
+  /**
+   * When replay stops at a length prefix larger than the safety limit, truncate the file at that
+   * prefix (discarding it and everything after it) instead of refusing further appends. Default
+   * false: the bytes are kept and append() rejects explicitly until the file is repaired.
+   */
+  repairOversizedTail?: boolean;
 }
 
 const DEFAULT_CONFIG: Required<RvfEventLogConfig> = {
   logPath: 'events.rvf',
   verbose: false,
   snapshotThreshold: 100,
+  repairOversizedTail: false,
 };
 
 // =============================================================================
@@ -55,6 +62,8 @@ const DEFAULT_CONFIG: Required<RvfEventLogConfig> = {
 const MAGIC = Buffer.from('RVFL');
 const MAGIC_LENGTH = 4;
 const LENGTH_PREFIX_BYTES = 4;
+/** Largest record replayFile() will read; appendRecord() refuses anything bigger so no accepted append is unreadable. */
+const MAX_PAYLOAD_SIZE = 100 * 1024 * 1024; // 100MB safety limit
 
 // =============================================================================
 // RvfEventLog Implementation
@@ -63,6 +72,10 @@ const LENGTH_PREFIX_BYTES = 4;
 export class RvfEventLog extends EventEmitter {
   private config: Required<RvfEventLogConfig>;
   private initialized = false;
+
+  /** Files whose incomplete tails could not be repaired because they are read-only. */
+  /** Files that hold bytes we could not repair; appends to them are refused (value: why). */
+  private readOnlyFiles = new Map<string, string>();
 
   /**
    * All events kept in insertion order.
@@ -153,6 +166,7 @@ export class RvfEventLog extends EventEmitter {
     this.aggregateIndex.clear();
     this.aggregateVersions.clear();
     this.snapshots.clear();
+    this.readOnlyFiles.clear();
     this.initialized = false;
 
     this.emit('shutdown');
@@ -349,13 +363,14 @@ export class RvfEventLog extends EventEmitter {
     }
 
     let offset = MAGIC_LENGTH;
+    let oversizedAt = -1;
 
-    const MAX_PAYLOAD_SIZE = 100 * 1024 * 1024; // 100MB safety limit
     while (offset + LENGTH_PREFIX_BYTES <= buf.length) {
       const payloadLength = buf.readUInt32BE(offset);
       offset += LENGTH_PREFIX_BYTES;
 
       if (payloadLength > MAX_PAYLOAD_SIZE) {
+        oversizedAt = offset - LENGTH_PREFIX_BYTES;
         if (this.config.verbose) {
           console.warn(`[RvfEventLog] Payload size ${payloadLength} exceeds safety limit`);
         }
@@ -363,13 +378,14 @@ export class RvfEventLog extends EventEmitter {
       }
 
       if (offset + payloadLength > buf.length) {
-        // Truncated record — stop reading (crash recovery).
+        // Remove only the incomplete record before accepting future appends.
         if (this.config.verbose) {
           console.warn(
             `[RvfEventLog] Truncated record at offset ${offset - LENGTH_PREFIX_BYTES} — ` +
               `expected ${payloadLength} bytes, have ${buf.length - offset}`
           );
         }
+        offset -= LENGTH_PREFIX_BYTES;
         break;
       }
 
@@ -385,13 +401,45 @@ export class RvfEventLog extends EventEmitter {
         }
       }
     }
+
+    // An oversized length prefix is not a torn write: keep the bytes unless the caller opted in to repair.
+    let keepUntil = offset;
+    if (oversizedAt >= 0) {
+      if (!this.config.repairOversizedTail) {
+        this.readOnlyFiles.set(filePath, 'a record length prefix exceeds the safety limit');
+        return;
+      }
+      keepUntil = oversizedAt;
+    }
+
+    if (keepUntil < buf.length) {
+      try {
+        truncateSync(filePath, keepUntil);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'EACCES' && code !== 'EROFS' && code !== 'EPERM') throw error;
+        // Preserve readable history but never append behind an unreadable tail.
+        this.readOnlyFiles.set(filePath, 'the file is not writable, so its damaged tail could not be repaired');
+        if (this.config.verbose) {
+          console.warn(`[RvfEventLog] Read-only log has an unrepaired tail: ${filePath}`);
+        }
+      }
+    }
   }
 
   /** Append a single record to an RVF file. */
   private appendRecord<T>(filePath: string, record: T): T {
+    const refused = this.readOnlyFiles.get(filePath);
+    if (refused !== undefined) {
+      throw new Error(`[RvfEventLog] Read-only until repaired: unrepaired tail (${refused}); append refused: ${filePath}`);
+    }
     const json = JSON.stringify(record);
     const persisted = JSON.parse(json) as T;
     const payload = Buffer.from(json, 'utf8');
+    if (payload.length > MAX_PAYLOAD_SIZE) {
+      // replayFile() refuses records this large, so writing one would be an append that can never be read back.
+      throw new Error(`[RvfEventLog] Record of ${payload.length} bytes exceeds the ${MAX_PAYLOAD_SIZE} byte limit; append refused`);
+    }
     const lengthBuf = Buffer.allocUnsafe(LENGTH_PREFIX_BYTES);
     lengthBuf.writeUInt32BE(payload.length, 0);
 
