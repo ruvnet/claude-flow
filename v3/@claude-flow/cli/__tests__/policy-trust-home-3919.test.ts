@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { tmpdir, userInfo } from 'node:os';
 import { createHash } from 'node:crypto';
 import { evaluatePolicyRequest } from '../src/services/policy-runtime.js';
-import { anchorPosture } from '../src/services/policy-ledger-anchor.js';
+import { anchorPosture, policyTrustRoot } from '../src/services/policy-ledger-anchor.js';
 
 // #3919: the anchor mirror and trust key were resolved with userInfo().homedir,
 // which ignores a throwaway HOME, so tests (and sandboxed runs) wrote into the
@@ -70,5 +70,25 @@ describe('policy trust files honour a throwaway HOME (#3919)', () => {
     await decide(root);
     expect(existsSync(join(home, '.config', 'ruflo', 'policy-trust', projectId(root), 'ledger-anchor-head.json'))).toBe(true);
     expect(existsSync(join(xdg, 'ruflo'))).toBe(false);
+  });
+});
+
+describe('an empty or relative HOME never puts trust material relative to the working directory', () => {
+  it('falls back to the account home directory, always an absolute path', () => {
+    for (const bad of ['', 'relative/home', '.']) {
+      process.env.HOME = bad;
+      const root = policyTrustRoot();
+
+      expect(isAbsolute(root), `HOME=${JSON.stringify(bad)} gave ${root}`).toBe(true);
+      expect(root).toBe(join(userInfo().homedir, '.config', 'ruflo', 'policy-trust'));
+    }
+  });
+
+  it('still follows an absolute $HOME and an absolute XDG_CONFIG_HOME exactly as before', () => {
+    const home = scratch('ruflo-home-ok-');
+    process.env.HOME = home;
+    expect(policyTrustRoot()).toBe(join(home, '.config', 'ruflo', 'policy-trust'));
+    process.env.XDG_CONFIG_HOME = join(home, 'xdg');
+    expect(policyTrustRoot()).toBe(join(home, 'xdg', 'ruflo', 'policy-trust'));
   });
 });
