@@ -2,6 +2,13 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-ai-team`.
 
+## 0.3.1 — 2026-10-12
+- fix: stored teams, runs, tasks and memories no longer share mutable objects with the caller or with exported snapshots (#3995)
+- fix: run evidence includes the task history of the run in its audit trail (#3996)
+- fix: re-remembering a memory keeps its original creation time (#3997)
+- fix: a pending vector index build can no longer restore an invalidated tenant index (#4004)
+- chore: thanks to @rudycelekli for all four fixes
+
 ## 0.3.0 — 2026-10-09
 - feat: skills, commands and agents name the connector tools in plain language instead of Claude Code namespaced identifiers (allowed-tools lists only the portable Read tool; the repo audit requires the field), so they read correctly on claude.ai and Cowork
 - feat: lifecycle skill covers run_complete (the tasks_incomplete rule); skills state the real status values, template ids and budget range
