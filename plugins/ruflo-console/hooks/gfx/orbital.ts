@@ -37,7 +37,7 @@ function onLand(lon: number, lat: number): boolean {
 }
 
 function blank(columns: number, rows: number): Grid {
-  const grid = new Grid(Math.max(12, Math.min(200, Math.floor(columns) || 12)), rows)
+  const grid = new Grid(Math.max(1, Math.min(200, Math.floor(columns) || 1)), rows)
   for (let y = 0; y < rows; y++) for (let x = 0; x < grid.columns; x++) grid.set(x, y, ' ', INK, BLACK)
   return grid
 }
@@ -109,11 +109,13 @@ export function orbitalGlobe(columns: number, rows: number, timeMs: number): Gri
 }
 
 /** Fixed-height header: red scan line, travelling ASCII pulse and an orbit marker. */
-export function orbitalHeader(label: string, columns: number, timeMs: number): Grid {
+export function orbitalHeader(label: string, columns: number, timeMs: number, maxRows = 16): Grid {
   const swarm = /swarm/i.test(label)
-  const grid = blank(columns, swarm ? 16 : 4)
+  const expanded = swarm && columns >= 56 && maxRows >= 16
+  const grid = blank(columns, expanded ? 16 : Math.max(1, Math.min(4, maxRows)))
   const tick = Math.floor((Number.isFinite(timeMs) ? timeMs : 0) / 160)
-  const title = ` RUFLO / ${label.toUpperCase()} `
+  const fullTitle = ` RUFLO / ${label.toUpperCase()} `
+  const title = columns >= fullTitle.length ? fullTitle : columns >= 12 ? ` RUFLO / ${swarm ? 'SWARM' : label.toUpperCase()}` : ' RUFLO'
   grid.text(0, 0, title.slice(0, grid.columns), RED)
   grid.text(0, 1, '-'.repeat(grid.columns), DIM)
   for (let tail = 4; tail >= 0; tail--) {
@@ -125,7 +127,7 @@ export function orbitalHeader(label: string, columns: number, timeMs: number): G
     grid.set(x, 2, phase === 9 ? '|' : phase === 8 || phase === 10 ? '/' : phase === 7 || phase === 11 ? '.' : '_', phase >= 7 && phase <= 11 ? GREEN : DIM)
   }
   grid.text(Math.max(0, grid.columns - 10), 2, `[${'|/-\\'[Math.abs(tick) % 4]}] ORBIT`, RED)
-  if (swarm) {
+  if (expanded) {
     // A decorative routing motif, separate from the page's measured swarm topology.
     for (let y = 1; y < grid.rows; y++) grid.text(0, y, ' '.repeat(grid.columns), DIM)
     const center = { x: Math.floor(grid.columns / 2), y: 5 }
@@ -201,6 +203,10 @@ export function orbitalHeader(label: string, columns: number, timeMs: number): G
       }
     })
     grid.text(1, 15, ' Illustrative orchestration / live graph below', DIM)
+  } else if (swarm) {
+    const stages = ['DISPATCH', 'PARALLEL', 'SYNC', 'RETURN']
+    const stage = Math.floor(Math.max(0, Number.isFinite(timeMs) ? timeMs : 0) / 1200) % 4
+    grid.text(0, 3, ` ${stages[stage]} / motif`, DIM)
   } else if (grid.columns >= 30) grid.text(0, 3, ' ruvnet / agent swarm console', DIM)
   return grid
 }
@@ -218,7 +224,26 @@ function orbitalBrandColor(color: number): number {
 }
 
 /** Checks are actual self-check results; the globe and sweep are explicitly decorative. */
-export function orbitalBoot(project: string, columns: number, timeMs: number, checks?: readonly BootCheck[]): Grid {
+export function orbitalBoot(project: string, columns: number, timeMs: number, checks?: readonly BootCheck[], maxRows = 30): Grid {
+  const available = Math.max(1, Math.min(30, Math.floor(maxRows) || 1))
+  if (columns < 48 || available < 30) {
+    const grid = blank(columns, Math.min(9, available))
+    const failed = checks?.filter(check => !check.ok) ?? []
+    const passed = checks?.filter(check => check.ok).length ?? 0
+    grid.text(0, 0, 'RUFLO / BOOT', RED)
+    grid.text(0, 1, checks === undefined ? 'Pending checks' : `${passed} OK ${failed.length} FAIL`, failed.length ? RED : GREEN)
+    // Reserve the first detail row for a real failure even in very short panes.
+    if (grid.rows > 2) grid.text(0, 2, failed.length ? `FAIL ${failed[0]!.area}` : project, failed.length ? RED : DIM)
+    if (grid.rows > 3) {
+      const tick = Math.floor(Math.max(0, Number.isFinite(timeMs) ? timeMs : 0) / 100)
+      grid.text(0, 3, '.'.repeat(grid.columns), DIM)
+      grid.set(tick % grid.columns, 3, '>', GREEN)
+    }
+    const shown = [...failed, ...(checks?.filter(check => check.ok) ?? [])]
+    shown.slice(0, Math.max(0, grid.rows - 5)).forEach((check, i) => grid.text(0, 4 + i, `${check.ok ? 'OK' : 'FAIL'} ${check.area}`, check.ok ? GREEN : RED))
+    if (grid.rows >= 6) grid.text(0, grid.rows - 1, 'Local checks', DIM)
+    return grid
+  }
   const grid = blank(columns, 30)
   // Reuse the original console banner, including its half-block font and sweep, recolored for Orbital.
   const banner = bannerPicture(project, grid.columns, timeMs, Math.max(0, Number.isFinite(timeMs) ? timeMs : 0))
@@ -272,9 +297,9 @@ export function orbitalBoot(project: string, columns: number, timeMs: number, ch
       const name = check.ok ? check.area.toUpperCase().slice(0, reveal) : check.area.toUpperCase()
       const status = check.ok ? '[PASS]' : '[FAIL]'
       const detail = !check.ok && check.problems.length > 0 ? ` / ${check.problems[0]}` : ''
-      grid.text(0, 23 + i, ` ${status} ${name}${detail}`, check.ok ? GREEN : RED)
+      grid.text(0, 23 + i, ` ${status} ${name}${detail}`.slice(0, check.ok && grid.columns >= 55 ? grid.columns - 14 : grid.columns), check.ok ? GREEN : RED)
       const cursor = 8 + name.length
-      if (check.ok && reveal < check.area.length && cursor < grid.columns) grid.set(cursor, 23 + i, '_', INK)
+      if (check.ok && reveal < check.area.length && cursor < (grid.columns >= 55 ? grid.columns - 14 : grid.columns)) grid.set(cursor, 23 + i, '_', INK)
       if (grid.columns >= 55 && check.ok) {
         const phase = ((age % 2200) - i * 80) / 350
         const light = phase >= 0 && phase < 1 ? INK : DIM

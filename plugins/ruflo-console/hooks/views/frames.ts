@@ -184,7 +184,7 @@ export function picturesOf(state: State, columns: number, nowMs: number, t: numb
 
   // The selected boot screen owns the pane for its first seconds; nothing else is drawn under it.
   if (isBooting(state, nowMs)) {
-    pictures.set('boot', state.options.look === 'orbital' ? orbitalBoot(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.min(width, 90), state.options.fps > 0 ? nowMs - state.pane.bootAtMs : 0, getBootChecks()) : bootPicture(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.min(width, 90), nowMs - state.pane.bootAtMs, state.probes.size, PROBES.length, state.pane.rows, getBootChecks(), bootFacts(state, CONSOLE_VERSION, getBuild())))
+    pictures.set('boot', state.options.look === 'orbital' ? orbitalBoot(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.max(1, Math.min(columns, width, 90)), state.options.fps > 0 ? nowMs - state.pane.bootAtMs : 0, getBootChecks(), state.pane.rows > 0 ? state.pane.rows : 30) : bootPicture(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.min(width, 90), nowMs - state.pane.bootAtMs, state.probes.size, PROBES.length, state.pane.rows, getBootChecks(), bootFacts(state, CONSOLE_VERSION, getBuild())))
 
     return pictures
   }
@@ -216,7 +216,7 @@ export function picturesOf(state: State, columns: number, nowMs: number, t: numb
 
   if (state.options.look === 'orbital') {
     const page = state.isHelp ? 'help' : state.palette.isOpen ? 'commands' : (VIEWS.find(view => view.id === state.view)?.label ?? state.view)
-    pictures.set(state.view === 'menu' ? 'header' : 'title', fitHeader(columns, size => orbitalHeader(page, size, state.options.fps > 0 ? t : 0), 72))
+    pictures.set(state.view === 'menu' ? 'header' : 'title', orbitalHeader(page, Math.max(1, Math.min(120, columns - iconCells(false) - ICON_SLACK)), state.options.fps > 0 ? t : 0, state.pane.rows > 0 ? Math.max(1, state.pane.rows - 12) : 16))
   }
 
   switch (state.view) {

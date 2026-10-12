@@ -116,9 +116,9 @@ it('gives swarm control its own bounded routing animation', () => {
   for (const width of [20, 44, 72]) {
     const first = orbitalHeader('swarm control', width, 0)
     const later = orbitalHeader('swarm control', width, 500)
-    expect([first.columns, first.rows]).toEqual([width, 16])
+    expect([first.columns, first.rows]).toEqual([width, width >= 56 ? 16 : 4])
     expect(first.cells).not.toEqual(later.cells)
-    expect(gridText(first)).toContain('◈')
+    if (width >= 56) expect(gridText(first)).toContain('◈')
     expect(gridText(first)).not.toContain('agents online')
   }
 })
@@ -136,4 +136,33 @@ it('preserves real topology labels and statuses in the depth view', () => {
   for (const label of ['queen', 'worker', 'down', '◈', '◉', '×']) expect(gridText(next)).toContain(label)
   expect(first.cells).not.toEqual(next.cells)
   expect(JSON.stringify(model)).toBe(before)
+})
+
+it('fits narrow and short allocations without hiding failure totals', () => {
+  const checks = [{ area: 'Security', ok: false, problems: ['broken registry'] }]
+  for (const columns of [1, 8, 12, 20, 32, 44, 48, 55, 56, 72, 120, 200]) {
+    for (const rows of [1, 2, 4, 8, 16, 24, 30, 60]) {
+      const boot = orbitalBoot('very long project name', columns, 1000, checks, rows)
+      const header = orbitalHeader('swarm control', columns, 1000, rows)
+      for (const grid of [boot, header]) {
+        expect(grid.columns).toBeLessThanOrEqual(columns)
+        expect(grid.rows).toBeLessThanOrEqual(rows)
+        expect(grid.cells.length).toBe(grid.columns * grid.rows * 3)
+      }
+      if (columns >= 12 && rows >= 2) expect(gridText(boot)).toMatch(/1 FAIL|1 failed/)
+    }
+  }
+})
+
+it('reserves icon room and switches layouts as the pane is resized', () => {
+  const state = newState({})
+  state.options.look = 'orbital'
+  state.options.boot = false
+  state.view = 'swarm'
+  for (const [columns, rows] of [[160, 50], [44, 24], [72, 20], [200, 60], [20, 10]]) {
+    state.pane.rows = rows!
+    const header = picturesOf(state, columns!, 1000, 1000).get('title')!
+    expect(header.columns).toBeLessThanOrEqual(Math.max(1, columns! - 16))
+    expect(header.rows).toBeLessThanOrEqual(Math.max(1, rows! - 12))
+  }
 })
