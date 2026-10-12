@@ -126,7 +126,7 @@ importers:
         specifier: 3.1.1
         version: link:../mcp
       '@claude-flow/neural':
-        specifier: 3.1.0
+        specifier: ^3.0.0
         version: link:../neural
       '@claude-flow/plugin-agent-federation':
         specifier: 1.0.1
@@ -211,7 +211,7 @@ importers:
         specifier: 2.0.0-alpha.5
         version: 2.0.0-alpha.5
       '@claude-flow/memory':
-        specifier: 3.1.0
+        specifier: ^3.0.0
         version: link:../memory
       '@metaharness/darwin':
         specifier: ~0.10.2
