@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.43.5 — 2026-10-12
+- fix: the Skills page runs a pinned skills CLI (`skills@1.7.2`, like the AI page's pinned Codex) instead of whatever npm `latest` is: `npx -y skills` fetched and ran the newest release on every visit to the page (it lists on open) and on every add, remove, update, init and use, with the person's permissions. The hints name the pin from one constant. The pin fixes the top-level package only: its own dependencies (tar, yaml) are npm ranges resolved on the first fetch, and the first run needs the network. 1.7.2 is published by vercel-labs/skills with no install-time scripts (#4113, thanks @martinvlad)
+
 ## 0.43.4 — 2026-10-12
 - fix: the console's pictures show on Claude Code Desktop, the editor and the mobile app. The banner, title art, topology, maps, gauges and charts were all missing there, and so were the text lines meant to stand in for them: the host completes every element table with every name, and on those surfaces its `Raster` draws an empty fragment, so the console believed it could draw pictures and drew empty boxes. The surface now decides (not the table): the terminal keeps its `Raster` and gets no `Svg`; Desktop, VS Code and mobile get each picture as one `Svg` of the same cells (Block Elements and braille glyphs as rectangles, other glyphs placed cell by cell, colours kept, background transparent). A picture that would pass the host's 131,072-character `Svg` limit falls back to its text line, so one large picture cannot invalidate the whole tree; nothing is blitted where nothing is mounted; and a host that does not name its surface is treated as the terminal. The model-facing text is unchanged (#4111, thanks @proffesor-for-testing, #4112)
 
