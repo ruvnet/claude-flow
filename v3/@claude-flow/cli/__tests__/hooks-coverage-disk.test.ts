@@ -67,4 +67,19 @@ describe('coverage hooks disk integration (#4082–#4084)', () => {
     }
     expect(callMCPTool).not.toHaveBeenCalled();
   });
+  it("clamps impossible LCOV counts so a corrupt report cannot exceed 100% or go negative", async () => {
+    writeFileSync("coverage/lcov.info", "SF:over.ts\nLF:10\nLH:99\nBRF:4\nBRH:-3\nend_of_record\n");
+    const gaps = await run("coverage-gaps");
+    const summary = (gaps.data as any).summary;
+    expect(summary.overallLineCoverage).toBe(100);
+    expect(summary.overallBranchCoverage).toBe(0);
+  });
+  it("ignores a coverage report larger than the size cap instead of loading it into memory", async () => {
+    const valid = "SF:big.ts\nLF:10\nLH:10\nend_of_record\n";
+    writeFileSync("coverage/lcov.info", Buffer.concat([Buffer.from(valid), Buffer.alloc(65 * 1024 * 1024, 0x20)]));
+    writeFileSync("coverage/coverage-final.json", JSON.stringify({ "src/x.ts": {
+      s: { 0: 1 }, f: {}, b: {}, statementMap: { 0: { start: { line: 1 } } } } }));
+    const gaps = await run("coverage-gaps");
+    expect((gaps.data as any).source).toBe("coverage/coverage-final.json");
+  });
 });

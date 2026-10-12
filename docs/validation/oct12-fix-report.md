@@ -1,8 +1,8 @@
 # October 12 issue fixes and verification
 
-Worktree: `/home/ruv/work/ruflo-fixes-20261012`
+Worktree: `<repo>`
 Branch: `fix/oct12-verified-issues`
-Final base: `3209ba266750908ea88fb0bc69672e106478bbef` (parent fast-forwarded main during review). All repair changes remain uncommitted. No push, merge, publication, credential changes, or Anthropic execution was performed by this worker.
+Final base: `3209ba266750908ea88fb0bc69672e106478bbef` (parent fast-forwarded main during review). This section describes the state when the repair was first validated, before it was committed. No merge, publication, credential changes, or Anthropic execution was performed by this worker.
 
 ## Issue mapping
 
@@ -16,7 +16,7 @@ Final base: `3209ba266750908ea88fb0bc69672e106478bbef` (parent fast-forwarded ma
 | #4087 | Qualified phase agents, including exactly `ruflo-goals:goal-planner` and `ruflo-swarm:architect`; added missing-plugin preflight without silent substitutions or expanded permissions. | Checks assert the exact six phase-agent references and resolve each shipped agent file/frontmatter. |
 | #4088 | Qualified SPARC command and skill invocations throughout command text, skill instructions, README, and examples, including init's specification suggestion. | Recursive command/skill Markdown scan rejects unqualified aliases and resolves qualified references to shipped files. The separately registered `/sparc-mod` stays unchanged. |
 
-Both plugin smoke scripts now run their prompt regression contracts. No dependency, version, lockfile, SONA, mission, or MCP testgen runtime changes are included.
+Both plugin smoke scripts now run their prompt regression contracts. No dependency, lockfile, SONA, mission, or MCP testgen runtime changes were in the first validated state; the review addendum below adds plugin version bumps.
 
 ## Reproduction and results
 
@@ -42,14 +42,14 @@ Initial reproductions ran on `aac16fbdb3af21c0ddb989aaff4513a9ec1aaca5`. The cov
 Validation commands (all run from the worktree root; each candidate run exited 0). Coverage, TDD, type-check and witness results below predate the final SPARC-only lifecycle edit; they were not rerun because those files did not change:
 
 ```bash
-node --import /home/ruv/work/ruflo-fixes-20261012-task/validation-tools/node_modules/tsx/dist/loader.mjs tests/regression/oct12-coverage.test.cjs
+node --import <validation-tools>/node_modules/tsx/dist/loader.mjs tests/regression/oct12-coverage.test.cjs
 node plugins/ruflo-sparc/tests/contracts.regression.cjs
 node plugins/ruflo-testgen/tests/tdd-workflow.regression.cjs
-node /home/ruv/work/ruflo-fixes-20261012-task/validation-tools/node_modules/vitest/vitest.mjs run --config tests/regression/oct12.vitest.config.mjs
+node <validation-tools>/node_modules/vitest/vitest.mjs run --config tests/regression/oct12.vitest.config.mjs
 bash plugins/ruflo-sparc/scripts/smoke.sh
 bash plugins/ruflo-testgen/scripts/smoke.sh
 node scripts/smoke-witness-marker-drift.mjs
-node /home/ruv/work/ruflo-fixes-20261012-task/validation-tools/node_modules/typescript/bin/tsc --noEmit --strict --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext --types node --typeRoots /usr/lib/node_modules/@claude-flow/cli/node_modules/@types v3/@claude-flow/cli/src/commands/coverage-reader.ts
+node <validation-tools>/node_modules/typescript/bin/tsc --noEmit --strict --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext --types node --typeRoots /usr/lib/node_modules/@claude-flow/cli/node_modules/@types v3/@claude-flow/cli/src/commands/coverage-reader.ts
 git diff --check
 ```
 
@@ -70,7 +70,7 @@ The lifecycle changes are prompt contracts, not executable transactional storage
 Initial red commands, captured before implementing each corresponding fix:
 
 ```bash
-ESBUILD_MODULE=/home/ruv/.npm/_npx/fd45a72a545557e9/node_modules/esbuild node tests/regression/oct12-coverage.test.cjs
+ESBUILD_MODULE=<path-to-esbuild> node tests/regression/oct12-coverage.test.cjs
 node tests/regression/oct12-sparc.test.cjs
 node tests/regression/oct12-tdd-workflow.test.cjs
 ```
@@ -79,7 +79,7 @@ These historical paths/harness versions explain the paths in the before receipts
 
 ## Separately assessed upstream work
 
-The parent supplied current issue #4085/#4087 bodies, `pr4081.patch`, and `pr4081-checks.txt` under `/home/ruv/work/ruflo-fixes-20261012-task/`. Local `gh api repos/ruvnet/ruflo/issues/4082` could not reach GitHub. The authorized ruOS desktop shell read was rejected because approval is required and policy is `never`; it was not retried or escalated. External reads and integration were handled by the parent.
+The parent supplied current issue #4085/#4087 bodies, `pr4081.patch`, and `pr4081-checks.txt` under `<repo>-task/`. Local `gh api repos/ruvnet/ruflo/issues/4082` could not reach GitHub. The authorized ruOS desktop shell read was rejected because approval is required and policy is `never`; it was not retried or escalated. External reads and integration were handled by the parent.
 
 **#4080 / PR4081:** inspected the supplied patch. It restores serialized SONA state when `LearningBridge` loads its neural instance, persists synchronously before cleanup, exposes `NeuralLearningSystem.serialize/deserialize`, and includes persistence/restore/degradation regressions. The current patch pins CLI memory exactly to `3.1.0`, rather than a caret range. Its synchronous best-effort save is not a concurrency/crash-durability guarantee. No part of this patch was duplicated or applied here.
 
@@ -94,3 +94,14 @@ Parent-supplied checks for head `4059c29`: **119 passed, 3 skipped, zero failure
 - The initial out-of-scope testgen runtime experiment and mock tests were removed. Missing-plugin graceful degradation remains its existing deliberate contract. Signal-termination/result parsing observations are deferred for a separately scoped review, not counted as #4085 fixes.
 - Required parent/repository/nested instructions were read before edits. Existing coordination was inspected: policy `legacy`, zero rules, valid empty ledger; no tracked collaboration-session adapter was found in `.harness`. A one-agent coordination record was initialized. Memory recall returned `Database not found`; no learning-memory success receipt is claimed. The installed CLI reported daemon auto-start during recall; `ruflo daemon stop` then reported it was not running, and subsequent CLI coordination disabled auto-start. No AI worker or external model execution was requested.
 - `source-sha256.txt` binds the final modified source/tests/configuration, including untracked files, to their bytes. Parent inspection and independent rerun are the next integration step. All changes remain uncommitted.
+
+## Review addendum (independent review of PR #4097)
+
+A second reviewer reproduced #4082–#4084 on the published 3.56.7 CLI and on this branch with fixtures built from scratch (an lcov file with a zero-line file, a large and a small file; a vitest-style `coverage-final.json`; a Jest `coverage-summary.json` with `"pct": "Unknown"`). 3.56.7 listed the zero-line file as 0.0% critical and reported 33.0% overall for a 98.0% weighted report, found no data for `coverage-final.json`, and crashed on the Jest summary with `overallBranchCoverage.toFixed is not a function`; this branch fixes all three. Changes made in review:
+
+- `scripts/ci-test-excluded.txt` now lists `tests/regression/oct12-coverage.test.cjs`, which root vitest had picked up and failed the CI test ratchet on (it has its own `node --test` runner, and needs Node 22+ to load a `.ts` file).
+- The coverage reader ignores a report larger than 64 MiB or that is not a regular file, and clamps impossible lcov counts (hits above found, negative counts), with two tests in `hooks-coverage-disk.test.ts`.
+- `ruflo-sparc` 0.3.5 and `ruflo-testgen` 0.3.3 (plugin changes reach marketplace users only after a version bump), with changelog entries.
+- Absolute home paths in these receipts were replaced with placeholders.
+
+Not covered by this PR: the same literal `--success true` post-task pattern appears in about 45 other plugin agents and skills (for example `ruflo-security-audit/skills/security-scan`). SPARC verification covers instruction contracts, not a live model session.

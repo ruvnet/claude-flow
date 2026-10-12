@@ -1,5 +1,19 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+
+/** Coverage reports are build output the project controls: refuse anything large enough to stall or exhaust the process. */
+const MAX_REPORT_BYTES = 64 * 1024 * 1024;
+
+/** The file's text, or undefined when it is missing, not a regular file, unreadable, or over the size cap. */
+function readReport(path: string): string | undefined {
+  try {
+    const stat = statSync(path);
+    if (!stat.isFile() || stat.size > MAX_REPORT_BYTES) return undefined;
+    return readFileSync(path, 'utf-8');
+  } catch {
+    return undefined;
+  }
+}
 
 interface CoverageFileEntry {
   filePath: string;
@@ -40,10 +54,10 @@ export function readCoverageFromDisk(): CoverageData {
 
   // 1. Try coverage-summary.json (Jest/Istanbul)
   for (const relPath of ['coverage/coverage-summary.json', 'coverage-summary.json']) {
-    const summaryPath = join(cwd, relPath);
-    if (existsSync(summaryPath)) {
+    const text = readReport(join(cwd, relPath));
+    if (text !== undefined) {
       try {
-        const raw = JSON.parse(readFileSync(summaryPath, 'utf-8'));
+        const raw = JSON.parse(text);
         const report = parseCoverageSummaryJson(raw, relPath);
         if (report.found) return report;
       } catch {
@@ -54,10 +68,9 @@ export function readCoverageFromDisk(): CoverageData {
 
   // 2. Try lcov.info
   for (const relPath of ['coverage/lcov.info', 'lcov.info']) {
-    const lcovPath = join(cwd, relPath);
-    if (existsSync(lcovPath)) {
+    const raw = readReport(join(cwd, relPath));
+    if (raw !== undefined) {
       try {
-        const raw = readFileSync(lcovPath, 'utf-8');
         const report = parseLcovInfo(raw, relPath);
         if (report.found) return report;
       } catch {
@@ -68,8 +81,10 @@ export function readCoverageFromDisk(): CoverageData {
 
   // Istanbul's raw counter map (Jest, Vitest, nyc).
   for (const relPath of ['coverage/coverage-final.json', 'coverage-final.json', '.nyc_output/out.json']) {
+    const text = readReport(join(cwd, relPath));
+    if (text === undefined) continue;
     try {
-      const raw = JSON.parse(readFileSync(join(cwd, relPath), 'utf-8'));
+      const raw = JSON.parse(text);
       const report = parseIstanbulCoverage(raw, relPath);
       if (report.found) return report;
       const legacy = parseCoverageSummaryJson(raw, relPath);
@@ -140,6 +155,10 @@ function parseLcovInfo(raw: string, source: string): CoverageData {
   let totalLH = 0, totalLF = 0, totalBH = 0, totalBF = 0, totalFH = 0, totalFF = 0;
   const flushRecord = () => {
     if (currentFile) {
+      // A corrupt record cannot report more hits than lines, or a negative count.
+      linesHit = Math.min(linesHit, linesFound);
+      branchesHit = Math.min(branchesHit, branchesFound);
+      functionsHit = Math.min(functionsHit, functionsFound);
       totalLH += linesHit; totalLF += linesFound;
       totalBH += branchesHit; totalBF += branchesFound;
       totalFH += functionsHit; totalFF += functionsFound;
@@ -162,17 +181,17 @@ function parseLcovInfo(raw: string, source: string): CoverageData {
       branchesHit = 0; branchesFound = 0;
       functionsHit = 0; functionsFound = 0;
     } else if (trimmed.startsWith('LH:')) {
-      linesHit = parseInt(trimmed.slice(3), 10) || 0;
+      linesHit = count(trimmed.slice(3));
     } else if (trimmed.startsWith('LF:')) {
-      linesFound = parseInt(trimmed.slice(3), 10) || 0;
+      linesFound = count(trimmed.slice(3));
     } else if (trimmed.startsWith('BRH:')) {
-      branchesHit = parseInt(trimmed.slice(4), 10) || 0;
+      branchesHit = count(trimmed.slice(4));
     } else if (trimmed.startsWith('BRF:')) {
-      branchesFound = parseInt(trimmed.slice(4), 10) || 0;
+      branchesFound = count(trimmed.slice(4));
     } else if (trimmed.startsWith('FNH:')) {
-      functionsHit = parseInt(trimmed.slice(4), 10) || 0;
+      functionsHit = count(trimmed.slice(4));
     } else if (trimmed.startsWith('FNF:')) {
-      functionsFound = parseInt(trimmed.slice(4), 10) || 0;
+      functionsFound = count(trimmed.slice(4));
     } else if (trimmed === 'end_of_record') {
       flushRecord();
       currentFile = '';
@@ -197,6 +216,11 @@ function parseLcovInfo(raw: string, source: string): CoverageData {
 }
 
 
+/** A non-negative integer count; anything else in a report line is treated as 0. */
+function count(text: string): number {
+  const n = parseInt(text, 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
 type Metric = { total?: number; covered?: number; pct?: number | string };
 function ratio(covered: number, total: number): number {
   return total > 0 ? covered / total * 100 : 100;

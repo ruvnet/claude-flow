@@ -8,7 +8,7 @@ ok 1 - \#4085 green target and regression records observed outcome
 not ok 2 - \#4085 target still red records observed outcome
   ---
   duration_ms: 2.004941
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-tdd-workflow.test.cjs:19:48'
+  location: '<repo>/tests/regression/oct12-tdd-workflow.test.cjs:19:48'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -21,7 +21,7 @@ not ok 2 - \#4085 target still red records observed outcome
   actual: true
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-tdd-workflow.test.cjs:26:30)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-tdd-workflow.test.cjs:26:30)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)
@@ -33,7 +33,7 @@ not ok 2 - \#4085 target still red records observed outcome
 not ok 3 - \#4085 regression broken records observed outcome
   ---
   duration_ms: 0.74057
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-tdd-workflow.test.cjs:19:48'
+  location: '<repo>/tests/regression/oct12-tdd-workflow.test.cjs:19:48'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -46,7 +46,7 @@ not ok 3 - \#4085 regression broken records observed outcome
   actual: true
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-tdd-workflow.test.cjs:26:30)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-tdd-workflow.test.cjs:26:30)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)
@@ -58,7 +58,7 @@ not ok 3 - \#4085 regression broken records observed outcome
 not ok 4 - \#4085 abandoned records observed outcome
   ---
   duration_ms: 0.801321
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-tdd-workflow.test.cjs:19:48'
+  location: '<repo>/tests/regression/oct12-tdd-workflow.test.cjs:19:48'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -71,7 +71,7 @@ not ok 4 - \#4085 abandoned records observed outcome
   actual: true
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-tdd-workflow.test.cjs:26:30)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-tdd-workflow.test.cjs:26:30)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)
@@ -83,7 +83,7 @@ not ok 4 - \#4085 abandoned records observed outcome
 not ok 5 - \#4085 interrupted runner records observed outcome
   ---
   duration_ms: 0.81648
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-tdd-workflow.test.cjs:19:48'
+  location: '<repo>/tests/regression/oct12-tdd-workflow.test.cjs:19:48'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -96,7 +96,7 @@ not ok 5 - \#4085 interrupted runner records observed outcome
   actual: true
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-tdd-workflow.test.cjs:26:30)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-tdd-workflow.test.cjs:26:30)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)
@@ -108,7 +108,7 @@ not ok 5 - \#4085 interrupted runner records observed outcome
 not ok 6 - \#4085 target not run records observed outcome
   ---
   duration_ms: 1.910411
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-tdd-workflow.test.cjs:19:48'
+  location: '<repo>/tests/regression/oct12-tdd-workflow.test.cjs:19:48'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -121,7 +121,7 @@ not ok 6 - \#4085 target not run records observed outcome
   actual: true
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-tdd-workflow.test.cjs:26:30)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-tdd-workflow.test.cjs:26:30)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)
@@ -133,7 +133,7 @@ not ok 6 - \#4085 target not run records observed outcome
 not ok 7 - \#4085 regression not run records observed outcome
   ---
   duration_ms: 0.765121
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-tdd-workflow.test.cjs:19:48'
+  location: '<repo>/tests/regression/oct12-tdd-workflow.test.cjs:19:48'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -146,7 +146,7 @@ not ok 7 - \#4085 regression not run records observed outcome
   actual: true
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-tdd-workflow.test.cjs:26:30)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-tdd-workflow.test.cjs:26:30)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)

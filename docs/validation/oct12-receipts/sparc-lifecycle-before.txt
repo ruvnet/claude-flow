@@ -18,7 +18,7 @@ ok 3 - \#4088 SPARC command references resolve to the shipped command filename
 not ok 4 - \#4086 initialize active state and timestamp every phase/gate state write
   ---
   duration_ms: 2.341811
-  location: '/home/ruv/work/ruflo-fixes-20261012/plugins/ruflo-sparc/tests/contracts.regression.cjs:41:1'
+  location: '<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:41:1'
   failureType: 'testCodeFailure'
   error: |-
     The input did not match the regular expression /"status": "active"/. Input:
@@ -43,7 +43,7 @@ not ok 4 - \#4086 initialize active state and timestamp every phase/gate state w
 
   operator: 'match'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/plugins/ruflo-sparc/tests/contracts.regression.cjs:42:10)
+    TestContext.<anonymous> (<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:42:10)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)
@@ -55,7 +55,7 @@ not ok 4 - \#4086 initialize active state and timestamp every phase/gate state w
 not ok 5 - \#4086 active status filters explicit completion and orders legacy timestamps
   ---
   duration_ms: 0.4607
-  location: '/home/ruv/work/ruflo-fixes-20261012/plugins/ruflo-sparc/tests/contracts.regression.cjs:51:1'
+  location: '<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:51:1'
   failureType: 'testCodeFailure'
   error: |-
     The input did not match the regular expression /Exclude.*status === "complete"/. Input:
@@ -82,7 +82,7 @@ not ok 5 - \#4086 active status filters explicit completion and orders legacy ti
 
   operator: 'match'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/plugins/ruflo-sparc/tests/contracts.regression.cjs:53:10)
+    TestContext.<anonymous> (<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:53:10)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)
@@ -94,7 +94,7 @@ not ok 5 - \#4086 active status filters explicit completion and orders legacy ti
 not ok 6 - \#4086 advance closes phase five only after its gate and refuses completed records
   ---
   duration_ms: 0.41762
-  location: '/home/ruv/work/ruflo-fixes-20261012/plugins/ruflo-sparc/tests/contracts.regression.cjs:59:1'
+  location: '<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:59:1'
   failureType: 'testCodeFailure'
   error: |-
     The input did not match the regular expression /status === "complete".*refuse/. Input:
@@ -145,7 +145,7 @@ not ok 6 - \#4086 advance closes phase five only after its gate and refuses comp
 
   operator: 'match'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/plugins/ruflo-sparc/tests/contracts.regression.cjs:61:10)
+    TestContext.<anonymous> (<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:61:10)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)
@@ -157,7 +157,7 @@ not ok 6 - \#4086 advance closes phase five only after its gate and refuses comp
 not ok 7 - \#4086 refine closes exact state once only after final gate evidence passes
   ---
   duration_ms: 0.80853
-  location: '/home/ruv/work/ruflo-fixes-20261012/plugins/ruflo-sparc/tests/contracts.regression.cjs:69:1'
+  location: '<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:69:1'
   failureType: 'testCodeFailure'
   error: |-
     The input did not match the regular expression /final gate evidence.*passes/. Input:
@@ -430,7 +430,7 @@ not ok 7 - \#4086 refine closes exact state once only after final gate evidence 
 
   operator: 'match'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/plugins/ruflo-sparc/tests/contracts.regression.cjs:71:10)
+    TestContext.<anonymous> (<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:71:10)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)

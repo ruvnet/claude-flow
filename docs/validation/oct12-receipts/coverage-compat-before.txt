@@ -28,7 +28,7 @@ ok 5 - empty or malformed reports do not hide a valid fallback
 not ok 6 - Istanbul empty-file Unknown sentinel yields numeric 100% in totals and entries
   ---
   duration_ms: 3.057651
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-coverage.test.cjs:64:1'
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:64:1'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -41,7 +41,7 @@ not ok 6 - Istanbul empty-file Unknown sentinel yields numeric 100% in totals an
   actual: 'Unknown'
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-coverage.test.cjs:68:10)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:68:10)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)
@@ -53,7 +53,7 @@ not ok 6 - Istanbul empty-file Unknown sentinel yields numeric 100% in totals an
 not ok 7 - legacy NYC summary reports remain readable
   ---
   duration_ms: 1.124631
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-coverage.test.cjs:71:1'
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:71:1'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -66,7 +66,7 @@ not ok 7 - legacy NYC summary reports remain readable
   actual: false
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-coverage.test.cjs:73:10)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:73:10)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)

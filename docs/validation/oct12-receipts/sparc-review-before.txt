@@ -13,9 +13,9 @@ ok 2 - \#4087 every explicit phase agent resolves to a shipped plugin agent
 not ok 3 - \#4088 SPARC command references resolve to the shipped command filename
   ---
   duration_ms: 1.749161
-  location: '/home/ruv/work/ruflo-fixes-20261012/plugins/ruflo-sparc/tests/contracts.regression.cjs:27:1'
+  location: '<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:27:1'
   failureType: 'testCodeFailure'
-  error: '/home/ruv/work/ruflo-fixes-20261012/plugins/ruflo-sparc/README.md'
+  error: '<repo>/plugins/ruflo-sparc/README.md'
   code: 'ERR_ASSERTION'
   name: 'AssertionError'
   expected:
@@ -182,7 +182,7 @@ not ok 3 - \#4088 SPARC command references resolve to the shipped command filena
 
   operator: 'doesNotMatch'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/plugins/ruflo-sparc/tests/contracts.regression.cjs:32:12)
+    TestContext.<anonymous> (<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:32:12)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)

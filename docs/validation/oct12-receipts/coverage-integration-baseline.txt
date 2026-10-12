@@ -1,5 +1,5 @@
 
- RUN  v4.1.0 /home/ruv/work/ruflo-fixes-20261012
+ RUN  v4.1.0 <repo>
 
  ❯ v3/@claude-flow/cli/__tests__/hooks-coverage-disk.test.ts (3 tests | 3 failed) 25ms
      × does not route or suggest tests for empty instrumented files 18ms

@@ -38,7 +38,7 @@ ok 7 - legacy NYC summary reports remain readable
 not ok 8 - pct-only files retain their percentage but unknown aggregate counts stay conservative
   ---
   duration_ms: 2.672092
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-coverage.test.cjs:75:1'
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:75:1'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -51,7 +51,7 @@ not ok 8 - pct-only files retain their percentage but unknown aggregate counts s
   actual: 100
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-coverage.test.cjs:78:69)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:78:69)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)
@@ -63,7 +63,7 @@ not ok 8 - pct-only files retain their percentage but unknown aggregate counts s
 not ok 9 - mixed counted and uncounted files cannot claim a fully covered aggregate
   ---
   duration_ms: 1.4818
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-coverage.test.cjs:81:1'
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:81:1'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -76,7 +76,7 @@ not ok 9 - mixed counted and uncounted files cannot claim a fully covered aggreg
   actual: 100
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-coverage.test.cjs:84:12)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:84:12)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)
@@ -93,7 +93,7 @@ ok 10 - valid supplied aggregate percentages including zero take precedence
 not ok 11 - incomplete or invalid counts do not manufacture a percentage
   ---
   duration_ms: 7.111804
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-coverage.test.cjs:93:1'
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:93:1'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -106,7 +106,7 @@ not ok 11 - incomplete or invalid counts do not manufacture a percentage
   actual: 100
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-coverage.test.cjs:97:12)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:97:12)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)

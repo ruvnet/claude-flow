@@ -8,7 +8,7 @@ ok 1 - \#4086 status enumerates all keys and retrieves exact current values
 not ok 2 - \#4087 every explicit phase agent resolves to a shipped plugin agent
   ---
   duration_ms: 3.304492
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-sparc.test.cjs:15:1'
+  location: '<repo>/tests/regression/oct12-sparc.test.cjs:15:1'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly deep-equal:
@@ -42,7 +42,7 @@ not ok 2 - \#4087 every explicit phase agent resolves to a shipped plugin agent
     5: 'ruflo-core:reviewer'
   operator: 'deepStrictEqual'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-sparc.test.cjs:17:10)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-sparc.test.cjs:17:10)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)

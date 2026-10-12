@@ -3,7 +3,7 @@ TAP version 13
 not ok 1 - \#4086 status enumerates all keys and retrieves exact current values
   ---
   duration_ms: 3.527511
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-sparc.test.cjs:8:1'
+  location: '<repo>/tests/regression/oct12-sparc.test.cjs:8:1'
   failureType: 'testCodeFailure'
   error: |-
     The input did not match the regular expression /memory_list/. Input:
@@ -40,7 +40,7 @@ not ok 1 - \#4086 status enumerates all keys and retrieves exact current values
 
   operator: 'match'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-sparc.test.cjs:10:10)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-sparc.test.cjs:10:10)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)
@@ -53,7 +53,7 @@ not ok 1 - \#4086 status enumerates all keys and retrieves exact current values
 not ok 2 - \#4087 every explicit phase agent resolves to a shipped plugin agent
   ---
   duration_ms: 0.52273
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-sparc.test.cjs:15:1'
+  location: '<repo>/tests/regression/oct12-sparc.test.cjs:15:1'
   failureType: 'testCodeFailure'
   error: |-
     The input did not match the regular expression /^ruflo-[a-z-]+:[a-z-]+$/. Input:
@@ -66,7 +66,7 @@ not ok 2 - \#4087 every explicit phase agent resolves to a shipped plugin agent
   actual: 'researcher'
   operator: 'match'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-sparc.test.cjs:19:12)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-sparc.test.cjs:19:12)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)
@@ -78,7 +78,7 @@ not ok 2 - \#4087 every explicit phase agent resolves to a shipped plugin agent
 not ok 3 - \#4088 SPARC command references resolve to the shipped command filename
   ---
   duration_ms: 0.52056
-  location: '/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-sparc.test.cjs:25:1'
+  location: '<repo>/tests/regression/oct12-sparc.test.cjs:25:1'
   failureType: 'testCodeFailure'
   error: 'plugins/ruflo-sparc/commands/ruflo-sparc.md'
   code: 'ERR_ASSERTION'
@@ -183,7 +183,7 @@ not ok 3 - \#4088 SPARC command references resolve to the shipped command filena
 
   operator: 'doesNotMatch'
   stack: |-
-    TestContext.<anonymous> (/home/ruv/work/ruflo-fixes-20261012/tests/regression/oct12-sparc.test.cjs:29:12)
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-sparc.test.cjs:29:12)
     Test.runInAsyncScope (node:async_hooks:206:9)
     Test.run (node:internal/test_runner/test:796:25)
     Test.processPendingSubtests (node:internal/test_runner/test:526:18)
