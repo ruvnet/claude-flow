@@ -106,5 +106,8 @@ process.exit(c.guard && c.guard.default === "on" ? 0 : 1)
 step "M3. mod: hooks never touch the network or spawn a process"
 if grep -nE '\$\.(http|process)\.|child_process|fetch\(' "$ROOT"/hooks/*.ts >/dev/null; then bad "network or process call in hooks"; else ok; fi
 
+step "R. SPARC exact reads and registered names"
+node "$ROOT/tests/contracts.regression.cjs" > /dev/null 2>&1 && ok || bad "regression contract failed"
+
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1

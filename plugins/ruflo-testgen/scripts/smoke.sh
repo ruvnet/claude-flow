@@ -94,5 +94,8 @@ process.exit(Object.keys(c).length === 0 ? 0 : 1)
 step "M3. mod: hooks never touch the network or spawn a process"
 if grep -nE '\$\.(http|process)\.|child_process|fetch\(' "$ROOT"/hooks/*.ts >/dev/null; then bad "network or process call in hooks"; else ok; fi
 
+step "R. TDD outcome reporting"
+node "$ROOT/tests/tdd-workflow.regression.cjs" > /dev/null 2>&1 && ok || bad "regression contract failed"
+
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1
