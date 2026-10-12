@@ -3,6 +3,9 @@
  * runs, what the search and name fields refuse, and a change run end to end on a fake Host (asked, confirmed, run, the
  * lists read again, the outcome checked against them). Nothing here runs the real CLI.
  */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import { addArgv, findArgv, initArgv, listArgv, PINNED_SKILLS, useArgv, newNameOf, parseFind, parseInstalled, removeArgv, skillIdOf, skillNameOf, typedOf, updateArgv } from '../hooks/data/skills'
@@ -51,6 +54,10 @@ describe('argv and validation', () => {
     expect(updateArgv('tdd', 'project')).toEqual(['npx', '-y', 'skills@1.7.2', 'update', 'tdd', '-p', '-y'])
     expect(updateArgv('tdd', 'global')).toEqual(['npx', '-y', 'skills@1.7.2', 'update', 'tdd', '-g', '-y'])
     expect(initArgv('my-skill')).toEqual(['npx', '-y', 'skills@1.7.2', 'init', 'my-skill'])
+  })
+
+  it('no view spells the pinned version out: the hints name it from PINNED_SKILLS, so raising the pin cannot leave a stale hint', () => {
+    for (const file of ['views/skills.ts', 'views/skills-more.ts']) expect(readFileSync(join(__dirname, '..', 'hooks', file), 'utf8'), file).not.toMatch(/skills@\d/)
   })
 
   it('every action runs the pinned skills release, never whatever npm `latest` is', () => {

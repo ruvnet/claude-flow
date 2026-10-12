@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.43.5 — 2026-10-12
+- fix: the Skills page runs a pinned skills CLI (`skills@1.7.2`, like the AI page's pinned Codex) instead of whatever npm `latest` is: `npx -y skills` fetched and ran the newest release on every visit to the page (it lists on open) and on every add, remove, update, init and use, with the person's permissions. The hints name the pin from one constant. The pin fixes the top-level package only: its own dependencies (tar, yaml) are npm ranges resolved on the first fetch, and the first run needs the network. 1.7.2 is published by vercel-labs/skills with no install-time scripts (#4113, thanks @martinvlad)
+
 ## 0.43.3 — 2026-10-12
 - fix: `console_state` tells Claude that a confirm card expired: `lastResult` carries `expired: true` after a card nobody answered was cleared unrun at 30 s (the runner already set the flag; the tool left it out), so Claude can tell "you did not answer" from a run that failed without reading the detail text. An ordinary result has no `expired` field (#3985 follow-up, thanks @proffesor-for-testing, #4067)
 
