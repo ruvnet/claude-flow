@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.3 — 2026-10-12
+- fix: tdd-workflow reports the observed validation outcome to `hooks_post-task` instead of a literal `success: true` (#4085)
+
 ## 0.3.2 — 2026-10-11
 - fix: tdd-repair now enforces that the failing test is not edited (original bytes restored, attempt scored failed with `test-file-modified`) instead of only asking in the prompt, with a node:test; docs no longer claim Bash is a sandbox with no network or arbitrary writes
 - fix: testgen command put user text inside double quotes in shell commands; test-gaps used a `--limit` flag `coverage-gaps` does not have
