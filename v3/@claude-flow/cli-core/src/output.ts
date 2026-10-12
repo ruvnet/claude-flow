@@ -371,6 +371,7 @@ export class OutputFormatter {
   private truncate(text: string, maxLength: number): string {
     const stripped = this.stripAnsi(text);
     if (stripped.length <= maxLength) return text;
+    if (maxLength <= 3) return '.'.repeat(Math.max(0, maxLength));
     return stripped.slice(0, maxLength - 3) + '...';
   }
 
