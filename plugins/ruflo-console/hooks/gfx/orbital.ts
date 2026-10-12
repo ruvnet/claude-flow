@@ -4,11 +4,30 @@ import type { BootCheck } from '../boot-checks'
 import { Grid, mix } from './raster'
 import { bannerPicture } from './pictures'
 
+const palettes = new WeakMap<ConsoleTheme, ReturnType<typeof paletteOf>>()
+
+/** The theme's colours as numbers, parsed once per theme object (a frame asks for them several times). */
 function colors(theme: ConsoleTheme) {
+  let palette = palettes.get(theme)
+
+  if (palette === undefined) palettes.set(theme, palette = paletteOf(theme))
+
+  return palette
+}
+
+function paletteOf(theme: ConsoleTheme) {
   const rgb = (hex: string) => parseInt(hex.slice(1), 16)
   return { RED: rgb(theme.palette.head), GREEN: rgb(theme.palette.ok), INK: rgb(theme.palette.info), BLACK: rgb(theme.palette.background), BAD: rgb(theme.palette.bad), DIM: mix(rgb(theme.palette.background), rgb(theme.palette.info), 0.48) }
 }
 const TAU = Math.PI * 2
+/** The planet's fixed tilt and pitch, as the sines and cosines every cell of every frame needs. */
+const SPIN = { cosTilt: Math.cos(23.4 * Math.PI / 180), sinTilt: Math.sin(23.4 * Math.PI / 180), cosPitch: Math.cos(0.18), sinPitch: Math.sin(0.18) }
+
+function tint(color: number, brightness: number): number {
+  const channel = (shift: number) => Math.round(((color >>> shift) & 255) * brightness)
+
+  return (channel(16) << 16) | (channel(8) << 8) | channel(0)
+}
 
 // Original stylized continent silhouettes in longitude/latitude degrees, for decoration only.
 const LAND = [
@@ -24,7 +43,7 @@ const LAND = [
   [[166,-34],[179,-39],[172,-47],[166,-45]],
 ] as const
 
-function onLand(lon: number, lat: number): boolean {
+function inPolygons(lon: number, lat: number): boolean {
   return LAND.some(poly => {
     let inside = false
     for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -34,6 +53,21 @@ function onLand(lon: number, lat: number): boolean {
     }
     return inside
   })
+}
+
+/** One cell per degree, built on the first globe and read for every cell of every later frame (the polygons are tested once, not per cell per tick). */
+const MASK_COLUMNS = 360
+let landMask: Uint8Array | undefined
+
+function onLand(lon: number, lat: number): boolean {
+  if (landMask === undefined) {
+    landMask = new Uint8Array(MASK_COLUMNS * 180)
+    for (let y = 0; y < 180; y++) for (let x = 0; x < MASK_COLUMNS; x++) landMask[y * MASK_COLUMNS + x] = inPolygons(x - 179.5, y - 89.5) ? 1 : 0
+  }
+  const x = Math.min(MASK_COLUMNS - 1, Math.max(0, Math.round(lon + 179.5)))
+  const y = Math.min(179, Math.max(0, Math.round(lat + 89.5)))
+
+  return landMask[y * MASK_COLUMNS + x] === 1
 }
 
 function blank(columns: number, rows: number, theme = ORBITAL_THEME): Grid {
@@ -50,12 +84,7 @@ export function orbitalGlobe(columns: number, rows: number, timeMs: number, them
   const grid = blank(columns, height, theme)
   const radius = Math.max(0.25, Math.min((height - 1) / 2, (grid.columns - 1) / 4))
   const angle = (Number.isFinite(timeMs) ? timeMs % 12000 : 0) / 12000 * TAU
-  const tilt = 23.4 * Math.PI / 180
-  const pitch = 0.18
-  const tint = (color: number, brightness: number): number => {
-    const channel = (shift: number) => Math.round(((color >>> shift) & 255) * brightness)
-    return (channel(16) << 16) | (channel(8) << 8) | channel(0)
-  }
+  const { cosTilt, sinTilt, cosPitch, sinPitch } = SPIN
   for (let y = 0; y < height; y++) for (let x = 0; x < grid.columns; x++) {
     const nx = (x - (grid.columns - 1) / 2) / (radius * 2)
     const ny = ((height - 1) / 2 - y) / radius
@@ -76,10 +105,10 @@ export function orbitalGlobe(columns: number, rows: number, timeMs: number, them
     }
     const z = Math.sqrt(1 - r2)
     // Transform the visible surface into the tilted planet's coordinates before spinning its longitude.
-    const ax = nx * Math.cos(tilt) + ny * Math.sin(tilt)
-    const ay = -nx * Math.sin(tilt) + ny * Math.cos(tilt)
-    const py = ay * Math.cos(pitch) + z * Math.sin(pitch)
-    const pz = z * Math.cos(pitch) - ay * Math.sin(pitch)
+    const ax = nx * cosTilt + ny * sinTilt
+    const ay = -nx * sinTilt + ny * cosTilt
+    const py = ay * cosPitch + z * sinPitch
+    const pz = z * cosPitch - ay * sinPitch
     const lat = Math.asin(Math.max(-1, Math.min(1, py))) * 180 / Math.PI
     const lon = ((Math.atan2(ax, pz) + angle) * 180 / Math.PI + 540) % 360 - 180
     const land = onLand(lon, lat)
