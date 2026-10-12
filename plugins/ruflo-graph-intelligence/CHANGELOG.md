@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.2.0-alpha.6 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk or values that only name where a secret lives, and every rule stays linear (#4094, thanks @proffesor-for-testing)
+
 ## 0.2.0-alpha.5 — 2026-10-09
 - chore: drop the unused `categories` key from plugin.json (claude.ai plugin validator warns on it; nothing read it)
 

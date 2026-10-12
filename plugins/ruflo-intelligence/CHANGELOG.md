@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.4.4 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
 ## 0.4.3 — 2026-10-11
 
 - Fix: skills, commands and README called tools and CLI flags that do not exist or have different parameters (checked against `@claude-flow/cli` 3.56.5 `--help` and the MCP tool schemas): `neural_train` needs `modelType` (there is no `patternType`/`--pattern-type`; the CLI flag is `--pattern`), `neural patterns --list` is `--action list`, `hooks pretrain`/`build-agents`/`explain` flags, `hooks_model-outcome` takes `{ task, model, outcome }`, `hooks_intelligence_trajectory-end` takes a boolean `success`, `ruvllm_microlora_adapt` has no consolidate option (EWC++ runs in `hooks_intelligence_learn`), and `mcp tool call` is `mcp exec -t TOOL -p JSON`.

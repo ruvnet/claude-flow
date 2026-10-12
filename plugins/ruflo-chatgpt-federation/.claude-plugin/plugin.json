@@ -1,7 +1,7 @@
 {
   "name": "ruflo-chatgpt-federation",
   "description": "Dedicated ChatGPT Federation MCP publisher with isolated Nostr signing-key custody, OAuth-scoped publishing, and signed public-channel coordination over the Ruflo relay. As a mod (ADR-445 pattern): a tighten-only tool guard, a local slash command, and a status file the console shows.",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

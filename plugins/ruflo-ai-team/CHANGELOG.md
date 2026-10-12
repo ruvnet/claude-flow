@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-ai-team`.
 
+## 0.3.1 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
 ## 0.3.0 — 2026-10-09
 - feat: skills, commands and agents name the connector tools in plain language instead of Claude Code namespaced identifiers (allowed-tools lists only the portable Read tool; the repo audit requires the field), so they read correctly on claude.ai and Cowork
 - feat: lifecycle skill covers run_complete (the tasks_incomplete rule); skills state the real status values, template ids and budget range

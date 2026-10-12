@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-metaharness v0.2.5 (ADR-150 Phase 1).
+# Structural smoke test for ruflo-metaharness v0.2.6 (ADR-150 Phase 1).
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0
@@ -32,10 +32,10 @@ else
   bad "extraction-regex-rot: EXPECTED_TOOLS=$EXPECTED_TOOLS EXPECTED_SUBS=$EXPECTED_SUBS"
 fi
 
-step "1. plugin.json declares 0.2.5 with adr-150 keywords"
+step "1. plugin.json declares 0.2.6 with adr-150 keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.2.5" ]]; then
-  bad "expected 0.2.5, got '$v'"
+if [[ "$v" != "0.2.6" ]]; then
+  bad "expected 0.2.6, got '$v'"
 else
   miss=""
   for k in ruflo metaharness harness scorecard genome mcp-scan threat-model router adr-150 adr-148 adr-149 optional-dependency graceful-degradation subprocess phase-1-mvp; do

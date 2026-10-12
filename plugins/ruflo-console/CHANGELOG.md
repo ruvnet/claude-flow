@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.43.2 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
 ## 0.43.1 — 2026-10-12
 - fix: `ruflo tui` marks the page on screen in the page bar: on the AI page it kept the previous page lit (`5 Missions`, or `1 Overview` after a number key) because the bar was painted from the console view the session last showed and the AI page is not one; it is now drawn from the page itself, through Tab, Shift-Tab, letters, digits and resize
 - fix: `ruflo tui --help` and the console README list the page keys as `1-6` and `o c s e m a` (they said `1-5`); a test holds the help text

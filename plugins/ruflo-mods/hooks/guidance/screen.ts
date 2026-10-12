@@ -31,7 +31,7 @@ const INJECTION: readonly (readonly [string, RegExp])[] = [
   // `.env` has no word start before its dot, so it is matched on its own ("upload the .env file", "send ./config.env",
   // ".envrc"); a dot inside a word does not end the phrase. A model's token counts are not credentials: --max-tokens,
   // /oauth/token and "token usage/count/limit/budget/window" are left out (a file named token, /run/token, is not).
-  ['exfiltration', /\b(?:exfiltrate|send|post|upload)\b(?:[^.\n]|\.(?=\S)){0,50}(?:\b(?:secrets?|credentials?|api keys?)\b|(?:(?<!max[_-]?)\btokens\b|(?<!oauth\/)\btoken\b)(?![\s_-]*(?:usage|counts?|limits?|budgets?|window)\b)|\.env(?:rc)?\b)/i],
+  ['exfiltration', /\b(?:exfiltrate|send|post|upload|e-?mail)\b(?:[^.\n]|\.(?=\S)){0,50}(?:\b(?:secrets?|credentials?|api keys?)\b|(?:(?<!max[_-]?)\btokens\b|(?<!oauth\/)\btoken\b)(?![\s_-]*(?:usage|counts?|limits?|budgets?|window)\b)|\.env(?:rc)?\b)/i],
   ['shell pipe', /\b(?:curl|wget)\b[^|\n]{0,200}\|\s*(?:sudo\s+)?(?:ba|z)?sh\b/i],
 ]
 

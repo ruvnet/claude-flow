@@ -1,7 +1,7 @@
 {
   "name": "ruflo-iot-cognitum",
   "description": "IoT device lifecycle, telemetry anomaly detection, fleet management, and witness chain verification for Cognitum Seed hardware",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

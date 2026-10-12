@@ -438,6 +438,15 @@ describe('#3698 root deletion guard parity', () => {
     ['rm -rf \\{/,\\}', false],
     ['rm -rf ${HOME}/tmp', false],
     ['echo {/,}', false],
+    // Review additions (#4096): a list that includes the root in any position, nested lists, and ordinary uses of braces.
+    ['rm -rf {/tmp,/}', true],
+    ['rm -rf {a,b/,{/,c}}', true],
+    ['rm -rf /tmp/{a,b}', false],
+    ['curl -s https://x.test/a{1,2}.json', false],
+    ['git commit -m "fix: guard handles brace lists {a,b}"', false],
+    ['echo "{a,b}"', false],
+    ['bomb(){ bomb | bomb & }; bomb', true],
+    ['f(){ echo hi; }; f', false],
     ['echo ' + '{a,b}'.repeat(14), false],
     // Past the expansion budget an rm in progress fails closed: one of the words may be the root.
     ['rm -rf ' + '{a,b}'.repeat(14), true],
