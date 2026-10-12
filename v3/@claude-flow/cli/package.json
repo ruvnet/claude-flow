@@ -125,11 +125,11 @@
     "ws": "^8.21.0",
     "yaml": "^2.8.0",
     "zod": "^3.22.0",
-    "@claude-flow/memory": "^3.0.0"
+    "@claude-flow/memory": "3.1.0"
   },
   "optionalDependencies": {
     "@agntcy/slim-bindings": "2.0.0-alpha.5",
-    "@claude-flow/memory": "^3.0.0",
+    "@claude-flow/memory": "3.1.0",
     "@metaharness/darwin": "~0.10.2",
     "@metaharness/flywheel": "~0.1.10",
     "@metaharness/radio": "~0.1.0",
