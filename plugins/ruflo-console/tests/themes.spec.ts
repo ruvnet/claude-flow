@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { activeTheme, COLOR_KEYS, loadThemes, lowContrast, ORBITAL_THEME, parseTheme, themeActions, themeFromText, themesOf, themeLayout } from '../hooks/themes'
+import { activeTheme, COLOR_KEYS, contrast, loadThemes, lowContrast, ORBITAL_THEME, parseTheme, themeActions, themeFromText, themesOf, themeLayout, THEME_PRESETS } from '../hooks/themes'
 import { newState } from '../hooks/state'
 import type { Host } from '../hooks/host'
 import { orbitalBoot, orbitalGlobe, orbitalHeader } from '../hooks/gfx/orbital'
@@ -12,6 +12,42 @@ const copy = () => JSON.parse(JSON.stringify(ORBITAL_THEME))
 const hostOf = (store = new Map<string, unknown>()) => ({ storeGet: vi.fn(async (key: string) => store.get(key)), storeSet: vi.fn(async (key: string, value: unknown) => { store.set(key, value) }), invalidate: vi.fn(), fs: { read: vi.fn(async (path: string) => path.endsWith('SKILL.md') ? 'Generate one preset.' : 'version: 1; six hex colors; motion') }, pluginRoot: '/plugin' }) as unknown as Host
 
 describe('Theme Studio', () => {
+  it('loads each bundled palette, restores its selection and leaves custom slots free', async () => {
+    expect(new Set(THEME_PRESETS.map(p => p.id)).size).toBe(THEME_PRESETS.length)
+    for (const { id, theme } of THEME_PRESETS) {
+      expect(parseTheme(theme)).toEqual(theme)
+      for (const key of COLOR_KEYS.filter(k => k !== 'background')) expect(contrast(theme.palette[key], theme.palette.background)).toBeGreaterThanOrEqual(4.5)
+      const store = new Map(), host = hostOf(store), state = newState({ look: 'bbs' })
+      const act = themeActions(state, host, vi.fn())
+      act.select(`preset:${id}`); await flush()
+      expect(state.options.look).toBe('orbital')
+      expect(activeTheme(state)).toEqual(theme)
+      expect(themesOf(state).saved).toHaveLength(0)
+      const restored = newState({ look: 'plain' }); await loadThemes(restored, host)
+      expect(activeTheme(restored)).toEqual(theme)
+      expect(themesOf(restored).selected).toBe(`preset:${id}`)
+      act.color('head', '#ffffff')
+      expect(activeTheme(state).palette.head).toBe(theme.palette.head)
+      act.save(); await flush()
+      expect(themesOf(state).selected).toBe(`custom:${theme.name}`)
+      expect(theme.palette.head).not.toBe('#ffffff')
+      act.select('orbital'); await flush()
+      expect(themesOf(state).draft).toEqual(ORBITAL_THEME)
+    }
+  })
+  it('leaves selection and draft intact when a bundled selection cannot persist', async () => {
+    const state = newState({ look: 'orbital' }), host = hostOf(), act = themeActions(state, host, vi.fn())
+    act.select('preset:arctic'); await flush()
+    host.storeSet = vi.fn(async () => { throw Error('denied') })
+    act.select('preset:synthwave'); await flush()
+    expect(activeTheme(state).name).toBe('Arctic')
+    expect(themesOf(state).draft.name).toBe('Arctic')
+    act.select('preset:unknown'); await flush()
+    expect(themesOf(state).selected).toBe('preset:arctic')
+    act.reset(); await flush()
+    expect(themesOf(state).draft.name).toBe('Arctic')
+    expect(themesOf(state).selected).toBe('preset:arctic')
+  })
   it('is available in main menu and Tools navigation/search', () => {
     expect(groupOf('themes')).toBe('TOOLS')
     expect(findPages('color')).toContain('themes')
@@ -29,6 +65,7 @@ describe('Theme Studio', () => {
     expect(state.view).toBe('themes')
     const keys = flat(draw()).map(node => node.props?.key)
     for (const key of ['tabs', 'pane-icons', 'footer', 'theme-layout', 'tab-menu', 'theme-editor', 'theme-stage']) expect(keys).toContain(key)
+    for (const { id } of THEME_PRESETS) expect(keys).toContain(`theme-preset-${id}`)
     flat(draw()).find(node => node.props?.key === 'tab-menu').props.onPress()
     expect(state.view).toBe('menu')
   })

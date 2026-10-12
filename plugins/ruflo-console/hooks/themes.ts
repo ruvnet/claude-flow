@@ -16,6 +16,16 @@ export const ORBITAL_THEME: ConsoleTheme = {
   motion: { speed: 1, stars: true, globe: true, topology: true },
 }
 const clone = (theme: ConsoleTheme): ConsoleTheme => ({ ...theme, palette: { ...theme.palette }, motion: { ...theme.motion } })
+/** Bundled palettes have stable IDs and do not consume the twelve custom preset slots. */
+export const THEME_PRESETS: readonly { id: string; theme: ConsoleTheme }[] = [
+  { id: 'arctic', theme: { ...clone(ORBITAL_THEME), name: 'Arctic', palette: { head: '#79dfff', ok: '#8ee6be', bad: '#ff929d', warn: '#ffd486', info: '#d6e9f2', background: '#08131f' } } },
+  { id: 'synthwave', theme: { ...clone(ORBITAL_THEME), name: 'Synthwave', palette: { head: '#ed99ff', ok: '#6fe7c5', bad: '#ff899e', warn: '#ffe08a', info: '#e4d9f5', background: '#170d26' } } },
+  { id: 'amber-crt', theme: { ...clone(ORBITAL_THEME), name: 'Amber CRT', palette: { head: '#ffcf73', ok: '#c6e58b', bad: '#ff9580', warn: '#ffe3a3', info: '#ead8b7', background: '#171108' } } },
+  { id: 'emerald', theme: { ...clone(ORBITAL_THEME), name: 'Emerald', palette: { head: '#69e6af', ok: '#a1edb4', bad: '#ff9191', warn: '#efcf87', info: '#cde5da', background: '#081710' } } },
+  { id: 'solar-flare', theme: { ...clone(ORBITAL_THEME), name: 'Solar Flare', palette: { head: '#ffab79', ok: '#b8dc91', bad: '#ff929d', warn: '#ffdf83', info: '#f1ddce', background: '#21100c' } } },
+  { id: 'moonlight', theme: { ...clone(ORBITAL_THEME), name: 'Moonlight', palette: { head: '#b6c5ff', ok: '#a2d9c8', bad: '#ffa0b6', warn: '#e8d5a3', info: '#e0e4f2', background: '#101420' } } },
+]
+const presetOf = (id: string | null) => THEME_PRESETS.find(preset => `preset:${preset.id}` === id)?.theme
 export const THEME_STORE_KEY = 'console-themes-v1'
 const HEX = /^#[0-9a-f]{6}$/i
 const record = (value: unknown): Record<string, unknown> | null => typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null
@@ -69,7 +79,7 @@ export async function loadThemes(state: State, host: Host): Promise<void> {
     if (!data || studio.revision !== revision) return
     studio.saved = Array.isArray(data.saved) ? data.saved.slice(0, 12).map(parseTheme).filter((t): t is ConsoleTheme => t !== null) : []
     const selected = typeof data.selected === 'string' ? data.selected : null
-    const theme = studio.saved.find(t => `custom:${t.name}` === selected)
+    const theme = presetOf(selected) ?? studio.saved.find(t => `custom:${t.name}` === selected)
     if (theme) { studio.active = clone(theme); studio.draft = clone(theme); studio.selected = selected; state.options.look = 'orbital' }
     else if (selected === 'bbs' || selected === 'plain' || selected === 'orbital') { studio.selected = selected; state.options.look = selected }
     host.invalidate()
@@ -99,7 +109,7 @@ export function themeActions(state: State, host: Host, ask: (agent: 'claude' | '
     try {
       await host.storeSet(THEME_STORE_KEY, { selected, saved })
       studio.selected = selected; studio.saved = saved; studio.active = active; state.options.look = look
-      if (active) studio.draft = clone(active)
+      studio.draft = clone(active ?? ORBITAL_THEME)
       tell('Theme saved and applied.')
     } catch { tell('Could not save the theme. The active theme is unchanged.') }
     finally { studio.saving = false; host.invalidate() }
@@ -110,7 +120,7 @@ export function themeActions(state: State, host: Host, ask: (agent: 'claude' | '
     discard: () => { studio.draft = clone(studio.active ?? ORBITAL_THEME); tell('Draft restored to the active palette.') },
     select: id => {
       if (id === 'bbs' || id === 'plain' || id === 'orbital') { void persist(id, studio.saved, null, id); return }
-      const theme = studio.saved.find(t => `custom:${t.name}` === id)
+      const theme = presetOf(id) ?? studio.saved.find(t => `custom:${t.name}` === id)
       if (theme) void persist(id, studio.saved, clone(theme), 'orbital')
     },
     color: (key, value) => {
@@ -141,7 +151,7 @@ export function themeActions(state: State, host: Host, ask: (agent: 'claude' | '
       if (saved.length >= 12) return tell('Twelve custom themes are saved. Reuse an existing name to replace it.')
       void persist(`custom:${theme.name}`, [...saved, clone(theme)], clone(theme), 'orbital')
     },
-    reset: () => { studio.draft = clone(ORBITAL_THEME); void persist(null, studio.saved, null, studio.initialLook) },
+    reset: () => { void persist(null, studio.saved, null, studio.initialLook) },
     brief: value => { studio.brief = value.replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, 1200); tell('Design brief ready.') },
     generate: agent => {
       void Promise.all([host.fs.read(`${host.pluginRoot}/skills/generate-console-theme/SKILL.md`), host.fs.read(`${host.pluginRoot}/skills/generate-console-theme/references/preset.md`)]).then(parts => {

@@ -1,5 +1,5 @@
 import type { RenderElement } from 'claude-code'
-import { activeTheme, COLOR_KEYS, contrast, lowContrast, themeLayout, themesOf } from '../themes'
+import { activeTheme, COLOR_KEYS, contrast, lowContrast, themeLayout, themesOf, THEME_PRESETS } from '../themes'
 import { button, clip, col, picture, row, text, THEME, type Ctx } from './common'
 
 /** One focused editor beside its live preview. Narrow panes stack without shrinking text. */
@@ -15,6 +15,11 @@ export function themesView(ctx: Ctx): RenderElement {
   const selected = studio.selected ?? ctx.state.options.look
   const choices: RenderElement[] = [text(edit, '01  LOOK', { bold: true, color: THEME.head })]
   for (const id of ['bbs', 'plain', 'orbital'] as const) choices.push(pick(`theme-${id}`, `${selected === id ? '●' : '○'} ${id === 'bbs' ? 'Classic BBS' : id === 'plain' ? 'Terminal plain' : 'Orbital'}`, () => act.select(id)))
+  choices.push(text(edit, 'COLOR PRESETS', { color: THEME.info }))
+  for (const { id, theme } of THEME_PRESETS) choices.push(row(edit, [
+    ctx.kit.Text({ color: theme.palette.head, backgroundColor: theme.palette.background, children: ' ▄▄ ' }),
+    pick(`theme-preset-${id}`, clip(`${selected === `preset:${id}` ? '●' : '○'} ${theme.name}`, Math.max(1, edit.columns - 7)), () => act.select(`preset:${id}`)),
+  ]))
   for (const theme of studio.saved) choices.push(pick(`theme-custom-${theme.name}`, `${selected === `custom:${theme.name}` ? '●' : '○'} ${theme.name}`, () => act.select(`custom:${theme.name}`)))
   choices.push(text(edit, '02  CUSTOMIZE', { bold: true, color: THEME.head }))
   const tabs = (['colors', 'motion', 'generate'] as const).map(tab => pick(`theme-tab-${tab}`, `${studio.tab === tab ? '▸' : '·'} ${tab === 'generate' ? 'AI' : tab}`, () => act.tab(tab)))

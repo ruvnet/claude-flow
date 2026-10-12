@@ -104,6 +104,19 @@ Orbital adapts to the pane allocation. Below 48 drawing columns or 30 available 
 
 Open **Main Menu → Tools → Theme Studio**, the **Tools** navigation group, or `/ruflo themes`. Settings also links to the studio. Choose Classic BBS, Terminal plain or Orbital. Studio selections persist and override the plugin's configured look until **Use configured look** is selected.
 
+Six bundled **Color presets** load with one click and persist across sessions. They retain the animated Ruflo header, globe, stars and topology at standard speed. Bundled presets do not consume the twelve custom theme slots. Every primary foreground role meets at least 4.5:1 contrast against its background; decorative shading may be dimmer.
+
+| Preset | Palette |
+| --- | --- |
+| Arctic | Ice cyan, seafoam and deep navy |
+| Synthwave | Orchid, mint and dark violet |
+| Amber CRT | Warm amber, parchment and dark bronze |
+| Emerald | Jade, pale green and forest black |
+| Solar Flare | Peach, gold and dark terracotta |
+| Moonlight | Periwinkle, silver and midnight blue |
+
+Select a preset to load it immediately. Edit colors or motion and choose **Save and apply** to create a custom copy; bundled originals remain available. Portable version 1 JSON presets also load through **AI → Import theme JSON**, followed by **Save and apply**. **Use configured look** restores the plugin setting.
+
 The terminal color picker provides swatches and exact `#RRGGBB` entry for headings, success, failure, warning, information and background. Preview the globe and swarm motion, adjust speed and decorative layers, then **Save preview and apply**. Up to twelve named custom presets are stored locally through the host; reusing a name replaces that preset. Failed saves leave the active theme unchanged. Settings `fps: 0` still disables animation. Layouts retain the compact/narrow fallbacks.
 
 **Generate with Claude** or **Generate with Codex** runs the bundled `generate-console-theme` skill through AI Terminal with its existing confirmation and model controls. Enter the design brief first, generate a preset, then paste the returned JSON into **Import theme JSON** and review before saving. The generator produces palette and motion variations of the existing Orbital renderer, not executable animation code. No additional API credentials are requested. Installed Claude plugins discover the bundled skill; Codex can read `plugins/ruflo-console/skills/generate-console-theme/SKILL.md` directly in this checkout.
