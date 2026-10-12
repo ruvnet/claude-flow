@@ -77,14 +77,26 @@ export function orbitalHeader(label: string, columns: number, timeMs: number): G
   return grid
 }
 
+/** Map the original banner's neon channels into Orbital's palette, preserving its highlight sweep. */
+function orbitalBrandColor(color: number): number {
+  const r = (color >>> 16) & 255
+  const g = (color >>> 8) & 255
+  // Original magenta and cyan are mixed with white by the shared banner renderer.
+  const cyan = Math.max(0, Math.min(1, (255 - r) / 250))
+  const white = Math.max(0, Math.min(1 - cyan, (g - 42 - 175 * cyan) / 213))
+  const coral = 1 - cyan - white
+  const channel = (a: number, z: number, light: number) => Math.round(a * coral + z * cyan + light * white)
+  return (channel(240, 114, 240) << 16) | (channel(100, 199, 239) << 8) | channel(73, 155, 226)
+}
+
 /** Checks are actual self-check results; the globe and sweep are explicitly decorative. */
 export function orbitalBoot(project: string, columns: number, timeMs: number, checks?: readonly BootCheck[]): Grid {
   const grid = blank(columns, 22)
-  // Reuse the original console banner, including its half-block font, gradient and sweep.
+  // Reuse the original console banner, including its half-block font and sweep, recolored for Orbital.
   const banner = bannerPicture(project, grid.columns, timeMs)
   for (let y = 0; y < banner.rows; y++) for (let x = 0; x < banner.columns; x++) {
     const i = (y * banner.columns + x) * 3
-    grid.set(x, y, banner.cells[i]!, banner.cells[i + 1]!, BLACK)
+    grid.set(x, y, banner.cells[i]!, orbitalBrandColor(banner.cells[i + 1]!), BLACK)
   }
   grid.text(0, 3, ' ruvnet / ORBITAL', DIM)
   const globe = orbitalGlobe(Math.min(38, grid.columns), 14, timeMs)
