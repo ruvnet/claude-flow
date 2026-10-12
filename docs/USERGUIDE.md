@@ -578,6 +578,61 @@ Install Ruflo as a native Claude Code plugin -- adds skills, commands, agents, a
 
 After installing, new `/slash-commands` and agent types are available immediately. Run `/reload-plugins` if needed.
 
+### Terminal UI (optional)
+
+The Claude Code console (`/ruflo`) stays the main way to use Ruflo. If you are not in Claude Code, `ruflo tui` shows the same pages in any terminal. It is optional: nothing else depends on it.
+
+<p align="center"><img src="assets/ruflo-tui-walkthrough.svg" width="100%" alt="Looping recording of ruflo tui: Overview, Cost, Swarm, Events and Missions, then the Swarm page in a small 80 by 24 window. Sample project and sample agents only."></p>
+
+*The recording is a real run in a throwaway sample project, so some pages say `n/a` or "none yet".*
+
+**Requirements:** Node.js 20 or later and `ruflo` 3.56.7 or later (`npx ruflo@latest tui`). Use `ruflo` or `@claude-flow/cli`: `npx claude-flow tui` does not ship the bundle and says so.
+
+```bash
+npx ruflo tui                       # open it in this terminal
+npx ruflo tui --view swarm          # start on a page: overview | cost | swarm | events | missions | ai
+npx ruflo tui --plain | head -40    # print one plain frame and exit 0 (scripts, CI)
+```
+
+Without a terminal and without `--plain`, `tui` prints a one-line hint and exits 2.
+
+| Key | Does |
+|---|---|
+| `1`–`6`, or `o` `c` `s` `e` `m` `a` | Go to a page (Overview, Cost, Swarm, Events, Missions, AI) |
+| `Tab` / `Shift-Tab` | Next / previous page |
+| `j` `k` or the arrow keys | Scroll |
+| `r` | Read the files again |
+| `q` or `Ctrl-C` | Quit |
+
+**What each page shows.** It reads Ruflo's own files and the CLI's output in the current project, and says `n/a` for anything it cannot measure.
+
+- **Overview:** setup steps, health findings and the subsystems.
+- **Cost:** budget and spend across Claude Code and Codex. Missing cost reports are not counted as zero.
+- **Swarm:** topology, agents and the hive-mind.
+- **Events:** swarm, claim, memory and mod events. History is kept only when the `eventsPersist` option is on.
+- **Missions:** the mission record, read-only. Missions are made from a goal in the Claude Code console.
+- **AI (optional):** ask Codex or OpenRouter a question. This is the only page that can send anything, and it always asks first.
+
+**The AI page asks first.** Pressing Enter does not send. It shows a card with exactly what would go out, and only a `y` typed while the card is on screen sends it. `n` cancels, and an unanswered card expires after 60 seconds. This is a real card:
+
+```text
+Ask first, #1: this goes to OpenRouter
+POST https://openrouter.ai/api/v1/chat/completions  Authorization: Bearer ‹from
+$OPENROUTER_API_KEY› {"model":"openrouter/auto","messages":[{"role":"user","content":"Summarize
+what my agents did today"}],"usage":{"include":true}}
+The key is read from the named variable, sent in one header and never shown or stored. Metered by the provider.
+y sends it · n cancels · it expires in 59 s
+```
+
+- **Keys on this page:** typing is text, so `Esc` hands the keys back to the page keys. `Ctrl-T` switches between Codex and OpenRouter, `Ctrl-S` stops a running answer, and `Ctrl-C` quits.
+- **Codex** runs only as the pinned `0.162.0` release found under `~/.codex/packages/standalone/releases`, read-only. It never uses the `current` link or `PATH` (0.162.1 crashes). If that release is not installed the page says so.
+- **OpenRouter** needs `OPENROUTER_API_KEY` in your environment. The key is named by its variable and never shown. Requests go only to `https://openrouter.ai` and to the HTTPS hosts you name with `--convo-targets` (or `RUFLO_TUI_CONVO_TARGETS`, syntax `endpoint:<name>=<https-base-url>|<KEY_ENV>|<model>;...`), with no redirects. `--model` picks the model (default `openrouter/auto`), and `--max-spend-usd` stops sending once the provider-reported spend reaches the cap (default `0.5`).
+- `--no-ai` turns the AI page off.
+
+**Limits.** Read-only except the AI page. Tested on Linux in tmux with Node 22; Windows, macOS and Node 20 are untested. Design and decisions: [ADR-489](../v3/docs/adr/ADR-489-ruflo-tui-standalone-console.md).
+
+**In Claude Code**, the same console has an optional Orbital look and a Theme Studio: run `/ruflo themes`. See the [console README](../plugins/ruflo-console/README.md#orbital-theme).
+
 <details>
 <summary>🤖 <strong>OpenAI Codex CLI Support</strong> — Full Codex integration with self-learning</summary>
 

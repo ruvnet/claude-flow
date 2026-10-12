@@ -104,6 +104,15 @@ describe('tui command', () => {
     expect(tuiCommand.examples?.some(example => example.command.includes('--plain'))).toBe(true);
   });
 
+  it('tells the truth about the page keys: six pages, so 1-6 and a for AI, never 1-5', () => {
+    const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'commands', 'tui.ts'), 'utf8');
+    const text = [tuiCommand.description, ...(tuiCommand.examples ?? []).map(example => example.description), source].join('\n');
+
+    expect(text).toMatch(/keys 1-6/);
+    expect(text).not.toMatch(/keys 1-5/);
+    expect(text).toMatch(/o c s e m a/);
+  });
+
   it.skipIf(locateTuiBundle() === null)('--plain prints one plain frame to stdout and exits 0 (real bundle)', async () => {
     const lines: string[] = [];
     const real = process.stdout.write.bind(process.stdout);

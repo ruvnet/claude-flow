@@ -17,12 +17,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `@claude-flow/shared` 3.0.4: RVF event log no longer loses appends after a damaged tail (#4031, @rudycelekli). A partial length prefix, a partial payload or a record cut short is truncated on open, so later appends are readable; an unwritable log (EACCES/EROFS/EPERM) keeps its readable history and rejects appends explicitly. A tail whose length prefix is over the 100 MB limit is no longer accepted silently (found by @martinvlad): the bytes are kept and `append()` rejects until repaired, or set `repairOversizedTail: true` to truncate it. `append()` also refuses a record the replay limit would never read back. A fresh install can now import the package root and its tarball ships no test files: `zod`, `express`, `cors`, `helmet`, `ws` and `@types/ws` are declared dependencies, Express 5 bodiless POST and malformed-JSON requests get JSON-RPC 400s (#4091/#4089, @proffesor-for-testing).
+
 Batch of reviewed fixes from @rudycelekli (PRs #4020-#4026, #4028-#4030, #4032, #4033, #4035, #4037; #4027 and #4034 landed earlier):
 
 - `@claude-flow/cli-core` 3.7.1: JSON memory backend owns its snapshots, rejects invalid entry containers, measures size in UTF-8 bytes, omits non-matching substring results and lets expired keys be reused; output formatter honours progress controls, empty totals, table padding, coloured header widths, and suppresses progress in quiet or redirected output.
 - `@claude-flow/shared` 3.0.3: RVF event log honours zero limits, rebuilds indexes on retried initialization and isolates persisted records from caller mutation; circuit breaker returns independent date snapshots and expires rolling requests on completion.
 - `ruflo-adr` 0.5.5 (see its changelog).
 - Not included: #4031 (RVF truncated-tail recovery) is waiting on the author for a read-only-log fallback.
+
+## [3.56.8] - 2026-10-12
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.8. `@claude-flow/shared` 3.0.4 was published earlier and is now pinned exactly (3.56.7 still pinned 3.0.3). No other published package changed since 3.56.7; signed helpers did not change.
+
+### Fixed
+
+- `@claude-flow/shared` 3.0.4: the RVF event log repairs an incomplete or damaged tail before appending (#4031 by @rudycelekli); a clean install can import `.`, `./core` and `./mcp` because zod and express are now declared, and the tarball no longer ships compiled tests (#4089, #4091 by @proffesor-for-testing; the fresh-consumer finding came from @martinvlad, with `scripts/smoke-shared-fresh-consumer.mjs`).
+- `hooks coverage-gaps`: files with no executable lines are no longer reported as 0%, overall coverage is line-weighted, the command reads `coverage-final.json`, and the report size is capped (#4082-#4084, reported by @ronmikailov; #4097). Plugin workflow contracts for `ruflo-testgen` and `ruflo-sparc` were corrected in the same change (#4085-#4088; marketplace plugins, not npm).
 
 ## [3.56.7] - 2026-10-11
 

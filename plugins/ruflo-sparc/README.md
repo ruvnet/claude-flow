@@ -4,7 +4,7 @@ SPARC methodology -- Specification, Pseudocode, Architecture, Refinement, Comple
 
 ## Overview
 
-Drives features through a rigorous five-phase development lifecycle. Each phase has a quality gate that must pass before advancing. The orchestrator spawns specialized agents per phase (researcher, planner, system-architect, coder/tester, reviewer) and stores all artifacts and gate results in memory for traceability.
+Drives features through a rigorous five-phase development lifecycle. Each phase has a quality gate that must pass before advancing. The orchestrator spawns specialized agents per phase (ruflo-core:researcher, ruflo-goals:goal-planner, ruflo-swarm:architect, ruflo-core:coder, ruflo-testgen:tester, ruflo-core:reviewer) and stores all artifacts and gate results in memory for traceability.
 
 ## Installation
 
@@ -22,18 +22,18 @@ claude --plugin-dir plugins/ruflo-sparc
 
 | Skill | Usage | Description |
 |-------|-------|-------------|
-| `sparc-spec` | `/sparc-spec <feature-description>` | Run the Specification phase -- gather requirements, define acceptance criteria, identify constraints |
-| `sparc-implement` | `/sparc-implement` | Run the Architecture and Implementation phases -- design modules, write pseudocode, implement, test |
-| `sparc-refine` | `/sparc-refine` | Run Refinement and Completion -- review code, improve coverage, validate against spec, generate docs |
+| `sparc-spec` | `/ruflo-sparc:sparc-spec <feature-description>` | Run the Specification phase -- gather requirements, define acceptance criteria, identify constraints |
+| `sparc-implement` | `/ruflo-sparc:sparc-implement` | Run the Architecture and Implementation phases -- design modules, write pseudocode, implement, test |
+| `sparc-refine` | `/ruflo-sparc:sparc-refine` | Run Refinement and Completion -- review code, improve coverage, validate against spec, generate docs |
 
 ## Commands (5 subcommands)
 
 ```bash
-sparc init <feature>         # Initialize a new SPARC workflow
-sparc status                 # Show current phase and gate history
-sparc advance                # Attempt gate check, advance to next phase
-sparc phase <phase-name>     # Jump to a specific phase (spec/pseudo/arch/refine/complete)
-sparc report                 # Generate full SPARC methodology report with traceability matrix
+/ruflo-sparc:ruflo-sparc init <feature>         # Initialize a new SPARC workflow
+/ruflo-sparc:ruflo-sparc status                 # Show current phase and gate history
+/ruflo-sparc:ruflo-sparc advance                # Attempt gate check, advance to next phase
+/ruflo-sparc:ruflo-sparc phase <phase-name>     # Jump to a specific phase (spec/pseudo/arch/refine/complete)
+/ruflo-sparc:ruflo-sparc report                 # Generate full SPARC methodology report with traceability matrix
 ```
 
 ## The 5 Phases

@@ -2,6 +2,11 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.43.1 — 2026-10-12
+- fix: `ruflo tui` marks the page on screen in the page bar: on the AI page it kept the previous page lit (`5 Missions`, or `1 Overview` after a number key) because the bar was painted from the console view the session last showed and the AI page is not one; it is now drawn from the page itself, through Tab, Shift-Tab, letters, digits and resize
+- fix: `ruflo tui --help` and the console README list the page keys as `1-6` and `o c s e m a` (they said `1-5`); a test holds the help text
+- fix: the CLI no longer builds its trust-store path (`~/.config/ruflo/policy-trust`) from an empty or relative `$HOME`, which put the anchor mirror and key under the working directory; it uses the account home, or says `$HOME` must be absolute
+
 ## 0.43.0 — 2026-10-12
 - feat: an optional Orbital look (black telemetry panels, square borders, a rotating globe, a scan sweep and a shaded Ruflo header that stays visible after boot) and Theme Studio: pick Classic BBS, plain or Orbital, six bundled color presets, up to twelve named custom themes, a color picker with a 3:1 minimum contrast, motion layers and speed, and a generate-console-theme skill whose JSON is imported through a strict, size-bounded schema. Classic BBS stays the default; open it from Main Menu → Tools, Settings or /ruflo themes
 - fix: Theme Studio has its own boot-log line and help guide, and is reached by name (every hotkey letter is taken)
