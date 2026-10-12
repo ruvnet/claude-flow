@@ -135,7 +135,7 @@ importers:
         specifier: 3.0.4
         version: link:../security
       '@claude-flow/shared':
-        specifier: 3.0.3
+        specifier: 3.0.4
         version: link:../shared
       '@iarna/toml':
         specifier: ^2.2.5

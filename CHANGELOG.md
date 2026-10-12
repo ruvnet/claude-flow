@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `@claude-flow/shared` 3.0.4: RVF event log no longer loses appends after a damaged tail (#4031, @rudycelekli). A partial length prefix, a partial payload or a record cut short is truncated on open, so later appends are readable; an unwritable log (EACCES/EROFS/EPERM) keeps its readable history and rejects appends explicitly. A tail whose length prefix is over the 100 MB limit is no longer accepted silently (found by @martinvlad): the bytes are kept and `append()` rejects until repaired, or set `repairOversizedTail: true` to truncate it. `append()` also refuses a record the replay limit would never read back. A fresh install can now import the package root and its tarball ships no test files: `zod`, `express`, `cors`, `helmet`, `ws` and `@types/ws` are declared dependencies, Express 5 bodiless POST and malformed-JSON requests get JSON-RPC 400s (#4091/#4089, @proffesor-for-testing).
+
 Batch of reviewed fixes from @rudycelekli (PRs #4020-#4026, #4028-#4030, #4032, #4033, #4035, #4037; #4027 and #4034 landed earlier):
 
 - `@claude-flow/cli-core` 3.7.1: JSON memory backend owns its snapshots, rejects invalid entry containers, measures size in UTF-8 bytes, omits non-matching substring results and lets expired keys be reused; output formatter honours progress controls, empty totals, table padding, coloured header widths, and suppresses progress in quiet or redirected output.

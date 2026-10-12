@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/shared",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "type": "module",
   "description": "Shared module - common types, events, utilities, core interfaces",
   "main": "dist/index.js",
