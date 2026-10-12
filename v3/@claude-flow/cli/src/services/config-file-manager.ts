@@ -282,7 +282,7 @@ export function parseConfigValue(value: string): unknown {
   if (/^\d+\.\d+$/.test(value)) return parseFloat(value);
   try {
     const parsed = JSON.parse(value);
-    if (typeof parsed === 'object') return parsed;
+    if (typeof parsed === 'object' || (typeof parsed === 'number' && Number.isFinite(parsed))) return parsed;
   } catch { /* not JSON, use as string */ }
   return value;
 }
