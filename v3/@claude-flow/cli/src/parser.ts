@@ -213,6 +213,7 @@ export class CommandParser {
 
     let i = 0;
     let parsingFlags = true;
+    let commandSlotAvailable = true;
 
     while (i < args.length) {
       const arg = args[i];
@@ -239,7 +240,9 @@ export class CommandParser {
       // Fix for #1596: treat lazy command names as commands here too so that
       // downstream dispatch sees `commandPath = ['daemon', 'start']` instead of
       // `commandPath = ['start'], positional = ['daemon']`.
-      if (result.command.length === 0 && this.isKnownCommandName(arg)) {
+      const isCommandSlot = commandSlotAvailable && parsingFlags;
+      commandSlotAvailable = false;
+      if (isCommandSlot && this.isKnownCommandName(arg)) {
         // This is a command
         result.command.push(arg);
 
