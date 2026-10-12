@@ -187,3 +187,17 @@ it('keeps the original block brand after boot with bounded moving art and option
   expect(gridText(grid)).not.toContain('#')
   expect(grid.cells).not.toEqual(orbitalMasthead('Theme Studio', 100, 0).cells)
 })
+
+describe('Orbital header name', () => {
+  it('says RUFLO in the wide masthead and the narrow fallback, never another name', () => {
+    const text = (columns: number) => {
+      const grid = orbitalMasthead('MAIN MENU', columns, 0)
+
+      return Array.from({ length: grid.rows }, (_, y) => Array.from({ length: grid.columns }, (_, x) => String.fromCodePoint(grid.glyph(x, y) || 32)).join('')).join('\n')
+    }
+
+    expect(text(140)).toContain('RUFLO / AGENT SWARM CONSOLE')
+    expect(text(140)).not.toMatch(/RUVNET/)
+    expect(text(60)).not.toMatch(/RUVNET/)
+  })
+})

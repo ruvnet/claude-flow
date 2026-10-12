@@ -278,7 +278,7 @@ export function orbitalMasthead(label: string, columns: number, timeMs: number, 
     }
     for (const cell of face) grid.set(cell.x + 2, cell.y + 1, '▓', mix(BLACK, RED, 0.33), BLACK)
     for (const cell of face) grid.set(cell.x, cell.y, cell.glyph, cell.color, BLACK)
-    grid.text(0, 0, 'RUVNET / AGENT SWARM CONSOLE', DIM)
+    grid.text(0, 0, 'RUFLO / AGENT SWARM CONSOLE', DIM)
     grid.text(0, 6, label.toUpperCase().slice(0, 40), INK)
     if (theme.motion.globe) {
       const globe = orbitalGlobe(Math.min(40, grid.columns - 43), 7, ms, theme)
