@@ -275,7 +275,8 @@ export function createController(state: State, host: Host): Controller {
 
     if (pulseDue(state.view, started) || (state.view === 'menu' && entryAge({ look: state.options.look, boot: state.options.boot, ...state.pane }, started, BOOT_MIN_MS) !== null)) host.invalidate()
 
-    for (const [key, grid] of picturesOf(state, state.pane.columns, Date.now(), Date.now())) {
+    // Only a mounted Raster is blitted, so with none (a surface that draws Svg, which redraws with the pane) nothing is rebuilt here.
+    for (const [key, grid] of state.mounted.size === 0 ? [] : picturesOf(state, state.pane.columns, Date.now(), Date.now())) {
       const mounted = state.mounted.get(key)
 
       if (mounted !== undefined && mounted.columns === grid.columns && mounted.rows === grid.rows) {
@@ -291,7 +292,7 @@ export function createController(state: State, host: Host): Controller {
     // Something in progress moves its spinner, pictured or not: a lab action in flight, or a live mission, task or guidance run on the Missions page.
     const moving = state.lab.running !== null || (state.view === 'missions' && hasLiveWork(state.snapshot?.missions?.missions ?? [], mcOf(state).guidance?.status === 'running'))
 
-    if (!(state.options.fps > 0 && isVisible() && (state.pane.isFocused || isBooting(state, Date.now())) && (state.mounted.size > 0 || moving))) return cancel('frames')
+    if (!(state.options.fps > 0 && isVisible() && (state.pane.isFocused || isBooting(state, Date.now())) && (state.pictured > 0 || moving))) return cancel('frames')
 
     every('frames', Math.round(1000 / state.options.fps), frame)
   }
@@ -414,6 +415,7 @@ export function createController(state: State, host: Host): Controller {
       state.pane.viewAtMs = Date.now()
       state.select.item = 0
       state.mounted.clear()
+      state.pictured = 0
       persist()
       // A new view asks for its own height inline; the dock ignores it.
       if (state.pane.isOpen) void host.openPane({ id: PANE_ID, title: 'ruflo', rows: rowsOf(view), ...(state.dockColumns > 0 && { columns: state.dockColumns }) }).catch(() => undefined)
