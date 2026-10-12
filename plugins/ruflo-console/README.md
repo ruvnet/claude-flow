@@ -95,3 +95,5 @@ printf '%s\n' '{"look":"orbital"}' | claude plugin configure ruflo-console@ruflo
 ```
 
 Reload plugins after changing the option. Select `bbs` or `plain` to restore those looks. A dark terminal background gives the closest match; terminal graphics and host controls keep their existing renderer. Narrow panes retain the existing responsive layout.
+
+Orbital includes a four-row animated ASCII telemetry header with a red scan line, green decorative pulse and orbit marker. The optional boot intro uses a rotating ASCII Earth (one turn per 12 seconds), with actual self-check counts below it. It runs for 1.5 seconds when data is ready, at most 6 seconds while data is pending. Set `fps` to `0` for still headers and no boot intro. Existing frame scheduling stops motion in hidden panes. The pulse and globe are decoration, not measured activity or a progress percentage.

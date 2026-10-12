@@ -31,3 +31,73 @@ describe('orbital theme', () => {
     expect(setOption(state, 'ruflo-console', 'look', 'unknown', () => undefined)).toBeNull()
   })
 })
+
+import { orbitalGlobe, orbitalHeader, orbitalBoot } from '../hooks/gfx/orbital'
+import { isBooting, VIEWS } from '../hooks/state'
+import { picturesOf } from '../hooks/views/frames'
+import type { Grid } from '../hooks/gfx/raster'
+
+const gridText = (grid: Grid) => Array.from({ length: grid.rows }, (_, y) => Array.from({ length: grid.columns }, (_, x) => String.fromCodePoint(grid.glyph(x, y))).join('')).join('\n')
+
+describe('orbital motion', () => {
+  it('turns an ASCII globe and returns to the same frame after one revolution', () => {
+    const initial = orbitalGlobe(38, 14, 0)
+    expect(gridText(initial)).not.toBe(gridText(orbitalGlobe(38, 14, 3000)))
+    expect(initial.cells).toEqual(orbitalGlobe(38, 14, 12000).cells)
+    expect(gridText(initial)).toMatch(/^[\x20-\x7e\n]+$/)
+    expect(gridText(initial)).toContain('#')
+    expect(orbitalGlobe(38, 14, NaN).cells).toEqual(initial.cells)
+  })
+
+  it('keeps header dimensions stable while its pulse and scan move', () => {
+    for (const columns of [20, 44, 72, 200]) {
+      const first = orbitalHeader('overview', columns, 0)
+      const next = orbitalHeader('overview', columns, 480)
+      expect([next.columns, next.rows]).toEqual([columns, 4])
+      expect(next.cells).not.toEqual(first.cells)
+      expect(gridText(next).split('\n')[0]).toBe(gridText(first).split('\n')[0])
+    }
+  })
+
+  it('uses actual boot checks without inventing successes or progress', () => {
+    expect(gridText(orbitalBoot('project', 72, 0))).toContain('Self-check: pending')
+    const result = orbitalBoot('project', 72, 1000, [{ area: 'one', ok: true, problems: [] }, { area: 'two', ok: false, problems: ['unavailable'] }])
+    expect(gridText(result)).toContain('Self-check: 1 passed / 1 failed')
+    expect(gridText(result)).not.toContain('%')
+  })
+
+  it('bounds the intro and skips it when motion or boot is disabled', () => {
+    const state = newState({})
+    state.options.look = 'orbital'
+    state.options.boot = true
+    state.options.fps = 12
+    state.pane.bootAtMs = 1000
+    expect(isBooting(state, 999)).toBe(false)
+    expect(isBooting(state, 2499)).toBe(true)
+    expect(isBooting(state, 6999)).toBe(true)
+    expect(isBooting(state, 7000)).toBe(false)
+    state.snapshot = {} as NonNullable<typeof state.snapshot>
+    expect(isBooting(state, 2500)).toBe(false)
+    state.options.fps = 0
+    expect(isBooting(state, 1100)).toBe(false)
+    state.options.fps = 12
+    state.options.boot = false
+    expect(isBooting(state, 1100)).toBe(false)
+  })
+
+  it('provides an animated header on every page and a stable header at fps zero', () => {
+    const state = newState({})
+    state.options.look = 'orbital'
+    state.options.boot = false
+    for (const view of VIEWS) {
+      state.view = view.id
+      const key = view.id === 'menu' ? 'header' : 'title'
+      state.options.fps = 12
+      expect(picturesOf(state, 60, 1000, 1000).get(key)?.cells).not.toEqual(picturesOf(state, 60, 2000, 2000).get(key)?.cells)
+      state.options.fps = 0
+      const still = picturesOf(state, 60, 1000, 1000).get(key)
+      expect(still).toBeDefined()
+      expect(still!.cells).toEqual(picturesOf(state, 60, 2000, 2000).get(key)!.cells)
+    }
+  })
+})

@@ -368,7 +368,7 @@ export function paneView(base: Ctx): RenderElement {
   const attention = newAttention(base.state.origin, [])
   const ctx: Ctx = { ...base, kit: wrapKit(base.kit, base.state, attention), attention }
 
-  // The BBS boot screen: the first seconds after the pane opens (or until the first read lands, at most 6 s).
+  // The selected boot screen: a bounded intro while the first snapshot arrives.
   if (isBooting(ctx.state, ctx.nowMs)) {
     const boot = ctx.pictures.get('boot')
 
@@ -422,7 +422,8 @@ export function paneView(base: Ctx): RenderElement {
   // The logo banner leads the main menu in every layout, compact too (the other pages lead with their own title art there).
   const title = (!isCompact || ctx.state.view === 'menu') && header !== undefined && ctx.kit.Raster !== undefined ? [ctx.kit.Raster(header.toRaster('header'))] : []
   const about = blurb(ctx)
-  const bbs = isBbs() ? wildcat(ctx) : { strip: [], art: [] }
+  const orbitalArt = ctx.pictures.get('title')
+  const bbs = isBbs() ? wildcat(ctx) : { strip: [], art: isOrbital() && orbitalArt !== undefined && ctx.kit.Raster !== undefined ? [ctx.kit.Raster(orbitalArt.toRaster('title'))] : [] }
   // The status row (keys, sync, Palette, Actions) sits above the body, so a tall view cannot push it off the screen; only the main menu keeps it below its prompt, as a BBS does.
   const isMenu = ctx.state.view === 'menu'
   // The terminal's own Enter-again confirm stays under its field, where the field is.

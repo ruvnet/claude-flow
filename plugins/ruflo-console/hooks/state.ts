@@ -461,11 +461,15 @@ export const BOOT_MIN_MS = 5_400
 export const BOOT_MAX_MS = 8_000
 
 export function isBooting(state: State, nowMs: number): boolean {
-  if (state.options.look !== 'bbs' || !state.options.boot || state.pane.bootAtMs === 0) return false
+  if (!['bbs', 'orbital'].includes(state.options.look) || !state.options.boot || state.pane.bootAtMs === 0) return false
+  // Reduced motion skips Orbital's decorative intro and cannot leave a static loader blocking the page.
+  if (state.options.look === 'orbital' && state.options.fps === 0) return false
 
   const age = nowMs - state.pane.bootAtMs
 
-  return age >= 0 && age < BOOT_MAX_MS && (age < BOOT_MIN_MS || state.snapshot === null)
+  return state.options.look === 'orbital'
+    ? age >= 0 && age < 6_000 && (age < 1_500 || state.snapshot === null)
+    : age >= 0 && age < BOOT_MAX_MS && (age < BOOT_MIN_MS || state.snapshot === null)
 }
 
 /**

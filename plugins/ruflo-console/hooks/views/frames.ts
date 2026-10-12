@@ -7,6 +7,7 @@ import type { AuditTrend, HarnessScore, Intelligence } from '../data/cli'
 import { recentByAgent } from '../data/events'
 import { agentLabels } from '../data/parse'
 import { presentAgents, swarmStatusOf } from '../data/swarm-status'
+import { orbitalBoot, orbitalHeader } from '../gfx/orbital'
 import { getBootChecks } from '../boot-checks'
 import { bootFacts } from '../boot-facts'
 import { getBuild } from '../build'
@@ -181,9 +182,9 @@ export function picturesOf(state: State, columns: number, nowMs: number, t: numb
   const width = Math.max(20, Math.min(200, hasCards(columns, isCompactPane(state)) ? columns - CARD_COLUMNS : columns))
   const snapshot = state.snapshot
 
-  // The BBS boot screen owns the pane for its first seconds; nothing else is drawn under it.
+  // The selected boot screen owns the pane for its first seconds; nothing else is drawn under it.
   if (isBooting(state, nowMs)) {
-    pictures.set('boot', bootPicture(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.min(width, 90), nowMs - state.pane.bootAtMs, state.probes.size, PROBES.length, state.pane.rows, getBootChecks(), bootFacts(state, CONSOLE_VERSION, getBuild())))
+    pictures.set('boot', state.options.look === 'orbital' ? orbitalBoot(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.min(width, 90), state.options.fps > 0 ? nowMs - state.pane.bootAtMs : 0, getBootChecks()) : bootPicture(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.min(width, 90), nowMs - state.pane.bootAtMs, state.probes.size, PROBES.length, state.pane.rows, getBootChecks(), bootFacts(state, CONSOLE_VERSION, getBuild())))
 
     return pictures
   }
@@ -211,6 +212,11 @@ export function picturesOf(state: State, columns: number, nowMs: number, t: numb
     const names = state.view === 'menu' && !state.isHelp && !state.palette.isOpen ? [name] : [name, page, shortName]
 
     pictures.set('title', titleThatFits(columns, names, (candidate, size) => titlePicture(candidate, size, t, headerAge)))
+  }
+
+  if (state.options.look === 'orbital') {
+    const page = state.isHelp ? 'help' : state.palette.isOpen ? 'commands' : (VIEWS.find(view => view.id === state.view)?.label ?? state.view)
+    pictures.set(state.view === 'menu' ? 'header' : 'title', fitHeader(columns, size => orbitalHeader(page, size, state.options.fps > 0 ? t : 0), 72))
   }
 
   switch (state.view) {
