@@ -169,6 +169,24 @@ describe('console_run with a stale or withdrawable card', () => {
     expect(state.events.some(event => /expired after 30 s, not run/.test(event.text))).toBe(true)
   })
 
+  it('console_state hands the expiry to Claude as lastResult.expired, and an ordinary result carries no such field', async () => {
+    const { state, deps, age } = modelSetup()
+
+    expect(await callTool('console_run', { id: 'mem-store', text: 'console k1 v1' }, deps)).toMatch(/Waiting for the person/)
+    age()
+
+    const expired = JSON.parse(await callTool('console_state', {}, deps)) as { waiting: unknown; lastResult: { ok: boolean; detail: string; expired?: boolean } | null }
+
+    expect(expired.waiting).toBeNull()
+    expect(expired.lastResult).toMatchObject({ ok: false, expired: true })
+    expect(expired.lastResult?.detail).toMatch(/^expired: ask again/)
+
+    state.outcome = { label: 'store a note', ok: true, verified: 'n/a', detail: 'stored', atMs: Date.now() }
+    const ordinary = JSON.parse(await callTool('console_state', {}, deps)) as { lastResult: Record<string, unknown> | null }
+
+    expect(ordinary.lastResult).not.toHaveProperty('expired')
+  })
+
   it('console_run ask-withdraw takes back Claude’s own write-class card; nothing runs', async () => {
     const { state, deps, ran } = modelSetup()
 

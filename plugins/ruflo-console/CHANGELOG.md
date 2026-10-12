@@ -2,8 +2,11 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
-## 0.43.3 — 2026-10-12
+## 0.43.4 — 2026-10-12
 - fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
+## 0.43.3 — 2026-10-12
+- fix: `console_state` tells Claude that a confirm card expired: `lastResult` carries `expired: true` after a card nobody answered was cleared unrun at 30 s (the runner already set the flag; the tool left it out), so Claude can tell "you did not answer" from a run that failed without reading the detail text. An ordinary result has no `expired` field (#3985 follow-up, thanks @proffesor-for-testing, #4067)
 
 ## 0.43.2 — 2026-10-12
 - fix: removing a worktree no longer runs the repository's own programs, and no longer deletes unsaved files: `git worktree remove` runs its own status, which ran `core.fsmonitor` and the `post-index-change` hook, and with `status.showUntrackedFiles=no` it read a worktree holding new files as clean and deleted them. The removal, the worktree status probe, the changed-files read and `describe --dirty` now switch the fsmonitor (and for removal and describe, hooks) off, and list untracked files whatever the setting says (#4090, thanks @proffesor-for-testing, #4092)
