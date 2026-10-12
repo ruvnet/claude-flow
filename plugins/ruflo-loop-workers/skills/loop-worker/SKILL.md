@@ -15,17 +15,25 @@ Then schedule the next iteration. `ScheduleWakeup` needs the loop prompt back so
 
 Stop the loop when the worker reports nothing new twice in a row: `ScheduleWakeup({ stop: true })`.
 
-### Available Workers
+### Available Workers (12, per ADR-0001 and `/ruflo-loop`)
 
-| Worker | Interval | Description |
-|--------|----------|-------------|
-| audit | 270s | Security analysis |
-| optimize | 270s | Performance optimization |
-| consolidate | 600s | Memory consolidation |
-| predict | 270s | Predictive preloading |
-| map | 270s | Codebase mapping |
-| testgaps | 270s | Test coverage analysis |
-| document | 600s | Auto-documentation |
-| benchmark | 600s | Performance benchmarking |
+| Worker | Priority | Interval | Description |
+|--------|----------|----------|-------------|
+| audit | critical | 270s | Security analysis |
+| optimize | high | 270s | Performance optimization |
+| predict | normal | 270s | Predictive preloading |
+| testgaps | normal | 270s | Test coverage analysis |
+| ultralearn | normal | 600s | Deep knowledge acquisition |
+| deepdive | normal | 600s | Deep code analysis |
+| map | normal | 600s | Codebase mapping |
+| document | normal | 600s | Auto-documentation |
+| refactor | normal | 600s | Refactoring suggestions |
+| benchmark | normal | 600s | Performance benchmarking |
+| consolidate | low | 600s | Memory consolidation |
+| preload | low | 270s | Resource preloading |
+
+The intervals are suggested cadences, not enforced by the dispatcher: 270s keeps the prompt cache warm, and the heavier analysis workers run at 600s because one iteration rarely finishes sooner.
+
+Work you start in the background (a build, a long job) finishes with its own completion notification. Do not poll it with short `ScheduleWakeup` calls; use a long fallback delay (1200s or more) so the loop survives a hung job.
 
 MCP tool responses include `[LOOP_SUGGESTION]` and `[CRON_SUGGESTION]` hints -- follow them.
