@@ -20,11 +20,9 @@ import type { Host } from './host'
 import { agentLogs } from './ops'
 import { landingRefusal } from './model-tools'
 import { createRunner, EXPIRY_TIMER, type Runner } from './runner'
-import { advance, loadLedger, mcOf } from './mission-control'
+import { advance, mcOf } from './mission-control'
 import { hasLiveWork } from './mission-list'
-import { loadAllowed } from './remember'
-import { loadThemes } from './themes'
-import { loadAiPrefs } from './settings'
+import { loadSaved } from './startup-loads'
 import { openLoaders } from './view-open'
 import { listSkills } from './skills'
 import { readDrillLogs } from './drill-logs'
@@ -318,10 +316,7 @@ export function createController(state: State, host: Host): Controller {
     let lastIdleMs = 0
 
     // The AI terminal's saved model and budget apply from the first turn, not only once Settings was opened.
-    void loadThemes(state, host)
-    void loadAiPrefs(state, host)
-    void loadAllowed(state, host)
-    void loadLedger(state, host)
+    loadSaved(state, host)
     void host.storeGet(NAV_KEY).then(saved => {
       const style = NAV_STYLES.find(candidate => candidate === saved)
 

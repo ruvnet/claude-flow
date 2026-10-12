@@ -1,6 +1,7 @@
 ---
 name: generate-console-theme
 description: Generate a data-only animated theme preset for Ruflo Console Theme Studio. Use when the user requests a new console color palette, cyberpunk theme, or variation of Orbital globe, stars, and swarm animation in Claude or Codex.
+allowed-tools: Read
 ---
 
 # Generate a Ruflo console theme

@@ -121,14 +121,13 @@ Select a preset to load it immediately. Edit colors or motion and choose **Save 
 
 The demo drives actual console view handlers through boot, Main Menu, all six presets, custom color and motion, save, fresh state restoration from a local JSON store, portable JSON import, reduced motion, and 80/116 column layouts. It checks each transition and writes `receipt.json`. This is a renderer integration demo, not a native Claude host recording: other console actions are not exercised, the FPS setting is changed by the harness, and no AI provider is invoked.
 
-From the repository root, with Node, Python Pillow and ffmpeg available:
+From the repository root, with Node:
 
 ```sh
 npx tsx plugins/ruflo-console/scripts/theme-demo.mts /tmp/ruflo-demo-new
-python3 plugins/ruflo-console/scripts/render-theme-demo.py /tmp/ruflo-demo-new
 ```
 
-Use a fresh output directory. The capture refuses to overwrite an existing `demo-session.json`; omitting the directory creates a unique temporary directory and prints its path. Outputs include a 38 second MP4 at 12 fps, a GIF at 6 fps, captured cell frames and an assertion receipt. Native host rendering and live AI theme generation remain separate acceptance checks.
+Use a fresh output directory. The capture refuses to overwrite an existing `demo-session.json`; omitting the directory creates a unique temporary directory and prints its path. Outputs are `frames.json` (the captured terminal cells for every step, with a caption, palette and column count) and `receipt.json` (what was and was not exercised: no native host, no AI provider). Turning the frames into a GIF or video is left to your own renderer; the repository ships none, so no Python or image library is needed.
 
 The terminal color picker provides swatches and exact `#RRGGBB` entry for headings, success, failure, warning, information and background. Preview the globe and swarm motion, adjust speed and decorative layers, then **Save preview and apply**. Up to twelve named custom presets are stored locally through the host; reusing a name replaces that preset. Failed saves leave the active theme unchanged. Settings `fps: 0` still disables animation. Layouts retain the compact/narrow fallbacks.
 
