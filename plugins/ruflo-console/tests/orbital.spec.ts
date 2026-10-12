@@ -111,3 +111,14 @@ it('shows actual failures immediately while success labels animate', () => {
   expect(gridText(orbitalBoot('project', 72, 700, checks))).toContain('[PASS] SWARM')
   expect(gridText(orbitalBoot('project', 72, 0, []))).toContain('[N/A] No module checks reported')
 })
+
+it('gives swarm control its own bounded routing animation', () => {
+  for (const width of [20, 44, 72]) {
+    const first = orbitalHeader('swarm control', width, 0)
+    const later = orbitalHeader('swarm control', width, 500)
+    expect([first.columns, first.rows]).toEqual([width, 8])
+    expect(first.cells).not.toEqual(later.cells)
+    expect(gridText(first)).toContain('[ + ]')
+    expect(gridText(first)).not.toContain('agents online')
+  }
+})

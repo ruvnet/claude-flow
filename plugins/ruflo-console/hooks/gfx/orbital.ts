@@ -110,7 +110,8 @@ export function orbitalGlobe(columns: number, rows: number, timeMs: number): Gri
 
 /** Fixed-height header: red scan line, travelling ASCII pulse and an orbit marker. */
 export function orbitalHeader(label: string, columns: number, timeMs: number): Grid {
-  const grid = blank(columns, 4)
+  const swarm = /swarm/i.test(label)
+  const grid = blank(columns, swarm ? 8 : 4)
   const tick = Math.floor((Number.isFinite(timeMs) ? timeMs : 0) / 160)
   const title = ` RUFLO / ${label.toUpperCase()} `
   grid.text(0, 0, title.slice(0, grid.columns), RED)
@@ -124,7 +125,30 @@ export function orbitalHeader(label: string, columns: number, timeMs: number): G
     grid.set(x, 2, phase === 9 ? '|' : phase === 8 || phase === 10 ? '/' : phase === 7 || phase === 11 ? '.' : '_', phase >= 7 && phase <= 11 ? GREEN : DIM)
   }
   grid.text(Math.max(0, grid.columns - 10), 2, `[${'|/-\\'[Math.abs(tick) % 4]}] ORBIT`, RED)
-  if (grid.columns >= 30) grid.text(0, 3, ' ruvnet / agent swarm console', DIM)
+  if (swarm) {
+    // A decorative routing motif, separate from the page's measured swarm topology.
+    for (let y = 1; y < grid.rows; y++) grid.text(0, y, ' '.repeat(grid.columns), DIM)
+    const center = { x: Math.floor(grid.columns / 2), y: 3 }
+    const spread = Math.max(4, Math.floor(grid.columns * 0.34))
+    const nodes = [-1, 1].flatMap(side => [1, 3, 5].map(y => ({ x: center.x + side * spread, y })))
+    const ms = Number.isFinite(timeMs) ? timeMs : 0
+    nodes.forEach((node, index) => {
+      const dx = node.x - center.x
+      const dy = node.y - center.y
+      const steps = Math.max(Math.abs(dx), Math.abs(dy))
+      const pulse = ((ms / 1400 + index / nodes.length) % 1 + 1) % 1
+      for (let step = 1; step < steps; step++) {
+        const f = step / steps
+        const x = Math.round(center.x + dx * f)
+        const y = Math.round(center.y + dy * f)
+        const distance = pulse - f
+        grid.set(x, y, distance >= 0 && distance < 0.12 ? (dx < 0 ? '<' : '>') : '.', distance >= 0 && distance < 0.12 ? GREEN : 0x35413c)
+      }
+      grid.text(node.x - 1, node.y, '[o]', pulse > 0.8 ? INK : RED)
+    })
+    grid.text(center.x - 2, center.y, '[ + ]', INK)
+    grid.text(1, 7, ' Decorative routing / live topology below', DIM)
+  } else if (grid.columns >= 30) grid.text(0, 3, ' ruvnet / agent swarm console', DIM)
   return grid
 }
 
@@ -151,11 +175,25 @@ export function orbitalBoot(project: string, columns: number, timeMs: number, ch
   }
   grid.text(0, 3, ' ruvnet / ORBITAL', DIM)
   const globe = orbitalGlobe(grid.columns, 16, timeMs)
+  const intro = Math.max(0, Number.isFinite(timeMs) ? timeMs : 0)
+  const reveal = Math.min(1, Math.max(0, (intro - 150) / 750))
+  const eased = 1 - Math.pow(1 - reveal, 3)
+  const halfWidth = Math.ceil(grid.columns * eased / 2)
   const left = Math.floor((grid.columns - globe.columns) / 2)
   for (let y = 0; y < globe.rows; y++) for (let x = 0; x < globe.columns; x++) {
+    if (Math.abs(x - (grid.columns - 1) / 2) > halfWidth) continue
     const i = (y * globe.columns + x) * 3
     grid.set(left + x, y + 4, globe.cells[i]!, globe.cells[i + 1]!, BLACK)
   }
+  // Acquisition brackets settle inward as the globe resolves; they do not represent data readiness.
+  const inset = Math.round(2 + 5 * eased)
+  for (const y of [5, 18]) {
+    grid.text(inset, y, '+--', RED)
+    grid.text(Math.max(inset + 3, grid.columns - inset - 3), y, '--+', RED)
+  }
+  const loaderWidth = Math.max(1, grid.columns - 4)
+  const loader = Math.floor((Math.sin(intro / 450) + 1) / 2 * (loaderWidth - 1))
+  for (let x = 0; x < loaderWidth; x++) grid.set(x + 2, 2, Math.abs(x - loader) < 3 ? '=' : '.', Math.abs(x - loader) < 3 ? GREEN : 0x303c37)
   grid.text(0, 20, ' LOADING CONSOLE / decorative orbit', RED)
   const passed = checks?.filter(c => c.ok).length ?? 0
   const failed = checks?.filter(c => !c.ok).length ?? 0
