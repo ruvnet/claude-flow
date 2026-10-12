@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- `ruflo init` / `init --dual` / `@claude-flow/codex init` no longer write a permissive `.codex/config.toml` by default. The generated file now uses `sandbox_mode = "workspace-write"`, `approval_policy = "on-request"` and `web_search = "cached"` (**standard** trust); the old `danger-full-access` / `never` / `live` file needs an explicit `--codex-trust full` (or `RUFLO_CODEX_TRUST=full`). `init` prints which level was written, an existing `.codex/config.toml` is never rewritten (not even with `--force`), and a kept permissive file is flagged with how to tighten it. Found by the three-host e2e run (ADR-490). `@claude-flow/codex` 3.0.4 (bundled, ships with the next train).
+
+### Added
+
+- `ruflo doctor` reports `better-sqlite3` copies compiled against Node 24.19+ headers when running Node 24.19–24.21, where they can abort the process (`Assertion failed: (env) != nullptr`, nodejs/node#65446), with the documented workarounds. `doctor --component native-addon` runs it alone (#4055, reported by @ronmikailov).
+
 ### Fixed
+
+- `@claude-flow/shared` 3.0.4: RVF event log no longer loses appends after a damaged tail (#4031, @rudycelekli). A partial length prefix, a partial payload or a record cut short is truncated on open, so later appends are readable; an unwritable log (EACCES/EROFS/EPERM) keeps its readable history and rejects appends explicitly. A tail whose length prefix is over the 100 MB limit is no longer accepted silently (found by @martinvlad): the bytes are kept and `append()` rejects until repaired, or set `repairOversizedTail: true` to truncate it. `append()` also refuses a record the replay limit would never read back. A fresh install can now import the package root and its tarball ships no test files: `zod`, `express`, `cors`, `helmet`, `ws` and `@types/ws` are declared dependencies, Express 5 bodiless POST and malformed-JSON requests get JSON-RPC 400s (#4091/#4089, @proffesor-for-testing).
 
 Batch of reviewed fixes from @rudycelekli (PRs #4020-#4026, #4028-#4030, #4032, #4033, #4035, #4037; #4027 and #4034 landed earlier):
 
@@ -15,6 +25,51 @@ Batch of reviewed fixes from @rudycelekli (PRs #4020-#4026, #4028-#4030, #4032, 
 - `@claude-flow/shared` 3.0.3: RVF event log honours zero limits, rebuilds indexes on retried initialization and isolates persisted records from caller mutation; circuit breaker returns independent date snapshots and expires rolling requests on completion.
 - `ruflo-adr` 0.5.5 (see its changelog).
 - Not included: #4031 (RVF truncated-tail recovery) is waiting on the author for a read-only-log fallback.
+
+## [3.56.8] - 2026-10-12
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.8. `@claude-flow/shared` 3.0.4 was published earlier and is now pinned exactly (3.56.7 still pinned 3.0.3). No other published package changed since 3.56.7; signed helpers did not change.
+
+### Fixed
+
+- `@claude-flow/shared` 3.0.4: the RVF event log repairs an incomplete or damaged tail before appending (#4031 by @rudycelekli); a clean install can import `.`, `./core` and `./mcp` because zod and express are now declared, and the tarball no longer ships compiled tests (#4089, #4091 by @proffesor-for-testing; the fresh-consumer finding came from @martinvlad, with `scripts/smoke-shared-fresh-consumer.mjs`).
+- `hooks coverage-gaps`: files with no executable lines are no longer reported as 0%, overall coverage is line-weighted, the command reads `coverage-final.json`, and the report size is capped (#4082-#4084, reported by @ronmikailov; #4097). Plugin workflow contracts for `ruflo-testgen` and `ruflo-sparc` were corrected in the same change (#4085-#4088; marketplace plugins, not npm).
+
+## [3.56.7] - 2026-10-11
+
+Minor-feature patch: `@claude-flow/codex` 3.0.4 (published standalone; the CLI and root pin it exactly) and `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.7. Signed helpers changed (#4071, re-signed there).
+
+### Added
+
+- `ruflo tui`: the ruflo console in a terminal of its own (ADR-489, #4059, #4075, #4076). Six pages, opened with `--view` or keys 1-6: Overview, Cost, Swarm, Events, Missions (read-only) and an AI page that asks Codex (pinned 0.162.0, read-only) or OpenRouter, each question after a confirm card; `--no-ai` turns it off and `--max-spend-usd` (default 0.5) stops sending to OpenRouter once the provider-reported spend reaches it. `--plain` prints one frame and exits 0; without a terminal it exits 2 with a hint. `prepare-publish` stages the bundled `plugins/ruflo-console/dist/tui.mjs` (about 1.27 MB, 446 KB gzipped) into the CLI tarball (about 0.4 MB larger, 3.9 MB packed). Console 0.42.7 is a marketplace plugin, not npm.
+- MCP resources capability on the CLI server, and a three-host integration loop (Claude Code, Codex, OpenRouter) with ADR-490/491 (#4068).
+- `doctor` flags a better-sqlite3 built against Node 24.19+ headers on Node 24.19-24.21 (#4069, #4074; reported in #4055 by @ronmikailov).
+- `ruflo mods`: doctor repairs that repair, `--strict`, atomic install, startup self-check (#4073).
+
+### Fixed
+
+- Auto-memory hooks deliver their subcommand, sync sees learnings, worktrees share the main memory dir, store writes are atomic (#4071, #4058 by @ronmikailov).
+- `memory purge` keeps the on-disk format on sql.js write-back (#4057); command recording has an off switch and redaction, and `memory cleanup --expired-only` reaches the bridge store (#4056, #4072; both reported by @ronmikailov).
+- `init --dual` writes a safe default `.codex/config.toml`; the previous permissive values now need `--codex-trust full` (#4070).
+
+### Known
+
+- Nested better-sqlite3 11.x copies under agentdb and agentic-flow still ship; fixing that needs an agentdb release depending on better-sqlite3 ^12. `doctor` warns on affected Node versions.
+
+## [3.56.6] - 2026-10-11
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.6, with the already-published leaves `@claude-flow/cli-core` 3.7.1 and `@claude-flow/shared` 3.0.3 now pinned exactly. Signed helpers changed (`hook-handler.cjs`) and were re-signed in #4053.
+
+### Fixed
+
+- Windows hooks launch through `node -e` instead of `cmd /c`, which started an interactive cmd that executed the hook JSON payload and created stray files (#4045).
+- The settings.json risk scanner now runs on the automatic SessionStart hook; both scanners match encoded PowerShell in linear time (#4052, #4053).
+- Trajectory-end feedback is indexed even when steps were recorded (#3662, #4051).
+- `@claude-flow/cli-core` 3.7.1 and `@claude-flow/shared` 3.0.3: JSON memory backend, table/progress output, RVF event log and circuit breaker fixes from a reviewed batch by @rudycelekli (#4061; PRs #4020-#4026, #4028-#4030, #4032, #4033, #4035, #4037).
+
+### Plugins (no npm impact)
+
+- `ruflo-cost-tracker`: preserve Codex usage ownership (#4048, @Devesh-Maheshwari). `ruflo-swarm`: host-specific no-op manifest for native Codex hook discovery (#4050). `ruflo-adr` 0.5.5.
 
 ## [3.56.5] - 2026-10-11
 

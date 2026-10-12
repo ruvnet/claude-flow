@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.5 — 2026-10-12
+- fix: status lists every workflow with exact paginated reads (not a semantic top-10), completed workflows are closed (`status: "complete"`) and refuse another advance (#4086); the orchestrator and phase skills name the registered `ruflo-core:researcher`, `ruflo-goals:goal-planner`, `ruflo-swarm:architect`, `ruflo-core:coder`, `ruflo-testgen:tester` and `ruflo-core:reviewer` agents (#4087); commands are written as `/ruflo-sparc:ruflo-sparc <verb>`, the form that exists (#4088)
+
 ## 0.3.4 — 2026-10-08
 - feat: native Codex hooks (`.codex-plugin`, `hooks/codex-hooks.json`, generated `codex-hook.cjs`) reusing the existing guard, screen and status functions
 - fix: allow native freeform tool inputs in the Codex adapter and version the Codex hook repair

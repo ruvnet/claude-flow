@@ -1317,7 +1317,10 @@ function doStatus() {
 // Suppress unhandled rejection warnings from dynamic import() failures
 process.on('unhandledRejection', () => {});
 
-const command = process.argv[2] || 'status';
+// Older settings.json files ran node -e with the helper imported, which puts the
+// subcommand in argv[1] (#4058); accept that shape as well as script import.
+const COMMANDS = ['import', 'sync', 'status'];
+const command = process.argv[2] || (COMMANDS.includes(process.argv[1]) ? process.argv[1] : 'status');
 
 try {
   switch (command) {

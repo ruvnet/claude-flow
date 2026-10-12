@@ -1,0 +1,85 @@
+TAP version 13
+# Subtest: \#4082 empty instrumented file is fully covered, not a gap
+ok 1 - \#4082 empty instrumented file is fully covered, not a gap
+  ---
+  duration_ms: 4.028692
+  ...
+# Subtest: \#4082 pct-only summaries preserve explicit zero and nonzero percentages
+ok 2 - \#4082 pct-only summaries preserve explicit zero and nonzero percentages
+  ---
+  duration_ms: 1.0368
+  ...
+# Subtest: \#4083 LCOV aggregates counts for every metric, including unterminated last record
+ok 3 - \#4083 LCOV aggregates counts for every metric, including unterminated last record
+  ---
+  duration_ms: 1.210651
+  ...
+# Subtest: \#4084 Istanbul final and NYC counters count unique lines and individual branch arms
+ok 4 - \#4084 Istanbul final and NYC counters count unique lines and individual branch arms
+  ---
+  duration_ms: 1.798471
+  ...
+# Subtest: empty or malformed reports do not hide a valid fallback
+ok 5 - empty or malformed reports do not hide a valid fallback
+  ---
+  duration_ms: 1.277701
+  ...
+# Subtest: Istanbul empty-file Unknown sentinel yields numeric 100% in totals and entries
+not ok 6 - Istanbul empty-file Unknown sentinel yields numeric 100% in totals and entries
+  ---
+  duration_ms: 3.057651
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:64:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    'Unknown' !== 100
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 100
+  actual: 'Unknown'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:68:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: legacy NYC summary reports remain readable
+not ok 7 - legacy NYC summary reports remain readable
+  ---
+  duration_ms: 1.124631
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:71:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    false !== true
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:73:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 5
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 33.309396

@@ -28,7 +28,7 @@ export type NavStyle = 'auto' | 'icons' | 'brief' | 'full'
 export const NAV_STYLES: readonly NavStyle[] = ['auto', 'icons', 'brief', 'full']
 export const NAV_KEY = 'nav-style'
 
-export type ViewId = 'menu' | 'overview' | 'swarm' | 'workflows' | 'hive' | 'claims' | 'federation' | 'plugins' | 'learning' | 'metaharness' | 'memory' | 'cost' | 'timeline' | 'approvals' | 'events' | 'room' | 'missions' | 'xruv' | 'terminal' | 'skills' | 'agent' | 'secure' | 'perf' | 'automate' | 'neural' | 'vector' | 'evolve' | 'devtools' | 'sandbox' | 'market' | 'settings' | 'whatsnew' | 'adrs'
+export type ViewId = 'menu' | 'overview' | 'swarm' | 'workflows' | 'hive' | 'claims' | 'federation' | 'plugins' | 'learning' | 'metaharness' | 'memory' | 'cost' | 'timeline' | 'approvals' | 'events' | 'room' | 'missions' | 'xruv' | 'terminal' | 'skills' | 'agent' | 'secure' | 'perf' | 'automate' | 'neural' | 'vector' | 'evolve' | 'devtools' | 'sandbox' | 'market' | 'settings' | 'themes' | 'whatsnew' | 'adrs'
 
 /**
  * The views in tab order, each with its hotkey and the inline height it asks for. Digits are the first nine; the three
@@ -73,6 +73,7 @@ export const VIEWS: readonly { id: ViewId; key: string; label: string; short: st
   { id: 'market', key: 'm', label: 'Plugin Catalog', short: 'Cat', icon: '📦', blurb: 'every ruflo plugin, mod and skill: what it ships, install, enable, disable, update, view and use', rows: 50 },
   { id: 'adrs', key: '', label: 'ADRs', short: 'ADR', icon: '📐', blurb: 'your project’s Architecture Decision Records: find, propose, accept and supersede them, attach them to a mission so Claude and the swarm follow what was decided', rows: 44 },
   { id: 'whatsnew', key: '', label: 'What’s new', short: 'New', icon: '🆕', blurb: 'what changed in your ruflo plugins, newest first: from each plugin’s own CHANGELOG, breaking changes pinned until you dismiss them', rows: 40 },
+  { id: 'themes', key: '', label: 'Theme Studio', short: 'Themes', icon: '◈', blurb: 'theme selection, color picker, animated palettes and Claude or Codex theme generator', rows: 50 },
   { id: 'settings', key: 's', label: 'Settings', short: 'Set', icon: '⚙️', blurb: 'simple to advanced settings: plugin options, ruflo config, updates, and the AI terminal’s model and budget, each edited in place', rows: 50 },
 ]
 
@@ -115,8 +116,8 @@ export type Options = GuardOptions & ConvoOptions & SessionOptions & {
   panel: 'auto' | 'command' | 'off'
   /** Lets the federation view ask the public relay for the roster. Off by default: no network without consent. */
   federationNetwork: boolean
-  /** `bbs`: the neon ASCII-art look (default); `plain`: the terminal theme's own colours and plain rules. */
-  look: 'bbs' | 'plain'
+  /** `bbs`: neon (default); `plain`: terminal colours; `orbital`: dark telemetry panels with red accents. */
+  look: 'bbs' | 'plain' | 'orbital'
   /** With the bbs look, a short dial-up boot screen when the cockpit opens. */
   boot: boolean
   /** ADR-474: keep the Events and Timeline history in `.claude-flow/console/` (events.jsonl, lanes.jsonl). On by default; masked text only. */
@@ -140,7 +141,7 @@ export function optionsOf(raw: PluginOptions | undefined): Options {
     bar: value.bar === 'on' || value.bar === 'off' ? value.bar : 'auto',
     panel: value.panel === 'command' || value.panel === 'off' ? value.panel : 'auto',
     federationNetwork: value.federationNetwork === true,
-    look: value.look === 'plain' ? 'plain' : 'bbs',
+    look: value.look === 'plain' || value.look === 'orbital' ? value.look : 'bbs',
     boot: value.boot !== false,
     eventsPersist: value.eventsPersist !== false && value.eventsPersist !== 'false',
     ...guardOptionsOf(raw),
@@ -197,6 +198,8 @@ export type State = {
   configDir: string | null
   /** False in a session with no pane to show (claude -p, an SDK host): views are then answered as text. */
   isInteractive: boolean
+  /** True on the standalone terminal host (ADR-489): there is no Claude session, prompt box, tab bar or mouse, so the shared chrome and the Claude-only controls are not drawn. False under Claude Code. */
+  isStandalone: boolean
   /** When this module loaded: "since the console loaded" series and stall times count from here. */
   loadedAtMs: number
   view: ViewId
@@ -343,6 +346,7 @@ export function newState(raw: PluginOptions | undefined): State {
     nostrKeyVerifiedAtMs: null,
     configDir: null,
     isInteractive: true,
+    isStandalone: false,
     loadedAtMs: Date.now(),
     view: 'overview',
     back: 'overview',
@@ -458,11 +462,15 @@ export const BOOT_MIN_MS = 5_400
 export const BOOT_MAX_MS = 8_000
 
 export function isBooting(state: State, nowMs: number): boolean {
-  if (state.options.look !== 'bbs' || !state.options.boot || state.pane.bootAtMs === 0) return false
+  if (!['bbs', 'orbital'].includes(state.options.look) || !state.options.boot || state.pane.bootAtMs === 0) return false
+  // Reduced motion skips Orbital's decorative intro and cannot leave a static loader blocking the page.
+  if (state.options.look === 'orbital' && state.options.fps === 0) return false
 
   const age = nowMs - state.pane.bootAtMs
 
-  return age >= 0 && age < BOOT_MAX_MS && (age < BOOT_MIN_MS || state.snapshot === null)
+  return state.options.look === 'orbital'
+    ? age >= 0 && age < 6_000 && (age < 1_500 || state.snapshot === null)
+    : age >= 0 && age < BOOT_MAX_MS && (age < BOOT_MIN_MS || state.snapshot === null)
 }
 
 /**

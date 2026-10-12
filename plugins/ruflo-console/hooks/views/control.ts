@@ -8,7 +8,7 @@ const MARK = { ok: '✓', waiting: '…', denied: '✕', error: '!' } as const
 const COLOR = { ok: THEME.ok, waiting: THEME.warn, denied: THEME.bad, error: THEME.bad } as const
 
 /** True while control is on or Claude has acted this session: then the dashboard leads the page, so it is never below the fold. */
-export const isControlActive = (ctx: Ctx): boolean => levelOf(settingsOf(ctx.state).ai.modelControl) !== 'off' || ctx.state.control.log.length > 0
+export const isControlActive = (ctx: Ctx): boolean => !ctx.state.isStandalone && levelOf(settingsOf(ctx.state).ai.modelControl) !== 'off' || ctx.state.control.log.length > 0
 
 /**
  * The "Claude control" dashboard (ADR-444): whether Claude may drive the console and how far, what it has done this session, and the
@@ -16,6 +16,9 @@ export const isControlActive = (ctx: Ctx): boolean => levelOf(settingsOf(ctx.sta
  */
 export function controlRows(ctx: Ctx): RenderElement[] {
   const { state } = ctx
+
+  // The standalone terminal has no Claude session to control the console: the card would describe a thing that cannot happen here.
+  if (state.isStandalone) return []
   const ai = settingsOf(state).ai
   const level = levelOf(ai.modelControl)
   const control = state.control

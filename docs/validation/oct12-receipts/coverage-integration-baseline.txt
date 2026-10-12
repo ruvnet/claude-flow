@@ -1,0 +1,88 @@
+
+ RUN  v4.1.0 <repo>
+
+ ❯ v3/@claude-flow/cli/__tests__/hooks-coverage-disk.test.ts (3 tests | 3 failed) 25ms
+     × does not route or suggest tests for empty instrumented files 18ms
+     × propagates weighted LCOV totals to gaps and routing 2ms
+     × reads Istanbul final counters through every coverage hook without MCP fallback 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  v3/@claude-flow/cli/__tests__/hooks-coverage-disk.test.ts > coverage hooks disk integration (#4082–#4084) > does not route or suggest tests for empty instrumented files
+AssertionError: expected { success: true, data: { …(6) } } to match object { success: true, …(1) }
+(9 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "data": {
+-     "gaps": [],
++     "gaps": [
++       {
++         "complexity": 10,
++         "coveragePercent": 0,
++         "filePath": "src/empty.ts",
++         "gapType": "critical",
++         "priority": 10,
++         "reason": "Line coverage 0.0% below 80% threshold",
++         "suggestedAgents": [
++           "tester",
++           "coder",
++         ],
++       },
++     ],
+      "summary": {
+-       "overallLineCoverage": 100,
++       "overallLineCoverage": "Unknown",
+      },
+    },
+    "success": true,
+  }
+
+ ❯ v3/@claude-flow/cli/__tests__/hooks-coverage-disk.test.ts:42:18
+     40|     writeFileSync('coverage/coverage-summary.json', JSON.stringify({ t…
+     41|     const gaps = await run('coverage-gaps');
+     42|     expect(gaps).toMatchObject({ success: true, data: { gaps: [], summ…
+       |                  ^
+     43|     const route = await run('coverage-route', { task: 'write tests for…
+     44|     expect(route).toMatchObject({ success: true, data: { gaps: [], met…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  v3/@claude-flow/cli/__tests__/hooks-coverage-disk.test.ts > coverage hooks disk integration (#4082–#4084) > propagates weighted LCOV totals to gaps and routing
+AssertionError: expected 55 to be close to 10.891089108910892, received difference is 44.10891089108911, but expected 0.005
+ ❯ v3/@claude-flow/cli/__tests__/hooks-coverage-disk.test.ts:52:60
+     50|     writeFileSync('coverage/lcov.info', 'SF:large.ts\nLF:100\nLH:10\nB…
+     51|     const gaps = await run('coverage-gaps');
+     52|     expect((gaps.data as any).summary.overallLineCoverage).toBeCloseTo…
+       |                                                            ^
+     53|     expect((gaps.data as any).summary.overallBranchCoverage).toBeClose…
+     54|     const route = await run('coverage-route', { task: 'write tests' });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  v3/@claude-flow/cli/__tests__/hooks-coverage-disk.test.ts > coverage hooks disk integration (#4082–#4084) > reads Istanbul final counters through every coverage hook without MCP fallback
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ v3/@claude-flow/cli/__tests__/hooks-coverage-disk.test.ts:65:30
+     63|     for (const name of ['coverage-gaps', 'coverage-route', 'coverage-s…
+     64|       const result = await run(name, { task: 'test auth', path: 'src/a…
+     65|       expect(result.success).toBe(true);
+       |                              ^
+     66|       expect((result.data as any).source).toBe('coverage/coverage-fina…
+     67|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 39 passed (42)
+   Start at  13:18:41
+   Duration  1.03s (transform 539ms, setup 0ms, import 617ms, tests 51ms, environment 0ms)

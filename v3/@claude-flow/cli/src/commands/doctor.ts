@@ -12,6 +12,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { createHash } from 'crypto';
 import { ownInstallAncestors } from '../plugins/own-install.js';
+import { checkNativeAddonHeaders } from './doctor-native-addon.js';
 import { execSync, exec, execFile } from 'child_process';
 import { promisify } from 'util';
 import { decodeKey, isEncryptionEnabled } from '../encryption/vault.js';
@@ -2669,6 +2670,7 @@ export const doctorCommand: Command = {
         checkMemoryCritiqueCoverage,  // #2677 check 6: feedback carries lessons
       ]; },
       'memory-package': checkMemoryPackageVersion, // #3392
+      'native-addon': () => checkNativeAddonHeaders(), // #4055
       'learning': checkLearningBridge, // #2545
       'learning-bridge': checkLearningBridge, // #2545
       'api': checkApiKeys,
@@ -2794,6 +2796,7 @@ export const doctorCommand: Command = {
       checkMemoryPersistenceDriver, // #2968/#3321 — read-only native capability probe
       checkLearningBridge, // #2545 — can the auto-memory hook actually load @claude-flow/memory?
       checkMemoryPackageVersion, // #3392 — loaded @claude-flow/memory must satisfy the CLI's declared range
+      () => checkNativeAddonHeaders(), // #4055 — better-sqlite3 built against Node 24.19+ headers on 24.19-24.21
       checkApiKeys,
       checkMcpServers,
       checkMcpSchemaOverhead, // #2726 — fixed tools/list prompt cost

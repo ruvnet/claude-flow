@@ -52,6 +52,7 @@ export const VIEW_ASK: Record<ViewId, ViewAsk> = {
   market: { default: 'Which of these plugins would help most for what I am doing?' },
   adrs: { default: 'Which of my project’s ADRs matter for what I am working on, and does anything I have changed cut across an accepted decision?' },
   whatsnew: { default: 'Which of these plugin changes matter for how I work, and does any breaking change need action from me?' },
+  themes: { default: 'Help me design a readable animated console theme with Theme Studio.' },
   settings: { default: 'Which of these settings should I change for how I work?' },
   agent: { default: 'What is this agent doing, and is anything wrong with it?' },
 }

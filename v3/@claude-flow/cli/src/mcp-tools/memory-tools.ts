@@ -1477,7 +1477,8 @@ export const memoryTools: MCPTool[] = [
       const dryRun = input.dryRun !== false; // default true
       const namespace = input.namespace ? String(input.namespace) : undefined;
       if (namespace) { const v = validateIdentifier(namespace, 'namespace'); if (!v.valid) throw new Error(v.error); }
-      const all = await listEntries({ limit: 100000, namespace });
+      // #4056: TTL hides expired rows from normal reads, so the cleanup has to ask for them.
+      const all = await listEntries({ limit: 100000, namespace, includeExpired: true });
       const now = Date.now();
       const expired = all.entries.filter(e => {
         const exp = (e as { expiresAt?: string | number | null }).expiresAt;

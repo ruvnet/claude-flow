@@ -208,7 +208,7 @@ export const MORE_TOPICS: readonly HelpTopic[] = [
     summary: 'change how the console looks and behaves, in place',
     steps: [
       { text: 'Open Settings (key s). Each row is edited right there.', go: { view: 'settings' } },
-      { text: 'look: bbs is the neon look, plain uses your terminal’s own colours. boot turns the intro on or off.' },
+      { text: 'look: bbs is neon, plain uses terminal colours, orbital is dark telemetry with square red panels. boot turns the intro on or off.' },
       { text: 'fps sets how fast things move: 0 turns motion off, 12 is the most.' },
       { text: 'panel decides whether the cockpit opens by itself: auto, only on /ruflo, or never.' },
       { text: 'More options (how often the disk is re-read, the band above the prompt) are listed under the plugin’s options.' },
@@ -259,6 +259,22 @@ export const MORE_TOPICS: readonly HelpTopic[] = [
     ],
     related: ['updates', 'plugins'],
     keywords: ['changelog', 'release', 'notes', 'new', 'breaking', 'version', 'changes'],
+  },
+  {
+    id: 'themes',
+    title: 'Theme Studio: look, colors and motion',
+    group: 'Console',
+    summary: 'pick Classic BBS, plain or Orbital, tune colors and motion, save presets',
+    steps: [
+      { text: 'Open Theme Studio (Main Menu → Tools, the TOOLS group, Settings, or /ruflo themes). 01 LOOK picks Classic BBS (the default), Terminal plain or Orbital, and six bundled color presets.', go: { view: 'themes' } },
+      { text: '02 CUSTOMIZE has three tabs. Colors: name the theme, pick a role (head, ok, bad, warn, info, background) and type a hex color such as #72c79b. Motion: stars, globe and topology on or off, and speed 0.25x to 2x.' },
+      { text: 'Save and apply needs at least 3:1 contrast between each color and the background. Up to twelve named themes are kept; reuse a name to replace one. If saving fails, the active theme is unchanged.' },
+      { text: 'Discard draft changes restores the active palette. Use configured look goes back to the look set in Settings.' },
+      { text: 'AI tab: describe a theme, press Generate with Claude or Codex, then paste the returned JSON into Import and Save. The generator returns data only; the import accepts a strict schema up to 4096 characters.' },
+      { text: 'Motion follows the fps option. Set fps to 0 for a still frame (reduced motion). Colors use the 256-color palette in tmux.' },
+    ],
+    related: ['settings', 'terminal'],
+    keywords: ['theme', 'themes', 'color', 'colors', 'orbital', 'look', 'animation', 'motion', 'palette', 'appearance', 'dark'],
   },
   {
     id: 'headless',

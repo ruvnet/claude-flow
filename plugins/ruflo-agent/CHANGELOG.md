@@ -2,6 +2,11 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.3 — 2026-10-11
+- fix: the four nested-queen agents passed `content:`/`namespace:` to `aidefence_scan` and `aidefence_is_safe`, whose required parameter is `input`; the screen would have failed validation instead of scanning. Now `input:`, and a failed or unavailable scan is treated as unsafe
+- fix: nested-queen agents documented a `ruflo cost` command, a `queen` role for `hive-mind_spawn`, `scope`/`depth_remaining` parameters on the claims tools and `byzantine` as a `hive-mind_consensus` strategy; none exist. Added a verified call-shape table and a note that scope reduction and the depth cap are not enforced by the claims tools
+- docs: README tool count corrected (27 WASM tools, 6 managed-agent tools)
+
 ## 0.3.2 — 2026-10-05
 - fix: shared textsOf reports truncation and every guard fails closed on it
 
