@@ -35,7 +35,10 @@ export const INJECTION: Rules = [
   ['new instructions', /\b(?:new|updated|real) (?:system )?instructions?\s*:/i],
   ['fake role tags', /<\/?\s*(?:system|assistant|developer|instructions?)\s*>|^\s*(?:system|assistant)\s*:/im],
   ['concealment', /\bdo not (?:tell|inform|mention|reveal)[^.\n]{0,30}\b(?:user|human|operator)\b/i],
-  ['exfiltration', /\b(?:exfiltrate|send|post|upload)\b[^.\n]{0,50}\b(?:secrets?|credentials?|tokens?|api keys?|\.env)\b/i],
+  // `.env` has no word start before its dot, so it is matched on its own ("upload the .env file", "send ./config.env",
+  // ".envrc"); a dot inside a word does not end the phrase. A model's token counts are not credentials: --max-tokens,
+  // /oauth/token and "token usage/count/limit/budget/window" are left out (a file named token, /run/token, is not).
+  ['exfiltration', /\b(?:exfiltrate|send|post|upload)\b(?:[^.\n]|\.(?=\S)){0,50}(?:\b(?:secrets?|credentials?|api keys?)\b|(?:(?<!max[_-]?)\btokens\b|(?<!oauth\/)\btoken\b)(?![\s_-]*(?:usage|counts?|limits?|budgets?|window)\b)|\.env(?:rc)?\b)/i],
   ['shell pipe', /\b(?:curl|wget)\b[^|\n]{0,200}\|\s*(?:sudo\s+)?(?:ba|z)?sh\b/i],
 ]
 
