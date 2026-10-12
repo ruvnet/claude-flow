@@ -63,7 +63,7 @@ function render(el:any,avail=columns):R {
 }
 
 const noop:any=new Proxy(()=>undefined,{get:()=>noop})
-const act=new Proxy(noop,{get:(_,key)=>key==='themes'?actions:key==='view'?(view:any)=>{state.view=view}:noop})
+const act=new Proxy(noop,{get:(_,key)=>key==='themes'?actions:key==='view'?(view:any)=>{state.view=view;state.pane.viewAtMs=clock}:noop})
 const flat=(node:any):any[]=>node&&typeof node==='object'?[node,...(Array.isArray(node.props?.children)?node.props.children.flatMap(flat):flat(node.props?.children))]:[]
 let clock=1
 const draw=()=>paneView({state,kit,act,columns,nowMs:clock,pictures:picturesOf(state,columns,clock,clock)} as any)
@@ -81,7 +81,7 @@ function capture(seconds:number,caption:string){
 }
 state.options.boot=true;state.pane.bootAtMs=1
 capture(3,'01 / BOOT / actual local self checks')
-state.options.boot=false
+state.options.boot=false;state.pane.viewAtMs=clock
 capture(3,'02 / MAIN MENU / full console navigation')
 await click('menu-go-themes');assert.equal(state.view,'themes');evidence.push('Main menu opens Theme Studio')
 for(const preset of THEME_PRESETS){
@@ -97,7 +97,7 @@ assert.equal(activeTheme(state).name,'Synthwave');capture(2,'04 / CUSTOMIZE / dr
 await click('theme-tab-motion');await click('theme-speed-0.5');capture(2,'05 / MOTION / half speed globe and orchestration')
 await click('theme-save');assert.equal(activeTheme(state).name,'Night Shift');evidence.push('Custom color and motion persisted to disk')
 capture(2,'06 / SAVE / custom Night Shift palette applied')
-state=fresh();actions=themeActions(state,host,()=>{});await loadThemes(state,host)
+state=fresh();actions=themeActions(state,host,()=>{});await loadThemes(state,host);state.pane.viewAtMs=clock
 assert.equal(activeTheme(state).name,'Night Shift');assert.equal(activeTheme(state).motion.speed,0.5);assert.equal(activeTheme(state).palette.head,'#79dfff');evidence.push('Fresh state restores custom palette and motion from disk')
 capture(3,'07 / REOPEN / saved selection restored from disk')
 await click('menu-go-themes');await click('theme-tab-generate')
