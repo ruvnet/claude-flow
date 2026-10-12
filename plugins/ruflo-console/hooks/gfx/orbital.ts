@@ -9,7 +9,7 @@ const DIM = 0x596561
 const BLACK = 0x000000
 const TAU = Math.PI * 2
 
-// Original five-row ASCII wordmark. Small panes use the readable text lockup.
+// Original five-row block wordmark. Small panes use the readable text lockup.
 const WORDMARK = [
   '####  #   # ##### #      ### ',
   '#   # #   # #     #     #   #',
@@ -92,7 +92,7 @@ export function orbitalBoot(project: string, columns: number, timeMs: number, ch
     const offset = Math.floor((grid.columns - WORDMARK[0].length) / 2)
     const sweep = Math.floor((Number.isFinite(timeMs) ? timeMs : 0) / 160) % WORDMARK[0].length
     WORDMARK.forEach((line, y) => {
-      for (let x = 0; x < line.length; x++) grid.set(offset + x, y, line[x]!, x === sweep ? INK : RED, BLACK)
+      for (let x = 0; x < line.length; x++) grid.set(offset + x, y, line[x] === '#' ? '█' : ' ', x === sweep ? INK : RED, BLACK)
     })
   } else grid.text(0, 1, ' RUFLO', RED)
   const brand = grid.columns >= 42 ? 'ruvnet / agent swarm console / ORBITAL' : 'ruvnet / ORBITAL'
