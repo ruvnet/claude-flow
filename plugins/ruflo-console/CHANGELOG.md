@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.43.3 — 2026-10-12
+- fix: `console_state` tells Claude that a confirm card expired: `lastResult` carries `expired: true` after a card nobody answered was cleared unrun at 30 s (the runner already set the flag; the tool left it out), so Claude can tell "you did not answer" from a run that failed without reading the detail text. An ordinary result has no `expired` field (#3985 follow-up, thanks @proffesor-for-testing, #4067)
+
 ## 0.43.1 — 2026-10-12
 - fix: `ruflo tui` marks the page on screen in the page bar: on the AI page it kept the previous page lit (`5 Missions`, or `1 Overview` after a number key) because the bar was painted from the console view the session last showed and the AI page is not one; it is now drawn from the page itself, through Tab, Shift-Tab, letters, digits and resize
 - fix: `ruflo tui --help` and the console README list the page keys as `1-6` and `o c s e m a` (they said `1-5`); a test holds the help text
