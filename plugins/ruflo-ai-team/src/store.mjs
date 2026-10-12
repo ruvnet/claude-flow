@@ -13,41 +13,41 @@ export class InMemoryStore {
     const bucket = this.#bucket(tenantId);
     const id = `team_${randomUUID()}`;
     const value = { id, name: input.name, objective: input.objective, roles: input.roles, status: 'active', createdAt: now(), updatedAt: now() };
-    bucket.teams.set(id, value); this.#audit(bucket, actor, 'team.created', id); return clone(value);
+    bucket.teams.set(id, clone(value)); this.#audit(bucket, actor, 'team.created', id); return clone(value);
   }
   async listTeams(tenantId) { return [...this.#bucket(tenantId).teams.values()].map(clone); }
   async getTeam(tenantId, id) { const value = this.#bucket(tenantId).teams.get(id); return value ? clone(value) : null; }
   async updateTeam(tenantId, id, patch, actor = '-') {
     const bucket = this.#bucket(tenantId); const current = bucket.teams.get(id); if (!current) return null;
-    const value = { ...current, ...patch, id, updatedAt: now() }; bucket.teams.set(id, value); this.#audit(bucket, actor, 'team.updated', id); return clone(value);
+    const value = { ...current, ...patch, id, updatedAt: now() }; bucket.teams.set(id, clone(value)); this.#audit(bucket, actor, 'team.updated', id); return clone(value);
   }
   async createRun(tenantId, input, actor = '-') {
     const bucket = this.#bucket(tenantId); if (!bucket.teams.has(input.teamId)) return null;
     const id = `run_${randomUUID()}`; const value = { id, teamId: input.teamId, objective: input.objective, budgetUnits: input.budgetUnits, spentUnits: 0, status: 'planned', createdAt: now(), updatedAt: now() };
-    bucket.runs.set(id, value); this.#audit(bucket, actor, 'run.created', id); return clone(value);
+    bucket.runs.set(id, clone(value)); this.#audit(bucket, actor, 'run.created', id); return clone(value);
   }
   async getRun(tenantId, id) { const value = this.#bucket(tenantId).runs.get(id); return value ? clone(value) : null; }
   async listRuns(tenantId) { return [...this.#bucket(tenantId).runs.values()].map(clone); }
   async updateRun(tenantId, id, patch, actor = '-') {
     const bucket = this.#bucket(tenantId); const current = bucket.runs.get(id); if (!current) return null;
-    const value = { ...current, ...patch, id, updatedAt: now() }; bucket.runs.set(id, value); this.#audit(bucket, actor, `run.${value.status}`, id); return clone(value);
+    const value = { ...current, ...patch, id, updatedAt: now() }; bucket.runs.set(id, clone(value)); this.#audit(bucket, actor, `run.${value.status}`, id); return clone(value);
   }
   async createTask(tenantId, input, actor = '-') {
     const bucket = this.#bucket(tenantId); const run = bucket.runs.get(input.runId); if (!run || run.status === 'complete') return null;
     const id = `task_${randomUUID()}`; const value = { id, runId: input.runId, title: input.title, description: input.description, assigneeRole: input.assigneeRole, status: 'open', result: null, createdAt: now(), updatedAt: now() };
-    bucket.tasks.set(id, value); this.#audit(bucket, actor, 'task.created', id); return clone(value);
+    bucket.tasks.set(id, clone(value)); this.#audit(bucket, actor, 'task.created', id); return clone(value);
   }
   async listTasks(tenantId, runId) { return [...this.#bucket(tenantId).tasks.values()].filter((x) => x.runId === runId).map(clone); }
   async updateTask(tenantId, id, patch, actor = '-') {
     const bucket = this.#bucket(tenantId); const current = bucket.tasks.get(id); if (!current || bucket.runs.get(current.runId)?.status === 'complete') return null;
-    const value = { ...current, ...patch, id, updatedAt: now() }; bucket.tasks.set(id, value); this.#audit(bucket, actor, 'task.updated', id); return clone(value);
+    const value = { ...current, ...patch, id, updatedAt: now() }; bucket.tasks.set(id, clone(value)); this.#audit(bucket, actor, 'task.updated', id); return clone(value);
   }
   async remember(tenantId, input, actor = '-') {
     const bucket = this.#bucket(tenantId); const id = input.key || `mem_${randomUUID()}`;
     const timestamp = now();
     const value = { id, teamId: input.teamId, runId: input.runId || null, text: input.text, tags: input.tags || [], provenance: input.provenance || 'user', actorHash: actor,
       contentHash: createHash('sha256').update(input.text).digest('hex'), safetyStatus: input.safetyStatus || 'accepted', embeddingModel: 'feature-hash-256', embeddingVersion: '1', createdAt: timestamp, updatedAt: timestamp };
-    bucket.memories.set(id, value); this.#audit(bucket, actor, 'memory.remembered', id); return clone(value);
+    bucket.memories.set(id, clone(value)); this.#audit(bucket, actor, 'memory.remembered', id); return clone(value);
   }
   async listMemories(tenantId, { teamId } = {}) { return [...this.#bucket(tenantId).memories.values()].filter((x) => !teamId || x.teamId === teamId).map(clone); }
   async usage(tenantId) {
@@ -55,7 +55,7 @@ export class InMemoryStore {
   }
   async evidence(tenantId, runId) {
     const b = this.#bucket(tenantId); const run = b.runs.get(runId); if (!run) return null;
-    return { schema: 'ruflo.ai-team.evidence.v1', generatedAt: now(), run: clone(run), team: clone(b.teams.get(run.teamId)), tasks: await this.listTasks(tenantId, runId), audit: b.audit.filter((x) => x.targetId === runId || x.targetId === run.teamId) };
+    return { schema: 'ruflo.ai-team.evidence.v1', generatedAt: now(), run: clone(run), team: clone(b.teams.get(run.teamId)), tasks: await this.listTasks(tenantId, runId), audit: clone(b.audit.filter((x) => x.targetId === runId || x.targetId === run.teamId)) };
   }
   #audit(bucket, actor, eventType, targetId) { bucket.audit.push({ id: randomUUID(), at: now(), actor, eventType, targetId }); }
 }
