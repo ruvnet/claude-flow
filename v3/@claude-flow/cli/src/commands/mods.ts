@@ -108,17 +108,31 @@ const uninstallSub: Command = {
   },
 };
 
+/** The doctor's exit gate: a failure always fails; with --strict a warning does too. */
+export function hasFailureOrStrictWarning(findings: readonly Finding[], strict: boolean): boolean {
+  return findings.some((f) => f.status === 'fail' || (strict && f.status === 'warn'));
+}
+
 function findingsCommand(name: 'status' | 'doctor', description: string): Command {
   return {
     name,
     description,
-    options: [rootOption, { name: 'json', description: 'Output as JSON', type: 'boolean', default: false }],
+    options: [
+      rootOption,
+      { name: 'json', description: 'Output as JSON', type: 'boolean', default: false },
+      ...(name === 'doctor' ? [{ name: 'strict', description: 'Exit 1 on a warning too (a mod that is not fully loaded is a failure for a CI gate)', type: 'boolean' as const, default: false }] : []),
+    ],
     action: async (ctx: CommandContext): Promise<CommandResult> => {
       const findings = probeMods({ projectRoot: projectRoot(ctx) });
       if (ctx.flags.json) output.printJson(findings);
       else printFindings(findings);
-      const failed = findings.some((f) => f.status === 'fail');
-      // status reports (exit 0); doctor gates on a failure (warnings are expected while early access is off).
+      const strict = name === 'doctor' && ctx.flags.strict === true;
+      const failed = hasFailureOrStrictWarning(findings, strict);
+      if (failed && !ctx.flags.json) {
+        const first = findings.find((f) => f.status === 'fail') ?? findings.find((f) => f.status === 'warn');
+        output.writeln(output.error(`doctor: ${findings.filter((f) => f.status === 'fail').length} failure(s), ${findings.filter((f) => f.status === 'warn').length} warning(s)${first?.fix ? `; start with: ${first.fix}` : ''}`));
+      }
+      // status reports (exit 0); doctor gates on a failure, and with --strict on a warning.
       return name === 'doctor' && failed ? { success: false, exitCode: 1, data: findings } : { success: true, data: findings };
     },
   };
@@ -156,7 +170,7 @@ export const modsCommand: Command = {
     installSub,
     uninstallSub,
     statusSub,
-    findingsCommand('doctor', 'Check the mod path; exits 1 only on a failure'),
+    findingsCommand('doctor', 'Check the mod path; exits 1 on a failure (--strict: on a warning too)'),
     syncPolicySub,
   ],
   examples: [
@@ -164,7 +178,8 @@ export const modsCommand: Command = {
     { command: 'ruflo mods install --scope project', description: 'Same, in the committed settings.json (what ruflo init does)' },
     { command: 'ruflo mods install --no-plugin-install', description: 'Only write settings; run no claude command' },
     { command: 'ruflo mods install --source local', description: 'Dogfood: load the mods live from this ruflo checkout (directory marketplace)' },
-    { command: 'ruflo mods doctor', description: 'Marketplace fresh? Plugins loadable? Function hooks on? Refused by policy?' },
+    { command: 'ruflo mods doctor', description: 'Marketplace fresh? Plugins loadable? Function hooks on? Refused by policy? Each problem prints a one-line fix' },
+    { command: 'ruflo mods doctor --strict', description: 'Same, and exit 1 when anything is not fully working (for CI)' },
     { command: 'ruflo mods uninstall', description: 'Remove only what install added' },
   ],
   action: statusSub.action,

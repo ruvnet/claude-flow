@@ -26,11 +26,9 @@ Steps:
 
 2. **Read the current covariance matrix Σ and expected-return vector μ** from neural-trader's portfolio API:
    ```bash
-   # Primary path (preferred — clean JSON):
-   npx neural-trader --portfolio current --json
-   # Fallback paths if the --json flag is unavailable on the installed version:
-   npx neural-trader --portfolio current  # parse the text output
-   # OR pull from AgentDB if a prior run stored the matrix there:
+   # neural-trader 2.8.11 does NOT return Σ or μ: `--portfolio current` runs the equal-weight demo
+   # (symbols, weights, a risk figure and a note that the returns matrix is not wired).
+   # Take Σ and μ from the user (a returns matrix they provide), or from AgentDB if a prior run stored them:
    ```
    ```text
    mcp__plugin_ruflo-core_ruflo__memory_search({ query: "covariance matrix current", namespace: "trading-risk", limit: 1 })

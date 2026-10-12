@@ -11,7 +11,7 @@ Generate API documentation from TypeScript/JavaScript source:
 3. **Generate missing docs**: Add JSDoc for undocumented public APIs
 4. **OpenAPI spec**: For HTTP endpoints, generate OpenAPI 3.0 definitions
 
-Dispatch via MCP: `mcp__plugin_ruflo-core_ruflo__hooks_worker-dispatch({ trigger: "document", scope: "api" })`
+Dispatch via MCP: `mcp__plugin_ruflo-core_ruflo__hooks_worker-dispatch({ trigger: "document", context: "api" })`
 
 Conventions:
 - Every public export must have a JSDoc comment

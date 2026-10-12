@@ -33,9 +33,9 @@ Design: [ADR-115](../../v3/docs/adr/ADR-115-managed-agents-rvagent-backend.md) (
 - `managed-agent` — run an Anthropic Claude Managed Agent (cloud) — create / prompt / status / events / list / terminate
 - `nested-subagents` — spawn nested sub-agent trees (depth ≤ 5) via Claude Code's native `Task` tool for context-managed deep delegation
 
-## MCP surface (16 tools)
+## MCP surface (33 tools: 14 `wasm_agent_*`, 13 `wasm_gallery_*`, 6 `managed_agent_*`)
 
-### WASM runtime — `v3/@claude-flow/cli/src/mcp-tools/wasm-agent-tools.ts` (10)
+### WASM runtime — `v3/@claude-flow/cli/src/mcp-tools/wasm-agent-tools.ts` (27 in total; the main ones)
 
 | Tool | Purpose |
 |------|---------|

@@ -55,7 +55,9 @@ export function projectCwd(env) {
 
 /**
  * Locate ruflo's in-process tool dispatcher without depending on it.
- * @param {string} cwd
+ * The dispatcher is imported, so it resolves from this plugin's own install
+ * (or an explicit RUFLO_CLI_MCP_CLIENT), never from the project cwd.
+ * @param {string} cwd  kept for callers; not used for module resolution
  * @param {NodeJS.ProcessEnv} env
  * @returns {Promise<CallTool|null>}
  */
@@ -63,7 +65,7 @@ export async function resolveCallTool(cwd, env) {
   const candidates = [];
   if (env.RUFLO_CLI_MCP_CLIENT) candidates.push(env.RUFLO_CLI_MCP_CLIENT);
   try {
-    const req = createRequire(join(cwd, 'noop.js'));
+    const req = createRequire(import.meta.url);
     for (const pkg of ['@claude-flow/cli', 'ruflo', 'claude-flow']) {
       try {
         const pj = req.resolve(`${pkg}/package.json`);

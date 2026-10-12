@@ -2,6 +2,11 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.4 — 2026-10-11
+- fix: security-auditor listed `security report` (not a subcommand) and `security audit --include-dev` (audit is the audit-log store with `--action log|list|export|clear`); tool list corrected
+- fix: security-scan depth table described phases the scanner does not have; it now states what `--depth` changes (directory levels for the secrets and code-pattern phases) and tells the model to verify each finding before reporting it
+- fix: dependency-check `--fix` needs the user's go-ahead and a clean git tree; audit command validates depth and target before shelling out
+
 ## 0.3.3 — 2026-10-05
 - fix: shared textsOf reports truncation and every guard fails closed on it
 

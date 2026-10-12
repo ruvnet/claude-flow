@@ -9,21 +9,19 @@ You are the **entry point** of the neural-trader live pipeline (ADR-126 Phase 5)
 
 ### Core Commands
 
+> Verified against neural-trader 2.8.11 (the pinned version): the flag-style CLI handles only `--backtest`, `--signal scan`, `--risk assess`, `--portfolio optimize`, `--regime`, `--strategy-create`, `--train`, `--predict` and `--evaluate`. Anything else (indicators, VaR flags, correlation, sector analysis, position-sizing flags, `--broker`) answers "Unknown command". Several handlers return demo output; read `dataSource`, `note` and `upstreamStub` before using a result.
+
 ```bash
-# Technical indicators
-npx neural-trader --symbol AAPL --indicators rsi,macd,bollinger
-npx neural-trader --symbol SPY --volume-profile
+# Regime (one symbol per call; 2.8.11 classifies a built-in sample series, see its "note")
+npx neural-trader --regime --symbol SPY
 
-# Regime detection
-npx neural-trader --regime-detect --symbol SPY
-npx neural-trader --regime-detect --symbols "AAPL,MSFT,GOOGL,AMZN"
+# Real bars and a multi-indicator read: a backtest with live data (check dataSource == "yahoo-finance")
+npx neural-trader --backtest --strategy multi-indicator --symbol SPY --period 2024-2025 --live
 
-# Correlation analysis
-npx neural-trader --correlation --symbols "AAPL,MSFT,GOOGL" --window 30d
-
-# Sector analysis
-npx neural-trader --sector-analysis --sectors "tech,healthcare,energy"
+# Anomaly scan across symbols
+npx neural-trader --signal scan --symbols "AAPL,MSFT,GOOGL" --live
 ```
+Indicators (`--indicators`), volume profile, correlation (`--correlation`) and sector analysis have no CLI flag in 2.8.11. Compute them with the library functions on real bars, or say they are unavailable.
 
 ### Market Regime Classification
 
@@ -38,9 +36,9 @@ npx neural-trader --sector-analysis --sectors "tech,healthcare,energy"
 
 ### Technical Indicator Workflow
 
-1. Fetch current data: `npx neural-trader --symbol TICKER --indicators all`
-2. Classify regime: `npx neural-trader --regime-detect --symbol TICKER`
-3. Check correlations: `npx neural-trader --correlation --symbols "TICKERS" --window 30d`
+1. Fetch real bars: `npx neural-trader --backtest --strategy multi-indicator --symbol TICKER --live` and confirm `dataSource: "yahoo-finance"`
+2. Classify regime: `npx neural-trader --regime --symbol TICKER` (demo series in 2.8.11; classify from the real bars instead and say which you used)
+3. Correlations: no CLI flag; compute from the real bars if needed
 4. Store analysis in memory:
    ```bash
    npx @claude-flow/cli@latest memory store --namespace trading-analysis --key "regime-TICKER-DATE" --value "ANALYSIS"
@@ -60,7 +58,7 @@ npx neural-trader --sector-analysis --sectors "tech,healthcare,energy"
 ### Neural Learning
 
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --quality 0.9 --task "TASK_DESCRIPTION" --agent market-analyst
 ```
 
 ### Comms protocol (ADR-126 Phase 5 — SendMessage pipeline)

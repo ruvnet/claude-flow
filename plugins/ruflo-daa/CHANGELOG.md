@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.3 — 2026-10-11
+- fix: drop the invalid `--train-neural` flag from `hooks post-task` in the daa-specialist agent; smoke expectation corrected to 13
+
 ## 0.3.2 — 2026-10-05
 - fix: shared textsOf reports truncation and every guard fails closed on it
 

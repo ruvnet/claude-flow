@@ -123,7 +123,15 @@ export class TaskManager extends EventEmitter {
 
       clearTimeout(timeoutId);
 
-      if (task.state === 'running') {
+      // Executors may acknowledge AbortSignal by returning, or ignore it and
+      // settle later. Cancellation still owns the terminal outcome in either
+      // case; keep the slot occupied until the executor actually settles.
+      if (task.state === 'running' && task.abortController.signal.aborted) {
+        task.state = 'cancelled';
+        task.updatedAt = new Date();
+        this.logger.debug('Task cancelled', { taskId });
+        this.emit('task:cancelled', { taskId });
+      } else if (task.state === 'running') {
         task.state = 'completed';
         task.result = result;
         task.updatedAt = new Date();

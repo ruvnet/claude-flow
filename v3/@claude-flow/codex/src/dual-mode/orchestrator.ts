@@ -20,6 +20,7 @@ export interface WorkerCapabilityEnvelope {
   actions?: string[];
   resources?: string[];
   tools?: string[];
+  /** Opt-in per-tool ceiling: requires a trusted concurrency meter at dispatch. */
   maxConcurrency?: number;
   network?: boolean;
   destructive?: boolean;
@@ -561,7 +562,9 @@ Remember: Other agents depend on your results in shared memory. Be concise and s
       actions: ['*'],
       resources: ['*'],
       tools: ['*'],
-      maxConcurrency: 1,
+      // MCP dispatch does not yet supply a worker-wide concurrency meter.
+      // Leave this dimension unconstrained unless the caller opts in; the
+      // scheduler still bounds worker processes with config.maxConcurrent.
       network: false,
       destructive: false,
       delegationDepth: 0,
