@@ -51,24 +51,27 @@ describe('the pinned Codex', () => {
     expect(await resolveCodex(root, newer)).toMatchObject({ ok: false, why: expect.stringMatching(/pinned Codex 0\.162\.0 is not installed/) })
   })
 
+  // Each release case has a home of its own: the next one writes the pinned release, and in a shuffled run it could go first.
   it('finds the release directory named for the pinned version, never current and never PATH', async () => {
-    const releases = join(root, '.codex', 'packages', 'standalone', 'releases')
+    const home = mkdtempSync(join(root, 'home-'))
+    const releases = join(home, '.codex', 'packages', 'standalone', 'releases')
 
     mkdirSync(join(releases, '0.162.1-x86_64-unknown-linux-musl', 'bin'), { recursive: true })
-    mkdirSync(join(root, '.codex', 'packages', 'standalone', 'current'), { recursive: true })
+    mkdirSync(join(home, '.codex', 'packages', 'standalone', 'current'), { recursive: true })
     // Another version on disk, and a codex on PATH that claims the pinned version: neither is used.
     writeFileSync(join(releases, '0.162.1-x86_64-unknown-linux-musl', 'bin', 'codex'), '#!/bin/sh\necho "codex-cli 0.162.0"\n')
     chmodSync(join(releases, '0.162.1-x86_64-unknown-linux-musl', 'bin', 'codex'), 0o755)
-    expect(await resolveCodex(root)).toMatchObject({ ok: false, why: expect.stringMatching(/never uses current or PATH/) })
+    expect(await resolveCodex(home)).toMatchObject({ ok: false, why: expect.stringMatching(/never uses current or PATH/) })
   })
 
   it.skipIf(isWin)('finds the exact release when it is there', async () => {
-    const dir = join(root, '.codex', 'packages', 'standalone', 'releases', '0.162.0-x86_64-unknown-linux-musl', 'bin')
+    const home = mkdtempSync(join(root, 'home-'))
+    const dir = join(home, '.codex', 'packages', 'standalone', 'releases', '0.162.0-x86_64-unknown-linux-musl', 'bin')
 
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, 'codex'), readFileSync(FAKE))
     chmodSync(join(dir, 'codex'), 0o755)
-    expect(await resolveCodex(root)).toEqual({ ok: true, bin: join(dir, 'codex') })
+    expect(await resolveCodex(home)).toEqual({ ok: true, bin: join(dir, 'codex') })
   })
 
   it('spawn refuses anything but a read-only codex exec, before a process starts, and with no AI options at all', () => {

@@ -2,8 +2,12 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
-## 0.43.2 — 2026-10-12
+## 0.43.3 — 2026-10-12
 - fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
+## 0.43.2 — 2026-10-12
+- fix: removing a worktree no longer runs the repository's own programs, and no longer deletes unsaved files: `git worktree remove` runs its own status, which ran `core.fsmonitor` and the `post-index-change` hook, and with `status.showUntrackedFiles=no` it read a worktree holding new files as clean and deleted them. The removal, the worktree status probe, the changed-files read and `describe --dirty` now switch the fsmonitor (and for removal and describe, hooks) off, and list untracked files whatever the setting says (#4090, thanks @proffesor-for-testing, #4092)
+- fix: a `filter.<name>.clean`, `.smudge` or `.process` command in a repository's config no longer runs when the console compares a worktree with HEAD: before the removal, the worktree status and the diff drill-down, it lists the configured drivers (a config read) and blanks each one on the command line; a driver name it cannot blank exactly refuses the probe instead of running it
 
 ## 0.43.1 — 2026-10-12
 - fix: `ruflo tui` marks the page on screen in the page bar: on the AI page it kept the previous page lit (`5 Missions`, or `1 Overview` after a number key) because the bar was painted from the console view the session last showed and the AI page is not one; it is now drawn from the page itself, through Tab, Shift-Tab, letters, digits and resize
