@@ -110,6 +110,7 @@ export class MonitoringHooks {
   private healthStatus: HealthStatus;
   private startTime = Date.now();
   private activeRequests = 0;
+  private requestGeneration = 0;
   private requestCount = 0;
   private errorCount = 0;
   private healthChecks: Map<string, () => Promise<{ healthy: boolean; message?: string }>> = new Map();
@@ -191,10 +192,14 @@ export class MonitoringHooks {
     this.requestCount++;
     const startTime = Date.now();
 
+    const generation = this.requestGeneration;
+    let completed = false;
     this.counter('request_started', 1, { requestId });
 
     // Return end function
     return () => {
+      if (completed || generation !== this.requestGeneration) return;
+      completed = true;
       this.activeRequests--;
       const duration = Date.now() - startTime;
       this.responseTimes.push(duration);
@@ -254,7 +259,7 @@ export class MonitoringHooks {
       } catch (error) {
         checks[name] = {
           status: 'unhealthy',
-          message: (error as Error).message,
+          message: error instanceof Error ? error.message : String(error),
           lastCheck: Date.now(),
           responseTimeMs: Date.now() - startTime,
         };
@@ -268,14 +273,14 @@ export class MonitoringHooks {
       timestamp: Date.now(),
     };
 
-    return this.healthStatus;
+    return structuredClone(this.healthStatus);
   }
 
   /**
    * Get current health status
    */
   getHealthStatus(): HealthStatus {
-    return this.healthStatus;
+    return structuredClone(this.healthStatus);
   }
 
   // ============================================================================
@@ -324,7 +329,7 @@ export class MonitoringHooks {
     if (level) {
       filtered = filtered.filter(a => a.level === level);
     }
-    return filtered;
+    return filtered.map(alert => ({ ...alert }));
   }
 
   /**
@@ -359,7 +364,7 @@ export class MonitoringHooks {
     if (since) {
       filtered = filtered.filter(m => m.timestamp >= since);
     }
-    return filtered;
+    return filtered.map(metric => ({ ...metric, labels: { ...metric.labels } }));
   }
 
   /**
@@ -394,6 +399,7 @@ export class MonitoringHooks {
    * Reset all metrics
    */
   reset(): void {
+    this.requestGeneration++;
     this.metrics = [];
     this.responseTimes = [];
     this.alerts = [];
@@ -430,7 +436,12 @@ export class MonitoringHooks {
         Date.now() - a.timestamp < 60000
       );
 
-      if (!recentAlert) {
+      if (recentAlert && level === 'critical' && recentAlert.level !== 'critical') {
+        Object.assign(recentAlert, {
+          level, value, threshold, timestamp: Date.now(),
+          message: `${name} exceeded ${level} threshold: ${value} >= ${threshold}`,
+        });
+      } else if (!recentAlert) {
         this.alerts.push({
           id: `alert_${Date.now()}_${Math.random().toString(36).substring(7)}`,
           level,
