@@ -51,10 +51,10 @@ import { hiveMindTools, getHiveTokenForCli } from '../src/mcp-tools/hive-mind-to
 
 const CLI = join(__dirname, '..', 'bin', 'cli.js');
 
-// A child killed by a signal has no exit status. Under the full parallel suite a
-// CLI child can die at native-binding teardown (the SIGSEGV class the v3 CI job
-// documents); a real defect repeats, so a signal death is retried once and the
-// signal is always reported instead of an opaque -1.
+// A child with no exit status either died from a signal or never started (spawn
+// error: EAGAIN/ENOMEM/EMFILE under the full parallel suite). A real defect
+// repeats, so that case is retried once, and the signal / error code and message
+// are always reported instead of an opaque -1.
 function runCli(args: string[], cwd: string, attempt = 1): { stdout: string; exit: number } {
   try {
     const stdout = execFileSync('node', [CLI, ...args], {
@@ -65,9 +65,9 @@ function runCli(args: string[], cwd: string, attempt = 1): { stdout: string; exi
     });
     return { stdout, exit: 0 };
   } catch (err) {
-    const e = err as { status?: number | null; signal?: string | null; stdout?: Buffer; stderr?: Buffer };
-    if (e.status == null && e.signal && attempt < 2) return runCli(args, cwd, attempt + 1);
-    const killed = e.status == null ? `\n[child ended by signal ${e.signal ?? 'unknown'}, no exit status]` : '';
+    const e = err as { status?: number | null; signal?: string | null; code?: string; message?: string; stdout?: Buffer; stderr?: Buffer };
+    if (e.status == null && attempt < 2) return runCli(args, cwd, attempt + 1);
+    const killed = e.status == null ? `\n[no exit status: signal=${e.signal ?? 'none'} code=${e.code ?? 'none'} message=${String(e.message ?? '').split('\n')[0]}]` : '';
     return { stdout: (e.stdout?.toString() ?? '') + (e.stderr?.toString() ?? '') + killed, exit: e.status ?? -1 };
   }
 }
