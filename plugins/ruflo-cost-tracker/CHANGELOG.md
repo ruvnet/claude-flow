@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-cost-tracker`.
 
+## 0.28.2 — 2026-10-12
+- fix: a failed Stop-hook telemetry write is logged to ~/.claude-flow/logs/cost-tracker-failures.log (capped at 512 KB, rotated to the newest 200 lines) instead of being discarded; the hook still never blocks a turn (#3227, #4078, thanks @nicholas-ruest)
+
 ## 0.28.1 — 2026-10-11
 - fix: cost-analyst uses `neural train --pattern optimization` (there is no `--pattern-type`, and `cost-optimization` is not a valid pattern) and drops the invalid `--train-neural` post-task flag
 - fix: `cost workers` and the analyst call `hooks_worker-status({ includeCompleted: true })` and pick out the optimize and benchmark entries (the tool has no worker-name filter)
