@@ -255,6 +255,14 @@ describe('kitForSurface', () => {
     expect(kit.Input).toBeDefined()
   })
 
+  // A Claude Code that does not name its surface is older than the desktop pictures: it is the terminal, which keeps drawing its Rasters.
+  it.each([undefined, '', null])('treats a host that names no surface (%s) as the terminal', surface => {
+    const kit = kitForSurface(table, surface as never)
+
+    expect(kit.Raster).toBeDefined()
+    expect(kit.Svg).toBeUndefined()
+  })
+
   it.each(['desktop', 'vscode', 'mobile'])('gives %s an Svg and no Raster (its Raster draws a fragment)', surface => {
     const kit = kitForSurface(table, surface)
 

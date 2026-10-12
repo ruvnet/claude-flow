@@ -49,10 +49,12 @@ export type Kit = Pick<Elements['terminal'], 'Box' | 'Text' | 'Button'> & { Rast
  * drawing a fragment, so `Raster` is defined on the desktop too and draws nothing there: whether a picture can be drawn is the surface's
  * to say, never the table's. The terminal gets its `Raster` and no `Svg`; every other surface gets `Svg` and no `Raster`.
  */
-export function kitForSurface<K extends Kit>(table: K, surface: string): K {
+export function kitForSurface<K extends Kit>(table: K, surface: string | null | undefined): K {
   const { Raster, Svg, ...rest } = table
+  // A host that does not name its surface predates the desktop pictures: it is the terminal, and keeps its Raster.
+  const isTerminal = surface === 'terminal' || surface === undefined || surface === null || surface === ''
 
-  return (surface === 'terminal' ? { ...rest, ...(Raster !== undefined && { Raster }) } : { ...rest, ...(Svg !== undefined && { Svg }) }) as K
+  return (isTerminal ? { ...rest, ...(Raster !== undefined && { Raster }) } : { ...rest, ...(Svg !== undefined && { Svg }) }) as K
 }
 
 /** What a button can ask for: every one a closure over the controller. */
