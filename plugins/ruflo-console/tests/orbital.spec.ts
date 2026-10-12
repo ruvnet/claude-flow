@@ -101,3 +101,13 @@ describe('orbital motion', () => {
     }
   })
 })
+
+it('shows actual failures immediately while success labels animate', () => {
+  const checks = [{ area: 'Swarm', ok: true, problems: [] }, { area: 'Security', ok: false, problems: ['missing action'] }]
+  const first = gridText(orbitalBoot('project', 72, 0, checks))
+  expect(first).toContain('[FAIL] SECURITY / missing action')
+  expect(first).toContain('[PASS]')
+  expect(first).not.toContain('[PASS] SWARM')
+  expect(gridText(orbitalBoot('project', 72, 700, checks))).toContain('[PASS] SWARM')
+  expect(gridText(orbitalBoot('project', 72, 0, []))).toContain('[N/A] No module checks reported')
+})

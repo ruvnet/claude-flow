@@ -127,7 +127,7 @@ function orbitalBrandColor(color: number): number {
 
 /** Checks are actual self-check results; the globe and sweep are explicitly decorative. */
 export function orbitalBoot(project: string, columns: number, timeMs: number, checks?: readonly BootCheck[]): Grid {
-  const grid = blank(columns, 24)
+  const grid = blank(columns, 30)
   // Reuse the original console banner, including its half-block font and sweep, recolored for Orbital.
   const banner = bannerPicture(project, grid.columns, timeMs)
   for (let y = 0; y < banner.rows; y++) for (let x = 0; x < banner.columns; x++) {
@@ -145,6 +145,31 @@ export function orbitalBoot(project: string, columns: number, timeMs: number, ch
   const passed = checks?.filter(c => c.ok).length ?? 0
   const failed = checks?.filter(c => !c.ok).length ?? 0
   grid.text(0, 21, checks === undefined ? ' Self-check: pending' : ` Self-check: ${passed} passed / ${failed} failed`, failed > 0 ? RED : GREEN)
-  grid.text(0, 23, ' Motion: Settings > fps | Boot: optional', DIM)
+  const age = Math.max(0, Number.isFinite(timeMs) ? timeMs : 0)
+  const scan = Math.floor(age / 100) % Math.max(1, grid.columns - 2)
+  grid.text(0, 22, ' '.repeat(grid.columns), DIM)
+  grid.text(0, 22, ' MODULE INTEGRITY ', RED)
+  if (scan >= 18) grid.set(scan, 22, '>', GREEN)
+  if (checks === undefined) {
+    grid.text(0, 24, ` [${'|/-\\'[Math.floor(age / 120) % 4]}] Waiting for local self-check results`, DIM)
+  } else if (checks.length === 0) {
+    grid.text(0, 24, ' [N/A] No module checks reported', DIM)
+  } else {
+    // Keep failures visible first. Cycle successful areas without fabricating execution progress.
+    const errors = checks.filter(check => !check.ok)
+    const successes = checks.filter(check => check.ok)
+    const slots = Math.max(0, 4 - Math.min(4, errors.length))
+    const page = Math.floor(age / 1200)
+    const shown = [...errors.slice(0, 4), ...Array.from({ length: Math.min(slots, successes.length) }, (_, i) => successes[(page * slots + i) % successes.length]!)]
+    shown.forEach((check, i) => {
+      const reveal = Math.max(0, Math.floor(((age % 1200) - i * 100) / 25))
+      const name = check.ok ? check.area.toUpperCase().slice(0, reveal) : check.area.toUpperCase()
+      const status = check.ok ? '[PASS]' : '[FAIL]'
+      const detail = !check.ok && check.problems.length > 0 ? ` / ${check.problems[0]}` : ''
+      grid.text(0, 23 + i, ` ${status} ${name}${detail}`, check.ok ? GREEN : RED)
+    })
+    grid.text(0, 27, ` ${checks.length} areas / ${errors.length} failures / local registry checks`, DIM)
+  }
+  grid.text(0, 29, ' Motion: Settings > fps | Boot: optional', DIM)
   return grid
 }
