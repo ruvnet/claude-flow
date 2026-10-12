@@ -406,6 +406,25 @@ export class NeuralLearningSystem {
   }
 
   /**
+   * Serialize the full learning state (trajectories, patterns, LoRA weights,
+   * EWC state, stats) for persistence across process restarts. Delegates to
+   * SONAManager.serialize() — reasoningBank/patternLearner state is not
+   * included (callers that need it persist those separately).
+   */
+  serialize(): unknown {
+    return this.sona.serialize();
+  }
+
+  /**
+   * Restore previously serialized learning state. Delegates to
+   * SONAManager.deserialize(), which throws on an unsupported schema
+   * version — callers should catch and discard rather than propagate.
+   */
+  deserialize(state: unknown): void {
+    this.sona.deserialize(state);
+  }
+
+  /**
    * Cleanup resources
    */
   async cleanup(): Promise<void> {

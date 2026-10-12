@@ -10,6 +10,8 @@
  */
 
 import { EventEmitter } from 'node:events';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import type { IMemoryBackend, MemoryEntry, SONAMode } from './types.js';
 import type { MemoryInsight, InsightCategory } from './auto-memory-bridge.js';
 
@@ -54,6 +56,15 @@ export interface LearningBridgeConfig {
    * Primarily used for testing.
    */
   neuralLoader?: NeuralLoader;
+  /**
+   * Path to persist/restore NeuralLearningSystem's serialized learning state
+   * across process invocations (default: '.swarm/sona-learning-state.json',
+   * mirroring MoERouter's '.swarm/moe-weights.json' convention). Each
+   * auto-memory-hook.mjs run constructs a fresh neural instance; without
+   * this round-trip its learning state — trajectory counts, patterns, EWC
+   * state — resets to empty every invocation.
+   */
+  statePath?: string;
 }
 
 /** Aggregated learning statistics */
@@ -119,6 +130,7 @@ const DEFAULT_CONFIG: ResolvedConfig = {
   consolidationThreshold: 10,
   enabled: true,
   insightNamespace: 'learnings',
+  statePath: '.swarm/sona-learning-state.json',
 };
 
 const MS_PER_HOUR = 3_600_000;
@@ -402,6 +414,8 @@ export class LearningBridge extends EventEmitter {
     this.destroyed = true;
     this.activeTrajectories.clear();
 
+    this.persistNeuralState();
+
     if (this.neural && typeof this.neural.cleanup === 'function') {
       try {
         this.neural.cleanup();
@@ -438,6 +452,7 @@ export class LearningBridge extends EventEmitter {
       if (this.config.neuralLoader) {
         // Use injected loader (test / custom integrations)
         this.neural = await this.config.neuralLoader();
+        this.restoreNeuralState();
         return;
       }
 
@@ -460,10 +475,55 @@ export class LearningBridge extends EventEmitter {
       }
 
       this.neural = instance;
+      this.restoreNeuralState();
     } catch {
       // @claude-flow/neural not installed or failed to initialize.
       // This is expected in many environments; degrade silently.
       this.neural = null;
+    }
+  }
+
+  /**
+   * Best-effort restore of previously persisted learning state
+   * (trajectories, patterns, LoRA weights, EWC state) into the freshly
+   * constructed neural instance. Without this, every short-lived
+   * auto-memory-hook.mjs invocation starts SONAManager from a blank slate,
+   * so completed-trajectory counts (and everything gated behind them, incl.
+   * EWC consolidation) can never accumulate past one process's lifetime.
+   * Silently ignores a missing, corrupt, or schema-incompatible file —
+   * NeuralLearningSystem.deserialize() already throws on an unsupported
+   * schema version; a fresh start is always safe, a thrown restore error
+   * from a cold path is not.
+   */
+  private restoreNeuralState(): void {
+    if (!this.neural || typeof this.neural.deserialize !== 'function') return;
+    try {
+      if (!existsSync(this.config.statePath)) return;
+      const raw = readFileSync(this.config.statePath, 'utf-8');
+      this.neural.deserialize(JSON.parse(raw));
+    } catch {
+      // Missing, corrupt, or schema-incompatible state file: start fresh.
+    }
+  }
+
+  /**
+   * Best-effort persistence of the current learning state. Called from
+   * destroy(), which auto-memory-hook.mjs invokes synchronously and
+   * unawaited right before the short-lived process exits — so this writes
+   * synchronously rather than racing an async write against process exit,
+   * mirroring MoERouter's existing `.swarm/moe-weights.json` convention.
+   */
+  private persistNeuralState(): void {
+    if (!this.neural || typeof this.neural.serialize !== 'function') return;
+    try {
+      const state = this.neural.serialize();
+      const dir = dirname(this.config.statePath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      writeFileSync(this.config.statePath, JSON.stringify(state));
+    } catch {
+      // Best-effort; never block teardown on a persistence failure.
     }
   }
 

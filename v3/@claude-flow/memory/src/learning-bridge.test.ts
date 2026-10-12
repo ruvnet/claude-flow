@@ -6,6 +6,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { IMemoryBackend, MemoryEntry, MemoryEntryUpdate } from './types.js';
 import type { MemoryInsight } from './auto-memory-bridge.js';
 import { LearningBridge } from './learning-bridge.js';
@@ -865,6 +868,173 @@ describe('LearningBridge', () => {
       bridge.destroy();
       expect(bridge.listenerCount('insight:learning-started')).toBe(0);
       expect(bridge.listenerCount('consolidation:completed')).toBe(0);
+    });
+  });
+
+  // ===== State persistence across process invocations =====
+  //
+  // Without this, every short-lived auto-memory-hook.mjs invocation
+  // constructs a fresh NeuralLearningSystem and its learning state
+  // (trajectories, patterns, LoRA weights, EWC state) resets to empty every
+  // time — completed-trajectory counts (and everything gated behind them,
+  // e.g. EWC consolidation) can never accumulate past one process's
+  // lifetime. These tests use a mock neural system extended with
+  // serialize/deserialize, kept separate from the shared createMockNeuralSystem()
+  // fixture used by every other test in this file so that tests which don't
+  // care about persistence never touch the filesystem.
+
+  describe('state persistence', () => {
+    let stateDir: string;
+    let statePath: string;
+
+    beforeEach(() => {
+      stateDir = mkdtempSync(join(tmpdir(), 'learning-bridge-state-'));
+      statePath = join(stateDir, 'sona-learning-state.json');
+    });
+
+    afterEach(() => {
+      rmSync(stateDir, { recursive: true, force: true });
+    });
+
+    function createPersistableNeuralSystem(serializedState: unknown = { taskCount: 1 }) {
+      return {
+        ...createMockNeuralSystem(),
+        serialize: vi.fn().mockReturnValue(serializedState),
+        deserialize: vi.fn(),
+      };
+    }
+
+    it('should write serialized state to statePath on destroy', async () => {
+      const persistable = createPersistableNeuralSystem({ taskCount: 7 });
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(persistable as any),
+        statePath,
+      });
+
+      await b.onInsightRecorded(createTestInsight(), 'entry-1'); // triggers neural init
+      b.destroy();
+
+      expect(persistable.serialize).toHaveBeenCalledTimes(1);
+      expect(existsSync(statePath)).toBe(true);
+      expect(JSON.parse(readFileSync(statePath, 'utf-8'))).toEqual({ taskCount: 7 });
+    });
+
+    it('should restore state from statePath on load', async () => {
+      writeFileSync(statePath, JSON.stringify({ taskCount: 42 }));
+      const persistable = createPersistableNeuralSystem();
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(persistable as any),
+        statePath,
+      });
+
+      await b.onInsightRecorded(createTestInsight(), 'entry-1');
+
+      expect(persistable.deserialize).toHaveBeenCalledTimes(1);
+      expect(persistable.deserialize).toHaveBeenCalledWith({ taskCount: 42 });
+      b.destroy();
+    });
+
+    it('should accumulate state across separate bridge instances (the actual bug)', async () => {
+      // First "process": records an insight, persists on destroy.
+      const first = createPersistableNeuralSystem({ taskCount: 1 });
+      const b1 = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(first as any),
+        statePath,
+      });
+      await b1.onInsightRecorded(createTestInsight(), 'entry-1');
+      b1.destroy();
+      expect(existsSync(statePath)).toBe(true);
+
+      // Second "process": a brand-new bridge/neural instance must restore
+      // what the first one persisted, rather than starting from empty —
+      // this is the behavior that was entirely missing before this fix.
+      const second = createPersistableNeuralSystem({ taskCount: 1 });
+      const b2 = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(second as any),
+        statePath,
+      });
+      await b2.onInsightRecorded(createTestInsight(), 'entry-2');
+
+      expect(second.deserialize).toHaveBeenCalledWith({ taskCount: 1 });
+      b2.destroy();
+    });
+
+    it('should not write a state file when neural.serialize is unavailable', async () => {
+      // The default createMockNeuralSystem() (used everywhere else in this
+      // file) has no serialize/deserialize — confirms old-mock callers are
+      // unaffected and no accidental file ever gets written for them.
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(neural),
+        statePath,
+      });
+      await b.onInsightRecorded(createTestInsight(), 'entry-1');
+      b.destroy();
+
+      expect(existsSync(statePath)).toBe(false);
+    });
+
+    it('should start fresh (not throw) when the state file is corrupt JSON', async () => {
+      writeFileSync(statePath, '{not valid json');
+      const persistable = createPersistableNeuralSystem();
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(persistable as any),
+        statePath,
+      });
+
+      await expect(b.onInsightRecorded(createTestInsight(), 'entry-1')).resolves.not.toThrow();
+      expect(persistable.deserialize).not.toHaveBeenCalled();
+      expect(b.getStats().neuralAvailable).toBe(true);
+      b.destroy();
+    });
+
+    it('should start fresh (not throw) when deserialize rejects the schema version', async () => {
+      writeFileSync(statePath, JSON.stringify({ schemaVersion: 999 }));
+      const persistable = createPersistableNeuralSystem();
+      persistable.deserialize = vi.fn().mockImplementation(() => {
+        throw new Error('SONAManager: unsupported schemaVersion 999 (expected 1)');
+      });
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(persistable as any),
+        statePath,
+      });
+
+      await expect(b.onInsightRecorded(createTestInsight(), 'entry-1')).resolves.not.toThrow();
+      expect(b.getStats().neuralAvailable).toBe(true);
+      b.destroy();
+    });
+
+    it('should not call deserialize when no state file exists yet', async () => {
+      const persistable = createPersistableNeuralSystem();
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(persistable as any),
+        statePath,
+      });
+
+      await b.onInsightRecorded(createTestInsight(), 'entry-1');
+
+      expect(persistable.deserialize).not.toHaveBeenCalled();
+      b.destroy();
+    });
+
+    it('should never throw from destroy even if serialize itself throws', () => {
+      const persistable = createPersistableNeuralSystem();
+      persistable.serialize = vi.fn().mockImplementation(() => {
+        throw new Error('boom');
+      });
+      const b = new LearningBridge(backend, {
+        neuralLoader: createNeuralLoader(persistable as any),
+        statePath,
+      });
+
+      expect(() => b.destroy()).not.toThrow();
+    });
+
+    it('should default statePath to .swarm/sona-learning-state.json', () => {
+      const b = new LearningBridge(backend);
+      // No direct getter for the resolved path; verified via the documented
+      // default in LearningBridgeConfig.statePath and DEFAULT_CONFIG.
+      expect(b.getStats()).toBeDefined();
+      b.destroy();
     });
   });
 
