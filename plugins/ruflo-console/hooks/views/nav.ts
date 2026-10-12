@@ -13,7 +13,7 @@ import { badgesOf } from '../menu-style'
 import { accentOfView, findPages, groupOf, NAV_GROUPS, shownGroup } from '../nav-state'
 import { VIEWS, type ViewId } from '../state'
 import { CARD_COLUMNS } from './card'
-import { isBbs, THEME, type Ctx } from './common'
+import { isBbs, isOrbital, THEME, type Ctx } from './common'
 
 type View = (typeof VIEWS)[number]
 
@@ -109,5 +109,5 @@ export function groupedTabs(ctx: Ctx, hasHotkey: (view: View) => boolean): Rende
   const hidden = VIEWS.filter(view => view.id !== 'menu' && view.id !== open && !visible.has(view.id) && hasHotkey(view) && view.key !== '')
   const keys = hidden.length === 0 ? [] : [ctx.kit.Box({ key: 'tabs-keys', display: 'none', children: hidden.map(view => ctx.kit.Button({ key: `tab-${view.id}`, label: view.short, hotkey: view.key, plain: true, onPress: () => ctx.act.view(view.id) })) } as never)]
 
-  return ctx.kit.Box({ key: 'tabs', flexDirection: 'column', borderStyle: 'round', borderColor: THEME.info, paddingX: 1, children: [head, ...findRow, ...lines, ...note, ...keys] })
+  return ctx.kit.Box({ key: 'tabs', flexDirection: 'column', borderStyle: isOrbital() ? 'single' : 'round', borderColor: isOrbital() ? THEME.head : THEME.info, paddingX: 1, children: [head, ...findRow, ...lines, ...note, ...keys] })
 }

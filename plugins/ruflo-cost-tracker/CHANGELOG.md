@@ -2,6 +2,11 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-cost-tracker`.
 
+## 0.28.1 — 2026-10-11
+- fix: cost-analyst uses `neural train --pattern optimization` (there is no `--pattern-type`, and `cost-optimization` is not a valid pattern) and drops the invalid `--train-neural` post-task flag
+- fix: `cost workers` and the analyst call `hooks_worker-status({ includeCompleted: true })` and pick out the optimize and benchmark entries (the tool has no worker-name filter)
+- fix: cost-track verification call written as a real memory_search call; cost-federation ADR link repaired; smoke expectation corrected to 63
+
 ## 0.28.0 — 2026-10-08
 - feat: read Grok CLI sessions (usage.json) into the cost ledger (`--provider grok`)
 - fix: Grok prices are list prices and are flagged approximate in the ledger output (subscription billing may differ)

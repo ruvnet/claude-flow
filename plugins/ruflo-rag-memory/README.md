@@ -15,7 +15,7 @@ Store and retrieve knowledge across sessions:
 npx ruflo memory store --key "oauth-flow" --value "OAuth2 with pkce for SPAs, use refresh tokens" --namespace patterns
 
 # Search for it later (even across projects!)
-npx ruflo recall "oauth single page app"
+npx ruflo memory search -q "oauth single page app"
 
 # Retrieve exact entry
 npx ruflo memory retrieve --key "oauth-flow" --namespace patterns
@@ -71,7 +71,7 @@ memory list --namespace patterns --limit 10
 memory delete --key "old-entry" --namespace patterns
 
 # Quick semantic recall across all namespaces
-recall "how did we handle rate limiting?"
+/recall how did we handle rate limiting?
 ```
 
 ## Architecture
@@ -218,7 +218,7 @@ bash plugins/ruflo-rag-memory/scripts/smoke.sh
 
 ## Related Plugins
 
-- `ruflo-agentdb` — Full AgentDB controller bridge (15 `agentdb_*` MCP tools); namespace convention owner; owns the `claude-memories` reserved namespace
+- `ruflo-agentdb` — Full AgentDB controller bridge (20 `agentdb_*` MCP tools); namespace convention owner; owns the `claude-memories` reserved namespace
 - `ruflo-ruvector` — Advanced vector operations (FlashAttention-3, Graph RAG, hybrid search)
 - `ruflo-rvf` — Portable RVF memory format for cross-machine export/import
 - `ruflo-knowledge-graph` — Entity extraction and graph traversal over memory

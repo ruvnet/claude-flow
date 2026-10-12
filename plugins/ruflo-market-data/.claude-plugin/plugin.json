@@ -1,7 +1,7 @@
 {
   "name": "ruflo-market-data",
   "description": "Market data ingestion — feed normalization, OHLCV vectorization, and HNSW-indexed pattern matching. As a mod (ADR-445): keeps credentials and credentialed feed URLs out of market memory, /market-mod, and a status file the console shows",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

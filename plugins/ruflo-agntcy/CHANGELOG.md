@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.2.4 — 2026-10-11
+- fix: agntcy-status was a "scaffolding stub" that said no upstream package exists; it now runs a real read-only status check (endpoint set/unset, `npm ls @agntcy/slim-bindings`, the mod's status.json) and reports CASA/IOC/identity as not wired rather than inventing a status
+
 ## 0.2.3 — 2026-10-05
 - fix: vitest suites in agntcy, arena and graph-intelligence are *.spec.ts so claude plugin test collects only the kit tests
 

@@ -53,6 +53,8 @@ import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
+import { ownPluginDirs } from '../plugins/own-install.js';
 import { runFlywheelWorker } from '../services/harness-flywheel-runtime.js';
 import { evaluatePolicyRequest } from '../services/policy-runtime.js';
 import {
@@ -76,16 +78,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * script.
  */
 function locatePluginScripts(requiredScript?: string): string | null {
-  const candidates: string[] = [];
-  let p = resolve(__dirname);
-  for (let i = 0; i < 8; i++) {
-    candidates.push(join(p, 'plugins', 'ruflo-metaharness', 'scripts'));
-    candidates.push(join(p, '..', 'plugins', 'ruflo-metaharness', 'scripts'));
-    p = dirname(p);
-  }
-  const cwd = getProjectCwd();
-  candidates.push(join(cwd, 'plugins', 'ruflo-metaharness', 'scripts'));
-  candidates.push(join(cwd, 'node_modules', '@claude-flow', 'cli', 'plugins', 'ruflo-metaharness', 'scripts'));
+  // Bounded at node_modules: a project-local install must not reach the project.
+  const candidates: string[] = ownPluginDirs(__dirname, 'ruflo-metaharness', 'scripts');
+  // Scripts found here are executed, so they come from this CLI's own install
+  // (or the user's marketplace checkout), never from the project's cwd.
+  candidates.push(join(homedir(), '.claude', 'plugins', 'marketplaces', 'ruflo', 'plugins', 'ruflo-metaharness', 'scripts'));
   for (const c of candidates) {
     if (!existsSync(join(c, '_harness.mjs'))) continue;
     if (requiredScript && !existsSync(join(c, requiredScript))) continue;

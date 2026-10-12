@@ -1,3 +1,4 @@
+import { activeTheme, themesOf, themeLayout } from '../themes'
 /**
  * The pictures of the view in front, by Raster key, for one instant. The render mounts them and the animation loop
  * blits them, both through `picturesOf`, so a frame is always the mounted size. Each picture's model is read from the
@@ -6,7 +7,8 @@
 import type { AuditTrend, HarnessScore, Intelligence } from '../data/cli'
 import { recentByAgent } from '../data/events'
 import { agentLabels } from '../data/parse'
-import { swarmStatusOf } from '../data/swarm-status'
+import { presentAgents, swarmStatusOf } from '../data/swarm-status'
+import { orbitalBoot, orbitalHeader, orbitalGlobe, orbitalMasthead } from '../gfx/orbital'
 import { getBootChecks } from '../boot-checks'
 import { bootFacts } from '../boot-facts'
 import { getBuild } from '../build'
@@ -109,22 +111,42 @@ export function healthRowsOf(state: State): HealthRow[] {
   }))
 }
 
-/** The timeline's lanes over the last 15 minutes: ruflo agents' observed statuses and Claude Code's tool calls. */
+/**
+ * The timeline's lanes over the last 15 minutes: ruflo agents' observed statuses and Claude Code's tool calls, in the order a short list must
+ * keep them: the person's own main session, then busy agents, then sub-agents with calls in the window (latest first), then the other present
+ * agents, then quiet sub-agents. A page that shows the first few never hides main or a busy agent behind earlier quiet rows, and the full
+ * length is what its "+N more" counts. (presentAgents already leaves the agent store's old idle records out.)
+ */
 export function lanesOf(state: State, nowMs: number): Lane[] {
   const from = nowMs - watchOf(state).rangeMs
   const labels = agentLabels(state.snapshot?.agents ?? [])
-  const agents = (state.snapshot?.agents ?? []).slice(0, 24).map(agent => {
+  // Only agents with evidence of activity (data/swarm-status.ts presentAgents): the store holds every agent ever spawned.
+  const agents = presentAgents(state.snapshot?.agents ?? [], state.statusLog, from, nowMs).map(agent => {
     const log = state.statusLog.get(agent.id) ?? []
 
     return {
-      label: labels.get(agent.id) ?? agent.type,
-      spans: log.map((entry, i) => ({ fromMs: Math.max(from, entry.atMs), toMs: log[i + 1]?.atMs ?? nowMs, busy: /busy|active|working/i.test(entry.status) })).filter(span => span.toMs >= from),
-      ticks: [],
+      busy: /busy|active|working|running/i.test(agent.status),
+      lane: {
+        label: labels.get(agent.id) ?? agent.type,
+        spans: log.map((entry, i) => ({ fromMs: Math.max(from, entry.atMs), toMs: log[i + 1]?.atMs ?? nowMs, busy: /busy|active|working/i.test(entry.status) })).filter(span => span.toMs >= from),
+        ticks: [],
+      },
     }
   })
-  const claude = [...state.toolsByAgent].slice(0, 6).map(([who, calls]) => ({ label: who === 'main' ? 'claude (main)' : `cc ${who.slice(-6)}`, spans: [], ticks: calls.map(call => call.atMs).filter(at => at >= from) }))
+  const claude = [...state.toolsByAgent].map(([who, calls]) => {
+    const ticks = calls.map(call => call.atMs).filter(at => at >= from)
 
-  return [...claude, ...agents]
+    return { main: who === 'main', lastMs: ticks.reduce((latest, at) => Math.max(latest, at), 0), lane: { label: who === 'main' ? 'claude (main)' : `cc ${who.slice(-6)}`, spans: [], ticks } }
+  })
+  const subs = claude.filter(entry => !entry.main).sort((a, b) => b.lastMs - a.lastMs)
+
+  return [
+    ...claude.filter(entry => entry.main).map(entry => entry.lane),
+    ...agents.filter(entry => entry.busy).map(entry => entry.lane),
+    ...subs.filter(entry => entry.lastMs > 0).map(entry => entry.lane),
+    ...agents.filter(entry => !entry.busy).map(entry => entry.lane),
+    ...subs.filter(entry => entry.lastMs === 0).map(entry => entry.lane),
+  ]
 }
 
 /** When the score on screen was first drawn: the radar grows from there. Module-held, reset by a new value. */
@@ -157,13 +179,15 @@ function titleThatFits(paneColumns: number, names: readonly string[], build: (na
 
 export function picturesOf(state: State, columns: number, nowMs: number, t: number): Map<string, Grid> {
   const pictures = new Map<string, Grid>()
+  const theme = activeTheme(state)
+  const motionTime = state.options.fps > 0 ? t * theme.motion.speed : 0
   // A page in cards (views/card.ts) is narrower by the border and padding: its pictures are drawn to that width, by the render and by the frame loop alike.
   const width = Math.max(20, Math.min(200, hasCards(columns, isCompactPane(state)) ? columns - CARD_COLUMNS : columns))
   const snapshot = state.snapshot
 
-  // The BBS boot screen owns the pane for its first seconds; nothing else is drawn under it.
+  // The selected boot screen owns the pane for its first seconds; nothing else is drawn under it.
   if (isBooting(state, nowMs)) {
-    pictures.set('boot', bootPicture(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.min(width, 90), nowMs - state.pane.bootAtMs, state.probes.size, PROBES.length, state.pane.rows, getBootChecks(), bootFacts(state, CONSOLE_VERSION, getBuild())))
+    pictures.set('boot', state.options.look === 'orbital' ? orbitalBoot(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.max(1, Math.min(columns, width, 90)), state.options.fps > 0 ? (nowMs - state.pane.bootAtMs) * theme.motion.speed : 0, getBootChecks(), state.pane.rows > 0 ? state.pane.rows : 30, theme) : bootPicture(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.min(width, 90), nowMs - state.pane.bootAtMs, state.probes.size, PROBES.length, state.pane.rows, getBootChecks(), bootFacts(state, CONSOLE_VERSION, getBuild())))
 
     return pictures
   }
@@ -193,6 +217,21 @@ export function picturesOf(state: State, columns: number, nowMs: number, t: numb
     pictures.set('title', titleThatFits(columns, names, (candidate, size) => titlePicture(candidate, size, t, headerAge)))
   }
 
+  if (state.options.look === 'orbital') {
+    const page = state.isHelp ? 'help' : state.palette.isOpen ? 'commands' : (VIEWS.find(view => view.id === state.view)?.label ?? state.view)
+    const room = Math.max(1, Math.min(120, columns < 40 ? columns : columns - iconCells(false) - ICON_SLACK))
+    const rows = state.pane.rows > 0 ? Math.max(1, Math.min(state.pane.rows < 24 ? 2 : 8, state.pane.rows - 12)) : 8
+    pictures.set(state.view === 'menu' ? 'header' : 'title', orbitalMasthead(page, room, motionTime, rows, theme, headerAge))
+  }
+
+  if (state.view === 'themes') {
+    const draft = themesOf(state).draft
+    const layout = themeLayout(Math.min(columns, width))
+    const previewWidth = Math.max(1, layout.preview - 2)
+    if (draft.motion.globe) pictures.set('theme-globe', orbitalGlobe(previewWidth, layout.wide ? 14 : 9, state.options.fps > 0 ? t * draft.motion.speed : 0, draft))
+    pictures.set('theme-preview', orbitalHeader('swarm preview', previewWidth, state.options.fps > 0 ? t * draft.motion.speed : 0, layout.wide ? 16 : 4, draft))
+  }
+
   switch (state.view) {
     case 'overview':
       pictures.set('activity', activityPicture([{ label: 'tool calls/5s', values: state.activity }, { label: 'state writes', values: state.writes }], width, t))
@@ -200,7 +239,7 @@ export function picturesOf(state: State, columns: number, nowMs: number, t: numb
     case 'swarm': {
       const model = topoModelOf(snapshot, recentByAgent(state.events, nowMs, PULSE_MS + 600), nowMs)
 
-      if (model !== null) pictures.set('topology', topologyPicture(model, width, topologyRows(width, model.nodes.length), t))
+      if (model !== null) pictures.set('topology', topologyPicture(model, width, topologyRows(width, model.nodes.length), t, state.options.look === 'orbital' && theme.motion.topology, motionTime, state.options.look === 'orbital' ? theme.palette : undefined))
       break
     }
     case 'hive':

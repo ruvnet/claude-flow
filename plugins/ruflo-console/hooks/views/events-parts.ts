@@ -74,7 +74,7 @@ export function detailRows(ctx: Ctx, entry: Row, around: readonly ConsoleEvent[]
   else if (ref !== undefined) out.push(line(ctx, 'now: nothing in the last read for this ref', { dimColor: true }))
 
   const buttons: Btn[] = [
-    { key: 'ev-ask', label: ' ✦ ask Claude ', onPress: () => act.ask(event) },
+    ...(ctx.state.isStandalone ? [] : [{ key: 'ev-ask', label: ' ✦ ask Claude ', onPress: () => act.ask(event) }]),
     { key: 'ev-pin', label: ' 📌 pin ', onPress: () => act.pin(event) },
     { key: 'ev-copy', label: ' ⧉ copy line ', onPress: () => act.copy(event) },
     { key: 'ev-mute-kind', label: ` mute ${event.kind} `, onPress: () => act.muteKind(event.kind) },

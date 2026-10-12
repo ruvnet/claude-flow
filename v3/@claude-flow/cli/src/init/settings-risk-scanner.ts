@@ -53,7 +53,6 @@ const DOWNLOADER_WORDS = ['curl', 'wget'];
 const STANDALONE_RISK_PATTERNS: RegExp[] = [
   /\bInvoke-Expression\b/i,
   /\biex\s*\(/i,
-  /powershell(\.exe)?\s+.*-e(nc(odedcommand)?)?\s+\S/i,
   /\/dev\/tcp\//i,
   /\bnc\s+-e\b/i,
   /base64\s+(-d|--decode)\b/i,
@@ -65,6 +64,26 @@ const STANDALONE_RISK_PATTERNS: RegExp[] = [
 // review step for exactly the commands download-and-execute attacks use.
 const RISKY_PREAPPROVE_WORDS = [...DANGEROUS_COMMAND_WORDS, ...SHELL_EXEC_WORDS, ...DOWNLOADER_WORDS];
 
+// Encoded PowerShell (`powershell[.exe] ... -e|-enc|-encodedcommand <payload>`),
+// matched on whitespace-separated tokens in ONE linear pass. The earlier regex
+// (`powershell\\s+(?:\\S+\\s+)*?-e...`) is quadratic on repeated "powershell "
+// tokens (every start rescans the tail: 256KB measured ~2.5s, 1MB ~40s) because
+// the lazy token loop re-runs from each start. Same semantics: a token ending in
+// powershell/powershell.exe, then LATER a token that is exactly -e/-enc/
+// -encodedcommand, then at least one more token.
+function hasEncodedPowershell(command: string): boolean {
+  let seenPs = false;
+  let pendingEnc = false;
+  for (const raw of command.split(/\s+/)) {
+    if (!raw) continue;
+    if (pendingEnc) return true;
+    const t = raw.toLowerCase();
+    if (seenPs && (t === '-e' || t === '-enc' || t === '-encodedcommand')) pendingEnc = true;
+    else if (t.endsWith('powershell') || t.endsWith('powershell.exe')) seenPs = true;
+  }
+  return false;
+}
+
 function wordBoundaryMatches(text: string, word: string): boolean {
   return new RegExp(`\\b${word}\\b`, 'i').test(text);
 }
@@ -73,11 +92,8 @@ function wordBoundaryMatches(text: string, word: string): boolean {
 export function scanCommandStringForRisk(command: string): string[] {
   const reasons: string[] = [];
 
-  for (const pattern of STANDALONE_RISK_PATTERNS) {
-    if (pattern.test(command)) {
-      reasons.push('matches a known-dangerous execution pattern (encoded/remote command execution)');
-      break;
-    }
+  if (hasEncodedPowershell(command) || STANDALONE_RISK_PATTERNS.some((pattern) => pattern.test(command))) {
+    reasons.push('matches a known-dangerous execution pattern (encoded/remote command execution)');
   }
 
   const hasDownloader = DOWNLOADER_WORDS.some((w) => wordBoundaryMatches(command, w));

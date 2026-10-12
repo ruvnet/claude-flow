@@ -97,7 +97,7 @@ This plugin owns the `federation` AgentDB namespace. This is the documented exce
 
 ```bash
 bash plugins/ruflo-federation/scripts/smoke.sh
-# Expected: "10 passed, 0 failed"
+# Expected: "13 passed, 0 failed"
 ```
 
 ## Architecture Decisions

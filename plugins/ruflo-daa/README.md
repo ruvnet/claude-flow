@@ -61,7 +61,7 @@ This plugin owns the `daa-patterns` AgentDB namespace (kebab-case, follows the c
 
 ```bash
 bash plugins/ruflo-daa/scripts/smoke.sh
-# Expected: "10 passed, 0 failed"
+# Expected: "13 passed, 0 failed"
 ```
 
 ## Architecture Decisions

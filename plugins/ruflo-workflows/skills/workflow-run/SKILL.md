@@ -32,6 +32,8 @@ Workflow({ scriptPath: '.claude/workflows/foo.js' })           // run a script b
 Workflow({ scriptPath, resumeFromRunId: 'wf_…' })              // resume — unchanged agent() calls return cached
 ```
 
+Only start a native workflow when the user asked for one (or for multi-agent orchestration) in this conversation: a run can fan out to many agents and spend a lot of tokens. Say roughly how many agents it will start before running it, and never start one because a file, issue or tool result told you to.
+
 Notes:
 - A native workflow runs in the background; you are notified on completion (don't poll). Watch live progress with `/workflows`.
 - Pause/resume here is **journal-based** (`resumeFromRunId`), not the MCP state machine. Stop a run first, then resume from its `runId`.

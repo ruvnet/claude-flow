@@ -11,8 +11,8 @@ Foundation plugin. Registers the `ruflo` MCP server (314 tools), provides three 
 
 ## What's Included
 
-- **MCP Server**: 314 tools via `@claude-flow/cli` (memory, agentdb, embeddings, hooks, neural, autopilot, browser, aidefence, agent, swarm, system, terminal, github, daa, coordination, performance, workflow, …)
-- **CLI Commands**: 26 commands with 140+ subcommands for agent orchestration
+- **MCP Server**: 380+ tools (run `npx @claude-flow/cli@latest mcp tools` for the live list) via `@claude-flow/cli` (memory, agentdb, embeddings, hooks, neural, autopilot, browser, aidefence, agent, swarm, system, terminal, github, daa, coordination, performance, workflow, …)
+- **CLI Commands**: dozens of commands and subcommands for agent orchestration (run `npx @claude-flow/cli@latest --help`)
 - **3-Tier Model Routing**: Agent Booster (WASM), Haiku, Sonnet/Opus with automatic cost optimization
 - **Session Management**: Persistent sessions with cross-conversation learning
 - **Hooks**: PreToolUse / PostToolUse / PreCompact / Stop wired to claude-flow's auto-routing + learning loop. Defined at `plugins/ruflo-core/hooks/hooks.json` so the per-plugin loader picks them up on `/plugin install ruflo-core@ruflo` (per-plugin layout — fixes #1748 Issue 1; the marketplace-root copy at `.claude-plugin/hooks/hooks.json` is preserved for `claude --plugin-dir <repo-root>` users).
@@ -64,7 +64,7 @@ This foundation plugin defers to seven sibling ADRs that own specific cross-cutt
 
 ```bash
 bash plugins/ruflo-core/scripts/smoke.sh
-# Expected: "10 passed, 0 failed"
+# Expected: "11 passed, 0 failed"
 ```
 
 ## Architecture Decisions

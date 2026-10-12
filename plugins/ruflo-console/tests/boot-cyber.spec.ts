@@ -59,7 +59,7 @@ describe('the cyberpunk log', () => {
     expect(text).toContain('RUV.NET // RUVECTOR CONSTELLATION')
     expect(text).toContain('rUv · ruflo v0.26.0 · abc123')
     expect(text).toContain('ruvector')
-    expect(text).toMatch(/\[WARN\] READY · 31 of 31 areas verified · \d+ stars? dark/)
+    expect(text).toMatch(/\[WARN\] READY · 32 of 32 areas verified · \d+ stars? dark/)
     expect(text).not.toContain('ALL STARS ALIGNED')
   })
 
@@ -76,7 +76,7 @@ describe('the cyberpunk log', () => {
     const failed = textOf(bootPicture('p', 90, 6000, 10, 10, rowsFor, failing, bootFacts(lit, '1', '')))
 
     expect(failed).not.toContain('ALL STARS ALIGNED')
-    expect(failed).toMatch(/\[FAIL\] READY · 30 of 31 areas verified · 1 failed/)
+    expect(failed).toMatch(/\[FAIL\] READY · 31 of 32 areas verified · 1 failed/)
   })
 
   it('shows the easter egg only in its window, and it decodes to rUv', () => {
@@ -97,7 +97,7 @@ describe('the cyberpunk log', () => {
   it('falls back to the plain log in a narrow or short pane', () => {
     const facts = bootFacts(withPlugins([]), '1', '')
 
-    expect(textOf(bootPicture('p', 44, 6000, 10, 10, rowsFor, allOk, facts))).toContain('[ OK ] READY 31 of 31 areas verified')
+    expect(textOf(bootPicture('p', 44, 6000, 10, 10, rowsFor, allOk, facts))).toContain('[ OK ] READY 32 of 32 areas verified')
     expect(textOf(bootPicture('p', 90, 6000, 10, 10, BOOT_ROWS + 6, allOk, facts))).not.toContain('RUV.NET')
   })
 })

@@ -32,7 +32,7 @@ export type SkillsState = {
   createDraft: string
   /** The change running now (its label), and the create the last Enter asked about: Enter on it again confirms. */
   busy: string | null
-  asked: { key: string; label: string } | null
+  asked: { key: string; label: string; card: number | null } | null
   /** How the last change went, kept for the view after the footer lets it go. */
   last: Outcome | null
   /** Where ▸ add and ▸ update all go: the scope, and the agents named to `--agent` (none: the CLI's own pick). */

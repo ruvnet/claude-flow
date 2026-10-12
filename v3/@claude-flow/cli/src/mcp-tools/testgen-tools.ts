@@ -27,7 +27,8 @@ import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { MCPTool } from './types.js';
-import { getProjectCwd } from './types.js';
+import { homedir } from 'node:os';
+import { ownPluginDirs } from '../plugins/own-install.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -42,16 +43,11 @@ const __dirname = dirname(__filename);
  * today) — when that lands at a candidate path, we've found the dir.
  */
 function locateTestgenScripts(): string | null {
-  const candidates: string[] = [];
-  let p = resolve(__dirname);
-  for (let i = 0; i < 8; i++) {
-    candidates.push(join(p, 'plugins', 'ruflo-testgen', 'scripts'));
-    candidates.push(join(p, '..', 'plugins', 'ruflo-testgen', 'scripts'));
-    p = dirname(p);
-  }
-  const cwd = getProjectCwd();
-  candidates.push(join(cwd, 'plugins', 'ruflo-testgen', 'scripts'));
-  candidates.push(join(cwd, 'node_modules', '@claude-flow', 'cli', 'plugins', 'ruflo-testgen', 'scripts'));
+  // Bounded at node_modules: a project-local install must not reach the project.
+  const candidates: string[] = ownPluginDirs(__dirname, 'ruflo-testgen', 'scripts');
+  // Scripts found here are executed, so they come from this CLI's own install
+  // (or the user's marketplace checkout), never from the project's cwd.
+  candidates.push(join(homedir(), '.claude', 'plugins', 'marketplaces', 'ruflo', 'plugins', 'ruflo-testgen', 'scripts'));
   for (const c of candidates) {
     if (existsSync(join(c, 'tdd-repair', 'tdd-repair.mjs'))) return c;
   }

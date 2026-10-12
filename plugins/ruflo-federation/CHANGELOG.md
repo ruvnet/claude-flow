@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.5 — 2026-10-11
+- fix: drop the invalid `--train-neural` post-task flag from the federation-coordinator agent; ADR cross-links repaired; smoke expectation corrected to 13
+
 ## 0.3.4 — 2026-10-05
 - fix: shared textsOf reports truncation and every guard fails closed on it
 

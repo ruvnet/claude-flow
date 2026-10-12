@@ -1,0 +1,12 @@
+{
+  "name": "ruflo-swarm",
+  "description": "Agent teams, swarm coordination, Monitor streams, and worktree isolation — wraps 4 swarm_* + 8 agent_* MCP tools (12 total) plus 6 topologies (hierarchical / mesh / hierarchical-mesh / ring / star / adaptive). The live swarm pane needs Claude Code's function-hook engine and is not available on this host; those MCP tools, commands, skills and agents behave as on any other host.",
+  "version": "0.3.7",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "license": "MIT",
+  "hooks": "./hooks/codex-hooks.json"
+}

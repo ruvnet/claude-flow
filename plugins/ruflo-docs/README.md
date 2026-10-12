@@ -35,13 +35,13 @@ Drives the `document` background worker (one of 12 workers in CLAUDE.md). Two in
 ```bash
 # CLI
 npx @claude-flow/cli@latest hooks worker dispatch --trigger document
-npx @claude-flow/cli@latest hooks worker dispatch --trigger document --scope api
+npx @claude-flow/cli@latest hooks worker dispatch --trigger document --context api
 
 # MCP
-mcp tool call hooks_worker-dispatch --json -- '{"trigger": "document", "scope": "api"}'
+mcp tool call hooks_worker-dispatch --json -- '{"trigger": "document", "context": "api"}'
 ```
 
-| Scope | Output |
+| Context | Output |
 |-------|--------|
 | (none) | Full project documentation pass |
 | `api` | API reference from JSDoc/TSDoc + OpenAPI 3.0 for HTTP endpoints |
@@ -57,7 +57,7 @@ This plugin owns the `docs-drift` AgentDB namespace (kebab-case, follows the con
 
 ```bash
 bash plugins/ruflo-docs/scripts/smoke.sh
-# Expected: "10 passed, 0 failed"
+# Expected: "13 passed, 0 failed"
 ```
 
 ## Architecture Decisions
